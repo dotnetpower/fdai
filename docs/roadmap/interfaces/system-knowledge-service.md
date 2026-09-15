@@ -131,8 +131,8 @@ flag. Rebuilding the same records at a different time therefore creates a distin
 artifact. Any cited-source change requires a catalog rebuild in the same change before packaging so
 its blob pins and digest match the release tree. Formatting-only compaction or Markdown structure
 repair leaves the behavior claim unchanged but still changes the cited blob identity.
-This mechanical refresh carries the revised source identity, including Pantheon attribution
-guidance and its CI-verified corrections, and adds no operational, approval, or execution authority. Deployment-guard source revisions follow the same rebuild rule.
+This mechanical refresh carries the revised source identity, including CI-verified Pantheon
+attribution, localized scope-safe and digest-verified temporal evidence, role and authority boundaries, status-compatible shared role rendering, deterministic canonical-domain routing with locale-preserving aggregation, append-only, fail-closed, translator-only, governed-catalog, inert off-path learning, advisory, and HIL-gated chaos behavior, and prompt confidentiality; it adds no operational, approval, or execution authority. Deployment-guard source revisions follow the same rebuild rule.
 Completion-handoff and behavior-knowledge ledger refreshes follow this rule: they change source
 blob pins and the catalog digest only, without changing retrieval authority or message-delivery
 behavior.

@@ -1295,3 +1295,39 @@ I/O, document grant, model invocation, or promotion; no remote write occurred du
 blocked pre-push attempt. MI-01 through MI-10 were revisited after this correction: their execution,
 approval, migration, privacy, and UI boundaries are unchanged; the new tests replace only the
 venue-selection input evidence for MI-08. The retained final critique remains non-additive.
+
+### Protected PR base integration
+
+Normal pre-push completed and remote topic SHA matched local
+`34d536fca892338ff772f0dcbcbeaeb96c3dcc3d`. [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)
+was opened for #946. Main had meanwhile advanced three commits to
+`e7433259baac0373726ced890645d808d69a9b54`; its exact push CI `34918409337` completed
+successfully. That is main's evidence, not the PR's new-head result. Protected main requires the
+`required` check, strict base freshness, enforced administrator protection, and linear history.
+No required review was bypassed and no remote merge is claimed at this checkpoint.
+
+The second local merge preserves upstream agent authority/replay hardening, conversation locale
+and evidence changes, and Teams A1 source packaging. Locked dependency inputs are unchanged.
+The runtime conflict retains both human-access path-specific executor/recovery completeness and
+the new explicit Var/Vidar durable-store prerequisites; the actual production bootstrap already
+supplies both. Assignment bindings apply after the durable Var/Vidar instances are constructed.
+The actual SQL fixture was updated to use those same two Core service-role stores, not to bypass
+the prerequisites. Norns keeps main's durable pending-only recovery and the task's inert-only
+candidate publication contract in the same batch method.
+
+Focused integration exposed a 803-line runtime and an old fixture missing the two new stores.
+The former was reduced to 799 lines by condensing comments only; the latter now supplies actual
+service-owned persistence. The targeted layout, binding, and real-SQL owner selection passed
+21 tests after these fixes. An additional synthetic owner test used future fixed event time
+against Huginn's host clock; the fixture now injects its same fixed clock into the real receiver.
+The new future-time rejection remains unchanged. The corrected owner/knowledge/doc-parity
+selection passed 17 tests.
+
+The broader owning selections reported 171 passing runtime/Norns/governance checks with the two
+subsequently resolved integration failures, and 197 passing assignment/revocation/knowledge/
+pipeline/T2/bootstrap checks with the subsequently resolved clock-fixture failure. Counts overlap
+and are not summed. The narrow source corrections preserve all ten MI questions: exact original
+identity, fresh human approvals, owned inverse, independent closure, source ACL/retention, single
+service ownership, and honest UI states remain intact; new durable prerequisites strengthen the
+enforce boundary instead of enabling a fallback. This is merge revalidation, not ten repeated
+runs or a claim that upstream's separate live criteria were completed.

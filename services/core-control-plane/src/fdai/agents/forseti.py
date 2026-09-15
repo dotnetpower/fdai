@@ -59,12 +59,15 @@ from fdai.agents._framework.forseti_judgment import ForsetiJudgmentMixin
 from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    attach_agent_state_evidence,
     capability_facts,
+    evidence_backed_result,
     mentioned,
     semantic_intents,
 )
 from fdai.agents._framework.pantheon import _FORSETI
 from fdai.agents._framework.registry import load_pantheon
+from fdai.agents._framework.role_answers import forseti_role_answer
 from fdai.agents._framework.runtime_health import (
     AGENT_DEGRADATION_POLICIES,
     evaluate_degradation,
@@ -1088,22 +1091,17 @@ class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJud
             "rca_evidence_available": False,
         }
         if "rca_evidence" in semantic_intents(context):
-            return IntrospectionResult(
-                answer="No grounded RCA record is retained by this conversational projection.",
-                facts=facts,
-            )
+            statement = "No grounded RCA record is retained by this conversational projection"
+            return evidence_backed_result(self.spec.name, facts, statement)
         actions = mentioned(question, _RISK_VERDICT)
         if actions:
             action = actions[0]
             verdict = _RISK_VERDICT[action]
             facts.update({"action_type": action, "risk_verdict": verdict})
-            answer = f"Action {action!r} has default risk verdict {verdict!r}."
-            return IntrospectionResult(answer=answer, facts=facts)
-        answer = (
-            "I judge events into auto/hil/deny verdicts; "
-            f"{len(_RISK_VERDICT)} action verdict(s) and {len(_RULE_MATCH)} "
-            "rule match(es) known."
-        )
+            statement = f"Action {action!r} has configured default risk verdict {verdict!r}"
+            return evidence_backed_result(self.spec.name, facts, statement)
+        evidence_ref = attach_agent_state_evidence(self.spec.name, facts)
+        answer = forseti_role_answer(str(context.get("locale")), facts, evidence_ref)
         return IntrospectionResult(answer=answer, facts=facts)
 
 

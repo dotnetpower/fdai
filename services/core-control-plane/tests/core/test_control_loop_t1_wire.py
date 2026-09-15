@@ -46,7 +46,7 @@ from fdai.core.tiers.t1_lightweight.tier import (
 )
 from fdai.core.trust_router import RoutingDecision, RoutingTier, TrustRouter
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
-from fdai.shared.contracts.models import Mode
+from fdai.shared.contracts.models import Mode, Tier
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.contracts.validation import (
     JsonSchemaContractValidator,
@@ -203,6 +203,7 @@ async def test_verified_t1_reuse_routes_through_unified_risk_gate(tmp_path: Path
     assert result.outcome is ControlLoopOutcome.HIL
     assert result.decision == "hil"
     evaluate.assert_awaited_once()
+    assert evaluate.await_args.kwargs["tier"] is Tier.T1
     action = evaluate.await_args.kwargs["action"]
     assert action.action_type == "remediate.tag-add"
     assert action.target_resource_ref == "res-01"

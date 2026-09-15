@@ -123,6 +123,7 @@ class LatencyRoutedCrossCheckModel:
         clock: Callable[[], float] = time.monotonic,
         transition_sink: ModelHealthTransitionSink | None = None,
         model_role: str = "t2.reasoner.primary",
+        model_id: str = "",
         recorded_at: Callable[[], datetime] | None = None,
         routing_transition_sink: RoutingTransitionSink | None = None,
     ) -> None:
@@ -146,10 +147,16 @@ class LatencyRoutedCrossCheckModel:
         self._clock = clock
         self._transition_sink = transition_sink or _NoopModelHealthTransitionSink()
         self._model_role = model_role
+        self._model_id = model_id
         self._recorded_at = recorded_at or (lambda: datetime.now(tz=UTC))
         self._routing_transition_sink = routing_transition_sink or default_transition_emitter()
 
     # ------------------------------------------------------------------ public
+    @property
+    def model_id(self) -> str:
+        """Return the composition-owned identity shared by the latency pool."""
+        return self._model_id
+
     def current_pick_name(self) -> str:
         """Which candidate would serve the NEXT call (peek, no state change)."""
         name, _ = self._pick()

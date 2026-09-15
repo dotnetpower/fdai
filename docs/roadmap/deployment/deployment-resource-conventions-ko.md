@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 4838f698baebc7dec9fba1ac8c3c5b55e3e8cc75
+translation_source_sha: f3df8059a401bc020a46d4d5f80d0d6a5dea33c1
 translation_revised: 2026-09-14
 ---
 # 배포 리소스 규약
@@ -12,6 +12,11 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 
 > 이 계약은 프로비저닝된 인프라에 적용됩니다. 런타임 코드는 설정을 통해 리소스 식별자를
 > 사용하며 이름이나 소유권 태그를 계산하지 않습니다.
+
+Teams A1 승인 봇은 재사용 모듈 `infra/modules/teams-a1-approval-bot`이 프로비저닝합니다.
+이 모듈은 전용 non-executor user-assigned identity, Azure Bot, Teams 채널 등록을 만들고
+`teams_approval_destination` 계약 값을 반환합니다. 그룹 연결 team id, channel id 및 Operator
+activity 엔드포인트는 azurerm 프로바이더가 생성할 수 없으므로 사람이 제공하는 입력으로 유지됩니다.
 
 ## 기반 계층과 애플리케이션 계획 경계
 

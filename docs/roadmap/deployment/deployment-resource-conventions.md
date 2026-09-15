@@ -10,6 +10,12 @@ deployment-specific values outside the upstream distribution.
 > This contract applies to provisioned infrastructure. Runtime code consumes resource identifiers
 > through configuration and does not compute names or ownership tags.
 
+The Teams A1 approval bot is provisioned by the reusable `infra/modules/teams-a1-approval-bot`
+module, which creates a dedicated non-executor user-assigned identity, the Azure Bot, and the Teams
+channel registration, and returns the `teams_approval_destination` contract values. The
+group-connected team id, channel id, and Operator activity endpoint stay human-supplied inputs
+because the azurerm provider cannot create them.
+
 ## Foundation and application plan boundary
 
 New-subscription bootstrap derives the ops resource group, application resource group, and state

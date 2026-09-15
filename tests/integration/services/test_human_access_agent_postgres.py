@@ -93,6 +93,8 @@ async def test_real_enforce_agents_and_vidar_inverse_without_t2_executor(workflo
         enforce=True,
         saga=Saga(audit_chain=StateStoreAuditChainAdapter(store=f.runtime.store)),
         thor_state_store=StateStoreActionRunStore(f.runtime.store),
+        vidar_state_store=f.runtime.store,
+        var_state_store=f.runtime.store,
         execution_resource_lock=PostgresAdvisoryResourceLock(
             config=PostgresAdvisoryResourceLockConfig(
                 dsn=_role(f.database, "fdai_core"),

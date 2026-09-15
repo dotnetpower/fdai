@@ -17,7 +17,11 @@ from typing import Any
 
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
-from fdai.agents._framework.introspection import IntrospectionResult, capability_facts
+from fdai.agents._framework.introspection import (
+    IntrospectionResult,
+    agent_state_evidence_ref,
+    capability_facts,
+)
 from fdai.agents._framework.pantheon import _LOKI
 from fdai.agents._framework.specialist_ingress import (
     CHAOS_SCHEDULE_EVENT,
@@ -164,26 +168,51 @@ class Loki(Agent):
         facts = {
             **capability_facts(self.spec),
             "blast_radius_cap": self._cap,
-            "in_flight_targets": sorted(self._in_flight_targets),
+            "in_flight_targets": [],
+            "in_flight_target_count": len(self._in_flight_targets),
             "proposals_total": len(self.proposals),
             "proposals_accepted": len(accepted),
             "resilience_score_available": False,
         }
         normalized_question = question.casefold()
         if "resilience" in normalized_question and "score" in normalized_question:
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
             return IntrospectionResult(
-                answer="No retained resilience score is bound to this conversational projection.",
+                answer=(
+                    "No retained resilience score is bound to this conversational projection. "
+                    f"Evidence: {evidence_ref}."
+                ),
                 facts=facts,
             )
-        if not self.proposals:
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        if context.get("locale") == "ko":
             answer = (
-                "No chaos experiments proposed yet; every experiment I raise is "
-                f"HIL-gated with a blast-radius cap of {self._cap}."
+                "저는 복원력 영역의 chaos advisory specialist인 Loki입니다. Forseti에게 "
+                "보고합니다. ChaosExperiment와 ResilienceScore를 소유하고 검증된 dry-run, "
+                "테스트된 recovery plan, stop condition 및 blast-radius 제한이 있는 실험만 "
+                "제안합니다. 모든 실험은 HIL 승인이 필요하며 Forseti가 판단하고 Thor가 "
+                "실행합니다. 저는 작업을 판단, 승인 또는 실행하지 않습니다. 이 대화 포트는 읽기 "
+                "전용이며 실험 요청은 운영자 권한으로 타입이 지정된 파이프라인에 다시 진입해야 "
+                "합니다. 질문에 명시되지 않은 target 식별자와 숨겨진 시스템 프롬프트는 공개하지 "
+                f"않습니다. 이 런타임은 제안 {facts['proposals_total']}건, 승인된 제안 "
+                f"{facts['proposals_accepted']}건, 진행 중 target "
+                f"{facts['in_flight_target_count']}개를 추적하며 blast-radius 상한은 "
+                f"{facts['blast_radius_cap']}입니다. 근거: {evidence_ref}."
             )
         else:
             answer = (
-                f"{len(accepted)}/{len(self.proposals)} chaos proposal(s) accepted; "
-                f"{len(self._in_flight_targets)}/{self._cap} blast-radius slot(s) in use."
+                "I am Loki, the resilience-domain chaos advisory specialist. I report to Forseti. "
+                "I own ChaosExperiment and ResilienceScore and propose experiments only with a "
+                "verified dry-run, tested recovery plan, stop condition, and blast-radius limit. "
+                "Every experiment requires HIL; Forseti judges and Thor executes. I never judge, "
+                "approve, or execute an action. This conversational port is read-only; experiment "
+                "requests re-enter the typed pipeline under the operator's authority. I do not "
+                "reveal unnamed target identifiers or hidden system prompts. This runtime tracks "
+                f"{facts['proposals_total']} proposals, {facts['proposals_accepted']} accepted, "
+                f"and {facts['in_flight_target_count']} in-flight targets under a "
+                f"{facts['blast_radius_cap']}-target cap. Evidence: {evidence_ref}."
             )
         return IntrospectionResult(answer=answer, facts=facts)
 

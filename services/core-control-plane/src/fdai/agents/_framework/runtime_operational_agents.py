@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import logging
+
 from fdai.agents._framework import factory
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
 from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns
+from fdai.agents.saga import Saga
+from fdai.agents.thor import Thor
+from fdai.agents.var import Var
 from fdai.core.capacity import CapacityGraduationController
 from fdai.core.case_history import (
     CaseHistoryAnalyzer,
@@ -25,6 +30,51 @@ from fdai.core.operational_planning.prospective_lineage import (
 )
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidateSink
 from fdai.shared.providers.state_store import StateStore
+
+_LOG = logging.getLogger(__name__)
+_MAX_NORNS_STARTUP_RECOVERY = 5_000
+
+
+async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
+    """Restore durable executor and learner work before consumers start."""
+    thor = agents.get("Thor")
+    if isinstance(thor, Thor):
+        restored = await thor.rehydrate()
+        if restored:
+            _LOG.info("pantheon_thor_rehydrated", extra={"in_flight_runs": restored})
+    norns = agents.get("Norns")
+    if isinstance(norns, Norns):
+        recovered_total = 0
+        published_total = 0
+        for index in range(_MAX_NORNS_STARTUP_RECOVERY + 1):
+            recovered = await norns.recover_issue_learning()
+            if not recovered:
+                break
+            if index == _MAX_NORNS_STARTUP_RECOVERY:
+                raise RuntimeError("Norns pending candidate recovery capacity exceeded")
+            recovered_total += recovered
+            published_total += await norns.flush_candidates()
+        if recovered_total:
+            _LOG.info(
+                "pantheon_norns_issue_learning_rehydrated",
+                extra={
+                    "pending_candidates": recovered_total,
+                    "published": published_total,
+                },
+            )
+    saga = agents.get("Saga")
+    if isinstance(saga, Saga):
+        restored = await saga.rehydrate_issue_tracker()
+        if restored:
+            _LOG.info("pantheon_saga_issues_rehydrated", extra={"issues": restored})
+    var = agents.get("Var")
+    if isinstance(var, Var):
+        finalized, published = await var.recover_approvals()
+        if finalized or published:
+            _LOG.info(
+                "pantheon_var_approvals_recovered",
+                extra={"finalized": finalized, "published": published},
+            )
 
 
 def bind_operational_agents(
@@ -62,6 +112,7 @@ def bind_operational_agents(
             case_history_analyzer,
             operating_pattern_compiler,
             semantic_feedback_store,
+            muninn_state_store,
         )
     ):
         agents["Norns"] = Norns(
@@ -70,6 +121,7 @@ def bind_operational_agents(
             case_history_analyzer=case_history_analyzer,
             operating_pattern_compiler=operating_pattern_compiler,
             semantic_feedback_store=semantic_feedback_store,
+            issue_state_store=muninn_state_store,
         )
     if any(
         value is not None

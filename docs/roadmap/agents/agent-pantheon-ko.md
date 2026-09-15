@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: fec0efa4c267ba8fa98830ec11ba1c2bc639d7eb
+translation_source_sha: f44927c2dc2449cae3763520d7c176a8ee17db48
 translation_revised: 2026-09-15
 ---
 # 에이전트 판테온
@@ -46,12 +46,15 @@ Thor(운영)와 Forseti(판단)가 Odin에게 보고합니다. 거버넌스 담�
 Var와 Saga는 문서 HIL의 안정적인 멱등성을 보존하며 Saga는 게이트 및 최종 감사를 영속화합니다. 클라우드 참조 패키지도 유효한 서명과 별개로 독립 Var 승인을 요구합니다. [클라우드 리소스 지식](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)을 참조하세요.
 워크플로 요청은 양의 시도 번호를 포함한 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐 보존합니다. Thor는 Verdict가 제공한 작업 식별자만 보존하고 상관관계에서 만들어 내지 않으며 권한이 없는 `_framework` 도우미로 범위가 제한된 ActionRun 계보를 검증합니다.
 전달 계층의 생성기는 하나의 완전한 운영 계획에 대한 선택적인 인자 결속 실행 제안을 저장합니다. Forseti는 주입된 원본으로 이를 해석하고 엄격한 검증 뒤 같은 Verdict-to-ActionRun 경로를 유지합니다. 계보와 제안은 귀속 및 근거만 제공하며 정족수, 모드, 판단, 승인, 실행 권한을 바꾸지 않습니다. Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
+Var 승인, Vidar 복구, Saga 인계, Norns 학습도 [에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#영속-권한과-재생)에 따라 영속 멱등성과 재시작 상태를 보존합니다.
 
 - **배정 검토:** [배정 명령](../interfaces/human-agent-assignment-implementation-plan-ko.md#명령-이벤트-작업)은 기존 토픽에서 Huginn 유입, Forseti 검증, 독립 Var 검토, Saga 봉인, Muninn 사례 반영을 거칩니다. Operator 조회 결과는 권한이 아닙니다. 이전 IAM 알림은 shadow 전용이며 새 제거 검토와 독립 IAM 제거 근거가 있어야 검토 전용 이전 임무 PR을 만듭니다. Forseti의 증적 처리는 비공개 배정 믹스인에 유지합니다.
 - **멤버십 실행:** 별도로 타입이 지정된 경로는 Var가 원래 사람 승인 슬롯을 만들기 전에 전체 원래 Action과 정확한 사례, 역할 맵, 승격 원본을 보존합니다. Muninn 준비는 CAS `r -> r+1`이며 승인된 `expected_revision=r`을 수정하지 않습니다. Core는 변경 신원을 만들지 않습니다. Thor는 격리된 전용 신원, 정확한 현재 원본/허용 목록 확인, 7개 안전장치, 연산과 무관한 멤버십 잠금을 통해 전달합니다. 현재 비상 정지/상태와 principal별 ActionType 승인 정책을 다시 확인합니다. 시도 전에 영속 의도를 기록하고 응답 뒤 확인 기록을 남기며 결과를 모르는 시도는 자동 재시도하지 않습니다.
 - **효과와 복구:** 독립 Heimdall 관측, Forseti 판단, Saga 봉인, 공유 잠금 해제 종결이 Muninn의 효과 기록보다 먼저입니다. Vidar는 새로 별도 승인받는 역방향 작업을 제안하고 마무리합니다. Thor는 원래 직접 수행한 변경의 근거, 현재 수요, 같은 대상 세대가 있을 때만 전달합니다. 사례는 degraded 상태로 남아 별도 대체가 가능하며 이전 승인이나 역할 권한을 복사하지 않습니다. 새 ActionType은 계속 shadow가 기본이고 로컬 권한 전환은 허용하지 않습니다.
 - **지식:** Huginn -> Forseti -> Saga -> Muninn StateSnapshot -> Saga -> Norns -> Mimir -> Saga 담당 경로를 유지합니다. 현재 Core 목표/검토자/원본 허용/검색 연결은 독립 원본 확인과 소유자별 CAS에 사용됩니다. Norns는 합의/게시 게이트를 유지하면서 비공개 Rule/온톨로지 후보를 컴파일합니다. Mimir는 내용보다 원본을 먼저 확인하고 모델 없이 재컴파일하며 되돌릴 수 없는 사용 종료와 정확한 현재 `legal_hold: false` 조건의 내용 제거를 담당합니다. 알 수 없는 정책이나 장애에서는 삭제하지 않습니다. 명시적인 다이제스트 충돌은 Odin에게 전달하며 패키지, 검토, 스케줄러 출처 이름, 병합은 IAM, 카탈로그, 그래프, 실행 권한을 부여하지 않습니다.
-- **소스 완료와 근거 경계:** 완료된 인수인계 소스 작업에는 실행 경로 강화 20회와 잔여 구현 이후의 [최종 통합 소스 검토 12회](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)가 포함되며 미해결로 확인된 Medium/High 소스 문제는 없습니다. [구현 원장](../../roadmap-implementation/agents/agent-pantheon.md)은 이 완료와 통합 작업(번역 갱신, 정본 생성, 훅), 게시/CI, 전체 UI/보조 기술 및 실제 운영 근거를 구분하며 승격을 주장하지 않습니다.
+- **영속 권한과 재생:** 구현된 담당 계약은 실제 T0/T1/T2 권한, 정확한 T2 대상/규칙/인용 결속, 서로 다른 정본 교차 검사 모델 신원을 보존합니다. Var는 감사된 불변 principal 결정 CAS와 최종 발신함 복구를 유지합니다. Vidar는 다시 생성된 전달 메타데이터를 제외한 하나의 효과 관련 필드 허용 목록을 실행기 입력과 다이제스트에 함께 사용하고 소유자 토큰 임대, 개정 경계, 검증된 최종 증적을 유지합니다. 유효한 점유는 재시도 가능한 실패로 남고 검증된 임대 만료는 `execution_unknown`이 되며, 성공에는 Thor의 점유 해제 전에 범위가 제한된 비어 있지 않은 `rollback_ref`가 필요합니다.
+  Saga는 변경 -> 감사 -> 필수 게시 -> 완료 단계를 유지합니다. Norns는 대기 작업 -> 영속 지문 횟수 -> 후보 게시 또는 결정론적 보류를 유지하며 대기 항목만 제한된 범위에서 복구하고 막힌 선두 항목을 처리한 뒤 다음 후보를 이어서 복구합니다. Enforce에는 명시적인 `thor_state_store`, `vidar_state_store`, `var_state_store`가 필요하며 담당 저장소 연결이 없으면 프로세스 로컬 권한으로 대체할 수 없습니다. Saga의 체크포인트 및 이슈 작업 신원에 관한 Low 심각도 한계 2개는 별도 구현 계획에서 미해결로 유지합니다.
+- **소스 완료와 전달 경계:** 인수인계 소스는 구현되었으며 실행 경로 강화 20회(EX-01부터 EX-20), [최종 통합 소스 검토 12회(FI-01부터 FI-12)](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation), [추가 병합 전용 검토 10회(MI-01부터 MI-10)](../../internals/handover-lifecycle-hardening-20260914.md#final-merge-specific-integrated-critique)가 기록되어 있습니다. 이들은 서로 다른 이전 체크포인트이며 두 번째 병합의 새 근거가 아닙니다. 미해결로 확인된 Medium/High 문제가 없다는 결론도 검토한 소스에만 적용됩니다. 소스는 [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)에 게시되었지만 main `e7433259baac0373726ced890645d808d69a9b54`의 두 번째 로컬 병합은 [#946](https://github.com/dotnetpower/fdai/issues/946)에서 아직 미완료입니다. [구현 원장](../../roadmap-implementation/agents/agent-pantheon.md)은 번역 의미 검토/SHA 갱신, 정본 생성, 훅, 정확한 새 헤드의 CI/병합을 전체 UI/보조 기술/실제 운영 근거 및 승격과 구분하며 게시만으로 어느 결과도 충족하지 않습니다.
 
 ![3. 런타임 관계도. 주요 단계는 Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga입니다.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.ko.svg)
 
@@ -320,12 +323,13 @@ Partitioning:
 ### 6.2 Conversational 포트
 
 Bragi를 포함한 15개 에이전트 모두 정본 이름 또는 도메인 라우팅으로 도달할 수 있습니다.
-질문은 2,000자로 제한하고 세션마다 단조 증가 턴 100개를 보존합니다. 알 수 없음 A2A 요청자 또는 대상 이름은 거부합니다. 포트 간에는 상관관계 추적만 전달하며 기본 응답은 범위가 제한된 시간 초과와 기여자 답변과 같은 소유자, 크기, 민감도 정규화를 거칩니다.
+질문은 2,000자로 제한하고 세션마다 단조 증가 턴 100개를 보존합니다. 알 수 없음 A2A 요청자 또는 대상 이름은 거부합니다. 포트 간에는 상관관계 추적만 전달하며 기본 응답과 contributor 응답은 검증된 동일 운영자 로케일, 범위가 제한된 시간 초과 및 같은 소유자·크기·민감도 정규화를 사용합니다.
 
-각 `AgentSpec`은 고유하고 변경할 수 없으며 versioned된 `ConversationCharter`를 요구합니다. Charter는 role-specific prohibition이 있는 범위가 제한된 서버가 소유한 system instruction, reporting/소유권/토픽/액션 연결/모델 정책/hard-dependency/제안 예산을 정확히 생성한 역할 계약, 해당 에이전트 결정의 mechanics를 명시하는 역할 directive, 영어/한국어 조회 예시, 용도 및 owned-fact 범위가 있는 읽기 도구를 가집니다. 의미 동등성 테스트는 15개 역할 경계를 모두 pin합니다. 런타임은 호출자 정책을 덮어쓰고 각 도구를 고유한 사실 범위로 변환 결과하며 instruction을 노출하지 않고 버전과 별도의 프롬프트 및 full-charter SHA-256 다이제스트를 귀속합니다. 답변은 owned 상태에 근거하며 타입이 지정된 정책이 권위를 유지합니다. Charter 프롬프트는 프롬프트 전체가 아니라 조립의 바닥면입니다. 모든 턴은 그 기준선에 해당 턴이 선택한 situational 계층(peer 대 운영자 대상, 숙의 단계와 계층, 도구 범위, 운영자 로케일, 근거 공백, 명령 의도)를 더해 실제 프롬프트를 조립합니다. 조립은 가산적이고 결정론적하므로 situation은 charter를 조일 수는 있어도 느슨하게 만들 수 없고, 기록된 턴은 정확히 재생됩니다. Turn 맥락은 계층을 선택만 하고 프롬프트 텍스트를 공급하지 않으므로 위조된 맥락이 instruction을 주입할 수 없습니다. 응답은 계층 매니페스트, situation 키, 조립된 프롬프트 다이제스트를 전달하며 텍스트 자체는 전달하지 않습니다. [conversational-deliberation-ko.md](conversational-deliberation-ko.md)를 참조하세요.
+각 `AgentSpec`은 고유하고 변경할 수 없으며 versioned된 `ConversationCharter`를 요구합니다. Charter는 role-specific prohibition이 있는 범위가 제한된 서버가 소유한 system instruction, reporting/소유권/토픽/액션 연결/모델 정책/hard-dependency/제안 예산을 정확히 생성한 역할 계약, 해당 에이전트 결정의 mechanics를 명시하는 역할 directive, 영어/한국어 조회 예시, 용도 및 owned-fact 범위가 있는 읽기 도구를 가집니다. 의미 동등성 테스트는 15개 역할 경계를 모두 pin합니다. 런타임은 호출자 정책을 덮어쓰고 각 도구를 고유한 사실 범위로 변환 결과하며 instruction을 노출하지 않고 버전과 별도의 프롬프트 및 full-charter SHA-256 다이제스트를 귀속합니다. 답변은 owned 상태에 근거하며 타입이 지정된 정책이 권위를 유지합니다. 결정론적 공용 표현 도우미는 각 에이전트의 정규화된 자체 사실과 정확한 근거 참조만 받아 기존 상태 용어를 보존하며 소유권이나 권한을 부여하지 않습니다. Charter 프롬프트는 프롬프트 전체가 아니라 조립의 바닥면입니다. 모든 턴은 그 기준선에 해당 턴이 선택한 situational 계층(peer 대 운영자 대상, 숙의 단계와 계층, 도구 범위, 운영자 로케일, 근거 공백, 명령 의도)를 더해 실제 프롬프트를 조립합니다. 조립은 가산적이고 결정론적하므로 situation은 charter를 조일 수는 있어도 느슨하게 만들 수 없고, 기록된 턴은 정확히 재생됩니다. Turn 맥락은 계층을 선택만 하고 프롬프트 텍스트를 공급하지 않으므로 위조된 맥락이 instruction을 주입할 수 없습니다. 응답은 계층 매니페스트, situation 키, 조립된 프롬프트 다이제스트를 전달하며 텍스트 자체는 전달하지 않습니다. [conversational-deliberation-ko.md](conversational-deliberation-ko.md)를 참조하세요.
 
 Bragi는 범위가 제한된 턴마다 스키마로 검증된 의미 판단 하나를 얻습니다. `draft_only` 작업은 운영자를 시작 주체로 유지한 채 타입 지정 파이프라인에 다시 들어가며 채팅은 실행하지 않습니다.
 읽기 도구는 모델 기반 의미 계획과 정확한 정본 도구 ID 소유권 검사를 사용합니다. 연결되지 않았거나 실패한 모델은 사용 불가를 반환하고 구문 사전으로 대체하지 않습니다. 소유 상태의 범위를 좁힐 때는 질문 안에서 내부 `.`, `_`, `-`를 포함한 완전한 정본 식별자만 매칭하며 더 긴 식별자의 접두사는 허용하지 않습니다.
+단 하나의 정확한 `question_domains` 식별자는 여러 기여자에게 요청을 보내지 않고 스키마로 검증된 의미 경로를 해당 소유자로 확정합니다. 여러 식별자 또는 접두사만 일치하는 식별자는 의미 채점에 남깁니다.
 `PantheonRuntime.introspect`는 귀속되는 읽기 전용 peer 변환 결과와 digest-only Bragi Turn을 제공하며 제한된 표현 discussion은 [conversational-deliberation-ko.md](conversational-deliberation-ko.md)에 정의합니다.
 
 `AgentConversationToolRegistry`는 모든 declared id를 단일 소유자에 연결하고 잘못된 호출을 거부하며 시간과
@@ -480,7 +484,8 @@ proposed  (initiator agent)
 
 ### 7.6 타입이 지정된 전달로서의 인계
 
-인계는 `governance.*` ActionType이 아니며 이 범주는 `pr_native`를 사용하는 검토된 catalog-as-code 변경 전용입니다. Bragi만 범위가 제한된 `object.handoff-escalation`을 게시하고 Saga는 지문 중복을 제거하며 `object.issue`를 생성하고 감사 근거를 덧붙입니다.
+인계는 `governance.*` ActionType이 아니며 이 범주는 `pr_native`를 사용하는 검토된 catalog-as-code 변경 전용입니다. Bragi만 범위가 제한된 `object.handoff-escalation`을 게시하고 Saga는 이를 소비하여 지문 중복을 제거하며 `object.issue`를 생성하고 감사 근거를 덧붙입니다.
+런타임은 [에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#영속-권한과-재생)의 영속 계약에 따라 외부 이슈 변경, 완료 전 게시, Norns 학습 재생을 보존합니다.
 실제 이슈 추적기는 주입된 전달 어댑터로 유지하여 로컬과 배포 런타임의 타입 지정 소유권 및 감사 경계를 보존합니다.
 
 ### 7.7 Conversational 포트 MUST-NOT-Bypass 규칙
@@ -492,15 +497,8 @@ Conversational 포트 는 액션 을 시작할 수 있지만 스스로 실행할
 Bragi 는 오퍼레이터에게 진행 상황만 렌더링. Bragi 가 실행기 를 직접
 호출하도록 하는 어떤 구현도 defect.
 
-**구현.** Bragi 는 조립 루트 에서 `Huginn.ingest`(`object.event` 의 단독 쓰기 담당)에 연결되는 `proposal_sink` DI 경계 을 가지며, Bragi 자신은 변경 토픽을 절대 publish 하지 않는다.
-`Bragi.submit_action_proposal` 은 결정론적 영어 또는 한국어 명령 구문을 ActionType 으로 매핑하고, `initiator_principal = operator` 와 `operator_initiated = true` 로
-제안 을 만들어 범위가 제한된 싱크 호출로 제출한다. 시간 초과 또는 실패는 오류 상세 없이 `submitted=false`를 반환하며 모든 명령은 제안 상관관계에 digest-only `object.turn`을 발행한다. 오퍼레이터가 추적할
-`correlation_id` 를 반환하고 `object.verdict` / `object.action-run` 에서 파이프라인 진행을 렌더링 할 뿐, 실행하지 않는다. Forseti 는 `initiator_principal` 을 판정 에, Thor
-는 ActionRun 에 전파하고, Var 는 no-self-approval 을 강제한다(initiator 는 자기 액션 을 승인 불가). RBAC 경계 이 모르는 initiator 의 operator-initiated 제안 은
-`SecurityEvent` 와 함께 `deny` 로 실패 시 차단. 콘솔이 오퍼레이터의 Entra 역할 을 전달하면, 항목 RBAC 게이트가 execute 하한(`Contributor`) 미만의 액션 요청을 파이프라인 진입 전에 거부한다 - 즉
-`Reader` 는 어떤 액션 도 제출할 수 없다(위의 principal 레벨 거부 와 defense-in-depth). Spoofing 방어로, Huginn 은 operator-proposal 필드(`initiator_principal` /
-`action_type` / `operator_initiated`)를 명시적 `event_type == "operator_request"` 에 대해서만 honor 하고 `operator_initiated` 를 strict bool 로 coerce 한다
-- 공유 유입 토픽의 위조/외부 신호가 운영자 액션 을 spoof 할 수 없으며, Forseti 는 strict `True` 만 operator-initiated 로 취급한다.
+정확한 제안 싱크, 운영자 RBAC, 위조 방어 및 계보 전달은
+[에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#대화형-액션-재진입)을 따릅니다.
 
 ### 7.8 포크 재정의 경계
 
@@ -519,23 +517,25 @@ LLM 호출은 기본값이 아닌 기능입니다. 모든 에이전트가 자체
 
 | 에이전트 | Hot-path LLM? | Off-path LLM? | Conversational 포트 |
 |-------|--------------|---------------|---------------------|
-| Odin | no | no | yes (introspection) |
-| Thor | no | no | yes (introspection) |
-| Forseti | yes (T2 abstain 시만) | no | yes |
-| Huginn | no | no | yes |
-| Heimdall | no | no | yes |
-| Vidar | no | no | yes |
-| Var | no | no | yes |
-| Bragi | yes (번역 및 진단 표시 전용) | no | yes |
-| Saga | no | no | yes |
-| Mimir | no | no | yes |
-| Muninn | no | no | yes |
-| Norns | no | yes (배치 발견) | yes |
-| Njord | no | no | yes |
-| Freyr | no | no | yes |
-| Loki | no | no | yes |
+| Odin | no | no | yes (현지화되고 다이제스트로 검증된 introspection은 정책과 관측 상태를 구분하고 작업을 타입이 지정된 파이프라인에 유지하며 프롬프트를 비공개로 유지) |
+| Thor | no | no | yes (현지화되고 다이제스트로 검증해 인용한 run 상태와 유일한 실행기 경계) |
+| Forseti | yes (T2 abstain 시만) | no | yes (현지화되고 다이제스트로 검증해 인용한 judge 상태와 실행 금지 경계) |
+| Huginn | no | no | yes (현지화되고 다이제스트로 검증해 인용한 유입 상태와 결정론적 LLM 금지 경계) |
+| Heimdall | no | no | yes (현지화되고 다이제스트로 검증해 인용한 observer 상태와 결정론적 LLM 금지 경계) |
+| Vidar | no | no | yes (현지화되고 다이제스트로 검증해 인용한 복구 상태와 hard-dependency fail-closed 경계) |
+| Var | no | no | yes (현지화되고 다이제스트로 검증해 인용한 HIL 상태와 현재 사람·no-self-approval 경계) |
+| Bragi | yes (번역 및 진단 표시 전용) | no | yes (현지화되고 다이제스트로 검증해 인용한 translator-only 라우팅 상태) |
+| Saga | no | no | yes (현지화되고 다이제스트로 검증해 인용한 감사 상태와 추가 전용 hard-dependency 경계) |
+| Mimir | no | no | yes (현지화되고 다이제스트로 검증해 인용한 rule 상태와 품질·shadow·검토 PR 경계) |
+| Muninn | no | no | yes (현지화되고 다이제스트로 검증해 인용한 시간 인식 memory 상태와 신선도·권한 경계) |
+| Norns | no | yes (배치 발견) | yes (현지화되고 다이제스트로 검증해 인용한 pattern 상태와 off-path·비활성 승격 경계) |
+| Njord | no | no | yes (현지화되고 다이제스트로 검증해 인용한 scope-safe 자문 상태와 실행 금지 경계) |
+| Freyr | no | no | yes (현지화되고 다이제스트로 검증해 인용한 resource-safe 자문 상태와 실행 금지 경계) |
+| Loki | no | no | yes (현지화되고 다이제스트로 검증해 인용한 target-safe chaos 상태와 HIL·복구 경계) |
 
-모든 대화 포트는 불변 `AgentSpec`과 소유 사실로 결정론적인 자체 상태 설명을 표시할 수 있습니다. 선택적 LLM 서술기는 `owns_code_paths` RAG로 같은 사실을 표현할 수 있지만 타입 지정 결정이나 실행은 바꾸지 않습니다.
+모든 대화 포트는 불변 `AgentSpec`과 소유 사실로 결정론적인 자체 상태 설명을 표시할 수 있습니다.
+운영자 대화 진입점은 검증된 로캘을 `PantheonRuntime`과 Bragi를 거쳐 각 턴의 프롬프트 상황에 전달하며, 로캘이 없거나 유효하지 않으면 영어로 대체합니다.
+로캘은 표현에만 영향을 주며 에이전트 역할, 타입이 지정된 결정 또는 권한을 바꾸지 않습니다. 선택적 LLM 서술기는 `owns_code_paths` RAG로 같은 사실을 표현할 수 있지만 타입 지정 결정이나 실행 경로는 바꾸지 않습니다.
 
 ## 9. 보안 및 권한 초과 감시
 

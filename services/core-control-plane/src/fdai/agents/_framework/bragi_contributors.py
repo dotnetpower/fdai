@@ -113,6 +113,7 @@ async def ask_contributors(
     timeout_seconds: float,
     logger: logging.Logger,
     primary_agent: str | None = None,
+    locale: str = "en",
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Call bounded secondary responders without risking the primary reply.
 
@@ -131,6 +132,7 @@ async def ask_contributors(
             "contributor": True,
             "a2a": True,
             "requester": "Bragi",
+            "locale": locale,
         }
         if primary_agent is not None:
             context["handoff_owner"] = primary_agent

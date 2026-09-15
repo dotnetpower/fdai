@@ -15,6 +15,7 @@ from fdai.agents._framework.adapters import (
     AdminNotificationAdapter,
     AuditEntry,
     GitHubIssue,
+    IdempotentIssueTrackerAdapter,
     InMemoryAuditChain,
     IssueTrackerAdapter,
 )
@@ -80,6 +81,9 @@ from fdai.agents._framework.runtime_subscriptions import (
     bind_recovery_effect_observation,
 )
 from fdai.agents._framework.semantic_routing import SemanticRouterConfig
+from fdai.agents._framework.state_store_issue_tracker import (
+    StateStoreIssueTrackerAdapter,
+)
 from fdai.agents._framework.tool_planner import (
     MAX_TOOL_PLANS,
     ConversationToolPlan,
@@ -151,6 +155,7 @@ __all__ = [
     "Heimdall",
     "Huginn",
     "GitHubIssue",
+    "IdempotentIssueTrackerAdapter",
     "IssueTrackerAdapter",
     "Layer",
     "Norns",
@@ -168,6 +173,7 @@ __all__ = [
     "ShadowDivergenceLedger",
     "StateStoreActionRunStore",
     "StateStoreAuditChainAdapter",
+    "StateStoreIssueTrackerAdapter",
     "SynthesisOutcome",
     "T2ConversationSynthesizer",
     "bind_recovery_effect_observation",

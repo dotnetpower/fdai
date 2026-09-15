@@ -29,7 +29,7 @@ class WorkflowBus(LiveInMemoryEventBus):
         return receipt
 
 
-async def test_real_owner_chain_prepares_but_shadow_thor_cannot_dispatch(setup):
+async def test_real_owner_chain_prepares_but_shadow_thor_cannot_dispatch(setup, monkeypatch):
     f = setup
     bus = WorkflowBus()
     runtime = PantheonRuntime.build(
@@ -42,6 +42,7 @@ async def test_real_owner_chain_prepares_but_shadow_thor_cannot_dispatch(setup):
             human_access=f.runtime.agent_bindings(),
         ),
     )
+    monkeypatch.setattr(runtime.agents["Huginn"], "_clock", lambda: f.clock["now"])
     worker = HumanAccessReconciliation(f.runtime, runtime.ingest_raw_event)
     task = asyncio.create_task(runtime.run())
     try:

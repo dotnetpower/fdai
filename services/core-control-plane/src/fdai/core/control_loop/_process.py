@@ -12,10 +12,12 @@ from fdai.core.control_loop._execution_outcomes import (
 from fdai.core.control_loop._execution_outcomes import (
     is_execution_pending as _is_execution_pending,
 )
+from fdai.core.control_loop._execution_outcomes import (
+    is_execution_success as _is_execution_success,
+)
 from fdai.core.control_loop._helpers import (
     _extract_resource_id,
     _extract_resource_props,
-    _is_execution_success,
     _synthetic_action_build_failure,
     apply_governance_override_to_rule,
 )

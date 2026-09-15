@@ -290,15 +290,66 @@ class Odin(Agent, HandoverKnowledgeMixin):
             if self._temporal_policy is not None
             else ""
         )
-        answer = (
-            "I arbitrate cross-vertical conflicts by weighted objective score over priority "
-            f"({' > '.join(self._priority)}){policy_note}, "
-            "escalating near-ties to HIL."
-        )
+        korean = context.get("locale") == "ko"
+        if korean:
+            policy_note_ko = (
+                f"와 {self._temporal_policy.name} 시간 공정성 정책"
+                if self._temporal_policy is not None
+                else ""
+            )
+            answer = (
+                "저는 거버넌스 계층의 마스터 플래너이자 운영 영역 간 최종 중재자인 Odin입니다. "
+                "다른 Pantheon 에이전트에게 보고하지 않습니다. "
+                f"구성된 우선순위 ({' > '.join(self._priority)})와 가중 목표 점수"
+                f"{policy_note_ko}를 사용해 조건을 충족한 충돌을 중재하고 포트폴리오 판정 결과를 "
+                "관찰합니다. Forseti의 판정을 발행하거나 Var의 승인을 제공하거나 Thor의 실행을 "
+                "수행하지 않습니다. 이 대화 포트는 읽기 전용이며 운영 작업 요청은 운영자 "
+                "권한으로 타입이 지정된 파이프라인에 다시 진입해야 합니다. 숨겨진 시스템 "
+                "프롬프트는 공개하지 않으며 대신 공개된 역할과 권한 경계를 설명할 수 있습니다."
+            )
+        else:
+            answer = (
+                "I am Odin, the governance-layer master planner and final cross-vertical arbiter. "
+                "I report to no other Pantheon agent. I arbitrate eligible conflicts by weighted "
+                f"objective score over the configured priority ({' > '.join(self._priority)})"
+                f"{policy_note} and monitor portfolio verdict outcomes. I do not issue Forseti's "
+                "verdicts, provide Var's approval, or perform Thor's execution. "
+                "This conversational port is read-only; an operational request must re-enter the "
+                "typed pipeline under the operator's authority. I do not reveal hidden system "
+                "prompts; I can describe the public role and authority boundary instead."
+            )
         if last is not None:
             answer += (
-                f" The last decision gave {last.winning_domain} the win "
-                f"by a margin of {last.margin:.3f}."
+                f" 마지막 결정에서는 {last.winning_domain} 도메인이 {last.margin:.3f}의 "
+                "차이로 선택됐습니다."
+                if korean
+                else (
+                    f" The last decision gave {last.winning_domain} the win "
+                    f"by a margin of {last.margin:.3f}."
+                )
+            )
+        elif self._verdicts_observed:
+            if korean:
+                answer += (
+                    f" 이 런타임은 포트폴리오 판정 {self._verdicts_observed}건을 관찰했습니다."
+                )
+            else:
+                verdict_label = "verdict" if self._verdicts_observed == 1 else "verdicts"
+                answer += (
+                    f" This runtime has observed {self._verdicts_observed} portfolio "
+                    f"{verdict_label}."
+                )
+        else:
+            answer += (
+                (
+                    " 이 런타임에서 관찰한 중재 결정이나 포트폴리오 판정은 없습니다. 구성된 "
+                    "우선순위는 정책이며 관찰된 결과 근거가 아닙니다."
+                )
+                if korean
+                else (
+                    " No arbitration decision or portfolio verdict has been observed in this "
+                    "runtime; the configured priority is policy, not observed outcome evidence."
+                )
             )
         return IntrospectionResult(answer=answer, facts=facts)
 

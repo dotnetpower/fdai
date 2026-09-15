@@ -70,9 +70,13 @@ async def test_out_of_range_similarity_abstains(score: float) -> None:
     [
         ({"success_rate": -0.01}, "success_rate_out_of_range"),
         ({"success_rate": 1.01}, "success_rate_out_of_range"),
+        ({"success_rate": "high"}, "invalid_success_rate"),
         ({"reuse_count": -1}, "negative_reuse_count"),
+        ({"reuse_count": "many"}, "invalid_learned_action_reuse_count"),
+        ({"reuse_count": True}, "invalid_learned_action_reuse_count"),
         ({"signature": "   "}, "invalid_learned_action_signature"),
         ({"rule_id": ""}, "invalid_learned_action_rule_id"),
+        ({"rule_id": 7}, "invalid_learned_action_rule_id"),
         ({"action_type": "\t"}, "invalid_learned_action_action_type"),
         ({"incident_id": " "}, "invalid_learned_action_incident_id"),
         ({"params": []}, "invalid_learned_action_params"),
@@ -95,6 +99,21 @@ async def test_invalid_learned_action_evidence_abstains(
 
     assert decision.outcome is T1Outcome.ABSTAIN
     assert reason in decision.reasons
+
+
+async def test_non_numeric_similarity_score_abstains() -> None:
+    tier = T1Tier(
+        embedding_model=DeterministicEmbeddingModel(),
+        pattern_library=_Library(
+            SimilarityMatch(action=_action(), score="high")  # type: ignore[arg-type]
+        ),
+    )
+
+    decision = await tier.evaluate(event=_event())
+
+    assert decision.outcome is T1Outcome.ABSTAIN
+    assert decision.reason == "invalid_similarity_score"
+    assert decision.best_match is None
 
 
 class _RaisingEmbedding:

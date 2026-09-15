@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 38430c3a7e0371eca30d3e487a3f86dd938fd17c
+translation_source_sha: b12f7a465332f9c134ec6e55e6f72cfcd02846e9
 translation_revised: 2026-09-15
 ---
 
@@ -29,6 +29,13 @@ translation_revised: 2026-09-15
 > 보낼 편지함 수명 주기 facade는 관련 없는 Incident 개입 작업자도 제공합니다. 해당 수명
 > 주기와 준비 상태는 Cost Governance 패키지를 활성화하거나 Njord 소유 레코드를 게시할 수
 > 없습니다.
+> 공유 Pantheon 런타임은 최종 승인 재생을 위해 같은 영속 StateStore를 Var에, rollback 점유
+> 재생을 위해 Vidar에, 대기 중인 인계 학습 작업의 범위가 제한된 시작 복구를 위해 Norns에
+> 주입할 수 있습니다. 이 수명 주기 및 학습 레코드는 Cost Governance 패키지를
+> 설치, 활성화, 구성 또는 게시할 수 없고 데이터 접근 권한도 부여할 수 없습니다.
+> Enforce 조립은 Vidar와 Var의 영속 바인딩을 Thor 저장소와 별도로 지정합니다. 같은 프로바이더
+> 인스턴스를 모든 정확한 매개변수로 제공해도 Cost Governance 패키지 활성화, 데이터, 게시 또는
+> 실행 권한을 부여하지 않습니다.
 > 에이전트가 아닌 런타임 관찰 소비자도 재생 및 상태 근거만 기록하며 Njord 소유권, 패키지 활성화
 > 또는 작업 권한을 바꾸지 않습니다.
 > 전역 Terraform 루트는 관련 없는 AKS 관측 연결을 전달할 수 있습니다. 해당 값과 Reader 역할
@@ -282,6 +289,12 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 않고 프로바이더 기준선과 Njord의 대화 근거를 재구성합니다. 패키지 누락, 비활성 상태 또는
 프로바이더 불일치는 연결을 비활성 상태로 유지하거나 일관되지 않은 시작을 차단합니다. 에이전트를
 직접 호출하거나 작업 권한을 변경하지 않습니다.
+공유 Pantheon 대화 진입점은 검증된 운영자 로캘을 Njord의 턴별 프롬프트 조립에 전달합니다.
+로캘은 표현에만 영향을 주며 패키지를 활성화하거나 권고 사실 또는 작업 권한을 바꿀 수 없습니다.
+넓은 범위의 Njord 응답은 scope 개수만 공개합니다. 인증된 질문이 정확한 scope를 명시한
+경우에만 facts 또는 설명에 해당 scope 식별자를 포함합니다.
+넓은 범위의 Freyr 응답도 resource 개수만 공개합니다. 인증된 질문이 정확한 resource를
+명시한 경우에만 facts 또는 설명에 해당 resource 식별자를 포함합니다.
 권위 있는 USD 관찰만 `amount_usd` 전문가 ingress로 들어갑니다. 다른 원본 통화는 공개 제어가
 적용된 analytics에서 계속 사용할 수 있지만, 권위 있는 환산 없이는 Njord 권고 기준선에
 포함되지 않습니다.
