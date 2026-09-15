@@ -283,7 +283,7 @@ def network_layout(
     required = 2 if include_build else 1
     if len(available) < required:
         raise ValueError(
-            "not enough non-overlapping reviewed deployment networks are available "
+            "no non-overlapping reviewed deployment networks are available "
             f"(available={len(available)}, required={required}); "
             "review VNet, peering, gateway, and non-default route reservations before retrying"
         )
