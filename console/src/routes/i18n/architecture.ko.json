@@ -128,7 +128,8 @@
     "returnedResources": "반환된 리소스",
     "displayedRelationships": "표시된 관계",
     "returnedRelationships": "반환된 관계",
-    "note": "스냅샷 {time}. 표현 개수는 인벤토리 근거를 변경하지 않습니다."
+    "note": "스냅샷 {time}. 표현 개수는 인벤토리 근거를 변경하지 않습니다.",
+    "resourceCount": "Resource {count}개"
   },
   "inspector": {
     "title": "상세 패널",

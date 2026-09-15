@@ -621,6 +621,9 @@ rendering; an unplaced visible record is an explicit unavailable presentation, n
 `0,0` coordinate.
 Boundary classification uses canonical Resource types and reported containment, not the presence
 of optional presentation fields in an API response.
+The default Landscape shows at most 16 returned Resource Group boundaries, ranked by returned
+descendant count with stable name and identity tie-breakers. Displayed counts and search continue
+to expose that this is a bounded presentation over the complete returned page.
 Resources use reviewed official icons where available and stable Cloud Adoption Framework
 abbreviations otherwise. Compact text, accessible names, search, and Inspector content preserve
 name, type, and state without relying on color. Typed edges terminate on current node or boundary

@@ -113,6 +113,12 @@
   letter-spacing: 0;
 }
 
+.architecture-topology-region > .architecture-topology-region-count {
+  fill: var(--fg-muted);
+  font-size: .18px;
+  font-weight: 650;
+}
+
 .architecture-topology-link path {
   fill: none;
   stroke-linecap: round;

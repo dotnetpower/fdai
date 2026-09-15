@@ -6,7 +6,10 @@ import {
   type InventoryResource,
 } from "./architecture-map.model";
 import { layoutArchitectureNetworkFloors } from "./architecture-network-layout";
-import { layoutGeometrylessArchitectureGraph } from "./architecture-landscape-layout";
+import {
+  architectureLandscapeOverviewGraph,
+  layoutGeometrylessArchitectureGraph,
+} from "./architecture-landscape-layout";
 import {
   ARCHITECTURE_TOPOLOGY_COLUMN_PITCH,
   ARCHITECTURE_TOPOLOGY_ROW_PITCH,
@@ -17,8 +20,11 @@ export function layoutArchitecturePresentation(
   graph: InventoryGraphResponse,
   selectedId: string | null,
 ): InventoryGraphResponse {
+  const sourceGraph = selectedId === null
+    ? architectureLandscapeOverviewGraph(graph)
+    : graph;
   const networkLayout = layoutArchitectureNetworkFloors(
-    layoutGeometrylessArchitectureGraph(graph),
+    layoutGeometrylessArchitectureGraph(sourceGraph),
   );
   const overview = constrainGraph(architecturePresentationGraph(networkLayout, null));
   if (selectedId === null) return overview;

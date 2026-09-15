@@ -15,11 +15,53 @@ const BOUNDARY_INSET_X = .45;
 const BOUNDARY_HEADER = .85;
 const BOUNDARY_BOTTOM = .4;
 const ITEM_GAP = .45;
+export const ARCHITECTURE_LANDSCAPE_GROUP_LIMIT = 16;
 
 interface LayoutPlan extends RectangleItem {
   readonly resource: InventoryResource;
   readonly boundary: boolean;
   readonly children: readonly PackedItem<LayoutPlan>[];
+}
+
+/** Reduces the unselected view to authoritative scope boundaries with descendant counts. */
+export function architectureLandscapeOverviewGraph(
+  graph: InventoryGraphResponse,
+): InventoryGraphResponse {
+  const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
+  const parentById = architecturePresentationParentById(graph, byId);
+  const groups = graph.resources.filter((resource) => resource.type === "resource-group");
+  if (groups.length === 0) return graph;
+  const descendants = new Map(groups.map((group) => [
+    group.id,
+    descendantCount(group.id, graph.resources, parentById),
+  ]));
+  const visibleGroups = [...groups]
+    .sort((first, second) =>
+      (descendants.get(second.id) ?? 0) - (descendants.get(first.id) ?? 0)
+      || first.name.localeCompare(second.name)
+      || first.id.localeCompare(second.id))
+    .slice(0, ARCHITECTURE_LANDSCAPE_GROUP_LIMIT);
+  const visibleIds = new Set(visibleGroups.map((resource) => resource.id));
+  for (const group of visibleGroups) {
+    let parentId = parentById.get(group.id);
+    while (parentId && byId.has(parentId)) {
+      visibleIds.add(parentId);
+      parentId = parentById.get(parentId);
+    }
+  }
+  return {
+    ...graph,
+    resources: graph.resources
+      .filter((resource) => visibleIds.has(resource.id))
+      .map((resource) => {
+        const count = resource.type === "resource-group"
+          ? descendants.get(resource.id)
+          : descendantCount(resource.id, graph.resources, parentById);
+        return count === undefined ? resource : { ...resource, collapsed_count: count };
+      }),
+    links: graph.links.filter((link) =>
+      visibleIds.has(link.source) && visibleIds.has(link.target)),
+  };
 }
 
 /** Generates presentation-only geometry when an inventory projection provides none. */
@@ -178,4 +220,26 @@ function compareResources(first: InventoryResource, second: InventoryResource): 
     || first.type.localeCompare(second.type)
     || first.name.localeCompare(second.name)
     || first.id.localeCompare(second.id);
+}
+
+function descendantCount(
+  rootId: string,
+  resources: readonly InventoryResource[],
+  parentById: ReadonlyMap<string, string>,
+): number {
+  let count = 0;
+  for (const resource of resources) {
+    if (resource.id === rootId) continue;
+    let parentId = parentById.get(resource.id);
+    const visited = new Set<string>();
+    while (parentId && !visited.has(parentId)) {
+      if (parentId === rootId) {
+        count += 1;
+        break;
+      }
+      visited.add(parentId);
+      parentId = parentById.get(parentId);
+    }
+  }
+  return count;
 }

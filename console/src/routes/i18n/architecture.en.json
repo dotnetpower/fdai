@@ -128,7 +128,8 @@
     "returnedResources": "Returned resources",
     "displayedRelationships": "Displayed relationships",
     "returnedRelationships": "Returned relationships",
-    "note": "Snapshot {time}. Presentation counts do not change the inventory evidence."
+    "note": "Snapshot {time}. Presentation counts do not change the inventory evidence.",
+    "resourceCount": "{count} Resources"
   },
   "inspector": {
     "title": "Inspector",

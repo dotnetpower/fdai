@@ -240,6 +240,15 @@ export function ArchitectureTopologyGraph({
                 <text x={(resource.x ?? 0) + .2} y={(resource.y ?? 0) + .38}>
                   {resource.name}
                 </text>
+                {(resource.collapsed_count ?? 0) > 0 ? (
+                  <text
+                    class="architecture-topology-region-count"
+                    x={(resource.x ?? 0) + .2}
+                    y={(resource.y ?? 0) + .68}
+                  >
+                    {t("coverage.resourceCount", { count: resource.collapsed_count ?? 0 })}
+                  </text>
+                ) : null}
               </g>
             ))}
           </g>

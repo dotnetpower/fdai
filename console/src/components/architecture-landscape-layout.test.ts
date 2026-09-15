@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  ARCHITECTURE_LANDSCAPE_GROUP_LIMIT,
+  architectureLandscapeOverviewGraph,
   layoutGeometrylessArchitectureGraph,
 } from "./architecture-landscape-layout";
 import type { InventoryGraphResponse } from "./architecture-map.model";
@@ -43,5 +45,35 @@ describe("geometry-less Architecture inventory", () => {
       && Number.isFinite(resource.h))).toBe(true);
     expect(new Set(nodes.map((resource) => `${resource.x}:${resource.y}`)).size)
       .toBe(nodes.length);
+  });
+
+  it("bounds the Landscape to the largest returned Resource Group scopes", () => {
+    const groups = Array.from({ length: 24 }, (_, index) => ({
+      id: `group-${index}`,
+      type: "resource-group",
+      name: `Group ${index.toString().padStart(2, "0")}`,
+      status: "unknown",
+      parent_id: "subscription",
+    }));
+    const resources = groups.flatMap((group, groupIndex) =>
+      Array.from({ length: groupIndex + 1 }, (_, resourceIndex) => ({
+        id: `${group.id}-resource-${resourceIndex}`,
+        type: "app-service",
+        name: `Resource ${resourceIndex}`,
+        status: "healthy",
+        parent_id: group.id,
+      })));
+    const overview = architectureLandscapeOverviewGraph({
+      ...RAW_GRAPH,
+      resources: [RAW_GRAPH.resources[0]!, ...groups, ...resources],
+      links: [],
+    });
+    const visibleGroups = overview.resources.filter((resource) =>
+      resource.type === "resource-group");
+
+    expect(visibleGroups).toHaveLength(ARCHITECTURE_LANDSCAPE_GROUP_LIMIT);
+    expect(visibleGroups[0]?.collapsed_count).toBeGreaterThan(0);
+    expect(visibleGroups.some((resource) => resource.id === "group-23")).toBe(true);
+    expect(visibleGroups.some((resource) => resource.id === "group-0")).toBe(false);
   });
 });

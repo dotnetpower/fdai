@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f2eaa0ba27dfdef7f371f2cfeeb0138b7002798f
+translation_source_sha: 48a0b305cc061cb9c7b9d583e61262837652ce2c
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -608,6 +608,9 @@ Resource는
 검토된 공식 아이콘을 사용할 수 있으면 이를 사용하고, 그렇지 않으면 Cloud Adoption Framework의
 고정된 약어를 사용합니다. 간결한 텍스트, 접근 가능한 이름, 검색 및 상세 패널은 색상에 의존하지
 않고 이름, 타입 및 상태를 유지합니다. 타입이 지정된 간선은 현재 노드 또는 경계 형상에서 끝납니다.
+기본 Landscape는 반환된 하위 Resource 수가 많은 순서로 Resource Group 경계를 최대 16개
+표시하며, 개수가 같으면 이름과 식별자 순서로 안정적으로 정렬합니다. 표시 개수와 검색은 이 화면이
+반환된 전체 페이지를 사용한 범위가 제한된 표현임을 계속 드러냅니다.
 포함 관계는 공간으로 표현하고 `attached_to`, `depends_on`, `peered_with`는 구분되는 경로,
 엔드포인트 점 및 방향 표시를 유지합니다.
 
