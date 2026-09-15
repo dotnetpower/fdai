@@ -16,7 +16,7 @@
   "stateUnsupported": "Unavailable",
   "stateError": "Retry",
   "approvalTitle": "FDAI human approval required",
-  "approvalBody": "Open the Console to review the incident evidence.",
+  "approvalBody": "Open the Console to review the approval evidence.",
   "deniedTitle": "FDAI action denied",
   "deniedBody": "Open the Console to review the safety decision.",
   "failedTitle": "FDAI operation failed",

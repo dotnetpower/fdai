@@ -72,7 +72,7 @@ function json(route: Route, payload: unknown, status = 200): Promise<void> {
 
 async function installFixture(
   page: Page,
-  options: { failFirstPost?: boolean; paginatedAudit?: boolean } = {},
+  options: { failFirstPost?: boolean; paginatedAudit?: boolean; missingIncident?: boolean } = {},
 ): Promise<{
   body: () => Record<string, unknown> | null;
   idempotencyKey: () => string | null;
@@ -127,6 +127,20 @@ async function installFixture(
       return;
     }
     if (path === "/incidents") {
+      if (options.missingIncident) {
+        await json(route, {
+          items: [],
+          next_cursor: null,
+          metrics: {
+            ...metrics,
+            denominator: 0,
+            matched_total: 0,
+            cohorts: { ...metrics.cohorts, pending: 0 },
+            drilldown: { ...metrics.drilldown, pending: [] },
+          },
+        });
+        return;
+      }
       await json(route, {
         items: [{ ...incident, history_count: options.paginatedAudit === true ? 4 : 1 }],
         next_cursor: null,
@@ -149,6 +163,13 @@ async function installFixture(
         previous_hash: `hash-${seq - 1}`,
         recorded_at: `2026-08-24T11:0${seq}:00Z`,
       });
+      if (options.missingIncident) {
+        await json(route, {
+          items: [auditItem(1, "risk_gate.unified")],
+          next_cursor: null,
+        });
+        return;
+      }
       if (options.paginatedAudit === true && cursor === null) {
         await json(route, {
           items: [auditItem(4, "event.four"), auditItem(3, "event.three")],
@@ -181,6 +202,60 @@ async function installFixture(
     auditCursors: () => capturedAuditCursors,
   };
 }
+
+for (const locale of ["en", "ko"] as const) {
+  test(`legacy notification recovers audit evidence without an Incident (${locale})`, async ({
+    page,
+  }) => {
+    await installFixture(page, { missingIncident: true });
+    await page.goto(`/incidents?status=all&correlation=${correlationId}&locale=${locale}`);
+
+    const link = page.getByRole("link", {
+      name: locale === "ko" ? "관련 감사 이력 보기" : "View related audit history",
+    });
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute("href", `/audit?correlation=${correlationId}`);
+    await expect(page.locator(".incident-roster-item")).toHaveCount(0);
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 993, height: 641 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expect(link).toBeVisible();
+      expect(await page.locator(".incident-selection").evaluate(
+        element => element.scrollWidth > element.clientWidth,
+      )).toBe(false);
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await link.focus();
+    await page.keyboard.press("Enter");
+
+    await expect(page).toHaveURL(new RegExp(`/audit\\?correlation=${correlationId}$`));
+    await expect(page.locator("main tbody tr")).toHaveCount(1);
+    await expect(page.locator("main tbody")).toContainText("risk_gate.unified");
+    const overflow = await page.locator("main").evaluate(
+      element => element.scrollWidth > element.clientWidth,
+    );
+    expect(overflow).toBe(false);
+  });
+}
+
+test("runtime notification audit destination ignores the Sample preference", async ({ page }) => {
+  await installFixture(page, { missingIncident: true });
+  await page.addInitScript(() => sessionStorage.setItem("fdai:console:data-mode", "sample"));
+  await page.goto(`/audit?correlation=${correlationId}`);
+  await expect(page.locator("main tbody tr")).toHaveCount(1);
+  await expect(page.locator("main tbody")).toContainText("risk_gate.unified");
+  await expect(page).not.toHaveURL(/data=sample/);
+});
+
+test("missing Sample Incident does not link to live audit evidence", async ({ page }) => {
+  await installFixture(page);
+  await page.goto(`/incidents?status=all&correlation=${correlationId}&data=sample`);
+  await expect(page.locator(".incident-selection .state-unavailable")).toBeVisible();
+  await expect(page.locator(".incident-selection a[href^='/audit']")).toHaveCount(0);
+});
 
 test("submits a bounded Incident intervention without claiming it was applied", async ({
   page,
