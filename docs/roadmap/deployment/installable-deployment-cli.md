@@ -211,14 +211,13 @@ the backend. Missing local state alone grants no authority. Live recovery accept
 
 ### Explicit source recovery
 
-Use `--source <current-checkout> --work-dir <original-run> --foundation-recovery-directory <recovery>`
-to resume a source run. The original snapshot, runtime profile, region and budget remain immutable;
-current execution source is recorded separately. Initial scope cannot be reconfirmed on this route.
-Missing recovery success returns review, never repeats apply. Separate exact approvals advance host
-enrollment and state migration; retained claims select verification only. Completed migration resumes
-through backend observation without repeating enrollment after local state deletion. Under the original
-lock, the verified recovery context then supplies the existing source transfer engine with the original
-application snapshot. Separate immutable progress records preserve old status and false readiness.
+Resume with `--source <current-checkout> --work-dir <original-run> --foundation-recovery-directory <recovery>`.
+Original snapshot, runtime profile, region and budget stay immutable; current execution source is separate.
+No initial-scope reconfirmation or repeated apply is allowed. Missing success returns review; separate
+exact approvals advance enrollment and migration, while retained claims select verification only.
+Completed migration observes the backend without reenrollment after local state deletion. Under the
+original lock, verified recovery supplies the original snapshot to the existing transfer engine.
+Separate immutable progress preserves old status and false readiness.
 It then builds or reverifies all five service OCI archives with the original snapshot and existing
 build claims. A changed revision, incomplete inventory or false readiness flag is rejected; unavailable
 local tools return review. Dependency images, registry import and activation remain unconnected.
