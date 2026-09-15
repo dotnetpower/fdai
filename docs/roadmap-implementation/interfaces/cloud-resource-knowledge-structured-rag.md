@@ -10,10 +10,10 @@ Issue #1019 owns source delivery. Issue #995 continues to own independent operat
 
 | Area | State | Evidence | Notes |
 |---|---|---|---|
-| Structured v3, extraction and deterministic excerpts | in-progress | Structured contracts, parser and focused tests | Initial local checks pass; actual-page holds and hardening remain. |
-| Worker, package and retrieval integration | in-progress | Existing cloud lifecycle owner and initial integration checks | Preserve original approval, access and legacy compatibility; real database qualification remains. |
+| Structured v3, extraction and deterministic excerpts | implemented | Structured contracts, parser and final focused tests; rounds 1-14 below | Supported structures are bounded and reproducible; unsupported media/tables/relationships remain explicit holds, not silently accepted content. |
+| Worker, package and retrieval integration | implemented | Final focused tests, v2/v3 composed chain and 10 loopback PostgreSQL cases | Actual stored-row mechanics are verified separately from synthetic reviewers, scanners and transport. |
 | Bilingual query and evaluation boundaries | implemented | Query/evaluation contracts and focused semantic dispatch/evaluation tests | Model-judged terms are wired; actual model quality and independent labels require separate evidence. |
-| Ten-round critique and hardening | not-started | Requested campaign | Record real findings and false positives without inventing defects. |
+| Ten-round critique and hardening | implemented | Fourteen separate hardening/coverage commits recorded below | Confirmed Medium/High findings were fixed; coverage-only rounds report no reproduced defect. No universal absence-of-bugs claim. |
 | Real runtime trust, human review and live/air-gap qualification | not-started | Issue #995 | External prerequisites are not downgraded or replaced by test fixtures. |
 
 ### Implementation history
@@ -22,19 +22,26 @@ Issue #1019 owns source delivery. Issue #995 continues to own independent operat
 |---|---|---|---|---|
 | 2026-09-15 | not-started | Recorded structured-release compatibility, source-clock, safe-chunk and bilingual evaluation decisions before implementation. | `current change`; design, critique and Issue #1019 | Implement and verify the bounded source scope; preserve external qualification boundaries. |
 | 2026-09-15 | in-progress | Added original-free structured v3 contracts, bounded article/block extraction, explicit recipe/checkpoint identity, v3 package/CLI/staging/worker paths and accepted-model bilingual query binding. Added an offline paired-locale evaluation reducer with no operational authority. | `current change`; 660 focused cases across 18 explicitly selected contract, ingestion, worker, semantic and evaluation test files passed; strict source typing and task-owned lint/format passed. | Complete real-page hold classification, actual loopback database evidence, ten focused hardening rounds and protected delivery. Live evaluation and operational prerequisites remain external. |
+| 2026-09-15 | implemented | Completed fourteen separately committed critique rounds, v3 producer/readback/approval parity and prompt-profile gating. Confirmed source-scope, context, size, freshness and retrieval defects were corrected without weakening failure holds. | Foundation `4044597c2`; rounds through `47fdd8659`. Final selected regression run: 872 passed across 25 files; final publisher-control change: 56 normalization cases passed. Separate real loopback database matrix: 10 passed. Task-owned Ruff/format checked 34 Python files and strict mypy checked 23 source files. Counts overlap and are not summed. | Protected publication/merge, approved source qualification, actual bilingual semantic quality, production identities/trust/reviewers and authorized operating receipts remain separate. |
 
 ### Remaining work
 
-- [ ] Retain focused implementation and legacy-compatibility evidence for structured text, extraction and complete-generation chunking.
-- [ ] Retain admitted-worker/readback, retrieval-query and lifecycle regression evidence with actual local database results identified separately.
-- [ ] Record at least ten critique rounds and a final review with no confirmed in-scope Medium-or-higher finding remaining.
+- [x] Retain focused implementation and legacy-compatibility evidence for structured text, extraction and complete-generation chunking, as recorded above.
+- [x] Retain admitted-worker/readback, retrieval-query and lifecycle regression evidence with actual local database results identified separately above.
+- [x] Record fourteen critique rounds; final bounded code review found no additional confirmed in-scope Medium-or-higher defect. Unsupported-source qualification and operating prerequisites are not downgraded to satisfy this claim.
 - [ ] Complete protected source delivery and report exact source/CI/merge identities.
+- [ ] Resolve every declared pilot source hold and obtain independently reviewed paired-language query/claim receipts before claiming the corpus is RAG-ready. Implemented evaluation contracts and synthetic wording are not those receipts.
 - [ ] Keep Issue #995 open until its actual trust, rights, reviewer, service and authorized runtime receipts are supplied.
 
 ## Critique and hardening rounds
 
 Severity reflects the demonstrated defect, not missing external operating approval. Each numbered
 round is a separate local checkpoint; false positives are retained rather than turned into fixes.
+
+The bounded final review covers contract/identity, article/context, byte amplification, source-clock
+updates, query/prompt scope, approval/index/rollback, persisted effects and evaluation evidence.
+No production rollout, source-rights clearance, independent human review or live model quality is
+claimed. These are required completion conditions for the operational parent, not Low findings.
 
 | Round | Severity | Finding and disposition | Verification |
 |---|---|---|---|
