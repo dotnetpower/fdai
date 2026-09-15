@@ -309,7 +309,9 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         "--source-snapshot", type=Path, help="Private prepared source snapshot (Foundation only)"
     )
     plan.add_argument(
-        "--source-snapshot-digest", help="Independently retained source snapshot SHA-256"
+        "--source-snapshot-digest",
+        metavar="SHA256",
+        help="Independently retained source snapshot SHA-256",
     )
     plan.add_argument(
         "--terraform",

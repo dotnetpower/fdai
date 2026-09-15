@@ -150,8 +150,9 @@ it never falls back to the node identity, Azure CLI, or another service. Without
 declaration, the existing attached Managed Identity path remains unchanged.
 
 Core and isolated Executor retain audience-specific caching and request coalescing, bound each
-federated token exchange, close its SDK session, and sanitize acquisition failures. Each owns
-its SDK and asynchronous HTTP transport dependencies. Operator and document services pass the
+federated token exchange, close its SDK session, and sanitize acquisition failures. Each declares
+`azure-core`, `azure-identity`, and the SDK's `aiohttp` transport in its own distribution. Dependency
+checks distinguish direct SDK imports from SDK-owned transport use. Operator and document services pass the
 SDK's common asynchronous credential contract to their existing adapters. These local integration
 checks do not prove deployed federation, Event Hubs access, or service readiness.
 

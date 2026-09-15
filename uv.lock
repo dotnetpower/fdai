@@ -1177,6 +1177,7 @@ source = { editable = "services/isolated-executor" }
 dependencies = [
     { name = "aiohttp" },
     { name = "aiokafka" },
+    { name = "azure-core" },
     { name = "azure-identity" },
     { name = "fdai-service-contracts" },
     { name = "httpx" },
@@ -1188,6 +1189,7 @@ dependencies = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.14.2,<4" },
     { name = "aiokafka", specifier = ">=0.12,<0.13" },
+    { name = "azure-core", specifier = ">=1.35,<2" },
     { name = "azure-identity", specifier = ">=1.23,<2" },
     { name = "fdai-service-contracts", editable = "packages/service-contracts" },
     { name = "httpx", specifier = ">=0.27,<1" },
