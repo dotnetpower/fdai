@@ -57,8 +57,9 @@ the Saga hard dependency complete. The worker then stops at `PROTECTION_CHECK` a
 protection inspection. Huginn republishes the content-free inspection facts, Heimdall normalizes
 them as an `object.anomaly`, Forseti emits the protection verdict, and Saga seals it. A clear,
 audited decision reaches Muninn, which alone publishes the `object.context-index` command that
-unlocks extraction and indexing; a blocked decision moves the version to `HELD`. A clear document
-with a sensitivity label, `handover_bootstrap`, `manual_distillation`, or `cloud_reference` purpose
+unlocks extraction and indexing; a blocked decision moves the version to `HELD`. In the current
+implementation, a clear document with a sensitivity label, `handover_bootstrap`,
+`manual_distillation`, or `cloud_reference` purpose
 receives a human-approval (`hil`) verdict instead. For `cloud_reference`, a valid package signature
 does not replace Var's independent human review and approval. Saga seals that verdict, Var creates
 a document approval ticket, and the uploader cannot approve their own document. The independent
@@ -75,9 +76,18 @@ does not establish automatic Vidar recovery after failed activation or failed re
 recovery and independent effect verification remain open in the
 [cloud lifecycle ledger](../../roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md).
 
-The [structured retrieval extension](cloud-resource-knowledge-structured-rag.md) is under development
-and keeps these owners. A block, excerpt, format selection, or signature cannot replace Forseti
-admission, Saga-audited independent Var approval, or Muninn's index command.
+The [structured retrieval extension](cloud-resource-knowledge-structured-rag.md) keeps these owners.
+A block, excerpt, format selection, or signature cannot replace Forseti admission, the applicable
+Saga-audited Var authorization, or Muninn's index command.
+
+The [requester-initiated application target](cloud-resource-knowledge-lifecycle.md#requester-initiated-application-target)
+removes a new per-document human decision only for eligible reference content covered by previously
+and independently approved policy. Var would verify that existing human authorization for the exact
+request; it would not generate a human review or grant authority to the requester. The intake API
+records the actual requester when the request exists, not a person selected during preparation.
+This policy path is not implemented or promoted. Current per-document approval and no-self-approval
+remain enforced. Sensitive content and promotion into decision-authoritative rules or policies keep
+their own approval requirements.
 
 ## Durable worker ownership
 
@@ -121,6 +131,7 @@ exact identity and do not fall back to an ambient or system-assigned principal.
 | Isolated native-PDF parsing | implemented | `services/document-processing-worker/src/fdai_document_worker_service/adapters/pdf_isolation.py`; focused isolation and parser-parity checks | The mechanical worker delegates untrusted native-PDF parsing to a spawned process with resource ceilings. Parser failure returns a typed unsafe-package result and grants no lifecycle or agent authority. |
 | Durable worker claim fencing and recovery | implemented | `services/core-control-plane/src/fdai/core/document_ingestion/`; `services/core-control-plane/tests/core/document_ingestion/`; service-owned worker tests | Focused tests cover gated-state replay, lease and claim ownership, duplicate delivery, and post-decision recovery behavior. |
 | Deployed identity, topic RBAC, and restart evidence | in-progress | `config/independent-service-live-evidence-manifest.json`; `infra/`; independent service packages | The topology and bindings are declared and service checks exist, but this owner document has no exact governed receipt for current image identity, topic grants, restart, and no-executor-access probes. |
+| Policy-backed requester application | not-started | [Lifecycle target](cloud-resource-knowledge-lifecycle.md#requester-initiated-application-target) | Prior human authorization must be verified through the same fixed owners; no runtime approval or permission changes are included. |
 
 ### Implementation history
 
@@ -128,9 +139,11 @@ exact identity and do not fall back to an ambient or system-assigned principal.
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; agent-chain, core ingestion, service package, and contract evidence listed in the scope table. | Retain exact deployed identity, transport, restart, and authority-ceiling evidence. |
 | 2026-08-27 | implemented | Isolated native-PDF parsing from the long-lived document worker with server-owned wall-time, CPU, address-space, page, and character ceilings. | `current change`; document worker isolation and parser-parity checks. | Deployed identity, transport, restart, and end-to-end agent evidence remain open below. |
+| 2026-09-15 | not-started | Distinguished current per-document approval from the requester application target under prior independent content policy. | `current change`; this owner and the linked cloud lifecycle design. Documentation only; no runtime check or approval is claimed. | Implement exact policy authorization, revocation fencing and actor attribution through the existing agents; retain focused and independent promotion evidence. |
 
 ### Remaining work
 
+- [ ] Prove eligible requester application consumes prior independent policy authority through Var and Saga, rejects self-granted or revoked authority, and reaches Muninn plus independent persisted readback before visibility; track the [lifecycle target](cloud-resource-knowledge-lifecycle.md#requester-initiated-application-target).
 - [ ] Retain a governed exact-image receipt proving the API cannot consume worker groups, the worker has only declared receive/send topics, and neither service can obtain Thor's identity or executor roles.
 - [ ] Retain restart, duplicate, reorder, lease-expiry, and reconciliation evidence showing that gated states replay facts only and post-decision work converges on one durable stage claim.
 - [ ] Record one end-to-end protected and one clear document flow from Huginn ingress through Saga audit and either Var approval or Muninn indexing, with no content copied into transport or audit records.
