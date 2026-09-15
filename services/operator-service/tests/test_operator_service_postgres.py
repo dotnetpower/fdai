@@ -1784,12 +1784,13 @@ def _audit_row(
     seq: int,
     *,
     correlation_id: str = "corr-1",
+    event_id: str = "00000000-0000-0000-0000-000000000001",
     action_kind: str = "control.stage",
     entry: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     return {
         "seq": seq,
-        "event_id": "00000000-0000-0000-0000-000000000001",
+        "event_id": event_id,
         "correlation_id": correlation_id,
         "actor": "operator-test",
         "action_kind": action_kind,
@@ -2667,7 +2668,77 @@ async def test_trace_and_rca_preserve_frozen_envelopes() -> None:
     assert rca.to_dict()["response"]["source_seq"] == 2
     assert rca.to_dict()["response"]["action_kind"] == "risk_gate.shadow_authority"
     assert rca.to_dict()["response"]["action_type_id"] == "storage.disable-public-access"
-    assert rca.to_dict()["response"]["mode"] == "enforce"
+    assert rca.to_dict()["response"]["mode"] is None
+
+
+@pytest.mark.asyncio
+async def test_rca_unified_response_uses_only_explicit_effective_mode() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            action_kind="rca.hypothesis",
+            entry={
+                "rca_outcome": "grounded",
+                "rca_tier": "t0",
+                "rca_cause": "public access open",
+                "rca_confidence": 0.95,
+                "rca_citations": [{"kind": "rule", "ref": "storage.public-access"}],
+            },
+        ),
+        _audit_row(
+            2,
+            action_kind="risk_gate.unified",
+            entry={
+                "decision": "hil",
+                "effective_mode": "shadow",
+                "authority": {"resolved_ceiling": {"final_level": "enforce_auto"}},
+            },
+        ),
+    ]
+
+    rca = await model.get_rca("corr-1")
+
+    assert rca is not None
+    assert rca.to_dict()["response"]["mode"] == "shadow"
+    model.audit_rows[1]["entry"] = {
+        "decision": "hil",
+        "authority": {"resolved_ceiling": {"final_level": "enforce_auto"}},
+    }
+
+    legacy = await model.get_rca("corr-1")
+
+    assert legacy is not None
+    assert legacy.to_dict()["response"]["mode"] is None
+
+
+@pytest.mark.asyncio
+async def test_rca_unified_shadow_response_is_preserved() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            action_kind="rca.hypothesis",
+            entry={
+                "rca_outcome": "grounded",
+                "rca_tier": "t0",
+                "rca_cause": "public access open",
+                "rca_confidence": 0.95,
+                "rca_citations": [{"kind": "rule", "ref": "storage.public-access"}],
+            },
+        ),
+        _audit_row(
+            2,
+            action_kind="risk_gate.unified",
+            entry={"decision": "shadow", "effective_mode": "shadow"},
+        ),
+    ]
+
+    rca = await model.get_rca("corr-1")
+
+    assert rca is not None
+    assert rca.to_dict()["response"]["verdict"] == "shadow"
+    assert rca.to_dict()["response"]["mode"] == "shadow"
 
 
 @pytest.mark.asyncio
@@ -2718,6 +2789,101 @@ async def test_rca_response_rejects_unrelated_decision_fields() -> None:
             2,
             action_kind="incident.metadata.updated",
             entry={"decision": "auto"},
+        ),
+    ]
+
+    rca = await model.get_rca("corr-1")
+
+    assert rca is not None
+    assert rca.to_dict()["response"] is None
+
+
+@pytest.mark.asyncio
+async def test_rca_response_requires_the_hypothesis_event() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            action_kind="rca.hypothesis",
+            entry={
+                "rca_outcome": "grounded",
+                "rca_tier": "t0",
+                "rca_cause": "public access open",
+                "rca_confidence": 0.95,
+                "rca_citations": [{"kind": "rule", "ref": "storage.public-access"}],
+            },
+        ),
+        _audit_row(
+            2,
+            event_id="00000000-0000-0000-0000-000000000002",
+            action_kind="risk_gate.unified",
+            entry={"decision": "auto"},
+        ),
+    ]
+
+    rca = await model.get_rca("corr-1")
+
+    assert rca is not None
+    assert rca.to_dict()["response"] is None
+
+
+@pytest.mark.asyncio
+async def test_rca_response_requires_the_hypothesis_remediation_type() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            action_kind="rca.hypothesis",
+            entry={
+                "rca_outcome": "grounded",
+                "rca_tier": "t0",
+                "rca_cause": "public access open",
+                "rca_confidence": 0.95,
+                "rca_citations": [{"kind": "rule", "ref": "storage.public-access"}],
+                "rca_remediation_ref": "tool.storage.lock",
+            },
+        ),
+        _audit_row(
+            2,
+            action_kind="risk_gate.unified",
+            entry={"decision": "auto", "action_type_id": "tool.storage.audit"},
+        ),
+    ]
+
+    rca = await model.get_rca("corr-1")
+
+    assert rca is not None
+    assert rca.to_dict()["response"] is None
+
+
+@pytest.mark.asyncio
+async def test_rca_response_does_not_infer_legacy_ceiling_action_type() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            action_kind="rca.hypothesis",
+            entry={
+                "rca_outcome": "grounded",
+                "rca_tier": "t0",
+                "rca_cause": "public access open",
+                "rca_confidence": 0.95,
+                "rca_citations": [{"kind": "rule", "ref": "storage.public-access"}],
+                "rca_remediation_ref": "tool.storage.lock",
+            },
+        ),
+        _audit_row(
+            2,
+            action_kind="risk_gate.unified",
+            entry={
+                "decision": "hil",
+                "authority": {
+                    "resolved_ceiling": {
+                        "action_type_id": "tool.storage.lock",
+                        "final_level": "enforce_hil",
+                    }
+                },
+            },
         ),
     ]
 

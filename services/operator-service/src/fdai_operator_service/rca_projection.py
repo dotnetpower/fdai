@@ -18,7 +18,7 @@ _CAUSE_DOMAINS = frozenset(
     }
 )
 _RESPONSE_ACTION_KINDS = frozenset({"risk_gate.shadow_authority", "risk_gate.unified"})
-_RESPONSE_DECISIONS = frozenset({"abstain", "auto", "deny", "hil"})
+_RESPONSE_DECISIONS = frozenset({"abstain", "auto", "deny", "hil", "shadow"})
 
 
 def rca_view(correlation_id: str, items: Sequence[JsonObject]) -> JsonObject | None:
@@ -81,9 +81,24 @@ def _linked_response(
     response_rows = [
         item
         for item in items
-        if _as_int(item["seq"]) > hypothesis_seq and _has_response_evidence(item)
+        if _as_int(item["seq"]) > hypothesis_seq
+        and _response_matches_hypothesis(item, primary_hypothesis)
     ]
     return _response(response_rows, hypothesis_seq=hypothesis_seq)
+
+
+def _response_matches_hypothesis(
+    item: JsonObject,
+    hypothesis: JsonObject,
+) -> bool:
+    if not _has_response_evidence(item):
+        return False
+    event_id = _record_string(item, "event_id")
+    hypothesis_event_id = _record_string(hypothesis, "event_id")
+    if event_id is None or event_id != hypothesis_event_id:
+        return False
+    remediation_ref = _record_string(hypothesis, "rca_remediation_ref")
+    return remediation_ref is None or _response_action_type(item) == remediation_ref
 
 
 def _has_response_evidence(item: JsonObject) -> bool:
@@ -123,28 +138,13 @@ def _response(
 
 def _response_action_type(item: JsonObject) -> str | None:
     entry = _mapping(item.get("entry"))
-    if action_type_id := _nonempty(entry.get("action_type_id")):
-        return action_type_id
-    resolved = _resolved_ceiling(entry)
-    return _nonempty(resolved.get("action_type_id"))
+    return _nonempty(entry.get("action_type_id"))
 
 
 def _response_mode(item: JsonObject) -> str | None:
     entry = _mapping(item.get("entry"))
-    for key in ("effective_mode", "execution_mode", "action_mode"):
-        if (mode := _nonempty(entry.get(key))) in {"shadow", "enforce"}:
-            return mode
-    final_level = _nonempty(_resolved_ceiling(entry).get("final_level"))
-    if final_level == "shadow_only":
-        return "shadow"
-    return "enforce" if final_level in {"enforce_auto", "enforce_hil"} else None
-
-
-def _resolved_ceiling(entry: Mapping[str, Any]) -> dict[str, Any]:
-    resolved = _mapping(entry.get("resolved_ceiling"))
-    if resolved:
-        return resolved
-    return _mapping(_mapping(entry.get("authority")).get("resolved_ceiling"))
+    mode = _nonempty(entry.get("effective_mode"))
+    return mode if mode in {"shadow", "enforce"} else None
 
 
 def _causal_chain(raw: object) -> JsonObject | None:
@@ -210,8 +210,6 @@ def _response_decision(item: JsonObject) -> str | None:
 
 def _canonical_response_decision(value: object) -> str | None:
     decision = (_nonempty(value) or "").lower()
-    if decision == "abstained":
-        decision = "abstain"
     return decision if decision in _RESPONSE_DECISIONS else None
 
 
@@ -222,6 +220,10 @@ def _first_entry_string(items: Sequence[JsonObject], *keys: str) -> str | None:
             if value := _nonempty(entry.get(key)):
                 return value
     return None
+
+
+def _record_string(item: JsonObject, key: str) -> str | None:
+    return _nonempty(item.get(key)) or _nonempty(_mapping(item.get("entry")).get(key))
 
 
 def _mapping(value: object) -> dict[str, Any]:
