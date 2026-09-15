@@ -153,6 +153,40 @@ describe("Architecture topology geometry", () => {
     ).resources.map((item) => item.id)).toContain("identity");
   });
 
+  it("keeps impacted attached Resources inside their inferred subnet", () => {
+    const graph = {
+      snapshot_at: "2026-09-15T00:00:00Z",
+      freshness: "fresh" as const,
+      scope: null,
+      depth: 4,
+      included_link_types: ["contains", "attached_to"],
+      truncated: false,
+      resources: [
+        { id: "subscription", type: "subscription", name: "Subscription", status: "unknown" },
+        { id: "group", type: "resource-group", name: "Group", status: "unknown", parent_id: "subscription" },
+        { id: "vnet", type: "network.vnet", name: "Network", status: "healthy", parent_id: "group" },
+        { id: "subnet", type: "network.subnet", name: "Subnet", status: "healthy", parent_id: "group" },
+        { id: "nic", type: "network.interface", name: "Interface", status: "healthy", parent_id: "group" },
+        { id: "vm", type: "compute.vm", name: "VM", status: "healthy", parent_id: "group" },
+      ],
+      links: [
+        { source: "subscription", target: "group", type: "contains" as const },
+        { source: "vnet", target: "subnet", type: "contains" as const },
+        { source: "nic", target: "subnet", type: "attached_to" as const },
+        { source: "vm", target: "nic", type: "attached_to" as const },
+      ],
+    };
+    const impact = layoutArchitectureImpactPresentation(
+      graph,
+      new Set(["vm", "nic"]),
+    );
+    const byId = new Map(impact.resources.map((resource) => [resource.id, resource]));
+
+    expect(byId.get("vm")?.network_plane_id).toBe("subnet");
+    expect(byId.get("nic")?.network_plane_id).toBe("subnet");
+    expect(byId.get("vm")?.x).toBeGreaterThan(byId.get("subnet")?.x ?? 0);
+  });
+
   it("packs every revealed auxiliary Resource without card collisions", () => {
     const auxiliaries = Array.from({ length: 12 }, (_, index) => ({
       id: `identity-${index}`,

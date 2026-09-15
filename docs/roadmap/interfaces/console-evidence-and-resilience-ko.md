@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 84e36d8fd0bc5fc14fec1b5730dd868f8acbaec6
+translation_source_sha: cdf4d379e6ae646aeca9499ce498370b9a27f3f2
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -673,6 +673,8 @@ Landscape에서 다른 범위로 전환하면 새 canvas는 원점에 맞춘 전
 모든 대상 및 도달 Resource 식별자를 비교합니다. 스냅샷이 일치하지 않거나 영향 식별자가 하나라도
 누락되면 영향받는 토폴로지를 축소해 표시하지 않고 지도를 명시적으로 사용할 수 없는 상태로
 표시합니다. 시뮬레이션 결과와 표가 권위 있는 영향 기록으로 유지됩니다.
+영향 표현은 형상을 생성하기 전에 관측된 Subnet 포함 관계를 추론하며, 영향 탐색 결과를 변경하지
+않고 토폴로지 및 Network와 같은 포함 관계 단계를 사용합니다.
 
 Subscription-scoped cached 스냅샷은 즉시 렌더링됩니다. 만료된 또는 change-invalidated 스냅샷은
 background refresh 동안 stale로 표시됩니다. 브라우저는 Operator API가 완료된 refresh를 원자적으로

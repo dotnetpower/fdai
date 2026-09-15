@@ -693,6 +693,8 @@ The Impact scope map requests an unscoped graph projection at the simulation sna
 every target and reached Resource identity before rendering. A snapshot mismatch or any omitted
 impact identity produces an explicit unavailable map instead of understating the affected
 topology. The simulation result and table remain the authoritative impact record.
+Impact presentation infers observed subnet membership before generating geometry, matching the
+Topology and Network containment pass without changing the impact traversal result.
 
 A subscription-scoped cached snapshot renders immediately. Expired or change-invalidated snapshots
 are marked stale while a background refresh runs. The browser polls only until the Operator API

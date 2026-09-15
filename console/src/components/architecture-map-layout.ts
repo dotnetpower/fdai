@@ -51,7 +51,7 @@ export function layoutArchitectureImpactPresentation(
   impactedIds: ReadonlySet<string>,
 ): InventoryGraphResponse {
   const networkLayout = layoutArchitectureNetworkFloors(
-    layoutGeometrylessArchitectureGraph(graph),
+    layoutGeometrylessArchitectureGraph(withArchitectureSubnetMembership(graph)),
   );
   const overview = constrainGraph(architecturePresentationGraph(networkLayout, null));
   const visibleIds = new Set(overview.resources.map((resource) => resource.id));
