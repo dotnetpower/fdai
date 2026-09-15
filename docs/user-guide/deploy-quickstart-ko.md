@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: cec8a8f187bd95201a0226bcb962f446afe65ed1
-translation_revised: 2026-09-15
+translation_source_sha: 82dd6a33669b60df9a6f068558b6842284d28706
+translation_revised: 2026-09-16
 ---
 
 # 배포 빠른 시작
@@ -25,6 +25,9 @@ Terraform은 인프라 단일 기준으로 유지됩니다. 배포 명령은 서
 
 GitHub Actions는 release를 빌드, 테스트, 서명 및 게시하는 데 사용할 수 있습니다. 대상 환경
 배포 경로에는 포함되지 않습니다.
+
+연결된 배포는 정확한 Marketplace Ubuntu 버전으로 Managed Host를 부팅하고 Foundation에서
+고정된 도구 체인을 설치합니다. 전용 호스트 이미지를 먼저 만들 필요가 없습니다.
 
 ## Clone에서 배포
 

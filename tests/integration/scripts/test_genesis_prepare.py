@@ -204,13 +204,15 @@ def test_source_advance_never_registers_or_applies_without_exact_approval(
             assert config.approval is None
             assert config.approval_path is None
             assert isinstance(config.foundation_inputs, source_genesis.SourceFoundationPlanInputs)
+            assert config.create_runner_image is False
+            assert config.runner_image_terraform is None
             coordinators.append(config)
 
         def run(self):
             raise source_genesis.PrivateExecutionWaitError(
-                "runner-image-apply",
-                "runner_image_exact_plan_approval_required",
-                "review_runner_image_plan_and_supply_exact_approval",
+                "foundation-apply",
+                "foundation_exact_plan_approval_required",
+                "review_foundation_plan_and_supply_exact_approval",
             )
 
     monkeypatch.setattr(source_genesis, "PrivateExecutionCoordinator", Coordinator)
@@ -219,12 +221,13 @@ def test_source_advance_never_registers_or_applies_without_exact_approval(
     assert result["deployment_ready"] is False
     assert result["mutation_performed"] is False
     assert len(coordinators) == int(provider_ready)
-    assert result["stage"] == ("runner-image-apply" if provider_ready else "providers")
+    assert result["stage"] == ("foundation-apply" if provider_ready else "providers")
     assert len(calls) == (2 if provider_ready else 1)
     assert source_genesis.advance(args)["attempt"] == 2
 
 
 def _values(**kwargs: object) -> dict[str, object]:
+    create_runner_image = bool(kwargs.get("create_runner_image", True))
     return {
         "tenant_id": TENANT,
         "subscription_id": SUBSCRIPTION,
@@ -242,9 +245,13 @@ def _values(**kwargs: object) -> dict[str, object]:
         "enable_public_egress": True,
         "runner_ssh_public_key": "ssh-ed25519 " + "A" * 68,
         "runner_parallelism": 1,
+        "runner_bootstrap_mode": "offline" if create_runner_image else "online",
+        "runner_marketplace_image_version": "" if create_runner_image else "24.04.202509010",
         "runner_source_image_id": (
             f"/subscriptions/{SUBSCRIPTION}/resourceGroups/rg-example/"
             "providers/Microsoft.Compute/images/pending"
+            if create_runner_image
+            else ""
         ),
         "runner_image_toolchain_digest": "c" * 64,
         "runner_vm_size": "Standard_D4ds_v5",
@@ -350,9 +357,47 @@ def test_network_layout_avoids_existing_azure_and_local_ranges(monkeypatch) -> N
     assert endpoint.subnet_of(ops)
     assert bastion.subnet_of(ops)
     assert not runner.overlaps(endpoint)
+    assert build is not None
+    assert firewall is not None
+    assert firewall_management is not None
     assert not build.overlaps(ops)
     assert firewall.subnet_of(build)
     assert firewall_management.subnet_of(build)
+
+
+def test_connected_network_layout_does_not_require_build_network(monkeypatch) -> None:
+    occupied = [
+        "172.30.0.0/16",
+        "172.27.0.0/16",
+        "172.28.0.0/16",
+        "10.237.0.0/16",
+        "10.238.0.0/16",
+        "192.168.240.0/20",
+    ]
+
+    def capture(arguments: tuple[str, ...], *, cwd: Path) -> str:
+        del cwd
+        if arguments[:3] == ("/usr/bin/az", "network", "vnet"):
+            return json.dumps([{"local": occupied, "peers": []}])
+        if arguments[:4] == ("/usr/sbin/ip", "-j", "-4", "route"):
+            return "[]"
+        raise AssertionError(arguments)
+
+    monkeypatch.setattr(genesis_prepare_inputs, "_capture", capture)
+    monkeypatch.setattr(
+        genesis_prepare_inputs,
+        "_subscription_resource_values",
+        lambda **_kwargs: [],
+    )
+
+    layout = genesis_prepare_inputs.network_layout(
+        ROOT,
+        subscription_id=SUBSCRIPTION,
+        include_build=False,
+    )
+
+    assert str(layout[0]) == "172.29.0.0/16"
+    assert layout[4:] == (None, None, None)
 
 
 def test_foundation_input_discovery_runs_independent_queries_concurrently(monkeypatch) -> None:
@@ -372,8 +417,9 @@ def test_foundation_input_discovery_runs_independent_queries_concurrently(monkey
         barrier.wait(timeout=1)
         return "stateexample"
 
-    def network(_repository_root: Path, *, subscription_id: str):
+    def network(_repository_root: Path, *, subscription_id: str, include_build: bool):
         assert subscription_id == SUBSCRIPTION
+        assert include_build is True
         barrier.wait(timeout=1)
         ops = ipaddress.ip_network("172.29.0.0/16")
         subnets = list(ops.subnets(new_prefix=24))

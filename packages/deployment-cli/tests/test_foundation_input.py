@@ -12,6 +12,10 @@ from fdai_deployment_cli.target import compute_target_binding
 TENANT = "00000000-0000-0000-0000-000000000000"
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000001"
 BINDING = compute_target_binding(tenant_id=TENANT, subscription_id=SUBSCRIPTION)
+MANAGED_IMAGE = (
+    f"/subscriptions/{SUBSCRIPTION}/resourceGroups/example/"
+    "providers/Microsoft.Compute/images/example"
+)
 
 
 def foundation_values() -> dict[str, object]:
@@ -27,10 +31,9 @@ def foundation_values() -> dict[str, object]:
         "runner_subnet_prefix": "10.40.1.0/24",
         "pe_subnet_prefix": "10.40.2.0/24",
         "runner_ssh_public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA==",
-        "runner_source_image_id": (
-            f"/subscriptions/{SUBSCRIPTION}/resourceGroups/example/"
-            "providers/Microsoft.Compute/images/example"
-        ),
+        "runner_source_image_id": MANAGED_IMAGE,
+        "runner_bootstrap_mode": "offline",
+        "runner_marketplace_image_version": "",
         "source_commit": "a" * 40,
         "run_digest": "b" * 64,
         "foundation_context_digest": "c" * 64,
@@ -64,6 +67,22 @@ def test_foundation_input_preserves_explicit_provider_context(tmp_path: Path) ->
     assert json.loads(destination.read_bytes()) == expected
     assert destination.stat().st_mode & 0o777 == 0o600
     assert json.loads(source.read_bytes()) == values
+
+
+def test_legacy_foundation_input_defaults_to_offline_image(tmp_path: Path) -> None:
+    source = tmp_path / "input.json"
+    destination = tmp_path / "snapshot.json"
+    values = foundation_values()
+    values.pop("runner_bootstrap_mode")
+    values.pop("runner_marketplace_image_version")
+    write_values(source, values)
+
+    snapshot(source, destination)
+
+    observed = json.loads(destination.read_bytes())
+    assert observed["runner_bootstrap_mode"] == "offline"
+    assert observed["runner_marketplace_image_version"] == ""
+    assert observed["runner_source_image_id"] == MANAGED_IMAGE
 
 
 @pytest.mark.parametrize(
@@ -106,6 +125,8 @@ def test_foundation_input_preserves_explicit_provider_context(tmp_path: Path) ->
         ("pe_subnet_prefix", "10.40.1.128/25"),
         ("runner_source_image_id", "https://example.com/image"),
         ("runner_source_image_id", "/subscriptions/example/images/latest"),
+        ("runner_bootstrap_mode", "automatic"),
+        ("runner_marketplace_image_version", "latest"),
         ("runner_admin_username", "Invalid User"),
         ("runner_parallelism", 0),
         ("execution_transport", "github-actions"),
@@ -141,6 +162,55 @@ def test_gallery_requires_exact_numeric_version(tmp_path: Path, version: str) ->
     else:
         with pytest.raises(ValueError, match="exact managed image"):
             snapshot(source, tmp_path / "output.json")
+
+
+def test_online_foundation_uses_exact_marketplace_version_without_managed_image(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "input.json"
+    destination = tmp_path / "output.json"
+    values = foundation_values()
+    values.update(
+        runner_bootstrap_mode="online",
+        runner_marketplace_image_version="24.04.202509010",
+        runner_source_image_id="",
+    )
+    write_values(source, values)
+
+    snapshot(source, destination)
+
+    observed = json.loads(destination.read_bytes())
+    assert observed["runner_bootstrap_mode"] == "online"
+    assert observed["runner_marketplace_image_version"] == "24.04.202509010"
+    assert observed["runner_source_image_id"] == ""
+
+
+@pytest.mark.parametrize(
+    ("mode", "image", "version"),
+    [
+        ("online", MANAGED_IMAGE, "24.04.202509010"),
+        ("online", "", "latest"),
+        ("offline", "", ""),
+        ("offline", MANAGED_IMAGE, "24.04.202509010"),
+    ],
+)
+def test_foundation_rejects_mixed_image_sources(
+    tmp_path: Path,
+    mode: str,
+    image: str,
+    version: str,
+) -> None:
+    source = tmp_path / "input.json"
+    values = foundation_values()
+    values.update(
+        runner_bootstrap_mode=mode,
+        runner_source_image_id=image,
+        runner_marketplace_image_version=version,
+    )
+    write_values(source, values)
+
+    with pytest.raises(ValueError):
+        snapshot(source, tmp_path / "output.json")
 
 
 @pytest.mark.parametrize("application_workload", [None, "exampleaks"])

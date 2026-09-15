@@ -55,6 +55,8 @@ _OPTIONAL = frozenset(
         "enable_bastion",
         "bastion_subnet_prefix",
         "execution_transport",
+        "runner_bootstrap_mode",
+        "runner_marketplace_image_version",
         *_OPTIONAL_STRINGS,
         *_RUNNER_IMAGE_NETWORKS,
     }
@@ -114,8 +116,19 @@ def snapshot_foundation_input(
         ):
             raise ValueError(f"foundation plan {name} is invalid")
     image = values["runner_source_image_id"]
-    if not isinstance(image, str) or _IMAGE.fullmatch(image) is None:
-        raise ValueError("foundation plan requires an exact managed image or gallery version")
+    marketplace_version = values.get("runner_marketplace_image_version", "")
+    mode = values.get("runner_bootstrap_mode", "offline")
+    if mode not in {"online", "offline"}:
+        raise ValueError("foundation plan runner bootstrap mode is invalid")
+    if mode == "online":
+        if (
+            image != ""
+            or not isinstance(marketplace_version, str)
+            or re.fullmatch(r"[0-9]+(?:\.[0-9]+)+", marketplace_version) is None
+        ):
+            raise ValueError("online foundation requires an exact Marketplace image version")
+    elif not isinstance(image, str) or _IMAGE.fullmatch(image) is None or marketplace_version != "":
+        raise ValueError("offline foundation requires an exact managed image or gallery version")
     _validate_networks(values)
     _validate_runner_image_networks(values)
     if values.get("operations_public_ip_tags", {}) not in (
@@ -147,6 +160,8 @@ def snapshot_foundation_input(
     if not preserve_runner_image_networks:
         excluded.update(_RUNNER_IMAGE_NETWORKS)
     terraform_values = {key: value for key, value in values.items() if key not in excluded}
+    terraform_values.setdefault("runner_bootstrap_mode", "offline")
+    terraform_values.setdefault("runner_marketplace_image_version", "")
     terraform_values["env"] = expected_environment
     write_plan_input(destination, terraform_values)
     return PlanInputContext(subscription_id=subscription, tenant_id=tenant)

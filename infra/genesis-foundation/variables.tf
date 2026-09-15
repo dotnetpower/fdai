@@ -219,9 +219,43 @@ variable "runner_parallelism" {
 }
 
 variable "runner_source_image_id" {
-  description = "Exact prebuilt managed-image or numeric gallery image-version ARM ID. Image trust, availability, installed tools, and ephemeral ResourceDisk compatibility must be verified before approval; bootstrap rejects latest and unversioned galleries."
+  description = "Exact prebuilt managed-image or numeric gallery image-version ARM ID for offline bootstrap. Leave empty in online Marketplace mode."
   type        = string
+  default     = ""
   nullable    = false
+
+  validation {
+    condition     = var.runner_bootstrap_mode == "offline" ? var.runner_source_image_id != "" : var.runner_source_image_id == ""
+    error_message = "runner_source_image_id is required in offline mode and must be empty in online mode."
+  }
+}
+
+variable "runner_bootstrap_mode" {
+  description = "Managed-host bootstrap source. Online uses an exact Marketplace Ubuntu version and checksum-pinned bootstrap; offline uses a prebuilt image."
+  type        = string
+  default     = "offline"
+  nullable    = false
+
+  validation {
+    condition     = contains(["online", "offline"], var.runner_bootstrap_mode)
+    error_message = "runner_bootstrap_mode must be online or offline."
+  }
+}
+
+variable "runner_marketplace_image_version" {
+  description = "Exact Canonical Ubuntu 24.04 server image version used in online bootstrap. Leave empty in offline mode."
+  type        = string
+  default     = ""
+  nullable    = false
+
+  validation {
+    condition = (
+      var.runner_bootstrap_mode == "online"
+      ? can(regex("^([0-9]+\\.)+[0-9]+$", var.runner_marketplace_image_version))
+      : var.runner_marketplace_image_version == ""
+    )
+    error_message = "runner_marketplace_image_version must be exact in online mode and empty in offline mode."
+  }
 }
 
 variable "runner_image_toolchain_digest" {
