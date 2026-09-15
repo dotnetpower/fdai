@@ -90,5 +90,5 @@ export function LiveDetailShell({
   );
   return typeof document === "undefined"
     ? null
-    : createPortal(dialog, document.body);
+    : createPortal(dialog, document.fullscreenElement ?? document.body);
 }
