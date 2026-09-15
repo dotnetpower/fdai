@@ -1,7 +1,7 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: c48f342debd8cff7d812e480b4e00de66000fcb2
-translation_revised: 2026-09-14
+translation_source_sha: 066c208da9205eb8ed567f7321450e9604de003b
+translation_revised: 2026-09-15
 ---
 
 # 문서 인제스트 에이전트 소유권
@@ -82,6 +82,10 @@ Saga가 이 판정을 봉인하고 Var가 문서 승인 티켓을 만듭니다. 
 입증하는 것은 아닙니다. 자동 복구와 독립적인 결과 확인은
 [클라우드 수명 주기 구현 원장](../../roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md)에
 남은 작업으로 기록되어 있습니다.
+
+개발 중인 [구조화 검색 확장](cloud-resource-knowledge-structured-rag-ko.md)도 같은 담당 체계를
+유지합니다. 블록, 인용문, 형식 선택이나 서명은 Forseti의 반입 판단, Saga가 감사한 Var의
+독립적인 사람 승인 또는 Muninn의 색인 명령을 대신할 수 없습니다.
 
 ## 지속성 있는 워커 소유권
 

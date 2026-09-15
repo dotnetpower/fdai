@@ -37,13 +37,13 @@ navigation while physical subsystems and direct imports remain stable. The 98 fo
 pin domain membership, single ownership, dual-role packages, direct-import compatibility, and peer
 isolation. `verticals` remains its own top-level group. A future physical move is not required and
 would need a separate, domain-bounded design that explicitly preserves coverage and fan-out meaning.
-
 ## Module Boundaries
 [Alert noise governance](../operations/alert-noise-governance.md) owns typed evidence, Process and conditional manual PRs. Dedicated Operator composition binds request dependencies and one supervised bridge; the shared root owns lifecycle only. Role-local framework mixins preserve agent APIs and instance isolation. Shared admission inventory pins decision guards. The existing guarded generator re-evaluates release-derived source pins without rewriting operational receipts; source tests and generated knowledge grant no authority.
 Forecast scoring exclusions are public string enums exported by the model facade; their JSON values and legacy outcome wire shape remain unchanged. Context projection modules belong to the Core wheel, Operator context-command tests have an explicit service-suite owner, and database-only tests run in the integration selection. Evidence admission is evaluated after type validation, with exact non-mutating replay distinguished from a newly admitted write. Catalog source commitments are refreshed after owner-document reflow even when record payloads are unchanged.
 Dependency direction is strict and one-way; a violation is a review blocker. [AKS token exchange](../deployment/runtime-deployment-profiles.md#identity-and-secrets) and declared SDK/async transport dependencies remain service-owned, never Core domain or shared-contract code. Operator's credential tests have one explicit service-suite owner, and its factory uses the existing adapters facade to preserve composition fanout. Inert Trial records in `core/licensing/trial.py` grant no capability; deployment/persistence owns atomic activation, and runtime must authenticate retained state. Source provenance belongs to the CLI and is neither entitlement nor release signature.
-Cloud-reference collection belongs to ingestion API, parsing/index activation to the worker, and dated evidence to Core; [the lifecycle owner](../interfaces/cloud-resource-knowledge-lifecycle.md) defines the shared contracts and no-authority boundary. Core exposes applicability as bounded scalar selectors, preserving dependency-only evidence objects. Exact document contexts intersect these selectors before ranking and cannot fall back to broader collection reads. Each new ingestion test has one service-suite owner, and the API's already-declared `aiohttp` dependency is classified as direct rather than indirect. New cloud-reference packages use normalized-only v2 records; collector originals stay API-owned, while package/worker readers preserve exact v1 identity and unchanged approval gates.
+Cloud-reference collection belongs to ingestion API, parsing/index activation to the worker, and dated evidence to Core; [the lifecycle owner](../interfaces/cloud-resource-knowledge-lifecycle.md) defines the shared contracts and no-authority boundary. Core exposes applicability as bounded scalar selectors, preserving dependency-only evidence objects. Exact document contexts intersect these selectors before ranking and cannot fall back to broader collection reads. Each new ingestion test has one service-suite owner, and the API's already-declared `aiohttp` dependency is classified as direct rather than indirect. New packages default to normalized-only v2; the implemented [structured v3 extension](../interfaces/cloud-resource-knowledge-structured-rag.md) keeps normalizer `2.0.0` by default and requires reader `3.1.0` for explicit `2.1.0` preparation. Ingestion-owned review contracts, confined I/O, coordination and resource-limited parsing/measurement remain separate modules. Originals stay outside new transport; exact legacy identity, source clocks and approval gates remain unchanged.
 
+Cloud update comparison validates raw and processing identities; Core rechecks provenance and the existing excerpt budget. Document-query schema upgrades also require the exact catalog-owned prompt layer, never capability presence alone. The frame-model schema excludes accepted-judgment-only query state while internal validation preserves it; recovery budgets do not increase. Post-merge System Knowledge metadata binds the now-reachable protected base without changing record payloads or cloud source-check times.
 - **core is portable**: it MUST NOT import any cloud SDK directly. Cloud specifics enter
   only through the CSP-neutral interfaces in `shared/providers/`, whose implementations live
   in `delivery/` and `infra/` and are injected at composition time. This keeps a second cloud
@@ -85,8 +85,13 @@ Cloud-reference collection belongs to ingestion API, parsing/index activation to
 - **executed-action observation authentication stays in delivery**:
   `delivery/azure/observation_context.py` signs the exact observation digest and four identity
   lineages with a deployment-owned Ed25519 key. `runtime/observation_evidence.py` binds its verifier
-  and Azure collector only for one complete deployed configuration, while Core receives the seed
-  through a Managed Identity-backed Key Vault reference. The separate
+  and ActionType-routed Azure collectors only for one complete deployed configuration. The
+  protected service handoff attaches the inventory-reader Managed Identity to Core only as the
+  observation source, binds scale-out to the FinOps execution lineage and VM start to the
+  Resilience execution lineage, and removes that exact extra identity when observation is
+  disabled. The source builder stays in `runtime/observation_evidence.py`, leaving
+  `runtime/bootstrap_core.py` as composition-only code. Core receives the seed through a Managed
+  Identity-backed Key Vault reference. The separate
   `fdai-operational-instance-certification` reads generation-fenced PostgreSQL aggregates and writes
   one private Blob receipt through a non-executor identity; all authority fields stay false.
 - **standing-authorization lifecycle has one writer**: authenticated Operator commands enter through

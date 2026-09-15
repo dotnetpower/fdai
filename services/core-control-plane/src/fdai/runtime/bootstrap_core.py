@@ -467,6 +467,7 @@ async def build_core_runtime(
         container,
         state_store=state_store,
         environ=environment,
+        http_client=resources.http_client,
     )
     container = bind_live_blast_probe_failure_streak(
         container,
@@ -716,6 +717,7 @@ async def build_core_runtime(
             build_mutation_dependency_readiness=_build_mutation_dependency_readiness,
             semantic_router_config_from_env=_semantic_router_config_from_env,
             assignment_workflow=(assignment_transport.workflow if assignment_transport else None),
+            effect_request_sink=effect_request_binding.producer if effect_request_binding else None,
         )
     )
     human_access_reconciliation = bind_assignment_reconciliation(

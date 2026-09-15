@@ -60,9 +60,25 @@ class ObservationCoverage(StrEnum):
 class ObservationThrottledError(RuntimeError):
     """Signal that a provider exhausted its bounded throttling budget."""
 
+    def __init__(self, message: str, *, retry_not_before: datetime | None = None) -> None:
+        super().__init__(message)
+        if retry_not_before is not None and (
+            not isinstance(retry_not_before, datetime) or retry_not_before.tzinfo is None
+        ):
+            raise ObservationProbeContractError("provider retry_not_before MUST include a timezone")
+        self._retry_not_before = retry_not_before
+
+    @property
+    def retry_not_before(self) -> datetime | None:
+        return self._retry_not_before
+
 
 class ObservationProbeContractError(RuntimeError):
     """Signal that a probe returned metadata outside its registered limits."""
+
+    def __init__(self, message: str, *, retry_not_before: datetime | None = None) -> None:
+        super().__init__(message)
+        self.retry_not_before = retry_not_before
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +122,7 @@ class ObservationProbeResult:
     evidence_count: int = 0
     cursor: str | None = None
     reason_codes: tuple[str, ...] = ()
+    retry_not_before: datetime | None = None
 
     def __post_init__(self) -> None:
         if not 0 <= self.evidence_count <= 1_000_000:
@@ -118,6 +135,14 @@ class ObservationProbeResult:
             raise ValueError("observation reason codes MUST be bounded non-empty text")
         if self.coverage is not ObservationCoverage.READY and not self.reason_codes:
             raise ValueError("non-ready observation results MUST include a reason code")
+        if self.retry_not_before is not None:
+            if (
+                not isinstance(self.retry_not_before, datetime)
+                or self.retry_not_before.tzinfo is None
+            ):
+                raise ValueError("observation retry_not_before MUST be a timezone-aware timestamp")
+            if self.coverage is ObservationCoverage.READY:
+                raise ValueError("ready observations MUST NOT carry a retry deadline")
 
 
 class ObservationProbe(Protocol):
@@ -257,6 +282,8 @@ class ObservationCampaignRunner:
             terminal["cursor"] = result.cursor
         elif cursor is not None:
             terminal["cursor"] = cursor
+        if result.retry_not_before is not None:
+            terminal["retry_not_before"] = result.retry_not_before.astimezone(UTC).isoformat()
         if result.coverage is ObservationCoverage.READY:
             terminal["last_success_at"] = completed_at.isoformat()
         elif "last_success_at" in previous:
@@ -332,10 +359,17 @@ class ObservationCampaignRunner:
             now = self._clock()
             if _active_claim(previous, now=now):
                 return _in_progress(spec)
-            if not _due(previous, now=now, interval_seconds=spec.interval_seconds):
+            try:
+                due = _due(previous, now=now, interval_seconds=spec.interval_seconds)
+            except ObservationProbeContractError:
+                return _state_conflict(spec, reason="state_retry_invalid")
+            if not due:
                 skipped = _skipped(spec, previous)
                 if skipped is not None:
                     return skipped
+                retry_at = _timestamp(previous.get("retry_not_before"))
+                if retry_at is not None and now < retry_at:
+                    return _state_conflict(spec, reason="state_schedule_invalid")
             prior_revision = _revision(previous)
             claim_revision = prior_revision + 1
             claim = {
@@ -415,19 +449,21 @@ class ObservationCampaignRunner:
                 ),
                 False,
             )
-        except ObservationThrottledError:
+        except ObservationThrottledError as exc:
             return (
                 ObservationProbeResult(
                     coverage=ObservationCoverage.PARTIAL,
                     reason_codes=("source_throttled",),
+                    retry_not_before=exc.retry_not_before,
                 ),
                 False,
             )
-        except ObservationProbeContractError:
+        except ObservationProbeContractError as exc:
             return (
                 ObservationProbeResult(
                     coverage=ObservationCoverage.UNREACHABLE,
                     reason_codes=("provider_contract_violation",),
+                    retry_not_before=exc.retry_not_before,
                 ),
                 True,
             )
@@ -519,6 +555,13 @@ def _activity_state(
 
 
 def _due(state: Mapping[str, object], *, now: datetime, interval_seconds: int) -> bool:
+    retry_value = state.get("retry_not_before")
+    if retry_value is not None:
+        retry_at = _timestamp(retry_value)
+        if retry_at is None:
+            raise ObservationProbeContractError("persisted retry_not_before is malformed")
+        if now < retry_at:
+            return False
     reason_codes = state.get("reason_codes")
     if isinstance(reason_codes, list) and "source_catchup" in reason_codes:
         return True
@@ -629,7 +672,9 @@ def _in_progress(spec: ObservationSourceSpec) -> ObservationSourceRun:
     )
 
 
-def _state_conflict(spec: ObservationSourceSpec) -> ObservationSourceRun:
+def _state_conflict(
+    spec: ObservationSourceSpec, *, reason: str = "state_write_conflict"
+) -> ObservationSourceRun:
     return ObservationSourceRun(
         source_id=spec.source_id,
         domain=spec.domain,
@@ -639,7 +684,7 @@ def _state_conflict(spec: ObservationSourceSpec) -> ObservationSourceRun:
         freshness=OperationalFreshness.UNAVAILABLE,
         evidence_count=0,
         duration_ms=0,
-        reason_codes=("state_write_conflict",),
+        reason_codes=(reason,),
     )
 
 
@@ -667,7 +712,9 @@ def _audit_transition(
 
 def _retained_state(state: Mapping[str, object]) -> dict[str, object]:
     return {
-        key: value for key in ("cursor", "last_success_at") if (value := state.get(key)) is not None
+        key: value
+        for key in ("cursor", "last_success_at", "retry_not_before")
+        if (value := state.get(key)) is not None
     }
 
 

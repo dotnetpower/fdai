@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import stat
 import subprocess
 import sys
@@ -808,11 +809,24 @@ def _terraform_environment(
         raise ValueError("runner image tool directory is not private")
     azure_cli = _trusted_azure_cli()
     launcher = tools / "az"
+    launcher_payload = f'#!/bin/sh\nexec {shlex.quote(str(azure_cli))} "$@"\n'.encode()
     if launcher.exists() or launcher.is_symlink():
-        if not launcher.is_symlink() or launcher.resolve(strict=True) != azure_cli:
+        launcher_details = launcher.lstat()
+        if (
+            not stat.S_ISREG(launcher_details.st_mode)
+            or launcher_details.st_uid != os.geteuid()
+            or launcher_details.st_mode & 0o777 != 0o700
+            or launcher.read_bytes() != launcher_payload
+        ):
             raise ValueError("runner image Azure CLI binding changed")
     else:
-        launcher.symlink_to(azure_cli)
+        descriptor = os.open(
+            launcher,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+            0o700,
+        )
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(launcher_payload)
     environment = {
         "AZURE_CONFIG_DIR": str(azure_config),
         "HOME": str(terraform_home),

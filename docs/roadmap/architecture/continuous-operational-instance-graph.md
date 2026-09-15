@@ -38,6 +38,9 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
 - **Observed truth:** Only authenticated provider observations can enter the `observed` state lane.
   Questions, model output, intended state, dispatch receipts, and executor results cannot create an
   observed fact.
+  The developing [structured cloud-document path](../interfaces/cloud-resource-knowledge-structured-rag.md)
+  supplies dated reference excerpts only. Source-check times and query digests cannot refresh
+  Resource state or prove graph completeness.
 - **Deployment evidence:** Protected platform plan metadata is built by a focused repository
   module. Workflow YAML passes sealed inputs to it; neither the plan nor its receipt can establish
   an observed graph fact. Every status-overriding service-deployment run or action step executes
@@ -82,7 +85,7 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
 The collector uses the cheapest authoritative signal that can preserve the required freshness:
 
 1. Push resource create, update, and delete events into the canonical event stream.
-2. Drain resumable provider deltas from a durable cursor while lag or an incomplete overlay exists.
+2. Drain resumable provider deltas from a validated durable text cursor under one finite positive end-to-end deadline, including cursor reads and final writes, while lag or an incomplete overlay exists; malformed stored cursors block recovery rather than resetting the lookback.
 3. Run bounded reconciliation to detect missed events, repair relationships, and prove scope completeness.
 4. Run exact live reads only when inventory lacks an evidence family or a verified query needs fresher evidence.
 
@@ -97,6 +100,7 @@ their incomplete relationship set. Nested subnet records retain the observed VNe
 an exact child cannot fall back to a Resource Group parent between reconciliations.
 One support boundary owns Resource Changes cursor, retry, ingestion-fence, and publication
 semantics; the provider feed module re-exports that behavior instead of maintaining a second loop.
+Malformed Activity Log continuation metadata cannot close a page stream or advance its durable cursor. Azure Cognitive Services deployment writes/deletes reported only against a parent account are non-projectable change signals: request complete reconciliation without inventing the absent child or blocking unrelated valid rows; other identity contradictions remain errors.
 
 A collected property becomes a relationship only through a reviewed provider mapping. If that
 mapping omits an observed connection target, an absent graph edge never proves an absent path.

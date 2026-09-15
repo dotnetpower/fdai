@@ -140,14 +140,72 @@ async def test_database_release_high_water_is_monotonic_and_retry_exact(database
 
 
 @pytest.mark.parametrize("tamper", ["none", "text", "provenance", "after_readback"])
+@pytest.mark.parametrize("representation", ["legacy", "structured"])
 async def test_cloud_generation_activation_is_atomic_and_lexical_has_no_model_call(
     database: str,
     tamper: str,
+    representation: str,
 ) -> None:
     fixture = _module(
         ROOT / "services/document-processing-worker/tests/test_cloud_knowledge_extraction.py"
     )
     release, original_version = fixture.release_version()
+    if representation == "structured":
+        from fdai_service_contracts.cloud_knowledge import content_digest
+        from fdai_service_contracts.cloud_knowledge_release import (
+            KnowledgeStructuredReleaseManifest,
+        )
+        from fdai_service_contracts.cloud_knowledge_structure import (
+            CloudArticleBlock,
+            CloudStructuredDocument,
+            excerpt_digest,
+        )
+
+        paragraphs = ("Premium only.", "Premium v2 uses other requirements.")
+        text = "\n\n".join(paragraphs)
+        evidence = release.documents[0].evidence.model_copy(
+            update={"normalized_sha256": content_digest(text.encode())}
+        )
+        document = CloudStructuredDocument(
+            evidence=evidence,
+            title="APIM",
+            text=text,
+            derived_at=release.package_created_at,
+            blocks=(
+                CloudArticleBlock(
+                    block_id="networking",
+                    kind="paragraph",
+                    start=0,
+                    end=len(paragraphs[0]),
+                    heading_path=("Networking",),
+                ),
+                CloudArticleBlock(
+                    block_id="exception",
+                    kind="paragraph",
+                    start=len(paragraphs[0]) + 2,
+                    end=len(text),
+                    heading_path=("Exception",),
+                ),
+            ),
+        )
+        release = KnowledgeStructuredReleaseManifest.model_validate(
+            release.model_dump(exclude={"schema_version", "reader_version", "documents"})
+            | {"documents": (document,), "excerpt_digests": (excerpt_digest(document),)}
+        )
+        binding = original_version.cloud_knowledge.model_copy(
+            update={
+                "manifest_digest": release.digest,
+                "sources": (evidence,),
+                "processing_digests": (document.processing_digest,),
+            }
+        )
+        original_version = original_version.model_copy(
+            update={
+                "cloud_knowledge": binding,
+                "source_sha256": release.digest,
+                "size_bytes": len(canonical_bytes(release)),
+            }
+        )
     from fdai_document_worker_service.adapters.cloud_knowledge import cloud_reference_units
     from fdai_service_contracts import DocumentEnvelope
 

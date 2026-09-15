@@ -62,7 +62,10 @@ class CloudKnowledgeScheduler:
                         counters["status"] = "registry_expired"
                         break
                     checkpoint = await self._store.get(self.registry.digest, source.source_id)
-                    if not source_due(source, checkpoint.state, now):
+                    network_due = source_due(source, checkpoint.state, now)
+                    if not network_due and not self._collector.processing_due(
+                        source, checkpoint.state, now
+                    ):
                         continue
                     claim = await self._store.claim(
                         self.registry.digest,
@@ -80,7 +83,8 @@ class CloudKnowledgeScheduler:
                             claim,
                             state,
                         )
-                    counters["checked"] = int(counters["checked"]) + 1
+                    counter = "checked" if network_due else "reprocessed"
+                    counters[counter] = int(counters.get(counter, 0)) + 1
                     if state.last_attempt and state.last_attempt.outcome in {
                         "failed",
                         "withdrawal_pending",

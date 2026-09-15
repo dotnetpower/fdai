@@ -90,3 +90,16 @@ test("Evidence recovery states remain explicit and read-only", () => {
     assert.doesNotMatch(html, /<(?:button|a)[^>]*>\s*(?:Approve|Execute|Delete|Remediate)\s*</i);
   });
 });
+
+test("RCA and Assurance Twin use the shared neutral Evidence presentation", () => {
+  const assuranceTwin = readFileSync(join(uiRoot, "assurance-twin.html"), "utf8");
+  const rca = readFileSync(join(uiRoot, "rca.html"), "utf8");
+
+  assert.match(assuranceTwin, /assets\/governance-evidence-workspace\.css\?v=9/);
+  assert.match(assuranceTwin, /class="cs-governance-evidence"/);
+  assert.match(rca, /class="rc-header-meta"/);
+  assert.match(rca, /Evidence mode/);
+  assert.doesNotMatch(rca, /conic-gradient/);
+  assert.doesNotMatch(rca, /rc-confidence-ring::before/);
+  assert.doesNotMatch(rca, /style="color:var\(--cs-sage\)"/);
+});

@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType
-from typing import Any, NoReturn, cast
+from typing import Any, Literal, NoReturn, cast
 from unittest.mock import AsyncMock, Mock
 from uuid import UUID
 
@@ -325,10 +325,38 @@ async def test_unauthorized_replacement_cannot_reserve(intake: _Case) -> None:
 
 
 @pytest.mark.parametrize("count", [1, 2])
+@pytest.mark.parametrize("normalizer", [None, "2.0.0", "2.1.0"])
 async def test_stage_collected_requires_full_scope_without_fake_signature(
-    intake: _Case, count: int
+    intake: _Case, count: int, normalizer: Literal["2.0.0", "2.1.0"] | None
 ) -> None:
     _seed_sources(intake, count)
+    structured = normalizer is not None
+    if structured:
+        from fdai_service_contracts.cloud_knowledge_structure import (
+            CloudArticleBlock,
+            CloudStructuredDocument,
+        )
+
+        intake.service._structured = True
+        for key, checkpoint in tuple(intake.store.checkpoints.items()):
+            document = checkpoint.state.document
+            assert document is not None
+            derived = CloudStructuredDocument(
+                normalizer_version=normalizer or "2.0.0",
+                evidence=document.evidence,
+                title=document.title,
+                text=document.text,
+                derived_at=NOW,
+                blocks=(
+                    CloudArticleBlock(
+                        block_id="body", kind="paragraph", start=0, end=len(document.text)
+                    ),
+                ),
+            )
+            intake.store.checkpoints[key] = SourceCheckpoint(
+                checkpoint.revision,
+                checkpoint.state.model_copy(update={"structured_document": derived}),
+            )
     if count == 1:
         with pytest.raises(ValueError, match="complete successful source coverage"):
             await intake.service.stage_collected(
@@ -346,11 +374,86 @@ async def test_stage_collected_requires_full_scope_without_fake_signature(
     assert session.state is DocumentState.RECEIVED
     content = intake.objects.content[session.object_key]
     assert b'"original_text"' not in content and b"Original reference:" not in content
-    assert json.loads(content)["schema_version"] == "fdai.cloud-knowledge.v2"
+    assert json.loads(content)["schema_version"] == (
+        "fdai.cloud-knowledge.v3" if structured else "fdai.cloud-knowledge.v2"
+    )
+    assert all(not version.active for version in intake.metadata.versions.values())
+    if structured:
+        assert json.loads(content)["reader_version"] == (
+            "3.1.0" if normalizer == "2.1.0" else "3.0.0"
+        )
+        assert len(binding.processing_digests) == 2
+        received = intake.metadata.versions[(session.document_id, session.version_id)]
+        retained = await _seed_retained_fixture(intake, version=received)
+        rollback = await intake.service.rollback(
+            collection_id=COLLECTION,
+            version_id=retained.version_id,
+            actor_id="actor-a",
+            actor_groups=frozenset({"role:Owner"}),
+        )
+        rolled = release.KnowledgeReleaseBinding.model_validate(rollback["release"])
+        assert rolled.sequence > binding.sequence
+        assert rolled.sources == binding.sources
+        assert rolled.processing_digests == binding.processing_digests
+        assert rolled.admission_expires_at == binding.admission_expires_at
+        rollback_session = UploadSession.model_validate(rollback["session"])
+        assert rollback_session.state is DocumentState.RECEIVED
+        original_manifest = release.KnowledgeStructuredReleaseManifest.model_validate_json(content)
+        rollback_manifest = release.KnowledgeStructuredReleaseManifest.model_validate_json(
+            intake.objects.content[rollback_session.object_key]
+        )
+        assert rollback_manifest.reader_version == original_manifest.reader_version
+        assert rollback_manifest.documents == original_manifest.documents
+        assert rollback_manifest.excerpt_digests == original_manifest.excerpt_digests
     assert all(
         checkpoint.state.document.original_text for checkpoint in intake.store.checkpoints.values()
     )
-    assert all(not version.active for version in intake.metadata.versions.values())
+
+
+@pytest.mark.parametrize(
+    "output_format,normalizer,valid",
+    [
+        (None, None, True),
+        ("v3", None, True),
+        ("v3", "2.0.0", True),
+        ("v3", "2.1.0", True),
+        (None, "2.1.0", False),
+        ("v2", "2.1.0", False),
+        ("v3", "2.2.0", False),
+        ("v3", "", False),
+    ],
+)
+def test_composition_requires_an_explicit_compatible_normalizer(
+    intake: _Case,
+    monkeypatch: pytest.MonkeyPatch,
+    output_format: str | None,
+    normalizer: str | None,
+    valid: bool,
+) -> None:
+    from fdai_ingestion_api_service.cloud_knowledge import composition
+
+    monkeypatch.setattr(
+        composition,
+        "policy_reader",
+        lambda env: lambda: (intake.service.registry, intake.service.trust),
+    )
+    env = {
+        "FDAI_CLOUD_KNOWLEDGE_REGISTRY_PATH": "synthetic-registry",
+        "FDAI_CLOUD_KNOWLEDGE_TRUST_PATH": "synthetic-trust",
+        "FDAI_DOCUMENT_COLLECTIONS": COLLECTION,
+        "FDAI_RBAC_READERS_GROUP_ID": "synthetic-readers",
+    }
+    if output_format is not None:
+        env["FDAI_CLOUD_KNOWLEDGE_FORMAT"] = output_format
+    if normalizer is not None:
+        env["FDAI_CLOUD_KNOWLEDGE_NORMALIZER_VERSION"] = normalizer
+    if not valid:
+        with pytest.raises(ValueError):
+            composition.bind_cloud_knowledge(env, ingestion=intake.ingestion, dsn="synthetic-dsn")
+        return
+    bound = composition.bind_cloud_knowledge(env, ingestion=intake.ingestion, dsn="synthetic-dsn")
+    assert bound is not None and bound._structured is (output_format == "v3")
+    assert bound._scheduler._collector._normalizer == (normalizer or "2.0.0")
 
 
 async def test_status_keeps_active_dates_when_newer_version_is_pending(intake: _Case) -> None:

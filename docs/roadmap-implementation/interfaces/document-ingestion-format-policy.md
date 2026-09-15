@@ -9,6 +9,7 @@ resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Versioned cloud-reference preparation | implemented | [Structured source ledger](cloud-resource-knowledge-structured-rag.md#retained-source-follow-up-evidence); 392 focused cases | Normalizer `2.1.0` requires reader `3.1.0`, retains supported structure and keeps unresolved media/context held. Local review is neither OCR approval nor answer qualification. |
 | Shared intake classification | implemented | `fdai_service_contracts/document_formats.py`; format-contract tests | Stable format ids, extensions, and media-type hints are shared across services; hints grant no trust. |
 | Native and OCR extraction | implemented | `local_ocr.py`; parser-parity, PDF-isolation, and local Korean OCR tests; OCR-enabled worker image smoke | Text, PDF, OOXML, and process-isolated Korean and English OCR paths retain bounded extraction and typed failures. |
 | Capability-driven Console guidance | implemented | document ingestion route and focused Console tests | Picker filters and labels follow server capabilities; server validation remains authoritative. |
@@ -20,6 +21,7 @@ resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Documented the implemented original-free v3 path and explicit retained-source normalizer/reader upgrade, preserving legacy extraction and complete-generation holds. | `current change`; [Issue #1061](https://github.com/dotnetpower/fdai/issues/1061), [normalization tests](../../../services/document-ingestion-api/tests/test_cloud_knowledge_structured_normalization.py), and [follow-up evidence](cloud-resource-knowledge-structured-rag.md#retained-source-follow-up-evidence). | Protected follow-up delivery and independently reviewed source/model/runtime receipts remain outside format support. |
 | 2026-09-05 | implemented | Split the governed format policy from the legacy ingestion owner without changing runtime behavior. | `current change`; focused Python document and deployment checks passed 206 cases; focused Console tests passed 8 cases; Console typecheck passed. | Retain governed runtime evidence for OCR-enabled image intake and warning states. |
 | 2026-09-04 | implemented | Added local Korean OCR, revisioned provider controls, durable protected-plan requests, exact outbox-to-workflow binding, Terraform-owned private Document Intelligence, and explicit retain/provision/deprovision actions. | `current change`; 195 focused Python tests, 2327 Console tests, 11 Terraform tests, Console production build, and containerized Korean PNG/TIFF/PDF OCR smoke passed. | Retain authenticated deployed plan, apply, projection-readback, and end-to-end document receipts. |
 
