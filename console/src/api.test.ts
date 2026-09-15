@@ -1,15 +1,19 @@
 import { describe, expect, test } from "vitest";
 import {
-  decodeAuditPage,
-  decodeAutonomyPayload,
-  decodeDashboardKpi,
-  decodeHilQueuePage,
-  decodeIncidentPage,
-  decodeRcaView,
   isOptionalOperatorApiUnavailable,
   OperatorApiError,
 } from "./api";
 import { decodeHilDecisionReceipt } from "./api-hil-decision";
+import {
+  decodeAutonomyPayload,
+  decodeDashboardKpi,
+} from "./api-insights";
+import {
+  decodeAuditPage,
+  decodeHilQueuePage,
+  decodeIncidentPage,
+  decodeRcaView,
+} from "./api-operations";
 
 describe("Operator API response decoders", () => {
   const metric = { value: 0.1, baseline: 0.2, direction: "lower" } as const;

@@ -16,7 +16,8 @@
  */
 
 import { useEffect, useMemo, useReducer, useState } from "preact/hooks";
-import { sourceForRoute, type OperatorApiClient, type ReadDataSourcesPayload } from "../api";
+import type { OperatorApiClient } from "../api";
+import { sourceForRoute, type ReadDataSourcesPayload } from "../api-data-sources";
 import { PageHeader, StatusPill } from "../components/ui";
 import { loadConfig } from "../config";
 import { usePublishViewContext } from "../deck/context";

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
-import { decodeHilQueuePage, decodeIncidentPage } from "../api";
 import { decodeAgentOperationalActivity } from "../agent-operational-activity";
+import { decodeHilQueuePage, decodeIncidentPage } from "../api-operations";
 import { decodeAutomationBlueprints } from "./automation-blueprints";
 import {
   decodeBackgroundTaskDetail,

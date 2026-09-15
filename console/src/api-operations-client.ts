@@ -1,13 +1,4 @@
-import {
-  decodeAgentOperationalActivityPage,
-  type AgentOperationalActivityPage,
-} from "./agent-operational-activity";
-import {
-  decodeAuditPage,
-  decodeHilQueuePage,
-  decodeIncidentPage,
-  decodeRcaView,
-} from "./api-operations";
+import type { AgentOperationalActivityPage } from "./agent-operational-activity";
 import type { OperatorApiTransport } from "./api-transport";
 import type {
   AuditPage,
@@ -85,14 +76,16 @@ export class OperationsApiClient {
     if (options.window !== undefined) params.set("window", options.window);
     if (options.fromSeq !== undefined) params.set("from_seq", String(options.fromSeq));
     if (options.throughSeq !== undefined) params.set("through_seq", String(options.throughSeq));
-    return decodeAuditPage(await this.#transport.getJson<unknown>("/audit", params));
+    const payload = await this.#transport.getJson<unknown>("/audit", params);
+    const { decodeAuditPage } = await import("./api-operations");
+    return decodeAuditPage(payload);
   }
 
   async listAgentActivity(limit = 200): Promise<AgentOperationalActivityPage> {
     const params = new URLSearchParams({ limit: String(limit) });
-    return decodeAgentOperationalActivityPage(
-      await this.#transport.getJson<unknown>("/agents/activity", params),
-    );
+    const payload = await this.#transport.getJson<unknown>("/agents/activity", params);
+    const { decodeAgentOperationalActivityPage } = await import("./agent-operational-activity");
+    return decodeAgentOperationalActivityPage(payload);
   }
 
   async listIncidents(options: IncidentQuery = {}): Promise<IncidentPage> {
@@ -104,7 +97,9 @@ export class OperationsApiClient {
     if (options.vertical !== undefined) params.set("vertical", options.vertical);
     if (options.severity !== undefined) params.set("severity", options.severity);
     if (options.correlationId !== undefined) params.set("correlation_id", options.correlationId);
-    return decodeIncidentPage(await this.#transport.getJson<unknown>("/incidents", params));
+    const payload = await this.#transport.getJson<unknown>("/incidents", params);
+    const { decodeIncidentPage } = await import("./api-operations");
+    return decodeIncidentPage(payload);
   }
 
   async intervene(
@@ -132,13 +127,17 @@ export class OperationsApiClient {
   async rca(correlationId: string): Promise<RcaView> {
     const params = new URLSearchParams();
     params.set("correlation", correlationId);
-    return decodeRcaView(await this.#transport.getJson<unknown>("/rca", params));
+    const payload = await this.#transport.getJson<unknown>("/rca", params);
+    const { decodeRcaView } = await import("./api-operations");
+    return decodeRcaView(payload);
   }
 
   async listHilQueue(options: { limit?: number; query?: string } = {}): Promise<HilQueuePage> {
     const params = new URLSearchParams();
     if (options.limit !== undefined) params.set("limit", String(options.limit));
     if (options.query !== undefined) params.set("q", options.query);
-    return decodeHilQueuePage(await this.#transport.getJson<unknown>("/hil-queue", params));
+    const payload = await this.#transport.getJson<unknown>("/hil-queue", params);
+    const { decodeHilQueuePage } = await import("./api-operations");
+    return decodeHilQueuePage(payload);
   }
 }

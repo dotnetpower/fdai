@@ -1,8 +1,8 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 0a4c2ed654ae18853974567274e12395b0ebb645
-translation_revised: 2026-09-15
+translation_source_sha: 503493c46ffe2830215514ed2d57ffed00d42ea6
+translation_revised: 2026-09-16
 ---
 # 기록된 리소스 상태
 
@@ -117,6 +117,8 @@ Dashboard는 제한된 크기의 페이지를 읽고 중복 기록이나 변하�
 타입이 지정된 인벤토리 또는 온톨로지 세대 전환만 지금까지 누적한 페이지를 모두 버리고 제한된
 탐색 전체를 다시 시작합니다. 지연된 재시도 2회는 처음 시작한 전체 제한 시간을 함께 사용합니다.
 화면 필터와 로컬 페이지는 수신한 집합에만 적용되며 조회 범위의 권한은 서버가 유지합니다. 공유 Console 해석기는 상태가 `409`이고 코드가 정확히 `inventory_generation_changed` 또는 `ontology_generation_changed`인 `OperatorApiError`만 세대 전환으로 인식하며, 그 밖의 실패는 해당 로드의 최종 실패로 유지합니다.
+이 경로에서 분류된 source-gate `503`은 사용 불가로 표시합니다. 일반 서비스 또는 프록시
+`503`은 화면 오류로 유지하며 변환 결과가 없다는 근거로 취급하지 않습니다.
 
 ## 통합 상태 수집 및 조회
 

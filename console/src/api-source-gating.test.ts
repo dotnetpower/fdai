@@ -148,9 +148,10 @@ describe("read source gating", () => {
       }
   });
 
-  test("coalesces source reads and revalidates a successful manifest after 15 seconds", async () => {
+  test("coalesces source reads and revalidates a successful manifest at its absolute expiry", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-16T00:00:00Z"));
+    const startedAt = Date.parse("2026-09-16T00:00:00Z");
+    vi.setSystemTime(startedAt);
     const first = {
       surface: "read-data-sources",
       sources: [{
@@ -192,11 +193,11 @@ describe("read source gating", () => {
     expect(initial).toEqual(concurrent);
     expect(fetchMock).toHaveBeenCalledOnce();
 
-    await vi.advanceTimersByTimeAsync(14_999);
+    vi.setSystemTime(startedAt + 14_999);
     await expect(client.dataSources()).resolves.toEqual(initial);
     expect(fetchMock).toHaveBeenCalledOnce();
 
-    await vi.advanceTimersByTimeAsync(1);
+    vi.setSystemTime(startedAt + 15_000);
     await expect(client.dataSources()).resolves.toEqual(
       expect.objectContaining({ sources: [expect.objectContaining({ authoritative: true })] }),
     );

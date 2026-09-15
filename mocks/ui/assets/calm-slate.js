@@ -39,6 +39,7 @@
       ["provision.html", "Provisioning", ""],
       ["onboarding.html", "Onboarding", "is-dusty-red"],
       ["detection-coverage.html", "Detection coverage", "is-teal"],
+      ["alert-quality.html", "Alert quality", "is-steel"],
       ["configuration-baselines.html", "Configuration baselines", "is-steel"],
       ["processes.html", "Processes", ""],
       ["workflow-apps.html", "Workflow apps", "is-plum"],
@@ -64,8 +65,7 @@
       ["blast-radius.html", "Impact scope", "is-terracotta"],
       ["promotion.html", "Promotion gates", "is-teal"],
       ["context-selection-comparisons.html", "Context policy comparisons", "is-steel"],
-      ["scope.html", "Scope", "is-navy"],
-      ["observation-affinity.html", "Observation affinity", "is-steel"]
+      ["scope.html", "Scope", "is-navy"]
     ]],
     ["Knowledge", [
       ["knowledge.html", "Knowledge overview", "is-steel"],
@@ -103,6 +103,7 @@
       ["material-glass-laminate.html", "Material C / Structural laminate", "is-teal"],
       ["components.html", "Components", ""],
       ["finops-resource-efficiency.html", "Resource efficiency study", "is-steel"],
+      ["observation-affinity.html", "Observation affinity study", "is-steel"],
       ["typography.html", "Typography", "is-steel"],
       ["deck.html", "Command deck", "is-plum"],
       ["deck-sources.html", "Command deck sources", "is-teal"],

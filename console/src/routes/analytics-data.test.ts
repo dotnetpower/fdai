@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { decodeAutonomyPayload, decodeDashboardKpi, OperatorApiError } from "../api";
+import { OperatorApiError } from "../api";
+import { decodeAutonomyPayload, decodeDashboardKpi } from "../api-insights";
 import {
   autonomyStateForRequest,
   loadAnalyticsData,

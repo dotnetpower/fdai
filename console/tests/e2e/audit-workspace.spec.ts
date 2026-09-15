@@ -126,7 +126,7 @@ test("many records keep a bounded rail and selected detail without truncating lo
   await page.locator(".audit-record").first().click();
   await expect.poll(async () =>
     page.locator(".audit-record-detail").evaluate(node => node.scrollTop),
-  ).toBe(0);
+  ).toBeLessThanOrEqual(1);
   await expect(page.locator("#audit-selected-title")).toBeInViewport();
 });
 

@@ -89,4 +89,43 @@ describe("loadDashboardOverview", () => {
       autonomy: null,
     });
   });
+
+  it("surfaces decoder failures from an optional projection", async () => {
+    const decodeFailure = new OperatorApiError(
+      502,
+      "invalid Operator API response: autonomy measurement is inconsistent",
+    );
+    const client = {
+      dashboardMetrics: vi.fn(async () => KPI),
+      costGovernance: vi.fn(async () => {
+        throw new OperatorApiError(404, "not found");
+      }),
+      panel: vi.fn(async () => {
+        throw new OperatorApiError(404, "not found");
+      }),
+      autonomy: vi.fn(async () => {
+        throw decodeFailure;
+      }),
+    };
+
+    await expect(loadDashboardOverview(client, vi.fn())).rejects.toBe(decodeFailure);
+  });
+
+  it("surfaces an unclassified service unavailable response", async () => {
+    const serviceFailure = new OperatorApiError(503, "upstream service unavailable");
+    const client = {
+      dashboardMetrics: vi.fn(async () => KPI),
+      costGovernance: vi.fn(async () => {
+        throw serviceFailure;
+      }),
+      panel: vi.fn(async () => {
+        throw new OperatorApiError(404, "not found");
+      }),
+      autonomy: vi.fn(async () => {
+        throw new OperatorApiError(404, "not found");
+      }),
+    };
+
+    await expect(loadDashboardOverview(client, vi.fn())).rejects.toBe(serviceFailure);
+  });
 });

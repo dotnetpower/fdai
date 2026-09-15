@@ -383,6 +383,8 @@ that Cost Governance is merely unconfigured.
 The client coalesces concurrent manifest reads and reuses a successful result for at most 15
 seconds. The next source-gated read revalidates expired provenance, so an Operator Service restart
 or configuration recovery cannot pin Cost Governance to an earlier unavailable state.
+Route-owned decoders load only after their owning read begins, so unrelated Audit, agent-activity,
+Insights, and Reporting decoders do not enter the initial Cost Governance Console path.
 
 Install, upgrade, and rollback use a separate protected workflow on the private deployment runner.
 The workflow verifies protected `main`, required CI, the exact release source, the signed image
