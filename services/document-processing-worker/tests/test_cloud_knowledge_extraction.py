@@ -25,8 +25,16 @@ from fdai_service_contracts.cloud_knowledge_release import (
     CloudKnowledgeDocument,
     KnowledgeReleaseBinding,
     KnowledgeReleaseManifest,
+    KnowledgeStructuredReleaseManifest,
     KnowledgeTextReleaseManifest,
     normalized_document,
+)
+from fdai_service_contracts.cloud_knowledge_structure import (
+    CloudArticleBlock,
+    CloudStructuredDocument,
+    StructuredNormalizerVersion,
+    excerpt_digest,
+    structured_excerpts,
 )
 
 NOW = datetime(2026, 9, 14, tzinfo=UTC)
@@ -157,6 +165,53 @@ def test_swapped_payload_or_unsigned_binding_never_extracts() -> None:
     altered = release.model_copy(update={"collection_id": "other"})
     with pytest.raises(ValueError):
         cloud_reference_units(version, canonical_bytes(altered))
+
+
+@pytest.mark.parametrize("normalizer", ["2.0.0", "2.1.0"])
+def test_worker_preserves_both_structured_reader_generations(
+    normalizer: StructuredNormalizerVersion,
+) -> None:
+    legacy, version = release_version()
+    source = legacy.documents[0]
+    doc = CloudStructuredDocument(
+        evidence=source.evidence,
+        title=source.title,
+        text=source.text,
+        normalizer_version=normalizer,
+        derived_at=NOW,
+        blocks=(
+            CloudArticleBlock(block_id="body", kind="paragraph", start=0, end=len(source.text)),
+        ),
+    )
+    manifest = KnowledgeStructuredReleaseManifest.model_validate(
+        legacy.model_dump(exclude={"schema_version", "reader_version", "documents"})
+        | {
+            "reader_version": "3.1.0" if normalizer == "2.1.0" else "3.0.0",
+            "documents": (doc,),
+            "excerpt_digests": (excerpt_digest(doc),),
+        }
+    )
+    assert version.cloud_knowledge is not None
+    binding = version.cloud_knowledge.model_copy(
+        update={"manifest_digest": manifest.digest, "processing_digests": (doc.processing_digest,)}
+    )
+    content = canonical_bytes(manifest)
+    structured_version = version.model_copy(
+        update={
+            "cloud_knowledge": binding,
+            "source_sha256": manifest.digest,
+            "size_bytes": len(content),
+        }
+    )
+    units = cloud_reference_units(structured_version, content)
+    assert tuple(unit.text for unit in units) == tuple(
+        item.text for item in structured_excerpts(doc)
+    )
+    wrong = structured_version.model_copy(
+        update={"cloud_knowledge": binding.model_copy(update={"processing_digests": ("f" * 64,)})}
+    )
+    with pytest.raises(ValueError):
+        cloud_reference_units(wrong, content)
 
 
 @pytest.mark.parametrize("paragraph", ["a" * 9000, "가" * 3000])

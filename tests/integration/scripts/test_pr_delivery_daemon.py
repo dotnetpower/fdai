@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 from scripts.automation import pr_delivery_daemon as daemon
+from scripts.automation import pr_delivery_daemon_runtime as runtime
 from scripts.automation import pr_delivery_daemon_support as support
 
 pytestmark = pytest.mark.no_cover
@@ -63,6 +64,8 @@ class FakeRunner:
         self.head = _A
         self.merge_fails = False
         self.remote_sha: str | None = None
+        self.remote_sha_after_push: str | None = None
+        self.pushes = 0
 
     def __call__(
         self,
@@ -110,9 +113,15 @@ class FakeRunner:
         if args[:3] == ("git", "merge", "--abort"):
             return support.CommandResult(0, "", "")
         if args[:2] == ("git", "push"):
+            self.pushes += 1
             return support.CommandResult(0, "", "")
         if args[:2] == ("git", "ls-remote"):
-            return support.CommandResult(0, f"{self.remote_sha or self.head}\t{args[-1]}\n", "")
+            remote_sha = (
+                self.remote_sha_after_push
+                if self.pushes and self.remote_sha_after_push is not None
+                else self.remote_sha or self.head
+            )
+            return support.CommandResult(0, f"{remote_sha}\t{args[-1]}\n", "")
         if args[:3] == ("git", "merge-base", "--is-ancestor"):
             return support.CommandResult(0, "", "")
         if args[:3] == ("gh", "pr", "view"):
@@ -221,12 +230,13 @@ def test_auto_merge_phase_records_enabled_state_immediately(tmp_path: Path) -> N
     fake = FakeRunner(tmp_path, [])
     coordinator = daemon.DeliveryDaemon(_config(fake), fake)
 
-    coordinator._enable_auto_merge()
+    coordinator._enable_auto_merge(_A)
 
     state = support.read_state(coordinator.paths.state)
     assert state is not None
     assert state["phase"] == "auto_merge_enabled"
     assert state["auto_merge_enabled"] is True
+    assert any(command[-2:] == ("--match-head-commit", _A) for command in fake.commands)
 
 
 def test_daemon_locally_updates_a_behind_branch_and_restores_auto_merge(tmp_path: Path) -> None:
@@ -250,6 +260,143 @@ def test_daemon_locally_updates_a_behind_branch_and_restores_auto_merge(tmp_path
     )
 
 
+@pytest.mark.parametrize("delayed_observations", [1, 2])
+def test_daemon_tolerates_only_bounded_delayed_head_snapshots_after_push(
+    tmp_path: Path,
+    delayed_observations: int,
+) -> None:
+    fake = FakeRunner(
+        tmp_path,
+        [
+            _payload(merge_state="BEHIND"),
+            *[_payload() for _ in range(delayed_observations)],
+            _payload(state="MERGED", head=_B, merge_commit=_C),
+        ],
+    )
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+    coordinator._wait_for_query_slot = lambda: True  # type: ignore[method-assign]
+
+    assert coordinator.run() == 0
+
+    waiting_states = [
+        command
+        for command in fake.commands
+        if command == ("git", "ls-remote", "origin", "refs/heads/feat/example")
+    ]
+    assert len(waiting_states) == delayed_observations + 2
+    state = support.read_state(coordinator.paths.state)
+    assert state is not None
+    assert state["phase"] == "merged"
+    assert state["projection_observations"] == delayed_observations
+    assert state["pr_head_projection_pending"] is False
+
+
+def test_daemon_rejects_a_third_pr_head_after_its_verified_push(tmp_path: Path) -> None:
+    fake = FakeRunner(
+        tmp_path,
+        [_payload(merge_state="BEHIND"), _payload(head=_C)],
+    )
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+    coordinator._wait_for_query_slot = lambda: True  # type: ignore[method-assign]
+
+    with pytest.raises(support.DeliveryError, match="head differs"):
+        coordinator.run()
+
+    assert support.read_state(coordinator.paths.state)["phase"] == "failed"  # type: ignore[index]
+
+
+def test_delayed_head_tolerance_stops_after_two_observations(tmp_path: Path) -> None:
+    fake = FakeRunner(tmp_path, [])
+    fake.head = _B
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+    coordinator.pending_head_projection = runtime._PendingHeadProjection(
+        previous_head=_A,
+        pushed_head=_B,
+        started_at=coordinator.started,
+    )
+    delayed = support.snapshot(_payload())
+
+    assert coordinator._verify_identity(delayed) is False
+    assert coordinator._verify_identity(delayed) is False
+    with pytest.raises(support.DeliveryError, match="did not converge"):
+        coordinator._verify_identity(delayed)
+
+
+def test_delayed_head_tolerance_stops_after_300_seconds(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeRunner(tmp_path, [])
+    fake.head = _B
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+    coordinator.pending_head_projection = runtime._PendingHeadProjection(
+        previous_head=_A,
+        pushed_head=_B,
+        started_at=10.0,
+    )
+    monkeypatch.setattr(runtime.time, "monotonic", lambda: 310.01)
+
+    with pytest.raises(support.DeliveryError, match="did not converge"):
+        coordinator._verify_identity(support.snapshot(_payload()))
+
+
+def test_daemon_keeps_the_existing_total_timeout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(runtime.time, "monotonic", lambda: 256.3)
+    fake = FakeRunner(tmp_path, [_payload()])
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+    monkeypatch.setattr(
+        runtime.time,
+        "monotonic",
+        lambda: coordinator.started + coordinator.config.total_timeout_seconds,
+    )
+
+    assert coordinator.run() == 2
+
+    state = support.read_state(coordinator.paths.state)
+    assert state is not None
+    assert state["phase"] == "timeout"
+    assert state["reason"] == "total_timeout"
+    assert not any(command[:3] == ("gh", "pr", "view") for command in fake.commands)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("local", "local worktree head changed"),
+        ("remote", "remote topic branch changed"),
+        ("dirty", "delivery worktree became dirty"),
+    ],
+)
+def test_delayed_head_tolerance_rechecks_local_remote_and_clean_state(
+    tmp_path: Path,
+    mutation: str,
+    message: str,
+) -> None:
+    fake = FakeRunner(tmp_path, [])
+    fake.head = _C if mutation == "local" else _B
+    if mutation == "remote":
+        fake.remote_sha = _C
+    original = fake.__call__
+
+    def runner(command: Sequence[str], cwd: Path, timeout: int) -> support.CommandResult:
+        if mutation == "dirty" and tuple(command) == ("git", "status", "--porcelain"):
+            return support.CommandResult(0, " M changed.py\n", "")
+        return original(command, cwd, timeout)
+
+    coordinator = daemon.DeliveryDaemon(_config(fake), runner)
+    coordinator.pending_head_projection = runtime._PendingHeadProjection(
+        previous_head=_A,
+        pushed_head=_B,
+        started_at=coordinator.started,
+    )
+
+    with pytest.raises(support.DeliveryError, match=message):
+        coordinator._verify_identity(support.snapshot(_payload()))
+
+
 def test_daemon_aborts_a_conflicting_local_base_merge(tmp_path: Path) -> None:
     fake = FakeRunner(tmp_path, [_payload(merge_state="BEHIND")])
     fake.merge_fails = True
@@ -265,7 +412,7 @@ def test_daemon_aborts_a_conflicting_local_base_merge(tmp_path: Path) -> None:
 
 def test_daemon_rejects_a_pushed_sha_mismatch(tmp_path: Path) -> None:
     fake = FakeRunner(tmp_path, [_payload(merge_state="BEHIND")])
-    fake.remote_sha = _C
+    fake.remote_sha_after_push = _C
     coordinator = daemon.DeliveryDaemon(_config(fake), fake)
 
     with pytest.raises(support.DeliveryError, match="does not match"):

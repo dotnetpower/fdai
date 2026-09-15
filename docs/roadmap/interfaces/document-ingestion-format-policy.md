@@ -79,9 +79,13 @@ workflow-supplied provider value.
 | ZIP and other generic archives | Not accepted | Archive expansion isn't an upload format |
 
 Cloud-reference packages follow the [structured retrieval design](cloud-resource-knowledge-structured-rag.md),
-not a new general upload format. The v3 opt-in is under development: one normalized body plus blocks
+not a new general upload format. The implemented v3 opt-in uses one normalized body plus blocks and
 supports excerpts with table headers and required context within 8192 UTF-8 bytes. Unsafe or
 incomplete structure holds the complete generation; legacy v1/v2 extraction remains unchanged.
+Normalizer `2.1.0` adds explicit disclosures, uniquely labelled local tabs, atomic code/notices and
+captured header-only tables under reader `3.1.0`. Legacy normalizer `2.0.0` and its excerpt recipe
+remain installed. Neither supported extraction nor an original-free local review grants admission,
+source freshness, OCR authority or independently verified answer quality.
 
 ## Extraction and failure behavior
 
@@ -92,6 +96,8 @@ Structured table rows retain preceding paragraph/list conditions from their head
 Format upgrades from retained bytes require a durable processing checkpoint, not another download;
 export cannot substitute a transient conversion for that checkpoint.
 Structured collected submissions and rollback requests remain received-only until normal approval.
+Local review tests separate controlled-clock candidate publication from real child-process startup
+and timeout evidence; both remain required without changing the processing limits.
 
 Embedded images use bounded package-member extraction and the effective OCR provider. A modern
 Office document with usable native text can finish as `ready_with_warnings` when embedded-image OCR

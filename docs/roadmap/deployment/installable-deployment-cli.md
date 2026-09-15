@@ -61,8 +61,10 @@ Foundation input and VM metadata reads resolve Azure CLI through the existing tr
 roots, including the operator-owned local installation. They do not require `/usr/bin/az` to exist
 or accept an arbitrary executable from `PATH`. The selected Azure configuration, bounded reads and
 sanitized provider failures remain unchanged.
-Runner-image Terraform receives only a private `az` launcher bound to that resolved executable;
-resumption rejects a substituted launcher. Human identity readback uses the same trusted CLI.
+Runner-image Terraform receives only a private mode-`0700` regular-file `az` launcher that
+executes the resolved CLI by absolute path. This preserves installation-relative CLI wrappers
+without allowing `PATH` substitution; resumption rejects any changed launcher. Human identity
+readback uses the same trusted CLI.
 The builder poweroff wait resolves `az` from that sealed process path, not `/usr/bin/az`.
 It accepts only stopped or deallocated power states and propagates CLI errors. A failure after
 an apply claim can leave billable resources even when the coordinator has no success receipt.

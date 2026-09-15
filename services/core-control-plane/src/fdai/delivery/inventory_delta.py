@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import UTC, datetime
@@ -38,62 +39,78 @@ async def forward_inventory_delta(
 
     Sparse recovery sources set ``properties_complete`` false so replay merges
     only their property mask and leaves relationships to full reconciliation.
+    One deadline bounds cursor reads, provider iteration, publication, and final persistence.
     """
-    if deadline_seconds <= 0:
-        raise ValueError("inventory delta deadline_seconds MUST be > 0")
+    if not math.isfinite(deadline_seconds) or deadline_seconds <= 0:
+        raise ValueError("inventory delta deadline_seconds MUST be finite and > 0")
+    try:
+        async with asyncio.timeout(deadline_seconds):
+            return await _forward_inventory_delta(
+                inventory=inventory,
+                state_store=state_store,
+                event_bus=event_bus,
+                topic=topic,
+                scope=scope,
+                properties_complete=properties_complete,
+            )
+    except TimeoutError as exc:
+        raise RuntimeError("inventory delta stream exceeded its deadline") from exc
+
+
+async def _forward_inventory_delta(
+    *,
+    inventory: Inventory,
+    state_store: StateStore,
+    event_bus: EventBus,
+    topic: str,
+    scope: str,
+    properties_complete: bool,
+) -> int:
+    """Persist a final cursor only after the bounded stream has been fully published."""
+
     cursor_key = f"{_CURSOR_PREFIX}{scope}"
-    saved = await state_store.read_state(cursor_key) or {}
-    cursor = str(saved.get("cursor") or "")
+    saved = await state_store.read_state(cursor_key)
+    cursor = "" if saved is None else saved.get("cursor")
+    if not isinstance(cursor, str):
+        raise RuntimeError("inventory delta persisted cursor MUST be text")
     latest_cursor = cursor
     published = 0
     final_cursor: str | None = None
     saw_final = False
     relationship_reconciliation_after: datetime | None = None
-    try:
-        async with asyncio.timeout(deadline_seconds):
-            async for batch in inventory.delta(cursor):
-                if saw_final:
-                    raise RuntimeError("inventory delta stream emitted data after final fence")
-                if batch.cursor is not None:
-                    latest_cursor = batch.cursor
-                if batch.final:
-                    saw_final = True
-                    final_cursor = latest_cursor
-                if batch.relationship_reconciliation_after is not None:
-                    observed_at = _parse_reconciliation_timestamp(
-                        batch.relationship_reconciliation_after
-                    )
-                    if (
-                        relationship_reconciliation_after is None
-                        or observed_at > relationship_reconciliation_after
-                    ):
-                        relationship_reconciliation_after = observed_at
-                links_by_owner = _links_by_owner(batch.resources, batch.links)
-                events = tuple(
-                    (
-                        resource,
-                        _resource_event(
-                            scope=scope,
-                            resource=resource,
-                            links=(
-                                links_by_owner.get(resource.resource_id, ())
-                                if properties_complete
-                                else ()
-                            ),
-                            properties_complete=properties_complete,
-                        ),
-                    )
-                    for resource in batch.resources
-                )
-                for resource, event in events:
-                    await event_bus.publish(
-                        topic,
-                        resource.resource_id,
-                        event.model_dump(mode="json"),
-                    )
-                    published += 1
-    except TimeoutError as exc:
-        raise RuntimeError("inventory delta stream exceeded its deadline") from exc
+    async for batch in inventory.delta(cursor):
+        if saw_final:
+            raise RuntimeError("inventory delta stream emitted data after final fence")
+        if batch.cursor is not None:
+            latest_cursor = batch.cursor
+        if batch.final:
+            saw_final = True
+            final_cursor = latest_cursor
+        if batch.relationship_reconciliation_after is not None:
+            observed_at = _parse_reconciliation_timestamp(batch.relationship_reconciliation_after)
+            if (
+                relationship_reconciliation_after is None
+                or observed_at > relationship_reconciliation_after
+            ):
+                relationship_reconciliation_after = observed_at
+        links_by_owner = _links_by_owner(batch.resources, batch.links)
+        events = tuple(
+            (
+                resource,
+                _resource_event(
+                    scope=scope,
+                    resource=resource,
+                    links=links_by_owner.get(resource.resource_id, ())
+                    if properties_complete
+                    else (),
+                    properties_complete=properties_complete,
+                ),
+            )
+            for resource in batch.resources
+        )
+        for resource, event in events:
+            await event_bus.publish(topic, resource.resource_id, event.model_dump(mode="json"))
+            published += 1
     if final_cursor is None:
         raise RuntimeError("inventory delta stream ended without a final fence")
     if relationship_reconciliation_after is not None:

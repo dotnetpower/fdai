@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "captured_at": "2026-09-15T09:45:00Z",
+  "execution_venue": "local",
+  "request_ref": "sha256:6623eca05de6e911a6ba646cbb80661c41bcbc082d5c0da16702aede5b8e014c",
+  "correlation_ref": "sha256:53281c062aa09b1caee54693de57c2c22301240cf07846ef8c30e69ba163da78",
+  "stack_readiness": {
+    "ready": 11,
+    "total": 11,
+    "unavailable": []
+  },
+  "application_observation": {
+    "action_kind": "incident.intervention-applied",
+    "matching_records": 1
+  },
+  "agent_observation": {
+    "action_kind": "audit.record",
+    "actor": "Saga",
+    "audited_topic": "object.event",
+    "event_type": "incident.operator_guidance.v1",
+    "matching_records": 1
+  },
+  "authority_observation": {
+    "execution_authority": false,
+    "incident_correlation": "none",
+    "action_run_records": 0
+  },
+  "console_observation": {
+    "test": "shows applied operator guidance without reloading the Incident page",
+    "desktop_chromium_passed": true
+  }
+}

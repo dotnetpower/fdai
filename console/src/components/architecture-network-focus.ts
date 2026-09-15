@@ -32,7 +32,9 @@ const PATH_LINK_TYPES = new Set<InventoryLink["type"]>([
   "depends_on",
   "peered_with",
 ]);
-export const ARCHITECTURE_NETWORK_OVERVIEW_LIMIT = 48;
+export const ARCHITECTURE_NETWORK_OVERVIEW_VNET_LIMIT = 2;
+export const ARCHITECTURE_NETWORK_OVERVIEW_SUBNET_LIMIT = 4;
+export const ARCHITECTURE_NETWORK_OVERVIEW_LIMIT = 4;
 
 export interface ArchitectureNetworkFilters {
   readonly publicExposure: boolean;
@@ -58,9 +60,61 @@ export function architectureNetworkOverviewGraph(
 ): InventoryGraphResponse {
   const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
   const parentById = architecturePresentationParentById(graph, byId);
+  const vnets = graph.resources.filter((resource) => VNET_TYPES.has(resource.type));
+  const subnetIds = new Set(
+    graph.resources.filter((resource) => SUBNET_TYPES.has(resource.type))
+      .map((resource) => resource.id),
+  );
+  const selectedVnets = [...vnets]
+    .sort((first, second) =>
+      containedSubnetCount(second.id, parentById, subnetIds)
+      - containedSubnetCount(first.id, parentById, subnetIds)
+      || first.name.localeCompare(second.name)
+      || first.id.localeCompare(second.id))
+    .slice(0, ARCHITECTURE_NETWORK_OVERVIEW_VNET_LIMIT);
+  const selectedVnetIds = new Set(selectedVnets.map((resource) => resource.id));
+  const subnetsByVnet = selectedVnets.map((vnet) => graph.resources
+    .filter((resource) =>
+      SUBNET_TYPES.has(resource.type) && parentById.get(resource.id) === vnet.id)
+    .sort((first, second) =>
+      first.name.localeCompare(second.name) || first.id.localeCompare(second.id)));
+  const selectedSubnets: InventoryResource[] = [];
+  for (let index = 0; selectedSubnets.length < ARCHITECTURE_NETWORK_OVERVIEW_SUBNET_LIMIT; index += 1) {
+    let added = false;
+    for (const subnets of subnetsByVnet) {
+      const subnet = subnets[index];
+      if (!subnet) continue;
+      selectedSubnets.push(subnet);
+      added = true;
+      if (selectedSubnets.length === ARCHITECTURE_NETWORK_OVERVIEW_SUBNET_LIMIT) break;
+    }
+    if (!added) break;
+  }
+  const selectedSubnetIds = new Set(selectedSubnets.map((resource) => resource.id));
+  if (selectedVnetIds.size === 0 && selectedSubnetIds.size === 0) {
+    graph.resources
+      .filter((resource) => SUBNET_TYPES.has(resource.type))
+      .sort((first, second) =>
+        first.name.localeCompare(second.name) || first.id.localeCompare(second.id))
+      .slice(0, ARCHITECTURE_NETWORK_OVERVIEW_SUBNET_LIMIT)
+      .forEach((resource) => selectedSubnetIds.add(resource.id));
+  }
+  const membership = architectureSubnetMembership(graph);
   const candidates = graph.resources
     .filter((resource) =>
-      !isArchitectureBoundaryResource(resource) && isNetworkOverviewResource(resource))
+      !isArchitectureBoundaryResource(resource)
+      && isNetworkOverviewResource(resource)
+      && (
+        selectedSubnetIds.has(resource.network_plane_id ?? "")
+        || selectedSubnetIds.has(membership.get(resource.id) ?? "")
+        || graph.links.some((link) =>
+          (link.source === resource.id && (
+            selectedSubnetIds.has(link.target) || selectedVnetIds.has(link.target)
+          ))
+          || (link.target === resource.id && (
+            selectedSubnetIds.has(link.source) || selectedVnetIds.has(link.source)
+          )))
+      ))
     .sort((first, second) =>
       networkOverviewPriority(first) - networkOverviewPriority(second)
       || first.type.localeCompare(second.type)
@@ -68,10 +122,10 @@ export function architectureNetworkOverviewGraph(
       || first.id.localeCompare(second.id))
     .slice(0, ARCHITECTURE_NETWORK_OVERVIEW_LIMIT);
   const visibleIds = new Set(
-    graph.resources
-      .filter((resource) =>
-        VNET_TYPES.has(resource.type) || SUBNET_TYPES.has(resource.type))
-      .map((resource) => resource.id),
+    [
+      ...selectedVnetIds,
+      ...selectedSubnetIds,
+    ],
   );
   candidates.forEach((resource) => visibleIds.add(resource.id));
   for (const resourceId of [...visibleIds]) {
@@ -85,10 +139,25 @@ export function architectureNetworkOverviewGraph(
   }
   return {
     ...graph,
-    resources: graph.resources.filter((resource) => visibleIds.has(resource.id)),
+    resources: graph.resources
+      .filter((resource) => visibleIds.has(resource.id))
+      .map((resource) => {
+        const networkPlaneId = membership.get(resource.id);
+        return networkPlaneId && !resource.network_plane_id
+          ? { ...resource, network_plane_id: networkPlaneId }
+          : resource;
+      }),
     links: graph.links.filter((link) =>
       visibleIds.has(link.source) && visibleIds.has(link.target)),
   };
+}
+
+function containedSubnetCount(
+  vnetId: string,
+  parentById: ReadonlyMap<string, string>,
+  subnetIds: ReadonlySet<string>,
+): number {
+  return [...subnetIds].filter((subnetId) => parentById.get(subnetId) === vnetId).length;
 }
 
 /** Adds exact path records and their ancestors to a bounded Network presentation. */
@@ -99,12 +168,18 @@ export function architectureNetworkPathPresentationGraph(
 ): InventoryGraphResponse {
   if (pathResourceIds.length === 0) return overview;
   const byId = new Map(evidenceGraph.resources.map((resource) => [resource.id, resource]));
+  const overviewById = new Map(overview.resources.map((resource) => [resource.id, resource]));
   const parentById = architecturePresentationParentById(evidenceGraph, byId);
+  const membership = architectureSubnetMembership(evidenceGraph);
   const visibleIds = new Set(overview.resources.map((resource) => resource.id));
   for (const resourceId of pathResourceIds) {
     if (!byId.has(resourceId)) continue;
     visibleIds.add(resourceId);
-    let parentId = parentById.get(resourceId);
+    const networkPlaneId = byId.get(resourceId)?.network_plane_id ?? membership.get(resourceId);
+    if (networkPlaneId && byId.has(networkPlaneId)) visibleIds.add(networkPlaneId);
+    let parentId = networkPlaneId
+      ? parentById.get(networkPlaneId)
+      : parentById.get(resourceId);
     const visited = new Set<string>();
     while (parentId && byId.has(parentId) && !visited.has(parentId)) {
       visited.add(parentId);
@@ -114,7 +189,15 @@ export function architectureNetworkPathPresentationGraph(
   }
   return {
     ...overview,
-    resources: evidenceGraph.resources.filter((resource) => visibleIds.has(resource.id)),
+    resources: evidenceGraph.resources
+      .filter((resource) => visibleIds.has(resource.id))
+      .map((resource) => {
+        const presented = overviewById.get(resource.id) ?? resource;
+        const networkPlaneId = presented.network_plane_id ?? membership.get(resource.id);
+        return networkPlaneId
+          ? { ...presented, network_plane_id: networkPlaneId }
+          : presented;
+      }),
     links: evidenceGraph.links.filter((link) =>
       visibleIds.has(link.source) && visibleIds.has(link.target)),
   };

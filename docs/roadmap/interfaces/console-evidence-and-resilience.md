@@ -61,6 +61,14 @@ preview endpoint calls the same production renderer used by Azure Communication 
 supplies only synthetic placeholders. The preview exposes no runtime incident, endpoint, recipient,
 or identity value and provides no send, approval, or execution control.
 Operations exposes `Detection coverage` at `/detection-coverage` and keeps `/detection-readiness` as a compatibility alias. The route separates the newest attempt, latest successful run, retained findings, and optional exact-resource Kubernetes evidence. Filters and selection are URL-backed, canonical reasons remain in technical detail, and the browser never probes resources or derives health, readiness, coverage, or authority from a successful response.
+The standard authenticated route inventory includes `Alert quality` at `/alert-quality`. Its
+Browser Entra assurance uses only the canonical Console and Operator API origins, restores an
+existing provider-hosted session through the owner-only state contract, and never intercepts
+identity or API responses. Automated evidence may verify authorized scope discovery, shadow and
+no-execution posture, the three inert proposal forms without submission, localization, responsive
+geometry, forced colors, reduced motion, and keyboard focus. It must redact scope and response
+content and classify audible or braille output as `needs-human` until a person using the named
+assistive technology confirms it.
 With a server-pinned drift context, the GET-only Configuration baselines route fresh-reads identity, lifecycle, drift, Knowledge citation, topology, latency, scheduled-review, and four safety counters.
 It reports absent binding or campaign as unavailable or `not-configured`, never invents progress, strictly rejects malformed data, and compares immutable in-scope versions with failed-attempt counts. The SPA exposes no activation, resume, schedule creation, approval, mitigation, or resource mutation; evidence-run, resume, blueprint review, and materialization use separate authenticated routes.
 Production exposes the panel only after its mounted JSON/DOCX pair, read-only Managed Identity, and exact resource-group allowlist validate at startup. The Operator API never receives executor identity.

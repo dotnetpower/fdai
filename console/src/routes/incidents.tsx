@@ -1,6 +1,7 @@
 import type { JSX } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
+import type { IncidentInterventionReceipt } from "../api-operations-client";
 import type {
   AuditItem,
   IncidentPage,
@@ -56,6 +57,7 @@ interface IncidentHistoryData {
 
 const PAGE_SIZE = 25;
 const SEARCH_MAX_LENGTH = 200;
+const INTERVENTION_REVALIDATION_DELAYS_MS = [0, 250, 500, 1000, 2000, 4000] as const;
 const FILTERS: readonly IncidentStatusFilter[] = ["active", "resolved", "all"];
 const INCIDENT_VERTICALS = ["resilience", "change_safety", "cost_governance", "unknown"] as const;
 type IncidentVertical = typeof INCIDENT_VERTICALS[number];
@@ -204,6 +206,16 @@ export function incidentPageMatchesSnapshot(
   return current.snapshot_seq === incoming.snapshot_seq;
 }
 
+export function incidentInterventionWasApplied(
+  items: readonly AuditItem[],
+  requestId: string,
+): boolean {
+  return items.some((item) => (
+    item.action_kind === "incident.intervention-applied"
+    && item.entry.request_id === requestId
+  ));
+}
+
 export function IncidentsRoute({ client, dataMode }: Props) {
   const initialRoute = currentRoute();
   const initialStatus = initialRoute.search.get("status");
@@ -231,6 +243,7 @@ export function IncidentsRoute({ client, dataMode }: Props) {
   const rosterGeneration = useRef(0);
   const historyGeneration = useRef(0);
   const exactLookup = useRef<string | null>(null);
+  const interventionGeneration = useRef(0);
 
   useEffect(() => {
     const sync = () => {
@@ -251,6 +264,13 @@ export function IncidentsRoute({ client, dataMode }: Props) {
       window.removeEventListener("fdai:route-changed", sync);
     };
   }, []);
+
+  useEffect(() => {
+    interventionGeneration.current += 1;
+    return () => {
+      interventionGeneration.current += 1;
+    };
+  }, [selectedId]);
 
   const openRoute = (status: IncidentStatusFilter, correlation: string | null): void => {
     navigate(routeHref("incidents", {
@@ -442,6 +462,72 @@ export function IncidentsRoute({ client, dataMode }: Props) {
     }
   }
 
+  async function revalidateIntervention(
+    receipt: IncidentInterventionReceipt,
+  ): Promise<boolean> {
+    if (
+      receipt.correlation_id !== null
+      && selectedId !== null
+      && receipt.correlation_id !== selectedId
+    ) {
+      throw new Error("Accepted Incident intervention correlation does not match the selection");
+    }
+    const correlationId = receipt.correlation_id ?? selectedId;
+    if (correlationId === null) {
+      throw new Error("Accepted Incident intervention has no correlation id");
+    }
+    const generation = interventionGeneration.current + 1;
+    interventionGeneration.current = generation;
+    historyGeneration.current += 1;
+    setLoadingOlderHistory(false);
+    setHistoryPageError(null);
+    let lastError: unknown = null;
+    for (const delay of INTERVENTION_REVALIDATION_DELAYS_MS) {
+      if (delay > 0) await new Promise((resolve) => globalThis.setTimeout(resolve, delay));
+      if (interventionGeneration.current !== generation) return false;
+      try {
+        const page = await client.listAudit({ limit: 100, correlationId });
+        if (interventionGeneration.current !== generation) return false;
+        lastError = null;
+        const items = [...page.items].reverse();
+        setHistory({
+          status: "ready",
+          data: { items, nextCursor: page.next_cursor },
+        });
+        if (incidentInterventionWasApplied(items, receipt.request_id)) {
+          rosterGeneration.current += 1;
+          try {
+            const roster = await client.listIncidents({
+              status: filter,
+              limit: PAGE_SIZE,
+              ...(searchFilter ? { search: searchFilter } : {}),
+              ...(verticalFilter ? { vertical: verticalFilter } : {}),
+              ...(severityFilter ? { severity: severityFilter } : {}),
+            });
+            if (interventionGeneration.current !== generation) return false;
+            setState({
+              status: "ready",
+              data: {
+                items: roster.items,
+                nextCursor: roster.next_cursor,
+                metrics: roster.metrics,
+              },
+            });
+            setSelectedId((current) => resolveIncidentSelection(roster.items, current));
+          } catch (error) {
+            if (interventionGeneration.current !== generation) return false;
+            setPageError(error instanceof Error ? error.message : String(error));
+          }
+          return true;
+        }
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (lastError !== null) throw lastError;
+    return false;
+  }
+
   async function loadMore(cursor: string): Promise<void> {
     if (state.status !== "ready" || loadingMore || state.data.nextCursor !== cursor) return;
     const generation = rosterGeneration.current;
@@ -598,6 +684,7 @@ export function IncidentsRoute({ client, dataMode }: Props) {
             onSelect={(correlationId) => openRoute(filter, correlationId)}
             onLoadMore={loadMore}
             onLoadOlderHistory={loadOlderHistory}
+            onInterventionAccepted={revalidateIntervention}
           />
         )}
       </AsyncBoundary>
@@ -618,6 +705,9 @@ interface BodyProps {
   readonly onSelect: (correlationId: string) => void;
   readonly onLoadMore: (cursor: string) => Promise<void>;
   readonly onLoadOlderHistory: (cursor: string) => Promise<void>;
+  readonly onInterventionAccepted: (
+    receipt: IncidentInterventionReceipt,
+  ) => Promise<boolean>;
 }
 
 function IncidentBody({
@@ -633,6 +723,7 @@ function IncidentBody({
   onSelect,
   onLoadMore,
   onLoadOlderHistory,
+  onInterventionAccepted,
 }: BodyProps) {
   const selected = data.items.find((item) => item.correlation_id === selectedId) ?? null;
   const selectedHistory = history.status === "ready" ? history.data.items : [];
@@ -761,6 +852,7 @@ function IncidentBody({
             loadingOlderHistory={loadingOlderHistory}
             historyPageError={historyPageError}
             onLoadOlderHistory={onLoadOlderHistory}
+            onInterventionAccepted={onInterventionAccepted}
           />
         ) : (
           selectedId ? (
@@ -834,6 +926,7 @@ function IncidentDetail({
   loadingOlderHistory,
   historyPageError,
   onLoadOlderHistory,
+  onInterventionAccepted,
 }: {
   readonly client: OperatorApiClient;
   readonly dataMode: ConsoleDataMode;
@@ -842,6 +935,9 @@ function IncidentDetail({
   readonly loadingOlderHistory: boolean;
   readonly historyPageError: string | null;
   readonly onLoadOlderHistory: (cursor: string) => Promise<void>;
+  readonly onInterventionAccepted: (
+    receipt: IncidentInterventionReceipt,
+  ) => Promise<boolean>;
 }) {
   const auditHref = routeHref("audit", { params: { correlation: incident.correlation_id } });
   const traceHref = routeHref("trace", { params: { correlation: incident.correlation_id } });
@@ -852,14 +948,28 @@ function IncidentDetail({
   return (
     <section id={INCIDENT_DETAIL_ID} class="incident-detail" aria-labelledby={`${INCIDENT_DETAIL_ID}-title`}>
       <header class="incident-detail-head">
-        <div class="incident-detail-title-row">
-          <h2 id={`${INCIDENT_DETAIL_ID}-title`}>
-            {incidentDisplayTitle(incident, t("incidents.titleUnavailable"))}
+        <div class="incident-detail-primary-identity">
+          <span>
+            {t(incident.incident_number === null
+              ? "incidents.correlation"
+              : "incidents.incidentNumber")}
+          </span>
+          <h2 id={`${INCIDENT_DETAIL_ID}-title`} class="mono">
+            {incidentDisplayIdentifier(incident)}
           </h2>
+        </div>
+        <div class="incident-detail-title-row">
+          <p class="incident-detail-subject">
+            {incidentDisplayTitle(incident, t("incidents.titleUnavailable"))}
+          </p>
           <StatusPill kind={severityPill(incident.severity)} label={localized("severity", incident.severity)} />
           <StatusPill kind={statusPill(incident.status)} label={localized("status", incident.status)} />
           {dataMode === "live" ? (
-            <IncidentIntervention client={client} incident={incident} />
+            <IncidentIntervention
+              client={client}
+              incident={incident}
+              onAccepted={onInterventionAccepted}
+            />
           ) : null}
         </div>
         <dl class="incident-detail-meta">

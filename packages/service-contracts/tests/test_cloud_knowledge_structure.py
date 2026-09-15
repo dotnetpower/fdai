@@ -294,3 +294,43 @@ def test_legacy_binding_serialization_has_no_new_processing_field() -> None:
         sources=(document().evidence,),
     )
     assert b"processing_digests" not in canonical_bytes(binding)
+
+
+def test_extended_normalizer_requires_new_reader_without_changing_old_bytes() -> None:
+    manifest, registry, trust, key = release()
+    original = canonical_bytes(manifest)
+    old = document()
+    updated = CloudStructuredDocument.model_validate(
+        old.model_dump() | {"normalizer_version": "2.1.0"}
+    )
+    assert updated.evidence == old.evidence
+    assert updated.recipe == old.recipe and updated.recipe_digest == old.recipe_digest
+    assert updated.processing_digest != old.processing_digest
+    assert structured_excerpts(updated)[0].text == structured_excerpts(old)[0].text
+    assert structured_excerpts(updated)[0].unit_id != structured_excerpts(old)[0].unit_id
+    values = manifest.model_dump() | {
+        "documents": (updated,),
+        "excerpt_digests": (excerpt_digest(updated),),
+    }
+    with pytest.raises(ValueError, match="reader"):
+        KnowledgeStructuredReleaseManifest.model_validate(values)
+    upgraded = KnowledgeStructuredReleaseManifest.model_validate(
+        values | {"reader_version": "3.1.0"}
+    )
+    verified = verify_package(
+        sign_release(upgraded, key_id="fixture", private_key=key),
+        registry=registry,
+        trust=trust,
+        now=NOW,
+    )
+    assert verified.manifest == upgraded
+    assert canonical_bytes(manifest) == original
+    assert canonical_bytes(parse_knowledge_manifest(original)) == original
+
+
+@pytest.mark.parametrize("version", ["2.0.1", "2.2.0", "9.0.0"])
+def test_unknown_normalizer_does_not_become_an_installed_recipe(version: str) -> None:
+    with pytest.raises(ValueError):
+        CloudStructuredDocument.model_validate(
+            document().model_dump() | {"normalizer_version": version}
+        )

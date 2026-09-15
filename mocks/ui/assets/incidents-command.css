@@ -99,6 +99,24 @@ body[data-incident-command] .in-event-facts span {
   margin-bottom: 7px;
 }
 
+.in-detail-reference {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.in-detail-reference > span {
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+  font-weight: 700;
+}
+
+.in-detail-reference .in-detail-id {
+  color: var(--cs-steel);
+  font-size: var(--cs-type-page-title-size);
+  line-height: var(--cs-type-page-title-line-height);
+}
+
 .in-detail-title-row {
   align-items: center;
 }
