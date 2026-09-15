@@ -24,6 +24,7 @@ from fdai.agents._framework.action_semantics import (
     quorum_for,
     rollback_contract_for,
 )
+from fdai.agents._framework.assignment_workflow import AssignmentJudgmentMixin
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import PantheonBus
@@ -55,6 +56,7 @@ from fdai.agents._framework.forseti_decision_helpers import (
 from fdai.agents._framework.forseti_judgment import RISK_VERDICT as _RISK_VERDICT
 from fdai.agents._framework.forseti_judgment import RULE_MATCH as _RULE_MATCH
 from fdai.agents._framework.forseti_judgment import ForsetiJudgmentMixin
+from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     attach_agent_state_evidence,
@@ -150,7 +152,7 @@ class _ChangeAssessor(Protocol):
     ) -> ChangeAssessment: ...
 
 
-class Forseti(Agent, ForsetiJudgmentMixin):
+class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJudgmentMixin):
     """Wave-3 Forseti: rule match + risk verdict + RBAC + SecurityEvent."""
 
     def __init__(
@@ -173,6 +175,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             raise ValueError("cross_vertical_timeout_seconds MUST be in (0, 300]")
         super().__init__(spec=_FORSETI)
         self.bus = bus
+        self.initialize_assignment_checks()
         self._rbac = rbac if rbac is not None else _DEFAULT_RBAC
         self._action_semantics = action_semantics
         self._operational_context = operational_context
@@ -182,9 +185,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         self._prospective_lineage_finalizer = prospective_lineage_finalizer
         self._change_assessor = change_assessor
         self._architecture_review_loop = architecture_review_loop
-        # Runtime health seam: reports which pantheon agents are currently
-        # unreachable. Bound by the composition root; absent in a bare unit
-        # (an unbound probe never invents unavailability).
+        # Optional runtime probe; an absent probe never invents agent unavailability.
         self._agent_availability = agent_availability
         self._cross_vertical_timeout_seconds = cross_vertical_timeout_seconds
         self._cross_vertical_candidates = CrossVerticalCandidateAccumulator(
@@ -207,15 +208,9 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         # name the resource a human must look at. Odin's decision carries the
         # correlation but not the resource.
         self._arbitration_resources: BoundedLruDict[str, str] = BoundedLruDict(_MAX_RESOURCES)
-        # Accumulated domain advice per resource id: {resource: {domain:
-        # recommendation}}. Fed by object.cost-anomaly / capacity-forecast
-        # so conflicting advice arriving on separate signals still triggers
-        # arbitration. Bounded (LRU): non-conflicting advice that never gets
-        # popped would otherwise grow one entry per resource forever.
+        # Bounded advice joins cost/capacity signals per resource for conflict arbitration.
         self._domain_advice: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(_MAX_RESOURCES)
-        # Measured impact magnitude per (resource, domain) in [0, 1], derived
-        # from the signal (cost overspend ratio, capacity forecast util). Fed
-        # to Odin so arbitration weighs magnitude, not just priority.
+        # Measured [0,1] domain impacts let Odin weigh magnitude instead of priority alone.
         self._domain_impact: BoundedLruDict[str, dict[str, float]] = BoundedLruDict(_MAX_RESOURCES)
         self._domain_observed_at: BoundedLruDict[str, str] = BoundedLruDict(_MAX_RESOURCES)
         self._domain_arguments: BoundedLruDict[str, dict[str, dict[str, object]]] = BoundedLruDict(
@@ -241,6 +236,10 @@ class Forseti(Agent, ForsetiJudgmentMixin):
     # ---- typed port ----------------------------------------------------
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if await self._handover_message(topic, payload):
+            return
+        if await self._assignment_message(topic, payload):
+            return
         if is_cross_vertical_candidate(topic, payload):
             await self._ingest_cross_vertical_candidate(topic, payload)
             return

@@ -344,9 +344,18 @@ def _validate_hil_decision_park(
         raise PostgresFamilyStoreUnavailable("HIL approval metadata is malformed")
     if decision_route != expected_decision_route or required_role != expected_required_role:
         raise PostgresProposalConflict("HIL approval role policy changed before decision")
-    if decision_route not in {"action", "workflow"}:
+    if decision_route not in {"action", "workflow", "human_access"}:
         raise PostgresFamilyStoreUnavailable("HIL approval decision route is unavailable")
-    if decision_route == "workflow" and not _operator_roles_meet(
+    if decision_route == "human_access" and (
+        required_role != "Owner"
+        or not isinstance(metadata, Mapping)
+        or not isinstance(metadata.get("target_subject_ref"), str)
+        or metadata.get("target_subject_ref") == approver_oid.strip().casefold()
+    ):
+        raise PostgresHilDecisionPermissionError(
+            "human access approval requires independent Owner review"
+        )
+    if decision_route in {"workflow", "human_access"} and not _operator_roles_meet(
         approver_roles,
         required_role,
     ):

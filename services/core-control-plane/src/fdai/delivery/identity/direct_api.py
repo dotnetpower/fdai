@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
-from fdai.core.human_assignment import (
-    HumanAccessApplyCoordinator,
-    HumanAccessExecutionOutcome,
-)
+from fdai.core.human_assignment.access_planning import HumanAccessPlanner
+from fdai.core.human_assignment.replacement import ReplacementCoveragePlanner
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.direct_api import (
     DirectApiOutcome,
@@ -24,20 +23,30 @@ HUMAN_ACCESS_ACTIONS = frozenset({APPLY_HUMAN_ACCESS_ACTION, REVOKE_HUMAN_ACCESS
 
 @dataclass(frozen=True, slots=True)
 class HumanAccessDirectApiExecutor:
-    coordinator: HumanAccessApplyCoordinator
+    """Core plan-only adapter; no mutation provider or privileged identity can be bound."""
+
+    planner: HumanAccessPlanner
+    replacement: ReplacementCoveragePlanner | None = None
 
     async def execute(self, request: DirectApiRequest) -> DirectApiReceipt:
+        """Validate a shadow request; all enforce dispatch belongs to the isolated service."""
         if request.action_type_name not in HUMAN_ACCESS_ACTIONS:
             raise DirectApiPreconditionError("human access adapter received an unsupported action")
         if request.mode is Mode.ENFORCE:
             raise DirectApiPromotionError(
-                "human access enforce mode requires a separately reviewed promotion"
+                "human access enforce requires isolated dispatch and separately reviewed promotion"
             )
-        if request.action_type_name == REVOKE_HUMAN_ACCESS_ACTION:
+        revoke = request.action_type_name == REVOKE_HUMAN_ACCESS_ACTION
+        if revoke and (
+            self.replacement is None or "replacement_revisions" not in request.arguments
+        ):
             raise DirectApiPreconditionError(
                 "human access revocation requires a reviewed replacement-coverage case"
             )
-        if set(request.arguments) != {"case_id", "expected_revision"}:
+        expected_keys = {"case_id", "expected_revision"}
+        if revoke:
+            expected_keys.add("replacement_revisions")
+        if set(request.arguments) != expected_keys:
             raise DirectApiPreconditionError(
                 "human access arguments MUST contain only case_id and expected_revision"
             )
@@ -57,29 +66,44 @@ class HumanAccessDirectApiExecutor:
             raise DirectApiPreconditionError(
                 "human access resource_ref does not match the assignment case"
             )
-        execution = await self.coordinator.execute(
+        if revoke:
+            replacements = request.arguments["replacement_revisions"]
+            if not isinstance(replacements, Mapping) or self.replacement is None:
+                raise DirectApiPreconditionError("human access replacement revisions are required")
+            if any(
+                not isinstance(key, str) or not isinstance(value, int) or isinstance(value, bool)
+                for key, value in replacements.items()
+            ):
+                raise DirectApiPreconditionError("human access replacement revision is invalid")
+            try:
+                case = await self.replacement.cases.get_case(case_id)
+                if case.intent.revocation is not None:
+                    if dict(replacements) != dict(case.intent.revocation.replacement_revisions):
+                        raise ValueError("replacement revisions differ from the reviewed intent")
+                    plan = await self.replacement.plan_revocation(
+                        case_id=case_id, expected_revision=expected_revision
+                    )
+                else:
+                    plan = await self.replacement.plan(
+                        case_id=case_id,
+                        expected_revision=expected_revision,
+                        replacement_revisions=replacements,
+                    )
+            except ValueError as exc:
+                raise DirectApiPreconditionError("replacement coverage did not verify") from exc
+            return DirectApiReceipt(
+                DirectApiOutcome.SUCCEEDED,
+                f"human-access-revoke-plan:{plan.removal.target_digest}",
+                detail="shadow replacement plan verified; no access or duty removed",
+            )
+        grant_plan = await self.planner.plan(
             case_id=case_id,
             expected_revision=expected_revision,
-            actor_ref="Thor",
-            mode=request.mode,
         )
-        if execution.outcome is HumanAccessExecutionOutcome.PLANNED:
-            return DirectApiReceipt(
-                DirectApiOutcome.SUCCEEDED,
-                f"human-access-plan:{request.action_id}",
-                detail="shadow human access plan verified; no Graph mutation submitted",
-            )
-        if execution.outcome is HumanAccessExecutionOutcome.APPLIED and execution.receipt:
-            return DirectApiReceipt(
-                DirectApiOutcome.SUCCEEDED,
-                execution.receipt.receipt_ref,
-                detail="human access membership converged",
-            )
         return DirectApiReceipt(
-            DirectApiOutcome.FAILED,
-            f"human-access-failed:{request.action_id}",
-            rollback_succeeded=(execution.reason == "iam_postcondition_failed_rolled_back"),
-            detail="human access apply failed closed",
+            DirectApiOutcome.SUCCEEDED,
+            f"human-access-plan:{grant_plan.target_digest}",
+            detail="shadow human access plan verified; no Graph mutation submitted",
         )
 
 

@@ -259,15 +259,16 @@ async def test_snooze_decline_and_evidence_review_lifecycle() -> None:
         evidence=GoalEvidence("doc:document-2:version-1", "d" * 64, "answer_span"),
         now=_NOW,
     )
-    accepted = await service.accept(
-        goal_id=goal.goal_id,
-        expected_revision=ready.revision,
-        now=_NOW,
-    )
-    assert accepted.state is HandoverGoalState.ACCEPTED
+    assert ready.state is HandoverGoalState.IN_PROGRESS
+    with pytest.raises(ValueError, match="all six"):
+        await service.accept(
+            goal_id=goal.goal_id,
+            expected_revision=ready.revision,
+            now=_NOW,
+        )
     with pytest.raises(ValueError, match="stale"):
         await service.decline(
             goal_id=goal.goal_id,
-            expected_revision=ready.revision,
+            expected_revision=snoozed.revision,
             now=_NOW,
         )

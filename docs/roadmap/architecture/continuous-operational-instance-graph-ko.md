@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: cf955fb79e352cd2e2444898f91fcd62fab80583
+translation_source_sha: 7cf776bbd3aabf5942ed5291d1d2ce22fbc00811
 translation_revised: 2026-09-15
 ---
 # 지속형 운영 인스턴스 그래프
@@ -24,6 +24,11 @@ translation_revised: 2026-09-15
 ![설계 개요. 주요 단계는 Provider events and delta APIs, Durable observation ingress, Normalize and adjudicate, Current operational graph, Bitemporal observation history, Typed rollups, Verified archive, Verified semantic query, Evidence current and complete?, Evidence-backed result, Bounded live read입니다.](../../diagrams/generated/fdai-roadmap-architecture-continuous-operational-instance-graph-01.ko.svg)
 
 ## 변경할 수 없는 불변식
+
+AKS에서 Operator의 그래프 질의와 실시간 단계 전송은 Operator 신원에 연결된 투영 워크로드
+자격 증명을 사용합니다. 자격 증명이 바뀌어도 질의 수용, 토픽 소유권, 관측 출처 또는 변환
+작성자는 바뀌지 않습니다. 생성 함수는 기존 adapters 공개 모듈에서 제공합니다. 연합 설정이 불완전하면 사용 불가로 처리하며 노드 신원이나 로컬
+Azure CLI로 대체하지 않습니다. 로컬 자격 증명 정책은 그대로 유지합니다.
 
 - **관측된 사실:** 인증된 공급자 관측만 `observed` 상태 lane에 들어갈 수 있습니다. 질문,
   모델 출력, 의도 상태, dispatch 증적, 실행기 결과는 관측 사실을 만들 수 없습니다.
@@ -60,7 +65,7 @@ translation_revised: 2026-09-15
 - **조회와 쓰기 분리:** 공급자 관측과 온톨로지 변환 결과는 조회 플레인 작업입니다. 관리
   리소스 writeback은 통제되는 작업 경로에 남고 독립적인 재관측 후에만 닫힙니다. 독립 실행형
   배포 호스트의 정확한 registry 범위 `AcrPush` 배정은 쓰기 플레인 전달 권한으로 유지됩니다.
-  이미지 가져오기와 다이제스트 재확인은 운영 그래프 사실이나 관측 권한을 만들지 않습니다.
+  이미지 가져오기와 다이제스트 재확인은 운영 그래프 사실이나 관측 권한을 만들지 않습니다. 공유 Operator/Core 조립은 별도로 허용한 논리 토픽으로 내용 없는 배정 알림도 전달합니다. 배정 요청, 사례 결과, 검토용 PR 증적은 인벤토리·AKS 진단·런타임 호출의 관측 근거가 아니며, 그래프 우선 조회와 공급자 관찰 수락 계약을 바꾸지 않습니다.
 - **제한된 보존:** rollup 또는 archive 매니페스트가 완전한 원본 범위를 검증하고 적용되는
   보존 hold가 삭제를 허용한 후에만 hot 또는 warm 저장소에서 원시 데이터를 제거합니다.
 

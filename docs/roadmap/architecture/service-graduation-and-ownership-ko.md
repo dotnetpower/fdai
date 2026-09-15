@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 7713db252dd73a198fcbf63a8eaa16d7d37b2f5e
-translation_revised: 2026-09-14
+translation_source_sha: b6ada9c9a90256f34dfe53a03d0c9f6beb5af29c
+translation_revised: 2026-09-15
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -50,6 +50,9 @@ translation_revised: 2026-09-14
 | 기록 상태 읽기 변환 결과 | validated | Core 및 Azure 인벤토리 변환 결과, Operator 기록 상태 변환 결과, Console 디코더 및 이유 기반 표시, 집중 검사와 실제 근거 | Operator는 활성 인벤토리 세대를 읽기 전용으로 변환합니다. Console은 Azure를 조회하거나 정상 여부를 추론하거나 변경 권한을 얻지 않습니다. |
 | 서비스 소유 테스트 범위 | implemented | `tests/integration/service-suites.json`, 서비스 스위트 소유권 게이트, 집중 Operator 측정 테스트 | 각 서비스 테스트 파일에는 정확히 하나의 소유 서비스 스위트가 있습니다. Dashboard 집계 및 출처 projection 테스트는 Operator 단위 테스트 그룹에 유지되며 새 서비스 경계를 의미하지 않습니다. |
 ### 구현 이력
+
+인수인계 전달 상태와 로컬 UI 근거 정정에 따른 파생 카탈로그 갱신은 [영문 구현 이력](service-graduation-and-ownership.md#implementation-history)에 기록합니다. 서비스, 쓰기 담당, 전송 경로나 권한은 바뀌지 않으며 실제 보조 기술, 공급자 및 배포 근거는 별도로 유지합니다.
+CI `34928980843`이 통과한 보호된 main `91ff893cb` 병합 후의 카탈로그 재생성도 같은 영문 이력에 기록합니다. Console 입력과 upstream 작업 워커 예산 수정은 그대로 보존합니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
@@ -184,6 +187,8 @@ Logical 기록 또는 수명 주기 전이 하나에는 쓰기 담당 하나만 
 | `document_api_outbox` | API 소유 수명 주기 및 deletion-request 이벤트의 문서 인제스트 API | API 발신함 drainer | 문서 인제스트 API 이행 가지 |
 | `document_worker_outbox` | 워커 소유 수명 주기 이벤트의 문서 처리 워커 | 워커 발신함 drainer | 문서 처리 워커 이행 가지 |
 | `executor_receipt_outbox` | 최종 증적 전달의 Isolated 실행기 | 실행기 증적 drainer | Isolated 실행기 이행 가지 |
+| `operator_assignment_receipt` | Operator가 인증된 명령과 발신 제안을 원자적으로 추가하며 런타임 수정·삭제는 금지 | Core의 정확한 참조 읽기 | Core의 `core_assignment_receipts_20260914`와 이에 의존하는 Operator 추가·읽기 권한 |
+| `state_kv` `human_assignment:` | Core의 감사된 배정 수명 주기이며 데이터베이스가 Operator 쓰기를 거부 | Operator의 정확한 사례 효과 조회와 발신함 리비전 확인 | Core가 공유 테이블과 추가 방어를 소유하며 증적이 남아 있으면 파괴적 롤백은 차단 |
 | `state_kv` namespaced 기록 | 각 키 이름 공간이 이름으로 지정한 subsystem | 해당 subsystem 프로바이더 계약이 명시한 변환 결과 | Alembic 이행 작업 |
 | `state_kv` `runtime:detection-lifecycle:` 기록 | Pod 수명 주기 기록기를 통한 Core analyzer tick | 인증된 Operator API `/detection-readiness` 수명 주기 프로젝션, 읽기 전용 | Alembic 이행 작업 |
 | Agent-owned control-loop 객체와 토픽 | 각 객체 타입에 선언된 single pantheon 에이전트 | 등록된 타입이 지정된 구독자와 cited 읽기 변환 결과 | Shared 계약/카탈로그 소유자. Service-local 이행 없음 |
@@ -204,6 +209,7 @@ Direct 및 streamed 읽기 실행은 기존 Core distribution 안에 유지됩�
 | 문서 Muninn 인덱스 명령 `1.0.0` | [문서 인덱스 스키마](../../../services/core-control-plane/src/fdai/shared/contracts/document-worker-index/schema.json) | Muninn | 인제스트 인덱스 워커 | `upload_id` | 가산 필드, 지원하지 않는 버전은 실패 시 차단 | At-least-once, 잘못된 기록은 형제 DLQ, completed 인덱스 점유는 최종 dedupe, 이벤트 1일/DLQ 7일 |
 | 문서 deletion 요청 `1.0.0` | `fdai-service-contracts` packaged JSON 스키마 | 문서 인제스트 API | 문서 처리 워커 | `document_id` | 가산 필드, 지원하지 않는 버전은 실패 시 차단 | Transactional API 발신함, exact 업로드/버전 개정 번호 fence, 워커 stage-claim dedupe, 잘못된 기록은 형제 DLQ |
 | 문서 수명 주기 활동 | [문서 서비스 계약](../../../packages/service-contracts/src/fdai_service_contracts/document.py) | Owned 전이의 인제스트 API 또는 워커 | 감사/진행 상황 소비자와 Huginn 유입 브리지 | `document_id` | 내용이 없는 가산 이벤트 묶음 | 고정된 액션/버전 멱등성, 조정이 저장된 사실 재발행, 이벤트 1일/DLQ 7일 |
+| 배정 요청과 수신 결과 `1.0.0` | `fdai-service-contracts`의 형식화된 배정 기록 | Operator의 불변 제안 발신함, Core 수신 결과와 Saga가 봉인한 사례 관찰 | Huginn/Forseti/Var/Saga/Muninn, 검토용 문서 전달, 정본 효과를 읽는 Operator | 불변 Operator 사례 ID | 첫 버전만 지원하며 알 수 없는 버전은 차단 | 임대 점유로 제한한 최소 한 번 전달, 원본 유효 시간 5분, 사례 CAS에 전체 명령 증적 보존, 내용을 제거한 오류 격리, 일반/DLQ 보존 1일/7일, 보존된 감사 증적은 현재 승인이 아님 |
 | Operator 명령/제안 이벤트 | [Event](../../../services/core-control-plane/src/fdai/shared/contracts/event/schema.json)와 [액션](../../../services/core-control-plane/src/fdai/shared/contracts/action/schema.json) 계약 | Operator API 명령 신원 | Huginn/Forseti 타입이 지정된 파이프라인 | 정규화된 `resource_id` | 레지스트리 semver와 가산 호환성 | At-least-once, 카탈로그 멱등성 키, normal 이벤트/DLQ 보존 1일/7일 |
 | Operator 의미 턴 `1.2.0` | `fdai-service-contracts` 의미 요청 및 변환 결과 codec | Operator API 영속 발신함 / Core 의미 런타임 | Core 의미 소비자 / Operator 변환 결과 소비자 | `request_id` | N은 `1.0.0`, `1.1.0`, `1.2.0`을 수락하며 `1.2.0` 페이로드를 downgrade하지 않음 | At-least-once, 멱등적 생산자, 변환 결과 영속성 이후 수동 커밋, malformed JSON은 형제 DLQ, 영속 요청/변환 결과 dedupe |
 | 읽기 조사 요청 `1.0.0` | `fdai-service-contracts` 요청 코덱 | Operator API 영속 제안 발신함 | Core 읽기 조사 소비자와 Core 소유 background-task 조정기 | 소유자와 생성 멱등성 키에서 파생한 정본 `task_id` | 정확한 `1.0.0`, 지원하지 않는 버전은 실패 시 차단, 가산 후속 버전은 N/N-1 코덱 검사 필요 | At-least-once, 한 작업의 시작 및 취소가 같은 partition을 사용, Operator CAS 점유는 브로커 수락 뒤에만 닫힘, malformed 기록은 형제 DLQ로 이동, Core는 partition identity를 다시 검증하고 소유자와 멱등성 키로 중복 제거하며 영속 작업 또는 최종 실행 원장을 저장한 뒤에만 전송을 커밋, 일반/DLQ 보존 1일/7일 |

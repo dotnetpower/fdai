@@ -13,7 +13,11 @@ from typing import Any, Literal
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
-from azure.identity.aio import ManagedIdentityCredential
+from azure.core.credentials_async import AsyncTokenCredential
+from fdai_service_contracts.assignment_transport import (
+    ASSIGNMENT_PROJECTION_TOPIC,
+    ASSIGNMENT_REQUEST_TOPIC,
+)
 from fdai_service_contracts.framework_assessment import FRAMEWORK_ASSESSMENT_TOPIC
 from fdai_service_contracts.incident_intervention import (
     INCIDENT_INTERVENTION_REQUEST_TOPIC,
@@ -36,7 +40,7 @@ _TOPIC_PATTERN = re.compile(r"^[a-z0-9._-]+$")
 
 
 class _ManagedIdentityTokenProvider(AbstractTokenProvider):  # type: ignore[misc]
-    def __init__(self, credential: ManagedIdentityCredential, scope: str) -> None:
+    def __init__(self, credential: AsyncTokenCredential, scope: str) -> None:
         self._credential = credential
         self._scope = scope
 
@@ -65,6 +69,8 @@ class OperatorSemanticKafkaConfig:
     hil_decision_topic: str | None = None
     notification_receipt_topic: str | None = None
     incident_intervention_topic: str = INCIDENT_INTERVENTION_REQUEST_TOPIC
+    assignment_request_topic: str = ASSIGNMENT_REQUEST_TOPIC
+    assignment_projection_topic: str = ASSIGNMENT_PROJECTION_TOPIC
     client_id: str = "fdai-operator-service"
     auto_offset_reset: str = "earliest"
     dlq_suffix: str = ".dlq"
@@ -84,6 +90,12 @@ class OperatorSemanticKafkaConfig:
         ):
             raise ValueError("semantic Kafka topics MUST be distinct valid topic names")
         configured_topics = set(semantic_topics)
+        for assignment_topic in (self.assignment_request_topic, self.assignment_projection_topic):
+            _require_distinct_topic(
+                assignment_topic,
+                occupied=configured_topics,
+                error_message="assignment topic MUST be distinct and valid",
+            )
         _require_distinct_topic(
             self.read_investigation_topic,
             occupied=configured_topics,
@@ -151,7 +163,7 @@ class OperatorSemanticKafkaBus:
         self,
         *,
         config: OperatorSemanticKafkaConfig,
-        credential: ManagedIdentityCredential | None,
+        credential: AsyncTokenCredential | None,
     ) -> None:
         host = config.bootstrap_servers.split(",", 1)[0].strip().split(":", 1)[0]
         if not host:
@@ -214,6 +226,8 @@ class OperatorSemanticKafkaBus:
         if self._config.notification_receipt_topic is not None:
             allowed.add(self._config.notification_receipt_topic)
         allowed.add(self._config.incident_intervention_topic)
+        allowed.add(self._config.assignment_request_topic)
+        allowed.add(f"{self._config.assignment_projection_topic}{self._config.dlq_suffix}")
         if topic not in allowed:
             raise ValueError("semantic Kafka publish topic is not configured")
         producer = await self._get_producer()
@@ -277,6 +291,7 @@ class OperatorSemanticKafkaBus:
             self._config.background_task_projection_topic,
             self._config.wara_assessment_topic,
             self._config.framework_assessment_topic,
+            self._config.assignment_projection_topic,
         }:
             raise ValueError("semantic Kafka subscription topic is not configured")
         physical_topic = self._config.physical_topic or topic
@@ -392,7 +407,7 @@ class OperatorSemanticKafkaBus:
 
 def _transport_options(
     config: OperatorSemanticKafkaConfig,
-    credential: ManagedIdentityCredential | None,
+    credential: AsyncTokenCredential | None,
     scope: str,
 ) -> dict[str, object]:
     if config.security_protocol == "PLAINTEXT":

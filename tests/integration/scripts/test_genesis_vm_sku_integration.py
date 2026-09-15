@@ -82,6 +82,33 @@ def capture_for(catalog, quota=None, *, image_disk=64):
     return capture, calls
 
 
+def test_vm_metadata_capture_uses_trusted_cli(monkeypatch, tmp_path):
+    from subprocess import CompletedProcess
+
+    resolved = str(tmp_path / "trusted/az")
+    monkeypatch.setattr(preflight, "trusted_tool", lambda name: resolved)
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        return CompletedProcess(command, 0, "{}", "")
+
+    monkeypatch.setattr(preflight, "run_with_heartbeat", run)
+    assert (
+        preflight.capture_vm_metadata(
+            ["/usr/bin/az", "rest", "--method", "get"],
+            cwd=tmp_path,
+            env={},
+            timeout=30,
+            reason="metadata_unavailable",
+        )
+        == "{}"
+    )
+    assert calls[0][0] == [resolved, "rest", "--method", "get"]
+    assert calls[0][1]["timeout"] == 30
+    assert calls[0][1]["umask"] == 0o077
+
+
 def test_new_preparation_selects_host_and_preserves_private_replay(tmp_path, isolated_environment):
     capture, calls = capture_for(rows())
     size = preflight.discover_foundation_vm_size(

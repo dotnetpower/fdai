@@ -4,6 +4,7 @@ import {
   decodeHandoverInvitation,
   type HandoverGoal,
   type HandoverInvitation,
+  type HandoverSlot,
 } from "./handover-model";
 
 export async function fetchHandoverInvitation(
@@ -20,8 +21,9 @@ export async function fetchHandoverGoal(
   client: OperatorApiClient,
   goalId: string,
 ): Promise<HandoverGoal> {
-  return decodeHandoverGoal(
+  return expectedGoal(
     await request(client, `/handover/goals/${encodeURIComponent(goalId)}`),
+    goalId,
   );
 }
 
@@ -31,24 +33,26 @@ export async function addHandoverEvidence(
   expectedRevision: number,
   evidenceRef: string,
   digest: string,
+  slot?: HandoverSlot,
 ): Promise<HandoverGoal> {
-  return decodeHandoverGoal(await request(
+  return expectedGoal(await request(
     client,
     `/handover/goals/${encodeURIComponent(goalId)}/evidence`,
     {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "idempotency-key": `handover-evidence:${goalId}:${evidenceRef}`,
+        "idempotency-key": `handover-evidence:${goalId}:${evidenceRef}:${slot ?? "unassigned"}`,
       },
       body: JSON.stringify({
         expected_revision: expectedRevision,
         evidence_ref: evidenceRef,
         digest,
         kind: "document",
+        ...(slot ? { slot } : {}),
       }),
     },
-  ));
+  ), goalId);
 }
 
 export async function updateHandoverGoal(
@@ -57,7 +61,7 @@ export async function updateHandoverGoal(
   operation: "snooze" | "decline",
   expectedRevision: number,
 ): Promise<HandoverGoal> {
-  return decodeHandoverGoal(await request(
+  return expectedGoal(await request(
     client,
     `/handover/goals/${encodeURIComponent(goalId)}/${operation}`,
     {
@@ -68,7 +72,25 @@ export async function updateHandoverGoal(
       },
       body: JSON.stringify({ expected_revision: expectedRevision }),
     },
-  ));
+  ), goalId);
+}
+
+/** Submit only a server-authorized review or explicit slot exemption. */
+export async function reviewHandoverGoal(
+  client: OperatorApiClient, goalId: string, expectedRevision: number,
+  operation: "accept" | "acknowledge" | "not-applicable" | "reuse",
+  extra: Readonly<Record<string, string>> = {},
+): Promise<HandoverGoal> {
+  return expectedGoal(await request(client, `/handover/goals/${encodeURIComponent(goalId)}/${operation}`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ expected_revision: expectedRevision, ...extra }),
+  }), goalId);
+}
+
+function expectedGoal(value: unknown, goalId: string): HandoverGoal {
+  const goal = decodeHandoverGoal(value);
+  if (goal.goalId !== goalId) throw new Error("Handover response belongs to another goal.");
+  return goal;
 }
 
 async function request(

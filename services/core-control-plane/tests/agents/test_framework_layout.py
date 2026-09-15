@@ -181,6 +181,15 @@ def test_no_framework_file_exceeds_800_loc() -> None:
     )
 
 
+def test_var_approval_records_keep_the_owner_under_the_enforced_ceiling() -> None:
+    from fdai.agents import var
+    from fdai.agents._framework import var_decisions
+
+    assert (_AGENTS_DIR / "var.py").read_text().count("\n") <= 800
+    assert var.PendingHilTicket is var_decisions.PendingHilTicket
+    assert var.PendingShadowReview is var_decisions.PendingShadowReview
+
+
 def test_factory_constructs_each_agent_once(monkeypatch: pytest.MonkeyPatch) -> None:
     from fdai.agents._framework import factory
 

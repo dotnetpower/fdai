@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
 
@@ -266,6 +266,7 @@ async def _consume_hil_decisions(
     coordinator: HilResumeCoordinator,
     stop: asyncio.Event,
     workflow_registry: HilWorkflowDecisionRegistry | None = None,
+    human_access_ingress: Callable[[str], Awaitable[None]] | None = None,
 ) -> None:
     """Route one durable human decision to its authoritative owner.
 
@@ -296,6 +297,11 @@ async def _consume_hil_decisions(
                     if workflow_registry is not None
                     else "action"
                 )
+                if route == "human_access":
+                    if human_access_ingress is None:
+                        raise ValueError("human access decision ingress is unavailable")
+                    await human_access_ingress(approval_id)
+                    continue
                 if route == "workflow":
                     if workflow_registry is None:  # pragma: no cover - route implies binding
                         raise ValueError("workflow decision route has no bound registry")

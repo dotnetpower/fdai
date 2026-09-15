@@ -19,6 +19,11 @@ from fdai.shared.providers.testing.hil_channel import InMemoryHilChannel
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
+class VerifiedEligible:
+    async def is_eligible(self, *, subject_ref: str, minimum_role: str) -> bool:
+        return True
+
+
 class PrimaryIneligible:
     async def is_eligible(self, *, subject_ref: str, minimum_role: str) -> bool:
         return subject_ref != "primary-1"
@@ -88,6 +93,7 @@ async def _supervisor(
             mode=Mode.ENFORCE,
         ),
         clock=lambda: now,
+        eligibility=VerifiedEligible(),
     )
     parked = supervisor.attach(_park(now), rungs=_rungs(), now=now)
     await store.write_state("hil_park:approval-1", parked)
@@ -119,6 +125,7 @@ async def test_bounded_scan_rotates_across_pending_parks() -> None:
         channel=channel,
         policy=EscalationPolicy(scan_limit=1, mode=Mode.ENFORCE),
         clock=lambda: now,
+        eligibility=VerifiedEligible(),
     )
     for suffix in ("1", "2"):
         pending = _park(now)
@@ -194,6 +201,7 @@ async def test_resolved_rejection_is_terminal_across_restart() -> None:
         state_store=store,
         channel=channel,
         policy=supervisor.policy,
+        eligibility=VerifiedEligible(),
     )
 
     result = await restarted.tick(at=now + timedelta(hours=1))

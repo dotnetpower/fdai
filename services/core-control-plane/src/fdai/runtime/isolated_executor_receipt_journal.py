@@ -12,6 +12,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from fdai_service_contracts.human_access_execution import HUMAN_ACCESS_ACTIONS
 from fdai_service_contracts.ontology_query import content_digest
 from psycopg import InterfaceError, OperationalError
 from pydantic import BaseModel, ConfigDict, Field
@@ -146,14 +147,33 @@ class BoundExecutorReceiptJournal:
                 }
             ):
                 raise ValueError("isolated Executor command attempt binding conflicted")
+            await self._retain_human_access_link(prior.command)
             return prior.command, False
         await self._store.write_state_with_audit_if_absent(
             self._command_key(command.command_id),
             value,
             self._audit(command.command_id, "command_correlated", registration_id=registration_id),
         )
+        await self._retain_human_access_link(command)
         await self._change_work(command.command_id, add=True)
         return command, True
+
+    async def _retain_human_access_link(self, command: SafeguardBoundExecutorCommand) -> None:
+        """Index only exact human-access commands for independent delayed receipt observation."""
+        if command.action_payload.get("action_type") not in HUMAN_ACCESS_ACTIONS:
+            return
+        key = f"{_PREFIX}human-access:{command.action_id}"
+        value = {
+            "command_id": str(command.command_id),
+            "action_digest": command.action_payload_digest,
+        }
+        if (
+            not await self._store.write_state_with_audit_if_absent(
+                key, value, self._audit(command.command_id, "human_access_command_indexed")
+            )
+            and await self._store.read_state(key) != value
+        ):
+            raise ValueError("human access Action has a different original dispatch command")
 
     async def accept(self, receipt: ExecutorReceipt, *, partition_key: str) -> bool:
         """Retain exact terminal bytes before the consumer advances its offset.

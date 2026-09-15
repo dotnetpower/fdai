@@ -30,8 +30,11 @@ The Pantheon remains exactly 15 named agents. A task worker is a runtime helper 
 - Write operator memory, runtime skills, rules, schedules, or workflow definitions.
 - Create another worker or ask the operator for clarification.
 
-An existing read-only answer-planning provider can execute the bounded investigation. The worker
-does not inherit that provider's agent identity or authority.
+A read-only answer-planning provider can execute the bounded investigation only through
+`TaskWorkerPlanningProvider.contribute_bounded`. It receives both the token and cost ceilings and
+returns `TaskWorkerPlanningResponse` with measured total tokens and cost, including abstention.
+An unmetered `AnswerPlanningProvider` is rejected when the executor is constructed. The worker
+does not inherit the provider's agent identity or authority.
 
 ## Request and isolated context
 
@@ -88,6 +91,14 @@ pending -> running -> succeeded | abstained | cancelled | timed_out |
 
 Every transition uses compare-and-swap state checks. Duplicate worker IDs are safe to retry only
 when the complete request matches.
+
+The planning provider must enforce both ceilings before a billable request, not estimate cost from
+the returned summary. Its response carries nonnegative integer usage; missing or malformed usage
+fails rather than becoming a zero-cost success. The runtime retains reported usage and suppresses
+the summary when either ceiling is exceeded. Empty contributions remain metered abstentions.
+This contract is a prerequisite for #805, not a production model binding. Production stays
+unavailable until the concrete provider proves pre-dispatch budget enforcement, failure/cancellation
+accounting, and durable restart behavior.
 
 ## Durable records
 
@@ -160,6 +171,7 @@ does not promote the capability or prove a deployed worker path.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Metered planning adapter prerequisite | implemented | `core/task_worker/planning_executor.py`; `tests/core/task_worker/test_planning_executor.py` | Both ceilings reach the bounded provider. Measured token/cost usage survives success, abstention, budget rejection, and terminal replay. Unmetered providers fail construction; no production provider is bound. |
 | Request model, isolated context, and capability attenuation | implemented | `core/task_worker/models.py`, `attenuation.py`, `profiles.py`; `tests/core/task_worker/test_attenuation.py` | The request is depth-one, the context projection is bounded, and the final tool set is the deterministic intersection of the three authorities. |
 | Runtime lifecycle, planning executor, and tool gateway | implemented | `core/task_worker/runtime.py`, `planning_executor.py`, `tools.py`; focused runtime and planning-executor tests | State transitions, concurrency, timeouts, cancellation ownership, budgets, heartbeats, read-only dispatch, abstention, and bounded failures are implemented without a production runtime binding. |
 | Durable snapshots, branch events, recovery, and owner-scoped queries | implemented | `delivery/persistence/postgres_task_worker.py`; Alembic revision `20260720_0039`; `tests/persistence/test_task_worker.py` | PostgreSQL compare-and-swap persistence and restart recovery exist. This row does not claim a deployed database validation. |
@@ -171,6 +183,7 @@ does not promote the capability or prove a deployed worker path.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Reproduced acceptance of an unmetered provider, then replaced ignored cost limits and summary-derived tokens with a worker-specific bounded response. Review rejected adapting the unmetered shadow seam or treating a Protocol as proof of actual billing control. | `current change`; #805; focused planning-executor and runtime selection passed 34 tests; strict targeted mypy passed. | Prove concrete pre-dispatch limits and failure/cancellation accounting, then complete production composition and restart verification under #805. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger and separated the implemented worker core from unfinished production and projection integration. | Current task-worker source, persistence adapter and migration, focused core and persistence tests, and Operator API route tests. | Bind the production runtime and projections, expose the read-only operator experience, and capture governed live evidence. |
 
 ### Remaining work

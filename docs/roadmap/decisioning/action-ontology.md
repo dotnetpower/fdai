@@ -52,7 +52,7 @@ trigger_kind:
   the union; runtime picks the path.
 
 Nothing in the schema is trigger-specific except this axis; the
-executor, the RiskGate, and the audit contract are the same for both.
+executor, the RiskGate, and the audit contract are the same for both. `ops.revoke-human-access` accepts a bounded `replacement_revisions` map from explicit replacement case IDs to exact revisions. Its dedicated adapter checks complete primary/fallback coverage and other active role demand in shadow mode. Arguments and shadow plans cannot authorize revocation, duty removal, or enforcement; current approval, seven safeguards, and independent promotion/effect evidence remain required.
 
 ## 2. Schema
 

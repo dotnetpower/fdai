@@ -2,8 +2,8 @@
 title: 제한된 작업 워커
 translation_of: bounded-task-workers.md
 translation_source: docs/roadmap/agents/bounded-task-workers.md
-translation_source_sha: 2474364697751e02b98193d91450f4f842fbf0d0
-translation_revised: 2026-08-20
+translation_source_sha: b94b03bedfb477fc73366bac08679f1c2a1ca429
+translation_revised: 2026-09-15
 ---
 
 # 제한된 작업 워커
@@ -34,8 +34,11 @@ Pantheon은 정확히 15개의 명명된 에이전트로 유지됩니다. 작업
 - 운영자 기억, 런타임 스킬, 룰, 예약, 작업 흐름 정의를 작성합니다.
 - 다른 워커를 만들거나 운영자에게 명확화를 요청합니다.
 
-기존 읽기 전용 answer-planning 프로바이더가 제한된 조사를 실행할 수 있습니다. 워커는 해당
-프로바이더 에이전트의 신원 또는 권한을 상속하지 않습니다.
+읽기 전용 답변 계획 프로바이더는 `TaskWorkerPlanningProvider.contribute_bounded`를 통해서만
+제한된 조사를 실행할 수 있습니다. 토큰과 비용 한도를 모두 전달받고, 판단 보류를 포함한
+모든 응답에서 측정된 총 토큰과 비용을 `TaskWorkerPlanningResponse`로 반환합니다. 실행기를
+생성할 때 사용량을 측정하지 않는 `AnswerPlanningProvider`는 거부합니다. 워커는
+프로바이더 에이전트의 신원이나 권한을 상속하지 않습니다.
 
 ## 요청 및 격리된 컨텍스트
 
@@ -91,6 +94,14 @@ pending -> running -> succeeded | abstained | cancelled | timed_out |
 
 모든 전이는 compare-and-swap 상태 검사를 사용합니다. 중복 워커 ID는 전체 요청이
 일치할 때만 안전하게 재시도할 수 있습니다.
+
+계획 프로바이더는 반환된 요약에서 비용을 추정하지 않고, 과금 요청 전에 두 한도를 모두
+적용해야 합니다. 응답 사용량은 음수가 아닌 정수여야 하며, 누락되거나 잘못된 사용량을
+비용 0의 성공으로 바꾸지 않고 실패 처리합니다. 런타임은 보고된 사용량을 보존하고 어느
+한도라도 초과하면 요약을 제외합니다. 내용이 없는 응답도 사용량이 기록된 판단 보류로
+처리합니다. 이 계약은 #805의 선행 조건이며 운영 모델 연결이 아닙니다. 구체적인
+프로바이더에서 전송 전 예산 제한, 실패/취소 시 사용량 기록, 영속적인 재시작 동작을
+입증할 때까지 운영 기능은 사용 불가 상태를 유지합니다.
 
 ## 영구 기록
 
@@ -163,6 +174,7 @@ PostgreSQL compare-and-swap, owner-scoped 읽기, answer-planning 프로바이�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 사용량 측정 계획 어댑터 선행 조건 | implemented | `core/task_worker/planning_executor.py`; `tests/core/task_worker/test_planning_executor.py` | 두 한도를 제한된 프로바이더에 전달합니다. 성공, 판단 보류, 예산 초과, 최종 결과 재생 시 측정된 토큰과 비용을 보존합니다. 사용량을 측정하지 않는 프로바이더는 생성 시 거부하며 운영 프로바이더는 연결하지 않습니다. |
 | 요청 모델, 격리된 컨텍스트, 기능 축소 | implemented | `core/task_worker/models.py`, `attenuation.py`, `profiles.py`; `tests/core/task_worker/test_attenuation.py` | 요청 깊이는 1로 고정되고 컨텍스트 변환 결과는 제한되며, 최종 도구 집합은 세 권한의 결정론적 교집합입니다. |
 | 런타임 수명 주기, 계획 실행기, 도구 게이트웨이 | implemented | `core/task_worker/runtime.py`, `planning_executor.py`, `tools.py`; 집중 런타임 및 계획 실행기 테스트 | 상태 전이, 동시성, 시간 초과, 취소 소유권, 예산, 하트비트, 읽기 전용 전달, abstention, 제한된 실패가 구현되어 있지만 운영 런타임 바인딩은 없습니다. |
 | 영구 스냅샷, 가지 이벤트, 복구, 소유자 범위 조회 | implemented | `delivery/persistence/postgres_task_worker.py`; Alembic 리비전 `20260720_0039`; `tests/persistence/test_task_worker.py` | PostgreSQL compare-and-swap 영속화와 재시작 복구가 존재합니다. 이 행은 배포된 데이터베이스 검증을 주장하지 않습니다. |
@@ -174,6 +186,7 @@ PostgreSQL compare-and-swap, owner-scoped 읽기, answer-planning 프로바이�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 사용량을 측정하지 않는 프로바이더를 허용하던 문제를 재현한 뒤, 무시되던 비용 한도와 요약 길이 기반 토큰 추정을 워커 전용 제한 응답으로 교체했습니다. 검토에서는 사용량을 측정하지 않는 관찰용 연결 지점을 재사용하거나 Protocol 자체를 실제 과금 제어의 증명으로 간주하지 않도록 했습니다. | `current change`; #805; 집중 계획 실행기 및 런타임 테스트 34건과 대상 strict mypy 검사 통과. | 구체적인 전송 전 한도 적용과 실패/취소 시 사용량 기록을 입증한 뒤 #805의 운영 구성과 재시작 검증을 완료해야 합니다. |
 | 2026-08-13 | in-progress | 구현 원장을 도입하고 구현된 워커 코어와 미완료 운영 및 변환 결과 통합을 구분했습니다. | 현재 작업 워커 소스, 영속성 어댑터와 마이그레이션, 집중 코어 및 영속성 테스트, Operator API 경로 테스트. | 운영 런타임과 변환 결과를 바인딩하고 읽기 전용 운영자 경험을 노출하며 거버넌스된 실환경 근거를 수집해야 합니다. |
 
 ### 남은 작업

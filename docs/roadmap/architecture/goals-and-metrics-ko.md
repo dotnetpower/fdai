@@ -1,8 +1,8 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: e89544d6987abdca3210f3f00944cc3ad95d115c
-translation_revised: 2026-09-12
+translation_source_sha: 31d85a0bc20f98570ba7c586772dc38536bae1fa
+translation_revised: 2026-09-15
 ---
 
 # 목표와 메트릭
@@ -25,7 +25,8 @@ translation_revised: 2026-09-12
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 정본 제어 루프 최종 측정 기록 | implemented | `core/control_loop/_measurement.py`; `fdai_service_contracts/control_loop_measurement.py`; 집중 계약, 생산자 및 단계 테스트 | 정규화 이벤트 하나가 영속 분류 기록 하나에 기여합니다. 효과 검증은 별도 출처를 유지합니다. Operator와 지표 출처 연결은 #839에서 추적합니다. |
+| 정본 제어 루프 최종 측정 기록 | implemented | `core/control_loop/_measurement.py`; `fdai_service_contracts/control_loop_measurement.py`; 집중 계약, 생산자 및 단계 테스트 | 정규화 이벤트 하나가 영속 분류 기록 하나에 기여합니다. 효과 검증은 별도 출처를 유지합니다. #839의 Operator와 지표 출처 연결은 [PR #860](https://github.com/dotnetpower/fdai/pull/860)에서 병합되었습니다. |
+| Live Dashboard 측정 출처 연결 | implemented | [`test_dashboard_measurement_pipeline.py`](../../../tests/integration/test_dashboard_measurement_pipeline.py); [Console 근거 원장](../../roadmap-implementation/interfaces/console-evidence-and-resilience.md#dashboard-source-closure-review-2026-09-15) | Core 기록기, 범위가 제한된 정본 감사 조회, 검증된 결과, 시간 및 비용 관측값과 기존 Operator 응답 형식이 연결되었습니다. 소스 구현의 수락은 실제 내보내기 입력, 독립적으로 승인된 비교 또는 통제된 코호트를 인증하지 않습니다. |
 | 결정론적 KPI와 가드 메트릭 집계 | implemented | `core/measurement/mttr.py`; `dora.py`; `regression.py`; `tests/core/measurement/` 아래의 집중 테스트 | MTTR, 변경, 회귀, 지연 시간, 모델 및 pattern 메트릭에 실행 가능한 reducer와 실패 시 차단 검사가 있습니다. |
 | 승격 및 운영 근거 평가 | implemented | `core/measurement/promotion_gate.py`; `operational_promotion.py`; 집중 승격 테스트 | 승격 평가는 개정 번호, 시나리오, 표본, 신뢰 구간, 가드 및 결과 근거를 연결합니다. 현재 유효한 공유 의사 결정 근거 승인 결과가 전체 묶음과 일치해야만 준비 완료 결과가 나올 수 있습니다. 기존 저장 증적은 읽을 수 있지만 증적 및 검증 묶음 다이제스트가 없으면 승격 권한에 사용할 수 없습니다. |
 | 의사 결정 경계 승인 완전 커버리지 | implemented | `config/decision-boundary-inventory.json`; `scripts/quality/architecture/check-decision-boundary-coverage.py`; `tests/integration/scripts/test_decision_boundary_coverage.py`; 집중 경계 테스트 | 등록된 긍정적 의사 결정 경계 20개가 모두 공유 승인 계약을 통해 의사 결정 핵심 근거를 해석하며, 승인 결과가 없거나 수락되지 않으면 검토 보류로 처리합니다. 가드는 인벤토리를 양방향으로 검사하므로 의도적으로 누락된 등록 경계는 실패합니다. 준비 상태 매트릭스는 누락, 오래됨, 불완전, 충돌, 합성, 잘못된 목적 및 잘못된 범위 근거를 각각 이름으로 차단합니다. |
@@ -46,6 +47,7 @@ translation_revised: 2026-09-12
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 이미 제공된 연결을 향후 작업으로 남겨 두지 않도록 #839의 소스 수락 상태를 병합된 생성기부터 Operator까지의 파이프라인과 일치시켰습니다. 과거 구현 이력은 변경하지 않았습니다. | PR #860의 `443386f4308a9f924e5ca5bdde0c2538fe852395`; 현재 소스 완료 검토와 집중 테스트 119건 통과 근거는 Console 근거 원장에 기록되어 있습니다. | 통제된 결과 및 기준선/처리 근거는 #343, #348, #393에서 계속 추적합니다. 새 배포, 실제 운영 검증 또는 승격을 주장하지 않습니다. |
 | 2026-09-12 | implemented | 버전이 있는 최종 측정 기록에 고정 출처 식별자, 티어·경로·모드, 시도한 모든 조치 참조, 원자적 상태 및 감사 저장을 추가했습니다. 저장 실패는 수집 중복 제거 전에 재시도합니다. | `current change`; #839; 집중 최종 계약, 생산자 및 단계 이벤트 테스트 통과. | 실측 출처와 Operator 연결, 하드닝 라운드, 승인된 출처의 선행 조건을 완료해야 합니다. 분류 기록만으로 운영 성공이나 기준선을 주장하지 않습니다. |
 | 2026-09-11 | implemented | FDAI-CONST-002 완료 조건을 강제 가능한 계약 경계로 바로잡았습니다. 등록된 모든 긍정적 의사 결정은 공유 승인 검사의 지배를 받고 근거가 없거나 거부되면 실패 시 차단합니다. 동적 목적과 드물게 발생하는 실제 사건 때문에 모든 경계의 최신 실제 승인을 동시에 보존하는 이전 조건은 열거할 수 없고 안전하게 만들 수도 없어 철회했습니다. | `current change`; `config/constitution-traceability.json`; 등록된 헌법 증명 selector; 완전한 경계 인벤토리와 부정 근거 매트릭스; 집중 헌법 및 경계 검사. | 권위 있는 사건이 발생할 때 실제 양의 경로 승인을 운영 검증으로 계속 수집합니다. 관련 없는 `deployment-apply` 기록의 이름을 바꾸지 않습니다. |
 | 2026-09-11 | implemented | 코호트 exporter allowlist를 제품 중립 출처 레지스트리로 확장했습니다. 군에 포함된 각 필수 지표와 가드는 신뢰할 수 있는 workflow 소유자 하나와 고정 출처 식별자에만 연결되고, 반입기가 해당 식별자를 출처 계보에 주입합니다. 집계 인벤토리는 출처 식별자, workflow, 군 및 측정값이 해당 레지스트리와 계속 일치하는 행만 다시 계수합니다. 일부 측정값만 연결하거나 소유권 또는 출처 식별자가 중복되거나 두 군이 같은 workflow를 재사용하거나 workflow 파일이 없거나 정책 키가 중복되거나 산출물이 출처 권한을 선언하면 실패 시 차단합니다. | `current change`; 코호트 정책, 반입기 및 인벤토리; 집중 정책, 반입기 및 인벤토리 테스트. | 배포된 실제 정본을 지정한 뒤 완전한 출처별 workflow 연결을 추가하고, 두 군의 각 필수 측정값마다 독립 관측값 30개를 보존하고 승인합니다. |

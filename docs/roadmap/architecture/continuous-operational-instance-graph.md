@@ -20,6 +20,11 @@ unbounded tight polling loop.
 
 ## Non-negotiable invariants
 
+On AKS, Operator graph-query and live-stage transport use the projected workload credential bound
+to the Operator identity. The credential change does not alter query admission, topic ownership,
+observation provenance or projection writers. The existing adapters facade owns factory exposure. Incomplete federation remains unavailable and never
+substitutes the node identity or local Azure CLI; local credential policy stays unchanged.
+
 - **Observed truth:** Only authenticated provider observations can enter the `observed` state lane.
   Questions, model output, intended state, dispatch receipts, and executor results cannot create an
   observed fact.
@@ -56,7 +61,7 @@ unbounded tight polling loop.
   Managed-resource writeback remains in the governed action path and closes only after independent
   re-observation. The standalone deploy host's exact-registry `AcrPush` assignment remains a
   write-plane delivery permission. Image import and digest readback create no operational graph
-  fact or observation authority.
+  fact or observation authority. Shared Operator/Core composition also carries content-free assignment notices on separate allowlisted logical topics. Those requests, case dispositions, and review-only PR receipts never become inventory, AKS diagnostic, or runtime-call witnesses; the graph-first query contract and provider observation admission remain unchanged.
 - **Bounded retention:** Raw data is removed from hot or warm storage only after a rollup or archive
   manifest verifies complete source coverage and the applicable retention hold permits deletion.
 

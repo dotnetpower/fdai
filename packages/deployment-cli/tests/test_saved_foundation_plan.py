@@ -146,6 +146,43 @@ def test_saved_plan_text_exposes_digest_but_not_provider_values(
     assert "private-provider-marker" not in output.out + output.err
 
 
+@pytest.mark.parametrize(
+    "schema", ["fdai.foundation-saved-plan.v1", "fdai.foundation-saved-source-plan.v1"]
+)
+def test_source_and_kit_plan_contexts_cannot_be_mixed(saved_command, schema) -> None:
+    args, work, profile, _, _ = saved_command
+    assert cli.main(args) == 0
+    receipt = _receipt(work)
+    context = receipt["context"]
+    if schema == "fdai.foundation-saved-plan.v1":
+        context["source_input_digest"] = context.pop("offline_manifest_digest")
+        context["source_snapshot_digest"] = context.pop("deployment_bundle_digest")
+    receipt["schema_version"] = schema
+    receipt = _rewrite_receipt(work, receipt)
+    with pytest.raises(ValueError, match="context"):
+        _verify(work, profile, receipt)
+
+
+def test_source_plan_context_does_not_claim_signed_artifacts(saved_command) -> None:
+    _, _, profile, _, _ = saved_command
+    context = foundation_plan.source_foundation_plan_context(
+        profile=replace(profile, connectivity="online"),
+        variables={
+            "source_commit": "c" * 40,
+            "run_digest": "a" * 64,
+            "foundation_context_digest": "b" * 64,
+        },
+        source_input_digest="d" * 64,
+        source_snapshot_digest="e" * 64,
+        terraform_digest="f" * 64,
+        provider_lock=b"locked",
+        runner_image_observation_digest="a" * 64,
+    )
+    assert "offline_manifest_digest" not in context
+    assert "deployment_bundle_digest" not in context
+    assert context["source_input_digest"] == "d" * 64
+
+
 def test_expired_foundation_plan_is_accepted_only_for_claimed_effect_verification(
     saved_command: tuple[list[str], Path, ProvisionProfile, dict[str, object], list[list[str]]],
 ) -> None:

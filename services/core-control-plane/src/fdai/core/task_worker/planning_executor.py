@@ -1,8 +1,11 @@
-"""Task-worker executor backed by the existing answer-planning provider seam."""
+"""Task-worker planning with explicit provider budgets and measured usage."""
 
 from __future__ import annotations
 
-from fdai.core.conversation.answer_planning import AnswerPlanningProvider
+from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
+
+from fdai.core.conversation.answer_planning import AnswerContribution
 from fdai.core.task_worker.models import (
     TaskWorkerContext,
     TaskWorkerOutput,
@@ -11,17 +14,54 @@ from fdai.core.task_worker.models import (
 from fdai.core.task_worker.tools import TaskWorkerToolGateway
 
 
+@dataclass(frozen=True, slots=True)
+class TaskWorkerPlanningResponse:
+    """One optional contribution and its measured total provider usage."""
+
+    contribution: AnswerContribution | None
+    tokens: int
+    cost_microusd: int
+
+    def __post_init__(self) -> None:
+        for value in (self.tokens, self.cost_microusd):
+            if type(value) is not int or value < 0:
+                raise ValueError("worker planning usage MUST be non-negative integers")
+        if self.contribution is not None and not isinstance(self.contribution, AnswerContribution):
+            raise TypeError("worker planning contribution MUST be AnswerContribution or None")
+
+
+@runtime_checkable
+class TaskWorkerPlanningProvider(Protocol):
+    """Enforce worker ceilings before dispatch and meter even an abstention.
+
+    Tokens include input and output usage. An implementation must refuse a
+    request whose maximum charge cannot fit both ceilings before any billable
+    call. Implementing this seam alone does not certify a production binding.
+    """
+
+    async def contribute_bounded(
+        self,
+        *,
+        agent: str,
+        prompt: str,
+        max_tokens: int,
+        max_cost_microusd: int,
+    ) -> TaskWorkerPlanningResponse: ...
+
+
 class AnswerPlanningTaskWorkerExecutor:
-    """Reuse one #28 contributor without giving the worker an agent identity."""
+    """Use one metered contributor without giving the worker an agent identity."""
 
     def __init__(
         self,
         *,
-        provider: AnswerPlanningProvider,
+        provider: TaskWorkerPlanningProvider,
         contributor_agent: str,
     ) -> None:
         if not contributor_agent.strip():
             raise ValueError("contributor_agent MUST be non-empty")
+        if not isinstance(provider, TaskWorkerPlanningProvider):
+            raise TypeError("worker planning requires bounded contributions with measured usage")
         self._provider = provider
         self._contributor_agent = contributor_agent
 
@@ -31,33 +71,43 @@ class AnswerPlanningTaskWorkerExecutor:
         context: object,
         tools: TaskWorkerToolGateway,
         max_tokens: int,
-        max_cost_microusd: int,  # noqa: ARG002 - provider meters at its own boundary
+        max_cost_microusd: int,
     ) -> TaskWorkerOutput:
+        """Forward both ceilings and preserve measured usage for runtime enforcement."""
         if not isinstance(context, TaskWorkerContext):
             raise TypeError("task worker executor requires TaskWorkerContext")
-        contribution = await self._provider.contribute(
+        response = await self._provider.contribute_bounded(
             agent=self._contributor_agent,
             prompt=_prompt(context),
             max_tokens=max_tokens,
+            max_cost_microusd=max_cost_microusd,
         )
-        if contribution is None:
+        if not isinstance(response, TaskWorkerPlanningResponse):
+            raise TypeError("worker planning response MUST include measured usage")
+        usage = TaskWorkerUsage(
+            tokens=response.tokens,
+            cost_microusd=response.cost_microusd,
+            tool_calls=tools.usage.tool_calls,
+        )
+        contribution = response.contribution
+        if contribution is None or not contribution.facts:
             return TaskWorkerOutput(
                 summary="Worker abstained because the selected contributor returned no evidence.",
                 evidence_refs=(),
-                caveats=("No provider contribution was available.",),
-                usage=TaskWorkerUsage(tool_calls=tools.usage.tool_calls),
+                caveats=(
+                    contribution.caveats
+                    if contribution is not None
+                    else ("No provider contribution was available.",)
+                ),
+                usage=usage,
                 abstained=True,
             )
         summary = "\n".join(fact.claim for fact in contribution.facts)
-        estimated_tokens = max(1, (len(summary) + 3) // 4)
         return TaskWorkerOutput(
             summary=summary,
             evidence_refs=contribution.evidence_refs,
             caveats=contribution.caveats,
-            usage=TaskWorkerUsage(
-                tokens=estimated_tokens,
-                tool_calls=tools.usage.tool_calls,
-            ),
+            usage=usage,
         )
 
 
@@ -74,4 +124,8 @@ def _prompt(context: TaskWorkerContext) -> str:
     )
 
 
-__all__ = ["AnswerPlanningTaskWorkerExecutor"]
+__all__ = [
+    "AnswerPlanningTaskWorkerExecutor",
+    "TaskWorkerPlanningProvider",
+    "TaskWorkerPlanningResponse",
+]

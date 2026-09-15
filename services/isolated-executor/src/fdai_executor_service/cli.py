@@ -125,6 +125,14 @@ class IsolatedExecutorRuntimeConfig:
             raise RuntimeError(f"{_LEGACY_UNBOUND_TRANSITION_ENV}=1 requires authority cutover")
         if execution_venue is ExecutionVenue.LOCAL and authority_cutover:
             raise RuntimeError("local isolated Executor MUST NOT enable authority cutover")
+        from fdai_executor_service.human_access_binding import (
+            human_access_role_groups,
+            require_human_access_identity,
+        )
+
+        human_groups = human_access_role_groups(values)
+        if authority_cutover and human_groups is not None:
+            require_human_access_identity(values)
         if execution_venue is ExecutionVenue.DEPLOYED:
             _required(values, _SHADOW_IDENTITY_ENV)
         if authority_cutover:

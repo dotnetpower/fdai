@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from collections.abc import Callable
 from typing import Protocol, runtime_checkable
+
+from fdai_service_contracts import DocumentEnvelope as ServiceDocumentEnvelope
 
 from fdai.rule_catalog.pipeline.distill.ontology_council import OntologyAwareDistiller
 from fdai.rule_catalog.pipeline.distill.ontology_models import stable_digest
@@ -34,6 +37,23 @@ _EXTRACTABLE_PROTECTION = frozenset(
     }
 )
 _WHITESPACE = re.compile(r"\s+")
+_JSON_TOKENS = re.compile(r'"(?:[^"\\]|\\.)*"|\s+')
+
+
+def _normalize_unit(text: str) -> str:
+    """Collapse layout whitespace without rewriting values inside valid JSON structural units."""
+    stripped = text.strip()
+    if stripped.startswith(("{", "[")):
+        try:
+            json.loads(stripped)
+        except json.JSONDecodeError:
+            pass
+        else:
+            return _JSON_TOKENS.sub(
+                lambda match: match.group() if match.group().startswith('"') else " ",
+                stripped,
+            )
+    return _WHITESPACE.sub(" ", stripped)
 
 
 @runtime_checkable
@@ -43,8 +63,14 @@ class OntologyReviewPackageSink(Protocol):
     async def put(self, package: OntologyReviewPackage) -> None: ...
 
 
-def manual_document_from_envelope(envelope: DocumentEnvelope) -> ManualDocument:
-    """Create one replay-stable manual line per cited structural unit."""
+def manual_document_from_envelope(
+    envelope: DocumentEnvelope | ServiceDocumentEnvelope,
+) -> ManualDocument:
+    """Preserve real structural locators from legacy or independent-worker envelopes.
+
+    No envelope is reparsed through a narrower legacy model. The caller retains the complete
+    original envelope and manifest commitment; this bridge only normalizes cited text units.
+    """
     if envelope.protection_state not in _EXTRACTABLE_PROTECTION:
         raise ValueError("ontology distillation requires extractable document protection")
     unit_ids = [unit.unit_id for unit in envelope.units]
@@ -57,7 +83,7 @@ def manual_document_from_envelope(envelope: DocumentEnvelope) -> ManualDocument:
     lines: list[str] = []
     provenance: list[ManualLineProvenance] = []
     for unit in envelope.units:
-        text = _WHITESPACE.sub(" ", unit.text).strip()
+        text = _normalize_unit(unit.text)
         if not text:
             continue
         lines.append(text)

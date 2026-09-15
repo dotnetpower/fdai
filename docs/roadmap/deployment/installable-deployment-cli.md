@@ -32,6 +32,187 @@ inside the target virtual network.
 GitHub Actions may validate source, build images, and publish signed releases. It cannot plan,
 apply, resume, or tear down a tenant deployment.
 
+## Connected source deployment
+
+Current source-mode support covers private preparation, read-only AKS capacity preflight,
+runner-image planning, exact-approved Foundation execution through private state handoff,
+and verified source transfer to the enrolled host.
+The public source command resumes these checkpoints using the shared private coordinator;
+new interactive source installations confirm settings at startup only; later stages and JSON
+execution never prompt. `--approval-file <path>` explicitly supplies an existing
+private human approval to the shared verifier. Without it, retained ambient approvals are ignored.
+Initial confirmation is separate from that approval. The coordinator advances within exact approval and returns review state when another
+checkpoint needs authority; it does not create approval, read stdin or report success. Managed-host application
+execution and durable Trial activation are not yet connected. A plan
+returns exit code `2` for review, not deployment success; a capacity blocker returns `3`.
+`--prepare-only` makes no Azure call. `--preflight-only` reads the current human target, SKU
+restrictions, x64 architecture, host encryption, required zones and shared-family/total quota at
+autoscaler maximum plus simultaneous 33-percent surge. It neither reserves capacity nor accounts
+for the Foundation graph. The distinct source work directory never adopts a kit run.
+
+After initial confirmation, a bounded public-price read adds an explicit partial AKS compute
+cost review before Foundation planning. A compute-only overrun blocks; an under-ceiling result
+still leaves full installation and setup costs unverified. The [runtime profile owner](runtime-deployment-profiles.md#state-ownership)
+defines price selection and exclusions. Runner-image reviews retain their legacy numeric estimate
+for compatibility but label it `policy-estimate-only`, with price, setup, whole-installation and
+billing-cap verification all false. That estimate cannot stand in for independent cost evidence.
+
+Foundation input and VM metadata reads resolve Azure CLI through the existing trusted installation
+roots, including the operator-owned local installation. They do not require `/usr/bin/az` to exist
+or accept an arbitrary executable from `PATH`. The selected Azure configuration, bounded reads and
+sanitized provider failures remain unchanged.
+Runner-image Terraform receives only a private `az` launcher bound to that resolved executable;
+resumption rejects a substituted launcher. Human identity readback uses the same trusted CLI.
+The interactive checkpoint prompt resolves that same trusted CLI before reading the current
+human approver. A missing trusted executable or a service-principal account cannot create approval.
+
+Source and kit Foundation inputs use distinct types and saved-plan schemas. A retained source
+plan must match the current snapshot and source-input digests. Source execution copies the
+verified infrastructure into a private state-preserving directory, verifies the pinned Terraform
+binary, and acquires only lockfile-selected providers for a local mirror. The immutable snapshot
+does not receive Terraform state or generated data. Existing exact-plan approval, pre-effect claim,
+verification-only recovery, and independent readback remain authoritative. Private state transfer
+includes the Foundation root, its sibling bootstrap module and shared modules, so relative module
+references remain valid on the managed host. These adapters do not prove a completed deployment.
+
+The source coordinator uses the private managed-host route explicitly. It reads Foundation
+provider registrations and inherited policy assignments without registering providers or creating
+policy-probe resources. Policy visibility is not a compliance or deployment-success claim.
+An exclusive run lock covers the shared checkpoint coordinator. Exact approval is collected
+separately before unattended execution; output format and TTY presence never grant authority. The same
+source, snapshot, human target and retained run must match on every resumption. No approval from
+one checkpoint grants another checkpoint, and published exact-source CI remains mandatory before
+resource effects. A verified Foundation handoff still leaves application deployment incomplete.
+
+### Source transfer boundary
+
+After the current private Foundation reaches its application boundary, the source coordinator
+loads the original state-handoff receipt through its bounded plan reference. It checks the retained
+digest, source, target, host attestation, remote-backend authority, zero-change plan and transient
+cleanup. Portable status is a projection, not the original receipt to rehash.
+
+The coordinator then prepares `source-transfer.tar` and an immutable local transfer receipt.
+The uncompressed archive contains the canonical source manifest plus numbered regular blobs,
+not archive-selected destination paths or links. The receiver reconstructs only manifest-owned
+files and internal links into a fresh private snapshot, checking independently supplied archive
+and snapshot digests before source execution. It rejects duplicate, missing, extra, absolute,
+traversal, hardlink and conflicting file/directory records. Limits are 65536 files, 64 MiB per file,
+2 GiB total source bytes and 16 MiB of manifest; archive overhead is separately bounded.
+Existing output, partial state or changed receipts are preserved rather than repaired or replaced.
+At most four file writes run concurrently, each retaining its private descriptor checks and
+`fsync`. Final snapshot verification waits for every write; a failed write cannot produce success.
+
+The installed `python -m fdai_deployment_cli.source_transport` receiver accepts the archive,
+fresh destination and both independent digests, returns sanitized verification evidence, and never
+executes the received application code. `--verify-existing` checks the same archive and snapshot
+without writing, adopting partial state, or repairing files. Local preparation verifies a complete
+receiver round trip before reuse; its receipt leaves remote transfer and deployment readiness false.
+
+Installing that receiver from a signed kit would reintroduce the source-mode prerequisite this path
+removes. Instead, a deterministic zipapp contains seven receiver modules from the exact snapshot
+plus a fixed launcher. Each module's read bytes must match its manifest hash; the private bootstrap
+is bounded to 4 MiB and runs on the host's Python 3.12 or later without installing dependencies.
+It remains operator-selected source, not a signed release or entitlement.
+
+The source coordinator transfers under its existing Foundation execution lock after source CI,
+target and state authority checks. It validates the original Foundation and enrollment receipt chain,
+pins the enrolled SSH key and host-key digest, and repeats the managed-host identity/tool attestation.
+Only then does it record an immutable transfer claim, create a fresh private host directory and copy
+the receiver and source archive through Bastion. The receiver hash is checked before execution;
+archive and snapshot digests arrive independently over the authenticated connection. Returned
+evidence must match the local receiver result. All remote operations share the remaining deadline.
+
+A retained claim allows verification only, never another copy or overwrite. Failed or partial
+transfers preserve the claim and fail the source stage. Verified host transfer produces its own
+private receipt with `remote_transfer_verified=true`, but no apply authority or deployment readiness.
+The public command checks that receipt against current local source and handoff evidence, then reports
+`source_application_execution_not_connected`. Host-side image builds and application execution remain
+open. Local and mocked transport evidence do not establish a successful Azure deployment.
+
+The development source path is selected explicitly with `fdaictl provision azure --source <path>`.
+It is mutually exclusive with `--online` and `--offline-kit`. Initial support targets a new
+`dev` installation using AKS and PostgreSQL Flexible Server. It does not migrate an existing
+Container Apps installation and does not claim disconnected or production readiness.
+
+### Initial confirmation and bounded unattended execution
+
+**Initial design:** Ask for installation scope before the first execution stage, then use that
+scope throughout a finite unattended run. Scope includes the exact source and target, runtime
+profile, region, monthly estimate ceiling, separate setup estimate ceiling, Console access,
+service retention, and temporary-resource cleanup.
+
+`--setup-cost-ceiling` supplies a whole-USD setup estimate ceiling; a fresh interactive run asks
+for it at startup if omitted. `--console-access` chooses `public-https-entra` (default) or
+`private-https-entra`. `--allow-dedicated-identities` and `--cleanup-temporary-resources` are
+explicit opt-ins, and services/data stay retained. These source-install-only settings cannot
+silently apply to kit, preparation, preflight, or legacy exact-approval invocations. They are
+preferences pending execution-side scope validation, not deployed settings or a billing cap.
+
+**Critique:** A startup yes/no answer cannot authenticate later resource ownership, prices, RBAC
+scope, or rollback safety. Existing plan reviews do not contain enough evidence for those checks.
+Treating a saved scope as an exact checkpoint approval would erase an authority boundary.
+
+**Revised contract:** Initial confirmation records installation preferences, not apply authority.
+A fresh interactive source installation shows the complete scope and collects one bounded answer.
+JSON and non-TTY runs return `initial_confirmation_required` instead of reading input. Preparation
+and preflight-only calls do not ask. An exact retained confirmation resumes without asking; a
+changed source, target, budget or option, expired confirmation, or an already-started run lacking
+that record stops without prompting or silently renewing consent. Legacy exact-approved resumes
+remain supported without treating an approval file as blanket scope consent.
+
+The confirmation has an immutable private record, an exact preparation/run binding and a finite
+validity window. Its digest detects drift, not human identity or authorization. It cannot mint
+`fdai.genesis-approval.v1` records, and it never enables runtime action authority or Trial.
+
+Full start-once execution additionally requires an independently reviewed bounded authorization
+adapter for every effect. Before each claim it must verify exact plan bytes, current source/target,
+complete fresh price evidence against both ceilings, exact new-resource ownership, allowlisted
+role/scope/principal tuples, no existing-resource destruction, current authorization/revocation,
+and all existing lock, idempotency, rollback and audit requirements. Cleanup covers only declared
+temporary resources created by that run and must independently prove absence. Retained services
+and data are not cleanup targets. Missing evidence ends the run with a persisted review/blocked
+result, never another prompt, guessed cost, automatic consent, or repeated ambiguous apply.
+The scope collector can ship independently; until those effect adapters are verified, it cannot
+claim that one initial confirmation completes deployment authorization. The initial collection
+window is at most ten minutes, within the invocation deadline; the record lasts no longer than
+the original invocation budget or 24 hours. Restart cannot extend it. Signed-kit startup and its
+later approval prompts remain a separate integration requirement, not implemented by this change.
+
+### Source provenance and Trial
+
+Automatically prompting on a text terminal interrupts unattended runs. Automatically approving
+every later plan would erase the exact-plan boundary. The revised source interface separates
+approval collection from execution: one explicitly supplied, current, source-bound checkpoint
+approval permits its existing scope only. Missing or expired authority produces retained review
+evidence and exit code `2`, without waiting for stdin. Signed-kit interaction is unchanged.
+
+Skipping signature checks on a deployment kit would erase its trust boundary. Instead, a source
+deployment pins a clean Git commit, records exact source and dependency digests, and transfers
+only the required inputs through the authenticated managed-host connection. Source provenance
+is explicitly `operator-selected-source`, never `signed-release`. A changed checkout, missing
+input, altered snapshot, or conflicting retained run stops before any new effect.
+Reading an internal tracked document link may update its access time without changing source.
+Verification ignores that access-time-only change, while checking the target bytes, file identity,
+mode, size, modification time, and change time; links outside the tracked snapshot stay blocked.
+
+Source mode avoids complete release assembly, offline wheelhouses, dependency OCI exports, and
+publisher keys. Required service images still need a build or a verified cache hit, digest
+readback, and configuration validation. Foundation, private data-plane execution, exact-plan
+approvals, immutable claims, bounded commands, independent effect checks, and recovery remain
+required. A failed kit verification never falls back to source mode.
+
+No license starts a durable 30-day Trial at first activation, not on each process start or image
+upgrade. Trial availability does not change promotion, risk, RBAC, human approval, or executor
+identity. Expiry blocks new acting work while preserving observation, diagnosis, export, audit,
+and safe completion or recovery of in-flight work. Missing or inconsistent retained Trial state
+cannot silently create another Trial. A later trusted entitlement can replace Trial without an
+infrastructure reinstall; a release signature alone is not an entitlement.
+
+These are target contracts. The implementation ledger records separately the source entrypoint,
+Foundation execution, workload activation, Trial enforcement, and live acceptance. Deployment
+readiness remains false until all selected services, identities, migrations, transport, jobs,
+Console authentication, cleanup, and second zero-change plans have been independently verified.
+
 ## Operator experience
 
 From a source checkout, run:

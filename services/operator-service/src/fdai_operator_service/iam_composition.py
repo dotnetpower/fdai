@@ -20,6 +20,7 @@ from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
 from fdai_operator_service.adapters import OperatorSemanticKafkaBus
 from fdai_operator_service.adapters.azure_cli_token import azure_cli_token
 from fdai_operator_service.adaptive_relationship import AdaptiveRelationshipResolver
+from fdai_operator_service.assignment_outbox import AssignmentNoticeBridge
 from fdai_operator_service.auth import OperatorAuthenticator
 from fdai_operator_service.entra_directory import EntraHumanIdentityDirectory, TokenProvider
 from fdai_operator_service.environment import (
@@ -73,6 +74,7 @@ from fdai_operator_service.notification_receipt_ingress import (
     NotificationReceiptIngressConfig,
 )
 from fdai_operator_service.ownership_projection import OwnershipProjectionReader
+from fdai_operator_service.postgres_assignment_outbox import build_assignment_notice_bridge
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
@@ -80,6 +82,7 @@ from fdai_operator_service.postgres_family_store import (
 )
 from fdai_operator_service.postgres_hil_decision import PostgresHilDecisionStore
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
+from fdai_operator_service.postgres_scoped_duties import PostgresScopedDuties
 from fdai_operator_service.slack_webhook_diagnostics import SlackWebhookDiagnosticTester
 from fdai_operator_service.teams_workflow_binding import (
     KeyVaultTeamsWorkflowBindingStore,
@@ -314,10 +317,15 @@ def build_postgres_iam_bindings(
         if hil_secret is not None and teams_http_client is not None
         else None
     )
+    from fdai_operator_service.families.iam.handover_contribution import (
+        PostgresHandoverContributionGuard,
+    )
+
     handover = ProactiveHandoverRuntime(
         store=store,
         ownership=PostgresOperationsAdapters(store),
         directory=directory,
+        contribution_guard=PostgresHandoverContributionGuard(environment.database_url),
         evidence_verifier=PostgresHandoverEvidenceVerifier(
             dsn=environment.database_url,
             connect_timeout_s=environment.database_connect_timeout_s,
@@ -336,6 +344,7 @@ def build_postgres_iam_bindings(
         human_access=iam,
         directory=directory,
         assignments=iam,
+        scoped_duties=PostgresScopedDuties(store),
         handover_goals=handover,
         handover_conversations=handover,
         model_settings=iam,
@@ -430,7 +439,9 @@ __all__ = [
     "TEAMS_WORKFLOW_IDENTITY_CLIENT_ID_ENV",
     "TEAMS_WORKFLOW_SECRET_NAME_ENV",
     "TEAMS_WORKFLOW_VAULT_URL_ENV",
+    "AssignmentNoticeBridge",
     "HilDecisionOutboxBridge",
+    "build_assignment_notice_bridge",
     "build_hil_decision_outbox_bridge",
     "build_postgres_iam_bindings",
     "build_teams_workflow_binding_store",

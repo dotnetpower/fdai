@@ -1,5 +1,6 @@
 """Concrete provider adapters owned by the independent Operator Service."""
 
+from fdai_operator_service.adapters.azure_identity import create_workload_credential
 from fdai_operator_service.adapters.live_stage_kafka import (
     LiveStageKafkaConfig,
     LiveStageKafkaRelay,
@@ -20,4 +21,5 @@ __all__ = [
     "OperatorSemanticKafkaBus",
     "OperatorSemanticKafkaConfig",
     "StartupOwnedLocalAzureNarratorAdapters",
+    "create_workload_credential",
 ]

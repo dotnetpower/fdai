@@ -11,7 +11,6 @@ from datetime import UTC, datetime
 from typing import Protocol
 
 import httpx
-from azure.identity.aio import ManagedIdentityCredential
 from fdai_service_contracts import (
     AgentActivityQuery,
     OperatorReadModel,
@@ -31,6 +30,7 @@ from fdai_operator_service.adapters import (
     OperatorSemanticKafkaBus,
     OperatorSemanticKafkaConfig,
     StartupOwnedLocalAzureNarratorAdapters,
+    create_workload_credential,
 )
 from fdai_operator_service.adapters.narrator_periodic_scheduler import (
     PeriodicNarratorRefreshScheduler,
@@ -92,8 +92,10 @@ from fdai_operator_service.family_adapters import (
 from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
 from fdai_operator_service.iam_composition import (
     HIL_SIGNING_SECRET_ENV,
+    AssignmentNoticeBridge,
     HilDecisionOutboxBridge,
     build_adaptive_relationship_resolver,
+    build_assignment_notice_bridge,
     build_hil_decision_outbox_bridge,
     build_postgres_iam_bindings,
     build_teams_hil_http_client,
@@ -355,6 +357,7 @@ class ProductionOperatorComposition:
             if family_store is not None and semantic_bus is not None
             else None
         )
+        assignment_notice_bridge = build_assignment_notice_bridge(environment, semantic_bus)
         azure_monitor_webhook_bridge = (
             AzureMonitorWebhookBridge(
                 store=family_store,
@@ -449,6 +452,7 @@ class ProductionOperatorComposition:
                 azure_monitor_webhook_bridge,
                 live_stage_relay,
                 hil_decision_outbox_bridge,
+                assignment_notice_bridge,
             ),
             live_stream_hub=live_stream_hub,
             agent_stream_hub=agent_stream_hub,
@@ -474,6 +478,7 @@ class ProductionOperatorComposition:
                 narrator_scheduler,
                 hil_decision_outbox_bridge,
                 teams_http_client,
+                assignment_notice_bridge,
             ),
         )
 
@@ -800,10 +805,9 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
     execution_venue = resolve_execution_venue(environment.values)
     credential = None
     if uses_workload_identity(execution_venue):
-        credential = (
-            ManagedIdentityCredential(client_id=environment.managed_identity_client_id)
-            if environment.managed_identity_client_id is not None
-            else ManagedIdentityCredential()
+        credential = create_workload_credential(
+            environment=environment.values,
+            client_id=environment.managed_identity_client_id,
         )
     return OperatorSemanticKafkaBus(
         config=OperatorSemanticKafkaConfig(
@@ -836,10 +840,9 @@ def _build_live_stage_relay(
     execution_venue = resolve_execution_venue(environment.values)
     credential = None
     if uses_workload_identity(execution_venue):
-        credential = (
-            ManagedIdentityCredential(client_id=environment.managed_identity_client_id)
-            if environment.managed_identity_client_id is not None
-            else ManagedIdentityCredential()
+        credential = create_workload_credential(
+            environment=environment.values,
+            client_id=environment.managed_identity_client_id,
         )
     return LiveStageKafkaRelay(
         config=LiveStageKafkaConfig(
@@ -910,6 +913,7 @@ def _application_lifecycle(
     narrator_scheduler: PeriodicNarratorRefreshScheduler | None,
     hil_decision_outbox_bridge: HilDecisionOutboxBridge | None,
     teams_http_client: httpx.AsyncClient | None,
+    assignment_notice_bridge: AssignmentNoticeBridge | None = None,
 ) -> ApplicationLifecycle | None:
     services = tuple(
         service
@@ -930,6 +934,7 @@ def _application_lifecycle(
             live_stage_relay,
             narrator_scheduler,
             hil_decision_outbox_bridge,
+            assignment_notice_bridge,
             _OwnedHttpClient(teams_http_client) if teams_http_client is not None else None,
         )
         if service is not None
@@ -955,6 +960,7 @@ def _readiness_probe(
     azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
     live_stage_relay: LiveStageKafkaRelay | None,
     hil_decision_outbox_bridge: HilDecisionOutboxBridge | None = None,
+    assignment_notice_bridge: AssignmentNoticeBridge | None = None,
 ) -> ReadinessProbe:
     if store is None:
         return _unavailable
@@ -992,6 +998,7 @@ def _readiness_probe(
             )
             and (live_stage_relay is None or live_stage_relay.readiness())
             and (hil_decision_outbox_bridge is None or hil_decision_outbox_bridge.workers_ready())
+            and (assignment_notice_bridge is None or assignment_notice_bridge.workers_ready())
         )
 
     return probe
