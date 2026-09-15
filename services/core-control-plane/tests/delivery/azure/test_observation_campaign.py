@@ -6,6 +6,7 @@ import json
 from datetime import UTC, datetime
 
 import httpx
+import pytest
 from fdai.delivery.azure.log_query import (
     AzureLogAnalyticsQueryConfig,
     AzureLogAnalyticsQueryProvider,
@@ -547,3 +548,37 @@ async def test_promoted_inventory_absence_does_not_require_measured_counts() -> 
     assert result.coverage is ObservationCoverage.UNCONFIGURED
     assert result.reason_codes == ("source_unconfigured",)
     assert result.evidence_count == 0
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("freshness", None),
+        ("freshness", "warm"),
+        ("freshness", []),
+        ("truncated", None),
+        ("truncated", "false"),
+        ("truncated", 0),
+    ],
+)
+async def test_promoted_inventory_needs_explicit_evidence_metadata(
+    field: str, value: object
+) -> None:
+    async def summary(_limit: int) -> dict[str, object]:
+        result: dict[str, object] = {
+            "source": "azure-resource-graph",
+            "freshness": "fresh",
+            "resource_count": 1,
+            "link_count": 0,
+            "truncated": False,
+        }
+        if value is None:
+            del result[field]
+        else:
+            result[field] = value
+        return result
+
+    with pytest.raises(RuntimeError, match=field):
+        await PromotedInventoryObservationProbe(summary).collect(
+            _spec("inventory", ObservationDomain.INVENTORY, "Huginn"), cursor=None
+        )

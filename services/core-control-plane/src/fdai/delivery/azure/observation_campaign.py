@@ -510,13 +510,19 @@ class PromotedInventoryObservationProbe:
             summary,
             "link_count",
         )
-        if summary.get("freshness") in {"stale", "unknown"}:
+        freshness = summary.get("freshness")
+        if not isinstance(freshness, str) or freshness not in {"fresh", "stale", "unknown"}:
+            raise RuntimeError("inventory freshness MUST be fresh, stale, or unknown")
+        truncated_value = summary.get("truncated")
+        if not isinstance(truncated_value, bool):
+            raise RuntimeError("inventory truncated MUST be an explicit boolean")
+        if freshness in {"stale", "unknown"}:
             return ObservationProbeResult(
                 coverage=ObservationCoverage.STALE,
                 evidence_count=min(count, spec.max_results),
                 reason_codes=("source_stale",),
             )
-        truncated = bool(summary.get("truncated")) or count > spec.max_results
+        truncated = truncated_value or count > spec.max_results
         return ObservationProbeResult(
             coverage=(ObservationCoverage.PARTIAL if truncated else ObservationCoverage.READY),
             evidence_count=min(count, spec.max_results),
