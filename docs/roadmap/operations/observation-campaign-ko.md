@@ -1,7 +1,7 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: d8656d69b538ce238b75373d75357da74d233301
+translation_source_sha: 5d9397272c0f486b4353f1b4937f30897099221a
 translation_revised: 2026-09-15
 ---
 
@@ -54,6 +54,7 @@ translation_revised: 2026-09-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 복구 기한과 커서, 변환할 수 없는 변경, 관측 메타데이터, 영속 재시도 대기, 분석 대상 근거와 준비 상태를 다루는 비평 및 하드닝 12라운드를 완료했습니다. | #1065; [라운드 근거](../../baselines/live-event-production-hardening-2026-09-15.json); 집중 테스트 367개, 소스 7개의 strict mypy 통과 및 중대한 문제가 남지 않은 독립 최종 검토입니다. | 런타임 반영과 독립 근거 승인은 별도 요건이며 가짜 이벤트나 보류 조건 완화는 없습니다. |
 | 2026-09-15 | validated | 로컬 스키마 `1.3.0` 활동 스냅샷 및 delta 경로와 보존 이력 경계를 검증했습니다. Live는 SSE 연결 하나를 사용하고 암묵적인 Agent GET을 보내지 않았으며, 명시적 Agent Activity는 요청한 `1.3.0` 행 500개를 모두 반환하고 live delta로 행을 잃지 않고 렌더링했습니다. | `current change`; backend 집중 테스트 `353 passed, 1 skipped`; Console 집중 테스트 `188 passed`; strict mypy 및 typecheck 통과; production-adapter Playwright `1 passed`; 표준 로컬 서비스 `11/11`; 인증된 표준 Live 검사와 안전한 1440×900 session screenshot. | 별도로 통제되는 실제 캠페인 행을 validated로 올리기 전에 동등한 배포 개정 번호 근거를 보존합니다. |
 | 2026-09-15 | implemented | 실행 중 및 실패한 부분 개수를 제한한 뒤 스키마 `1.3.0` 활동 생성과 영속 projection을 다시 검증했습니다. 표준 로컬 projection은 요청한 500개 행을 모두 `1.3.0`으로 반환했고 측정됨, 기록 안 됨, 사용 불가 상태를 포함했습니다. | `current change`; backend 집중 테스트 `278 passed, 1 skipped`; strict mypy 통과; 표준 로컬 서비스 `11/11`; 영속 활동 projection `500/500`. | Browser Entra를 갱신한 뒤 인증된 Live 카드와 실패 전이 artifact를 캡처하고, 통제된 실제 캠페인 근거를 validated로 올리기 전에 동등한 배포 개정 번호 근거를 보존합니다. |
 | 2026-09-14 | implemented | 시작 또는 실패 상태인 인벤토리와 관측 행이 일부 출처 개수를 완료된 근거처럼 노출하지 않도록 했습니다. 두 상태는 `evidence_count: 0`을 게시하고 `result_count`를 비우며, 측정이 완료된 종료 행만 관측 개수를 유지합니다. | `current change`; Core 활동 생산자 및 Operator 변환 결과 회귀 검사 13개가 통과했습니다. | 런타임 검증을 주장하기 전에 인증된 표준 스택에서 실패 전이 하나를 보존합니다. |
