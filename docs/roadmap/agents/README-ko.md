@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 지원 부록
 translation_of: README.md
-translation_source_sha: 9c3e4ee6135a9faeaa8ab48b82e4a330af6ca17e
-translation_revised: 2026-09-09
+translation_source_sha: 8176c9700546b46fc7f9c18cb1c972db4a358404
+translation_revised: 2026-09-15
 ---
 
 # 에이전트 판테온 지원 부록
@@ -23,7 +23,7 @@ translation_revised: 2026-09-09
 | 보안 에스컬레이션 및 범위가 제한된 관리자 전달 | implemented | [`test_wave6_handoff_security.py`](../../../services/core-control-plane/tests/agents/test_wave6_handoff_security.py) | 집중 테스트는 RBAC 거부 보안 이벤트, 결정론적 심각도, 중복 제거, 이동 시간 창 비율 제한 및 대기 가능한 전달 어댑터를 다룹니다. 실제 채널 전달을 증명하지는 않습니다. |
 | 고정 판테온 및 W0-W8 런타임 메커니즘 | implemented | [에이전트 판테온 구현 상태](agent-pantheon-implementation-ko.md#구현-상태) | 프레임워크, 거버넌스, 파이프라인, shadow 작업 흐름, KPI 및 성능 저하 메커니즘에 집중 테스트 근거가 있습니다. 운영 검증은 별도입니다. |
 | 에이전트 간 작업 흐름 카탈로그 및 롤아웃 | in-progress | [에이전트 작업 흐름 구현 상태](agent-workflows-ko.md#구현-상태), [shadow 롤아웃 구현 상태](agent-workflow-rollout-ko.md#구현-상태) | 13개 작업 흐름 레지스트리와 shadow 추적은 구현됐습니다. 카탈로그 투영, 보존된 런타임 추적, 측정된 게이트 및 독립적인 승격은 아직 완료되지 않았습니다. |
-| 제한된 작업 워커 | in-progress | [제한된 작업 워커 구현 상태](bounded-task-workers-ko.md#구현-상태) | 워커 코어와 영속 저장소는 구현됐습니다. 운영 구성, 저장소 기반 변환 결과, 콘솔 표시 및 통제된 런타임 근거는 아직 완료되지 않았습니다. |
+| 제한된 작업 워커 | in-progress | [제한된 작업 워커 구현 상태](../../roadmap-implementation/agents/bounded-task-workers.md#implementation-status) | 워커 코어, 영속 저장소, 명시적으로 활성화하는 운영 구성은 구현됐습니다. 상위 요청 접수, 저장소 기반 조회 결과, Console 표시, 분리된 작업의 완료 전달과 통제된 런타임 근거는 미완료입니다. |
 | 대화형 숙의 | in-progress | [판테온 대화형 숙의 구현 상태](conversational-deliberation-ko.md#구현-상태) | T1 숙의와 보호된 T2 접점은 구현됐습니다. 구체적인 업스트림 T2 종합기, 운영자 경로 또는 통제된 런타임 증적 근거는 없습니다. |
 | 실제 KPI 검증 및 enforce 승격 | in-progress | [에이전트 판테온 구현 상태](agent-pantheon-implementation-ko.md#구현-상태) | 측정 및 관찰 소비자는 있지만 보존된 실제 shadow 코호트, 운영 승격 증적 또는 실제 판테온 enforce 승격 근거는 이 문서 집합에 없습니다. |
 

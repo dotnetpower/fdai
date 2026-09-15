@@ -242,6 +242,54 @@ class PostgresTaskWorkerStore:
         rows.reverse()
         return tuple(_event(row) for row in rows)
 
+    async def list_interrupted(self, *, limit: int = 100) -> tuple[TaskWorkerSnapshot, ...]:
+        """Read pending/running rows directly through the existing status index."""
+        _limit(limit, 1_000)
+        async with await self._connect() as connection:
+            await self._timeout(connection)
+            cursor = await connection.execute(
+                f"SELECT {_COLUMNS} FROM task_worker_run "
+                "WHERE status IN ('pending', 'running') ORDER BY updated_at, worker_id LIMIT %s",
+                (limit,),
+            )
+            rows = await cursor.fetchall()
+        return tuple(_snapshot(row) for row in rows)
+
+    async def finish(self, result: TaskWorkerResult) -> TaskWorkerSnapshot:
+        """Commit one terminal result and branch event together; event failure rolls both back."""
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            cursor = await connection.execute(
+                "UPDATE task_worker_run SET status=%s, usage=%s::jsonb, result=%s::jsonb, "
+                "updated_at=%s, revision=revision+1 WHERE worker_id=%s "
+                f"AND status IN ('pending', 'running') RETURNING {_COLUMNS}",
+                (
+                    result.status.value,
+                    json.dumps(_usage_to_dict(result.usage)),
+                    json.dumps(_result_to_dict(result)),
+                    result.finished_at,
+                    result.worker_id,
+                ),
+            )
+            row = await cursor.fetchone()
+            if row is None:
+                raise TaskWorkerConflictError(
+                    "worker terminal state is unavailable or already exists"
+                )
+            await connection.execute(
+                "INSERT INTO task_worker_event (worker_id, sequence, kind, at, details) "
+                "SELECT %s, COALESCE(MAX(sequence), -1)+1, %s, %s, %s::jsonb "
+                "FROM task_worker_event WHERE worker_id=%s",
+                (
+                    result.worker_id,
+                    f"worker.{result.status.value}",
+                    result.finished_at,
+                    json.dumps([["reason", result.terminal_reason]]),
+                    result.worker_id,
+                ),
+            )
+        return _snapshot(row)
+
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         return await psycopg.AsyncConnection.connect(
             self._config.dsn,
@@ -345,20 +393,12 @@ def _capabilities(raw: dict[str, Any]) -> AttenuatedCapabilities:
     )
 
 
-def _usage_to_dict(value: TaskWorkerUsage) -> dict[str, int]:
-    return {
-        "tokens": value.tokens,
-        "cost_microusd": value.cost_microusd,
-        "tool_calls": value.tool_calls,
-    }
+def _usage_to_dict(value: TaskWorkerUsage) -> dict[str, int | bool]:
+    return value.to_dict()
 
 
 def _usage(raw: dict[str, Any]) -> TaskWorkerUsage:
-    return TaskWorkerUsage(
-        tokens=int(raw["tokens"]),
-        cost_microusd=int(raw["cost_microusd"]),
-        tool_calls=int(raw["tool_calls"]),
-    )
+    return TaskWorkerUsage.from_dict(raw)
 
 
 def _result_to_dict(value: TaskWorkerResult) -> dict[str, Any]:
