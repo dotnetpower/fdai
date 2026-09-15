@@ -131,6 +131,7 @@ def deploy_azure_foundation(
     scripts = kit.bundle_root / "scripts/deployment/azure"
     if not scripts.is_dir() or scripts.is_symlink():
         raise ValueError("verified deployment bundle is missing Azure orchestration")
+    create_runner_image = not online and adopt_runner_image_receipt is None
     sys.path.insert(0, str(scripts))
     try:
         prepare = importlib.import_module("genesis_prepare")
@@ -142,7 +143,7 @@ def deploy_azure_foundation(
             monthly_cost_ceiling=monthly_cost_ceiling,
             connectivity="online" if online else "offline",
             root=work_dir / "run",
-            create_runner_image=adopt_runner_image_receipt is None,
+            create_runner_image=create_runner_image,
         )
         foundation_variables = prepared.variables
         if adopt_runner_image_receipt is not None:
@@ -208,7 +209,7 @@ def deploy_azure_foundation(
             str(foundation_variables),
             *(
                 ()
-                if adopt_runner_image_receipt is not None
+                if not create_runner_image
                 else (
                     "--create-runner-image",
                     "--runner-image-terraform",

@@ -33,9 +33,12 @@ def foundation_values(
     ssh_public_key: str,
     execution_transport: str = "github-actions",
     evidence_directory: Path | None = None,
+    create_runner_image: bool = True,
 ) -> dict[str, object]:
-    """Require a compatible VM triplet before resolving independent image/name/network inputs."""
+    """Select required VM capacity before resolving image, name, and network inputs."""
 
+    if type(create_runner_image) is not bool:
+        raise ValueError("runner image selection must be boolean")
     try:
         runner_vm_size = discover_foundation_vm_size(
             repository_root=repository_root,
@@ -44,6 +47,7 @@ def foundation_values(
             evidence_directory=evidence_directory,
             source_commit=source_commit,
             target_binding=target_binding,
+            create_runner_image=create_runner_image,
         )
     except CheckError as exc:
         raise ValueError(
@@ -79,7 +83,10 @@ def foundation_values(
             source_commit=source_commit,
         )
         network_future = executor.submit(
-            network_layout, repository_root, subscription_id=subscription_id
+            network_layout,
+            repository_root,
+            subscription_id=subscription_id,
+            include_build=create_runner_image,
         )
         version = version_future.result()
         account_name = account_future.result()
@@ -116,7 +123,7 @@ def foundation_values(
             "run_digest": run_binding,
         }
     )
-    return {
+    values: dict[str, object] = {
         "tenant_id": tenant_id,
         "subscription_id": subscription_id,
         "target_binding": target_binding,
@@ -133,13 +140,13 @@ def foundation_values(
         "enable_public_egress": True,
         "runner_ssh_public_key": ssh_public_key,
         "runner_parallelism": 1,
-        "build_address_space": str(build),
-        "build_subnet_prefix": str(next(build.subnets(new_prefix=26))),
-        "firewall_subnet_prefix": str(firewall),
-        "firewall_management_subnet_prefix": str(firewall_management),
+        "runner_bootstrap_mode": "offline" if create_runner_image else "online",
+        "runner_marketplace_image_version": "" if create_runner_image else version,
         "runner_source_image_id": (
             f"/subscriptions/{subscription_id}/resourceGroups/rg-fdai-image-pending/"
             "providers/Microsoft.Compute/images/fdai-runner-pending"
+            if create_runner_image
+            else ""
         ),
         "runner_image_toolchain_digest": toolchain_digest,
         "runner_vm_size": runner_vm_size,
@@ -148,6 +155,16 @@ def foundation_values(
         "execution_transport": execution_transport,
         "foundation_context_digest": context_digest,
     }
+    if create_runner_image:
+        if build is None or firewall is None or firewall_management is None:
+            raise ValueError("runner image network selection is incomplete")
+        values.update(
+            build_address_space=str(build),
+            build_subnet_prefix=str(next(build.subnets(new_prefix=26))),
+            firewall_subnet_prefix=str(firewall),
+            firewall_management_subnet_prefix=str(firewall_management),
+        )
+    return values
 
 
 def state_account_name(*, repository_root: Path, target_binding: str, source_commit: str) -> str:
@@ -180,17 +197,20 @@ def state_account_name(*, repository_root: Path, target_binding: str, source_com
 
 
 def network_layout(
-    repository_root: Path, *, subscription_id: str
+    repository_root: Path,
+    *,
+    subscription_id: str,
+    include_build: bool = True,
 ) -> tuple[
     ipaddress.IPv4Network,
     ipaddress.IPv4Network,
     ipaddress.IPv4Network,
     ipaddress.IPv4Network,
-    ipaddress.IPv4Network,
-    ipaddress.IPv4Network,
-    ipaddress.IPv4Network,
+    ipaddress.IPv4Network | None,
+    ipaddress.IPv4Network | None,
+    ipaddress.IPv4Network | None,
 ]:
-    """Select disjoint reviewed operations and build CIDRs from complete network evidence.
+    """Select reviewed operations CIDR and, when requested, a disjoint image-build CIDR.
 
     Default routes describe forwarding, not address-space ownership. Exclude them only from
     route evidence; declared VNet, peer, and gateway ranges remain overlap constraints.
@@ -260,23 +280,25 @@ def network_layout(
         for candidate in candidates
         if not any(ipaddress.IPv4Network(candidate).overlaps(current) for current in used)
     ]
-    if len(available) < 2:
+    required = 2 if include_build else 1
+    if len(available) < required:
         raise ValueError(
-            "no non-overlapping reviewed operations and build networks are available "
-            f"(available={len(available)}, required=2); "
+            "not enough non-overlapping reviewed deployment networks are available "
+            f"(available={len(available)}, required={required}); "
             "review VNet, peering, gateway, and non-default route reservations before retrying"
         )
-    ops, build = available[:2]
+    ops = available[0]
+    build = available[1] if include_build else None
     subnets = list(ops.subnets(new_prefix=24))
-    build_subnets = list(build.subnets(new_prefix=26))
+    build_subnets = list(build.subnets(new_prefix=26)) if build is not None else []
     return (
         ops,
         subnets[1],
         subnets[2],
         next(subnets[3].subnets(new_prefix=26)),
         build,
-        build_subnets[1],
-        build_subnets[2],
+        build_subnets[1] if build_subnets else None,
+        build_subnets[2] if build_subnets else None,
     )
 
 

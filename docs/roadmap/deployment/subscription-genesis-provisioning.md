@@ -14,7 +14,7 @@ exact-plan approval or private-network boundaries.
 >
 > **Safety:** "One operation" means one durable run that can pause, resume, and report progress.
 > It does not mean one unreviewed mutation. A fresh private route requires separate exact approvals
-> for each applicable image, Foundation, enrollment, state-handoff, and application effect.
+> for Foundation, enrollment, state-handoff, and application effects.
 >
 > **Implementation ledger:** Delivery state and observable remaining work are tracked in
 > [Subscription Genesis Provisioning implementation ledger](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md).
@@ -44,7 +44,7 @@ subscription-onboarding product:
 
 | Area | Current evidence | Gap this design closes |
 |------|------------------|------------------------|
-| Operator entry point | `fdai-up.sh` supervises private Foundation, tenant-local Entra and repository configuration, exact-main image evidence, protected application plan/apply, and a second plan in one process. | Blob-to-Operator projection and one complete ready receipt remain open. |
+| Operator entry point | `fdai-up.sh` supervises private Foundation, tenant-local Entra and repository configuration, protected application plan/apply, and a second plan in one process. | Blob-to-Operator projection and one complete ready receipt remain open. |
 | Genesis progress | `genesis-up.sh` retains the 15-stage lower-level route. `fdai-up.sh` creates only the current exact TTY approval, resumes claimed effects through verification, and continues through application convergence. | The terminal receipt remains `subscription_ready=false` until complete manifest, model-capacity, and active-inventory evidence closes independently. |
 | Database bootstrap | Integrated and service-owned migrations plus a fail-closed database/semantic readback contract exist | Pre-runtime marker production and runtime-principal evidence are not unified into a complete zero-to-ready receipt. |
 | Ontology and rules | Catalogs are versioned in the repository and can be materialized as immutable Operator projections | Catalog projection is conditional on the Operator API path and is not a required subscription readiness gate. |
@@ -122,8 +122,7 @@ separate toolchain, bundle, and CLI artifact lanes, while each Terraform root in
 isolated directory before provider-mirror writes resume serially. Provider inspection and explicit
 registration requests use bounded workers. After the probe resource group is verified, Key Vault
 and Storage creation and their posture reads run concurrently. Target and source verification
-overlap after tool preparation. Tenant-directory planning overlaps local preparation, and exact
-image supply overlaps Entra configuration after Foundation convergence.
+overlap after tool preparation. Tenant-directory planning overlaps local preparation.
 
 Concurrency never changes authority or stage order. The parent process aggregates results in a
 stable order and publishes one status transition only after every required sibling succeeds.
@@ -133,37 +132,32 @@ already accepted provider registrations are retained, and probe cleanup still co
 route can be accepted.
 
 When private artifacts aren't supplied, the stable stop reason is
-`private_foundation_external_artifacts_required`. The next action names the signed kit, exact
-runner image, Foundation profile, and exact plan generation instead of suggesting an apply that
-the current workflow cannot execute.
+`private_foundation_external_artifacts_required`. The next action names the signed kit, Foundation
+profile, and exact plan generation instead of suggesting an apply that the current workflow cannot
+execute.
 
 documented approval or prerequisite remains; it does not mean the subscription is ready.
-If all five Foundation inputs are supplied as absolute paths, the private route can advance through
-the implemented local Foundation lifecycle. Add `--create-runner-image` and an absolute
-`--runner-image-terraform` path when the exact managed image must be built first. Supply the
-mode-`0600` SSH private-key path only for Bastion enrollment and state handoff. A partial Foundation
-input set stops before Terraform.
+If all Foundation inputs are supplied as absolute paths, the private route can advance through the
+implemented local Foundation lifecycle. Connected deployment boots the managed host directly from
+an exact Azure Marketplace Ubuntu version and runs the checksum-pinned bootstrap script during
+Foundation. Supply the mode-`0600` SSH private-key path only for Bastion enrollment and state
+handoff. A partial Foundation input set stops before Terraform.
 
-The managed image is built without Azure VM Image Builder. Some policy profiles force Shared Key
-off on every Storage account, while that managed service still creates a staging account that uses
-key-based authentication. The reviewed path instead plans a private builder VM, FQDN-allowlisted
-Firewall Basic egress, an exact toolchain extension, deallocate and generalize actions, managed-image capture, and a
-private verifier VM as explicit Terraform resources. Neither VM has a public IP. The verifier boots
-the captured image, binds Azure CLI inspection to a dedicated temporary configuration, removes that
-configuration, rechecks the exact toolchain and credential absence, and is deallocated before
-the image receipt is accepted. Builder resources remain until a separately reviewed cleanup plan;
-Genesis never weakens Storage policy or retries a claimed build automatically.
+Artifact-offline deployment can use a separately verified prebuilt host image when the managed host
+cannot download the pinned bootstrap artifacts. That optional path has its own exact review,
+approval, receipt, and recovery records. It is not a prerequisite for connected deployment.
 
 Every new effect requires one mode-`0600` approval file. The file binds the run digest, source
 commit, current stage, exact evidence digests, and a UTC approval window of no more than one hour.
-One file authorizes only one of `runner-image`, `foundation-apply`, `runner-enrollment`, or
-`foundation-state`. This single-human local mechanism supports `dev` only; staging and production
+One file authorizes only one of `foundation-apply`, `runner-enrollment`, or `foundation-state`.
+The optional artifact-offline image path retains its separate `runner-image` approval. This
+single-human local mechanism supports `dev` only; staging and production
 remain on protected quorum transports. A changed digest grants nothing. After an immutable claim
 exists, the same command ignores expired approval authority and resumes verification only; it never
 repeats apply, registration, transfer, or migration.
 
-The image build pins and verifies its Terraform executable and toolchain checksums. Foundation
-apply performs control-plane readback and a zero-change plan. Enrollment sends the short-lived
+Foundation apply pins the Marketplace image version, bootstrap artifacts, Terraform executable,
+and toolchain checksums, then performs control-plane readback and a zero-change plan. Enrollment sends the short-lived
 GitHub token only through SSH standard input over the exact Bastion tunnel, then verifies identity,
 services, labels, and GitHub state. State handoff compares local and remote lineage, serial,
 addresses, identities, and a zero-change remote plan before remote authority permits local-state
@@ -339,18 +333,18 @@ postconditions. Before private Blob exists, the approval is the external protect
 record plus the sealed plan digest. Azure Activity Log independently identifies the mutating actor.
 A changed input invalidates the checkpoint.
 
-A fresh private subscription can require five exact checkpoints. Each checkpoint requires one
+A fresh connected private subscription requires four exact checkpoints. Each checkpoint requires one
 current accountable human at minimum, and high-impact or non-development plans use the configured
 protected quorum:
 
-1. **Runner image approval (optional):** exact create-only image plan and pinned toolchain.
-2. **Foundation approval:** private state account, ops network, deployment identity, and runner.
-3. **Enrollment approval:** exact Foundation receipt, repository, runner slots, and Bastion host.
-4. **State-handoff approval:** exact Foundation and enrollment receipts plus backend target.
-5. **Application approval:** the exact plan produced by the attested runner against the new backend.
+1. **Foundation approval:** private state account, ops network, deployment identity, and runner.
+2. **Enrollment approval:** exact Foundation receipt, repository, runner slots, and Bastion host.
+3. **State-handoff approval:** exact Foundation and enrollment receipts plus backend target.
+4. **Application approval:** the exact plan produced by the attested runner against the new backend.
 
-An existing exact image skips the first checkpoint. An existing healthy Foundation skips the first
-four. An `--approve-all` or silence-based approval mode is not supported.
+An existing healthy Foundation skips the first three. Artifact-offline deployments that select a
+prebuilt host image add one image-specific checkpoint before Foundation. An `--approve-all` or
+silence-based approval mode is not supported.
 
 ## Provisioning stage contract
 

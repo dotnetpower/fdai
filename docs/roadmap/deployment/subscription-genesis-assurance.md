@@ -37,75 +37,68 @@ External control planes are first-class dependencies:
 | Dependency | Required assurance |
 |------------|--------------------|
 | Azure | Exact cloud, tenant, subscription, provider registrations, policy assignments, locks, quotas, terms, and effective RBAC are captured at plan time and rechecked before each mutation. |
-| Source host | Repository, immutable commit, signed bundle, dependency lock, and image attestations match the run manifest. |
+| Source host | Repository, immutable commit, signed bundle, dependency lock, and managed-host bootstrap inputs match the run manifest. |
 | Workflow host | Repository authorization, protected environments, approvers, runner labels, concurrency group, and retention policy are verified without granting FDAI runtime authority. |
 | Identity directory | App registrations, App Roles, groups, redirect origins, owners, admin consent, and tenant match are planned and read back. |
 | Artifact sources | Online allowlists or the verified offline kit cover every wheel, binary, provider, image, signature, and software bill of materials entry. |
 
 ### VM hardware discovery
 
-New preparation reads the full regional catalog using the signed
+Connected preparation reads the full regional catalog using the signed
 [hardware policy](../../../infra/genesis-runner-image/vm-sku-policy.json). Preferences rank
-compatible x64/Gen2 hardware; unlisted compatible SKUs remain selectable.
-Policy reads hold a bounded no-follow descriptor, reject unsafe ownership/links/write modes, and detect in-read changes. Unavailable CLI contexts fail before provider reads without exposing private paths.
+compatible x64/Gen2 managed-host hardware; unlisted compatible SKUs remain selectable. It also
+resolves one exact Canonical Ubuntu 24.04 Marketplace version. Policy reads hold a bounded
+no-follow descriptor, reject unsafe ownership, links, and write modes, and detect in-read changes.
+Unavailable CLI contexts fail before provider reads without exposing private paths.
 
 | Role | CPU and memory | OS disk |
 |------|----------------|---------|
-| Builder | Sustained 2 vCPU, 8 GiB | 64-GiB managed |
-| Verifier | 2 vCPU, 4-8 GiB | 64-GiB managed |
-| Foundation host | Sustained 4 vCPU, 8-16 GiB | Ephemeral Local ResourceDisk large enough for the image |
+| Foundation host | Sustained 4 vCPU, 8-16 GiB | Ephemeral Local ResourceDisk large enough for the exact Marketplace image |
 
 ARM, GPU, confidential, constrained-core, and incompatible storage variants aren't substitutes.
 Catalog reads stay within one exact subscription/region, four pages, 4096 rows, 8 MiB, and 90
-seconds; continuation cannot reset those bounds or repeat a page. Each request and the separate quota read have 30-second limits. Complete metadata,
-Location/Zone restrictions, and all three VMs' aggregate regional/family quota gate preparation. Missing family usage is unknown, never an assumed zero-quota fallback.
+seconds; continuation cannot reset those bounds or repeat a page. Each request and the separate
+quota read have 30-second limits. Complete metadata, Location/Zone restrictions, and the host's
+regional/family quota all gate preparation. Missing family usage is unknown, never an assumed
+zero-quota fallback.
 Private replay distinguishes restricted, incompatible, incomplete, and quota outcomes; missing
 hardware leaves candidate counts unknown, never assumed zero. Failed reads retain completed snapshots, their failed stage, and unknown unobserved digests.
 
-Preparation fixes the host; the versioned image review seals the pair and host quota headroom.
-Before planning and unclaimed apply, host checks use actual managed-image or exact gallery-version
-disk size. Gallery definitions require generalized x64/Gen2 Linux and one completed target-region replica; case/space aliases never permit duplicate evidence.
-Apply rechecks sealed choices, quota, expiry, and approval. After host and human-identity reads,
+Preparation fixes the host, exact Marketplace version, and checksum-pinned bootstrap toolchain.
+Apply rechecks the sealed host, Marketplace image metadata, quota, expiry, and approval. After host and human-identity reads,
 Foundation revalidates the exact plan and expiry before its claim. Existing claims, including partial effects without receipts, only verify
-effects: no reselection, resize, region switch, or repeat apply. Legacy signed policies retain their
-original contract. Complete standalone kit builds require a fresh output directory and never erase a prior release. No capacity or price is guaranteed; recovery and deployment verification remain
+effects: no reselection, resize, region switch, or repeat apply. Complete standalone kit builds
+require a fresh output directory and never erase a prior release. No capacity or price is guaranteed; recovery and deployment verification remain
 separate. Checkout changes require a new signed kit before operational use. Interrupted signing leaves no reusable signature; incomplete metadata must fail independent verification.
 
-### Image and Foundation execution
+Artifact-offline deployment can select a separately verified prebuilt host image when bootstrap
+artifacts cannot be downloaded. Only that optional path evaluates builder and verifier capacity,
+managed-image provenance, and image-specific approval or recovery.
+
+### Host and Foundation execution
 
 Enrollment requires provider-hosted authorization and protected input, or pauses for an approved
 existing host. Registration/remove/GitHub tokens and database passwords never enter Terraform input/state,
 process arguments, Azure Run Command payloads, logs, or chat.
 
 The local router requires complete absolute artifact, trust, profile, variable, and access paths
-for signed-kit image/Foundation plan/apply, Bastion enrollment, attestation, and state handoff.
+for Foundation plan/apply, Bastion enrollment, attestation, and state handoff.
 Each new effect needs mode-`0600` approval bound to run, source, stage, exact evidence digests, and
 at most one UTC hour. Single-human files are `dev`-only; staging/production retain protected quorum.
 Another stage, changed digest, expired record, or silence grants no authority.
 
-Terraform owns private builder/verifier VMs, extensions, deallocate/generalize, image capture,
-and networking behind FQDN-allowlisted Firewall Basic with two non-VM public egress IPs. Hidden
-Shared Key staging prohibits Azure VM Image Builder, Storage, and image-template resources.
-Acceptance requires image provenance, successful extension resource provisioning, both VMs
-deallocated, and no claimed-build retry. Azure can omit extension instance-view statuses after VM
-deallocation; when statuses are present they must include `ProvisioningState/succeeded`, while an
-absent status list never overrides a non-successful extension resource state.
-Only `FirstPartyUsage=/Unprivileged` is policy-owned: absent or equal on both exact Firewall IPs,
-no unknown tags, and a refreshed zero-change plan. It permits no replacement, rebinding, or claim reuse.
-Policy cleanup parses multiline CLI TSV in order and verifies exact tagged-group and deleted-vault
-absence; command success alone never proves cleanup.
+Connected Foundation boots the managed host from the exact Marketplace version and supplies the
+checksum-pinned bootstrap script as reviewed VM custom data. The script installs exact tool
+versions, writes the attestation manifest, removes credential residue, and exposes only the
+attestation and state-migration helpers needed by later stages. Foundation readback verifies the
+host, identity, toolchain, network, and zero-change plan before publishing a receipt.
 
 Every effect writes an immutable claim first. A claim or receipt permits only verification on restart,
 not repeated apply, enrollment, transfer, or migration. Enrollment receipts bind the exact human claim
 and need fresh Bastion identity, toolchain, service, and GitHub runner readback. Registration material
 uses only SSH stdin over the exact Bastion tunnel, never Terraform, arguments, Run Command, or records.
-A newer signed release may repair verification of an existing runner-image claim without changing or
-repeating its apply source. The terminal receipt binds both the original `source_commit` and the
-`verified_source_commit`; a fresh apply still requires them to match.
-Another signed Foundation run may reuse that receipt without another image apply. Its reviewed input
-keeps the current Foundation source and run while separately binding the image source, verifier
-source, image run, and receipt digest through the private handoff. The current run binding excludes
-the image-creation axis and must match the no-image orchestration status before approval.
+The optional artifact-offline image path retains its existing verification-only recovery contract.
+A new connected Foundation run does not require, adopt, or wait for an image-build receipt.
 Portable status carries digests, counts, stage state, and safe booleans; IDs, SSH/state paths, and raw
 plans stay private. State-handoff claims bind the authenticated human's target-scoped digest; backend
 authority and terminal receipts bind that claim. Remote cleanup records exact intent, deletes the
@@ -157,11 +150,9 @@ is independently designed and approved.
 Before approval, the plan reports the projected monthly cost, one-time model validation budget,
 quota consumption, public IP count, egress profile, backup retention, and resources that do not
 scale to zero. A profile cost ceiling blocks plans above the approved amount.
-The direct Runner image plan reserves a conservative USD 500 monthly fixed-cost upper bound for
-its retained Firewall Basic in threat-intelligence deny mode, public IP, disk, and image graph. A lower profile ceiling blocks the
-plan, and removing the retained build graph remains a separately reviewed cleanup operation.
-The builder subnet and both private VM NICs bind the same explicit inbound-deny NSG; neither VM
-receives a public IP.
+Connected deployment has no retained builder, verifier, Firewall, public IP, disk, or image-build
+graph. Artifact-offline deployments that explicitly select the optional prebuilt-image path include
+that path's retained resources in their own cost review.
 
 ## Network and execution-host assurance
 

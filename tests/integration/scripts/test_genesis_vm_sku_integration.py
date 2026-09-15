@@ -131,6 +131,31 @@ def test_new_preparation_selects_host_and_preserves_private_replay(tmp_path, iso
     assert all(path.stat().st_mode & 0o777 == 0o600 for path in folder.iterdir())
 
 
+def test_connected_preparation_reserves_only_foundation_host_quota(
+    tmp_path,
+    isolated_environment,
+):
+    capture, calls = capture_for(rows(), quota=usages(limit=4))
+
+    size = preflight.discover_foundation_vm_size(
+        repository_root=ROOT,
+        subscription_id="00000000-0000-0000-0000-000000000001",
+        region="eastus",
+        evidence_directory=tmp_path,
+        source_commit="a" * 40,
+        target_binding="b" * 64,
+        capture=capture,
+        create_runner_image=False,
+    )
+
+    assert size == "Standard_D4ds_v4"
+    assert len(calls) == 2
+    result = json.loads(next(tmp_path.glob("vm-discovery-*/result.json")).read_bytes())
+    assert result["runner_image_creation"] is False
+    assert result["build_vm_size"] is None
+    assert result["verify_vm_size"] is None
+
+
 def test_all_restricted_saves_negative_counts_not_a_success(tmp_path, isolated_environment):
     catalog = rows()
     for item in catalog:
@@ -288,6 +313,52 @@ def test_host_preflight_reads_actual_image_disk(tmp_path, isolated_environment, 
         with pytest.raises(CheckError):
             preflight.recheck_foundation_vm(**kwargs)
     assert len(calls) == 3
+
+
+def test_online_host_preflight_reads_exact_marketplace_image(
+    tmp_path,
+    isolated_environment,
+):
+    inputs, _destination = _inputs(tmp_path)
+    path = tmp_path / "foundation.json"
+    values = json.loads(path.read_bytes())
+    values.update(
+        runner_vm_size="Standard_D4ds_v4",
+        runner_bootstrap_mode="online",
+        runner_marketplace_image_version="24.04.202509010",
+        runner_source_image_id="",
+    )
+    path.write_text(json.dumps(values))
+    resource_capture, calls = capture_for(rows(inputs.region))
+
+    def capture(command, **kwargs):
+        if command[:4] == ["/usr/bin/az", "vm", "image", "show"]:
+            calls.append("marketplace")
+            query = command[command.index("--query") + 1]
+            assert "osType:osDiskImage.operatingSystem" in query
+            assert "hyperVGeneration:hyperVGeneration" in query
+            assert "properties." not in query
+            return json.dumps(
+                {
+                    "version": "24.04.202509010",
+                    "location": inputs.region,
+                    "osType": "Linux",
+                    "hyperVGeneration": "V2",
+                }
+            )
+        return resource_capture(command, **kwargs)
+
+    preflight.recheck_foundation_vm(
+        repository_root=ROOT,
+        variables_file=path,
+        evidence_directory=tmp_path,
+        capture=capture,
+    )
+
+    evidence = json.loads(next(tmp_path.glob("host-sku-check-*/evidence.json")).read_bytes())
+    assert evidence["image_requirements"]["marketplaceVersion"] == "24.04.202509010"
+    assert "diskSizeGB" not in evidence["image_requirements"]
+    assert calls[-1] == "marketplace"
 
 
 def test_host_restriction_blocks_before_foundation_plan(tmp_path, monkeypatch):

@@ -175,6 +175,24 @@ variable "runner_source_image_id" {
   }
 }
 
+variable "runner_marketplace_image_version" {
+  description = "Exact Canonical Ubuntu 24.04 server image version for online bootstrap. Leave latest only for legacy standalone bootstrap."
+  type        = string
+  default     = "latest"
+
+  validation {
+    condition     = var.runner_bootstrap_mode != "online" || can(regex("^([0-9]+\\.)+[0-9]+$|^latest$", var.runner_marketplace_image_version))
+    error_message = "runner_marketplace_image_version must be latest or an exact numeric version in online mode."
+  }
+}
+
+variable "runner_bootstrap_script" {
+  description = "Optional exact online bootstrap script. Genesis supplies a checksum-pinned script; legacy standalone bootstrap uses the built-in cloud-init template."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "runner_parallelism" {
   description = "Number of independent GitHub Actions runner slots registered on the runner VM. Slots share the VM managed identity but use separate work directories."
   type        = number
