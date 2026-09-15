@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 7b05ce8c7b5233c0a159062b9a4e3b0e824a445b
+translation_source_sha: d81b647362114127ceec41ba4a7e9ab75134e955
 translation_revised: 2026-09-15
 ---
 
@@ -164,8 +164,8 @@ NAT IP에 명시적으로 전달합니다. 복구는 보존된 두 IP의 허용 
 승인이 필요하며 공식 프롬프트는 `--foundation-recovery-review`를 받습니다. 불변 실행 전
 기록에 앞서 현재 사람 신원, 정확한 소스 CI, 원래 실행 기록·스냅샷·계보, 그룹 소유권, 현재 VM
 SKU·할당량, 구성·provider·계획·도구·상태 해시와 만료를 검증합니다. 원래 상태에 한 번 적용하고
-실행 전 기록이 있으면 `--verify-only`만 허용합니다. 독립 조회와 변경 없음 계획을 통과해야
-별도 증적을 발행합니다. 원래 증적을 만들어내지 않으며 호스트·상태·앱 검증은 별도 단계입니다.
+실행 전 기록이 있으면 `--verify-only`만 허용합니다. 그룹 이름·구독을 명시해 조회하고 정확한 ID를 비교합니다.
+독립 조회와 변경 없음 계획을 통과해야 별도 증적을 발행하며 호스트·상태·앱 검증은 별도 단계입니다.
 
 최초 복구의 실행 전 기록은 있지만 완료되지 않았다면 `--predecessor-directory`로 후속 복구를
 한 번 선택할 수 있습니다. 앞선 검토·실행 전 기록·계획·변수·구성·provider 해시는 불변입니다.

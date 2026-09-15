@@ -160,8 +160,8 @@ checks group ownership and rejects concurrent state changes. Its expiring review
 review and code; the official prompt accepts `--foundation-recovery-review`. Before its immutable claim,
 it verifies current human identity, exact-source CI, original claim/snapshot/lineage, group ownership,
 current VM SKU/quota, configuration/provider/plan/tool/state hashes and expiry. It applies once against
-the original state; a retained claim permits only `--verify-only`. Independent readback and a zero-change
-plan gate a separate receipt. Original receipts are never fabricated; host/state/app acceptance remains separate.
+the original state; claims permit only `--verify-only`. Group readback uses explicit name/subscription
+and checks the exact ID. Independent readback and zero change gate the receipt; host/state/app checks remain separate.
 
 One successor may select `--predecessor-directory` after the initial recovery is claimed but incomplete.
 The predecessor's review, claim, plan, variables, configuration and provider hashes remain immutable.
