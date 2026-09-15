@@ -267,4 +267,36 @@ describe("geometry-less Architecture inventory", () => {
       .toHaveLength(ARCHITECTURE_SCOPE_DETAIL_LIMIT);
     expect(detail.presentation?.omitted_direct_relationships).toBe(14);
   });
+
+  it("reserves cross-scope endpoints without charging required ancestors", () => {
+    const endpoints = Array.from({ length: ARCHITECTURE_SCOPE_DETAIL_LIMIT }, (_, index) => ({
+      id: `endpoint-${index}`,
+      type: "app-service",
+      name: `Endpoint ${index.toString().padStart(2, "0")}`,
+      status: "healthy",
+      parent_id: index === 0 ? "group-b" : "group-a",
+    }));
+    const detail = architectureScopeDetailGraph({
+      ...RAW_GRAPH,
+      resources: [
+        ...RAW_GRAPH.resources.slice(0, 3),
+        { id: "selected", type: "compute.vm", name: "Selected", status: "healthy", parent_id: "group-a" },
+        ...endpoints,
+      ],
+      links: [
+        { source: "subscription", target: "group-a", type: "contains" },
+        { source: "group-a", target: "selected", type: "contains" },
+        ...endpoints.map((resource) => ({
+          source: "selected",
+          target: resource.id,
+          type: "depends_on" as const,
+        })),
+      ],
+    }, "selected");
+    const ids = new Set(detail.resources.map((resource) => resource.id));
+
+    expect(endpoints.every((resource) => ids.has(resource.id))).toBe(true);
+    expect(ids.has("group-b")).toBe(true);
+    expect(detail.presentation?.omitted_direct_relationships).toBe(0);
+  });
 });

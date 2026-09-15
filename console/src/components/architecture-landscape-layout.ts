@@ -104,21 +104,25 @@ export function architectureScopeDetailGraph(
     if (link.source === selectedId) directIds.add(link.target);
     if (link.target === selectedId) directIds.add(link.source);
   }
-  const scopeRootId = nearestScopeRootId(selectedId, parentById, byId);
-  const scopeCandidates = graph.resources.filter((resource) =>
-    resource.id !== selectedId
-    && isDescendantOf(resource.id, scopeRootId, parentById));
   const directResources = typeDiverseResources(
-    scopeCandidates.filter((resource) => directIds.has(resource.id)),
+    [...directIds]
+      .filter((resourceId) => resourceId !== selectedId && !requiredIds.has(resourceId))
+      .map((resourceId) => byId.get(resourceId))
+      .filter((resource): resource is InventoryResource => resource !== undefined),
   );
   const selectedDirect = directResources.slice(0, ARCHITECTURE_SCOPE_DETAIL_LIMIT);
   for (const resource of selectedDirect) {
     requiredIds.add(resource.id);
     addAncestors(resource.id, parentById, byId, requiredIds);
   }
+  const scopeRootId = nearestScopeRootId(selectedId, parentById, byId);
+  const scopeCandidates = graph.resources.filter((resource) =>
+    resource.id !== selectedId
+    && isDescendantOf(resource.id, scopeRootId, parentById));
   const fillerLimit = Math.max(0, ARCHITECTURE_SCOPE_DETAIL_LIMIT - selectedDirect.length);
   const fillers = typeDiverseResources(
-    scopeCandidates.filter((resource) => !directIds.has(resource.id)),
+    scopeCandidates.filter((resource) =>
+      !directIds.has(resource.id) && !requiredIds.has(resource.id)),
   ).slice(0, fillerLimit);
   for (const resource of fillers) {
     requiredIds.add(resource.id);

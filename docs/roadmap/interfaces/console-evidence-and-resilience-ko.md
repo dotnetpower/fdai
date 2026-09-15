@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 9923d8446f7a3ecb1a847d103da398701e18f1d9
+translation_source_sha: 3c3e8b8854ce6052c56ae3a876bc13b038e91509
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -622,6 +622,8 @@ Resource 포커스는 보고된 상위 경계와 직접 관계를 유지한 뒤,
 직접 자식과 관계 엔드포인트가 관련 없는 범위 채움 항목보다 먼저 36개 포커스 예산을 사용합니다.
 직접 맥락만으로 예산을 넘으면 표현 범위에 지도에서 제외된 직접 관계 수를 표시하고, 상세 패널은
 반환된 전체 직접 관계 목록을 유지합니다.
+직접 엔드포인트 예약은 다른 Resource Group을 포함해 반환된 전체 페이지를 대상으로 하며, 이미
+필수 맥락인 선택 Resource와 상위 경계는 예산에서 제외합니다.
 상세 패널은 그래프와 같은 보고된 포함 우선순위로 상위 경계를 확인합니다. 따라서 VNet에 포함된
 Subnet은 프로바이더 상위 필드가 더 넓다는 이유로 Resource Group을 상위 경계로 표시하지 않습니다.
 Landscape 경계는 Resource Group 범위를 넘는 보고된 비포함 관계의 개수만 집계하며, 해당 관계의

@@ -637,6 +637,8 @@ the workbench back to the full raw page.
 Direct children and relationship endpoints consume the 36-record focus budget before unrelated
 scope filler. If direct context alone exceeds that budget, coverage names the omitted direct-link
 count while the Inspector retains the complete returned direct relationship list.
+Direct endpoint reservation spans the complete returned page, including another Resource Group,
+and excludes the selected Resource and ancestor boundaries that are already required context.
 The Inspector resolves its parent boundary through the same reported containment precedence as the
 graph, so a VNet-contained Subnet does not fall back to a less specific Resource Group merely
 because its provider parent field is broader.
