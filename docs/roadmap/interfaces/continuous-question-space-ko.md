@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 27ff36e2b548c81292f4d9084684db4a67d554cd
-translation_revised: 2026-09-15
+translation_source_sha: 78f985f5b39a4901906461009f8939cda3d52aa7
+translation_revised: 2026-09-16
 ---
 # 지속형 질문 공간
 
@@ -65,6 +65,8 @@ logical-topic 표시를 받습니다. 스키마로 검증되는 request payload�
 보존합니다.
 시작 질문 카탈로그의 질문이 아닌 Console 레이블을 포함해 연결된 원본이 변경되면 기계 판독용 인벤토리와 사람
 검토용 카탈로그를 모두 다시 생성하며, 생성물 테스트는 오래된 원본 다이제스트를 거부합니다.
+브라우저 근거 문구를 전역 카탈로그에서 경로 전용 카탈로그로 옮기는 작업도 이러한 다이제스트
+전용 원본 변경이며, 다시 생성해도 질문 400개의 식별자와 문구를 모두 보존합니다.
 원본 다이제스트만 변경된 경우 다시 생성해도 모든 논리 질문 신원, 검토 상태 및 분모를
 유지합니다. 파생 약속값이 최종 병합 원본 집합을 결속하도록 upstream 통합 뒤에 다시
 생성합니다.

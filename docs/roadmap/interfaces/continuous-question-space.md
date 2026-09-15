@@ -65,6 +65,8 @@ relationships, and independent content-review, semantic-contract, runtime-bindin
 and validation states.
 Any change to a joined source, including a non-question Console label in a starter catalog, regenerates both the machine
 inventory and human review catalog; the generated-artifact test rejects any stale source digest.
+Moving Browser evidence copy from the global catalogs into a route-local catalog is such a
+digest-only source change; regeneration preserves all 400 question identities and wording.
 When only source digests change, regeneration preserves every logical question identity, review
 state, and denominator. Regeneration runs after upstream integration so derived commitments bind
 the final merged source set.
