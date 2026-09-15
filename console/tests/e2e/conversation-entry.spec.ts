@@ -65,6 +65,34 @@ async function openConsole(
   return requests;
 }
 
+test("loads the Command Deck implementation only after the operator invokes it", async ({
+  page,
+}) => {
+  const deckModules: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/src/deck/command-deck.tsx") {
+      deckModules.push(request.url());
+    }
+  });
+
+  await openConsole(page);
+  await page.waitForTimeout(100);
+  expect(deckModules).toEqual([]);
+
+  await page.locator(".deck-invoke").click();
+  await expect(page.locator(".deck-overlay")).toBeVisible();
+  expect(deckModules.length).toBeGreaterThan(0);
+});
+
+test("loads the deferred screen conversation from its keyboard shortcut", async ({ page }) => {
+  await openConsole(page);
+
+  await page.keyboard.press("Control+k");
+
+  await expect(page.locator(".deck-overlay")).toBeVisible();
+  await expect(page.locator(".deck-input")).toBeFocused();
+});
+
 test("opens incident attention over a preserved screen draft and submits its binding", async ({
   page,
 }) => {

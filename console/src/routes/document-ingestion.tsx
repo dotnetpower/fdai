@@ -126,6 +126,7 @@ export function DocumentIngestionRoute({ client }: Props) {
   const mounted = useRef(true);
   const [capabilities, setCapabilities] = useState<IngestionCapabilities | null>(null);
   const [capabilityError, setCapabilityError] = useState<string | null>(null);
+  const [capabilityRevision, setCapabilityRevision] = useState(0);
   const [rows, setRows] = useState<readonly UploadRow[]>([]);
   const [selectionError, setSelectionError] = useState<string | null>(null);
   const [collection, setCollection] = useState("shared-knowledge");
@@ -152,14 +153,23 @@ export function DocumentIngestionRoute({ client }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    setCapabilityError(null);
     void api.capabilities().then(
-      (value) => { if (!cancelled) setCapabilities(value); },
+      (value) => {
+        if (!cancelled) {
+          setCapabilities(value);
+          setCapabilityError(null);
+        }
+      },
       (error: unknown) => {
-        if (!cancelled) setCapabilityError(documentCapabilityFailure(error));
+        if (!cancelled) {
+          setCapabilities(null);
+          setCapabilityError(documentCapabilityFailure(error));
+        }
       },
     );
     return () => { cancelled = true; };
-  }, [api]);
+  }, [api, capabilityRevision]);
 
   useEffect(() => {
     const selectedCollection = collection.trim();
@@ -512,7 +522,18 @@ export function DocumentIngestionRoute({ client }: Props) {
         {capabilities?.ocr_available === false ? (
           <small class="document-upload-note">{knowledgeText("ocrUnavailableHint")}</small>
         ) : null}
-        {capabilityError ? <div class="alert error" role="alert">{capabilityError}</div> : null}
+        {capabilityError ? (
+          <div class="alert error" role="alert">
+            <span>{capabilityError}</span>
+            <button
+              type="button"
+              class="cs-control-button is-compact"
+              onClick={() => setCapabilityRevision((current) => current + 1)}
+            >
+              {knowledgeText("retry")}
+            </button>
+          </div>
+        ) : null}
         {selectionError ? <div class="alert error" role="alert">{selectionError}</div> : null}
       </section>
 

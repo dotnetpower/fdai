@@ -39,3 +39,18 @@ def test_alert_noise_pilot_is_default_off_dev_only_and_secret_bound() -> None:
     assert "target_resource_id      = module.key_vault.id" not in root
     assert "!var.enable_monitoring" in root
     assert '"fdai:component" = "alert-noise-pilot"' in root
+
+
+def test_alert_noise_pilot_single_maintainer_exception_stays_isolated() -> None:
+    owner = (ROOT / "docs/roadmap/operations/alert-noise-governance.md").read_text(encoding="utf-8")
+    example = (ROOT / "infra/envs/dev.tfvars.example").read_text(encoding="utf-8")
+    owner_prose = " ".join(owner.split())
+
+    assert "single-maintainer exception applies only to the isolated dev" in owner_prose
+    assert "one direct test recipient controlled by that maintainer" in owner_prose
+    assert "distinct managed deployment identity executes it" in owner_prose
+    assert "read-only principal distinct from that" in owner_prose
+    assert "each require their own current exact-plan approval" in owner_prose
+    assert "not standing authority or advance approval of an unknown digest" in owner_prose
+    assert "Any widening returns to the two-human shared-change quorum" in owner_prose
+    assert "both human approval lanes" not in example
