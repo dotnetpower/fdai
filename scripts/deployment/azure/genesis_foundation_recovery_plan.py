@@ -33,6 +33,11 @@ from fdai_deployment_cli.standalone_deploy import active_azure_target
 from fdai_deployment_cli.target import compute_target_binding
 from genesis_foundation_apply_contract import load_apply_claim
 from genesis_foundation_recovery import select_public_ip_tags, validate_recovery_plan
+from genesis_foundation_recovery_successor import (
+    load_predecessor,
+    require_pending_repairs,
+    validate_successor_plan,
+)
 from genesis_foundation_workspace import verify_execution_copy
 from genesis_runner_image_recovery_plan import materialize_provider_links
 from genesis_subprocess import run_with_heartbeat
@@ -111,6 +116,7 @@ def prepare_recovery_plan(
     expected_review_digest: str,
     application_workload: str,
     timeout_seconds: int = 900,
+    predecessor_directory: Path | None = None,
 ) -> dict[str, object]:
     """Plan under the original state lock without applying, adopting or overwriting evidence."""
     paths = (repository_root, original_directory, source_snapshot, work_dir, terraform)
@@ -154,6 +160,7 @@ def prepare_recovery_plan(
             expected_review_digest,
             application_workload,
             deadline,
+            predecessor_directory,
         )
     finally:
         os.close(lock)
@@ -168,6 +175,7 @@ def _prepare_locked(
     expected_digest: str,
     application_workload: str,
     deadline: DeploymentDeadline,
+    predecessor_directory: Path | None = None,
 ) -> dict[str, object]:
     profile = load_profile(original.parent / "profile.json")
     if profile.environment != "dev" or profile.transport != "manual":
@@ -214,6 +222,24 @@ def _prepare_locked(
     )
     state_bytes = read_private_bytes(state_path, max_bytes=_MAX)
     state = load_json_object(state_bytes, label="Foundation recovery state", max_bytes=_MAX)
+    predecessor = None
+    if predecessor_directory is not None:
+        predecessor = load_predecessor(
+            predecessor_directory,
+            original_review_digest=expected_digest,
+            original_claim_digest=canonical_digest(claim),
+            source_commit=str(context["source_commit"]),
+            target_binding=profile.target_binding,
+        )
+        require_pending_repairs(
+            original_infra.parent / "bootstrap/main.tf",
+            current_infra.parent / "bootstrap/main.tf",
+        )
+        if (
+            canonical_digest({"lineage": state["lineage"]})
+            != predecessor[0]["original_lineage_digest"]
+        ):
+            raise ValueError("Foundation successor original state lineage differs")
     parent = _open_private_parent(work)
     try:
         os.mkdir(work.name, 0o700, dir_fd=parent)
@@ -234,6 +260,10 @@ def _prepare_locked(
         "bootstrap/variables.tf",
     ):
         source_bytes[name] = (current_infra.parent / name).read_bytes()
+    if predecessor is not None:
+        source_bytes["bootstrap/main.tf"] = (
+            current_infra.parent / "bootstrap/main.tf"
+        ).read_bytes()
 
     def ignore(directory: str, names: list[str]) -> list[str]:
         if not Path(directory).is_relative_to(reference / "infra"):
@@ -260,6 +290,11 @@ def _prepare_locked(
         raise ValueError("Foundation recovery original variables changed")
     variables["application_workload"] = application_workload
     variables["operations_public_ip_tags"] = select_public_ip_tags(state)
+    if (
+        predecessor is not None
+        and canonical_digest(variables) != predecessor[0]["variables_digest"]
+    ):
+        raise ValueError("Foundation successor must preserve predecessor variables")
     write_private_bytes(work / "recovery-variables.json", canonical_bytes(variables))
     environment = image._terraform_environment(
         work, subscription_id=target.subscription_id, tenant_id=target.tenant_id
@@ -334,11 +369,15 @@ def _prepare_locked(
     projection = load_json_object(
         projection_bytes, label="Foundation recovery plan", max_bytes=_MAX
     )
-    summary = validate_recovery_plan(
-        projection,
-        load_json_object(old_projection, label="original Foundation plan", max_bytes=_MAX),
-        state,
-        application_workload=application_workload,
+    summary = (
+        validate_successor_plan(projection, predecessor[2], state)
+        if predecessor is not None
+        else validate_recovery_plan(
+            projection,
+            load_json_object(old_projection, label="original Foundation plan", max_bytes=_MAX),
+            state,
+            application_workload=application_workload,
+        )
     )
     changes = cast(list[dict[str, Any]], projection["resource_changes"])
     application = next(
@@ -350,11 +389,12 @@ def _prepare_locked(
         [
             str(image._trusted_azure_cli()),
             "group",
-            "exists",
+            "show" if predecessor is not None else "exists",
             "--subscription",
             target.subscription_id,
             "--name",
             application["name"],
+            *(("--query", "id") if predecessor is not None else ()),
             "--output",
             "tsv",
             "--only-show-errors",
@@ -364,11 +404,18 @@ def _prepare_locked(
         timeout=deadline.remaining(30),
         reason="Foundation recovery application group availability is unknown",
     )
-    if exists.strip().casefold() != "false":
-        raise ValueError(
-            "Foundation recovery application group already exists or availability is unknown"
-        )
+    expected_group = str(application.get("id")) if predecessor is not None else "false"
+    if exists.strip().casefold() != expected_group.casefold():
+        raise ValueError("Foundation recovery application group does not match required ownership")
     source.reverify()
+    if predecessor_directory is not None and predecessor != load_predecessor(
+        predecessor_directory,
+        original_review_digest=expected_digest,
+        original_claim_digest=canonical_digest(claim),
+        source_commit=str(context["source_commit"]),
+        target_binding=profile.target_binding,
+    ):
+        raise ValueError("Foundation predecessor changed during planning")
     verify_execution_copy(
         original / "foundation-apply-bundle/source", authenticated_source=reference
     )
@@ -400,11 +447,20 @@ def _prepare_locked(
             read_private_bytes(work / "recovery.tfplan", max_bytes=_MAX)
         ).hexdigest(),
         "plan_json_digest": hashlib.sha256(projection_bytes).hexdigest(),
-        "application_group_absent": True,
+        "application_group_absent": predecessor is None,
         "original_state_unchanged": True,
         "created_at": moment.isoformat(),
         "expires_at": (moment + timedelta(hours=1)).isoformat(),
     }
+    if predecessor is not None:
+        result.update(
+            {
+                "predecessor_directory": str(predecessor_directory),
+                "predecessor_review_digest": predecessor[0]["review_digest"],
+                "predecessor_claim_digest": canonical_digest(predecessor[1]),
+                "application_group_preserved": True,
+            }
+        )
     result["review_digest"] = canonical_digest(result)
     write_private_bytes(work / "recovery-review.json", canonical_bytes(result))
     return result
@@ -457,6 +513,7 @@ def main() -> int:
     parser.add_argument("--terraform", type=Path, required=True)
     parser.add_argument("--expected-review-digest", required=True)
     parser.add_argument("--application-workload", required=True)
+    parser.add_argument("--predecessor-directory", type=Path)
     parser.add_argument("--timeout-seconds", type=int, default=900)
     args = parser.parse_args()
     try:

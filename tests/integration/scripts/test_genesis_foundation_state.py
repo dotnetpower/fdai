@@ -8,6 +8,7 @@ import json
 import subprocess
 import sys
 from copy import deepcopy
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType, SimpleNamespace, TracebackType
 
@@ -97,9 +98,11 @@ def _state_inputs() -> tuple[dict[str, object], dict[str, object]]:
 
 
 @pytest.mark.parametrize("local_first", [False, True])
+@pytest.mark.parametrize("separate_state", [False, True])
 def test_private_archive_preserves_exact_state_and_executable_provider(
     tmp_path: Path,
     local_first: bool,
+    separate_state: bool,
 ) -> None:
     tmp_path.chmod(0o700)
     root = tmp_path / "root"
@@ -114,7 +117,7 @@ def test_private_archive_preserves_exact_state_and_executable_provider(
     provider_dir = mirror / "registry.terraform.io/hashicorp/azurerm/4.81.0/linux_amd64"
     provider_dir.mkdir(mode=0o700, parents=True)
     state, _ = _state_inputs()
-    state_path = root / "terraform.tfstate"
+    state_path = (tmp_path if separate_state else root) / "terraform.tfstate"
     _private_json(state_path, state)
     (root / "main.tf").write_text(
         "terraform {}\n" if local_first else 'terraform { backend "azurerm" {} }\n',
@@ -140,9 +143,13 @@ def test_private_archive_preserves_exact_state_and_executable_provider(
         destination=archive,
         source_commit=SOURCE,
         expected_state_digest=state_digest,
+        original_state=state_path if separate_state else None,
     )
 
     assert result["archive_digest"] == hashlib.sha256(archive.read_bytes()).hexdigest()
+    assert hashlib.sha256(state_path.read_bytes()).hexdigest() == state_digest
+    if separate_state:
+        assert not (root / "terraform.tfstate").exists()
     assert archive.stat().st_mode & 0o777 == 0o600
     remote = _remote_module()
     extracted = tmp_path / "extracted"
@@ -163,6 +170,50 @@ def test_private_archive_preserves_exact_state_and_executable_provider(
         modules / "main.tf"
     ).read_bytes()
     assert (extracted / provider.relative_to(tmp_path)).stat().st_mode & 0o777 == 0o700
+
+
+@pytest.mark.parametrize("defect", ["digest", "second-state", "state-change"])
+def test_separate_original_state_archive_rejects_ambiguous_ownership(tmp_path, monkeypatch, defect):
+    import genesis_foundation_state_archive as archive_module
+
+    tmp_path.chmod(0o700)
+    root = tmp_path / "root"
+    root.mkdir(mode=0o700)
+    mirror = tmp_path / "mirror"
+    mirror.mkdir(mode=0o700)
+    (root / "main.tf").write_text("terraform {}\n")
+    state, _ = _state_inputs()
+    original_state = tmp_path / "terraform.tfstate"
+    _private_json(original_state, state)
+    expected_digest = hashlib.sha256(original_state.read_bytes()).hexdigest()
+    variables = tmp_path / "variables.json"
+    _private_json(variables, {"env": "dev"})
+    if defect == "digest":
+        expected_digest = "0" * 64
+    elif defect == "second-state":
+        _private_json(root / "terraform.tfstate", state)
+    else:
+        manifest = archive_module._file_manifest
+
+        def change_state(stage):
+            original_state.write_text("changed\n")
+            return manifest(stage)
+
+        monkeypatch.setattr(archive_module, "_file_manifest", change_state)
+    destination = tmp_path / "handoff.tar.gz"
+    with pytest.raises(
+        ValueError, match="does not match|second state owner|original state changed"
+    ):
+        create_foundation_state_archive(
+            terraform_root=root,
+            provider_mirror=mirror,
+            variables_file=variables,
+            destination=destination,
+            source_commit=SOURCE,
+            expected_state_digest=expected_digest,
+            original_state=original_state,
+        )
+    assert not destination.exists()
 
 
 def test_remote_backend_authority_requires_blob_protection_and_entra_readback(
@@ -453,6 +504,10 @@ class FakeTunnel:
         del timeout
         assert input_text is None
         self.calls.append(remote_arguments)
+        if remote_arguments[0] == "/usr/local/sbin/fdai-attest-runner":
+            return subprocess.CompletedProcess(
+                remote_arguments, 0, "attestation_complete transport=manual slots=2\n", ""
+            )
         if remote_arguments[0] == "/usr/bin/test":
             return subprocess.CompletedProcess(remote_arguments, 0, "", "")
         mode = remote_arguments[1]
@@ -580,6 +635,223 @@ def _mock_boundaries(
         return {"archive_digest": ARCHIVE_DIGEST}
 
     monkeypatch.setattr(state_command, "_prepare_archive", archive)
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        None,
+        "missing-approval",
+        "wrong-stage",
+        "changed-config",
+        "changed-host-key",
+        "failed-effect",
+        "wrong-actor",
+        "wrong-source",
+    ],
+)
+def test_recovered_state_uses_original_owner_and_exact_approval(tmp_path, monkeypatch, defect):
+    import genesis_foundation_recovery_state as recovery_state
+    from genesis_foundation_recovery_handoff import RecoveryHandoff
+
+    original, profile, prior, evidence = _prepare(tmp_path)
+    _mock_boundaries(monkeypatch, original, evidence)
+    monkeypatch.setattr(FakeTunnel, "fail_migration", defect == "failed-effect")
+    source_state = (
+        original / "foundation-apply-bundle/source/infra/genesis-foundation/terraform.tfstate"
+    )
+    source_state.parent.mkdir(mode=0o700, parents=True)
+    (original / prior["state_ref"]).rename(source_state)
+    (tmp_path / "source-execution.lock").touch(mode=0o600)
+    directory = tmp_path / "recovery"
+    directory.mkdir(mode=0o700)
+    configuration = directory / "source/infra/genesis-foundation"
+    configuration.mkdir(mode=0o700, parents=True)
+    (configuration / "main.tf").write_text("terraform {}\n")
+    (directory / "terraform-data/providers").mkdir(mode=0o700, parents=True)
+    provider = directory / "terraform-data/providers/provider"
+    provider.write_bytes(b"synthetic-provider")
+    provider.chmod(0o700)
+    _private_json(directory / "recovery-variables.json", {"env": "dev"})
+    review = {
+        "configuration_digest": recovery_state.image._execution_tree_digest(directory / "source"),
+        "provider_digest": recovery_state.image._execution_tree_digest(
+            directory / "terraform-data"
+        ),
+        "variables_digest": canonical_digest({"env": "dev"}),
+        "original_lineage_digest": canonical_digest({"lineage": evidence["state"]["lineage"]}),
+    }
+    review["review_digest"] = canonical_digest(review)
+    _private_json(directory / "recovery-review.json", review)
+    handoff = json.loads((original / state_command.foundation_apply.HANDOFF_NAME).read_bytes())
+    handoff["runner"].update(parallelism=2, execution_transport="manual", toolchain_digest="a" * 64)
+    recovered_receipt = {
+        "receipt_digest": "5" * 64,
+        "review_digest": review["review_digest"],
+        "source_commit": SOURCE,
+        "execution_source_commit": "6" * 40,
+        "state_digest": prior["state_digest"],
+        "handoff_digest": canonical_digest(handoff),
+    }
+    recovered = RecoveryHandoff(recovered_receipt, handoff, BINDING)
+    monkeypatch.setattr(recovery_state, "load_recovery_evidence", lambda **_kwargs: recovered)
+    monkeypatch.setattr(
+        recovery_state,
+        "inspect_source",
+        lambda *_args: SimpleNamespace(commit="7" * 40, reverify=lambda: None),
+    )
+    monkeypatch.setattr(recovery_state, "current_actor_digest", lambda _binding: "8" * 64)
+    known_hosts = directory / state_command.KNOWN_HOSTS_NAME
+    known_hosts.write_text("synthetic-host-key\n")
+    known_hosts.chmod(0o600)
+    enrollment_command = recovery_state.enrollment_command
+    names = enrollment_command._runner_names(handoff["runner"]["vm_name"], 2)
+    repository_digest = hashlib.sha256(f"manual:{BINDING}".encode()).hexdigest()
+    claim = enrollment_command._create_claim(
+        foundation=recovered.foundation_reference,
+        repository_digest=repository_digest,
+        expected_names=names,
+        actor_digest="8" * 64,
+        host_key_digest=hashlib.sha256(known_hosts.read_bytes()).hexdigest(),
+    )
+    claim["enrollment_source_commit"] = "9" * 40
+    _private_json(directory / enrollment_command.CLAIM_NAME, claim)
+    enrolled = {
+        "schema_version": "fdai.genesis-runner-enrollment-receipt.v1",
+        "state": "attested",
+        **recovered.foundation_reference,
+        "foundation_receipt_digest": recovered_receipt["receipt_digest"],
+        "foundation_evidence_schema": "fdai.foundation-recovery-receipt.v1",
+        "enrollment_source_commit": "9" * 40,
+        "repository_digest": repository_digest,
+        "runner_names": names,
+        "runner_count": 2,
+        "runner_set_digest": enrollment_command._runner_set_digest(
+            enrollment_command._manual_host_set(names)
+        ),
+        "claim_digest": canonical_digest(claim),
+        "actor_digest": claim["actor_digest"],
+        "host_key_digest": claim["host_key_digest"],
+        "toolchain_digest": "a" * 64,
+        "identity_attested": True,
+        "services_attested": True,
+        "github_readback_verified": False,
+        "manual_host_readback_verified": True,
+        "effect_verified": True,
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
+    enrolled.pop("receipt_digest")
+    enrolled["receipt_digest"] = canonical_digest(enrolled)
+    _private_json(directory / enrollment_command.RECEIPT_NAME, enrolled)
+    now = datetime.now(UTC).replace(microsecond=0)
+    approval = {
+        "schema_version": "fdai.genesis-approval.v1",
+        "approved": True,
+        "run_binding": recovered_receipt["receipt_digest"],
+        "source_commit": "7" * 40,
+        "stage": "foundation-state",
+        "actor_digest": "8" * 64,
+        "evidence": {
+            "foundation_receipt_digest": recovered_receipt["receipt_digest"],
+            "enrollment_receipt_digest": enrolled["receipt_digest"],
+        },
+        "approved_at": now.isoformat(),
+        "expires_at": (now + timedelta(minutes=30)).isoformat(),
+    }
+    if defect == "wrong-stage":
+        approval.update(
+            stage="runner-enrollment",
+            evidence={"foundation_receipt_digest": recovered_receipt["receipt_digest"]},
+        )
+    if defect == "wrong-actor":
+        approval["actor_digest"] = "0" * 64
+    elif defect == "wrong-source":
+        approval["source_commit"] = "0" * 40
+    approval_path = tmp_path / "migration-approval.json"
+    _private_json(approval_path, approval)
+    if defect == "changed-config":
+        (configuration / "main.tf").write_text("changed\n")
+    elif defect == "changed-host-key":
+        known_hosts.write_text("changed\n")
+    arguments = [
+        "--foundation-plan-directory",
+        str(original),
+        "--profile",
+        str(profile),
+        "--variables-file",
+        str(directory / "recovery-variables.json"),
+        "--source-snapshot",
+        str(tmp_path / "snapshot"),
+        "--source-snapshot-digest",
+        "b" * 64,
+        "--terraform",
+        str(tmp_path / "terraform"),
+        "--repository",
+        "example/repository",
+        "--ssh-private-key",
+        str(tmp_path / "id_ed25519"),
+        "--expected-foundation-receipt-digest",
+        str(recovered_receipt["receipt_digest"]),
+        "--expected-enrollment-receipt-digest",
+        str(enrolled["receipt_digest"]),
+        "--foundation-recovery-directory",
+        str(directory),
+        "--timeout-seconds",
+        "900",
+    ]
+    approved = arguments + ["--approve"]
+    if defect != "missing-approval":
+        approved += ["--recovery-approval-file", str(approval_path)]
+    first = state_command.main(approved)
+    if defect in {
+        "missing-approval",
+        "wrong-stage",
+        "changed-config",
+        "changed-host-key",
+        "wrong-actor",
+        "wrong-source",
+    }:
+        assert first == 3
+        assert not FakeTunnel.calls
+        assert source_state.exists()
+        assert not (directory / state_command.CLAIM_NAME).exists()
+        return
+    if defect == "failed-effect":
+        assert first == 3
+        assert source_state.exists()
+        FakeTunnel.fail_migration = False
+        assert state_command.main(approved) == 3
+        assert state_command.main(arguments + ["--resume-verification"]) == 0
+    else:
+        assert first == 0
+    assert len(FakeTunnel.copied) == 1
+    assert not source_state.exists()
+    assert not (configuration / "terraform.tfstate").exists()
+    result = json.loads((directory / state_command.RECEIPT_NAME).read_bytes())
+    assert result["migration_source_commit"] == "7" * 40
+    assert result["foundation_receipt_digest"] == recovered_receipt["receipt_digest"]
+    assert result["actor_digest"] == approval["actor_digest"]
+    assert result["zero_change_verified"] is True
+    assert result["local_state_deleted"] is True
+    assert any(command[0] == "/usr/local/sbin/fdai-attest-runner" for command in FakeTunnel.calls)
+    assert (
+        json.loads((original / state_command.foundation_apply.RECEIPT_NAME).read_bytes()) == prior
+    )
+    FakeTunnel.calls = []
+    assert state_command.main(arguments + ["--resume-verification"]) == 0
+    assert len(FakeTunnel.copied) == 1
+    assert [command[1] for command in FakeTunnel.calls] == ["observe"]
+    authority_path = directory / state_command.AUTHORITY_NAME
+    authority = json.loads(authority_path.read_bytes())
+    authority["zero_change_verified"] = False
+    authority["authority_digest"] = canonical_digest(
+        {key: value for key, value in authority.items() if key != "authority_digest"}
+    )
+    authority_path.write_text(json.dumps(authority))
+    FakeTunnel.calls = []
+    assert state_command.main(arguments + ["--resume-verification"]) == 3
+    assert not FakeTunnel.calls
 
 
 def test_state_handoff_claims_before_transfer_compares_and_cleans_raw_state(

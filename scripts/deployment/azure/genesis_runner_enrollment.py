@@ -47,6 +47,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--repository", required=True)
     parser.add_argument("--ssh-private-key", type=Path, required=True)
     parser.add_argument("--expected-foundation-receipt-digest", required=True)
+    parser.add_argument("--foundation-recovery-directory", type=Path)
+    parser.add_argument("--original-source-snapshot", type=Path)
+    parser.add_argument("--recovery-approval-file", type=Path)
     parser.add_argument("--approve", action="store_true")
     parser.add_argument("--resume-verification", action="store_true")
     parser.add_argument("--timeout-seconds", type=int, default=900)
@@ -55,6 +58,22 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _execute(args: argparse.Namespace) -> dict[str, object]:
+    """Preserve the normal path and serialize recovered-host admission with its original writer."""
+    recovery_directory = getattr(args, "foundation_recovery_directory", None)
+    if recovery_directory is not None:
+        from genesis_foundation_recovery_handoff import recovery_lock
+
+        with recovery_lock(_absolute(args.foundation_plan_directory)):
+            return _execute_selected(args)
+    if (
+        getattr(args, "original_source_snapshot", None) is not None
+        or getattr(args, "recovery_approval_file", None) is not None
+    ):
+        raise ValueError("recovery enrollment inputs require an explicit recovery directory")
+    return _execute_selected(args)
+
+
+def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
     if args.approve == args.resume_verification:
         raise ValueError("runner enrollment requires exactly one approval or verification resume")
     if _DIGEST.fullmatch(args.expected_foundation_receipt_digest) is None:
@@ -67,16 +86,42 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
     profile = load_profile(_absolute(args.profile))
     if profile.access_method != "bastion":
         raise ValueError("runner enrollment requires the reviewed Bastion access profile")
-    foundation = _load_foundation_receipt(
-        directory / FOUNDATION_RECEIPT_NAME,
-        expected_digest=args.expected_foundation_receipt_digest,
-    )
-    handoff = _load_handoff(directory / HANDOFF_NAME, foundation=foundation)
+    recovered = None
+    enrollment_source = None
+    recovery_directory = getattr(args, "foundation_recovery_directory", None)
+    if recovery_directory is not None:
+        from fdai_deployment_cli.source_input import inspect_source
+        from genesis_foundation_recovery_handoff import (
+            load_recovery_handoff,
+            require_enrollment_approval,
+        )
+
+        if args.original_source_snapshot is None:
+            raise ValueError("recovered host enrollment requires the original source snapshot")
+        recovered = load_recovery_handoff(
+            original_directory=directory,
+            recovery_directory=_absolute(recovery_directory),
+            source_snapshot=_absolute(args.original_source_snapshot),
+            expected_digest=args.expected_foundation_receipt_digest,
+            target_binding=profile.target_binding,
+        )
+        foundation = recovered.foundation_reference
+        handoff = recovered.handoff
+        directory = _absolute(recovery_directory)
+        enrollment_source = inspect_source(root)
+    else:
+        foundation = _load_foundation_receipt(
+            directory / FOUNDATION_RECEIPT_NAME,
+            expected_digest=args.expected_foundation_receipt_digest,
+        )
+        handoff = _load_handoff(directory / HANDOFF_NAME, foundation=foundation)
     runner = _object(handoff["runner"], "Foundation runner handoff")
     access = _object(handoff["access"], "Foundation access handoff")
     ops = _object(handoff["ops"], "Foundation operations handoff")
     _validate_context(profile.target_binding, handoff, foundation)
     manual = runner.get("execution_transport", "github-actions") == "manual"
+    if recovered is not None and (not manual or profile.environment != "dev"):
+        raise ValueError("recovered host enrollment supports only the manual development profile")
     if not manual and _REPOSITORY.fullmatch(args.repository) is None:
         raise ValueError("runner enrollment repository is invalid")
     connection = _connection_values(runner, access, ops)
@@ -91,8 +136,25 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
         region=str(handoff["region"]),
     )
     checks.verify_source(
-        source_commit=str(handoff["source_commit"]), repository=args.repository, apply=True
+        source_commit=enrollment_source.commit
+        if enrollment_source is not None
+        else str(handoff["source_commit"]),
+        repository=args.repository,
+        apply=True,
     )
+    if recovered is not None and enrollment_source is not None:
+        checks.verify_source(
+            source_commit=str(recovered.receipt["execution_source_commit"]),
+            repository=args.repository,
+            apply=True,
+        )
+        if args.approve:
+            require_enrollment_approval(
+                args.recovery_approval_file,
+                receipt_digest=args.expected_foundation_receipt_digest,
+                source_commit=str(enrollment_source.commit),
+            )
+        enrollment_source.reverify()
 
     parallelism = runner["parallelism"]
     if type(parallelism) is not int:
@@ -105,12 +167,23 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
     receipt_path = directory / RECEIPT_NAME
     known_hosts = directory / KNOWN_HOSTS_NAME
     claim = _load_optional_claim(claim_path)
+    if (
+        enrollment_source is not None
+        and claim is not None
+        and claim.get("enrollment_source_commit") != enrollment_source.commit
+    ):
+        raise ValueError("recovered host claim has a different enrollment source")
     vm_digest = hashlib.sha256(connection["vm_id"].casefold().encode()).hexdigest()
     host_alias = "fdai-genesis-" + vm_digest[:16]
     if receipt_path.exists():
         if claim is None:
             raise ValueError("runner enrollment receipt is missing its immutable claim")
         existing_receipt = _load_receipt(receipt_path)
+        if (
+            enrollment_source is not None
+            and existing_receipt.get("enrollment_source_commit") != enrollment_source.commit
+        ):
+            raise ValueError("recovered host receipt has a different enrollment source")
         _validate_claim_context(claim, foundation, repository_digest, expected_names)
         validate_known_hosts(known_hosts)
         host_key_digest = _file_digest(known_hosts)
@@ -206,17 +279,28 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
             if preflight.returncode != 0:
                 raise ValueError("runner enrollment helpers are unavailable on the exact VM")
             validate_known_hosts(known_hosts)
+            if enrollment_source is not None:
+                enrollment_source.reverify()
+                actor_digest = require_enrollment_approval(
+                    args.recovery_approval_file,
+                    receipt_digest=args.expected_foundation_receipt_digest,
+                    source_commit=enrollment_source.commit,
+                )
+            else:
+                actor_digest = (
+                    _azure_actor_digest(profile.target_binding)
+                    if manual
+                    else _github_actor_digest(args.repository)
+                )
             claim = _create_claim(
                 foundation=foundation,
                 repository_digest=repository_digest,
                 expected_names=expected_names,
-                actor_digest=(
-                    _azure_actor_digest(profile.target_binding)
-                    if manual
-                    else _github_actor_digest(args.repository)
-                ),
+                actor_digest=actor_digest,
                 host_key_digest=_file_digest(known_hosts),
             )
+            if enrollment_source is not None:
+                claim["enrollment_source_commit"] = enrollment_source.commit
             write_private_output(
                 claim_path, json.dumps(claim, sort_keys=True, separators=(",", ":")) + "\n"
             )
@@ -290,6 +374,9 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
         "subscription_ready": False,
         "completed_at": completed_at,
     }
+    if enrollment_source is not None:
+        receipt["enrollment_source_commit"] = enrollment_source.commit
+        receipt["foundation_evidence_schema"] = "fdai.foundation-recovery-receipt.v1"
     receipt["receipt_digest"] = canonical_digest(receipt)
     write_private_output(
         receipt_path, json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n"
