@@ -22,7 +22,7 @@ cross-agent workflow has an independent rollout record in
 |------|-------|----------|-------|
 | W0-W1 documentation, ontology, and framework scaffolding | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | The fixed registry, package boundary, documentation parity, and typed-topic foundation are executable and checked. |
 | W2-W6 governance, pipeline, interface, specialist, handoff, and security mechanics | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py) | Focused synthetic tests exercise the bounded mechanics, including T1 answer evaluation before optional T2 synthesis. They do not establish live operational validation. |
-| Durable authority, recovery, handoff, and learning replay | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore-backed CAS, lease, checkpoint, outbox, and startup recovery paths have focused restart and concurrency evidence. Shadow partial-quorum restart and two bounded Low-severity residuals remain open below. |
+| Durable authority, recovery, handoff, and learning replay | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore-backed CAS, lease, checkpoint, outbox, and startup recovery paths have focused restart and concurrency evidence. Two bounded Low-severity cross-replica and operation-identity residuals remain open below. |
 | W7 cross-agent shadow workflow mechanics | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | Workflows have executable synthetic shadow traces and no evidence here of a default enforce workflow. |
 | W8 KPI, promotion, and degradation machinery | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI reports distinguish measured values from unavailable evidence, promotion fails closed on missing evidence, and injected degradation drills cover the fixed pantheon. |
 | W3 trace-continuity evidence handoff | implemented | `huginn.py`; `heimdall.py`; `test_trace_continuity_chain.py` | The sensing path preserves only bounded allowlisted continuity evidence and carries an observed reason into one Incident candidate without changing roles, topics, or action authority. |
@@ -35,6 +35,7 @@ cross-agent workflow has an independent rollout record in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Persisted Thor ActionRuns in production shadow mode whenever Var uses durable recovery, so an incomplete quorum and its exact matching run rehydrate together before the second approval. | `current change`; partial-quorum shadow restart plus runtime and bootstrap suites passed 137 tests; strict mypy and Ruff passed. | Resolve the two recorded Low-severity residuals. |
 | 2026-09-15 | implemented | Bound Var approvals and Vidar rollbacks to one lifecycle-stable ActionRun digest, scoped their durable records by that identity, and made Thor reject stale authority messages before execution or claim release. | `current change`; authority identity, correlation-reuse, rollback, and full Agent suites; strict mypy, Ruff, agent-import, and LOC gates passed. | Persist matching Thor ActionRuns in shadow mode, then resolve the two recorded Low-severity residuals. |
 | 2026-09-15 | implemented | Required Vidar to normalize a bounded non-whitespace rollback receipt before recording success, made the durable terminal codec reject blank/noncanonical receipts, and made Thor independently retain the resource claim for a blank succeeded payload. | `current change`; Wave 3, T2 recovery-chain, and Thor durability suites passed 161 tests; strict mypy and Ruff passed. | No source-level work remains for rollback receipt completeness; three Low-severity residuals remain open. |
 | 2026-09-15 | implemented | Kept a saturated Norns recovery retryable by appending the inert fingerprint candidate before marking the fingerprint proposed. Capacity failure can no longer make an unpublished candidate appear delivered. | `current change`; focused saturation reproduction plus Norns durability, coverage, and runtime suites passed 162 tests; strict mypy and Ruff passed. | Resolve the three recorded Low-severity residuals without widening agent roles or authority. |
@@ -59,8 +60,6 @@ cross-agent workflow has an independent rollout record in
   then retain a two-replica regression showing one audit append and one publication.
 - [ ] Bind each issue operation id globally to one fingerprint and request digest, then retain a
   regression showing that reuse across fingerprints fails closed.
-- [ ] Persist matching Thor ActionRuns whenever durable Var recovery is enabled, then retain a
-  partial-quorum shadow restart regression.
 - [ ] Complete the remaining prerequisites: bind the deployment-owned signed-context issuer,
   preserve the remaining Forseti-owned causal lineage properties, construct the real runtime
   producer, and implement the governed live-batch producer.
@@ -181,8 +180,9 @@ recovery, or publication authority to a different agent.
 the oldest rows past a projection bound in the same order returned by `read_states`. It cannot name
 one key, so it cannot erase an authoritative record or audit entry. Enforcement composition
 requires explicit `thor_state_store`, `vidar_state_store`, and `var_state_store` bindings. Production
-may provide one durable provider instance through all exact parameters, but a missing agent-owned
-binding blocks enforcement before process-local approval or rollback state can be used.
+provides the durable Thor store in shadow and enforce modes whenever Var recovery is durable, so an
+incomplete quorum and its matching ActionRun resume together. Enforcement still requires every
+exact agent-owned binding before process-local approval or rollback state can be used.
 
 ### Conversational action re-entry
 

@@ -473,9 +473,7 @@ async def initialize_pantheon(
         ).strip(),
         enforce=pantheon_enforce,
         thor_executor=(t2_route_registry.execute if thor_mutation_bound else None),
-        thor_state_store=(
-            StateStoreActionRunStore(config.incident_audit_store) if pantheon_enforce else None
-        ),
+        thor_state_store=StateStoreActionRunStore(config.incident_audit_store),
         rollback_executors=rollback_executors,
         vidar_state_store=config.incident_audit_store,
         var_state_store=config.incident_audit_store,

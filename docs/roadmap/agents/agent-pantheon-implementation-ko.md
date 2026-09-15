@@ -24,7 +24,7 @@ translation_revised: 2026-09-15
 |------|------|------|------|
 | W0-W1 문서, 온톨로지 및 프레임워크 기반 | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | 고정 레지스트리, 패키지 경계, 문서 일치 및 타입이 지정된 토픽 기반을 실행하고 검사할 수 있습니다. |
 | W2-W6 거버넌스, 파이프라인, 인터페이스, 전문 에이전트, 인계 및 보안 메커니즘 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py) | 선택적 T2 종합 전의 T1 답변 평가를 포함한 범위가 제한된 메커니즘을 집중 합성 검사로 실행하지만 실제 운영 검증을 입증하지는 않습니다. |
-| 영속 권한, 복구, 인계 및 학습 재생 | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore 기반 CAS, 점유 유효 기간, 검사 지점, 보낼 편지함 및 시작 복구 경로에는 재시작과 동시성 집중 검사 근거가 있습니다. Shadow 일부 정족수 재시작과 범위가 제한된 Low 심각도 잔여 문제 두 건은 아래에 열어 둡니다. |
+| 영속 권한, 복구, 인계 및 학습 재생 | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore 기반 CAS, 점유 유효 기간, 검사 지점, 보낼 편지함 및 시작 복구 경로에는 재시작과 동시성 집중 검사 근거가 있습니다. 범위가 제한된 Low 심각도 복제본 간 및 작업 신원 잔여 문제 두 건은 아래에 열어 둡니다. |
 | W7 에이전트 간 shadow 작업 흐름 메커니즘 | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 작업 흐름에 실행 가능한 합성 shadow 추적이 있으며, enforce 작업 흐름을 기본값으로 사용하는 근거는 이 문서에 없습니다. |
 | W8 KPI, 승격 및 성능 저하 메커니즘 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 보고는 측정값과 사용 불가능한 근거를 구분하고, 근거가 없으면 승격을 차단하며, 주입된 성능 저하 훈련이 고정 판테온을 다룹니다. |
 | W3 추적 연속성 근거 인계 | implemented | `huginn.py`; `heimdall.py`; `test_trace_continuity_chain.py` | sensing 경로는 허용 목록의 범위가 제한된 연속성 근거만 보존하고 역할, topic, 작업 권한을 바꾸지 않은 채 관측된 사유를 인시던트 후보 하나에 전달합니다. |
@@ -37,6 +37,7 @@ translation_revised: 2026-09-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | Var가 영속 복구를 사용할 때 프로덕션 shadow 모드에서도 Thor ActionRun을 영속화해 미완료 정족수와 정확히 일치하는 실행이 두 번째 승인 전에 함께 복원되도록 했습니다. | `current change`; 일부 정족수 shadow 재시작, 런타임 및 bootstrap 검사 137개 통과, strict mypy 및 Ruff 통과. | 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
 | 2026-09-15 | implemented | Var 승인과 Vidar 롤백을 수명 주기 동안 안정적인 ActionRun 다이제스트 하나에 결속하고 영속 레코드를 해당 신원으로 범위화했으며, Thor가 실행이나 점유 해제 전에 오래된 권한 메시지를 거부하도록 했습니다. | `current change`; 권한 신원, 상관관계 재사용, 롤백 및 전체 에이전트 검사, strict mypy, Ruff, 에이전트 가져오기 및 LOC 게이트 통과. | Shadow 모드에서 일치하는 Thor ActionRun을 영속화한 뒤 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
 | 2026-09-15 | implemented | Vidar가 성공을 기록하기 전에 범위가 제한되고 공백이 아닌 롤백 증적을 정규화하도록 했습니다. 영속 종결 codec은 비어 있거나 비정규적인 증적을 차단하고 Thor도 공백인 성공 페이로드에서 리소스 점유를 독립적으로 유지합니다. | `current change`; Wave 3, T2 복구 체인 및 Thor 내구성 검사 161개 통과, strict mypy 및 Ruff 통과. | 롤백 증적 완전성의 소스 작업은 남아 있지 않으며 Low 심각도 잔여 문제 세 건은 계속 열려 있습니다. |
 | 2026-09-15 | implemented | 비활성 지문 후보를 제안됨으로 표시하기 전에 대기열에 추가해 Norns 포화 복구를 재시도 가능한 상태로 유지했습니다. 용량 실패가 게시하지 않은 후보를 전달 완료로 보이게 할 수 없습니다. | `current change`; 집중 포화 재현과 Norns 내구성, 커버리지 및 런타임 검사 162개 통과, strict mypy 및 Ruff 통과. | 에이전트 역할이나 권한을 넓히지 않고 기록된 Low 심각도 잔여 문제 세 건을 해결합니다. |
@@ -61,8 +62,6 @@ translation_revised: 2026-09-15
   복제본 두 개에서도 감사 추가와 게시가 각각 한 번임을 보이는 회귀 검사를 보존합니다.
 - [ ] 각 이슈 작업 ID를 전역에서 지문 하나와 요청 다이제스트 하나에 결속하고, 다른 지문에서
   같은 ID를 재사용하면 실패 시 차단됨을 보이는 회귀 검사를 보존합니다.
-- [ ] 영속 Var 복구가 활성화되면 일치하는 Thor ActionRun도 영속화하고, shadow 일부 정족수
-  재시작 회귀 검사를 보존합니다.
 - [ ] 남은 선행조건을 완료합니다. 배포가 소유하는 서명된 컨텍스트 발급자를 바인딩하고,
   Forseti가 소유하는 남은 인과관계 계보 속성을 보존하며, 실제 런타임 생산자를 구성하고,
   통제된 실제 배치 생산자를 구현합니다.
@@ -179,10 +178,11 @@ translation_revised: 2026-09-15
 
 `StateStore`는 `delete_states_beyond(prefix, retain_newest)` 제거 연산 하나를 노출합니다.
 `read_states`와 같은 순서로 변환 결과 한도를 넘는 가장 오래된 행을 제거합니다. 키 하나를
-지정할 수 없으므로 권위 있는 기록이나 감사 항목을 지울 수 없습니다. 적용 모드 조립은 명시적인
-`thor_state_store`, `vidar_state_store`, `var_state_store` 바인딩을 요구합니다. 프로덕션은
-같은 영속 프로바이더 인스턴스를 모든 정확한 매개변수로 전달할 수 있지만, 에이전트 소유
-바인딩이 하나라도 없으면 프로세스 로컬 승인 또는 롤백 상태를 사용하기 전에 적용을 차단합니다.
+지정할 수 없으므로 권위 있는 기록이나 감사 항목을 지울 수 없습니다. Var 복구가 영속이면
+프로덕션은 shadow 및 enforce 모드 모두에서 Thor 저장소도 제공하므로 미완료 정족수와 해당
+ActionRun이 함께 재개됩니다. 적용 모드 조립은 여전히 명시적인 `thor_state_store`,
+`vidar_state_store`, `var_state_store` 바인딩을 모두 요구하며, 하나라도 없으면 프로세스 로컬
+승인 또는 롤백 상태를 사용하기 전에 시작을 차단합니다.
 
 ### 대화형 액션 재진입
 

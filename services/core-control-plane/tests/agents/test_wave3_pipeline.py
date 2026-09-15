@@ -2041,6 +2041,61 @@ def test_var_scopes_final_approval_to_action_identity() -> None:
     assert current_approval["action_run_identity"] != old_approval["action_run_identity"]
 
 
+def test_shadow_hil_partial_quorum_survives_restart() -> None:
+    from fdai.agents._framework.provider_adapters import StateStoreActionRunStore
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    store = InMemoryStateStore()
+    first_bus = InMemoryBus(registry=load_pantheon())
+    first_thor = Thor(bus=first_bus, state_store=StateStoreActionRunStore(store))
+    first_var = Var(bus=first_bus, state_store=store)
+    first_bus.subscribe("object.action-run", "Var", first_var.on_typed_message)
+    asyncio.run(
+        first_thor.dispatch_verdict(
+            {
+                "correlation_id": "c-shadow-quorum-restart",
+                "action_type": "remediate.delete-storage",
+                "risk_verdict": "hil",
+                "resolved_autonomy_ceiling": "shadow_only",
+                "resource_id": "storage-shadow",
+                "quorum_required": 2,
+            }
+        )
+    )
+    assert (
+        asyncio.run(
+            first_var.decide(
+                "c-shadow-quorum-restart",
+                approver="reviewer-a@example.com",
+                decision="approve",
+            )
+        )
+        is None
+    )
+
+    restarted_bus = InMemoryBus(registry=load_pantheon())
+    restarted_thor = Thor(
+        bus=restarted_bus,
+        state_store=StateStoreActionRunStore(store),
+    )
+    restarted_var = Var(bus=restarted_bus, state_store=store)
+    restarted_bus.subscribe("object.action-run", "Var", restarted_var.on_typed_message)
+    restarted_bus.subscribe("object.approval", "Thor", restarted_thor.on_typed_message)
+
+    assert asyncio.run(restarted_thor.rehydrate()) == 1
+    assert asyncio.run(restarted_var.recover_approvals()) == (0, 0)
+    approval = asyncio.run(
+        restarted_var.decide(
+            "c-shadow-quorum-restart",
+            approver="reviewer-b@example.com",
+            decision="approve",
+        )
+    )
+
+    assert approval is not None
+    assert restarted_thor.action_runs["c-shadow-quorum-restart"].state is ActionRunState.SUCCEEDED
+
+
 def test_var_recovers_unpublished_final_without_repeated_human_decision() -> None:
     from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
