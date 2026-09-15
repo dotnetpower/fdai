@@ -48,8 +48,8 @@ Table data rows also inherit preceding paragraph/list context from their heading
 parser does not guess whether ordinary prose contains an applicability restriction.
 Both block-local and document-wide required context reject nested dependencies that the installed
 one-level recipe cannot completely represent.
-Selecting an article content region cannot silently discard an adjacent paragraph or caveat;
-unaccounted structural body content holds the candidate for review.
+Selecting an article content region cannot silently discard adjacent text, headings or caveats;
+all unaccounted non-chrome text holds the candidate regardless of its HTML tag.
 Every resulting excerpt includes source identity and remains within 8192 UTF-8 bytes. Text and
 metadata limits are independent. Stable IDs bind source revision, block identity, recipe and bytes.
 Expanded text is bounded to 16 MiB and 8192 blocks per complete generation, in addition to the

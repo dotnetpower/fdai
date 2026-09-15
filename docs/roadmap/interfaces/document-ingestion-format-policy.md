@@ -85,7 +85,7 @@ incomplete structure holds the complete generation; legacy v1/v2 extraction rema
 
 ## Extraction and failure behavior
 
-Structured article selection holds unaccounted paragraphs outside the chosen content region;
+Structured article selection holds all unaccounted non-chrome text outside the chosen content region;
 successful parsing cannot silently omit an applicability caveat.
 Structured table rows retain preceding paragraph/list conditions from their heading ancestry.
 Format upgrades from retained bytes require a durable processing checkpoint, not another download;

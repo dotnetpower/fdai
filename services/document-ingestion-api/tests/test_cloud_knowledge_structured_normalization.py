@@ -110,9 +110,10 @@ def test_explicit_article_and_content_scopes(wrap: str) -> None:
     assert not document.unresolved_dependencies
 
 
-def test_content_selection_cannot_silently_drop_outside_caveat() -> None:
+@pytest.mark.parametrize("tag", ["p", "div", "h1"])
+def test_content_selection_cannot_silently_drop_outside_caveat(tag: str) -> None:
     html = (
-        "<main><p>Only the reviewed service generation is supported.</p>"
+        f"<main><{tag}>Only the reviewed service generation is supported.</{tag}>"
         '<div class="content"><h1>Guide</h1><p>Configure the endpoint.</p></div></main>'
     )
     document = reprocess_document(_snapshot(html), now=DERIVED)
