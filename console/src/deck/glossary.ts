@@ -192,11 +192,11 @@ export const TERMS = {
     seeAlso: "blast-radius",
   },
   detectionReadiness: {
-    term: "detection readiness",
+    term: "detection coverage",
     plain:
-      "the agent-owned evidence that a monitored target can produce a governed failure signal; missing or stale evidence keeps authority in shadow",
-    tech: "DetectionReadinessSnapshot",
-    seeAlso: "detection-readiness",
+      "the retained evidence showing which supported resources were candidates, evaluated, held, or produced findings; an evaluation without a finding is not a health claim",
+    tech: "AnalyzerCoverage",
+    seeAlso: "detection-coverage",
     match: "detection_readiness",
   },
 } as const satisfies Record<string, GlossaryTerm>;

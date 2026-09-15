@@ -15,8 +15,9 @@ from fdai.shared.contracts.models import (
     ExecutorEffectReceiptStatus,
     Mode,
     SafeguardBoundExecutorCommand,
+    WorkflowActionRef,
 )
-from fdai.shared.providers.event_bus import PublishReceipt
+from fdai.shared.providers.event_bus import EventPublishNotAttemptedError, PublishReceipt
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts import EXECUTOR_COMMAND_TOPIC, EXECUTOR_RECEIPT_TOPIC
@@ -37,6 +38,32 @@ class _CancellingPublishBus(InMemoryEventBus):
     ) -> PublishReceipt:
         del topic, key, payload
         raise asyncio.CancelledError
+
+
+class _UnknownPublishBus(InMemoryEventBus):
+    """Fail after entering a transport whose publication result is unknown."""
+
+    async def publish(
+        self,
+        topic: str,
+        key: str,
+        payload: Mapping[str, Any],
+    ) -> PublishReceipt:
+        del topic, key, payload
+        raise OSError("synthetic ambiguous transport failure")
+
+
+class _NotAttemptedPublishBus(InMemoryEventBus):
+    """Prove the broker call was not attempted."""
+
+    async def publish(
+        self,
+        topic: str,
+        key: str,
+        payload: Mapping[str, Any],
+    ) -> PublishReceipt:
+        del topic, key, payload
+        raise EventPublishNotAttemptedError("synthetic no-publication result")
 
 
 async def test_client_publishes_safeguard_bound_command_and_retains_digest() -> None:
@@ -124,9 +151,10 @@ async def test_client_publishes_safeguard_bound_command_and_retains_digest() -> 
 
 async def test_bound_client_checks_capacity_before_pre_publish_guard() -> None:
     bus = InMemoryEventBus()
+    audit = InMemoryStateStore()
     client = EventBusDirectApiExecutionClient(
         event_bus=bus,
-        audit_store=InMemoryStateStore(),
+        audit_store=audit,
         instance_id="core-capacity",
         max_pending_requests=0,
     )
@@ -137,8 +165,18 @@ async def test_bound_client_checks_capacity_before_pre_publish_guard() -> None:
         guard_called = True
         return datetime.now(UTC)
 
+    action = _action(mode=Mode.ENFORCE).model_copy(
+        update={
+            "workflow_action": WorkflowActionRef(
+                process_id="process-remote-001",
+                step_id="restart",
+                proposal_ref="proposal:remote:001",
+                attempt=4,
+            )
+        }
+    )
     result = await client.execute_bound(
-        action=_action(mode=Mode.ENFORCE),
+        action=action,
         safeguard_bundle_digest=_BUNDLE_DIGEST,
         source_revision=_SOURCE_REVISION,
         attempt=1,
@@ -147,9 +185,55 @@ async def test_bound_client_checks_capacity_before_pre_publish_guard() -> None:
     commands = [item async for item in bus.subscribe(EXECUTOR_COMMAND_TOPIC, "capacity-reader")]
     await client.stop()
 
-    assert result.outcome.value == "failed"
+    assert result.outcome.value == "dispatch_not_attempted"
     assert guard_called is False
     assert commands == []
+    assert audit.audit_entries[-1]["entry"]["workflow_action"]["attempt"] == 4
+
+
+async def test_legacy_receipt_timeout_remains_pending_not_failed() -> None:
+    store = InMemoryStateStore()
+    client = EventBusDirectApiExecutionClient(
+        event_bus=InMemoryEventBus(),
+        audit_store=store,
+        instance_id="core-timeout",
+        response_timeout_seconds=0.01,
+        retry_seconds=0.001,
+    )
+
+    result = await client.execute(action=_action(mode=Mode.SHADOW))
+    await client.stop()
+
+    assert result.outcome.value == "receipt_timeout"
+    assert result.audit_context["effect_possible"] is True
+    assert result.audit_context["reconciliation_required"] is True
+    assert store.audit_entries[-1]["entry"]["audit_phase"] == "post_release"
+
+
+@pytest.mark.parametrize(
+    ("bus", "expected"),
+    [
+        (_NotAttemptedPublishBus(), "dispatch_not_attempted"),
+        (_UnknownPublishBus(), "execution_unknown"),
+    ],
+)
+async def test_legacy_publication_failure_preserves_effect_uncertainty(
+    bus: InMemoryEventBus,
+    expected: str,
+) -> None:
+    client = EventBusDirectApiExecutionClient(
+        event_bus=bus,
+        audit_store=InMemoryStateStore(),
+        instance_id=f"core-{expected}",
+        response_timeout_seconds=0.1,
+        retry_seconds=0.001,
+    )
+
+    result = await client.execute(action=_action(mode=Mode.SHADOW))
+    await client.stop()
+
+    assert result.outcome.value == expected
+    assert result.audit_context["effect_possible"] is (expected == "execution_unknown")
 
 
 async def test_cancelled_publish_releases_the_pending_request() -> None:

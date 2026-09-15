@@ -183,6 +183,19 @@ bounded_stage image-clamav 1800 300 docker buildx build \
   --output "type=oci,dest=$release_input/images/clamav.oci.tar" \
   "$release_input/metadata"
 
+cat >"$release_input/metadata/pgvector.Dockerfile" <<'EOF'
+FROM pgvector/pgvector@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
+EOF
+echo "-- build OCI image: pgvector"
+bounded_stage image-pgvector 1800 300 docker buildx build \
+  --progress=plain \
+  --platform linux/amd64 \
+  --provenance=false \
+  --sbom=false \
+  --file "$release_input/metadata/pgvector.Dockerfile" \
+  --output "type=oci,dest=$release_input/images/pgvector.oci.tar" \
+  "$release_input/metadata"
+
 echo "-- build Console artifact"
 bounded_stage console-dependencies 600 180 npm --prefix "$repo_root/console" ci --ignore-scripts
 bounded_stage console-build 900 300 npm --prefix "$repo_root/console" run build:offline
@@ -312,6 +325,13 @@ clamav = validate_dependency_oci_archive(
     expected_manifest_digest=declared_manifest(clamav_archive),
     expected_platform_tag="linux-x86_64",
 )
+pgvector_archive = root / "images/pgvector.oci.tar"
+pgvector = validate_dependency_oci_archive(
+  pgvector_archive,
+  expected_archive_sha256=digest(pgvector_archive),
+  expected_manifest_digest=declared_manifest(pgvector_archive),
+  expected_platform_tag="linux-x86_64",
+)
 
 def artifact(name: str) -> dict[str, str]:
     path = root / name
@@ -342,7 +362,10 @@ payload = {
     "source_commit": source_commit,
     "platform_tag": "linux-x86_64",
     "services": services,
-    "sidecars": {"clamav": metadata("clamav", clamav_archive, clamav.manifest.digest)},
+    "sidecars": {
+      "clamav": metadata("clamav", clamav_archive, clamav.manifest.digest),
+      "pgvector": metadata("pgvector", pgvector_archive, pgvector.manifest.digest),
+    },
     "console": artifact("console.tar.gz"),
     "deployment_support": artifact("deployment-support.tar.gz"),
 }

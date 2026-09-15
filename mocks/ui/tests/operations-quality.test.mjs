@@ -16,7 +16,7 @@ const routes = [
   ["hil", "Approvals"],
   ["provision", "Provisioning"],
   ["onboarding", "Onboarding readiness"],
-  ["detection-readiness", "Detection readiness"],
+  ["detection-coverage", "Detection coverage"],
   ["configuration-baselines", "Configuration baselines"],
   ["processes", "Processes"],
   ["workflow-apps", "Workflow apps"],

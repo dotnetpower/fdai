@@ -1,7 +1,7 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: 3aa2ea9ee53437877dcdda4b3a9c22ab5c573534
+translation_source_sha: dbd067f9c143e8902cbe4e2d6c680a6ea89fb5c8
 translation_revised: 2026-09-13
 ---
 
@@ -25,9 +25,13 @@ translation_revised: 2026-09-13
 > 조정기, 독립 다중 효과 정산, replay, 보존 및 통제된 학습 입력은 로컬 근거와 함께 구현되어
 > 있습니다. 표준 Core 시작 과정은 활성화된 보존 패키지를 Njord의 결정론적 권고 포트에 연결하고,
 > 재시작 후 범위가 제한된 보존 기준선을 복원하며, 정규 broker 경로로 완전한 서비스-일자 관찰을
-> 수신합니다. Exact casefold release에는 이제 raw 관찰 71개와 완결된 revision-2 cursor를 보존한
-> live-authoritative 복원 collector pass가 있습니다. 최소 30일과 적격 표본 100개에 걸친 적격
-> 정산 cohort 및 여섯 개의 독립 대상 검토는 아직 없습니다.
+> 수신합니다. 수정된 소스는 Core와 패키지 Job 2개가 하나의 정확한 이미지 다이제스트를 사용하는
+> revision 21에서 활성화되어 있습니다. 활성화로 시작된 collector는 `complete`를 반환하고 영구
+> cursor를 revision 6으로 전진시켰으며 raw 관찰 136개를 보존했습니다. 수정 후 처음 실행한 90일
+> 검토 전용 campaign은 해당 pin에서 완료됐지만, 여섯 대상은 모두 표본 수 0과 명시적인
+> `insufficient-cohort`, `missing-live-authoritative-evidence` 사유로 차단되어 있습니다. Campaign
+> episode와 promotion review를 생성하지 않았고 런타임 권한도 바꾸지 않았습니다. 최소 30일과
+> 적격 표본 100개에 걸친 적격 정산 cohort 및 여섯 개의 독립 대상 검토는 아직 없습니다.
 > 비평 12회에서 확인된 모든 Medium 이상 결함을 수정했으며 최종 검토에는 Low 수준의 테스트 구성 개선만 남았습니다. 런타임 권한은 바뀌지 않았습니다.
 
 ## 설계 개요

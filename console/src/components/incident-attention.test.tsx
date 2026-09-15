@@ -19,7 +19,6 @@ describe("incident attention", () => {
   test("opens a bounded incident conversation and starts one read-only investigation", () => {
     expect(incidentDeckDetail(incident())).toMatchObject({
       sessionKey: "incident:corr-1",
-      onlyWhenIdle: true,
       newConversation: true,
       prompt: "Report what the evidence for this incident establishes, which evidence is missing, and the next safe read-only step.",
       submitPrompt: true,
@@ -29,5 +28,6 @@ describe("incident attention", () => {
         correlationId: "corr-1",
       },
     });
+    expect(incidentDeckDetail(incident())).not.toHaveProperty("onlyWhenIdle");
   });
 });

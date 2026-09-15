@@ -115,6 +115,52 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         "--region", default="koreacentral", help="Azure deployment region (default: %(default)s)"
     )
     settings.add_argument(
+        "--runtime",
+        choices=("container-apps", "aks"),
+        default="container-apps",
+        help="Runtime platform for a new installation (default: %(default)s)",
+    )
+    settings.add_argument(
+        "--database",
+        choices=("postgres-flex", "postgres-aks"),
+        default="postgres-flex",
+        metavar="PLACEMENT",
+        help="PostgreSQL placement for a new installation (default: %(default)s)",
+    )
+    settings.add_argument(
+        "--system-nodes",
+        type=int,
+        default=3,
+        metavar="COUNT",
+        help="AKS system node count; minimum 2 (default: %(default)s)",
+    )
+    settings.add_argument(
+        "--system-node-sku",
+        default="Standard_D2as_v5",
+        metavar="SKU",
+        help="AKS system node VM SKU (default: %(default)s)",
+    )
+    settings.add_argument(
+        "--user-nodes",
+        type=int,
+        default=3,
+        metavar="COUNT",
+        help="AKS user node minimum; postgres-aks requires 4 (default: %(default)s)",
+    )
+    settings.add_argument(
+        "--max-user-nodes",
+        type=int,
+        default=5,
+        metavar="COUNT",
+        help="AKS user node autoscaler maximum (default: %(default)s)",
+    )
+    settings.add_argument(
+        "--user-node-sku",
+        default="Standard_D4as_v5",
+        metavar="SKU",
+        help="AKS user node VM SKU (default: %(default)s)",
+    )
+    settings.add_argument(
         "--monthly-cost-ceiling",
         type=int,
         default=1000,
@@ -170,6 +216,12 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         help="Private pre-issued capability-token file; never pass the token value",
     )
     adoption = azure.add_argument_group("Recovered public deployment (advanced)")
+    adoption.add_argument(
+        "--adopt-runner-image-receipt",
+        type=Path,
+        metavar="PATH",
+        help="Verified runner-image receipt to reuse without another image apply",
+    )
     adoption.add_argument(
         "--adopt-application-state",
         type=Path,

@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 346999eacbdcfae5abf8ff5ad97cff1d3c82591e
-translation_revised: 2026-09-14
+translation_source_sha: a2d884abd5586fc1648fbb26822cd477b32fbe4e
+translation_revised: 2026-09-15
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 **목표**: 자동화 테스트는 결정론적이고 비밀 없는 상태를 유지하며, 대화형 로컬 Console은 권위 있는 Azure 상태를 표시합니다. Azure 배포는 **배포자 권한과 리전 카탈로그로 프로비저닝할 리소스를 선택**합니다. 별도 `docs site: serve (4321)` 작업은 루프백에서 공개 문서만 미리 보여 줍니다. 백엔드나 채널 경계를 시작하지 않으며 런타임 권한을 부여하지 않습니다. 세 명제가 동시에 참입니다:
@@ -16,7 +16,7 @@ WAF 및 CAF 평가 소비자도 같은 동등성 규칙을 따릅니다. 로컬�
 AKS fleet 인벤토리는 두 프로필에서 같은 정확한 managed cluster ARM 신원과 Core 소유 수명 주기 범위 마이그레이션을 사용하며, 배포는 해당 managed cluster 리소스에만 읽기 신원 권한을 부여합니다. 검토 목록은 각 영속 키를 본문의 정확하고 불투명한 검토 신원과 대조합니다. 통제된 코호트 반입도 같은 동등성 규칙을 따릅니다. 테스트는 정규화한 합성 고정본을 사용하고 배포 환경은 묶음당 관측값을 1,000개로 제한하며 각 관측 다이제스트를 묶음과 exporter workflow에 연결한 뒤 private PostgreSQL에서 멱등 재생을 검증합니다. 산출물은 군, 리비전, 프로토콜, 출처, 승인 또는 권한을 선택할 수 없고, 빈 군별 allowlist는 exporter workflow와 정책 항목이 함께 추가될 때까지 어떤 출처도 신뢰하지 않습니다.
 Cost Governance 공개 전달도 같은 동등성 규칙을 따릅니다. 두 프로필은 비용 데이터를 반환하기 전에 내용이 없는 승인 증적을 하나 영속화하고 감사 영속화가 실패하면 응답을 차단하며, 변경할 수 없는 증적에 같은 400일 보존, 30일 삭제 유예, 법적 보존 및 tombstone 계약을 적용합니다. 로컬 고정본은 실제 W7 근거가 되지 않습니다.
 ## 전수조사 - 로컬 동작 vs Azure 필요
-로컬 준비는 의존성이나 공급자 작업 전에 OPA를 확인하며, VS Code 작업 터미널은 사용자 설치 도구를 찾도록 `~/.local/bin`을 포함합니다. 모델 파일을 선택하면 해당 파일의 정확한 `LLM_RESOLVED_MODELS_SHA256`을 Operator 환경에 전달하고, 시작 시 확인값이 없거나 파일이 변경되었으면 차단합니다. `FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1`에서는 활성 구독에서 명시적인 `FDAI_LOCAL_RESOURCE_GROUP`을 확인한 뒤에만 Terraform 검색을 생략합니다. 모드와 범위 모두 환경 캐시 다이제스트에 포함됩니다. PostgreSQL과 Redpanda는 로컬로 유지하고, 없는 소스는 사용 불가로 남으며, 가짜 실행기나 실행 게이트웨이는 선택하지 않습니다. HTTP 생존 확인과 `pantheon_ready`만으로 소비자 준비 상태나 대화 추론 성공을 입증할 수는 없습니다.
+로컬 준비는 의존성이나 공급자 작업 전에 OPA를 확인하며, VS Code 작업 터미널은 사용자 설치 도구를 찾도록 `~/.local/bin`을 포함합니다. 모델 파일을 선택하면 해당 파일의 정확한 `LLM_RESOLVED_MODELS_SHA256`을 Operator 환경에 전달하고, 시작 시 확인값이 없거나 파일이 변경되었으면 차단합니다. `FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1`에서는 활성 구독에서 명시적인 `FDAI_LOCAL_RESOURCE_GROUP`을 확인한 뒤에만 Terraform 검색을 생략합니다. 프로세스 환경에서 값을 정의하지 않은 경우 준비 작업은 Git에서 무시되는 `console/.env.local`에서 서버가 소유하는 이 두 설정만 읽을 수 있습니다. 키가 중복되면 안전하게 차단하며 모드와 범위는 모두 환경 캐시 다이제스트에 포함됩니다. PostgreSQL과 Redpanda는 로컬로 유지하고, 없는 소스는 사용 불가로 남으며, 가짜 실행기나 실행 게이트웨이는 선택하지 않습니다. HTTP 생존 확인과 `pantheon_ready`만으로 소비자 준비 상태나 대화 추론 성공을 입증할 수는 없습니다.
 2026-07-21 기준. "자동화 테스트"는 테스트 실행기가 실행하는 pytest 또는 committed mock을 뜻합니다. "Full-stack 로컬"은 운영자에 브라우저 Entra를 사용하고 서버 측 Azure 어댑터에 현재 Azure CLI 맥락을 사용하는 VS 코드 compound launch입니다. 테스트 고정본은 이 launch 프로파일에서 활성화되지 않습니다.
 ### 자동화 테스트에서 완전 동작 (Azure 불필요)
 | 서브시스템 | 로컬 백엔드 | 비고 |
@@ -84,7 +84,7 @@ SPA, Manual Studio를 시작합니다. 일반 Console 빌드는 모듈 진입점
 관리 리소스 신원이 없는 영속 shadow 소비자로 남습니다. Compound는 정적 design mock이나
 테스트 고정본 애플리케이션을 시작하지 않습니다.
 
-작업 기반 `console: start full stack` 감독기는 Manual Studio와 Core 배포판의 지속 인벤토리 조정 및 관찰 캠페인 모드를 추가로 시작합니다. 로컬 준비 상태와 10분 감시기는 세 프로세스와 활성 범위 인벤토리 커버리지 경계를 포함하므로 도움말 라이브러리나 인벤토리 생성기가 중지되거나 checkpoint가 활성 세대 및 정확한 범위 집합과 일치하지 않으면 스택을 사용할 수 없는 상태로 유지합니다. 이후 관측이 대기 중이면 답변 완전성은 낮아지지만 지속적으로 수집하는 프로세스를 준비되지 않은 상태로 만들지는 않습니다. 시작 감독기는 실패를 보고하고 하위 프로세스를 중지하기 전에 세대 복구와 그래프 변환 결과에 범위가 제한된 180초 준비 구간을 제공합니다. 준비 캐시는 같은 checkpoint 검사가 통과할 때만 권위 있는 인벤토리 단계를 재사용하므로 변경되지 않은 파일이 오래된 데이터베이스 세대를 숨길 수 없습니다.
+작업 기반 `console: start full stack` 감독기는 Manual Studio와 Core 배포판의 지속 인벤토리 조정 및 관찰 캠페인 모드를 추가로 시작합니다. 준비가 완료됐지만 복합 작업이 감독기를 연결하지 못한 경우 표시되는 `console: start local services` 작업이 준비를 반복하지 않고 동일한 서비스 집합을 시작합니다. 로컬 준비 상태와 10분 감시기는 세 프로세스와 활성 범위 인벤토리 커버리지 경계를 포함하므로 도움말 라이브러리나 인벤토리 생성기가 중지되거나 checkpoint가 활성 세대 및 정확한 범위 집합과 일치하지 않으면 스택을 사용할 수 없는 상태로 유지합니다. 이후 관측이 대기 중이면 답변 완전성은 낮아지지만 지속적으로 수집하는 프로세스를 준비되지 않은 상태로 만들지는 않습니다. 시작 감독기는 실패를 보고하고 하위 프로세스를 중지하기 전에 세대 복구와 그래프 변환 결과에 범위가 제한된 180초 준비 구간을 제공합니다. 준비 캐시는 같은 checkpoint 검사가 통과할 때만 권위 있는 인벤토리 단계를 재사용하므로 변경되지 않은 파일이 오래된 데이터베이스 세대를 숨길 수 없습니다.
 
 프로세스 launcher는 `RUNTIME_ENV`와 독립적으로 `FDAI_EXECUTION_VENUE=local`을 설정합니다. 로컬 상태는 `127.0.0.1:5432`의 Docker PostgreSQL과 담당 서비스 역할을 사용하며, 로컬 이벤트 전송은 `127.0.0.1:19092`의 Redpanda를 사용합니다.
 준비 과정은 의미 physical topic을 배포된 Event Hubs와 같은 최소 두 partition으로 유지합니다.
@@ -120,10 +120,9 @@ Compound는 하위 구성을 시작하기 전에 `console: prepare full stack`�
 API 범위에서 JWT 대상을 파생하고 브라우저와 Azure 테넌트 일치를 요구하며, 일치할 수 없는 로컬
 자리로 raw-group 대체 경로를 비활성화하고 `SET ROLE fdai_operator`로 연결합니다. Standalone Core
 런타임 또는 Operator API debug launch에서는 이 준비 작업을 먼저 실행합니다.
-준비 순서에서는 `http://localhost:5273`을 표준 Entra SPA redirect로 등록하고
-`http://127.0.0.1:5273`은 호환 redirect로 유지합니다. 브라우저 OAuth 캐시, 대화 이력, 응답
-환경 설정 및 화면 컨텍스트는 origin별로 분리되므로 실행기는 항상 표준 origin을 엽니다.
-프런트엔드는 계속 IPv4 loopback에서만 수신합니다. 보조 로직은 기존 redirect를 보존하고 해당
+준비 순서에서는 `http://localhost:5273`을 표준 Entra SPA redirect로 등록하고 `http://127.0.0.1:5273`은 호환 redirect로 유지합니다.
+브라우저 OAuth 캐시, 대화 이력, 응답 환경 설정 및 화면 컨텍스트는 origin별로 분리되므로 실행기는 항상 표준 origin을 열고, 프런트엔드는 계속 IPv4 loopback에서만 수신합니다.
+원격 VS Code 통합 브라우저는 전달된 원본을 `127.0.0.1`로 다시 쓸 수 있으므로 표준 인증 근거는 일반 호스트 브라우저의 `http://localhost:5273`을 사용합니다. 보조 로직은 기존 redirect를 보존하고 해당
 loopback 호스트에만 HTTP를 허용하며, 활성 테넌트가 다르거나 운영자가
 등록을 읽거나 업데이트할 수 없으면 서비스 시작 전에 중단합니다. 로컬 Event Hubs 토큰 새로 고침은
 준비된 `AZURE_TENANT_ID`와 `AZURE_SUBSCRIPTION_ID`에 고정되므로 이후 기본값 계정이 바뀌어도
@@ -260,15 +259,13 @@ API에 실행기 신원을 부여하거나 ActionType 및 작업 흐름 승격 �
 Headless 런타임은 영속 effective 값을 로드합니다. Embedded 로컬 Pantheon은 별도의 fixed 심각도나
 구간 대신 동일하게 검증된 환경, 기본값 및 accepted-versus-held 인계 결과를 사용합니다.
 
-감지 준비 상태도 같은 경계를 사용합니다. 배포는 PostgreSQL의 Muninn StateSnapshot을 읽고,
-대화형 로컬은 로컬 PostgreSQL이 있을 때만 `/detection-readiness`를 등록합니다. 표준 로컬
-분석기 작업은 배포 one-shot CLI, 인벤토리 대상, 메트릭, 이벤트, `shadow` 상태 및 영속 게시
-원장과 타입 지정 Pod 수명 주기 근거 바인딩을 직렬로 재사용합니다. 두 실행 환경은 게시 전에
-같은 구간 키를 청구하고 브로커 확인을 기록한 뒤에만 반복 게시를 억제합니다. 레코드가 확실히
-전송되지 않았다는 버스 증명이 있을 때만 청구를 해제하고, 그 외에는 조정을 위해 불확실 상태로
-유지하므로 어느 실행 환경도 모호한 전송을 다시 게시하지 않습니다. 기존 로컬 개발자 신원과
-배포 워크로드 신원 및 전송 보안의 차이는 그대로 유지합니다. 준비 상태는 일정 관리, 검색,
-메트릭, 게시 및 출처 지연 상태를 분리합니다.
+감지 커버리지도 같은 경계를 사용합니다. 두 실행 환경은 PostgreSQL에서 분석기 실행, 보존된 발견
+사항 및 선택형 Kubernetes 근거를 읽으며, 로컬은 해당 저장소가 연결된 경우에만 같은 커버리지
+경로와 준비 상태 별칭을 제공합니다. 관리되는 로컬 loop는 배포 one-shot CLI, 논리 Resource 신원,
+고정 간격, 게시 원장 및 `shadow` 상태를 재사용합니다. 공급자 신원은 메트릭 조회 범위에만 쓰며
+누락되거나 충돌하면 틱을 중지합니다. 두 실행 환경은 5분 분석 구간과 1분 게시 신원을 분리하고
+브로커 확인 뒤에만 재시도를 억제합니다. 준비 상태에는 현재 loop와 첫 정상 틱이 필요합니다.
+일시적 출처 실패는 준비되지 않은 상태로 재시도하고 구성 및 프로그래밍 오류는 종료합니다.
 
 Standard full-stack launch는 서술기 엔드포인트 조정을 유지합니다. 독립 Operator 서비스는 `RUNTIME_ENV=dev`에서만 local-only 서술기 어댑터를 연결하고 `LLM_RESOLVED_MODELS_PATH`와
 수명이 짧은 Azure CLI 토큰을 사용하며 Core 가져오기 또는 실행기 권한 없이 Azure OpenAI 서술기를 시도합니다. Health는 엔드포인트를 민감정보 제거하고 모델 지식만 쓴 답변은 검증되지 않은으로 유지합니다. 시작 훅은 권한이

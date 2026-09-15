@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from fdai_service_contracts import matrix_digest, transition_certified_matrix_digest
 from fdai_service_contracts.compatibility import validate_peer_upgrade_receipt
 from scripts.quality.architecture.live_remote_evidence import (
     OBSERVATION_KINDS,
@@ -80,7 +81,9 @@ def test_live_records_are_deterministic_remote_projections() -> None:
     receipts, manifest = first
     assert len(receipts) == 10
     assert len(manifest["artifacts"]) == 70
+    assert transition_certified_matrix_digest(compatibility) != matrix_digest(compatibility)
     for receipt in receipts:
+        assert receipt["matrix_digest"] == transition_certified_matrix_digest(compatibility)
         assert tuple(receipt["observation_refs"]) == OBSERVATION_KINDS
         validate_peer_upgrade_receipt(
             compatibility,

@@ -335,6 +335,7 @@ def test_deployment_binding_uses_terraform_core_app_name(
         return "ca-fdai-dev-wus2-core"
 
     monkeypatch.setattr(standalone_host, "_terraform_output", terraform_output)
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
     result = standalone_host._deployment_binding(SimpleNamespace(), tmp_path)
 
     expected = hashlib.sha256(
@@ -598,6 +599,83 @@ def test_ambiguous_apply_recovers_by_verification_without_reapply(
     assert commands and commands[0][1] == "plan"
     assert all("apply" not in command for command in commands)
     assert written["state"] == "applied"
+
+
+def test_aks_stages_use_independent_roots_and_variables(tmp_path: Path) -> None:
+    context = {
+        "runtime_profile": {
+            "runtime_platform": "aks",
+            "database_placement": "postgres-aks",
+        },
+        "infra": str(tmp_path / "infra"),
+        "runtime_infra": str(tmp_path / "cluster"),
+        "database_infra": str(tmp_path / "database"),
+        "workloads_infra": str(tmp_path / "workloads"),
+    }
+
+    assert standalone_host._stage_paths("runtime", context, tmp_path) == (
+        tmp_path / "cluster",
+        tmp_path / "runtime.auto.tfvars.json",
+    )
+    assert standalone_host._stage_paths("database", context, tmp_path) == (
+        tmp_path / "database",
+        tmp_path / "database.auto.tfvars.json",
+    )
+    assert standalone_host._stage_paths("application", context, tmp_path) == (
+        tmp_path / "workloads",
+        tmp_path / "workloads.auto.tfvars.json",
+    )
+
+
+def test_postgres_aks_substrate_excludes_flexible_server() -> None:
+    context = {
+        "runtime_profile": {
+            "runtime_platform": "aks",
+            "database_placement": "postgres-aks",
+        }
+    }
+
+    targets = standalone_host._substrate_targets(context)
+
+    assert "module.state_store" not in targets
+    assert "azurerm_key_vault_secret.state_store_dsn" not in targets
+    assert "azurerm_role_assignment.inventory_kv_secrets_user" not in targets
+    assert "module.event_bus" in targets
+    assert "module.key_vault" in targets
+
+
+def test_aks_workload_binds_digest_image_and_additional_identity() -> None:
+    digest = "a" * 64
+    workload = standalone_host._aks_workload(
+        "operator",
+        {"operator-service": f"example.azurecr.io/operator-service@sha256:{digest}"},
+        {"resource_id": "/identities/operator", "client_id": "operator-client"},
+        {"RUNTIME_ENV": "dev"},
+        {"FDAI_DATABASE_URL": "fdai-state-store-dsn"},
+        "/healthz",
+        "/healthz",
+        external=True,
+        additional_identities={
+            "command": {
+                "resource_id": "/identities/command",
+                "client_id": "command-client",
+            }
+        },
+    )
+
+    assert workload["image"] == (f"example.azurecr.io/operator-service@sha256:{digest}")
+    assert workload["external"] is True
+    assert workload["additional_identities"] == {
+        "command": {
+            "resource_id": "/identities/command",
+            "client_id": "command-client",
+        }
+    }
+
+
+def test_database_plan_requires_cluster_and_image_receipts(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="database plan prerequisites"):
+        standalone_host._plan(SimpleNamespace(stage="database"), tmp_path)
 
 
 def test_standalone_migration_uses_interpreter_for_private_bundle_script(

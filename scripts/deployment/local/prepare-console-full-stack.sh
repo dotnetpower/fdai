@@ -30,6 +30,10 @@ if [[ "$auth_mode" != "browser-entra" && "$auth_mode" != "azure-cli" ]]; then
   echo "Usage: $0 [--force] [--auth-mode browser-entra|azure-cli]" >&2
   exit 2
 fi
+legacy_preparation_marker="$repo_root/.fdai/console-full-stack-preparation.sha256"
+if [[ "$force_preparation" == "1" ]]; then
+  rm -f "$legacy_preparation_marker"
+fi
 
 if [[ ! -x "$repo_root/.venv/bin/python" ]]; then
   echo "missing local Python environment: run uv sync --extra dev" >&2
@@ -39,6 +43,38 @@ if [[ ! -f "$repo_root/console/.env.local" ]]; then
   echo "missing local Console environment: console/.env.local" >&2
   exit 1
 fi
+
+load_optional_console_setting() {
+  local key="$1"
+  local value
+  local -a matches
+
+  [[ ! -v "$key" ]] || return 0
+  mapfile -t matches < <(grep -E "^${key}=" "$repo_root/console/.env.local" || true)
+  if (( ${#matches[@]} > 1 )); then
+    echo "duplicate local Console setting: $key" >&2
+    return 1
+  fi
+  if (( ${#matches[@]} == 1 )); then
+    value="${matches[0]#*=}"
+    case "$key" in
+      FDAI_LOCAL_NO_AZURE_DEPLOYMENT)
+        export FDAI_LOCAL_NO_AZURE_DEPLOYMENT="$value"
+        ;;
+      FDAI_LOCAL_RESOURCE_GROUP)
+        export FDAI_LOCAL_RESOURCE_GROUP="$value"
+        ;;
+      *)
+        echo "unsupported local Console setting: $key" >&2
+        return 1
+        ;;
+    esac
+  fi
+}
+
+load_optional_console_setting FDAI_LOCAL_NO_AZURE_DEPLOYMENT
+load_optional_console_setting FDAI_LOCAL_RESOURCE_GROUP
+
 if ! command -v npm >/dev/null 2>&1; then
   echo "missing npm: install Node.js and npm before starting the Console" >&2
   exit 1
@@ -48,7 +84,6 @@ if ! command -v opa >/dev/null 2>&1; then
   exit 1
 fi
 
-legacy_preparation_marker="$repo_root/.fdai/console-full-stack-preparation.sha256"
 stage_marker_dir="$repo_root/.fdai/console-preparation"
 auth_mode_file="$repo_root/.fdai/local-console-auth-mode"
 operator_env="$repo_root/.fdai/local-operator-service.env"
@@ -73,6 +108,7 @@ legacy_preparation_inputs=(
 required_outputs=(
   console/node_modules/.bin/vite
   .venv/bin/fdai-document-processing-worker
+  .venv/bin/fdai-document-channel-intake
   .venv/bin/fdai-isolated-executor-service
   .fdai/local-runtime.env
   .fdai/local-operator-service.env

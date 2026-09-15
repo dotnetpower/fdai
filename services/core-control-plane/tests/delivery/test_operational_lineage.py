@@ -16,17 +16,24 @@ from tests.delivery.test_kinetic_proposal import _inputs
 @dataclass
 class _Lookup:
     value: object
+    action_id: str = "00000000-0000-0000-0000-000000000010"
+    correlation_id: str = "original-correlation"
 
     async def resolve_by_action_id(self, action_id: str):
-        assert action_id == "00000000-0000-0000-0000-000000000010"
+        assert action_id == self.action_id
         return self.value
+
+    async def resolve_by_correlation(self, correlation_id: str):
+        assert correlation_id == self.correlation_id
+        _receipt, artifacts = self.value
+        return SimpleNamespace(action_id=self.action_id), artifacts
 
     async def resolve_plan(self, plan_id: str):
         assert plan_id == self.value[0].plan_id
         return self.value
 
     async def resolve_record(self, *, action_id: str, plan_digest: str):
-        assert action_id == "00000000-0000-0000-0000-000000000010"
+        assert action_id == self.action_id
         assert plan_digest == self.value.plan_digest
         return self.value
 
@@ -55,6 +62,7 @@ async def test_terminal_reconciliation_projects_complete_multi_effect_lineage() 
         arguments=lambda: {"replica_count": 3},
     )
     receipt = SimpleNamespace(
+        action_id="00000000-0000-0000-0000-000000000010",
         action_idempotency_key="example-action-1",
         arguments_digest=mutation_plan.arguments_digest,
         created_at=NOW,
@@ -76,7 +84,7 @@ async def test_terminal_reconciliation_projects_complete_multi_effect_lineage() 
         execution_mode="shadow",
         execution_completed_at=NOW + timedelta(minutes=1),
         execution_receipt_ref="receipt:executor:one",
-        correlation_id="00000000-0000-0000-0000-000000000010",
+        correlation_id="original-correlation",
         observation=observation,
     )
     artifacts = SimpleNamespace(
@@ -91,7 +99,7 @@ async def test_terminal_reconciliation_projects_complete_multi_effect_lineage() 
     )
     outcome = SimpleNamespace(
         terminal=True,
-        correlation_id="00000000-0000-0000-0000-000000000010",
+        correlation_id="original-correlation",
         reconciliation_id="reconciliation:" + "b" * 64,
         observation_context="context",
         request=SimpleNamespace(
@@ -146,6 +154,7 @@ async def test_terminal_reconciliation_projects_complete_multi_effect_lineage() 
     }
     assert lineage.action_run.properties["status"] == "succeeded"
     assert lineage.action_run.properties["mode"] == "shadow"
+    assert lineage.action_run.id == "action-run:00000000-0000-0000-0000-000000000010"
     assert len(lineage.expected_effects) == len(selected.effects)
     assert len(lineage.observed_outcomes) == len(selected.effects)
     assert all(

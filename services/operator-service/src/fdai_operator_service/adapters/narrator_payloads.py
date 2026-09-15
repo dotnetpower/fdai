@@ -8,6 +8,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from fdai_operator_service.adapters.narrator_latency import NarratorTarget
+from fdai_operator_service.families.conversation.inline_images import inline_images_present
 
 _MAX_CANDIDATES = 8
 _MAX_SSE_LINE_CHARS = 131_072
@@ -59,13 +60,9 @@ def narrator_messages(prompt: str, body: Mapping[str, Any]) -> list[dict[str, An
 
 
 def has_images(body: Mapping[str, Any]) -> bool:
-    """Detect only server-supported image reference fields."""
+    """Detect Console payloads and image references before any narrator provider call."""
 
-    for key in ("images", "image_ids"):
-        value = body.get(key)
-        if isinstance(value, list) and value:
-            return True
-    return False
+    return inline_images_present(body)
 
 
 def vision_probe_content() -> list[dict[str, Any]]:

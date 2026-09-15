@@ -15,7 +15,7 @@ const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
   "hil-queue": ["/hil-queue"],
   provision: ["/provision/stream"],
   onboarding: ["/onboarding"],
-  "detection-readiness": ["/detection-readiness"],
+  "detection-readiness": ["/detection-coverage"],
   "alert-quality": ["/alert-quality"],
   processes: ["/views/process"],
   "workflow-apps": ["/views/workflow-apps"],

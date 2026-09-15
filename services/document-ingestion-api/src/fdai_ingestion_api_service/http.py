@@ -41,6 +41,8 @@ from fdai_ingestion_api_service.auth import (
     Role,
     RoleRequiredError,
 )
+from fdai_ingestion_api_service.cloud_knowledge.http import cloud_knowledge_routes
+from fdai_ingestion_api_service.cloud_knowledge.service import CloudKnowledgeService
 from fdai_ingestion_api_service.ingestion import (
     CreateUploadRequest,
     DocumentIngestionService,
@@ -87,6 +89,7 @@ def build_app(
     handover_drafts: HandoverDraftReader | None = None,
     stewardship_webhook: StewardshipWebhook | None = None,
     repository_handover_intake: StewardshipWebhook | None = None,
+    cloud_knowledge: CloudKnowledgeService | None = None,
     config: IngestionGatewayConfig | None = None,
 ) -> Starlette:
     """Build the public ingestion application without worker implementation imports."""
@@ -318,6 +321,7 @@ def build_app(
         if preview is None:
             return _error(404, "not_found", "document preview is unavailable")
         principal = authorize(request, _READER_ROLES)
+        await verify_cloud_content(request, principal)
         envelope = await preview.preview(
             actor_id=principal.oid,
             actor_groups=_access_principals(principal),
@@ -345,6 +349,7 @@ def build_app(
         if download is None:
             return _error(404, "not_found", "document download is unavailable")
         principal = authorize(request, _READER_ROLES)
+        await verify_cloud_content(request, principal)
         result = await download.download(
             actor_id=principal.oid,
             actor_groups=_access_principals(principal),
@@ -364,6 +369,19 @@ def build_app(
                 "x-content-type-options": "nosniff",
             },
         )
+
+    async def verify_cloud_content(request: Request, principal: Principal) -> None:
+        versions = await service.list_versions(
+            actor_id=principal.oid,
+            actor_groups=_access_principals(principal),
+            document_id=_uuid(request.path_params["document_id"], "document_id"),
+        )
+        version_id = _uuid(request.path_params["version_id"], "version_id")
+        version = next((item for item in versions if item.version_id == version_id), None)
+        if version is not None and version.cloud_knowledge is not None:
+            if cloud_knowledge is None:
+                raise DocumentAccessDeniedError("cloud knowledge policy is unavailable")
+            cloud_knowledge.authorize_content(version)
 
     async def search_documents(request: Request) -> Response:
         principal = authorize(request, _READER_ROLES)
@@ -389,6 +407,29 @@ def build_app(
             allowed_access_refs=frozenset({f"collection:{collection_id}"}),
             k=limit,
         )
+        cloud_dates: dict[str, dict[str, object]] = {}
+        for hit in hits:
+            if hit.metadata.get("cloud_source") is not None:
+                if cloud_knowledge is None:
+                    raise DocumentAccessDeniedError("cloud knowledge policy is unavailable")
+                versions = await service.list_versions(
+                    actor_id=principal.oid,
+                    actor_groups=_access_principals(principal),
+                    document_id=UUID(str(hit.metadata["document_id"])),
+                )
+                version = next(
+                    (
+                        item
+                        for item in versions
+                        if str(item.version_id) == hit.metadata["version_id"]
+                    ),
+                    None,
+                )
+                if version is None or not version.active or not version.available:
+                    raise DocumentAccessDeniedError("cloud knowledge generation is unavailable")
+                cloud_dates[hit.chunk_id] = await cloud_knowledge.source_projection(
+                    version, str(hit.metadata["cloud_source"])
+                )
         return JSONResponse(
             {
                 "items": [
@@ -400,6 +441,11 @@ def build_app(
                         "source_ref": hit.source_ref,
                         "score": hit.score,
                         "locator": hit.metadata.get("locator", ""),
+                        **(
+                            {"cloud_source": cloud_dates[hit.chunk_id]}
+                            if hit.chunk_id in cloud_dates
+                            else {}
+                        ),
                     }
                     for hit in hits
                 ]
@@ -489,6 +535,7 @@ def build_app(
         Route("/documents/{document_id}/versions/{version_id}", delete_version, methods=["DELETE"]),
         Route("/documents/search", search_documents, methods=["GET"]),
     ]
+    routes.extend(cloud_knowledge_routes(cloud_knowledge, authorize))
     if stewardship_webhook is not None:
         routes.append(
             Route(

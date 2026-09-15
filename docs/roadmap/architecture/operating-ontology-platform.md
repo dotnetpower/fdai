@@ -375,6 +375,11 @@ compares the intended effect with fresh evidence and emits a `ReconciliationRece
 `matched`, `mismatched`, `timed_out`, or `unscorable`. Only the authoritative projection updates
 observed state.
 
+An effect-reconciliation request retains the original control-loop correlation. The lineage reader
+first resolves the Action recorded under that correlation, then uses the Action's actual identifier
+for execution receipts and `ActionRun` records. A correlation identifier is never substituted for
+an action identifier, and repeated projection does not create a second audit record.
+
 The reconciliation coordinator binds the exact release, ActionType, immutable plan, authenticated
 observer context, and independently observed records before closing an attempt. A terminal outcome
 and its proposal-only next-step event commit atomically; neither the receipt nor its outbox entry
@@ -396,6 +401,39 @@ Observed inventory relationships may carry immutable state-fact and verification
 projection preserves that envelope without treating it as permission, suppresses relationship
 claims for incomplete observations, and lets stale, synthetic, conflicting, or unverified evidence
 lower downstream autonomy.
+
+The active-inventory impact projection reuses that exact relationship envelope instead of assigning
+one blanket verification value to every traversed edge. Each edge keeps evidence availability
+(`available`, `stale`, or `unavailable`) separately from verification class:
+
+- `configuration_observed` requires a reviewed provider mapping, both exact endpoints in one
+  complete inventory generation, deterministic cross-check evidence, and a current evidence
+  cutoff. It confirms the recorded configuration relationship; it is not runtime effect
+  verification.
+- `independently_verified` requires complete, conflict-free, non-synthetic observed evidence whose
+  verifier identity is distinct from its source identity and whose receipt binds the active
+  generation. Runtime-call observations additionally match the implementation-free service-contract
+  tuple for mapping id and revision, source schema version and digest, and verification method.
+- `stale` or `unavailable` evidence remains visibly unresolved even if its retained verification
+  class identifies how it was previously supported.
+
+Query completeness and relationship-evidence completeness remain independent. Reaching every edge
+within the requested depth and edge bounds cannot make missing or stale evidence complete. The
+candidate-accounting `complete` flag also does not mean fully materialized coverage: any
+`reviewed_unavailable` or `unclassified` candidate keeps impact source coverage partial. The
+Console labels the two verified classes distinctly, exposes source, mapping, method, cutoff, and
+recovery reason in supporting detail, and never upgrades legacy impact responses that carried only
+`verified` or `unverified`. Version 1.0 impact responses remain readable as legacy evidence;
+new producers emit the additive evidence-bearing version. An incomplete relationship source or a
+generation without relationship-coverage accounting keeps configuration edges unverified while
+retaining their bounded source, mapping, method, and cutoff provenance. Impact Scope and Ontology
+Instances use distinct recovery reasons for these states and never erase the recorded path mapping.
+The Impact query and its same-snapshot
+Map view both admit `runtime_calls`, preserving the caller-to-target stored direction and its
+independent observation class. The Console accepts a simulation only when target, depth, and
+ordered LinkType set match the submitted query. Its Map view additionally requires every reached
+Resource and traversed edge from that exact result; a malformed, scoped-away, depth-limited, or
+otherwise incomplete graph remains explicitly unavailable.
 
 `ProjectionBinding` makes source-to-ontology mapping reviewable. It declares source identity,
 type targets, identity and property mappings, watermark behavior, freshness, deletion semantics,
@@ -476,7 +514,7 @@ unverified rows remain unresolved and cannot become an observed-state claim.
 | P0-B | ObjectType workbench and clean detail routes. | Direct navigation, refresh, and keyboard paths work; `Decision` properties, lifecycle absence, provenance, and relationships render without horizontal page overflow at 1440 x 900, 993 x 641, and 390 x 844. |
 | P0-C | Governed action navigation. | Related actions require exact semantic target evidence; legacy unbound actions lower completeness and are never inferred by name or description. |
 | P1-A | Deterministic dependents and evidence health. | Dependents come only from Catalog topology; unavailable runtime evidence carries nullable counts rather than measured zero. |
-| P1-B | Active-inventory impact scope. | Traversal is bounded, snapshot-pinned, stored-direction, visibly unverified where applicable, and grants no execution or mutation authority. |
+| P1-B | Active-inventory impact scope. | Traversal is bounded, snapshot-pinned, stored-direction, and carries each edge's current configuration-observed, independently-verified, stale, unavailable, or legacy evidence state. Query completeness never substitutes for evidence completeness, and the projection grants no execution or mutation authority. |
 | P1-C | Retained-release comparison. | Additions, changes, and removals are deterministic; missing historical field schemas require review and never grant restore or migration authority. |
 | P2 | Dedicated InterfaceType and FunctionType details. | Entry requires more than one meaningful active declaration plus an authoritative usage source; otherwise registry identity and topology nodes remain sufficient. |
 

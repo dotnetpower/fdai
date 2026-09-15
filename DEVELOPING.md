@@ -37,6 +37,36 @@ keeps Git, GitHub CLI, PostgreSQL, and systemd output in the terminal instead of
 
 ## 2. One-time install
 
+On x86_64 Ubuntu or WSL, run the repository installer from the repository root:
+
+```bash
+bash scripts/automation/setup-local-development.sh
+```
+
+The script installs the system packages and pinned user tools, configures Docker access, installs
+the locked Python and Console dependencies, downloads Playwright Chromium, enables the tracked Git
+hooks, and applies the shared VS Code machine settings and extensions. It prompts for `sudo` in the
+terminal when needed. It never signs in to Azure or GitHub and never creates tenant-specific files.
+
+Reopen the WSL window after the first run so existing terminals receive Docker group membership.
+In VS Code, import `.vscode/fdai.code-profile` with `Profiles: Import Profile`; profile import remains
+a user-visible editor action. Verify the complete workstation setup at any time:
+
+```bash
+bash scripts/automation/setup-local-development.sh --check
+```
+
+The commands below are the manual equivalent and remain useful for troubleshooting.
+
+FDAI development commands use ripgrep (`rg`) for fast repository searches. The one-time installer
+installs it automatically. For a manual Ubuntu or WSL setup, install and verify it with:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ripgrep
+rg --version
+```
+
 The local full stack runs the Document Processing Worker on the host. On Ubuntu
 or WSL, install Tesseract OCR and its English and Korean language data:
 

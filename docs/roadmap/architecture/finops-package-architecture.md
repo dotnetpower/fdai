@@ -20,7 +20,8 @@ domain code and assets. It does not create another control plane or move authori
 > **Current status:** FDAI now has an independent `fdai-cost-governance` wheel, source
 > distribution, image profile, exact ontology profile, atomic disabled-first package lifecycle,
 > package-owned catalog assets, gated Operator and Console projections, and local W0-W7 validation
-> mechanics. Shared Operator composition may supervise unrelated event-bus workers, but they cannot
+> mechanics. The shared Console catalog-source and panel-registry scanners are repository validation only; a non-FinOps component or label change does not
+> enter the Cost Governance package, activation state, or authority. Shared Operator composition may supervise unrelated event-bus workers, but they cannot
 > activate, configure, publish, or change Cost Governance through conversation fallback streams.
 > The outbox lifecycle facade also exposes the unrelated Incident intervention worker. Its
 > lifecycle and readiness state cannot activate a Cost Governance package or publish a Njord-owned
@@ -267,6 +268,12 @@ The Operator semantic stream fallback also remains a host seam: it preserves
 availability, enablement, or package ownership.
 The shared ontology invalidation stream similarly admits `Last-Event-ID` only for authenticated
 read replay. It registers no Cost Governance route and widens no package data access.
+The shared analyzer coverage, operational-activity snapshot, and Impact Scope relationship-evidence
+bindings are also host capabilities. Their routes, replay cursors, and source-state readers neither
+activate the optional package nor enter its data, review, promotion, or execution authority.
+The service-owned incident email preview remains another shared Operator host seam. It reads
+packaged synthetic notification HTML only; it registers no Cost Governance route, does not enable
+the optional package, and exposes no package data or authority.
 Initial PostgreSQL credential bootstrap is also platform-owned; the package cannot generate,
 read, expose, or rotate that credential.
 Core Pantheon bootstrap reads the persisted package activation through the package-neutral store.

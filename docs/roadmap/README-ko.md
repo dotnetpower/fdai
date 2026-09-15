@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 2cd3e3b90e79ccd9ab2c4cfcb88f1f9d71b95cf8
+translation_source_sha: c7685b6c660450c6f6ffc598158eb6fb1ddd178b
 translation_revised: 2026-09-15
 ---
 # FDAI 로드맵
@@ -103,6 +103,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 20c | [provisioning-execution-profiles-ko.md](deployment/provisioning-execution-profiles-ko.md) | 프로비저닝 프로파일 선택: online/offline 전달, 기존 또는 managed 실행 호스트, 접근 선호 설정, 워크로드 신원, exact-plan 승인 |
 | 20d | [disconnected-deployment-ko.md](deployment/disconnected-deployment-ko.md) | 공용 egress 없는 네트워크 배포: 네트워크 프로파일, 내부 mirror, 서명된 offline 키트, 저하된 증거 대체 경로, 남은 air-gap 공백 |
 | 20e | [network-connectivity-matrix-ko.md](deployment/network-connectivity-matrix-ko.md) | 시나리오별 DNS, IP, 프로토콜, 포트, 비공개 영역, PTU, APIM 및 차단 경로 동작 |
+| 20f | [runtime-deployment-profiles-ko.md](deployment/runtime-deployment-profiles-ko.md) | 신규 설치의 Container Apps 또는 AKS 선택, 노드 하한, 데이터베이스 배치, 분리된 상태, 서명된 키트 실행 |
 | 21 | [assurance-twin-ko.md](operations/assurance-twin-ko.md) | 아키텍처 리뷰 / Q&A / 평가를 위한 질의가능 온톨로지 트윈: text-to-query, 선제 리뷰, 그래프 전체 what-if, shadow 제안 |
 | 22 | [operational-readiness-ko.md](operations/operational-readiness-ko.md) | dev-to-ops 핸드오프 게이트: ownership-transfer 트리거, 전체 범위 RBAC / 정책 / 신뢰성 리뷰, ReadinessReport, environment-promotion 게이트 |
 | 22a | [operator-initiated-sre-and-arb-ko.md](operations/operator-initiated-sre-and-arb-ko.md) | 비인시던트 신원, 오퍼레이터 시작 SRE 응답, 실제 운영 단계 진행 상황, ARB 상태/수동 시작, 작업 흐름 강제 적용, 로컬/deployed 동등성 |
@@ -140,6 +141,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 19f | [console-evidence-and-resilience-ko.md](interfaces/console-evidence-and-resilience-ko.md) | 콘솔 근거 출처 이력, localization, 영속 재생, 스트림 복구 및 아키텍처 지도 복원력 |
 | 19q | [network-topology-visualization-ko.md](interfaces/network-topology-visualization-ko.md) | 공유 네트워크 어휘, 작성된 참조 다이어그램, 관측된 Console 포커스, 경로 추적, 내보내기 및 시각 무결성 |
 | 19a | [document-ingestion-ko.md](interfaces/document-ingestion-ko.md) | Drop-zone UX, 대용량 및 보호 문서 처리, format 추출, 비공개 저장소, 공유 가시성, 보존, deletion 계약 |
+| 19a.1 | [cloud-resource-knowledge-lifecycle-ko.md](interfaces/cloud-resource-knowledge-lifecycle-ko.md) | 수집 시점을 명시하는 CSP 문서 지식, 주간/월간 갱신, 검토된 오프라인 패키지, 원자적 지식 활성화, 날짜를 포함한 답변의 설계 제안 |
 | 19g | [conversation-attachments-ko.md](interfaces/conversation-attachments-ko.md) | protected Slack/Teams fetch, 명시적 인계 용도, web 채팅 문서 참조, 이미지 OCR, 운영 연결 및 security 한도 |
 | 19h | [document-ingestion-agent-ownership-ko.md](interfaces/document-ingestion-agent-ownership-ko.md) | 단계별 에이전트 소유권, 타입이 지정된 파이프라인 객체, advisory-first 승격, 감사, 충돌 및 롤백 경계 |
 | 19b | [scheduled-result-continuations-ko.md](interfaces/scheduled-result-continuations-ko.md) | 정확한 예약 실행을 위한 범위 제한 대화 앵커, 근거 출처 이력, 채널 스레드, 접근, 만료, 전달 정렬 |

@@ -8,9 +8,6 @@
 814 services/core-control-plane/src/fdai/agents/norns.py
 # Pre-existing main-branch agent debt (thor); growth blocked until tracker #14 extraction.
 1482 services/core-control-plane/src/fdai/agents/thor.py
-# Pre-existing main-branch control-loop execution debt; governance and safeguard-commitment
-# mixins were extracted, so the cap ratchets down from 907 and blocks regrowth.
-817 services/core-control-plane/src/fdai/core/control_loop/_execution.py
 # Pre-existing main-branch conversation-preflight debt; this change restores the file below its prior 1054-line cap.
 1054 services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py
 # Pre-existing main-branch semantic-planning cascade debt; growth blocked until tracker #14 extraction.

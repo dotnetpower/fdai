@@ -370,6 +370,17 @@ def test_supervisor_allows_bounded_inventory_recovery() -> None:
     assert "FDAI_CONSOLE_START_READINESS_SECONDS:-180" in source
 
 
+def test_supervisor_waits_for_the_analyzer_first_clean_tick() -> None:
+    source = _START_SCRIPT.read_text(encoding="utf-8")
+    service_source = _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
+
+    assert 'if [[ "$service" == "local-analyzer" ]]' in source
+    assert "service_args+=(--wait-ready)" in source
+    assert 'FDAI_CONSOLE_START_READINESS_SECONDS="$readiness_seconds"' in source
+    assert "FDAI_ANALYZER_RUN_ID:-local-analyzer-$(date -u +%s)-$$" in service_source
+    assert 'FDAI_ANALYZER_RUN_ID="$local_analyzer_run_id"' in service_source
+
+
 def test_inventory_stage_reuse_requires_current_checkpoint() -> None:
     source = _PREPARE_SCRIPT.read_text(encoding="utf-8")
 
@@ -387,6 +398,7 @@ def test_preparation_reuses_an_unchanged_healthy_stack(
     shutil.copy2(_PREPARE_SCRIPT, prepare_script)
     digest = "a" * 64
     required_outputs = (
+        ".venv/bin/fdai-document-channel-intake",
         ".venv/bin/fdai-document-processing-worker",
         ".venv/bin/fdai-isolated-executor-service",
         ".fdai/local-runtime.env",
@@ -470,6 +482,7 @@ def _staged_preparation_repo(
     (repo / "console/package-lock.json").write_text("{}\n", encoding="utf-8")
     _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
     for relative in (
+        ".venv/bin/fdai-document-channel-intake",
         ".venv/bin/fdai-document-processing-worker",
         ".venv/bin/fdai-isolated-executor-service",
         ".fdai/local-runtime.env",
@@ -679,6 +692,80 @@ def test_preparation_reports_a_missing_console_environment(tmp_path: Path) -> No
     assert result.stderr == "missing local Console environment: console/.env.local\n"
 
 
+def test_preparation_loads_existing_read_scope_from_private_console_environment(
+    tmp_path: Path,
+) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path, stale_stage="runtime-environment")
+    (repo / "console/.env.local").write_text(
+        "VITE_MSAL_TENANT_ID=tenant\n"
+        "VITE_MSAL_CLIENT_ID=client\n"
+        "FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1\n"
+        "FDAI_LOCAL_RESOURCE_GROUP=rg-from-file\n",
+        encoding="utf-8",
+    )
+    _write_executable(
+        repo / "scripts/deployment/azure/prepare-local-runtime-env.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s:%s\n' "$FDAI_LOCAL_NO_AZURE_DEPLOYMENT" "$FDAI_LOCAL_RESOURCE_GROUP" \
+  > .fdai/captured-read-scope
+printf 'prepared\n' > .fdai/local-runtime.env
+""",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert (repo / ".fdai/captured-read-scope").read_text(encoding="utf-8") == ("1:rg-from-file\n")
+
+
+def test_preparation_prefers_explicit_read_scope_environment(tmp_path: Path) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path, stale_stage="runtime-environment")
+    (repo / "console/.env.local").write_text(
+        "VITE_MSAL_TENANT_ID=tenant\n"
+        "VITE_MSAL_CLIENT_ID=client\n"
+        "FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1\n"
+        "FDAI_LOCAL_RESOURCE_GROUP=rg-from-file\n",
+        encoding="utf-8",
+    )
+    _write_executable(
+        repo / "scripts/deployment/azure/prepare-local-runtime-env.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s:%s\n' "$FDAI_LOCAL_NO_AZURE_DEPLOYMENT" "$FDAI_LOCAL_RESOURCE_GROUP" \
+  > .fdai/captured-read-scope
+printf 'prepared\n' > .fdai/local-runtime.env
+""",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+        cwd=repo,
+        env={
+            **environment,
+            "FDAI_LOCAL_NO_AZURE_DEPLOYMENT": "1",
+            "FDAI_LOCAL_RESOURCE_GROUP": "rg-from-process",
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert (repo / ".fdai/captured-read-scope").read_text(encoding="utf-8") == (
+        "1:rg-from-process\n"
+    )
+
+
 def test_preparation_repairs_missing_console_dependencies(tmp_path: Path) -> None:
     repo, environment = _staged_preparation_repo(
         tmp_path,
@@ -686,6 +773,7 @@ def test_preparation_repairs_missing_console_dependencies(tmp_path: Path) -> Non
     )
     (repo / "console/node_modules/.bin/vite").unlink()
     (repo / ".venv/bin/fdai-document-processing-worker").unlink()
+    (repo / ".venv/bin/fdai-document-channel-intake").unlink()
     (repo / ".venv/bin/fdai-isolated-executor-service").unlink()
     bin_dir = Path(environment["PATH"].split(":", 1)[0])
     _write_executable(
@@ -694,8 +782,11 @@ def test_preparation_repairs_missing_console_dependencies(tmp_path: Path) -> Non
 set -euo pipefail
 mkdir -p .venv/bin
 printf '#!/usr/bin/env bash\nexit 0\n' > .venv/bin/fdai-document-processing-worker
+printf '#!/usr/bin/env bash\nexit 0\n' > .venv/bin/fdai-document-channel-intake
 printf '#!/usr/bin/env bash\nexit 0\n' > .venv/bin/fdai-isolated-executor-service
-chmod +x .venv/bin/fdai-document-processing-worker .venv/bin/fdai-isolated-executor-service
+chmod +x .venv/bin/fdai-document-channel-intake
+chmod +x .venv/bin/fdai-document-processing-worker
+chmod +x .venv/bin/fdai-isolated-executor-service
 """,
     )
     _write_executable(
@@ -723,6 +814,7 @@ chmod +x console/node_modules/.bin/vite
     assert result.stdout.count("event=reused") == 7
     assert (repo / "console/node_modules/.bin/vite").is_file()
     assert (repo / ".venv/bin/fdai-document-processing-worker").is_file()
+    assert (repo / ".venv/bin/fdai-document-channel-intake").is_file()
     assert (repo / ".venv/bin/fdai-isolated-executor-service").is_file()
 
 

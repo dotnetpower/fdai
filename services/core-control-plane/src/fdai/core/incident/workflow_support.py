@@ -51,6 +51,7 @@ def detected_incident_correlation_keys(
     resource_id: str,
     event_type: str,
     correlation_id: str = "",
+    incident_episode_id: str = "",
 ) -> tuple[str, ...]:
     """Build bounded keys that separate independent anomaly investigations."""
     resource = resource_id.strip()
@@ -61,6 +62,9 @@ def detected_incident_correlation_keys(
     correlation = correlation_id.strip()
     if correlation:
         keys.append(f"correlation:{correlation}")
+    episode = incident_episode_id.strip()
+    if episode:
+        keys.append(f"episode:{episode}")
     return tuple(keys)
 
 

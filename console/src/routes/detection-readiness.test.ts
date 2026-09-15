@@ -1,7 +1,13 @@
 import { describe, expect, test } from "vitest";
 
 import type { OperatorApiClient } from "../api";
-import { decodeDetectionReadiness, decodeLifecycle, loadDetectionReadinessState } from "./detection-readiness";
+import {
+  adjacentDetectionCoverageView,
+  decodeDetectionReadiness,
+  decodeLifecycle,
+  detectionCoverageViewFromHash,
+  loadDetectionReadinessState,
+} from "./detection-readiness";
 import PINNED from "./fixtures/detection-lifecycle-projection.json";
 
 const RESPONSE = {
@@ -21,6 +27,9 @@ const RESPONSE = {
   lifecycle: {
     source: "postgresql:state_kv:analyzer-finding-receipt",
     observed_at: "2026-07-24T01:00:10Z",
+    retained_from: "2026-07-24T00:55:08Z",
+    receipt_count: 2,
+    receipt_limit: 500,
     target_count: 1,
     assessment_count: 2,
     evidence_counts: { complete: 1, incomplete: 0, conflicting: 0, missed: 1 },
@@ -134,6 +143,16 @@ describe("detection readiness decoder", () => {
         }],
       },
     })).toThrow(/publication history is inconsistent/);
+  });
+});
+
+describe("detection readiness views", () => {
+  test("maps deep links and keyboard navigation to the matching view", () => {
+    expect(detectionCoverageViewFromHash("#detection-targets")).toBe("resources");
+    expect(detectionCoverageViewFromHash("#detection-lifecycle-records")).toBe("findings");
+    expect(detectionCoverageViewFromHash("#pod-detection-lifecycle")).toBe("resources");
+    expect(adjacentDetectionCoverageView("coverage", "previous")).toBe("findings");
+    expect(adjacentDetectionCoverageView("findings", "next")).toBe("coverage");
   });
 });
 

@@ -29,7 +29,6 @@ from fdai_operator_service.families.operations.contracts import (
 )
 from fdai_operator_service.families.operations.instance_explorer import (
     _model_deployment_projection,
-    _relationship_evidence_projection,
     _resource_capacity,
     _resource_projection,
     _resource_status,
@@ -39,6 +38,9 @@ from fdai_operator_service.families.operations.instance_explorer import (
 from fdai_operator_service.families.operations.recorded_state import (
     RecordedStateObservation,
     recorded_resource_states,
+)
+from fdai_operator_service.families.operations.relationship_evidence import (
+    project_relationship_evidence,
 )
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
@@ -68,6 +70,13 @@ class _Reader:
                     unavailable_reason="target_outside_active_generation",
                     count=2,
                 ),
+            ),
+            relationship_coverage=InventoryRelationshipCoverage(
+                materialized=1,
+                reviewed_unavailable=2,
+                unclassified=0,
+                total_candidates=3,
+                complete=True,
             ),
             projection_source_states=(
                 InventoryProjectionSourceState(
@@ -695,7 +704,13 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
         },
     ]
     assert result["schema_version"] == "1.4.0"
-    assert result["relationship_coverage"] is None
+    assert result["relationship_coverage"] == {
+        "total_candidates": 3,
+        "materialized": 1,
+        "reviewed_unavailable": 2,
+        "unclassified": 0,
+        "complete": True,
+    }
     assert result["relationship_drop_classifications"] == [
         {
             "reason": "missing_target_endpoint",
@@ -795,6 +810,55 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
             "reason": "projection_not_bound",
         },
     ]
+
+
+async def test_instance_projection_preserves_evidence_without_coverage_accounting() -> None:
+    class _MissingCoverageReader(_Reader):
+        async def read_inventory_impact_context(self) -> InventoryImpactContext:
+            return replace(
+                await super().read_inventory_impact_context(),
+                relationship_coverage=None,
+            )
+
+    result = await project_inventory_instance(
+        query=ProjectionQuery(
+            operation="ontology.instance.explore",
+            principal_id="reader",
+            path={},
+            params={"root": ("container-app-1",), "activity_limit": ("10",)},
+            limit=25,
+            cursor=None,
+            roles=frozenset({OperatorRole.READER}),
+        ),
+        reader=_MissingCoverageReader(),
+        ontology_projection={
+            "ontology_release_digest": f"sha256:{'a' * 64}",
+            "link_types": [
+                "caused_by",
+                "contains",
+                "attached_to",
+                "depends_on",
+                "governed_by",
+            ],
+        },
+        now=lambda: datetime(2026, 8, 22, 2, 0, tzinfo=UTC),
+    )
+
+    links = result["links"]
+    assert isinstance(links, list)
+    assert links[0]["evidence"] == {
+        "status": "unavailable",
+        "evidence_kind": "configuration",
+        "verification_status": "configuration_observed",
+        "source": "azure-resource-graph",
+        "source_property_path": "properties.managedEnvironmentId",
+        "mapping_id": "azure.container-app-depends-on-managed-environment",
+        "evidence_method": "deterministic-cross-check",
+        "cutoff": "2026-08-22T01:00:00+00:00",
+        "freshness_ceiling_seconds": 21600,
+        "complete": False,
+        "reason": "relationship_source_coverage_unavailable",
+    }
 
 
 async def test_instance_projection_preserves_scoped_fleet_source_states() -> None:
@@ -1122,23 +1186,71 @@ def test_relationship_evidence_freshness_boundaries_and_verification_level() -> 
         evidence_cutoff=cutoff,
     )
 
-    current = _relationship_evidence_projection(
+    current = project_relationship_evidence(
         evidence,
         cutoff=cutoff,
         evaluated_at=datetime(2026, 8, 22, 1, 5, tzinfo=UTC),
+        source_complete=True,
     )
     assert current["status"] == "available"
     assert current["verification_status"] == "independently_verified"
     assert current["complete"] is True
 
-    future = _relationship_evidence_projection(
+    future = project_relationship_evidence(
         evidence,
         cutoff=cutoff,
         evaluated_at=datetime(2026, 8, 22, 0, 59, 59, tzinfo=UTC),
+        source_complete=True,
     )
     assert future["status"] == "stale"
     assert future["complete"] is False
     assert future["reason"] == "relationship_evidence_future_cutoff"
+
+    post_generation = project_relationship_evidence(
+        replace(
+            evidence,
+            evidence_cutoff=datetime(2026, 8, 22, 1, 1, tzinfo=UTC),
+        ),
+        cutoff=cutoff,
+        evaluated_at=datetime(2026, 8, 22, 1, 2, tzinfo=UTC),
+        source_complete=True,
+    )
+    assert post_generation["status"] == "stale"
+    assert post_generation["complete"] is False
+    assert post_generation["reason"] == "relationship_evidence_future_cutoff"
+
+    incomplete_configuration = project_relationship_evidence(
+        replace(
+            evidence,
+            evidence_kind="configuration",
+            evidence_cutoff=None,
+        ),
+        cutoff=cutoff,
+        evaluated_at=cutoff,
+        source_complete=False,
+    )
+    assert incomplete_configuration == {
+        "status": "unavailable",
+        "evidence_kind": "configuration",
+        "verification_status": "configuration_observed",
+        "source": "runtime-telemetry",
+        "source_property_path": "caller_resource_ids,target_resource_ids",
+        "mapping_id": "runtime-call-endpoint-identity",
+        "evidence_method": "deterministic-cross-check",
+        "cutoff": cutoff.isoformat(),
+        "freshness_ceiling_seconds": 300,
+        "complete": False,
+        "reason": "relationship_source_incomplete",
+    }
+
+    independent_partial_source = project_relationship_evidence(
+        evidence,
+        cutoff=cutoff,
+        evaluated_at=cutoff,
+        source_complete=False,
+    )
+    assert independent_partial_source["status"] == "available"
+    assert independent_partial_source["verification_status"] == "independently_verified"
 
 
 def test_observed_kubernetes_state_is_reported_instead_of_absent_status() -> None:

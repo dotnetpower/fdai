@@ -45,6 +45,12 @@ an all-Low review claim, or operational adoption.
 
 ### Remaining work
 
+Current integration base: `ad8e3a83d`. The local merge preserves main's detection coverage route,
+trusted Huginn ingestion clock, channel-attachment schemas and activity lifecycle, alongside the
+alert routes. Alert effects now use the shared completion boundary: proven no-effect closes the
+canonical Process, but generic PR/health evidence still cannot verify notification or recall.
+The focused merge check passed 32 tests plus Console types and changed-boundary strict typing.
+
 - [x] **Coverage gate:** The 1248-test owned Python slice reached lines 96.43%, branches 90.20%
   and combined 94.80% using `--cov=fdai.core.detection.alert_noise --cov-branch`.
   Both line and branch floors were checked independently; comparison alone measured 100%.

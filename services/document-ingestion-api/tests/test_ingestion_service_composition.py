@@ -101,16 +101,24 @@ def test_production_azure_credential_uses_exact_attached_identity(
     )
 
 
+@pytest.mark.parametrize("lexical", [False, True])
 def test_local_api_composition_needs_no_managed_identity(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    lexical: bool,
 ) -> None:
     def forbidden_credential(*_args: object, **_kwargs: object) -> object:
         raise AssertionError("local API composition requested managed identity")
 
     monkeypatch.setattr(api_production, "ManagedIdentityCredential", forbidden_credential)
+    if lexical:
+        monkeypatch.setattr(
+            api_production, "DeterministicLocalEmbeddingModel", forbidden_credential
+        )
+        monkeypatch.setattr(api_production, "AzureEmbeddingModel", forbidden_credential)
     application = api_production.build_application(
         {
+            "FDAI_DOCUMENT_RETRIEVAL_MODE": "lexical" if lexical else "hybrid",
             "FDAI_EXECUTION_VENUE": "local",
             "FDAI_DATABASE_URL": "postgresql://example.invalid/fdai",
             "FDAI_DATABASE_ROLE": "fdai_ingestion_api",
@@ -157,16 +165,24 @@ def test_lifecycle_configuration_rejects_malformed_bounds(key: str, value: str) 
         api_production._bounded_int({key: value}, key, 1, maximum=maximum)
 
 
+@pytest.mark.parametrize("lexical", [False, True])
 def test_local_worker_composition_needs_no_managed_identity(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    lexical: bool,
 ) -> None:
     def forbidden_credential(*_args: object, **_kwargs: object) -> object:
         raise AssertionError("local worker composition requested managed identity")
 
     monkeypatch.setattr(worker_production, "ManagedIdentityCredential", forbidden_credential)
+    if lexical:
+        monkeypatch.setattr(
+            worker_production, "DeterministicLocalEmbeddingModel", forbidden_credential
+        )
+        monkeypatch.setattr(worker_production, "AzureEmbeddingModel", forbidden_credential)
     runtime = worker_production.build_runtime(
         {
+            "FDAI_DOCUMENT_RETRIEVAL_MODE": "lexical" if lexical else "hybrid",
             "FDAI_EXECUTION_VENUE": "local",
             "FDAI_DATABASE_URL": "postgresql://example.invalid/fdai",
             "FDAI_DATABASE_ROLE": "fdai_ingestion_worker",
@@ -180,6 +196,13 @@ def test_local_worker_composition_needs_no_managed_identity(
     )
 
     assert runtime.worker_service is not None
+
+
+@pytest.mark.parametrize("production", [api_production, worker_production])
+def test_document_composition_rejects_unknown_retrieval_mode(production: object) -> None:
+    build = getattr(production, "build_application", None) or production.build_runtime
+    with pytest.raises(ValueError, match="RETRIEVAL_MODE"):
+        build({"FDAI_EXECUTION_VENUE": "local", "FDAI_DOCUMENT_RETRIEVAL_MODE": "unreviewed"})
 
 
 def test_sharepoint_policy_keeps_m365_tenant_separate_from_azure_tenant() -> None:

@@ -260,6 +260,13 @@ class WorkflowCompensationCoordinator:
                     payload={"failed_step_id": step_id},
                 )
                 return CompensationResult(failed, recovery_incomplete=True)
+            if outcome == "not_attempted":
+                failed = await self._fail(
+                    current,
+                    reason="compensation_not_attempted",
+                    payload={"failed_step_id": step_id},
+                )
+                return CompensationResult(failed, recovery_incomplete=True)
             if outcome == "failed":
                 failed = await self._fail(
                     current,

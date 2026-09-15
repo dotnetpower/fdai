@@ -32,6 +32,7 @@ _AZURE_GUID = re.compile(
     r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
 _SLACK_TEAM_ID = re.compile(r"^[A-Z0-9]{2,64}$")
+_CONTAINER_ATTACHMENT_SCRATCH_DIR = "/tmp"  # noqa: S108
 
 
 def _resolved_models_digest(payload: dict[str, Any]) -> str:
@@ -223,6 +224,64 @@ def _channel_edge_name(operator_name: object) -> str:
     raise TfvarsError("operator service name cannot derive a valid channel edge name")
 
 
+def _channel_intake_name(ingestion_name: object) -> str:
+    if not isinstance(ingestion_name, str):
+        raise TfvarsError("document ingestion service name cannot derive a channel intake name")
+    for suffix in ("-document-ingestion-api", "-ingestion-api", "-ingestion"):
+        if ingestion_name.endswith(suffix):
+            name = f"{ingestion_name[: -len(suffix)]}-document-channel-intake"
+            if len(name) <= 32:
+                return name
+    raise TfvarsError("document ingestion service name cannot derive a valid channel intake name")
+
+
+def _attachment_origin(value: object) -> str:
+    if not isinstance(value, str) or value != value.strip():
+        raise TfvarsError("channel attachment intake origin must be exact HTTPS")
+    parsed = urlsplit(value)
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path not in {"", "/"}
+        or parsed.query
+        or parsed.fragment
+        or parsed.port not in {None, 443}
+    ):
+        raise TfvarsError("channel attachment intake origin must be exact HTTPS")
+    return value.rstrip("/")
+
+
+def _channel_attachment_settings(value: object) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != {
+        "intake_audience",
+        "intake_origin",
+        "max_content_bytes",
+    }:
+        raise TfvarsError("operator channel attachment binding has unexpected fields")
+    audience = value.get("intake_audience")
+    maximum = value.get("max_content_bytes")
+    if not isinstance(audience, str) or not audience.strip() or len(audience) > 512:
+        raise TfvarsError("operator channel attachment audience is invalid")
+    if not isinstance(maximum, int) or isinstance(maximum, bool) or not 1 <= maximum <= 1073741824:
+        raise TfvarsError("operator channel attachment byte ceiling is invalid")
+    return {
+        "attachments_enabled": True,
+        "attachment_intake_origin": _attachment_origin(value.get("intake_origin")),
+        "attachment_intake_audience": audience,
+        "attachment_scratch_dir": _CONTAINER_ATTACHMENT_SCRATCH_DIR,
+        "attachment_max_content_bytes": maximum,
+        "slack_files_info_url": "https://slack.com/api/files.info",
+        "slack_metadata_hosts_json": '["slack.com"]',
+        "slack_download_hosts_json": '["files.slack.com"]',
+        "teams_attachment_url_template": "",
+        "teams_attachment_audience": "",
+        "teams_attachment_hosts_json": "[]",
+        "teams_attachment_audiences_json": "[]",
+    }
+
+
 def _container_app_resource_id(value: object, *, label: str) -> tuple[str, str]:
     if not isinstance(value, str) or value != value.strip():
         raise TfvarsError(f"{label} must be an exact Container App Resource ID")
@@ -312,7 +371,10 @@ def materialize_operator_channel_edge(
 ) -> dict[str, Any]:
     """Build the complete Slack edge contract from a bounded provider binding."""
     expected_keys = {*_CHANNEL_EDGE_SECRET_NAMES, "slack_team_id"}
-    if set(provider) != expected_keys:
+    if frozenset(provider) not in {
+        frozenset(expected_keys),
+        frozenset(expected_keys | {"attachments"}),
+    }:
         raise TfvarsError("operator channel edge provider binding has unexpected keys")
 
     secret_ids: dict[str, str] = {}
@@ -328,7 +390,7 @@ def materialize_operator_channel_edge(
     if not isinstance(slack_team_id, str) or _SLACK_TEAM_ID.fullmatch(slack_team_id) is None:
         raise TfvarsError("operator channel edge Slack workspace id has an invalid shape")
 
-    return {
+    result = {
         "enabled": True,
         "name": _channel_edge_name(operator_name),
         "slack_enabled": True,
@@ -356,6 +418,62 @@ def materialize_operator_channel_edge(
             "cpu": 0.5,
             "memory": "1Gi",
         },
+    }
+    attachments = provider.get("attachments")
+    if attachments is not None:
+        result.update(_channel_attachment_settings(attachments))
+    return result
+
+
+def materialize_document_channel_intake(
+    binding: dict[str, Any],
+    *,
+    ingestion_name: object,
+) -> dict[str, Any]:
+    """Build one internal intake contract from exact deployment-owned values."""
+
+    expected = {
+        "access_descriptor_ref",
+        "collection_id",
+        "edge_client_id",
+        "max_content_bytes",
+        "principal_scopes_secret_id",
+        "reader_groups",
+        "retention_policy",
+    }
+    if set(binding) != expected:
+        raise TfvarsError("document channel intake binding has unexpected fields")
+    secret_id, _vault = _channel_edge_secret_id(
+        binding.get("principal_scopes_secret_id"),
+        expected_name="fdai-channel-edge-principal-scopes",
+    )
+    edge_client_id = binding.get("edge_client_id")
+    maximum = binding.get("max_content_bytes")
+    text_values = {
+        key: binding.get(key)
+        for key in (
+            "access_descriptor_ref",
+            "collection_id",
+            "reader_groups",
+            "retention_policy",
+        )
+    }
+    if not isinstance(edge_client_id, str) or _AZURE_GUID.fullmatch(edge_client_id) is None:
+        raise TfvarsError("document channel intake edge client id is invalid")
+    if not isinstance(maximum, int) or isinstance(maximum, bool) or not 1 <= maximum <= 1073741824:
+        raise TfvarsError("document channel intake byte ceiling is invalid")
+    if any(
+        not isinstance(value, str) or not value.strip() or len(value) > 512
+        for value in text_values.values()
+    ):
+        raise TfvarsError("document channel intake policy values are invalid")
+    return {
+        "enabled": True,
+        "name": _channel_intake_name(ingestion_name),
+        "principal_scopes_secret_id": secret_id,
+        "edge_client_id": edge_client_id,
+        **text_values,
+        "max_content_bytes": maximum,
     }
 
 
@@ -434,6 +552,8 @@ def select_tfvars(
     operator_channel_edge_enabled: bool | None = None,
     operator_channel_edge_identity: dict[str, Any] | None = None,
     operator_channel_edge_provider: dict[str, Any] | None = None,
+    document_channel_intake_enabled: bool | None = None,
+    document_channel_intake_binding: dict[str, Any] | None = None,
     resolved_models: dict[str, Any] | None = None,
     resolved_models_digest: str = "",
     model_endpoints: object = None,
@@ -498,6 +618,27 @@ def select_tfvars(
                 identity.update(_operator_channel_edge_identity(operator_channel_edge_identity))
             if not identity.get("edge_resource_id") or not identity.get("edge_client_id"):
                 raise TfvarsError("operator channel edge identity binding is missing")
+    if document_channel_intake_enabled is not None:
+        if service != "document-ingestion-api":
+            raise TfvarsError(
+                "document channel intake override is valid only for document-ingestion-api"
+            )
+        channel_intake = materialized.get("channel_intake")
+        if document_channel_intake_enabled and document_channel_intake_binding is not None:
+            materialized["channel_intake"] = materialize_document_channel_intake(
+                document_channel_intake_binding,
+                ingestion_name=materialized.get("name"),
+            )
+        elif channel_intake is None and not document_channel_intake_enabled:
+            pass
+        elif not isinstance(channel_intake, dict):
+            raise TfvarsError("document ingestion tfvars must contain a channel_intake object")
+        else:
+            channel_intake["enabled"] = document_channel_intake_enabled
+        if document_channel_intake_enabled and not isinstance(
+            materialized.get("channel_intake"), dict
+        ):
+            raise TfvarsError("document channel intake binding is missing")
     if resolved_models is not None:
         if service != "core-control-plane":
             raise TfvarsError("resolved model binding is valid only for core-control-plane")
@@ -576,6 +717,10 @@ def main() -> int:
         "--operator-channel-edge-enabled",
         choices=("true", "false"),
     )
+    parser.add_argument(
+        "--document-channel-intake-enabled",
+        choices=("true", "false"),
+    )
     parser.add_argument("--model-binding-transition", action="store_true")
     args = parser.parse_args()
     try:
@@ -585,6 +730,11 @@ def main() -> int:
         edge_enabled = (
             args.operator_channel_edge_enabled == "true"
             if args.operator_channel_edge_enabled is not None
+            else None
+        )
+        intake_enabled = (
+            args.document_channel_intake_enabled == "true"
+            if args.document_channel_intake_enabled is not None
             else None
         )
         resolved_models = None
@@ -616,6 +766,12 @@ def main() -> int:
             operator_channel_edge_provider=(
                 _optional_object_environment("OPERATOR_CHANNEL_EDGE_PROVIDER_JSON")
                 if edge_enabled
+                else None
+            ),
+            document_channel_intake_enabled=intake_enabled,
+            document_channel_intake_binding=(
+                _optional_object_environment("DOCUMENT_CHANNEL_INTAKE_JSON")
+                if intake_enabled
                 else None
             ),
             resolved_models=resolved_models,

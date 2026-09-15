@@ -1595,6 +1595,7 @@ async def test_rca_hypothesis_appended_for_finding(
     ]
     assert len(rca_entries) == 1
     entry = rca_entries[0]
+    assert entry["owner_agent"] == "Forseti"
     assert entry["rca_outcome"] == "grounded"
     assert entry["rca_tier"] == "t0"
     assert entry["rca_remediation_ref"] == rule.remediates
@@ -1737,6 +1738,7 @@ async def test_t1_causal_chain_hypothesis_appended(shipped_catalog: tuple[Any, A
     ]
     assert len(entries) == 1
     entry = entries[0]
+    assert entry["owner_agent"] == "Forseti"
     assert entry["rca_tier"] == "t1"
     assert entry["rca_outcome"] == "grounded"
     assert entry["incident_id"] == "inc-1"
@@ -2005,6 +2007,7 @@ async def test_t2_rca_audited_on_abstain_with_reasoner(
         e["entry"] for e in audit.audit_entries if e["entry"].get("action_kind") == "rca.hypothesis"
     ]
     assert len(t2_entries) == 1
+    assert t2_entries[0]["owner_agent"] == "Forseti"
     assert t2_entries[0]["rca_tier"] == "t2"
     assert t2_entries[0]["rca_outcome"] == "grounded"
     assert t2_entries[0]["incident_id"] is not None

@@ -129,6 +129,93 @@ async def test_labels_filter_in_memory() -> None:
 
 
 @pytest.mark.asyncio
+async def test_missing_required_resource_identity_fails_instead_of_returning_empty() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "status": "success",
+                "data": {
+                    "resultType": "vector",
+                    "result": [
+                        {
+                            "metric": {"cluster": "example-aks", "instance": "node-a"},
+                            "value": [1_700_000_000, "95.0"],
+                        }
+                    ],
+                },
+            },
+        )
+
+    provider, client = _provider(handler)
+    try:
+        with pytest.raises(MetricProviderError, match="lacks required label"):
+            _ = [
+                point
+                async for point in provider.query(
+                    MetricQuery(
+                        metric_name=_METRIC,
+                        labels={
+                            "resource_id": (
+                                "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                                "resourceGroups/example-rg/providers/"
+                                "Microsoft.ContainerService/managedClusters/example-aks"
+                            )
+                        },
+                    )
+                )
+            ]
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_configured_resource_identity_match_is_case_insensitive() -> None:
+    resource_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/Example-RG/providers/"
+        "Microsoft.ContainerService/managedClusters/Example-AKS"
+    )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "status": "success",
+                "data": {
+                    "resultType": "vector",
+                    "result": [
+                        {
+                            "metric": {"resource_id": resource_id, "instance": "node-a"},
+                            "value": [1_700_000_000, "95.0"],
+                        }
+                    ],
+                },
+            },
+        )
+
+    provider, client = _provider(
+        handler,
+        _config(case_insensitive_labels=frozenset({"resource_id"})),
+    )
+    try:
+        points = [
+            point
+            async for point in provider.query(
+                MetricQuery(
+                    metric_name=_METRIC,
+                    labels={"resource_id": resource_id.casefold()},
+                )
+            )
+        ]
+    finally:
+        await client.aclose()
+
+    assert len(points) == 1
+    assert points[0].labels["resource_id"] == resource_id
+
+
+@pytest.mark.asyncio
 async def test_non_success_status_fails_closed() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"status": "error", "error": "bad query"})

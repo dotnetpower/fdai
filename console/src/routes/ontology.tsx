@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable } from "../api";
 import type { OperatorApiClient } from "../api";
 import {
@@ -22,6 +22,7 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
 import { OntologyActionsView, requestedOntologyAction } from "./ontology-actions";
 import { OntologyKnowledgeMap } from "./ontology-knowledge-map";
+import { OntologyNavigation } from "./ontology-navigation";
 import { OntologyInstancesView } from "./ontology-instances";
 import { OntologyLinksView } from "./ontology-links";
 import {
@@ -61,6 +62,14 @@ export function ontologyPathSelection(segments: readonly string[]): {
   if (segments[0] === "link-types") return { view: "links", name: segments[1] };
   if (segments[0] === "action-types") return { view: "actions", name: segments[1] };
   return null;
+}
+
+/** Resolves clean-path declaration routes before the query-selected ontology view. */
+export function ontologyRouteView(
+  segments: readonly string[],
+  requestedView: string | null,
+): OntologyView {
+  return ontologyPathSelection(segments)?.view ?? ontologyView(requestedView);
 }
 
 export function selectedOntologyRecords(
@@ -156,10 +165,27 @@ export function OntologyRoute({ client }: Props) {
   if (segments.length === 2 && segments[0] === "releases") {
     return <OntologyReleaseDetailRoute client={client} digest={segments[1] ?? ""} />;
   }
+  const [view, setView] = useState<OntologyView>(
+    () => ontologyRouteView(segments, currentRoute().search.get("view")),
+  );
   const [state, setState] = useState<AsyncState<OntologyGraphResponse>>({ status: "loading" });
   const [includeProperties, setIncludeProperties] = useState(
     () => currentRoute().search.get("properties") !== "false",
   );
+  const catalogVisible = view !== "instances";
+
+  useEffect(() => {
+    const sync = (): void => {
+      const route = currentRoute();
+      setView(ontologyRouteView(route.segments, route.search.get("view")));
+    };
+    window.addEventListener("popstate", sync);
+    window.addEventListener("fdai:route-changed", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("fdai:route-changed", sync);
+    };
+  }, []);
 
   const changeIncludeProperties = (value: boolean): void => {
     const params = Object.fromEntries(currentRoute().search.entries());
@@ -170,6 +196,10 @@ export function OntologyRoute({ client }: Props) {
   };
 
   useEffect(() => {
+    if (!catalogVisible) {
+      setState((current) => current.status === "loading" ? current : { status: "loading" });
+      return undefined;
+    }
     let cancelled = false;
     setState({ status: "loading" });
     (async () => {
@@ -197,36 +227,45 @@ export function OntologyRoute({ client }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [client, includeProperties]);
+  }, [catalogVisible, client, includeProperties]);
 
   return (
     <div class="stack governance-route ontology-route">
       <PageHeader
         title={t("route.ontology")}
-        subtitle={t("ontology.route.subtitle")}
+        subtitle={t(view === "instances"
+          ? "ontology.route.instancesSubtitle"
+          : "ontology.route.referenceSubtitle")}
       />
-      <AsyncBoundary state={state} resourceLabel={t("ontology.route.loadingLabel")}>
-        {(data) => (
-          <OntologyBody
-            client={client}
-            data={data}
-            includeProperties={includeProperties}
-            onIncludePropertiesChange={changeIncludeProperties}
-          />
+      <div class={`stack governance-ontology is-${view}`}>
+        <OntologyNavigation active={view} />
+        {view === "instances" ? (
+          <OntologyInstancesView client={client} />
+        ) : (
+          <AsyncBoundary state={state} resourceLabel={t("ontology.route.loadingLabel")}>
+            {(data) => (
+              <OntologyCatalogView
+                data={data}
+                view={view}
+                includeProperties={includeProperties}
+                onIncludePropertiesChange={changeIncludeProperties}
+              />
+            )}
+          </AsyncBoundary>
         )}
-      </AsyncBoundary>
+      </div>
     </div>
   );
 }
 
-function OntologyBody({
-  client,
+function OntologyCatalogView({
   data,
+  view,
   includeProperties,
   onIncludePropertiesChange,
 }: {
-  readonly client: OperatorApiClient;
   readonly data: OntologyGraphResponse;
+  readonly view: Exclude<OntologyView, "instances">;
   readonly includeProperties: boolean;
   readonly onIncludePropertiesChange: (value: boolean) => void;
 }) {
@@ -238,10 +277,6 @@ function OntologyBody({
     return data.nodes?.[0]?.name ?? null;
   }, [data.nodes]);
   const [selectedName, setSelectedName] = useState<string | null>(initialName);
-  const [view, setView] = useState<OntologyView>(
-    () => initialPathSelection?.view ?? ontologyView(currentRoute().search.get("view")),
-  );
-  const tabsRef = useRef<HTMLElement>(null);
   const [selectedLink, setSelectedLink] = useState<string | null>(() => {
     if (initialPathSelection?.view === "links") return initialPathSelection.name;
     const requested = currentRoute().search.get("link");
@@ -265,7 +300,6 @@ function OntologyBody({
       const valid = requested && data.nodes?.some((node) => node.name === requested);
       setInvalidName(requested && !valid ? requested : null);
       setSelectedName(valid ? requested : requested ? null : data.nodes?.[0]?.name ?? null);
-      setView(pathSelection?.view ?? ontologyView(route.search.get("view")));
       const link = route.search.get("link");
       setSelectedLink(pathSelection?.view === "links"
         ? pathSelection.name
@@ -281,27 +315,11 @@ function OntologyBody({
       window.removeEventListener("fdai:route-changed", sync);
     };
   }, [actionTypes, data.link_types, data.nodes]);
-  useEffect(() => {
-    const tabs = tabsRef.current;
-    if (!tabs) return;
-    const alignActiveTab = (): void => {
-      const activeTab = tabs.querySelector<HTMLElement>("a.is-active");
-      if (!activeTab) return;
-      tabs.scrollLeft = Math.max(
-        0,
-        activeTab.offsetLeft - (tabs.clientWidth - activeTab.offsetWidth) / 2,
-      );
-    };
-    alignActiveTab();
-    window.addEventListener("resize", alignActiveTab);
-    return () => window.removeEventListener("resize", alignActiveTab);
-  }, [view]);
   const selectType = (name: string | null): void => {
     if (name !== null) navigate(ontologyDeclarationHref("object-types", name));
   };
   usePublishViewContext(
     () => {
-      if (view === "instances") return null;
       // Ground the deck in the rendered graph, not just the two counts:
       // each ObjectType with its property count + description, and every
       // relationship (LinkType edge) with its from/to types and cardinality
@@ -375,16 +393,7 @@ function OntologyBody({
     [actionTypes, data, selectedName, view],
   );
   return (
-    <div class={`stack governance-ontology is-${view}`}>
-      <nav ref={tabsRef} class="ontology-tabs" aria-label={t("ontology.objects.viewsLabel")}>
-        <OntologyTab view="map" active={view} label={t("ontology.common.map")} />
-        <OntologyTab view="objects" active={view} count={data.object_type_count} label={t("ontology.common.objects")} />
-        <OntologyTab view="links" active={view} count={data.link_type_count} label={t("ontology.common.links")} />
-        <OntologyTab view="actions" active={view} count={data.action_type_count ?? actionTypes.length} label={t("ontology.common.actions")} />
-        <OntologyTab view="instances" active={view} label={t("ontology.common.instances")} />
-        <OntologyTab view="topology" active={view} label={t("ontology.common.topology")} />
-      </nav>
-
+    <>
       {view === "objects" ? (
         <>
           <div class="ontology-object-toolbar">
@@ -462,33 +471,8 @@ function OntologyBody({
         />
       ) : null}
 
-      {view === "instances" ? <OntologyInstancesView client={client} /> : null}
-
       {view === "topology" ? <OntologyKnowledgeMap graph={data.catalog_topology} /> : null}
-    </div>
-  );
-}
-
-function OntologyTab({
-  view,
-  active,
-  count,
-  label,
-}: {
-  readonly view: OntologyView;
-  readonly active: OntologyView;
-  readonly count?: number;
-  readonly label: string;
-}) {
-  return (
-    <a
-      href={routeHref("ontology", { params: { view } })}
-      class={view === active ? "is-active" : undefined}
-      aria-current={view === active ? "page" : undefined}
-    >
-      <span>{label}</span>
-      {count === undefined ? null : <strong>{formatNumber(count)}</strong>}
-    </a>
+    </>
   );
 }
 

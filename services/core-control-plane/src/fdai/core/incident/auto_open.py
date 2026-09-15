@@ -72,6 +72,8 @@ def evaluate_incident_auto_open(
         return IncidentAutoOpenDecision(False, "incident_correlation_disabled")
     if not _text(candidate, "correlation_id"):
         return IncidentAutoOpenDecision(False, "correlation_missing")
+    if "incident_episode_id" in candidate and not _text(candidate, "incident_episode_id"):
+        return IncidentAutoOpenDecision(False, "incident_episode_invalid")
     if not _evidence_keys(candidate):
         return IncidentAutoOpenDecision(False, "evidence_missing")
     if not _text(candidate, "resource_id"):
@@ -108,6 +110,7 @@ async def open_detected_incident_candidate(
             resource_id=resource_id,
             event_type=event_type,
             correlation_id=_text(candidate, "correlation_id"),
+            incident_episode_id=_text(candidate, "incident_episode_id"),
         ),
         severity=decision.severity,
         member_event_ids=tuple(

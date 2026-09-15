@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 8dba06d1b8e83760ecd7d339128055e2fe08c43b
+translation_source_sha: 0cdab6f39adbe068065f69ae8e50469722d46e74
 translation_revised: 2026-09-14
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -54,7 +54,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 [Genesis 기반 계층 루트](../../../infra/genesis-foundation/)는 ARM으로 두 리소스 그룹, 비공개 상태 계정, `tfstate` 및 `deployment-plans` 컨테이너와 블롭 보호를 관리합니다. 계정 키 조회 없이 기존 Bootstrap의 네트워크, 배포 신원, 실행기를 재사용합니다. 선택적 Standard Bastion 서브넷에는 Azure가 요구하는 전체 인바운드 및 아웃바운드 Network Security Group 규칙을 연결하며, 필수 플랫폼 규칙이 하나라도 없으면 터널 생성을 차단합니다.
 새 플랫폼 상태에서는 `foundation_resource_group_context_digest`로 참조 전용 소유권을 선택하고 기반 계층 태그와 지역을 확인합니다. 검증된 공개 개발 실패 상태는 고급 삭제 없는 채택 경로로만 비어 있는 Foundation 관리 애플리케이션 백엔드에 들어갈 수 있습니다. 이 경로는 리소스 그룹 소유자 주소 두 개를 제거하고 원래 상태를 유지하며, 강제하지 않는 push 한 번 전에 claim을 기록하고 readback을 검증하며, 모든 삭제 또는 교체 계획을 승인 전에 차단합니다.
 `fdaictl provision plan --stage foundation`은 로컬 backend를 사용하는 비공개 모의 실행입니다. 정확한 상태 이전 아카이브에서만 서명된 AzureRM backend 예제를 활성화해 검증된 호스트에 전달합니다. Genesis는 Terraform 아카이브와 실행 파일 다이제스트를 각각 인증하고
-계획 전에 전체 지역 카탈로그에서 [호환되는 이미지 및 호스트 VM SKU](subscription-genesis-assurance-ko.md#기반-및-외부-컨트롤-플레인)를 조회하며 이미지의 관리형 디스크와 호스트의 임시 디스크 요건을 구분합니다.
+계획 전에 전체 지역 카탈로그에서 [호환되는 이미지 및 호스트 VM SKU](subscription-genesis-assurance-ko.md#기반-및-외부-컨트롤-플레인)를 조회하며 이미지의 관리형 디스크와 호스트의 임시 디스크 요건을 구분합니다. 이후 서명된 Foundation 실행은 image apply를 반복하지 않고 독립 검증된 runner-image 증적을 채택할 수 있습니다. 입력은 현재 Foundation 출처와 실행을 유지하면서 원래 이미지 출처, 서명 검증기 출처, 이미지 실행 및 정확한 증적 다이제스트를 별도로 연결합니다.
 이미지 및 기반 계층 적용, Bastion 등록, 검증된 상태 이전에는 정확한 승인이 필요하며, 애플리케이션 배포와 준비 상태는 [Genesis 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)에 미완료로 남아 있습니다.
 
 Azure Policy가 인벤토리 일부를 거부하는 테난트는 계획이 수렴하기 전에 예외 또는 대응하는
@@ -179,10 +179,10 @@ Analyzer 작업은 기본 1분 shadow 예약으로 `fdai.delivery.analyzer_tick_
 리소스, 신호, tick 창에서 파생된 키를 가진 정본 Event 하나를 게시합니다. `FDAI_INVENTORY_DSN`이
 설정되면 `FDAI_ANALYZER_TARGETS`와 영속 인벤토리 projection의 지원 리소스를 병합하고, 병합된 집합의
 중복을 제거한 뒤 프로바이더 I/O 전에 `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS`를 적용합니다. 지원하지
-않는 리소스 타입은 추측하지 않고 제외합니다. Projection을 읽을 수 없으면 coverage를 조용히 줄이지
-않고 tick을 실패시켜 Job이 재시도됩니다. 인벤토리 DSN이 없으면 명시적 대상 전용 경로를 유지하고,
-두 출처 모두 대상이 없으면 tick은 `0`으로 종료하는 정상 no-op입니다. Analyzer cron을 명시적으로
-빈 문자열로 설정하면 작업이 비활성화됩니다.
+않는 리소스 타입은 추측하지 않고 제외합니다. Projection을
+읽을 수 없으면 coverage를 조용히 줄이지 않고 tick을 실패시켜 Job이 재시도됩니다. 인벤토리 DSN이
+없으면 명시적 대상 전용 경로를 유지하고, 두 출처 모두 대상이 없으면 tick은 `0`으로 종료하는 정상
+no-op입니다. Analyzer cron을 명시적으로 빈 문자열로 설정하면 작업이 비활성화됩니다.
 
 #### 제한된 egress 환경의 인벤토리 디스커버리
 

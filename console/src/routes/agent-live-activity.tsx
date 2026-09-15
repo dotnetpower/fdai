@@ -365,6 +365,7 @@ function AgentLogRowView({
     <div
       class={`aa-log-row kind-${row.kind}`}
       data-operational-kind={row.operationalKind ?? undefined}
+      data-activity-id={row.activityId ?? undefined}
       role="row"
     >
       {visibleColumns.includes("time") ? (

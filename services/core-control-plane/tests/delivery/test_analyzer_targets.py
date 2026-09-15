@@ -8,6 +8,9 @@ from typing import Any
 
 import pytest
 from fdai.delivery.analyzer_targets import (
+    HOLD_DUPLICATE_CANDIDATE,
+    HOLD_SELECTION_LIMIT,
+    INVENTORY_SCAN_LIMIT,
     SKIP_MALFORMED_RESOURCE,
     SKIP_STALE_STATE_FACT,
     SKIP_UNMAPPED_RESOURCE_TYPE,
@@ -17,6 +20,7 @@ from fdai.delivery.analyzer_targets import (
     resolve_analyzer_targets,
 )
 from fdai.delivery.analyzer_tick import AnalyzerTarget
+from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,
     OntologyObjectRecord,
@@ -86,26 +90,118 @@ class StubStore:
         objects: Sequence[OntologyObjectRecord] = (),
         *,
         truncated: bool = False,
+        source_complete: bool = True,
+        source_generation: str | None = None,
         error: Exception | None = None,
+        honor_property_filter: bool = True,
     ) -> None:
         self._objects = tuple(objects)
         self._truncated = truncated
+        self._source_complete = source_complete
+        self._source_generation = source_generation
         self._error = error
+        self._honor_property_filter = honor_property_filter
         self.limits: list[int] = []
+        self.property_text_filters: list[Mapping[str, Sequence[str]] | None] = []
+        self.relationship_flags: list[bool] = []
 
     async def query_objects(
         self,
         *,
         object_types: Sequence[str] = (),
+        object_ids: Sequence[str] = (),
         property_equals: Mapping[str, Any] | None = None,
+        property_text_in: Mapping[str, Sequence[str]] | None = None,
         limit: int = 100,
+        include_relationships: bool = True,
     ) -> OntologyGraphSnapshot:
-        del property_equals
+        del object_ids, property_equals
         assert tuple(object_types) == ("Resource",)
         self.limits.append(limit)
+        self.property_text_filters.append(property_text_in)
+        self.relationship_flags.append(include_relationships)
         if self._error is not None:
             raise self._error
-        return OntologyGraphSnapshot(objects=self._objects, truncated=self._truncated)
+        objects = self._objects
+        if self._honor_property_filter and property_text_in is not None:
+            objects = tuple(
+                record
+                for record in objects
+                if all(
+                    record.properties.get(key) in values for key, values in property_text_in.items()
+                )
+            )
+        return OntologyGraphSnapshot(
+            objects=objects[:limit],
+            truncated=self._truncated or len(objects) > limit,
+            source_complete=self._source_complete,
+            source_generation=self._source_generation,
+        )
+
+
+class StubProviderReferenceReader:
+    """Return provider identities for exact requested logical resources."""
+
+    def __init__(
+        self,
+        resources: Mapping[str, ResourceRecord],
+        *,
+        snapshot_id: str | None = "generation-1",
+        error: Exception | None = None,
+    ) -> None:
+        self._resources = resources
+        self._snapshot_id = snapshot_id
+        self._error = error
+        self.requests: list[tuple[str, ...]] = []
+        self.provider_requests: list[tuple[str, ...]] = []
+
+    async def read_active_resources(
+        self,
+        *,
+        resource_ids: tuple[str, ...],
+    ) -> tuple[str | None, Mapping[str, ResourceRecord]]:
+        self.requests.append(resource_ids)
+        if self._error is not None:
+            raise self._error
+        return self._snapshot_id, {
+            resource_id: self._resources[resource_id]
+            for resource_id in resource_ids
+            if resource_id in self._resources
+        }
+
+    async def read_active_resources_by_provider_refs(
+        self,
+        *,
+        provider_refs: tuple[str, ...],
+    ) -> tuple[str | None, Mapping[str, ResourceRecord]]:
+        self.provider_requests.append(provider_refs)
+        if self._error is not None:
+            raise self._error
+        return self._snapshot_id, {
+            resource.provider_ref.casefold(): resource
+            for resource in self._resources.values()
+            if resource.provider_ref is not None
+            and resource.provider_ref.casefold() in provider_refs
+        }
+
+
+def _provider_reader(store: StubStore) -> StubProviderReferenceReader:
+    resources: dict[str, ResourceRecord] = {}
+    for record in store._objects:
+        resource_id = record.properties.get("id")
+        resource_type = record.properties.get("type")
+        if (
+            isinstance(resource_id, str)
+            and resource_id.strip()
+            and isinstance(resource_type, str)
+            and resource_type.strip()
+        ):
+            resources[resource_id] = ResourceRecord(
+                resource_id=resource_id,
+                type=resource_type,
+                provider_ref=f"/providers/example/resources/{resource_id}",
+            )
+    return StubProviderReferenceReader(resources)
 
 
 async def _resolve(
@@ -115,7 +211,12 @@ async def _resolve(
     now: datetime = NOW,
     max_discovered: int = 200,
     decision_evidence: bool = True,
+    provider_references: StubProviderReferenceReader | None = None,
+    bind_provider_references: bool = True,
 ):
+    reader = provider_references
+    if reader is None and store is not None and bind_provider_references:
+        reader = _provider_reader(store)
     return await resolve_analyzer_targets(
         configured=configured,
         store=store,  # type: ignore[arg-type]
@@ -124,6 +225,7 @@ async def _resolve(
         decision_evidence=(
             StubDecisionEvidenceAdmissionProvider(lambda: now) if decision_evidence else None
         ),
+        provider_references=reader,
     )
 
 
@@ -144,12 +246,71 @@ async def test_supported_inventory_resources_join_the_tick() -> None:
     resolution = await _resolve(store)
 
     assert resolution.targets == (
-        AnalyzerTarget(resource_ref="res-aks", resource_kind="aks_cluster"),
-        AnalyzerTarget(resource_ref="res-mysql", resource_kind="mysql_flexible_server"),
+        AnalyzerTarget(
+            resource_ref="res-aks",
+            resource_kind="aks_cluster",
+            resource_type="kubernetes-cluster",
+        ),
+        AnalyzerTarget(
+            resource_ref="res-mysql",
+            resource_kind="mysql_flexible_server",
+            resource_type="mysql-server",
+        ),
     )
     assert resolution.discovered == 2
     assert resolution.inventory_consulted is True
+    assert store.relationship_flags == [False]
     assert resolution.skipped_reasons == ()
+    assert [target.provider_query_ref for target in resolution.targets] == [
+        "/providers/example/resources/res-aks",
+        "/providers/example/resources/res-mysql",
+    ]
+    assert "provider_query_ref" not in repr(resolution.targets[0])
+    assert [item.to_dict() for item in resolution.resource_types] == [
+        {
+            "resource_type": "kubernetes-cluster",
+            "candidate_count": 1,
+            "selected_count": 1,
+            "held_count": 0,
+            "held_reason_counts": {},
+        },
+        {
+            "resource_type": "mysql-server",
+            "candidate_count": 1,
+            "selected_count": 1,
+            "held_count": 0,
+            "held_reason_counts": {},
+        },
+    ]
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "resource_kind"),
+    (
+        ("api-gateway", "api_management"),
+        ("kubernetes-cluster", "aks_cluster"),
+        ("llm-endpoint", "azure_openai"),
+        ("mysql-server", "mysql_flexible_server"),
+        ("network.application-gateway", "application_gateway"),
+    ),
+)
+@pytest.mark.asyncio
+async def test_every_shipped_analyzer_kind_receives_its_provider_query_identity(
+    resource_type: str,
+    resource_kind: str,
+) -> None:
+    store = StubStore((_resource("res-1", resource_type),))
+
+    resolution = await _resolve(store)
+
+    assert resolution.targets == (
+        AnalyzerTarget(
+            resource_ref="res-1",
+            resource_kind=resource_kind,
+            resource_type=resource_type,
+        ),
+    )
+    assert resolution.targets[0].provider_query_ref == ("/providers/example/resources/res-1")
 
 
 @pytest.mark.asyncio
@@ -168,7 +329,11 @@ async def test_property_keyed_inventory_state_selects_the_canonical_state_fact()
     resolution = await _resolve(store)
 
     assert resolution.targets == (
-        AnalyzerTarget(resource_ref="res-aks", resource_kind="aks_cluster"),
+        AnalyzerTarget(
+            resource_ref="res-aks",
+            resource_kind="aks_cluster",
+            resource_type="kubernetes-cluster",
+        ),
     )
     assert resolution.skipped_reasons == ()
 
@@ -188,7 +353,11 @@ async def test_property_metadata_without_generic_state_uses_identity_admission()
     resolution = await _resolve(store)
 
     assert resolution.targets == (
-        AnalyzerTarget(resource_ref="res-aks", resource_kind="aks_cluster"),
+        AnalyzerTarget(
+            resource_ref="res-aks",
+            resource_kind="aks_cluster",
+            resource_type="kubernetes-cluster",
+        ),
     )
     assert resolution.skipped_reasons == ()
 
@@ -218,7 +387,11 @@ async def test_a_resource_without_a_state_fact_is_still_selectable() -> None:
     resolution = await _resolve(store)
 
     assert resolution.targets == (
-        AnalyzerTarget(resource_ref="res-apim", resource_kind="api_management"),
+        AnalyzerTarget(
+            resource_ref="res-apim",
+            resource_kind="api_management",
+            resource_type="api-gateway",
+        ),
     )
     assert resolution.skipped_reasons == ()
 
@@ -232,7 +405,11 @@ async def test_identity_only_selection_needs_no_state_admission() -> None:
     resolution = await _resolve(store, decision_evidence=False)
 
     assert resolution.targets == (
-        AnalyzerTarget(resource_ref="res-apim", resource_kind="api_management"),
+        AnalyzerTarget(
+            resource_ref="res-apim",
+            resource_kind="api_management",
+            resource_type="api-gateway",
+        ),
     )
     assert resolution.skipped_reasons == ()
 
@@ -280,9 +457,227 @@ async def test_configured_targets_lead_and_win_a_duplicate() -> None:
     )
 
     assert resolution.targets[0].resource_ref == "res-aks"
+    assert resolution.targets[0].provider_query_ref == ("/providers/example/resources/res-aks")
     assert [item.resource_ref for item in resolution.targets] == ["res-aks", "res-gw"]
     assert resolution.configured == 1
     assert resolution.discovered == 1
+
+
+@pytest.mark.asyncio
+async def test_configured_arm_reference_collapses_into_logical_inventory_target() -> None:
+    provider_ref = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/example-rg/providers/"
+        "Microsoft.ContainerService/managedClusters/example-aks"
+    )
+    store = StubStore((_resource("logical-aks", "kubernetes-cluster"),))
+    reader = StubProviderReferenceReader(
+        {
+            "logical-aks": ResourceRecord(
+                resource_id="logical-aks",
+                type="kubernetes-cluster",
+                provider_ref=provider_ref,
+            )
+        }
+    )
+
+    resolution = await _resolve(
+        store,
+        configured=(AnalyzerTarget(resource_ref=provider_ref, resource_kind="aks_cluster"),),
+        provider_references=reader,
+    )
+
+    assert resolution.targets == (
+        AnalyzerTarget(
+            resource_ref="logical-aks",
+            resource_kind="aks_cluster",
+            resource_type="kubernetes-cluster",
+        ),
+    )
+    assert resolution.targets[0].provider_query_ref == provider_ref
+    assert resolution.configured == 1
+    assert resolution.discovered == 0
+    assert reader.provider_requests == [(provider_ref.casefold(),)]
+
+
+@pytest.mark.asyncio
+async def test_configured_logical_target_absent_from_inventory_fails_closed() -> None:
+    store = StubStore((_resource("res-other", "kubernetes-cluster"),))
+
+    with pytest.raises(
+        AnalyzerTargetResolutionError,
+        match="absent from active inventory provider identity",
+    ):
+        await _resolve(
+            store,
+            configured=(
+                AnalyzerTarget(
+                    resource_ref="res-missing",
+                    resource_kind="aks_cluster",
+                ),
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_configured_provider_reference_must_match_active_inventory() -> None:
+    provider_ref = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/example-rg/providers/"
+        "Microsoft.ContainerService/managedClusters/missing"
+    )
+
+    with pytest.raises(
+        AnalyzerTargetResolutionError,
+        match="provider reference is absent from active inventory",
+    ):
+        await _resolve(
+            StubStore((_resource("logical-aks", "kubernetes-cluster"),)),
+            configured=(
+                AnalyzerTarget(
+                    resource_ref="logical-aks",
+                    resource_kind="aks_cluster",
+                    provider_query_ref=provider_ref,
+                ),
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_configured_provider_reference_must_use_same_inventory_generation() -> None:
+    provider_ref = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/example-rg/providers/"
+        "Microsoft.ContainerService/managedClusters/example-aks"
+    )
+    store = StubStore(
+        (_resource("logical-aks", "kubernetes-cluster"),),
+        source_generation="generation-2",
+    )
+    reader = StubProviderReferenceReader(
+        {
+            "logical-aks": ResourceRecord(
+                resource_id="logical-aks",
+                type="kubernetes-cluster",
+                provider_ref=provider_ref,
+            )
+        },
+        snapshot_id="generation-1",
+    )
+
+    with pytest.raises(
+        AnalyzerTargetResolutionError,
+        match="generation changed during target resolution",
+    ):
+        await _resolve(
+            store,
+            configured=(
+                AnalyzerTarget(
+                    resource_ref="logical-aks",
+                    resource_kind="aks_cluster",
+                    provider_query_ref=provider_ref,
+                ),
+            ),
+            provider_references=reader,
+        )
+
+
+@pytest.mark.asyncio
+async def test_unbound_legacy_arm_target_requires_separate_identities() -> None:
+    with pytest.raises(
+        AnalyzerTargetResolutionError,
+        match="MUST separate logical resource_id and provider_resource_id",
+    ):
+        await _resolve(
+            None,
+            configured=(
+                AnalyzerTarget(
+                    resource_ref=(
+                        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                        "resourceGroups/example-rg/providers/"
+                        "Microsoft.ContainerService/managedClusters/example-aks"
+                    ),
+                    resource_kind="aks_cluster",
+                ),
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_unbound_explicit_target_accepts_separate_identities() -> None:
+    target = AnalyzerTarget(
+        resource_ref="logical-aks",
+        resource_kind="aks_cluster",
+        provider_query_ref=(
+            "/subscriptions/00000000-0000-0000-0000-000000000000/"
+            "resourceGroups/example-rg/providers/"
+            "Microsoft.ContainerService/managedClusters/example-aks"
+        ),
+    )
+
+    resolution = await _resolve(None, configured=(target,))
+
+    assert resolution.targets == (
+        AnalyzerTarget(
+            resource_ref=target.resource_ref,
+            resource_kind=target.resource_kind,
+            resource_type="kubernetes-cluster",
+            provider_query_ref=target.provider_query_ref,
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_unbound_non_metric_target_does_not_require_provider_identity() -> None:
+    target = AnalyzerTarget(
+        resource_ref="scenario/pod-uid",
+        resource_kind="kubernetes_pod",
+    )
+
+    resolution = await _resolve(None, configured=(target,))
+
+    assert resolution.targets == (target,)
+
+
+@pytest.mark.asyncio
+async def test_configured_target_kind_must_match_its_inventory_resource_type() -> None:
+    store = StubStore((_resource("res-aks", "kubernetes-cluster"),))
+
+    with pytest.raises(
+        AnalyzerTargetResolutionError,
+        match="configured analyzer kind conflicts",
+    ):
+        await _resolve(
+            store,
+            configured=(
+                AnalyzerTarget(
+                    resource_ref="res-aks",
+                    resource_kind="mysql_flexible_server",
+                ),
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_configured_target_uses_provider_identity_despite_stale_state() -> None:
+    store = StubStore(
+        (
+            _resource(
+                "res-aks",
+                "kubernetes-cluster",
+                state_fact=_state_fact(observed_at=NOW - timedelta(seconds=301)),
+            ),
+        )
+    )
+
+    resolution = await _resolve(
+        store,
+        configured=(AnalyzerTarget(resource_ref="res-aks", resource_kind="aks_cluster"),),
+    )
+
+    assert resolution.targets[0].provider_query_ref == ("/providers/example/resources/res-aks")
+    assert resolution.discovered == 0
+    assert resolution.skipped_reasons == (SKIP_STALE_STATE_FACT,)
 
 
 @pytest.mark.asyncio
@@ -316,7 +711,8 @@ async def test_unmapped_and_malformed_resources_are_skipped_with_reasons() -> No
         (
             _resource("res-disk", "disk", state_fact=_state_fact()),
             malformed,
-        )
+        ),
+        honor_property_filter=False,
     )
 
     resolution = await _resolve(store)
@@ -326,6 +722,11 @@ async def test_unmapped_and_malformed_resources_are_skipped_with_reasons() -> No
         SKIP_MALFORMED_RESOURCE,
         SKIP_UNMAPPED_RESOURCE_TYPE,
     )
+    assert resolution.candidate_count == 2
+    assert dict(resolution.skipped_reason_counts) == {
+        SKIP_MALFORMED_RESOURCE: 1,
+        SKIP_UNMAPPED_RESOURCE_TYPE: 1,
+    }
 
 
 @pytest.mark.asyncio
@@ -362,6 +763,41 @@ async def test_stale_conflicting_and_synthetic_evidence_is_skipped() -> None:
         SKIP_STALE_STATE_FACT,
         SKIP_UNUSABLE_STATE_FACT,
     )
+    assert resolution.candidate_count == 4
+    assert dict(resolution.skipped_reason_counts) == {
+        SKIP_STALE_STATE_FACT: 1,
+        SKIP_UNUSABLE_STATE_FACT: 3,
+    }
+    assert [item.to_dict() for item in resolution.resource_types] == [
+        {
+            "resource_type": "api-gateway",
+            "candidate_count": 1,
+            "selected_count": 0,
+            "held_count": 1,
+            "held_reason_counts": {SKIP_UNUSABLE_STATE_FACT: 1},
+        },
+        {
+            "resource_type": "kubernetes-cluster",
+            "candidate_count": 1,
+            "selected_count": 0,
+            "held_count": 1,
+            "held_reason_counts": {SKIP_STALE_STATE_FACT: 1},
+        },
+        {
+            "resource_type": "llm-endpoint",
+            "candidate_count": 1,
+            "selected_count": 0,
+            "held_count": 1,
+            "held_reason_counts": {SKIP_UNUSABLE_STATE_FACT: 1},
+        },
+        {
+            "resource_type": "mysql-server",
+            "candidate_count": 1,
+            "selected_count": 0,
+            "held_count": 1,
+            "held_reason_counts": {SKIP_UNUSABLE_STATE_FACT: 1},
+        },
+    ]
 
 
 @pytest.mark.asyncio
@@ -393,6 +829,96 @@ async def test_a_projection_read_failure_fails_closed_instead_of_degrading() -> 
         )
 
 
+@pytest.mark.asyncio
+async def test_a_provider_identity_read_failure_fails_the_complete_tick() -> None:
+    store = StubStore((_resource("res-aks", "kubernetes-cluster"),))
+    reader = StubProviderReferenceReader({}, error=RuntimeError("connection refused"))
+
+    with pytest.raises(
+        AnalyzerTargetResolutionError,
+        match="provider identity read failed",
+    ):
+        await _resolve(store, provider_references=reader)
+
+
+@pytest.mark.parametrize(
+    "reader",
+    (
+        StubProviderReferenceReader({}),
+        StubProviderReferenceReader(
+            {
+                "res-aks": ResourceRecord(
+                    resource_id="res-aks",
+                    type="kubernetes-cluster",
+                    provider_ref=None,
+                )
+            }
+        ),
+        StubProviderReferenceReader(
+            {
+                "res-aks": ResourceRecord(
+                    resource_id="res-aks",
+                    type="mysql-server",
+                    provider_ref="/providers/example/resources/res-aks",
+                )
+            }
+        ),
+    ),
+)
+@pytest.mark.asyncio
+async def test_missing_or_mismatched_provider_identity_fails_closed(
+    reader: StubProviderReferenceReader,
+) -> None:
+    store = StubStore((_resource("res-aks", "kubernetes-cluster"),))
+
+    with pytest.raises(
+        AnalyzerTargetResolutionError,
+        match="does not match eligible analyzer targets",
+    ):
+        await _resolve(store, provider_references=reader)
+
+
+@pytest.mark.asyncio
+async def test_case_variant_provider_aliases_fail_closed() -> None:
+    store = StubStore(
+        (
+            _resource("res-a", "kubernetes-cluster"),
+            _resource("res-b", "kubernetes-cluster"),
+        )
+    )
+    reader = StubProviderReferenceReader(
+        {
+            "res-a": ResourceRecord(
+                resource_id="res-a",
+                type="kubernetes-cluster",
+                provider_ref="/subscriptions/example/resourceGroups/rg/providers/example/a",
+            ),
+            "res-b": ResourceRecord(
+                resource_id="res-b",
+                type="kubernetes-cluster",
+                provider_ref="/SUBSCRIPTIONS/EXAMPLE/RESOURCEGROUPS/RG/PROVIDERS/EXAMPLE/A",
+            ),
+        }
+    )
+
+    with pytest.raises(
+        AnalyzerTargetResolutionError,
+        match="ambiguous across analyzer targets",
+    ):
+        await _resolve(store, provider_references=reader)
+
+
+@pytest.mark.asyncio
+async def test_an_inventory_projection_requires_its_provider_identity_reader() -> None:
+    store = StubStore((_resource("res-aks", "kubernetes-cluster"),))
+
+    with pytest.raises(
+        AnalyzerTargetResolutionError,
+        match="reader is unavailable",
+    ):
+        await _resolve(store, bind_provider_references=False)
+
+
 # ---------------------------------------------------------------------------
 # Bounds and degradation
 # ---------------------------------------------------------------------------
@@ -400,11 +926,24 @@ async def test_a_projection_read_failure_fails_closed_instead_of_degrading() -> 
 
 @pytest.mark.asyncio
 async def test_an_unbound_projection_keeps_the_configured_list() -> None:
-    configured = (AnalyzerTarget(resource_ref="res-aks", resource_kind="aks_cluster"),)
+    configured = (
+        AnalyzerTarget(
+            resource_ref="res-aks",
+            resource_kind="aks_cluster",
+            provider_query_ref="/providers/example/resources/res-aks",
+        ),
+    )
 
     resolution = await _resolve(None, configured=configured)
 
-    assert resolution.targets == configured
+    assert resolution.targets == (
+        AnalyzerTarget(
+            resource_ref="res-aks",
+            resource_kind="aks_cluster",
+            resource_type="kubernetes-cluster",
+            provider_query_ref="/providers/example/resources/res-aks",
+        ),
+    )
     assert resolution.inventory_consulted is False
     assert resolution.discovered == 0
 
@@ -419,9 +958,185 @@ async def test_discovered_targets_are_bounded_and_report_truncation() -> None:
 
     resolution = await _resolve(store, max_discovered=2)
 
-    assert store.limits == [3]
+    assert store.limits == [INVENTORY_SCAN_LIMIT]
     assert [item.resource_ref for item in resolution.targets] == ["res-00", "res-01"]
     assert resolution.truncated is True
+    assert [item.to_dict() for item in resolution.resource_types] == [
+        {
+            "resource_type": "kubernetes-cluster",
+            "candidate_count": 5,
+            "selected_count": 2,
+            "held_count": 3,
+            "held_reason_counts": {HOLD_SELECTION_LIMIT: 3},
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_duplicate_discovered_candidate_is_selected_once_and_explained() -> None:
+    store = StubStore(
+        (
+            _resource("res-00", "kubernetes-cluster", state_fact=_state_fact()),
+            _resource("res-00", "kubernetes-cluster", state_fact=_state_fact()),
+        )
+    )
+
+    resolution = await _resolve(store)
+
+    assert [item.resource_ref for item in resolution.targets] == ["res-00"]
+    assert resolution.discovered == 1
+    assert [item.to_dict() for item in resolution.resource_types] == [
+        {
+            "resource_type": "kubernetes-cluster",
+            "candidate_count": 2,
+            "selected_count": 1,
+            "held_count": 1,
+            "held_reason_counts": {HOLD_DUPLICATE_CANDIDATE: 1},
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_duplicate_identity_with_conflicting_types_degrades_coverage() -> None:
+    store = StubStore(
+        (
+            _resource("res-00", "kubernetes-cluster", state_fact=_state_fact()),
+            _resource("res-00", "mysql-server", state_fact=_state_fact()),
+        )
+    )
+    reader = StubProviderReferenceReader(
+        {
+            "res-00": ResourceRecord(
+                resource_id="res-00",
+                type="kubernetes-cluster",
+                provider_ref="/providers/example/resources/res-00",
+            )
+        }
+    )
+
+    resolution = await _resolve(store, provider_references=reader)
+
+    assert [item.resource_ref for item in resolution.targets] == ["res-00"]
+    assert resolution.resource_types == ()
+    assert resolution.coverage_unavailable_reason == "candidate_resource_type_conflict"
+
+
+@pytest.mark.asyncio
+async def test_incomplete_inventory_source_is_preserved_in_resolution() -> None:
+    store = StubStore(
+        (_resource("res-00", "kubernetes-cluster", state_fact=_state_fact()),),
+        source_complete=False,
+    )
+
+    resolution = await _resolve(store)
+
+    assert resolution.source_complete is False
+
+
+@pytest.mark.asyncio
+async def test_withheld_targets_do_not_require_provider_identity_reads() -> None:
+    store = StubStore(
+        (
+            _resource("res-00", "kubernetes-cluster", state_fact=_state_fact()),
+            _resource("res-01", "mysql-server", state_fact=_state_fact()),
+        )
+    )
+    reader = StubProviderReferenceReader(
+        {
+            "res-00": ResourceRecord(
+                resource_id="res-00",
+                type="kubernetes-cluster",
+                provider_ref="/providers/example/resources/res-00",
+            )
+        }
+    )
+
+    resolution = await _resolve(
+        store,
+        max_discovered=1,
+        provider_references=reader,
+    )
+
+    assert [item.resource_ref for item in resolution.targets] == ["res-00"]
+    assert reader.requests == [("res-00",)]
+    assert resolution.truncated is True
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_custom_kind_does_not_guess_a_resource_type() -> None:
+    target = AnalyzerTarget(
+        resource_ref="resource-custom",
+        resource_kind="custom_kind",
+        provider_query_ref="/providers/example/resources/resource-custom",
+    )
+
+    resolution = await resolve_analyzer_targets(
+        configured=(target,),
+        store=None,
+        now=NOW,
+        analyzer_kinds={
+            "custom.type-a": "custom_kind",
+            "custom.type-b": "custom_kind",
+        },
+    )
+
+    assert resolution.targets[0].resource_type is None
+    assert resolution.resource_types == ()
+    assert resolution.coverage_unavailable_reason == "configured_resource_type_absent"
+
+
+@pytest.mark.asyncio
+async def test_configured_duplicates_do_not_report_false_truncation() -> None:
+    configured = (AnalyzerTarget(resource_ref="res-01", resource_kind="aks_cluster"),)
+    store = StubStore(
+        (
+            _resource("res-00", "mysql-server", state_fact=_state_fact()),
+            _resource("res-01", "kubernetes-cluster", state_fact=_state_fact()),
+        )
+    )
+
+    resolution = await _resolve(
+        store,
+        configured=configured,
+        max_discovered=1,
+    )
+
+    assert [item.resource_ref for item in resolution.targets] == ["res-01", "res-00"]
+    assert resolution.truncated is False
+
+
+@pytest.mark.asyncio
+async def test_unmapped_resources_do_not_starve_later_supported_targets() -> None:
+    records = (
+        *(
+            _resource(f"res-unmapped-{index:04d}", "disk", state_fact=_state_fact())
+            for index in range(INVENTORY_SCAN_LIMIT + 250)
+        ),
+        _resource("res-supported-1", "kubernetes-cluster", state_fact=_state_fact()),
+        _resource("res-supported-2", "mysql-server", state_fact=_state_fact()),
+    )
+    store = StubStore(records)
+
+    resolution = await _resolve(store, max_discovered=2)
+
+    assert store.limits == [INVENTORY_SCAN_LIMIT]
+    assert store.property_text_filters == [
+        {
+            "type": (
+                "api-gateway",
+                "kubernetes-cluster",
+                "llm-endpoint",
+                "mysql-server",
+                "network.application-gateway",
+            )
+        }
+    ]
+    assert [item.resource_ref for item in resolution.targets] == [
+        "res-supported-1",
+        "res-supported-2",
+    ]
+    assert resolution.truncated is False
+    assert resolution.skipped_reasons == ()
 
 
 @pytest.mark.asyncio
@@ -438,7 +1153,7 @@ async def test_the_bound_stays_inside_the_durable_store_query_limit() -> None:
 
     await _resolve(store, max_discovered=999)
 
-    assert store.limits == [1000]
+    assert store.limits == [INVENTORY_SCAN_LIMIT]
     with pytest.raises(ValueError, match="max_discovered"):
         await _resolve(store, max_discovered=1000)
 

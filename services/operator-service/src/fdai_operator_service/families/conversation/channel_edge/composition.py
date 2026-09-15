@@ -13,7 +13,21 @@ from fdai_operator_service.adapters.semantic_kafka import (
     OperatorSemanticKafkaConfig,
 )
 from fdai_operator_service.families.conversation.channel_delivery_models import ChannelKind
+from fdai_operator_service.families.conversation.channel_edge.attachment_handoff import (
+    AzureAttachmentTokenProvider,
+    BoundedAttachmentSpool,
+    ChannelAttachmentFetcher,
+    ChannelAttachmentIntakeClient,
+    ConfiguredTeamsAttachmentEndpointResolver,
+    SlackPrivateAttachmentFetcher,
+    StaticSlackBotTokenProvider,
+    TeamsPrivateAttachmentFetcher,
+)
+from fdai_operator_service.families.conversation.channel_edge.attachment_ingestion import (
+    ChannelAttachmentIngestor,
+)
 from fdai_operator_service.families.conversation.channel_edge.environment import (
+    ChannelEdgeConfigurationError,
     ChannelEdgeEnvironment,
     PrincipalScopeSettings,
 )
@@ -147,6 +161,7 @@ class ProductionChannelEdgeComposition:
         publishers: dict[ChannelKind, ChannelPublisher] = {}
         resources: list[AsyncResource] = [provider_http]
         startup_checks = []
+        attachment_readiness_checks = []
         slack_queue = None
         if environment.slack is not None:
             slack = environment.slack
@@ -156,6 +171,7 @@ class ProductionChannelEdgeComposition:
                         signing_secret=slack.signing_secret,
                         team_id=slack.team_id,
                         principal_by_sender_id=slack.principal_by_sender_id,
+                        attachments_enabled=environment.attachments_enabled,
                     )
                 )
             )
@@ -178,6 +194,7 @@ class ProductionChannelEdgeComposition:
                         tenant_id=teams.tenant_id,
                         allowed_service_urls=teams.allowed_service_urls,
                         principal_by_aad_object_id=teams.principal_by_aad_object_id,
+                        attachments_enabled=environment.attachments_enabled,
                     ),
                     tokens=TeamsServiceTokenVerifier(
                         config=TeamsTokenConfig(application_id=teams.application_id),
@@ -193,6 +210,68 @@ class ProductionChannelEdgeComposition:
                 identity=token_provider,
                 endpoints=endpoints,
             )
+        attachment_ingestor = None
+        if environment.attachments is not None:
+            attachment = environment.attachments
+            attachment_http = httpx.AsyncClient(
+                trust_env=False,
+                follow_redirects=False,
+                timeout=httpx.Timeout(30.0, connect=5.0),
+                limits=httpx.Limits(max_connections=8, max_keepalive_connections=4),
+            )
+            intake_http = httpx.AsyncClient(
+                trust_env=False,
+                follow_redirects=False,
+                timeout=httpx.Timeout(30.0, connect=5.0),
+                limits=httpx.Limits(max_connections=8, max_keepalive_connections=4),
+            )
+            attachment_tokens = AzureAttachmentTokenProvider(_attachment_credential(environment))
+            resources.extend((attachment_http, intake_http, attachment_tokens))
+            spool = BoundedAttachmentSpool(scratch_directory=attachment.scratch_directory)
+            fetchers: dict[ChannelKind, ChannelAttachmentFetcher] = {}
+            if environment.slack is not None:
+                if attachment.slack_files_info_url is None:
+                    raise ChannelEdgeConfigurationError(
+                        "Slack attachment metadata endpoint is unavailable"
+                    )
+                fetchers[ChannelKind.SLACK] = SlackPrivateAttachmentFetcher(
+                    http_client=attachment_http,
+                    tokens=StaticSlackBotTokenProvider(environment.slack.bot_token),
+                    spool=spool,
+                    files_info_url=attachment.slack_files_info_url,
+                    metadata_hosts=attachment.slack_metadata_hosts,
+                    download_hosts=attachment.slack_download_hosts,
+                )
+            if environment.teams is not None:
+                if attachment.teams_url_template is None or attachment.teams_audience is None:
+                    raise ChannelEdgeConfigurationError(
+                        "Teams attachment endpoint resolver is unavailable"
+                    )
+                fetchers[ChannelKind.TEAMS] = TeamsPrivateAttachmentFetcher(
+                    http_client=attachment_http,
+                    tokens=attachment_tokens,
+                    resolver=ConfiguredTeamsAttachmentEndpointResolver(
+                        url_template=attachment.teams_url_template,
+                        audience=attachment.teams_audience,
+                    ),
+                    spool=spool,
+                    allowed_hosts=attachment.teams_hosts,
+                    allowed_audiences=attachment.teams_audiences,
+                )
+            intake_client = ChannelAttachmentIntakeClient(
+                http_client=intake_http,
+                tokens=attachment_tokens,
+                origin=attachment.intake_origin,
+                audience=attachment.intake_audience,
+                allow_loopback_http=(environment.execution_venue is ExecutionVenue.LOCAL),
+            )
+            attachment_readiness_checks.append(intake_client.probe_readiness)
+            attachment_ingestor = ChannelAttachmentIngestor(
+                intake=intake_client,
+                fetchers=fetchers,
+                principal_manifest_digest=attachment.principal_manifest_digest,
+                max_content_bytes=attachment.max_content_bytes,
+            )
         pipeline = ChannelDeliveryPipeline(
             messages=messages,
             principals=StaticChannelPrincipalResolver(environment.principal_scopes),
@@ -201,6 +280,7 @@ class ProductionChannelEdgeComposition:
             semantic_outbox=semantic_bridge,
             semantic_streams=semantic_bridge,
             publishers=publishers,
+            attachment_ingestor=attachment_ingestor,
         )
         worker = ChannelDeliveryWorker(
             store=deliveries,
@@ -227,6 +307,7 @@ class ProductionChannelEdgeComposition:
                 bindings.probe_readiness,
                 deliveries.probe_readiness,
                 semantic_bus.probe_readiness,
+                *attachment_readiness_checks,
             ),
             startup_checks=tuple(startup_checks),
             resources=tuple(resources),
@@ -262,6 +343,23 @@ def _teams_credential(
     return (
         ManagedIdentityCredential(client_id=client_id) if client_id else ManagedIdentityCredential()
     )
+
+
+def _attachment_credential(
+    environment: ChannelEdgeEnvironment,
+) -> ClientSecretCredential | ManagedIdentityCredential:
+    settings = environment.attachments
+    if settings is None:
+        raise RuntimeError("attachment credential requested while attachments are disabled")
+    if environment.execution_venue is ExecutionVenue.LOCAL:
+        if settings.tenant_id is None or settings.client_secret is None:
+            raise RuntimeError("validated local attachment identity is incomplete")
+        return ClientSecretCredential(
+            tenant_id=settings.tenant_id,
+            client_id=settings.client_id,
+            client_secret=settings.client_secret,
+        )
+    return ManagedIdentityCredential(client_id=settings.client_id)
 
 
 __all__ = ["ProductionChannelEdgeComposition", "StaticChannelPrincipalResolver"]

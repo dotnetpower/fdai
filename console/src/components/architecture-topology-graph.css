@@ -1,0 +1,335 @@
+.architecture-topology-graph {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.architecture-topology-scroll {
+  min-width: 0;
+  height: clamp(540px, calc(100vh - 300px), 760px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  touch-action: none;
+  cursor: grab;
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--accent) 4.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 4.5%, transparent) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.architecture-topology-scroll.is-panning {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.architecture-topology-svg {
+  display: block;
+  margin: 0 auto;
+}
+
+.architecture-topology-tools {
+  position: absolute;
+  z-index: 6;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  background: color-mix(in srgb, var(--bg-elevated) 96%, transparent);
+  box-shadow: var(--cs-shadow);
+}
+
+.architecture-topology-tools button,
+.architecture-topology-tools output {
+  display: grid;
+  min-width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  background: var(--bg-elevated);
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--cs-type-label-size);
+  font-weight: 700;
+}
+
+.architecture-topology-tools button {
+  cursor: pointer;
+}
+
+.architecture-topology-tools button:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.architecture-topology-tools button:hover:not(:disabled),
+.architecture-topology-tools button:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  outline-offset: 1px;
+}
+
+.architecture-topology-tools output {
+  min-width: 48px;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.architecture-topology-region {
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.architecture-topology-region > rect {
+  fill: color-mix(in srgb, var(--accent) 2%, var(--bg-elevated));
+  stroke: color-mix(in srgb, var(--fg-muted) 55%, var(--border));
+  stroke-width: 1.25px;
+  vector-effect: non-scaling-stroke;
+}
+
+.architecture-topology-region[data-region-depth="1"] > rect {
+  fill: color-mix(in srgb, var(--accent) 3.5%, var(--bg-elevated));
+  stroke-dasharray: 5 3;
+}
+
+.architecture-topology-region[data-region-depth="2"] > rect,
+.architecture-topology-region[data-resource-type="network.subnet"] > rect,
+.architecture-topology-region[data-resource-type="subnet"] > rect {
+  fill: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated));
+  stroke-dasharray: 3 3;
+}
+
+.architecture-topology-region > text {
+  fill: var(--fg-muted);
+  font-size: .26px;
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+.architecture-topology-link path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.architecture-topology-link-halo {
+  stroke: var(--bg-elevated);
+  stroke-width: 6px;
+  opacity: .94;
+}
+
+.architecture-topology-link-path {
+  stroke: #637c93;
+  stroke-width: 2px;
+}
+
+.architecture-topology-link.is-attached_to .architecture-topology-link-path {
+  stroke: #12715a;
+  stroke-width: 2.5px;
+}
+
+.architecture-topology-link.is-peered_with .architecture-topology-link-path {
+  stroke: #315f82;
+  stroke-width: 2.5px;
+}
+
+.architecture-topology-svg marker path {
+  fill: #637c93;
+}
+
+.architecture-topology-endpoint-halo {
+  fill: var(--bg-elevated);
+}
+
+.architecture-topology-endpoint {
+  fill: #12715a;
+}
+
+.architecture-topology-node {
+  cursor: pointer;
+}
+
+.architecture-topology-node-target {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.architecture-topology-node-surface {
+  fill: var(--bg-elevated);
+  stroke: color-mix(in srgb, var(--fg-muted) 55%, var(--border));
+  stroke-width: 1.25px;
+  vector-effect: non-scaling-stroke;
+}
+
+.architecture-topology-node-icon {
+  pointer-events: none;
+}
+
+.architecture-topology-node-glyph {
+  fill: var(--accent-strong, var(--accent));
+  font-size: .2px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+.architecture-topology-node-name {
+  fill: var(--fg);
+  font-size: .22px;
+  font-weight: 750;
+}
+
+.architecture-topology-node-type {
+  fill: var(--fg-muted);
+  font-size: .16px;
+  font-weight: 650;
+}
+
+.architecture-topology-node-count circle {
+  fill: var(--fg);
+}
+
+.architecture-topology-node-count text {
+  fill: var(--bg-elevated);
+  font-size: .15px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+.architecture-topology-region.is-selected > rect,
+.architecture-topology-node.is-selected > .architecture-topology-node-surface {
+  stroke: var(--accent);
+  stroke-width: 3px;
+  stroke-dasharray: none;
+}
+
+.architecture-topology-resource:focus {
+  outline: none;
+}
+
+.architecture-topology-region:focus-visible > rect,
+.architecture-topology-node:focus-visible > .architecture-topology-node-surface {
+  stroke: var(--accent);
+  stroke-width: 3px;
+}
+
+.architecture-topology-resource.is-muted,
+.architecture-topology-link.is-muted {
+  opacity: .28;
+}
+
+.architecture-topology-legend {
+  position: absolute;
+  z-index: 5;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  background: color-mix(in srgb, var(--bg-elevated) 96%, transparent);
+  box-shadow: var(--cs-shadow);
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+  font-weight: 700;
+}
+
+.architecture-topology-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.architecture-topology-legend i {
+  display: inline-block;
+  width: 22px;
+  height: 8px;
+}
+
+.architecture-topology-legend .is-dependency {
+  border-top: 2px solid #637c93;
+}
+
+.architecture-topology-legend .is-attachment {
+  border-top: 3px solid #12715a;
+}
+
+.architecture-topology-legend .is-peering {
+  border-top: 3px double #315f82;
+}
+
+.architecture-topology-legend .is-boundary {
+  border: 1px dashed var(--fg-muted);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.architecture-topology-graph:fullscreen {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.architecture-topology-graph:fullscreen .architecture-topology-scroll {
+  flex: 1 1 auto;
+  height: 100%;
+  max-height: none;
+}
+
+.architecture-topology-graph.is-impact .architecture-topology-scroll {
+  height: min(620px, 66vh);
+  min-height: 430px;
+}
+
+@media (max-width: 640px) {
+  .architecture-topology-scroll {
+    height: 480px;
+  }
+
+  .architecture-topology-tools {
+    top: 8px;
+    right: 8px;
+  }
+
+  .architecture-topology-tools button,
+  .architecture-topology-tools output {
+    min-width: 44px;
+    height: 44px;
+  }
+
+  .architecture-topology-tools output {
+    display: none;
+  }
+
+  .architecture-topology-legend {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    max-width: calc(100% - 16px);
+    gap: 8px 12px;
+  }
+}
+
+@media (forced-colors: active) {
+  .architecture-topology-region > rect,
+  .architecture-topology-node-surface,
+  .architecture-topology-link-path {
+    stroke: CanvasText;
+  }
+}

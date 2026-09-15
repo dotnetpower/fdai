@@ -28,6 +28,7 @@ from fdai_deployment_cli.foundation_failure import foundation_failure_summary
 from fdai_deployment_cli.foundation_output import foundation_output
 from fdai_deployment_cli.foundation_process import run_foundation_process
 from fdai_deployment_cli.private_output import read_private_bytes
+from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.standalone_application import deploy_standalone_application
 from fdai_deployment_cli.standalone_status import current_status, prior_attempt
 
@@ -72,6 +73,8 @@ def deploy_azure_foundation(
     timeout_seconds: int,
     license_signing_key: Path | None,
     trial_token: Path | None,
+    runtime_profile: RuntimeDeploymentProfile | None = None,
+    adopt_runner_image_receipt: Path | None = None,
     adopt_application_state: Path | None = None,
     adopt_application_recovery: Path | None = None,
     adopt_resolved_models: Path | None = None,
@@ -79,6 +82,10 @@ def deploy_azure_foundation(
     """Advance one standalone deployment through verified application convergence."""
 
     deadline = DeploymentDeadline(timeout_seconds, clock=time.monotonic)
+    selected_runtime = runtime_profile or RuntimeDeploymentProfile.create(
+        runtime_platform="container-apps",
+        database_placement="postgres-flex",
+    )
     begin_stage("azure")
     progress_detail("Checking the active Azure CLI human identity")
     target = active_azure_target()
@@ -135,7 +142,26 @@ def deploy_azure_foundation(
             monthly_cost_ceiling=monthly_cost_ceiling,
             connectivity="online" if online else "offline",
             root=work_dir / "run",
+            create_runner_image=adopt_runner_image_receipt is None,
         )
+        foundation_variables = prepared.variables
+        if adopt_runner_image_receipt is not None:
+            runner_image = importlib.import_module("genesis_runner_image_contract")
+            foundation_variables = prepared.root / "foundation-with-runner-image.json"
+            if foundation_variables.exists():
+                runner_image.verify_foundation_image_input(
+                    source=prepared.variables,
+                    image_receipt=adopt_runner_image_receipt,
+                    profile_path=prepared.profile,
+                    destination=foundation_variables,
+                )
+            else:
+                runner_image.materialize_foundation_image_input(
+                    source=prepared.variables,
+                    image_receipt=adopt_runner_image_receipt,
+                    profile_path=prepared.profile,
+                    destination=foundation_variables,
+                )
     finally:
         sys.path.remove(str(scripts))
     source_evidence = json.dumps(
@@ -179,10 +205,16 @@ def deploy_azure_foundation(
             "--foundation-profile",
             str(prepared.profile),
             "--foundation-variables-file",
-            str(prepared.variables),
-            "--create-runner-image",
-            "--runner-image-terraform",
-            str(prepared.terraform),
+            str(foundation_variables),
+            *(
+                ()
+                if adopt_runner_image_receipt is not None
+                else (
+                    "--create-runner-image",
+                    "--runner-image-terraform",
+                    str(prepared.terraform),
+                )
+            ),
             "--runner-ssh-private-key",
             str(prepared.ssh_private_key),
             *(("--approval-file", str(approval)) if approval.exists() else ()),
@@ -265,6 +297,7 @@ def deploy_azure_foundation(
                 license_signing_key=license_signing_key,
                 trial_token=trial_token,
                 timeout_seconds=deadline.remaining(),
+                runtime_profile=selected_runtime,
                 application_state_adoption=adoption,
             )
             deadline.remaining()
@@ -276,6 +309,9 @@ def deploy_azure_foundation(
                 "runtime_release_digest": kit.runtime.digest,
                 "foundation_state_receipt_digest": foundation["foundation_state_receipt_digest"],
                 "application_receipt_digest": application["receipt_digest"],
+                "runtime_profile_digest": selected_runtime.digest,
+                "runtime_platform": selected_runtime.runtime_platform.value,
+                "database_placement": selected_runtime.database_placement.value,
                 "application_converged": True,
                 "deployment_ready": True,
                 "license_mode": application["license_mode"],

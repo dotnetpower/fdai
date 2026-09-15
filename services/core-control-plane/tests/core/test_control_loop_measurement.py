@@ -153,6 +153,7 @@ async def test_every_terminal_return_is_recorded_once_without_changing_result(
     assert rows[0]["idempotency_key"] == event.idempotency_key
     assert rows[0]["gate_route"] == expected.decision
     assert rows[0]["actor"] == "fdai.measurement"
+    assert rows[0]["owner_agent"] == "Heimdall"
     assert ControlLoopMeasurement.from_audit_entry(rows[0]).measurement_id == (
         control_loop_measurement_id(event.idempotency_key)
     )
@@ -169,11 +170,23 @@ def test_tier_is_explicit_or_unknown_and_does_not_imply_success(tier: str, mode:
     result = _result(ControlLoopOutcome.EXECUTED, tier, "auto")
     measurement = build_control_loop_measurement(event, result, recorded_at=NOW)
     row = control_loop_measurement_audit_entry(measurement)
+    assert row["owner_agent"] == "Heimdall"
     assert row["tier"] == (tier if tier in {"t0", "t1", "t2"} else None)
     assert row["mode"] == mode.value
     assert row["terminal_outcome"] == "executed"
     assert row["gate_route"] == "auto"
     assert not {"success", "verification_passed", "scorable", "execution_results"} & row.keys()
+
+
+def test_audit_parser_accepts_legacy_owner_gap_and_rejects_wrong_owner() -> None:
+    measurement = build_control_loop_measurement(_event(), _result(), recorded_at=NOW)
+    row = control_loop_measurement_audit_entry(measurement)
+    legacy = dict(row)
+    legacy.pop("owner_agent")
+
+    assert ControlLoopMeasurement.from_audit_entry(legacy) == measurement
+    with pytest.raises(ValueError, match="owner agent"):
+        ControlLoopMeasurement.from_audit_entry({**row, "owner_agent": "Norns"})
 
 
 @pytest.mark.parametrize("marker", [True, False, None, "false", 0, 1])

@@ -78,6 +78,7 @@ LEGACY_ROUTE_SNAPSHOT = {
     (("GET", "HEAD"), "/views/process", "list_processes"),
     (("GET", "HEAD"), "/views/process/{process_id:str}", "render_process"),
     (("GET", "HEAD"), "/views/process/{process_id:str}/events", "process_events"),
+    (("GET", "HEAD"), "/detection-coverage", "handler"),
     (("GET", "HEAD"), "/detection-readiness", "handler"),
     (("GET", "HEAD"), "/automation-blueprints", "handler"),
     (("POST",), "/automation-blueprints/accept", "handler"),
@@ -228,7 +229,7 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 41
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 42
 
 
 def test_recorded_state_route_is_authenticated_and_preserves_bounded_query_context() -> None:
@@ -435,7 +436,8 @@ def test_projection_requires_reader_bounds_pagination_and_redacts() -> None:
     )
 
 
-def test_detection_lifecycle_projection_requires_an_authenticated_reader() -> None:
+@pytest.mark.parametrize("path", ("/detection-coverage", "/detection-readiness"))
+def test_detection_lifecycle_projection_requires_an_authenticated_reader(path: str) -> None:
     dependencies = RecordingDependencies()
     dependencies.projections["detection.readiness"] = {
         "source": "postgresql:state_kv:detection-readiness",
@@ -447,8 +449,8 @@ def test_detection_lifecycle_projection_requires_an_authenticated_reader() -> No
     }
     client = _client(dependencies)
 
-    assert client.get("/detection-readiness").status_code == 401
-    response = client.get("/detection-readiness", headers=HEADERS)
+    assert client.get(path).status_code == 401
+    response = client.get(path, headers=HEADERS)
 
     assert response.status_code == 200
     assert response.json()["lifecycle"]["targets"] == []

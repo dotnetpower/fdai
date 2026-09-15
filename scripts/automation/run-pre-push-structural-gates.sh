@@ -11,6 +11,7 @@ fi
 
 for gate_path in \
   scripts/quality/architecture/check-agents-imports.sh \
+  scripts/quality/architecture/check-action-type-runtime-support.py \
   scripts/quality/architecture/check-design-routes.py \
   scripts/quality/architecture/check-evaluation-boundaries.py \
   scripts/quality/architecture/check-fork-runtime-independence.py \

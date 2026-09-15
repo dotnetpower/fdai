@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: c13ef429e988728e6b552b9e27767283934210ed
-translation_revised: 2026-08-31
+translation_source_sha: 747f7ed47642dc3b03fe2a329176dab09baa28c5
+translation_revised: 2026-09-14
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -317,7 +317,7 @@ model 실행, catalog 업로드, 승인, restore, migration 또는 managed-resou
 | 종속 항목 | `schema_version`, `_revision`, 정확한 release와 선언 신원, `complete`, `truncated`, nullable `truncation_reason`, 결정론적 `dependents`, `mutation_authority=false`입니다. 각 종속 항목은 `kind`, `name`, `relationship`, `evidence_ref`를 포함하며 카탈로그 토폴로지 간선만 행을 만들 수 있습니다. |
 | 근거 상태 | `schema_version`, `_revision`, `ontology_release_digest`, `object_type`, `availability`, nullable `unavailable_reason`, 정제된 `source`, `freshness_state`, `complete`, `truncated`, nullable `synthetic`, 충돌, 제외 사유, nullable 표시 수, 근거 참조 및 `false`로 고정된 두 권한 플래그입니다. 원본을 사용할 수 없으면 0이 아니라 null count를 반환합니다. |
 | Release diff | `schema_version`, 정확한 base/candidate release 다이제스트, `added`, `changed`, `removed`, `compatibility_verdict`, `migration_required`, nullable `breaking_change`, `historical_schema_detail`, `unbound_historical_evidence`, 결정론적 `diff_digest`, `mutation_authority=false`입니다. 보존된 선언 참조는 호환성 검토를 지원하지만 과거 field-level schema를 재구성하지 않습니다. |
-| 런타임 영향 범위 | `schema_version`, 정확한 온톨로지 release, `source_generation`, `source_cutoff`, 정확한 대상, 탐색 깊이와 LinkType, 도달한 노드, 탐색한 간선, 영향받는 수, 완전성, 깊이/간선 잘림 사유 및 `false`로 고정된 두 권한 플래그입니다. 모든 간선은 표시되는 `verification_status`를 포함하며 선택적 map은 같은 스냅샷 generation 또는 cutoff와 일치해야 합니다. |
+| 런타임 영향 범위 | 스키마 `1.1.0`은 `1.0.0` 묶음에 `relationship_evidence_complete`, `relationship_source_coverage` 및 각 간선의 범위가 제한된 `evidence` 객체를 추가합니다. 두 버전 모두 `schema_version`, 정확한 온톨로지 release, `source_generation`, `source_cutoff`, 정확한 대상, 탐색 깊이와 순서가 있는 LinkType, 도달한 노드, 탐색한 간선, 영향받는 수, 쿼리 완전성, 깊이/간선 잘림 사유 및 `false`로 고정된 두 권한 플래그를 유지합니다. 모든 간선은 표시되는 `verification_status`를 포함하며 선택적 지도는 같은 스냅샷 generation 또는 cutoff와 일치하고 정확한 시뮬레이션 결과의 모든 Resource와 간선을 포함해야 합니다. 관계 원본 범위가 없거나 불완전하면 구성 근거를 검증에 사용할 수 없는 상태로 유지하면서 범위가 제한된 출처 이력 필드와 정확한 복구 사유를 보존합니다. |
 
 공통 상세 `_revision`과 종속 항목 `_revision`은 canonical 변환 결과 byte의 SHA-256
 다이제스트입니다. Release diff는 비교한 pair에 `diff_digest`를 사용합니다. 런타임 영향 범위는

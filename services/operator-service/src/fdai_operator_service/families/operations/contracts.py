@@ -6,9 +6,14 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from fdai_service_contracts import OperatorRole
+
+if TYPE_CHECKING:
+    from fdai_operator_service.families.operations.instance_states import (
+        InventoryOntologyContext,
+    )
 
 
 class ProjectionUnavailableError(RuntimeError):
@@ -92,9 +97,13 @@ class InventoryRelationshipCoverage:
             ("unclassified", self.unclassified),
             ("total_candidates", self.total_candidates),
         ):
-            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or not 0 <= value <= 2_147_483_647
+            ):
                 raise ValueError(
-                    f"inventory relationship coverage {field_name} MUST be a non-negative count"
+                    f"inventory relationship coverage {field_name} MUST be a bounded count"
                 )
         if self.total_candidates != (
             self.materialized + self.reviewed_unavailable + self.unclassified
@@ -158,6 +167,20 @@ class InventoryImpactEdge:
     source: str
     target: str
     link_type: str
+    evidence: InventoryRelationshipEvidence | None = None
+
+    def __post_init__(self) -> None:
+        for field_name, value, maximum in (
+            ("source", self.source, 1_024),
+            ("target", self.target, 1_024),
+            ("link_type", self.link_type, 256),
+        ):
+            if not value.strip() or len(value) > maximum:
+                raise ValueError(
+                    f"inventory impact edge {field_name} MUST be bounded non-empty text"
+                )
+        if self.source == self.target:
+            raise ValueError("inventory impact edge MUST NOT be a self-link")
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,8 +198,21 @@ class InventoryImpactReader(Protocol):
         """Return the active complete inventory generation, if one exists."""
         ...
 
+    async def read_inventory_ontology_context(self) -> InventoryOntologyContext | None:
+        """Return the exact ontology projection committed for the inventory generation."""
+        ...
+
     async def inventory_resource_exists(self, *, snapshot_id: str, resource_id: str) -> bool:
         """Return whether one exact Resource identity exists in the active snapshot."""
+        ...
+
+    async def inventory_resources_exist(
+        self,
+        *,
+        snapshot_id: str,
+        resource_ids: tuple[str, ...],
+    ) -> bool:
+        """Return whether every bounded Resource identity exists in the selected snapshot."""
         ...
 
     async def read_inventory_outgoing_links(
@@ -237,6 +273,32 @@ class InventoryRelationshipEvidence:
     freshness_ceiling_seconds: int
     evidence_kind: str = "configuration"
     evidence_cutoff: datetime | None = None
+
+    def __post_init__(self) -> None:
+        for field_name, value in (
+            ("source_identity", self.source_identity),
+            ("source_property_path", self.source_property_path),
+            ("mapping_id", self.mapping_id),
+            ("evidence_method", self.evidence_method),
+        ):
+            if not value.strip() or len(value) > 512:
+                raise ValueError(
+                    f"inventory relationship evidence {field_name} MUST be bounded non-empty text"
+                )
+        if (
+            isinstance(self.freshness_ceiling_seconds, bool)
+            or not isinstance(self.freshness_ceiling_seconds, int)
+            or not 1 <= self.freshness_ceiling_seconds <= 31_536_000
+        ):
+            raise ValueError("inventory relationship evidence freshness MUST be in [1, 31536000]")
+        if self.evidence_kind not in {"configuration", "observation"}:
+            raise ValueError("inventory relationship evidence kind MUST be bounded")
+        if self.evidence_kind == "observation" and self.evidence_cutoff is None:
+            raise ValueError("observed inventory relationship evidence MUST carry an exact cutoff")
+        if self.evidence_cutoff is not None and (
+            self.evidence_cutoff.tzinfo is None or self.evidence_cutoff.utcoffset() is None
+        ):
+            raise ValueError("inventory relationship evidence cutoff MUST be timezone-aware")
 
 
 @dataclass(frozen=True, slots=True)

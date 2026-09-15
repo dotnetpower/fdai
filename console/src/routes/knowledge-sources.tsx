@@ -4,6 +4,7 @@ import { composeGlossary, TERMS } from "../deck/glossary";
 import { t } from "../i18n";
 import type { PanelProps } from "../panels";
 import { currentRoute, routeHref } from "../router";
+import { CloudKnowledgePanel } from "./cloud-knowledge";
 import { knowledgeText, type KnowledgeMessageKey } from "./knowledge-sources.i18n";
 
 export type KnowledgeSourceId = "documents" | "github" | "gitlab" | "azure-devops";
@@ -42,7 +43,7 @@ export const KNOWLEDGE_SOURCE_DEFINITIONS: readonly KnowledgeSourceDefinition[] 
   },
 ];
 
-export function KnowledgeOverviewRoute(_props: PanelProps) {
+export function KnowledgeOverviewRoute(props: PanelProps) {
   usePublishViewContext(
     () => ({
       routeId: "knowledge",
@@ -95,6 +96,7 @@ export function KnowledgeOverviewRoute(_props: PanelProps) {
           ))}
         </div>
       </section>
+      <CloudKnowledgePanel {...props} />
     </div>
   );
 }

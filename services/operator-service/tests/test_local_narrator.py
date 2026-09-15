@@ -496,18 +496,22 @@ async def test_narrator_failure_penalty_fails_over_and_reorders_pool(tmp_path: P
     assert "narrator-second" in client.calls[2][0]
 
 
-@pytest.mark.parametrize("field", ("image_ids", "images"))
+@pytest.mark.parametrize("field", ("image_ids", "images", "attachments"))
 async def test_narrator_image_turn_requires_server_owned_resolution(
     tmp_path: Path,
     field: str,
 ) -> None:
     client = RecordingHttpClient()
     fallback = FallbackAdapters()
+
+    async def forbidden_token(_audience: str) -> str:
+        raise AssertionError("unsupported images MUST fail before credential acquisition")
+
     adapter = LocalAzureNarratorAdapters.from_environment(
         {"LLM_RESOLVED_MODELS_PATH": str(_pool_artifact(tmp_path / "models.json", vision=True))},
         fallback_projections=fallback,
         fallback_streams=fallback,
-        token_provider=lambda _audience: _token(),
+        token_provider=forbidden_token,
         http_client=client,
     )
 

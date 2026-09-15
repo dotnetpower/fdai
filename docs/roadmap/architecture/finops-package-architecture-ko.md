@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: e5d5cd2d360e67410fb1c61380918c8c2f7369a8
+translation_source_sha: e9acdd33f4c2c8bd0bf2dcacf2d4e0fae6be5763
 translation_revised: 2026-09-15
 ---
 
@@ -23,7 +23,8 @@ translation_revised: 2026-09-15
 > **현재 상태:** FDAI에는 이제 독립적인 `fdai-cost-governance` wheel, source distribution,
 > 이미지 프로파일, 정확한 온톨로지 프로파일, 원자적인 disabled-first 패키지 수명 주기,
 > 패키지 소유 카탈로그 자산, gate가 적용된 Operator 및 Console 변환 결과와 로컬 W0-W7 검증
-> 메커니즘이 있습니다. Shared Operator 조립은 관련 없는 이벤트 버스 worker를 감독할 수 있지만
+> 메커니즘이 있습니다. 공용 Console 카탈로그 source 및 패널 레지스트리 검사기는 저장소 검증만 담당하며, FinOps와 무관한 컴포넌트 또는 레이블 변경은
+> Cost Governance 패키지, 활성화 상태 또는 권한에 포함되지 않습니다. Shared Operator 조립은 관련 없는 이벤트 버스 worker를 감독할 수 있지만
 > Cost Governance 자산을 활성화, 구성, 게시하거나 대화 fallback stream을 통해 바꿀 수 없습니다.
 > 보낼 편지함 수명 주기 facade는 관련 없는 Incident 개입 작업자도 제공합니다. 해당 수명
 > 주기와 준비 상태는 Cost Governance 패키지를 활성화하거나 Njord 소유 레코드를 게시할 수
@@ -263,6 +264,12 @@ Operator 의미 스트림의 대체 경로도 호스트 연결부로 유지됩�
 변경하지 않습니다.
 공유 온톨로지 무효화 스트림도 인증된 읽기 재현에만 `Last-Event-ID`를 허용합니다. Cost
 Governance 경로를 등록하거나 패키지 데이터 접근 범위를 넓히지 않습니다.
+공유 분석기 커버리지, 운영 활동 스냅샷 및 영향 범위 관계 근거 연결도 호스트 기능입니다. 해당
+경로, 재현 커서 및 출처 상태 판독기는 선택형 패키지를 활성화하지 않으며 패키지의 데이터, 검토,
+승격 또는 실행 권한에 들어가지 않습니다.
+서비스가 소유하는 인시던트 이메일 미리 보기도 공유 Operator 호스트 연결부로 유지됩니다. 이
+기능은 패키지에 포함된 합성 알림 HTML만 읽습니다. 비용 거버넌스 경로를 등록하거나 선택적
+패키지를 활성화하지 않으며 패키지 데이터나 권한을 공개하지 않습니다.
 초기 PostgreSQL 자격 증명 구성도 플랫폼이 소유하며, 패키지는 해당 자격 증명을 생성하거나
 읽거나 공개하거나 교체할 수 없습니다.
 Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 패키지 활성화 상태를 읽습니다. 검토된

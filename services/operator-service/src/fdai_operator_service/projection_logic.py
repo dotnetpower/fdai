@@ -13,6 +13,22 @@ from fdai_operator_service.redaction import redact_projection
 
 KPI_SAMPLE_LIMIT: Final = 500
 LLM_USAGE_DETAIL_LIMIT: Final = 500
+_TRACE_DECISION_PREFIXES: Final = (
+    "action.",
+    "effect_observation.",
+    "executor.",
+    "hil.",
+    "policy.",
+    "risk_gate.",
+)
+_TRACE_READ_PREFIXES: Final = (
+    "control_loop.",
+    "inventory.",
+    "measurement.",
+    "ontology.",
+    "read.",
+)
+_TRACE_TARGET_KEYS: Final = ("target_resource_ref", "resource_ref", "resource_id")
 
 
 def audit_item(row: Mapping[str, Any]) -> JsonObject:
@@ -76,6 +92,7 @@ def hil_item(row: Mapping[str, Any]) -> JsonObject | None:
             "reason": reasons[0] if reasons else "Approval required by the risk gate.",
             "requested_at": parked_at,
             "correlation_id": correlation_id,
+            "incident_available": row.get("incident_available") is True,
             "approval_id": approval_id,
             "action_id": _nonempty(action.get("action_id")) or "",
             "target_resource_ref": _nonempty(action.get("target_resource_ref")) or "",
@@ -289,22 +306,57 @@ def rule_fire_trace(correlation_id: str, items: Sequence[JsonObject]) -> JsonObj
         return None
     ordered = sorted(items, key=lambda item: _as_int(item["seq"]))
     steps: list[JsonObject] = []
+    entries: list[Mapping[str, object]] = []
     terminal_stage: str | None = None
     for item in ordered:
         entry = _mapping(item.get("entry"))
-        stage = _nonempty(entry.get("pipeline_stage")) or _nonempty(entry.get("stage"))
+        entries.append(entry)
+        raw_workflow_action = entry.get("workflow_action")
+        if raw_workflow_action is None:
+            workflow_action: Mapping[str, object] = {}
+        elif isinstance(raw_workflow_action, Mapping):
+            workflow_action = raw_workflow_action
+        else:
+            raise ValueError("audit trace workflow_action MUST be an object or null")
+        pipeline_stage = _optional_trace_text(entry, "pipeline_stage")
+        entry_stage = _optional_trace_text(entry, "stage")
+        if pipeline_stage is not None and entry_stage is not None and pipeline_stage != entry_stage:
+            raise ValueError("audit trace stage fields conflict")
+        stage = pipeline_stage or entry_stage
+        entry_attempt = _optional_trace_integer(entry, "attempt")
+        workflow_attempt = _optional_trace_integer(workflow_action, "attempt")
+        if any(
+            attempt is not None and attempt < 1 for attempt in (entry_attempt, workflow_attempt)
+        ):
+            raise ValueError("audit trace attempt MUST be positive")
+        if (
+            entry_attempt is not None
+            and workflow_attempt is not None
+            and entry_attempt != workflow_attempt
+        ):
+            raise ValueError("audit trace attempt fields conflict")
+        attempt = entry_attempt if entry_attempt is not None else workflow_attempt
         if stage:
             terminal_stage = stage
         steps.append(
             {
                 "seq": _as_int(item["seq"]),
+                "event_id": str(item["event_id"]),
+                "source_correlation_id": _nonempty(item.get("correlation_id")),
                 "recorded_at": str(item["recorded_at"]),
+                "actor": str(item["actor"]),
                 "stage": stage,
-                "decision": _nonempty(entry.get("decision")),
-                "reason": _nonempty(entry.get("reason")) or _nonempty(entry.get("deny_reason")),
+                "decision": _optional_trace_text(entry, "decision"),
+                "reason": _optional_trace_text(entry, "reason")
+                or _optional_trace_text(entry, "deny_reason"),
                 "action_kind": str(item["action_kind"]),
                 "mode": str(item["mode"]),
+                "action_id": _optional_trace_text(entry, "action_id"),
+                "attempt": attempt,
+                "execution_path": _optional_trace_text(entry, "execution_path"),
+                "outcome": _optional_trace_text(entry, "outcome"),
                 "entry_hash": str(item["entry_hash"]),
+                "previous_hash": str(item["previous_hash"]),
             }
         )
     return cast(
@@ -314,7 +366,88 @@ def rule_fire_trace(correlation_id: str, items: Sequence[JsonObject]) -> JsonObj
             "step_count": len(steps),
             "steps": steps,
             "terminal_stage": terminal_stage,
+            **_trace_metadata(entries, steps),
         },
+    )
+
+
+def _trace_metadata(
+    entries: Sequence[Mapping[str, object]],
+    steps: Sequence[JsonObject],
+) -> JsonObject:
+    latest = steps[-1]
+    targets = sorted(
+        {target for entry in entries if (target := _trace_target_ref(entry)) is not None}
+    )
+    action_attempts = {
+        (str(action_id), step.get("attempt"))
+        for step in steps
+        if (action_id := step.get("action_id")) is not None
+    }
+    latest_decision = next(
+        (decision for step in reversed(steps) if (decision := step.get("decision")) is not None),
+        None,
+    )
+    return cast(
+        JsonObject,
+        {
+            "trace_kind": _trace_kind(steps),
+            "source_authority": "operator-audit-log",
+            "complete": True,
+            "first_recorded_at": str(steps[0]["recorded_at"]),
+            "last_recorded_at": str(latest["recorded_at"]),
+            "latest_sequence": _as_int(latest["seq"]),
+            "latest_activity_stage": latest.get("stage"),
+            "latest_action_kind": str(latest["action_kind"]),
+            "latest_actor": str(latest["actor"]),
+            "latest_decision": latest_decision,
+            "latest_outcome": latest.get("outcome"),
+            "latest_mode": str(latest["mode"]),
+            "target_resource_ref": targets[0] if len(targets) == 1 else None,
+            "target_count": len(targets),
+            "action_attempt_count": len(action_attempts),
+            "effect_observation_count": sum(
+                _is_effect_observation(str(step["action_kind"])) for step in steps
+            ),
+            "incident_evidence_recorded": any(
+                str(step["action_kind"]).startswith("incident.")
+                or _nonempty(entry.get("incident_id")) is not None
+                for step, entry in zip(steps, entries, strict=True)
+            ),
+            "rca_evidence_recorded": any(
+                str(step["action_kind"]).startswith("rca.") for step in steps
+            ),
+        },
+    )
+
+
+def _trace_kind(steps: Sequence[JsonObject]) -> str:
+    if any(
+        step.get("decision") is not None
+        or step.get("action_id") is not None
+        or step.get("execution_path") is not None
+        or str(step["action_kind"]).startswith(_TRACE_DECISION_PREFIXES)
+        for step in steps
+    ):
+        return "decision"
+    if all(str(step["action_kind"]).startswith(_TRACE_READ_PREFIXES) for step in steps):
+        return "read"
+    return "unknown"
+
+
+def _trace_target_ref(entry: Mapping[str, object]) -> str | None:
+    for key in _TRACE_TARGET_KEYS:
+        if target := _nonempty(entry.get(key)):
+            return target
+    return None
+
+
+def _is_effect_observation(action_kind: str) -> bool:
+    lowered = action_kind.lower()
+    return (
+        lowered.startswith("effect_observation.")
+        or lowered.startswith("measurement.action_outcome")
+        or "effect.observation" in lowered
     )
 
 
@@ -336,6 +469,24 @@ def _strings(value: object) -> list[str]:
 
 def _nonempty(value: object) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _optional_trace_text(value: Mapping[str, object], key: str) -> str | None:
+    if key not in value or value[key] is None:
+        return None
+    parsed = _nonempty(value[key])
+    if parsed is None:
+        raise ValueError(f"audit trace {key} MUST be a non-empty string or null")
+    return parsed
+
+
+def _optional_trace_integer(value: Mapping[str, object], key: str) -> int | None:
+    if key not in value or value[key] is None:
+        return None
+    parsed = _integer(value[key])
+    if parsed is None:
+        raise ValueError(f"audit trace {key} MUST be an integer or null")
+    return parsed
 
 
 def _integer(value: object) -> int | None:

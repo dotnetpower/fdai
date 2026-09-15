@@ -27,6 +27,7 @@ from fdai_deployment_cli.license_issue import (
     issue_deployment_license,
 )
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
+from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.standalone_review import validate_plan_review
 from fdai_deployment_cli.target import compute_target_binding
 from fdai_deployment_cli.trust_roots import license_public_key_pem
@@ -45,11 +46,16 @@ def deploy_standalone_application(
     license_signing_key: Path | None,
     trial_token: Path | None,
     timeout_seconds: int,
+    runtime_profile: RuntimeDeploymentProfile | None = None,
     application_state_adoption: ApplicationStateAdoption | None = None,
 ) -> dict[str, object]:
     """Deploy and independently replan the application without a workflow host."""
 
     deadline = DeploymentDeadline(timeout_seconds, clock=time.monotonic)
+    selected_runtime = runtime_profile or RuntimeDeploymentProfile.create(
+        runtime_platform="container-apps",
+        database_placement="postgres-flex",
+    )
     begin_stage("transfer")
     progress_detail("Verifying the handoff and preparing the signed kit for Bastion transfer")
     report = _mapping(foundation_status.get("foundation_report"), "Foundation report")
@@ -82,6 +88,7 @@ def deploy_standalone_application(
             "target_binding": prepared.target_binding,
             "source_commit": prepared.source_commit,
             "kit_manifest_digest": prepared.kit_manifest_digest,
+            "runtime_profile_digest": selected_runtime.digest,
         }
     )[:24]
     username = str(runner["admin_username"])
@@ -125,6 +132,7 @@ def deploy_standalone_application(
             entra_path=entra_path,
             remote_entra=remote_entra,
             app_work=app_work,
+            runtime_profile=selected_runtime,
             application_state_adoption=application_state_adoption,
             remote_adoption_state=remote_adoption_state,
             remote_adoption_models=remote_adoption_models,
@@ -166,6 +174,47 @@ def deploy_standalone_application(
             substrate_approval.unlink(missing_ok=True)
             tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
         _require_receipt(substrate_receipt, "substrate")
+        if selected_runtime.runtime_platform.value == "aks":
+            begin_stage("runtime")
+            progress_detail("Preparing and planning the private AKS runtime")
+            _remote_json(
+                tunnel,
+                remote_root,
+                app_work,
+                ("prepare-runtime",),
+                timeout=1800,
+            )
+            runtime_recovery = _remote_json(
+                tunnel,
+                remote_root,
+                app_work,
+                ("recover-apply", "--stage", "runtime"),
+                timeout=3600,
+            )
+            if runtime_recovery.get("state") == "applied":
+                runtime_receipt = runtime_recovery
+            else:
+                runtime_plan = _remote_json(
+                    tunnel,
+                    remote_root,
+                    app_work,
+                    ("plan", "--stage", "runtime"),
+                    timeout=3600,
+                )
+                deadline.remaining()
+                runtime_approval = _approve_plan(prepared.root, runtime_plan, deadline=deadline)
+                tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+                tunnel.copy_to(runtime_approval, remote_approval, timeout=120)
+                runtime_receipt = _remote_json(
+                    tunnel,
+                    remote_root,
+                    app_work,
+                    ("apply", "--stage", "runtime", "--approval", remote_approval),
+                    timeout=7200,
+                )
+                runtime_approval.unlink(missing_ok=True)
+                tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+            _require_receipt(runtime_receipt, "runtime")
         binding_receipt = _remote_json(
             tunnel,
             remote_root,
@@ -190,6 +239,47 @@ def deploy_standalone_application(
         )
         image_digests = _mapping(image_receipt.get("image_digests"), "image import receipt")
         core_digest = str(image_digests["core-control-plane"]).removeprefix("sha256:")
+        if selected_runtime.database_placement.value == "postgres-aks":
+            begin_stage("database")
+            progress_detail("Preparing and planning compact in-cluster PostgreSQL")
+            _remote_json(
+                tunnel,
+                remote_root,
+                app_work,
+                ("prepare-database",),
+                timeout=1800,
+            )
+            database_recovery = _remote_json(
+                tunnel,
+                remote_root,
+                app_work,
+                ("recover-apply", "--stage", "database"),
+                timeout=3600,
+            )
+            if database_recovery.get("state") == "applied":
+                database_receipt = database_recovery
+            else:
+                database_plan = _remote_json(
+                    tunnel,
+                    remote_root,
+                    app_work,
+                    ("plan", "--stage", "database"),
+                    timeout=3600,
+                )
+                deadline.remaining()
+                database_approval = _approve_plan(prepared.root, database_plan, deadline=deadline)
+                tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+                tunnel.copy_to(database_approval, remote_approval, timeout=120)
+                database_receipt = _remote_json(
+                    tunnel,
+                    remote_root,
+                    app_work,
+                    ("apply", "--stage", "database", "--approval", remote_approval),
+                    timeout=3600,
+                )
+                database_approval.unlink(missing_ok=True)
+                tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+            _require_receipt(database_receipt, "database")
         begin_stage("capability")
         token = _license_token(
             key=license_signing_key,
@@ -239,6 +329,14 @@ def deploy_standalone_application(
             raise ValueError("standalone database and catalog bootstrap is incomplete")
         begin_stage("application")
         progress_detail("Recovering by verification, or planning the application")
+        if selected_runtime.runtime_platform.value == "aks":
+            _remote_json(
+                tunnel,
+                remote_root,
+                app_work,
+                ("prepare-application",),
+                timeout=1800,
+            )
         application_recovery = _remote_json(
             tunnel,
             remote_root,
@@ -300,10 +398,23 @@ def deploy_standalone_application(
         "source_commit": prepared.source_commit,
         "target_binding": prepared.target_binding,
         "substrate_receipt_digest": substrate_receipt["receipt_digest"],
+        "runtime_receipt_digest": (
+            runtime_receipt["receipt_digest"]
+            if selected_runtime.runtime_platform.value == "aks"
+            else ""
+        ),
+        "database_receipt_digest": (
+            database_receipt["receipt_digest"]
+            if selected_runtime.database_placement.value == "postgres-aks"
+            else ""
+        ),
         "image_import_receipt_digest": image_receipt["receipt_digest"],
         "migration_receipt_digest": migration_receipt["receipt_digest"],
         "application_receipt_digest": application_receipt["receipt_digest"],
         "verification_receipt_digest": verification["receipt_digest"],
+        "runtime_profile_digest": selected_runtime.digest,
+        "runtime_platform": selected_runtime.runtime_platform.value,
+        "database_placement": selected_runtime.database_placement.value,
         "remote_transient_cleanup_verified": True,
         "application_state_adopted": application_state_adoption is not None,
         "application_state_adoption_descriptor_digest": adoption_descriptor_digest,
@@ -331,12 +442,17 @@ def _prepare_remote(
     entra_path: Path,
     remote_entra: str,
     app_work: str,
+    runtime_profile: RuntimeDeploymentProfile | None = None,
     application_state_adoption: ApplicationStateAdoption | None = None,
     remote_adoption_state: str = "",
     remote_adoption_models: str = "",
     remote_adoption_descriptor: str = "",
     timeout_seconds: int,
 ) -> None:
+    selected_runtime = runtime_profile or RuntimeDeploymentProfile.create(
+        runtime_platform="container-apps",
+        database_placement="postgres-flex",
+    )
     created = tunnel.ssh(("install", "-d", "-m", "0700", remote_root), timeout=60)
     if created.returncode != 0:
         raise ValueError("standalone remote work directory is unavailable")
@@ -372,6 +488,20 @@ def _prepare_remote(
         remote_handoff,
         "--entra",
         remote_entra,
+        "--runtime-platform",
+        selected_runtime.runtime_platform.value,
+        "--database-placement",
+        selected_runtime.database_placement.value,
+        "--system-node-count",
+        str(selected_runtime.system_node_count),
+        "--system-node-sku",
+        selected_runtime.system_node_sku,
+        "--user-node-min-count",
+        str(selected_runtime.user_node_min_count),
+        "--user-node-max-count",
+        str(selected_runtime.user_node_max_count),
+        "--user-node-sku",
+        selected_runtime.user_node_sku,
         *(
             (
                 "--adoption-state",

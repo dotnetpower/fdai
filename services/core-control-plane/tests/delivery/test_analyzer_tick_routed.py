@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.investigation import InvestigationCoordinator, default_analyzers
+from fdai.delivery.analyzer_metric_provider import AnalyzerMetricProvider
 from fdai.delivery.analyzer_targets import resolve_analyzer_targets
 from fdai.delivery.analyzer_tick import (
     ANALYZER_EVENT_SOURCE,
@@ -27,7 +28,12 @@ from fdai.delivery.persistence.postgres_analyzer_publication import (
 )
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.event_bus import PublishReceipt
-from fdai.shared.providers.metric import MetricPoint, MetricQuery
+from fdai.shared.providers.metric import (
+    MetricPoint,
+    MetricProvider,
+    MetricProviderError,
+    MetricQuery,
+)
 from fdai.shared.providers.routed_metric import MetricRoute, RoutedMetricProvider
 
 from tests.delivery.publication_store import ConditionalStore
@@ -57,9 +63,11 @@ class StubBackend:
         self.name = name
         self._values = values
         self.queries: list[str] = []
+        self.requests: list[MetricQuery] = []
 
     async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
         self.queries.append(query.metric_name)
+        self.requests.append(query)
         value = self._values.get(query.metric_name)
         if value is None:
             return
@@ -135,7 +143,7 @@ def _routed() -> tuple[RoutedMetricProvider, StubBackend, StubBackend]:
     return provider, prometheus, monitor_logs
 
 
-def _runner(provider: RoutedMetricProvider, bus: RecordingBus) -> AnalyzerTickRunner:
+def _runner(provider: MetricProvider, bus: RecordingBus) -> AnalyzerTickRunner:
     return AnalyzerTickRunner(
         coordinator=InvestigationCoordinator(
             analyzers=default_analyzers(provider, wall_clock=lambda: NOW)
@@ -174,6 +182,159 @@ async def test_one_tick_reaches_each_routed_backend_and_publishes_its_breach() -
     assert node_cpu["resource_ref"] == "res-aks"
     assert bus.published[0][0] == ANALYZER_EVENT_TOPIC
     assert provider.route_for("node_cpu_percent") == "StubBackend"
+
+
+@pytest.mark.asyncio
+async def test_inventory_provider_identity_is_confined_to_metric_queries() -> None:
+    routed, prometheus, monitor_logs = _routed()
+    bus = RecordingBus()
+    logical_ref = "scope-example/resource-group/example-rg/providers/aks/example-aks"
+    provider_ref = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/example-rg/providers/Microsoft.ContainerService/"
+        "managedClusters/example-aks"
+    )
+    target = AnalyzerTarget(
+        resource_ref=logical_ref,
+        resource_kind="aks_cluster",
+        provider_query_ref=provider_ref,
+    )
+    provider = AnalyzerMetricProvider(
+        routed,
+        targets=(target,),
+        normalize_provider_ref=str.casefold,
+    )
+
+    report = await _runner(provider, bus).run_once((target,))
+
+    assert report.analyzer_errors == ()
+    assert report.published == 1
+    assert all(
+        request.labels["resource_id"] == provider_ref.casefold()
+        for request in (*prometheus.requests, *monitor_logs.requests)
+    )
+    assert bus.published[0][1] == logical_ref
+    assert bus.published[0][2]["resource_ref"] == logical_ref
+    assert provider_ref.casefold() not in str(bus.published).casefold()
+
+
+@pytest.mark.asyncio
+async def test_mapped_metric_points_restore_the_logical_resource_identity() -> None:
+    backend = StubBackend("provider", {"node_cpu_percent": 93.0})
+    logical_ref = "resource-logical"
+    provider_ref = "/providers/example/resources/Provider-Resource"
+    provider = AnalyzerMetricProvider(
+        backend,
+        targets=(
+            AnalyzerTarget(
+                resource_ref=logical_ref,
+                resource_kind="aks_cluster",
+                provider_query_ref=provider_ref,
+            ),
+        ),
+        normalize_provider_ref=str.casefold,
+    )
+
+    points = [
+        point
+        async for point in provider.query(
+            MetricQuery(metric_name="node_cpu_percent", labels={"resource_id": logical_ref})
+        )
+    ]
+
+    assert backend.requests[0].labels["resource_id"] == provider_ref.casefold()
+    assert points[0].labels["resource_id"] == logical_ref
+
+
+@pytest.mark.asyncio
+async def test_mapped_metric_provider_rejects_another_returned_resource() -> None:
+    class WrongResourceBackend:
+        async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
+            yield MetricPoint(
+                metric_name=query.metric_name,
+                at=NOW,
+                value=93.0,
+                labels={"resource_id": "/providers/example/resources/other"},
+            )
+
+    provider = AnalyzerMetricProvider(
+        WrongResourceBackend(),
+        targets=(
+            AnalyzerTarget(
+                resource_ref="resource-logical",
+                resource_kind="aks_cluster",
+                provider_query_ref="/providers/example/resources/expected",
+            ),
+        ),
+        normalize_provider_ref=str.casefold,
+    )
+
+    with pytest.raises(MetricProviderError, match="another mapped resource identity"):
+        _ = [
+            point
+            async for point in provider.query(
+                MetricQuery(
+                    metric_name="node_cpu_percent",
+                    labels={"resource_id": "resource-logical"},
+                )
+            )
+        ]
+
+
+@pytest.mark.asyncio
+async def test_mapped_metric_provider_redacts_provider_identity_from_errors() -> None:
+    provider_ref = "/providers/example/resources/sensitive"
+
+    class LeakingFailureBackend:
+        async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
+            if False:
+                yield MetricPoint(metric_name=query.metric_name, at=NOW, value=0.0)
+            raise MetricProviderError(f"request failed for {query.labels['resource_id']}")
+
+    provider = AnalyzerMetricProvider(
+        LeakingFailureBackend(),
+        targets=(
+            AnalyzerTarget(
+                resource_ref="resource-logical",
+                resource_kind="aks_cluster",
+                provider_query_ref=provider_ref,
+            ),
+        ),
+    )
+
+    with pytest.raises(MetricProviderError, match="mapped metric query failed") as captured:
+        _ = [
+            point
+            async for point in provider.query(
+                MetricQuery(
+                    metric_name="node_cpu_percent",
+                    labels={"resource_id": "resource-logical"},
+                )
+            )
+        ]
+
+    assert provider_ref not in str(captured.value)
+    assert captured.value.__cause__ is None
+
+
+def test_mapped_metric_provider_rejects_provider_identity_aliases() -> None:
+    with pytest.raises(ValueError, match="multiple logical resources"):
+        AnalyzerMetricProvider(
+            StubBackend("provider", {}),
+            targets=(
+                AnalyzerTarget(
+                    resource_ref="resource-a",
+                    resource_kind="aks_cluster",
+                    provider_query_ref="/providers/example/resources/shared",
+                ),
+                AnalyzerTarget(
+                    resource_ref="resource-b",
+                    resource_kind="aks_cluster",
+                    provider_query_ref="/PROVIDERS/EXAMPLE/RESOURCES/SHARED",
+                ),
+            ),
+            normalize_provider_ref=str.casefold,
+        )
 
 
 @pytest.mark.asyncio
@@ -222,7 +383,13 @@ async def test_an_unrouted_metric_marks_the_pass_partial_instead_of_healthy() ->
 async def test_resolved_inventory_targets_drive_the_same_routed_tick() -> None:
     provider, prometheus, _ = _routed()
     bus = RecordingBus()
-    configured = (AnalyzerTarget(resource_ref="res-aks", resource_kind="aks_cluster"),)
+    configured = (
+        AnalyzerTarget(
+            resource_ref="res-aks",
+            resource_kind="aks_cluster",
+            provider_query_ref="/providers/example/resources/res-aks",
+        ),
+    )
 
     resolution = await resolve_analyzer_targets(configured=configured, store=None, now=NOW)
     report = await _runner(provider, bus).run_once(resolution.targets)

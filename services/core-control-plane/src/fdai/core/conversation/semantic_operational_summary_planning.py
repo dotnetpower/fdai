@@ -15,6 +15,7 @@ from fdai.core.ontology_platform.governed_document_queries import (
     GOVERNED_DOCUMENT_FUNCTION_NAME,
     GOVERNED_DOCUMENT_MEASURE_CONCEPT,
 )
+from fdai.core.ontology_platform.incident_queries import INCIDENT_EVIDENCE_FUNCTION_NAME
 from fdai.core.ontology_platform.resource_health_queries import RESOURCE_HEALTH_FUNCTION_NAME
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 from fdai.core.ontology_platform.service_health_queries import SERVICE_HEALTH_FUNCTION_NAME
@@ -42,6 +43,7 @@ def build_function_backed_summary_frame(
     context: tuple[str, ...],
     descriptors: tuple[dict[str, Any], ...],
     inventory_query_language: InventoryQueryLanguageRegistry | None,
+    bound_incident: bool = False,
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
     """Reuse a high-confidence typed function intent without another model call."""
 
@@ -71,6 +73,29 @@ def build_function_backed_summary_frame(
             temporal_scope={},
             output_shape=SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS,
             evidence_requirements=(f"governed_documents.{judgment.document_evidence_mode.value}",),
+            unresolved_terms=(),
+            clarification_requirements=(),
+            clarification=None,
+            investigation=None,
+            confidence=judgment.confidence,
+        )
+        return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+    if judgment.primary_intent == INCIDENT_EVIDENCE_FUNCTION_NAME:
+        if (
+            not bound_incident
+            or INCIDENT_EVIDENCE_FUNCTION_NAME not in available_functions
+            or judgment.secondary_intents
+        ):
+            return None
+        proposal = SemanticFrameProposal(
+            operation=SemanticOperation.SELECT,
+            subject_constraints=("Incident",),
+            measure_concepts=tuple(
+                sorted({facet.replace("-", "_") for facet in judgment.requested_facets})
+            ),
+            temporal_scope={"kind": "historical"},
+            output_shape=SemanticOutputShape.INCIDENT_EVIDENCE,
+            evidence_requirements=(INCIDENT_EVIDENCE_FUNCTION_NAME,),
             unresolved_terms=(),
             clarification_requirements=(),
             clarification=None,

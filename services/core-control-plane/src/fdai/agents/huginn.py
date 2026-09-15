@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai_service_contracts.alert_noise_wire import ALERT_NOISE_EVENT_TYPES, SignedAlertCommand
@@ -89,6 +89,42 @@ def _bound_json(value: Any, *, depth: int = 0) -> Any:
     if isinstance(value, list | tuple):
         return [_bound_json(item, depth=depth + 1) for item in value[:_MAX_ATTR_KEYS]]
     return str(value)[:_MAX_FIELD_CHARS]
+
+
+def _event_occurred_at(
+    raw: Mapping[str, Any],
+    *,
+    ingested_at: datetime,
+) -> str | None:
+    """Return one validated source-event timestamp when the producer supplied it."""
+
+    if ingested_at.tzinfo is None or ingested_at.utcoffset() is None:
+        raise ValueError("Huginn clock MUST return a timezone-aware datetime")
+    observed_at: datetime | None = None
+    observed_field = ""
+    for field in ("occurred_at", "detected_at", "created_at"):
+        value = raw.get(field)
+        if value is None or value == "":
+            continue
+        if isinstance(value, datetime):
+            observed_at = value
+        elif isinstance(value, str):
+            try:
+                observed_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ValueError(f"event {field} MUST be RFC 3339") from exc
+        else:
+            raise ValueError(f"event {field} MUST be RFC 3339")
+        observed_field = field
+        break
+    if observed_at is None:
+        return None
+    if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+        raise ValueError(f"event {observed_field} MUST be timezone-aware")
+
+    if observed_at > ingested_at:
+        raise ValueError(f"event {observed_field} MUST NOT be after trusted ingestion time")
+    return observed_at.isoformat()
 
 
 def _change_projection(
@@ -195,6 +231,7 @@ class Huginn(Agent):
         bus: PantheonBus | None = None,
         dedup_capacity: int = _DEDUP_CAPACITY,
         discovery_projector: DiscoveryProjector | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         super().__init__(spec=_HUGINN)
         self.bus = bus
@@ -203,6 +240,7 @@ class Huginn(Agent):
         self._dedup_capacity = dedup_capacity
         self._discovery_projector = discovery_projector
         self._alert_noise_verifier: Callable[[Mapping[str, Any]], object] | None = None
+        self._clock: Callable[[], datetime] = clock or (lambda: datetime.now(tz=UTC))
         # OrderedDict as an LRU set: key -> None, oldest first.
         self._seen_keys: OrderedDict[str, None] = OrderedDict()
 
@@ -247,6 +285,9 @@ class Huginn(Agent):
             self._seen_keys.move_to_end(key)
             self.record_behavior("deduped")
             return None
+        ingested_at = self._clock()
+        if ingested_at.tzinfo is None or ingested_at.utcoffset() is None:
+            raise ValueError("Huginn clock MUST return a timezone-aware datetime")
         event_payload = raw.get("payload")
         canonical_payload = event_payload if isinstance(event_payload, Mapping) else {}
         inventory_change = canonical_payload.get("inventory_change")
@@ -285,7 +326,11 @@ class Huginn(Agent):
             "resource_type": _bound(raw.get("resource_type") or resource.get("type")),
             "event_type": event_type,
             "attributes": attributes,
+            "ingested_at": ingested_at.isoformat(),
         }
+        occurred_at = _event_occurred_at(raw, ingested_at=ingested_at)
+        if occurred_at is not None:
+            payload["occurred_at"] = occurred_at
         severity = raw.get("severity") or canonical_payload.get("severity")
         if event_type in ALERT_NOISE_EVENT_TYPES:
             signed = SignedAlertCommand.model_validate(canonical_payload.get("alert_noise"))

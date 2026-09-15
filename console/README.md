@@ -283,8 +283,8 @@ ships enabled upstream unless its `OperatorApiConfig` input is set.
 
 The Governance routes share the Calm Slate information hierarchy from
 [`mocks/ui/`](../mocks/ui/) while keeping their existing read contracts.
-Architecture is intentionally unchanged because it has no matching governance
-mock and already owns a specialized inventory canvas.
+Architecture uses the same quiet hierarchy through a graph-first orthographic SVG workbench with
+adjacent inspection.
 
 - **Ontology** presents the structured catalog and operational instance projections as
   URL-addressable views. Objects uses a deterministic 2D one-hop neighborhood,
@@ -313,17 +313,18 @@ mock and already owns a specialized inventory canvas.
   scope, and the hard executor boundary. Its builder still emits a policy-as-
   code preview for a PR and never changes scope from the browser.
 
-### Architecture panel (Knowledge)
+### Architecture panel (Governance)
 
-The **Knowledge > Architecture** panel renders the deployed inventory instance graph from
+The **Governance > Architecture** panel renders the deployed inventory instance graph from
 `GET /inventory/graph`. It shows subscription and resource-group containment, VNet and
 subnet boundaries, resource status, and `attached_to` / `depends_on` links in one read-only
-canvas. Pan, zoom, filtering, selection, and deep links are local view operations only.
+SVG workbench. Pan, zoom, filtering, selection, and deep links are local view operations only.
 The console cannot add, move, resize, or delete resources.
-Before a resource is selected, the map canvas shows only a centered selection prompt, resource
-selector, scope selector, and presentation-mode control. Resources, relationships, map controls,
-and the relationship index remain hidden. Selecting a resource reveals the bounded map and shows
-its status, boundary, and direct relationships in the Inspector.
+The bounded scope overview is visible before selection. Selecting a Resource preserves the
+overview, emphasizes that node, reveals its direct auxiliary neighbors, and opens the nonmodal
+Inspector in the same frame.
+The Network lens keeps every returned VNet visible while Resource remains at **Scope overview**;
+selecting a Resource narrows only that presentation focus.
 
 Production responses merge the immutable reconciliation snapshot with the
 ordered real-time resource/link overlay. The toolbar shows pending real-time
@@ -336,76 +337,30 @@ default view rather than exposed as a duplicate service. Named service views use
 `fdai:service`, `service`, `application`, `app`, `workload`, or `azd-service-name` inventory
 tags. Missing or conflicting service values fall back to a resource-group view instead of being
 guessed into an application. Every view uses the same boundary-normalization pass before
-rendering, so a resource cannot appear outside its declared parent scope. The right-side Map
-controls provide Iso / Top / Front camera presets, layer and display toggles, and the canvas
-includes Zoom in / out / Fit controls.
+rendering, so a Resource cannot appear outside its declared parent scope.
 
-The `Network` presentation mode keeps the same authoritative response and switches to a bounded 2D
-focus over the selected VNet or the observed VNet with the most subnet containment. It rebuilds
-VNet and subnet geometry only from reported containment and bounded `attached_to` membership. The
-source and destination controls trace the shortest typed `attached_to`, `depends_on`, or
+The top toolbar owns registered scope, bounded Resource search, the `Topology | Network` lens,
+and compact read-only source state. A coverage strip keeps displayed and returned Resource and
+relationship counts distinct. The collapsible right Inspector provides Overview, Links, Network
+Path, and Sources views; it moves below the graph at constrained widths without losing state.
+
+The Topology and Network lenses share one accessible orthographic SVG primitive with pan, wheel
+zoom, Fit, full screen, roving keyboard focus, and 44 px mobile targets. Subscription, Resource
+Group, VNet, and Subnet records render as nested neutral boundaries. Known resource types use the
+same reviewed official Azure icons as the static compiler; unmapped types keep stable abbreviation
+fallbacks. Typed paths terminate at node and region boundaries and preserve endpoint and direction
+semantics without converting layout into evidence. Card, containment, placement, and hit-target
+geometry use the same dimensions, so dense revealed Resources cannot overlap or intercept an
+adjacent card's pointer target.
+
+The Network Path Inspector view traces the shortest reported `attached_to`, `depends_on`, or
 `peered_with` path. A fresh, complete graph can report `No observed path`; stale, partial,
-truncated, or relationship-incomplete evidence reports `Path unknown` instead. Layout order and
-resource names never become traffic or reachability evidence.
+truncated, or relationship-incomplete evidence reports `Path unknown`. Filters remain
+presentation-only. SVG and PNG export use one sanitized, identifier-free SVG source that retains
+snapshot time, freshness, completeness, resource-type labels, and
+`Read-only observed topology`.
 
-Known network resource types use the same reviewed official Azure SVG files as the static compiler;
-an unmapped type keeps the stable abbreviation fallback. Relationship paths terminate at node and
-region boundaries, use a neutral halo plus typed endpoint dot when nested boundaries reduce
-contrast, and keep mobile icon nodes and mode controls at a 44 px minimum target.
-The live map and downloaded report share an obstacle-aware orthogonal router. Peer VNet boundaries
-connect through a direct header corridor, dependency and peering arrowheads preserve direction, and
-the self-contained export embeds reviewed SVG source without fetching a local or remote icon URL.
-
-Network filters are presentation-only. SVG and PNG export use one sanitized, identifier-free SVG
-report that retains snapshot time, freshness, completeness, resource-type labels, and
-`Read-only observed topology`. The browser never exports raw provider ids, resource names,
-credentials, endpoints, or subscription ids.
-
-The canvas renders floor reflections first, then opaque resource bodies, connection paths,
-and finally resource abbreviations and labels. This keeps dependency lines visible above the
-blocks without obscuring their text, while each lifted resource retains a color-matched mirrored
-reflection on the floor plane.
-
-The map limits its visual grammar to four geometric primitives. Semantic variants change the
-proportions or stacking of those primitives without introducing a new silhouette for every
-Azure resource type:
-
-| Semantic role | Example resource types | Shape |
-|---------------|------------------------|-------|
-| Database | PostgreSQL, SQL Database | Solid-top cylinder |
-| Application runtime | App Service, Container Apps, Functions, AKS | Rectangular block |
-| Gateway and L4 | Front Door, Application Gateway, Load Balancer | Low, wide block |
-| Storage | Storage Account, object storage | Two-level slab |
-| Queue and event bus | Event Hubs, Service Bus, queues, Kafka | Hexagonal prism |
-| Secret and security | Key Vault, Firewall, NSG | Chamfered compact block |
-
-Resource color and layer filtering are separate contracts:
-
-- **Resource color**: every supported Azure resource type and alias maps to an explicit solid
-  token. The palette is derived from the dominant fills in the current
-  [Azure Architecture Icons](https://learn.microsoft.com/azure/architecture/icons/) and adjusted
-  only when a darker solid is required for Canvas contrast. It is described as Azure-aligned,
-  not as a replacement for or modification of the official SVG icons.
-- **Layer filter**: `Scope`, `Network`, `Security`, `Runtime`, `Data`, `Messaging`, and
-  `Observability` filter the operational role of resources. Filter controls use neutral selection
-  marks and counts so they do not imply a second color taxonomy. Empty layers stay visible but
-  disabled, preserving a stable control order across architecture views.
-- **Visual redundancy**: color is paired with a shape and abbreviation. On wider canvases it is
-  also paired with a service label, while pointer selection exposes inspector metadata. The map
-  does not rely on color alone to distinguish resource types.
-
-The right-side `Resource colors` legend lists only the service tokens present in the selected
-architecture view. Event Hubs, databases, and Storage therefore retain distinct green, blue,
-and teal identities even though all three participate in data movement.
-
-The local FDAI view includes an Event Hubs node in the `web-api -> event-hub -> event-worker`
-flow so every primitive is visible during development. Resource lift stays deliberately small
-so each mirrored floor reflection remains visually attached to its node. Bodies use line-free
-surfaces with face shading for depth; an outline appears only on the selected resource as an
-interaction cue. On narrow canvases, the map keeps resource abbreviations but suppresses long
-labels to prevent overlap; selecting a resource still exposes its full name in the inspector.
-
-The same canvas is reused by **Safety > Impact scope** in a context mode that highlights
+The same SVG primitive is reused by **Safety > Impact scope** in a context mode that highlights
 the target and reached resources while dimming the rest. Live activity scopes and rule
 detected issues deep-link into the full Architecture panel when they carry a resource reference.
 
@@ -481,116 +436,37 @@ in-memory pantheon bus, so a submitted restart reaches Forseti and finishes as
 a Thor shadow action instead of stopping at HTTP acceptance. Production binds
 the same contracts to the configured event bus.
 
-### Cross-screen open (Now > Agents incident thread)
+### Agent Activity and role ownership
 
-Any read-only surface can raise the deck without holding a reference to it, via
-the decoupled `fdai:deck:open` window event
-([`src/deck/open-deck.ts`](src/deck/open-deck.ts) `openDeckWithContext`). The
-Now > Agents route ([`src/routes/agents.tsx`](src/routes/agents.tsx)) uses it:
-the **Ask the deck about this incident** button opens an isolated conversation
-with a typed incident id, correlation id, and optional selected-agent binding.
-The server treats that binding as an untrusted hint, verifies both identifiers
-against its read model, and bypasses fuzzy ranking only for an exact match.
-Bragi remains the narrator; the selected agent is screen context, not reply
-authorship. The seam seeds a draft the operator still sends and never executes
-an action.
+The Agents workspace separates three operator questions:
 
-Playwright covers this operator flow in
-[`src/routes/agents.detail.test.ts`](src/routes/agents.detail.test.ts)
-for desktop and mobile Chromium. The browser test clicks accessible controls,
-checks the outbound binding, Bragi identity, RCA-unavailable wording, bounded
-agent activity, trust status, and absence of redundant disambiguation. It uses
-explicit synthetic route fixtures only inside the test runner. A Starlette
-integration test separately sends the same contract through the real chat route
-and `OperationalEvidenceResolver`. Browser E2E is an explicit local validation,
-not a required CI gate. From `console/`, install the browser once with
-`npx playwright install chromium`, then run `npm run test:e2e`. Use
-`npm run test:e2e:headed` when inspecting the interaction visually.
+- **Fleet** shows the current observed state of the fixed 15-agent runtime.
+- **Agent Activity** owns chronological audit and handoff evidence, including the Waterfall.
+- **Roles and ownership** opens as a route-backed dialog over Agent Activity and shows only fixed
+  reporting lines, owned object types, authority boundaries, and supporting runtime state.
 
-### Agent collaboration lines + hover cards (Now > Agents)
+The role workspace is implemented once in
+[`src/routes/agent-organization.tsx`](src/routes/agent-organization.tsx). Agent Activity opens it
+with `roles=1`, preserves the current filters and selected agent, closes with Browser Back or
+Escape, traps keyboard focus, and restores focus to the opener. `/pantheon` remains a shareable
+direct-page fallback that renders the same component.
 
-The constellation draws an SVG overlay
-([`ConstellationLinks`](src/routes/agents.tsx)) that ties together the agents
-currently co-engaged on the same incident, so the operator can see *which ticket
-each agent is working on and with whom* at a glance. Grouping is a pure model
-helper (`engagedGroups` in [`src/routes/agents.model.ts`](src/routes/agents.model.ts)):
-non-idle agents sharing a `correlation_id` become one link mesh, coloured per
-incident and labelled with its ticket id. The selected incident (or a hovered
-agent's links) is emphasised while the rest fade back. Line coordinates are
-measured from the real rendered node centres via a `ResizeObserver`, so the
-overlay tracks reflow without a hard-coded layout; it is `pointer-events: none`
-and `aria-hidden` because the same facts are text in the incident list.
+### Fixed role tree and selected ownership
 
-Hovering an agent reveals a card ([`AgentHoverCard`](src/routes/agents.tsx))
-that answers "what is this agent doing right now?" - the coarse state, a
-plain-language task description (`STATE_TASK`), the streamed `detail` when the
-producer supplies one, and the incident (ticket + title) it is engaged on. The
-dev/demo emitter enriches each `agent.state` frame with a task `detail`
-([`agent_activity_emitter.py`](../services/operator-service/src/fdai_operator_service/));
-the field stays optional so the real relay is free to omit it. A hovered node
-returns to full opacity even while dimmed, so its card stays readable (a parent
-`opacity` otherwise caps the child tooltip).
+The organization tree is built from the fork-locked `AGENT_ROLE`, `AGENT_CONTRACT`, and `ORG_CHART`
+records in [`src/routes/agents.model.ts`](src/routes/agents.model.ts): Odin at the root, Thor and
+Forseti on the two operating lines, their direct reports below, and four governance staff on dotted
+lines. Selecting a node opens a role-only detail with responsibility, manager, layer, runtime
+binding, owned object types, observed state, and a link to that agent's filtered Waterfall.
 
-The incident side list is newest-first and shows the most recent
-`INCIDENT_PREVIEW` (10) by default; an **All (N)** toggle beside the heading
-expands to the full retained history and back to **Recent**. The list is an
-accordion: selecting a row pins it and expands its workflow card (steps,
-agent-to-agent conversation, RCA) inline directly beneath that row; clicking
-the open row again collapses it.
+Incident timelines, Detect -> Ticket -> RCA -> Resolve progress, and agent conversation transcripts
+are intentionally absent from the organization surface. Their owning routes are Agent Activity,
+Incidents, Trace, and RCA. The dialog is read-only and does not grant judgment, approval,
+execution, or recovery authority.
 
-The interactive local Operator API does not start a local ControlLoop or Pantheon
-runtime. Live and Agents remain unavailable until a deployed Azure FDAI runtime
-relay supplies authoritative frames. Authentication mode is not treated as
-evidence provenance.
-
-### Org-chart layout + agent focus (Now > Agents)
-
-A **Constellation | Org chart** toggle in the header switches the stage between
-the free grid and a hierarchical org chart built from the fork-locked pantheon
-structure (`AGENT_ROLE` + `ORG_CHART` in
-[`src/routes/agents.model.ts`](src/routes/agents.model.ts), mirroring
-[agent-pantheon.md § 2](../docs/roadmap/agents/agent-pantheon.md)): Odin at the
-root, Thor (operations) and Forseti (judgment) reporting to it, recovery /
-narration / approval under Thor, sensing / domain specialists under Forseti, and
-the four governance staff on a dotted line to Odin. **Org chart is the default
-view**; both layouts share the same live nodes ([`renderNode`](src/routes/agents.tsx)),
-each carrying the agent's line icon (from `public/agent-icons/<name>.svg`, painted
-via a CSS mask so the monochrome glyph tints to the agent's accent colour) inside
-its live status ring. The org mode adds a faint reporting-line overlay
-([`OrgReportingLines`](src/routes/agents.tsx)) and shows each agent's role title
-in place of the state label (the live ring still pulses).
-
-Clicking any agent (in either layout) opens the
-[`AgentFocus`](src/routes/agents.tsx) side panel: the role title + one-line duty,
-its reporting line, the live state and task, and every incident the agent
-participates in (newest first, each row selects that incident). Clicking the same
-agent again, or the panel's close button, dismisses it. This answers "who is this
-agent and what events is it working?" without leaving the live view.
-
-A **Chat with {agent}** button in the focus panel starts a conversation primed
-with that agent's recent work. It calls `openDeckWithContext`
-([`src/deck/open-deck.ts`](src/deck/open-deck.ts)) with a evidence check note built by
-`agentChatContext` ([`src/routes/agents.model.ts`](src/routes/agents.model.ts)) -
-the agent's role, live state, and recent incidents (with RCAs). The deck injects
-that note as an opening turn that **speaks as the agent** - its line icon + name
-in the header (not the generic "deck" label) - and **types in** like a live reply
-instead of appearing all at once, so the entrance reads as the agent introducing
-itself. It joins the narrator's history and seeds a starter question, so the
-operator gets an immediate, grounded answer about what the agent has been doing.
-Still read-only: it opens a primed question box, never auto-submits or executes.
-
-Each agent chat is its own **session**: the deck keys transcripts by session
-(`agent:{name}` vs the general `screen` deck, see `transcriptKeyFor` in
-[`src/deck/transcript-store.ts`](src/deck/transcript-store.ts)) so an agent
-conversation never appends to - or leaks into - another. The deck header shows
-the active agent as a chip with a **General** button back to the screen deck;
-each session persists independently in tab-scoped storage and **Clear** only
-clears the active one.
-
-The Agents route also publishes a `selected_agent` record with the focused
-agent's current state, task, and incident correlation. This live row takes
-precedence over the opening context turn, so a newly arrived incident cannot
-leave the conversation answering from an older idle snapshot.
+The interactive local Operator API does not start a local ControlLoop or Pantheon runtime. Fleet
+and role-state evidence remain unavailable until a deployed Azure FDAI runtime relay supplies
+authoritative frames. Authentication mode is not treated as evidence provenance.
 
 ### Self-describing screens
 

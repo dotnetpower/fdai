@@ -744,6 +744,9 @@ async def test_remaining_console_evidence_projects_durable_tables(
             return []
         if "runtime:analyzer-finding-receipt" in statement:
             return []
+        if "runtime:analyzer-tick-receipt" in statement:
+            assert "ORDER BY updated_at DESC, key DESC" in statement
+            return []
         if "runtime:detection-lifecycle" in statement:
             return []
         if "runtime:configuration-baseline" in statement:
@@ -782,9 +785,108 @@ async def test_remaining_console_evidence_projects_durable_tables(
     assert detection["target_count"] == 0
     assert detection["counts"]["unknown"] == 0
     assert detection["lifecycle"]["target_count"] == 0
+    assert detection["analyzer_coverage"]["status"] == "unavailable"
+    assert detection["analyzer_coverage"]["unavailable_reason"] == "receipt_absent"
+    assert detection["analyzer_run"] is None
     assert detection["pod_lifecycle"]["target_count"] == 0
     assert baselines["baseline"]["version"] == "not-published"
     assert baselines["drift"]["verdict"] == "not-evaluated"
+
+
+async def test_detection_readiness_includes_latest_analyzer_tick(
+    monkeypatch: Any,
+) -> None:
+    now = datetime(2026, 9, 14, 3, 30, tzinfo=UTC)
+    report: dict[str, object] = {
+        "targets": 22,
+        "findings": 0,
+        "published": 0,
+        "duplicates_suppressed": 0,
+        "uncertain": 0,
+        "unsupported_targets": [],
+        "analyzer_errors": [],
+        "publish_errors": [],
+        "receipt_errors": [],
+        "receipts": [],
+        "target_resolution": {
+            "configured": 0,
+            "discovered": 22,
+            "candidate_count": 35,
+            "inventory_consulted": True,
+            "source_complete": True,
+            "skipped_reasons": ["unverified_state_fact"],
+            "skipped_reason_counts": {"unverified_state_fact": 13},
+            "truncated": False,
+        },
+        "readiness": {
+            "scheduling": "local_loop",
+            "target_discovery": "available",
+            "metric_access": "available",
+            "event_publication": "unverified",
+            "metric_source_delays": {},
+        },
+        "trace_continuity": {
+            "targets": 0,
+            "scenarios": 0,
+            "continuous": 0,
+            "unknown": 0,
+            "findings": 0,
+            "published": 0,
+            "publish_errors": [],
+        },
+    }
+    canonical = json.dumps(report, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(canonical.encode()).hexdigest()
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        if "runtime:analyzer-tick-receipt" in statement:
+            assert "ORDER BY updated_at DESC, key DESC" in statement
+            assert "LIMIT 500" in statement
+            return [
+                {
+                    "value": {
+                        "schema_version": "1.2.0",
+                        "run_id": "local-analyzer-1",
+                        "tick_id": "0",
+                        "attempt_id": digest,
+                        "recorded_at": now.isoformat(),
+                        "report_digest": digest,
+                        "report": report,
+                        "execution_authority": False,
+                    },
+                    "updated_at": now,
+                }
+            ]
+        if "runtime:detection-readiness" in statement:
+            return []
+        if "runtime:analyzer-finding-receipt" in statement:
+            return []
+        if "runtime:detection-lifecycle" in statement:
+            return []
+        raise AssertionError(statement)
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    detection = await reader.read(_query("detection.readiness"))
+
+    assert detection["observed_at"] == now.isoformat()
+    assert detection["analyzer_run"]["candidate_count"] == 35  # type: ignore[index]
+    assert detection["analyzer_run"]["targets"] == 22  # type: ignore[index]
+    assert detection["analyzer_run"]["findings"] == 0  # type: ignore[index]
+    assert detection["analyzer_run"]["source_complete"] is True  # type: ignore[index]
+    assert detection["analyzer_run"]["analyzer_error_count"] == 0  # type: ignore[index]
+    assert detection["analyzer_run"]["trace_publish_error_count"] == 0  # type: ignore[index]
+    assert detection["analyzer_coverage"]["status"] == "unavailable"  # type: ignore[index]
+    assert detection["analyzer_coverage"]["unavailable_reason"] == "legacy_receipt"  # type: ignore[index]
 
 
 async def test_unknown_operation_delegates_unchanged() -> None:

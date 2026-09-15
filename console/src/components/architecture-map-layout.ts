@@ -1,12 +1,16 @@
 import {
   architecturePresentationGraph,
   constrainGraph,
-  geometryOf,
   isRegion,
   type InventoryGraphResponse,
   type InventoryResource,
 } from "./architecture-map.model";
 import { layoutArchitectureNetworkFloors } from "./architecture-network-layout";
+import {
+  ARCHITECTURE_TOPOLOGY_COLUMN_PITCH,
+  ARCHITECTURE_TOPOLOGY_ROW_PITCH,
+  architectureTopologyNodeDimensions,
+} from "./architecture-topology-dimensions";
 
 export function layoutArchitecturePresentation(
   graph: InventoryGraphResponse,
@@ -16,6 +20,36 @@ export function layoutArchitecturePresentation(
   const overview = constrainGraph(architecturePresentationGraph(networkLayout, null));
   if (selectedId === null) return overview;
   const presented = architecturePresentationGraph(networkLayout, selectedId);
+  return positionArchitecturePresentation(overview, presented, new Set([selectedId]));
+}
+
+/** Keeps every impacted Resource and its bounded context in one shared SVG layout. */
+export function layoutArchitectureImpactPresentation(
+  graph: InventoryGraphResponse,
+  impactedIds: ReadonlySet<string>,
+): InventoryGraphResponse {
+  const networkLayout = layoutArchitectureNetworkFloors(graph);
+  const overview = constrainGraph(architecturePresentationGraph(networkLayout, null));
+  const visibleIds = new Set(overview.resources.map((resource) => resource.id));
+  for (const resourceId of impactedIds) {
+    for (const resource of architecturePresentationGraph(networkLayout, resourceId).resources) {
+      visibleIds.add(resource.id);
+    }
+  }
+  const presented = {
+    ...networkLayout,
+    resources: networkLayout.resources.filter((resource) => visibleIds.has(resource.id)),
+    links: networkLayout.links.filter((link) =>
+      visibleIds.has(link.source) && visibleIds.has(link.target)),
+  };
+  return positionArchitecturePresentation(overview, presented, impactedIds);
+}
+
+function positionArchitecturePresentation(
+  overview: InventoryGraphResponse,
+  presented: InventoryGraphResponse,
+  preferredIds: ReadonlySet<string>,
+): InventoryGraphResponse {
   const overviewById = new Map(overview.resources.map((resource) => [resource.id, resource]));
   const presentedById = new Map(presented.resources.map((resource) => [resource.id, resource]));
   const positioned = new Map<string, InventoryResource>();
@@ -29,77 +63,80 @@ export function layoutArchitecturePresentation(
   }
 
   const occupied = [...positioned.values()].filter((resource) => !isRegion(resource));
-  const revealed = presented.resources.filter((resource) => !overviewById.has(resource.id));
-  for (const [revealIndex, resource] of revealed.entries()) {
-    const anchor = architectureRevealAnchor(resource, selectedId, presented, positioned);
-    const parent = (resource.network_plane_id
-      ? positioned.get(resource.network_plane_id)
-      : undefined) ?? (resource.parent_id ? positioned.get(resource.parent_id) : undefined);
-    const placed = placeArchitectureNeighbor(resource, anchor, parent, occupied, revealIndex);
+  const revealed = presented.resources
+    .filter((resource) => !overviewById.has(resource.id))
+    .sort((first, second) =>
+      Number(!preferredIds.has(first.id)) - Number(!preferredIds.has(second.id)));
+  for (const resource of revealed) {
+    const anchor = architectureRevealAnchor(resource, preferredIds, presented, positioned);
+    const placed = placeArchitectureNeighbor(resource, anchor, occupied);
     positioned.set(resource.id, placed);
     occupied.push(placed);
   }
 
-  return {
+  return constrainGraph({
     ...presented,
     resources: presented.resources.map((resource) => positioned.get(resource.id) ?? resource),
-  };
+  });
 }
 
 function architectureRevealAnchor(
   resource: InventoryResource,
-  selectedId: string,
+  preferredIds: ReadonlySet<string>,
   graph: Pick<InventoryGraphResponse, "links">,
   positioned: ReadonlyMap<string, InventoryResource>,
 ): InventoryResource | undefined {
-  const linkedOwnerId = graph.links
+  const relatedIds = graph.links
     .filter((link) => link.type !== "contains")
     .map((link) => link.source === resource.id
       ? link.target
       : link.target === resource.id ? link.source : null)
-    .find((resourceId): resourceId is string => resourceId !== null && positioned.has(resourceId));
-  return positioned.get(selectedId) ?? (linkedOwnerId ? positioned.get(linkedOwnerId) : undefined)
-    ?? (resource.parent_id ? positioned.get(resource.parent_id) : undefined);
+    .filter((resourceId): resourceId is string => resourceId !== null);
+  const preferredAnchorId = relatedIds.find((resourceId) =>
+    preferredIds.has(resourceId) && positioned.has(resourceId));
+  const linkedOwnerId = relatedIds.find((resourceId) => positioned.has(resourceId));
+  const anyPreferredId = [...preferredIds].find((resourceId) => positioned.has(resourceId));
+  return (preferredAnchorId ? positioned.get(preferredAnchorId) : undefined)
+    ?? (linkedOwnerId ? positioned.get(linkedOwnerId) : undefined)
+    ?? (resource.parent_id ? positioned.get(resource.parent_id) : undefined)
+    ?? (anyPreferredId ? positioned.get(anyPreferredId) : undefined);
 }
 
 function placeArchitectureNeighbor(
   resource: InventoryResource,
   anchor: InventoryResource | undefined,
-  parent: InventoryResource | undefined,
   occupied: readonly InventoryResource[],
-  fallbackIndex: number,
 ): InventoryResource {
   if (!anchor || anchor.x === undefined || anchor.y === undefined) return resource;
-  const offsets = [
-    [1.65, 0], [3.3, 0], [0, 1.55], [-1.65, 0], [0, -1.55],
-    [1.65, 1.55], [-1.65, 1.55], [1.65, -1.55], [-1.65, -1.55],
-  ] as const;
-  const geometry = geometryOf(resource);
-  for (const [offsetX, offsetY] of offsets) {
-    const minimumX = (parent?.x ?? Number.NEGATIVE_INFINITY) + geometry.width / 2 + .12;
-    const maximumX = (parent?.x ?? 0) + (parent?.w ?? Number.POSITIVE_INFINITY) - geometry.width / 2 - .12;
-    const minimumY = (parent?.y ?? Number.NEGATIVE_INFINITY) + geometry.depth / 2 + .12;
-    const maximumY = (parent?.y ?? 0) + (parent?.h ?? Number.POSITIVE_INFINITY) - geometry.depth / 2 - .12;
-    const x = clampLayout(anchor.x + offsetX, minimumX, maximumX);
-    const y = clampLayout(anchor.y + offsetY, minimumY, maximumY);
-    if (occupied.some((candidate) => architectureNodesOverlap(
-      { ...resource, x, y }, candidate,
-    ))) continue;
-    return { ...resource, render_scale: Math.max(1, resource.render_scale ?? 1), x, y };
+  const anchorX = anchor.x;
+  const anchorY = anchor.y;
+  const candidate = (column: number, row: number): InventoryResource => ({
+    ...resource,
+    render_scale: Math.max(1, resource.render_scale ?? 1),
+    x: anchorX + column * ARCHITECTURE_TOPOLOGY_COLUMN_PITCH,
+    y: anchorY + row * ARCHITECTURE_TOPOLOGY_ROW_PITCH,
+  });
+  const available = (placed: InventoryResource): boolean =>
+    !occupied.some((existing) => architectureNodesOverlap(placed, existing));
+  for (let ring = 1; ring <= occupied.length * 2 + 2; ring += 1) {
+    for (let row = -ring; row <= ring; row += 1) {
+      for (let column = -ring; column <= ring; column += 1) {
+        if (Math.abs(column) !== ring && Math.abs(row) !== ring) continue;
+        const placed = candidate(column, row);
+        if (available(placed)) return placed;
+      }
+    }
   }
-  const [fallbackX, fallbackY] = offsets[fallbackIndex % offsets.length]!;
-  return { ...resource, x: anchor.x + fallbackX, y: anchor.y + fallbackY };
+  let column = occupied.length * 2 + 3;
+  while (!available(candidate(column, 0))) column += 1;
+  return candidate(column, 0);
 }
 
 function architectureNodesOverlap(first: InventoryResource, second: InventoryResource): boolean {
-  const firstGeometry = geometryOf(first);
-  const secondGeometry = geometryOf(second);
+  const firstGeometry = architectureTopologyNodeDimensions(first.render_scale);
+  const secondGeometry = architectureTopologyNodeDimensions(second.render_scale);
   return Math.abs((first.x ?? 0) - (second.x ?? 0)) <
       (firstGeometry.width + secondGeometry.width) / 2 + .18
     && Math.abs((first.y ?? 0) - (second.y ?? 0)) <
-      (firstGeometry.depth + secondGeometry.depth) / 2 + .18;
-}
-
-function clampLayout(value: number, minimum: number, maximum: number): number {
-  return Math.max(minimum, Math.min(maximum, value));
+      (firstGeometry.height + secondGeometry.height) / 2 + .18;
 }

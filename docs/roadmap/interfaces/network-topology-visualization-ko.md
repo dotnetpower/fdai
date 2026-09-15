@@ -1,8 +1,8 @@
 ---
 title: 네트워크 토폴로지 시각화
 translation_of: network-topology-visualization.md
-translation_source_sha: a459c6f55d54b0f64f4c305e6a94d139f269e5f1
-translation_revised: 2026-09-10
+translation_source_sha: fa271544e2fbf99e028faff2458d87a63f9d4689
+translation_revised: 2026-09-15
 ---
 # 네트워크 토폴로지 시각화
 
@@ -35,7 +35,7 @@ Console은 인벤토리 리소스와 타입이 지정된 관계만으로 범위�
 |------|------|------|------|
 | 공유 네트워크 어휘 및 작성 계약 | implemented | `packages/network-topology-contracts`, 네트워크 스키마 및 검증, 포커스 패키지 및 컴파일러 테스트 | 의존성이 없는 어휘를 공유하면서 작성된 `expected` 상태와 관측 근거 규칙은 분리합니다. |
 | 네트워크 참조 배치 및 Azure 아이콘 범위 | implemented | `layout/elk.ts`, 검토된 아이콘 매핑과 digest로 고정한 공식 Azure SVG 14개, 정본 이중 언어 fixture | 네트워크 프로필은 기존 배포 다이어그램의 배치 동작을 바꾸지 않고 압축 복합 배치를 추가합니다. 알 수 없는 리소스 타입은 매핑하지 않습니다. |
-| Console 2D 포커스, 경로 추적 및 내보내기 | implemented | `architecture-network-{focus,map,tools,icons}.ts*`, 경로 통합, 집중 Console 및 세 viewport 검사 | 이 모드는 기존의 권위 있는 인벤토리 응답을 사용하고 매핑된 경우 검토된 공식 아이콘을 사용하며 타입이 지정된 관계만 추적하고 식별자가 없는 하나의 SVG 소스를 SVG 또는 PNG로 내보냅니다. |
+| Console SVG 작업 영역, 네트워크 포커스, 경로 추적 및 내보내기 | implemented | `architecture-{workbench,topology-graph}.*`, `architecture-network-{focus,path-layout,path-panel,icons}.ts*`, 경로 통합, 포커스 Console 및 네 화면 크기 검사 | 토폴로지, Network 및 영향 범위는 하나의 접근 가능한 직교 SVG를 통해 권위 있는 읽기 변환 결과를 사용합니다. Network는 타입이 지정된 관계만 추적하고 식별자가 없는 하나의 SVG 소스를 SVG 또는 PNG로 내보냅니다. |
 | Console 온톨로지 인스턴스 네트워크 컨텍스트 | implemented | `ontology-instance-graph.{model.ts,tsx}`, `ontology-instance-resource-icons.ts`, 포커스 테스트, Console 타입 검사와 운영 빌드, 인증된 세 화면 크기 검사 | 선택한 분기는 피어 VNet의 분기를 확장하지 않고 VNet, Subnet, Private Endpoint 및 NIC 계층을 표현합니다. 상호 피어링은 저장된 두 레코드를 유지하면서 하나의 항목을 공유합니다. 관측된 `runtime_calls` 관계는 Inspector의 일급 런타임 그룹이며 기본 밀집 범례에도 표시됩니다. 마우스 휠 확대 및 축소, 기본 전체 화면, 빈 캔버스 이동 및 접을 수 있는 상세 패널이 그래프 작업 영역을 보존합니다. |
 | 무결성, 접근성 및 시각 회귀 | implemented | 정적 컴파일러 테스트 107개 통과, 정확한 `1600x900` 산출물 검사, 세 viewport 순차 Playwright 1개 통과 | 합성 브라우저 근거는 표현 동작만 입증합니다. 관리되는 런타임 검증을 주장하지 않습니다. |
 
@@ -43,6 +43,10 @@ Console은 인벤토리 리소스와 타입이 지정된 관계만으로 범위�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 명시적인 `runtime_calls` 방향 레이블을 그래프 우선 SVG 작업 영역에 맞췄습니다. 현재 Inspector는 저장된 출처에서 `호출`, 저장된 대상에서 `다음에서 호출됨`으로 표시하며 제거된 기존 관계 인덱스는 복원하지 않습니다. | `current change`, 그래프 우선 아키텍처 통합, 이중 언어 경로 카탈로그, Inspector 레이블 검사, 타입 검사와 프로덕션 빌드 | Console 범위를 `validated`로 바꾸기 전에 정확한 출처에 연결된 관리되는 runtime-call 근거를 보존합니다. |
+| 2026-09-15 | implemented | 아키텍처 관계 인덱스와 Inspector에 저장 방향을 명시하는 `runtime_calls` 레이블을 추가했습니다. 출처는 `호출 ->` 또는 `호출`로, 대상은 `다음에서 호출됨`으로 표시하며 표현 계층은 기록된 edge를 뒤집지 않습니다. | `current change`, 아키텍처 경로 카탈로그, 관계 인덱스와 Inspector 도우미, 집중 지역화 및 관계 레이블 검사, 타입 검사와 프로덕션 빌드 | Console 범위를 `validated`로 바꾸기 전에 정확한 출처에 연결된 관리되는 runtime-call 근거를 보존합니다. |
+| 2026-09-14 | implemented | 분리된 Canvas 리소스 지도와 Network 구성을 하나의 그래프 우선 SVG 작업 영역으로 교체했습니다. 범위 개요, Resource 검색, 표현 범위, 접이식 상세 패널, Network 경로 컨트롤, 반응형 재배치 및 영향 범위 지도가 인벤토리나 경로 근거를 변경하지 않고 하나의 표현 구성 요소를 공유합니다. | `current change`; 공유 토폴로지 그래프, 아키텍처 작업 영역, Network 경로 패널, 영향 범위 통합, 포커스 Vitest 158개 통과, 타입 검사, 운영 빌드와 초기 번들 예산, `1440x900`, `993x641`, `390x844`, `320x844`, 한국어 적응형 설정 및 영향 범위 합성 Playwright 5개 통과. | Console 범위를 `validated`로 바꾸기 전에 정확한 출처에 연결된 관리되는 데스크톱 및 모바일 Console 근거를 보존합니다. |
+| 2026-09-14 | implemented | 리소스 지도의 등각 깊이, 반사, 회전 및 카메라 사전 설정을 하나의 고정 직교 2D 변환 결과로 바꿨습니다. 지도는 타입이 지정된 관계, 도형, 색상, 약어, 선택, 이동, 확대 및 축소, 맞춤, 딥 링크를 유지합니다. 좁은 캔버스에서는 노드 배율을 유지하고 보조 색상 범례를 숨기며 이동을 사용합니다. | `current change`; 아키텍처 지도 모델, 형상, 렌더러, 컨트롤러, 상세 패널, 경로, 지역화 및 반응형 Playwright 경로, 포커스 Console 검사 163개 통과, 타입 검사 및 운영 빌드, 합성 `1440x900`, `993x641`, `390x844` 순차 검사. | Console 범위를 `validated`로 바꾸기 전에 정확한 출처에 연결된 관리되는 데스크톱 및 모바일 Console 근거를 보존합니다. |
 | 2026-09-10 | implemented | PVC, PV, StorageClass, HPA, PDB, NetworkPolicy, ResourceQuota 및 LimitRange에 명시적인 계층, 색상 및 약어 매핑을 추가했습니다. | `current change`, 전체 정본 ResourceType 시각 매핑 테스트 및 전체 Console 테스트 표면입니다. | Console 범위를 `validated`로 높이기 전에 정확한 출처에 연결된 관리되는 시각 근거를 보존합니다. |
 | 2026-09-04 | implemented | 관측된 `runtime_calls` 관계를 일반 직접 에지에서 온톨로지 인스턴스 Inspector와 기본 밀집 범례의 일급 런타임 그룹으로 승격했습니다. 화면 맥락 변환 결과도 관계 방향이나 권한을 바꾸지 않고 근거 기반 후속 작업에 필요한 검증된 관계를 보존합니다. | `current change`; 집중 온톨로지 인스턴스 모델 및 화면 검사, Console 타입 검사, 운영 빌드입니다. | 런타임 검증을 주장하기 전에 정확한 출처에 연결된 관리되는 runtime-call 및 반응형 Console 근거를 보존합니다. |
 | 2026-08-22 | not-started | 런타임 동작을 변경하지 않고 네트워크 토폴로지 시각화를 위한 집중 소유 경계를 채택했습니다. | `current change`; 이 소유 문서입니다. | 각 범위 행을 구현하고 포커스 테스트를 통과한 뒤 상태를 높입니다. |
@@ -59,6 +63,8 @@ Console은 인벤토리 리소스와 타입이 지정된 관계만으로 범위�
 - [x] 데스크톱, 제한된 데스크톱 및 모바일 너비에서 관측된 Console VNet
   포커스를 렌더링하고 소스-대상 경로를 강조하면서 추론한 도달 가능성을 주장하지 않습니다.
 - [x] 출처 이력과 근거 상태가 보이는 접근 가능한 SVG 및 PNG 산출물을 내보냅니다.
+- [x] 토폴로지, Network 및 영향 범위를 인접한 상세 패널과 기존 Canvas 사용처가 없는 하나의
+  접근 가능한 직교 SVG 작업 영역으로 표현합니다.
 - [ ] 런타임 검증을 주장하기 전에 정확한 소스에 연결된 관리되는 데스크톱 및 모바일 Console
   근거를 보존합니다.
 
@@ -145,7 +151,8 @@ Console은 기존의 완전한 `InventoryGraphResponse` 와이어 계약을 유�
 2. 2D 위 보기에는 관측된 containment, `attached_to`, `depends_on` 및 `peered_with` 링크가
    유지됩니다. 배치 순서, 리소스 이름 또는 프로바이더 식별자를 트래픽으로 바꾸지 않습니다.
 3. 포커스 보기는 관측된 VNet 및 서브넷 경계를 펼치고 관련 없는 구독 내용을 프레임 밖에
-   유지합니다. 완전한 사실 개수와 관계 인덱스는 계속 사용할 수 있습니다.
+   유지합니다. 완전한 반환 개수와 선택한 정확한 관계는 표현 범위 영역과 상세 패널에서 계속
+   사용할 수 있습니다.
 4. 소스 및 대상 선택기는 가장 짧은 타입 지정 관계 경로를 추적합니다. 각 홉은 기록된 관계 종류와
    근거 상태를 표시합니다. 표현 결과는 `found`, `no_observed_path` 또는 `unknown`입니다. 잘리거나
    부분적이거나 stale이거나 관계가 불완전한 그래프는 `no_observed_path`를 반환할 수 없고
@@ -164,10 +171,10 @@ Application Gateway, VPN Gateway, ExpressRoute gateway 및 circuit, Private Endp
 route table, NSG, load balancer, network interface 및 virtual machine을 포함합니다.
 
 정적 컴파일러는 알려진 프로바이더 리소스 타입을 해당 아이콘 id에 매핑합니다. 알 수 없는 타입은
-텍스트 카드 또는 고정된 abbreviation으로 남고 비슷한 Azure 제품 아이콘을 빌려 쓰지 않습니다.
-Console은 2D 모드에서 같은 검토된 아이콘 파일을 사용하고 매핑되지 않은 타입에만 고정된
-abbreviation을 사용합니다. 기존 isometric 모드는 형태, 색상 및 abbreviation 중복 표현을
-유지합니다.
+텍스트 카드 또는 고정된 약어로 남고 비슷한 Azure 제품 아이콘을 빌려 쓰지 않습니다. Console은
+토폴로지, Network 및 영향 범위에서 같은 검토된 아이콘 파일을 사용하고 매핑되지 않은 타입에만
+고정된 약어를 사용합니다. 중립 노드 표면, 표시 이름, 접근 가능한 타입 및 상태 라벨, 상세 패널은
+아이콘이나 색상에 의존하지 않고 의미를 유지합니다.
 
 ## 배치 및 무결성
 
@@ -197,14 +204,17 @@ Network preset은 최종 복합 배치 뒤 모든 자동 간선을 다시 라우
 확대, 전체 보기, 전체 화면 및 다운로드를 유지합니다. 네트워크 연결은 상세 패널에서 종류, 방향,
 트래픽 클래스, 정책, 프로토콜, 포트 및 근거 상태를 표시합니다.
 
-Console은 Canvas 전용 작업마다 동등한 DOM 컨트롤을 제공합니다. 포커스 선택, 소스 및 대상 선택,
-경로 결과, 필터, 관계 목록, fit 및 내보내기를 포함합니다. 내보내기는 현재 포커스에서 정제된 SVG
+Console SVG 작업 영역은 범위가 제한된 Resource 검색, 이동식 노드 포커스, 정확한 직접 관계,
+소스 및 대상 선택, 경로 결과, 필터, 맞춤, 전체 화면 및 내보내기를 제공합니다. 내보내기는 현재 포커스에서 정제된 SVG
 스냅샷과 선택적 PNG를 생성합니다. 자격 증명, 구독 id, 원시 프로바이더 리소스 id, 엔드포인트 또는
 고객별 값을 포함하지 않습니다. 라이브 내보내기는 스냅샷 시간, 소스, 최신성, 범위, 잘림 및
 `Read-only observed topology`를 표시합니다.
 관측된 링크는 시각적 중심이 아니라 노드 및 영역 경계에서 끝납니다. 중립 halo와 타입이 지정된
 endpoint dot은 중첩된 경계에서도 짧은 containment attachment를 보이게 하고, 모바일 icon
-노드는 pointer와 키보드에 최소 44 px target을 제공합니다.
+노드는 포인터와 키보드에 최소 44 px 선택 영역을 제공합니다. 배치 간격은 전체 선택 영역 크기를
+확보하며 포인터 선택 영역은 시각적 카드보다 뒤에 렌더링됩니다. 따라서 인접 노드가 겹치거나 카드
+클릭을 가로채지 않습니다. 제한된 너비에서는 상세 패널이 그래프 아래로 이동하며 선택, 탭, 배율,
+필터 또는 경로 상태를 잃지 않습니다.
 Live 지도와 정제된 내보내기는 하나의 obstacle-aware 직교 router를 공유합니다. Peer VNet
 경계는 하위 node를 우회하는 대신 직접 header corridor를 사용합니다. Dependency는 정방향
 화살표, peering은 양방향 화살표, attachment는 endpoint dot을 유지합니다. 내보내기는 build

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.forseti import Forseti
@@ -111,7 +112,8 @@ def test_blocked_document_never_reaches_muninn_or_thor() -> None:
     assert bus.messages_on("object.action-run") == []
 
 
-def test_authoritative_document_waits_for_var_before_muninn() -> None:
+@pytest.mark.parametrize("purpose", ["handover_bootstrap", "cloud_reference"])
+def test_authoritative_document_waits_for_var_before_muninn(purpose: str) -> None:
     bus = InMemoryBus(registry=load_pantheon())
     heimdall = Heimdall(bus=bus)
     forseti = Forseti(bus=bus)
@@ -148,7 +150,7 @@ def test_authoritative_document_waits_for_var_before_muninn() -> None:
                     "malware_verdict": "clean",
                     "protection_state": "none",
                     "failure_code": "",
-                    "purposes": ["handover_bootstrap"],
+                    "purposes": [purpose],
                     "uploader_id": "uploader@example.com",
                 },
             },

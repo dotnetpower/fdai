@@ -582,6 +582,42 @@ def test_service_preserves_exact_frozen_minimal_routes() -> None:
     assert snapshot == EXPECTED_ROUTES
 
 
+def test_incident_opened_template_matches_the_reviewed_design_specimen() -> None:
+    response = _client(read_model=EmptyReadModel()).get(
+        "/notification-templates/incident-opened",
+        headers={"Authorization": "Bearer reader"},
+    )
+    design = (REPO_ROOT / "mocks/email-template/incident-opened.html").read_text(encoding="utf-8")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "key": "incident-opened",
+        "subject": "[SEV2] Incident opened - API latency after configuration rollout",
+        "plain_text": (
+            "SEV2 incident opened at 06:03 UTC. Eight signals were correlated. "
+            "No recovery action has run."
+        ),
+        "html": design,
+    }
+
+
+def test_incident_opened_template_preserves_the_safe_email_boundary() -> None:
+    response = _client(read_model=EmptyReadModel()).get(
+        "/notification-templates/incident-opened",
+        headers={"Authorization": "Bearer reader"},
+    )
+    html = response.json()["html"]
+
+    assert response.status_code == 200
+    assert isinstance(html, str)
+    assert 'class="wrap" width="640"' in html
+    assert "FDAI / FIELD DISPATCH" in html
+    assert "Fail-closed" in html
+    assert "approval and execution stay in the console" in html
+    assert "<script" not in html.lower()
+    assert "<form" not in html.lower()
+
+
 def test_health_is_public_and_fails_closed_without_postgres() -> None:
     response = _client().get("/healthz")
     assert (response.status_code, response.json()) == (503, {"status": "not-ready"})
@@ -1041,7 +1077,7 @@ def test_database_url_binds_service_owned_postgres_projection() -> None:
         "/assurance-twin/reviews",
         "/assurance-twin/review",
     } <= set(source.routes)
-    assert runtime.lifecycle is None
+    assert isinstance(runtime.lifecycle, operator_composition._LiveActivitySnapshotLoader)
 
 
 def test_unserved_measurement_routes_declare_an_explicit_unavailable_source() -> None:
@@ -1103,14 +1139,14 @@ def test_durable_console_evidence_routes_declare_authoritative_sources() -> None
     expected = {
         "configuration-baseline": "/configuration-baselines",
         "conversation-delivery": "/conversation-delivery",
-        "detection-readiness": "/detection-readiness",
+        "detection-readiness": ("/detection-coverage", "/detection-readiness"),
         "runtime-skill": "/skills",
         "forecast-learning": "/forecast-learning",
         "operator-memory": "/operator-memory",
     }
     for key, route in expected.items():
         source = next(item for item in runtime.data_sources if item.key == key)
-        assert source.routes == (route,)
+        assert source.routes == (route if isinstance(route, tuple) else (route,))
         assert source.availability == "unknown"
         assert source.configured is True
         assert source.authoritative is True

@@ -16,6 +16,13 @@ from types import ModuleType
 from typing import Any, cast
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+CONTRACT_SOURCE = REPO_ROOT / "packages" / "service-contracts" / "src"
+sys.path.insert(0, str(CONTRACT_SOURCE))
+
+from fdai_service_contracts.compatibility import (  # noqa: E402
+    transition_certified_matrix_digest,
+)
+
 MANIFEST_PATH = REPO_ROOT / "config" / "independent-services.json"
 LOCAL_TRANSITION_EVIDENCE_PATH = (
     REPO_ROOT / "config" / "independent-service-local-transition-evidence.json"
@@ -431,9 +438,7 @@ def _validate_local_transition_evidence(manifest: dict[str, Any]) -> None:
     }:
         raise ValueError("local N-1 artifact source is invalid")
     compatibility = _load_json(COMPATIBILITY_MANIFEST_PATH, "compatibility manifest")
-    if evidence.get("matrix_digest") != _canonical_digest(
-        compatibility["producer_consumer_matrix"]
-    ):
+    if evidence.get("matrix_digest") != transition_certified_matrix_digest(compatibility):
         raise ValueError("local transition matrix digest is invalid")
     raw_receipts = _load_json(UPGRADE_RECEIPTS_PATH, "focused upgrade receipts")
     if not isinstance(raw_receipts, list):

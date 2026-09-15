@@ -570,7 +570,7 @@ def materialize_foundation_image_input(
         image_receipt=image_receipt,
         profile_path=profile_path,
     )
-    source_commit = str(receipt["source_commit"])
+    source_commit = str(updated["source_commit"])
     target_binding = str(receipt["target_binding"])
     toolchain_digest = str(receipt["toolchain_digest"])
     temporary = destination.parent / f".{destination.name}.candidate"
@@ -619,7 +619,7 @@ def verify_foundation_image_input(
     return {
         "schema_version": "fdai.genesis-foundation-image-input.v1",
         "state": "prepared",
-        "source_commit": receipt["source_commit"],
+        "source_commit": expected["source_commit"],
         "target_binding": receipt["target_binding"],
         "toolchain_digest": receipt["toolchain_digest"],
         "variables_digest": canonical_digest(expected),
@@ -633,34 +633,34 @@ def _foundation_image_values(
 ) -> tuple[dict[str, object], dict[str, object]]:
     receipt = read_plan_input(image_receipt)
     receipt_digest = receipt.pop("receipt_digest", None)
+    receipt_fields = {
+        "schema_version",
+        "state",
+        "review_digest",
+        "plan_digest",
+        "target_binding",
+        "source_commit",
+        "run_digest",
+        "environment",
+        "region",
+        "profile_digest",
+        "toolchain_digest",
+        "claim_digest",
+        "approver_actor_digest",
+        "credential_actor_digest",
+        "executor_identity_digest",
+        "runner_image_id",
+        "state_ref",
+        "effect_verified",
+        "public_ip_policy_effect_verified",
+        "terraform_zero_change_verified",
+        "runner_registered",
+        "mutation_performed",
+        "subscription_ready",
+        "completed_at",
+    }
     if (
-        set(receipt)
-        != {
-            "schema_version",
-            "state",
-            "review_digest",
-            "plan_digest",
-            "target_binding",
-            "source_commit",
-            "run_digest",
-            "environment",
-            "region",
-            "profile_digest",
-            "toolchain_digest",
-            "claim_digest",
-            "approver_actor_digest",
-            "credential_actor_digest",
-            "executor_identity_digest",
-            "runner_image_id",
-            "state_ref",
-            "effect_verified",
-            "public_ip_policy_effect_verified",
-            "terraform_zero_change_verified",
-            "runner_registered",
-            "mutation_performed",
-            "subscription_ready",
-            "completed_at",
-        }
+        set(receipt) not in (receipt_fields, receipt_fields | {"verified_source_commit"})
         or receipt.get("schema_version") != "fdai.genesis-runner-image-apply-receipt.v1"
         or receipt.get("state") != "applied"
         or receipt.get("effect_verified") is not True
@@ -669,6 +669,12 @@ def _foundation_image_values(
         or receipt.get("runner_registered") is not False
         or receipt.get("mutation_performed") is not True
         or receipt.get("subscription_ready") is not False
+        or not isinstance(receipt.get("verified_source_commit", receipt.get("source_commit")), str)
+        or re.fullmatch(
+            r"[0-9a-f]{40}",
+            str(receipt.get("verified_source_commit", receipt.get("source_commit", ""))),
+        )
+        is None
         or not isinstance(receipt_digest, str)
         or canonical_digest(receipt) != receipt_digest
     ):
@@ -777,8 +783,6 @@ def _foundation_image_values(
         or receipt.get("region") != profile.region
         or receipt.get("profile_digest") != canonical_digest(profile.to_mapping())
         or values.get("target_binding") != target_binding
-        or values.get("source_commit") != source_commit
-        or values.get("run_digest") != receipt.get("run_digest")
         or not image_id.casefold().startswith(
             f"/subscriptions/{str(values.get('subscription_id', '')).casefold()}/"
         )
@@ -795,6 +799,10 @@ def _foundation_image_values(
         **values,
         "runner_source_image_id": image_id,
         "runner_image_toolchain_digest": toolchain_digest,
+        "runner_image_source_commit": source_commit,
+        "runner_image_verified_source_commit": receipt.get("verified_source_commit", source_commit),
+        "runner_image_run_digest": receipt["run_digest"],
+        "runner_image_receipt_digest": receipt_digest,
     }, receipt
 
 

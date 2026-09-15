@@ -767,9 +767,11 @@ variable "prometheus_endpoint" {
     Base URL of a Prometheus-compatible query API (AKS Managed Prometheus,
     self-hosted Prom, Thanos, Cortex, Mimir). When non-empty, wires the
     ``FDAI_PROMETHEUS_ENDPOINT`` env var so ``wire_azure_container``
-    picks Prom as the primary route for its supported metrics
-    (sub-minute detection) with Azure Monitor Logs as the fallback for
-    non-AKS metrics. Empty (default) keeps AML-only (or Noop) binding.
+    makes the endpoint available to explicitly composed metric consumers.
+    The inventory-backed analyzer does not bind the default Azure Managed
+    Prometheus cluster alias as an exact ARM identity; it keeps Azure Monitor
+    Logs unless an injected query catalog preserves exact resource_id labels.
+    Empty (default) keeps AML-only (or Noop) binding.
   EOT
   type        = string
   default     = ""
