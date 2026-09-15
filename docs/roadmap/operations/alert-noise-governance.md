@@ -337,8 +337,8 @@ Team/kind facets use source facts; period selection requests new evidence, never
 Missing facets stay unknown; modeled benefits still require independent evidence.
 A report action submits a typed request, never an ARM call or approval. The Settings API and UI
 separate prerequisites, enabled preference, and authority, with scoped human Owner revision checks.
-Operator composition binds its durable preference store; an unavailable Settings record is not a
-saved switch. Neither enabling nor an accepted request promotes an action.
+Dedicated Operator request composition binds projections, durable preferences, history and one supervised bridge; unavailable Settings is not a saved switch.
+The shared root owns lifecycle/readiness, never feature policy. Neither enabling nor accepting a request promotes an action.
 
 Guidance and optimization notifications are themselves bounded: one deduplicated case per policy,
 scope, and observation window, material updates in the same case, and normal summaries via A4.

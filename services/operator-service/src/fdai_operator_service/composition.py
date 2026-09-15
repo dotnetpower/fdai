@@ -35,12 +35,6 @@ from fdai_operator_service.adapters import (
 from fdai_operator_service.adapters.narrator_periodic_scheduler import (
     PeriodicNarratorRefreshScheduler,
 )
-from fdai_operator_service.alert_quality import (
-    alert_quality_dependencies_from_environment,
-    parse_alert_quality_principal_scopes,
-)
-from fdai_operator_service.alert_quality_runtime import AlertQualityBridge
-from fdai_operator_service.alert_quality_settings import StateKvAlertQualityPreferenceStore
 from fdai_operator_service.assessment_projections import (
     FrameworkAssessmentProjectionBridge,
     WaraAssessmentProjectionBridge,
@@ -114,7 +108,9 @@ from fdai_operator_service.model_lifecycle_composition import (
 )
 from fdai_operator_service.outbox_runtime import (
     ActionConfirmationBridge,
+    AlertQualityBridge,
     IncidentInterventionBridge,
+    build_alert_quality_bindings,
 )
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
@@ -405,37 +401,15 @@ class ProductionOperatorComposition:
             context_selection_registry=context_selection_registry,
             teams_http_client=teams_http_client,
         )
-        alert_scopes = parse_alert_quality_principal_scopes(environment.values)
-        alert_key = environment.values.get("FDAI_ALERT_NOISE_TRANSPORT_KEY", "").encode()
-        alert_quality_bridge = None
-        if alert_key:
-            if family_store is None or semantic_bus is None or event_topic is None:
-                raise RuntimeError("alert quality requires durable store and event transport")
-            alert_quality_bridge = AlertQualityBridge(
-                store=family_store,
-                transport=semantic_bus,
-                event_topic=event_topic,
-                transport_key=alert_key,
-                scopes=frozenset(scope for scopes in alert_scopes.values() for scope in scopes),
-            )
-        route_families = replace(
-            route_families,
-            alert_quality=alert_quality_dependencies_from_environment(
-                authenticator=authenticator,
-                environ=environment.values,
-                store=family_store,
-                proposal_writer=route_families.operations_proposal_writer,
-                producer_ready=alert_quality_bridge.producer_ready
-                if alert_quality_bridge
-                else None,
-                request_source=alert_quality_bridge.requests if alert_quality_bridge else None,
-                preference_store=(
-                    StateKvAlertQualityPreferenceStore(family_store)
-                    if family_store is not None
-                    else None
-                ),
-            ),
+        alert_quality, alert_quality_bridge = build_alert_quality_bindings(
+            authenticator=authenticator,
+            environ=environment.values,
+            store=family_store,
+            transport=semantic_bus,
+            event_topic=event_topic,
+            proposal_writer=route_families.operations_proposal_writer,
         )
+        route_families = replace(route_families, alert_quality=alert_quality)
         if (
             semantic_bridge is not None
             and self.adaptive_relationship_resolver is None

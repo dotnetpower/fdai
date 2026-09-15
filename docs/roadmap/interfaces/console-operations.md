@@ -35,7 +35,7 @@ Console operations use four boundaries:
 | Operator API domain request routes | Authenticate, authorize, validate the source revision and domain schema, deduplicate, and publish | Accept a request; never decide or execute it. |
 | Agent runtime | Judge, approve, execute, recover, and audit through typed pub/sub | Existing pantheon ownership remains authoritative. |
 
-The Operator API relays typed events, never direct agent calls; it has no executor identity or workflow authority.
+The Operator API relays typed events, never direct agent calls; its feature composition binds request state and supervised workers, not executor or workflow authority.
 Source facets preserve totals; alert table headers use readable text tokens. Isolated fixtures never establish authenticated accessibility.
 [Alert noise requests](../operations/alert-noise-governance.md) expose original acceptances and signed results.
 Only an exact-key terminal resolves uncertainty; the canonical Process owns approval and effect state.
