@@ -29,9 +29,7 @@ from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime.blast_probe import bind_live_blast_probe_failure_streak
-from fdai.runtime.bootstrap_bindings import (
-    EffectReconciliationRequestRuntimeBinding,
-)
+from fdai.runtime.bootstrap_bindings import EffectReconciliationRequestRuntimeBinding
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_request_binding as _build_effect_reconciliation_request_binding,
 )
@@ -101,9 +99,7 @@ from fdai.runtime.observation_evidence import bind_executed_action_observation_f
 from fdai.runtime.operating_intent_revalidation import (
     OperatingIntentSourceRevalidationWorker,
 )
-from fdai.runtime.operating_intent_source import (
-    bind_operating_intent_source_from_env,
-)
+from fdai.runtime.operating_intent_source import bind_operating_intent_source_from_env
 from fdai.runtime.providers import (
     _build_audit_store,
     _build_inventory_delta_projector,
@@ -121,6 +117,7 @@ from fdai.runtime.stewardship_identity_health import (
     build_stewardship_identity_health_worker,
 )
 from fdai.runtime.stewardship_merge_effects import StewardshipMergeEffectsWorker
+from fdai.runtime.task_workers import TaskWorkerRuntimeBinding, bind_task_workers
 from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
 from fdai.shared.contracts.models import ResponseOutcome
 from fdai.shared.providers.hil_registry import HilWorkflowDecisionRegistry
@@ -160,6 +157,7 @@ class CoreRuntime:
     assignment_intake_consumer: Any = None
     assignment_outcome_consumer: Any = None
     human_access_reconciliation: Any = None
+    task_workers: TaskWorkerRuntimeBinding | None = None
 
     def task_configuration(self, stop: asyncio.Event) -> RuntimeTaskConfiguration:
         """Project assembled bindings into the task-supervision contract."""
@@ -265,6 +263,7 @@ async def build_core_runtime(
         )
 
     state_store = state_store or _build_audit_store()
+    await bind_task_workers(container, resources, identity, environment)
     from fdai.runtime.assignment_transport import (
         build_assignment_transport,
         build_handover_goal_reader,
@@ -778,6 +777,7 @@ async def build_core_runtime(
         ),
         assignment_outcome_consumer=assignment_outcome_consumer,
         human_access_reconciliation=human_access_reconciliation,
+        task_workers=resources.task_workers,
     )
 
 
