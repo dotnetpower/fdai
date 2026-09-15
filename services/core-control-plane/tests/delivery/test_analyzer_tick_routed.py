@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
+from traceback import format_exception
 
 import pytest
 from fdai.core.investigation import InvestigationCoordinator, default_analyzers
@@ -29,6 +30,7 @@ from fdai.delivery.persistence.postgres_analyzer_publication import (
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.metric import (
+    MetricFailureReason,
     MetricPoint,
     MetricProvider,
     MetricProviderError,
@@ -282,14 +284,27 @@ async def test_mapped_metric_provider_rejects_another_returned_resource() -> Non
 
 
 @pytest.mark.asyncio
-async def test_mapped_metric_provider_redacts_provider_identity_from_errors() -> None:
+@pytest.mark.parametrize("reason", list(MetricFailureReason))
+@pytest.mark.parametrize("http_status", [None, 429, 503])
+async def test_mapped_metric_provider_redacts_provider_identity_from_errors(
+    reason: MetricFailureReason, http_status: int | None
+) -> None:
     provider_ref = "/providers/example/resources/sensitive"
+
+    class ProviderFailureError(MetricProviderError):
+        @property
+        def safe_context(self) -> str:
+            return "private subclass diagnostic"
 
     class LeakingFailureBackend:
         async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
             if False:
                 yield MetricPoint(metric_name=query.metric_name, at=NOW, value=0.0)
-            raise MetricProviderError(f"request failed for {query.labels['resource_id']}")
+            raise ProviderFailureError(
+                f"request failed for {query.labels['resource_id']} https://example.com/private",
+                reason=reason,
+                http_status=http_status,
+            ) from RuntimeError("private response payload")
 
     provider = AnalyzerMetricProvider(
         LeakingFailureBackend(),
@@ -315,6 +330,57 @@ async def test_mapped_metric_provider_redacts_provider_identity_from_errors() ->
 
     assert provider_ref not in str(captured.value)
     assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+    assert captured.value.reason is reason
+    assert captured.value.http_status == http_status
+    assert f"reason={reason.value}" in str(captured.value)
+    if http_status is not None:
+        assert f"http_status={http_status}" in str(captured.value)
+    rendered = "".join(format_exception(captured.value))
+    assert provider_ref not in rendered
+    assert "https://example.com/private" not in rendered
+    assert "private response payload" not in rendered
+    assert "private subclass diagnostic" not in rendered
+
+
+@pytest.mark.parametrize("resource_ref", [None, "unmapped", "resource-logical"])
+async def test_legacy_provider_error_is_unknown_and_unmapped_behavior_is_unchanged(
+    resource_ref: str | None,
+) -> None:
+    error = MetricProviderError("legacy provider failure")
+
+    class FailingBackend:
+        async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
+            if False:
+                yield MetricPoint(metric_name=query.metric_name, at=NOW, value=0.0)
+            raise error
+
+    provider = AnalyzerMetricProvider(
+        FailingBackend(),
+        targets=(
+            AnalyzerTarget(
+                resource_ref="resource-logical",
+                resource_kind="aks_cluster",
+                provider_query_ref="/providers/example/resources/private",
+            ),
+        ),
+    )
+    query = MetricQuery(
+        metric_name="node_cpu_percent",
+        labels={} if resource_ref is None else {"resource_id": resource_ref},
+    )
+    with pytest.raises(MetricProviderError) as caught:
+        _ = [point async for point in provider.query(query)]
+
+    assert caught.value.reason is MetricFailureReason.UNKNOWN
+    assert caught.value.http_status is None
+    if resource_ref == "resource-logical":
+        assert "reason=unknown" in str(caught.value)
+        assert "legacy provider failure" not in str(caught.value)
+        assert caught.value.__cause__ is caught.value.__context__ is None
+    else:
+        assert caught.value is error
+        assert str(caught.value) == "legacy provider failure"
 
 
 def test_mapped_metric_provider_rejects_provider_identity_aliases() -> None:

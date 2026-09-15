@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+import logging
 from collections.abc import Awaitable, Callable, Mapping
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
@@ -51,6 +52,7 @@ from fdai_operator_service.families.conversation.contracts import (
 _MAX_PROMPT_CHARS = 32_000
 _MAX_ANSWER_CHARS = 64_000
 _MAX_ARTIFACT_BYTES = 1_048_576
+_LOGGER = logging.getLogger(__name__)
 
 TokenProvider = Callable[[str], Awaitable[str]]
 MonotonicClock = Callable[[], float]
@@ -59,7 +61,9 @@ MonotonicClock = Callable[[], float]
 class AsyncHttpClient(Protocol):
     """Send the bounded Azure OpenAI request without exposing client internals."""
 
-    def stream(self, url: str, **kwargs: Any) -> AbstractAsyncContextManager[httpx.Response]: ...
+    def stream(
+        self, method: str, url: str, **kwargs: Any
+    ) -> AbstractAsyncContextManager[httpx.Response]: ...
 
 
 class ResolvedModelsRevision(Protocol):
@@ -386,6 +390,7 @@ class LocalAzureNarratorAdapters:
         status = 502
         try:
             async with self.http_client.stream(
+                "POST",
                 url,
                 headers={
                     "Authorization": f"Bearer {token}",
@@ -396,11 +401,21 @@ class LocalAzureNarratorAdapters:
             ) as response:
                 status = response.status_code
                 if status >= 400:
+                    _LOGGER.warning(
+                        "narrator_provider_status status_code=%s",
+                        status,
+                        extra={"status_code": status},
+                    )
                     return status, None, None, max(0.0, (self.clock() - started) * 1000)
                 async for line in response.aiter_lines():
                     try:
                         delta = stream_delta(line)
-                    except ValueError:
+                    except ValueError as exc:
+                        _LOGGER.warning(
+                            "narrator_stream_frame_invalid reason_code=%s",
+                            str(exc),
+                            extra={"reason_code": str(exc)},
+                        )
                         return (
                             502,
                             None,
@@ -431,7 +446,13 @@ class LocalAzureNarratorAdapters:
             return 502, None, None, max(0.0, (self.clock() - started) * 1000)
         latency_ms = max(0.0, (self.clock() - started) * 1000)
         answer = "".join(chunks).strip()
-        if not answer or len(answer) > _MAX_ANSWER_CHARS:
+        if not answer:
+            _LOGGER.warning(
+                "narrator_stream_answer_invalid reason_code=empty_answer",
+                extra={"reason_code": "empty_answer"},
+            )
+            return 502, None, ttft_ms, latency_ms
+        if len(answer) > _MAX_ANSWER_CHARS:
             return 502, None, ttft_ms, latency_ms
         return status, answer, ttft_ms, latency_ms
 
