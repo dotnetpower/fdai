@@ -4,7 +4,9 @@
   gap: 12px;
   min-width: 0;
   overflow-wrap: anywhere;
-  color: var(--fg);
+  color: var(--cs-text);
+  font-size: var(--cs-type-body-size);
+  line-height: var(--cs-type-body-line-height);
 }
 .handover-checklist header,
 .handover-checklist-actions {
@@ -19,7 +21,11 @@
 .handover-checklist-slots { display: grid; gap: 8px; padding-inline-start: 24px; }
 .handover-checklist-slots li { padding: 8px 0; border-bottom: 1px solid var(--border); }
 .handover-checklist-slots li > span { display: block; }
-.handover-checklist code { overflow-wrap: anywhere; white-space: normal; }
+.handover-checklist code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font-mono);
+}
 .handover-checklist-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
 .handover-checklist label { display: grid; gap: 4px; min-width: 0; flex: 1 1 220px; }
 .handover-checklist input,
@@ -27,4 +33,34 @@
 .handover-checklist button,
 .handover-checklist select,
 .handover-checklist input,
-.handover-checklist summary { min-height: var(--cs-control-height-touch); max-width: 100%; }
+.handover-checklist summary {
+  box-sizing: border-box;
+  min-height: var(--cs-control-height-touch);
+  max-width: 100%;
+  height: auto;
+}
+.handover-checklist :is(button, input, select) {
+  font-size: var(--cs-type-body-size);
+  line-height: var(--cs-type-body-line-height);
+  padding-block: 10px;
+}
+.handover-checklist button {
+  min-width: var(--cs-control-height-touch);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.handover-checklist :is(.cs-control-button, .cs-control-input, .cs-control-select):not(:disabled) { border-color: var(--cs-text-soft); }
+.handover-checklist :is(.cs-control-input, .cs-control-select)[aria-invalid="true"] { border-color: var(--cs-dusty-red); }
+.handover-checklist :is(.cs-control-label, .cs-control-help, .cs-control-error) {
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+.handover-checklist summary { padding-block: 12px; cursor: pointer; }
+.handover-checklist :is(button, input, select, summary):focus-visible {
+  outline: 3px solid var(--cs-steel);
+  outline-offset: 3px;
+}
+@media (forced-colors: active) {
+  .handover-checklist :is(.cs-control-button, .cs-control-input, .cs-control-select):not(:disabled) { border-color: ButtonText; }
+  .handover-checklist :is(button, input, select, summary):focus-visible { outline-color: Highlight; }
+}
