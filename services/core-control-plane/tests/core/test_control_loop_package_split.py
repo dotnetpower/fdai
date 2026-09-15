@@ -13,7 +13,7 @@ from pathlib import Path
 
 import fdai.core.control_loop as control_loop_pkg
 import pytest
-from fdai.core.control_loop import _helpers
+from fdai.core.control_loop import _execution_outcomes, _helpers
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _CL_DIR = _REPO_ROOT / "services" / "core-control-plane" / "src" / "fdai" / "core" / "control_loop"
@@ -158,7 +158,7 @@ def test_is_execution_success_treats_already_applied_as_success() -> None:
             outcome=outcome,
             audit_context={"effect_verified": True},
         )
-        assert _helpers._is_execution_success(result), (
+        assert _execution_outcomes.is_execution_success(result), (
             f"verified outcome {outcome!r} MUST preserve re-delivery success"
         )
 

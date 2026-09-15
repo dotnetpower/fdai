@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: a861e3f5517913a3566f1e970eb1ca8780de3bfb
+translation_source_sha: 3946e84b055635b9811a3da3e4f261db25c20cf2
 translation_revised: 2026-09-15
 ---
 
@@ -38,6 +38,7 @@ translation_revised: 2026-09-15
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-09-15 | implemented | 기존 판테온 및 프로젝트 구조 문서가 크기 상한에 도달해 구현된 T1/T2, Var, Vidar, Saga, Norns, Bragi 재생 계약을 이 집중 런타임 소유 문서로 통합했습니다. | `current change`; 캠페인 안전 검사 1,372개, 환경 의존 PostgreSQL 건너뜀 1개가 포함된 Cost Governance 격리 검사 170개, strict mypy, Ruff 및 구조/문서 게이트. | 에이전트 역할이나 권한을 넓히지 않고 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
+| 2026-09-15 | implemented | 런타임 동작을 바꾸지 않고 최종 CI 호환성을 복구했습니다. 검증된 실행 결과 분류를 집중 모듈로 옮기고, 평가 기준 테스트 후보를 신뢰된 대상에 결속하고, Norns를 `object.issue`를 통해 검증하고, 자연어 의미 체계 검출기가 정규 enum 검증을 잘못 분류하지 않도록 Var의 잠금된 비공개 판단 도우미 이름을 바꿨습니다. | `current change`; 집중 ControlLoop 패키지, 평가 기준 및 tier 테스트, Norns, Var, framework layout, semantic routing, Ruff, strict mypy, LOC, 번역 및 설계 검사. | 기록된 Low 심각도 잔여 문제 두 건은 유지됩니다. 역할, topic, 승인, 실행 또는 승격 권한은 바뀌지 않았습니다. |
 | 2026-09-14 | implemented | 활동 귀속 변경에서 관련 없는 ActionRun fingerprint 필드를 제거해 영속 및 복구 식별자를 그대로 유지했습니다. | `current change`; 전체 mypy와 집중 Thor 내구성 및 복구 회귀 테스트. | 정확히 병합된 개정 번호의 배포 감사 및 활동 근거를 보존합니다. |
 | 2026-09-14 | implemented | 운영 활동 귀속을 기계 행위자, 책임 `owner_agent`, 인증된 `producer_principal`로 분리했습니다. 컨트롤 루프 측정은 Heimdall, RCA는 Forseti, 시작 감사는 Saga, 관측 캠페인은 선언된 소유자에 귀속하며 Saga 감사 미러는 감사 대상 주체를 바꾸지 않고 Saga를 기록합니다. | `current change`; 서비스 계약, 컨트롤 루프, provider adapter, 관측 캠페인, 시작 probe, 파이프라인 및 Operator 투영 테스트. | 정확히 병합된 개정 번호의 배포 감사 및 활동 근거를 보존합니다. 역할, topic 또는 실행 권한은 바뀌지 않았습니다. |
 | 2026-08-13 | in-progress | W0-W8 전체 완료 주장을 독립적으로 근거를 확인할 수 있는 구현 영역으로 교체했습니다. | 현재 변경 | 검증 완료 또는 enforce 운영을 주장하기 전에 실제 근거를 수집하고 별도 검토를 거친 승격을 완료합니다. |

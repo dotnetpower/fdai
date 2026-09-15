@@ -13,8 +13,8 @@ from fdai.core.control_loop._execution_outcomes import (
 from fdai.core.control_loop._execution_outcomes import (
     is_execution_pending as _is_execution_pending,
 )
-from fdai.core.control_loop._helpers import (
-    _is_execution_success,
+from fdai.core.control_loop._execution_outcomes import (
+    is_execution_success as _is_execution_success,
 )
 from fdai.core.control_loop.models import ControlLoopOutcome, ControlLoopResult
 from fdai.core.executor.action_builder import ActionBuilder, ActionBuildError

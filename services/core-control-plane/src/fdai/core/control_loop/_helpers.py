@@ -14,14 +14,6 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from fdai.core.executor import ExecutionResult, ExecutorOutcome
-from fdai.core.executor.direct_api import (
-    DirectApiExecutionOutcome,
-    DirectApiExecutionResult,
-)
-from fdai.core.executor.tool_call import (
-    ToolCallExecutionOutcome,
-    ToolCallExecutionResult,
-)
 from fdai.core.risk_gate.authority import (
     ExecutionAuthorityDecision,
     evaluate_execution_authority,
@@ -320,25 +312,6 @@ def _extract_resource_id(event: Event, decision: RoutingDecision) -> str:
     return f"anonymous:{decision.resource_type or 'unknown'}"
 
 
-def _is_execution_success(
-    result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult | Any,
-) -> bool:
-    """Return whether a dispatched mutation has durable effect verification."""
-    if not hasattr(result, "outcome"):
-        return False
-    dispatched = result.outcome in (
-        ExecutorOutcome.PUBLISHED,
-        ExecutorOutcome.ALREADY_EXISTED,
-        DirectApiExecutionOutcome.DISPATCHED,
-        DirectApiExecutionOutcome.ALREADY_APPLIED,
-        ToolCallExecutionOutcome.DISPATCHED,
-        ToolCallExecutionOutcome.ALREADY_APPLIED,
-    )
-    if not dispatched:
-        return False
-    return result.audit_context.get("effect_verified") is True
-
-
 def _synthetic_action_build_failure(*, event: Event, finding: Any, reason: str) -> ExecutionResult:
     """Return a synthetic :class:`ExecutionResult` for the caller.
     An :class:`ActionBuildError` means the executor was never invoked;
@@ -396,7 +369,6 @@ __all__ = [
     "_extract_environment",
     "_extract_resource_id",
     "_extract_resource_props",
-    "_is_execution_success",
     "_synthetic_action_build_failure",
     "_unified_audit_dict",
     "apply_governance_override_to_rule",

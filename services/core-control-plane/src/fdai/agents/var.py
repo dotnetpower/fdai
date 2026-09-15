@@ -267,13 +267,13 @@ class Var(Agent):
         decision: str,
     ) -> dict[str, Any] | None:
         async with self._decision_lock:
-            return await self._decide_locked(
+            return await self._record_decision_locked(
                 correlation_id,
                 approver=approver,
                 decision=decision,
             )
 
-    async def _decide_locked(
+    async def _record_decision_locked(
         self,
         correlation_id: str,
         *,
