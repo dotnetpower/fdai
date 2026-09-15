@@ -737,6 +737,19 @@ def test_query_schema_rejects_noncanonical_locale_without_language_inference(loc
         )
 
 
+def test_frame_output_schema_omits_server_bound_query_without_losing_internal_validation() -> None:
+    schema = SemanticFrameProposal.model_json_schema()
+    assert "document_query" not in schema["properties"]
+    assert "DocumentRetrievalQuery" not in schema.get("$defs", {})
+    proposal, _ = _bind(_query())
+    restored = SemanticFrameProposal.model_validate_json(proposal.model_dump_json())
+    assert restored.document_query == _query()
+    with pytest.raises(ValueError):
+        SemanticFrameProposal.model_validate(
+            {**proposal.model_dump(), "document_query": {"query_text": "invalid"}}
+        )
+
+
 def test_legacy_frame_serialization_omits_query_even_when_explicitly_null() -> None:
     proposal = SemanticFrameProposal(
         operation=SemanticOperation.SELECT,

@@ -86,6 +86,8 @@ requires the exact `semantic-document-query` pack in the prompt replay manifest.
 profiles retain their output schema even when the document capability is present. Bragi renders
 citations, dates and gaps; T2 retains its separate mixed-model and verification gates.
 Source locale uses closed typed validation of `en` or `ko`, never inference from the question.
+The frame-model output schema omits Core's accepted-judgment-only query field and its definition.
+Internal validation and serialization retain the bound query; model/recovery token ceilings are unchanged.
 
 An unchanged fetch/check preserves collection time and may reuse unchanged derived content.
 Normalized bytes, recipe, applicability or rights decisions changing create a material-update

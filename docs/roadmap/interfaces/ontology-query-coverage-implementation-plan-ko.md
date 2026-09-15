@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 36f02906291a3d705f3345660121f4b6f714e78e
+translation_source_sha: 0352774195d95a5e1dd02bb68732f5a9b04c8d11
 translation_revised: 2026-09-15
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -13,7 +13,7 @@ translation_revised: 2026-09-15
 보존합니다. [수명 주기 설계](cloud-resource-knowledge-lifecycle-ko.md)는 특정 확인 시점 및
 실시간 최신 요청의 동작을 정의합니다. [구조화 검색 설계](cloud-resource-knowledge-structured-rag-ko.md)는
 v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성을 정의하며, 검색어는 적용 조건이나
-접근 범위를 넓히지 않습니다. 커버리지 목록 재생성은 출처 다이제스트만 갱신하며 측정된
+접근 범위를 넓히지 않습니다. 프레임 모델 스키마는 서버가 결속하는 검색어 필드를 제외합니다. 커버리지 목록 재생성은 출처 다이제스트만 갱신하며 측정된
 커버리지를 바꾸지 않습니다.
 
 > **커버리지 경계:** 100%는 하나의 활성 온톨로지 release에서 읽을 수 있는 모든 선언이

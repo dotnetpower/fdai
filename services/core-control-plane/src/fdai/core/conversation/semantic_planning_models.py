@@ -22,6 +22,7 @@ from fdai_service_contracts.semantic_turn import (
 )
 from fdai_service_contracts.test_context import TestContextDraft
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from fdai.core.ontology_platform import QueryManifest
 
@@ -219,12 +220,12 @@ class SemanticFrameProposal(_Proposal):
     evidence_requirements: tuple[
         Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.-]{0,79}$")], ...
     ] = Field(default=(), max_length=32)
-    document_query: DocumentRetrievalQuery | None = Field(
+    document_query: SkipJsonSchema[DocumentRetrievalQuery | None] = Field(
         default=None,
         exclude_if=lambda query: query is None,
         description=(
-            "Return null. Core binds this field exclusively from accepted semantic judgment; "
-            "a frame model cannot propose or replace retrieval terms."
+            "Core binds this field exclusively from accepted semantic judgment. It is omitted "
+            "from the frame-model schema; a frame model cannot replace retrieval terms."
         ),
     )
     unresolved_terms: tuple[str, ...] = Field(default=(), max_length=8)
