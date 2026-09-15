@@ -286,14 +286,16 @@ async def test_parent_only_child_page_retains_reconciliation_without_resources()
     assert page.relationship_reconciliation_after == "2026-07-10T06:15:00+00:00"
 
 
-def _key_vault_delete_event() -> dict[str, Any]:
+def _key_vault_delete_event(
+    provider_type: str = "Microsoft.KeyVault/vaults",
+) -> dict[str, Any]:
     return {
         "resourceId": (
             "/subscriptions/00000000-0000-0000-0000-000000000001/"
-            "resourceGroups/rg-a/providers/Microsoft.KeyVault/vaults/vault-one"
+            f"resourceGroups/rg-a/providers/{provider_type}/resource-one"
         ),
         "resourceType": {"value": "Microsoft.Resources/subscriptions/resourcegroups"},
-        "operationName": {"value": "Microsoft.KeyVault/vaults/delete"},
+        "operationName": {"value": f"{provider_type}/delete"},
         "status": {"value": "Succeeded"},
         "eventTimestamp": "2026-07-10T06:15:00Z",
     }
@@ -308,10 +310,13 @@ def _key_vault_delete_event() -> dict[str, Any]:
     ],
 )
 @pytest.mark.parametrize("include_valid_row", [False, True])
-async def test_key_vault_delete_envelope_requests_reconciliation_without_upsert(
-    supplied_type: str, include_valid_row: bool
+@pytest.mark.parametrize(
+    "provider_type", ["Microsoft.KeyVault/vaults", "Microsoft.Storage/storageAccounts"]
+)
+async def test_known_delete_envelope_requests_reconciliation_without_upsert(
+    supplied_type: str, include_valid_row: bool, provider_type: str
 ) -> None:
-    event = _key_vault_delete_event()
+    event = _key_vault_delete_event(provider_type)
     event["resourceType"] = {"value": supplied_type}
     events = [event]
     if include_valid_row:
@@ -356,6 +361,7 @@ async def test_key_vault_delete_envelope_requests_reconciliation_without_upsert(
         ("operationName", {"value": "Microsoft.KeyVault/vaults/keys/delete"}),
         ("operationName", {"value": "Microsoft.Resources/resourceGroups/delete"}),
         ("operationName", {"value": "Microsoft.KeyVault/vaults/delete/extra"}),
+        ("operationName", {"value": "Microsoft.Storage/storageAccounts/delete"}),
         ("operationName", None),
         ("resourceType", {"value": "Microsoft.Storage/storageAccounts"}),
         (
@@ -384,10 +390,13 @@ async def test_key_vault_delete_envelope_rejects_other_reviewed_conflicts(
 
 @pytest.mark.parametrize("status", ["Failed", "Started", "succeeded", None])
 @pytest.mark.parametrize("only_succeeded", [False, True])
-async def test_key_vault_delete_envelope_requires_succeeded(
-    status: str | None, only_succeeded: bool
+@pytest.mark.parametrize(
+    "provider_type", ["Microsoft.KeyVault/vaults", "Microsoft.Storage/storageAccounts"]
+)
+async def test_known_delete_envelope_requires_succeeded(
+    status: str | None, only_succeeded: bool, provider_type: str
 ) -> None:
-    event = _key_vault_delete_event()
+    event = _key_vault_delete_event(provider_type)
     event["status"] = {"value": status}
 
     async def handler(_request: httpx.Request) -> httpx.Response:
@@ -408,10 +417,13 @@ async def test_key_vault_delete_envelope_requires_succeeded(
 
 
 @pytest.mark.parametrize("timestamp", [None, "", "invalid", "2026-07-10T06:15:00"])
-async def test_key_vault_delete_envelope_requires_ordering_timestamp(
-    timestamp: str | None,
+@pytest.mark.parametrize(
+    "provider_type", ["Microsoft.KeyVault/vaults", "Microsoft.Storage/storageAccounts"]
+)
+async def test_known_delete_envelope_requires_ordering_timestamp(
+    timestamp: str | None, provider_type: str
 ) -> None:
-    event = _key_vault_delete_event()
+    event = _key_vault_delete_event(provider_type)
     event["eventTimestamp"] = timestamp
 
     async def handler(_request: httpx.Request) -> httpx.Response:
@@ -428,8 +440,11 @@ async def test_key_vault_delete_envelope_requires_ordering_timestamp(
 @pytest.mark.parametrize(
     "failure", [None, "http", "conflict", "timestamp", "continuation", "marker"]
 )
-async def test_key_vault_delete_envelope_persists_marker_and_cursor_only_after_complete_stream(
-    failure: str | None, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    "provider_type", ["Microsoft.KeyVault/vaults", "Microsoft.Storage/storageAccounts"]
+)
+async def test_known_delete_envelope_persists_marker_and_cursor_only_after_complete_stream(
+    failure: str | None, monkeypatch: pytest.MonkeyPatch, provider_type: str
 ) -> None:
     state = InMemoryStateStore()
     bus = InMemoryEventBus()
@@ -459,7 +474,7 @@ async def test_key_vault_delete_envelope_persists_marker_and_cursor_only_after_c
             return httpx.Response(
                 200,
                 json={
-                    "value": [_key_vault_delete_event()],
+                    "value": [_key_vault_delete_event(provider_type)],
                     "nextLink": "https://management.azure.com/next",
                 },
             )

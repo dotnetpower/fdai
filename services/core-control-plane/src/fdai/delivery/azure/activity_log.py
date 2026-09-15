@@ -52,7 +52,7 @@ Safety / cost invariants
   the shared :func:`~fdai.delivery.azure.arg_query._truncate_props` helper.
 - The overall page count per :meth:`delta` call is bounded by the
   inventory adapter's ``max_delta_pages`` cap.
-- A successful Key Vault delete with the known Resource Group type envelope
+- A successful Key Vault or Storage Account delete with the known Resource Group type envelope
   requests event-time reconciliation only; its contradictory identity never
   produces a resource upsert. Other reviewed type conflicts remain errors.
 """
@@ -369,10 +369,11 @@ class AzureActivityLogFactory:
             return at, None, succeeded
         if (
             succeeded
-            and derived_arm_type.casefold() == "microsoft.keyvault/vaults"
+            and derived_arm_type.casefold()
+            in {"microsoft.keyvault/vaults", "microsoft.storage/storageaccounts"}
             and arm_type.casefold() == "microsoft.resources/resourcegroups"
             and operation is not None
-            and operation.casefold() == "microsoft.keyvault/vaults/delete"
+            and operation.casefold() == f"{derived_arm_type.casefold()}/delete"
         ):
             # This known delete envelope cannot establish either Resource's state.
             return at, None, True
