@@ -251,9 +251,11 @@ def _prepare_locked(
         "original_claim_digest": canonical_digest(claim),
         "original_state_digest": hashlib.sha256(state_bytes).hexdigest(),
         "original_state_serial": state["serial"],
+        "original_lineage_digest": canonical_digest({"lineage": state["lineage"]}),
         "variables_digest": review["variables_digest"],
         "terraform_root_digest": root_digest,
         "terraform_digest": review["terraform_digest"],
+        "provider_digest": image._execution_tree_digest(work / "terraform-data"),
         "plan_digest": hashlib.sha256(
             read_private_bytes(work / "residual.tfplan", max_bytes=_MAX)
         ).hexdigest(),

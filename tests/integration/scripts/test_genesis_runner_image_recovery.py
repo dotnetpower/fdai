@@ -6,9 +6,11 @@ import fcntl
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 from copy import deepcopy
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -18,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts/deployment/azure"))
 
 import genesis_runner_image_recovery as recovery  # noqa: E402
+import genesis_runner_image_recovery_apply as executor  # noqa: E402
 import genesis_runner_image_recovery_plan as planner  # noqa: E402
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest  # noqa: E402
 from fdai_deployment_cli.private_output import write_private_bytes  # noqa: E402
@@ -213,7 +216,9 @@ def planning_inputs(tmp_path, monkeypatch, plans):
     }
     monkeypatch.setattr(planner, "load_review", lambda *_args, **_kwargs: review)
     monkeypatch.setattr(
-        planner.image, "_load_apply_claim", lambda *_args, **_kwargs: {"state": "applying"}
+        planner.image,
+        "_load_apply_claim",
+        lambda *_args, **_kwargs: {"state": "applying", "executor_identity_digest": "e" * 64},
     )
     monkeypatch.setattr(
         planner,
@@ -230,6 +235,7 @@ def planning_inputs(tmp_path, monkeypatch, plans):
     )
     monkeypatch.setattr(planner.image, "_trusted_terraform", lambda value: value)
     monkeypatch.setattr(planner.image, "_file_digest", lambda *_args: "f" * 64)
+    monkeypatch.setattr(planner.image, "_execution_tree_digest", lambda *_args: "f" * 64)
     monkeypatch.setattr(planner.image, "_terraform_environment", lambda *_args, **_kwargs: {})
 
     def snapshot(_source, destination, **_kwargs):
@@ -332,3 +338,223 @@ def test_recovery_planner_rejects_extra_configuration_change(planning_inputs, mo
     with pytest.raises(ValueError, match="beyond the trusted CLI"):
         planner.prepare_recovery_plan(**args)
     assert not calls
+
+
+@pytest.mark.skipif(shutil.which("terraform") is None, reason="local Terraform executable required")
+def test_saved_residual_plan_applies_to_original_local_state_only(tmp_path):
+    terraform = shutil.which("terraform")
+    assert terraform is not None
+    original = tmp_path / "original"
+    corrected = tmp_path / "corrected"
+    original.mkdir()
+    corrected.mkdir()
+    initial = 'resource "terraform_data" "original" { input = "unchanged" }\n'
+    (original / "main.tf").write_text(initial)
+    (corrected / "main.tf").write_text(
+        initial + 'resource "terraform_data" "remaining" { input = "new" }\n'
+    )
+    environment = {
+        key: value for key, value in os.environ.items() if not key.startswith(("TF_", "ARM_"))
+    }
+
+    def run(directory, *arguments):
+        subprocess.run(  # noqa: S603
+            [terraform, f"-chdir={directory}", *arguments],
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=True,
+            timeout=30,
+        )
+
+    run(original, "init", "-backend=false", "-input=false")
+    run(original, "apply", "-input=false", "-auto-approve")
+    state_path = original / "terraform.tfstate"
+    prior = json.loads(state_path.read_bytes())
+    run(corrected, "init", "-backend=false", "-input=false")
+    run(corrected, "plan", "-input=false", f"-state={state_path}", "-out=residual.tfplan")
+    assert json.loads(state_path.read_bytes()) == prior
+    run(corrected, "apply", "-input=false", f"-state={state_path}", "residual.tfplan")
+    after = json.loads(state_path.read_bytes())
+    assert after["lineage"] == prior["lineage"]
+    assert after["serial"] > prior["serial"]
+    assert len(after["resources"]) == 2
+    original_record = next(entry for entry in after["resources"] if entry["name"] == "original")
+    assert (
+        original_record["instances"][0]["attributes"]["id"]
+        == prior["resources"][0]["instances"][0]["attributes"]["id"]
+    )
+    assert not (corrected / "terraform.tfstate").exists()
+
+
+@pytest.fixture
+def execution_inputs(planning_inputs, monkeypatch):
+    arguments, _, root, _ = planning_inputs
+    review = planner.prepare_recovery_plan(**arguments)
+    work = arguments["work_dir"]
+    moment = datetime.now(UTC)
+    approval = {
+        "schema_version": "fdai.genesis-approval.v1",
+        "run_binding": review["review_digest"],
+        "source_commit": "b" * 40,
+        "stage": "runner-image",
+        "approved": True,
+        "approved_at": moment.isoformat(),
+        "expires_at": (moment + timedelta(minutes=30)).isoformat(),
+        "actor_digest": "c" * 64,
+        "evidence": {
+            "review_digest": review["review_digest"],
+            "plan_digest": review["plan_digest"],
+        },
+    }
+    approval_path = work / "approval.json"
+    write_private_bytes(approval_path, canonical_bytes(approval))
+    calls = []
+    failure = {"apply": False}
+    monkeypatch.setattr(executor, "load_review", planner.load_review)
+    monkeypatch.setattr(executor, "active_azure_target", planner.active_azure_target)
+    monkeypatch.setattr(
+        executor,
+        "inspect_source",
+        lambda *_args, **_kwargs: SimpleNamespace(commit="b" * 40, reverify=lambda: None),
+    )
+    monkeypatch.setattr(executor, "current_actor_digest", lambda *_args: "c" * 64)
+    monkeypatch.setattr(
+        executor,
+        "GenesisChecks",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            verify_source=lambda **_values: calls.append("source-ci")
+        ),
+    )
+
+    def run(command, **_kwargs):
+        assert command[1] == "apply"
+        assert f"-state={root / 'terraform.tfstate'}" in command
+        assert command[-1] == str(work / "residual.tfplan")
+        claim = json.loads((work / "residual-apply-claim.json").read_bytes())
+        assert claim["approver_actor_digest"] == "c" * 64
+        assert claim["executor_identity_digest"] == "e" * 64
+        assert claim["idempotency_key"]
+        calls.append("apply")
+        state = json.loads((root / "terraform.tfstate").read_bytes())
+        state["serial"] += 1
+        (root / "terraform.tfstate").write_bytes(canonical_bytes(state))
+        return subprocess.CompletedProcess(command, 1 if failure["apply"] else 0, "", "")
+
+    def observe(**_kwargs):
+        calls.append("observe")
+        return "/synthetic/image"
+
+    monkeypatch.setattr(executor, "run_with_heartbeat", run)
+    monkeypatch.setattr(
+        executor.image,
+        "_capture",
+        lambda *_args, **_kwargs: '{"runner_registered":false,"subscription_ready":false}',
+    )
+    monkeypatch.setattr(executor, "verify_runner_image_effect", observe)
+    monkeypatch.setattr(
+        executor.image, "_verify_zero_change", lambda **_kwargs: calls.append("zero-change")
+    )
+    return (
+        {
+            **arguments,
+            "expected_review_digest": review["review_digest"],
+            "repository": "example/fdai",
+            "approval_file": approval_path,
+            "timeout_seconds": 900,
+        },
+        calls,
+        failure,
+    )
+
+
+def test_residual_apply_claim_precedes_effect_and_resume_only_observes(execution_inputs):
+    arguments, calls, _ = execution_inputs
+    receipt = executor.apply_recovery(**arguments)
+    assert receipt["effect_verified"] is True
+    assert receipt["deployment_ready"] is False
+    assert "runner_image_id" not in receipt
+    assert calls == ["source-ci", "apply", "observe", "zero-change"]
+    with pytest.raises(ValueError, match="never repeat"):
+        executor.apply_recovery(**arguments)
+    assert calls.count("apply") == 1
+    assert (
+        executor.apply_recovery(**{**arguments, "verify_only": True, "approval_file": None})
+        == receipt
+    )
+    assert calls.count("apply") == 1
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        "missing-approval",
+        "other-plan",
+        "other-source",
+        "other-actor",
+        "expired",
+        "state",
+        "plan",
+        "configuration",
+    ],
+)
+def test_residual_apply_rejects_changed_context_before_effect(execution_inputs, invalid):
+    arguments, calls, _ = execution_inputs
+    work = arguments["work_dir"]
+    if invalid == "missing-approval":
+        arguments["approval_file"] = None
+    elif invalid in {"state", "plan", "configuration"}:
+        path = {
+            "state": arguments["original_directory"] / "root/terraform.tfstate",
+            "plan": work / "residual.tfplan",
+            "configuration": work / "root/main.tf",
+        }[invalid]
+        if invalid == "state":
+            state = json.loads(path.read_bytes())
+            state["serial"] += 1
+            path.write_bytes(canonical_bytes(state))
+        else:
+            path.write_bytes(b"changed")
+    else:
+        path = arguments["approval_file"]
+        value = json.loads(path.read_bytes())
+        if invalid == "other-plan":
+            value["evidence"]["plan_digest"] = "f" * 64
+        elif invalid == "other-source":
+            value["source_commit"] = "f" * 40
+        elif invalid == "other-actor":
+            value["actor_digest"] = "f" * 64
+        else:
+            value["approved_at"] = (datetime.now(UTC) - timedelta(hours=2)).isoformat()
+            value["expires_at"] = (datetime.now(UTC) - timedelta(hours=1, minutes=30)).isoformat()
+        path.write_bytes(canonical_bytes(value))
+    with pytest.raises(ValueError):
+        executor.apply_recovery(**arguments)
+    assert "apply" not in calls
+    assert not (work / "residual-apply-claim.json").exists()
+
+
+def test_failed_residual_apply_never_reexecutes(execution_inputs):
+    arguments, calls, failure = execution_inputs
+    failure["apply"] = True
+    with pytest.raises(ValueError, match="preserve the claim"):
+        executor.apply_recovery(**arguments)
+    with pytest.raises(ValueError, match="never repeat"):
+        executor.apply_recovery(**arguments)
+    assert calls.count("apply") == 1
+    assert "observe" not in calls
+    assert not (arguments["work_dir"] / "residual-apply-receipt.json").exists()
+
+
+def test_residual_verification_rejects_tampered_claim_identity(execution_inputs):
+    arguments, calls, _ = execution_inputs
+    executor.apply_recovery(**arguments)
+    claim_path = arguments["work_dir"] / "residual-apply-claim.json"
+    claim = json.loads(claim_path.read_bytes())
+    claim["approver_actor_digest"] = claim["credential_actor_digest"] = "invalid"
+    claim_path.write_bytes(canonical_bytes(claim))
+    calls.clear()
+    with pytest.raises(ValueError, match="schema or identity"):
+        executor.apply_recovery(**{**arguments, "verify_only": True, "approval_file": None})
+    assert "apply" not in calls
+    assert "observe" not in calls
