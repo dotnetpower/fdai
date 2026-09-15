@@ -70,6 +70,8 @@ an all-Low review claim, or operational adoption.
 
 | 2026-09-15 | implemented | Reconciled the final locally verified source scope after main integration and rounds 20-21. Rejected three review hypotheses from actual guards: rule presence follows successful planning on immutable evidence, empty exact-key history retains uncertainty, and request identity is bound to original Operator acceptance plus the signed command. No speculative defensive source changes were added. | Source through `ba16690d3`; feature 1446 passes plus 7 repaired full-migration cases, 2 head/no-op checks, 147 merge-boundary checks, 74 artifact/layout/compatibility checks, and 45 ownership/distribution passes plus the repaired installed-wheel check. Core coverage 96.61% lines / 90.67% branches / 95.06% combined; 107-source strict typing; changed Python lint/format; 292 Console tests, types, all 14 isolated browser cases, schema/fixture parity and production build passed. Results are input-reused slices, not a new whole-repository or single aggregate run. | Preserve the High operational and Medium authenticated accessibility exits below. Source issue/PR publication, exact-head protected CI and merge still need their own evidence. |
 
+| 2026-09-15 | in-progress | Established the full-outcome tracking issue and its bounded source-delivery child before publication. Both retain explicit observable exits; source merge cannot close operational qualification. | [Full outcome #1027](https://github.com/dotnetpower/fdai/issues/1027), [source delivery #1028](https://github.com/dotnetpower/fdai/issues/1028), verified local checkpoint `151c9fcb0`, and [successful CI for integrated main `91ff893cb`](https://github.com/dotnetpower/fdai/actions/runs/34928980843). The best-effort Project projection timed out; issue content remains authoritative. | Push the exact local head, retain its protected PR checks/merge, and keep the parent operational/accessibility exits open. |
+
 ### Remaining work
 
 The temporal source extension passed 121 focused replay/IaC/admitted-source checks, then 30 native
@@ -149,9 +151,10 @@ or recall. The latest integration checks passed 147 cases and five-boundary stri
   installed contract and service wheel membership, fixed pantheon layout, test ownership, 211-route
   composition and Console build pass. Changed-doc size, history, impact and normal commit hooks
   pass without bypasses. Exact-head CI remains authoritative for integration and merge.
-- [ ] **Publication:** Before push/PR, retain a tracking issue with observable exit criteria and an
-  explicit disposition for the open scope above. Required exact-head CI, protected merge and any
-  separately authorized operational validation remain distinct from local test evidence.
+- [ ] **Publication:** [Source delivery #1028](https://github.com/dotnetpower/fdai/issues/1028)
+  now tracks exact-head publication and protected merge. [Full outcome #1027](https://github.com/dotnetpower/fdai/issues/1027)
+  retains operational/accessibility exits. Required PR CI and separately authorized operational
+  validation remain distinct from local tests; the best-effort Project projection is deferred.
 
 ### Current unresolved scope
 
