@@ -69,3 +69,22 @@ Evidence coverage is 22/49 applicable criteria (44.90%); no final quality score 
 Overall rubric disposition: `needs-infrastructure` for standard authenticated full-stack evidence;
 assistive-technology validation additionally needs a human. Test scenarios themselves passed, but
 that does not close these broader evidence gaps or imply operational readiness.
+
+## Standard authenticated assurance harness
+
+The standard live route inventory now includes `/alert-quality`. The dedicated Browser Entra
+assurance runner uses only the canonical `http://localhost:5273` Console and
+`http://127.0.0.1:8010` Operator API, restores a provider-hosted Browser Entra session through the
+existing owner-only storage-state contract, and never intercepts identity or API responses. It
+requires a configured authorized scope, verifies the shadow/no-execution boundary, inspects all
+three inert treatment forms without submitting them, and measures English/Korean desktop,
+constrained, mobile, 200% text, overflow, and keyboard-focus behavior.
+The narrow state also enables forced colors and reduced motion before traversing every current
+focus target by its DOM position.
+
+The runner emits a redacted evidence artifact containing counts, booleans, digests, origins, and
+viewport facts only. It does not retain principal, tenant, scope, rule, recipient, or response
+content. Its human assistive-technology field is fixed to `needs-human` and `not-observed`; source
+code or an automated browser cannot turn that field into confirmation. No standard stack or current
+Browser Entra state was available while this harness was authored, so this section records an
+implemented validation path, not a passing authenticated or screen-reader result.
