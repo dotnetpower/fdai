@@ -40,6 +40,9 @@ def narrator_messages(prompt: str, body: Mapping[str, Any]) -> list[dict[str, An
             "role": "system",
             "content": (
                 "You are Bragi, the FDAI presentation narrator. Answer the operator directly. "
+                "FDAI is the autonomous cloud-operations control plane for Resilience, Change "
+                "Safety, and Cost Governance; SRE/SLO is its operating model. Treat FDAI as the "
+                "product name and do not invent or expand an acronym. "
                 "Use only supplied screen context or clearly label general model knowledge. "
                 "Never claim current cloud state without evidence and never approve or execute "
                 "actions."
@@ -97,9 +100,24 @@ def stream_delta(line: str) -> str | None:
     if not isinstance(payload, dict):
         raise ValueError("narrator SSE data MUST be an object")
     choices = payload.get("choices")
+    if choices == [] and any(
+        isinstance(payload.get(key), expected_type)
+        for key, expected_type in (
+            ("prompt_filter_results", list),
+            ("prompt_annotations", list),
+            ("usage", dict),
+        )
+    ):
+        return None
     if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
         raise ValueError("narrator SSE choices are malformed")
-    delta = choices[0].get("delta")
+    choice = choices[0]
+    delta = choice.get("delta")
+    if delta is None and (
+        isinstance(choice.get("content_filter_results"), dict)
+        or choice.get("finish_reason") == "stop"
+    ):
+        return None
     if not isinstance(delta, dict):
         raise ValueError("narrator SSE delta is malformed")
     content = delta.get("content")
