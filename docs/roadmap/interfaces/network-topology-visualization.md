@@ -216,7 +216,8 @@ snapshot time, source, freshness, scope, truncation, and `Read-only observed top
 The Console first derives presentation-only geometry from authoritative containment identity and
 typed links. The default Landscape aggregates descendants under Subscription and Resource Group
 boundaries, and the Network overview limits visible records to network boundaries and reported
-network roles. API responses do not carry or authorize layout coordinates. Every visible record
+network roles. It retains every returned VNet and Subnet boundary plus at most 48 other network
+roles and required ancestors. API responses do not carry or authorize layout coordinates. Every visible record
 must have finite generated geometry before it reaches the SVG renderer.
 Observed links terminate on node and region boundaries rather than at visual centers. A neutral
 halo and typed endpoint dot keep short containment attachments visible across nested boundaries,

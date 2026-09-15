@@ -652,7 +652,8 @@ without discarding selection, tab, scale, or path state.
 The Network lens keeps the complete `InventoryGraphResponse` authoritative. With **Scope
 overview** selected, it presents returned VNet and Subnet boundaries plus reported gateways,
 firewalls, public exposure, private endpoints, and peering; it does not repeat the complete raw
-Resource set. Selecting a Resource derives one bounded network-plane focus and records that
+Resource set. The overview retains all returned VNet and Subnet boundaries and at most 48 other
+reported network-role records with their ancestor scope. Selecting a Resource derives one bounded network-plane focus and records that
 selection in route state. Path tracing
 walks only reported `attached_to`, stored-direction `depends_on`, and symmetric `peered_with`
 relationships. It returns `no_observed_path` only for fresh, complete relationship coverage; every

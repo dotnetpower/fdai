@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 8cbd7f4057ae64652b3d1880c298bc09cd2696e5
+translation_source_sha: 8c77c2f95eebd25e79db1c218dd13e89ff198d71
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -633,7 +633,9 @@ disclosure에서 계속 확인할 수 있습니다.
 Network 보기는 완전한 `InventoryGraphResponse`를 권위 있는 상태로 유지합니다. **범위 개요**를
 선택하면 반환된 VNet 및 Subnet 경계와 보고된 게이트웨이, 방화벽, 공용 노출, Private Endpoint 및
 피어링을 표시하며, 전체 원시 Resource 집합을 반복하지 않습니다. Resource를 선택할 때만 범위가
-제한된 네트워크 평면 포커스를 파생하고 해당 선택을 라우트 상태에 기록합니다. 경로 추적은 보고된 `attached_to`,
+제한된 네트워크 평면 포커스를 파생하고 해당 선택을 라우트 상태에 기록합니다. 개요는 반환된 모든
+VNet 및 Subnet 경계와 상위 범위를 유지하고, 그 밖의 보고된 네트워크 역할 기록은 최대 48개를
+표시합니다. 경로 추적은 보고된 `attached_to`,
 저장 방향의 `depends_on`, 대칭 `peered_with` 관계만 탐색합니다. 최신이고 완전한 관계 범위에서만
 `no_observed_path`를 반환하며, 불완전한 모든 부정 결과는 `unknown`으로 유지합니다. 필터와 강조는
 표현만 변경합니다. SVG와 PNG 내보내기는 정제된 출처 이력을 유지하고 이름, 원시 프로바이더 id,

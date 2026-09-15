@@ -1,7 +1,7 @@
 ---
 title: 네트워크 토폴로지 시각화
 translation_of: network-topology-visualization.md
-translation_source_sha: 4ac0d012f2b8338ca8a63e3c601968be64aa1c57
+translation_source_sha: e77b7a7f7aa8054515267a4e66a1cde0b119a093
 translation_revised: 2026-09-15
 ---
 # 네트워크 토폴로지 시각화
@@ -211,7 +211,8 @@ Console SVG 작업 영역은 범위가 제한된 Resource 검색, 이동식 노�
 `Read-only observed topology`를 표시합니다.
 Console은 먼저 권위 있는 포함 관계 식별자와 타입이 지정된 관계에서 표현 전용 형상을 파생합니다.
 기본 Landscape는 Subscription 및 Resource Group 경계 아래의 하위 항목을 집계하고, Network
-개요는 표시 기록을 네트워크 경계와 보고된 네트워크 역할로 제한합니다. API 응답의 배치 좌표는
+개요는 표시 기록을 네트워크 경계와 보고된 네트워크 역할로 제한합니다. 반환된 모든 VNet 및 Subnet
+경계와 그 상위 범위를 유지하고, 그 밖의 네트워크 역할은 최대 48개 표시합니다. API 응답의 배치 좌표는
 권한이나 근거가 아니며 필요하지도 않습니다. 표시되는 모든 기록은 SVG 렌더러에 도달하기 전에
 유한한 생성 형상을 가져야 합니다.
 관측된 링크는 시각적 중심이 아니라 노드 및 영역 경계에서 끝납니다. 중립 halo와 타입이 지정된

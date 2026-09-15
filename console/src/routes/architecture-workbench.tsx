@@ -6,6 +6,7 @@ import { ArchitectureNetworkPathPanel } from "../components/architecture-network
 import { ArchitectureTopologyGraph } from "../components/architecture-topology-graph";
 import {
   DEFAULT_ARCHITECTURE_NETWORK_FILTERS,
+  architectureNetworkOverviewGraph,
   architectureNetworkFocusGraph,
   exportArchitectureNetworkSvg,
   filterArchitectureNetworkGraph,
@@ -13,7 +14,10 @@ import {
   traceArchitectureNetworkPath,
   type ArchitectureNetworkFilters,
 } from "../components/architecture-network-focus";
-import { layoutArchitecturePresentation } from "../components/architecture-map-layout";
+import {
+  layoutArchitectureNetworkOverviewPresentation,
+  layoutArchitecturePresentation,
+} from "../components/architecture-map-layout";
 import {
   resourceTypeLabelOf,
   type ArchitecturePresentationMode,
@@ -53,7 +57,9 @@ export function ArchitectureWorkbench({
   const [pathTargetId, setPathTargetId] = useState<string | null>(null);
   const selected = graph.resources.find((resource) => resource.id === selectedId) ?? null;
   const networkFocusGraph = useMemo(
-    () => architectureNetworkFocusGraph(graph, selectedId),
+    () => selectedId
+      ? architectureNetworkFocusGraph(graph, selectedId)
+      : architectureNetworkOverviewGraph(graph),
     [graph, selectedId],
   );
   const filteredNetworkGraph = useMemo(
@@ -64,7 +70,7 @@ export function ArchitectureWorkbench({
     () => mode === "network"
       ? selectedId
         ? layoutArchitectureNetworkFocusGraph(filteredNetworkGraph)
-        : layoutArchitecturePresentation(filteredNetworkGraph, null)
+        : layoutArchitectureNetworkOverviewPresentation(filteredNetworkGraph)
       : layoutArchitecturePresentation(graph, selectedId),
     [filteredNetworkGraph, graph, mode, selectedId],
   );
