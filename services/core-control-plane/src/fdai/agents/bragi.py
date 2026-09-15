@@ -47,6 +47,7 @@ from fdai.agents._framework.introspection import (
     capability_facts,
 )
 from fdai.agents._framework.pantheon import _BRAGI, PANTHEON_NAMES, PANTHEON_SPECS
+from fdai.agents._framework.role_answers import bragi_role_answer
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
 from fdai.core.metering.budget import BudgetLedger, ModelBudget
@@ -397,15 +398,10 @@ class Bragi(Agent):
     # ---- routing -------------------------------------------------------
 
     def route(
-        self,
-        judgment: SemanticJudgmentProposal,
-        *,
-        question: str | None = None,
+        self, judgment: SemanticJudgmentProposal, *, question: str | None = None
     ) -> RoutingDecision:
         return route_semantic_judgment(
-            judgment,
-            max_contributors=_MAX_CONTRIBUTORS,
-            question=question,
+            judgment, max_contributors=_MAX_CONTRIBUTORS, question=question
         )
 
     def should_delegate(self, question: str, view_context: dict[str, Any]) -> bool:
@@ -454,8 +450,8 @@ class Bragi(Agent):
     ) -> Turn:
         """Route + call primary + record the turn.
 
-        ``locale`` selects the bounded prompt-composition language layer.
-        ``initiator_role`` (the console session's Entra role) is applied by the
+        ``locale`` selects the language layer. ``initiator_role`` (the console session's Entra role)
+        is applied by the
         entry RBAC gate when the turn is an action command; ``None`` skips it.
         A read-only channel sets ``allow_action_proposal=False`` so an action
         utterance is redirected to the dedicated proposal route without
@@ -617,10 +613,14 @@ class Bragi(Agent):
                     contributor_answers: list[dict[str, Any]] = []
                     contributor_errors: list[str] = []
                 else:
-                    contributor_answers, contributor_errors = await self._ask_contributors(
+                    contributor_answers, contributor_errors = await ask_contributors(
+                        self._agent_responders,
                         decision.contributors,
                         question=question,
                         session_id=session_id,
+                        limit=_MAX_CONTRIBUTORS,
+                        timeout_seconds=_CONTRIBUTOR_TIMEOUT_SECONDS,
+                        logger=_LOG,
                         primary_agent=decision.primary_agent,
                         locale=locale,
                     )
@@ -765,27 +765,6 @@ class Bragi(Agent):
         self.record_behavior("handoff:published")
         return "published"
 
-    async def _ask_contributors(
-        self,
-        contributors: tuple[str, ...],
-        *,
-        question: str,
-        session_id: str,
-        primary_agent: str | None = None,
-        locale: str = "en",
-    ) -> tuple[list[dict[str, Any]], list[str]]:
-        return await ask_contributors(
-            self._agent_responders,
-            contributors,
-            question=question,
-            session_id=session_id,
-            limit=_MAX_CONTRIBUTORS,
-            timeout_seconds=_CONTRIBUTOR_TIMEOUT_SECONDS,
-            logger=_LOG,
-            primary_agent=primary_agent,
-            locale=locale,
-        )
-
     def prior_turns(self, session_id: str, *, limit: int = 5) -> tuple[Turn, ...]:
         session = self._sessions.get(session_id)
         if session is None:
@@ -803,29 +782,7 @@ class Bragi(Agent):
         }
         evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
         facts["evidence_refs"] = [evidence_ref]
-        if context.get("locale") == "ko":
-            answer = (
-                "저는 파이프라인 서술기이자 번역기인 Bragi입니다. Thor에게 보고합니다. "
-                "Conversation, Turn, UserPreference, HandoffEscalation 및 PostTurnReview를 "
-                "소유합니다. 검증된 semantic judgment로 읽기 전용 질문을 담당 에이전트에게 "
-                "라우팅하고 동일한 근거를 운영자 로캘로 표현합니다. 모델 출력은 표현 전용이며 "
-                "판단, 승인, 근거 변경 또는 실행 권한을 갖지 않습니다. 작업 요청은 운영자를 "
-                "initiator로 유지한 채 타입이 지정된 파이프라인에 다시 진입해야 합니다. 숨겨진 "
-                "시스템 프롬프트는 공개하지 않습니다. 현재 고정된 에이전트 "
-                f"{len(PANTHEON_SPECS)}개를 "
-                f"라우팅할 수 있습니다. 근거: {evidence_ref}."
-            )
-        else:
-            answer = (
-                "I am Bragi, the pipeline narrator and translator. I report to Thor. I own "
-                "Conversation, Turn, UserPreference, HandoffEscalation, and PostTurnReview. I use "
-                "verified semantic judgment to route read-only questions to the accountable agent "
-                "and render the same evidence in the operator's locale. Model output is "
-                "presentation-only and has no judgment, approval, evidence-mutation, or execution "
-                "authority. Action requests must re-enter the typed pipeline with the operator "
-                "retained as initiator. I do not reveal hidden system prompts. I can route across "
-                f"the fixed roster of {len(PANTHEON_SPECS)} agents. Evidence: {evidence_ref}."
-            )
+        answer = bragi_role_answer(str(context.get("locale")), len(PANTHEON_SPECS), evidence_ref)
         return IntrospectionResult(answer=answer, facts=facts)
 
 

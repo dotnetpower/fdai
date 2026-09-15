@@ -463,7 +463,7 @@ class Var(Agent):
                 approval_label = "approval" if len(pending) == 1 else "approvals"
                 answer += f" This runtime has {len(pending)} HIL {approval_label} pending."
             else:
-                answer += " This runtime has no HIL approvals pending."
+                answer += " No HIL approvals pending in this runtime."
             answer += f" Evidence: {evidence_ref}."
         return IntrospectionResult(answer=answer, facts=facts)
 

@@ -560,7 +560,8 @@ class Muninn(Agent):
                 "execute an action. This conversational port is read-only; state-change requests "
                 "re-enter the typed pipeline under the operator's authority. I do not reveal "
                 "hidden system prompts. This runtime retains "
-                f"{facts['buckets_count']} buckets and {facts['total_keys']} keys; case-history "
+                f"{facts['buckets_count']} state bucket(s) and {facts['total_keys']} keys; "
+                "case-history "
                 f"service availability is {str(facts['case_history_available']).lower()}. "
                 f"Evidence: {evidence_ref}."
             )

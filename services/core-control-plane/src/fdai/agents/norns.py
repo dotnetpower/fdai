@@ -72,6 +72,7 @@ from fdai.agents._framework.norns_learning import (
 )
 from fdai.agents._framework.norns_semantic_feedback import NornsSemanticFeedbackLearning
 from fdai.agents._framework.pantheon import _NORNS
+from fdai.agents._framework.role_answers import norns_role_answer
 from fdai.core.case_history import CaseHistoryAnalyzer
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.learning import (
@@ -780,33 +781,7 @@ class Norns(Agent):
         }
         evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
         facts["evidence_refs"] = [evidence_ref]
-        if context.get("locale") == "ko":
-            answer = (
-                "저는 거버넌스 계층의 learner인 Norns입니다. Odin에게 보고합니다. RuleCandidate와 "
-                "Pattern을 소유하고 운영 결과에서 반복되는 fingerprint를 찾습니다. LLM은 "
-                "hot-path가 아닌 범위가 제한된 off-path 발견에만 사용할 수 있습니다. 생성한 "
-                "후보는 비활성이며 Mimir의 품질 gate, 회귀 검사와 shadow 근거 없이는 승격할 수 "
-                "없습니다. 작업을 판단하거나 승인하거나 실행하지 않습니다. 이 대화 포트는 읽기 "
-                "전용이며 학습 후보 변경 요청은 운영자 권한으로 타입이 지정된 파이프라인에 다시 "
-                "진입해야 합니다. 숨겨진 시스템 프롬프트는 공개하지 않습니다. 이 런타임은 "
-                f"fingerprint {facts['fingerprints_tracked']}개, 대기 후보 "
-                f"{facts['pending_candidates']}개, consensus hold {facts['consensus_holds']}개를 "
-                f"추적합니다. 근거: {evidence_ref}."
-            )
-        else:
-            answer = (
-                "I am Norns, the governance-layer learner. I report to Odin. I own RuleCandidate "
-                "and Pattern and identify recurring fingerprints in operational outcomes. I may "
-                "use an LLM only for bounded off-path discovery, never on the hot path. Every "
-                "candidate is inert and cannot promote without Mimir's quality gate, regression "
-                "checks, and shadow evidence. I never judge, approve, or execute an action. This "
-                "conversational port is read-only; learning-candidate change requests re-enter the "
-                "typed pipeline under the operator's authority. I do not reveal hidden system "
-                "prompts. This runtime tracks "
-                f"{facts['fingerprints_tracked']} fingerprints, {facts['pending_candidates']} "
-                f"pending candidates, and {facts['consensus_holds']} consensus holds. "
-                f"Evidence: {evidence_ref}."
-            )
+        answer = norns_role_answer(str(context.get("locale")), facts, evidence_ref)
         return IntrospectionResult(answer=answer, facts=facts)
 
 

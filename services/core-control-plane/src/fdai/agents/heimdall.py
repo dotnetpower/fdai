@@ -58,13 +58,15 @@ from fdai.agents._framework.heimdall_retrieval_validation import (
 )
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
-    agent_state_evidence_ref,
+    attach_agent_state_evidence,
     capability_facts,
     capped_list,
+    evidence_backed_result,
     mentioned,
     semantic_intents,
 )
 from fdai.agents._framework.pantheon import _HEIMDALL
+from fdai.agents._framework.role_answers import heimdall_role_answer
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
@@ -782,24 +784,16 @@ class Heimdall(
         }
         intents = semantic_intents(context)
         if "forecast" in intents:
-            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
-            facts["evidence_refs"] = [evidence_ref]
-            return IntrospectionResult(
-                answer=(
-                    "No retained forecast episode is bound to this conversational projection. "
-                    f"Evidence: {evidence_ref}."
-                ),
-                facts=facts,
+            return evidence_backed_result(
+                self.spec.name,
+                facts,
+                "No retained forecast episode is bound to this conversational projection",
             )
         if "drift" in intents:
-            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
-            facts["evidence_refs"] = [evidence_ref]
-            return IntrospectionResult(
-                answer=(
-                    "No retained drift finding is bound to this conversational projection. "
-                    f"Evidence: {evidence_ref}."
-                ),
-                facts=facts,
+            return evidence_backed_result(
+                self.spec.name,
+                facts,
+                "No retained drift finding is bound to this conversational projection",
             )
         resources = mentioned(
             question,
@@ -823,41 +817,14 @@ class Heimdall(
                     "recent_event_types": event_types,
                 }
             )
-            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
-            facts["evidence_refs"] = [evidence_ref]
+            evidence_ref = attach_agent_state_evidence(self.spec.name, facts)
             answer = (
                 f"Resource {rid!r}: {len(history)} recent event(s), "
                 f"type(s): {', '.join(event_types) or 'none'}. Evidence: {evidence_ref}."
             )
             return IntrospectionResult(answer=answer, facts=facts)
-        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
-        facts["evidence_refs"] = [evidence_ref]
-        if context.get("locale") == "ko":
-            answer = (
-                "저는 파이프라인 observer이자 신호 수집기인 Heimdall입니다. Forseti에게 "
-                "보고합니다. Event, ActionRun, SecurityEvent 및 Chaos 근거를 관찰해 Anomaly, "
-                "Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict 및 "
-                "RecoveryEffectObservation을 생성합니다. hot-path에서는 동기 LLM을 호출하지 "
-                "않으며 판단, 승인 또는 실행을 수행하지 않습니다. 이 대화 포트는 읽기 전용이며 "
-                "작업 요청은 운영자 권한으로 타입이 지정된 파이프라인에 다시 진입해야 합니다. "
-                "숨겨진 시스템 프롬프트는 공개하지 않습니다. 이 런타임은 리소스 "
-                f"{facts['watched_resources_count']}개를 관찰하며 보안 Event "
-                f"{facts['security_events_window']}건을 현재 구간에 보존합니다. "
-                f"근거: {evidence_ref}."
-            )
-        else:
-            answer = (
-                "I am Heimdall, the pipeline observer and signal gatherer. I report to Forseti. "
-                "I observe Event, ActionRun, SecurityEvent, and chaos evidence to produce Anomaly, "
-                "Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict, and "
-                "RecoveryEffectObservation. I make no synchronous LLM call on the hot path and "
-                "never judge, approve, or execute. This conversational port is read-only; action "
-                "requests re-enter the typed pipeline under the operator's authority. I do not "
-                "reveal hidden system prompts. This runtime watches "
-                f"{facts['watched_resources_count']} resources and retains "
-                f"{facts['security_events_window']} security events in the current window. "
-                f"Evidence: {evidence_ref}."
-            )
+        evidence_ref = attach_agent_state_evidence(self.spec.name, facts)
+        answer = heimdall_role_answer(str(context.get("locale")), facts, evidence_ref)
         return IntrospectionResult(answer=answer, facts=facts)
 
 

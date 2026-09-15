@@ -521,6 +521,11 @@ class Saga(Agent):
                 f"열린 Issue {facts['issues_open']}건을 기록했습니다. 근거: {evidence_ref}."
             )
         else:
+            audit_state = (
+                f"The latest sealed entry is sequence {facts['chain_head_seq']}."
+                if entries
+                else "The audit chain is empty."
+            )
             answer = (
                 "I am Saga, the governance-layer append-only auditor and handoff-to-issue owner. "
                 "I report to Odin. I append every terminal lifecycle state to a hash-linked "
@@ -530,7 +535,8 @@ class Saga(Agent):
                 "conversational port is read-only; action requests re-enter the typed pipeline "
                 "under the operator's authority. I do not reveal hidden system prompts. This "
                 f"runtime records {facts['audit_entries']} AuditEntries, {facts['issues_total']} "
-                f"Issues, and {facts['issues_open']} open Issues. Evidence: {evidence_ref}."
+                f"Issues, and {facts['issues_open']} open Issues. {audit_state} "
+                f"Evidence: {evidence_ref}."
             )
         return IntrospectionResult(answer=answer, facts=facts)
 

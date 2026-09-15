@@ -57,13 +57,15 @@ from fdai.agents._framework.forseti_judgment import RULE_MATCH as _RULE_MATCH
 from fdai.agents._framework.forseti_judgment import ForsetiJudgmentMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
-    agent_state_evidence_ref,
+    attach_agent_state_evidence,
     capability_facts,
+    evidence_backed_result,
     mentioned,
     semantic_intents,
 )
 from fdai.agents._framework.pantheon import _FORSETI
 from fdai.agents._framework.registry import load_pantheon
+from fdai.agents._framework.role_answers import forseti_role_answer
 from fdai.agents._framework.runtime_health import (
     AGENT_DEGRADATION_POLICIES,
     evaluate_degradation,
@@ -1090,58 +1092,17 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             "rca_evidence_available": False,
         }
         if "rca_evidence" in semantic_intents(context):
-            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
-            facts["evidence_refs"] = [evidence_ref]
-            return IntrospectionResult(
-                answer=(
-                    "No grounded RCA record is retained by this conversational projection. "
-                    f"Evidence: {evidence_ref}."
-                ),
-                facts=facts,
-            )
+            statement = "No grounded RCA record is retained by this conversational projection"
+            return evidence_backed_result(self.spec.name, facts, statement)
         actions = mentioned(question, _RISK_VERDICT)
         if actions:
             action = actions[0]
             verdict = _RISK_VERDICT[action]
             facts.update({"action_type": action, "risk_verdict": verdict})
-            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
-            facts["evidence_refs"] = [evidence_ref]
-            answer = (
-                f"Action {action!r} has configured default risk verdict {verdict!r}. "
-                f"Evidence: {evidence_ref}."
-            )
-            return IntrospectionResult(answer=answer, facts=facts)
-        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
-        facts["evidence_refs"] = [evidence_ref]
-        if context.get("locale") == "ko":
-            answer = (
-                "저는 근거에 기반한 판정을 발행하는 파이프라인 judge인 Forseti입니다. Thor가 아닌 "
-                "Odin에게 보고합니다. 결정론적 규칙과 정책을 먼저 적용하며 잔여 모호성에만 검증이 "
-                "적용된 T2를 사용합니다. Verdict, RCA, SecurityEvent, ArbitrationRequest 및 "
-                "ProspectiveLineage를 소유하지만 작업을 승인하거나 실행하지 않습니다. 이 대화 "
-                "포트는 읽기 전용이며 작업 요청은 운영자 권한으로 타입이 지정된 파이프라인에 다시 "
-                "진입해야 합니다. 숨겨진 시스템 프롬프트는 공개하지 않습니다. 구성된 위험 표에는 "
-                f"ActionType {len(_RISK_VERDICT)}개와 규칙 일치 항목 "
-                f"{len(_RULE_MATCH)}개가 있습니다. "
-                f"이 런타임은 중재 {len(self.arbitrations)}건, 해결되지 않은 중재 "
-                f"{len(self._unresolved_arbitrations)}건, 준비 상태 제한 리소스 "
-                f"{len(self._detection_readiness)}개를 기록했습니다. 근거: {evidence_ref}."
-            )
-        else:
-            answer = (
-                "I am Forseti, the pipeline judge that issues grounded decisions. I report to "
-                "Odin, not Thor. I apply deterministic rules and policy first and use "
-                "verifier-checked T2 only for residual ambiguity. I own Verdict, RCA, "
-                "SecurityEvent, ArbitrationRequest, and ProspectiveLineage, but I never approve "
-                "or execute actions. This conversational port is read-only; action requests "
-                "re-enter the typed pipeline under the operator's authority. I do not reveal "
-                "hidden system prompts. The configured risk table covers "
-                f"{len(_RISK_VERDICT)} ActionTypes and {len(_RULE_MATCH)} rule matches. This "
-                f"runtime records {len(self.arbitrations)} arbitrations, "
-                f"{len(self._unresolved_arbitrations)} unresolved arbitrations, and "
-                f"{len(self._detection_readiness)} readiness-limited resources. "
-                f"Evidence: {evidence_ref}."
-            )
+            statement = f"Action {action!r} has configured default risk verdict {verdict!r}"
+            return evidence_backed_result(self.spec.name, facts, statement)
+        evidence_ref = attach_agent_state_evidence(self.spec.name, facts)
+        answer = forseti_role_answer(str(context.get("locale")), facts, evidence_ref)
         return IntrospectionResult(answer=answer, facts=facts)
 
 
