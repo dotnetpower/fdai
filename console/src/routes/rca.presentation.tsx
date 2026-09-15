@@ -153,6 +153,9 @@ function HypothesisCard({
   readonly primary: boolean;
 }) {
   const titleId = `rca-hypothesis-${hypothesis.seq}`;
+  const hypothesisAuditHref = routeHref("audit", {
+    params: { correlation: correlationId, entry: hypothesis.seq },
+  });
   const cause = hypothesis.cause
     ?? (hypothesis.grounded ? rcaText("none") : rcaText("abstainedCauseTitle"));
   return (
@@ -169,6 +172,9 @@ function HypothesisCard({
           kind={hypothesis.grounded ? "success" : "hil"}
           label={hypothesis.grounded ? rcaText("grounded") : rcaText("abstained")}
         />
+        <a class="rca-audit-reference" href={hypothesisAuditHref}>
+          {rcaText("hypothesisAudit", { seq: hypothesis.seq })}
+        </a>
       </div>
       <section class={`rca-hypothesis-hero ${hypothesis.grounded ? "is-grounded" : "is-abstained"}`}>
         <div class="rca-hypothesis-copy">
@@ -280,59 +286,76 @@ function ResponsePlan({
   readonly response: RcaResponsePlan | null;
   readonly correlationId: string;
 }) {
-  const auditHref = routeHref("audit", { params: { correlation: correlationId } });
-  const traceHref = routeHref("trace", { params: { correlation: correlationId } });
+  if (response === null) {
+    return (
+      <section class="rca-panel" aria-label={rcaText("response")}>
+        <header>
+          <h5>{rcaText("response")}</h5>
+          <span>{rcaText("responseUnavailable")}</span>
+        </header>
+        <p class="rca-panel-empty">{rcaText("noResponse")}</p>
+      </section>
+    );
+  }
+  const hypothesisAuditHref = routeHref("audit", {
+    params: { correlation: correlationId, entry: response.hypothesis_seq },
+  });
+  const responseAuditHref = routeHref("audit", {
+    params: { correlation: correlationId, entry: response.source_seq },
+  });
   return (
     <section class="rca-panel" aria-label={rcaText("response")}>
       <header>
         <h5>{rcaText("response")}</h5>
-        <span>
-          {response === null ? rcaText("responseUnavailable") : rcaText("responseRecorded")}
-        </span>
-      </header>
-      {response === null ? (
-        <p class="rca-panel-empty">{rcaText("noResponse")}</p>
-      ) : (
-        <div class="rca-response-facts">
-          <ResponseFact href={traceHref} label={rcaText("verdict")}>
-            <StatusPill kind={verdictPill(response.verdict)} label={response.verdict} />
-          </ResponseFact>
-          <ResponseFact
-            href={traceHref}
-            label={rcaText("decision")}
-            evidenceState={response.decision === null ? "not-applicable" : "measured"}
-          >
-            {response.decision ?? kpiEvidenceLabel("not-applicable")}
-          </ResponseFact>
-          <ResponseFact
-            href={auditHref}
-            label={rcaText("action")}
-            evidenceState={response.action_kind === null ? "not-applicable" : "measured"}
-          >
-            <span class="mono">{response.action_kind ?? kpiEvidenceLabel("not-applicable")}</span>
-          </ResponseFact>
-          <ResponseFact
-            href={response.mode === null
-              ? auditHref
-              : routeHref("audit", { params: { correlation: correlationId, mode: response.mode } })}
-            label={rcaText("modeColumn")}
-            evidenceState={response.mode === null ? "not-applicable" : "measured"}
-          >
-            {response.mode === null
-              ? kpiEvidenceLabel("not-applicable")
-              : <StatusPill kind={response.mode} label={response.mode} />}
-          </ResponseFact>
-          <ResponseFact
-            href={auditHref}
-            label={rcaText("rollback")}
-            evidenceState={response.rollback_reference === null ? "not-applicable" : "measured"}
-          >
-            <span class="mono">
-              {response.rollback_reference ?? kpiEvidenceLabel("not-applicable")}
-            </span>
-          </ResponseFact>
+        <span>{rcaText("responseRecorded")}</span>
+        <div class="rca-panel-evidence-links">
+          <a class="rca-audit-reference" href={hypothesisAuditHref}>
+            {rcaText("hypothesisAudit", { seq: response.hypothesis_seq })}
+          </a>
+          <a class="rca-audit-reference" href={responseAuditHref}>
+            {rcaText("responseAudit", { seq: response.source_seq })}
+          </a>
         </div>
-      )}
+      </header>
+      <div class="rca-response-facts">
+        <ResponseFact href={responseAuditHref} label={rcaText("verdict")}>
+          <StatusPill kind={verdictPill(response.verdict)} label={response.verdict} />
+        </ResponseFact>
+        <ResponseFact
+          href={responseAuditHref}
+          label={rcaText("decision")}
+          evidenceState={response.decision === null ? "not-applicable" : "measured"}
+        >
+          {response.decision ?? kpiEvidenceLabel("not-applicable")}
+        </ResponseFact>
+        <ResponseFact
+          href={responseAuditHref}
+          label={rcaText("action")}
+          evidenceState={response.action_type_id === null ? "not-applicable" : "measured"}
+        >
+          <span class="mono">
+            {response.action_type_id ?? kpiEvidenceLabel("not-applicable")}
+          </span>
+        </ResponseFact>
+        <ResponseFact
+          href={responseAuditHref}
+          label={rcaText("modeColumn")}
+          evidenceState={response.mode === null ? "not-applicable" : "measured"}
+        >
+          {response.mode === null
+            ? kpiEvidenceLabel("not-applicable")
+            : <StatusPill kind={response.mode} label={response.mode} />}
+        </ResponseFact>
+        <ResponseFact
+          href={responseAuditHref}
+          label={rcaText("rollback")}
+          evidenceState={response.rollback_reference === null ? "not-applicable" : "measured"}
+        >
+          <span class="mono">
+            {response.rollback_reference ?? kpiEvidenceLabel("not-applicable")}
+          </span>
+        </ResponseFact>
+      </div>
     </section>
   );
 }

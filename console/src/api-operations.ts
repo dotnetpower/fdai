@@ -246,6 +246,7 @@ export function decodeRcaView(value: unknown): RcaView {
           verdict: apiString(item, "verdict", "RCA response"),
           decision: apiNullableString(item, "decision", "RCA response"),
           action_kind: apiNullableString(item, "action_kind", "RCA response"),
+          action_type_id: apiNullableString(item, "action_type_id", "RCA response"),
           mode: item["mode"] === null ? null : apiMode(item["mode"]),
           rollback_reference: apiNullableString(item, "rollback_reference", "RCA response"),
           recorded_at: recordedAt,

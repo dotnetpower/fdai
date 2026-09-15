@@ -158,6 +158,7 @@ export interface RcaResponsePlan {
   readonly verdict: string;
   readonly decision: string | null;
   readonly action_kind: string | null;
+  readonly action_type_id: string | null;
   readonly mode: "shadow" | "enforce" | null;
   readonly rollback_reference: string | null;
   readonly recorded_at: string | null;

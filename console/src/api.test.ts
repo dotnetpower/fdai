@@ -328,6 +328,7 @@ describe("Operator API response decoders", () => {
         verdict: "auto",
         decision: "auto",
         action_kind: "risk_gate.shadow_authority",
+        action_type_id: "storage.disable-public-access",
         mode: "enforce",
         rollback_reference: "pr-7",
         recorded_at: "2026-07-14T10:03:00Z",
@@ -340,6 +341,7 @@ describe("Operator API response decoders", () => {
     expect(view.response?.verdict).toBe("auto");
     expect(view.response?.hypothesis_seq).toBe(2);
     expect(view.response?.source_seq).toBe(3);
+    expect(view.response?.action_type_id).toBe("storage.disable-public-access");
     expect(() =>
       decodeRcaView({
         ...grounded,

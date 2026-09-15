@@ -2634,7 +2634,13 @@ async def test_trace_and_rca_preserve_frozen_envelopes() -> None:
         _audit_row(
             2,
             action_kind="risk_gate.shadow_authority",
-            entry={"stage": "gate", "decision": "auto", "rollback_reference": "pr-7"},
+            entry={
+                "stage": "gate",
+                "decision": "auto",
+                "action_type_id": "storage.disable-public-access",
+                "resolved_ceiling": {"final_level": "enforce_auto"},
+                "rollback_reference": "pr-7",
+            },
         ),
         _audit_row(
             1,
@@ -2659,6 +2665,9 @@ async def test_trace_and_rca_preserve_frozen_envelopes() -> None:
     assert rca.to_dict()["response"]["verdict"] == "auto"
     assert rca.to_dict()["response"]["hypothesis_seq"] == 1
     assert rca.to_dict()["response"]["source_seq"] == 2
+    assert rca.to_dict()["response"]["action_kind"] == "risk_gate.shadow_authority"
+    assert rca.to_dict()["response"]["action_type_id"] == "storage.disable-public-access"
+    assert rca.to_dict()["response"]["mode"] == "enforce"
 
 
 @pytest.mark.asyncio
@@ -2688,6 +2697,77 @@ async def test_rca_response_requires_a_later_decision_for_the_latest_grounded_hy
 
     assert rca is not None
     assert rca.to_dict()["response"] is None
+
+
+@pytest.mark.asyncio
+async def test_rca_response_rejects_unrelated_decision_fields() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            action_kind="rca.hypothesis",
+            entry={
+                "rca_outcome": "grounded",
+                "rca_tier": "t0",
+                "rca_cause": "public access open",
+                "rca_confidence": 0.95,
+                "rca_citations": [{"kind": "rule", "ref": "storage.public-access"}],
+            },
+        ),
+        _audit_row(
+            2,
+            action_kind="incident.metadata.updated",
+            entry={"decision": "auto"},
+        ),
+    ]
+
+    rca = await model.get_rca("corr-1")
+
+    assert rca is not None
+    assert rca.to_dict()["response"] is None
+
+
+@pytest.mark.asyncio
+async def test_rca_response_preserves_one_audit_row_as_its_provenance() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            action_kind="rca.hypothesis",
+            entry={
+                "rca_outcome": "grounded",
+                "rca_tier": "t0",
+                "rca_cause": "public access open",
+                "rca_confidence": 0.95,
+                "rca_citations": [{"kind": "rule", "ref": "storage.public-access"}],
+            },
+        ),
+        _audit_row(
+            2,
+            action_kind="risk_gate.unified",
+            entry={"decision": "auto"},
+        ),
+        _audit_row(
+            3,
+            action_kind="risk_gate.unified",
+            entry={"rollback_reference": "pr-7"},
+        ),
+    ]
+
+    rca = await model.get_rca("corr-1")
+
+    assert rca is not None
+    assert rca.to_dict()["response"] == {
+        "hypothesis_seq": 1,
+        "source_seq": 2,
+        "verdict": "auto",
+        "decision": "auto",
+        "action_kind": "risk_gate.unified",
+        "action_type_id": None,
+        "mode": None,
+        "rollback_reference": None,
+        "recorded_at": "2026-08-08T00:00:00+00:00",
+    }
 
 
 @pytest.mark.asyncio

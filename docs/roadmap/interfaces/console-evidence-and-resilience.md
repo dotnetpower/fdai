@@ -437,11 +437,11 @@ and `shadow` values as one status. Notification-delivery escalation takes preced
 incident and names the required follow-up. Audit and technical activity remain available when
 records exist. Root-cause analysis and its dossier become links only after an `rca.*` record exists;
 otherwise the rows state that no evidence-backed hypothesis exists. RCA hides generic fallback when
-the primary hypothesis is absent or abstained. It links response facts only to explicit decision or
-rollback evidence after the newest grounded hypothesis and exposes both audit sequence references,
-so older decisions and lifecycle rows cannot become a response or cause. The review then orders the
-primary hypothesis, confidence, causal chain, citations, and response. Constrained chains scroll;
-mobile becomes vertical with 44 px links. Result states remain distinct, another correlation can
+the primary hypothesis is absent or abstained. It links response facts only to later decision or
+rollback evidence, renders recorded action type and effective mode or unavailable, and exposes both
+sequence references as exact Audit links. Older and lifecycle rows cannot become a response or
+cause. The review orders hypothesis, confidence, chain, citations, and response. Constrained chains
+scroll; mobile becomes vertical with 44 px evidence links. Result states remain distinct; another can
 replace a loading request, and duplicate requests are blocked. Submission restores focus; Settings
 events preserve drafts without fetching; atomic polite status text announces completion.
 Loading/error context publishes no hypothesis or response records, preventing stale Deck evidence.

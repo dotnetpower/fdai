@@ -17,6 +17,8 @@ _CAUSE_DOMAINS = frozenset(
         "unknown",
     }
 )
+_RESPONSE_ACTION_KINDS = frozenset({"risk_gate.shadow_authority", "risk_gate.unified"})
+_RESPONSE_DECISIONS = frozenset({"abstain", "auto", "deny", "hil"})
 
 
 def rca_view(correlation_id: str, items: Sequence[JsonObject]) -> JsonObject | None:
@@ -85,10 +87,8 @@ def _linked_response(
 
 
 def _has_response_evidence(item: JsonObject) -> bool:
-    entry = _mapping(item.get("entry"))
-    return any(
-        _nonempty(entry.get(key)) is not None
-        for key in ("decision", "gate_decision", "rollback_reference", "rollback_ref")
+    return (
+        item.get("action_kind") in _RESPONSE_ACTION_KINDS and _response_decision(item) is not None
     )
 
 
@@ -100,20 +100,51 @@ def _response(
     if not items:
         return None
     latest = items[-1]
-    newest = list(reversed(items))
+    decision = _response_decision(latest)
+    if decision is None:
+        return None
     return cast(
         JsonObject,
         {
             "hypothesis_seq": hypothesis_seq,
             "source_seq": _as_int(latest["seq"]),
-            "verdict": _verdict(newest),
-            "decision": _first_entry_string(newest, "decision", "gate_decision"),
+            "verdict": decision,
+            "decision": decision,
             "action_kind": str(latest["action_kind"]),
-            "mode": str(latest["mode"]),
-            "rollback_reference": _first_entry_string(newest, "rollback_reference", "rollback_ref"),
+            "action_type_id": _response_action_type(latest),
+            "mode": _response_mode(latest),
+            "rollback_reference": _first_entry_string(
+                (latest,), "rollback_reference", "rollback_ref"
+            ),
             "recorded_at": str(latest["recorded_at"]),
         },
     )
+
+
+def _response_action_type(item: JsonObject) -> str | None:
+    entry = _mapping(item.get("entry"))
+    if action_type_id := _nonempty(entry.get("action_type_id")):
+        return action_type_id
+    resolved = _resolved_ceiling(entry)
+    return _nonempty(resolved.get("action_type_id"))
+
+
+def _response_mode(item: JsonObject) -> str | None:
+    entry = _mapping(item.get("entry"))
+    for key in ("effective_mode", "execution_mode", "action_mode"):
+        if (mode := _nonempty(entry.get(key))) in {"shadow", "enforce"}:
+            return mode
+    final_level = _nonempty(_resolved_ceiling(entry).get("final_level"))
+    if final_level == "shadow_only":
+        return "shadow"
+    return "enforce" if final_level in {"enforce_auto", "enforce_hil"} else None
+
+
+def _resolved_ceiling(entry: Mapping[str, Any]) -> dict[str, Any]:
+    resolved = _mapping(entry.get("resolved_ceiling"))
+    if resolved:
+        return resolved
+    return _mapping(_mapping(entry.get("authority")).get("resolved_ceiling"))
 
 
 def _causal_chain(raw: object) -> JsonObject | None:
@@ -167,20 +198,21 @@ def _causal_chain(raw: object) -> JsonObject | None:
     )
 
 
-def _verdict(items: Sequence[JsonObject]) -> str:
-    for item in items:
-        entry = _mapping(item.get("entry"))
-        tokens = {
-            str(item.get("action_kind") or "").lower(),
-            str(entry.get("decision") or "").lower(),
-            str(entry.get("gate_decision") or "").lower(),
-            str(entry.get("outcome") or "").lower(),
-            str(entry.get("status") or "").lower(),
-        }
-        for verdict in ("auto", "hil", "deny", "abstain"):
-            if verdict in tokens or (verdict == "abstain" and "abstained" in tokens):
-                return verdict
-    return "unknown"
+def _response_decision(item: JsonObject) -> str | None:
+    entry = _mapping(item.get("entry"))
+    decisions = {
+        decision
+        for key in ("decision", "gate_decision")
+        if (decision := _canonical_response_decision(entry.get(key))) is not None
+    }
+    return decisions.pop() if len(decisions) == 1 else None
+
+
+def _canonical_response_decision(value: object) -> str | None:
+    decision = (_nonempty(value) or "").lower()
+    if decision == "abstained":
+        decision = "abstain"
+    return decision if decision in _RESPONSE_DECISIONS else None
 
 
 def _first_entry_string(items: Sequence[JsonObject], *keys: str) -> str | None:

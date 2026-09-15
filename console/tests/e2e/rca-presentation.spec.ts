@@ -66,7 +66,8 @@ const groundedView = {
     source_seq: 2,
     verdict: "auto",
     decision: "rollback approved",
-    action_kind: "config.rollback",
+    action_kind: "risk_gate.unified",
+    action_type_id: "config.rollback",
     mode: "enforce",
     rollback_reference: "rbk-01J2-773",
     recorded_at: "2026-07-16T09:51:03Z",
@@ -97,6 +98,7 @@ const abstainedView = {
     verdict: "unknown",
     decision: null,
     action_kind: "incident.members",
+    action_type_id: null,
     mode: "shadow",
     rollback_reference: null,
     recorded_at: "2026-07-16T09:50:31Z",
@@ -190,6 +192,14 @@ test("matches the RCA design hierarchy and keeps correlation lookup recoverable"
   })).toBeVisible();
   await expect(page.getByRole("region", { name: "Evidence citations" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Response plan" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Hypothesis audit #1" }).first())
+    .toHaveAttribute("href", `/audit?correlation=${groundedCorrelation}&entry=1`);
+  await expect(page.getByRole("link", { name: "Response audit #2" }))
+    .toHaveAttribute("href", `/audit?correlation=${groundedCorrelation}&entry=2`);
+  await expect(page.getByRole("region", { name: "Response plan" }))
+    .toContainText("config.rollback");
+  await expect(page.getByRole("region", { name: "Response plan" }))
+    .not.toContainText("risk_gate.unified");
   await expect(page.locator(".rca-causal-node")).toHaveCount(4);
   await expectNoHorizontalOverflow(page);
 
@@ -262,6 +272,9 @@ test("reflows the RCA workspace at constrained desktop and mobile widths", async
   const touchTargets = await page.locator(".rca-related-links a").evaluateAll((elements) =>
     elements.map((element) => element.getBoundingClientRect().height));
   expect(touchTargets.every((height) => height >= 44)).toBe(true);
+  const causalTouchTargets = await page.locator(".rca-causal-node a").evaluateAll((elements) =>
+    elements.map((element) => element.getBoundingClientRect().height));
+  expect(causalTouchTargets.every((height) => height >= 44)).toBe(true);
   const chainOverflow = await page.locator(".rca-causal-panel").evaluate(
     (element) => element.scrollWidth - element.clientWidth,
   );

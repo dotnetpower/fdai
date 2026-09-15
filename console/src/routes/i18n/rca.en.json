@@ -59,6 +59,8 @@
   "chainNodeFailure": "Observed failure",
   "responseRecorded": "Recorded response details",
   "responseUnavailable": "No linked response",
+  "hypothesisAudit": "Hypothesis audit #{seq}",
+  "responseAudit": "Response audit #{seq}",
   "relatedViews": "Related RCA evidence views",
   "primaryHypothesis": "Primary hypothesis",
   "hypothesisLabel": "Hypothesis {position}",

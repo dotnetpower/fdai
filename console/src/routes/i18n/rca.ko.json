@@ -59,6 +59,8 @@
   "chainNodeFailure": "관측된 장애",
   "responseRecorded": "기록된 대응 세부 정보",
   "responseUnavailable": "연결된 대응 없음",
+  "hypothesisAudit": "가설 감사 #{seq}",
+  "responseAudit": "대응 감사 #{seq}",
   "relatedViews": "관련 RCA 근거 화면",
   "primaryHypothesis": "주요 가설",
   "hypothesisLabel": "가설 {position}",

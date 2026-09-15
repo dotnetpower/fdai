@@ -22,6 +22,7 @@ describe("RCA availability", () => {
         verdict: "unknown",
         decision: null,
         action_kind: "incident.members",
+        action_type_id: null,
         mode: "shadow",
         rollback_reference: null,
         recorded_at: "2026-07-28T07:11:38Z",
@@ -69,7 +70,8 @@ describe("RCA response association", () => {
     source_seq: 2,
     verdict: "auto",
     decision: "approved",
-    action_kind: "config.rollback",
+    action_kind: "risk_gate.unified",
+    action_type_id: "config.rollback",
     mode: "shadow",
     rollback_reference: "rollback-1",
     recorded_at: "2026-07-28T07:12:38Z",
@@ -94,6 +96,7 @@ describe("RCA response association", () => {
         ...response,
         verdict: "unknown",
         action_kind: "incident.members",
+        action_type_id: null,
       },
     })).toBeNull();
   });
