@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 1e26a3de447d71232a6df1edb88f3341b09d1f64
+translation_source_sha: 01d3033b03c8154a0ae1b9e108a63fabef5c80fc
 translation_revised: 2026-09-15
 ---
 # 런타임 배포 프로파일
@@ -88,6 +88,12 @@ $$
 `/usr/bin/az`를 요구하지 않고 조정기가 제공하는 신뢰된 Azure CLI 경로를 사용합니다.
 이미지 생성이 일부만 진행돼도 원래 실행 전 기록과 상태를 보존합니다. [소스 배포 경계](installable-deployment-cli-ko.md#연결된-소스-배포)는
 자동 재적용을 허용하지 않으며 성공 근거가 없다고 리소스 변경도 없었던 것으로 해석하지 않습니다.
+
+Foundation의 선택 입력 `application_workload`는 AKS 프로파일을 바꾸지 않고 새 애플리케이션
+그룹 이름을 운영 리소스 이름과 분리합니다. 기존 그룹의 소유권을 부여하지는 않으며, 부분 상태
+복구는 [애플리케이션 그룹 충돌 계약](installable-deployment-cli-ko.md#애플리케이션-그룹-충돌-복구)을 따릅니다.
+별도 입력 `operations_public_ip_tags`는 관측된 정확한 Foundation Bastion/NAT 정책 태그만
+유지하며, AKS 노드 설정을 바꾸거나 수명주기 차이를 무시하는 예외를 부여하지 않습니다.
 
 읽기 전용 용량 사전 점검은 음수가 아닌 정수 할당량과 Azure CLI가 반환하는 정규 십진 정수
 문자열을 허용합니다. 불리언, 소수, 부호나 공백이 붙은 값, 크기 한도를 넘은 표현은 계속

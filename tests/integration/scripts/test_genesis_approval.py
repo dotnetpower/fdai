@@ -223,13 +223,15 @@ def test_prompt_rejects_non_tty_or_wrong_exact_text(tmp_path: Path) -> None:
         )
 
 
-@pytest.fixture
-def residual_review(tmp_path):
+@pytest.fixture(params=[False, True])
+def residual_review(tmp_path, request):
     tmp_path.chmod(0o700)
     moment = datetime.now(timezone.utc).replace(microsecond=0)  # noqa: UP017
     plan = b"exact residual binary plan"
     value = {
-        "schema_version": "fdai.runner-image-residual-review.v1",
+        "schema_version": "fdai.foundation-recovery-review.v1"
+        if request.param
+        else "fdai.runner-image-residual-review.v1",
         "state": "review",
         "apply_authorized": False,
         "mutation_performed": False,
@@ -243,18 +245,23 @@ def residual_review(tmp_path):
         "created_at": moment.isoformat(),
         "expires_at": (moment + timedelta(minutes=30)).isoformat(),
     }
-    prompt.write_private_output(tmp_path / "residual.tfplan", plan.decode())
-    return tmp_path / "residual-review.json", value
+    if request.param:
+        value["application_group_absent"] = True
+    prompt.write_private_output(
+        tmp_path / ("recovery.tfplan" if request.param else "residual.tfplan"), plan.decode()
+    )
+    return tmp_path / ("recovery-review.json" if request.param else "residual-review.json"), value
 
 
 def test_residual_prompt_binds_recovery_review_not_original_status(residual_review, monkeypatch):
     path, value = residual_review
+    foundation = path.name == "recovery-review.json"
+    stage = "foundation-apply" if foundation else "runner-image"
+    option = "--foundation-recovery-review" if foundation else "--residual-review"
     value["review_digest"] = prompt.canonical_digest(value)
     _write(path, value)
     output = path.parent / "approval.json"
-    monkeypatch.setattr(
-        sys, "argv", ["prompt", "--residual-review", str(path), "--output", str(output)]
-    )
+    monkeypatch.setattr(sys, "argv", ["prompt", option, str(path), "--output", str(output)])
     seen = []
     monkeypatch.setattr(
         prompt, "current_actor_digest", lambda binding: seen.append(binding) or "9" * 64
@@ -262,7 +269,7 @@ def test_residual_prompt_binds_recovery_review_not_original_status(residual_revi
 
     def interact(**kwargs):
         return create_approval(
-            **kwargs, input_stream=_TtyInput("runner-image\n"), output_stream=io.StringIO()
+            **kwargs, input_stream=_TtyInput(stage + "\n"), output_stream=io.StringIO()
         )
 
     monkeypatch.setattr(prompt, "create_approval", interact)
@@ -272,7 +279,7 @@ def test_residual_prompt_binds_recovery_review_not_original_status(residual_revi
         output, run_binding=value["review_digest"], source_commit=SOURCE_COMMIT
     )
     assert approval.authorizes(
-        "runner-image", review_digest=value["review_digest"], plan_digest=value["plan_digest"]
+        stage, review_digest=value["review_digest"], plan_digest=value["plan_digest"]
     )
 
 
@@ -284,6 +291,11 @@ def test_residual_prompt_rejects_invalid_review_before_identity_or_approval(
     residual_review, monkeypatch, mutation
 ):
     path, value = residual_review
+    option = (
+        "--foundation-recovery-review"
+        if path.name == "recovery-review.json"
+        else "--residual-review"
+    )
     if mutation == "source":
         value["recovery_source_commit"] = "invalid"
     elif mutation == "plan":
@@ -301,9 +313,7 @@ def test_residual_prompt_rejects_invalid_review_before_identity_or_approval(
     value["review_digest"] = "f" * 64 if mutation == "digest" else prompt.canonical_digest(value)
     _write(path, value)
     output = path.parent / "approval.json"
-    monkeypatch.setattr(
-        sys, "argv", ["prompt", "--residual-review", str(path), "--output", str(output)]
-    )
+    monkeypatch.setattr(sys, "argv", ["prompt", option, str(path), "--output", str(output)])
     monkeypatch.setattr(
         prompt, "current_actor_digest", lambda *_args: pytest.fail("identity must not be read")
     )

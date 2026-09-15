@@ -88,6 +88,12 @@ uses the coordinator's trusted Azure CLI path rather than requiring `/usr/bin/az
 construction retains its original claim and state; the [source transfer boundary](installable-deployment-cli.md#connected-source-deployment)
 does not permit an automatic reapply or treat missing success evidence as zero resource effects.
 
+An optional Foundation `application_workload` token can separate the new application group's name
+from operations naming without changing the AKS profile. It grants no ownership of an existing group;
+partial-state recovery follows the [application group collision contract](installable-deployment-cli.md#application-group-collision-recovery).
+The separate `operations_public_ip_tags` input preserves only the exact observed Foundation
+Bastion/NAT policy tag; it does not alter AKS node settings or grant lifecycle drift exceptions.
+
 The read-only capacity preflight accepts nonnegative integer quota values and canonical decimal
 integer strings returned by Azure CLI. Boolean, fractional, signed, whitespace-padded or oversized
 representations remain blocked. Available quota never overrides a SKU restriction, missing zone,

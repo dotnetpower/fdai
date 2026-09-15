@@ -82,6 +82,46 @@ variables {
   foundation_context_digest           = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
 
+run "application_name_is_independent_from_operations" {
+  command = plan
+
+  variables {
+    application_workload      = "exampleaks"
+    operations_public_ip_tags = { FirstPartyUsage = "/Unprivileged" }
+  }
+
+  assert {
+    condition = (
+      output.app_resource_group_name == "rg-exampleaks-dev-krc" &&
+      local.suffix == "example-dev-krc" &&
+      azapi_resource.state.name == var.state_storage_account_name &&
+      azapi_resource.state.tags["fdai:workload"] == "example" &&
+      azapi_resource.app_resource_group.tags["fdai:foundation-context"] == var.foundation_context_digest
+    )
+    error_message = "An application-only token must preserve operations naming, state account, and exact Foundation context."
+  }
+}
+
+run "invalid_application_name_is_rejected" {
+  command = plan
+
+  variables {
+    application_workload = "invalid/name"
+  }
+
+  expect_failures = [var.application_workload]
+}
+
+run "invalid_operations_policy_tag_is_rejected" {
+  command = plan
+
+  variables {
+    operations_public_ip_tags = { FirstPartyUsage = "other" }
+  }
+
+  expect_failures = [var.operations_public_ip_tags]
+}
+
 run "foundation_contracts_with_bootstrap_outputs" {
   command = plan
 

@@ -74,6 +74,17 @@ def test_foundation_input_preserves_explicit_provider_context(tmp_path: Path) ->
         ("target_binding", "d" * 64),
         ("region", "eastus"),
         ("workload", "invalid/name"),
+        ("application_workload", "invalid/name"),
+        ("application_workload", ""),
+        ("application_workload", "a"),
+        ("application_workload", "a" * 13),
+        ("application_workload", "EXAMPLE"),
+        ("application_workload", True),
+        ("operations_public_ip_tags", None),
+        ("operations_public_ip_tags", []),
+        ("operations_public_ip_tags", {"other": "value"}),
+        ("operations_public_ip_tags", {"FirstPartyUsage": "other"}),
+        ("operations_public_ip_tags", True),
         ("region_short", "KR"),
         ("state_storage_account_name", "UPPERCASE"),
         ("runner_ssh_public_key", "not-a-public-key"),
@@ -130,6 +141,33 @@ def test_gallery_requires_exact_numeric_version(tmp_path: Path, version: str) ->
     else:
         with pytest.raises(ValueError, match="exact managed image"):
             snapshot(source, tmp_path / "output.json")
+
+
+@pytest.mark.parametrize("application_workload", [None, "exampleaks"])
+def test_application_workload_preserves_other_foundation_inputs(
+    tmp_path: Path, application_workload: str | None
+) -> None:
+    source = tmp_path / "input.json"
+    destination = tmp_path / "snapshot.json"
+    values = foundation_values()
+    values["application_workload"] = application_workload
+    write_values(source, values)
+    snapshot(source, destination)
+    actual = json.loads(destination.read_bytes())
+    expected = {key: value for key, value in values.items() if key != "target_binding"}
+    assert actual == {**expected, "env": "dev"}
+    assert json.loads(source.read_bytes()) == values
+
+
+@pytest.mark.parametrize("tags", [{}, {"FirstPartyUsage": "/Unprivileged"}])
+def test_foundation_preserves_exact_operations_policy_tags(tmp_path: Path, tags) -> None:
+    source = tmp_path / "input.json"
+    values = foundation_values()
+    values["operations_public_ip_tags"] = tags
+    write_values(source, values)
+    destination = tmp_path / "snapshot.json"
+    snapshot(source, destination)
+    assert json.loads(destination.read_bytes())["operations_public_ip_tags"] == tags
 
 
 def test_foundation_optional_inputs_are_preserved(tmp_path: Path) -> None:
