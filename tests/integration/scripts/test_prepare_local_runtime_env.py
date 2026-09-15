@@ -346,6 +346,13 @@ def test_full_stack_cache_binds_local_activation_inputs() -> None:
     assert "FDAI_LOCAL_RESOURCE_GROUP" in runtime_stage
 
 
+def test_full_stack_cache_binds_explicit_model_override_path_and_bytes() -> None:
+    source = _FULL_STACK_SCRIPT.read_text(encoding="utf-8")
+
+    assert source.count('+=("$resolved_models_override")') == 2
+    assert source.count('"resolved-models-override=$resolved_models_override"') == 2
+
+
 def test_rejects_invalid_local_teams_notification_activation_before_provider_access(
     tmp_path: Path,
 ) -> None:

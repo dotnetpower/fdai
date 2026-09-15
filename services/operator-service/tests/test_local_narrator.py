@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -50,7 +51,10 @@ class RecordingHttpClient:
         self.calls: list[tuple[str, dict[str, object]]] = []
 
     @asynccontextmanager
-    async def stream(self, url: str, **kwargs: object) -> AsyncIterator[httpx.Response]:
+    async def stream(
+        self, method: str, url: str, **kwargs: object
+    ) -> AsyncIterator[httpx.Response]:
+        assert method == "POST"
         self.calls.append((url, kwargs))
         yield _stream_response(answer=self.answer)
 
@@ -61,7 +65,10 @@ class ScriptedHttpClient:
         self.calls: list[tuple[str, dict[str, object]]] = []
 
     @asynccontextmanager
-    async def stream(self, url: str, **kwargs: object) -> AsyncIterator[httpx.Response]:
+    async def stream(
+        self, method: str, url: str, **kwargs: object
+    ) -> AsyncIterator[httpx.Response]:
+        assert method == "POST"
         self.calls.append((url, kwargs))
         status = next(self.statuses)
         yield _stream_response(status=status)
@@ -72,7 +79,10 @@ class LinesHttpClient:
         self.lines = lines
 
     @asynccontextmanager
-    async def stream(self, url: str, **kwargs: object) -> AsyncIterator[httpx.Response]:
+    async def stream(
+        self, method: str, url: str, **kwargs: object
+    ) -> AsyncIterator[httpx.Response]:
+        assert method == "POST"
         del url, kwargs
         response = httpx.Response(200)
 
@@ -92,7 +102,10 @@ class BlockingHttpClient:
         self.cancelled = asyncio.Event()
 
     @asynccontextmanager
-    async def stream(self, url: str, **kwargs: object) -> AsyncIterator[httpx.Response]:
+    async def stream(
+        self, method: str, url: str, **kwargs: object
+    ) -> AsyncIterator[httpx.Response]:
+        assert method == "POST"
         self.calls.append((url, kwargs))
         self.started.set()
         try:
@@ -239,8 +252,43 @@ async def test_local_narrator_calls_provider_and_emits_canonical_turn(tmp_path: 
         "Authorization": "Bearer test-token",
         "Content-Type": "application/json",
     }
+    system_prompt = kwargs["json"]["messages"][0]["content"]  # type: ignore[index]
+    assert "autonomous cloud-operations control plane" in system_prompt
+    assert "do not invent or expand an acronym" in system_prompt
     assert "max_completion_tokens" in kwargs["json"]  # type: ignore[operator]
     assert "temperature" not in kwargs["json"]  # type: ignore[operator]
+
+
+async def test_local_narrator_uses_real_httpx_stream_contract(tmp_path: Path) -> None:
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return _stream_response(answer="Real client answer.")
+
+    fallback = FallbackAdapters()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        adapter = LocalAzureNarratorAdapters.from_environment(
+            {"LLM_RESOLVED_MODELS_PATH": str(_artifact(tmp_path / "models.json"))},
+            fallback_projections=fallback,
+            fallback_streams=fallback,
+            token_provider=lambda _audience: _token(),
+            http_client=client,
+        )
+        events = [
+            event
+            async for event in await adapter.open(
+                ConversationStreamRequest(
+                    operation="chat.stream",
+                    scope=PrincipalScope("operator-1"),
+                    body={"prompt": "Summarize."},
+                )
+            )
+        ]
+
+    assert events[-1].data["answer"] == "Real client answer."
+    assert len(requests) == 1
+    assert requests[0].method == "POST"
 
 
 async def test_local_narrator_health_requires_a_real_token(tmp_path: Path) -> None:
@@ -528,7 +576,9 @@ async def test_narrator_image_turn_requires_server_owned_resolution(
     assert client.calls == []
 
 
-async def test_narrator_all_text_candidates_fail_unavailable(tmp_path: Path) -> None:
+async def test_narrator_all_text_candidates_fail_unavailable(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     client = ScriptedHttpClient([500, 500])
     fallback = FallbackAdapters()
     adapter = LocalAzureNarratorAdapters.from_environment(
@@ -540,18 +590,24 @@ async def test_narrator_all_text_candidates_fail_unavailable(tmp_path: Path) -> 
     )
     adapter.clock = IncrementingClock()
 
-    with pytest.raises(ConversationBoundaryError) as raised:
-        await adapter.open(
-            ConversationStreamRequest(
-                operation="chat.stream",
-                scope=PrincipalScope("operator-1"),
-                body={"prompt": "Summarize."},
+    with caplog.at_level(logging.WARNING):
+        with pytest.raises(ConversationBoundaryError) as raised:
+            await adapter.open(
+                ConversationStreamRequest(
+                    operation="chat.stream",
+                    scope=PrincipalScope("operator-1"),
+                    body={"prompt": "Summarize."},
+                )
             )
-        )
 
     assert raised.value.status_code == 502
     assert raised.value.code == "narrator_unavailable"
     assert len(client.calls) == 2
+    assert [record.status_code for record in caplog.records] == [500, 500]
+    assert [record.getMessage() for record in caplog.records] == [
+        "narrator_provider_status status_code=500",
+        "narrator_provider_status status_code=500",
+    ]
 
 
 async def test_narrator_token_provider_and_answer_are_bounded(tmp_path: Path) -> None:
@@ -631,7 +687,11 @@ async def test_narrator_preserves_all_unavailable_status(tmp_path: Path) -> None
         "data: " + ("x" * 131_073),
     ),
 )
-async def test_narrator_malformed_sse_fails_closed(tmp_path: Path, line: str) -> None:
+async def test_narrator_malformed_sse_fails_closed(
+    tmp_path: Path,
+    line: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     fallback = FallbackAdapters()
     adapter = LocalAzureNarratorAdapters.from_environment(
         {"LLM_RESOLVED_MODELS_PATH": str(_artifact(tmp_path / "models.json"))},
@@ -641,16 +701,55 @@ async def test_narrator_malformed_sse_fails_closed(tmp_path: Path, line: str) ->
         http_client=LinesHttpClient((line, "data: [DONE]")),
     )
 
-    with pytest.raises(ConversationBoundaryError) as raised:
-        await adapter.open(
+    with caplog.at_level(logging.WARNING):
+        with pytest.raises(ConversationBoundaryError) as raised:
+            await adapter.open(
+                ConversationStreamRequest(
+                    operation="chat.stream",
+                    scope=PrincipalScope("operator-1"),
+                    body={"prompt": "Summarize."},
+                )
+            )
+
+    assert raised.value.status_code == 502
+    assert all(record.reason_code.startswith("narrator SSE") for record in caplog.records)
+    assert all(
+        record.getMessage().startswith("narrator_stream_frame_invalid reason_code=")
+        for record in caplog.records
+    )
+
+
+async def test_narrator_ignores_azure_filter_metadata_frames(tmp_path: Path) -> None:
+    fallback = FallbackAdapters()
+    adapter = LocalAzureNarratorAdapters.from_environment(
+        {"LLM_RESOLVED_MODELS_PATH": str(_artifact(tmp_path / "models.json"))},
+        fallback_projections=fallback,
+        fallback_streams=fallback,
+        token_provider=lambda _audience: _token(),
+        http_client=LinesHttpClient(
+            (
+                'data: {"prompt_filter_results":[],"choices":[]}',
+                'data: {"choices":[{"finish_reason":null,"content_filter_results":{}}]}',
+                'data: {"choices":[{"delta":{"content":"Filtered answer."}}]}',
+                'data: {"choices":[{"finish_reason":"stop"}]}',
+                'data: {"usage":{"total_tokens":3},"choices":[]}',
+                "data: [DONE]",
+            )
+        ),
+    )
+
+    events = [
+        event
+        async for event in await adapter.open(
             ConversationStreamRequest(
                 operation="chat.stream",
                 scope=PrincipalScope("operator-1"),
                 body={"prompt": "Summarize."},
             )
         )
+    ]
 
-    assert raised.value.status_code == 502
+    assert events[-1].data["answer"] == "Filtered answer."
 
 
 async def test_narrator_unicode_answer_obeys_wire_byte_bound(tmp_path: Path) -> None:
