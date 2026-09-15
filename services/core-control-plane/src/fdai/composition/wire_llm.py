@@ -264,6 +264,15 @@ def bind_azure_llm_bindings(
         binding = endpoint_bindings.get(capability_id)
         return binding.family if binding is not None else legacy_family
 
+    def _model_id(capability_id: str, legacy_publisher: str | None) -> str:
+        binding = endpoint_bindings.get(capability_id)
+        model_id = binding.publisher if binding is not None else legacy_publisher
+        if not model_id:
+            raise LlmBindingsUnavailableError(
+                f"{capability_id} lacks a canonical model publisher identity"
+            )
+        return model_id
+
     def _emitter_for(
         capability_id: str, cap: ResolvedCapability, tier: str
     ) -> MeteringEmitter | None:
@@ -378,6 +387,7 @@ def bind_azure_llm_bindings(
                         ),
                         system_prompt=system_prompt,
                         model_family=_model_family("t2.reasoner.primary", primary_cap.family),
+                        model_id=_model_id("t2.reasoner.primary", primary_cap.publisher),
                     ),
                     tool_registry=tool_registry,
                     tool_executor=tool_executor,
@@ -447,6 +457,7 @@ def bind_azure_llm_bindings(
             ),
             system_prompt=system_prompt,
             model_family=_model_family("t2.reasoner.primary", primary_cap.family),
+            model_id=_model_id("t2.reasoner.primary", primary_cap.publisher),
         ),
         tool_registry=tool_registry,
         tool_executor=tool_executor,
@@ -484,6 +495,7 @@ def bind_azure_llm_bindings(
                         system_prompt=system_prompt,
                         api_version=cand.api_version,
                         model_family=_cap_by_name.get(cand.deployment, primary_cap).family,
+                        model_id=_model_id("t2.reasoner.primary", primary_cap.publisher),
                     ),
                     tool_registry=tool_registry,
                     tool_executor=tool_executor,
@@ -502,6 +514,7 @@ def bind_azure_llm_bindings(
         primary = LatencyRoutedCrossCheckModel(
             candidates=pool_members,
             transition_sink=model_health_sink,
+            model_id=_model_id("t2.reasoner.primary", primary_cap.publisher),
         )
     secondary = AzureOpenAICrossCheckModel(
         identity=identity,
@@ -514,6 +527,7 @@ def bind_azure_llm_bindings(
             ),
             system_prompt=system_prompt,
             model_family=_model_family("t2.reasoner.secondary", secondary_cap.family),
+            model_id=_model_id("t2.reasoner.secondary", secondary_cap.publisher),
         ),
         tool_registry=tool_registry,
         tool_executor=tool_executor,

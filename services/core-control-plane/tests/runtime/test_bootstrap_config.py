@@ -8,7 +8,13 @@ from pathlib import Path
 
 import httpx
 import pytest
-from fdai.agents import Norns, PantheonRuntime
+from fdai.agents import (
+    InMemoryBus,
+    Norns,
+    PantheonRuntime,
+    StateStoreIssueTrackerAdapter,
+    load_pantheon,
+)
 from fdai.core.learning import RuleCandidateHint
 from fdai.core.ontology_platform import MetricAggregation, MetricSemanticDefinition
 from fdai.core.ontology_platform.metric_semantics import MetricSemanticRegistry
@@ -862,6 +868,8 @@ async def test_runtime_saga_uses_durable_state_store_audit() -> None:
     state_store = InMemoryStateStore()
     saga = _build_runtime_saga(state_store)
     assert saga.durable_audit is True
+    assert saga._durable_state_store is state_store  # noqa: SLF001 - composition assertion
+    assert isinstance(saga.github, StateStoreIssueTrackerAdapter)
 
     await saga.on_typed_message(
         "object.forecast-outcome",
@@ -873,6 +881,120 @@ async def test_runtime_saga_uses_durable_state_store_audit() -> None:
     )
 
     assert len(tuple(state_store.audit_entries)) == 1
+
+
+async def test_runtime_saga_replays_issue_operation_across_restart() -> None:
+    class _FailFirstHandoffCheckpoint(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failed = False
+
+        async def write_state(self, key, value):  # noqa: ANN001, ANN201
+            if (
+                key.startswith("pantheon/saga/handoff/")
+                and key.endswith("/checkpoint")
+                and not self.failed
+            ):
+                self.failed = True
+                raise RuntimeError("handoff checkpoint interrupted")
+            await super().write_state(key, value)
+
+    store = _FailFirstHandoffCheckpoint()
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "runtime-handoff-restart",
+        "escalation_id": "runtime-handoff-restart",
+        "correlation_id": "runtime-handoff-restart",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+    first = _build_runtime_saga(store)
+    with pytest.raises(RuntimeError, match="handoff checkpoint interrupted"):
+        await first.on_typed_message("object.handoff-escalation", dict(payload))
+
+    restarted = _build_runtime_saga(store)
+    restarted.bind_bus(InMemoryBus(registry=load_pantheon()))
+    await restarted.on_typed_message("object.handoff-escalation", dict(payload))
+
+    assert len(restarted.github.issues) == 1
+    issue = next(iter(restarted.github.issues.values()))
+    assert issue.comments == []
+    assert restarted.behavior_snapshot()["handoff:materialized"] == 1
+
+
+async def test_runtime_saga_rehydrates_completed_issue_projection() -> None:
+    store = InMemoryStateStore()
+    first = _build_runtime_saga(store)
+    first.bind_bus(InMemoryBus(registry=load_pantheon()))
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "runtime-handoff-complete",
+        "escalation_id": "runtime-handoff-complete",
+        "correlation_id": "runtime-handoff-complete",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+    await first.on_typed_message("object.handoff-escalation", payload)
+
+    restarted = _build_runtime_saga(store)
+    assert restarted.github.issues == {}
+    assert await restarted.rehydrate_issue_tracker() == 1
+    assert len(restarted.github.issues) == 1
+
+
+async def test_state_store_issue_projection_is_bounded_live_and_after_restart() -> None:
+    store = InMemoryStateStore()
+    adapter = StateStoreIssueTrackerAdapter(store, max_issues=2)
+    for index in range(3):
+        await adapter.create_or_comment_once(
+            operation_id=f"handoff:bounded-{index}",
+            fingerprint=f"bounded-fingerprint-{index}",
+            title=f"[no_route] handoff {index}",
+            body=f"Correlation id: bounded-{index}",
+        )
+
+    assert tuple(adapter.issues) == (
+        "bounded-fingerprint-1",
+        "bounded-fingerprint-2",
+    )
+
+    restarted = StateStoreIssueTrackerAdapter(store, max_issues=2)
+    assert await restarted.rehydrate() == 2
+    assert tuple(restarted.issues) == tuple(adapter.issues)
+
+
+async def test_state_store_issue_close_remains_valid_at_operation_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "fdai.agents._framework.state_store_issue_tracker._MAX_OPERATIONS_PER_ISSUE",
+        3,
+    )
+    store = InMemoryStateStore()
+    adapter = StateStoreIssueTrackerAdapter(store)
+    for index in range(3):
+        await adapter.create_or_comment_once(
+            operation_id=f"handoff:close-cap-{index}",
+            fingerprint="close-cap-fingerprint",
+            title="[no_route] close cap",
+            body=f"Correlation id: close-cap-{index}",
+        )
+
+    await adapter.close(
+        "close-cap-fingerprint",
+        closed_by_pr="https://example.invalid/pr/34",
+    )
+
+    restarted = StateStoreIssueTrackerAdapter(store)
+    assert await restarted.rehydrate() == 1
+    issue = restarted.issues["close-cap-fingerprint"]
+    assert issue.open is False
+    assert issue.closed_by_pr == "https://example.invalid/pr/34"
+    assert len(issue.comments) == 2
 
 
 async def test_required_runtime_task_failure_is_not_swallowed() -> None:

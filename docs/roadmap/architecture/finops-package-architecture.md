@@ -26,6 +26,13 @@ domain code and assets. It does not create another control plane or move authori
 > The outbox lifecycle facade also exposes the unrelated Incident intervention worker. Its
 > lifecycle and readiness state cannot activate a Cost Governance package or publish a Njord-owned
 > record.
+> The shared Pantheon runtime may inject the same durable StateStore into Var for final approval
+> replay, Vidar for rollback claim replay, and Norns for bounded startup recovery of pending
+> handoff-learning work. Those lifecycle and learner records cannot install, activate,
+> configure, publish, or grant data access to the Cost Governance package.
+> Enforce composition names Vidar and Var durable bindings separately from Thor's store. Supplying
+> the same provider instance through all exact parameters still grants no Cost Governance package
+> activation, data, publication, or execution authority.
 > Non-agent runtime observation consumers likewise record replay and health evidence only; they do
 > not change Njord ownership, package activation, or action authority.
 > Global Terraform roots can carry unrelated AKS observation bindings. Those values and Reader

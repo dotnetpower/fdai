@@ -104,6 +104,7 @@ class _EvidenceVerifier:
 
 class _CountingModel(MatchTypeCrossCheckModel):
     def __init__(self) -> None:
+        super().__init__(model_id="counting")
         self.calls = 0
 
     async def propose(self, candidate: QualityCandidate):
@@ -122,7 +123,10 @@ def _verifiers(
 
 
 def _gate(verifiers, model=None) -> QualityGate:
-    models = (model or MatchTypeCrossCheckModel(), MatchTypeCrossCheckModel())
+    models = (
+        model or MatchTypeCrossCheckModel(model_id="primary"),
+        MatchTypeCrossCheckModel(model_id="secondary"),
+    )
     return QualityGate(
         verifier=StaticVerifier(outcome=True),
         cross_check_models=models,

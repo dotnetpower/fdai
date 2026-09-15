@@ -76,6 +76,13 @@ def _grounding(rule_ids: tuple[str, ...] = ("r.known",)) -> InMemoryGroundingSou
     return InMemoryGroundingSource({rid: _rule(rid) for rid in rule_ids})
 
 
+def _matching_models() -> tuple[MatchTypeCrossCheckModel, MatchTypeCrossCheckModel]:
+    return (
+        MatchTypeCrossCheckModel(model_id="m1"),
+        MatchTypeCrossCheckModel(model_id="m2"),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Construction guards
 # ---------------------------------------------------------------------------
@@ -133,6 +140,19 @@ def test_duplicate_declared_model_ids_are_rejected() -> None:
         )
 
 
+def test_missing_declared_model_ids_are_rejected() -> None:
+    class _UnidentifiedModel:
+        async def propose(self, candidate: QualityCandidate):
+            return candidate.action_type, dict(candidate.params)
+
+    with pytest.raises(ValueError, match="non-empty ASCII model ids"):
+        QualityGate(
+            verifier=StaticVerifier(outcome=True),
+            cross_check_models=(_UnidentifiedModel(), _UnidentifiedModel()),
+            grounding=_grounding(),
+        )
+
+
 # ---------------------------------------------------------------------------
 # Happy path
 # ---------------------------------------------------------------------------
@@ -142,7 +162,7 @@ def test_duplicate_declared_model_ids_are_rejected() -> None:
 async def test_eligible_when_all_gates_pass() -> None:
     gate = QualityGate(
         verifier=StaticVerifier(outcome=True),
-        cross_check_models=(MatchTypeCrossCheckModel(), MatchTypeCrossCheckModel()),
+        cross_check_models=_matching_models(),
         grounding=_grounding(),
     )
     decision = await gate.evaluate(_candidate(), ontology_improvement_attempts=10)
@@ -241,7 +261,7 @@ async def test_prompt_evidence_is_optional_on_votes_and_serialized_when_present(
 async def test_verifier_deny_short_circuits() -> None:
     gate = QualityGate(
         verifier=StaticVerifier(outcome=False),  # explicit deny
-        cross_check_models=(MatchTypeCrossCheckModel(), MatchTypeCrossCheckModel()),
+        cross_check_models=_matching_models(),
         grounding=_grounding(),
     )
     decision = await gate.evaluate(_candidate())
@@ -253,7 +273,7 @@ async def test_verifier_deny_short_circuits() -> None:
 async def test_verifier_abstain_is_recorded_but_not_fatal_alone() -> None:
     gate = QualityGate(
         verifier=StaticVerifier(outcome=None),  # abstain
-        cross_check_models=(MatchTypeCrossCheckModel(), MatchTypeCrossCheckModel()),
+        cross_check_models=_matching_models(),
         grounding=_grounding(),
     )
     decision = await gate.evaluate(_candidate())
@@ -271,7 +291,7 @@ async def test_verifier_abstain_is_recorded_but_not_fatal_alone() -> None:
 async def test_unknown_cited_rule_flags_and_may_still_pass_when_others_ground() -> None:
     gate = QualityGate(
         verifier=StaticVerifier(outcome=True),
-        cross_check_models=(MatchTypeCrossCheckModel(), MatchTypeCrossCheckModel()),
+        cross_check_models=_matching_models(),
         grounding=_grounding(("r.known",)),
     )
     decision = await gate.evaluate(_candidate(cited=("r.known", "r.made-up")))
@@ -284,7 +304,7 @@ async def test_unknown_cited_rule_flags_and_may_still_pass_when_others_ground() 
 async def test_no_grounded_citation_when_require_grounding_true() -> None:
     gate = QualityGate(
         verifier=StaticVerifier(outcome=True),
-        cross_check_models=(MatchTypeCrossCheckModel(), MatchTypeCrossCheckModel()),
+        cross_check_models=_matching_models(),
         grounding=_grounding(("r.known",)),
     )
     decision = await gate.evaluate(_candidate(cited=("r.other",)))
@@ -296,7 +316,7 @@ async def test_no_grounded_citation_when_require_grounding_true() -> None:
 async def test_grounding_disabled_does_not_require_citations() -> None:
     gate = QualityGate(
         verifier=StaticVerifier(outcome=True),
-        cross_check_models=(MatchTypeCrossCheckModel(), MatchTypeCrossCheckModel()),
+        cross_check_models=_matching_models(),
         grounding=_grounding(("r.known",)),
         config=QualityGateConfig(require_grounding=False),
     )
@@ -358,8 +378,8 @@ async def test_cross_check_agreement_below_quorum_still_disagrees() -> None:
         verifier=StaticVerifier(outcome=True),
         cross_check_models=(
             MatchTypeCrossCheckModel(),
-            MismatchCrossCheckModel(),
-            MismatchCrossCheckModel(),
+            MismatchCrossCheckModel(model_id="disagree-1"),
+            MismatchCrossCheckModel(model_id="disagree-2"),
         ),
         grounding=_grounding(),
         config=QualityGateConfig(require_cross_check_quorum=2),
@@ -371,6 +391,8 @@ async def test_cross_check_agreement_below_quorum_still_disagrees() -> None:
 @pytest.mark.asyncio
 async def test_cross_check_parameter_disagreement_below_quorum_disagrees() -> None:
     class _DifferentParamsModel:
+        model_id = "different-params"
+
         async def propose(self, candidate: QualityCandidate):
             return candidate.action_type, {**candidate.params, "tag_value": "team-b"}
 
@@ -392,6 +414,8 @@ async def test_cross_check_exception_fails_closed_to_disagree() -> None:
     """A cross-check model failure must fail closed, never crash the gate."""
 
     class _RaisingModel:
+        model_id = "raising"
+
         async def propose(self, candidate: QualityCandidate):
             raise RuntimeError("cross-check transport down")
 
@@ -513,7 +537,7 @@ async def test_escalation_low_self_consistency_trigger_on_agreement() -> None:
 
     gate = QualityGate(
         verifier=StaticVerifier(outcome=True),
-        cross_check_models=(MatchTypeCrossCheckModel(), MatchTypeCrossCheckModel()),
+        cross_check_models=_matching_models(),
         grounding=_grounding(),
         config=QualityGateConfig(require_cross_check_quorum=2),
         escalation_ladder_config=EscalationLadderConfig(on_self_consistency_below=0.6),
@@ -536,7 +560,7 @@ async def test_escalation_high_self_consistency_does_not_trigger() -> None:
 
     gate = QualityGate(
         verifier=StaticVerifier(outcome=True),
-        cross_check_models=(MatchTypeCrossCheckModel(), MatchTypeCrossCheckModel()),
+        cross_check_models=_matching_models(),
         grounding=_grounding(),
         config=QualityGateConfig(require_cross_check_quorum=2),
         escalation_ladder_config=EscalationLadderConfig(on_self_consistency_below=0.6),
@@ -560,7 +584,7 @@ async def test_escalation_high_self_consistency_does_not_trigger() -> None:
 async def test_low_confidence_abstains_even_when_other_gates_pass() -> None:
     gate = QualityGate(
         verifier=StaticVerifier(outcome=True),
-        cross_check_models=(MatchTypeCrossCheckModel(), MatchTypeCrossCheckModel()),
+        cross_check_models=_matching_models(),
         grounding=_grounding(),
     )
     decision = await gate.evaluate(
@@ -574,7 +598,7 @@ async def test_low_confidence_abstains_even_when_other_gates_pass() -> None:
 async def test_aggregate_confidence_zero_when_no_signals() -> None:
     gate = QualityGate(
         verifier=StaticVerifier(outcome=True),
-        cross_check_models=(MatchTypeCrossCheckModel(), MatchTypeCrossCheckModel()),
+        cross_check_models=_matching_models(),
         grounding=_grounding(),
     )
     decision = await gate.evaluate(_candidate(confidence={}))
@@ -625,7 +649,7 @@ def test_candidate_aggregate_bool_only_returns_zero() -> None:
 async def test_quality_decision_is_immutable() -> None:
     gate = QualityGate(
         verifier=StaticVerifier(outcome=True),
-        cross_check_models=(MatchTypeCrossCheckModel(), MatchTypeCrossCheckModel()),
+        cross_check_models=_matching_models(),
         grounding=_grounding(),
     )
     decision = await gate.evaluate(_candidate())

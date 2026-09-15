@@ -37,6 +37,10 @@ class MatchTypeCrossCheckModel(CrossCheckModel):
     def __init__(self, *, model_id: str = "fake-agree") -> None:
         self._id = model_id
 
+    @property
+    def model_id(self) -> str:
+        return self._id
+
     def startup_candidates(self) -> tuple[CrossCheckModel, ...]:
         """Exclude this deterministic sentinel from model startup sampling."""
         return ()
@@ -50,6 +54,10 @@ class MismatchCrossCheckModel(CrossCheckModel):
 
     def __init__(self, *, model_id: str = "fake-disagree") -> None:
         self._id = model_id
+
+    @property
+    def model_id(self) -> str:
+        return self._id
 
     def startup_candidates(self) -> tuple[CrossCheckModel, ...]:
         """Exclude this deterministic sentinel from model startup sampling."""
@@ -75,6 +83,10 @@ class SequenceCrossCheckModel(CrossCheckModel):
         self._sequence = sequence
         self._id = model_id
         self._idx = 0
+
+    @property
+    def model_id(self) -> str:
+        return self._id
 
     async def propose(self, candidate: QualityCandidate) -> tuple[str, Mapping[str, Any]]:
         del candidate

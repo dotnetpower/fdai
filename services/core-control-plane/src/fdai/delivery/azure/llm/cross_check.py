@@ -105,6 +105,7 @@ class AzureOpenAICrossCheckModelConfig:
     auth_audience: str = COGNITIVE_SERVICES_SCOPE
     route_kind: ModelRouteKind = ModelRouteKind.DIRECT
     binding_id: str | None = None
+    model_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,6 +153,13 @@ class AzureOpenAICrossCheckModel:
             raise ValueError("temperature MUST be in [0.0, 2.0]")
         if config.max_tool_iterations < 0:
             raise ValueError("max_tool_iterations MUST be >= 0")
+        if config.model_id is not None and (
+            not config.model_id
+            or len(config.model_id) > 256
+            or not config.model_id.isascii()
+            or any(character.isspace() for character in config.model_id)
+        ):
+            raise ValueError("model_id MUST be bounded non-empty ASCII when provided")
         if (tool_registry is None) != (tool_executor is None):
             raise ValueError(
                 "tool_registry and tool_executor MUST be provided together (both, or neither)"
@@ -211,6 +219,11 @@ class AzureOpenAICrossCheckModel:
             tools_param = spec if spec else None
         self._tools_param: Final[list[Mapping[str, Any]] | None] = tools_param
         self._name_to_id: Final[Mapping[str, str]] = name_to_id
+
+    @property
+    def model_id(self) -> str:
+        """Return the composition-owned mixed-model independence identity."""
+        return self._config.model_id or ""
 
     async def propose(self, candidate: QualityCandidate) -> tuple[str, Mapping[str, Any]]:
         proposal = await self.propose_with_evidence(candidate)

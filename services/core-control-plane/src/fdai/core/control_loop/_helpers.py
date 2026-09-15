@@ -14,14 +14,6 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from fdai.core.executor import ExecutionResult, ExecutorOutcome
-from fdai.core.executor.direct_api import (
-    DirectApiExecutionOutcome,
-    DirectApiExecutionResult,
-)
-from fdai.core.executor.tool_call import (
-    ToolCallExecutionOutcome,
-    ToolCallExecutionResult,
-)
 from fdai.core.risk_gate.authority import (
     ExecutionAuthorityDecision,
     evaluate_execution_authority,
@@ -76,6 +68,7 @@ def _compute_authority(
     rule: Rule,
     action_type: OntologyActionType,
     table: RiskTable,
+    tier: Tier = Tier.T0,
     cost_override: float | None = None,
     system_degraded: bool = False,
     kill_switch_engaged: bool = False,
@@ -101,7 +94,7 @@ def _compute_authority(
     environment = _extract_environment(_extract_resource_props(event.payload))
     cost = cost_override if cost_override is not None else rule.remediation.cost_impact_monthly_usd
     return evaluate_execution_authority(
-        tier=Tier.T0,
+        tier=tier,
         action_type=action_type,
         table=table,
         principal_role=CeilingRole.OWNER,
@@ -120,6 +113,7 @@ def build_shadow_authority_audit(
     rule: Rule,
     action_type: OntologyActionType,
     table: RiskTable,
+    tier: Tier = Tier.T0,
     cost_override: float | None = None,
     system_degraded: bool = False,
     kill_switch_engaged: bool = False,
@@ -142,6 +136,7 @@ def build_shadow_authority_audit(
         rule=rule,
         action_type=action_type,
         table=table,
+        tier=tier,
         cost_override=cost_override,
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
@@ -169,6 +164,7 @@ def evaluate_unified(
     action_type: OntologyActionType,
     table: RiskTable,
     risk_gate: RiskGate,
+    tier: Tier = Tier.T0,
     cost_override: float | None = None,
     system_degraded: bool = False,
     kill_switch_engaged: bool = False,
@@ -202,6 +198,7 @@ def evaluate_unified(
         rule=rule,
         action_type=action_type,
         table=table,
+        tier=tier,
         cost_override=cost_override,
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
@@ -237,6 +234,7 @@ def build_unified_risk_audit(
     action_type: OntologyActionType,
     table: RiskTable,
     risk_gate: RiskGate,
+    tier: Tier = Tier.T0,
     cost_override: float | None = None,
     system_degraded: bool = False,
     kill_switch_engaged: bool = False,
@@ -263,6 +261,7 @@ def build_unified_risk_audit(
         action_type=action_type,
         table=table,
         risk_gate=risk_gate,
+        tier=tier,
         cost_override=cost_override,
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
@@ -311,25 +310,6 @@ def _extract_resource_id(event: Event, decision: RoutingDecision) -> str:
     if event.resource_ref:
         return event.resource_ref
     return f"anonymous:{decision.resource_type or 'unknown'}"
-
-
-def _is_execution_success(
-    result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult | Any,
-) -> bool:
-    """Return whether a dispatched mutation has durable effect verification."""
-    if not hasattr(result, "outcome"):
-        return False
-    dispatched = result.outcome in (
-        ExecutorOutcome.PUBLISHED,
-        ExecutorOutcome.ALREADY_EXISTED,
-        DirectApiExecutionOutcome.DISPATCHED,
-        DirectApiExecutionOutcome.ALREADY_APPLIED,
-        ToolCallExecutionOutcome.DISPATCHED,
-        ToolCallExecutionOutcome.ALREADY_APPLIED,
-    )
-    if not dispatched:
-        return False
-    return result.audit_context.get("effect_verified") is True
 
 
 def _synthetic_action_build_failure(*, event: Event, finding: Any, reason: str) -> ExecutionResult:
@@ -389,7 +369,6 @@ __all__ = [
     "_extract_environment",
     "_extract_resource_id",
     "_extract_resource_props",
-    "_is_execution_success",
     "_synthetic_action_build_failure",
     "_unified_audit_dict",
     "apply_governance_override_to_rule",

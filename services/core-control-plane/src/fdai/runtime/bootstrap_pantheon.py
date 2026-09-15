@@ -463,6 +463,8 @@ async def initialize_pantheon(
             StateStoreActionRunStore(config.incident_audit_store) if thor_mutation_bound else None
         ),
         rollback_executors=rollback_executors,
+        vidar_state_store=config.incident_audit_store,
+        var_state_store=config.incident_audit_store,
         execution_resource_lock=execution_resource_lock,
         approver_authorizer=_approver_authorizer_from_env(config.environment),
         saga=config.runtime_saga,

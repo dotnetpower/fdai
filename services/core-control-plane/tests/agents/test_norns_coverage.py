@@ -96,14 +96,14 @@ def test_covered_symptom_never_produces_a_candidate() -> None:
     assert norns.pending_candidates == []
 
 
-def test_coverage_learner_does_not_interfere_with_fingerprint_learner() -> None:
+async def test_coverage_learner_does_not_interfere_with_fingerprint_learner() -> None:
     """The two learners share pending_candidates; both must produce their
     own candidate without cross-contamination."""
     agg = ScenarioCoverageAggregator(index=build_from_entries([]), gap_threshold=2)
     norns = Norns(promotion_threshold=2, coverage_aggregator=agg)
     # Fingerprint stream drives the fingerprint learner.
     for _ in range(2):
-        norns._observe_fingerprint({"fingerprint": "fp-1"})
+        await norns.on_typed_message("object.issue", {"fingerprint": "fp-1"})
     # Coverage stream drives the coverage learner.
     for i in range(2):
         norns.observe_incident_symptom(

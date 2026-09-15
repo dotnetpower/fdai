@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: f94e412f88821561a69587178148b0c9589452f4
+translation_source_sha: f485c5e31dcb50812905465f649c5c1baf9926f9
 translation_revised: 2026-09-15
 ---
 # 에이전트 판테온
@@ -60,12 +60,18 @@ Odin 에 두 라인이 보고한다: Thor (operations) 와 Forseti (judgment). 4
 
 ## 3. 런타임 관계도
 
-조직도는 보고 라인이고 관계도는 데이터 흐름입니다. Sensing과 전문가는 Forseti에 신호를
-전달합니다. Action verdict는 Thor가 Vidar, Var 또는 실행으로 전달하며 Thor는 document-ingestion
-및 관찰 전용 아키텍처 검토 verdict를 무시합니다. Odin은 해당 ARB 관찰을 액션 포트폴리오
-개수에서 제외하고 Saga는 이를 감사 근거로 보존합니다. Var와 Saga는 document HIL의 stable idempotency를 보존하고 Saga는 gated 및 terminal audit을 영속화합니다. 클라우드 참조 패키지도 유효한 서명과 별개로 독립 Var 승인을 요구합니다. [클라우드 리소스 지식](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)을 참조하세요.
-워크플로 요청은 양의 시도 번호를 포함한 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐 보존합니다. Thor는 판정이 액션 식별자를 제공한 경우에만 이를 보존하고 상관관계 ID에서 액션 식별자를 만들어 내지 않으며, 범위가 제한된 ActionRun 계보 검증은 권한이 없는 `_framework` 도우미에 둡니다. Delivery 소유 producer는 하나의 완전한 operational plan에 대한 optional argument-bound kinetic proposal을 저장하고 Forseti는 주입된 source로 이를 해석해 strict validation 뒤 같은 Verdict-to-ActionRun path에 보존합니다. 둘 다 attribution 및 evidence 전용이며 quorum, mode,
-judgment, approval 또는 execution authority를 바꾸지 않습니다.
+조직도는 보고 라인이고 관계도는 데이터 흐름입니다. 감지 에이전트와 전문가는 Forseti에 신호를
+전달합니다. 액션 결정은 Thor가 Vidar, Var 또는 실행으로 전달합니다. Thor는 문서 수집 및 관찰
+전용 아키텍처 검토 결정을 무시하고, Odin은 해당 관찰을 액션 포트폴리오 개수에서 제외하며,
+Saga는 이를 감사 근거로 보존합니다.
+Var 승인, Vidar 복구, Saga 인계, Norns 학습의 영속 멱등성과 재시작 상태는
+[에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#영속-권한과-재생)을 따릅니다.
+클라우드 참조 패키지도 유효한 서명과 별개로 독립 Var 승인을 요구합니다.
+[클라우드 리소스 지식](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)을 참조하세요.
+워크플로 요청은 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐
+보존합니다. Thor는 판정이 제공한 액션 식별자만 보존하고 상관관계 ID로 새 식별자를 만들지
+않습니다. 전달 계층이 저장한 선택적 작업 제안은 엄격한 검증 뒤 같은 판정-ActionRun 경로를
+따르며, 정족수, 모드, 판단, 승인 또는 실행 권한을 바꾸지 않습니다.
 Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 
 ![3. 런타임 관계도. 주요 단계는 Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga입니다.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.ko.svg)
@@ -622,9 +628,10 @@ Per-resource 순서는 파티션 키 로 보존; cross-resource 순서는 함의
 `pr_native`를 사용하는 검토된 catalog-as-code 변경에만 사용합니다. Bragi는
 `object.handoff-escalation`의 single 쓰기 담당로서 범위가 제한된 요청을 publish합니다.
 Saga는 이를 consume하고 지문 deduplication을 적용한 뒤 `object.issue`를
-materialize하고 감사 근거를 덧붙이기합니다. 실제 운영 issue tracker는 injected 전달
-어댑터로 유지되므로 로컬과 deployed 런타임이 동일한 타입이 지정된 소유권과 감사
-경계를 지킵니다.
+구체화하고 감사 근거를 덧붙입니다. 외부 이슈 변경, 완료 전 게시, Norns 학습 재생은
+[에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#영속-권한과-재생)의 영속
+계약을 따릅니다. 실제 운영 이슈 추적기는 주입된 전달 어댑터로 유지되므로 로컬과 배포
+런타임이 동일한 타입 지정 소유권 및 감사 경계를 지킵니다.
 
 ### 7.7 Conversational 포트 MUST-NOT-Bypass 규칙
 
@@ -635,15 +642,8 @@ Conversational 포트 는 액션 을 시작할 수 있지만 스스로 실행할
 Bragi 는 오퍼레이터에게 진행 상황만 렌더링. Bragi 가 실행기 를 직접
 호출하도록 하는 어떤 구현도 defect.
 
-**구현.** Bragi 는 조립 루트 에서 `Huginn.ingest`(`object.event` 의 단독 쓰기 담당)에 연결되는 `proposal_sink` DI 경계 을 가지며, Bragi 자신은 변경 토픽을 절대 publish 하지 않는다.
-`Bragi.submit_action_proposal` 은 결정론적 영어 또는 한국어 명령 구문을 ActionType 으로 매핑하고, `initiator_principal = operator` 와 `operator_initiated = true` 로
-제안 을 만들어 범위가 제한된 싱크 호출로 제출한다. 시간 초과 또는 실패는 오류 상세 없이 `submitted=false`를 반환하며 모든 명령은 제안 상관관계에 digest-only `object.turn`을 발행한다. 오퍼레이터가 추적할
-`correlation_id` 를 반환하고 `object.verdict` / `object.action-run` 에서 파이프라인 진행을 렌더링 할 뿐, 실행하지 않는다. Forseti 는 `initiator_principal` 을 판정 에, Thor
-는 ActionRun 에 전파하고, Var 는 no-self-approval 을 강제한다(initiator 는 자기 액션 을 승인 불가). RBAC 경계 이 모르는 initiator 의 operator-initiated 제안 은
-`SecurityEvent` 와 함께 `deny` 로 실패 시 차단. 콘솔이 오퍼레이터의 Entra 역할 을 전달하면, 항목 RBAC 게이트가 execute 하한(`Contributor`) 미만의 액션 요청을 파이프라인 진입 전에 거부한다 - 즉
-`Reader` 는 어떤 액션 도 제출할 수 없다(위의 principal 레벨 거부 와 defense-in-depth). Spoofing 방어로, Huginn 은 operator-proposal 필드(`initiator_principal` /
-`action_type` / `operator_initiated`)를 명시적 `event_type == "operator_request"` 에 대해서만 honor 하고 `operator_initiated` 를 strict bool 로 coerce 한다
-- 공유 유입 토픽의 위조/외부 신호가 운영자 액션 을 spoof 할 수 없으며, Forseti 는 strict `True` 만 operator-initiated 로 취급한다.
+정확한 제안 싱크, 운영자 RBAC, 위조 방어 및 계보 전달은
+[에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#대화형-액션-재진입)을 따릅니다.
 
 ### 7.8 포크 재정의 경계
 

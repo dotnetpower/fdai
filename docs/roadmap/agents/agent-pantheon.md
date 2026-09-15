@@ -56,9 +56,15 @@ that data flows into judgment, not directly into execution.
 
 ## 3. Runtime relationship diagram
 
-The org chart is reporting lines; the relationship diagram is data flow. Sensing and specialists feed Forseti. Action verdicts feed Thor for dispatch to Vidar, Var, or execution; Thor ignores
-document-ingestion and observation-only architecture-review verdicts. Odin excludes those ARB observations from action-portfolio counts, while Saga retains them as audit evidence. Var and Saga preserve stable idempotency through document HIL, while
-Saga persists gated and terminal audit. Cloud-reference packages also require this independent Var approval, even with a valid signature; see [Cloud resource knowledge](../interfaces/cloud-resource-knowledge-lifecycle.md). Workflow requests preserve bounded `workflow_action` lineage, including the positive attempt number, through Huginn, Forseti, and Thor.
+The org chart is reporting lines; the relationship diagram is data flow. Sensing and specialists
+feed Forseti. Action decisions feed Thor for dispatch to Vidar, Var, or execution. Thor ignores
+document-ingestion and observation-only architecture-review decisions, Odin excludes those
+observations from action-portfolio counts, and Saga retains them as audit evidence.
+Var approval, Vidar recovery, Saga handoff, and Norns learning preserve durable idempotency and
+restart state through the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#durable-authority-and-replay).
+Cloud-reference packages require independent Var approval even with a valid signature; see
+[Cloud resource knowledge](../interfaces/cloud-resource-knowledge-lifecycle.md). Workflow requests
+preserve bounded `workflow_action` lineage through Huginn, Forseti, and Thor.
 Thor preserves an action identifier only when the verdict supplies one and never invents one from the correlation id; bounded ActionRun lineage validation remains an authority-free `_framework` helper. A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan; Forseti resolves it through an injected source and keeps it on the same Verdict-to-ActionRun path after strict validation. Both are attribution and evidence only;
 neither changes quorum, mode, judgment, approval, or execution authority.
 Norns proposes to Mimir, and Odin arbitrates conflicts before judgment.
@@ -631,8 +637,11 @@ distinct approvers, no self-approval. Forseti attaches `quorum_required:
 
 Handoff escalation is not a `governance.*` ActionType. That category is reserved for reviewed catalog-as-code changes using `pr_native`.
 Bragi, the single writer of `object.handoff-escalation`, publishes the bounded request; Saga consumes it, applies fingerprint deduplication,
-materializes `object.issue`, and appends the audit evidence. A live issue tracker remains an injected delivery adapter, so the typed
-ownership and audit boundary stay the same in local and deployed runtimes.
+materializes `object.issue`, and appends the audit evidence. The runtime preserves external issue
+mutation, publication-before-completion, and Norns learning replay through the durable contracts in
+the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#durable-authority-and-replay).
+A live issue tracker remains an injected delivery adapter, so local and deployed runtimes keep the
+same typed ownership and audit boundary.
 
 ### 7.7 Conversational port MUST-NOT-Bypass rule
 
@@ -641,19 +650,8 @@ equivalent to Bragi, Bragi translates the intent into an `ActionProposal` whose 
 it to the typed pipeline. Forseti, Var, and Thor run their normal steps. Bragi only renders progress back to the operator. Any
 implementation that lets Bragi call an executor directly is a defect.
 
-**Implementation.** Bragi holds a `proposal_sink` DI seam wired at the composition root to `Huginn.ingest` (the sole writer of
-`object.event`), so Bragi never publishes a mutation topic itself. `Bragi.submit_action_proposal` maps a deterministic English or Korean
-command phrase to an ActionType, builds the proposal with `initiator_principal = operator` and `operator_initiated = true`, and submits it
-through a bounded sink call; timeout or failure returns `submitted=false` without error detail. Every command emits a digest-only
-`object.turn` on that proposal correlation. It returns a `correlation_id` the operator can track and renders pipeline progress from
-`object.verdict` / `object.action-run`, never executing. Forseti propagates `initiator_principal` onto the verdict, Thor onto the ActionRun,
-and Var enforces no-self-approval (the initiator can never approve their own action). An operator-initiated proposal whose initiator is
-unknown to the RBAC seam fails closed to `deny` with a `SecurityEvent`. When the console passes the operator's Entra role, an entry RBAC
-gate refuses an action request below the execute floor (`Contributor`) before it enters the pipeline, so a `Reader` cannot submit any action
-(defense-in-depth with the principal-level deny above). As a spoofing defense, Huginn honors the operator-proposal fields
-(`initiator_principal` / `action_type` / `operator_initiated`) ONLY for an explicit `event_type == "operator_request"` and coerces
-`operator_initiated` to a strict bool - so a forged or external signal on the shared ingress topic cannot spoof an operator action, and
-Forseti treats only a strict `True` as operator-initiated.
+The exact proposal sink, operator RBAC, spoofing defense, and lineage propagation are specified in
+the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#conversational-action-re-entry).
 
 ### 7.8 Fork override boundaries
 

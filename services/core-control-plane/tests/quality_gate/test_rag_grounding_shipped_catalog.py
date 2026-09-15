@@ -233,8 +233,8 @@ async def test_gate_blocks_fabricated_citations_end_to_end(
     # failure lane is grounding.
     verifier = StaticVerifier(outcome=True)
     models: tuple[Any, ...] = (
-        MatchTypeCrossCheckModel(),
-        MatchTypeCrossCheckModel(),
+        MatchTypeCrossCheckModel(model_id="m1"),
+        MatchTypeCrossCheckModel(model_id="m2"),
     )
     gate = QualityGate(
         verifier=verifier,

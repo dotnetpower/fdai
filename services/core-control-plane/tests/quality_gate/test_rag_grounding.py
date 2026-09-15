@@ -51,12 +51,14 @@ def _make_rule(
     rule_id: str,
     check_logic_reference: str = "policies/example/tag-owner.rego",
     remediates: str = "remediate.tag-add",
+    alternatives: tuple[str, ...] = (),
 ) -> Rule:
     payload = dict(valid_rule)
     payload["id"] = rule_id
     payload["remediates"] = remediates
     payload["check_logic"] = dict(payload["check_logic"])
     payload["check_logic"]["reference"] = check_logic_reference
+    payload["alternatives"] = list(alternatives)
     return Rule.model_validate(payload)
 
 
@@ -219,6 +221,30 @@ def test_supports_false_for_unknown_rule_id(valid_rule: dict[str, Any]) -> None:
     assert grounding.supports(_candidate(cited=()), "rule.nonexistent") is False
 
 
+def test_supports_exact_catalog_alternative_without_semantic_overlap(
+    valid_rule: dict[str, Any],
+) -> None:
+    rule = _make_rule(
+        valid_rule,
+        rule_id="rule.tag-owner",
+        check_logic_reference="policies/tag/owner.rego",
+        remediates="remediate.tag-add",
+        alternatives=("ops.scale-out",),
+    )
+    grounding = RagGroundingSource(
+        rules={"rule.tag-owner": rule},
+        embedding_index=HashedRuleEmbeddingIndex(dim=64),
+    )
+
+    assert (
+        grounding.supports(
+            _candidate(action_type="ops.scale-out", params={}, cited=("rule.tag-owner",)),
+            "rule.tag-owner",
+        )
+        is True
+    )
+
+
 def test_supports_threshold_gate_flips_the_decision(valid_rule: dict[str, Any]) -> None:
     """Two grounding sources over the same (candidate, rule) pair with
     different thresholds return opposite answers around the measured
@@ -369,6 +395,44 @@ async def test_gate_eligible_when_supports_confirms(valid_rule: dict[str, Any]) 
     )
     candidate = _candidate(action_type="remediate.tag-add", cited=("rule.tag-owner",))
     decision = await gate.evaluate(candidate)
+    assert decision.outcome is QualityOutcome.ELIGIBLE
+    assert decision.grounded_rule_ids == ("rule.tag-owner",)
+    assert decision.reasons == ()
+
+
+@pytest.mark.asyncio
+async def test_gate_eligible_for_exact_catalog_alternative(
+    valid_rule: dict[str, Any],
+) -> None:
+    rule = _make_rule(
+        valid_rule,
+        rule_id="rule.tag-owner",
+        check_logic_reference="policies/tag/owner.rego",
+        remediates="remediate.tag-add",
+        alternatives=("ops.scale-out",),
+    )
+    grounding = RagGroundingSource(
+        rules={"rule.tag-owner": rule},
+        embedding_index=HashedRuleEmbeddingIndex(dim=64),
+    )
+    gate = QualityGate(
+        verifier=StaticVerifier(outcome=True),
+        cross_check_models=(
+            MatchTypeCrossCheckModel(),
+            MatchTypeCrossCheckModel(model_id="fake-2"),
+        ),
+        grounding=grounding,
+        config=QualityGateConfig(confidence_threshold=0.0),
+    )
+
+    decision = await gate.evaluate(
+        _candidate(
+            action_type="ops.scale-out",
+            params={},
+            cited=("rule.tag-owner",),
+        )
+    )
+
     assert decision.outcome is QualityOutcome.ELIGIBLE
     assert decision.grounded_rule_ids == ("rule.tag-owner",)
     assert decision.reasons == ()
