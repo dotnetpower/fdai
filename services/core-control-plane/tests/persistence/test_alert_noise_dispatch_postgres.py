@@ -1,14 +1,17 @@
 """Full-migration safety lifecycle with a test-only PR sink; no real Azure or Git publication."""
 
+import asyncio
 import os
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from uuid import UUID
 
 import psycopg
 import pytest
 from fdai.agents import InMemoryBus, load_pantheon
 from fdai.core.detection.alert_noise.outcomes import alert_effect_deadline
 from fdai.core.detection.alert_noise.workflow import AlertWorkflowCoordinator
+from fdai.core.event_ingest import EventIngest
 from fdai.core.executor.lock_continuity import (
     EffectSinkContinuityPolicy,
     OwnershipContinuityStrategy,
@@ -17,7 +20,11 @@ from fdai.core.executor.safeguard_lifecycle_coordinator import (
     SafeguardLifecycleCoordinator,
     SafeguardLifecycleCoordinatorConfig,
 )
-from fdai.core.executor.safeguards import SafeguardReceipt, evaluate_pre_dispatch
+from fdai.core.executor.safeguards import (
+    SafeguardReceipt,
+    evaluate_pre_dispatch,
+    full_action_digest,
+)
 from fdai.core.workflow.orchestrator import WorkflowOrchestrator
 from fdai.core.workflow.outcome_verification import StateStoreWorkflowOutcomeLedger
 from fdai.core.workflow.safeguard_commitment import ProcessRuntimeSafeguardCommitmentStore
@@ -55,6 +62,9 @@ from fdai.delivery.persistence.state_store_decision_evidence import (
 from fdai.runtime.alert_noise_effects import bind_alert_effect_runtime
 from fdai.runtime.workflow_action_dispatch import EventBusWorkflowActionDispatcher
 from fdai.shared.contracts.models import Action, ExecutionPath, Mode
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai.shared.contracts.validation import JsonSchemaContractValidator, JsonSchemaEventValidator
+from fdai.shared.providers.process_runtime import ProcessStatus
 from fdai_service_contracts.alert_noise import digest_record
 from fdai_service_contracts.alert_noise_plan import AlertChangePlan
 from psycopg import sql
@@ -96,7 +106,30 @@ class ObservedClock:
         self.minimum = value
 
 
-@pytest.mark.parametrize("effect", ["missing", "verified", "adverse"])
+class RealtimeClock(ObservedClock):
+    """Ignore unit-helper clock advances when another real PostgreSQL dispatch must follow."""
+
+    def __setitem__(self, index, value):
+        assert index == 0
+
+
+async def real_observation(h, **changes):
+    """Observe one actual second instead of mixing virtual future time with DB lock receipts."""
+    await asyncio.sleep(1.1)
+    at = datetime.now(UTC)
+    await _independent(
+        h,
+        window_start=h.context.execution.source_event.terminal_at,
+        window_end=at,
+        recorded_at=at,
+        **changes,
+    )
+
+
+@pytest.mark.parametrize(
+    "effect",
+    ["missing", "verified", "adverse", "recovered", "recovery-missing", "recovery-adverse"],
+)
 async def test_real_generation_closure_and_effect_survive_restart(
     complete_database, monkeypatch, effect
 ):
@@ -126,8 +159,9 @@ async def test_real_generation_closure_and_effect_survive_restart(
     h = await workflows.workflow_harness.__wrapped__(
         at, fixtures.evidence.__wrapped__(at), SimpleNamespace()
     )
+    recovery_case = effect in {"recovered", "recovery-missing", "recovery-adverse"}
     h.plan = AlertChangePlan.model_validate(
-        {**h.plan.model_dump(mode="python"), "max_observation_seconds": 60}
+        {**h.plan.model_dump(mode="python"), "max_observation_seconds": 1 if recovery_case else 60}
     )
     h.inputs["plan_digest"] = digest_record(h.plan)
     await h.store.write_state(
@@ -178,7 +212,7 @@ async def test_real_generation_closure_and_effect_survive_restart(
     bound = await binder.bind(action, event)
     # Approval fixtures and their coordinator share the frozen decision cutoff. Only
     # actual dispatch/recording and later observation follow elapsed database I/O.
-    h.clock = ObservedClock(at)
+    h.clock = RealtimeClock(at) if recovery_case else ObservedClock(at)
     h.action = Action.model_validate(
         {
             **bound.model_dump(mode="python"),
@@ -264,10 +298,71 @@ async def test_real_generation_closure_and_effect_survive_restart(
     assert await h.runtime.tick() == 0
     if effect == "missing":
         h.clock[0] = alert_effect_deadline(h.context)
+    elif recovery_case:
+        await real_observation(h)
     else:
         # Independent receipt values are explicit test-only detector observations.
         await _independent(h, missed_incidents=1 if effect == "adverse" else 0)
     signal = await _signal(h)
+    if recovery_case:
+        await _admit_workflow(h, signal)
+        forward_port = h.port
+        cancelled = await h.orchestrator.cancel(
+            process_id=signal["process_id"],
+            workflows=h.workflows,
+            actor_oid=str(UUID(int=1)),
+            now=h.clock[0],
+        )
+        assert cancelled.status is ProcessStatus.COMPENSATING
+        messages = [row async for row in h.bus.subscribe("test:operator-request", "test:binder")]
+        assert len(messages) == 1
+        validator = JsonSchemaEventValidator(
+            JsonSchemaContractValidator(PackageResourceSchemaRegistry())
+        )
+        event = EventIngest(validator=validator).ingest(messages[0].payload)
+        assert event is not None
+        proposed, _ = h.builder.build_from_operator_request(event=event)
+        bound = await binder.bind(proposed, event)
+        h.action = Action.model_validate(
+            {
+                **bound.model_dump(mode="python"),
+                "mode": Mode.ENFORCE,
+                "executor_identity_ref": "executor:example",
+            }
+        )
+        assert h.action.action_type == "ops.restore-alert-configuration"
+        await _execute_publication(h)
+        assert forward_port.calls == 1 and h.port.calls == 1
+        h.runtime = restart()
+        reader = h.runtime._readers[(h.plan.tenant_ref, h.plan.scope_ref)][1]
+        assert await reader.read_context(action_digest=full_action_digest(h.action)) is not None
+        assert await h.runtime.tick() == 0
+        if effect == "recovery-missing":
+            h.clock = ObservedClock(alert_effect_deadline(h.context))
+        else:
+            await real_observation(h, missed_incidents=1 if effect == "recovery-adverse" else 0)
+        recovery = await _signal(h)
+        if effect == "recovered":
+            await _admit_workflow(h, recovery)
+        result = await h.runtime.plan(recovery)
+        replay = restart()
+        if effect == "recovered":
+            assert recovery["effect_outcome"] == "recovered"
+            assert result.get("process_status") == "compensated", result
+            assert (await replay.plan(recovery))["status"] == "already_terminal"
+            assert (
+                await _processes(db.core).get(recovery["process_id"])
+            ).status is ProcessStatus.COMPENSATED
+        else:
+            assert result["recovery_required"]
+            assert recovery["effect_outcome"] == "recovery_incomplete"
+            for target in h.plan.lock_refs:
+                assert await replay._holds.is_held(target_ref=target)
+        assert not await _state(db.core).read_states(
+            "workflow:automation-hold-release-intent:", limit=10
+        )
+        assert forward_port.calls == 1 and h.port.calls == 1
+        return
     if effect == "verified":
         await _admit_workflow(h, signal)
     result = await h.runtime.plan(signal)

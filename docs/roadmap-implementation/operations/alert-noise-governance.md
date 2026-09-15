@@ -58,6 +58,8 @@ an all-Low review claim, or operational adoption.
 
 | 2026-09-15 | implemented | Added independently stamped team sets, exact finding facets, and 1-168-hour source reads through the signed request and existing Operator outbox. Omitted periods preserve original acceptance bytes; shifted or wrong-length source intervals hold. Added scoped bilingual filters and next-assessment period selection without changing report totals or authority. | `current change`; 328 owning backend checks and 292 Console checks passed; strict source typing, Console types and schema/generation parity passed. Thirteen isolated browser cases passed, with the two affected cases rerun after final facet consistency; desktop, 993px, 390px, 320px and measured 200% text/spacing passed. | Standard authenticated and full assistive-technology evidence, durable compensation, operational sources and protected delivery remain separate. |
 
+| 2026-09-15 | implemented | Extended actual PostgreSQL lifecycle evidence through canonical cancellation, compensation dispatch, independent recovery and new-connection replay. Incomplete or adverse recovery retains every target hold; a recovered Process cannot release a hold or dispatch again. | `current change`; all six complete-root-and-five-service-migration scenarios passed with zero skips. Recovery tests use a one-second real observation interval so virtual clocks cannot contradict database lock timestamps. Only PR sink and independent fact/approval fixtures remain synthetic. | Operational provider/receipt qualification and full authenticated accessibility still require their own evidence. |
+
 ### Remaining work
 
 The temporal source extension passed 121 focused replay/IaC/admitted-source checks, then 30 native
@@ -105,6 +107,10 @@ The focused merge check passed 32 tests plus Console types and changed-boundary 
   canonical Process replay, actual PostgreSQL lock/reservation/audit/dispatch/closure generations,
   duplicate suppression, verified effect completion and adverse/missing-evidence holds across
   new connections. The sink, approval and effect facts remain test-only, not provider evidence.
+- [x] **Durable compensation:** Actual Process cancellation and restore dispatch reuse real
+  PostgreSQL safeguard stores. Independently admitted restore completes as compensated; missing
+  and adverse observations remain recovery-incomplete with persisted holds and no release intent.
+  New effect/runtime connections replay without another forward or restore publication.
 - [ ] **ANG-3 authority and source fencing:** Demonstrate current Var service-owner plus distinct
   Owner quorum, revocation, target/dependency/source revalidation, tested rollback and dry-run, real
   replacement-recipient reachability, and independently admitted exclusive-writer protection through
@@ -140,7 +146,7 @@ The focused merge check passed 32 tests plus Console types and changed-boundary 
 | Priority | Unclosed outcome | Next falsifying evidence |
 |----------|------------------|--------------------------|
 | High | End-to-end approved provider effect and recovery cannot be qualified from reader factories or synthetic receipts. | Select an authorized environment, bind real directory/ownership/delivery/exclusion/observer sources and retain independently admitted exact-plan observations. No secrets or tenant values belong in this ledger. |
-| Medium | Durable compensation and standard authenticated accessibility remain unverified. | Forward dispatch/effect replay now passes complete migrations; separately prove compensation restart and the remaining UI rubric gates. Intercepted browser data is not authenticated operational evidence. |
+| Medium | Standard authenticated accessibility remains unverified. | Forward and compensation replay now pass complete migrations; finish the remaining UI rubric gates. Intercepted browser data is not authenticated operational evidence. |
 
 These open items mean the complete user-requested design is not yet implemented or at an all-Low
 exit. Their priority must not be lowered merely because the shipped actions remain shadow.
