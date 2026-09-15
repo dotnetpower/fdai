@@ -98,6 +98,7 @@ select { border: 1px solid #647783; border-radius: 4px; color: #dbe8ed; backgrou
 .agent-chip[aria-pressed="true"] { border-color: #709ba5; background: #10232b; color: #fff; }
 .visual-field { position: absolute; top: 0; bottom: 156px; left: 252px; right: 265px; }
 #stage { width: 100%; height: 100%; position: relative; }
+#app:not(.ontology-mode) #stage { background: url("./scene/nebula.svg") center / 100% 100% no-repeat; }
 #stage canvas { position: absolute; inset: 0; touch-action: none; }
 .node-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .node-label {
@@ -286,6 +287,7 @@ input[type="range"] { accent-color: var(--accent); height: 22px; cursor: pointer
   #cinema::after { animation: none; opacity: .35; }
 }
 @media (forced-colors: active) {
+  #app:not(.ontology-mode) #stage { background-image: none; }
   #cinema::after { display: none; }
   .agent-chip[aria-pressed="true"], .camera-group button[aria-pressed="true"], .node-label.is-selected { outline: 2px solid Highlight; }
   #stage canvas { opacity: .35; }
