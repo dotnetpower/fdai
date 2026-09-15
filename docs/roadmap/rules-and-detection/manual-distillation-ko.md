@@ -1,7 +1,7 @@
 ---
 title: 매뉴얼 증류(Manual Distillation)
 translation_of: manual-distillation.md
-translation_source_sha: 46b1f646b1b1e163a646e69fe08d96976f4d6e37
+translation_source_sha: 8c3b52da95e4af09f6ee146569861da4470d84fd
 translation_revised: 2026-09-15
 ---
 
@@ -283,7 +283,11 @@ Norns는 독립적으로 수락된 원본의 정확한 문서 버전, 현재 검
 정책, 원본 장애는 삭제 권한이 아닙니다. 예약 신원, 증적, 다이제스트, 감사는 남으며 법적 보존
 해제는 내용 제거만 허용하고 사용을 재개하지 않습니다. 기존 스케줄러는 알림당 최대 25개를
 순환 처리하고 감사를 원자적으로 기록합니다. 카탈로그, 그래프, 변경, 승격 권한은 없습니다. 잔여 구현 이후 [최종 소스 검토 12회](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)를 완료했으며 미해결로 확인된 Medium/High 소스 문제는 없습니다.
-번역 갱신, 정본 생성, 로컬 훅, 게시/CI, 공급자 적합성, 실제 수명 주기/코호트 근거는 연결된 원장의 미완료 요건입니다. 전체 UI/보조 기술 근거도 별도 요건입니다.
+소스 게시는 [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)에서 완료했고 로컬 UI 후속
+작업은 [PR #1031](https://github.com/dotnetpower/fdai/pull/1031)에서 완료했습니다. 남은 사람 및
+운영 근거 절차는 [검증 가이드](../../user-guide/guides/validate-ownership-handover-ko.md)에
+정의되어 있습니다. 실제 스크린 리더 음성, 공급자 적합성, 배포된 원본, ACL, 법적 보존,
+삭제, 코호트 근거는 연결된 원장에서 계속 열린 상태이며 소스 전달로 추정하지 않습니다.
 
 ## 구현 표면
 
