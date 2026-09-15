@@ -289,25 +289,7 @@ should use a dedicated tainted database node pool unless measured capacity prove
 
 The selected profile compiles a finite dependency graph:
 
-```mermaid
-flowchart LR
-    A[Verify signed kit] --> B[Inspect target and capacity]
-    B --> C[Foundation exact plan]
-    C --> D[Shared Azure platform]
-    D --> E{Runtime platform}
-    E -->|Container Apps| F[Container Apps substrate]
-    E -->|AKS| G[AKS cluster and node pools]
-    G --> H[Managed CSI and workload identity]
-    F --> I{Database placement}
-    H --> I
-    I -->|Flexible Server| J[PostgreSQL Flexible Server]
-    I -->|AKS| K[In-cluster PostgreSQL]
-    J --> L[Migrations]
-    K --> L
-    L --> M[Independent services]
-    M --> N[Scheduled jobs]
-    N --> O[Readiness and zero-change plans]
-```
+![Provisioning flow from signed-kit verification through runtime and database selection to service deployment and readiness checks.](../../diagrams/generated/fdai-roadmap-deployment-runtime-deployment-profiles-01.en.svg)
 
 Every mutating node has its own exact plan, current human approval, pre-effect claim, timeout,
 rollback or recovery reference, and authoritative observer. `deployment_ready=true` requires all

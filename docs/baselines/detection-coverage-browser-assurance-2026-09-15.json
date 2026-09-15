@@ -1,0 +1,168 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_type": "authenticated_detection_coverage_assurance",
+  "issue": 1091,
+  "captured_at": "2026-09-15T12:35:03Z",
+  "source_revision": "9adbccad84ffa7b3eae762bd6802a840b468bb08",
+  "delivery_base_revision": "921f8de96c626bfb3fcfb4f002d5e11f94ccb4a5",
+  "surface_input_digest": "sha256:db7e0760de349e1017371477a4e7f5ccfd379690311c5dc9bc83f23f1f937e42",
+  "surface_inputs_match_delivery_base": true,
+  "run_configuration": {
+    "authentication": "browser_entra",
+    "origin": "standard-local-console",
+    "route": "/detection-coverage",
+    "locale": "ko",
+    "live_data_mode": "live",
+    "sample_data_mode": "sample",
+    "viewports": [
+      "1440x900",
+      "993x641",
+      "390x844"
+    ]
+  },
+  "authentication_attestation": {
+    "authenticated_console_shell_rendered": true,
+    "live_projection_rendered": true,
+    "expired_access_check_recovered_once_without_new_credentials": true,
+    "unauthenticated_direct_operator_request_status": 401,
+    "credential_or_token_material_accessed": false
+  },
+  "live_coverage": {
+    "coverage_schema": "1.1.0",
+    "receipt_schema_floor": "1.3.0",
+    "candidate_count": 35,
+    "selected_count": 22,
+    "evaluated_count": 22,
+    "held_count": 13,
+    "finding_count": 0,
+    "error_count": 0,
+    "resource_type_counts": {
+      "api-gateway": 2,
+      "llm-endpoint": 20
+    },
+    "latest_attempt_matches_latest_successful_reference": true,
+    "latest_successful_target_count": 22,
+    "latest_successful_finding_count": 0,
+    "freshness_under_seconds_at_initial_observation": 60,
+    "cause_claim_supported": false,
+    "execution_authority": false
+  },
+  "live_findings": {
+    "retained_receipt_count": 0,
+    "retained_receipt_limit": 500,
+    "empty_state_rendered": true,
+    "search_control_count": 1,
+    "state_filter_count": 2,
+    "date_control_count": 2
+  },
+  "url_state_assurance": {
+    "preserved_parameters": [
+      "data",
+      "locale",
+      "q",
+      "type",
+      "state",
+      "sort",
+      "resource"
+    ],
+    "resource_view_fragment": "detection-resources",
+    "query": "LLM",
+    "resource_type": "llm-endpoint",
+    "evaluation_state": "evaluated_no_finding",
+    "sort": "name",
+    "matching_row_count": 20,
+    "reload_restored_state": true,
+    "back_changed_discrete_sort_state": true,
+    "forward_restored_state": true
+  },
+  "viewport_matrix": [
+    {
+      "viewport": "1440x900",
+      "view": "coverage",
+      "document_overflow_px": 0,
+      "main_overflow_px": 0,
+      "active_panel_overflow_px": 0
+    },
+    {
+      "viewport": "1440x900",
+      "view": "resources",
+      "document_overflow_px": 0,
+      "main_overflow_px": 0,
+      "active_panel_overflow_px": 0
+    },
+    {
+      "viewport": "1440x900",
+      "view": "findings",
+      "document_overflow_px": 0,
+      "main_overflow_px": 0,
+      "active_panel_overflow_px": 0
+    },
+    {
+      "viewport": "993x641",
+      "view": "coverage",
+      "document_overflow_px": 0,
+      "main_overflow_px": 0,
+      "active_panel_overflow_px": 0
+    },
+    {
+      "viewport": "993x641",
+      "view": "resources",
+      "document_overflow_px": 0,
+      "main_overflow_px": 0,
+      "active_panel_overflow_px": 0
+    },
+    {
+      "viewport": "993x641",
+      "view": "findings",
+      "document_overflow_px": 0,
+      "main_overflow_px": 0,
+      "active_panel_overflow_px": 0
+    },
+    {
+      "viewport": "390x844",
+      "view": "coverage",
+      "document_overflow_px": 0,
+      "main_overflow_px": 0,
+      "active_panel_overflow_px": 0
+    },
+    {
+      "viewport": "390x844",
+      "view": "resources",
+      "document_overflow_px": 0,
+      "main_overflow_px": 0,
+      "active_panel_overflow_px": 0
+    },
+    {
+      "viewport": "390x844",
+      "view": "findings",
+      "document_overflow_px": 0,
+      "main_overflow_px": 0,
+      "active_panel_overflow_px": 0
+    }
+  ],
+  "authenticated_sample_kubernetes_disclosures": {
+    "resource_row_count": 7,
+    "kubernetes_resource_count": 1,
+    "exact_readiness_disclosure_count": 1,
+    "current_scope_pod_disclosure_count": 1,
+    "both_collapsed_by_default": true,
+    "both_expanded_on_request": true,
+    "both_recollapsed_on_request": true,
+    "scope_copy_rejects_exact_cluster_inference": true,
+    "active_panel_overflow_px": 0
+  },
+  "passed": true,
+  "limitations": [
+    "The active Live receipt contained API gateway and LLM endpoint resources but no Kubernetes target.",
+    "Kubernetes exact-resource and current-scope disclosure behavior was therefore exercised with Sample data in the same authenticated Browser session.",
+    "No screenshot is retained because the shared authenticated shell and resource workspace can expose environment-specific principal or provider identifiers.",
+    "This assurance proves read-only presentation and navigation behavior. It grants no deployment, execution, promotion, or health authority."
+  ],
+  "content_review": {
+    "contains_principal_identity": false,
+    "contains_tenant_identifier": false,
+    "contains_provider_resource_identifier": false,
+    "contains_endpoint": false,
+    "contains_secret_or_token": false
+  }
+}

@@ -81,9 +81,18 @@ truth and exposes no action or approval control.
 Optional read projections, including workflow Processes, reports, ontology,
 inventory, pantheon, promotion gates, and LLM cost, render an explicit
 unavailable state when the composition root does not register their GET route.
-The Processes panel consumes `GET /views/process` and
+The Processes panel consumes `GET /views/process`,
+`GET /views/process/{process_id}/events`, and the optional
 `GET /views/process/{process_id}`. It renders server-selected, bounded
 ViewSpecs instead of computing workflow or ontology decisions in the browser.
+The workspace presents loaded-run counts, a selectable run list, and nine
+snapshot facts before expandable control, investigation, planning, journal,
+and workflow-evidence sections. An event deep link opens its journal and event.
+Use **Provenance** to inspect the source without clearing the selected run.
+Explicit **Sample** mode provides three generic runs with read-only evidence
+and no permitted transitions; an empty Live source never activates Sample.
+The focused `processes-mock-parity.spec.ts` check compares the master mock and
+Console at equal content width with pinned navigation, not just overflow.
 
 The Overview health axis fails closed: known guard failures show **Needs
 attention**, and missing promotion or autonomy evidence shows **Evidence
