@@ -80,6 +80,11 @@ planning. The error reports the requested and allocatable quantities without exp
 
 ## State ownership
 
+Both runtime profiles depend on the verified managed-host image. Its local builder poweroff wait
+uses the coordinator's trusted Azure CLI path rather than requiring `/usr/bin/az`. Partial image
+construction retains its original claim and state; the [source transfer boundary](installable-deployment-cli.md#connected-source-deployment)
+does not permit an automatic reapply or treat missing success evidence as zero resource effects.
+
 The read-only capacity preflight accepts nonnegative integer quota values and canonical decimal
 integer strings returned by Azure CLI. Boolean, fractional, signed, whitespace-padded or oversized
 representations remain blocked. Available quota never overrides a SKU restriction, missing zone,

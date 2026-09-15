@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: e3d5d4897486c39edae4c406de0dd6be5e0e95a1
+translation_source_sha: 978db127ff6e55d2068d414e9d7fdc0bb203ef97
 translation_revised: 2026-09-15
 ---
 # 런타임 배포 프로파일
@@ -80,6 +80,11 @@ $$
 프로파일이 차단됩니다. 오류에는 테넌트 데이터를 노출하지 않고 요청량과 할당 가능량을 표시합니다.
 
 ## 상태 소유권
+
+두 런타임 프로파일은 검증된 관리 호스트 이미지에 의존합니다. 로컬 제작 VM 종료 대기는
+`/usr/bin/az`를 요구하지 않고 조정기가 제공하는 신뢰된 Azure CLI 경로를 사용합니다.
+이미지 생성이 일부만 진행돼도 원래 실행 전 기록과 상태를 보존합니다. [소스 배포 경계](installable-deployment-cli-ko.md#연결된-소스-배포)는
+자동 재적용을 허용하지 않으며 성공 근거가 없다고 리소스 변경도 없었던 것으로 해석하지 않습니다.
 
 읽기 전용 용량 사전 점검은 음수가 아닌 정수 할당량과 Azure CLI가 반환하는 정규 십진 정수
 문자열을 허용합니다. 불리언, 소수, 부호나 공백이 붙은 값, 크기 한도를 넘은 표현은 계속

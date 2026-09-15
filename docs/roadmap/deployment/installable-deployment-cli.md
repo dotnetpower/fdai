@@ -63,6 +63,11 @@ or accept an arbitrary executable from `PATH`. The selected Azure configuration,
 sanitized provider failures remain unchanged.
 Runner-image Terraform receives only a private `az` launcher bound to that resolved executable;
 resumption rejects a substituted launcher. Human identity readback uses the same trusted CLI.
+The builder poweroff wait resolves `az` from that sealed process path, not `/usr/bin/az`.
+It accepts only stopped or deallocated power states and propagates CLI errors. A failure after
+an apply claim can leave billable resources even when the coordinator has no success receipt.
+Preserve the original plan, claim and Terraform state; read-only observation does not authorize
+reapplying the plan or establish that a stopped VM is deallocated.
 The interactive checkpoint prompt resolves that same trusted CLI before reading the current
 human approver. A missing trusted executable or a service-principal account cannot create approval.
 
