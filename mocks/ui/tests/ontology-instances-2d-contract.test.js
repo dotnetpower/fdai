@@ -56,7 +56,9 @@ test("instance mock is registered in both mock indexes", () => {
   const consoleMarkup = rootIndex.split('<nav class="console-groups"')[1].split("</nav>")[0];
   const consoleCount = [...consoleMarkup.matchAll(/data-page="/g)].length;
   assert.match(rootIndex, new RegExp(`Console navigation</h3><span class="count">${consoleCount} pages</span>`));
-  assert.match(rootIndex, /Governance<\/span><span class="count">11<\/span>/);
+  const governanceMarkup = rootIndex.split('nav-group-label">Governance')[1].split("</ul>")[0];
+  const governanceCount = [...governanceMarkup.matchAll(/data-page="/g)].length;
+  assert.match(rootIndex, new RegExp(`Governance</span><span class="count">${governanceCount}</span>`));
   const studiesMarkup = rootIndex.split('>Design studies</span>')[1].split("</ul>")[0];
   const studiesCount = [...studiesMarkup.matchAll(/data-page="/g)].length;
   assert.match(rootIndex, new RegExp(`Design studies</span><span class="count">${studiesCount} pages</span>`));

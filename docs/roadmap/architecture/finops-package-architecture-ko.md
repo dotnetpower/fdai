@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: bc126a16b2577750680bf117c2070c3510731e05
+translation_source_sha: 6da8e2fc5076c44330b070ff4f92798032f3c9ff
 translation_revised: 2026-09-16
 ---
 
@@ -371,6 +371,14 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 공유 Console 전송 계층은 명시적으로 분류된 source-gate 실패만 사용할 수 없는 변환 결과로
 처리합니다. 일반 `503`은 운영 오류로 유지하며 비용 거버넌스가 단순히 구성되지 않은 것처럼
 표시하는 데 사용할 수 없습니다.
+클라이언트는 동시에 발생한 매니페스트 읽기를 하나로 합치고 성공 결과를 최대 15초 동안만
+재사용합니다. 다음 source-gate 읽기는 기한이 지난 출처 정보를 재검증하므로 Operator Service가
+다시 시작되거나 구성이 복구된 뒤에도 Cost Governance가 이전의 사용할 수 없음 상태에 고정되지
+않습니다.
+경로가 소유한 디코더는 해당 읽기가 시작된 뒤에만 로드되므로 관련 없는 감사, 에이전트 활동,
+분석 및 보고 디코더가 초기 Cost Governance Console 경로에 포함되지 않습니다.
+진입 번들 측정값은 정확한 Console 및 upstream revision에 결속됩니다. 해당 입력을 바꾸는 rebase
+또는 통합이 있으면 크기 근거를 재사용하기 전에 다시 측정합니다.
 
 설치, 업그레이드 및 롤백은 비공개 배포 실행기의 별도 보호 워크플로를 사용합니다. 워크플로는
 수명 주기 함수를 호출하기 전에 보호된 `main`, 필수 CI, 정확한 release 소스, 서명된 이미지
