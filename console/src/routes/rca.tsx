@@ -5,6 +5,8 @@ import {
   PageHeader,
   type AsyncState,
 } from "../components/ui";
+import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
+import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { navigate, routeHref } from "../router";
 import type { RcaView } from "../types";
@@ -108,7 +110,9 @@ export function RcaRoute({ client }: Props) {
           <div class="rca-lookup-summary">
             <div>
               <strong class="mono">{loadedCorrelation}</strong>
-              <small>{lookupStatusLabel(state)}</small>
+              <small role="status" aria-live="polite" aria-atomic="true">
+                {lookupStatusLabel(state)}
+              </small>
             </div>
             <button
               ref={lookupToggle}
@@ -170,6 +174,12 @@ export function RcaRoute({ client }: Props) {
           <small id="rca-lookup-help">{rcaText("lookupHelp")}</small>
         </form>
       </section>
+      {state.status === "ready" ? null : (
+        <RcaPendingContext
+          correlationId={selectedCorrelationId}
+          status={state.status}
+        />
+      )}
       <AsyncBoundary
         state={state}
         resourceLabel={t("route.rca")}
@@ -180,6 +190,52 @@ export function RcaRoute({ client }: Props) {
       </AsyncBoundary>
     </div>
   );
+}
+
+type RcaPendingStatus = Exclude<AsyncState<RcaView>["status"], "ready">;
+
+function RcaPendingContext({
+  correlationId,
+  status,
+}: {
+  readonly correlationId: string;
+  readonly status: RcaPendingStatus;
+}) {
+  usePublishViewContext(
+    () => buildRcaPendingViewSnapshot(correlationId, status),
+    [correlationId, status],
+  );
+  return null;
+}
+
+export function buildRcaPendingViewSnapshot(
+  correlationId: string,
+  status: RcaPendingStatus,
+): ViewSnapshot {
+  const headline = status === "loading"
+    ? rcaText("lookupStatusLoading")
+    : status === "idle"
+      ? rcaText("idle")
+      : rcaText("lookupStatusError");
+  return {
+    routeId: "rca",
+    routeLabel: t("route.rca"),
+    purpose: rcaText("viewPurpose"),
+    headline,
+    glossary: composeGlossary([
+      TERMS.correlationId,
+      TERMS.tier,
+      TERMS.gateDecision,
+      TERMS.mode,
+      TERMS.outcome,
+    ]),
+    facts: [
+      { key: "correlation_id", value: correlationId || null, group: "rca" },
+      { key: "load_status", value: status, group: "rca" },
+    ],
+    records: { hypotheses: [], response: [] },
+    capturedAt: new Date().toISOString(),
+  };
 }
 
 function consumeLookupFocusState(): boolean {

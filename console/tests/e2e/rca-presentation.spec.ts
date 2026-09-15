@@ -176,6 +176,12 @@ test("matches the RCA design hierarchy and keeps correlation lookup recoverable"
   await page.goto(`/root-cause-analysis?correlation=${groundedCorrelation}`);
 
   await expect(page.getByRole("heading", { name: "Root-cause hypotheses" })).toBeVisible();
+  await expect(page.locator(".rca-lookup-summary [role=status]"))
+    .toHaveText("Recorded RCA loaded");
+  await expect(page.locator(".rca-lookup-summary [role=status]"))
+    .toHaveAttribute("aria-live", "polite");
+  await expect(page.locator(".rca-lookup-summary [role=status]"))
+    .toHaveAttribute("aria-atomic", "true");
   await expect(page.locator(".rca-hypothesis-hero")).toContainText(
     "A configuration revision exhausted the API connection pool",
   );

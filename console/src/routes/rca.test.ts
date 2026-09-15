@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RcaView } from "../types";
+import { buildRcaPendingViewSnapshot } from "./rca";
 import { hasRecordedRca, linkedRcaResponse } from "./rca.presentation";
 
 function view(hypotheses: RcaView["hypotheses"]): RcaView {
@@ -102,5 +103,26 @@ describe("RCA response association", () => {
       ...grounded,
       response: { ...response, hypothesis_seq: 2, source_seq: 3 },
     })).toBeNull();
+  });
+});
+
+describe("RCA pending screen context", () => {
+  it("publishes no stale hypothesis or response while a same-route reload is pending", () => {
+    expect(buildRcaPendingViewSnapshot("correlation-1", "loading")).toMatchObject({
+      routeId: "rca",
+      headline: "Loading recorded RCA",
+      facts: [
+        { key: "correlation_id", value: "correlation-1" },
+        { key: "load_status", value: "loading" },
+      ],
+      records: { hypotheses: [], response: [] },
+    });
+  });
+
+  it("keeps an error context free of the previous ready result", () => {
+    expect(buildRcaPendingViewSnapshot("correlation-1", "error")).toMatchObject({
+      headline: "RCA could not be loaded",
+      records: { hypotheses: [], response: [] },
+    });
   });
 });

@@ -457,7 +457,10 @@ unavailable confidence, missing citations, and no linked response instead of pre
 synthetic cause. A loading request accepts a different non-empty correlation but rejects a
 same-correlation duplicate. Same-route and replacement submissions restore keyboard focus to the
 correlation disclosure after it renders. Transient Settings route events do not close the editor,
-discard its draft, or duplicate the RCA request.
+discard its draft, or duplicate the RCA request. Loading and error states publish an explicit
+screen context with no hypothesis or response records, so a same-route reload cannot leave prior
+grounded evidence available to the Command Deck. The changing lookup status is an atomic polite
+live region.
 
 Operational evidence remains one of `matched`, `summary`, `ambiguous`, `none`, or `unavailable`.
 For a collection summary request, `summary` renders the bounded matching set immediately without

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 74afa8af794d60c06527e02195e4f05fe8a5341e
+translation_source_sha: 42be15a9ff92eba7e1bfb050b9acad39d6a29b34
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -456,7 +456,10 @@ ordered 표보다 먼저 notification 에스컬레이션, response-decision 근�
 없음을 명시합니다. 요청을 불러오는 중에는 비어 있지 않은 다른 상관관계로 교체할 수 있지만 같은
 상관관계의 중복 요청은 거부합니다. 같은 경로 또는 다른 경로로 제출을 마치면 상관관계 펼침
 컨트롤이 렌더링된 뒤 키보드 포커스를 복원합니다. 임시 설정 경로 이벤트는 편집기를 닫거나
-초안을 버리거나 RCA 요청을 중복 실행하지 않습니다.
+초안을 버리거나 RCA 요청을 중복 실행하지 않습니다. 불러오는 중 및 오류 상태는 가설이나 대응
+기록이 없는 명시적인 화면 컨텍스트를 게시하므로 같은 경로에서 다시 불러와도 이전의 근거 있는
+결과가 Command Deck에 남지 않습니다. 바뀌는 조회 상태는 atomic polite live region으로
+제공합니다.
 
 Operational 근거는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
 Collection 요약 요청에서 `summary`는 인시던트 하나를 선택하도록 요구하지 않고 범위가 제한된 matching
