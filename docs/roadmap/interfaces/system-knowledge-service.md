@@ -145,8 +145,8 @@ pins records that numeric contract, not an authenticated corpus receipt or measu
 Post-turn migration citations follow the shared Operator rollback contract: evidence inherited
 from legacy `20260912_0090` survives the service downgrade. Refreshing these citations records
 the reviewed design, not a deployed rollback or duplicate-delivery receipt.
-Presentation-only updates to a cited identity owner follow the same rule: the compiler refreshes
-the source blob pin and aggregate digest without adding IAM facts, retrieval behavior, or
+Presentation-only updates to a cited identity owner follow the same rule. The compiler refreshes
+its source blob pin and aggregate digest without adding IAM facts, retrieval behavior, or
 operational authority.
 
 The compiled catalog rejects duplicate identifiers, duplicate exact aliases, untracked paths,

@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 0acd8a28354d1f193ea2000b1303f6733caf599c
+translation_source_sha: e48450e2a73925e8d37624ec1e19f51602e6a568
 translation_revised: 2026-09-15
 ---
 
@@ -532,7 +532,7 @@ Settings 활동 bar 그룹은 콘솔의 클라우드 권한을 넓히지 않고 
 | `/settings/models` | 해결된 T1/T2 모델, 라이프사이클 및 지연 시간 근거, 로그인 사용자의 T1 서술기 선호, 런타임 상태를 변경하지 않는 distinct-publisher T2 카탈로그 초안 빌더입니다. Interactive 로컬은 테넌트 식별자, 엔드포인트 또는 자격 증명을 복사하지 않고 준비된 resolved-model 산출물에서 이 화면을 materialize합니다. |
 | `/settings/runtime-policies` | 허용 목록된 런타임 정책의 정제된 환경, 영속 재정의 및 effective 값을 표시합니다. Interactive 로컬은 준비 상태를 추론하지 않고 검증된 준비 환경에서 진단과 구성된 통합 상태를 materialize합니다. 읽기 담당은 조회하고 Owner는 개정 번호 및 감사 검사를 통해 업데이트합니다. |
 | `/settings/memory` | 프로바이더가 등록된 경우 영속 운영자 지침을 표시하고, 그렇지 않으면 명시적인 사용 불가 상태를 표시합니다. |
-| `/settings/iam` | 로그인 principal, App 역할, 유효 기능, 참조된 사용자 및 액세스 요청입니다. |
+| `/settings/iam` | 로그인 principal, App 역할, 유효 기능, 참조된 사용자 및 공통 데스크톱과 터치 표현을 사용하는 액세스 요청입니다. |
 | `/settings/integrations` | ID, 전달 및 운영자 채널 연결의 읽기 전용 상태입니다. |
 | `/settings/diagnostics` | Operator API 엔드포인트 및 인증 세션 진단입니다. |
 
@@ -552,11 +552,6 @@ IAM 조회는 검증된 신원, 관찰된 역할, 제안을 구분합니다. 테
 | `GET /iam/directory/users?q=...` | Owner 검색으로 요청을 미리 채울 수 있습니다. API는 구성된 공급자를 기록하고 `get_by_subject_id`로 정확한 대상, 사용자 이름, 활성 상태를 다시 확인합니다. 클라이언트의 공급자 이름으로 백엔드를 선택하지 않습니다. |
 | `GET /iam/directory/roster` | 엔터프라이즈 앱의 서비스 principal을 찾고 App Role ID를 매핑하며 하위 그룹 구성원을 확장하고 안정적인 주체 ID로 직접/그룹 역할을 합칩니다. People/Groups 필터는 권한을 부여하지 않으며 일반 역할 요청은 활성 사람만 대상으로 합니다. |
 | `GET /iam/assignments` | 관찰된 디렉터리 역할, 검토된 맵, 사례, 인수인계 가용성을 결합합니다. 근거가 없으면 `null` 또는 `not_connected`로 유지하며 어떤 경로도 Graph 쓰기 모듈을 받지 않습니다. |
-
-IAM Settings 탭, 디렉터리 검색, 역할 요청 및 검토 컨트롤은 Console의 공통 서체, 대상 크기,
-기본 및 보조 동작 역할, 포커스 표현을 사용합니다. 좁은 레이아웃에서도 최소 44px 터치 대상을
-유지하고 가로 넘침 없이 재배치됩니다. 이러한 표현 역할은 App Role, 서버 기능, 공급자 선택,
-검토 상태 또는 실행기 신원을 변경하지 않습니다.
 
 `HumanIdentityDirectory`는 공급자, 안정적인 주체 ID, 사용자 이름, 표시 이름, 사용자 유형,
 활성 상태를 반환합니다. Entra가 구현된 어댑터이며 Microsoft Graph `/users`와 멤버십

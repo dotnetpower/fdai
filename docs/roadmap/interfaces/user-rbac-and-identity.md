@@ -541,7 +541,7 @@ console's cloud permissions:
 | `/settings/models` | Resolved T1/T2 models, lifecycle and latency evidence, the signed-in user's T1 narrator preference, and a distinct-publisher T2 catalog draft builder that never changes runtime state. Interactive local materializes this view from the prepared resolved-model artifact without copying tenant identifiers, endpoints, or credentials. |
 | `/settings/runtime-policies` | Sanitized environment, durable override, and effective values for allowlisted runtime policy. Interactive local materializes diagnostics and configured integration state from the validated prepared environment without inferring readiness; Readers inspect and Owners update through revision and audit checks. |
 | `/settings/memory` | Durable operator guidance when a provider is registered; otherwise an explicit unavailable state. |
-| `/settings/iam` | Signed-in principal, App Roles, effective capabilities, referenced users, and access requests. |
+| `/settings/iam` | Signed-in principal, App Roles, effective capabilities, referenced users, and access requests with shared desktop and touch presentation. |
 | `/settings/integrations` | Read-only identity, delivery, and operator-channel connection status. |
 | `/settings/diagnostics` | Operator API endpoint and authentication-session diagnostics. |
 
@@ -562,13 +562,7 @@ IAM reads separate verified identity, observed roles, and proposals; tenant or s
 | `GET /iam/directory/roster` | Discovers the enterprise-app service principal, maps App Role ids, expands transitive group members, and merges direct/group roles by stable subject id. People/Groups filters grant no authority; routine role requests target active people only. |
 | `GET /iam/assignments` | Joins observed directory roles, the reviewed map, cases, and handover availability. Missing evidence stays `null` or `not_connected`; no route receives a Graph writer. |
 
-The IAM Settings tabs, directory search, role request, and review controls use the shared Console
-typography, target size, primary and secondary action roles, and focus treatment. Narrow layouts
-retain 44 px minimum touch targets and reflow without horizontal overflow. These presentation roles
-do not alter App Roles, server capabilities, provider selection, review state, or executor identity.
-
-`HumanIdentityDirectory` returns provider, stable subject id, username, display name, user type, and
-active state. Entra is the implemented adapter; Microsoft Graph `/users` and membership reads use
+`HumanIdentityDirectory` returns provider, stable subject id, username, display name, user type, and active state. Entra is the implemented adapter; Microsoft Graph `/users` and membership reads use
 `User.Read.All` and `GroupMember.Read.All`. AWS IAM Identity Center and Google Cloud Identity remain
 future adapters behind the same cloud-provider-neutral Protocol. Local Graph reads use server-side
 Azure CLI credentials; deployments use the Operator Managed Identity. Both discover actual tenant
