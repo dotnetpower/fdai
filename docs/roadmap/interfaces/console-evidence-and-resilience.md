@@ -595,115 +595,13 @@ After that schedule is exhausted, the surface offers access-check retry and sign
 
 ## Architecture-map resilience
 
-The Architecture route uses one graph-first workbench modeled on the Ontology Instances
-presentation. Its top toolbar contains only registered scope selection, bounded Resource search,
-the `Topology | Network` lens, and a compact read-only source state. Scope selection reloads the
-authoritative projection. Resource search selects only a record already returned by that
-projection and never presents a bounded page as a complete tenant search.
+The focused [Console Architecture Workbench](console-architecture-workbench.md) owner defines
+Landscape aggregation, Resource focus, generated geometry, Network paths, Impact presentation,
+responsive interaction, and the geometry-less live-response regression gates.
 
-Topology is visible before selection. The default Landscape derives authoritative Subscription,
-Resource Group, VNet, and Subnet containment from resource identity and reported `contains`
-relationships, then aggregates descendants instead of drawing every returned Resource. It never
-requires the Operator API to supply presentation coordinates. The deterministic presentation
-collapses provider helpers while keeping every returned count in a compact coverage strip. The
-strip leads with freshness, truncation, and complete or partial coverage, then distinguishes
-displayed and returned Resources and relationships. Selecting a Resource opens its smallest
-reported containing scope, preserves stable coordinates inside that scope, reveals bounded direct
-neighbors, updates the canonical deep link, and opens a nonmodal Inspector without changing
-inventory.
-
-The workbench uses one accessible orthographic SVG for Topology, Network, and the Impact scope map.
-Subscription, Resource Group, VNet, and Subnet records render as nested neutral boundaries. The
-Console creates all presentation geometry deterministically from the returned projection before
-rendering; an unplaced visible record is an explicit unavailable presentation, never an implicit
-`0,0` coordinate.
-Boundary classification uses canonical Resource types and reported containment, not the presence
-of optional presentation fields in an API response.
-The SVG boundary rejects any visible Resource without finite generated geometry and renders an
-explicit unavailable presentation while leaving search and source evidence accessible. It never
-substitutes coordinate zero for a missing placement.
-The default Landscape shows at most 16 returned Resource Group boundaries, ranked by returned
-descendant count with stable name and identity tie-breakers. Displayed counts and search continue
-to expose that this is a bounded presentation over the complete returned page.
-If no Resource Group is returned, the Landscape falls back to at most 16 stably ordered actual
-Resource records plus required ancestors rather than rendering the complete page.
-Subscription remains a neutral outer boundary while each Resource Group becomes a compact summary
-card with returned descendant and cross-scope relationship counts. An empty nested panel is not
-used as a summary. Summary generation discards any incoming presentation coordinates and dimensions
-before assigning compact card geometry.
-The localized descendant and external-link summary appears in both visible card text and the
-card's accessible name.
-Outer boundary descendant counts follow the same visible and accessible-name contract.
-Resource focus retains its reported ancestor boundaries and direct relationships, then fills the
-smallest containing scope with at most 36 type-diverse returned records. Selection never expands
-the workbench back to the full raw page.
-Direct children and relationship endpoints consume the 36-record focus budget before unrelated
-scope filler. If direct context alone exceeds that budget, coverage names the omitted direct-link
-count while the Inspector retains the complete returned direct relationship list.
-Direct endpoint reservation spans the complete returned page, including another Resource Group,
-and excludes the selected Resource and ancestor boundaries that are already required context.
-The omitted value counts returned link records, not unique related Resource identities.
-The Inspector resolves its parent boundary through the same reported containment precedence as the
-graph, so a VNet-contained Subnet does not fall back to a less specific Resource Group merely
-because its provider parent field is broader.
-Landscape boundaries count reported non-containment relationships that cross Resource Group
-scope, but they do not rewrite those links onto aggregate endpoints. Exact source, target, type,
-and direction appear only when the original records are visible in a focused scope.
-The coverage strip is collapsed by default. Its summary leads with complete or partial state,
-freshness, returned Resource count, displayed Resource count, and any reported page limit.
-Snapshot and relationship totals remain available in the native disclosure.
-Resources use reviewed official icons where available and stable Cloud Adoption Framework
-abbreviations otherwise. Compact text, accessible names, search, and Inspector content preserve
-name, type, and state without relying on color. Typed edges terminate on current node or boundary
-geometry. Containment remains spatial; `attached_to`, `depends_on`, and `peered_with` retain
-distinct paths, endpoint dots, and direction markers.
-
-The right Inspector is collapsible and stays in the same workbench. Overview owns the selected
-state and impact-scope drill-down. Links owns exact incoming and outgoing direct relationships.
-Path owns Network source and destination, evidence result, filters, and sanitized export. Sources
-owns snapshot, freshness, displayed and returned counts, completeness, reported relationship
-types, and technical identifiers. At constrained widths the Inspector moves below the graph
-without discarding selection, tab, scale, or path state.
-
-The Network lens keeps the complete `InventoryGraphResponse` authoritative. With **Scope
-overview** selected, it presents returned VNet and Subnet boundaries plus reported gateways,
-firewalls, public exposure, private endpoints, and peering; it does not repeat the complete raw
-Resource set. The overview retains all returned VNet and Subnet boundaries and at most 48 other
-reported network-role records with their ancestor scope. Selecting a Resource derives one bounded network-plane focus and records that
-selection in route state. Path tracing
-walks only reported `attached_to`, stored-direction `depends_on`, and symmetric `peered_with`
-relationships. It returns `no_observed_path` only for fresh, complete relationship coverage; every
-incomplete negative result stays `unknown`. Filters and highlighting change only presentation.
-Path tracing always uses the complete returned evidence graph rather than the bounded Network
-overview. A found path adds its exact Resources, ancestors, and stored links to the presentation.
-Category filters apply to surrounding context before that restoration, so they cannot remove a
-current found-path hop from the map or sanitized export while the Inspector still reports it.
-SVG and PNG exports retain sanitized provenance and omit names, raw provider ids, subscription
-ids, endpoints, and credentials.
-
-The SVG viewport owns pan, wheel zoom, Fit, full screen, keyboard node navigation, and a compact
-relationship legend. Shared card geometry drives placement, containment, routing, and nonoverlapping
-hit regions; visual cards render above their expanded pointer targets so an adjacent target cannot
-steal a card click. Mobile controls and node hit regions are at least 44 px. The viewport remains
-bounded and pannable rather than shrinking text below a readable scale. The Resource search and
-Inspector provide equivalent non-gesture access. Reduced motion and forced colors preserve
-operation and meaning.
-Changing from Landscape to another scope starts that new canvas at its fitted origin. Resize inside
-the same canvas preserves operator zoom unless the content would become smaller than Fit.
-Reset identity includes the visible Resource identities and geometry, so two different scopes with
-the same canvas dimensions cannot retain stale viewport state.
-
-The Impact scope map requests an unscoped graph projection at the simulation snapshot and compares
-every target and reached Resource identity before rendering. A snapshot mismatch or any omitted
-impact identity produces an explicit unavailable map instead of understating the affected
-topology. The simulation result and table remain the authoritative impact record.
-Impact presentation infers observed subnet membership before generating geometry, matching the
-Topology and Network containment pass without changing the impact traversal result.
-
-A subscription-scoped cached snapshot renders immediately. Expired or change-invalidated snapshots
-are marked stale while a background refresh runs. The browser polls only until the Operator API
-atomically promotes the completed refresh, never upgrades the server freshness verdict, and retries
-transient failures with bounded 2-to-30-second backoff while the stale graph remains usable.
+This resilience owner continues to define inventory source availability, snapshot freshness,
+bounded refresh, localization fallback, and unavailable-state behavior shared with other Console
+routes.
 
 ## Verification
 
@@ -725,4 +623,5 @@ transient failures with bounded 2-to-30-second backoff while the stale graph rem
 
 | To learn about | Read |
 |----------------|------|
+| Architecture Landscape, focus, and generated geometry | [Console Architecture Workbench](console-architecture-workbench.md) |
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/console-evidence-and-resilience.md) |

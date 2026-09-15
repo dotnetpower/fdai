@@ -1,7 +1,7 @@
 ---
 title: 네트워크 토폴로지 시각화
 translation_of: network-topology-visualization.md
-translation_source_sha: e77b7a7f7aa8054515267a4e66a1cde0b119a093
+translation_source_sha: 7c50ff8e2cb13871b8ebbecc028e225a873f6254
 translation_revised: 2026-09-15
 ---
 # 네트워크 토폴로지 시각화
@@ -245,5 +245,6 @@ Live 지도와 정제된 내보내기는 하나의 obstacle-aware 직교 router�
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | 인벤토리 권위 및 제한된 네트워크 수집 | [제한된 네트워크의 Azure 인벤토리](../architecture/azure-inventory-network-paths-ko.md) |
+| Console Landscape 및 생성 형상 | [Console 아키텍처 작업 영역](console-architecture-workbench-ko.md) |
 | Console 근거 및 지도 복원력 | [Console 근거 및 복원력](console-evidence-and-resilience-ko.md#아키텍처-지도-복원력) |
 | 배포 네트워크 요구 사항 | [네트워크 연결 매트릭스](../deployment/network-connectivity-matrix-ko.md) |

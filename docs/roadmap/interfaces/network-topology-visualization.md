@@ -249,5 +249,6 @@ An adversarial contract test rejects an observed presentation that marks an infe
 | To learn about | Read |
 |----------------|------|
 | Inventory authority and restricted network collection | [Restricted-network Azure inventory](../architecture/azure-inventory-network-paths.md) |
+| Console Landscape and generated geometry | [Console Architecture Workbench](console-architecture-workbench.md) |
 | Console evidence and map resilience | [Console Evidence and Resilience](console-evidence-and-resilience.md#architecture-map-resilience) |
 | Deployment network requirements | [Network Connectivity Matrix](../deployment/network-connectivity-matrix.md) |
