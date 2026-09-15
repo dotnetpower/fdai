@@ -133,11 +133,24 @@ export function LoadingState({ label = t("shared.loading") }: { readonly label?:
   );
 }
 
-export function ErrorState({ message }: { readonly message: string }) {
+export function ErrorState({
+  message,
+  onRetry,
+  retryLabel,
+}: {
+  readonly message: string;
+  readonly onRetry?: () => void;
+  readonly retryLabel?: string;
+}) {
   return (
     <div class="state-block state-error" role="alert">
       <span class="state-icon" aria-hidden="true">!</span>
       <span>{message}</span>
+      {onRetry ? (
+        <button type="button" class="btn" onClick={onRetry}>
+          {retryLabel}
+        </button>
+      ) : null}
     </div>
   );
 }

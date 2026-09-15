@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 3f7aeb5d6ed6e321591614be3908f67fd659e894
+translation_source_sha: 158a24092e562f5808f3edc4e21668f8d7608425
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -10,6 +10,14 @@ translation_revised: 2026-09-15
 활동 Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째 visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며, full-workspace Deck은 경로가 변경되기 전에 닫힙니다. 현재 화면 Command Deck을 여는 브라우저 근거는 `Overview`와 같은 일반 패널에서 시작합니다. `Settings`는 모달 오버레이를 소유하므로 뒤쪽의 실행 버튼을 누르는 컨텍스트로 사용하지 않습니다.
 좌측 메뉴의 대화 버튼은 경로나 탐색 패널을 바꾸지 않고 일반 대화를 열거나 이어갑니다. `aria-pressed` 상태는 일반 대화만 나타냅니다. 하단 버튼과 `Ctrl+K` 또는 `/`는 현재 화면의 별도 대화를 엽니다. 일반 대화는 전체 작업 영역, 화면 대화는 우측 패널이 기본값입니다. 마우스를 올리거나 키보드 포커스를 주면 좌측 툴팁은 오른쪽에, 하단 툴팁은 위쪽에 표시하며 참고 맥락과 실제 열기 또는 닫기 동작을 안내합니다. 초안 보존과 명시적 화면 추가는 [대화 수명 주기](operator-console-progressive-conversations-ko.md#command-deck-작업-영역-수명-주기)에서 정의합니다.
 다른 화면의 cached 대화 선택은 범위가 제한된 exception입니다. Console은 대화 출처로 이동할 때 conversation-owned synchronous 경로 이벤트만 suppress한 뒤 대화 기록을 활성화합니다. Transient default-session 전환 또는 close/reopen focus cycle 없이 Deck을 열린 상태로 유지합니다.
+직접 Settings URL로 들어가면 오버레이를 닫기 전까지 숨겨진 Dashboard 변환 결과를 불러오지
+않고 정적 배경 셸을 유지합니다. Settings 셸과 그 밖의 최상위 지연 로딩 화면은 로딩 상태를
+표시하고 모듈 로딩에 실패하면 새로고침 작업을 제공합니다. 모델, 런타임 정책, ID 및 액세스,
+문서 기능 조회도 최초 요청에 실패하면 전체 콘솔을 다시 불러오지 않고 운영자가 재시도할 수
+있습니다.
+가벼운 현재 화면 실행 버튼은 전체 Command Deck을 불러오지 않아도 사용할 수 있습니다.
+콘솔은 첫 포인터, `Ctrl+K`, `/`, 일반 대화 또는 인시던트 대화 요청이 발생한 뒤 Deck을
+불러오며, 수신기가 준비되면 범위가 제한된 해당 요청을 다시 전달합니다.
 일반 대화, 같은 화면의 대화, 에이전트 대화는 화면 이동 없이 전환합니다.
 이미 활성인 same-screen 대화를 다시 선택하면 focus만 복원하며 최신 in-memory 턴 위에 sessionStorage 대화 기록을 다시 로드하지 않습니다.
 비활성 대화를 선택하면 browser-local 읽음 확인만 기록하고 활동 시각은 변경하지 않으므로 이력 순서가 유지됩니다. principal 범위로 한정된 `내 대화`, `읽지 않음` 및 `즐겨찾기` 필터는 browser-local 탐색 메타데이터만 사용하며 즐겨찾기 전환은 서버 활동, 근거 또는 정렬을 변경하지 않습니다. 대화 제목은 관찰된 활동이 저장된 읽기 시각보다

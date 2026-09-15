@@ -44,6 +44,54 @@ test("navigates the Knowledge domain without implying unavailable connectors are
   await expectNoHorizontalOverflow(page);
 });
 
+test("retries document capabilities after a transient loading failure", async ({ page }) => {
+  let capabilityAttempts = 0;
+  await page.context().route("http://127.0.0.1:8011/documents?**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ items: [] }),
+    });
+  });
+  await page.context().route("http://127.0.0.1:8011/ingestion/capabilities", async (route) => {
+    capabilityAttempts += 1;
+    const headers = { "Access-Control-Allow-Origin": "*" };
+    if (capabilityAttempts === 1) {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        headers,
+        body: JSON.stringify({ message: "temporary capability failure" }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers,
+      body: JSON.stringify({
+        supported_formats: ["text"],
+        storage_modes: ["managed_copy"],
+        max_file_size: 1024,
+        max_batch_count: 1,
+        archives_enabled: false,
+        policy_versions: ["v1"],
+        direct_upload: true,
+        ocr_available: true,
+        collections: ["shared-knowledge"],
+      }),
+    });
+  });
+
+  await page.goto("/documents");
+  await expect(page.getByText("temporary capability failure")).toBeVisible();
+  await page.getByRole("button", { name: "Retry" }).click();
+
+  await expect(page.getByRole("button", { name: "Choose files" })).toBeEnabled();
+  expect(capabilityAttempts).toBe(2);
+});
+
 test("uploads a document without overriding collection reader policy", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   let createPayload: Record<string, unknown> | null = null;
