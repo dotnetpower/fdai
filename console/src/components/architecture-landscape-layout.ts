@@ -63,7 +63,15 @@ export function architectureLandscapeOverviewGraph(
           ? descendants.get(resource.id)
           : descendantCount(resource.id, graph.resources, parentById);
         if (count === undefined) return resource;
-        const counted = { ...resource, collapsed_count: count };
+        const {
+          x: _x,
+          y: _y,
+          w: _w,
+          h: _h,
+          render_scale: _renderScale,
+          ...semanticResource
+        } = resource;
+        const counted = { ...semanticResource, collapsed_count: count };
         return resource.type === "resource-group"
           ? {
               ...counted,
@@ -235,8 +243,13 @@ function applyLayoutPlan(
   positioned: Map<string, InventoryResource>,
 ): void {
   if (!plan.boundary) {
+    const {
+      w: _w,
+      h: _h,
+      ...nodeResource
+    } = plan.resource;
     positioned.set(plan.resource.id, {
-      ...plan.resource,
+      ...nodeResource,
       x: x + plan.width / 2,
       y: y + plan.height / 2,
     });

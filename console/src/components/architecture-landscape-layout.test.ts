@@ -126,6 +126,25 @@ describe("geometry-less Architecture inventory", () => {
     ]);
   });
 
+  it("removes stale authored dimensions from Landscape summary cards", () => {
+    const overview = layoutGeometrylessArchitectureGraph(
+      architectureLandscapeOverviewGraph({
+        ...RAW_GRAPH,
+        resources: RAW_GRAPH.resources.map((resource) =>
+          resource.id === "group-a"
+            ? { ...resource, x: 1, y: 1, w: 96, h: 20 }
+            : resource),
+      }),
+    );
+    const summary = overview.resources.find((resource) => resource.id === "group-a")!;
+
+    expect(summary.presentation_role).toBe("summary");
+    expect(summary.w).toBeUndefined();
+    expect(summary.h).toBeUndefined();
+    expect(summary.x).not.toBe(1);
+    expect(summary.y).not.toBe(1);
+  });
+
   it("lays out a geometry-less partial 500-record response without overlap at origin", () => {
     const groups = Array.from({ length: 40 }, (_, index) => ({
       id: `group-${index}`,
