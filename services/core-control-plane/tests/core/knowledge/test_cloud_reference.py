@@ -192,6 +192,38 @@ async def test_typed_applicability_requires_prefilter_capability(helpers: Module
         )
 
 
+async def test_changed_normalization_metadata_cannot_reuse_original_hash(
+    helpers: ModuleType,
+) -> None:
+    case = _case(helpers)
+    hit = case.reader._search.hits[0]
+    changed = case.binding.sources[0].model_copy(update={"normalized_sha256": "f" * 64})
+    hit.metadata["cloud_source"] = changed.model_dump_json()
+    with pytest.raises(RuntimeError, match="source identity"):
+        await case.search()
+
+
+async def test_cloud_collection_can_supply_more_than_two_required_excerpts(
+    helpers: ModuleType,
+) -> None:
+    case = _case(helpers)
+    hit = case.reader._search.hits[0]
+    case.reader._search.hits = tuple(
+        replace(hit, chunk_id=f"part-{index}", text=f"Required evidence {index}")
+        for index in range(3)
+    )
+    result = await case.reader.search(
+        query="reference",
+        principal_ref="operator-a",
+        principal_role=CeilingRole.READER,
+        principal_groups=frozenset({"group:responders"}),
+        purpose="operations-review",
+        limit=4,
+    )
+    assert len(result.excerpts) == 3
+    assert result.complete
+
+
 @pytest.fixture(
     params=[
         (1, False, "fresh"),

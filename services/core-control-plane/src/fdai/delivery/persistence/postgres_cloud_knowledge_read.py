@@ -14,6 +14,8 @@ from fdai_service_contracts.cloud_knowledge import (
 from fdai_service_contracts.cloud_knowledge_admission import validate_admitted_binding
 from fdai_service_contracts.cloud_knowledge_package import KnowledgeTrustPolicy
 from fdai_service_contracts.cloud_knowledge_release import KnowledgeReleaseBinding
+from fdai_service_contracts.cloud_knowledge_structure import CloudStructuredDocument
+from fdai_service_contracts.cloud_knowledge_updates import source_update_pending
 
 
 class PostgresCloudKnowledgeRead:
@@ -52,7 +54,13 @@ class PostgresCloudKnowledgeRead:
             return source, False
         cached_evidence = CloudSourceEvidence.model_validate(cached["evidence"])
         observed = cached_evidence.check
-        pending = cached_evidence.source_sha256 != source.source_sha256
+        raw_structured = row[0].get("structured_document")
+        structured = (
+            CloudStructuredDocument.model_validate(raw_structured)
+            if raw_structured is not None
+            else None
+        )
+        pending = source_update_pending(binding, source, cached_evidence, structured)
         if (
             not pending
             and observed.content_sha256 == source.source_sha256

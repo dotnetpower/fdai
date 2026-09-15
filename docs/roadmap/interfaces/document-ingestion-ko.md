@@ -1,8 +1,8 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 72a809d3cc31c6540e445b1efb7ca74fbf4c4ac8
-translation_revised: 2026-09-14
+translation_source_sha: c4244b042e8eba19f4ad73b9fb4ef1cd7e92726a
+translation_revised: 2026-09-15
 ---
 # 문서 인제스트와 투입 구역
 
@@ -35,7 +35,7 @@ translation_revised: 2026-09-14
 
 문서 인제스트는 독립적인 결정 서비스를 만들지 않고 에이전트 주도 제어 루프를 재사용합니다.
 단계별 에이전트 맵, 타입이 지정된 객체, 승격 규율 및 필수 Saga 감사 경계는 [문서 인제스트 에이전트 소유권](document-ingestion-agent-ownership-ko.md)을 참조하세요.
-클라우드 참조 패키지도 원본 날짜, 서명 반입, 어휘 전용 색인과 함께 같은 승인 경로를 사용합니다. [클라우드 리소스 지식](cloud-resource-knowledge-lifecycle-ko.md)을 참조하세요.
+클라우드 참조 패키지는 출처 날짜, 서명 반입, 같은 승인 조건과 어휘 전용 색인을 유지합니다([수명 주기](cloud-resource-knowledge-lifecycle-ko.md)). 원본을 제외한 v2가 기본값이며, 명시적으로 선택하는 [구조화된 v3 확장](cloud-resource-knowledge-structured-rag-ko.md)은 개발 중입니다.
 
 ## 투입 구역 제품 계약
 

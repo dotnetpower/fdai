@@ -25,6 +25,7 @@ from .semantic_current_state_planning import compile_target_current_state_plan
 from .semantic_error_activity_planning import compile_target_error_activity_plan
 from .semantic_gateway_diagnostic_planning import compile_gateway_diagnostic_plan
 from .semantic_governed_document_planning import (
+    DocumentRetrievalQueryUnavailableError,
     append_governed_document_plan,
     compile_governed_document_plan,
     document_evidence_mode,
@@ -173,13 +174,22 @@ def dispatch_semantic_plan(
     else:
         plan = None
     if frame.output_shape != SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST:
-        plan = compile_governed_document_plan(
-            frame=frame,
-            utterance=utterance,
-            manifest=manifest,
-            verifier=verifier,
-            purpose=purpose,
-        )
+        try:
+            plan = compile_governed_document_plan(
+                frame=frame,
+                utterance=utterance,
+                manifest=manifest,
+                verifier=verifier,
+                purpose=purpose,
+                document_query=proposal.document_query,
+            )
+        except DocumentRetrievalQueryUnavailableError:
+            return _outcome(
+                SemanticPlanningDisposition.UNAVAILABLE,
+                "semantic_document_query_unavailable",
+                manifest_digest=manifest.manifest_digest,
+                frame=frame,
+            )
         if plan is not None:
             plan_source = "server_governed_documents"
         elif frame.output_shape == SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS:
@@ -554,11 +564,15 @@ def dispatch_semantic_plan(
                 clarification=_investigation_clarification(exc.reason),
             )
         plan_source = "server_investigation"
-    if plan is None and resource_target_candidates_apply_to_utterance(
-        frame,
-        utterance=utterance,
-        descriptors=descriptors,
-        inventory_query_language=inventory_query_language,
+    if (
+        plan is None
+        and document_evidence_mode(frame) is None
+        and resource_target_candidates_apply_to_utterance(
+            frame,
+            utterance=utterance,
+            descriptors=descriptors,
+            inventory_query_language=inventory_query_language,
+        )
     ):
         fallback = build_resource_target_candidates_fallback(
             utterance=utterance,
@@ -642,14 +656,23 @@ def dispatch_semantic_plan(
     verify_model_operands = plan_source == "proposed"
     mode = document_evidence_mode(frame)
     if mode is not None and frame.output_shape != SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS:
-        augmented = append_governed_document_plan(
-            plan,
-            frame=frame,
-            utterance=utterance,
-            manifest=manifest,
-            verifier=verifier,
-            purpose=purpose,
-        )
+        try:
+            augmented = append_governed_document_plan(
+                plan,
+                frame=frame,
+                utterance=utterance,
+                manifest=manifest,
+                verifier=verifier,
+                purpose=purpose,
+                document_query=proposal.document_query,
+            )
+        except DocumentRetrievalQueryUnavailableError:
+            return _outcome(
+                SemanticPlanningDisposition.UNAVAILABLE,
+                "semantic_document_query_unavailable",
+                manifest_digest=manifest.manifest_digest,
+                frame=frame,
+            )
         if augmented is None:
             if mode in {
                 SemanticDocumentEvidenceMode.REQUIRED,

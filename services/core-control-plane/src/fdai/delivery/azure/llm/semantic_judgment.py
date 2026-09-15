@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from concurrent.futures import CancelledError as FutureCancelledError
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from fdai_service_contracts.ontology_query import content_digest
@@ -18,6 +18,7 @@ from fdai_service_contracts.semantic_judgment import (
     SemanticDirectResponseDraft,
     SemanticJudgmentProposal,
 )
+from pydantic import TypeAdapter
 
 from fdai.core.conversation.adaptive_call_scope import (
     call_scoped_provider,
@@ -30,6 +31,7 @@ from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentObservation,
 )
 from fdai.core.prompts import PromptReplayManifest, estimate_chat_request_tokens
+from fdai.core.prompts.types import PromptLayer
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.model_trace import (
     bounded_usage,
@@ -49,6 +51,7 @@ _MAX_PREFLIGHT_TOKENS = 768
 _UNSUPPORTED_STRICT_SCHEMA_KEYS = frozenset(
     {"default", "title", "minLength", "maxLength", "minItems", "maxItems"}
 )
+_DOCUMENT_QUERY_LOCALE: TypeAdapter[Literal["en", "ko"]] = TypeAdapter(Literal["en", "ko"])
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,7 +200,16 @@ class AzureOpenAISemanticJudgmentModel:
                 encoded,
                 input_digest=input_digest,
                 proposal_schema=_semantic_judgment_proposal_schema(
-                    intent_hardening_enabled=self._config.intent_hardening_enabled
+                    intent_hardening_enabled=self._config.intent_hardening_enabled,
+                    document_query_enabled=_document_query_prompt_enabled(
+                        self._config.system_prompt_manifest
+                    )
+                    and any(
+                        capability.get("kind") == "function_type"
+                        and capability.get("name") == "query.governed_documents"
+                        for capability in capabilities
+                    ),
+                    source_locale=locale,
                 ),
                 system_prompt=self._config.system_prompt,
                 prompt_manifest=self._config.system_prompt_manifest,
@@ -597,27 +609,51 @@ def _validate_output_reserve(
         raise ValueError(f"{name} prompt output reserve is below configured max_tokens")
 
 
+def _document_query_prompt_enabled(manifest: PromptReplayManifest | None) -> bool:
+    """An advertised read capability cannot silently upgrade an unrelated prompt contract."""
+    return manifest is not None and any(
+        layer.id == "semantic-document-query"
+        and layer.version == 1
+        and layer.layer is PromptLayer.PACK
+        for layer in manifest.layer_manifest
+    )
+
+
 def _semantic_judgment_proposal_schema(
     *,
     intent_hardening_enabled: bool,
+    document_query_enabled: bool = False,
+    source_locale: str | None = None,
 ) -> dict[str, Any]:
-    """Expose additive forbidden-action output only to an explicit shadow candidate."""
+    """Add retrieval terms only to the existing document-capable judgment call.
+
+    Exact supplied capability identity selects the output contract, not an intent.
+    Legacy callers retain their schema pin; forbidden actions still require the
+    independent hardening opt-in. Query guidance stays in the generated schema,
+    so configured prompts, replay manifests, budgets and observations stay intact.
+    """
 
     schema = SemanticJudgmentProposal.model_json_schema()
-    schema_version = schema.get("properties", {}).get("schema_version")
-    if not isinstance(schema_version, dict):
-        raise ValueError("semantic judgment proposal schema has no version property")
-    if intent_hardening_enabled:
-        schema_version.clear()
-        schema_version["const"] = "1.1.0"
-        schema_version["type"] = "string"
-        return schema
     properties = schema.get("properties")
     if not isinstance(properties, dict):
         raise ValueError("semantic judgment proposal schema has no properties")
-    properties.pop("forbidden_actions", None)
+    schema_version = properties.get("schema_version")
+    if not isinstance(schema_version, dict):
+        raise ValueError("semantic judgment proposal schema has no version property")
+    if not intent_hardening_enabled:
+        properties.pop("forbidden_actions", None)
+    if not document_query_enabled:
+        properties.pop("document_query", None)
+        schema.get("$defs", {}).pop("DocumentRetrievalQuery", None)
+    elif source_locale is not None:
+        schema["$defs"]["DocumentRetrievalQuery"]["properties"]["source_locale"] = {
+            "type": "string",
+            "const": _DOCUMENT_QUERY_LOCALE.validate_python(source_locale, strict=True),
+        }
     schema_version.clear()
-    schema_version["const"] = "1.0.0"
+    schema_version["const"] = (
+        "1.2.0" if document_query_enabled else "1.1.0" if intent_hardening_enabled else "1.0.0"
+    )
     schema_version["type"] = "string"
     return schema
 
