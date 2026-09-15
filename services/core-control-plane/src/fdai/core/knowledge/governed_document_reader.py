@@ -352,7 +352,9 @@ class AuthorizedGovernedDocumentReader:
                 raise RuntimeError("governed document search result locator is invalid")
             revision = f"version:{version.version_id}:sha256:{version.source_sha256}"
             revision_count = excerpts_by_revision.get(revision, 0)
-            if revision_count >= _MAX_EXCERPTS_PER_REVISION:
+            # A cloud version represents a complete source collection, not one authored file.
+            revision_limit = limit if cloud_source is not None else _MAX_EXCERPTS_PER_REVISION
+            if revision_count >= revision_limit:
                 revision_limit_reached = True
                 continue
             if len(excerpts) >= limit:

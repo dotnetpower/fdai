@@ -203,6 +203,27 @@ async def test_changed_normalization_metadata_cannot_reuse_original_hash(
         await case.search()
 
 
+async def test_cloud_collection_can_supply_more_than_two_required_excerpts(
+    helpers: ModuleType,
+) -> None:
+    case = _case(helpers)
+    hit = case.reader._search.hits[0]
+    case.reader._search.hits = tuple(
+        replace(hit, chunk_id=f"part-{index}", text=f"Required evidence {index}")
+        for index in range(3)
+    )
+    result = await case.reader.search(
+        query="reference",
+        principal_ref="operator-a",
+        principal_role=CeilingRole.READER,
+        principal_groups=frozenset({"group:responders"}),
+        purpose="operations-review",
+        limit=4,
+    )
+    assert len(result.excerpts) == 3
+    assert result.complete
+
+
 @pytest.fixture(
     params=[
         (1, False, "fresh"),

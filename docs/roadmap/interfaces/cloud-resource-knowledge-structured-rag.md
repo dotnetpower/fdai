@@ -66,6 +66,8 @@ Required context travels with the selected excerpt; a score cannot establish com
 At retrieval, normalized identity, applicability, policy and original collection metadata must
 match the admitted source; only a separately verified check receipt may be overlaid.
 Missing evidence produces a bounded hold, not an unscoped retry or a live source fetch.
+Cloud collection versions use the requested total excerpt budget, capped at eight, rather than
+the generic two-excerpt authored-document diversity limit. Access and candidate limits are unchanged.
 
 A schema-validated model-backed query transformation may supply bounded retrieval terms. It cannot
 change the original intent, target conditions, audience or authority. Missing transformation
