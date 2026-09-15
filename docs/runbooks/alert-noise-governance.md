@@ -164,6 +164,14 @@ unreadable bound preference vetoes new requests, never accepted work or separate
    affected service owners and a distinct Owner-level change authority. Neither requester nor
    executor can approve. Pins cover the plan, dependencies, policy, workflow, expiry, and recovery.
    Catalog registration and the generic Workflow approval step alone do not prove these receipts.
+   For the isolated dev provider-qualification prerequisite only, one FDAI maintainer may request
+   and approve the exact current plan when the dedicated recipient, no-automation receiver set,
+   managed execution identity, read-only observer, recovery, and cleanup bounds all remain intact.
+   Approve baseline, treatment, recovery, and cleanup separately after each exact digest exists;
+   the treatment approval also names the fixed recovery envelope. Never reuse a prior phase's
+   approval or treat this exception as standing authorization.
+   Any existing shared rule, shared recipient, suppression, routing, production, or promotion scope
+   uses the normal two-human quorum.
 5. **Keep the shadow boundary.** A shadow Process retains its original mode on replay. Only a later
    separately authorized, promoted attempt may cross the existing manual-PR sink after all seven
    safeguards, actual source exclusion, and final current-proof checks pass. This runbook requests

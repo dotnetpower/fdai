@@ -173,6 +173,19 @@ membership alone grants none of these rights. Missing owner/backup coverage hold
 Every affected service needs an authorized owner decision; one approver can represent several
 services only with verified scope. Splitting a shared group into smaller requests cannot evade quorum.
 
+A single-maintainer exception applies only to the isolated dev provider-qualification prerequisite.
+It is eligible when the plan creates or updates only the dedicated pilot rule and Action Group,
+uses one direct test recipient controlled by that maintainer, contains no shared or automation
+receiver, targets `dev`, and preserves the source module's baseline, treatment, recovery, and
+cleanup guards. The maintainer may request and approve the exact current plan. A distinct managed
+deployment identity executes it, and an authenticated read-only principal distinct from that
+executor verifies effects. Baseline, treatment, recovery, and cleanup each require their own
+current exact-plan approval; the treatment approval also binds the fixed recovery envelope. This
+is per-plan current approval, not standing authority or advance approval of an unknown digest.
+The exception does not apply to an existing shared rule, production, suppression, routing changes,
+multiple recipients, standing authority, or ActionType and Workflow promotion. Any widening returns
+to the two-human shared-change quorum.
+
 Approval pins the plan digest, policy and workflow versions, target revisions, full dependency and
 audience snapshot, change window, expiry, and rollback envelope. A material change or revocation
 invalidates approval. Just-in-time revalidation occurs at dispatch, not only when the card is sent.
@@ -365,10 +378,11 @@ It accepts one existing Key Vault resource ID and one protected test email, crea
 Action Group and one severity-3 Availability metric alert, and cannot be combined with broad
 monitoring. Its baseline threshold is `0`; treatment changes only that threshold to `101`; recovery
 restores `0`; cleanup deletes the pair. A plan-scope verifier rejects any other resource or field
-change. This prerequisite does not bypass exact-plan review, the two distinct human approval lanes,
+change. This prerequisite does not bypass exact-plan review, the applicable approval contract,
 independent effect observation, or recovery verification, and it never promotes an ActionType or
-Workflow. Before cleanup, an independent provider read must confirm that no other rule references
-the dedicated Action Group; missing or conflicting reverse-reference evidence holds deletion.
+Workflow. A single maintainer can approve only the isolated dev shape defined in section 5. Before
+cleanup, an independent provider read must confirm that no other rule references the dedicated
+Action Group; missing or conflicting reverse-reference evidence holds deletion.
 
 The scale fixture covers at least 500 synthetic principals, 20 teams, overlapping direct/group/role
 bindings, and 10000 alert events, including skew toward one service. Versioned policy bounds pages,
@@ -392,6 +406,7 @@ provider conformance, or a passing executable test.
 | Count alerts and mute the busiest rule | Separate episodes, deliveries, and people; protect recall and response deadlines before optimizing volume. |
 | Suppress email while keeping another group on the same alert | Azure suppression removes all groups; preserve an independently unaffected collection and safety path or hold. |
 | Let one recipient approve a shared change | Cover every affected service, retain independent quorum, and never infer authority from Azure recipient roles. |
+| Require an unavailable second human for an isolated single-maintainer dev test | Permit one human to approve each current exact plan only for the dedicated dev rule, recipient, managed executor, read-only observer, recovery, and cleanup envelope; any shared impact restores quorum. |
 | Accept readback or rollback as proof nobody missed an alert | Verify delivery and recovery independently; keep any missed interval as evidence that restoration cannot erase. |
 | Use a local lock or a later cleanup task | Require effective writer fencing and provider-enforced finite windows, including dependency and restart cases. |
 | Compare aggregate recall or maximum latency only | Keep paired case outcomes; one improved case cannot compensate for another lost or delayed positive. |
