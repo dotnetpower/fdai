@@ -6,14 +6,76 @@ import hashlib
 import json
 from collections.abc import Mapping
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
+from fdai.agents._framework.action_run_identity import (
+    action_run_identity_digest,
+    is_action_run_identity,
+)
 from fdai.shared.providers.state_store import StateStore
 
 _MAX_CAS_ATTEMPTS = 16
 _TERMINAL_DISPOSITIONS = frozenset({"approved", "rejected"})
+
+
+@dataclass
+class PendingHilTicket:
+    """Var-owned pending decision data; fields and defaults preserve the public ticket contract."""
+
+    correlation_id: str
+    action_type: str
+    resource_id: str | None
+    quorum_required: int
+    action_id: str | None = None
+    action_run_identity: str | None = None
+    initiator_principal: str | None = None
+    params: dict[str, Any] = field(default_factory=dict)
+    kind: str = "action"
+    document_id: str | None = None
+    upload_id: str | None = None
+    stage: str | None = None
+    idempotency_key: str = ""
+    rollback_contract: str = "state_forward_only"
+    decision_case: dict[str, Any] | None = None
+    approvers: list[str] = field(default_factory=list)
+    rejected: bool = False
+
+    def __post_init__(self) -> None:
+        if self.kind != "action":
+            return
+        if not self.idempotency_key:
+            self.idempotency_key = self.correlation_id
+        if self.action_run_identity is None:
+            self.action_run_identity = action_run_identity_digest(
+                {
+                    "correlation_id": self.correlation_id,
+                    "action_id": self.action_id,
+                    "action_type": self.action_type,
+                    "resource_id": self.resource_id,
+                    "action_idempotency_key": self.idempotency_key,
+                    "params": self.params,
+                    "quorum_required": self.quorum_required,
+                    "initiator_principal": self.initiator_principal,
+                    "rollback_contract": self.rollback_contract,
+                    "verdict": "hil",
+                    "workflow_action": None,
+                }
+            )
+        elif not is_action_run_identity(self.action_run_identity):
+            raise ValueError("pending HIL ticket ActionRun identity is malformed")
+
+
+@dataclass(frozen=True, slots=True)
+class PendingShadowReview:
+    """One Saga-authenticated shadow outcome awaiting a human comparison."""
+
+    correlation_id: str
+    action_type: str
+    observed_at: str
+    policy_escape: bool
+    initiator_principal: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,7 +98,10 @@ class ApprovalDecisionState:
 
 class ApprovalTicket(Protocol):
     correlation_id: str
+    action_id: str | None
     action_type: str
+    action_run_identity: str | None
+    resource_id: str | None
     quorum_required: int
     approvers: list[str]
     kind: str
@@ -44,6 +109,7 @@ class ApprovalTicket(Protocol):
     document_id: str | None
     upload_id: str | None
     idempotency_key: str
+    rollback_contract: str
     decision_case: dict[str, Any] | None
     params: dict[str, Any]
 
@@ -436,7 +502,12 @@ def approval_for_ticket(
         "kind": ticket.kind,
         "correlation_id": ticket.correlation_id,
         "idempotency_key": (ticket.idempotency_key or f"{ticket.correlation_id}:hil_pending"),
+        "action_id": ticket.action_id,
         "action_type": ticket.action_type,
+        "action_run_identity": ticket.action_run_identity,
+        "action_idempotency_key": ticket.idempotency_key,
+        "resource_id": ticket.resource_id,
+        "rollback_contract": ticket.rollback_contract,
         "state": state,
         "approvers": list(approvers if approvers is not None else ticket.approvers),
         "decision_case": ticket.decision_case,

@@ -1,8 +1,8 @@
 ---
 title: 매뉴얼 증류(Manual Distillation)
 translation_of: manual-distillation.md
-translation_source_sha: 489ef0b45a31780528ab18900f900f936bc18553
-translation_revised: 2026-09-10
+translation_source_sha: 46b1f646b1b1e163a646e69fe08d96976f4d6e37
+translation_revised: 2026-09-15
 ---
 
 # 매뉴얼 증류(수동 정제)
@@ -263,6 +263,28 @@ mixed-model 비교)에 한정되고 이벤트마다가 아니라 **매뉴얼 리
 못하면 계층은 HIL로 abstain한다. 관계 순회가 중요할 때는 평면 벡터 RAG보다 (새 서비스 없이
 기존 PostgreSQL 상태 저장소 위의) 구조적 knowledge-graph 검색이 선호된다.
 
+## 수락된 인수인계 원본 연결
+
+현재 Core 목표, 검토자, 원본 허용, 검색 연결이 기존 Norns/Mimir 담당 경로에 원본을 제공합니다.
+Norns는 독립적으로 수락된 원본의 정확한 문서 버전, 현재 검토자, ACL, 보존 기간,
+`manual_distillation` 목적이 유효할 때만 컴파일합니다. 일부 조각이 아닌 같은 실행 환경의
+완전한 정규화 묶음을 읽습니다. Mimir는 패키지 내용보다 원본을 먼저 독립적으로 확인하고
+모델 없이 결정론적으로 재컴파일합니다. Saga와 버스에는 내용 없는 참조만 전달합니다.
+
+정확한 `fdai.rule.candidate.v1` JSON 단위를 Rule 후보로 컴파일하면서 문자열 값, 원래 위치,
+정책, 복구 자료, 스키마 다이제스트를 보존합니다. 단일 추출기의 산문 Rule은 보류하며 온톨로지
+후보에는 기능 서술자가 있는 `Distiller`와 기존 검토 게이트를 사용합니다. 영속 예약은 재시작이나
+취소 후 모델 작업의 반복을 막습니다. 최대 120초 제한은 원래 원본 확인 구간을 연장하지
+않습니다. 패키지는 비활성 상태이며 원본 처리 범위도 불완전으로 유지합니다.
+
+이제 Mimir의 기존 구독은 원본 철회, 접근, 목적, 다이제스트 변경이나 최초/현재 만료에 따라
+비공개 패키지를 되살릴 수 없도록 사용 종료합니다. 모든 연결 원본의 정확한 현재 정책에서
+`legal_hold`가 명시적으로 `false`일 때만 내용을 제거합니다. 법적 보존, 누락되거나 알 수 없는
+정책, 원본 장애는 삭제 권한이 아닙니다. 예약 신원, 증적, 다이제스트, 감사는 남으며 법적 보존
+해제는 내용 제거만 허용하고 사용을 재개하지 않습니다. 기존 스케줄러는 알림당 최대 25개를
+순환 처리하고 감사를 원자적으로 기록합니다. 카탈로그, 그래프, 변경, 승격 권한은 없습니다. 잔여 구현 이후 [최종 소스 검토 12회](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)를 완료했으며 미해결로 확인된 Medium/High 소스 문제는 없습니다.
+번역 갱신, 정본 생성, 로컬 훅, 게시/CI, 공급자 적합성, 실제 수명 주기/코호트 근거는 연결된 원장의 미완료 요건입니다. 전체 UI/보조 기술 근거도 별도 요건입니다.
+
 ## 구현 표면
 
 인제스션 및 검증 메커니즘은 업스트림에 배포된다; LLM 기반 부분과 고객 커넥터 부분은
@@ -280,6 +302,7 @@ abstaining 기본값을 갖는 포크 경계이다.
 | 온톨로지 점유 인벤토리 | `inventory_claims`, `reconcile_claims` | `rule_catalog/pipeline/distill/ontology_claims.py` |
 | 묶음 출처 이력 및 format 동등성 | `manual_document_from_envelope`, 정규화된 점유/제안/그래프 다이제스트 | `rule_catalog/pipeline/distill/ontology_ingestion.py`, `ontology_evaluation.py` |
 | 온톨로지 제안 + 검증기 | strict 컴파일러, 권한/신원/근거 게이트, 검토 패키지 | `rule_catalog/pipeline/distill/ontology_*.py` |
+| 비공개 인수인계 패키지 수명 주기 | Norns의 불변 컴파일, Mimir의 독립 검토, 사용 종료 및 조건부 내용 제거 | [보존 정책](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/handover_retention.py), [비공개 SQL 패키지](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_handover_semantics.py) |
 | 오케스트레이터 + CLI | `build_distillation_plan`, `distill_cli` | `rule_catalog/pipeline/distill/orchestrator.py`, `distill_cli.py` |
 | 출처 파서 id | `manual-distill` 출처 매니페스트 파서 | `rule_catalog/schema/source_manifest.schema.json` |
 | Container 배선 | `distiller`, 기본값 `AbstainingDistiller` | `composition/` |

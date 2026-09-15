@@ -327,6 +327,7 @@ class EntraHumanIdentityDirectory(HumanIdentityDirectory):
             roles=roles,
             username=identity.username,
             active=identity.active,
+            group_ids=existing.group_ids if existing else (),
         )
 
     async def _collect_group_people(
@@ -370,6 +371,14 @@ class EntraHumanIdentityDirectory(HumanIdentityDirectory):
                     roles=roles,
                     username=identity.username,
                     active=identity.active,
+                    group_ids=tuple(
+                        dict.fromkeys(
+                            (
+                                *(existing.group_ids if existing else ()),
+                                group_id,
+                            )
+                        )
+                    ),
                 )
             next_link = payload.get("@odata.nextLink")
             url = self._validated_next_link(next_link)
@@ -402,7 +411,9 @@ class EntraHumanIdentityDirectory(HumanIdentityDirectory):
         headers: dict[str, str],
     ) -> httpx.Response:
         for attempt in range(1, self.max_attempts + 1):
-            response = await self.client.get(url, params=params, headers=headers, timeout=10.0)
+            response = await self.client.get(
+                url, params=params, headers=headers, timeout=10.0, follow_redirects=False
+            )
             if response.status_code not in _RETRYABLE_STATUS or attempt == self.max_attempts:
                 response.raise_for_status()
                 return response

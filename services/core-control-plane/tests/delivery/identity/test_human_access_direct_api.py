@@ -1,14 +1,11 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import cast
 from uuid import uuid4
 
 import pytest
-from fdai.core.human_assignment import (
-    HumanAccessApplyCoordinator,
-    HumanAccessExecution,
-    HumanAccessExecutionOutcome,
-)
+from fdai.core.human_assignment.access_planning import HumanAccessPlanner
 from fdai.delivery.identity import (
     APPLY_HUMAN_ACCESS_ACTION,
     REVOKE_HUMAN_ACCESS_ACTION,
@@ -22,23 +19,21 @@ from fdai.shared.providers.direct_api import (
     DirectApiRequest,
 )
 from fdai.shared.providers.human_access import HumanAccessOperation, HumanAccessPlan
+from tests.core.human_assignment.test_replacement import _planner
 
 
 class RecordingCoordinator:
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []
 
-    async def execute(self, **kwargs: object) -> HumanAccessExecution:
+    async def plan(self, **kwargs: object) -> HumanAccessPlan:
         self.calls.append(kwargs)
-        return HumanAccessExecution(
-            HumanAccessExecutionOutcome.PLANNED,
-            HumanAccessPlan(
-                case_id=str(kwargs["case_id"]),
-                subject_id="subject-1",
-                group_id="group-reader",
-                operation=HumanAccessOperation.GRANT,
-                idempotency_key="human-access:case-1",
-            ),
+        return HumanAccessPlan(
+            case_id=str(kwargs["case_id"]),
+            subject_id="subject-1",
+            group_id="group-reader",
+            operation=HumanAccessOperation.GRANT,
+            idempotency_key="human-access:case-1",
         )
 
 
@@ -62,7 +57,7 @@ def _request(
 
 async def test_shadow_apply_routes_to_case_coordinator_without_mutation() -> None:
     coordinator = RecordingCoordinator()
-    adapter = HumanAccessDirectApiExecutor(cast(HumanAccessApplyCoordinator, coordinator))
+    adapter = HumanAccessDirectApiExecutor(cast(HumanAccessPlanner, coordinator))
 
     receipt = await adapter.execute(_request())
 
@@ -72,34 +67,49 @@ async def test_shadow_apply_routes_to_case_coordinator_without_mutation() -> Non
         {
             "case_id": "case-1",
             "expected_revision": 4,
-            "actor_ref": "Thor",
-            "mode": Mode.SHADOW,
         }
     ]
 
 
 async def test_enforce_is_refused_until_separate_promotion() -> None:
-    adapter = HumanAccessDirectApiExecutor(
-        cast(HumanAccessApplyCoordinator, RecordingCoordinator())
-    )
+    adapter = HumanAccessDirectApiExecutor(cast(HumanAccessPlanner, RecordingCoordinator()))
 
     with pytest.raises(DirectApiPromotionError, match="separately reviewed"):
         await adapter.execute(_request(mode=Mode.ENFORCE))
 
 
 async def test_revoke_is_held_until_replacement_coverage_case_exists() -> None:
-    adapter = HumanAccessDirectApiExecutor(
-        cast(HumanAccessApplyCoordinator, RecordingCoordinator())
-    )
+    adapter = HumanAccessDirectApiExecutor(cast(HumanAccessPlanner, RecordingCoordinator()))
 
     with pytest.raises(DirectApiPreconditionError, match="replacement-coverage"):
         await adapter.execute(_request(action_type=REVOKE_HUMAN_ACCESS_ACTION))
 
 
 async def test_resource_ref_must_match_case_id() -> None:
-    adapter = HumanAccessDirectApiExecutor(
-        cast(HumanAccessApplyCoordinator, RecordingCoordinator())
-    )
+    adapter = HumanAccessDirectApiExecutor(cast(HumanAccessPlanner, RecordingCoordinator()))
 
     with pytest.raises(DirectApiPreconditionError, match="does not match"):
         await adapter.execute(_request(resource_ref="human-assignment:other-case"))
+
+
+async def test_reviewed_replacement_revoke_path_is_bound_but_remains_shadow_only():
+    planner = await _planner()
+    coordinator = RecordingCoordinator()
+    adapter = HumanAccessDirectApiExecutor(
+        cast(HumanAccessPlanner, coordinator), replacement=planner
+    )
+    request = replace(
+        _request(action_type=REVOKE_HUMAN_ACCESS_ACTION, resource_ref="human-assignment:old"),
+        arguments={
+            "case_id": "old",
+            "expected_revision": 7,
+            "replacement_revisions": {"primary": 7, "backup": 7},
+        },
+    )
+    receipt = await adapter.execute(request)
+    assert receipt.outcome is DirectApiOutcome.SUCCEEDED
+    assert receipt.detail == "shadow replacement plan verified; no access or duty removed"
+    assert not coordinator.calls
+    assert (await planner.cases.get_case("old")).state.value == "active"
+    with pytest.raises(DirectApiPromotionError):
+        await adapter.execute(replace(request, mode=Mode.ENFORCE))

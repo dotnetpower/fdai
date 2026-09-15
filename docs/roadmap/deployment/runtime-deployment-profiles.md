@@ -133,6 +133,11 @@ AKS renderer maps it to typed Kubernetes `Deployment`, `Service`, `ServiceAccoun
 first AKS implementation keeps two replicas for each long-running service and does not require
 Knative or KEDA.
 
+Operator assignment and human-approval (HIL) transport imports share the existing `iam_composition`
+facade within the same Operator Service package and runtime; original adapter and factory objects
+are re-exported without wrappers. This grouping changes no topology, workload identity, readiness
+behavior, or exact-plan deployment approval requirement for either renderer.
+
 Long-running service containers use `image_pull_policy=Always`, a read-only root filesystem, and
 a dedicated `/tmp` temporary volume limited to `1Gi`. Workload validation rejects mutable tags
 and malformed image digests before planning. Other writable paths require an explicit workload

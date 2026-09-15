@@ -48,6 +48,12 @@ negative, or held-for-review evaluation as an immutable episode, closes due epis
 telemetry grace period, and drains a transactional publication outbox. A poison publication is
 isolated and dead-lettered without blocking unrelated episodes.
 
+Positive forecast publications also retain the evaluator's computed breach ETA and governed
+prediction-band confidence as versioned `approval_timing` metadata. The approval supervisor reads
+the exact existing episode/publication, verifies lineage, time, target, and interval, and derives
+only a bounded response window. Legacy publications without that metadata remain valid learning
+records but cannot compress approval timing. This adds no outcome, new measurement, or authority.
+
 ## Forecast outcome contract
 
 `ForecastOutcome` is a versioned object owned only by Heimdall and published on
@@ -182,6 +188,7 @@ with an unsuccessful exit instead of silently disabling future ticks.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Preserved actual evaluator ETA and band confidence in the existing forecast outbox for exact-source approval timing. PostgreSQL time normalization preserves source identity and equivalent instants without rewriting episodes. | `current change`; `test_forecast_evaluation.py`, `test_forecast_urgency.py`, actual forecast agent chain and SQL checks; 104 related tests plus 31 subsequent source/timezone tests passed. | Operational calibration and urgency cohorts remain separate; no forecast outcome or promotion is inferred. |
 | 2026-08-15 | in-progress | Adopted the implementation ledger from the existing status table without reconstructing earlier provenance, and renamed the owned learning object to `Pattern`. | Current source and the sections referenced in the scope table. | Complete the observable exit conditions below. |
 
 ### Remaining work

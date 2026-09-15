@@ -17,6 +17,9 @@ import { knowledgeText, type KnowledgeMessageKey } from "./knowledge-sources.i18
 import { openDeckWithContext } from "../deck/open-deck";
 import { addHandoverEvidence, fetchHandoverGoal } from "../handover-api";
 import { handoverText } from "../deck/handover-i18n";
+import { HandoverGoalChecklist } from "../components/handover-goal-checklist";
+import type { HandoverSlot } from "../handover-model";
+import { handoverConversationKey, handoverLoginSessionId } from "../handover-invitation";
 
 const DocumentLibrary = lazy(async () => ({
   default: (await import("./document-library")).DocumentLibrary,
@@ -124,6 +127,7 @@ export function DocumentIngestionRoute({ client }: Props) {
   const [capabilities, setCapabilities] = useState<IngestionCapabilities | null>(null);
   const [capabilityError, setCapabilityError] = useState<string | null>(null);
   const [rows, setRows] = useState<readonly UploadRow[]>([]);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
   const [collection, setCollection] = useState("shared-knowledge");
   const [purpose, setPurpose] = useState("knowledge_base");
   const [storageMode, setStorageMode] = useState("managed_copy");
@@ -137,6 +141,7 @@ export function DocumentIngestionRoute({ client }: Props) {
   const [documentsLoading, setDocumentsLoading] = useState(true);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
   const [documentsRevision, setDocumentsRevision] = useState(0);
+  const [handoverSlot, setHandoverSlot] = useState<HandoverSlot | "">("");
   const handover = handoverUploadContext(
     typeof window === "undefined" ? "" : window.location.search,
   );
@@ -219,7 +224,7 @@ export function DocumentIngestionRoute({ client }: Props) {
       capabilities: capabilities ? {
         supportedFormats: capabilities.supported_formats,
         maxFileSize: capabilities.max_file_size,
-        maxBatchCount: capabilities.max_batch_count,
+        maxBatchCount: handover ? 1 : capabilities.max_batch_count,
         storageModes: capabilities.storage_modes,
       } : null,
       capabilitiesAvailable: capabilities !== null && capabilityError === null,
@@ -230,6 +235,11 @@ export function DocumentIngestionRoute({ client }: Props) {
 
   const addFiles = (files: FileList | readonly File[]) => {
     if (uploadBatchLock.current || capabilities === null) return;
+    if (handover && files.length > 1) {
+      setSelectionError(handoverText("oneFilePerSlot"));
+      return;
+    }
+    setSelectionError(null);
     setRows(documentFilesForUpload(Array.from(files), capabilities));
   };
 
@@ -239,13 +249,15 @@ export function DocumentIngestionRoute({ client }: Props) {
   };
 
   const uploadAll = async () => {
-    if (!capabilities || !consent || !collection.trim()) return;
+    if (!capabilities || !consent || !collection.trim() || selectionError) return;
+    if (handover && (!handoverSlot || rows.filter((row) => row.state === "queued").length !== 1)) return;
     if (!claimUploadBatch(uploadBatchLock)) return;
     const batch = {
       capabilities,
       collection: collection.trim(),
       purpose,
       storageMode,
+      handoverSlot,
     };
     setUploading(true);
     try {
@@ -292,6 +304,7 @@ export function DocumentIngestionRoute({ client }: Props) {
             updateRow(row.key, { state: "failed", error: uploadTerminalError(completed) });
             continue;
           }
+          let linkNotice: string | undefined;
           if (handover) {
             const evidenceRef = `doc:${completed.document_id}:${completed.version_id}`;
             try {
@@ -302,9 +315,12 @@ export function DocumentIngestionRoute({ client }: Props) {
                 goal.revision,
                 evidenceRef,
                 digest,
+                batch.handoverSlot || undefined,
               );
               openDeckWithContext({
-                sessionKey: `handover:${handover.goalId}`,
+                sessionKey: handoverConversationKey(
+                  handover.goalId, handoverLoginSessionId(window.sessionStorage),
+                ),
                 sessionLabel: goal.agentName,
                 targetAgent: goal.agentName,
                 onlyWhenIdle: true,
@@ -320,7 +336,8 @@ export function DocumentIngestionRoute({ client }: Props) {
                 error_type: error instanceof Error ? error.name : "UnknownError",
                 upload_id: created.session.upload_id,
               });
-              updateRow(row.key, { notice: handoverText("evidenceLinkFailed") });
+              linkNotice = handoverText("evidenceLinkFailed");
+              updateRow(row.key, { notice: linkNotice });
             }
           }
           const draft = batch.purpose === "handover_bootstrap"
@@ -329,9 +346,8 @@ export function DocumentIngestionRoute({ client }: Props) {
           if (!mounted.current) return;
           updateRow(row.key, {
             state: "ready",
-            ...(completed.state === "ready_with_warnings"
-              ? { notice: knowledgeText("readyWithWarnings") }
-              : {}),
+            notice: [linkNotice, completed.state === "ready_with_warnings"
+              ? knowledgeText("readyWithWarnings") : undefined].filter(Boolean).join(" ") || undefined,
             ...(draft ? { draft } : {}),
           });
           setDocumentsRevision((current) => current + 1);
@@ -394,6 +410,10 @@ export function DocumentIngestionRoute({ client }: Props) {
   return (
     <div class="stack document-ingestion-route">
       <PageHeader title={t("route.documents")} subtitle={t("documents.subtitle")} />
+      {handover ? <HandoverGoalChecklist
+        client={client} goalId={handover.goalId} selectedSlot={handoverSlot}
+        onSlotChange={setHandoverSlot} refreshToken={documentsRevision}
+      /> : null}
 
       <section class="document-upload-policy" aria-labelledby="document-policy-title">
         <div>
@@ -475,7 +495,7 @@ export function DocumentIngestionRoute({ client }: Props) {
         <input
           ref={inputRef}
           type="file"
-          multiple
+          multiple={!handover}
           hidden
           accept={documentAccept(capabilities)}
           disabled={uploading}
@@ -487,18 +507,20 @@ export function DocumentIngestionRoute({ client }: Props) {
         <button type="button" class="cs-control-button document-file-picker" onClick={() => inputRef.current?.click()} disabled={!capabilities || uploading}>
           {t("documents.chooseFiles")}
         </button>
-        <small>{t("documents.limits", { formats, size: maxSize, count: capabilities?.max_batch_count ?? "-" })}</small>
+        <small>{t("documents.limits", { formats, size: maxSize, count: capabilities ? (handover ? 1 : capabilities.max_batch_count) : "-" })}</small>
+        {handover ? <small>{handoverText("oneFilePerSlot")}</small> : null}
         {capabilities?.ocr_available === false ? (
           <small class="document-upload-note">{knowledgeText("ocrUnavailableHint")}</small>
         ) : null}
         {capabilityError ? <div class="alert error" role="alert">{capabilityError}</div> : null}
+        {selectionError ? <div class="alert error" role="alert">{selectionError}</div> : null}
       </section>
 
       {rows.length > 0 ? (
         <section class="document-upload-list" aria-labelledby="document-files-title">
           <div class="document-upload-list-head">
             <h3 id="document-files-title">{t("documents.files")}</h3>
-            <button type="button" class="cs-control-button is-primary" onClick={() => void uploadAll()} disabled={!consent || readyCount === 0 || uploading}>
+            <button type="button" class="cs-control-button is-primary" onClick={() => void uploadAll()} disabled={!consent || readyCount === 0 || uploading || selectionError !== null || (handover !== null && !handoverSlot)}>
               {t("documents.uploadFiles")}
             </button>
           </div>

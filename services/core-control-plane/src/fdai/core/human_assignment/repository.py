@@ -138,6 +138,8 @@ def _same_intent_or_conflict(
     current = AssignmentCase.from_dict(dict(stored))
     if intent_digest(current.intent) != intent_digest(requested.intent):
         raise AssignmentConflictError("idempotency key is bound to a different intent")
+    if any(receipt not in current.command_receipts for receipt in requested.command_receipts):
+        raise AssignmentConflictError("assignment draft belongs to a different command")
     return current
 
 

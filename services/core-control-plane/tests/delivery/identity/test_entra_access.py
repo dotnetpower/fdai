@@ -36,6 +36,58 @@ def _plan() -> HumanAccessPlan:
     )
 
 
+async def test_rollback_requires_observed_inverse_membership_not_delete_acceptance():
+    deletes = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal deletes
+        if request.method == "DELETE":
+            deletes += 1
+            return httpx.Response(204)
+        if request.url.path == "/v1.0/users/user-1":
+            return httpx.Response(200, json={"id": "user-1", "accountEnabled": True})
+        if request.url.path == "/v1.0/groups/group-reader":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "group-reader",
+                    "securityEnabled": True,
+                    "groupTypes": [],
+                    "isAssignableToRole": False,
+                },
+            )
+        return httpx.Response(200, json={"id": "user-1"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        adapter = EntraHumanAccessProvisioner(
+            client,
+            FakeIdentity(),
+            frozenset({"group-reader"}),
+            verification_attempts=1,
+            verification_delay_seconds=0,
+        )
+        with pytest.raises(RuntimeError, match="rollback postcondition"):
+            await adapter.rollback(_plan())
+    assert deletes == 1
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [("subject_id", 1), ("group_id", True), ("case_id", None), ("operation", "grant")],
+)
+def test_human_access_plan_rejects_coerced_identity_or_operation(field, value):
+    values = {
+        "case_id": "case-1",
+        "subject_id": "user-1",
+        "group_id": "group-reader",
+        "operation": HumanAccessOperation.GRANT,
+        "idempotency_key": "key-1",
+    }
+    values[field] = value
+    with pytest.raises(ValueError):
+        HumanAccessPlan(**values)
+
+
 async def test_entra_access_applies_and_verifies_allowlisted_membership() -> None:
     member = False
     mutations = 0
@@ -100,6 +152,25 @@ async def test_entra_access_refuses_unallowlisted_group_before_token() -> None:
         with pytest.raises(PermissionError, match="not allowlisted"):
             await adapter.apply(plan)
     assert identity.audiences == []
+
+
+@pytest.mark.parametrize(
+    "base",
+    [
+        "https://example.com/v1.0",
+        "https://graph.microsoft.com.example.com/v1.0",
+        "https://graph.microsoft.com:8443/v1.0",
+        "http://graph.microsoft.com/v1.0",
+    ],
+)
+async def test_graph_credentials_cannot_be_sent_to_a_configured_arbitrary_endpoint(base):
+    identity = FakeIdentity()
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(ValueError, match="Graph"):
+            EntraHumanAccessProvisioner(
+                client, identity, frozenset({"group-reader"}), base_url=base
+            )
+    assert not identity.audiences
 
 
 async def test_entra_access_refuses_role_assignable_group() -> None:

@@ -10,15 +10,15 @@ ownership (`stewardship`). It complements the handover-map schema and ownership 
 > The console's ownership projection remains read-only. Its guided form submits a handover document
 > to the ingestion boundary; ownership changes are still generated as draft pull requests, reviewed
 > through the Git host, and observed after merge through a signed webhook. Stewardship grants no
-> RBAC capability and never receives Thor's executor identity. Production ingestion reuses the
-> shared document-format capability vocabulary for upload discovery; this changes neither the
-> governed preview and connector lifecycle remain inside the ingestion service boundary and do not
-> grant the stewardship webhook any document-read or connector authority.
-> Connector cancellation reconciliation also runs inside the ingestion API identity and never
-> delegates document or ownership authority to the stewardship webhook.
-> ownership lifecycle nor its authority boundaries. Local or Azure OCR readiness only changes
-> which image formats ingestion advertises. It doesn't change an ownership handover, RBAC role, or
-> accountable owner.
+> RBAC capability and never receives Thor's executor identity. Upload-format discovery, governed
+> preview, connectors, and cancellation reconciliation remain ingestion-owned; they grant no
+> document-read, connector, or ownership authority to the webhook. Local or Azure OCR readiness
+> changes advertised image formats, not the handover, RBAC role, or accountable owner.
+> **Current evidence:** The 2026-09-15 source checkpoints include scoped Console ownership,
+> Core goal/reviewer/admission/retrieval, private semantic retention, and isolated IAM recovery.
+> The [final record](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) completes 12 distinct rounds after remaining source implementation, with no unresolved confirmed Medium/High source finding.
+> Translation SHA refresh, canonical generation, local hooks, publication/CI, and full UI/assistive/live
+> evidence remain pending. Readiness stays `shadow`, `operationally_ready=false`; [#458](https://github.com/dotnetpower/fdai/issues/458) remains open.
 
 Cloud-reference collection and signed intake share this ingestion host, not its ownership authority.
 They never create a handover draft or change a steward; [their lifecycle](cloud-resource-knowledge-lifecycle.md)
@@ -52,9 +52,13 @@ The lifecycle has four independent safety boundaries:
 | Terraform binding completeness gates | implemented | `infra/production-gates.tf`; `.github/workflows/deploy-dev.yml`; `tests/integration/infra/test_operator_api_stewardship.py`; `tests/integration/infra/test_core_stewardship_gitops.py` | Production configuration requires maintainers and every non-autonomous agent binding while keeping identities and GitOps credentials deployment-owned. |
 | Guided registration and grounded durable draft | implemented | `console/src/routes/handover-editor.tsx`; `services/document-processing-worker/src/fdai_document_worker_service/handover.py`; focused console tests (21 passed); focused ingestion delivery tests (9 passed) | The SPA submits a governed upload and the worker stores a review-only draft. Neither effect changes the active map. |
 | Idempotent draft governance PR delivery | implemented | [`governance.py`](../../../services/core-control-plane/src/fdai/core/stewardship/governance.py); [`stewardship_governance.py`](../../../services/core-control-plane/src/fdai/runtime/stewardship_governance.py); focused stewardship and runtime tests | The runtime reads durable `handover_draft:*` records, validates each complete candidate without accepting identity overrides, publishes through the configured `RemediationPrPublisher`, and atomically records the PR reference or rejection with a Saga audit. Content-addressed receipts make restart and replay safe. A governed deployment receipt remains separate evidence. |
-| Signed merge intake and downstream ownership effects | implemented | `services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/stewardship.py`; `services/core-control-plane/src/fdai/runtime/stewardship_merge_effects.py`; focused merge and ownership-coordination tests | The signed intake persists inert evidence. Core then validates the merged map, computes affected agents and new recipients, dispatches through the durable notification router, advances only a digest-matched assignment proposal, publishes one replay-stable shadow IAM request, and records one Saga receipt. |
+| Signed merge intake and downstream ownership effects | implemented | `services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/stewardship.py`; `services/core-control-plane/src/fdai/runtime/stewardship_merge_effects.py`; focused merge and ownership-coordination tests | Signed intake persists inert evidence. Core validates the merged map, computes recipients, and advances only a digest-matched proposal with notification and Saga audit. A grant merge publishes a replay-stable shadow IAM request; a removal merge never requests another grant. |
 | Scheduled persisted identity health | implemented | `services/core-control-plane/src/fdai/runtime/stewardship_identity_health.py`; `services/operator-service/src/fdai_operator_service/ownership_projection.py`; Core service Terraform | A readiness-gated Core worker deduplicates user subjects, records transition-only health and expiring successful observations, preserves the last success across Graph failure, and feeds only revision-matched unexpired results into the read-only Operator projection. |
 | Refreshable GitHub App authentication | implemented | `packages/github-app-auth`; Core and ingestion GitHub adapters; focused authentication, deployment, and Terraform checks | Each long-running service mints a repository-scoped installation token from a Key Vault-backed private key, caches it under an async lock, and refreshes before expiry. Static tokens remain a bounded compatibility input, not the deployment target. |
+| Review-only old-duty removal | implemented | [Revocation coordinator](../../../services/core-control-plane/src/fdai/core/human_assignment/revocation_ownership.py); [revocation intent](../../../services/core-control-plane/src/fdai/core/human_assignment/revocation_intent.py); [execution checkpoint](../../internals/handover-lifecycle-hardening-20260914.md#execution-source-critique-checkpoint) | Request/result `1.1.0` pin original and replacement revisions. Fresh independent review and an original-case CAS hold precede effects; independently observed IAM removal and atomic closure precede the old-duty PR. Source connection does not promote enforcement. |
+| H10 scoped review and Console | implemented | [Scoped request processing](../../../services/core-control-plane/src/fdai/core/human_assignment/scoped_duty_requests.py); [Console workspace](../../../console/src/routes/scoped-duty-workspace.tsx); [UI checkpoint](../../internals/handover-lifecycle-hardening-20260914.md#h10-console-implementation-and-focused-critique-evidence):95 unit and6 Playwright passes | Current group/schedule/scope evidence, two-Owner review, immutable artifact/merge observation, supersession, and manual GET reach the actual Mapping reviews route. Synthetic API checks are not full WCAG/rubric or live-scope proof; no IAM, role, or ACL grant. |
+| Isolated membership execution and fresh inverse | implemented | [Core runtime](../../../services/core-control-plane/src/fdai/runtime/human_access_runtime.py); [isolated executor](../../../services/isolated-executor/src/fdai_executor_service/human_access.py); [inverse](../../../services/core-control-plane/src/fdai/runtime/human_access_recovery.py); [closure](../../../services/core-control-plane/src/fdai/delivery/human_access_closure.py); [checkpoint](../../internals/handover-lifecycle-hardening-20260914.md#execution-source-critique-checkpoint):132 focused and separate21 real-SQL/fixed-agent passes | Shared SDK, original HIL/preparation, same subject/group lock, durable intent/result, and independent Heimdall effects are connected. Vidar proposes/finishes, Var freshly approves, Thor alone dispatches, Core stays degraded after inverse. Provider/Owner observations are synthetic; counts overlap. Legacy Core refuses enforce; isolated enforce remains separately gated. |
+| Bounded handover readiness report | implemented | [Readiness model](../../../services/core-control-plane/src/fdai/core/human_assignment/readiness.py); [reconciliation worker](../../../services/core-control-plane/src/fdai/runtime/human_assignment_reconciliation.py); [recorded evidence](../../internals/handover-lifecycle-hardening-20260914.md) | The worker reports sampled/total/invalid/partial evidence, effect intervals, alerts, an empty completed source-gap inventory, and external blockers. Owner reads stay `shadow`, `operationally_ready=false`; reporting performs no alert dispatch, provider check, recovery write, or promotion. |
 
 ### Implementation history
 
@@ -68,6 +72,13 @@ The lifecycle has four independent safety boundaries:
 | 2026-09-05 | implemented | Connected signed merge evidence to affected-owner notification, matching assignment effects, replay-stable shadow IAM requests, and scheduled Entra liveness observations without joining ownership, IAM, approval, or execution authority. | `current change`; focused Core and Operator tests; Core service Terraform validation. | Retain governed deployment, restart, notification, Graph recovery, and promotion evidence. |
 | 2026-09-06 | implemented | Bound the protected platform workflow to the deployment-owned stewardship activation flag, GitOps target, GitHub credential, and merge-webhook secret. Activation remains false unless the explicit repository variable is enabled. | `current change`; `deploy-dev.yml`; focused Core stewardship GitOps workflow tests. | Configure the provider-hosted GitHub App token, webhook secret, and ChatOps channel secrets, then retain a governed plan, apply, and end-to-end draft receipt. |
 | 2026-09-06 | implemented | Replaced the static installation-token target design with a refreshable GitHub App credential lease shared by Core publication and ingestion merge verification. | `current change`; GitHub App provider, adapter, service materializer, guard, and three Terraform roots; 516 focused tests passed. | Configure and install the provider-hosted App, then retain token refresh and end-to-end draft/merge evidence without exposing credentials. |
+| 2026-09-14 | implemented | Connected the separately reviewed reverse-removal lifecycle and bounded read-only readiness reporting; neither enables enforcement or establishes operational readiness. | `current change`; revocation and readiness sources above; the main implementation session reported 451 passing focused task tests including actual SQL role tests. | H10 and the other source gaps remain open; #458 provider, identity, GitHub App, independent IAM effect, target-lock, and drill evidence plus notification, document, deployment, and cohort evidence remain separate blockers. |
+| 2026-09-15 | implemented | Correction: H10 now includes the actual scoped Console route, and current Core goal/reviewer/admission/retrieval plus private typed Rule/ontology compilation/review and Mimir retention close the earlier source gaps. Retirement is monotonic; unknown hold or unavailable source never authorizes erasure. | `current change`; [workspace](../../../console/src/routes/scoped-duty-workspace.tsx), [Core binding](../../../services/core-control-plane/src/fdai/runtime/core_handover.py), [semantic binding](../../../services/core-control-plane/src/fdai/runtime/handover_semantics.py), [retention](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/handover_retention.py); [record](../../internals/handover-lifecycle-hardening-20260914.md):95 unit/6 Playwright UI checks and60 retention checks, with earlier Core/semantic selections kept separate. | No full WCAG/rubric or live-scope claim. Final integrated/static/delivery review, current identity, GitHub/Teams/source/hold evidence, cohorts, and drills remain open; no role or ACL changes. |
+| 2026-09-15 | implemented | Correction: actual isolated membership execution, current HIL, exact preparation, same target lock, independent observation, atomic post-release closure, and fresh `recovery_of` inverse are source-connected. Only the legacy Core adapter always refuses enforce; source/configuration rules stay venue-independent, local authority cutover stays forbidden, and shadow never mutates. | `current change`; [runtime](../../../services/core-control-plane/src/fdai/runtime/human_access_runtime.py), [executor](../../../services/isolated-executor/src/fdai_executor_service/human_access.py), [inverse](../../../services/core-control-plane/src/fdai/runtime/human_access_recovery.py), [closure](../../../services/core-control-plane/src/fdai/delivery/human_access_closure.py); [execution checkpoint](../../internals/handover-lifecycle-hardening-20260914.md#execution-source-critique-checkpoint):132 focused and separate21 real-SQL/fixed-agent passes, overlapping and not summed; provider HTTP and Owner observations synthetic. | Original five-minute Owner HIL, existing role/action policy and kill/degradation/promotion checks remain mandatory. Var freshly approves inverse, Vidar proposes/finishes, Thor dispatches, Core stays degraded; no `ALREADY_APPLIED` inverse or unknown retry. #458 stays open for live credentials/permissions/effects/drills/promotion; readiness remains shadow/not ready and final integrated/static/delivery checks remain pending. |
+| 2026-09-15 | implemented | Completed 12 distinct final integrated source critique rounds after remaining implementation, with no unresolved confirmed Medium/High source finding. | `current change`; [FI-01 through FI-12](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation); recorded selections overlap and are not summed. | Translation SHA refresh, canonical generation, local hooks, publication/CI, full UI/assistive evidence, and live operational criteria remain pending; #458 stays open and readiness stays shadow/not ready. |
+
+The dated corrections distinguish source completion from release readiness; earlier rows remain
+unchanged historical evidence rather than current gap lists.
 
 ### Remaining work
 
@@ -78,6 +89,11 @@ The lifecycle has four independent safety boundaries:
 - [x] Implement the scheduled identity-health monitor and retain tests proving transition-only audit, revision-matched successful observations, expiry, Graph-failure preservation, and read-only projection behavior under `stewardship_health:current` and `stewardship_health:last_success`.
 - [x] Bind a refreshable GitHub App installation-token provider to Core and document ingestion, prove concurrent refresh and expiry recovery, and retain only the App private-key reference in Key Vault.
 - [ ] Retain a deployment receipt and operational drill showing real startup bindings, one guided proposal and reviewed merge, notification delivery, audit closure, and stale-to-clean identity recovery before raising any row to `validated`.
+- [x] **Source work H10:** [Scoped requests](../../../services/core-control-plane/src/fdai/core/human_assignment/scoped_duty_requests.py) and [the actual Console workspace](../../../console/src/routes/scoped-duty-workspace.tsx) implement exact group/schedule subjects, current scope/effective intervals, static fallback, reviewed supersession, and projection. The recorded95 unit/6 Playwright checks are bounded synthetic evidence.
+- [x] **Handover source scope:** Complete the [source checklist](human-agent-assignment-implementation-plan.md#current-change-evidence-and-remaining-scope) with [Core bindings](../../../services/core-control-plane/src/fdai/runtime/core_handover.py), [semantic retention](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/handover_retention.py), and [execution binding](../../../services/core-control-plane/src/fdai/runtime/human_access_runtime.py), supported by the retained checkpoints rather than readiness output.
+- [x] **Final source critique:** Complete 12 distinct integrated rounds after remaining source implementation; [FI-01 through FI-12](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) leave no unresolved confirmed Medium/High source finding.
+- [ ] **Publication evidence:** Complete EN/KO review, translation SHA refresh, canonical generation, local hooks, publication, and exact-pushed-SHA protected CI evidence.
+- [ ] **UI and operational evidence:** Retain complete UI-rubric/assistive-technology evidence and separately governed #458/Teams/document/deployment/cohort/drill receipts; source review establishes neither full WCAG/UI score nor operational acceptance.
 
 The grounded T2 `HandoverInterpreter` remains an optional deployment binding. The deterministic
 extractor and exact Graph resolution work without it, and the default interpreter holds for review
@@ -166,7 +182,7 @@ the local claim, a retry finds the existing PR and repairs the missing local sta
 duplicate. After local state exists, the service resolves the receipt by correlation id before any
 remote call, so reprocessing cannot open another PR even after the first PR is closed.
 
-Approved human-assignment cases use the same publisher with a stricter input gate. Only
+Approved human-assignment grant cases use the same publisher with a stricter input gate. Only
 `scope:platform` duties are representable in this global map, and the rendered candidate must
 provide complete schema-v2 primary plus backup/escalation coverage for every non-autonomous agent.
 The proposal state binds assignment case id, PR ref, and canonical candidate digest. A signed merge
@@ -176,6 +192,67 @@ stored, the governance service publishes one idempotent `human.assignment.iam_ap
 origin into typed ingress. The ingestion gateway receives no Graph write identity.
 Its storage, Event Hubs, model, and stewardship adapters use the same exact attached
 `FDAI_MI_CLIENT_ID`; none may resolve an ambient or system-assigned principal.
+
+Removal uses a new `revocation` intent with request and result transport `1.1.0`, pinned original
+and replacement revisions, and fresh independent removal review. The grant's old approval cannot
+authorize it. Before effects, Core places a durable CAS hold on the original case without changing
+the map. The order is `approved -> iam_applying -> iam_revoked -> ownership_pr_open -> revoked`.
+Only an independently recorded IAM removal receipt and sealed review allow the review-only old-duty
+PR. Rendering rereads the exact old duty, pinned active replacements, and their current map entries,
+preserving unrelated agents, maintainers, channels, and roles. Exact signed merge closes the old
+hold without another grant request. The current source path includes isolated execution, exact
+current approval, target locking, independent effects, and atomic closure. Real SQL and fixed-agent
+checks use synthetic provider/Owner observations; live effects, permissions, drills, and promotion
+under open #458 remain separate evidence.
+
+### Scoped ownership review
+
+H10 uses separate ownership-only scoped-duty cases, not personal IAM assignments or edits to the
+global v2 map. Current group/schedule expansion, exact scope and effective dates, static fallback,
+two independent Owners, immutable artifacts, and current human-merge observation determine the
+expiring scoped projection. The actual `/agent-oversight/mapping-reviews` workspace uses six
+existing APIs; HTTP202 stays `awaiting_core` until manual GET. Reviewed supersession cannot revive
+old duties during an outage. 95 unit and 6 actual-route/component Playwright checks are recorded,
+not full WCAG/rubric or live-scope proof. No group declaration grants IAM, a role, or document ACL.
+
+### Governed membership and recovery
+
+The [execution plan](human-agent-assignment-implementation-plan.md#package-5---governed-entra-membership-apply)
+binds the shared SDK and immutable Core material to a dedicated isolated Graph writer. Core has no
+mutation identity. Var retains the original five-minute HIL window and one current eligible Owner
+for Reader/Contributor access or two distinct current eligible Owners for Approver/Owner access,
+excluding requester/target and applying existing role/ActionType approval policy. Original case
+reviews are not execution approval. Muninn's preparation advances `r -> r+1` while approved
+`expected_revision=r`, Action bytes, and expiry remain unchanged.
+
+Thor alone dispatches through all seven shared safeguards and the same normalized subject/group
+lock in either direction. Current kill/degradation, approval, source, and promotion checks remain
+mandatory. Durable Executor intent/pre-state/result is not independent success: Heimdall observes,
+Forseti judges, Saga seals, and shared atomic post-release closure precedes the Core case effect.
+Fresh `recovery_of` reuses existing ActionTypes and binds exact owned pre-state/current lineage.
+Vidar proposes and finishes on owned topics, Var requires new approval and the existing whitelist,
+and Thor alone dispatches. Independently observed inverse closure leaves Core `degraded`, not
+restored to duty or goal authority. No `ALREADY_APPLIED` inverse, unknown mutation retry, or
+reference-only rollback success is permitted. The legacy Core adapter still refuses enforce;
+isolated enforce needs separate promotion. Same source/configuration rules apply across venues,
+local authority cutover is forbidden, and shadow performs no mutation.
+
+### Read-only handover readiness
+
+The existing bounded reconciliation worker also records sampled counts, total, invalid count,
+partial-scan status, alert observations, source gaps, and external blockers. The mean effect-receipt
+interval uses only cases with two effects and is `null` when none qualify; it is not a complete
+population or whole-product latency claim. Invalid rows remain visible in the counts.
+
+Owner-only `GET /handover/readiness` reads that report for ten minutes. Expired, future-dated, or
+malformed reports are unavailable. Every report remains `shadow` and not operationally ready.
+Reporting dispatches no alerts, makes no provider checks, writes no recovery action, and performs
+no promotion. `source_gaps=[]` now reflects completed bounded source requirements, not a green
+release decision; `operationally_ready=false` and external blockers remain. Mimir's connected
+private-package retention likewise establishes neither deployed source policy nor permission to
+erase content when legal hold or source availability is unknown.
+Neither this report nor actual SQL role tests verify live directory, cohort, or document-source
+state in a deployment; see the [current-change boundary](human-agent-assignment-implementation-plan.md#current-change-evidence-and-remaining-scope).
 
 ### Merge observation
 

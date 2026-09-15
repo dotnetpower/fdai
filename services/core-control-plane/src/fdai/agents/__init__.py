@@ -19,6 +19,7 @@ from fdai.agents._framework.adapters import (
     InMemoryAuditChain,
     IssueTrackerAdapter,
 )
+from fdai.agents._framework.assignment_wiring import AssignmentWorkflowBindings
 from fdai.agents._framework.base import (
     Agent,
     AgentSpec,
@@ -120,6 +121,7 @@ async def request_rule_generation(
 
 
 __all__ = [
+    "AssignmentWorkflowBindings",
     "Agent",
     "AdminCard",
     "AdminNotificationAdapter",

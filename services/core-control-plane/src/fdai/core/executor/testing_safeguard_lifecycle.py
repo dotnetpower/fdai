@@ -401,9 +401,7 @@ class InMemoryPostReleaseClosureStore:
         async with self._lock:
             key = plan.record.identity.closure_key
             existing = self._records.get(key)
-            if existing is not None:
-                if existing != plan.record:
-                    raise RuntimeError("in-memory post-release closure conflicts")
+            if existing == plan.record:
                 return PostReleaseClosureStoreReceipt.create(
                     decision=PostReleaseClosureWriteDecision.DUPLICATE_SAME,
                     record=existing,
@@ -414,6 +412,15 @@ class InMemoryPostReleaseClosureStore:
                         existing.record_digest,
                     ),
                 )
+            if existing is not None and (
+                plan.record.phase.value != "reconciliation"
+                or existing.outcome.value != "quarantined"
+                or plan.record.outcome.value != "resolved"
+                or plan.record.prior_record_digest != existing.record_digest
+                or plan.record.revision != existing.revision + 1
+                or plan.record.identity != existing.identity
+            ):
+                raise RuntimeError("in-memory post-release closure conflicts")
             reservation_key = plan.prior_reservation_record.identity.idempotency_key
             current_reservation = await self._reservation_store.read(reservation_key)
             current_fence = await self._fence_store.read(

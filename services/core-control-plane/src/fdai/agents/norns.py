@@ -52,6 +52,7 @@ from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
+from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     agent_state_evidence_ref,
@@ -104,7 +105,7 @@ class NornsCapacityError(RuntimeError):
     """Pending proposals are saturated; the caller must retry or dead-letter."""
 
 
-class Norns(Agent):
+class Norns(Agent, HandoverKnowledgeMixin):
     """Wave-2 Norns: fingerprint aggregator + outcome / override / approval learner."""
 
     def __init__(
@@ -246,6 +247,8 @@ class Norns(Agent):
             await self._observe_post_turn_review(payload)
             return
         async with self._learning_lock:
+            if await self._handover_message(topic, payload):
+                return
             await self._handle_typed_message(topic, payload)
 
     async def _handle_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
@@ -512,6 +515,10 @@ class Norns(Agent):
 
     async def _flush_candidate_batch_unlocked(self) -> int:
         """Publish one queued batch and complete its durable delivery state.
+
+        Norns alone publishes ``object.rule-candidate`` for Mimir's guard and quality gate.
+        Publication is inert, never promotion. Typed learner passes or an off-path batch tick
+        drain the same pending override and coverage proposals.
 
         Consensus holds and successful publication consume candidates. A
         disabled gate, missing bus, or rate limit leaves the current candidate

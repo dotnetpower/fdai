@@ -120,7 +120,7 @@ class AccessGrantOutbox(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class DirectoryIdentity:
-    """Bounded identity-provider projection used for exact-subject validation."""
+    """Bounded identity projection; observed role-group memberships stay server-private."""
 
     provider: str
     subject_id: str
@@ -130,6 +130,7 @@ class DirectoryIdentity:
     user_type: str = "member"
     principal_type: str = "person"
     roles: tuple[str, ...] = ()
+    group_ids: tuple[str, ...] = ()
 
     def to_dict(self) -> JsonObject:
         """Return a browser-safe directory record."""
@@ -269,6 +270,7 @@ class AssignmentCreateCommand:
     duty_bindings: tuple[JsonMapping, ...]
     goal_refs: tuple[str, ...]
     justification: str
+    revocation: JsonMapping | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -311,6 +313,8 @@ class HandoverGoalCommand:
     evidence_ref: str | None = None
     digest: str | None = None
     kind: str | None = None
+    slot: str | None = None
+    source_goal_id: str | None = None
 
 
 class HandoverGoalOutbox(Protocol):
@@ -327,6 +331,20 @@ class HandoverGoalOutbox(Protocol):
     async def get_goal(self, goal_id: str) -> JsonMapping: ...
 
     async def submit(self, command: HandoverGoalCommand) -> JsonMapping: ...
+
+
+@runtime_checkable
+class HandoverReviewReader(Protocol):
+    """Optional current-backup read authorization; not an approval or document ACL bypass."""
+
+    async def may_review_goal(self, goal: JsonMapping, principal: IamPrincipal) -> bool: ...
+
+
+@runtime_checkable
+class HandoverReadinessReader(Protocol):
+    """Read only a current Core-owned no-authority lifecycle observation."""
+
+    async def lifecycle_readiness(self) -> JsonMapping: ...
 
 
 @dataclass(frozen=True, slots=True)
