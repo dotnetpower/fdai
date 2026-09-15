@@ -213,6 +213,7 @@ def planning_inputs(tmp_path, monkeypatch, plans):
         "review_digest": "d" * 64,
         "plan_digest": "e" * 64,
         "plan_json_digest": hashlib.sha256(canonical_bytes(original_plan)).hexdigest(),
+        "provider_digest": "f" * 64,
     }
     monkeypatch.setattr(planner, "load_review", lambda *_args, **_kwargs: review)
     monkeypatch.setattr(
@@ -558,3 +559,31 @@ def test_residual_verification_rejects_tampered_claim_identity(execution_inputs)
         executor.apply_recovery(**{**arguments, "verify_only": True, "approval_file": None})
     assert "apply" not in calls
     assert "observe" not in calls
+
+
+@pytest.mark.parametrize("foreign", [False, True])
+def test_recovery_materializes_only_original_verified_provider_links(tmp_path, foreign):
+    original = tmp_path / "original-data"
+    destination = tmp_path / "new-data"
+    relative = Path("providers/registry.example/vendor/provider/1.0/linux_amd64")
+    package = original / relative
+    package.mkdir(parents=True)
+    (package / "provider").write_bytes(b"verified executable")
+    (package / "provider").chmod(0o700)
+    target = tmp_path / "foreign" if foreign else package
+    if foreign:
+        target.mkdir()
+    link = destination / relative
+    link.parent.mkdir(parents=True)
+    link.symlink_to(target, target_is_directory=True)
+    digest = planner.image._execution_tree_digest(original)
+    if foreign:
+        with pytest.raises(ValueError, match="outside the verified tree"):
+            planner.materialize_provider_links(original, destination, digest)
+        assert link.is_symlink()
+    else:
+        planner.materialize_provider_links(original, destination, digest)
+        assert not link.is_symlink()
+        assert (link / "provider").read_bytes() == b"verified executable"
+        assert planner.image._execution_tree_digest(destination) == digest
+    assert planner.image._execution_tree_digest(original) == digest

@@ -7,6 +7,7 @@ import fcntl
 import hashlib
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -214,6 +215,10 @@ def _prepare_locked(
             write_private_bytes(work / f"{label}.stderr", result.stderr.encode())
         if result.returncode != 0:
             raise ValueError("runner image residual planning failed; preserve private diagnostics")
+        if label == "init":
+            materialize_provider_links(
+                original / "terraform-data", work / "terraform-data", str(review["provider_digest"])
+            )
         projection_bytes = result.stdout.encode()
         deadline.remaining()
     source.reverify()
@@ -267,6 +272,30 @@ def _prepare_locked(
     result_record["review_digest"] = canonical_digest(result_record)
     write_private_bytes(work / "residual-review.json", canonical_bytes(result_record))
     return result_record
+
+
+def materialize_provider_links(original: Path, destination: Path, expected_digest: str) -> None:
+    """Replace init-created provider links only with bytes from the original verified tree."""
+    if image._execution_tree_digest(original) != expected_digest:
+        raise ValueError("runner image recovery original provider bytes changed")
+    for entry in sorted(destination.rglob("*")):
+        if not entry.is_symlink():
+            continue
+        relative = entry.relative_to(destination)
+        if not relative.parts or relative.parts[0] != "providers":
+            raise ValueError("runner image recovery has an unexpected execution link")
+        expected = original / relative
+        if (
+            entry.resolve(strict=True) != expected.resolve(strict=True)
+            or not expected.is_dir()
+            or expected.is_symlink()
+        ):
+            raise ValueError("runner image recovery provider link is outside the verified tree")
+        entry.unlink()
+        shutil.copytree(expected, entry, symlinks=True)
+    if image._execution_tree_digest(original) != expected_digest:
+        raise ValueError("runner image recovery original provider bytes changed during copy")
+    image._execution_tree_digest(destination)
 
 
 def require_only_wait_fix(original: Path, corrected: Path) -> None:

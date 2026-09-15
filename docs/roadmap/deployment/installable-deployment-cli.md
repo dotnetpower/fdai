@@ -83,6 +83,10 @@ originally unknown computed fields, equivalent null/empty values, or order-only 
 Firewall application-rule sets. A changed known setting or ambiguous refresh record still blocks.
 Concurrent changes to the original state, claim, source or configuration prevent review publication;
 the planner preserves incomplete output and never overwrites a previous recovery directory.
+When mirror-only initialization creates provider links, the planner replaces only links to the
+same relative package in the original hash-verified provider tree with private file copies.
+Original provider bytes must remain unchanged, and the resulting execution tree must contain no
+links. Foreign links still fail; authoritative state is never part of this copy.
 
 The separate `genesis_runner_image_recovery_apply.py` command accepts only an explicitly supplied
 new Genesis approval: stage `runner-image`, run binding equal to the residual review digest, source
@@ -99,6 +103,10 @@ The public full-install coordinator does not yet consume this residual receipt a
 
 The interactive checkpoint prompt resolves that same trusted CLI before reading the current
 human approver. A missing trusted executable or a service-principal account cannot create approval.
+Its mutually exclusive `--residual-review <path>` input validates the new review's integrity,
+freshness, execution bindings and saved plan before prompting. It binds approval to the residual
+review and recovery source, not the original status. The existing human-only terminal confirmation
+remains mandatory; selecting this input does not grant approval or apply any resources.
 
 Source and kit Foundation inputs use distinct types and saved-plan schemas. A retained source
 plan must match the current snapshot and source-input digests. Source execution copies the
