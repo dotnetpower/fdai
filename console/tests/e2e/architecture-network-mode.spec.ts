@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import type { InventoryGraphResponse } from "../../src/components/architecture-map.model";
 
 const graph = {
   snapshot_at: "2026-08-22T00:00:00Z",
@@ -60,7 +61,84 @@ const graph = {
     { source: "firewall", target: "peer-subnet", type: "attached_to" },
     { source: "firewall", target: "vm", type: "depends_on" },
   ],
-};
+} satisfies InventoryGraphResponse;
+
+const denseGroups = Array.from({ length: 8 }, (_, index) => ({
+  id: `dense-group-${index}`,
+  type: "resource-group",
+  name: `Dense group ${index}`,
+  status: "unknown",
+  parent_id: "dense-subscription",
+}));
+const denseVnets = denseGroups.map((group, index) => ({
+  id: `dense-vnet-${index}`,
+  type: "network.vnet",
+  name: `Dense network ${index}`,
+  status: "healthy",
+  parent_id: group.id,
+}));
+const denseSubnets = denseVnets.flatMap((vnet, vnetIndex) =>
+  Array.from({ length: 4 }, (_, index) => ({
+    id: `dense-subnet-${vnetIndex}-${index}`,
+    type: "network.subnet",
+    name: `Dense subnet ${vnetIndex}-${index}`,
+    status: "healthy",
+    parent_id: denseGroups[vnetIndex]!.id,
+  })));
+const denseRoles = denseSubnets.flatMap((subnet, subnetIndex) =>
+  Array.from({ length: 3 }, (_, index) => ({
+    id: `dense-role-${subnetIndex}-${index}`,
+    type: index === 0 ? "network.application-gateway" : index === 1
+      ? "network.private-endpoint" : "network.interface",
+    name: `Dense role ${subnetIndex}-${index}`,
+    status: "healthy",
+    parent_id: denseGroups[Math.floor(subnetIndex / 4)]!.id,
+    network_plane_id: subnet.id,
+  })));
+const denseFiller = Array.from(
+  { length: 500 - 1 - denseGroups.length - denseVnets.length - denseSubnets.length - denseRoles.length },
+  (_, index) => ({
+    id: `dense-filler-${index}`,
+    type: index % 2 === 0 ? "app-service" : "storage-account",
+    name: `Dense filler ${index}`,
+    status: "unknown",
+    parent_id: denseGroups[index % denseGroups.length]!.id,
+  }),
+);
+const denseGraph = {
+  ...graph,
+  limit: 1000,
+  truncated: true,
+  truncation_reasons: ["limit"],
+  resources: [
+    { id: "dense-subscription", type: "subscription", name: "Dense subscription", status: "unknown" },
+    ...denseGroups,
+    ...denseVnets,
+    ...denseSubnets,
+    ...denseRoles,
+    ...denseFiller,
+  ],
+  links: [
+    ...denseGroups.map((group) => ({
+      source: "dense-subscription",
+      target: group.id,
+      type: "contains" as const,
+    })),
+    ...denseVnets.flatMap((vnet, vnetIndex) =>
+      denseSubnets
+        .filter((subnet) => subnet.id.startsWith(`dense-subnet-${vnetIndex}-`))
+        .map((subnet) => ({
+          source: vnet.id,
+          target: subnet.id,
+          type: "contains" as const,
+        }))),
+    ...denseRoles.map((resource) => ({
+      source: resource.id,
+      target: resource.network_plane_id,
+      type: "attached_to" as const,
+    })),
+  ],
+} satisfies InventoryGraphResponse;
 
 const impact = {
   schema_version: "1.0.0",
@@ -95,7 +173,7 @@ async function json(route: Route, body: unknown, status = 200): Promise<void> {
 
 async function installArchitectureFixture(
   page: Page,
-  fixture: typeof graph & { readonly truncation_reasons?: readonly string[] } = graph,
+  fixture: InventoryGraphResponse = graph,
   impactFixture: typeof impact | null = null,
 ): Promise<void> {
   const handleApi = async (route: Route): Promise<void> => {
@@ -177,7 +255,9 @@ type CaptureName =
   | "network-desktop"
   | "network-constrained"
   | "network-mobile"
-  | "impact-desktop";
+  | "impact-desktop"
+  | "topology-dense"
+  | "network-dense";
 
 async function captureArchitectureViewport(
   page: Page,
@@ -335,10 +415,17 @@ test("shows the bounded topology overview and keeps selection in one workbench",
   await expect(page.locator(".architecture-relationships li")).toHaveCount(4);
   await page.locator(".architecture-inspector")
     .getByRole("button", { name: "Overview", exact: true }).click();
+  await page.getByRole("button", { name: "Zoom out" }).click();
+  const manualScale = await page.locator(".architecture-topology-tools output").textContent();
   await page.getByRole("button", { name: "Hide Inspector" }).click();
   await expect(page.locator(".architecture-workbench")).toHaveClass(/is-inspector-collapsed/);
+  await settleArchitectureGraph(page);
+  await expect(page.locator(".architecture-topology-tools output")).toHaveText(manualScale ?? "");
   await page.getByRole("button", { name: "Show Inspector" }).click();
   await expect(page.locator(".architecture-inspector")).toBeVisible();
+  await settleArchitectureGraph(page);
+  await expect(page.locator(".architecture-topology-tools output")).toHaveText(manualScale ?? "");
+  await page.getByRole("button", { name: "Fit map" }).click();
 
   const firstFocusable = page.locator('.architecture-topology-resource[tabindex="0"]');
   await firstFocusable.focus();
@@ -378,6 +465,57 @@ test("shows the bounded topology overview and keeps selection in one workbench",
   await assertNoHorizontalOverflow(page);
   await expect(page.locator(".page-header-domain")).toBeHidden();
   await captureArchitectureViewport(page, testInfo, "topology-minimum");
+});
+
+test("keeps a geometry-less 500-record overview readable", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Dense live-shape gate runs once.");
+  await installArchitectureFixture(page, denseGraph);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/architecture");
+  await expect(page.locator(".architecture-topology-node")).toHaveCount(8);
+  await expect(page.locator(".architecture-topology-region")).toHaveCount(1);
+  await expect(page.locator(".architecture-coverage")).toContainText("500 returned - 9 shown");
+  const topologyScale = Number.parseInt(
+    (await page.locator(".architecture-topology-tools output").textContent()) ?? "0",
+    10,
+  );
+  expect(topologyScale).toBeGreaterThanOrEqual(75);
+  const topologyPositions = await page.locator(".architecture-topology-node").evaluateAll(
+    (nodes) => nodes.map((node) => node.getAttribute("transform")),
+  );
+  expect(new Set(topologyPositions).size).toBe(topologyPositions.length);
+  await assertNoHorizontalOverflow(page);
+  await captureArchitectureViewport(page, testInfo, "topology-dense");
+
+  await page.getByRole("button", { name: "Network", exact: true }).click();
+  await settleArchitectureGraph(page);
+  expect(await page.locator(".architecture-topology-node").count()).toBeLessThanOrEqual(4);
+  const networkScale = Number.parseInt(
+    (await page.locator(".architecture-topology-tools output").textContent()) ?? "0",
+    10,
+  );
+  expect(networkScale).toBeGreaterThanOrEqual(50);
+  const networkPositions = await page.locator(".architecture-topology-node").evaluateAll(
+    (nodes) => nodes.map((node) => node.getAttribute("transform")),
+  );
+  expect(new Set(networkPositions).size).toBe(networkPositions.length);
+  const fittedNetworkViewport = await page.locator(".architecture-topology-scroll").evaluate(
+    (element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+    }),
+  );
+  expect(fittedNetworkViewport.scrollWidth).toBeLessThanOrEqual(
+    fittedNetworkViewport.clientWidth,
+  );
+  expect(fittedNetworkViewport.scrollHeight).toBeLessThanOrEqual(
+    fittedNetworkViewport.clientHeight,
+  );
+  await assertNoHorizontalOverflow(page);
+  await captureArchitectureViewport(page, testInfo, "network-dense");
 });
 
 test("keeps observed Network paths and sanitized exports inside the Inspector", async ({ page }, testInfo) => {

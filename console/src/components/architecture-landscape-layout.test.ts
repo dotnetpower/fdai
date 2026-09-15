@@ -10,6 +10,11 @@ import {
 import type { InventoryGraphResponse } from "./architecture-map.model";
 import { layoutArchitecturePresentation } from "./architecture-map-layout";
 import { architectureTopologyUnplacedIds } from "./architecture-topology-graph.model";
+import {
+  architectureTopologyBounds,
+  architectureTopologyCanvasSize,
+  architectureTopologyFitScale,
+} from "./architecture-topology-graph.model";
 
 const RAW_GRAPH: InventoryGraphResponse = {
   snapshot_at: "2026-09-15T00:00:00Z",
@@ -199,6 +204,10 @@ describe("geometry-less Architecture inventory", () => {
       );
     expect(new Set(overviewPositions).size).toBe(overview.resources.length);
     expect(architectureTopologyUnplacedIds(overview.resources)).toEqual([]);
+    const canvas = architectureTopologyCanvasSize(
+      architectureTopologyBounds(overview.resources),
+    );
+    expect(architectureTopologyFitScale(canvas, 1319, 600)).toBeGreaterThanOrEqual(.75);
     expect(focused.resources.length).toBeLessThanOrEqual(ARCHITECTURE_SCOPE_DETAIL_LIMIT + 8);
     expect(new Set(focusedNodes.map((resource) => `${resource.x}:${resource.y}`)).size)
       .toBe(focusedNodes.length);
