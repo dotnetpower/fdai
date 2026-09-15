@@ -42,7 +42,7 @@ def inspect_aks_target(
         raise ValueError("AKS preflight requires an enabled subscription and active human identity")
     subscription, tenant = account.get("id"), account.get("tenantId")
     if not isinstance(subscription, str) or not isinstance(tenant, str):
-        raise TypeError("AKS preflight target binding is incomplete")
+        raise ValueError("AKS preflight target binding is incomplete")  # noqa: TRY004
     target_binding = compute_target_binding(subscription_id=subscription, tenant_id=tenant)
     skus = _selected_skus(
         subscription=subscription,
@@ -77,30 +77,33 @@ def _selected_skus(
     names: set[str],
     deadline: DeploymentDeadline,
 ) -> list[object]:
-    """Read each selected VM SKU once instead of downloading the regional catalog."""
+    """Read the regional catalog once while serializing only exact selected SKUs."""
 
-    selected: list[object] = []
-    for name in sorted(names):
-        rows = _json(
-            (
-                "vm",
-                "list-skus",
-                "--subscription",
-                subscription,
-                "--location",
-                region,
-                "--resource-type",
-                "virtualMachines",
-                "--size",
-                name,
-                "--all",
-            ),
-            deadline,
-        )
-        if not isinstance(rows, list):
-            raise TypeError("AKS selected SKU observation must be a list")
-        selected.extend(rows)
-    return selected
+    ordered = sorted(names)
+    if not ordered or any(
+        re.fullmatch(r"Standard_[A-Za-z0-9_]{1,80}", name) is None for name in ordered
+    ):
+        raise ValueError("AKS selected SKU names are invalid")
+    query = "[?" + " || ".join(f"name=='{name}'" for name in ordered) + "]"
+    rows = _json(
+        (
+            "vm",
+            "list-skus",
+            "--subscription",
+            subscription,
+            "--location",
+            region,
+            "--resource-type",
+            "virtualMachines",
+            "--all",
+            "--query",
+            query,
+        ),
+        deadline,
+    )
+    if not isinstance(rows, list):
+        raise ValueError("AKS selected SKU observation must be a list")  # noqa: TRY004
+    return rows
 
 
 def assess_aks_capacity(
@@ -112,7 +115,7 @@ def assess_aks_capacity(
 ) -> dict[str, object]:
     """Evaluate complete provider observations and report missing evidence as a blocker."""
     if not isinstance(skus, list) or not isinstance(usage, list):
-        raise TypeError("AKS feasibility observations must be lists")
+        raise ValueError("AKS feasibility observations must be lists")  # noqa: TRY004
     blockers: list[str] = []
     demand: dict[str, int] = {}
     pools: list[dict[str, object]] = []
