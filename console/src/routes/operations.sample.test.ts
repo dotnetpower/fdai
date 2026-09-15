@@ -88,9 +88,9 @@ describe("Operations Sample registry", () => {
     expect(detection.pod_lifecycle.targets).toHaveLength(2);
     expect(decodeConfigurationBaselines(response("/configuration-baselines")).baseline.version)
       .toBe("sample-v3");
-    expect(decodeProcessList(response("/views/process")).items).toHaveLength(1);
+    expect(decodeProcessList(response("/views/process")).items).toHaveLength(3);
     expect(decodeProcessJournal(response("/views/process/sample-process-1/events")).events)
-      .toHaveLength(1);
+      .toHaveLength(4);
     expect(decodeWorkflowApps(response("/views/workflow-apps")).items).toHaveLength(1);
     expect(decodeSchedulerRunPage(
       response("/scheduler-runs", "task_id=inventory-reconciliation"),
