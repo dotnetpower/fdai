@@ -926,33 +926,6 @@
     "sampledEvents": "Sampled events",
     "actionsByKind": "Actions by kind"
   },
-  "browserEvidence": {
-    "subtitle": "Read-only provenance for bounded browser captures. Extracted content remains untrusted.",
-    "readOnlyTitle": "Inspection only.",
-    "readOnlyBody": "Capture, promotion, approval, and execution controls are not available in this view.",
-    "resourceLabel": "browser evidence metadata",
-    "unavailable": "Authoritative browser evidence metadata is unavailable.",
-    "artifacts": "Artifacts",
-    "mode": "Mode",
-    "metadataOnly": "Metadata only",
-    "legalHolds": "Legal holds",
-    "empty": "No browser evidence artifacts recorded.",
-    "verified": "Verified",
-    "held": "Held",
-    "scheduled": "Scheduled expiry",
-    "sanitization": "{selectors} selectors / {redactions} redactions / {findings} findings",
-    "integrity": "{hashes}/3 hashes / {custody}",
-    "column": {
-      "source": "Source",
-      "policy": "Policy",
-      "captured": "Captured",
-      "expires": "Expires",
-      "sanitization": "Sanitization",
-      "integrity": "Integrity",
-      "isolation": "Isolation",
-      "retention": "Retention"
-    }
-  },
   "assuranceTwin": {
     "subtitle": "Read-only Assurance Twin posture report and ambient change reviews. Findings never grant approval or execution authority.",
     "readOnlyTitle": "Inspection only.",

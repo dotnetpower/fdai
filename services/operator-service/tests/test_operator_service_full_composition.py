@@ -188,10 +188,10 @@ def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() 
     identities = {(item.method, item.path) for item in manifest}
     owner_counts = Counter(item.owner for item in manifest)
 
-    assert len(manifest) == len(identities) == 215
+    assert len(manifest) == len(identities) == 216
     assert ("GET", "/handover/readiness") in identities
     assert owner_counts == {
-        "minimal": 16,
+        "minimal": 17,
         "conversation": 43,
         "iam": 48,
         "workflow": 43,
@@ -200,10 +200,10 @@ def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() 
         "cost-governance": 8,
         "alert-quality": 7,
     }
-    assert tuple(manifest[:16]) == MINIMAL_ROUTE_MANIFEST
+    assert tuple(manifest[:17]) == MINIMAL_ROUTE_MANIFEST
     app = cast(Starlette, _client().app)
     assert _registered_identities(app) == identities
-    assert len(app.router.routes) == 215
+    assert len(app.router.routes) == 216
     assert {
         ("POST", "/test-context/proposals"),
         ("POST", "/test-context/reviews"),

@@ -1,0 +1,139 @@
+{
+  "subtitle": "수집한 콘텐츠를 노출하지 않고 허용된 브라우저 캡처의 보관, 보안 주의, 보존 및 정확한 감사 출처를 검토합니다.",
+  "readOnlyTitle": "페이로드 없는 검사입니다.",
+  "readOnlyBody": "수집한 콘텐츠는 이 화면 밖에 유지됩니다. 브라우저 텍스트는 신뢰되지 않으며 어떤 기록도 수집, 승격, 승인 또는 실행 권한을 부여하지 않습니다.",
+  "resourceLabel": "브라우저 근거 작업 공간",
+  "unavailable": "버전이 지정된 권위 있는 브라우저 근거 작업 공간을 사용할 수 없습니다.",
+  "workspaceLabel": "브라우저 근거 산출물 검토",
+  "observed": "페이지 관찰 시각",
+  "sourceObserved": "출처 관찰 시각",
+  "notObserved": "출처 기록 없음",
+  "consistency": "일관성",
+  "viewHeadline": "일치하는 산출물 {matching}개 중 {loaded}개 로드, 보안 발견 사항 {findings}건, 보류 기록 {withheld}개",
+  "artifacts": "산출물",
+  "loadedSummary": "일치하는 {matching}개 중 {loaded}개 로드",
+  "pageComplete": "현재 일치하는 허용 기록을 모두 불러왔습니다.",
+  "loadMore": "더 불러오기",
+  "loadingMore": "더 불러오는 중...",
+  "filters": {
+    "label": "허용된 브라우저 근거 필터",
+    "host": "정확한 호스트",
+    "hostPlaceholder": "dashboard.example",
+    "hostScope": "호스트 필드",
+    "hostEither": "요청 또는 최종",
+    "hostRequested": "요청 호스트",
+    "hostFinal": "최종 호스트",
+    "retention": "보존",
+    "allRetention": "모든 보존 상태",
+    "finding": "보안 발견 사항",
+    "allFindings": "모든 발견 상태",
+    "findingsPresent": "발견 사항 있음",
+    "findingsClear": "발견 사항 없음",
+    "sort": "정렬",
+    "attentionFirst": "주의 항목 우선",
+    "newestFirst": "최신순",
+    "apply": "필터 적용",
+    "more": "정확한 필터 더 보기",
+    "artifact": "산출물 SHA-256 id",
+    "policy": "정책 id",
+    "policyVersion": "정책 버전",
+    "custody": "보관 참조",
+    "captureWindow": "수집 구간",
+    "from": "시작 시각, 포함",
+    "before": "종료 시각, 제외",
+    "clear": "필터 지우기",
+    "invalid": "잘못된 브라우저 근거 필터: {fields}"
+  },
+  "metrics": {
+    "loaded": "불러온 기록",
+    "loadedHint": "현재 누적 페이지",
+    "matching": "일치하는 허용 기록",
+    "admitted": "스냅샷 허용 기록",
+    "findings": "보안 발견 사항",
+    "findingsHint": "일치하는 기록의 발견 표시 수",
+    "expiring": "만료 임박",
+    "expiringHint": "관찰 시각부터 7일 이내",
+    "holds": "Legal hold",
+    "holdsHint": "만료 중지",
+    "withheld": "스냅샷 보류",
+    "withheldHint": "식별정보가 없는 스냅샷 전체 개수"
+  },
+  "retention": {
+    "held": "Legal hold",
+    "expired_pending_purge": "만료됨, 정리 대기",
+    "expiring": "만료 임박",
+    "retained": "보존 중"
+  },
+  "attention": {
+    "security": "보안 검토"
+  },
+  "empty": {
+    "title": "허용된 브라우저 근거 없음",
+    "body": "이번 관찰에서 페이로드 없는 기록이 허용 단계를 통과하지 못했습니다. 식별정보를 노출하지 않고 기록 {withheld}개를 보류했습니다."
+  },
+  "noMatches": {
+    "title": "필터와 일치하는 허용 기록 없음",
+    "body": "출처에는 허용된 기록이 있지만 현재의 정확한 필터 집합과 일치하는 기록은 없습니다."
+  },
+  "detail": {
+    "selected": "선택한 허용 산출물",
+    "securityReview": "보안 검토 필요",
+    "securityReviewBody": "Prompt-injection 발견 표시 {count}건이 기록됐습니다. 수집한 텍스트는 계속 숨겨지며 지시가 될 수 없습니다.",
+    "source": "수집 대상",
+    "requestedHost": "요청 호스트",
+    "finalHost": "허용된 최종 호스트",
+    "redirect": "리디렉션",
+    "redirected": "정책에서 허용한 리디렉션",
+    "notRedirected": "호스트 변경 없음",
+    "sanitization": "정제 요약",
+    "selectors": "고정 선택자",
+    "redactions": "민감정보 제거",
+    "findings": "발견 표시",
+    "digestCoverage": "다이제스트 범위",
+    "digest": {
+      "screenshot": "Screenshot 다이제스트",
+      "text": "표시 텍스트 다이제스트",
+      "accessibilitySnapshot": "접근성 스냅샷 다이제스트",
+      "present": "있음",
+      "absent": "수집하지 않음"
+    },
+    "custody": "런타임 및 보관",
+    "browserRuntime": "브라우저 런타임",
+    "custodyReference": "보관 참조",
+    "auditLink": "감사 출처",
+    "retention": "보존 및 legal hold",
+    "holdReference": "보존 참조",
+    "holdApplied": "보존 적용 시각",
+    "notApplicable": "해당 없음",
+    "identity": "변경 불가한 식별자",
+    "copyIdentity": "산출물 id 복사",
+    "openDeepLink": "정확한 산출물 열기",
+    "openAudit": "정확한 감사 기록 열기",
+    "openTrace": "연결된 추적 열기",
+    "payloadHidden": "수집 페이로드는 노출되지 않습니다.",
+    "payloadHiddenBody": "허용된 스칼라 메타데이터만 표시합니다. Screenshot, 텍스트, 접근성 스냅샷, 선택자 값, 발견 텍스트 및 격리 증적 필드는 Console 밖에 유지됩니다."
+  },
+  "audit": {
+    "missing": "정확한 보관 감사 행을 사용할 수 없습니다.",
+    "malformed": "보관 참조가 정본 감사 UUID가 아닙니다.",
+    "ambiguous": "보관 감사 행이 둘 이상 일치하여 이동을 보류했습니다.",
+    "unsupported_sequence": "정확한 감사 sequence가 Console 주소 범위를 초과합니다."
+  },
+  "withheld": {
+    "title": "보류된 허용 요약",
+    "body": "이 스냅샷 전체 개수는 식별정보가 있는 메타데이터가 Console에 도달하기 전에 제외된 기록을 설명합니다.",
+    "count": "{count}개 보류",
+    "scope": "보류 개수는 스냅샷 전체 기준이며 필터가 적용되지 않고 기록 식별자로 연결되지 않습니다.",
+    "reason": {
+      "invalid_metadata": "범위를 벗어난 메타데이터",
+      "trust_invalid": "잘못된 신뢰 안 함 표시",
+      "isolation_unverified": "격리 미검증"
+    }
+  },
+  "column": {
+    "policy": "정책",
+    "captured": "수집 시각",
+    "expires": "만료 시각",
+    "retention": "보존"
+  }
+}

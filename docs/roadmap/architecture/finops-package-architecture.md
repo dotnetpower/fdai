@@ -280,6 +280,8 @@ requests, preference contracts, and a signed result bridge in this host. Its sha
 activate Cost Governance, grant cost-data access, publish Njord-owned records, or promote the package.
 The shared static catalog guard can register another route-local English catalog without adding
 Cost Governance behavior or activating the optional package.
+The Browser evidence v2 read route and its route-local catalog are likewise host-owned. They do
+not import package providers or change Cost Governance routes, data, activation, or authority.
 The same host authenticator may pass a bounded verified username to the IAM display projection.
 That display-only value does not enter Cost Governance identity, activation, disclosure, or
 package authority.

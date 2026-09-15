@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: 1788f4f59c8abfe8f033ae93c92c53187f914c22
-translation_revised: 2026-09-15
+translation_source_sha: b3bc995a4a20245ba19a6f50b1c68dd5a555f199
+translation_revised: 2026-09-16
 title: 대화 첨부파일
 ---
 # 대화 첨부파일
@@ -45,6 +45,7 @@ title: 대화 첨부파일
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | 브라우저 근거 지역화 문구를 Console 카탈로그 사이에서 옮긴 뒤 공유 의미 의도 원본 다이제스트를 갱신했습니다. 첨부 원본, 계약, 개수, 데이터 접근 또는 권한은 변경하지 않았습니다. | PR #1109 CI 실행 `34988599311`, 생성된 의미 의도 범위, 집중 산출물 동일성 검사 4개 통과 | 이 결정론적 다이제스트 갱신과 관련해 남은 대화 첨부 작업은 없습니다. |
 | 2026-09-14 | implemented | 이미지 전달을 활성화하지 않고 두 HTTP 채팅 경로와 직접 의미 요청 및 서술기 경계의 이미지 누락을 차단했습니다. 잘못된 필드가 섞인 입력은 사용 가능 여부를 판단하기 전에 실패하며, 거부된 이미지는 서술기 자격 증명을 얻을 수 없습니다. | [이슈 #985](https://github.com/dotnetpower/fdai/issues/985), `current change`, 집중 Operator 경로, 의미 요청 연결, 로컬 서술기 및 정확한 문서 검사 245개가 3.65초에 통과했습니다. Ruff 7개 파일 및 strict mypy 소스 4개 검사가 통과했습니다. | 전체 인라인 이미지 지원은 진행 중입니다. [이슈 #303](https://github.com/dotnetpower/fdai/issues/303)에는 보호된 공급자, OCR, 배포 및 효과 증적이 여전히 필요합니다. |
 | 2026-09-14 | in-progress | 두 HTTP 채팅 경로, 의미 요청 묶음 생성기, 로컬 서술기의 Console 첨부 필드에서 이미지가 조용히 누락되는 현상을 재현했습니다. 원시 이미지 전달이나 근거 없는 텍스트 대체 대신 명시적인 사용 불가 경계를 선택했습니다. | `current change`, 집중 Operator 경로, 의미 요청 묶음 및 서술기 회귀 테스트를 두 번 실행해 실패 8건을 재현했습니다. 기존 서술기의 `images` 및 `image_ids` 차단 검사는 통과했습니다. | 수정된 경계를 검증합니다. 전체 인라인 이미지 해석과 이슈 #303의 보호된 공급자 검증은 남아 있습니다. |
 | 2026-09-14 | implemented | 첨부 전달의 CI 소유권과 구조를 정합화했습니다. 출처에서 파생되는 의미 의도 다이제스트를 갱신하고, 범위가 제한된 Core 호출 맥락 모듈을 등록했으며, PostgreSQL 문서 해석기 조립을 PostgreSQL family adapter facade 뒤로 옮겨 Operator 조립 root가 검토된 fan-out 상한 아래에 머물게 했습니다. | `current change`, 의미 의도 범위 테스트, 조립 패키지 분리 테스트, Operator 문서 참조 테스트, Operator 경계 및 파일 LOC 검사 | 보호된 배포 근거를 추가할 때 같은 경계를 유지합니다. 이 구조 보완만으로 실제 운영 검증을 추론하지 않습니다. |
