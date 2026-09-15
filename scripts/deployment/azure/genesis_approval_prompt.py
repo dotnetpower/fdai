@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TextIO
 
-from fdai_deployment_cli.contracts import load_json_object
+from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from genesis_checks import trusted_tool
 from genesis_runner_image_review import show_image_vm_selection
@@ -212,23 +212,67 @@ def _approval_from_status(status: dict[str, object]) -> tuple[str, dict[str, str
     return stage, {name: str(value) for name, value in evidence.items()}
 
 
+def _approval_from_residual_review(path: Path) -> tuple[str, str, dict[str, str]]:
+    """Bind a fresh residual review and its saved plan to the existing human-only prompt."""
+    review = _load_status(path)
+    digest = review.pop("review_digest", None)
+    if (
+        not isinstance(digest, str)
+        or canonical_digest(review) != digest
+        or review.get("schema_version") != "fdai.runner-image-residual-review.v1"
+        or review.get("state") != "review"
+        or review.get("apply_authorized") is not False
+        or review.get("mutation_performed") is not False
+        or review.get("deployment_ready") is not False
+        or review.get("original_state_unchanged") is not True
+    ):
+        raise ValueError("Genesis residual review integrity or state is invalid")
+    source = review.get("recovery_source_commit")
+    if not isinstance(source, str) or _SOURCE.fullmatch(source) is None:
+        raise ValueError("Genesis residual recovery source is invalid")
+    for field in ("plan_digest", "provider_digest", "original_lineage_digest"):
+        value = review.get(field)
+        if not isinstance(value, str) or _DIGEST.fullmatch(value) is None:
+            raise ValueError("Genesis residual review execution binding is invalid")
+    created = datetime.fromisoformat(str(review.get("created_at")))
+    expires = datetime.fromisoformat(str(review.get("expires_at")))
+    if (
+        created.tzinfo != UTC
+        or expires.tzinfo != UTC
+        or not created <= datetime.now(UTC) < expires
+        or not timedelta(0) < expires - created <= timedelta(hours=1)
+    ):
+        raise ValueError("Genesis residual review is expired or has an invalid window")
+    plan = read_private_bytes(path.parent / "residual.tfplan", max_bytes=64 * 1024 * 1024)
+    if hashlib.sha256(plan).hexdigest() != review["plan_digest"]:
+        raise ValueError("Genesis residual saved plan differs from its review")
+    return digest, source, {"review_digest": digest, "plan_digest": str(review["plan_digest"])}
+
+
 def main() -> int:
-    """Prompt from one private status file and publish an approval file."""
+    """Prompt from one private status or residual review and publish an exact approval."""
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--status", type=Path, required=True)
+    context = parser.add_mutually_exclusive_group(required=True)
+    context.add_argument("--status", type=Path)
+    context.add_argument("--residual-review", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    status = _load_status(args.status)
-    run_binding = status.get("target_binding")
-    source_commit = status.get("source_commit")
-    if not isinstance(run_binding, str) or not isinstance(source_commit, str):
-        raise ValueError("Genesis status context is invalid")
-    stage, evidence = _approval_from_status(status)
-    if stage == "runner-image":
-        show_image_vm_selection(
-            status=status, work_dir=args.status.parent, evidence=evidence, output=sys.stderr
-        )
+    if args.residual_review is not None:
+        run_binding, source_commit, evidence = _approval_from_residual_review(args.residual_review)
+        stage = "runner-image"
+    else:
+        status = _load_status(args.status)
+        status_binding = status.get("target_binding")
+        status_source = status.get("source_commit")
+        if not isinstance(status_binding, str) or not isinstance(status_source, str):
+            raise ValueError("Genesis status context is invalid")
+        run_binding, source_commit = status_binding, status_source
+        stage, evidence = _approval_from_status(status)
+        if stage == "runner-image":
+            show_image_vm_selection(
+                status=status, work_dir=args.status.parent, evidence=evidence, output=sys.stderr
+            )
     create_approval(
         stage=stage,
         evidence=evidence,
