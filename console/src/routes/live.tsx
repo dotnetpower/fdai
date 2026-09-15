@@ -31,9 +31,17 @@ import {
   OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS,
   OPERATIONS_SAMPLE_LIVE_STAGE_INTERVAL_MS,
   OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT,
+  sampleLiveObservations,
   sampleLiveEvents,
 } from "./operations.sample";
 import { useLiveCoverage } from "./live.coverage";
+import {
+  createLiveMetrics,
+  LIVE_METRIC_WINDOW_MS,
+  observeLiveControl,
+  observeLiveSource,
+  summarizeLiveMetrics,
+} from "./live.metrics";
 import "./live.css";
 
 export { liveTraceHref } from "./live.ticker";
@@ -45,6 +53,29 @@ interface Props {
 
 export const LIVE_BACKLOG_CAP = 1_000;
 export const LIVE_FLUSH_CAP = 200;
+const LIVE_FILTER_SHORTCUTS: readonly FilterKind[] = [
+  "all",
+  "control",
+  "source",
+  "hil",
+  "deny",
+  "failed",
+  "stuck",
+];
+
+function liveFilter(value: string | null): FilterKind {
+  if (
+    value === "control" ||
+    value === "source" ||
+    value === "hil" ||
+    value === "deny" ||
+    value === "failed" ||
+    value === "stuck"
+  ) {
+    return value;
+  }
+  return "all";
+}
 
 export function appendLiveBacklog(
   backlog: readonly LiveStageEvent[],
@@ -75,6 +106,11 @@ export function LiveRoute({ client, dataMode }: Props) {
     ),
   );
   const [tickerPaused, setTickerPaused] = useState(false);
+  const metricsRef = useRef(createLiveMetrics());
+  const metrics = useMemo(
+    () => summarizeLiveMetrics(metricsRef.current, state.now),
+    [state.now],
+  );
   const [viewMode, setViewMode] = useState<LiveViewMode>(
     initialRoute.search.get("view") === "queue" ? "queue" : "flow",
   );
@@ -149,12 +185,9 @@ export function LiveRoute({ client, dataMode }: Props) {
   useEffect(() => {
     const sync = () => {
       const route = currentRoute();
-      const filter = route.search.get("filter");
       dispatch({
         kind: "filter",
-        value: filter === "hil" || filter === "deny" || filter === "failed" || filter === "stuck"
-          ? filter
-          : "all",
+        value: liveFilter(route.search.get("filter")),
       });
       const eventId = route.search.get("event");
       dispatch({ kind: "select", event_id: eventId });
@@ -185,6 +218,7 @@ export function LiveRoute({ client, dataMode }: Props) {
     enabled: dataMode === "live",
     getAuthorizationHeader: client.authorizationHeader,
     onEvent: (event) => {
+      observeLiveControl(metricsRef.current, event, Date.now());
       const next = appendLiveBacklog(pendingEventsRef.current, event);
       pendingEventsRef.current = [...next.backlog];
       if (next.dropped > 0) setDroppedFrames((current) => current + next.dropped);
@@ -193,6 +227,7 @@ export function LiveRoute({ client, dataMode }: Props) {
       }
     },
     onActivity: (event) => {
+      observeLiveSource(metricsRef.current, event, Date.now());
       observationAvailabilityRef.current = "ready";
       if (pausedRef.current) {
         pendingObservationsRef.current = [
@@ -221,8 +256,14 @@ export function LiveRoute({ client, dataMode }: Props) {
         event.status === "unavailable" ? event.reason : null,
       );
     },
-    onGap: (dropped) => setDroppedFrames((current) => current + dropped),
-    onCursorReset: () => setCursorReset(true),
+    onGap: (dropped) => {
+      metricsRef.current.partialUntil = Date.now() + LIVE_METRIC_WINDOW_MS;
+      setDroppedFrames((current) => current + dropped);
+    },
+    onCursorReset: () => {
+      metricsRef.current.partialUntil = Date.now() + LIVE_METRIC_WINDOW_MS;
+      setCursorReset(true);
+    },
   });
   const status = dataMode === "sample" ? "open" : stream.status;
   const lastError = dataMode === "sample" ? null : stream.lastError;
@@ -231,8 +272,10 @@ export function LiveRoute({ client, dataMode }: Props) {
   useEffect(() => {
     if (dataMode !== "live") {
       observationAvailabilityRef.current = null;
-      setObservations([]);
-      setObservationLoadState("unavailable");
+      const sampleObservations = sampleLiveObservations();
+      sampleObservations.forEach((event) => observeLiveSource(metricsRef.current, event, Date.now()));
+      setObservations(sampleObservations);
+      setObservationLoadState("ready");
       setObservationError(null);
       return undefined;
     }
@@ -252,24 +295,34 @@ export function LiveRoute({ client, dataMode }: Props) {
 
   useEffect(() => {
     if (dataMode !== "sample") return undefined;
+    const sampleNow = Date.now();
+    const lastSampleAt = Math.max(...OPERATIONS_SAMPLE_LIVE_EVENTS.map(event => Date.parse(event.ts)));
+    OPERATIONS_SAMPLE_LIVE_EVENTS.forEach((event) => observeLiveControl(
+      metricsRef.current,
+      { ...event, ts: new Date(sampleNow - (lastSampleAt - Date.parse(event.ts)) / 100).toISOString() },
+      sampleNow,
+    ));
     dispatch({ kind: "batch", events: OPERATIONS_SAMPLE_LIVE_EVENTS });
     dispatch({ kind: "seed-rate", now: Date.now(), per_tier_per_second: 1 });
     let nextEvent = OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT;
     const stageHandles = new Set<number>();
     const enqueue = (event: LiveStageEvent) => {
+      observeLiveControl(metricsRef.current, event, Date.now());
       const next = appendLiveBacklog(pendingEventsRef.current, event);
       pendingEventsRef.current = [...next.backlog];
       if (next.dropped > 0) setDroppedFrames((current) => current + next.dropped);
       if (pausedRef.current) frozenObservedRef.current += 1;
     };
     const scheduleLoop = () => {
+      const startedAt = Date.now();
       for (let eventOffset = 0; eventOffset < OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP; eventOffset += 1) {
         const events = sampleLiveEvents(nextEvent + eventOffset, 1);
         events.forEach((event, stageIndex) => {
+          const delay = eventOffset * 250 + stageIndex * OPERATIONS_SAMPLE_LIVE_STAGE_INTERVAL_MS;
           const stageHandle = window.setTimeout(() => {
             stageHandles.delete(stageHandle);
-            enqueue(event);
-          }, eventOffset * 250 + stageIndex * OPERATIONS_SAMPLE_LIVE_STAGE_INTERVAL_MS);
+            enqueue({ ...event, ts: new Date(startedAt + delay).toISOString() });
+          }, delay);
           stageHandles.add(stageHandle);
         });
       }
@@ -350,10 +403,12 @@ export function LiveRoute({ client, dataMode }: Props) {
   );
   const view = useLiveViewModel(
     state,
+    metrics,
     status,
     streamSource,
     selectedTile,
     droppedFrames,
+    observations,
   );
 
   useEffect(() => {
@@ -376,10 +431,9 @@ export function LiveRoute({ client, dataMode }: Props) {
         event.preventDefault();
         return;
       }
-      const index = ["1", "2", "3", "4", "5"].indexOf(event.key);
+      const index = ["1", "2", "3", "4", "5", "6", "7"].indexOf(event.key);
       if (index >= 0) {
-        const filters: readonly FilterKind[] = ["all", "hil", "deny", "failed", "stuck"];
-        const value = filters[index];
+        const value = LIVE_FILTER_SHORTCUTS[index];
         if (value !== undefined) {
           updateRoute({ filter: value });
           event.preventDefault();
@@ -402,6 +456,7 @@ export function LiveRoute({ client, dataMode }: Props) {
       state={state}
       view={view}
       status={status}
+      lastSignalAt={stream.lastSignalAt}
       lastError={lastError}
       streamSource={streamSource}
       tickerPaused={tickerPaused}

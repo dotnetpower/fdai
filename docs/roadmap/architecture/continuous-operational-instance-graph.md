@@ -6,12 +6,22 @@ title: Continuous Operational Instance Graph
 This document owns the runtime contract that keeps cloud resource instances, relationships, and observed state current in the FDAI ontology.
 Collection is continuous and load-aware, while raw history moves through typed rollups and verified archives so the active data plane remains bounded.
 
+[Alert noise governance](../operations/alert-noise-governance.md) retains separate private alert,
+audience, and delivery evidence. Those records and their scope bindings do not promote an inventory
+generation, create observed graph facts, or prove complete reverse dependencies. Missing native
+history or directory evidence stays partial; this graph's observation and single-writer rules are unchanged.
+
 > **Scope boundary:** This design covers provider observation, ontology instance projection, freshness, compaction, archive, and graph-first reads.
 > It does not grant approval, mutation, or execution authority.
 >
 > **Provider boundary:** The contracts are cloud-provider-neutral (CSP-neutral). Azure Resource Graph, Activity Log, Monitor, and Resource Health are the implemented provider sources.
 
 ## Design at a glance
+
+Historical Pattern explanations use the same semantic function registry but remain separate from
+observed graph state. `query.operating_patterns` requires independent principal-to-case-scope read
+admission and current source revisions. Its summaries create no resource observations or action
+authority; [case history](../rules-and-detection/prediction-learning-and-case-history.md) owns the contract.
 
 Continuous collection combines push events, resumable provider deltas, and adaptive reconciliation. It does not use a fixed six-hour scan as the normal freshness mechanism and does not run an
 unbounded tight polling loop.
@@ -101,10 +111,10 @@ A change-stream row is eligible only when both its identity-derived type and its
 type belong to the reviewed ResourceType vocabulary. If either side is unreviewed, the row is
 discarded because it cannot enter the ontology. If both are reviewed, they must match the exact ARM
 ID shape, including built-in subscription and Resource Group types.
-A provider-resource ID must contain a concrete resource name after every type segment. A collection
-path that ends at a type cannot create a Resource instance.
-Disabled resource-change and recovery accelerators do not require collection-policy entries and
-contribute neither cursor prefixes nor stale-cursor deadlines to reconciliation.
+Provider IDs require a concrete name after every type segment; collection-only paths cannot create Resource instances.
+Disabled resource-change and recovery accelerators need no policy entries and add no cursor prefixes or stale-cursor deadlines.
+The CLI support module owns Activity Log recovery's independent failure boundary before reconciliation and after generation promotion.
+A rejected delta stays unavailable without advancing its cursor, stopping full inventory, or invalidating a verified generation.
 
 Kubernetes fleet collection retains one source-state record per exact cluster binding. The record
 uses a customer-safe scope digest, so one unavailable cluster lowers fleet completeness without

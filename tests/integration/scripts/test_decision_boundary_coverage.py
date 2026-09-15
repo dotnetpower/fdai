@@ -69,6 +69,9 @@ def test_the_inventory_registers_every_boundary_and_purpose_in_the_source_tree(
     registered = {boundary["id"] for boundary in inventory["boundaries"]}
     assert len(registered) == len(inventory["boundaries"])
     assert {
+        "alert-record-admission",
+        "alert-workflow-promotion-binding",
+        "alert-workflow-promotion-record",
         "causal-closure",
         "effect-model-activation",
         "workflow-automation-hold-release",

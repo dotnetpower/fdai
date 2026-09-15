@@ -422,6 +422,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/core/detection/alert_noise/outcomes.py",
+      "disposition": "retain",
+      "owner": "alert-noise-effect-verification",
+      "reason": "Retains exact typed effect outcome enums, dispatch lineage, observation intervals and guard metrics. It accepts no operator utterance, selects no natural-language intent and grants no execution, recovery or hold-release authority.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/core/notifications/matrix.py",
       "disposition": "retain",
       "owner": "notification-routing",
@@ -503,6 +510,13 @@
       "disposition": "retain",
       "owner": "rule-catalog-schema",
       "reason": "Retains strict schema classification of external ARG queries against the WARA assessment catalog.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/shared/contracts/models/forecast_outcome.py",
+      "disposition": "retain",
+      "owner": "forecast-outcome-contract",
+      "reason": "Validates fixed forecast outcome enums, numeric and temporal evidence, schema versions, and scoring exclusions. It does not classify operator language, select semantic intent, or grant authority.",
       "issue": 252
     },
     {

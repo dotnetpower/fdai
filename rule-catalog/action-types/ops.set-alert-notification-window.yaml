@@ -1,0 +1,78 @@
+schema_version: "1.0.0"
+name: ops.set-alert-notification-window
+version: "1.0.0"
+operation: update
+interfaces:
+  - ControlPlane
+  - IdempotentByKey
+  - RateLimited
+  - RequiresInventoryFresh
+  - GraphTraversalRequired
+  - RequiresMaintenanceWindow
+rollback_contract: pr_revert
+irreversible: false
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 30
+  min_samples: 100
+  min_accuracy: 1.0
+  max_policy_escapes: 0
+preconditions:
+  - kind: graph_fresh_within_seconds
+    value: 300
+  - kind: no_conflicting_open_action_on_resource
+  - kind: maintenance_window_active
+stop_conditions:
+  - kind: provider_api_error_streak
+    count: 1
+  - kind: dependent_resource_degraded
+  - kind: time_box_exceeded_seconds
+    seconds: 3600
+blast_radius:
+  computation: static_enum
+  static_bucket: resource_group
+  max_affected_resources: 1
+# One pre-provisioned processing rule, with a provider-enforced absolute end.
+# The action port must bound every dependency to the same resource group, prove
+# effective-rule precedence and independent ingress, and preserve protected paths.
+# Tested rollback, successful dry-run, target/dependency fencing, stable idempotency
+# and audit intent plus closure remain mandatory runtime evidence, not catalog claims.
+# Restoring configuration cannot recreate notifications missed during the window.
+description: >-
+  Propose a finite notification window on one existing processing rule through
+  a manually reviewed IaC diff. Preserve protected traffic, automation and independent ingress.
+category: ops
+trigger_kind:
+  kind: operator_request
+execution_path: pr_manual
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: owner
+  t1:
+    max_autonomy: enforce_hil
+    min_role: owner
+  t2:
+    max_autonomy: shadow_only
+    min_role: owner
+env_scope: any
+prod_downgrade:
+  mode: enforce_hil
+  detection_ref: risk-classification/env-detector
+argument_schema:
+  type: object
+  additionalProperties: false
+  required: [plan_digest]
+  properties:
+    plan_digest:
+      type: string
+      pattern: "^[a-f0-9]{64}$"
+      minLength: 64
+      maxLength: 64
+      description: SHA-256 digest of the approved forward plan; no caller-selected target or window.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai/blob/main/rule-catalog/action-types/ops.set-alert-notification-window.yaml
+  resolved_ref: action-type:ops.set-alert-notification-window@1.0.0
+  content_hash: sha256:af2d460e78472421094b0ca0be234e35079ec416b340b7ba3bce9c912ef18bd7
+  license: BUSL-1.1
+  retrieved_at: "2026-09-14T00:00:00Z"

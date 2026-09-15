@@ -63,6 +63,7 @@ from fdai.agents._framework.norns_consensus import NornsConsensus
 from fdai.agents._framework.norns_deployment_learning import NornsDeploymentLearning
 from fdai.agents._framework.norns_issue_dedup import NornsIssueDeduplicator
 from fdai.agents._framework.norns_learning import observe_approval as _learn_approval
+from fdai.agents._framework.norns_learning import observe_operational_case_cohort
 from fdai.agents._framework.norns_learning import observe_outcome as _learn_outcome
 from fdai.agents._framework.norns_learning import observe_override as _learn_override
 from fdai.agents._framework.norns_learning import (
@@ -86,7 +87,6 @@ from fdai.core.operational_learning import (
     InvestigationStrategyComparisonEvidence,
     InvestigationStrategyCompilationDisposition,
     OperatingPatternCompiler,
-    PatternCase,
     ShadowDwellEvidence,
     ShadowDwellLedger,
 )
@@ -98,7 +98,6 @@ from fdai.shared.providers.state_store import StateStore
 # so they cannot grow without bound over the process lifetime.
 _MAX_TRACKED = 50_000
 _MAX_PENDING_CANDIDATES = 5_000
-_MAX_OPERATING_PATTERN_CASES = 100
 
 
 class NornsCapacityError(RuntimeError):
@@ -220,6 +219,7 @@ class Norns(Agent, HandoverKnowledgeMixin):
         self._operational_case_max_age = operational_case_max_age
         self._clock = clock or (lambda: datetime.now(UTC))
         self._operating_pattern_ids: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
+        self._pattern_publications: dict[str, dict[str, Any]] = {}
         self._semantic_feedback = NornsSemanticFeedbackLearning(semantic_feedback_store)
         # Shadow outcomes never feed the rollback-rate learner (a judged-and-logged
         # 'success' says nothing about real safety), but they are the only evidence
@@ -252,6 +252,7 @@ class Norns(Agent, HandoverKnowledgeMixin):
             await self._handle_typed_message(topic, payload)
 
     async def _handle_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        operational_pattern_id = None
         if len(self.pending_candidates) >= self._max_pending_candidates:
             await self._flush_candidates_unlocked()
         self._ensure_pending_capacity()
@@ -267,7 +268,7 @@ class Norns(Agent, HandoverKnowledgeMixin):
             self._observe_approval(payload)
         elif topic == "object.context-index":
             if payload.get("kind") == "operational_case_fingerprint_cohort":
-                self._observe_operational_case_cohort(payload)
+                operational_pattern_id = self._observe_operational_case_cohort(payload)
             elif payload.get("kind") == "investigation_strategy_comparison_cohort":
                 self._observe_investigation_strategy_cohort(payload)
             elif payload.get("kind") == "semantic_retrieval_failure":
@@ -285,47 +286,18 @@ class Norns(Agent, HandoverKnowledgeMixin):
         # directly.
         # Off-path batch: forward any newly-formed inert candidates to Mimir.
         await self._flush_candidates_unlocked()
-
-    def _observe_operational_case_cohort(self, payload: dict[str, Any]) -> None:
-        if payload.get("producer_principal") != "Muninn":
-            self.record_behavior("operational_case_cohort_invalid_producer")
-            return
-        raw_cases = payload.get("cases")
         if (
-            not isinstance(raw_cases, list)
-            or not 1 <= len(raw_cases) <= _MAX_OPERATING_PATTERN_CASES
-        ):
-            self.record_behavior("operational_case_cohort_invalid_payload")
-            return
-        try:
-            cases = tuple(
-                PatternCase.from_mapping(item) for item in raw_cases if isinstance(item, dict)
+            operational_pattern_id is not None
+            and payload.get("cohort_snapshot_ref")
+            and any(
+                item.get("suggested_pattern") == operational_pattern_id
+                for item in self.pending_candidates
             )
-        except ValueError:
-            self.record_behavior("operational_case_cohort_invalid_payload")
-            return
-        fingerprint = str(payload.get("failure_fingerprint") or "")
-        if (
-            len(cases) != len(raw_cases)
-            or not fingerprint
-            or any(case.failure_fingerprint != fingerprint for case in cases)
         ):
-            self.record_behavior("operational_case_cohort_invalid_payload")
-            return
-        candidate = self._operating_pattern_compiler.compile(
-            cases,
-            reviewed_at=self._clock(),
-            max_case_age=self._operational_case_max_age,
-        )
-        if candidate is None:
-            self.record_behavior("operational_case_cohort_held")
-            return
-        if candidate.pattern_id in self._operating_pattern_ids:
-            self.record_behavior("operational_case_cohort_duplicate")
-            return
-        self._operating_pattern_ids.add(candidate.pattern_id)
-        self._append_candidate(candidate.to_rule_candidate_mapping())
-        self.record_behavior("operational_case_candidate_created")
+            raise NornsCapacityError("operational cohort publication pending; retain for replay")
+
+    def _observe_operational_case_cohort(self, payload: dict[str, Any]) -> str | None:
+        return observe_operational_case_cohort(self, payload)
 
     def _observe_investigation_strategy_cohort(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Muninn":
@@ -532,6 +504,7 @@ class Norns(Agent, HandoverKnowledgeMixin):
             candidate = self.pending_candidates[self._flush_cursor]
             consensus = self._consensus.evaluate(candidate)
             if not consensus.unanimous:
+                self._pattern_publications.pop(str(candidate.get("suggested_pattern", "")), None)
                 self._consensus_holds.append(
                     {
                         "decision": "hold",
@@ -558,6 +531,12 @@ class Norns(Agent, HandoverKnowledgeMixin):
             dwell = self._shadow_dwell.evidence_for(str(candidate.get("target_rule_id") or ""))
             if dwell is not None:
                 payload["shadow_dwell"] = dwell.to_mapping()
+            pattern_id = str(candidate.get("suggested_pattern", ""))
+            pattern = self._pattern_publications.get(pattern_id)
+            if pattern is not None:
+                if not await self._publish_proposal("object.pattern", pattern):
+                    break
+                self._pattern_publications.pop(pattern_id, None)
             if not await self._publish_proposal("object.rule-candidate", payload):
                 # Bus-less (unit) or rate-limited: stop and leave the queued
                 # candidates for a later pass. No learning signal is dropped -

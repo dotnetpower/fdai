@@ -125,10 +125,11 @@ Two rules shape how this feels in practice:
   as separate effects, so one form can request both without merging the two authorities.
 
 > **Current status:** Directory search, assignment-case records, the review flow, and the joined
-> ownership view are available today. The path that changes directory group membership runs in
-> observation mode: it plans and verifies the change and records what it would do, but doesn't apply
-> the membership change for you. Treat it as a proposal surface and finish the group change through
-> your normal identity process.
+> ownership view are implemented. The isolated membership and approved inverse paths are also
+> source-connected, but observation mode never changes membership. Execution needs separate
+> promotion, current independent approval and safeguards, and independent effect observation.
+> The Console cannot bypass those checks. [Operational evidence remains open](../guides/validate-ownership-handover.md);
+> source completion is not a live access grant or permission for a manual workaround.
 
 ## Collecting knowledge without burning people out
 
@@ -136,15 +137,17 @@ Once someone is mapped to an agent, FDAI can ask them to fill gaps in what it kn
 is deliberately rationed, because an operator who gets interrupted constantly stops answering.
 
 - At most one invitation per session, and at most two proactive sessions in a week.
-- A session is capped at a few questions or a few minutes, whichever comes first.
+- One active session per person is capped at three unique turns and five non-sliding minutes.
 - No invitation arrives while you're handling an incident or a pending approval.
 - You can answer, attach a document instead, snooze for a day, or decline.
 
 Snoozing and declining are yours alone to decide. Accepting a knowledge goal on someone's behalf
 needs an independent Owner, for the same reason a case needs a second reviewer.
 
-> Localized invitation text and automatic removal of replaced coverage aren't implemented yet. Plan
-> on doing that follow-up removal yourself when someone hands a domain off.
+> English/Korean invitations and the separately reviewed removal lifecycle are implemented.
+> Removal still requires current replacement coverage and fresh review; independent IAM removal
+> precedes the reviewed old-duty change. Reusing knowledge never copies acceptance or approval.
+> Live removal, recovery and adoption evidence remains separate from these source capabilities.
 
 ## What good ownership looks like
 
@@ -160,6 +163,7 @@ needs an independent Owner, for the same reason a case needs a second reviewer.
 
 | To learn about | Read |
 |----------------|------|
+| How to collect actual speech and remaining operational evidence | [Validate ownership handover](../guides/validate-ownership-handover.md) |
 | What each of the 15 agents is accountable for | [The agent organization](agents-and-self-healing.md) |
 | How approval authority is granted and checked | [Approvals and channels](approvals-and-channels.md) |
 | How to inspect what an owner or an agent actually did | [Read the audit log](../guides/read-audit-log.md) |

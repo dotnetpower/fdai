@@ -35,6 +35,8 @@ domain code and assets. It does not create another control plane or move authori
 > activation, data, publication, or execution authority.
 > Non-agent runtime observation consumers likewise record replay and health evidence only; they do
 > not change Njord ownership, package activation, or action authority.
+> Shared Pantheon composition also binds reviewed test-context reads and case-derived retention.
+> These bindings cannot activate Cost Governance, publish Njord records, or raise package authority.
 > Global Terraform roots can carry unrelated AKS observation bindings. Those values and Reader
 > assignments are not Cost Governance package inputs and cannot activate its runtime. The same
 > boundary excludes the independent runtime-call evidence source flag, shared provider endpoint
@@ -150,7 +152,7 @@ manifest reference, and W6 source inventory's `package_manifest_sha256` together
 fixture references. Re-evaluate the unchanged expected outcomes for eight positive and eight
 negative cases; retain the deliberately foreign release in the F6 mixed-release negative case.
 This source-only refresh does not qualify W7 live evidence or change enablement, data access,
-mode, or promotion. Earlier live receipts remain bound to their original release.
+mode, or promotion. Earlier live receipts remain bound to their original release. Adding alert ActionTypes follows this same source-only refresh and cannot activate Cost Governance.
 
 ### Keep agents active and ownership fixed
 
@@ -273,6 +275,9 @@ The shared service-contract export, Operator composition root, and Console messa
 multi-capability host seams. Adding an independent capability such as Azure Monitor ingestion or
 background-task projection does not register Cost Governance behavior. Cost Governance activates only from
 its reviewed package manifest, exact bundle, provider requirements, and deployment gate.
+[Alert noise governance](../operations/alert-noise-governance.md) likewise uses separate scoped
+requests, preference contracts, and a signed result bridge in this host. Its shadow-first bindings cannot
+activate Cost Governance, grant cost-data access, publish Njord-owned records, or promote the package.
 The shared static catalog guard can register another route-local English catalog without adding
 Cost Governance behavior or activating the optional package.
 The same host authenticator may pass a bounded verified username to the IAM display projection.

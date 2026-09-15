@@ -72,6 +72,7 @@ from fdai_service_contracts.adaptive_relationship import (
     AdaptiveRelationshipProof,
     AdaptiveRelationshipUnknownReason,
 )
+from fdai_service_contracts.test_context import TestContextDraft
 from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
 from pydantic import TypeAdapter, ValidationError
 
@@ -696,6 +697,11 @@ class SemanticTurnProjectionConsumer:
         if not isinstance(semantic_payload, dict):
             raise ValueError("semantic projection MUST contain semantic_result")
         result = SemanticTurnResult.model_validate(semantic_payload)
+        context_draft = extension_payload.get("test_context_draft")
+        if context_draft is not None:
+            if result.disposition is not SemanticTurnDisposition.ACTION_DRAFT:
+                raise ValueError("test context draft requires a draft-only semantic result")
+            TestContextDraft.model_validate(context_draft)
         if decoded.get("status") != result.disposition.value:
             raise ValueError("semantic projection status MUST match result disposition")
         operational_evidence = extension_payload.get("operational_evidence")

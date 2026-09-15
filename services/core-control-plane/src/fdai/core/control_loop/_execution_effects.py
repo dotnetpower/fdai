@@ -7,6 +7,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from datetime import datetime
 
+from fdai.core.detection.alert_noise.execution_models import ALERT_ACTIONS
 from fdai.core.executor import ExecutionResult
 from fdai.core.executor.direct_api import DirectApiExecutionResult
 from fdai.core.executor.tool_call import ToolCallExecutionResult
@@ -63,6 +64,10 @@ class ControlLoopExecutionEffectsMixin:
     ) -> ExecutionResultType:
         if execution_outcome_is_no_effect(result.outcome):
             await self._record_workflow_no_effect(action=action, result=result)
+            return result
+        if action.action_type in ALERT_ACTIONS:
+            # Alert delivery and recall require the exact independent alert observer.
+            # Generic PR/target health cannot turn publication into a verified effect.
             return result
         request_production = await self._produce_effect_reconciliation_request(
             action=action,
@@ -171,7 +176,7 @@ class ControlLoopExecutionEffectsMixin:
         action: Action,
     ) -> tuple[ExpectedEffect | None, EffectVerificationReason | None]:
         provider = self._mscp_expected_effect_provider
-        if provider is None:
+        if provider is None or action.action_type in ALERT_ACTIONS:
             return None, None
         try:
             expected = await provider(action)

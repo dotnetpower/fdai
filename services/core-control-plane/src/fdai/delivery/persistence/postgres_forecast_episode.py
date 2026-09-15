@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -25,6 +26,7 @@ from fdai.core.detection.forecast_episode import (
 from fdai.core.detection.forecast_operational_metrics import (
     reduce_forecast_operational_metrics,
 )
+from fdai.core.detection.forecast_outcome import ForecastObservation
 from fdai.shared.contracts.models import ForecastOutcome, Mode
 
 _EPISODE_COLUMNS = """
@@ -56,7 +58,7 @@ class PostgresForecastEpisodeStore:
     async def verify_schema(self) -> None:
         async with await self._connect() as connection:
             await self._timeout(connection)
-            await connection.execute("SELECT 1 FROM forecast_episode LIMIT 0")
+            await connection.execute("SELECT closure_observation FROM forecast_episode LIMIT 0")
             await connection.execute("SELECT 1 FROM forecast_publication_outbox LIMIT 0")
 
     async def health_snapshot(self, *, now: datetime) -> Mapping[str, object]:
@@ -72,7 +74,15 @@ class PostgresForecastEpisodeStore:
                 "COUNT(*) FILTER (WHERE state = 'closed' AND closure_due_at <= %s) AS due_closed, "
                 "COUNT(*) FILTER (WHERE evaluation_kind = 'abstained') AS abstained, "
                 "COUNT(*) FILTER (WHERE state = 'closed' "
-                "AND evaluation_kind = 'abstained') AS abstained_closed "
+                "AND evaluation_kind = 'abstained') AS abstained_closed, "
+                "COUNT(*) FILTER (WHERE state = 'closed' "
+                "AND closure_observation IS NULL) AS observation_missing, "
+                "COUNT(*) FILTER (WHERE closure_observation->>'telemetry_completeness' "
+                "= 'complete') AS observation_complete, "
+                "COUNT(*) FILTER (WHERE closure_observation->>'telemetry_completeness' "
+                "= 'partial') AS observation_partial, "
+                "COUNT(*) FILTER (WHERE closure_observation->>'telemetry_completeness' "
+                "= 'unavailable') AS observation_unavailable "
                 "FROM forecast_episode",
                 (now, now, now),
             )
@@ -174,6 +184,10 @@ class PostgresForecastEpisodeStore:
                 for row in outcome_rows
             ],
             "operational_metrics": operational_metrics.to_dict(),
+            "observations": {
+                completeness: int(episode_row[f"observation_{completeness}"]) if episode_row else 0
+                for completeness in ("complete", "partial", "unavailable", "missing")
+            },
             "publication": {
                 "pending": int(publication_row["pending_due"]) if publication_row else 0,
                 "future": int(publication_row["pending_future"]) if publication_row else 0,
@@ -250,17 +264,38 @@ class PostgresForecastEpisodeStore:
 
     async def close(self, closure: ForecastEpisodeClosure) -> bool:
         _aware("closed_at", closure.closed_at)
+        observation = _observation_mapping(closure.observation)
+        serialized_observation = (
+            json.dumps(observation, sort_keys=True, separators=(",", ":"), allow_nan=False)
+            if observation is not None
+            else None
+        )
         outcome = (
             ForecastOutcome.model_validate(closure.outcome_payload)
             if closure.outcome_payload is not None
             else None
         )
+        if closure.observation is not None:
+            observed_breach = closure.observation.actual_breach_at
+            if observed_breach is not None and observed_breach > closure.closed_at:
+                raise ValueError("forecast closure observation MUST NOT follow closure time")
+            if outcome is not None and any(
+                getattr(closure.observation, field) != getattr(outcome, field)
+                for field in (
+                    "observed_value",
+                    "actual_breach_at",
+                    "telemetry_completeness",
+                    "intervention_refs",
+                    "scoring_exclusions",
+                )
+            ):
+                raise ValueError("forecast closure observation contradicts its terminal outcome")
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
             cursor = await connection.execute(
                 "UPDATE forecast_episode SET state = 'closed', revision = revision + 1, "
                 "closure_leased_until = NULL, closed_at = %s, closure_reason = %s, "
-                "outcome_id = %s, updated_at = %s "
+                "outcome_id = %s, updated_at = %s, closure_observation = %s::jsonb "
                 "WHERE episode_id = %s AND state = 'open' AND revision = %s "
                 "RETURNING episode_id",
                 (
@@ -268,13 +303,20 @@ class PostgresForecastEpisodeStore:
                     closure.reason.value,
                     outcome.outcome_id if outcome else None,
                     closure.closed_at,
+                    serialized_observation,
                     closure.episode_id,
                     closure.expected_revision,
                 ),
             )
             if await cursor.fetchone() is None:
                 existing = await connection.execute(
-                    "SELECT state, outcome_id FROM forecast_episode WHERE episode_id = %s",
+                    "SELECT episode.state, episode.outcome_id, episode.closure_reason, "
+                    "episode.closure_observation, publication.payload AS outcome_payload "
+                    "FROM forecast_episode AS episode "
+                    "LEFT JOIN forecast_publication_outbox AS publication "
+                    "ON publication.episode_id = episode.episode_id "
+                    "AND publication.topic = 'object.forecast-outcome' "
+                    "WHERE episode.episode_id = %s",
                     (closure.episode_id,),
                 )
                 row = await existing.fetchone()
@@ -282,6 +324,10 @@ class PostgresForecastEpisodeStore:
                 if (
                     row is not None
                     and row["state"] == "closed"
+                    and row["closure_reason"] == closure.reason.value
+                    and row["closure_observation"] == observation
+                    and row["outcome_payload"]
+                    == (outcome.model_dump(mode="json") if outcome else None)
                     and (
                         (outcome is None and stored_outcome_id is None)
                         or (
@@ -523,6 +569,41 @@ def _aware(name: str, value: datetime) -> None:
 
 def _psycopg_dsn(value: str) -> str:
     return value.replace("postgresql+psycopg://", "postgresql://", 1)
+
+
+def _observation_mapping(observation: ForecastObservation | None) -> dict[str, object] | None:
+    if observation is None:
+        return None
+    if observation.observed_value is not None and (
+        isinstance(observation.observed_value, bool)
+        or not isinstance(observation.observed_value, (int, float))
+        or not math.isfinite(observation.observed_value)
+    ):
+        raise ValueError("forecast closure observation value MUST be finite numeric evidence")
+    if not observation.evidence_refs or len(observation.evidence_refs) > 64:
+        raise ValueError("forecast closure observation requires 1..64 evidence references")
+    if len(observation.intervention_refs) > 64:
+        raise ValueError("forecast closure observation exceeds intervention reference limit")
+    references = (*observation.evidence_refs, *observation.intervention_refs)
+    if any(not isinstance(value, str) or not 1 <= len(value) <= 512 for value in references):
+        raise ValueError("forecast closure observation references MUST be bounded non-empty text")
+    if observation.actual_breach_at is not None:
+        _aware("actual breach time", observation.actual_breach_at)
+    payload: dict[str, object] = {
+        "schema_version": "1.1.0" if observation.scoring_exclusions else "1.0.0",
+        "observed_value": observation.observed_value,
+        "actual_breach_at": (
+            observation.actual_breach_at.isoformat()
+            if observation.actual_breach_at is not None
+            else None
+        ),
+        "telemetry_completeness": observation.telemetry_completeness.value,
+        "evidence_refs": list(observation.evidence_refs),
+        "intervention_refs": list(observation.intervention_refs),
+    }
+    if observation.scoring_exclusions:
+        payload["scoring_exclusions"] = list(observation.scoring_exclusions)
+    return payload
 
 
 __all__ = ["PostgresForecastEpisodeStore", "PostgresForecastEpisodeStoreConfig"]

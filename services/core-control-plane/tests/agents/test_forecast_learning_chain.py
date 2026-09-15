@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -30,6 +31,51 @@ from fdai.shared.contracts.models import ForecastOutcome
 from fdai.shared.providers.metric import MetricPoint, StaticMetricProvider
 
 T0 = datetime(2026, 7, 1, tzinfo=UTC)
+
+
+async def test_huginn_history_batch_reaches_heimdall_and_retained_reader() -> None:
+    from fdai.delivery.persistence.state_store_forecast_context import (
+        StateStoreForecastContextProvider,
+    )
+    from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    from tests.persistence.test_state_store_forecast_context import NOW, _record, _request
+
+    class _Admission:
+        async def admit(self, **values):
+            return DecisionEvidenceAdmission(
+                **values,
+                receipt_digest="sha256:" + "d" * 64,
+                verification_bundle_digest="sha256:" + "e" * 64,
+                verified_at=NOW,
+                valid_until=NOW + timedelta(minutes=5),
+            )
+
+    state = InMemoryStateStore()
+    history = StateStoreForecastContextProvider(state, admission=_Admission(), clock=lambda: NOW)
+    bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    huginn, heimdall = Huginn(), Heimdall()
+    huginn.bind_bus(bus)
+    heimdall.bind_bus(bus)
+    heimdall.bind_forecast_history_ingress(history.ingest)
+    bus.subscribe("object.event", "Heimdall", heimdall.on_typed_message)
+    await huginn.ingest(
+        {
+            "id": "history-example",
+            "event_id": "history-example",
+            "idempotency_key": "history-example",
+            "correlation_id": "history-example",
+            "source": "forecast-history-collector",
+            "event_type": "forecast.context_history.v1",
+            "attributes": {
+                kind: _record()
+                for kind in ("actions", "changes", "resource_lifecycle", "excluded_windows")
+            },
+        }
+    )
+    assert (await history.read(_request())).complete
+    assert heimdall.behavior_snapshot()["forecast_history:retained"] == 1
 
 
 def _outcome(index: int) -> ForecastOutcome:
@@ -111,6 +157,49 @@ async def test_forecast_outcome_flows_to_audit_case_history_and_mimir() -> None:
     assert candidates[0]["source_signal"] == "forecast_case_history"
     assert candidates[0]["source_signal"] == "forecast_case_history"
     assert candidates[0]["norns_consensus"]["unanimous"] is True
+
+
+async def test_context_excluded_outcome_is_sealed_without_a_learning_candidate() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    metadata = InMemoryCaseHistoryMetadataStore()
+    artifacts = InMemoryCaseHistoryArtifactStore()
+    heimdall = Heimdall(bus=bus)
+    mimir = Mimir()
+    agents = (
+        heimdall,
+        Saga(),
+        Muninn(case_history=CaseHistoryMaterializer(metadata=metadata, artifacts=artifacts)),
+        Norns(forecast_error_threshold=1),
+        mimir,
+    )
+    for agent in agents:
+        agent.bind_bus(bus)
+        for topic in agent.spec.subscribes:
+            bus.subscribe(topic, agent.spec.name, agent.on_typed_message)
+    raw = _outcome(1).model_dump(mode="json")
+    raw.update(
+        schema_version="1.1.0",
+        label="unscorable",
+        scoring_exclusions=["intervention_history_unavailable"],
+    )
+    assert await heimdall.publish_forecast_outcome(ForecastOutcome.model_validate(raw))
+    assert bus.dead_letters == []
+    indexed = next(
+        message.payload for message in bus.published if message.topic == "object.context-index"
+    )
+    latest = await metadata.latest(str(indexed["case_id"]), access_scope_digest="a" * 64)
+    assert latest is not None
+    assert latest.outcome_label == "unscorable"
+    assert latest.storage_ref is not None
+    content = await artifacts.get(latest.storage_ref)
+    assert content is not None
+    artifact = json.loads(content)
+    outcome_source = next(
+        source for source in artifact["sources"] if source["record_type"] == "forecast-outcome"
+    )
+    assert outcome_source["payload"]["scoring_exclusions"] == ["intervention_history_unavailable"]
+    assert outcome_source["payload"]["telemetry_completeness"] == "complete"
+    assert mimir.pending_candidates() == ()
 
 
 async def test_huginn_retention_tick_drives_muninn_artifact_deletion() -> None:

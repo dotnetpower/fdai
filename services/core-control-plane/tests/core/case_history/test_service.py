@@ -337,6 +337,330 @@ async def test_retention_deletes_every_revision_artifact() -> None:
     assert artifacts._records == {}  # noqa: SLF001 - full-chain deletion assertion
 
 
+@pytest.mark.parametrize("composite", [False, True])
+async def test_derived_deletion_failure_stays_pending_and_retries_after_restart(composite) -> None:
+    from fdai.core.case_history.derived import CaseHistoryDerivedRetention
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    metadata = InMemoryCaseHistoryMetadataStore()
+    artifacts = InMemoryCaseHistoryArtifactStore()
+    materializer = CaseHistoryMaterializer(metadata=metadata, artifacts=artifacts)
+    source = await _seal(materializer)
+
+    class _Derived:
+        calls = 0
+
+        async def purge(self, record):
+            self.calls += 1
+            assert record.deletion_started_at is not None
+            assert record.deleted_at is None
+            assert record.access_scope_digest == SCOPE
+            if self.calls == 1:
+                raise RuntimeError("derived data deletion unavailable")
+
+    derived = _Derived()
+    downstream = (
+        CaseHistoryDerivedRetention(
+            store=InMemoryStateStore(), materializer=materializer, downstream=(derived,)
+        )
+        if composite
+        else derived
+    )
+    if composite:
+        with pytest.raises(PermissionError, match="deletion claim"):
+            await downstream.purge(source)
+        assert derived.calls == 0
+    retention = CaseHistoryRetentionService(
+        metadata=metadata,
+        artifacts=artifacts,
+        derived_data=downstream,
+    )
+    with pytest.raises(RuntimeError, match="derived data deletion unavailable"):
+        await retention.delete_due(now=source.deletion_due_at)
+    pending = await metadata.latest(source.case_id, access_scope_digest=SCOPE)
+    assert pending is not None and pending.deletion_started_at is not None
+    assert pending.deleted_at is None
+    restarted = CaseHistoryRetentionService(
+        metadata=metadata,
+        artifacts=artifacts,
+        derived_data=downstream,
+    )
+    assert await restarted.delete_due(now=source.deletion_due_at) == (source.case_id,)
+    assert derived.calls == 2
+
+
+async def test_projection_deletion_removes_copies_and_rejects_replay() -> None:
+    from fdai.core.case_history.derived import (
+        CaseHistoryDerivedRetention,
+        CaseHistoryProjectionStore,
+    )
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    metadata = InMemoryCaseHistoryMetadataStore()
+    artifacts = InMemoryCaseHistoryArtifactStore()
+    materializer = CaseHistoryMaterializer(metadata=metadata, artifacts=artifacts)
+    source = await _seal(materializer)
+    store = InMemoryStateStore()
+    projections = CaseHistoryProjectionStore(
+        store=store,
+        materializer=materializer,
+        access_scope_digest=SCOPE,
+        clock=lambda: source.sealed_at,
+    )
+    value = {
+        "purpose": source.purpose,
+        "access_scope_digest": SCOPE,
+        "cases": [
+            {
+                "case_id": source.case_id,
+                "revision": source.revision,
+                "manifest_digest": source.manifest_digest,
+            }
+        ],
+    }
+    assert await projections.write_state_if_absent("pattern-example", value)
+    assert await projections.read_state("pattern-example") == value
+    other_scope = CaseHistoryProjectionStore(
+        store=store,
+        materializer=materializer,
+        access_scope_digest="f" * 64,
+    )
+    assert await other_scope.read_state("pattern-example") is None
+    retention = CaseHistoryRetentionService(
+        metadata=metadata,
+        artifacts=artifacts,
+        derived_data=CaseHistoryDerivedRetention(store=store, materializer=materializer),
+    )
+    assert await retention.delete_due(now=source.deletion_due_at) == (source.case_id,)
+    assert await projections.read_state("pattern-example") is None
+    with pytest.raises(PermissionError, match="not current"):
+        await projections.write_state_if_absent("replayed-pattern", value)
+
+
+async def test_modified_projection_lineage_cannot_evade_source_deletion() -> None:
+    from fdai.core.case_history.derived import CaseHistoryProjectionStore
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    metadata, artifacts = InMemoryCaseHistoryMetadataStore(), InMemoryCaseHistoryArtifactStore()
+    materializer = CaseHistoryMaterializer(metadata=metadata, artifacts=artifacts)
+    source = await _seal(materializer)
+    store = InMemoryStateStore()
+    projections = CaseHistoryProjectionStore(
+        store=store,
+        materializer=materializer,
+        access_scope_digest=SCOPE,
+        clock=lambda: source.sealed_at,
+    )
+    value = {
+        "purpose": source.purpose,
+        "access_scope_digest": SCOPE,
+        "cases": [
+            {
+                "case_id": source.case_id,
+                "revision": source.revision,
+                "manifest_digest": source.manifest_digest,
+            }
+        ],
+    }
+    await projections.write_state_if_absent("pattern-example", value)
+    key = f"case-history-derived:v1:{SCOPE}"
+    state = await store.read_state(key)
+    assert state is not None
+    state["entries"]["pattern-example"]["case_refs"] = ["case-history:other-case:1:" + "f" * 64]
+    await store.write_state(key, state)
+    with pytest.raises(ValueError, match="lineage"):
+        await projections.read_state("pattern-example")
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        "scope",
+        "root",
+        "entry",
+        "key",
+        "source",
+        "cases",
+        "capacity",
+        "bytes",
+        "claim",
+        "contention",
+    ],
+)
+async def test_derived_projection_rejects_invalid_or_unbounded_work(invalid: str) -> None:
+    from fdai.core.case_history.derived import CaseHistoryProjectionStore
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    metadata, artifacts = InMemoryCaseHistoryMetadataStore(), InMemoryCaseHistoryArtifactStore()
+    materializer = CaseHistoryMaterializer(metadata=metadata, artifacts=artifacts)
+    source = await _seal(materializer)
+    durable = InMemoryStateStore()
+    if invalid == "scope":
+        with pytest.raises(ValueError, match="SHA-256"):
+            CaseHistoryProjectionStore(
+                store=durable, materializer=materializer, access_scope_digest="invalid"
+            )
+        return
+    projections = CaseHistoryProjectionStore(
+        store=durable,
+        materializer=materializer,
+        access_scope_digest=SCOPE,
+        clock=lambda: source.sealed_at,
+    )
+    value = {
+        "purpose": source.purpose,
+        "access_scope_digest": SCOPE,
+        "cases": [
+            {
+                "case_id": source.case_id,
+                "revision": source.revision,
+                "manifest_digest": source.manifest_digest,
+            }
+        ],
+    }
+    key = f"case-history-derived:v1:{SCOPE}"
+    if invalid in {"root", "entry"}:
+        record = (
+            {"revision": True, "entries": {}}
+            if invalid == "root"
+            else {"revision": 1, "entries": {"bad": {}}}
+        )
+        await durable.write_state(key, record)
+        with pytest.raises(ValueError, match="malformed"):
+            await projections.read_state("example")
+        return
+    if invalid == "claim":
+        with pytest.raises(PermissionError, match="deletion claim"):
+            await projections.purge(source)
+        return
+    if invalid == "key":
+        with pytest.raises(ValueError, match="key"):
+            await projections.write_state_if_absent("", value)
+        return
+    if invalid == "source":
+        value["purpose"] = None
+    elif invalid == "cases":
+        value["cases"] = []
+    elif invalid == "bytes":
+        value["oversized"] = "x" * (4 * 1024 * 1024)
+    elif invalid == "capacity":
+        reference = f"case-history:{source.case_id}:{source.revision}:{source.manifest_digest}"
+        await durable.write_state(
+            key,
+            {
+                "revision": 1,
+                "entries": {
+                    f"pattern-{index}": {"case_refs": [reference], "value": value}
+                    for index in range(512)
+                },
+            },
+        )
+    elif invalid == "contention":
+        from unittest.mock import AsyncMock
+
+        durable.write_state_with_audit_if_absent = AsyncMock(return_value=False)
+    with pytest.raises((ValueError, RuntimeError)):
+        await projections.write_state_if_absent("example", value)
+
+
+async def test_projection_compare_and_set_rejects_wrong_revision_and_duplicate_create() -> None:
+    from fdai.core.case_history.derived import CaseHistoryProjectionStore
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    materializer = CaseHistoryMaterializer(
+        metadata=InMemoryCaseHistoryMetadataStore(), artifacts=InMemoryCaseHistoryArtifactStore()
+    )
+    source = await _seal(materializer)
+    projections = CaseHistoryProjectionStore(
+        store=InMemoryStateStore(),
+        materializer=materializer,
+        access_scope_digest=SCOPE,
+        clock=lambda: source.sealed_at,
+    )
+    value = {
+        "revision": 1,
+        "purpose": source.purpose,
+        "access_scope_digest": SCOPE,
+        "cases": [
+            {
+                "case_id": source.case_id,
+                "revision": source.revision,
+                "manifest_digest": source.manifest_digest,
+            }
+        ],
+    }
+    assert await projections.write_state_if_absent("example", value)
+    assert not await projections.write_state_if_absent("example", value)
+    assert not await projections.compare_and_set_state_with_audit(
+        "example", value, expected_revision=9, audit_entry={}
+    )
+
+
+@pytest.mark.parametrize("existing_projection", [True, False])
+async def test_projection_writer_cannot_race_source_deletion(existing_projection: bool) -> None:
+    import asyncio
+
+    from fdai.core.case_history.derived import (
+        CaseHistoryDerivedRetention,
+        CaseHistoryProjectionStore,
+    )
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    class _DelayedStore(InMemoryStateStore):
+        async def write_state_with_audit_if_absent(self, key, value, audit_entry):
+            if "racing-pattern" in value.get("entries", {}):
+                entered.set()
+                await release.wait()
+            return await super().write_state_with_audit_if_absent(key, value, audit_entry)
+
+        async def compare_and_set_state_with_audit(self, key, value, **kwargs):
+            if "racing-pattern" in value.get("entries", {}):
+                entered.set()
+                await release.wait()
+            return await super().compare_and_set_state_with_audit(key, value, **kwargs)
+
+    metadata, artifacts = InMemoryCaseHistoryMetadataStore(), InMemoryCaseHistoryArtifactStore()
+    materializer = CaseHistoryMaterializer(metadata=metadata, artifacts=artifacts)
+    source = await _seal(materializer)
+    store = _DelayedStore()
+    projections = CaseHistoryProjectionStore(
+        store=store,
+        materializer=materializer,
+        access_scope_digest=SCOPE,
+        clock=lambda: source.sealed_at,
+    )
+    value = {
+        "purpose": source.purpose,
+        "access_scope_digest": SCOPE,
+        "cases": [
+            {
+                "case_id": source.case_id,
+                "revision": source.revision,
+                "manifest_digest": source.manifest_digest,
+            }
+        ],
+    }
+    if existing_projection:
+        await projections.write_state_if_absent("existing-pattern", value)
+    writer = asyncio.create_task(projections.write_state_if_absent("racing-pattern", value))
+    await asyncio.wait_for(entered.wait(), timeout=1)
+    retention = CaseHistoryRetentionService(
+        metadata=metadata,
+        artifacts=artifacts,
+        derived_data=CaseHistoryDerivedRetention(store=store, materializer=materializer),
+    )
+    try:
+        assert await retention.delete_due(now=source.deletion_due_at) == (source.case_id,)
+    finally:
+        release.set()
+    with pytest.raises(PermissionError, match="not current"):
+        await asyncio.wait_for(writer, timeout=1)
+    assert await projections.read_state("existing-pattern") is None
+    assert await projections.read_state("racing-pattern") is None
+
+
 async def test_artifact_delete_failure_keeps_retryable_deletion_intent() -> None:
     class _FailsOnceArtifacts(InMemoryCaseHistoryArtifactStore):
         def __init__(self) -> None:

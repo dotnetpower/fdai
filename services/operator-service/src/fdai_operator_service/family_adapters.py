@@ -12,6 +12,7 @@ from dataclasses import asdict, dataclass
 from typing import cast
 
 from fdai_service_contracts import OperatorRole, RuleSearchProjection, rule_search_query_digest
+from fdai_service_contracts.test_context import TestContextApplication
 from starlette.exceptions import HTTPException
 
 from fdai_operator_service.context_selection import ContextSelectionRegistry
@@ -82,6 +83,7 @@ from fdai_operator_service.postgres_read_investigation_replay import (
     PostgresReadInvestigationReplayStore,
 )
 from fdai_operator_service.postgres_semantic_turn_store import rule_search_projection_key
+from fdai_operator_service.postgres_test_context import PostgresTestContextOutbox
 from fdai_operator_service.process_transition_projection import (
     ProcessControlUnavailableError,
     ProcessTransitionDeniedError,
@@ -113,6 +115,53 @@ class PostgresConversationAdapters:
 
     async def read(self, query: ConversationQuery) -> ConversationResponse:
         """Read an explicitly materialized conversation projection."""
+        if query.operation == "test-context.command-status":
+            proposal_id = query.path_params.get("proposal_id")
+            if not isinstance(proposal_id, str) or not 1 <= len(proposal_id) <= 256:
+                raise HTTPException(status_code=400, detail="invalid context proposal identity")
+            try:
+                status = await PostgresTestContextOutbox(self.store).read_test_context_command(
+                    proposal_id=proposal_id,
+                    principal_id=query.scope.subject_id,
+                )
+            except PostgresFamilyStoreUnavailable as exc:
+                raise HTTPException(
+                    status_code=503, detail="context command status unavailable"
+                ) from exc
+            if status is None:
+                raise HTTPException(status_code=404, detail="context command not found")
+            if status.get("dispatch_status") not in {"pending", "claimed", "published", "rejected"}:
+                raise HTTPException(status_code=503, detail="context command status is invalid")
+            application = status.get("context_application")
+            if application is not None:
+                try:
+                    applied = TestContextApplication.model_validate(application)
+                except ValueError as exc:
+                    raise HTTPException(
+                        status_code=503, detail="context application is invalid"
+                    ) from exc
+                if applied.actor_id != query.scope.subject_id:
+                    raise HTTPException(
+                        status_code=503, detail="context application principal mismatch"
+                    )
+                status = {
+                    **status,
+                    "context_application": applied.model_dump(
+                        mode="json",
+                        exclude={"actor_id", "target_ref", "access_scope_digest", "request_key"},
+                    ),
+                }
+            return ConversationResponse(
+                body=cast(
+                    JsonObject,
+                    {
+                        **status,
+                        "policy_application": "recorded" if application is not None else "unknown",
+                        "current_authorization": "not_evaluated",
+                        "execution_authority": False,
+                    },
+                )
+            )
         try:
             background_response = await materialize_background_task(query, store=self.store)
         except PostgresFamilyStoreUnavailable as exc:

@@ -1,14 +1,68 @@
+import type { AgentOperationalActivityV13Message } from "../agent-operational-activity";
 import type { LiveStageEvent } from "../hooks/use-live-stream";
 import type { ProvisionEvent } from "../hooks/use-provision-stream";
 import type { ScheduledContinuationPayload } from "../user-context-client";
 
 const SAMPLE_AT = "2026-09-01T09:00:00Z";
 
-export const OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT = 30;
+export const OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT = 12;
 export const OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT = 180;
 export const OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS = 1_000;
 export const OPERATIONS_SAMPLE_LIVE_STAGE_INTERVAL_MS = 800;
 export const OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP = 3;
+
+export function sampleLiveObservations(
+  now = Date.now(),
+): readonly AgentOperationalActivityV13Message[] {
+  const sourceRead = (
+    domain: "metrics" | "activity-log" | null,
+    owner: "Heimdall" | "Huginn",
+    offsetMs: number,
+    durationMs: number,
+    resultCount: number,
+  ): AgentOperationalActivityV13Message => {
+    const observedAt = new Date(now - offsetMs).toISOString();
+    const startedAt = new Date(now - offsetMs - durationMs).toISOString();
+    const activityInstanceId = domain === null
+      ? "inventory.scan:sample-campaign"
+      : `observation:${domain}:sample-campaign`;
+    const status = domain === null ? "degraded" : "completed";
+    return {
+      type: "agent.operational-activity",
+      schema_version: "1.3.0",
+      activity_id: `${activityInstanceId}:${status}`,
+      activity_instance_id: activityInstanceId,
+      idempotency_key: `${activityInstanceId}:${status}`,
+      kind: domain === null ? "inventory.scan" : "observation",
+      status,
+      owner_agent: owner,
+      producer: domain === null ? "inventory-sync-job" : "observation-campaign-job",
+      observation_domain: domain,
+      observed_at: observedAt,
+      source: `sample-${domain ?? "inventory"}`,
+      freshness: domain === null ? "stale" : "fresh",
+      evidence_count: resultCount,
+      duration_ms: durationMs,
+      correlation_id: `sample-campaign-${domain ?? "inventory"}`,
+      reason_codes: domain === null ? ["source_stale"] : [],
+      summary_key: domain === null ? "inventory_collection" : "source_observation",
+      scope_class: domain === null ? "configured-estate" : "source-domain",
+      target_count: null,
+      result_state: "measured",
+      result_count: resultCount,
+      result_unit: domain === null ? "evidence-items" : "records",
+      source_cutoff: observedAt,
+      started_at: startedAt,
+      completed_at: observedAt,
+      execution_authority: false,
+    };
+  };
+  return [
+    sourceRead("metrics", "Heimdall", 1_000, 1_400, 0),
+    sourceRead("activity-log", "Huginn", 2_000, 6_700, 9),
+    sourceRead(null, "Huginn", 3_000, 26, 3_205),
+  ];
+}
 
 const SAMPLE_WORKLOADS = [
   {

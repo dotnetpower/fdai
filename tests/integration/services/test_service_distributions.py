@@ -361,11 +361,15 @@ def test_installed_contract_wheel_validates_its_bundled_manifest(tmp_path: Path)
             "-c",
             (
                 "import json; from importlib import resources; "
-                "from fdai_service_contracts import validate_manifest; "
+                "from fdai_service_contracts import "
+                "validate_manifest, transition_certified_matrix; "
                 "manifest=json.loads(resources.files('fdai_service_contracts')"
                 ".joinpath('compatibility-manifest.json').read_text()); "
                 "summary=validate_manifest(manifest); "
-                "print(summary.service_count, summary.contract_count, summary.matrix_edge_count)"
+                "print(summary.service_count, summary.contract_count, summary.matrix_edge_count); "
+                "print(','.join(sorted(item['id'] for item in manifest['contracts'] "
+                "if item['id'].startswith('alert-noise-')))); "
+                "print(len(transition_certified_matrix(manifest)))"
             ),
         ],
         cwd=tmp_path,
@@ -376,4 +380,8 @@ def test_installed_contract_wheel_validates_its_bundled_manifest(tmp_path: Path)
     )
 
     assert completed.returncode == 0, completed.stderr
-    assert completed.stdout.strip() == "5 9 9"
+    assert completed.stdout.splitlines() == [
+        "5 12 12",
+        "alert-noise-command,alert-noise-readiness,alert-noise-result",
+        "7",
+    ]

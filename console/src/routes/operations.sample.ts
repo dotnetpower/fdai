@@ -15,6 +15,7 @@ export {
   OPERATIONS_SAMPLE_LIVE_STAGE_INTERVAL_MS,
   OPERATIONS_SAMPLE_PROVISION_EVENTS,
   OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT,
+  sampleLiveObservations,
   sampleLiveEvents,
 } from "./operations.sample-events";
 

@@ -1,5 +1,6 @@
 """Assemble the complete logical topic registry for the Core runtime bus."""
 
+from fdai_service_contracts.alert_noise_wire import ALERT_NOISE_RESULT_TOPIC
 from fdai_service_contracts.assignment_transport import (
     ASSIGNMENT_PROJECTION_TOPIC,
     ASSIGNMENT_REQUEST_TOPIC,
@@ -34,6 +35,7 @@ RUNTIME_LOGICAL_TOPICS = (
     | frozenset(
         {
             _TRANSITION_TOPIC,
+            ALERT_NOISE_RESULT_TOPIC,
             ASSIGNMENT_REQUEST_TOPIC,
             ASSIGNMENT_PROJECTION_TOPIC,
             BACKGROUND_TASK_PROJECTION_TOPIC,

@@ -61,6 +61,11 @@
     { title: "Delete unattached disk", target: "Legacy workload", reason: "Disk is unused and still accruing cost", rule: "cost.orphan-disk.cleanup", at: "cost.disk.delete-orphan", scope: "rg-legacy", vertical: "cost" },
     { title: "Fail over lagging replica", target: "EU database replica", reason: "Replication lag threatens recovery time", rule: "reliability.replica-lag.alert", at: "reliability.replica.failover", scope: "rg-db-eu", vertical: "resilience" }
   ];
+  var SOURCE_READS = [
+    { id: "source-metrics", title: "Metrics observation", source: "metrics", owner: "Heimdall", scope: "Observation source", result: "0 records", status: "Completed", freshness: "Fresh", duration: "1.4s", reason: "No limitation recorded" },
+    { id: "source-activity-log", title: "Activity Log observation", source: "activity-log", owner: "Huginn", scope: "Observation source", result: "9 records", status: "Completed", freshness: "Fresh", duration: "6.7s", reason: "No limitation recorded" },
+    { id: "source-inventory", title: "Inventory collection", source: "inventory", owner: "Huginn", scope: "Configured estate", result: "3,205 evidence items", status: "Degraded", freshness: "Stale", duration: "26ms", reason: "source_stale" }
+  ];
 
   // ---------- state ----------
   var swarm = document.getElementById("swarm");
@@ -78,6 +83,7 @@
   var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   var pool = []; // tile records: { el, ev, startedAt, endsAt, retiresAt, state }
+  var sourceTiles = [];
   var lastFrame = 0;
   var emitAccum = 0;
   var paused = false;
@@ -277,9 +283,46 @@
     };
   }
 
+  function buildSourceTile(source, index) {
+    var observedAt = Date.now() - (index + 1) * 1000;
+    var el = document.createElement("div");
+    el.className = "cs-tile cs-source-tile";
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("data-empty", "false");
+    el.setAttribute("data-source-id", source.id);
+    el.setAttribute("data-state", source.status === "Completed" ? "done" : "active");
+    el.setAttribute("data-status", source.status.toLowerCase());
+    el.setAttribute(
+      "aria-label",
+      source.title + ". " + source.result + ". " + source.owner + ". " + source.freshness + ".",
+    );
+    el.innerHTML = ""
+      + '<div class="cs-tile-inner">'
+      +   '<div class="cs-tile-top">'
+      +     '<span class="cs-tile-mode">Source read</span>'
+      +     '<span class="cs-tile-stage" data-status="' + source.status.toLowerCase() + '">' + source.status + '</span>'
+      +   '</div>'
+      +   '<div class="cs-tile-title">' + escapeHtml(source.title) + '</div>'
+      +   '<div class="cs-tile-target">' + escapeHtml(source.scope + " · " + source.owner) + '</div>'
+      +   '<div class="cs-tile-reason">' + escapeHtml(source.result) + '</div>'
+      +   '<div class="cs-tile-meta">'
+      +     '<span class="cs-tile-owner">' + escapeHtml(source.freshness) + '</span>'
+      +     '<span class="cs-tile-scope">' + escapeHtml(source.duration) + '</span>'
+      +     '<time datetime="' + new Date(observedAt).toISOString() + '">Now</time>'
+      +   '</div>'
+      + '</div>';
+    return { el: el, source: source, observedAt: observedAt };
+  }
+
   function initPool() {
     swarm.innerHTML = "";
     pool.length = 0;
+    sourceTiles = SOURCE_READS.map(function (source, index) {
+      var tile = buildSourceTile(source, index);
+      swarm.appendChild(tile.el);
+      return tile;
+    });
     var n = computePoolSize();
     for (var i = 0; i < n; i++) {
       var t = buildTile();
@@ -948,13 +991,20 @@
 
   function matchesSlot(slot, filter, now) {
     if (!slot.ev || slot.state === "empty") return false;
-    if (filter === "all") return true;
+    if (filter === "all" || filter === "control") return true;
+    if (filter === "source") return false;
     return slotStatus(slot, now) === filter;
   }
 
   function applyFlowFilter(slot) {
     if (!slot || !slot.el) return;
-    slot.el.hidden = currentFilter !== "all" && !matchesSlot(slot, currentFilter, performance.now());
+    slot.el.hidden = !matchesSlot(slot, currentFilter, performance.now());
+  }
+
+  function applySourceFilters() {
+    sourceTiles.forEach(function (tile) {
+      tile.el.hidden = currentFilter !== "all" && currentFilter !== "source";
+    });
   }
 
   function queueRank(slot, now) {
@@ -994,8 +1044,11 @@
       return rank || queueRiskRank(left) - queueRiskRank(right) || left.ev.emitAt - right.ev.emitAt;
     });
     visible = visible.slice(0, 12);
-    queueEmpty.hidden = visible.length > 0;
-    queueBody.innerHTML = visible.map(function (slot) {
+    var sourceVisible = currentFilter === "all" || currentFilter === "source"
+      ? sourceTiles
+      : [];
+    queueEmpty.hidden = visible.length + sourceVisible.length > 0;
+    var controlRows = visible.map(function (slot) {
       var ev = slot.ev;
       var status = slotStatus(slot, now);
       var state = controlState(slot);
@@ -1013,18 +1066,33 @@
         + '<td data-label="Age / SLA">' + ageLabel(Date.now() - ev.emitAt) + '<br><small>' + slaLabel(slot) + '</small></td>'
         + '<td class="cs-live-queue-state" data-label="Control state"><span class="out ' + decisionClass + '">' + escapeHtml(state.policy) + '</span><small>' + escapeHtml(state.authority) + '</small><small>' + escapeHtml(state.execution) + ' · ' + escapeHtml(state.effect) + '</small></td>'
         + '</tr>';
-    }).join("");
+    });
+    var sourceRows = sourceVisible.map(function (tile) {
+      var source = tile.source;
+      return '<tr data-status="' + source.status.toLowerCase() + '" data-source-id="' + escapeHtml(source.id) + '">'
+        + '<td><button class="cs-live-queue-action" type="button" data-select-source="' + escapeHtml(source.id) + '"><strong>' + escapeHtml(source.title) + '</strong><span>' + escapeHtml(source.scope) + '</span></button></td>'
+        + '<td data-label="Type / state"><span class="cs-live-queue-badges"><span class="cs-tile-mode cs-live-queue-mode" data-mode="shadow">Source read</span><span>' + escapeHtml(source.status) + '</span></span></td>'
+        + '<td data-label="Result"><span class="cs-live-queue-reason">' + escapeHtml(source.result) + '</span></td>'
+        + '<td data-label="Owner / source"><strong>' + escapeHtml(source.owner) + '</strong><br><small>' + escapeHtml(source.source) + '</small></td>'
+        + '<td data-label="Authority"><strong>Read-only</strong><br><small>No execution</small></td>'
+        + '<td data-label="Freshness / duration">' + escapeHtml(source.freshness) + '<br><small>' + escapeHtml(source.duration) + '</small></td>'
+        + '<td class="cs-live-queue-state" data-label="Evidence state"><span class="out">' + escapeHtml(source.status) + '</span><small>' + escapeHtml(source.reason) + '</small></td>'
+        + '</tr>';
+    });
+    queueBody.innerHTML = controlRows.concat(sourceRows).join("");
   }
 
   function renderOperationalState(now) {
-    var counts = { all: 0, hil: 0, abstain: 0, deny: 0, failed: 0, stuck: 0 };
+    var counts = { all: sourceTiles.length, control: 0, source: sourceTiles.length, hil: 0, abstain: 0, deny: 0, failed: 0, stuck: 0 };
     pool.forEach(function (slot) {
       if (!slot.ev || slot.state === "empty") return;
       counts.all++;
+      counts.control++;
       var status = slotStatus(slot, now);
       if (Object.prototype.hasOwnProperty.call(counts, status)) counts[status]++;
       applyFlowFilter(slot);
     });
+    applySourceFilters();
 
     Object.keys(counts).forEach(function (key) {
       var count = document.getElementById("filter-" + key);
@@ -1037,7 +1105,7 @@
     });
 
     var attentionTotal = counts.hil + counts.deny + counts.failed + counts.stuck;
-    document.getElementById("work-summary").textContent = counts.all + " active · " + attentionTotal + " need attention";
+    document.getElementById("work-summary").textContent = counts.all + " current · " + counts.control + " control-loop · " + counts.source + " source reads";
     var attention = document.getElementById("live-attention");
     document.getElementById("attention-calm").hidden = attentionTotal > 0;
     document.getElementById("attention-items").hidden = attentionTotal === 0;
@@ -1096,6 +1164,10 @@
     return pool.find(function (slot) { return slot.ev && slot.ev.id === eventId; }) || null;
   }
 
+  function sourceForId(sourceId) {
+    return sourceTiles.find(function (tile) { return tile.source.id === sourceId; }) || null;
+  }
+
   function closeDetail() {
     detailBackdrop.hidden = true;
     document.body.style.overflow = "";
@@ -1103,7 +1175,10 @@
       ? document.querySelector('[data-select-event="' + detailReturnEventId + '"]')
       : null;
     if (!fallbackFocus && detailReturnEventId && viewMode === "flow") {
-      fallbackFocus = document.querySelector('.cs-tile[data-event-id="' + detailReturnEventId + '"]');
+      fallbackFocus = document.querySelector(
+        '.cs-tile[data-event-id="' + detailReturnEventId + '"],'
+        + '.cs-tile[data-source-id="' + detailReturnEventId + '"]',
+      );
     }
     if (!fallbackFocus) fallbackFocus = viewMode === "queue" ? queueButton : flowButton;
     var restoreFocus = detailPreviousFocus && detailPreviousFocus !== document.body && detailPreviousFocus.isConnected
@@ -1121,6 +1196,10 @@
     detailPreviousFocus = document.activeElement;
     detailReturnEventId = slot.ev.id;
     var ev = slot.ev;
+    document.getElementById("detail-control-content").hidden = false;
+    document.getElementById("detail-source-content").hidden = true;
+    document.getElementById("detail-boundary-title").textContent = "Synthetic runtime observation";
+    document.getElementById("detail-boundary-copy").textContent = "Not durable audit evidence and not valid for operational approval.";
     var path = stagePath(ev);
     var currentStage = path.indexOf(slot.stageEl.textContent);
     if (currentStage < 0) currentStage = slot.state === "done" ? path.length : 0;
@@ -1167,6 +1246,31 @@
     document.getElementById("detail-trace-link").href = "rule-trace.html?correlation=corr-" + encodeURIComponent(ev.id.slice(4));
     document.getElementById("detail-audit-link").href = "audit.html?correlation=corr-" + encodeURIComponent(ev.id.slice(4));
     document.getElementById("detail-audit-link").textContent = ev.auditClosed ? "Open synthetic audit" : "View audit intent";
+    detailBackdrop.hidden = false;
+    document.body.style.overflow = "hidden";
+    detailClose.focus();
+  }
+
+  function openSourceDetail(tile) {
+    if (!tile) return;
+    detailPreviousFocus = document.activeElement;
+    detailReturnEventId = tile.source.id;
+    document.getElementById("detail-control-content").hidden = true;
+    document.getElementById("detail-source-content").hidden = false;
+    document.getElementById("detail-title").textContent = tile.source.title;
+    document.getElementById("detail-boundary-title").textContent = "Synthetic source read";
+    document.getElementById("detail-boundary-copy").textContent = "Read-only source evidence. It is not a control-loop decision or execution result.";
+    document.getElementById("detail-source-title").textContent = tile.source.title;
+    document.getElementById("detail-source-status").textContent = tile.source.status;
+    document.getElementById("detail-source-scope").textContent = tile.source.scope;
+    document.getElementById("detail-source-owner").textContent = tile.source.owner;
+    document.getElementById("detail-source-result").textContent = tile.source.result;
+    document.getElementById("detail-source-reason").textContent = tile.source.reason;
+    document.getElementById("detail-source-read-freshness").textContent = tile.source.freshness;
+    document.getElementById("detail-source-duration").textContent = tile.source.duration;
+    document.getElementById("detail-source-observed").textContent = new Date(tile.observedAt).toISOString();
+    document.getElementById("detail-source-activity").textContent = tile.source.id;
+    document.getElementById("detail-source-name").textContent = tile.source.source;
     detailBackdrop.hidden = false;
     document.body.style.overflow = "hidden";
     detailClose.focus();
@@ -1219,6 +1323,12 @@
   });
   queueBody.addEventListener("click", function (event) {
     var target = event.target instanceof Element ? event.target : null;
+    var sourceButton = target ? target.closest("[data-select-source]") : null;
+    if (sourceButton) {
+      selectedEventId = sourceButton.getAttribute("data-select-source");
+      openSourceDetail(sourceForId(selectedEventId));
+      return;
+    }
     var button = target ? target.closest("[data-select-event]") : null;
     if (!button) return;
     selectedEventId = button.getAttribute("data-select-event");
@@ -1229,6 +1339,12 @@
   });
   swarm.addEventListener("click", function (event) {
     var target = event.target instanceof Element ? event.target : null;
+    var sourceTile = target ? target.closest("[data-source-id]") : null;
+    if (sourceTile) {
+      selectedEventId = sourceTile.getAttribute("data-source-id");
+      openSourceDetail(sourceForId(selectedEventId));
+      return;
+    }
     var tile = target ? target.closest("[data-event-id]") : null;
     if (!tile) return;
     selectedEventId = tile.getAttribute("data-event-id");
@@ -1236,6 +1352,13 @@
   });
   swarm.addEventListener("keydown", function (event) {
     if (event.key !== "Enter" && event.key !== " ") return;
+    var sourceTarget = event.target instanceof Element ? event.target.closest("[data-source-id]") : null;
+    if (sourceTarget) {
+      event.preventDefault();
+      selectedEventId = sourceTarget.getAttribute("data-source-id");
+      openSourceDetail(sourceForId(selectedEventId));
+      return;
+    }
     var target = event.target instanceof Element ? event.target.closest("[data-event-id]") : null;
     if (!target) return;
     event.preventDefault();
@@ -1282,10 +1405,10 @@
   var initialParams = new URL(location.href).searchParams;
   var initialFilter = initialParams.get("filter");
   setView(initialParams.get("view") === "queue" ? "queue" : "flow");
-  setFilter(["hil", "deny", "failed", "stuck"].includes(initialFilter) ? initialFilter : "all");
+  setFilter(["control", "source", "hil", "deny", "failed", "stuck"].includes(initialFilter) ? initialFilter : "all");
   document.addEventListener("keydown", function (event) {
-    if (/^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName) || !/^[1-5]$/.test(event.key) || !detailBackdrop.hidden) return;
-    setFilter(["all", "hil", "deny", "failed", "stuck"][Number(event.key) - 1]);
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName) || !/^[1-7]$/.test(event.key) || !detailBackdrop.hidden) return;
+    setFilter(["all", "control", "source", "hil", "deny", "failed", "stuck"][Number(event.key) - 1]);
   });
   syncFullscreen();
   // Timer-driven so the synthetic preview continues in integrated browser

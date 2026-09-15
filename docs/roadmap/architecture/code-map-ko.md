@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: e73b835bbd1e4765c23c74e3e28188cc7cf2e334
-translation_revised: 2026-09-12
+translation_source_sha: a1c8e1a17b90f2146e1704cedefe19a037555e76
+translation_revised: 2026-09-15
 ---
 # 코드 맵
 
@@ -45,6 +45,7 @@ Core 배포 단위는 전체 `fdai` 네임스페이스를 유지합니다. 다�
 | 운영 온톨로지와 인스턴스 그래프 | [ontology_platform](../../../services/core-control-plane/src/fdai/core/ontology_platform/) | [온톨로지 테스트](../../../services/core-control-plane/tests/core/ontology_platform/) | [운영 온톨로지 플랫폼](operating-ontology-platform-ko.md) |
 | 운영 맥락 | [operational_context](../../../services/core-control-plane/src/fdai/core/operational_context/) | [운영 맥락 테스트](../../../services/core-control-plane/tests/core/operational_context/) | [운영 의도 원본](operating-intent-source-ko.md) |
 | 감지와 조사 | [detection](../../../services/core-control-plane/src/fdai/core/detection/) 및 [investigation](../../../services/core-control-plane/src/fdai/core/investigation/) | [감지 테스트](../../../services/core-control-plane/tests/core/detection/) 및 [조사 테스트](../../../services/core-control-plane/tests/core/investigation/) | [관측성과 감지](../rules-and-detection/observability-and-detection-ko.md) |
+| 알림 과다 수신 관리 | [alert_noise](../../../services/core-control-plane/src/fdai/core/detection/alert_noise/), [런타임 연결](../../../services/core-control-plane/src/fdai/runtime/alert_noise.py), [Operator 경계](../../../services/operator-service/src/fdai_operator_service/alert_quality.py) | [알림 Core 테스트](../../../services/core-control-plane/tests/core/detection/alert_noise/) 및 [Operator 테스트](../../../services/operator-service/tests/test_alert_quality.py) | [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md) |
 | 근본 원인 분석과 평가 | [RCA](../../../services/core-control-plane/src/fdai/core/rca/) 및 [framework_assessment](../../../services/core-control-plane/src/fdai/core/framework_assessment/) | [RCA 테스트](../../../services/core-control-plane/tests/core/rca/) 및 [평가 테스트](../../../services/core-control-plane/tests/core/framework_assessment/) | [근본 원인 분석](../rules-and-detection/root-cause-analysis-ko.md) |
 | Workflow와 실행 조정 | [workflow](../../../services/core-control-plane/src/fdai/core/workflow/) 및 [executor](../../../services/core-control-plane/src/fdai/core/executor/) | [Workflow 테스트](../../../services/core-control-plane/tests/core/workflow/) 및 [실행기 테스트](../../../services/core-control-plane/tests/core/executor/) | [실행 권한 온톨로지](../decisioning/execution-authorization-ontology-ko.md) |
 | Rule Catalog 런타임 | [rule_catalog](../../../services/core-control-plane/src/fdai/rule_catalog/) | [Rule Catalog 테스트](../../../services/core-control-plane/tests/rule_catalog/) | [Rule Catalog 수집](../rules-and-detection/rule-catalog-collection-ko.md) |

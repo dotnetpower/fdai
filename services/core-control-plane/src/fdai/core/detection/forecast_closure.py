@@ -74,6 +74,7 @@ class ForecastClosureCoordinator:
                         closed_at=now,
                         reason=reason,
                         outcome_payload=(outcome.model_dump(mode="json") if outcome else None),
+                        observation=observation,
                     )
                 )
             except Exception as exc:  # noqa: BLE001 - re-raised after the batch
@@ -135,6 +136,8 @@ def _close_episode(
         observation.actual_breach_at is not None
         and observation.actual_breach_at <= episode.horizon_ended_at
         and observation.telemetry_completeness is TelemetryCompleteness.COMPLETE
+        and not observation.scoring_exclusions
+        and not observation.intervention_refs
     ):
         miss_origin = (
             ForecastMissOrigin.PIPELINE
@@ -166,7 +169,11 @@ def _close_episode(
             ),
             ForecastClosureReason.SCORED,
         )
-    if observation.telemetry_completeness is not TelemetryCompleteness.COMPLETE:
+    if (
+        observation.scoring_exclusions
+        or observation.intervention_refs
+        or observation.telemetry_completeness is not TelemetryCompleteness.COMPLETE
+    ):
         return None, ForecastClosureReason.ABSTAINED_NO_BREACH
     reason = (
         ForecastClosureReason.ABSTAINED_NO_BREACH

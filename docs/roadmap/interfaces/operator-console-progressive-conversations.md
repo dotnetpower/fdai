@@ -22,6 +22,15 @@ incomplete and must not suppress that read. Recovery renders the stored terminal
 same validated presenter; it never resends the question, creates a model call, or rewrites history.
 New input or a session switch invalidates an in-flight restoration before it can replace the view.
 
+Typed test-context drafts retain exact targets, expected bounds, aware intervals, and source receipts
+through HTTP, streaming, and replay. Strict decoding rejects extra authority fields and invalid dates;
+only an `action_draft` result carries this candidate. Scope/policy selection and submission UI remain
+unimplemented; see [case-history delivery](../rules-and-detection/prediction-learning-and-case-history.md).
+Operator composition imports the unchanged test-context worker through its existing durable-outbox
+facade; this grouping changes neither worker identity, readiness, publication, nor authority.
+Replay regression fixtures generate synthetic UUIDv4 identities at test time; the production
+receipt parser still rejects invalid identity shapes and never treats fixture identifiers as evidence.
+
 Validated advisory terminals render their complete canonical text immediately. They do not replay
 an artificial typewriter after the server has already completed review. Ordinary streamed deltas
 retain their pacing and ordering, and malformed advisory metadata cannot select this fast path.
@@ -37,6 +46,7 @@ remains the recovery path when notifications are absent.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Test-context draft propagation | implemented | `console/src/deck/test-context.test.ts`; owning draft/advisory/transcript/stream checks: 128 passed; production and test TypeScript compilers passed | Candidate-only data survives server and local replay. No new renderer, selection, submission, review, or authority is claimed. |
 | Adaptive answer source and replay presentation | implemented | `adaptive-answer.test.ts` passed 33 cases; `turn-history.test.ts` and `command-deck.session.test.ts` passed 20 cases; Console typecheck and build passed | General knowledge has no blanket query receipt. Goal-local support and separate draft explanations survive streaming and restoration; malformed streams clear unverified text. Browser runtime validation is separate. |
 | General starter immediate submission | implemented | `general-conversation-intro.tsx`; `command-deck-view.tsx`; `conversation-entry.spec.ts` | All three bilingual starters submit the displayed question through the normal context-aware path on pointer or keyboard activation. Tooltips explain immediate submission. Six starter cases and both existing entry scenarios pass with synthetic responses, not live model calls. |
 | Web progressive stream reduction | implemented | Operator `semantic_turn_runtime.py`; [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts); [`use-command-deck-lifecycle.test.ts`](../../../console/src/deck/use-command-deck-lifecycle.test.ts); focused Operator and Console stream checks | Verified answered projections emit at most 64 cumulative receipt-bound confirmed segments before `done`. Raw tokens stay hidden until terminal agreement, and receipt, text, revision, malformed-frame, interruption, error, and sequence failures retract preterminal content. Cancellation preserves observed investigation activity and evidence while retracting only provisional answer text and confirmation. This row does not claim Browser, Teams, or Slack runtime validation. |
@@ -63,6 +73,7 @@ remains the recovery path when notifications are absent.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | in-progress | Added strict no-authority test-context draft decoding and propagation through HTTP, streaming, turn state, and server/local replay. Rejected normalized invalid calendar dates and untyped authority fields. | `current change`; four owning Console test files: 128 passed; production and test typechecks passed. | Complete authenticated scope/policy selection and submission/status presentation; no visual or live qualification was performed. |
 | 2026-09-14 | validated | Removed the automatic-only idle gate from the explicit top-bar Incident selection. The click now opens a fresh bound conversation, preserves the prior screen draft, omits screen evidence and a default target agent, and submits the exact Incident binding. | Focused Console tests passed, the synthetic browser regression passed, and the authenticated standard-port Console rendered an `Answer ready` terminal with three verified correlated audit records and `plan_source=bound_incident`. | No remaining implementation work for this bounded entry-path repair. |
 | 2026-09-08 | implemented | Added receipt-bound progressive semantic answer segments from the already durable verified projection. Console reveals only a matching answered receipt and retracts on terminal receipt, text, revision, sequence, error, interruption, or malformed-frame failure. Large answers remain within the 64-segment contract. | `current change`; Operator semantic bridge passed 151 tests and Console stream safety passed 76 tests. | Retain authenticated standard-port evidence before raising this path to validated. |
 | 2026-09-08 | implemented | Added a localized lifecycle-state column so deferred and disputed assessments remain visibly distinct from completed assessments. | `current change`; focused route and catalog checks passed 11 cases, Console typecheck passed, and catalog parity passed. | Retain authenticated browser validation separately. |
@@ -138,6 +149,8 @@ remains the recovery path when notifications are absent.
 
 ### Remaining work
 
+- [ ] Render test-context drafts with authenticated scope/policy choices, proposal/review/revocation,
+  and separately labeled delivery/application status before calling that workflow complete.
 - [ ] Retain an authenticated Command Deck receipt where the exact AKS current-state ObjectSet and
   Function activities become running and completed before the authoritative terminal answer.
 - [ ] Retain a passing authenticated request-to-Console four-stage ontology receipt at a new

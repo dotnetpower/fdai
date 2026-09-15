@@ -232,8 +232,8 @@ for (const locale of ["en", "ko"] as const) {
     await page.keyboard.press("Enter");
 
     await expect(page).toHaveURL(new RegExp(`/audit\\?correlation=${correlationId}$`));
-    await expect(page.locator("main tbody tr")).toHaveCount(1);
-    await expect(page.locator("main tbody")).toContainText("risk_gate.unified");
+    await expect(page.locator(".audit-record")).toHaveCount(1);
+    await expect(page.locator("#audit-selected-title")).toHaveText("risk_gate.unified");
     const overflow = await page.locator("main").evaluate(
       element => element.scrollWidth > element.clientWidth,
     );
@@ -245,8 +245,8 @@ test("runtime notification audit destination ignores the Sample preference", asy
   await installFixture(page, { missingIncident: true });
   await page.addInitScript(() => sessionStorage.setItem("fdai:console:data-mode", "sample"));
   await page.goto(`/audit?correlation=${correlationId}`);
-  await expect(page.locator("main tbody tr")).toHaveCount(1);
-  await expect(page.locator("main tbody")).toContainText("risk_gate.unified");
+  await expect(page.locator(".audit-record")).toHaveCount(1);
+  await expect(page.locator("#audit-selected-title")).toHaveText("risk_gate.unified");
   await expect(page).not.toHaveURL(/data=sample/);
 });
 

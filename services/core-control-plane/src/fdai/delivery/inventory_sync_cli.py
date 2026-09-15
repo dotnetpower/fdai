@@ -545,14 +545,17 @@ async def run(
                 ),
             )
             if config.recovery_delta_enabled:
-                await _forward_recovery_deltas(
-                    config=config,
-                    identity=identity,
-                    vocabulary=vocabulary,
-                    http_client=client,
-                    event_bus=event_bus,
-                    topic=event_topic,
-                    scope_lock=_recovery_delta_lock(config),
+                await inventory_sync_cli_support.try_recovery_delta_operation(
+                    lambda: _forward_recovery_deltas(
+                        config=config,
+                        identity=identity,
+                        vocabulary=vocabulary,
+                        http_client=client,
+                        event_bus=event_bus,
+                        topic=event_topic,
+                        scope_lock=_recovery_delta_lock(config),
+                    ),
+                    logger=_LOGGER,
                 )
         finally:
             await event_bus.close()
@@ -724,14 +727,9 @@ async def _try_resource_change_feed(config: InventoryJobConfig) -> int | None:
 async def _try_recovery_delta(config: InventoryJobConfig) -> int | None:
     if not config.recovery_delta_enabled:
         return 0
-    try:
-        return await run_recovery_delta(config)
-    except Exception as exc:  # noqa: BLE001 - read-only accelerator degrades independently
-        _LOGGER.warning(
-            "inventory_change_stream_unavailable",
-            extra={"reason": type(exc).__name__},
-        )
-        return None
+    return await inventory_sync_cli_support.try_recovery_delta_operation(
+        lambda: run_recovery_delta(config), logger=_LOGGER
+    )
 
 
 async def _main(argv: list[str]) -> None:

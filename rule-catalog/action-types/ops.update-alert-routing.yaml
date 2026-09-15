@@ -1,0 +1,77 @@
+schema_version: "1.0.0"
+name: ops.update-alert-routing
+version: "1.0.0"
+operation: update
+interfaces:
+  - ControlPlane
+  - IdempotentByKey
+  - RateLimited
+  - RequiresInventoryFresh
+  - GraphTraversalRequired
+  - RequiresMaintenanceWindow
+rollback_contract: pr_revert
+irreversible: false
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 30
+  min_samples: 100
+  min_accuracy: 1.0
+  max_policy_escapes: 0
+preconditions:
+  - kind: graph_fresh_within_seconds
+    value: 300
+  - kind: no_conflicting_open_action_on_resource
+  - kind: maintenance_window_active
+stop_conditions:
+  - kind: provider_api_error_streak
+    count: 1
+  - kind: dependent_resource_degraded
+  - kind: time_box_exceeded_seconds
+    seconds: 3600
+blast_radius:
+  computation: static_enum
+  static_bucket: resource_group
+  max_affected_resources: 1
+# One exact changed object. The action port must separately reject unknown or
+# out-of-resource-group dependencies, protected routes and mixed automation edits.
+# It must verify tested rollback and successful dry-run receipts, fence the target
+# and dependencies, retain stable idempotency, and write audit intent plus closure.
+# These declarations are not evidence that the seven safeguards have passed.
+description: >-
+  Propose a manually reviewed IaC diff for one existing alert routing target,
+  resolved only from an immutable approved plan. PR delivery is not an Azure effect.
+category: ops
+trigger_kind:
+  kind: operator_request
+execution_path: pr_manual
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: owner
+  t1:
+    max_autonomy: enforce_hil
+    min_role: owner
+  t2:
+    max_autonomy: shadow_only
+    min_role: owner
+env_scope: any
+prod_downgrade:
+  mode: enforce_hil
+  detection_ref: risk-classification/env-detector
+argument_schema:
+  type: object
+  additionalProperties: false
+  required: [plan_digest]
+  properties:
+    plan_digest:
+      type: string
+      pattern: "^[a-f0-9]{64}$"
+      minLength: 64
+      maxLength: 64
+      description: SHA-256 digest of the approved forward plan; no caller-selected target or fields.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai/blob/main/rule-catalog/action-types/ops.update-alert-routing.yaml
+  resolved_ref: action-type:ops.update-alert-routing@1.0.0
+  content_hash: sha256:0a946a5320aa969b2c7dc13fd19088fefaaedf350efe02e692417aa199463e44
+  license: BUSL-1.1
+  retrieved_at: "2026-09-14T00:00:00Z"

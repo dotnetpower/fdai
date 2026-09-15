@@ -92,6 +92,50 @@
       ]
     },
     {
+      "id": "alert-noise-governance",
+      "paths": [
+        "docs/roadmap/operations/alert-noise-governance*.md",
+        "docs/roadmap-implementation/operations/alert-noise-governance.md",
+        "docs/runbooks/alert-noise-governance*.md",
+        "packages/service-contracts/src/fdai_service_contracts/alert_noise*.py",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/alert-noise-*/**",
+        "packages/service-contracts/tests/test_alert_noise*.py",
+        "services/core-control-plane/src/fdai/core/detection/alert_noise/**",
+        "services/core-control-plane/src/fdai/delivery/alert_noise*.py",
+        "services/core-control-plane/src/fdai/delivery/azure/alert_noise*.py",
+        "services/core-control-plane/src/fdai/runtime/alert_noise*.py",
+        "services/core-control-plane/src/fdai/shared/providers/alert_noise.py",
+        "services/core-control-plane/tests/**/test_alert_noise*.py",
+        "services/core-control-plane/tests/core/detection/alert_noise/**",
+        "services/operator-service/src/fdai_operator_service/alert_quality*.py",
+        "services/operator-service/tests/test_alert_quality*.py",
+        "console/src/routes/alert-quality*",
+        "console/src/routes/i18n/alert-quality*",
+        "console/tests/e2e/alert-quality.spec.ts",
+        "rule-catalog/action-types/ops.*alert*.yaml",
+        "rule-catalog/workflows/alert-*.yaml",
+        "scripts/quality/contracts/generate_alert_noise_schemas.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "docs/roadmap/operations/alert-noise-governance.md",
+        "docs/roadmap/rules-and-detection/observability-and-detection.md",
+        "docs/roadmap/interfaces/channels-and-notifications.md",
+        "docs/roadmap/decisioning/action-ontology.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/operations/alert-noise-governance.md",
+        "docs/roadmap-implementation/operations/alert-noise-governance.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py",
+        "python3 scripts/quality/architecture/check-document-size.py",
+        "bash scripts/quality/localization/check-translations.sh docs/roadmap/operations/alert-noise-governance.md docs/roadmap/operations/alert-noise-governance-ko.md"
+      ]
+    },
+    {
       "id": "permission-aware-observation-campaign",
       "paths": [
         "config/observation-sources.yaml",
