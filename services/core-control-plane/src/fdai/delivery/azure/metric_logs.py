@@ -55,6 +55,7 @@ from typing import Any, Final
 import httpx
 
 from fdai.shared.providers.metric import (
+    MetricFailureReason,
     MetricPoint,
     MetricProviderError,
     MetricQuery,
@@ -151,26 +152,37 @@ def _parse_timestamp(raw: Any) -> datetime:
     if isinstance(raw, datetime):
         return raw
     if not isinstance(raw, str) or not raw:
-        raise MetricProviderError(f"non-string timestamp in Log Analytics row: {raw!r}")
+        raise MetricProviderError(
+            "non-string timestamp in Log Analytics row",
+            reason=MetricFailureReason.INVALID_RESPONSE,
+        )
     text = raw.replace("Z", "+00:00") if raw.endswith("Z") else raw
     try:
         return datetime.fromisoformat(text)
     except ValueError as exc:
-        raise MetricProviderError(f"unparseable Log Analytics timestamp: {raw!r}") from exc
+        raise MetricProviderError(
+            "unparseable Log Analytics timestamp", reason=MetricFailureReason.INVALID_RESPONSE
+        ) from exc
 
 
 def _coerce_value(raw: Any) -> float:
     """Coerce a Log Analytics cell into a float, failing closed on garbage."""
     if isinstance(raw, bool):  # bool is an int subclass - reject to avoid 0/1 surprises
-        raise MetricProviderError(f"boolean where numeric metric expected: {raw!r}")
+        raise MetricProviderError(
+            "boolean where numeric metric expected", reason=MetricFailureReason.INVALID_RESPONSE
+        )
     try:
         value = float(raw)
     except (TypeError, ValueError) as exc:
-        raise MetricProviderError(f"non-numeric metric value: {raw!r}") from exc
+        raise MetricProviderError(
+            "non-numeric metric value", reason=MetricFailureReason.INVALID_RESPONSE
+        ) from exc
     # NaN / +-Inf would silently poison anomaly detection (nan breaks every
     # comparison, inf breaks every sum). Fail closed so the caller abstains.
     if not isfinite(value):
-        raise MetricProviderError(f"non-finite metric value: {raw!r}")
+        raise MetricProviderError(
+            "non-finite metric value", reason=MetricFailureReason.INVALID_RESPONSE
+        )
     return value
 
 
@@ -196,7 +208,8 @@ class AzureMonitorLogsMetricProvider:
         template = self._config.queries.get(query.metric_name)
         if template is None:
             raise MetricProviderError(
-                f"no KQL template configured for metric {query.metric_name!r}"
+                f"no KQL template configured for metric {query.metric_name!r}",
+                reason=MetricFailureReason.INVALID_QUERY,
             )
 
         points = await self._run(query=query, template=template)
@@ -233,16 +246,28 @@ class AzureMonitorLogsMetricProvider:
                 content=json.dumps(body),
                 timeout=self._config.timeout_seconds,
             )
+        except httpx.TimeoutException as exc:
+            raise MetricProviderError(
+                f"Log Analytics request timed out for {query.metric_name!r}",
+                reason=MetricFailureReason.TIMEOUT,
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            raise MetricProviderError(
+                f"Log Analytics returned HTTP {exc.response.status_code} for {query.metric_name!r}",
+                reason=MetricFailureReason.HTTP_ERROR,
+                http_status=exc.response.status_code,
+            ) from exc
         except httpx.HTTPError as exc:
             raise MetricProviderError(
-                f"Log Analytics request failed for {query.metric_name!r}: {exc}"
+                f"Log Analytics request failed for {query.metric_name!r}",
+                reason=MetricFailureReason.TRANSPORT_ERROR,
             ) from exc
 
         if response.status_code >= 400:
-            snippet = response.text[:200].replace("\n", " ")
             raise MetricProviderError(
-                f"Log Analytics returned HTTP {response.status_code} for "
-                f"{query.metric_name!r}: {snippet!r}"
+                f"Log Analytics returned HTTP {response.status_code} for {query.metric_name!r}",
+                reason=MetricFailureReason.HTTP_ERROR,
+                http_status=response.status_code,
             )
 
         # Cap the body before parsing. ``max_rows`` only applies AFTER the
@@ -253,14 +278,16 @@ class AzureMonitorLogsMetricProvider:
             raise MetricProviderError(
                 f"Log Analytics response for {query.metric_name!r} is "
                 f"{len(response.content)} bytes, over the "
-                f"{self._config.max_response_bytes}-byte cap; narrow the query"
+                f"{self._config.max_response_bytes}-byte cap; narrow the query",
+                reason=MetricFailureReason.RESPONSE_LIMIT,
             )
 
         try:
             payload = response.json()
         except ValueError as exc:
             raise MetricProviderError(
-                f"Log Analytics returned non-JSON for {query.metric_name!r}"
+                f"Log Analytics returned non-JSON for {query.metric_name!r}",
+                reason=MetricFailureReason.INVALID_RESPONSE,
             ) from exc
 
         return self._map_payload(payload=payload, query=query, template=template)
@@ -275,13 +302,17 @@ class AzureMonitorLogsMetricProvider:
         tables = payload.get("tables") if isinstance(payload, Mapping) else None
         if not isinstance(tables, list) or not tables:
             raise MetricProviderError(
-                f"Log Analytics payload missing 'tables' for {query.metric_name!r}"
+                f"Log Analytics payload missing 'tables' for {query.metric_name!r}",
+                reason=MetricFailureReason.INVALID_RESPONSE,
             )
         table = tables[0]
         columns = table.get("columns") if isinstance(table, Mapping) else None
         rows = table.get("rows") if isinstance(table, Mapping) else None
         if not isinstance(columns, list) or not isinstance(rows, list):
-            raise MetricProviderError(f"Log Analytics table malformed for {query.metric_name!r}")
+            raise MetricProviderError(
+                f"Log Analytics table malformed for {query.metric_name!r}",
+                reason=MetricFailureReason.INVALID_RESPONSE,
+            )
 
         index = _column_index(columns)
         ts_i = _require_column(index, template.timestamp_column, query.metric_name)
@@ -297,18 +328,21 @@ class AzureMonitorLogsMetricProvider:
         if len(rows) > self._config.max_rows:
             raise MetricProviderError(
                 f"Log Analytics returned {len(rows)} rows for {query.metric_name!r}, "
-                f"over the max_rows cap of {self._config.max_rows}; narrow the query"
+                f"over the max_rows cap of {self._config.max_rows}; narrow the query",
+                reason=MetricFailureReason.RESPONSE_LIMIT,
             )
 
         points: list[MetricPoint] = []
         for row in rows:
             if not isinstance(row, list):
                 raise MetricProviderError(
-                    f"Log Analytics row is not an array for {query.metric_name!r}"
+                    f"Log Analytics row is not an array for {query.metric_name!r}",
+                    reason=MetricFailureReason.INVALID_RESPONSE,
                 )
             if len(row) <= needed:
                 raise MetricProviderError(
-                    f"Log Analytics row has fewer cells than columns for {query.metric_name!r}"
+                    f"Log Analytics row has fewer cells than columns for {query.metric_name!r}",
+                    reason=MetricFailureReason.INVALID_RESPONSE,
                 )
             labels = {name: str(row[i]) for name, i in label_i.items()}
             if not _labels_match(labels, query.labels):
@@ -371,7 +405,8 @@ def _column_index(columns: list[Any]) -> dict[str, int]:
 def _require_column(index: Mapping[str, int], name: str, metric_name: str) -> int:
     if name not in index:
         raise MetricProviderError(
-            f"Log Analytics result for {metric_name!r} lacks required column {name!r}"
+            f"Log Analytics result for {metric_name!r} lacks required column {name!r}",
+            reason=MetricFailureReason.INVALID_RESPONSE,
         )
     return index[name]
 
