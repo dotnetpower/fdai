@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 6b549689d83d31b2441a6a53ddd15084bffacdf4
+translation_source_sha: f4aae6588ffdad0a1e7c9bf025c963298520b500
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -590,14 +590,19 @@ Console 데이터를 열기 전에 초기화는 인증된 `GET /iam/self`로 pri
 상태만 배치합니다. 범위 선택은 권위 있는 변환 결과를 다시 불러옵니다. Resource 검색은 해당 변환
 결과가 이미 반환한 기록만 선택하며 범위가 제한된 페이지를 완전한 테넌트 검색으로 표시하지 않습니다.
 
-선택 전에도 토폴로지를 표시합니다. 결정론적 표현은 프로바이더 보조 리소스를 접고 모든 반환 개수는
-별도의 표현 범위 영역에 유지합니다. 이 영역은 표시된 Resource와 관계, 반환된 Resource와 관계,
-스냅샷 시각, 최신성, 완전 또는 부분 범위를 구분합니다. Resource를 선택하면 공통 좌표를 유지하고
-직접 보조 이웃을 표시하며 정본 딥 링크를 갱신하고 인벤토리를 변경하지 않은 채 비모달 상세 패널을
-엽니다.
+선택 전에도 토폴로지를 표시합니다. 기본 Landscape는 Resource 식별자와 보고된 `contains` 관계에서
+권위 있는 Subscription, Resource Group, VNet 및 Subnet 포함 관계를 파생하고, 반환된 모든 Resource를
+그리는 대신 하위 항목을 집계합니다. Operator API가 표현 좌표를 제공할 필요가 없습니다. 결정론적
+표현은 프로바이더 보조 리소스를 접고 모든 반환 개수는 간결한 표현 범위 영역에 유지합니다. 이
+영역은 최신성, 잘림, 완전 또는 부분 범위를 먼저 표시한 뒤 표시된 Resource와 관계, 반환된
+Resource와 관계를 구분합니다. Resource를 선택하면 보고된 가장 작은 포함 범위를 열고 해당 범위
+안에서 안정된 좌표를 유지하며, 범위가 제한된 직접 이웃을 표시하고 정본 딥 링크를 갱신한 뒤
+인벤토리를 변경하지 않은 채 비모달 상세 패널을 엽니다.
 
 작업 영역은 토폴로지, Network 및 영향 범위 지도에 하나의 접근 가능한 직교 SVG를 사용합니다.
-Subscription, Resource Group, VNet 및 Subnet 기록은 중첩된 중립 경계로 표시합니다. Resource는
+Subscription, Resource Group, VNet 및 Subnet 기록은 중첩된 중립 경계로 표시합니다. Console은
+렌더링 전에 반환된 변환 결과에서 모든 표현 형상을 결정론적으로 생성합니다. 배치되지 않은 표시
+기록은 암묵적인 `0,0` 좌표가 아니라 명시적인 표현 사용 불가 상태가 됩니다. Resource는
 검토된 공식 아이콘을 사용할 수 있으면 이를 사용하고, 그렇지 않으면 Cloud Adoption Framework의
 고정된 약어를 사용합니다. 간결한 텍스트, 접근 가능한 이름, 검색 및 상세 패널은 색상에 의존하지
 않고 이름, 타입 및 상태를 유지합니다. 타입이 지정된 간선은 현재 노드 또는 경계 형상에서 끝납니다.
@@ -611,8 +616,9 @@ Subscription, Resource Group, VNet 및 Subnet 기록은 중첩된 중립 경계�
 아래로 이동하며 선택, 탭, 배율 또는 경로 상태를 버리지 않습니다.
 
 Network 보기는 완전한 `InventoryGraphResponse`를 권위 있는 상태로 유지합니다. **범위 개요**를
-선택하면 반환된 모든 VNet과 범위 안의 Resource를 표시합니다. Resource를 선택할 때만 범위가 제한된
-표현 포커스를 파생하고 해당 선택을 라우트 상태에 기록합니다. 경로 추적은 보고된 `attached_to`,
+선택하면 반환된 VNet 및 Subnet 경계와 보고된 게이트웨이, 방화벽, 공용 노출, Private Endpoint 및
+피어링을 표시하며, 전체 원시 Resource 집합을 반복하지 않습니다. Resource를 선택할 때만 범위가
+제한된 네트워크 평면 포커스를 파생하고 해당 선택을 라우트 상태에 기록합니다. 경로 추적은 보고된 `attached_to`,
 저장 방향의 `depends_on`, 대칭 `peered_with` 관계만 탐색합니다. 최신이고 완전한 관계 범위에서만
 `no_observed_path`를 반환하며, 불완전한 모든 부정 결과는 `unknown`으로 유지합니다. 필터와 강조는
 표현만 변경합니다. SVG와 PNG 내보내기는 정제된 출처 이력을 유지하고 이름, 원시 프로바이더 id,

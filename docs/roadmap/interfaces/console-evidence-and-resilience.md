@@ -603,14 +603,22 @@ the `Topology | Network` lens, and a compact read-only source state. Scope selec
 authoritative projection. Resource search selects only a record already returned by that
 projection and never presents a bounded page as a complete tenant search.
 
-Topology is visible before selection. The deterministic presentation collapses provider helpers
-while keeping every returned count in a separate coverage strip. The strip distinguishes displayed
-and returned Resources and relationships, snapshot time, freshness, and complete or partial
-coverage. Selecting a Resource preserves common coordinates, reveals direct auxiliary neighbors,
-updates the canonical deep link, and opens a nonmodal Inspector without changing inventory.
+Topology is visible before selection. The default Landscape derives authoritative Subscription,
+Resource Group, VNet, and Subnet containment from resource identity and reported `contains`
+relationships, then aggregates descendants instead of drawing every returned Resource. It never
+requires the Operator API to supply presentation coordinates. The deterministic presentation
+collapses provider helpers while keeping every returned count in a compact coverage strip. The
+strip leads with freshness, truncation, and complete or partial coverage, then distinguishes
+displayed and returned Resources and relationships. Selecting a Resource opens its smallest
+reported containing scope, preserves stable coordinates inside that scope, reveals bounded direct
+neighbors, updates the canonical deep link, and opens a nonmodal Inspector without changing
+inventory.
 
 The workbench uses one accessible orthographic SVG for Topology, Network, and the Impact scope map.
-Subscription, Resource Group, VNet, and Subnet records render as nested neutral boundaries.
+Subscription, Resource Group, VNet, and Subnet records render as nested neutral boundaries. The
+Console creates all presentation geometry deterministically from the returned projection before
+rendering; an unplaced visible record is an explicit unavailable presentation, never an implicit
+`0,0` coordinate.
 Resources use reviewed official icons where available and stable Cloud Adoption Framework
 abbreviations otherwise. Compact text, accessible names, search, and Inspector content preserve
 name, type, and state without relying on color. Typed edges terminate on current node or boundary
@@ -625,8 +633,10 @@ types, and technical identifiers. At constrained widths the Inspector moves belo
 without discarding selection, tab, scale, or path state.
 
 The Network lens keeps the complete `InventoryGraphResponse` authoritative. With **Scope
-overview** selected, it presents every returned VNet and bounded Resource; selecting a Resource
-derives one bounded presentation focus and records that selection in route state. Path tracing
+overview** selected, it presents returned VNet and Subnet boundaries plus reported gateways,
+firewalls, public exposure, private endpoints, and peering; it does not repeat the complete raw
+Resource set. Selecting a Resource derives one bounded network-plane focus and records that
+selection in route state. Path tracing
 walks only reported `attached_to`, stored-direction `depends_on`, and symmetric `peered_with`
 relationships. It returns `no_observed_path` only for fresh, complete relationship coverage; every
 incomplete negative result stays `unknown`. Filters and highlighting change only presentation.
