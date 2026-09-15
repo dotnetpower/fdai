@@ -28,6 +28,14 @@ _TARGET_RESOURCE_ID = (
     "/subscriptions/00000000-0000-0000-0000-000000000000/"
     "resourceGroups/rg-example/providers/Microsoft.App/containerApps/ca-example-core"
 )
+_IDENTITY_ROOT = (
+    "/subscriptions/00000000-0000-0000-0000-000000000000/"
+    "resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/"
+    "userAssignedIdentities"
+)
+_CORE_IDENTITY_RESOURCE_ID = f"{_IDENTITY_ROOT}/id-core"
+_EXISTING_IDENTITY_RESOURCE_ID = f"{_IDENTITY_ROOT}/id-existing"
+_INVENTORY_IDENTITY_RESOURCE_ID = f"{_IDENTITY_ROOT}/id-inventory"
 sys.path.insert(0, str(_SCRIPTS))
 
 
@@ -651,15 +659,24 @@ def test_hydrates_core_observation_context_from_platform_output(
             "dev": {
                 "core-control-plane": {
                     "name": "example",
+                    "identity": {
+                        "resource_id": _CORE_IDENTITY_RESOURCE_ID,
+                        "client_id": "00000000-0000-0000-0000-000000000001",
+                        "extra_resource_ids": [_EXISTING_IDENTITY_RESOURCE_ID],
+                    },
                     "observation_context": {"enabled": False},
                 }
             }
         }
     }
     binding = {
+        "enabled": True,
         "signing_seed_secret_id": "https://vault.example.com/secrets/ohl-seed",
-        "executor_credential_lineage": "azure-managed-identity:executor",
+        "executor_credential_lineage": "azure-managed-identity:finops",
+        "vm_start_executor_credential_lineage": "azure-managed-identity:resilience",
         "source_credential_lineage": "azure-managed-identity:inventory",
+        "source_identity_client_id": "00000000-0000-0000-0000-000000000003",
+        "source_identity_resource_id": _INVENTORY_IDENTITY_RESOURCE_ID,
     }
 
     hydrated = observation_hydrator.hydrate_observation_context(
@@ -671,8 +688,26 @@ def test_hydrates_core_observation_context_from_platform_output(
 
     assert hydrated["environments"]["dev"]["core-control-plane"]["observation_context"] == {
         "enabled": True,
-        **binding,
+        **{key: value for key, value in binding.items() if key != "source_identity_resource_id"},
     }
+    assert hydrated["environments"]["dev"]["core-control-plane"]["identity"][
+        "extra_resource_ids"
+    ] == [
+        _EXISTING_IDENTITY_RESOURCE_ID,
+        binding["source_identity_resource_id"],
+    ]
+    rehydrated = observation_hydrator.hydrate_observation_context(
+        hydrated,
+        service="core-control-plane",
+        environment="dev",
+        binding=binding,
+    )
+    assert rehydrated["environments"]["dev"]["core-control-plane"]["identity"][
+        "extra_resource_ids"
+    ] == [
+        _EXISTING_IDENTITY_RESOURCE_ID,
+        binding["source_identity_resource_id"],
+    ]
     assert payload["environments"]["dev"]["core-control-plane"]["observation_context"] == {
         "enabled": False
     }
@@ -702,20 +737,87 @@ def test_absent_platform_observation_binding_removes_stale_core_input(
     assert "observation_context" not in hydrated["environments"]["dev"]["core-control-plane"]
 
 
+def test_disabled_platform_observation_detaches_only_its_source_identity(
+    observation_hydrator: ModuleType,
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "core-control-plane": {
+                    "name": "example",
+                    "identity": {
+                        "resource_id": _CORE_IDENTITY_RESOURCE_ID,
+                        "client_id": "00000000-0000-0000-0000-000000000001",
+                        "extra_resource_ids": [
+                            _EXISTING_IDENTITY_RESOURCE_ID,
+                            _INVENTORY_IDENTITY_RESOURCE_ID,
+                        ],
+                    },
+                    "observation_context": {"enabled": True},
+                }
+            }
+        }
+    }
+
+    hydrated = observation_hydrator.hydrate_observation_context(
+        payload,
+        service="core-control-plane",
+        environment="dev",
+        binding={
+            "enabled": False,
+            "source_identity_client_id": "00000000-0000-0000-0000-000000000003",
+            "source_identity_resource_id": _INVENTORY_IDENTITY_RESOURCE_ID,
+        },
+    )
+
+    selected = hydrated["environments"]["dev"]["core-control-plane"]
+    assert "observation_context" not in selected
+    assert selected["identity"]["extra_resource_ids"] == [_EXISTING_IDENTITY_RESOURCE_ID]
+    assert payload["environments"]["dev"]["core-control-plane"]["identity"][
+        "extra_resource_ids"
+    ] == [_EXISTING_IDENTITY_RESOURCE_ID, _INVENTORY_IDENTITY_RESOURCE_ID]
+
+
 @pytest.mark.parametrize(
     "binding",
     [
         {},
         {"signing_seed_secret_id": "secret"},
         {
+            "enabled": True,
             "signing_seed_secret_id": "secret",
             "executor_credential_lineage": "",
+            "vm_start_executor_credential_lineage": "vm-start-executor",
             "source_credential_lineage": "source",
+            "source_identity_client_id": "00000000-0000-0000-0000-000000000003",
+            "source_identity_resource_id": _INVENTORY_IDENTITY_RESOURCE_ID,
         },
         {
+            "enabled": True,
             "signing_seed_secret_id": "secret",
             "executor_credential_lineage": " Same ",
+            "vm_start_executor_credential_lineage": "vm-start-executor",
             "source_credential_lineage": "same",
+            "source_identity_client_id": "00000000-0000-0000-0000-000000000003",
+            "source_identity_resource_id": _INVENTORY_IDENTITY_RESOURCE_ID,
+        },
+        {
+            "enabled": True,
+            "signing_seed_secret_id": "secret",
+            "executor_credential_lineage": "executor",
+            "vm_start_executor_credential_lineage": "vm-start-executor",
+            "source_credential_lineage": "source",
+            "source_identity_client_id": "not-a-uuid",
+            "source_identity_resource_id": _INVENTORY_IDENTITY_RESOURCE_ID,
+        },
+        {
+            "enabled": True,
+            "signing_seed_secret_id": "secret",
+            "executor_credential_lineage": "executor",
+            "vm_start_executor_credential_lineage": "vm-start-executor",
+            "source_credential_lineage": "source",
+            "source_identity_client_id": "00000000-0000-0000-0000-000000000003",
+            "source_identity_resource_id": "not-an-arm-id",
         },
     ],
 )

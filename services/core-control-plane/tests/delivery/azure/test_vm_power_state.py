@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 import httpx
 import pytest
 from fdai.delivery.azure.vm_power_state import (
     AzureArmVmPowerStateSource,
+    AzureSubscriptionVmPowerStateSource,
     AzureVmPowerStateConfig,
     AzureVmPowerStateSourceError,
 )
@@ -89,6 +91,45 @@ async def test_reads_only_the_pinned_vm_instance_view() -> None:
     assert reading.target_revision == 3
     assert reading.evidence_refs[0].startswith("sha256:")
     assert identity.audiences == ["https://management.azure.com/.default"]
+
+
+async def test_subscription_source_builds_one_target_pinned_reader() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path.casefold() == RESOURCE_REF.casefold()
+        return httpx.Response(200, json=_payload("PowerState/running"))
+
+    source = AzureSubscriptionVmPowerStateSource(
+        identity=_Identity(),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        clock=lambda: NOW,
+    )
+
+    reading = await source.observe(resource_ref=RESOURCE_REF, target_revision=3)
+
+    assert reading.state == "running"
+
+
+async def test_subscription_source_rejects_cross_subscription_target() -> None:
+    identity = _Identity()
+    source = AzureSubscriptionVmPowerStateSource(
+        identity=identity,
+        http_client=httpx.AsyncClient(
+            transport=httpx.MockTransport(
+                lambda _request: httpx.Response(500, json={"error": "must not be called"})
+            )
+        ),
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        clock=lambda: NOW,
+    )
+    other = RESOURCE_REF.replace(
+        "00000000-0000-0000-0000-000000000000",
+        str(UUID(int=1)),
+    )
+
+    with pytest.raises(AzureVmPowerStateSourceError, match="configured subscription"):
+        await source.observe(resource_ref=other, target_revision=3)
+    assert identity.audiences == []
 
 
 @pytest.mark.parametrize(

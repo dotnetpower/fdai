@@ -207,6 +207,14 @@ checks distinguish direct SDK imports from SDK-owned transport use. Operator and
 SDK's common asynchronous credential contract to their existing adapters. These local integration
 checks do not prove deployed federation, Event Hubs access, or service readiness.
 
+For the Container Apps profile, the protected platform-to-Core handoff carries the exact
+inventory-reader identity resource and client ids with the observation context. The service
+materializer attaches that read-only identity once, removes only that identity when observation is
+disabled, and rejects any mismatched binding. Signed scale-out evidence names the FinOps executor
+credential lineage, while VM-start evidence names the Resilience executor credential lineage.
+Neither identity choice grants execution authority, and local interactive never receives this
+binding.
+
 The AKS managed Key Vault CSI provider synchronizes fixed Key Vault references into namespaced
 Kubernetes Secrets by using each workload's federated identity. Applications continue to read
 environment variables and never call Key Vault directly. Terraform plans contain secret names and

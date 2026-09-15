@@ -704,9 +704,21 @@ jobs:
             jq -e '
               . == null or (
                 type == "object" and
-                keys == ["executor_credential_lineage", "signing_seed_secret_id", "source_credential_lineage"] and
-                all(.[]; type == "string" and length > 0) and
-                .executor_credential_lineage != .source_credential_lineage
+                ((.enabled | type) == "boolean") and
+                (.source_identity_client_id | test("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) and
+                (.source_identity_resource_id | ascii_downcase | startswith("/subscriptions/")) and
+                (.source_identity_resource_id | ascii_downcase | contains("/providers/microsoft.managedidentity/userassignedidentities/")) and
+                (
+                  (.enabled == false and
+                    keys == ["enabled", "source_identity_client_id", "source_identity_resource_id"]) or
+                  (.enabled == true and
+                    keys == ["enabled", "executor_credential_lineage", "signing_seed_secret_id", "source_credential_lineage", "source_identity_client_id", "source_identity_resource_id", "vm_start_executor_credential_lineage"] and
+                    (.signing_seed_secret_id | type == "string" and length > 0) and
+                    (.executor_credential_lineage | type == "string" and length > 0) and
+                    (.vm_start_executor_credential_lineage | type == "string" and length > 0) and
+                    (.source_credential_lineage | type == "string" and length > 0) and
+                    ([.executor_credential_lineage, .vm_start_executor_credential_lineage, .source_credential_lineage] | map(ascii_downcase) | unique | length) == 3)
+                )
               )
             ' <<<"$observation_context_binding" >/dev/null || {
               echo "Platform state returned an invalid OHL observation-context binding." >&2
