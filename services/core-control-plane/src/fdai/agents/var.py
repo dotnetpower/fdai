@@ -12,7 +12,6 @@ import asyncio
 import inspect
 from collections.abc import Awaitable, Callable, Mapping
 from copy import deepcopy
-from dataclasses import dataclass
 from typing import Any
 
 from fdai.agents._framework.action_run_identity import (
@@ -49,6 +48,7 @@ from fdai.agents._framework.var_decisions import (
 from fdai.agents._framework.var_ticket_identity import (
     APPROVAL_STATE_PREFIX,
     PendingHilTicket,
+    PendingShadowReview,
     claim_action_correlation_identity,
 )
 from fdai.agents._framework.var_ticket_identity import (
@@ -59,6 +59,12 @@ from fdai.agents._framework.var_ticket_identity import (
 )
 from fdai.agents._framework.var_ticket_identity import (
     approval_state_key as _approval_state_key,
+)
+from fdai.agents._framework.var_ticket_identity import (
+    evict_oldest_ticket as _evict_oldest_ticket,
+)
+from fdai.agents._framework.var_ticket_identity import (
+    record_blocked_attempt as _record_blocked_attempt_once,
 )
 from fdai.agents._framework.var_ticket_identity import (
     remove_pending_ticket as _remove_pending_ticket,
@@ -72,29 +78,6 @@ from fdai.agents._framework.var_ticket_identity import (
 from fdai.shared.providers.state_store import StateStore
 
 ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
-
-
-@dataclass(frozen=True, slots=True)
-class PendingShadowReview:
-    """One Saga-authenticated shadow outcome awaiting a human comparison."""
-
-    correlation_id: str
-    action_type: str
-    observed_at: str
-    policy_escape: bool
-    initiator_principal: str | None
-
-
-def _evict_oldest_ticket(mapping: dict[Any, Any], cap: int, *, keep: Any = None) -> None:
-    """Bound ``mapping`` to ``cap`` entries, dropping oldest-first (insertion
-    order), never evicting ``keep`` (the entry just written)."""
-    while len(mapping) > cap:
-        for key in mapping:
-            if key != keep:
-                del mapping[key]
-                break
-        else:  # only `keep` remains
-            break
 
 
 class Var(Agent):
@@ -739,19 +722,7 @@ class Var(Agent):
         return tuple(self._pending_shadow_reviews.values())
 
     def _record_blocked_attempt(self, key: str, correlation_id: str, approver: str) -> None:
-        """Count a blocked approval attempt once per (correlation, approver).
-
-        A caller that retries the same rejected approval (e.g. treating the
-        raised ValueError as a transient failure) MUST NOT inflate the
-        security metric; a genuinely distinct blocked attempt (another
-        approver, or another action) still counts. Bounded so the dedup guard
-        cannot leak.
-        """
-        pair = f"{correlation_id}\x00{approver}\x00{key}"
-        if pair in self._blocked_attempts:
-            return
-        self._blocked_attempts.add(pair)
-        self.record_behavior(key)
+        _record_blocked_attempt_once(self, key, correlation_id, approver)
 
     # ---- admin notification (Wave 6) ----------------------------------
 

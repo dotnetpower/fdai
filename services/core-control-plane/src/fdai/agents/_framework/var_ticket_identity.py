@@ -27,6 +27,19 @@ class _LocalIdentityStore(Protocol):
     def set(self, key: str, value: str) -> None: ...
 
 
+class _BlockedAttemptSet(Protocol):
+    def __contains__(self, value: str) -> bool: ...
+
+    def add(self, value: str) -> None: ...
+
+
+class _BlockedAttemptState(Protocol):
+    @property
+    def _blocked_attempts(self) -> _BlockedAttemptSet: ...
+
+    def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+
 @dataclass
 class PendingHilTicket:
     """One action or document approval awaiting distinct human principals."""
@@ -72,6 +85,49 @@ class PendingHilTicket:
             )
         elif not is_action_run_identity(self.action_run_identity):
             raise ValueError("pending HIL ticket ActionRun identity is malformed")
+
+
+@dataclass(frozen=True, slots=True)
+class PendingShadowReview:
+    """One Saga-authenticated shadow outcome awaiting a human comparison."""
+
+    correlation_id: str
+    action_type: str
+    observed_at: str
+    policy_escape: bool
+    initiator_principal: str | None
+
+
+def evict_oldest_ticket(
+    mapping: dict[Any, Any],
+    cap: int,
+    *,
+    keep: Any = None,
+) -> None:
+    """Bound a ticket map oldest-first without evicting the new entry."""
+
+    while len(mapping) > cap:
+        for key in mapping:
+            if key != keep:
+                del mapping[key]
+                break
+        else:
+            break
+
+
+def record_blocked_attempt(
+    state: _BlockedAttemptState,
+    key: str,
+    correlation_id: str,
+    approver: str,
+) -> None:
+    """Count one distinct blocked approval without inflating exact retries."""
+
+    pair = f"{correlation_id}\x00{approver}\x00{key}"
+    if pair in state._blocked_attempts:
+        return
+    state._blocked_attempts.add(pair)
+    state.record_behavior(key)
 
 
 def approval_state_key(
@@ -256,11 +312,14 @@ def ticket_identity(ticket: PendingHilTicket) -> dict[str, Any]:
 __all__ = [
     "APPROVAL_STATE_PREFIX",
     "PendingHilTicket",
+    "PendingShadowReview",
     "approval_action_identity",
     "approval_cache_key",
     "approval_state_key",
     "claim_action_correlation_identity",
+    "evict_oldest_ticket",
     "remove_pending_ticket",
+    "record_blocked_attempt",
     "ticket_from_identity",
     "ticket_identity",
 ]
