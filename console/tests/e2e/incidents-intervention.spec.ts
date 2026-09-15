@@ -72,7 +72,12 @@ function json(route: Route, payload: unknown, status = 200): Promise<void> {
 
 async function installFixture(
   page: Page,
-  options: { failFirstPost?: boolean; paginatedAudit?: boolean; missingIncident?: boolean } = {},
+  options: {
+    failFirstPost?: boolean;
+    interventionApplies?: boolean;
+    paginatedAudit?: boolean;
+    missingIncident?: boolean;
+  } = {},
 ): Promise<{
   body: () => Record<string, unknown> | null;
   idempotencyKey: () => string | null;
@@ -83,6 +88,8 @@ async function installFixture(
   const capturedBodies: Record<string, unknown>[] = [];
   const capturedIdempotencyKeys: string[] = [];
   const capturedAuditCursors: (string | null)[] = [];
+  let interventionAccepted = false;
+  let postAcceptanceAuditReads = 0;
   const handle = async (route: Route): Promise<void> => {
     const request = route.request();
     if (request.isNavigationRequest()) {
@@ -117,6 +124,7 @@ async function installFixture(
         await json(route, { error: { message: "Temporary intervention transport failure." } }, 503);
         return;
       }
+      interventionAccepted = true;
       await json(route, {
         request_id: "00000000-0000-0000-0000-000000000301",
         correlation_id: correlationId,
@@ -151,14 +159,18 @@ async function installFixture(
     if (path === "/audit") {
       const cursor = url.searchParams.get("cursor");
       capturedAuditCursors.push(cursor);
-      const auditItem = (seq: number, actionKind: string) => ({
+      const auditItem = (
+        seq: number,
+        actionKind: string,
+        entry: Record<string, unknown> = { kind: actionKind },
+      ) => ({
         seq,
         event_id: `event-${seq}`,
         correlation_id: correlationId,
         actor: seq === 1 ? "Huginn" : "Saga",
         action_kind: actionKind,
         mode: "shadow",
-        entry: { kind: actionKind },
+        entry,
         entry_hash: `hash-${seq}`,
         previous_hash: `hash-${seq - 1}`,
         recorded_at: `2026-08-24T11:0${seq}:00Z`,
@@ -183,6 +195,25 @@ async function installFixture(
           next_cursor: null,
         });
         return;
+      }
+      if (options.interventionApplies === true && interventionAccepted) {
+        postAcceptanceAuditReads += 1;
+        if (postAcceptanceAuditReads >= 2) {
+          await json(route, {
+            items: [
+              auditItem(2, "incident.intervention-applied", {
+                kind: "incident.intervention-applied",
+                request_id: "00000000-0000-0000-0000-000000000301",
+                comment: "Re-evaluate the current Incident evidence.",
+                accountable_agent: "Saga",
+                execution_authority: false,
+              }),
+              auditItem(1, "incident.open"),
+            ],
+            next_cursor: null,
+          });
+          return;
+        }
       }
       await json(route, { items: [], next_cursor: null });
       return;
@@ -266,6 +297,13 @@ test("submits a bounded Incident intervention without claiming it was applied", 
   const summary = page.getByRole("region", { name: "Incident operational summary" });
   await expect(summary).toContainText("1Loaded now");
   await expect(summary).toContainText("1Pending outcomes");
+  const detail = page.locator("#incident-detail");
+  const displayIdentifier = detail.getByRole("heading", { name: "INC-202608-0201" });
+  await expect(displayIdentifier).toBeVisible();
+  await expect(displayIdentifier).toHaveCSS("font-size", "24px");
+  await expect(detail.locator(".incident-detail-subject"))
+    .toHaveText("Checkout latency during development rollout");
+  await expect(detail.locator(".incident-detail-subject")).toHaveCSS("font-size", "18px");
   await expect(page.locator(".incident-roster-stage").first()).toHaveAttribute(
     "aria-label",
     "Respond, step 3 of 4",
@@ -337,6 +375,28 @@ test("submits a bounded Incident intervention without claiming it was applied", 
   await dialog.getByRole("button", { name: "Done" }).click();
   await expect(dialog).not.toBeVisible();
   await expect(trigger).toBeFocused();
+});
+
+test("shows applied operator guidance without reloading the Incident page", async ({ page }) => {
+  await installFixture(page, { interventionApplies: true });
+  await page.goto(`/incidents?correlation=${encodeURIComponent(correlationId)}`);
+  await page.getByRole("button", { name: "Intervene", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Intervene in this incident" });
+
+  await dialog.getByLabel("Operator context and justification").fill(
+    "Re-evaluate the current Incident evidence.",
+  );
+  await dialog.getByRole("button", { name: "Review request" }).click();
+  await dialog.getByRole("button", { name: "Submit request" }).click();
+
+  await expect(dialog.getByText("Intervention durably queued", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Operator intervention recorded", { exact: true })).toBeVisible();
+  await expect(page.locator(".incident-timeline-kind").filter({
+    hasText: "incident.intervention-applied",
+  })).toHaveCount(1);
+  await expect(page.locator(".incident-timeline")).toContainText(
+    "Re-evaluate the current Incident evidence.",
+  );
 });
 
 test("rotates idempotency when exception parameters change after failure", async ({ page }) => {

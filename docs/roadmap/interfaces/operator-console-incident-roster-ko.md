@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 0ba35288573c408e5d82d9e021f7cb4f13afb1cd
-translation_revised: 2026-09-11
+translation_source_sha: 7582b81fb45b08bc0dd1ad82f11fca8a26d7a1ab
+translation_revised: 2026-09-15
 ---
 
 # Operator Console - 인시던트 명단 and Fix 이력
@@ -39,6 +39,16 @@ Core는 요청을 적용하기 전에 정본 Incident에서 같은 대상 다이
 Operator 수명 주기는 재시도 가능한 개입 보낼 편지함 작업자를 소유하며, 해당 작업자가 중지되면 준비 상태를 false로 유지합니다.
 허용 목록에 등록된 논리 요청 토픽은 물리 전송 계층을 통해 다중화되며 Core 런타임 토픽 집합에 등록됩니다.
 Core는 정본 Incident 레지스트리로 consumer를 감독하며, 게재 또는 적용이 대기 중이면 HTTP 수락을 최종 상태로 보지 않습니다.
+HTTP `202` 이후 Console은 일치하는 `incident.intervention-applied` 기록이 나타날 때까지
+선택한 감사 이력을 제한된 횟수로 다시 조회합니다. 기록을 확인하면 페이지를 새로 고치지
+않고 목록과 타임라인을 갱신하며, 대기열 등록 상태와 적용 상태를 구분합니다.
+`operator_guidance`의 경우 Core는 영속 적용을 완료한 뒤에만
+`incident.operator_guidance.v1` 이벤트를 Huginn을 통해 다시 유입합니다. 이 이벤트는
+`incident_correlation: none`과 `execution_authority: false`를 유지합니다. Saga는
+`object.event`에서 이 이벤트 유형만 받아 담당 감사 기록을 남기고, Forseti는 이를
+판단 대상에서 제외하므로 지침이 ActionRun이나 HIL 요청을 만들 수 없습니다. 에이전트
+유입이 Core 적용 뒤에 실패하더라도 요청에서 파생한 안정적인 멱등성 키로 안전하게
+재전달할 수 있습니다.
 
 인시던트 생성은 의미 초안 및 타입이 지정된 확인 경로를 사용하며 목록 패널에 생성 버튼을
 추가하지 않습니다. 인식된 incident-open 요청은 다음 순서로 처리됩니다.
@@ -413,6 +423,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 서버 기반 roster 검색 | implemented | `fdai_service_contracts.operator.IncidentQuery`; `fdai_operator_service.postgres_sql.INCIDENT_PAGE_SQL`; `console/src/api-operations-client.ts`; `console/src/routes/incidents.tsx`; focused Operator 및 Console 테스트 | 페이지 나누기 전에 범위가 제한된 기록 대상 근거를 검색하고, 측정은 같은 snapshot과 필터를 사용하며, 커서는 정규화된 검색어를 상태, 버티컬, 심각도와 함께 묶습니다. |
 | Projection-first PostgreSQL roster 읽기 | implemented | `operator_incident_projection`, `INCIDENT_PAGE_SQL`, Core 및 Operator service migration, 집중 Operator 및 migration 검사 | 감사 trigger가 최근 행 최대 100개와 영속 정본 Incident identity를 포함하는 temporal correlation version을 유지합니다. 읽기는 `incident.open`이 있는 version만 포함하고 정확한 as-of version을 고른 뒤 필터와 `LIMIT`을 적용해 선택한 history만 펼칩니다. |
 | 운영자가 읽을 수 있는 identity 및 단계별 조사 | implemented | `incident_projection.py`; `projection_logic.py`; `postgres.py`; `incidents.tsx`; `incidents.detail-sections.tsx`; `incidents.milestones.ts`; focused Operator 테스트(`31 passed`), Console 테스트(`66 passed`), typecheck, strict mypy, Ruff, Pylance 및 catalog parity | 제목 출처, 신뢰된 원본 context, 계획 미리 보기, 범위가 제한된 근거 milestone, 독립적으로 검증된 결과 cohort를 실행 권한 없이 구현했습니다. |
+| 개입 갱신 및 담당 에이전트 인계 | validated | `console/src/routes/incidents.tsx`; `console/src/routes/incidents.intervention.tsx`; `fdai_core_service/incident_intervention_consumer.py`; `fdai/agents/saga.py`; `docs/baselines/incident-intervention-assurance-2026-09-15.json`; 집중 Console E2E 및 Core 에이전트 라우팅 테스트 | 일치하는 적용 감사 기록을 확인하기 전까지 HTTP 수락을 대기열 등록 상태로 유지합니다. 적용된 지침은 Huginn을 통해 다시 유입되어 Saga 감사에 도달하며 ActionRun이나 실행 권한을 만들 수 없습니다. |
 | RCA 계약, 변환 결과 및 읽기 전용 경로 | implemented | `services/core-control-plane/src/fdai/core/rca/`; `services/core-control-plane/tests/core/rca/`; `services/operator-service/src/fdai_operator_service/rca_projection.py`; `services/operator-service/tests/test_operator_service_composition.py`; `console/src/routes/rca.test.ts` | 경로는 알 수 없는 상관관계를 구분하고 기록된 가설과 대응 근거를 변환하며 액션 권한을 노출하지 않습니다. |
 | RCA 보고 카탈로그 및 데이터 원본 | implemented | `rule-catalog/reports/incident-rca-dossier.yaml`; `services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py`; reporting 테스트 | 선언형 dossier와 범위가 제한된 감사 변환 결과가 있습니다. |
 | RCA PDF format 및 다운로드 컨트롤 | implemented | `fdai_operator_service/reporting/pdf_format.py`; Operator report 경로; Console Reports 컨트롤; focused PDF 및 경로 테스트 | Opt-in 어댑터는 기존 redacted report 묶음만 렌더링하고 package extra가 없으면 제공되지 않습니다. |
@@ -440,6 +451,8 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-20 | implemented | 남아 있던 상관관계별 초기화 과정을 하나의 set-based snapshot 집계로 교체했습니다. Event 및 incident anchor, 정규화된 상관관계, 수명 주기 상태, 검색 근거, 플랫폼 제외 및 최신 이력 100개를 이제 하나의 group 문장에서 도출하며 이후 insert는 같은 temporal trigger 경로를 유지합니다. | `current change`; `20260819_core_incident_projection.py`; focused migration 계약; 일회용 PostgreSQL에서 상관관계 10,000개에 속한 감사 행 50,000개를 1.207초에 적용하고 이후 temporal transition을 보존함; 보호된 run `32357855293`이 전체 감사 반복 scan이 여전히 20분 migration deadline을 초과함을 입증했습니다. | Set-based Core migration을 보호된 workflow로 적용하고 deployed `GET /incidents` latency 검사를 보존합니다. |
 | 2026-08-25 | implemented | 정본 `incident.open` 근거가 있는 상관관계만 Incident 명단, 주의 스트림, 결과 분모에 포함하고 audit-only 운영 상관관계는 Audit, Trace, RCA에 유지했습니다. 영속 identity와 수명 주기 필드는 더 이상 표시용 이력 100건 범위에 의존하지 않습니다. | `current change`; 정본 Core projection migration, Operator query와 summary 변환 결과, 집중 단위 테스트 및 일회용 PostgreSQL 통합 테스트. | Operator reader를 rollout하기 전에 Core migration을 적용한 다음 인증된 로컬 명단 관찰을 보존합니다. |
 | 2026-08-25 | implemented | 인시던트 현재 상황 변환에서 기록된 A1 승인 요청 전달 실패를 A2 운영 알림 라우팅과 분리했습니다. Console은 필요한 사람 입력을 유지하고 승인 전달 불가 상태를 정확히 명명하며 보류된 승인 대기열과 위생 처리된 통합 준비 상태로 연결합니다. | `current change`; [이슈 #274](https://github.com/dotnetpower/fdai/issues/274); `incidents.overview.ts`, `incidents.tsx`, 두 Console 카탈로그 및 집중 인시던트 테스트. | 외부 승인 카드 전달이 필요하면 배포 소유 A1 채널 비밀을 구성합니다. 비밀이 없으면 A2 알림 실패가 아니라 명시적인 통합 사용 불가 상태로 유지합니다. |
+| 2026-09-15 | implemented | 적용된 운영자 의견이 새로 고침 없이 나타나도록 수락 이후 제한된 재조회를 추가하고, 적용된 `operator_guidance`를 Huginn에서 Saga의 담당 감사 경로로 보내되 ActionRun은 만들지 않도록 했습니다. | `current change`; 인시던트 Console 경로, 개입 대화 상자, 영문/국문 카탈로그, 서비스 계약, Core 소비자 및 런타임 바인딩, Saga/Forseti 라우팅과 집중 테스트입니다. Console 타입 검사, 단위 테스트 29개, 데스크톱 E2E 테스트 8개, 집중 Core 개입 및 에이전트 라우팅 테스트 10개, strict mypy 및 Ruff를 통과했습니다. | 새 지침 요청 하나가 적용 감사 행과 Saga 에이전트 감사 행을 모두 만드는 로컬 실시간 근거를 보존해야 합니다. |
+| 2026-09-15 | validated | 새로 시작한 로컬 전송 계층으로 기존 적용 지침 요청 하나를 재전달하고, ActionRun 없이 Core 적용과 Saga 담당 감사를 연결하는 내용 비포함 근거를 보존했습니다. | `current change`; `docs/baselines/incident-intervention-assurance-2026-09-15.json`; 관리형 로컬 스택 준비 상태 11/11, 일치하는 적용 감사 1건, Saga `object.event` 감사 1건, 일치하는 ActionRun 0건을 확인했습니다. | 개입 이후 갱신과 담당 지침 라우팅에 남은 작업은 없습니다. |
 ### 남은 작업
 
 - [x] 기록된 제목, 요약, 룰, signal, 정리된 resource 대상을 우선하고 식별자 fallback을 사용 불가로 표시하는 범위가 제한된 `title_source` 계약과 focused projection, decoder, render 테스트를 추가합니다.
@@ -458,3 +471,4 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 - [x] 고정 참조 페이지 수를 문서화하지 않고 PDF 페이지 나누기, escape, source 다이제스트, 사용 불가 섹션, 새 분석 부재 및 no-network 회귀 검사를 추가합니다.
 - [x] 인증된 로컬 Console에서 복구된 Incident roster 렌더링을 확인합니다.
 - [x] 정본 `incident.open` 수명 주기만 Incident 명단과 결과 분모에 포함하고 Incident가 아닌 상관관계는 Audit, Trace, RCA에 유지합니다.
+- [x] `operator_guidance` 의견이 새로 고침 없이 나타나고 ActionRun 없이 Saga 감사 행을 만드는 로컬 근거를 보존합니다. `docs/baselines/incident-intervention-assurance-2026-09-15.json`은 내용이 포함되지 않은 요청 및 상관관계 참조를 적용 감사와 Saga 감사 관측에 연결합니다.

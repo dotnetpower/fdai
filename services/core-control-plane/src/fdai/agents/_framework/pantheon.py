@@ -430,6 +430,7 @@ _SAGA = AgentSpec(
         "object.handoff-escalation",
         "object.rule",
         "object.policy",
+        "object.event",
     ),
     question_domains=("fdai_action_history", "audit_log", "approval_history"),
     owns_code_paths=("services/core-control-plane/src/fdai/agents/saga.py",),

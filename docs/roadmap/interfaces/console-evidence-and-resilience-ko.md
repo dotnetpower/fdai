@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: b0ea648c2c4736f567e4485f0b959b99962ef1b0
+translation_source_sha: 3f7aeb5d6ed6e321591614be3908f67fd659e894
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -75,6 +75,13 @@ Integrations는 sandboxed iframe으로 incident-open 이메일도 렌더링합�
 합성 자리 표시자만 제공합니다. 미리 보기는 런타임 인시던트, 엔드포인트, recipient 또는 신원 값을
 노출하지 않으며 전송, 승인 또는 실행 컨트롤을 제공하지 않습니다.
 Operations는 `/detection-coverage`에서 감지 커버리지를 제공하고 `/detection-readiness`를 호환 별칭으로 유지합니다. 이 경로는 최신 시도, 최근 성공한 실행, 보존된 발견 사항 및 정확한 리소스의 선택형 Kubernetes 근거를 분리합니다. 필터와 선택은 URL에 유지하고 정규 사유는 기술 상세에 보존합니다. 브라우저는 성공 응답에서 리소스 상태, 준비도, 커버리지 또는 권한을 추론하지 않습니다.
+표준 인증 경로 목록에는 `/alert-quality`의 `알림 품질`이 포함됩니다. Browser Entra 검증은
+정본 Console 및 Operator API 원본만 사용하고 소유자 전용 상태 계약을 통해 공급자가 호스팅하는
+기존 세션을 복원하며 신원 또는 API 응답을 가로채지 않습니다. 자동화 근거는 허용된 범위 검색,
+shadow 및 실행 권한 없음 상태, 제출하지 않은 세 가지 비활성 제안 양식, 현지화, 반응형 배치,
+강제 색상, 동작 감소와 키보드 포커스를 검증할 수 있습니다. 범위 및 응답 내용은 정제해야 하며,
+지정된 보조기술을 사용하는 사람이 음성 또는 점자 출력을 확인하기 전까지 해당 결과를
+`needs-human`으로 분류해야 합니다.
 Server-pinned drift 맥락이 있으면 GET-only 구성 기준선 경로가 신원, 수명 주기, drift, Knowledge 인용, topology, 지연 시간, 예약 검토, 네 안전성 counter를 fresh 읽기로 표시합니다.
 연결 또는 campaign 부재는 사용 불가이나 `not-configured`로 보고하며 진행 상황을 만들지 않고 malformed 데이터를 strict하게 거부하며 in-scope 변경할 수 없는 버전 비교와 failed-attempt 개수를 읽습니다. SPA는 activation, 재개, 예약 생성, 승인, 완화, 리소스 변경을 노출하지 않고 evidence-run, 재개, 청사진 검토, 구체화는 별도 인증된 경로를 사용합니다.
 운영은 mounted JSON/DOCX 쌍, 읽기 전용 Managed Identity, exact resource-group 허용 목록을 시작에서 검증한 뒤 패널을 노출합니다. Operator API는 실행기 신원을 받지 않습니다.

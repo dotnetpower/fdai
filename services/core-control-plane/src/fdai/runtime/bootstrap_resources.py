@@ -21,22 +21,33 @@ class RuntimeResources:
     http_client: httpx.AsyncClient | None = None
     messaging: MessagingRuntime | None = None
     isolated_executor_client: Any = None
+    task_workers: Any = None
     pantheon: PantheonInitializationResult = field(default_factory=PantheonInitializationResult)
 
     async def close(self) -> None:
         """Stop authority transport first, then close shared runtime resources."""
 
-        if self.isolated_executor_client is not None:
-            await self.isolated_executor_client.stop()
-        await close_runtime_resources(
-            health_server=self.health_server,
-            pantheon_runtime=self.pantheon.runtime,
-            runtime_state_publisher=self.pantheon.runtime_state_publisher,
-            diagnostic_bus=(self.messaging.diagnostic_bus if self.messaging is not None else None),
-            auxiliary_bus=(self.messaging.auxiliary_bus if self.messaging is not None else None),
-            bus=self.messaging.bus if self.messaging is not None else None,
-            http_client=self.http_client,
-        )
+        try:
+            try:
+                if self.isolated_executor_client is not None:
+                    await self.isolated_executor_client.stop()
+            finally:
+                if self.task_workers is not None:
+                    await self.task_workers.aclose()
+        finally:
+            await close_runtime_resources(
+                health_server=self.health_server,
+                pantheon_runtime=self.pantheon.runtime,
+                runtime_state_publisher=self.pantheon.runtime_state_publisher,
+                diagnostic_bus=(
+                    self.messaging.diagnostic_bus if self.messaging is not None else None
+                ),
+                auxiliary_bus=(
+                    self.messaging.auxiliary_bus if self.messaging is not None else None
+                ),
+                bus=self.messaging.bus if self.messaging is not None else None,
+                http_client=self.http_client,
+            )
 
 
 __all__ = ["RuntimeResources"]

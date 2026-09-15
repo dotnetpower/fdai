@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 0a376ec83e7cf7241d3355cc8c55d52262ad3776
+translation_source_sha: 28d5f1a5ce396274e47464b81069ff3cab3028f4
 translation_revised: 2026-09-15
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -19,7 +19,7 @@ WARA 읽기 모델은 정확한 평가기 신원과 구조화된 수동 근거 �
 
 Console 패널 레지스트리는 모든 경로 모듈을 지연 가져오기 뒤에 유지합니다. 이름이 지정된 경로
 내보내기는 하나의 형식 안전 어댑터를 사용하고, 모듈을 공유하는 경로는 하나의 로더를 재사용합니다.
-운영 진입 번들 검사는 필요한 지연 로드 경계를 확인하고 원시 크기와 gzip 한도를 모두 적용합니다.
+인시던트 대기/적용 상태는 기존 타임라인 카탈로그 항목을 재사용하며, 운영 진입 번들 검사는 필요한 지연 로드 경계를 확인하고 원시 크기와 gzip 한도를 모두 적용합니다.
 
 `assurance_twin.posture`, `assurance_twin.reviews`, `assurance_twin.review_detail` 연산은 `runtime_projection_reader.py`를 같은 방식으로 확장합니다: Assurance Twin 레코더가 이미 기록한 기존 `state_kv` 행만 읽고 저장된 판정, 심각도, 신선도를 기존 operations family manifest를 통해 다시 계산하지 않고 그대로 렌더링합니다. 또한 실패 시 닫힙니다. 기록된 증거 다이제스트가 검증되고, 영속 충돌 표식이 없으며, 신선도가 `fresh`인 행만 결과로 렌더링합니다. 오래되었거나 사용 불가, 알 수 없음, 형식 오류, 다이제스트 불일치, 충돌 표식이 있는 행은 명시적인 공백 항목이 되므로 빈 결과가 깨끗한 자산 상태로 읽히지 않습니다. 안전에 영향을 주는 플래그는 엄격하게 읽습니다. `blocks_action`이 없거나 boolean이 아니면 기본값이 아니라 형식 오류 근거로 처리합니다.
 태세 및 검토 목록은 각 영속 `state_kv` 키도 선택하고 키 접미사가 본문의 불투명한 `scope` 또는 `review_key`와 바이트 단위로 일치하도록 요구합니다. 주장된 식별자가 중복되면 근거 다이제스트가 같아도 보류합니다. 콘솔은 사용할 수 있는 자세 범위를 모두 표시하며 실제로 빈

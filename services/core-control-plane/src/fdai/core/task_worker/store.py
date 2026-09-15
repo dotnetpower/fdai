@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import replace
 from datetime import datetime
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from fdai.core.task_worker.models import (
     TaskWorkerEvent,
@@ -72,6 +72,19 @@ class TaskWorkerStore(Protocol):
         owner: str | None = None,
         limit: int = 500,
     ) -> tuple[TaskWorkerEvent, ...]: ...
+
+
+@runtime_checkable
+class RecoverableTaskWorkerStore(TaskWorkerStore, Protocol):
+    """Add complete recovery and atomic terminal persistence without breaking legacy stores."""
+
+    async def finish(self, result: TaskWorkerResult) -> TaskWorkerSnapshot:
+        """Atomically persist the terminal snapshot and its branch event."""
+        ...
+
+    async def list_interrupted(self, *, limit: int = 100) -> tuple[TaskWorkerSnapshot, ...]:
+        """Return unresolved rows only, without hiding them behind terminal history."""
+        ...
 
 
 class InMemoryTaskWorkerStore:
@@ -182,6 +195,30 @@ class InMemoryTaskWorkerStore:
         )
         return tuple(ordered[:limit])
 
+    async def finish(self, result: TaskWorkerResult) -> TaskWorkerSnapshot:
+        async with self._lock:
+            current = self._required(result.worker_id)
+            if current.status not in {TaskWorkerStatus.PENDING, TaskWorkerStatus.RUNNING}:
+                raise TaskWorkerConflictError("worker terminal state already exists")
+            updated = replace(
+                current,
+                status=result.status,
+                usage=result.usage,
+                updated_at=result.finished_at,
+                result=result,
+            )
+            events = self._events[result.worker_id]
+            event = TaskWorkerEvent(
+                result.worker_id,
+                len(events),
+                f"worker.{result.status.value}",
+                result.finished_at,
+                (("reason", result.terminal_reason),),
+            )
+            self._snapshots[result.worker_id] = updated
+            events.append(event)
+            return updated
+
     async def events(
         self,
         worker_id: str,
@@ -194,6 +231,15 @@ class InMemoryTaskWorkerStore:
         if owner is not None and snapshot.request.cancellation_owner != owner:
             raise LookupError(f"task worker {worker_id!r} was not found")
         return tuple(self._events[worker_id][-limit:])
+
+    async def list_interrupted(self, *, limit: int = 100) -> tuple[TaskWorkerSnapshot, ...]:
+        _limit(limit, 1_000)
+        rows = (
+            row
+            for row in self._snapshots.values()
+            if row.status in {TaskWorkerStatus.PENDING, TaskWorkerStatus.RUNNING}
+        )
+        return tuple(sorted(rows, key=lambda row: (row.updated_at, row.request.worker_id))[:limit])
 
     def _required(self, worker_id: str) -> TaskWorkerSnapshot:
         try:
@@ -209,6 +255,7 @@ def _limit(value: int, maximum: int) -> None:
 
 __all__ = [
     "InMemoryTaskWorkerStore",
+    "RecoverableTaskWorkerStore",
     "TaskWorkerConflictError",
     "TaskWorkerStore",
 ]

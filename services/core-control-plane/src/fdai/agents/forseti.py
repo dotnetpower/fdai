@@ -12,6 +12,8 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Any, Protocol
 
+from fdai_service_contracts.incident_intervention import INCIDENT_INTERVENTION_EVENT_TYPE
+
 from fdai.agents._framework.action_semantics import (
     ActionSemanticsCatalog,
     quorum_for,
@@ -254,6 +256,14 @@ class Forseti(
             return
         if topic == "object.change":
             await self._observe_architecture_change(payload)
+            return
+        if (
+            topic == "object.event"
+            and payload.get("event_type") == INCIDENT_INTERVENTION_EVENT_TYPE
+        ):
+            if payload.get("producer_principal") != "Huginn":
+                raise ValueError("incident guidance requires the Huginn-owned normalized Event")
+            self.record_behavior("incident_guidance:deferred")
             return
         if topic == "object.event" and str(payload.get("event_type") or "").startswith(
             "control_plane.t2_proposer_"

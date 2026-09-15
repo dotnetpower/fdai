@@ -1223,6 +1223,77 @@ def test_object_event_produces_forseti_verdict_over_provider() -> None:
     assert verdicts[0]["risk_verdict"] == "auto"
 
 
+def test_operator_guidance_event_reaches_saga_without_action_verdict() -> None:
+    provider = InMemoryEventBus()
+    saga = Saga()
+    runtime = PantheonRuntime.build(
+        provider=provider,
+        raw_event_topic=_RAW_TOPIC,
+        saga=saga,
+    )
+
+    async def _drive() -> list[dict]:
+        await provider.publish(
+            "object.event",
+            "incident-guidance",
+            {
+                "producer_principal": "Huginn",
+                "correlation_id": "incident-guidance",
+                "idempotency_key": "incident-intervention:request-1",
+                "resource_id": "sha256:" + "a" * 64,
+                "event_type": "incident.operator_guidance.v1",
+                "incident_correlation": "none",
+                "attributes": {
+                    "incident_intervention": {
+                        "request_id": "request-1",
+                        "guidance": "Re-evaluate the current Incident evidence.",
+                        "accountable_agent": "Saga",
+                        "execution_authority": False,
+                    }
+                },
+            },
+        )
+        run_task = asyncio.create_task(runtime.run())
+        for _ in range(50):
+            await asyncio.sleep(0)
+        await runtime.stop()
+        run_task.cancel()
+        try:
+            await run_task
+        except (asyncio.CancelledError, Exception):  # noqa: S110 - cleanup
+            pass
+
+        verdicts: list[dict] = []
+        async for env in provider.subscribe("object.verdict", "assert-guidance-verdict"):
+            verdicts.append(dict(env.payload))
+        return verdicts
+
+    verdicts = asyncio.run(_drive())
+
+    assert verdicts == []
+    entries = saga.audit_chain.entries_for_correlation("incident-guidance")
+    assert len(entries) == 1
+    assert entries[0].principal == "Huginn"
+    assert entries[0].topic == "object.event"
+    assert (
+        cast(Forseti, runtime.agents["Forseti"]).behavior_snapshot()["incident_guidance:deferred"]
+        == 1
+    )
+
+
+async def test_operator_guidance_event_rejects_non_huginn_producer() -> None:
+    payload = {
+        "producer_principal": "external",
+        "correlation_id": "incident-guidance",
+        "event_type": "incident.operator_guidance.v1",
+    }
+
+    with pytest.raises(ValueError, match="Huginn-owned"):
+        await Saga().on_typed_message("object.event", payload)
+    with pytest.raises(ValueError, match="Huginn-owned"):
+        await Forseti().on_typed_message("object.event", payload)
+
+
 def test_unkeyed_ingress_event_is_dropped_not_dead_lettered() -> None:
     runtime, provider = _build()
 

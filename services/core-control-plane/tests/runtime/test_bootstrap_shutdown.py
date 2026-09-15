@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from fdai.runtime.bootstrap_messaging import MessagingRuntime
 from fdai.runtime.bootstrap_pantheon import PantheonInitializationResult
 from fdai.runtime.bootstrap_resources import RuntimeResources
@@ -83,3 +84,32 @@ async def test_runtime_resources_stops_isolated_executor_before_shared_resources
         "bus",
         "http",
     ]
+
+
+@pytest.mark.parametrize("fail", [False, True])
+async def test_worker_shutdown_preserves_authority_first_and_shared_cleanup(fail: bool) -> None:
+    calls: list[str] = []
+    resources = RuntimeResources(
+        isolated_executor_client=_Resource("isolated", calls),
+        task_workers=_Resource("workers", calls, fail=fail),
+        health_server=_Resource("health", calls),  # type: ignore[arg-type]
+        http_client=_Resource("http", calls),  # type: ignore[arg-type]
+    )
+    if fail:
+        with pytest.raises(RuntimeError, match="workers"):
+            await resources.close()
+    else:
+        await resources.close()
+    assert calls == ["isolated", "workers", "health", "http"]
+
+
+async def test_executor_shutdown_failure_still_drains_workers_before_http() -> None:
+    calls: list[str] = []
+    resources = RuntimeResources(
+        isolated_executor_client=_Resource("isolated", calls, fail=True),
+        task_workers=_Resource("workers", calls),
+        http_client=_Resource("http", calls),  # type: ignore[arg-type]
+    )
+    with pytest.raises(RuntimeError, match="isolated"):
+        await resources.close()
+    assert calls == ["isolated", "workers", "http"]
