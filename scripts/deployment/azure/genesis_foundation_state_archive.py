@@ -27,20 +27,37 @@ def create_foundation_state_archive(
     destination: Path,
     source_commit: str,
     expected_state_digest: str,
+    original_state: Path | None = None,
 ) -> dict[str, object]:
     """Bind exact state and the explicit remote-backend transition in a private archive.
 
     The local verified root remains unchanged. New local-first roots activate only
     the fixed signed backend example in the staged migration copy; legacy roots
     without that example retain their existing backend contract.
+    A recovery caller may select its verified original state separately from its
+    verified configuration. Only the transient archive stage receives those bytes;
+    neither input is modified and a second state in the configuration is rejected.
     """
 
     if destination.exists() or destination.is_symlink():
         raise FileExistsError("Foundation state handoff archive already exists")
+    state_path = (
+        original_state if original_state is not None else terraform_root / "terraform.tfstate"
+    )
+    state_bytes = read_private_bytes(state_path, max_bytes=64 * 1024 * 1024)
+    if hashlib.sha256(state_bytes).hexdigest() != expected_state_digest:
+        raise ValueError("Foundation recovery state does not match the apply receipt")
+    if original_state is not None and (
+        (terraform_root / "terraform.tfstate").exists()
+        or (terraform_root / "terraform.tfstate").is_symlink()
+    ):
+        raise ValueError("Foundation recovery configuration contains a second state owner")
     with TemporaryDirectory(prefix="foundation-state-archive-", dir=destination.parent) as raw:
         stage = Path(raw)
         stage.chmod(0o700)
         _copy_tree(terraform_root, stage / "root", exclude_state_backup=True)
+        if original_state is not None:
+            _write_bytes(stage / "root/terraform.tfstate", state_bytes, executable=False)
         for module_name in ("bootstrap", "modules"):
             module_root = terraform_root.parent / module_name
             if module_root.exists() or module_root.is_symlink():
@@ -69,6 +86,8 @@ def create_foundation_state_archive(
             json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode() + b"\n",
             executable=False,
         )
+        if read_private_bytes(state_path, max_bytes=64 * 1024 * 1024) != state_bytes:
+            raise ValueError("Foundation original state changed while preparing handoff")
         _write_archive(stage, destination)
     archive_digest = _digest_file(destination)
     return {
