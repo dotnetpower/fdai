@@ -71,6 +71,10 @@
       "test_groups": {
         "unit": [
           "services/operator-service/tests/test_adaptive_relationship.py",
+          "services/operator-service/tests/test_alert_quality.py",
+          "services/operator-service/tests/test_alert_quality_period.py",
+          "services/operator-service/tests/test_alert_quality_history.py",
+          "services/operator-service/tests/test_alert_quality_settings.py",
           "services/operator-service/tests/test_analyzer_coverage_projection.py",
           "services/operator-service/tests/test_analyzer_lifecycle_projection.py",
           "services/operator-service/tests/test_analyzer_run_projection.py",
@@ -149,6 +153,8 @@
           "services/operator-service/tests/test_action_confirmation_runtime.py",
           "services/operator-service/tests/test_activity_projection.py",
           "services/operator-service/tests/test_agent_stream.py",
+          "services/operator-service/tests/test_alert_quality_bridge.py",
+          "services/operator-service/tests/test_alert_quality_postgres.py",
           "services/operator-service/tests/test_azure_monitor_webhook_runtime.py",
           "services/operator-service/tests/test_canonical_incident_roster.py",
           "services/operator-service/tests/test_channel_attachment_handoff.py",
@@ -210,7 +216,9 @@
       "test_groups": {
         "unit": [
           "services/document-ingestion-api/tests/test_cloud_knowledge_collection.py",
-          "services/document-ingestion-api/tests/test_cloud_knowledge_scheduler.py"
+          "services/document-ingestion-api/tests/test_cloud_knowledge_review.py",
+          "services/document-ingestion-api/tests/test_cloud_knowledge_scheduler.py",
+          "services/document-ingestion-api/tests/test_cloud_knowledge_structured_normalization.py"
         ],
         "contract": [
           "services/document-ingestion-api/tests/test_cloud_knowledge_offline.py",

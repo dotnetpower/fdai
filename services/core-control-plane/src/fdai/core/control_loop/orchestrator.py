@@ -24,6 +24,7 @@ from fdai.core.control_loop.change_safety_evidence import (
     ChangeSafetyPreAuthorityEvidenceProvider,
 )
 from fdai.core.control_loop.models import ControlLoopResult
+from fdai.core.detection.alert_noise.workflow import AlertActionBinder, AlertWorkflowCoordinator
 from fdai.core.event_ingest import EventCorrelator, EventIngest
 from fdai.core.executor import (
     DirectApiExecutionPort,
@@ -78,6 +79,7 @@ from fdai.shared.contracts.models import (
     ResponseOutcome,
     Rule,
 )
+from fdai.shared.providers.alert_noise import AlertPlanArtifacts
 from fdai.shared.providers.blast_probe import LiveBlastProbe
 from fdai.shared.providers.cost_estimator import CostEstimator
 from fdai.shared.providers.execution_authorization import (
@@ -140,6 +142,9 @@ class ControlLoop(
         rca_side_path_timeout_seconds: float = 5.0,
         resource_dependency_graph: Mapping[str, Iterable[str]] | None = None,
         workflow_coordinator: WorkflowTriggerCoordinator | None = None,
+        alert_workflows: AlertWorkflowCoordinator | None = None,
+        alert_action_binder: AlertActionBinder | None = None,
+        alert_plan_artifacts: AlertPlanArtifacts | None = None,
         process_runtime_store: ProcessRuntimeStore | None = None,
         degradation: DegradationController | None = None,
         kill_switch: KillSwitch | None = None,
@@ -284,6 +289,9 @@ class ControlLoop(
             dict(resource_dependency_graph) if resource_dependency_graph is not None else None
         )
         self._workflow_coordinator = workflow_coordinator
+        self._alert_workflows = alert_workflows
+        self._alert_action_binder = alert_action_binder
+        self._alert_plan_artifacts = alert_plan_artifacts
         self._process_runtime_store = process_runtime_store
 
     def bind_case_history_reuse(self, materializer: CaseHistoryMaterializer) -> None:
@@ -333,6 +341,16 @@ class ControlLoop(
     def ontology_release(self) -> OntologyRelease | None:
         """Return the exact ontology release used by ActionBuilder records."""
         return self._action_builder.ontology_release
+
+    @property
+    def alert_workflows(self) -> AlertWorkflowCoordinator | None:
+        """Expose the existing alert-to-Process binding to the owning Forseti handler."""
+        return self._alert_workflows
+
+    @property
+    def alert_plan_artifacts(self) -> AlertPlanArtifacts | None:
+        """Expose read-only private IaC preparation to the owning proposal handler."""
+        return self._alert_plan_artifacts
 
     @property
     def process_runtime_store(self) -> ProcessRuntimeStore | None:

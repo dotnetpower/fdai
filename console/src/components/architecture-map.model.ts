@@ -30,6 +30,8 @@ export interface InventoryResource {
   readonly h?: number;
   readonly render_scale?: number;
   readonly collapsed_count?: number;
+  readonly external_link_count?: number;
+  readonly presentation_role?: "summary";
   readonly network_plane_id?: string;
 }
 
@@ -89,6 +91,10 @@ export interface InventoryGraphResponse {
   };
   readonly active_view?: string;
   readonly views?: readonly ArchitectureView[];
+  readonly presentation?: {
+    readonly omitted_resources: number;
+    readonly omitted_direct_relationships: number;
+  };
 }
 
 export type ArchitectureLayer =
@@ -802,7 +808,10 @@ export function expandSimpleResourceGroupPanels(
 
   for (const parent of regions.filter((resource) => resource.type === "subscription")) {
     const groups = graph.resources
-      .filter((resource) => resource.type === "resource-group" && resource.parent_id === parent.id)
+      .filter((resource) =>
+        resource.type === "resource-group"
+        && resource.parent_id === parent.id
+        && resource.presentation_role !== "summary")
       .sort((first, second) => (first.y ?? 0) - (second.y ?? 0) || (first.x ?? 0) - (second.x ?? 0));
     if (groups.length === 0) continue;
     const directChildren = groups.map((group) => graph.resources

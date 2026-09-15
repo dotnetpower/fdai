@@ -81,6 +81,7 @@ class RuntimeTaskConfiguration:
     assignment_outcome_consumer: Any = None
     human_access_reconciliation: Any = None
     t1_mini_probe: T1MiniProbe | None = None
+    alert_noise_handler: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,6 +169,11 @@ async def run_runtime_tasks(
                 control_loop=config.control_loop,
                 stop=config.stop,
                 divergence=config.divergence_ledger,
+                alert_ingress_verifier=(
+                    config.alert_noise_handler.verify_ingress
+                    if config.alert_noise_handler is not None
+                    else None
+                ),
                 irp_handler=hooks.build_irp_event_handler(
                     container=config.container,
                     bus=config.bus,
@@ -515,6 +521,21 @@ async def run_runtime_tasks(
         if config.t1_mini_probe is not None
         else None
     )
+    alert_noise_task = None
+    if config.alert_noise_handler is not None:
+        from fdai.runtime.alert_noise import run_alert_noise
+
+        alert_noise_task = asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: run_alert_noise(
+                    handler=config.alert_noise_handler,
+                    bus=config.bus,
+                    stop=config.stop,
+                ),
+            ),
+            name="alert-noise-runtime",
+        )
     assignment_intake_task = (
         asyncio.create_task(
             config.readiness.run_when_ready(
@@ -563,6 +584,7 @@ async def run_runtime_tasks(
             semantic_turn_task,
             incident_intervention_task,
             read_investigation_task,
+            alert_noise_task,
             operational_readiness_task,
             diagnostic_event_ingest_task,
             notification_receipt_task,

@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 3bbe36f9b8110e13193827d2cd62d2a68e40c3a4
+translation_source_sha: 0ef7e2f3d514f04cc59a9310d5c72ac7420433df
 translation_revised: 2026-09-15
 title: 에이전트 운영 책임 수명 주기
 ---
@@ -21,6 +21,12 @@ title: 에이전트 운영 책임 수명 주기
 > 원본 허용/검색, 비공개 의미 패키지 보존, 격리 IAM 복구를 포함합니다. 잔여 구현 이후 [최종 검토 12회](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)를 완료했으며 미해결로 확인된 Medium/High 소스 문제는 없습니다.
 > [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)는 검토된 헤드 `8c1d9977c`를 `953a17de4`로 병합해 #946 전달을 완료했습니다. 정확한 헤드의 CI `34925881557`과 병합 후 CI `34926168342`가 통과했습니다.
 > [#1017 로컬 UI 근거](../../internals/handover-ui-evidence-20260915.md)는 평가 기준 50개를 기록하고 실제 스크린 리더 검사를 `needs-human`으로 남깁니다. 최종 점수는 없습니다. 준비도는 `shadow`, `operationally_ready=false`이며 [#458](https://github.com/dotnetpower/fdai/issues/458)은 열린 상태입니다.
+
+[운영 검증 가이드](../../user-guide/guides/validate-ownership-handover-ko.md)는 실제 음성, 현재
+신원, 공급자, 복구, 코호트, 정확한 계획의 근거를 구분합니다. #1017은
+[PR #1031](https://github.com/dotnetpower/fdai/pull/1031)의 `33c76944cec4489b51bc3bb90820cc273159d99d` 병합으로
+전달을 완료했고 정확한 헤드의 CI `34933740673`과 병합 후 main CI `34934077457`이 성공했습니다.
+이 결과로 #458이 완료되지는 않습니다.
 
 클라우드 참조 수집과 서명 반입은 같은 수집 호스트를 사용하지만 담당자 변경 권한을
 공유하지 않습니다. 인수인계 초안을 만들거나 담당자를 바꾸지 않으며, [별도 수명 주기](cloud-resource-knowledge-lifecycle-ko.md)의
@@ -309,9 +315,12 @@ GitHub App에는 어댑터에 필요한 저장소 내용, 풀 리퀘스트, 메�
 입력으로만 허용합니다. 풀 리퀘스트 이벤트용 GitHub 웹후크는 게시된 수집 게이트웨이 경로를
 가리키도록 구성하세요.
 
-보호된 워크플로는 저장소 Variables에서 `ENABLE_STEWARDSHIP_GOVERNANCE`, `GITOPS_OWNER`,
-`GITOPS_REPO`를 읽고 저장소 Secrets에서 `GITOPS_TOKEN`, `GITHUB_WEBHOOK_SECRET`을 읽습니다.
-이 값과 기존 ChatOps 시크릿을 구성하기 전에는 활성화를 비활성 상태로 유지하세요.
+검토된 활성화, 저장소/App 연결, 보호된 비밀 참조는 선택한 독립 배포의 비공개 구성으로
+제공하세요. `fdaictl provision azure`가 정확한 계획에 대한 사람 승인과 전용 관리 호스트
+신원을 조정하며 GitHub Actions는 테넌트 계획/적용 전송 경로가 아닙니다. 과거 근거의
+워크플로 변수로 현재 배포가 구성되지는 않습니다. 현재 App, 서명 웹후크, 독립적으로 승인한
+채널의 선행 조건을 검증하기 전에는 거버넌스를 비활성 상태로 유지하세요. 정적 개인 토큰으로
+대체하거나 비밀 값을 채팅, CLI 인자, 소스 관리, 공개 이슈 근거에 넣지 마세요.
 
 ## 실패 및 복구
 
@@ -337,7 +346,9 @@ uv run pytest services/core-control-plane/tests/core/stewardship services/core-c
 terraform -chdir=infra validate
 ```
 
-배포 후 다음을 확인하세요.
+별도로 승인된 배포 후 선택한 훈련의 범위와 기한 안에서 다음을 관찰하세요. 현재 신원,
+정확한 승인, 역방향 복구/재시작/장애 훈련, 독립 코호트는
+[근거 절차](../../user-guide/guides/validate-ownership-handover-ko.md)를 따릅니다.
 
 1. `GET /stewardship`이 15개 에이전트와 예상 커버리지 발견 사항을 반환합니다.
 2. `stewardship_health:current`가 존재하고 `stewardship_health:last_success`가 동일 개정 번호와
@@ -346,13 +357,15 @@ terraform -chdir=infra validate
 4. 업로드 재처리가 동일한 PR 참조를 반환합니다.
 5. 검토된 테스트 변경 병합이 병합 감사 하나와 운영 알림 하나를 생성합니다.
 6. 같은 GitHub 전달 ID를 다시 보내도 두 번째 기록을 생성하지 않습니다.
-7. 주입된 시계를 갱신 여유 구간을 지나도록 전진하면 설치 토큰 하나가 갱신되고 동시 호출은
-   발급 요청 하나를 공유하며 로그와 증적에는 자격 증명이 나타나지 않습니다.
+7. 승인된 제한 시간의 실제 토큰 갱신 관찰에서 자격 증명 값 없이 갱신과 동시 사용 근거를
+   보존합니다. 주입된 시계 검사는 로컬 공급자 동작만 입증합니다. 배포 시계를 바꾸거나
+   합성 갱신을 실제 관찰이라고 주장하지 마세요.
 
 ## 관련 문서
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 남은 음성과 운영 근거 | [검증 가이드](../../user-guide/guides/validate-ownership-handover-ko.md) |
 | 소유권 스키마 및 인계 개념 | [agent-stewardship-and-handover-ko.md](agent-stewardship-and-handover-ko.md) |
 | 알림 경로 및 대체 경로 | [channels-and-notifications-ko.md](channels-and-notifications-ko.md) |
 | 사람 권한 확인 | [user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md) |

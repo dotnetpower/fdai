@@ -116,6 +116,105 @@ async def test_monthly_full_body_verification() -> None:
     assert transport.etags == [None, None]
 
 
+async def test_structured_upgrade_is_checkpointed_without_refetching_or_redating() -> None:
+    transport = RecordingTransport(
+        SourceResponse(200, b"<main><h1>Guide</h1><p>Retained evidence.</p></main>", "text/html")
+    )
+    legacy = await CloudDocumentCollector(transport, collector_id="test").collect(
+        SOURCE, SourceState(), now=NOW
+    )
+    upgraded = await CloudDocumentCollector(
+        transport, collector_id="test", structured=True
+    ).collect(SOURCE, legacy, now=NOW + timedelta(hours=1))
+    assert upgraded.structured_document is not None
+    assert upgraded.document == legacy.document
+    assert upgraded.last_attempt == legacy.last_attempt
+    assert upgraded.structured_document.evidence.collected_at == NOW
+    assert upgraded.structured_document.evidence.check.checked_at == NOW
+    assert transport.etags == [None]
+
+
+@pytest.mark.parametrize("status", [200, 304])
+async def test_same_body_structure_rebinds_reviewed_metadata_without_redating(status: int) -> None:
+    body = b"<main><h1>Guide</h1><p>Reference body.</p></main>"
+    transport = RecordingTransport(
+        SourceResponse(200, body, "text/html", etag='"same"'),
+        SourceResponse(status, body if status == 200 else b"", "text/html", etag='"same"'),
+    )
+    collector = CloudDocumentCollector(transport, collector_id="test", structured=True)
+    prior = await collector.collect(SOURCE, SourceState(), now=NOW)
+    updated_source = SOURCE.model_copy(
+        update={"title": "Updated title", "license_ref": "new-reviewed-rights"}
+    )
+    changed = await collector.collect(updated_source, prior, now=NOW + timedelta(days=7))
+    assert changed.document is not None and changed.structured_document is not None
+    assert changed.document.title == changed.structured_document.title == "Updated title"
+    assert changed.structured_document.evidence.license_ref == "new-reviewed-rights"
+    assert changed.structured_document.evidence.collected_at == NOW
+    assert changed.structured_document.evidence.check.checked_at == NOW + timedelta(days=7)
+    assert prior.structured_document is not None
+    assert prior.structured_document.evidence.license_ref == SOURCE.license_ref
+    assert (
+        changed.structured_document.processing_digest != prior.structured_document.processing_digest
+    )
+
+
+async def test_extended_processing_upgrade_needs_no_network_or_new_source_check() -> None:
+    transport = RecordingTransport(
+        SourceResponse(200, b"<main><h1>Guide</h1><p>Reference.</p></main>", "text/html")
+    )
+    prior = await CloudDocumentCollector(transport, collector_id="test", structured=True).collect(
+        SOURCE, SourceState(), now=NOW
+    )
+    upgraded = CloudDocumentCollector(
+        transport, collector_id="test", structured=True, normalizer_version="2.1.0"
+    )
+    assert upgraded.processing_due(SOURCE, prior, NOW + timedelta(hours=1))
+    changed = await upgraded.collect(SOURCE, prior, now=NOW + timedelta(hours=1))
+    assert changed.document == prior.document and changed.last_attempt == prior.last_attempt
+    assert changed.structured_document is not None
+    assert changed.structured_document.normalizer_version == "2.1.0"
+    assert changed.structured_document.evidence.check.checked_at == NOW
+    assert not upgraded.processing_due(SOURCE, changed, NOW + timedelta(hours=2))
+    assert transport.etags == [None]
+
+
+async def test_changed_source_origin_cannot_reuse_validator_or_collection_clock() -> None:
+    transport = RecordingTransport(
+        SourceResponse(200, b"same bytes", etag='"same"'),
+        SourceResponse(200, b"same bytes", etag='"same"'),
+    )
+    collector = CloudDocumentCollector(transport, collector_id="test")
+    prior = await collector.collect(SOURCE, SourceState(), now=NOW)
+    moved = SOURCE.model_copy(update={"url": "https://example.com/docs/new-origin"})
+    changed = await collector.collect(moved, prior, now=NOW + timedelta(hours=1))
+    assert changed.document is not None
+    assert changed.document.evidence.source_url == moved.url
+    assert changed.document.evidence.collected_at == NOW + timedelta(hours=1)
+    assert transport.etags == [None, None]
+
+
+async def test_reviewed_metadata_upgrade_preserves_a_not_due_source_check() -> None:
+    transport = RecordingTransport(
+        SourceResponse(200, b"<main><p>Reference.</p></main>", "text/html")
+    )
+    collector = CloudDocumentCollector(transport, collector_id="test", structured=True)
+    prior = await collector.collect(SOURCE, SourceState(), now=NOW)
+    revised = SOURCE.model_copy(update={"title": "Reviewed title", "license_ref": "new-rights"})
+    later = NOW + timedelta(hours=1)
+    assert not source_due(revised, prior, later)
+    assert collector.processing_due(revised, prior, later)
+    changed = await collector.collect(revised, prior, now=later)
+    assert changed.document is not None and changed.structured_document is not None
+    assert prior.document is not None
+    assert changed.document.title == changed.structured_document.title == revised.title
+    assert changed.document.evidence.check == prior.document.evidence.check
+    assert changed.structured_document.evidence.license_ref == revised.license_ref
+    assert changed.last_attempt == prior.last_attempt
+    assert changed.last_full_fetch_at == prior.last_full_fetch_at
+    assert transport.etags == [None]
+
+
 async def test_repeated_304_after_fallback_cannot_renew_source() -> None:
     transport = RecordingTransport(
         SourceResponse(200, b"body", etag='"one"'),

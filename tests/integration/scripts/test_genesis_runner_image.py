@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import replace
@@ -1152,8 +1153,12 @@ def test_terraform_environment_rejects_ambient_authority_controls(
         )
 
 
+@pytest.mark.parametrize(
+    ("power_state", "exit_status"),
+    [("PowerState/stopped", 0), ("PowerState/deallocated", 0), ("", 9)],
+)
 def test_terraform_environment_uses_private_empty_configuration(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, power_state: str, exit_status: int
 ) -> None:
     for key in tuple(os.environ):
         if key.startswith(("TF_CLI_ARGS", "TF_VAR_", "TF_LOG", "ARM_")):
@@ -1173,7 +1178,11 @@ def test_terraform_environment_uses_private_empty_configuration(
     work.mkdir(mode=0o700)
 
     azure_cli = tmp_path / "trusted-az"
-    azure_cli.write_text("#!/bin/sh\nexit 0\n")
+    azure_cli.write_text(
+        "#!/bin/sh\n"
+        'test "$1" = vm && test "$2" = get-instance-view && test "$4" = example-vm || exit 99\n'
+        f"printf '%s\\n' '{power_state}'\nexit {exit_status}\n"
+    )
     azure_cli.chmod(0o700)
     monkeypatch.setattr(command, "_trusted_azure_cli", lambda: azure_cli)
     environment = command._terraform_environment(
@@ -1192,15 +1201,84 @@ def test_terraform_environment_uses_private_empty_configuration(
         environment["PATH"]
         == f"{tools}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
     )
-    assert (tools / "az").resolve(strict=True) == azure_cli
+    launcher = tools / "az"
+    assert launcher.is_file()
+    assert not launcher.is_symlink()
+    assert launcher.stat().st_mode & 0o777 == 0o700
+    assert str(azure_cli) in launcher.read_text()
+    terraform_source = (ROOT / "infra/genesis-runner-image/main.tf").read_text()
+    wait_block = terraform_source.split('resource "terraform_data" "await_builder_poweroff"', 1)[1]
+    wait_block = wait_block.split('\nresource "', 1)[0]
+    assert "AZ_CLI" not in wait_block
+    wait_command = re.search(r"command\s*=\s*<<-SCRIPT\n(.*?)\n\s*SCRIPT", wait_block, re.S)
+    assert wait_command is not None
+    completed = subprocess.run(  # noqa: S603
+        ["/bin/bash", "-c", wait_command.group(1)],
+        env={**environment, "VM_ID": "example-vm"},
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+    assert completed.returncode == exit_status, completed.stderr
     assert (
         command._terraform_environment(work, subscription_id=SUBSCRIPTION, tenant_id=TENANT)
         == environment
     )
-    (tools / "az").unlink()
-    (tools / "az").symlink_to(tmp_path / "untrusted-cli")
+    launcher.chmod(0o600)
+    with pytest.raises(ValueError, match="Azure CLI binding changed"):
+        command._terraform_environment(work, subscription_id=SUBSCRIPTION, tenant_id=TENANT)
+    launcher.unlink()
+    launcher.symlink_to(tmp_path / "untrusted-cli")
     with pytest.raises((ValueError, FileNotFoundError)):
         command._terraform_environment(work, subscription_id=SUBSCRIPTION, tenant_id=TENANT)
+
+
+def test_terraform_environment_preserves_location_relative_azure_cli(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for key in tuple(os.environ):
+        if key.startswith(("TF_CLI_ARGS", "TF_VAR_", "TF_LOG", "ARM_")):
+            monkeypatch.delenv(key, raising=False)
+    azure_config = tmp_path / "azure"
+    azure_config.mkdir(mode=0o700)
+    github_config = tmp_path / "gh"
+    github_config.mkdir(mode=0o700)
+    monkeypatch.setenv("AZURE_CONFIG_DIR", str(azure_config))
+    monkeypatch.setenv("GH_CONFIG_DIR", str(github_config))
+
+    azure_cli = tmp_path / "usr/bin/az"
+    azure_cli.parent.mkdir(parents=True)
+    runtime = tmp_path / "opt/az/bin/runtime"
+    runtime.parent.mkdir(parents=True)
+    runtime.write_text("#!/bin/sh\nprintf '%s\\n' \"$*\"\n")
+    runtime.chmod(0o700)
+    azure_cli.write_text(
+        "#!/bin/bash\n"
+        'bin_dir=`cd "$(dirname "$BASH_SOURCE[0]")"; pwd`\n'
+        'exec "$bin_dir"/../../opt/az/bin/runtime "$@"\n'
+    )
+    azure_cli.chmod(0o700)
+    monkeypatch.setattr(command, "_trusted_azure_cli", lambda: azure_cli)
+    work = tmp_path / "work"
+    work.mkdir(mode=0o700)
+
+    environment = command._terraform_environment(
+        work,
+        subscription_id=SUBSCRIPTION,
+        tenant_id=TENANT,
+    )
+    completed = subprocess.run(  # noqa: S603
+        [str(work / "terraform-home/bin/az"), "account", "show"],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout == "account show\n"
 
 
 def test_provider_drift_is_rejected_before_apply_claim(tmp_path: Path) -> None:

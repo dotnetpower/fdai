@@ -15,6 +15,7 @@ from fdai_service_contracts.operator import OperatorRole
 
 INCIDENT_INTERVENTION_REQUEST_TOPIC = "operator.incident-intervention.requests"
 INCIDENT_INTERVENTION_CONSUMER_GROUP = "core-incident-intervention-v1"
+INCIDENT_INTERVENTION_EVENT_TYPE = "incident.operator_guidance.v1"
 _UUID_PATTERN = r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
 
 
@@ -189,6 +190,7 @@ def build_incident_intervention_request(
 
 __all__ = [
     "INCIDENT_INTERVENTION_CONSUMER_GROUP",
+    "INCIDENT_INTERVENTION_EVENT_TYPE",
     "INCIDENT_INTERVENTION_REQUEST_TOPIC",
     "IncidentExceptionDuration",
     "IncidentInterventionAction",

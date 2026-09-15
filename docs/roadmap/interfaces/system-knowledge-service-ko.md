@@ -1,7 +1,7 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 39b0cbcda8394a251167f3d84757cc7e82cbc3a0
+translation_source_sha: a73991a45f932d8bafd28e1ab8ba9dceda312262
 translation_revised: 2026-09-15
 ---
 # 시스템 지식 서비스
@@ -132,6 +132,8 @@ release 트리와 일치합니다. 서식만 압축하거나 Markdown 구조를 
 인용한 blob 신원은 바뀝니다. 이 기계적 갱신은 CI에서 검증한 Pantheon 귀속, 현지화되고 scope-safe이며 다이제스트로 검증된 시간 인식 근거, 역할 및 권한 경계, 기존 상태 용어를 보존하는 공용 역할 표현, 로케일 보존 집계를 포함한 결정론적 정본 도메인 라우팅, 추가 전용 동작, fail-closed 동작, translator-only 동작, 통제된 catalog 동작, 비활성 off-path 학습, 자문 동작, HIL-gated chaos 동작 및 프롬프트 비공개를 포함한 수정 원본 식별자를
 전달할 뿐 운영, 승인 또는 실행 권한을 추가하지 않습니다. 배포 guard 원본 개정에도 같은
 다시 빌드 규칙을 적용합니다.
+이번 갱신은 Saga가 Huginn 정규화 이벤트를 감사하고 Forseti가 판단하지 않는, 검토된
+인시던트 지침 경계도 전달합니다. 이 원본 고정값 갱신은 어떤 권한도 부여하지 않습니다.
 완료 handoff 및 behavior-knowledge ledger 갱신도 이 규칙을 따릅니다. Source blob pin과
 catalog digest만 바꾸며 검색 권한이나 메시지 전달 동작은 변경하지 않습니다.
 첨부 경계 문서도 같은 원본 기반 갱신 규칙을 따릅니다. 해당 catalog 갱신은 보호된 채널 수집이

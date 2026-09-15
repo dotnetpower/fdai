@@ -17,6 +17,7 @@ import { useContentUpdatePulse } from "../hooks/use-content-update-pulse";
 import { routeHref } from "../router";
 import { t } from "./i18n/live";
 import { LiveDetailShell } from "./live.detail-shell";
+import { liveSampleStory } from "./operations.sample-live-stories";
 import {
   STAGE_ORDER,
   formatAge,
@@ -35,7 +36,9 @@ function agentRole(agent: string): string {
     : t(`live.role.${agent}`);
 }
 
-function actionHeading(tile: TileState): string {
+function actionHeading(tile: TileState, sample = false): string {
+  const story = sample ? liveSampleStory(tile.rule) : undefined;
+  if (story) return t(`live.sample.title.${story.key}`);
   if (tile.action_types.size > 1) {
     return t("live.work.actions", { count: tile.action_types.size });
   }
@@ -121,6 +124,7 @@ export interface TileProps {
   readonly selected: boolean;
   readonly now: number;
   readonly onClick: (() => void) | undefined;
+  readonly sample?: boolean;
 }
 
 export function liveTileUpdateKey(tile: TileState | null): string | null {
@@ -149,7 +153,7 @@ export function liveTileUpdateKey(tile: TileState | null): string | null {
   ].join("|");
 }
 
-export function LiveTile({ tile, filter, selected, now, onClick }: TileProps) {
+export function LiveTile({ tile, filter, selected, now, onClick, sample = false }: TileProps) {
   const contentUpdated = useContentUpdatePulse(liveTileUpdateKey(tile));
   if (!tile) {
     return <div class="live-tile live-tile-empty" data-empty="1" aria-hidden="true" />;
@@ -160,7 +164,8 @@ export function LiveTile({ tile, filter, selected, now, onClick }: TileProps) {
   const dimmed = matchesFilter(tile, filter, now) ? "" : " dimmed";
   const failed = tile.failed ? "1" : "0";
   const done = tile.completed ? "1" : "0";
-  const heading = actionHeading(tile);
+  const heading = actionHeading(tile, sample);
+  const story = sample ? liveSampleStory(tile.rule) : undefined;
   const tierLabel = tier === "abstain" ? "N/A" : tier.toUpperCase();
   const modeLabel = authorityModeLabel(tile);
   const stageProgress = ((STAGE_ORDER.indexOf(tile.last_stage) + 1) / STAGE_ORDER.length) * 100;
@@ -205,10 +210,10 @@ export function LiveTile({ tile, filter, selected, now, onClick }: TileProps) {
         <span class="live-tile-action">{heading}</span>
       </Tooltip>
       <div class="live-tile-target">
-        <span>{targetLabel(tile)}</span>
+        <span>{story ? t(`live.sample.target.${story.key}`) : targetLabel(tile)}</span>
       </div>
       <div class="live-tile-reason">
-        {t("live.work.why", { reason: tile.reason ?? t("live.control.notObserved") })}
+        {t("live.work.why", { reason: story ? t(`live.sample.reason.${story.key}`) : tile.reason ?? t("live.control.notObserved") })}
       </div>
       <div class="live-tile-foot">
         <span class="live-tile-owner">
@@ -216,7 +221,12 @@ export function LiveTile({ tile, filter, selected, now, onClick }: TileProps) {
         </span>
         <span class="live-tile-scope">{tile.scope ?? t("live.control.notObserved")}</span>
       </div>
-      <span class="live-tile-bar" aria-hidden="true"><span style={{ width: `${stageProgress}%` }} /></span>
+      <span class="live-tile-bar" role="meter" aria-label={t("live.work.progress")}
+        aria-valuemin={0} aria-valuemax={STAGE_ORDER.length}
+        aria-valuenow={STAGE_ORDER.indexOf(tile.last_stage) + 1}
+        aria-valuetext={`${stageLabel(tile.last_stage)} - ${statusLabel}`}>
+        <span style={{ width: `${stageProgress}%` }} />
+      </span>
     </button>
   );
 }
@@ -430,12 +440,14 @@ export function DetailPanel({
   tile,
   now,
   onClose,
+  sample = false,
 }: {
   readonly tile: TileState;
   readonly now: number;
   readonly onClose: () => void;
+  readonly sample?: boolean;
 }) {
-  const heading = actionHeading(tile);
+  const heading = actionHeading(tile, sample);
   const control = liveControlState(tile);
 
   return (

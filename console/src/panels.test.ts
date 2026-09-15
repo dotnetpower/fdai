@@ -18,6 +18,7 @@ describe("panel navigation placement", () => {
       "provision",
       "onboarding",
       "detection-readiness",
+      "alert-quality",
       "configuration-baselines",
       "processes",
       "workflow-apps",

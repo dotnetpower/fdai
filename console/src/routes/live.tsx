@@ -29,7 +29,8 @@ import {
   OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP,
   OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT,
   OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS,
-  OPERATIONS_SAMPLE_LIVE_STAGE_INTERVAL_MS,
+  sampleLiveStageDelay,
+  sampleLivePreviewEvents,
   OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT,
   sampleLiveObservations,
   sampleLiveEvents,
@@ -106,10 +107,11 @@ export function LiveRoute({ client, dataMode }: Props) {
     ),
   );
   const [tickerPaused, setTickerPaused] = useState(false);
+  const [sampleEpoch, setSampleEpoch] = useState(0);
   const metricsRef = useRef(createLiveMetrics());
   const metrics = useMemo(
     () => summarizeLiveMetrics(metricsRef.current, state.now),
-    [state.now],
+    [state.now, sampleEpoch],
   );
   const [viewMode, setViewMode] = useState<LiveViewMode>(
     initialRoute.search.get("view") === "queue" ? "queue" : "flow",
@@ -131,6 +133,7 @@ export function LiveRoute({ client, dataMode }: Props) {
   const pausedRef = useRef(false);
   const frozenObservedRef = useRef(0);
   const pendingEventsRef = useRef<LiveStageEvent[]>([]);
+  const sampleCleanupRef = useRef<(() => void) | null>(null);
   const pendingObservationsRef = useRef<AgentOperationalActivityMessage[]>([]);
   const coverage = useLiveCoverage(client, dataMode);
 
@@ -291,7 +294,7 @@ export function LiveRoute({ client, dataMode }: Props) {
       setObservationError(stream.lastError);
     }
     return undefined;
-  }, [dataMode, stream.lastError, stream.status]);
+  }, [dataMode, stream.lastError, stream.status, sampleEpoch]);
 
   useEffect(() => {
     if (dataMode !== "sample") return undefined;
@@ -302,7 +305,7 @@ export function LiveRoute({ client, dataMode }: Props) {
       { ...event, ts: new Date(sampleNow - (lastSampleAt - Date.parse(event.ts)) / 100).toISOString() },
       sampleNow,
     ));
-    dispatch({ kind: "batch", events: OPERATIONS_SAMPLE_LIVE_EVENTS });
+    dispatch({ kind: "batch", events: sampleLivePreviewEvents() });
     dispatch({ kind: "seed-rate", now: Date.now(), per_tier_per_second: 1 });
     let nextEvent = OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT;
     const stageHandles = new Set<number>();
@@ -318,7 +321,8 @@ export function LiveRoute({ client, dataMode }: Props) {
       for (let eventOffset = 0; eventOffset < OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP; eventOffset += 1) {
         const events = sampleLiveEvents(nextEvent + eventOffset, 1);
         events.forEach((event, stageIndex) => {
-          const delay = eventOffset * 250 + stageIndex * OPERATIONS_SAMPLE_LIVE_STAGE_INTERVAL_MS;
+          const delay = eventOffset * (OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS / OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP)
+            + sampleLiveStageDelay(nextEvent + eventOffset, stageIndex, events.length);
           const stageHandle = window.setTimeout(() => {
             stageHandles.delete(stageHandle);
             enqueue({ ...event, ts: new Date(startedAt + delay).toISOString() });
@@ -333,11 +337,13 @@ export function LiveRoute({ client, dataMode }: Props) {
       scheduleLoop,
       OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS,
     );
-    return () => {
+    const cleanup = () => {
       window.clearInterval(loopHandle);
       stageHandles.forEach((handle) => window.clearTimeout(handle));
     };
-  }, [dataMode]);
+    sampleCleanupRef.current = cleanup;
+    return cleanup;
+  }, [dataMode, sampleEpoch]);
 
   useEffect(() => {
     const handle = window.setInterval(() => {
@@ -385,6 +391,22 @@ export function LiveRoute({ client, dataMode }: Props) {
     }
   };
 
+  const restartSample = () => {
+    if (dataMode !== "sample") throw new Error("Sample replay is unavailable in Live mode");
+    sampleCleanupRef.current?.();
+    pendingEventsRef.current = [];
+    pendingObservationsRef.current = [];
+    metricsRef.current = createLiveMetrics();
+    pausedRef.current = false;
+    frozenObservedRef.current = 0;
+    setTickerPaused(false);
+    setFrozenObserved(0);
+    setDroppedFrames(0);
+    selectObservation(null);
+    dispatch({ kind: "reset" });
+    setSampleEpoch(epoch => epoch + 1);
+  };
+
   const selectedTile = state.selectedEventId
     ? state.tiles.find((tile) => tile?.event_id === state.selectedEventId) ?? null
     : null;
@@ -416,7 +438,7 @@ export function LiveRoute({ client, dataMode }: Props) {
       const target = event.target as HTMLElement | null;
       const tag = target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) return;
-      if (target?.closest('[role="dialog"]')) return;
+      if (target?.closest('[role="dialog"]:not(.live-workspace)')) return;
       if (
         event.key === "Escape" &&
         (state.selectedEventId || selectedObservationId)
@@ -460,6 +482,7 @@ export function LiveRoute({ client, dataMode }: Props) {
       lastError={lastError}
       streamSource={streamSource}
       tickerPaused={tickerPaused}
+      restartSample={dataMode === "sample" ? restartSample : undefined}
       frozenObserved={frozenObserved}
       droppedFrames={droppedFrames}
       cursorReset={cursorReset}

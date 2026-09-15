@@ -52,6 +52,7 @@ campaign readiness as effect evidence. This shadow-only slice adds no runtime bi
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Completed twelve bounded event-production critique/hardening rounds covering recovery deadlines/cursors, non-projectable changes, observation metadata, persistent cooldown, analyzer admission, and readiness. | #1065; [round evidence](../../baselines/live-event-production-hardening-2026-09-15.json); 367 focused tests, strict mypy on seven source files, and independent final review with no significant issue. | Runtime adoption and independent admissions remain separately gated; no fabricated events or relaxed holds. |
 | 2026-09-15 | validated | Validated the local schema `1.3.0` activity snapshot/delta path and retained-history boundary. Live used one SSE connection and no implicit Agent GET, while explicit Agent Activity returned and rendered all 500 requested `1.3.0` rows without live-delta eviction. | `current change`; backend focused tests `353 passed, 1 skipped`; Console focused tests `188 passed`; strict mypy and typecheck passed; production-adapter Playwright `1 passed`; standard local services `11/11`; authenticated standard Live inspection and safe 1440×900 session screenshot. | Retain equivalent deployed-revision evidence before raising the separately governed live campaign row to validated. |
 | 2026-09-15 | implemented | Revalidated schema `1.3.0` activity production and durable projection after clamping in-flight and failed partial counts. The standard local projection returned all 500 requested rows as `1.3.0` with measured, not-recorded, and unavailable states. | `current change`; backend focused tests `278 passed, 1 skipped`; strict mypy passed; standard local services `11/11`; durable activity projection `500/500`. | Capture an authenticated Live card and failure-transition artifact after Browser Entra is refreshed, then retain equivalent deployed-revision evidence before raising governed live campaign evidence to validated. |
 | 2026-09-14 | implemented | Prevented started and failed inventory or observation rows from exposing partial source counts as completed evidence. Both states now publish `evidence_count: 0` with no `result_count`; only measured terminal rows retain observed counts. | `current change`; Core activity producer and Operator projection regressions passed 13 focused tests. | Retain an authenticated standard-stack failure transition before claiming runtime validation. |
@@ -167,7 +168,7 @@ separately. Each registered source reports one of these coverage outcomes:
 The runner continues independent sources after an expected denial or failure. The aggregate
 campaign is `completed` only when every required source's current coverage is `ready`; otherwise it
 is `partial`.
-No missing source becomes a zero count, healthy state, or permission inference.
+No missing source becomes a zero count, healthy state, or permission inference. The promoted-inventory probe classifies an explicitly unavailable source before requiring measured counters; ready coverage requires explicit valid freshness and boolean truncation metadata.
 
 ## Collection policy
 
@@ -177,6 +178,7 @@ No missing source becomes a zero count, healthy state, or permission inference.
   only after the terminal result is durable. Activity Log recovery requests timestamp-only closed
   windows, checkpoints only a fully read window, and immediately continues an explicit
   `source_catchup` state without accelerating unrelated failures.
+- **Provider cooldown:** Persist the latest `Retry-After` or Cost Management retry deadline in UTC, including valid hints beside malformed companion headers. Neither restart nor catch-up can retry before it, and a short hint never shortens the registered interval. Malformed retry state blocks that source explicitly.
 - **Complete reconciliation:** The authoritative inventory CLI performs the full ARG/ARM promotion
   through the same due gate in local and deployment. The campaign observes that promoted graph;
   configuration, cost, and recovery probes execute their own bounded registered reads.

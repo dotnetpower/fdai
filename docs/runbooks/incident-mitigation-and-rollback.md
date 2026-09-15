@@ -5,7 +5,21 @@ fdai_runbook:
   schema_version: 1.0.0
   action_type_patterns:
     - governance.*
-    - ops.*
+    - ops.apply-human-access
+    - ops.revoke-human-access
+    - ops.deallocate-vm
+    - ops.delete-network-rule
+    - ops.drain-connection
+    - ops.failover-primary
+    - ops.flush-cache
+    - ops.publish-change-summary
+    - ops.restart-service
+    - ops.rotate-cert
+    - ops.scale-in
+    - ops.scale-out
+    - ops.start-vm
+    - ops.switch-t2-proposer-route
+    - ops.upsert-network-rule
     - remediate.*
     - tool.*
   sections:
@@ -134,4 +148,5 @@ moved to monitoring or returned to investigation with an owner and deadline.
 |------------------|------|
 | Re-establish incident scope and severity | [Incident triage](incident-triage.md) |
 | Gather evidence for the next proposal | [RCA evidence collection](rca-evidence-collection.md) |
+| Review the four alert-change ActionTypes outside incident mitigation | [Alert noise governance](alert-noise-governance.md) |
 | Review the response after recovery | [Postmortem workflow](postmortem-workflow.md) |

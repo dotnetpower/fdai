@@ -18,6 +18,7 @@ from fdai_service_contracts.cloud_knowledge import (
     SourceRegistryRevision,
 )
 from fdai_service_contracts.cloud_knowledge_package import KnowledgeTrustPolicy
+from fdai_service_contracts.cloud_knowledge_updates import source_update_pending
 
 if TYPE_CHECKING:
     from fdai_ingestion_api_service.cloud_knowledge.store import SourceCheckpoint
@@ -51,7 +52,12 @@ async def project_source(
     if source is None or source.source_sha256 != indexed.source_sha256:
         raise ValueError("cloud citation source identity changed")
     state = (await read_checkpoint(binding.registry_digest, source.source_id)).state
-    pending = bool(state.document and state.document.evidence.source_sha256 != source.source_sha256)
+    pending = bool(
+        state.document
+        and source_update_pending(
+            binding, source, state.document.evidence, state.structured_document
+        )
+    )
     receipt = state.document.evidence.check if state.document else None
     if (
         not pending
@@ -157,7 +163,14 @@ async def project_status(
                 admitted is not None
                 and cached is not None
                 and (
-                    cached.evidence.source_sha256 == admitted.source_sha256
+                    active is not None
+                    and active.cloud_knowledge is not None
+                    and not source_update_pending(
+                        active.cloud_knowledge,
+                        admitted,
+                        cached.evidence,
+                        checkpoint.state.structured_document,
+                    )
                     and admitted.check.checked_at < cached.evidence.check.checked_at <= now
                 )
             ):
@@ -194,7 +207,14 @@ async def project_status(
                         cached
                         and (
                             admitted is None
-                            or cached.evidence.source_sha256 != admitted.source_sha256
+                            or active is None
+                            or active.cloud_knowledge is None
+                            or source_update_pending(
+                                active.cloud_knowledge,
+                                admitted,
+                                cached.evidence,
+                                checkpoint.state.structured_document,
+                            )
                         )
                     ),
                     "consecutive_failures": checkpoint.state.consecutive_failures,

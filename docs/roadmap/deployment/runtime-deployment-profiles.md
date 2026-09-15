@@ -83,6 +83,11 @@ planning. The error reports the requested and allocatable quantities without exp
 
 ## State ownership
 
+Both runtime profiles depend on the verified managed-host image. Its local builder poweroff wait
+uses the coordinator's trusted Azure CLI path rather than requiring `/usr/bin/az`. Partial image
+construction retains its original claim and state; the [source transfer boundary](installable-deployment-cli.md#connected-source-deployment)
+does not permit an automatic reapply or treat missing success evidence as zero resource effects.
+
 The read-only capacity preflight accepts nonnegative integer quota values and canonical decimal
 integer strings returned by Azure CLI. Boolean, fractional, signed, whitespace-padded or oversized
 representations remain blocked. Available quota never overrides a SKU restriction, missing zone,
@@ -202,6 +207,14 @@ checks distinguish direct SDK imports from SDK-owned transport use. Operator and
 SDK's common asynchronous credential contract to their existing adapters. These local integration
 checks do not prove deployed federation, Event Hubs access, or service readiness.
 
+For the Container Apps profile, the protected platform-to-Core handoff carries the exact
+inventory-reader identity resource and client ids with the observation context. The service
+materializer attaches that read-only identity once, removes only that identity when observation is
+disabled, and rejects any mismatched binding. Signed scale-out evidence names the FinOps executor
+credential lineage, while VM-start evidence names the Resilience executor credential lineage.
+Neither identity choice grants execution authority, and local interactive never receives this
+binding.
+
 The AKS managed Key Vault CSI provider synchronizes fixed Key Vault references into namespaced
 Kubernetes Secrets by using each workload's federated identity. Applications continue to read
 environment variables and never call Key Vault directly. Terraform plans contain secret names and
@@ -223,8 +236,12 @@ targets remain blocked until their separate egress contract is selected and veri
 
 The cluster enables Azure Policy, patch-channel Kubernetes upgrades, and NodeImage OS upgrades.
 Both node pools enable host encryption and allow 50 pods per node. Confirm the selected
-subscription and SKU support host encryption before deployment; automated regional and feature
-preflight remains open in the implementation ledger. Unsupported targets do not disable encryption.
+subscription and SKU support host encryption before deployment. The read-only preflight queries
+the regional catalog once and uses an exact-name Azure CLI projection so only the distinct selected
+SKUs are serialized, then checks their regional restrictions, three required zones, architecture,
+host encryption, and family plus total quota. It does not issue a second catalog request for a
+different node-pool SKU or retry a failed provider read. Unsupported targets do not disable
+encryption. Allocatable workload-envelope validation remains open in the implementation ledger.
 
 The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
 ephemeral storage. Checkov exceptions stay attached to the affected resource: the pinned scanner

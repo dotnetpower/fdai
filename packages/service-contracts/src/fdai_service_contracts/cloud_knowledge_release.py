@@ -15,6 +15,12 @@ from fdai_service_contracts.cloud_knowledge import (
     canonical_bytes,
     content_digest,
 )
+from fdai_service_contracts.cloud_knowledge_structure import (
+    MAX_BLOCKS,
+    MAX_DERIVED_BYTES,
+    CloudStructuredDocument,
+    structured_excerpts,
+)
 
 
 class CloudKnowledgeDocument(KnowledgeContract):
@@ -58,7 +64,9 @@ class CloudKnowledgeTextDocument(KnowledgeContract):
 def normalized_document(
     document: CloudKnowledgeDocument | CloudKnowledgeTextDocument,
 ) -> CloudKnowledgeTextDocument:
-    """Validate before projecting to v2; preserve text, evidence and dates without mutating input."""
+    """Validate before projecting to v2; preserve text, evidence and dates without mutating
+    input.
+    """
     if isinstance(document, CloudKnowledgeDocument):
         snapshot = CloudKnowledgeDocument.model_validate(document.model_dump(warnings="error"))
         values = snapshot.model_dump(exclude={"original_text"})
@@ -67,7 +75,9 @@ def normalized_document(
     return CloudKnowledgeTextDocument.model_validate(values)
 
 
-_Document = TypeVar("_Document", CloudKnowledgeDocument, CloudKnowledgeTextDocument)
+_Document = TypeVar(
+    "_Document", CloudKnowledgeDocument, CloudKnowledgeTextDocument, CloudStructuredDocument
+)
 
 
 class _ReleaseManifest(KnowledgeContract, Generic[_Document]):
@@ -119,14 +129,47 @@ class KnowledgeTextReleaseManifest(_ReleaseManifest[CloudKnowledgeTextDocument])
     reader_version: Literal["2.0.0"] = "2.0.0"
 
 
+class KnowledgeStructuredReleaseManifest(_ReleaseManifest[CloudStructuredDocument]):
+    """V3 complete structured generation with sealed deterministic excerpt digests."""
+
+    schema_version: Literal["fdai.cloud-knowledge.v3"] = "fdai.cloud-knowledge.v3"
+    reader_version: Literal["3.0.0", "3.1.0"] = "3.0.0"
+    excerpt_digests: Annotated[tuple[Digest, ...], Field(min_length=1, max_length=256)]
+
+    @model_validator(mode="after")
+    def derived_inventory(self) -> Self:
+        if self.reader_version == "3.0.0" and any(
+            doc.normalizer_version != "2.0.0" for doc in self.documents
+        ):
+            raise ValueError("extended normalizers require structured reader 3.1.0")
+        if any(doc.derived_at > self.package_created_at for doc in self.documents):
+            raise ValueError("package creation cannot precede derivation")
+        if sum(len(doc.blocks) for doc in self.documents) > MAX_BLOCKS:
+            raise ValueError("structured generation exceeds its block limit")
+        derived_bytes = 0
+        digests = []
+        for document in self.documents:
+            excerpts = structured_excerpts(document)
+            derived_bytes += sum(len(excerpt.text.encode()) for excerpt in excerpts)
+            if derived_bytes > MAX_DERIVED_BYTES:
+                raise ValueError("structured generation exceeds its aggregate derived byte limit")
+            digests.append(content_digest(b"\n".join(canonical_bytes(item) for item in excerpts)))
+        if self.excerpt_digests != tuple(digests):
+            raise ValueError("structured release excerpt inventory does not match")
+        return self
+
+
 KnowledgeManifest = Annotated[
-    KnowledgeReleaseManifest | KnowledgeTextReleaseManifest, Field(discriminator="schema_version")
+    KnowledgeReleaseManifest | KnowledgeTextReleaseManifest | KnowledgeStructuredReleaseManifest,
+    Field(discriminator="schema_version"),
 ]
 _MANIFEST_ADAPTER: TypeAdapter[KnowledgeManifest] = TypeAdapter(KnowledgeManifest)
 
 
 def parse_knowledge_manifest(content: bytes) -> KnowledgeManifest:
-    """Read an explicitly versioned v1/v2 manifest; callers still verify canonical identity/trust."""
+    """Read an explicitly versioned v1/v2/v3 manifest; callers still verify canonical
+    identity/trust.
+    """
     return _MANIFEST_ADAPTER.validate_json(content)
 
 
@@ -147,6 +190,9 @@ class KnowledgeReleaseBinding(KnowledgeContract):
     verified_key_id: Identifier
     intake_origin: Literal["package", "collector", "rollback"] = "package"
     sources: Annotated[tuple[CloudSourceEvidence, ...], Field(min_length=1, max_length=256)]
+    processing_digests: Annotated[
+        tuple[Digest, ...], Field(max_length=256, exclude_if=lambda values: not values)
+    ] = ()
     rollback_of: Identifier | None = None
     rollback_source_digest: Digest | None = None
     withdrawn_source_ids: Annotated[tuple[Identifier, ...], Field(max_length=256)] = ()
@@ -158,6 +204,8 @@ class KnowledgeReleaseBinding(KnowledgeContract):
         ids = [item.source_id for item in self.sources]
         if len(set(ids)) != len(ids):
             raise ValueError("knowledge binding source identities MUST be unique")
+        if self.processing_digests and len(self.processing_digests) != len(self.sources):
+            raise ValueError("knowledge processing identities must cover every bound source")
         if self.intake_origin == "rollback" and (
             self.rollback_of is None or self.rollback_source_digest is None
         ):

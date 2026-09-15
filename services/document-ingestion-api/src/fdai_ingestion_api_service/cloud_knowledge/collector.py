@@ -17,8 +17,42 @@ from fdai_service_contracts.cloud_knowledge import (
     content_digest,
 )
 from fdai_service_contracts.cloud_knowledge_release import CloudKnowledgeDocument
+from fdai_service_contracts.cloud_knowledge_structure import (
+    CloudStructuredDocument,
+    StructuredNormalizerVersion,
+)
+from pydantic import Field, TypeAdapter
 
 from fdai_ingestion_api_service.cloud_knowledge.normalization import normalize_source
+
+_NORMALIZER: TypeAdapter[StructuredNormalizerVersion] = TypeAdapter(StructuredNormalizerVersion)
+
+
+def _same_origin(source: CloudKnowledgeSource, document: CloudKnowledgeDocument) -> bool:
+    return (source.source_id, source.url) == (
+        document.evidence.source_id,
+        document.evidence.source_url,
+    )
+
+
+def _source_policy(
+    source: CloudKnowledgeSource, document: CloudKnowledgeDocument
+) -> CloudKnowledgeDocument:
+    """Rebind reviewed metadata without claiming a fetch or changing same-origin source clocks."""
+    if not _same_origin(source, document):
+        raise ValueError("retained source identity does not match the approved policy")
+    return CloudKnowledgeDocument.model_validate(
+        document.model_dump()
+        | {
+            "title": source.title,
+            "evidence": document.evidence.model_dump()
+            | {
+                "applicability": source.applicability,
+                "license_ref": source.license_ref,
+                "policy": source.policy,
+            },
+        }
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +77,9 @@ class SourceState(KnowledgeContract):
     """Checkpoint cache; document source times never derive from local row timestamps."""
 
     document: CloudKnowledgeDocument | None = None
+    structured_document: CloudStructuredDocument | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     last_attempt: SourceCheckReceipt | None = None
     last_full_fetch_at: datetime | None = None
     retry_after: datetime | None = None
@@ -57,8 +94,12 @@ def source_due(source: CloudKnowledgeSource, state: SourceState, now: datetime) 
         return False
     if state.consecutive_failures >= 5 or state.retry_after is not None and now < state.retry_after:
         return False
-    return state.document is None or now >= state.document.evidence.check.checked_at + timedelta(
-        seconds=source.policy.check_interval_seconds
+    return (
+        state.document is None
+        or not _same_origin(source, state.document)
+        or now
+        >= state.document.evidence.check.checked_at
+        + timedelta(seconds=source.policy.check_interval_seconds)
     )
 
 
@@ -71,12 +112,18 @@ class CloudDocumentCollector:
         *,
         collector_id: str,
         request_timeout_seconds: float = 30.0,
+        structured: bool = False,
+        normalizer_version: str = "2.0.0",
     ) -> None:
         if not 0 < request_timeout_seconds <= 30:
             raise ValueError("source request timeout MUST be in (0, 30]")
         self._transport = transport
         self._collector_id = collector_id
         self._timeout = request_timeout_seconds
+        self._structured = structured
+        self._normalizer = _NORMALIZER.validate_python(normalizer_version, strict=True)
+        if not structured and self._normalizer != "2.0.0":
+            raise ValueError("an extended normalizer requires structured cloud knowledge")
 
     async def collect(
         self,
@@ -87,11 +134,22 @@ class CloudDocumentCollector:
     ) -> SourceState:
         """Fetch once, with one full-body fallback only for an unusable conditional result."""
         if not source_due(source, previous, now):
+            if previous.document is not None and self.processing_due(source, previous, now):
+                try:
+                    document = _source_policy(source, previous.document)
+                    structured = self._structure(document, previous, now)
+                    return SourceState.model_validate(
+                        previous.model_dump()
+                        | {"document": document, "structured_document": structured}
+                    )
+                except (OSError, ValueError):
+                    return self._failed(source, previous, now, "processing_unavailable")
             return previous
         etag = None
         old = previous.document
         if (
             old is not None
+            and _same_origin(source, old)
             and previous.last_full_fetch_at is not None
             and now - previous.last_full_fetch_at
             < timedelta(
@@ -112,6 +170,7 @@ class CloudDocumentCollector:
             if (
                 response.status == 304
                 and old is not None
+                and _same_origin(source, old)
                 and etag is not None
                 and response.etag == etag
             ):
@@ -123,14 +182,16 @@ class CloudDocumentCollector:
                     equivalence="strong_etag",
                     response=response,
                 )
+                retained = _source_policy(source, old)
                 updated = CloudKnowledgeDocument.model_validate(
-                    old.model_dump()
+                    retained.model_dump()
                     | {
-                        "evidence": old.evidence.model_dump() | {"check": check.model_dump()},
+                        "evidence": retained.evidence.model_dump() | {"check": check.model_dump()},
                     },
                 )
                 return SourceState(
                     document=updated,
+                    structured_document=self._structure(updated, previous, now),
                     last_attempt=check,
                     last_full_fetch_at=previous.last_full_fetch_at,
                 )
@@ -149,7 +210,11 @@ class CloudDocumentCollector:
                 max_bytes=source.max_bytes,
             )
             digest = content_digest(response.content)
-            same = old is not None and old.evidence.source_sha256 == digest
+            same = (
+                old is not None
+                and _same_origin(source, old)
+                and old.evidence.source_sha256 == digest
+            )
             check = self._receipt(
                 source,
                 now,
@@ -176,18 +241,66 @@ class CloudDocumentCollector:
                 policy=source.policy,
                 license_ref=source.license_ref,
             )
+            document = CloudKnowledgeDocument(
+                evidence=evidence, title=source.title, original_text=original, text=text
+            )
             return SourceState(
-                document=CloudKnowledgeDocument(
-                    evidence=evidence,
-                    title=source.title,
-                    original_text=original,
-                    text=text,
-                ),
+                document=document,
+                structured_document=self._structure(document, previous, now),
                 last_attempt=check,
                 last_full_fetch_at=now,
             )
         except (TimeoutError, OSError, ValueError):
             return self._failed(source, previous, now, "source_unavailable")
+
+    def processing_due(
+        self, source: CloudKnowledgeSource, state: SourceState, now: datetime
+    ) -> bool:
+        """An approved format upgrade can reuse retained bytes without a new source check."""
+        if not (
+            self._structured
+            and source.enabled
+            and source.storage_allowed
+            and state.document is not None
+            and _same_origin(source, state.document)
+            and state.consecutive_failures < 5
+            and (state.retry_after is None or now >= state.retry_after)
+        ):
+            return False
+        return not self._reusable(_source_policy(source, state.document), state.structured_document)
+
+    def _reusable(
+        self, document: CloudKnowledgeDocument, structured: CloudStructuredDocument | None
+    ) -> bool:
+        """Check the full material identity, not just a same-body hash or check timestamp."""
+        return bool(
+            structured is not None
+            and structured.normalizer_version == self._normalizer
+            and structured.title == document.title
+            and structured.evidence.model_dump(exclude={"normalized_sha256", "check"})
+            == document.evidence.model_dump(exclude={"normalized_sha256", "check"})
+        )
+
+    def _structure(
+        self, document: CloudKnowledgeDocument, previous: SourceState, now: datetime
+    ) -> CloudStructuredDocument | None:
+        """Derive content separately from fetch clocks; a 304 can reuse the exact old recipe."""
+        if not self._structured:
+            return None
+        from fdai_ingestion_api_service.cloud_knowledge.structured_normalization import (
+            reprocess_document,
+        )
+
+        old = previous.structured_document
+        if old is not None and self._reusable(document, old):
+            return CloudStructuredDocument.model_validate(
+                old.model_dump()
+                | {
+                    "evidence": old.evidence.model_dump()
+                    | {"check": document.evidence.check.model_dump()}
+                }
+            )
+        return reprocess_document(document, now=now, normalizer_version=self._normalizer)
 
     def _receipt(
         self,
@@ -229,6 +342,7 @@ class CloudDocumentCollector:
         jitter = int(content_digest(source.source_id.encode())[:4], 16) % 300
         return SourceState(
             document=previous.document,
+            structured_document=previous.structured_document,
             last_full_fetch_at=previous.last_full_fetch_at,
             consecutive_failures=failures,
             retry_after=now + timedelta(seconds=delay + jitter),

@@ -31,6 +31,7 @@ from fdai.core.control_loop import ControlLoop
 from fdai.core.executor import MutationDependencyReadiness
 from fdai.core.impact_analysis import ChangeAssessmentService, ImpactAnalyzer
 from fdai.core.learning import PostTurnProposalModel, RuleHintSubmitter
+from fdai.core.ontology_platform import EffectReconciliationRequestSink
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_context.test_context_commands import TestContextCommandHandler
 from fdai.core.operational_context.test_context_dispatch import TestContextDispatchGuard
@@ -145,6 +146,7 @@ class PantheonInitialization:
     build_mutation_dependency_readiness: Callable[..., MutationDependencyReadiness]
     semantic_router_config_from_env: Callable[[], SemanticRouterConfig]
     assignment_workflow: Any = None
+    effect_request_sink: EffectReconciliationRequestSink | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +161,7 @@ class PantheonInitializationResult:
     case_history_retention_publisher: CaseHistoryRetentionTickPublisher | None = None
     t2_recovery_maintenance: Any = None
     discovery_activation: DiscoveryActivationRuntime | None = None
+    alert_noise_handler: Any = None
 
 
 def _pantheon_enforce_enabled(
@@ -470,6 +473,7 @@ async def initialize_pantheon(
                 store=config.incident_audit_store,
                 verifier=observation_verifier,
             ),
+            reconciliation_requests=config.effect_request_sink,
         ).handle
     from fdai.agents._framework import runtime_subscriptions
     from fdai.delivery.workflow_recovery_observation_handler import (
@@ -663,6 +667,19 @@ async def initialize_pantheon(
         pantheon_runtime.bridge,
         recovery_effect_observation_handler,
     )
+    from fdai.runtime.alert_noise import bind_alert_noise
+
+    alert_noise_handler = bind_alert_noise(
+        environment=config.environment,
+        runtime=pantheon_runtime,
+        store=config.incident_audit_store,
+        http=config.http_client,
+        identity=config.identity,
+        workflows=config.control_loop.alert_workflows,
+        admissions=config.container.decision_evidence_admission_provider,
+        artifacts=config.control_loop.alert_plan_artifacts,
+        processes=config.control_loop.process_runtime_store,
+    )
     thor_agent = pantheon_runtime.agents.get("Thor")
     if thor_agent is None:  # pragma: no cover - fixed Pantheon invariant
         raise RuntimeError("Pantheon runtime is missing Thor")
@@ -759,6 +776,7 @@ async def initialize_pantheon(
         case_history_retention_publisher=case_history_retention_publisher,
         t2_recovery_maintenance=t2_recovery_maintenance,
         discovery_activation=discovery_activation,
+        alert_noise_handler=alert_noise_handler,
     )
 
 

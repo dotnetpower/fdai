@@ -61,15 +61,23 @@ def test_definition_pins_workflow_and_action_catalog_deterministically() -> None
     assert first.definition_hash.startswith("sha256:")
     assert first.action_catalog_digest.startswith("sha256:")
     assert set(first.resolved_action_versions) == {
-        step.action_type_ref for step in workflow.steps if step.action_type_ref is not None
+        reference
+        for step in workflow.steps
+        for reference in (step.action_type_ref, step.compensated_by)
+        if reference is not None
     }
     assert first.workflow_document["name"] == workflow.name
 
 
-def test_definition_rejects_missing_action_type() -> None:
+@pytest.mark.parametrize("reference_kind", ["action_type_ref", "compensated_by"])
+def test_definition_rejects_missing_action_type(reference_kind: str) -> None:
     workflows, actions = _catalogs()
-    workflow = next(item for item in workflows if any(step.action_type_ref for step in item.steps))
-    referenced = next(step.action_type_ref for step in workflow.steps if step.action_type_ref)
+    workflow = next(
+        item for item in workflows if any(getattr(step, reference_kind) for step in item.steps)
+    )
+    referenced = next(
+        getattr(step, reference_kind) for step in workflow.steps if getattr(step, reference_kind)
+    )
     actions.pop(referenced)
 
     with pytest.raises(ValueError, match="unknown ActionTypes"):

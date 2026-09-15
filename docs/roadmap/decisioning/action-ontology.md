@@ -329,35 +329,34 @@ Operator-requested runtime actions. Shipped Day 1:
   adapter remains in observation mode until a separate promotion.
 - `ops.revoke-human-access` - hold one role-group membership removal until a reviewed replacement-
   coverage case is available.
-- `ops.publish-change-summary` - render a rendered Markdown change
-  summary for a resource-group over a bounded time window and hand it
-  to the delivery adapter. Reference example of a non-Resource
-  business-object flow; the paired ObjectType `ChangeSummary` and
-  LinkType `summarizes` are the copy-ready scaffold in
-  [downstream-fork-example-vertical.md](../fork-and-sequencing/downstream-fork-example-vertical.md).
+- `ops.publish-change-summary` - send a rendered Markdown summary for one resource group and bounded
+  time window through the delivery adapter. The non-Resource example pairs `ChangeSummary` with
+  `summarizes` in [the vertical scaffold](../fork-and-sequencing/downstream-fork-example-vertical.md).
 - `ops.start-vm` / `ops.deallocate-vm` - start or deallocate one Azure VM through the
-  development operations gateway. Both remain shadow-first and require human approval at the
-  shipped T0 ceiling.
-- `ops.scale-out` - the development operations gateway accepts one exact Uniform VM Scale Set
-  target and permits only a one-instance capacity increase per governed request. The FinOps
-  executor identity owns the provider call; the server rechecks the configured subscription and
-  resource group before issuing the ARM request.
+  development operations gateway; both remain shadow-first with human approval at the shipped T0 ceiling.
+- `ops.scale-out` - the development gateway accepts one exact Uniform VM Scale Set and at most one
+  added instance per request. FinOps owns the provider call; the server rechecks the configured
+  subscription and resource group before issuing the ARM request.
 - `ops.upsert-network-rule` / `ops.delete-network-rule` - create, replace, or delete one bounded
   NSG rule through the development operations gateway. Deletion requires Owner-tier approval;
   recovery is a separately governed state-forward action.
+- `ops.update-alert-routing` - replace one existing alert destination through an exact manual PR.
+- `ops.set-alert-notification-window` - schedule finite suppression on one existing inert rule.
+- `ops.tune-alert-evaluation` - propose one supported threshold, window, or frequency change.
+- `ops.restore-alert-configuration` - restore the exact retained baseline under separate recovery authority.
+
+The four [alert-noise actions](../operations/alert-noise-governance.md) retain `pr_manual`, shadow defaults,
+Owner-level human approval and independent effect/recovery evidence. [Historical R7](../fork-and-sequencing/implementation-plan.md#26-r7---manual-merge-as-a-flag)
+was not adopted; there is no ActionType `require_manual_merge` field or implicit PR-native substitution.
 
 Resource provisioning is not an operator-request ActionType. FDAI targets environments where infrastructure as code owns resource creation, so a conversation asking to deploy a model or create a cloud resource is unsupported and submits nothing. The same conversation surface can query authorized inventory for resources that already exist.
 
-**Vertical mapping.** Each ops ActionType is tagged with the owning vertical so the
-[verticals](../../../services/core-control-plane/src/fdai/core/verticals) can claim it and a vertical rule can `remediates:` it:
-`ops.failover-primary` and `ops.restart-service` -> Resilience; `ops.scale-in` / `ops.scale-out` -> Cost Governance; `ops.drain-connection`
-/ `ops.rotate-cert` -> Change Safety. `ops.flush-cache` and `ops.publish-change-summary` are cross-vertical (operator-triggered). The VM and
-network-rule gateway operations are Azure delivery bindings for upstream operator actions; they don't change vertical ownership.
+**Vertical mapping:** [Verticals](../../../services/core-control-plane/src/fdai/core/verticals) claim tagged actions and reference them through `remediates:`.
+`ops.failover-primary` / `ops.restart-service` belong to Resilience; `ops.scale-in` / `ops.scale-out` to Cost Governance; `ops.drain-connection` / `ops.rotate-cert` to Change Safety.
+`ops.flush-cache` / `ops.publish-change-summary` are cross-vertical operator actions. Azure VM/network gateway bindings do not change ownership.
 
-Default `execution_path: direct_api` (ops are latency-sensitive; PR
-overhead defeats the purpose). A fork MAY force `pr_manual` for a
-compliance-heavy environment where every runtime change must land as a
-reviewable diff.
+Ops normally use `execution_path: direct_api` for latency-sensitive work. A fork MAY force `pr_manual`
+where compliance requires every runtime change to land as a reviewed diff; the alert actions already require that path.
 
 ### 3.3 `governance.*`
 

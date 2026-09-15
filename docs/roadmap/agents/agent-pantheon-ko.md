@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 1f06abe1d4090da1b8d42a36ea6bef091eea9283
+translation_source_sha: 0a8ac475e917762896bef24dbf6251b4c5cda48c
 translation_revised: 2026-09-15
 ---
 # 에이전트 판테온
@@ -53,6 +53,7 @@ Var의 승인 대기 데이터는 비공개 `var_decisions`에서 영속 결정 
 기본값, 변경 가능성은 그대로입니다. 승인 정책이나 게시 소유권은 이동하지 않습니다.
 
 - **배정 검토:** [배정 명령](../interfaces/human-agent-assignment-implementation-plan-ko.md#명령-이벤트-작업)은 기존 토픽에서 Huginn 유입, Forseti 검증, 독립 Var 검토, Saga 봉인, Muninn 사례 반영을 거칩니다. Operator 조회 결과는 권한이 아닙니다. 이전 IAM 알림은 shadow 전용이며 새 제거 검토와 독립 IAM 제거 근거가 있어야 검토 전용 이전 임무 PR을 만듭니다. Forseti의 증적 처리는 비공개 배정 믹스인에 유지합니다.
+- **인시던트 지침:** Core가 `operator_guidance`를 영속 적용한 뒤 요청은 `incident_correlation: none`과 `execution_authority: false`를 유지한 `incident.operator_guidance.v1` 이벤트로 Huginn을 통해 다시 유입됩니다. Saga는 선언된 `object.event` 구독에서 이 이벤트 유형만 받아 담당 감사 기록을 추가합니다. Forseti는 같은 정규화 이벤트를 인식하지만 판단하지 않으므로 지침은 Verdict, HIL 요청 또는 ActionRun을 만들 수 없습니다.
 - **멤버십 실행:** 별도로 타입이 지정된 경로는 Var가 원래 사람 승인 슬롯을 만들기 전에 전체 원래 Action과 정확한 사례, 역할 맵, 승격 원본을 보존합니다. Muninn 준비는 CAS `r -> r+1`이며 승인된 `expected_revision=r`을 수정하지 않습니다. Core는 변경 신원을 만들지 않습니다. Thor는 격리된 전용 신원, 정확한 현재 원본/허용 목록 확인, 7개 안전장치, 연산과 무관한 멤버십 잠금을 통해 전달합니다. 현재 비상 정지/상태와 principal별 ActionType 승인 정책을 다시 확인합니다. 시도 전에 영속 의도를 기록하고 응답 뒤 확인 기록을 남기며 결과를 모르는 시도는 자동 재시도하지 않습니다.
 - **효과와 복구:** 독립 Heimdall 관측, Forseti 판단, Saga 봉인, 공유 잠금 해제 종결이 Muninn의 효과 기록보다 먼저입니다. Vidar는 새로 별도 승인받는 역방향 작업을 제안하고 마무리합니다. Thor는 원래 직접 수행한 변경의 근거, 현재 수요, 같은 대상 세대가 있을 때만 전달합니다. 사례는 degraded 상태로 남아 별도 대체가 가능하며 이전 승인이나 역할 권한을 복사하지 않습니다. 새 ActionType은 계속 shadow가 기본이고 로컬 권한 전환은 허용하지 않습니다.
 - **지식:** Huginn -> Forseti -> Saga -> Muninn StateSnapshot -> Saga -> Norns -> Mimir -> Saga 담당 경로를 유지합니다. 현재 Core 목표/검토자/원본 허용/검색 연결은 독립 원본 확인과 소유자별 CAS에 사용됩니다. Norns는 합의/게시 게이트를 유지하면서 비공개 Rule/온톨로지 후보를 컴파일합니다. Mimir는 내용보다 원본을 먼저 확인하고 모델 없이 재컴파일하며 되돌릴 수 없는 사용 종료와 정확한 현재 `legal_hold: false` 조건의 내용 제거를 담당합니다. 알 수 없는 정책이나 장애에서는 삭제하지 않습니다. 명시적인 다이제스트 충돌은 Odin에게 전달하며 패키지, 검토, 스케줄러 출처 이름, 병합은 IAM, 카탈로그, 그래프, 실행 권한을 부여하지 않습니다.
@@ -276,7 +277,7 @@ properties:
 
 ## 6. 통신 계약
 
-판테온은 Event Hubs `:9093`의 Kafka 또는 프로세스 내 로컬 어댑터인 기존 `EventBus` wire를 사용합니다. Heimdall은 한 준비 상태 통과의 6개 dimension이 모두 도착한 뒤 표류를 게시하며 Muninn은 엄격히 더 새로운 스냅샷만 수락합니다.
+판테온은 Event Hubs `:9093`의 Kafka 또는 프로세스 내 로컬 어댑터인 기존 `EventBus` wire를 사용합니다. Heimdall은 한 준비 상태 검사의 여섯 차원이 모두 도착한 뒤 Drift를 게시하며 Muninn은 엄격히 더 새로운 스냅샷만 수락합니다. [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)는 Huginn에서 중복 제거 전에 요청을 인증합니다. 인스턴스별 framework mixin은 Heimdall/Forseti의 `object.event`/`object.drift`와 Thor의 `object.action-run` 콜백을 보존하며 역할, 토픽, 독립 증명 및 권한 경계를 바꾸지 않습니다.
 Huginn은 자체 표준 시간대 UTC 시계로 수집 시각을 기록하며 이 경계에 생산자 시각을 신뢰하지 않습니다. 반복 Event 에피소드에서는 비어 있지 않은 각 Event `idempotency_key`를 한 번만 계산하고 신뢰하는 수집 시각보다 늦지 않은 유효한 출처 Event 시각이 있으면 이를 사용합니다. 따라서 at-least-once 전달, 지연된 재생 또는 미래 시각으로 Heimdall 임계값을 조작할 수 없습니다. 중복 Event는 횟수를 늘리지 않으면서 완료되지 않은 게시나 수명 주기 인계를 다시 시도할 수 있습니다. 각 anomaly 게시는 에피소드와 심각도별로 범위가 제한된 키 하나를 사용하므로 downstream 재시도도 멱등성을 유지합니다. 수락된 에피소드는 조용한 반복 구간이 지난 뒤에만 같은 심각도의 후보를 다시 만들며, 다음 에피소드에는 별도의 불투명 신원을 부여하므로 종료된 Incident가 재발을 흡수하지 않습니다.
 최선 노력 `AgentHandlerObserver`는 전달, judgment, 실행을 변경하지 않고 핸들러 수명 주기를 보고합니다. 로컬 조립은 SSE로, deployed 조립은 shared 단계 토픽으로 게시해 Operator API가 중계합니다. 관측 대상은 등록된 15개 에이전트뿐이며, 같은 브리지로 구독하는 내부 프레임워크 principal은 에이전트 활동을 투영하지 않고 전달도 영향을 받지 않습니다. `recovery-effect-observer`가 그런 principal 중 하나로, 버전이 지정된 `workflow.recovery.effect_observed.v1` 관측을 Workflow 복구 수집 지점으로 전달하는 전용 소비자 그룹입니다. 이 주체는 어떤 객체 타입도 소유하지 않고 아무것도 발행하지 않습니다. 외부 관측은 스스로 도달하지 못합니다. Huginn이 원시 신호를 `object.event`로 정규화하면, 최종 효과 관측자인 Heimdall이 Huginn이 생산했음을 입증하고 선언된 필드만 범위를 제한해 자신이 소유한 `object.recovery-effect-observation` 토픽으로 중계하며, 이 소비자 그룹은 그 토픽만 읽습니다. 이 중계는 유일한 특권 실행기가 결코 발행할 수 없는 관측자 소유 경로에 근거를 붙잡아 두고, 수집 지점은 영구 저장 전에 버스가 찍은 `producer_principal`을 다시 인증합니다. Heimdall의 중계는 출처와 형태만 입증하며, 효과를 검증하지 않고 어떤 권한도 부여하지 않습니다.
 ### 6.1 타입이 지정된 포트

@@ -29,7 +29,7 @@ test("incident command markup keeps IDs, urgency, and pantheon ownership explici
   ]);
   for (const id of ["INC-240715-01", "INC-240715-02", "INC-240715-03", "INC-240715-04"]) {
     assert.match(html, new RegExp(`in-incident-id[^>]*>${id}<`), id);
-    assert.match(html, new RegExp(`in-detail-id[^>]*>Incident ${id}<`), id);
+    assert.match(html, new RegExp(`in-detail-id[^>]*>${id}<`), id);
   }
   for (const agent of ["Huginn", "Forseti", "Thor", "Vidar", "Heimdall", "Var", "Njord", "Saga"]) {
     assert.match(html, new RegExp(`in-plan-agent[^]*?<strong>${agent}</strong>`), agent);
@@ -69,7 +69,13 @@ test("incident command states preserve accountable agents and bounded recovery",
     const frame = await openIncidents(page);
 
     assert.equal(await frame.locator(".in-incident-id").first().innerText(), "INC-240715-01");
-    assert.equal(await frame.locator(".in-detail-id").first().innerText(), "Incident INC-240715-01");
+    assert.equal(await frame.locator(".in-detail-id").first().innerText(), "INC-240715-01");
+    assert.equal(
+      await frame.locator(".in-detail-id").first().evaluate(
+        element => getComputedStyle(element).fontSize,
+      ),
+      "24px",
+    );
     assert.deepEqual(
       await frame.locator('[data-incident-detail="inc-api-latency"] .in-plan-agent strong').allTextContents(),
       ["Huginn", "Forseti", "Thor", "Vidar", "Heimdall", "Saga"],

@@ -29,6 +29,7 @@ names, owners, paging integrations, and rollback implementations.
 | [Control-plane regional failover and failback](control-plane-failover.md) | A regional outage or scheduled full control-plane recovery drill is declared |
 | [Chaos game day](chaos-game-day.md) | A promoted fault scenario is exercised |
 | [Alert tuning](alert-tuning.md) | Noise, misses, or stale routing need measured correction |
+| [Alert noise governance](alert-noise-governance.md) | Shadow-first alert assessment or one of the four exact-plan manual-PR actions needs prerequisite, verification, and recovery guidance |
 
 ## Governance and setup
 

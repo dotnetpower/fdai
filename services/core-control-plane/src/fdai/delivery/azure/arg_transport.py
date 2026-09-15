@@ -10,6 +10,7 @@ from typing import Any
 
 import httpx
 
+from fdai.delivery.http_retry import retry_after_seconds as _retry_after_seconds
 from fdai.shared.providers.inventory import LinkRecord, RelationshipDrop, ResourceRecord
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -438,16 +439,6 @@ def _quota_reset_seconds(headers: httpx.Headers) -> float | None:
         return None
     delay = hours * 3600 + minutes * 60 + seconds
     return delay
-
-
-def _retry_after_seconds(raw: str | None) -> float | None:
-    if raw is None:
-        return None
-    try:
-        delay = float(raw)
-    except ValueError:
-        return None
-    return delay if isfinite(delay) and delay >= 0 else None
 
 
 def _count_is_truncated(payload: Mapping[str, Any]) -> bool:

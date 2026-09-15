@@ -7,7 +7,7 @@
   "resumeTitle": "실시간 화면을 다시 따라갑니다",
   "context": {"devTitle": "로컬 ControlLoop: 관리 리소스 변경 없음", "source": "소스", "window": "구간"},
   "scope": {"label": "실시간 관찰 범위", "mode": "모드", "readOnly": "읽기 전용", "source": "소스", "transport": "전송", "syntheticTransport": "합성 생성기", "evidence": "근거", "observed": "권한 있는 런타임 소스가 관찰됨", "sample": "합성 샘플 스트림 - 운영 근거가 아님", "notReady": "권한 있는 런타임 소스가 관찰되지 않음 - 실시간 준비 근거로 사용할 수 없음"},
-  "lead": "현재 제어 루프와 소스 읽기 활동을 확인합니다. 이 화면은 관찰만 하며 실행하지 않습니다.",
+  "lead": "현재 제어 루프와 소스 읽기 활동을 확인합니다.",
   "health": {"label": "실시간 관찰 상태", "stream": "스트림", "lastEvent": "마지막 이벤트", "lastSignal": "마지막 신호", "sourceCoverage": "소스 범위", "environment": "환경", "presentation": "표시 상태", "backlog": "프레임 연속성", "complete": "오버플로 감지 없음", "dropped": "제한 버퍼에서 오래된 프레임 {count}개 폐기", "cursorReset": "스트림 재시작 - 현재 스냅샷 복원됨", "notObserved": "관찰되지 않음", "devLocal": "로컬 ControlLoop", "configuredRuntime": "구성된 런타임", "following": "실시간 추적 중", "frozen": "화면 고정 - 프레임 {count}개 대기"},
   "status": {"idle": "유휴", "connecting": "연결 중", "open": "실시간", "sample": "샘플 스트림", "connected": "연결됨", "awaitingSource": "소스 대기", "closed": "연결 종료", "unsupported": "SSE 미지원"},
   "observations": {
@@ -122,10 +122,41 @@
   "kpi": {"events": "초당 이벤트", "average": "/초 - 60초 평균", "messagesHelp": "최근 60초 SSE 활동 메시지 - 중복 제외", "partial": "일부 측정이 제외된 불완전한 구간", "noGate": "관측된 게이트 결정 없음", "noTier": "관측된 티어 배정 없음", "controlOnly": "제어 루프 전용이며 소스 읽기는 분류하지 않습니다.", "gateMix": "게이트 구성 (60초)", "auto": "자동", "tierMix": "티어 구성 (60초)", "finalized": "관측된 결정 {count}건", "routed": "라우팅 이벤트 {count}건", "emptyTitle": "최근 60초 동안 제어 루프 이벤트 0건", "emptyDetail": "측정된 빈 구간에는 게이트 또는 티어 분포가 없습니다.", "tierLabel": {"t0": "결정론적", "t1": "근거 기반", "t2": "적응형"}},
   "decision": {"auto": "자동", "hil": "승인", "abstain": "보류", "deny": "거부"},
   "work": {
+    "fullscreen": "활동 전체화면 보기",
+    "exitFullscreen": "전체화면 종료",
+    "fullscreenFallback": "브라우저 전체화면 대신 확장 보기를 사용합니다.",
+    "fullscreenError": "전체화면 모드를 변경하지 못했습니다. 브라우저 전체화면 기능을 사용해 보세요.",
+    "progress": "기록된 파이프라인 단계이며 효과 검증 결과가 아닙니다",
     "eyebrow": "현재 활동", "title": "실시간 활동", "summary": "현재 {total}건 - 제어 루프 {control}건 - 소스 읽기 {source}건", "currentWindow": "현재 항목 {count}건 중 {visible}건 표시 - {source}", "sampleWindow": "합성 활동 미리 보기 - 운영 근거가 아님", "sampleSourceUnavailable": "소스 읽기 카드는 권위 있는 Live 스트림에서만 표시됩니다.", "activityLabel": "현재 실시간 활동 {count}건", "queue": "목록", "flow": "격자", "viewModeLabel": "활동 배치", "filtersLabel": "실시간 활동 필터", "queueLabel": "우선순위가 적용된 실시간 활동 목록", "flowLabel": "실시간 활동 격자", "filterTitle": "필터: {filter} ({key} 키)", "filterNote": "항목을 선택하여 기록된 상세 내용을 확인하세요.", "noMatch": "이 필터와 일치하는 실시간 활동이 없습니다.", "routing": "이벤트 라우팅", "actions": "작업 {count}개", "unknownResource": "알 수 없는 리소스", "overBudget": "예산 초과", "pending": "대기 중", "approval": "승인", "noRule": "일치하는 규칙 없음", "needsApproval": "승인 필요", "executionMode": "실행 모드: {mode}", "agentRelay": "에이전트 전달", "itemLabel": "{resource}의 {action}", "why": "이유: {reason}", "slaRemaining": "{value}초 남음",
     "columns": {"controlLoop": "제어 루프", "stage": "현재 단계", "age": "경과", "tier": "티어", "mode": "모드", "decision": "결정", "work": "작업", "tierMode": "티어 / 모드", "why": "이유", "ownerStage": "담당 / 단계", "riskImpact": "위험 / 영향", "ageSla": "경과 / SLA", "controlState": "제어 상태"}
   },
   "control": {"notObserved": "관찰되지 않음", "notStarted": "시작되지 않음", "notDispatched": "전송되지 않음", "simulated": "시뮬레이션됨", "inProgress": "진행 중", "completed": "완료", "executionFailed": "실패"},
+  "sample": {
+    "restart": "Sample 다시 재생",
+    "restartHelp": "같은 합성 시나리오를 처음부터 재생합니다. 런타임 기록이나 작업을 생성하지 않습니다.",
+    "title": {
+      "publicBlob": "Blob 공용 접근 비활성화", "restore": "특정 시점 복구 활성화",
+      "autoscale": "자동 크기 조정 최솟값 상향", "certificate": "만료 예정 인증서 교체",
+      "rightsize": "배치 컴퓨팅 크기 조정", "firewall": "소유자 없는 방화벽 규칙 제거",
+      "clusterAccess": "클러스터 관리자 접근 축소", "dns": "내부 DNS 확인자로 고정",
+      "vault": "비밀 저장소 접근 축소", "retention": "로그 보존 기간 연장",
+      "disk": "연결되지 않은 디스크 삭제", "replica": "지연된 복제본 장애 조치"
+    },
+    "target": {
+      "publicBlob": "웹 앱 저장소", "restore": "청구 데이터베이스", "autoscale": "EU 웹 서비스",
+      "certificate": "핵심 신원 서비스", "rightsize": "배치 작업자 풀", "firewall": "공유 네트워크",
+      "clusterAccess": "프로덕션 Kubernetes", "dns": "공유 네트워크", "vault": "신원 비밀 저장소",
+      "retention": "운영 작업 영역", "disk": "기존 워크로드", "replica": "EU 데이터베이스 복제본"
+    },
+    "reason": {
+      "publicBlob": "공용 접근이 저장소 정책에 위배됩니다", "restore": "복구 범위가 정책 기준보다 작습니다",
+      "autoscale": "용량이 안정성 하한보다 작습니다", "certificate": "인증서가 30일 이내에 만료됩니다",
+      "rightsize": "CPU 사용률이 지속해서 낮습니다", "firewall": "규칙을 소유한 활성 워크로드가 없습니다",
+      "clusterAccess": "클러스터 전체 권한이 필요한 범위를 초과합니다", "dns": "공용 확인자가 네트워크 정책을 우회합니다",
+      "vault": "허용된 권한이 워크로드에 필요한 범위보다 넓습니다", "retention": "보존 기간이 근거 정책 기준보다 짧습니다",
+      "disk": "사용하지 않는 디스크에서 비용이 발생합니다", "replica": "복제 지연으로 복구 시간이 늘어날 수 있습니다"
+    }
+  },
   "help": {
     "tier": {"t0": "T0은 반복 가능한 결정을 결정론적 규칙으로 처리합니다.", "t1": "T1은 검증된 이전 패턴의 근거 기반 유사성을 재사용합니다.", "t2": "T2는 근거 기반 적응형 추론을 사용하며 결정론적 검증을 계속 요구합니다.", "unknown": "결정 티어가 관찰되지 않았습니다."},
     "autonomy": {"A0": "A0은 관찰, 설명 또는 시뮬레이션만 수행하며 관리 대상을 변경할 수 없습니다.", "A1": "A1은 현재 정책 안에서 되돌릴 수 있는 리소스 범위의 낮은 위험 작업을 허용합니다.", "A2": "A2는 측정되고 사전 승인된 범위 안의 승격된 워크플로를 허용합니다.", "A3_H": "A3-H는 전송 전에 실행별 독립적인 사람 승인을 요구합니다.", "A3_E": "A3-E는 범위가 제한되고 되돌릴 수 있는 긴급 완화에 유효한 상시 사람 권한을 사용합니다.", "A4": "A4는 거부 상태이며 실행이 허용되지 않습니다.", "guide": "권한 안내: A0은 관찰, A1은 제한된 낮은 위험, A2는 승격된 범위, A3-H는 현재 승인, A3-E는 상시 권한을 요구하며 A4는 거부입니다. 이 이벤트는 정확한 자율성 등급을 게시하지 않았습니다."},

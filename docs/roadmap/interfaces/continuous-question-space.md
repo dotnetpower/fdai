@@ -84,6 +84,11 @@ evidence limitations, forbidden-claim oracle, and required validation exist. Que
 recommendations, rollback, scaling, or automation remain advisory or draft-only and always retain
 `execution_authority=false`.
 
+The developing [structured cloud-document evaluation](cloud-resource-knowledge-structured-rag.md)
+uses a separately frozen English/Korean question set. Collection, qualification, approval, indexing,
+and answer evidence keep separate counts. Synthetic numeric diagnostics and query-schema acceptance
+prove neither model quality nor production readiness and do not enlarge the reviewed CQAS denominator.
+
 ## Conversation quality assurance scorecard
 
 Run `uv run python scripts/automation/build_semantic_intent_coverage.py` to generate

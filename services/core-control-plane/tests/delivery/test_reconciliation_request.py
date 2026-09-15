@@ -367,9 +367,10 @@ async def test_no_effect_outcome_skips_artifact_and_observation_sources() -> Non
         "awaiting_effect_evidence",
         "receipt_timeout",
         "execution_unknown",
+        "succeeded",
     ],
 )
-async def test_pending_outcome_requests_independent_reconciliation(
+async def test_effect_possible_outcome_requests_independent_reconciliation(
     execution_outcome: str,
 ) -> None:
     artifacts, action, observation = _inputs()

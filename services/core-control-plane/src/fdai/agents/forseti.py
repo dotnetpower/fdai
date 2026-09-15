@@ -1,13 +1,6 @@
-"""Forseti - Judge (Wave 3 behavior).
+"""Forseti owns typed judgment, cross-domain arbitration and bounded planning.
 
-Forseti issues verdicts (auto / hil / deny) based on:
-- a rule-match table (deterministic keyword -> ActionType id)
-- a risk_verdict table (deterministic ActionType id -> auto/hil/deny)
-- an RBAC hook (initiator principal + role → deny + SecurityEvent)
-
-Wave 3 keeps rule matching intentionally simple; the real T0 loader is
-in :mod:`fdai.rule_catalog`. Mixed-model cross-check and grounding
-(T2) land in later waves.
+Evidence, current policy and RBAC govern verdicts; planning never grants execution authority.
 """
 
 from __future__ import annotations
@@ -19,11 +12,14 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Any, Protocol
 
+from fdai_service_contracts.incident_intervention import INCIDENT_INTERVENTION_EVENT_TYPE
+
 from fdai.agents._framework.action_semantics import (
     ActionSemanticsCatalog,
     quorum_for,
     rollback_contract_for,
 )
+from fdai.agents._framework.alert_noise_callbacks import ForsetiAlertNoiseMixin
 from fdai.agents._framework.assignment_workflow import AssignmentJudgmentMixin
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict
@@ -153,7 +149,13 @@ class _ChangeAssessor(Protocol):
     ) -> ChangeAssessment: ...
 
 
-class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJudgmentMixin):
+class Forseti(
+    Agent,
+    ForsetiJudgmentMixin,
+    HandoverKnowledgeMixin,
+    AssignmentJudgmentMixin,
+    ForsetiAlertNoiseMixin,
+):
     """Wave-3 Forseti: rule match + risk verdict + RBAC + SecurityEvent."""
 
     def __init__(
@@ -247,11 +249,21 @@ class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJud
             return
         if await self._assignment_message(topic, payload):
             return
+        if await self._alert_noise_message(topic, payload):
+            return
         if is_cross_vertical_candidate(topic, payload):
             await self._ingest_cross_vertical_candidate(topic, payload)
             return
         if topic == "object.change":
             await self._observe_architecture_change(payload)
+            return
+        if (
+            topic == "object.event"
+            and payload.get("event_type") == INCIDENT_INTERVENTION_EVENT_TYPE
+        ):
+            if payload.get("producer_principal") != "Huginn":
+                raise ValueError("incident guidance requires the Huginn-owned normalized Event")
+            self.record_behavior("incident_guidance:deferred")
             return
         if topic == "object.event" and str(payload.get("event_type") or "").startswith(
             "control_plane.t2_proposer_"

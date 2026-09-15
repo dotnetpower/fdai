@@ -169,6 +169,13 @@ Its outbox lifecycle facade may also supervise the unrelated Incident interventi
 worker's explicitly allowlisted logical topic, requests, and readiness state cannot enter WARA
 evidence, projections, or assessment authority.
 
+[Alert noise governance](../operations/alert-noise-governance.md) uses separate alert-quality routes,
+operation-filtered outbox claims, and a signed result consumer. Its private evidence, preferences,
+and producer health do not update WARA projections or satisfy its evidence/readiness requirements.
+WARA's existing scope, pinned queries, consumer isolation, and readiness criteria remain unchanged.
+The alert request-history query selects only its own outbox namespace, principal and exact scope.
+Its signed terminal and baseline detail cannot satisfy or update any WARA assessment state.
+
 Every row shows scope, evaluation time, source revision, evidence completeness, and limitations.
 Catalog presence and `product_group_verified` are metadata, never a satisfied badge. Optional
 projection absence renders as unavailable; malformed or unexpected responses remain visible errors.
