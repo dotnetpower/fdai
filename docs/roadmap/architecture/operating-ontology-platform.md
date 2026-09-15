@@ -37,13 +37,8 @@ The workbench is complete only when it answers these bounded operational questio
 | C6 - Governed actions | Which actions are semantically bound to this declaration? | Exact ObjectType or InterfaceType target evidence and the complete ActionType safety contract, with no execute control. |
 | C7 - Change safety | What changed between two retained releases? | Exact release digests, declaration-ref additions/changes/removals, compatibility verdict, migration requirement, and deterministic diff digest. |
 
-Conversation planning can project a smaller model-facing view after schema-validated intent
-classification. Subscription inventory documents retain `Resource`; configuration comparison adds
-the two reviewed configuration functions; gateway diagnostics add `routes_to` and the reviewed
-gateway function. This projection is a prompt-minimization view, not another manifest or authority
-source. Every descriptor still originates in the complete principal-scoped manifest, and plan
-verification still resolves against the exact release.
-The generated semantic-intent coverage artifact is regenerated when canonical ontology query or
+Conversation planning can project a smaller model-facing view after schema-validated intent classification. Subscription inventory documents retain `Resource`; configuration comparison adds the two reviewed configuration functions; gateway diagnostics add `routes_to` and the reviewed gateway function. This projection is a prompt-minimization view, not another manifest or authority
+source. Every descriptor still originates in the complete principal-scoped manifest, and plan verification still resolves against the exact release. The generated semantic-intent coverage artifact is regenerated when canonical ontology query or
 Resource vocabulary changes. A stale artifact remains a CI failure, not runtime evidence. Scoped operating Pattern reads require independent `case-history-read` admission bound to the authenticated principal and exact arguments before state access. The boundary inventory pins the controlling admission function and its focused tests. Recompiled summaries remain inert, and missing current source evidence never grants access or execution authority.
 ## Catalog-owned instance projection
 

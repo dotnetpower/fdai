@@ -1330,6 +1330,49 @@ def test_semantic_kafka_environment_preserves_optional_transport_ids() -> None:
     assert environment.hil_decision_topic == "fdai.hil.decisions"
 
 
+def test_aks_semantic_bus_uses_declared_command_identity(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fdai_operator_service.adapters import azure_identity
+    from fdai_operator_service.composition import _build_semantic_bus
+
+    command_client = "00000000-0000-0000-0000-000000000003"
+    values = {
+        **BASE_ENV,
+        "FDAI_EXECUTION_VENUE": "deployed",
+        "RUNTIME_ENV": "dev",
+        "AZURE_TENANT_ID": "00000000-0000-0000-0000-000000000002",
+        "AZURE_CLIENT_ID": "00000000-0000-0000-0000-000000000001",
+        "AZURE_FEDERATED_TOKEN_FILE": "/var/run/secrets/azure/tokens/token",
+        KAFKA_BOOTSTRAP_SERVERS_ENV: "example.servicebus.windows.net:9093",
+        SEMANTIC_REQUEST_TOPIC_ENV: "operator.semantic-turn.requests",
+        SEMANTIC_PROJECTION_TOPIC_ENV: "core.semantic-turn.projections",
+        DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+        DATABASE_ROLE_ENV: "fdai_operator",
+        MANAGED_IDENTITY_CLIENT_ID_ENV: command_client,
+    }
+    selected = []
+    monkeypatch.setattr(
+        azure_identity, "ManagedIdentityCredential", lambda **_: pytest.fail("no MI fallback")
+    )
+    monkeypatch.setattr(
+        azure_identity,
+        "WorkloadIdentityCredential",
+        lambda **kwargs: selected.append(kwargs) or object(),
+    )
+
+    environment = OperatorEnvironment.parse(values)
+    bus = _build_semantic_bus(environment)
+
+    assert bus.readiness() is True
+    assert selected == [
+        {
+            "tenant_id": values["AZURE_TENANT_ID"],
+            "client_id": command_client,
+            "token_file_path": values["AZURE_FEDERATED_TOKEN_FILE"],
+        }
+    ]
+    assert values["AZURE_CLIENT_ID"] != command_client
+
+
 def test_hil_callback_requires_durable_kafka_transport() -> None:
     with pytest.raises(OperatorServiceConfigurationError, match="PostgreSQL and configured Kafka"):
         OperatorEnvironment.parse(

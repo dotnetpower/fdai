@@ -47,9 +47,11 @@ PACKAGE_ROOTS = {
 
 EXPECTED_DEPENDENCIES = {
     "core-control-plane": {
+        "aiohttp",
         "aiokafka",
         "alembic",
         "azure-core",
+        "azure-identity",
         "croniter",
         "cryptography",
         "fdai-github-app-auth",
@@ -113,7 +115,10 @@ EXPECTED_DEPENDENCIES = {
         "pytesseract",
     },
     "isolated-executor": {
+        "aiohttp",
         "aiokafka",
+        "azure-core",
+        "azure-identity",
         "fdai-service-contracts",
         "httpx",
         "psycopg",
@@ -144,6 +149,7 @@ EXPECTED_OPTIONAL_DEPENDENCIES = {
 INDIRECT_RUNTIME_DEPENDENCIES = {
     "operator-service": {"aiohttp"},
     "document-processing-worker": {"aiohttp"},
+    "isolated-executor": {"aiohttp"},
 }
 
 IMPORT_DISTRIBUTIONS = {

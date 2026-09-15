@@ -13,7 +13,7 @@ from typing import Any, Literal
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
-from azure.identity.aio import ManagedIdentityCredential
+from azure.core.credentials_async import AsyncTokenCredential
 from fdai_service_contracts.assignment_transport import (
     ASSIGNMENT_PROJECTION_TOPIC,
     ASSIGNMENT_REQUEST_TOPIC,
@@ -41,7 +41,7 @@ _TOPIC_PATTERN = re.compile(r"^[a-z0-9._-]+$")
 
 
 class _ManagedIdentityTokenProvider(AbstractTokenProvider):  # type: ignore[misc]
-    def __init__(self, credential: ManagedIdentityCredential, scope: str) -> None:
+    def __init__(self, credential: AsyncTokenCredential, scope: str) -> None:
         self._credential = credential
         self._scope = scope
 
@@ -169,7 +169,7 @@ class OperatorSemanticKafkaBus:
         self,
         *,
         config: OperatorSemanticKafkaConfig,
-        credential: ManagedIdentityCredential | None,
+        credential: AsyncTokenCredential | None,
     ) -> None:
         host = config.bootstrap_servers.split(",", 1)[0].strip().split(":", 1)[0]
         if not host:
@@ -415,7 +415,7 @@ class OperatorSemanticKafkaBus:
 
 def _transport_options(
     config: OperatorSemanticKafkaConfig,
-    credential: ManagedIdentityCredential | None,
+    credential: AsyncTokenCredential | None,
     scope: str,
 ) -> dict[str, object]:
     if config.security_protocol == "PLAINTEXT":

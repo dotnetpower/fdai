@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:fa445ee7ca36da216ce6efeef5b8a0547cdfbe3b3c4ee7e0e54257d425605d01",
+  "catalog_digest": "sha256:5ec15a97a20f0ddf02968a4aa14c53afe4ff693ebf730d1bd4f1ad4dd86287b3",
   "execution_authority": false,
-  "generated_at": "2026-09-15T06:10:40.002901Z",
+  "generated_at": "2026-09-15T06:18:58.388717Z",
   "records": [
     {
       "designed_behavior": [
@@ -268,11 +268,11 @@
         "How does FDAI authenticate and authorize people?",
         "FDAI는 사용자를 어떻게 인증하고 권한을 확인하나요?"
       ],
-      "record_digest": "sha256:a5914ff99357b71dbb432677edd921203eec9fc1804b1d3c37cf9466afd70045",
+      "record_digest": "sha256:e0ddf36b9ab582633b7b2fa076a14e906e52c4d981de2f412de51fc6c589f375",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "7e610dd720d94d0a954847213a35a9c3bfa87243",
+          "blob_sha": "13e510bca352ee9733134d0d6916f19cd347364c",
           "line_end": 27,
           "line_start": 27,
           "path": "docs/roadmap/interfaces/user-rbac-and-identity.md",
@@ -448,7 +448,7 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:6ff48fae761d0e0d9f17c7e75f6d790c6f05ee177a9ffccbdade3645dd865160",
+      "record_digest": "sha256:928c7de3d51501c99e354b09e29d424222884251407ac48ba245b2ddb3d53036",
       "sources": [
         {
           "authority_role": "design",
@@ -461,9 +461,9 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "66ea34f80337677ddfeef46cdbdf53f4cae6f55f",
-          "line_end": 105,
-          "line_start": 105,
+          "blob_sha": "b6ada9c9a90256f34dfe53a03d0c9f6beb5af29c",
+          "line_end": 107,
+          "line_start": 107,
           "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
           "source_kind": "doc",
           "symbol": "Graduation scorecard"

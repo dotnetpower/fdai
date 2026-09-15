@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1549,
+  "file_count": 1550,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "adc30bf18c2c6a84cb2e33503bbeb755deaf32a7669c38c71334712218055918",
     ".github/instructions/agent-stewardship.instructions.md": "6d34f24fe8879f3edac388d5e7fd9ab138563ca386a5c401f72d8fc3c1698624",
@@ -685,6 +685,7 @@
     "services/core-control-plane/src/fdai/core/licensing/__init__.py": "0952e2025866251ed1dafe33159bb6a0f6beb9d1ba02fa3d11164468725634c6",
     "services/core-control-plane/src/fdai/core/licensing/entitlement.py": "cd60bbbd350ac76feb8da810cc701262ccbfada7dd4f2e44085bd85851da0747",
     "services/core-control-plane/src/fdai/core/licensing/token.py": "ac8a213ece23f256e5fd25c3fa4d54db2d13754a642f76143030890f71d02ee9",
+    "services/core-control-plane/src/fdai/core/licensing/trial.py": "380d74d7ceae4f91905e4cf62529778460997c7f87b543eb13468b57627f1535",
     "services/core-control-plane/src/fdai/core/measurement/__init__.py": "9decac4b42da79318096d03f9a471c40927247a57b39210a14a574f2521b2f2e",
     "services/core-control-plane/src/fdai/core/measurement/baseline_cohort_claim.py": "06d702a187099f03424082e12590c8ca23295a410db06a37d7fc05314538d9bd",
     "services/core-control-plane/src/fdai/core/measurement/cohort_claim_policy.py": "c338c97ba1c6cfb7669a71f7a040c0a105acfda55717801b85717ef47e0ef670",
@@ -1552,7 +1553,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-09-15T06:07:18Z",
+  "generated_at": "2026-09-15T06:19:22Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

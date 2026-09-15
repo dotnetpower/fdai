@@ -36,6 +36,7 @@ from genesis_foundation_apply_contract import (
 from genesis_foundation_workspace import verify_execution_copy
 from genesis_subprocess import run_with_heartbeat
 from genesis_vm_sku_preflight import recheck_foundation_vm
+from source_foundation_execution import prepare_source_execution
 
 CLAIM_NAME = "foundation-apply-claim.json"
 RECEIPT_NAME = "foundation-apply-receipt.json"
@@ -48,9 +49,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--plan-directory", type=Path, required=True)
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--variables-file", type=Path, required=True)
-    parser.add_argument("--offline-kit", type=Path, required=True)
-    parser.add_argument("--release-root", type=Path, required=True)
-    parser.add_argument("--bundle-public-key", type=Path, required=True)
+    _add_artifact_options(parser)
     parser.add_argument("--expected-review-digest", required=True)
     parser.add_argument("--expected-plan-digest", required=True)
     parser.add_argument("--repository", required=True)
@@ -61,9 +60,62 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _add_artifact_options(parser: argparse.ArgumentParser) -> None:
+    artifacts = parser.add_mutually_exclusive_group(required=True)
+    artifacts.add_argument("--offline-kit", type=Path)
+    artifacts.add_argument("--source-snapshot", type=Path)
+    parser.add_argument("--source-snapshot-digest")
+    parser.add_argument("--terraform", type=Path)
+    parser.add_argument("--release-root", type=Path)
+    parser.add_argument("--bundle-public-key", type=Path)
+
+
+def _validate_artifact_options(args: argparse.Namespace) -> None:
+    if args.source_snapshot is not None:
+        if (
+            args.source_snapshot_digest is None
+            or _DIGEST.fullmatch(args.source_snapshot_digest) is None
+            or args.terraform is None
+            or args.release_root is not None
+            or args.bundle_public_key is not None
+        ):
+            raise ValueError(
+                "source Foundation requires a snapshot digest and Terraform, without kit keys"
+            )
+    elif (
+        args.offline_kit is None
+        or args.release_root is None
+        or args.bundle_public_key is None
+        or args.source_snapshot_digest is not None
+        or args.terraform is not None
+    ):
+        raise ValueError("kit Foundation requires both publisher keys without source inputs")
+
+
+def _snapshot_from_arguments(
+    args: argparse.Namespace, *, plan_directory: Path, context: dict[str, object]
+) -> VerifiedSnapshot:
+    if args.source_snapshot is not None:
+        return prepare_source_execution(
+            plan_directory=plan_directory,
+            source_snapshot=_absolute(args.source_snapshot),
+            source_snapshot_digest=args.source_snapshot_digest,
+            terraform=_absolute(args.terraform),
+            context=context,
+        )
+    return _prepare_verified_snapshot(
+        plan_directory=plan_directory,
+        offline_kit=_absolute(args.offline_kit),
+        release_root=_absolute(args.release_root),
+        bundle_public_key=_absolute(args.bundle_public_key),
+        context=context,
+    )
+
+
 def _execute(args: argparse.Namespace) -> dict[str, object]:
     if args.approve == args.resume_verification:
         raise ValueError("Foundation apply requires exactly one approval or verification resume")
+    _validate_artifact_options(args)
     if _DIGEST.fullmatch(args.expected_plan_digest) is None:
         raise ValueError("expected Foundation plan digest is invalid")
     if not 900 <= args.timeout_seconds <= 14_400:
@@ -73,6 +125,15 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
     profile_path = _absolute(args.profile)
     variables_path = _absolute(args.variables_file)
     profile = load_profile(profile_path)
+    if args.source_snapshot is not None and (
+        profile.environment != "dev"
+        or profile.connectivity != "online"
+        or profile.transport != "manual"
+        or os.environ.get("FDAI_SIGNED_SOURCE_EVIDENCE") is not None
+    ):
+        raise ValueError(
+            "source Foundation requires connected development and published source verification"
+        )
     receipt_path = plan_directory / RECEIPT_NAME
     claim_path = plan_directory / CLAIM_NAME
     effect_started = claim_path.exists() or receipt_path.exists()
@@ -88,6 +149,11 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
     context = review["context"]
     if not isinstance(context, dict):
         raise ValueError("Foundation review context is invalid")
+    source_mode = args.source_snapshot is not None
+    if review.get("schema_version") != (
+        "fdai.foundation-saved-source-plan.v1" if source_mode else "fdai.foundation-saved-plan.v1"
+    ):
+        raise ValueError("Foundation artifact mode differs from the exact plan")
     checks = GenesisChecks(repository_root)
     subscription_id, tenant_id = _foundation_target(
         variables_path=variables_path,
@@ -139,13 +205,7 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
             raise ValueError("Foundation verification resume requires an existing apply claim")
     elif existing_receipt is None and claim is not None:
         raise ValueError("Foundation apply claim already exists; only verification may resume")
-    snapshot = _prepare_verified_snapshot(
-        plan_directory=plan_directory,
-        offline_kit=_absolute(args.offline_kit),
-        release_root=_absolute(args.release_root),
-        bundle_public_key=_absolute(args.bundle_public_key),
-        context=context,
-    )
+    snapshot = _snapshot_from_arguments(args, plan_directory=plan_directory, context=context)
     try:
         environment = _terraform_environment(
             data_dir=snapshot.data_dir,

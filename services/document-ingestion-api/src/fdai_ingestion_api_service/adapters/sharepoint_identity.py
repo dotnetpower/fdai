@@ -10,7 +10,7 @@ from uuid import UUID
 
 import httpx
 from azure.core.credentials import AccessToken
-from azure.identity.aio import ManagedIdentityCredential
+from azure.core.credentials_async import AsyncTokenCredential
 from fdai_service_contracts import ProviderUnavailableError
 
 _TOKEN_EXCHANGE_SCOPE = "api://AzureADTokenExchange/.default"  # noqa: S105
@@ -44,7 +44,7 @@ class FederatedManagedIdentityGraphCredential:
         self,
         *,
         config: SharePointFederatedCredentialConfig,
-        managed_identity: ManagedIdentityCredential,
+        managed_identity: AsyncTokenCredential,
         client: httpx.AsyncClient,
     ) -> None:
         self._config = config

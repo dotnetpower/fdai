@@ -19,7 +19,7 @@ observation mode until separately promoted. Packages 6 through 8 add approval co
 knowledge capture without raising IAM authority. Package 9 currently reports bounded observation
 evidence, not operational readiness. Bounded source requirements and [12 distinct final critique rounds](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)
 after remaining source implementation are complete with no unresolved confirmed Medium/High source finding.
-Translation refresh, canonical generation, local hooks, publication/CI, and UI/live evidence remain pending.
+Source delivery completed through [PR #1014](https://github.com/dotnetpower/fdai/pull/1014): reviewed head `8c1d9977c`, protected squash `953a17de4`, successful exact-head CI `34925881557` and post-merge CI `34926168342`. The [#1017 local UI review](../../internals/handover-ui-evidence-20260915.md) retains a real assistive-technology gap; live operational evidence remains separate.
 
 ![Delivery shape. The main stages are Package 1 duty schema, Package 2 assignment core, Package 3 API and console, Package 4 ownership coordination, Package 5 IAM provisioner, Package 6 approval supervisor, Package 7 handover goals, Package 8 knowledge lifecycle, Package 9 production rollout.](../../diagrams/generated/fdai-roadmap-interfaces-human-agent-assignment-implementation-plan-01.en.svg)
 
@@ -33,7 +33,7 @@ Translation refresh, canonical generation, local hooks, publication/CI, and UI/l
 | Approval | `HilResumeCoordinator`, bounded ladder receipts, current-source forecast timing, reminders, load control, and shadow non-response observation | External: current rung identities, delivery, measured timing cohorts, drills, and promotion |
 | Conversation | Current Operator and Core goal/reviewer/admission/retrieval bindings, six-slot acceptance, observed-group Reader ACL checks, and durable subject-wide budget | External: current deployed identity, source ACL, and pilot/cohort evidence |
 | Documents | Governed ingestion, deterministic chunks, goal observation `1.1.0`, immutable typed Rule/ontology compilation, independent review, and Mimir retention/scrubbing | External: provider conformance, deployed source/hold policy, latency and cohorts; unsupported prose is held, not semantic success |
-| Console | Actual Mapping reviews H10 workspace, Current owners, document checklist/review controls, and Owner-only readiness read | Full UI-rubric/assistive-technology review and live convergence/pilot evidence remain open; report stays `shadow`, `operationally_ready=false` |
+| Console | Actual Mapping reviews H10 workspace, Current owners, document checklist/review controls, and Owner-only readiness read | #1017 accounts for all 50 UI IDs and passes local keyboard, long/expanded and responsive checks. Required real screen-reader evidence remains `needs-human`, without a final score; live convergence/pilot evidence remains open and readiness stays `shadow`, `operationally_ready=false` |
 
 ## Contract decisions before coding
 
@@ -434,7 +434,8 @@ recovery writes, and promotion are not delivered by this reporting slice.
 
 The [final integrated record](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) documents 12 distinct rounds after all remaining source implementation.
 No unresolved confirmed Medium/High source finding remains. Earlier checkpoint results stay historical;
-the latest selections below overlap and are not summed. Publication and operational evidence remain separate.
+the earlier source selections below overlap and are not summed. #1014 is delivered; #1017's local
+UI follow-up and #458's operational evidence remain separate outcomes.
 
 | Review slice | Recorded final source-review evidence |
 |--------------|---------------------------------------|
@@ -445,8 +446,8 @@ the latest selections below overlap and are not summed. Publication and operatio
 | HIL, bootstrap, layout, and document parity | 136 checks passed |
 | Execution source typing | 19 modules passed strict typing |
 | Task source static checks | 227 Python files passed lint/format; 149 source modules passed import/module-doc scanning; existing LOC ratchets unchanged |
-| Documentation checkpoint | Korean quality passed for 12 files and size/tracking passed for 22 documents before this prose refresh; final translation SHA/catalog refresh and hooks remain pending |
-| H10 Console, unchanged source inputs | Retained 95 unit checks and 6 actual-route/component Playwright scenarios with synthetic APIs; not full WCAG, complete rubric, or live-scope proof |
+| Delivered documentation checkpoint | #1014 completed reviewed EN/KO synchronization, canonical catalog generation and normal hooks; exact-head and post-merge CI passed |
+| Current local Console follow-up | #1017: 28 distinct synthetic browser scenarios, 127 focused unit checks and TypeScript pass; all 50 rubric IDs recorded, with real assistive-technology evidence missing and no final score |
 
 All existing bounded source requirements are complete against that evidence:
 
@@ -472,11 +473,10 @@ All existing bounded source requirements are complete against that evidence:
 
 - [x] **Final source critique:** Completed 12 distinct integrated rounds after remaining source
   implementation; the [final record](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) has no unresolved confirmed Medium/High source finding.
-- [ ] **Publication preflight:** Complete semantic EN/KO review, translation SHA refresh, canonical
-  generation, and local hooks against the final document inputs.
-- [ ] **Publication and CI:** Publish the reviewed local commit and retain exact-pushed-SHA protected CI evidence.
-- [ ] **UI evidence:** Complete per-ID rubric accounting, exhaustive keyboard order, required
-  assistive-technology announcements, and all long/expanded states before a full WCAG or UI-score claim.
+- [x] **#946 publication:** Reviewed translations, generation, normal hooks and [PR #1014](https://github.com/dotnetpower/fdai/pull/1014) delivery completed; exact-head CI `34925881557` and post-merge CI `34926168342` passed.
+- [x] **Local UI evidence:** [#1017 evidence](../../internals/handover-ui-evidence-20260915.md) accounts for all 50 IDs and records keyboard, pending/error recovery, long/expanded states, two languages and responsive measurements.
+- [ ] **Assistive technology:** Retain real EN/KO status, error and disclosure announcements from NVDA with supported Chrome or a declared equivalent. Until then the scoped rubric is `needs-human`, not a final numerical score or WCAG claim.
+**Follow-up delivery:** [#1017](https://github.com/dotnetpower/fdai/issues/1017) tracks this change's normal hooks and protected exact-head CI/merge; #1014's successful delivery does not attest this new diff.
 
 External blockers remain separate: [#458](https://github.com/dotnetpower/fdai/issues/458) remains open
 for live credentials/permissions, current identity and approval, Graph/GitHub App, independent IAM-effect and
@@ -486,6 +486,11 @@ target-lock drills, and promotion. Teams evidence remains under
 [#424](https://github.com/dotnetpower/fdai/issues/424), and deployment evidence under
 [#803](https://github.com/dotnetpower/fdai/issues/803), alongside the required cohorts. Local SQL
 checks do not verify live directory, cohort, or document-source state in those deployments.
+Use the [standalone deployment coordinator](../deployment/installable-deployment-cli.md) and managed
+host for an explicitly selected signed release, current exact plan, independent approval and
+readback. GitHub Actions is not a tenant-deployment transport. The [prerequisite matrix](../../internals/handover-ui-evidence-20260915.md#delivery-and-operational-boundary)
+names current identity, App installation, ChatOps, source/ACL/hold, inverse-drill and cohort evidence;
+source implementation or issue closure never supplies those approvals.
 
 ## Focused verification by slice
 

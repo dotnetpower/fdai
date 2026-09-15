@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: e67275b60a5f0ee514de05332b863332cf3d27e2
-translation_revised: 2026-09-13
+translation_source_sha: 48a2699ec814b598a7739ad1612d408370b0c7b8
+translation_revised: 2026-09-14
 ---
 
 # 다운스트림 포크 가이드
@@ -82,6 +82,11 @@ customization 프로파일을 패키지하며 배포, 테넌트, 환경, 운영 
 하나의 포크는 배포가 없거나 서로 다른 환경에 여러 배포가 있을 수 있습니다.
 업스트림도 직접 deploy할 수 있습니다. `.fdai-fork`, `FDAI_FORK`, `git config fdai.fork true`는
 repository-integrity 검사만 활성화하며 런타임 코드는 이 값을 기준으로 분기하면 안 됩니다.
+
+연결된 소스 배포와 무키 Trial 목표는 업스트림과 포크에 동일하게 적용합니다. 포크 표시,
+변경 없는 체크아웃, 산출물 서명은 사용권을 부여하거나 새 Trial을 시작하지 않습니다.
+업그레이드할 때 설치에 연결된 기록을 보존해야 합니다. 원자적인 저장과 런타임 적용은
+[기능 라이선싱](capability-licensing-ko.md#영속적인-무키-trial-목표)의 별도 구현 과제로 남아 있습니다.
 
 선택적 버티컬 패키지도 포크 경계와 독립적입니다. 예를 들어
 [`fdai-cost-governance`](../architecture/finops-package-architecture-ko.md)는 검토된 업스트림

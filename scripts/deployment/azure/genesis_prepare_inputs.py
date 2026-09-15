@@ -14,7 +14,7 @@ from pathlib import Path
 
 from fdai_deployment_cli.azure_naming import azure_region_short_name
 from fdai_deployment_cli.contracts import canonical_digest
-from genesis_checks import CheckError
+from genesis_checks import CheckError, trusted_tool
 from genesis_vm_sku_preflight import discover_foundation_vm_size
 
 _NETWORK_RESOURCE_API_VERSION = "2024-05-01"
@@ -432,6 +432,7 @@ def _canonical_ipv4_prefix(value: str) -> bool:
 def _capture(arguments: tuple[str, ...], *, cwd: Path) -> str:
     environment: dict[str, str] | None = None
     if arguments and arguments[0] == "/usr/bin/az":
+        arguments = (trusted_tool("az"), *arguments[1:])
         azure_config = Path(
             os.environ.get("AZURE_CONFIG_DIR", str(Path.home() / ".azure"))
         ).resolve(strict=True)

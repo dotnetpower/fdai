@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -15,7 +16,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from genesis_approval import GenesisApproval  # noqa: E402
 from genesis_checks import GenesisChecks  # noqa: E402
-from genesis_foundation import FoundationPlanInputs  # noqa: E402
+from genesis_foundation import FoundationPlanInputs, SourceFoundationPlanInputs  # noqa: E402
 from genesis_private_errors import (  # noqa: E402
     PrivateExecutionError,
     PrivateExecutionWaitError,
@@ -130,6 +131,24 @@ def test_foundation_plan_waits_without_exact_approval(tmp_path: Path) -> None:
     foundation = payload["foundation_report"]
     assert isinstance(foundation, dict)
     assert foundation["foundation_plan"] == _plan()
+
+
+def test_source_foundation_preserves_type_and_exact_approval_wait(tmp_path):
+    inputs = SourceFoundationPlanInputs(
+        source_snapshot=tmp_path / "snapshot",
+        source_snapshot_digest="f" * 64,
+        terraform=tmp_path / "terraform",
+        profile=tmp_path / "profile.json",
+        variables_file=tmp_path / "variables.json",
+    )
+    coordinator = _coordinator(tmp_path)
+    coordinator.config = replace(coordinator.config, foundation_inputs=inputs)
+    captured = []
+    coordinator._prepare_plan = lambda **kwargs: captured.append(kwargs["inputs"]) or _plan()
+    with pytest.raises(PrivateExecutionWaitError, match="foundation_exact_plan_approval_required"):
+        coordinator.run()
+    assert captured == [inputs]
+    assert isinstance(captured[0], SourceFoundationPlanInputs)
 
 
 def test_another_stage_approval_grants_no_foundation_authority(tmp_path: Path) -> None:

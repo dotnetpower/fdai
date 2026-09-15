@@ -86,6 +86,8 @@ def test_version_alias_preserves_existing_json_contract(capsys) -> None:
         ["license", "inspect"],
         ["onboard", "guided"],
         ["provision", "azure", "--online", "--offline-kit", "example.tar.gz"],
+        ["provision", "azure", "--online", "--source", "."],
+        ["provision", "azure", "--offline-kit", "example.tar.gz", "--source", "."],
         ["provision", "azure", "--online", "--region"],
     ],
 )
@@ -104,6 +106,75 @@ def test_none_argv_uses_process_arguments(monkeypatch, capsys) -> None:
     monkeypatch.setattr(sys, "argv", ["fdaictl"])
     assert cli.main() == 0
     assert "Commands:" in capsys.readouterr().out
+
+
+def test_source_preparation_never_enters_kit_or_azure_paths(monkeypatch, capsys) -> None:
+    calls = []
+    monkeypatch.setattr(cli, "deploy_azure_foundation", lambda **_: pytest.fail("kit path invoked"))
+    monkeypatch.setattr(
+        cli,
+        "prepare_source_deployment",
+        lambda **kwargs: calls.append(kwargs) or {"deployment_ready": False, "state": "prepared"},
+    )
+    assert (
+        cli.main(
+            [
+                "provision",
+                "azure",
+                "--source",
+                ".",
+                "--runtime",
+                "aks",
+                "--prepare-only",
+                "--output",
+                "json",
+            ]
+        )
+        == 0
+    )
+    assert len(calls) == 1
+    assert json.loads(capsys.readouterr().out)["deployment_ready"] is False
+
+
+def test_prepare_only_rejects_kit_mode(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        cli, "deploy_azure_foundation", lambda **_: pytest.fail("unexpected deployment")
+    )
+    assert cli.main(["provision", "azure", "--online", "--prepare-only"]) == 3
+    assert "requires --source" in capsys.readouterr().err
+
+
+def test_source_preflight_reports_blockers_without_deploying(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        cli, "deploy_azure_foundation", lambda **_: pytest.fail("kit or apply invoked")
+    )
+    monkeypatch.setattr(cli, "prepare_source_deployment", lambda **_: {"state": "prepared"})
+    monkeypatch.setattr(
+        cli,
+        "inspect_aks_target",
+        lambda **_: {
+            "state": "blocked",
+            "blockers": ["quota_cores_insufficient"],
+            "deployment_ready": False,
+        },
+    )
+    assert (
+        cli.main(
+            [
+                "provision",
+                "azure",
+                "--source",
+                ".",
+                "--runtime",
+                "aks",
+                "--preflight-only",
+                "--output",
+                "json",
+            ]
+        )
+        == 3
+    )
+    assert json.loads(capsys.readouterr().out)["blockers"] == ["quota_cores_insufficient"]
 
 
 def _parsers(parser: argparse.ArgumentParser):

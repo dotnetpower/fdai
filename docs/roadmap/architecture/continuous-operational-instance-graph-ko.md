@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: b5ac27b131259d8f480ee0840b48058cfec42b2d
+translation_source_sha: 146b999230d458ce5a747e3a44a26384ec75db13
 translation_revised: 2026-09-15
 ---
 # 지속형 운영 인스턴스 그래프
@@ -29,6 +29,11 @@ translation_revised: 2026-09-15
 ![설계 개요. 주요 단계는 Provider events and delta APIs, Durable observation ingress, Normalize and adjudicate, Current operational graph, Bitemporal observation history, Typed rollups, Verified archive, Verified semantic query, Evidence current and complete?, Evidence-backed result, Bounded live read입니다.](../../diagrams/generated/fdai-roadmap-architecture-continuous-operational-instance-graph-01.ko.svg)
 
 ## 변경할 수 없는 불변식
+
+AKS에서 Operator의 그래프 질의와 실시간 단계 전송은 Operator 신원에 연결된 투영 워크로드
+자격 증명을 사용합니다. 자격 증명이 바뀌어도 질의 수용, 토픽 소유권, 관측 출처 또는 변환
+작성자는 바뀌지 않습니다. 생성 함수는 기존 adapters 공개 모듈에서 제공합니다. 연합 설정이 불완전하면 사용 불가로 처리하며 노드 신원이나 로컬
+Azure CLI로 대체하지 않습니다. 로컬 자격 증명 정책은 그대로 유지합니다.
 
 - **관측된 사실:** 인증된 공급자 관측만 `observed` 상태 lane에 들어갈 수 있습니다. 질문,
   모델 출력, 의도 상태, dispatch 증적, 실행기 결과는 관측 사실을 만들 수 없습니다.

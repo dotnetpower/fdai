@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 9b49c891457743e6fd0996be98faa66287f61ed3
+translation_source_sha: 9854d0cedf9cf89b5e19989b36340dc0bb43d7fa
 translation_revised: 2026-09-15
 ---
 # FDAI 온톨로지 안전 인프라

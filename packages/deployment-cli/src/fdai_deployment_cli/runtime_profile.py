@@ -29,7 +29,7 @@ class RuntimeDeploymentProfile:
     runtime_platform: RuntimePlatform
     database_placement: DatabasePlacement
     system_node_count: int = 3
-    system_node_sku: str = "Standard_D2as_v5"
+    system_node_sku: str = "Standard_D4as_v5"
     user_node_min_count: int = 3
     user_node_max_count: int = 5
     user_node_sku: str = "Standard_D4as_v5"
@@ -66,7 +66,7 @@ class RuntimeDeploymentProfile:
         runtime_platform: str,
         database_placement: str,
         system_node_count: int = 3,
-        system_node_sku: str = "Standard_D2as_v5",
+        system_node_sku: str | None = None,
         user_node_min_count: int = 3,
         user_node_max_count: int = 5,
         user_node_sku: str = "Standard_D4as_v5",
@@ -85,7 +85,9 @@ class RuntimeDeploymentProfile:
             runtime_platform=runtime,
             database_placement=database,
             system_node_count=system_node_count,
-            system_node_sku=system_node_sku,
+            system_node_sku=system_node_sku
+            if system_node_sku is not None
+            else ("Standard_D4as_v5" if runtime is RuntimePlatform.AKS else "Standard_D2as_v5"),
             user_node_min_count=user_node_min_count,
             user_node_max_count=user_node_max_count,
             user_node_sku=user_node_sku,

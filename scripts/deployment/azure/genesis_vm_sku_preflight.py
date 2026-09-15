@@ -13,7 +13,7 @@ from typing import TypedDict
 
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.plan_input import read_plan_input, write_plan_input
-from genesis_checks import CheckError
+from genesis_checks import CheckError, trusted_tool
 from genesis_runner_image_sku_probe import read_vm_skus, read_vm_usage
 from genesis_runner_image_skus import EVIDENCE_INVALID
 from genesis_subprocess import run_with_heartbeat
@@ -244,6 +244,8 @@ def capture_vm_metadata(
     command: list[str], *, cwd: Path, env: Mapping[str, str], timeout: int, reason: str
 ) -> str:
     """Run a bounded fixed read command with no provider-error values in failures."""
+    if command and command[0] == "/usr/bin/az":
+        command = [trusted_tool("az"), *command[1:]]
     try:
         result = run_with_heartbeat(
             command, cwd=cwd, env=env, timeout=timeout, capture_output=True, umask=0o077

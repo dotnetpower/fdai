@@ -13,9 +13,9 @@ approval, conversation, and document ingestion while keeping each authority inde
 > validated, approved, applied, and audited as separate axes.
 > **Current scope:** The bounded source requirements and 12 distinct final integrated critique rounds
 > after remaining implementation are complete at the [recorded checkpoint](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation), with no unresolved confirmed Medium/High source finding there.
-> The second local main merge succeeded and was published as `c8edd2769` in [PR #1014](https://github.com/dotnetpower/fdai/pull/1014).
-> [CI run 34921323157, attempt 1](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1) failed on that head. Focused source repairs are implemented locally; delivery repair remains in progress under [#946](https://github.com/dotnetpower/fdai/issues/946).
-> The latest published head remains `c8edd2769`; protected CI/merge, full UI-rubric/assistive-technology, and live operational evidence remain open.
+> [PR #1014](https://github.com/dotnetpower/fdai/pull/1014) merged reviewed head `8c1d9977c` as `953a17de4` after exact-head [CI 34925881557](https://github.com/dotnetpower/fdai/actions/runs/34925881557) passed. Post-merge [CI 34926168342](https://github.com/dotnetpower/fdai/actions/runs/34926168342) also passed; #946 is complete.
+> The [local UI follow-up](../../internals/handover-ui-evidence-20260915.md) records 28 distinct synthetic browser scenarios, 127 focused unit checks, and ten focused plus ten final integrated critique rounds under [#1017](https://github.com/dotnetpower/fdai/issues/1017).
+> All 50 rubric IDs are accounted for, but required real screen-reader evidence is missing: `needs-human`, no final score or WCAG claim. Live operational evidence remains under #458.
 > No deployment or promotion is enabled; readiness stays `shadow` with `operationally_ready=false`.
 
 ## Design at a glance
@@ -158,13 +158,16 @@ The actual `/agent-oversight/mapping-reviews` Console route now includes this ow
 workspace. Its six existing API calls support exact case navigation, explicit UTC intervals,
 static schedule fallback, supersession, and manual refresh. HTTP202 remains `awaiting_core` until
 an authoritative GET supplies the case; uncertain retries preserve the original request identity.
-The recorded 95 unit checks and six actual-route/component Playwright checks use synthetic API
-responses. They are not full WCAG, complete UI-rubric, or live-scope evidence.
+Field corrections link to their inputs, and add/remove or completed-request focus returns to a
+usable control without stealing deliberate navigation. The [follow-up evidence](../../internals/handover-ui-evidence-20260915.md)
+covers bilingual keyboard, long/expanded content, 320px reflow, actual 200% text, themes and pending
+recovery. All API responses are synthetic; required screen-reader speech and live-scope evidence remain open.
 
 Group expansion never creates personal grants, today's schedule proves no future coverage, and
 the global v2 map stays unchanged. The workspace grants no IAM role, document ACL, or execution
-authority. Live identity, GitHub evidence, operational adoption, and the broader UI review remain
-separate requirements.
+authority. Live identity, GitHub evidence, operational adoption, and real assistive-technology checks
+remain separate requirements. Checklist controls follow each server-advertised operation, preserve
+the review revision, and reset private input and late replies when the client or goal changes.
 
 ## Assignment and duty model
 
