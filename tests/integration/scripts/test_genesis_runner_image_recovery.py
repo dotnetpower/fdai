@@ -293,6 +293,22 @@ def test_recovery_planner_refuses_competing_source_execution(planning_inputs):
     assert not calls
 
 
+def test_recovery_planner_detects_state_change_before_review(planning_inputs, monkeypatch):
+    args, _, root, _ = planning_inputs
+    original = planner.run_with_heartbeat
+
+    def changed(command, **kwargs):
+        result = original(command, **kwargs)
+        if command[1] == "plan":
+            (root / "terraform.tfstate").write_bytes(b"concurrently changed state")
+        return result
+
+    monkeypatch.setattr(planner, "run_with_heartbeat", changed)
+    with pytest.raises(ValueError, match="evidence changed"):
+        planner.prepare_recovery_plan(**args)
+    assert not (args["work_dir"] / "residual-review.json").exists()
+
+
 def test_recovery_planner_retains_blocked_plan_without_ready_review(planning_inputs):
     args, _, _, residual = planning_inputs
     residual["resource_changes"][0]["change"]["actions"] = ["delete"]

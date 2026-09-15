@@ -81,6 +81,8 @@ apply authority; a residual plan needs its own execution contract and current ap
 Refresh-only differences are accepted only on preserved no-op resources with unchanged resource IDs:
 originally unknown computed fields, equivalent null/empty values, or order-only differences in
 Firewall application-rule sets. A changed known setting or ambiguous refresh record still blocks.
+Concurrent changes to the original state, claim, source or configuration prevent review publication;
+the planner preserves incomplete output and never overwrites a previous recovery directory.
 
 The interactive checkpoint prompt resolves that same trusted CLI before reading the current
 human approver. A missing trusted executable or a service-principal account cannot create approval.
