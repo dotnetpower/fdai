@@ -570,10 +570,9 @@ state without opening a duplicate SSE connection. The notification leader keeps 
 live reader open in the background. This fixed connection budget leaves capacity for ordinary
 Operator API requests under HTTP/1.1. The notification leader retries authentication failures with
 the existing capped backoff and stops as soon as notification permission or the principal-scoped
-opt-in is removed. It emits only human approval, denial, and failure outcomes from non-replay
-frames. A shared browser ledger suppresses the same event tag for five minutes across tabs and
-limits system notification delivery to five per minute without removing any audit or Incident
-evidence.
+opt-in is removed. Eligible alerts open correlated Audit evidence, not an assumed Incident.
+[Console Web Notifications](console-web-notifications.md) owns event admission, bounded local
+delivery, and recovery from legacy Incident links; no audit or Incident evidence is removed.
 
 The Agent Activity route loads bounded durable inventory scan, ontology projection, and current-state
 read records before opening the shared agent stream. Exact activity ids deduplicate replay and live
