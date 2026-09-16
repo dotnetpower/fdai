@@ -124,9 +124,7 @@ uses a customer-safe scope digest, so one unavailable cluster lowers fleet compl
 erasing another cluster's verified positive evidence or exposing its ARM identity.
 The deployed Inventory Job accepts either the legacy binding or one bounded fleet JSON record,
 never both, and the same read identity receives only AKS RBAC Reader on each exact cluster scope.
-Lifecycle collection acquires an independent lease and resourceVersion cursor for each binding.
-One cluster failure keeps fleet evidence incomplete but does not stop or erase another cluster's
-accepted Event observations.
+Lifecycle collection acquires an independent lease and resourceVersion cursor for each binding. One cluster failure keeps fleet evidence incomplete but does not stop or erase another cluster's accepted Event observations.
 Each binding retains its exact AKS ARM ID for authorization scope and source attribution. Before Kubernetes resources or relationships enter the graph, the Azure composition converts that ARM ID with the same provider-neutral identity mapping used by the promoted Azure inventory.
 The durable delta cursor also retains the newest relationship-reconciliation event time, so an inclusive provider replay cannot give a covered marker a new ingestion age.
 

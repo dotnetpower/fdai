@@ -164,11 +164,8 @@ subscription and never requests admin credentials. Local `kubectl config view --
 must show one exec-only user, `kubelogin get-token`, one matching client and one MSI login option,
 without environment overrides. Failed conversion or mismatched readback stops before Kubernetes
 operations; neither browser/device-code login nor default/node identity is a fallback.
-Runtime topology inventory keeps the exact AKS ARM ID as its authorization binding, then converts
-it to the provider-neutral Resource identity before composing Kubernetes objects and relationships.
-This identity conversion does not widen the deployment scope or grant observation authority.
-The common plan-review validator accepts the existing `substrate`, `runtime`, `database` and
-`application` stages with the same exact digest, expiry and destructive-confirmation checks.
+Runtime topology inventory keeps the exact AKS ARM ID as its authorization binding, then converts it to the provider-neutral Resource identity before composing Kubernetes objects and relationships. This identity conversion does not widen the deployment scope or grant observation authority.
+The common plan-review validator accepts the existing `substrate`, `runtime`, `database` and `application` stages with the same exact digest, expiry and destructive-confirmation checks.
 Accepting an AKS stage never grants it approval or permission to skip an earlier stage.
 
 ## Runtime rendering
