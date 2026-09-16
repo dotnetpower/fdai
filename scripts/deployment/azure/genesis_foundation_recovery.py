@@ -29,10 +29,17 @@ def validate_recovery_plan(
     """
     if re.fullmatch(r"[a-z][a-z0-9]{1,11}", application_workload) is None:
         raise ValueError("Foundation recovery application workload is invalid")
+    raw_changes = projection.get("resource_changes")
+    effectful = isinstance(raw_changes, list) and any(
+        isinstance(entry, dict)
+        and isinstance(entry.get("change"), dict)
+        and entry["change"].get("actions") not in (["no-op"], ["read"])
+        for entry in raw_changes
+    )
     if (
         projection.get("complete") is not True
         or projection.get("errored") is not False
-        or projection.get("applyable") is not True
+        or projection.get("applyable") is not effectful
         or projection.get("deferred_changes")
     ):
         raise ValueError("Foundation recovery plan is incomplete")

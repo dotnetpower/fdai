@@ -498,6 +498,57 @@ def test_policy_only_recovery_preserves_existing_application_group(recovery_plan
     assert result["preserved_managed_count"] == 2
 
 
+def test_policy_only_recovery_accepts_zero_change_closure(recovery_plans):
+    original, current, state = recovery_plans
+    current["variables"]["application_workload"] = {"value": "example"}
+    retained = {
+        "azapi_resource.app_resource_group": {
+            "id": "application-id",
+            "name": "original",
+            "tags": {"run": "same"},
+        },
+        "azurerm_virtual_network.ops": {
+            "id": "synthetic-id",
+            "name": "ops",
+        },
+        "azurerm_role_assignment.app": {
+            "id": "role-id",
+            "role_definition_name": "Contributor",
+            "scope": "application-id",
+        },
+    }
+    state["resources"] = []
+    for entry in current["resource_changes"]:
+        address = entry["address"]
+        attributes = retained[address]
+        entry["change"].update(
+            actions=["no-op"],
+            before=copy.deepcopy(attributes),
+            after=copy.deepcopy(attributes),
+        )
+        parts = address.split(".")
+        state["resources"].append(
+            {
+                "mode": "managed",
+                "type": parts[-2],
+                "name": parts[-1],
+                "instances": [{"attributes": copy.deepcopy(attributes)}],
+            }
+        )
+    current["applyable"] = False
+
+    result = validate_recovery_plan(
+        current,
+        original,
+        state,
+        application_workload="example",
+    )
+
+    assert result["application_group_preserved"] is True
+    assert result["remaining_addresses"] == []
+    assert result["preserved_managed_count"] == 3
+
+
 @pytest.mark.parametrize(
     "defect",
     [
