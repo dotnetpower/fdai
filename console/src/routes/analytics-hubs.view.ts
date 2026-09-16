@@ -1,7 +1,11 @@
 import type { ViewSnapshot } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
 import type { AutonomyPayload, MetricVsBaseline } from "../types";
-import { formatOutcomeMetric, type OutcomeKey } from "./operating-outcomes";
+import {
+  formatOutcomeMetric,
+  outcomeSampleSize,
+  type OutcomeKey,
+} from "./operating-outcomes";
 
 interface OperatingOutcomeSnapshotInput {
   readonly autonomy: AutonomyPayload;
@@ -35,6 +39,7 @@ export function buildOperatingOutcomeViewSnapshot({
     : metric.baseline;
   const currentFactKey = showsVerticalBreakdown ? "current_rate" : "current_value";
   const baselineFactKey = showsVerticalBreakdown ? "baseline_rate" : "baseline_value";
+  const metricSampleSize = outcomeSampleSize(autonomy, metricKey);
   return {
     routeId: "operating-outcomes",
     routeLabel,
@@ -45,7 +50,8 @@ export function buildOperatingOutcomeViewSnapshot({
         "of trend and breakdown projections.",
     headline:
       `${metricLabel}: current ${current}, baseline ${baseline}; ` +
-      `${autonomy.sample_size} events over ${autonomy.window_days} days.`,
+      `${metricSampleSize} metric samples from ${autonomy.sample_size} events over ` +
+      `${autonomy.window_days} days.`,
     capturedAt: autonomy.source.as_of ?? new Date().toISOString(),
     glossary: composeGlossary([
       {
@@ -79,7 +85,14 @@ export function buildOperatingOutcomeViewSnapshot({
       },
       { key: "direction", label: "Better when", value: metric.direction, group: "metric" },
       { key: "window_days", label: "Measurement window", value: autonomy.window_days, group: "evidence" },
-      { key: "sample_size", label: "Sample size", value: autonomy.sample_size, group: "evidence" },
+      { key: "sample_size", label: "Metric sample size", value: metricSampleSize, group: "evidence" },
+      { key: "event_sample_size", label: "Event sample size", value: autonomy.sample_size, group: "evidence" },
+      {
+        key: "measurement_gaps",
+        label: "Measurement gaps",
+        value: autonomy.measurement_gaps.join(", "),
+        group: "evidence",
+      },
       { key: "confidence", label: "Confidence", value: autonomy.confidence, group: "evidence" },
       { key: "source", label: "Evidence source", value: autonomy.source.name, group: "evidence" },
       { key: "source_kind", value: autonomy.source.kind, group: "evidence" },

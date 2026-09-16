@@ -82,6 +82,10 @@
     "costNoticeBody": "표시된 비용은 공개 표준 단가를 기준으로 계산됩니다. 실제 청구 금액은 계약 할인, 약정, 크레딧, 세금, 환율 및 공급자 청구 조정에 따라 달라질 수 있습니다. 청구서 대조가 아닌 참고용으로 사용하세요.",
     "noBaseline": "기준선 없음",
     "noBaselineHint": "이 기간에 보고된 paired baseline 근거가 없습니다.",
+    "missingSourceHint": "현재 기간에 이 지표에 대해 승인된 원본 관측값이 기록되지 않았습니다.",
+    "incompleteSourceHint": "최신 원본 관측값이 불완전하여 값을 표시하지 않습니다.",
+    "mixedSourceHint": "관측값의 원본 컨텍스트가 서로 달라 하나의 값으로 결합할 수 없습니다.",
+    "unattributedHumanInputHint": "이벤트에 귀속할 수 없는 사람 입력이 있어 비율을 표시하지 않습니다.",
     "views": {
       "auto-resolution": {
         "title": "사람 개입 없이 올바르게 해결된 결과",

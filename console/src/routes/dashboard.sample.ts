@@ -57,6 +57,14 @@ const SAMPLE_AUTONOMY: AutonomyPayload = {
     change_lead_time_seconds: { value: 960, baseline: 2100, direction: "lower" },
     cost_per_resolved_event_usd: { value: 0.31, baseline: 0.72, direction: "lower" },
   },
+  metric_samples: {
+    auto_resolution_rate: 1280,
+    human_touchpoints_per_100: 1280,
+    mttr_seconds: 116,
+    change_lead_time_seconds: 94,
+    cost_per_resolved_event_usd: 922,
+  },
+  measurement_gaps: [],
   leading: {
     mixed_model_disagreement_rate: { value: 0.018, baseline: 0.041, direction: "lower" },
     verifier_failure_rate: { value: 0.009, baseline: 0.025, direction: "lower" },

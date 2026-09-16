@@ -23,6 +23,8 @@ _LEADING_METRICS = {
     "shadow_divergence_rate": "lower",
 }
 _RATE_METRICS = frozenset({"auto_resolution_rate", *_LEADING_METRICS})
+_SOURCE_METRICS = frozenset({"mttr_seconds", "change_lead_time_seconds", "attributed_cost_usd"})
+_MEASUREMENT_GAP_PREFIXES = frozenset({"incomplete", "mixed_context", "missing_source"})
 _TIER_KEYS = frozenset({"t0", "t1", "t2"})
 _VERTICALS = frozenset({"resilience", "change_safety", "cost", "unattributed"})
 
@@ -42,6 +44,7 @@ def validate_autonomy_measurement(value: object) -> dict[str, object]:
         )
         success = _mapping(projection.get("success"))
         _validate_metrics(success, _SUCCESS_METRICS)
+        _validate_metric_evidence(projection, success)
         auto_resolution_rate = _mapping(success["auto_resolution_rate"])
         auto_resolution_value = _optional_ratio(auto_resolution_rate.get("value"))
         _optional_ratio(auto_resolution_rate.get("baseline"))
@@ -96,6 +99,36 @@ def _validate_metrics(
         validator(metric.get("value"))
         validator(metric.get("baseline"))
         if metric.get("direction") != expected_direction:
+            raise ValueError
+
+
+def _validate_metric_evidence(
+    projection: Mapping[str, object],
+    success: Mapping[str, object],
+) -> None:
+    samples = _mapping(projection.get("metric_samples"))
+    if samples.keys() != _SUCCESS_METRICS.keys():
+        raise ValueError
+    for metric_id in _SUCCESS_METRICS:
+        sample_count = _integer(samples.get(metric_id), positive=False)
+        metric = _mapping(success[metric_id])
+        if metric.get("value") is not None and sample_count == 0:
+            raise ValueError
+
+    gaps = _sequence(projection.get("measurement_gaps"))
+    seen: set[str] = set()
+    for value in gaps:
+        if not isinstance(value, str) or not value or value in seen:
+            raise ValueError
+        seen.add(value)
+        if value == "unattributed_human_input":
+            continue
+        prefix, separator, metric_id = value.partition(":")
+        if (
+            separator != ":"
+            or prefix not in _MEASUREMENT_GAP_PREFIXES
+            or metric_id not in _SOURCE_METRICS
+        ):
             raise ValueError
 
 

@@ -14,7 +14,7 @@ BOOTSTRAP_KEY = "fdai:e2e:browser-entra-session"
 MSAL_ENCRYPTION_COOKIE = "msal.cache.encryption"
 DEFAULT_ORIGIN = "http://localhost:5273"
 DEFAULT_OUTPUT = Path(".fdai/live-validation/browser-entra-storage-state.json")
-MAX_PAYLOAD_BYTES = 4 * 1024 * 1024
+MAX_PAYLOAD_BYTES = 8 * 1024 * 1024
 
 
 class CaptureContractError(ValueError):

@@ -212,6 +212,16 @@ def aggregate_dashboard(
         measured[metric_id] = {}
 
     total = len(cohort)
+    missing_sources = (
+        {
+            "mttr_seconds",
+            "change_lead_time_seconds",
+            "attributed_cost_usd",
+        }
+        - contexts.keys()
+        if total
+        else set()
+    )
     costs = measured["attributed_cost_usd"]
     cost_complete = bool(cohort) and set(cohort).issubset(costs)
     cost_per_resolved = None
@@ -262,6 +272,7 @@ def aggregate_dashboard(
         "measurement_gaps": [
             *(f"incomplete:{key}" for key in sorted(incomplete)),
             *(f"mixed_context:{key}" for key in sorted(mixed)),
+            *(f"missing_source:{key}" for key in sorted(missing_sources)),
             *(["unattributed_human_input"] if not human_source_complete else []),
         ],
         "leading": {
