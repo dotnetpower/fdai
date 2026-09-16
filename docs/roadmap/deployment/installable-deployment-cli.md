@@ -129,6 +129,9 @@ source migration again. Any other source difference remains blocked.
 Recovery reads the image-augmented Foundation variables when an artifact-offline image was used,
 or the base Foundation variables for an image-free connected run. It never fabricates an image
 receipt or changes bootstrap mode while selecting the retained input.
+When the application group already exists in the original state, policy-only recovery preserves
+its exact state ID and requires a no-op. It never renames or adopts that group. A missing
+application group still follows the distinct-name and verified-absence contract.
 
 `genesis_foundation_recovery_apply.py` requires fresh `foundation-apply` approval bound to the recovery
 review and code; the official prompt accepts `--foundation-recovery-review`. Before its immutable claim,

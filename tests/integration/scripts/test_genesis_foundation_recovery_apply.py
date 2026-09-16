@@ -31,6 +31,16 @@ from tests.integration.scripts.test_genesis_foundation import (  # noqa: E402
 __all__ = ["recovery_plans"]
 
 
+def test_initial_policy_only_review_accepts_preserved_application_group() -> None:
+    assert successor.group_evidence_valid(
+        {
+            "predecessor_directory": None,
+            "application_group_absent": False,
+            "application_group_preserved": True,
+        }
+    )
+
+
 @pytest.mark.parametrize("defect", [None, "concurrent-state", "existing-group", "expanded-role"])
 def test_successor_planner_preserves_original_state_owner(
     tmp_path, monkeypatch, successor_plans, defect

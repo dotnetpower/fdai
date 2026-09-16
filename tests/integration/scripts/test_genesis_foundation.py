@@ -453,6 +453,51 @@ def test_residual_foundation_only_names_missing_application_group(recovery_plans
     assert result["deployment_ready"] is False
 
 
+@pytest.mark.parametrize("rename", [False, True])
+def test_policy_only_recovery_preserves_existing_application_group(recovery_plans, rename):
+    original, current, state = recovery_plans
+    current["variables"]["application_workload"] = {"value": "example"}
+    application = current["resource_changes"][0]["change"]
+    application["after"] = {
+        "id": "application-id",
+        "name": "separate" if rename else "original",
+        "tags": {"run": "same"},
+    }
+    application["before"] = copy.deepcopy(application["after"])
+    application["actions"] = ["no-op"]
+    state["resources"].append(
+        {
+            "mode": "managed",
+            "type": "azapi_resource",
+            "name": "app_resource_group",
+            "instances": [
+                {
+                    "attributes": {
+                        "id": "application-id",
+                        "name": "original",
+                        "tags": {"run": "same"},
+                    }
+                }
+            ],
+        }
+    )
+
+    if rename:
+        with pytest.raises(ValueError, match="rename"):
+            validate_recovery_plan(current, original, state, application_workload="example")
+        return
+
+    result = validate_recovery_plan(
+        current,
+        original,
+        state,
+        application_workload="example",
+    )
+    assert result["application_group_absent"] is False
+    assert result["application_group_preserved"] is True
+    assert result["preserved_managed_count"] == 2
+
+
 @pytest.mark.parametrize(
     "defect",
     [

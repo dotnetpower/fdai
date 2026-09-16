@@ -165,8 +165,12 @@ def validate_successor_plan(
 def group_evidence_valid(review: Mapping[str, object]) -> bool:
     """Distinguish initial absent-group recovery from a bound preserved-group successor."""
     if review.get("predecessor_directory") is None:
-        return review.get("application_group_absent") is True and not review.get(
-            "application_group_preserved"
+        return (
+            review.get("application_group_absent") is True
+            and not review.get("application_group_preserved")
+        ) or (
+            review.get("application_group_absent") is False
+            and review.get("application_group_preserved") is True
         )
     return (
         review.get("application_group_absent") is False
@@ -193,9 +197,11 @@ def load_predecessor(
     from genesis_foundation_recovery_apply import _validate_claim
 
     def read(name: str) -> dict[str, object]:
-        return load_json_object(
-            read_private_bytes(directory / name, max_bytes=64 * 1024 * 1024),
-            label="predecessor recovery",
+        return dict(
+            load_json_object(
+                read_private_bytes(directory / name, max_bytes=64 * 1024 * 1024),
+                label="predecessor recovery",
+            )
         )
 
     if (
