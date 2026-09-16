@@ -17,6 +17,7 @@ from .semantic_governed_document_planning import (
     apply_document_evidence_requirement,
     apply_required_document_evidence,
 )
+from .semantic_incident_creation import incident_creation_intent_from_judgment
 from .semantic_investigation import VerifiedInvestigationIntent
 from .semantic_manifest_planning import normalize_ontology_manifest_count_frame
 from .semantic_planning_frame import (
@@ -440,6 +441,10 @@ def normalize_and_gate_frame(
             "governed_action_draft_required",
             manifest_digest=manifest_digest,
             frame=frame,
+            incident_creation_intent=incident_creation_intent_from_judgment(
+                judgment,
+                source_input_digest=frame.input_digest,
+            ),
         )
     if _is_completed_change_outcome_frame(frame):
         return _outcome(

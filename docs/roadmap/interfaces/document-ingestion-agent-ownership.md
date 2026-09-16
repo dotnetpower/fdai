@@ -59,7 +59,7 @@ them as an `object.anomaly`, Forseti emits the protection verdict, and Saga seal
 audited decision reaches Muninn, which alone publishes the `object.context-index` command that
 unlocks extraction and indexing; a blocked decision moves the version to `HELD`. In the current
 implementation, a clear document with a sensitivity label, `handover_bootstrap`,
-`manual_distillation`, or `cloud_reference` purpose
+`report_line_bootstrap`, `manual_distillation`, or `cloud_reference` purpose
 receives a human-approval (`hil`) verdict instead. For `cloud_reference`, a valid package signature
 does not replace Var's independent human review and approval. Saga seals that verdict, Var creates
 a document approval ticket, and the uploader cannot approve their own document. The independent
@@ -88,6 +88,11 @@ records the actual requester when the request exists, not a person selected duri
 This policy path is not implemented or promoted. Current per-document approval and no-self-approval
 remain enforced. Sensitive content and promotion into decision-authoritative rules or policies keep
 their own approval requirements.
+
+The `report_line_bootstrap` purpose produces only grounded, review-only person-to-manager
+candidates. One relationship endpoint and an independent Owner must confirm each edge before it
+can enter the current reporting graph. See
+[Human report lines and approval routing](human-report-lines-and-approval-routing.md).
 
 ## Durable worker ownership
 

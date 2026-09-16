@@ -184,6 +184,7 @@ def test_complete_generation_projects_unique_registry_workspace_and_endpoint_ali
                             },
                             {"value": "https://database-example.postgres.database.azure.com/api"},
                             {"value": "https://function-example.azurewebsites.net/api"},
+                            {"value": "https://registry-example.azurecr.io/v2/"},
                             {"value": "00000000-0000-0000-0000-000000000002"},
                             {"value": "[malformed"},
                         ]
@@ -208,6 +209,11 @@ def test_complete_generation_projects_unique_registry_workspace_and_endpoint_ali
         app.resource_id,
         registry.resource_id,
     ) in edges
+    assert (
+        "azure.container-workload-depends-on-configured-endpoint",
+        app.resource_id,
+        registry.resource_id,
+    ) not in edges
     assert (
         "azure.container-workload-depends-on-configured-endpoint",
         app.resource_id,

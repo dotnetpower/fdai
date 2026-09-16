@@ -2,38 +2,72 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
-import { AsyncBoundary, KpiCard, KpiGrid, PageHeader, StatusPill, type AsyncState, type PillKind } from "../components/ui";
+import {
+  AsyncBoundary,
+  EmptyState,
+  KpiCard,
+  KpiGrid,
+  PageHeader,
+  StatusPill,
+  type AsyncState,
+  type PillKind,
+} from "../components/ui";
+import { currentRoute, navigate, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
-import { configurationBaselinesText as configurationBaselinesText } from "./configuration-baselines.i18n";
-import { panelArray, panelBoolean, panelNonEmptyString, panelNonNegativeInteger, panelNonNegativeNumber, panelNullableString, panelRecord, panelStringArray } from "./panel-decode";
+import { configurationBaselinesText } from "./configuration-baselines.i18n";
+import {
+  decodeConfigurationBaselines,
+  type ConfigurationBaselineVersionView,
+  type ConfigurationBaselinesView,
+} from "./configuration-baselines.model";
 
-interface ConfigurationBaselineVersionView {
-  readonly version: string;
-  readonly status: string;
-  readonly createdAt: string;
-  readonly resourceCount: number;
-  readonly unknownCount: number;
-  readonly comparison: { readonly baselineVersion: string; readonly verdict: string; readonly findingCount: number };
-}
+export { decodeConfigurationBaselines };
 
-interface ConfigurationBaselinesView {
-  readonly baseline: { readonly version: string; readonly scope: string; readonly createdAt: string | null; readonly documentName: string; readonly lifecycle: string; readonly resourceCount: number; readonly topologyCount: number; readonly unknownCount: number };
-  readonly versions: readonly ConfigurationBaselineVersionView[];
-  readonly drift: { readonly verdict: string; readonly observedAt: string | null; readonly findingCount: number };
-  readonly knowledge: { readonly status: string; readonly citationCount: number; readonly citations: readonly string[] };
-  readonly safety: { readonly mutation: number; readonly approval: number; readonly mitigation: number; readonly unsupported: number };
-  readonly performance: { readonly totalMs: number; readonly observationMs: number; readonly knowledgeMs: number };
-  readonly review: { readonly configured: boolean; readonly state: string; readonly completedRuns: number; readonly requiredRuns: number; readonly failedAttempts: number };
-}
+type ConfigurationBaselineView = "baseline" | "drift" | "review";
+
+const CONFIGURATION_BASELINE_VIEWS = [
+  { id: "baseline", label: "viewBaseline" },
+  { id: "drift", label: "viewDrift" },
+  { id: "review", label: "viewReview" },
+] as const;
 
 export function ConfigurationBaselinesRoute({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<ConfigurationBaselinesView>>({ status: "loading" });
+  const view = activeConfigurationBaselineView();
   useEffect(() => {
     let active = true;
+    setState({ status: "loading" });
     void loadConfigurationBaselines(client).then((next) => { if (active) setState(next); });
     return () => { active = false; };
   }, [client]);
-  return <div class="stack configuration-baselines-route"><PageHeader title={configurationBaselinesText("title")} subtitle={configurationBaselinesText("subtitle")} /><AsyncBoundary state={state} resourceLabel={configurationBaselinesText("resourceLabel")}>{(data) => <ConfigurationBaselinesBody data={data} />}</AsyncBoundary></div>;
+  return (
+    <div class="stack configuration-baselines-route">
+      <PageHeader
+        title={configurationBaselinesText("title")}
+        subtitle={configurationBaselinesText("subtitle")}
+      />
+      <ConfigurationBaselineTabs activeView={view} />
+      {CONFIGURATION_BASELINE_VIEWS.map((item) => (
+        <div
+          key={item.id}
+          id={`configuration-baselines-panel-${item.id}`}
+          class="configuration-baselines-panel"
+          role="tabpanel"
+          aria-labelledby={`configuration-baselines-tab-${item.id}`}
+          hidden={view !== item.id}
+        >
+          {view === item.id ? (
+            <AsyncBoundary
+              state={state}
+              resourceLabel={configurationBaselinesText("resourceLabel")}
+            >
+              {(data) => <ConfigurationBaselinesBody data={data} view={view} />}
+            </AsyncBoundary>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export async function loadConfigurationBaselines(client: OperatorApiClient): Promise<AsyncState<ConfigurationBaselinesView>> {
@@ -44,67 +78,257 @@ export async function loadConfigurationBaselines(client: OperatorApiClient): Pro
   }
 }
 
-export function decodeConfigurationBaselines(value: unknown): ConfigurationBaselinesView {
-  const root = panelRecord(value, "configuration baselines");
-  const baseline = panelRecord(root["baseline"], "configuration baseline");
-  const drift = panelRecord(root["drift"], "configuration drift");
-  const knowledge = panelRecord(root["knowledge"], "configuration Knowledge");
-  const safety = panelRecord(root["safety"], "configuration safety");
-  const performance = panelRecord(root["performance"], "configuration performance");
-  const review = panelRecord(root["review"], "configuration review");
-  const versions = panelArray(root["versions"], "configuration baseline versions").map((item, index) => {
-    const version = panelRecord(item, `configuration baseline version ${index}`);
-    const comparison = panelRecord(version["comparison"], `configuration baseline version ${index} comparison`);
-    return {
-      version: panelNonEmptyString(version, "version", "configuration baseline version"),
-      status: panelNonEmptyString(version, "status", "configuration baseline version"),
-      createdAt: panelNonEmptyString(version, "created_at", "configuration baseline version"),
-      resourceCount: panelNonNegativeInteger(version, "resource_count", "configuration baseline version"),
-      unknownCount: panelNonNegativeInteger(version, "unknown_count", "configuration baseline version"),
-      comparison: {
-        baselineVersion: panelNonEmptyString(comparison, "baseline_version", "configuration baseline comparison"),
-        verdict: panelNonEmptyString(comparison, "verdict", "configuration baseline comparison"),
-        findingCount: panelNonNegativeInteger(comparison, "finding_count", "configuration baseline comparison"),
-      },
-    };
-  });
-  return {
-    baseline: { version: panelNonEmptyString(baseline, "version", "configuration baseline"), scope: panelNonEmptyString(baseline, "scope", "configuration baseline"), createdAt: panelNullableString(baseline, "created_at", "configuration baseline"), documentName: panelNonEmptyString(baseline, "document_name", "configuration baseline"), lifecycle: panelNonEmptyString(baseline, "lifecycle", "configuration baseline"), resourceCount: panelNonNegativeInteger(baseline, "resource_count", "configuration baseline"), topologyCount: panelNonNegativeInteger(baseline, "topology_count", "configuration baseline"), unknownCount: panelNonNegativeInteger(baseline, "unknown_count", "configuration baseline") },
-    versions,
-    drift: { verdict: panelNonEmptyString(drift, "verdict", "configuration drift"), observedAt: panelNullableString(drift, "observed_at", "configuration drift"), findingCount: panelNonNegativeInteger(drift, "finding_count", "configuration drift") },
-    knowledge: { status: panelNonEmptyString(knowledge, "status", "configuration Knowledge"), citationCount: panelNonNegativeInteger(knowledge, "citation_count", "configuration Knowledge"), citations: panelStringArray(knowledge["citations"], "configuration citations") },
-    safety: { mutation: panelNonNegativeInteger(safety, "mutation_count", "configuration safety"), approval: panelNonNegativeInteger(safety, "approval_request_count", "configuration safety"), mitigation: panelNonNegativeInteger(safety, "mitigation_execution_count", "configuration safety"), unsupported: panelNonNegativeInteger(safety, "unsupported_claim_count", "configuration safety") },
-    performance: { totalMs: panelNonNegativeNumber(performance, "total_ms", "configuration performance"), observationMs: panelNonNegativeNumber(performance, "observation_ms", "configuration performance"), knowledgeMs: panelNonNegativeNumber(performance, "knowledge_ms", "configuration performance") },
-    review: { configured: panelBoolean(review, "configured", "configuration review"), state: panelNonEmptyString(review, "state", "configuration review"), completedRuns: panelNonNegativeInteger(review, "completed_runs", "configuration review"), requiredRuns: panelNonNegativeInteger(review, "required_runs", "configuration review"), failedAttempts: panelNonNegativeInteger(review, "failed_attempts", "configuration review") },
-  };
+function ConfigurationBaselineTabs({ activeView }: { readonly activeView: ConfigurationBaselineView }) {
+  return (
+    <nav
+      class="configuration-baselines-tabs"
+      role="tablist"
+      aria-label={configurationBaselinesText("viewsLabel")}
+    >
+      {CONFIGURATION_BASELINE_VIEWS.map((item, index) => (
+        <button
+          key={item.id}
+          id={`configuration-baselines-tab-${item.id}`}
+          class={activeView === item.id ? "active" : undefined}
+          type="button"
+          role="tab"
+          aria-selected={activeView === item.id}
+          aria-controls={`configuration-baselines-panel-${item.id}`}
+          tabIndex={activeView === item.id ? 0 : -1}
+          onClick={() => navigate(configurationBaselineViewHref(item.id))}
+          onKeyDown={(event) => {
+            const targetIndex = event.key === "ArrowRight"
+              ? (index + 1) % CONFIGURATION_BASELINE_VIEWS.length
+              : event.key === "ArrowLeft"
+                ? (index - 1 + CONFIGURATION_BASELINE_VIEWS.length) % CONFIGURATION_BASELINE_VIEWS.length
+                : event.key === "Home"
+                  ? 0
+                  : event.key === "End"
+                    ? CONFIGURATION_BASELINE_VIEWS.length - 1
+                    : null;
+            if (targetIndex === null) return;
+            event.preventDefault();
+            const next = CONFIGURATION_BASELINE_VIEWS[targetIndex]!;
+            navigate(configurationBaselineViewHref(next.id));
+            queueMicrotask(() => document.getElementById(`configuration-baselines-tab-${next.id}`)?.focus());
+          }}
+        >
+          {configurationBaselinesText(item.label)}
+        </button>
+      ))}
+    </nav>
+  );
 }
 
-function ConfigurationBaselinesBody({ data }: { readonly data: ConfigurationBaselinesView }) {
-  return <div class="stack">
-    <div class="governance-readonly-banner"><strong>{configurationBaselinesText("bannerTitle")}</strong><span>{configurationBaselinesText("bannerBody")}</span></div>
-    <KpiGrid><KpiCard href="#baseline" label={configurationBaselinesText("version")} value={data.baseline.version} /><KpiCard href="#drift" label={configurationBaselinesText("decision")} value={data.drift.verdict} /><KpiCard href="#knowledge" label={configurationBaselinesText("citations")} value={data.knowledge.citationCount} /><KpiCard href="#performance" label={configurationBaselinesText("totalLatency")} value={`${data.performance.totalMs.toFixed(1)} ms`} /></KpiGrid>
-    <EvidenceSection id="baseline" title={configurationBaselinesText("baseline")} rows={[[configurationBaselinesText("scope"), data.baseline.scope], [configurationBaselinesText("created"), formatConsoleTimestamp(data.baseline.createdAt)], [configurationBaselinesText("document"), data.baseline.documentName], [configurationBaselinesText("lifecycle"), data.baseline.lifecycle], [configurationBaselinesText("resources"), data.baseline.resourceCount], [configurationBaselinesText("topology"), data.baseline.topologyCount], [configurationBaselinesText("unknown"), data.baseline.unknownCount]]} />
-    <BaselineHistory versions={data.versions} />
-    <EvidenceSection id="drift" title={configurationBaselinesText("drift")} rows={[[configurationBaselinesText("decision"), <StatusPill kind={tone(data.drift.verdict)} label={data.drift.verdict} />], [configurationBaselinesText("findings"), data.drift.findingCount], [configurationBaselinesText("observed"), formatConsoleTimestamp(data.drift.observedAt)]]} />
-    <EvidenceSection id="knowledge" title={configurationBaselinesText("knowledge")} rows={[[configurationBaselinesText("decision"), <StatusPill kind={tone(data.knowledge.status)} label={data.knowledge.status} />], [configurationBaselinesText("citations"), data.knowledge.citationCount]]} />
-    <EvidenceSection id="performance" title={configurationBaselinesText("performance")} rows={[[configurationBaselinesText("totalLatency"), `${data.performance.totalMs.toFixed(1)} ms`], [configurationBaselinesText("observationLatency"), `${data.performance.observationMs.toFixed(1)} ms`], [configurationBaselinesText("knowledgeLatency"), `${data.performance.knowledgeMs.toFixed(1)} ms`]]} />
-    <EvidenceSection id="review" title={configurationBaselinesText("review")} rows={[[configurationBaselinesText("decision"), reviewLabel(data.review)], [configurationBaselinesText("findings"), `${data.review.completedRuns}/${data.review.requiredRuns}`], [configurationBaselinesText("failedAttempts"), data.review.failedAttempts]]} />
-    <EvidenceSection id="safety" title={configurationBaselinesText("safety")} rows={[[configurationBaselinesText("mutation"), data.safety.mutation], [configurationBaselinesText("approval"), data.safety.approval], [configurationBaselinesText("mitigation"), data.safety.mitigation], [configurationBaselinesText("unsupported"), data.safety.unsupported]]} />
-  </div>;
+function ConfigurationBaselinesBody({
+  data,
+  view,
+}: {
+  readonly data: ConfigurationBaselinesView;
+  readonly view: ConfigurationBaselineView;
+}) {
+  const published = data.baseline.lifecycle !== "not-published";
+  const driftEvaluated = data.drift.observedAt !== null && data.drift.verdict !== "not-evaluated";
+  const knowledgeIndexed = data.knowledge.status !== "not-indexed";
+  return (
+    <div class="stack configuration-baselines-body">
+      <div class="governance-readonly-banner">
+        <strong>{configurationBaselinesText("bannerTitle")}</strong>
+        <span>{configurationBaselinesText("bannerBody")}</span>
+      </div>
+      <KpiGrid>
+        <KpiCard
+          evidenceState={published ? "measured" : "not-measured"}
+          href={configurationBaselineViewHref("baseline")}
+          label={configurationBaselinesText("version")}
+          value={published ? data.baseline.version : configurationBaselinesText("notPublished")}
+          hint={configurationBaselinesText("versionHint")}
+        />
+        <KpiCard
+          evidenceState={driftEvaluated ? "measured" : "not-measured"}
+          href={configurationBaselineViewHref("drift")}
+          label={configurationBaselinesText("decision")}
+          value={verdictLabel(data.drift.verdict)}
+          hint={configurationBaselinesText("driftHint")}
+        />
+        <KpiCard
+          evidenceState={knowledgeIndexed ? "measured" : "not-measured"}
+          href={configurationBaselineViewHref("drift")}
+          label={configurationBaselinesText("citations")}
+          value={knowledgeIndexed
+            ? data.knowledge.citationCount
+            : configurationBaselinesText("knowledgeNotIndexed")}
+          hint={configurationBaselinesText("citationsHint")}
+        />
+        <KpiCard
+          evidenceState={data.performance === null ? "not-measured" : "measured"}
+          href={configurationBaselineViewHref("drift")}
+          label={configurationBaselinesText("totalLatency")}
+          value={formatLatency(data.performance?.totalMs ?? null)}
+          hint={configurationBaselinesText("latencyHint")}
+        />
+      </KpiGrid>
+      <div class="configuration-baselines-view">
+        {view === "baseline" ? (
+          <>
+            <EvidenceSection
+              id="baseline"
+              title={configurationBaselinesText("baseline")}
+              rows={[
+                [configurationBaselinesText("scope"), published ? <code class="small">{data.baseline.scope}</code> : configurationBaselinesText("notConfigured")],
+                [configurationBaselinesText("created"), formatConsoleTimestamp(data.baseline.createdAt, configurationBaselinesText("notAvailable"))],
+                [configurationBaselinesText("document"), published ? <code class="small">{data.baseline.documentName}</code> : configurationBaselinesText("notAvailable")],
+                [configurationBaselinesText("lifecycle"), <StatusPill kind={tone(data.baseline.lifecycle)} label={lifecycleLabel(data.baseline.lifecycle)} />],
+                [configurationBaselinesText("resources"), published ? data.baseline.resourceCount : configurationBaselinesText("notAvailable")],
+                [configurationBaselinesText("topology"), published ? data.baseline.topologyCount : configurationBaselinesText("notAvailable")],
+                [configurationBaselinesText("unknown"), published ? data.baseline.unknownCount : configurationBaselinesText("notAvailable")],
+              ]}
+            />
+            <BaselineHistory versions={data.versions} />
+          </>
+        ) : null}
+        {view === "drift" ? (
+          <>
+            <EvidenceSection
+              id="drift"
+              title={configurationBaselinesText("drift")}
+              description={configurationBaselinesText("driftDescription")}
+              rows={[
+                [configurationBaselinesText("decision"), <StatusPill kind={tone(data.drift.verdict)} label={verdictLabel(data.drift.verdict)} />],
+                [configurationBaselinesText("findings"), driftEvaluated ? data.drift.findingCount : configurationBaselinesText("notAvailable")],
+                [configurationBaselinesText("observed"), formatConsoleTimestamp(data.drift.observedAt, configurationBaselinesText("notAvailable"))],
+              ]}
+            />
+            <EvidenceSection
+              id="knowledge"
+              title={configurationBaselinesText("knowledge")}
+              description={configurationBaselinesText("knowledgeDescription")}
+              rows={[
+                [configurationBaselinesText("decision"), <StatusPill kind={tone(data.knowledge.status)} label={knowledgeStatusLabel(data.knowledge.status)} />],
+                [configurationBaselinesText("citations"), knowledgeIndexed ? data.knowledge.citationCount : configurationBaselinesText("notAvailable")],
+              ]}
+            />
+            <EvidenceSection
+              id="performance"
+              title={configurationBaselinesText("performance")}
+              description={configurationBaselinesText("performanceDescription")}
+              rows={[
+                [configurationBaselinesText("totalLatency"), formatLatency(data.performance?.totalMs ?? null)],
+                [configurationBaselinesText("observationLatency"), formatLatency(data.performance?.observationMs ?? null)],
+                [configurationBaselinesText("knowledgeLatency"), formatLatency(data.performance?.knowledgeMs ?? null)],
+              ]}
+            />
+          </>
+        ) : null}
+        {view === "review" ? (
+          <>
+            <EvidenceSection
+              id="review"
+              title={configurationBaselinesText("review")}
+              description={configurationBaselinesText("reviewDescription")}
+              rows={[
+                [configurationBaselinesText("decision"), reviewLabel(data.review)],
+                [configurationBaselinesText("completedRuns"), data.review.configured ? `${data.review.completedRuns}/${data.review.requiredRuns}` : configurationBaselinesText("notAvailable")],
+                [configurationBaselinesText("failedAttempts"), data.review.configured ? data.review.failedAttempts : configurationBaselinesText("notAvailable")],
+              ]}
+            />
+            <EvidenceSection
+              id="safety"
+              title={configurationBaselinesText("safety")}
+              description={configurationBaselinesText("safetyDescription")}
+              rows={[
+                [configurationBaselinesText("mutation"), published ? data.safety.mutation : configurationBaselinesText("notAvailable")],
+                [configurationBaselinesText("approval"), published ? data.safety.approval : configurationBaselinesText("notAvailable")],
+                [configurationBaselinesText("mitigation"), published ? data.safety.mitigation : configurationBaselinesText("notAvailable")],
+                [configurationBaselinesText("unsupported"), published ? data.safety.unsupported : configurationBaselinesText("notAvailable")],
+              ]}
+            />
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 function BaselineHistory({ versions }: { readonly versions: readonly ConfigurationBaselineVersionView[] }) {
-  return <section id="versions" class="stack-section"><h3 class="section-title">{configurationBaselinesText("history")}</h3><div class="scroll"><table class="data-table"><caption class="sr-only">{configurationBaselinesText("historyCaption")}</caption><thead><tr><th scope="col">{configurationBaselinesText("version")}</th><th scope="col">{configurationBaselinesText("lifecycle")}</th><th scope="col">{configurationBaselinesText("created")}</th><th scope="col">{configurationBaselinesText("resources")}</th><th scope="col">{configurationBaselinesText("comparison")}</th><th scope="col">{configurationBaselinesText("findings")}</th></tr></thead><tbody>{versions.map((version) => <tr key={version.version}><td>{version.version}</td><td>{statusLabel(version.status)}</td><td>{formatConsoleTimestamp(version.createdAt)}</td><td>{version.resourceCount}</td><td><StatusPill kind={tone(version.comparison.verdict)} label={version.comparison.verdict} /></td><td>{version.comparison.findingCount}</td></tr>)}</tbody></table></div></section>;
+  return (
+    <section id="versions" class="stack-section" aria-labelledby="configuration-baseline-history-title">
+      <header class="configuration-baselines-section-header">
+        <h3 id="configuration-baseline-history-title" class="section-title">
+          {configurationBaselinesText("history")}
+        </h3>
+        <p>{configurationBaselinesText("historyDescription")}</p>
+      </header>
+      {versions.length === 0 ? (
+        <EmptyState
+          title={configurationBaselinesText("historyEmptyTitle")}
+          body={configurationBaselinesText("historyEmptyBody")}
+        />
+      ) : (
+        <div class="data-table-wrap configuration-baselines-history">
+          <table class="data-table">
+            <caption class="sr-only">{configurationBaselinesText("historyCaption")}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{configurationBaselinesText("version")}</th>
+                <th scope="col">{configurationBaselinesText("lifecycle")}</th>
+                <th scope="col">{configurationBaselinesText("created")}</th>
+                <th scope="col" class="num">{configurationBaselinesText("resources")}</th>
+                <th scope="col">{configurationBaselinesText("comparison")}</th>
+                <th scope="col" class="num">{configurationBaselinesText("findings")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {versions.map((version) => (
+                <tr key={version.version}>
+                  <td><code class="small">{version.version}</code></td>
+                  <td><StatusPill kind={tone(version.status)} label={statusLabel(version.status)} /></td>
+                  <td>{formatConsoleTimestamp(version.createdAt)}</td>
+                  <td class="num">{version.resourceCount}</td>
+                  <td><StatusPill kind={tone(version.comparison.verdict)} label={verdictLabel(version.comparison.verdict)} /></td>
+                  <td class="num">{version.comparison.findingCount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
 }
 
-function EvidenceSection({ id, title, rows }: { readonly id: string; readonly title: string; readonly rows: readonly (readonly [string, ComponentChildren])[] }) {
-  return <section id={id} class="stack-section"><h3 class="section-title">{title}</h3><dl class="details-list">{rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></section>;
+function EvidenceSection({
+  id,
+  title,
+  description,
+  rows,
+}: {
+  readonly id: string;
+  readonly title: string;
+  readonly description?: string;
+  readonly rows: readonly (readonly [string, ComponentChildren])[];
+}) {
+  const titleId = `configuration-baselines-${id}-title`;
+  return (
+    <section id={id} class="stack-section" aria-labelledby={titleId}>
+      <header class="configuration-baselines-section-header">
+        <h3 id={titleId} class="section-title">{title}</h3>
+        {description ? <p>{description}</p> : null}
+      </header>
+      <dl class="details-list">
+        {rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+      </dl>
+    </section>
+  );
 }
 
 function tone(value: string): PillKind {
-  if (value === "passed" || value === "cited") return "success";
-  if (value === "failed" || value === "blocked") return "danger";
-  return "warning";
+  if (value === "passed" || value === "cited" || value === "active" || value === "active-pinned") {
+    return "success";
+  }
+  if (value === "failed") return "danger";
+  if (value === "blocked" || value === "paused-failed") return "warning";
+  return "neutral";
 }
 
 function reviewLabel(review: ConfigurationBaselinesView["review"]): string {
@@ -121,4 +345,46 @@ function statusLabel(status: string): string {
   if (status === "superseded") return configurationBaselinesText("statusSuperseded");
   if (status === "archived") return configurationBaselinesText("statusArchived");
   return status;
+}
+
+function lifecycleLabel(lifecycle: string): string {
+  if (lifecycle === "active-pinned") return configurationBaselinesText("statusActivePinned");
+  if (lifecycle === "not-published") return configurationBaselinesText("notPublished");
+  return statusLabel(lifecycle);
+}
+
+function verdictLabel(verdict: string): string {
+  if (verdict === "passed") return configurationBaselinesText("verdictPassed");
+  if (verdict === "failed") return configurationBaselinesText("verdictFailed");
+  if (verdict === "blocked") return configurationBaselinesText("verdictBlocked");
+  if (verdict === "not-evaluated") return configurationBaselinesText("verdictNotEvaluated");
+  return verdict;
+}
+
+function knowledgeStatusLabel(status: string): string {
+  if (status === "cited") return configurationBaselinesText("knowledgeCited");
+  if (status === "not-indexed") return configurationBaselinesText("knowledgeNotIndexed");
+  return verdictLabel(status);
+}
+
+function formatLatency(value: number | null): string {
+  return value === null
+    ? configurationBaselinesText("notMeasured")
+    : `${value.toFixed(1)} ms`;
+}
+
+function isConfigurationBaselineView(value: string | undefined): value is ConfigurationBaselineView {
+  return value === "baseline" || value === "drift" || value === "review";
+}
+
+function activeConfigurationBaselineView(): ConfigurationBaselineView {
+  const value = currentRoute().segments[0];
+  return isConfigurationBaselineView(value) ? value : "baseline";
+}
+
+function configurationBaselineViewHref(view: ConfigurationBaselineView): string {
+  return routeHref("configuration-baselines", {
+    segments: view === "baseline" ? [] : [view],
+    params: Object.fromEntries(currentRoute().search.entries()),
+  });
 }

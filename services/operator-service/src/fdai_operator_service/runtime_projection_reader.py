@@ -732,11 +732,7 @@ class RuntimeProjectionReader:
                 "mitigation_execution_count": 0,
                 "unsupported_claim_count": 0,
             },
-            "performance": {
-                "total_ms": 0.0,
-                "observation_ms": 0.0,
-                "knowledge_ms": 0.0,
-            },
+            "performance": None,
             "review": {
                 "configured": False,
                 "state": "not-configured",

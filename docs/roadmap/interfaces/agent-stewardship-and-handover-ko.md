@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 0d2c0748b6f3726e11185159e886ec6e47df422a
-translation_revised: 2026-09-05
+translation_source_sha: 247a0caa38432dc23105f2b917c9be59bcb8b875
+translation_revised: 2026-09-16
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -15,6 +15,8 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(읽기 담당 / 기여자 / Approv
 스튜어드십은 "FDAI 이전에 이 업무를 누가 소유했고, 이제 이 에이전트의 도메인을 누가
 책임지나"에 답한다. 한 사람이 보통 두 모델 모두에 속하지만(Var의 담당자이면서 Approver인
 사람처럼), 두 모델은 독립적으로 해석되고 검증된다.
+사람 간 관리 관계는 [사람 보고선 및 승인 라우팅](human-report-lines-and-approval-routing-ko.md)에서
+정의하는 세 번째 독립 축입니다. 담당자나 관리자는 어느 관계만으로도 승인 기능을 얻지 않습니다.
 
 > Customer-agnostic: 아래의 모든 objectId, 그룹 id, 이름은 **자리 표시자**(all-zero UUID)다.
 > 배포 구성이 실제 Entra 값을 제공합니다.

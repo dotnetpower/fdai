@@ -105,7 +105,7 @@ coverage receipt. Runtime discovery never creates a new ResourceType declaration
 The shared property-semantics registry gives every canonical property one content-addressed
 identity for meaning, unit, value kind, and bounds. Catalog projection validates each reference
 against that registry and preserves finite numeric values without float coercion, so services and
-replays cannot silently reinterpret the same property.
+replays cannot silently reinterpret the same property. The separate pinned detection-routing bound contract applies the same exact type, unit, scope, and range discipline to active-configured control thresholds without entering the object graph or granting query, promotion, or execution authority.
 
 Adaptive causal discrimination consumes an exact hypothesis frame, ontology graph revision, and
 evidence cutoff. It ranks only pre-verified read-only observation candidates by how many competing

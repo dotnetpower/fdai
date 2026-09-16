@@ -176,6 +176,13 @@ asked, by impact."*
 | **Channel fallback** | delivery failure | channel unreachable / send error | [channels-and-notifications.md § 6](../interfaces/channels-and-notifications.md) |
 | **Escalation ladder** | human non-response | rung TTL elapsed with no decision | this doc |
 
+For explicitly selected ActionTypes, a reviewed
+[human report line](../interfaces/human-report-lines-and-approval-routing.md) can supply the
+ordered people for a ladder. FDAI asks the requester for contact consent before the first
+notification. It rechecks the graph revision, current role, and principal-to-ActionType policy
+before each delivery and before accepting approval. A changed or incomplete route ends in a
+fail-closed no-op rather than falling back to an unrelated Owner.
+
 Each rung declares: **who** (an Entra group, resolved outside the control plane
 exactly like approver groups today), a **per-rung TTL**, and the **notification
 category** it may use (A1 for the decision-carrying rung, A2 paging for

@@ -50,6 +50,7 @@
           "services/core-control-plane/tests/runtime",
           "services/core-control-plane/tests/scenarios",
           "services/core-control-plane/tests/test_read_investigation_consumer.py",
+          "services/core-control-plane/tests/test_incident_creation_consumer.py",
           "services/core-control-plane/tests/test_incident_intervention_consumer.py",
           "services/core-control-plane/tests/test_read_investigation_completion_publisher.py",
           "services/core-control-plane/tests/test_semantic_assurance_projection.py",
@@ -122,6 +123,9 @@
           "services/operator-service/tests/test_presentation_artifact_v2.py",
           "services/operator-service/tests/test_presentation_planner.py",
           "services/operator-service/tests/test_process_transition_projection.py",
+          "services/operator-service/tests/test_postgres_report_line_contacts.py",
+          "services/operator-service/tests/test_postgres_reporting_lines.py",
+          "services/operator-service/tests/test_report_line_contact_outbox.py",
           "services/operator-service/tests/test_resolved_models_key_vault.py",
           "services/operator-service/tests/test_runtime_projection_reader.py",
           "services/operator-service/tests/test_slack_webhook_diagnostics.py",
@@ -146,6 +150,7 @@
           "services/operator-service/tests/test_operator_conversation_family.py",
           "services/operator-service/tests/test_operator_iam_family.py",
           "services/operator-service/tests/test_operator_operations_family.py",
+          "services/operator-service/tests/test_report_lines.py",
           "services/operator-service/tests/test_operator_workload_auth.py",
           "services/operator-service/tests/test_operator_workflow_family.py",
           "services/operator-service/tests/test_postgres_cost_governance.py",
@@ -154,6 +159,7 @@
         "integration": [
           "services/operator-service/tests/test_action_confirmation_composition.py",
           "services/operator-service/tests/test_action_confirmation_runtime.py",
+          "services/operator-service/tests/test_action_confirmation_source.py",
           "services/operator-service/tests/test_activity_projection.py",
           "services/operator-service/tests/test_agent_stream.py",
           "services/operator-service/tests/test_alert_quality_bridge.py",
@@ -181,6 +187,8 @@
           "services/operator-service/tests/test_handover_runtime.py",
           "services/operator-service/tests/test_hil_bootstrap_canary.py",
           "services/operator-service/tests/test_hil_decision_outbox_replay.py",
+          "services/operator-service/tests/test_incident_creation_confirmation.py",
+          "services/operator-service/tests/test_incident_creation_store.py",
           "services/operator-service/tests/test_incident_rca_reporting_projection.py",
           "services/operator-service/tests/test_incident_intervention_route.py",
           "services/operator-service/tests/test_incident_intervention_runtime.py",
@@ -228,7 +236,8 @@
           "services/document-ingestion-api/tests/test_cloud_knowledge_offline.py",
           "services/document-ingestion-api/tests/test_document_download.py",
           "services/document-ingestion-api/tests/test_document_preview.py",
-          "services/document-ingestion-api/tests/test_ingestion_service_behavior.py"
+          "services/document-ingestion-api/tests/test_ingestion_service_behavior.py",
+          "services/document-ingestion-api/tests/test_report_line_draft_http.py"
         ],
         "integration": [
           "services/document-ingestion-api/tests/test_adls_resumable_upload.py",
@@ -261,7 +270,8 @@
         "contract": [
           "services/document-processing-worker/tests/test_ingestion_adapter_readiness.py",
           "services/document-processing-worker/tests/test_ingestion_handover_parity.py",
-          "services/document-processing-worker/tests/test_pdf_isolation.py"
+          "services/document-processing-worker/tests/test_pdf_isolation.py",
+          "services/document-processing-worker/tests/test_report_line_handover.py"
         ],
         "integration": [
           "services/document-processing-worker/tests/test_artifact_index_lifecycle.py",

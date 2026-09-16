@@ -24,7 +24,7 @@ def _notice():
     }
 
 
-@pytest.mark.parametrize("version", ["0.9.0", "1.3.0", "2.0.0", 1, None])
+@pytest.mark.parametrize("version", ["0.9.0", "2.0.0", 1, None])
 def test_unsupported_notice_versions_fail_closed(version):
     with pytest.raises(ValueError):
         AssignmentRequestNotice.model_validate({**_notice(), "schema_version": version})
@@ -45,6 +45,16 @@ def test_scoped_v12_notice_is_refused_by_personal_only_v11_reader():
     assert AssignmentRequestNotice.model_validate(scoped).schema_version == "1.2.0"
     with pytest.raises(ValueError):
         PersonalNotice.model_validate(scoped)
+
+
+def test_report_line_v13_notice_is_refused_by_pre_report_line_reader():
+    class PreReportLineNotice(AssignmentRequestNotice):
+        schema_version: Literal["1.0.0", "1.1.0", "1.2.0"] = "1.0.0"
+
+    report_line = {**_notice(), "schema_version": "1.3.0"}
+    assert AssignmentRequestNotice.model_validate(report_line).schema_version == "1.3.0"
+    with pytest.raises(ValueError):
+        PreReportLineNotice.model_validate(report_line)
 
 
 @pytest.mark.parametrize("revision", [True, "3", 0, -1, 1.5])

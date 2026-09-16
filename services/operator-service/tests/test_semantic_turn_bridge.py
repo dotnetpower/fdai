@@ -89,6 +89,11 @@ from fdai_service_contracts import (
     rule_search_query_digest,
     semantic_document_context_digest,
 )
+from fdai_service_contracts.incident_creation import (
+    IncidentCreationArguments,
+    IncidentCreationIntent,
+    build_incident_creation_draft,
+)
 from fdai_service_contracts.ontology_query import QueryNodeKind, content_digest
 from pydantic import ValidationError
 
@@ -2719,12 +2724,28 @@ def test_action_draft_done_keeps_canonical_draft_fields_with_separate_explanatio
         }
     )
     semantic["adaptive_answer"] = adaptive.model_dump(mode="json")
+    payload = cast(dict[str, object], projection["payload"])
+    payload["incident_creation_draft"] = build_incident_creation_draft(
+        intent=IncidentCreationIntent(
+            arguments=IncidentCreationArguments(severity="sev2", target="service-api"),
+            source_input_digest=f"sha256:{'a' * 64}",
+        ),
+        session_id=str(semantic["session_id"]),
+        idempotency_key=str(projection["idempotency_key"]),
+        prepared_at=datetime(2026, 8, 11, tzinfo=UTC),
+    ).model_dump(mode="json")
     projection["schema_version"] = "1.6.0"
     done = semantic_turn_runtime_module._done_event_data(projection)
     assert done["status"] == baseline["status"] == "action_draft"
     assert done["answer"] == baseline["answer"]
     assert done["verification"] == baseline["verification"]
     assert done["adaptive_answer"] == adaptive.model_dump(mode="json")
+    assert done["action_draft"] == {
+        "action_type": "incident.create",
+        "arguments": {"severity": "sev2", "target": "service-api"},
+        "session_id": semantic["session_id"],
+        "idempotency_key": projection["idempotency_key"],
+    }
     assert done["execution_authority"] is False
 
 

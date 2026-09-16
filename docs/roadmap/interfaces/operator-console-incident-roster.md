@@ -8,7 +8,7 @@ title: Operator Console - Incident Roster and Fix History
 
 ### 13.5 Incident roster and fix history
 
-The read-only SPA exposes a first-class **Now > Incidents** panel. It is the
+The thin SPA exposes a first-class **Now > Incidents** panel. It is the
 roster-first entry point for incident response: an operator can find active or
 resolved incidents before knowing a correlation id, select one, and inspect
 its remediation history. The existing Audit and Trace panels remain the
@@ -23,7 +23,7 @@ The API contract is:
 | `GET /audit?correlation_id=<id>&limit=<n>&cursor=<opaque>` | Return the selected incident's append-only history. |
 | `GET /audit/{correlation_id}/trace` | Reconstruct ordered correlated audit activity and any recorded pipeline stages. |
 | `POST /chat/stream` | Produce a typed incident draft from natural language without creating a record. |
-| `POST /chat/action/confirm` | Confirm the typed draft and create the audited Incident. |
+| `POST /chat/action/confirm` | Revalidate and durably queue one typed Incident creation request. |
 
 The roster query stays read-only. The authenticated detail panel can submit a bounded intervention
 request, but it can never execute against a managed resource. The server exposes a non-reversible
@@ -44,23 +44,29 @@ accepts only that event type from `object.event` for accountable audit, and Fors
 guidance cannot create an ActionRun or HIL request. Stable request-derived idempotency makes
 redelivery safe if agent ingress fails after Core commits the application.
 
-Incident creation uses semantic draft plus typed confirmation routes and never adds a creation
-button to the roster panel.
+Incident creation uses a semantic draft plus typed confirmation and never adds a creation button
+to the roster panel. The request is a control-plane record operation, not a managed-resource
+ActionType, so it does not require shadow-to-enforce promotion and never invokes Thor.
 
 For a recognized incident-open request, the route behaves as follows:
 
-1. It requires Contributor capability, severity, and a target correlation key.
-2. It returns `incident_confirmation_required` with a human-readable summary
-  and a 10-minute expiry. No incident exists at this point.
-3. A `confirm` or `확인` message from the same principal and `session_id`
-  creates the audited incident and returns its id and initial `open` state.
+1. Semantic judgment requires a complete `incident_create` intent with one severity and one target,
+   then returns an authority-free draft with a 10-minute expiry. No Incident exists at this point.
+2. Confirm sends only `action_type`, arguments, `session_id`, and the draft idempotency key.
+   Operator reloads the principal-owned source projection and rejects a stale or modified draft.
+3. Operator returns HTTP `202` after durable acceptance and publishes a versioned
+   `IncidentCreationRequest` on the dedicated logical topic. Core validates it and opens or reuses
+   exactly one audited Incident. The `/incidents` projection, not the HTTP response, proves
+   completion.
 
-The pending proposal is bounded by a 200-character `session_id`. Oversized
-session or idempotency keys are rejected rather than truncated, preventing two
-distinct identifiers from collapsing to the same confirmation. Production
-stores the proposal in Postgres and consumes it atomically, so confirmation can
-land on another replica. The persisted record contains a SHA-256 of the source
-prompt, not the raw operator text.
+The pending proposal is bounded by a 200-character `session_id` and idempotency key. Oversized
+values are rejected rather than truncated, preventing distinct identifiers from collapsing to the
+same confirmation. Production stores the proposal in PostgreSQL and consumes it atomically, so
+confirmation can land on another replica. The persisted draft contains the semantic input digest,
+not the raw operator text.
+Core derives Incident identity from both the target and the immutable source request. Redelivery of
+one confirmation reuses the same Incident, while a later confirmed request for the same resource
+can open a distinct incident episode.
 
 Missing values return `incident_details_required`; cancellation returns
 `incident_creation_cancelled`. An unrelated action command continues through
@@ -447,6 +453,7 @@ approve / rollback button. The projection is a pure function
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Incident lifecycle, roster projection, and Console views | implemented | `services/core-control-plane/src/fdai/core/incident/`; `services/core-control-plane/tests/core/incident/`; `console/src/routes/incidents.tsx`; focused Console incident tests | Incident state, correlation, lifecycle, roster, attention, bounded presentation, and separate A1 approval-delivery and A2 alert-delivery states have focused coverage. |
+| Console Incident creation | implemented | `fdai_service_contracts.incident_creation`; `semantic_incident_creation.py`; `incident_creation_confirmation.py`; `incident_creation_consumer.py`; focused cross-service tests | A verified draft is revalidated against its principal-owned source, durably queued, and consumed by the Core Incident lifecycle. The path has no managed-resource execution or promotion dependency. |
 | Server-backed roster discovery | implemented | `fdai_service_contracts.operator.IncidentQuery`; `fdai_operator_service.postgres_sql.INCIDENT_PAGE_SQL`; `console/src/api-operations-client.ts`; `console/src/routes/incidents.tsx`; focused Operator and Console tests | Search matches bounded recorded subject evidence before pagination, metrics use the same snapshot and filters, and cursors bind the normalized search with status, vertical, and severity. |
 | Projection-first PostgreSQL roster reads | implemented | `operator_incident_projection`; `INCIDENT_PAGE_SQL`; Core and Operator service migrations; focused Operator and migration checks | The audit trigger retains temporal correlation versions with at most 100 recent rows plus durable canonical Incident identity. Reads admit only versions with `incident.open`, select the exact as-of versions, apply filters and `LIMIT`, then expand only selected histories. |
 | Operator-readable identity and phased investigation | implemented | `incident_projection.py`; `projection_logic.py`; `postgres.py`; `incidents.tsx`; `incidents.detail-sections.tsx`; `incidents.milestones.ts`; focused Operator tests (`31 passed`), Console tests (`66 passed`), typecheck, strict mypy, Ruff, Pylance, and catalog parity | Title provenance, trusted source context, plan preview, bounded evidence milestones, and independently verified outcome cohorts are implemented without execution authority. |
@@ -480,6 +487,8 @@ approve / rollback button. The projection is a pure function
 | 2026-08-25 | implemented | Separated recorded A1 approval-request delivery failures from A2 operational-alert routing in the Incident current-situation projection. The Console now preserves required human input, names unavailable approval delivery accurately, and links to the parked approval queue and sanitized integration readiness. | `current change`; [Issue #274](https://github.com/dotnetpower/fdai/issues/274); `incidents.overview.ts`, `incidents.tsx`, both Console catalogs, and focused Incident tests. | Configure a deployment-owned A1 channel secret when external approval-card delivery is required; an absent secret remains an explicit unavailable integration rather than an A2 alert failure. |
 | 2026-09-15 | implemented | Added bounded post-acceptance revalidation so an applied operator comment appears without reloading, and routed applied `operator_guidance` through Huginn to Saga's accountable audit path without creating an ActionRun. | `current change`; Incident Console route, intervention dialog, bilingual catalogs, service contract, Core consumer/runtime binding, Saga/Forseti routing, and focused tests; Console typecheck, 29 unit tests, 8 desktop E2E tests, 10 focused Core intervention and agent-routing tests, strict mypy, and Ruff passed. | Retain live local evidence that one newly submitted guidance request produces both the applied audit row and the Saga agent audit row. |
 | 2026-09-15 | validated | Replayed one existing applied guidance request through the refreshed local transport and retained content-free evidence linking Core application to Saga's accountable audit without an ActionRun. | `current change`; `docs/baselines/incident-intervention-assurance-2026-09-15.json`; managed local stack reported 11/11 ready, the matching applied audit count was 1, the Saga `object.event` audit count was 1, and the matching ActionRun count was 0. | No remaining work for post-intervention refresh or accountable guidance routing. |
+| 2026-09-16 | implemented | Restored the Console's semantic Incident creation flow after the independent Operator route migration left confirmation at HTTP `404`. The new path revalidates the expiring source draft, uses a dedicated versioned request topic, and opens the Incident through the existing Core lifecycle without Thor. | [Issue #1125](https://github.com/dotnetpower/fdai/issues/1125); `current change`; focused contract, semantic planning/projection, Operator route/outbox, Core consumer, and Console confirmation checks. | Retain an authenticated standard-port observation from confirmation through the resulting `incident.open` projection. |
+
 ### Remaining work
 
 - [x] Add a bounded `title_source` contract and focused projection, decoder, and render tests that prefer recorded title, summary, rule, signal, and sanitized resource subjects, while labeling identifier fallback as unavailable.
@@ -499,3 +508,6 @@ approve / rollback button. The projection is a pure function
 - [x] Confirm the repaired Incident roster renders on the authenticated local Console.
 - [x] Admit only canonical `incident.open` lifecycles to the Incident roster and outcome denominator while retaining non-Incident correlations in Audit, Trace, and RCA.
 - [x] Retain local evidence that an `operator_guidance` comment appears without reload and produces a Saga audit row without an ActionRun. `docs/baselines/incident-intervention-assurance-2026-09-15.json` links the content-free request and correlation references to the applied audit and Saga audit observations.
+- [x] Restore semantic Incident creation through a principal-bound expiring draft, HTTP `202`
+  durable acceptance, a dedicated versioned request, and the Core Incident lifecycle without
+  enabling an ActionType or invoking Thor ([Issue #1125](https://github.com/dotnetpower/fdai/issues/1125)).

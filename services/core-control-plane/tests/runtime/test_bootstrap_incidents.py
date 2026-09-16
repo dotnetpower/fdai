@@ -14,6 +14,10 @@ from fdai.shared.providers.tool import (
     ToolCallReceipt,
     ToolCallRequest,
 )
+from fdai_service_contracts.incident_creation import (
+    INCIDENT_CREATION_CONSUMER_GROUP,
+    INCIDENT_CREATION_REQUEST_TOPIC,
+)
 from fdai_service_contracts.incident_intervention import (
     INCIDENT_INTERVENTION_CONSUMER_GROUP,
     INCIDENT_INTERVENTION_REQUEST_TOPIC,
@@ -65,6 +69,9 @@ async def test_incident_runtime_rehydrates_without_blocking_on_notification_repl
 
     assert runtime.entries == ()
     assert notifier.replayed is None
+    assert runtime.creation_binding.request_topic == INCIDENT_CREATION_REQUEST_TOPIC
+    assert runtime.creation_binding.group_id == INCIDENT_CREATION_CONSUMER_GROUP
+    assert runtime.creation_binding.workflow._registry is runtime.registry  # noqa: SLF001
     assert runtime.intervention_binding.request_topic == INCIDENT_INTERVENTION_REQUEST_TOPIC
     assert runtime.intervention_binding.group_id == INCIDENT_INTERVENTION_CONSUMER_GROUP
     assert runtime.intervention_binding.service._registry is runtime.registry  # noqa: SLF001

@@ -29,6 +29,18 @@ class RequestOutcome(StrEnum):
     APPROVAL_ID_CONFLICT = "approval_id_conflict"
     """The approval ID was already bound to a different request."""
 
+    CONTACT_CONSENT_REQUIRED = "contact_consent_required"
+    """A report-line route is parked but no approval notification was sent."""
+
+    REPORT_LINE_ROUTE_UNAVAILABLE = "report_line_route_unavailable"
+    """The current reporting graph cannot satisfy the approval policy."""
+
+    CONTACT_DECLINED = "contact_declined"
+    """The requester declined to send the report-line approval request."""
+
+    CONTACT_CONSENT_EXPIRED = "contact_consent_expired"
+    """The requester did not answer before the report-line contact deadline."""
+
 
 class ResolveOutcome(StrEnum):
     """Approval-resolution result; execution truth may remain pending."""
@@ -68,6 +80,9 @@ class ResolveOutcome(StrEnum):
 
     OWNED_ROUTE_HELD = "owned_route_held"
     """A separately owned approval route never uses the legacy direct dispatcher."""
+
+    CONTACT_CONSENT_REQUIRED = "contact_consent_required"
+    """The action remains parked before any report-line approval notification."""
 
 
 @dataclass(frozen=True, slots=True)

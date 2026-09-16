@@ -161,6 +161,19 @@ class _Outbox:
                 body={"dispute": {"reason": proposal.body["reason"]}, "duplicate": duplicate},
                 status_code=200 if duplicate else 201,
             )
+        elif proposal.operation == "chat.action.confirm":
+            response = ConversationResponse(
+                body={
+                    "submitted": True,
+                    "created": False,
+                    "action_type": str(proposal.body["action_type"]),
+                    "correlation_id": "semantic-turn:request-one",
+                    "request_id": "operator-request-one",
+                    "dispatch_status": "pending",
+                    "duplicate": duplicate,
+                },
+                status_code=202,
+            )
         else:
             response = ConversationResponse(body={"accepted": True})
         return OutboxReceipt(
@@ -438,6 +451,67 @@ async def test_mutations_only_append_scoped_idempotent_proposals() -> None:
     assert outbox.proposals[-1].cancellation is True
 
 
+async def test_incident_confirmation_uses_the_dedicated_typed_boundary() -> None:
+    outbox = _Outbox()
+    async with AsyncClient(
+        transport=ASGITransport(
+            app=_app(outbox=outbox),
+        ),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/chat/action/confirm",
+            json={
+                "action_type": "incident.create",
+                "arguments": {"severity": "sev2", "target": "service-api"},
+                "session_id": "session-one",
+                "idempotency_key": "draft-one",
+            },
+        )
+        generic = await client.post(
+            "/chat/action/confirm",
+            json={
+                "action_type": "ops.restart-service",
+                "arguments": {"resource_id": "service-api"},
+                "session_id": "session-two",
+                "idempotency_key": "draft-two",
+            },
+        )
+
+    assert response.status_code == 202
+    assert generic.status_code == 202
+    assert response.json()["submitted"] is True
+    assert len(outbox.proposals) == 2
+    assert outbox.proposals[0].scope.subject_id == "principal-a"
+    assert outbox.proposals[0].body["arguments"] == {
+        "severity": "sev2",
+        "target": "service-api",
+    }
+    assert outbox.proposals[0].confirmed is True
+
+
+async def test_incident_confirmation_rejects_unknown_or_unavailable_drafts() -> None:
+    invalid = {
+        "action_type": "incident.create",
+        "arguments": {"severity": "sev2", "target": "service-api"},
+        "session_id": "session-one",
+        "idempotency_key": "draft-one",
+        "unexpected": "browser-supplied",
+    }
+    async with AsyncClient(
+        transport=ASGITransport(app=_app()),
+        base_url="http://test",
+    ) as client:
+        unavailable = await client.post(
+            "/chat/action/confirm",
+            json={key: value for key, value in invalid.items() if key != "unexpected"},
+        )
+        rejected = await client.post("/chat/action/confirm", json=invalid)
+
+    assert unavailable.status_code == 503
+    assert rejected.status_code == 400
+
+
 async def test_confirmation_body_caps_and_unavailable_dependencies_fail_closed() -> None:
     outbox = _Outbox()
     async with AsyncClient(
@@ -680,14 +754,14 @@ async def test_post_stream_document_refs_fail_before_outbox_without_resolver() -
 def test_manifest_is_complete_without_legacy_route_sources() -> None:
     manifest = {(item.method, item.path, item.name) for item in CONVERSATION_ROUTE_MANIFEST}
 
-    assert len(CONVERSATION_ROUTE_MANIFEST) == 43
+    assert len(CONVERSATION_ROUTE_MANIFEST) == 44
     assert {
         ("POST", "/test-context/proposals", "propose_test_context"),
         ("POST", "/test-context/reviews", "review_test_context"),
         ("POST", "/test-context/revocations", "revoke_test_context"),
         ("GET", "/test-context/commands/{proposal_id:str}", "test_context_command_status"),
     } <= manifest
-    assert len(manifest) == 43
+    assert len(manifest) == 44
     assert {
         ("GET", "/chat/health", "handler"),
         (
@@ -696,6 +770,7 @@ def test_manifest_is_complete_without_legacy_route_sources() -> None:
             "download_document",
         ),
         ("POST", "/chat/stream", "handler"),
+        ("POST", "/chat/action/confirm", "confirm_action"),
         ("GET", "/conversation-assurance", "get_assurance"),
         ("GET", "/me/context", "context"),
     } <= manifest

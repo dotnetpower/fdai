@@ -89,29 +89,27 @@ Concurrent semantic requests share one durable processing claim. A waiter retrie
 its lease expires, so a failed owner cannot strand the request until its outer deadline. A result
 store failure while waiting returns an explicit held projection.
 
-- **Draft**: An `action_draft` or `incident_draft` returns the allowlisted
-  `action_type`, bounded typed arguments, conversation `session_id`, and a
-  request-scoped idempotency key. Producing the draft publishes no event and
-  creates no Incident. The browser shows Confirm and Cancel controls.
-- **Typed confirmation**: `POST /chat/action/confirm` accepts only
-  `{"action_type": str, "arguments": object, "session_id": str?,
-  "idempotency_key": str}`. The server rechecks the ActionType allowlist,
-  argument bounds, authenticated principal, and RBAC before publishing one
-  proposal. Unknown fields and unlisted actions are rejected.
-- **Compatibility endpoint**: `POST /chat/action`, body
-  `{"prompt": str, "session_id": str?,
-  "idempotency_key": str?}`. Registered only when `OperatorApiConfig.console_action`
-  wires a `ConsoleActionSubmitter`
-  (`services/operator-service/src/fdai_operator_service/`). This raw-prompt route
-  remains for compatible API clients; the browser Command Deck does not use it.
-  Operator-supplied values are bounded (prompt <= 4000,
-  question <= 2000, resource id / session id / idempotency key <= 200 chars) so
-  one large value cannot bloat the pipeline or audit. The client `idempotency_key`
-  becomes the proposal's dedup key (namespaced by the initiator, so one operator
-  cannot reuse another's key to suppress their action), so a retried or
-  duplicated submit collapses at Huginn instead of enqueuing a second action;
-  Thor is additionally idempotent per correlation so an at-least-once
-  re-delivery never double-executes.
+- **Incident draft**: A verified `incident_create` judgment returns an
+  authority-free `incident.create` draft with bounded severity and target,
+  conversation `session_id`, and a request-scoped idempotency key. The server
+  retains its source digest and 10-minute expiry. Producing the draft publishes
+  no event and creates no Incident. The browser shows Confirm and Cancel controls.
+- **Typed Incident confirmation**: `POST /chat/action/confirm` accepts only
+  `{"action_type": str, "arguments": object, "session_id": str,
+  "idempotency_key": str}`. The server reloads the exact principal-owned
+  semantic projection, compares every public field, checks expiry and current
+  RBAC, then durably queues one versioned request. Unknown fields, stale drafts,
+  modified arguments, and unsupported action types are blocked.
+- **Dedicated Incident transport**: the outbox publishes
+  `IncidentCreationRequest` on `operator.incident-creation.requests`. Core
+  validates its digest, role floor, source identities, partition key, and
+  no-authority fields before `IncidentLifecycleWorkflow` opens or reuses the
+  Incident. This record operation does not use Thor and does not depend on an
+  ActionType's shadow or enforcement mode.
+- **Compatibility endpoint**: the independent Operator Service does not
+  register the former raw-prompt `POST /chat/action` path. Browser and API
+  clients use the semantic draft plus typed confirmation path so natural
+  language never enters a write endpoint.
 - **Server-derived RBAC**. The operator's role comes from the validated bearer
   token (`Principal.roles`), never client JSON. Submitting requires the
   `author-draft-pr` capability (Contributor and above); a Reader is refused with
@@ -152,10 +150,11 @@ store failure while waiting returns an explicit held projection.
   re-enters the pipeline and is judged fresh. The rule lives in one pure
   function (`fdai.core.console_request.evaluate_operator_rerequest`). Absent the
   seam, every request is treated as fresh (no deny-override check).
-- **Response** (submitted): `200 {"submitted": true, "correlation_id": ...,
-  "action_type": ..., "resource_id": ...}`. The operator tracks progress by the
-  `correlation_id` (Trace panel / audit); the pipeline result (auto shadow-exec,
-  HIL wait, or deny) is asynchronous.
+- **Response** (accepted): `202 {"submitted": true, "created": false,
+  "action_type": "incident.create", "request_id": ..., "dispatch_status":
+  "pending", ...}`. This response proves durable acceptance, not Incident
+  creation. The authoritative `/incidents` projection proves completion after
+  Core records `incident.open`.
 - **Investigation Incident**. An explicit `tool.run-investigation <kind> <resource>` command is
   itself confirmation to open or reuse a deterministic Incident for the session, target, and
   resource kind. The proposal uses the Incident ID as its correlation and carries `incident_id`
@@ -351,7 +350,8 @@ meaningful active declaration and an authoritative usage source justify dedicate
 | Receipt-bound runtime Context snapshot | in-progress | Secured ObjectSet and Context contracts in the ontology platform; existing Console unavailable state | The workbench does not merge catalog declarations with runtime instances. A principal-scoped Context receipt remains separate delivery work. |
 | HIL callback contract | implemented | Operator IAM family routes; `services/operator-service/tests/test_operator_iam_family.py`; full-composition tests | Signature, replay window, role, no-self-approval, exact pending id, and idempotent decision behavior are implemented. |
 | Python task workbench and grounded code | implemented | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; Console Python task tests | Static validation, inert artifacts, capabilities, and no-chat-execution boundaries have focused coverage. |
-| Semantic action draft and typed confirmation | in-progress | Operator conversation and workflow application paths | Bounded draft and proposal paths exist, but this owner document retains no governed request-to-audit confirmation receipt across every conflict and denial case. |
+| Incident creation draft and typed confirmation | implemented | `fdai_service_contracts.incident_creation`; Core semantic projection and Incident creation consumer; Operator confirmation route and outbox bridge; Console confirmation client; service-suite ownership; focused cross-service and CI contract tests | The browser sends only the four public draft fields. Operator reloads the exact source, queues a versioned no-authority request, and Core opens or reuses one audited Incident. HTTP `202` remains pending until `/incidents` observes the record. |
+| Managed-resource semantic action confirmation | in-progress | Existing `OntologyActionIntent` validation, confirmation route, and action-confirmation worker | Core does not yet project a confirmable non-Incident action intent. Completing that source requires an independently reviewed ActionType draft and request-to-audit receipt. |
 | CLI, Teams, and Slack wire parity | in-progress | `cli/`; channel adapters and tests | Shared presentation contracts exist. No current governed multi-channel parity receipt is retained here. |
 | Governed cross-contract runtime evidence | in-progress | Operator and Console focused tests | Unit and integration checks prove mechanics, not one authenticated receipt spanning callback, proposal, code artifact, ontology, and durable audit surfaces. |
 
@@ -368,6 +368,9 @@ meaningful active declaration and an authoritative usage source justify dedicate
 | 2026-08-19 | implemented | Hardened Operator database readiness to reject each individual mutation, truncate, reference, or trigger privilege on read-only inventory and conversation tables. A single accidentally granted write privilege can no longer satisfy the service readiness boundary. | [Issue #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; focused readiness tests passed 2 cases, Ruff, format, and mypy passed, and the actual local `fdai_operator` role remained ready. | Continue the independent hardening rounds; deployed role changes remain migration-controlled. |
 | 2026-08-19 | implemented | Separated missing active-inventory targets from missing ontology declarations at the HTTP boundary. Impact scope now returns a resource-appropriate, identifier-free `404` while declaration routes preserve their existing public message. | [Issue #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; the focused operations route regression passed, and Ruff, format, and mypy passed. | Continue the independent hardening rounds; unavailable authoritative sources remain `503` and malformed requests remain `400`. |
 | 2026-08-19 | implemented | Integrated the enhancement plan's exact declaration, dependent, evidence-health, release-diff, and active-inventory impact envelopes into this owner contract using the shipped field names. | [Issue #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; paired documentation and route-contract gates. | Preserve these envelopes when adding retained evidence; don't widen the routes into authoring or execution surfaces. |
+| 2026-09-16 | implemented | Restored Console Incident creation after the independent-service migration omitted the confirmation route and left the durable worker without a browser-resolvable source. Added a typed expiring draft, server-side source revalidation, a dedicated Incident creation topic, and a Core consumer that writes through the existing Incident lifecycle. | [Issue #1125](https://github.com/dotnetpower/fdai/issues/1125); `current change`; focused service-contract, Core, Operator, and Console checks. | Retain an authenticated request-to-`incident.open` runtime receipt; HTTP acceptance alone is not completion evidence. |
+| 2026-09-16 | implemented | Aligned service-suite ownership, semantic review registration, generated question-bank provenance, aggregate route counts, and Core bootstrap size with repository CI contracts. | [Issue #1125](https://github.com/dotnetpower/fdai/issues/1125); `current change`; 76 focused CI contract tests, design-impact regressions, strict mypy, and Ruff. | Exact-head protected CI and the authenticated request-to-`incident.open` runtime receipt remain pending; no wire behavior or authority changed. |
+| 2026-09-16 | implemented | Preserved generic action-confirmation lifetime behavior, required exact typed Incident arguments and session identity, and bound both semantic request and result rows to the authenticated principal. | [Issue #1125](https://github.com/dotnetpower/fdai/issues/1125); `current change`; focused Incident confirmation, generic action, and PostgreSQL query regressions. | Exact-head protected CI and the authenticated request-to-`incident.open` runtime receipt remain pending; no execution authority changed. |
 
 ### Remaining work
 

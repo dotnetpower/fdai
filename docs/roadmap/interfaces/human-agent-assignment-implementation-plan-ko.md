@@ -1,7 +1,7 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 5a8aa6471bf042b6dc221bf658426b5d7f80e5d2
-translation_revised: 2026-09-15
+translation_source_sha: 7c56aa6418b52160c6f6d957242fbdd0436124a7
+translation_revised: 2026-09-16
 ---
 # 사용자-에이전트 할당 구현 계획
 
@@ -421,6 +421,31 @@ null, 명시적인 차단 요인, Owner 권한, 만료, 미래 시각, 잘못된
 
 **종료:** 통제된 신원, IAM, GitHub, 알림, 롤백, 재시작, 복구 훈련과
 코호트 근거를 보존합니다. 이 보고 범위는 경고 전달, 공급자 점검, 복구 변경, 승격을 제공하지 않습니다.
+
+### 묶음 10 - 사람 보고선 및 승인 라우팅
+
+**상태:** 소스에 구현했으며 기본값은 비활성입니다. 배포 근거와 승격은 아직 필요합니다.
+
+**변경:** 변경할 수 없는 문서 후보, edge 확인, 독립 Owner 검토, 순환하지 않는 현재 그래프
+변환 결과, 요청자 연락 동의 및 가장 가까운 적격 상위자 라우팅을 포함하는 독립
+`human_reporting` 수명 주기를 추가합니다. 통제된 문서 수집, 기존 할당 transport, HIL 대기열,
+무응답 감독기 및 principal-to-ActionType 정책을 재사용합니다. Operator API와 Console은
+범위가 제한된 제안과 변환 결과만 노출합니다. 실행기 신원을 얻지 않으며 report line이나 연락
+동의만으로 승인 권한을 부여하지 않습니다.
+
+초기 런타임 opt-in은 quorum `1`을 지원합니다. 더 높은 quorum의 작업은 기존 workflow 또는
+human-access 승인 경로를 유지합니다. `FDAI_REPORT_LINE_APPROVAL_ROUTES_JSON`은 정확한
+ActionType을 선택하며 빈 값은 기존 승인 라우팅을 보존합니다.
+`FDAI_REPORT_LINE_APPROVER_SCOPES_JSON`은 선택된 각 principal과 ActionType을 정확한 대상
+범위로 독립적으로 제한합니다.
+
+**테스트:** 계약 다이제스트와 변조 검사, 추출과 디렉터리 충돌 보류, edge 전이와 그래프 순환
+속성, 독립 검토자 검사, 현재 경로 적격성, 연락 동의 만료와 재생, 영속 Operator 전달, HIL 전달과
+오래된 경로 차단, Console 디코딩과 상호 작용 계약 및 이중 언어 카탈로그 동등성을 다룹니다.
+
+**종료:** 소스 동작과 집중 검사를 통과하고 서로 다른 비평 및 하드닝 라운드 10회 이상에서 Low
+초과 미해결 항목이 없으며, 보호된 CI가 정확한 검토 헤드를 병합합니다. 실제 Graph, 알림 및
+승격 근거는 배포 환경에서 별도로 보존합니다.
 
 ## 현재 변경의 근거와 남은 범위
 

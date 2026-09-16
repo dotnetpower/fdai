@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
 
 from fdai.shared.providers.human_identity import HumanIdentityDirectory
 
@@ -21,8 +23,16 @@ class DirectoryRungEligibility:
         if not 0 < self.timeout_seconds <= 10:
             raise ValueError("rung eligibility timeout MUST be in (0, 10]")
 
-    async def is_eligible(self, *, subject_ref: str, minimum_role: str) -> bool:
+    async def is_eligible(
+        self,
+        *,
+        subject_ref: str,
+        minimum_role: str,
+        context: Mapping[str, Any] | None = None,
+        at: datetime | None = None,
+    ) -> bool:
         """Only an active exact human with fresh ordinary Approver/Owner membership qualifies."""
+        del context, at
         if minimum_role not in {"Approver", "Owner"}:
             return False
         async with asyncio.timeout(self.timeout_seconds):
