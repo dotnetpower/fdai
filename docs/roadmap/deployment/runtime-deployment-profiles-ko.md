@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 1964bcfe22f4a25c00e52681f49124215081d82a
-translation_revised: 2026-09-16
+translation_source_sha: 3d255b84ec4e11cc4b14dd5248cc4519567bc0c2
+translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
 
@@ -238,6 +238,12 @@ Executor 실행 권한 전환을 활성화하지 않습니다.
 각 FDAI 워크로드는 현재 user-assigned Managed Identity를 유지합니다. AKS에서는 namespace에 속한
 Kubernetes ServiceAccount가 federated identity credential을 받습니다. 권한이 높은 Executor 신원은
 Console, Operator Service, 작업 또는 다른 워크로드와 공유하지 않습니다.
+
+선택적 개발 operations gateway는 reader와 executor identity를 분리합니다. 태그 수정 canary는
+executor에 FDAI 애플리케이션 리소스 그룹 범위의 `Tag Contributor`만 부여하고, reader는
+사전 점검, 쓰기 후 실제 상태 확인 및 rollback 확인을 위한 읽기 전용 접근을 유지합니다.
+Gateway나 이 역할을 활성화해도 `remediate.tag-add`가 승격되지는 않습니다. 정확한 배포 계획과
+ActionType 승격에는 각각 별도 승인이 필요합니다.
 
 다섯 기본 서비스는 `AZURE_FEDERATED_TOKEN_FILE`이 선언되면 Azure Identity SDK의 워크로드
 자격 증명을 선택합니다. 투영된 토큰 경로는 절대 경로여야 하고 tenant와 client 식별자는

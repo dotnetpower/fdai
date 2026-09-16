@@ -891,11 +891,12 @@
       },
       "note": "Generic PR-native shadow path only."
     },
-    "remediate.tag-add@1.0.0": {
+    "remediate.tag-add@1.1.0": {
       "bindings": {
-        "core-pr-native": "pr-native-shadow"
+        "core-azure-gateway": "core-gateway",
+        "isolated-azure-gateway": "isolated-gateway"
       },
-      "note": "Generic PR-native shadow path only."
+      "note": "Development gateway support is conditional on exact logical scope, tag-only RBAC, promotion, authorization, snapshot rollback, and reader-identity effect verification."
     },
     "tool.file-irp-followup@1.0.0": {
       "bindings": {

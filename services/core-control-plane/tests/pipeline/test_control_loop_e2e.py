@@ -26,6 +26,8 @@ from __future__ import annotations
 
 import asyncio
 import shutil
+from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -41,6 +43,7 @@ from fdai.core.control_loop import (
 )
 from fdai.core.event_ingest import EventCorrelator, EventIngest
 from fdai.core.executor import (
+    DirectApiShadowExecutor,
     ExecutorOutcome,
     ResourceLockManager,
     ShadowExecutor,
@@ -89,6 +92,7 @@ from fdai.shared.providers.notifications.base import (
 )
 from fdai.shared.providers.testing import (
     InMemoryStateStore,
+    RecordingDirectApiExecutor,
     RecordingRemediationPrPublisher,
 )
 from fdai_core_test_support.verified_shadow_executor import VerifiedShadowExecutor
@@ -108,6 +112,26 @@ _OPA_PRESENT = shutil.which("opa") is not None
 requires_opa = pytest.mark.skipif(
     not _OPA_PRESENT, reason="opa binary not found on PATH; skip e2e evaluator tests"
 )
+
+
+@dataclass(frozen=True)
+class _GraphBoundActionBuilder(ActionBuilder):
+    graph: Mapping[str, frozenset[str]] | None = None
+
+    def build_from_finding(self, *, event: Event, finding: Any, rule: Any) -> Any:
+        action = super().build_from_finding(event=event, finding=finding, rule=rule)
+        if action.blast_radius.count is not None or self.graph is None:
+            return action
+        dependencies = self.graph.get(action.target_resource_ref)
+        if dependencies is None:
+            return action
+        return action.model_copy(
+            update={
+                "blast_radius": action.blast_radius.model_copy(
+                    update={"count": 1 + len(dependencies)}
+                )
+            }
+        )
 
 
 @pytest.fixture(scope="module")
@@ -151,6 +175,7 @@ def _make_loop(
     change_safety_detector: Any = None,
     change_safety_evidence_provider: Any = None,
     clock: Any = None,
+    direct_api_executor: DirectApiShadowExecutor | None = None,
 ) -> tuple[ControlLoop, RecordingRemediationPrPublisher, InMemoryStateStore]:
     rules, action_types = shipped_catalog
     signal_types = load_signal_type_registry_from_mapping(
@@ -166,7 +191,7 @@ def _make_loop(
         renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
         resource_lock=ResourceLockManager(),
     )
-    action_builder = ActionBuilder(
+    action_builder = _GraphBoundActionBuilder(
         action_types_by_name={a.name: a for a in action_types},
         ontology_release=(
             build_ontology_release(object_types=(), link_types=())
@@ -174,6 +199,7 @@ def _make_loop(
             else None
         ),
         clock=clock,
+        graph=resource_dependency_graph,
     )
     validator = JsonSchemaEventValidator(
         JsonSchemaContractValidator(PackageResourceSchemaRegistry())
@@ -191,6 +217,7 @@ def _make_loop(
             {a.name: a for a in action_types} if risk_table is not None else None
         ),
         risk_gate=risk_gate,
+        direct_api_executor=direct_api_executor,
         notification_router=notification_router,
         rca_coordinator=rca_coordinator,
         event_correlator=event_correlator,
@@ -395,13 +422,19 @@ async def test_duplicate_delivery_dedupes_without_audit(
 async def test_public_access_deny_end_to_end_opens_shadow_pr(
     shipped_catalog: tuple[Any, Any],
 ) -> None:
-    loop, publisher, audit = _make_loop(shipped_catalog)
+    loop, publisher, audit = _make_loop(
+        shipped_catalog,
+        resource_dependency_graph={"stg-open": frozenset()},
+    )
     result = await loop.process(
         _make_event(
             idempotency_key="e-public",
             resource_type="object-storage",
             resource_id="stg-open",
-            props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+            props={
+                "public_access": "enabled",
+                "tags": {"owner": "team-a", "cost_center": "example"},
+            },
         )
     )
     assert result.outcome is ControlLoopOutcome.EXECUTED
@@ -467,12 +500,16 @@ async def test_change_safety_pre_authority_uses_frozen_control_loop_clock(
         change_safety_detector=Detector(),
         change_safety_evidence_provider=EvidenceProvider(),
         clock=lambda: replay_now,
+        resource_dependency_graph={"stg-frozen": frozenset()},
     )
     event = _make_event(
         idempotency_key="e-public-frozen-change-safety",
         resource_type="object-storage",
         resource_id="stg-frozen",
-        props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+        props={
+            "public_access": "enabled",
+            "tags": {"owner": "team-a", "cost_center": "example"},
+        },
     )
     event["payload"]["signal_kind"] = "azure.activity_log"  # type: ignore[index]
 
@@ -499,13 +536,20 @@ async def test_shadow_authority_recorded_when_risk_table_wired(
     from fdai.core.risk_gate.risk_table import load_risk_table
 
     table = load_risk_table(REPO_ROOT / "rule-catalog" / "risk-classification.yaml")
-    loop, _publisher, audit = _make_loop(shipped_catalog, risk_table=table)
+    loop, _publisher, audit = _make_loop(
+        shipped_catalog,
+        risk_table=table,
+        resource_dependency_graph={"stg-open": frozenset()},
+    )
     result = await loop.process(
         _make_event(
             idempotency_key="e-auth",
             resource_type="object-storage",
             resource_id="stg-open",
-            props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+            props={
+                "public_access": "enabled",
+                "tags": {"owner": "team-a", "cost_center": "example"},
+            },
         )
     )
     assert result.outcome is ControlLoopOutcome.EXECUTED
@@ -537,14 +581,21 @@ async def test_degraded_control_plane_caps_authority_to_shadow(
     tripped = CircuitBreaker(config=CircuitBreakerConfig(failure_threshold=1, reset_timeout_s=300))
     tripped.on_failure()  # trips OPEN
     table = load_risk_table(REPO_ROOT / "rule-catalog" / "risk-classification.yaml")
-    loop, _publisher, audit = _make_loop(shipped_catalog, risk_table=table)
+    loop, _publisher, audit = _make_loop(
+        shipped_catalog,
+        risk_table=table,
+        resource_dependency_graph={"stg-open": frozenset()},
+    )
     loop._degradation = DegradationController(breakers={"audit": tripped})
     result = await loop.process(
         _make_event(
             idempotency_key="e-auth-degraded",
             resource_type="object-storage",
             resource_id="stg-open",
-            props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+            props={
+                "public_access": "enabled",
+                "tags": {"owner": "team-a", "cost_center": "example"},
+            },
         )
     )
     assert result.outcome is ControlLoopOutcome.EXECUTED
@@ -568,14 +619,21 @@ async def test_kill_switch_engaged_caps_authority_to_shadow(
     from fdai.shared.resilience.kill_switch import InMemoryKillSwitch
 
     table = load_risk_table(REPO_ROOT / "rule-catalog" / "risk-classification.yaml")
-    loop, _publisher, audit = _make_loop(shipped_catalog, risk_table=table)
+    loop, _publisher, audit = _make_loop(
+        shipped_catalog,
+        risk_table=table,
+        resource_dependency_graph={"stg-open": frozenset()},
+    )
     loop._kill_switch = InMemoryKillSwitch(engaged=True)
     result = await loop.process(
         _make_event(
             idempotency_key="e-auth-killswitch",
             resource_type="object-storage",
             resource_id="stg-open",
-            props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+            props={
+                "public_access": "enabled",
+                "tags": {"owner": "team-a", "cost_center": "example"},
+            },
         )
     )
     assert result.outcome is ControlLoopOutcome.EXECUTED
@@ -600,7 +658,11 @@ async def test_kill_switch_refresh_failure_caps_authority_to_shadow(
         raise RuntimeError("state store unavailable")
 
     table = load_risk_table(REPO_ROOT / "rule-catalog" / "risk-classification.yaml")
-    loop, _publisher, audit = _make_loop(shipped_catalog, risk_table=table)
+    loop, _publisher, audit = _make_loop(
+        shipped_catalog,
+        risk_table=table,
+        resource_dependency_graph={"stg-open": frozenset()},
+    )
     loop._kill_switch = InMemoryKillSwitch(engaged=False)
     loop._kill_switch_refresher = _fail_refresh
     result = await loop.process(
@@ -608,7 +670,10 @@ async def test_kill_switch_refresh_failure_caps_authority_to_shadow(
             idempotency_key="e-auth-killswitch-refresh-failed",
             resource_type="object-storage",
             resource_id="stg-open",
-            props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+            props={
+                "public_access": "enabled",
+                "tags": {"owner": "team-a", "cost_center": "example"},
+            },
         )
     )
     assert result.outcome is ControlLoopOutcome.EXECUTED
@@ -681,6 +746,63 @@ async def test_unified_risk_audit_recorded_when_gate_and_table_wired(
         assert "winning_side" in entry
     # The authority-only entry is superseded when a gate is wired.
     assert not [e for e in entries if e.get("action_kind") == "risk_gate.shadow_authority"]
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_promoted_tag_action_dispatches_with_effective_enforce_mode(
+    shipped_catalog: tuple[Any, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.core.risk_gate.gate import (
+        ActionPromotionRegistry,
+        RiskDecision,
+        RiskDecisionOutcome,
+        RiskGate,
+    )
+    from fdai.core.risk_gate.risk_table import load_risk_table
+
+    table = load_risk_table(REPO_ROOT / "rule-catalog" / "risk-classification.yaml")
+    gate = RiskGate(registry=ActionPromotionRegistry())
+
+    def _auto(**kwargs: Any) -> RiskDecision:
+        return RiskDecision(
+            outcome=RiskDecisionOutcome.AUTO,
+            action_id=str(kwargs["action"].action_id),
+            effective_mode=Mode.ENFORCE,
+            reasons=("verified_promotion_for_test",),
+        )
+
+    monkeypatch.setattr(gate, "evaluate", _auto)
+    provider = RecordingDirectApiExecutor()
+    direct = DirectApiShadowExecutor(
+        executor=provider,
+        audit_store=InMemoryStateStore(),
+        resource_lock=ResourceLockManager(),
+        allow_enforce=True,
+    )
+    loop, _publisher, _audit = _make_loop(
+        shipped_catalog,
+        risk_table=table,
+        risk_gate=gate,
+        direct_api_executor=direct,
+    )
+
+    result = await loop.process(
+        _make_event(
+            idempotency_key="e-tag-enforce",
+            resource_type="resource-group",
+            resource_id="scope-0123456789abcdef/resource-group/rg-example",
+            props={
+                "tags": {"owner": "platform", "environment": "dev"},
+            },
+        )
+    )
+
+    assert result.execution_results
+    assert provider.records
+    assert all(request.mode is Mode.ENFORCE for request in provider.records)
+    assert all(request.action_type_name == "remediate.tag-add" for request in provider.records)
 
 
 @requires_opa

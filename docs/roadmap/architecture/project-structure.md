@@ -419,6 +419,12 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   `OperationalPromotionUnitVerifier` resolve immutable evidence. The production registry remains
   shadow without them; raw scalar metrics are a test-only legacy fixture mode. A promotion-state
   refresh failure lowers the unified system-health ceiling instead of reusing stale enforcement. Decision-evidence admission uses StateStore locally and read-only immutable Blob records when deployed; the protected policy fixes authority, purpose, source revision, verifier separation, and expiry, while missing or malformed evidence grants no execution or promotion authority.
+- **Development tag-remediation binding**: `remediate.tag-add@1.1.0` resolves a bounded logical
+  Resource id through the shared executor-target contract. Core and the isolated Executor route it
+  to the development operations gateway only when that gateway, the change identity, and the
+  ordinary authorization and promotion boundaries are present. The gateway owns tag-only mutation,
+  snapshot rollback, and reader-identity readback. Runtime wiring supplies the same readback as the
+  MSCP independent effect observer without changing the promotion registry or Console authority.
 - **Operational catalog review and measurement**: `DeterministicCatalogValidator` reuses the
   shipped Rule loader, shadow evaluator, and regression gate over a frozen scenario directory.
   `GitOpsCatalogReviewPublisher` publishes only a content-addressed inert review package. The

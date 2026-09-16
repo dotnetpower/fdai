@@ -44,6 +44,7 @@ from fdai.shared.contracts.models import (
     BlastRadiusComputation,
     BlastRadiusScope,
     Event,
+    ExecutionPath,
     Mode,
     OntologyActionType,
     OntologyDeclarationKind,
@@ -102,6 +103,8 @@ class ActionBuilder:
         action_id = _build_action_id(idempotency_key)
 
         params: dict[str, Any] = dict(rule.parameters)
+        if action_type.execution_path is ExecutionPath.DIRECT_API:
+            params.setdefault("target_resource_ref", finding.resource_id)
         # Finding context (e.g. `deny_reason`) is audit-log data, not a
         # template placeholder - keeping it out of Action.params means the
         # template renderer's scalar-only rule stays clean.

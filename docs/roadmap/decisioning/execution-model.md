@@ -467,9 +467,17 @@ Best for: configuration changes, IaC patches, catalog updates, governance change
   action in enforce mode; legacy shadow ledger rows are ignored only for that shadow-to-enforce
   transition. Enforce mutation receipts remain authoritative and still reject payload collisions.
 - **Upstream Azure gateway binding** - when the development operations gateway URL and Easy Auth
-  audience are both configured, the headless runtime binds an enforce-capable `AzureGatewayDirectApiExecutor`; Core supports `ops.start-vm`, `ops.deallocate-vm`, `ops.scale-out`, `ops.upsert-network-rule`, and `ops.delete-network-rule`, while the isolated Executor excludes `ops.scale-out`.
+  audience are both configured, the headless runtime binds an enforce-capable `AzureGatewayDirectApiExecutor`; Core supports `ops.start-vm`, `ops.deallocate-vm`, `ops.scale-out`, `ops.upsert-network-rule`, `ops.delete-network-rule`, and `remediate.tag-add`, while the isolated Executor excludes `ops.scale-out`.
   Every ActionType remains shadow-first with a human-approved T0 ceiling, and `config/action-type-runtime-support.json` records the surface-specific support. `dispatch_not_attempted` remains no-effect, while `receipt_timeout`, `execution_unknown`, and `awaiting_effect_evidence` remain pending rather than failure or success. Current-revision receipts bind the exact versioned `action_type_ref`, not a bare action name.
   PR, direct-API, tool, remote, workflow, and HIL paths retain original correlation plus supplied Action id and attempt; Trace separates each action attempt, potentially effective HIL outcomes enter independent reconciliation before closure, and pre-executor no-effect exits still write the workflow's durable `not_attempted` result without invoking a provider.
+- **Tag canary boundary** - `remediate.tag-add@1.1.0` accepts one logical Resource id under an
+  allowlisted development resource group and merges one bounded tag through the change identity.
+  The gateway holds the target lock, captures the prior tag map, and uses the separate reader
+  identity for post-write verification. A mismatch restores the exact snapshot and reports failure.
+  The control loop records verified effect evidence only after a second reader call that receives
+  the Action and expected effect, not the executor receipt. This capability remains in observation
+  mode until its existing 7-day, 50-sample, 99% accuracy, zero-escape promotion gate and separate
+  governance approval succeed.
 - **Long-running operation lock** - an ARM `202` keeps the target's Blob lease in the private
   operation record. Executor status polling renews the lease, then records terminal status with
   ETag compare-and-swap before releasing it. Unknown status URL query fields are rejected.
