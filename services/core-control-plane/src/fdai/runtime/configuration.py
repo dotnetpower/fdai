@@ -289,12 +289,12 @@ def _attach_runtime_metric_provider(
     identity: WorkloadIdentity,
 ) -> Container:
     """Attach live telemetry independently of the configured LLM mode."""
-    from fdai.composition import attach_metric_provider
+    from fdai.composition import attach_metric_provider, attach_observation_providers
 
     monitor_workspace_id = os.environ.get("FDAI_MONITOR_WORKSPACE_ID", "").strip() or None
     prometheus_base_url = os.environ.get("FDAI_PROMETHEUS_ENDPOINT", "").strip() or None
     prometheus_audience = os.environ.get("FDAI_PROMETHEUS_AUDIENCE", "").strip() or None
-    return attach_metric_provider(
+    with_metrics = attach_metric_provider(
         container,
         identity=identity,
         http_client=http_client,
@@ -304,6 +304,12 @@ def _attach_runtime_metric_provider(
         prometheus_base_url=prometheus_base_url,
         prometheus_queries=None,
         prometheus_audience=prometheus_audience,
+    )
+    return attach_observation_providers(
+        with_metrics,
+        workspace_id=monitor_workspace_id,
+        identity=identity,
+        http_client=http_client,
     )
 
 

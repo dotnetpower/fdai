@@ -7,12 +7,17 @@ from uuid import UUID
 import httpx
 import pytest
 from fdai.composition import default_container
+from fdai.composition.wire_observation_providers import attach_observation_providers
 from fdai.core.ontology_platform.topology_history import (
     TopologyLinkRevision,
     TopologyObjectRevision,
     TopologyRevisionBatch,
 )
 from fdai.core.rca.causal_chain import CorrelatedEvent
+from fdai.delivery.azure.telemetry_query import (
+    AzureLogAnalyticsRcaLogProvider,
+    AzureLogAnalyticsTraceProvider,
+)
 from fdai.runtime.rca_bindings import (
     GenerationGuardedIncidentMemberSource,
     TopologyHistoryIncidentRcaContextSource,
@@ -211,6 +216,37 @@ async def test_deployed_binding_requires_dedicated_reader_identity(
 
     assert bound is container
     assert bound.incident_member_source is None
+
+
+@pytest.mark.asyncio
+async def test_local_binding_attaches_event_time_workspace_resolver(
+    app_config: AppConfig,
+) -> None:
+    identity = StaticWorkloadIdentity(audience="https://management.azure.com/.default")
+    async with httpx.AsyncClient() as client:
+        observed = attach_observation_providers(
+            default_container(app_config),
+            workspace_id="workspace-example",
+            identity=identity,
+            http_client=client,
+        )
+        bound = await bind_t1_rca_from_environment(
+            observed,
+            incident_lookup=lambda incident_id: None,
+            incident_candidates=lambda: {},
+            http_client=client,
+            identity=identity,
+            environment={
+                "FDAI_STATE_STORE_DSN": "postgresql://localhost/fdai",
+                "FDAI_EXECUTION_VENUE": "local",
+            },
+        )
+
+    assert isinstance(bound.log_query_provider, AzureLogAnalyticsRcaLogProvider)
+    assert isinstance(bound.trace_query_provider, AzureLogAnalyticsTraceProvider)
+    assert bound.log_query_provider is not observed.log_query_provider
+    assert bound.trace_query_provider is not observed.trace_query_provider
+    assert bound.incident_rca_context_source is not None
 
 
 @pytest.mark.asyncio

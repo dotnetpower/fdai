@@ -47,6 +47,7 @@ def _full_observation(*, scope_ref: str) -> NormalizedInventoryObservation:
         observed_at=NOW,
         evidence_cutoff=NOW,
         recorded_at=NOW,
+        ingested_at=NOW,
         scope_ref=scope_ref,
     )
 

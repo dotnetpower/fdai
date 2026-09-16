@@ -17,10 +17,11 @@ def test_workflow_tool_enforcement_is_an_explicit_disabled_by_default_input() ->
 
 
 def test_enabled_gitops_materializes_the_runtime_enforcement_switch() -> None:
+    assert "github_workflow_tools_enforce" in _SERVICE_MODULE
     assert (
-        "github_workflow_tools_enforce   = local.stewardship_gitops_enabled && "
-        "var.stewardship_gitops.workflow_tools_enforce"
-    ) in _SERVICE_MODULE
+        "local.stewardship_gitops_enabled && var.stewardship_gitops.workflow_tools_enforce"
+        in _SERVICE_MODULE
+    )
     assert (
         '{ name = "FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE", '
         'value = local.github_workflow_tools_enforce ? "1" : "0" }'

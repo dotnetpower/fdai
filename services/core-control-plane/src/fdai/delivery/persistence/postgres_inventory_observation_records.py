@@ -57,6 +57,8 @@ def observation_from_row(row: Mapping[str, Any]) -> NormalizedInventoryObservati
         observed_at=row["observed_at"],
         evidence_cutoff=row["evidence_cutoff"],
         recorded_at=row["recorded_at"],
+        ingested_at=row.get("ingested_at") or row["recorded_at"],
+        provider_event_at=row.get("provider_event_at"),
         from_id=str(row["from_id"]) if row["from_id"] is not None else None,
         from_type=str(row["from_type"]) if row["from_type"] is not None else None,
         link_type=str(row["link_type"]) if row["link_type"] is not None else None,
@@ -102,6 +104,7 @@ def snapshot_records(
                 observed_at=observed_at,
                 evidence_cutoff=observed_at,
                 recorded_at=observation.recorded_at,
+                ingested_at=observation.recorded_at,
             )
         )
     for link in observation.links:
@@ -128,6 +131,7 @@ def snapshot_records(
                 observed_at=observation.recorded_at,
                 evidence_cutoff=observation.recorded_at,
                 recorded_at=observation.recorded_at,
+                ingested_at=observation.recorded_at,
                 from_id=link.from_id,
                 from_type=link.from_type,
                 link_type=link.link_type,
@@ -169,6 +173,7 @@ def confirmed_tombstone(
         observed_at=confirmed_at,
         evidence_cutoff=confirmed_at,
         recorded_at=recorded_at,
+        ingested_at=recorded_at,
     )
 
 
