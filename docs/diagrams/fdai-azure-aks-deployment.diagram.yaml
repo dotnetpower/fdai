@@ -1,0 +1,316 @@
+id: fdai-azure-aks-deployment
+version: 1
+kind: deployment
+formats: [svg]
+updated: 2026-09-16
+locales:
+  en:
+    title: FDAI on Azure Kubernetes Service
+    description: The AKS deployment with a public authenticated console, five independent services, scheduled jobs, and shared Azure dependencies.
+    alt: Operators authenticate with Microsoft Entra ID and use the Console on Azure Static Web Apps. Azure API Management routes browser requests to the Operator Service and Document Ingestion API on AKS. The cluster separates its managed API server, system and user node pools, five service Deployments, and CronJobs. Event Hubs carries schema-validated service events. PostgreSQL and document storage remain outside the cluster. Workload Identity and Key Vault keep service identities and secrets separate. Only the isolated Executor is eligible for approved resource effects. Container Registry supplies digest-pinned images; Azure OpenAI and monitoring are shared dependencies. This is a deployment profile, not live health or private-network evidence.
+  ko:
+    title: Azure Kubernetes Service의 FDAI
+    description: 인증된 공개 콘솔, 독립적인 5개 서비스, 예약 작업 및 공유 Azure 의존 서비스로 구성된 AKS 배포입니다.
+    alt: 운영자는 Microsoft Entra ID로 인증하고 Azure Static Web Apps의 콘솔을 사용합니다. Azure API Management는 브라우저 요청을 AKS의 Operator Service와 Document Ingestion API로 전달합니다. 클러스터는 관리형 API 서버, 시스템 및 사용자 노드 풀, 5개 서비스 Deployment와 CronJob을 구분합니다. Event Hubs는 스키마가 검증된 서비스 이벤트를 전달합니다. PostgreSQL과 문서 저장소는 클러스터 밖에 있습니다. Workload Identity와 Key Vault는 서비스별 ID와 비밀을 분리합니다. 격리된 실행기만 승인된 리소스 변경 권한을 보유할 수 있습니다. Container Registry는 다이제스트로 고정된 이미지를 제공하고 Azure OpenAI와 모니터링은 공유 의존 서비스입니다. 이 그림은 배포 프로파일이며 실시간 상태나 사설망 검증 근거가 아닙니다.
+canvas:
+  width: 1320
+  height: 1000
+  direction: RIGHT
+  rootLayout: column
+  padding: 28
+  profile: azure-reference
+groups:
+  - id: deployment-flow
+    kind: layer
+    presentation: panel
+    layout: row
+    gap: 64
+    label: { en: Access to runtime to Azure services, ko: 접근 경로에서 런타임과 Azure 서비스로 }
+  - id: browser-access
+    parent: deployment-flow
+    kind: layer
+    presentation: panel
+    layout: column
+    gap: 48
+    width: 184
+    label: { en: Authenticated public access, ko: 인증된 공개 접근 }
+  - id: aks
+    parent: deployment-flow
+    kind: cluster
+    presentation: boundary
+    layout: column
+    label: { en: Azure Kubernetes Service - application VNet, ko: Azure Kubernetes Service - 애플리케이션 VNet }
+  - id: cluster-platform
+    parent: aks
+    kind: layer
+    presentation: band
+    layout: row
+    label: { en: Cluster platform, ko: 클러스터 기반 }
+  - id: fdai-workloads
+    parent: aks
+    kind: layer
+    presentation: band
+    layout: row
+    gap: 56
+    label: { en: FDAI namespace, ko: FDAI 네임스페이스 }
+  - id: api-and-jobs
+    parent: fdai-workloads
+    kind: layer
+    presentation: band
+    layout: column
+    gap: 24
+    label: { en: APIs and scheduled work, ko: API 및 예약 작업 }
+  - id: api-services
+    parent: api-and-jobs
+    kind: layer
+    presentation: band
+    layout: column
+    gap: 36
+    label: { en: Authenticated APIs, ko: 인증된 API }
+  - id: event-consumers
+    parent: fdai-workloads
+    kind: layer
+    presentation: band
+    layout: column
+    gap: 36
+    label: { en: Event consumers, ko: 이벤트 소비자 }
+  - id: azure-services
+    parent: deployment-flow
+    kind: layer
+    presentation: panel
+    layout: column
+    gap: 36
+    label: { en: Azure data and operations, ko: Azure 데이터 및 운영 }
+  - id: shared-data
+    parent: azure-services
+    kind: layer
+    presentation: panel
+    layout: column
+    gap: 36
+    label: { en: Shared data services, ko: 공유 데이터 서비스 }
+  - id: shared-platform
+    kind: layer
+    presentation: panel
+    layout: row
+    label: { en: Shared workload dependencies, ko: 모든 워크로드의 공통 의존 서비스 }
+  - id: operations
+    parent: azure-services
+    kind: layer
+    presentation: panel
+    layout: row
+    label: { en: Governed operations and observation, ko: 통제된 운영 및 관찰 }
+nodes:
+  - id: entra
+    parent: browser-access
+    kind: external
+    icon: entra-id
+    presentation: icon
+    label: { en: Microsoft Entra ID, ko: Microsoft Entra ID }
+    description: { en: Human sign-in and App Roles, ko: 사용자 로그인 및 앱 역할 }
+  - id: console
+    parent: browser-access
+    kind: azure-service
+    icon: static-web-app
+    presentation: icon
+    label: { en: Azure Static Web Apps, ko: Azure Static Web Apps }
+    description: { en: FDAI Console - no executor identity, ko: FDAI 콘솔 - 실행기 ID 없음 }
+  - id: apim
+    parent: browser-access
+    kind: azure-service
+    icon: api-management-services
+    presentation: icon
+    label: { en: Azure API Management, ko: Azure API Management }
+    description: { en: HTTPS browser gateway and CORS, ko: HTTPS 브라우저 게이트웨이 및 CORS }
+  - id: cluster-api
+    parent: cluster-platform
+    kind: azure-service
+    icon: kubernetes-services
+    presentation: icon
+    label: { en: Azure Kubernetes Service, ko: Azure Kubernetes Service }
+    description: { en: VNet Integration; restricted management access, ko: VNet 통합 및 제한된 관리 접근 }
+  - id: system-pool
+    parent: cluster-platform
+    kind: service
+    icon: node
+    presentation: icon
+    label: { en: System node pool, ko: 시스템 노드 풀 }
+    description: { en: Kubernetes system components, ko: Kubernetes 시스템 구성 요소 }
+  - id: user-pool
+    parent: cluster-platform
+    kind: service
+    icon: node
+    presentation: icon
+    label: { en: User node pool, ko: 사용자 노드 풀 }
+    description: { en: FDAI Pods; autoscaling bounds, ko: FDAI Pod 및 자동 확장 범위 }
+  - id: operator
+    parent: api-services
+    kind: service
+    icon: deploy
+    presentation: icon
+    label: { en: Operator Service, ko: Operator Service }
+    description: { en: Entra JWT; queries and governed requests, ko: Entra JWT 검증 및 통제된 요청 }
+  - id: ingestion
+    parent: api-services
+    kind: service
+    icon: deploy
+    presentation: icon
+    label: { en: Document Ingestion API, ko: Document Ingestion API }
+    description: { en: Authenticated document intake, ko: 인증된 문서 수신 }
+  - id: core
+    parent: event-consumers
+    kind: service
+    icon: deploy
+    presentation: icon
+    label: { en: Core Control Plane, ko: Core Control Plane }
+    description: { en: 15 agents; no resource-effect identity, ko: 에이전트 15개; 리소스 변경 ID 없음 }
+  - id: worker
+    parent: event-consumers
+    kind: service
+    icon: deploy
+    presentation: icon
+    label: { en: Document Processing Worker, ko: Document Processing Worker }
+    description: { en: Durable processing; ClamAV sidecar, ko: 영속 처리 및 ClamAV 사이드카 }
+  - id: executor
+    parent: event-consumers
+    kind: service
+    icon: deploy
+    presentation: icon
+    label: { en: Isolated Executor, ko: 격리된 실행기 }
+    description: { en: Approval and safeguards before effects, ko: 승인 및 안전장치 확인 후 변경 실행 }
+  - id: jobs
+    parent: api-and-jobs
+    kind: process
+    icon: cronjob
+    presentation: icon
+    label: { en: Kubernetes CronJobs, ko: Kubernetes CronJob }
+    description: { en: Analyzer; inventory; canary; observation; history, ko: 분석; 인벤토리; 카나리; 관찰; 이력 }
+  - id: event-hubs
+    parent: shared-data
+    kind: azure-service
+    icon: event-hubs
+    presentation: icon
+    label: { en: Azure Event Hubs, ko: Azure Event Hubs }
+    description: { en: Typed pub/sub events over Kafka, ko: Kafka 기반 타입 지정 이벤트 발행 및 구독 }
+  - id: postgres
+    parent: shared-data
+    kind: azure-service
+    icon: postgresql
+    presentation: icon
+    label: { en: PostgreSQL Flexible Server, ko: PostgreSQL Flexible Server }
+    description: { en: Service-owned roles; state and audit, ko: 서비스별 역할; 상태 및 감사 }
+  - id: storage
+    parent: shared-data
+    kind: azure-service
+    icon: storage-account
+    presentation: icon
+    label: { en: Azure Storage, ko: Azure Storage }
+    description: { en: ADLS documents and case history, ko: ADLS 문서 및 사례 이력 }
+  - id: identity
+    parent: shared-platform
+    kind: azure-service
+    icon: managed-identity
+    presentation: icon
+    label: { en: Managed Identities, ko: Managed Identities }
+    description: { en: AKS Workload Identity; separate OIDC-federated ServiceAccounts, ko: AKS Workload Identity 및 OIDC로 연결된 별도 ServiceAccount }
+  - id: key-vault
+    parent: shared-platform
+    kind: azure-service
+    icon: key-vault
+    presentation: icon
+    label: { en: Azure Key Vault, ko: Azure Key Vault }
+    description: { en: CSI-mounted service secret references, ko: CSI로 탑재하는 서비스 비밀 참조 }
+  - id: registry
+    parent: shared-platform
+    kind: azure-service
+    icon: container-registry
+    presentation: icon
+    label: { en: Azure Container Registry, ko: Azure Container Registry }
+    description: { en: Digest-pinned service and sidecar images, ko: 다이제스트로 고정된 서비스 및 사이드카 이미지 }
+  - id: models
+    parent: shared-platform
+    kind: azure-service
+    icon: azure-openai
+    presentation: icon
+    label: { en: Azure OpenAI, ko: Azure OpenAI }
+    description: { en: Configured model capabilities, ko: 구성된 모델 기능 }
+  - id: targets
+    parent: operations
+    kind: external
+    icon: resource-groups
+    presentation: icon
+    label: { en: Managed Azure resources, ko: 관리 대상 Azure 리소스 }
+    description: { en: Explicit target scope and independent readback, ko: 명시적인 대상 범위 및 독립적인 결과 확인 }
+  - id: channels
+    parent: operations
+    kind: external
+    icon: lucide-git-branch
+    presentation: icon
+    label: { en: Approval and Git delivery channels, ko: 승인 및 Git 전달 채널 }
+    description: { en: Configured human approvals and reviewed changes, ko: 구성된 사람 승인 및 검토된 변경 }
+  - id: monitor
+    parent: operations
+    kind: azure-service
+    icon: monitor
+    presentation: icon
+    label: { en: Azure Monitor, ko: Azure Monitor }
+    description: { en: Application Insights and Log Analytics; collection requires diagnostic configuration, ko: Application Insights 및 Log Analytics; 진단 구성이 필요한 데이터 수집 }
+  - id: load-balancer
+    parent: browser-access
+    kind: azure-service
+    icon: load-balancer
+    presentation: icon
+    label: { en: Azure Load Balancer, ko: Azure Load Balancer }
+    description: { en: Separate Kubernetes LoadBalancer Services for Operator and Ingestion APIs, ko: Operator 및 Ingestion API의 별도 Kubernetes LoadBalancer Service }
+edges:
+  - id: sign-in
+    from: entra
+    to: console
+    kind: approval
+    route: orthogonal-trunk
+  - id: browser-api
+    from: console
+    to: apim
+    kind: request
+    route: orthogonal-trunk
+  - id: gateway-backends
+    from: apim
+    to: load-balancer
+    kind: request
+    route: orthogonal-trunk
+  - id: api-routes
+    from: load-balancer
+    to: api-services
+    kind: request
+    route: orthogonal-horizontal
+  - id: service-events
+    from: core
+    to: event-hubs
+    kind: event
+    direction: bidirectional
+    route: orthogonal-horizontal
+  - id: governed-state
+    from: fdai-workloads
+    to: postgres
+    kind: audit
+    route: orthogonal-horizontal
+  - id: document-data
+    from: worker
+    to: storage
+    kind: request
+    route: orthogonal-horizontal
+  - id: approved-effects
+    from: executor
+    to: targets
+    kind: mutation
+    route: orthogonal-horizontal
+legend:
+  - kind: request
+    label: { en: API or data request, ko: API 또는 데이터 요청 }
+  - kind: event
+    label: { en: Schema-validated event, ko: 스키마가 검증된 이벤트 }
+  - kind: approval
+    label: { en: Identity or approval, ko: ID 또는 승인 }
+  - kind: mutation
+    label: { en: Authorized effect, ko: 승인된 변경 }
+  - kind: audit
+    label: { en: Durable evidence, ko: 영구 근거 }
