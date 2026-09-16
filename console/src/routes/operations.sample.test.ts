@@ -86,7 +86,14 @@ describe("Operations Sample registry", () => {
       action_kind: "ops.start-vm",
       target_resource_ref: "sample-checkout-standby-vm-01",
     });
-    expect(decodeOnboarding(response("/onboarding")).blocked).toBe(true);
+    const onboarding = decodeOnboarding(response("/onboarding"));
+    expect(onboarding).toMatchObject({
+      blocked: true,
+      present_resource_count: 5,
+      present_role_count: 0,
+    });
+    expect(onboarding.missing_resources).toHaveLength(3);
+    expect(onboarding.missing_role_assignments).toHaveLength(2);
     const detection = decodeDetectionReadiness(response("/detection-coverage"));
     expect(detection.targets).toHaveLength(1);
     expect(detection.analyzer_run).toMatchObject({

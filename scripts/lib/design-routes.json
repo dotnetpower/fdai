@@ -413,6 +413,37 @@
       "validate": []
     },
     {
+      "id": "runtime-scope-receipt",
+      "paths": [
+        "config/constitution-traceability.json",
+        "docs/roadmap/deployment/dev-and-deploy-parity*.md",
+        "packages/service-contracts/src/fdai_service_contracts/runtime_scope.py",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/runtime-scope-receipt/**",
+        "packages/service-contracts/src/fdai_service_contracts/venue.py",
+        "packages/service-contracts/tests/test_runtime_scope.py",
+        "scripts/quality/architecture/check-venue-capability-contract.py",
+        "services/*/src/**/*main.py",
+        "tests/integration/scripts/test_venue_capability_contract.py"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity.md",
+        "config/constitution-traceability.json"
+      ],
+      "docs_update": [
+        "docs/roadmap/deployment/dev-and-deploy-parity.md",
+        "docs/roadmap-implementation/deployment/dev-and-deploy-parity.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov packages/service-contracts/tests/test_runtime_scope.py tests/integration/scripts/test_venue_capability_contract.py tests/integration/scripts/test_constitution.py",
+        "python3 scripts/quality/architecture/check-venue-capability-contract.py",
+        "python3 scripts/quality/architecture/check-constitution.py",
+        "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
+    },
+    {
       "id": "decision-evidence-admission",
       "paths": [
         ".github/workflows/decision-evidence-admission.yml",
@@ -2108,6 +2139,34 @@
         "python3 scripts/quality/ci/check-ci-contracts.py",
         "uv run mypy --strict services/system-knowledge-service/src packages/service-contracts/src/fdai_service_contracts/system_knowledge.py",
         "uv run ruff check services/system-knowledge-service packages/service-contracts/src/fdai_service_contracts/system_knowledge.py packages/service-contracts/tests/test_system_knowledge.py"
+      ]
+    },
+    {
+      "id": "workflow-promotion-verdicts",
+      "paths": [
+        "config/workflow-promotion-verdicts.json",
+        "config/workflow-promotion-verdicts.schema.json",
+        "docs/roadmap/agents/agent-workflow-rollout*.md",
+        "docs/roadmap/agents/agent-workflows*.md",
+        "scripts/quality/architecture/check-workflow-promotion-verdicts.py",
+        "services/core-control-plane/src/fdai/agents/_framework/workflows.py",
+        "tests/integration/scripts/test_workflow_promotion_verdicts.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/architecture/goals-and-metrics.md",
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "docs/roadmap/decisioning/process-automation.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-workflow-promotion-verdicts.py",
+        "uv run pytest -q --no-cov tests/integration/scripts/test_workflow_promotion_verdicts.py",
+        "python3 scripts/quality/architecture/check-design-routes.py"
       ]
     },
     {

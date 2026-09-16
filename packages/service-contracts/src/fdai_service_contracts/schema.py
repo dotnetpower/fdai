@@ -17,6 +17,7 @@ from fdai_service_contracts.decision_evidence_verification import (
     DecisionEvidenceVerificationBundle,
 )
 from fdai_service_contracts.execution_safeguards import SafeguardProofBundle
+from fdai_service_contracts.runtime_scope import RuntimeScopeReceipt
 from fdai_service_contracts.test_context import (
     TestContextApplication,
     TestContextCommand,
@@ -118,6 +119,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("operator-core-request", "1.6.0"): "schemas/operator-core-request/1.6.0.json",
     ("operator-core-request", "1.7.0"): "schemas/operator-core-request/1.7.0.json",
     ("operator-core-request", "1.8.0"): "schemas/operator-core-request/1.8.0.json",
+    ("runtime-scope-receipt", "1.0.0"): "schemas/runtime-scope-receipt/1.0.0.json",
     ("semantic-query-progress", "1.0.0"): "schemas/semantic-query-progress/1.0.0.json",
     ("service-upgrade-receipt", "1.0.0"): "schemas/service-upgrade-receipt/1.0.0.json",
     ("test-context-application", "1.0.0"): "schemas/test-context-application/1.0.0.json",
@@ -244,6 +246,8 @@ class JsonSchemaContractValidator:
             if schema_name == "decision-evidence-verification"
             else SafeguardProofBundle
             if schema_name == "execution-safeguard-proof-bundle"
+            else RuntimeScopeReceipt
+            if schema_name == "runtime-scope-receipt"
             else TestContextApplication
             if schema_name == "test-context-application"
             else TestContextCommand
