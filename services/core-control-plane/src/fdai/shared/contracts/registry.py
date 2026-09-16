@@ -94,6 +94,10 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
         "1.0.0",
     ): "ontology/interface-implementation.json",
     ("ontology/action-type", "1.0.0"): "ontology/action-type.json",
+    (
+        "ontology/detection-routing-bounds",
+        "1.0.0",
+    ): "ontology/detection-routing-bounds.json",
     ("ontology/release-ref", "1.0.0"): "ontology/release-ref.json",
 }
 
