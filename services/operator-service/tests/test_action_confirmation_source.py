@@ -90,7 +90,7 @@ def test_generic_action_confirmation_matches_server_owned_intent() -> None:
     )
 
 
-async def test_generic_action_confirmation_preserves_the_existing_outbox_path() -> None:
+async def test_generic_confirmation_does_not_apply_incident_expiry() -> None:
     intent = _intent()
     source = {
         "request_id": REQUEST_ID,
@@ -127,7 +127,7 @@ async def test_generic_action_confirmation_preserves_the_existing_outbox_path() 
     store = _Store()
     service = IncidentCreationConfirmationService(
         store=cast(PostgresFamilyStore, store),
-        clock=lambda: NOW + timedelta(minutes=1),
+        clock=lambda: NOW + timedelta(days=1),
     )
     body = ActionConfirmationBody(
         action_type="ops.scale-out",

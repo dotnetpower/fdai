@@ -2736,6 +2736,7 @@ class PostgresFamilyStore:
                          WHERE request.value ->> 'kind' = 'operator.semantic_turn'
                              AND result.value ->> 'kind' = 'operator.semantic_result'
                              AND request.value ->> 'principal_id' = %(principal_id)s
+                             AND result.value ->> 'principal_id' = %(principal_id)s
                AND result.value ->> 'request_id' = %(request_id)s
                AND result.value ->> 'projection_id' = %(projection_id)s
                              AND result.value #>> '{data,status}' = 'action_draft'
@@ -2766,6 +2767,7 @@ class PostgresFamilyStore:
              WHERE request.value ->> 'kind' = 'operator.semantic_turn'
                AND result.value ->> 'kind' = 'operator.semantic_result'
                AND request.value ->> 'principal_id' = %(principal_id)s
+               AND result.value ->> 'principal_id' = %(principal_id)s
                AND request.value ->> 'idempotency_key' = %(idempotency_key)s
                AND result.value #>> '{data,idempotency_key}' = %(idempotency_key)s
                AND result.value #>> '{data,status}' = 'action_draft'

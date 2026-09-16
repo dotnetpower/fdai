@@ -2874,7 +2874,8 @@
         "docs/roadmap/interfaces/operator-console.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "operator-incident-creation"
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/framework-assessment.md",
@@ -2926,7 +2927,8 @@
         "docs/roadmap/interfaces/operator-console.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "operator-incident-creation"
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/wara-assessment.md",

@@ -95,7 +95,7 @@ store failure while waiting returns an explicit held projection.
   retains its source digest and 10-minute expiry. Producing the draft publishes
   no event and creates no Incident. The browser shows Confirm and Cancel controls.
 - **Typed Incident confirmation**: `POST /chat/action/confirm` accepts only
-  `{"action_type": str, "arguments": object, "session_id": str?,
+  `{"action_type": str, "arguments": object, "session_id": str,
   "idempotency_key": str}`. The server reloads the exact principal-owned
   semantic projection, compares every public field, checks expiry and current
   RBAC, then durably queues one versioned request. Unknown fields, stale drafts,
@@ -370,6 +370,7 @@ meaningful active declaration and an authoritative usage source justify dedicate
 | 2026-08-19 | implemented | Integrated the enhancement plan's exact declaration, dependent, evidence-health, release-diff, and active-inventory impact envelopes into this owner contract using the shipped field names. | [Issue #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; paired documentation and route-contract gates. | Preserve these envelopes when adding retained evidence; don't widen the routes into authoring or execution surfaces. |
 | 2026-09-16 | implemented | Restored Console Incident creation after the independent-service migration omitted the confirmation route and left the durable worker without a browser-resolvable source. Added a typed expiring draft, server-side source revalidation, a dedicated Incident creation topic, and a Core consumer that writes through the existing Incident lifecycle. | [Issue #1125](https://github.com/dotnetpower/fdai/issues/1125); `current change`; focused service-contract, Core, Operator, and Console checks. | Retain an authenticated request-to-`incident.open` runtime receipt; HTTP acceptance alone is not completion evidence. |
 | 2026-09-16 | implemented | Aligned service-suite ownership, semantic review registration, generated question-bank provenance, aggregate route counts, and Core bootstrap size with repository CI contracts. | [Issue #1125](https://github.com/dotnetpower/fdai/issues/1125); `current change`; 76 focused CI contract tests, design-impact regressions, strict mypy, and Ruff. | Exact-head protected CI and the authenticated request-to-`incident.open` runtime receipt remain pending; no wire behavior or authority changed. |
+| 2026-09-16 | implemented | Preserved generic action-confirmation lifetime behavior, required exact typed Incident arguments and session identity, and bound both semantic request and result rows to the authenticated principal. | [Issue #1125](https://github.com/dotnetpower/fdai/issues/1125); `current change`; focused Incident confirmation, generic action, and PostgreSQL query regressions. | Exact-head protected CI and the authenticated request-to-`incident.open` runtime receipt remain pending; no execution authority changed. |
 
 ### Remaining work
 

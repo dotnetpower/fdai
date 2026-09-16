@@ -9,7 +9,6 @@ from datetime import UTC, datetime
 
 from fdai_service_contracts.incident_creation import (
     INCIDENT_CREATE_ACTION_TYPE,
-    INCIDENT_CREATION_DRAFT_TTL,
     IncidentCreationConfirmationBody,
     IncidentCreationDraft,
     IncidentCreationRequest,
@@ -91,7 +90,7 @@ class IncidentCreationConfirmationService:
         correlation_id = source.get("correlation_id")
         internal_source: dict[str, object]
         response_message: str
-        expires_at: datetime
+        expires_at: datetime | None = None
         if body.action_type == INCIDENT_CREATE_ACTION_TYPE:
             try:
                 incident_body = IncidentCreationConfirmationBody.model_validate(
@@ -118,7 +117,6 @@ class IncidentCreationConfirmationService:
                 source,
                 principal_id=scope.subject_id,
             )
-            expires_at = _projection_expires_at(source)
             internal_source = {"ontology_intent": intent.model_dump(mode="json")}
             response_message = (
                 "Action request queued for the governed decision pipeline. "
@@ -137,7 +135,7 @@ class IncidentCreationConfirmationService:
         }
         storage_key = _confirmation_storage_key(scope.subject_id, body.idempotency_key)
         try:
-            if confirmed_at > expires_at:
+            if expires_at is not None and confirmed_at > expires_at:
                 existing = await self.store.read_proposal(
                     family="conversation",
                     idempotency_key=storage_key,
@@ -238,31 +236,6 @@ def _source_id(source: Mapping[str, object], key: str) -> str:
     return value
 
 
-def _projection_expires_at(source_projection: Mapping[str, object]) -> datetime:
-    recorded_at = source_projection.get("recorded_at")
-    if not isinstance(recorded_at, str):
-        raise ConversationBoundaryError(
-            409,
-            "action_draft_invalid",
-            "the action draft source is invalid",
-        )
-    try:
-        prepared_at = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise ConversationBoundaryError(
-            409,
-            "action_draft_invalid",
-            "the action draft source is invalid",
-        ) from exc
-    if prepared_at.tzinfo is None or prepared_at.utcoffset() is None:
-        raise ConversationBoundaryError(
-            409,
-            "action_draft_invalid",
-            "the action draft source is invalid",
-        )
-    return prepared_at + INCIDENT_CREATION_DRAFT_TTL
-
-
 def _confirmation_storage_key(principal_id: str, source_key: str) -> str:
     digest = hashlib.sha256(f"{principal_id}\0{source_key}".encode()).hexdigest()
     return f"action-confirmation:{digest}"
@@ -318,7 +291,7 @@ def validate_incident_confirmation_source(
         or semantic.get("disposition") != "action_draft"
         or semantic.get("session_id") != draft.session_id
         or body.action_type != draft.action_type
-        or body.arguments != draft.arguments
+        or body.arguments.model_dump(mode="json") != draft.arguments.model_dump(mode="json")
         or body.session_id != draft.session_id
         or body.idempotency_key != draft.idempotency_key
     ):

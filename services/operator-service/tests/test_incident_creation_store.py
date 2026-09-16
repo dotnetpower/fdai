@@ -40,6 +40,7 @@ async def test_store_resolves_one_principal_owned_draft_by_browser_key(
 
     assert resolved == source
     assert "request.value ->> 'principal_id' = %(principal_id)s" in statements[0]
+    assert "result.value ->> 'principal_id' = %(principal_id)s" in statements[0]
     assert "result.value #>> '{data,idempotency_key}' = %(idempotency_key)s" in statements[0]
     assert parameters == [{"principal_id": "operator-one", "idempotency_key": "draft-one"}]
 

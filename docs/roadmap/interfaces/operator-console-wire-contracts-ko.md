@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: a10c9d4bf809b3542850e4b679530da652677bde
+translation_source_sha: bf308973d4b56c7c2daa884bb848d6173aa199d1
 translation_revised: 2026-09-16
 ---
 
@@ -97,7 +97,7 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도�
   만드는 동안 이벤트를 게시하거나 인시던트를 생성하지 않습니다. 브라우저는 확인 및
   취소 컨트롤을 표시합니다.
 - **타입이 지정된 인시던트 확인**: `POST /chat/action/confirm`은
-  `{"action_type": str, "arguments": 객체, "session_id": str?,
+  `{"action_type": str, "arguments": 객체, "session_id": str,
   "idempotency_key": str}`만 받습니다. 서버는 principal이 소유한 정확한 의미 기반
   변환 결과를 다시 읽고 모든 공개 필드를 비교한 뒤 만료 시각과 현재 RBAC를 확인하여
   버전이 지정된 요청 하나를 영속 대기열에 넣습니다. 알 수 없는 필드, 만료된 초안,
@@ -362,6 +362,7 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 | 2026-08-19 | implemented | Enhancement plan의 exact 선언, 종속 항목, 근거 상태, release diff 및 활성 인벤토리 영향 범위 묶음을 shipped field 이름으로 이 owner contract에 통합했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, 문서 pair 및 route contract gate입니다. | 보존 근거를 추가할 때 이 묶음을 유지하고 경로를 작성 또는 실행 화면으로 넓히지 않습니다. |
 | 2026-09-16 | implemented | 독립 서비스 이행에서 확인 경로가 누락되고 영속 작업자가 브라우저로 확인할 수 없는 원본을 요구해 중단된 Console 인시던트 생성을 복구했습니다. 타입이 지정된 만료 초안, 서버 측 원본 재검증, 전용 인시던트 생성 토픽, 기존 인시던트 수명 주기를 사용하는 Core 소비자를 추가했습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 서비스 계약, Core, Operator 및 Console 검사. | 인증된 요청부터 `incident.open`까지의 런타임 증적을 보존해야 합니다. HTTP 수락만으로 완료를 입증할 수 없습니다. |
 | 2026-09-16 | implemented | 서비스 테스트 묶음 소유권, 의미 검토 등록, 생성된 question-bank 출처, 집계 경로 수, Core bootstrap 크기를 저장소 CI 계약에 맞췄습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 CI 계약 테스트 76개, 설계 영향 회귀 테스트, strict mypy 및 Ruff. | 정확한 최신 head의 보호된 CI와 인증된 요청부터 `incident.open`까지의 런타임 증적은 아직 필요합니다. Wire 동작이나 권한은 변경하지 않았습니다. |
+| 2026-09-16 | implemented | 일반 작업 확인의 기존 유효 기간 동작을 유지하고, 정확한 타입의 인시던트 인자와 세션 신원을 요구했으며, 의미 기반 요청 및 결과 행을 모두 인증된 principal에 결속했습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 인시던트 확인, 일반 작업 및 PostgreSQL 조회 회귀 테스트. | 정확한 최신 head의 보호된 CI와 인증된 요청부터 `incident.open`까지의 런타임 증적은 아직 필요합니다. 실행 권한은 변경하지 않았습니다. |
 
 ### 남은 작업
 
