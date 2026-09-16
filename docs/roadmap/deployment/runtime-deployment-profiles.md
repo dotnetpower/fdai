@@ -135,7 +135,7 @@ installation cannot switch platforms by changing one variable.
 
 The shared platform continues to own Event Hubs, Key Vault, Azure Container Registry, monitoring,
 workload identities, case-history storage, and `postgres-flex`. Case-history content defaults its
-active, deletion-due, and superseded-version periods to 30 days; operational-history and
+active, deletion-due, superseded-version, and change-feed periods to 30 days; operational-history and
 decision-evidence metadata keep their separate schedules. The AKS substrate state owns only the
 cluster, node pools, cluster identity, networking attachment, and cluster-scoped Azure role
 assignments.

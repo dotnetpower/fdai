@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 169bb53c1d14342b32e36697393f50383bc6d7c9
+translation_source_sha: e65979e34846288e4f26ff8c3316aed81192618c
 translation_revised: 2026-09-16
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -479,7 +479,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `KAFKA_SECURITY_PROTOCOL` | env | 배포 | Azure 에서 `SASL_SSL`; 다른 곳에서는 프로바이더별 값 |
 | `KAFKA_SASL_MECHANISM` | env | 배포 | Azure 에서 `OAUTHBEARER` |
 | `FDAI_STATE_STORE_DSN`; `FDAI_LICENSE_TOKEN` / `FDAI_LICENSE_IMAGE_DIGEST` / `FDAI_LICENSE_DEPLOYMENT_BINDING` / `FDAI_LICENSE_TOKEN_REVISION` | KV 참조 + env | 업스트림 / 배포 | 상태 저장소 값은 감사와 KPI용 PostgreSQL 연결 URI입니다. 라이선스 토큰은 Container Apps 기본 Key Vault 시크릿 참조로만 전달됩니다. 이미지와 배포 값은 서명된 점유와 비교하는 소문자 SHA-256 다이제스트이며, 토큰 개정 다이제스트는 갱신 시 새 Core 개정 번호를 강제하지만 권한 입력은 아닙니다. 배포되는 런타임은 입력이 없거나 잘못되거나 만료되거나 잘못 연결되면 읽기 전용으로 유지하고 세 Thor 작업 경로를 모두 차단합니다. 로컬 Git checkout은 고정된 소유자 전용 비공개 키가 패키지 공개 키와 암호학적으로 일치할 때만 토큰을 무시할 수 있으며, 배포 런타임은 이 경로를 열지 않습니다. |
-| `FDAI_CASE_HISTORY_CONTAINER_URL` / `FDAI_CASE_HISTORY_MI_CLIENT_ID` / `FDAI_CASE_HISTORY_RETENTION_DAYS` / `FDAI_CASE_HISTORY_DELETION_DAYS` / `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS` | env | 업스트림 / 배포 | 변경할 수 없는 사례 개정 번호용 비공개 Blob 컨테이너 URL, 전용 연결된 UAMI 클라이언트 id, active-retention/deletion-due 오프셋 및 제한된 Muninn 보존 cadence입니다. Azure는 활성 보존, 삭제 예정 및 이전 Blob 버전의 기본값을 30일로 설정합니다. Terraform은 저장소와 신원 연결을 파생하고 deletion이 보존보다 이르지 않게 검증하며, 시작은 전용 신원 id가 없거나 실행기 신원과 같으면 실패합니다. 공개/key-auth 대체 경로는 사용하지 않습니다. 보존 틱 기본값은 `86400`이며 배포 재정의 값은 승인된 데이터 일정에 결속됩니다. |
+| `FDAI_CASE_HISTORY_CONTAINER_URL` / `FDAI_CASE_HISTORY_MI_CLIENT_ID` / `FDAI_CASE_HISTORY_RETENTION_DAYS` / `FDAI_CASE_HISTORY_DELETION_DAYS` / `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS` | env | 업스트림 / 배포 | 변경할 수 없는 사례 개정 번호용 비공개 Blob 컨테이너 URL, 전용 연결된 UAMI 클라이언트 id, active-retention/deletion-due 오프셋 및 제한된 Muninn 보존 cadence입니다. Azure는 활성 보존, 삭제 예정, 이전 Blob 버전 및 변경 피드의 기본값을 30일로 설정합니다. Terraform은 저장소와 신원 연결을 파생하고 deletion이 보존보다 이르지 않게 검증하며, 시작은 전용 신원 id가 없거나 실행기 신원과 같으면 실패합니다. 공개/key-auth 대체 경로는 사용하지 않습니다. 보존 틱 기본값은 `86400`이며 배포 재정의 값은 승인된 데이터 일정에 결속됩니다. |
 | `FDAI_OPERATOR_MEMORY_DSN` | KV 참조 | 업스트림 | HIL 승인 운영자 기억 용 Postgres DSN. day-zero 는 `FDAI_STATE_STORE_DSN` 과 동일 소스 (단일 Flexible Server); 배포는 코어를 건드리지 않고 나중에 분리할 수 있습니다. |
 | `FDAI_T1_PATTERN_LIBRARY_DSN` | KV 참조 | 업스트림 | pgvector 기반 T1 패턴 라이브러리 용 Postgres DSN. day-zero 동일 소스, 동일 배선. |
 | `FDAI_CHANGE_MI_CLIENT_ID` / `FDAI_RESILIENCE_MI_CLIENT_ID` / `FDAI_FINOPS_MI_CLIENT_ID` | env | 배포 | Core 앱에 첨부된 세 버티컬별 user-assigned managed 신원의 클라이언트 id입니다. 전달 principal 식별에만 사용하며, 실행 권한 확인과 포크 소유 액션 whitelist가 선택된 신원의 실행 가능 여부를 계속 결정합니다. |

@@ -23,7 +23,7 @@ in transit and at rest, and model-bound content is redacted before it leaves the
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Purpose, retention, deletion, and legal-hold contracts | implemented | `shared/contracts/models/document.py`; `core/case_history/`; `core/trajectory/`; `delivery/persistence/postgres_user_context_retention.py`; `infra/variables.tf`; focused retention tests | Multiple governed stores enforce bounded retention and legal-hold metadata. Azure case-history active, deletion-due, and superseded-version defaults are 30 days; one approved deployment-wide schedule remains fork-owned. |
+| Purpose, retention, deletion, and legal-hold contracts | implemented | `shared/contracts/models/document.py`; `core/case_history/`; `core/trajectory/`; `delivery/persistence/postgres_user_context_retention.py`; `infra/variables.tf`; focused retention tests | Multiple governed stores enforce bounded retention and legal-hold metadata. Azure case-history active, deletion-due, superseded-version, and change-feed defaults are 30 days; one approved deployment-wide schedule remains fork-owned. |
 | Redaction and data-minimization controls | implemented | `rule_catalog/pipeline/distill/sensitivity.py`; `core/browser_evidence/redaction.py`; `delivery/azure/llm/model_trace.py`; `delivery/azure/llm/`; focused Azure model-boundary tests | Deterministic redaction now covers major document, browser, ontology, workflow, channel, model, and embedding boundaries. Production provider terms and privacy approval still bind at the deployment gate. |
 | Append-only audit and privacy-bounded evidence | implemented | `core/audit/`; `delivery/persistence/postgres.py`; `core/operational_context/evidence_bundle.py`; focused audit and evidence tests | Hash-chained audit and redacted evidence projections exist. Deployment retention, anchoring cadence, WORM storage, and legal-hold operation remain environment evidence. |
 | Production privacy assessment and compliance binding | not-started | `config/architecture-review.yaml`; [Production gate](#production-gate) | Upstream defines required keys only. The approved assessment, owners, processor terms, regions, crosswalk, and operational evidence must be supplied by each deployment. |
@@ -32,6 +32,7 @@ in transit and at rest, and model-bound content is redacted before it leaves the
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | in-progress | Bounded the generic private-Blob change feed to each caller's version-retention schedule. Case history therefore uses 30 days while operational-history and decision-evidence metadata retain 90 days. | `current change`; `infra/modules/storage/case-history/main.tf`; focused case-history storage regression. | Publish the change, retain a protected plan and apply that converge the deployed change-feed policies, and independently verify expiry behavior. |
 | 2026-09-16 | in-progress | Aligned the Azure case-history active, deletion-due, and superseded-version defaults at 30 days without changing operational-history or decision-evidence metadata retention. | `current change`; `infra/variables.tf`; focused case-history storage regression. | Publish the change, retain a protected plan and apply that converge the deployed case-history version policy from 90 to 30 days, and independently verify deletion behavior. |
 | 2026-08-29 | in-progress | Added one typed pre-model and pre-embedding minimization receipt, enforced it across every direct Azure model and embedding boundary, and opened issue `#371` for the remaining deployment-owned privacy gate evidence. | `delivery/azure/llm/model_trace.py`; `delivery/azure/llm/`; `tests/delivery/azure/llm/test_model_trace.py`; `tests/delivery/azure/llm/test_adapters.py`; focused Azure LLM adapter tests; issue `#371` | Bind deployment-owned privacy approvals, retention evidence, and operational receipts at the production gate. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and separated reusable upstream controls from deployment-owned privacy approval. | `current change`; contracts, retention services, redaction paths, and audit evidence listed in the scope table. | Complete the shared pre-model evidence boundary and retain a deployment privacy gate receipt. |
@@ -88,10 +89,11 @@ The Azure day-zero telemetry default is 30 days. Audit, conversation, embedding,
 record retention do not inherit that value automatically. Their values must be approved in the
 fork and attached to the production evidence binding.
 
-The Azure case-history safe default uses 30 days for queryable artifacts, deletion due dates, and
-superseded Blob versions. Operational-history and decision-evidence records follow their separate
-metadata and audit schedules. A deployment override remains valid only when its approved inventory,
-data class, owner, legal-hold behavior, and deletion verification support that value.
+The Azure case-history safe default uses 30 days for queryable artifacts, deletion due dates,
+superseded Blob versions, and change-feed records. Operational-history and decision-evidence records
+follow their separate metadata and audit schedules. A deployment override remains valid only when
+its approved inventory, data class, owner, legal-hold behavior, and deletion verification support
+that value.
 
 ## Privacy assessment
 

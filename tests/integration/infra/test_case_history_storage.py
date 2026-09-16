@@ -14,7 +14,8 @@ def test_case_history_storage_is_private_versioned_and_keyless() -> None:
     assert "shared_access_key_enabled         = false" in module
     assert "local_user_enabled                = false" in module
     assert "default_to_oauth_authentication   = true" in module
-    assert "versioning_enabled  = true" in module
+    assert "versioning_enabled            = true" in module
+    assert "change_feed_retention_in_days = var.version_retention_days" in module
     assert 'container_access_type = "private"' in module
     assert "role_definition_name = var.runtime_role_definition_name" in module
     assert "delete_after_days_since_creation = var.version_retention_days" in module
