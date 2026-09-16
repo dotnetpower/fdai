@@ -5,9 +5,11 @@ import {
   aggregateEvidenceAsOf,
   defaultReport,
   pdfDownloadAvailable,
+  registrySourceReadiness,
   reportVariableErrors,
   reportDownloadCanComplete,
   reportHeadlineState,
+  reportSourceAvailability,
   reportsLoadFailure,
   shouldShowReportVariableErrors,
   triggerBlobDownload,
@@ -92,6 +94,49 @@ describe("defaultReport", () => {
     };
 
     expect(defaultReport([noop, audit], registry)?.id).toBe("audit");
+  });
+});
+
+describe("report source presentation", () => {
+  const registry = {
+    datasources: ["audit", "metric", "inventory", "unknown-source"],
+    widgets: [],
+    formats: [],
+    datasource_provenance: [
+      { datasource: "audit", source: "audit", availability: "available" as const, synthetic: false, as_of: null },
+      { datasource: "metric", source: "metric", availability: "unavailable" as const, synthetic: null, as_of: null },
+      { datasource: "inventory", source: "inventory", availability: "available" as const, synthetic: false, as_of: null },
+    ],
+  };
+
+  test("keeps mixed, missing, and unavailable source states distinct", () => {
+    expect(reportSourceAvailability(
+      { datasources: ["audit"] },
+      registry,
+    )).toBe("available");
+    expect(reportSourceAvailability(
+      { datasources: ["metric"] },
+      registry,
+    )).toBe("unavailable");
+    expect(reportSourceAvailability(
+      { datasources: ["unknown-source"] },
+      registry,
+    )).toBe("unknown");
+    expect(reportSourceAvailability(
+      { datasources: ["audit", "metric"] },
+      registry,
+    )).toBe("partial");
+    expect(reportSourceAvailability(
+      { datasources: [] },
+      registry,
+    )).toBe("not_applicable");
+  });
+
+  test("counts only explicitly available registered sources as ready", () => {
+    expect(registrySourceReadiness(registry)).toEqual({
+      available: 2,
+      total: 4,
+    });
   });
 });
 
