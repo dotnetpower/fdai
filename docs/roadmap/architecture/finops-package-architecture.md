@@ -385,6 +385,9 @@ seconds. The next source-gated read revalidates expired provenance, so an Operat
 or configuration recovery cannot pin Cost Governance to an earlier unavailable state.
 Route-owned decoders load only after their owning read begins, so unrelated Audit, agent-activity,
 Insights, and Reporting decoders do not enter the initial Cost Governance Console path.
+The explicit Sample path selects separate `synthetic-preview` records for cost,
+`optimization_case`, and `outcome` screens. These records exercise presentation only; they do not
+prove effect settlement or change package activation, cost-data access, or Live source state.
 Entry-bundle measurements bind to the exact Console and upstream revisions. A rebase or integration
 that changes those inputs requires a fresh measurement before the size evidence is reused.
 

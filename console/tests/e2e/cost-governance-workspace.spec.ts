@@ -196,3 +196,21 @@ test("keeps the Cost Governance workspace bounded at constrained widths", async 
   await assertNoHorizontalOverflow(page);
   await capture(page, testInfo, "cost-governance-mobile");
 });
+
+test("renders bounded Sample optimization cases and outcomes", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Desktop presentation gate runs once.");
+  await installFixture(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/cost-governance/optimization-cases?data=sample&locale=en");
+
+  await expect(page.getByText("synthetic-preview", { exact: true }).first()).toBeVisible();
+  await expect(page.locator(".cost-case-rows > div")).toHaveCount(2);
+  await expect(page.locator(".cost-case-rows")).toContainText("Compute");
+  await expect(page.locator(".cost-case-rows")).toContainText("Databases");
+  await assertNoHorizontalOverflow(page);
+
+  await page.getByRole("link", { name: "Outcomes", exact: true }).click();
+  await expect(page.locator(".cost-settlement-grid > div")).toHaveCount(2);
+  await expect(page.locator(".cost-settlement-grid")).toContainText("effect_verified");
+  await assertNoHorizontalOverflow(page);
+});
