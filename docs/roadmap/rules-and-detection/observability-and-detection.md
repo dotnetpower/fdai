@@ -437,7 +437,7 @@ median positive lead time, non-positive lead-time count, abstention rate, explic
 and denominator gaps. A breach already present before the finding is retained as non-actionable
 evidence instead of failing the snapshot or inflating lead time. Censored and unscorable outcomes
 stay visible but do not enter the scorable denominator, and the snapshot carries no execution or
-promotion authority.
+promotion authority. Console closure completeness uses only episodes whose closure deadline is due; future episodes do not count as failures, and an empty due cohort is unmeasured. Outcome rows retain scored labels and miss origins from `object.forecast-outcome` outbox records, never lifecycle closure reasons.
 
 ## 4. Root-Cause Analysis
 
