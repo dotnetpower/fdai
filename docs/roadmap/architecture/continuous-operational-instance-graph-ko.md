@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 6477740a9e53c5cf05461f0921829615b43db70f
-translation_revised: 2026-09-16
+translation_source_sha: 779890ec43d0615baab4432b228cef66f753d279
+translation_revised: 2026-09-17
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -377,7 +377,11 @@ Ontology projection은 같은 세대를 `relationship_complete=false`로 전진�
 정확히 검토된 공급자 parent는 같은 child에 대한 일반 Resource Group containment를
 shadow합니다. Snapshot promotion은 활성 pointer를 변경하기 전에 child별 `contains` parent가
 하나를 초과하는지 독립적으로 거부하고, ontology store는 commit 전에 LinkType cardinality를
-다시 검증합니다. Bounded ARM compute source는 다른 ARM-only nested resource와 같은 page,
+다시 검증합니다. 같은 승격 트랜잭션은 불변 스냅샷에 정확한 Resource 및 Link 하위 행 개수도
+저장합니다. 이 파생 개수는 범위가 제한된 운영 활동 읽기에만 사용됩니다. `NULL` 개수는 혼합
+버전 행을 표시하며, 현재 작성기가 개수를 기록할 때까지 범위가 제한된 하위 행 집계를
+사용합니다. 이 요약은 원본 완전성을 바꾸거나 권위 있는 하위 행을 대체하지 않습니다.
+Bounded ARM compute source는 다른 ARM-only nested resource와 같은 page,
 child-collection, host 및 generation fence 아래에서 VM Scale Set VM child와 각 child의 network
 interface를 나열합니다. Child collection 실패는 generation을 중단하며 template network
 configuration으로 instance identity를 만들지 않습니다. Ontology projector는 graph 교체와 manifest/status commit marker 전체에서
@@ -581,7 +585,7 @@ binding을
 | 재개 가능한 delta cursor | implemented | `forward_inventory_delta`는 final fence 이후에만 durable Activity Log cursor를 전진시킵니다. |
 | 완전 reconciliation | implemented | `InventorySyncCoordinator.run`은 범위가 제한된 ARG 또는 ARM 관측을 준비하고 완전한 stream만 수락합니다. |
 | 정규화된 observation ingress | implemented | `PostgresInventoryDeltaProjector.__call__`은 타입이 지정된 관측 의미를 검증하고 기존 overlay를 갱신하기 전에 Core 소유 추가 전용 관측 원장에 이중 기록합니다. |
-| Snapshot promotion | implemented | `PostgresInventorySnapshotStore.promote`는 promotion lock 아래에서 활성 세대를 원자적으로 전진시킵니다. |
+| Snapshot promotion | implemented | `PostgresInventorySnapshotStore.promote`는 promotion lock 아래에서 활성 세대를 원자적으로 전진시키고 정확한 Resource 및 Link 개수를 기록합니다. Operator 활동 읽기는 이 불변 요약을 사용하고, 개수가 없는 혼합 버전 행에만 범위가 제한된 하위 행 집계를 사용합니다. |
 | Realtime overlay | implemented | PostgreSQL overlay 행은 유효 시각과 내용 신원에 따라 정규화된 관측을 replay하고, 선언된 속성 마스크만 병합하며, 관측하지 않은 snapshot 속성을 보존하고, 완전한 reconciliation 전에는 tombstone 후보를 대기 상태로 유지합니다. |
 | 온톨로지 변환 결과 | implemented | `InventoryOntologyProjector.apply`는 인벤토리가 소유한 Resource 및 Link 하위 그래프의 단일 작성자입니다. 검토된 중첩 운영 상태 필드는 관측 메타데이터와 함께 상위 속성으로 올리며, 원장과 변환 결과 워터마크 및 대기 중인 tombstone은 각각 원본 완전성을 낮춥니다. |
 | Topology history | implemented | `InventoryTopologyHistoryPublisher.publish`는 Core 소유 bitemporal PostgreSQL store 및 migration을 통해 완전 baseline을 추가합니다. |

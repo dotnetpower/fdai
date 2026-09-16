@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: bdd1bdef354f107a5eca1395d815efb05bb184e0
-translation_revised: 2026-09-14
+translation_source_sha: 1ef0f4edf5d6959363dcaebb3ea2618c729f53c5
+translation_revised: 2026-09-17
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -108,6 +108,14 @@ cross-format 동등성이 성립하지 않습니다.
   발견 사항 개수를 기록합니다. 캐시된 스냅샷은 current-state 질문을 충족할 수 없으므로 현재 관측값을
   TTL 캐시로 재사용하지 않습니다. 증적은 floating-point timer 허용 오차를 넘어 단계 지연 시간 합이
   합계 경과 시간보다 큰 경우를 거부합니다.
+- 구성이 완료된 Core 런타임은 점검 보고서를 반환하기 전에 기존
+  `runtime:configuration-baseline:` 변환 결과에 완료된 점검을 저장합니다. 범위마다 리비전으로
+  동시 쓰기를 제어하고 감사 기록을 남기는 행 하나가 실패 또는 차단 판정을 포함한 최신 관측을
+  유지합니다. 늦게 완료된 이전 관측은 더 새로운 근거를 덮어쓰지 못합니다. Operator는 저장된
+  메타데이터와 측정 지연 시간만 읽으며 Console의 GET 요청으로 Azure를 호출하지 않습니다.
+  기준선 연결 정보가 없으면 여전히 배포 소유자가 구성을 제공해야 합니다. 점검 기록만으로
+  기준선 버전 이력, 색인된 Knowledge, 검토 캠페인 또는 일정 승인을 만들어 내지 않습니다.
+  Console은 인용 근거가 차단되거나 구성되지 않은 상태를 측정값 0으로 표시하지 않습니다.
 - Pure 검토 집약기는 고정된 기준선 하나에 대한 멱등적 실행 증적 세 개를 수락합니다. 검증된
   실행 세 개만 inert weekly 예약 제안을 만들 수 있습니다. 차단된 또는 unsafe 실행이 있으면
   캠페인을 pause하고 집약기는 스케줄러 작업을 직접 생성하지 않습니다. Revisioned StateStore 어댑터는
