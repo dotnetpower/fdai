@@ -122,6 +122,10 @@ An active edge records:
 - one independent Owner review receipt;
 - immutable graph revision and predecessor reference.
 
+The initial lifecycle limits both an edge's validity duration and a scheduled future start to 366
+days. The default validity remains 90 days, so an uploader cannot bypass periodic review with an
+unbounded effective window.
+
 An explicit rejection by either endpoint moves the edge to `conflict`, even if the other endpoint
 previously confirmed it. Resolving the conflict creates a new candidate and does not rewrite the
 old evidence. Exact endpoint-confirmation and Owner-review command replays return the recorded

@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 18b4868be32611fc13789e29e473a0d62393b5ea
+translation_source_sha: 4096a44fbfd0015fff04ec86cee688a7a0b4091d
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -116,6 +116,9 @@ Edge는 `unresolved`, `conflict`, `rejected`, `expired` 또는 `superseded` 상�
 - 한쪽 당사자의 확인 증적
 - 독립 Owner 검토 증적
 - 변경할 수 없는 그래프 리비전과 이전 버전 참조
+
+초기 수명 주기는 edge 유효 기간과 예정된 미래 시작을 모두 366일로 제한합니다. 기본 유효
+기간은 90일이므로 업로더가 무제한 유효 기간으로 정기 검토를 우회할 수 없습니다.
 
 한쪽 당사자가 명시적으로 거부하면 다른 당사자가 이전에 확인했더라도 edge는 `conflict`로
 이동합니다. 충돌을 해결할 때는 새 후보를 만들며 이전 근거를 다시 쓰지 않습니다.

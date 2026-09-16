@@ -404,6 +404,31 @@ async def test_owner_cannot_activate_expired_relationship_evidence() -> None:
         )
 
 
+async def test_case_rejects_unbounded_validity_and_future_start() -> None:
+    service = ReportingLineService(InMemoryStateStore())
+    candidate = _candidate("person-a", "person-b")
+    artifact = _artifact(candidate)
+
+    with pytest.raises(ReportingLineModelError, match="validity exceeds"):
+        await service.create_case(
+            principal=_principal("uploader", Role.CONTRIBUTOR),
+            artifact=artifact,
+            candidate_id=candidate.candidate_id,
+            effective_until=NOW + timedelta(days=367),
+            now=NOW,
+        )
+
+    with pytest.raises(ReportingLineModelError, match="too far in the future"):
+        await service.create_case(
+            principal=_principal("uploader", Role.CONTRIBUTOR),
+            artifact=artifact,
+            candidate_id=candidate.candidate_id,
+            effective_from=NOW + timedelta(days=367),
+            effective_until=NOW + timedelta(days=368),
+            now=NOW,
+        )
+
+
 async def test_replacement_requires_same_subject_and_supersedes_current_edge() -> None:
     service = ReportingLineService(InMemoryStateStore())
     first_candidate = _candidate("person-a", "person-b")

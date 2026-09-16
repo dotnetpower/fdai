@@ -42,10 +42,16 @@ class ReportingLineService:
 
     store: StateStore
     default_validity: timedelta = timedelta(days=90)
+    maximum_validity: timedelta = timedelta(days=366)
+    maximum_future_start: timedelta = timedelta(days=366)
 
     def __post_init__(self) -> None:
-        if not timedelta(days=1) <= self.default_validity <= timedelta(days=366):
-            raise ValueError("reporting-line default validity MUST be in [1, 366] days")
+        if not timedelta(days=1) <= self.default_validity <= self.maximum_validity:
+            raise ValueError("reporting-line default validity exceeds its bounded maximum")
+        if not timedelta(days=1) <= self.maximum_validity <= timedelta(days=366):
+            raise ValueError("reporting-line maximum validity MUST be in [1, 366] days")
+        if not timedelta(days=1) <= self.maximum_future_start <= timedelta(days=366):
+            raise ValueError("reporting-line future start bound MUST be in [1, 366] days")
 
     async def create_case(
         self,
@@ -75,6 +81,10 @@ class ReportingLineService:
         ends = reporting_instant(
             effective_until or candidate.effective_until or (starts + self.default_validity)
         )
+        if ends - starts > self.maximum_validity:
+            raise ReportingLineModelError("reporting-line validity exceeds its maximum")
+        if starts - recorded_at > self.maximum_future_start:
+            raise ReportingLineModelError("reporting-line start is too far in the future")
         case_id = reporting_line_case_id(str(artifact.upload_id), candidate.candidate_id)
         requested = ReportingLineCase.from_candidate(
             case_id=case_id,
