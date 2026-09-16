@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 4764e56ddfb99e9740fe4aefb98626a2fb0cddcc
+translation_source_sha: 0cabc23280169d262cf16616ad4e8e00de9c71de
 translation_revised: 2026-09-16
 ---
 
@@ -126,6 +126,9 @@ NAT IP에 명시적으로 전달합니다. 복구는 보존된 두 IP의 허용 
 원래 검토·실행 전 기록·스냅샷·구성을 검증하고 원래 상태 경로를 Terraform에 직접 전달합니다.
 현재 소스·provider·계획 바이트를 결합하고 제한된 비공개 진단을 보존하며, 그룹 소유권과 동시
 상태 변경을 확인합니다. 만료 시간이 있는 검토 기록 자체는 권한을 부여하지 않습니다.
+원래 계획에 지원되는 애플리케이션 이름과 공개 IP 정책 입력이 이미 있으면 recovery planner는
+레거시 소스 이행을 다시 요구하지 않고 바이트가 동일한 현재 구성을 허용합니다. 그 밖의 소스
+차이는 계속 차단합니다.
 
 `genesis_foundation_recovery_apply.py`에는 복구 검토와 코드에 연결된 새 `foundation-apply`
 승인이 필요하며 공식 프롬프트는 `--foundation-recovery-review`를 받습니다. 불변 실행 전
