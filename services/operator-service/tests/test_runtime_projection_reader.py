@@ -708,6 +708,8 @@ async def test_remaining_console_evidence_projects_durable_tables(
         if "GROUP BY COALESCE(closure_reason" in statement:
             return []
         if "FROM forecast_publication_outbox" in statement:
+            assert statement.count("available_at <= now()") == 2
+            assert "MIN(created_at)" in statement
             return [{"pending": 0, "dead_lettered": 0, "oldest_pending_at": None}]
         if "FROM operator_memory " in statement:
             assert parameters == ("resource", "resource", "resource-1", "resource-1")

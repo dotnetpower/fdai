@@ -498,11 +498,11 @@ class RuntimeProjectionReader:
         )
         publication_rows = await self._fetch_all(
             "SELECT COUNT(*) FILTER ("
-            "WHERE published_at IS NULL AND dead_lettered_at IS NULL"
+            "WHERE published_at IS NULL AND dead_lettered_at IS NULL AND available_at <= now()"
             ") AS pending, "
             "COUNT(*) FILTER (WHERE dead_lettered_at IS NOT NULL) AS dead_lettered, "
-            "MIN(available_at) FILTER ("
-            "WHERE published_at IS NULL AND dead_lettered_at IS NULL"
+            "MIN(created_at) FILTER ("
+            "WHERE published_at IS NULL AND dead_lettered_at IS NULL AND available_at <= now()"
             ") AS oldest_pending_at FROM forecast_publication_outbox"
         )
         if len(episode_rows) != 1 or len(publication_rows) != 1:
