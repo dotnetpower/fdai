@@ -34,6 +34,7 @@
     ],
     "diagram_ids": [
       "fdai-agent-driven-runtime",
+      "fdai-azure-aks-deployment",
       "fdai-azure-deployment-topology",
       "fdai-azure-resource-network-flow",
       "fdai-conceptual-control-loop",
@@ -399,6 +400,7 @@
     "derived_sources": [],
     "diagram_ids": [
       "fdai-agent-driven-runtime",
+      "fdai-azure-aks-deployment",
       "fdai-azure-deployment-topology",
       "fdai-azure-resource-network-flow",
       "fdai-conceptual-control-loop",
