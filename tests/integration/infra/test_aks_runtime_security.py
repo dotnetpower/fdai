@@ -86,3 +86,15 @@ def test_aks_baseline_uses_api_server_vnet_integration() -> None:
     assert "#trivy:ignore:AZU-0065" in cluster
     assert "checkov:skip=CKV_AZURE_115" in cluster
     assert "explicit authorized CIDRs, Entra RBAC, disabled local accounts" in cluster
+
+
+def test_aks_document_workloads_have_dedicated_substrate_roles() -> None:
+    root = (ROOT / "infra/main.tf").read_text(encoding="utf-8")
+    outputs = (ROOT / "infra/outputs.tf").read_text(encoding="utf-8")
+
+    assert 'resource "azurerm_role_assignment" "ingestion_aks_eventhubs_sender"' in root
+    assert 'resource "azurerm_role_assignment" "ingestion_worker_aks_eventhubs_receiver"' in root
+    assert 'module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]' in root
+    assert "ingestion = var.enable_document_ingestion ?" in outputs
+    assert "ingestion_worker = var.enable_document_ingestion" in outputs
+    assert 'output "document_storage_binding"' in outputs
