@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 57d3cf7dcb99c1de4aebae59b790190f0af60504
+translation_source_sha: e0bc8158116b237a34d3a734445bc9f28a4a63f6
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -331,16 +331,11 @@ quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로�
 5. rollback과 독립적으로 관측한 최종 증적을 보존합니다. 효과가 불명확하면 검증만 수행하며 같은
   적용을 다시 실행하지 않습니다.
 
-운영자의 현재 VM은 정확한 대상, 신원, 경로, DNS, TLS 및 백엔드 검사를 통과하면 실행 호스트로
-사용할 수 있습니다. 해당 VM의 VNet 피어링은 계획된 네트워크 효과이며 그 자체가 접근 근거는
-아닙니다.
-
-동일 구독 VNet에서 이미 실행 중인 운영자 호스트의 경우 `operator_access_vnets`로 기존 네트워크를
-선택하여 워크로드 VNet과 직접, 양방향, 비전이 피어링을 구성합니다. 선택한 각 VNet은
-`operator_private_dns_zones`로 지정한 권위 있는 영역에만 연결합니다.
-`operator_inventory_principal_ids`는 선택한 Managed Identity에만 구독 `Reader`를 부여하며 서비스
-데이터 플레인 역할은 부여하지 않습니다. 배포별 ID와 이름은 소스 제어 외부에 유지하고, 생성된
-플랜, 승인, DNS/TLS 검사 및 효과 확인은 계속 필요합니다.
+동일 구독 운영자 VNet에는 `operator_access_vnets`로 직접 비전이 피어링을 구성하고,
+`operator_private_dns_zones`로 DNS 연결을 제한하며, `operator_inventory_principal_ids`로 선택한
+Managed Identity에 구독 `Reader`만 부여합니다. 데이터 플레인 역할은 부여하지 않습니다.
+배포별 값은 소스 제어 외부에 유지합니다. 정확한 대상, 신원, 경로, DNS, TLS, 백엔드, 플랜, 승인 및
+효과 확인은 계속 필요하므로 피어링 자체는 접근 근거가 아닙니다.
 
 ## PostgreSQL 프로파일
 

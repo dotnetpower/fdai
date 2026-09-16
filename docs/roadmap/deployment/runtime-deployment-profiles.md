@@ -332,15 +332,8 @@ The exact plan orders changes to avoid losing access:
 5. Retain rollback and an independently observed terminal receipt. An ambiguous effect is
   verification-only and never triggers the same apply again.
 
-The operator's current VM may be the execution host when exact target, identity, route, DNS, TLS and
-backend checks pass. Peering that VM's VNet is a planned network effect, not evidence by itself.
-
-For an operator host already running in a same-subscription VNet, `operator_access_vnets` selects
-the existing networks that receive direct, bidirectional, non-transitive workload peering. Each
-selected VNet links only the authoritative zones supplied through `operator_private_dns_zones`.
-`operator_inventory_principal_ids` grants subscription `Reader` only to selected Managed
-Identities and grants no service data-plane role. Deployment-specific IDs and names remain outside
-source control, and the resulting plan, approval, DNS/TLS checks and effect readback remain required.
+For a same-subscription operator VNet, `operator_access_vnets` creates direct non-transitive peering, `operator_private_dns_zones` limits DNS links, and `operator_inventory_principal_ids` grants selected Managed Identities only subscription `Reader`, never data-plane roles.
+Deployment-specific values stay outside source control; exact target, identity, route, DNS, TLS, backend, plan, approval and effect-readback checks remain required, so peering alone is not access evidence.
 
 ## PostgreSQL profiles
 
