@@ -52,6 +52,7 @@ EXPECTED_DEPENDENCIES = {
         "alembic",
         "azure-core",
         "azure-identity",
+        "azure-monitor-opentelemetry",
         "croniter",
         "cryptography",
         "fdai-github-app-auth",

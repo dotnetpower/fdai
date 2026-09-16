@@ -483,18 +483,24 @@ class RuntimeProjectionReader:
         }
 
     async def _forecast_learning(self) -> Mapping[str, object]:
+        """Read due-cohort closure and scored outcomes without reclassifying them."""
         episode_rows = await self._fetch_all(
             "SELECT COUNT(*) AS total, "
-            "COUNT(*) FILTER (WHERE closed_at IS NOT NULL) AS closed, "
-            "COUNT(*) FILTER (WHERE closed_at IS NULL) AS open, "
-            "COUNT(*) FILTER (WHERE closed_at IS NULL AND closure_due_at < now()) AS overdue, "
-            "COUNT(*) FILTER (WHERE abstain_reason IS NOT NULL) AS abstained "
+            "COUNT(*) FILTER (WHERE state = 'closed') AS closed, "
+            "COUNT(*) FILTER (WHERE state = 'open') AS open, "
+            "COUNT(*) FILTER (WHERE state = 'open' AND closure_due_at < now()) AS overdue, "
+            "COUNT(*) FILTER (WHERE closure_due_at <= now()) AS due_total, "
+            "COUNT(*) FILTER (WHERE state = 'closed' "
+            "AND closure_due_at <= now()) AS due_closed, "
+            "COUNT(*) FILTER (WHERE evaluation_kind = 'abstained') AS abstained "
             "FROM forecast_episode"
         )
         outcome_rows = await self._fetch_all(
-            "SELECT COALESCE(closure_reason, 'closed') AS label, COUNT(*) AS count "
-            "FROM forecast_episode WHERE closed_at IS NOT NULL "
-            "GROUP BY COALESCE(closure_reason, 'closed') ORDER BY label"
+            "SELECT payload->>'label' AS label, payload->>'miss_origin' AS miss_origin, "
+            "COUNT(*) AS count FROM forecast_publication_outbox "
+            "WHERE topic = 'object.forecast-outcome' "
+            "GROUP BY payload->>'label', payload->>'miss_origin' "
+            "ORDER BY label, miss_origin NULLS FIRST"
         )
         publication_rows = await self._fetch_all(
             "SELECT COUNT(*) FILTER ("
@@ -514,6 +520,11 @@ class RuntimeProjectionReader:
         publication = publication_rows[0]
         total = _integer(episodes["total"], "forecast episode total")
         closed = _integer(episodes["closed"], "forecast closed count")
+        due_total = _integer(episodes["due_total"], "forecast due total")
+        due_closed = _integer(episodes["due_closed"], "forecast due closed count")
+        for row in outcome_rows:
+            if not isinstance(row["label"], str) or not row["label"].strip():
+                raise ProjectionUnavailableError("forecast outcome label is unavailable")
         return {
             "source": "postgresql:forecast_episode",
             "durable": True,
@@ -523,12 +534,12 @@ class RuntimeProjectionReader:
                 "open": _integer(episodes["open"], "forecast open count"),
                 "overdue": _integer(episodes["overdue"], "forecast overdue count"),
                 "abstained": _integer(episodes["abstained"], "forecast abstained count"),
-                "closure_completeness": closed / total if total else None,
+                "closure_completeness": due_closed / due_total if due_total else None,
             },
             "outcomes": [
                 {
                     "label": str(row["label"]),
-                    "miss_origin": None,
+                    "miss_origin": _optional_text(row["miss_origin"]),
                     "count": _integer(row["count"], "forecast outcome count"),
                 }
                 for row in outcome_rows
@@ -569,7 +580,11 @@ class RuntimeProjectionReader:
         compactions = await self._fetch_all(
             "SELECT candidate_id, scope_kind, scope_ref, category, body, source_refs, "
             "proposed_by_agent, state, reviewed_by, review_reason "
-            "FROM memory_compaction_candidate ORDER BY updated_at DESC, candidate_id LIMIT 100"
+            "FROM memory_compaction_candidate "
+            "WHERE (%s::text IS NULL OR scope_kind = %s) "
+            "AND (%s::text IS NULL OR scope_ref = %s) "
+            "ORDER BY updated_at DESC, candidate_id LIMIT 100",
+            (scope_kind, scope_kind, scope_ref, scope_ref),
         )
         now = datetime.now(UTC)
         items = []

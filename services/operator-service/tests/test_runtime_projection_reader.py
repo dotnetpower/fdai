@@ -703,9 +703,11 @@ async def test_remaining_console_evidence_projects_durable_tables(
                     "open": 0,
                     "overdue": 0,
                     "abstained": 0,
+                    "due_total": 0,
+                    "due_closed": 0,
                 }
             ]
-        if "GROUP BY COALESCE(closure_reason" in statement:
+        if "payload->>'label' AS label" in statement:
             return []
         if "FROM forecast_publication_outbox" in statement:
             return [{"pending": 0, "dead_lettered": 0, "oldest_pending_at": None}]
@@ -730,6 +732,7 @@ async def test_remaining_console_evidence_projects_durable_tables(
                 }
             ]
         if "FROM memory_compaction_candidate" in statement:
+            assert parameters == ("resource", "resource", "resource-1", "resource-1")
             return []
         if "FROM skill_source " in statement:
             return [
@@ -810,7 +813,17 @@ async def test_forecast_retention_does_not_replace_missing_or_malformed_evidence
         if "FROM operator_forecast_retention" in statement:
             return retention
         if "COUNT(*) AS total" in statement:
-            return [{"total": 0, "closed": 0, "open": 0, "overdue": 0, "abstained": 0}]
+            return [
+                {
+                    "total": 0,
+                    "closed": 0,
+                    "open": 0,
+                    "overdue": 0,
+                    "abstained": 0,
+                    "due_total": 0,
+                    "due_closed": 0,
+                }
+            ]
         if "GROUP BY" in statement:
             return []
         return [{"pending": 0, "dead_lettered": 0, "oldest_pending_at": None}]
@@ -822,6 +835,157 @@ async def test_forecast_retention_does_not_replace_missing_or_malformed_evidence
     )
     with pytest.raises(ProjectionUnavailableError):
         await reader.read(_query("forecast-learning"))
+
+
+@pytest.mark.parametrize(
+    ("due_total", "due_closed", "expected"),
+    ((5, 4, 0.8), (0, 0, None), (3, 0, 0.0)),
+)
+async def test_forecast_summary_uses_due_cohort_and_recorded_outcome_provenance(
+    monkeypatch: pytest.MonkeyPatch,
+    due_total: int,
+    due_closed: int,
+    expected: float | None,
+) -> None:
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        if "FROM forecast_episode" in statement:
+            assert "closure_reason" not in statement
+            assert "AS due_total" in statement
+            assert "AS due_closed" in statement
+            assert "closure_due_at <= now()" in statement
+            return [
+                {
+                    "total": 10,
+                    "closed": 4,
+                    "open": 6,
+                    "overdue": 1,
+                    "abstained": 2,
+                    "due_total": due_total,
+                    "due_closed": due_closed,
+                }
+            ]
+        if "FROM operator_forecast_retention" in statement:
+            return [{"pending": 0, "overdue": 0}]
+        assert "FROM forecast_publication_outbox" in statement
+        if "GROUP BY" in statement:
+            assert "topic = 'object.forecast-outcome'" in statement
+            assert "payload->>'miss_origin'" in statement
+            return [{"label": "false_negative", "miss_origin": "pipeline", "count": 1}]
+        return [{"pending": 0, "dead_lettered": 0, "oldest_pending_at": None}]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+    result = await reader.read(_query("forecast-learning"))
+    assert result["episodes"]["closure_completeness"] == expected
+    assert result["episodes"]["total"] == 10
+    assert result["episodes"]["closed"] == 4
+    assert result["outcomes"] == [
+        {"label": "false_negative", "miss_origin": "pipeline", "count": 1}
+    ]
+
+
+@pytest.mark.parametrize("label", (None, ""))
+async def test_forecast_summary_rejects_unlabeled_outcome_records(
+    monkeypatch: pytest.MonkeyPatch, label: str | None
+) -> None:
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        if "FROM forecast_episode" in statement:
+            return [
+                {
+                    "total": 1,
+                    "closed": 1,
+                    "open": 0,
+                    "overdue": 0,
+                    "abstained": 0,
+                    "due_total": 1,
+                    "due_closed": 1,
+                }
+            ]
+        if "GROUP BY" in statement:
+            return [{"label": label, "miss_origin": None, "count": 1}]
+        return [{"pending": 0, "dead_lettered": 0, "oldest_pending_at": None}]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+    with pytest.raises(ProjectionUnavailableError, match="outcome label"):
+        await reader.read(_query("forecast-learning"))
+
+
+@pytest.mark.parametrize(
+    ("scope_kind", "scope_ref"),
+    (
+        ("resource", "resource-example"),
+        ("resource-group", None),
+        (None, "group-example"),
+        (None, None),
+        ("resource", "resource'with-quote"),
+    ),
+)
+async def test_memory_scope_filters_entries_and_compactions_before_limit(
+    monkeypatch: pytest.MonkeyPatch,
+    scope_kind: str | None,
+    scope_ref: str | None,
+) -> None:
+    calls: list[str] = []
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        assert parameters == (scope_kind, scope_kind, scope_ref, scope_ref)
+        assert "WHERE (%s::text IS NULL OR scope_kind = %s)" in statement
+        assert "AND (%s::text IS NULL OR scope_ref = %s)" in statement
+        assert statement.index("WHERE ") < statement.index("LIMIT 100")
+        if scope_ref is not None:
+            assert scope_ref not in statement
+        calls.append(statement)
+        if "FROM operator_memory " in statement:
+            return []
+        assert "FROM memory_compaction_candidate " in statement
+        return [
+            {
+                "candidate_id": "candidate-example",
+                "scope_kind": scope_kind or "resource",
+                "scope_ref": scope_ref or "resource-example",
+                "category": "preference",
+                "body": "Prefer bounded evidence.",
+                "source_refs": ["memory-example"],
+                "proposed_by_agent": "Mimir",
+                "state": "pending",
+                "reviewed_by": None,
+                "review_reason": None,
+            }
+        ]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+    params = {}
+    if scope_kind is not None:
+        params["scope_kind"] = (scope_kind,)
+    if scope_ref is not None:
+        params["scope_ref"] = (scope_ref,)
+    result = await reader.read(_query("operator-memory", params=params))
+    assert len(calls) == 2
+    assert result["compactions"][0]["scope_kind"] == (scope_kind or "resource")
+    assert result["compactions"][0]["scope_ref"] == (scope_ref or "resource-example")
 
 
 @pytest.mark.parametrize(
