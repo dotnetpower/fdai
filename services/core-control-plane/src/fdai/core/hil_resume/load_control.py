@@ -287,6 +287,89 @@ class ApprovalLoadController:
         )
 
 
+class ApprovalExpiryReconciler:
+    """Terminalize expired approval parks without requiring a delivery channel."""
+
+    def __init__(
+        self,
+        *,
+        state_store: StateStore,
+        policy: ApprovalLoadPolicy,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
+        self._state_store = state_store
+        self._policy = policy
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
+
+    async def expire_due(self) -> int:
+        """Atomically terminalize expired pending parks across replicas."""
+        now = self._clock()
+        if now.tzinfo is None:
+            raise RuntimeError("approval expiry clock MUST be timezone-aware")
+        parks = await _read_all_state_pages(
+            self._state_store,
+            _PARK_PREFIX,
+            page_size=self._policy.scan_limit,
+        )
+        expired = 0
+        for park in parks:
+            if _expiry_due(park, now=now):
+                expired += await self._expire(park, now=now)
+        return expired
+
+    async def _expire(self, park: Mapping[str, Any], *, now: datetime) -> int:
+        approval_id = str(park.get("approval_id") or "")
+        if not approval_id:
+            return 0
+        contact_wait = park.get("status") == "awaiting_contact_consent"
+        revision_value = park.get("revision")
+        expected_revision = (
+            revision_value
+            if isinstance(revision_value, int) and not isinstance(revision_value, bool)
+            else 0
+        )
+        updated = dict(park)
+        updated.update(
+            {
+                "status": "resolved",
+                "decision": "timeout",
+                "approver_oid": (
+                    "system:contact-consent-expiry" if contact_wait else "system:approval-expiry"
+                ),
+                "resolved_at": now.isoformat(),
+                "revision": expected_revision + 1,
+            }
+        )
+        applied = await self._state_store.compare_and_set_state_with_audit(
+            f"{_PARK_PREFIX}{approval_id}",
+            updated,
+            expected_revision=expected_revision,
+            audit_entry=_audit(
+                kind=("hil.report_line.contact_consent_expired" if contact_wait else "hil.timeout"),
+                key=(
+                    f"{str(park.get('idempotency_key') or approval_id)}:"
+                    f"{'contact_consent_expired' if contact_wait else 'hil_timeout'}"
+                ),
+                approval_id=approval_id,
+                correlation_id=str(park.get("correlation_id") or approval_id),
+                detail={
+                    "reason": ("contact_consent_expired" if contact_wait else "approval_expired")
+                },
+                at=now,
+            ),
+        )
+        return int(applied)
+
+    async def run(self, stop: asyncio.Event) -> None:
+        """Reconcile approval expiry until runtime shutdown."""
+        while not stop.is_set():
+            await self.expire_due()
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=self._policy.worker_interval_seconds)
+            except TimeoutError:
+                continue
+
+
 class ApprovalReminderDispatcher:
     """Attempt each planned reminder at most once without changing approval state."""
 
@@ -304,88 +387,20 @@ class ApprovalReminderDispatcher:
         self._policy = policy
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._delivery_observer = delivery_observer
+        self._expiry = ApprovalExpiryReconciler(
+            state_store=state_store,
+            policy=policy,
+            clock=self._clock,
+        )
 
     async def expire_due(self) -> int:
-        """Atomically terminalize expired pending parks across replicas."""
-        now = self._clock()
-        if now.tzinfo is None:
-            raise RuntimeError("approval expiry clock MUST be timezone-aware")
-        parks = await _read_all_state_pages(
-            self._state_store,
-            _PARK_PREFIX,
-            page_size=self._policy.scan_limit,
-        )
-        expired = 0
-        for park in parks:
-            metadata = park.get("metadata")
-            workflow_managed = (
-                isinstance(metadata, Mapping) and metadata.get("decision_route") == "workflow"
-            )
-            status = park.get("status")
-            contact_wait = status == "awaiting_contact_consent"
-            if (
-                status not in {"pending", "awaiting_contact_consent"}
-                or workflow_managed
-                or not (
-                    _contact_consent_expired(park, now=now)
-                    if contact_wait
-                    else _park_expired(park, now=now)
-                )
-            ):
-                continue
-            approval_id = str(park.get("approval_id") or "")
-            if not approval_id:
-                continue
-            revision_value = park.get("revision")
-            expected_revision = (
-                revision_value
-                if isinstance(revision_value, int) and not isinstance(revision_value, bool)
-                else 0
-            )
-            updated = dict(park)
-            updated.update(
-                {
-                    "status": "resolved",
-                    "decision": "timeout",
-                    "approver_oid": (
-                        "system:contact-consent-expiry"
-                        if contact_wait
-                        else "system:approval-expiry"
-                    ),
-                    "resolved_at": now.isoformat(),
-                    "revision": expected_revision + 1,
-                }
-            )
-            applied = await self._state_store.compare_and_set_state_with_audit(
-                f"{_PARK_PREFIX}{approval_id}",
-                updated,
-                expected_revision=expected_revision,
-                audit_entry=_audit(
-                    kind=(
-                        "hil.report_line.contact_consent_expired" if contact_wait else "hil.timeout"
-                    ),
-                    key=(
-                        f"{str(park.get('idempotency_key') or approval_id)}:"
-                        f"{'contact_consent_expired' if contact_wait else 'hil_timeout'}"
-                    ),
-                    approval_id=approval_id,
-                    correlation_id=str(park.get("correlation_id") or approval_id),
-                    detail={
-                        "reason": (
-                            "contact_consent_expired" if contact_wait else "approval_expired"
-                        )
-                    },
-                    at=now,
-                ),
-            )
-            expired += int(applied)
-        return expired
+        """Preserve the existing direct expiry entry point for callers."""
+        return await self._expiry.expire_due()
 
     async def drain_due(self) -> int:
         now = self._clock()
         if now.tzinfo is None:
             raise RuntimeError("approval reminder clock MUST be timezone-aware")
-        await self.expire_due()
         plans = await _read_all_state_pages(
             self._state_store,
             _PLAN_PREFIX,
@@ -621,6 +636,18 @@ def _park_expired(parked: Mapping[str, Any], *, now: datetime) -> bool:
         return True
 
 
+def _expiry_due(parked: Mapping[str, Any], *, now: datetime) -> bool:
+    metadata = parked.get("metadata")
+    if isinstance(metadata, Mapping) and metadata.get("decision_route") == "workflow":
+        return False
+    status = parked.get("status")
+    if status == "pending":
+        return _park_expired(parked, now=now)
+    if status == "awaiting_contact_consent":
+        return _contact_consent_expired(parked, now=now)
+    return False
+
+
 def _contact_consent_expired(parked: Mapping[str, Any], *, now: datetime) -> bool:
     try:
         return (
@@ -690,6 +717,7 @@ def _audit(
 __all__ = [
     "ApprovalDispatchMode",
     "ApprovalLoadController",
+    "ApprovalExpiryReconciler",
     "ApprovalLoadPlan",
     "ApprovalLoadPolicy",
     "ApprovalLoadSnapshot",
