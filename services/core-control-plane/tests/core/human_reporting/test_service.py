@@ -416,6 +416,23 @@ async def test_cycle_is_rejected_before_second_edge_activates() -> None:
         )
 
 
+async def test_graph_accepts_more_than_thirty_two_independent_edges() -> None:
+    service = ReportingLineService(InMemoryStateStore())
+
+    for index in range(40):
+        candidate = _candidate(f"person-{index:02d}", f"manager-{index:02d}")
+        await _activate(
+            service,
+            artifact=_artifact(candidate),
+            candidate_id=candidate.candidate_id,
+            confirmer=f"person-{index:02d}",
+            owner=f"owner-{index:02d}",
+        )
+
+    graph = await service.current_graph(at=NOW + timedelta(minutes=3))
+    assert len(graph.edges) == 40
+
+
 async def test_concurrent_reviews_cannot_activate_two_primary_managers() -> None:
     service = ReportingLineService(InMemoryStateStore())
     first_candidate = _candidate("person-a", "person-b")

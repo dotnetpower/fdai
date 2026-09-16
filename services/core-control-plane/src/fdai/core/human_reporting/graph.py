@@ -106,9 +106,23 @@ def build_reporting_graph(
         observed_at=observed_at,
         edges=edges,
     )
-    for subject in by_subject:
-        snapshot.manager_chain(subject, maximum_depth=max(1, len(edges)))
+    _assert_acyclic(by_subject)
     return snapshot
+
+
+def _assert_acyclic(by_subject: dict[str, ReportingLineCase]) -> None:
+    complete: set[str] = set()
+    for subject in by_subject:
+        if subject in complete:
+            continue
+        chain: set[str] = set()
+        current = subject
+        while current in by_subject and current not in complete:
+            if current in chain:
+                raise ReportingLineModelError("reporting-line graph contains a cycle")
+            chain.add(current)
+            current = by_subject[current].manager_ref
+        complete.update(chain)
 
 
 def _graph_revision(edges: tuple[ReportingGraphEdge, ...]) -> str:

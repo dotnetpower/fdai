@@ -133,6 +133,9 @@ A current graph revision is accepted only when it has:
 - a complete confirmation and Owner-review chain;
 - unexpired source and directory evidence.
 
+Whole-graph cycle detection is independent of the number of edges. The bounded traversal depth
+applies when resolving one requester's approval path, not as an organization-size limit.
+
 Changing or expiring an edge creates a new revision. Pending approval requests retain the revision
 and path digest they were created from. A changed graph causes a fresh route decision instead of
 silently reusing the old path.

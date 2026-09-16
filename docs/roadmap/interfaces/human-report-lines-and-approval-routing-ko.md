@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 9a19218176cdea71b45f841c60c7b626912f9905
+translation_source_sha: 5f5da65d3c87750c3bcdaa69189adf260597d6fb
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -126,6 +126,9 @@ Edge는 `unresolved`, `conflict`, `rejected`, `expired` 또는 `superseded` 상�
 - 탐색 깊이가 제한됩니다.
 - 확인과 Owner 검토 체인이 완전합니다.
 - 원본 및 디렉터리 근거가 만료되지 않았습니다.
+
+전체 그래프 순환 감지는 edge 수와 독립적입니다. 제한된 탐색 깊이는 조직 크기 제한이 아니라
+개별 요청자의 승인 경로를 해석할 때 적용합니다.
 
 Edge가 변경되거나 만료되면 새 리비전을 만듭니다. 대기 중인 승인 요청은 생성 당시의 리비전과
 경로 다이제스트를 유지합니다. 그래프가 바뀌면 이전 경로를 조용히 재사용하지 않고 새 라우팅
