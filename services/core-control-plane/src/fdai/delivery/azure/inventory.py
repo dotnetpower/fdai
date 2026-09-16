@@ -72,6 +72,8 @@ from fdai.shared.providers.inventory import (
 
 _DEFAULT_MAX_CONCURRENT_QUERIES: Final[int] = 4
 _DEFAULT_MAX_DELTA_PAGES: Final[int] = 64
+InventoryShardObserver = Callable[[int, int, int, int], Awaitable[object]]
+InventorySourceObserver = Callable[[], Awaitable[object]]
 
 
 # Injected async callable: given a resource_type, return the batch of
@@ -197,6 +199,8 @@ class AzureResourceGraphInventory:
         unmapped_resources: UnmappedResourceQueryFn | None = None,
         generation_relationships: GenerationRelationshipFn | None = None,
         delta_fetch: ActivityLogFetchFn | None = None,
+        shard_observer: InventoryShardObserver | None = None,
+        source_observer: InventorySourceObserver | None = None,
     ) -> None:
         if config.max_concurrent_queries < 1:
             raise ValueError("AzureInventoryConfig.max_concurrent_queries MUST be >= 1")
@@ -210,6 +214,8 @@ class AzureResourceGraphInventory:
         self._unmapped_resources = unmapped_resources
         self._generation_relationships = generation_relationships
         self._delta_fetch = delta_fetch
+        self._shard_observer = shard_observer
+        self._source_observer = source_observer
 
     # ------------------------------------------------------------------
     # Inventory Protocol
@@ -228,6 +234,9 @@ class AzureResourceGraphInventory:
         optimization; it MUST NOT substitute for :meth:`delta`.
         """
         del since  # reserved (see docstring)
+
+        if self._source_observer is not None:
+            await self._source_observer()
 
         semaphore = asyncio.Semaphore(self._config.max_concurrent_queries)
 
@@ -289,7 +298,15 @@ class AzureResourceGraphInventory:
         try:
             completed: list[InventoryBatch] = []
             for coro in asyncio.as_completed(tasks):
-                completed.append(await coro)
+                batch = await coro
+                completed.append(batch)
+                if self._shard_observer is not None:
+                    await self._shard_observer(
+                        len(batch.resources),
+                        len(batch.links),
+                        0,
+                        len(batch.relationship_drops),
+                    )
                 yield InventoryBatch()
             provider_scope_coverage = await coverage_task if coverage_task is not None else None
             if coverage_task is not None:
@@ -307,6 +324,13 @@ class AzureResourceGraphInventory:
                     or unmapped_batch.relationship_drops
                 ):
                     completed.append(unmapped_batch)
+                if self._shard_observer is not None:
+                    await self._shard_observer(
+                        len(unmapped_batch.resources),
+                        len(unmapped_batch.links),
+                        len(unmapped_batch.resources),
+                        len(unmapped_batch.relationship_drops),
+                    )
                 yield InventoryBatch()
         except BaseException:
             # Fail-closed: cancel outstanding shards so a partial snapshot

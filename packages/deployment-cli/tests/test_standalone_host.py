@@ -1030,6 +1030,60 @@ def test_standalone_migration_uses_interpreter_for_private_bundle_script(
     assert result["state"] == "migrated"
 
 
+def test_initial_inventory_runs_full_scope_with_private_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle = tmp_path / "bundle"
+    infra = bundle / "infra"
+    infra.mkdir(parents=True)
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    for name in ("migration-receipt.json", "application-receipt.json"):
+        (work_dir / name).write_text("{}", encoding="utf-8")
+    context = {
+        "infra": str(infra),
+        "source_commit": "c" * 40,
+        "subscription_id": "00000000-0000-0000-0000-000000000001",
+        "client_id": "00000000-0000-0000-0000-000000000002",
+        "inventory_progress_container_url": (
+            "https://storage.blob.core.windows.net/provisioning-events"
+        ),
+    }
+    observed_environment: dict[str, str] = {}
+
+    monkeypatch.setattr(standalone_host, "_private_json", lambda *_: context)
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(standalone_host, "_terraform_output", lambda *_: "unused")
+    monkeypatch.setattr(standalone_host, "_vault_name", lambda *_: "vault")
+    monkeypatch.setattr(standalone_host, "_capture", lambda *_args, **_kwargs: "dsn")
+    monkeypatch.setattr(
+        standalone_host,
+        "_capture_env",
+        lambda *_args, **_kwargs: json.dumps(
+            {
+                "observer_distinct": True,
+                "active_generation_matches": True,
+                "provider_coverage_complete": True,
+                "receipt_digest": "sha256:" + "a" * 64,
+            }
+        ),
+    )
+
+    def run_env(_command: tuple[str, ...], **kwargs: object) -> None:
+        observed_environment.update(kwargs["env"])  # type: ignore[arg-type]
+
+    monkeypatch.setattr(standalone_host, "_run_env", run_env)
+    monkeypatch.setattr(standalone_host, "_replace_private_json", lambda *_: None)
+
+    result = standalone_host._initial_inventory(SimpleNamespace(), work_dir)
+
+    assert observed_environment["FDAI_INVENTORY_SCOPES"] == context["subscription_id"]
+    assert observed_environment["FDAI_INVENTORY_SOURCES"] == "arg,arm"
+    assert observed_environment["FDAI_INVENTORY_PROGRESS_CONTAINER_URL"].startswith("https://")
+    assert result["active_generation_readback_verified"] is True
+    assert result["subscription_ready"] is False
+
+
 def test_private_service_migration_launcher_runs_through_fixed_interpreter(
     tmp_path: Path,
 ) -> None:

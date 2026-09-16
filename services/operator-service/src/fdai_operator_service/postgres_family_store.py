@@ -243,6 +243,13 @@ SELECT (
     AND NOT has_table_privilege(current_user, 'inventory_active', 'TRUNCATE')
     AND NOT has_table_privilege(current_user, 'inventory_active', 'REFERENCES')
     AND NOT has_table_privilege(current_user, 'inventory_active', 'TRIGGER')
+    AND has_table_privilege(current_user, 'inventory_progress_event', 'SELECT')
+    AND NOT has_table_privilege(current_user, 'inventory_progress_event', 'INSERT')
+    AND NOT has_table_privilege(current_user, 'inventory_progress_event', 'UPDATE')
+    AND NOT has_table_privilege(current_user, 'inventory_progress_event', 'DELETE')
+    AND NOT has_table_privilege(current_user, 'inventory_progress_event', 'TRUNCATE')
+    AND NOT has_table_privilege(current_user, 'inventory_progress_event', 'REFERENCES')
+    AND NOT has_table_privilege(current_user, 'inventory_progress_event', 'TRIGGER')
     AND has_table_privilege(current_user, 'inventory_realtime_resource', 'SELECT')
     AND NOT has_table_privilege(current_user, 'inventory_realtime_resource', 'INSERT')
     AND NOT has_table_privilege(current_user, 'inventory_realtime_resource', 'UPDATE')
@@ -2829,7 +2836,53 @@ class PostgresFamilyStore:
                 after_sequence=after_sequence,
                 limit=limit,
             )
-        if stream.startswith("read-investigation:"):
+        if stream == "provision":
+            rows = await self._fetch_all(
+                """
+                SELECT event_id AS seq,
+                       'provision.progress' AS action_kind,
+                       jsonb_build_object(
+                           'type', 'provision.progress',
+                           'fraction', (payload->>'fraction')::DOUBLE PRECISION,
+                           'ts', payload->>'last_progress_at',
+                           'run_id', payload->>'run_id',
+                           'attempt_id', payload->>'attempt_id',
+                           'sequence', (payload->>'sequence')::BIGINT,
+                           'state', payload->>'state',
+                           'current_stage', payload->>'stage',
+                           'reason_code', payload->'reason_code',
+                           'inventory', jsonb_build_object(
+                               'resources_observed',
+                                   (payload->>'resources_observed')::BIGINT,
+                               'resources_expected',
+                                   (payload->>'resources_expected')::BIGINT,
+                               'pages_completed',
+                                   (payload->>'pages_completed')::BIGINT,
+                               'pages_expected',
+                                   (payload->>'pages_expected')::BIGINT,
+                               'provider_types_completed',
+                                   (payload->>'provider_types_completed')::BIGINT,
+                               'provider_types_total',
+                                   (payload->>'provider_types_total')::BIGINT,
+                               'links_observed',
+                                   (payload->>'links_observed')::BIGINT,
+                               'unmapped_objects',
+                                   (payload->>'unmapped_objects')::BIGINT,
+                               'coverage_gaps',
+                                   (payload->>'coverage_gaps')::BIGINT
+                           )
+                       ) AS entry
+                  FROM inventory_progress_event
+                 WHERE event_id > %(after_sequence)s
+                 ORDER BY event_id ASC
+                 LIMIT %(limit)s
+                """,
+                {
+                    "after_sequence": after_sequence or 0,
+                    "limit": limit,
+                },
+            )
+        elif stream.startswith("read-investigation:"):
             rows = await self._fetch_all(
                 """
                 SELECT sequence AS seq, event AS action_kind, data AS entry

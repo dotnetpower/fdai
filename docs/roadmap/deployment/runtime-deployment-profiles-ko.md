@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 0333e2b30bc02bbf9fde15de842720b42b695c6c
+translation_source_sha: a8b55b51f16db5eb5c6e8198bba31b2decda880c
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -93,6 +93,11 @@ $$
 부팅하고 Foundation 단계에서 체크섬으로 고정된 도구 체인을 설치합니다. 전용 Managed Host
 이미지를 만들거나 요구하지 않습니다. 초기 구성 산출물을 내려받을 수 없는 아티팩트 오프라인
 배포는 별도로 검증된 사전 준비 호스트 이미지를 선택할 수 있습니다.
+애플리케이션 수렴 후 Managed Host는 명시적인 `--initial` 모드로 Core 인벤토리 진입점을 호출해
+반복 실행의 예정 시각 게이트만 우회합니다. 이미 인증된 배포 신원으로 전체 구독 ARG/ARM 읽기와
+변경 불가 진행률 기록을 수행한 뒤 별도의 읽기 전용 종결 프로세스를 시작합니다. 반복 런타임
+일정과 워크로드 신원은 바뀌지 않으며 부트스트랩 경로는 인벤토리 워크로드에 지속적인 배포
+권한을 부여하지 않습니다.
 
 Foundation의 선택 입력 `application_workload`는 AKS 프로파일을 바꾸지 않고 새 애플리케이션
 그룹 이름을 운영 리소스 이름과 분리합니다. 기존 그룹의 소유권을 부여하지는 않으며, 부분 상태

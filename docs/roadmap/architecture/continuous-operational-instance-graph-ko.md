@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 43e982d766fd15f9de74e372a52fc0f326668d54
-translation_revised: 2026-09-15
+translation_source_sha: e13c31fc10c65f7be3e2af221dc48767eec10cd0
+translation_revised: 2026-09-16
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -221,6 +221,11 @@ UUID, 리소스 그룹 세그먼트, 프로바이더 경로 및 마지막 앱 �
 대체하지 않습니다.
 
 지속형은 끝나지 않는 프로세스가 아니라 수집에 항상 durable한 다음 작업이 있음을 뜻합니다. 이벤트 소비자는 활성 상태를 유지하고 safe-to-retry cursor 및 reconciliation 작업은 진행 상황을 저장합니다.
+완전한 조정은 별도의 개수 전용 진행 체인도 내보냅니다. 페이지 및 프로바이더 유형 콜백은
+프로바이더 식별자 없이 절대 카운터를 직렬화합니다. PostgreSQL은 현재 투영을 소유하고 선택적
+비공개 Blob 사본은 변경 불가 부트스트랩 근거로만 사용합니다. 이 체인은 스냅샷 권위를 바꾸지
+않습니다. 별도의 읽기 전용 종결기가 모든 다이제스트 연결과 정확한 활성 세대를 검증한 뒤에만
+100% 최종 레코드를 추가할 수 있습니다.
 명시적으로 요청한 one-shot Inventory 실행은 `FDAI_INVENTORY_OPERATOR_REQUESTED=1`을 설정해
 adaptive scheduler의 기존 operator 우선순위를 활성화할 수 있습니다. 원본이 정상이고 활성
 수집이 없을 때만 즉시 수집하며 provider pressure, backoff, throttling, circuit 상태 및 모든
