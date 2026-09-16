@@ -468,6 +468,7 @@ class ActionProposalClaim:
     claim_id: str
     principal_id: str
     payload: Mapping[str, object]
+    accepted_at: str
     attempt: int
 
 
@@ -1806,6 +1807,7 @@ class PostgresFamilyStore:
         principal_id: str | None,
         idempotency_key: str,
         payload: Mapping[str, object],
+        accepted_at: datetime | None = None,
     ) -> StoredProposal:
         """Atomically persist a typed proposal and return its durable outbox receipt."""
         request = {
@@ -1817,14 +1819,17 @@ class PostgresFamilyStore:
         }
         request_digest = _digest(request)
         proposal_id = f"operator-{request_digest[:32]}"
-        accepted_at = datetime.now(UTC).isoformat()
+        accepted_at_value = accepted_at or datetime.now(UTC)
+        if accepted_at_value.tzinfo is None or accepted_at_value.utcoffset() is None:
+            raise ValueError("proposal accepted_at MUST be timezone-aware")
+        accepted_at_text = accepted_at_value.isoformat()
         record: dict[str, object] = {
             "kind": "operator.proposal",
             "proposal_id": proposal_id,
             "request_digest": request_digest,
             "dispatch_status": "pending",
             "mode": "shadow",
-            "accepted_at": accepted_at,
+            "accepted_at": accepted_at_text,
             **request,
         }
         key = _proposal_key(family, idempotency_key)
@@ -1842,6 +1847,33 @@ class PostgresFamilyStore:
             proposal_id=stored_id,
             accepted_at=stored_at,
             duplicate=not inserted,
+            record=stored,
+        )
+
+    async def read_proposal(
+        self,
+        *,
+        family: str,
+        idempotency_key: str,
+    ) -> StoredProposal | None:
+        """Read one existing durable proposal without creating a replacement."""
+
+        key = _proposal_key(family, idempotency_key)
+        rows = await self._fetch_all(
+            "SELECT value FROM state_kv WHERE key = %(key)s LIMIT 1",
+            {"key": key},
+        )
+        if not rows:
+            return None
+        stored = _json_object(rows[0].get("value"), label="Operator proposal")
+        proposal_id = stored.get("proposal_id")
+        accepted_at = stored.get("accepted_at")
+        if not isinstance(proposal_id, str) or not isinstance(accepted_at, str):
+            raise PostgresFamilyStoreUnavailable("stored Operator proposal receipt is malformed")
+        return StoredProposal(
+            proposal_id=proposal_id,
+            accepted_at=accepted_at,
+            duplicate=True,
             record=stored,
         )
 
@@ -2203,11 +2235,13 @@ class PostgresFamilyStore:
         value = _json_object(rows[0].get("value"), label="action proposal claim")
         principal_id = value.get("principal_id")
         payload = value.get("payload")
+        accepted_at = value.get("accepted_at")
         attempt = value.get("attempt")
         if (
             not isinstance(key, str)
             or not isinstance(principal_id, str)
             or not isinstance(payload, Mapping)
+            or not isinstance(accepted_at, str)
             or not isinstance(attempt, int)
             or isinstance(attempt, bool)
         ):
@@ -2217,6 +2251,7 @@ class PostgresFamilyStore:
             claim_id=str(value.get("claim_id") or claim_id),
             principal_id=principal_id,
             payload=dict(payload),
+            accepted_at=accepted_at,
             attempt=attempt,
         )
 
@@ -2701,7 +2736,6 @@ class PostgresFamilyStore:
                          WHERE request.value ->> 'kind' = 'operator.semantic_turn'
                              AND result.value ->> 'kind' = 'operator.semantic_result'
                              AND request.value ->> 'principal_id' = %(principal_id)s
-                             AND result.value ->> 'principal_id' = %(principal_id)s
                AND result.value ->> 'request_id' = %(request_id)s
                AND result.value ->> 'projection_id' = %(projection_id)s
                              AND result.value #>> '{data,status}' = 'action_draft'
@@ -2714,6 +2748,42 @@ class PostgresFamilyStore:
             },
         )
         return None if not rows else _json_object(rows[0].get("data"), label="action draft")
+
+    async def read_semantic_action_draft_by_key(
+        self,
+        *,
+        principal_id: str,
+        idempotency_key: str,
+    ) -> dict[str, object] | None:
+        """Read one exact principal-owned action draft by its opaque browser key."""
+
+        rows = await self._fetch_all(
+            """
+            SELECT result.value -> 'data' AS data
+              FROM state_kv AS request
+              JOIN state_kv AS result
+                ON result.value ->> 'request_id' = request.value ->> 'request_id'
+             WHERE request.value ->> 'kind' = 'operator.semantic_turn'
+               AND result.value ->> 'kind' = 'operator.semantic_result'
+               AND request.value ->> 'principal_id' = %(principal_id)s
+               AND request.value ->> 'idempotency_key' = %(idempotency_key)s
+               AND result.value #>> '{data,idempotency_key}' = %(idempotency_key)s
+               AND result.value #>> '{data,status}' = 'action_draft'
+             ORDER BY result.key
+             LIMIT 2
+            """,
+            {
+                "principal_id": principal_id,
+                "idempotency_key": idempotency_key,
+            },
+        )
+        if len(rows) > 1:
+            raise PostgresFamilyStoreUnavailable(
+                "authoritative semantic action draft identity is ambiguous"
+            )
+        return (
+            None if not rows else _json_object(rows[0].get("data"), label="semantic action draft")
+        )
 
     async def claim_semantic_turn(
         self,
@@ -3165,8 +3235,18 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
         principal_id: str | None,
         idempotency_key: str,
         payload: Mapping[str, object],
+        accepted_at: datetime | None = None,
     ) -> StoredProposal:
-        del family, operation, principal_id, idempotency_key, payload
+        del family, operation, principal_id, idempotency_key, payload, accepted_at
+        raise PostgresFamilyStoreUnavailable("proposal outbox is unavailable")
+
+    async def read_proposal(
+        self,
+        *,
+        family: str,
+        idempotency_key: str,
+    ) -> StoredProposal | None:
+        del family, idempotency_key
         raise PostgresFamilyStoreUnavailable("proposal outbox is unavailable")
 
     async def append_revisioned_proposal(

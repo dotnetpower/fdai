@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 28e1bf0f2949c23af152b82ced95920614a03af9
-translation_revised: 2026-09-15
+translation_source_sha: b12e9fd9e1343b47e879efb05c36fd87ca63d461
+translation_revised: 2026-09-16
 ---
 # 온톨로지 구조 모델
 
@@ -444,6 +444,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 구조 설계와 호환성 | implemented | 이 문서 쌍, `design-routes.json`, 로드맵 인덱스, 코드 맵, 집중 문서 검사 | 추가 모델은 기존 Resource, ResourceType, 직접 링크 아이덴티티, 저장 방향, 과거 선언을 보존합니다. |
+| 의미 기반 인시던트 초안 경계 | implemented | `semantic_incident_creation.py`, `semantic_turn_processor.py`, 타입이 지정된 인시던트 생성 계약, 집중 의미 기반 계획 및 변환 결과 검사 | 수락된 인시던트 생성 판정은 심각도 하나, 대상 하나, 의미 기반 입력 다이제스트를 권한 없는 후보 초안에 보존합니다. 쿼리를 실행하거나 온톨로지 관계를 추론하거나 변경 권한을 부여하지 않습니다. |
 | ResourceClass 카탈로그와 변환 결과 | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType 및 멤버 자격/특수화 선언, 카탈로그 변환 결과, 클로저 증적, 집중 카탈로그 검사 | 검토된 클래스 11개가 직접 멤버 자격 112개와 범위가 제한된 특수화 링크 11개를 통해 중립 ResourceType 112개를 모두 변환합니다. 클로저는 명시적 id만 사용하고 권한을 부여하지 않습니다. |
 | 순서가 있는 형식화된 경로 쿼리 | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, 결정적 검증기, 보안 적용 handler, composition binding, 집중 쿼리 검사 | 기존 v1 탐색은 LinkType 하나만 받습니다. 형식화된 경로는 방향이 고정된 단계 1-8개를 실행하고 불완전한 중간 근거에서 보류합니다. |
 | 링크 역할과 의미 특성 | implemented | 공유 LinkType 계약 및 스키마, 쿼리 매니페스트, 검토된 런타임 선언 7개와 분류 선언 2개, 카탈로그 테스트 | 선택적인 빈 필드는 기존 provenance를 보존합니다. 검토된 필드는 역방향 edge나 표현 레이아웃을 만들지 않습니다. |
@@ -551,6 +552,8 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 44 | 복합 프로바이더 상태 색조 | `NotAvailable`이 긍정 상태인 `available` 부분 문자열과 일치해 성공으로 표시될 수 있던 Medium 결함을 해결했습니다. | 준비, 사용 가능, 정상, 활성, 실행 중 및 성공 상태의 음성 표현을 긍정 토큰보다 먼저 평가하며 집중 상태 색조 회귀 검사를 통과합니다. |
 | 45 | 로컬 준비 출처 일치 | Kubernetes를 활성화한 전체 스택 준비가 예약 인벤토리 작성기가 복구할 때까지 `kubernetes_source_unconfigured`를 승격하던 Medium 결함을 해결했습니다. | 권위 있는 새로 고침은 이제 검증된 인벤토리 조합 도우미를 재사용하며, 집중 배선 검사는 하드코딩된 사용 불가 보강기를 차단합니다. |
 | 46 | 보강 기준 시점의 단조 증가 | 수락한 Kubernetes 근거의 `observed_at`이 승격된 세대 기준 시점보다 늦을 수 있던 Medium 시간 순서 결함을 해결했습니다. | 성공한 보강은 `recorded_at`을 뒤로 이동하지 않으면서 가장 최근에 수락한 출처 관측 시점까지 전진시키며, 집중 회귀 검사가 1초 경계 사례를 고정합니다. |
+
+| 2026-09-16 | implemented | 온톨로지 쿼리와 근거 경계를 유지하면서 Console 확인 경로에 필요한 타입이 지정된 의미 기반 인시던트 초안 변환 결과를 추가했습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 의미 기반 계획 및 변환 결과 테스트. | 인증된 요청부터 인시던트까지의 근거는 별도로 보존해야 합니다. 온톨로지 런타임 상태 또는 ActionType 승격은 변경하지 않았습니다. |
 
 ### 남은 작업
 

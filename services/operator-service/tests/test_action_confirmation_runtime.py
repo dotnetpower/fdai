@@ -72,6 +72,7 @@ def _claim(*, actor_ref: str = "operator:operator-one") -> ActionProposalClaim:
                 "ontology_intent": _intent(actor_ref=actor_ref),
             },
         },
+        accepted_at="2026-09-16T02:05:00+00:00",
         attempt=1,
     )
 
@@ -223,6 +224,7 @@ async def test_store_claim_uses_generic_proposal_dispatch_fields(
                 "value": {
                     "principal_id": "operator-one",
                     "payload": _claim().payload,
+                    "accepted_at": "2026-09-16T02:05:00+00:00",
                     "attempt": 1,
                 },
             }
@@ -334,7 +336,7 @@ async def test_store_source_lookup_requires_principal_owned_request(
     assert source == {"status": "action_draft"}
     assert "result.value -> 'data' AS data" in statements[0]
     assert "request.value ->> 'principal_id' = %(principal_id)s" in statements[0]
-    assert "result.value ->> 'principal_id' = %(principal_id)s" in statements[0]
+    assert "result.value ->> 'principal_id'" not in statements[0]
     assert "result.value ->> 'request_id' = %(request_id)s" in statements[0]
     assert "result.value ->> 'projection_id' = %(projection_id)s" in statements[0]
     assert "result.value #>> '{data,status}' = 'action_draft'" in statements[0]

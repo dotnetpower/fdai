@@ -1,4 +1,4 @@
-"""Durable action-confirmation publication into the governed Core ingress."""
+"""Durable action-confirmation publication into governed Core ingress."""
 
 from __future__ import annotations
 
@@ -8,8 +8,18 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
-from fdai_service_contracts.action_intent import ActionIntentSource, OntologyActionIntent
+from fdai_service_contracts.action_intent import ActionIntentSource
+from fdai_service_contracts.incident_creation import (
+    INCIDENT_CREATE_ACTION_TYPE,
+    INCIDENT_CREATION_REQUEST_TOPIC,
+)
 
+from fdai_operator_service.action_confirmation_source import (
+    validate_action_confirmation_source,
+)
+from fdai_operator_service.incident_creation_confirmation import (
+    incident_creation_request_from_claim,
+)
 from fdai_operator_service.postgres_family_store import PostgresFamilyStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,11 +43,13 @@ class ActionConfirmationOutboxDrainer:
     store: PostgresFamilyStore
     publisher: ActionEventPublisher
     topic: str
+    incident_topic: str = INCIDENT_CREATION_REQUEST_TOPIC
     worker_id: str = "operator-action-confirmation"
     lease_seconds: int = 120
 
     async def run_once(self) -> bool:
         """Publish at most one confirmation and release any failed attempt."""
+
         claim = await self.store.claim_action_proposal(
             worker_id=self.worker_id,
             lease_seconds=self.lease_seconds,
@@ -59,12 +71,23 @@ class ActionConfirmationOutboxDrainer:
             )
             if source is None:
                 raise ValueError("action confirmation source is unavailable")
-            event = _action_event(
-                claim.payload,
-                principal_id=claim.principal_id,
-                source_projection=source,
-            )
-            await self.publisher.publish(self.topic, str(event["idempotency_key"]), event)
+            if body.get("action_type") == INCIDENT_CREATE_ACTION_TYPE:
+                request = incident_creation_request_from_claim(
+                    claim,
+                    source_projection=source,
+                )
+                await self.publisher.publish(
+                    self.incident_topic,
+                    request.target_ref,
+                    request.model_dump(mode="json"),
+                )
+            else:
+                event = _action_event(
+                    claim.payload,
+                    principal_id=claim.principal_id,
+                    source_projection=source,
+                )
+                await self.publisher.publish(self.topic, str(event["idempotency_key"]), event)
         except ValueError:
             await self.store.mark_action_proposal_rejected(
                 key=claim.key,
@@ -85,7 +108,7 @@ class ActionConfirmationOutboxDrainer:
 
 
 class ActionConfirmationBridge:
-    """Run the durable action-confirmation drainer with application lifecycle ownership."""
+    """Run the durable action-confirmation drainer with lifecycle ownership."""
 
     def __init__(
         self,
@@ -93,22 +116,30 @@ class ActionConfirmationBridge:
         store: PostgresFamilyStore,
         publisher: ActionEventPublisher,
         topic: str,
+        incident_topic: str = INCIDENT_CREATION_REQUEST_TOPIC,
         retry_seconds: float = 1.0,
     ) -> None:
         if not topic.strip():
             raise ValueError("action event topic MUST be non-empty")
         if retry_seconds <= 0:
             raise ValueError("action retry_seconds MUST be positive")
-        self._drainer = ActionConfirmationOutboxDrainer(store, publisher, topic)
+        self._drainer = ActionConfirmationOutboxDrainer(
+            store,
+            publisher,
+            topic,
+            incident_topic=incident_topic,
+        )
         self._retry_seconds = retry_seconds
         self._task: asyncio.Task[None] | None = None
 
     def workers_ready(self) -> bool:
         """Report whether the configured drainer remains active."""
+
         return self._task is not None and not self._task.done()
 
     async def start(self) -> None:
         """Start the single action outbox worker once."""
+
         if self._task is None:
             self._task = asyncio.create_task(
                 self._run(),
@@ -117,6 +148,7 @@ class ActionConfirmationBridge:
 
     async def aclose(self) -> None:
         """Cancel and join the action outbox worker."""
+
         task, self._task = self._task, None
         if task is not None:
             task.cancel()
@@ -130,36 +162,6 @@ class ActionConfirmationBridge:
                 _LOGGER.warning("action_confirmation_drainer_retrying", exc_info=True)
                 published = False
             await asyncio.sleep(0 if published else self._retry_seconds)
-
-
-def validate_action_confirmation_source(
-    body: Mapping[str, object],
-    source_projection: Mapping[str, object],
-    *,
-    principal_id: str,
-) -> OntologyActionIntent:
-    """Require one exact durable action draft owned by the authenticated principal."""
-    intent = OntologyActionIntent.model_validate(body.get("ontology_intent"))
-    request_id = body.get("request_id")
-    projection_id = body.get("projection_id")
-    idempotency_key = body.get("idempotency_key")
-    session_id = body.get("session_id")
-    semantic_result = source_projection.get("semantic_result")
-    if not isinstance(semantic_result, Mapping):
-        raise ValueError("semantic action draft source is malformed")
-    source_intent = OntologyActionIntent.model_validate(semantic_result.get("action_intent"))
-    if (
-        intent.actor_ref != f"operator:{principal_id}"
-        or source_intent != intent
-        or source_projection.get("request_id") != request_id
-        or source_projection.get("projection_id") != projection_id
-        or source_projection.get("idempotency_key") != idempotency_key
-        or source_projection.get("status") != "action_draft"
-        or semantic_result.get("disposition") != "action_draft"
-        or semantic_result.get("session_id") != session_id
-    ):
-        raise ValueError("action confirmation does not match its durable semantic source")
-    return intent
 
 
 def _action_event(

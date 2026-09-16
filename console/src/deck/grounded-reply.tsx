@@ -36,7 +36,11 @@ import type {
   SemanticProjectionReceipt,
   VerificationProgress,
 } from "./backend";
-import { confirmActionDraft, renderActionResult } from "./backend";
+import {
+  actionConfirmationCanRetry,
+  confirmActionDraft,
+  renderActionResult,
+} from "./backend";
 import { presentationArtifactSupersedesText } from "./presentation-artifact";
 import { RichContent } from "./rich-content";
 import { openDeckWithContext, type DeckOpenDetail } from "./open-deck";
@@ -208,7 +212,7 @@ export function GroundedReply({
     setDraftState("submitting");
     const result = await confirmActionDraft(actionDraft);
     setDraftResult(renderActionResult(result));
-    setDraftState("done");
+    setDraftState(actionConfirmationCanRetry(result) ? "idle" : "done");
   };
 
   return (

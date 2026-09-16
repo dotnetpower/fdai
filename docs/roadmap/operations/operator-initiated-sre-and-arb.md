@@ -17,11 +17,11 @@ enforce operation in both local and deployed environments.
 > reach its configured adapter after policy, risk, approval, what-if, lock, and idempotency checks.
 > It never means that a Workflow or ARB approval can bypass those checks.
 >
-> **Current delivery boundary:** Incident correlation, operator-confirmed Incident lifecycle,
-> investigation primitives, the integrated SRE command/progress coordinator, ARB
-> readiness/projection, and proposal-only workflow submission are implemented. The
-> authority-bearing Workflow enforce path and its local/deployed runtime evidence remain open and
-> are tracked below.
+> **Current delivery boundary:** Incident correlation, the operator-confirmed Incident creation
+> transport, investigation primitives, the process-local SRE command/progress coordinator, ARB
+> readiness/projection, and proposal-only workflow submission are implemented. A deployed
+> managed-resource action-confirmation path and authority-bearing Workflow enforcement evidence
+> remain open and are tracked below.
 
 ## Design at a glance
 
@@ -32,10 +32,12 @@ investigation creates an Incident and publishes an investigation ActionProposal 
 correlation. The ARB process remains a governance Process: its enforce mode records real approvals
 and decisions, while any resulting resource change re-enters the normal ActionType pipeline.
 
-The independent Operator service publishes confirmed semantic action drafts through its durable
-outbox and `ActionConfirmationBridge` to the configured Core event topic. The process-local
-`OperatorProposalDispatcher` remains a focused coordinator test seam; deployed Console and ChatOps
-surfaces do not call Core in process.
+The independent Operator service revalidates a confirmed semantic Incident draft against its
+principal-owned projection, then publishes a versioned `IncidentCreationRequest` through its
+durable outbox and `ActionConfirmationBridge` to a dedicated logical topic. Core consumes the
+request through `IncidentLifecycleWorkflow`; it does not route this record operation through Thor
+or depend on an ActionType promotion mode. The process-local `OperatorProposalDispatcher` remains
+a focused coordinator test seam.
 
 ![Design at a glance. The main stages are Operator request, Problem response?, Correlation ID and optional Process ID, Incident registry, Typed ActionProposal, Trust and risk gates, Judge, journal, and audit, Promoted executor adapter, Approval then resume, Stage stream.](../../diagrams/generated/fdai-roadmap-operations-operator-initiated-sre-and-arb-01.en.svg)
 
@@ -47,7 +49,8 @@ surfaces do not call Core in process.
 |------|-------|----------|-------|
 | Incident trace identity and correlation opt-out | implemented | `fdai/shared/contracts/models/event.py`; `fdai/core/event_ingest/correlator.py`; routine producers in `fdai/core/scheduler/service.py` and `fdai/delivery/inventory_delta.py`; `tests/core/event_ingest/test_correlator.py` | `correlation_id` remains available when `incident_correlation=none` suppresses Incident creation. |
 | Operator-confirmed Incident lifecycle and investigation primitives | implemented | `fdai/core/incident/workflow.py`; `fdai/core/investigation/coordinator.py`; `tests/core/incident/test_incident_workflow.py`; `tests/core/investigation/test_coordinator.py` | The bounded primitives exist and pass focused checks. |
-| Integrated operator SRE command and progress contract | implemented | `fdai/core/incident/sre_request.py`; `fdai/shared/providers/operator_request.py`; Operator `action_confirmation_runtime.py` and production composition; focused Core and Operator checks | The process-local coordinator proves Incident and progress behavior. Independent Console and ChatOps surfaces durably accept an exact semantic action draft, and production Operator composition drains it to the Core event topic without direct service calls or executor identity. |
+| Operator-confirmed Incident creation transport | implemented | `fdai_service_contracts.incident_creation`; Core semantic draft projection and Incident creation consumer; Operator confirmation route, source resolver, and outbox bridge; focused cross-service tests | The browser submits four public draft fields. Operator reloads the exact principal-owned source and publishes a no-authority request on the dedicated Incident topic. Core opens or reuses one audited Incident. |
+| Integrated operator SRE action and progress contract | in-progress | `fdai/core/incident/sre_request.py`; `fdai/shared/providers/operator_request.py`; process-local focused Core checks | The process-local coordinator proves Incident plus investigation-action behavior. A deployed managed-resource semantic action confirmation still needs its independently reviewed source and request-to-audit receipt. |
 | ARB readiness, production gate, and declarative review projection | implemented | `fdai/core/architecture_review/readiness.py`; `fdai/core/architecture_review/projection.py`; `fdai/runtime/control_loop.py`; `rule-catalog/workflows/architecture-review.yaml`; `tests/core/architecture_review/` | The operator surfaces are `/workflow-apps/architecture-review` and `/processes/{process_id}`; there is no `/arb/status` endpoint. |
 | Operator workflow submission | implemented | `fdai_operator_service/families/workflow/routes.py`; `services/operator-service/tests/test_operator_workflow_family.py` | `POST /workflows/run` accepts idempotent, revision-bound shadow proposals and rejects `mode=enforce`. |
 | Authority-bearing Workflow enforce and local/deployed operational parity | in-progress | `fdai/core/workflow/workflow_step_executor.py` contains governed enforce action dispatch, while the Operator API remains proposal-only and shadow-first. | No governed runtime receipt proves the documented Owner-gated end-to-end enforce path or local/deployed parity. |
@@ -60,6 +63,7 @@ surfaces do not call Core in process.
 | 2026-08-16 | in-progress | Added the operator SRE request coordinator, the proposal dispatcher seam, and Incident-ID metadata at operator-request normalization, with an end-to-end test that drives one confirmed request through the control loop to a parked HIL approval. | Current change; `176 passed` from `uv run pytest -q --no-cov services/core-control-plane/tests/core/incident/ services/core-control-plane/tests/core/event_ingest/ services/core-control-plane/tests/core/test_control_loop_operator_request.py`. | Bind the dispatcher at the runtime composition root and record governed evidence for authority-bearing Workflow enforce and parity. |
 | 2026-08-16 | in-progress | Hardened the progress contract: link templates are validated before any Incident write, every interpolated reference is percent-encoded, a blank resource type is rejected instead of silently dropped, and the published proposal is immutable. | Current change; `182 passed` from `uv run pytest -q --no-cov services/core-control-plane/tests/core/incident/ services/core-control-plane/tests/core/event_ingest/ services/core-control-plane/tests/core/test_control_loop_operator_request.py`. | Unchanged from the row above. |
 | 2026-08-29 | implemented | Corrected the stale in-process dispatcher assumption for the independent Operator topology and bound the existing durable `ActionConfirmationBridge` in production composition. Readiness now includes the worker, and lifecycle shutdown stops it before Kafka. | `current change`; Operator production composition and focused action-confirmation, completion-composition, and full-composition checks (`17 passed`); Ruff and strict mypy checks. | Retain governed local and deployed Workflow enforce evidence without changing the proposal-only Operator API. |
+| 2026-09-16 | implemented | Repaired the incomplete independent-service Incident confirmation path. Core now projects a typed expiring draft, Operator revalidates and durably publishes a dedicated request, and Core creates the audited Incident through its existing lifecycle. | [Issue #1125](https://github.com/dotnetpower/fdai/issues/1125); `current change`; focused service-contract, semantic projection, Operator route/outbox, Core consumer, and Console checks. | Retain authenticated standard-port evidence from confirmation to the resulting `incident.open` projection. Managed-resource action confirmation remains separate work. |
 
 ### Remaining work
 
@@ -67,9 +71,9 @@ surfaces do not call Core in process.
   opens or reuses one Incident, publishes one idempotent typed ActionProposal, preserves one
   correlation across stages, and returns authoritative Incident, Trace, Process, and Approval links
   (`tests/core/incident/test_sre_request.py`).
-- [x] Bind the durable `ActionConfirmationBridge` at the independent Operator production composition
-  root so Console and ChatOps proposals reach Core through the event bus rather than an in-process
-  `OperatorProposalDispatcher` (`17 passed` focused checks).
+- [x] Bind the durable `ActionConfirmationBridge` and dedicated Incident creation contract so a
+  confirmed Console Incident draft reaches the Core Incident lifecycle through the event bus,
+  without an in-process service call or executor identity ([Issue #1125](https://github.com/dotnetpower/fdai/issues/1125)).
 - [ ] Record a governed local and deployed runtime receipt proving that an approved,
   allowlisted Workflow can enter enforce through the authority-bearing control path while its
   ActionType remains independently gated; keep `POST /workflows/run` proposal-only.

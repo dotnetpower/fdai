@@ -2230,6 +2230,70 @@
       ]
     },
     {
+      "id": "operator-incident-creation",
+      "paths": [
+        "docs/roadmap/operations/operator-initiated-sre-and-arb*.md",
+        "docs/roadmap/interfaces/operator-console-wire-contracts*.md",
+        "docs/roadmap/interfaces/operator-console-incident-roster*.md",
+        "packages/service-contracts/src/fdai_service_contracts/incident_creation.py",
+        "packages/service-contracts/tests/test_incident_creation.py",
+        "services/core-control-plane/src/fdai/core/conversation/semantic_incident_creation.py",
+        "services/core-control-plane/src/fdai/core/conversation/semantic_planning_frame_gate.py",
+        "services/core-control-plane/src/fdai/core/conversation/semantic_planning_models.py",
+        "services/core-control-plane/src/fdai/core/conversation/semantic_planning_support.py",
+        "services/core-control-plane/src/fdai_core_service/incident_creation_consumer.py",
+        "services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_core.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_incidents.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_tasks.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_topics.py",
+        "services/operator-service/src/fdai_operator_service/action_confirmation_runtime.py",
+        "services/operator-service/src/fdai_operator_service/action_confirmation_source.py",
+        "services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py",
+        "services/operator-service/src/fdai_operator_service/composition.py",
+        "services/operator-service/src/fdai_operator_service/incident_creation_confirmation.py",
+        "services/operator-service/src/fdai_operator_service/outbox_runtime.py",
+        "services/operator-service/src/fdai_operator_service/family_authorization.py",
+        "services/operator-service/src/fdai_operator_service/families/conversation/contracts.py",
+        "services/operator-service/src/fdai_operator_service/families/conversation/factory.py",
+        "services/operator-service/src/fdai_operator_service/families/conversation/handover_binding.py",
+        "services/operator-service/src/fdai_operator_service/families/conversation/manifest.py",
+        "services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py",
+        "services/operator-service/src/fdai_operator_service/postgres_family_store.py",
+        "services/operator-service/tests/test_action_confirmation*.py",
+        "services/operator-service/tests/test_incident_creation_confirmation.py",
+        "services/operator-service/tests/test_incident_creation_store.py",
+        "services/operator-service/tests/test_operator_conversation_family.py",
+        "services/operator-service/tests/test_operator_workload_auth.py",
+        "services/operator-service/tests/test_semantic_kafka_adapter.py",
+        "services/operator-service/tests/test_semantic_turn_bridge.py",
+        "services/core-control-plane/tests/**/*incident_creation*.py",
+        "console/src/deck/backend-actions.ts",
+        "console/src/deck/backend.ts",
+        "console/src/deck/grounded-reply.tsx",
+        "console/src/deck/action-submit.test.ts"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/operations/operator-initiated-sre-and-arb.md",
+        "docs/roadmap/interfaces/operator-console-wire-contracts.md",
+        "docs/roadmap/interfaces/operator-console-incident-roster.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/operations/operator-initiated-sre-and-arb.md",
+        "docs/roadmap/interfaces/operator-console-wire-contracts.md",
+        "docs/roadmap/interfaces/operator-console-incident-roster.md"
+      ],
+      "validate": [
+        "uv run python -m pytest -q --no-cov packages/service-contracts/tests/test_incident_creation.py services/core-control-plane/tests/core/conversation/test_semantic_incident_creation.py services/core-control-plane/tests/test_incident_creation_consumer.py services/operator-service/tests/test_action_confirmation_source.py services/operator-service/tests/test_incident_creation_confirmation.py services/operator-service/tests/test_incident_creation_store.py services/operator-service/tests/test_operator_conversation_family.py",
+        "npm --prefix console test -- --run src/deck/action-submit.test.ts",
+        "npm --prefix console run typecheck",
+        "uv run python scripts/quality/architecture/check-independent-services.py"
+      ]
+    },
+    {
       "id": "local-parity",
       "paths": [
         ".vscode/**",
