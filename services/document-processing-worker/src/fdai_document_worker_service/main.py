@@ -1,6 +1,6 @@
 """Document Processing Worker service entry point."""
 
-from fdai_service_contracts import ServiceDescriptor, ServiceKind
+from fdai_service_contracts import ServiceDescriptor, ServiceKind, record_runtime_scope_receipt
 
 from fdai_document_worker_service.application import run_worker
 
@@ -15,4 +15,5 @@ SERVICE = ServiceDescriptor(
 
 def main() -> int:
     """Start the document worker through the service-owned entry point."""
+    record_runtime_scope_receipt(SERVICE)
     return run_worker()

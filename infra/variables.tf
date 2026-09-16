@@ -1484,7 +1484,7 @@ variable "case_history_retention_days" {
 variable "case_history_deletion_days" {
   description = "Deletion due date offset for case-history artifacts and indexes."
   type        = number
-  default     = 60
+  default     = 30
 
   validation {
     condition     = var.case_history_deletion_days >= var.case_history_retention_days
@@ -1495,7 +1495,7 @@ variable "case_history_deletion_days" {
 variable "case_history_version_retention_days" {
   description = "Retention for superseded Blob versions after application-level deletion."
   type        = number
-  default     = 90
+  default     = 30
 
   validation {
     condition     = var.case_history_version_retention_days >= var.case_history_deletion_days

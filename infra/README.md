@@ -64,6 +64,15 @@ at apply time via env vars / tfvars files that are **never committed** - the rep
 stays customer-agnostic per
 [generic-scope.instructions.md](../.github/instructions/generic-scope.instructions.md).
 
+### Governed A3-E evidence target
+
+[`a3e-evidence-target/`](a3e-evidence-target/) is a separate plan-only root for one disposable,
+private development VM used by the governed standing-authorization and cross-path safeguard
+campaigns. It references an existing protected holding resource group, separates executor and
+observer identities, and limits the executor to VM read, start, and deallocate actions. It does not
+grant promotion or effect authority. Local previews cannot be applied; exact-plan approval,
+deallocation, campaign effects, rollback, and cleanup remain separate governed stages.
+
 ## Module Layout
 
 Every provisioned concern lives in **one module per seam** under `modules/`, following
@@ -74,6 +83,7 @@ infra/
 ├── main.tf                 # composition root - picks a sub-module per seam
 ├── variables.tf            # workload="fdai", env, region, kind selectors
 ├── outputs.tf              # cross-module contract outputs
+├── a3e-evidence-target/    # isolated plan-only VM for governed evidence
 ├── modules/
 │   ├── resource-group/         # rg-fdai
 │   ├── identity/               # id-fdai-executor
