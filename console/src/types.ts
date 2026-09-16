@@ -406,6 +406,7 @@ export interface HilQueueItem {
   readonly reason: string;
   readonly requested_at: string;
   readonly correlation_id: string | null;
+  readonly incident_available: boolean;
   readonly approval_id: string;
   readonly action_id: string;
   readonly target_resource_ref: string;
