@@ -26,14 +26,9 @@ import {
 import { useLiveViewModel } from "./live.view-model";
 import {
   OPERATIONS_SAMPLE_LIVE_EVENTS,
-  OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP,
-  OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT,
-  OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS,
-  sampleLiveStageDelay,
   sampleLivePreviewEvents,
   OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT,
   sampleLiveObservations,
-  sampleLiveEvents,
 } from "./operations.sample";
 import { useLiveCoverage } from "./live.coverage";
 import {
@@ -133,7 +128,6 @@ export function LiveRoute({ client, dataMode }: Props) {
   const pausedRef = useRef(false);
   const frozenObservedRef = useRef(0);
   const pendingEventsRef = useRef<LiveStageEvent[]>([]);
-  const sampleCleanupRef = useRef<(() => void) | null>(null);
   const pendingObservationsRef = useRef<AgentOperationalActivityMessage[]>([]);
   const coverage = useLiveCoverage(client, dataMode);
 
@@ -307,42 +301,7 @@ export function LiveRoute({ client, dataMode }: Props) {
     ));
     dispatch({ kind: "batch", events: sampleLivePreviewEvents() });
     dispatch({ kind: "seed-rate", now: Date.now(), per_tier_per_second: 1 });
-    let nextEvent = OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT;
-    const stageHandles = new Set<number>();
-    const enqueue = (event: LiveStageEvent) => {
-      observeLiveControl(metricsRef.current, event, Date.now());
-      const next = appendLiveBacklog(pendingEventsRef.current, event);
-      pendingEventsRef.current = [...next.backlog];
-      if (next.dropped > 0) setDroppedFrames((current) => current + next.dropped);
-      if (pausedRef.current) frozenObservedRef.current += 1;
-    };
-    const scheduleLoop = () => {
-      const startedAt = Date.now();
-      for (let eventOffset = 0; eventOffset < OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP; eventOffset += 1) {
-        const events = sampleLiveEvents(nextEvent + eventOffset, 1);
-        events.forEach((event, stageIndex) => {
-          const delay = eventOffset * (OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS / OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP)
-            + sampleLiveStageDelay(nextEvent + eventOffset, stageIndex, events.length);
-          const stageHandle = window.setTimeout(() => {
-            stageHandles.delete(stageHandle);
-            enqueue({ ...event, ts: new Date(startedAt + delay).toISOString() });
-          }, delay);
-          stageHandles.add(stageHandle);
-        });
-      }
-      nextEvent += OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP;
-    };
-    scheduleLoop();
-    const loopHandle = window.setInterval(
-      scheduleLoop,
-      OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS,
-    );
-    const cleanup = () => {
-      window.clearInterval(loopHandle);
-      stageHandles.forEach((handle) => window.clearTimeout(handle));
-    };
-    sampleCleanupRef.current = cleanup;
-    return cleanup;
+    return undefined;
   }, [dataMode, sampleEpoch]);
 
   useEffect(() => {
@@ -393,7 +352,6 @@ export function LiveRoute({ client, dataMode }: Props) {
 
   const restartSample = () => {
     if (dataMode !== "sample") throw new Error("Sample replay is unavailable in Live mode");
-    sampleCleanupRef.current?.();
     pendingEventsRef.current = [];
     pendingObservationsRef.current = [];
     metricsRef.current = createLiveMetrics();

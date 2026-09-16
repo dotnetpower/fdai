@@ -125,6 +125,8 @@ def normalized_inventory_observations(
     operation_status: str | None,
     observed_at: datetime,
     recorded_at: datetime,
+    ingested_at: datetime,
+    provider_event_at: datetime | None,
     active_scope_refs: Sequence[str],
 ) -> tuple[NormalizedInventoryObservation, ...]:
     event_id = _required_str(payload, "event_id")
@@ -183,6 +185,8 @@ def normalized_inventory_observations(
             observed_at=observed_at,
             evidence_cutoff=observed_at,
             recorded_at=recorded_at,
+            ingested_at=ingested_at,
+            provider_event_at=provider_event_at,
         )
     ]
     for link, link_kind in zip(links, link_kinds, strict=True):
@@ -218,6 +222,8 @@ def normalized_inventory_observations(
                 observed_at=observed_at,
                 evidence_cutoff=observed_at,
                 recorded_at=recorded_at,
+                ingested_at=ingested_at,
+                provider_event_at=provider_event_at,
                 scope_ref=resolved_scope_ref,
                 from_id=from_id,
                 from_type=_required_str(link, "from_type"),
