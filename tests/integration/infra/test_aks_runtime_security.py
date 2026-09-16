@@ -52,9 +52,16 @@ def test_aks_security_controls_use_current_provider_attributes(
 
 def test_aks_existing_subnet_has_explicit_egress_before_cluster_creation() -> None:
     source = (ROOT / "infra/runtimes/aks/cluster/main.tf").read_text(encoding="utf-8")
+    public_ip = source[
+        source.index('resource "azurerm_public_ip" "egress"') : source.index(
+            'resource "azurerm_nat_gateway" "egress"'
+        )
+    ]
     assert 'resource "azurerm_nat_gateway" "egress"' in source
     assert 'resource "azurerm_subnet_nat_gateway_association" "egress"' in source
     assert 'resource "azurerm_nat_gateway_public_ip_association" "egress"' in source
+    assert "tags                = local.tags" in public_ip
+    assert "ignore_changes = [ip_tags]" in public_ip
     assert "subnet_id      = var.aks_subnet_id" in source
     assert "nat_gateway_id = azurerm_nat_gateway.egress.id" in source
     assert "azurerm_nat_gateway_public_ip_association.egress," in source

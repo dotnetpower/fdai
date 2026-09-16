@@ -20,6 +20,11 @@ resource "azurerm_public_ip" "egress" {
   allocation_method   = "Static"
   sku                 = "Standard"
   tags                = local.tags
+
+  lifecycle {
+    # Azure Policy owns IP tags; Terraform continues to own regular resource tags.
+    ignore_changes = [ip_tags]
+  }
 }
 
 resource "azurerm_nat_gateway" "egress" {

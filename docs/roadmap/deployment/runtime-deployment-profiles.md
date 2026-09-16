@@ -278,7 +278,7 @@ API Server VNet Integration at cluster creation and reserves at least a `/28` de
 subnet so private-cluster mode can be enabled later without replacing the cluster. The cluster state
 owns an explicit Standard NAT Gateway, static Standard outbound public IP, and both associations
 before AKS creation; its outbound type is `userAssignedNATGateway`, not the
-AKS-managed-VNet-only `managedNATGateway`.
+AKS-managed-VNet-only `managedNATGateway`. The outbound public IP excludes Azure Policy-owned `ip_tags` from Terraform lifecycle reconciliation while ordinary `tags` remain Terraform-owned. This prevents policy metadata from replacing the public IP and NAT association; it grants no exception to cluster, node-pool, or DCR changes.
 
 The basic profile keeps authenticated public API access enabled and applies the reviewed access
 restriction. API-server-to-node traffic still uses the integrated private path. This is the

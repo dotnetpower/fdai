@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 9f2ce4321ec9a0391e2e7b2d1345a8328581fff4
+translation_source_sha: 030e203cd8d2cabe3e56c7a4a885f8a670031ed1
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -275,7 +275,9 @@ API Server VNet Integration을 활성화하고, 나중에 클러스터를 교체
 모드를 활성화할 수 있도록 최소 `/28`의 위임된 API 서버 서브넷을 예약합니다. 클러스터 상태는
 명시적인 Standard NAT Gateway, 고정 Standard 송신 공용 IP와 두 연결을 소유하고 AKS를 만들기
 전에 연결을 완료합니다. 송신 유형은 AKS 관리형 VNet 전용 `managedNATGateway`가 아니라
-`userAssignedNATGateway`입니다.
+`userAssignedNATGateway`입니다. 송신 공용 IP의 Azure Policy 소유 `ip_tags`는 Terraform 수명 주기 조정 대상에서 제외하지만 일반
+`tags`는 Terraform이 계속 소유합니다. 이 경계는 정책 메타데이터 때문에 공용 IP 및 NAT 연결이
+교체되는 것을 막을 뿐이며 클러스터, 노드 풀 또는 DCR 변경에는 예외를 부여하지 않습니다.
 
 기본 프로파일은 인증된 공개 API 접근을 유지하고 검토된 접근 제한을 적용합니다. API 서버와 노드
 사이 트래픽은 통합된 비공개 경로를 사용합니다. 이는 연결된 기본 구성일 뿐 비공개 클러스터,
