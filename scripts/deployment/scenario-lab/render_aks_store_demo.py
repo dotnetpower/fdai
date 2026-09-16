@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import sys
 import urllib.request
 from pathlib import Path
+from typing import cast
 
 SOURCE_COMMIT = "61b033448904a930f01d497ce7139aca87a1b12d"
 SOURCE_URL = (
@@ -66,10 +68,34 @@ ORDER_SERVICE_REPLICA_TARGET = ORDER_SERVICE_REPLICA_SOURCE.replace(
     "replicas: 1",
     "replicas: 3",
 )
+STORE_FRONT_METADATA_SOURCE = """kind: Service
+metadata:
+  name: store-front
+spec:
+"""
+STORE_ADMIN_SERVICE_SOURCE = """kind: Service
+metadata:
+  name: store-admin
+spec:
+  ports:
+    - port: 80
+      targetPort: 8081
+  selector:
+    app: store-admin
+  type: LoadBalancer
+"""
+STORE_ADMIN_SERVICE_TARGET = STORE_ADMIN_SERVICE_SOURCE.replace(
+    "type: LoadBalancer",
+    "type: ClusterIP",
+)
+DNS_LABEL_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
 
-def render_manifest(source: str) -> str:
-    """Pin images and apply the private three-replica lab overlay."""
+def render_manifest(source: str, dns_label: str) -> str:
+    """Pin images and expose only the three-replica store front by DNS."""
+    if DNS_LABEL_PATTERN.fullmatch(dns_label) is None:
+        raise ValueError("store-front DNS label must be 1-63 lowercase letters, digits, or hyphens")
+
     rendered = source
     for tagged_image, digest_image in IMAGE_REPLACEMENTS.items():
         source_line = f"image: {tagged_image}"
@@ -84,9 +110,21 @@ def render_manifest(source: str) -> str:
         ORDER_SERVICE_REPLICA_TARGET,
     )
 
-    if rendered.count("type: LoadBalancer") != 2:
-        raise ValueError("expected exactly two upstream public LoadBalancer services")
-    return rendered.replace("type: LoadBalancer", "type: ClusterIP")
+    if rendered.count(STORE_FRONT_METADATA_SOURCE) != 1:
+        raise ValueError("expected exactly one upstream store-front Service")
+    rendered = rendered.replace(
+        STORE_FRONT_METADATA_SOURCE,
+        STORE_FRONT_METADATA_SOURCE.replace(
+            "spec:",
+            "  annotations:\n"
+            f'    service.beta.kubernetes.io/azure-dns-label-name: "{dns_label}"\n'
+            "spec:",
+        ),
+    )
+
+    if rendered.count(STORE_ADMIN_SERVICE_SOURCE) != 1:
+        raise ValueError("expected exactly one upstream store-admin LoadBalancer Service")
+    return rendered.replace(STORE_ADMIN_SERVICE_SOURCE, STORE_ADMIN_SERVICE_TARGET)
 
 
 def download_source() -> bytes:
@@ -96,7 +134,7 @@ def download_source() -> bytes:
         headers={"User-Agent": "fdai-scenario-lab"},
     )
     with urllib.request.urlopen(request, timeout=120) as response:  # noqa: S310 - fixed HTTPS URL.
-        source = response.read(MAX_MANIFEST_BYTES + 1)
+        source = cast(bytes, response.read(MAX_MANIFEST_BYTES + 1))
     if len(source) > MAX_MANIFEST_BYTES:
         raise ValueError("AKS Store Demo manifest exceeds the one-megabyte limit")
     digest = hashlib.sha256(source).hexdigest()
@@ -107,11 +145,14 @@ def download_source() -> bytes:
 
 def main(argv: list[str]) -> int:
     """Download, verify, render, and write one owner-only manifest."""
-    if len(argv) != 2:
-        print("usage: render_aks_store_demo.py <output-path>", file=sys.stderr)
+    if len(argv) != 3:
+        print(
+            "usage: render_aks_store_demo.py <output-path> <store-front-dns-label>", file=sys.stderr
+        )
         return 2
 
     output_path = Path(argv[1])
+    dns_label = argv[2]
     if not output_path.is_absolute() or output_path == Path("/"):
         print(
             "render_aks_store_demo: an absolute non-root output path is required.", file=sys.stderr
@@ -123,7 +164,7 @@ def main(argv: list[str]) -> int:
 
     try:
         source = download_source().decode("utf-8")
-        rendered = render_manifest(source)
+        rendered = render_manifest(source, dns_label)
     except (OSError, UnicodeError, ValueError) as exc:
         print(f"render_aks_store_demo: {exc}", file=sys.stderr)
         return 1

@@ -32,6 +32,8 @@ output "enforce_environment" {
     backend_container     = "order-service"
     backend_replicas      = 3
     backend_image         = "ghcr.io/azure-samples/aks-store-demo/order-service"
+    store_front_dns_label = local.store_front_dns_label
+    store_front_hostname  = local.store_front_dns_hostname
     vm_name               = azurerm_linux_virtual_machine.stress.name
     mysql_host            = azurerm_mysql_flexible_server.scenario_lab.fqdn
     mysql_user            = var.mysql_admin_login
