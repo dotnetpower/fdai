@@ -183,7 +183,9 @@ coordinator can complete the baseline. The workload state then reads the approve
 issuer and uses an owner-only kubeconfig on the deployment host.
 The Terraform scanner exceptions for this public baseline are resource-local and name the explicit
 CIDR allowlist, Microsoft Entra RBAC, disabled local accounts and VNet Integration controls. It
-does not suppress other AKS findings or certify the later private transition.
+does not suppress other AKS findings or certify the later private transition. The APIM Consumption
+exceptions additionally name its lack of VNet integration, independent API authentication and
+exact-origin CORS, and the port 80 rule's two exact LoadBalancer destination addresses.
 Database and application preparation both convert that owner-only kubeconfig with
 [`kubelogin` managed identity authentication](https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication)
 using `--login msi` and the exact managed-host client ID. Credential acquisition pins the

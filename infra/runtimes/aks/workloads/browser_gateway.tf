@@ -39,6 +39,8 @@ locals {
 }
 
 resource "azurerm_api_management" "browser_gateway" {
+  # checkov:skip=CKV_AZURE_174:The browser gateway is the public HTTPS edge; backend APIs independently enforce Entra JWT, App Roles, and exact-origin CORS.
+  # checkov:skip=CKV_AZURE_107:APIM Consumption has no VNet integration; it targets exact LoadBalancer addresses protected by the optional subnet NSG rule below.
   count = local.browser_gateway_enabled ? 1 : 0
 
   name                          = local.browser_gateway_name
@@ -81,6 +83,7 @@ resource "azurerm_api_management_api_operation" "browser_gateway" {
 }
 
 resource "azurerm_network_security_rule" "browser_gateway" {
+  # checkov:skip=CKV_AZURE_160:APIM Consumption has no fixed outbound IP; this rule permits port 80 only to the two exact API LoadBalancer frontend addresses.
   count = local.browser_gateway_enabled && try(var.browser_gateway.backend_nsg_id, "") != "" ? 1 : 0
 
   name                   = "AllowBrowserGatewayBackends"

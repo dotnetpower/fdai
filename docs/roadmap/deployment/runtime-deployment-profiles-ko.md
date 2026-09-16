@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: d475b2dd4c65c40b77c87e1fad6ec1254b1c0a58
+translation_source_sha: 4109f3fd70e39b3939219a1daa2fa6860adbb7ff
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -182,7 +182,9 @@ Integration이 활성화되어 있으며 검토한 관리 경로로 접근할 �
 소유자 전용 kubeconfig를 사용합니다.
 이 공개 기본 구성에 대한 Terraform 스캐너 예외들은 해당 리소스에만 적용하며, 명시적 CIDR 허용
 목록, Microsoft Entra RBAC, 비활성화된 로컬 계정 및 VNet Integration 통제를 함께 명시합니다.
-다른 AKS 발견 사항을 숨기거나 이후 비공개 전환을 인증하지 않습니다.
+다른 AKS 발견 사항을 숨기거나 이후 비공개 전환을 인증하지 않습니다. APIM Consumption 예외는
+VNet 통합 미지원, 독립적인 API 인증과 정확한 origin CORS, 포트 80 규칙의 정확한 LoadBalancer
+대상 주소 2개도 함께 명시합니다.
 DB 및 애플리케이션 준비는 모두 소유자 전용 kubeconfig를 [`kubelogin` 관리 ID 인증](https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication)으로 변환하며
 `--login msi`와 정확한 관리 호스트 client ID를 지정합니다. 자격 증명 조회는 구독을 고정하고
 관리자 자격 증명을 요청하지 않습니다. 로컬 `kubectl config view --minify` 재조회는 exec만

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d7ded3a3b91d6d2356d8fcb111e3bd061eb6c610
+translation_source_sha: 64cd16e691091f0e4b34c909abdec966aade81c4
 translation_revised: 2026-09-16
 ---
 # 프로젝트 구조
@@ -334,8 +334,8 @@ checkpoint부터 재개합니다.
 ## 리포지토리 스크립트 레이아웃
 
 리포지토리 자동화는 책임에 따라 `scripts/` 아래에 그룹화합니다. 루트 파일로는 레이아웃 README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이트, 무결성 도구, 거버넌스 검사,
-카탈로그 유틸리티, 배포 도우미, 일반 자동화는 각각 전용 디렉터리를 사용합니다.
-소유권 맵과 배치 규칙은 [scripts/README.md](../../../scripts/README.md)를 참조하세요.
+카탈로그 유틸리티, 배포 도우미, 일반 자동화는 각각 전용 디렉터리를 사용합니다. `tests/integration/scripts/`의 교차 배포 workflow 테스트는 이러한 도우미를 전송 계약으로 검증하며 온톨로지나 런타임 소유권을 옮기지 않습니다.
+배치 규칙은 [scripts/README.md](../../../scripts/README.md)를 참조하세요.
 
 `infra/scenario-lab/`은 선택형 배포 검증 루트이며 여섯 번째 런타임 서비스가 아닙니다. 실행기
 스크립트는 `scripts/deployment/scenario-lab/` 아래에 있고, 루트 `scenario-lab` Python extra에는

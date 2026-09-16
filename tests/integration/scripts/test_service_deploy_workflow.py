@@ -828,8 +828,8 @@ def test_console_publish_binds_auth_and_verifies_exact_static_artifact() -> None
     assert 'resource_id="${resource_id:-${CONSOLE_STATIC_WEB_APP_ID:-}}"' in _CONSOLE_PUBLISHER
     assert "console Static Web App belongs to a different subscription" in _CONSOLE_PUBLISHER
     assert "console Static Web App hostname does not match its resource id" in _CONSOLE_PUBLISHER
-    assert "resolve_service_fqdn operator-service" in _CONSOLE_PUBLISHER
-    assert "resolve_service_fqdn document-ingestion-api" in _CONSOLE_PUBLISHER
+    assert "browser_gateway_operator_url BROWSER_GATEWAY_OPERATOR_URL" in _CONSOLE_PUBLISHER
+    assert "browser_gateway_ingestion_url BROWSER_GATEWAY_INGESTION_URL" in _CONSOLE_PUBLISHER
     assert 'state_key="services/$service/$FDAI_DEPLOY_ENVIRONMENT.tfstate"' in _CONSOLE_PUBLISHER
     assert "independent service FQDN is invalid" in _CONSOLE_PUBLISHER
     assert 'npm --prefix "$repo_root/console" run build' in _CONSOLE_PUBLISHER

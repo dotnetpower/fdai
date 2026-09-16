@@ -98,3 +98,16 @@ def test_aks_document_workloads_have_dedicated_substrate_roles() -> None:
     assert "ingestion = var.enable_document_ingestion ?" in outputs
     assert "ingestion_worker = var.enable_document_ingestion" in outputs
     assert 'output "document_storage_binding"' in outputs
+
+
+def test_aks_browser_gateway_scanner_exceptions_name_compensating_controls() -> None:
+    gateway = (ROOT / "infra/runtimes/aks/workloads/browser_gateway.tf").read_text(encoding="utf-8")
+
+    assert "checkov:skip=CKV_AZURE_174" in gateway
+    assert (
+        "backend APIs independently enforce Entra JWT, App Roles, and exact-origin CORS" in gateway
+    )
+    assert "checkov:skip=CKV_AZURE_107" in gateway
+    assert "APIM Consumption has no VNet integration" in gateway
+    assert "checkov:skip=CKV_AZURE_160" in gateway
+    assert "two exact API LoadBalancer frontend addresses" in gateway
