@@ -1,5 +1,11 @@
 locals {
   name = "aks-${var.workload}-${var.environment}-${var.region_short}"
+  cluster_resource_id = format(
+    "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s",
+    data.azurerm_client_config.current.subscription_id,
+    var.resource_group_name,
+    local.name,
+  )
   container_insights_dcr_name = trimsuffix(
     substr("MSCI-${var.location}-${local.name}", 0, 64),
     "-",
@@ -193,7 +199,7 @@ resource "azurerm_monitor_data_collection_rule" "container_insights" {
 
 resource "azurerm_monitor_data_collection_rule_association" "container_insights" {
   name                    = "ContainerInsightsExtension"
-  target_resource_id      = azurerm_kubernetes_cluster.runtime.id
+  target_resource_id      = local.cluster_resource_id
   data_collection_rule_id = azurerm_monitor_data_collection_rule.container_insights.id
   description             = "Associate the Container Insights collection rule with the AKS cluster."
 }

@@ -275,6 +275,14 @@ pack, review the current Microsoft terms, replace only the allowlisted subset,
 and update the archive and file checksums together. `assets/kubernetes/` follows
 the same lock format, pinned to an immutable upstream commit.
 
+The renderer loads the Azure, brand, and Kubernetes catalogs through the same
+checksum verifier. Use `deploy`, `node`, and `cronjob` for those Kubernetes
+objects, not the AKS product icon or an agent glyph. The AKS deployment reference
+checks every connector endpoint against the final positioned boundary. Its main
+flow runs left to right, with shared dependencies below. Access-column links
+remain vertical; cross-column links face right. Regression checks reject
+connector crossings and overlapping segments as well as node collisions.
+
 PNG output uses the checked-in Noto Sans KR subset with system fonts disabled.
 If a new diagram introduces a missing glyph, regenerate the subset from the
 Google Fonts source recorded in `assets/fonts/font.lock.json`, update its

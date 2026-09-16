@@ -14,7 +14,9 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
 import { routeHref } from "../router";
+import { formatConsoleTimestamp, isRfc3339Timestamp } from "../time-format";
 import { displayValue, formatNumber, t } from "./i18n/governance";
+import { skillRefreshText } from "./skills-refresh.i18n";
 import {
   panelArray,
   panelBoolean,
@@ -54,6 +56,7 @@ interface SkillDiagnostic {
   readonly status: string;
   readonly reason: string;
   readonly digests: Readonly<Record<string, string>>;
+  readonly observed_at: string | null;
 }
 
 interface RuntimeSkillBundleMember {
@@ -239,6 +242,10 @@ function decodeDiagnostic(value: unknown, index: number): SkillDiagnostic {
   const label = `skills.diagnostics[${index}]`;
   const item = panelRecord(value, label);
   const digests = panelRecord(item["digests"], `${label}.digests`);
+  const observedAt = nullableString(item["observed_at"] ?? null, `${label}.observed_at`);
+  if (observedAt !== null && !isRfc3339Timestamp(observedAt)) {
+    throw new Error(skillRefreshText("observedTimestamp"));
+  }
   if (!Object.values(digests).every((digest) => typeof digest === "string")) {
     throw new Error(t("governance.skills.error.digestStrings", { label }));
   }
@@ -246,6 +253,7 @@ function decodeDiagnostic(value: unknown, index: number): SkillDiagnostic {
     operation: panelNonEmptyString(item, "operation", label),
     name: nullableString(item["name"], `${label}.name`),
     reference: nullableString(item["reference"], `${label}.reference`),
+    observed_at: observedAt,
     status: panelNonEmptyString(item, "status", label),
     reason: panelNonEmptyString(item, "reason", label),
     digests: digests as Readonly<Record<string, string>>,
@@ -294,10 +302,17 @@ function diagnosticColumns(): readonly Column<SkillDiagnostic>[] {
   return [
   { key: "operation", header: t("governance.skills.column.operation"), render: (item) => item.operation },
   { key: "skill", header: t("governance.skills.column.skillReference"), render: (item) => [item.name, item.reference].filter(Boolean).join(" / ") || "-" },
-  { key: "status", header: t("governance.common.status"), render: (item) => <StatusPill kind={item.status === "selected" ? "success" : "warning"} label={displayValue("status", item.status)} /> },
+  { key: "status", header: t("governance.common.status"), render: (item) => <StatusPill kind={item.status === "selected" || item.status === "ready" ? "success" : item.status === "not-measured" || item.status === "disabled" ? "neutral" : "warning"} label={diagnosticStatusLabel(item.status)} /> },
   { key: "reason", header: t("governance.skills.column.reason"), render: (item) => item.reason },
+  { key: "observed", header: skillRefreshText("observed"), render: (item) => formatConsoleTimestamp(item.observed_at) },
   { key: "digests", header: t("governance.skills.column.verifiedDigests"), render: (item) => Object.keys(item.digests).length },
 ];
+}
+
+function diagnosticStatusLabel(status: string): string {
+  if (status === "not-measured") return skillRefreshText("notMeasured");
+  if (status === "error") return skillRefreshText("error");
+  return displayValue("status", status);
 }
 
 function bundleColumns(): readonly Column<RuntimeSkillBundleItem>[] {

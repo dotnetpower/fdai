@@ -128,6 +128,11 @@ function compactionColumns(): readonly Column<MemoryCompactionReviewItem>[] {
       render: (item) => <span><strong>{item.category}</strong><small>{item.body}</small></span>,
     },
     {
+      key: "scope",
+      header: t("settings.operatorMemory.scope"),
+      render: (item) => <span><strong>{item.scopeKind}</strong><small>{item.scopeRef}</small></span>,
+    },
+    {
       key: "sources",
       header: t("settings.operatorMemory.sources"),
       render: (item) => item.sourceRefs.join(", "),

@@ -71,7 +71,7 @@ export function buildAgentLogRows(
     for (const agent of event.agents.length > 0 ? event.agents : [event.agent]) {
       latestLiveEventByAgent.set(agent, event);
     }
-    addBoundedRow(liveRows, {
+    liveRows.push({
       id: `live:${event.sequence}`,
       timestamp: event.ts,
       timestampValid: timestamp(event.ts) !== null,
@@ -86,7 +86,7 @@ export function buildAgentLogRows(
       operationalKind: event.operationalKind,
       observationDomain: event.observationDomain,
       sortOrder: [0, 0, events.length - index],
-    }, AGENT_LIVE_LOG_LIMIT);
+    });
   });
   auditItems.forEach((item) => {
     const actor = agentOf(item);
@@ -94,7 +94,7 @@ export function buildAgentLogRows(
     const summary = entryStr(item, "summary") || entryStr(item, "detail") ||
       entryStr(item, "reason") || item.action_kind;
     const target = entryStr(item, "resource_ref") || entryStr(item, "target_resource_ref");
-    addBoundedRow(auditRows, {
+    auditRows.push({
       id: `audit:${item.seq}`,
       timestamp: item.recorded_at,
       timestampValid: timestamp(item.recorded_at) !== null,
@@ -109,9 +109,9 @@ export function buildAgentLogRows(
       operationalKind: null,
       observationDomain: null,
       sortOrder: [1, item.seq, 0],
-    }, AGENT_AUDIT_PARENT_LIMIT);
+    });
     entryConversation(item)?.forEach((turn, index) => {
-      addBoundedRow(conversationRows, {
+      conversationRows.push({
         id: `audit:${item.seq}:conversation:${index}`,
         timestamp: item.recorded_at,
         timestampValid: timestamp(item.recorded_at) !== null,
@@ -126,10 +126,14 @@ export function buildAgentLogRows(
         operationalKind: null,
         observationDomain: null,
         sortOrder: [1, item.seq, index + 1],
-      }, AGENT_AUDIT_CONVERSATION_LIMIT);
+      });
     });
   });
-  return [...liveRows, ...auditRows, ...conversationRows].sort(compareRows);
+  return [
+    ...newestBoundedRows(liveRows, AGENT_LIVE_LOG_LIMIT),
+    ...newestBoundedRows(auditRows, AGENT_AUDIT_PARENT_LIMIT),
+    ...newestBoundedRows(conversationRows, AGENT_AUDIT_CONVERSATION_LIMIT),
+  ].sort(compareRows);
 }
 
 export function filterAgentLogRows(
@@ -220,14 +224,12 @@ function compareOrder(
   return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
 }
 
-function addBoundedRow(
+function newestBoundedRows(
   rows: AgentLogRow[],
-  row: AgentLogRow,
   limit: number,
-): void {
-  rows.push(row);
+): readonly AgentLogRow[] {
   rows.sort(compareRows);
-  if (rows.length > limit) rows.shift();
+  return rows.length > limit ? rows.slice(-limit) : rows;
 }
 
 function compareRows(left: AgentLogRow, right: AgentLogRow): number {

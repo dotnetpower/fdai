@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ea530d107876a8d996ad0261bca8d6f37981ab38
+translation_source_sha: c3119139203eb6ef98ffa7a6412a59c993ef2433
 translation_revised: 2026-09-17
 ---
 # 프로젝트 구조
@@ -394,7 +394,7 @@ checkpoint부터 재개합니다.
   구체 어댑터 클래스(예: `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`)
   는 공개 서브-패키지에서 re-export **되지 않습니다**; 해당 서브모듈에서 직접, 그리고
   조립 루트에서만 가져오기 되어야 하므로 `core/` 가 실수로 구체에 의존할 수 없습니다.
-- **Config-기반 바인딩**: 설정이 각 구현을 선택합니다.
+- **구성 기반 연결**: 설정이 각 구현을 선택합니다. `bind_configuration_drift`는 선택적 `ConfigurationDriftReportSink`를 받습니다. 런타임은 Core가 소유한 `StateStoreConfigurationBaselineSink`를 주입하여 완료된 근거를 반환 전에 기록하며, 프로바이더 조회나 검토 권한 또는 서비스를 추가하지 않습니다.
   `composition/wire_distiller.py`는 exact-version 엔드포인트 세 개와 replay-identical 프롬프트 하나로 review-only `Distiller`를 atomic하게 연결합니다. 협의체 기록이 없으면 사용하지 않는 엔드포인트 값을 검증하지 않고 abstention을 유지합니다. 부분 기록은 실행 T2 변경 없이 시작을 실패시킵니다.
   범용 드롭 디렉터리 `ManualSource`는 크기 상한을 넘은 경로를 메타데이터 전용 검토 대기 후보로 유지하므로 읽기 한도가 잘못된 삭제 신호를 만들 수 없습니다.
 - **상류의 기본 구현**: 메인 저장소는 모든 경계에 대해 동작하는 범용 기본 구현을 제공하여
