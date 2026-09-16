@@ -258,6 +258,11 @@ directory writer or executor credential is added.
 | `GET /hil/report-line-contact-requests` | List contact-consent requests owned by the authenticated requester. |
 | `POST /hil/{approval_id}/report-line-contact` | Record consent or cancellation without approving the action. |
 
+`GET /hil/report-line-contact-requests` checks completeness over the current
+`awaiting_contact_consent` set before applying requester visibility. Terminal parked approvals
+remain audit evidence but do not consume the bounded listing scan. If the current pending set
+exceeds the scan bound, the endpoint stays unavailable instead of returning partial data.
+
 ## Agent and service ownership
 
 No new agent is introduced:
