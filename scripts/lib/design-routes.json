@@ -325,6 +325,7 @@
         "docs/roadmap/operations/aks-commerce-business-scenario*.md",
         "docs/roadmap-implementation/operations/aks-commerce-business-scenario.md",
         "extensions/aks-commerce/**",
+        "config/action-type-runtime-support.json",
         "pyproject.toml",
         "uv.lock",
         "packages/service-contracts/src/fdai_service_contracts/__init__.py",
