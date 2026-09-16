@@ -6,7 +6,7 @@ import { LIVE_SAMPLE_STORIES } from "./operations.sample-live-stories";
 
 const SAMPLE_AT = "2026-09-01T09:00:00Z";
 
-export const OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT = 12;
+export const OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT = 3;
 export const OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT = 180;
 export const OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS = 1_000;
 export const OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP = 2;
@@ -17,9 +17,10 @@ export function sampleLiveStageDelay(index: number, stageIndex: number, stageCou
   return Math.round(durations[index % durations.length]! * stageIndex / Math.max(1, stageCount - 1));
 }
 
-/** Seed all twelve comparison stories, including a failure, independently of random pool eviction. */
+/** Seed the three review stories that explain the demo without crowding the first screen. */
 export function sampleLivePreviewEvents(): readonly LiveStageEvent[] {
-  return LIVE_SAMPLE_STORIES.flatMap((_, index) => sampleLiveEvents(index === 4 ? 16 : index, 1));
+  return LIVE_SAMPLE_STORIES.slice(0, OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT)
+    .flatMap((_, index) => sampleLiveEvents(index, 1));
 }
 
 export function sampleLiveObservations(
@@ -80,6 +81,9 @@ const TIERS = ["t0", "t1", "t2"] as const;
 const NON_HIL_DECISIONS = ["auto", "deny", "abstain"] as const;
 
 function sampleDecision(index: number): "auto" | "deny" | "abstain" | "hil" {
+  if (index === 0) return "hil";
+  if (index === 1) return "abstain";
+  if (index === 2) return "deny";
   if (index < OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT && index % 60 === 0) return "hil";
   if (index >= OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT && index % 24 === 0) return "hil";
   return NON_HIL_DECISIONS[(index + Math.floor(index / 3)) % NON_HIL_DECISIONS.length]!;
@@ -128,11 +132,12 @@ export function sampleLiveEvents(
     const tier = TIERS[index % TIERS.length]!;
     const decision = sampleDecision(index);
     const decisionContext = sampleDecisionContext(decision);
+    const approvedDemo = index === 0;
     const executionFailed = decision === "auto" && Math.floor(index / 3) % 15 === 5;
     const timestamp = (offset: number) =>
       new Date(base + index * 30_000 + offset * 1_000).toISOString();
     const shared = {
-      mode: "shadow",
+      mode: approvedDemo ? "gated" : "shadow",
       autonomy: decisionContext.autonomy,
       resource_type: workload.resourceType,
       action_type: workload.actionType,
@@ -196,11 +201,12 @@ export function sampleLiveEvents(
           ...shared,
           tier,
           gate_decision: decision,
+          ...(approvedDemo ? { approval_status: "approved" } : {}),
           producer_principal: decision === "hil" ? "Var" : "Forseti",
         },
       },
     ];
-    if (decision === "auto") {
+    if (decision === "auto" || approvedDemo) {
       frames.push({
         event_id: eventId,
         correlation_id: correlationId,
@@ -212,6 +218,12 @@ export function sampleLiveEvents(
           ...shared,
           tier,
           gate_decision: decision,
+          ...(approvedDemo
+            ? {
+                approval_status: "approved",
+                provider_status: "accepted",
+              }
+            : {}),
           producer_principal: "Thor",
         },
       });
@@ -229,9 +241,20 @@ export function sampleLiveEvents(
         decision,
         outcome: executionFailed
           ? "simulation_failed"
+          : approvedDemo
+            ? "effect_verified"
           : decision === "auto"
             ? "resolved"
             : `${decision}_recorded`,
+        ...(approvedDemo
+          ? {
+              approval_status: "approved",
+              provider_status: "accepted",
+              observation_status: "verified",
+              reconciliation_status: "effect_verified",
+              recovery_status: "not_required",
+            }
+          : {}),
         producer_principal: "Saga",
       },
     });

@@ -52,6 +52,30 @@ function decisionLabel(decision: string): string {
   return label === key ? decision : label;
 }
 
+function outcomeLabel(outcome: string | undefined): string {
+  if (!outcome) return t("live.control.notObserved");
+  const key = `live.outcome.${outcome}`;
+  const label = t(key);
+  return label === key ? outcome : label;
+}
+
+type EvidenceCategory =
+  | "approval"
+  | "provider"
+  | "observation"
+  | "reconciliation"
+  | "recovery";
+
+export function evidenceStatusLabel(
+  category: EvidenceCategory,
+  value: string | undefined,
+): string {
+  const status = value ?? "not_observed";
+  const key = `live.evidence.${category}.${status}`;
+  const label = t(key);
+  return label === key ? status : label;
+}
+
 function tierHelp(tier: string): string {
   const key = `live.help.tier.${tier}`;
   const value = t(key);
@@ -90,7 +114,9 @@ export interface LiveControlState {
 }
 
 export function liveControlState(tile: TileState): LiveControlState {
-  const blocked = tile.gate_decision === "hil" || tile.gate_decision === "deny";
+  const blocked =
+    tile.gate_decision === "deny" ||
+    tile.gate_decision === "hil" && tile.approval_status !== "approved";
   const execution = tile.failed
     ? t("live.control.executionFailed")
     : tile.mode === "shadow"
@@ -106,7 +132,7 @@ export function liveControlState(tile: TileState): LiveControlState {
     policy: tile.gate_decision ? decisionLabel(tile.gate_decision) : t("live.work.pending"),
     authority: normalizedAutonomy(tile.autonomy) ?? t("live.control.notObserved"),
     execution,
-    effect: tile.outcome ?? t("live.control.notObserved"),
+    effect: outcomeLabel(tile.outcome),
   };
 }
 
@@ -543,9 +569,26 @@ export function DetailPanel({
           <dt>{t("live.detail.age")}</dt>
           <dd>{formatAge(Math.max(0, now - tile.first_seen_at))}</dd>
           <dt>{t("live.detail.outcome")}</dt>
-          <dd>{tile.outcome ?? "-"}</dd>
+          <dd>{tile.outcome ? outcomeLabel(tile.outcome) : "-"}</dd>
           </dl>
         </section>
+        {tile.approval_status || tile.provider_status || tile.observation_status ? (
+          <section class="live-detail-section" aria-labelledby="live-effect-evidence-heading">
+            <h3 id="live-effect-evidence-heading">{t("live.detail.effectEvidence")}</h3>
+            <dl class="live-detail-list live-detail-evidence">
+              <dt>{t("live.detail.approvalStatus")}</dt>
+              <dd>{evidenceStatusLabel("approval", tile.approval_status)}</dd>
+              <dt>{t("live.detail.providerStatus")}</dt>
+              <dd>{evidenceStatusLabel("provider", tile.provider_status)}</dd>
+              <dt>{t("live.detail.observationStatus")}</dt>
+              <dd>{evidenceStatusLabel("observation", tile.observation_status)}</dd>
+              <dt>{t("live.detail.reconciliationStatus")}</dt>
+              <dd>{evidenceStatusLabel("reconciliation", tile.reconciliation_status)}</dd>
+              <dt>{t("live.detail.recoveryStatus")}</dt>
+              <dd>{evidenceStatusLabel("recovery", tile.recovery_status)}</dd>
+            </dl>
+          </section>
+        ) : null}
         <h4 class="live-detail-subhead">{t("live.detail.safety")}</h4>
         <ul class="live-detail-safety">
           <li>{t("live.detail.stopCondition")}</li>

@@ -39,6 +39,64 @@ export interface LiveRouteUpdate {
   readonly view?: LiveViewMode;
 }
 
+const SAMPLE_SCENARIO_STEPS = [
+  "question",
+  "evidence",
+  "approval",
+  "dispatch",
+  "observation",
+  "reconciliation",
+] as const;
+
+function SampleScenario({ onInspect }: { readonly onInspect: () => void }) {
+  return (
+    <section class="live-sample-scenario" aria-labelledby="live-sample-scenario-title">
+      <header>
+        <div>
+          <span class="live-eyebrow">{t("live.scenario.eyebrow")}</span>
+          <h2 id="live-sample-scenario-title">{t("live.scenario.title")}</h2>
+          <p>{t("live.scenario.summary")}</p>
+        </div>
+        <div class="live-sample-scenario-result">
+          <span>{t("live.scenario.resultLabel")}</span>
+          <strong>{t("live.scenario.result")}</strong>
+        </div>
+      </header>
+      <dl class="live-sample-scenario-facts">
+        <div>
+          <dt>{t("live.scenario.actionLabel")}</dt>
+          <dd><code>ops.start-vm@1.0.0</code></dd>
+        </div>
+        <div>
+          <dt>{t("live.scenario.targetLabel")}</dt>
+          <dd>{t("live.scenario.target")}</dd>
+        </div>
+        <div>
+          <dt>{t("live.scenario.authorityLabel")}</dt>
+          <dd>A3-H - {t("live.scenario.authority")}</dd>
+        </div>
+      </dl>
+      <ol class="live-sample-scenario-steps">
+        {SAMPLE_SCENARIO_STEPS.map((step, index) => (
+          <li key={step}>
+            <span aria-hidden="true">{index + 1}</span>
+            <div>
+              <strong>{t(`live.scenario.steps.${step}.title`)}</strong>
+              <small>{t(`live.scenario.steps.${step}.detail`)}</small>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <footer>
+        <span>{t("live.scenario.boundary")}</span>
+        <button type="button" class="btn" onClick={onInspect}>
+          {t("live.scenario.inspect")}
+        </button>
+      </footer>
+    </section>
+  );
+}
+
 export function LivePanels({
   state,
   view,
@@ -297,9 +355,13 @@ export function LivePanels({
         </section>
       </div>
 
-      <LiveCoverage coverage={coverage} sample={isSample} />
+      {isSample ? (
+        <SampleScenario onInspect={() => selectEvent("sample-event-001")} />
+      ) : (
+        <LiveCoverage coverage={coverage} sample={false} />
+      )}
 
-      <section class="grid live-kpis">
+      {!isSample ? <section class="grid live-kpis">
         <a class={`card kpi live-kpi live-kpi-eps${epsUpdated ? " is-content-updated" : ""}`} href={routeHref("agent-activity")}>
           <span class="label">{t("live.kpi.events")}</span>
           <DrilldownCue />
@@ -370,7 +432,7 @@ export function LivePanels({
           </div>}
           <span class="live-kpi-meta">{t(metrics.partial ? "live.kpi.partial" : "live.kpi.routed", { count: view.tierTotal })}</span>
         </a>
-      </section>
+      </section> : null}
 
       <LiveActivityWorkspace
         tiles={view.populatedTiles}
