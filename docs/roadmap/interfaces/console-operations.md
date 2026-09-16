@@ -209,8 +209,12 @@ selectors; the server re-resolves that binding before it can support an answer.
 The Incidents roster renders the server-owned `title_source`, so the browser never repairs an
 incident subject. `recorded_subject` names a subject the server composed from the recorded
 operational target and reason; `identifier_fallback` still renders as unavailable rather than
-presenting an identifier as the subject. The roster prefers the display-only `incident_number`,
-allocated from the current UTC month, and falls back to `correlation_id` for legacy records. Every
+presenting an identifier as the subject. Machine-derived titles carry optional bounded
+`title_presentation` metadata from those same recorded fields. The Console localizes its closed
+template without parsing the raw title, keeps the sanitized technical reference as supporting
+context, and makes the readable title the detail heading. Recorded titles and summaries remain
+verbatim. The roster prefers the display-only `incident_number`, allocated from the current UTC
+month, and falls back to `correlation_id` for legacy records. Every
 Audit, Trace, RCA, and dossier link continues to resolve the canonical correlation identity. The incident timeline
 quotes a recorded tiered verdict from its own `<tier>_outcome`, `<tier>_reason`, and `<tier>_cause`
 fields, and the current-situation block adds the newest recorded reason a governed response
