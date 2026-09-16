@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: a8e9c4839c51ba47e10e154c656a97211236c55f
+translation_source_sha: 51951dc41a0b9ad3f666e42d1714340d723f746c
 translation_revised: 2026-09-16
 ---
 # FDAI Console 대화
@@ -486,7 +486,7 @@ notification 라우팅만 소유합니다. 대화 채널은 `FDAI_SLACK_CHANNEL_
 ## 9. 성장 모델 (카탈로그 + 운영자 기억)
 
 콘솔은 시간이 지나면서 세 가지 결정론적 방식으로 개선되며 모델 학습은 여기에 **포함되지 않습니다**.
-연결된 Console 카탈로그 원본이 바뀌면 질문 은행과 의미 의도 범위를 차례로 다시 생성하며, 산출물 동등성 검사는 오래된 원본 다이제스트를 차단합니다.
+연결된 Console 카탈로그 원본이 바뀌면 전체 질문 은행과 의미 의도 범위를 차례로 다시 생성합니다. 산출물 동등성 검사는 오래된 원본 다이제스트를 차단하며 출처 이력만 갱신하는 작업은 질문 신원, 준비 상태 또는 권한을 바꿀 수 없습니다.
 
 ### 9.1 Day 1
 

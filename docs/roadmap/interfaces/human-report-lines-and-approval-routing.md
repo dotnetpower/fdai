@@ -66,7 +66,8 @@ A person can participate in several axes, but evidence from one axis cannot sati
 
 Report-line extraction begins only after an operator selects the explicit
 `report_line_bootstrap` purpose. FDAI never infers this purpose from a filename, attachment text,
-or an ordinary knowledge upload.
+or an ordinary knowledge upload. The generated System Knowledge catalog may index this design
+document, but it is not organization evidence and grants no report-line or approval-routing authority.
 
 The existing document pipeline owns upload authentication, byte limits, malware and protection
 checks, format validation, optical character recognition (OCR), immutable versions, access

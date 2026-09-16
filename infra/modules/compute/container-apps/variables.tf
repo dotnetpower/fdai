@@ -535,6 +535,12 @@ variable "semantic_turn_physical_topic" {
   default     = ""
 }
 
+variable "operating_model_topic" {
+  description = "Logical operating-model topic multiplexed over the semantic physical Event Hub."
+  type        = string
+  default     = ""
+}
+
 variable "read_investigation_request_topic" {
   description = "Logical read-investigation request topic multiplexed over the semantic physical Event Hub."
   type        = string

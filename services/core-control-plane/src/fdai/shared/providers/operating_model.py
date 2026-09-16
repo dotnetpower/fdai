@@ -12,6 +12,8 @@ from typing import Protocol, runtime_checkable
 
 from .ontology_instance import OntologyLinkRecord, OntologyObjectRecord, normalize_json_value
 
+OPERATING_MODEL_TOPIC = "fdai.operating-model"
+
 REQUIRED_OPERATING_INTENT_OBJECT_TYPES: frozenset[str] = frozenset(
     {
         "ArchitectureConstraint",
@@ -198,6 +200,7 @@ def operating_intent_source_document_digest(document: OperatingIntentSourceDocum
 
 
 __all__ = [
+    "OPERATING_MODEL_TOPIC",
     "REQUIRED_OPERATING_INTENT_OBJECT_TYPES",
     "ContinuousOperatingModelProvider",
     "OperatingIntentSourceDocument",

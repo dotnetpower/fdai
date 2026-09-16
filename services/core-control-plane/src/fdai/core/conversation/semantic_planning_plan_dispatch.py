@@ -45,6 +45,7 @@ from .semantic_latency_recovery_planning import (
     LatencyRecoveryWindowPendingError,
     compile_latency_recovery_plan,
 )
+from .semantic_logical_service_planning import compile_logical_service_current_state_plan
 from .semantic_manifest_planning import (
     compile_ontology_declaration_plan,
     compile_ontology_manifest_count_plan,
@@ -254,6 +255,24 @@ def dispatch_semantic_plan(
         )
         if plan is not None:
             plan_source = "server_ontology_declaration"
+    if plan is None:
+        plan = compile_logical_service_current_state_plan(
+            frame=frame,
+            utterance=utterance,
+            manifest=manifest,
+            verifier=verifier,
+            evaluation_time=evaluation_time,
+            purpose=purpose,
+        )
+        if plan is not None:
+            plan_source = "server_logical_service_current_state"
+        elif frame.output_shape == SemanticOutputShape.LOGICAL_SERVICE_CURRENT_STATE:
+            return _outcome(
+                SemanticPlanningDisposition.UNAVAILABLE,
+                "semantic_logical_service_query_unavailable",
+                manifest_digest=manifest.manifest_digest,
+                frame=frame,
+            )
     if plan is None:
         plan = compile_typed_relationship_plan(
             frame=frame,
