@@ -433,6 +433,9 @@ recorded time, and evidence cutoff distinct. Existing records use `ingested_at=r
 inventing provider event time. Source, revision, scope, completeness, conflicts, masks, digest, and retention remain pinned.
 Operation status such as a successful write remains change metadata and never becomes resource
 operational state.
+The additive migration backfills existing rows in one transaction. It holds the table lock,
+suspends only the update guard, restores that guard before enforcing `NOT NULL`, and leaves the
+delete guard active throughout.
 
 A resource id can be reused after deletion. Projection therefore assigns a resource incarnation
 from an immutable provider identity, generation, or independently verified lifecycle boundary.

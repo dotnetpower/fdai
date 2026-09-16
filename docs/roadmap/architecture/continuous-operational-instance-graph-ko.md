@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 916e4c2dacbed80f2f39b3e2d8ad6a692d05a5c1
+translation_source_sha: 04f9c19142653160cc5525b2f5bd953b4874991c
 translation_revised: 2026-09-16
 ---
 # 지속형 운영 인스턴스 그래프
@@ -428,6 +428,9 @@ schema와 원본 수정본을 고정합니다. Partition 수명 주기, archive 
 `ingested_at=recorded_at`으로 이행합니다. 또한 원본 신원, 원본 이벤트 ID, cursor 또는 개정, 범위, 완전성, 충돌,
 속성 마스크, 내용 다이제스트 및 보존 등급을 유지합니다. 성공한 쓰기와 같은 작업 상태는 변경
 metadata로 유지하며 리소스 운영 상태가 될 수 없습니다.
+추가형 마이그레이션은 기존 행을 단일 트랜잭션에서 채웁니다. 테이블 잠금을 유지하면서
+업데이트 보호 장치만 일시 중지하고 `NOT NULL` 제약 조건을 적용하기 전에 복원합니다. 삭제
+보호 장치는 계속 활성 상태로 둡니다.
 
 삭제 후 같은 리소스 ID가 다시 사용될 수 있습니다. 따라서 변환 결과는 변경할 수 없는
 프로바이더 신원, 세대 또는 독립적으로 검증된 수명 주기 경계에서 리소스 수명 인스턴스를
