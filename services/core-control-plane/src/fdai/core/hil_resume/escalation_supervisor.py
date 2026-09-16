@@ -512,6 +512,8 @@ class HumanNonResponseSupervisor:
         *,
         now: datetime,
     ) -> bool:
+        """Terminalize an undispatched consent wait independently of autonomy mode."""
+
         revision = _revision(parked)
         updated = dict(parked)
         updated.update(
@@ -531,7 +533,7 @@ class HumanNonResponseSupervisor:
             audit_entry={
                 "actor": self._actor,
                 "action_kind": "hil.report_line.contact_consent_expired",
-                "mode": self.policy.mode.value,
+                "mode": "lifecycle",
                 "idempotency_key": (
                     f"{parked.get('idempotency_key')}:"
                     f"hil.report_line.contact_consent_expired:{revision}"

@@ -193,7 +193,8 @@ server-issued consent id. The Operator derives the command timestamp from the im
 request, so an HTTP retry with the same idempotency key produces the same durable command.
 Both approval-expiry and non-response workers terminalize an unanswered contact request at the
 shorter consent deadline. A late answer also records the same timeout no-op instead of leaving a
-permanent parked request.
+permanent parked request. This undispatched lifecycle timeout is labeled `lifecycle`, not
+`shadow` or `enforce`, because it grants no autonomy and never reaches an executor.
 
 ## Eligible-ancestor routing
 

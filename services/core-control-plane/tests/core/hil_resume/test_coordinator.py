@@ -534,6 +534,12 @@ async def test_unanswered_report_line_contact_is_reaped_at_consent_deadline() ->
     assert parked is not None
     assert parked["status"] == "resolved"
     assert parked["decision"] == "timeout"
+    expiry_audit = next(
+        item["entry"]
+        for item in store.audit_entries
+        if item["entry"].get("action_kind") == "hil.report_line.contact_consent_expired"
+    )
+    assert expiry_audit["mode"] == "lifecycle"
 
 
 async def test_report_line_graph_change_blocks_a_late_approval() -> None:

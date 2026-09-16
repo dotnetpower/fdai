@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 8e273bb62e5f2da2220e45dbbd40f7d1d052b1ae
+translation_source_sha: 70132ff7bbb8be6b2d60c8f2605cfa7652e4f8db
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -186,6 +186,8 @@ approval_required
 사용한 HTTP 재시도는 동일한 영속 명령을 생성합니다.
 승인 만료 워커와 무응답 워커는 모두 더 짧은 동의 기한에 응답하지 않은 연락 요청을 종료합니다.
 늦게 도착한 응답도 영구 대기 요청을 남기지 않고 같은 시간 초과 무작업 결과를 기록합니다.
+이 전달 전 수명 주기 시간 초과는 자율성을 부여하거나 실행기에 도달하지 않으므로 `shadow` 또는
+`enforce`가 아닌 `lifecycle`로 표시합니다.
 
 ## 적격 상위자 라우팅
 
