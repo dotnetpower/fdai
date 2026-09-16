@@ -32,8 +32,9 @@ resource "azurerm_storage_account" "case_history" {
   cross_tenant_replication_enabled  = false
 
   blob_properties {
-    versioning_enabled  = true
-    change_feed_enabled = true
+    versioning_enabled            = true
+    change_feed_enabled           = true
+    change_feed_retention_in_days = var.version_retention_days
 
     delete_retention_policy {
       days = var.soft_delete_retention_days

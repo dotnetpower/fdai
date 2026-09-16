@@ -880,6 +880,11 @@ jobs:
           terraform -chdir=scenario-lab init -backend=false -input=false
           terraform -chdir=scenario-lab validate
 
+      - name: terraform validate (A3-E evidence target)
+        run: |
+          terraform -chdir=a3e-evidence-target init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=a3e-evidence-target validate
+
       - name: terraform validate and test (AKS runtimes, mocked providers)
         run: |
           set -euo pipefail

@@ -135,8 +135,13 @@ installation cannot switch platforms by changing one variable.
 | In-cluster PostgreSQL | `fdai-<environment>-aks-database.tfstate` |
 
 The shared platform continues to own Event Hubs, Key Vault, Azure Container Registry, monitoring,
-workload identities, and `postgres-flex`. The AKS substrate state owns only the cluster, node
-pools, cluster identity, networking attachment, and cluster-scoped Azure role assignments.
+workload identities, case-history storage, and `postgres-flex`. Case-history content defaults its
+active, deletion-due, superseded-version, and change-feed periods to 30 days; operational-history and
+decision-evidence metadata keep their separate schedules. The AKS substrate state owns only the
+cluster, node pools, cluster identity, networking attachment, and cluster-scoped Azure role
+assignments.
+AKS consumes the shared root's Key Vault output; overlength candidates use the deterministic
+`kv-aip-<8hex>` fallback without creating a second runtime naming rule.
 Selecting AKS creates the application VNet plus node and API-server subnets even when detailed
 private networking is off. The separate private-networking input controls service private
 endpoints, hub peering and private DNS rather than the AKS subnet prerequisite.

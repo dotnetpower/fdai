@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: e12ce117eaeb8d7058e716da5c79badf0837f4e8
-translation_revised: 2026-09-15
+translation_source_sha: bae44927e8ff3ba191b227ed57bdf42524438649
+translation_revised: 2026-09-16
 ---
 # 배포 리소스 규약
 
@@ -72,6 +72,15 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 형태는 유지관리자 한 명이 승인할 수 있습니다. 공용 또는 프로덕션 경보 변경은 기존 승인
 정족수를 유지합니다.
 
+A3-E 근거 대상은 별도의 개발 환경 전용 Terraform root입니다. 기존 보호 보유 리소스 그룹을
+참조하고 별도 상태에서 비공개 네트워크, 단일 VM, 신원 2개 및 대상 범위 역할만 소유합니다.
+이름은 `fdai-a3e-<env>-<region>` 접미사를 사용합니다. 구독, 보유 그룹, 작업자, 리전, SKU,
+정확한 이미지 버전, 만료 시각, 주소 공간 및 SSH 공개키는 보호된 배포 입력으로 유지합니다.
+실행기 역할은 VM 읽기, 시작 및 할당 해제만 허용하고 관측자는 같은 VM에서 Reader 역할을
+받습니다. Subnet과 VM NIC는 모두 외부 송신을 거부하는 NSG에 연결하고 VM extension 작업은
+비활성화합니다. 값을 노출하지 않는 gate는 정확한 생성 집합만 수락합니다. 적용, 초기 할당
+해제, 캠페인 효과, rollback 및 정리는 각각 별도의 승인 단계로 유지합니다.
+
 ## 구현 상태
 
 ### 구현 범위
@@ -89,6 +98,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 | 초기 구성 기반 계획 경계 | implemented | `fdai_deployment_cli.bootstrap_reconcile`, `.github/workflows/deploy-dev.yml`, 집중 CLI 및 워크플로 검사 | 초기 구성 조정은 대상에 고정된 읽기 전용 작업입니다. 애플리케이션 계획은 기반 단계가 소유한 상태 컨테이너를 만들지 않고 확인합니다. 통제된 기반 적용 및 인계 증적은 아직 필요합니다. |
 | 재사용 Terraform 모듈 호환성 | implemented | `infra/modules/**/versions.tf`, `infra/services/**/modules/**/versions.tf`, TFLint | 모든 재사용 모듈은 Terraform `>= 1.9`를 선언하고 Azure 리소스를 소유한 모듈은 지원되는 AzureRM 4.x 범위를 제한합니다. |
 | OHL scale-out evidence target 명명 및 tag | implemented | `infra/main.tf`의 current change, `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` 결과 8 passed | 실제 프로비저닝 및 recurrence evidence는 열려 있습니다. |
+| A3-E 근거 대상 명명 및 소유권 | implemented | `infra/a3e-evidence-target/`; `verify_a3e_evidence_plan.py`; 집중 Terraform 및 계획 검증기 검사 | Root는 기존 보유 그룹을 참조하고 별도 상태를 사용하며 공인 IP를 만들지 않습니다. 실행기에는 VM 읽기, 시작 및 할당 해제만 부여합니다. 보호된 적용과 운영 근거는 이슈 `#632` 및 `#633`에 남아 있습니다. |
 | Operator schema 및 catalog Job 명명 | implemented | `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 집중 배포 workflow 테스트 | 결정론적 이름과 digest-pinned image를 연결했으며 순서가 지정된 Job의 보호된 적용 증적은 열려 있습니다. |
 | 예약된 규칙 수집기 Job | implemented | `infra/main.tf`; `infra/modules/compute/container-apps/rule_watcher_job.tf`; `tests/integration/infra/test_rule_watcher_job.py`; 집중 인프라 검사(`26 passed`) 및 `terraform validate` | 구성 가능한 cron이 실행 권한이 없는 인벤토리 신원과 네이티브 StateStore 비밀 참조를 사용해 검증된 수집기 wrapper를 호출합니다. 실행기 신원을 받거나 카탈로그 항목을 승격할 수 없습니다. 보호된 적용 및 실행 증적은 열려 있습니다. |
 | 브라우저 근거 정리 Job 명명 | implemented | `infra/main.tf`; `tests/integration/infra/test_browser_evidence_cleanup_job.py`; focused 검사(`4 passed`) 및 `terraform validate` | `caj-<workload>[-env][-region]-browser-gc`는 허용된 모든 환경에서 Azure 32자 한계를 지킵니다. Protected 적용 근거는 남아 있습니다. |
@@ -101,7 +111,9 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | 정확한 Terraform 보안 검사가 초기 형태를 거부한 뒤 외부 송신을 거부하는 NSG를 A3-E VM NIC와 subnet에 모두 직접 연결하고 VM extension 작업을 비활성화했습니다. | `current change`; Trivy `0.72.0`에서 잘못된 구성 0건, Checkov `3.2.256`에서 16건 통과 및 0건 실패, 값을 노출하지 않는 미리 보기 검증기에서 정확히 생성 13건, 갱신 0건 및 삭제 0건. | 관리 호스트 계획이나 Azure 효과를 만들기 전에 필수 CI를 통해 수정된 정확한 개정 번호를 게시합니다. |
 | 2026-09-15 | implemented | 실제 부분 Foundation 복구에서 provider와 Azure 조건 오류가 드러난 뒤 임시 OS 캐시와 범위가 포함된 역할 정의 비교 값을 수정했습니다. | 현재 변경; `terraform -chdir=infra/bootstrap test -filter=tests/offline_runner.tftest.hcl`: 정확한 역할·principal 제한과 디스크 캐시를 포함해 14건 통과. | 완료된 작업을 보존하는 별도 승인 후속 계획·적용과 독립 호스트·상태 인계 근거를 보존합니다. |
+| 2026-09-16 | implemented | 일회성 A3-E 근거 VM 하나에 결정론적 이름, 필수 무권한 및 만료 태그, 분리된 실행기 및 관측자 신원, 대상 범위 최소 역할, 정확한 생성 전용 계획 검증을 추가했습니다. | `current change`; `infra/a3e-evidence-target/`; 집중 Terraform, 계획 검증기, CI 계약 및 문서 검사. | 정확한 개정 번호 하나를 게시하고 승인된 원격 상태 계획을 보존한 뒤 이슈 `#632` 및 `#633`에서 별도로 승인된 적용, 할당 해제, 신원, 정리 및 독립 효과 근거를 수집합니다. |
 | 2026-09-09 | implemented | 동작을 바꾸지 않고 배포 workflow 검토 예산을 복원하고 직접 azd 테스트 harness가 필요한 모든 실행 파일 전제 조건을 제공하도록 수정했습니다. | `current change`, 정확한 deploy-workflow diet 및 Azure context 테스트 23건 통과 | 보호된 배포를 재개하기 전에 새 exact-green main 증적을 보존합니다. |
 | 2026-09-09 | implemented | 기본적으로 비공개인 Foundry network 입력을 추가하고 local 인증을 활성화하지 않은 채 공개 기여자 profile을 명시적인 공개 선택 항목에 연결했습니다. | `current change`; 집중 Foundry 비공개 및 공개 Terraform 계획 통과. | Runtime 사용을 validated로 분류하기 전에 새 구독 endpoint와 managed identity 추론 재확인을 보존합니다. |
 | 2026-09-08 | implemented | Core 이외 서비스의 롤백 tfvars 구체화가 Core 모델 결속 계약과 독립적으로 유지되도록 모델 엔드포인트 입력이 없을 때 빈 JSON 객체를 기본값으로 사용합니다. | 실패한 적용 사전 검사 `34228191755`, `current change`, 집중 구체화 도구 CLI 회귀 테스트 | 정확한 보호 Operator 계획을 다시 만들고 적용합니다. |
@@ -241,6 +253,10 @@ Operator API는 물리 구성 요소로 `operator-api`를 사용합니다. 워�
 `moved` 주소와 보존된 근거에서만 유효합니다. 기존 배포는 검토된 보호 계획을 통해 물리 리소스를
 교체하며 제자리에서 이름을 바꾸지 않습니다.
 
+일회성 A3-E 대상은 각 CAF 접두사 뒤에 `fdai-a3e-<env>-<region>`을 사용합니다. 실행기와
+관측자 신원에는 각각 `-executor`와 `-observer`를 추가합니다. Root는 새 리소스 그룹을 명명하거나
+소유하지 않고 보유 리소스 그룹을 참조하며, 배포 값은 소스 제어 외부에 유지합니다.
+
 기본 **리소스 그룹**은 `rg-fdai`입니다. 구독 범위 배치가 필요한 리소스 종류를 제외하면
 시스템이 프로비저닝하는 모든 리소스가 이 리소스 그룹에 속합니다. 현재 해당 예외는 없습니다.
 
@@ -279,6 +295,10 @@ State가 정본 key에 도달한 뒤 legacy 토픽을 프로비저닝하거나 �
 | Container Apps 환경 | `cae-` | 2-32; 영숫자 + 하이픈 | `cae-fdai` |
 | Container App (코어) | `ca-` | 2-32 | `ca-fdai-core` |
 | Container Apps 작업 (out-of-band) | `caj-` | 2-32 | `caj-fdai-oob`, `caj-fdai-browser-gc` |
+| Virtual Network | `vnet-` | 2-64 | `vnet-fdai-a3e-dev-wus2` |
+| Subnet | `snet-` | 1-80 | `snet-fdai-a3e-dev-wus2` |
+| Network Security Group | `nsg-` | 1-80 | `nsg-fdai-a3e-dev-wus2` |
+| Virtual Machine | `vm-` | 1-64 | `vm-fdai-a3e-dev-wus2` |
 | Virtual Machine Scale Set | `vmss-` | 1-64 | `vmss-fdai-ohl-dev-krc` |
 | Event Hubs 이름 공간 | `evhns-` | 6-50 | `evhns-fdai` |
 | PostgreSQL Flexible Server | `psql-` | 3-63; 소문자 | `psql-fdai` |
@@ -311,6 +331,9 @@ State가 정본 key에 도달한 뒤 legacy 토픽을 프로비저닝하거나 �
 - env/지역/인스턴스를 추가한 합법적 이름이 문자 제한을 넘으면 해당 리소스 종류에만
   문서화된 짧은 이름 `aip`를 `fdai` 대신 사용합니다. 전체 이름이 제한 안에 있으면
   `aip`를 사용하지 않습니다.
+- **Key Vault는 기존의 유효한 이름을 모두 보존합니다.** 전체 후보가 24자를 넘을 때만
+  Terraform은 `kv-aip-<8hex>`를 사용합니다. `<8hex>`는 워크로드, 환경, 지역 및 전역 접미사를
+  포함한 전체 후보의 안정적인 SHA-256 접두사입니다.
 
 ### 이 규칙이 방지하는 항목
 
