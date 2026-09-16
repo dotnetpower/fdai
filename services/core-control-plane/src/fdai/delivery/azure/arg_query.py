@@ -515,7 +515,7 @@ class AzureArgQueryFactory:
         self,
         rows: tuple[Mapping[str, Any], ...],
     ) -> ProviderScopeCoverage:
-        """Validate provider aggregation rows against the reviewed ARM vocabulary."""
+        """Validate non-empty provider aggregation against the reviewed ARM vocabulary."""
         counts: dict[str, ProviderTypeCount] = {}
         for row in rows:
             provider_type = row.get("provider_type")
@@ -540,6 +540,12 @@ class AzureArgQueryFactory:
                 raise ArgQueryError(
                     f"provider scope coverage row for {normalized_type!r} is invalid"
                 ) from exc
+
+        if not counts:
+            raise ArgQueryError(
+                "provider scope coverage returned no provider objects; "
+                "complete provider scope cannot be established"
+            )
 
         provider_object_count = sum(item.count for item in counts.values())
         mapped_provider_object_count = sum(

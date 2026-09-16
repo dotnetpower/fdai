@@ -156,6 +156,11 @@ class AnalyzerJobReport:
     def coverage(self) -> dict[str, object]:
         """Return strictly reconciled cross-resource evaluation coverage."""
 
+        if self.target_resolution.inventory_consulted:
+            if self.target_resolution.truncated:
+                return _unavailable_coverage("resource_discovery_truncated")
+            if not self.target_resolution.source_complete:
+                return _unavailable_coverage("inventory_source_incomplete")
         targets = {target.resource_ref: target for target in self.target_resolution.targets}
         if len(targets) != len(self.target_resolution.targets):
             return _unavailable_coverage("selected_resource_identity_duplicate")

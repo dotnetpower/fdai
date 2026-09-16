@@ -557,6 +557,23 @@ async def test_scope_coverage_counts_unmapped_provider_types_without_materializi
 
 
 @pytest.mark.asyncio
+async def test_scope_coverage_rejects_empty_provider_result() -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": []})
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        coverage = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        ).build_scope_coverage_fn()
+
+        with pytest.raises(ArgQueryError, match="returned no provider objects"):
+            await coverage()
+
+
+@pytest.mark.asyncio
 async def test_unmapped_resource_query_preserves_identity_without_semantic_support() -> None:
     arm_id = (
         "/subscriptions/00000000-0000-0000-0000-000000000001/"

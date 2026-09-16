@@ -117,7 +117,11 @@ class AgentStateEvent:
         return payload
 
 
-def runtime_agent_state_snapshot(health: Mapping[str, Any]) -> tuple[AgentStateEvent, ...]:
+def runtime_agent_state_snapshot(
+    health: Mapping[str, Any],
+    *,
+    active_states: Mapping[str, AgentStateEvent] | None = None,
+) -> tuple[AgentStateEvent, ...]:
     """Project initialized healthy Pantheon agents into resting states."""
     if int(health.get("consumers_live") or 0) <= 0:
         return ()
@@ -128,12 +132,22 @@ def runtime_agent_state_snapshot(health: Mapping[str, Any]) -> tuple[AgentStateE
         str(agent) for agent in health.get("unavailable_agents", ()) if isinstance(agent, str)
     }
     timestamp = _iso_ts_utc()
+    active = active_states or {}
     return tuple(
         AgentStateEvent(
             agent=str(agent),
-            state=(AgentState.WATCHING if agent in _SENSING_AGENTS else AgentState.IDLE),
+            state=(
+                active[str(agent)].state
+                if str(agent) in active
+                else AgentState.WATCHING
+                if agent in _SENSING_AGENTS
+                else AgentState.IDLE
+            ),
             ts=timestamp,
-            detail="Runtime agent initialized",
+            correlation_id=(active[str(agent)].correlation_id if str(agent) in active else None),
+            detail=(
+                active[str(agent)].detail if str(agent) in active else "Runtime agent initialized"
+            ),
             source=ObservationSource.RUNTIME_OBSERVED,
         )
         for agent, snapshot in agent_health.items()
@@ -154,6 +168,15 @@ class EventBusPantheonActivityObserver:
             raise ValueError("topic MUST be non-empty")
         self._event_bus = event_bus
         self._topic = topic
+        self._active: dict[tuple[str, str], AgentStateEvent] = {}
+
+    def active_states(self) -> dict[str, AgentStateEvent]:
+        """Return the latest active handler state for each agent."""
+
+        current: dict[str, AgentStateEvent] = {}
+        for (agent, _topic), event in self._active.items():
+            current[agent] = event
+        return current
 
     async def observe(
         self,
@@ -172,6 +195,11 @@ class EventBusPantheonActivityObserver:
             payload=payload,
             error_type=error_type,
         )
+        key = (agent, topic)
+        if phase.value == "started":
+            self._active[key] = event
+        else:
+            self._active.pop(key, None)
         await self._event_bus.publish(self._topic, agent, event.to_runtime_payload())
 
 
@@ -255,14 +283,25 @@ class AgentRuntimeStatePublisher:
         self._stopped = asyncio.Event()
 
     async def publish_once(self) -> int:
-        """Publish one current health snapshot and return its agent count."""
+        """Publish one current health snapshot concurrently and return its agent count."""
         events = tuple(self._snapshot_factory())
-        for event in events:
-            await self._event_bus.publish(
-                self._topic,
-                event.agent,
-                event.to_runtime_payload(),
-            )
+        results = await asyncio.gather(
+            *(
+                self._event_bus.publish(
+                    self._topic,
+                    event.agent,
+                    event.to_runtime_payload(),
+                )
+                for event in events
+            ),
+            return_exceptions=True,
+        )
+        failure = next(
+            (result for result in results if isinstance(result, BaseException)),
+            None,
+        )
+        if failure is not None:
+            raise failure
         return len(events)
 
     async def run(self) -> None:

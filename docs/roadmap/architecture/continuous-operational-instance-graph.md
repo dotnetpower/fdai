@@ -65,10 +65,10 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
 - **Time and provenance:** Every fact retains effective, provider-event, observation, FDAI-ingestion,
   recorded, and evidence-cutoff time plus source, revision, completeness, conflicts, and freshness.
   The normalized journal keeps these distinct; ingestion latency never rewrites provider event time.
-- **No false absence:** Missing events, truncated reads, cursor lag, an open realtime overlay, and
-  archive unavailability remain explicit unknown or incomplete evidence.
-  A bounded query can return verified positive observations from the available scope, but it keeps
-  the result incomplete and never treats the missing scope as proof that no other observation exists.
+- **No false absence:** Missing events, truncated reads, cursor lag, an open realtime overlay, and archive
+  unavailability remain incomplete. An empty provider-type aggregation cannot certify complete provider
+  scope because an empty subscription and an identity with no provider visibility are indistinguishable.
+  A bounded query can return verified positive observations, but missing scope never proves absence.
 - **Read/write separation:** Provider observation and ontology projection are read-plane work.
   Managed-resource writeback remains in the governed action path and closes only after independent
   re-observation. The standalone deploy host's exact-registry `AcrPush` assignment remains a
