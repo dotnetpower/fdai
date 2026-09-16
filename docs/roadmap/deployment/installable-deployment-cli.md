@@ -36,11 +36,17 @@ apply, resume, or tear down a tenant deployment.
 
 Current source-mode support covers private preparation, read-only AKS capacity preflight,
 exact-approved Foundation execution through private state handoff, and verified source transfer
-to the enrolled host. Connected deployment does not build a dedicated managed-host image.
+to the enrolled host, plus source-runtime OCI image preparation. Connected deployment does not
+build a dedicated managed-host image.
 The public source command resumes these checkpoints using the shared private coordinator;
 new interactive source installations confirm settings at startup only; later stages and JSON
 execution never prompt. `--approval-file <path>` explicitly supplies an existing
 private human approval to the shared verifier. Without it, retained ambient approvals are ignored.
+`--foundation-workload <token>` selects the naming token for a new source installation and defaults
+to `fdai`. Use a distinct token when canonical application or operations groups already exist.
+The token is sealed into source preparation, retained variables, the run binding, and every exact
+Foundation plan. Repeat it unchanged on approval resume. It grants no ownership of existing
+resources and never authorizes deletion or adoption.
 Initial confirmation is separate from that approval. The coordinator advances within exact approval and returns review state when another
 checkpoint needs authority; it does not create approval, read stdin or report success. Managed-host application
 execution and durable Trial activation are not yet connected. A plan
@@ -122,8 +128,8 @@ checks group ownership and rejects concurrent state changes. Its expiring review
 review and code; the official prompt accepts `--foundation-recovery-review`. Before its immutable claim,
 it verifies current human identity, exact-source CI, original claim/snapshot/lineage, group ownership,
 current VM SKU/quota, configuration/provider/plan/tool/state hashes and expiry. It applies once against
-the original state; a retained claim permits only `--verify-only`. Independent readback and a zero-change
-plan gate a separate receipt. Original receipts are never fabricated; host/state/app acceptance remains separate.
+the original state; claims permit only `--verify-only`. Group readback uses explicit name/subscription
+and checks the exact ID. Independent readback and zero change gate the receipt; host/state/app checks remain separate.
 
 One successor may select `--predecessor-directory` after the initial recovery is claimed but incomplete.
 The predecessor's review, claim, plan, variables, configuration and provider hashes remain immutable.
@@ -153,9 +159,8 @@ or changes that source. Ordinary enrollment remains unchanged.
 
 ### Recovered state migration
 
-Only the transient archive combines verified recovery configuration and original state. It rejects
-a second state owner, checks the receipt-bound state hash and rechecks bytes before publication.
-The existing managed-host format and both original inputs remain unchanged.
+Only a transient archive combines verified recovery configuration and original state; both inputs stay
+unchanged. Duplicate state owners or changed receipt-bound hashes/bytes block publication in the existing host format.
 
 The state-handoff command accepts `--foundation-recovery-directory` and `--recovery-approval-file`
 alongside its original source inputs. The official prompt takes both `--recovered-foundation-receipt`
@@ -172,16 +177,18 @@ state deletion, resume validates that authority and the final receipt, then inde
 the backend. Missing local state alone grants no authority. Live recovery acceptance remains open.
 
 ### Explicit source recovery
+Resume with `--source <current-checkout> --work-dir <original-run> --foundation-recovery-directory <recovery>`.
+Original snapshot, profile, region and budget remain immutable; execution source is separate. Missing
+success returns review. Separate exact approvals advance enrollment/migration; claims allow verification
+only, never repeated apply or scope changes. Completed migration observes the backend without reenrollment.
+The original lock protects source transfer; immutable progress preserves old status and false readiness.
+Existing claims build/reverify five original-source images; wrong revisions, inventories or readiness
+are rejected. Missing tools return review; registry import and activation remain unconnected.
 
-Use `--source <current-checkout> --work-dir <original-run> --foundation-recovery-directory <recovery>`
-to resume a source run. The original snapshot, runtime profile, region and budget remain immutable;
-current execution source is recorded separately. Initial scope cannot be reconfirmed on this route.
-Missing recovery success returns review, never repeats apply. Separate exact approvals advance host
-enrollment and state migration; retained claims select verification only. Completed migration resumes
-through backend observation without repeating enrollment after local state deletion. Under the original
-lock, the verified recovery context then supplies the existing source transfer engine with the original
-application snapshot. Separate immutable progress records preserve old status and false readiness.
-Application activation remains unconnected; this path does not report a completed deployment.
+**Design and critique:** A kit-shaped source object implies release trust. Instead, `standalone_host
+verify-source-runtime` binds the snapshot's canonical `source_commit`, pinned digests and six OCI images, then
+rechecks bytes. Opaque hashes prove neither executable contents nor signatures; no login, installation,
+publication or authority follows. Support installation takes an admitted root, without kit fallback.
 
 ### Source transfer boundary
 

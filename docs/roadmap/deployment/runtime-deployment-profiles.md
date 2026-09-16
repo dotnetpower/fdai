@@ -19,6 +19,11 @@ signed `fdaictl` provisioning profile and every exact Terraform plan.
 Shared Operator outbox composition preserves the same test-context worker on both platforms.
 Its facade grouping creates no AKS observation, Cost Governance activation, or deployment authority.
 
+The host's read-only `verify-source-runtime` command checks pinned source/runtime content, not
+runtime or database placement, node sizing, cost, host identity or exact-plan authority. Its evidence
+cannot replace a profile-bound plan. Support installation receives an already-admitted artifact root;
+missing source support never selects a kit implicitly. See the [source boundary](installable-deployment-cli.md#explicit-source-recovery).
+
 The operator chooses one runtime platform and one database placement. `fdaictl` validates the
 combination, estimates its capacity and cost, compiles a platform-specific provisioning graph,
 and asks for approval of each exact plan. A retry can verify an uncertain effect, but it cannot

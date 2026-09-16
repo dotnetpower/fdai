@@ -16,6 +16,52 @@ from fdai_deployment_cli.application_state_adoption import ApplicationStateAdopt
 from fdai_deployment_cli.contracts import canonical_digest
 
 
+@pytest.mark.parametrize("artifact_directory", ["kit-work/verified", "source-work/verified"])
+def test_runtime_support_uses_only_admitted_artifact_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, artifact_directory: str
+) -> None:
+    artifact_root = tmp_path / artifact_directory
+    wheels = artifact_root / "support/python"
+    wheels.mkdir(parents=True)
+    wheel = wheels / "example-1.0-py3-none-any.whl"
+    wheel.write_bytes(b"synthetic-wheel")
+    decoy = tmp_path / "other-artifacts/support/python"
+    decoy.mkdir(parents=True)
+    (decoy / "unexpected.whl").write_bytes(b"not-selected")
+    calls: list[tuple[str, ...]] = []
+
+    def capture(command, **kwargs):
+        assert kwargs["cwd"] == tmp_path
+        calls.append(command)
+
+    monkeypatch.setattr(standalone_host, "_run", capture)
+    standalone_host._install_runtime_support(tmp_path, artifact_root=artifact_root)
+
+    assert len(calls) == 2
+    assert calls[1] == (
+        str(tmp_path / "runtime-venv/bin/pip"),
+        "install",
+        "--no-index",
+        "--no-cache-dir",
+        str(wheel),
+    )
+
+
+def test_runtime_support_does_not_fall_back_to_kit(tmp_path: Path, monkeypatch) -> None:
+    decoy = tmp_path / "kit-work/verified/support/python"
+    decoy.mkdir(parents=True)
+    (decoy / "unexpected.whl").write_bytes(b"not-selected")
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("missing admitted support must not execute an installer")
+
+    monkeypatch.setattr(standalone_host, "_run", unexpected)
+    with pytest.raises(ValueError, match="wheelhouse is empty"):
+        standalone_host._install_runtime_support(
+            tmp_path, artifact_root=tmp_path / "source-work/verified"
+        )
+
+
 def _review() -> dict[str, object]:
     value: dict[str, object] = {
         "schema_version": "fdai.standalone-application-plan.v1",

@@ -335,7 +335,7 @@ def _handoff() -> dict[str, object]:
         "subscription_id": SUBSCRIPTION,
         "tenant_id": TENANT,
         "region": "koreacentral",
-        "app_resource_group": {"id": app_id},
+        "app_resource_group": {"id": app_id, "name": "rg-example-dev-krc"},
         "ops": {"resource_group_name": "rg-example-ops-krc"},
         "state": {
             "account_id": state_id,
@@ -376,6 +376,17 @@ def test_independent_readback_requires_private_keyless_state_and_exact_runner_id
 
     def capture(command: list[str], **_: object) -> str:
         if command[:3] == ["az", "group", "show"]:
+            assert command == [
+                "az",
+                "group",
+                "show",
+                "--name",
+                app_group["name"],
+                "--subscription",
+                SUBSCRIPTION,
+                "--output",
+                "json",
+            ]
             return json.dumps({"id": app_group["id"]})
         if command[:3] == ["az", "resource", "show"] and command[-1] == "json":
             return json.dumps(
@@ -425,4 +436,13 @@ def test_independent_readback_requires_private_keyless_state_and_exact_runner_id
 
     monkeypatch.setattr(apply, "_capture", public_account)
     with pytest.raises(ValueError, match="state protection"):
+        apply._independent_readback(handoff, tmp_path)
+
+    def foreign_group(command: list[str], **kwargs: object) -> str:
+        if command[:3] == ["az", "group", "show"]:
+            return json.dumps({"id": str(app_group["id"]) + "-other"})
+        return capture(command, **kwargs)
+
+    monkeypatch.setattr(apply, "_capture", foreign_group)
+    with pytest.raises(ValueError, match="group or state protection"):
         apply._independent_readback(handoff, tmp_path)

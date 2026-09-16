@@ -131,8 +131,9 @@ def source_recovery_run(tmp_path, monkeypatch):
 @pytest.mark.parametrize(
     "stage", ["needs-apply", "needs-enrollment", "enroll", "needs-state", "migrate", "completed"]
 )
+@pytest.mark.parametrize("image_defect", [None, "source", "incomplete", "ready"])
 def test_source_recovery_retains_application_source_and_never_repeats_effects(
-    source_recovery_run, monkeypatch, stage
+    source_recovery_run, monkeypatch, stage, image_defect
 ):
     from datetime import UTC, datetime, timedelta
 
@@ -195,6 +196,39 @@ def test_source_recovery_retains_application_source_and_never_repeats_effects(
         "transfer_application_source",
         lambda **kwargs: transfers.append(kwargs) or {"remote_transfer_verified": True},
     )
+    image_calls = []
+
+    def prepare_images(snapshot, destination, **kwargs):
+        assert transfers
+        assert snapshot == args.work_dir / "source-snapshot"
+        assert destination == args.work_dir / "source-images"
+        assert kwargs["snapshot_digest"] == "c" * 64
+        assert 0 < kwargs["timeout_seconds"] <= args.timeout_seconds
+        image_calls.append(snapshot)
+        inventory = {
+            "schema_version": "fdai.source-images.v1",
+            "state": "built",
+            "source_commit": source.commit if image_defect == "source" else "a" * 40,
+            "snapshot_digest": "c" * 64,
+            "provenance": "operator-selected-source",
+            "services": {}
+            if image_defect == "incomplete"
+            else dict.fromkeys(recovery_runner.RUNTIME_SERVICES, {}),
+            "registry_published": False,
+            "dependency_images_verified": False,
+            "apply_authorized": False,
+            "deployment_ready": image_defect == "ready",
+            "mutation_performed": False,
+        }
+        inventory["receipt_digest"] = canonical_digest(inventory)
+        return inventory
+
+    monkeypatch.setattr(recovery_runner, "build_source_images", prepare_images)
+    if image_defect is not None and stage in {"migrate", "completed"}:
+        with pytest.raises(ValueError, match="original application snapshot"):
+            recovery_runner.resume(args)
+        assert not list(recovery.glob("source-recovery-progress-*.json"))
+        return
     result = recovery_runner.resume(args)
     assert result["source_commit"] == "a" * 40
     assert result["execution_source_commit"] == source.commit
@@ -214,6 +248,11 @@ def test_source_recovery_retains_application_source_and_never_repeats_effects(
     if transfers:
         assert transfers[0]["source_commit"] == "a" * 40
         assert transfers[0]["snapshot"] == args.work_dir / "source-snapshot"
+        assert image_calls == [args.work_dir / "source-snapshot"]
+        assert result["source_images"]["source_commit"] == "a" * 40
+        assert result["source_images"]["registry_published"] is False
+    else:
+        assert not image_calls
     assert result["stage"] == (
         "application-plan"
         if stage in {"migrate", "completed"}

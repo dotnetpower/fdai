@@ -17,8 +17,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Final
 
-from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.aks_readiness import verify_workload_health
+from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
 from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
@@ -74,6 +74,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m fdai_deployment_cli.standalone_host")
     parser.add_argument("--work-dir", type=Path, required=True)
     subcommands = parser.add_subparsers(required=True)
+
+    source_runtime = subcommands.add_parser("verify-source-runtime")
+    source_runtime.add_argument("--source-snapshot", type=Path, required=True)
+    source_runtime.add_argument("--snapshot-digest", required=True)
+    source_runtime.add_argument("--runtime-root", type=Path, required=True)
+    source_runtime.add_argument("--runtime-digest", required=True)
+    source_runtime.add_argument("--deployment-bundle", type=Path, required=True)
+    source_runtime.add_argument("--bundle-digest", required=True)
+    source_runtime.add_argument("--platform-tag", required=True)
+    source_runtime.set_defaults(handler=_verify_source_runtime, read_only=True)
 
     prepare = subcommands.add_parser("prepare")
     prepare.add_argument("--kit", type=Path, required=True)
@@ -134,8 +144,9 @@ def main(argv: list[str] | None = None) -> int:
     lock_descriptor: int | None = None
     try:
         work_dir = _absolute(args.work_dir)
-        _private_directory(work_dir)
-        lock_descriptor = _acquire_checkpoint_lock(work_dir)
+        if not getattr(args, "read_only", False):
+            _private_directory(work_dir)
+            lock_descriptor = _acquire_checkpoint_lock(work_dir)
         result = args.handler(args, work_dir)
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         print(f"standalone-host: {exc}", file=sys.stderr)
@@ -145,6 +156,20 @@ def main(argv: list[str] | None = None) -> int:
             os.close(lock_descriptor)
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     return 0
+
+
+def _verify_source_runtime(args: argparse.Namespace, _work_dir: Path) -> dict[str, object]:
+    from fdai_deployment_cli.source_runtime import verify_source_runtime
+
+    return verify_source_runtime(
+        snapshot=_absolute(args.source_snapshot),
+        snapshot_digest=args.snapshot_digest,
+        runtime_root=_absolute(args.runtime_root),
+        runtime_digest=args.runtime_digest,
+        deployment_bundle=_absolute(args.deployment_bundle),
+        bundle_digest=args.bundle_digest,
+        platform_tag=args.platform_tag,
+    )
 
 
 def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
@@ -219,7 +244,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     )
     if handoff.get("source_commit") != kit.source_commit:
         raise ValueError("Foundation and deployment kit source revisions differ")
-    _install_runtime_support(work_dir)
+    _install_runtime_support(work_dir, artifact_root=kit.materialized_root)
     infra = kit.bundle_root / "infra"
     terraform = kit.materialized_root / kit.verification.terraform_binary
     provider_mirror = kit.materialized_root / kit.verification.provider_mirror_prefix
@@ -441,7 +466,7 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
     substrate = Path(str(context["infra"]))
     identities = _terraform_json_output(substrate, "runtime_identity_bindings")
     if not isinstance(identities, dict):
-        raise ValueError("AKS runtime identity output contract is invalid")
+        raise TypeError("AKS runtime identity output contract is invalid")
     principals = {
         str(_mapping(identities.get(name), f"{name} runtime identity")["principal_id"])
         for name in ("core", "operator", "executor", "inventory")
@@ -1645,7 +1670,7 @@ def _aks_job(
 ) -> dict[str, object]:
     image = refs.get("core-control-plane")
     if not isinstance(image, str):
-        raise ValueError("AKS scheduled job image is unavailable")
+        raise TypeError("AKS scheduled job image is unavailable")
     return {
         "component": component,
         "image": image,
@@ -1924,11 +1949,12 @@ def _remove_adoption_inputs(*paths: Path) -> None:
         path.unlink(missing_ok=True)
 
 
-def _install_runtime_support(work_dir: Path) -> None:
+def _install_runtime_support(work_dir: Path, *, artifact_root: Path) -> None:
+    """Install already-admitted local support without selecting its trust mechanism."""
     environment = work_dir / "runtime-venv"
     if (environment / "bin/python").exists():
         return
-    wheels = sorted((work_dir / "kit-work/verified/support/python").rglob("*.whl"))
+    wheels = sorted((artifact_root / "support/python").rglob("*.whl"))
     if not wheels:
         raise ValueError("runtime migration support wheelhouse is empty")
     _run(
@@ -2598,7 +2624,7 @@ def _moment(value: datetime) -> str:
 
 def _parse_moment(value: str) -> datetime:
     try:
-        result = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        result = datetime.fromisoformat(value)
     except ValueError as exc:
         raise ValueError("approval expiry is invalid") from exc
     if result.tzinfo is None:

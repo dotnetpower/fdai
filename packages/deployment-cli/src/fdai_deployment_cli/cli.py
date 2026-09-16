@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import platform
+import re
 import shutil
 import stat
 import subprocess
@@ -170,6 +171,12 @@ def _provision_azure(args: argparse.Namespace) -> int:
     )
     if (args.prepare_only or args.preflight_only) and args.source is None:
         raise ValueError("source-only preparation or preflight requires --source")
+    if re.fullmatch(r"[a-z][a-z0-9]{1,11}", args.foundation_workload) is None:
+        raise ValueError(
+            "--foundation-workload must be a lowercase token of 2 through 12 characters"
+        )
+    if args.foundation_workload != "fdai" and args.source is None:
+        raise ValueError("--foundation-workload is supported only for source deployment")
     if args.foundation_recovery_directory is not None and (
         args.source is None or args.work_dir is None or args.prepare_only or args.preflight_only
     ):
@@ -228,6 +235,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
                 runtime_profile=runtime_profile,
                 region=args.region,
                 monthly_cost_ceiling=args.monthly_cost_ceiling,
+                foundation_workload=args.foundation_workload,
                 timeout_seconds=args.timeout_seconds,
                 approval_file=args.approval_file,
                 foundation_recovery_directory=args.foundation_recovery_directory,
