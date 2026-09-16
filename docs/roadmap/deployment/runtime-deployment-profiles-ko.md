@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 4372ea490cc8937e4ca8baf9574f129f5e3425e1
+translation_source_sha: 8086d4de21965fae2de490e4d93855477e2f00c1
 translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
@@ -91,8 +91,7 @@ $$
 
 두 런타임 프로파일의 연결된 배포는 정확한 Azure Marketplace Ubuntu 버전으로 Managed Host를
 부팅하고 Foundation 단계에서 체크섬으로 고정된 도구 체인을 설치합니다. 전용 Managed Host
-이미지를 만들거나 요구하지 않습니다. 초기 구성 산출물을 내려받을 수 없는 아티팩트 오프라인
-배포는 별도로 검증된 사전 준비 호스트 이미지를 선택할 수 있습니다.
+이미지를 만들거나 요구하지 않습니다. 초기 구성 산출물을 내려받을 수 없는 아티팩트 오프라인 배포는 별도로 검증된 사전 준비 호스트 이미지를 선택할 수 있습니다.
 애플리케이션 수렴 후 Managed Host는 명시적인 `--initial` 모드로 Core 인벤토리 진입점을 호출해
 반복 실행의 예정 시각 게이트만 우회합니다. 이미 인증된 배포 신원으로 전체 구독 ARG/ARM 읽기와
 변경 불가 진행률 기록을 수행한 뒤 별도의 읽기 전용 종결 프로세스를 시작합니다. 반복 런타임
