@@ -6,8 +6,8 @@ import { panelSourceClassification } from "../panel-sources";
 import { panelForId, panelsInGroup } from "../panels";
 import { parseConsoleRoute, routeHref } from "../router";
 import {
-  AlertQualityEvidence, AlertQualityFindingTable, AlertQualityPlans, CommandFeedback, alertQualityCount,
-  alertQualityReason,
+  AlertQualityEvidence, AlertQualityFindingTable, AlertQualityPlans, AlertQualityProvenance,
+  CommandFeedback, alertQualityCount, alertQualityReason,
 } from "./alert-quality";
 import { decodeAlertQuality } from "./alert-quality.model";
 import backendFixture from "./alert-quality.backend.fixture.json";
@@ -114,12 +114,12 @@ describe("neutral evidence, native detail links and loading semantics", () => {
     const report = decodeAlertQuality(JSON.parse(JSON.stringify(backendFixture)), backendFixture.assessment.scope_ref).assessment!;
     for (const locale of ["en", "ko"] as const) {
       setLocale(locale);
-      const view = inspect(AlertQualityEvidence({ report, now }));
+      const view = inspect(AlertQualityProvenance({ report, now }));
       expect(view.elements.filter((item) => item.type === "time").map((item) => item.props.dateTime))
         .toEqual([report.observed_at, report.valid_until, report.window_start, report.window_end]);
       expect(view.content).toContain(alertQualityText("periodHelp"));
       expect(view.content).not.toContain(alertQualityText("periodMissing"));
-      const missing = inspect(AlertQualityEvidence({ report: { ...report, window_start: null, window_end: null }, now }));
+      const missing = inspect(AlertQualityProvenance({ report: { ...report, window_start: null, window_end: null }, now }));
       expect(missing.content).toContain(alertQualityText("periodMissing"));
       expect(missing.elements.filter((item) => item.type === "time")).toHaveLength(2);
     }
@@ -129,14 +129,16 @@ describe("neutral evidence, native detail links and loading semantics", () => {
     for (const locale of ["en", "ko"] as const) {
       setLocale(locale);
       const view = inspect(AlertQualityEvidence({ report: payload().assessment!, now }));
-      const values = view.elements.filter((item) => item.type === "a").map((item) => item.props.children);
+      const values = view.elements.filter((item) => item.props.class === "alert-quality-metric-value").map((item) => item.props.children);
       expect(values).toEqual(["0", alertQualityText("notMeasured"), "0", alertQualityText("notMeasured")]);
-      expect(view.content).toContain(alertQualityText("periodMissing"));
-      expect(view.content).toContain(report.evidence_digest);
-      expect(view.elements.filter((item) => item.type === "time").map((item) => item.props.dateTime)).toEqual([report.observed_at, report.valid_until]);
+      const provenance = inspect(AlertQualityProvenance({ report: payload().assessment!, now }));
+      expect(provenance.content).toContain(alertQualityText("periodMissing"));
+      expect(provenance.content).toContain(report.evidence_digest);
+      expect(provenance.elements.filter((item) => item.type === "time").map((item) => item.props.dateTime)).toEqual([report.observed_at, report.valid_until]);
       expect(inspect(AlertQualityEvidence({ report: payload({ ...report, coverage: "partial", reasons: ["missing:history"] }).assessment!, now })).content).toContain(alertQualityText("partialCounts"));
       const missing = inspect(AlertQualityEvidence({ report: payload({ ...report, coverage: "unavailable", reasons: ["missing:history"] }).assessment!, now }));
-      expect(missing.elements.filter((item) => item.type === "a").every((item) => item.props.children === alertQualityText("notMeasured"))).toBe(true);
+      expect(missing.elements.filter((item) => item.props.class === "alert-quality-metric-value")
+        .every((item) => item.props.children === alertQualityText("notMeasured"))).toBe(true);
       expect(alertQualityCount(null)).not.toBe(alertQualityCount(0));
     }
   });
@@ -152,7 +154,8 @@ describe("neutral evidence, native detail links and loading semantics", () => {
     expect(url.searchParams.get("rule_ref")).toBe(finding.rule_ref);
     expect(view.elements.filter((item) => item.type === "th").every((item) => item.props.scope === "col")).toBe(true);
     expect(view.elements.find((item) => item.props.role === "region")?.props.tabIndex).toBe(0);
-    expect(view.elements.find((item) => item.type === "table")?.props.style).toMatchObject({ minWidth: 840 });
+    expect(view.elements.find((item) => item.type === "table")?.props.class).toBe("data-table");
+    expect(view.elements.filter((item) => item.type === "th")).toHaveLength(4);
     expect(view.elements.some((item) => item.type === "tr" && item.props.role === "button")).toBe(false);
     expect(view.content).toContain("Unknown / 10");
     expect(view.content).toContain("Not marked protected; not permission to change");
@@ -163,10 +166,10 @@ describe("neutral evidence, native detail links and loading semantics", () => {
     for (const locale of ["en", "ko"] as const) {
       setLocale(locale);
       const evidence = inspect(AlertQualityEvidence({ report: data.assessment!, now }));
-      expect(evidence.elements.find((item) => item.type === "a")?.props.children).toBe(alertQualityText("unknown"));
+      expect(evidence.elements.find((item) => item.props.class === "alert-quality-metric-value")?.props.children).toBe(alertQualityText("unknown"));
       for (const coverage of ["complete", "partial", "unavailable"] as const) {
         const table = inspect(AlertQualityFindingTable({ rows: data.assessment!.findings, scope, coverage }));
-        expect(table.elements.find((item) => item.type === "td" && item.props.class === "num")?.props.children).toBe(alertQualityText("unknown"));
+        expect(table.content).toMatch(new RegExp(`${alertQualityText("sourceEpisodes")}\\s*:\\s*${alertQualityText("unknown")}`));
       }
     }
   });
@@ -176,7 +179,7 @@ describe("neutral evidence, native detail links and loading semantics", () => {
     const view = inspect(AlertQualityFindingTable({ rows: data.assessment!.findings, scope, coverage: "unavailable" }));
     expect(view.content).toContain(alertQualityText("notMeasured"));
     expect(view.content).toContain(`${alertQualityText("unknown")} / ${alertQualityText("unknown")}`);
-    expect(view.elements.filter((item) => item.type === "td" && item.props.class === "num").some((item) => item.props.children === "0")).toBe(false);
+    expect(view.content).not.toMatch(new RegExp(`${alertQualityText("sourceEpisodes")}\\s*:\\s*0(?:\\s|$)`));
   });
 
   it("uses a single accessible skeleton and a native Stop waiting control", () => {
