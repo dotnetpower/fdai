@@ -311,6 +311,9 @@ replacement work after state reaches the canonical keys.
 - If a legal name exceeds the character limit after adding env/region/instance, use the
   documented short-name `aip` in place of `fdai` - and only for that resource kind.
   Do not sprinkle `aip` where the full name still fits.
+- **Key Vault preserves every legal existing name.** When the complete candidate exceeds 24
+  characters, Terraform uses `kv-aip-<8hex>`, where `<8hex>` is the stable SHA-256 prefix of the
+  complete candidate including workload, environment, region and global suffix.
 - The browser-evidence cleanup Job uses the short component `browser-gc`, so the longest allowed
   `caj-fdai-staging-<region>-browser-gc` form remains at or below 32 characters.
 
