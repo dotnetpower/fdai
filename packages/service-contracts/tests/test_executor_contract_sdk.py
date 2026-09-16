@@ -8,6 +8,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
+import pytest
+
 from fdai_service_contracts.executor import (
     Action,
     ActionStopCondition,
@@ -172,3 +174,44 @@ def test_executor_contract_canonicalizes_azure_operation_targets() -> None:
         "/resourcegroups/example/providers/microsoft.network/"
         "networksecuritygroups/nsg-app/securityrules/allow-https"
     )
+
+
+def test_executor_contract_canonicalizes_tag_remediation_target() -> None:
+    target = resolve_azure_operation_target(
+        "remediate.tag-add",
+        {
+            "target_resource_ref": (
+                "scope-0123456789abcdef/resource-group/Example/"
+                "providers/Microsoft.Storage/storageAccounts/storage-app"
+            ),
+            "tag_name": "environment",
+            "tag_value": "dev",
+        },
+    )
+
+    assert target.operation_id == "azure.resource.tags.merge"
+    assert target.resource_ref == (
+        "scope-0123456789abcdef/resource-group/example/"
+        "providers/microsoft.storage/storageaccounts/storage-app"
+    )
+    assert target.arguments["tag_value"] == "dev"
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "scope-0123456789abcdef/resource-group/example/providers/microsoft.storage",
+        "scope-0123456789abcdef/resource-group/example/../other",
+        "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example",
+    ],
+)
+def test_executor_contract_rejects_unbounded_tag_targets(target: str) -> None:
+    with pytest.raises(ValueError, match="target_resource_ref"):
+        resolve_azure_operation_target(
+            "remediate.tag-add",
+            {
+                "target_resource_ref": target,
+                "tag_name": "environment",
+                "tag_value": "dev",
+            },
+        )
