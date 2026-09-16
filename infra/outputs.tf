@@ -178,6 +178,16 @@ output "runtime_identity_bindings" {
       client_id    = module.isolated_executor_identity[0].client_id
       principal_id = module.isolated_executor_identity[0].principal_id
     } : null
+    ingestion = var.enable_document_ingestion ? {
+      resource_id  = module.ingestion_identity[0].resource_id
+      client_id    = module.ingestion_identity[0].client_id
+      principal_id = module.ingestion_identity[0].principal_id
+    } : null
+    ingestion_worker = var.enable_document_ingestion && !var.ingestion_cohost_worker ? {
+      resource_id  = module.ingestion_worker_identity[0].resource_id
+      client_id    = module.ingestion_worker_identity[0].client_id
+      principal_id = module.ingestion_worker_identity[0].principal_id
+    } : null
     inventory = {
       resource_id  = module.inventory_identity.resource_id
       client_id    = module.inventory_identity.client_id
@@ -554,6 +564,24 @@ output "operator_channel_edge_identity" {
 output "document_storage_account_name" {
   description = "ADLS Gen2 document storage account name (empty when ingestion is disabled)."
   value       = length(module.document_storage) > 0 ? module.document_storage[0].name : ""
+}
+
+output "document_storage_binding" {
+  description = "Document storage values consumed by separately stateful AKS workloads."
+  value = var.enable_document_ingestion ? {
+    account_name        = module.document_storage[0].name
+    account_url         = module.document_storage[0].primary_dfs_endpoint
+    source_file_system  = module.document_storage[0].source_file_system
+    derived_file_system = module.document_storage[0].derived_file_system
+  } : null
+}
+
+output "document_event_topics" {
+  description = "Document ingestion Event Hub entities consumed by separately stateful AKS workloads."
+  value = {
+    pipeline_stages  = local.event_auxiliary_topics[1]
+    pantheon_objects = local.semantic_turn_physical_topic
+  }
 }
 
 output "document_intelligence_name" {

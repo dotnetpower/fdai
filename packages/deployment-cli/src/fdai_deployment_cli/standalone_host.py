@@ -48,6 +48,8 @@ _SUBSTRATE_TARGETS: Final = (
     "module.canary_identity",
     "module.operator_api_identity",
     "module.isolated_executor_identity",
+    "module.ingestion_identity",
+    "module.ingestion_worker_identity",
     "module.key_vault",
     "azurerm_role_assignment.kv_officer_self",
     "module.kv_private_endpoint",
@@ -65,6 +67,17 @@ _SUBSTRATE_TARGETS: Final = (
     "azurerm_role_assignment.inventory_kv_secrets_user",
     "azurerm_role_assignment.operator_api_kv_secrets_user",
     "azurerm_role_assignment.isolated_executor_kv_secrets_user",
+    "module.document_storage",
+    "azurerm_role_assignment.ingestion_document_data",
+    "azurerm_role_assignment.ingestion_worker_document_data",
+    "azurerm_key_vault_secret.ingestion_api_dsn",
+    "azurerm_key_vault_secret.ingestion_worker_dsn",
+    "azurerm_role_assignment.ingestion_api_kv_secrets_user",
+    "azurerm_role_assignment.ingestion_worker_kv_secrets_user",
+    "azurerm_role_assignment.ingestion_aks_eventhubs_sender",
+    "azurerm_role_assignment.ingestion_worker_aks_eventhubs_receiver",
+    "azurerm_role_assignment.ingestion_worker_eventhubs_sender",
+    "azurerm_role_assignment.ingestion_worker_pantheon_receiver",
     "azurerm_role_assignment.executor_eventhubs_data_owner",
 )
 
@@ -347,7 +360,9 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "enable_console": True,
         "enable_operator_api": True,
         "enable_isolated_executor": True,
-        "enable_document_ingestion": False,
+        "enable_document_ingestion": runtime_profile.runtime_platform.value == "aks",
+        "ingestion_cohost_worker": False,
+        "ingestion_cors_allow_origins": "https://localhost",
         "enable_llm": adoption is not None,
         "operator_api_audience": str(entra["OPERATOR_API_AUDIENCE"]),
         "rbac_readers_group_id": str(entra["RBAC_READERS_GROUP_ID"]),
@@ -547,6 +562,8 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "workspace": _terraform_output(substrate, "log_workspace_customer_id"),
         "semantic_physical": _terraform_output(substrate, "event_bus_semantic_physical_topic"),
         "key_vault_uri": _terraform_output(substrate, "key_vault_uri"),
+        "document_store": _terraform_json_output(substrate, "document_storage_binding"),
+        "document_topics": _terraform_json_output(substrate, "document_event_topics"),
     }
     if _database_placement(context) == "postgres-flex":
         substrate_outputs.update(
@@ -586,6 +603,10 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     executor_identity = _mapping(identities.get("executor"), "executor runtime identity")
     inventory_identity = _mapping(identities.get("inventory"), "inventory runtime identity")
     canary_identity = _mapping(identities.get("canary"), "canary runtime identity")
+    ingestion_identity = _mapping(identities.get("ingestion"), "ingestion runtime identity")
+    ingestion_worker_identity = _mapping(
+        identities.get("ingestion_worker"), "ingestion worker runtime identity"
+    )
     core_environment = {
         "AZURE_TENANT_ID": context["tenant_id"],
         "AZURE_SUBSCRIPTION_ID": context["subscription_id"],
@@ -665,6 +686,20 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             "/live",
         ),
     }
+    workloads.update(
+        _aks_document_workloads(
+            refs=refs,
+            ingestion_identity=ingestion_identity,
+            worker_identity=ingestion_worker_identity,
+            application_values=application_values,
+            kafka=str(substrate_outputs["kafka"]),
+            postgres_fqdn=str(substrate_outputs["postgres_fqdn"]),
+            document_store=_mapping(
+                substrate_outputs["document_store"], "document storage binding"
+            ),
+            document_topics=_mapping(substrate_outputs["document_topics"], "document event topics"),
+        )
+    )
     inventory_environment = {
         **core_environment,
         "AZURE_CLIENT_ID": inventory_identity["client_id"],
@@ -1723,6 +1758,7 @@ def _aks_workload(
     *,
     external: bool = False,
     additional_identities: dict[str, dict[str, Any]] | None = None,
+    sidecars: dict[str, dict[str, object]] | None = None,
 ) -> dict[str, object]:
     image_names = {
         "core": "core-control-plane",
@@ -1770,6 +1806,89 @@ def _aks_workload(
         "liveness_path": liveness_path,
         "environment": runtime_environment,
         "secret_environment": secret_environment,
+        "sidecars": sidecars or {},
+    }
+
+
+def _aks_document_workloads(
+    *,
+    refs: dict[str, Any],
+    ingestion_identity: dict[str, Any],
+    worker_identity: dict[str, Any],
+    application_values: dict[str, Any],
+    kafka: str,
+    postgres_fqdn: str,
+    document_store: dict[str, Any],
+    document_topics: dict[str, Any],
+) -> dict[str, dict[str, object]]:
+    common = {
+        "RUNTIME_ENV": application_values["env"],
+        "FDAI_KAFKA_BOOTSTRAP_SERVERS": kafka,
+        "FDAI_DOCUMENT_EVENT_TOPIC": document_topics["pipeline_stages"],
+        "FDAI_DOCUMENT_RETRIEVAL_MODE": "lexical",
+        "FDAI_ADLS_ACCOUNT_NAME": document_store["account_name"],
+        "FDAI_ADLS_ACCOUNT_URL": document_store["account_url"],
+        "FDAI_ADLS_SOURCE_FILE_SYSTEM": document_store["source_file_system"],
+        "POSTGRES_HOST": postgres_fqdn,
+    }
+    api_environment = {
+        **common,
+        "FDAI_MI_CLIENT_ID": ingestion_identity["client_id"],
+        "FDAI_INGESTION_DEPLOYMENT_ROLE": "api",
+        "FDAI_INGESTION_COHOST_WORKER": "0",
+        "FDAI_ENTRA_TENANT_ID": application_values["tenant_id"],
+        "FDAI_API_AUDIENCE": application_values["operator_api_audience"],
+        "FDAI_RBAC_READERS_GROUP_ID": application_values["rbac_readers_group_id"],
+        "FDAI_RBAC_CONTRIBUTORS_GROUP_ID": application_values["rbac_contributors_group_id"],
+        "FDAI_RBAC_APPROVERS_GROUP_ID": application_values["rbac_approvers_group_id"],
+        "FDAI_RBAC_OWNERS_GROUP_ID": application_values["rbac_owners_group_id"],
+        "FDAI_RBAC_BREAK_GLASS_GROUP_ID": application_values["rbac_break_glass_group_id"],
+        "FDAI_INGESTION_CORS_ALLOW_ORIGINS": application_values["ingestion_cors_allow_origins"],
+    }
+    worker_environment = {
+        **common,
+        "FDAI_MI_CLIENT_ID": worker_identity["client_id"],
+        "FDAI_INGESTION_DEPLOYMENT_ROLE": "worker",
+        "FDAI_PANTHEON_OBJECT_TOPIC": document_topics["pantheon_objects"],
+        "FDAI_ADLS_DERIVED_FILE_SYSTEM": document_store["derived_file_system"],
+        "FDAI_INGESTION_WORKER_HEALTH_PORT": "8000",
+        "FDAI_CLAMAV_HOST": "127.0.0.1",
+        "FDAI_CLAMAV_PORT": "3310",
+    }
+    database_secret = {"FDAI_DATABASE_URL": "fdai-state-store-dsn"}
+    return {
+        "document-ingestion-api": _aks_workload(
+            "ingestion",
+            refs,
+            ingestion_identity,
+            api_environment,
+            database_secret,
+            "/healthz",
+            "/healthz",
+            external=True,
+        ),
+        "document-processing-worker": _aks_workload(
+            "worker",
+            refs,
+            worker_identity,
+            worker_environment,
+            database_secret,
+            "/ready",
+            "/live",
+            sidecars={
+                "clamav": {
+                    "image": refs["clamav"],
+                    "cpu": "500m",
+                    "memory": "1Gi",
+                    "port": 3310,
+                    "writable_paths": {
+                        "database": {"mount_path": "/var/lib/clamav", "size_limit": "1Gi"},
+                        "run": {"mount_path": "/run/clamav", "size_limit": "64Mi"},
+                        "tmp": {"mount_path": "/tmp", "size_limit": "256Mi"},
+                    },
+                }
+            },
+        ),
     }
 
 
