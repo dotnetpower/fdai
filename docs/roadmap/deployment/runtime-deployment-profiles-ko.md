@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 704ccd23775c6a2081c17a782ded516d80370e73
+translation_source_sha: 0e0b04beb7604c27dbcf975fc290b168ac6f137c
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -179,12 +179,15 @@ FDAI 서비스는 다음 필드를 포함하는 하나의 런타임 중립 워�
 Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 변환합니다. AKS 렌더러는
 명세를 typed Kubernetes `Deployment`, `Service`, `ServiceAccount`, `HorizontalPodAutoscaler`,
 `PodDisruptionBudget`, `NetworkPolicy`, `CronJob` 리소스로 변환합니다. 첫 AKS 구현은 장기 실행
-서비스마다 두 개의 replica를 유지하며 Knative 또는 KEDA를 요구하지 않습니다.
-
-Console 게시는 선택한 Terraform 프로필에 브라우저 gateway 기준 URL 출력이 있으면 해당 URL을
+서비스마다 두 개의 replica를 유지하며 Knative 또는 KEDA를 요구하지 않습니다. Console 게시는 선택한 Terraform 프로필에 브라우저 gateway 기준 URL 출력이 있으면 해당 URL을
 사용합니다. 출력이 없으면 기존 Container Apps 서비스 FQDN 조회를 유지합니다. 게시기는 선택한
 HTTPS 기준 URL을 동일한 Console 빌드 계약에 전달합니다. 런타임 선택으로 브라우저 경로를 다시
 작성하거나 Operator API 경로를 변경하지 않습니다.
+
+두 렌더러 모두 `FDAI_OPERATING_MODEL_TOPIC`을 통해 Core를 `fdai.operating-model` 논리 토픽에
+연결합니다. 이 토픽은 기존 의미 physical Event Hub와 Managed Identity 전송을 공유하며 별도
+Event Hub 엔터티나 권한 채널이 아닙니다. AKS standalone 렌더러는 정확한 substrate 출력에서
+값을 가져오고 독립 및 legacy Container Apps 렌더러는 같은 typed 배포 입력을 받습니다.
 
 Operator의 배정 알림과 사람 승인(HIL) 전송에 필요한 가져오기는 같은 Operator Service
 패키지와 런타임 안의 기존 `iam_composition` 모듈에 모읍니다. 원래 어댑터와 팩터리 객체를
@@ -210,10 +213,12 @@ CronJob을 렌더링합니다. 이력 작업은 읽기 전용 inventory 신원, 
 archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle은 별도의 보호된 전환과
 정확히 저장된 인증 증적을 요구하며 런타임 선택은 어느 권한도 부여하지 않습니다.
 
-인벤토리 명령과 CLI 지원 모듈은 두 플랫폼과 로컬 관리 스택에서 동일한 읽기 전용 실패 경계를 유지합니다.
-Activity Log 복구 가속은 전체 조정과 독립적입니다. 세대 승격 전후에 가속기가 실패하면
-사용 불가 상태로 보고하며, 실패한 변경분의 커서를 진행하거나 전체 인벤토리 루프를
-종료하지 않습니다.
+인벤토리 명령은 두 플랫폼과 로컬에서 읽기 전용 실패 경계를 유지합니다. Activity Log 복구 실패는
+변경분 커서를 진행하거나 전체 조정을 중단하지 않고 사용 불가로 보고합니다. 수동적인 모델 서비스
+응답 근거는 모델 자격 증명이나 추론 없이 인벤토리 신원과 Azure Monitor를 재사용합니다. 제한된
+실패는 해당 출처의 범위만 낮추고 잘못된 응답은 정제합니다. 재조정 범위가 조회 구간, 최신성, 데이터
+지점 및 제한 시간을 결정하며, 추가 방식 메타데이터는 업데이트 순서와 관계없이 기본 인벤토리를
+계속 사용할 수 있게 합니다.
 
 관리 호스트는 선택한 Deployment 이름, 이미지 참조, 복제본 수 범위를 기록합니다. 상태 재조회는
 해당 목록 전체, 현재 관측 세대, 준비된 복제본, 같은 소스 버전에서 실행 중인 Pod 이미지 digest를

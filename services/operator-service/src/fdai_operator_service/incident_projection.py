@@ -13,7 +13,36 @@ from fdai_service_contracts.incident_intervention import incident_target_ref
 from fdai_operator_service.projection_logic import audit_item
 
 INCIDENT_TITLE_LIMIT: Final = 160
+_INCIDENT_TITLE_COMPONENT_LIMIT: Final = 72
 _MAX_INCIDENT_RESOURCE_ID_CHARS: Final = 2_048
+_OPAQUE_INTEGRATION_RESOURCE = re.compile(
+    r"^integration-[0-9a-f]{32}(?:-second)?$",
+    re.IGNORECASE,
+)
+_TITLE_ACRONYMS: Final = {
+    "api": "API",
+    "cpu": "CPU",
+    "gpu": "GPU",
+    "http": "HTTP",
+    "id": "ID",
+    "rca": "RCA",
+    "slo": "SLO",
+    "tls": "TLS",
+    "vm": "VM",
+}
+_SIGNAL_LABELS: Final = {
+    "kubernetes_pod_restart_detected": "Kubernetes pod restart detected",
+    "resource_inventory_change": "Resource inventory changed",
+    "trace_continuity_discontinuity": "Trace continuity interrupted",
+    "trace_propagation_gap": "Trace propagation gap",
+}
+_REASON_LABELS: Final = {
+    "control_loop_unhandled_error": "Control loop error",
+    "no_rule_match": "No response rule matches",
+    "no_rule_matches_resource_and_signal_type": (
+        "No response rule matches this resource and signal"
+    ),
+}
 _CANONICAL_INCIDENT_STATES: Final = frozenset(
     {"open", "triaging", "mitigated", "resolved", "closed"}
 )
@@ -55,7 +84,11 @@ def incident_summary(rows: Sequence[Mapping[str, Any]]) -> JsonObject:
     )
     lifecycle = _incident_status(newest, _first_row_string(rows, "canonical_lifecycle_state"))
     vertical = _vertical(_first_entry_string(newest, "vertical", "category"))
-    title, title_source = _incident_title(newest, items, incident_id or correlation_id)
+    title, title_source, title_presentation = _incident_title(
+        newest,
+        items,
+        incident_id or correlation_id,
+    )
     return cast(
         JsonObject,
         {
@@ -65,6 +98,7 @@ def incident_summary(rows: Sequence[Mapping[str, Any]]) -> JsonObject:
             "ticket_id": ticket_id,
             "title": title,
             "title_source": title_source,
+            "title_presentation": title_presentation,
             "source": _incident_source_context(newest),
             "response_plan": _incident_response_plan(newest),
             "target_ref": _incident_target_ref(rows, items),
@@ -250,47 +284,121 @@ def _incident_title(
     newest: Sequence[JsonObject],
     oldest: Sequence[JsonObject],
     fallback_id: str,
-) -> tuple[str, str]:
+) -> tuple[str, str, JsonObject | None]:
     for key, source in (("title", "recorded_title"), ("summary", "recorded_summary")):
         if value := _first_entry_string(newest, key):
-            return (_bounded_title(value), source)
+            return (_bounded_title(value), source, None)
     if rule_id := _first_entry_string(newest, "rule_id") or _first_entry_list_value(
         newest, "citing_rules"
     ):
-        return (_bounded_title(f"Rule {_humanize_subject(rule_id)}"), "rule_id")
+        rule_label = _humanize_subject(rule_id)
+        return (
+            _bounded_title(f"Rule requires attention: {rule_label}"),
+            "rule_id",
+            _title_presentation(
+                kind="rule_attention",
+                subject=rule_label,
+                technical_ref=rule_id,
+            ),
+        )
 
     signal, resource = _correlation_subjects(oldest)
     if signal and resource:
+        subject, subject_kind, technical_ref = _resource_presentation(resource, signal=signal)
+        signal_label = _signal_label(signal)
+        resource_label = subject or _resource_kind_label(subject_kind)
         return (
-            _bounded_title(f"{_humanize_subject(signal)} - {_resource_subject(resource)}"),
+            _bounded_title(f"{resource_label}: {signal_label}"),
             "correlation_subject",
+            _title_presentation(
+                kind="signal_on_subject",
+                subject=subject,
+                subject_kind=subject_kind,
+                signal=signal,
+                signal_label=signal_label,
+                technical_ref=technical_ref,
+            ),
         )
     if signal:
-        return (_bounded_title(_humanize_subject(signal)), "correlation_subject")
+        signal_label = _signal_label(signal)
+        return (
+            _bounded_title(signal_label),
+            "correlation_subject",
+            _title_presentation(
+                kind="signal",
+                signal=signal,
+                signal_label=signal_label,
+            ),
+        )
     if resource:
-        return (_bounded_title(f"Resource {_resource_subject(resource)}"), "correlation_subject")
-    if subject := _recorded_subject(newest):
-        return (_bounded_title(subject), "recorded_subject")
-    return (_bounded_title(f"Incident {fallback_id}"), "identifier_fallback")
+        subject, subject_kind, technical_ref = _resource_presentation(resource)
+        resource_label = subject or _resource_kind_label(subject_kind)
+        return (
+            _bounded_title(f"{resource_label} requires attention"),
+            "correlation_subject",
+            _title_presentation(
+                kind="resource_attention",
+                subject=subject,
+                subject_kind=subject_kind,
+                technical_ref=technical_ref,
+            ),
+        )
+    if subject_parts := _recorded_subject_parts(newest):
+        (
+            recorded_subject,
+            recorded_subject_kind,
+            recorded_technical_ref,
+            recorded_reason,
+            recorded_reason_label,
+        ) = subject_parts
+        if recorded_subject and recorded_reason_label:
+            title = f"{recorded_subject}: {recorded_reason_label}"
+            kind = "subject_reason"
+        elif recorded_subject:
+            title = f"{recorded_subject} requires attention"
+            kind = "resource_attention"
+        else:
+            title = recorded_reason_label or ""
+            kind = "reason"
+        return (
+            _bounded_title(title),
+            "recorded_subject",
+            _title_presentation(
+                kind=kind,
+                subject=recorded_subject,
+                subject_kind=recorded_subject_kind,
+                reason=recorded_reason,
+                reason_label=recorded_reason_label,
+                technical_ref=recorded_technical_ref,
+            ),
+        )
+    return (_bounded_title(f"Incident {fallback_id}"), "identifier_fallback", None)
 
 
-def _recorded_subject(items: Sequence[JsonObject]) -> str | None:
-    """Compose a subject from the recorded operational target and the recorded reason.
+def _recorded_subject_parts(
+    items: Sequence[JsonObject],
+) -> tuple[str | None, str | None, str | None, str | None, str | None] | None:
+    """Return recorded subject parts without inventing an unrecorded incident cause.
 
     Used only after an explicit title, summary, rule, and correlation key are all absent. It
     reports what the control loop recorded about the incident rather than presenting an
     identifier as the subject; it never infers a target that no entry recorded.
     """
     target = _first_recorded_string(items, "resource_id")
-    subject = _resource_subject(target) if target else None
+    subject: str | None
+    subject_kind: str | None
+    technical_ref: str | None
+    if target:
+        subject, subject_kind, technical_ref = _resource_presentation(target)
+    else:
+        subject = subject_kind = technical_ref = None
     if subject is None and (resource_type := _first_recorded_string(items, "resource_type")):
         subject = _humanize_subject(resource_type)
+        subject_kind = "resource"
     reason = _first_recorded_string(items, "reason")
-    if subject and reason:
-        return f"{subject} - {_humanize_subject(reason)}"
-    if subject:
-        return subject
-    return _humanize_subject(reason) if reason else None
+    if subject is None and reason is None:
+        return None
+    return subject, subject_kind, technical_ref, reason, _reason_label(reason) if reason else None
 
 
 def _first_recorded_string(items: Sequence[JsonObject], key: str) -> str | None:
@@ -405,10 +513,92 @@ def _resource_subject(value: str) -> str:
     return value
 
 
+def _resource_presentation(
+    value: str,
+    *,
+    signal: str | None = None,
+) -> tuple[str | None, str, str]:
+    """Reduce one recorded resource reference to a safe operator-facing subject."""
+    normalized = value.strip()
+    if _OPAQUE_INTEGRATION_RESOURCE.fullmatch(normalized):
+        return None, "integration_resource", normalized
+    parts = [part for part in normalized.split("/") if part]
+    if normalized.startswith("kubernetes://"):
+        kind = (
+            "kubernetes_workload"
+            if "/workload/" in normalized
+            else "kubernetes_pod"
+            if signal == "kubernetes_pod_restart_detected"
+            else "kubernetes_resource"
+        )
+        return (parts[-1] if parts else None), kind, normalized
+    if normalized.startswith("trace-topology/"):
+        return (parts[-1] if parts else None), "trace_target", normalized
+    if "providers" in parts:
+        provider_index = parts.index("providers")
+        provider_parts = parts[provider_index + 1 :]
+        if len(provider_parts) >= 3:
+            return provider_parts[-1], "cloud_resource", _resource_subject(normalized)
+    if len(parts) > 1:
+        return parts[-1], "resource", normalized
+    return normalized or None, "resource", normalized
+
+
+def _title_presentation(
+    *,
+    kind: str,
+    subject: str | None = None,
+    subject_kind: str | None = None,
+    signal: str | None = None,
+    signal_label: str | None = None,
+    reason: str | None = None,
+    reason_label: str | None = None,
+    technical_ref: str | None = None,
+) -> JsonObject:
+    """Build deterministic display metadata from the same recorded title evidence."""
+    return cast(
+        JsonObject,
+        {
+            "kind": kind,
+            "subject": _bounded_title_component(subject),
+            "subject_kind": subject_kind,
+            "signal": _bounded_title_component(signal),
+            "signal_label": _bounded_title_component(signal_label),
+            "reason": _bounded_title_component(reason),
+            "reason_label": _bounded_title_component(reason_label),
+            "technical_ref": _bounded_title(technical_ref) if technical_ref else None,
+        },
+    )
+
+
+def _resource_kind_label(kind: str) -> str:
+    return {
+        "cloud_resource": "Cloud resource",
+        "integration_resource": "Integration resource",
+        "kubernetes_pod": "Kubernetes pod",
+        "kubernetes_resource": "Kubernetes resource",
+        "kubernetes_workload": "Kubernetes workload",
+        "trace_target": "Trace target",
+    }.get(kind, "Resource")
+
+
+def _signal_label(value: str) -> str:
+    return _SIGNAL_LABELS.get(value.casefold(), _humanize_subject(value))
+
+
+def _reason_label(value: str) -> str:
+    return _REASON_LABELS.get(value.casefold(), _humanize_subject(value))
+
+
 def _humanize_subject(value: str) -> str:
     separated = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", value)
     words = separated.replace("_", " ").replace("-", " ").replace(".", " ").split()
-    return " ".join(words).capitalize() or value
+    if not words:
+        return value
+    humanized = [_TITLE_ACRONYMS.get(word.casefold(), word) for word in words]
+    if humanized[0].casefold() not in _TITLE_ACRONYMS:
+        humanized[0] = humanized[0][:1].upper() + humanized[0][1:]
+    return " ".join(humanized)
 
 
 def _bounded_title(value: str) -> str:
@@ -416,6 +606,15 @@ def _bounded_title(value: str) -> str:
     if len(normalized) <= INCIDENT_TITLE_LIMIT:
         return normalized
     return normalized[: INCIDENT_TITLE_LIMIT - 3].rstrip() + "..."
+
+
+def _bounded_title_component(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = " ".join(value.split())
+    if len(normalized) <= _INCIDENT_TITLE_COMPONENT_LIMIT:
+        return normalized
+    return normalized[: _INCIDENT_TITLE_COMPONENT_LIMIT - 3].rstrip() + "..."
 
 
 def _vertical(value: str | None) -> str:

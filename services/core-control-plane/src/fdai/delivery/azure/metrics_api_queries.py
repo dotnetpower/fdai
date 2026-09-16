@@ -168,7 +168,7 @@ _QUERIES: Mapping[str, MetricsApiTemplate] = MappingProxyType(
             f"model.response.{status}.count": _status_count(
                 "AzureOpenAIRequests", _MODEL_TYPE, "StatusCode", status
             )
-            for status in ("429", "500", "503")
+            for status in ("200", "429", "500", "503")
         },
         "model.time_to_response": MetricsApiTemplate(
             "AzureOpenAITimeToResponse", "Average", resource_type=_MODEL_TYPE, deployment_scope=True

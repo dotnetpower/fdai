@@ -17,6 +17,7 @@ from fdai.delivery.inventory_sync import (
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.runtime.inventory_ontology import (
+    INVENTORY_ONTOLOGY_INVALIDATION_KEY,
     INVENTORY_ONTOLOGY_MANIFEST_KEY,
     INVENTORY_ONTOLOGY_STATUS_KEY,
     InventoryOntologyProjector,
@@ -207,9 +208,13 @@ async def test_projection_advances_journal_watermark_with_graph_commit() -> None
         ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
         observation_journal=journal,
     )
+    committed_at = datetime(2026, 9, 6, 1, 2, tzinfo=UTC)
 
     result = await projector.apply(
-        _observation(generation="snapshot-watermark", resource_ids=("vm-1",)),
+        replace(
+            _observation(generation="snapshot-watermark", resource_ids=("vm-1",)),
+            recorded_at=committed_at,
+        ),
         journal_high_watermark=7,
         projection_high_watermark=6,
         active_scope_projection_watermark=7,
@@ -224,6 +229,17 @@ async def test_projection_advances_journal_watermark_with_graph_commit() -> None
     assert manifest is not None
     assert manifest["journal_high_watermark"] == 7
     assert manifest["projection_high_watermark"] == 6
+    invalidation = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+    assert invalidation == {
+        "schema_version": "1.0.0",
+        "sequence": 8,
+        "generation": "snapshot-watermark",
+        "manifest_digest": manifest["manifest_digest"],
+        "recorded_at": committed_at.isoformat(),
+        "complete": True,
+        "execution_authority": False,
+        "mutation_authority": False,
+    }
     checkpoint = await status.read_state(INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY)
     assert checkpoint == {
         "schema_version": "1.0.0",
@@ -232,6 +248,105 @@ async def test_projection_advances_journal_watermark_with_graph_commit() -> None
         "journal_high_watermark": 7,
         "projection_high_watermark": 7,
     }
+
+
+async def test_projection_invalidation_cursor_advances_once_per_distinct_commit() -> None:
+    status = InMemoryStateStore()
+    store = _AtomicOntologyStore(status)
+    projector = InventoryOntologyProjector(
+        store=store,
+        status_store=status,
+        ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
+    )
+
+    await projector.apply(
+        _observation(generation="snapshot-1", resource_ids=("vm-1",)),
+        journal_high_watermark=7,
+        projection_high_watermark=6,
+    )
+    first = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+    assert first is not None
+    assert first["sequence"] == 8
+
+    await projector.apply(
+        _observation(generation="snapshot-2", resource_ids=("vm-1",)),
+        journal_high_watermark=7,
+        projection_high_watermark=6,
+    )
+    second = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+    assert second is not None
+    assert second["sequence"] == 9
+
+    await projector.apply(
+        _observation(generation="snapshot-2", resource_ids=("vm-1",)),
+        journal_high_watermark=7,
+        projection_high_watermark=6,
+    )
+    repeated = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+    assert repeated == second
+
+
+async def test_projection_without_a_cursor_floor_does_not_emit_an_invalidation() -> None:
+    status = InMemoryStateStore()
+    store = _AtomicOntologyStore(status)
+
+    await InventoryOntologyProjector(
+        store=store,
+        status_store=status,
+        ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
+    ).apply(_observation(generation="snapshot-no-watermark", resource_ids=("vm-1",)))
+
+    assert await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY) is None
+    assert await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY) is not None
+
+
+async def test_projection_replaces_a_malformed_invalidation_without_blocking_graph() -> None:
+    status = InMemoryStateStore()
+    await status.write_state(
+        INVENTORY_ONTOLOGY_INVALIDATION_KEY,
+        {
+            "schema_version": "0.9.0",
+            "sequence": 100,
+            "generation": "legacy",
+        },
+    )
+    store = _AtomicOntologyStore(status)
+
+    await InventoryOntologyProjector(
+        store=store,
+        status_store=status,
+        ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
+    ).apply(
+        _observation(generation="snapshot-recovered", resource_ids=("vm-1",)),
+        journal_high_watermark=7,
+        projection_high_watermark=6,
+    )
+
+    marker = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+    assert marker is not None
+    assert marker["sequence"] == 101
+    assert marker["generation"] == "snapshot-recovered"
+    assert await store.get_object("vm-1") is not None
+
+
+async def test_projection_does_not_replace_a_marker_with_an_unreadable_sequence() -> None:
+    status = InMemoryStateStore()
+    malformed = {"schema_version": "0.9.0", "sequence": "unknown"}
+    await status.write_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY, malformed)
+    store = _AtomicOntologyStore(status)
+
+    await InventoryOntologyProjector(
+        store=store,
+        status_store=status,
+        ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
+    ).apply(
+        _observation(generation="snapshot-recovered", resource_ids=("vm-1",)),
+        journal_high_watermark=7,
+        projection_high_watermark=6,
+    )
+
+    assert await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY) == malformed
+    assert await store.get_object("vm-1") is not None
 
 
 def _observation(

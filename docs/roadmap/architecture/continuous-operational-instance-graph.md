@@ -294,11 +294,10 @@ expose that child as an ordinary Resource. VM Scale Set size comes from its prov
 Both values reach the Console only after the inventory writer commits a new observation or complete
 generation; the SSE watermark accelerates re-reading but does not create or estimate capacity.
 
-After the observation journal and real-time overlay commit, its monotonic watermark becomes a
-sanitized inventory invalidation. The Operator SSE route exposes only watermark, count, and
-observation time under authenticated read access. It never exposes provider payloads or creates
-graph facts. A visible Console receiving the invalidation re-reads its bounded selected-instance
-projection. SSE reconnects from `Last-Event-ID`; polling remains the bounded fallback.
+The ontology projector atomically commits the Resource subgraph, manifest, status, active scope, and
+a marker above the journal watermark. Operator SSE emits only a sanitized committed marker, count,
+and time, never journal pages, provider payloads, or graph facts. Malformed markers are replaced;
+bulk pages bind valid markers to their generation, while missing cursors favor a safe duplicate read. Canonical manifest and status serialization stays in a dedicated runtime helper without changing the atomic transaction boundary; regenerated question-bank coverage digests grant no graph authority.
 
 Observed model deployments use that same generation and invalidation path. The Operator projection
 exposes only model name, model version, deployment SKU, and normalized TPM in an additive
@@ -306,6 +305,9 @@ exposes only model name, model version, deployment SKU, and normalized TPM in an
 allowlist without receiving raw provider properties. A changed TPM becomes visible only after the
 next accepted observation commits; invalidation accelerates the reread but does not provide an
 immediate or strongly consistent provider guarantee.
+An optional `serving` fact records only recent exact-deployment success with telemetry provenance,
+separate from Resource Health and authority. Azure Monitor reads are bounded and make no inference;
+valid completed results survive timeout, invalid budgets fail closed, and additive metadata preserves N-1 readers.
 
 ### Load-aware scheduling
 
@@ -563,7 +565,7 @@ independently verified observation receipt.
 
 A read-only conversation presents verified rows before explaining an incomplete source. An empty
 partial result reports no match in the verified scope, then adds the exact limitation and recovery
-step. It never claims complete inventory or global absence, and holds when no subset is safe.
+step. It never claims complete inventory or global absence, and holds when no subset is safe. An exact `BusinessService` or `Workload` id, name, or deployment-approved alias can traverse `implemented_by` and `workload_runs_on` to current Resource leaves; the server-owned plan reads verified App Service, Container Apps, and Kubernetes component state without inferring aggregate health, cause, missing identity, or execution authority.
 
 ## Source-to-store implementation audit
 

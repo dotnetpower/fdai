@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 4330d3cf80f086012cc9ecd24507a613c2e04680
+translation_source_sha: 531f26d8a5c1ec08f96633364a6f44ef4fb4d01a
 translation_revised: 2026-09-16
 ---
 # FDAI 운영 온톨로지
@@ -162,9 +162,8 @@ FDAI는 domain-agnostic하지 않습니다. 안정적인 도메인 모델을 가
 `BusinessService`, `Workload`, 리소스 대응은 최소 operational spine을 구성합니다. 대응되지
 않은 리소스는 `unknown_service`로 계속 표시하며 synthetic 서비스에 자동 할당하지 않습니다. 이
 표시자는 [`project_operating_scope`](../../../services/core-control-plane/src/fdai/core/operational_context/operating_scope.py)가 구현하며 어떤 권한도 부여하지 않습니다.
-프로바이더 native 타입 coverage는 별도 축입니다. 검토된 중립 mapping이 없는 행은 native 타입을
-비활성 근거로 유지한 채 `unclassified-resource`로 보존됩니다. 검토된 workload와 service mapping이
-해당 리소스에 도달하기 전까지는 계속 `unknown_service`를 받습니다.
+프로바이더 native 타입 coverage는 별도 축입니다. 검토된 중립 mapping이 없는 행은 `unclassified-resource`로 보존되며 검토된 mapping이 도달할 때까지 `unknown_service`를 받습니다. 배포는 `BusinessService`와 `Workload`에 범위가 제한되고 정규화되며 대/소문자를 구분하지 않고 고유한 alias를 추가할 수 있습니다.
+대화형 확인은 정확한 id, 이름 또는 승인 alias만 허용합니다. Azure 이름, 태그, Kubernetes 레이블 및 fuzzy 유사도는 비즈니스 신원을 만들거나 변경하지 않습니다.
 
 ### 운영 의도
 
@@ -550,9 +549,9 @@ multi-effect closure의 유일한 권한이며 예상 효과마다 독립적으�
 deletion과 비정상 종료 복구를 위해 이전 및 현재 owned 신원의 union을 보존합니다. Replacement가
 성공하면 `projected` 매니페스트는 현재 소유권으로 간결한되므로 historical 개정 번호가 구성된
 모델 한계를 초과하지 않습니다. 시작은 다른 스냅샷을 단계하기 전에 중단된 `applying` union을
-정리하므로 반복 비정상 종료가 개정 번호 사이의 소유권을 누적하지 않습니다. 선택적
-`FDAI_OPERATING_MODEL_MAX_BYTES` 상한의 기본값은 16 MiB입니다. `GET /ontology/graph`는 변환 결과
-상태, 출처 개정 번호, 집계 개수만 노출하며 배포 인스턴스 속성은 반환하지 않습니다.
+정리하므로 반복 비정상 종료가 개정 번호 사이의 소유권을 누적하지 않습니다. 선택적 `FDAI_OPERATING_MODEL_MAX_BYTES` 상한의 기본값은 16 MiB입니다.
+연속 업데이트는 `FDAI_OPERATING_MODEL_TOPIC`이 선택한 `fdai.operating-model` 논리 토픽을 사용하며 AKS, Container Apps 및 로컬 Redpanda에서 기존 의미 physical Event Hub 위에 다중화합니다. 완전하고 단조 증가하는 스냅샷만 그래프를 진행하며 malformed, 재생 또는 충돌 개정은 거부합니다.
+`GET /ontology/graph`는 변환 상태, 개정 번호와 개수만 노출합니다. 커밋된 cross-runtime 카탈로그는 비활성 범용 예시이며 각 배포가 자체 서비스, 워크로드, alias 및 리소스 링크를 승인합니다.
 
 Promoted 인벤토리 변환 결과는 그래프 변환 결과 전에 모든 리소스 및 링크 기록을 검증합니다.
 Malformed 신원, 속성 또는 관측 시각은 시도를 실패시킵니다. 인증된 하나의 프로바이더 행에서

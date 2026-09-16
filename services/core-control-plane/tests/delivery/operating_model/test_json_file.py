@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -11,6 +12,8 @@ from fdai.delivery.operating_model import (
     operating_intent_source_document_from_mapping,
 )
 from fdai.delivery.operating_model.json_file import operating_model_snapshot_from_mapping
+
+REPO_ROOT = Path(__file__).resolve().parents[5]
 
 
 async def test_json_provider_loads_versioned_snapshot(tmp_path: Path) -> None:
@@ -38,6 +41,31 @@ async def test_json_provider_loads_versioned_snapshot(tmp_path: Path) -> None:
 
     assert snapshot.source_revision == "revision-1"
     assert snapshot.objects[0].id == "resource-example"
+
+
+async def test_cross_runtime_service_catalog_example_is_provider_valid() -> None:
+    snapshot = await JsonOperatingModelProvider(
+        config=JsonOperatingModelProviderConfig(
+            path=(REPO_ROOT / "examples" / "operating-model" / "cross-runtime-service-catalog.json")
+        )
+    ).load()
+
+    assert snapshot.source_revision == "service-catalog:example@1.0.0"
+    assert {item.object_type for item in snapshot.objects} >= {
+        "BusinessService",
+        "Workload",
+        "Resource",
+    }
+    assert {
+        item.properties.get("type") for item in snapshot.objects if item.object_type == "Resource"
+    } == {
+        "compute.web-app",
+        "compute.container-app",
+        "kubernetes.deployment",
+        "kubernetes.service",
+        "kubernetes.pod",
+    }
+    assert len(snapshot.links) == 6
 
 
 async def test_json_provider_rejects_oversized_file(tmp_path: Path) -> None:
@@ -123,6 +151,70 @@ async def test_json_provider_rejects_duplicate_link_identity(tmp_path: Path) -> 
 
     with pytest.raises(ValueError, match="link identities MUST be unique"):
         await JsonOperatingModelProvider(config=JsonOperatingModelProviderConfig(path=path)).load()
+
+
+def test_operating_model_accepts_bounded_logical_target_aliases() -> None:
+    snapshot = operating_model_snapshot_from_mapping(
+        {
+            "source_revision": "revision-1",
+            "objects": [
+                {
+                    "id": "service:example",
+                    "object_type": "BusinessService",
+                    "properties": {
+                        "id": "service:example",
+                        "name": "Example service",
+                        "aliases": ["example backend", "example-api"],
+                    },
+                }
+            ],
+            "links": [],
+        }
+    )
+
+    assert snapshot.objects[0].properties["aliases"] == [
+        "example backend",
+        "example-api",
+    ]
+
+
+@pytest.mark.parametrize(
+    "aliases",
+    [
+        [],
+        ["duplicate", "DUPLICATE"],
+        [" padded"],
+        ["line\nbreak"],
+        ["tab\tbreak"],
+        ["null\0break"],
+        ["zero\u200bwidth"],
+        [unicodedata.normalize("NFD", "é")],
+        ["x" * 257],
+        [f"alias-{index}" for index in range(33)],
+        [1],
+    ],
+)
+def test_operating_model_rejects_malformed_logical_target_aliases(
+    aliases: list[object],
+) -> None:
+    with pytest.raises(ValueError, match="logical target aliases"):
+        operating_model_snapshot_from_mapping(
+            {
+                "source_revision": "revision-1",
+                "objects": [
+                    {
+                        "id": "workload:example",
+                        "object_type": "Workload",
+                        "properties": {
+                            "id": "workload:example",
+                            "name": "Example backend",
+                            "aliases": aliases,
+                        },
+                    }
+                ],
+                "links": [],
+            }
+        )
 
 
 def _intent_document() -> dict[str, object]:

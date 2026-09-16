@@ -90,6 +90,7 @@ from .contract_codecs import (
     OPERATOR_REQUEST_CONSUMER_V18,
 )
 from .semantic_assurance_projection import project_semantic_assurance
+from .semantic_logical_service_answer import render_logical_service_current_state_answer
 from .semantic_presentation_semantics import project_presentation_semantics
 from .semantic_relationship_projection import (
     project_ontology_relationships,
@@ -3761,6 +3762,13 @@ def _render_general_query_answer(
     )
     if current_state_answer is not None:
         return current_state_answer
+    logical_service_answer = render_logical_service_current_state_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
+    if logical_service_answer is not None:
+        return logical_service_answer
     resource_state_answer = _render_resource_state_list_answer(
         outputs,
         korean=korean,

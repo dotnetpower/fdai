@@ -370,4 +370,4 @@ async def test_shipped_azure_metrics_api_queries_are_valid() -> None:
     assert timeout.azure_metric_name == "ResiliencyRequestTimeouts"
     assert timeout.aggregation == "Total"
     assert timeout.interval == "PT5M"
-    assert len(shipped) == 33
+    assert len(shipped) == 34

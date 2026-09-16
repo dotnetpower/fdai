@@ -317,7 +317,7 @@ def cost_updates(root: Path, ontology: Any) -> tuple[Update, ...]:
     profile = json.loads(before)
     old_release = profile["ontology_release_digest"]
     old_profile = profile["canonical_sha256"]
-    profile["ontology_release_digest"] = ontology.build_release().digest
+    profile = refresh_profile_release(profile, ontology)
     profile["canonical_sha256"] = check["profile_content_sha256"](profile)
     check["validate_profile_data"](profile, catalog=ontology)
     profile_bytes = _json_bytes(profile)
@@ -366,6 +366,21 @@ def cost_updates(root: Path, ontology: Any) -> tuple[Update, ...]:
         )
     )
     return tuple(updates)
+
+
+def refresh_profile_release(profile: dict[str, Any], ontology: Any) -> dict[str, Any]:
+    """Rebind an existing profile to exact active refs without changing its declaration set."""
+
+    release = ontology.build_release()
+    release_refs = {
+        (item.kind.value, item.name): item.model_dump(mode="json") for item in release.declarations
+    }
+    refreshed = dict(profile)
+    refreshed["ontology_release_digest"] = release.digest
+    refreshed["declarations"] = [
+        release_refs[(item["kind"], item["name"])] for item in profile["declarations"]
+    ]
+    return refreshed
 
 
 def apply_updates(updates: tuple[Update, ...], *, write: bool) -> int:

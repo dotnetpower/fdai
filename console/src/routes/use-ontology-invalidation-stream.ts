@@ -28,6 +28,7 @@ export interface OntologyInvalidationEvent {
 export interface UseOntologyInvalidationStreamOptions {
   readonly url: string;
   readonly enabled: boolean;
+  readonly initialLastEventId?: string | null;
   readonly getAuthorizationHeader: () => Promise<string | null>;
   readonly onEvent: (event: OntologyInvalidationEvent) => void;
 }
@@ -115,6 +116,7 @@ export function useOntologyInvalidationStream(
     getAuthorizationHeader: options.getAuthorizationHeader,
     pauseWhenHidden: true,
     resumeFromLastEventId: true,
+    initialLastEventId: options.initialLastEventId ?? null,
     shouldRetryStatus: retryOntologyStatus,
     maxBufferChars: MAX_SSE_BUFFER_CHARS,
     onFrame: (frame) => {

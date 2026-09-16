@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a22776fbc4fcfaa5ccf87fc56abd75bf88baeb2f
+translation_source_sha: d7ded3a3b91d6d2356d8fcb111e3bd061eb6c610
 translation_revised: 2026-09-16
 ---
 # 프로젝트 구조
@@ -43,7 +43,7 @@ checkpoint부터 재개합니다.
 커버리지와 fan-out 의미를 명시적으로 보존하는 별도의 도메인 범위 설계가 필요합니다.
 ## 모듈 경계(모듈 Boundaries)
 [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)가 타입 지정 근거, Process와 조건부 수동 PR을 소유합니다. 전용 Operator 조립은 요청 의존성과 감독되는 브리지 하나를 연결하며 공통 루트는 수명 주기만 소유합니다. 역할별 framework mixin은 에이전트 API와 인스턴스 격리를 보존합니다. 공유 수락 목록이 결정 검증을 고정합니다. 기존 검증 절차를 갖춘 생성기는 운영 증적을 재작성하지 않고 release 기반 소스 참조를 재평가하며, 소스 테스트와 생성 지식은 권한을 부여하지 않습니다. 공유 SDK는 기존 타입 모델에서 생성한 `test-context-draft`, `test-context-command`, `test-context-application` 버전 `1.0.0` 스키마를 제공합니다. 검증기는 모델의 필드 간 조건도 검사하며, 스키마에 맞는 레코드가 인증된 근거나 현재 권한이 되는 것은 아닙니다. 이 개별 등록만으로 브로커의 N/N-1 배포 전환이 검증되지는 않습니다. 통합 후 System Knowledge를 다시 생성하면 이 경계를 release 메타데이터로만 기록하며 전송 호환성이나 운영 검증 상태를 승격하지 않습니다. 예측 평가 제외 사유는 모델 facade가 공개하는 문자열 열거형이며 JSON 값과 기존 결과 전송 형식은 바뀌지 않습니다. 컨텍스트 변환 모듈은 Core wheel에 포함되고, Operator 컨텍스트 명령 테스트는 명시적인 서비스 검사 소유자를 가지며, DB 전용 테스트는 통합 검사에서 실행됩니다. 타입 검증 뒤에 근거 허용 여부를 평가하고, 상태를 바꾸지 않는 정확한 재생과 새로 허용된 쓰기를 구분합니다. 레코드 내용이 그대로여도 소유 문서의 줄 배치가 바뀌면 카탈로그 원본 해시를 갱신합니다.
-인시던트 생성 회귀 테스트는 Core 또는 Operator 서비스 테스트 묶음 하나에만 속합니다. 생성된 question-bank 및 의미 기반 의도 커버리지 산출물은 결정적인 파생 산출물이므로, 다시 생성된 출처 해시가 중복 소유 문서 갱신을 요구하지 않고 검토된 원본 변경이 설계 영향을 가집니다.
+인시던트 생성 회귀 테스트는 Core 또는 Operator 서비스 테스트 묶음 하나에만 속합니다. 생성된 question-bank 및 의미 기반 의도 커버리지 산출물은 결정적인 파생 산출물이며 카탈로그 문구가 바뀌면 의존 순서대로 다시 생성하므로, 다시 생성된 출처 해시가 중복 소유 문서 갱신을 요구하지 않고 검토된 원본 변경이 설계 영향을 가집니다.
 의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다. [AKS 토큰 교환](../deployment/runtime-deployment-profiles-ko.md#신원-및-secret)과 명시적으로 선언한 SDK/비동기 전송 의존성은 서비스가 소유하며 Core 도메인이나 공유 계약에 넣지 않습니다. Operator 자격 증명 테스트는 하나의 서비스 테스트 묶음에 명시적으로 속하며, 생성 함수는 기존 adapters 공개 모듈을 통해 조립 의존 경로 수를 유지합니다. `core/licensing/trial.py`의 비활성 Trial 기록은 기능을 허용하지 않습니다. 배포/영속 계층이 원자적 활성화를 소유하고 런타임은 보존 상태의 출처를 인증해야 합니다. 소스 출처는 CLI가 소유하며 사용 권한이나 release 서명이 아닙니다.
 클라우드 참조 수집은 수집 API, 파싱/색인 활성화는 작업자, 날짜를 명시한 근거는 Core가 담당합니다. [수명 주기 설계](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)는 공유 계약과 실행 권한이 없는 경계를 정의합니다. Core는 적용 조건을 제한된 단일 값 선택자로 노출하며 근거 객체는 의존 조회 결과로만 받습니다. 정확한 문서 맥락은 순위 계산 전에 이 선택 조건과 함께 적용하며 더 넓은 컬렉션 조회로 대체할 수 없습니다. 새 수집 테스트마다 서비스 테스트 소유자가 하나이며, 이미 선언된 API의 `aiohttp` 의존성은 간접이 아닌 직접 사용으로 분류합니다. 새 패키지는 정규화 텍스트 전용 v2가 기본값입니다. 구현된 [구조화된 v3 확장](../interfaces/cloud-resource-knowledge-structured-rag-ko.md)은 정규화기 `2.0.0`을 기본으로 유지하며 명시적 `2.1.0` 준비에는 판독기 `3.1.0`이 필요합니다. 수집 서비스 소유의 검토 계약, 경로 제한 입출력, 실행 조정 및 자원이 제한된 파싱·측정은 별도 모듈입니다. 새 전송에는 원본을 넣지 않으며 기존 식별자, 출처 시각 및 승인 조건을 유지합니다.
 
@@ -400,6 +400,7 @@ checkpoint부터 재개합니다.
 - **상류의 기본 구현**: 메인 저장소는 모든 경계에 대해 동작하는 범용 기본 구현을 제공하여
   독립 실행 가능합니다. 포크는 필요한 경계만 교체합니다.
 - **적응형 대화**: `build_semantic_query_runtime(adaptive_service=...)`에는 `AdaptiveModel`과 `AdaptivePolicy`를 주입한 `AdaptiveConversationService`를 전달할 수 있습니다. 고정 역할, 독립 검토, 프로바이더의 공통 사용량 제한 및 검증된 근거 조회기는 그대로 필요합니다. 검증된 의미 계획은 동기 planner thread와 비동기 Azure provider 작업 전체에 취소 전용 model-call scope를 연결합니다. 따라서 요청 취소는 일반 후보 fallback을 변경하지 않고 provider 작업을 중지하고 회수합니다. `semantic_runtime_cancellation.py`는 이 스레드 취소 브리지를 소유하고 `semantic_planning_preflight_router.py`는 하나의 `plan()` 호출에 대한 preflight 기반 direct-response 라우팅을 소유하며, 두 모듈 모두 공개 import나 읽기 전용 권한을 바꾸지 않고 강제된 LOC 제한 아래로 유지됩니다. 전체 의미 판단은 selector 순서를 유지하는 32 KiB 후보 전용 기능 변환 결과를 사용합니다. 대상 없는 선언 종류 목록을 위한 정확한 타입 지정 가시성 및 현재 범위 특성 조합은 명시적인 `visible`, `current_scope`, `list` 특성이 있는 단수 종류와 명시적인 `visible`, `current_scope` 특성이 있는 복수 종류를 포함하며 principal 매니페스트를 결정론적으로 컴파일합니다. 원시 발화 토큰으로 이 경로를 선택하지 않습니다. 검증된 preflight Resource 컬렉션 필터는 서술자 축소나 요약 계획보다 먼저 검토된 value group에 결속되므로 선택적 상태 필터가 있어도 알 수 없는 타입은 형식화된 명확화만 만들 수 있습니다. 수락되지 않은 Resource 이벤트 이력 제안은 다음 frame 모델의 context만 축소할 수 있으며 제안 수락, frame-plan 검증, 근거 허용, 읽기 전용 권한은 바뀌지 않습니다. 이 경계에서 운영 의도 map 비교는 명시적인 bool을 반환합니다. 컬렉션 Resource 상태 계획과 상태 사실 해석은 결정론적 Core 온톨로지 플랫폼이 계속 소유하며 표현 계층은 검증된 행만 사용합니다. 대상이 없는 최근 Resource 변경은 추가 전용 관측 journal을 사용하는 별도의 서버 범위 FunctionType으로 처리합니다. 조립 과정은 PostgreSQL 조회기와 정확한 이벤트 ID 수신 fence를 주입합니다. Snapshot에 포함된 이벤트는 현재 상태를 변경하지 않는 이력 전용 journal append를 사용하므로 동일한 범위 제한 journal이 최종 수신을 입증합니다. 검토된 ARG change-feed와 Event Grid Resource 변경 출처 ID만 프로바이더 변경 검증을 충족할 수 있습니다. Core는 프로바이더 변경을 운영 상태 전이와 구분합니다. 의미 조회기는 인벤토리 수집과 동일한 `FDAI_INVENTORY_SCOPES` parser로 서버 범위를 확인하며, `AZURE_SUBSCRIPTION_ID`는 기존 단일 범위 fallback으로만 유지합니다.
+- **논리 서비스 조회 소유권**: `semantic_logical_service_frame.py`는 정확한 frame 또는 명확화 frame을 소유하고 `semantic_logical_service_planning.py`만 승인된 BusinessService 또는 Workload의 id, 이름, alias를 typed 워크로드 및 Resource 경로로 컴파일합니다. 모델 계획, 프로바이더 이름, 태그 또는 레이블로 이 서버 소유 읽기를 대체할 수 없으며 표현 계층은 실행 권한이 없는 검증된 행만 사용합니다. 생성된 System Knowledge 카탈로그는 이 설계 문구를 색인할 수 있지만 런타임 인스턴스 또는 조회 권한을 부여하지 않습니다.
 - **현재 T1 reuse 근거**: `CurrentReuseVerifier`는 변경할 수 없는 operational 사례를 위해 fresh
   리소스, 토폴로지, 그래프, 소유자, 정책, 예행 실행, 안전성 사실을 수집합니다. Azure 캐시 최신성은
   범위가 제한된 age와 future skew를 사용해 현재 evaluation 시계 기준으로 평가하므로 이벤트 직전의 recent
@@ -595,7 +596,7 @@ Var는 순수 승인 대기 데이터를 비공개 결정 레코드 도우미에
   불변 매니페스트, 수명 주기, 프로바이더 및 권한 없는 계약을 소유하고, 검토된 이미지
   composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며
   패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다. 보호된 W7 워크플로는 판단, 승인, 실행 또는 승격 권한을 패키지나 Operator 조립으로 옮기지 않고 정확한 release, Process, 공개 및 보존 근거를 유지합니다.
-- 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있으며, `execution_safeguards.py`는 Core, 작업 흐름, Isolated 실행기의 생성기와 검증기가 공유하는 공급자 중립 무권한 7개 증명 묶음을 소유합니다. `recorded_resource_state.py`는 Core 변환 결과와 Operator 조회가 공유하는 공급자 중립 상태 경로 적용성 집합과 범위가 제한된 사용 불가 사유 토큰을 소유합니다. 공급자 어댑터는 검토된 토큰만 선택할 수 있으며, 공급자 응답 원문과 프로비저닝 기반 추론은 계약 밖에 둡니다.
+- 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있으며, `execution_safeguards.py`는 Core, 작업 흐름, Isolated 실행기의 생성기와 검증기가 공유하는 공급자 중립 무권한 7개 증명 묶음을 소유합니다. `recorded_resource_state.py`는 Core 변환 결과와 Operator 조회가 공유하는 공급자 중립 상태 경로 적용성 집합, 선택적인 정확한 대상 `serving` 경로 및 범위가 제한된 사용 불가 사유 토큰을 소유합니다. Azure delivery는 기존 `MetricProvider` 경계를 통해 수동적인 서비스 응답 근거를 제공하고 해당 메타데이터는 온톨로지 변환 허용 목록을 통과해 유지됩니다. 공급자 어댑터는 검토된 토큰만 선택할 수 있으며, 공급자 응답 원문과 프로비저닝 기반 추론은 계약 밖에 둡니다.
   `operational_activity.py`는 버전이 지정되고 권한을 부여하지 않는 Agent Activity 수명 주기 근거를 소유합니다. 버전 `1.3.0`은 안정적인 활동 신원을 전환 멱등성과 분리하고 기계 처리에 안전한 사유 코드를 요구합니다. `runtime_call.py`는 인증된 런타임 호출 변환 결과에서 사용하는 정확한 호출자 및 대상 Resource 참조와 권한을 부여하지 않는 근거 메타데이터를 소유합니다. Core 조립은 정확한 release, 세대, 범위, 최신성 및 독립 검증기 검사를 통과한 뒤에만 인벤토리를 보강할 수 있습니다.
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고
