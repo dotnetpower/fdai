@@ -71,6 +71,7 @@ export function decodeIncidentPage(value: unknown): IncidentPage {
         ticket_id: apiNullableString(item, "ticket_id", "incident item"),
         title: apiString(item, "title", "incident item"),
         title_source: apiIncidentTitleSource(item["title_source"]),
+        title_presentation: decodeIncidentTitlePresentation(item["title_presentation"]),
         source: decodeIncidentSource(item["source"]),
         response_plan: decodeIncidentResponsePlan(item["response_plan"]),
         severity: apiString(item, "severity", "incident item"),
@@ -414,6 +415,61 @@ function apiIncidentTitleSource(value: unknown): import("./types").IncidentTitle
     value === "identifier_fallback"
   ) return value;
   throw contractError("incident item.title_source MUST be a supported title source");
+}
+
+function decodeIncidentTitlePresentation(
+  value: unknown,
+): import("./types").IncidentTitlePresentation | null {
+  if (value === undefined || value === null) return null;
+  const presentation = apiRecord(value, "incident item.title_presentation");
+  const kind = presentation["kind"];
+  if (
+    kind !== "rule_attention"
+    && kind !== "signal_on_subject"
+    && kind !== "signal"
+    && kind !== "resource_attention"
+    && kind !== "subject_reason"
+    && kind !== "reason"
+  ) {
+    throw contractError("incident item.title_presentation.kind MUST be supported");
+  }
+  const subjectKind = presentation["subject_kind"];
+  if (
+    subjectKind !== null
+    && subjectKind !== "cloud_resource"
+    && subjectKind !== "integration_resource"
+    && subjectKind !== "kubernetes_pod"
+    && subjectKind !== "kubernetes_resource"
+    && subjectKind !== "kubernetes_workload"
+    && subjectKind !== "trace_target"
+    && subjectKind !== "resource"
+  ) {
+    throw contractError("incident item.title_presentation.subject_kind MUST be supported or null");
+  }
+  return {
+    kind,
+    subject: apiIncidentTitlePresentationString(presentation, "subject", 72),
+    subject_kind: subjectKind,
+    signal: apiIncidentTitlePresentationString(presentation, "signal", 72),
+    signal_label: apiIncidentTitlePresentationString(presentation, "signal_label", 72),
+    reason: apiIncidentTitlePresentationString(presentation, "reason", 72),
+    reason_label: apiIncidentTitlePresentationString(presentation, "reason_label", 72),
+    technical_ref: apiIncidentTitlePresentationString(presentation, "technical_ref", 160),
+  };
+}
+
+function apiIncidentTitlePresentationString(
+  presentation: Readonly<Record<string, unknown>>,
+  key: string,
+  maxLength: number,
+): string | null {
+  const value = apiNullableString(presentation, key, "incident item.title_presentation");
+  if (value !== null && value.length > maxLength) {
+    throw contractError(
+      `incident item.title_presentation.${key} MUST be ${maxLength} characters or fewer`,
+    );
+  }
+  return value;
 }
 
 function decodeIncidentSource(value: unknown): import("./types").IncidentSourceContext | null {

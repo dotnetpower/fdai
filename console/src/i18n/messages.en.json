@@ -1468,8 +1468,35 @@
       "title": "Agent response handoff",
       "count": "{count} accountable contributors"
     },
+    "incidentTitle": "Incident title",
     "titleUnavailable": "Title unavailable",
     "titleSource": "Title source",
+    "titlePresentation": {
+      "ruleAttention": "Rule requires attention: {rule}",
+      "signalOnSubject": "{subject}: {signal}",
+      "resourceAttention": "{resource} requires attention",
+      "subjectReason": "{subject}: {reason}",
+      "resourceKind": {
+        "cloudResource": "Cloud resource",
+        "integrationResource": "Integration resource",
+        "kubernetesPod": "Kubernetes pod",
+        "kubernetesResource": "Kubernetes resource",
+        "kubernetesWorkload": "Kubernetes workload",
+        "traceTarget": "Trace target",
+        "resource": "Resource"
+      },
+      "signal": {
+        "kubernetesPodRestart": "Kubernetes pod restart detected",
+        "resourceInventoryChange": "Resource inventory changed",
+        "traceContinuityInterrupted": "Trace continuity interrupted",
+        "tracePropagationGap": "Trace propagation gap"
+      },
+      "reason": {
+        "controlLoopError": "Control loop error",
+        "noRuleMatch": "No response rule matches",
+        "noRuleForResourceAndSignal": "No response rule matches this resource and signal"
+      }
+    },
     "source": {
       "title": "Source incident and response plan",
       "platform": "Source platform",
