@@ -170,13 +170,9 @@ Accepting an AKS stage never grants it approval or permission to skip an earlier
 
 ## Runtime rendering
 
-FDAI services keep one runtime-neutral workload specification containing these fields:
-
-- digest-pinned image, command, arguments, and environment names;
-- resource requests and limits;
-- startup, liveness, and readiness probes;
-- ingress intent and service port;
-- sidecars, secret references, workload identity, and scaling bounds.
+FDAI services keep one runtime-neutral workload specification containing the digest-pinned image,
+command, arguments, environment names, resource requests and limits, startup, liveness and readiness
+probes, ingress intent, service port, sidecars, secret references, workload identity and scaling bounds.
 
 The Container Apps renderer maps the specification to Container Apps and Container Apps Jobs. The
 AKS renderer maps it to typed Kubernetes `Deployment`, `Service`, `ServiceAccount`,
@@ -189,6 +185,10 @@ Both renderers bind Core to the `fdai.operating-model` logical topic through
 managed-identity transport; it is not another Event Hub entity or authority channel. The AKS
 standalone renderer obtains the value from the exact substrate output, while the independent and
 legacy Container Apps renderers receive the same typed deployment input.
+
+The AKS standalone renderer always binds Core semantic request, projection, physical and read-investigation topics,
+so a disabled model returns a typed hold instead of leaving a request pending. With model support,
+Azure mode, resolved-model path, digest, primary endpoint and endpoint map form one fail-fast contract; `enable_llm` must be a JSON boolean, and other types stop application preparation. This validation is structural and never classifies natural-language intent.
 
 Operator assignment and human-approval (HIL) transport imports share the existing `iam_composition`
 facade within the same Operator Service package and runtime; original adapter and factory objects
@@ -302,7 +302,7 @@ the regional catalog once and uses an exact-name Azure CLI projection so only th
 SKUs are serialized, then checks their regional restrictions, three required zones, architecture,
 host encryption, and family plus total quota. It does not issue a second catalog request for a
 different node-pool SKU or retry a failed provider read. Unsupported targets do not disable
-encryption. Allocatable workload-envelope validation remains open in the implementation ledger. Container Insights combines the managed-identity `oms_agent` addon with a Terraform-owned Data Collection Rule (DCR) and cluster association. The association reconstructs the exact cluster Resource ID from the authenticated subscription and reviewed deployment inputs instead of depending on the managed cluster resource, so a monitoring-only plan cannot admit unrelated cluster drift. It sends the default stream each minute with `ContainerLogV2`; without the association and current workspace records, monitoring is unavailable.
+encryption. Allocatable workload-envelope validation remains open in the implementation ledger. Container Insights combines the managed-identity `oms_agent` addon with a Terraform-owned Data Collection Rule (DCR) and cluster association. The association reconstructs the exact cluster Resource ID from the authenticated subscription and reviewed deployment inputs instead of depending on the managed cluster resource, so a monitoring-only plan cannot admit unrelated cluster drift. It sends the default stream each minute with `ContainerLogV2`; without the association and current workspace records, monitoring is unavailable. Application telemetry uses the Python Azure Monitor OpenTelemetry Distro in Core. The shared substrate stores the workspace-based Application Insights connection string as a Key Vault secret, grants only the Core workload identity read access to that secret, and exposes only the secret name to the separately stateful AKS renderer. Key Vault CSI injects the value as `APPLICATIONINSIGHTS_CONNECTION_STRING`. Core selects this exporter only when the secret is present and rejects simultaneous `OTEL_EXPORTER_OTLP_ENDPOINT` configuration instead of duplicating telemetry. Local and explicit vendor-neutral OTLP profiles keep their existing exporters when the Application Insights secret is absent. Repository-wide CI mirrors `azure-monitor-opentelemetry` in the root `dev` extra only so root test collection can import the Core-owned telemetry adapter. The Core service manifest remains the runtime dependency owner, and the repository root remains non-installable.
 
 The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
 ephemeral storage. Checkov exceptions stay attached to the affected resource: the pinned scanner

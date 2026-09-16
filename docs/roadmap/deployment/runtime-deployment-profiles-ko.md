@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 002fedd70962ff9fb4a3fd51b4ebe3cff59d2d7e
+translation_source_sha: 99df4d0016abc51f57fd7f19f06c1ebb5e41c36c
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -171,13 +171,9 @@ DB 및 애플리케이션 준비는 모두 소유자 전용 kubeconfig를 [`kube
 
 ## 런타임 렌더링
 
-FDAI 서비스는 다음 필드를 포함하는 하나의 런타임 중립 워크로드 명세를 유지합니다.
-
-- **이미지 및 실행:** digest로 고정된 이미지, 명령, 인자, 환경 변수 이름을 포함합니다.
-- **리소스:** 요청량과 제한량을 포함합니다.
-- **상태 확인:** 시작, 활성, 준비 프로브를 포함합니다.
-- **접근:** 수신 의도와 서비스 포트를 포함합니다.
-- **런타임 계약:** sidecar, secret 참조, 워크로드 신원, 확장 범위를 포함합니다.
+FDAI 서비스는 하나의 런타임 중립 워크로드 명세를 유지합니다. 이 명세에는 digest로 고정된 이미지,
+명령, 인자, 환경 변수 이름, 리소스 요청량과 제한량, 시작, 활성, 준비 프로브, 수신 의도, 서비스
+포트, sidecar, secret 참조, 워크로드 신원, 확장 범위가 포함됩니다.
 
 Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 변환합니다. AKS 렌더러는
 명세를 typed Kubernetes `Deployment`, `Service`, `ServiceAccount`, `HorizontalPodAutoscaler`,
@@ -191,6 +187,11 @@ HTTPS 기준 URL을 동일한 Console 빌드 계약에 전달합니다. 런타�
 연결합니다. 이 토픽은 기존 의미 physical Event Hub와 Managed Identity 전송을 공유하며 별도
 Event Hub 엔터티나 권한 채널이 아닙니다. AKS standalone 렌더러는 정확한 substrate 출력에서
 값을 가져오고 독립 및 legacy Container Apps 렌더러는 같은 typed 배포 입력을 받습니다.
+
+AKS standalone 렌더러는 Core semantic 요청, 변환 결과, physical, 읽기 전용 조사 토픽을 항상
+연결하므로 모델이 비활성화되어도 요청을 대기시키지 않고 typed hold를 반환합니다. 모델 지원이
+활성화되면 Azure 모드, 이미지의 resolved-model 경로, 정확한 산출물 digest, 기본 endpoint,
+endpoint map이 하나의 계약을 이루며 잘못된 출력은 준비를 중단합니다. `enable_llm`은 JSON boolean이어야 하며 다른 타입도 애플리케이션 준비를 중단합니다. 이 검증은 구조만 확인하고 자연어 의도를 분류하지 않습니다.
 
 Operator의 배정 알림과 사람 승인(HIL) 전송에 필요한 가져오기는 같은 Operator Service
 패키지와 런타임 안의 기존 `iam_composition` 모듈에 모읍니다. 원래 어댑터와 팩터리 객체를
@@ -302,7 +303,7 @@ API Server VNet Integration을 활성화하고, 나중에 클러스터를 교체
 직렬화한 다음 지역 제한, 필요한 세 개 영역, 아키텍처, 호스트 암호화, 제품군별 quota 및 전체
 quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로그 요청을 보내거나 실패한
 프로바이더 읽기를 재시도하지 않습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
-할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다. Container Insights는 Managed Identity를 사용하는 `oms_agent` 추가 기능과 Terraform이 소유하는 데이터 수집 규칙(DCR) 및 클러스터 연결을 함께 사용합니다. 이 연결은 관리되는 클러스터 리소스에 의존하지 않고 인증된 구독 및 검토된 배포 입력에서 정확한 클러스터 Resource ID를 재구성하므로, 모니터링 전용 플랜이 관련 없는 클러스터 변경을 포함할 수 없습니다. 이 규칙은 `Microsoft-ContainerInsights-Group-Default` 스트림을 1분마다 선택한 Log Analytics workspace로 보내고 `ContainerLogV2`를 활성화합니다. 실행 중인 agent Pod에 이 연결이 없으면 모니터링 준비 상태가 아닙니다. DCR이 존재하고 workspace 테이블에 현재 레코드가 수집될 때까지 메트릭 및 로그 소스는 사용 불가 상태로 유지됩니다.
+할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다. Container Insights는 Managed Identity를 사용하는 `oms_agent` 추가 기능과 Terraform이 소유하는 데이터 수집 규칙(DCR) 및 클러스터 연결을 함께 사용합니다. 이 연결은 관리되는 클러스터 리소스에 의존하지 않고 인증된 구독 및 검토된 배포 입력에서 정확한 클러스터 Resource ID를 재구성하므로, 모니터링 전용 플랜이 관련 없는 클러스터 변경을 포함할 수 없습니다. 이 규칙은 `Microsoft-ContainerInsights-Group-Default` 스트림을 1분마다 선택한 Log Analytics workspace로 보내고 `ContainerLogV2`를 활성화합니다. 실행 중인 agent Pod에 이 연결이 없으면 모니터링 준비 상태가 아닙니다. DCR이 존재하고 workspace 테이블에 현재 레코드가 수집될 때까지 메트릭 및 로그 소스는 사용 불가 상태로 유지됩니다. 애플리케이션 원격 분석에는 Core의 Python Azure Monitor OpenTelemetry Distro를 사용합니다. 공유 기반 구성은 workspace 기반 Application Insights 연결 문자열을 Key Vault 비밀로 저장하고, Core 워크로드 신원에만 이 비밀의 읽기 권한을 부여하며, 별도 상태를 사용하는 AKS 렌더러에는 비밀 이름만 전달합니다. Key Vault CSI는 값을 `APPLICATIONINSIGHTS_CONNECTION_STRING`으로 주입합니다. Core는 비밀이 있을 때만 이 내보내기를 선택하며, `OTEL_EXPORTER_OTLP_ENDPOINT`를 동시에 설정하면 원격 분석을 중복 전송하지 않고 시작을 차단합니다. Application Insights 비밀이 없으면 로컬 프로파일과 명시적인 벤더 중립 OTLP 프로파일은 기존 내보내기를 유지합니다. 저장소 전체 CI는 루트 테스트 수집이 Core 소유 원격 분석 어댑터를 가져올 수 있도록 `azure-monitor-opentelemetry`를 루트 `dev` 추가 의존성에만 미러링합니다. 런타임 의존성 소유자는 계속 Core 서비스 매니페스트이며 저장소 루트는 설치할 수 없는 상태를 유지합니다.
 
 로컬 디스크가 없는 기본 SKU는 임시 저장소 대신 플랫폼에서 암호화하는 Managed OS 디스크를
 유지합니다. Checkov 예외는 해당 리소스에만 둡니다. 고정된 검사기 버전은 AzureRM의 이전 업그레이드
