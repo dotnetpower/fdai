@@ -315,7 +315,7 @@ def deploy_azure_foundation(
                 "database_placement": selected_runtime.database_placement.value,
                 "application_converged": True,
                 "deployment_ready": True,
-                "inventory_ready": application["inventory_ready"] is True,
+                "inventory_ready": application.get("inventory_ready") is True,
                 "license_mode": application["license_mode"],
                 "mutation_performed": True,
                 "subscription_ready": False,

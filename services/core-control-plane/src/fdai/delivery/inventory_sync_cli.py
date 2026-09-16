@@ -3,16 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import logging
 import os
 import ssl
 import sys
 from contextlib import AsyncExitStack
-from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from datetime import UTC, datetime
 
 import httpx
 from fdai_service_contracts import (
@@ -29,10 +25,6 @@ from fdai.delivery import inventory_collection_health_reporting, inventory_sync_
 from fdai.delivery.aks_diagnostic_receipts import (
     InventoryPromotionAksDiagnosticObserver,
     StateStoreAksDiagnosticReceiptWriter,
-)
-from fdai.delivery.azure.inventory_progress_blob import (
-    AzureBlobInventoryProgressConfig,
-    AzureBlobInventoryProgressPublisher,
 )
 from fdai.delivery.azure.log_query import (
     AzureLogAnalyticsQueryConfig,
@@ -66,11 +58,9 @@ from fdai.delivery.inventory_job_config import (
     read_bool_env,
 )
 from fdai.delivery.inventory_progress import (
-    CompositeInventoryProgressPublisher,
-    InventoryProgressPublisher,
-    InventoryProgressRecorder,
     InventoryProgressUnavailableError,
 )
+from fdai.delivery.inventory_progress_wiring import build_inventory_progress_recorder
 from fdai.delivery.inventory_scheduler import CollectionScheduleDecision
 from fdai.delivery.inventory_sync import (
     InventoryPromotionEnricher,
@@ -79,6 +69,15 @@ from fdai.delivery.inventory_sync import (
     InventoryPromotionRecovery,
     InventorySyncCoordinator,
     PromotedInventoryObservation,
+)
+from fdai.delivery.inventory_sync_cli_models import (
+    ChangeStreamDrainResult,
+    InventoryJobResult,
+    InventoryOntologyProjectionIncompleteError,
+    generation_digest,
+)
+from fdai.delivery.inventory_sync_cli_models import (
+    scope_ref as _scope_ref,
 )
 from fdai.delivery.inventory_topology_history import InventoryTopologyHistoryPublisher
 from fdai.delivery.kubernetes_api_inventory import (
@@ -104,10 +103,6 @@ from fdai.delivery.persistence import (
     PostgresOntologyInstanceStoreConfig,
     PostgresStateStore,
     PostgresStateStoreConfig,
-)
-from fdai.delivery.persistence.postgres_inventory_progress import (
-    PostgresInventoryProgressStore,
-    PostgresInventoryProgressStoreConfig,
 )
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     InventoryReconciliationHealthState,
@@ -155,32 +150,6 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 _REPO_ROOT = repo_asset_root()
 _LOGGER = logging.getLogger(__name__)
 _COLLECTION_HEALTH_STATE_KEY = "inventory-collection-health"
-
-
-class InventoryOntologyProjectionIncompleteError(RuntimeError):
-    """A promoted snapshot remains pending after a degraded projection."""
-
-
-@dataclass(frozen=True, slots=True)
-class InventoryJobResult:
-    """Report one promoted attempt after rereading the durable active pointer."""
-
-    attempt_id: str
-    source: str
-    active: bool
-
-
-@dataclass(frozen=True, slots=True)
-class ChangeStreamDrainResult:
-    """Sanitized per-source outcome for one bounded accelerator drain."""
-
-    published: int
-    unavailable_sources: tuple[str, ...] = ()
-
-    @property
-    def degraded(self) -> bool:
-        """Return whether any enabled accelerator was unavailable."""
-        return bool(self.unavailable_sources)
 
 
 def _load_relationship_mapping_catalog() -> ProviderRelationshipMappingCatalog:
@@ -238,11 +207,6 @@ def _build_runtime_call_enricher(
         endpoint_verifier_identity="inventory.runtime-call-endpoint-verifier",
         endpoint_verifier_revision="1.0.0",
     )
-
-
-def _scope_ref(scopes: tuple[str, ...]) -> str:
-    encoded = json.dumps(sorted(set(scopes)), separators=(",", ":")).encode("utf-8")
-    return "scope-set:sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 async def _build_kubernetes_enricher(
@@ -501,34 +465,11 @@ async def run(
     async with AsyncExitStack() as stack:
         client = await stack.enter_async_context(httpx.AsyncClient())
         identity = _workload_identity(http_client=client)
-        progress_started_at = datetime.now(tz=UTC)
-        progress_publishers: list[InventoryProgressPublisher] = [
-            PostgresInventoryProgressStore(
-                config=PostgresInventoryProgressStoreConfig(dsn=config.dsn)
-            )
-        ]
-        if progress_container_url := os.environ.get("FDAI_INVENTORY_PROGRESS_CONTAINER_URL"):
-            progress_publishers.append(
-                AzureBlobInventoryProgressPublisher(
-                    config=AzureBlobInventoryProgressConfig(container_url=progress_container_url),
-                    identity=identity,
-                    http_client=client,
-                )
-            )
-        progress_recorder = InventoryProgressRecorder(
-            run_id=os.environ.get("FDAI_INVENTORY_PROGRESS_RUN_ID") or f"inventory.{uuid4().hex}",
-            attempt_id=os.environ.get("FDAI_INVENTORY_PROGRESS_ATTEMPT_ID")
-            or f"attempt.{uuid4().hex}",
-            scopes_total=len(config.scopes),
-            provider_types_total=0,
-            pages_expected=0,
-            started_at=progress_started_at,
-            deadline_at=progress_started_at
-            + timedelta(seconds=config.attempt_deadline_seconds + 300),
-            publisher=CompositeInventoryProgressPublisher(*progress_publishers),
-            clock=lambda: datetime.now(tz=UTC),
+        progress_recorder = await build_inventory_progress_recorder(
+            config=config,
+            identity=identity,
+            http_client=client,
         )
-        await progress_recorder.advance(InventoryProgressStage.COUNT)
         effective_enricher = await build_inventory_promotion_enricher(
             config=config,
             identity=identity,
@@ -579,8 +520,7 @@ async def run(
             )
             await progress_recorder.advance(
                 InventoryProgressStage.VERIFY,
-                generation_digest="sha256:"
-                + hashlib.sha256(result.attempt_id.encode("utf-8")).hexdigest(),
+                generation_digest=generation_digest(result.attempt_id),
             )
             active_snapshot_id = await durable_store.active_snapshot_id()
             if active_snapshot_id is None:

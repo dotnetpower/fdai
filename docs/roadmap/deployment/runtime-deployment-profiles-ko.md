@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: af9eec73660f01ab06e27c46ca1a2af6dd685249
+translation_source_sha: dcab8bda6cc1cca89d6b9608452a83e5753bbdd5
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -97,7 +97,9 @@ $$
 반복 실행의 예정 시각 게이트만 우회합니다. 이미 인증된 배포 신원으로 전체 구독 ARG/ARM 읽기와
 변경 불가 진행률 기록을 수행한 뒤 별도의 읽기 전용 종결 프로세스를 시작합니다. 반복 런타임
 일정과 워크로드 신원은 바뀌지 않으며 부트스트랩 경로는 인벤토리 워크로드에 지속적인 배포
-권한을 부여하지 않습니다.
+권한을 부여하지 않습니다. 표현 및 통합 계약은 이 단계를 16번째 단계로, `provisioning-events`를
+세 번째 비공개 Foundation 컨테이너로 반영합니다. 이전 추가 필드 방식의 증적 테스트 대역에
+`inventory_ready`가 없어도 준비 상태로 해석하지 않습니다.
 
 테넌트 프로비저닝은 미리 빌드된 서비스 및 의존성 이미지만 사용합니다. AKS에서 이미지를 사용할
 수 있게 만들기 전에 서명, 출처, 소스 버전, 플랫폼 및 digest를 검증합니다. Docker, Buildx,
