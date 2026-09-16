@@ -253,6 +253,11 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         else "resolved-models.json"
     )
     values = output.read_text(encoding="utf-8").splitlines()
+    core_state_store = next(value for value in values if value.startswith("FDAI_STATE_STORE_DSN="))
+    assert core_state_store.endswith("?options=-c%20role%3Dfdai_core")
+    values[values.index(core_state_store)] = core_state_store.removesuffix(
+        "?options=-c%20role%3Dfdai_core"
+    )
     expected_prefix = [
         "VITE_MSAL_CLIENT_ID=client",
         "FDAI_TEAMS_OPS_ENDPOINT=https://flow.example.com/trigger/local",
