@@ -294,11 +294,15 @@ expose that child as an ordinary Resource. VM Scale Set size comes from its prov
 Both values reach the Console only after the inventory writer commits a new observation or complete
 generation; the SSE watermark accelerates re-reading but does not create or estimate capacity.
 
-After the observation journal and real-time overlay commit, its monotonic watermark becomes a
-sanitized inventory invalidation. The Operator SSE route exposes only watermark, count, and
-observation time under authenticated read access. It never exposes provider payloads or creates
-graph facts. A visible Console receiving the invalidation re-reads its bounded selected-instance
-projection. SSE reconnects from `Last-Event-ID`; polling remains the bounded fallback.
+The ontology projector writes a monotonic invalidation marker in the same transaction as the
+Resource subgraph, manifest, status, and active-scope checkpoint. The marker starts above the
+current observation-journal watermark so a legacy `Last-Event-ID` cannot suppress the first
+post-upgrade event. The Operator SSE route emits one sanitized event from that committed marker and
+never from pre-projection journal pages. It exposes only the marker, one committed-generation
+count, and observation time under authenticated read access. It never exposes provider payloads or
+creates graph facts. A visible Console receiving the invalidation re-reads its bounded
+selected-instance projection. SSE reconnects from `Last-Event-ID`; polling remains the bounded
+fallback.
 
 Observed model deployments use that same generation and invalidation path. The Operator projection
 exposes only model name, model version, deployment SKU, and normalized TPM in an additive

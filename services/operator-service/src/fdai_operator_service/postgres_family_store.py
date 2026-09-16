@@ -82,13 +82,13 @@ _FRAMEWORK_PROJECTION_OPERATIONS: Final = {
     "azure-waf": "best-practice.list",
     "azure-caf": "caf.list",
 }
-# The invalidation stream never exposes the durable inventory observation
-# journal itself; it only signals that the authoritative graph moved so the
-# caller re-fetches it. Coalescing every bounded page into this one event
-# name keeps that contract obvious at every call site.
+# The invalidation stream never exposes provider observations. It signals only
+# an ontology commit whose graph, manifest, and cursor were written atomically.
 INVENTORY_INVALIDATION_STREAM: Final = "ontology.inventory.invalidations"
 _INVENTORY_INVALIDATION_EVENT: Final = "inventory.invalidated"
 _INVENTORY_INVALIDATION_SCHEMA_VERSION: Final = "1.0.0"
+_INVENTORY_INVALIDATION_STATE_KEY: Final = "inventory-ontology:invalidation"
+_INVENTORY_MANIFEST_STATE_KEY: Final = "inventory-ontology:manifest"
 _LOGGER = logging.getLogger(__name__)
 _RFC3339_TIMESTAMP = re.compile(
     r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}"
@@ -2958,81 +2958,86 @@ class PostgresFamilyStore:
         after_sequence: int | None,
         limit: int,
     ) -> tuple[StoredReplayEvent, ...]:
-        """Coalesce one bounded inventory_observation_journal page into one signal.
+        """Emit one sanitized signal only after an active ontology commit."""
 
-        The caller only ever learns that the durable inventory journal moved
-        past a watermark; it never learns which resource, provider, or
-        principal produced that motion. On a fresh connection
-        (``after_sequence is None``) this establishes the current watermark
-        from the newest bounded page instead of replaying the journal from
-        its origin, so a long-lived journal never forces a multi-page
-        startup replay before the caller can observe live invalidations. An
-        empty page (nothing observed yet, or nothing new since the last
-        watermark) yields no event at all, since the frontend contract
-        requires ``observation_count`` to be at least one whenever a signal
-        is emitted.
-        """
-        if after_sequence is None:
-            rows = await self._fetch_all(
-                """
-                SELECT watermark, observed_at, recorded_at
-                  FROM inventory_observation_journal
-                 ORDER BY watermark DESC
-                 LIMIT %(limit)s
-                """,
-                {"limit": limit},
-            )
-            baseline = 0
-        else:
-            rows = await self._fetch_all(
-                """
-                SELECT watermark, observed_at, recorded_at
-                  FROM inventory_observation_journal
-                 WHERE watermark > %(after_sequence)s
-                 ORDER BY watermark ASC
-                 LIMIT %(limit)s
-                """,
-                {"after_sequence": after_sequence, "limit": limit},
-            )
-            baseline = after_sequence
+        del limit
+        rows = await self._fetch_all(
+            """
+            SELECT marker.value AS marker,
+                   marker.updated_at AS recorded_at,
+                   active.snapshot_id AS active_generation,
+                   snapshot.completed_at AS observed_at,
+                   manifest.value AS manifest
+              FROM state_kv AS marker
+              LEFT JOIN inventory_active AS active ON active.singleton=TRUE
+              LEFT JOIN inventory_snapshot AS snapshot ON snapshot.id=active.snapshot_id
+              LEFT JOIN state_kv AS manifest ON manifest.key=%(manifest_key)s
+             WHERE marker.key=%(marker_key)s
+             LIMIT 1
+            """,
+            {
+                "manifest_key": _INVENTORY_MANIFEST_STATE_KEY,
+                "marker_key": _INVENTORY_INVALIDATION_STATE_KEY,
+            },
+        )
         if not rows:
             return ()
-        watermark = baseline
-        latest_observed_at: datetime | None = None
-        latest_recorded_at: datetime | None = None
-        for row in rows:
-            candidate = row.get("watermark")
-            if not isinstance(candidate, int):
-                raise PostgresFamilyStoreUnavailable(
-                    "inventory observation journal watermark is malformed"
-                )
-            watermark = max(watermark, candidate)
-            observed_at = row.get("observed_at")
-            if not isinstance(observed_at, datetime):
-                raise PostgresFamilyStoreUnavailable(
-                    "inventory observation journal observed_at is malformed"
-                )
-            if latest_observed_at is None or observed_at > latest_observed_at:
-                latest_observed_at = observed_at
-            recorded_at = row.get("recorded_at")
-            if not isinstance(recorded_at, datetime):
-                raise PostgresFamilyStoreUnavailable(
-                    "inventory observation journal recorded_at is malformed"
-                )
-            if latest_recorded_at is None or recorded_at > latest_recorded_at:
-                latest_recorded_at = recorded_at
-        if latest_observed_at is None or latest_recorded_at is None:
-            # Unreachable given the non-empty, per-row validation above; kept
-            # as an explicit fail-closed guard instead of a stripped assert.
+        row = rows[0]
+        marker = _json_object(row.get("marker"), label="inventory ontology invalidation")
+        if set(marker) != {
+            "schema_version",
+            "sequence",
+            "generation",
+            "manifest_digest",
+            "complete",
+            "execution_authority",
+            "mutation_authority",
+        }:
             raise PostgresFamilyStoreUnavailable(
-                "inventory observation journal page produced no timestamps"
+                "inventory ontology invalidation marker is malformed"
+            )
+        watermark = marker.get("sequence")
+        generation = marker.get("generation")
+        manifest_digest = marker.get("manifest_digest")
+        if (
+            marker.get("schema_version") != _INVENTORY_INVALIDATION_SCHEMA_VERSION
+            or isinstance(watermark, bool)
+            or not isinstance(watermark, int)
+            or watermark < 1
+            or not isinstance(generation, str)
+            or not generation
+            or not isinstance(manifest_digest, str)
+            or re.fullmatch(r"sha256:[a-f0-9]{64}", manifest_digest) is None
+            or marker.get("complete") is not True
+            or marker.get("execution_authority") is not False
+            or marker.get("mutation_authority") is not False
+        ):
+            raise PostgresFamilyStoreUnavailable(
+                "inventory ontology invalidation marker is malformed"
+            )
+        manifest_value = row.get("manifest")
+        active_generation = row.get("active_generation")
+        if not isinstance(manifest_value, Mapping) or (
+            active_generation != generation
+            or manifest_value.get("generation") != generation
+            or manifest_value.get("manifest_digest") != manifest_digest
+            or manifest_value.get("complete") is not True
+        ):
+            return ()
+        if after_sequence is not None and watermark <= after_sequence:
+            return ()
+        observed_at = row.get("observed_at")
+        recorded_at = row.get("recorded_at")
+        if not isinstance(observed_at, datetime) or not isinstance(recorded_at, datetime):
+            raise PostgresFamilyStoreUnavailable(
+                "inventory ontology invalidation timestamps are malformed"
             )
         data: dict[str, object] = {
             "schema_version": _INVENTORY_INVALIDATION_SCHEMA_VERSION,
             "watermark": watermark,
-            "observation_count": len(rows),
-            "observed_at": latest_observed_at.isoformat(),
-            "recorded_at": latest_recorded_at.isoformat(),
+            "observation_count": 1,
+            "observed_at": observed_at.isoformat(),
+            "recorded_at": recorded_at.isoformat(),
             "complete": False,
             "execution_authority": False,
             "mutation_authority": False,

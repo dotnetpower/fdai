@@ -17,6 +17,7 @@ from fdai.delivery.inventory_sync import (
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.runtime.inventory_ontology import (
+    INVENTORY_ONTOLOGY_INVALIDATION_KEY,
     INVENTORY_ONTOLOGY_MANIFEST_KEY,
     INVENTORY_ONTOLOGY_STATUS_KEY,
     InventoryOntologyProjector,
@@ -224,6 +225,16 @@ async def test_projection_advances_journal_watermark_with_graph_commit() -> None
     assert manifest is not None
     assert manifest["journal_high_watermark"] == 7
     assert manifest["projection_high_watermark"] == 6
+    invalidation = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+    assert invalidation == {
+        "schema_version": "1.0.0",
+        "sequence": 8,
+        "generation": "snapshot-watermark",
+        "manifest_digest": manifest["manifest_digest"],
+        "complete": True,
+        "execution_authority": False,
+        "mutation_authority": False,
+    }
     checkpoint = await status.read_state(INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY)
     assert checkpoint == {
         "schema_version": "1.0.0",
@@ -232,6 +243,42 @@ async def test_projection_advances_journal_watermark_with_graph_commit() -> None
         "journal_high_watermark": 7,
         "projection_high_watermark": 7,
     }
+
+
+async def test_projection_invalidation_cursor_advances_once_per_distinct_commit() -> None:
+    status = InMemoryStateStore()
+    store = _AtomicOntologyStore(status)
+    projector = InventoryOntologyProjector(
+        store=store,
+        status_store=status,
+        ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
+    )
+
+    await projector.apply(
+        _observation(generation="snapshot-1", resource_ids=("vm-1",)),
+        journal_high_watermark=7,
+        projection_high_watermark=6,
+    )
+    first = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+    assert first is not None
+    assert first["sequence"] == 8
+
+    await projector.apply(
+        _observation(generation="snapshot-2", resource_ids=("vm-1",)),
+        journal_high_watermark=7,
+        projection_high_watermark=6,
+    )
+    second = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+    assert second is not None
+    assert second["sequence"] == 9
+
+    await projector.apply(
+        _observation(generation="snapshot-2", resource_ids=("vm-1",)),
+        journal_high_watermark=7,
+        projection_high_watermark=6,
+    )
+    repeated = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+    assert repeated == second
 
 
 def _observation(

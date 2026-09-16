@@ -1152,6 +1152,36 @@ async def test_postgres_readiness_references_required_projection_schema(monkeypa
     assert "has_table_privilege(current_user, 'inventory_active', 'SELECT')" in statement
 
 
+def _invalidation_row(
+    *,
+    sequence: object = 42,
+    generation: str = "generation-1",
+    observed_at: object = datetime(2026, 9, 6, 1, 0, tzinfo=UTC),
+    recorded_at: object = datetime(2026, 9, 6, 1, 0, 5, tzinfo=UTC),
+    aligned: bool = True,
+) -> dict[str, object]:
+    digest = "sha256:" + "a" * 64
+    return {
+        "marker": {
+            "schema_version": "1.0.0",
+            "sequence": sequence,
+            "generation": generation,
+            "manifest_digest": digest,
+            "complete": True,
+            "execution_authority": False,
+            "mutation_authority": False,
+        },
+        "active_generation": generation if aligned else "generation-2",
+        "manifest": {
+            "generation": generation,
+            "manifest_digest": digest,
+            "complete": True,
+        },
+        "observed_at": observed_at,
+        "recorded_at": recorded_at,
+    }
+
+
 async def test_inventory_invalidation_initial_connect_establishes_watermark_without_full_replay(
     monkeypatch: Any,
 ) -> None:
@@ -1164,13 +1194,7 @@ async def test_inventory_invalidation_initial_connect_establishes_watermark_with
     ) -> list[dict[str, object]]:
         del self
         captured.append((statement, parameters))
-        return [
-            {
-                "watermark": 42,
-                "observed_at": datetime(2026, 9, 6, 1, 0, tzinfo=UTC),
-                "recorded_at": datetime(2026, 9, 6, 1, 0, 5, tzinfo=UTC),
-            }
-        ]
+        return [_invalidation_row()]
 
     monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
     store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
@@ -1197,12 +1221,15 @@ async def test_inventory_invalidation_initial_connect_establishes_watermark_with
         "mutation_authority": False,
     }
     statement, parameters = captured[0]
-    assert "ORDER BY watermark DESC" in statement
-    assert "WHERE watermark >" not in statement
-    assert parameters == {"limit": 1}
+    assert "inventory_observation_journal" not in statement
+    assert "inventory_active" in statement
+    assert parameters == {
+        "manifest_key": "inventory-ontology:manifest",
+        "marker_key": "inventory-ontology:invalidation",
+    }
 
 
-async def test_inventory_invalidation_initial_connect_on_an_empty_journal_yields_no_event(
+async def test_inventory_invalidation_initial_connect_without_a_commit_yields_no_event(
     monkeypatch: Any,
 ) -> None:
     async def fetch_all(
@@ -1223,9 +1250,8 @@ async def test_inventory_invalidation_initial_connect_on_an_empty_journal_yields
         limit=500,
     )
 
-    # observation_count MUST be at least one whenever a signal is emitted, so
-    # an empty journal establishes nothing yet rather than sending a hollow
-    # watermark=0 event.
+    # Pre-projection journal rows are not queried, so no committed marker means
+    # there is no browser-visible change.
     assert events == ()
 
 
@@ -1241,7 +1267,7 @@ async def test_inventory_invalidation_subsequent_poll_with_no_new_rows_yields_no
     ) -> list[dict[str, object]]:
         del self
         captured.append((statement, parameters))
-        return []
+        return [_invalidation_row(sequence=42)]
 
     monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
     store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
@@ -1255,12 +1281,11 @@ async def test_inventory_invalidation_subsequent_poll_with_no_new_rows_yields_no
 
     assert events == ()
     statement, parameters = captured[0]
-    assert "WHERE watermark > %(after_sequence)s" in statement
-    assert "ORDER BY watermark ASC" in statement
-    assert parameters == {"after_sequence": 42, "limit": 500}
+    assert "inventory-ontology:invalidation" not in statement
+    assert parameters["marker_key"] == "inventory-ontology:invalidation"
 
 
-async def test_inventory_invalidation_coalesces_multiple_new_rows_into_one_event(
+async def test_inventory_invalidation_emits_one_committed_projection_event(
     monkeypatch: Any,
 ) -> None:
     async def fetch_all(
@@ -1270,21 +1295,11 @@ async def test_inventory_invalidation_coalesces_multiple_new_rows_into_one_event
     ) -> list[dict[str, object]]:
         del self, statement, parameters
         return [
-            {
-                "watermark": 43,
-                "observed_at": datetime(2026, 9, 6, 1, 0, tzinfo=UTC),
-                "recorded_at": datetime(2026, 9, 6, 1, 0, 1, tzinfo=UTC),
-            },
-            {
-                "watermark": 45,
-                "observed_at": datetime(2026, 9, 6, 1, 0, 9, tzinfo=UTC),
-                "recorded_at": datetime(2026, 9, 6, 1, 0, 8, tzinfo=UTC),
-            },
-            {
-                "watermark": 44,
-                "observed_at": datetime(2026, 9, 6, 1, 0, 3, tzinfo=UTC),
-                "recorded_at": datetime(2026, 9, 6, 1, 0, 10, tzinfo=UTC),
-            },
+            _invalidation_row(
+                sequence=45,
+                observed_at=datetime(2026, 9, 6, 1, 0, 9, tzinfo=UTC),
+                recorded_at=datetime(2026, 9, 6, 1, 0, 10, tzinfo=UTC),
+            )
         ]
 
     monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
@@ -1299,11 +1314,9 @@ async def test_inventory_invalidation_coalesces_multiple_new_rows_into_one_event
 
     assert len(events) == 1
     event = events[0]
-    # The coalesced signal reports only the furthest watermark and count,
-    # never per-row identity, so three journal rows fold into one event.
     assert event.sequence == 45
     assert event.data["watermark"] == 45
-    assert event.data["observation_count"] == 3
+    assert event.data["observation_count"] == 1
     assert event.data["observed_at"] == "2026-09-06T01:00:09+00:00"
     assert event.data["recorded_at"] == "2026-09-06T01:00:10+00:00"
 
@@ -1315,12 +1328,12 @@ async def test_inventory_invalidation_rejects_a_malformed_watermark(monkeypatch:
         parameters: Mapping[str, object],
     ) -> list[dict[str, object]]:
         del self, statement, parameters
-        return [{"watermark": "not-a-number", "observed_at": None, "recorded_at": None}]
+        return [_invalidation_row(sequence="not-a-number")]
 
     monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
     store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
 
-    with pytest.raises(PostgresFamilyStoreUnavailable, match="watermark is malformed"):
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="marker is malformed"):
         await store.replay(
             stream=INVENTORY_INVALIDATION_STREAM,
             principal_id="reader-oid",
@@ -1336,14 +1349,12 @@ async def test_inventory_invalidation_rejects_a_missing_observed_at(monkeypatch:
         parameters: Mapping[str, object],
     ) -> list[dict[str, object]]:
         del self, statement, parameters
-        return [
-            {"watermark": 9, "observed_at": None, "recorded_at": datetime(2026, 9, 6, tzinfo=UTC)}
-        ]
+        return [_invalidation_row(observed_at=None)]
 
     monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
     store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
 
-    with pytest.raises(PostgresFamilyStoreUnavailable, match="observed_at is malformed"):
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="timestamps are malformed"):
         await store.replay(
             stream=INVENTORY_INVALIDATION_STREAM,
             principal_id="reader-oid",
@@ -1359,14 +1370,12 @@ async def test_inventory_invalidation_rejects_a_missing_recorded_at(monkeypatch:
         parameters: Mapping[str, object],
     ) -> list[dict[str, object]]:
         del self, statement, parameters
-        return [
-            {"watermark": 9, "observed_at": datetime(2026, 9, 6, tzinfo=UTC), "recorded_at": None}
-        ]
+        return [_invalidation_row(recorded_at=None)]
 
     monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
     store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
 
-    with pytest.raises(PostgresFamilyStoreUnavailable, match="recorded_at is malformed"):
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="timestamps are malformed"):
         await store.replay(
             stream=INVENTORY_INVALIDATION_STREAM,
             principal_id="reader-oid",
@@ -1375,10 +1384,10 @@ async def test_inventory_invalidation_rejects_a_missing_recorded_at(monkeypatch:
         )
 
 
-async def test_inventory_invalidation_page_never_exceeds_the_requested_limit(
+async def test_inventory_invalidation_ignores_replay_page_size_for_one_commit(
     monkeypatch: Any,
 ) -> None:
-    """N-1 boundary: a page short of the limit reports its true, smaller count."""
+    """The committed marker is one event regardless of the generic replay page size."""
     captured: list[Mapping[str, object]] = []
 
     async def fetch_all(
@@ -1388,18 +1397,7 @@ async def test_inventory_invalidation_page_never_exceeds_the_requested_limit(
     ) -> list[dict[str, object]]:
         del self, statement
         captured.append(parameters)
-        limit = parameters["limit"]
-        assert isinstance(limit, int)
-        # The store trusts the SQL LIMIT clause; simulate the database
-        # returning exactly one row short of a full page.
-        return [
-            {
-                "watermark": 42 + offset,
-                "observed_at": datetime(2026, 9, 6, tzinfo=UTC),
-                "recorded_at": datetime(2026, 9, 6, tzinfo=UTC),
-            }
-            for offset in range(1, limit)
-        ]
+        return [_invalidation_row(sequence=47)]
 
     monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
     store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
@@ -1412,11 +1410,11 @@ async def test_inventory_invalidation_page_never_exceeds_the_requested_limit(
     )
 
     assert len(events) == 1
-    assert events[0].data["observation_count"] == 4
-    assert captured[0]["limit"] == 5
+    assert events[0].data["observation_count"] == 1
+    assert captured[0]["marker_key"] == "inventory-ontology:invalidation"
 
 
-async def test_inventory_invalidation_never_leaks_extra_journal_row_columns(
+async def test_inventory_invalidation_never_leaks_extra_commit_row_columns(
     monkeypatch: Any,
 ) -> None:
     """Even if the row carries extra columns, only the sanitized fields survive."""
@@ -1429,9 +1427,7 @@ async def test_inventory_invalidation_never_leaks_extra_journal_row_columns(
         del self, statement, parameters
         return [
             {
-                "watermark": 50,
-                "observed_at": datetime(2026, 9, 6, tzinfo=UTC),
-                "recorded_at": datetime(2026, 9, 6, tzinfo=UTC),
+                **_invalidation_row(sequence=50),
                 "subject_ref": "resource-1",
                 "provider_ref": "azure:vm:1",
                 "properties": {"secret": "value"},
@@ -1462,6 +1458,30 @@ async def test_inventory_invalidation_never_leaks_extra_journal_row_columns(
     }
 
 
+async def test_inventory_invalidation_waits_for_active_committed_generation(
+    monkeypatch: Any,
+) -> None:
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self, statement, parameters
+        return [_invalidation_row(sequence=50, aligned=False)]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    events = await store.replay(
+        stream=INVENTORY_INVALIDATION_STREAM,
+        principal_id="reader-oid",
+        after_sequence=42,
+        limit=500,
+    )
+
+    assert events == ()
+
+
 async def test_inventory_invalidation_replay_wraps_into_one_operations_replay_batch(
     monkeypatch: Any,
 ) -> None:
@@ -1473,13 +1493,7 @@ async def test_inventory_invalidation_replay_wraps_into_one_operations_replay_ba
         parameters: Mapping[str, object],
     ) -> list[dict[str, object]]:
         del self, statement, parameters
-        return [
-            {
-                "watermark": 9,
-                "observed_at": datetime(2026, 9, 6, tzinfo=UTC),
-                "recorded_at": datetime(2026, 9, 6, tzinfo=UTC),
-            }
-        ]
+        return [_invalidation_row(sequence=9)]
 
     monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
     adapter = PostgresOperationsAdapters(

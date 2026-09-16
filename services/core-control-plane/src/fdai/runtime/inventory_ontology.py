@@ -47,6 +47,7 @@ from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_store import StateStore
 
 INVENTORY_ONTOLOGY_MANIFEST_KEY = "inventory-ontology:manifest"
+INVENTORY_ONTOLOGY_INVALIDATION_KEY = "inventory-ontology:invalidation"
 INVENTORY_ONTOLOGY_STATUS_KEY = "inventory-ontology:status"
 _MANIFEST_SCHEMA_VERSION = "1.3.0"
 _LEGACY_MANIFEST_SCHEMA_VERSION = "1.2.0"
@@ -272,6 +273,11 @@ class InventoryOntologyProjector:
         state_updates = {
             INVENTORY_ONTOLOGY_MANIFEST_KEY: manifest_state,
             INVENTORY_ONTOLOGY_STATUS_KEY: status_state,
+            INVENTORY_ONTOLOGY_INVALIDATION_KEY: await self._invalidation_state(
+                generation=projection.generation,
+                manifest_digest=current_manifest_digest,
+                journal_high_watermark=journal_high_watermark,
+            ),
         }
         active_scope_state = checkpoints.active_scope_state(generation=projection.generation)
         if active_scope_state is not None:
@@ -311,6 +317,10 @@ class InventoryOntologyProjector:
                     INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY,
                     active_scope_state,
                 )
+            await self._status_store.write_state(
+                INVENTORY_ONTOLOGY_INVALIDATION_KEY,
+                state_updates[INVENTORY_ONTOLOGY_INVALIDATION_KEY],
+            )
         if projection_high_watermark is not None and not callable(atomic_replace):
             if self._observation_journal is None:
                 raise RuntimeError("inventory ontology journal watermark has no durable writer")
@@ -339,6 +349,51 @@ class InventoryOntologyProjector:
             journal_high_watermark=journal_high_watermark,
             projection_high_watermark=projection_high_watermark,
         )
+
+    async def _invalidation_state(
+        self,
+        *,
+        generation: str,
+        manifest_digest: str,
+        journal_high_watermark: int | None,
+    ) -> dict[str, object]:
+        """Build an idempotent post-commit browser cursor compatible with legacy ids."""
+
+        previous = await self._status_store.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+        previous_sequence = 0
+        if previous is not None:
+            if not isinstance(previous, Mapping):
+                raise ValueError("inventory ontology invalidation marker is malformed")
+            if (
+                previous.get("schema_version") != "1.0.0"
+                or isinstance(previous.get("sequence"), bool)
+                or not isinstance(previous.get("sequence"), int)
+                or previous["sequence"] < 1
+                or not isinstance(previous.get("generation"), str)
+                or not previous["generation"]
+                or not isinstance(previous.get("manifest_digest"), str)
+                or _DIGEST_PATTERN.fullmatch(previous["manifest_digest"]) is None
+                or previous.get("complete") is not True
+                or previous.get("execution_authority") is not False
+                or previous.get("mutation_authority") is not False
+            ):
+                raise ValueError("inventory ontology invalidation marker is malformed")
+            if (
+                previous["generation"] == generation
+                and previous["manifest_digest"] == manifest_digest
+            ):
+                return dict(previous)
+            previous_sequence = previous["sequence"]
+        journal_cursor = journal_high_watermark if journal_high_watermark is not None else 0
+        return {
+            "schema_version": "1.0.0",
+            "sequence": max(previous_sequence, journal_cursor) + 1,
+            "generation": generation,
+            "manifest_digest": manifest_digest,
+            "complete": True,
+            "execution_authority": False,
+            "mutation_authority": False,
+        }
 
     async def _seeded_resource_types(
         self,
@@ -779,6 +834,7 @@ def _manifest_watermark(value: Mapping[str, object], key: str) -> int | None:
 
 
 __all__ = [
+    "INVENTORY_ONTOLOGY_INVALIDATION_KEY",
     "INVENTORY_ONTOLOGY_MANIFEST_KEY",
     "INVENTORY_ONTOLOGY_STATUS_KEY",
     "InventoryOntologyProjectionResult",

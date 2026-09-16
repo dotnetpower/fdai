@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: ad76b53deb2369f4c63ba6db5944d43e3f3a6ef9
+translation_source_sha: a519c36b71cebeddc17398cddf2bdabfd8829f39
 translation_revised: 2026-09-16
 ---
 # 지속형 운영 인스턴스 그래프
@@ -294,11 +294,14 @@ AKS AgentPool 크기는 Resource Graph가 해당 자식을 일반 Resource로 �
 가져옵니다. 두 값은 인벤토리 작성기가 새 관측 또는 완전한 세대를 커밋한 뒤에만 Console에
 도달합니다. SSE watermark는 다시 읽기를 앞당기지만 용량을 만들거나 추정하지 않습니다.
 
-관측 journal과 실시간 overlay가 커밋된 뒤 단조 증가 watermark를 정제된 인벤토리 무효화 이벤트로
-사용합니다. Operator SSE 경로는 인증된 읽기 권한 아래에서 watermark, 개수, 관측 시각만
-노출합니다. 프로바이더 payload를 노출하거나 그래프 사실을 만들지 않습니다. 표시 중인 Console이
-무효화 이벤트를 받으면 범위가 제한된 선택 인스턴스 변환 결과를 다시 읽습니다. SSE는
-`Last-Event-ID`부터 다시 연결하며 폴링은 범위가 제한된 fallback으로 유지합니다.
+온톨로지 변환기는 Resource 하위 그래프, 매니페스트, 상태 및 활성 범위 체크포인트와 같은
+트랜잭션에서 단조 증가하는 무효화 표식을 기록합니다. 기존 `Last-Event-ID`가 업그레이드 후 첫
+이벤트를 차단하지 않도록 현재 관측 journal 워터마크보다 큰 값에서 표식을 시작합니다. Operator
+SSE 경로는 변환 전 journal 페이지가 아니라 커밋된 표식에서 정제된 이벤트 하나를 보냅니다.
+인증된 읽기 권한 아래에서 표식, 커밋된 세대 한 건의 개수 및 관측 시각만 노출합니다. 프로바이더
+payload를 노출하거나 그래프 사실을 만들지 않습니다. 표시 중인 Console이 무효화 이벤트를 받으면
+범위가 제한된 선택 인스턴스 변환 결과를 다시 읽습니다. SSE는 `Last-Event-ID`부터 다시 연결하며
+폴링은 범위가 제한된 fallback으로 유지합니다.
 
 관측된 모델 배포도 같은 세대와 무효화 경로를 사용합니다. Operator 변환 결과는 추가
 `model_deployment` 객체에서 모델 이름, 모델 버전, 배포 SKU 및 정규화된 TPM만 노출합니다.
