@@ -20,6 +20,7 @@ import yaml
 from fdai.delivery import inventory_sync_cli_support
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.inventory import AzureResourceGraphInventory
+from fdai.delivery.azure.model_serving_inventory import AzureModelServingInventoryEnricher
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.inventory_change_acceleration import (
     forward_recovery_deltas as _forward_recovery_deltas,
@@ -322,6 +323,35 @@ async def test_runtime_call_enricher_requires_deployed_explicit_activation(
     assert isinstance(unavailable, UnavailableRuntimeCallInventoryEnricher)
     assert isinstance(local_candidate, UnavailableRuntimeCallInventoryEnricher)
     assert isinstance(available, RuntimeCallInventoryEnricher)
+
+
+async def test_model_serving_enricher_matches_full_reconciliation_cadence() -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+            "FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS": "21600",
+        }
+    )
+    identity = StaticWorkloadIdentity(
+        audience="https://management.azure.com/.default",
+        token="test-token",  # noqa: S106 - deterministic test credential
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_http_ok)) as client:
+        enrichers = inventory_sync_cli_support.build_azure_inventory_enrichers(
+            config=config,
+            identity=identity,
+            http_client=client,
+            previous_state_reader=cast(Any, SimpleNamespace()),
+        )
+
+    serving = enrichers[1]
+    assert isinstance(serving, AzureModelServingInventoryEnricher)
+    assert serving._config.lookback_seconds == config.reconciliation_interval_seconds  # noqa: SLF001
+    assert (  # noqa: SLF001
+        serving._config.freshness_ceiling_seconds == config.reconciliation_interval_seconds
+    )
+    assert serving._config.max_points_per_target == 361  # noqa: SLF001
 
 
 async def test_ontology_observer_persists_diagnostics_on_inventory_promotion(

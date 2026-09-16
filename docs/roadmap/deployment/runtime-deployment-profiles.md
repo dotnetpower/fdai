@@ -213,7 +213,8 @@ delta cursors or terminating the complete inventory loop. Passive model-serving 
 inventory reader identity and Azure Monitor management API; it never receives a model credential or
 issues an inference request. Identity, transport, and bounded provider failures lower only that
 optional source's evidence coverage and do not block inventory promotion. Malformed credential
-responses follow the same redacted source-unavailable boundary.
+responses follow the same redacted source-unavailable boundary. Its lookback, freshness, point cap,
+and total timeout are derived from the configured reconciliation interval and fan-out bounds.
 
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and

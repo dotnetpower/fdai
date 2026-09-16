@@ -111,7 +111,11 @@ def test_templates_preserve_legacy_constructor_and_bound_filter_scope() -> None:
 
 @pytest.mark.parametrize(
     "identity_error",
-    [RuntimeError("credential unavailable"), ValueError("bad")],
+    [
+        RuntimeError("credential unavailable"),
+        ValueError("bad"),
+        OverflowError("expires_on overflow"),
+    ],
 )
 async def test_identity_failure_is_normalized_without_exposing_credential_details(
     identity_error: Exception,
@@ -219,6 +223,37 @@ async def test_deployment_metric_window_queries_account_without_widening_child(
     assert window.concept_id == definition.concept_id
     assert window.complete is True
     assert tuple(sample.value for sample in window.samples) == (0.0,)
+
+
+async def test_deployment_dimension_value_matching_is_case_insensitive() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=_payload(
+                "AzureOpenAIRequests",
+                {"StatusCode": "200", "ModelDeploymentName": "EXAMPLE-MODEL"},
+            ),
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureMonitorMetricsProvider(
+            config=AzureMonitorMetricsConfig(templates=azure_metrics_api_queries()),
+            http_client=client,
+            identity=_Identity(),
+        )
+        points = [
+            point
+            async for point in provider.query(
+                MetricQuery(
+                    metric_name="model.response.200.count",
+                    labels={"resource_id": DEPLOYMENT},
+                    since=NOW,
+                )
+            )
+        ]
+
+    assert len(points) == 1
+    assert points[0].labels["ModelDeploymentName"] == "EXAMPLE-MODEL"
 
 
 @pytest.mark.parametrize(

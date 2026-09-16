@@ -271,7 +271,14 @@ class AzureMonitorMetricsProvider:
 
         try:
             token = await self._identity.get_token(self._config.audience)
-        except (RuntimeError, TimeoutError, ValueError, httpx.HTTPError) as exc:
+        except (
+            OSError,
+            OverflowError,
+            RuntimeError,
+            TimeoutError,
+            ValueError,
+            httpx.HTTPError,
+        ) as exc:
             raise MetricProviderError(
                 f"Azure Monitor Metrics identity is unavailable for {query.metric_name!r}",
                 reason=MetricFailureReason.TRANSPORT_ERROR,
@@ -398,7 +405,7 @@ class AzureMonitorMetricsProvider:
                 )
             series_labels = dict(base_labels)
             dimensions = _series_dimensions(series)
-            if scoped and dimensions != {item.name: item.value for item in filters}:
+            if scoped and not _metric_dimensions_match(dimensions, filters):
                 raise MetricProviderError(
                     "Azure Monitor Metrics returned unexpected dimensions",
                     reason=MetricFailureReason.INVALID_RESPONSE,
@@ -574,6 +581,15 @@ def _series_dimensions(series: Mapping[str, Any]) -> dict[str, str]:
         names.add(key.casefold())
         dimensions[key] = value
     return dimensions
+
+
+def _metric_dimensions_match(
+    dimensions: Mapping[str, str],
+    filters: tuple[MetricsApiDimensionFilter, ...],
+) -> bool:
+    expected = {item.name.casefold(): item.value.casefold() for item in filters}
+    actual = {name.casefold(): value.casefold() for name, value in dimensions.items()}
+    return actual == expected
 
 
 def _build_timespan(

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: b5c2bbadd6abeb1e46a8cfc3754a82687a70a5a6
+translation_source_sha: f114504c8bfbe0da66ff9f3762b5952bd57dc09f
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -210,6 +210,8 @@ Activity Log 복구 가속은 전체 조정과 독립적입니다. 세대 승격
 API를 재사용하며 모델 자격 증명을 받거나 추론 요청을 수행하지 않습니다. 신원, 전송 및 범위가
 제한된 공급자 실패는 해당 선택적 출처의 근거 범위만 낮추며 인벤토리 승격을 차단하지 않습니다.
 잘못된 형식의 자격 증명 응답도 정제된 출처 사용 불가 경계를 따릅니다.
+조회 구간, 최신성, 데이터 지점 상한 및 전체 제한 시간은 구성된 재조정 간격과 병렬 요청 범위에서
+파생합니다.
 
 관리 호스트는 선택한 Deployment 이름, 이미지 참조, 복제본 수 범위를 기록합니다. 상태 재조회는
 해당 목록 전체, 현재 관측 세대, 준비된 복제본, 같은 소스 버전에서 실행 중인 Pod 이미지 digest를

@@ -316,7 +316,9 @@ deployment success observation with telemetry provenance. It never changes ontol
 structural relationships, Kubernetes diagnostics, or execution authority. The collector reuses the
 existing exact-deployment Azure Monitor adapter under bounded target, concurrency, point, and total
 deadline limits and performs no inference request. A total deadline retains completed target reads,
-cancels only unfinished reads, and reports the remaining exact targets as unavailable.
+cancels only unfinished reads, and reports the remaining exact targets as unavailable. Serving
+lookback and freshness match the reconciliation cadence; cross-field validation rejects a point or
+deadline budget that cannot cover its configured window and fan-out.
 
 ### Load-aware scheduling
 

@@ -91,6 +91,13 @@ class _SlowProvider:
         yield _point()  # pragma: no cover
 
 
+class _UnexpectedErrorProvider:
+    async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
+        del query
+        raise RuntimeError("unexpected provider detail")
+        yield  # pragma: no cover
+
+
 class _PartiallySlowProvider:
     async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
         resource_id = query.labels["resource_id"]
@@ -231,11 +238,17 @@ async def test_target_limit_and_total_deadline_do_not_block_promotion() -> None:
     assert limited.resources[1].props["state_fact_unavailable_reasons"] == {
         "servingState": "model_serving_target_limit"
     }
-    assert limited.source_states[0].status == "available"
+    assert limited.source_states[0].status == "unavailable"
+    assert limited.source_states[0].reason == "model_serving_partial"
 
     timed_out = await AzureModelServingInventoryEnricher(
         provider=_SlowProvider(),
-        config=AzureModelServingInventoryConfig(total_timeout_seconds=0.1),
+        config=AzureModelServingInventoryConfig(
+            max_targets=1,
+            max_concurrency=1,
+            per_request_timeout_seconds=0.1,
+            total_timeout_seconds=0.1,
+        ),
         clock=lambda: NOW,
     ).enrich(_observation())
     assert timed_out.resources[0].props["state_fact_unavailable_reasons"] == {
@@ -255,7 +268,9 @@ async def test_total_deadline_retains_completed_targets() -> None:
     enriched = await AzureModelServingInventoryEnricher(
         provider=_PartiallySlowProvider(),
         config=AzureModelServingInventoryConfig(
+            max_targets=2,
             max_concurrency=2,
+            per_request_timeout_seconds=0.1,
             total_timeout_seconds=0.1,
         ),
         clock=lambda: NOW,
@@ -285,6 +300,43 @@ async def test_backwards_clock_does_not_abort_inventory_promotion() -> None:
     assert enriched.source_states[0].status == "unavailable"
 
 
+async def test_unexpected_provider_error_is_isolated_to_serving_evidence() -> None:
+    enriched = await AzureModelServingInventoryEnricher(
+        provider=_UnexpectedErrorProvider(),
+        clock=lambda: NOW,
+    ).enrich(_observation())
+
+    assert enriched.resources[0].props["state_fact_unavailable_reasons"] == {
+        "servingState": "model_serving_source_unavailable"
+    }
+    assert enriched.source_states[0].status == "unavailable"
+
+
+async def test_expired_prior_serving_fact_is_replaced_by_current_missing_reason() -> None:
+    first = await AzureModelServingInventoryEnricher(
+        provider=StaticMetricProvider([_point(value=1)]),
+        clock=lambda: NOW,
+    ).enrich(_observation())
+    expired = await AzureModelServingInventoryEnricher(
+        provider=StaticMetricProvider([]),
+        previous_state_reader=_PreviousReader(first.resources[0]),
+        clock=lambda: NOW + timedelta(minutes=11),
+    ).enrich(
+        PromotedInventoryObservation(
+            generation="generation-2",
+            resources=(_resource(),),
+            links=(),
+            complete=True,
+            recorded_at=NOW + timedelta(minutes=11),
+        )
+    )
+
+    assert "servingState" not in expired.resources[0].props
+    assert expired.resources[0].props["state_fact_unavailable_reasons"] == {
+        "servingState": "model_serving_not_observed"
+    }
+
+
 def test_config_rejects_unbounded_values() -> None:
     with pytest.raises(ValueError, match="lookback"):
         AzureModelServingInventoryConfig(lookback_seconds=59)
@@ -295,3 +347,11 @@ def test_config_rejects_unbounded_values() -> None:
         )
     with pytest.raises(ValueError, match="max_concurrency"):
         AzureModelServingInventoryConfig(max_concurrency=9)
+    with pytest.raises(ValueError, match="point cap"):
+        AzureModelServingInventoryConfig(
+            lookback_seconds=3600,
+            freshness_ceiling_seconds=3600,
+            max_points_per_target=32,
+        )
+    with pytest.raises(ValueError, match="fan-out"):
+        AzureModelServingInventoryConfig(total_timeout_seconds=249)

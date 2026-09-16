@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: b0b431402fbbd3f67dae6a56d6bad51d258fddf1
+translation_source_sha: 796169239c3b462fe9145619d97d956ded6bb5c9
 translation_revised: 2026-09-16
 ---
 # 지속형 운영 인스턴스 그래프
@@ -315,6 +315,8 @@ Console 카드, 도구 설명, 상세 패널 및 화면 맥락은 원시 프로�
 않습니다. 수집기는 기존의 정확한 배포 Azure Monitor 어댑터를 재사용하고 대상, 동시성, 데이터
 지점 수 및 전체 제한 시간을 적용하며 추론 요청을 수행하지 않습니다. 전체 제한 시간에 도달하면
 완료된 대상 조회는 유지하고 끝나지 않은 조회만 취소하며 남은 정확한 대상을 사용 불가로 보고합니다.
+서비스 응답 조회 구간과 최신성은 재조정 주기와 일치하며, 교차 필드 검증은 구성된 조회 구간과
+병렬 요청 범위를 처리할 수 없는 데이터 지점 또는 제한 시간 예산을 차단합니다.
 
 ### 부하 인식 일정 관리
 

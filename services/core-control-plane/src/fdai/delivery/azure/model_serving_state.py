@@ -8,7 +8,7 @@ import math
 import re
 from collections.abc import Mapping
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Final
 
 from fdai_service_contracts.recorded_resource_state import (
@@ -163,15 +163,30 @@ def carry_model_serving_or_reason(
     resource: ResourceRecord,
     previous: ResourceRecord | None,
     reason: str,
+    *,
+    evaluated_at: datetime,
 ) -> ResourceRecord:
     """Carry verified evidence or attach one allowlisted missing-state reason."""
 
+    if evaluated_at.tzinfo is None:
+        raise ValueError("model serving evaluation time MUST be timezone-aware")
     prior = prior_model_serving_resource(previous)
-    if prior is not None:
+    if prior is not None and evaluated_at.astimezone(UTC) <= (
+        prior[1].evidence_cutoff + timedelta(seconds=prior[1].freshness_ceiling_seconds)
+    ):
         return carry_prior_model_serving(resource, prior)
     if reason not in RECORDED_STATE_UNAVAILABLE_REASONS:
         reason = "model_serving_response_invalid"
     props = dict(resource.props)
+    props.pop(MODEL_SERVING_STATE_PROPERTY, None)
+    metadata_root = props.get(STATE_FACT_METADATA_PROPERTY)
+    if isinstance(metadata_root, Mapping):
+        metadata = dict(metadata_root)
+        metadata.pop(MODEL_SERVING_STATE_PROPERTY, None)
+        if metadata:
+            props[STATE_FACT_METADATA_PROPERTY] = metadata
+        else:
+            props.pop(STATE_FACT_METADATA_PROPERTY, None)
     reasons = model_serving_reason_map(props)
     reasons[MODEL_SERVING_STATE_PROPERTY] = reason
     props[STATE_FACT_UNAVAILABLE_REASONS_PROPERTY] = reasons
@@ -182,6 +197,8 @@ def retain_model_serving_or_reason(
     observation: PromotedInventoryObservation,
     previous: Mapping[str, ResourceRecord],
     reason: str,
+    *,
+    evaluated_at: datetime,
 ) -> PromotedInventoryObservation:
     """Apply one explicit reason to model targets without discarding prior facts."""
 
@@ -192,6 +209,7 @@ def retain_model_serving_or_reason(
                 resource,
                 previous.get(resource.resource_id),
                 reason,
+                evaluated_at=evaluated_at,
             )
             if resource.type == MODEL_DEPLOYMENT_RESOURCE_TYPE
             else resource

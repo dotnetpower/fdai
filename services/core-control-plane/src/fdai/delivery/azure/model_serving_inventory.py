@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from collections import Counter
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
@@ -18,7 +19,6 @@ from fdai.delivery.azure.model_serving_state import (
     MODEL_SERVING_SOURCE_IDENTITY,
     MODEL_SERVING_STATE_PROPERTY,
     carry_model_serving_or_reason,
-    carry_prior_model_serving,
     model_deployment_name,
     model_serving_evidence_ref,
     model_serving_reason_map,
@@ -60,11 +60,12 @@ class AzureModelServingInventoryConfig:
     max_targets: int = 200
     max_concurrency: int = 8
     max_points_per_target: int = 32
-    total_timeout_seconds: float = 30.0
+    per_request_timeout_seconds: float = 10.0
+    total_timeout_seconds: float = 250.0
 
     def __post_init__(self) -> None:
-        if not 60 <= self.lookback_seconds <= 3600:
-            raise ValueError("model serving lookback_seconds MUST be in [60, 3600]")
+        if not 60 <= self.lookback_seconds <= 21_600:
+            raise ValueError("model serving lookback_seconds MUST be in [60, 21600]")
         if self.freshness_ceiling_seconds < self.lookback_seconds:
             raise ValueError("model serving freshness ceiling MUST cover the lookback")
         if not 1 <= self.max_targets <= 1000:
@@ -73,8 +74,18 @@ class AzureModelServingInventoryConfig:
             raise ValueError("model serving max_concurrency MUST be in [1, 8]")
         if not 1 <= self.max_points_per_target <= 1000:
             raise ValueError("model serving max_points_per_target MUST be in [1, 1000]")
-        if not 0.1 <= self.total_timeout_seconds <= 120:
-            raise ValueError("model serving total timeout MUST be in [0.1, 120]")
+        required_points = math.ceil(self.lookback_seconds / 60) + 1
+        if self.max_points_per_target < required_points:
+            raise ValueError("model serving point cap MUST cover every one-minute window bucket")
+        if not 0.1 <= self.per_request_timeout_seconds <= 30:
+            raise ValueError("model serving request timeout MUST be in [0.1, 30]")
+        if not 0.1 <= self.total_timeout_seconds <= 900:
+            raise ValueError("model serving total timeout MUST be in [0.1, 900]")
+        required_timeout = (
+            math.ceil(self.max_targets / self.max_concurrency) * self.per_request_timeout_seconds
+        )
+        if self.total_timeout_seconds < required_timeout:
+            raise ValueError("model serving total timeout MUST cover the configured fan-out")
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,11 +145,13 @@ class AzureModelServingInventoryEnricher:
             state_base_generation_checked=self._previous_state_reader is not None,
         )
         if not observation.complete:
+            evaluated_at = self._now()
             return self._source_unavailable(
                 retain_model_serving_or_reason(
                     base,
                     previous,
                     "model_serving_source_unavailable",
+                    evaluated_at=evaluated_at,
                 ),
                 reason="inventory_generation_incomplete",
                 coverage={"targets": len(targets)},
@@ -180,6 +193,7 @@ class AzureModelServingInventoryEnricher:
                 resource,
                 previous.get(resource.resource_id),
                 "model_serving_target_limit",
+                evaluated_at=completed_at,
             )
         for task in pending:
             resource = tasks[task]
@@ -188,6 +202,7 @@ class AzureModelServingInventoryEnricher:
                 resource,
                 previous.get(resource.resource_id),
                 "model_serving_source_unavailable",
+                evaluated_at=completed_at,
             )
         for resource, result in results:
             if isinstance(result, str):
@@ -196,6 +211,7 @@ class AzureModelServingInventoryEnricher:
                     resource,
                     previous.get(resource.resource_id),
                     f"model_serving_{result}",
+                    evaluated_at=completed_at,
                 )
                 continue
             prior = prior_model_serving_resource(previous.get(resource.resource_id))
@@ -205,11 +221,17 @@ class AzureModelServingInventoryEnricher:
                     resource,
                     previous.get(resource.resource_id),
                     "model_serving_response_invalid",
+                    evaluated_at=completed_at,
                 )
                 continue
             if prior is not None and result.effective_at < prior[1].effective_at:
                 coverage["out_of_order"] += 1
-                retained[resource.resource_id] = carry_prior_model_serving(resource, prior)
+                retained[resource.resource_id] = carry_model_serving_or_reason(
+                    resource,
+                    previous.get(resource.resource_id),
+                    "model_serving_response_invalid",
+                    evaluated_at=completed_at,
+                )
                 continue
             coverage["observed"] += 1
             facts[resource.resource_id] = result
@@ -230,7 +252,6 @@ class AzureModelServingInventoryEnricher:
                 "not_observed",
                 "observed",
                 "out_of_order",
-                "target_limit",
             }
         )
         if source_failures:
@@ -294,6 +315,8 @@ class AzureModelServingInventoryEnricher:
                 MetricFailureReason.RESPONSE_LIMIT,
             }:
                 return "response_invalid"
+            return "source_unavailable"
+        except Exception:  # noqa: BLE001 - optional provider details must not block inventory
             return "source_unavailable"
         if any(
             not valid_model_serving_point(

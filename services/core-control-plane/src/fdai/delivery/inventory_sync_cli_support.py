@@ -239,6 +239,11 @@ def build_azure_inventory_enrichers(
 ) -> tuple[InventoryPromotionEnricher, ...]:
     """Build the ordered Azure-owned enrichers for one full inventory refresh."""
 
+    serving_config = AzureModelServingInventoryConfig(
+        lookback_seconds=config.reconciliation_interval_seconds,
+        freshness_ceiling_seconds=config.reconciliation_interval_seconds,
+        max_points_per_target=(config.reconciliation_interval_seconds + 59) // 60 + 1,
+    )
     return (
         AzureResourceHealthInventoryEnricher(
             identity=identity,
@@ -261,12 +266,12 @@ def build_azure_inventory_enrichers(
                     },
                     endpoint=config.management_endpoint,
                     audience=config.management_audience,
-                    timeout_seconds=10.0,
+                    timeout_seconds=serving_config.per_request_timeout_seconds,
                 ),
                 identity=identity,
                 http_client=http_client,
             ),
-            config=AzureModelServingInventoryConfig(),
+            config=serving_config,
             previous_state_reader=previous_state_reader,
         ),
         AzureStaticWebAppInventoryEnricher(
