@@ -45,9 +45,8 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import cast
-from uuid import uuid4
 
 from fdai.core.executor import (
     DirectApiExecutionPort,
@@ -65,9 +64,6 @@ from fdai.core.hil_resume.approval_records import (
     approval_expired as _approval_expired,
 )
 from fdai.core.hil_resume.approval_records import (
-    on_call_detail as _on_call_detail,
-)
-from fdai.core.hil_resume.approval_records import (
     park_key as _park_key,
 )
 from fdai.core.hil_resume.audit import HilAuditMixin
@@ -76,17 +72,10 @@ from fdai.core.hil_resume.delegation import (
     DelegationRefusal,
     evaluate_hil_delegation,
 )
-from fdai.core.hil_resume.delivery import dispatch_parked_approval
 from fdai.core.hil_resume.dispatch import HilDispatchMixin
 from fdai.core.hil_resume.escalation_supervisor import (
     EscalationRung,
     HumanNonResponseSupervisor,
-)
-from fdai.core.hil_resume.integrity import (
-    action_payload_hash as _action_payload_hash,
-)
-from fdai.core.hil_resume.integrity import (
-    approval_request_fingerprint as _approval_request_fingerprint,
 )
 from fdai.core.hil_resume.integrity import is_execution_no_effect as _is_no_effect
 from fdai.core.hil_resume.integrity import is_execution_pending as _is_pending
@@ -100,6 +89,7 @@ from fdai.core.hil_resume.load_control import (
 )
 from fdai.core.hil_resume.reconciliation import produce_effect_reconciliation_request
 from fdai.core.hil_resume.report_line import ReportLineHilCoordinator
+from fdai.core.hil_resume.request import HilRequestMixin
 from fdai.core.hil_resume.results import (
     RequestApprovalResult,
     RequestOutcome,
@@ -110,9 +100,8 @@ from fdai.core.hil_resume.rule_source import resolve_parked_rule
 from fdai.core.human_reporting import (
     ApprovalContactConsentService,
     ReportLineApprovalRouter,
-    ReportLineRouteUnavailableError,
 )
-from fdai.core.oncall import OnCallResolution, OnCallResolver
+from fdai.core.oncall import OnCallResolver
 from fdai.core.ontology_platform.evidence_conflict import EvidenceConflictCurrentReader
 from fdai.core.ontology_platform.reconciliation_producer import EffectReconciliationRequestSink
 from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
@@ -133,7 +122,7 @@ _STATUS_PENDING = "pending"
 _STATUS_RESOLVED = "resolved"
 
 
-class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
+class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin, HilRequestMixin):
     """Parks HIL-routed actions and resumes them on an approval decision."""
 
     def __init__(
@@ -198,6 +187,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
             dict(action_types_by_name) if action_types_by_name is not None else {}
         )
         self._actor = actor
+        self._request_clock = lambda: datetime.now(tz=UTC)
         self._on_call_resolver = on_call_resolver
         self._on_call_rotation = on_call_rotation
         self._pending_index_writer = pending_index_writer
@@ -228,261 +218,6 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
             and contact_consent_service is not None
             and escalation_supervisor is not None
             else None
-        )
-
-    async def _resolve_on_call(self) -> OnCallResolution | None:
-        """Resolve the current on-call responder, or ``None`` when unconfigured.
-
-        Fail-safe by construction: :class:`OnCallResolver` never raises, so a
-        schedule-provider outage degrades to a role-based fallback recorded on
-        the resolution - it never blocks parking a HIL request.
-        """
-        if self._on_call_resolver is None or self._on_call_rotation is None:
-            return None
-        return await self._on_call_resolver.resolve(
-            rotation=self._on_call_rotation, at=datetime.now(tz=UTC)
-        )
-
-    # ------------------------------------------------------------------
-    # request (park + push)
-    # ------------------------------------------------------------------
-
-    async def request_approval(
-        self,
-        *,
-        action: Action,
-        rule: Rule,
-        submitter_oid: str,
-        correlation_id: str,
-        reasons: Sequence[str] = (),
-        blast_radius_summary: str = "",
-        ttl_seconds: int = 1800,
-        approval_id: str | None = None,
-        assignee_oid: str | None = None,
-        escalation_rungs: Sequence[EscalationRung] = (),
-        escalation_context: Mapping[str, object] | None = None,
-    ) -> RequestApprovalResult:
-        """Park ``action`` and push an A1 approval card.
-
-        The park is written BEFORE the push so a dispatch failure never
-        loses the pending action - it stays recoverable and fail-closed
-        (no execution until an explicit APPROVE).
-
-        ``assignee_oid`` records the operator the item was surfaced to. When
-        omitted, it defaults to the resolved on-call primary (if any). A blank
-        assignee makes the item purely role-scoped: any authorized approver
-        resolves it directly. A recorded assignee lets :meth:`resolve`
-        distinguish a direct approval from a **delegated** one for the audit.
-        """
-        if not submitter_oid.strip():
-            # The parked submitter is the no-self-approval authority. A
-            # blank submitter would make the resolve-time self-approval
-            # check unverifiable (submitter == approver could not be
-            # proven), so refuse to park at all - fail closed.
-            raise ValueError(
-                "submitter_oid MUST be non-empty - it is the no-self-approval authority"
-            )
-        if ttl_seconds <= 0:
-            raise ValueError("ttl_seconds MUST be > 0")
-        if approval_id is not None and not approval_id.strip():
-            raise ValueError("approval_id MUST be non-empty when supplied")
-        aid = approval_id or uuid4().hex
-        if len(aid) > 200:
-            raise ValueError("approval_id exceeds cap (200)")
-        normalized_submitter = submitter_oid.strip()
-        parked_at = datetime.now(tz=UTC)
-        action_payload = action.model_dump(mode="json")
-        action_hash = _action_payload_hash(action_payload)
-        try:
-            route_plan, contact_consent = (
-                await self._report_line_hil.prepare_request(
-                    action=action,
-                    submitter_oid=normalized_submitter,
-                    at=parked_at,
-                )
-                if self._report_line_hil is not None
-                else (None, None)
-            )
-        except ReportLineRouteUnavailableError:
-            await self._audit(
-                action_kind="hil.report_line.route_unavailable",
-                idempotency_key=f"{action.idempotency_key}:report_line_route_unavailable",
-                approval_id=aid,
-                correlation_id=correlation_id,
-                detail={"action_type": action.action_type},
-            )
-            return RequestApprovalResult(
-                outcome=RequestOutcome.REPORT_LINE_ROUTE_UNAVAILABLE,
-                approval_id=aid,
-            )
-        if route_plan is not None and assignee_oid is not None:
-            raise ValueError("explicit assignee cannot override a report-line route")
-        on_call = None if route_plan is not None else await self._resolve_on_call()
-        resolved_assignee = (
-            route_plan.rungs[0].subject_ref
-            if route_plan is not None
-            else (assignee_oid or "").strip()
-            or (on_call.primary_oid if on_call is not None else None)
-        )
-        resolved_escalation_rungs = (
-            route_plan.rungs
-            if route_plan is not None
-            else tuple(escalation_rungs) or self._default_escalation_rungs
-        )
-        request_fingerprint = _approval_request_fingerprint(
-            action=action,
-            rule=rule,
-            submitter_oid=normalized_submitter,
-            correlation_id=correlation_id,
-            reasons=reasons,
-            blast_radius_summary=blast_radius_summary,
-            ttl_seconds=ttl_seconds,
-            assignee_oid=resolved_assignee,
-            route_digest=route_plan.digest if route_plan is not None else None,
-        )
-        parked = {
-            "status": ("awaiting_contact_consent" if route_plan is not None else _STATUS_PENDING),
-            "revision": 0,
-            "approval_id": aid,
-            "action": action_payload,
-            "action_hash": action_hash,
-            "rule_id": rule.id,
-            "rule": rule.model_dump(mode="json"),
-            "action_type": action.action_type,
-            "severity": rule.severity.value,
-            "category": rule.category.value,
-            "submitter_oid": normalized_submitter,
-            "assignee_oid": resolved_assignee,
-            "correlation_id": correlation_id,
-            "idempotency_key": action.idempotency_key,
-            "request_fingerprint": request_fingerprint,
-            "parked_at": parked_at.isoformat(),
-            "approval_context": {
-                "reasons": list(reasons),
-                "blast_radius_summary": blast_radius_summary,
-                "ttl_seconds": ttl_seconds,
-                "expires_at": (parked_at + timedelta(seconds=ttl_seconds)).isoformat(),
-            },
-            "on_call": _on_call_detail(on_call),
-            "report_line_route": route_plan.to_dict() if route_plan is not None else None,
-            "contact_consent_id": (
-                contact_consent.consent_id if contact_consent is not None else None
-            ),
-            "contact_consent_expires_at": (
-                contact_consent.expires_at.isoformat() if contact_consent is not None else None
-            ),
-        }
-        if resolved_escalation_rungs and route_plan is None:
-            if self.escalation_supervisor is None:
-                raise ValueError("escalation_rungs require an escalation supervisor")
-            parked = await self.escalation_supervisor.attach_with_source(
-                parked,
-                rungs=resolved_escalation_rungs,
-                now=parked_at,
-                context=escalation_context,
-            )
-        effective_assignee = str(parked.get("assignee_oid") or "").strip() or None
-        requested_audit = self._audit_entry(
-            action_kind="hil.requested",
-            idempotency_key=f"{action.idempotency_key}:hil_request",
-            approval_id=aid,
-            correlation_id=correlation_id,
-            detail={
-                "event_id": str(action.event_id),
-                "action_id": str(action.action_id),
-                "action_type": action.action_type,
-                "workflow_action": (
-                    action.workflow_action.model_dump(mode="json")
-                    if action.workflow_action is not None
-                    else None
-                ),
-                "rule_id": rule.id,
-                "severity": rule.severity.value,
-                "category": rule.category.value,
-                "submitter_oid": normalized_submitter,
-                "assignee_oid": effective_assignee,
-                "on_call": _on_call_detail(on_call),
-                "report_line_route_digest": (route_plan.digest if route_plan is not None else None),
-                "contact_consent_id": (
-                    contact_consent.consent_id if contact_consent is not None else None
-                ),
-            },
-        )
-        created = await self._state_store.write_state_with_audit_if_absent(
-            _park_key(aid),
-            parked,
-            requested_audit,
-        )
-        if not created:
-            existing = await self._state_store.read_state(_park_key(aid))
-            if existing is not None and existing.get("request_fingerprint") == request_fingerprint:
-                await self._audit(
-                    action_kind="hil.request.duplicate",
-                    idempotency_key=f"{action.idempotency_key}:hil_request_duplicate",
-                    approval_id=aid,
-                    correlation_id=correlation_id,
-                    detail={},
-                )
-                return RequestApprovalResult(
-                    outcome=(
-                        RequestOutcome.CONTACT_CONSENT_REQUIRED
-                        if existing.get("status") == "awaiting_contact_consent"
-                        else RequestOutcome.ALREADY_PARKED
-                    ),
-                    approval_id=aid,
-                )
-            await self._audit(
-                action_kind="hil.request.approval_id_conflict",
-                idempotency_key=f"{aid}:hil_request_conflict",
-                approval_id=aid,
-                correlation_id=correlation_id,
-                detail={"attempted_action_id": str(action.action_id)},
-            )
-            return RequestApprovalResult(
-                outcome=RequestOutcome.APPROVAL_ID_CONFLICT,
-                approval_id=aid,
-            )
-        if self._pending_index_writer is not None:
-            await self._pending_index_writer(self._state_store, aid)
-        if route_plan is not None:
-            return RequestApprovalResult(
-                outcome=RequestOutcome.CONTACT_CONSENT_REQUIRED,
-                approval_id=aid,
-            )
-
-        return await dispatch_parked_approval(
-            parked=parked,
-            action=action,
-            rule=rule,
-            approval_id=aid,
-            correlation_id=correlation_id,
-            channel=self._hil_channel,
-            load_controller=self._approval_load_controller,
-            escalation_supervisor=self.escalation_supervisor,
-            escalation_rungs=resolved_escalation_rungs,
-            audit=self._audit,
-            logger=_LOGGER,
-        )
-
-    async def decide_report_line_contact(
-        self,
-        *,
-        approval_id: str,
-        requester_oid: str,
-        consent: bool,
-        expected_consent_revision: int,
-        at: datetime | None = None,
-    ) -> RequestApprovalResult:
-        """Record requester contact consent and send only an unchanged eligible route."""
-
-        if self._report_line_hil is None:
-            raise RuntimeError("report-line approval routing is not configured")
-        return await self._report_line_hil.decide_contact(
-            approval_id=approval_id,
-            requester_oid=requester_oid,
-            consent=consent,
-            expected_consent_revision=expected_consent_revision,
-            at=at,
         )
 
     # ------------------------------------------------------------------

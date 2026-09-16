@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 33e496f33b5aac45c7d63ead9470623a5bec0b83
+translation_source_sha: f779fccbc760ee395237ff590829889fb9248495
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -262,6 +262,10 @@ Report-line 정책과 런타임은 quorum `1`만 허용합니다. 더 높은 quo
 | 현재 그래프 변환 결과 | Muninn |
 | 운영 작업 실행 | Thor |
 | 결과 검증과 복구 | 기존 경계를 통한 Heimdall 및 Vidar |
+
+HIL coordinator는 변경할 수 없는 요청 parking과 초기 전달을 전용 `hil_resume/request.py`
+mixin에 위임합니다. Report-line 라우팅, 에스컬레이션 및 load control의 runtime composition은
+`runtime/hil_escalation.py`에 있으며 두 책임 분리 모두 권한 경계를 바꾸지 않습니다.
 
 Operator Service는 사람을 인증하고 변환 결과를 렌더링하며 타입이 지정된 명령을 게시합니다.
 그래프 edge를 활성화하거나 승인 자격을 결정하거나 작업을 실행하지 않습니다. 문서 워커는

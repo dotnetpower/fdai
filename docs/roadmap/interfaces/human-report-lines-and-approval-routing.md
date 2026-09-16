@@ -272,6 +272,10 @@ No new agent is introduced:
 | Operational action execution | Thor |
 | Effect verification and recovery | Heimdall and Vidar through their existing boundaries |
 
+The HIL coordinator delegates immutable request parking and initial delivery to the dedicated
+`hil_resume/request.py` mixin. Runtime composition of report-line routing, escalation, and load
+control lives in `runtime/hil_escalation.py`; neither separation changes the authority boundaries.
+
 The Operator Service authenticates people, renders projections, and publishes typed commands. It
 does not activate graph edges, decide approval eligibility, or execute an action. The document
 worker extracts candidates but cannot approve them.

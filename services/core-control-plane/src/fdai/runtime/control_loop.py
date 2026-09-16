@@ -6,7 +6,7 @@ import logging
 import os
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import replace
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -31,11 +31,7 @@ from fdai.core.executor.action_builder import ActionBuilder
 from fdai.core.executor.renderer import TemplateRenderer
 from fdai.core.executor.tool_call import ToolReceiptObserver
 from fdai.core.hil_resume import (
-    ApprovalLoadController,
-    ApprovalReminderDispatcher,
-    EscalationPolicy,
     HilResumeCoordinator,
-    HumanNonResponseSupervisor,
 )
 from fdai.core.licensing import LicenseEntitlementAuthority
 from fdai.core.ontology_platform import EffectReconciliationRequestSink, compile_interfaces
@@ -143,7 +139,7 @@ from fdai.runtime.providers import (
     _build_safeguard_lifecycle_coordinator,
 )
 from fdai.runtime.rule_profile import bind_rule_profile
-from fdai.shared.contracts.models import Mode, ResponseOutcome, Rule
+from fdai.shared.contracts.models import ResponseOutcome, Rule
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.stage_publisher import StagePublisher
@@ -545,72 +541,22 @@ def _build_control_loop(
     hil_channel = _build_hil_channel(http_client, hil_identity)
     approval_load_policy = _load_approval_load_policy(catalog_root)
     escalation_rungs = _load_hil_escalation_rungs(catalog_root) if hil_channel else ()
-    from fdai.runtime.hil_escalation import (
-        build_escalation_timing,
-        build_forecast_urgency_reader,
-        build_rung_eligibility,
-    )
-    from fdai.runtime.report_lines import build_report_line_runtime
+    from fdai.runtime.hil_escalation import build_hil_runtime_support
 
-    rung_eligibility = build_rung_eligibility(
-        catalog_root,
+    hil_support = build_hil_runtime_support(
+        catalog_root=catalog_root,
+        environment=os.environ,
         http_client=http_client,
         identity=identity,
-        environment=os.environ,
-    )
-    report_line_runtime = build_report_line_runtime(
         store=audit_store,
-        environment=os.environ,
-        role_eligibility=rung_eligibility,
+        channel=hil_channel,
+        load_policy=approval_load_policy,
+        escalation_rungs=escalation_rungs,
     )
-    if report_line_runtime is not None and hil_channel is None:
-        raise ValueError("report-line approval routing requires a configured HIL channel")
-
-    escalation_supervisor = (
-        HumanNonResponseSupervisor(
-            state_store=audit_store,
-            channel=hil_channel,
-            catalog_timing=build_escalation_timing(catalog_root, os.environ),
-            forecast_urgency_reader=build_forecast_urgency_reader(os.environ),
-            eligibility=(
-                report_line_runtime.escalation_eligibility
-                if report_line_runtime is not None
-                else rung_eligibility
-            ),
-            policy=EscalationPolicy(
-                decision_timeout_seconds=300,
-                overall_timeout_seconds=1800,
-                mode=Mode.SHADOW,
-            ),
-        )
-        if hil_channel is not None and (escalation_rungs or report_line_runtime is not None)
-        else None
-    )
-
-    async def _observe_escalation_delivery(
-        approval_id: str,
-        delivered_at: datetime,
-    ) -> None:
-        if escalation_supervisor is not None:
-            await escalation_supervisor.mark_delivered(approval_id, at=delivered_at)
-
-    approval_load_controller = (
-        ApprovalLoadController(state_store=audit_store, policy=approval_load_policy)
-        if hil_channel is not None and approval_load_policy is not None
-        else None
-    )
-    approval_reminder_dispatcher = (
-        ApprovalReminderDispatcher(
-            state_store=audit_store,
-            channel=hil_channel,
-            policy=approval_load_policy,
-            delivery_observer=(
-                _observe_escalation_delivery if escalation_supervisor is not None else None
-            ),
-        )
-        if hil_channel is not None and approval_load_policy is not None
-        else None
-    )
+    report_line_runtime = hil_support.report_lines
+    escalation_supervisor = hil_support.escalation
+    approval_load_controller = hil_support.load_controller
+    approval_reminder_dispatcher = hil_support.reminder_dispatcher
     pre_dispatch_kinetic_safety_writer = ExistingProposalKineticSafetyWriter(
         proposal_store=StateStoreKineticActionProposalStore(store=audit_store),
         artifact_store=StateStoreExecutedActionArtifactStore(store=audit_store),

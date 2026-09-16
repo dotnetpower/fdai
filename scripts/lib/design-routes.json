@@ -1760,6 +1760,7 @@
         "services/core-control-plane/src/fdai/runtime/assignment_transport.py",
         "services/core-control-plane/src/fdai/runtime/consumers.py",
         "services/core-control-plane/src/fdai/runtime/control_loop.py",
+        "services/core-control-plane/src/fdai/runtime/hil_escalation.py",
         "services/core-control-plane/src/fdai/runtime/report_lines.py",
         "services/core-control-plane/src/fdai/agents/_framework/assignment_workflow.py",
         "services/core-control-plane/src/fdai/agents/_framework/forseti_judgment.py",
