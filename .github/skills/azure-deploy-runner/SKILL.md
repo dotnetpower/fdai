@@ -6,7 +6,7 @@ description: |
   internal host only for operations that require it, never GitHub Actions. Load before planning or running `fdaictl provision
   azure`, `fdai-up.sh`, Terraform apply, deployment appliance work, private endpoint recovery, or
   onboarding a new Azure target.
-version: 2.0.0
+version: 2.1.0
 scope: repository
 ---
 
@@ -102,13 +102,16 @@ needed only for a separately selected remote host. This does not permit fallback
 
 ```bash
 az login
-scripts/deployment/azure/fdai-up.sh --region <azure-region>
+scripts/deployment/azure/fdai-up.sh \
+  --offline-kit /private/fdai-deployment-kit.tar.gz \
+  --region <azure-region>
 ```
 
 The command:
 
 1. Reads the active Azure tenant and subscription from the signed-in human.
-2. Downloads and verifies one versioned complete deployment kit.
+2. Verifies one complete signed kit supplied locally. `--online` remains an optional distribution
+   path, not an operational-validation prerequisite.
 3. Runs bounded read-only target, policy, provider, quota, and region checks.
 4. Shows each exact Terraform plan and waits for explicit terminal approval.
 5. Reuses an eligible existing host and verified Foundation resources, or plans only the missing
@@ -181,8 +184,9 @@ rollback, or effect verification.
 Release construction is a separate upstream supply-chain responsibility. Tenant provisioning only
 accepts a complete prebuilt, signed and digest-pinned artifact set with manifests, SBOMs,
 provenance and signatures. It never invokes Docker, Buildx, ACR Tasks, a remote builder or a VM
-image capture operation. Connected mode downloads the verified set; artifact-offline mode reads the
-same set from the approved kit. Neither mode changes artifact bytes.
+image capture operation. The local coordinator reads an approved local kit for operational
+validation; explicitly selected online mode downloads the same verified set. The appliance reads
+the embedded local kit. None of these paths changes artifact bytes.
 
 Never place signing keys, tenant identifiers, credentials, endpoints or customer values in an
 image, repository, documentation or logs.
@@ -192,8 +196,11 @@ image, repository, documentation or logs.
 Before reporting implementation completion, run the focused package, integration, shell, roadmap,
 and translation checks. Before reporting operational validation, retain both of these receipts:
 
-1. A connected active-login deployment from the exact signed release.
-2. An appliance-entry-point deployment with no public artifact access.
+1. A local-coordinator active-login deployment from an exact locally supplied signed kit.
+2. An appliance-entry-point deployment from the same exact kit with no public artifact access.
+
+Public release publication and an Azure deployment through `--online` are optional distribution
+evidence. They are not prerequisites for operational validation or issue closure.
 
 Each receipt must prove target binding, exact plans and approvals, Foundation handoff, managed-host
 identity, prebuilt image verification and deployed-digest readback, migrations, service health,

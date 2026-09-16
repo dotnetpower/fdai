@@ -24,12 +24,13 @@ that applies before Terraform changes infrastructure or role assignments.
 | Stable Network API Foundation discovery | validated | PR #926; `deployment-v0.1.0-r4`; [issue #803 evidence](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906) | The published signed bundle passed all Foundation input reads in West US 2; no plan, apply, recovery, or deployment-readiness claim was produced. |
 | Temporary public-access cleanup | not-started | The access preference contract in this document | No composed command proves bounded creation, automatic cleanup, incomplete-on-cleanup-failure behavior, and audit closure. |
 | Pinned TUF root and rotation | not-started | `docs/runbooks/offline-trust-ceremony.md` | The first root ceremony, package resource, client bootstrap, and rotation evidence remain open. |
-| Post-provision verification | in-progress | Managed-host exact-plan apply receipts, ACR digest readback, migrations, health readback, and second zero-change plan; routed lifecycle tests | The implementation exists, but the complete CLI-driven Azure lifecycle and artifact-offline operational receipt remain open. |
+| Post-provision verification | in-progress | Managed-host exact-plan apply receipts, ACR digest readback, migrations, health readback, and second zero-change plan; routed lifecycle tests | The implementation exists, but local-coordinator and appliance-entry-point receipts from one exact local signed kit remain open. Public release publication is not required. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-17 | in-progress | Removed public release publication and online Azure convergence as operational-validation prerequisites. One exact locally built signed kit now supplies both the local coordinator and appliance entry points; online acquisition remains a supported optional distribution path. | `current change`; owner documents and Azure deployment skill; no runtime, signature, approval, or Azure behavior changed. | Build and independently verify one local complete kit, then retain separately approved local-coordinator and appliance-entry-point convergence receipts from those same bytes. |
 | 2026-09-13 | validated | Published `deployment-v0.1.0-r4` with the stable Network API correction, verified actual draft/public downloads and installed bytes, and passed signed-bundle Foundation discovery in West US 2 without Azure mutation. | PR #926; source `c137aa104682a59b979f5f3554a06bf87c555b8e`, tree-identical protected merge `d312225c795ce9bb90022f37ebb7fd6f83a4d343`; successful CI `34755232779` and `34755464071`; archive SHA-256 `c7e8b3e99fd77534ad7e2b2321d2e677fb3fe316a946e4c58ef797d5682bbab5`; 11 isolated artifact checks, 304 signed files, 59 matching installed files, and 12 read-only calls yielding seven layout prefixes; [issue #803 evidence](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906). | Existing r1/r3 state and claims remain unchanged. Explicit r4 source selection and a distinct prepared context are required; exact-plan approval, partial-image recovery, and online/offline deployment convergence remain open. |
 | 2026-09-13 | implemented | Corrected Foundation discovery after Azure CLI selected a Network API unavailable in an existing resource's region. Route-table and local-gateway detail reads now pin `2024-05-01` without changing inventory scope, failure handling, or approval. | `current change`; `test_genesis_network_api.py`, `test_genesis_network_layout.py`, and `test_genesis_prepare.py`: 32 passed; Ruff, format, strict typing, and a bounded read-only provider check passed. | Publish and verify a replacement signed kit; r3 retains its original bytes. No apply or recovery was performed, and deployment convergence remains open. |
 | 2026-09-13 | validated | Published and installed `deployment-v0.1.0-r3`, including all 14 additional rounds (nine production corrections and five rejected hypotheses with regressions). Both protected PRs merged and exact-source main CI completed successfully. | PR #918 and #920; source `3b4c088ea20d1d77770912394141847bf9940886`; CI `34746227767`; archive SHA-256 `7b454ff37833d7f5c665fddb1f7954c99f8ebeda363c3a3d807f9707e4c6f82b`; 11 no-network acceptance checks for 304 files, 59 installed payload files, six images, seven support packages, and 11 Terraform roots; actual public download and network-denied online/offline retry checks. | The bounded reviewed slice has no confirmed Medium-or-higher defect; retained-copy accumulation is Low. Azure SKU eligibility and separately approved partial-image recovery/convergence remain blocked. The prerelease requires explicit artifact selection. |
@@ -71,7 +72,9 @@ that applies before Terraform changes infrastructure or role assignments.
 - [x] Build and reverify one complete signed kit from a clean snapshot, then cold-install its CLI and acquire the same kit through both online and local artifact paths. Evidence: `deployment-v0.1.0-r2` and the 2026-09-13 artifact checkpoint above.
 - [x] Publish a replacement complete kit containing the subsequent CLI hardening and repeat exact installed-artifact acceptance. Evidence: `deployment-v0.1.0-r3` includes H01-H14, all 59 default-installed payload files match its signed wheel, and the prior installation was backed up.
 - [x] Publish and verify a replacement signed kit containing the stable Network API correction, then confirm Foundation discovery from that exact artifact without treating discovery as deployment readiness. Evidence: `deployment-v0.1.0-r4` and the linked issue #803 read-only checkpoint; the existing installed CLI already matches all 59 signed wheel files and was not replaced.
-- [ ] Retain target-bound Foundation and application convergence receipts from both active-login modes without claiming whole-subscription readiness.
+- [ ] Retain target-bound Foundation and application convergence receipts from the local coordinator
+	and appliance entry point using the same exact locally supplied signed kit, without requiring
+	public release publication or claiming whole-subscription readiness.
 - [ ] Build one deployment appliance from an approved digest-pinned base, verify its SBOM and provenance, and retain an artifact-offline Azure deployment receipt from the image entry point.
 
 ## Design at a glance
@@ -92,17 +95,19 @@ operator installed the wheel.
 The installed package supports one default subscription deployment boundary after `az login`:
 
 ```bash
-fdaictl provision azure --online
 fdaictl provision azure --offline-kit /media/fdai/fdai-kit.tar
-# Source-checkout convenience wrapper; online is the default.
-scripts/deployment/azure/fdai-up.sh
+# Source-checkout convenience wrapper using the same local kit.
+scripts/deployment/azure/fdai-up.sh --offline-kit /media/fdai/fdai-kit.tar
+# Optional bounded HTTPS distribution path.
+fdaictl provision azure --online
 ```
 
 Both commands derive the tenant and subscription only from the active Azure CLI user context. They
 do not require a source checkout, Git remote, GitHub account, GitHub repository, required CI check,
-repository variable, repository secret, workflow dispatch, or GitHub runner registration. Online
-mode downloads one versioned complete kit over bounded HTTPS, validating each redirect before contact. Offline mode reads that same kit
-format from a local path and blocks every public artifact fallback. Offline means artifact-offline,
+repository variable, repository secret, workflow dispatch, or GitHub runner registration. Offline
+mode reads the complete kit from a local path and blocks every public artifact fallback. Online
+mode remains optional and downloads the same format over bounded HTTPS, validating each redirect
+before contact. Offline means artifact-offline,
 not disconnected from the selected Azure control plane or Bastion endpoint.
 Offline retries reread the supplied source, reverify the retained snapshot, and use a fresh
 execution copy without replacing earlier state. Changed or incomplete bytes stop the retry.
@@ -252,9 +257,12 @@ operation incomplete and writes an audit record.
 
 ## Online and offline delivery
 
-Online delivery uses the public `fdai-deployment-cli` package and a version-matched complete signed
+Online delivery is an optional distribution path. It uses the public `fdai-deployment-cli` package and a version-matched complete signed
 deployment kit. The managed host consumes only the kit's authenticated binaries, providers,
 runtime images, and migration wheels.
+
+Operational validation does not require this publication path. A locally built, independently
+verified complete signed kit can supply both the local coordinator and the deployment appliance.
 
 The target release workflow builds the wheel and source distribution once in a read-only job, checks that
 the Python and bundle versions match, and publishes that exact artifact through PyPI Trusted
