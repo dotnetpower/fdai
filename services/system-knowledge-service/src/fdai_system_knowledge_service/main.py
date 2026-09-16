@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from fdai_service_contracts import ServiceDescriptor, ServiceKind
+from fdai_service_contracts import ServiceDescriptor, ServiceKind, record_runtime_scope_receipt
 
 from fdai_system_knowledge_service.application import create_app, create_runtime
 from fdai_system_knowledge_service.config import SystemKnowledgeSettings
@@ -22,6 +22,7 @@ SERVICE = ServiceDescriptor(
 def main() -> int:
     """Serve the configured System Knowledge Service."""
 
+    record_runtime_scope_receipt(SERVICE, os.environ)
     settings = SystemKnowledgeSettings.parse(os.environ)
     return serve(create_app(runtime=create_runtime(settings)), settings)
 
