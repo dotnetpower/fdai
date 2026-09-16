@@ -2,6 +2,7 @@
 
 from fdai.core.human_reporting.consent import (
     ApprovalContactConsent,
+    ApprovalContactConsentExpiredError,
     ApprovalContactConsentService,
     ApprovalContactConsentState,
 )
@@ -46,6 +47,7 @@ from fdai.core.human_reporting.source import (
 
 __all__ = [
     "ApprovalContactConsent",
+    "ApprovalContactConsentExpiredError",
     "ApprovalContactConsentService",
     "ApprovalContactConsentState",
     "EndpointConfirmation",

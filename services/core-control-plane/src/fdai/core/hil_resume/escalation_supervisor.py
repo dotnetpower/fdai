@@ -250,6 +250,10 @@ class HumanNonResponseSupervisor:
         parks = await self._next_scan_page()
         delivered = advanced = exhausted = delivery_failed = observed = 0
         for parked in parks:
+            if parked.get("status") == "awaiting_contact_consent":
+                if _contact_consent_due(parked, now=now):
+                    exhausted += int(await self._expire_contact_consent(parked, now=now))
+                continue
             if parked.get("status") != "pending" or not isinstance(
                 parked.get("escalation"), Mapping
             ):
@@ -502,6 +506,45 @@ class HumanNonResponseSupervisor:
             now=now,
         )
 
+    async def _expire_contact_consent(
+        self,
+        parked: Mapping[str, Any],
+        *,
+        now: datetime,
+    ) -> bool:
+        revision = _revision(parked)
+        updated = dict(parked)
+        updated.update(
+            {
+                "status": "resolved",
+                "decision": "timeout",
+                "approver_oid": "system:contact-consent-expiry",
+                "resolved_at": now.isoformat(),
+                "revision": revision + 1,
+            }
+        )
+        approval_id = str(parked["approval_id"])
+        return await self._state_store.compare_and_set_state_with_audit(
+            f"{_PARK_PREFIX}{approval_id}",
+            updated,
+            expected_revision=revision,
+            audit_entry={
+                "actor": self._actor,
+                "action_kind": "hil.report_line.contact_consent_expired",
+                "mode": self.policy.mode.value,
+                "idempotency_key": (
+                    f"{parked.get('idempotency_key')}:"
+                    f"hil.report_line.contact_consent_expired:{revision}"
+                ),
+                "approval_id": approval_id,
+                "correlation_id": str(parked.get("correlation_id") or approval_id),
+                "action_hash": parked.get("action_hash"),
+                "reason": "contact_consent_expired",
+                "terminal_noop": True,
+                "recorded_at": now.isoformat(),
+            },
+        )
+
     async def _cas(
         self,
         parked: Mapping[str, Any],
@@ -542,6 +585,16 @@ def _revision(parked: Mapping[str, Any]) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ValueError("parked approval revision MUST be a non-negative integer")
     return int(value)
+
+
+def _contact_consent_due(parked: Mapping[str, Any], *, now: datetime) -> bool:
+    value = parked.get("contact_consent_expires_at")
+    if not isinstance(value, str) or not value:
+        return True
+    try:
+        return _timestamp(value, "contact_consent_expires_at") <= now
+    except ValueError:
+        return True
 
 
 def _escalation(parked: Mapping[str, Any]) -> Mapping[str, Any]:

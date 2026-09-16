@@ -19,6 +19,10 @@ from fdai.shared.providers.state_store import StateStore
 _PREFIX = "human_reporting:approval-consent:"
 
 
+class ApprovalContactConsentExpiredError(ReportingLineModelError):
+    """Raised when a requester answers after the contact-consent deadline."""
+
+
 class ApprovalContactConsentState(StrEnum):
     """Lifecycle state for permission to contact one exact approval route."""
 
@@ -222,7 +226,7 @@ class ApprovalContactConsentService:
         if current.revision != expected_revision:
             raise ReportingLineModelError("approval contact consent revision is stale")
         if decided_at >= current.expires_at:
-            raise ReportingLineModelError("approval contact consent has expired")
+            raise ApprovalContactConsentExpiredError("approval contact consent has expired")
         candidate = replace(
             current,
             state=(
@@ -262,6 +266,7 @@ class ApprovalContactConsentService:
 
 __all__ = [
     "ApprovalContactConsent",
+    "ApprovalContactConsentExpiredError",
     "ApprovalContactConsentService",
     "ApprovalContactConsentState",
 ]

@@ -431,6 +431,67 @@ async def test_report_line_contact_decline_is_terminal_noop() -> None:
     assert parked["decision"] == "timeout"
 
 
+async def test_report_line_contact_expiry_is_terminal_noop() -> None:
+    coordinator, publisher, store, channel = _coordinator(
+        with_escalation=True,
+        report_line_router=_report_line_router(),
+    )
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-expired",
+        approval_id="report-line-expired",
+    )
+    parked = await store.read_state("hil_park:report-line-expired")
+    assert parked is not None
+    expires_at = datetime.fromisoformat(str(parked["contact_consent_expires_at"]))
+
+    expired = await coordinator.decide_report_line_contact(
+        approval_id="report-line-expired",
+        requester_oid=_SUBMITTER,
+        consent=True,
+        expected_consent_revision=0,
+        at=expires_at,
+    )
+
+    assert expired.outcome is RequestOutcome.CONTACT_CONSENT_EXPIRED
+    assert channel.sent == []
+    assert publisher.records == ()
+    parked = await store.read_state("hil_park:report-line-expired")
+    assert parked is not None
+    assert parked["status"] == "resolved"
+    assert parked["decision"] == "timeout"
+
+
+async def test_unanswered_report_line_contact_is_reaped_at_consent_deadline() -> None:
+    coordinator, publisher, store, channel = _coordinator(
+        with_escalation=True,
+        report_line_router=_report_line_router(),
+    )
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-unanswered",
+        approval_id="report-line-unanswered",
+    )
+    parked = await store.read_state("hil_park:report-line-unanswered")
+    assert parked is not None
+    expires_at = datetime.fromisoformat(str(parked["contact_consent_expires_at"]))
+    assert coordinator.escalation_supervisor is not None
+
+    tick = await coordinator.escalation_supervisor.tick(at=expires_at)
+
+    assert tick.exhausted == 1
+    assert channel.sent == []
+    assert publisher.records == ()
+    parked = await store.read_state("hil_park:report-line-unanswered")
+    assert parked is not None
+    assert parked["status"] == "resolved"
+    assert parked["decision"] == "timeout"
+
+
 async def test_report_line_graph_change_blocks_a_late_approval() -> None:
     graphs = _ReportLineGraphs()
     coordinator, publisher, _, _ = _coordinator(

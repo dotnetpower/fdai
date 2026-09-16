@@ -25,6 +25,7 @@ from fdai.core.hil_resume.results import (
 from fdai.core.hil_resume.rule_source import resolve_parked_rule
 from fdai.core.human_reporting.consent import (
     ApprovalContactConsent,
+    ApprovalContactConsentExpiredError,
     ApprovalContactConsentService,
     ApprovalContactConsentState,
 )
@@ -139,7 +140,7 @@ class ReportLineHilCoordinator:
         action: Action,
         submitter_oid: str,
         at: datetime,
-    ) -> tuple[ReportLineRoutePlan | None, str | None]:
+    ) -> tuple[ReportLineRoutePlan | None, ApprovalContactConsent | None]:
         """Plan a selected route and create its exact contact-consent record."""
 
         route = await self.plan(action=action, submitter_oid=submitter_oid, at=at)
@@ -152,7 +153,26 @@ class ReportLineHilCoordinator:
             graph_revision=route.graph_revision,
             now=at,
         )
-        return route, consent.consent_id
+        return route, consent
+
+    @staticmethod
+    def contact_consent_expired(
+        parked: Mapping[str, Any],
+        *,
+        at: datetime,
+    ) -> bool:
+        """Fail closed when a parked contact deadline is absent, malformed, or due."""
+
+        raw = parked.get("contact_consent_expires_at")
+        if not isinstance(raw, str) or not raw:
+            return True
+        try:
+            expires_at = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            return True
+        if expires_at.tzinfo is None or expires_at.utcoffset() is None:
+            return True
+        return at.astimezone(UTC) >= expires_at.astimezone(UTC)
 
     async def guard_approval(
         self,
@@ -199,6 +219,7 @@ class ReportLineHilCoordinator:
         requester_oid: str,
         consent: bool,
         expected_consent_revision: int,
+        at: datetime | None = None,
     ) -> RequestApprovalResult:
         """Record contact consent and send only a still-current eligible route."""
 
@@ -222,14 +243,33 @@ class ReportLineHilCoordinator:
         route_value = parked.get("report_line_route")
         if not isinstance(consent_id, str) or not isinstance(route_value, Mapping):
             raise ValueError("report-line approval park is missing consent or route evidence")
-        decision = await self.consent.decide(
-            consent_id=consent_id,
-            requester_ref=requester_oid,
-            consent=consent,
-            expected_revision=expected_consent_revision,
-        )
         correlation_id = str(parked.get("correlation_id") or approval_id)
         idempotency_key = str(parked.get("idempotency_key") or approval_id)
+        decided_at = at or datetime.now(tz=UTC)
+        try:
+            decision = await self.consent.decide(
+                consent_id=consent_id,
+                requester_ref=requester_oid,
+                consent=consent,
+                expected_revision=expected_consent_revision,
+                now=decided_at,
+            )
+        except ApprovalContactConsentExpiredError:
+            claimed = await self.mark_resolved(
+                parked,
+                decision=HilDecision.TIMEOUT,
+                approver_oid=requester_oid,
+                action_kind="hil.report_line.contact_consent_expired",
+                detail={"contact_consent_id": consent_id},
+            )
+            return RequestApprovalResult(
+                outcome=(
+                    RequestOutcome.CONTACT_CONSENT_EXPIRED
+                    if claimed
+                    else RequestOutcome.ALREADY_PARKED
+                ),
+                approval_id=approval_id,
+            )
         if decision.state is ApprovalContactConsentState.DECLINED:
             claimed = await self.mark_resolved(
                 parked,
@@ -255,7 +295,7 @@ class ReportLineHilCoordinator:
             route = await self.plan(
                 action=action,
                 submitter_oid=str(parked.get("submitter_oid") or ""),
-                at=datetime.now(tz=UTC),
+                at=decided_at,
             )
         except ReportLineRouteUnavailableError:
             route = None
@@ -276,7 +316,7 @@ class ReportLineHilCoordinator:
         updated = await self.escalation.attach_with_source(
             parked,
             rungs=route.rungs,
-            now=datetime.now(tz=UTC),
+            now=decided_at,
             context=None,
         )
         revision = _revision(parked)
@@ -295,7 +335,7 @@ class ReportLineHilCoordinator:
                 "idempotency_key": f"{idempotency_key}:report_line_contact_consented",
                 "route_digest": route.digest,
                 "graph_revision": route.graph_revision,
-                "recorded_at": datetime.now(tz=UTC).isoformat(),
+                "recorded_at": decided_at.isoformat(),
                 "mode": "shadow",
                 "approval_authority": False,
                 "execution_authority": False,

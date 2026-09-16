@@ -294,7 +294,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         action_payload = action.model_dump(mode="json")
         action_hash = _action_payload_hash(action_payload)
         try:
-            route_plan, consent_id = (
+            route_plan, contact_consent = (
                 await self._report_line_hil.prepare_request(
                     action=action,
                     submitter_oid=normalized_submitter,
@@ -365,7 +365,12 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
             },
             "on_call": _on_call_detail(on_call),
             "report_line_route": route_plan.to_dict() if route_plan is not None else None,
-            "contact_consent_id": consent_id,
+            "contact_consent_id": (
+                contact_consent.consent_id if contact_consent is not None else None
+            ),
+            "contact_consent_expires_at": (
+                contact_consent.expires_at.isoformat() if contact_consent is not None else None
+            ),
         }
         if resolved_escalation_rungs and route_plan is None:
             if self.escalation_supervisor is None:
@@ -398,7 +403,9 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
                 "assignee_oid": effective_assignee,
                 "on_call": _on_call_detail(on_call),
                 "report_line_route_digest": (route_plan.digest if route_plan is not None else None),
-                "contact_consent_id": consent_id,
+                "contact_consent_id": (
+                    contact_consent.consent_id if contact_consent is not None else None
+                ),
             },
         )
         created = await self._state_store.write_state_with_audit_if_absent(
@@ -464,6 +471,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         requester_oid: str,
         consent: bool,
         expected_consent_revision: int,
+        at: datetime | None = None,
     ) -> RequestApprovalResult:
         """Record requester contact consent and send only an unchanged eligible route."""
 
@@ -474,6 +482,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
             requester_oid=requester_oid,
             consent=consent,
             expected_consent_revision=expected_consent_revision,
+            at=at,
         )
 
     # ------------------------------------------------------------------
@@ -519,6 +528,25 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         assignee_oid = str(parked.get("assignee_oid") or "").strip() or None
 
         if parked.get("status") == "awaiting_contact_consent":
+            if self._report_line_hil is not None and self._report_line_hil.contact_consent_expired(
+                parked,
+                at=datetime.now(tz=UTC),
+            ):
+                claimed = await self._mark_resolved(
+                    parked,
+                    decision=HilDecision.TIMEOUT,
+                    approver_oid="system:contact-consent-expiry",
+                    action_kind="hil.report_line.contact_consent_expired",
+                    detail={"attempted_decision": decision.value},
+                )
+                if not claimed:
+                    return await self._race_result(approval_id, attempted=decision)
+                return ResolveResult(
+                    outcome=ResolveOutcome.TIMED_OUT,
+                    approval_id=approval_id,
+                    reason="contact_consent_expired",
+                    assignee_oid=assignee_oid,
+                )
             await self._audit(
                 action_kind="hil.resolve.contact_consent_required",
                 idempotency_key=f"{idem}:contact_consent_required",

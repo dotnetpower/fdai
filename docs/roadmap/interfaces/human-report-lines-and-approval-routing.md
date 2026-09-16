@@ -180,6 +180,9 @@ Decline, timeout, or an unavailable route produces a no-op with an audit record.
 affirmative message cannot approve a different pending request; the response must bind the
 server-issued consent id. The Operator derives the command timestamp from the immutable consent
 request, so an HTTP retry with the same idempotency key produces the same durable command.
+Both approval-expiry and non-response workers terminalize an unanswered contact request at the
+shorter consent deadline. A late answer also records the same timeout no-op instead of leaving a
+permanent parked request.
 
 ## Eligible-ancestor routing
 

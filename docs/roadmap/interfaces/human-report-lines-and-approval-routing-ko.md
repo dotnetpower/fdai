@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: ffef72bf5c2e1c049ddf915d918b32001aabee8d
+translation_source_sha: a0d44d3f55b4d26a56ebba2acbb678f0adcb7ca1
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -174,6 +174,8 @@ approval_required
 긍정 응답으로 다른 대기 요청을 승인할 수 없습니다. 응답은 서버가 발급한 동의 ID에 결속되어야
 합니다. Operator는 변경할 수 없는 동의 요청에서 명령 시간을 가져오므로 같은 멱등성 키를
 사용한 HTTP 재시도는 동일한 영속 명령을 생성합니다.
+승인 만료 워커와 무응답 워커는 모두 더 짧은 동의 기한에 응답하지 않은 연락 요청을 종료합니다.
+늦게 도착한 응답도 영구 대기 요청을 남기지 않고 같은 시간 초과 무작업 결과를 기록합니다.
 
 ## 적격 상위자 라우팅
 

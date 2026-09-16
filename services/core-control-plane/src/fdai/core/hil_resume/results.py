@@ -38,6 +38,9 @@ class RequestOutcome(StrEnum):
     CONTACT_DECLINED = "contact_declined"
     """The requester declined to send the report-line approval request."""
 
+    CONTACT_CONSENT_EXPIRED = "contact_consent_expired"
+    """The requester did not answer before the report-line contact deadline."""
+
 
 class ResolveOutcome(StrEnum):
     """Approval-resolution result; execution truth may remain pending."""

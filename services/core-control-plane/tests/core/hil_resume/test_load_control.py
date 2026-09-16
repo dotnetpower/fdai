@@ -387,3 +387,28 @@ async def test_malformed_expiry_fails_closed_to_timeout() -> None:
     reaped = await store.read_state("hil_park:malformed-expiry")
     assert reaped is not None
     assert reaped["decision"] == "timeout"
+
+
+async def test_contact_consent_deadline_reaps_waiting_park() -> None:
+    current = _BASE + timedelta(minutes=5)
+    store = InMemoryStateStore()
+    parked = _park("contact-expiry", at=_BASE, ttl_seconds=1800)
+    parked["status"] = "awaiting_contact_consent"
+    parked["contact_consent_expires_at"] = current.isoformat()
+    await _store_park(store, parked)
+    dispatcher = ApprovalReminderDispatcher(
+        state_store=store,
+        channel=InMemoryHilChannel(),
+        policy=_policy(),
+        clock=lambda: current,
+    )
+
+    assert await dispatcher.expire_due() == 1
+    reaped = await store.read_state("hil_park:contact-expiry")
+    assert reaped is not None
+    assert reaped["status"] == "resolved"
+    assert reaped["decision"] == "timeout"
+    assert any(
+        item["entry"].get("action_kind") == "hil.report_line.contact_consent_expired"
+        for item in store.audit_entries
+    )

@@ -321,10 +321,16 @@ class ApprovalReminderDispatcher:
             workflow_managed = (
                 isinstance(metadata, Mapping) and metadata.get("decision_route") == "workflow"
             )
+            status = park.get("status")
+            contact_wait = status == "awaiting_contact_consent"
             if (
-                park.get("status") != "pending"
+                status not in {"pending", "awaiting_contact_consent"}
                 or workflow_managed
-                or not _park_expired(park, now=now)
+                or not (
+                    _contact_consent_expired(park, now=now)
+                    if contact_wait
+                    else _park_expired(park, now=now)
+                )
             ):
                 continue
             approval_id = str(park.get("approval_id") or "")
@@ -351,11 +357,20 @@ class ApprovalReminderDispatcher:
                 updated,
                 expected_revision=expected_revision,
                 audit_entry=_audit(
-                    kind="hil.timeout",
-                    key=f"{str(park.get('idempotency_key') or approval_id)}:hil_timeout",
+                    kind=(
+                        "hil.report_line.contact_consent_expired" if contact_wait else "hil.timeout"
+                    ),
+                    key=(
+                        f"{str(park.get('idempotency_key') or approval_id)}:"
+                        f"{'contact_consent_expired' if contact_wait else 'hil_timeout'}"
+                    ),
                     approval_id=approval_id,
                     correlation_id=str(park.get("correlation_id") or approval_id),
-                    detail={"reason": "approval_expired"},
+                    detail={
+                        "reason": (
+                            "contact_consent_expired" if contact_wait else "approval_expired"
+                        )
+                    },
                     at=now,
                 ),
             )
@@ -598,6 +613,19 @@ def _expires_at(parked: Mapping[str, Any]) -> datetime:
 def _park_expired(parked: Mapping[str, Any], *, now: datetime) -> bool:
     try:
         return _expires_at(parked) <= now
+    except ValueError:
+        return True
+
+
+def _contact_consent_expired(parked: Mapping[str, Any], *, now: datetime) -> bool:
+    try:
+        return (
+            _timestamp(
+                parked.get("contact_consent_expires_at"),
+                "contact_consent_expires_at",
+            )
+            <= now
+        )
     except ValueError:
         return True
 
