@@ -2349,7 +2349,8 @@
         "docs/roadmap/operations/operator-initiated-sre-and-arb.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "human-report-lines"
       ],
       "docs_update": [
         "docs/roadmap/deployment/console-read-boundary.md",
