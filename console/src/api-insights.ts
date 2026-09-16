@@ -126,6 +126,8 @@ export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
     "success.cost_per_resolved_event_usd",
     "lower",
   );
+  const metricSamples = decodeMetricSamples(root["metric_samples"]);
+  const measurementGaps = decodeMeasurementGaps(root["measurement_gaps"]);
   const disagreement = decodeMetric(
     leading["mixed_model_disagreement_rate"],
     "leading.mixed_model_disagreement_rate",
@@ -283,6 +285,8 @@ export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
       change_lead_time_seconds: changeLeadTime,
       cost_per_resolved_event_usd: costPerResolved,
     },
+    metric_samples: metricSamples,
+    measurement_gaps: measurementGaps,
     leading: {
       mixed_model_disagreement_rate: disagreement,
       verifier_failure_rate: verifierFailure,
@@ -322,6 +326,61 @@ export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
       }),
     ),
   };
+}
+
+function decodeMetricSamples(value: unknown): AutonomyPayload["metric_samples"] {
+  const samples = apiRecord(value, "autonomy measurement.metric_samples");
+  const context = "autonomy measurement.metric_samples";
+  const result = {
+    auto_resolution_rate: apiNonNegativeInteger(samples, "auto_resolution_rate", context),
+    human_touchpoints_per_100: apiNonNegativeInteger(
+      samples,
+      "human_touchpoints_per_100",
+      context,
+    ),
+    mttr_seconds: apiNonNegativeInteger(samples, "mttr_seconds", context),
+    change_lead_time_seconds: apiNonNegativeInteger(
+      samples,
+      "change_lead_time_seconds",
+      context,
+    ),
+    cost_per_resolved_event_usd: apiNonNegativeInteger(
+      samples,
+      "cost_per_resolved_event_usd",
+      context,
+    ),
+  };
+  if (Object.keys(samples).length !== Object.keys(result).length) {
+    throw contractError("autonomy measurement.metric_samples contains unknown metrics");
+  }
+  return result;
+}
+
+function decodeMeasurementGaps(value: unknown): readonly string[] {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item)) {
+    throw contractError("autonomy measurement.measurement_gaps MUST be non-empty strings");
+  }
+  const gaps = value as string[];
+  if (new Set(gaps).size !== gaps.length) {
+    throw contractError("autonomy measurement.measurement_gaps MUST be unique");
+  }
+  const sourceMetrics = new Set([
+    "mttr_seconds",
+    "change_lead_time_seconds",
+    "attributed_cost_usd",
+  ]);
+  for (const gap of gaps) {
+    if (gap === "unattributed_human_input") continue;
+    const [reason, metricId, extra] = gap.split(":");
+    if (
+      extra !== undefined
+      || !["incomplete", "mixed_context", "missing_source"].includes(reason ?? "")
+      || !sourceMetrics.has(metricId ?? "")
+    ) {
+      throw contractError(`autonomy measurement.measurement_gaps contains ${gap}`);
+    }
+  }
+  return gaps;
 }
 
 function decodeMetric(

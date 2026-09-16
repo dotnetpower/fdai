@@ -55,6 +55,43 @@ export function outcomeMetric(data: AutonomyPayload, key: OutcomeKey): MetricVsB
   return data.success.change_lead_time_seconds;
 }
 
+export function outcomeSampleSize(data: AutonomyPayload, key: OutcomeKey): number {
+  if (key === "auto-resolution") return data.metric_samples.auto_resolution_rate;
+  if (key === "human-touchpoints") return data.metric_samples.human_touchpoints_per_100;
+  if (key === "mttr") return data.metric_samples.mttr_seconds;
+  if (key === "cost-per-resolved-event") {
+    return data.metric_samples.cost_per_resolved_event_usd;
+  }
+  return data.metric_samples.change_lead_time_seconds;
+}
+
+export function outcomeGapKey(data: AutonomyPayload, key: OutcomeKey): string {
+  const sourceMetric = key === "mttr"
+    ? "mttr_seconds"
+    : key === "change-lead-time"
+      ? "change_lead_time_seconds"
+      : key === "cost-per-resolved-event"
+        ? "attributed_cost_usd"
+        : null;
+  if (
+    key === "human-touchpoints"
+    && data.measurement_gaps.includes("unattributed_human_input")
+  ) {
+    return "analytics.outcomes.unattributedHumanInputHint";
+  }
+  if (sourceMetric === null) return "analytics.notMeasuredHint";
+  if (data.measurement_gaps.includes(`missing_source:${sourceMetric}`)) {
+    return "analytics.outcomes.missingSourceHint";
+  }
+  if (data.measurement_gaps.includes(`incomplete:${sourceMetric}`)) {
+    return "analytics.outcomes.incompleteSourceHint";
+  }
+  if (data.measurement_gaps.includes(`mixed_context:${sourceMetric}`)) {
+    return "analytics.outcomes.mixedSourceHint";
+  }
+  return "analytics.notMeasuredHint";
+}
+
 function duration(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
   if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
@@ -172,6 +209,8 @@ function OutcomeKpis({
   readonly contract: OutcomeViewContract;
 }) {
   const locale = getLocale() === "ko" ? "ko-KR" : "en-US";
+  const metricSampleSize = outcomeSampleSize(autonomy, active);
+  const missingHint = t(outcomeGapKey(autonomy, active));
   const auditHref = (outcome?: string) => routeHref("audit", {
     params: { window: `${autonomy.window_days}d`, outcome },
   });
@@ -184,7 +223,7 @@ function OutcomeKpis({
           href={auditHref("auto")}
           label={t(contract.currentLabelKey)}
           value={metric.value === null ? kpiEvidenceLabel("not-measured") : formatOutcomeMetric(metric.value, active)}
-          hint={metric.value === null ? t("analytics.notMeasuredHint") : undefined}
+          hint={metric.value === null ? missingHint : undefined}
         />
         <KpiCard
           evidenceState={metric.baseline === null ? "not-measured" : "measured"}
@@ -235,7 +274,7 @@ function OutcomeKpis({
         href={currentHref}
         label={t(contract.currentLabelKey)}
         value={metric.value === null ? kpiEvidenceLabel("not-measured") : formatOutcomeMetric(metric.value, active)}
-        hint={metric.value === null ? t("analytics.notMeasuredHint") : undefined}
+        hint={metric.value === null ? missingHint : undefined}
       />
       <KpiCard
         evidenceState={metric.baseline === null ? "not-measured" : "measured"}
@@ -245,7 +284,7 @@ function OutcomeKpis({
         hint={metric.baseline === null ? t("analytics.outcomes.noBaselineHint") : undefined}
       />
       <KpiCard href={directionHref} label={t("analytics.direction")} value={t(`analytics.${metric.direction}Better`)} />
-      <KpiCard href={sampleHref} label={t("analytics.sampleSize")} value={autonomy.sample_size.toLocaleString(locale)} />
+      <KpiCard href={sampleHref} label={t("analytics.sampleSize")} value={metricSampleSize.toLocaleString(locale)} />
     </KpiGrid>
   );
 }
