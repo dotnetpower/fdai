@@ -38,7 +38,7 @@ Console operations use four boundaries:
 The Operator API relays typed events, never direct agent calls; its feature composition binds request state and supervised workers, not executor or workflow authority.
 Source facets preserve totals; alert table headers use readable text tokens. Isolated fixtures never establish authenticated accessibility.
 [Alert noise requests](../operations/alert-noise-governance.md) expose original acceptances and signed results.
-Only an exact-key terminal resolves uncertainty; the canonical Process owns approval and effect state.
+Only an exact-key terminal resolves uncertainty; the canonical Process owns approval and effect state. Forecast Learning exposes recorded total, open, closed and abstained episodes, deletion-in-progress count and the oldest due publication time alongside its outcome table. An empty terminal-outcome table does not hide active episodes, and these recorded counts never establish prediction quality or fill a missing due-cohort measurement.
 
 Recorded Resource state views consume the shared independent state axes rather than interpreting
 raw provider fields in the browser. An exact Static Web App default-environment `BuildStatus`
