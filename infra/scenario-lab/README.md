@@ -14,7 +14,7 @@ unrelated resources in that group.
 
 | Area | Resources |
 |------|-----------|
-| Compute | One-node private AKS cluster, Chaos Mesh installed after apply, three-replica NGINX backend, private Linux stress VM |
+| Compute | One-node private AKS cluster, Chaos Mesh installed after apply, AKS Store Demo with a three-replica order service, private Linux stress VM |
 | Data and AI | Private MySQL Flexible Server, private Azure OpenAI account and one deployment |
 | Security | Generated MySQL password in encrypted private state and a mode-0600 runner file, managed-identity role assignments, no VM public IP |
 | Network | Isolated VNet, delegated and private-endpoint subnets, egress-only NAT gateway, bidirectional peering to the VNet-integrated deploy runner |
@@ -49,7 +49,6 @@ Configure these repository variables before running the workflow:
 | `SCENARIO_LAB_SSH_PUBLIC_KEY` | Public key for the private stress VM |
 | `SCENARIO_LAB_VM_IMAGE_VERSION` | Exact region-available Ubuntu image version |
 | `SCENARIO_LAB_AKS_NODE_VM_SIZE`, `SCENARIO_LAB_STRESS_VM_SIZE` | Optional subscription-compatible VM SKU overrides; defaults remain `Standard_D2s_v5` and `Standard_B2s` |
-| `SCENARIO_LAB_BACKEND_IMAGE` | Demo backend image pinned by `sha256` digest |
 | `SCENARIO_LAB_CHAOS_MESH_CHART_VERSION` | Exact Chaos Mesh chart version |
 | `SCENARIO_LAB_AOAI_MODEL_FAMILY`, `SCENARIO_LAB_AOAI_DEPLOYMENT_SKU` | Optional region and quota overrides |
 | `SCENARIO_LAB_OPENAI_PRIVATE_DNS_ZONE_ID`, `SCENARIO_LAB_OPENAI_PRIVATE_DNS_RESOURCE_GROUP_NAME` | Existing central `privatelink.openai.azure.com` zone already linked to the runner and P2S VNets |
@@ -76,6 +75,34 @@ commit already present on protected `main`:
    reference sweep sequentially.
 4. Run `action=destroy` with `confirm_destroy=destroy-sre-demo-lab` after evidence review. Destroy
    applies an exact destroy plan from the same job.
+
+## AKS Store Demo workload
+
+Every approved apply prepares the official
+[AKS Store Demo](https://github.com/Azure-Samples/aks-store-demo) in the `fdai-sre-demo`
+namespace. The renderer fixes the upstream source at commit
+`61b033448904a930f01d497ce7139aca87a1b12d`, verifies the complete manifest SHA-256, and replaces
+each version tag with its reviewed multi-platform image digest before `kubectl apply`.
+
+The lab applies only these safety overlays:
+
+- `order-service` runs with three replicas and is the target for the existing AKS fault scenarios.
+- The two upstream `LoadBalancer` services become `ClusterIP` services so the private lab does not
+  allocate public ingress.
+- The previous `api-backend` Deployment and Service are removed from the dedicated namespace.
+
+The application remains an external MIT-licensed demonstration workload and is not an FDAI
+runtime component. It retains the upstream synthetic credentials and data, so do not use it for
+production or real customer information.
+
+From a prepared private operator connection, open the store through a local port forward:
+
+```bash
+kubectl --namespace fdai-sre-demo port-forward service/store-front 8080:80
+```
+
+Then browse to `http://127.0.0.1:8080`. The forwarding process is local and temporary; it does not
+create public cluster ingress.
 
 ## Test from the operator PC
 
