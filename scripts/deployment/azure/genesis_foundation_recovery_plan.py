@@ -50,6 +50,10 @@ def require_naming_only(original: Path, current: Path) -> None:
     """Require only application naming and the bounded operations-IP policy input."""
     old_main = (original / "main.tf").read_bytes()
     current_main = (current / "main.tf").read_bytes()
+    old_variables = (original / "variables.tf").read_bytes()
+    current_variables = (current / "variables.tf").read_bytes()
+    if old_main == current_main and old_variables == current_variables:
+        return
     expected = old_main
     replacements = (
         (
@@ -90,10 +94,10 @@ def require_naming_only(original: Path, current: Path) -> None:
         expected = expected.replace(before, after, 1)
     if current_main != expected:
         raise ValueError("Foundation recovery changes more than application naming")
-    variables = (current / "variables.tf").read_bytes()
+    variables = current_variables
     for name in ("application_workload", "operations_public_ip_tags"):
         variables = _without_variable(variables, name)
-    if variables != (original / "variables.tf").read_bytes():
+    if variables != old_variables:
         raise ValueError("Foundation recovery variable changes are outside naming scope")
 
 
@@ -114,6 +118,13 @@ def _without_variable(content: bytes, name: str) -> bytes:
 
 def require_ip_policy_only(original: Path, current: Path) -> None:
     """Permit only the explicit tag input on the two original public-IP resources."""
+    old_variables = (original / "variables.tf").read_bytes()
+    current_variables = (current / "variables.tf").read_bytes()
+    if old_variables == current_variables and all(
+        (original / name).read_bytes() == (current / name).read_bytes()
+        for name in ("nat.tf", "bastion.tf")
+    ):
+        return
     before = b'  sku                 = "Standard"\n'
     after = before + b"  ip_tags             = var.operations_public_ip_tags\n"
     for name in ("nat.tf", "bastion.tf"):
@@ -123,10 +134,8 @@ def require_ip_policy_only(original: Path, current: Path) -> None:
             or content.replace(before, after, 1) != (current / name).read_bytes()
         ):
             raise ValueError("Foundation recovery bootstrap changes exceed IP policy scope")
-    variables = _without_variable(
-        (current / "variables.tf").read_bytes(), "operations_public_ip_tags"
-    )
-    if variables != (original / "variables.tf").read_bytes():
+    variables = _without_variable(current_variables, "operations_public_ip_tags")
+    if variables != old_variables:
         raise ValueError("Foundation recovery bootstrap variable changes exceed IP policy scope")
 
 
