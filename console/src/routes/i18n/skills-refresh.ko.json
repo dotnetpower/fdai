@@ -1,0 +1,6 @@
+{
+  "observed": "마지막 갱신 성공 시각",
+  "notMeasured": "측정되지 않음",
+  "error": "오류",
+  "observedTimestamp": "잘못된 Operator API 응답: 스킬 진단의 observed_at은 RFC 3339 형식의 시각이어야 합니다"
+}

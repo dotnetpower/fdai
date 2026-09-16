@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 5218c30d14a2af3d6b5cf471bd42df2ab12c6be3
+translation_source_sha: 7d579bac5ea21fadeacc1b35093d1df3feb06e60
 translation_revised: 2026-09-17
 ---
 # 운영 배포 강화
@@ -40,6 +40,8 @@ translation_revised: 2026-09-17
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-17 | implemented | candidate runner가 필수 명령인 `kubectl` 없이 요청 검증 단계에 도달한 뒤 scenario-lab workflow에 checksum으로 고정된 `kubectl` bootstrap을 추가했습니다. Workflow는 offline deployment kit가 이미 소유한 `1.31.14` binary와 SHA-256을 재사용하고 runner 임시 저장소에만 설치하며 Azure 인증 또는 plan 전에 client를 검증합니다. | 실패한 protected recovery plan `35130727585`, `current change`, `.github/workflows/sre-demo-lab.yml`, `stage-offline-kit.sh`, 집중 scenario-lab 및 workflow 검사 | 수정한 workflow를 게시하고 기존 partial scenario state에 대해 새로운 exact recovery plan을 생성합니다. |
+| 2026-09-17 | implemented | 승인된 실제 apply에서 Azure network interface 쓰기에 HTTP 429가 발생한 뒤 scenario-lab 생성 apply의 동시 실행을 Terraform 작업 2개로 제한했습니다. 실패한 시도는 워크로드 준비 전에 중단됐고, 범위가 제한된 readback에서 partial state를 확인했으며, recovery plan은 update 또는 delete 작업 0개를 유지했습니다. | 실패한 protected apply `35123919441`, Azure Activity Log의 `Microsoft.Network/networkInterfaces/write` 상태 `429`, `current change`, `.github/workflows/sre-demo-lab.yml`, 집중 scenario-lab 및 workflow 검사 | 수정한 workflow를 게시하고 partial state에 대해 새로운 exact recovery plan을 생성한 뒤 성공한 apply와 DNS 및 워크로드 준비 근거를 보존합니다. |
 | 2026-09-17 | implemented | 결정론적인 Azure 제공 `cloudapp.azure.com` hostname을 통해 일회용 Store Demo에 브라우저로 직접 접속할 수 있게 했습니다. Renderer는 `store-front`만 공개합니다. 준비 단계는 Load Balancer 주소를 기다리고 정확한 DNS 해석 및 HTTP 상태를 검증한 다음 보호된 workflow 요약에 검증된 URL을 게시합니다. | `current change`, `.github/workflows/sre-demo-lab.yml`, `infra/scenario-lab/`, `scripts/deployment/scenario-lab/`, `tests/integration/infra/test_scenario_lab.py`, 집중 scenario-lab, Terraform, workflow 및 문서 검사 | exact protected apply를 실행하여 DNS, Load Balancer 및 HTTP 상태 관찰을 보존하고 승인된 데모 기간 후 endpoint를 제거합니다. |
 | 2026-09-17 | implemented | 생성된 NGINX 장애 대상을 공식 AKS Store Demo로 교체했습니다. 준비 단계는 변경할 수 없는 upstream manifest 하나를 검증하고, image 참조 10개를 검토된 multi-platform digest로 바꾸고, 공개 Service를 `ClusterIP`로 변경하며, 기존 10개 시나리오 모음을 `order-service` replica 3개에 연결합니다. | `current change`, `.github/workflows/sre-demo-lab.yml`, `infra/scenario-lab/`, `scripts/deployment/scenario-lab/`, `tests/integration/infra/test_scenario_lab.py`, 집중 scenario-lab, formatting, Terraform, workflow 및 문서 검사 | 실제 검증을 주장하기 전에 exact protected apply를 실행하여 Store Demo 준비 상태와 image readback을 보존하고, 별도로 승인된 참조 시나리오 모음을 실행합니다. |
 | 2026-09-13 | implemented | 실제 fail-closed apply에서 자체 `az version` 검사가 금지된 root Azure CLI 프로파일을 다시 생성한 사실을 확인한 뒤 Genesis runner-image 검증기를 수정했습니다. 이제 검증기는 전용 임시 Azure CLI 구성을 사용하고 제거한 다음 captured image에 자격 증명 아티팩트가 없는지 확인합니다. | 이슈 #94에 보존된 실패한 승인 runner-image apply, `current change`, `infra/genesis-runner-image/main.tf`, Terraform runner-image 계약 테스트 | 새 서명 키트를 게시하고 별도로 검토한 exact plan을 만든 뒤 실패한 apply claim을 재사용하지 않고 captured image를 검증합니다. |

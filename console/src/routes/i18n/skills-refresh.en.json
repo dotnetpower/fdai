@@ -1,0 +1,6 @@
+{
+  "observed": "Last successful refresh",
+  "notMeasured": "Not measured",
+  "error": "Error",
+  "observedTimestamp": "invalid Operator API response: skill diagnostic observed_at MUST be an RFC 3339 timestamp"
+}

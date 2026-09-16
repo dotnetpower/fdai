@@ -273,12 +273,18 @@ class PostgresInventorySnapshotStore:
                 await connection.execute(
                     "UPDATE inventory_snapshot SET status='active', completed_at=%s, "
                     "promoted_at=NOW(), "
-                    "scopes=%s::jsonb, resource_types=%s::jsonb, metadata=%s::jsonb WHERE id=%s",
+                    "scopes=%s::jsonb, resource_types=%s::jsonb, metadata=%s::jsonb, "
+                    "resource_count=(SELECT COUNT(*) FROM inventory_snapshot_resource "
+                    "WHERE snapshot_id=%s), "
+                    "link_count=(SELECT COUNT(*) FROM inventory_snapshot_link "
+                    "WHERE snapshot_id=%s) WHERE id=%s",
                     (
                         completed,
                         json.dumps(manifest.scopes),
                         json.dumps(manifest.resource_types),
                         metadata_json,
+                        attempt_id,
+                        attempt_id,
                         attempt_id,
                     ),
                 )

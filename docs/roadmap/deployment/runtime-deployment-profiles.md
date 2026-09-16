@@ -164,8 +164,8 @@ subscription and never requests admin credentials. Local `kubectl config view --
 must show one exec-only user, `kubelogin get-token`, one matching client and one MSI login option,
 without environment overrides. Failed conversion or mismatched readback stops before Kubernetes
 operations; neither browser/device-code login nor default/node identity is a fallback.
-The common plan-review validator accepts the existing `substrate`, `runtime`, `database` and
-`application` stages with the same exact digest, expiry and destructive-confirmation checks.
+Runtime topology inventory keeps the exact AKS ARM ID as its authorization binding, then converts it to the provider-neutral Resource identity before composing Kubernetes objects and relationships. This identity conversion does not widen the deployment scope or grant observation authority.
+The common plan-review validator accepts the existing `substrate`, `runtime`, `database` and `application` stages with the same exact digest, expiry and destructive-confirmation checks.
 Accepting an AKS stage never grants it approval or permission to skip an earlier stage.
 
 ## Runtime rendering
@@ -302,7 +302,7 @@ the regional catalog once and uses an exact-name Azure CLI projection so only th
 SKUs are serialized, then checks their regional restrictions, three required zones, architecture,
 host encryption, and family plus total quota. It does not issue a second catalog request for a
 different node-pool SKU or retry a failed provider read. Unsupported targets do not disable
-encryption. Allocatable workload-envelope validation remains open in the implementation ledger. Container Insights combines the managed-identity `oms_agent` addon with a Terraform-owned Data Collection Rule (DCR) and cluster association. It sends the default stream each minute with `ContainerLogV2`; without the association and current workspace records, monitoring is unavailable.
+encryption. Allocatable workload-envelope validation remains open in the implementation ledger. Container Insights combines the managed-identity `oms_agent` addon with a Terraform-owned Data Collection Rule (DCR) and cluster association. The association reconstructs the exact cluster Resource ID from the authenticated subscription and reviewed deployment inputs instead of depending on the managed cluster resource, so a monitoring-only plan cannot admit unrelated cluster drift. It sends the default stream each minute with `ContainerLogV2`; without the association and current workspace records, monitoring is unavailable. Application telemetry uses the Python Azure Monitor OpenTelemetry Distro in Core. The shared substrate stores the workspace-based Application Insights connection string as a Key Vault secret, grants only the Core workload identity read access to that secret, and exposes only the secret name to the separately stateful AKS renderer. Key Vault CSI injects the value as `APPLICATIONINSIGHTS_CONNECTION_STRING`. Core selects this exporter only when the secret is present and rejects simultaneous `OTEL_EXPORTER_OTLP_ENDPOINT` configuration instead of duplicating telemetry. Local and explicit vendor-neutral OTLP profiles keep their existing exporters when the Application Insights secret is absent. Repository-wide CI mirrors `azure-monitor-opentelemetry` in the root `dev` extra only so root test collection can import the Core-owned telemetry adapter. The Core service manifest remains the runtime dependency owner, and the repository root remains non-installable.
 
 The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
 ephemeral storage. Checkov exceptions stay attached to the affected resource: the pinned scanner

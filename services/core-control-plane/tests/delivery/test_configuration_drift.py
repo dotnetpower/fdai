@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -18,6 +18,7 @@ from fdai.core.detection.configuration_drift import (
 from fdai.core.detection.configuration_drift_codec import baseline_from_dict
 from fdai.core.detection.configuration_drift_service import (
     BaselineIntegrityError,
+    ConfigurationDriftReportSink,
     ConfigurationDriftService,
 )
 from fdai.delivery.configuration_drift import (
@@ -26,7 +27,12 @@ from fdai.delivery.configuration_drift import (
     JsonFileConfigurationObservationSource,
     build_configuration_drift_bundle,
 )
+from fdai.delivery.persistence.state_store_configuration_baseline import (
+    CONFIGURATION_BASELINE_PREFIX,
+    StateStoreConfigurationBaselineSink,
+)
 from fdai.shared.providers.knowledge import KnowledgeChunk
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 8, 4, tzinfo=UTC)
 _DOC_HASH = "a" * 64
@@ -85,6 +91,7 @@ def _service(
     baseline: FrozenConfigurationBaseline | None = None,
     observation: ConfigurationObservation | None = None,
     expected_sha256: str | None = None,
+    report_sink: ConfigurationDriftReportSink | None = None,
 ) -> ConfigurationDriftService:
     bound_baseline = baseline or _baseline()
     return ConfigurationDriftService(
@@ -93,6 +100,7 @@ def _service(
         expected_version="s13-v1",
         expected_sha256=expected_sha256 or bound_baseline.sha256,
         expected_scope="example-scope",
+        report_sink=report_sink,
     )
 
 
@@ -429,3 +437,143 @@ async def test_knowledge_exception_emits_secret_safe_structured_warning(
     assert record.error_type == "RuntimeError"
     assert record.baseline_version == baseline.version
     assert "secret-bearing" not in caplog.text
+
+
+async def test_completed_check_records_exact_measurements_without_inventing_campaign() -> None:
+    store = InMemoryStateStore()
+    report = await _service(report_sink=StateStoreConfigurationBaselineSink(store)).run()
+    rows = await store.read_states(CONFIGURATION_BASELINE_PREFIX, limit=2)
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["baseline"]["sha256"] == _baseline().sha256
+    assert row["baseline"]["resource_count"] == 1
+    assert row["baseline"]["lifecycle"] == "active-pinned"
+    assert row["drift"]["verdict"] == report.verdict.value
+    assert row["drift"]["finding_count"] == len(report.findings)
+    assert report.performance is not None
+    assert row["performance"] == report.performance.to_dict()
+    assert row["knowledge"]["status"] == "not-configured"
+    assert row["knowledge"]["citations"] == []
+    assert row["versions"] == []
+    assert row["review"]["configured"] is False
+    assert set(row["safety"].values()) == {0}
+    assert await store.verify_chain()
+
+
+async def test_failed_drift_is_recorded_as_failed_not_unmeasured() -> None:
+    store = InMemoryStateStore()
+    observation = replace(_observation(), resources=())
+    report = await _service(
+        observation=observation, report_sink=StateStoreConfigurationBaselineSink(store)
+    ).run()
+    rows = await store.read_states(CONFIGURATION_BASELINE_PREFIX, limit=1)
+    assert report.verdict is DriftVerdict.FAILED
+    assert rows[0]["drift"]["verdict"] == "failed"
+
+
+async def test_invalid_baseline_never_records_projection() -> None:
+    store = InMemoryStateStore()
+    with pytest.raises(BaselineIntegrityError):
+        await _service(
+            expected_sha256="0" * 64, report_sink=StateStoreConfigurationBaselineSink(store)
+        ).run()
+    assert await store.read_states(CONFIGURATION_BASELINE_PREFIX, limit=1) == ()
+
+
+async def test_projection_replay_and_older_completion_preserve_latest() -> None:
+    store = InMemoryStateStore()
+    sink = StateStoreConfigurationBaselineSink(store)
+    report = await _service().run()
+    newer = replace(report, observed_at=report.observed_at + timedelta(seconds=1))
+    await sink.record(_baseline(), report)
+    await sink.record(_baseline(), newer)
+    await sink.record(_baseline(), newer)
+    await sink.record(_baseline(), report)
+    rows = await store.read_states(CONFIGURATION_BASELINE_PREFIX, limit=2)
+    assert len(rows) == 1
+    assert rows[0]["revision"] == 2
+    assert rows[0]["observed_at"] == newer.observed_at.isoformat()
+    assert await store.verify_chain()
+
+
+async def test_projection_rejects_same_time_conflict_and_mismatched_baseline() -> None:
+    store = InMemoryStateStore()
+    sink = StateStoreConfigurationBaselineSink(store)
+    report = await _service().run()
+    await sink.record(_baseline(), report)
+    with pytest.raises(ValueError, match="conflicting observation"):
+        await sink.record(_baseline(), replace(report, verdict=DriftVerdict.BLOCKED))
+    with pytest.raises(ValueError, match="matching baseline"):
+        await sink.record(_baseline(), replace(report, baseline_sha256="0" * 64))
+    rows = await store.read_states(CONFIGURATION_BASELINE_PREFIX, limit=1)
+    assert rows[0]["drift"]["verdict"] == "passed"
+    assert rows[0]["revision"] == 1
+
+
+async def test_projection_write_failure_blocks_tool_without_leaking_details(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    store = InMemoryStateStore()
+
+    async def fail(*args: object, **kwargs: object) -> bool:
+        raise RuntimeError("private storage error detail")
+
+    monkeypatch.setattr(store, "write_state_with_audit_if_absent", fail)
+    bundle = build_configuration_drift_bundle(
+        _service(report_sink=StateStoreConfigurationBaselineSink(store))
+    )
+    artifact = bundle.reasoning_tools[0]
+    with caplog.at_level(logging.WARNING):
+        result = await bundle.tool_providers[artifact.provider or ""].call(
+            artifact=artifact, arguments={}
+        )
+    assert isinstance(result, dict)
+    assert result["verdict"] == "blocked"
+    assert "RuntimeError" in result["error_code"]
+    assert "private storage" not in caplog.text
+    assert "configuration_drift_check_failed" in caplog.text
+    assert await store.read_states(CONFIGURATION_BASELINE_PREFIX, limit=1) == ()
+
+
+async def test_projection_contention_has_a_bounded_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = InMemoryStateStore()
+    attempts = 0
+
+    async def lose(*args: object, **kwargs: object) -> bool:
+        nonlocal attempts
+        attempts += 1
+        return False
+
+    monkeypatch.setattr(store, "write_state_with_audit_if_absent", lose)
+    with pytest.raises(RuntimeError, match="update conflicted"):
+        await _service(report_sink=StateStoreConfigurationBaselineSink(store)).run()
+    assert attempts == 3
+
+
+async def test_projection_losing_cas_does_not_overwrite_concurrent_newer_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = InMemoryStateStore()
+    sink = StateStoreConfigurationBaselineSink(store)
+    report = await _service().run()
+    await sink.record(_baseline(), report)
+    candidate = replace(report, observed_at=report.observed_at + timedelta(seconds=1))
+    newer = replace(report, observed_at=report.observed_at + timedelta(seconds=2))
+    compare_and_set = store.compare_and_set_state_with_audit
+    attempts = 0
+
+    async def concurrent_write(*args: object, **kwargs: object) -> bool:
+        nonlocal attempts
+        attempts += 1
+        monkeypatch.setattr(store, "compare_and_set_state_with_audit", compare_and_set)
+        await sink.record(_baseline(), newer)
+        return False
+
+    monkeypatch.setattr(store, "compare_and_set_state_with_audit", concurrent_write)
+    await sink.record(_baseline(), candidate)
+    rows = await store.read_states(CONFIGURATION_BASELINE_PREFIX, limit=1)
+    assert attempts == 1
+    assert rows[0]["revision"] == 2
+    assert rows[0]["observed_at"] == newer.observed_at.isoformat()

@@ -43,7 +43,7 @@ Only an exact-key terminal resolves uncertainty; the canonical Process owns appr
 Recorded Resource state views consume the shared independent state axes rather than interpreting
 raw provider fields in the browser. An exact Static Web App default-environment `BuildStatus`
 therefore appears as its operational value, while a missing reviewed value remains Not recorded.
-Provisioning success and a successful provider request never become operational success.
+Provisioning success and a successful provider request never become operational success. Configuration baselines likewise read only completed Core-owned checks, preserving pinned metadata, verdicts, and measured latency. Unconfigured or blocked Knowledge remains unavailable, not a measured citation count; viewing evidence never activates a baseline or review campaign.
 
 ## Product vocabulary
 

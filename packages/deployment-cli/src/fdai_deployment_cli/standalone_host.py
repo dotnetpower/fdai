@@ -58,6 +58,8 @@ _SUBSTRATE_TARGETS: Final = (
     "module.event_bus_auxiliary",
     "module.event_bus_private_endpoint",
     "azurerm_key_vault_secret.state_store_dsn",
+    "azurerm_key_vault_secret.application_insights_connection_string",
+    "azurerm_role_assignment.core_application_insights_secret_reader",
     "azurerm_role_assignment.command_api_eventhubs_sender",
     "azurerm_role_assignment.command_api_eventhubs_receiver",
     "azurerm_role_assignment.inventory_reader",
@@ -636,6 +638,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "llm_model_endpoints": _terraform_json_output(substrate, "llm_model_endpoints"),
         "resolved_models_sha256": _terraform_output(substrate, "resolved_models_sha256"),
         "key_vault_uri": _terraform_output(substrate, "key_vault_uri"),
+        "application_insights_secret_name": _terraform_output(
+            substrate, "application_insights_connection_string_secret_name"
+        ),
         "operational_history_container_url": _terraform_output(
             substrate, "operational_history_container_url"
         ),
@@ -734,7 +739,12 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             ).items()
         }
     )
-    dsn_secret = {"FDAI_STATE_STORE_DSN": "fdai-state-store-dsn"}
+    dsn_secret = {
+        "APPLICATIONINSIGHTS_CONNECTION_STRING": str(
+            substrate_outputs["application_insights_secret_name"]
+        ),
+        "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
+    }
     refs = _mapping(context.get("image_refs"), "runtime image references")
     workloads = {
         "core-control-plane": _aks_workload(

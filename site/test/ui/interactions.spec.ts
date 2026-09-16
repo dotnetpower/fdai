@@ -64,6 +64,30 @@ for (const locale of ["en", "ko"] as const) {
     await expect(diagram.locator(".details.open")).toHaveCount(0);
   });
 
+  test(`${locale} AKS architecture keeps both runtime views and interactive service details`, async ({ page }, testInfo) => {
+    await page.goto(`${prefix}architecture/`);
+    await expect(page.getByRole("heading", { name: locale === "ko" ? "AKS 배포" : "AKS deployment", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: locale === "ko" ? "Container Apps 배포" : "Container Apps deployment", exact: true })).toBeVisible();
+    const diagram = page.locator('fdai-architecture-diagram[manifest*="fdai-azure-aks-deployment"]');
+    await expect(diagram.locator(".stage > svg")).toHaveAttribute("role", "group");
+    for (const node of ["operator", "ingestion", "core", "worker", "executor", "jobs"]) {
+      await expect(diagram.locator(`[data-node-id="${node}"]`)).toHaveCount(1);
+    }
+    const executor = diagram.locator('[data-node-id="executor"]');
+    await executor.focus();
+    await page.keyboard.press("Enter");
+    await expect(executor).toHaveAttribute("aria-pressed", "true");
+    await expect(diagram.locator(".details.open")).toContainText(locale === "ko" ? "안전장치" : "safeguards");
+    await diagram.locator(".details-close").press("Enter");
+    const stage = diagram.locator(".stage");
+    await stage.focus();
+    await page.keyboard.press("+");
+    await page.keyboard.press("0");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    await diagram.scrollIntoViewIfNeeded();
+    await diagram.screenshot({ path: testInfo.outputPath("aks-architecture.png") });
+  });
+
   test(`${locale} production search opens, reports results and restores focus`, async ({ page }) => {
     await page.goto(prefix);
     const opener = page.locator("site-search button[data-open-modal]");

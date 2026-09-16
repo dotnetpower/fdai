@@ -110,11 +110,42 @@ def test_aks_container_insights_has_dcr_and_cluster_association() -> None:
         in cluster
     )
     assert 'name                    = "ContainerInsightsExtension"' in cluster
-    assert "target_resource_id      = azurerm_kubernetes_cluster.runtime.id" in cluster
+    assert "target_resource_id      = local.cluster_resource_id" in cluster
+    assert '"/subscriptions/%s/resourceGroups/%s/providers/' in cluster
+    assert "data.azurerm_client_config.current.subscription_id" in cluster
+    assert (
+        "azurerm_kubernetes_cluster.runtime.id"
+        not in cluster[
+            cluster.index(
+                'resource "azurerm_monitor_data_collection_rule_association" "container_insights"'
+            ) : cluster.index('resource "azurerm_kubernetes_cluster_node_pool" "user"')
+        ]
+    )
     assert (
         "data_collection_rule_id = azurerm_monitor_data_collection_rule.container_insights.id"
         in cluster
     )
+
+
+def test_aks_core_application_insights_uses_key_vault_secret() -> None:
+    root = (ROOT / "infra/main.tf").read_text(encoding="utf-8")
+    outputs = (ROOT / "infra/outputs.tf").read_text(encoding="utf-8")
+    host = (ROOT / "packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'resource "azurerm_key_vault_secret" "application_insights_connection_string"' in root
+    assert "value        = azurerm_application_insights.core.connection_string" in root
+    assert 'resource "azurerm_role_assignment" "core_application_insights_secret_reader"' in root
+    assert (
+        "scope                = azurerm_key_vault_secret."
+        "application_insights_connection_string.resource_versionless_id" in root
+    )
+    assert 'output "application_insights_connection_string_secret_name"' in outputs
+    assert '"APPLICATIONINSIGHTS_CONNECTION_STRING": str(' in host
+    assert 'substrate_outputs["application_insights_secret_name"]' in host
+    assert '"application_insights_secret_name"' in host
+    assert "azurerm_application_insights.core.connection_string" not in outputs
 
 
 def test_aks_document_workloads_have_dedicated_substrate_roles() -> None:

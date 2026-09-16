@@ -48,17 +48,17 @@ test("architecture pages preserve bilingual diagram parity and alt-text consiste
     readFile(new URL("src/content/docs/ko/architecture.md", root), "utf8"),
   ]);
 
-  // Six diagrams are embedded; two of them (fdai-system-overview and
+  // Seven diagrams are embedded; two of them (fdai-system-overview and
   // fdai-reference-architecture) are additionally re-embedded later on the
   // page via plain markdown image syntax, which the fdai-diagrams remark
   // plugin transforms into the identical interactive wrapper at build time.
   assert.equal(
     [...english.matchAll(/<fdai-architecture-diagram /gu)].length,
-    6,
+    7,
   );
   assert.equal(
     [...korean.matchAll(/<fdai-architecture-diagram /gu)].length,
-    6,
+    7,
   );
   assert.equal(english.match(/^!\[/gmu)?.length, 2);
   assert.equal(korean.match(/^!\[/gmu)?.length, 2);
@@ -70,6 +70,7 @@ test("architecture pages preserve bilingual diagram parity and alt-text consiste
     "fdai-reference-architecture",
     "fdai-system-overview",
     "fdai-azure-resource-network-flow",
+    "fdai-azure-aks-deployment",
   ]) {
     const manifest = await loadManifest(name);
     for (const locale of ["en", "ko"]) {
