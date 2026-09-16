@@ -17,6 +17,8 @@ Required env vars:
     FDAI_ENFORCE_BACKEND_DEPLOY  demo backend Deployment name
     FDAI_ENFORCE_BACKEND_SVC     demo backend Service name
     FDAI_ENFORCE_BACKEND_LABEL   label selector for the backend pods
+    FDAI_ENFORCE_BACKEND_CONTAINER backend container name
+    FDAI_ENFORCE_BACKEND_IMAGE   backend image repository without tag
     FDAI_ENFORCE_VM              VM name (for S5 / S6)
     FDAI_ENFORCE_MYSQL_HOST      MySQL Flexible Server FQDN (S8)
     FDAI_ENFORCE_MYSQL_USER      MySQL admin login (S8)
@@ -111,6 +113,8 @@ CHAOS_NS = _env("FDAI_ENFORCE_CHAOS_NS")
 BACKEND_DEPLOY = _env("FDAI_ENFORCE_BACKEND_DEPLOY")
 BACKEND_SVC = _env("FDAI_ENFORCE_BACKEND_SVC")
 BACKEND_LABEL = _env("FDAI_ENFORCE_BACKEND_LABEL")
+BACKEND_CONTAINER = _env("FDAI_ENFORCE_BACKEND_CONTAINER")
+BACKEND_IMAGE = _env("FDAI_ENFORCE_BACKEND_IMAGE")
 VM_NAME = _env("FDAI_ENFORCE_VM")
 VM_ID = (
     f"/subscriptions/{SUB_ID}/resourceGroups/{RG}"
@@ -355,8 +359,8 @@ def _build_runs():
                 context=CTX,
                 namespace=NS,
                 deployment=BACKEND_DEPLOY,
-                container="web",
-                bad_image="nginx:does-not-exist-enforce-run",
+                container=BACKEND_CONTAINER,
+                bad_image=f"{BACKEND_IMAGE}:does-not-exist-enforce-run",
             ),
             KubeRolloutStallProbe(context=CTX, namespace=NS, selector=BACKEND_LABEL),
             [BACKEND_LABEL],

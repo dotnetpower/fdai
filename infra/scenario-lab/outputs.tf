@@ -26,11 +26,12 @@ output "enforce_environment" {
     aks_context           = azurerm_kubernetes_cluster.scenario_lab.name
     workload_namespace    = "fdai-sre-demo"
     chaos_namespace       = "chaos-mesh"
-    backend_deployment    = "api-backend"
-    backend_service       = "api-backend"
-    backend_label         = "app=api-backend"
-    backend_container     = "web"
+    backend_deployment    = "order-service"
+    backend_service       = "order-service"
+    backend_label         = "app=order-service"
+    backend_container     = "order-service"
     backend_replicas      = 3
+    backend_image         = "ghcr.io/azure-samples/aks-store-demo/order-service"
     vm_name               = azurerm_linux_virtual_machine.stress.name
     mysql_host            = azurerm_mysql_flexible_server.scenario_lab.fqdn
     mysql_user            = var.mysql_admin_login
