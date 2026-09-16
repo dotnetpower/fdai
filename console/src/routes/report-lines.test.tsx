@@ -64,6 +64,16 @@ describe("reporting-line projection", () => {
     expect(() => decodeReportingLineProjection(value)).toThrow(/unsupported value/);
   });
 
+  test("rejects authority-bearing graph and edge projections", () => {
+    const graph = projection();
+    graph.execution_authority = true;
+    expect(() => decodeReportingLineProjection(graph)).toThrow(/cannot grant/);
+
+    const edge = projection();
+    edge.items[0]!.approval_authority = true;
+    expect(() => decodeReportingLineProjection(edge)).toThrow(/cannot grant/);
+  });
+
   test("decodes requester-only contact consent without approval authority", () => {
     const requests = decodeReportLineContactRequests({
       items: [{
@@ -85,6 +95,23 @@ describe("reporting-line projection", () => {
       consentRevision: 0,
       routeSubjects: ["manager-a"],
     });
+  });
+
+  test("rejects an authority-bearing contact request", () => {
+    expect(() => decodeReportLineContactRequests({
+      items: [{
+        approval_id: "approval-1",
+        consent_id: "consent-1",
+        consent_revision: 0,
+        action_type: "ops.restart-service",
+        target_ref: "scope://service/example",
+        route_subjects: ["manager-a"],
+        expires_at: "2026-09-16T01:05:00Z",
+        approval_authority: true,
+        execution_authority: false,
+      }],
+      total: 1,
+    })).toThrow(/cannot grant/);
   });
 });
 

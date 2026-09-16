@@ -245,6 +245,8 @@ Organization documents and reporting relationships are sensitive identity data:
 
 - general event topics and logs carry stable references and digests, not names or document text;
 - a person can read edges where they are an endpoint, while Owners can review the bounded graph;
+- Console decoders reject any report-line or contact projection that claims approval or execution
+  authority;
 - source citations remain subject to the document access descriptor;
 - deployment policy owns retention duration and legal hold;
 - superseded edges remain audit evidence but are unavailable for routing;

@@ -69,6 +69,7 @@ const STATES: readonly ReportingLineState[] = [
 
 export function decodeReportingLineProjection(value: unknown): ReportingLineProjection {
   const root = panelRecord(value, "reporting lines");
+  requireNoAuthority(root, "reporting lines");
   const summary = panelRecord(root["summary"], "reporting lines.summary");
   return {
     graphRevision: panelNonEmptyString(root, "graph_revision", "reporting lines"),
@@ -98,6 +99,7 @@ export function decodeReportingLineProjection(value: unknown): ReportingLineProj
 
 export function decodeReportingLineCase(value: unknown): ReportingLineCase {
   const item = panelRecord(value, "reporting line");
+  requireNoAuthority(item, "reporting line");
   const state = panelNonEmptyString(item, "state", "reporting line");
   if (!STATES.includes(state as ReportingLineState)) {
     throw new Error(`reporting line.state has unsupported value ${state}`);
@@ -134,6 +136,7 @@ export function decodeReportLineContactRequests(
     "report-line contact requests.items",
   ).map((value, index) => {
     const item = panelRecord(value, `report-line contact requests.items[${index}]`);
+    requireNoAuthority(item, `report-line contact requests.items[${index}]`);
     return {
       approvalId: panelNonEmptyString(item, "approval_id", "report-line contact request"),
       consentId: panelNonEmptyString(item, "consent_id", "report-line contact request"),
@@ -158,4 +161,13 @@ export function decodeReportLineContactRequests(
       expiresAt: panelNonEmptyString(item, "expires_at", "report-line contact request"),
     };
   });
+}
+
+function requireNoAuthority(
+  value: Readonly<Record<string, unknown>>,
+  label: string,
+): void {
+  if (value["approval_authority"] !== false || value["execution_authority"] !== false) {
+    throw new Error(`${label} cannot grant approval or execution authority`);
+  }
 }

@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 18ed0cf47b0bf2a07b51bb9f25b8abeea42a7dc2
+translation_source_sha: 97483883b3be4d119e82dc6e3c71ff983ea36fcb
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -239,6 +239,8 @@ Operator Service는 사람을 인증하고 변환 결과를 렌더링하며 타�
   전달합니다.
 - 사람은 자신이 당사자인 edge를 읽을 수 있고 Owner는 범위가 제한된 그래프를 검토할 수
   있습니다.
+- Console decoder는 승인 권한이나 실행 권한을 주장하는 report-line 또는 연락 projection을
+  거부합니다.
 - 원본 인용에는 문서 접근 서술자를 계속 적용합니다.
 - 보존 기간과 법적 보존은 배포 정책이 소유합니다.
 - 대체된 edge는 감사 근거로 남지만 라우팅에는 사용할 수 없습니다.
