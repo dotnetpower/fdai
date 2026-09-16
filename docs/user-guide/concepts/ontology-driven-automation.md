@@ -49,7 +49,7 @@ what FDAI considered, and what effect an action produced.
 ![How the operating model fits together. The main stages are BusinessCapability, BusinessService, Workload, Resource, ServiceObjective, Ownership, Rule, ActionType.](../../diagrams/generated/fdai-ontology-driven-automation-01.en.svg)
 
 This model adds stable service and workload identity above replaceable cloud resources. It also
-keeps objectives, ownership, and the rule-to-`ActionType` remediation link explicit instead of
+keeps objectives, ownership, and the rule-to-`ActionType` fix link explicit instead of
 hiding them in untyped context bags. The diagram above stops at the `ActionType` a `Rule` may
 propose; the [full operating model](../../roadmap/architecture/operating-ontology.md) extends this
 same identity chain through immutable operational-context, decision-case, and response-outcome

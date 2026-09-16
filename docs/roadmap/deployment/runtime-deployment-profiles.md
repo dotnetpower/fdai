@@ -187,6 +187,12 @@ a dedicated `/tmp` temporary volume limited to `1Gi`. Workload validation reject
 and malformed image digests before planning. Other writable paths require an explicit workload
 contract; making the whole root filesystem writable is not a compatibility fallback.
 
+The five-service AKS baseline enables lexical document retrieval without requiring an embedding
+deployment. Document API and Worker use distinct workload identities, role-scoped database DSNs,
+the shared ADLS account and the `fdai.pipeline.stages` entity. The Worker Pod includes the existing
+digest-pinned ClamAV image as a replica-local TCP sidecar. Its root remains read-only and only the
+declared database, run and temporary paths receive size-limited `emptyDir` volumes.
+
 Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active
 deadline, a retry limit, and bounded history. Manual jobs are created only by a separately approved
 request and are not perpetual desired-state resources.

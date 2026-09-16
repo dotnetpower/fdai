@@ -1,4 +1,4 @@
-# Handover operational evidence preparation
+# Ownership handover operational evidence preparation
 
 This scrubbed engineering record tracks local preparation in #1043 for the remaining human and
 operational work in #458. It preserves completed source/UI delivery and records unavailable

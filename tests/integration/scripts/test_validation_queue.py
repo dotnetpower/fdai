@@ -58,10 +58,10 @@ def test_validation_environment_puts_the_queue_toolchain_on_path(git_repo: Path)
     environment = validation_environment(paths)
 
     entries = environment["PATH"].split(os.pathsep)
-    # A validator woken from a systemd unit inherits a PATH without `uv`, and verify.sh then
-    # reports the missing tool as a gate failure that the bisector blames on a commit.
-    assert entries[-1] == str(paths.state_root / "venv" / "bin")
-    assert entries[0] != str(paths.state_root / "venv" / "bin")
+    # Every gate must resolve Python and repository tools from the synchronized queue environment.
+    queue_bin = str(paths.state_root / "venv" / "bin")
+    assert entries[0] == queue_bin
+    assert entries.count(queue_bin) == 1
 
 
 def test_background_validation_clamps_inherited_worker_override(
