@@ -207,8 +207,7 @@ inclusive and maps to the next UTC midnight as the exclusive API boundary.
 
 ## Loading presentation
 
-The [Console loading presentation reference](../../reference/console-loading-presentation.md)
-defines skeleton, reduced-motion, stylesheet, and hot-update behavior.
+The [Console loading presentation reference](../../reference/console-loading-presentation.md) defines skeleton, reduced-motion, stylesheet, and hot-update behavior. Alert quality opens the only exact scope returned for the signed-in principal without requiring a redundant URL selector; zero scopes render configuration guidance and start no report read, while two or more scopes require an explicit operator choice. A ready report presents the authority boundary, scope context, four separate evidence values, and findings before provenance, request controls, Settings, plans, and history. Missing, measured zero, partial, and unavailable values remain distinct, and the Console never substitutes synthetic evidence.
 
 ## Localization boundary
 

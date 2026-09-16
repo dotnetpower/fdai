@@ -511,18 +511,18 @@ Change history stays in resource evidence views. Local checks prove mechanics, n
 
 ## Console shape
 
-The current `Operations` navigation group remains the single product surface. Add or refine these
-views without creating another shell:
+The current `Operations` navigation group remains the single product surface. Add or refine these views without creating another shell:
 
 - **Tasks:** Federated attention list over source-specific projections.
 - **Approvals:** Existing approval queue with quorum, deadline, evidence, and decision controls.
 - **Investigations:** Existing bounded read-investigation requests and outcomes.
-- **Operational detail:** Source timeline, evidence, owner agent, freshness, and available domain
-  operations.
+- **Operational detail:** Source timeline, evidence, owner agent, freshness, and available domain operations.
+- **Onboarding readiness:** Use a route-owned skeleton whose four summary cells and two evidence sections preserve final geometry.
+  After loading, keep readiness, observed counts, request completion, owning links, named resources, a semantic role table, and source disclosure in that hierarchy.
+  Only configured results label gaps `Missing`; absent or failed probes show the repository baseline as `Required` with unavailable counts.
+  Keep `Sample` explicitly synthetic, retain canonical tokens, and offer `Retry loading` without claiming tenant readiness.
 
-Server state determines which operations are available. The browser may hide unavailable controls
-for usability, but every submission repeats authorization and revision checks. SSE can invalidate
-affected source references so the client refetches authoritative state.
+Server state determines available operations. The browser may hide unavailable controls for usability, but every submission repeats authorization and revision checks. SSE can invalidate affected source references so the client refetches authoritative state.
 
 An SSE invalidation frame contains `event_id`, `source_family`, opaque `source_id`,
 `source_revision`, and `as_of`, never records, operations, or identity details. The server closes the

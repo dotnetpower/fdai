@@ -36,12 +36,16 @@ export type AlertQualityScopeSelection =
   | { readonly status: "missing" | "invalid" | "unauthorized" }
   | { readonly status: "selected"; readonly scope: string };
 
-/** A URL is a selector, not authority. Even a valid explicit scope must occur in discovery. */
+/** A URL is a selector, not authority; one discovered scope is unambiguous and may open directly. */
 export function selectAlertQualityScope(
   search: URLSearchParams, scopes: AlertQualityScopes,
 ): AlertQualityScopeSelection {
   const values = search.getAll("scope_ref");
-  if (values.length === 0) return { status: "missing" };
+  if (values.length === 0) {
+    return scopes.scope_refs.length === 1
+      ? { status: "selected", scope: scopes.scope_refs[0]! }
+      : { status: "missing" };
+  }
   if (values.length !== 1 || !isAlertQualityRef(values[0])) return { status: "invalid" };
   return scopes.scope_refs.includes(values[0])
     ? { status: "selected", scope: values[0] } : { status: "unauthorized" };

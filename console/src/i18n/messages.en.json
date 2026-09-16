@@ -1074,9 +1074,11 @@
     }
   },
   "onboardingView": {
+    "title": "Onboarding readiness",
     "resourceLabel": "onboarding readiness",
     "refresh": "Refresh",
     "refreshing": "Refreshing...",
+    "retry": "Retry loading",
     "viewPurpose": "Check whether required runtime resources and executor role assignments are present before FDAI can operate.",
     "headlineUnavailable": "Onboarding readiness is unavailable",
     "headlineReady": "Onboarding prerequisites are ready",
@@ -1089,7 +1091,15 @@
     "resourcesObserved": "Resources observed",
     "rolesObserved": "Roles observed",
     "lastChecked": "Last checked",
+    "summaryLabel": "Onboarding readiness summary",
+    "resourceGapCount": "{count} resource gap(s)",
+    "roleGapCount": "{count} role gap(s)",
+    "requiredResourceCount": "{count} baseline resource requirement(s)",
+    "requiredRoleCount": "{count} baseline role requirement(s)",
+    "requestCompleted": "Console request completion time",
+    "noObservation": "No authoritative observation",
     "drilldowns": "Onboarding drilldowns",
+    "resolveInOwningSurface": "Resolve in the owning surface",
     "openProvisioning": "Open provisioning",
     "reviewAccess": "Review access requests",
     "inspectArchitecture": "Inspect architecture",
@@ -1100,6 +1110,60 @@
     "principal": "Principal",
     "role": "Role",
     "target": "Target",
+    "status": "Status",
+    "missing": "Missing",
+    "required": "Required",
+    "missingRoleCaption": "Role assignments missing from the latest onboarding readiness observation",
+    "requiredRoleCaption": "Role assignments required by the onboarding baseline",
+    "sourceDetails": "Onboarding evidence source",
+    "sourceSample": "Synthetic",
+    "sourceObserved": "Observed",
+    "sourceBaseline": "Baseline",
+    "sourceSampleDescription": "Sample mode uses deterministic fixtures. It runs no probe and grants no access.",
+    "sourceObservedDescription": "Values come from the configured Operator API onboarding probe. Readiness evidence grants no access or execution authority.",
+    "sourceBaselineDescription": "The repository baseline is shown because no authoritative tenant observation is available. It does not prove that resources or roles are missing.",
+    "resourceRequirement": "Canonical onboarding resource requirement",
+    "resources": {
+      "executor_identity": {
+        "label": "Executor identity",
+        "description": "User-assigned managed identity"
+      },
+      "runtime": {
+        "label": "Control plane runtime",
+        "description": "Container Apps runtime for the core engine"
+      },
+      "container_registry": {
+        "label": "Container registry",
+        "description": "Registry for control plane images"
+      },
+      "state_store": {
+        "label": "Audit state store",
+        "description": "PostgreSQL for audit and operational state"
+      },
+      "event_bus": {
+        "label": "Event transport",
+        "description": "Event Hubs namespace with a Kafka endpoint"
+      },
+      "secret_store": {
+        "label": "Secret store",
+        "description": "Key Vault-backed secret references"
+      },
+      "observability_logs": {
+        "label": "Observability logs",
+        "description": "Log Analytics workspace"
+      },
+      "observability_apm": {
+        "label": "Application telemetry",
+        "description": "Application Insights workspace binding"
+      }
+    },
+    "principals": {
+      "executor": "Executor identity"
+    },
+    "roles": {
+      "event_bus_data_owner": "Event bus data owner",
+      "secret_reader": "Secret reader"
+    },
     "none": "None"
   },
   "conversationSearch": {

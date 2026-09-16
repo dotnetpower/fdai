@@ -61,4 +61,16 @@ describe("onboarding response", () => {
     expect(() => decodeOnboarding({ ...payload, present_role_count: 1.5 }))
       .toThrow(/non-negative integer/);
   });
+
+  it("requires configured readiness to agree with the reported gaps", () => {
+    expect(() => decodeOnboarding({ ...payload, ready: true, blocked: false }))
+      .toThrow(/agree with the reported gaps/);
+    expect(() => decodeOnboarding({
+      ...payload,
+      ready: false,
+      blocked: true,
+      missing_resources: [],
+      missing_role_assignments: [],
+    })).toThrow(/agree with the reported gaps/);
+  });
 });
