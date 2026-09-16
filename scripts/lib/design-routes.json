@@ -351,6 +351,7 @@
         "console/src/api.ts",
         "console/src/console-data-mode.ts",
         "console/src/i18n/messages.*.json",
+        "console/src/i18n/catalog-usage.test.ts",
         "console/src/panel-sources*",
         "console/src/panels*",
         "console/src/router.ts",
