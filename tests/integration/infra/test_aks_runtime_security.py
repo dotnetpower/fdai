@@ -88,6 +88,28 @@ def test_aks_baseline_uses_api_server_vnet_integration() -> None:
     assert "explicit authorized CIDRs, Entra RBAC, disabled local accounts" in cluster
 
 
+def test_aks_container_insights_has_dcr_and_cluster_association() -> None:
+    cluster = (ROOT / "infra/runtimes/aks/cluster/main.tf").read_text(encoding="utf-8")
+
+    assert 'substr("MSCI-${var.location}-${local.name}", 0, 64)' in cluster
+    assert 'resource "azurerm_monitor_data_collection_rule" "container_insights"' in cluster
+    assert "workspace_resource_id = var.log_analytics_workspace_id" in cluster
+    assert cluster.count('streams        = ["Microsoft-ContainerInsights-Group-Default"]') == 1
+    assert cluster.count('streams      = ["Microsoft-ContainerInsights-Group-Default"]') == 1
+    assert 'extension_name = "ContainerInsights"' in cluster
+    assert re.search(r"(?m)^\s*enableContainerLogV2\s*=\s*true\s*$", cluster)
+    assert (
+        'resource "azurerm_monitor_data_collection_rule_association" "container_insights"'
+        in cluster
+    )
+    assert 'name                    = "ContainerInsightsExtension"' in cluster
+    assert "target_resource_id      = azurerm_kubernetes_cluster.runtime.id" in cluster
+    assert (
+        "data_collection_rule_id = azurerm_monitor_data_collection_rule.container_insights.id"
+        in cluster
+    )
+
+
 def test_aks_document_workloads_have_dedicated_substrate_roles() -> None:
     root = (ROOT / "infra/main.tf").read_text(encoding="utf-8")
     outputs = (ROOT / "infra/outputs.tf").read_text(encoding="utf-8")

@@ -1,5 +1,9 @@
 locals {
   name = "aks-${var.workload}-${var.environment}-${var.region_short}"
+  container_insights_dcr_name = trimsuffix(
+    substr("MSCI-${var.location}-${local.name}", 0, 64),
+    "-",
+  )
   tags = merge(var.tags, {
     "fdai:managed"   = "true"
     "fdai:component" = "aks-runtime"
@@ -144,6 +148,49 @@ resource "azurerm_kubernetes_cluster" "runtime" {
     azurerm_nat_gateway_public_ip_association.egress,
     azurerm_subnet_nat_gateway_association.egress,
   ]
+}
+
+resource "azurerm_monitor_data_collection_rule" "container_insights" {
+  name                = local.container_insights_dcr_name
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  description         = "Collect AKS Container Insights logs and inventory."
+  tags                = local.tags
+
+  destinations {
+    log_analytics {
+      name                  = "ciworkspace"
+      workspace_resource_id = var.log_analytics_workspace_id
+    }
+  }
+
+  data_flow {
+    streams      = ["Microsoft-ContainerInsights-Group-Default"]
+    destinations = ["ciworkspace"]
+  }
+
+  data_sources {
+    extension {
+      name           = "ContainerInsightsExtension"
+      extension_name = "ContainerInsights"
+      streams        = ["Microsoft-ContainerInsights-Group-Default"]
+      extension_json = jsonencode({
+        dataCollectionSettings = {
+          interval               = "1m"
+          namespaceFilteringMode = "Off"
+          namespaces             = []
+          enableContainerLogV2   = true
+        }
+      })
+    }
+  }
+}
+
+resource "azurerm_monitor_data_collection_rule_association" "container_insights" {
+  name                    = "ContainerInsightsExtension"
+  target_resource_id      = azurerm_kubernetes_cluster.runtime.id
+  data_collection_rule_id = azurerm_monitor_data_collection_rule.container_insights.id
+  description             = "Associate the Container Insights collection rule with the AKS cluster."
 }
 
 resource "azurerm_kubernetes_cluster_node_pool" "user" {

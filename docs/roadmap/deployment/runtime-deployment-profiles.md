@@ -182,6 +182,11 @@ AKS renderer maps it to typed Kubernetes `Deployment`, `Service`, `ServiceAccoun
 first AKS implementation keeps two replicas for each long-running service and does not require
 Knative or KEDA.
 
+Console publication uses a browser gateway base URL when the selected Terraform profile exposes
+one. Otherwise, it retains the existing Container Apps service FQDN lookup. The publisher passes
+the selected HTTPS base URL to the same Console build contract; runtime selection does not add a
+browser-side route rewrite or change Operator API paths.
+
 Operator assignment and human-approval (HIL) transport imports share the existing `iam_composition`
 facade within the same Operator Service package and runtime; original adapter and factory objects
 are re-exported without wrappers. This grouping changes no topology, workload identity, readiness
@@ -293,6 +298,13 @@ SKUs are serialized, then checks their regional restrictions, three required zon
 host encryption, and family plus total quota. It does not issue a second catalog request for a
 different node-pool SKU or retry a failed provider read. Unsupported targets do not disable
 encryption. Allocatable workload-envelope validation remains open in the implementation ledger.
+
+Container Insights uses the managed-identity `oms_agent` addon together with a Terraform-owned
+Data Collection Rule (DCR) and cluster association. The rule sends the
+`Microsoft-ContainerInsights-Group-Default` stream to the selected Log Analytics workspace every
+minute with `ContainerLogV2` enabled. A running agent Pod without that association is not monitoring
+readiness: metrics and log sources remain unavailable until the DCR is present and workspace tables
+receive current records.
 
 The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
 ephemeral storage. Checkov exceptions stay attached to the affected resource: the pinned scanner

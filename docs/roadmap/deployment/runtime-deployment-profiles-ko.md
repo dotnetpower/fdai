@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 7e7199e5d66029be9cef1a5e99fac1e0b9ec86f3
+translation_source_sha: 1f6a76117404816bead1a943ef8c89ad59c187de
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -179,6 +179,11 @@ Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 �
 `PodDisruptionBudget`, `NetworkPolicy`, `CronJob` 리소스로 변환합니다. 첫 AKS 구현은 장기 실행
 서비스마다 두 개의 replica를 유지하며 Knative 또는 KEDA를 요구하지 않습니다.
 
+Console 게시는 선택한 Terraform 프로필에 브라우저 gateway 기준 URL 출력이 있으면 해당 URL을
+사용합니다. 출력이 없으면 기존 Container Apps 서비스 FQDN 조회를 유지합니다. 게시기는 선택한
+HTTPS 기준 URL을 동일한 Console 빌드 계약에 전달합니다. 런타임 선택으로 브라우저 경로를 다시
+작성하거나 Operator API 경로를 변경하지 않습니다.
+
 Operator의 배정 알림과 사람 승인(HIL) 전송에 필요한 가져오기는 같은 Operator Service
 패키지와 런타임 안의 기존 `iam_composition` 모듈에 모읍니다. 원래 어댑터와 팩터리 객체를
 래퍼 없이 다시 내보낼 뿐이며 어느 렌더러에서도 토폴로지, 워크로드 신원, 준비 상태 동작,
@@ -286,6 +291,13 @@ API Server VNet Integration을 활성화하고, 나중에 클러스터를 교체
 quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로그 요청을 보내거나 실패한
 프로바이더 읽기를 재시도하지 않습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
 할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다.
+
+Container Insights는 Managed Identity를 사용하는 `oms_agent` 추가 기능과 Terraform이 소유하는
+데이터 수집 규칙(DCR) 및 클러스터 연결을 함께 사용합니다. 이 규칙은
+`Microsoft-ContainerInsights-Group-Default` 스트림을 1분마다 선택한 Log Analytics workspace로
+보내고 `ContainerLogV2`를 활성화합니다. 실행 중인 agent Pod에 이 연결이 없으면 모니터링 준비
+상태가 아닙니다. DCR이 존재하고 workspace 테이블에 현재 레코드가 수집될 때까지 메트릭 및 로그
+소스는 사용 불가 상태로 유지됩니다.
 
 로컬 디스크가 없는 기본 SKU는 임시 저장소 대신 플랫폼에서 암호화하는 Managed OS 디스크를
 유지합니다. Checkov 예외는 해당 리소스에만 둡니다. 고정된 검사기 버전은 AzureRM의 이전 업그레이드
