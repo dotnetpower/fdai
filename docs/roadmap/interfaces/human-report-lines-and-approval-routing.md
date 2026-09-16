@@ -306,8 +306,9 @@ Rollout proceeds in four stages:
 3. compare report-line routes with existing approval routes in shadow mode;
 4. promote explicitly selected ActionTypes and scopes after measured evidence.
 
-Focused verification covers malformed escalation context, changed path evidence, current role and
-scope policy, and approval by a later eligible rung after non-response advancement.
+Focused verification covers no-eligible-ancestor refusal, malformed escalation context, changed
+path evidence, current role and scope policy, and approval by a later eligible rung after
+non-response advancement.
 
 Any unauthorized route, stale-edge use, identity mismatch, consent bypass, or self-approval
 demotes the capability to shadow mode and holds affected actions.

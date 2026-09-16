@@ -358,7 +358,7 @@ class _ReportLineGraphs:
 
 class _ReportLineEligibility:
     def __init__(self, eligible: set[str] | None = None) -> None:
-        self.eligible = eligible or {_APPROVER}
+        self.eligible = {_APPROVER} if eligible is None else eligible
 
     async def is_eligible(
         self,
@@ -492,6 +492,30 @@ async def test_report_line_route_waits_for_requester_contact_consent() -> None:
     assert parked is not None and parked["status"] == "pending"
     assert parked["report_line_route"]["graph_revision"] == "a" * 64
     assert len(parked["report_line_route"]["path_revision"]) == 64
+
+
+async def test_report_line_request_fails_closed_without_eligible_ancestor() -> None:
+    coordinator, publisher, store, channel = _coordinator(
+        with_escalation=True,
+        report_line_router=_report_line_router(eligible=set()),
+    )
+
+    result = await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-no-eligible-ancestor",
+        approval_id="report-line-no-eligible-ancestor",
+    )
+
+    assert result.outcome is RequestOutcome.REPORT_LINE_ROUTE_UNAVAILABLE
+    assert await store.read_state("hil_park:report-line-no-eligible-ancestor") is None
+    assert channel.sent == []
+    assert publisher.records == ()
+    assert any(
+        item["entry"].get("action_kind") == "hil.report_line.route_unavailable"
+        for item in store.audit_entries
+    )
 
 
 async def test_report_line_contact_decline_is_terminal_noop() -> None:

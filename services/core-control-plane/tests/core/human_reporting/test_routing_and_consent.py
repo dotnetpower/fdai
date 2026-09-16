@@ -102,6 +102,26 @@ def test_policy_rejects_unsupported_quorum(quorum: int) -> None:
         )
 
 
+async def test_router_refuses_when_no_ancestor_is_eligible() -> None:
+    router = ReportLineApprovalRouter(
+        graphs=Graphs(),
+        eligibility=Eligibility(set()),
+        policy=ReportLineRoutingPolicy(
+            action_types=frozenset({"ops.restart-service"}),
+            quorum_by_action={"ops.restart-service": 1},
+        ),
+    )
+
+    with pytest.raises(ReportLineRouteUnavailableError, match="cannot satisfy"):
+        await router.plan(
+            requester_ref="person-a",
+            action_type="ops.restart-service",
+            scope_ref="scope://service/example",
+            minimum_role="Approver",
+            at=NOW,
+        )
+
+
 async def test_router_converts_depth_overflow_to_route_unavailable() -> None:
     router = ReportLineApprovalRouter(
         graphs=Graphs(),

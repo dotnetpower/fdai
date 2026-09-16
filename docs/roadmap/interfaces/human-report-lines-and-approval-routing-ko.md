@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 076b0d18f3b26bad6900d24c1d1dd46da5a6c893
+translation_source_sha: 1306a6917ee6b7eba37973885436baab42cb53e5
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -300,8 +300,8 @@ Operator Service는 사람을 인증하고 변환 결과를 렌더링하며 타�
 3. Report-line 경로와 기존 승인 경로를 shadow 모드에서 비교합니다.
 4. 측정 근거를 확보한 후 명시적으로 선택한 ActionType과 범위를 승격합니다.
 
-집중 검증은 잘못된 에스컬레이션 컨텍스트, 변경된 경로 근거, 현재 역할과 범위 정책, 무응답
-에스컬레이션 후 다음 적격 rung의 승인을 포함합니다.
+집중 검증은 적격 상위자가 없을 때의 거부, 잘못된 에스컬레이션 컨텍스트, 변경된 경로 근거,
+현재 역할과 범위 정책, 무응답 에스컬레이션 후 다음 적격 rung의 승인을 포함합니다.
 
 권한이 없는 경로, 오래된 edge 사용, 신원 불일치, 동의 우회 또는 자기 승인이 발견되면 기능을
 shadow 모드로 내리고 영향을 받는 작업을 보류합니다.
