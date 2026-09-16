@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: feea91c9af66d216cf44ebc3301f09f583071ecf
+translation_source_sha: 7e7199e5d66029be9cef1a5e99fac1e0b9ec86f3
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -198,6 +198,10 @@ replica-local TCP sidecar로 포함합니다. 루트는 읽기 전용으로 유�
 예약 작업은 `concurrencyPolicy=Forbid`, 완료 수 1, 병렬 작업자 1, 제한된 active deadline, 재시도
 한도, 제한된 이력을 사용합니다. 수동 작업은 별도로 승인된 요청으로만 만들며 영구 desired-state
 리소스로 두지 않습니다.
+AKS 기본 구성은 analyzer, canary, inventory, observation campaign, operational-history lifecycle
+CronJob을 렌더링합니다. 이력 작업은 읽기 전용 inventory 신원, 서비스 소유 상태 DSN, 비공개
+archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle은 별도의 보호된 전환과
+정확히 저장된 인증 증적을 요구하며 런타임 선택은 어느 권한도 부여하지 않습니다.
 
 인벤토리 명령과 CLI 지원 모듈은 두 플랫폼과 로컬 관리 스택에서 동일한 읽기 전용 실패 경계를 유지합니다.
 Activity Log 복구 가속은 전체 조정과 독립적입니다. 세대 승격 전후에 가속기가 실패하면

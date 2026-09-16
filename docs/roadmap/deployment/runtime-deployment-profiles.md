@@ -201,6 +201,10 @@ declared database, run and temporary paths receive size-limited `emptyDir` volum
 Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active
 deadline, a retry limit, and bounded history. Manual jobs are created only by a separately approved
 request and are not perpetual desired-state resources.
+The AKS baseline renders analyzer, canary, inventory, observation campaign, and operational-history
+lifecycle CronJobs. The history job uses the read-only inventory identity, the service-owned state
+DSN, and the private archive URL in fixed `shadow` mode. A non-shadow lifecycle requires a separate
+protected transition and an exact persisted certification receipt; runtime selection grants neither.
 
 The inventory command and its CLI support module preserve read-only failure boundaries on both
 platforms and in the local managed stack. Activity Log recovery is independent of full reconciliation:

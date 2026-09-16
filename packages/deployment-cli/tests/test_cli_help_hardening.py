@@ -152,6 +152,7 @@ def test_leaf_handler_defaults_and_typed_arguments_are_preserved(tmp_path):
     assert args.monthly_cost_ceiling == 1000
     assert args.timeout_seconds == 14400
     assert args.foundation_workload == "fdai"
+    assert args.runtime == "aks"
     assert args.progress == "plain"
     assert args.output == "json"
 
