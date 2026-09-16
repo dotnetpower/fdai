@@ -136,13 +136,18 @@ output "postgres_database" {
 }
 
 output "application_vnet_id" {
-  description = "Application VNet id for a separately stateful AKS runtime."
-  value       = var.enable_private_networking ? module.network[0].vnet_id : null
+  description = "Application VNet id for AKS or detailed private networking."
+  value       = var.enable_private_networking || var.compute_kind == "aks" ? module.network[0].vnet_id : null
 }
 
 output "aks_subnet_id" {
-  description = "AKS node subnet id, or null unless the private AKS runtime is selected."
-  value       = var.enable_private_networking && var.compute_kind == "aks" ? module.network[0].aks_subnet_id : null
+  description = "AKS node subnet id, or null unless the AKS runtime is selected."
+  value       = var.compute_kind == "aks" ? module.network[0].aks_subnet_id : null
+}
+
+output "aks_api_server_subnet_id" {
+  description = "AKS API Server VNet Integration subnet id, or null unless the AKS runtime is selected."
+  value       = var.compute_kind == "aks" ? module.network[0].aks_api_server_subnet_id : null
 }
 
 output "container_registry_id" {

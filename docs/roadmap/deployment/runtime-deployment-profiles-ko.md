@@ -1,13 +1,14 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 0333e2b30bc02bbf9fde15de842720b42b695c6c
+translation_source_sha: 1b66f1b51ec25625a557fb9a063ea6a77d205109
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
 
-이 문서는 신규 FDAI 설치에서 애플리케이션 동작이나 배포 권한을 바꾸지 않고 Azure
-Container Apps 또는 Azure Kubernetes Service(AKS)를 선택하는 방법을 정의합니다. 이 선택은
-서명된 `fdaictl` 프로비저닝 프로파일과 모든 정확한 Terraform 플랜에 포함됩니다.
+이 문서는 애플리케이션 동작이나 배포 권한을 바꾸지 않으면서 신규 FDAI 설치의 기본 런타임을
+Azure Kubernetes Service(AKS)로 정의합니다. Azure Container Apps는 기존 설치를 위한 호환
+프로파일로 계속 지원합니다. 이 선택은 서명된 `fdaictl` 프로비저닝 프로파일과 모든 정확한
+Terraform 플랜에 포함됩니다.
 
 > **범위:** 이 계약은 신규 설치를 다룹니다. 기존 설치를 다른 런타임 플랫폼으로 옮기려면
 > 별도의 마이그레이션 설계가 필요하며, 프로파일 업데이트만으로 자동 전환되지 않습니다.
@@ -32,7 +33,7 @@ facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권�
 
 | 축 | 지원 값 | 기본값 | 의미 |
 |----|---------|--------|------|
-| 런타임 플랫폼 | `container-apps`, `aks` | `container-apps` | FDAI 서비스와 예약 작업을 호스팅합니다. |
+| 런타임 플랫폼 | `aks`, `container-apps` | `aks` | FDAI 서비스와 예약 작업을 호스팅합니다. Container Apps는 신규 계획에서 호환 용도로만 사용합니다. |
 | 데이터베이스 배치 | `postgres-flex`, `postgres-aks` | `postgres-flex` | Azure Database for PostgreSQL Flexible Server 또는 AKS 내부 PostgreSQL 클러스터를 사용합니다. |
 
 `postgres-aks`는 `runtime_platform=aks`일 때만 사용할 수 있습니다. 클러스터 내부 프로파일이
@@ -41,18 +42,17 @@ facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권�
 
 ## 운영자 계약
 
-공개 명령은 online 설치와 산출물 offline 설치에서 두 선택을 명시적으로 받습니다.
+공개 명령은 online 설치와 산출물 offline 설치에서 두 선택을 명시적으로 받습니다. 신규 설치에서
+런타임을 생략하면 AKS를 선택합니다.
 
 ```bash
 fdaictl provision azure --online \
-  --runtime container-apps \
   --database postgres-flex
 
 fdaictl provision azure --online \
-  --runtime aks \
+  --runtime container-apps \
   --database postgres-flex \
-  --system-nodes 3 \
-  --user-nodes 3
+  --existing-installation
 
 fdaictl provision azure \
   --offline-kit /media/fdai/fdai-deployment-kit.tar.gz \
@@ -94,9 +94,16 @@ $$
 이미지를 만들거나 요구하지 않습니다. 초기 구성 산출물을 내려받을 수 없는 아티팩트 오프라인
 배포는 별도로 검증된 사전 준비 호스트 이미지를 선택할 수 있습니다.
 
+테넌트 프로비저닝은 미리 빌드된 서비스 및 의존성 이미지만 사용합니다. AKS에서 이미지를 사용할
+수 있게 만들기 전에 서명, 출처, 소스 버전, 플랫폼 및 digest를 검증합니다. Docker, Buildx,
+ACR Tasks, 원격 builder 또는 VM 이미지 캡처를 실행하지 않습니다. release 생성은 업스트림
+공급망의 작업이며 테넌트 실행 안에서 다시 빌드하는 방식으로 복구하지 않습니다.
+
 Foundation의 선택 입력 `application_workload`는 AKS 프로파일을 바꾸지 않고 새 애플리케이션
 그룹 이름을 운영 리소스 이름과 분리합니다. 기존 그룹의 소유권을 부여하지는 않으며, 부분 상태
 복구는 [애플리케이션 그룹 충돌 계약](installable-deployment-cli-ko.md#애플리케이션-그룹-충돌-복구)을 따릅니다.
+애플리케이션 단계는 정확한 Foundation 인계 리소스 그룹 이름에서 공유 Terraform 워크로드
+토큰을 가져오며, 환경, 리전 또는 워크로드 문법이 다르면 계획 전에 차단합니다.
 별도 입력 `operations_public_ip_tags`는 관측된 정확한 Foundation Bastion/NAT 정책 태그만
 유지하며, AKS 노드 설정을 바꾸거나 수명주기 차이를 무시하는 예외를 부여하지 않습니다.
 
@@ -129,12 +136,20 @@ DB, 네트워크, 레지스트리, 저장소, 모니터링, 메시지, 모델, �
 공유 플랫폼은 Event Hubs, Key Vault, Azure Container Registry, 모니터링, 워크로드 신원,
 `postgres-flex`를 계속 소유합니다. AKS 기반 상태는 클러스터, 노드 풀, 클러스터 신원, 네트워크
 연결, 클러스터 범위 Azure 역할 할당만 소유합니다.
+AKS를 선택하면 상세 비공개 네트워킹이 꺼져 있어도 애플리케이션 VNet, 노드 서브넷 및 API 서버
+서브넷을 만듭니다. 별도의 비공개 네트워킹 입력은 AKS 서브넷 선행 조건이 아니라 서비스 비공개
+엔드포인트, 허브 피어링 및 비공개 DNS를 제어합니다.
 기본적으로 비활성화되는 개발 환경 알림 과다 수신 파일럿은 어느 런타임을 선택하더라도 공유
 플랫폼 선행 조건으로 유지됩니다. 정확한 대상에는 전용 Action Group 하나와 메트릭 경보 하나만
 포함됩니다. 런타임 선택은 파일럿 승인, 알림 발송 권한 또는 승격을 부여하지 않습니다.
-독립적인 Azure 컨트롤 플레인 확인에서 비공개 클러스터가 `Succeeded` 상태에 도달한 것을 증명한
-뒤 Kubernetes 리소스를 적용합니다. 워크로드
-상태는 승인된 클러스터의 OIDC 발급자를 읽고 managed 배포 호스트의 비공개 kubeconfig를 사용합니다.
+독립적인 Azure 컨트롤 플레인 확인에서 클러스터가 `Succeeded` 상태이고 API Server VNet
+Integration이 활성화되어 있으며 검토한 관리 경로로 접근할 수 있음을 증명한 뒤 Kubernetes
+리소스를 적용합니다. 기본 배포는 외부 조정기가 기본 구성을 완료할 수 있도록 인증된 공개 API
+접근을 처음에 유지합니다. 워크로드 상태는 승인된 클러스터의 OIDC 발급자를 읽고 배포 호스트의
+소유자 전용 kubeconfig를 사용합니다.
+이 공개 기본 구성에 대한 Terraform 스캐너 예외들은 해당 리소스에만 적용하며, 명시적 CIDR 허용
+목록, Microsoft Entra RBAC, 비활성화된 로컬 계정 및 VNet Integration 통제를 함께 명시합니다.
+다른 AKS 발견 사항을 숨기거나 이후 비공개 전환을 인증하지 않습니다.
 DB 및 애플리케이션 준비는 모두 소유자 전용 kubeconfig를 [`kubelogin` 관리 ID 인증](https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication)으로 변환하며
 `--login msi`와 정확한 관리 호스트 client ID를 지정합니다. 자격 증명 조회는 구독을 고정하고
 관리자 자격 증명을 요청하지 않습니다. 로컬 `kubectl config view --minify` 재조회는 exec만
@@ -236,12 +251,18 @@ Kubernetes 공급자와 서명된 `kubectl`, `kubelogin` 바이너리가 포함�
 
 ### 클러스터 보안 기준
 
-공유 플랫폼은 기존 AKS 서브넷을 제공합니다. 클러스터 상태는 명시적인 Standard NAT Gateway,
-고정 Standard 송신 공용 IP와 두 연결을 소유하고 AKS를 만들기 전에 연결을 완료합니다. 송신
-유형은 AKS 관리형 VNet 전용 `managedNATGateway`가 아니라 `userAssignedNATGateway`입니다.
-비공개 API 엔드포인트는 그대로 비공개로 유지됩니다. 이는 연결된 개발 환경의 송신 프로파일이며,
-NAT의 영역 중복이나 방화벽/UDR 경로가 필요한 정책과의 호환성을 뜻하지 않습니다. 그런 대상은
-별도의 송신 계약을 선택하고 검증할 때까지 차단 대상으로 남습니다.
+공유 플랫폼은 AKS 워크로드 및 API 서버 전용 서브넷을 제공합니다. 기본 배포는 클러스터 생성 때
+API Server VNet Integration을 활성화하고, 나중에 클러스터를 교체하지 않고 비공개 클러스터
+모드를 활성화할 수 있도록 최소 `/28`의 위임된 API 서버 서브넷을 예약합니다. 클러스터 상태는
+명시적인 Standard NAT Gateway, 고정 Standard 송신 공용 IP와 두 연결을 소유하고 AKS를 만들기
+전에 연결을 완료합니다. 송신 유형은 AKS 관리형 VNet 전용 `managedNATGateway`가 아니라
+`userAssignedNATGateway`입니다.
+
+기본 프로파일은 인증된 공개 API 접근을 유지하고 검토된 접근 제한을 적용합니다. API 서버와 노드
+사이 트래픽은 통합된 비공개 경로를 사용합니다. 이는 연결된 기본 구성일 뿐 비공개 클러스터,
+네트워크 격리, 영역 중복 NAT 또는 방화벽/UDR 호환성을 의미하지 않습니다. 구독 정책이 첫 효과부터
+비공개 접근을 요구하면 공개 기본 구성을 차단하고, 정책을 약화하는 대신 적합한 내부 실행 호스트와
+정확한 비공개 계획을 선택합니다.
 
 클러스터는 Azure Policy, patch 채널 Kubernetes 업그레이드, NodeImage OS 업그레이드를 활성화합니다.
 두 노드 풀 모두 호스트 암호화를 활성화하고 노드당 Pod 50개를 허용합니다. 배포 전에 선택한
@@ -256,6 +277,31 @@ quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로�
 유지합니다. Checkov 예외는 해당 리소스에만 둡니다. 고정된 검사기 버전은 AzureRM의 이전 업그레이드
 및 암호화 속성명을 읽고, 검증된 이미지 맵 항목을 해석하지 못합니다. 해당 보안 설정은 범위를
 좁힌 구성 및 플랜 테스트로 검증합니다. 전역 예외 기준이나 검사기 버전 하향은 사용하지 않습니다.
+
+### 상세 비공개 네트워크 프로비저닝
+
+인증된 Console과 모든 기본 서비스가 정상 상태가 되면 `/provisioning`에서 네트워크 강화 요청을
+만들 수 있습니다. 요청은 기존 VNet 또는 허브 피어링, 경로 및 방화벽 연결, 비공개 DNS 영역과
+링크, 비공개 엔드포인트, AKS 비공개 클러스터 모드, 레지스트리 캐시 또는 Private Link 변경,
+공개 접근 제거를 선택할 수 있습니다. Console은 정제된 의도, 계획 메타데이터, 승인 상태 및 효과
+근거만 저장합니다. Terraform과 Azure 변경은 보호된 배포 실행기가 담당합니다.
+
+정확한 계획은 접근 경로를 잃지 않도록 다음 순서로 변경합니다.
+
+1. 선택한 모든 주소 범위를 검증하고 피어, 서비스, Pod, Kubernetes 서비스 범위가 겹치지 않음을
+  증명합니다.
+2. 피어링, 경로, DNS를 구성한 뒤 실행 호스트에서 AKS API와 선택한 모든 서비스 엔드포인트를
+  확인하고 연결할 수 있는지 검증합니다.
+3. 비공개 엔드포인트와 레지스트리 경로를 만들고 워크로드 및 배포 신원을 검증한 뒤 새 경로를
+  통해 기본 상태 검사를 실행합니다.
+4. 비공개 관측이 통과한 뒤에만 AKS 비공개 클러스터 또는 네트워크 격리 설정을 활성화하고 공개
+  경로를 비활성화합니다.
+5. rollback과 독립적으로 관측한 최종 증적을 보존합니다. 효과가 불명확하면 검증만 수행하며 같은
+  적용을 다시 실행하지 않습니다.
+
+운영자의 현재 VM은 정확한 대상, 신원, 경로, DNS, TLS 및 백엔드 검사를 통과하면 실행 호스트로
+사용할 수 있습니다. 해당 VM의 VNet 피어링은 계획된 네트워크 효과이며 그 자체가 접근 근거는
+아닙니다.
 
 ## PostgreSQL 프로파일
 
@@ -292,12 +338,12 @@ anti-affinity, disruption budget, 백업 불변성, 특정 시점 복구, 노드
 
 ## 서명된 키트 요구 사항
 
-완전한 서명 키트에는 두 프로파일 중 어느 것을 선택해도 필요한 모든 입력이 포함됩니다.
+완전한 서명 키트에는 두 프로파일 중 어느 것을 선택해도 필요한 미리 빌드된 입력이 모두 포함됩니다.
 
 - **Terraform:** 모든 Terraform root와 lock 파일을 포함합니다.
 - **공급자:** AzureRM, Kubernetes, Random, TLS 공급자 mirror를 포함합니다.
 - **도구:** Terraform, OPA, `kubectl`, `kubelogin`, 범위가 제한된 배포 helper를 포함합니다.
-- **이미지:** digest로 고정된 FDAI 및 의존성 OCI archive를 포함합니다.
+- **이미지:** 테넌트 프로비저닝에서 다시 빌드하지 않는 서명되고 digest로 고정된 FDAI 및 의존성 OCI archive를 포함합니다.
 - **클러스터 통합:** managed AKS CSI 통합과 federated identity 입력을 포함합니다.
 - **지원 자료:** 마이그레이션 지원, Console 자산, 매니페스트, 서명, provenance, software bill of materials를 포함합니다.
 
@@ -317,6 +363,8 @@ online 모드와 산출물 offline 모드는 검증된 동일 byte를 실행합�
 7. 런타임 또는 데이터베이스 배치를 바꾸면 마이그레이션 필요 결과와 함께 중지됩니다.
 8. 서비스 롤아웃 실패 시 이전 정상 워크로드를 복구하고 배포 실패를 계속 보고합니다.
 9. 선택된 각 데이터베이스 배치에서 백업 및 특정 시점 복구가 성공합니다.
+10. 별도로 승인된 Console 발신 네트워크 계획이 클러스터를 교체하거나 마지막으로 검증된 관리
+  경로를 잃거나 브라우저가 Azure를 직접 변경하지 않고 비공개 접근을 활성화합니다.
 
 source와 공급자 테스트는 구현을 증명합니다. AKS 경로를 검증 완료로 분류하거나 프로덕션 준비 상태로
 안내하려면 실제 운영 증적이 필요합니다.

@@ -2,8 +2,8 @@
 name: azure-deploy-runner
 description: |
   FDAI deployment workflow for connected and artifact-offline Azure environments. Tenant
-  deployment runs from `az login` through the local standalone coordinator and a VNet-integrated
-  manual managed host, never GitHub Actions. Load before planning or running `fdaictl provision
+  deployment starts on an ordinary PC through the local standalone coordinator; use an eligible
+  internal host only for operations that require it, never GitHub Actions. Load before planning or running `fdaictl provision
   azure`, `fdai-up.sh`, Terraform apply, deployment appliance work, private endpoint recovery, or
   onboarding a new Azure target.
 version: 2.0.0
@@ -22,20 +22,79 @@ Both paths use `fdaictl provision azure` and the same exact-plan, approval, Mana
 recovery, and verification contracts. GitHub Actions may test source and publish release artifacts.
 It MUST NOT plan, apply, resume, or tear down a tenant deployment.
 
-## Private-Endpoint Constraint
+## Basic Deployment Before Detailed Provisioning
 
-A tenant policy can disable public access and key authentication for Key Vault and Storage. An
-operator workstation outside the virtual network then cannot:
+Follow the [two-stage contract](../../../docs/roadmap/deployment/provisioning-execution-profiles.md#basic-deployment-and-detailed-provisioning).
+An ordinary PC with a supported CLI environment can start basic deployment. Internal-VM location,
+VPN, IMDS, a PC-attached Managed Identity and a precreated deployment host are not universal startup
+prerequisites. Where private operations require another venue, the installer includes the minimum
+host/access/identity work in the reviewed basic plan; the user does not assemble a Foundation first.
 
-- write Key Vault secrets;
-- reach the private Terraform state backend;
-- complete private storage data-plane operations;
-- import images into a private registry.
+Basic deployment creates the AKS Standard baseline with API Server VNet Integration, the reserved
+API-server and workload subnet shape, the five baseline services, persistent state, required
+migrations, authenticated Console access and independent health evidence. Public AKS management
+access is the initial default so an ordinary external coordinator can complete the baseline; bind it
+to the reviewed access policy and never treat public access as anonymous or unrestricted access.
 
-The local workstation remains the human control surface. Private data-plane work runs on a
-Bastion-reachable managed host inside the target VNet under a dedicated user-assigned Managed
-Identity. This internal execution location is an implementation detail of the one-command flow, not
-an extra operator procedure.
+Model setup, managed-resource scope, optional connectors, organization-specific policy, private
+endpoints, VNet peering, private DNS links, private-cluster mode and additional capacity belong to
+later detailed provisioning. Do not block basic success on those unselected capabilities or treat
+basic health as whole-subscription readiness. Required tenant security policy, identity separation,
+exact approval, budget and state protection still apply. A policy that requires private access from
+the first effect cannot be deferred; use an eligible existing internal host or include the minimum
+access path in the exact basic plan. Missing optional capability configuration stays explicitly
+unavailable and never grants runtime authority. This is the target experience, not proof that the
+current CLI fully implements stage separation or supports every desktop operating system natively.
+
+## Detailed Private-Network Provisioning
+
+After baseline Console health is proven, `/provisioning` may collect a private-network intent and
+submit a governed provisioning request for:
+
+- hub or existing-VNet peering;
+- private endpoints for selected Azure services;
+- private DNS zones, links, forwarding and resolution checks;
+- AKS private-cluster mode and removal of public API access;
+- approved egress routing, firewall and network-isolation changes.
+
+The browser and Operator API never receive the deployment identity, Terraform state, provider
+payloads or private data-plane credentials. They create a content-addressed draft and exact-plan
+request. The protected deployment executor produces the plan, a distinct human approves it, and the
+executor applies it. Console reports read-only plan, approval, progress and independent effect
+evidence. It does not mutate Azure directly.
+
+Network hardening is ordered to preserve access: prove target CIDRs and non-overlap, establish
+peering and routes, establish DNS, verify the execution host and AKS API path, create and verify
+private endpoints, then disable the corresponding public access. A failed verification leaves the
+public path unchanged or executes the approved rollback. Do not strand the cluster by disabling the
+last verified management path.
+
+The coordinator can run on an ordinary PC outside Azure. Coordinator and execution host are roles,
+not necessarily separate machines. Follow
+[Existing host](../../../docs/roadmap/deployment/provisioning-execution-profiles.md#existing-host):
+prefer the operator's current eligible internal VM before provisioning another host. Do not infer
+external location from the words PC, workstation, local terminal, Windows, or WSL. Private endpoint
+reachability, the actual execution toolchain, deployment identity and state ownership determine
+eligibility. A suitable existing host can execute Terraform directly; Bastion and file transfer are
+needed only for a separately selected remote host. This does not permit fallback to an ineligible host.
+
+## Keep Deployment Moving
+
+- Reuse the operator's selected target, runtime, budget and approved unchanged scope. Do not ask the
+  same setup questions again; obtain new approval only where changed effects or the exact-plan
+  contract requires it. Initial preferences are not approval of unknown future plans.
+- Reuse verified infrastructure, suitable scoped deployment identities and completed artifacts.
+  Do not require a new Foundation VM or identity merely because the installer normally creates one.
+  Keep human and executor identities distinct and never select a system identity implicitly.
+- Treat Foundation handoff as context and authoritative-state continuity, not a mandatory transfer
+  to another machine. Preserve an already correct protected backend; do not create a second state
+  owner, move application data or repeat an apply to satisfy a missing installer record.
+- Report the exact failed requirement and its smallest repair. Distinguish DNS, routing, TLS,
+  authorization, tool compatibility and installer wiring. An internal VM is not automatically
+  eligible, but an installer gap is not evidence that Azure or Terraform cannot deploy there.
+- Keep repository delivery separate from tenant deployment. Honor a request to stop GitHub activity;
+  do not poll, push or open PRs as a substitute for local work. Preserve mandatory source eligibility
+  checks, and state explicitly if satisfying one conflicts with the requested no-network scope.
 
 ## Required Public Experience
 
@@ -52,12 +111,14 @@ The command:
 2. Downloads and verifies one versioned complete deployment kit.
 3. Runs bounded read-only target, policy, provider, quota, and region checks.
 4. Shows each exact Terraform plan and waits for explicit terminal approval.
-5. Creates the Foundation, including private state, hub VNet, Bastion, deploy identity, and managed
-   host.
-6. Transfers the verified kit through Bastion.
-7. Runs substrate and application Terraform under the managed identity.
-8. Imports and reads back the exact runtime image digests.
-9. Runs migrations, catalog materialization, Entra configuration, and service activation.
+5. Reuses an eligible existing host and verified Foundation resources, or plans only the missing
+  infrastructure. A new managed host and its access path are conditional, not universal prerequisites.
+6. Makes verified artifacts available on the selected host, transferring them only for remote execution.
+7. Runs AKS substrate and application Terraform on that host under the approved deployment identity.
+8. Verifies the prebuilt signed runtime image set and reads back the exact deployed digests. Tenant
+  deployment never builds a service or managed-host image.
+9. Runs baseline migrations, required catalog/bootstrap data, minimum Entra configuration and service
+  activation; defers optional detailed provisioning until after basic deployment.
 10. Requires service health and a second zero-change plan before reporting
     `deployment_ready=true`.
 
@@ -75,7 +136,7 @@ The release owner provides one digest-pinned OCI deployment appliance that embed
 The appliance entry point signs in interactively or uses an explicitly selected user-assigned
 Managed Identity, then invokes `fdaictl provision azure --offline-kit /opt/fdai/kit.tar.gz`. The
 Managed Identity path requires the exact client ID. It MUST NOT fall back to GitHub, PyPI, the
-public Terraform registry, or a public container registry.
+public Terraform registry, a public container registry or an installation-time image build.
 
 A network with no Azure management-plane route can verify and prepare artifacts but cannot deploy
 Azure resources or report deployment readiness.
@@ -115,24 +176,16 @@ Core can observe and report but cannot execute managed-resource actions.
 A valid token does not bypass runtime promotion, risk policy, human approval, executor identity,
 rollback, or effect verification.
 
-## Release and Appliance Construction
+## Artifact Boundary
 
-A release is built only from a clean exact revision after focused checks. The complete release
-builder may emit both the signed kit and appliance:
+Release construction is a separate upstream supply-chain responsibility. Tenant provisioning only
+accepts a complete prebuilt, signed and digest-pinned artifact set with manifests, SBOMs,
+provenance and signatures. It never invokes Docker, Buildx, ACR Tasks, a remote builder or a VM
+image capture operation. Connected mode downloads the verified set; artifact-offline mode reads the
+same set from the approved kit. Neither mode changes artifact bytes.
 
-```bash
-bash scripts/deployment/release/build-standalone-deployment-kit.sh \
-  --out /private/fdai-release \
-  --appliance-base-image <approved-base>@sha256:<digest>
-```
-
-The appliance base MUST be Linux x86-64, digest-pinned, independently approved, and already contain
-Python 3 with pip, Azure CLI, OpenSSH, and `tar`. Appliance construction verifies the complete kit,
-installs only from its wheelhouse, disables build network and base pulls, and emits OCI SBOM and
-provenance records.
-
-Never place signing keys, tenant identifiers, credentials, endpoints, or customer values in the
-image, repository, documentation, or logs.
+Never place signing keys, tenant identifiers, credentials, endpoints or customer values in an
+image, repository, documentation or logs.
 
 ## Validation Gates
 
@@ -143,14 +196,15 @@ and translation checks. Before reporting operational validation, retain both of 
 2. An appliance-entry-point deployment with no public artifact access.
 
 Each receipt must prove target binding, exact plans and approvals, Foundation handoff, managed-host
-identity, image digest import and readback, migrations, service health, cleanup, and second-plan
-zero change. Broader model-capacity and inventory certification may keep
+identity, prebuilt image verification and deployed-digest readback, migrations, service health,
+cleanup, and second-plan zero change. Broader model-capacity and inventory certification may keep
 `subscription_ready=false`; that state is independent from application deployment readiness.
 
 ## Guardrails
 
 - Do not run Azure mutation or build a release artifact before the exact revision passes focused
   checks and release preflight.
+- Do not build or capture any image during tenant provisioning.
 - Confirm `az account show` identifies the intended subscription before mutation.
 - Do not use GitHub workflow dispatch as a tenant deployment transport.
 - Do not run private data-plane operations from an external workstation.
