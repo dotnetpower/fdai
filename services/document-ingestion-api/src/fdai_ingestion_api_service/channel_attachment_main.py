@@ -2,7 +2,7 @@
 
 import os
 
-from fdai_service_contracts import ServiceDescriptor, ServiceKind
+from fdai_service_contracts import ServiceDescriptor, ServiceKind, record_runtime_scope_receipt
 
 from fdai_ingestion_api_service.channel_attachment_production import (
     build_channel_attachment_application,
@@ -21,4 +21,5 @@ SERVICE = ServiceDescriptor(
 def main() -> int:
     """Serve the internal attachment workload from the ingestion distribution."""
 
+    record_runtime_scope_receipt(SERVICE)
     return serve(build_channel_attachment_application(os.environ))

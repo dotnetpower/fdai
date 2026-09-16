@@ -179,6 +179,11 @@ GLOBAL_ROADMAP_FORBIDDEN = (
 TRACE_STATUSES = frozenset({"implemented", "partial", "planned"})
 TRACE_PATH_FIELDS = ("owner_docs", "implementation", "schemas", "tests", "runtime_evidence")
 IMPLEMENTED_PROOF_TESTS: Mapping[str, tuple[str, ...]] = {
+    "FDAI-CONST-001": (
+        "packages/service-contracts/tests/test_runtime_scope.py::test_runtime_scope_receipt_binds_product_and_complete_venue_contract",
+        "tests/integration/scripts/test_venue_capability_contract.py::test_a_computed_environment_key_fails_the_ast_gate",
+        "tests/integration/scripts/test_venue_capability_contract.py::test_every_service_entrypoint_records_exactly_one_runtime_scope_receipt",
+    ),
     "FDAI-CONST-002": (
         "packages/service-contracts/tests/test_decision_evidence.py::test_json_schema_requires_authentication_evidence",
         "packages/service-contracts/tests/test_decision_evidence.py::test_synthetic_evidence_never_reaches_live_verification",

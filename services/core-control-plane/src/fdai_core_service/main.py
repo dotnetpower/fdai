@@ -1,6 +1,6 @@
 """Core Control Plane service entry point."""
 
-from fdai_service_contracts import ServiceDescriptor, ServiceKind
+from fdai_service_contracts import ServiceDescriptor, ServiceKind, record_runtime_scope_receipt
 
 SERVICE = ServiceDescriptor(
     service_id="core-control-plane",
@@ -13,6 +13,7 @@ SERVICE = ServiceDescriptor(
 
 def main() -> int:
     """Start the existing Core runtime through the service-owned entry point."""
+    record_runtime_scope_receipt(SERVICE)
     from fdai.runtime.bootstrap import main as run
 
     return run()
