@@ -563,6 +563,7 @@ def _build_control_loop(
     report_line_runtime = hil_support.report_lines
     escalation_supervisor = hil_support.escalation
     approval_load_controller = hil_support.load_controller
+    approval_expiry_reconciler = hil_support.expiry_reconciler
     approval_reminder_dispatcher = hil_support.reminder_dispatcher
     pre_dispatch_kinetic_safety_writer = ExistingProposalKineticSafetyWriter(
         proposal_store=StateStoreKineticActionProposalStore(store=audit_store),
@@ -582,6 +583,7 @@ def _build_control_loop(
         action_types_by_name=action_types_by_name,
         pending_index_writer=_pending_index_writer,
         approval_load_controller=approval_load_controller,
+        approval_expiry_reconciler=approval_expiry_reconciler,
         approval_reminder_dispatcher=approval_reminder_dispatcher,
         escalation_supervisor=escalation_supervisor,
         default_escalation_rungs=escalation_rungs,
