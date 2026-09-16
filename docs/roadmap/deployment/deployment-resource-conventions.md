@@ -71,6 +71,16 @@ cleanup plans are independently scope-checked before any exact apply. One mainta
 this isolated dev shape when a distinct managed identity executes and a read-only provider path
 observes it. Shared or production alert changes retain their normal quorum.
 
+The A3-E evidence target is a separate development-only Terraform root. It references an existing
+protected holding resource group and owns only its private network, single VM, two identities, and
+target-scoped roles in a separate state. Names use the `fdai-a3e-<env>-<region>` suffix while the
+subscription, holding group, actor, region, SKU, exact image version, expiry, address space, and SSH
+public key remain protected deployment inputs. The executor role permits only VM read, start, and
+deallocate; the observer receives Reader on the same VM. The subnet and VM NIC both bind the
+egress-deny NSG, and VM extension operations remain disabled. A value-blind gate accepts only the
+exact create set. Apply, initial deallocation, campaign effects, rollback, and cleanup remain
+separately approved stages.
+
 ## Implementation status
 
 ### Implementation scope
@@ -88,6 +98,7 @@ observes it. Shared or production alert changes retain their normal quorum.
 | Genesis foundation plan boundary | implemented | `fdai_deployment_cli.bootstrap_reconcile`; `.github/workflows/deploy-dev.yml`; focused CLI and workflow checks | Bootstrap reconciliation is target-pinned and read-only. Application planning verifies the foundation-owned state containers without creating them. A governed foundation apply and handoff receipt remain open. |
 | Reusable Terraform module compatibility | implemented | `infra/modules/**/versions.tf`; `infra/services/**/modules/**/versions.tf`; TFLint | Every reusable module declares Terraform `>= 1.9`; modules that own Azure resources constrain AzureRM to the supported 4.x line. |
 | OHL scale-out evidence target naming and tags | implemented | current change in `infra/main.tf`; `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` reports 8 passed | Live provisioning and recurrence evidence remain open. |
+| A3-E evidence target naming and ownership | implemented | `infra/a3e-evidence-target/`; `verify_a3e_evidence_plan.py`; focused Terraform and plan-verifier checks | The root references an existing holding group, keeps separate state, creates no public IP, and grants the executor only VM read, start, and deallocate. Protected apply and operational evidence remain open under issues `#632` and `#633`. |
 | Operator schema and catalog Job naming | implemented | `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, and focused deployment workflow tests | Deterministic names and digest-pinned images are wired; a protected apply receipt for the ordered Jobs remains open. |
 | Scheduled rule collector Job | implemented | `infra/main.tf`; `infra/modules/compute/container-apps/rule_watcher_job.tf`; `tests/integration/infra/test_rule_watcher_job.py`; focused infrastructure checks (`26 passed`) and `terraform validate` | A configurable cron invokes the verified collector wrapper with the non-effect inventory identity and a native StateStore secret reference. It cannot receive the executor identity or promote a catalog entry. Protected apply and run receipts remain open. |
 | Browser-evidence cleanup Job naming | implemented | `infra/main.tf`; `tests/integration/infra/test_browser_evidence_cleanup_job.py`; focused checks (`4 passed`) and `terraform validate` | `caj-<workload>[-env][-region]-browser-gc` stays within the 32-character Azure limit for every allowed environment. Protected apply evidence remains open. |
@@ -100,7 +111,9 @@ observes it. Shared or production alert changes retain their normal quorum.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | implemented | Bound the egress-deny NSG directly to the A3-E VM NIC as well as its subnet and disabled VM extension operations after exact Terraform security scans rejected the initial shape. | `current change`; Trivy `0.72.0` reports 0 misconfigurations; Checkov `3.2.256` reports 16 passed and 0 failed; the value-blind preview verifier accepts exactly 13 creates, 0 updates, and 0 deletes. | Publish the corrected exact revision through protected CI before any managed-host plan or Azure effect. |
 | 2026-09-15 | implemented | Corrected bootstrap ephemeral OS caching and scoped role-definition operands after an actual partial Foundation recovery exposed provider and Azure condition errors. | Current change; `terraform -chdir=infra/bootstrap test -filter=tests/offline_runner.tftest.hcl`: 14 passed, including exact role/principal restrictions and disk cache. | Retain a separately approved successor plan/apply preserving completed work, followed by independent host and state-handoff evidence. |
+| 2026-09-16 | implemented | Added deterministic names, required no-authority and expiry tags, separate executor and observer identities, target-scoped minimum roles, and exact create-only plan validation for one disposable A3-E evidence VM. | `current change`; `infra/a3e-evidence-target/`; focused Terraform, plan-verifier, CI-contract, and documentation checks. | Publish one exact revision, retain an approved remote-state plan, and collect separately approved apply, deallocation, identity, cleanup, and independent effect evidence under issues `#632` and `#633`. |
 | 2026-09-09 | implemented | Restored the deploy workflow review budget without changing behavior and updated the direct azd test harness to provide every required executable prerequisite. | `current change`; exact deploy-workflow diet and Azure-context tests passed 23 cases. | Retain a new exact-green main receipt before resuming protected deployment. |
 | 2026-09-09 | implemented | Added a private-by-default Foundry network input and routed the public contributor profile through the explicit public option without enabling local authentication. | `current change`; focused Foundry private and public Terraform plans passed. | Retain a fresh-subscription endpoint and managed-identity inference readback before classifying runtime use as validated. |
 | 2026-09-08 | implemented | Defaulted absent model-endpoint input to an empty JSON object so non-Core rollback tfvars materialization remains independent from the Core model-binding contract. | Failed apply preflight `34228191755`; `current change`; focused materializer CLI regression test. | Recreate and apply the exact protected Operator plan. |
@@ -242,6 +255,10 @@ The Operator API uses `operator-api` as its physical component. Its workload ide
 historical Terraform `moved` addresses and retained evidence. An existing deployment replaces the
 physical resources through a reviewed protected plan; it does not rename them in place.
 
+The disposable A3-E target uses `fdai-a3e-<env>-<region>` after each CAF prefix. Its executor and
+observer identities append `-executor` and `-observer`. The root references its holding resource
+group instead of naming or owning a new group, and deployment values remain outside source control.
+
 The default **resource group** is `rg-fdai` (fixed by user directive). Everything the
 system provisions lives under that RG unless a resource type requires a subscription-scope
 placement (none today).
@@ -281,6 +298,10 @@ replacement work after state reaches the canonical keys.
 | Container Apps environment | `cae-` | 2-32; alphanumerics + hyphens | `cae-fdai` |
 | Container App (core) | `ca-` | 2-32 | `ca-fdai-core` |
 | Container Apps Job (out-of-band) | `caj-` | 2-32 | `caj-fdai-oob`, `caj-fdai-browser-gc` |
+| Virtual Network | `vnet-` | 2-64 | `vnet-fdai-a3e-dev-wus2` |
+| Subnet | `snet-` | 1-80 | `snet-fdai-a3e-dev-wus2` |
+| Network Security Group | `nsg-` | 1-80 | `nsg-fdai-a3e-dev-wus2` |
+| Virtual Machine | `vm-` | 1-64 | `vm-fdai-a3e-dev-wus2` |
 | Virtual Machine Scale Set | `vmss-` | 1-64 | `vmss-fdai-ohl-dev-krc` |
 | Event Hubs namespace | `evhns-` | 6-50 | `evhns-fdai` |
 | PostgreSQL Flexible Server | `psql-` | 3-63; lowercase | `psql-fdai` |
