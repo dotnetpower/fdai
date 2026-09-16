@@ -15,7 +15,9 @@ browser-side operational verdict.
 
 The instance directory and detail merge ordered realtime changes over one active generation.
 Recorded-state pages remain immutable and generation-fenced. The Operator Service projects their
-Resource properties into three independent axes that both Console screens consume.
+Resource properties into three independent baseline axes that both Console screens consume.
+Resource types with a reviewed data-plane source can add a fourth `serving` axis without replacing
+operational, provisioning, or availability evidence.
 The explicit `summary=count` mode returns only the active immutable ARG directory count, source
 generation, and cutoff. It does not wait for ontology projection alignment. Resource rows, state
 facts, pagination, and detail continue to require the strict inventory-to-ontology generation fence.
@@ -58,11 +60,13 @@ native title attributes or interpreted as recorded Resource state.
 | Operational | Explicit service, power, phase, readiness, running, attachment, access, link, or Static Web App default-environment state, including retained nested `runningStatus`, `powerState.code`, `diskState`, `snapshotAccessState`, and `virtualNetworkLinkState`. | Provisioning success does not become running. Enabled, Online, Active, Attached, Completed, and Ready keep their recorded meaning. |
 | Provisioning | Explicit `provisioningState`. | Successful creation does not establish availability. |
 | Availability | Explicit availability evidence. | Running and Succeeded do not establish healthy service. |
+| Serving | Optional exact data-plane success evidence for a reviewed endpoint or deployment. | Resource existence, endpoint configuration, provisioning success, a parent-resource health value, and an unsuccessful or absent request do not establish serving. |
 
 ## Recorded fact contract
 
 The additive resource `states` object has `schema_version: "1.0.0"` and `operational`,
-`provisioning`, and `availability` facts. Existing `status` remains for older consumers.
+`provisioning`, and `availability` facts. A reviewed type may also include an additive `serving`
+fact. Existing `status` remains for older consumers.
 Each fact carries:
 
 - `value` and `source_path`, nullable when no state was recorded.
@@ -120,7 +124,9 @@ Dashboard loads bounded pages, rejects duplicate records and changing totals/cut
 caps accumulation at 20,000 records under a total deadline. Reaching that bound is explicit partial
 coverage. A transport or schema failure is not converted into an empty inventory or a graph fallback.
 Only a typed inventory or ontology generation transition restarts the entire bounded traversal,
-discarding every accumulated page; two delayed retries share the original total deadline.
+discarding every accumulated page. Initial loading uses bounded exponential delays within one total
+deadline. A later periodic or stream-triggered transition keeps the last complete view visible and
+labels the refresh as delayed rather than replacing evidence with an error.
 Display filters and local pages operate on this received set; the server query remains the authority. The shared Console decoder recognizes only an `OperatorApiError` with status `409` and the exact `inventory_generation_changed` or `ontology_generation_changed` code as a generation transition; every other failure remains terminal for that load.
 A classified source-gate `503` for this route renders unavailable. A generic service or proxy
 `503` remains a visible error; it is not evidence that the projection is absent.
@@ -172,6 +178,11 @@ The observer appends the promoted generation to the normalized journal before pu
 If history publication fails, ontology projection does not advance. The next reconciliation replays
 that pending active generation under the same coordinator lock before collecting or promoting a new
 generation, so a transient history failure cannot create a permanent transition gap.
+The browser invalidation stream does not publish from those pre-projection journal rows. The
+ontology projector writes one monotonic invalidation marker in the same transaction as the Resource
+subgraph, manifest, status, and active-scope checkpoint. Operator emits one sanitized event only
+from that committed marker. Its cursor remains greater than legacy journal-watermark event ids, so
+an already connected browser cannot silently miss the first post-upgrade projection.
 
 The reviewed alternate availability source is Azure Resource Health. The shared contract declares
 the exact ResourceTypes whose ARM type is supported:
@@ -198,6 +209,18 @@ the exact ResourceTypes whose ARM type is supported:
 - Static Web App state metadata keeps the provider `lastUpdatedOn` value as effective time, falling
   back to `createdTimeUtc` only when needed. The collection completion remains the recorded time and
   evidence cutoff. A successful HTTP response or parent-resource existence never implies `Ready`.
+- A model deployment can carry an optional `servingState` from the exact
+  `AzureOpenAIRequests` metric scoped by `ModelDeploymentName` and `StatusCode=200`. One or more
+  successful requests in the bounded window records `Serving` with telemetry authority and the
+  latest successful metric timestamp. An empty window records no positive state. It does not become
+  unavailable, degraded, or healthy, and a retained earlier fact ages normally.
+- Model serving collection is passive and bounded. It does not invoke a model, send prompt content,
+  consume inference tokens, copy a parent account's Resource Health value, or turn
+  `provisioningState` into serving evidence. Exact target validation, concurrency, target count,
+  response size, per-call timeout, and a total deadline bound the read.
+- VM scale-set child collection requests `instanceView` and retains only the exact power-state code.
+  VM Run Command hydration retains only `instanceView.executionState`. Status messages, command
+  output, command error text, and other unreviewed instance-view fields do not enter inventory.
 - A failed, unauthorized, malformed, partial, or stale state read records the exact source
   limitation and never substitutes `provisioningState`, existence, or a previous unqualified value.
 - Every canonical ResourceType has a reviewed availability outcome: an exact Resource Health
@@ -253,6 +276,9 @@ the exact ResourceTypes whose ARM type is supported:
 - Missing values render as Not recorded, Not provided, Unclassified, Not applicable, or
   Applicability unknown from the machine reason. `Not provided` describes the evidence contract,
   not resource availability. Legacy generations can still identify an unbound source explicitly.
+- Dashboard counts Not provided and Not applicable separately from genuine Unknown records.
+  Tooltips render each recorded axis with its own observation time and use the latest exact axis
+  timestamp only for a compact summary. A null fact never discards its machine reason.
 - Compact ontology graph nodes use an exact operational value first. When operation is not
   applicable or the provider exposes no operational state, an exact availability value or useful
   availability evidence gap leads, followed by an exact provisioning value. A missing applicable
@@ -266,7 +292,9 @@ the exact ResourceTypes whose ARM type is supported:
   machine reason, and refreshes on the shared interval, browser resume, and inventory invalidation.
 - State colors organize recorded values; they do not assert a current operational success.
 - A `Succeeded` model deployment state reports provisioning completion only. It does not establish
-  inference health, successful requests, quota headroom, or caller authorization.
+  inference health, successful requests, quota headroom, or caller authorization. A fresh
+  `Serving` fact proves only that the exact deployment processed at least one successful request in
+  the bounded metric window. It is not an all-clear verdict or an SLO evaluation.
 - The original Dashboard and older instance clients retain their existing routes and fields.
 - Resource inspection and selection do not grant approval or execution authority.
 - Runtime screen evidence requires a current authenticated 5273 Browser Entra session. An expired
