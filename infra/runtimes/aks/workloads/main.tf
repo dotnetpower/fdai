@@ -300,10 +300,74 @@ resource "kubernetes_deployment_v1" "workload" {
           }
         }
 
+        dynamic "container" {
+          for_each = each.value.sidecars
+          iterator = sidecar
+          content {
+            name              = sidecar.key
+            image             = sidecar.value.image
+            image_pull_policy = "Always"
+            command           = sidecar.value.command
+            args              = sidecar.value.args
+
+            security_context {
+              allow_privilege_escalation = false
+              read_only_root_filesystem  = true
+              capabilities { drop = ["ALL"] }
+            }
+
+            resources {
+              requests = { cpu = sidecar.value.cpu, memory = sidecar.value.memory }
+              limits   = { cpu = sidecar.value.cpu, memory = sidecar.value.memory }
+            }
+
+            port { container_port = sidecar.value.port }
+
+            readiness_probe {
+              tcp_socket { port = sidecar.value.port }
+              initial_delay_seconds = 5
+              period_seconds        = 10
+              timeout_seconds       = 3
+              failure_threshold     = 3
+            }
+
+            liveness_probe {
+              tcp_socket { port = sidecar.value.port }
+              initial_delay_seconds = 10
+              period_seconds        = 30
+              timeout_seconds       = 3
+              failure_threshold     = 3
+            }
+
+            dynamic "volume_mount" {
+              for_each = sidecar.value.writable_paths
+              content {
+                name       = "${sidecar.key}-${volume_mount.key}"
+                mount_path = volume_mount.value.mount_path
+              }
+            }
+          }
+        }
+
         volume {
           name = "tmp"
           empty_dir {
             size_limit = "1Gi"
+          }
+        }
+
+        dynamic "volume" {
+          for_each = merge({}, [
+            for sidecar_name, sidecar in each.value.sidecars : {
+              for volume_name, volume in sidecar.writable_paths :
+              "${sidecar_name}-${volume_name}" => volume
+            }
+          ]...)
+          content {
+            name = volume.key
+            empty_dir {
+              size_limit = volume.value.size_limit
+            }
           }
         }
 
