@@ -71,6 +71,11 @@ output "key_vault_id" {
   value       = module.key_vault.id
 }
 
+output "application_insights_connection_string_secret_name" {
+  description = "Key Vault secret name containing the Application Insights connection string."
+  value       = azurerm_key_vault_secret.application_insights_connection_string.name
+}
+
 output "resolved_models_sha256" {
   description = "Resolved-model artifact digest applied to the current runtime revision."
   value       = var.resolved_models_sha256
