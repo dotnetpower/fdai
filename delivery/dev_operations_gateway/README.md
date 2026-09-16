@@ -33,6 +33,10 @@ URLs, ARM paths, commands, or query text.
   bounded provider ETag, and sends it as `If-Match`. An external revision change returns a conflict
   instead of applying a stale absolute capacity. The Core gateway client applies one cumulative
   45-second default deadline to long-running-operation polling.
+- Tag remediation accepts one bounded logical resource id inside an allowlisted development
+  resource group. The executor identity can merge one validated tag but cannot change resource
+  configuration. The gateway captures the prior tag map, verifies the result through the separate
+  reader identity, and restores that snapshot if readback does not confirm the requested value.
 - ARM `429` responses honor a bounded `Retry-After` delay for at most three attempts. Mutation
   `5xx` responses aren't blindly retried because provider acceptance may be ambiguous.
 - Resource groups and private probe endpoints come from server configuration.
@@ -52,7 +56,9 @@ URLs, ARM paths, commands, or query text.
 | `azure.network.nsg.read` | read | One configured development NSG |
 | `azure.network.peering.read` | read | Peerings for one configured development VNet |
 | `azure.private.http.probe` | read | One server-registered HTTPS private endpoint |
+| `azure.resource.tags.read` | read | Match one expected tag through the reader identity |
 | `azure.operation.plan` | mutation dry run | One registered mutation payload |
+| `azure.resource.tags.merge` | write | Merge one tag on one allowlisted development resource |
 | `azure.network.nsg.rule.upsert` | write | One NSG security rule |
 | `azure.network.nsg.rule.delete` | write | One NSG security rule |
 | `azure.compute.vm.start` | execute | One VM |

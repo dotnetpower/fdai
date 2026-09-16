@@ -31,6 +31,10 @@ from fdai_service_contracts.executor import (
 )
 
 _VM_TARGET = "/resourcegroups/example/providers/microsoft.compute/virtualmachines/vm-app"
+_TAG_TARGET = (
+    "scope-0123456789abcdef/resource-group/example/"
+    "providers/microsoft.storage/storageaccounts/storage-app"
+)
 
 
 def _future_epoch(seconds: int = 3600) -> int:
@@ -173,6 +177,30 @@ def _request(mode: Mode) -> DirectApiRequest:
     )
 
 
+def _tag_request(mode: Mode) -> DirectApiRequest:
+    return DirectApiRequest(
+        action_id=UUID("00000000-0000-0000-0000-000000000004"),
+        idempotency_key="tag-operation-one",
+        action_type_name="remediate.tag-add",
+        rule_ids=("object-storage.owner-tag.required",),
+        resource_ref=_TAG_TARGET,
+        arguments={
+            "target_resource_ref": _TAG_TARGET,
+            "tag_name": "environment",
+            "tag_value": "dev",
+        },
+        labels=("enforce",) if mode is Mode.ENFORCE else ("shadow",),
+        mode=mode,
+        metadata={
+            "audit_ref": "action:tag-one",
+            "stop_condition": "provider_api_error_streak",
+            "rollback_ref": "snapshot_restore",
+            "max_resources": "1",
+            "executor_identity_ref": "identity/change",
+        },
+    )
+
+
 def _gateway_config() -> AzureGatewayDirectApiConfig:
     return AzureGatewayDirectApiConfig(
         base_url="https://gateway.example.com",
@@ -224,6 +252,34 @@ async def test_gateway_plans_before_enforce_mutation() -> None:
         "azure.operation.plan",
         "azure.compute.vm.start",
     ]
+
+
+async def test_gateway_routes_tag_remediation_through_change_identity() -> None:
+    operations: list[str] = []
+    identity = _Identity("change-token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        operation = request.url.path.rsplit("/", 1)[-1]
+        operations.append(operation)
+        return httpx.Response(
+            200,
+            json={
+                "operation_id": "azure.operation.plan",
+                "status": "succeeded",
+                "result": {"dry_run_receipt": "dry-run-one"},
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        receipt = await AzureGatewayDirectApiExecutor(
+            config=_gateway_config(),
+            identities={"identity/change": identity},
+            http_client=client,
+        ).execute(_tag_request(Mode.SHADOW))
+
+    assert receipt.outcome is DirectApiOutcome.SUCCEEDED
+    assert operations == ["azure.operation.plan"]
+    assert identity.audiences == ["gateway-audience"]
 
 
 async def test_gateway_redelivery_reconstructs_applied_receipt_without_re_effect() -> None:

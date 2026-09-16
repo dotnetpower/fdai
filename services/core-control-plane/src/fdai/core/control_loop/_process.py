@@ -464,6 +464,8 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
         action = host._bind_authorized_identity(action, authorization)
 
         unified = await host._evaluate_and_audit(event=event, action=action, rule=rule)
+        if unified is not None and (unified.is_auto or unified.requires_hil):
+            action = action.model_copy(update={"mode": unified.gate.effective_mode})
         gate_decision = (
             "deny"
             if unified is not None and unified.is_denied

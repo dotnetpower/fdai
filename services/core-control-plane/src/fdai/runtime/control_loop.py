@@ -563,6 +563,7 @@ def _build_control_loop(
     report_line_runtime = hil_support.report_lines
     escalation_supervisor = hil_support.escalation
     approval_load_controller = hil_support.load_controller
+    approval_expiry_reconciler = hil_support.expiry_reconciler
     approval_reminder_dispatcher = hil_support.reminder_dispatcher
     pre_dispatch_kinetic_safety_writer = ExistingProposalKineticSafetyWriter(
         proposal_store=StateStoreKineticActionProposalStore(store=audit_store),
@@ -582,6 +583,7 @@ def _build_control_loop(
         action_types_by_name=action_types_by_name,
         pending_index_writer=_pending_index_writer,
         approval_load_controller=approval_load_controller,
+        approval_expiry_reconciler=approval_expiry_reconciler,
         approval_reminder_dispatcher=approval_reminder_dispatcher,
         escalation_supervisor=escalation_supervisor,
         default_escalation_rungs=escalation_rungs,
@@ -698,6 +700,30 @@ def _build_control_loop(
     from fdai.runtime.alert_noise_execution import build_alert_plan_artifacts
 
     alert_plan_artifacts = build_alert_plan_artifacts(store=audit_store, publisher=publisher)
+    expected_effect_provider = container.mscp_expected_effect_provider
+    effect_observer = container.mscp_effect_observer
+    gateway_url = os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip()
+    gateway_audience = os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", "").strip()
+    tag_effect_identity = (execution_identities or {}).get("identity/change") or identity
+    if (
+        expected_effect_provider is None
+        and effect_observer is None
+        and gateway_url
+        and gateway_audience
+        and tag_effect_identity is not None
+        and http_client is not None
+    ):
+        from fdai.delivery.azure.gateway_tag_effect import GatewayTagEffectVerifier
+
+        tag_effect_verifier = GatewayTagEffectVerifier(
+            base_url=gateway_url,
+            audience=gateway_audience,
+            identity=tag_effect_identity,
+            http_client=http_client,
+        )
+        expected_effect_provider = tag_effect_verifier.expected
+        effect_observer = tag_effect_verifier.observe
+
     return ControlLoop(
         event_ingest=event_ingest,
         trust_router=trust_router,
@@ -747,8 +773,8 @@ def _build_control_loop(
         stage_publisher=stage_publisher,
         kill_switch=kill_switch,
         kill_switch_refresher=kill_switch.refresh,
-        mscp_expected_effect_provider=container.mscp_expected_effect_provider,
-        mscp_effect_observer=container.mscp_effect_observer,
+        mscp_expected_effect_provider=expected_effect_provider,
+        mscp_effect_observer=effect_observer,
         response_outcome_sink=response_outcome_sink,
         effect_reconciliation_request_sink=effect_reconciliation_request_sink,
         pre_dispatch_kinetic_safety_writer=pre_dispatch_kinetic_safety_writer,

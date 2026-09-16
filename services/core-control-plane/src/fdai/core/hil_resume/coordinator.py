@@ -84,6 +84,7 @@ from fdai.core.hil_resume.integrity import (
     parked_action_integrity_matches as _parked_action_integrity_matches,
 )
 from fdai.core.hil_resume.load_control import (
+    ApprovalExpiryReconciler,
     ApprovalLoadController,
     ApprovalReminderDispatcher,
 )
@@ -140,6 +141,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin, HilRequestMixin):
         on_call_rotation: str | None = None,
         pending_index_writer: Callable[[StateStore, str], Awaitable[None]] | None = None,
         approval_load_controller: ApprovalLoadController | None = None,
+        approval_expiry_reconciler: ApprovalExpiryReconciler | None = None,
         approval_reminder_dispatcher: ApprovalReminderDispatcher | None = None,
         escalation_supervisor: HumanNonResponseSupervisor | None = None,
         default_escalation_rungs: Sequence[EscalationRung] = (),
@@ -192,6 +194,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin, HilRequestMixin):
         self._on_call_rotation = on_call_rotation
         self._pending_index_writer = pending_index_writer
         self._approval_load_controller = approval_load_controller
+        self.expiry_reconciler = approval_expiry_reconciler
         self.reminder_dispatcher = approval_reminder_dispatcher
         self.escalation_supervisor = escalation_supervisor
         self._default_escalation_rungs = tuple(default_escalation_rungs)
