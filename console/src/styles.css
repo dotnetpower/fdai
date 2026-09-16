@@ -6761,6 +6761,45 @@ pre {
   color: var(--fg);
 }
 
+.report-line-import-form {
+  gap: 12px;
+  padding: 16px 18px 18px;
+}
+.report-line-import-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+.report-line-import-form input[type="file"] {
+  width: 100%;
+  min-height: 44px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+}
+.report-lines-workspace .approval-card {
+  border-color: var(--border);
+  background: var(--bg-elevated);
+  box-shadow: none;
+}
+.report-lines-workspace .approval-card-body {
+  display: grid;
+  gap: 12px;
+}
+.report-lines-workspace .approval-card-body > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.report-lines-workspace .approval-card-body > header h4 {
+  flex: 1 1 320px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 780px) {
   .approvals-mechanics { grid-template-columns: 1fr; gap: 4px; }
   .approvals-toolbar { align-items: stretch; flex-direction: column; }

@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: c7685b6c660450c6f6ffc598158eb6fb1ddd178b
-translation_revised: 2026-09-15
+translation_source_sha: b7aa71c00ff975059c8ebcd2035cc318539cdbd4
+translation_revised: 2026-09-16
 ---
 # FDAI 로드맵
 
@@ -122,6 +122,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 15c | [agent-stewardship-operations-ko.md](interfaces/agent-stewardship-operations-ko.md) | 운영 연결, stale 신원 상태, 인계 초안 PR, signed 병합 알림/감사, 복구 및 검증 |
 | 15d | [human-agent-assignment-and-knowledge-handover-ko.md](interfaces/human-agent-assignment-and-knowledge-handover-ko.md) | 관리자 ID 검색, 통제된 IAM 등록, 기본 및 백업 에이전트 임무, 승인 무응답 에스컬레이션, 피로도 제한 인수인계 목표, 에이전트 소유 지식 처리 |
 | 15e | [human-agent-assignment-implementation-plan-ko.md](interfaces/human-agent-assignment-implementation-plan-ko.md) | 담당 체계 v2, 할당 케이스, 콘솔 프로젝션, 담당 체계 조정, Entra 적용, 에스컬레이션 감독, 인수인계 목표, 지식 처리, 프로덕션 롤아웃을 위한 `main`의 종속성 순서 작업 묶음 9개 |
+| 15f | [human-report-lines-and-approval-routing-ko.md](interfaces/human-report-lines-and-approval-routing-ko.md) | 통제된 조직도 추출, edge 확인, 독립 Owner 검토, 요청자의 연락 동의 및 가장 가까운 적격 report-line 승인 라우팅 |
 | 16 | [channels-and-notifications-ko.md](interfaces/channels-and-notifications-ko.md) | 비-웹UI 채널(Teams / Slack / 이메일 / 웹훅 / pager / SMS), 카테고리와 trust-tier 매트릭스 |
 | 16a | [multi-channel-notification-delivery-ko.md](interfaces/multi-channel-notification-delivery-ko.md) | 활성화되고 설정된 모든 A2/A4 채널로의 fan-out 전달, 이름이 있는 채널 바인딩, 채널별 영속 전달, 부분 성공 결과, Teams Workflows 웹훅 바인딩 |
 | 17 | [risk-classification-ko.md](decisioning/risk-classification-ko.md) | auto vs HIL vs 거부 분류: 차원, 초기 규칙 표, 환경 감지 |

@@ -288,6 +288,8 @@ async def _consume_hil_decisions(
     ``action`` park resumes through the coordinator, which is the sole path
     that can reach an executor.
     """
+    from fdai_service_contracts import ReportLineContactCommand
+
     from fdai.shared.providers.hil_channel import HilDecision
     from fdai.shared.providers.hil_registry import HilApprovalDecision
 
@@ -297,6 +299,17 @@ async def _consume_hil_decisions(
                 return
             payload = envelope.payload
             try:
+                if payload.get("message_kind") == "report_line_contact":
+                    command = ReportLineContactCommand.model_validate(payload)
+                    if envelope.key != command.approval_id:
+                        raise ValueError("report-line contact partition identity mismatch")
+                    await coordinator.decide_report_line_contact(
+                        approval_id=command.approval_id,
+                        requester_oid=command.requester_ref,
+                        consent=command.consent,
+                        expected_consent_revision=command.expected_consent_revision,
+                    )
+                    continue
                 approval_id = str(payload["approval_id"])
                 decision = HilDecision(str(payload["decision"]))
                 approver_oid = str(payload["approver_oid"])

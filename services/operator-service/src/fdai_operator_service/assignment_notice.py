@@ -31,9 +31,17 @@ def assignment_notice_from_record(record: Mapping[str, Any]) -> AssignmentReques
     payload = request["payload"]
     if not isinstance(payload, Mapping):
         raise ValueError("assignment proposal payload is invalid")
+    case_kind = payload.get("case_kind")
+    schema_version = (
+        "1.3.0"
+        if case_kind == "report_line"
+        else "1.2.0"
+        if case_kind == "scoped_duty"
+        else "1.1.0"
+    )
     return AssignmentRequestNotice.model_validate(
         {
-            "schema_version": "1.2.0" if payload.get("case_kind") == "scoped_duty" else "1.1.0",
+            "schema_version": schema_version,
             "proposal_ref": "operator-proposal:iam:" + hashlib.sha256(key.encode()).hexdigest(),
             "proposal_id": record["proposal_id"],
             "case_id": (

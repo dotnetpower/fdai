@@ -185,18 +185,20 @@ describe("Handover projection contract", () => {
     expect(styles).toContain("content: attr(data-label);");
   });
 
-  test("accepts only the five Agent oversight views", () => {
+  test("accepts only the six Agent oversight views", () => {
     expect(oversightViewFromSegment(undefined)).toBe("overview");
     expect(oversightViewFromSegment("human-dependencies")).toBe("human-dependencies");
     expect(oversightViewFromSegment("knowledge-handover")).toBe("knowledge-handover");
     expect(oversightViewFromSegment("approval-routes")).toBe("approval-routes");
     expect(oversightViewFromSegment("mapping-reviews")).toBe("mapping-reviews");
+    expect(oversightViewFromSegment("reporting-lines")).toBe("reporting-lines");
     expect(oversightViewFromSegment("unknown")).toBeNull();
     expect(viewRequiresStewardship("overview")).toBe(true);
     expect(viewRequiresStewardship("human-dependencies")).toBe(true);
     expect(viewRequiresStewardship("knowledge-handover")).toBe(false);
     expect(viewRequiresStewardship("approval-routes")).toBe(false);
     expect(viewRequiresStewardship("mapping-reviews")).toBe(false);
+    expect(viewRequiresStewardship("reporting-lines")).toBe(false);
     expect(adjacentOversightView("overview", "previous")).toBe("approval-routes");
     expect(adjacentOversightView("approval-routes", "next")).toBe("overview");
     expect(adjacentOversightView("approval-routes", "first")).toBe("overview");

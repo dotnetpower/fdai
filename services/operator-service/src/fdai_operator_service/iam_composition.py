@@ -65,6 +65,10 @@ from fdai_operator_service.families.iam.hil_teams_callback import (
     TeamsHilCallbackConfig,
     TeamsHilCallbackNormalizer,
 )
+from fdai_operator_service.families.iam.report_line_contact_outbox import (
+    DurableReportLineContactPublisher,
+    ReportLineContactOutboxDrainer,
+)
 from fdai_operator_service.families.operations.contracts import ProjectionReader
 from fdai_operator_service.family_adapters import PostgresOperationsAdapters
 from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
@@ -82,6 +86,10 @@ from fdai_operator_service.postgres_family_store import (
 )
 from fdai_operator_service.postgres_hil_decision import PostgresHilDecisionStore
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
+from fdai_operator_service.postgres_report_line_contacts import (
+    PostgresReportLineContacts,
+)
+from fdai_operator_service.postgres_reporting_lines import PostgresReportingLines
 from fdai_operator_service.postgres_scoped_duties import PostgresScopedDuties
 from fdai_operator_service.slack_webhook_diagnostics import SlackWebhookDiagnosticTester
 from fdai_operator_service.teams_workflow_binding import (
@@ -176,6 +184,11 @@ def build_hil_decision_outbox_bridge(
         registry=PostgresIamAdapters(store),
         publisher=semantic_bus,
         topic=environment.hil_decision_topic,
+        contact_drainer=ReportLineContactOutboxDrainer(
+            store=store,
+            publisher=semantic_bus,
+            topic=environment.hil_decision_topic,
+        ),
     )
 
 
@@ -288,6 +301,8 @@ def build_postgres_iam_bindings(
             )
         ),
     )
+    reporting_lines = PostgresReportingLines(store)
+    report_line_contacts = PostgresReportLineContacts(store)
     directory = build_iam_directory(environment, teams_http_client) or iam
     hil_secret = environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip() or None
     hil_authority = (
@@ -308,6 +323,16 @@ def build_postgres_iam_bindings(
             topic=environment.hil_decision_topic,
             ledger=iam,
             registry=iam,
+        )
+        if semantic_bus is not None and environment.hil_decision_topic is not None
+        else None
+    )
+    report_line_contact = (
+        DurableReportLineContactPublisher(
+            durable=report_line_contacts,
+            publisher=semantic_bus,
+            topic=environment.hil_decision_topic,
+            ledger=store,
         )
         if semantic_bus is not None and environment.hil_decision_topic is not None
         else None
@@ -344,6 +369,8 @@ def build_postgres_iam_bindings(
         human_access=iam,
         directory=directory,
         assignments=iam,
+        reporting_lines=reporting_lines,
+        report_line_contact=report_line_contact,
         scoped_duties=PostgresScopedDuties(store),
         handover_goals=handover,
         handover_conversations=handover,
