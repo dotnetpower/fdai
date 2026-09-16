@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 0acef80b142045e95652f37224db2cf760c64adc
+translation_source_sha: 28420a98ef3ce78cc5750fb7b454dda2d397ce8f
 translation_revised: 2026-09-16
 ---
 # 콘솔 근거 및 복원력
@@ -217,7 +217,7 @@ LLM 비용은 측정된 호출, 토큰, chat 비율 및 최근 호출 근거를 
 
 ## 로딩 표현
 
-[Console 로딩 표현 참조](../../reference/console-loading-presentation-ko.md)에서 골격, 동작 감소, 스타일시트 및 hot-update 동작을 정의합니다.
+[Console 로딩 표현 참조](../../reference/console-loading-presentation-ko.md)에서 골격, 동작 감소, 스타일시트 및 hot-update 동작을 정의합니다. 알림 품질 화면은 로그인한 사용자에게 반환된 정확한 범위가 하나뿐일 때 불필요한 URL 선택 없이 해당 범위를 엽니다. 범위가 없으면 설정 안내를 표시하고 보고서를 조회하지 않으며, 범위가 둘 이상이면 운영자가 명시적으로 선택해야 합니다. 준비된 보고서는 권한 경계, 범위 맥락, 서로 구분된 네 가지 근거 값, 발견 사항을 먼저 표시하고 그 뒤에 출처 이력, 요청 제어, Settings, 계획, 이력을 표시합니다. 누락, 측정된 0, 부분 수집, 사용 불가 값을 서로 구분하고 합성 근거로 대체하지 않습니다.
 
 ## Localization 경계
 
