@@ -160,8 +160,8 @@ their resource mappings form the minimum operational spine. An unmapped resource
 as `unknown_service`; it is never silently assigned to a synthetic service. The marker is
 implemented by [`project_operating_scope`](../../../services/core-control-plane/src/fdai/core/operational_context/operating_scope.py), which grants no authority.
 Provider-native type coverage is a separate axis. A row with no reviewed neutral mapping is retained
-as `unclassified-resource`, with its native type kept as inert evidence. It still receives
-`unknown_service` until a reviewed workload and service mapping reaches it.
+as `unclassified-resource` and receives `unknown_service` until a reviewed mapping reaches it. A deployment may add bounded, normalized, case-insensitively unique aliases to `BusinessService` and `Workload`.
+Conversational resolution accepts only an exact id, name, or approved alias; Azure names, tags, Kubernetes labels, and fuzzy similarity never create or change business identity.
 
 ### Operating intent
 
@@ -563,9 +563,9 @@ complete object/link snapshot, and atomically replaces the provider-owned subgra
 crash recovery. After replacement succeeds, the `projected` manifest compacts to current ownership
 so historical revisions cannot exceed the configured model bounds. Startup cleans an interrupted
 `applying` union before it stages another snapshot, preventing repeated crashes from accumulating
-ownership across revisions. The optional
-`FDAI_OPERATING_MODEL_MAX_BYTES` ceiling defaults to 16 MiB. `GET /ontology/graph` exposes only the
-projection status, source revision, and aggregate counts, never deployment instance properties.
+ownership across revisions. The optional `FDAI_OPERATING_MODEL_MAX_BYTES` ceiling defaults to 16 MiB.
+Continuous updates use the `fdai.operating-model` logical topic selected by `FDAI_OPERATING_MODEL_TOPIC` and multiplexed over the existing semantic physical Event Hub for AKS, Container Apps, and local Redpanda. Only a complete monotonic snapshot advances the graph; malformed, replayed, or conflicting revisions are rejected.
+`GET /ontology/graph` exposes only projection status, revision, and counts. The committed cross-runtime catalog is an inactive generic example; each deployment approves its own service, workload, alias, and resource links.
 
 The promoted inventory projection validates every resource and link record before graph projection.
 Malformed identities, properties, or observation timestamps fail the attempt. Byte-identical

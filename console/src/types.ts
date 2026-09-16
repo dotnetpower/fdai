@@ -32,6 +32,34 @@ export type IncidentTitleSource =
   | "recorded_subject"
   | "identifier_fallback";
 
+export type IncidentTitlePresentationKind =
+  | "rule_attention"
+  | "signal_on_subject"
+  | "signal"
+  | "resource_attention"
+  | "subject_reason"
+  | "reason";
+
+export type IncidentTitleSubjectKind =
+  | "cloud_resource"
+  | "integration_resource"
+  | "kubernetes_pod"
+  | "kubernetes_resource"
+  | "kubernetes_workload"
+  | "trace_target"
+  | "resource";
+
+export interface IncidentTitlePresentation {
+  readonly kind: IncidentTitlePresentationKind;
+  readonly subject: string | null;
+  readonly subject_kind: IncidentTitleSubjectKind | null;
+  readonly signal: string | null;
+  readonly signal_label: string | null;
+  readonly reason: string | null;
+  readonly reason_label: string | null;
+  readonly technical_ref: string | null;
+}
+
 export interface IncidentSourceContext {
   readonly platform: string | null;
   readonly incident_id: string | null;
@@ -80,6 +108,7 @@ export interface IncidentSummary {
   readonly ticket_id: string | null;
   readonly title: string;
   readonly title_source: IncidentTitleSource;
+  readonly title_presentation?: IncidentTitlePresentation | null;
   readonly source: IncidentSourceContext | null;
   readonly response_plan: IncidentResponsePlan | null;
   readonly severity: string;

@@ -102,6 +102,7 @@ module "container_app" {
     { name = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC", value = var.event_topics.semantic_requests },
     { name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC", value = var.event_topics.semantic_projections },
     { name = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC", value = var.event_topics.semantic_physical },
+    { name = "FDAI_OPERATING_MODEL_TOPIC", value = var.event_topics.operating_model },
     { name = "FDAI_READ_INVESTIGATION_REQUEST_TOPIC", value = var.event_topics.read_investigation_requests },
     { name = "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC", value = var.event_topics.incident_intervention_requests },
     { name = "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES", value = "observer:heimdall:azure-container-apps" },

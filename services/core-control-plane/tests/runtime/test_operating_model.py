@@ -67,6 +67,103 @@ async def test_runtime_projects_configured_operating_model(tmp_path: Path) -> No
     }
 
 
+async def test_runtime_projects_cross_runtime_logical_service_catalog(tmp_path: Path) -> None:
+    catalog, store = _catalog_and_store()
+    status_store = InMemoryStateStore()
+    path = tmp_path / "operating-model.json"
+    runtime_types = (
+        "compute.web-app",
+        "compute.container-app",
+        "kubernetes.deployment",
+    )
+    objects = [
+        {
+            "id": "service:example-shop",
+            "object_type": "BusinessService",
+            "properties": {
+                "id": "service:example-shop",
+                "name": "Example shop",
+                "aliases": ["example backend"],
+                "criticality": "high",
+                "effective_from": "2026-01-01T00:00:00+00:00",
+                "source_ref": "service-catalog:example",
+            },
+        },
+        {
+            "id": "workload:example-backend",
+            "object_type": "Workload",
+            "properties": {
+                "id": "workload:example-backend",
+                "name": "Example backend",
+                "aliases": ["shop backend"],
+                "workload_kind": "backend",
+                "effective_from": "2026-01-01T00:00:00+00:00",
+                "source_ref": "service-catalog:example",
+            },
+        },
+        *[
+            {
+                "id": f"resource:runtime-{index}",
+                "object_type": "Resource",
+                "properties": {
+                    "id": f"resource:runtime-{index}",
+                    "type": runtime_type,
+                },
+            }
+            for index, runtime_type in enumerate(runtime_types, start=1)
+        ],
+    ]
+    links = [
+        {
+            "link_type": "implemented_by",
+            "from_id": "service:example-shop",
+            "to_id": "workload:example-backend",
+        },
+        *[
+            {
+                "link_type": "workload_runs_on",
+                "from_id": "workload:example-backend",
+                "to_id": f"resource:runtime-{index}",
+            }
+            for index in range(1, 4)
+        ],
+    ]
+    path.write_text(
+        json.dumps(
+            {
+                "source_revision": "service-catalog:example@1.0.0",
+                "objects": objects,
+                "links": links,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = await project_operating_model_from_env(
+        store=store,
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        status_store=status_store,
+        env={"FDAI_OPERATING_MODEL_PATH": str(path)},
+    )
+
+    assert result is not None
+    assert result.object_count == 5
+    assert result.link_count == 4
+    service = await store.get_object("service:example-shop")
+    assert service is not None
+    assert service.properties["aliases"] == ["example backend"]
+    graph = await store.traverse(
+        root_ids=("service:example-shop",),
+        root_object_types=("BusinessService",),
+        link_types=("implemented_by", "workload_runs_on"),
+        direction="outgoing",
+        max_depth=2,
+    )
+    resources = tuple(item for item in graph.objects if item.object_type == "Resource")
+    assert {item.properties["type"] for item in resources} == set(runtime_types)
+
+
 async def test_runtime_projects_every_operating_intent_type(tmp_path: Path) -> None:
     catalog, store = _catalog_and_store()
     path = tmp_path / "operating-intent-model.json"

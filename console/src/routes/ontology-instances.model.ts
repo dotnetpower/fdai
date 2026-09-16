@@ -2,6 +2,7 @@ import type { ViewContextIdentity } from "../deck/context";
 import { isOperationalResourceType } from "../resource-presentation";
 import {
   decodeRecordedResourceStates,
+  selectRecordedStateFact,
   type RecordedResourceStates,
   type RecordedStateAxis,
   type RecordedStateFact,
@@ -158,28 +159,7 @@ export function ontologyInstanceNodeState(
 ): OntologyInstanceNodeState | null {
   const states = resource.states;
   if (states === undefined) return null;
-  if (states.operational.value !== null) {
-    return { axis: "operational", fact: states.operational };
-  }
-  const operationCanFallBack = states.operational.reason === "state_not_applicable"
-    || states.operational.reason === "provider_operational_state_not_exposed";
-  if (!operationCanFallBack) {
-    return { axis: "operational", fact: states.operational };
-  }
-  if (states.availability.value !== null) {
-    return { axis: "availability", fact: states.availability };
-  }
-  if (
-    states.availability.reason !== null
-    && states.availability.reason !== "state_not_recorded"
-    && states.availability.reason !== "state_not_applicable"
-  ) {
-    return { axis: "availability", fact: states.availability };
-  }
-  if (states.provisioning.value !== null) {
-    return { axis: "provisioning", fact: states.provisioning };
-  }
-  return { axis: "operational", fact: states.operational };
+  return selectRecordedStateFact(states);
 }
 
 /** Returns whether a Resource is meaningful as an operator-selected graph root. */

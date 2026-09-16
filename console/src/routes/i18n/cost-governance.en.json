@@ -218,6 +218,7 @@
     "title": "Observed cost basis and verified outcomes",
     "description": "Keep observed spend separate from projected opportunity and independently verified savings.",
     "costBasis": "Observed cost basis",
+    "observations": "Retained observations",
     "observationOnly": "Cost evidence only",
     "verifiedSavings": "Verified savings",
     "noSettlement": "No settled outcomes",

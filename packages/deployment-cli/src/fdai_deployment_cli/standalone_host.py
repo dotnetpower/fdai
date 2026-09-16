@@ -554,6 +554,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "console_hostname": _terraform_output(substrate, "console_default_hostname"),
         "topics": _terraform_json_output(substrate, "event_bus_topics"),
         "semantic_topics": _terraform_json_output(substrate, "event_bus_semantic_topics"),
+        "operating_model_topic": _terraform_output(substrate, "event_bus_operating_model_topic"),
         "kafka": _terraform_output(substrate, "event_bus_kafka_bootstrap"),
         "operational_kafka": _terraform_output(substrate, "event_bus_operational_kafka_bootstrap"),
         "workspace": _terraform_output(substrate, "log_workspace_customer_id"),
@@ -626,6 +627,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "RUNTIME_ENV": application_values["env"],
         "AUTONOMY_MODE_DEFAULT": "shadow",
         "FDAI_MONITOR_WORKSPACE_ID": substrate_outputs["workspace"],
+        "FDAI_OPERATING_MODEL_TOPIC": substrate_outputs["operating_model_topic"],
     }
     operator_environment = {
         "AZURE_CLIENT_ID": operator_identity["client_id"],

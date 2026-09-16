@@ -117,12 +117,20 @@ The summary title also remains server-owned. The projection uses an explicit rec
 `summary`, or rule id first. When those fields are absent, it builds a bounded subject from the
 recorded `signal:` and `resource:` correlation keys. An Azure resource id contributes only its
 resource type and final resource name, so the roster can show a subject such as
-`Resource inventory change - Storage account storage-example` without exposing the complete path.
+`storage-example: Resource inventory changed` without exposing the complete path.
 When no correlation key was recorded either, the projection composes a `recorded_subject` from the
 recorded operational target and reason, reading each entry and then its audit-envelope `payload`, so
-a governed abstention reads as `Kubernetes namespace - No rule matches resource type`. Only an
+a governed abstention reads as `checkout: No response rule matches`. Only an
 incident with no recorded subject evidence at all falls back to its event id; the browser does not
 invent a replacement title.
+
+Machine-derived titles also carry optional `title_presentation` metadata derived from the same
+recorded fields. Its closed template kind, short subject, subject kind, canonical signal or reason,
+English fallback label, and sanitized technical reference let the Console render an
+operator-readable title in the active locale without parsing the raw title or claiming a cause that
+was not recorded. Recorded titles and summaries remain verbatim. The roster keeps the technical
+reference and Incident number as supporting identifiers, while the detail view uses the
+operator-readable title as its accessible heading.
 
 When the roster shows that identifier fallback, it shows the `correlation_id`, which is the same
 identifier that the Audit, Trace, RCA, and dossier links resolve. A server-owned `incident_id`

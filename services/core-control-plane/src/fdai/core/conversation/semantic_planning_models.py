@@ -177,6 +177,7 @@ class SemanticOutputShape(StrEnum):
     GOVERNED_DOCUMENT_EXCERPTS = "governed_document_excerpts"
     INCIDENT_EVIDENCE = "incident_evidence"
     INVENTORY_IMPACT = "inventory_impact"
+    LOGICAL_SERVICE_CURRENT_STATE = "logical_service_current_state"
     ONTOLOGY_DECLARATION = "ontology_declaration"
     ONTOLOGY_MANIFEST = "ontology_manifest"
     ONTOLOGY_RELATIONSHIPS = "ontology_relationships"

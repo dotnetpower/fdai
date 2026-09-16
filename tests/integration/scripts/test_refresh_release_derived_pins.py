@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import runpy
 from pathlib import Path
 
@@ -82,3 +83,34 @@ def test_source_snapshot_detects_policy_edits_and_new_inputs(tmp_path: Path) -> 
     catalog.mkdir(parents=True)
     (catalog / "new.yaml").write_text("name: example")
     assert snapshot(tmp_path) != after
+
+
+def test_cost_profile_refresh_updates_exact_declaration_refs() -> None:
+    from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+    from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+
+    ontology = load_ontology_catalog(
+        ROOT / "rule-catalog",
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=ROOT / "rule-catalog/probes",
+    )
+    profile_path = (
+        ROOT / "extensions/cost-governance/src/fdai_cost_governance/resources/semantic-profile.json"
+    )
+    profile = json.loads(profile_path.read_text(encoding="utf-8"))
+
+    refreshed = MODULE["refresh_profile_release"](profile, ontology)
+
+    release = ontology.build_release()
+    expected = next(
+        item.model_dump(mode="json")
+        for item in release.declarations
+        if item.kind.value == "object" and item.name == "BusinessService"
+    )
+    actual = next(
+        item
+        for item in refreshed["declarations"]
+        if item["kind"] == "object" and item["name"] == "BusinessService"
+    )
+    assert refreshed["ontology_release_digest"] == release.digest
+    assert actual == expected
