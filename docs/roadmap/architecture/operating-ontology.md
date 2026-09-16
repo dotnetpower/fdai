@@ -45,7 +45,7 @@ The catalog-owned `Property` ObjectType remains the meta object for rule propert
 evaluated by a shipped rule: canonical `semantic_id`, value type, optional unit, enum
 or range, normalization rule, authority and freshness policy, equivalent provider paths, and the
 shipped evidence behind them. Provider paths never branch core code, and
-`scripts/quality/architecture/check-property-semantic-coverage.py` measures the coverage below.
+`scripts/quality/architecture/check-property-semantic-coverage.py` measures the coverage below. Production control thresholds use the same separation of meaning from active policy: the pinned `ontology/detection-routing-bounds@1.0.0` contract declares type, unit, scope, and hard range for the seven LLM routing controls and five incident-detection controls, while active defaults and values remain in versioned configuration. An AST-derived exact binding check rejects an unregistered consumer, an unused declaration, or drift between the active configuration bound and the ontology bound. The declaration cannot select a value or grant judgment, promotion, or execution authority.
 
 <!-- property-semantic-coverage:begin -->
 Measured reviewed coverage: **62 of 62** rule-evaluated Property references (100.0%) across 45

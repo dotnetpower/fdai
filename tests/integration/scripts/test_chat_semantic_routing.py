@@ -69,6 +69,27 @@ def test_alert_effect_classifier_is_reviewed_typed_evidence_not_language_routing
     assert module._function_has_lexical_judgment(function, compile_aliases={"compile"})
 
 
+def test_rca_log_fact_reducer_is_reviewed_typed_evidence_not_language_routing() -> None:
+    module = _load_module()
+    relative = "services/core-control-plane/src/fdai/core/rca/evidence.py"
+    baseline, failures = module._baseline(REPO_ROOT)
+    assert failures == []
+    assert baseline[relative]["disposition"] == "retain"
+    assert baseline[relative]["owner"] == "rca-telemetry-evidence"
+    source = (REPO_ROOT / relative).read_text(encoding="utf-8")
+    function = next(
+        node
+        for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef) and node.name == "_log_facts"
+    )
+
+    assert {arg.arg: ast.unparse(arg.annotation) for arg in function.args.args} == {
+        "record": "LogRecord"
+    }
+    assert function.args.kwonlyargs == []
+    assert relative in module._lexical_semantic_paths(REPO_ROOT)
+
+
 def test_detector_scans_every_production_source_tree() -> None:
     module = _load_module()
     actual = {path.resolve() for path in module._production_roots(REPO_ROOT)}

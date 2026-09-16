@@ -76,6 +76,17 @@ def test_const_002_implemented_status_requires_fail_closed_proofs() -> None:
     )
 
 
+def test_const_004_implemented_status_requires_versioned_threshold_proofs() -> None:
+    module = _load_module()
+
+    assert module.IMPLEMENTED_PROOF_TESTS["FDAI-CONST-004"] == (
+        "services/core-control-plane/tests/core/operational_learning/test_threshold_bounds.py::test_every_adaptive_threshold_field_declares_an_ontology_bound",
+        "services/core-control-plane/tests/core/operational_learning/test_threshold_bounds.py::test_detection_routing_bounds_load_from_the_pinned_shipped_contract",
+        "services/core-control-plane/tests/core/operational_learning/test_threshold_bounds.py::test_every_detection_routing_threshold_stays_inside_its_ontology_bound",
+        "services/core-control-plane/tests/core/operational_learning/test_threshold_bounds.py::test_every_production_routing_and_detection_threshold_has_a_versioned_bound",
+    )
+
+
 def test_const_001_implemented_status_requires_runtime_scope_proofs() -> None:
     module = _load_module()
 

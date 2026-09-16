@@ -344,6 +344,10 @@ from .wire_azure import AzureWireOverrides, wire_azure_container  # noqa: E402
 from .wire_azure_operational_evidence import bind_azure_operational_evidence  # noqa: E402
 from .wire_llm import bind_azure_llm_bindings  # noqa: E402
 from .wire_metric_provider import attach_metric_provider  # noqa: E402
+from .wire_observation_providers import (  # noqa: E402
+    attach_observation_providers,
+    attach_telemetry_workspace_resolver,
+)
 from .wire_read_investigation import (  # noqa: E402
     compose_resource_state_shadow_hook,
 )
@@ -364,6 +368,8 @@ __all__ = [
     "SemanticQueryRuntimeComposition",
     "TrajectoryRuntime",
     "attach_metric_provider",
+    "attach_observation_providers",
+    "attach_telemetry_workspace_resolver",
     "bind_browser_evidence",
     "bind_configuration_drift",
     "bind_decision_evidence_admission",

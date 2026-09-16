@@ -12,8 +12,13 @@ from fdai.core.detection.configuration_drift import (
     ConfigurationResource,
     FrozenConfigurationBaseline,
 )
+from fdai.delivery.azure.telemetry_query import (
+    AzureLogAnalyticsRcaLogProvider,
+    AzureLogAnalyticsTraceProvider,
+)
 from fdai.runtime.configuration import (
     _attach_runtime_configuration_drift,
+    _attach_runtime_metric_provider,
     _catalog_root_candidates,
     _direct_model_endpoint_resolver,
     _json_string_tuple,
@@ -62,6 +67,22 @@ def test_runtime_bootstrap_attaches_knowledge_after_llm_finalization() -> None:
     knowledge = bootstrap.index("container = _attach_runtime_knowledge_source(container)")
     assert knowledge > finalize
     assert "if container.llm_bindings is not None:" in bootstrap[finalize:knowledge]
+
+
+def test_telemetry_only_runtime_attaches_log_and_trace_providers(monkeypatch) -> None:
+    monkeypatch.setenv("FDAI_MONITOR_WORKSPACE_ID", "workspace-example")
+    monkeypatch.delenv("FDAI_PROMETHEUS_ENDPOINT", raising=False)
+    identity = StaticWorkloadIdentity(audience="https://api.loganalytics.io/.default")
+    client = httpx.AsyncClient()
+
+    container = _attach_runtime_metric_provider(
+        _container(),
+        http_client=client,
+        identity=identity,
+    )
+
+    assert isinstance(container.log_query_provider, AzureLogAnalyticsRcaLogProvider)
+    assert isinstance(container.trace_query_provider, AzureLogAnalyticsTraceProvider)
 
 
 def test_runtime_bootstrap_reuses_one_settings_snapshot_for_llm_and_core() -> None:

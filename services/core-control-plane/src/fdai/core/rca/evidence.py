@@ -33,8 +33,11 @@ standard library, so it stays under the ``core/`` import rule.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Iterable
 from datetime import datetime
+from re import Pattern
+from typing import Final
 from uuid import NAMESPACE_URL, uuid5
 
 from fdai.core.rca.contract import Citation, CitationKind
@@ -55,17 +58,79 @@ _LOGGER = logging.getLogger(__name__)
 
 _DEFAULT_ERROR_SEVERITIES = frozenset({"error", "critical", "fatal", "err"})
 _RESOURCE_LABEL = "resource_id"
+_CAUSE_MARKERS: Final[dict[str, Pattern[str]]] = {
+    "authentication": re.compile(r"\b(?:authentication|unauthorized|forbidden|credential)s?\b"),
+    "connection": re.compile(r"\bconnection (?:refused|reset|failed)\b"),
+    "dns": re.compile(r"\b(?:dns|name resolution|no such host)\b"),
+    "memory": re.compile(r"\b(?:out of memory|oom|memory limit)\b"),
+    "quota": re.compile(r"\b(?:quota|limit exceeded|too many requests)\b"),
+    "storage": re.compile(r"\b(?:disk full|no space left|storage full)\b"),
+    "throttling": re.compile(r"\b(?:throttl\w*|rate limit|http 429)\b"),
+    "timeout": re.compile(r"\b(?:timeout|timed out|deadline exceeded)\b"),
+    "tls": re.compile(r"\b(?:certificate|tls|ssl)\b"),
+}
+_SOURCE_FACTS: Final[dict[str, str]] = {
+    "appexceptions": "app_exceptions",
+    "apptraces": "app_traces",
+    "containerlogv2": "container_log",
+}
+_HTTP_METHODS: Final[frozenset[str]] = frozenset(
+    {"DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"}
+)
 
 
 def _log_ref(record: LogRecord) -> str:
     """Opaque, deterministic citation ref for a log record (no raw body)."""
-    token = uuid5(NAMESPACE_URL, f"{record.at.isoformat()}|{record.severity}|{record.body}")
+    labels = "|".join(f"{key}={value}" for key, value in sorted(record.labels.items()))
+    token = uuid5(
+        NAMESPACE_URL,
+        f"{record.at.isoformat()}|{record.severity}|{labels}|{record.body}",
+    )
     return f"log:{token.hex}"
 
 
 def _span_ref(span: Span) -> str:
     """Citation ref for an error span - trace + span ids only."""
     return f"trace:{span.trace_id}:{span.span_id}"
+
+
+def _log_facts(record: LogRecord) -> tuple[str, ...]:
+    folded = record.body.casefold()
+    facts = {
+        "signal:log_error",
+        f"severity:{_severity_fact(record.severity)}",
+    }
+    source = _SOURCE_FACTS.get(record.labels.get("source", "").casefold())
+    if source is not None:
+        facts.add(f"source:{source}")
+    facts.update(
+        f"marker:{marker}"
+        for marker, pattern in _CAUSE_MARKERS.items()
+        if pattern.search(folded) is not None
+    )
+    return tuple(sorted(facts))
+
+
+def _span_facts(span: Span) -> tuple[str, ...]:
+    milliseconds = span.duration.total_seconds() * 1_000
+    if milliseconds < 100:
+        duration = "under_100ms"
+    elif milliseconds < 1_000:
+        duration = "100ms_to_1s"
+    elif milliseconds < 10_000:
+        duration = "1s_to_10s"
+    else:
+        duration = "over_10s"
+    facts = {"signal:trace_error", "status:error", f"duration:{duration}"}
+    method = span.operation.partition(" ")[0].upper()
+    if method in _HTTP_METHODS:
+        facts.add(f"protocol:http_{method.casefold()}")
+    return tuple(sorted(facts))
+
+
+def _severity_fact(value: str) -> str:
+    normalized = value.casefold()
+    return normalized if normalized in _DEFAULT_ERROR_SEVERITIES else "other"
 
 
 class TelemetryEvidenceGatherer:
@@ -107,14 +172,14 @@ class TelemetryEvidenceGatherer:
         seen: set[str] = set()
 
         for ref in await self._gather_log_refs(resource_ref, since, until, log_expression, limit):
-            if ref not in seen:
-                seen.add(ref)
-                citations.append(Citation(kind=CitationKind.TELEMETRY, ref=ref))
+            if ref.ref not in seen:
+                seen.add(ref.ref)
+                citations.append(ref)
 
         for ref in await self._gather_span_refs(resource_ref, since, until, trace_service, limit):
-            if ref not in seen:
-                seen.add(ref)
-                citations.append(Citation(kind=CitationKind.TELEMETRY, ref=ref))
+            if ref.ref not in seen:
+                seen.add(ref.ref)
+                citations.append(ref)
 
         return tuple(citations)
 
@@ -125,7 +190,7 @@ class TelemetryEvidenceGatherer:
         until: datetime,
         expression: str,
         limit: int,
-    ) -> list[str]:
+    ) -> list[Citation]:
         if self._log_provider is None:
             return []
         query = LogQuery(
@@ -135,11 +200,17 @@ class TelemetryEvidenceGatherer:
             until=until,
             limit=limit,
         )
-        refs: list[str] = []
+        refs: list[Citation] = []
         try:
             async for record in self._log_provider.query(query):
                 if record.severity.lower() in self._error_severities:
-                    refs.append(_log_ref(record))
+                    refs.append(
+                        Citation(
+                            kind=CitationKind.TELEMETRY,
+                            ref=_log_ref(record),
+                            facts=_log_facts(record),
+                        )
+                    )
         except LogQueryProviderError:
             _LOGGER.warning("rca_log_evidence_unavailable", extra={"resource_ref": resource_ref})
             return []
@@ -152,7 +223,7 @@ class TelemetryEvidenceGatherer:
         until: datetime,
         service: str | None,
         limit: int,
-    ) -> list[str]:
+    ) -> list[Citation]:
         if self._trace_provider is None:
             return []
         query = TraceQuery(
@@ -162,11 +233,17 @@ class TelemetryEvidenceGatherer:
             until=until,
             limit=limit,
         )
-        refs: list[str] = []
+        refs: list[Citation] = []
         try:
             async for span in self._trace_provider.query(query):
                 if span.status.lower() == "error":
-                    refs.append(_span_ref(span))
+                    refs.append(
+                        Citation(
+                            kind=CitationKind.TELEMETRY,
+                            ref=_span_ref(span),
+                            facts=_span_facts(span),
+                        )
+                    )
         except TraceQueryProviderError:
             _LOGGER.warning("rca_trace_evidence_unavailable", extra={"resource_ref": resource_ref})
             return []

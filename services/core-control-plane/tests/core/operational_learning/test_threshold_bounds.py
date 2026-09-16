@@ -21,19 +21,25 @@ from fdai.core.operational_learning import shadow_dwell
 from fdai.core.operational_learning.shadow_dwell import MAX_POLICY_ESCAPES, ShadowDwellThresholds
 from fdai.delivery.runtime_settings import RUNTIME_SETTING_SPECS
 from fdai.shared.contracts.models import PromotionGate
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.ontology.threshold_bounds import (
     ACTION_TYPE_SCHEMA,
     ADAPTIVE_THRESHOLD_BINDINGS,
+    DETECTION_ROUTING_SCHEMA,
+    DETECTION_ROUTING_THRESHOLD_BINDINGS,
     UNBOUND_ADAPTIVE_THRESHOLDS,
     BoundValueType,
     HardBound,
     UnknownBoundError,
     check_within_bounds,
+    load_detection_routing_bounds,
     load_promotion_gate_bounds,
 )
+from jsonschema import Draft202012Validator
 from pydantic import ValidationError
 
 BOUNDS = load_promotion_gate_bounds()
+DETECTION_ROUTING_BOUNDS = load_detection_routing_bounds()
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 
 #: Every dataclass that owns a numeric adaptive threshold today.
@@ -224,6 +230,36 @@ def test_every_recorded_threshold_is_now_bound_to_a_declaration() -> None:
     assert _numeric_threshold_names() == set(ADAPTIVE_THRESHOLD_BINDINGS)
 
 
+def test_detection_routing_bounds_load_from_the_pinned_shipped_contract() -> None:
+    registry = PackageResourceSchemaRegistry()
+    schema = registry.get(*DETECTION_ROUTING_SCHEMA)
+
+    Draft202012Validator.check_schema(dict(schema))
+    assert DETECTION_ROUTING_SCHEMA[0] in registry.names()
+    assert schema["$id"] == ("https://fdai.dev/schemas/ontology/detection-routing-bounds/1.0.0")
+    assert len(DETECTION_ROUTING_BOUNDS) == 12
+    assert set(DETECTION_ROUTING_BOUNDS) == set(DETECTION_ROUTING_THRESHOLD_BINDINGS.values())
+    for bound in DETECTION_ROUTING_BOUNDS.values():
+        assert bound.source_ref.startswith(
+            f"{DETECTION_ROUTING_SCHEMA[0]}@{DETECTION_ROUTING_SCHEMA[1]}"
+        )
+        assert bound.unit
+        assert bound.scope
+
+
+@pytest.mark.parametrize("semantic_id", sorted(DETECTION_ROUTING_BOUNDS))
+def test_every_detection_routing_threshold_stays_inside_its_ontology_bound(
+    semantic_id: str,
+) -> None:
+    bound = DETECTION_ROUTING_BOUNDS[semantic_id]
+    sweep = _sweep(bound)
+
+    assert sweep, f"{semantic_id} declares no bound to sweep"
+    for value, expected_inside in sweep:
+        violation = check_within_bounds(semantic_id, value, DETECTION_ROUTING_BOUNDS)
+        assert (violation is None) is expected_inside, (semantic_id, value, violation)
+
+
 def test_every_production_routing_and_detection_threshold_has_a_versioned_bound() -> None:
     config_schema = json.loads(
         (_REPO_ROOT / "services/core-control-plane/src/fdai/shared/config/schema.json").read_text(
@@ -273,7 +309,8 @@ def test_every_production_routing_and_detection_threshold_has_a_versioned_bound(
     }
     for field_name in llm_thresholds:
         declaration = llm_properties[field_name]
-        assert "minimum" in declaration or "maximum" in declaration
+        semantic_id = DETECTION_ROUTING_THRESHOLD_BINDINGS[field_name]
+        _assert_same_bound(declaration, DETECTION_ROUTING_BOUNDS[semantic_id])
         assert check_within_schema_bounds(declaration, declaration["default"])
 
     bootstrap = ast.parse(
@@ -305,13 +342,37 @@ def test_every_production_routing_and_detection_threshold_has_a_versioned_bound(
         spec = specs[key]
         assert spec.value_type in {"integer", "number"}
         assert spec.minimum is not None or spec.maximum is not None
+        semantic_id = DETECTION_ROUTING_THRESHOLD_BINDINGS[key]
+        bound = DETECTION_ROUTING_BOUNDS[semantic_id]
+        assert BoundValueType(spec.value_type) is bound.value_type
+        assert _optional_decimal(spec.minimum) == bound.minimum
+        assert _optional_decimal(spec.maximum) == bound.maximum
         assert spec.validate(spec.default) == spec.default
+
+    discovered = llm_thresholds | heimdall_settings
+    assert "quality_gate_confidence_threshold" in discovered
+    assert "incident.alert_rate_per_hour" in discovered
+    assert discovered == set(DETECTION_ROUTING_THRESHOLD_BINDINGS)
+    assert set(DETECTION_ROUTING_THRESHOLD_BINDINGS.values()) == set(DETECTION_ROUTING_BOUNDS)
 
 
 def check_within_schema_bounds(declaration: dict[str, Any], value: int | float) -> bool:
     minimum = declaration.get("minimum")
     maximum = declaration.get("maximum")
     return (minimum is None or value >= minimum) and (maximum is None or value <= maximum)
+
+
+def _assert_same_bound(declaration: dict[str, Any], bound: HardBound) -> None:
+    assert BoundValueType(declaration["type"]) is bound.value_type
+    assert _optional_decimal(declaration.get("minimum")) == bound.minimum
+    assert _optional_decimal(declaration.get("maximum")) == bound.maximum
+
+
+def _optional_decimal(value: object) -> Decimal | None:
+    if value is None:
+        return None
+    assert isinstance(value, (int, float)) and not isinstance(value, bool)
+    return Decimal(str(value))
 
 
 @pytest.mark.parametrize("field_name", ["min_fidelity", "max_recurrence_rate"])
@@ -324,9 +385,14 @@ def test_the_graph_model_policy_reads_its_ratio_range_from_the_declaration(
     bound = BOUNDS[semantic_id]
     assert bound.minimum is not None and bound.maximum is not None
 
+    def policy_with(value: float) -> GraphModelPromotionPolicy:
+        if field_name == "min_fidelity":
+            return GraphModelPromotionPolicy(min_fidelity=value)
+        return GraphModelPromotionPolicy(max_recurrence_rate=value)
+
     for accepted in (float(bound.minimum), float(bound.maximum)):
-        assert getattr(GraphModelPromotionPolicy(**{field_name: accepted}), field_name) == accepted
+        assert getattr(policy_with(accepted), field_name) == accepted
 
     for rejected in (float(bound.minimum) - 0.01, float(bound.maximum) + 0.01, math.nan):
         with pytest.raises(ValueError, match=semantic_id):
-            GraphModelPromotionPolicy(**{field_name: rejected})
+            policy_with(rejected)

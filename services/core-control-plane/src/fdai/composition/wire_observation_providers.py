@@ -15,6 +15,7 @@ from fdai.delivery.azure.telemetry_query import (
     AzureLogAnalyticsRcaLogProvider,
     AzureLogAnalyticsTraceProvider,
 )
+from fdai.delivery.azure.telemetry_workspace import AzureTelemetryWorkspaceResolver
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 
@@ -41,4 +42,24 @@ def attach_observation_providers(
     )
 
 
-__all__ = ["attach_observation_providers"]
+def attach_telemetry_workspace_resolver(
+    container: Container,
+    *,
+    resolver: AzureTelemetryWorkspaceResolver,
+) -> Container:
+    """Add exact Azure workspace routing without replacing custom providers."""
+
+    log_provider = container.log_query_provider
+    trace_provider = container.trace_query_provider
+    if isinstance(log_provider, AzureLogAnalyticsRcaLogProvider):
+        log_provider = log_provider.with_workspace_resolver(resolver)
+    if isinstance(trace_provider, AzureLogAnalyticsTraceProvider):
+        trace_provider = trace_provider.with_workspace_resolver(resolver)
+    return replace(
+        container,
+        log_query_provider=log_provider,
+        trace_query_provider=trace_provider,
+    )
+
+
+__all__ = ["attach_observation_providers", "attach_telemetry_workspace_resolver"]
