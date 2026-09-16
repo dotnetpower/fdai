@@ -56,11 +56,13 @@ resource "azurerm_role_assignment" "cluster_api_network" {
   principal_id         = azurerm_user_assigned_identity.cluster.principal_id
 }
 
+#trivy:ignore:AZU-0065
 resource "azurerm_kubernetes_cluster" "runtime" {
   # checkov:skip=CKV_AZURE_117:Azure-managed encryption is retained until a deployment selects an independently governed CMK profile.
   # checkov:skip=CKV_AZURE_171:AzureRM 4.x uses automatic_upgrade_channel; the pinned scanner reads the retired automatic_channel_upgrade attribute.
   # checkov:skip=CKV_AZURE_226:Managed OS disks support the diskless default SKUs; platform-managed disk encryption and host encryption remain enabled.
   # checkov:skip=CKV_AZURE_227:AzureRM 4.x uses host_encryption_enabled; the pinned scanner reads the retired enable_host_encryption attribute.
+  # The basic stage uses explicit authorized CIDRs, Entra RBAC, disabled local accounts, and API Server VNet Integration before a separately verified private transition.
   name                                = local.name
   location                            = var.location
   resource_group_name                 = var.resource_group_name

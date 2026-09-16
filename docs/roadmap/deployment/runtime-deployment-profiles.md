@@ -147,6 +147,9 @@ the cluster reached `Succeeded`, API Server VNet Integration is active and the r
 path is reachable. Basic deployment initially keeps authenticated public API access so an external
 coordinator can complete the baseline. The workload state then reads the approved cluster's OIDC
 issuer and uses an owner-only kubeconfig on the deployment host.
+The Terraform scanner exception for this public baseline is resource-local and names the explicit
+CIDR allowlist, Microsoft Entra RBAC, disabled local accounts and VNet Integration controls. It
+does not suppress other AKS findings or certify the later private transition.
 Database and application preparation both convert that owner-only kubeconfig with
 [`kubelogin` managed identity authentication](https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication)
 using `--login msi` and the exact managed-host client ID. Credential acquisition pins the
