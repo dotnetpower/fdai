@@ -4,13 +4,25 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 import httpx
 import yaml
 
 from fdai.core.hil_resume.escalation_catalog_binding import CatalogEscalationTiming
+from fdai.core.hil_resume.escalation_supervisor import (
+    EscalationPolicy,
+    EscalationRung,
+    HumanNonResponseSupervisor,
+)
 from fdai.core.hil_resume.forecast_urgency import ForecastUrgencyReader
+from fdai.core.hil_resume.load_control import (
+    ApprovalLoadController,
+    ApprovalLoadPolicy,
+    ApprovalReminderDispatcher,
+)
 from fdai.core.hil_resume.rung_eligibility import DirectoryRungEligibility
 from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.rbac.roles import Role
@@ -18,7 +30,95 @@ from fdai.delivery.identity.entra_directory import EntraHumanIdentityDirectory
 from fdai.delivery.persistence.postgres import PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_forecast_urgency import PostgresForecastUrgencyReader
 from fdai.rule_catalog.schema.escalation_ladder import load_escalation_catalog
+from fdai.runtime.report_lines import ReportLineRuntime, build_report_line_runtime
+from fdai.shared.contracts.models import Mode
+from fdai.shared.providers.hil_channel import HilChannel
+from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
+
+
+@dataclass(frozen=True, slots=True)
+class HilRuntimeSupport:
+    """HIL routing services composed without execution authority."""
+
+    report_lines: ReportLineRuntime | None
+    escalation: HumanNonResponseSupervisor | None
+    load_controller: ApprovalLoadController | None
+    reminder_dispatcher: ApprovalReminderDispatcher | None
+
+
+def build_hil_runtime_support(
+    *,
+    catalog_root: Path,
+    environment: Mapping[str, str],
+    http_client: httpx.AsyncClient | None,
+    identity: WorkloadIdentity | None,
+    store: StateStore,
+    channel: HilChannel | None,
+    load_policy: ApprovalLoadPolicy | None,
+    escalation_rungs: tuple[EscalationRung, ...],
+) -> HilRuntimeSupport:
+    """Compose report-line routing, escalation, and approval load control."""
+
+    rung_eligibility = build_rung_eligibility(
+        catalog_root,
+        http_client=http_client,
+        identity=identity,
+        environment=environment,
+    )
+    report_lines = build_report_line_runtime(
+        store=store,
+        environment=environment,
+        role_eligibility=rung_eligibility,
+    )
+    if report_lines is not None and channel is None:
+        raise ValueError("report-line approval routing requires a configured HIL channel")
+    escalation = (
+        HumanNonResponseSupervisor(
+            state_store=store,
+            channel=channel,
+            catalog_timing=build_escalation_timing(catalog_root, environment),
+            forecast_urgency_reader=build_forecast_urgency_reader(environment),
+            eligibility=(
+                report_lines.escalation_eligibility
+                if report_lines is not None
+                else rung_eligibility
+            ),
+            policy=EscalationPolicy(
+                decision_timeout_seconds=300,
+                overall_timeout_seconds=1800,
+                mode=Mode.SHADOW,
+            ),
+        )
+        if channel is not None and (escalation_rungs or report_lines is not None)
+        else None
+    )
+
+    async def observe_delivery(approval_id: str, delivered_at: datetime) -> None:
+        if escalation is not None:
+            await escalation.mark_delivered(approval_id, at=delivered_at)
+
+    load_controller = (
+        ApprovalLoadController(state_store=store, policy=load_policy)
+        if channel is not None and load_policy is not None
+        else None
+    )
+    reminder_dispatcher = (
+        ApprovalReminderDispatcher(
+            state_store=store,
+            channel=channel,
+            policy=load_policy,
+            delivery_observer=observe_delivery if escalation is not None else None,
+        )
+        if channel is not None and load_policy is not None
+        else None
+    )
+    return HilRuntimeSupport(
+        report_lines=report_lines,
+        escalation=escalation,
+        load_controller=load_controller,
+        reminder_dispatcher=reminder_dispatcher,
+    )
 
 
 def build_escalation_timing(
@@ -89,4 +189,10 @@ def build_forecast_urgency_reader(environment: Mapping[str, str]) -> ForecastUrg
     return PostgresForecastUrgencyReader(PostgresStateStoreConfig(dsn=dsn)) if dsn else None
 
 
-__all__ = ["build_escalation_timing", "build_forecast_urgency_reader", "build_rung_eligibility"]
+__all__ = [
+    "HilRuntimeSupport",
+    "build_escalation_timing",
+    "build_forecast_urgency_reader",
+    "build_hil_runtime_support",
+    "build_rung_eligibility",
+]

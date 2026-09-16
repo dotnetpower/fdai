@@ -540,7 +540,8 @@
       "human-dependencies": "현재 담당자",
       "knowledge-handover": "담당 체계 변경",
       "approval-routes": "승인 경로",
-      "mapping-reviews": "사용자 업무 인수인계"
+      "mapping-reviews": "사용자 업무 인수인계",
+      "reporting-lines": "보고선"
     },
     "unavailable": "이 배포에는 담당 체계 엔드포인트가 연결되지 않아, 여기에서 주장하는 담당자 배정이나 인계 분석 결과가 없습니다.",
     "noMaintainer": "구성된 유지관리자가 없습니다. 최소 1명이 필요합니다.",

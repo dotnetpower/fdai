@@ -18,6 +18,11 @@ from fdai.core.human_assignment.request_intake import AssignmentRequestIntake
 from fdai.core.human_assignment.request_processor import AssignmentRequestProcessor
 from fdai.core.human_assignment.scoped_duty_requests import ScopedDutyRequestProcessor
 from fdai.core.human_assignment.service import AssignmentCaseService
+from fdai.core.human_reporting import (
+    ReportingLineRequestProcessor,
+    ReportingLineService,
+    StateStoreReportingLineDraftReader,
+)
 from fdai.delivery.persistence.postgres import PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_assignment_receipts import PostgresAssignmentReceiptReader
 from fdai.delivery.persistence.postgres_handover_admission import PostgresHandoverSourceReader
@@ -40,6 +45,7 @@ class AssignmentTransportRuntime:
     consumer: AssignmentIntakeConsumer
     workflow: AssignmentWorkflowBindings
     scoped: ScopedDutyRequestProcessor | None = None
+    reporting: ReportingLineRequestProcessor | None = None
     core_handover: CoreHandoverServices | None = None
 
     def with_pantheon(self, pantheon: PantheonRuntime | None) -> AssignmentIntakeConsumer:
@@ -72,8 +78,16 @@ def build_assignment_transport(
         http_client=http_client,
         identity=identity,
     )
+    reporting = ReportingLineRequestProcessor(
+        intake=intake,
+        cases=ReportingLineService(store),
+        drafts=StateStoreReportingLineDraftReader(store),
+    )
     processor = AssignmentRequestProcessor(
-        intake=intake, cases=AssignmentCaseService(store), scoped=scoped
+        intake=intake,
+        cases=AssignmentCaseService(store),
+        scoped=scoped,
+        reporting=reporting,
     )
     core_handover = build_core_handover_services(
         store=store,
@@ -85,6 +99,7 @@ def build_assignment_transport(
     return AssignmentTransportRuntime(
         consumer=AssignmentIntakeConsumer(intake),
         scoped=scoped,
+        reporting=reporting,
         core_handover=core_handover,
         workflow=AssignmentWorkflowBindings(
             validate=processor.validate,

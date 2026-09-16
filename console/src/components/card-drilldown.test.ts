@@ -68,7 +68,11 @@ function hasDetailDescendant(node: ts.Node, source: ts.SourceFile): boolean {
     if (found) return;
     if (ts.isJsxOpeningElement(child) || ts.isJsxSelfClosingElement(child)) {
       const tag = jsxTag(child, source);
-      if (tag === "a" || (tag === "button" && hasAttribute(child, source, "aria-controls"))) {
+      if (
+        tag === "a"
+        || tag === "details"
+        || (tag === "button" && hasAttribute(child, source, "aria-controls"))
+      ) {
         found = true;
         return;
       }

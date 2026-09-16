@@ -9,5 +9,17 @@
   "recordingDecision": "Recording...",
   "decisionDelivered": "{decision} was recorded and delivered to the approval workflow.",
   "decisionPendingDelivery": "{decision} was recorded. Durable delivery is pending and will be retried.",
-  "decisionUnavailable": "This legacy or incomplete approval cannot be decided from FDAI Console."
+  "decisionUnavailable": "This legacy or incomplete approval cannot be decided from FDAI Console.",
+  "contactTitle": "Approval requests waiting for your consent",
+  "contactBody": "FDAI found an eligible approver through your confirmed reporting line. Sending the request does not approve the action.",
+  "contactRoute": "Approval route",
+  "contactExpires": "Consent expires {timestamp}",
+  "contactTechnicalDetails": "Technical details",
+  "contactApprovalId": "Approval ID",
+  "contactConsentId": "Consent ID",
+  "sendContact": "Send approval request",
+  "declineContact": "Cancel request",
+  "contactRecording": "Recording...",
+  "contactQueued": "Your choice was recorded. The approval route will be rechecked before any message is sent.",
+  "contactEmpty": "No approval request is waiting for your contact consent."
 }

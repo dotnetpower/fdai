@@ -251,9 +251,16 @@ def _approval_for(action: OntologyActionType) -> tuple[bool, str, Role | None]:
     return False, "no enforce_hil ceiling or prod HIL downgrade; runtime risk-gate decides", None
 
 
+def approval_role_for_action(action: OntologyActionType) -> Role | None:
+    """Return the minimum human role from the existing ActionType approval ceiling."""
+
+    return _approval_for(action)[2]
+
+
 __all__ = [
     "ApprovalPlan",
     "ApprovalPlanError",
     "StepApproval",
     "WorkflowApprovalPlanner",
+    "approval_role_for_action",
 ]

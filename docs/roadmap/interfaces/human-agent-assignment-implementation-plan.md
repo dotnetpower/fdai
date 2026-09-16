@@ -430,6 +430,33 @@ intervals, explicit blockers, Owner authorization, expiry, future timestamps, an
 plus cohort evidence. Alert dispatch, provider checks,
 recovery writes, and promotion are not delivered by this reporting slice.
 
+### Package 10 - Human report lines and approval routing
+
+**Status:** Implemented in source and disabled by default. Deployment evidence and promotion remain
+open.
+
+**Changes:** Add an independent `human_reporting` lifecycle with immutable document candidates,
+edge confirmation, independent Owner review, acyclic current-graph projection, requester contact
+consent, and nearest eligible ancestor routing. Reuse governed document ingestion, the existing
+assignment transport, HIL queue, non-response supervisor, and principal-to-ActionType policy.
+The Operator API and Console expose only bounded proposals and projections. They gain no execution
+identity, and neither a report line nor contact consent grants approval authority.
+
+The initial runtime opt-in accepts quorum `1`. Higher-quorum actions remain on their existing
+workflow or human-access approval path. `FDAI_REPORT_LINE_APPROVAL_ROUTES_JSON` selects exact
+ActionTypes, while an empty value preserves existing approval routing.
+`FDAI_REPORT_LINE_APPROVER_SCOPES_JSON` independently constrains each selected principal and
+ActionType to exact target scopes.
+
+**Tests:** Contract digest and tamper checks, extraction and directory-conflict holds, edge
+transition and graph-cycle properties, independent reviewer checks, current-route eligibility,
+contact-consent expiry and replay, durable Operator transport, HIL dispatch and stale-route
+rejection, Console decoding and interaction contracts, and bilingual catalog parity.
+
+**Exit:** Source behavior and focused checks pass, at least ten distinct critique and hardening
+rounds leave no unresolved finding above Low, and protected CI merges the exact reviewed head.
+Live Graph, notification, and promotion evidence remain deployment-owned.
+
 ## Current-change evidence and remaining scope
 
 The [final integrated record](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) documents 12 distinct rounds after all remaining source implementation.
