@@ -25,6 +25,11 @@ Root test collection also imports the standalone CLI's Rich renderer and pyte te
 The root development extra declares both with the CLI's supported version ranges and pins them
 in the root lock; the CLI keeps its own lock and neither dependency becomes a service runtime input.
 
+Root regression collection also imports Core telemetry tests. The root `dev` extra therefore
+mirrors `azure-monitor-opentelemetry` at the Core manifest's supported range while Core remains the
+runtime owner and the root remains non-installable. The exact-module mypy override covers only the
+package's missing type information.
+
 ## Multi-Service Repository Layout
 
 ```text

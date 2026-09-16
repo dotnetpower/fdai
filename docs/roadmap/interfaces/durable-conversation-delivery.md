@@ -69,6 +69,7 @@ grants Core an Operator database writer.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Operator breaker-state projection | implemented | `runtime_projection_reader.py`; 35 Operator and 2 Console tests; mypy; actual Operator-role SQL and isolated browser checks | Recorded open=2, closed=1 and paused=1 reached the existing aggregate section; empty and malformed states remain distinct. No pause, resume, send or retry operation is introduced. |
 | Verified bindings and delivery context | implemented | `channel_delivery_models.py`; `postgres_channel_binding.py`; live PostgreSQL checks | The Operator-local store enforces exact idempotent create, active-endpoint uniqueness, revocation CAS, principal-scoped listing, and restart persistence through the runtime role. The standalone edge binds the store and revalidates binding state and identity before every due send. |
 | Immutable delivery ledger and recovery coordinator | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_conversation_delivery.py`](../../../services/core-control-plane/tests/providers/test_conversation_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py) | The in-memory store and coordinator enforce stable idempotency, CAS claims, bounded retry, terminal ambiguity, and stale-lease reconciliation in focused tests. This row does not claim restart durability. |
 | Conversation gateway and typed progress replay | implemented | [`channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | The gateway persists one complete response through its durable-delivery boundary and isolates duplicate turns and delivery failures. Typed activity and progress payloads round-trip in focused tests. No production channel runtime binds this path. |
@@ -89,6 +90,7 @@ grants Core an Operator database writer.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-17 | implemented | Connected the independent Operator Console reader to durable adapter breaker-mode counts instead of a hardcoded empty map. | `current change`; 35 Operator and 2 Console tests, mypy; effective Operator-role SQL over four temporary mode rows plus empty-table read followed by rollback; isolated browser displayed all three mode counts. | Ordered protected delivery under #1245; no provider-send or authenticated live-operation claim. |
 | 2026-09-14 | implemented | Stopped unsupported A3 attachments before ingress queueing and added a pipeline backstop before durable claim or semantic publication. Strict enablement now fails startup while no production ingestor is bound. | `current change`; focused Operator environment, composition, Slack, Teams, and pipeline checks. | Bind the versioned agent-owned ingestion handoff and retain attachment restart, timeout, and citation evidence. |
 | 2026-09-11 | implemented | Assigned distinct fixed semantic outbox namespaces to the independent Operator API and channel edge so each runtime claims only its own durable requests. | `infra/services/operator-service/modules/operator-service/main.tf`; focused Terraform semantic transport checks; live target-only observations under the shared empty namespace. | Apply the independent Operator service transition and retain a fresh paired runtime-call witness. |
 | 2026-09-09 | implemented | Bound semantic Kafka partitioning to the opaque session reference and reconciled the local physical topic to the deployed two-partition floor. | `current change`; focused Operator bridge and local startup checks. | Retain the governed authenticated subscription receipt required by issue #151. |
@@ -291,7 +293,7 @@ Its payload sets `read_only=true` and `mutations_available=false` and stays aggr
 carries no answer text and no principal, scope, conversation, delivery, attempt, or provider
 identifier. The panel reaches only the snapshot read capability, and the console must expose no
 pause, resume, retry, duplicate-risk override, or resend control. No console route or production
-store binds the projection yet.
+store binds that Core panel class yet. The independent Operator `RuntimeProjectionReader` serves the existing Console route directly from its durable delivery tables, including grouped `conversation_adapter_breaker.mode` counts. An empty map means the query returned no recorded breakers; read failures and invalid modes are unavailable, not a fabricated empty map.
 
 ## Verification
 

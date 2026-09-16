@@ -484,7 +484,7 @@ not merge configuration ownership.
 ## 9. Growth model (catalog + operator memory)
 
 The console gets better over time via three deterministic mechanisms; model-side learning is **not** one of them. Operator Memory review applies the selected scope kind and reference to both entries and compaction candidates before the bounded read limit. Candidate rows expose their exact scope, and leaving either filter unset preserves the corresponding all-scope read without granting approval or memory-write authority.
-After a joined Console catalog source changes, regenerate the complete question bank and then semantic intent coverage; artifact equality rejects stale source digests, and a provenance-only refresh cannot change question identity, readiness, or authority.
+After a joined Console catalog source changes, regenerate the complete question bank and then semantic intent coverage; artifact equality rejects stale source digests, and a provenance-only refresh cannot change question identity, readiness, or authority. Conversation Delivery likewise displays only recorded breaker-mode counts; regenerating its System Knowledge source commitment does not give the browser pause, resume, retry, approval, or escalation authority.
 
 ### 9.1 Day 1
 
