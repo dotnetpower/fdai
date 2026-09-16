@@ -343,6 +343,7 @@
         "services/core-control-plane/tests/delivery/test_kubernetes_direct_api.py",
         "services/operator-service/src/fdai_operator_service/families/aks_commerce/**",
         "services/operator-service/src/fdai_operator_service/composition.py",
+        "services/operator-service/src/fdai_operator_service/family_adapters.py",
         "services/operator-service/src/fdai_operator_service/routes.py",
         "services/operator-service/tests/test_aks_commerce*.py",
         "services/operator-service/tests/test_operator_service_full_composition.py",
@@ -419,7 +420,8 @@
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/architecture/ontology-structural-model.md",

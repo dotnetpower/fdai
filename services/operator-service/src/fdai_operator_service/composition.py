@@ -58,11 +58,6 @@ from fdai_operator_service.conversation_assurance_reader import (
 from fdai_operator_service.environment import (
     OperatorEnvironment,
 )
-from fdai_operator_service.families.aks_commerce import (
-    AksCommerceFamilyDependencies,
-    StateStoreAksCommerceProjectionReader,
-    UnavailableAksCommerceProjectionReader,
-)
 from fdai_operator_service.families.conversation import (
     ConversationFamilyDependencies,
 )
@@ -86,9 +81,12 @@ from fdai_operator_service.families.cost_governance import CostGovernanceFamilyD
 from fdai_operator_service.families.operations import PanelRoute
 from fdai_operator_service.families.operations.contracts import ProjectionReader
 from fdai_operator_service.family_adapters import (
+    AksCommerceFamilyDependencies,
     PostgresConversationAdapters,
     PostgresOperationsAdapters,
     PostgresWorkflowAdapters,
+    StateStoreAksCommerceProjectionReader,
+    UnavailableAksCommerceProjectionReader,
     UnavailableConversationAdapters,
     UnavailableOperationsAdapters,
     UnavailableWorkflowAdapters,
