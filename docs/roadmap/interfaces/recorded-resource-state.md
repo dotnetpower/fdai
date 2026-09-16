@@ -115,7 +115,7 @@ It accepts bounded `limit`, optional `search`, and a continuation `cursor`.
 |----------|----------|
 | Page size | At most 500 Resources in deterministic resource-id order. No per-resource API fan-out. |
 | Exclusions | Authorization role assignments, subscription containers, and resource-group containers are not operational roster items. |
-| Identity | Every page preserves `source_kind`, `source_generation`, `source_cutoff`, `ontology_generation`, `ontology_manifest_digest`, and `ontology_release_digest`. |
+| Identity | Every page preserves `source_kind`, `source_generation`, `source_cutoff`, `ontology_generation`, `ontology_manifest_digest`, `ontology_release_digest`, and its generation-bound `invalidation_watermark`. |
 | Count | `total_count` describes the same-generation query, not an inferred tenant-wide total. |
 | Continuation | The cursor binds generation, query and authenticated principal context. It is a selector, never authority. Invalid or changed context is rejected. |
 | Completion | `next_cursor` is explicit; `complete` is true only on the last page. An empty page cannot carry a continuing cursor. |

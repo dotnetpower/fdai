@@ -14,8 +14,6 @@ silently adopted.
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import logging
 import re
 from collections.abc import Mapping, Sequence
@@ -30,6 +28,36 @@ from fdai.core.ontology_platform.inventory_projection import (
 from fdai.delivery.inventory_sync import (
     INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY,
     PromotedInventoryObservation,
+)
+from fdai.runtime.inventory_ontology_manifest import (
+    IDENTITY_ONLY_MANIFEST_SCHEMA_VERSION as _IDENTITY_ONLY_MANIFEST_SCHEMA_VERSION,
+)
+from fdai.runtime.inventory_ontology_manifest import (
+    LEGACY_MANIFEST_SCHEMA_VERSION as _LEGACY_MANIFEST_SCHEMA_VERSION,
+)
+from fdai.runtime.inventory_ontology_manifest import (
+    MANIFEST_SCHEMA_VERSION as _MANIFEST_SCHEMA_VERSION,
+)
+from fdai.runtime.inventory_ontology_manifest import (
+    manifest_content_digest as _manifest_content_digest,
+)
+from fdai.runtime.inventory_ontology_manifest import (
+    manifest_digest as _manifest_digest,
+)
+from fdai.runtime.inventory_ontology_manifest import (
+    manifest_state as _manifest_state,
+)
+from fdai.runtime.inventory_ontology_manifest import (
+    manifest_watermark as _manifest_watermark,
+)
+from fdai.runtime.inventory_ontology_manifest import (
+    projection_content as _projection_content,
+)
+from fdai.runtime.inventory_ontology_manifest import (
+    projection_status_state as _projection_status_state,
+)
+from fdai.runtime.inventory_ontology_manifest import (
+    status_state as _status_state,
 )
 from fdai.runtime.inventory_ontology_state import (
     InventoryOntologyProjectionResult,
@@ -50,9 +78,6 @@ from fdai.shared.providers.state_store import StateStore
 INVENTORY_ONTOLOGY_MANIFEST_KEY = "inventory-ontology:manifest"
 INVENTORY_ONTOLOGY_INVALIDATION_KEY = "inventory-ontology:invalidation"
 INVENTORY_ONTOLOGY_STATUS_KEY = "inventory-ontology:status"
-_MANIFEST_SCHEMA_VERSION = "1.3.0"
-_LEGACY_MANIFEST_SCHEMA_VERSION = "1.2.0"
-_IDENTITY_ONLY_MANIFEST_SCHEMA_VERSION = "1.1.0"
 _DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 _PROJECTION_LOCK_ID = "inventory-ontology-projection"
 _REVISION_READ_BATCH_SIZE = 1_000
@@ -648,208 +673,6 @@ class InventoryOntologyProjector:
                 status=status,
             ),
         )
-
-
-def _projection_content(
-    projection: InventoryOntologyProjection,
-) -> tuple[tuple[dict[str, object], ...], tuple[dict[str, object], ...]]:
-    """Return canonical object and link content for the projection receipt."""
-
-    objects: tuple[dict[str, object], ...] = tuple(
-        {
-            "id": record.id,
-            "object_type": record.object_type,
-            "properties": _content_properties(record.properties),
-        }
-        for record in projection.objects
-    )
-    links: tuple[dict[str, object], ...] = tuple(
-        {
-            "from_id": record.from_id,
-            "link_type": record.link_type,
-            "to_id": record.to_id,
-            "properties": _content_properties(record.properties),
-        }
-        for record in projection.links
-    )
-    return objects, links
-
-
-def _content_properties(properties: Mapping[str, object]) -> dict[str, object]:
-    """Copy one normalized property mapping into the manifest content envelope."""
-
-    return dict(properties)
-
-
-def _manifest_state(
-    projection: InventoryOntologyProjection,
-    *,
-    ontology_release_digest: str,
-    manifest_digest: str,
-    journal_high_watermark: int | None = None,
-    projection_high_watermark: int | None = None,
-) -> dict[str, object]:
-    object_content, link_content = _projection_content(projection)
-    state: dict[str, object] = {
-        "schema_version": _MANIFEST_SCHEMA_VERSION,
-        "generation": projection.generation,
-        "ontology_release_digest": ontology_release_digest,
-        "manifest_digest": manifest_digest,
-        "complete": projection.complete,
-        "relationship_complete": projection.relationship_complete,
-        "dropped_reasons": list(projection.dropped_reasons),
-        "object_ids": [record.id for record in projection.objects],
-        "link_keys": [
-            [record.from_id, record.link_type, record.to_id] for record in projection.links
-        ],
-        "object_content": list(object_content),
-        "link_content": list(link_content),
-    }
-    if journal_high_watermark is not None:
-        state["journal_high_watermark"] = journal_high_watermark
-        state["projection_high_watermark"] = projection_high_watermark
-    return state
-
-
-def _status_state(
-    projection: InventoryOntologyProjection,
-    *,
-    ontology_release_digest: str,
-    manifest_digest: str,
-    status: InventoryOntologyProjectionStatus,
-    journal_high_watermark: int | None = None,
-    projection_high_watermark: int | None = None,
-) -> dict[str, object]:
-    state: dict[str, object] = {
-        "schema_version": _MANIFEST_SCHEMA_VERSION,
-        "generation": projection.generation,
-        "ontology_release_digest": ontology_release_digest,
-        "manifest_digest": manifest_digest,
-        "status": status.value,
-        "complete": projection.complete,
-        "relationship_complete": projection.relationship_complete,
-        "dropped_reasons": list(projection.dropped_reasons),
-    }
-    if journal_high_watermark is not None:
-        state["journal_high_watermark"] = journal_high_watermark
-        state["projection_high_watermark"] = projection_high_watermark
-    return state
-
-
-def _projection_status_state(
-    projection: InventoryOntologyProjection,
-    *,
-    ontology_release_digest: str,
-    status: InventoryOntologyProjectionStatus,
-    journal_high_watermark: int | None = None,
-    projection_high_watermark: int | None = None,
-) -> dict[str, object]:
-    object_content, link_content = _projection_content(projection)
-    digest = _manifest_digest(
-        generation=projection.generation,
-        ontology_release_digest=ontology_release_digest,
-        complete=projection.complete,
-        relationship_complete=projection.relationship_complete,
-        dropped_reasons=projection.dropped_reasons,
-        object_ids=tuple(record.id for record in projection.objects),
-        link_keys=tuple(
-            (record.from_id, record.link_type, record.to_id) for record in projection.links
-        ),
-        object_content=object_content,
-        link_content=link_content,
-        journal_high_watermark=journal_high_watermark,
-        projection_high_watermark=projection_high_watermark,
-    )
-    return _status_state(
-        projection,
-        ontology_release_digest=ontology_release_digest,
-        manifest_digest=digest,
-        status=status,
-        journal_high_watermark=journal_high_watermark,
-        projection_high_watermark=projection_high_watermark,
-    )
-
-
-def _manifest_digest(
-    *,
-    generation: str,
-    ontology_release_digest: str,
-    complete: object,
-    relationship_complete: object,
-    dropped_reasons: object,
-    object_ids: tuple[str, ...],
-    link_keys: tuple[tuple[str, str, str], ...],
-    object_content: Sequence[Mapping[str, object]],
-    link_content: Sequence[Mapping[str, object]],
-    journal_high_watermark: int | None = None,
-    projection_high_watermark: int | None = None,
-) -> str:
-    """Hash the shared manifest payload used by status and reader reload checks."""
-
-    payload = {
-        "schema_version": _MANIFEST_SCHEMA_VERSION,
-        "generation": generation,
-        "ontology_release_digest": ontology_release_digest,
-        "complete": complete,
-        "relationship_complete": relationship_complete,
-        "dropped_reasons": dropped_reasons,
-        "object_ids": list(object_ids),
-        "link_keys": [list(key) for key in link_keys],
-        "object_content": list(object_content),
-        "link_content": list(link_content),
-    }
-    if journal_high_watermark is not None:
-        payload["journal_high_watermark"] = journal_high_watermark
-        payload["projection_high_watermark"] = projection_high_watermark
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
-        "utf-8"
-    )
-    return "sha256:" + hashlib.sha256(encoded).hexdigest()
-
-
-def _manifest_content_digest(
-    *,
-    generation: str,
-    complete: object,
-    relationship_complete: object,
-    dropped_reasons: object,
-    object_ids: tuple[str, ...],
-    link_keys: tuple[tuple[str, str, str], ...],
-    object_content: Sequence[Mapping[str, object]],
-    link_content: Sequence[Mapping[str, object]],
-    journal_high_watermark: int | None = None,
-    projection_high_watermark: int | None = None,
-) -> str:
-    """Hash release-independent observed content for safe release transitions.
-
-    Watermarks remain protected by the release-specific manifest digest. Excluding
-    them here permits a verified release migration to journal a legacy active
-    generation without treating its unchanged provider observation as new content.
-    """
-
-    payload = {
-        "generation": generation,
-        "complete": complete,
-        "relationship_complete": relationship_complete,
-        "dropped_reasons": dropped_reasons,
-        "object_ids": list(object_ids),
-        "link_keys": [list(key) for key in link_keys],
-        "object_content": list(object_content),
-        "link_content": list(link_content),
-    }
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
-        "utf-8"
-    )
-    return "sha256:" + hashlib.sha256(encoded).hexdigest()
-
-
-def _manifest_watermark(value: Mapping[str, object], key: str) -> int | None:
-    if key not in value:
-        return None
-    watermark = value.get(key)
-    if not isinstance(watermark, int) or isinstance(watermark, bool) or watermark < 0:
-        raise ValueError(f"inventory ontology manifest {key} is invalid")
-    return watermark
 
 
 __all__ = [

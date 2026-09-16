@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: d1c64d58735dfd1a43bc92e88afe7dca0d64b454
+translation_source_sha: a118e2fe90af6234c96bc92d772757dc8c101ddd
 translation_revised: 2026-09-16
 ---
 # 지속형 운영 인스턴스 그래프
@@ -298,7 +298,7 @@ AKS AgentPool 크기는 Resource Graph가 해당 자식을 일반 Resource로 �
 표식을 원자적으로 커밋합니다. Operator SSE는 정제된 커밋 표식, 개수 및 시각만 보내며 journal
 페이지, 프로바이더 payload 또는 그래프 사실을 보내지 않습니다. 잘못된 표식은 교체하고 대량
 페이지는 유효한 표식을 세대에 결속하며, 커서가 없으면 세대를 놓치는 대신 안전한 중복 읽기를
-선택합니다.
+선택합니다. 표준 매니페스트 및 상태 직렬화는 원자적 트랜잭션 경계를 바꾸지 않고 전용 런타임 도우미에 유지합니다.
 
 관측된 모델 배포도 같은 세대와 무효화 경로를 사용합니다. Operator 변환 결과는 추가
 `model_deployment` 객체에서 모델 이름, 모델 버전, 배포 SKU 및 정규화된 TPM만 노출합니다.

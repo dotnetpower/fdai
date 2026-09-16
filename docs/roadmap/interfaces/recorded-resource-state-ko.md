@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 94cef96bf6a588fdc8317e8b0a13bb59436a0ed2
+translation_source_sha: 121fd667f32e3e2b19ab690b97319998c2df45ab
 translation_revised: 2026-09-16
 ---
 # 기록된 리소스 상태
@@ -110,7 +110,7 @@ Console은 증적을 사용 불가로 표시합니다.
 |------|------|
 | 페이지 크기 | 리소스 식별자 순서로 최대 500개의 Resource를 반환합니다. 리소스마다 API를 호출하지 않습니다. |
 | 제외 대상 | 역할 할당, 구독 컨테이너, 리소스 그룹 컨테이너는 운영 리소스 목록 항목이 아닙니다. |
-| 식별 정보 | 모든 페이지가 `source_kind`, `source_generation`, `source_cutoff`, `ontology_generation`, `ontology_manifest_digest`, `ontology_release_digest`를 유지합니다. |
+| 식별 정보 | 모든 페이지가 `source_kind`, `source_generation`, `source_cutoff`, `ontology_generation`, `ontology_manifest_digest`, `ontology_release_digest` 및 세대에 결속된 `invalidation_watermark`를 유지합니다. |
 | 건수 | `total_count`는 같은 세대의 조회 건수이며 테넌트 전체 수량을 추정한 값이 아닙니다. |
 | 이어 읽기 | 커서는 세대, 조회 조건, 인증된 principal 문맥에 결속됩니다. 선택자일 뿐 권한이 아니며 잘못되거나 바뀐 문맥은 차단됩니다. |
 | 완료 | `next_cursor`를 명시하고 마지막 페이지에서만 `complete`가 true입니다. 빈 페이지에는 이어 읽기 커서가 올 수 없습니다. |

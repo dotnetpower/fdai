@@ -297,7 +297,7 @@ generation; the SSE watermark accelerates re-reading but does not create or esti
 The ontology projector atomically commits the Resource subgraph, manifest, status, active scope, and
 a marker above the journal watermark. Operator SSE emits only a sanitized committed marker, count,
 and time, never journal pages, provider payloads, or graph facts. Malformed markers are replaced;
-bulk pages bind valid markers to their generation, while missing cursors favor a safe duplicate read.
+bulk pages bind valid markers to their generation, while missing cursors favor a safe duplicate read. Canonical manifest and status serialization stays in a dedicated runtime helper without changing the atomic transaction boundary.
 
 Observed model deployments use that same generation and invalidation path. The Operator projection
 exposes only model name, model version, deployment SKU, and normalized TPM in an additive
