@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Protocol
 
+from fdai.core.hil_escalation import EscalationDuty, EscalationRung
 from fdai.core.hil_resume.escalation_catalog_binding import CatalogEscalationTiming
 from fdai.core.hil_resume.forecast_urgency import (
     ForecastUrgencyReader,
@@ -24,31 +25,11 @@ from fdai.shared.providers.state_store import StateStore
 _PARK_PREFIX = "hil_park:"
 
 
-class EscalationDuty(StrEnum):
-    PRIMARY = "primary"
-    BACKUP = "backup"
-    ESCALATION = "escalation"
-    MAINTAINER = "maintainer"
-
-
 class EscalationStatus(StrEnum):
     PENDING_DELIVERY = "pending_delivery"
     AWAITING_DECISION = "awaiting_decision"
     EXHAUSTED = "exhausted"
     DECIDED = "decided"
-
-
-@dataclass(frozen=True, slots=True)
-class EscalationRung:
-    subject_ref: str
-    duty: EscalationDuty
-    minimum_role: str = "Approver"
-
-    def __post_init__(self) -> None:
-        if not self.subject_ref.strip() or len(self.subject_ref) > 256:
-            raise ValueError("escalation subject_ref MUST be non-empty and bounded")
-        if self.minimum_role not in {"Approver", "Owner"}:
-            raise ValueError("escalation minimum_role MUST be Approver or Owner")
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,11 +55,26 @@ class EscalationPolicy:
 
 
 class RungEligibility(Protocol):
-    async def is_eligible(self, *, subject_ref: str, minimum_role: str) -> bool: ...
+    async def is_eligible(
+        self,
+        *,
+        subject_ref: str,
+        minimum_role: str,
+        context: Mapping[str, Any] | None = None,
+        at: datetime | None = None,
+    ) -> bool: ...
 
 
 class _UnavailableEligibility:
-    async def is_eligible(self, *, subject_ref: str, minimum_role: str) -> bool:
+    async def is_eligible(
+        self,
+        *,
+        subject_ref: str,
+        minimum_role: str,
+        context: Mapping[str, Any] | None = None,
+        at: datetime | None = None,
+    ) -> bool:
+        del subject_ref, minimum_role, context, at
         return False
 
 
@@ -380,6 +376,8 @@ class HumanNonResponseSupervisor:
             eligible = await self._eligibility.is_eligible(
                 subject_ref=str(rung["subject_ref"]),
                 minimum_role=str(rung["minimum_role"]),
+                context=parked,
+                at=now,
             )
         except Exception:  # noqa: BLE001 - current identity evidence is required, never inferred
             await self._cas(

@@ -76,6 +76,7 @@ from fdai.core.hil_resume.delegation import (
     DelegationRefusal,
     evaluate_hil_delegation,
 )
+from fdai.core.hil_resume.delivery import dispatch_parked_approval
 from fdai.core.hil_resume.dispatch import HilDispatchMixin
 from fdai.core.hil_resume.escalation_supervisor import (
     EscalationRung,
@@ -94,12 +95,11 @@ from fdai.core.hil_resume.integrity import (
     parked_action_integrity_matches as _parked_action_integrity_matches,
 )
 from fdai.core.hil_resume.load_control import (
-    ApprovalDispatchMode,
     ApprovalLoadController,
     ApprovalReminderDispatcher,
-    approval_request_from_park,
 )
 from fdai.core.hil_resume.reconciliation import produce_effect_reconciliation_request
+from fdai.core.hil_resume.report_line import ReportLineHilCoordinator
 from fdai.core.hil_resume.results import (
     RequestApprovalResult,
     RequestOutcome,
@@ -107,6 +107,11 @@ from fdai.core.hil_resume.results import (
     ResolveResult,
 )
 from fdai.core.hil_resume.rule_source import resolve_parked_rule
+from fdai.core.human_reporting import (
+    ApprovalContactConsentService,
+    ReportLineApprovalRouter,
+    ReportLineRouteUnavailableError,
+)
 from fdai.core.oncall import OnCallResolution, OnCallResolver
 from fdai.core.ontology_platform.evidence_conflict import EvidenceConflictCurrentReader
 from fdai.core.ontology_platform.reconciliation_producer import EffectReconciliationRequestSink
@@ -118,7 +123,6 @@ from fdai.shared.contracts.models import (
 )
 from fdai.shared.providers.hil_channel import (
     HilChannel,
-    HilChannelError,
     HilDecision,
 )
 from fdai.shared.providers.state_store import StateStore
@@ -156,7 +160,15 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         evidence_conflict_reader: EvidenceConflictCurrentReader | None = None,
         safeguard_lifecycle_coordinator: SafeguardLifecycleCoordinator | None = None,
         effect_reconciliation_request_sink: EffectReconciliationRequestSink | None = None,
+        report_line_router: ReportLineApprovalRouter | None = None,
+        contact_consent_service: ApprovalContactConsentService | None = None,
     ) -> None:
+        if (report_line_router is None) != (contact_consent_service is None):
+            raise ValueError(
+                "report_line_router and contact_consent_service MUST be bound together"
+            )
+        if report_line_router is not None and escalation_supervisor is None:
+            raise ValueError("report-line routing requires an escalation supervisor")
         if (thor_execution_port is None) != (mutation_dependency_readiness is None):
             raise ValueError(
                 "thor_execution_port and mutation_dependency_readiness MUST be bound together"
@@ -197,6 +209,26 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         self._evidence_conflict_reader = evidence_conflict_reader
         self._safeguard_lifecycle_coordinator = safeguard_lifecycle_coordinator
         self._effect_reconciliation_request_sink = effect_reconciliation_request_sink
+        self._report_line_hil = (
+            ReportLineHilCoordinator(
+                store=state_store,
+                router=report_line_router,
+                consent=contact_consent_service,
+                escalation=escalation_supervisor,
+                channel=hil_channel,
+                load_controller=approval_load_controller,
+                action_types=self._action_types_by_name,
+                rules=self._rules_by_id,
+                audit=self._audit,
+                mark_resolved=self._mark_resolved,
+                race_result=self._race_result,
+                logger=_LOGGER,
+            )
+            if report_line_router is not None
+            and contact_consent_service is not None
+            and escalation_supervisor is not None
+            else None
+        )
 
     async def _resolve_on_call(self) -> OnCallResolution | None:
         """Resolve the current on-call responder, or ``None`` when unconfigured.
@@ -258,11 +290,45 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         if len(aid) > 200:
             raise ValueError("approval_id exceeds cap (200)")
         normalized_submitter = submitter_oid.strip()
-        on_call = await self._resolve_on_call()
-        resolved_assignee = (assignee_oid or "").strip() or (
-            on_call.primary_oid if on_call is not None else None
-        )
         parked_at = datetime.now(tz=UTC)
+        action_payload = action.model_dump(mode="json")
+        action_hash = _action_payload_hash(action_payload)
+        try:
+            route_plan, consent_id = (
+                await self._report_line_hil.prepare_request(
+                    action=action,
+                    submitter_oid=normalized_submitter,
+                    at=parked_at,
+                )
+                if self._report_line_hil is not None
+                else (None, None)
+            )
+        except ReportLineRouteUnavailableError:
+            await self._audit(
+                action_kind="hil.report_line.route_unavailable",
+                idempotency_key=f"{action.idempotency_key}:report_line_route_unavailable",
+                approval_id=aid,
+                correlation_id=correlation_id,
+                detail={"action_type": action.action_type},
+            )
+            return RequestApprovalResult(
+                outcome=RequestOutcome.REPORT_LINE_ROUTE_UNAVAILABLE,
+                approval_id=aid,
+            )
+        if route_plan is not None and assignee_oid is not None:
+            raise ValueError("explicit assignee cannot override a report-line route")
+        on_call = None if route_plan is not None else await self._resolve_on_call()
+        resolved_assignee = (
+            route_plan.rungs[0].subject_ref
+            if route_plan is not None
+            else (assignee_oid or "").strip()
+            or (on_call.primary_oid if on_call is not None else None)
+        )
+        resolved_escalation_rungs = (
+            route_plan.rungs
+            if route_plan is not None
+            else tuple(escalation_rungs) or self._default_escalation_rungs
+        )
         request_fingerprint = _approval_request_fingerprint(
             action=action,
             rule=rule,
@@ -272,14 +338,14 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
             blast_radius_summary=blast_radius_summary,
             ttl_seconds=ttl_seconds,
             assignee_oid=resolved_assignee,
+            route_digest=route_plan.digest if route_plan is not None else None,
         )
-        action_payload = action.model_dump(mode="json")
         parked = {
-            "status": _STATUS_PENDING,
+            "status": ("awaiting_contact_consent" if route_plan is not None else _STATUS_PENDING),
             "revision": 0,
             "approval_id": aid,
             "action": action_payload,
-            "action_hash": _action_payload_hash(action_payload),
+            "action_hash": action_hash,
             "rule_id": rule.id,
             "rule": rule.model_dump(mode="json"),
             "action_type": action.action_type,
@@ -298,9 +364,10 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
                 "expires_at": (parked_at + timedelta(seconds=ttl_seconds)).isoformat(),
             },
             "on_call": _on_call_detail(on_call),
+            "report_line_route": route_plan.to_dict() if route_plan is not None else None,
+            "contact_consent_id": consent_id,
         }
-        resolved_escalation_rungs = tuple(escalation_rungs) or self._default_escalation_rungs
-        if resolved_escalation_rungs:
+        if resolved_escalation_rungs and route_plan is None:
             if self.escalation_supervisor is None:
                 raise ValueError("escalation_rungs require an escalation supervisor")
             parked = await self.escalation_supervisor.attach_with_source(
@@ -330,6 +397,8 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
                 "submitter_oid": normalized_submitter,
                 "assignee_oid": effective_assignee,
                 "on_call": _on_call_detail(on_call),
+                "report_line_route_digest": (route_plan.digest if route_plan is not None else None),
+                "contact_consent_id": consent_id,
             },
         )
         created = await self._state_store.write_state_with_audit_if_absent(
@@ -348,7 +417,11 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
                     detail={},
                 )
                 return RequestApprovalResult(
-                    outcome=RequestOutcome.ALREADY_PARKED,
+                    outcome=(
+                        RequestOutcome.CONTACT_CONSENT_REQUIRED
+                        if existing.get("status") == "awaiting_contact_consent"
+                        else RequestOutcome.ALREADY_PARKED
+                    ),
                     approval_id=aid,
                 )
             await self._audit(
@@ -364,73 +437,43 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
             )
         if self._pending_index_writer is not None:
             await self._pending_index_writer(self._state_store, aid)
+        if route_plan is not None:
+            return RequestApprovalResult(
+                outcome=RequestOutcome.CONTACT_CONSENT_REQUIRED,
+                approval_id=aid,
+            )
 
-        load_plan = None
-        if self._approval_load_controller is not None:
-            load_plan = await self._approval_load_controller.plan(
-                parked,
-                severity=rule.severity.value,
-            )
-        request = approval_request_from_park(
-            parked,
-            metadata=load_plan.metadata() if load_plan is not None else None,
-        )
-        if self._hil_channel is None:
-            await self._audit(
-                action_kind="hil.request.dispatch_unavailable",
-                idempotency_key=f"{action.idempotency_key}:hil_dispatch_unavailable",
-                approval_id=aid,
-                correlation_id=correlation_id,
-                detail={"action_type": action.action_type},
-            )
-            return RequestApprovalResult(
-                outcome=RequestOutcome.PARKED_DISPATCH_FAILED,
-                approval_id=aid,
-            )
-        if load_plan is not None and load_plan.mode is not ApprovalDispatchMode.SEND_NOW:
-            await self._audit(
-                action_kind="hil.request.delivery_deferred",
-                idempotency_key=f"{action.idempotency_key}:hil_delivery_deferred",
-                approval_id=aid,
-                correlation_id=correlation_id,
-                detail={
-                    "action_type": action.action_type,
-                    "dispatch_mode": load_plan.mode.value,
-                    "group_id": load_plan.group_id,
-                    "group_size": load_plan.group_size,
-                    "pending_for_assignee": load_plan.pending_for_assignee,
-                    "overloaded": load_plan.overloaded,
-                },
-            )
-            return RequestApprovalResult(
-                outcome=RequestOutcome.PARKED_DEFERRED,
-                approval_id=aid,
-            )
-        try:
-            receipt = await self._hil_channel.send(request)
-        except HilChannelError:
-            _LOGGER.warning(
-                "hil_request_dispatch_failed",
-                extra={"approval_id": aid, "correlation_id": correlation_id},
-                exc_info=True,
-            )
-            await self._audit(
-                action_kind="hil.request.dispatch_failed",
-                idempotency_key=f"{action.idempotency_key}:hil_dispatch_failed",
-                approval_id=aid,
-                correlation_id=correlation_id,
-                detail={"action_type": action.action_type},
-            )
-            return RequestApprovalResult(
-                outcome=RequestOutcome.PARKED_DISPATCH_FAILED,
-                approval_id=aid,
-            )
-        if self.escalation_supervisor is not None and resolved_escalation_rungs:
-            await self.escalation_supervisor.mark_delivered(aid, at=receipt.sent_at)
-        return RequestApprovalResult(
-            outcome=RequestOutcome.PARKED,
+        return await dispatch_parked_approval(
+            parked=parked,
+            action=action,
+            rule=rule,
             approval_id=aid,
-            receipt=receipt,
+            correlation_id=correlation_id,
+            channel=self._hil_channel,
+            load_controller=self._approval_load_controller,
+            escalation_supervisor=self.escalation_supervisor,
+            escalation_rungs=resolved_escalation_rungs,
+            audit=self._audit,
+            logger=_LOGGER,
+        )
+
+    async def decide_report_line_contact(
+        self,
+        *,
+        approval_id: str,
+        requester_oid: str,
+        consent: bool,
+        expected_consent_revision: int,
+    ) -> RequestApprovalResult:
+        """Record requester contact consent and send only an unchanged eligible route."""
+
+        if self._report_line_hil is None:
+            raise RuntimeError("report-line approval routing is not configured")
+        return await self._report_line_hil.decide_contact(
+            approval_id=approval_id,
+            requester_oid=requester_oid,
+            consent=consent,
+            expected_consent_revision=expected_consent_revision,
         )
 
     # ------------------------------------------------------------------
@@ -474,6 +517,21 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         correlation_id = str(parked.get("correlation_id") or approval_id)
         idem = str(parked.get("idempotency_key") or approval_id)
         assignee_oid = str(parked.get("assignee_oid") or "").strip() or None
+
+        if parked.get("status") == "awaiting_contact_consent":
+            await self._audit(
+                action_kind="hil.resolve.contact_consent_required",
+                idempotency_key=f"{idem}:contact_consent_required",
+                approval_id=approval_id,
+                correlation_id=correlation_id,
+                detail={"attempted_decision": decision.value},
+            )
+            return ResolveResult(
+                outcome=ResolveOutcome.CONTACT_CONSENT_REQUIRED,
+                approval_id=approval_id,
+                reason="report-line approval request has not been sent",
+                assignee_oid=assignee_oid,
+            )
 
         metadata = parked.get("metadata")
         if isinstance(metadata, Mapping) and metadata.get("decision_route") == "human_access":
@@ -548,6 +606,38 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         submitter_oid = str(parked.get("submitter_oid") or "").strip()
         delegation = None
         if decision is HilDecision.APPROVE:
+            action = Action.model_validate(parked["action"])
+            if (
+                isinstance(parked.get("report_line_route"), Mapping)
+                and self._report_line_hil is None
+            ):
+                claimed = await self._mark_resolved(
+                    parked=parked,
+                    decision=HilDecision.TIMEOUT,
+                    approver_oid=approver_oid,
+                    action_kind="hil.report_line.route_unavailable",
+                    detail={"attempted_decision": decision.value},
+                )
+                if not claimed:
+                    return await self._race_result(approval_id, attempted=decision)
+                return ResolveResult(
+                    outcome=ResolveOutcome.TIMED_OUT,
+                    approval_id=approval_id,
+                    reason="report_line_route_unavailable",
+                    assignee_oid=assignee_oid,
+                )
+            route_rejection = (
+                await self._report_line_hil.guard_approval(
+                    parked=parked,
+                    action=action,
+                    approval_id=approval_id,
+                    approver_oid=approver_oid,
+                )
+                if self._report_line_hil is not None
+                else None
+            )
+            if route_rejection is not None:
+                return route_rejection
             # Delegation gate: no self-approval, a verifiable+distinct approver,
             # and the HIL-approval capability. Fail closed on any refusal. A
             # single pure function shared with the Operator API callback so the

@@ -17,6 +17,7 @@ import { PANTHEON } from "./agents.model";
 import { HandoverProposalEditor } from "./handover-editor";
 import { ownershipText } from "./ownership-copy";
 import { ScopedDutyWorkspace } from "./scoped-duty-workspace";
+import { ReportLinesWorkspace } from "./report-lines";
 import type {
   CurrentOwnershipAgentDto,
   FindingDto,
@@ -34,6 +35,7 @@ export type AgentOversightView =
   | "overview"
   | "human-dependencies"
   | "knowledge-handover"
+  | "reporting-lines"
   | "approval-routes"
   | "mapping-reviews";
 
@@ -41,6 +43,7 @@ const VIEWS: readonly AgentOversightView[] = [
   "overview",
   "human-dependencies",
   "mapping-reviews",
+  "reporting-lines",
   "knowledge-handover",
   "approval-routes",
 ];
@@ -157,6 +160,8 @@ function renderView(
       return <HandoverProposalEditor client={client} auth={auth} />;
     case "approval-routes":
       return <UnavailableView title={t("handover.view.approval-routes")} message={t("handover.approvalRoutesUnavailable")} />;
+    case "reporting-lines":
+      return <ReportLinesWorkspace client={client} auth={auth} />;
     case "mapping-reviews":
       return <MappingReviews client={client} auth={auth} />;
   }

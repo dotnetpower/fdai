@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { OperatorApiError } from "../api";
 import type { HilQueueItem } from "../types";
@@ -112,5 +113,21 @@ describe("approval decision availability", () => {
       now,
       "live",
     )).toBe(false);
+  });
+
+  describe("report-line contact consent", () => {
+    test("keeps contact consent separate from action approval controls", () => {
+      const source = readFileSync(new URL("./hil-queue.tsx", import.meta.url), "utf8");
+      const catalog = readFileSync(
+        new URL("./i18n/approvals.en.json", import.meta.url),
+        "utf8",
+      );
+
+      expect(source).toContain("client.reportLineContactRequests()");
+      expect(source).toContain("client.decideReportLineContact(");
+      expect(source).toContain("approvals.sendContact");
+      expect(source).toContain("approvals.declineContact");
+      expect(catalog).toContain("Sending the request does not approve");
+    });
   });
 });

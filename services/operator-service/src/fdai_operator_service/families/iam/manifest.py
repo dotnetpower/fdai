@@ -47,6 +47,16 @@ IAM_FAMILY_MANIFEST = (
     IamRouteManifestEntry(
         "POST", "/handover/scoped-duty-cases/{case_id:str}/review", "review_scoped_case"
     ),
+    IamRouteManifestEntry("GET", "/handover/reporting-lines", "current_graph"),
+    IamRouteManifestEntry("GET", "/handover/reporting-line-cases", "list_cases"),
+    IamRouteManifestEntry("POST", "/handover/reporting-line-cases", "create_case"),
+    IamRouteManifestEntry("GET", "/handover/reporting-line-cases/{case_id:str}", "get_case"),
+    IamRouteManifestEntry(
+        "POST", "/handover/reporting-line-cases/{case_id:str}/confirm", "confirm_case"
+    ),
+    IamRouteManifestEntry(
+        "POST", "/handover/reporting-line-cases/{case_id:str}/review", "review_case"
+    ),
     IamRouteManifestEntry("GET", "/models/settings", "get_settings"),
     IamRouteManifestEntry("PUT", "/models/binding-policy", "put_binding_policy"),
     IamRouteManifestEntry("POST", "/models/binding-policy/assess", "post_binding_assessment"),
@@ -85,6 +95,16 @@ IAM_FAMILY_MANIFEST = (
         "POST",
         "/hil/{approval_id}/operator-decision",
         "post_hil_operator_decision",
+    ),
+    IamRouteManifestEntry(
+        "GET",
+        "/hil/report-line-contact-requests",
+        "list_report_line_contacts",
+    ),
+    IamRouteManifestEntry(
+        "POST",
+        "/hil/{approval_id}/report-line-contact",
+        "post_report_line_contact",
     ),
     IamRouteManifestEntry("POST", "/hil/{approval_id}/decision", "handler"),
     IamRouteManifestEntry("POST", "/hil/teams-activity", "handler"),

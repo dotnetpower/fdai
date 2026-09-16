@@ -88,6 +88,36 @@ export interface HandoverDraftResult {
   } | null;
 }
 
+export interface ReportLineDraftResult {
+  readonly schema_version: "1.0.0";
+  readonly upload_id: string;
+  readonly document_id: string;
+  readonly version_id: string;
+  readonly source_sha256: string;
+  readonly outcome: "drafted" | "abstained";
+  readonly candidates: readonly {
+    readonly candidate_id: string;
+    readonly subject: { readonly display_name: string; readonly oid: string | null };
+    readonly manager: { readonly display_name: string; readonly oid: string | null };
+    readonly relationship_kind: "primary_manager";
+    readonly confidence: number;
+    readonly extraction_source: "deterministic" | "model";
+    readonly citations: readonly {
+      readonly unit_id: string;
+      readonly locator: string;
+      readonly quote: string;
+    }[];
+    readonly directory_manager_oid: string | null;
+    readonly directory_comparison: "matched" | "conflict" | "unavailable" | "not_checked";
+  }[];
+  readonly abstained: readonly unknown[];
+  readonly unresolved_people: readonly {
+    readonly display_name: string;
+    readonly oid: string | null;
+  }[];
+  readonly warnings: readonly string[];
+}
+
 /** Server-owned freshness of reference knowledge, never observed cloud resource health. */
 export type CloudKnowledgeFreshness = "fresh" | "refresh_due" | "stale" | "unknown";
 
@@ -415,6 +445,13 @@ export class IngestionApiClient {
   async handoverDraft(uploadId: string): Promise<HandoverDraftResult> {
     return this.#json<HandoverDraftResult>(
       `/ingestion/uploads/${encodeURIComponent(uploadId)}/handover-draft`,
+      { method: "GET" },
+    );
+  }
+
+  async reportLineDraft(uploadId: string): Promise<ReportLineDraftResult> {
+    return this.#json<ReportLineDraftResult>(
+      `/ingestion/uploads/${encodeURIComponent(uploadId)}/report-line-draft`,
       { method: "GET" },
     );
   }

@@ -15,6 +15,8 @@ Asserts the step-B contract from
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -43,6 +45,14 @@ from fdai.core.hil_resume import (
     HumanNonResponseSupervisor,
     RequestOutcome,
     ResolveOutcome,
+)
+from fdai.core.hil_resume.integrity import approval_request_fingerprint
+from fdai.core.human_reporting import (
+    ApprovalContactConsentService,
+    ReportingGraphEdge,
+    ReportingGraphSnapshot,
+    ReportLineApprovalRouter,
+    ReportLineRoutingPolicy,
 )
 from fdai.core.oncall import OnCallResolver
 from fdai.core.ontology_platform.reconciliation_producer import (
@@ -185,6 +195,43 @@ def _action(
     )
 
 
+def test_legacy_approval_fingerprint_is_stable_without_report_line_route() -> None:
+    action = _action()
+    rule = _rule()
+    material = {
+        "action": action.model_dump(mode="json"),
+        "rule": {"id": rule.id, "version": rule.version},
+        "submitter_oid": _SUBMITTER,
+        "correlation_id": "correlation",
+        "reasons": [],
+        "blast_radius_summary": "",
+        "ttl_seconds": 1800,
+        "assignee_oid": None,
+    }
+    expected = hashlib.sha256(
+        json.dumps(
+            material,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+    ).hexdigest()
+
+    assert (
+        approval_request_fingerprint(
+            action=action,
+            rule=rule,
+            submitter_oid=_SUBMITTER,
+            correlation_id="correlation",
+            reasons=(),
+            blast_radius_summary="",
+            ttl_seconds=1800,
+            assignee_oid=None,
+        )
+        == expected
+    )
+
+
 def _coordinator(
     *,
     send_error: BaseException | None = None,
@@ -192,6 +239,7 @@ def _coordinator(
     state_store: InMemoryStateStore | None = None,
     pre_dispatch_kinetic_safety_writer: Any | None = None,
     effect_reconciliation_request_sink: Any | None = None,
+    report_line_router: ReportLineApprovalRouter | None = None,
 ) -> tuple[
     HilResumeCoordinator,
     RecordingRemediationPrPublisher,
@@ -224,8 +272,61 @@ def _coordinator(
         escalation_supervisor=escalation_supervisor,
         pre_dispatch_kinetic_safety_writer=pre_dispatch_kinetic_safety_writer,
         effect_reconciliation_request_sink=effect_reconciliation_request_sink,
+        report_line_router=report_line_router,
+        contact_consent_service=(
+            ApprovalContactConsentService(store) if report_line_router is not None else None
+        ),
     )
     return coordinator, publisher, store, channel
+
+
+class _ReportLineGraphs:
+    def __init__(self) -> None:
+        self.revision = "a" * 64
+
+    async def current_graph(self, *, at=None):
+        observed_at = at or datetime.now(tz=UTC)
+        return ReportingGraphSnapshot(
+            revision=self.revision,
+            observed_at=observed_at,
+            edges=(
+                ReportingGraphEdge(
+                    case_id="report-line-case",
+                    edge_digest="b" * 64,
+                    subject_ref=_SUBMITTER,
+                    manager_ref=_APPROVER,
+                    effective_from=observed_at - timedelta(days=1),
+                    effective_until=observed_at + timedelta(days=1),
+                ),
+            ),
+        )
+
+
+class _ReportLineEligibility:
+    async def is_eligible(
+        self,
+        *,
+        subject_ref,
+        minimum_role,
+        action_type,
+        scope_ref,
+        at,
+    ):
+        del action_type, scope_ref, at
+        return subject_ref == _APPROVER and minimum_role == "Approver"
+
+
+def _report_line_router(
+    graphs: _ReportLineGraphs | None = None,
+) -> ReportLineApprovalRouter:
+    return ReportLineApprovalRouter(
+        graphs=graphs or _ReportLineGraphs(),
+        eligibility=_ReportLineEligibility(),
+        policy=ReportLineRoutingPolicy(
+            action_types=frozenset({"remediate.tag-add"}),
+            quorum_by_action={},
+        ),
+    )
 
 
 async def test_request_snapshots_and_starts_escalation_after_delivery() -> None:
@@ -256,6 +357,110 @@ async def test_request_snapshots_and_starts_escalation_after_delivery() -> None:
         if entry["entry"].get("action_kind") == "hil.requested"
     )
     assert requested["assignee_oid"] == _APPROVER
+
+
+async def test_report_line_route_waits_for_requester_contact_consent() -> None:
+    coordinator, publisher, store, channel = _coordinator(
+        with_escalation=True,
+        report_line_router=_report_line_router(),
+    )
+
+    requested = await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-correlation",
+        approval_id="report-line-approval",
+    )
+
+    parked = await store.read_state("hil_park:report-line-approval")
+    assert requested.outcome is RequestOutcome.CONTACT_CONSENT_REQUIRED
+    assert parked is not None
+    assert parked["status"] == "awaiting_contact_consent"
+    assert parked["assignee_oid"] == _APPROVER
+    assert channel.sent == []
+    assert publisher.records == ()
+
+    premature = await coordinator.resolve(
+        approval_id="report-line-approval",
+        decision=HilDecision.APPROVE,
+        approver_oid=_APPROVER,
+    )
+    assert premature.outcome is ResolveOutcome.CONTACT_CONSENT_REQUIRED
+    assert publisher.records == ()
+
+    sent = await coordinator.decide_report_line_contact(
+        approval_id="report-line-approval",
+        requester_oid=_SUBMITTER,
+        consent=True,
+        expected_consent_revision=0,
+    )
+    assert sent.outcome is RequestOutcome.PARKED
+    assert len(channel.sent) == 1
+    parked = await store.read_state("hil_park:report-line-approval")
+    assert parked is not None and parked["status"] == "pending"
+    assert parked["report_line_route"]["graph_revision"] == "a" * 64
+
+
+async def test_report_line_contact_decline_is_terminal_noop() -> None:
+    coordinator, publisher, store, channel = _coordinator(
+        with_escalation=True,
+        report_line_router=_report_line_router(),
+    )
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-decline",
+        approval_id="report-line-decline",
+    )
+
+    declined = await coordinator.decide_report_line_contact(
+        approval_id="report-line-decline",
+        requester_oid=_SUBMITTER,
+        consent=False,
+        expected_consent_revision=0,
+    )
+
+    assert declined.outcome is RequestOutcome.CONTACT_DECLINED
+    assert channel.sent == []
+    assert publisher.records == ()
+    parked = await store.read_state("hil_park:report-line-decline")
+    assert parked is not None
+    assert parked["status"] == "resolved"
+    assert parked["decision"] == "timeout"
+
+
+async def test_report_line_graph_change_blocks_a_late_approval() -> None:
+    graphs = _ReportLineGraphs()
+    coordinator, publisher, _, _ = _coordinator(
+        with_escalation=True,
+        report_line_router=_report_line_router(graphs),
+    )
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-stale",
+        approval_id="report-line-stale",
+    )
+    await coordinator.decide_report_line_contact(
+        approval_id="report-line-stale",
+        requester_oid=_SUBMITTER,
+        consent=True,
+        expected_consent_revision=0,
+    )
+    graphs.revision = "d" * 64
+
+    result = await coordinator.resolve(
+        approval_id="report-line-stale",
+        decision=HilDecision.APPROVE,
+        approver_oid=_APPROVER,
+    )
+
+    assert result.outcome is ResolveOutcome.TIMED_OUT
+    assert result.reason == "report_line_route_stale"
+    assert publisher.records == ()
 
 
 async def test_concurrent_terminal_decisions_have_one_winner() -> None:

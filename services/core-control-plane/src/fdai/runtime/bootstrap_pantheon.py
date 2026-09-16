@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, replace
@@ -66,6 +65,7 @@ from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.rule_catalog.schema.capacity_graduation_policy import (
     load_capacity_graduation_policy,
 )
+from fdai.runtime.approval_policy import approver_authorizer_from_environment
 from fdai.runtime.bootstrap_bindings import RuleGenerationRuntimeBinding
 from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
@@ -171,47 +171,6 @@ def _pantheon_enforce_enabled(
     requested = environment.get("FDAI_PANTHEON_ENFORCE", "").lower() in ("1", "true")
     return requested and (
         startup_readiness.authority_ceiling("autonomous-action") is AuthorityCeiling.DEPLOYMENT
-    )
-
-
-def _approver_authorizer_from_env(
-    environment: Mapping[str, str],
-) -> Callable[[str, str], bool] | None:
-    """Load an explicit principal-to-ActionType approval policy."""
-
-    raw = environment.get("FDAI_PANTHEON_APPROVER_ACTIONS_JSON", "").strip()
-    if not raw:
-        return None
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise ValueError("FDAI_PANTHEON_APPROVER_ACTIONS_JSON MUST be valid JSON") from exc
-    if not isinstance(parsed, dict):
-        raise ValueError("FDAI_PANTHEON_APPROVER_ACTIONS_JSON MUST be an object")
-    policy: dict[str, frozenset[str]] = {}
-    for principal, actions in parsed.items():
-        if (
-            not isinstance(principal, str)
-            or not principal.strip()
-            or not isinstance(actions, list)
-            or not actions
-            or any(not isinstance(action, str) or not action.strip() for action in actions)
-        ):
-            raise ValueError(
-                "FDAI_PANTHEON_APPROVER_ACTIONS_JSON entries MUST map principals "
-                "to non-empty ActionType arrays"
-            )
-        normalized = principal.strip().casefold()
-        if normalized in policy:
-            raise ValueError("FDAI_PANTHEON_APPROVER_ACTIONS_JSON principals MUST be unique")
-        policy[normalized] = frozenset(action.strip() for action in actions)
-
-    return lambda principal, action_type: (
-        action_type
-        in policy.get(
-            principal.strip().casefold(),
-            frozenset(),
-        )
     )
 
 
@@ -504,7 +463,7 @@ async def initialize_pantheon(
         vidar_state_store=config.incident_audit_store,
         var_state_store=config.incident_audit_store,
         execution_resource_lock=execution_resource_lock,
-        approver_authorizer=_approver_authorizer_from_env(config.environment),
+        approver_authorizer=approver_authorizer_from_environment(config.environment),
         saga=config.runtime_saga,
         muninn_state_store=config.incident_audit_store,
         evidence_conflict_sink=StateStoreEvidenceConflictProjection(config.incident_audit_store),

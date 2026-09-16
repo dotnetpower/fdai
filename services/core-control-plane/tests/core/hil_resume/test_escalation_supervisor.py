@@ -20,12 +20,18 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
 class VerifiedEligible:
-    async def is_eligible(self, *, subject_ref: str, minimum_role: str) -> bool:
+    async def is_eligible(
+        self, *, subject_ref: str, minimum_role: str, context=None, at=None
+    ) -> bool:
+        del context, at
         return True
 
 
 class PrimaryIneligible:
-    async def is_eligible(self, *, subject_ref: str, minimum_role: str) -> bool:
+    async def is_eligible(
+        self, *, subject_ref: str, minimum_role: str, context=None, at=None
+    ) -> bool:
+        del context, at
         return subject_ref != "primary-1"
 
 

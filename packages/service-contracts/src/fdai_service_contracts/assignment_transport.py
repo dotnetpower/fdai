@@ -81,12 +81,17 @@ class AssignmentRequestNotice(_NoAuthorityRecord):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: Literal["1.0.0", "1.1.0", "1.2.0"] = "1.0.0"
+    schema_version: Literal["1.0.0", "1.1.0", "1.2.0", "1.3.0"] = "1.0.0"
     proposal_ref: Annotated[str, Field(pattern=_REFERENCE)]
     proposal_id: Annotated[str, Field(pattern=r"^operator-[a-f0-9]{32}$")]
     case_id: Annotated[str, Field(pattern=r"^operator-[a-f0-9]{32}$")]
     proposal_digest: Annotated[str, Field(pattern=_DIGEST)]
-    operation: Literal["assignments.create", "assignments.submit", "assignments.review"]
+    operation: Literal[
+        "assignments.create",
+        "assignments.submit",
+        "assignments.confirm",
+        "assignments.review",
+    ]
     accepted_at: datetime
     producer_service: Literal["operator-service"] = "operator-service"
     execution_authority: Literal[False] = False
@@ -133,7 +138,7 @@ class AssignmentIntakeProjection(_NoAuthorityRecord):
 class AssignmentCaseResult(_NoAuthorityRecord):
     """Read-only case observation; active status requires both independent effect references."""
 
-    schema_version: Literal["1.1.0", "1.2.0"] | None = None
+    schema_version: Literal["1.1.0", "1.2.0", "1.3.0"] | None = None
     proposal_id: Annotated[str, Field(pattern=r"^operator-[a-f0-9]{32}$")]
     request_digest: Annotated[str, Field(pattern=_DIGEST)]
     operator_case_id: Annotated[str, Field(pattern=r"^operator-[a-f0-9]{32}$")]
@@ -151,6 +156,9 @@ class AssignmentCaseResult(_NoAuthorityRecord):
         "rejected",
         "degraded",
         "superseded",
+        "pending_confirmation",
+        "pending_owner_review",
+        "conflict",
     ]
     revision: Annotated[int, Field(strict=True, ge=1)]
     ownership_effect_ref: Annotated[str, Field(min_length=1, max_length=256)] | None = None
@@ -161,8 +169,10 @@ class AssignmentCaseResult(_NoAuthorityRecord):
     def _verified_state(self) -> AssignmentCaseResult:
         if self.proposal_id != f"operator-{self.request_digest[:32]}":
             raise ValueError("assignment result identity does not match its digest")
-        if self.state in {"active", "revoked"} and not (
-            self.ownership_effect_ref and self.iam_effect_ref
+        if (
+            self.schema_version != "1.3.0"
+            and self.state in {"active", "revoked"}
+            and not (self.ownership_effect_ref and self.iam_effect_ref)
         ):
             raise ValueError("converged assignment result requires both effect references")
         if self.state == "iam_revoked" and not self.iam_effect_ref:
@@ -181,6 +191,20 @@ class AssignmentCaseResult(_NoAuthorityRecord):
                 raise ValueError("scoped duty result MUST NOT represent an IAM lifecycle")
             if self.state == "ownership_merged" and not self.ownership_effect_ref:
                 raise ValueError("scoped duty ownership requires its independent merge reference")
+        if self.schema_version == "1.3.0":
+            if self.ownership_effect_ref is not None or self.iam_effect_ref is not None:
+                raise ValueError(
+                    "reporting-line result cannot represent an ownership or IAM effect"
+                )
+            if self.state not in {
+                "pending_confirmation",
+                "pending_owner_review",
+                "active",
+                "conflict",
+                "rejected",
+                "superseded",
+            }:
+                raise ValueError("reporting-line result uses an unrelated assignment state")
         return self
 
 
@@ -191,6 +215,7 @@ class AssignmentAgentDecision(_NoAuthorityRecord):
     disposition: Literal["validated", "reviewed", "held", "materialized"]
     reason: Literal[
         "command_validated",
+        "human_confirmation_verified",
         "independent_review_verified",
         "case_materialized",
         "command_held",
@@ -205,15 +230,33 @@ class AssignmentAgentDecision(_NoAuthorityRecord):
     def _consistent(self) -> AssignmentAgentDecision:
         required_reason = {
             "validated": "command_validated",
-            "reviewed": "independent_review_verified",
             "materialized": "case_materialized",
         }
+        if self.disposition == "reviewed":
+            expected_review_reason = (
+                "human_confirmation_verified"
+                if self.notice.schema_version == "1.3.0"
+                and self.notice.operation == "assignments.confirm"
+                else "independent_review_verified"
+            )
+            if self.reason != expected_review_reason:
+                raise ValueError("assignment review reason does not match its command")
         if self.disposition in required_reason and self.reason != required_reason[self.disposition]:
             raise ValueError("assignment decision reason does not match disposition")
-        if self.disposition == "held" and self.reason in required_reason.values():
+        successful_reasons = {
+            *required_reason.values(),
+            "human_confirmation_verified",
+            "independent_review_verified",
+        }
+        if self.disposition == "held" and self.reason in successful_reasons:
             raise ValueError("held assignment cannot report a successful decision reason")
-        if self.disposition == "reviewed" and self.notice.operation != "assignments.review":
-            raise ValueError("independent review requires an assignment review command")
+        if self.disposition == "reviewed" and self.notice.operation not in {
+            "assignments.confirm",
+            "assignments.review",
+        }:
+            raise ValueError("human review requires a confirmation or review command")
+        if self.notice.operation == "assignments.confirm" and self.notice.schema_version != "1.3.0":
+            raise ValueError("assignment confirmation requires report-line transport")
         if (self.disposition == "materialized") != (self.result is not None):
             raise ValueError("only a materialized assignment may carry a case result")
         if self.result is not None and (
@@ -229,6 +272,10 @@ class AssignmentAgentDecision(_NoAuthorityRecord):
             (self.result.schema_version == "1.2.0") != (self.notice.schema_version == "1.2.0")
         ):
             raise ValueError("scoped duty transport cannot become a personal IAM assignment")
+        if self.result is not None and (
+            (self.result.schema_version == "1.3.0") != (self.notice.schema_version == "1.3.0")
+        ):
+            raise ValueError("reporting-line transport cannot become another assignment kind")
         return self
 
 

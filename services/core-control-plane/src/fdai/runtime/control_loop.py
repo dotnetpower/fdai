@@ -550,6 +550,21 @@ def _build_control_loop(
         build_forecast_urgency_reader,
         build_rung_eligibility,
     )
+    from fdai.runtime.report_lines import build_report_line_runtime
+
+    rung_eligibility = build_rung_eligibility(
+        catalog_root,
+        http_client=http_client,
+        identity=identity,
+        environment=os.environ,
+    )
+    report_line_runtime = build_report_line_runtime(
+        store=audit_store,
+        environment=os.environ,
+        role_eligibility=rung_eligibility,
+    )
+    if report_line_runtime is not None and hil_channel is None:
+        raise ValueError("report-line approval routing requires a configured HIL channel")
 
     escalation_supervisor = (
         HumanNonResponseSupervisor(
@@ -557,8 +572,10 @@ def _build_control_loop(
             channel=hil_channel,
             catalog_timing=build_escalation_timing(catalog_root, os.environ),
             forecast_urgency_reader=build_forecast_urgency_reader(os.environ),
-            eligibility=build_rung_eligibility(
-                catalog_root, http_client=http_client, identity=identity, environment=os.environ
+            eligibility=(
+                report_line_runtime.escalation_eligibility
+                if report_line_runtime is not None
+                else rung_eligibility
             ),
             policy=EscalationPolicy(
                 decision_timeout_seconds=300,
@@ -566,7 +583,7 @@ def _build_control_loop(
                 mode=Mode.SHADOW,
             ),
         )
-        if hil_channel is not None and escalation_rungs
+        if hil_channel is not None and (escalation_rungs or report_line_runtime is not None)
         else None
     )
 
@@ -621,6 +638,12 @@ def _build_control_loop(
         evidence_conflict_reader=evidence_conflict_projection,
         safeguard_lifecycle_coordinator=safeguard_coordinator,
         effect_reconciliation_request_sink=effect_reconciliation_request_sink,
+        report_line_router=(
+            report_line_runtime.router if report_line_runtime is not None else None
+        ),
+        contact_consent_service=(
+            report_line_runtime.consent if report_line_runtime is not None else None
+        ),
     )
     kill_switch = StateStoreKillSwitch(store=audit_store)
 

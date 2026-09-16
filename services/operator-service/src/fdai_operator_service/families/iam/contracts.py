@@ -12,7 +12,12 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Protocol, TypeAlias, runtime_checkable
 
-from fdai_service_contracts import JsonObject, OperatorPrincipalKind, OperatorRole
+from fdai_service_contracts import (
+    JsonObject,
+    OperatorPrincipalKind,
+    OperatorRole,
+    ReportLineContactCommand,
+)
 from starlette.requests import Request
 
 JsonMapping: TypeAlias = Mapping[str, Any]  # noqa: UP040
@@ -299,6 +304,74 @@ class AssignmentRequestOutbox(Protocol):
     async def review(self, command: AssignmentTransitionCommand) -> JsonMapping: ...
 
     async def assignment_projection(self, query: AssignmentCaseQuery) -> JsonMapping: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ReportingLineCaseQuery:
+    """Principal-scoped report-line case page query."""
+
+    principal: IamPrincipal
+    limit: int
+    offset: int
+
+
+@dataclass(frozen=True, slots=True)
+class ReportingLineCreateCommand:
+    """Select one exact worker-produced candidate for fixed-agent review."""
+
+    principal: IamPrincipal
+    idempotency_key: str
+    upload_id: str
+    candidate_id: str
+    effective_from: datetime | None
+    effective_until: datetime | None
+    supersedes_case_id: str | None
+    case_kind: str = "report_line"
+
+
+@dataclass(frozen=True, slots=True)
+class ReportingLineTransitionCommand:
+    """Revision-fenced endpoint confirmation or independent Owner review."""
+
+    principal: IamPrincipal
+    case_id: str
+    expected_revision: int
+    decision: str
+    edge_digest: str
+    case_kind: str = "report_line"
+
+
+class ReportingLineOutbox(Protocol):
+    """Persist report-line commands and read projections without activating an edge."""
+
+    async def list_report_line_case_page(
+        self,
+        query: ReportingLineCaseQuery,
+    ) -> tuple[Sequence[JsonMapping], int]: ...
+
+    async def get_report_line_case(
+        self,
+        case_id: str,
+        *,
+        principal: IamPrincipal,
+    ) -> JsonMapping: ...
+
+    async def create_report_line_case(
+        self,
+        command: ReportingLineCreateCommand,
+    ) -> JsonMapping: ...
+
+    async def confirm_report_line(
+        self,
+        command: ReportingLineTransitionCommand,
+    ) -> JsonMapping: ...
+
+    async def review_report_line(
+        self,
+        command: ReportingLineTransitionCommand,
+    ) -> JsonMapping: ...
+
+    async def report_line_projection(self, query: ReportingLineCaseQuery) -> JsonMapping: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -687,6 +760,41 @@ class HilDecisionOutbox(Protocol):
     """Durably enqueue a recorded decision for typed transport delivery."""
 
     async def enqueue(self, request: HilDecisionOutboxRequest) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ReportLineContactContext:
+    """Server-read pending contact state visible only to its requester."""
+
+    approval_id: str
+    requester_ref: str
+    consent_id: str
+    consent_revision: int
+    action_type: str
+    target_ref: str
+    route_subjects: tuple[str, ...]
+    expires_at: datetime
+
+
+class ReportLineContactOutbox(Protocol):
+    """Read and enqueue requester contact consent without deciding the action."""
+
+    async def get_report_line_contact_context(
+        self,
+        approval_id: str,
+    ) -> ReportLineContactContext | None: ...
+
+    async def list_report_line_contact_contexts(
+        self,
+        *,
+        requester_ref: str,
+        limit: int,
+    ) -> tuple[ReportLineContactContext, ...]: ...
+
+    async def enqueue_report_line_contact(
+        self,
+        command: ReportLineContactCommand,
+    ) -> None: ...
 
 
 __all__ = [name for name in globals() if not name.startswith("_")]
