@@ -1,11 +1,11 @@
 schema_version: 1.0.0
 name: remediate.tag-add
-version: 1.0.0
+version: 1.1.0
 operation: tag
 interfaces:
 - ControlPlane
 - IdempotentByKey
-rollback_contract: pr_revert
+rollback_contract: snapshot_restore
 irreversible: false
 default_mode: shadow
 promotion_gate:
@@ -16,8 +16,6 @@ promotion_gate:
 preconditions:
 - kind: graph_fresh_within_seconds
   value: 900
-- kind: resource_tag_present
-  tag: owner
 stop_conditions:
 - kind: provider_api_error_streak
   count: 5
@@ -27,12 +25,12 @@ blast_radius:
   computation: static_enum
   static_bucket: resource
 description: Attach one or more required tags (owner, cost-center, environment) when they
-  are missing. Control-plane only; safe idempotent rewrite; PR-native rollback undoes the
-  tag mutation.
+  are missing. The development gateway merges one tag, verifies it through the reader
+  identity, and restores the prior tag snapshot when verification fails.
 category: remediation
 trigger_kind:
   kind: rule_violation
-execution_path: pr_native
+execution_path: direct_api
 ceiling_by_tier:
   t0:
     max_autonomy: enforce_auto
@@ -45,7 +43,7 @@ ceiling_by_tier:
     min_role: approver
 provenance:
   source_url: https://github.com/dotnetpower/fdai
-  resolved_ref: action-type:remediate.tag-add@1.0.0
-  content_hash: sha256:3566c51d326a802820fd6910018b341ed27e809e49f34c4795586025f17387a9
+  resolved_ref: action-type:remediate.tag-add@1.1.0
+  content_hash: sha256:8e76a15f1a689dc67b4807b87f9ea8360417a20d8d8fff64abcb93f36d9a3112
   license: MIT
   retrieved_at: "2026-07-29T00:00:00Z"

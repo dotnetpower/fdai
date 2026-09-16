@@ -22,13 +22,13 @@ This module adds the missing consumer *contract* without adding a consumer. It d
 - :func:`apply_shadow_reversion` - a fail-closed orchestration seam that validates the
   command, records intent, delegates, and records a terminal outcome.
 
-**Nothing here is wired.** No adapter implements :class:`ShadowReversionWriter`, and
-``test_shadow_reversion_command.py`` proves that no agent, risk gate, executor, HIL
-resume, workflow, control loop, composition, runtime, or delivery path imports this
-module and that it never imports ``ActionPromotionRegistry``. A command grants no
-execution or promotion authority and mutates no registry. Lowering an ActionType's real
-autonomy still requires the durable provider boundary, the governed runtime cohort, the
-independent review, and the explicit current human approval tracked by issue #632.
+**Nothing here is wired.** The persistence adapter is reachable only by direct submodule
+import and requires an injected current-approval verifier. No agent, risk gate, executor,
+HIL resume, workflow, control loop, composition, or runtime path imports this module, and
+it never imports ``ActionPromotionRegistry``. A command grants no execution or promotion
+authority and mutates no registry. Lowering an ActionType's real autonomy still requires
+the governed runtime cohort, independent review, explicit current human approval, and a
+separately authorized invocation tracked by issue #632.
 """
 
 from __future__ import annotations
@@ -294,11 +294,7 @@ class ShadowReversionTerminal:
 
 @runtime_checkable
 class ShadowReversionWriter(Protocol):
-    """Persistence boundary a later authorized reversion adapter must implement.
-
-    Every method fails closed. No adapter implements this Protocol today, so the
-    orchestration below cannot run in the shipped runtime.
-    """
+    """Persistence boundary implemented only by an unbound authorized adapter."""
 
     async def record_intent(self, intent: ShadowReversionIntent) -> bool:
         """Durably record phase-one intent. ``False`` blocks the attempt."""
@@ -369,10 +365,23 @@ async def apply_shadow_reversion(
             return terminal
         applied = await writer.apply(command, intent)
     except Exception as error:  # noqa: BLE001 - any writer error fails closed
-        return _terminal(
+        terminal = _terminal(
             ShadowReversionOutcome.REJECTED_WRITER_FAILURE,
             f"reversion writer failed: {type(error).__name__}",
         )
+        try:
+            recorded = await writer.record_terminal(terminal)
+        except Exception as audit_error:  # noqa: BLE001 - audit uncertainty stays explicit
+            return _terminal(
+                ShadowReversionOutcome.REJECTED_TERMINAL_NOT_RECORDED,
+                f"terminal audit failed: {type(audit_error).__name__}",
+            )
+        if not recorded:
+            return _terminal(
+                ShadowReversionOutcome.REJECTED_TERMINAL_NOT_RECORDED,
+                "phase-two terminal audit was not durably recorded",
+            )
+        return terminal
 
     terminal = _terminal(
         ShadowReversionOutcome.APPLIED if applied else ShadowReversionOutcome.DUPLICATE,

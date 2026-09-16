@@ -1,7 +1,7 @@
 ---
 title: 근본원인 분석
 translation_of: root-cause-analysis.md
-translation_source_sha: a3fc9ff7905dc01beb77b37bb1bd9ce58cea6564
+translation_source_sha: 6ceb6a5aa767251db3bd86d3e74a39efa7992924
 translation_revised: 2026-09-16
 ---
 # 근본원인 분석
@@ -23,6 +23,7 @@ translation_revised: 2026-09-16
 | 관리되는 자동 Incident RCA 맥락 | implemented | `delivery/persistence/postgres_governed_document_read.py`, `delivery/governed_rca_context.py`, `runtime/governed_rca.py`, 자동 T2 및 맥락 테스트 | 완전한 배포 바인딩이 별도 읽기 전용 DSN, 컬렉션, 접근 참조, 읽기 그룹을 제공합니다. 자동 Incident T2는 고정된 Forseti 주체와 `incident-review` 목적을 사용하고 인시던트, 리소스, 기준 시각, 온톨로지, 카탈로그 신원을 결속하며 권한 있는 문서 근거가 없으면 판단을 보류합니다. |
 | Azure 배포 이력 및 의존성 맥락 | implemented | `delivery/azure/deployment_history.py`, `delivery/persistence/postgres_provider_identity.py`, `runtime/rca_bindings.py`, topology history, 프로바이더, 런타임 및 control-loop 테스트 | 전용 Monitoring Reader가 이벤트 기준 시각의 인벤토리 세대에서 프로바이더 신원을 해석합니다. 런타임은 같은 기준 시각의 bitemporal topology를 구성하고 세대가 일치하는 성공한 정확한 범위 변경만 허용하며, 재개 lifecycle을 지원하고 맥락, 분석 및 감사를 하나의 side-path deadline으로 제한합니다. |
 | Azure Monitor 원격 측정 경로 및 모델 안전 fact | implemented | `delivery/azure/telemetry_workspace.py`, `delivery/azure/telemetry_query.py`, `core/rca/evidence.py`, `delivery/azure/llm/rca_model.py`, 집중 작업 영역, KQL, RCA, control-loop 및 런타임 테스트 | 이벤트 시각 인벤토리 신원으로 전용 판독기 아래의 정확한 Diagnostic Settings 및 작업 영역 기반 Application Insights 경로를 선택합니다. 발견한 작업 영역은 최대 3개이고 명시적 대체 경로 하나를 추가할 수 있습니다. T2는 범위가 제한된 fact token과 불투명한 인용만 받으며 이 원격 측정 경로의 원시 로그 본문은 받지 않습니다. |
+| 적응형 telemetry recipe 조사 | implemented | `core/rca/telemetry_evidence.py`, `core/rca/telemetry_recipes.py`, `core/read_investigation/telemetry_adaptive.py`, `delivery/azure/telemetry_recipe_query.py`, `runtime/adaptive_telemetry.py`, 집중 Core, Azure, Process, Operator, Pantheon 및 Console 테스트 | Forseti는 기존의 범위가 제한된 적응형 Process를 통해 검토된 recipe id만 선택합니다. Heimdall은 타입이 지정된 완전성 증적을 제공하고 Saga는 재생 근거를 보존하며, 완전한 양성 증적만 T2 근거가 될 수 있습니다. 원시 KQL은 운영자 전용으로 유지합니다. |
 | 분산 추적 원인 구분 | implemented | `core/rca/trace_continuity.py`, `tests/core/rca/test_trace_continuity.py` | 독립적으로 인용된 신호 하나로 계측, 수집기 또는 헤더 전파 원인을 구분할 수 있습니다. 근거가 없거나 충돌하거나 범위가 일치하지 않으면 검토를 위해 판단을 보류하며 결과에는 수정 참조가 없습니다. |
 | 읽기 전용 운영자 프로젝션 | implemented | `services/operator-service/src/fdai_operator_service/rca_projection.py`, 집중 프로젝션 테스트 | 작업 권한 없이 감사 가설, 인용, 구조화된 인과사슬 및 연결된 대응 계획을 프로젝션합니다. |
 | 통제된 운영 RCA 정확도 | in-progress | [관측성과 감지](observability-and-detection-ko.md#구현-상태) | 티어 혼합 전체에서 실제 원인 정확도, 판단 보류 및 downstream 결과 종결을 입증하는 exact-revision cohort가 없습니다. |
@@ -31,6 +32,7 @@ translation_revised: 2026-09-16
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | 검토된 telemetry recipe 카탈로그를 기존 적응형 조사 Process, 정확한 이벤트 시각 Azure 작업 영역 라우팅, 완전성을 인식하는 Forseti 개정, Saga Process 근거, Operator 변환 결과 및 이중 언어 Console 조사 공간에 연결했습니다. 원시 KQL은 서술기와 Pantheon의 모델 노출 도구에서 제외했습니다. 집중 비평 10회를 완료해 원시 조회 권한 노출, 버전 없는 정책 신원, 메타데이터 대체, 취소 누출, no-data 근거화, 재생 불안정 deadline과 인용, 비활성 운영 연결, 모듈 소유권, 변환 및 지역화 공백을 수정했습니다. 이 범위에는 Low를 넘는 finding이 남아 있지 않습니다. | `current change`; 집중 Core, Azure, Process 재생, 제어 루프, Pantheon, Operator, Console 모델/i18n/typecheck 및 1440/993/390 Playwright 검사 통과. | 운영 검증을 주장하기 전에 거버넌스를 따르는 live multi-workspace 증적과 정확한 개정의 원인 정확도 cohort를 보존합니다. |
 | 2026-09-16 | implemented | 정확한 head의 CI가 정규식을 검토되지 않은 lexical 분류기로 올바르게 탐지한 뒤 범위가 제한된 로그 fact reducer를 검토된 typed-evidence 경로로 등록했습니다. 이 reducer는 `LogRecord` 하나만 받고 운영자 발화를 받지 않으며 의도 또는 권한을 선택할 수 없습니다. Semantic-routing 감지기는 변경하지 않았습니다. | PR #1145 CI run `35054516295`, attempt 1, regression shard 3/4 job `104662007669`, exact semantic-routing 및 typed-input 회귀 검사. | 병합 전에 새로운 정확한 head의 CI를 요구합니다. 실제 다중 작업 영역 근거는 별도입니다. |
 | 2026-09-16 | implemented | 이벤트 시각 Azure 리소스 신원을 Diagnostic Settings 및 작업 영역 기반 Application Insights 발견에 연결하고, 정확한 리소스 및 시간 필터로 개수가 제한된 작업 영역 집합을 조회하며, 관리되는 문서 구성과 독립적으로 모델 안전 원격 측정 fact token을 제공했습니다. 신원, ARM 응답 무결성, 경로 상한, KQL 의미 체계, 이벤트 시각, 부분 근거, 정보 공개, 결정성, 취소, 소버린 클라우드, 런타임 동등성 및 형식을 대상으로 12회의 비평 및 하드닝을 완료했습니다. 이 과정에서 엄격한 ARM 및 Diagnostic Settings 신원 검사, 대소문자가 같은 경로 중복 제거, 대체 경로를 포함한 상한, 이스케이프 후 KQL 상한, 표지 오탐 및 인용 신원 충돌을 수정했습니다. 보고된 상위 심각도 가설 두 개는 매핑이 아닌 payload가 멤버 접근 전에 이미 실패하고 KQL `=~`가 정규식 연산자가 아니라 대소문자를 무시하는 동등 비교이므로 기각했습니다. 이 제한된 범위에는 Low를 넘는 발견 사항이 남아 있지 않습니다. | `current change`; 집중 RCA, Azure KQL, 조립, control-loop 및 런타임 테스트 483건 통과, 새 resolver branch coverage 99.16%, 작업 범위 Ruff 및 strict mypy 통과. | 통제된 실제 다중 작업 영역 RCA 증적을 보존하고 원인 정확도 및 판단 보류 결과를 정확한 개정 번호의 운영 cohort에 포함합니다. |
 | 2026-09-09 | implemented | 분산 추적 불연속을 위한 결정론적 T1 구분을 추가했습니다. 분류기는 범위가 제한된 원격 측정 신호 하나만 받고, 영향을 받은 홉 또는 경계가 감지 결과와 일치하는지 확인하며, 연속성 근거와 원인 근거를 모두 인용하고, 수정 참조를 반환하지 않습니다. | `current change`; 집중 추적 RCA 검사 9건, 새 Core 범위의 Ruff 및 strict mypy가 통과했습니다. | 권위 있는 계측, 수집기, 헤더 전파 근거 생산자를 연결한 후 #142에서 추적하는 통제된 실제 cohort를 보존합니다. |
@@ -108,6 +110,32 @@ RCA를 암묵적 부작용이 아니라 티어의 일급 출력으로 만듭니�
 
 이 경로는 읽기 전용과 shadow 전용으로 유지됩니다. 가설과 인용을 개선할 수 있지만 작업, 승인
 또는 실행 권한을 부여하지 않습니다.
+
+### 로그 조회 시점 결정
+
+초기 자동 경로는 T0 또는 T1이 리소스에 결속된 사례를 종결하지 못할 때 기본 로그 및 추적 변환
+결과를 모두 조회합니다. 대화형 `query_log` 화면은 별도로 운영자의 원시 KQL을 받습니다. 두 동작
+모두 활성 가설을 구분하는 데 어떤 누락 근거가 필요한지 에이전트가 결정하게 하지 않으며, 원시
+KQL을 모델에 노출하면 신뢰할 수 없는 텍스트가 프로바이더 작업으로 바뀝니다.
+
+개정된 경로는 타입이 지정된 `TelemetryEvidenceNeed`를 사용합니다. 현재 근거가 `missing`,
+`partial`, `no_data`, `timed_out`, `unauthorized`, `unavailable` 중 하나를 선언한 뒤에만 Forseti가
+카탈로그에 있는 recipe 식별자를 선택할 수 있습니다. Heimdall은 출처 완전성 레코드를 제공합니다.
+요청은 인시던트, 정확한 리소스, 근거 기준 시점, lookback 프로파일, 예상 출력 스키마, 조회 및 비용
+예산과 멱등성 키를 고정합니다. KQL, 작업 영역 식별자, 엔드포인트, 테이블 이름 또는 호출자가
+제공한 필터 텍스트는 포함하지 않습니다.
+
+Azure 전달 어댑터는 정확한 작업 영역을 해석한 뒤 recipe 식별자를 검토된 KQL로 컴파일합니다.
+결과는 범위가 제한된 fact token과 경로 수, 행 수, 지연 시간, 잘림, 최신성, 완전성 및 예상 비용
+단위를 포함한 출처 증적 하나를 반환합니다. 출처가 없거나 실패해도 빈 정상 관측으로 바뀌지
+않습니다. 기존 원시 `query_log` 명령은 운영자 진단 화면으로 유지하며 Pantheon 자율 도구로
+등록하지 않습니다.
+
+런타임은 정확한 Azure telemetry 라우팅을 사용할 수 있으면 이 shadow 읽기 경로를 자동으로
+연결합니다. `FDAI_RCA_ADAPTIVE_TELEMETRY_ENABLED=false`는 이를 비활성화하는 배포 상한입니다.
+선택적인 `MAX_ROUNDS`, `MAX_QUERIES`, `MAX_COST_UNITS`, `DEADLINE_SECONDS` 접미사 설정은 서버
+소유 상한을 더 좁힙니다. 잘못되거나 과도한 값은 시작에 실패합니다. 구성 버전, recipe 카탈로그
+다이제스트, 상한, 근거 기준 시점 및 최종 사용량은 재생에 안정적인 Process 근거로 남습니다.
 
 ## 원인 영역
 

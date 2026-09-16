@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 64cd16e691091f0e4b34c909abdec966aade81c4
+translation_source_sha: f9d2cdcd37b01882cd137b9e746aea28db679758
 translation_revised: 2026-09-16
 ---
 # 프로젝트 구조
@@ -414,7 +414,7 @@ checkpoint부터 재개합니다.
 - **Operational 승격 권한**: `OperationalPromotionReceiptVerifier`와
   `OperationalPromotionUnitVerifier`가 변경할 수 없는 근거를 해석합니다. 운영 레지스트리는
   이 연결 없이는 shadow를 유지하며 raw scalar 메트릭은 test-only 이전 방식 고정본 모드입니다.
-  Promotion-state 새로 고침 실패는 stale 적용을 재사용하지 않고 unified system-health 상한을 낮춥니다. 의사 결정 근거 승인은 로컬에서 StateStore를 사용하고 배포 환경에서 읽기 전용 불변 Blob 기록을 사용합니다. 보호된 정책은 권위, 목적, 출처 개정, 검증기 분리 및 만료를 고정하며, 근거가 없거나 잘못되면 실행 또는 승격 권한을 부여하지 않습니다.
+  Promotion-state 새로 고침 실패는 stale 적용을 재사용하지 않고 unified system-health 상한을 낮춥니다. 의사 결정 근거 승인은 로컬에서 StateStore를 사용하고 배포 환경에서 읽기 전용 불변 Blob 기록을 사용합니다. 보호된 정책은 권위, 목적, 출처 개정, 검증기 분리 및 만료를 고정하며, 근거가 없거나 잘못되면 실행 또는 승격 권한을 부여하지 않습니다. 개발 `remediate.tag-add@1.1.0` 연결은 공유 실행기 대상 계약으로 범위가 제한된 논리 Resource ID 하나를 확인하고 change identity, 권한 부여 및 승격 경계가 모두 있을 때만 gateway에 도달합니다. Gateway는 태그 전용 변경, snapshot rollback, reader identity 기반 실제 상태 확인을 소유하며, 런타임은 승격 registry나 Console 권한을 바꾸지 않고 이를 MSCP 독립 효과 관찰자로 제공합니다.
 - **Operational catalog 검토 및 측정**: `DeterministicCatalogValidator`는 고정 시나리오 디렉터리에서
   제공된 Rule loader, shadow evaluator, regression gate를 재사용합니다.
   `GitOpsCatalogReviewPublisher`는 내용 기반 주소가 지정된 비활성 검토 package만 게시합니다.
@@ -436,8 +436,8 @@ checkpoint부터 재개합니다.
   HIL resume은 현재 active map에서만 rule을 resolve하며 catalog retirement 또는
   reload 뒤에는 serialized parked rule body를 신뢰하지 않습니다.
 - **독립 효과 관측**: 영속 kinetic artifact 저장소가 exact-plan source입니다.
-  `StateStoreExecutedActionObservationStore`는 서명된 맥락이 쓰기와 replay에서 구성된 검증기를
-  통과한 Heimdall 귀속 관측만 받습니다. `effect_evidence_bridge.py`는 검증된 증적만 matched로 옮기며 실패와 미상 결과는 registry 접근 없이 섀도 복귀가 필요합니다.
+  `StateStoreExecutedActionObservationStore`는 검증기가 승인한 Heimdall 관측만 받습니다.
+  `effect_evidence_bridge.py`는 검증된 증적만 matched로 옮기며 실패 또는 미상 결과는 registry 접근 없이 현재 승인을 요구하는 연결되지 않은 `StateStoreShadowReversionWriter`로 ActionType 하나를 복귀해야 합니다.
 - **Azure operational 근거**: `bind_azure_operational_evidence`는 strict promoted-inventory 스냅샷 읽기 담당, 현재 안전성 평가기, 구성된 Azure 메트릭, 범위가 제한된 가지 estimator, effect-model 읽기 담당을 조립합니다. Temporal 어댑터는 근거 hashing 전에 non-finite 메트릭 값을 거부합니다. 부분 연결은 컨테이너 construction에서 실패합니다.
 - **대시보드 가용성 변환**: `shared/telemetry/dashboard_status.py`는 프로바이더와 도메인
   리듀서가 생성한 뒤의 정규화된 메트릭 관측을 사용합니다. 프로바이더 I/O를 수행하지 않으며
@@ -479,7 +479,7 @@ import를 모아도 작업 정체성, 문서 수집, 출처 소유권, 구성 �
 | 워크로드 신원 | `WorkloadIdentity` (audience-scoped OIDC 토큰) | **CSP-중립성 계약** - [워크로드 아이덴티티](csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰) | user-assigned Managed Identity (IMDS → Entra 토큰) | IRSA, GCP 워크로드 신원 Federation, SPIFFE/SPIRE SVID |
 | 인벤토리 | `Inventory` 및 `InventorySnapshotStore` (CSP-중립 배치, 변경할 수 없는 후보 staging, atomic 활성 포인터) | **CSP-중립성 계약** - [인벤토리](csp-neutrality-ko.md#5-인벤토리-계약--리소스-그래프) | 전용 읽기 전용 MI의 scheduled Azure 수집기: ARG full-scan, direct ARM-list 대체 경로, 서명된 declarative 복구, PostgreSQL last-known-good 변환 결과; Core-owned 이행은 관찰된 `peered_with` 및 검증된 `runtime_calls` 링크와 여러 valid `attached_to` 기준점을 허용 | 포크가 커버리지, 권한, 관계 cardinality 및 atomic-promotion 의미 규칙을 유지하면서 다른 ordered 출처를 주입 |
 | 메트릭 인제스트 | `MetricProvider` | **CSP-중립성 계약** - [메트릭](csp-neutrality-ko.md#6-metric-query-계약---csp-neutral-sample-iterator) | `NoopMetricProvider` 또는 Azure Monitor Logs 연결 | CloudWatch, Prometheus, Datadog 또는 다른 정규화된 메트릭 어댑터 |
-| 로그 인제스트 | `LogQueryProvider` | **CSP-중립성 계약** - [로그](csp-neutrality-ko.md#7-log-query-계약---structured-log-records) | `NoopLogQueryProvider`; 구성된 Azure 어댑터는 이벤트 시각 인벤토리 신원을 해석하고 최대 3개의 Diagnostic Settings 또는 작업 영역 기반 Application Insights 목적지를 발견한 후 명시적인 정적 대체 경로 하나를 추가해 정확한 범위의 KQL을 실행합니다. RCA는 이 원격 측정 경로에서 범위가 제한된 fact token과 불투명한 인용만 모델에 전달합니다. 정확한 소스 경로를 semantic-routing 감사에 typed `LogRecord` 근거 축약으로 등록하며 운영자 언어의 의도나 권한으로 등록하지 않습니다. | Loki, Elasticsearch, CloudWatch Logs 또는 다른 구조화된 로그 어댑터 |
+| 로그 인제스트 | `LogQueryProvider`, `TelemetryEvidenceProvider` | **CSP-중립성 계약** - [로그](csp-neutrality-ko.md#7-log-query-계약---structured-log-records). 내용 기반 주소가 지정된 `TelemetryEvidenceNeed` 하나가 검토된 recipe, 정확한 대상, 기준 시점 및 예산을 지정합니다. 프로바이더는 원시 행이나 조회 텍스트 없이 범위가 제한된 완전성과 비용을 반환합니다. | `NoopLogQueryProvider`; 구성된 Azure 어댑터는 이벤트 시각 인벤토리 신원을 해석하고 최대 3개의 Diagnostic Settings 또는 작업 영역 기반 Application Insights 목적지를 발견한 후 명시적인 정적 대체 경로 하나를 추가해 정확한 범위의 KQL을 실행합니다. RCA는 이 원격 측정 경로에서 범위가 제한된 fact token과 불투명한 인용만 모델에 전달합니다. 적응형 어댑터는 고정 recipe 카탈로그만 컴파일하며 완전한 연결을 사용할 수 있으면 shadow Process를 활성화합니다. | Loki, Elasticsearch, CloudWatch Logs 또는 다른 구조화된 로그 어댑터입니다. 다른 읽기 전용 recipe 실행기는 recipe id, 출처 처리 결과, 취소 및 증적 계보를 보존해야 합니다. |
 | 추적 인제스트 | `TraceQueryProvider` | **CSP-중립성 계약** - [추적](csp-neutrality-ko.md#8-trace-query-계약---distributed-trace-spans) | `NoopTraceQueryProvider`; 구성된 Azure 어댑터는 정확한 이벤트 시각 작업 영역 경로를 공유하고 Application Insights 요청 및 의존성을 변환합니다. Core는 항목과 참조가 제한되고 표준화되며 정확한 토폴로지, 시나리오, 구간, 관측 시각 및 최대 24시간의 양수 근거 유효 기간에 결속된 독립 인용 계측, 수집기 또는 헤더 전파 신호 하나가 일치할 때만 추적 연속성 원인을 구분할 수 있습니다. 잘못된 신뢰도 구성은 근거 평가 전에 실패하며 결합 인용이 100개를 넘으면 판단을 보류합니다. 홉 순서 발견은 감지기가 문제가 있는 홉을 식별할 때까지 판단을 보류하며, 소유권 근거가 없는 경계는 원인 영역을 `unknown`으로 유지하고, 근거 신뢰도는 T1 상한을 적용한 후 기본 `0.5` 하한을 통과해야 합니다. | Tempo, Jaeger, Honeycomb 또는 다른 구간 어댑터 |
 | Cloud 프로바이더 | 프로바이더 클라이언트 | (위 여덟 경계를 사용) | 참조/범용 Azure 어댑터 | 특정 CSP 어댑터 |
 | **Saga 이슈 인계** | `fdai.agents` facade의 `IssueTrackerAdapter`와 추가형 `IdempotentIssueTrackerAdapter`, 런타임 `StateStore` 저널 | - | `StateStoreIssueTrackerAdapter`는 이슈 상태와 정확한 작업 결과를 CAS로 영속화하고 실제 처리와 시작 복원에 하나의 결정론적 변환 결과 한도를 적용하며 종료를 발생 댓글 밖에 기록하고 consumer 시작 전에 복원합니다. `InMemoryGithubIssueAdapter`는 타입이 지정된 런타임 인계의 테스트 전용입니다. | 프로바이더 측에서 작업 ID와 내용을 원자적으로 결속하고 결과를 영속적으로 복구하는 `create_or_comment_once`를 구현합니다. 기존 어댑터는 직접 에스컬레이션에 계속 사용할 수 있지만 추가형 경계가 없으면 타입이 지정된 인계는 실패 시 차단됩니다. |
@@ -597,7 +597,7 @@ Var는 순수 승인 대기 데이터를 비공개 결정 레코드 도우미에
   composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며
   패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다. 보호된 W7 워크플로는 판단, 승인, 실행 또는 승격 권한을 패키지나 Operator 조립으로 옮기지 않고 정확한 release, Process, 공개 및 보존 근거를 유지합니다.
 - 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있으며, `execution_safeguards.py`는 Core, 작업 흐름, Isolated 실행기의 생성기와 검증기가 공유하는 공급자 중립 무권한 7개 증명 묶음을 소유합니다. `recorded_resource_state.py`는 Core 변환 결과와 Operator 조회가 공유하는 공급자 중립 상태 경로 적용성 집합, 선택적인 정확한 대상 `serving` 경로 및 범위가 제한된 사용 불가 사유 토큰을 소유합니다. Azure delivery는 기존 `MetricProvider` 경계를 통해 수동적인 서비스 응답 근거를 제공하고 해당 메타데이터는 온톨로지 변환 허용 목록을 통과해 유지됩니다. 공급자 어댑터는 검토된 토큰만 선택할 수 있으며, 공급자 응답 원문과 프로비저닝 기반 추론은 계약 밖에 둡니다.
-  `operational_activity.py`는 버전이 지정되고 권한을 부여하지 않는 Agent Activity 수명 주기 근거를 소유합니다. 버전 `1.3.0`은 안정적인 활동 신원을 전환 멱등성과 분리하고 기계 처리에 안전한 사유 코드를 요구합니다. `runtime_call.py`는 인증된 런타임 호출 변환 결과에서 사용하는 정확한 호출자 및 대상 Resource 참조와 권한을 부여하지 않는 근거 메타데이터를 소유합니다. Core 조립은 정확한 release, 세대, 범위, 최신성 및 독립 검증기 검사를 통과한 뒤에만 인벤토리를 보강할 수 있습니다.
+  `operational_activity.py`는 버전이 지정되고 권한을 부여하지 않는 Agent Activity 수명 주기 근거를 소유합니다. 버전 `1.3.0`은 안정적인 활동 신원을 전환 멱등성과 분리하고 기계 처리에 안전한 사유 코드를 요구합니다. `runtime_call.py`는 인증된 런타임 호출 변환 결과에서 사용하는 정확한 호출자 및 대상 Resource 참조와 권한을 부여하지 않는 근거 메타데이터를 소유합니다. Core 조립은 정확한 release, 세대, 범위, 최신성 및 독립 검증기 검사를 통과한 뒤에만 인벤토리를 보강할 수 있습니다. `operator.py`는 `AuditPageProjection`을 추가 기능으로, `AuditQuery.include_summary`를 명시적인 활성화 설정으로 유지합니다. 페이지 전용 읽기가 기본이며 감사 작업 영역만 보존 범위 수치와 무결성 관측을 요청하고, 어느 변환 결과도 승인, 변경 또는 실행 권한을 부여하지 않습니다.
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고
   체크섬으로 고정한 생성기는 호환성 매니페스트의 모든 N/N-1 스키마를 백엔드 서비스 5개용

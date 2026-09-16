@@ -98,6 +98,23 @@ from fdai.core.rca.runtime import (
 )
 from fdai.core.rca.t0 import t0_root_cause
 from fdai.core.rca.t1 import CorrelatedEvent, t1_causal_chain
+from fdai.core.rca.telemetry_evidence import (
+    TelemetryEvidenceDisposition,
+    TelemetryEvidenceNeed,
+    TelemetryEvidenceProvider,
+    TelemetryEvidenceReceipt,
+    TelemetryEvidenceRecipe,
+    TelemetryLookbackProfile,
+    TelemetryMechanism,
+    build_telemetry_evidence_need,
+    build_telemetry_evidence_receipt,
+)
+from fdai.core.rca.telemetry_recipes import (
+    DEFAULT_TELEMETRY_RECIPE_CATALOG,
+    TELEMETRY_RECIPE_CATALOG_VERSION,
+    TELEMETRY_RECIPE_OUTPUT_SCHEMA_DIGEST,
+    ReviewedTelemetryRecipeCatalog,
+)
 from fdai.core.rca.temporal_causality import (
     TemporalCausalClaim,
     TemporalCausalityAnalyzer,
@@ -169,6 +186,17 @@ __all__ = [
     "ShadowComparisonDisposition",
     "ShadowComparisonHoldReason",
     "TelemetryEvidenceGatherer",
+    "TelemetryEvidenceDisposition",
+    "TelemetryEvidenceNeed",
+    "TelemetryEvidenceProvider",
+    "TelemetryEvidenceReceipt",
+    "TelemetryEvidenceRecipe",
+    "TelemetryLookbackProfile",
+    "TelemetryMechanism",
+    "DEFAULT_TELEMETRY_RECIPE_CATALOG",
+    "TELEMETRY_RECIPE_CATALOG_VERSION",
+    "TELEMETRY_RECIPE_OUTPUT_SCHEMA_DIGEST",
+    "ReviewedTelemetryRecipeCatalog",
     "TemporalCausalClaim",
     "TemporalCausalEvidence",
     "TemporalCausalEvidenceProvider",
@@ -182,6 +210,8 @@ __all__ = [
     "build_causal_hypothesis",
     "build_discriminating_observation_candidate",
     "build_hypothesis_discrimination_frame",
+    "build_telemetry_evidence_need",
+    "build_telemetry_evidence_receipt",
     "causal_action_mode",
     "causal_closure_evidence_digest",
     "causal_closure_rejection_reasons",

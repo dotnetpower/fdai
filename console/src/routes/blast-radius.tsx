@@ -471,7 +471,7 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
             evidenceHref={evidenceHref}
           />
         ) : view === "map" ? (
-          <BlastRadiusMap client={client} data={data} architectureView={architectureView} />
+          <BlastRadiusMap client={client} data={data} />
         ) : (
           <div class="stack blast-table-view">
             <section class="stack-section">
@@ -508,7 +508,7 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
     </div>
   );
 }
-function BlastRadiusMap({ client, data, architectureView }: { readonly client: OperatorApiClient; readonly data: BlastRadiusResponse; readonly architectureView: string | null }) {
+function BlastRadiusMap({ client, data }: { readonly client: OperatorApiClient; readonly data: BlastRadiusResponse }) {
   const [graph, setGraph] = useState<InventoryGraphResponse | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   useEffect(() => {
@@ -557,7 +557,6 @@ function BlastRadiusMap({ client, data, architectureView }: { readonly client: O
         variant="impact"
         allowFullscreen={false}
       />
-      <a class="btn blast-map-open" href={architectureHref(data.target, architectureView)}>{t("ontology.blast.openArchitecture")}</a>
     </div>
   );
 }

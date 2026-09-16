@@ -21,3 +21,12 @@ def audit_sequence(value: str | None) -> int | None:
     if re.fullmatch(r"[1-9][0-9]{0,18}", value) is None:
         raise ValueError("audit sequence MUST be a positive bigint")
     return int(value)
+
+
+def audit_include_summary(value: str | None) -> bool:
+    """Accept only the explicit additive audit-summary request."""
+    if value is None:
+        return False
+    if value != "true":
+        raise ValueError("audit summary MUST be true when supplied")
+    return True

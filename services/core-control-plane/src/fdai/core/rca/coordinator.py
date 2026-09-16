@@ -271,6 +271,22 @@ class RcaCoordinator:
                     resource_ref=resource_ref, since=since, until=until
                 )
             )
+        return await self.analyze_t2_from_evidence(
+            incident_summary=incident_summary,
+            candidate_citations=tuple(candidates),
+            governed_knowledge_context=governed_knowledge_context,
+        )
+
+    async def analyze_t2_from_evidence(
+        self,
+        *,
+        incident_summary: str,
+        candidate_citations: Sequence[Citation],
+        governed_knowledge_context: GovernedKnowledgeEvidenceContext | None = None,
+    ) -> RcaResult:
+        """Run T2 over already-verified evidence plus governed knowledge."""
+
+        candidates = list(candidate_citations)
         knowledge_citations, hold = await self._knowledge_candidates(
             query=incident_summary,
             governed_context=governed_knowledge_context,

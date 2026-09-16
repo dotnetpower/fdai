@@ -178,6 +178,15 @@ def _project_round(payload: Mapping[str, object]) -> dict[str, object]:
                     execution,
                     "actual_cost_units",
                 ),
+                **(
+                    {
+                        "source_metadata": _source_metadata(
+                            _mapping(execution.get("source_metadata"), "source_metadata")
+                        )
+                    }
+                    if execution.get("source_metadata") is not None
+                    else {}
+                ),
             }
             if execution is not None
             else None
@@ -564,6 +573,14 @@ def _validate_compact_round(
         if execution is not None
         else None
     )
+    compact_execution = round_payload.get("execution")
+    if (
+        expected_execution is not None
+        and execution is not None
+        and isinstance(compact_execution, Mapping)
+        and ("source_metadata" in execution or "source_metadata" in compact_execution)
+    ):
+        expected_execution["source_metadata"] = execution.get("source_metadata")
     if round_payload.get("execution") != expected_execution:
         raise ValueError("adaptive investigation compact execution conflicts")
     expected_revision = (
@@ -597,27 +614,78 @@ def _persisted_execution_digest(
 ) -> str | None:
     if execution is None:
         return None
-    digest = _content_digest(
-        {
-            "round_index": execution.get("round_index"),
-            "frame_digest": execution.get("frame_digest"),
-            "selection_digest": execution.get("selection_digest"),
-            "candidate_digest": execution.get("candidate_digest"),
-            "binding_digest": execution.get("binding_digest"),
-            "verification_receipt_digest": execution.get("verification_receipt_digest"),
-            "plan_digest": execution.get("plan_digest"),
-            "result_digest": execution.get("result_digest"),
-            "query_status": execution.get("query_status"),
-            "evidence_refs": execution.get("evidence_refs"),
-            "reserved_cost_units": execution.get("reserved_cost_units"),
-            "actual_cost_units": execution.get("actual_cost_units"),
-            "execution_authority": False,
-            "mutation_authority": False,
-        }
-    )
+    material = {
+        "round_index": execution.get("round_index"),
+        "frame_digest": execution.get("frame_digest"),
+        "selection_digest": execution.get("selection_digest"),
+        "candidate_digest": execution.get("candidate_digest"),
+        "binding_digest": execution.get("binding_digest"),
+        "verification_receipt_digest": execution.get("verification_receipt_digest"),
+        "plan_digest": execution.get("plan_digest"),
+        "result_digest": execution.get("result_digest"),
+        "query_status": execution.get("query_status"),
+        "evidence_refs": execution.get("evidence_refs"),
+        "reserved_cost_units": execution.get("reserved_cost_units"),
+        "actual_cost_units": execution.get("actual_cost_units"),
+        "execution_authority": False,
+        "mutation_authority": False,
+    }
+    if execution.get("source_metadata") is not None:
+        material["source_metadata"] = execution.get("source_metadata")
+    digest = _content_digest(material)
     if execution.get("execution_digest") != digest:
         raise ValueError("adaptive investigation persisted execution digest is invalid")
     return digest
+
+
+def _source_metadata(value: Mapping[str, object]) -> dict[str, object]:
+    source_kind = _text(value, "source_kind")
+    if source_kind != "telemetry_recipe":
+        raise ValueError("adaptive investigation source kind is unsupported")
+    disposition = _text(value, "disposition")
+    if disposition not in {
+        "complete",
+        "complete_no_data",
+        "partial",
+        "stale",
+        "truncated",
+        "timed_out",
+        "unauthorized",
+        "unavailable",
+    }:
+        raise ValueError("adaptive investigation source disposition is unsupported")
+    complete = _boolean(value, "complete")
+    truncated = _boolean(value, "truncated")
+    if complete != (disposition in {"complete", "complete_no_data"}):
+        raise ValueError("adaptive investigation source completeness conflicts")
+    if truncated != (disposition == "truncated"):
+        raise ValueError("adaptive investigation source truncation conflicts")
+    observed_until = _optional_text(value, "observed_until")
+    if observed_until is not None:
+        _instant(observed_until)
+    route_count = _integer(value, "route_count", minimum=0, maximum=8)
+    queried_route_count = _integer(
+        value,
+        "queried_route_count",
+        minimum=0,
+        maximum=8,
+    )
+    if queried_route_count > route_count:
+        raise ValueError("adaptive investigation queried routes exceed resolved routes")
+    return {
+        "source_kind": source_kind,
+        "receipt_digest": _digest(value, "receipt_digest"),
+        "recipe_id": _text(value, "recipe_id"),
+        "recipe_version": _text(value, "recipe_version"),
+        "disposition": disposition,
+        "observed_until": observed_until,
+        "route_count": route_count,
+        "queried_route_count": queried_route_count,
+        "row_count": _integer(value, "row_count", minimum=0, maximum=1000),
+        "latency_ms": _integer(value, "latency_ms", minimum=0, maximum=300_000),
+        "complete": complete,
+        "truncated": truncated,
+    }
 
 
 def _persisted_revision_digest(

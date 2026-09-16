@@ -448,6 +448,10 @@ async def initialize_pantheon(
             environ=config.environment,
         ),
     ).observe
+    activity_observer = EventBusPantheonActivityObserver(
+        event_bus=config.bus,
+        topic=config.stage_topic,
+    )
     pantheon_runtime = PantheonRuntime.build(
         assignment_workflow=config.assignment_workflow,
         provider=config.bus,
@@ -557,10 +561,7 @@ async def initialize_pantheon(
         forecast_store=(
             forecast_learning_runtime.store if forecast_learning_runtime is not None else None
         ),
-        handler_observer=EventBusPantheonActivityObserver(
-            event_bus=config.bus,
-            topic=config.stage_topic,
-        ),
+        handler_observer=activity_observer,
         action_types=config.control_loop.action_types,
         conversation_semantic_judgment=(
             config.container.llm_bindings.conversation_semantic_judgment_factory(
@@ -698,7 +699,10 @@ async def initialize_pantheon(
     )
     runtime_state_publisher = AgentRuntimeStatePublisher(
         event_bus=config.bus,
-        snapshot_factory=lambda: runtime_agent_state_snapshot(pantheon_runtime.health()),
+        snapshot_factory=lambda: runtime_agent_state_snapshot(
+            pantheon_runtime.health(),
+            active_states=activity_observer.active_states(),
+        ),
         topic=config.stage_topic,
     )
     discovery_activation = None

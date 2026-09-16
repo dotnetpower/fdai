@@ -66,6 +66,7 @@ describe("approval search evidence", () => {
       target_resource_ref: "Resource-A",
       event_id: "EVENT-1",
       correlation_id: "CORR-1",
+      incident_available: false,
       reason: "Risk Gate",
       reasons: ["Verifier Review"],
       citing_rule_ids: ["Rule.Example"],
@@ -130,6 +131,16 @@ describe("approval decision availability", () => {
       expect(source).toContain("approvals.contactTechnicalDetails");
       expect(source).toContain("<details>");
       expect(catalog).toContain("Sending the request does not approve");
+    });
+
+    test("keeps synthetic approval references out of unsupported live detail routes", () => {
+      const source = readFileSync(new URL("./hil-queue.tsx", import.meta.url), "utf8");
+
+      expect(source).not.toContain('routeHref("workflow-builder"');
+      expect(source).toContain('dataMode === "live"');
+      expect(source).toContain('architectureHref(item.target_resource_ref)');
+      expect(source).toContain('routeHref("rules"');
+      expect(source).toContain("item.incident_available");
     });
   });
 });

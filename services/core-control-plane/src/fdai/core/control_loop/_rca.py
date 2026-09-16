@@ -7,7 +7,7 @@ import json
 import logging
 from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Protocol
 
 from fdai.core.control_loop._helpers import _extract_resource_id
 from fdai.core.event_ingest import EventCorrelator
@@ -23,11 +23,27 @@ from fdai.core.rca import (
 from fdai.core.rca.governed_knowledge_evidence import (
     GovernedKnowledgeEvidenceContextProvider,
 )
+from fdai.core.read_investigation.telemetry_adaptive import AdaptiveTelemetryEvidenceResult
 from fdai.core.trust_router import RoutingDecision
 from fdai.shared.contracts.models import Event, Mode, Rule
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.core.control_loop.orchestrator")
+
+
+class AdaptiveTelemetryInvestigator(Protocol):
+    """Run one bounded Process-backed telemetry investigation for T2 RCA."""
+
+    async def investigate(
+        self,
+        *,
+        incident_id: str,
+        resource_ref: str,
+        event_type: str,
+        resource_type: str | None,
+        evidence_cutoff: datetime,
+        correlation_id: str,
+    ) -> AdaptiveTelemetryEvidenceResult: ...
 
 
 def _finding_impact_evidence(
@@ -68,6 +84,7 @@ class ControlLoopRcaMixin:
     _ontology_release_digest: str | None
     _rca_catalog_revision: str | None
     _causal_runtime_coordinator: CausalRuntimeCoordinator | None
+    _adaptive_telemetry_investigator: AdaptiveTelemetryInvestigator | None
     _causal_chain_window: timedelta
     _resource_dependency_graph: Mapping[str, Iterable[str]] | None
     _rca_side_path_timeout_seconds: float = 5.0
@@ -300,6 +317,28 @@ class ControlLoopRcaMixin:
         async def run_t2() -> RcaResult | None:
             summary = _incident_summary(event, decision)
             governed_context = None
+            adaptive_evidence = None
+            if (
+                self._adaptive_telemetry_investigator is not None
+                and incident_id is not None
+                and resource is not None
+            ):
+                try:
+                    adaptive_evidence = await self._adaptive_telemetry_investigator.investigate(
+                        incident_id=incident_id,
+                        resource_ref=resource,
+                        event_type=event.event_type,
+                        resource_type=decision.resource_type,
+                        evidence_cutoff=event.detected_at,
+                        correlation_id=event.correlation_id or str(event.event_id),
+                    )
+                    candidates.extend(adaptive_evidence.citations)
+                except Exception:  # noqa: BLE001 - adaptive evidence degrades to legacy gathering
+                    _LOGGER.warning(
+                        "rca_adaptive_telemetry_failed",
+                        extra={"event_id": str(event.event_id), "incident_id": incident_id},
+                        exc_info=True,
+                    )
             if self._governed_knowledge_context_provider is not None and incident_id is not None:
                 if self._ontology_release_digest is None or self._rca_catalog_revision is None:
                     return None
@@ -310,7 +349,7 @@ class ControlLoopRcaMixin:
                     ontology_release_digest=self._ontology_release_digest,
                     catalog_revision=self._rca_catalog_revision,
                 )
-            if resource is not None:
+            if resource is not None and adaptive_evidence is None:
                 result = await coordinator.analyze_t2_from_telemetry(
                     incident_summary=summary,
                     resource_ref=resource,
@@ -320,9 +359,10 @@ class ControlLoopRcaMixin:
                     governed_knowledge_context=governed_context,
                 )
             else:
-                result = await coordinator.analyze_t2(
+                result = await coordinator.analyze_t2_from_evidence(
                     incident_summary=summary,
                     candidate_citations=tuple(candidates),
+                    governed_knowledge_context=governed_context,
                 )
             hypothesis = result.hypothesis
             await self._audit_store.append_audit_entry(
@@ -347,6 +387,18 @@ class ControlLoopRcaMixin:
                         [{"kind": c.kind.value, "ref": c.ref} for c in hypothesis.citations]
                         if hypothesis
                         else []
+                    ),
+                    "adaptive_investigation": (
+                        {
+                            "session_id": adaptive_evidence.investigation.session_id,
+                            "disposition": adaptive_evidence.investigation.disposition.value,
+                            "used_queries": adaptive_evidence.investigation.used_queries,
+                            "used_cost_units": adaptive_evidence.investigation.used_cost_units,
+                            "result_digest": adaptive_evidence.investigation.result_digest,
+                            "mutation_controls": False,
+                        }
+                        if adaptive_evidence is not None
+                        else None
                     ),
                     "recorded_at": datetime.now(tz=UTC).isoformat(),
                 }
@@ -386,4 +438,4 @@ def _incident_summary(event: Event, decision: RoutingDecision) -> str:
     )
 
 
-__all__ = ["ControlLoopRcaMixin"]
+__all__ = ["AdaptiveTelemetryInvestigator", "ControlLoopRcaMixin"]

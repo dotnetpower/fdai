@@ -20,6 +20,7 @@ evidence for document-derived human report lines and their use in selected appro
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | implemented | Scoped the requester contact-consent scan to current `awaiting_contact_consent` records before its completeness check, so terminal approval history cannot make the optional Console panel unavailable. | `current change`; `postgres_report_line_contacts.py`; `test_postgres_report_line_contacts.py`; 9 focused Operator tests; strict mypy on the changed source and test; Ruff | Retain protected CI and merge evidence. Live rollout remains separately authorized. |
 | 2026-09-16 | implemented | Added the dedicated inventory-manifest helper to the explicit Core wheel inventory without creating a report-line dependency. | `current change`; focused Core wheel payload test and design-impact gate | No human-report-line behavior changed. |
 | 2026-09-16 | implemented | Kept the shared inventory invalidation cursor outside report-line state, approval evidence, routing, and authority. | `current change`; design-impact gate and focused Operator inventory-state tests | No human-report-line behavior changed. |
 | 2026-09-16 | in-progress | Adopted the design and implementation ledger without reconstructing prior report-line behavior. | `current change`; canonical design and dependency-ordered plan | Implement and verify every bounded source slice, then record critique and delivery evidence. |

@@ -21,6 +21,7 @@ from .adaptive_contract import (
     AdaptiveInvestigationIteration,
     AdaptiveInvestigationResult,
     AdaptiveObservationExecution,
+    AdaptiveObservationSourceMetadata,
     HypothesisRevisionSet,
 )
 
@@ -150,6 +151,11 @@ def _iteration_to_mapping(
                 "reserved_cost_units": iteration.execution.reserved_cost_units,
                 "actual_cost_units": iteration.execution.actual_cost_units,
                 "execution_digest": iteration.execution.execution_digest,
+                "source_metadata": (
+                    _source_metadata_to_mapping(iteration.execution.source_metadata)
+                    if iteration.execution.source_metadata is not None
+                    else None
+                ),
             }
             if iteration.execution is not None
             else None
@@ -269,6 +275,55 @@ def _execution_from_mapping(
         reserved_cost_units=_integer(value, "reserved_cost_units"),
         actual_cost_units=_optional_integer(value, "actual_cost_units"),
         execution_digest=_text(value, "execution_digest"),
+        source_metadata=_source_metadata_from_mapping(
+            _optional_mapping(value.get("source_metadata"), "source_metadata")
+        ),
+    )
+
+
+def _source_metadata_to_mapping(
+    metadata: AdaptiveObservationSourceMetadata,
+) -> dict[str, object]:
+    return {
+        "source_kind": metadata.source_kind,
+        "receipt_digest": metadata.receipt_digest,
+        "recipe_id": metadata.recipe_id,
+        "recipe_version": metadata.recipe_version,
+        "disposition": metadata.disposition,
+        "observed_until": (
+            _timestamp_text(metadata.observed_until)
+            if metadata.observed_until is not None
+            else None
+        ),
+        "route_count": metadata.route_count,
+        "queried_route_count": metadata.queried_route_count,
+        "row_count": metadata.row_count,
+        "latency_ms": metadata.latency_ms,
+        "complete": metadata.complete,
+        "truncated": metadata.truncated,
+    }
+
+
+def _source_metadata_from_mapping(
+    value: Mapping[str, Any] | None,
+) -> AdaptiveObservationSourceMetadata | None:
+    if value is None:
+        return None
+    return AdaptiveObservationSourceMetadata(
+        source_kind=_text(value, "source_kind"),  # type: ignore[arg-type]
+        receipt_digest=_text(value, "receipt_digest"),
+        recipe_id=_text(value, "recipe_id"),
+        recipe_version=_text(value, "recipe_version"),
+        disposition=_text(value, "disposition"),
+        observed_until=(
+            _timestamp(value, "observed_until") if value.get("observed_until") is not None else None
+        ),
+        route_count=_integer(value, "route_count"),
+        queried_route_count=_integer(value, "queried_route_count"),
+        row_count=_integer(value, "row_count"),
+        latency_ms=_integer(value, "latency_ms"),
+        complete=_boolean(value, "complete"),
+        truncated=_boolean(value, "truncated"),
     )
 
 

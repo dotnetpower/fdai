@@ -14,6 +14,7 @@ from typing import Any, Final, cast
 import psycopg
 from fdai_service_contracts import (
     AgentActivityQuery,
+    AuditPageProjection,
     AuditQuery,
     BrowserEvidenceQuery,
     BrowserEvidenceWorkspaceQuery,
@@ -45,6 +46,7 @@ from fdai_operator_service.postgres_sql import (
     AGENT_ONTOLOGY_ACTIVITY_SQL,
     AGENT_READ_ACTIVITY_SQL,
     AUDIT_PAGE_SQL,
+    AUDIT_SUMMARY_SQL,
     AUDIT_TRACE_SQL,
     BROWSER_EVIDENCE_PAGE_SQL,
     BROWSER_EVIDENCE_WORKSPACE_SQL,
@@ -64,6 +66,7 @@ from fdai_operator_service.projection_logic import (
     KPI_SAMPLE_LIMIT,
     LLM_USAGE_DETAIL_LIMIT,
     audit_item,
+    audit_summary,
     dashboard_kpi,
     hil_item,
     llm_usage_projection,
@@ -130,27 +133,41 @@ class PostgresOperatorReadModel:
             ) from exc
         return JsonProjection(cast(JsonObject, payload))
 
-    async def list_audit(self, query: AuditQuery) -> PageProjection:
+    async def list_audit(self, query: AuditQuery) -> PageProjection | AuditPageProjection:
         cutoff = _positive_cursor(query.cursor)
+        filter_parameters = {
+            "correlation_id": query.correlation_id,
+            "mode": query.mode,
+            "tier": query.tier,
+            "action_kind": query.action_kind,
+            "outcome": query.outcome,
+            "vertical": query.vertical,
+            "window_days": query.window_days,
+            "from_seq": query.from_seq,
+            "through_seq": query.through_seq,
+        }
         rows = await self._fetch_all(
             AUDIT_PAGE_SQL,
             {
                 "cutoff": cutoff,
-                "correlation_id": query.correlation_id,
                 "fetch": query.limit + 1,
-                "mode": query.mode,
-                "tier": query.tier,
-                "action_kind": query.action_kind,
-                "outcome": query.outcome,
-                "vertical": query.vertical,
-                "window_days": query.window_days,
-                "from_seq": query.from_seq,
-                "through_seq": query.through_seq,
+                **filter_parameters,
             },
         )
         items = tuple(audit_item(row) for row in rows[: query.limit])
         next_cursor = str(items[-1]["seq"]) if len(rows) > query.limit and items else None
-        return PageProjection(items=items, next_cursor=next_cursor)
+        if not query.include_summary:
+            return PageProjection(items=items, next_cursor=next_cursor)
+        summary_rows = await self._fetch_all(AUDIT_SUMMARY_SQL, filter_parameters)
+        if len(summary_rows) != 1:
+            raise ProjectionUnavailableError(
+                "authoritative audit summary projection returned an invalid row count"
+            )
+        return AuditPageProjection(
+            items=items,
+            next_cursor=next_cursor,
+            summary=audit_summary(summary_rows[0]),
+        )
 
     async def list_browser_evidence(self, query: BrowserEvidenceQuery) -> JsonProjection:
         """Read bounded metadata through the Operator column-level grant."""

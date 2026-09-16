@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fdai.core.hil_resume.load_control import (
     ApprovalDispatchMode,
+    ApprovalExpiryReconciler,
     ApprovalLoadController,
     ApprovalLoadPolicy,
     ApprovalReminderDispatcher,
@@ -345,6 +346,25 @@ async def test_expired_park_is_atomically_reaped_once_across_workers() -> None:
         item for item in store.audit_entries if item["entry"].get("action_kind") == "hil.timeout"
     ]
     assert len(timeout_audits) == 1
+
+
+async def test_expiry_reconciles_without_a_delivery_channel() -> None:
+    current = _BASE + timedelta(seconds=10)
+    store = InMemoryStateStore()
+    parked = _park("channel-free-expiry", at=_BASE, ttl_seconds=5)
+    await _store_park(store, parked)
+    reconciler = ApprovalExpiryReconciler(
+        state_store=store,
+        policy=_policy(),
+        clock=lambda: current,
+    )
+
+    assert await reconciler.expire_due() == 1
+
+    reaped = await store.read_state("hil_park:channel-free-expiry")
+    assert reaped is not None
+    assert reaped["status"] == "resolved"
+    assert reaped["decision"] == "timeout"
 
 
 async def test_expiry_reaches_oldest_park_beyond_page_size() -> None:

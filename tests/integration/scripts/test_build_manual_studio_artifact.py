@@ -195,6 +195,7 @@ def test_console_publisher_binds_and_verifies_same_origin_manuals() -> None:
     assert "Access-Control-Request-Headers: authorization" in publisher
     assert '[[ "$unauthenticated_status" != 401 ]]' in publisher
     assert "login.microsoftonline.com" in publisher
+    assert "ingestion_gateway_fqdn document-ingestion-api" in publisher
     assert 'state_key="services/$service/$FDAI_DEPLOY_ENVIRONMENT.tfstate"' in publisher
     assert "jq -er '.fqdn | select(type == \"string\" and length > 0)'" in publisher
     assert "DEPLOY_OPERATOR_API" not in publisher

@@ -533,11 +533,7 @@ function ApprovalCard({
     <article class="approval-card">
       <div class="approval-card-body">
         <header class="approval-card-head">
-          <h3>
-            <a href={routeHref("workflow-builder", { params: { action: item.action_kind } })}>
-              {item.action_kind}
-            </a>
-          </h3>
+          <h3>{item.action_kind}</h3>
           <StatusPill
             kind={expired ? "danger" : "hil"}
             label={expired ? t("approvals.expiredApproval") : t("approvals.pendingApproval")}
@@ -545,7 +541,9 @@ function ApprovalCard({
           {item.mode ? (
             <StatusPill
               kind={item.mode === "enforce" ? "enforce" : "shadow"}
-              label={item.mode}
+              label={item.mode === "enforce"
+                ? t("approvals.modeEnforce")
+                : t("approvals.modeShadow")}
             />
           ) : null}
         </header>
@@ -565,14 +563,20 @@ function ApprovalCard({
               <dt>{label}</dt>
               <dd>
                 {label === t("approvals.fieldTarget") && item.target_resource_ref ? (
-                  <a href={architectureHref(item.target_resource_ref)}>{item.target_resource_ref}</a>
+                  dataMode === "live"
+                    ? <a href={architectureHref(item.target_resource_ref)}>{item.target_resource_ref}</a>
+                    : item.target_resource_ref
                 ) : label === t("approvals.fieldGroundedOn") && item.citing_rule_ids.length > 0 ? (
                   <span class="approval-rule-links">
-                    {[...new Set(item.citing_rule_ids)].map((ruleId) => (
-                      <a key={ruleId} href={routeHref("rules", { params: { rule: ruleId } })}>
-                        {ruleId}
-                      </a>
-                    ))}
+                    {[...new Set(item.citing_rule_ids)].map((ruleId) =>
+                      dataMode === "live"
+                        ? (
+                          <a key={ruleId} href={routeHref("rules", { params: { rule: ruleId } })}>
+                            {ruleId}
+                          </a>
+                        )
+                        : <span key={ruleId}>{ruleId}</span>
+                    )}
                   </span>
                 ) : value || <span class="muted">{t("approvals.notRecorded")}</span>}
               </dd>
@@ -589,16 +593,31 @@ function ApprovalCard({
         </footer>
         {item.correlation_id ? (
           <nav class="approval-card-actions" aria-label={t("approvals.relatedEvidence")}>
-            <a href={routeHref("incidents", { params: { status: "all", correlation: item.correlation_id } })}>
-              {t("approvals.openIncident")}
-            </a>
-            <a href={routeHref("trace", { params: { correlation: item.correlation_id } })}>
+            {item.incident_available ? (
+              <a href={routeHref("incidents", { params: {
+                status: "all",
+                correlation: item.correlation_id,
+                data: dataMode === "sample" ? "sample" : null,
+              } })}>
+                {t("approvals.openIncident")}
+              </a>
+            ) : null}
+            <a href={routeHref("trace", { params: {
+              correlation: item.correlation_id,
+              data: dataMode === "sample" ? "sample" : null,
+            } })}>
               {t("approvals.openTrace")}
             </a>
-            <a href={routeHref("audit", { params: { correlation: item.correlation_id } })}>
+            <a href={routeHref("audit", { params: {
+              correlation: item.correlation_id,
+              data: dataMode === "sample" ? "sample" : null,
+            } })}>
               {t("approvals.openAudit")}
             </a>
-            <a href={routeHref("rca", { params: { correlation: item.correlation_id } })}>
+            <a href={routeHref("rca", { params: {
+              correlation: item.correlation_id,
+              data: dataMode === "sample" ? "sample" : null,
+            } })}>
               {t("approvals.openRca")}
             </a>
           </nav>

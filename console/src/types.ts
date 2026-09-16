@@ -4,6 +4,41 @@
  * - the surface is intentionally small (three routes).
  */
 
+export type AuditRecordKind = "source_observation" | "action_lifecycle" | "audit_record";
+export type AuditRecordedPhase = "intent" | "dispatch" | "observe" | "close";
+
+export interface AuditRecordContext {
+  readonly record_kind: AuditRecordKind;
+  readonly action_lifecycle_applicable: boolean;
+  readonly target: string | null;
+  readonly correlation_id: string | null;
+  readonly phase: AuditRecordedPhase | null;
+  readonly stage: string | null;
+  readonly outcome: string | null;
+  readonly tier: string | null;
+  readonly decision: string | null;
+  readonly idempotency_key: string | null;
+  readonly rollback_reference: string | null;
+  readonly owner_agent: string | null;
+  readonly domain: string | null;
+}
+
+export interface AuditSummary {
+  readonly observed_at: string;
+  readonly matching_record_count: number;
+  readonly terminal_record_count: number;
+  readonly human_review_record_count: number;
+  readonly rollback_record_count: number;
+  readonly integrity: {
+    readonly status: "verified" | "failed" | "unavailable";
+    readonly reason: string | null;
+    readonly verified_at: string | null;
+    readonly current_record_count: number;
+    readonly current_link_gap_count: number;
+  };
+  readonly redaction_applied: boolean;
+}
+
 export interface AuditItem {
   readonly seq: number;
   readonly event_id: string;
@@ -12,6 +47,7 @@ export interface AuditItem {
   readonly action_kind: string;
   readonly mode: "shadow" | "enforce";
   readonly entry: Record<string, unknown>;
+  readonly context?: AuditRecordContext | null;
   readonly entry_hash: string;
   readonly previous_hash: string;
   readonly recorded_at: string;
@@ -20,6 +56,7 @@ export interface AuditItem {
 export interface AuditPage {
   readonly items: readonly AuditItem[];
   readonly next_cursor: string | null;
+  readonly summary?: AuditSummary | null;
 }
 
 export type IncidentStatus = "open" | "in_progress" | "resolved";
@@ -338,6 +375,14 @@ export interface AutonomyPayload {
     readonly change_lead_time_seconds: MetricVsBaseline;
     readonly cost_per_resolved_event_usd: MetricVsBaseline;
   };
+  readonly metric_samples: {
+    readonly auto_resolution_rate: number;
+    readonly human_touchpoints_per_100: number;
+    readonly mttr_seconds: number;
+    readonly change_lead_time_seconds: number;
+    readonly cost_per_resolved_event_usd: number;
+  };
+  readonly measurement_gaps: readonly string[];
   readonly leading: {
     readonly mixed_model_disagreement_rate: MetricVsBaseline;
     readonly verifier_failure_rate: MetricVsBaseline;
@@ -361,6 +406,7 @@ export interface HilQueueItem {
   readonly reason: string;
   readonly requested_at: string;
   readonly correlation_id: string | null;
+  readonly incident_available: boolean;
   readonly approval_id: string;
   readonly action_id: string;
   readonly target_resource_ref: string;

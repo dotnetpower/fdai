@@ -52,9 +52,16 @@ def test_aks_security_controls_use_current_provider_attributes(
 
 def test_aks_existing_subnet_has_explicit_egress_before_cluster_creation() -> None:
     source = (ROOT / "infra/runtimes/aks/cluster/main.tf").read_text(encoding="utf-8")
+    public_ip = source[
+        source.index('resource "azurerm_public_ip" "egress"') : source.index(
+            'resource "azurerm_nat_gateway" "egress"'
+        )
+    ]
     assert 'resource "azurerm_nat_gateway" "egress"' in source
     assert 'resource "azurerm_subnet_nat_gateway_association" "egress"' in source
     assert 'resource "azurerm_nat_gateway_public_ip_association" "egress"' in source
+    assert "tags                = local.tags" in public_ip
+    assert "ignore_changes = [ip_tags]" in public_ip
     assert "subnet_id      = var.aks_subnet_id" in source
     assert "nat_gateway_id = azurerm_nat_gateway.egress.id" in source
     assert "azurerm_nat_gateway_public_ip_association.egress," in source
@@ -86,6 +93,28 @@ def test_aks_baseline_uses_api_server_vnet_integration() -> None:
     assert "#trivy:ignore:AZU-0065" in cluster
     assert "checkov:skip=CKV_AZURE_115" in cluster
     assert "explicit authorized CIDRs, Entra RBAC, disabled local accounts" in cluster
+
+
+def test_aks_container_insights_has_dcr_and_cluster_association() -> None:
+    cluster = (ROOT / "infra/runtimes/aks/cluster/main.tf").read_text(encoding="utf-8")
+
+    assert 'substr("MSCI-${var.location}-${local.name}", 0, 64)' in cluster
+    assert 'resource "azurerm_monitor_data_collection_rule" "container_insights"' in cluster
+    assert "workspace_resource_id = var.log_analytics_workspace_id" in cluster
+    assert cluster.count('streams        = ["Microsoft-ContainerInsights-Group-Default"]') == 1
+    assert cluster.count('streams      = ["Microsoft-ContainerInsights-Group-Default"]') == 1
+    assert 'extension_name = "ContainerInsights"' in cluster
+    assert re.search(r"(?m)^\s*enableContainerLogV2\s*=\s*true\s*$", cluster)
+    assert (
+        'resource "azurerm_monitor_data_collection_rule_association" "container_insights"'
+        in cluster
+    )
+    assert 'name                    = "ContainerInsightsExtension"' in cluster
+    assert "target_resource_id      = azurerm_kubernetes_cluster.runtime.id" in cluster
+    assert (
+        "data_collection_rule_id = azurerm_monitor_data_collection_rule.container_insights.id"
+        in cluster
+    )
 
 
 def test_aks_document_workloads_have_dedicated_substrate_roles() -> None:

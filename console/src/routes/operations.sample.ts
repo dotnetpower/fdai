@@ -3,7 +3,9 @@ import {
   sampleDetectionReadiness,
   sampleOnboarding,
 } from "./operations.sample-readiness";
+import { sampleEvidenceResponse } from "./operations.sample-evidence";
 import { sampleProcessResponse } from "./operations.sample-processes";
+import { t } from "./i18n/approvals";
 
 const SAMPLE_AT = "2026-09-01T09:00:00Z";
 
@@ -52,11 +54,11 @@ export function operationsSampleResponse(
   path: string,
   params: URLSearchParams,
 ): unknown | undefined {
+  const evidence = sampleEvidenceResponse(path, params);
+  if (evidence !== undefined) return evidence;
   if (path === "/system/data-sources") {
     return { surface: "read-data-sources", sources: [] };
   }
-  if (path === "/incidents") return sampleIncidents();
-  if (path === "/audit") return { items: [], next_cursor: null };
   if (path === "/hil-queue") return sampleApprovals();
   if (path === "/onboarding") return sampleOnboarding();
   if (path === "/detection-coverage" || path === "/detection-readiness") {
@@ -101,83 +103,6 @@ export function operationsSampleResponse(
   return undefined;
 }
 
-function sampleIncidents() {
-  const item = {
-    correlation_id: "sample-correlation-001",
-    incident_id: "sample-incident-1",
-    lifecycle_state: "resolved",
-    target_ref: "sample-checkout-vm-01",
-    incident_number: "INC-SAMPLE-0001",
-    ticket_id: "sample-ticket-1",
-    title: "Checkout capacity is below its objective",
-    title_source: "recorded_summary",
-    source: {
-      platform: "Sample Monitor",
-      incident_id: "sample-alert-1",
-      status: "triggered",
-      fired_at: "2026-09-01T08:45:00Z",
-      description: "A recorded maintenance change left the checkout VM deallocated.",
-      url: null,
-    },
-    response_plan: {
-      id: "sample-checkout-capacity-response",
-      revision: "sample-vm-start-rev-1",
-      enabled: true,
-      historical_match_count: 3,
-      reinvestigation_cooldown_seconds: 10800,
-      deduplication_key: "sample-checkout-capacity",
-    },
-    severity: "high",
-    status: "resolved",
-    status_source: "incident_lifecycle",
-    disposition: "resolved",
-    verdict: "hil",
-    vertical: "resilience",
-    opened_at: "2026-09-01T08:45:00Z",
-    last_updated_at: SAMPLE_AT,
-    latest_mode: "enforce",
-    history_count: 2,
-    involved_agents: ["Huginn", "Heimdall", "Forseti", "Var", "Thor", "Saga"],
-  };
-  return {
-    items: [item],
-    next_cursor: null,
-    metrics: {
-      source: "synthetic-preview",
-      snapshot_seq: 1,
-      denominator: 1,
-      matched_total: 1,
-      truncated: false,
-      window_from: "2026-09-01T08:45:00Z",
-      window_to: SAMPLE_AT,
-      cohorts: {
-        agent_mitigated: 0,
-        agent_assisted: 1,
-        human_mitigated: 0,
-        pending: 0,
-        integrity_excluded: 0,
-      },
-      drilldown: {
-        agent_mitigated: [],
-        agent_assisted: ["sample-correlation-001"],
-        human_mitigated: [],
-        pending: [],
-        integrity_excluded: [],
-      },
-      drilldown_truncated: {
-        agent_mitigated: false,
-        agent_assisted: false,
-        human_mitigated: false,
-        pending: false,
-        integrity_excluded: false,
-      },
-      median_time_to_mitigate_seconds: null,
-      time_to_mitigate_sample_size: 0,
-      terminal_rule: "resolved_and_independently_verified",
-    },
-  };
-}
-
 function sampleApprovals() {
   return {
     items: [
@@ -185,21 +110,22 @@ function sampleApprovals() {
         idempotency_key: "sample-idempotency-1",
         event_id: "sample-event-1",
         action_kind: "ops.start-vm",
-        reason: "Restoring checkout capacity requires per-execution human approval.",
+        reason: t("approvals.sampleReason"),
         requested_at: SAMPLE_AT,
         correlation_id: "sample-correlation-002",
+        incident_available: true,
         approval_id: "sample-approval-1",
         action_id: "sample-action-1",
         target_resource_ref: "sample-checkout-standby-vm-01",
         mode: "enforce",
-        stop_condition: "checkout health remains below the objective after startup",
+        stop_condition: t("approvals.sampleStopCondition"),
         rollback_kind: "ops.deallocate-vm",
         rollback_reference: "sample-checkout-standby-vm-rollback",
         blast_radius_scope: "single_resource",
         blast_radius_count: 1,
         blast_radius_rate_per_minute: null,
-        blast_radius_summary: "1 synthetic checkout VM",
-        reasons: ["The verifier requires a distinct operator to approve this VM start."],
+        blast_radius_summary: t("approvals.sampleBlastRadius"),
+        reasons: [t("approvals.sampleReason")],
         citing_rule_ids: ["sample.compute.checkout-capacity.conflicting-evidence"],
         ttl_expires_at: "2026-10-01T09:00:00Z",
         decision_requestable: false,
