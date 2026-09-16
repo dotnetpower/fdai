@@ -9,8 +9,14 @@ import httpx
 import pytest
 from fdai.composition import default_container
 from fdai.core.detection.configuration_drift import (
+    ConfigurationObservation,
     ConfigurationResource,
+    EvidenceCompleteness,
     FrozenConfigurationBaseline,
+)
+from fdai.delivery.azure.configuration_drift import (
+    AzureArgConfigurationObservationSource,
+    AzureBlobConfigurationBaselineSource,
 )
 from fdai.delivery.azure.telemetry_query import (
     AzureLogAnalyticsRcaLogProvider,
@@ -25,6 +31,7 @@ from fdai.runtime.configuration import (
     _model_endpoint_resolver,
 )
 from fdai.shared.config.models import AppConfig
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
 
 
@@ -205,7 +212,9 @@ def _drift_environment(
     }
 
 
-async def test_runtime_binds_azure_configuration_drift_when_complete() -> None:
+async def test_runtime_binds_azure_configuration_drift_when_complete(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     baseline = FrozenConfigurationBaseline(
         version="example-v1",
         created_at=datetime(2026, 8, 28, tzinfo=UTC),
@@ -225,6 +234,24 @@ async def test_runtime_binds_azure_configuration_drift_when_complete() -> None:
         audience="https://management.azure.com/.default",
         token="test-token",  # noqa: S106 - inert test credential
     )
+    store = InMemoryStateStore()
+
+    async def load(self: AzureBlobConfigurationBaselineSource) -> FrozenConfigurationBaseline:
+        return baseline
+
+    async def observe(
+        self: AzureArgConfigurationObservationSource, *, scope: str
+    ) -> ConfigurationObservation:
+        return ConfigurationObservation(
+            scope=scope,
+            observed_at=baseline.created_at,
+            source="authoritative test observation",
+            completeness=EvidenceCompleteness.COMPLETE,
+            resources=baseline.resources,
+        )
+
+    monkeypatch.setattr(AzureBlobConfigurationBaselineSource, "load", load)
+    monkeypatch.setattr(AzureArgConfigurationObservationSource, "observe", observe)
 
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(lambda request: httpx.Response(200))
@@ -235,9 +262,26 @@ async def test_runtime_binds_azure_configuration_drift_when_complete() -> None:
             http_client=client,
             identity=identity,
             environment=_drift_environment(baseline),
+            state_store=store,
         )
         assert "configuration.drift.read" not in original.capability_runtime.bound_capability_ids()
         assert "configuration.drift.read" in bound.capability_runtime.bound_capability_ids()
+        provider = bound.capability_runtime.resolve("configuration.drift.read").provider
+        assert provider is not None
+        artifact = next(
+            tool
+            for tool in bound.capability_runtime.reasoning_tools
+            if tool.id == "configuration.drift.check"
+        )
+        result = await provider.call(artifact=artifact, arguments={})
+        assert isinstance(result, dict)
+        assert result["verdict"] == "passed"
+        rows = await store.read_states("runtime:configuration-baseline:", limit=2)
+        assert len(rows) == 1
+        assert rows[0]["baseline"]["version"] == baseline.version
+        assert rows[0]["drift"]["verdict"] == result["verdict"]
+        assert rows[0]["performance"]["total_ms"] == result["performance"]["total_ms"]
+        assert rows[0]["review"]["configured"] is False
 
 
 async def test_runtime_configuration_drift_fails_closed_on_partial_config() -> None:
@@ -253,6 +297,7 @@ async def test_runtime_configuration_drift_fails_closed_on_partial_config() -> N
                 http_client=client,
                 identity=identity,
                 environment={"FDAI_CONFIGURATION_DRIFT_ENABLED": "true"},
+                state_store=InMemoryStateStore(),
             )
 
 

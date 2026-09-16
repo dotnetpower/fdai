@@ -224,6 +224,47 @@ test.describe("Configuration baselines", () => {
     );
   });
 
+  for (const knowledgeStatus of ["not-configured", "blocked", "cited"] as const) {
+    test(`completed checks preserve ${knowledgeStatus} Knowledge evidence`, async ({ page }) => {
+      const projection = {
+        ...baselineProjection(),
+        versions: [],
+        knowledge: { status: knowledgeStatus, citation_count: 0, citations: [] },
+        performance: { total_ms: 71.2, observation_ms: 40.1, knowledge_ms: 0.2 },
+        review: {
+          configured: false,
+          state: "not-configured",
+          completed_runs: 0,
+          required_runs: 0,
+          failed_attempts: 0,
+        },
+      };
+      const requests = await installBaselineApi(page, projection);
+      for (const locale of ["en", "ko"] as const) {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.goto(`/configuration-baselines?locale=${locale}`);
+        await expect(page.locator(".kpi-card").filter({ hasText: "71.2 ms" })).toBeVisible();
+        const citations = page.locator(".kpi-card").filter({
+          hasText: locale === "en" ? "Citations" : "인용",
+        });
+        const label = knowledgeStatus === "cited"
+          ? "0"
+          : knowledgeStatus === "blocked"
+            ? locale === "en" ? "Blocked" : "차단됨"
+            : locale === "en" ? "Not configured" : "구성되지 않음";
+        await expect(citations).toContainText(label);
+        await page.getByRole("tab", {
+          name: locale === "en" ? "Drift" : "구성 차이", exact: true,
+        }).click();
+        const count = page.locator("#knowledge .details-list > div").last();
+        await expect(count).toContainText(knowledgeStatus === "cited"
+          ? "0" : locale === "en" ? "Not available" : "사용할 수 없음");
+        await expectNoPageOverflow(page);
+      }
+      expect(requests.every((request) => request.startsWith("GET "))).toBe(true);
+    });
+  }
+
   test("loads nullable measurements and preserves the reviewed view hierarchy", async ({
     page,
   }, testInfo) => {

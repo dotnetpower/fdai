@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 1a0403bed603a777aa5ebd484ff759eb5f4a3aca
-translation_revised: 2026-09-16
+translation_source_sha: ca3436e565870399a39463b88b8ebf5c0464b8e1
+translation_revised: 2026-09-17
 ---
 
 # 콘솔 운영
@@ -45,7 +45,7 @@ Operator API는 에이전트 직접 호출 대신 타입 지정 이벤트를 중
 기록된 Resource 상태 화면은 브라우저에서 공급자 원시 필드를 해석하지 않고 공유하는 독립 상태
 축을 사용합니다. 따라서 정확한 Static Web App 기본 환경 `BuildStatus`를 운영 값으로 표시하고,
 검토된 값이 없으면 기록 없음으로 유지합니다. 프로비저닝 성공이나 공급자 요청 성공을 운영 성공으로
-바꾸지 않습니다.
+바꾸지 않습니다. 구성 기준선도 Core가 완료한 점검만 읽어 고정된 메타데이터, 판정, 측정 지연 시간을 유지합니다. Knowledge가 구성되지 않았거나 차단되었으면 측정된 인용 수가 아니라 사용 불가 상태로 표시합니다. 근거 조회로 기준선이나 검토 캠페인이 활성화되지는 않습니다.
 
 ## 제품 용어
 

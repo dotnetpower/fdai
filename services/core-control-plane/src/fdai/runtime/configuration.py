@@ -23,6 +23,7 @@ from fdai.runtime.providers import (
     _build_operator_memory_store,
 )
 from fdai.shared.config.models import LlmMode
+from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.startup")
@@ -344,6 +345,7 @@ def _attach_runtime_configuration_drift(
     http_client: httpx.AsyncClient,
     identity: WorkloadIdentity,
     environment: Mapping[str, str],
+    state_store: StateStore,
 ) -> Container:
     """Bind one scope-pinned Azure configuration drift capability."""
 
@@ -357,6 +359,9 @@ def _attach_runtime_configuration_drift(
         AzureBlobConfigurationBaselineConfig,
         AzureBlobConfigurationBaselineSource,
         AzureConfigurationObservationConfig,
+    )
+    from fdai.delivery.persistence.state_store_configuration_baseline import (
+        StateStoreConfigurationBaselineSink,
     )
 
     baseline_sha256 = _required_environment(
@@ -416,6 +421,7 @@ def _attach_runtime_configuration_drift(
         expected_sha256=baseline_sha256,
         expected_scope=scope,
         knowledge_source=container.knowledge_source,
+        report_sink=StateStoreConfigurationBaselineSink(state_store),
     )
 
 
