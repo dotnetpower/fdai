@@ -595,7 +595,7 @@ FDAI Console compiles the generated TypeScript view at
 `console/src/generated/service-contracts.ts`. The checksum-pinned repository generator derives this
 view from the same N/N-1 JSON Schemas used by the five backend services. The generated interface
 improves compile-time alignment only; the Operator service still validates wire payloads against
-the canonical schema, and Console receives no approval, mutation, or execution authority.
+the canonical schema, and Console receives no approval, mutation, or execution authority. The Audit workspace requests the additive `summary=true` envelope: a current Operator returns retained-query counts, record context, and integrity observations, while an older Operator keeps the page-only envelope that Console treats as unavailable summary evidence. Incident, Agent Activity, and Trace reads omit the flag and retain their bounded page cost.
 
 Split into focused owner documents:
 

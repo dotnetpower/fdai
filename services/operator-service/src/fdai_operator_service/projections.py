@@ -8,6 +8,7 @@ from typing import NoReturn
 
 from fdai_service_contracts import (
     AgentActivityQuery,
+    AuditPageProjection,
     AuditQuery,
     BrowserEvidenceQuery,
     BrowserEvidenceWorkspaceQuery,
@@ -39,7 +40,7 @@ class UnavailableOperatorReadModel:
         del query
         self._raise()
 
-    async def list_audit(self, query: AuditQuery) -> PageProjection:
+    async def list_audit(self, query: AuditQuery) -> PageProjection | AuditPageProjection:
         del query
         self._raise()
 

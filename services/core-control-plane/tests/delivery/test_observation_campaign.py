@@ -110,6 +110,12 @@ async def test_runs_all_due_sources_and_publishes_after_terminal_state() -> None
     audit_entries = [row["entry"] for row in store.audit_entries]
     assert {entry["actor"] for entry in audit_entries} == {"fdai.delivery.observation_campaign"}
     assert {entry["owner_agent"] for entry in audit_entries} == {"Huginn", "Heimdall"}
+    assert {entry["record_kind"] for entry in audit_entries} == {"source_observation"}
+    assert {entry["correlation_id"] for entry in audit_entries} == {"campaign-1"}
+    assert {entry["mode"] for entry in audit_entries} == {"shadow"}
+    assert {entry["outcome"] for entry in audit_entries} == {"started", "completed"}
+    assert all(entry["target_ref"] == entry["source_id"] for entry in audit_entries)
+    assert len({entry["idempotency_key"] for entry in audit_entries}) == len(audit_entries)
 
 
 async def test_isolates_permission_denial_and_reports_partial() -> None:
