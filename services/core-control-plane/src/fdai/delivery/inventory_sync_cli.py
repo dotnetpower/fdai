@@ -25,6 +25,7 @@ from fdai.delivery.aks_diagnostic_receipts import (
     InventoryPromotionAksDiagnosticObserver,
     StateStoreAksDiagnosticReceiptWriter,
 )
+from fdai.delivery.azure.arg_projection import to_neutral_id
 from fdai.delivery.azure.log_query import (
     AzureLogAnalyticsQueryConfig,
     AzureLogAnalyticsQueryProvider,
@@ -264,7 +265,7 @@ async def _build_kubernetes_enricher(
                 source=KubernetesApiInventorySource(
                     config=KubernetesApiInventoryConfig(
                         api_server=binding.api_server,
-                        cluster_ref=binding.cluster_ref,
+                        cluster_ref=to_neutral_id(binding.cluster_ref),
                     ),
                     auth=auth,
                     http_client=kubernetes_client,

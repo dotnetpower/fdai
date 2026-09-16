@@ -689,7 +689,7 @@ jobs:
           print("Terraform apply diagnostic Azure codes: " + (", ".join(sorted(codes)) or "unavailable"))
           PY
           }
-          if ! terraform apply -json -input=false -auto-approve \
+          if ! terraform apply -json -input=false -auto-approve -parallelism=2 \
             "$RUNNER_TEMP/sre-demo-lab.tfplan" \
             >"$RUNNER_TEMP/sre-demo-lab-apply.log" 2>&1; then
             print_apply_diagnostic "$RUNNER_TEMP/sre-demo-lab-apply.log"
