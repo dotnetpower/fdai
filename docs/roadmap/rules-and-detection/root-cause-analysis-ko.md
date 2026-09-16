@@ -1,8 +1,8 @@
 ---
 title: 근본원인 분석
 translation_of: root-cause-analysis.md
-translation_source_sha: 6f1acb9259878b92d17a041f3dfd885d633116bb
-translation_revised: 2026-09-09
+translation_source_sha: 3c3f6c132e99018367df755d36c3a623acc15ba8
+translation_revised: 2026-09-16
 ---
 # 근본원인 분석
 
@@ -22,6 +22,7 @@ translation_revised: 2026-09-09
 | Knowledge 근거 및 프로바이더 연결 | implemented | `core/rca/knowledge_evidence.py`, `shared/providers/knowledge.py`, `delivery/pgvector/knowledge.py`, `delivery/azure/llm/rca_model.py`, `runtime/bootstrap.py`, 집중 프로바이더, 어댑터 및 런타임 테스트 | 런타임은 Azure LLM 초기화 이후와 원격 측정 전용 모드 모두에서 구성된 pgvector 소스를 연결합니다. 다시 수집하면 문서 조각을 원자적으로 교체하고 빈 교체는 삭제하므로 오래된 개정이 검색 결과에 남지 않습니다. 연결이 없을 때는 근거를 만들어 내지 않습니다. |
 | 관리되는 자동 Incident RCA 맥락 | implemented | `delivery/persistence/postgres_governed_document_read.py`, `delivery/governed_rca_context.py`, `runtime/governed_rca.py`, 자동 T2 및 맥락 테스트 | 완전한 배포 바인딩이 별도 읽기 전용 DSN, 컬렉션, 접근 참조, 읽기 그룹을 제공합니다. 자동 Incident T2는 고정된 Forseti 주체와 `incident-review` 목적을 사용하고 인시던트, 리소스, 기준 시각, 온톨로지, 카탈로그 신원을 결속하며 권한 있는 문서 근거가 없으면 판단을 보류합니다. |
 | Azure 배포 이력 및 의존성 맥락 | implemented | `delivery/azure/deployment_history.py`, `delivery/persistence/postgres_provider_identity.py`, `runtime/rca_bindings.py`, topology history, 프로바이더, 런타임 및 control-loop 테스트 | 전용 Monitoring Reader가 이벤트 기준 시각의 인벤토리 세대에서 프로바이더 신원을 해석합니다. 런타임은 같은 기준 시각의 bitemporal topology를 구성하고 세대가 일치하는 성공한 정확한 범위 변경만 허용하며, 재개 lifecycle을 지원하고 맥락, 분석 및 감사를 하나의 side-path deadline으로 제한합니다. |
+| Azure Monitor 원격 측정 경로 및 모델 안전 fact | implemented | `delivery/azure/telemetry_workspace.py`, `delivery/azure/telemetry_query.py`, `core/rca/evidence.py`, `delivery/azure/llm/rca_model.py`, 집중 작업 영역, KQL, RCA, control-loop 및 런타임 테스트 | 이벤트 시각 인벤토리 신원으로 전용 판독기 아래의 정확한 Diagnostic Settings 및 작업 영역 기반 Application Insights 경로를 선택합니다. 발견한 작업 영역은 최대 3개이고 명시적 대체 경로 하나를 추가할 수 있습니다. T2는 범위가 제한된 fact token과 불투명한 인용만 받으며 이 원격 측정 경로의 원시 로그 본문은 받지 않습니다. |
 | 분산 추적 원인 구분 | implemented | `core/rca/trace_continuity.py`, `tests/core/rca/test_trace_continuity.py` | 독립적으로 인용된 신호 하나로 계측, 수집기 또는 헤더 전파 원인을 구분할 수 있습니다. 근거가 없거나 충돌하거나 범위가 일치하지 않으면 검토를 위해 판단을 보류하며 결과에는 수정 참조가 없습니다. |
 | 읽기 전용 운영자 프로젝션 | implemented | `services/operator-service/src/fdai_operator_service/rca_projection.py`, 집중 프로젝션 테스트 | 작업 권한 없이 감사 가설, 인용, 구조화된 인과사슬 및 연결된 대응 계획을 프로젝션합니다. |
 | 통제된 운영 RCA 정확도 | in-progress | [관측성과 감지](observability-and-detection-ko.md#구현-상태) | 티어 혼합 전체에서 실제 원인 정확도, 판단 보류 및 downstream 결과 종결을 입증하는 exact-revision cohort가 없습니다. |
@@ -30,6 +31,7 @@ translation_revised: 2026-09-09
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | 이벤트 시각 Azure 리소스 신원을 Diagnostic Settings 및 작업 영역 기반 Application Insights 발견에 연결하고, 정확한 리소스 및 시간 필터로 개수가 제한된 작업 영역 집합을 조회하며, 관리되는 문서 구성과 독립적으로 모델 안전 원격 측정 fact token을 제공했습니다. 신원, ARM 응답 무결성, 경로 상한, KQL 의미 체계, 이벤트 시각, 부분 근거, 정보 공개, 결정성, 취소, 소버린 클라우드, 런타임 동등성 및 형식을 대상으로 12회의 비평 및 하드닝을 완료했습니다. 이 과정에서 엄격한 ARM 및 Diagnostic Settings 신원 검사, 대소문자가 같은 경로 중복 제거, 대체 경로를 포함한 상한, 이스케이프 후 KQL 상한, 표지 오탐 및 인용 신원 충돌을 수정했습니다. 보고된 상위 심각도 가설 두 개는 매핑이 아닌 payload가 멤버 접근 전에 이미 실패하고 KQL `=~`가 정규식 연산자가 아니라 대소문자를 무시하는 동등 비교이므로 기각했습니다. 이 제한된 범위에는 Low를 넘는 발견 사항이 남아 있지 않습니다. | `current change`; 집중 RCA, Azure KQL, 조립, control-loop 및 런타임 테스트 483건 통과, 새 resolver branch coverage 99.16%, 작업 범위 Ruff 및 strict mypy 통과. | 통제된 실제 다중 작업 영역 RCA 증적을 보존하고 원인 정확도 및 판단 보류 결과를 정확한 개정 번호의 운영 cohort에 포함합니다. |
 | 2026-09-09 | implemented | 분산 추적 불연속을 위한 결정론적 T1 구분을 추가했습니다. 분류기는 범위가 제한된 원격 측정 신호 하나만 받고, 영향을 받은 홉 또는 경계가 감지 결과와 일치하는지 확인하며, 연속성 근거와 원인 근거를 모두 인용하고, 수정 참조를 반환하지 않습니다. | `current change`; 집중 추적 RCA 검사 9건, 새 Core 범위의 Ruff 및 strict mypy가 통과했습니다. | 권위 있는 계측, 수집기, 헤더 전파 근거 생산자를 연결한 후 #142에서 추적하는 통제된 실제 cohort를 보존합니다. |
 | 2026-09-09 | implemented | 범위가 제한된 추적 원인 항목과 인용을 표준화하고 공백, 중복, 전체 텍스트 상한 초과를 차단했습니다. | `current change`; 집중 추적 RCA 정규화 검사. | 범위가 제한된 추적 RCA 비평 캠페인을 계속합니다. |
 | 2026-09-09 | implemented | 추적 원인 근거를 정확한 토폴로지, 시나리오, 구간, 관측 시각에 결속하여 인용을 다른 인시던트나 이후 근거에 재사용할 수 없게 했습니다. | `current change`; 집중 범위 및 시각 replay 검사. | 범위가 제한된 추적 RCA 비평 캠페인을 계속합니다. |
@@ -52,8 +54,9 @@ translation_revised: 2026-09-09
 
 ### 남은 작업
 
-- [ ] T0, T1, T2의 지원된 원인, 판단 보류, stale 재사용 거부, 인용 유효성 및 독립적으로
-  검증된 결과를 측정하는 exact-revision 운영 cohort를 보존합니다.
+- [ ] 통제된 실제 다중 작업 영역 원격 측정 증적을 포함하고 T0, T1, T2의 지원된 원인,
+  판단 보류, stale 재사용 거부, 인용 유효성 및 독립적으로 검증된 결과를 측정하는
+  exact-revision 운영 cohort를 보존합니다.
 
 ## 티어 계약
 
@@ -74,6 +77,36 @@ RCA를 암묵적 부작용이 아니라 티어의 일급 출력으로 만듭니�
 - 근거를 가질 수 없는 RCA는 사람 검토로 보냅니다.
 - [상관된 인시던트](observability-and-detection-ko.md#1-이벤트-상관관계event-상관관계)가 RCA
   입력이므로 분석은 중복 폭풍이 아니라 인시던트 하나를 다룹니다.
+
+## Azure Monitor 원격 측정 근거 확인
+
+초기 설계는 T2가 구성된 Log Analytics 작업 영역 하나를 조회하고 일치한 원시 행을 모델에
+전달하는 방식입니다. 이 방식은 수락하지 않습니다. 리소스는 진단 데이터를 다른 작업 영역으로
+보낼 수 있고 목적지를 여러 개 구성할 수도 있습니다. 원시 로그 텍스트에는 자격 증명이나 개인
+데이터가 포함될 수 있습니다. 잘못된 작업 영역을 성공적으로 조회하면 완전한 빈 근거처럼 보일
+수도 있습니다.
+
+개정된 설계는 출처 선택과 정보 공개를 결정론적으로 유지합니다.
+
+1. Azure 전달 어댑터는 읽기 전용 Diagnostic Settings와 작업 영역 기반 Application Insights
+  관계를 통해서만 정확한 ARM 리소스를 해석합니다. 서버에 구성된 작업 영역은 명시적인 대체
+  경로로 유지합니다. 모델은 작업 영역, 리소스, 엔드포인트 또는 교차 범위 함수를 선택할 수
+  없습니다.
+2. 프로바이더 I/O 전에 경로 집합의 중복을 제거하고 개수 상한을 적용합니다. 잘못된 신원,
+  모호한 목적지 메타데이터, 경로 상한 초과, 부분 응답 또는 사용할 수 없는 권한은 조회 범위를
+  넓히는 대신 불완전한 근거를 만듭니다.
+3. 검토된 KQL 변환 결과는 정확한 리소스와 시간 범위를 유지합니다. 프로바이더별 테이블과 열은
+  Azure 전달 코드에 남고 코어는 클라우드 공급자 중립적인 로그 및 추적 레코드를 받습니다.
+4. 원격 측정 후보는 불투명한 인용과 범위가 제한된 의미 fact token을 함께 전달합니다. Token은
+  신호, 심각도, 출처, 지속 시간, 프로토콜 및 결정론적 원인 표지를 위한 고정된 기계 문법을
+  사용합니다. 원시 로그 본문, 리소스 ID, 작업 영역 ID, URL, 주소 및 자격 증명 형태 값은 이
+  원격 측정 경로를 통해 모델 요청에 들어가지 않으며 감사 행에도 들어가지 않습니다.
+5. 원격 측정 수집은 관리되는 문서 가용성과 독립적입니다. 필수 관리 문서가 없으면 최종 RCA를
+  계속 보류할 수 있지만 해당 구성으로 정확하고 범위가 제한된 원격 측정의 수집 여부를
+  결정하지 않습니다.
+
+이 경로는 읽기 전용과 shadow 전용으로 유지됩니다. 가설과 인용을 개선할 수 있지만 작업, 승인
+또는 실행 권한을 부여하지 않습니다.
 
 ## 원인 영역
 
@@ -141,6 +174,15 @@ root는 `resolved-models.json`의 `t2.rca` 기능에서 이를 연결합니다. 
 `ControlLoop`은 발견마다 상관된 `incident_id`를 포함하는 결정론적 T0 `rca.hypothesis` 감사
 항목을 추가합니다. 연결된 T2 reasoner는 새로운 사례에 grounded 가설 또는 판단 보류 하나를
 추가합니다. 이는 "왜"에 대한 설명이며 새 실행 경로가 아닙니다.
+
+Azure Monitor를 구성하면 Azure LLM 모드와 원격 측정 전용 모드에서 같은 프로바이더 연결을
+사용할 수 있습니다. 표준 런타임 조립은 이벤트 시각 인벤토리 신원 resolver와 전용 Monitoring
+Reader를 재사용하여 API 버전 `2021-05-01-preview`로 Diagnostic Settings를 발견하고, 작업 영역
+기반 Application Insights를 해석하며, 각 Log Analytics 작업 영역 customer ID를 가져옵니다.
+외부 RCA side-path deadline이 전체 발견 및 KQL 순서를 제한합니다. 인벤토리 신원, 판독기 권한,
+완전한 ARM 응답 또는 범위가 제한된 경로 집합이 없으면 원격 측정을 사용할 수 없습니다. 정적
+`FDAI_MONITOR_WORKSPACE_ID` 경로는 마지막 명시적 대체 경로로 유지되며 교차 작업 영역 KQL
+함수 권한을 부여하지 않습니다.
 
 ## Knowledge 근거
 

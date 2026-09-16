@@ -19,6 +19,7 @@ existing trust tiers. RCA explains an incident; it never grants approval or exec
 | Knowledge evidence and provider binding | implemented | `core/rca/knowledge_evidence.py`; `shared/providers/knowledge.py`; `delivery/pgvector/knowledge.py`; `delivery/azure/llm/rca_model.py`; `runtime/bootstrap.py`; focused provider, adapter, and runtime tests | The runtime attaches the configured pgvector source after Azure LLM finalization as well as in telemetry-only mode. Re-ingestion atomically replaces a document's chunks and an empty replacement deletes them, so stale revisions do not remain searchable. Missing bindings never fabricate evidence. |
 | Governed automated Incident RCA context | implemented | `delivery/persistence/postgres_governed_document_read.py`; `delivery/governed_rca_context.py`; `runtime/governed_rca.py`; automated T2 and context tests | A complete deployment binding supplies a separate read-only DSN, collection, access references, and reader groups. Automated Incident T2 uses the fixed Forseti principal and `incident-review` purpose, binds incident, resource, cutoff, ontology, and catalog identity, and holds when authorized document evidence is absent. |
 | Azure deployment history and dependency context | implemented | `delivery/azure/deployment_history.py`; `delivery/persistence/postgres_provider_identity.py`; `runtime/rca_bindings.py`; topology-history, provider, runtime, and control-loop tests | A dedicated Monitoring Reader resolves provider identity from the inventory generation at the event cutoff. Runtime materializes the bitemporal topology at the same cutoff, admits only successful exact-scope mutations with matching generation, supports lifecycle reopen intervals, and bounds context, analysis, and audit in one side-path deadline. |
+| Azure Monitor telemetry routing and model-safe facts | implemented | `delivery/azure/telemetry_workspace.py`; `delivery/azure/telemetry_query.py`; `core/rca/evidence.py`; `delivery/azure/llm/rca_model.py`; focused workspace, KQL, RCA, control-loop, and runtime tests | Event-time inventory identity selects exact Diagnostic Settings and workspace-based Application Insights routes under the dedicated reader. Up to three discovered workspaces plus one explicit fallback are queried. T2 receives bounded fact tokens and opaque citations, never raw log bodies from this telemetry leg. |
 | Distributed trace cause discrimination | implemented | `core/rca/trace_continuity.py`; `tests/core/rca/test_trace_continuity.py` | One independently cited signal can distinguish instrumentation, collector, or header-propagation causes. Missing, conflicting, or scope-mismatched evidence holds for review, and the result carries no remediation reference. |
 | Read-only operator projection | implemented | `services/operator-service/src/fdai_operator_service/rca_projection.py`; focused projection tests | Audit hypotheses, citations, structured causal chains, and linked response plans are projected without action authority. |
 | Governed operational RCA accuracy | in-progress | [Observability and Detection](observability-and-detection.md#implementation-status) | No retained exact-revision cohort proves live cause accuracy, abstention, and downstream outcome closure across the tier mix. |
@@ -27,6 +28,7 @@ existing trust tiers. RCA explains an incident; it never grants approval or exec
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | implemented | Connected event-time Azure resource identity to Diagnostic Settings and workspace-based Application Insights discovery, queried a capped workspace set with exact resource and time filters, and supplied model-safe telemetry fact tokens independently from governed document configuration. Completed 12 critique and hardening rounds over identity, ARM response integrity, route bounds, KQL semantics, event time, partial evidence, disclosure, determinism, cancellation, sovereign clouds, runtime parity, and typing. The rounds fixed strict ARM and Diagnostic Settings identity checks, case-equivalent route deduplication, fallback-inclusive limits, escaped KQL bounds, marker false positives, and citation identity collisions. Two reported higher-severity hypotheses were rejected because non-mapping payloads already fail before member access and KQL `=~` is case-insensitive equality rather than a regular-expression operator. No finding above Low remains in this bounded slice. | `current change`; focused RCA, Azure KQL, composition, control-loop, and runtime tests passed 483 cases; the new resolver reached 99.16% branch coverage; task-scoped Ruff and strict mypy passed. | Retain a governed live multi-workspace RCA receipt and include its cause accuracy and abstention outcomes in the exact-revision operational cohort. |
 | 2026-09-09 | implemented | Added deterministic T1 discrimination for distributed trace discontinuities. The classifier accepts exactly one bounded telemetry signal, requires its affected hop or boundary to match the detector result, cites both continuity and cause evidence, and returns no remediation reference. | `current change`; focused trace RCA checks passed 9 cases; Ruff and strict mypy passed the new Core slice. | Bind authoritative instrumentation, collector, and header-propagation evidence producers, then retain the governed live cohort tracked by issue #142. |
 | 2026-09-09 | implemented | Canonicalized bounded trace cause items and citations while rejecting whitespace, duplicates, and aggregate text overflow. | `current change`; focused trace RCA normalization checks. | Continue the bounded trace RCA critique campaign. |
 | 2026-09-09 | implemented | Bound trace cause evidence to the exact topology, scenario, window, and observed time so citations cannot replay across incidents or later evidence. | `current change`; focused scope and time replay checks. | Continue the bounded trace RCA critique campaign. |
@@ -49,8 +51,9 @@ existing trust tiers. RCA explains an incident; it never grants approval or exec
 
 ### Remaining work
 
-- [ ] Retain an exact-revision operational cohort that measures supported causes, abstentions,
-  stale reuse rejection, citation validity, and independently verified outcomes for T0, T1, and T2.
+- [ ] Retain an exact-revision operational cohort that includes a governed live multi-workspace
+  telemetry receipt and measures supported causes, abstentions, stale reuse rejection, citation
+  validity, and independently verified outcomes for T0, T1, and T2.
 
 ## Tier contract
 
@@ -71,6 +74,37 @@ Make RCA a first-class output of the tiers instead of an implicit side effect.
 - An RCA that cannot be grounded holds for human review.
 - The [correlated incident](observability-and-detection.md#1-event-correlation) is the RCA input, so
   analysis reasons over one incident rather than a storm of duplicates.
+
+## Azure Monitor telemetry grounding
+
+The initial design would let T2 query one configured Log Analytics workspace and pass matching raw
+rows to the model. That approach is not accepted. A resource can send diagnostics to another
+workspace, several destinations can be configured, and raw log text can contain credentials or
+personal data. A successful query against the wrong workspace would also look like complete empty
+evidence.
+
+The revised design keeps source selection and disclosure deterministic:
+
+1. The Azure delivery adapter resolves an exact ARM resource only through its read-only Diagnostic
+  Settings and workspace-based Application Insights relationship. The server-configured workspace
+  remains an explicit fallback route. The model cannot select a workspace, resource, endpoint, or
+  cross-scope function.
+2. A route set is deduplicated and capped before provider I/O. Malformed identities, ambiguous
+  destination metadata, route overflow, partial responses, or unavailable authorization produce
+  incomplete evidence rather than a wider query.
+3. Reviewed KQL projections retain the exact resource and time bounds. Provider-specific tables and
+  columns stay in Azure delivery code; the core receives cloud-provider-neutral log and trace
+  records.
+4. Telemetry candidates carry an opaque citation plus bounded semantic fact tokens. The tokens use
+  a fixed machine grammar for signal, severity, source, duration, protocol, and deterministic cause
+  markers. Raw log bodies, resource IDs, workspace IDs, URLs, addresses, and credential-shaped
+  values do not enter the model request through this telemetry leg or enter the audit row.
+5. Telemetry gathering is independent from governed document availability. A required governed
+  document can still hold the final RCA, but its configuration does not decide whether exact,
+  bounded telemetry is collected.
+
+This path remains read-only and shadow-only. It can improve a hypothesis and its citations, but it
+does not grant action, approval, or execution authority.
 
 ## Cause domains
 
@@ -139,6 +173,15 @@ telemetry-only, and local model modes and preserves the empty-source fallback wh
 `ControlLoop` appends a deterministic T0 `rca.hypothesis` audit entry per finding, carrying the
 correlated `incident_id`. A wired T2 reasoner adds one grounded hypothesis or abstention for a novel
 case. This is the "why", never a new execution path.
+
+When Azure Monitor is configured, the same provider binding is available in Azure LLM and
+telemetry-only modes. Standard runtime composition reuses the event-time inventory identity resolver
+and the dedicated Monitoring Reader to discover Diagnostic Settings with API version
+`2021-05-01-preview`, resolve workspace-based Application Insights, and obtain each Log Analytics
+workspace customer ID. The outer RCA side-path deadline bounds the complete discovery and KQL
+sequence. Missing inventory identity, reader authority, complete ARM responses, or a bounded route
+set makes telemetry unavailable. The static `FDAI_MONITOR_WORKSPACE_ID` route remains the final
+explicit fallback and never authorizes a cross-workspace KQL function.
 
 ## Knowledge evidence
 

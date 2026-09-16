@@ -287,8 +287,6 @@ class ControlLoopRcaMixin:
         coordinator = self._rca_coordinator
         resource = event.resource_ref or _extract_resource_id(event, decision)
         candidates = [Citation(kind=CitationKind.EVENT, ref=str(event.event_id))]
-        if resource:
-            candidates.append(Citation(kind=CitationKind.TELEMETRY, ref=resource))
         evidence = event.payload.get("evidence")
         if isinstance(evidence, Mapping):
             candidates.extend(
@@ -301,20 +299,21 @@ class ControlLoopRcaMixin:
 
         async def run_t2() -> RcaResult | None:
             summary = _incident_summary(event, decision)
+            governed_context = None
             if self._governed_knowledge_context_provider is not None and incident_id is not None:
                 if self._ontology_release_digest is None or self._rca_catalog_revision is None:
                     return None
-                scoped_resource = resource or f"event:{event.event_id}"
                 governed_context = await self._governed_knowledge_context_provider.context_for(
                     incident_ref=f"incident:{incident_id}",
-                    resource_ref=scoped_resource,
+                    resource_ref=resource or f"event:{event.event_id}",
                     cutoff=event.detected_at,
                     ontology_release_digest=self._ontology_release_digest,
                     catalog_revision=self._rca_catalog_revision,
                 )
+            if resource is not None:
                 result = await coordinator.analyze_t2_from_telemetry(
                     incident_summary=summary,
-                    resource_ref=scoped_resource,
+                    resource_ref=resource,
                     since=event.detected_at - self._causal_chain_window,
                     until=event.detected_at,
                     extra_citations=tuple(candidates),
