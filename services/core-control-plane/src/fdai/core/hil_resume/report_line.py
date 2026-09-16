@@ -349,6 +349,16 @@ class ReportLineHilCoordinator:
                     outcome=RequestOutcome.ALREADY_PARKED,
                     approval_id=approval_id,
                 )
+            if (
+                current is not None
+                and current.get("status") == "resolved"
+                and current.get("decision") == HilDecision.TIMEOUT.value
+                and current.get("approver_oid") == "system:contact-consent-expiry"
+            ):
+                return RequestApprovalResult(
+                    outcome=RequestOutcome.CONTACT_CONSENT_EXPIRED,
+                    approval_id=approval_id,
+                )
             raise ValueError("report-line approval park changed during contact consent")
         return await dispatch_parked_approval(
             parked=updated,

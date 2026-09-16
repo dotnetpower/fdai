@@ -195,6 +195,8 @@ Both approval-expiry and non-response workers terminalize an unanswered contact 
 shorter consent deadline. A late answer also records the same timeout no-op instead of leaving a
 permanent parked request. This undispatched lifecycle timeout is labeled `lifecycle`, not
 `shadow` or `enforce`, because it grants no autonomy and never reaches an executor.
+If expiry races with a valid response, the response returns the already-recorded terminal expiry
+instead of surfacing an internal error or dispatching a notification.
 
 ## Eligible-ancestor routing
 

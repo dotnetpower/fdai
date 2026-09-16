@@ -137,6 +137,54 @@ class ResolveDeliveryRaceStore(InMemoryStateStore):
         )
 
 
+class ContactConsentRaceStore(InMemoryStateStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.expire_on_contact_cas = False
+
+    async def compare_and_set_state_with_audit(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        if (
+            self.expire_on_contact_cas
+            and audit_entry.get("action_kind") == "hil.report_line.contact_consented"
+        ):
+            self.expire_on_contact_cas = False
+            current = await self.read_state(key)
+            assert current is not None
+            expired = {
+                **current,
+                "status": "resolved",
+                "decision": "timeout",
+                "approver_oid": "system:contact-consent-expiry",
+                "resolved_at": datetime.now(tz=UTC).isoformat(),
+                "revision": expected_revision + 1,
+            }
+            applied = await super().compare_and_set_state_with_audit(
+                key,
+                expired,
+                expected_revision=expected_revision,
+                audit_entry={
+                    "actor": "test",
+                    "action_kind": "hil.report_line.contact_consent_expired",
+                    "idempotency_key": f"{key}:contact-expired",
+                },
+            )
+            assert applied
+            return False
+        return await super().compare_and_set_state_with_audit(
+            key,
+            value,
+            expected_revision=expected_revision,
+            audit_entry=audit_entry,
+        )
+
+
 def _rule() -> Rule:
     return Rule(
         schema_version="1.0.0",
@@ -540,6 +588,34 @@ async def test_unanswered_report_line_contact_is_reaped_at_consent_deadline() ->
         if item["entry"].get("action_kind") == "hil.report_line.contact_consent_expired"
     )
     assert expiry_audit["mode"] == "lifecycle"
+
+
+async def test_contact_consent_race_returns_terminal_expiry() -> None:
+    store = ContactConsentRaceStore()
+    coordinator, publisher, _, channel = _coordinator(
+        with_escalation=True,
+        state_store=store,
+        report_line_router=_report_line_router(),
+    )
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-contact-race",
+        approval_id="report-line-contact-race",
+    )
+    store.expire_on_contact_cas = True
+
+    result = await coordinator.decide_report_line_contact(
+        approval_id="report-line-contact-race",
+        requester_oid=_SUBMITTER,
+        consent=True,
+        expected_consent_revision=0,
+    )
+
+    assert result.outcome is RequestOutcome.CONTACT_CONSENT_EXPIRED
+    assert channel.sent == []
+    assert publisher.records == ()
 
 
 async def test_report_line_graph_change_blocks_a_late_approval() -> None:

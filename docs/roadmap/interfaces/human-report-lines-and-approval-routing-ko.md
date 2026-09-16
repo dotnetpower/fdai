@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 70132ff7bbb8be6b2d60c8f2605cfa7652e4f8db
+translation_source_sha: 076b0d18f3b26bad6900d24c1d1dd46da5a6c893
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -188,6 +188,8 @@ approval_required
 늦게 도착한 응답도 영구 대기 요청을 남기지 않고 같은 시간 초과 무작업 결과를 기록합니다.
 이 전달 전 수명 주기 시간 초과는 자율성을 부여하거나 실행기에 도달하지 않으므로 `shadow` 또는
 `enforce`가 아닌 `lifecycle`로 표시합니다.
+유효한 응답과 만료 처리가 경합하면 응답은 내부 오류를 노출하거나 알림을 보내는 대신 이미
+기록된 최종 만료 결과를 반환합니다.
 
 ## 적격 상위자 라우팅
 

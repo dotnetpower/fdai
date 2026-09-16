@@ -347,7 +347,11 @@ class ApprovalReminderDispatcher:
                 {
                     "status": "resolved",
                     "decision": "timeout",
-                    "approver_oid": "system:approval-expiry",
+                    "approver_oid": (
+                        "system:contact-consent-expiry"
+                        if contact_wait
+                        else "system:approval-expiry"
+                    ),
                     "resolved_at": now.isoformat(),
                     "revision": expected_revision + 1,
                 }
