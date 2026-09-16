@@ -6,6 +6,10 @@ shipped ActionType. See
 [escalation-and-standing-authority.md](../../../../../../docs/roadmap/decisioning/escalation-and-standing-authority.md).
 """
 
+from fdai.core.standing_authority.effect_evidence_bridge import (
+    effect_evidence_disposition,
+    requires_shadow_reversion,
+)
 from fdai.core.standing_authority.effect_shadow_reversion import (
     EffectEvidenceDisposition,
     EffectVerificationFinding,
@@ -182,6 +186,8 @@ __all__ = [
     "partition_provider_eligibility",
     "plan_create_transition",
     "plan_effect_shadow_reversion",
+    "effect_evidence_disposition",
+    "requires_shadow_reversion",
     "plan_external_denial",
     "plan_lifecycle_transition",
     "plan_review_transition",

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 811074db7c084bcabb32bde31b62617a299b701f
+translation_source_sha: ae78ad0408fd16a7efa56e249ee396bae9a95d86
 translation_revised: 2026-09-16
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -447,7 +447,7 @@ Headless Bragi 의미 라우팅은 T1과 같은 한계 임베딩 기능을 사�
 | 통제된 실행 백엔드 | 프로바이더 중립적인 프로토콜, 프로파일 레지스트리, 영속 PostgreSQL 원장, bubblewrap/VM 어댑터, Azure Container Apps 작업 어댑터가 존재합니다. | 프로파일은 기본적으로 비활성화된이고 로컬 interactive에는 실행기 연결이 없으며 승격 전에 실제 운영 Azure 작업 근거가 필요합니다. |
 | 브라우저 근거 | 프로바이더 중립적인 계약, 선택적 Playwright 어댑터, PostgreSQL 산출물, GET-only 점검이 존재합니다. | 기본 unbound이며 interactive 로컬에는 실행기 신원이 없습니다. Isolated restricted-egress 브라우저 런타임과 exact 출처 정책을 구성하기 전에는 사용 불가로 표시합니다. |
 | Key Vault 시크릿 프로바이더 (`SecretProvider`) | 배포가 Key Vault 참조 주입 | interactive 어댑터는 환경 참조 사용, 고정본 값은 테스트 전용 |
-| GitOps PR 발행기 | 실제 GitHub 어댑터 존재 | interactive 실행은 구성된 어댑터 사용, recording 발행기는 테스트 전용 |
+| GitOps PR 발행기 및 Workflow 도구 | 실제 GitHub 어댑터가 있으며 보호된 Core 구성은 활성 stewardship GitOps 연결 내부에서만 기본 비활성 `workflow_tools_enforce` 입력을 노출합니다. | interactive 실행은 구성된 어댑터를 사용하고 recording 발행기는 테스트 전용입니다. 이 입력을 설정해도 ActionType을 승격하거나 효과 권한을 부여하지 않습니다. |
 [권한 인식 관측 캠페인](../operations/observation-campaign-ko.md)은 인벤토리, Activity Log,
 Resource 및 Service Health, 메트릭, Log Analytics, 게스트 로그, 네트워크, 비용 및 복구 출처의
 주기 커버리지 검사를 조정합니다. 권위 있는 인벤토리 CLI가 전체 조정을 소유합니다. Full-stack
