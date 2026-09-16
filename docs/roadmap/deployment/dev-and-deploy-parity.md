@@ -373,16 +373,16 @@ parity does not create a runtime claim: without an authoritative evidence provid
 `Unknown` with source `not_connected`. Both factories also register the read-only catalog query function in the same ontology release, so
 local and deployed Command Deck turns share its typed, bounded, non-mutating evidence contract.
 
-The local API exposes `GET /system/data-sources`. In the standard full stack, the production PostgreSQL read-model adapter points to local
-pgvector. Before accepting traffic, the local Operator API runs a bounded `SELECT 1` through that adapter. A failed probe stops startup
-instead of exposing a partially connected console. After the probe succeeds, PostgreSQL-backed entries report `available` and
-`reachable=true`; configured remote and Azure request-time sources remain `unknown` until their own evidence contract verifies them.
-`FDAI_DATABASE_URL` and `FDAI_AUTHORITATIVE_OPERATOR_API_BASE_URL` select mutually exclusive source profiles. Configuring both stops startup
-before either provider is constructed so the manifest can never describe local PostgreSQL while allowlisted requests are served by the
-remote API. Remote forwarding matches only decoded canonical allowlisted paths; normalized, encoded, duplicated-separator, and
-control-character variants remain local. It discards upstream cache directives and emits `Cache-Control: no-store` for every proxied
-response so authenticated operational evidence never enters a browser or shared cache. A remote failure before response headers becomes a
-bounded JSON `503`; a failure after headers closes the response body without sending a second ASGI response start.
+The local API exposes `GET /system/data-sources`; in the standard full stack, its production PostgreSQL read-model adapter points to local pgvector.
+Before accepting traffic, the local Operator API runs a bounded `SELECT 1`; failure stops startup, while success lets PostgreSQL entries report `available` and `reachable=true`.
+Configured remote and Azure request-time sources remain `unknown` until their own evidence contract verifies them.
+`FDAI_DATABASE_URL` and `FDAI_AUTHORITATIVE_OPERATOR_API_BASE_URL` select mutually exclusive profiles, and configuring both stops startup before either provider is constructed.
+The manifest therefore cannot describe local PostgreSQL while allowlisted requests are served by the remote API.
+Remote forwarding matches only decoded canonical allowlisted paths; normalized, encoded, duplicated-separator, and control-character variants remain local.
+It discards upstream cache directives and emits `Cache-Control: no-store`, so authenticated operational evidence never enters a browser or shared cache.
+A remote failure before response headers becomes bounded JSON `503`; a later failure closes the body without a second ASGI response start.
+In either venue, the manifest declares `/provision/stream` as authoritative durable replay only with the Operator PostgreSQL store configured.
+Without that store, the registered route is explicitly unavailable, so the Console neither issues a blind stream request nor substitutes Sample state.
 
 Runtime skill inspection follows the same rule. Production reconstructs the enabled catalog from
 signed PostgreSQL trusted-artifact records before accepting traffic. Interactive local exposes the

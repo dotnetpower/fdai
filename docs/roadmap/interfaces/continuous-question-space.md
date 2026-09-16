@@ -63,11 +63,9 @@ operator candidates into one generated review inventory. Each owning source rema
 The inventory preserves stable ids, bilingual wording, source digests, explicit duplicate
 relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
 and validation states.
-Any change to a joined source, including a non-question Console label in a starter catalog, regenerates both the machine
-inventory and human review catalog; the generated-artifact test rejects any stale source digest. Moving Browser evidence copy from the global catalogs into a route-local catalog is such a digest-only source change; regeneration preserves all 400 question identities and wording.
-When only source digests change, regeneration preserves every logical question identity, review
-state, and denominator. Regeneration runs after upstream integration so derived commitments bind
-the final merged source set.
+Any change to a joined source, including a non-question Console label in a starter catalog, regenerates both the machine inventory and human review catalog; the generated-artifact test rejects any stale source digest. Moving Browser evidence copy from the global catalogs into a route-local catalog is such a digest-only source change; regeneration preserves all 400 question identities and wording.
+When only source digests change, regeneration preserves every logical question identity, review state, and denominator.
+Regeneration runs after upstream integration so derived commitments bind the final merged source set.
 Run `uv run python scripts/automation/build_question_bank.py`, then regenerate the dependent CQAS
 inventory with `uv run python scripts/automation/build_semantic_intent_coverage.py`, even for
 display-only source edits. Hand-editing generated artifacts isn't supported.
@@ -181,6 +179,8 @@ controlled evidence exists.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | implemented | Regenerated dependent CQAS provenance after the question-bank source digest changed during upstream integration. All 93 metrics, 400-question denominators, and authority fields remain unchanged. | `current change`; official semantic-intent generator; four focused artifact checks passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |
+| 2026-09-16 | implemented | Regenerated the federated question-bank inventory after upstream Console catalog integration changed only the recorded English and Korean source digests. All 400 question identities, wording, readiness states, and authority fields remain unchanged. | `current change`; official question-bank generator; focused generated-artifact equality checks passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-16 | implemented | Regenerated the federated question-bank artifacts after protected-main integration changed one candidate source while preserving the 400-question inventory. | `current change`; official question-bank generator; focused artifact equality checks passed 8 cases. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-16 | implemented | Regenerated federated question-bank and CQAS provenance after RCA product copy moved from the global Console catalogs to its route-owned bilingual catalog. All 400 question identities, wording, readiness states, metrics, denominators, and authority fields remain unchanged. | `current change`; #1086; official question-bank and semantic-intent generators; 12 focused generated-artifact checks passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-15 | implemented | Regenerated federated question-bank and CQAS provenance after final source integration changed the reviewed Console catalog and runtime-call ontology projection digests. All 400 question identities, readiness states, metrics, denominators, and authority fields remain unchanged. | `current change`; official question-bank and semantic-intent generators; 12 focused generated-artifact checks passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |

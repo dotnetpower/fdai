@@ -278,6 +278,8 @@ export const OPERATIONS_SAMPLE_PROVISION_EVENTS: readonly ProvisionEvent[] = [
     current_stage: "initial-inventory",
     stages_completed: 4,
     stages_total: 6,
+    checkpoints_completed: 18,
+    checkpoints_total: 24,
     last_progress_at: SAMPLE_AT,
     ready: false,
     readiness: {
@@ -296,6 +298,12 @@ export const OPERATIONS_SAMPLE_PROVISION_EVENTS: readonly ProvisionEvent[] = [
       { id: "initial-inventory", status: "active" },
       { id: "system-readiness", status: "pending" },
     ],
+    inventory: {
+      resources_observed: 184,
+      resources_expected: 260,
+      pages_completed: 12,
+      pages_expected: 18,
+    },
   },
 ];
 
