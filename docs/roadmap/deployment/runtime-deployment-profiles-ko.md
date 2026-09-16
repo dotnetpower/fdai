@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 7fa954b9d8b433825764573a43cebcb5663303aa
+translation_source_sha: 0e0b04beb7604c27dbcf975fc290b168ac6f137c
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -179,7 +179,10 @@ FDAI 서비스는 다음 필드를 포함하는 하나의 런타임 중립 워�
 Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 변환합니다. AKS 렌더러는
 명세를 typed Kubernetes `Deployment`, `Service`, `ServiceAccount`, `HorizontalPodAutoscaler`,
 `PodDisruptionBudget`, `NetworkPolicy`, `CronJob` 리소스로 변환합니다. 첫 AKS 구현은 장기 실행
-서비스마다 두 개의 replica를 유지하며 Knative 또는 KEDA를 요구하지 않습니다.
+서비스마다 두 개의 replica를 유지하며 Knative 또는 KEDA를 요구하지 않습니다. Console 게시는 선택한 Terraform 프로필에 브라우저 gateway 기준 URL 출력이 있으면 해당 URL을
+사용합니다. 출력이 없으면 기존 Container Apps 서비스 FQDN 조회를 유지합니다. 게시기는 선택한
+HTTPS 기준 URL을 동일한 Console 빌드 계약에 전달합니다. 런타임 선택으로 브라우저 경로를 다시
+작성하거나 Operator API 경로를 변경하지 않습니다.
 
 두 렌더러 모두 `FDAI_OPERATING_MODEL_TOPIC`을 통해 Core를 `fdai.operating-model` 논리 토픽에
 연결합니다. 이 토픽은 기존 의미 physical Event Hub와 Managed Identity 전송을 공유하며 별도
@@ -279,7 +282,9 @@ API Server VNet Integration을 활성화하고, 나중에 클러스터를 교체
 모드를 활성화할 수 있도록 최소 `/28`의 위임된 API 서버 서브넷을 예약합니다. 클러스터 상태는
 명시적인 Standard NAT Gateway, 고정 Standard 송신 공용 IP와 두 연결을 소유하고 AKS를 만들기
 전에 연결을 완료합니다. 송신 유형은 AKS 관리형 VNet 전용 `managedNATGateway`가 아니라
-`userAssignedNATGateway`입니다.
+`userAssignedNATGateway`입니다. 송신 공용 IP의 Azure Policy 소유 `ip_tags`는 Terraform 수명 주기 조정 대상에서 제외하지만 일반
+`tags`는 Terraform이 계속 소유합니다. 이 경계는 정책 메타데이터 때문에 공용 IP 및 NAT 연결이
+교체되는 것을 막을 뿐이며 클러스터, 노드 풀 또는 DCR 변경에는 예외를 부여하지 않습니다.
 
 기본 프로파일은 인증된 공개 API 접근을 유지하고 검토된 접근 제한을 적용합니다. API 서버와 노드
 사이 트래픽은 통합된 비공개 경로를 사용합니다. 이는 연결된 기본 구성일 뿐 비공개 클러스터,
@@ -294,7 +299,7 @@ API Server VNet Integration을 활성화하고, 나중에 클러스터를 교체
 직렬화한 다음 지역 제한, 필요한 세 개 영역, 아키텍처, 호스트 암호화, 제품군별 quota 및 전체
 quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로그 요청을 보내거나 실패한
 프로바이더 읽기를 재시도하지 않습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
-할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다.
+할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다. Container Insights는 Managed Identity를 사용하는 `oms_agent` 추가 기능과 Terraform이 소유하는 데이터 수집 규칙(DCR) 및 클러스터 연결을 함께 사용합니다. 이 규칙은 `Microsoft-ContainerInsights-Group-Default` 스트림을 1분마다 선택한 Log Analytics workspace로 보내고 `ContainerLogV2`를 활성화합니다. 실행 중인 agent Pod에 이 연결이 없으면 모니터링 준비 상태가 아닙니다. DCR이 존재하고 workspace 테이블에 현재 레코드가 수집될 때까지 메트릭 및 로그 소스는 사용 불가 상태로 유지됩니다.
 
 로컬 디스크가 없는 기본 SKU는 임시 저장소 대신 플랫폼에서 암호화하는 Managed OS 디스크를
 유지합니다. Checkov 예외는 해당 리소스에만 둡니다. 고정된 검사기 버전은 AzureRM의 이전 업그레이드

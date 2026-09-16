@@ -63,16 +63,32 @@ resolve_service_fqdn() {
     | jq -er '.fqdn | select(type == "string" and length > 0)'
 }
 
-operator_api="$(terraform -chdir="$terraform_dir" output -raw operator_api_fqdn 2>/dev/null || true)"
-ingestion_api="$(terraform -chdir="$terraform_dir" output -raw ingestion_gateway_fqdn 2>/dev/null || true)"
-operator_api="${operator_api:-$(resolve_service_fqdn operator-service)}"
-ingestion_api="${ingestion_api:-$(resolve_service_fqdn document-ingestion-api)}"
-for service_fqdn in "$operator_api" "$ingestion_api"; do
+resolve_service_url() {
+  local gateway_output="$1"
+  local service_output="$2"
+  local service="$3"
+  local gateway_url service_fqdn
+  gateway_url="$(terraform -chdir="$terraform_dir" output -raw "$gateway_output" 2>/dev/null || true)"
+  if [[ -n "$gateway_url" ]]; then
+    if [[ ! "$gateway_url" =~ ^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(/[a-z0-9/-]*)?$ ]]; then
+      echo "$gateway_output is not a valid HTTPS base URL" >&2
+      exit 2
+    fi
+    printf '%s\n' "${gateway_url%/}"
+    return
+  fi
+
+  service_fqdn="$(terraform -chdir="$terraform_dir" output -raw "$service_output" 2>/dev/null || true)"
+  service_fqdn="${service_fqdn:-$(resolve_service_fqdn "$service")}"
   if [[ ! "$service_fqdn" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?[.]azurecontainerapps[.]io$ ]]; then
     echo "independent service FQDN is invalid" >&2
     exit 2
   fi
-done
+  printf 'https://%s\n' "$service_fqdn"
+}
+
+operator_api_url="$(resolve_service_url browser_gateway_operator_url operator_api_fqdn operator-service)"
+ingestion_api_url="$(resolve_service_url browser_gateway_ingestion_url ingestion_gateway_fqdn document-ingestion-api)"
 
 deployment_token="$(az rest --method post \
   --url "https://management.azure.com${resource_id}/listSecrets?api-version=2023-12-01" \
@@ -84,8 +100,8 @@ fi
 echo "::add-mask::$deployment_token"
 
 export SWA_CLI_DEPLOYMENT_TOKEN="$deployment_token"
-export VITE_OPERATOR_API_BASE_URL="${operator_api:+https://$operator_api}"
-export VITE_INGESTION_API_BASE_URL="${ingestion_api:+https://$ingestion_api}"
+export VITE_OPERATOR_API_BASE_URL="$operator_api_url"
+export VITE_INGESTION_API_BASE_URL="$ingestion_api_url"
 export VITE_MSAL_CLIENT_ID="$ENTRA_CONSOLE_SPA_CLIENT_ID"
 export VITE_MSAL_TENANT_ID="$EXPECTED_AZURE_TENANT_ID"
 export VITE_MSAL_API_SCOPE="$ENTRA_CONSOLE_API_SCOPE"
@@ -134,6 +150,6 @@ curl --fail --silent --show-error --retry 6 --retry-delay 5 \
 {
   echo "Console: https://$hostname"
   echo "Manual Studio: https://$hostname/manuals/library.html"
-  echo "VITE_OPERATOR_API_BASE_URL=${operator_api:+https://$operator_api}"
-  echo "VITE_INGESTION_API_BASE_URL=${ingestion_api:+https://$ingestion_api}"
+  echo "VITE_OPERATOR_API_BASE_URL=$operator_api_url"
+  echo "VITE_INGESTION_API_BASE_URL=$ingestion_api_url"
 } >> "$GITHUB_STEP_SUMMARY"
