@@ -69,8 +69,11 @@ filtered empty result and applies the standard primary and secondary button role
 - **Ownership first, access last for grants:** A new user receives console access only after the
   reviewed ownership change merges. A failed IAM write leaves the user without new access and
   routes work to the already-required backup.
-- **Explicit operational reporting:** The approval chain is an FDAI duty graph. An Entra manager
-  or HR reporting line may be shown as a suggestion, but it isn't approval authority.
+- **Explicit operational reporting:** The approval chain is an FDAI duty graph. A governed
+  organization chart or Entra manager can propose a separate
+  [human report line](human-report-lines-and-approval-routing.md), but one endpoint must confirm
+  the edge and an independent Owner must review it. The relationship still grants no approval
+  authority.
 - **Timers determine non-response:** Presence, calendar, and out-of-office signals are advisory.
   Delivered, acknowledged, and decided timestamps are the authoritative escalation inputs.
 - **Typed-event collaboration:** Agents don't call each other or share mutable interview state.
@@ -522,6 +525,7 @@ The following first-release operational criteria remain open; source checks alon
 | Dependency-ordered implementation and rollout | [Human-agent assignment implementation plan](human-agent-assignment-implementation-plan.md) |
 | FDAI roles, directory search, and current access requests | [User RBAC and Entra identity](user-rbac-and-identity.md) |
 | Ownership map and accountable owners | [Agent operational ownership and ownership handover](agent-stewardship-and-handover.md) |
+| Human reporting relationships and approval routing | [Human report lines and approval routing](human-report-lines-and-approval-routing.md) |
 | Human non-response and standing authorization | [Escalation and standing authority](../decisioning/escalation-and-standing-authority.md) |
 | Agent-owned document admission and indexing | [Document ingestion agent ownership](document-ingestion-agent-ownership.md) |
 | Console and ChatOps security boundaries | [Operator console](operator-console.md) |

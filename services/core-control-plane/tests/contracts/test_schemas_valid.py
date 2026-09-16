@@ -31,6 +31,7 @@ SCHEMA_NAMES = [
     "ontology/function-type",
     "ontology/interface-implementation",
     "ontology/action-type",
+    "ontology/detection-routing-bounds",
     "ontology/release-ref",
 ]
 

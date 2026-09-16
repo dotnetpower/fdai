@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 28d0220b26782eea9ce72cfe03a5593d9e3dcbb7
+translation_source_sha: 3e6e5799f5ebeb188689f99023be8aa3b5084634
 translation_revised: 2026-09-16
 ---
 # 지속형 운영 인스턴스 그래프
@@ -235,7 +235,7 @@ adaptive scheduler의 기존 operator 우선순위를 활성화할 수 있습니
 근거 gate를 계속 적용합니다. 영속 Job template에서는 이 입력을 설정하지 않습니다.
 
 현재 그래프 checkpoint는 활성 스냅샷 세대와 정확한 범위 집합에 결속됩니다. 완전한 프로바이더 스냅샷은 같은 범위의 해당 세대 및 시작 시각 이전 관측을 포함하므로 연속된 checkpoint는 해당 범위만 탐색합니다.
-비활성 범위 관측은 내구성 있는 이력과 보존 작업으로 유지합니다. 범위를 다시 활성화하려면 새로운 완전한 reconciliation이 필요하며, 활성 범위의 스냅샷 이후 관측은 변환 결과가 따라잡을 때까지 그래프를 불완전하게 유지합니다.
+비활성 범위 관측과 최신 완전 스냅샷이 이미 포함한 cursor 지연은 또 다른 전체 스캔을 요청하지 않고 내구성 있는 상태 또는 보존 근거로 유지합니다. 범위를 다시 활성화하려면 새로운 완전한 reconciliation이 필요하며, 활성 범위의 스냅샷 이후 관측은 변환 결과가 따라잡을 때까지 그래프를 불완전하게 유지합니다.
 Checkpoint 계산은 같은 스냅샷 append가 관측한 journal high watermark로 제한합니다. 이후의 동시
 journal 기록은 완전성을 낮출 수 있지만 전역 또는 활성 범위 변환 checkpoint를 해당 append
 경계보다 앞으로 이동시킬 수 없습니다.
@@ -430,11 +430,10 @@ schema와 원본 수정본을 고정합니다. Partition 수명 주기, archive 
 - **확인된 tombstone:** 재관측 또는 완전한 reconciliation이 삭제를 확인하고 리소스 수명
   인스턴스, 유효 시각, 원본 개정 및 근거 참조를 기록한 경우입니다.
 
-원장은 nullable `provider_event_at`, 유효 시각, 관측 시각, 필수 `ingested_at`, 기록 시각 및
-근거 기준 시점을 구분합니다. 기존 레코드는 프로바이더 이벤트 시각을 만들지 않고
-`ingested_at=recorded_at`으로 이행합니다. 또한 원본 신원, 원본 이벤트 ID, cursor 또는 개정, 범위, 완전성, 충돌,
-속성 마스크, 내용 다이제스트 및 보존 등급을 유지합니다. 성공한 쓰기와 같은 작업 상태는 변경
-metadata로 유지하며 리소스 운영 상태가 될 수 없습니다.
+원장은 nullable `provider_event_at`, 유효 시각, 관측 시각, 필수 `ingested_at`, 기록 시각 및 근거 기준 시점을 구분합니다.
+기존 레코드는 프로바이더 이벤트 시각을 만들지 않고 `ingested_at=recorded_at`으로 이행하며 원본 신원, 원본 이벤트 ID, cursor 또는 개정, 범위, 완전성, 충돌, 속성 마스크, 내용 다이제스트 및 보존 등급을 유지합니다.
+추가형 마이그레이션은 테이블 잠금을 유지하고 기존 행을 채우는 동안 업데이트 보호 장치만 일시 중지하며, `NOT NULL` 제약 조건을 적용하기 전에 복원하고 삭제 보호 장치는 계속 활성 상태로 둡니다.
+성공한 쓰기와 같은 작업 상태는 변경 metadata로 유지하며 리소스 운영 상태가 될 수 없습니다.
 
 삭제 후 같은 리소스 ID가 다시 사용될 수 있습니다. 따라서 변환 결과는 변경할 수 없는
 프로바이더 신원, 세대 또는 독립적으로 검증된 수명 주기 경계에서 리소스 수명 인스턴스를

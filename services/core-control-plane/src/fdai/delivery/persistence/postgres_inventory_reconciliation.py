@@ -18,6 +18,7 @@ from fdai.delivery.inventory_scheduler import (
     calculate_collection_schedule,
 )
 from fdai.delivery.inventory_source_policy import SourceCollectionPolicy
+from fdai.delivery.inventory_sync import INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStoreConfig,
 )
@@ -117,7 +118,7 @@ class PostgresInventoryReconciliationGate:
                 (str(self._config.statement_timeout_ms),),
             )
             cursor = await connection.execute(
-                "WITH active AS (SELECT s.id, s.started_at, s.completed_at "
+                "WITH active AS (SELECT s.id, s.started_at, s.completed_at, s.scopes "
                 "FROM inventory_active a "
                 "JOIN inventory_snapshot s ON s.id=a.snapshot_id "
                 "WHERE a.singleton=TRUE AND s.status='active'), "
@@ -125,7 +126,9 @@ class PostgresInventoryReconciliationGate:
                 "FROM inventory_snapshot WHERE status='failed' AND started_at > COALESCE("
                 "(SELECT completed_at FROM active), '-infinity'::timestamptz)) "
                 "SELECT (SELECT EXTRACT(EPOCH FROM (NOW() - completed_at)) FROM active) "
-                "AS age_seconds, (SELECT started_at FROM active) AS active_started_at, "
+                "AS age_seconds, (SELECT id FROM active) AS active_generation, "
+                "(SELECT scopes FROM active) AS active_scopes, "
+                "(SELECT started_at FROM active) AS active_started_at, "
                 "EXISTS (SELECT 1 FROM inventory_snapshot WHERE status='collecting' "
                 "AND started_at >= NOW() - INTERVAL '30 minutes') AS in_progress, "
                 "(SELECT count(*) FROM newer_failures) AS failure_streak, "
@@ -165,6 +168,11 @@ class PostgresInventoryReconciliationGate:
                 ("inventory-observation:watermarks",),
             )
             watermark_row = await watermark_cursor.fetchone()
+            active_checkpoint_cursor = await connection.execute(
+                "SELECT value FROM state_kv WHERE key=%s",
+                (INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY,),
+            )
+            active_checkpoint_row = await active_checkpoint_cursor.fetchone()
             if self._cursor_keys:
                 cursor_health_cursor = await connection.execute(
                     "SELECT count(*) AS cursor_count, "
@@ -200,8 +208,15 @@ class PostgresInventoryReconciliationGate:
         overlay_relationship_count = int(row["overlay_relationship_count"] or 0)
         cursor_count = int(cursor_health["cursor_count"] or 0) if cursor_health else 0
         cursor_lag = cursor_health["cursor_lag_seconds"] if cursor_health else None
+        cursor_lag_seconds = float(cursor_lag) if cursor_lag is not None else None
+        active_snapshot_age_seconds = float(age) if age is not None else None
         projection_pending = _projection_pending(
-            watermark_row["value"] if watermark_row is not None else None
+            watermark_row["value"] if watermark_row is not None else None,
+            active_checkpoint=(
+                active_checkpoint_row["value"] if active_checkpoint_row is not None else None
+            ),
+            active_generation=row["active_generation"],
+            active_scopes=row["active_scopes"],
         )
         cursor_complete = bool(self._cursor_keys) and cursor_count == len(self._cursor_keys)
         self._last_health_state = InventoryReconciliationHealthState(
@@ -232,10 +247,10 @@ class PostgresInventoryReconciliationGate:
                 overlay_open=bool(overlay_resource_count or overlay_relationship_count),
                 projection_pending=projection_pending,
                 operator_requested=operator_requested,
-                cursor_lag_seconds=(
-                    max(0.0, float(cursor_lag) - self._cursor_stale_after_seconds)
-                    if cursor_lag is not None
-                    else 0.0
+                cursor_lag_seconds=_uncovered_cursor_lag_seconds(
+                    cursor_lag_seconds=cursor_lag_seconds,
+                    active_snapshot_age_seconds=active_snapshot_age_seconds,
+                    stale_after_seconds=self._cursor_stale_after_seconds,
                 ),
             )
             return self._last_decision
@@ -338,14 +353,87 @@ def _pending_resource_count(
     return overlay_resource_count + pending_tombstone_count
 
 
-def _projection_pending(value: object) -> bool:
-    """Return whether accepted observations remain outside the ontology fence."""
+def _uncovered_cursor_lag_seconds(
+    *,
+    cursor_lag_seconds: float | None,
+    active_snapshot_age_seconds: float | None,
+    stale_after_seconds: float,
+) -> float:
+    """Return only cursor lag that a newer complete snapshot has not covered."""
+
+    if stale_after_seconds < 0:
+        raise ValueError("inventory cursor stale threshold MUST NOT be negative")
+    if cursor_lag_seconds is None:
+        return 0.0
+    if cursor_lag_seconds < 0:
+        raise ValueError("inventory cursor lag MUST NOT be negative")
+    if active_snapshot_age_seconds is not None:
+        if active_snapshot_age_seconds < 0:
+            raise ValueError("active inventory snapshot age MUST NOT be negative")
+        if cursor_lag_seconds >= active_snapshot_age_seconds:
+            return 0.0
+    return max(0.0, cursor_lag_seconds - stale_after_seconds)
+
+
+def _projection_pending(
+    value: object,
+    *,
+    active_checkpoint: object = None,
+    active_generation: object = None,
+    active_scopes: object = None,
+) -> bool:
+    """Return whether the active inventory scope remains outside its ontology fence."""
+
+    global_pending = _watermark_projection_pending(value, "inventory observation watermark state")
+    if active_checkpoint is None or active_generation is None or active_scopes is None:
+        return global_pending
+    if not isinstance(active_generation, str) or not active_generation.strip():
+        raise ValueError("active inventory generation MUST be a non-empty string")
+    checkpoint = _checkpoint_mapping(active_checkpoint)
+    checkpoint_generation = checkpoint.get("generation")
+    if not isinstance(checkpoint_generation, str) or not checkpoint_generation.strip():
+        raise ValueError("active inventory checkpoint generation MUST be a non-empty string")
+    expected_scopes = _checkpoint_scopes(active_scopes, "active inventory scopes")
+    checkpoint_scopes = _checkpoint_scopes(
+        checkpoint.get("scope_refs"),
+        "active inventory checkpoint scopes",
+    )
+    if checkpoint_generation != active_generation or checkpoint_scopes != expected_scopes:
+        return global_pending
+    return _watermark_projection_pending(
+        checkpoint,
+        "active inventory checkpoint watermark state",
+    )
+
+
+def _checkpoint_mapping(value: object) -> Mapping[str, object]:
+    if not isinstance(value, Mapping):
+        raise ValueError("active inventory checkpoint MUST be an object")
+    return value
+
+
+def _checkpoint_scopes(value: object, name: str) -> tuple[str, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise ValueError(f"{name} MUST be an array")
+    scopes = tuple(value)
+    if any(not isinstance(scope, str) or not scope.strip() for scope in scopes):
+        raise ValueError(f"{name} MUST contain non-empty strings")
+    if len(scopes) != len(set(scopes)):
+        raise ValueError(f"{name} MUST contain unique scopes")
+    return tuple(sorted(scopes))
+
+
+def _watermark_projection_pending(value: object, name: str) -> bool:
+    """Validate one watermark pair and report whether its projection is behind."""
+
     if value is None:
         return False
     if not isinstance(value, Mapping):
-        raise ValueError("inventory observation watermark state MUST be an object")
+        raise ValueError(f"{name} MUST be an object")
     journal = value.get("journal_high_watermark", 0)
     projection = value.get("ontology_projection_watermark", 0)
+    if "projection_high_watermark" in value:
+        projection = value["projection_high_watermark"]
     if (
         not isinstance(journal, int)
         or isinstance(journal, bool)
@@ -355,7 +443,7 @@ def _projection_pending(value: object) -> bool:
         or projection < 0
         or projection > journal
     ):
-        raise ValueError("inventory observation watermark state is invalid")
+        raise ValueError(f"{name} is invalid")
     return journal > projection
 
 

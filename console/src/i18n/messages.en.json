@@ -540,7 +540,8 @@
       "human-dependencies": "Current owners",
       "knowledge-handover": "Ownership proposal",
       "approval-routes": "Approval routes",
-      "mapping-reviews": "User work handover"
+      "mapping-reviews": "User work handover",
+      "reporting-lines": "Reporting lines"
     },
     "unavailable": "The stewardship endpoint is not wired on this deployment, so no steward assignment or handover finding is claimed here.",
     "noMaintainer": "No maintainer configured - at least 1 is required.",

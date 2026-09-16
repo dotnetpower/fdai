@@ -317,6 +317,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_incident_creation.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains exact severity and target extraction from a schema-validated semantic judgment proposal without interpreting operator prose or granting execution authority.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/core/conversation/semantic_judgment.py",
       "disposition": "retain",
       "owner": "semantic-conversation",
@@ -468,6 +475,13 @@
       "disposition": "retain",
       "owner": "python-task",
       "reason": "Retains deterministic shell security, secret, path, and command validation.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/rca/evidence.py",
+      "disposition": "retain",
+      "owner": "rca-telemetry-evidence",
+      "reason": "Retains bounded cause-marker reduction over typed LogRecord evidence. It accepts no operator utterance, selects no natural-language intent, emits no raw log text and grants no execution or recovery authority.",
       "issue": 252
     },
     {

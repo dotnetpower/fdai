@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { ReadDataSourcesPayload } from "../api-data-sources";
 import type { ProvisionEvent } from "../hooks/use-provision-stream";
 import { INITIAL, provisionSourceState, reducer, safeHttpUrl } from "./provision";
+import { nextProvisionView, provisionStreamError } from "./provision-view";
 
 /**
  * Provision route hardening regressions.
@@ -67,6 +68,25 @@ describe("provision source gating", () => {
     });
     expect(provisionSourceState({ surface: "read-data-sources", sources: [] }).status)
       .toBe("unavailable");
+  });
+});
+
+describe("provision evidence tabs", () => {
+  test("wraps arrow navigation and supports Home and End", () => {
+    expect(nextProvisionView("stages", "ArrowLeft")).toBe("resources");
+    expect(nextProvisionView("resources", "ArrowRight")).toBe("stages");
+    expect(nextProvisionView("resources", "Home")).toBe("stages");
+    expect(nextProvisionView("stages", "End")).toBe("resources");
+  });
+
+  test("ignores unrelated keys", () => {
+    expect(nextProvisionView("readiness", "Enter")).toBe("readiness");
+  });
+
+  test("keeps expected replay reconnects quiet without hiding failures", () => {
+    expect(provisionStreamError("SSE connection closed")).toBeNull();
+    expect(provisionStreamError("SSE endpoint returned HTTP 503"))
+      .toBe("SSE endpoint returned HTTP 503");
   });
 });
 

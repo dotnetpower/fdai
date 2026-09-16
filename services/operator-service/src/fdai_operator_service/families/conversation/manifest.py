@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-RouteMode = Literal["read", "proposal", "stream"]
+RouteMode = Literal["action_confirmation", "read", "proposal", "stream"]
 RouteMethod = Literal["DELETE", "GET", "POST", "PUT"]
 
 
@@ -35,6 +35,15 @@ CONVERSATION_ROUTE_MANIFEST: tuple[ConversationRouteSpec, ...] = (
     ConversationRouteSpec("POST", "/chat", "handler", "chat.exchange", "proposal", 200, 1_048_576),
     ConversationRouteSpec(
         "POST", "/chat/stream", "handler", "chat.stream", "stream", 200, 1_048_576
+    ),
+    ConversationRouteSpec(
+        "POST",
+        "/chat/action/confirm",
+        "confirm_action",
+        "chat.action.confirm",
+        "action_confirmation",
+        202,
+        8_000,
     ),
     ConversationRouteSpec(
         "POST", "/chat/busy-input", "submit", "busy.submit", "proposal", 202, 8_192

@@ -480,14 +480,14 @@ local launcher selects these adapters with `FDAI_EXECUTION_VENUE=local`; Azure d
 ADLS, Azure Database for PostgreSQL, Event Hubs, Azure embedding, and managed identities with
 `FDAI_EXECUTION_VENUE=deployed`.
 
-The production gateway binds the `handover_bootstrap` consumer to a durable
-`PostgresStateStore` projection and resolves exact user/group display names through
-Microsoft Graph with the worker managed identity. The identity needs the least
-privileged Graph application roles `User.Read.All` and `Group.Read.All`. Zero or
-ambiguous matches remain unresolved for human review. When no grounded mixed-model
-`HandoverInterpreter` is configured, the interpreter abstains and deterministic
-extraction continues.
-
+The production gateway binds the `handover_bootstrap` and `report_line_bootstrap` consumers to
+durable `PostgresStateStore` projections. The worker uses its managed identity to resolve exact
+Microsoft Graph users or groups for ownership and exact active users plus current manager evidence
+for report lines. The identity needs the least privileged Graph application roles `User.Read.All`
+and `Group.Read.All`. Zero, ambiguous, conflicting, or unavailable matches remain review-only.
+When no grounded mixed-model `HandoverInterpreter` is configured, it abstains while deterministic
+extraction continues. The report-line consumer accepts explicit rows and supported Office table
+cells; unsupported visual relationships remain held, and its API never activates an edge.
 When the Azure subscription tenant and Microsoft 365 tenant differ, the supported connector path is
 an FDAI-native SharePoint connector. Power Platform connectors are a product-design reference only;
 FDAI does not import or invoke a Power Platform Custom Connector. The ingestion UAMI obtains a
@@ -503,7 +503,6 @@ cancellation. A native ordering epoch keeps its delta sequences separate from th
 When Graph expires a delta token, the connector revision-fences a reset instead of retrying the
 invalid continuation and starts a full delta on the next cycle. The final page withdraws persisted
 items not seen in the new resync epoch before the fresh cursor can commit.
-
 | Method and path | Purpose |
 |-----------------|---------|
 | `GET /healthz` | unauthenticated process liveness for deployment verification; returns only `{"status":"ok"}` |
@@ -514,6 +513,7 @@ items not seen in the new resync epoch before the fresh cursor can commit.
 | `POST /ingestion/uploads/{upload_id}/complete` | verify and commit the received object |
 | `GET /ingestion/uploads/{upload_id}` | authorized upload-session and processing status |
 | `GET /ingestion/uploads/{upload_id}/handover-draft` | authorized grounded steward-map draft for the `handover_bootstrap` purpose |
+| `GET /ingestion/uploads/{upload_id}/report-line-draft` | authorized grounded person-to-manager draft for the `report_line_bootstrap` purpose |
 | `POST /ingestion/uploads/{upload_id}/cancel` | revoke grant and clean partial data |
 | `GET /documents?collection_id=...&limit=...` | bounded authorized list of the latest document version in a collection |
 | `GET /documents/search?q=...&collection_id=...` | authenticated collection-scoped hybrid retrieval with citations |
@@ -521,7 +521,6 @@ items not seen in the new resync epoch before the fresh cursor can commit.
 | `GET /documents/{document_id}/versions/{version_id}/preview` | bounded extracted preview after collection and delegated protection authorization |
 | `GET /documents/{document_id}/versions/{version_id}/download` | audited immutable-source stream for an authorized unprotected indexed version |
 | `DELETE /documents/{document_id}/versions/{version_id}` | request governed deletion |
-
 Source bytes stream from the client through the dedicated gateway to object storage. Authentication
 tokens use headers; the browser receives no storage credential or query-string grant.
 After the object is accepted, replaying `complete` returns the current session with `202` and does
@@ -538,7 +537,8 @@ State transitions publish typed events such as `document.received`, `document.he
 Consumers are idempotent. Knowledge indexing and manual distillation subscribe to `document.ready`
 only when the version's declared purpose includes them. Purpose-specific processing can also bind a
 `DocumentReadyConsumer`; the worker passes only the safety-checked `DocumentEnvelope`. The shipped
-`handover_bootstrap` consumer turns that envelope into a grounded, review-only steward-map draft.
+consumers create grounded, review-only steward-map or person-to-manager drafts for
+`handover_bootstrap` and `report_line_bootstrap`; neither consumer applies its draft.
 The durable reconciler logs an upload or metadata-cycle exception by type, releases its in-process
 deduplication slot, and continues on the next bounded interval instead of terminating its task.
 

@@ -68,6 +68,10 @@ from fdai_service_contracts import (
     SemanticTurnResult as ContractSemanticTurnResult,
 )
 from fdai_service_contracts.codec import MAX_WIRE_BYTES
+from fdai_service_contracts.incident_creation import (
+    IncidentCreationIntent,
+    build_incident_creation_draft,
+)
 from fdai_service_contracts.ontology_query import (
     MAX_INTENT_GRAPH_GOALS,
     QueryNodeKind,
@@ -160,6 +164,7 @@ class _SemanticProjectionExtensions:
     social_act: str | None = None
     investigation_continuation: SemanticInvestigationContinuation | None = None
     operational_evidence: OperationalEvidenceProjection | None = None
+    incident_creation_intent: IncidentCreationIntent | None = None
 
 
 class _ObservedModelCall(Protocol):
@@ -914,6 +919,13 @@ class SemanticTurnProcessor:
                 payload["operational_evidence"] = extensions.operational_evidence.model_dump(
                     mode="json"
                 )
+            if extensions.incident_creation_intent is not None:
+                payload["incident_creation_draft"] = build_incident_creation_draft(
+                    intent=extensions.incident_creation_intent,
+                    session_id=request.session_id,
+                    idempotency_key=str(envelope["idempotency_key"]),
+                    prepared_at=recorded_at,
+                ).model_dump(mode="json")
         projection = {
             "schema_version": (
                 "1.7.0"
@@ -1355,6 +1367,16 @@ def _project_runtime_result(
                 _SemanticProjectionExtensions(
                     test_context_draft=result.planning.test_context_draft
                 ),
+            )
+        incident_creation_intent = getattr(
+            result.planning,
+            "incident_creation_intent",
+            None,
+        )
+        if disposition == "action_draft" and incident_creation_intent is not None:
+            operational_extensions = _merge_projection_extensions(
+                operational_extensions,
+                _SemanticProjectionExtensions(incident_creation_intent=incident_creation_intent),
             )
         return terminal, _merge_projection_extensions(
             model_extensions,
@@ -1938,6 +1960,11 @@ def _merge_projection_extensions(
             first.investigation_continuation
             if first.investigation_continuation is not None
             else second.investigation_continuation
+        ),
+        incident_creation_intent=(
+            first.incident_creation_intent
+            if first.incident_creation_intent is not None
+            else second.incident_creation_intent
         ),
         operational_evidence=(
             first.operational_evidence

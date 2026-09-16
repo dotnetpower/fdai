@@ -36,6 +36,8 @@ ToNeutralId = Callable[[str], str]
 ExternalReferenceResolver = Callable[[str], str | None]
 _OPEN_ENV_VALUE_PATH = "properties.template.containers[].env[].value"
 _OPEN_TAG_VALUE_PATH = "tags{values}"
+_CONFIGURED_ENDPOINT_MAPPING_ID = "azure.container-workload-depends-on-configured-endpoint"
+_REGISTRY_MAPPING_ID = "azure.container-workload-depends-on-registry"
 _ROLE_ASSIGNMENT_PRINCIPAL_MAPPING_ID = "azure.role-assignment-attached-to-managed-identity"
 _ROLE_ASSIGNMENT_SCOPE_MAPPING_ID = "azure.role-assignment-attached-to-scope"
 
@@ -215,6 +217,7 @@ def project_provider_relationships(
             )
 
     shadowed = _shadowed_contains_candidate_ids(candidates)
+    shadowed.update(_shadowed_generic_endpoint_candidate_ids(candidates))
     candidates = [candidate for index, candidate in enumerate(candidates) if index not in shadowed]
     ambiguous = _ambiguous_candidate_ids(candidates)
     for candidate_id in sorted(ambiguous):
@@ -256,6 +259,28 @@ def project_provider_relationships(
             )
         ),
     )
+
+
+def _shadowed_generic_endpoint_candidate_ids(candidates: Sequence[_Candidate]) -> set[int]:
+    """Prefer an explicit registry binding over a generic endpoint for the same edge."""
+
+    by_key: dict[tuple[str, str, str], list[int]] = {}
+    for index, candidate in enumerate(candidates):
+        record = candidate.record
+        by_key.setdefault((record.from_id, record.link_type, record.to_id), []).append(index)
+
+    shadowed: set[int] = set()
+    for indexes in by_key.values():
+        if not any(
+            candidates[index].mapping.mapping_id == _REGISTRY_MAPPING_ID for index in indexes
+        ):
+            continue
+        shadowed.update(
+            index
+            for index in indexes
+            if candidates[index].mapping.mapping_id == _CONFIGURED_ENDPOINT_MAPPING_ID
+        )
+    return shadowed
 
 
 def _unmodeled_target_reason(mapping_id: str) -> RelationshipUnavailableReason:

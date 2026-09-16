@@ -250,6 +250,49 @@ export class OperatorApiClient {
     return this.#iam.assignments(limit, cursor);
   }
 
+  async reportingLines(limit = 100, cursor = 0) {
+    return this.#iam.reportingLines(limit, cursor);
+  }
+
+  async createReportingLineCase(
+    body: Record<string, unknown>,
+    idempotencyKey: string,
+  ) {
+    return this.#iam.createReportingLineCase(body, idempotencyKey);
+  }
+
+  async decideReportingLineCase(
+    operatorCaseId: string,
+    operation: "confirm" | "review",
+    body: Record<string, unknown>,
+    idempotencyKey: string,
+  ) {
+    return this.#iam.decideReportingLineCase(
+      operatorCaseId,
+      operation,
+      body,
+      idempotencyKey,
+    );
+  }
+
+  async reportLineContactRequests() {
+    return this.#iam.reportLineContactRequests();
+  }
+
+  async decideReportLineContact(
+    approvalId: string,
+    consent: boolean,
+    expectedRevision: number,
+    idempotencyKey: string,
+  ) {
+    return this.#iam.decideReportLineContact(
+      approvalId,
+      consent,
+      expectedRevision,
+      idempotencyKey,
+    );
+  }
+
   async reports(): Promise<ReportList> {
     await this.#requireAuthoritativeSource("/reports");
     return this.#reporting.reports();

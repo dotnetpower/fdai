@@ -25,7 +25,10 @@ _READER_CHAT_OPERATIONS = frozenset({"chat.stream"})
 _CONVERSATION_WRITE_OPERATIONS = frozenset(
     spec.operation
     for spec in CONVERSATION_ROUTE_MANIFEST
-    if (spec.mode == "proposal" or (spec.mode == "stream" and spec.method == "POST"))
+    if (
+        spec.mode in {"action_confirmation", "proposal"}
+        or (spec.mode == "stream" and spec.method == "POST")
+    )
     and spec.operation not in _READER_CHAT_OPERATIONS
 )
 

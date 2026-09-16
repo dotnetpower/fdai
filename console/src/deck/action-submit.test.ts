@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
+  actionConfirmationCanRetry,
   confirmActionDraft,
   renderActionResult,
   submitAction,
@@ -152,6 +153,32 @@ describe("confirmActionDraft", () => {
       session_id: "session-1",
       idempotency_key: "draft-request-1",
     });
+  });
+
+  test("preserves typed Operator errors and keeps transient failures retryable", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        fakeResponse(503, {
+          error: {
+            code: "incident_confirmation_unavailable",
+            message: "The Incident creation request could not be durably queued.",
+          },
+        }),
+      ),
+    );
+
+    const result = await confirmActionDraft({
+      actionType: "incident.create",
+      arguments: { severity: "sev2", target: "service-api" },
+      sessionId: "session-1",
+      idempotencyKey: "draft-request-1",
+    });
+
+    expect(result.reason).toBe("incident_confirmation_unavailable");
+    expect(result.message).toMatch(/could not be durably queued/);
+    expect(actionConfirmationCanRetry(result)).toBe(true);
+    expect(actionConfirmationCanRetry({ ...result, status: 409 })).toBe(false);
   });
 });
 

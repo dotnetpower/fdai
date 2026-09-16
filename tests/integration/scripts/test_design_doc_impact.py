@@ -163,6 +163,55 @@ def test_unrouted_change_needs_no_doc_churn() -> None:
     assert failures == []
 
 
+def test_generated_question_bank_outputs_need_no_duplicate_design_update() -> None:
+    module = _load_module()
+    manifest = {
+        "routes": [
+            {
+                "id": "questions",
+                "paths": ["eval/golden-dataset/question-bank/**"],
+                "docs_update": ["docs/questions.md"],
+            }
+        ]
+    }
+
+    failures = module.missing_doc_updates(
+        {
+            "eval/golden-dataset/question-bank/question-bank.json",
+            "eval/golden-dataset/question-bank/review-catalog.md",
+        },
+        manifest,
+    )
+
+    assert failures == []
+
+
+def test_question_bank_source_change_still_requires_design_update() -> None:
+    module = _load_module()
+    manifest = {
+        "routes": [
+            {
+                "id": "questions",
+                "paths": ["eval/golden-dataset/question-bank/**"],
+                "docs_update": ["docs/questions.md"],
+            }
+        ]
+    }
+
+    failures = module.missing_doc_updates(
+        {"eval/golden-dataset/question-bank/question-bank.source.yaml"},
+        manifest,
+    )
+
+    assert failures == [
+        (
+            "questions",
+            ("eval/golden-dataset/question-bank/question-bank.source.yaml",),
+            ("docs/questions.md",),
+        )
+    ]
+
+
 def test_cached_change_scope_reads_only_staged_paths(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

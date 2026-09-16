@@ -131,11 +131,41 @@
     "columns": {"controlLoop": "제어 루프", "stage": "현재 단계", "age": "경과", "tier": "티어", "mode": "모드", "decision": "결정", "work": "작업", "tierMode": "티어 / 모드", "why": "이유", "ownerStage": "담당 / 단계", "riskImpact": "위험 / 영향", "ageSla": "경과 / SLA", "controlState": "제어 상태"}
   },
   "control": {"notObserved": "관찰되지 않음", "notStarted": "시작되지 않음", "notDispatched": "전송되지 않음", "simulated": "시뮬레이션됨", "inProgress": "진행 중", "completed": "완료", "executionFailed": "실패"},
+  "outcome": {"effect_verified": "효과 독립 검증 완료"},
+  "scenario": {
+    "eyebrow": "115초 검토 경로",
+    "title": "통제된 VM 작업 하나로 결제 용량 복구",
+    "summary": "하나의 상관관계가 운영자 질문, 근거, 승인, 공급자 증적, 독립 관찰, 최종 조정을 연결합니다.",
+    "resultLabel": "최종 상태",
+    "result": "효과 독립 검증 완료",
+    "actionLabel": "ActionType",
+    "targetLabel": "대상",
+    "target": "합성 결제 용량 VM 1대",
+    "authorityLabel": "권한",
+    "authority": "실행별 사람 승인",
+    "boundary": "합성 설명용 흐름입니다. 실제 Azure 작업이나 측정된 비즈니스 성과를 주장하지 않습니다.",
+    "inspect": "전체 상관관계 확인",
+    "steps": {
+      "question": {"title": "운영자 질문", "detail": "결제 용량이 목표보다 낮은 이유는 무엇인가요?"},
+      "evidence": {"title": "근거 확인", "detail": "기록된 유지 관리 변경 후 VM이 할당 해제 상태입니다."},
+      "approval": {"title": "사람 승인", "detail": "별도 운영자가 대상 하나와 실행 한 번을 승인합니다."},
+      "dispatch": {"title": "공급자 증적", "detail": "실행기가 Azure의 시작 요청 접수를 기록합니다."},
+      "observation": {"title": "독립 관찰", "detail": "별도 관찰자가 VM 실행 상태를 조회합니다."},
+      "reconciliation": {"title": "최종 조정", "detail": "관찰 결과가 예상 효과와 일치해야 상관관계를 종료합니다."}
+    }
+  },
+  "evidence": {
+    "approval": {"approved": "별도 사람이 승인함", "not_observed": "관찰되지 않음"},
+    "provider": {"accepted": "공급자가 요청을 접수함", "not_observed": "관찰되지 않음"},
+    "observation": {"verified": "실행 상태를 독립적으로 관찰함", "not_observed": "관찰되지 않음"},
+    "reconciliation": {"effect_verified": "예상 효과와 조정 완료", "not_observed": "관찰되지 않음"},
+    "recovery": {"not_required": "준비됨, 실행 불필요", "not_observed": "관찰되지 않음"}
+  },
   "sample": {
     "restart": "Sample 다시 재생",
     "restartHelp": "같은 합성 시나리오를 처음부터 재생합니다. 런타임 기록이나 작업을 생성하지 않습니다.",
     "title": {
-      "publicBlob": "Blob 공용 접근 비활성화", "restore": "특정 시점 복구 활성화",
+      "vmStart": "결제 VM 용량 복구", "restore": "특정 시점 복구 활성화",
       "autoscale": "자동 크기 조정 최솟값 상향", "certificate": "만료 예정 인증서 교체",
       "rightsize": "배치 컴퓨팅 크기 조정", "firewall": "소유자 없는 방화벽 규칙 제거",
       "clusterAccess": "클러스터 관리자 접근 축소", "dns": "내부 DNS 확인자로 고정",
@@ -143,13 +173,13 @@
       "disk": "연결되지 않은 디스크 삭제", "replica": "지연된 복제본 장애 조치"
     },
     "target": {
-      "publicBlob": "웹 앱 저장소", "restore": "청구 데이터베이스", "autoscale": "EU 웹 서비스",
+      "vmStart": "결제 용량 VM", "restore": "청구 데이터베이스", "autoscale": "EU 웹 서비스",
       "certificate": "핵심 신원 서비스", "rightsize": "배치 작업자 풀", "firewall": "공유 네트워크",
       "clusterAccess": "프로덕션 Kubernetes", "dns": "공유 네트워크", "vault": "신원 비밀 저장소",
       "retention": "운영 작업 영역", "disk": "기존 워크로드", "replica": "EU 데이터베이스 복제본"
     },
     "reason": {
-      "publicBlob": "공용 접근이 저장소 정책에 위배됩니다", "restore": "복구 범위가 정책 기준보다 작습니다",
+      "vmStart": "기록된 유지 관리 후 결제 용량이 목표보다 낮습니다", "restore": "복구 범위가 정책 기준보다 작습니다",
       "autoscale": "용량이 안정성 하한보다 작습니다", "certificate": "인증서가 30일 이내에 만료됩니다",
       "rightsize": "CPU 사용률이 지속해서 낮습니다", "firewall": "규칙을 소유한 활성 워크로드가 없습니다",
       "clusterAccess": "클러스터 전체 권한이 필요한 범위를 초과합니다", "dns": "공용 확인자가 네트워크 정책을 우회합니다",
@@ -171,5 +201,5 @@
   "spark": {"awaiting": "스트림 표본 대기 중", "noCompletions": "완료 항목 없음", "averageMs": "평균 {value}ms", "averageSeconds": "평균 {value}초", "averageUnderMs": "평균 1ms 미만", "lastSecond": "마지막 완료 1초", "secondsAgo": "{count}초 전"},
   "stage": {"ingest": "수집", "route": "라우팅", "verify": "검증", "gate": "게이트", "execute": "실행", "audit": "감사"},
   "role": {"Huginn": "이벤트 수집기", "Heimdall": "관찰자", "Forseti": "판정자", "Thor": "대응자", "Var": "승인자", "Vidar": "복구", "Saga": "감사자", "Odin": "마스터 플래너", "Bragi": "내레이터", "unknown": "에이전트"},
-  "detail": {"pending": "대기 중", "close": "닫기", "boundaryTitle": "읽기 전용 제어 루프 변환 결과", "traceLabel": "제어 루프 단계 추적", "inProgress": "진행 중", "notObserved": "관찰되지 않음", "controlState": "제어 상태", "policyDecision": "정책 결정", "authority": "권한", "execution": "실행", "effect": "효과", "workSummary": "작업 요약", "reason": "사유", "target": "대상", "technicalDetails": "기술 식별자", "eventId": "이벤트 ID", "correlationId": "상관관계 ID", "rule": "규칙", "actionType": "ActionType", "actionTypes": "ActionType 목록", "mode": "모드", "vertical": "영역", "resourceType": "리소스 유형", "scope": "범위", "tier": "티어", "gateDecision": "게이트 결정", "stagesCompleted": "완료 단계", "failed": "실패", "age": "경과", "outcome": "결과", "yes": "예", "no": "아니요", "safety": "필수 안전 근거", "stopCondition": "ActionType 중지 조건", "rollback": "테스트된 롤백 경로", "blastRadius": "영향 범위 상한", "auditEntry": "종단 감사 항목", "readOnly": "이 패널은 읽기 전용입니다. 기록된 제어 루프 상태를 표시하며 작업을 승인하거나 실행할 수 없습니다.", "openTrace": "추적 열기", "openAudit": "감사 열기", "architecture": "아키텍처"}
+  "detail": {"pending": "대기 중", "close": "닫기", "boundaryTitle": "읽기 전용 제어 루프 변환 결과", "traceLabel": "제어 루프 단계 추적", "inProgress": "진행 중", "notObserved": "관찰되지 않음", "controlState": "제어 상태", "policyDecision": "정책 결정", "authority": "권한", "execution": "실행", "effect": "효과", "workSummary": "작업 요약", "reason": "사유", "target": "대상", "technicalDetails": "기술 식별자", "eventId": "이벤트 ID", "correlationId": "상관관계 ID", "rule": "규칙", "actionType": "ActionType", "actionTypes": "ActionType 목록", "mode": "모드", "vertical": "영역", "resourceType": "리소스 유형", "scope": "범위", "tier": "티어", "gateDecision": "게이트 결정", "stagesCompleted": "완료 단계", "failed": "실패", "age": "경과", "outcome": "결과", "yes": "예", "no": "아니요", "effectEvidence": "실행 및 효과 근거", "approvalStatus": "사람 승인", "providerStatus": "공급자 증적", "observationStatus": "독립 관찰", "reconciliationStatus": "조정", "recoveryStatus": "복구 준비", "safety": "필수 안전 근거", "stopCondition": "ActionType 중지 조건", "rollback": "테스트된 롤백 경로", "blastRadius": "영향 범위 상한", "auditEntry": "종단 감사 항목", "readOnly": "이 패널은 읽기 전용입니다. 기록된 제어 루프 상태를 표시하며 작업을 승인하거나 실행할 수 없습니다.", "openTrace": "추적 열기", "openAudit": "감사 열기", "architecture": "아키텍처"}
 }

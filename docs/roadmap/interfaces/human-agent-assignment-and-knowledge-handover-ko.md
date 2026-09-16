@@ -1,7 +1,7 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: 3e259a085c1de69da183bf662df12af667fd86c9
-translation_revised: 2026-09-15
+translation_source_sha: 9a77f1916d3c6f64c9993bd9aab49d1e45fcee4f
+translation_revised: 2026-09-16
 ---
 # 사용자-에이전트 할당 및 지식 이전
 
@@ -70,8 +70,10 @@ ID, FDAI App 역할, 접근 요청을 담당합니다. `Governance > Agent overs
 - **권한 부여는 담당 체계 우선, 접근 권한 마지막:** 새 사용자는 검토된 담당 체계 변경이
   병합된 후에만 콘솔 접근 권한을 받습니다. IAM 쓰기가 실패하면 새 접근 권한을 부여하지 않고,
   필수로 지정된 백업 담당자에게 업무를 라우팅합니다.
-- **명시적인 운영 보고 체계:** 승인 체인은 FDAI 임무 그래프입니다. Entra 관리자 또는 HR 보고
-  체계는 제안으로 표시할 수 있지만 승인 권한은 아닙니다.
+- **명시적인 운영 보고 체계:** 승인 체인은 FDAI 임무 그래프입니다. 통제된 조직도 또는 Entra
+  관리자는 별도의 [사람 보고선](human-report-lines-and-approval-routing-ko.md)을 제안할 수
+  있지만, 한쪽 당사자가 edge를 확인하고 독립 Owner가 검토해야 합니다. 이 관계만으로 승인
+  권한을 부여하지 않습니다.
 - **무응답은 타이머로 판단:** 현재 상태, 일정, 부재중 신호는 참고 정보입니다. 전달, 확인,
   결정 시각이 권위 있는 에스컬레이션 입력입니다.
 - **형식화된 이벤트 협업:** 에이전트끼리 직접 호출하거나 변경 가능한 인터뷰 상태를 공유하지
@@ -520,6 +522,7 @@ S5는 이 재조정에서 표본별 개수, 전체 개수, 잘못된 기록 수,
 | 종속성 순서 구현 및 롤아웃 | [사용자-에이전트 할당 구현 계획](human-agent-assignment-implementation-plan-ko.md) |
 | FDAI 역할, 디렉터리 검색, 현재 접근 요청 | [사용자 RBAC 및 Entra ID](user-rbac-and-identity-ko.md) |
 | 담당 체계 맵과 최종 책임자 | [에이전트 운영 담당 체계 및 담당자 인수인계](agent-stewardship-and-handover-ko.md) |
+| 사람 보고 관계 및 승인 라우팅 | [사람 보고선 및 승인 라우팅](human-report-lines-and-approval-routing-ko.md) |
 | 사람 무응답과 상시 권한 | [에스컬레이션 및 상시 권한](../decisioning/escalation-and-standing-authority-ko.md) |
 | 에이전트 소유 문서 승인과 인덱싱 | [문서 수집 에이전트 소유권](document-ingestion-agent-ownership-ko.md) |
 | 콘솔 및 ChatOps 보안 경계 | [운영자 콘솔](operator-console-ko.md) |

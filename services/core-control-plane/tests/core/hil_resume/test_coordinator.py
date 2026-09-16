@@ -15,6 +15,8 @@ Asserts the step-B contract from
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -43,6 +45,14 @@ from fdai.core.hil_resume import (
     HumanNonResponseSupervisor,
     RequestOutcome,
     ResolveOutcome,
+)
+from fdai.core.hil_resume.integrity import approval_request_fingerprint
+from fdai.core.human_reporting import (
+    ApprovalContactConsentService,
+    ReportingGraphEdge,
+    ReportingGraphSnapshot,
+    ReportLineApprovalRouter,
+    ReportLineRoutingPolicy,
 )
 from fdai.core.oncall import OnCallResolver
 from fdai.core.ontology_platform.reconciliation_producer import (
@@ -84,6 +94,8 @@ REMEDIATION_ROOT = REPO_ROOT / "rule-catalog" / "remediation"
 _RULE_ID = "object-storage.owner-tag.required"
 _SUBMITTER = "system:control-loop"
 _APPROVER = "alice@example.com"
+_ROUTE_START = datetime(2020, 1, 1, tzinfo=UTC)
+_ROUTE_END = datetime(2100, 1, 1, tzinfo=UTC)
 
 
 class ResolveDeliveryRaceStore(InMemoryStateStore):
@@ -113,6 +125,54 @@ class ResolveDeliveryRaceStore(InMemoryStateStore):
                     "actor": "test",
                     "action_kind": "hil.delivery.observed",
                     "idempotency_key": f"{key}:delivery-observed",
+                },
+            )
+            assert applied
+            return False
+        return await super().compare_and_set_state_with_audit(
+            key,
+            value,
+            expected_revision=expected_revision,
+            audit_entry=audit_entry,
+        )
+
+
+class ContactConsentRaceStore(InMemoryStateStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.expire_on_contact_cas = False
+
+    async def compare_and_set_state_with_audit(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        if (
+            self.expire_on_contact_cas
+            and audit_entry.get("action_kind") == "hil.report_line.contact_consented"
+        ):
+            self.expire_on_contact_cas = False
+            current = await self.read_state(key)
+            assert current is not None
+            expired = {
+                **current,
+                "status": "resolved",
+                "decision": "timeout",
+                "approver_oid": "system:contact-consent-expiry",
+                "resolved_at": datetime.now(tz=UTC).isoformat(),
+                "revision": expected_revision + 1,
+            }
+            applied = await super().compare_and_set_state_with_audit(
+                key,
+                expired,
+                expected_revision=expected_revision,
+                audit_entry={
+                    "actor": "test",
+                    "action_kind": "hil.report_line.contact_consent_expired",
+                    "idempotency_key": f"{key}:contact-expired",
                 },
             )
             assert applied
@@ -185,6 +245,43 @@ def _action(
     )
 
 
+def test_legacy_approval_fingerprint_is_stable_without_report_line_route() -> None:
+    action = _action()
+    rule = _rule()
+    material = {
+        "action": action.model_dump(mode="json"),
+        "rule": {"id": rule.id, "version": rule.version},
+        "submitter_oid": _SUBMITTER,
+        "correlation_id": "correlation",
+        "reasons": [],
+        "blast_radius_summary": "",
+        "ttl_seconds": 1800,
+        "assignee_oid": None,
+    }
+    expected = hashlib.sha256(
+        json.dumps(
+            material,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+    ).hexdigest()
+
+    assert (
+        approval_request_fingerprint(
+            action=action,
+            rule=rule,
+            submitter_oid=_SUBMITTER,
+            correlation_id="correlation",
+            reasons=(),
+            blast_radius_summary="",
+            ttl_seconds=1800,
+            assignee_oid=None,
+        )
+        == expected
+    )
+
+
 def _coordinator(
     *,
     send_error: BaseException | None = None,
@@ -192,6 +289,9 @@ def _coordinator(
     state_store: InMemoryStateStore | None = None,
     pre_dispatch_kinetic_safety_writer: Any | None = None,
     effect_reconciliation_request_sink: Any | None = None,
+    report_line_router: ReportLineApprovalRouter | None = None,
+    escalation_policy: EscalationPolicy | None = None,
+    escalation_eligibility: Any | None = None,
 ) -> tuple[
     HilResumeCoordinator,
     RecordingRemediationPrPublisher,
@@ -211,7 +311,8 @@ def _coordinator(
         HumanNonResponseSupervisor(
             state_store=store,
             channel=channel,
-            policy=EscalationPolicy(decision_timeout_seconds=60),
+            policy=escalation_policy or EscalationPolicy(decision_timeout_seconds=60),
+            eligibility=escalation_eligibility,
         )
         if with_escalation
         else None
@@ -224,8 +325,99 @@ def _coordinator(
         escalation_supervisor=escalation_supervisor,
         pre_dispatch_kinetic_safety_writer=pre_dispatch_kinetic_safety_writer,
         effect_reconciliation_request_sink=effect_reconciliation_request_sink,
+        report_line_router=report_line_router,
+        contact_consent_service=(
+            ApprovalContactConsentService(store) if report_line_router is not None else None
+        ),
     )
     return coordinator, publisher, store, channel
+
+
+class _ReportLineGraphs:
+    def __init__(self) -> None:
+        self.revision = "a" * 64
+        self.edge_digest = "b" * 64
+
+    async def current_graph(self, *, at=None):
+        observed_at = at or datetime.now(tz=UTC)
+        return ReportingGraphSnapshot(
+            revision=self.revision,
+            observed_at=observed_at,
+            edges=(
+                ReportingGraphEdge(
+                    case_id="report-line-case",
+                    edge_digest=self.edge_digest,
+                    subject_ref=_SUBMITTER,
+                    manager_ref=_APPROVER,
+                    effective_from=_ROUTE_START,
+                    effective_until=_ROUTE_END,
+                ),
+            ),
+        )
+
+
+class _ReportLineEligibility:
+    def __init__(self, eligible: set[str] | None = None) -> None:
+        self.eligible = {_APPROVER} if eligible is None else eligible
+
+    async def is_eligible(
+        self,
+        *,
+        subject_ref,
+        minimum_role,
+        action_type,
+        scope_ref,
+        at,
+    ):
+        del action_type, scope_ref, at
+        return subject_ref in self.eligible and minimum_role == "Approver"
+
+
+def _report_line_router(
+    graphs: _ReportLineGraphs | None = None,
+    *,
+    eligible: set[str] | None = None,
+) -> ReportLineApprovalRouter:
+    return ReportLineApprovalRouter(
+        graphs=graphs or _ReportLineGraphs(),
+        eligibility=_ReportLineEligibility(eligible),
+        policy=ReportLineRoutingPolicy(
+            action_types=frozenset({"remediate.tag-add"}),
+            quorum_by_action={},
+        ),
+    )
+
+
+class _TwoLevelReportLineGraphs(_ReportLineGraphs):
+    async def current_graph(self, *, at=None):
+        observed_at = at or datetime.now(tz=UTC)
+        return ReportingGraphSnapshot(
+            revision=self.revision,
+            observed_at=observed_at,
+            edges=(
+                ReportingGraphEdge(
+                    case_id="report-line-case-primary",
+                    edge_digest=self.edge_digest,
+                    subject_ref=_SUBMITTER,
+                    manager_ref=_APPROVER,
+                    effective_from=_ROUTE_START,
+                    effective_until=_ROUTE_END,
+                ),
+                ReportingGraphEdge(
+                    case_id="report-line-case-escalation",
+                    edge_digest="c" * 64,
+                    subject_ref=_APPROVER,
+                    manager_ref="backup@example.com",
+                    effective_from=_ROUTE_START,
+                    effective_until=_ROUTE_END,
+                ),
+            ),
+        )
+
+
+class _AlwaysEligible:
+    async def is_eligible(self, **_kwargs):
+        return True
 
 
 async def test_request_snapshots_and_starts_escalation_after_delivery() -> None:
@@ -256,6 +448,325 @@ async def test_request_snapshots_and_starts_escalation_after_delivery() -> None:
         if entry["entry"].get("action_kind") == "hil.requested"
     )
     assert requested["assignee_oid"] == _APPROVER
+
+
+async def test_report_line_route_waits_for_requester_contact_consent() -> None:
+    coordinator, publisher, store, channel = _coordinator(
+        with_escalation=True,
+        report_line_router=_report_line_router(),
+    )
+
+    requested = await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-correlation",
+        approval_id="report-line-approval",
+    )
+
+    parked = await store.read_state("hil_park:report-line-approval")
+    assert requested.outcome is RequestOutcome.CONTACT_CONSENT_REQUIRED
+    assert parked is not None
+    assert parked["status"] == "awaiting_contact_consent"
+    assert parked["assignee_oid"] == _APPROVER
+    assert channel.sent == []
+    assert publisher.records == ()
+
+    premature = await coordinator.resolve(
+        approval_id="report-line-approval",
+        decision=HilDecision.APPROVE,
+        approver_oid=_APPROVER,
+    )
+    assert premature.outcome is ResolveOutcome.CONTACT_CONSENT_REQUIRED
+    assert publisher.records == ()
+
+    sent = await coordinator.decide_report_line_contact(
+        approval_id="report-line-approval",
+        requester_oid=_SUBMITTER,
+        consent=True,
+        expected_consent_revision=0,
+    )
+    assert sent.outcome is RequestOutcome.PARKED
+    assert len(channel.sent) == 1
+    parked = await store.read_state("hil_park:report-line-approval")
+    assert parked is not None and parked["status"] == "pending"
+    assert parked["report_line_route"]["graph_revision"] == "a" * 64
+    assert len(parked["report_line_route"]["path_revision"]) == 64
+
+
+async def test_report_line_request_fails_closed_without_eligible_ancestor() -> None:
+    coordinator, publisher, store, channel = _coordinator(
+        with_escalation=True,
+        report_line_router=_report_line_router(eligible=set()),
+    )
+
+    result = await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-no-eligible-ancestor",
+        approval_id="report-line-no-eligible-ancestor",
+    )
+
+    assert result.outcome is RequestOutcome.REPORT_LINE_ROUTE_UNAVAILABLE
+    assert await store.read_state("hil_park:report-line-no-eligible-ancestor") is None
+    assert channel.sent == []
+    assert publisher.records == ()
+    assert any(
+        item["entry"].get("action_kind") == "hil.report_line.route_unavailable"
+        for item in store.audit_entries
+    )
+
+
+async def test_report_line_contact_decline_is_terminal_noop() -> None:
+    coordinator, publisher, store, channel = _coordinator(
+        with_escalation=True,
+        report_line_router=_report_line_router(),
+    )
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-decline",
+        approval_id="report-line-decline",
+    )
+
+    declined = await coordinator.decide_report_line_contact(
+        approval_id="report-line-decline",
+        requester_oid=_SUBMITTER,
+        consent=False,
+        expected_consent_revision=0,
+    )
+
+    assert declined.outcome is RequestOutcome.CONTACT_DECLINED
+    assert channel.sent == []
+    assert publisher.records == ()
+    parked = await store.read_state("hil_park:report-line-decline")
+    assert parked is not None
+    assert parked["status"] == "resolved"
+    assert parked["decision"] == "timeout"
+
+
+async def test_report_line_contact_expiry_is_terminal_noop() -> None:
+    coordinator, publisher, store, channel = _coordinator(
+        with_escalation=True,
+        report_line_router=_report_line_router(),
+    )
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-expired",
+        approval_id="report-line-expired",
+    )
+    parked = await store.read_state("hil_park:report-line-expired")
+    assert parked is not None
+    expires_at = datetime.fromisoformat(str(parked["contact_consent_expires_at"]))
+
+    expired = await coordinator.decide_report_line_contact(
+        approval_id="report-line-expired",
+        requester_oid=_SUBMITTER,
+        consent=True,
+        expected_consent_revision=0,
+        at=expires_at,
+    )
+
+    assert expired.outcome is RequestOutcome.CONTACT_CONSENT_EXPIRED
+    assert channel.sent == []
+    assert publisher.records == ()
+    parked = await store.read_state("hil_park:report-line-expired")
+    assert parked is not None
+    assert parked["status"] == "resolved"
+    assert parked["decision"] == "timeout"
+
+
+async def test_unanswered_report_line_contact_is_reaped_at_consent_deadline() -> None:
+    coordinator, publisher, store, channel = _coordinator(
+        with_escalation=True,
+        report_line_router=_report_line_router(),
+    )
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-unanswered",
+        approval_id="report-line-unanswered",
+    )
+    parked = await store.read_state("hil_park:report-line-unanswered")
+    assert parked is not None
+    expires_at = datetime.fromisoformat(str(parked["contact_consent_expires_at"]))
+    assert coordinator.escalation_supervisor is not None
+
+    tick = await coordinator.escalation_supervisor.tick(at=expires_at)
+
+    assert tick.exhausted == 1
+    assert channel.sent == []
+    assert publisher.records == ()
+    parked = await store.read_state("hil_park:report-line-unanswered")
+    assert parked is not None
+    assert parked["status"] == "resolved"
+    assert parked["decision"] == "timeout"
+    expiry_audit = next(
+        item["entry"]
+        for item in store.audit_entries
+        if item["entry"].get("action_kind") == "hil.report_line.contact_consent_expired"
+    )
+    assert expiry_audit["mode"] == "lifecycle"
+
+
+async def test_contact_consent_race_returns_terminal_expiry() -> None:
+    store = ContactConsentRaceStore()
+    coordinator, publisher, _, channel = _coordinator(
+        with_escalation=True,
+        state_store=store,
+        report_line_router=_report_line_router(),
+    )
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-contact-race",
+        approval_id="report-line-contact-race",
+    )
+    store.expire_on_contact_cas = True
+
+    result = await coordinator.decide_report_line_contact(
+        approval_id="report-line-contact-race",
+        requester_oid=_SUBMITTER,
+        consent=True,
+        expected_consent_revision=0,
+    )
+
+    assert result.outcome is RequestOutcome.CONTACT_CONSENT_EXPIRED
+    assert channel.sent == []
+    assert publisher.records == ()
+
+
+async def test_report_line_graph_change_blocks_a_late_approval() -> None:
+    graphs = _ReportLineGraphs()
+    coordinator, publisher, store, _ = _coordinator(
+        with_escalation=True,
+        report_line_router=_report_line_router(graphs),
+    )
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-stale",
+        approval_id="report-line-stale",
+    )
+    await coordinator.decide_report_line_contact(
+        approval_id="report-line-stale",
+        requester_oid=_SUBMITTER,
+        consent=True,
+        expected_consent_revision=0,
+    )
+    graphs.edge_digest = "d" * 64
+
+    result = await coordinator.resolve(
+        approval_id="report-line-stale",
+        decision=HilDecision.APPROVE,
+        approver_oid=_APPROVER,
+    )
+
+    assert result.outcome is ResolveOutcome.TIMED_OUT
+    assert result.reason == "report_line_route_stale"
+    assert publisher.records == ()
+
+
+async def test_unrelated_graph_revision_does_not_invalidate_pinned_path() -> None:
+    graphs = _ReportLineGraphs()
+    coordinator, publisher, store, _ = _coordinator(
+        with_escalation=True,
+        report_line_router=_report_line_router(graphs),
+    )
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-unrelated-change",
+        approval_id="report-line-unrelated-change",
+    )
+    await coordinator.decide_report_line_contact(
+        approval_id="report-line-unrelated-change",
+        requester_oid=_SUBMITTER,
+        consent=True,
+        expected_consent_revision=0,
+    )
+    graphs.revision = "d" * 64
+
+    result = await coordinator.resolve(
+        approval_id="report-line-unrelated-change",
+        decision=HilDecision.APPROVE,
+        approver_oid=_APPROVER,
+    )
+
+    assert result.outcome is ResolveOutcome.EXECUTED
+    assert len(publisher.records) == 1
+    terminal = [
+        item["entry"]
+        for item in store.audit_entries
+        if item["entry"].get("action_kind") in {"hil.approved.claimed", "hil.approved.executed"}
+    ]
+    assert len(terminal) == 2
+    assert all(item.get("report_line_route_digest") for item in terminal)
+    assert all(item.get("report_line_path_revision") for item in terminal)
+    assert all(item.get("report_line_graph_revision") for item in terminal)
+
+
+async def test_escalated_report_line_rung_can_approve_after_revalidation() -> None:
+    graphs = _TwoLevelReportLineGraphs()
+    coordinator, publisher, store, channel = _coordinator(
+        with_escalation=True,
+        escalation_policy=EscalationPolicy(
+            decision_timeout_seconds=1,
+            overall_timeout_seconds=60,
+            mode=Mode.ENFORCE,
+        ),
+        escalation_eligibility=_AlwaysEligible(),
+        report_line_router=_report_line_router(
+            graphs,
+            eligible={_APPROVER, "backup@example.com"},
+        ),
+    )
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-escalation",
+        approval_id="report-line-escalation",
+    )
+    await coordinator.decide_report_line_contact(
+        approval_id="report-line-escalation",
+        requester_oid=_SUBMITTER,
+        consent=True,
+        expected_consent_revision=0,
+    )
+    parked = await store.read_state("hil_park:report-line-escalation")
+    assert parked is not None
+    deadline = datetime.fromisoformat(str(parked["escalation"]["decision_deadline"]))
+    assert coordinator.escalation_supervisor is not None
+
+    tick = await coordinator.escalation_supervisor.tick(
+        at=deadline + timedelta(seconds=1),
+    )
+    assert tick.advanced == 1
+    parked = await store.read_state("hil_park:report-line-escalation")
+    assert parked is not None
+    assert parked["assignee_oid"] == "backup@example.com"
+    delivered = await coordinator.escalation_supervisor.tick(
+        at=deadline + timedelta(seconds=2),
+    )
+    assert delivered.delivered == 1
+    assert len(channel.sent) == 2
+
+    result = await coordinator.resolve(
+        approval_id="report-line-escalation",
+        decision=HilDecision.APPROVE,
+        approver_oid="backup@example.com",
+    )
+    assert result.outcome is ResolveOutcome.EXECUTED
+    assert len(publisher.records) == 1
 
 
 async def test_concurrent_terminal_decisions_have_one_winner() -> None:

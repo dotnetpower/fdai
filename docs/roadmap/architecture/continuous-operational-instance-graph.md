@@ -227,7 +227,7 @@ The persisted Job template leaves this input unset.
 
 The current-graph checkpoint is bound to the active snapshot generation and exact scope set. A complete
 provider snapshot covers same-scope observations from its generation and start time, so the contiguous checkpoint scans only those scopes.
-Inactive-scope observations remain durable history and retention work. Reactivation requires a new complete reconciliation, while active-scope
+Inactive-scope observations and cursor lag already covered by the latest complete snapshot remain durable health or retention evidence without creating another full-scan request. Reactivation requires a new complete reconciliation, while active-scope
 post-snapshot observations keep the graph incomplete until projection catches up.
 Checkpoint calculation is bounded by the journal high watermark observed by the same snapshot append.
 Concurrent later journal writes can lower completeness, but cannot advance either global or active-scope
@@ -428,11 +428,10 @@ Each record distinguishes these meanings:
 - **Confirmed tombstone:** Re-observation or complete reconciliation confirms deletion and records
   the resource incarnation, effective time, source revision, and evidence reference.
 
-The journal keeps nullable `provider_event_at`, effective and observation time, required `ingested_at`,
-recorded time, and evidence cutoff distinct. Existing records use `ingested_at=recorded_at` without
-inventing provider event time. Source, revision, scope, completeness, conflicts, masks, digest, and retention remain pinned.
-Operation status such as a successful write remains change metadata and never becomes resource
-operational state.
+The journal keeps nullable `provider_event_at`, effective and observation time, required `ingested_at`, recorded time, and evidence cutoff distinct.
+Existing records use `ingested_at=recorded_at` without inventing provider event time; source, revision, scope, completeness, conflicts, masks, digest, and retention remain pinned.
+The additive migration holds the table lock, suspends only the update guard while backfilling existing rows, restores it before enforcing `NOT NULL`, and leaves the delete guard active.
+Operation status such as a successful write remains change metadata and never becomes resource operational state.
 
 A resource id can be reused after deletion. Projection therefore assigns a resource incarnation
 from an immutable provider identity, generation, or independently verified lifecycle boundary.
