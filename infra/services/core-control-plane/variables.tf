@@ -117,6 +117,7 @@ variable "event_topics" {
     semantic_requests              = optional(string, "operator.semantic-turn.requests")
     semantic_projections           = optional(string, "core.semantic-turn.projections")
     semantic_physical              = optional(string, "fdai.pantheon.objects")
+    operating_model                = optional(string, "fdai.operating-model")
     read_investigation_requests    = optional(string, "operator.read-investigation.requests")
     incident_intervention_requests = optional(string, "operator.incident-intervention.requests")
     notification_receipts          = optional(string, "fdai.notifications.delivery-receipts")

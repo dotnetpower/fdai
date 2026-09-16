@@ -254,6 +254,11 @@ checks, but those rows aren't the authoring source or source of truth for the de
 stores no separate catalog copy. JSON and SSE chat return the same contract answer without calling
 the narrator.
 
+The `logical_service_current_state` answer shape presents the exact BusinessService, Workload, and
+runtime Resource mapping plus fresh verified component states. Empty or incomplete mappings remain
+explicit. The answer never derives aggregate service health or cause and always keeps
+`execution_authority=false`.
+
 - **Semantic model**: the default map places ObjectTypes in the reviewed Operating scope,
   Operating intent, Operating reality, and Decision and learning bands. Object, Relationship,
   State, Context, and Action are orthogonal lenses, not graph communities or additional
@@ -347,6 +352,7 @@ meaningful active declaration and an authoritative usage source justify dedicate
 | Audit and read-only wire projections | implemented | Operator family manifests and projections; `services/operator-service/tests/test_operator_service_composition.py`; Console trace tests | Default GET/HEAD routes, bounded envelopes, and unavailable behavior have focused coverage. |
 | Exact-release ontology registry and workbench | implemented | `ontology_declaration_projection.py`; `ontology_dependents_projection.py`; `ontology_evidence_health_projection.py`; `ontology_release_diff_projection.py`; Operator operations routes; `console/src/routes/ontology-object-type-detail.tsx`; focused Python and Console checks | Exact declaration detail, server-side redaction, bounded dependents, honest evidence health, retained-release comparison, clean routes, and no-authority rendering are implemented. The authenticated local Browser showed the `Decision` and `Resource` paths without overflow, raw resource ids, or execute controls, but no governed Browser artifact was retained. |
 | Active-inventory runtime impact | implemented | `inventory_impact.py`; `PostgresFamilyStore` impact reads; `operator_inventory_active_read_20260819`; strict Console decoder and route tests | The read-only route traverses bounded stored-direction links from one exact Resource against the active snapshot and reports exact release, source cutoff, completeness, and truncation without provider properties or execution authority. |
+| Logical-service component state answer | implemented | `semantic_logical_service_answer.py`; Core semantic processor; focused English and Korean complete and partial mapping tests | Exact service, workload, runtime type, observed component state, mapping coverage, completeness, and limitations render without aggregate-health, cause, mutation, or execution claims. |
 | Receipt-bound runtime Context snapshot | in-progress | Secured ObjectSet and Context contracts in the ontology platform; existing Console unavailable state | The workbench does not merge catalog declarations with runtime instances. A principal-scoped Context receipt remains separate delivery work. |
 | HIL callback contract | implemented | Operator IAM family routes; `services/operator-service/tests/test_operator_iam_family.py`; full-composition tests | Signature, replay window, role, no-self-approval, exact pending id, and idempotent decision behavior are implemented. |
 | Python task workbench and grounded code | implemented | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; Console Python task tests | Static validation, inert artifacts, capabilities, and no-chat-execution boundaries have focused coverage. |
@@ -359,6 +365,7 @@ meaningful active declaration and an authoritative usage source justify dedicate
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | implemented | Added a bilingual `logical_service_current_state` answer that preserves complete and missing BusinessService, Workload, and runtime Resource mappings and reports only verified component observations. | [Issue #1170](https://github.com/dotnetpower/fdai/issues/1170); `current change`; focused Core presentation and full logical-service DAG tests. | Retain governed authenticated cross-service evidence before claiming validated production behavior. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; current Operator, Core Python task, CLI, channel, Console, and focused test evidence listed in the scope table. | Close semantic confirmation, channel parity, and governed cross-contract evidence. |
 | 2026-08-14 | in-progress | Defined separate Semantic model, Catalog topology, and receipt-bound Context snapshot contracts instead of presenting one generated force graph as the operating ontology. | `current change`; paired Console contract documents and focused documentation gates. | Implement one exact-release producer and retain focused and authenticated Console evidence. |
 | 2026-08-14 | in-progress | Added a bounded deterministic spring-settle when Catalog topology first appears without changing its stored layout. Interaction and reduced-motion requests end or skip the effect, and no persistent simulation runs. | `current change`; `ontology-knowledge-graph.geometry.ts`, `ontology-knowledge-graph.renderer.ts`, `use-ontology-knowledge-graph-controller.ts`; focused Console topology tests report 12 passed and Console typecheck passed. | Retain the separately governed authenticated Context snapshot evidence described below. |

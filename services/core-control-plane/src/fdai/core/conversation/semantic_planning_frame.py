@@ -21,6 +21,9 @@ from .semantic_planning_frame_builders import (
     build_unbound_change_correlation_frame,
 )
 from .semantic_planning_frame_builders import (
+    build_logical_service_current_state_frame as build_logical_service_current_state_frame,
+)
+from .semantic_planning_frame_builders import (
     build_ontology_release_health_frame as build_ontology_release_health_frame,
 )
 from .semantic_planning_frame_builders import (

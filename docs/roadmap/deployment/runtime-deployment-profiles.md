@@ -182,6 +182,12 @@ AKS renderer maps it to typed Kubernetes `Deployment`, `Service`, `ServiceAccoun
 first AKS implementation keeps two replicas for each long-running service and does not require
 Knative or KEDA.
 
+Both renderers bind Core to the `fdai.operating-model` logical topic through
+`FDAI_OPERATING_MODEL_TOPIC`. The topic shares the existing semantic physical Event Hub and its
+managed-identity transport; it is not another Event Hub entity or authority channel. The AKS
+standalone renderer obtains the value from the exact substrate output, while the independent and
+legacy Container Apps renderers receive the same typed deployment input.
+
 Operator assignment and human-approval (HIL) transport imports share the existing `iam_composition`
 facade within the same Operator Service package and runtime; original adapter and factory objects
 are re-exported without wrappers. This grouping changes no topology, workload identity, readiness

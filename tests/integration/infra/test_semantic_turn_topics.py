@@ -12,6 +12,8 @@ _REQUEST_ENV = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"
 _PROJECTION_ENV = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC"
 _PHYSICAL_ENV = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"
 _PHYSICAL_TOPIC = "fdai.pantheon.objects"
+_OPERATING_MODEL_ENV = "FDAI_OPERATING_MODEL_TOPIC"
+_OPERATING_MODEL_TOPIC = "fdai.operating-model"
 _READ_REQUEST_TOPIC = "operator.read-investigation.requests"
 _READ_REQUEST_ENV = "FDAI_READ_INVESTIGATION_REQUEST_TOPIC"
 
@@ -23,6 +25,7 @@ def test_root_terraform_multiplexes_semantic_topics_over_provisioned_scope() -> 
         ("semantic_turn_request_topic", _REQUEST_TOPIC),
         ("semantic_turn_projection_topic", _PROJECTION_TOPIC),
         ("semantic_turn_physical_topic", _PHYSICAL_TOPIC),
+        ("operating_model_topic", _OPERATING_MODEL_TOPIC),
         ("read_investigation_request_topic", _READ_REQUEST_TOPIC),
     ):
         assert re.search(rf'{field}\s*=\s*"{re.escape(value)}"', root)
@@ -30,6 +33,7 @@ def test_root_terraform_multiplexes_semantic_topics_over_provisioned_scope() -> 
     assert _REQUEST_TOPIC not in event_topics
     assert _PROJECTION_TOPIC not in event_topics
     assert _READ_REQUEST_TOPIC not in event_topics
+    assert _OPERATING_MODEL_TOPIC not in event_topics
     assert f'"{_PHYSICAL_TOPIC}"' in event_topics
     assert "module.event_bus.topic_ids[local.semantic_turn_physical_topic]" in root
 
@@ -69,6 +73,7 @@ def test_core_service_root_exports_operational_transport_topics() -> None:
         "FDAI_CANARY_TOPIC": "canary",
         "FDAI_HIL_DECISION_TOPIC": "hil_decisions",
         "FDAI_INVENTORY_RAW_TOPIC": "inventory_raw",
+        _OPERATING_MODEL_ENV: "operating_model",
         "FDAI_STAGE_TOPIC": "pipeline_stages",
     }
     for environment_name, topic_field in expected.items():
@@ -88,6 +93,7 @@ def test_core_service_root_exports_operational_transport_topics() -> None:
             ("pipeline_stages", "fdai.pipeline.stages"),
             ("semantic_requests", _REQUEST_TOPIC),
             ("semantic_projections", _PROJECTION_TOPIC),
+            ("operating_model", _OPERATING_MODEL_TOPIC),
             ("read_investigation_requests", _READ_REQUEST_TOPIC),
         ):
             assert f"{topic_field}" in variables
@@ -135,3 +141,16 @@ def test_legacy_container_modules_export_exact_semantic_env_vars() -> None:
         assert _PROJECTION_ENV in text
         assert _PHYSICAL_ENV in text
         assert _READ_REQUEST_ENV in text
+
+
+def test_aks_and_local_profiles_bind_the_operating_model_logical_topic() -> None:
+    standalone = (
+        _ROOT / "packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py"
+    ).read_text(encoding="utf-8")
+    local_prepare = (_ROOT / "scripts/deployment/azure/prepare-local-runtime-env.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert '"event_bus_operating_model_topic"' in standalone
+    assert f'"{_OPERATING_MODEL_ENV}": substrate_outputs["operating_model_topic"]' in standalone
+    assert f"{_OPERATING_MODEL_ENV}={_OPERATING_MODEL_TOPIC}" in local_prepare

@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: ad76b53deb2369f4c63ba6db5944d43e3f3a6ef9
+translation_source_sha: 11b8ebef4f578703b9aa0bbec7304aa288681873
 translation_revised: 2026-09-16
 ---
 # 지속형 운영 인스턴스 그래프
@@ -555,7 +555,7 @@ Resource ObjectSet receipt는 source generation 및 source completeness를 query
 evidence를 구분하고 공급자 configuration observation과 independently verified observation
 receipt도 구분합니다.
 
-읽기 전용 대화는 불완전한 원본을 설명하기 전에 검증된 행을 먼저 제시합니다. 빈 부분 결과에는 검증된 범위에서 일치하는 항목이 없다고 설명한 뒤 정확한 제한 사항과 복구 단계를 안내합니다. 부분 결과를 완전한 개수, 전체 부재 또는 현재 전체 인벤토리로 표현하지 않으며, 안전한 부분 집합이 없으면 판단을 보류합니다.
+읽기 전용 대화는 불완전한 원본을 설명하기 전에 검증된 행을 먼저 제시합니다. 빈 부분 결과에는 검증된 범위에서 일치하는 항목이 없다고 설명한 뒤 정확한 제한 사항과 복구 단계를 안내합니다. 부분 결과를 완전한 개수, 전체 부재 또는 현재 전체 인벤토리로 표현하지 않으며, 안전한 부분 집합이 없으면 판단을 보류합니다. 정확한 `BusinessService` 또는 `Workload` id, 이름, 배포 승인 alias는 `implemented_by`와 `workload_runs_on`을 따라 현재 Resource leaf에 도달할 수 있으며, 서버 소유 계획은 App Service, Container Apps 및 Kubernetes의 검증된 구성요소 상태를 읽되 전체 서비스 건강도, 원인, 누락된 신원 또는 실행 권한을 추론하지 않습니다.
 
 ## 원본부터 저장소까지 구현 감사
 

@@ -454,6 +454,7 @@ class SemanticPlanningCascade:
                         subject_constraints=proposal.subject_constraints,
                         utterance=utterance,
                         descriptors=descriptors,
+                        semantic_judgment=semantic_judgment,
                     )
                     investigation = normalize_investigation_relationships(
                         investigation,

@@ -231,18 +231,12 @@ def build_service_current_health_clarification(
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
     """Preserve service-to-resource health meaning until one service is identified."""
 
-    if (
-        judgment is None
-        or judgment.action_posture != "advise_only"
-        or judgment.primary_intent != "query.ontology_relationships"
-        or any(
-            target.canonical_value not in {None, "BusinessService", "Resource", "Workload"}
-            for target in judgment.targets
-        )
-    ):
+    if judgment is None or not _is_service_current_health_request(judgment):
         return None
     facets = {facet.replace("-", "_") for facet in judgment.requested_facets}
     if not _facets_describe_service_current_health(facets):
+        return None
+    if _exact_operating_target(judgment, utterance=utterance) is not None:
         return None
     proposal = SemanticFrameProposal(
         operation=SemanticOperation.SELECT,
@@ -265,6 +259,73 @@ def build_service_current_health_clarification(
         confidence=judgment.confidence,
     )
     return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+
+
+def build_logical_service_current_state_frame(
+    judgment: SemanticJudgmentProposal | None,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    """Bind one exact source-grounded service or workload to current runtime state."""
+
+    if judgment is None or not _is_service_current_health_request(judgment):
+        return None
+    facets = {facet.replace("-", "_") for facet in judgment.requested_facets}
+    target = _exact_operating_target(judgment, utterance=utterance)
+    if not _facets_describe_service_current_health(facets) or target is None:
+        return None
+    proposal = SemanticFrameProposal(
+        operation=SemanticOperation.SELECT,
+        subject_constraints=(
+            "BusinessService",
+            "Workload",
+            "Resource",
+            f"OperatingTarget.type={target[0]}",
+            f"OperatingTarget.value={target[1]}",
+        ),
+        measure_concepts=tuple(sorted(facets)),
+        temporal_scope={"kind": "current"},
+        output_shape=SemanticOutputShape.LOGICAL_SERVICE_CURRENT_STATE,
+        evidence_requirements=("authoritative_operating_model", "authoritative_inventory"),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=judgment.confidence,
+    )
+    return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+
+
+def _is_service_current_health_request(
+    judgment: SemanticJudgmentProposal | None,
+) -> bool:
+    return bool(
+        judgment is not None
+        and judgment.action_posture == "advise_only"
+        and judgment.primary_intent == "query.ontology_relationships"
+        and all(
+            target.canonical_value in {None, "BusinessService", "Resource", "Workload"}
+            for target in judgment.targets
+        )
+    )
+
+
+def _exact_operating_target(
+    judgment: SemanticJudgmentProposal,
+    *,
+    utterance: str,
+) -> tuple[str, str] | None:
+    if judgment.ambiguous:
+        return None
+    candidates = tuple(
+        (target.canonical_value, target.value)
+        for target in judgment.targets
+        if target.canonical_value in {"BusinessService", "Workload"}
+        and target.kind != "object_type"
+        and utterance[target.source_start : target.source_end] == target.value
+    )
+    return candidates[0] if len(candidates) == 1 else None
 
 
 def build_business_capability_mapping_frame(

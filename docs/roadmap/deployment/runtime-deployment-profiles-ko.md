@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 7e7199e5d66029be9cef1a5e99fac1e0b9ec86f3
+translation_source_sha: 66d96db1a7981284594ffa79befe4d1dee424573
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -178,6 +178,11 @@ Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 �
 명세를 typed Kubernetes `Deployment`, `Service`, `ServiceAccount`, `HorizontalPodAutoscaler`,
 `PodDisruptionBudget`, `NetworkPolicy`, `CronJob` 리소스로 변환합니다. 첫 AKS 구현은 장기 실행
 서비스마다 두 개의 replica를 유지하며 Knative 또는 KEDA를 요구하지 않습니다.
+
+두 렌더러 모두 `FDAI_OPERATING_MODEL_TOPIC`을 통해 Core를 `fdai.operating-model` 논리 토픽에
+연결합니다. 이 토픽은 기존 의미 physical Event Hub와 Managed Identity 전송을 공유하며 별도
+Event Hub 엔터티나 권한 채널이 아닙니다. AKS standalone 렌더러는 정확한 substrate 출력에서
+값을 가져오고 독립 및 legacy Container Apps 렌더러는 같은 typed 배포 입력을 받습니다.
 
 Operator의 배정 알림과 사람 승인(HIL) 전송에 필요한 가져오기는 같은 Operator Service
 패키지와 런타임 안의 기존 `iam_composition` 모듈에 모읍니다. 원래 어댑터와 팩터리 객체를
