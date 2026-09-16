@@ -190,6 +190,12 @@ IMPLEMENTED_PROOF_TESTS: Mapping[str, tuple[str, ...]] = {
         "services/core-control-plane/tests/agents/test_pantheon_doc_parity.py::test_agent_catalog_layer_and_ownership_match_specs_in_both_locales",
         "services/core-control-plane/tests/agents/test_pantheon_concurrency_proof.py::test_multi_message_fanout_does_not_serialize_or_steal",
     ),
+    "FDAI-CONST-004": (
+        "services/core-control-plane/tests/core/operational_learning/test_threshold_bounds.py::test_every_adaptive_threshold_field_declares_an_ontology_bound",
+        "services/core-control-plane/tests/core/operational_learning/test_threshold_bounds.py::test_detection_routing_bounds_load_from_the_pinned_shipped_contract",
+        "services/core-control-plane/tests/core/operational_learning/test_threshold_bounds.py::test_every_detection_routing_threshold_stays_inside_its_ontology_bound",
+        "services/core-control-plane/tests/core/operational_learning/test_threshold_bounds.py::test_every_production_routing_and_detection_threshold_has_a_versioned_bound",
+    ),
     "FDAI-CONST-005": (
         "services/core-control-plane/tests/scenarios/test_v2026_10_frozen.py::test_v2026_10_completion_uses_only_reviewed_replay_and_outcome_bindings",
         "services/core-control-plane/tests/scenarios/test_v2026_10_outcomes.py::test_sre_outcome_closes_recovery_and_recurrence",

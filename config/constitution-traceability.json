@@ -33,13 +33,13 @@
     },
     {
       "id": "FDAI-CONST-004",
-      "status": "partial",
+      "status": "implemented",
       "owner_docs": [".github/copilot-instructions.md", "docs/roadmap/architecture/operating-ontology.md", "docs/roadmap/architecture/operating-ontology-metamodel.md", "docs/roadmap/rules-and-detection/rule-governance.md"],
-      "implementation": ["services/core-control-plane/src/fdai/shared/ontology", "services/core-control-plane/src/fdai/core/operational_learning"],
-      "schemas": ["services/core-control-plane/src/fdai/shared/contracts/ontology/object-type.json", "services/core-control-plane/src/fdai/shared/contracts/ontology/action-type.json"],
-      "tests": ["services/core-control-plane/tests/agents/test_ontology_alignment.py", "services/core-control-plane/tests/core/operational_learning"],
-      "runtime_evidence": ["services/core-control-plane/src/fdai/core/operational_context", "services/core-control-plane/src/fdai/core/operational_learning"],
-      "gap": "Every numeric threshold the registry discovers is now bound to an ontology declaration, and both the shadow-dwell floors and the graph-model ratio range are read from that declaration instead of restated. Thresholds outside the promotion gate, such as detection and routing thresholds, are still literals at their use sites and are not registered yet."
+      "implementation": ["services/core-control-plane/src/fdai/shared/ontology/threshold_bounds.py", "services/core-control-plane/src/fdai/core/operational_learning", "services/core-control-plane/src/fdai/delivery/runtime_settings.py", "services/core-control-plane/src/fdai/runtime/control_loop.py", "services/core-control-plane/src/fdai/runtime/control_loop_auxiliary.py", "services/core-control-plane/src/fdai/runtime/bootstrap_pantheon.py"],
+      "schemas": ["services/core-control-plane/src/fdai/shared/contracts/ontology/object-type.json", "services/core-control-plane/src/fdai/shared/contracts/ontology/action-type.json", "services/core-control-plane/src/fdai/shared/contracts/ontology/detection-routing-bounds.json", "services/core-control-plane/src/fdai/shared/config/schema.json"],
+      "tests": ["services/core-control-plane/tests/agents/test_ontology_alignment.py", "services/core-control-plane/tests/core/operational_learning/test_threshold_bounds.py"],
+      "runtime_evidence": ["services/core-control-plane/src/fdai/core/operational_context", "services/core-control-plane/src/fdai/core/operational_learning", "services/core-control-plane/src/fdai/runtime/control_loop.py", "services/core-control-plane/src/fdai/runtime/bootstrap_pantheon.py"],
+      "gap": null
     },
     {
       "id": "FDAI-CONST-005",
