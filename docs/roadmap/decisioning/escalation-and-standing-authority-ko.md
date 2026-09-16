@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 9583ee90921005ca00311c7414ee4a264ebcd2fe
-translation_revised: 2026-09-15
+translation_source_sha: db30f4a85c913bddedc463b0a1d30e8c45ff449a
+translation_revised: 2026-09-16
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -164,6 +164,12 @@ shadow의 무결성 문제는 관찰에 그치고 실제 승인을 종결하지 
 |------|-------------|---------------|------|
 | **채널 대체 경로** | 전달 실패 | 채널 도달 불가 / 전송 오류 | [channels-and-notifications-ko.md § 6](../interfaces/channels-and-notifications-ko.md) |
 | **에스컬레이션 사다리** | 사람 무응답 | rung TTL 이 결정 없이 경과 | 이 문서 |
+
+명시적으로 선택한 ActionType에서는 검토된
+[사람 보고선](../interfaces/human-report-lines-and-approval-routing-ko.md)이 사다리의 사람 순서를
+제공할 수 있습니다. FDAI는 첫 알림 전에 요청자에게 연락 동의를 받습니다. 각 전달 전과 승인을
+수락하기 전에 그래프 리비전, 현재 역할 및 principal-to-ActionType 정책을 다시 확인합니다.
+경로가 변경되거나 불완전하면 관련 없는 Owner로 대체하지 않고 안전한 무작업으로 종료합니다.
 
 각 rung 은 **누구**(Entra 그룹으로, 오늘날 승인자 그룹과 똑같이 컨트롤 플레인 바깥에서
 해석됨), **rung 별 TTL**, 사용 가능한 **알림 카테고리**(결정을 운반하는 rung 은 A1,

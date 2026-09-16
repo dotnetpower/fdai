@@ -6,6 +6,7 @@ import {
 } from "../api-hil-decision";
 import { architectureHref } from "../components/architecture-map.model";
 import type { HilQueueItem } from "../types";
+import type { ReportLineContactRequest } from "./report-lines.model";
 import {
   AsyncBoundary,
   EmptyState,
@@ -57,6 +58,10 @@ export function HilQueueRoute({ client, dataMode }: Props) {
   });
   const [refreshRevision, setRefreshRevision] = useState(0);
   const [decisionReceipt, setDecisionReceipt] = useState<HilDecisionReceipt | null>(null);
+  const [contactState, setContactState] = useState<AsyncState<readonly ReportLineContactRequest[]>>({
+    status: "loading",
+  });
+  const [contactMessage, setContactMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const sync = () => setQuery(currentRoute().search.get("q") ?? "");
@@ -83,6 +88,34 @@ export function HilQueueRoute({ client, dataMode }: Props) {
     };
   }, [client, serverQuery, refreshRevision]);
 
+  useEffect(() => {
+    if (dataMode !== "live") {
+      setContactState({ status: "ready", data: [] });
+      return undefined;
+    }
+    let cancelled = false;
+    void client.reportLineContactRequests().then(
+      (items) => {
+        if (!cancelled) setContactState({ status: "ready", data: items });
+      },
+      (error: unknown) => {
+        if (!cancelled) {
+          setContactState(
+            isOptionalOperatorApiUnavailable(error)
+              ? { status: "unavailable", message: t("nav.source.unavailable") }
+              : {
+                status: "error",
+                message: error instanceof Error ? error.message : String(error),
+              },
+          );
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [client, dataMode, refreshRevision]);
+
   return (
     <div class="stack">
       <PageHeader
@@ -92,6 +125,21 @@ export function HilQueueRoute({ client, dataMode }: Props) {
           <StatusPill kind="neutral" label={t("approvals.requestOnly")} />
         }
       />
+      {contactMessage !== null ? (
+        <div class="state-block state-success" role="status">{contactMessage}</div>
+      ) : null}
+      <AsyncBoundary state={contactState} resourceLabel={t("approvals.contactTitle")}>
+        {(items) => (
+          <ReportLineContactRequests
+            items={items}
+            client={client}
+            onRecorded={() => {
+              setContactMessage(t("approvals.contactQueued"));
+              setRefreshRevision((revision) => revision + 1);
+            }}
+          />
+        )}
+      </AsyncBoundary>
       <AsyncBoundary state={state} resourceLabel={t("approvals.resource")}>
         {(data) => (
           <HilBody
@@ -109,6 +157,104 @@ export function HilQueueRoute({ client, dataMode }: Props) {
         )}
       </AsyncBoundary>
     </div>
+  );
+}
+
+function ReportLineContactRequests({
+  items,
+  client,
+  onRecorded,
+}: {
+  readonly items: readonly ReportLineContactRequest[];
+  readonly client: OperatorApiClient;
+  readonly onRecorded: () => void;
+}) {
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  if (items.length === 0) return null;
+
+  const decide = async (item: ReportLineContactRequest, consent: boolean) => {
+    setPendingId(item.approvalId);
+    setError(null);
+    try {
+      await client.decideReportLineContact(
+        item.approvalId,
+        consent,
+        item.consentRevision,
+        `report-line-contact:${item.approvalId}:${item.consentRevision}:${consent}`,
+      );
+      onRecorded();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setPendingId(null);
+    }
+  };
+
+  return (
+    <section class="settings-iam-panel" aria-labelledby="report-line-contact-title">
+      <header class="settings-iam-panel-head">
+        <div>
+          <h2 id="report-line-contact-title">{t("approvals.contactTitle")}</h2>
+          <p>{t("approvals.contactBody")}</p>
+        </div>
+      </header>
+      {error !== null ? <div class="state-block state-error" role="alert">{error}</div> : null}
+      <div class="approval-card-list">
+        {items.map((item) => (
+          <article class="approval-card" key={item.approvalId}>
+            <div class="approval-card-body">
+              <header class="approval-card-head">
+                <h3>{item.actionType}</h3>
+                <StatusPill kind="hil" label={t("approvals.requestOnly")} />
+              </header>
+              <p><strong>{t("approvals.fieldTarget")}</strong> {item.targetRef}</p>
+              <p>
+                <strong>{t("approvals.contactRoute")}</strong>{" "}
+                {item.routeSubjects.join(" -> ")}
+              </p>
+              <p>{t("approvals.contactExpires", {
+                timestamp: formatConsoleTimestamp(item.expiresAt),
+              })}</p>
+              <details>
+                <summary>{t("approvals.contactTechnicalDetails")}</summary>
+                <dl class="approval-facts">
+                  <div>
+                    <dt>{t("approvals.contactApprovalId")}</dt>
+                    <dd><code>{item.approvalId}</code></dd>
+                  </div>
+                  <div>
+                    <dt>{t("approvals.contactConsentId")}</dt>
+                    <dd><code>{item.consentId}</code></dd>
+                  </div>
+                </dl>
+              </details>
+              <div class="approval-decision-actions">
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  disabled={pendingId !== null}
+                  onClick={() => void decide(item, true)}
+                >
+                  {pendingId === item.approvalId
+                    ? t("approvals.contactRecording")
+                    : t("approvals.sendContact")}
+                </button>
+                <button
+                  type="button"
+                  class="btn"
+                  disabled={pendingId !== null}
+                  onClick={() => void decide(item, false)}
+                >
+                  {t("approvals.declineContact")}
+                </button>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 

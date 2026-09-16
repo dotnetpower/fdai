@@ -166,7 +166,10 @@ class AssignmentRequestIntake:
         payload = request["payload"]
         if not isinstance(payload, Mapping):
             return "operator_receipt_unauthorized"
-        if (payload.get("case_kind") == "scoped_duty") != (notice.schema_version == "1.2.0"):
+        case_kind = payload.get("case_kind")
+        if (case_kind == "scoped_duty") != (notice.schema_version == "1.2.0"):
+            return "operator_receipt_mismatch"
+        if (case_kind == "report_line") != (notice.schema_version == "1.3.0"):
             return "operator_receipt_mismatch"
         source_case = (
             record["proposal_id"]
@@ -190,8 +193,19 @@ class AssignmentRequestIntake:
                 or role not in {"Reader", "Contributor", "Approver", "Owner"}
                 for role in roles
             )
-            or "Owner" not in roles
         ):
+            return "operator_receipt_unauthorized"
+        if case_kind == "report_line":
+            required_roles = (
+                {"Contributor", "Approver", "Owner"}
+                if notice.operation == "assignments.create"
+                else {"Owner"}
+                if notice.operation == "assignments.review"
+                else {"Reader", "Contributor", "Approver", "Owner"}
+            )
+            if not required_roles.intersection(roles):
+                return "operator_receipt_unauthorized"
+        elif "Owner" not in roles:
             return "operator_receipt_unauthorized"
         return "verified_operator_receipt"
 

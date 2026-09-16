@@ -25,6 +25,7 @@ from fdai_service_contracts import (
     SemanticDirectResponseIntent,
     SemanticTurnResult,
 )
+from fdai_service_contracts.incident_creation import IncidentCreationDraft
 from fdai_service_contracts.ontology_query import EvidenceAuthority
 from fdai_service_contracts.test_context import TestContextDraft
 from pydantic import ValidationError
@@ -123,6 +124,18 @@ def semantic_done_event_data(
         if disposition != "action_draft":
             raise ValueError("test context draft requires a draft-only presentation")
         context_draft = TestContextDraft.model_validate(context_draft).model_dump(mode="json")
+    incident_creation_draft = (
+        IncidentCreationDraft.model_validate(payload.get("incident_creation_draft"))
+        if isinstance(payload, Mapping) and payload.get("incident_creation_draft") is not None
+        else None
+    )
+    if incident_creation_draft is not None and disposition != "action_draft":
+        raise ValueError("incident creation draft requires a draft-only presentation")
+    if incident_creation_draft is not None and (
+        incident_creation_draft.session_id != semantic.get("session_id")
+        or incident_creation_draft.idempotency_key != projection.get("idempotency_key")
+    ):
+        raise ValueError("incident creation draft does not match its projection identity")
     presentation_artifact = semantic_presentation_artifact(
         semantic=semantic,
         technical_details=technical_details,
@@ -164,6 +177,18 @@ def semantic_done_event_data(
             "status": disposition,
             "answer": answer,
             **({"test_context_draft": context_draft} if context_draft is not None else {}),
+            **(
+                {
+                    "action_draft": {
+                        "action_type": incident_creation_draft.action_type,
+                        "arguments": incident_creation_draft.arguments.model_dump(mode="json"),
+                        "session_id": incident_creation_draft.session_id,
+                        "idempotency_key": incident_creation_draft.idempotency_key,
+                    }
+                }
+                if incident_creation_draft is not None
+                else {}
+            ),
             "source": "semantic-direct-response" if direct_response else authority,
             **(
                 {

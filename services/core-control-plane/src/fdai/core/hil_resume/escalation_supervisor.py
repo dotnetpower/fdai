@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Protocol
 
+from fdai.core.hil_escalation import EscalationDuty, EscalationRung
 from fdai.core.hil_resume.escalation_catalog_binding import CatalogEscalationTiming
 from fdai.core.hil_resume.forecast_urgency import (
     ForecastUrgencyReader,
@@ -24,31 +25,11 @@ from fdai.shared.providers.state_store import StateStore
 _PARK_PREFIX = "hil_park:"
 
 
-class EscalationDuty(StrEnum):
-    PRIMARY = "primary"
-    BACKUP = "backup"
-    ESCALATION = "escalation"
-    MAINTAINER = "maintainer"
-
-
 class EscalationStatus(StrEnum):
     PENDING_DELIVERY = "pending_delivery"
     AWAITING_DECISION = "awaiting_decision"
     EXHAUSTED = "exhausted"
     DECIDED = "decided"
-
-
-@dataclass(frozen=True, slots=True)
-class EscalationRung:
-    subject_ref: str
-    duty: EscalationDuty
-    minimum_role: str = "Approver"
-
-    def __post_init__(self) -> None:
-        if not self.subject_ref.strip() or len(self.subject_ref) > 256:
-            raise ValueError("escalation subject_ref MUST be non-empty and bounded")
-        if self.minimum_role not in {"Approver", "Owner"}:
-            raise ValueError("escalation minimum_role MUST be Approver or Owner")
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,11 +55,26 @@ class EscalationPolicy:
 
 
 class RungEligibility(Protocol):
-    async def is_eligible(self, *, subject_ref: str, minimum_role: str) -> bool: ...
+    async def is_eligible(
+        self,
+        *,
+        subject_ref: str,
+        minimum_role: str,
+        context: Mapping[str, Any] | None = None,
+        at: datetime | None = None,
+    ) -> bool: ...
 
 
 class _UnavailableEligibility:
-    async def is_eligible(self, *, subject_ref: str, minimum_role: str) -> bool:
+    async def is_eligible(
+        self,
+        *,
+        subject_ref: str,
+        minimum_role: str,
+        context: Mapping[str, Any] | None = None,
+        at: datetime | None = None,
+    ) -> bool:
+        del subject_ref, minimum_role, context, at
         return False
 
 
@@ -254,6 +250,10 @@ class HumanNonResponseSupervisor:
         parks = await self._next_scan_page()
         delivered = advanced = exhausted = delivery_failed = observed = 0
         for parked in parks:
+            if parked.get("status") == "awaiting_contact_consent":
+                if _contact_consent_due(parked, now=now):
+                    exhausted += int(await self._expire_contact_consent(parked, now=now))
+                continue
             if parked.get("status") != "pending" or not isinstance(
                 parked.get("escalation"), Mapping
             ):
@@ -380,6 +380,8 @@ class HumanNonResponseSupervisor:
             eligible = await self._eligibility.is_eligible(
                 subject_ref=str(rung["subject_ref"]),
                 minimum_role=str(rung["minimum_role"]),
+                context=parked,
+                at=now,
             )
         except Exception:  # noqa: BLE001 - current identity evidence is required, never inferred
             await self._cas(
@@ -504,6 +506,47 @@ class HumanNonResponseSupervisor:
             now=now,
         )
 
+    async def _expire_contact_consent(
+        self,
+        parked: Mapping[str, Any],
+        *,
+        now: datetime,
+    ) -> bool:
+        """Terminalize an undispatched consent wait independently of autonomy mode."""
+
+        revision = _revision(parked)
+        updated = dict(parked)
+        updated.update(
+            {
+                "status": "resolved",
+                "decision": "timeout",
+                "approver_oid": "system:contact-consent-expiry",
+                "resolved_at": now.isoformat(),
+                "revision": revision + 1,
+            }
+        )
+        approval_id = str(parked["approval_id"])
+        return await self._state_store.compare_and_set_state_with_audit(
+            f"{_PARK_PREFIX}{approval_id}",
+            updated,
+            expected_revision=revision,
+            audit_entry={
+                "actor": self._actor,
+                "action_kind": "hil.report_line.contact_consent_expired",
+                "mode": "lifecycle",
+                "idempotency_key": (
+                    f"{parked.get('idempotency_key')}:"
+                    f"hil.report_line.contact_consent_expired:{revision}"
+                ),
+                "approval_id": approval_id,
+                "correlation_id": str(parked.get("correlation_id") or approval_id),
+                "action_hash": parked.get("action_hash"),
+                "reason": "contact_consent_expired",
+                "terminal_noop": True,
+                "recorded_at": now.isoformat(),
+            },
+        )
+
     async def _cas(
         self,
         parked: Mapping[str, Any],
@@ -544,6 +587,16 @@ def _revision(parked: Mapping[str, Any]) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ValueError("parked approval revision MUST be a non-negative integer")
     return int(value)
+
+
+def _contact_consent_due(parked: Mapping[str, Any], *, now: datetime) -> bool:
+    value = parked.get("contact_consent_expires_at")
+    if not isinstance(value, str) or not value:
+        return True
+    try:
+        return _timestamp(value, "contact_consent_expires_at") <= now
+    except ValueError:
+        return True
 
 
 def _escalation(parked: Mapping[str, Any]) -> Mapping[str, Any]:

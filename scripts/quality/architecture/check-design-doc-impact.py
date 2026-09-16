@@ -21,6 +21,12 @@ VERSION_METADATA_PATHS = frozenset(
         "console/package.json",
     }
 )
+DERIVED_OUTPUT_PATHS = frozenset(
+    {
+        "eval/golden-dataset/question-bank/question-bank.json",
+        "eval/golden-dataset/question-bank/review-catalog.md",
+    }
+)
 
 
 def _git_paths(args: list[str]) -> set[str]:
@@ -156,6 +162,7 @@ def missing_doc_updates(
 ) -> list[tuple[str, tuple[str, ...], tuple[str, ...]]]:
     failures: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = []
     canonical_paths = {_canonical_doc_path(path) for path in paths}
+    behavior_paths = paths - DERIVED_OUTPUT_PATHS
     routes = manifest["routes"]
     routes_by_id = {str(route["id"]): route for route in routes}
     for route in routes:
@@ -166,7 +173,7 @@ def missing_doc_updates(
         impacted = tuple(
             sorted(
                 path
-                for path in paths
+                for path in behavior_paths
                 if any(
                     _matches(candidate, pattern)
                     for candidate in _route_paths(path)

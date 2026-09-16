@@ -42,6 +42,8 @@ from fdai_operator_service.families.iam.contracts import (
     HumanIdentityDirectory,
     KillSwitchOutbox,
     ModelSettingsOutbox,
+    ReportingLineOutbox,
+    ReportLineContactOutbox,
     RuntimeSettingsOutbox,
     SlackWebhookTester,
     TeamsWorkflowTester,
@@ -70,6 +72,10 @@ from fdai_operator_service.families.iam.manifest import IAM_FAMILY_MANIFEST
 from fdai_operator_service.families.iam.notification_receipt import (
     make_notification_receipt_route,
 )
+from fdai_operator_service.families.iam.report_line_contact import (
+    make_report_line_contact_route,
+)
+from fdai_operator_service.families.iam.report_lines import make_reporting_line_routes
 from fdai_operator_service.families.iam.scoped_duties import make_scoped_duty_routes
 from fdai_operator_service.families.iam.scoped_duty_contracts import ScopedDutyOutbox
 from fdai_operator_service.families.iam.settings import (
@@ -94,6 +100,8 @@ class IamFamilyBindings:
     directory: HumanIdentityDirectory | None = None
     assignments: AssignmentRequestOutbox | None = None
     scoped_duties: ScopedDutyOutbox | None = None
+    reporting_lines: ReportingLineOutbox | None = None
+    report_line_contact: ReportLineContactOutbox | None = None
     handover_goals: HandoverGoalOutbox | None = None
     handover_conversations: HandoverConversationBinder | None = None
     model_settings: ModelSettingsOutbox | None = None
@@ -141,6 +149,10 @@ def make_iam_family_routes(bindings: IamFamilyBindings) -> tuple[Route, ...]:
             authorize=bindings.authorize,
         ),
         *make_scoped_duty_routes(outbox=bindings.scoped_duties, authorize=bindings.authorize),
+        *make_reporting_line_routes(
+            outbox=bindings.reporting_lines,
+            authorize=bindings.authorize,
+        ),
         *make_model_settings_routes(
             outbox=bindings.model_settings,
             authorize=bindings.authorize,
@@ -169,6 +181,10 @@ def make_iam_family_routes(bindings: IamFamilyBindings) -> tuple[Route, ...]:
             outbox=bindings.hil_outbox,
             audit=bindings.hil_audit,
             context_reader=bindings.hil_context,
+        ),
+        *make_report_line_contact_route(
+            authorize=bindings.authorize,
+            outbox=bindings.report_line_contact,
         ),
         make_hil_callback_route(
             registry=bindings.hil_registry,

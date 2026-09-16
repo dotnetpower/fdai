@@ -72,6 +72,7 @@ def _claim(*, actor_ref: str = "operator:operator-one") -> ActionProposalClaim:
                 "ontology_intent": _intent(actor_ref=actor_ref),
             },
         },
+        accepted_at="2026-09-16T02:05:00+00:00",
         attempt=1,
     )
 
@@ -223,6 +224,7 @@ async def test_store_claim_uses_generic_proposal_dispatch_fields(
                 "value": {
                     "principal_id": "operator-one",
                     "payload": _claim().payload,
+                    "accepted_at": "2026-09-16T02:05:00+00:00",
                     "attempt": 1,
                 },
             }

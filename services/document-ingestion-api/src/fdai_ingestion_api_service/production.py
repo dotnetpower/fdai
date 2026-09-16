@@ -52,6 +52,9 @@ from fdai_ingestion_api_service.adapters.postgres import (
 from fdai_ingestion_api_service.adapters.protection import (
     PurviewRmsPreviewAuthorizer,
 )
+from fdai_ingestion_api_service.adapters.report_lines import (
+    PostgresReportingLineDraftReader,
+)
 from fdai_ingestion_api_service.adapters.sharepoint import (
     MicrosoftGraphSharePointDeltaSource,
     SharePointDeltaConfig,
@@ -518,6 +521,7 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
             else frozenset(),
         ),
         handover_drafts=PostgresHandoverDraftReader(dsn=dsn),
+        report_line_drafts=PostgresReportingLineDraftReader(dsn=dsn),
         stewardship_webhook=stewardship_webhook,
         repository_handover_intake=repository_handover_intake,
         cloud_knowledge=cloud_knowledge,

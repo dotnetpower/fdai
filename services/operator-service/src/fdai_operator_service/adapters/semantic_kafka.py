@@ -20,6 +20,7 @@ from fdai_service_contracts.assignment_transport import (
     ASSIGNMENT_REQUEST_TOPIC,
 )
 from fdai_service_contracts.framework_assessment import FRAMEWORK_ASSESSMENT_TOPIC
+from fdai_service_contracts.incident_creation import INCIDENT_CREATION_REQUEST_TOPIC
 from fdai_service_contracts.incident_intervention import (
     INCIDENT_INTERVENTION_REQUEST_TOPIC,
 )
@@ -71,6 +72,7 @@ class OperatorSemanticKafkaConfig:
     event_topic: str | None = None
     hil_decision_topic: str | None = None
     notification_receipt_topic: str | None = None
+    incident_creation_topic: str = INCIDENT_CREATION_REQUEST_TOPIC
     incident_intervention_topic: str = INCIDENT_INTERVENTION_REQUEST_TOPIC
     assignment_request_topic: str = ASSIGNMENT_REQUEST_TOPIC
     assignment_projection_topic: str = ASSIGNMENT_PROJECTION_TOPIC
@@ -150,6 +152,11 @@ class OperatorSemanticKafkaConfig:
             self.notification_receipt_topic,
             occupied=configured_topics,
             error_message="notification receipt topic MUST be distinct and valid",
+        )
+        _require_distinct_topic(
+            self.incident_creation_topic,
+            occupied=configured_topics,
+            error_message="Incident creation topic MUST be distinct and valid",
         )
         _require_distinct_topic(
             self.incident_intervention_topic,
@@ -239,6 +246,7 @@ class OperatorSemanticKafkaBus:
             allowed.add(self._config.hil_decision_topic)
         if self._config.notification_receipt_topic is not None:
             allowed.add(self._config.notification_receipt_topic)
+        allowed.add(self._config.incident_creation_topic)
         allowed.add(self._config.incident_intervention_topic)
         allowed.add(self._config.alert_quality_topic + self._config.dlq_suffix)
         allowed.add(self._config.assignment_request_topic)

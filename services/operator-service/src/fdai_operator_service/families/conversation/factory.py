@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 
 from fdai_operator_service.families.conversation.contracts import (
+    ActionConfirmationBody,
     ConversationAuthorizer,
     ConversationBoundaryError,
     ConversationProjectionReader,
@@ -72,11 +73,47 @@ def build_conversation_routes(
 def _route(spec: ConversationRouteSpec, dependencies: ConversationFamilyDependencies) -> Route:
     if spec.mode == "read":
         endpoint = _read_endpoint(spec, dependencies)
+    elif spec.mode == "action_confirmation":
+        endpoint = _action_confirmation_endpoint(spec, dependencies)
     elif spec.mode == "proposal":
         endpoint = _proposal_endpoint(spec, dependencies)
     else:
         endpoint = _stream_endpoint(spec, dependencies)
     return Route(spec.path, endpoint, methods=[spec.method], name=spec.name)
+
+
+def _action_confirmation_endpoint(
+    spec: ConversationRouteSpec,
+    dependencies: ConversationFamilyDependencies,
+) -> _Endpoint:
+    async def endpoint(request: Request) -> Response:
+        try:
+            scope = await dependencies.authorizer.authorize(request, operation=spec.operation)
+            raw = await read_json_body(request, maximum=spec.max_body_bytes)
+            try:
+                body = ActionConfirmationBody.model_validate(raw)
+            except ValidationError as exc:
+                raise ConversationBoundaryError(
+                    400,
+                    "invalid_incident_confirmation",
+                    "incident creation confirmation is invalid",
+                ) from exc
+            if dependencies.outbox is None:
+                return unavailable_response("incident creation confirmation")
+            receipt = await dependencies.outbox.append(
+                ConversationProposal(
+                    operation=spec.operation,
+                    scope=scope,
+                    idempotency_key=body.idempotency_key,
+                    body=body.model_dump(mode="json"),
+                    confirmed=True,
+                )
+            )
+            return response_from_contract(receipt.response)
+        except ConversationBoundaryError as exc:
+            return boundary_error_response(exc)
+
+    return endpoint
 
 
 def _read_endpoint(

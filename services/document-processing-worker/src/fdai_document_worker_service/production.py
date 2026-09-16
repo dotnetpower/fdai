@@ -35,7 +35,10 @@ from fdai_document_worker_service.adapters.event_bus import (
     EventHubsKafkaConfig,
     MultiplexedEventBus,
 )
-from fdai_document_worker_service.adapters.graph import GraphPersonDirectory
+from fdai_document_worker_service.adapters.graph import (
+    GraphPersonDirectory,
+    GraphReportingLineDirectory,
+)
 from fdai_document_worker_service.adapters.handover import PostgresHandoverDraftStore
 from fdai_document_worker_service.adapters.local import (
     DeterministicLocalEmbeddingModel,
@@ -68,6 +71,7 @@ from fdai_document_worker_service.adapters.protection import (
 from fdai_document_worker_service.adapters.protection_state import (
     PostgresProtectionReconciliationStore,
 )
+from fdai_document_worker_service.adapters.report_lines import PostgresReportingLineDraftStore
 from fdai_document_worker_service.adapters.storage import (
     AzureDataLakeArtifactStore,
     AzureDataLakeConfig,
@@ -84,6 +88,10 @@ from fdai_document_worker_service.protection_reconciliation import (
     ProtectionReconciliationService,
 )
 from fdai_document_worker_service.purge import PostgresDocumentPurgeVerifier
+from fdai_document_worker_service.report_lines import (
+    NullReportingLineDirectory,
+    ReportLineBootstrapConsumer,
+)
 from fdai_document_worker_service.supervisor import (
     DependencyReadinessError,
     IngestionWorkerSupervisor,
@@ -378,6 +386,28 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
                 stewardship=stewardship_input_from_environment(env),
                 confidence_floor=_bounded_float(
                     env, "FDAI_HANDOVER_CONFIDENCE_FLOOR", 0.6, minimum=0.0, maximum=1.0
+                ),
+            ),
+            ReportLineBootstrapConsumer(
+                directory=(
+                    GraphReportingLineDirectory(
+                        credential=_deployed_credential(credential),
+                        client=http_client,
+                        base_url=env.get(
+                            "FDAI_GRAPH_BASE_URL", "https://graph.microsoft.com/v1.0"
+                        ).strip(),
+                    )
+                    if not uses_local_document_providers(execution_venue)
+                    and _truthy(env.get("FDAI_GRAPH_REPORT_LINES_ENABLED", ""))
+                    else NullReportingLineDirectory()
+                ),
+                store=PostgresReportingLineDraftStore(dsn=dsn),
+                confidence_floor=_bounded_float(
+                    env,
+                    "FDAI_REPORT_LINE_CONFIDENCE_FLOOR",
+                    0.8,
+                    minimum=0.0,
+                    maximum=1.0,
                 ),
             ),
         ),

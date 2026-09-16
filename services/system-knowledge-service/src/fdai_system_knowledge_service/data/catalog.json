@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:d0b86bf50e0b408f74584b4ad682d796fc3594fb0db06457eff1ba51bcb6c208",
+  "catalog_digest": "sha256:6a49390fd6deb03b3895ccaf3f0ea7acdd63654219ad7454e5578ee1f62c8c2b",
   "execution_authority": false,
-  "generated_at": "2026-09-16T05:47:26.248447Z",
+  "generated_at": "2026-09-16T10:05:38.590944Z",
   "records": [
     {
       "designed_behavior": [
@@ -149,11 +149,11 @@
         "How does FDAI ingest documents?",
         "FDAI는 문서를 어떻게 수집하나요?"
       ],
-      "record_digest": "sha256:696ed164f5710976136ff19a5b022b1ff3401dda1c5f74aeb15b400de828570f",
+      "record_digest": "sha256:06f36bc884f542aa8d7183ffc47db95f43e4b5c2d3d5dc2fd950cbfc43f4147f",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "c4244b042e8eba19f4ad73b9fb4ef1cd7e92726a",
+          "blob_sha": "bcd02fda25ca4f51cd6708b7647a8bc74c4f173e",
           "line_end": 104,
           "line_start": 104,
           "path": "docs/roadmap/interfaces/document-ingestion.md",
@@ -162,7 +162,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "c4244b042e8eba19f4ad73b9fb4ef1cd7e92726a",
+          "blob_sha": "bcd02fda25ca4f51cd6708b7647a8bc74c4f173e",
           "line_end": 573,
           "line_start": 573,
           "path": "docs/roadmap/interfaces/document-ingestion.md",
@@ -268,11 +268,11 @@
         "How does FDAI authenticate and authorize people?",
         "FDAI는 사용자를 어떻게 인증하고 권한을 확인하나요?"
       ],
-      "record_digest": "sha256:e628c02b30420c31d8db80a3abd9c82e7a63b72b51b743252f34645884beab00",
+      "record_digest": "sha256:d9a0b12265f6ba47df3dfb6710df05e469dc4a83e2b78fabc57d8234fed3d9c1",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "7372044e9ed9be186cb71fb1c4185bb5ce118dd8",
+          "blob_sha": "c01a278243cab80909053f99b41dae99cdaed881",
           "line_end": 23,
           "line_start": 23,
           "path": "docs/roadmap/interfaces/user-rbac-and-identity.md",
@@ -302,11 +302,11 @@
         "What does the FDAI ontology do?",
         "FDAI 온톨로지는 어떤 역할을 하나요?"
       ],
-      "record_digest": "sha256:c06ea28eaaf8ff4f88573cdd828a4c641b8194fdc349e56567b7ede4eeddc761",
+      "record_digest": "sha256:feb34ba9b999c60a716e75d61c242e3122ac647e33618e5a8f3944c9336e9e7e",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "9a0024f7713d153fafb265315ff16b5a08443911",
+          "blob_sha": "4330d3cf80f086012cc9ecd24507a613c2e04680",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/architecture/operating-ontology.md",
@@ -448,7 +448,7 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:04423c119a6defacff01848af89920db91af65d8b17cfd06a70e64a2a296ed04",
+      "record_digest": "sha256:183e0d9f0e727bc20b81cd89affdab0fd387dac7750c1abb0ace7ea29010f1bf",
       "sources": [
         {
           "authority_role": "design",
@@ -461,7 +461,7 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "e9e2774da19ee01a72d0cdd89e94f650cc376745",
+          "blob_sha": "6d133a5e5e309f22e06b2b233ec7052ccc5363a4",
           "line_end": 86,
           "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:f21139c51c34b37dce1aa527eeaa113ad38f7234433f60f9420736bf7eb993ba",
+      "record_digest": "sha256:12014cc481b8353cffe580fff56cf3df609c0718f1901942ad2b099634a828c2",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "e9e2774da19ee01a72d0cdd89e94f650cc376745",
+          "blob_sha": "6d133a5e5e309f22e06b2b233ec7052ccc5363a4",
           "line_end": 86,
           "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "91cb534be68e186eff2ef346896e0f29708e18cf"
+  "source_revision": "f2e67a931cc02efeb691f1ef602440e8c9d01951"
 }

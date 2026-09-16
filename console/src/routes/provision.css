@@ -1,59 +1,570 @@
-.provision { display: grid; min-width: 0; gap: 24px; }
-.provision-sub,
-.provision-section-head p,
-.provision-inventory dt,
-.provision-readiness dt { color: var(--fg-muted); }
-.provision-sub,
-.provision-section-head p { margin: 0; }
-.provision-sub { max-width: 76ch; overflow-wrap: anywhere; }
-.provision-sub code { white-space: normal; }
-.provision-meter { height: 8px; overflow: hidden; border-radius: var(--cs-radius-sm); background: var(--cs-shade); }
-.provision-meter-fill { height: 100%; background: var(--cs-steel); transition: width 180ms ease; }
-.provision-meter.is-failed .provision-meter-fill { background: var(--danger); }
-.provision-meter.is-done .provision-meter-fill { background: var(--success); }
-.provision-pct { margin-top: -16px; text-align: right; font-variant-numeric: tabular-nums; }
-.provision-section { display: grid; gap: 16px; padding-top: 24px; border-top: 1px solid var(--border); }
-.provision-section-head { display: flex; align-items: start; justify-content: space-between; gap: 24px; }
-.provision-section-head h2 { margin: 0 0 4px; font-size: var(--cs-type-section-title-size); }
-.provision-section-head code { max-width: 42ch; overflow-wrap: anywhere; }
-.provision-stages { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; margin: 0; padding: 0; list-style: none; }
-.provision-stage { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 42px; border-bottom: 1px solid var(--border); }
-.provision-stage code { overflow-wrap: anywhere; }
-.provision-stage > span:last-child { color: var(--fg-muted); }
-.provision-stage-marker { width: 8px; height: 8px; border: 1px solid var(--fg-muted); border-radius: 50%; }
-.provision-stage--active .provision-stage-marker,
-.provision-stage--waiting .provision-stage-marker { border-color: var(--cs-steel); background: var(--cs-steel); }
-.provision-stage--completed .provision-stage-marker { border-color: var(--success); background: var(--success); }
-.provision-stage--blocked .provision-stage-marker,
-.provision-stage--failed .provision-stage-marker,
-.provision-stage--incomplete .provision-stage-marker { border-color: var(--danger); background: var(--danger); }
+.provision {
+  display: grid;
+  min-width: 0;
+  gap: 24px;
+}
+
+.provision-boundary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  max-width: 100%;
+  padding: 12px 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius);
+  background: var(--cs-shade);
+  color: var(--fg-muted);
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+.provision-boundary strong {
+  flex: 0 0 auto;
+  color: var(--fg);
+}
+
+.provision-boundary span,
+.provision-boundary code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.provision-notice {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 14px;
+  max-width: 760px;
+  padding: 22px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.provision-notice-marker {
+  width: 8px;
+  height: 8px;
+  margin-top: 7px;
+  border: 1px solid var(--fg-muted);
+  border-radius: 50%;
+}
+
+.provision-notice.is-error .provision-notice-marker {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+
+.provision-notice h2,
+.provision-notice p {
+  margin: 0;
+}
+
+.provision-notice h2 {
+  font-size: var(--cs-type-section-title-size);
+  line-height: var(--cs-type-section-title-line-height);
+}
+
+.provision-notice p {
+  margin-top: 6px;
+  color: var(--fg-muted);
+}
+
+.provision-notice details {
+  margin-top: 14px;
+}
+
+.provision-notice summary {
+  width: fit-content;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: var(--cs-type-compact-size);
+  font-weight: 600;
+}
+
+.provision-notice summary:focus-visible,
+.provision-enter:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.provision-notice details p {
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+}
+
+.provision-run {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 32px;
+  padding: 4px 0 28px;
+  border-bottom: 1px solid var(--border);
+}
+
+.provision-run-main {
+  min-width: 0;
+}
+
+.provision-run-state {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.provision-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+}
+
+.provision-live-indicator > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cs-steel);
+}
+
+.provision .status-pill-success,
+.provision .status-pill-warning {
+  color: var(--fg);
+}
+
+.provision-run h2 {
+  margin: 0 0 5px;
+  font-size: var(--cs-type-section-title-size);
+  line-height: var(--cs-type-section-title-line-height);
+}
+
+.provision-current-stage {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-compact-size);
+}
+
+.provision-current-stage code {
+  overflow-wrap: anywhere;
+  color: var(--fg);
+}
+
+.provision-progress {
+  margin-top: 20px;
+}
+
+.provision-progress-head,
+.provision-progress-facts {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+  font-variant-numeric: tabular-nums;
+}
+
+.provision-progress-head {
+  justify-content: space-between;
+  margin-bottom: 7px;
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.provision-progress-head strong {
+  font-weight: 650;
+}
+
+.provision-meter {
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--cs-radius-pill);
+  background: var(--cs-shade);
+}
+
+.provision-meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--cs-steel);
+  transition: width 180ms ease;
+}
+
+.provision-meter.is-failed .provision-meter-fill {
+  background: var(--danger);
+}
+
+.provision-meter.is-done .provision-meter-fill {
+  background: var(--success);
+}
+
+.provision-progress-facts {
+  flex-wrap: wrap;
+  margin-top: 7px;
+}
+
+.provision-progress-facts strong {
+  color: var(--fg);
+  font-weight: 650;
+}
+
+.provision-progress-facts span:last-child:not(:first-child) {
+  margin-left: auto;
+}
+
+.provision-run-meta {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  margin: 0;
+  padding-left: 24px;
+  border-left: 1px solid var(--border);
+}
+
+.provision-run-meta > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.provision-run-meta dt {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+}
+
+.provision-run-meta dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--cs-type-compact-size);
+}
+
+.provision-run-meta code,
+.provision-run-meta time {
+  overflow-wrap: anywhere;
+}
+
+.provision-run-message {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-shade);
+}
+
+.provision-run-message p {
+  margin: 0;
+}
+
+.provision-run-message .is-error {
+  color: var(--danger);
+}
+
+.provision-ready {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.provision-enter {
+  display: inline-flex;
+  min-height: var(--cs-control-height);
+  align-items: center;
+  color: var(--accent);
+  font-size: var(--cs-type-compact-size);
+  font-weight: 650;
+}
+
+.provision-stream-error {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border));
+  border-radius: var(--cs-radius-sm);
+  color: var(--danger);
+  font-size: var(--cs-type-compact-size);
+}
+
+.provision-stream-error span {
+  overflow-wrap: anywhere;
+}
+
+.provision-tabs {
+  margin-bottom: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.provision-panel {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
+.provision-section-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.provision-section-head h2,
+.provision-section-head p {
+  margin: 0;
+}
+
+.provision-section-head h2 {
+  font-size: var(--cs-type-section-title-size);
+  line-height: var(--cs-type-section-title-line-height);
+}
+
+.provision-section-head p {
+  margin-top: 4px;
+  max-width: 76ch;
+  color: var(--fg-muted);
+}
+
+.provision-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+  font-weight: 650;
+}
+
+.provision-stages {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 24px;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+
+.provision-stage {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.provision-stage[aria-current="step"] {
+  border-radius: var(--cs-radius-sm);
+  background: color-mix(in srgb, var(--cs-steel) 7%, transparent);
+}
+
+.provision-stage-index,
+.provision-stage-state {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+  font-variant-numeric: tabular-nums;
+}
+
+.provision-stage-index {
+  font-family: var(--cs-font-mono);
+}
+
+.provision-stage code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.provision-stage-state {
+  text-align: right;
+}
+
+.provision-stage--active .provision-stage-index,
+.provision-stage--active .provision-stage-state,
+.provision-stage--waiting .provision-stage-index,
+.provision-stage--waiting .provision-stage-state {
+  color: var(--cs-steel);
+  font-weight: 700;
+}
+
+.provision-stage--completed .provision-stage-index,
+.provision-stage--completed .provision-stage-state {
+  color: var(--fg);
+  font-weight: 650;
+}
+
+.provision-stage--blocked .provision-stage-index,
+.provision-stage--blocked .provision-stage-state,
+.provision-stage--failed .provision-stage-index,
+.provision-stage--failed .provision-stage-state,
+.provision-stage--incomplete .provision-stage-index,
+.provision-stage--incomplete .provision-stage-state {
+  color: var(--danger);
+  font-weight: 700;
+}
+
 .provision-readiness,
-.provision-inventory { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; border-top: 1px solid var(--border); }
+.provision-inventory {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
 .provision-readiness > div,
-.provision-inventory > div { display: grid; gap: 8px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.provision-inventory > div {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
 .provision-readiness > div:not(:nth-child(3n + 1)),
-.provision-inventory > div:not(:nth-child(3n + 1)) { padding-left: 20px; border-left: 1px solid var(--border); }
+.provision-inventory > div:not(:nth-child(3n + 1)) {
+  padding-left: 20px;
+  border-left: 1px solid var(--border);
+}
+
 .provision-readiness dt,
 .provision-readiness dd,
 .provision-inventory dt,
-.provision-inventory dd { margin: 0; }
+.provision-inventory dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.provision-readiness dt,
+.provision-inventory dt {
+  color: var(--fg-muted);
+}
+
+.provision-inventory dd {
+  font-size: var(--cs-type-panel-title-size);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.provision-recent-block {
+  display: grid;
+  gap: 10px;
+  padding-top: 8px;
+}
+
+.provision-recent-block h3 {
+  margin: 0;
+  font-size: var(--cs-type-panel-title-size);
+}
+
+.provision-recent {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+
+.provision-recent li {
+  min-width: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.provision-recent code {
+  overflow-wrap: anywhere;
+}
+
+.provision-empty {
+  margin: 0;
+  padding: 18px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-muted);
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .provision-meter-fill { transition: none; }
+  .provision-meter-fill {
+    transition: none;
+  }
 }
 
-@media (max-width: 900px) {
-  .provision-stages { grid-template-columns: 1fr; }
+@media (max-width: 980px) {
+  .provision-run {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+
+  .provision-run-meta {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 20px 0 0;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .provision-stages {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .provision > .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .provision > .page-header .page-header-actions {
+    max-width: 100%;
+  }
+
+  .provision > .page-header .page-header-text,
+  .provision > .page-header .page-header-actions {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .provision > .page-header .page-header-domain,
+  .provision > .page-header .page-header-separator {
+    display: none;
+  }
+
+  .provision-boundary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .provision-run-meta,
   .provision-readiness,
-  .provision-inventory { grid-template-columns: 1fr; }
-  .provision-readiness > div:not(:nth-child(3n + 1)),
-  .provision-inventory > div:not(:nth-child(3n + 1)) { padding-left: 0; border-left: 0; }
-}
+  .provision-inventory {
+    grid-template-columns: 1fr;
+  }
 
-@media (max-width: 600px) {
-  .provision > .page-header { align-items: flex-start; flex-direction: column; }
-  .provision > .page-header .page-header-actions { max-width: 100%; }
-  .provision-section-head { flex-direction: column; gap: 8px; }
-  .provision-stage { grid-template-columns: 12px minmax(0, 1fr); }
-  .provision-stage > span:last-child { grid-column: 2; }
+  .provision-run-meta > div {
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .provision-readiness > div:not(:nth-child(3n + 1)),
+  .provision-inventory > div:not(:nth-child(3n + 1)) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .provision-tabs button {
+    min-height: var(--cs-control-height-touch);
+  }
+
+  .provision-stage {
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .provision-stage-state {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .provision-progress-facts span:last-child:not(:first-child) {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
 }

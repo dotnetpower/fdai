@@ -103,12 +103,12 @@
         "max_policy_escapes"
       ],
       "properties": {
-        "min_shadow_days": {"type": "integer", "minimum": 1},
-        "min_samples": {"type": "integer", "minimum": 1},
-        "min_accuracy": {"type": "number", "minimum": 0, "maximum": 1},
-        "max_policy_escapes": {"type": "integer", "minimum": 0},
-        "min_fidelity": {"type": "number", "minimum": 0, "maximum": 1},
-        "max_recurrence_rate": {"type": "number", "minimum": 0, "maximum": 1}
+        "min_shadow_days": {"type": "integer", "minimum": 1, "x-fdai-unit": "days", "x-fdai-scope": "action_type_promotion"},
+        "min_samples": {"type": "integer", "minimum": 1, "x-fdai-unit": "samples", "x-fdai-scope": "action_type_promotion"},
+        "min_accuracy": {"type": "number", "minimum": 0, "maximum": 1, "x-fdai-unit": "ratio", "x-fdai-scope": "action_type_promotion"},
+        "max_policy_escapes": {"type": "integer", "minimum": 0, "x-fdai-unit": "events", "x-fdai-scope": "action_type_promotion"},
+        "min_fidelity": {"type": "number", "minimum": 0, "maximum": 1, "x-fdai-unit": "ratio", "x-fdai-scope": "graph_model_promotion"},
+        "max_recurrence_rate": {"type": "number", "minimum": 0, "maximum": 1, "x-fdai-unit": "ratio", "x-fdai-scope": "graph_model_promotion"}
       }
     },
     "preconditions": {

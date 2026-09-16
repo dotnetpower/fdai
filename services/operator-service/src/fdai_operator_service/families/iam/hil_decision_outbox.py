@@ -31,6 +31,9 @@ from fdai_operator_service.families.iam.contracts import (
     HilDecisionOutboxRequest,
     HilDecisionReceipt,
 )
+from fdai_operator_service.families.iam.report_line_contact_outbox import (
+    ReportLineContactOutboxDrainer,
+)
 
 _LOGGER = logging.getLogger(__name__)
 _DELIVERY_SUFFIX = ":delivery"
@@ -285,6 +288,7 @@ class HilDecisionOutboxBridge:
         registry: HilDecisionDeliveryRegistry,
         publisher: HilDecisionPublisher,
         topic: str,
+        contact_drainer: ReportLineContactOutboxDrainer | None = None,
         retry_seconds: float = 1.0,
     ) -> None:
         if retry_seconds <= 0:
@@ -296,6 +300,7 @@ class HilDecisionOutboxBridge:
             topic=topic,
         )
         self._retry_seconds = retry_seconds
+        self._contact_drainer = contact_drainer
         self._task: asyncio.Task[None] | None = None
 
     def workers_ready(self) -> bool:
@@ -321,6 +326,8 @@ class HilDecisionOutboxBridge:
         while True:
             try:
                 published = await self._drainer.run_once()
+                if self._contact_drainer is not None:
+                    published = await self._contact_drainer.run_once() or published
             except asyncio.CancelledError:
                 raise
             except Exception:  # noqa: BLE001 - transient store failures retry in-process
