@@ -271,7 +271,7 @@ class AzureMonitorMetricsProvider:
 
         try:
             token = await self._identity.get_token(self._config.audience)
-        except (RuntimeError, TimeoutError, httpx.HTTPError) as exc:
+        except (RuntimeError, TimeoutError, ValueError, httpx.HTTPError) as exc:
             raise MetricProviderError(
                 f"Azure Monitor Metrics identity is unavailable for {query.metric_name!r}",
                 reason=MetricFailureReason.TRANSPORT_ERROR,

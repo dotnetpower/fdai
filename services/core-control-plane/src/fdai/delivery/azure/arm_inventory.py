@@ -672,14 +672,24 @@ def _with_vm_run_command_state(
     execution_state = (
         instance_view.get("executionState") if isinstance(instance_view, Mapping) else None
     )
-    if not isinstance(execution_state, str) or not execution_state.strip():
-        return resource
     props = dict(resource.props)
     existing = props.get("properties")
     nested = dict(existing) if isinstance(existing, Mapping) else {}
-    nested["instanceView"] = {"executionState": execution_state.strip()}
+    nested["instanceView"] = (
+        {"executionState": execution_state.strip()}
+        if isinstance(execution_state, str) and execution_state.strip()
+        else {}
+    )
     props["properties"] = nested
-    return replace(resource, props=props, last_seen=datetime.now(tz=UTC).isoformat())
+    return replace(
+        resource,
+        props=props,
+        last_seen=(
+            datetime.now(tz=UTC).isoformat()
+            if isinstance(execution_state, str) and execution_state.strip()
+            else resource.last_seen
+        ),
+    )
 
 
 def _map_arm_row(

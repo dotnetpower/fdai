@@ -7,6 +7,7 @@ from pathlib import Path
 import httpx
 import pytest
 import yaml
+from fdai.delivery.azure import arm_inventory
 from fdai.delivery.azure.arg_projection import to_neutral_id
 from fdai.delivery.azure.arm_inventory import (
     ArmInventoryError,
@@ -560,6 +561,40 @@ def test_vmss_instance_view_is_scrubbed_when_statuses_are_missing_or_malformed(
 
     assert projected["properties"]["instanceView"] == {}
     assert "sensitive status" not in repr(projected)
+
+
+def test_vm_run_command_scrubs_prior_instance_view_when_execution_state_is_missing() -> None:
+    resource = ResourceRecord(
+        resource_id="run-command-1",
+        type="compute.vm-run-command",
+        props={
+            "properties": {
+                "provisioningState": "Succeeded",
+                "instanceView": {
+                    "output": "sensitive output",
+                    "error": "sensitive error",
+                },
+            }
+        },
+        provider_ref=(
+            "/subscriptions/sub-1/resourceGroups/rg-1/providers/Microsoft.Compute/"
+            "virtualMachines/vm-1/runCommands/example-command"
+        ),
+    )
+    sanitized = arm_inventory._with_vm_run_command_state(
+        resource,
+        {
+            "id": resource.provider_ref,
+            "properties": {"instanceView": {"output": "new output"}},
+        },
+    )
+
+    assert sanitized.props["properties"] == {
+        "provisioningState": "Succeeded",
+        "instanceView": {},
+    }
+    assert "sensitive" not in repr(sanitized.props)
+    assert "new output" not in repr(sanitized.props)
 
 
 async def test_arm_overlay_bounds_vm_scale_set_child_collections() -> None:

@@ -43,9 +43,12 @@ class _Identity:
 
 
 class _FailingIdentity:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
     async def get_token(self, audience: str) -> IdentityToken:
         del audience
-        raise RuntimeError("credential unavailable")
+        raise self.error
 
 
 def _payload(metric: str, dimensions: dict[str, str] | None = None) -> dict[str, Any]:
@@ -106,14 +109,20 @@ def test_templates_preserve_legacy_constructor_and_bound_filter_scope() -> None:
         MetricsApiTemplate("Requests", "Total", deployment_scope=True)
 
 
-async def test_identity_failure_is_normalized_without_exposing_credential_details() -> None:
+@pytest.mark.parametrize(
+    "identity_error",
+    [RuntimeError("credential unavailable"), ValueError("bad")],
+)
+async def test_identity_failure_is_normalized_without_exposing_credential_details(
+    identity_error: Exception,
+) -> None:
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(lambda _request: pytest.fail("unexpected HTTP request"))
     ) as client:
         provider = AzureMonitorMetricsProvider(
             config=AzureMonitorMetricsConfig(templates=azure_metrics_api_queries()),
             http_client=client,
-            identity=_FailingIdentity(),
+            identity=_FailingIdentity(identity_error),
         )
         with pytest.raises(MetricProviderError) as error:
             _ = [

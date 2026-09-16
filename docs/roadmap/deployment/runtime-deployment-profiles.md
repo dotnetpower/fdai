@@ -212,7 +212,8 @@ failures before or after generation promotion are reported as unavailable, witho
 delta cursors or terminating the complete inventory loop. Passive model-serving evidence reuses the
 inventory reader identity and Azure Monitor management API; it never receives a model credential or
 issues an inference request. Identity, transport, and bounded provider failures lower only that
-optional source's evidence coverage and do not block inventory promotion.
+optional source's evidence coverage and do not block inventory promotion. Malformed credential
+responses follow the same redacted source-unavailable boundary.
 
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and
