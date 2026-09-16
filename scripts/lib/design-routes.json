@@ -2111,6 +2111,34 @@
       ]
     },
     {
+      "id": "workflow-promotion-verdicts",
+      "paths": [
+        "config/workflow-promotion-verdicts.json",
+        "config/workflow-promotion-verdicts.schema.json",
+        "docs/roadmap/agents/agent-workflow-rollout*.md",
+        "docs/roadmap/agents/agent-workflows*.md",
+        "scripts/quality/architecture/check-workflow-promotion-verdicts.py",
+        "services/core-control-plane/src/fdai/agents/_framework/workflows.py",
+        "tests/integration/scripts/test_workflow_promotion_verdicts.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/architecture/goals-and-metrics.md",
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "docs/roadmap/decisioning/process-automation.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-workflow-promotion-verdicts.py",
+        "uv run pytest -q --no-cov tests/integration/scripts/test_workflow_promotion_verdicts.py",
+        "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
+    },
+    {
       "id": "workflow-automation",
       "paths": [
         "services/core-control-plane/src/fdai/core/workflow/**",

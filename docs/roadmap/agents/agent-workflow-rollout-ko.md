@@ -1,8 +1,8 @@
 ---
 title: Agent Workflow Shadow Rollout
 translation_of: agent-workflow-rollout.md
-translation_source_sha: 6d37322ca0c9b3c99e041df67fdf093f60fd9ff5
-translation_revised: 2026-09-15
+translation_source_sha: c8f798d278c81924ddb861409b3effb4b087bcda
+translation_revised: 2026-09-16
 ---
 # 에이전트 작업 흐름 shadow 롤아웃
 
@@ -18,12 +18,14 @@ translation_revised: 2026-09-15
 | 13개 작업 흐름 롤아웃 인벤토리 | implemented | `docs/roadmap/agents/agent-workflows.md`; `services/core-control-plane/src/fdai/agents/_framework/workflows.py`; `services/core-control-plane/tests/agents/test_wave7_workflows.py` | 레지스트리와 테스트가 문서화된 작업 흐름 수와 shadow 기본값을 유지합니다. |
 | 집중 shadow 경로 근거 | implemented | `services/core-control-plane/tests/agents/test_wave7_workflows.py`; 등록된 `trace_ref` 대상 | 집중 테스트는 구현 동작을 증명할 뿐이며, 보존된 런타임 롤아웃 추적은 아닙니다. |
 | 공통 운영 종료 게이트 | not-started | 이 문서의 종료 조건 | 모든 작업 흐름에 대해 KPI 기준선, 필요한 shadow 기간, 정책 위반 탈출 0건을 입증하는 보존 근거가 없습니다. |
+| 작업 흐름별 승격 판정 인벤토리 | implemented | `config/workflow-promotion-verdicts.json`; `scripts/quality/architecture/check-workflow-promotion-verdicts.py`; 집중 검사기 테스트 | 작업 흐름 12개에는 이름이 명시된 근거 부재에 따른 보류 판정이 있고, 회고적 가정 분석에는 영구 shadow 판정이 있습니다. 인벤토리는 권한 중립적이며 작업 흐름을 승격할 수 없습니다. |
 | 독립 적용 모드 승격 | not-started | `docs/roadmap/agents/agent-workflows.md`의 승격 게이트 | 모든 레지스트리 항목은 `shadow`에 머물며, 회고적 가정 분석은 계속 shadow로 유지됩니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | 작업 흐름 13개 모두에 정확한 정의와 연결된 판정 인벤토리를 추가했습니다. 게이트는 누락된 작업 흐름, 오래된 정의 또는 추적, 불완전한 차단 사유 종류, 확인할 수 없는 근거 참조, 인벤토리를 통한 권한 부여 또는 모드 변경 시도를 거부합니다. | `current change`; 작업 흐름 판정 구성 및 스키마; 집중 검사기 테스트 7개 통과 | 승격 대상 작업 흐름이 shadow를 벗어나기 전에 통제된 운영 근거를 수집하고 별도의 권한 있는 승격 경로를 사용합니다. |
 | 2026-09-15 | implemented | 강제 적용되는 에이전트 파일 상한을 복원하기 위해 Heimdall의 에피소드 신원, 범위가 제한된 이력 및 순환 경고 예산 보조 로직을 비공개 프레임워크로 분리했습니다. AgentSpec, topic, 소유권, 모델 정책, hot-path 결정성 및 권한은 바뀌지 않았습니다. | `current change`, `heimdall_alert_window.py`, Heimdall 830줄, 집중 framework-layout, Wave 3 및 Wave 6 검사 96개 통과, Ruff, strict mypy 및 강제 LOC 게이트 | 런타임 종료 게이트와 배포 근거는 바뀌지 않았습니다. |
 | 2026-08-24 | implemented | Enforced agent file 상한을 복원하기 위해 forecast-outcome 및 provider-schema publication을 focused private Heimdall mixin으로 이동했습니다. AgentSpec, topic, ownership, model policy 및 authority는 바뀌지 않습니다. | `current change`; Heimdall 789줄, 집중 provider-schema, forecast-outcome, framework-layout, agent-import, LOC, Ruff, format, strict mypy 검사 | Runtime exit-gate 및 deployed provider-schema 근거는 그대로 남습니다. |
 | 2026-08-24 | implemented | Provider-schema review를 위한 Heimdall의 direct delivery import를 injected shared provider Protocol로 교체했습니다. Projector가 없으면 publication을 hold하며 AgentSpec, topic, ownership, model policy 및 authority는 바뀌지 않습니다. | `current change`; provider-schema agent 및 watcher 검사, agent import gate, Ruff, strict mypy | Provider-schema owner가 요구하는 기존 deployed shadow 및 Saga audit 근거를 보존합니다. |
@@ -39,7 +41,7 @@ translation_revised: 2026-09-15
 
 - [ ] 운영 환경에서 작업 흐름별 영구 shadow 추적, KPI 기준선, 정책 위반 탈출 관찰을 수집합니다.
 - [ ] 적용 기간과 임계값 근거가 존재한 뒤에만 승격을 평가합니다.
-- [ ] 승격 대상 작업 흐름마다 승격 또는 shadow 유지 결과를 별도로 기록합니다.
+- [x] 모든 메타데이터 작업 흐름에 현재 shadow 유지 또는 영구 shadow 판정을 하나씩 기록하고, 정확한 정의 및 구현 추적과 연결합니다.
 
 ## 작업 흐름 순서
 
