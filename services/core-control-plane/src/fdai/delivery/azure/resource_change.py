@@ -14,7 +14,7 @@ from fdai.delivery.azure.arg_projection import (
 )
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
 from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
-from fdai.shared.providers.inventory import ResourceRecord
+from fdai.shared.providers.inventory import UNCLASSIFIED_RESOURCE_TYPE, ResourceRecord
 
 _SOURCE: Final[str] = "azure_event_grid.resource_change"
 _WRITE_EVENT: Final[str] = "Microsoft.Resources.ResourceWriteSuccess"
@@ -33,9 +33,10 @@ def normalize_resource_change_events(
 ) -> tuple[Event, ...]:
     """Return canonical inventory events from an Event Grid envelope.
 
-    Unsupported event types and resource types are ignored. Malformed records
-    raise at the envelope boundary so the Kafka consumer can dead-letter the
-    batch instead of silently advancing past an unparseable resource change.
+    Unsupported event types are ignored. Unsupported resource types retain one
+    bounded unclassified observation. Malformed records raise at the envelope
+    boundary so the Kafka consumer can dead-letter the batch instead of silently
+    advancing past an unparseable resource change.
     """
 
     records = _records(envelope)
@@ -89,16 +90,18 @@ def _normalize_one(
     arm_type = _resource_arm_type(provider_ref)
     if arm_type is None:
         raise ValueError("resource ARM type cannot be resolved")
-    resource_type = arm_to_neutral.get(arm_type.lower())
-    if resource_type is None:
-        raise ValueError("resource ARM type is not registered in the canonical vocabulary")
+    resource_type = arm_to_neutral.get(arm_type.lower(), UNCLASSIFIED_RESOURCE_TYPE)
 
     observed_at = _parse_timestamp(record.get("eventTime"))
     resource_id = to_neutral_id(provider_ref)
     resource = ResourceRecord(
         resource_id=resource_id,
         type=resource_type,
-        props={},
+        props=(
+            {"providerType": arm_type}
+            if resource_type == UNCLASSIFIED_RESOURCE_TYPE and change_kind == "upsert"
+            else {}
+        ),
         provider_ref=provider_ref,
         last_seen=observed_at.isoformat(),
     )
@@ -111,7 +114,7 @@ def _normalize_one(
         "kind": change_kind,
         "observation_kind": "change_hint" if change_kind == "upsert" else "tombstone",
         "properties_complete": False,
-        "property_mask": [],
+        "property_mask": sorted(resource.props),
         "tombstone_confirmed": False,
         "operation": data.get("operationName"),
         "operation_status": data.get("status"),

@@ -146,7 +146,7 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     settings.add_argument(
         "--runtime",
         choices=("container-apps", "aks"),
-        default="container-apps",
+        default="aks",
         help="Runtime platform for a new installation (default: %(default)s)",
     )
     settings.add_argument(

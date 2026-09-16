@@ -52,6 +52,7 @@ def _object_observation(
         observed_at=timestamp,
         evidence_cutoff=timestamp,
         recorded_at=NOW + timedelta(minutes=1),
+        ingested_at=NOW + timedelta(seconds=30),
     )
 
 
@@ -228,6 +229,7 @@ def test_property_mask_must_equal_observed_properties() -> None:
             observed_at=NOW,
             evidence_cutoff=NOW,
             recorded_at=NOW,
+            ingested_at=NOW,
         )
 
 
@@ -251,6 +253,7 @@ def test_relationship_observation_is_typed_and_content_addressed() -> None:
         observed_at=NOW,
         evidence_cutoff=NOW,
         recorded_at=NOW,
+        ingested_at=NOW,
         from_id="resource-1",
         from_type="compute.vm",
         link_type="depends_on",
@@ -260,6 +263,109 @@ def test_relationship_observation_is_typed_and_content_addressed() -> None:
 
     assert observation.observation_id == observation.content_digest
     assert observation.observation_kind is InventoryObservationKind.FULL
+
+
+def test_temporal_axes_preserve_legacy_digest_across_rolling_upgrade() -> None:
+    legacy = _object_observation(
+        event_id="temporal",
+        seconds=1,
+        kind=InventoryObservationKind.PARTIAL,
+        properties={"power_state": "running"},
+    )
+    delayed_ingestion = NormalizedInventoryObservation.create(
+        idempotency_key=legacy.idempotency_key,
+        subject_kind=legacy.subject_kind,
+        observation_kind=legacy.observation_kind,
+        mutation_kind=legacy.mutation_kind,
+        subject_ref=legacy.subject_ref,
+        subject_type=legacy.subject_type,
+        properties=legacy.properties,
+        property_mask=legacy.property_mask,
+        properties_complete=legacy.properties_complete,
+        links_complete=legacy.links_complete,
+        tombstone_confirmed=legacy.tombstone_confirmed,
+        operation=legacy.operation,
+        operation_status=legacy.operation_status,
+        source_identity=legacy.source_identity,
+        source_event_id=legacy.source_event_id,
+        source_revision=legacy.source_revision,
+        effective_at=legacy.effective_at,
+        observed_at=legacy.observed_at,
+        evidence_cutoff=legacy.evidence_cutoff,
+        recorded_at=legacy.recorded_at,
+        ingested_at=legacy.ingested_at + timedelta(seconds=10),
+    )
+    provider_event = NormalizedInventoryObservation.create(
+        idempotency_key=legacy.idempotency_key,
+        subject_kind=legacy.subject_kind,
+        observation_kind=legacy.observation_kind,
+        mutation_kind=legacy.mutation_kind,
+        subject_ref=legacy.subject_ref,
+        subject_type=legacy.subject_type,
+        properties=legacy.properties,
+        property_mask=legacy.property_mask,
+        properties_complete=legacy.properties_complete,
+        links_complete=legacy.links_complete,
+        tombstone_confirmed=legacy.tombstone_confirmed,
+        operation=legacy.operation,
+        operation_status=legacy.operation_status,
+        source_identity=legacy.source_identity,
+        source_event_id=legacy.source_event_id,
+        source_revision=legacy.source_revision,
+        effective_at=legacy.effective_at,
+        observed_at=legacy.observed_at,
+        evidence_cutoff=legacy.evidence_cutoff,
+        recorded_at=legacy.recorded_at,
+        ingested_at=legacy.ingested_at,
+        provider_event_at=legacy.effective_at,
+    )
+
+    assert delayed_ingestion.content_digest == legacy.content_digest
+    assert provider_event.content_digest == legacy.content_digest
+    assert provider_event.provider_event_at == legacy.effective_at
+
+
+@pytest.mark.parametrize(
+    ("provider_event_at", "ingested_at", "recorded_at", "error"),
+    [
+        (
+            NOW + timedelta(seconds=2),
+            NOW + timedelta(seconds=1),
+            NOW + timedelta(seconds=3),
+            "provider_event_at",
+        ),
+        (NOW, NOW + timedelta(seconds=2), NOW + timedelta(seconds=1), "ingested_at"),
+    ],
+)
+def test_temporal_axes_reject_impossible_ordering(
+    provider_event_at: datetime,
+    ingested_at: datetime,
+    recorded_at: datetime,
+    error: str,
+) -> None:
+    with pytest.raises(ValueError, match=error):
+        NormalizedInventoryObservation.create(
+            idempotency_key=f"event:{error}",
+            subject_kind=InventoryObservationSubjectKind.OBJECT,
+            observation_kind=InventoryObservationKind.PARTIAL,
+            mutation_kind=InventoryMutationKind.UPSERT,
+            subject_ref="resource-1",
+            subject_type="compute.vm",
+            properties={},
+            property_mask=(),
+            properties_complete=False,
+            links_complete=False,
+            tombstone_confirmed=False,
+            source_identity="test.inventory",
+            source_event_id=error,
+            source_revision=f"revision:{error}",
+            effective_at=provider_event_at,
+            observed_at=provider_event_at,
+            evidence_cutoff=provider_event_at,
+            provider_event_at=provider_event_at,
+            ingested_at=ingested_at,
+            recorded_at=recorded_at,
+        )
 
 
 def test_n_and_n_minus_one_schema_replay_preserves_both_digests() -> None:

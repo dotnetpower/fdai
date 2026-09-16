@@ -96,7 +96,7 @@ def test_unsupported_event_type_is_ignored() -> None:
     )
 
 
-def test_unknown_resource_type_fails_closed() -> None:
+def test_unknown_resource_type_is_a_bounded_unclassified_hint() -> None:
     unknown = _event("Microsoft.Resources.ResourceWriteSuccess")
     unknown_id = _ARM_ID.replace(
         "Microsoft.Storage/storageAccounts",
@@ -104,8 +104,18 @@ def test_unknown_resource_type_fails_closed() -> None:
     )
     unknown["subject"] = unknown_id
     unknown["data"] = {"resourceUri": unknown_id, "status": "Succeeded"}
-    with pytest.raises(ValueError, match="canonical vocabulary"):
-        normalize_resource_change_events([unknown], resource_types=_registry())
+    known = _event("Microsoft.Resources.ResourceWriteSuccess")
+
+    events = normalize_resource_change_events([unknown, known], resource_types=_registry())
+
+    assert len(events) == 2
+    change = events[0].payload["inventory_change"]
+    assert change["resource"]["type"] == "unclassified-resource"
+    assert change["resource"]["props"] == {"providerType": "Microsoft.Unknown/widgets"}
+    assert change["property_mask"] == ["providerType"]
+    assert change["properties_complete"] is False
+    assert change["links_complete"] is False
+    assert events[0].mode.value == "shadow"
 
 
 def test_malformed_resource_change_fails_closed() -> None:

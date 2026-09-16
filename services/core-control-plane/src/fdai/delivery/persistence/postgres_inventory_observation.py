@@ -634,8 +634,22 @@ _SELECT_OBSERVATIONS = (
     "observation_kind, mutation_kind, subject_ref, subject_type, properties, "
     "property_mask, properties_complete, links_complete, tombstone_confirmed, "
     "provider_ref, scope_ref, operation, operation_status, source_identity, source_event_id, "
-    "source_revision, effective_at, observed_at, evidence_cutoff, recorded_at, "
+    "source_revision, effective_at, observed_at, evidence_cutoff, recorded_at, ingested_at, "
+    "provider_event_at, "
     "from_id, from_type, link_type, to_id, to_type FROM inventory_observation_journal"
+)
+_INSERT_OBSERVATION_SQL = (
+    "INSERT INTO inventory_observation_journal "
+    "(observation_id, content_digest, schema_version, idempotency_key, "
+    "subject_kind, observation_kind, mutation_kind, subject_ref, subject_type, "
+    "properties, property_mask, properties_complete, links_complete, "
+    "tombstone_confirmed, provider_ref, scope_ref, operation, operation_status, "
+    "source_identity, source_event_id, source_revision, effective_at, observed_at, "
+    "evidence_cutoff, recorded_at, ingested_at, provider_event_at, "
+    "from_id, from_type, link_type, to_id, to_type) "
+    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, "
+    "%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, "
+    "%s, %s) ON CONFLICT (idempotency_key, subject_kind, subject_ref) DO NOTHING"
 )
 
 
@@ -658,16 +672,7 @@ async def _append_records(
         chunk = observations[offset : offset + _WRITE_BATCH_SIZE]
         cursor = connection.cursor()
         await cursor.executemany(
-            "INSERT INTO inventory_observation_journal "
-            "(observation_id, content_digest, schema_version, idempotency_key, "
-            "subject_kind, observation_kind, mutation_kind, subject_ref, subject_type, "
-            "properties, property_mask, properties_complete, links_complete, "
-            "tombstone_confirmed, provider_ref, scope_ref, operation, operation_status, "
-            "source_identity, source_event_id, source_revision, effective_at, observed_at, "
-            "evidence_cutoff, recorded_at, from_id, from_type, link_type, to_id, to_type) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, "
-            "%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
-            "ON CONFLICT (idempotency_key, subject_kind, subject_ref) DO NOTHING",
+            _INSERT_OBSERVATION_SQL,
             [_observation_params(item) for item in chunk],
         )
         inserted += max(0, cursor.rowcount)
@@ -724,6 +729,8 @@ def _observation_params(item: NormalizedInventoryObservation) -> tuple[object, .
         item.observed_at,
         item.evidence_cutoff,
         item.recorded_at,
+        item.ingested_at,
+        item.provider_event_at,
         item.from_id,
         item.from_type,
         item.link_type,
