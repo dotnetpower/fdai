@@ -16,8 +16,6 @@ from fdai.runtime.adaptive_telemetry import (
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
 
-_NOW = datetime(2026, 9, 16, 12, tzinfo=UTC)
-
 
 class _CompleteProvider:
     def __init__(self) -> None:
@@ -71,13 +69,14 @@ async def test_enabled_runtime_persists_process_and_returns_bounded_complete_cit
         },
     )
     assert investigator is not None
+    evidence_cutoff = datetime.now(UTC)
 
     result = await investigator.investigate(
         incident_id="incident:one",
         resource_ref="resource:one",
         event_type="http.429.detected",
         resource_type="application",
-        evidence_cutoff=_NOW,
+        evidence_cutoff=evidence_cutoff,
         correlation_id="correlation:one",
     )
 
@@ -98,7 +97,7 @@ async def test_enabled_runtime_persists_process_and_returns_bounded_complete_cit
         resource_ref="resource:one",
         event_type="http.429.detected",
         resource_type="application",
-        evidence_cutoff=_NOW,
+        evidence_cutoff=evidence_cutoff,
         correlation_id="correlation:one",
     )
     assert provider.calls == 1
