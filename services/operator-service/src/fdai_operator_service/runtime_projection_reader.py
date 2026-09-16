@@ -563,7 +563,11 @@ class RuntimeProjectionReader:
         compactions = await self._fetch_all(
             "SELECT candidate_id, scope_kind, scope_ref, category, body, source_refs, "
             "proposed_by_agent, state, reviewed_by, review_reason "
-            "FROM memory_compaction_candidate ORDER BY updated_at DESC, candidate_id LIMIT 100"
+            "FROM memory_compaction_candidate "
+            "WHERE (%s::text IS NULL OR scope_kind = %s) "
+            "AND (%s::text IS NULL OR scope_ref = %s) "
+            "ORDER BY updated_at DESC, candidate_id LIMIT 100",
+            (scope_kind, scope_kind, scope_ref, scope_ref),
         )
         now = datetime.now(UTC)
         items = []

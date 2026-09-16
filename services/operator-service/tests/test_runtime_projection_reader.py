@@ -728,6 +728,7 @@ async def test_remaining_console_evidence_projects_durable_tables(
                 }
             ]
         if "FROM memory_compaction_candidate" in statement:
+            assert parameters == ("resource", "resource", "resource-1", "resource-1")
             return []
         if "FROM skill_source " in statement:
             return [
@@ -792,6 +793,69 @@ async def test_remaining_console_evidence_projects_durable_tables(
     assert baselines["baseline"]["version"] == "not-published"
     assert baselines["drift"]["verdict"] == "not-evaluated"
     assert baselines["performance"] is None
+
+
+@pytest.mark.parametrize(
+    ("scope_kind", "scope_ref"),
+    (
+        ("resource", "resource-example"),
+        ("resource-group", None),
+        (None, "group-example"),
+        (None, None),
+        ("resource", "resource'with-quote"),
+    ),
+)
+async def test_memory_scope_filters_entries_and_compactions_before_limit(
+    monkeypatch: pytest.MonkeyPatch,
+    scope_kind: str | None,
+    scope_ref: str | None,
+) -> None:
+    calls: list[str] = []
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        assert parameters == (scope_kind, scope_kind, scope_ref, scope_ref)
+        assert "WHERE (%s::text IS NULL OR scope_kind = %s)" in statement
+        assert "AND (%s::text IS NULL OR scope_ref = %s)" in statement
+        assert statement.index("WHERE ") < statement.index("LIMIT 100")
+        if scope_ref is not None:
+            assert scope_ref not in statement
+        calls.append(statement)
+        if "FROM operator_memory " in statement:
+            return []
+        assert "FROM memory_compaction_candidate " in statement
+        return [
+            {
+                "candidate_id": "candidate-example",
+                "scope_kind": scope_kind or "resource",
+                "scope_ref": scope_ref or "resource-example",
+                "category": "preference",
+                "body": "Prefer bounded evidence.",
+                "source_refs": ["memory-example"],
+                "proposed_by_agent": "Mimir",
+                "state": "pending",
+                "reviewed_by": None,
+                "review_reason": None,
+            }
+        ]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+    params = {}
+    if scope_kind is not None:
+        params["scope_kind"] = (scope_kind,)
+    if scope_ref is not None:
+        params["scope_ref"] = (scope_ref,)
+    result = await reader.read(_query("operator-memory", params=params))
+    assert len(calls) == 2
+    assert result["compactions"][0]["scope_kind"] == (scope_kind or "resource")
+    assert result["compactions"][0]["scope_ref"] == (scope_ref or "resource-example")
 
 
 async def test_detection_readiness_includes_latest_analyzer_tick(
