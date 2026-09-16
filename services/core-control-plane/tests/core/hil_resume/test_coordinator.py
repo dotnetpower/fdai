@@ -242,6 +242,8 @@ def _coordinator(
     pre_dispatch_kinetic_safety_writer: Any | None = None,
     effect_reconciliation_request_sink: Any | None = None,
     report_line_router: ReportLineApprovalRouter | None = None,
+    escalation_policy: EscalationPolicy | None = None,
+    escalation_eligibility: Any | None = None,
 ) -> tuple[
     HilResumeCoordinator,
     RecordingRemediationPrPublisher,
@@ -261,7 +263,8 @@ def _coordinator(
         HumanNonResponseSupervisor(
             state_store=store,
             channel=channel,
-            policy=EscalationPolicy(decision_timeout_seconds=60),
+            policy=escalation_policy or EscalationPolicy(decision_timeout_seconds=60),
+            eligibility=escalation_eligibility,
         )
         if with_escalation
         else None
@@ -306,6 +309,9 @@ class _ReportLineGraphs:
 
 
 class _ReportLineEligibility:
+    def __init__(self, eligible: set[str] | None = None) -> None:
+        self.eligible = eligible or {_APPROVER}
+
     async def is_eligible(
         self,
         *,
@@ -316,20 +322,54 @@ class _ReportLineEligibility:
         at,
     ):
         del action_type, scope_ref, at
-        return subject_ref == _APPROVER and minimum_role == "Approver"
+        return subject_ref in self.eligible and minimum_role == "Approver"
 
 
 def _report_line_router(
     graphs: _ReportLineGraphs | None = None,
+    *,
+    eligible: set[str] | None = None,
 ) -> ReportLineApprovalRouter:
     return ReportLineApprovalRouter(
         graphs=graphs or _ReportLineGraphs(),
-        eligibility=_ReportLineEligibility(),
+        eligibility=_ReportLineEligibility(eligible),
         policy=ReportLineRoutingPolicy(
             action_types=frozenset({"remediate.tag-add"}),
             quorum_by_action={},
         ),
     )
+
+
+class _TwoLevelReportLineGraphs(_ReportLineGraphs):
+    async def current_graph(self, *, at=None):
+        observed_at = at or datetime.now(tz=UTC)
+        return ReportingGraphSnapshot(
+            revision=self.revision,
+            observed_at=observed_at,
+            edges=(
+                ReportingGraphEdge(
+                    case_id="report-line-case-primary",
+                    edge_digest=self.edge_digest,
+                    subject_ref=_SUBMITTER,
+                    manager_ref=_APPROVER,
+                    effective_from=_ROUTE_START,
+                    effective_until=_ROUTE_END,
+                ),
+                ReportingGraphEdge(
+                    case_id="report-line-case-escalation",
+                    edge_digest="c" * 64,
+                    subject_ref=_APPROVER,
+                    manager_ref="backup@example.com",
+                    effective_from=_ROUTE_START,
+                    effective_until=_ROUTE_END,
+                ),
+            ),
+        )
+
+
+class _AlwaysEligible:
+    async def is_eligible(self, **_kwargs):
+        return True
 
 
 async def test_request_snapshots_and_starts_escalation_after_delivery() -> None:
@@ -566,6 +606,61 @@ async def test_unrelated_graph_revision_does_not_invalidate_pinned_path() -> Non
     assert all(item.get("report_line_route_digest") for item in terminal)
     assert all(item.get("report_line_path_revision") for item in terminal)
     assert all(item.get("report_line_graph_revision") for item in terminal)
+
+
+async def test_escalated_report_line_rung_can_approve_after_revalidation() -> None:
+    graphs = _TwoLevelReportLineGraphs()
+    coordinator, publisher, store, channel = _coordinator(
+        with_escalation=True,
+        escalation_policy=EscalationPolicy(
+            decision_timeout_seconds=1,
+            overall_timeout_seconds=60,
+            mode=Mode.ENFORCE,
+        ),
+        escalation_eligibility=_AlwaysEligible(),
+        report_line_router=_report_line_router(
+            graphs,
+            eligible={_APPROVER, "backup@example.com"},
+        ),
+    )
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-escalation",
+        approval_id="report-line-escalation",
+    )
+    await coordinator.decide_report_line_contact(
+        approval_id="report-line-escalation",
+        requester_oid=_SUBMITTER,
+        consent=True,
+        expected_consent_revision=0,
+    )
+    parked = await store.read_state("hil_park:report-line-escalation")
+    assert parked is not None
+    deadline = datetime.fromisoformat(str(parked["escalation"]["decision_deadline"]))
+    assert coordinator.escalation_supervisor is not None
+
+    tick = await coordinator.escalation_supervisor.tick(
+        at=deadline + timedelta(seconds=1),
+    )
+    assert tick.advanced == 1
+    parked = await store.read_state("hil_park:report-line-escalation")
+    assert parked is not None
+    assert parked["assignee_oid"] == "backup@example.com"
+    delivered = await coordinator.escalation_supervisor.tick(
+        at=deadline + timedelta(seconds=2),
+    )
+    assert delivered.delivered == 1
+    assert len(channel.sent) == 2
+
+    result = await coordinator.resolve(
+        approval_id="report-line-escalation",
+        decision=HilDecision.APPROVE,
+        approver_oid="backup@example.com",
+    )
+    assert result.outcome is ResolveOutcome.EXECUTED
+    assert len(publisher.records) == 1
 
 
 async def test_concurrent_terminal_decisions_have_one_winner() -> None:

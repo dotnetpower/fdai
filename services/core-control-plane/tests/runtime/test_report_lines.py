@@ -4,11 +4,26 @@ from datetime import UTC, datetime
 
 import pytest
 from fdai.core.hil_resume.rung_eligibility import DirectoryRungEligibility
+from fdai.core.human_reporting import (
+    ReportingGraphEdge,
+    ReportingGraphSnapshot,
+    ReportLineApprovalRouter,
+    ReportLineRoutingPolicy,
+)
 from fdai.runtime.approval_policy import (
     approver_authorizer_from_environment,
     report_line_scope_authorizer_from_environment,
 )
-from fdai.runtime.report_lines import build_report_line_runtime
+from fdai.runtime.report_lines import (
+    CurrentReportLineEligibility,
+    ReportLineAwareRungEligibility,
+    build_report_line_runtime,
+)
+from fdai.shared.providers.human_identity import (
+    HumanIdentity,
+    IdentityRosterEntry,
+    StaticHumanIdentityDirectory,
+)
 from fdai.shared.providers.testing import InMemoryStateStore
 
 
@@ -29,6 +44,28 @@ SCOPES = {
         '{"person-a":{"ops.restart-service":["scope://service/example"]}}'
     )
 }
+
+
+class Graphs:
+    def __init__(self) -> None:
+        self.edge_digest = "a" * 64
+
+    async def current_graph(self, *, at=None):
+        assert at is not None
+        return ReportingGraphSnapshot(
+            revision="b" * 64,
+            observed_at=at,
+            edges=(
+                ReportingGraphEdge(
+                    case_id="case-a",
+                    edge_digest=self.edge_digest,
+                    subject_ref="person-a",
+                    manager_ref="person-b",
+                    effective_from=datetime(2020, 1, 1, tzinfo=UTC),
+                    effective_until=datetime(2100, 1, 1, tzinfo=UTC),
+                ),
+            ),
+        )
 
 
 def test_approver_policy_is_exact_and_case_normalized() -> None:
@@ -121,3 +158,83 @@ def test_report_line_runtime_requires_explicit_scope_policy() -> None:
                 role_group_ids={"Approver": "group-a", "Owner": "group-b"},
             ),
         )
+
+
+async def test_escalation_eligibility_revalidates_path_role_action_and_scope() -> None:
+    directory = StaticHumanIdentityDirectory(
+        identities=(
+            HumanIdentity(
+                provider="entra",
+                subject_id="person-b",
+                username="person-b@example.com",
+                display_name="Person B",
+            ),
+        ),
+        roster=(
+            IdentityRosterEntry(
+                provider="entra",
+                subject_id="person-b",
+                display_name="Person B",
+                principal_type="person",
+                roles=("Approver",),
+            ),
+        ),
+    )
+    base = DirectoryRungEligibility(
+        directory=directory,
+        role_group_ids={"Approver": "group-a", "Owner": "group-b"},
+    )
+    graphs = Graphs()
+    router = ReportLineApprovalRouter(
+        graphs=graphs,
+        eligibility=CurrentReportLineEligibility(
+            base,
+            lambda principal, action: principal == "person-b" and action == "ops.restart-service",
+            lambda principal, action, scope: (
+                principal == "person-b"
+                and action == "ops.restart-service"
+                and scope == "scope://service/example"
+            ),
+        ),
+        policy=ReportLineRoutingPolicy(
+            action_types=frozenset({"ops.restart-service"}),
+            quorum_by_action={"ops.restart-service": 1},
+        ),
+    )
+    plan = await router.plan(
+        requester_ref="person-a",
+        action_type="ops.restart-service",
+        scope_ref="scope://service/example",
+        minimum_role="Approver",
+        at=datetime(2026, 9, 16, tzinfo=UTC),
+    )
+    assert plan is not None
+    eligibility = ReportLineAwareRungEligibility(base=base, router=router)
+    context = {
+        "submitter_oid": "person-a",
+        "action": {
+            "action_type": "ops.restart-service",
+            "target_resource_ref": "scope://service/example",
+        },
+        "report_line_route": plan.to_dict(),
+    }
+
+    assert await eligibility.is_eligible(
+        subject_ref="person-b",
+        minimum_role="Approver",
+        context=context,
+        at=datetime(2026, 9, 16, tzinfo=UTC),
+    )
+    assert not await eligibility.is_eligible(
+        subject_ref="person-b",
+        minimum_role="Approver",
+        context={**context, "action": {}},
+        at=datetime(2026, 9, 16, tzinfo=UTC),
+    )
+    graphs.edge_digest = "c" * 64
+    assert not await eligibility.is_eligible(
+        subject_ref="person-b",
+        minimum_role="Approver",
+        context=context,
+        at=datetime(2026, 9, 16, tzinfo=UTC),
+    )
