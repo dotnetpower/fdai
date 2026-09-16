@@ -75,6 +75,7 @@ class AuditQuery:
     window_days: int | None = None
     from_seq: int | None = None
     through_seq: int | None = None
+    include_summary: bool = False
 
     def __post_init__(self) -> None:
         if type(self.limit) is not int or not 1 <= self.limit <= 500:
@@ -100,6 +101,8 @@ class AuditQuery:
         if self.from_seq is not None and self.through_seq is not None:
             if self.from_seq > self.through_seq:
                 raise ValueError("audit sequence bounds are reversed")
+        if not isinstance(self.include_summary, bool):
+            raise ValueError("audit include_summary MUST be a boolean")
 
 
 @dataclass(frozen=True, slots=True)
@@ -276,6 +279,23 @@ class PageProjection:
 
 
 @dataclass(frozen=True, slots=True)
+class AuditPageProjection:
+    """Audit page plus authoritative scope and integrity observations."""
+
+    items: tuple[JsonObject, ...]
+    next_cursor: str | None
+    summary: JsonObject
+
+    def to_dict(self) -> JsonObject:
+        """Return the additive audit envelope with server-owned summary evidence."""
+        return {
+            "items": [dict(item) for item in self.items],
+            "next_cursor": self.next_cursor,
+            "summary": dict(self.summary),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class IncidentPageProjection:
     """Incident page plus same-snapshot outcome metrics owned by the read model."""
 
@@ -375,7 +395,7 @@ class OperatorReadModel(Protocol):
 
     async def list_agent_activity(self, query: AgentActivityQuery) -> JsonProjection: ...
 
-    async def list_audit(self, query: AuditQuery) -> PageProjection: ...
+    async def list_audit(self, query: AuditQuery) -> PageProjection | AuditPageProjection: ...
 
     async def list_browser_evidence(self, query: BrowserEvidenceQuery) -> JsonProjection: ...
 
@@ -409,6 +429,7 @@ class AgentActivityReadModel(Protocol):
 __all__ = [
     "AgentActivityQuery",
     "AgentActivityReadModel",
+    "AuditPageProjection",
     "AuditQuery",
     "BrowserEvidenceQuery",
     "BrowserEvidenceWorkspaceQuery",

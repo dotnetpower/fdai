@@ -3,19 +3,62 @@
 from typing import Final
 
 AUDIT_PAGE_SQL: Final = """
-SELECT seq, event_id, correlation_id, actor, action_kind, mode,
+SELECT seq, event_id,
+       COALESCE(
+           CASE
+               WHEN LOWER(BTRIM(correlation_id)) IN ('', 'none', 'null') THEN NULL
+               ELSE BTRIM(correlation_id)
+           END,
+           CASE
+               WHEN LOWER(BTRIM(entry->>'correlation_id')) IN ('', 'none', 'null') THEN NULL
+               ELSE BTRIM(entry->>'correlation_id')
+           END,
+           NULLIF(BTRIM(entry#>>'{payload,correlation_id}'), ''),
+           CASE
+               WHEN action_kind = 'observation-campaign.source-transition'
+               THEN NULLIF(BTRIM(entry->>'campaign_id'), '')
+           END
+       ) AS correlation_id,
+       actor, action_kind, mode,
        entry, previous_hash, entry_hash, created_at
   FROM audit_log
  WHERE (%(cutoff)s::bigint IS NULL OR seq < %(cutoff)s::bigint)
-   AND (%(correlation_id)s::text IS NULL OR correlation_id = %(correlation_id)s::text)
+   AND (
+       %(correlation_id)s::text IS NULL
+       OR COALESCE(
+           CASE
+               WHEN LOWER(BTRIM(correlation_id)) IN ('', 'none', 'null') THEN NULL
+               ELSE BTRIM(correlation_id)
+           END,
+           CASE
+               WHEN LOWER(BTRIM(entry->>'correlation_id')) IN ('', 'none', 'null') THEN NULL
+               ELSE BTRIM(entry->>'correlation_id')
+           END,
+           NULLIF(BTRIM(entry#>>'{payload,correlation_id}'), ''),
+           CASE
+               WHEN action_kind = 'observation-campaign.source-transition'
+               THEN NULLIF(BTRIM(entry->>'campaign_id'), '')
+           END
+       ) = %(correlation_id)s::text
+   )
    AND (%(mode)s::text IS NULL OR mode = %(mode)s::text)
-   AND (%(tier)s::text IS NULL OR lower(entry->>'tier') = %(tier)s::text)
+   AND (%(tier)s::text IS NULL
+        OR lower(COALESCE(entry->>'tier', entry#>>'{payload,tier}')) = %(tier)s::text)
    AND (%(action_kind)s::text IS NULL OR action_kind = %(action_kind)s::text)
    AND (%(outcome)s::text IS NULL
-        OR COALESCE(entry->>'gate_route', entry->>'outcome', entry->>'decision')
-           = %(outcome)s::text)
+        OR COALESCE(
+            entry->>'gate_route', entry->>'outcome', entry->>'decision', entry->>'status',
+            entry#>>'{payload,gate_route}', entry#>>'{payload,outcome}',
+            entry#>>'{payload,decision}', entry#>>'{payload,status}',
+            entry#>>'{payload,risk_verdict}'
+        ) = %(outcome)s::text)
    AND (%(vertical)s::text IS NULL
-        OR COALESCE(entry->>'vertical', entry->>'category') = %(vertical)s::text)
+        OR COALESCE(
+            entry->>'vertical', entry->>'category', entry->>'domain',
+            entry#>>'{payload,vertical}', entry#>>'{payload,category}',
+            entry#>>'{payload,domain}'
+        )
+           = %(vertical)s::text)
    AND (%(window_days)s::integer IS NULL
         OR created_at >= CURRENT_TIMESTAMP - %(window_days)s::integer * interval '1 day')
    AND (%(from_seq)s::bigint IS NULL OR seq >= %(from_seq)s::bigint)
@@ -24,18 +67,178 @@ SELECT seq, event_id, correlation_id, actor, action_kind, mode,
  LIMIT %(fetch)s
 """
 
+AUDIT_SUMMARY_SQL: Final = """
+WITH matching AS (
+    SELECT seq, action_kind, entry
+      FROM audit_log
+     WHERE (
+         %(correlation_id)s::text IS NULL
+         OR COALESCE(
+             CASE
+                 WHEN LOWER(BTRIM(correlation_id)) IN ('', 'none', 'null') THEN NULL
+                 ELSE BTRIM(correlation_id)
+             END,
+             CASE
+                 WHEN LOWER(BTRIM(entry->>'correlation_id')) IN ('', 'none', 'null') THEN NULL
+                 ELSE BTRIM(entry->>'correlation_id')
+             END,
+             NULLIF(BTRIM(entry#>>'{payload,correlation_id}'), ''),
+             CASE
+                 WHEN action_kind = 'observation-campaign.source-transition'
+                 THEN NULLIF(BTRIM(entry->>'campaign_id'), '')
+             END
+         ) = %(correlation_id)s::text
+     )
+       AND (%(mode)s::text IS NULL OR mode = %(mode)s::text)
+       AND (%(tier)s::text IS NULL
+            OR lower(COALESCE(entry->>'tier', entry#>>'{payload,tier}'))
+               = %(tier)s::text)
+       AND (%(action_kind)s::text IS NULL OR action_kind = %(action_kind)s::text)
+       AND (%(outcome)s::text IS NULL
+            OR COALESCE(
+                entry->>'gate_route', entry->>'outcome', entry->>'decision', entry->>'status',
+                entry#>>'{payload,gate_route}', entry#>>'{payload,outcome}',
+                entry#>>'{payload,decision}', entry#>>'{payload,status}',
+                entry#>>'{payload,risk_verdict}'
+            ) = %(outcome)s::text)
+       AND (%(vertical)s::text IS NULL
+            OR COALESCE(
+                entry->>'vertical', entry->>'category', entry->>'domain',
+                entry#>>'{payload,vertical}', entry#>>'{payload,category}',
+                entry#>>'{payload,domain}'
+            )
+               = %(vertical)s::text)
+       AND (%(window_days)s::integer IS NULL
+            OR created_at >= CURRENT_TIMESTAMP - %(window_days)s::integer * interval '1 day')
+       AND (%(from_seq)s::bigint IS NULL OR seq >= %(from_seq)s::bigint)
+       AND (%(through_seq)s::bigint IS NULL OR seq <= %(through_seq)s::bigint)
+),
+scope_summary AS (
+    SELECT COUNT(*) AS matching_record_count,
+           COUNT(*) FILTER (
+               WHERE LOWER(COALESCE(entry->>'stage', entry->>'phase', ''))
+                         IN ('close', 'audit')
+                  OR LOWER(COALESCE(entry->>'status', ''))
+                         IN ('completed', 'succeeded', 'failed', 'cancelled',
+                             'timed_out', 'closed', 'resolved')
+                  OR LOWER(COALESCE(entry->>'outcome', ''))
+                         IN ('completed', 'succeeded', 'failed', 'cancelled',
+                             'timed_out', 'closed', 'resolved', 'rolled_back')
+                  OR LOWER(COALESCE(entry#>>'{payload,status}', ''))
+                         IN ('completed', 'succeeded', 'failed', 'cancelled',
+                             'timed_out', 'closed', 'resolved')
+                  OR LOWER(COALESCE(entry#>>'{payload,outcome}', ''))
+                         IN ('completed', 'succeeded', 'failed', 'cancelled',
+                             'timed_out', 'closed', 'resolved', 'rolled_back')
+           ) AS terminal_record_count,
+           COUNT(*) FILTER (
+               WHERE action_kind LIKE 'hil.%%'
+                  OR LOWER(COALESCE(
+                      entry->>'gate_route', entry->>'decision', entry->>'outcome',
+                      entry#>>'{payload,gate_route}', entry#>>'{payload,decision}',
+                      entry#>>'{payload,outcome}', entry#>>'{payload,risk_verdict}', ''
+                  )) = 'hil'
+                  OR NULLIF(BTRIM(entry->>'approval_id'), '') IS NOT NULL
+                  OR NULLIF(BTRIM(entry#>>'{payload,approval_id}'), '') IS NOT NULL
+           ) AS human_review_record_count,
+           COUNT(*) FILTER (
+               WHERE NULLIF(BTRIM(entry->>'rollback_reference'), '') IS NOT NULL
+                  OR NULLIF(BTRIM(entry#>>'{payload,rollback_reference}'), '') IS NOT NULL
+                  OR LOWER(COALESCE(entry->>'outcome', '')) IN ('rollback', 'rolled_back')
+                  OR LOWER(COALESCE(entry#>>'{payload,outcome}', ''))
+                     IN ('rollback', 'rolled_back')
+                  OR LOWER(COALESCE(entry->>'stage', entry->>'phase', '')) = 'rollback'
+                  OR LOWER(action_kind) LIKE '%%rollback%%'
+           ) AS rollback_record_count
+      FROM matching
+),
+linked AS (
+    SELECT seq, previous_hash, LAG(entry_hash) OVER (ORDER BY seq) AS prior_hash
+      FROM audit_log
+),
+link_summary AS (
+    SELECT COUNT(*) AS current_record_count,
+           COUNT(*) FILTER (
+               WHERE prior_hash IS NOT NULL
+                 AND previous_hash IS DISTINCT FROM prior_hash
+           ) AS current_link_gap_count
+      FROM linked
+),
+readiness AS (
+    SELECT value
+      FROM state_kv
+     WHERE key = 'runtime:startup-readiness:latest'
+     LIMIT 1
+)
+SELECT CURRENT_TIMESTAMP AS observed_at,
+       scope_summary.matching_record_count,
+       scope_summary.terminal_record_count,
+       scope_summary.human_review_record_count,
+       scope_summary.rollback_record_count,
+       link_summary.current_record_count,
+       link_summary.current_link_gap_count,
+       readiness.value AS readiness
+  FROM scope_summary
+ CROSS JOIN link_summary
+  LEFT JOIN readiness ON TRUE
+"""
+
 AUDIT_TRACE_SQL: Final = """
 WITH correlated_events AS (
     SELECT DISTINCT event_id
       FROM audit_log
-     WHERE correlation_id = %(correlation_id)s::text
+     WHERE COALESCE(
+               CASE
+                   WHEN LOWER(BTRIM(correlation_id)) IN ('', 'none', 'null') THEN NULL
+                   ELSE BTRIM(correlation_id)
+               END,
+               CASE
+                   WHEN LOWER(BTRIM(entry->>'correlation_id')) IN ('', 'none', 'null') THEN NULL
+                   ELSE BTRIM(entry->>'correlation_id')
+               END,
+               NULLIF(BTRIM(entry#>>'{payload,correlation_id}'), ''),
+               CASE
+                   WHEN action_kind = 'observation-campaign.source-transition'
+                   THEN NULLIF(BTRIM(entry->>'campaign_id'), '')
+               END
+           ) = %(correlation_id)s::text
        AND event_id IS NOT NULL
 ),
 bounded AS (
-    SELECT seq, event_id, correlation_id, actor, action_kind, mode,
+    SELECT seq, event_id,
+           COALESCE(
+               CASE
+                   WHEN LOWER(BTRIM(correlation_id)) IN ('', 'none', 'null') THEN NULL
+                   ELSE BTRIM(correlation_id)
+               END,
+               CASE
+                   WHEN LOWER(BTRIM(entry->>'correlation_id')) IN ('', 'none', 'null') THEN NULL
+                   ELSE BTRIM(entry->>'correlation_id')
+               END,
+               NULLIF(BTRIM(entry#>>'{payload,correlation_id}'), ''),
+               CASE
+                   WHEN action_kind = 'observation-campaign.source-transition'
+                   THEN NULLIF(BTRIM(entry->>'campaign_id'), '')
+               END
+           ) AS correlation_id,
+           actor, action_kind, mode,
            entry, previous_hash, entry_hash, created_at
       FROM audit_log
-     WHERE correlation_id = %(correlation_id)s::text
+     WHERE COALESCE(
+               CASE
+                   WHEN LOWER(BTRIM(correlation_id)) IN ('', 'none', 'null') THEN NULL
+                   ELSE BTRIM(correlation_id)
+               END,
+               CASE
+                   WHEN LOWER(BTRIM(entry->>'correlation_id')) IN ('', 'none', 'null') THEN NULL
+                   ELSE BTRIM(entry->>'correlation_id')
+               END,
+               NULLIF(BTRIM(entry#>>'{payload,correlation_id}'), ''),
+               CASE
+                   WHEN action_kind = 'observation-campaign.source-transition'
+                   THEN NULLIF(BTRIM(entry->>'campaign_id'), '')
+               END
+           ) = %(correlation_id)s::text
         OR event_id IN (SELECT event_id FROM correlated_events)
      ORDER BY seq DESC
      LIMIT %(fetch)s
@@ -644,6 +847,7 @@ __all__ = [
     "AGENT_ONTOLOGY_ACTIVITY_SQL",
     "AGENT_READ_ACTIVITY_SQL",
     "AUDIT_PAGE_SQL",
+    "AUDIT_SUMMARY_SQL",
     "AUDIT_TRACE_SQL",
     "HIL_COUNT_SQL",
     "HIL_PAGE_SQL",

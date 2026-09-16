@@ -29,14 +29,45 @@ _TRACE_READ_PREFIXES: Final = (
     "read.",
 )
 _TRACE_TARGET_KEYS: Final = ("target_resource_ref", "resource_ref", "resource_id")
+_AUDIT_SOURCE_OBSERVATION_KINDS: Final = frozenset(
+    {
+        "handover.readiness.observed",
+        "observation-campaign.source-transition",
+        "startup_readiness.audit_probe",
+    }
+)
+_AUDIT_RECORD_KINDS: Final = frozenset({"source_observation", "action_lifecycle", "audit_record"})
+_AUDIT_PHASES: Final = {
+    "intent": "intent",
+    "plan": "intent",
+    "propose": "intent",
+    "dispatch": "dispatch",
+    "execute": "dispatch",
+    "observe": "observe",
+    "verify": "observe",
+    "close": "close",
+    "audit": "close",
+}
+_AUDIT_TARGET_KEYS: Final = (
+    "target_ref",
+    "target_resource_ref",
+    "resource_ref",
+    "resource_id",
+    "source_id",
+    "resource_type",
+)
 
 
 def audit_item(row: Mapping[str, Any]) -> JsonObject:
     """Map one audit row to the frozen HTTP item with sensitive values redacted."""
     entry = _mapping(row.get("entry"))
+    redacted_entry = redact(entry)
+    if not isinstance(redacted_entry, dict):
+        raise TypeError("redacted audit entry MUST remain an object")
     correlation_id = _nonempty(row.get("correlation_id"))
     if correlation_id is not None and correlation_id.lower() in {"none", "null"}:
         correlation_id = None
+    action_kind = str(row["action_kind"])
     return cast(
         JsonObject,
         {
@@ -44,14 +75,179 @@ def audit_item(row: Mapping[str, Any]) -> JsonObject:
             "event_id": str(row["event_id"]),
             "correlation_id": correlation_id,
             "actor": str(row["actor"]),
-            "action_kind": str(row["action_kind"]),
+            "action_kind": action_kind,
             "mode": str(row["mode"]),
-            "entry": redact(entry),
+            "entry": redacted_entry,
+            "context": _audit_record_context(
+                action_kind=action_kind,
+                correlation_id=correlation_id,
+                entry=redacted_entry,
+            ),
             "entry_hash": str(row["entry_hash"]),
             "previous_hash": str(row["previous_hash"]),
             "recorded_at": _isoformat(row.get("created_at")),
         },
     )
+
+
+def audit_summary(row: Mapping[str, Any]) -> JsonObject:
+    """Project filtered ledger counts and independently retained integrity evidence."""
+    current_record_count = _nonnegative_count(row.get("current_record_count"))
+    current_link_gap_count = _nonnegative_count(row.get("current_link_gap_count"))
+    integrity_status, integrity_reason, verified_at = _audit_integrity(
+        row.get("readiness"),
+        current_link_gap_count=current_link_gap_count,
+    )
+    return cast(
+        JsonObject,
+        {
+            "observed_at": _isoformat(row.get("observed_at")),
+            "matching_record_count": _nonnegative_count(row.get("matching_record_count")),
+            "terminal_record_count": _nonnegative_count(row.get("terminal_record_count")),
+            "human_review_record_count": _nonnegative_count(row.get("human_review_record_count")),
+            "rollback_record_count": _nonnegative_count(row.get("rollback_record_count")),
+            "integrity": {
+                "status": integrity_status,
+                "reason": integrity_reason,
+                "verified_at": verified_at,
+                "current_record_count": current_record_count,
+                "current_link_gap_count": current_link_gap_count,
+            },
+            "redaction_applied": True,
+        },
+    )
+
+
+def _audit_record_context(
+    *,
+    action_kind: str,
+    correlation_id: str | None,
+    entry: Mapping[str, object],
+) -> JsonObject:
+    nested_payload = _mapping(entry.get("payload"))
+    fields = {**nested_payload, **entry}
+    stage = _first_audit_text(fields, ("stage", "phase"))
+    phase = _AUDIT_PHASES.get(stage.casefold()) if stage is not None else None
+    target = _first_audit_text(fields, _AUDIT_TARGET_KEYS)
+    outcome = _first_audit_text(
+        fields,
+        ("outcome", "status", "gate_route", "decision", "risk_verdict"),
+    )
+    domain = _nonempty(fields.get("domain"))
+    if action_kind == "handover.readiness.observed":
+        target = target or "handover-readiness"
+        domain = domain or "identity"
+        if outcome is None and isinstance(fields.get("partial"), bool):
+            outcome = "partial" if fields["partial"] else "complete"
+    elif action_kind == "startup_readiness.audit_probe":
+        target = target or "startup-readiness"
+        domain = domain or "runtime"
+        outcome = "recorded"
+    elif action_kind == "control_loop.compliant":
+        outcome = outcome or "compliant"
+    explicit_kind = _nonempty(fields.get("record_kind"))
+    if explicit_kind not in _AUDIT_RECORD_KINDS:
+        explicit_kind = None
+    if explicit_kind is not None:
+        record_kind = explicit_kind
+    elif action_kind in _AUDIT_SOURCE_OBSERVATION_KINDS:
+        record_kind = "source_observation"
+    elif phase is not None or any(
+        _nonempty(fields.get(key)) is not None
+        for key in (
+            "tier",
+            "decision",
+            "risk_verdict",
+            "action_type",
+            "idempotency_key",
+            "rollback_reference",
+        )
+    ):
+        record_kind = "action_lifecycle"
+    else:
+        record_kind = "audit_record"
+    return cast(
+        JsonObject,
+        {
+            "record_kind": record_kind,
+            "action_lifecycle_applicable": record_kind != "source_observation",
+            "target": target,
+            "correlation_id": correlation_id,
+            "phase": phase,
+            "stage": stage,
+            "outcome": outcome,
+            "tier": _nonempty(fields.get("tier")),
+            "decision": _first_audit_text(fields, ("decision", "risk_verdict")),
+            "idempotency_key": _nonempty(fields.get("idempotency_key")),
+            "rollback_reference": _nonempty(fields.get("rollback_reference")),
+            "owner_agent": _nonempty(fields.get("owner_agent")),
+            "domain": domain,
+        },
+    )
+
+
+def _first_audit_text(
+    entry: Mapping[str, object],
+    keys: Sequence[str],
+) -> str | None:
+    return next(
+        (value for key in keys if (value := _nonempty(entry.get(key))) is not None),
+        None,
+    )
+
+
+def _audit_integrity(
+    readiness_value: object,
+    *,
+    current_link_gap_count: int,
+) -> tuple[str, str | None, str | None]:
+    readiness = _mapping(readiness_value)
+    verified_at = _optional_timestamp(readiness.get("generated_at"))
+    results = readiness.get("results")
+    probe: Mapping[str, object] | None = None
+    if isinstance(results, Sequence) and not isinstance(results, (str, bytes, bytearray)):
+        probe = next(
+            (
+                item
+                for item in results
+                if isinstance(item, Mapping) and item.get("probe_id") == "audit.chain"
+            ),
+            None,
+        )
+    evidence = _mapping(probe.get("evidence")) if probe is not None else {}
+    if current_link_gap_count > 0:
+        return "failed", "current_hash_link_gap", verified_at
+    if (
+        probe is not None
+        and probe.get("status") == "passed"
+        and evidence.get("audit_chain_verified") is True
+        and verified_at is not None
+    ):
+        return "verified", None, verified_at
+    if probe is not None and (
+        probe.get("status") == "failed" or evidence.get("audit_chain_verified") is False
+    ):
+        return "failed", "startup_verification_failed", verified_at
+    return "unavailable", "startup_verification_unavailable", verified_at
+
+
+def _optional_timestamp(value: object) -> str | None:
+    text = _nonempty(value)
+    if text is None:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.isoformat()
+
+
+def _nonnegative_count(value: object) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise TypeError("audit summary counts MUST be non-negative integers")
+    return value
 
 
 def redact(value: object) -> JsonValue:
@@ -516,6 +712,7 @@ __all__ = [
     "KPI_SAMPLE_LIMIT",
     "LLM_USAGE_DETAIL_LIMIT",
     "audit_item",
+    "audit_summary",
     "dashboard_kpi",
     "hil_item",
     "llm_usage_projection",

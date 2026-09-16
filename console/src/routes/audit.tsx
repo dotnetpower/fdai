@@ -128,7 +128,11 @@ export function AuditRoute({ client }: Props) {
         if (requestGeneration.current === generation) {
           setState({
             status: "ready",
-            data: { items: page.items, nextCursor: page.next_cursor },
+            data: {
+              items: page.items,
+              nextCursor: page.next_cursor,
+              summary: page.summary ?? null,
+            },
           });
         }
       } catch (err) {
@@ -175,7 +179,12 @@ export function AuditRoute({ client }: Props) {
         actions={<div class="audit-header-meta">
           <span>{t("evidence.audit.workspace.ledgerWindow")}</span>
           <strong>{state.status === "ready"
-            ? t("evidence.audit.workspace.loadedCount", { count: state.data.items.length })
+            ? state.data.summary
+              ? t("evidence.audit.workspace.loadedAndMatchingCount", {
+                  loaded: state.data.items.length,
+                  matching: state.data.summary.matching_record_count,
+                })
+              : t("evidence.audit.workspace.loadedCount", { count: state.data.items.length })
             : t("evidence.audit.workspace.source")}</strong>
         </div>}
       />
@@ -201,6 +210,7 @@ export function AuditRoute({ client }: Props) {
 function auditRequest(filters: AuditFilters, correlationId: string | null) {
   return {
     limit: PAGE_SIZE,
+    includeSummary: true,
     ...(correlationId ? { correlationId } : {}),
     ...(filters.mode ? { mode: filters.mode } : {}),
     ...(filters.tier ? { tier: filters.tier } : {}),

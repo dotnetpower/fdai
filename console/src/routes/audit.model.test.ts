@@ -10,9 +10,26 @@ function item(seq: number): AuditItem {
 describe("audit pagination", () => {
   test("keeps selected record identity and causal fields in screen context", () => {
     expect(auditContextRecord({
-      ...item(42), entry: { reason: "Requires human approval", detail: "No dispatch", outcome: "hil" },
+      ...item(42),
+      context: {
+        record_kind: "action_lifecycle",
+        action_lifecycle_applicable: true,
+        target: "resource-one",
+        correlation_id: null,
+        phase: null,
+        stage: null,
+        outcome: "hil",
+        tier: null,
+        decision: null,
+        idempotency_key: null,
+        rollback_reference: null,
+        owner_agent: null,
+        domain: null,
+      },
+      entry: { reason: "Requires human approval", detail: "No dispatch", outcome: "hil" },
     })).toMatchObject({
-      seq: 42, reason: "Requires human approval", detail: "No dispatch", outcome: "hil", summary: "-",
+      seq: 42, reason: "Requires human approval", detail: "No dispatch",
+      outcome: "hil", target: "resource-one", summary: "-",
     });
   });
   test("searches recorded identities only within the loaded page", () => {
@@ -33,6 +50,24 @@ describe("audit pagination", () => {
     expect(auditRecordedPhase({ ...record, entry: { stage: "unknown" } })).toBeNull();
     expect(auditEntryText({ stage: false }, "stage")).toBeNull();
     expect(auditEntryText({ stage: " " }, "stage")).toBeNull();
+    expect(auditRecordedPhase({
+      ...record,
+      context: {
+        record_kind: "source_observation",
+        action_lifecycle_applicable: false,
+        target: "metrics",
+        correlation_id: "campaign-one",
+        phase: null,
+        stage: null,
+        outcome: "completed",
+        tier: null,
+        decision: null,
+        idempotency_key: null,
+        rollback_reference: null,
+        owner_agent: "Heimdall",
+        domain: "metrics",
+      },
+    })).toBeNull();
   });
 
   test("turns an exact entry link into immutable server-side sequence bounds", () => {
@@ -43,18 +78,20 @@ describe("audit pagination", () => {
   });
 
   test("appends only the response for the current cursor", () => {
-    const current = { items: [item(2)], nextCursor: "cursor-2" };
+    const current = { items: [item(2)], nextCursor: "cursor-2", summary: null };
     expect(appendAuditPage(current, "stale", { items: [item(1)], next_cursor: null })).toBe(current);
-    expect(appendAuditPage(current, "cursor-2", { items: [item(1)], next_cursor: null })).toEqual({ items: [item(2), item(1)], nextCursor: null });
+    expect(appendAuditPage(current, "cursor-2", { items: [item(1)], next_cursor: null })).toEqual({
+      items: [item(2), item(1)], nextCursor: null, summary: null,
+    });
   });
 
   test("deduplicates replayed audit rows", () => {
-    const current = { items: [item(2)], nextCursor: "cursor-2" };
+    const current = { items: [item(2)], nextCursor: "cursor-2", summary: null };
     expect(appendAuditPage(current, "cursor-2", { items: [item(2), item(1)], next_cursor: null }).items.map((row) => row.seq)).toEqual([2, 1]);
   });
 
   test("distinguishes selected, off-page, absent, and invalid entry links", () => {
-    const page = { items: [item(2)], nextCursor: "cursor-2" };
+    const page = { items: [item(2)], nextCursor: "cursor-2", summary: null };
     expect(resolveAuditEntry(page, "2")).toEqual({ status: "selected", seq: 2 });
     expect(resolveAuditEntry(page, "1")).toEqual({ status: "pending", seq: 1 });
     expect(resolveAuditEntry({ ...page, nextCursor: null }, "1")).toEqual({

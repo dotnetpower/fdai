@@ -554,7 +554,7 @@ export function browserAlertForLiveEvent(event: LiveStageEvent): BrowserAlert | 
     kind,
     tag: `fdai:${event.event_id}`,
     path: routeHref("audit", {
-      params: { correlation: event.correlation_id },
+      params: { correlation: event.correlation_id, data: "live" },
     }),
   };
 }
