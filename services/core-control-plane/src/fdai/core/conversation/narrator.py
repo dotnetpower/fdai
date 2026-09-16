@@ -157,8 +157,10 @@ def default_tool_schemas() -> tuple[ToolSchema, ...]:
     """Ship the tool metadata the narrator sees.
 
     Lists canonical installed command names available for model translation.
+    Raw ``query_log`` remains an explicit operator command and is deliberately
+    absent so a narrator cannot author KQL or include it in a read plan.
     """
-    return _DEFAULT_SCHEMAS
+    return tuple(schema for schema in _DEFAULT_SCHEMAS if schema.tool_name != "query_log")
 
 
 _DEFAULT_SCHEMAS: tuple[ToolSchema, ...] = (

@@ -144,6 +144,7 @@ def _make_loop(
     incident_rca_context_source: Any = None,
     resource_dependency_graph: Any = None,
     governed_knowledge_context_provider: Any = None,
+    adaptive_telemetry_investigator: Any = None,
     rca_side_path_timeout_seconds: float = 5.0,
     governance_assignments: tuple[Any, ...] = (),
     governance_overrides: tuple[Any, ...] = (),
@@ -196,6 +197,7 @@ def _make_loop(
         incident_member_source=incident_member_source,
         incident_rca_context_source=incident_rca_context_source,
         governed_knowledge_context_provider=governed_knowledge_context_provider,
+        adaptive_telemetry_investigator=adaptive_telemetry_investigator,
         rca_catalog_revision=(
             f"sha256:{'b' * 64}" if governed_knowledge_context_provider is not None else None
         ),
@@ -2003,6 +2005,30 @@ class _RecordingTelemetryGatherer:
         )
 
 
+class _RecordingAdaptiveTelemetryInvestigator:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    async def investigate(self, **kwargs: Any) -> Any:
+        self.calls.append(kwargs)
+        return SimpleNamespace(
+            citations=(
+                Citation(
+                    kind=CitationKind.TELEMETRY,
+                    ref=f"telemetry-receipt:sha256:{'c' * 64}",
+                    facts=("disposition:complete", "mechanism:failed_requests"),
+                ),
+            ),
+            investigation=SimpleNamespace(
+                session_id="adaptive-telemetry:test",
+                disposition=SimpleNamespace(value="converged"),
+                used_queries=1,
+                used_cost_units=10,
+                result_digest=f"sha256:{'d' * 64}",
+            ),
+        )
+
+
 class _SlowT2Reasoner:
     async def reason(self, *, incident_summary: str, candidate_citations: Any) -> Any:
         del incident_summary, candidate_citations
@@ -2099,6 +2125,55 @@ async def test_t2_rca_collects_telemetry_without_governed_documents(
         if entry["entry"].get("idempotency_key") == "t2-telemetry:rca_t2"
     )
     assert t2_entry["rca_citations"] == [{"kind": "telemetry", "ref": "log:opaque"}]
+
+
+@pytest.mark.asyncio
+async def test_t2_rca_uses_adaptive_recipe_evidence_and_audits_process_summary(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    reasoner = _TelemetryT2Reasoner()
+    legacy_gatherer = _RecordingTelemetryGatherer()
+    adaptive = _RecordingAdaptiveTelemetryInvestigator()
+    loop, _, audit = _make_loop(
+        shipped_catalog,
+        with_opa=False,
+        rca_coordinator=RcaCoordinator(
+            reasoner=reasoner,
+            evidence_gatherer=legacy_gatherer,
+        ),
+        event_correlator=EventCorrelator(),
+        adaptive_telemetry_investigator=adaptive,
+    )
+
+    result = await loop.process(
+        _make_event(
+            idempotency_key="t2-adaptive-telemetry",
+            resource_type="application",
+            resource_id="resource-sensitive-name",
+            props={},
+            event_type="http.429.detected",
+        )
+    )
+
+    assert result.rca_result is not None and result.rca_result.is_grounded
+    assert len(adaptive.calls) == 1
+    assert adaptive.calls[0]["resource_ref"] == "resource-sensitive-name"
+    assert legacy_gatherer.resource_ref is None
+    citation = next(item for item in reasoner.candidates if item.kind is CitationKind.TELEMETRY)
+    assert citation.ref.startswith("telemetry-receipt:sha256:")
+    t2_entry = next(
+        entry["entry"]
+        for entry in audit.audit_entries
+        if entry["entry"].get("idempotency_key") == "t2-adaptive-telemetry:rca_t2"
+    )
+    assert t2_entry["adaptive_investigation"] == {
+        "session_id": "adaptive-telemetry:test",
+        "disposition": "converged",
+        "used_queries": 1,
+        "used_cost_units": 10,
+        "result_digest": f"sha256:{'d' * 64}",
+        "mutation_controls": False,
+    }
 
 
 @pytest.mark.asyncio

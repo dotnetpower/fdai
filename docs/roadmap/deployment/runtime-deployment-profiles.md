@@ -182,7 +182,13 @@ The Container Apps renderer maps the specification to Container Apps and Contain
 AKS renderer maps it to typed Kubernetes `Deployment`, `Service`, `ServiceAccount`,
 `HorizontalPodAutoscaler`, `PodDisruptionBudget`, `NetworkPolicy`, and `CronJob` resources. The
 first AKS implementation keeps two replicas for each long-running service and does not require
-Knative or KEDA.
+Knative or KEDA. Console publication uses an exposed browser gateway base URL; otherwise, it retains the existing Container Apps FQDN without changing browser or API routes.
+
+Both renderers bind Core to the `fdai.operating-model` logical topic through
+`FDAI_OPERATING_MODEL_TOPIC`. The topic shares the existing semantic physical Event Hub and its
+managed-identity transport; it is not another Event Hub entity or authority channel. The AKS
+standalone renderer obtains the value from the exact substrate output, while the independent and
+legacy Container Apps renderers receive the same typed deployment input.
 
 Operator assignment and human-approval (HIL) transport imports share the existing `iam_composition`
 facade within the same Operator Service package and runtime; original adapter and factory objects
@@ -280,7 +286,7 @@ API Server VNet Integration at cluster creation and reserves at least a `/28` de
 subnet so private-cluster mode can be enabled later without replacing the cluster. The cluster state
 owns an explicit Standard NAT Gateway, static Standard outbound public IP, and both associations
 before AKS creation; its outbound type is `userAssignedNATGateway`, not the
-AKS-managed-VNet-only `managedNATGateway`.
+AKS-managed-VNet-only `managedNATGateway`. The outbound public IP excludes Azure Policy-owned `ip_tags` from Terraform lifecycle reconciliation while ordinary `tags` remain Terraform-owned. This prevents policy metadata from replacing the public IP and NAT association; it grants no exception to cluster, node-pool, or DCR changes.
 
 The basic profile keeps authenticated public API access enabled and applies the reviewed access
 restriction. API-server-to-node traffic still uses the integrated private path. This is the
@@ -296,7 +302,7 @@ the regional catalog once and uses an exact-name Azure CLI projection so only th
 SKUs are serialized, then checks their regional restrictions, three required zones, architecture,
 host encryption, and family plus total quota. It does not issue a second catalog request for a
 different node-pool SKU or retry a failed provider read. Unsupported targets do not disable
-encryption. Allocatable workload-envelope validation remains open in the implementation ledger.
+encryption. Allocatable workload-envelope validation remains open in the implementation ledger. Container Insights combines the managed-identity `oms_agent` addon with a Terraform-owned Data Collection Rule (DCR) and cluster association. It sends the default stream each minute with `ContainerLogV2`; without the association and current workspace records, monitoring is unavailable.
 
 The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
 ephemeral storage. Checkov exceptions stay attached to the affected resource: the pinned scanner

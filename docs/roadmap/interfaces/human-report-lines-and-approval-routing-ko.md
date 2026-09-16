@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: b74d6ba00138b255a3e1c96e9583cce08c56e2e1
+translation_source_sha: 917034bc25317b760358013a6bc194c1b77dacd0
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -63,7 +63,9 @@ ActionType에 report-line 승인이 필요하면 FDAI는 요청자에게 해당 
 ## 통제된 조직 문서 수집
 
 Report-line 추출은 운영자가 명시적인 `report_line_bootstrap` 용도를 선택한 뒤에만 시작합니다.
-FDAI는 파일 이름, 첨부 텍스트 또는 일반 지식 업로드에서 이 용도를 추론하지 않습니다.
+FDAI는 파일 이름, 첨부 텍스트 또는 일반 지식 업로드에서 이 용도를 추론하지 않습니다. 생성된
+System Knowledge 카탈로그는 이 설계 문서를 색인할 수 있지만 조직 근거가 아니며 report-line
+또는 승인 라우팅 권한을 부여하지 않습니다.
 
 기존 문서 파이프라인은 업로드 인증, 바이트 제한, 악성코드 및 보호 검사, 형식 검증,
 OCR, 변경할 수 없는 버전, 접근 서술자, 보존 및 감사를 담당합니다. Report-line consumer는
@@ -248,6 +250,11 @@ Report-line 정책과 런타임은 quorum `1`만 허용합니다. 더 높은 quo
 | `GET/POST /handover/reporting-line-cases...` | 변경할 수 없는 edge 사례를 생성, 조회, 확인 또는 독립 검토합니다. |
 | `GET /hil/report-line-contact-requests` | 인증된 요청자가 소유한 연락 동의 요청을 나열합니다. |
 | `POST /hil/{approval_id}/report-line-contact` | 작업 승인 없이 연락 동의 또는 취소를 기록합니다. |
+
+`GET /hil/report-line-contact-requests`는 요청자 표시 범위를 적용하기 전에 현재
+`awaiting_contact_consent` 집합의 완전성을 확인합니다. 종료된 보류 승인 이력은 감사 근거로
+남지만 범위가 제한된 목록 조회 한도를 소비하지 않습니다. 현재 대기 집합이 조회 한도를 넘으면
+일부 결과를 반환하지 않고 엔드포인트를 사용할 수 없는 상태로 유지합니다.
 
 ## 에이전트 및 서비스 소유권
 

@@ -6,6 +6,7 @@ description: Stable service identity used for ownership, criticality, objectives
 properties:
   id: {type: string, required: true}
   name: {type: string, required: true}
+  aliases: {type: array, required: false}
   criticality: {type: string, required: true}
   effective_from: {type: datetime, required: true}
   effective_to: {type: datetime, required: false}
@@ -21,6 +22,6 @@ lifecycle:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:BusinessService@1.0.0
-  content_hash: sha256:7098456ef57d9bea4d0d42acf60de27302a26ace0ea91fc72994a0131edf3b61
+  content_hash: sha256:97c3c0eb6364623e12d01f39e04478189887485a168dbe6226c4ed4edbd9bfd2
   license: MIT
   retrieved_at: "2026-07-31T00:00:00Z"

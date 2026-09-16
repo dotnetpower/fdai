@@ -57,6 +57,12 @@ class AzureLogAnalyticsRcaLogProvider:
             workspace_resolver=resolver,
         )
 
+    @property
+    def query_provider(self) -> AzureLogAnalyticsQueryProvider:
+        """Return the server-owned base provider for reviewed recipe composition."""
+
+        return self._query_provider
+
     async def query(self, query: LogQuery) -> AsyncIterator[LogRecord]:
         try:
             since, until, limit = _bounds(query.since, query.until, query.limit)

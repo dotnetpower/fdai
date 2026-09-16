@@ -5,6 +5,11 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from fdai.core.conversation.semantic_logical_service_planning import (
+    compile_logical_service_current_state_plan,
+)
+from fdai.core.conversation.semantic_planning_frame import build_semantic_frame
+from fdai.core.conversation.semantic_planning_models import SemanticFrameProposal
 from fdai.core.detection.series import MetricSample
 from fdai.core.ontology_platform import (
     METRIC_ARGUMENT_SCHEMAS,
@@ -21,22 +26,35 @@ from fdai.core.ontology_platform import (
     ObjectSelectorKind,
     ObjectSetDefinition,
     ObjectSetService,
+    OntologyQueryPlanExecutor,
     OntologyQueryPlanVerifier,
     QueryNodeHeldError,
     QueryNodeResult,
     QueryRow,
     QueryTable,
+    SecuredObjectSetNodeHandler,
     SecuredOntologyInstancePathNodeHandler,
     SecuredRelationshipTraversalNodeHandler,
     SecuredTypedPathNodeHandler,
+    SetOperationNodeHandler,
     TopologyDiff,
     build_query_manifest,
     compile_interfaces,
 )
+from fdai.core.ontology_platform.functions import (
+    FunctionInvocationContext,
+    OntologyFunctionRegistry,
+)
 from fdai.core.ontology_platform.metric_semantics import MetricAggregation
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
+from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
+from fdai.core.ontology_platform.query_source_handlers import FunctionNodeHandler
 from fdai.core.ontology_platform.relationship_queries import (
     ontology_relationships_function_type,
+)
+from fdai.core.ontology_platform.resource_state_queries import (
+    resource_state_function_type,
+    resource_state_inventory_function,
 )
 from fdai.shared.contracts.models import (
     CeilingRole,
@@ -51,12 +69,19 @@ from fdai.shared.providers.ontology_instance import (
     OntologyLinkRecord,
     OntologyObjectRecord,
 )
+from fdai.shared.providers.state_evidence import (
+    STATE_FACT_METADATA_PROPERTY,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
+)
 from fdai.shared.providers.testing.ontology_instance import InMemoryOntologyInstanceStore
 from fdai_service_contracts.ontology_query import (
     EvidenceAuthority,
     OntologyQueryNode,
     OntologyQueryPlan,
     QueryNodeKind,
+    SemanticOperation,
     canonical_json,
     content_digest,
 )
@@ -293,6 +318,119 @@ def test_verifier_accepts_an_ordered_typed_path() -> None:
     assert verified is plan
 
 
+def test_verifier_accepts_same_type_object_set_union_as_typed_path_source() -> None:
+    service, resource, _dependency = _catalog()
+    workload = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Workload",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    implemented_by = OntologyLinkType(
+        schema_version="1.0.0",
+        name="implemented_by",
+        version="1.0.0",
+        from_type="BusinessService",
+        to_type="Workload",
+        cardinality=LinkCardinality.ONE_TO_MANY,
+    )
+    release = build_ontology_release(
+        object_types=(service, workload, resource),
+        link_types=(implemented_by,),
+    )
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(service, workload, resource),
+        link_types=(implemented_by,),
+    )
+    by_name = _resolution_node().model_copy(update={"node_id": "resolve-by-name"})
+    by_id = _resolution_node().model_copy(update={"node_id": "resolve-by-id"})
+    union = _node(
+        "resolve-target",
+        QueryNodeKind.UNION,
+        dependencies=(by_name.node_id, by_id.node_id),
+    )
+    path = _node(
+        "typed-path",
+        QueryNodeKind.TYPED_PATH,
+        dependencies=(union.node_id,),
+        arguments={
+            "steps": [
+                {
+                    "link_type": "implemented_by",
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Workload"},
+                }
+            ],
+            "as_of": NOW.isoformat(),
+            "purpose": "operations-review",
+            "limit": 100,
+        },
+    )
+    plan = _plan((by_name, by_id, union, path), manifest=manifest)
+
+    verified = OntologyQueryPlanVerifier(
+        available_kinds=(
+            QueryNodeKind.OBJECT_SET,
+            QueryNodeKind.UNION,
+            QueryNodeKind.TYPED_PATH,
+        )
+    ).verify(plan, manifest=manifest)
+
+    assert verified is plan
+
+
+def test_verifier_rejects_mixed_type_object_set_union_as_typed_path_source() -> None:
+    service, resource, dependency = _catalog()
+    release = build_ontology_release(
+        object_types=(service, resource),
+        link_types=(dependency,),
+    )
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(service, resource),
+        link_types=(dependency,),
+    )
+    service_target = _resolution_node().model_copy(update={"node_id": "service-target"})
+    resource_definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        predicates=(ObjectPredicate(property="id", equals="resource:a"),),
+        as_of=NOW,
+        purpose="operations-review",
+        limit=2,
+    )
+    resource_target = _node(
+        "resource-target",
+        QueryNodeKind.OBJECT_SET,
+        arguments={"definition": resource_definition.model_dump(mode="json")},
+    )
+    union = _node(
+        "resolve-target",
+        QueryNodeKind.UNION,
+        dependencies=(service_target.node_id, resource_target.node_id),
+    )
+    path = _traversal_node().model_copy(
+        update={"kind": QueryNodeKind.TYPED_PATH, "depends_on": (union.node_id,)}
+    )
+    plan = _plan((service_target, resource_target, union, path), manifest=manifest)
+
+    with pytest.raises(ValueError, match="same-type object_set union"):
+        OntologyQueryPlanVerifier(
+            available_kinds=(
+                QueryNodeKind.OBJECT_SET,
+                QueryNodeKind.UNION,
+                QueryNodeKind.TYPED_PATH,
+            )
+        ).verify(plan, manifest=manifest)
+
+
 def test_verifier_accepts_instance_path_with_exact_schema_dependencies() -> None:
     service, resource, dependency = _catalog()
     relationship_function = ontology_relationships_function_type()
@@ -520,6 +658,487 @@ async def test_secured_traversal_holds_ambiguous_entity_resolution() -> None:
             _traversal_node(),
             {"resolve-target": QueryNodeResult(value=roots)},
         )
+
+
+async def test_service_alias_typed_path_reaches_all_cross_runtime_resources() -> None:
+    service = OntologyObjectType(
+        schema_version="1.0.0",
+        name="BusinessService",
+        version="1.0.0",
+        key="id",
+        properties={
+            "id": PropertyDecl(type=PropertyType.STRING, required=True),
+            "name": PropertyDecl(type=PropertyType.STRING, required=True),
+            "aliases": PropertyDecl(type=PropertyType.ARRAY),
+        },
+    )
+    workload = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Workload",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    resource = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={
+            "id": PropertyDecl(type=PropertyType.STRING, required=True),
+            "type": PropertyDecl(type=PropertyType.STRING, required=True),
+        },
+    )
+    implemented_by = OntologyLinkType(
+        schema_version="1.0.0",
+        name="implemented_by",
+        version="1.0.0",
+        from_type="BusinessService",
+        to_type="Workload",
+        cardinality=LinkCardinality.ONE_TO_MANY,
+    )
+    workload_runs_on = OntologyLinkType(
+        schema_version="1.0.0",
+        name="workload_runs_on",
+        version="1.0.0",
+        from_type="Workload",
+        to_type="Resource",
+        cardinality=LinkCardinality.MANY_TO_MANY,
+    )
+    object_types = (service, workload, resource)
+    link_types = (implemented_by, workload_runs_on)
+    release = build_ontology_release(object_types=object_types, link_types=link_types)
+    store = InMemoryOntologyInstanceStore(object_types=object_types, link_types=link_types)
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="service:example-shop",
+            object_type="BusinessService",
+            properties={
+                "id": "service:example-shop",
+                "name": "Example shop",
+                "aliases": ["example backend"],
+            },
+        )
+    )
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="workload:backend",
+            object_type="Workload",
+            properties={"id": "workload:backend"},
+        )
+    )
+    runtime_types = (
+        "compute.web-app",
+        "compute.container-app",
+        "kubernetes.deployment",
+    )
+    for index, runtime_type in enumerate(runtime_types, start=1):
+        resource_id = f"resource:runtime-{index}"
+        await store.upsert_object(
+            OntologyObjectRecord(
+                id=resource_id,
+                object_type="Resource",
+                properties={"id": resource_id, "type": runtime_type},
+            )
+        )
+        await store.upsert_link(
+            OntologyLinkRecord("workload_runs_on", "workload:backend", resource_id)
+        )
+    await store.upsert_link(
+        OntologyLinkRecord("implemented_by", "service:example-shop", "workload:backend")
+    )
+    object_sets = ObjectSetService(
+        store=store,
+        interfaces=compile_interfaces(
+            interfaces=(),
+            implementations=(),
+            object_types=object_types,
+            release=release,
+        ),
+        object_type_names=frozenset(item.name for item in object_types),
+    )
+    gateway = SecuredObjectSetQueryGateway(
+        service=object_sets,
+        object_types={item.name: item for item in object_types},
+        ontology_release=release,
+        evaluation_cutoff=lambda: NOW,
+    )
+    alias_definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="BusinessService"),
+        predicates=(
+            ObjectPredicate(
+                property="aliases",
+                operator=ObjectPredicateOperator.CONTAINS,
+                equals="example backend",
+            ),
+        ),
+        as_of=NOW,
+        purpose="operations-review",
+        limit=2,
+        include_relationships=False,
+    )
+    alias_node = _node(
+        "service-by-alias",
+        QueryNodeKind.OBJECT_SET,
+        arguments={"definition": alias_definition.model_dump(mode="json")},
+    )
+    alias_result = await SecuredObjectSetNodeHandler(
+        gateway,
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+    )(alias_node, {})
+    union_node = _node(
+        "service-target",
+        QueryNodeKind.UNION,
+        dependencies=(alias_node.node_id, "service-by-name"),
+    )
+    union_result = await SetOperationNodeHandler("union")(
+        union_node,
+        {
+            alias_node.node_id: alias_result,
+            "service-by-name": QueryNodeResult(QueryTable(rows=(), complete=True)),
+        },
+    )
+    path_node = _node(
+        "service-resources",
+        QueryNodeKind.TYPED_PATH,
+        dependencies=(union_node.node_id,),
+        arguments={
+            "steps": [
+                {
+                    "link_type": "implemented_by",
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Workload"},
+                },
+                {
+                    "link_type": "workload_runs_on",
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Resource"},
+                },
+            ],
+            "as_of": NOW.isoformat(),
+            "purpose": "operations-review",
+            "limit": 100,
+        },
+    )
+    path_result = await SecuredTypedPathNodeHandler(
+        gateway,
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+    )(path_node, {union_node.node_id: union_result})
+
+    assert isinstance(path_result.value, QueryTable)
+    endpoint_ids = tuple(row.row_id for row in path_result.value.rows)
+    assert endpoint_ids == (
+        "resource:runtime-1",
+        "resource:runtime-2",
+        "resource:runtime-3",
+    )
+    endpoint_types = {
+        record.properties["type"]
+        for resource_id in endpoint_ids
+        if (record := await store.get_object(resource_id)) is not None
+    }
+    assert endpoint_types == set(runtime_types)
+
+
+async def test_service_alias_collision_holds_before_typed_path_io() -> None:
+    class _UnusedGateway:
+        async def materialize(self, *_args: object, **_kwargs: object) -> object:
+            raise AssertionError("ambiguous service aliases MUST stop before graph I/O")
+
+    roots = QueryTable(
+        rows=(
+            QueryRow.from_values("service:a", {"id": "service:a"}),
+            QueryRow.from_values("service:b", {"id": "service:b"}),
+        ),
+        complete=True,
+    )
+    path = _node(
+        "service-workloads",
+        QueryNodeKind.TYPED_PATH,
+        dependencies=("service-target",),
+        arguments={
+            "steps": [
+                {
+                    "link_type": "implemented_by",
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Workload"},
+                }
+            ],
+            "as_of": NOW.isoformat(),
+            "purpose": "operations-review",
+            "limit": 100,
+        },
+    )
+
+    with pytest.raises(QueryNodeHeldError, match="entity_resolution_ambiguous"):
+        await SecuredTypedPathNodeHandler(
+            _UnusedGateway(),  # type: ignore[arg-type]
+            caller_role=CeilingRole.READER,
+            purposes=("operations-review",),
+        )(path, {"service-target": QueryNodeResult(value=roots)})
+
+
+@pytest.mark.parametrize(
+    ("target_type", "target_value"),
+    (
+        ("BusinessService", "catalog backend"),
+        ("Workload", "catalog workload"),
+    ),
+)
+async def test_logical_service_plan_executes_alias_to_cross_runtime_state(
+    target_type: str,
+    target_value: str,
+) -> None:
+    service = OntologyObjectType(
+        schema_version="1.0.0",
+        name="BusinessService",
+        version="1.0.0",
+        key="id",
+        properties={
+            "id": PropertyDecl(type=PropertyType.STRING, required=True),
+            "name": PropertyDecl(type=PropertyType.STRING, required=True),
+            "aliases": PropertyDecl(type=PropertyType.ARRAY),
+        },
+    )
+    workload = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Workload",
+        version="1.0.0",
+        key="id",
+        properties={
+            "id": PropertyDecl(type=PropertyType.STRING, required=True),
+            "name": PropertyDecl(type=PropertyType.STRING, required=True),
+            "aliases": PropertyDecl(type=PropertyType.ARRAY),
+        },
+    )
+    resource = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={
+            "id": PropertyDecl(type=PropertyType.STRING, required=True),
+            "name": PropertyDecl(type=PropertyType.STRING),
+            "type": PropertyDecl(type=PropertyType.STRING, required=True),
+            "properties": PropertyDecl(type=PropertyType.OBJECT),
+        },
+    )
+    implemented_by = OntologyLinkType(
+        schema_version="1.0.0",
+        name="implemented_by",
+        version="1.0.0",
+        from_type="BusinessService",
+        to_type="Workload",
+        cardinality=LinkCardinality.ONE_TO_MANY,
+    )
+    workload_runs_on = OntologyLinkType(
+        schema_version="1.0.0",
+        name="workload_runs_on",
+        version="1.0.0",
+        from_type="Workload",
+        to_type="Resource",
+        cardinality=LinkCardinality.MANY_TO_MANY,
+    )
+    state_function = resource_state_function_type()
+    object_types = (service, workload, resource)
+    link_types = (implemented_by, workload_runs_on)
+    release = build_ontology_release(
+        object_types=object_types,
+        link_types=link_types,
+        function_types=(state_function,),
+    )
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=object_types,
+        link_types=link_types,
+        interfaces=(),
+        action_types=(),
+        functions=(state_function,),
+    )
+    utterance = f"Show the current state of {target_value}."
+    frame = build_semantic_frame(
+        SemanticFrameProposal(
+            operation=SemanticOperation.SELECT,
+            subject_constraints=(
+                "BusinessService",
+                "Workload",
+                "Resource",
+                f"OperatingTarget.type={target_type}",
+                f"OperatingTarget.value={target_value}",
+            ),
+            measure_concepts=("current_state", "unknown_state"),
+            temporal_scope={"kind": "current"},
+            output_shape="logical_service_current_state",
+            evidence_requirements=(
+                "authoritative_operating_model",
+                "authoritative_inventory",
+            ),
+            unresolved_terms=(),
+            clarification_requirements=(),
+            clarification=None,
+            investigation=None,
+            confidence=0.99,
+        ),
+        utterance=utterance,
+        context=(),
+    )
+    verifier = OntologyQueryPlanVerifier(
+        available_kinds=(
+            QueryNodeKind.OBJECT_SET,
+            QueryNodeKind.UNION,
+            QueryNodeKind.TYPED_PATH,
+            QueryNodeKind.FUNCTION,
+        )
+    )
+    plan = compile_logical_service_current_state_plan(
+        frame=frame,
+        utterance=utterance,
+        manifest=manifest,
+        verifier=verifier,
+        evaluation_time=NOW,
+        purpose="operations-review",
+    )
+    assert plan is not None
+
+    store = InMemoryOntologyInstanceStore(object_types=object_types, link_types=link_types)
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="service:catalog",
+            object_type="BusinessService",
+            properties={
+                "id": "service:catalog",
+                "name": "Catalog service",
+                "aliases": ["catalog backend"],
+            },
+        )
+    )
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="workload:catalog",
+            object_type="Workload",
+            properties={
+                "id": "workload:catalog",
+                "name": "Catalog workload",
+                "aliases": ["catalog workload"],
+            },
+        )
+    )
+    runtime_types = (
+        "compute.web-app",
+        "compute.container-app",
+        "kubernetes.deployment",
+        "kubernetes.service",
+        "kubernetes.pod",
+    )
+    state_metadata = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="inventory-provider",
+        source_revision="generation-example",
+        effective_at=NOW,
+        recorded_at=NOW,
+        evidence_cutoff=NOW,
+        freshness_ceiling_seconds=3600,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=("inventory-generation:generation-example",),
+    ).to_mapping()
+    for index, runtime_type in enumerate(runtime_types, start=1):
+        resource_id = f"resource:runtime-{index}"
+        await store.upsert_object(
+            OntologyObjectRecord(
+                id=resource_id,
+                object_type="Resource",
+                properties={
+                    "id": resource_id,
+                    "name": f"runtime-{index}",
+                    "type": runtime_type,
+                    "properties": {
+                        "state": "Running",
+                        STATE_FACT_METADATA_PROPERTY: {"state": state_metadata},
+                    },
+                },
+            )
+        )
+        await store.upsert_link(
+            OntologyLinkRecord("workload_runs_on", "workload:catalog", resource_id)
+        )
+    await store.upsert_link(
+        OntologyLinkRecord("implemented_by", "service:catalog", "workload:catalog")
+    )
+    gateway = SecuredObjectSetQueryGateway(
+        service=ObjectSetService(
+            store=store,
+            interfaces=compile_interfaces(
+                interfaces=(),
+                implementations=(),
+                object_types=object_types,
+                release=release,
+            ),
+            object_type_names=frozenset(item.name for item in object_types),
+        ),
+        object_types={item.name: item for item in object_types},
+        ontology_release=release,
+        evaluation_cutoff=lambda: NOW,
+    )
+    receipt_authority = SecuredQueryReceiptAuthority(now=lambda: NOW)
+    function_context = FunctionInvocationContext(
+        caller_agent="Bragi",
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+    )
+    registry = OntologyFunctionRegistry(release=release)
+    registry.register_contextual(
+        state_function,
+        resource_state_inventory_function(release),
+    )
+    execution = await OntologyQueryPlanExecutor(
+        handlers={
+            QueryNodeKind.OBJECT_SET: SecuredObjectSetNodeHandler(
+                gateway,
+                caller_role=CeilingRole.READER,
+                purposes=("operations-review",),
+                receipt_authority=receipt_authority,
+            ),
+            QueryNodeKind.UNION: SetOperationNodeHandler("union"),
+            QueryNodeKind.TYPED_PATH: SecuredTypedPathNodeHandler(
+                gateway,
+                caller_role=CeilingRole.READER,
+                purposes=("operations-review",),
+                receipt_authority=receipt_authority,
+            ),
+            QueryNodeKind.FUNCTION: FunctionNodeHandler(
+                registry,
+                context=function_context,
+                receipt_authority=receipt_authority,
+                allow_presentation_read_dependencies=True,
+            ),
+        },
+        now=lambda: NOW,
+    ).execute(
+        plan,
+        expected_release_digest=manifest.release_digest,
+        expected_manifest_digest=manifest.manifest_digest,
+        expected_role=manifest.principal_role.value,
+        expected_purpose="operations-review",
+    )
+
+    assert execution.status == "completed"
+    resource_rows = execution.results["logical-service-resources"].value
+    state_rows = execution.results["logical-service-resource-states"].value
+    assert isinstance(resource_rows, QueryTable)
+    assert isinstance(state_rows, QueryTable)
+    assert {row.row_id for row in resource_rows.rows} == {
+        f"resource:runtime-{index}" for index in range(1, 6)
+    }
+    assert {row.values["type"] for row in state_rows.rows} == set(runtime_types)
+    assert all(row.values["execution_authority"] is False for row in state_rows.rows)
+    assert execution.execution_authority is False
 
 
 async def test_secured_typed_path_executes_each_link_in_order() -> None:

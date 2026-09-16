@@ -56,6 +56,17 @@ def test_no_measurements_are_unavailable_not_zero() -> None:
     assert all(metric["value"] is None for metric in result["success"].values())
     assert result["confidence"] is None
     assert result["verticals"] == []
+    assert result["measurement_gaps"] == []
+
+
+def test_event_cohort_reports_each_missing_metric_source() -> None:
+    result = reduce(events=[EVENT])
+
+    assert result["measurement_gaps"] == [
+        "missing_source:attributed_cost_usd",
+        "missing_source:change_lead_time_seconds",
+        "missing_source:mttr_seconds",
+    ]
 
 
 def test_dispatch_and_shadow_verification_never_resolve_an_event() -> None:

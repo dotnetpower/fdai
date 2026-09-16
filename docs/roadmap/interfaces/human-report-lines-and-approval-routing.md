@@ -66,7 +66,8 @@ A person can participate in several axes, but evidence from one axis cannot sati
 
 Report-line extraction begins only after an operator selects the explicit
 `report_line_bootstrap` purpose. FDAI never infers this purpose from a filename, attachment text,
-or an ordinary knowledge upload.
+or an ordinary knowledge upload. The generated System Knowledge catalog may index this design
+document, but it is not organization evidence and grants no report-line or approval-routing authority.
 
 The existing document pipeline owns upload authentication, byte limits, malware and protection
 checks, format validation, optical character recognition (OCR), immutable versions, access
@@ -257,6 +258,11 @@ directory writer or executor credential is added.
 | `GET/POST /handover/reporting-line-cases...` | Create, inspect, confirm, or independently review immutable edge cases. |
 | `GET /hil/report-line-contact-requests` | List contact-consent requests owned by the authenticated requester. |
 | `POST /hil/{approval_id}/report-line-contact` | Record consent or cancellation without approving the action. |
+
+`GET /hil/report-line-contact-requests` checks completeness over the current
+`awaiting_contact_consent` set before applying requester visibility. Terminal parked approvals
+remain audit evidence but do not consume the bounded listing scan. If the current pending set
+exceeds the scan bound, the endpoint stays unavailable instead of returning partial data.
 
 ## Agent and service ownership
 

@@ -1,8 +1,8 @@
 ---
 title: 인과 incident graph
 translation_of: causal-incident-graph.md
-translation_source_sha: bac451939f333f602c305fd76360da7bfa75ea59
-translation_revised: 2026-09-04
+translation_source_sha: ac4cc8800a6f22b81dc13455ba712ab13d7fae79
+translation_revised: 2026-09-16
 ---
 # 인과 인시던트 그래프
 
@@ -198,6 +198,8 @@ Operator API는 GET 전용이며 RBAC, 테넌트, 목적 및 principal 범위가
 다이제스트, 최신성, 잘림, 사용할 수 없음 증적 및 명시적인 `mutation_controls: false`가 포함됩니다.
 Console은 Process 상세 화면 안의 조사 공간에 활성 가설, 지지 및 반박 수, 누락 근거, 선택된 관측,
 shadow 비교, 예산 및 최종 사유를 표시합니다.
+
+**Azure Monitor recipe 연결.** 운영 연결은 두 번째 에이전트 루프를 만들지 않고 이 세션을 재사용합니다. Heimdall은 선언된 근거 미비점을 검토된 `TelemetryEvidenceRecipe` 후보에 매핑하고, Forseti는 비용 단위당 예측된 가설 구분 능력이 가장 강한 후보를 선택하며, 검증된 게이트웨이는 Azure가 KQL을 컴파일하거나 실행하기 전에 정확한 인시던트, 리소스, 기준 시점, recipe 개정, 작업 영역 경로, 역할, 목적, 조회 수, 비용 및 마감 시각을 다시 확인합니다. 첫 카탈로그는 실패한 요청, 오류 타임라인, 의존성 지연, 느린 추적, guest 종료 근거, 컨테이너 재시작, throttling 및 리소스 포화를 포함하며 필요한 방식에는 지지 및 반박 recipe를 쌍으로 제공합니다. 모델은 고정 후보 집합의 recipe id만 제안할 수 있고 KQL 작성, 테이블 추가, 작업 영역 확대, lookback 변경 또는 최종 증적 재시도를 할 수 없습니다. 세션은 최대 8회 반복하며 배포에서 구성한 조회, 시간 및 비용 상한을 유지합니다. Forseti는 검증된 증적과 정규화된 fact만 사용하므로 완전하고 최신인 경로 범위의 no-data만 가설을 반박하며 부분, stale, 시간 초과, 권한 없음, 사용 불가 또는 잘린 근거는 제한 사항과 함께 unknown으로 남습니다. Saga는 원시 로그 없이 모든 recipe, 출처 처리 결과, 지연 시간, 행 수, 예상 및 실제 비용 단위와 최종 사유를 보존합니다.
 
 ## Causal 채점 및 refutation
 

@@ -92,6 +92,22 @@ export interface InvestigationExecution {
   readonly evidence_refs: readonly string[];
   readonly reserved_cost_units: number;
   readonly actual_cost_units: number | null;
+  readonly source_metadata: InvestigationSourceMetadata | null;
+}
+
+export interface InvestigationSourceMetadata {
+  readonly source_kind: "telemetry_recipe";
+  readonly receipt_digest: string;
+  readonly recipe_id: string;
+  readonly recipe_version: string;
+  readonly disposition: string;
+  readonly observed_until: string | null;
+  readonly route_count: number;
+  readonly queried_route_count: number;
+  readonly row_count: number;
+  readonly latency_ms: number;
+  readonly complete: boolean;
+  readonly truncated: boolean;
 }
 
 export interface InvestigationRevision {
@@ -442,6 +458,55 @@ function decodeInvestigationExecution(value: unknown, parent: string): Investiga
     evidence_refs: stringArray(item["evidence_refs"], `${parent}.execution.evidence_refs`),
     reserved_cost_units: nonNegativeIntegerField(item, "reserved_cost_units", `${parent}.execution`),
     actual_cost_units: nullableNonNegativeInteger(item["actual_cost_units"], `${parent}.execution.actual_cost_units`),
+    source_metadata: item["source_metadata"] === undefined || item["source_metadata"] === null
+      ? null
+      : decodeInvestigationSourceMetadata(item["source_metadata"], `${parent}.execution.source_metadata`),
+  };
+}
+
+function decodeInvestigationSourceMetadata(
+  value: unknown,
+  label: string,
+): InvestigationSourceMetadata {
+  const item = record(value, label);
+  const sourceKind = stringField(item, "source_kind", label);
+  if (sourceKind !== "telemetry_recipe") throw new Error(`${label}.source_kind is unsupported`);
+  const disposition = stringField(item, "disposition", label);
+  const completeDispositions = new Set(["complete", "complete_no_data"]);
+  const allowedDispositions = new Set([
+    ...completeDispositions,
+    "partial",
+    "stale",
+    "truncated",
+    "timed_out",
+    "unauthorized",
+    "unavailable",
+  ]);
+  if (!allowedDispositions.has(disposition)) throw new Error(`${label}.disposition is unsupported`);
+  const routeCount = nonNegativeIntegerField(item, "route_count", label);
+  const queriedRouteCount = nonNegativeIntegerField(item, "queried_route_count", label);
+  if (queriedRouteCount > routeCount) throw new Error(`${label}.queried_route_count exceeds route_count`);
+  const complete = booleanField(item, "complete", label);
+  const truncated = booleanField(item, "truncated", label);
+  if (complete !== completeDispositions.has(disposition)) {
+    throw new Error(`${label}.complete conflicts with disposition`);
+  }
+  if (truncated !== (disposition === "truncated")) {
+    throw new Error(`${label}.truncated conflicts with disposition`);
+  }
+  return {
+    source_kind: sourceKind,
+    receipt_digest: digestField(item, "receipt_digest", label),
+    recipe_id: stringField(item, "recipe_id", label),
+    recipe_version: stringField(item, "recipe_version", label),
+    disposition,
+    observed_until: nullableString(item["observed_until"], `${label}.observed_until`),
+    route_count: routeCount,
+    queried_route_count: queriedRouteCount,
+    row_count: nonNegativeIntegerField(item, "row_count", label),
+    latency_ms: nonNegativeIntegerField(item, "latency_ms", label),
+    complete,
+    truncated,
   };
 }
 

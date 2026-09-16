@@ -41,6 +41,7 @@ from .adaptive_contract import (
     execution_result_digest,
     validate_query_manifest_snapshot,
 )
+from .adaptive_source_metadata import execution_actual_cost_units, execution_source_metadata
 
 _WORKFLOW_VERSION = "1.0.0"
 _LOGGER = logging.getLogger(__name__)
@@ -201,6 +202,11 @@ class VerifiedObservationGateway:
                 {reference for receipt in execution.receipts for reference in receipt.evidence_refs}
             )
         )
+        actual_cost_units = execution_actual_cost_units(
+            execution.results,
+            reserved_cost_units=binding.cost_units,
+        )
+        source_metadata = execution_source_metadata(execution.results)
         return build_adaptive_observation_execution(
             round_index=round_index,
             frame_digest=frame.frame_digest,
@@ -213,7 +219,8 @@ class VerifiedObservationGateway:
             query_status=execution.status,
             evidence_refs=evidence_refs,
             reserved_cost_units=binding.cost_units,
-            actual_cost_units=None,
+            actual_cost_units=actual_cost_units,
+            source_metadata=source_metadata,
         )
 
 

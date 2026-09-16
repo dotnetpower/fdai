@@ -29,6 +29,7 @@ from fdai.agents import OWNED_OBJECT_TOPICS
 from fdai.core.readiness.coordinator import _TRANSITION_TOPIC
 from fdai.delivery.agent_introspection_bus import AGENT_INTROSPECTION_TOPICS
 from fdai.runtime.bootstrap_bindings import RECONCILIATION_TOPICS, RULE_GENERATION_TOPICS
+from fdai.shared.providers.operating_model import OPERATING_MODEL_TOPIC
 
 RUNTIME_LOGICAL_TOPICS = (
     OWNED_OBJECT_TOPICS
@@ -43,6 +44,7 @@ RUNTIME_LOGICAL_TOPICS = (
             INCIDENT_CREATION_REQUEST_TOPIC,
             INCIDENT_INTERVENTION_REQUEST_TOPIC,
             NOTIFICATION_DELIVERY_RECEIPT_TOPIC,
+            OPERATING_MODEL_TOPIC,
             SEMANTIC_REQUEST_TOPIC,
             SEMANTIC_PROJECTION_TOPIC,
             SEMANTIC_PROGRESS_TOPIC,

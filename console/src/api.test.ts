@@ -32,6 +32,14 @@ describe("Operator API response decoders", () => {
       change_lead_time_seconds: metric,
       cost_per_resolved_event_usd: metric,
     },
+    metric_samples: {
+      auto_resolution_rate: 1,
+      human_touchpoints_per_100: 1,
+      mttr_seconds: 1,
+      change_lead_time_seconds: 1,
+      cost_per_resolved_event_usd: 1,
+    },
+    measurement_gaps: [],
     leading: {
       mixed_model_disagreement_rate: metric,
       verifier_failure_rate: metric,
@@ -96,9 +104,24 @@ describe("Operator API response decoders", () => {
         ...autonomy.success,
         mttr_seconds: { value: null, baseline: null, direction: "lower" },
       },
+      metric_samples: { ...autonomy.metric_samples, mttr_seconds: 0 },
+      measurement_gaps: ["missing_source:mttr_seconds"],
     });
     expect(decoded.success.mttr_seconds.value).toBeNull();
     expect(decoded.success.mttr_seconds.baseline).toBeNull();
+    expect(decoded.metric_samples.mttr_seconds).toBe(0);
+    expect(decoded.measurement_gaps).toEqual(["missing_source:mttr_seconds"]);
+  });
+
+  test("rejects malformed metric evidence metadata", () => {
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      metric_samples: { ...autonomy.metric_samples, mttr_seconds: -1 },
+    })).toThrow(OperatorApiError);
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      measurement_gaps: ["missing_source:unknown"],
+    })).toThrow(OperatorApiError);
   });
 
   test("reject malformed always-on payloads with a uniform contract error", () => {

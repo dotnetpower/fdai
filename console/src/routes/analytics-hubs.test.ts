@@ -51,6 +51,19 @@ const AUTONOMY: AutonomyPayload = {
     change_lead_time_seconds: { value: null, baseline: null, direction: "lower" },
     cost_per_resolved_event_usd: { value: null, baseline: null, direction: "lower" },
   },
+  metric_samples: {
+    auto_resolution_rate: 34,
+    human_touchpoints_per_100: 0,
+    mttr_seconds: 0,
+    change_lead_time_seconds: 0,
+    cost_per_resolved_event_usd: 0,
+  },
+  measurement_gaps: [
+    "missing_source:attributed_cost_usd",
+    "missing_source:change_lead_time_seconds",
+    "missing_source:mttr_seconds",
+    "unattributed_human_input",
+  ],
   leading: {
     mixed_model_disagreement_rate: { value: null, baseline: null, direction: "lower" },
     verifier_failure_rate: { value: null, baseline: null, direction: "lower" },
@@ -118,7 +131,12 @@ describe("trust-routing measurements", () => {
     expect(snapshot.facts).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: "current_value", value: null }),
       expect.objectContaining({ key: "window_days", value: 30 }),
-      expect.objectContaining({ key: "sample_size", value: 34 }),
+      expect.objectContaining({ key: "sample_size", value: 0 }),
+      expect.objectContaining({ key: "event_sample_size", value: 34 }),
+      expect.objectContaining({
+        key: "measurement_gaps",
+        value: expect.stringContaining("missing_source:attributed_cost_usd"),
+      }),
     ]));
     expect(snapshot.records).toBeUndefined();
 

@@ -19,7 +19,7 @@ from fdai.core.control_loop._canary import process_canary
 from fdai.core.control_loop._execution import ControlLoopExecutionMixin
 from fdai.core.control_loop._fallback import ControlLoopFallbackMixin
 from fdai.core.control_loop._process import process_event
-from fdai.core.control_loop._rca import ControlLoopRcaMixin
+from fdai.core.control_loop._rca import AdaptiveTelemetryInvestigator, ControlLoopRcaMixin
 from fdai.core.control_loop.change_safety_evidence import (
     ChangeSafetyPreAuthorityEvidenceProvider,
 )
@@ -138,6 +138,7 @@ class ControlLoop(
         ) = None,
         rca_catalog_revision: str | None = None,
         causal_runtime_coordinator: CausalRuntimeCoordinator | None = None,
+        adaptive_telemetry_investigator: AdaptiveTelemetryInvestigator | None = None,
         causal_chain_window: timedelta | None = None,
         rca_side_path_timeout_seconds: float = 5.0,
         resource_dependency_graph: Mapping[str, Iterable[str]] | None = None,
@@ -279,6 +280,7 @@ class ControlLoop(
             else None
         )
         self._causal_runtime_coordinator = causal_runtime_coordinator
+        self._adaptive_telemetry_investigator = adaptive_telemetry_investigator
         self._rca_side_path_timeout_seconds = rca_side_path_timeout_seconds
         # ``is None``, not ``or``: timedelta(0) is falsy, so an operator
         # who declares a zero window would silently get fifteen minutes.

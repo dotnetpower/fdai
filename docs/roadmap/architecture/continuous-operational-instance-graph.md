@@ -565,7 +565,7 @@ independently verified observation receipt.
 
 A read-only conversation presents verified rows before explaining an incomplete source. An empty
 partial result reports no match in the verified scope, then adds the exact limitation and recovery
-step. It never claims complete inventory or global absence, and holds when no subset is safe.
+step. It never claims complete inventory or global absence, and holds when no subset is safe. An exact `BusinessService` or `Workload` id, name, or deployment-approved alias can traverse `implemented_by` and `workload_runs_on` to current Resource leaves; the server-owned plan reads verified App Service, Container Apps, and Kubernetes component state without inferring aggregate health, cause, missing identity, or execution authority.
 
 ## Source-to-store implementation audit
 
