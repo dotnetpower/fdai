@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 94d46ea7ca49af5c914b8bfb61c9c34fd8d58b43
+translation_source_sha: 51e8217e39f2118f216b6a93a4cfec0db20c2654
 translation_revised: 2026-09-16
 ---
 
@@ -122,12 +122,20 @@ delta를 적용합니다. 따라서 새 탭도 Incidents와 일치하면서 실�
 `summary` 또는 룰 ID를 사용합니다. 이 필드가 없으면 기록된 `signal:` 및
 `resource:` 상관관계 키에서 길이가 제한된 대상을 만듭니다. Azure 리소스 ID는
 리소스 타입과 마지막 리소스 이름만 제공하므로 전체 경로를 노출하지 않고도 목록에
-`Resource inventory change - Storage account storage-example` 같은 대상을 표시할 수
+`storage-example: Resource inventory changed` 같은 대상을 표시할 수
 있습니다. 상관관계 키도 기록되지 않았다면 각 항목과 그 감사 봉투 `payload`를 차례로
 읽어 기록된 운영 대상과 사유로 `recorded_subject`를 구성하므로, 관리된 abstain은
-`Kubernetes namespace - No rule matches resource type`처럼 읽힙니다. 기록된 대상
+`checkout: No response rule matches`처럼 읽힙니다. 기록된 대상
 근거가 전혀 없는 인시던트만 이벤트 ID로 대체되며 브라우저는 대체 제목을 만들어내지
 않습니다.
+
+기계에서 파생한 제목에는 같은 기록 필드에서 만든 선택적 `title_presentation`
+메타데이터도 포함됩니다. 폐쇄형 템플릿 종류, 짧은 대상, 대상 종류, 정규 신호 또는 사유,
+영문 대체 레이블 및 정리된 기술 참조를 사용하므로 Console은 원시 제목을 해석하거나
+기록되지 않은 원인을 주장하지 않고 현재 언어로 운영자가 이해할 수 있는 제목을
+렌더링할 수 있습니다. 기록된 제목과 요약은 그대로 유지합니다. 목록은 기술 참조와
+인시던트 번호를 보조 식별자로 유지하고, 상세 화면은 운영자가 이해할 수 있는 제목을
+접근 가능한 제목으로 사용합니다.
 
 목록이 그 식별자 대체를 표시할 때는 Audit, Trace, RCA, dossier 링크가 해석하는 것과
 같은 식별자인 `correlation_id`를 표시합니다. 서버가 소유한 `incident_id`는 목록이

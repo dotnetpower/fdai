@@ -63,7 +63,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, Path, dict[str, object]]:
         "source_commit": COMMIT,
         "platform_tag": PLATFORM,
         "services": {name: image(name) for name in sorted(RUNTIME_SERVICES)},
-        "sidecars": {"clamav": image("clamav", dependency=True)},
+        "sidecars": {name: image(name, dependency=True) for name in ("clamav", "pgvector")},
         "console": opaque("console"),
         "deployment_support": opaque("deployment-support"),
     }
@@ -99,17 +99,18 @@ def test_builds_complete_v2_release_from_prebuilt_local_artifacts(tmp_path: Path
         ).hexdigest(),
         "source_commit": COMMIT,
         "platform_tag": PLATFORM,
-        "artifact_count": 22,
+        "artifact_count": 25,
         "image_content_digests": images,
         "azure_mutation_performed": False,
         "production_release_eligibility": "unverified",
     }
     assert catalog["schema_version"] == "fdai.runtime-release.v2"
     assert set(catalog["services"]) == RUNTIME_SERVICES
-    assert set(catalog["sidecars"]) == {"clamav"}
+    assert set(catalog["sidecars"]) == {"clamav", "pgvector"}
     assert set(images) == {
         *(f"services/{name}" for name in RUNTIME_SERVICES),
         "sidecars/clamav",
+        "sidecars/pgvector",
     }
     for section in ("services", "sidecars"):
         for record in catalog[section].values():
@@ -162,7 +163,7 @@ def test_source_runtime_content_is_bound_and_grants_no_authority(tmp_path: Path)
     result = verify_source_runtime(**args)
     assert result["source_commit"] == COMMIT
     assert result["source_snapshot_digest"] == args["snapshot_digest"]
-    assert len(result["image_content_digests"]) == 6
+    assert len(result["image_content_digests"]) == 7
     for key in (
         "release_signature_verified",
         "bundle_source_verified",

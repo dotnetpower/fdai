@@ -43,7 +43,7 @@ RUNTIME_SERVICES = frozenset(
         "isolated-executor",
     }
 )
-RUNTIME_SIDECARS = frozenset({"clamav"})
+RUNTIME_SIDECARS = frozenset({"clamav", "pgvector"})
 _ARCHIVE_KEYS = {"archive", "archive_sha256", "sbom", "sbom_sha256"}
 _SERVICE_KEYS = _ARCHIVE_KEYS | {"image_digest", "provenance", "provenance_sha256"}
 _CATALOG_KEYS = {
@@ -144,7 +144,7 @@ def load_runtime_release(
 
 
 def validate_runtime_images(root: Path, release: RuntimeRelease) -> dict[str, str]:
-    """Validate all six v2 OCI images against a previously verified catalog snapshot.
+    """Validate all seven v2 OCI images against a previously verified catalog snapshot.
 
     Inspect a private snapshot; callers own signature and release-eligibility checks.
     Images are inspected one at a time within the existing per-file limits; no layer

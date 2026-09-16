@@ -77,6 +77,7 @@ async function installFixture(
     interventionApplies?: boolean;
     paginatedAudit?: boolean;
     missingIncident?: boolean;
+    incidentOverride?: Record<string, unknown>;
   } = {},
 ): Promise<{
   body: () => Record<string, unknown> | null;
@@ -150,7 +151,11 @@ async function installFixture(
         return;
       }
       await json(route, {
-        items: [{ ...incident, history_count: options.paginatedAudit === true ? 4 : 1 }],
+        items: [{
+          ...incident,
+          history_count: options.paginatedAudit === true ? 4 : 1,
+          ...options.incidentOverride,
+        }],
         next_cursor: null,
         metrics,
       });
@@ -281,6 +286,45 @@ test("runtime notification audit destination ignores the Sample preference", asy
   await expect(page).not.toHaveURL(/data=sample/);
 });
 
+test("localizes a machine-derived title and keeps its reference secondary", async ({ page }) => {
+  await installFixture(page, {
+    incidentOverride: {
+      title: "Integration resource requires attention",
+      title_source: "correlation_subject",
+      title_presentation: {
+        kind: "resource_attention",
+        subject: null,
+        subject_kind: "integration_resource",
+        signal: null,
+        signal_label: null,
+        reason: null,
+        reason_label: null,
+        technical_ref: "integration-00000000000000000000000000000000-second",
+      },
+    },
+  });
+  await page.goto(`/incidents?correlation=${correlationId}&locale=ko`);
+
+  const detail = page.locator("#incident-detail");
+  await expect(detail.getByRole("heading", { name: "통합 리소스 확인 필요" })).toBeVisible();
+  await expect(detail.locator(".incident-detail-technical-ref"))
+    .toHaveText("integration-00000000000000000000000000000000-second");
+  await expect(detail.locator(".incident-detail-secondary-identity"))
+    .toContainText("INC-202608-0201");
+  await expect(page.locator(".incident-roster-title")).toHaveText("통합 리소스 확인 필요");
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 993, height: 641 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const overflows = await detail.evaluate(
+      element => element.scrollWidth > element.clientWidth,
+    );
+    expect(overflows).toBe(false);
+  }
+});
+
 test("missing Sample Incident does not link to live audit evidence", async ({ page }) => {
   await installFixture(page);
   await page.goto(`/incidents?status=all&correlation=${correlationId}&data=sample`);
@@ -298,12 +342,13 @@ test("submits a bounded Incident intervention without claiming it was applied", 
   await expect(summary).toContainText("1Loaded now");
   await expect(summary).toContainText("1Pending outcomes");
   const detail = page.locator("#incident-detail");
-  const displayIdentifier = detail.getByRole("heading", { name: "INC-202608-0201" });
-  await expect(displayIdentifier).toBeVisible();
-  await expect(displayIdentifier).toHaveCSS("font-size", "24px");
-  await expect(detail.locator(".incident-detail-subject"))
-    .toHaveText("Checkout latency during development rollout");
-  await expect(detail.locator(".incident-detail-subject")).toHaveCSS("font-size", "18px");
+  const displayTitle = detail.getByRole("heading", {
+    name: "Checkout latency during development rollout",
+  });
+  await expect(displayTitle).toBeVisible();
+  await expect(displayTitle).toHaveCSS("font-size", "24px");
+  await expect(detail.locator(".incident-detail-secondary-identity"))
+    .toContainText("INC-202608-0201");
   await expect(page.locator(".incident-roster-stage").first()).toHaveAttribute(
     "aria-label",
     "Respond, step 3 of 4",
@@ -323,7 +368,8 @@ test("submits a bounded Incident intervention without claiming it was applied", 
 
   const dialog = page.getByRole("dialog", { name: "Intervene in this incident" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("INC-202608-0201", { exact: true })).toBeVisible();
+  await expect(dialog.locator(".incident-intervention-target"))
+    .toContainText("INC-202608-0201");
   await expect(dialog).not.toContainText(targetRef);
 
   await dialog.getByLabel("Request type").selectOption("create_development_exception");
