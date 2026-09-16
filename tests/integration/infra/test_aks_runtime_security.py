@@ -84,4 +84,5 @@ def test_aks_baseline_uses_api_server_vnet_integration() -> None:
     assert re.search(r"authorized_ip_ranges\s*=\s*var\.api_server_authorized_ip_ranges", cluster)
     assert re.search(r"private_cluster_enabled\s*=\s*var\.private_cluster_enabled", cluster)
     assert "#trivy:ignore:AZU-0065" in cluster
+    assert "checkov:skip=CKV_AZURE_115" in cluster
     assert "explicit authorized CIDRs, Entra RBAC, disabled local accounts" in cluster

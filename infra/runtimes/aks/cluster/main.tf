@@ -59,6 +59,7 @@ resource "azurerm_role_assignment" "cluster_api_network" {
 #trivy:ignore:AZU-0065
 resource "azurerm_kubernetes_cluster" "runtime" {
   # checkov:skip=CKV_AZURE_117:Azure-managed encryption is retained until a deployment selects an independently governed CMK profile.
+  # checkov:skip=CKV_AZURE_115:The basic stage restricts public API access by CIDR and Entra RBAC before a separately governed private transition.
   # checkov:skip=CKV_AZURE_171:AzureRM 4.x uses automatic_upgrade_channel; the pinned scanner reads the retired automatic_channel_upgrade attribute.
   # checkov:skip=CKV_AZURE_226:Managed OS disks support the diskless default SKUs; platform-managed disk encryption and host encryption remain enabled.
   # checkov:skip=CKV_AZURE_227:AzureRM 4.x uses host_encryption_enabled; the pinned scanner reads the retired enable_host_encryption attribute.
