@@ -21,6 +21,13 @@ from fdai.delivery.azure.arm_inventory import (
     AzureArmInventoryFactoryConfig,
 )
 from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
+from fdai.delivery.azure.metrics_api import AzureMonitorMetricsConfig, AzureMonitorMetricsProvider
+from fdai.delivery.azure.metrics_api_queries import azure_metrics_api_queries
+from fdai.delivery.azure.model_serving_inventory import (
+    MODEL_SERVING_METRIC_NAME,
+    AzureModelServingInventoryConfig,
+    AzureModelServingInventoryEnricher,
+)
 from fdai.delivery.azure.resource_health_inventory import (
     AzureResourceHealthInventoryConfig,
     AzureResourceHealthInventoryEnricher,
@@ -289,9 +296,15 @@ def build_azure_inventory_enrichers(
     identity: WorkloadIdentity,
     http_client: httpx.AsyncClient,
     previous_state_reader: PostgresInventorySnapshotStore,
-) -> tuple[InventoryPromotionEnricher, InventoryPromotionEnricher]:
+) -> tuple[InventoryPromotionEnricher, ...]:
     """Build the ordered Azure-owned enrichers for one full inventory refresh."""
 
+    serving_lookback_seconds = min(config.reconciliation_interval_seconds, 21_600)
+    serving_config = AzureModelServingInventoryConfig(
+        lookback_seconds=serving_lookback_seconds,
+        freshness_ceiling_seconds=config.reconciliation_interval_seconds,
+        max_points_per_target=(serving_lookback_seconds + 59) // 60 + 1,
+    )
     return (
         AzureResourceHealthInventoryEnricher(
             identity=identity,
@@ -302,6 +315,24 @@ def build_azure_inventory_enrichers(
                 audience=config.management_audience,
                 freshness_ceiling_seconds=config.reconciliation_interval_seconds,
             ),
+            previous_state_reader=previous_state_reader,
+        ),
+        AzureModelServingInventoryEnricher(
+            provider=AzureMonitorMetricsProvider(
+                config=AzureMonitorMetricsConfig(
+                    templates={
+                        MODEL_SERVING_METRIC_NAME: azure_metrics_api_queries()[
+                            MODEL_SERVING_METRIC_NAME
+                        ]
+                    },
+                    endpoint=config.management_endpoint,
+                    audience=config.management_audience,
+                    timeout_seconds=serving_config.per_request_timeout_seconds,
+                ),
+                identity=identity,
+                http_client=http_client,
+            ),
+            config=serving_config,
             previous_state_reader=previous_state_reader,
         ),
         AzureStaticWebAppInventoryEnricher(

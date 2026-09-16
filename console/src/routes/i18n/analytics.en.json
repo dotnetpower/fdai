@@ -82,6 +82,10 @@
     "costNoticeBody": "Displayed costs use published standard prices. Actual billed amounts may differ because of negotiated discounts, commitments, credits, taxes, exchange rates, and provider billing adjustments. Use these values for reference, not invoice reconciliation.",
     "noBaseline": "No baseline",
     "noBaselineHint": "No paired baseline evidence was reported for this window.",
+    "missingSourceHint": "No accepted source observation was recorded for this metric in the current window.",
+    "incompleteSourceHint": "The latest source observation is incomplete, so no value is reported.",
+    "mixedSourceHint": "Observations use conflicting source contexts and cannot be combined.",
+    "unattributedHumanInputHint": "At least one human input could not be attributed to an event, so the rate is withheld.",
     "views": {
       "auto-resolution": {
         "title": "Correct outcomes without human intervention",

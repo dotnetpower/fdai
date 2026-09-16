@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: c860d964388d85ae2c16cd72ff5785fd806d272f
+translation_source_sha: 917034bc25317b760358013a6bc194c1b77dacd0
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -63,7 +63,9 @@ ActionType에 report-line 승인이 필요하면 FDAI는 요청자에게 해당 
 ## 통제된 조직 문서 수집
 
 Report-line 추출은 운영자가 명시적인 `report_line_bootstrap` 용도를 선택한 뒤에만 시작합니다.
-FDAI는 파일 이름, 첨부 텍스트 또는 일반 지식 업로드에서 이 용도를 추론하지 않습니다.
+FDAI는 파일 이름, 첨부 텍스트 또는 일반 지식 업로드에서 이 용도를 추론하지 않습니다. 생성된
+System Knowledge 카탈로그는 이 설계 문서를 색인할 수 있지만 조직 근거가 아니며 report-line
+또는 승인 라우팅 권한을 부여하지 않습니다.
 
 기존 문서 파이프라인은 업로드 인증, 바이트 제한, 악성코드 및 보호 검사, 형식 검증,
 OCR, 변경할 수 없는 버전, 접근 서술자, 보존 및 감사를 담당합니다. Report-line consumer는
@@ -249,6 +251,11 @@ Report-line 정책과 런타임은 quorum `1`만 허용합니다. 더 높은 quo
 | `GET /hil/report-line-contact-requests` | 인증된 요청자가 소유한 연락 동의 요청을 나열합니다. |
 | `POST /hil/{approval_id}/report-line-contact` | 작업 승인 없이 연락 동의 또는 취소를 기록합니다. |
 
+`GET /hil/report-line-contact-requests`는 요청자 표시 범위를 적용하기 전에 현재
+`awaiting_contact_consent` 집합의 완전성을 확인합니다. 종료된 보류 승인 이력은 감사 근거로
+남지만 범위가 제한된 목록 조회 한도를 소비하지 않습니다. 현재 대기 집합이 조회 한도를 넘으면
+일부 결과를 반환하지 않고 엔드포인트를 사용할 수 없는 상태로 유지합니다.
+
 ## 에이전트 및 서비스 소유권
 
 새 에이전트를 추가하지 않습니다.
@@ -269,7 +276,10 @@ mixin에 위임합니다. Report-line 라우팅, 에스컬레이션 및 load con
 
 Operator Service는 사람을 인증하고 변환 결과를 렌더링하며 타입이 지정된 명령을 게시합니다.
 그래프 edge를 활성화하거나 승인 자격을 결정하거나 작업을 실행하지 않습니다. 문서 워커는
-후보를 추출하지만 승인할 수 없습니다.
+후보를 추출하지만 승인할 수 없습니다. 공용 PostgreSQL 저장소가 세대에 결속된 인벤토리 무효화
+커서를 읽을 수 있지만, 이 커서는 보고 체계 상태, 승인 근거, 경로 지정 또는 권한에 들어갈 수
+없습니다. Core wheel 인벤토리에 전용 인벤토리 매니페스트 도우미를 포함해도 보고 체계 의존성이
+생기지 않습니다.
 
 ## 개인정보 및 보존
 
@@ -315,7 +325,7 @@ Operator Service는 사람을 인증하고 변환 결과를 렌더링하며 타�
 현재 역할과 범위 정책, 무응답 에스컬레이션 후 다음 적격 rung의 승인을 포함합니다.
 저장소 통합은 report-line route, 서비스 테스트, runtime wheel 구성원, transport `1.3.0` 및
 source-derived question-bank 산출물과 그 semantic coverage 다이제스트를 각각의 정규
-인벤토리에 고정합니다.
+인벤토리에 고정하며, 카탈로그 원본이 바뀌면 두 산출물을 의존 순서대로 다시 생성합니다.
 연결된 구현 원장은 완료된 22회 비평 캠페인과 로컬 검증 근거를 배포 근거와 분리해 기록합니다.
 더 최신 보호 base를 통합한 뒤에는 게시 전에 같은 집중 gate를 다시 통과해야 합니다. Rebase나
 merge 성공만으로 동작이 계속 유효하다고 판단하지 않습니다. 기록된 최신 base 통합은 같은

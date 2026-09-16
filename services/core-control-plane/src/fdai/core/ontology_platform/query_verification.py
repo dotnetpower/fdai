@@ -397,13 +397,13 @@ class OntologyQueryPlanVerifier:
         if len(node.depends_on) != 1:
             raise ValueError("typed path requires one entity dependency")
         source = nodes_by_id[node.depends_on[0]]
-        if source.kind is not QueryNodeKind.OBJECT_SET or source.output_kind != "query.table":
-            raise ValueError("typed path source MUST be an object_set table")
-        source_definition = ObjectSetDefinition.model_validate(source.arguments.get("definition"))
-        if source_definition.selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
-            raise ValueError("typed path source MUST select one ObjectType")
+        source_type = _typed_path_entity_source_type(source, nodes_by_id=nodes_by_id)
+        if source.output_kind != "query.table" or source_type is None:
+            raise ValueError(
+                "typed path source MUST be an object_set or same-type object_set union table"
+            )
         definition = TypedPathDefinition.model_validate(arguments)
-        current_type = source_definition.selector.name
+        current_type = source_type
         for step in definition.steps:
             if step.selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
                 raise ValueError("typed path endpoint MUST select one ObjectType")
@@ -671,6 +671,38 @@ def cast_mapping(value: object) -> Mapping[str, object]:
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
         return {str(item): None for item in value}
     raise ValueError("manifest properties descriptor is invalid")
+
+
+def _typed_path_entity_source_type(
+    source: OntologyQueryNode,
+    *,
+    nodes_by_id: Mapping[str, OntologyQueryNode],
+) -> str | None:
+    if source.kind is QueryNodeKind.OBJECT_SET:
+        definition = ObjectSetDefinition.model_validate(source.arguments.get("definition"))
+        return (
+            definition.selector.name
+            if definition.selector.kind is ObjectSelectorKind.OBJECT_TYPE
+            else None
+        )
+    if source.kind is not QueryNodeKind.UNION or len(source.depends_on) < 2:
+        return None
+    selectors: set[tuple[str, str]] = set()
+    for dependency_id in source.depends_on:
+        dependency = nodes_by_id[dependency_id]
+        if (
+            dependency.kind is not QueryNodeKind.OBJECT_SET
+            or dependency.output_kind != "query.table"
+        ):
+            return None
+        definition = ObjectSetDefinition.model_validate(
+            cast_mapping(dependency.arguments).get("definition")
+        )
+        selectors.add((definition.selector.kind.value, definition.selector.name))
+    if len(selectors) != 1:
+        return None
+    selector_kind, selector_name = next(iter(selectors))
+    return selector_name if selector_kind == ObjectSelectorKind.OBJECT_TYPE.value else None
 
 
 def _exact_operands(predicate: ObjectPredicate) -> tuple[str, ...]:

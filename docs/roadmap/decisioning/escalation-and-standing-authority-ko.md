@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: db30f4a85c913bddedc463b0a1d30e8c45ff449a
-translation_revised: 2026-09-16
+translation_source_sha: b32b394128fb946cefaa90481cc632aa820be201
+translation_revised: 2026-09-17
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -23,6 +23,8 @@ translation_revised: 2026-09-16
 > 시점에 결정론적으로 재검증된다 - 절대 fail-open 경로가 아니며 LLM 이 실행을 부여하지
 > 못한다. 이 문서의 모든 신규 역량은 **shadow 우선** 으로 ship 된다
 > ([architecture.instructions.md § 안전성 Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
+
+사람 보고 원본 고정값 갱신은 설명에만 사용되며 승인이나 실행 권한을 부여하지 않습니다.
 
 ## 구현 상태
 
@@ -120,9 +122,11 @@ shadow의 무결성 문제는 관찰에 그치고 실제 승인을 종결하지 
 응답 화면을 하나 더 제공하지만 에스컬레이션 타이머, 상시 권한 규칙 또는 Thor의 실행
 경계를 바꾸지 않습니다.
 
-- `hil` 판정 는 TTL 을 가진 승인 요청을 발동한다. 오늘날 TTL 만료는 **no-op + 감사 +
-  A2 경보** 다([channels-and-notifications-ko.md § on-call, 에스컬레이션, 타임아웃](../interfaces/channels-and-notifications-ko.md)).
-  실패 시 차단 이며 옳다 - 그러나 거기서 멈춘다.
+- `hil` 판정은 TTL이 있는 승인 요청을 생성합니다. 알림 채널이 구성되지 않아도 TTL 만료는
+  항상 **종단 무작업 + 감사** 상태로 수렴합니다. 사용할 수 있는 채널은
+  [channels-and-notifications-ko.md의 on-call, 에스컬레이션 및 타임아웃](../interfaces/channels-and-notifications-ko.md)에
+  설명된 A2 경보를 추가할 수 있지만, 전달 가능 여부가 만료 처리를 제어하지는 않습니다.
+  이 동작은 실패 시 안전하게 차단하며 올바르지만 거기서 멈춥니다.
 - **채널 대체 경로** 은 이미 존재한다: 실패한 Teams 승인은 다른 A1 가능 채널로, 이어서
   ops 레인 을 페이지한다([channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md)).
   이는 **전달 실패(전달 실패)** 를 다루지, **사람 무응답(human non-response)**

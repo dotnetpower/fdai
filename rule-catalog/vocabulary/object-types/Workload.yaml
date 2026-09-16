@@ -6,6 +6,7 @@ description: A deployable or operable unit that implements a business service.
 properties:
   id: {type: string, required: true}
   name: {type: string, required: true}
+  aliases: {type: array, required: false}
   workload_kind: {type: string, required: true}
   effective_from: {type: datetime, required: true}
   effective_to: {type: datetime, required: false}
@@ -21,6 +22,6 @@ lifecycle:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Workload@1.0.0
-  content_hash: sha256:b93e911eb3991f90fa0f92b2479c996b7588c39bfe1fba97c22d594629b13ca0
+  content_hash: sha256:d919bd6b2bece35ae7dc1c83dea515279a394f44f1c3f40586ba4d996b6cb578
   license: MIT
   retrieved_at: "2026-07-31T00:00:00Z"

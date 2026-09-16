@@ -25,7 +25,6 @@ from .semantic_planning_frame_facets import (
     _facets_describe_resource_classification,
     _facets_describe_resource_relationships,
     _facets_describe_service_agent_ownership,
-    _facets_describe_service_current_health,
 )
 from .semantic_planning_models import (
     ClarificationRequirement,
@@ -221,50 +220,6 @@ def build_rule_state_frame(
         confidence=judgment.confidence,
     )
     return build_semantic_frame(proposal, utterance=utterance, context=context)
-
-
-def build_service_current_health_clarification(
-    judgment: SemanticJudgmentProposal | None,
-    *,
-    utterance: str,
-    context: tuple[str, ...],
-) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
-    """Preserve service-to-resource health meaning until one service is identified."""
-
-    if (
-        judgment is None
-        or judgment.action_posture != "advise_only"
-        or judgment.primary_intent != "query.ontology_relationships"
-        or any(
-            target.canonical_value not in {None, "BusinessService", "Resource", "Workload"}
-            for target in judgment.targets
-        )
-    ):
-        return None
-    facets = {facet.replace("-", "_") for facet in judgment.requested_facets}
-    if not _facets_describe_service_current_health(facets):
-        return None
-    proposal = SemanticFrameProposal(
-        operation=SemanticOperation.SELECT,
-        subject_constraints=("BusinessService", "Resource", "Workload"),
-        measure_concepts=tuple(sorted(facets)),
-        temporal_scope={"kind": "current"},
-        output_shape=SemanticOutputShape.ONTOLOGY_RELATIONSHIPS,
-        evidence_requirements=(),
-        unresolved_terms=("BusinessService identity",),
-        clarification_requirements=(ClarificationRequirement.SUBJECT,),
-        clarification=(
-            "현재 상태를 확인할 정확한 BusinessService 이름 또는 ID를 알려주세요?"
-            if re.search(r"[가-힣]", utterance) is not None
-            else (
-                "Provide the exact BusinessService name or ID whose current state "
-                "should be checked?"
-            )
-        ),
-        investigation=None,
-        confidence=judgment.confidence,
-    )
-    return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
 
 
 def build_business_capability_mapping_frame(

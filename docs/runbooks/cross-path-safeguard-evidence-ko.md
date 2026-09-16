@@ -1,7 +1,7 @@
 ---
 title: 경로 교차 안전장치 근거 Runbook
 translation_of: cross-path-safeguard-evidence.md
-translation_source_sha: 609f3887c93537169a86fe444489c1c69b203b24
+translation_source_sha: 72fa6404fe9252455734b46be2af8aaac7657ee8
 translation_revised: 2026-09-16
 ---
 # 경로 교차 안전장치 근거 Runbook
@@ -112,14 +112,15 @@ uv run python scripts/quality/repository/validate-cross-path-safeguard-evidence.
 
 - 고정 리비전이 아직 선택되지 않았습니다.
 - 보호된 배포가 아직 수행되지 않았습니다.
-- 독립 관측이 아직 디스패치 수명주기에 연결되지 않아, 캠페인이 관측 영수증을 자동으로 낼 수 없습니다.
-- 관측 결과를 권한 축소에 쓰이는 A3-E `EffectEvidenceDisposition`으로 옮기는 다리가 없습니다. 두
-  어휘는 현재 의도적으로 연결되어 있지 않습니다. 이 다리를 만드는 사람은 `missing`, `stale`,
-  `conflicting`, `censored`, `unavailable` 같은 모든 미상 결과를 권한을 낮추는 처분으로 옮겨야
-  합니다. 그중 하나라도 `pending`으로 옮기면 보류가 자율성을 유지한 능력으로 조용히 바뀝니다.
-- `pr_manual`에는 도달 가능한 런타임 트리거가 없습니다.
-- `tool_call` 강제 적용 바인딩에 Terraform 변수가 없습니다.
+- 자격 있는 셀 8개의 영수증과 실행한 모든 거부 분류 영수증이 아직 보존되지 않았습니다.
 - 독립 검토가 아직 수행되지 않았습니다.
+
+소스 선행 조건은 이제 명시되어 있습니다. 종료된 `ops.start-vm` ActionRun은 Heimdall 실행 작업 관측
+처리기로 라우팅되며, A3-E 효과 근거 다리는 모든 미상 관측 결과를 섀도 복귀 처분으로 옮깁니다.
+`pr_manual`은 누락된 런타임 트리거가 아니라 의도적인 구조적 거부 분류로 유지됩니다. 보호된 서비스
+구성은 stewardship GitOps가 활성화된 경우에만 `workflow_tools_enforce`를 설정할 수 있으며 기본값은
+비활성입니다. 이러한 소스 사실은 운영 근거가 아니며, 캠페인 리비전을 선택하거나 배포, 공급자 효과,
+승격, 복귀 또는 정리를 승인하지 않습니다.
 
 FDAI-CONST-007은 이 항목이 모두 닫히고 독립 검토에서 Medium 이상 미해결 문제가 없을 때까지
 `partial`로 유지됩니다.

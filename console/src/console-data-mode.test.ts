@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   consoleDataMode,
   consoleDataModeHref,
+  explicitConsoleDataMode,
   supportsSampleData,
 } from "./console-data-mode";
 
@@ -10,11 +11,17 @@ describe("Dashboard data mode", () => {
     expect(consoleDataMode("dashboard", new URLSearchParams())).toBe("live");
     expect(consoleDataMode("dashboard", new URLSearchParams("data=sample"))).toBe("sample");
     expect(consoleDataMode("live", new URLSearchParams("data=sample"), "sample")).toBe("sample");
-    expect(consoleDataMode("audit", new URLSearchParams("data=sample"), "sample")).toBe("live");
+    expect(consoleDataMode("audit", new URLSearchParams("data=sample"), "sample")).toBe("sample");
+    expect(consoleDataMode("audit", new URLSearchParams("data=live"), "sample")).toBe("live");
+    expect(explicitConsoleDataMode(new URLSearchParams())).toBeNull();
+    expect(explicitConsoleDataMode(new URLSearchParams("data=sample"))).toBe("sample");
+    expect(explicitConsoleDataMode(new URLSearchParams("data=live"))).toBe("live");
     expect(consoleDataMode("operating-outcomes", new URLSearchParams(), "sample")).toBe("sample");
     expect(supportsSampleData("cost-governance")).toBe(true);
     expect(supportsSampleData("incidents")).toBe(true);
-    expect(supportsSampleData("audit")).toBe(false);
+    expect(supportsSampleData("audit")).toBe(true);
+    expect(supportsSampleData("trace")).toBe(true);
+    expect(supportsSampleData("rca")).toBe(true);
   });
 
   test("preserves unrelated Dashboard query state", () => {

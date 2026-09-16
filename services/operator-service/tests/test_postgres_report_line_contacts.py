@@ -4,6 +4,8 @@ import hashlib
 import json
 from datetime import UTC, datetime, timedelta
 
+import pytest
+from fdai_operator_service.families.iam.errors import IamUnavailableError
 from fdai_operator_service.postgres_family_store import (
     StoredProposal,
     StoredStatePage,
@@ -41,7 +43,7 @@ class Store:
             json.dumps(request, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
         proposal_id = "operator-" + digest[:32]
-        record = {
+        record: dict[str, object] = {
             **request,
             "kind": "operator.proposal",
             "mode": "shadow",
@@ -59,7 +61,7 @@ class Store:
             record=record,
         )
 
-    async def read_state(self, key: str):
+    async def read_state(self, key: str) -> dict[str, object] | None:
         return self.state.get(key)
 
     async def read_state_page(
@@ -70,24 +72,26 @@ class Store:
         match_field: str | None = None,
         match_value: str | None = None,
     ) -> StoredStatePage:
-        del match_field, match_value
         records = tuple(
             StoredStateRecord(key=key, value=value, updated_at=NOW)
             for key, value in self.state.items()
             if key.startswith(prefix)
+            and (match_field is None or value.get(match_field) == match_value)
         )
         return StoredStatePage(records=records[:limit], truncated=len(records) > limit)
 
 
-async def test_contact_context_uses_shorter_consent_expiry_and_persists_command() -> None:
-    store = Store()
-    adapter = PostgresReportLineContacts(store, clock=lambda: NOW)  # type: ignore[arg-type]
-    approval_id = "approval-1"
+def _seed_pending_contact(
+    store: Store,
+    *,
+    approval_id: str,
+    requester_ref: str,
+) -> None:
     consent_id = "00000000-0000-0000-0000-000000000003"
     store.state["hil_park:" + approval_id] = {
         "status": "awaiting_contact_consent",
         "approval_id": approval_id,
-        "submitter_oid": "person-a",
+        "submitter_oid": requester_ref,
         "contact_consent_id": consent_id,
         "action_hash": "a" * 64,
         "action": {
@@ -104,7 +108,7 @@ async def test_contact_context_uses_shorter_consent_expiry_and_persists_command(
     }
     store.state["human_reporting:approval-consent:" + consent_id] = {
         "state": "pending",
-        "requester_ref": "person-a",
+        "requester_ref": requester_ref,
         "action_digest": "a" * 64,
         "route_digest": "b" * 64,
         "path_revision": "d" * 64,
@@ -112,6 +116,13 @@ async def test_contact_context_uses_shorter_consent_expiry_and_persists_command(
         "created_at": NOW.isoformat(),
         "expires_at": (NOW + timedelta(minutes=5)).isoformat(),
     }
+
+
+async def test_contact_context_uses_shorter_consent_expiry_and_persists_command() -> None:
+    store = Store()
+    adapter = PostgresReportLineContacts(store, clock=lambda: NOW)  # type: ignore[arg-type]
+    approval_id = "approval-1"
+    _seed_pending_contact(store, approval_id=approval_id, requester_ref="person-a")
 
     context = await adapter.get_report_line_contact_context(approval_id)
     assert context is not None
@@ -135,3 +146,38 @@ async def test_contact_context_uses_shorter_consent_expiry_and_persists_command(
         value.get("operation") == "hil.report-line-contact.enqueue"
         for value in store.state.values()
     )
+
+
+async def test_contact_listing_filters_terminal_history_before_coverage_check() -> None:
+    store = Store()
+    for index in range(1_001):
+        store.state[f"hil_park:completed-{index:04d}"] = {
+            "status": "approved",
+            "submitter_oid": "person-a",
+        }
+    _seed_pending_contact(store, approval_id="approval-1", requester_ref="person-a")
+    adapter = PostgresReportLineContacts(store, clock=lambda: NOW)  # type: ignore[arg-type]
+
+    context = await adapter.get_report_line_contact_context("approval-1")
+
+    assert context is not None
+    assert await adapter.list_report_line_contact_contexts(
+        requester_ref="person-a",
+        limit=10,
+    ) == (context,)
+
+
+async def test_contact_listing_rejects_incomplete_pending_contact_coverage() -> None:
+    store = Store()
+    for index in range(1_001):
+        store.state[f"hil_park:person-a-{index:04d}"] = {
+            "status": "awaiting_contact_consent",
+            "submitter_oid": "person-a",
+        }
+    adapter = PostgresReportLineContacts(store, clock=lambda: NOW)  # type: ignore[arg-type]
+
+    with pytest.raises(IamUnavailableError, match="coverage is incomplete"):
+        await adapter.list_report_line_contact_contexts(
+            requester_ref="person-a",
+            limit=10,
+        )

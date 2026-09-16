@@ -204,8 +204,17 @@ class InventorySyncCoordinator:
                     )
                 )
                 metadata["derived_source_states"] = [
-                    state.to_metadata() for state in promoted_observation.source_states
+                    state.to_metadata()
+                    for state in promoted_observation.source_states
+                    if not state.additive
                 ]
+                additive_source_states = [
+                    state.to_metadata()
+                    for state in promoted_observation.source_states
+                    if state.additive
+                ]
+                if additive_source_states:
+                    metadata["additive_source_states"] = additive_source_states
                 if promoted_observation.state_base_generation_checked:
                     metadata["state_base_generation"] = promoted_observation.state_base_generation
                 metadata["projection_complete"] = promoted_observation.complete
@@ -595,17 +604,29 @@ def _validate_resource_state_enrichment(
         STATE_FACT_METADATA_PROPERTY,
         STATE_FACT_UNAVAILABLE_REASONS_PROPERTY,
     }
+    if original.type == "llm-model-deployment":
+        allowed.add("servingState")
     if original.type == "static-web-app":
         allowed.add("staticSiteEnvironmentStatus")
     if set(enriched_props) - set(original_props) - allowed:
         raise ValueError("inventory state enrichment added an unsupported property")
     unavailable_reasons = enriched_props.get(STATE_FACT_UNAVAILABLE_REASONS_PROPERTY)
-    if unavailable_reasons is not None and (
-        not isinstance(unavailable_reasons, Mapping)
-        or set(unavailable_reasons) != {"availabilityState"}
-        or unavailable_reasons["availabilityState"] not in RECORDED_STATE_UNAVAILABLE_REASONS
-    ):
-        raise ValueError("inventory state enrichment added an unsupported unavailable reason")
+    allowed_unavailable_keys = {"availabilityState"}
+    if original.type == "llm-model-deployment":
+        allowed_unavailable_keys.add("servingState")
+    if unavailable_reasons is not None:
+        if (
+            not isinstance(unavailable_reasons, Mapping)
+            or not set(unavailable_reasons)
+            or set(unavailable_reasons) - allowed_unavailable_keys
+            or any(
+                reason not in RECORDED_STATE_UNAVAILABLE_REASONS
+                or (key == "availabilityState" and not str(reason).startswith("resource_health_"))
+                or (key == "servingState" and not str(reason).startswith("model_serving_"))
+                for key, reason in unavailable_reasons.items()
+            )
+        ):
+            raise ValueError("inventory state enrichment added an unsupported unavailable reason")
     if (
         "availabilityReasonKind" in enriched_props
         and "availabilityReasonKind" not in original_props
@@ -614,7 +635,9 @@ def _validate_resource_state_enrichment(
         raise ValueError("inventory availability reason requires availability state")
     metadata = enriched_props.get(STATE_FACT_METADATA_PROPERTY)
     state_fact_keys = {
-        key for key in ("availabilityState", "staticSiteEnvironmentStatus") if key in enriched_props
+        key
+        for key in ("availabilityState", "servingState", "staticSiteEnvironmentStatus")
+        if key in enriched_props
     }
     if metadata is None and not state_fact_keys:
         metadata = {}
@@ -633,9 +656,10 @@ def _validate_resource_state_enrichment(
     if set(metadata) - allowed_metadata_keys:
         raise ValueError("inventory state enrichment added unsupported state metadata")
     if "availabilityState" in enriched_props:
-        _validate_provider_state_fact(
+        _validate_observed_state_fact(
             state=enriched_props["availabilityState"],
             metadata=metadata.get("availabilityState"),
+            authority=StateFactAuthority.PROVIDER,
             source_identity="azure-resource-health",
             source_revision_prefix="azure-resource-health:sha256:",
             allowed_states={"Available", "Degraded", "Unavailable", "Unknown"},
@@ -643,9 +667,10 @@ def _validate_resource_state_enrichment(
     if "staticSiteEnvironmentStatus" in enriched_props:
         if original.type != "static-web-app":
             raise ValueError("Static Web App state enrichment requires a Static Web App Resource")
-        _validate_provider_state_fact(
+        _validate_observed_state_fact(
             state=enriched_props["staticSiteEnvironmentStatus"],
             metadata=metadata.get("staticSiteEnvironmentStatus"),
+            authority=StateFactAuthority.PROVIDER,
             source_identity="azure-static-web-app-default-environment",
             source_revision_prefix="azure-static-web-app-environment:sha256:",
             allowed_states={
@@ -658,7 +683,18 @@ def _validate_resource_state_enrichment(
                 "Detached",
             },
         )
-    reviewed_state_keys = ("availabilityState", "staticSiteEnvironmentStatus")
+    if "servingState" in enriched_props:
+        if original.type != "llm-model-deployment":
+            raise ValueError("model serving enrichment requires a model deployment Resource")
+        _validate_observed_state_fact(
+            state=enriched_props["servingState"],
+            metadata=metadata.get("servingState"),
+            authority=StateFactAuthority.TELEMETRY,
+            source_identity="azure-monitor-model-serving",
+            source_revision_prefix="azure-monitor-model-serving:sha256:",
+            allowed_states={"Serving"},
+        )
+    reviewed_state_keys = ("availabilityState", "servingState", "staticSiteEnvironmentStatus")
     if (
         not any(key in enriched_props for key in reviewed_state_keys)
         and unavailable_reasons is None
@@ -668,10 +704,11 @@ def _validate_resource_state_enrichment(
         )
 
 
-def _validate_provider_state_fact(
+def _validate_observed_state_fact(
     *,
     state: object,
     metadata: object,
+    authority: StateFactAuthority,
     source_identity: str,
     source_revision_prefix: str,
     allowed_states: set[str],
@@ -688,14 +725,14 @@ def _validate_provider_state_fact(
     )
     if (
         fact.lane is not StateFactLane.OBSERVED
-        or fact.authority is not StateFactAuthority.PROVIDER
+        or fact.authority is not authority
         or fact.source_identity != source_identity
         or not _content_addressed_revision(fact.source_revision, source_revision_prefix)
         or fact.evidence_refs != (fact.source_revision,)
         or fact.synthetic
         or not evidence_shape_valid
     ):
-        raise ValueError("inventory state metadata is not authoritative provider evidence")
+        raise ValueError("inventory state metadata is not authoritative observed evidence")
 
 
 def _content_addressed_revision(value: str, prefix: str) -> bool:

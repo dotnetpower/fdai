@@ -57,6 +57,14 @@ const SAMPLE_AUTONOMY: AutonomyPayload = {
     change_lead_time_seconds: { value: 960, baseline: 2100, direction: "lower" },
     cost_per_resolved_event_usd: { value: 0.31, baseline: 0.72, direction: "lower" },
   },
+  metric_samples: {
+    auto_resolution_rate: 1280,
+    human_touchpoints_per_100: 1280,
+    mttr_seconds: 116,
+    change_lead_time_seconds: 94,
+    cost_per_resolved_event_usd: 922,
+  },
+  measurement_gaps: [],
   leading: {
     mixed_model_disagreement_rate: { value: 0.018, baseline: 0.041, direction: "lower" },
     verifier_failure_rate: { value: 0.009, baseline: 0.025, direction: "lower" },
@@ -88,7 +96,11 @@ const SAMPLE_AUTONOMY: AutonomyPayload = {
     bands: { t0: [0.7, 0.8], t1: [0.15, 0.2], t2: [0.05, 0.1] },
   },
   trend: {
-    auto_resolution_rate: [0.54, 0.57, 0.59, 0.61, 0.64, 0.66, 0.69, 0.72],
+    auto_resolution_rate: [0.54, 0.57, 0.59, 0.61, 0.64, 0.66, 0.69, 922 / 1280],
+    human_touchpoints: [22, 20, 18, 17, 15, 14, 12, 11],
+    mttr: [1260, 1170, 1080, 960, 840, 720, 630, 540],
+    change_lead_time: [2040, 1920, 1740, 1560, 1380, 1200, 1080, 960],
+    cost_per_resolved_event: [0.68, 0.62, 0.56, 0.51, 0.46, 0.4, 0.35, 0.31],
   },
 };
 

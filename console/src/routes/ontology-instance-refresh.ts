@@ -23,6 +23,7 @@ export interface OntologyInstanceRefreshHost {
 
 export interface OntologyInstanceRefreshOptions {
   readonly onNextPeriodicAt?: (deadlineMs: number | null) => void;
+  readonly intervalMs?: number;
 }
 
 export function formatOntologyRefreshCountdown(totalSeconds: number): string {
@@ -43,6 +44,10 @@ export function installOntologyInstanceRefresh(
   host: OntologyInstanceRefreshHost = browserRefreshHost(),
   options: OntologyInstanceRefreshOptions = {},
 ): () => void {
+  const intervalMs = options.intervalMs ?? ONTOLOGY_INSTANCE_REFRESH_INTERVAL_MS;
+  if (!Number.isSafeInteger(intervalMs) || intervalMs < 1_000) {
+    throw new Error("Ontology refresh interval must be a positive whole number of milliseconds");
+  }
   let stopped = false;
   let inFlight: Promise<void> | null = null;
   let pendingSseRefresh = false;
@@ -71,7 +76,7 @@ export function installOntologyInstanceRefresh(
   const onVisible = () => requestRefresh("visible");
   const onSseInvalidation = () => requestRefresh("sse");
   const scheduleNextPeriodic = () => {
-    options.onNextPeriodicAt?.(host.now() + ONTOLOGY_INSTANCE_REFRESH_INTERVAL_MS);
+    options.onNextPeriodicAt?.(host.now() + intervalMs);
   };
   scheduleNextPeriodic();
   const interval = host.setInterval(
@@ -80,7 +85,7 @@ export function installOntologyInstanceRefresh(
       scheduleNextPeriodic();
       requestRefresh("periodic");
     },
-    ONTOLOGY_INSTANCE_REFRESH_INTERVAL_MS,
+    intervalMs,
   );
 
   host.addWindowListener("focus", onFocus);

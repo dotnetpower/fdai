@@ -71,6 +71,10 @@ TOOL_EXAMPLES: Final[dict[str, tuple[str, str]]] = {
         "What actually broke, and what caused the incident?",
         "장애 원인이 뭐야? 뭐가 터진 거야?",
     ),
+    "read_adaptive_telemetry_recipes": (
+        "Which reviewed log evidence can the investigation query next?",
+        "조사에서 다음으로 조회할 수 있는 검토된 로그 근거는 뭐야?",
+    ),
     # Huginn - ingress
     "read_ingress_health": (
         "Are events still arriving, and how many came in?",

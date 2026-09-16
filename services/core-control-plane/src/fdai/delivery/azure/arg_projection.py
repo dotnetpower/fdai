@@ -282,6 +282,7 @@ def resource_operational_status(row: Mapping[str, Any]) -> str | None:
         nested.get("userVisibleState"),
         nested.get("resourceState"),
         nested.get("virtualNetworkLinkState"),
+        direct_instance_view_properties.get("powerState"),
         direct_instance_view_properties.get("executionState"),
         nested.get("registrationStatus"),
     ):

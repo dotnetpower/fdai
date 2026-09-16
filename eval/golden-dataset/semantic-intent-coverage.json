@@ -304,7 +304,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:6173c3cb96f4dff5c2860c682ae9884badd716ccd66f47a1312baaddfe9fbc61",
+  "inventory_digest": "sha256:90035ebb6fe5f4dc39c46e9f7648331feda3c4b0eb9fe7957780a24daaeb449a",
   "metric_contract": {
     "ambiguity": [
       {
@@ -944,17 +944,17 @@
     "console/src/deck/presentation-modules/types.ts": "sha256:b58265852af941105f1b65fc24394f7b7b204c78f8ea95aa952edc23fb8212a2",
     "eval/golden-dataset/azure-incident-intent-golden.yaml": "sha256:38d78bbc193d0c4b3609b8ad345845cd711434ef447b09f843e50a017ef0ca73",
     "eval/golden-dataset/expectations.json": "sha256:5617de665fab4aec0bd038a8a1809d9a662f6cb51c8a0221036997807eb6c97c",
-    "eval/golden-dataset/question-bank/question-bank.json": "sha256:cd1d372e01c8319ee43774c433aa953e88ac6e6ccbda63c51934939002e2f411",
+    "eval/golden-dataset/question-bank/question-bank.json": "sha256:441bf549f7a7ef51418d980cd6db70f79fa838b3059c3071e79ad0446f89e4c1",
     "eval/golden-dataset/question-bank/question-bank.source.yaml": "sha256:de3d78de7327eec563742fe7402f3827438152ed27f5c519a2ac3ae66fced495",
     "packages/service-contracts/src/fdai_service_contracts/adaptive_answer.py": "sha256:24b3680abade67a122f7c64c87a7121538a09c4e47ec46bdcc3a8c73c1e9039e",
     "scripts/automation/conversation_quality_metrics.py": "sha256:18b2a8c0fd2eafd708889a1610f776da65e6e514f3ef07b4beaa331200868614",
     "scripts/automation/conversation_quality_sources.py": "sha256:d6c6e311ef2b4532916148086fc2badee40fa7589dab78d137f2ab88a97107aa",
     "scripts/automation/presentation_quality_metrics.py": "sha256:d5ad9c62e2e8fb29e58a2d7fe708417be5a4fbefe35cb0f5d66bed391c4284f9",
     "scripts/automation/semantic_intent_metrics.py": "sha256:c590f8e15bfc22d3f6ce124a1e42aa915800bdc10b2e2049a958395724bf4add",
-    "services/core-control-plane/src/fdai/agents/_framework/pantheon.py": "sha256:be7f6fd4f0ba0ba1bfdd64990e1bf0defa35d8938e37160da93e56e38d7a1b69",
+    "services/core-control-plane/src/fdai/agents/_framework/pantheon.py": "sha256:fbc25c981fc7b5e12924aff34a70c40cd1644f247e770b9811312c99fbca9899",
     "services/core-control-plane/src/fdai/core/conversation/question_adequacy.py": "sha256:fe9a5288e009fdf4dac438717e0ac3128a0e4caac4885b870604e732591d9aec",
     "services/core-control-plane/src/fdai/core/conversation_assurance/models.py": "sha256:4c191e51be8e6515a3508b97ae9e157c3761430cd29f63b78722f09ad9240020",
-    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:ba151cc4a0ca4e44fcfdb5e02b8e20ace0eb194182421a6ea8a0fdfb361373d0",
+    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:6beed84f281ff91e8012fd5730e41c6a4ffbbe4129a976ea963f95e0b7bc9edb",
     "services/operator-service/src/fdai_operator_service/families/conversation/presentation_artifact_v3.py": "sha256:618e049ecfc064c3dcc3972c1508dd1d0a7d48def7e8e1ab4411777f3d260299",
     "services/operator-service/src/fdai_operator_service/families/conversation/presentation_planner.py": "sha256:2a5a515d0ebb49a4389df1ff662e99f3afbd234efaa613c92a722dc91d31795f"
   },

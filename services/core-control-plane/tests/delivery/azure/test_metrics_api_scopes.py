@@ -23,7 +23,7 @@ from fdai.delivery.azure.metrics_api import (
 from fdai.delivery.azure.metrics_api_queries import azure_metrics_api_queries
 from fdai.delivery.metric_window import ProviderMetricWindowReader
 from fdai.runtime.metric_semantic_catalog import load_metric_semantic_registry
-from fdai.shared.providers.metric import MetricProviderError, MetricQuery
+from fdai.shared.providers.metric import MetricFailureReason, MetricProviderError, MetricQuery
 from fdai.shared.providers.workload_identity import IdentityToken
 
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000000"
@@ -40,6 +40,15 @@ NOW = datetime(2026, 8, 21, tzinfo=UTC)
 class _Identity:
     async def get_token(self, audience: str) -> IdentityToken:
         return IdentityToken(token="fake", expires_at=NOW + timedelta(days=1), audience=audience)
+
+
+class _FailingIdentity:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    async def get_token(self, audience: str) -> IdentityToken:
+        del audience
+        raise self.error
 
 
 def _payload(metric: str, dimensions: dict[str, str] | None = None) -> dict[str, Any]:
@@ -100,6 +109,41 @@ def test_templates_preserve_legacy_constructor_and_bound_filter_scope() -> None:
         MetricsApiTemplate("Requests", "Total", deployment_scope=True)
 
 
+@pytest.mark.parametrize(
+    "identity_error",
+    [
+        RuntimeError("credential unavailable"),
+        ValueError("bad"),
+        OverflowError("expires_on overflow"),
+    ],
+)
+async def test_identity_failure_is_normalized_without_exposing_credential_details(
+    identity_error: Exception,
+) -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: pytest.fail("unexpected HTTP request"))
+    ) as client:
+        provider = AzureMonitorMetricsProvider(
+            config=AzureMonitorMetricsConfig(templates=azure_metrics_api_queries()),
+            http_client=client,
+            identity=_FailingIdentity(identity_error),
+        )
+        with pytest.raises(MetricProviderError) as error:
+            _ = [
+                point
+                async for point in provider.query(
+                    MetricQuery(
+                        metric_name="model.response.200.count",
+                        labels={"resource_id": DEPLOYMENT},
+                        since=NOW,
+                    )
+                )
+            ]
+
+    assert error.value.reason is MetricFailureReason.TRANSPORT_ERROR
+    assert "credential unavailable" not in str(error.value)
+
+
 @pytest.mark.parametrize("status", ["429", "500", "503"])
 @pytest.mark.parametrize("backend", [False, True])
 async def test_apim_status_counts_use_exact_response_dimension(status: str, backend: bool) -> None:
@@ -132,22 +176,26 @@ async def test_apim_status_counts_use_exact_response_dimension(status: str, back
     assert points[0].labels == {"resource_id": APIM.lower(), dimension: status}
 
 
-async def test_deployment_metric_window_queries_account_without_widening_child() -> None:
+@pytest.mark.parametrize("status", ["200", "429"])
+async def test_deployment_metric_window_queries_account_without_widening_child(
+    status: str,
+) -> None:
     definition = load_metric_semantic_registry(
         ROOT / "rule-catalog/vocabulary/metric-semantics.yaml"
-    ).resolve("model.response.429.count")
+    ).resolve(f"model.response.{status}.count")
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path.casefold() == (
             f"{ACCOUNT}/providers/Microsoft.Insights/metrics".casefold()
         )
         assert request.url.params["$filter"] == (
-            "StatusCode eq '429' and ModelDeploymentName eq 'example-model'"
+            f"StatusCode eq '{status}' and ModelDeploymentName eq 'example-model'"
         )
         return httpx.Response(
             200,
             json=_payload(
-                "AzureOpenAIRequests", {"StatusCode": "429", "ModelDeploymentName": "example-model"}
+                "AzureOpenAIRequests",
+                {"StatusCode": status, "ModelDeploymentName": "example-model"},
             ),
         )
 
@@ -175,6 +223,37 @@ async def test_deployment_metric_window_queries_account_without_widening_child()
     assert window.concept_id == definition.concept_id
     assert window.complete is True
     assert tuple(sample.value for sample in window.samples) == (0.0,)
+
+
+async def test_deployment_dimension_value_matching_is_case_insensitive() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=_payload(
+                "AzureOpenAIRequests",
+                {"StatusCode": "200", "ModelDeploymentName": "EXAMPLE-MODEL"},
+            ),
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureMonitorMetricsProvider(
+            config=AzureMonitorMetricsConfig(templates=azure_metrics_api_queries()),
+            http_client=client,
+            identity=_Identity(),
+        )
+        points = [
+            point
+            async for point in provider.query(
+                MetricQuery(
+                    metric_name="model.response.200.count",
+                    labels={"resource_id": DEPLOYMENT},
+                    since=NOW,
+                )
+            )
+        ]
+
+    assert len(points) == 1
+    assert points[0].labels["ModelDeploymentName"] == "EXAMPLE-MODEL"
 
 
 @pytest.mark.parametrize(

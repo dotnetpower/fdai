@@ -96,6 +96,7 @@ from fdai.rule_catalog.schema.resource_type import (
 from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
+from fdai.runtime.adaptive_telemetry import build_adaptive_telemetry_from_container
 from fdai.runtime.alert_noise_control import build_alert_workflow_bindings
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
 from fdai.runtime.control_loop_execution_ports import (
@@ -378,9 +379,15 @@ def _build_control_loop(
         action_types_by_name=action_types_by_name,
         ontology_release=ontology_release,
     )
-
     audit_store = audit_store or _build_audit_store()
     process_runtime_store = _build_process_store()
+    adaptive_telemetry_investigator = build_adaptive_telemetry_from_container(
+        container=container,
+        process_store=process_runtime_store,
+        ontology_release=ontology_release,
+        action_types=action_types,
+        environment=os.environ,
+    )
     publisher: Any = None
     renderer: TemplateRenderer | None = None
     resource_lock: Any = _build_resource_lock()
@@ -556,6 +563,7 @@ def _build_control_loop(
     report_line_runtime = hil_support.report_lines
     escalation_supervisor = hil_support.escalation
     approval_load_controller = hil_support.load_controller
+    approval_expiry_reconciler = hil_support.expiry_reconciler
     approval_reminder_dispatcher = hil_support.reminder_dispatcher
     pre_dispatch_kinetic_safety_writer = ExistingProposalKineticSafetyWriter(
         proposal_store=StateStoreKineticActionProposalStore(store=audit_store),
@@ -575,6 +583,7 @@ def _build_control_loop(
         action_types_by_name=action_types_by_name,
         pending_index_writer=_pending_index_writer,
         approval_load_controller=approval_load_controller,
+        approval_expiry_reconciler=approval_expiry_reconciler,
         approval_reminder_dispatcher=approval_reminder_dispatcher,
         escalation_supervisor=escalation_supervisor,
         default_escalation_rungs=escalation_rungs,
@@ -691,6 +700,30 @@ def _build_control_loop(
     from fdai.runtime.alert_noise_execution import build_alert_plan_artifacts
 
     alert_plan_artifacts = build_alert_plan_artifacts(store=audit_store, publisher=publisher)
+    expected_effect_provider = container.mscp_expected_effect_provider
+    effect_observer = container.mscp_effect_observer
+    gateway_url = os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip()
+    gateway_audience = os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", "").strip()
+    tag_effect_identity = (execution_identities or {}).get("identity/change") or identity
+    if (
+        expected_effect_provider is None
+        and effect_observer is None
+        and gateway_url
+        and gateway_audience
+        and tag_effect_identity is not None
+        and http_client is not None
+    ):
+        from fdai.delivery.azure.gateway_tag_effect import GatewayTagEffectVerifier
+
+        tag_effect_verifier = GatewayTagEffectVerifier(
+            base_url=gateway_url,
+            audience=gateway_audience,
+            identity=tag_effect_identity,
+            http_client=http_client,
+        )
+        expected_effect_provider = tag_effect_verifier.expected
+        effect_observer = tag_effect_verifier.observe
+
     return ControlLoop(
         event_ingest=event_ingest,
         trust_router=trust_router,
@@ -723,6 +756,7 @@ def _build_control_loop(
         rca_catalog_revision=rca_catalog_revision,
         resource_dependency_graph=container.resource_dependency_graph or None,
         causal_runtime_coordinator=causal_runtime_coordinator,
+        adaptive_telemetry_investigator=adaptive_telemetry_investigator,
         hil_resume_coordinator=hil_resume_coordinator,
         workflow_coordinator=workflow_coordinator,
         alert_workflows=alert_bindings.workflows,
@@ -739,8 +773,8 @@ def _build_control_loop(
         stage_publisher=stage_publisher,
         kill_switch=kill_switch,
         kill_switch_refresher=kill_switch.refresh,
-        mscp_expected_effect_provider=container.mscp_expected_effect_provider,
-        mscp_effect_observer=container.mscp_effect_observer,
+        mscp_expected_effect_provider=expected_effect_provider,
+        mscp_effect_observer=effect_observer,
         response_outcome_sink=response_outcome_sink,
         effect_reconciliation_request_sink=effect_reconciliation_request_sink,
         pre_dispatch_kinetic_safety_writer=pre_dispatch_kinetic_safety_writer,

@@ -28,6 +28,9 @@ from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentModelResponse,
     SemanticJudgmentObservation,
 )
+from fdai.core.conversation.semantic_logical_service_planning import (
+    compile_logical_service_current_state_plan,
+)
 from fdai.core.conversation.semantic_manifest_planning import build_ontology_schema_frame
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_cascade import (
@@ -42,6 +45,7 @@ from fdai.core.conversation.semantic_planning_frame import (
     build_business_capability_mapping_frame,
     build_configuration_drift_clarification,
     build_historical_topology_clarification,
+    build_logical_service_current_state_frame,
     build_network_path_clarification,
     build_ontology_release_health_frame,
     build_ontology_trace_frame,
@@ -160,6 +164,7 @@ from fdai.core.ontology_platform.resource_metric_queries import (
     resource_metric_function_type,
     resource_metric_series_function_type,
 )
+from fdai.core.ontology_platform.resource_state_queries import resource_state_function_type
 from fdai.core.ontology_platform.state_transitions import (
     RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME,
     resource_state_transitions_function_type,
@@ -3595,6 +3600,355 @@ def test_service_current_health_without_exact_service_requests_clarification() -
     assert proposal.clarification_requirements == (ClarificationRequirement.SUBJECT,)
     assert frame.subject_constraints == ("BusinessService", "Resource", "Workload")
     assert frame.temporal_scope == {"kind": "current"}
+
+
+def test_service_current_health_with_exact_service_builds_current_state_frame() -> None:
+    utterance = "bookinfo backend 서비스의 현재 상태와 알 수 없는 상태를 구분해 주세요."
+    target = "bookinfo backend"
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "targets": [
+                {
+                    "kind": "business_service",
+                    "value": target,
+                    "canonical_value": "BusinessService",
+                    "source_start": utterance.index(target),
+                    "source_end": utterance.index(target) + len(target),
+                }
+            ],
+            "requested_facets": [
+                "business_services",
+                "workloads",
+                "resources",
+                "current_state",
+                "unknown_state",
+                "partial_service_graph",
+            ],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+        }
+    )
+
+    result = build_logical_service_current_state_frame(
+        judgment,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert proposal.clarification is None
+    assert frame.subject_constraints == (
+        "BusinessService",
+        "Workload",
+        "Resource",
+        "OperatingTarget.type=BusinessService",
+        "OperatingTarget.value=bookinfo backend",
+    )
+    assert frame.output_shape == "logical_service_current_state"
+    assert (
+        build_service_current_health_clarification(
+            judgment,
+            utterance=utterance,
+            context=(),
+        )
+        is None
+    )
+
+
+def test_service_current_health_with_exact_workload_builds_current_state_frame() -> None:
+    utterance = "Show the current and unknown state of the catalog backend workload."
+    target = "catalog backend"
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "targets": [
+                {
+                    "kind": "workload",
+                    "value": target,
+                    "canonical_value": "Workload",
+                    "source_start": utterance.index(target),
+                    "source_end": utterance.index(target) + len(target),
+                }
+            ],
+            "requested_facets": [
+                "business_services",
+                "workloads",
+                "resources",
+                "current_state",
+                "unknown_state",
+                "partial_service_graph",
+            ],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+        }
+    )
+
+    result = build_logical_service_current_state_frame(
+        judgment,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert proposal.clarification is None
+    assert frame.subject_constraints[-2:] == (
+        "OperatingTarget.type=Workload",
+        "OperatingTarget.value=catalog backend",
+    )
+    assert frame.output_shape == "logical_service_current_state"
+
+
+def test_ambiguous_service_target_requires_clarification() -> None:
+    utterance = "Show the current state of the catalog backend service."
+    target = "catalog backend"
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "targets": [
+                {
+                    "kind": "business_service",
+                    "value": target,
+                    "canonical_value": "BusinessService",
+                    "source_start": utterance.index(target),
+                    "source_end": utterance.index(target) + len(target),
+                }
+            ],
+            "requested_facets": [
+                "business_services",
+                "workloads",
+                "resources",
+                "current_state",
+                "unknown_state",
+                "partial_service_graph",
+            ],
+            "confidence": 0.95,
+            "ambiguous": True,
+            "unresolved_terms": ["catalog backend identity"],
+            "clarification": "Which catalog backend service do you mean?",
+            "action_posture": "advise_only",
+            "action_subject": "none",
+        }
+    )
+
+    assert (
+        build_logical_service_current_state_frame(
+            judgment,
+            utterance=utterance,
+            context=(),
+        )
+        is None
+    )
+    clarification = build_service_current_health_clarification(
+        judgment,
+        utterance=utterance,
+        context=(),
+    )
+    assert clarification is not None
+    assert clarification[0].clarification_requirements == (ClarificationRequirement.SUBJECT,)
+
+
+@pytest.mark.parametrize(
+    ("target_type", "target_value", "expected_resource_steps"),
+    [
+        ("BusinessService", "bookinfo", ["Workload", "Resource"]),
+        ("Workload", "bookinfo backend", ["Resource"]),
+    ],
+)
+def test_exact_service_current_health_compiles_cross_runtime_state_plan(
+    target_type: str,
+    target_value: str,
+    expected_resource_steps: list[str],
+) -> None:
+    catalog = load_ontology_catalog(
+        ROOT / "rule-catalog",
+        schema_registry=PackageResourceSchemaRegistry(),
+    )
+    function_types = (*catalog.function_types, resource_state_function_type())
+    release = build_ontology_release(
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        action_types=catalog.action_types,
+        interface_types=catalog.interface_types,
+        function_types=function_types,
+    )
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        interfaces=catalog.interface_types,
+        action_types=catalog.action_types,
+        functions=function_types,
+    )
+    utterance = f"{target_value} 서비스의 현재 상태와 알 수 없는 상태를 구분해 주세요."
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=[
+                "BusinessService",
+                "Workload",
+                "Resource",
+                f"OperatingTarget.type={target_type}",
+                f"OperatingTarget.value={target_value}",
+            ],
+            temporal_scope={"kind": "current"},
+            output_shape="logical_service_current_state",
+            evidence_requirements=[
+                "authoritative_operating_model",
+                "authoritative_inventory",
+            ],
+        )
+    )
+    frame = build_semantic_frame(proposal, utterance=utterance, context=())
+
+    plan = compile_logical_service_current_state_plan(
+        frame=frame,
+        utterance=utterance,
+        manifest=manifest,
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(
+                QueryNodeKind.OBJECT_SET,
+                QueryNodeKind.UNION,
+                QueryNodeKind.TYPED_PATH,
+                QueryNodeKind.FUNCTION,
+            )
+        ),
+        evaluation_time=NOW,
+        purpose="operations-review",
+    )
+
+    assert plan is not None
+    assert tuple(node.kind for node in plan.nodes) == (
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.UNION,
+        QueryNodeKind.TYPED_PATH,
+        QueryNodeKind.TYPED_PATH,
+        QueryNodeKind.FUNCTION,
+    )
+    resources = next(node for node in plan.nodes if node.node_id == "logical-service-resources")
+    assert [
+        step["selector"]["name"] for step in resources.arguments["steps"]
+    ] == expected_resource_steps
+    if target_type == "Workload":
+        services = next(node for node in plan.nodes if node.node_id == "logical-business-services")
+        assert services.arguments["steps"][0]["direction"] == "incoming"
+    state = plan.nodes[-1]
+    assert state.arguments["function_name"] == "query.resource_state_inventory"
+    assert state.arguments["arguments"]["state_concepts"] == ["resource_state.observed"]
+    assert plan.execution_authority is False
+
+
+@pytest.mark.parametrize("state_function_available", [True, False])
+def test_exact_service_judgment_never_uses_frame_or_plan_model(
+    state_function_available: bool,
+) -> None:
+    class _LogicalServiceJudgmentModel:
+        def judge(self, *, utterance: str, **_kwargs: object) -> dict[str, object]:
+            target = "bookinfo backend"
+            return {
+                "primary_intent": "query.ontology_relationships",
+                "targets": [
+                    {
+                        "kind": "business_service",
+                        "value": target,
+                        "canonical_value": "BusinessService",
+                        "source_start": utterance.index(target),
+                        "source_end": utterance.index(target) + len(target),
+                    }
+                ],
+                "requested_facets": [
+                    "business_services",
+                    "workloads",
+                    "resources",
+                    "current_state",
+                    "unknown_state",
+                    "partial_service_graph",
+                ],
+                "confidence": 0.95,
+                "ambiguous": False,
+                "action_posture": "advise_only",
+                "action_subject": "none",
+            }
+
+    catalog = load_ontology_catalog(
+        ROOT / "rule-catalog",
+        schema_registry=PackageResourceSchemaRegistry(),
+    )
+    function_types = (
+        *catalog.function_types,
+        *((resource_state_function_type(),) if state_function_available else ()),
+    )
+    release = build_ontology_release(
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        action_types=catalog.action_types,
+        interface_types=catalog.interface_types,
+        function_types=function_types,
+    )
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        interfaces=catalog.interface_types,
+        action_types=catalog.action_types,
+        functions=function_types,
+    )
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_LogicalServiceJudgmentModel(),  # type: ignore[arg-type]
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    frame_model = _Model(frame=None, plan=None)
+    service = SemanticPlanningService(
+        model=frame_model,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(
+                QueryNodeKind.OBJECT_SET,
+                QueryNodeKind.UNION,
+                QueryNodeKind.TYPED_PATH,
+                QueryNodeKind.FUNCTION,
+            )
+        ),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance="bookinfo backend 서비스의 현재 상태와 알 수 없는 상태를 구분해 주세요.",
+        locale="ko",
+    )
+
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "logical_service_current_state"
+    if state_function_available:
+        assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+        assert outcome.plan is not None
+        assert outcome.plan.execution_authority is False
+    else:
+        assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+        assert outcome.reason == "semantic_logical_service_query_unavailable"
+        assert outcome.plan is None
+    assert (frame_model.frame_calls, frame_model.plan_calls) == (0, 0)
 
 
 @pytest.mark.parametrize(

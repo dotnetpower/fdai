@@ -68,6 +68,7 @@ from fdai_operator_service.postgres_sql import (
     AGENT_ONTOLOGY_ACTIVITY_SQL,
     AGENT_READ_ACTIVITY_SQL,
     AUDIT_PAGE_SQL,
+    AUDIT_SUMMARY_SQL,
     AUDIT_TRACE_SQL,
     HIL_COUNT_SQL,
     HIL_PAGE_SQL,
@@ -1832,6 +1833,29 @@ def _audit_row(
     }
 
 
+def _audit_summary_row(**overrides: object) -> dict[str, object]:
+    return {
+        "observed_at": _NOW,
+        "matching_record_count": 2,
+        "terminal_record_count": 1,
+        "human_review_record_count": 1,
+        "rollback_record_count": 0,
+        "current_record_count": 3,
+        "current_link_gap_count": 0,
+        "readiness": {
+            "generated_at": _NOW.isoformat(),
+            "results": [
+                {
+                    "probe_id": "audit.chain",
+                    "status": "passed",
+                    "evidence": {"audit_chain_verified": True},
+                }
+            ],
+        },
+        **overrides,
+    }
+
+
 class StubPostgresReadModel(PostgresOperatorReadModel):
     """Return deterministic rows while recording SQL parameter boundaries."""
 
@@ -1839,6 +1863,7 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
         super().__init__(PostgresOperatorReadModelConfig(dsn="postgresql://example.invalid/db"))
         self.calls: list[tuple[str, Mapping[str, object]]] = []
         self.audit_rows: list[dict[str, object]] = []
+        self.audit_summary_rows: list[dict[str, object]] = [_audit_summary_row()]
         self.routing_rows: list[dict[str, object]] = []
         self.hil_rows: list[dict[str, object]] = []
         self.incident_rows: list[dict[str, object]] = []
@@ -1859,6 +1884,8 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
         self.calls.append((statement, parameters))
         if statement in {AUDIT_PAGE_SQL, AUDIT_TRACE_SQL}:
             return self.audit_rows
+        if statement == AUDIT_SUMMARY_SQL:
+            return self.audit_summary_rows
         if statement == KPI_SAMPLE_SQL:
             return self.audit_rows
         if statement == ROUTING_SAMPLE_SQL:
@@ -1935,13 +1962,28 @@ async def test_audit_query_is_parameterized_paginated_and_redacted() -> None:
     ]
     attack = "corr' OR TRUE --"
 
-    page = await model.list_audit(AuditQuery(limit=1, correlation_id=attack))
+    page = await model.list_audit(AuditQuery(limit=1, correlation_id=attack, include_summary=True))
 
     assert page.next_cursor == "3"
     assert page.items[0]["entry"] == {
         "token": "[REDACTED]",
         "client-secret": "[REDACTED]",
         "nested": {"password": "[REDACTED]"},
+    }
+    assert page.summary == {
+        "observed_at": _NOW.isoformat(),
+        "matching_record_count": 2,
+        "terminal_record_count": 1,
+        "human_review_record_count": 1,
+        "rollback_record_count": 0,
+        "integrity": {
+            "status": "verified",
+            "reason": None,
+            "verified_at": _NOW.isoformat(),
+            "current_record_count": 3,
+            "current_link_gap_count": 0,
+        },
+        "redaction_applied": True,
     }
     statement, parameters = model.calls[0]
     assert attack not in statement
@@ -1957,6 +1999,168 @@ async def test_audit_projection_normalizes_null_string_correlation() -> None:
     page = await model.list_audit(AuditQuery(limit=1))
 
     assert page.items[0]["correlation_id"] is None
+    assert [statement for statement, _parameters in model.calls] == [AUDIT_PAGE_SQL]
+
+
+@pytest.mark.asyncio
+async def test_audit_projection_normalizes_source_observation_context() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            correlation_id="campaign-one",
+            action_kind="observation-campaign.source-transition",
+            entry={
+                "campaign_id": "campaign-one",
+                "source_id": "metrics",
+                "domain": "metrics",
+                "owner_agent": "Heimdall",
+                "status": "completed",
+                "execution_authority": False,
+            },
+        )
+    ]
+
+    page = await model.list_audit(AuditQuery(limit=1))
+
+    assert page.items[0]["context"] == {
+        "record_kind": "source_observation",
+        "action_lifecycle_applicable": False,
+        "target": "metrics",
+        "correlation_id": "campaign-one",
+        "phase": None,
+        "stage": None,
+        "outcome": "completed",
+        "tier": None,
+        "decision": None,
+        "idempotency_key": None,
+        "rollback_reference": None,
+        "owner_agent": "Heimdall",
+        "domain": "metrics",
+    }
+    assert "campaign_id" in AUDIT_PAGE_SQL
+    assert "campaign_id" in AUDIT_TRACE_SQL
+
+
+@pytest.mark.asyncio
+async def test_audit_projection_normalizes_handover_readiness_context() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            correlation_id="",
+            action_kind="handover.readiness.observed",
+            entry={
+                "partial": False,
+                "execution_authority": False,
+            },
+        )
+    ]
+
+    page = await model.list_audit(AuditQuery(limit=1))
+
+    assert page.items[0]["context"] == {
+        "record_kind": "source_observation",
+        "action_lifecycle_applicable": False,
+        "target": "handover-readiness",
+        "correlation_id": None,
+        "phase": None,
+        "stage": None,
+        "outcome": "complete",
+        "tier": None,
+        "decision": None,
+        "idempotency_key": None,
+        "rollback_reference": None,
+        "owner_agent": None,
+        "domain": "identity",
+    }
+
+
+@pytest.mark.asyncio
+async def test_audit_projection_unwraps_nested_action_context() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            correlation_id="corr-nested",
+            action_kind="audit.record",
+            entry={
+                "payload": {
+                    "resource_id": "resource-one",
+                    "correlation_id": "corr-nested",
+                    "idempotency_key": "idem-one",
+                    "risk_verdict": "hil",
+                    "action_type": "ops.restart",
+                }
+            },
+        )
+    ]
+
+    page = await model.list_audit(AuditQuery(limit=1))
+
+    assert page.items[0]["context"] == {
+        "record_kind": "action_lifecycle",
+        "action_lifecycle_applicable": True,
+        "target": "resource-one",
+        "correlation_id": "corr-nested",
+        "phase": None,
+        "stage": None,
+        "outcome": "hil",
+        "tier": None,
+        "decision": "hil",
+        "idempotency_key": "idem-one",
+        "rollback_reference": None,
+        "owner_agent": None,
+        "domain": None,
+    }
+    assert "entry#>>'{payload,correlation_id}'" in AUDIT_PAGE_SQL
+
+
+@pytest.mark.asyncio
+async def test_audit_projection_classifies_startup_audit_probe_as_read_only() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            correlation_id="",
+            action_kind="startup_readiness.audit_probe",
+            entry={"owner_agent": "Saga", "decision": "probe"},
+        )
+    ]
+
+    page = await model.list_audit(AuditQuery(limit=1))
+
+    assert page.items[0]["context"] == {
+        "record_kind": "source_observation",
+        "action_lifecycle_applicable": False,
+        "target": "startup-readiness",
+        "correlation_id": None,
+        "phase": None,
+        "stage": None,
+        "outcome": "recorded",
+        "tier": None,
+        "decision": "probe",
+        "idempotency_key": None,
+        "rollback_reference": None,
+        "owner_agent": "Saga",
+        "domain": "runtime",
+    }
+
+
+@pytest.mark.asyncio
+async def test_audit_summary_reports_current_hash_link_gaps_as_failed() -> None:
+    model = StubPostgresReadModel()
+    model.audit_summary_rows = [_audit_summary_row(current_link_gap_count=2)]
+
+    page = await model.list_audit(AuditQuery(limit=1, include_summary=True))
+
+    assert page.summary["integrity"] == {
+        "status": "failed",
+        "reason": "current_hash_link_gap",
+        "verified_at": _NOW.isoformat(),
+        "current_record_count": 3,
+        "current_link_gap_count": 2,
+    }
 
 
 async def test_audit_filters_are_parameterized_and_keep_immutable_bounds() -> None:
@@ -1965,6 +2169,7 @@ async def test_audit_filters_are_parameterized_and_keep_immutable_bounds() -> No
     await model.list_audit(
         AuditQuery(
             limit=25,
+            include_summary=True,
             action_kind=action,
             mode="shadow",
             tier="t0",
@@ -1983,6 +2188,12 @@ async def test_audit_filters_are_parameterized_and_keep_immutable_bounds() -> No
     assert parameters["mode"] == "shadow"
     assert parameters["tier"] == "t0"
     assert parameters["outcome"] == "auto"
+    summary_statement, summary_parameters = model.calls[1]
+    assert summary_statement == AUDIT_SUMMARY_SQL
+    assert summary_parameters["correlation_id"] is None
+    assert summary_parameters["action_kind"] == action
+    assert "LIKE 'hil.%%'" in AUDIT_SUMMARY_SQL
+    assert "LIKE '%%rollback%%'" in AUDIT_SUMMARY_SQL
 
 
 @pytest.mark.asyncio
@@ -2262,8 +2473,18 @@ async def test_incident_page_and_attention_replay_use_durable_sequence() -> None
     initial = await model.incident_attention(IncidentAttentionQuery(after_seq=None, limit=50))
     replayed = await model.incident_attention(IncidentAttentionQuery(after_seq=7, limit=50))
 
-    assert page.items[0]["title"] == "Resource example-app"
+    assert page.items[0]["title"] == "example-app requires attention"
     assert page.items[0]["title_source"] == "correlation_subject"
+    assert page.items[0]["title_presentation"] == {
+        "kind": "resource_attention",
+        "subject": "example-app",
+        "subject_kind": "resource",
+        "signal": None,
+        "signal_label": None,
+        "reason": None,
+        "reason_label": None,
+        "technical_ref": "example-app",
+    }
     assert page.items[0]["source"] == {
         "platform": "Azure Monitor",
         "incident_id": "alert-example",
@@ -2292,19 +2513,30 @@ async def test_incident_page_and_attention_replay_use_durable_sequence() -> None
 
 
 @pytest.mark.parametrize(
-    ("entry", "expected_title", "expected_source"),
+    ("entry", "expected_title", "expected_source", "expected_presentation"),
     [
         (
             {"title": "Database connection saturation"},
             "Database connection saturation",
             "recorded_title",
+            None,
         ),
         (
             {"summary": "Checkout latency increased"},
             "Checkout latency increased",
             "recorded_summary",
+            None,
         ),
-        ({"rule_id": "slo.burn-rate"}, "Rule Slo burn rate", "rule_id"),
+        (
+            {"rule_id": "slo.burn-rate"},
+            "Rule requires attention: SLO burn rate",
+            "rule_id",
+            {
+                "kind": "rule_attention",
+                "subject": "SLO burn rate",
+                "technical_ref": "slo.burn-rate",
+            },
+        ),
         (
             {
                 "correlation_keys": [
@@ -2313,16 +2545,30 @@ async def test_incident_page_and_attention_replay_use_durable_sequence() -> None
                     "Microsoft.Storage/storageAccounts/storage-example",
                 ]
             },
-            "Resource inventory change - Storage accounts storage-example",
+            "storage-example: Resource inventory changed",
             "correlation_subject",
+            {
+                "kind": "signal_on_subject",
+                "subject": "storage-example",
+                "subject_kind": "cloud_resource",
+                "signal": "resource_inventory_change",
+                "signal_label": "Resource inventory changed",
+                "technical_ref": "Storage Accounts storage-example",
+            },
         ),
         (
             {
                 "resource_type": "compute.vm.novel",
                 "reason": "no_rule_matches_resource_and_signal_type",
             },
-            "Compute vm novel - No rule matches resource and signal type",
+            "Compute VM novel: No response rule matches this resource and signal",
             "recorded_subject",
+            {
+                "kind": "subject_reason",
+                "subject": "Compute VM novel",
+                "subject_kind": "resource",
+                "reason": "no_rule_matches_resource_and_signal_type",
+            },
         ),
         (
             {
@@ -2332,21 +2578,33 @@ async def test_incident_page_and_attention_replay_use_durable_sequence() -> None
                     "reason": "no_rule_match",
                 }
             },
-            "Flexibleservers psql-example - No rule match",
+            "psql-example: No response rule matches",
             "recorded_subject",
+            {
+                "kind": "subject_reason",
+                "subject": "psql-example",
+                "subject_kind": "cloud_resource",
+                "reason": "no_rule_match",
+            },
         ),
         (
             {"reason": "control_loop_unhandled_error"},
-            "Control loop unhandled error",
+            "Control loop error",
             "recorded_subject",
+            {
+                "kind": "reason",
+                "reason": "control_loop_unhandled_error",
+                "reason_label": "Control loop error",
+            },
         ),
-        ({}, "Incident INC-1", "identifier_fallback"),
+        ({}, "Incident INC-1", "identifier_fallback", None),
     ],
 )
 def test_incident_title_precedence_and_provenance(
     entry: dict[str, object],
     expected_title: str,
     expected_source: str,
+    expected_presentation: dict[str, object] | None,
 ) -> None:
     row = _audit_row(
         1,
@@ -2368,7 +2626,93 @@ def test_incident_title_precedence_and_provenance(
 
     assert summary["title"] == expected_title
     assert summary["title_source"] == expected_source
+    if expected_presentation is None:
+        assert summary["title_presentation"] is None
+    else:
+        assert (
+            summary["title_presentation"] | expected_presentation == summary["title_presentation"]
+        )
     assert summary["incident_number"] == "INC-202608-0000"
+
+
+@pytest.mark.parametrize(
+    ("correlation_keys", "expected_title", "expected_presentation"),
+    [
+        (
+            ["resource:integration-aa53cf400b094fd19bbe0a0b54f51858-second"],
+            "Integration resource requires attention",
+            {
+                "kind": "resource_attention",
+                "subject": None,
+                "subject_kind": "integration_resource",
+                "technical_ref": "integration-aa53cf400b094fd19bbe0a0b54f51858-second",
+            },
+        ),
+        (
+            [
+                "signal:trace_continuity_discontinuity",
+                "resource:trace-topology/payments-checkout",
+            ],
+            "payments-checkout: Trace continuity interrupted",
+            {
+                "kind": "signal_on_subject",
+                "subject": "payments-checkout",
+                "subject_kind": "trace_target",
+                "signal": "trace_continuity_discontinuity",
+            },
+        ),
+        (
+            [
+                "signal:trace_propagation_gap",
+                "resource:kubernetes://example/namespace/fdai-observe-lab/workload/shallow-app",
+            ],
+            "shallow-app: Trace propagation gap",
+            {
+                "kind": "signal_on_subject",
+                "subject": "shallow-app",
+                "subject_kind": "kubernetes_workload",
+                "signal": "trace_propagation_gap",
+            },
+        ),
+        (
+            [
+                "signal:kubernetes_pod_restart_detected",
+                "resource:kubernetes://fdai-observe-lab/sub-agent-1",
+            ],
+            "sub-agent-1: Kubernetes pod restart detected",
+            {
+                "kind": "signal_on_subject",
+                "subject": "sub-agent-1",
+                "subject_kind": "kubernetes_pod",
+                "signal": "kubernetes_pod_restart_detected",
+            },
+        ),
+    ],
+)
+def test_incident_title_summarizes_operator_visible_correlation_subjects(
+    correlation_keys: list[str],
+    expected_title: str,
+    expected_presentation: dict[str, object],
+) -> None:
+    row = _audit_row(
+        1,
+        entry={
+            "incident_id": "INC-1",
+            "correlation_keys": correlation_keys,
+        },
+    )
+    row.update(
+        {
+            "normalized_correlation_id": "corr-1",
+            "group_last_seq": 1,
+            "group_history_count": 1,
+        }
+    )
+
+    summary = incident_summary([row])
+
+    assert summary["title"] == expected_title
+    assert summary["title_presentation"] | expected_presentation == summary["title_presentation"]
 
 
 @pytest.mark.parametrize(
@@ -2461,6 +2805,33 @@ def test_incident_title_bound_and_partial_response_plan() -> None:
         "reinvestigation_cooldown_seconds": None,
         "deduplication_key": None,
     }
+
+
+def test_incident_title_presentation_bounds_components_and_technical_reference() -> None:
+    resource = "resource-" + ("x" * 300)
+    row = _audit_row(
+        1,
+        entry={
+            "incident_id": "INC-1",
+            "correlation_keys": [f"resource:{resource}"],
+        },
+    )
+    row.update(
+        {
+            "normalized_correlation_id": "corr-1",
+            "group_last_seq": 1,
+            "group_history_count": 1,
+        }
+    )
+
+    summary = incident_summary([row])
+    presentation = summary["title_presentation"]
+
+    assert isinstance(presentation, dict)
+    assert len(presentation["subject"]) == 72
+    assert len(presentation["technical_ref"]) == 160
+    assert presentation["subject"].endswith("...")
+    assert presentation["technical_ref"].endswith("...")
 
 
 def test_incident_projection_reader_rejects_null_string_correlation_sentinels() -> None:

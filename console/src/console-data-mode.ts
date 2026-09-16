@@ -6,6 +6,9 @@ const SAMPLE_PANEL_IDS = new Set([
   "dashboard",
   "live",
   "incidents",
+  "audit",
+  "trace",
+  "rca",
   "hil-queue",
   "provision",
   "onboarding",
@@ -30,13 +33,20 @@ export function supportsSampleData(panelId: string): boolean {
   return SAMPLE_PANEL_IDS.has(panelId);
 }
 
+export function explicitConsoleDataMode(search: URLSearchParams): ConsoleDataMode | null {
+  const selected = search.get(SAMPLE_PARAM);
+  return selected === "sample" || selected === "live" ? selected : null;
+}
+
 export function consoleDataMode(
   panelId: string,
   search: URLSearchParams,
   preferred: ConsoleDataMode = "live",
 ): ConsoleDataMode {
+  const explicit = explicitConsoleDataMode(search);
+  if (explicit === "live") return "live";
   return supportsSampleData(panelId) &&
-      (search.get(SAMPLE_PARAM) === "sample" || preferred === "sample")
+      (explicit === "sample" || preferred === "sample")
     ? "sample"
     : "live";
 }

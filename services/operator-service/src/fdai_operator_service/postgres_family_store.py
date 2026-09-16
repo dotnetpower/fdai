@@ -82,13 +82,13 @@ _FRAMEWORK_PROJECTION_OPERATIONS: Final = {
     "azure-waf": "best-practice.list",
     "azure-caf": "caf.list",
 }
-# The invalidation stream never exposes the durable inventory observation
-# journal itself; it only signals that the authoritative graph moved so the
-# caller re-fetches it. Coalescing every bounded page into this one event
-# name keeps that contract obvious at every call site.
+# The invalidation stream never exposes provider observations. It signals only
+# an ontology commit whose graph, manifest, and cursor were written atomically.
 INVENTORY_INVALIDATION_STREAM: Final = "ontology.inventory.invalidations"
 _INVENTORY_INVALIDATION_EVENT: Final = "inventory.invalidated"
 _INVENTORY_INVALIDATION_SCHEMA_VERSION: Final = "1.0.0"
+_INVENTORY_INVALIDATION_STATE_KEY: Final = "inventory-ontology:invalidation"
+_INVENTORY_MANIFEST_STATE_KEY: Final = "inventory-ontology:manifest"
 _LOGGER = logging.getLogger(__name__)
 _RFC3339_TIMESTAMP = re.compile(
     r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}"
@@ -435,6 +435,50 @@ class PostgresProcessNotVisibleError(RuntimeError):
 PostgresFamilyStoreUnavailable = PostgresFamilyStoreUnavailableError
 PostgresProposalConflict = PostgresProposalConflictError
 PostgresSemanticTurnConflict = SemanticTurnConflictError
+
+
+def _matching_inventory_invalidation_watermark(
+    raw: object,
+    *,
+    generation: str,
+    manifest_digest: str,
+) -> int | None:
+    """Return the cursor only when the marker belongs to the committed manifest."""
+
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        _LOGGER.warning("withheld malformed inventory ontology invalidation cursor")
+        return None
+    sequence = raw.get("sequence")
+    recorded_at = raw.get("recorded_at")
+    if (
+        set(raw)
+        != {
+            "schema_version",
+            "sequence",
+            "generation",
+            "manifest_digest",
+            "recorded_at",
+            "complete",
+            "execution_authority",
+            "mutation_authority",
+        }
+        or raw.get("schema_version") != _INVENTORY_INVALIDATION_SCHEMA_VERSION
+        or isinstance(sequence, bool)
+        or not isinstance(sequence, int)
+        or sequence < 1
+        or raw.get("generation") != generation
+        or raw.get("manifest_digest") != manifest_digest
+        or not isinstance(recorded_at, str)
+        or _RFC3339_TIMESTAMP.fullmatch(recorded_at) is None
+        or raw.get("complete") is not True
+        or raw.get("execution_authority") is not False
+        or raw.get("mutation_authority") is not False
+    ):
+        _LOGGER.warning("withheld mismatched inventory ontology invalidation cursor")
+        return None
+    return sequence
 
 
 @dataclass(frozen=True, slots=True)
@@ -905,7 +949,7 @@ class PostgresFamilyStore:
             metadata.get("relationship_drop_classifications", [])
         )
         projection_source_states = _projection_source_states(
-            metadata.get("derived_source_states", [])
+            _combined_projection_source_state_metadata(metadata)
         )
         relationship_coverage = _relationship_coverage(metadata.get("relationship_coverage"))
         provider_scope_coverage = _provider_scope_coverage(metadata.get("provider_scope_coverage"))
@@ -926,8 +970,18 @@ class PostgresFamilyStore:
         """Read the committed inventory-owned ontology manifest identity."""
 
         rows = await self._fetch_all(
-            "SELECT value FROM state_kv WHERE key = %(key)s",
-            {"key": "inventory-ontology:manifest"},
+            """
+            SELECT manifest.value AS value,
+                   invalidation.value AS invalidation
+              FROM state_kv AS manifest
+              LEFT JOIN state_kv AS invalidation
+                ON invalidation.key = %(invalidation_key)s
+             WHERE manifest.key = %(manifest_key)s
+            """,
+            {
+                "manifest_key": _INVENTORY_MANIFEST_STATE_KEY,
+                "invalidation_key": _INVENTORY_INVALIDATION_STATE_KEY,
+            },
         )
         if not rows:
             return None
@@ -945,10 +999,16 @@ class PostgresFamilyStore:
             or re.fullmatch(r"sha256:[a-f0-9]{64}", manifest_digest) is None
         ):
             raise PostgresFamilyStoreUnavailable("inventory ontology manifest is malformed")
+        invalidation_watermark = _matching_inventory_invalidation_watermark(
+            rows[0].get("invalidation"),
+            generation=generation,
+            manifest_digest=manifest_digest,
+        )
         return InventoryOntologyContext(
             generation=generation,
             ontology_release_digest=release_digest,
             manifest_digest=manifest_digest,
+            invalidation_watermark=invalidation_watermark,
         )
 
     async def read_latest_aks_diagnostic_receipt(
@@ -3117,81 +3177,98 @@ class PostgresFamilyStore:
         after_sequence: int | None,
         limit: int,
     ) -> tuple[StoredReplayEvent, ...]:
-        """Coalesce one bounded inventory_observation_journal page into one signal.
+        """Emit one sanitized signal only after an active ontology commit."""
 
-        The caller only ever learns that the durable inventory journal moved
-        past a watermark; it never learns which resource, provider, or
-        principal produced that motion. On a fresh connection
-        (``after_sequence is None``) this establishes the current watermark
-        from the newest bounded page instead of replaying the journal from
-        its origin, so a long-lived journal never forces a multi-page
-        startup replay before the caller can observe live invalidations. An
-        empty page (nothing observed yet, or nothing new since the last
-        watermark) yields no event at all, since the frontend contract
-        requires ``observation_count`` to be at least one whenever a signal
-        is emitted.
-        """
-        if after_sequence is None:
-            rows = await self._fetch_all(
-                """
-                SELECT watermark, observed_at, recorded_at
-                  FROM inventory_observation_journal
-                 ORDER BY watermark DESC
-                 LIMIT %(limit)s
-                """,
-                {"limit": limit},
-            )
-            baseline = 0
-        else:
-            rows = await self._fetch_all(
-                """
-                SELECT watermark, observed_at, recorded_at
-                  FROM inventory_observation_journal
-                 WHERE watermark > %(after_sequence)s
-                 ORDER BY watermark ASC
-                 LIMIT %(limit)s
-                """,
-                {"after_sequence": after_sequence, "limit": limit},
-            )
-            baseline = after_sequence
+        del limit
+        rows = await self._fetch_all(
+            """
+            SELECT marker.value AS marker,
+                   active.snapshot_id AS active_generation,
+                   snapshot.completed_at AS observed_at,
+                   manifest.value AS manifest
+              FROM state_kv AS marker
+              LEFT JOIN inventory_active AS active ON active.singleton=TRUE
+              LEFT JOIN inventory_snapshot AS snapshot ON snapshot.id=active.snapshot_id
+              LEFT JOIN state_kv AS manifest ON manifest.key=%(manifest_key)s
+             WHERE marker.key=%(marker_key)s
+             LIMIT 1
+            """,
+            {
+                "manifest_key": _INVENTORY_MANIFEST_STATE_KEY,
+                "marker_key": _INVENTORY_INVALIDATION_STATE_KEY,
+            },
+        )
         if not rows:
             return ()
-        watermark = baseline
-        latest_observed_at: datetime | None = None
-        latest_recorded_at: datetime | None = None
-        for row in rows:
-            candidate = row.get("watermark")
-            if not isinstance(candidate, int):
-                raise PostgresFamilyStoreUnavailable(
-                    "inventory observation journal watermark is malformed"
-                )
-            watermark = max(watermark, candidate)
-            observed_at = row.get("observed_at")
-            if not isinstance(observed_at, datetime):
-                raise PostgresFamilyStoreUnavailable(
-                    "inventory observation journal observed_at is malformed"
-                )
-            if latest_observed_at is None or observed_at > latest_observed_at:
-                latest_observed_at = observed_at
-            recorded_at = row.get("recorded_at")
-            if not isinstance(recorded_at, datetime):
-                raise PostgresFamilyStoreUnavailable(
-                    "inventory observation journal recorded_at is malformed"
-                )
-            if latest_recorded_at is None or recorded_at > latest_recorded_at:
-                latest_recorded_at = recorded_at
-        if latest_observed_at is None or latest_recorded_at is None:
-            # Unreachable given the non-empty, per-row validation above; kept
-            # as an explicit fail-closed guard instead of a stripped assert.
+        row = rows[0]
+        marker = _json_object(row.get("marker"), label="inventory ontology invalidation")
+        if set(marker) != {
+            "schema_version",
+            "sequence",
+            "generation",
+            "manifest_digest",
+            "recorded_at",
+            "complete",
+            "execution_authority",
+            "mutation_authority",
+        }:
             raise PostgresFamilyStoreUnavailable(
-                "inventory observation journal page produced no timestamps"
+                "inventory ontology invalidation marker is malformed"
+            )
+        watermark = marker.get("sequence")
+        generation = marker.get("generation")
+        manifest_digest = marker.get("manifest_digest")
+        marker_recorded_at = marker.get("recorded_at")
+        if (
+            marker.get("schema_version") != _INVENTORY_INVALIDATION_SCHEMA_VERSION
+            or isinstance(watermark, bool)
+            or not isinstance(watermark, int)
+            or watermark < 1
+            or not isinstance(generation, str)
+            or not generation
+            or not isinstance(manifest_digest, str)
+            or re.fullmatch(r"sha256:[a-f0-9]{64}", manifest_digest) is None
+            or not isinstance(marker_recorded_at, str)
+            or _RFC3339_TIMESTAMP.fullmatch(marker_recorded_at) is None
+            or marker.get("complete") is not True
+            or marker.get("execution_authority") is not False
+            or marker.get("mutation_authority") is not False
+        ):
+            raise PostgresFamilyStoreUnavailable(
+                "inventory ontology invalidation marker is malformed"
+            )
+        manifest_value = row.get("manifest")
+        active_generation = row.get("active_generation")
+        if not isinstance(manifest_value, Mapping) or (
+            active_generation != generation
+            or manifest_value.get("generation") != generation
+            or manifest_value.get("manifest_digest") != manifest_digest
+            or manifest_value.get("complete") is not True
+        ):
+            return ()
+        if after_sequence is not None and watermark <= after_sequence:
+            return ()
+        observed_at = row.get("observed_at")
+        if not isinstance(observed_at, datetime):
+            raise PostgresFamilyStoreUnavailable(
+                "inventory ontology invalidation timestamps are malformed"
+            )
+        try:
+            recorded_at = datetime.fromisoformat(marker_recorded_at.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise PostgresFamilyStoreUnavailable(
+                "inventory ontology invalidation timestamps are malformed"
+            ) from exc
+        if recorded_at.tzinfo is None:
+            raise PostgresFamilyStoreUnavailable(
+                "inventory ontology invalidation timestamps are malformed"
             )
         data: dict[str, object] = {
             "schema_version": _INVENTORY_INVALIDATION_SCHEMA_VERSION,
             "watermark": watermark,
-            "observation_count": len(rows),
-            "observed_at": latest_observed_at.isoformat(),
-            "recorded_at": latest_recorded_at.isoformat(),
+            "observation_count": 1,
+            "observed_at": observed_at.isoformat(),
+            "recorded_at": recorded_at.isoformat(),
             "complete": False,
             "execution_authority": False,
             "mutation_authority": False,
@@ -4348,6 +4425,7 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
         raise PostgresFamilyStoreUnavailable("active inventory source states are malformed")
     allowed_sources = {
         "azure_activity_log",
+        "azure_model_serving_metrics",
         "azure_resource_health",
         "azure_static_web_app_environment",
         "kubernetes_runtime_inventory",
@@ -4364,7 +4442,7 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
         scope_digest = item.get("scope_digest")
         if (
             not isinstance(source, str)
-            or source not in allowed_sources
+            or re.fullmatch(r"[a-z][a-z0-9_]{0,127}", source) is None
             or status not in {"available", "unavailable"}
             or (
                 scope_digest is not None
@@ -4375,6 +4453,12 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
             )
         ):
             raise PostgresFamilyStoreUnavailable("active inventory source state is malformed")
+        if source not in allowed_sources:
+            _LOGGER.warning(
+                "ignored_unreviewed_inventory_source_state",
+                extra={"source": source},
+            )
+            continue
         if status == "available":
             if reason is not None or observed_at is None:
                 raise PostgresFamilyStoreUnavailable("active inventory source state is malformed")
@@ -4410,6 +4494,18 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
     if len({(state.source, state.scope_digest) for state in states}) != len(states):
         raise PostgresFamilyStoreUnavailable("active inventory source states are duplicated")
     return tuple(sorted(states, key=lambda state: (state.source, state.scope_digest or "")))
+
+
+def _combined_projection_source_state_metadata(
+    metadata: Mapping[str, object],
+) -> list[object]:
+    """Merge baseline and forward-compatible source records for upgraded readers."""
+
+    baseline = metadata.get("derived_source_states", [])
+    additive = metadata.get("additive_source_states", [])
+    if not isinstance(baseline, list) or not isinstance(additive, list):
+        raise PostgresFamilyStoreUnavailable("active inventory source states are malformed")
+    return [*baseline, *additive]
 
 
 def _relationship_coverage(value: object) -> InventoryRelationshipCoverage | None:

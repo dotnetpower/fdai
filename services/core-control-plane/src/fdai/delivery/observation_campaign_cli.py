@@ -275,9 +275,10 @@ async def _main(argv: list[str]) -> int:
     if argv and not loop:
         raise ValueError("observation campaign accepts only --loop")
     while True:
-        print(json.dumps(await run_once(), sort_keys=True, separators=(",", ":")))
+        result = await run_once()
+        print(json.dumps(result, sort_keys=True, separators=(",", ":")))
         if not loop:
-            return 0
+            return 0 if result.get("status") == "completed" else 1
         await asyncio.sleep(_LOOP_SECONDS)
 
 

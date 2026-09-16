@@ -63,9 +63,7 @@ operator candidates into one generated review inventory. Each owning source rema
 The inventory preserves stable ids, bilingual wording, source digests, explicit duplicate
 relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
 and validation states.
-Any change to a joined source, including a non-question Console label in a starter catalog, regenerates both the machine inventory and human review catalog; the generated-artifact test rejects any stale source digest. Moving Browser evidence copy from the global catalogs into a route-local catalog is such a digest-only source change; regeneration preserves all 400 question identities and wording.
-When only source digests change, regeneration preserves every logical question identity, review state, and denominator.
-Regeneration runs after upstream integration so derived commitments bind the final merged source set.
+Any change to a joined source, including a non-question Console label in a starter catalog, regenerates both the machine inventory and human review catalog; the generated-artifact test rejects any stale source digest. Moving Browser evidence copy from the global catalogs into a route-local catalog is such a digest-only source change; regeneration preserves all 400 question identities and wording. When only source digests change, regeneration preserves every logical question identity, review state, and denominator. Regeneration runs after upstream integration, including a merge commit that changes joined source digests, so derived commitments bind the final merged source set without treating that digest refresh as new semantic coverage.
 Run `uv run python scripts/automation/build_question_bank.py`, then regenerate the dependent CQAS
 inventory with `uv run python scripts/automation/build_semantic_intent_coverage.py`, even for
 display-only source edits. Hand-editing generated artifacts isn't supported.
@@ -89,9 +87,7 @@ prove neither model quality nor production readiness and do not enlarge the revi
 
 ## Conversation quality assurance scorecard
 
-Run `uv run python scripts/automation/build_semantic_intent_coverage.py` to generate
-`eval/golden-dataset/semantic-intent-coverage.json`; its contract test rejects stale source digests, so any authoritative source change requires deterministic regeneration rather than a manual digest edit. The generated FDAI Conversation Quality
-Assurance Scorecard (CQAS) keeps these source-derived topic layers separate:
+Run `uv run python scripts/automation/build_semantic_intent_coverage.py` to generate `eval/golden-dataset/semantic-intent-coverage.json`; its contract test rejects stale source digests, so any authoritative source change requires deterministic regeneration rather than a manual digest edit. A joined Console catalog change regenerates the complete 400-question bank first and CQAS second without changing identities, readiness, metric definitions, denominators, or authority. The generated FDAI Conversation Quality Assurance Scorecard (CQAS) keeps these source-derived topic layers separate:
 
 - **Operating model:** SRE operations, resilience engineering, change and architecture governance,
   and FinOps.

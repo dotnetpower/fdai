@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "profile_id": "cost-governance.semantic-profile",
   "profile_version": "1.0.0",
-  "ontology_release_digest": "sha256:a3c824bf91653141c36ef7b7fcc2d39bcfc52d55a634d97c5f875a9e8b6a2661",
+  "ontology_release_digest": "sha256:71ffdfeed9c3a1bf180513eaa33f8291aeea111a0adf026dbaff3f870e9ceea8",
   "declarations": [
     {
       "kind": "action",
@@ -158,7 +158,7 @@
       "kind": "object",
       "name": "BusinessService",
       "version": "1.0.0",
-      "declaration_digest": "sha256:b09164b2334ce9c881ce5aded2ba40a26401a3ba621e11a586a43acf7aa5d034"
+      "declaration_digest": "sha256:280a7d95e463ab21714c03923c7d0fa8d009e90fb4a8017c72b8b254fb5751fd"
     },
     {
       "kind": "object",
@@ -248,7 +248,7 @@
       "kind": "object",
       "name": "Workload",
       "version": "1.0.0",
-      "declaration_digest": "sha256:1f0028eff6cea4a220eaef86d0766471c20129873ae4f23485457d2e6be4a6c8"
+      "declaration_digest": "sha256:c9f24152eb759cca39d5528bbdd0e136670d4a25b89b06a21aa85b2b9a9485dd"
     }
   ],
   "object_sets": [
@@ -494,5 +494,5 @@
     "execution_authority": false,
     "promotion_authority": false
   },
-  "canonical_sha256": "sha256:4de40f1a2d8a73bbd76709bcf7e33f29eedb18865ed3e86693f99d15b520601c"
+  "canonical_sha256": "sha256:d18567194c4349242deb16a99fd693e011b081fff1130d87d3902f74f333e462"
 }

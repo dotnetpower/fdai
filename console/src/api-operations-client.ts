@@ -20,6 +20,7 @@ export interface AuditQuery {
   readonly window?: string;
   readonly fromSeq?: number;
   readonly throughSeq?: number;
+  readonly includeSummary?: boolean;
 }
 
 export interface IncidentQuery {
@@ -76,6 +77,7 @@ export class OperationsApiClient {
     if (options.window !== undefined) params.set("window", options.window);
     if (options.fromSeq !== undefined) params.set("from_seq", String(options.fromSeq));
     if (options.throughSeq !== undefined) params.set("through_seq", String(options.throughSeq));
+    if (options.includeSummary === true) params.set("summary", "true");
     const payload = await this.#transport.getJson<unknown>("/audit", params);
     const { decodeAuditPage } = await import("./api-operations");
     return decodeAuditPage(payload);

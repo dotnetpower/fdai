@@ -48,6 +48,7 @@ class InventoryOntologyContext:
     generation: str
     ontology_release_digest: str
     manifest_digest: str
+    invalidation_watermark: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,6 +197,7 @@ async def project_inventory_states(
         "ontology_release_digest": release_digest,
         "ontology_generation": ontology_context.generation,
         "ontology_manifest_digest": ontology_context.manifest_digest,
+        "invalidation_watermark": ontology_context.invalidation_watermark,
         "source_kind": "inventory_snapshot_resource",
         "source_generation": context.snapshot_id,
         "source_cutoff": context.observed_at.isoformat(),

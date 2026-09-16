@@ -22,6 +22,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SCRIPT = _REPO_ROOT / "scripts/deployment/azure/prepare-local-runtime-env.sh"
 _FULL_STACK_SCRIPT = _REPO_ROOT / "scripts/deployment/local/prepare-console-full-stack.sh"
 _BASH = shutil.which("bash") or "bash"
+_OPERATING_MODEL_TOPIC = "fdai.operating-model"
 
 
 def test_validation_database_uses_an_isolated_local_postgres_cluster() -> None:
@@ -149,6 +150,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=stale.requests\n"
         "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=stale.projections\n"
         "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=stale.physical\n"
+        "FDAI_OPERATING_MODEL_TOPIC=stale.operating-model\n"
         "FDAI_READ_INVESTIGATION_REQUEST_TOPIC=stale.read.requests\n"
         "KAFKA_TOPIC_EVENTS=stale.topic\n"
         "FDAI_CANARY_TOPIC=stale.canary\n"
@@ -286,6 +288,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests",
         "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections",
         "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=fdai.pantheon.objects",
+        f"FDAI_OPERATING_MODEL_TOPIC={_OPERATING_MODEL_TOPIC}",
         "FDAI_READ_INVESTIGATION_REQUEST_TOPIC=operator.read-investigation.requests",
         "KAFKA_TOPIC_EVENTS=fdai.change.events",
         "FDAI_STAGE_TOPIC=fdai.pipeline.stages",
@@ -580,6 +583,7 @@ def test_uses_local_semantic_topics_without_inventory_invalidation(tmp_path: Pat
     assert f"FDAI_SEMANTIC_TURN_REQUEST_TOPIC={SEMANTIC_REQUEST_TOPIC}" in rendered
     assert f"FDAI_SEMANTIC_TURN_PROJECTION_TOPIC={SEMANTIC_PROJECTION_TOPIC}" in rendered
     assert f"FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC={SEMANTIC_PHYSICAL_TOPIC}" in rendered
+    assert f"FDAI_OPERATING_MODEL_TOPIC={_OPERATING_MODEL_TOPIC}" in rendered
     assert "FDAI_CORE_CONSUMER_GROUP_ID=fdai-local-developer-b-core" in rendered
     assert "invalidation uses TTL refresh" in completed.stderr
     # No operations gateway is provisioned here, so the governed direct-API

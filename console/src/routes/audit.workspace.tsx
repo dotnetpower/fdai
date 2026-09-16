@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
-import type { AuditItem } from "../types";
+import type { AuditItem, AuditSummary } from "../types";
 import { StatusPill } from "../components/ui";
 import { currentRoute, routeHref } from "../router";
 import { formatConsoleCompactTimestamp, formatConsoleTimestamp } from "../time-format";
@@ -12,8 +12,10 @@ import {
 import { presentationLabel, t } from "./i18n/evidence";
 import { AuditQueryControls } from "./audit.filters";
 
-const w = (key: string) => t(`evidence.audit.workspace.${key}`);
+const w = (key: string, params?: Record<string, string | number>) =>
+  t(`evidence.audit.workspace.${key}`, params);
 const valueOrMissing = (value: string | null) => value ?? w("notRecorded");
+const formatCount = (value: number) => new Intl.NumberFormat().format(value);
 
 function Mode({ mode }: { readonly mode: string }) {
   return <StatusPill kind={mode === "shadow" || mode === "enforce" ? mode : "neutral"}
@@ -33,6 +35,7 @@ export function AuditWorkspace({ data, selection }: {
       ? items.find((item) => item.seq === chosen) ?? items[0]
       : undefined;
   const phase = selected ? auditRecordedPhase(selected) : null;
+  const sourceObservation = selected?.context?.record_kind === "source_observation";
   const detailRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (detailRef.current) detailRef.current.scrollTop = 0;
@@ -64,24 +67,32 @@ export function AuditWorkspace({ data, selection }: {
     <>
       <section class="audit-context" aria-label={w("context")}>
         <dl>
-          <div><dt>{w("target")}</dt><dd>{valueOrMissing(selected ? auditEntryText(selected.entry, "resource_id") : null)}</dd></div>
-          <div><dt>{w("correlation")}</dt><dd class="mono">{valueOrMissing(correlation)}</dd></div>
-          <div><dt>{w("receipt")}</dt><dd>{phase === "dispatch" ? w("dispatchRecord") : w("notInRecord")}</dd></div>
-          <div><dt>{w("observation")}</dt><dd>{phase === "observe" ? w("observationRecord") : w("notInRecord")}</dd></div>
+          <div><dt>{w("target")}</dt><dd>{valueOrMissing(selected?.context?.target ?? null)}</dd></div>
+          <div>
+            <dt>{!sourceObservation && !correlation
+              ? t("evidence.audit.column.eventId")
+              : w("correlation")}</dt>
+            <dd class="mono">{
+              sourceObservation
+                ? correlation ?? w("notApplicable")
+                : correlation ?? itemIdentity(selected)
+            }</dd>
+          </div>
+          {sourceObservation ? <>
+            <div><dt>{w("recordRole")}</dt><dd>{w("sourceObservation")}</dd></div>
+            <div><dt>{w("sourceState")}</dt><dd>{selected?.context?.outcome
+              ? presentationLabel("status", selected.context.outcome)
+              : w("notRecorded")}</dd></div>
+          </> : <>
+            <div><dt>{w("receipt")}</dt><dd>{phase === "dispatch" ? w("dispatchRecord") : w("notInRecord")}</dd></div>
+            <div><dt>{w("observation")}</dt><dd>{phase === "observe" ? w("observationRecord") : w("notInRecord")}</dd></div>
+          </>}
         </dl>
         <nav aria-label={t("evidence.audit.column.evidence")}>
           {correlation ? <a href={routeHref("trace", { params: { correlation } })}>{t("evidence.audit.trace")}</a> : null}
         </nav>
       </section>
-      <section class="audit-metrics" aria-label={w("metrics")}>
-        {["closed", "humanReview", "rollbacks", "integrity"].map((key) => (
-          <a key={key} href="#audit-record-review">
-            <span>{w(`metric.${key}`)}</span>
-            <strong>{w("metricUnavailableValue")}</strong>
-            <small>{w("metricUnavailable")}</small>
-          </a>
-        ))}
-      </section>
+      <AuditMetrics summary={data.summary} />
       <AuditQueryControls search={currentRoute().search.toString()} />
       <section class="audit-workspace" id="audit-record-review" aria-label={w("review")}>
         <aside class="audit-record-rail" aria-labelledby="audit-records-title">
@@ -110,7 +121,9 @@ export function AuditWorkspace({ data, selection }: {
         </aside>
         <div ref={detailRef} id="audit-selected-record" class="audit-record-detail" role="region"
           aria-label={w("selected")} tabIndex={0}>
-          {selected ? <AuditRecordDetail key={selected.seq} item={selected} /> : (
+          {selected ? (
+            <AuditRecordDetail key={selected.seq} item={selected} summary={data.summary} />
+          ) : (
             <p class="audit-empty">{w("select")}</p>
           )}
         </div>
@@ -119,10 +132,57 @@ export function AuditWorkspace({ data, selection }: {
   );
 }
 
-function AuditRecordDetail({ item }: { readonly item: AuditItem }) {
+function AuditMetrics({ summary }: { readonly summary: AuditSummary | null }) {
+  if (summary === null) {
+    return (
+      <section class="audit-metrics" aria-label={w("metrics")}>
+        {["closed", "humanReview", "rollbacks", "integrity"].map((key) => (
+          <a key={key} href="#audit-record-review">
+            <span>{w(`metric.${key}`)}</span>
+            <strong>{w("metricUnavailableValue")}</strong>
+            <small>{w("metricUnavailable")}</small>
+          </a>
+        ))}
+      </section>
+    );
+  }
+  const counts = [
+    ["closed", summary.terminal_record_count],
+    ["humanReview", summary.human_review_record_count],
+    ["rollbacks", summary.rollback_record_count],
+  ] as const;
+  return (
+    <section class="audit-metrics" aria-label={w("metrics")}>
+      {counts.map(([key, value]) => (
+        <a key={key} href="#audit-record-review">
+          <span>{w(`metric.${key}`)}</span>
+          <strong>{formatCount(value)}</strong>
+          <small>{w("metricScope", { count: formatCount(summary.matching_record_count) })}</small>
+        </a>
+      ))}
+      <a href="#audit-record-review" data-status={summary.integrity.status}>
+        <span>{w("metric.integrity")}</span>
+        <strong>{w(`integrityStatus.${summary.integrity.status}`)}</strong>
+        <small>{w(`integrityDetail.${summary.integrity.status}`, {
+          count: formatCount(summary.integrity.current_link_gap_count),
+          time: summary.integrity.verified_at
+            ? formatConsoleCompactTimestamp(summary.integrity.verified_at)
+            : w("notRecorded"),
+        })}</small>
+      </a>
+    </section>
+  );
+}
+
+function AuditRecordDetail({ item, summary }: {
+  readonly item: AuditItem;
+  readonly summary: AuditSummary | null;
+}) {
   const phase = auditRecordedPhase(item);
+  const context = item.context;
+  const sourceObservation = context?.record_kind === "source_observation";
   const text = (key: string) => auditEntryText(item.entry, key);
-  const correlation = item.correlation_id;
+  const correlation = context?.correlation_id ?? item.correlation_id;
   const entryHref = routeHref("audit", {
     params: { ...Object.fromEntries(currentRoute().search), entry: item.seq },
   });
@@ -132,49 +192,98 @@ function AuditRecordDetail({ item }: { readonly item: AuditItem }) {
         <div>
           <span class="audit-kicker">{w("selected")} / #{item.seq}</span>
           <h3 id="audit-selected-title">{item.action_kind}</h3>
-          <p>{text("summary") ?? text("reason") ?? w("recordDescription")}</p>
+          <p>{text("summary") ?? text("reason") ?? w(
+            sourceObservation ? "sourceObservationDescription" : "recordDescription",
+          )}</p>
         </div>
         <Mode mode={item.mode} />
       </header>
       <dl class="audit-facts">
-        <div><dt>{w("correlation")}</dt><dd class="mono">{valueOrMissing(correlation)}</dd></div>
-        <div><dt>{w("idempotency")}</dt><dd class="mono">{valueOrMissing(text("idempotency_key"))}</dd></div>
-        <div><dt>{t("evidence.audit.column.actor")}</dt><dd>{item.actor}</dd></div>
-        <div><dt>{w("rollback")}</dt><dd>{valueOrMissing(text("rollback_reference"))}</dd></div>
+        {sourceObservation ? <>
+          <div><dt>{w("correlation")}</dt><dd class="mono">{correlation ?? w("notApplicable")}</dd></div>
+          <div><dt>{w("target")}</dt><dd class="mono">{valueOrMissing(context?.target ?? null)}</dd></div>
+          <div><dt>{t("evidence.audit.column.actor")}</dt><dd>{item.actor}</dd></div>
+          <div>
+            <dt>{context?.owner_agent ? w("ownerAgent") : t("evidence.audit.column.eventId")}</dt>
+            <dd class={context?.owner_agent ? undefined : "mono"}>{
+              context?.owner_agent ?? item.event_id
+            }</dd>
+          </div>
+        </> : <>
+          <div>
+            <dt>{correlation ? w("correlation") : t("evidence.audit.column.eventId")}</dt>
+            <dd class="mono">{correlation ?? item.event_id}</dd>
+          </div>
+          <div><dt>{w("idempotency")}</dt><dd class="mono">{valueOrMissing(
+            context?.idempotency_key ?? text("idempotency_key"),
+          )}</dd></div>
+          <div><dt>{t("evidence.audit.column.actor")}</dt><dd>{item.actor}</dd></div>
+          <div><dt>{w("rollback")}</dt><dd>{valueOrMissing(
+            context?.rollback_reference ?? text("rollback_reference"),
+          )}</dd></div>
+        </>}
       </dl>
       <div class="audit-detail-grid">
         <section class="audit-evidence" aria-labelledby="audit-path-title">
-          <h4 id="audit-path-title">{w("path")}</h4>
-          <ol class="audit-phases">
-            {(["intent", "dispatch", "observe", "close"] as const).map((key, index) => (
-              <li key={key} data-recorded={phase === key}>
-                <span>{index + 1} / {w(`phase.${key}`)}</span>
-                <strong>{phase === key ? w("stageRecorded") : w("notInRecord")}</strong>
-                <small>{w(`phase.${key}Hint`)}</small>
-              </li>
-            ))}
-          </ol>
-          <p class="audit-note">{w("effectNote")}</p>
-          <dl class="audit-decision-facts">
-            {(["tier", "decision", "stage", "outcome"] as const).map((key) => {
-              const value = text(key);
-              return <div key={key}><dt>{w(`${key}Label`)}</dt><dd>{
-                value ? presentationLabel(key === "stage" ? "traceStage" : "status", value) : w("notRecorded")
-              }</dd></div>;
-            })}
-          </dl>
+          {sourceObservation ? <>
+            <h4 id="audit-path-title">{w("sourceObservationEvidence")}</h4>
+            <dl class="audit-decision-facts">
+              <div><dt>{w("target")}</dt><dd>{valueOrMissing(context?.target ?? null)}</dd></div>
+              <div><dt>{w("domain")}</dt><dd>{valueOrMissing(context?.domain ?? null)}</dd></div>
+              <div><dt>{w("sourceState")}</dt><dd>{context?.outcome
+                ? presentationLabel("status", context.outcome)
+                : w("notRecorded")}</dd></div>
+              <div><dt>{w("authority")}</dt><dd>{w("readOnly")}</dd></div>
+            </dl>
+            <p class="audit-note">{w("sourceObservationNote")}</p>
+          </> : <>
+            <h4 id="audit-path-title">{w("path")}</h4>
+            <ol class="audit-phases">
+              {(["intent", "dispatch", "observe", "close"] as const).map((key, index) => (
+                <li key={key} data-recorded={phase === key}>
+                  <span>{index + 1} / {w(`phase.${key}`)}</span>
+                  <strong>{phase === key ? w("stageRecorded") : w("notInRecord")}</strong>
+                  <small>{w(`phase.${key}Hint`)}</small>
+                </li>
+              ))}
+            </ol>
+            <p class="audit-note">{w("effectNote")}</p>
+            <dl class="audit-decision-facts">
+              {([
+                ["tier", context?.tier ?? text("tier")],
+                ["decision", context?.decision ?? text("decision")],
+                ["stage", context?.stage ?? text("stage")],
+                ["outcome", context?.outcome ?? text("outcome")],
+              ] as const).map(([key, value]) => (
+                <div key={key}><dt>{w(`${key}Label`)}</dt><dd>{
+                  value
+                    ? presentationLabel(key === "stage" ? "traceStage" : "status", value)
+                    : w("notRecorded")
+                }</dd></div>
+              ))}
+            </dl>
+          </>}
           <details class="audit-json-disclosure" open>
             <summary>{w("recordShape")}</summary>
             <pre class="audit-json" tabIndex={0} aria-label={t("evidence.audit.viewJson")}>{JSON.stringify(item.entry, null, 2)}</pre>
           </details>
         </section>
-        <aside class="audit-ledger" aria-labelledby="audit-guarantees-title">
-          <h4 id="audit-guarantees-title">{w("guarantees")}</h4>
+        <aside class="audit-ledger" aria-labelledby="audit-properties-title">
+          <h4 id="audit-properties-title">{w("guarantees")}</h4>
           <ul>
-            {["ordering", "replay", "redaction", "retention"].map((key) => (
+            {([
+              ["ordering", summary === null
+                ? w("notVerified")
+                : summary.integrity.current_link_gap_count === 0
+                  ? w("orderingLinked")
+                  : w("orderingGap")],
+              ["replay", w("replayAvailable")],
+              ["redaction", summary?.redaction_applied ? w("redactionApplied") : w("notVerified")],
+              ["retention", summary ? w("retained") : w("notVerified")],
+            ] as const).map(([key, value]) => (
               <li key={key}>
                 <div><strong>{w(`guarantee.${key}`)}</strong><small>{w(`guarantee.${key}Hint`)}</small></div>
-                <span>{w("notVerified")}</span>
+                <span>{value}</span>
               </li>
             ))}
           </ul>
@@ -200,4 +309,8 @@ function AuditRecordDetail({ item }: { readonly item: AuditItem }) {
       </div>
     </article>
   );
+}
+
+function itemIdentity(item: AuditItem | undefined): string {
+  return item?.event_id ?? w("notRecorded");
 }

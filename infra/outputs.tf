@@ -105,6 +105,11 @@ output "event_bus_semantic_physical_topic" {
   value       = local.semantic_turn_physical_topic
 }
 
+output "event_bus_operating_model_topic" {
+  description = "Logical operating-model topic multiplexed over the semantic physical Event Hub."
+  value       = local.operating_model_topic
+}
+
 output "event_bus_auxiliary_topics" {
   description = "Provisioned auxiliary topic names used by stage, approval, and inventory ingress."
   value       = keys(module.event_bus.auxiliary_topic_ids)
@@ -258,6 +263,7 @@ output "contributor_core_service_tfvars" {
       semantic_requests           = local.semantic_turn_request_topic
       semantic_projections        = local.semantic_turn_projection_topic
       semantic_physical           = local.semantic_turn_physical_topic
+      operating_model             = local.operating_model_topic
       read_investigation_requests = local.read_investigation_request_topic
     }
     database = {

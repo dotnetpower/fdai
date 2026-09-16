@@ -135,6 +135,7 @@ locals {
   semantic_turn_request_topic      = "operator.semantic-turn.requests"
   semantic_turn_projection_topic   = "core.semantic-turn.projections"
   semantic_turn_physical_topic     = "fdai.pantheon.objects"
+  operating_model_topic            = "fdai.operating-model"
   read_investigation_request_topic = "operator.read-investigation.requests"
   event_topics = [
     "fdai.change.events",
@@ -587,6 +588,13 @@ resource "azurerm_role_assignment" "dev_gateway_executor_vm" {
   count                = var.enable_dev_operations_gateway ? 1 : 0
   scope                = module.resource_group.id
   role_definition_name = "Virtual Machine Contributor"
+  principal_id         = module.dev_gateway_executor_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "dev_gateway_executor_tags" {
+  count                = var.enable_dev_operations_gateway ? 1 : 0
+  scope                = module.resource_group.id
+  role_definition_name = "Tag Contributor"
   principal_id         = module.dev_gateway_executor_identity[0].principal_id
 }
 
@@ -2442,6 +2450,7 @@ module "compute" {
   semantic_turn_request_topic         = local.semantic_turn_request_topic
   semantic_turn_projection_topic      = local.semantic_turn_projection_topic
   semantic_turn_physical_topic        = local.semantic_turn_physical_topic
+  operating_model_topic               = local.operating_model_topic
   read_investigation_request_topic    = local.read_investigation_request_topic
   postgres_host                       = module.state_store.fqdn
   postgres_database                   = module.state_store.database_name

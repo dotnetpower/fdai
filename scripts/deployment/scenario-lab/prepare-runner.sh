@@ -4,22 +4,17 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 terraform_root="$repo_root/infra/scenario-lab"
 output_dir="${1:-}"
-backend_image="${SCENARIO_LAB_BACKEND_IMAGE:-}"
 chaos_mesh_version="${SCENARIO_LAB_CHAOS_MESH_CHART_VERSION:-}"
 
 if [[ -z "$output_dir" || "$output_dir" != /* || "$output_dir" == "/" ]]; then
   echo "prepare-runner: an absolute non-root output directory is required." >&2
   exit 2
 fi
-if [[ ! "$backend_image" =~ @sha256:[0-9a-f]{64}$ ]]; then
-  echo "prepare-runner: SCENARIO_LAB_BACKEND_IMAGE must be pinned by sha256 digest." >&2
-  exit 2
-fi
 if [[ ! "$chaos_mesh_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "prepare-runner: SCENARIO_LAB_CHAOS_MESH_CHART_VERSION must be an exact semantic version." >&2
   exit 2
 fi
-for command_name in az helm jq kubectl kubelogin terraform timeout; do
+for command_name in az helm jq kubectl kubelogin python3 terraform timeout; do
   command -v "$command_name" >/dev/null 2>&1 || {
     echo "prepare-runner: required command is unavailable: $command_name" >&2
     exit 1
@@ -32,12 +27,16 @@ chmod 700 "$output_dir"
 kubeconfig="$output_dir/kubeconfig"
 password_file="$output_dir/mysql-password"
 environment_file="$output_dir/enforce.env"
+store_manifest="$output_dir/aks-store-demo.yaml"
+store_front_url_file="$output_dir/store-front-url"
 terraform_output="$(terraform -chdir="$terraform_root" output -json enforce_environment)"
 
 subscription_id="$(jq -er '.subscription_id' <<<"$terraform_output")"
 resource_group="$(jq -er '.resource_group' <<<"$terraform_output")"
 aks_cluster_name="$(jq -er '.aks_cluster_name' <<<"$terraform_output")"
 vm_name="$(jq -er '.vm_name' <<<"$terraform_output")"
+store_front_dns_label="$(jq -er '.store_front_dns_label' <<<"$terraform_output")"
+store_front_hostname="$(jq -er '.store_front_hostname' <<<"$terraform_output")"
 
 active_subscription="$(az account show --query id --output tsv --only-show-errors)"
 if [[ "$active_subscription" != "$subscription_id" ]]; then
@@ -69,29 +68,29 @@ helm upgrade --install chaos-mesh chaos-mesh/chaos-mesh \
 
 kubectl create namespace fdai-sre-demo --dry-run=client --output=json \
   | kubectl apply --filename=-
-kubectl --namespace fdai-sre-demo create deployment api-backend \
-  --image="$backend_image" \
-  --replicas=3 \
-  --dry-run=client \
-  --output=json \
-  | jq '
-      .spec.template.spec.containers[0].name = "web"
-      | .spec.template.spec.containers[0].ports = [{"containerPort": 80}]
-      | .spec.template.spec.containers[0].resources = {
-          "requests": {"cpu": "50m", "memory": "64Mi"},
-          "limits": {"cpu": "500m", "memory": "512Mi"}
-        }
-    ' \
-  | kubectl apply --filename=-
-kubectl --namespace fdai-sre-demo expose deployment api-backend \
-  --name=api-backend \
-  --port=80 \
-  --target-port=80 \
-  --type=ClusterIP \
-  --dry-run=client \
-  --output=json \
-  | kubectl apply --filename=-
-kubectl --namespace fdai-sre-demo rollout status deployment/api-backend --timeout=10m
+python3 "$repo_root/scripts/deployment/scenario-lab/render_aks_store_demo.py" \
+  "$store_manifest" \
+  "$store_front_dns_label"
+kubectl --namespace fdai-sre-demo apply --filename="$store_manifest"
+kubectl --namespace fdai-sre-demo delete deployment,service api-backend \
+  --ignore-not-found=true
+kubectl --namespace fdai-sre-demo rollout status statefulset/documentdb --timeout=15m
+kubectl --namespace fdai-sre-demo rollout status statefulset/rabbitmq --timeout=15m
+kubectl --namespace fdai-sre-demo wait --for=condition=available deployment \
+  --all --timeout=15m
+kubectl --namespace fdai-sre-demo wait \
+  --for=jsonpath='{.status.loadBalancer.ingress[0].ip}' \
+  service/store-front \
+  --timeout=15m
+store_front_ip="$(
+  kubectl --namespace fdai-sre-demo get service/store-front \
+    --output=jsonpath='{.status.loadBalancer.ingress[0].ip}'
+)"
+python3 "$repo_root/scripts/deployment/scenario-lab/verify_store_front_domain.py" \
+  "$store_front_hostname" \
+  "$store_front_ip"
+printf 'http://%s\n' "$store_front_hostname" >"$store_front_url_file"
+chmod 600 "$store_front_url_file"
 
 readonly vm_run_command_max_attempts=20
 readonly vm_run_command_retry_seconds=15
@@ -168,6 +167,10 @@ write_export FDAI_ENFORCE_CHAOS_NS "$(jq -er '.chaos_namespace' <<<"$terraform_o
 write_export FDAI_ENFORCE_BACKEND_DEPLOY "$(jq -er '.backend_deployment' <<<"$terraform_output")"
 write_export FDAI_ENFORCE_BACKEND_SVC "$(jq -er '.backend_service' <<<"$terraform_output")"
 write_export FDAI_ENFORCE_BACKEND_LABEL "$(jq -er '.backend_label' <<<"$terraform_output")"
+write_export FDAI_ENFORCE_BACKEND_CONTAINER "$(jq -er '.backend_container' <<<"$terraform_output")"
+write_export FDAI_ENFORCE_BACKEND_REPLICAS "$(jq -er '.backend_replicas' <<<"$terraform_output")"
+write_export FDAI_ENFORCE_BACKEND_IMAGE "$(jq -er '.backend_image' <<<"$terraform_output")"
+write_export FDAI_STORE_FRONT_URL "http://$store_front_hostname"
 write_export FDAI_ENFORCE_VM "$vm_name"
 write_export FDAI_ENFORCE_MYSQL_HOST "$(jq -er '.mysql_host' <<<"$terraform_output")"
 write_export FDAI_ENFORCE_MYSQL_USER "$(jq -er '.mysql_user' <<<"$terraform_output")"

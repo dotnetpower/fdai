@@ -5,11 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from fdai.core.hil_resume.load_control import ApprovalLoadPolicy
 from fdai.runtime.hil_escalation import (
     build_escalation_timing,
     build_forecast_urgency_reader,
+    build_hil_runtime_support,
     build_rung_eligibility,
 )
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 ROOT = Path(__file__).resolve().parents[4]
 
@@ -72,3 +75,33 @@ def test_missing_environment_does_not_assume_nonproduction():
     timing = build_escalation_timing(ROOT / "rule-catalog", {})
     result = timing.resolve({"finding_class": "forecast.breach", "impact": "resource"}, ())
     assert result["catalog_status"] == "no_matching_ladder"
+
+
+def test_runtime_composes_expiry_without_a_delivery_channel():
+    policy = ApprovalLoadPolicy.from_mapping(
+        {
+            "schema_version": "1.0.0",
+            "group_window_seconds": 300,
+            "max_pending_per_assignee": 3,
+            "reminder_offsets_seconds": [600],
+            "quiet_hours_utc": {"start": "22:00", "end": "06:00"},
+            "urgent_severities": ["critical"],
+            "scan_limit": 1000,
+            "worker_interval_seconds": 30,
+        }
+    )
+
+    support = build_hil_runtime_support(
+        catalog_root=ROOT / "rule-catalog",
+        environment={},
+        http_client=None,
+        identity=None,
+        store=InMemoryStateStore(),
+        channel=None,
+        load_policy=policy,
+        escalation_rungs=(),
+    )
+
+    assert support.expiry_reconciler is not None
+    assert support.load_controller is None
+    assert support.reminder_dispatcher is None

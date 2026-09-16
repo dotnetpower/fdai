@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
-  dashboardCounts, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardStatusFilter, dashboardTypeLabel, dashboardUnknownCounts, dashboardUnknownReason,
+  dashboardCounts, dashboardLens, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardServingRecordedCount, dashboardStateMatchesFilter, dashboardStatusFilter, dashboardTypeLabel, dashboardUnknownCounts, dashboardUnknownReason,
   decodeDashboardSnapshot, EMPTY_DASHBOARD_FILTERS,
 } from "./dashboard-v2.model";
 import en from "./i18n/dashboard-v2.en.json";
@@ -60,6 +60,7 @@ describe("Dashboard v2 inventory projection", () => {
     const snapshot = decodeDashboardSnapshot({ ...base, freshness });
     expect(snapshot.resources.map((resource) => dashboardResourceState(resource, snapshot, "availability"))).toEqual(["unknown", "unknown", "unknown"]);
     expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "operation")).toBe(freshness === "fresh" ? "running" : "unknown");
+    expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "serving")).toBe("not-applicable");
   });
 
   test.each([
@@ -103,8 +104,14 @@ describe("Dashboard v2 inventory projection", () => {
   test("accepts only declared summary-state deep-link filters", () => {
     expect(dashboardStatusFilter("known")).toBe("known");
     expect(dashboardStatusFilter("unknown")).toBe("unknown");
+    expect(dashboardStatusFilter("not-provided")).toBe("not-provided");
+    expect(dashboardStatusFilter("serving")).toBe("serving");
     expect(dashboardStatusFilter("__proto__")).toBe("");
     expect(dashboardStatusFilter(null)).toBe("");
+    expect(dashboardLens("serving")).toBe("serving");
+    expect(dashboardLens("serving", false)).toBe("operation");
+    expect(dashboardLens("availability")).toBe("availability");
+    expect(dashboardLens("invalid")).toBe("operation");
   });
 
   test("native locale catalogs have matching keys and nonempty readable values", () => {
@@ -150,5 +157,80 @@ describe("Dashboard v2 inventory projection", () => {
       ["resourceTypeUnclassified", 1],
     ]);
     expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "operation")).toBe("unknown");
+  });
+
+  test("separates provider non-exposure and serving evidence from genuine Unknown", () => {
+    const state = (value: string | null, reason: string | null, observed_at: string | null = null) => ({
+      value,
+      source_path: value === null ? null : "state",
+      observed_at,
+      recorded_at: observed_at,
+      freshness: observed_at === null ? "unknown" as const : "fresh" as const,
+      completeness: observed_at === null ? null : 1,
+      conflicts: [],
+      reason,
+    });
+    const snapshot = {
+      ...decodeDashboardSnapshot(base),
+      resources: [{
+        id: "model", name: "Model", type: "llm-model-deployment", status: "",
+        parentId: null, group: null, groupLabel: null, subscription: null,
+        subscriptionLabel: null, observedAt: "2026-09-05T03:00:00Z",
+        states: {
+          schema_version: "1.0.0" as const,
+          operational: state(null, "provider_operational_state_not_exposed"),
+          provisioning: state("Succeeded", null, "2026-09-05T02:55:00Z"),
+          availability: state(null, "provider_availability_state_not_exposed"),
+          serving: state("Serving", null, "2026-09-05T03:00:00Z"),
+        },
+      }],
+    };
+
+    expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "operation")).toBe("not-provided");
+    expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "availability")).toBe("not-provided");
+    expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "serving")).toBe("serving");
+    expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "observation")).toBe("fresh");
+    expect(dashboardStateMatchesFilter(snapshot.resources[0]!, snapshot, "operation", "known")).toBe(false);
+    expect(dashboardStateMatchesFilter(snapshot.resources[0]!, snapshot, "serving", "serving")).toBe(true);
+    expect(dashboardServingRecordedCount(snapshot.resources)).toBe(1);
+    expect(dashboardUnknownCounts(snapshot.resources, snapshot).size).toBe(0);
+  });
+
+  test("stale serving evidence is visible but not counted as currently serving", () => {
+    const snapshot = {
+      ...decodeDashboardSnapshot(base),
+      resources: [{
+        id: "model", name: "Model", type: "llm-model-deployment", status: "",
+        parentId: null, group: null, groupLabel: null, subscription: null,
+        subscriptionLabel: null, observedAt: "2026-09-05T02:00:00Z",
+        states: {
+          schema_version: "1.0.0" as const,
+          operational: {
+            value: null, source_path: null, observed_at: null, recorded_at: null,
+            freshness: "unknown" as const, completeness: null, conflicts: [],
+            reason: "provider_operational_state_not_exposed",
+          },
+          provisioning: {
+            value: "Succeeded", source_path: "provisioningState",
+            observed_at: "2026-09-05T02:00:00Z", recorded_at: "2026-09-05T02:00:00Z",
+            freshness: "stale" as const, completeness: 1, conflicts: [], reason: "state_stale",
+          },
+          availability: {
+            value: null, source_path: null, observed_at: null, recorded_at: null,
+            freshness: "unknown" as const, completeness: null, conflicts: [],
+            reason: "provider_availability_state_not_exposed",
+          },
+          serving: {
+            value: "Serving", source_path: "servingState",
+            observed_at: "2026-09-05T02:00:00Z", recorded_at: "2026-09-05T02:00:00Z",
+            freshness: "stale" as const, completeness: 1, conflicts: [], reason: "state_stale",
+          },
+        },
+      }],
+    };
+
+    expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "serving")).toBe("stale");
+    expect(dashboardStateMatchesFilter(snapshot.resources[0]!, snapshot, "serving", "known")).toBe(false);
+    expect(dashboardServingRecordedCount(snapshot.resources)).toBe(0);
   });
 });

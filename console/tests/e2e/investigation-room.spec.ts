@@ -76,9 +76,9 @@ async function installFixture(page: Page): Promise<void> {
             evidence_cutoff: "2026-08-30T03:00:01Z",
             graph_revision: "graph-1",
             active_hypothesis_ids: [
-              "hypothesis-database-saturation-with-a-very-long-identifier",
-              "hypothesis-network-path-degradation",
-              "hypothesis-capacity-limit",
+              "telemetry:failed_requests",
+              "telemetry:dependency_latency",
+              "telemetry:throttling",
             ],
             active_set_receipt_digest: digestA,
             selection_digest: digestB,
@@ -87,7 +87,31 @@ async function installFixture(page: Page): Promise<void> {
             total_pair_count: 3,
             hold_reason: null,
             shadow_comparison_digest: digestA,
-            execution: null,
+            execution: {
+              candidate_digest: digestA,
+              verification_receipt_digest: digestB,
+              plan_digest: digestA,
+              result_digest: digestB,
+              execution_digest: digestA,
+              query_status: "completed",
+              evidence_refs: [`telemetry-receipt:${digestB}`],
+              reserved_cost_units: 40,
+              actual_cost_units: 20,
+              source_metadata: {
+                source_kind: "telemetry_recipe",
+                receipt_digest: digestB,
+                recipe_id: "requests.failed",
+                recipe_version: "1.0.0",
+                disposition: "complete_no_data",
+                observed_until: "2026-08-30T03:00:01Z",
+                route_count: 2,
+                queried_route_count: 2,
+                row_count: 0,
+                latency_ms: 84,
+                complete: true,
+                truncated: false,
+              },
+            },
             revision: null,
           }],
           round_count: 1,
@@ -118,7 +142,12 @@ async function assertRoom(page: Page): Promise<void> {
   const room = page.getByRole("region", { name: "Investigation Room" });
   await expect(room).toBeVisible();
   await expect(room).toContainText("3 active hypotheses");
+  await expect(room).toContainText("Failed requests");
   await expect(room).toContainText("Separated hypothesis pairs: 3 of 3");
+  await expect(room).toContainText("requests.failed@1.0.0");
+  await expect(room).toContainText("complete_no_data");
+  await expect(room).toContainText("Route coverage");
+  await expect(room).toContainText("84 ms");
   await expect(room.getByRole("button")).toHaveCount(0);
 
   for (const selector of ["html", ".process-view-stage", ".investigation-room"]) {
