@@ -2573,7 +2573,7 @@
         "docs/roadmap/fork-and-sequencing/finops-package-delivery-plan.md",
         "docs/roadmap/architecture/capability-bundle-lifecycle.md",
         "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md",
-        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/interfaces/operator-console-runtime-model.md",
         "docs/roadmap/interfaces/channels-and-notifications.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/decisioning/action-ontology.md",
