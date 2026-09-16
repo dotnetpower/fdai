@@ -148,7 +148,7 @@ def release(tmp_path: Path) -> tuple[Path, Ed25519PrivateKey, bytes]:
             if image and field == "archive":
                 fixture = make_archive(
                     path,
-                    config_updates={"config": {}} if name == "clamav" else None,
+                    config_updates=({"config": {}} if name in {"clamav", "pgvector"} else None),
                 )
                 entry["image_digest"] = fixture.manifest_digest
             entry[field] = relative
@@ -163,7 +163,7 @@ def release(tmp_path: Path) -> tuple[Path, Ed25519PrivateKey, bytes]:
             (kit / "deployment/bundle.tar.gz").read_bytes()
         ).hexdigest(),
         "services": {name: payload(name, image=True) for name in SERVICES},
-        "sidecars": {"clamav": payload("clamav", image=True)},
+        "sidecars": {name: payload(name, image=True) for name in ("clamav", "pgvector")},
         "console": payload("console", image=False),
         "deployment_support": payload("deployment-support", image=False),
     }
@@ -320,6 +320,7 @@ def test_preparation_snapshots_complete_release_without_execution(
     assert set(result["binding"]["image_content_digests"]) == {
         *(f"services/{name}" for name in SERVICES),
         "sidecars/clamav",
+        "sidecars/pgvector",
     }
     assert result["stage_order"].index("console") < result["stage_order"].index("initial-inventory")
     assert json.loads((prepared / "preparation.json").read_bytes()) == result
