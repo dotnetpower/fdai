@@ -113,10 +113,12 @@ deployed PostgreSQL. Command Deck history therefore restores sent images through
 authenticated Operator API route in both profiles; neither profile stores inline base64 in turn
 metadata or browser transcript caches.
 The compound completes `console: prepare full stack` before starting its children, so only stale
-migration, backend-environment, projection, inventory, or Entra stages run. The Operator environment derives
-its JWT audience from the browser API scope, requires matching browser and Azure tenants, disables
-raw-group fallback with unmatchable local slots, and connects through `SET ROLE fdai_operator`. Run
-the preparation task first for a standalone Core Runtime or Operator API debug launch.
+migration, backend-environment, projection, inventory, or Entra stages run. The Core runtime and
+its managed local jobs connect to the shared state store through `SET ROLE fdai_core`. The Operator
+environment derives its JWT audience from the browser API scope, requires matching browser and
+Azure tenants, disables raw-group fallback with unmatchable local slots, and connects through
+`SET ROLE fdai_operator`. Run the preparation task first for a standalone Core Runtime or Operator
+API debug launch.
 The preparation sequence registers `http://localhost:5273` as the canonical Entra SPA redirect and keeps `http://127.0.0.1:5273` as a compatibility redirect.
 The launcher always opens the canonical origin because browser OAuth cache, conversation history, response preferences, and screen context are origin-isolated; the frontend still listens only on IPv4 loopback. A remote VS Code integrated browser may rewrite the forwarded origin to `127.0.0.1`, so canonical authentication evidence uses `http://localhost:5273` in a regular host browser.
 The helper preserves redirects, permits loopback HTTP only, and stops when the active tenant or registration permission is wrong. Local Event Hubs token refreshes stay pinned to prepared

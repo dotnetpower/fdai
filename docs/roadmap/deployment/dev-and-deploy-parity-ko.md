@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 5c5c6a0b3bf9cacd0069c10b449c278c93f62386
+translation_source_sha: 692f7b6e4ebc884b430cf7ee15b7731ebfb91e93
 translation_revised: 2026-09-16
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -117,10 +117,11 @@ DSN은 전달하지 않습니다. Alembic role 변경은 cluster-global이므로
 이미지를 복원하며, 어느 프로파일도 inline base64를 턴 메타데이터 또는 브라우저 대화 기록 캐시에
 저장하지 않습니다.
 Compound는 하위 구성을 시작하기 전에 `console: prepare full stack`을 완료하므로 오래된 이행,
-백엔드 환경, 변환 결과, 인벤토리 또는 Entra 단계만 실행됩니다. Operator 환경은 브라우저
-API 범위에서 JWT 대상을 파생하고 브라우저와 Azure 테넌트 일치를 요구하며, 일치할 수 없는 로컬
-자리로 raw-group 대체 경로를 비활성화하고 `SET ROLE fdai_operator`로 연결합니다. Standalone Core
-런타임 또는 Operator API debug launch에서는 이 준비 작업을 먼저 실행합니다.
+백엔드 환경, 변환 결과, 인벤토리 또는 Entra 단계만 실행됩니다. Core 런타임과 관리되는 로컬
+작업은 `SET ROLE fdai_core`를 통해 공유 상태 저장소에 연결합니다. Operator 환경은 브라우저 API
+범위에서 JWT 대상을 파생하고 브라우저와 Azure 테넌트 일치를 요구하며, 일치할 수 없는 로컬 자리로
+raw-group 대체 경로를 비활성화하고 `SET ROLE fdai_operator`로 연결합니다. 독립 실행형 Core 런타임
+또는 Operator API 디버그 실행에서는 이 준비 작업을 먼저 실행합니다.
 준비 순서에서는 `http://localhost:5273`을 표준 Entra SPA redirect로 등록하고 `http://127.0.0.1:5273`은 호환 redirect로 유지합니다.
 브라우저 OAuth 캐시, 대화 이력, 응답 환경 설정 및 화면 컨텍스트는 origin별로 분리되므로 실행기는 항상 표준 origin을 열고, 프런트엔드는 계속 IPv4 loopback에서만 수신합니다.
 원격 VS Code 통합 브라우저는 전달된 원본을 `127.0.0.1`로 다시 쓸 수 있으므로 표준 인증 근거는 일반 호스트 브라우저의 `http://localhost:5273`을 사용합니다. 보조 로직은 기존 redirect를 보존하고 해당

@@ -53,6 +53,8 @@ def _repo(tmp_path: Path, *, semantic: str, local_azure_cli_auth: str | None = N
         "LLM_RESOLVED_MODELS_PATH=/example/resolved-models.json\n"
         f"LLM_RESOLVED_MODELS_SHA256={'a' * 64}\n"
         "FDAI_DATABASE_URL=postgresql://example.invalid/fdai\n"
+        "FDAI_STATE_STORE_DSN=postgresql://example.invalid/fdai"
+        "?options=-c%20role%3Dfdai_core\n"
         "RUNTIME_ENV=dev\n"
         f"{semantic_values}",
         encoding="utf-8",
@@ -93,6 +95,7 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
     ) in rendered
     assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0\n" in rendered
     assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=0\n" in rendered
+    assert "FDAI_STATE_STORE_DSN=" not in rendered
     if semantic == "complete":
         expected_namespace = "local-" + hashlib.sha256(str(repo).encode()).hexdigest()[:16]
         assert "FDAI_KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093" in rendered
