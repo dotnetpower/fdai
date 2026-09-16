@@ -14,6 +14,7 @@ import { appendLiveBacklog, drainLiveBacklog, liveTraceHref } from "./live";
 import {
   authorityModeHelp,
   authorityModeLabel,
+  evidenceStatusLabel,
   liveControlState,
 } from "./live.tiles";
 import {
@@ -225,6 +226,55 @@ describe("Live cockpit model", () => {
     const missing = state.tiles.find((candidate) => candidate?.event_id === "evt-live-1");
     expect(missing && authorityModeLabel(missing)).toBe("Pending");
     expect(missing && authorityModeHelp(missing)).toContain("has not published an exact autonomy class");
+  });
+
+  test("shows an approved HIL action as executed only with independent effect evidence", () => {
+    let state = makeInitialState();
+    state = applyEvent(
+      state,
+      stageEvent("gate", {
+        autonomy: "A3-H",
+        mode: "gated",
+        gate_decision: "hil",
+        approval_status: "approved",
+      }),
+    );
+    state = applyEvent(
+      state,
+      stageEvent("execute", {
+        provider_status: "accepted",
+      }),
+    );
+    state = applyEvent(
+      state,
+      stageEvent("audit", {
+        observation_status: "verified",
+        reconciliation_status: "effect_verified",
+        recovery_status: "not_required",
+        outcome: "effect_verified",
+      }),
+    );
+
+    const tile = state.tiles.find((candidate) => candidate?.event_id === "evt-live-1");
+    expect(tile).toMatchObject({
+      approval_status: "approved",
+      provider_status: "accepted",
+      observation_status: "verified",
+      reconciliation_status: "effect_verified",
+      recovery_status: "not_required",
+    });
+
+    expect(tile && liveControlState(tile)).toMatchObject({
+      policy: "Approval",
+      authority: "A3-H",
+      execution: "Completed",
+      effect: "Effect independently verified",
+    });
+  });
+
+  test("falls back to a readable raw status instead of exposing an i18n key", () => {
+    expect(evidenceStatusLabel("approval", "rejected")).toBe("rejected");
+    expect(evidenceStatusLabel("provider", undefined)).toBe("Not observed");
   });
 
   test("uses the terminal event decision and counts a replay only once", () => {

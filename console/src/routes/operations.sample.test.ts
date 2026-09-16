@@ -52,17 +52,40 @@ test("Live comparison stories retain declared resource and action types", () => 
   }
   expect(liveSampleStory("runtime-observed-rule")).toBeUndefined();
   const preview = sampleLivePreviewEvents();
-  expect(new Set(preview.map(event => event.event_id)).size).toBe(12);
-  expect(preview.some(event => event.phase === "failed")).toBe(true);
+  expect(new Set(preview.map(event => event.event_id)).size).toBe(3);
+  const vmStart = preview.filter(event => event.event_id === "sample-event-001");
+  expect(vmStart.map(event => event.stage)).toEqual([
+    "ingest",
+    "route",
+    "verify",
+    "gate",
+    "execute",
+    "audit",
+  ]);
+  expect(vmStart.at(-1)?.detail).toMatchObject({
+    approval_status: "approved",
+    provider_status: "accepted",
+    observation_status: "verified",
+    reconciliation_status: "effect_verified",
+    recovery_status: "not_required",
+    outcome: "effect_verified",
+  });
   expect(new Set(preview.flatMap(event =>
     event.detail?.["decision"] ? [event.detail["decision"]] : [],
-  ))).toEqual(new Set(["auto", "hil", "deny", "abstain"]));
+  ))).toEqual(new Set(["hil", "deny", "abstain"]));
 });
 
 describe("Operations Sample registry", () => {
   test("provides valid list and evidence projections", () => {
-    expect(decodeIncidentPage(response("/incidents")).items).toHaveLength(1);
-    expect(decodeHilQueuePage(response("/hil-queue")).items).toHaveLength(1);
+    expect(decodeIncidentPage(response("/incidents")).items[0]).toMatchObject({
+      correlation_id: "sample-correlation-001",
+      target_ref: "sample-checkout-vm-01",
+    });
+    expect(decodeHilQueuePage(response("/hil-queue")).items[0]).toMatchObject({
+      correlation_id: "sample-correlation-002",
+      action_kind: "ops.start-vm",
+      target_resource_ref: "sample-checkout-standby-vm-01",
+    });
     expect(decodeOnboarding(response("/onboarding")).blocked).toBe(true);
     const detection = decodeDetectionReadiness(response("/detection-coverage"));
     expect(detection.targets).toHaveLength(1);
@@ -112,7 +135,7 @@ describe("Operations Sample registry", () => {
       .toBe(OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT);
     expect(terminal.filter((event) => event.detail?.["decision"] === "hil")).toHaveLength(3);
     expect(terminal.filter((event) => event.phase === "failed")).toHaveLength(4);
-    expect(OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT).toBe(12);
+    expect(OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT).toBe(3);
     const sourceReads = sampleLiveObservations();
     expect(sourceReads).toHaveLength(3);
     expect(sourceReads.every(
@@ -150,9 +173,9 @@ describe("Operations Sample registry", () => {
       "Saga",
     ]);
     expect(dynamic.filter((event) => event.detail?.["decision"] === "hil")).toHaveLength(0);
-    expect(dynamic.every((event) => event.detail?.["target"] === "sample-web-storage-01"))
+    expect(dynamic.every((event) => event.detail?.["target"] === "sample-checkout-vm-01"))
       .toBe(true);
-    expect(dynamic.every((event) => event.detail?.["scope"] === "rg-webapp"))
+    expect(dynamic.every((event) => event.detail?.["scope"] === "rg-checkout"))
       .toBe(true);
     expect(dynamic.every((event) => event.detail?.["risk"] === "low")).toBe(true);
     expect(OPERATIONS_SAMPLE_LIVE_EVENTS.some((event) => event.phase === "failed")).toBe(true);
