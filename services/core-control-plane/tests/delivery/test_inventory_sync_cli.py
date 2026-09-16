@@ -18,6 +18,7 @@ import httpx
 import pytest
 import yaml
 from fdai.delivery import inventory_sync_cli_support
+from fdai.delivery.azure.arg_projection import to_neutral_id
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.inventory import AzureResourceGraphInventory
 from fdai.delivery.azure.model_serving_inventory import AzureModelServingInventoryEnricher
@@ -667,7 +668,7 @@ async def test_configured_kubernetes_composition_binds_exact_source(
     source_kwargs = source_factory.call_args.kwargs
     assert source_kwargs["config"] == KubernetesApiInventoryConfig(
         api_server="https://kubernetes.example",
-        cluster_ref=_CLUSTER_REF,
+        cluster_ref=to_neutral_id(_CLUSTER_REF),
     )
     assert source_kwargs["auth"].token_path == Path("/var/run/secrets/kubernetes/token")
     assert source_kwargs["http_client"] is fake_http_client
@@ -804,7 +805,7 @@ async def test_fleet_composition_builds_one_scoped_source_per_binding(
 
     assert isinstance(enricher, SequentialInventoryPromotionEnricher)
     assert [call.kwargs["config"].cluster_ref for call in source_factory.call_args_list] == [
-        binding.cluster_ref for binding in config.kubernetes_bindings
+        to_neutral_id(binding.cluster_ref) for binding in config.kubernetes_bindings
     ]
     assert [call.kwargs["scope_digest"] for call in enricher_factory.call_args_list] == [
         binding.scope_digest for binding in config.kubernetes_bindings
