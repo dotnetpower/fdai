@@ -132,6 +132,9 @@ receipt or changes bootstrap mode while selecting the retained input.
 When the application group already exists in the original state, policy-only recovery preserves
 its exact state ID and requires a no-op. It never renames or adopts that group. A missing
 application group still follows the distinct-name and verified-absence contract.
+If policy input reconciliation makes every retained resource no-op, Terraform reports the saved
+plan as non-applyable. Recovery accepts that only when every resource action is `no-op` or `read`;
+any pending effect still requires an applyable plan.
 
 `genesis_foundation_recovery_apply.py` requires fresh `foundation-apply` approval bound to the recovery
 review and code; the official prompt accepts `--foundation-recovery-review`. Before its immutable claim,
