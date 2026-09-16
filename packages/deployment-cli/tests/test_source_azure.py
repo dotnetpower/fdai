@@ -123,6 +123,7 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
         assert 0 < timeout <= 1800
         if len(calls) == 1:
             assert Path(command[1]).name == "source_genesis.py"
+            assert command[command.index("--workload") + 1] == "fdai"
             foundation = work_dir / "foundation"
             foundation.mkdir(mode=0o700)
             if mode == "ambient":
@@ -136,6 +137,7 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
             return {"state": "prepared", "run_binding": "f" * 64}
         assert Path(command[1]).name == "source_genesis.py"
         assert "--advance" in command
+        assert command[command.index("--workload") + 1] == "fdai"
         assert ("--approval-file" in command) == (approval_file is not None or len(calls) > 2)
         if approval_file is not None:
             assert command[command.index("--approval-file") + 1] == str(approval_file)
