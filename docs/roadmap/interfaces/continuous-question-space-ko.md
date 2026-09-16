@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 92b156aac06fdbf1252b3147065edcf924ae4001
+translation_source_sha: 59d8cd5b56609b850fd620a6dacc15afd751bfd6
 translation_revised: 2026-09-16
 ---
 # 지속형 질문 공간
@@ -179,9 +179,9 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 | 예약 workload 인증 | in-progress | `fdai_service_contracts/operator.py`, `fdai_operator_service/{auth,family_authorization}.py`, 집중 shared 계약 및 Operator bridge 검사 | 검증된 앱 전용 Entra 토큰은 불투명한 대상 다이제스트와 정확히 Reader App Role로 축소됩니다. Workload principal은 `chat.stream`만 제출할 수 있으며 사람 경로와 상위 역할을 물려받지 않습니다. Browser Entra campaign port는 구현됐고 서버 소유 workload 범위 및 인증 증적 mapper는 열린 상태입니다. |
 
 ### 구현 이력
-
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | 보호된 브랜치 통합으로 정확한 통합 질문 은행 원본 다이제스트가 바뀐 뒤 CQAS 출처 이력을 다시 생성했습니다. 지표, 분모, 범위 개수 및 권한 필드는 바뀌지 않았습니다. | `current change`, `build_semantic_intent_coverage.py`, 집중 산출물 검사 4개 통과 | 의미, 런타임 연결, 근거 또는 권한 동작은 바뀌지 않았습니다. |
 | 2026-09-16 | implemented | RCA 제품 문구를 전역 Console 카탈로그에서 경로 소유 이중 언어 카탈로그로 옮긴 뒤 통합 질문은행과 CQAS 출처 이력을 다시 생성했습니다. 질문 400개의 신원, 문구, 준비 상태, 지표, 분모 및 권한 필드는 바뀌지 않았습니다. | `current change`; #1086; 공식 질문은행 및 의미 의도 생성기, 생성 산출물 집중 검사 12개 통과. | 의미, 런타임 연결, 근거 또는 권한 동작은 바뀌지 않았습니다. |
 | 2026-09-15 | implemented | 최종 원본 통합으로 검토된 Console 카탈로그 및 런타임 호출 온톨로지 변환 결과의 다이제스트가 바뀐 뒤 통합 질문은행과 CQAS 출처 이력을 다시 생성했습니다. 질문 400개의 신원, 준비 상태, 지표, 분모 및 권한 필드는 모두 그대로 유지했습니다. | `current change`; 공식 질문은행 및 의미 의도 생성기, 집중 생성 산출물 검사 12개 통과. | 의미, 런타임 연결, 근거 또는 권한 동작은 바뀌지 않았습니다. |
 | 2026-09-15 | implemented | 현재 Console 메시지 카탈로그와 온톨로지 쿼리 원본이 바뀐 뒤 통합 질문은행과 의미 의도 커버리지 인벤토리를 다시 생성했습니다. 질문 400개의 신원, 검토 상태, 지표 및 분모는 모두 그대로 유지했습니다. | `current change`, 정본 질문은행 및 의미 의도 생성기, 집중 생성 산출물 동등성 검사 | 다이제스트만 동기화하는 이 작업에 남은 항목은 없습니다. 실제 준비 상태와 권한은 바뀌지 않았습니다. |
