@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:a0ee1fd6b53d8c9883ef6b14fa66a4bccb6f269c734431bffb15e4d5a455b790",
+  "catalog_digest": "sha256:648babcfb97906c45cd114b0d438236060e0da731a514e5f9023763c577316cc",
   "execution_authority": false,
-  "generated_at": "2026-09-16T16:19:26.656111Z",
+  "generated_at": "2026-09-16T16:50:25.515955Z",
   "records": [
     {
       "designed_behavior": [
@@ -448,11 +448,11 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:6e03cb3be2ededcdefc698edc218250202c7a8c682fbd551efb70b96a3ff332a",
+      "record_digest": "sha256:80180e5781e82ec7c0d068a386b8cc7f9d7cd4a6e1a705302ae1afb6477695f9",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "01ee1a845cf0d9cf6f8ae2c5fbbcb911beb3002d",
+          "blob_sha": "34178883c97cea48650b290de3502de27ffd5ad0",
           "line_end": 86,
           "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:d90ddc5cac80f54f183f1d9999b81a5a60b4eb542dd96e3c58a956276d21f8c2",
+      "record_digest": "sha256:388f4d8e9f64a02b69b33fe25e0ca3d397e1c99299746a3301ac1268b2782e26",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "01ee1a845cf0d9cf6f8ae2c5fbbcb911beb3002d",
+          "blob_sha": "34178883c97cea48650b290de3502de27ffd5ad0",
           "line_end": 86,
           "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "ea699f97738a90aa760d20b7487a1eb1245a257c"
+  "source_revision": "2f6bc6eabda8b6c3041153dddcd672ae37e82ddd"
 }
