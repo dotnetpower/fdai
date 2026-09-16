@@ -208,10 +208,12 @@ lifecycle CronJobs. The history job uses the read-only inventory identity, the s
 DSN, and the private archive URL in fixed `shadow` mode. A non-shadow lifecycle requires a separate
 protected transition and an exact persisted certification receipt; runtime selection grants neither.
 
-The inventory command and its CLI support module preserve read-only failure boundaries on both
-platforms and in the local managed stack. Activity Log recovery is independent of full reconciliation:
-failures before or after generation promotion are reported as unavailable, without advancing failed
-delta cursors or terminating the complete inventory loop.
+The inventory command preserves read-only failure boundaries on both platforms and locally. Activity
+Log recovery fails unavailable without advancing delta cursors or stopping full reconciliation.
+Passive model-serving evidence reuses inventory identity and Azure Monitor without model credentials
+or inference; bounded failures reduce only its coverage and malformed responses stay redacted.
+Reconciliation bounds determine lookback, freshness, points, and timeout, while additive metadata
+keeps baseline inventory available during Core-first or Operator-first updates.
 
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and

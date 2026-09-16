@@ -150,6 +150,12 @@ definitions:
     aggregation: sum
     description: Model requests observed for the exact account or verified deployment in the bounded window.
     monotonic: true
+  - concept_id: model.response.200.count
+    provider_metric: model.response.200.count
+    canonical_unit: count
+    aggregation: sum
+    description: Successful HTTP 200 model responses observed for the exact verified deployment in the bounded window.
+    monotonic: true
   - concept_id: model.response.429.count
     provider_metric: model.response.429.count
     canonical_unit: count

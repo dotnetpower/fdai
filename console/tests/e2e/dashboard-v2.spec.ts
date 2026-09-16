@@ -39,6 +39,7 @@ function recordedPage(input: unknown, cursor: string | null = null) {
     schema_version: "1.0.0", source_generation: graph.snapshot_id, source_cutoff: graph.snapshot_at,
     ontology_generation: graph.snapshot_id,
     ontology_manifest_digest: `sha256:${"c".repeat(64)}`,
+    invalidation_watermark: 42,
     source_kind: "inventory_snapshot_resource",
     ontology_release_digest: `sha256:${"a".repeat(64)}`,
     resources: !Array.isArray(rawResources) ? null : values.map((row) => ({
@@ -68,7 +69,10 @@ async function installApi(page: Page, graph: () => unknown = inventory) {
   const handle = async (route: Route) => {
     if (route.request().resourceType() === "document") { await route.continue(); return; }
     const path = new URL(route.request().url()).pathname.replace(/^\/api/, "");
-    requests.push(`${route.request().method()} ${path}`);
+    const replayCursor = path === "/ontology/instances/stream"
+      ? route.request().headers()["last-event-id"] ?? "none"
+      : null;
+    requests.push(`${route.request().method()} ${path}${replayCursor === null ? "" : ` ${replayCursor}`}`);
     if (path === "/system/data-sources") return json(route, {
       surface: "read-data-sources",
       sources: [{
@@ -107,11 +111,12 @@ test.describe("Native Dashboard v2", () => {
   });
 
   test("retains the original Dashboard and navigates to an independent resource route", async ({ page }, testInfo) => {
-    await installApi(page);
+    const requests = await installApi(page);
     await openV2(page);
+    await expect.poll(() => requests).toContain("GET /ontology/instances/stream 42");
     await expect(page.locator(".page-header-title")).toContainText("Dashboard v2");
     await expect(page.locator(".dv2-snapshot-card .dv2-summary")).toBeVisible();
-    await expect(page.locator(".dv2-summary strong")).toHaveText(["600", "500", "100", "100"]);
+    await expect(page.locator(".dv2-summary strong")).toHaveText(["600", "500", "100", "0", "0", "100"]);
     await expect(page.locator(".dv2-scope")).toContainText("Immutable inventory snapshot");
     await page.locator(".activity-bar").getByRole("button", { name: "Overview", exact: true }).hover();
     await expect(page.getByRole("tooltip")).toContainText("Overview");
@@ -228,7 +233,7 @@ test.describe("Native Dashboard v2", () => {
     let payload: unknown = { ...inventory(6), freshness: "stale", truncated: true, coverage_gaps: ["source_limit"] };
     await installApi(page, () => payload);
     await openV2(page);
-    await expect(page.locator(".dv2-summary strong")).toHaveText(["6", "5", "1", "1"]);
+    await expect(page.locator(".dv2-summary strong")).toHaveText(["6", "0", "1", "0", "0", "1"]);
     await page.locator(".dashboard-v2-map-cell").first().click();
     await expect(page.locator(".recorded-state-facts")).toContainText("Stale");
     payload = { ...inventory(6), resources: null };
@@ -237,7 +242,7 @@ test.describe("Native Dashboard v2", () => {
     await expect(page.locator(".dv2-summary")).toHaveCount(0);
     payload = inventory(0);
     await page.getByRole("button", { name: "Refresh snapshot", exact: true }).click();
-    await expect(page.locator(".dv2-summary strong")).toHaveText(["0", "0", "0", "0"]);
+    await expect(page.locator(".dv2-summary strong")).toHaveText(["0", "0", "0", "0", "0", "0"]);
     await expect(page.locator(".dv2-attention")).toContainText("not an all-clear");
   });
 
@@ -272,10 +277,13 @@ test.describe("Native Dashboard v2", () => {
     await expect(page.locator(".dashboard-v2-map-cell")).toHaveCount(1);
     await page.locator(".dashboard-v2-map-cell").click();
     await expect(page.locator(".dv2-inspector h3")).toHaveText("Example resource 9999");
+    expect(requests.filter((entry) => entry === "GET /ontology/instances/states")).toHaveLength(20);
     await page.getByRole("button", { name: "Refresh snapshot", exact: true }).click();
+    await expect.poll(
+      () => requests.filter((entry) => entry === "GET /ontology/instances/states").length,
+    ).toBe(40);
     await expect(page.locator(".dv2-summary")).toBeVisible();
-    await expect(page.locator(".dv2-inspector")).toHaveCount(0);
-    expect(requests.filter((entry) => entry === "GET /ontology/instances/states")).toHaveLength(40);
+    await expect(page.locator(".dv2-inspector h3")).toHaveText("Example resource 9999");
   });
 
   test("uses real producer provenance and excludes role assignments from counts and type suggestions", async ({ page }) => {
@@ -285,7 +293,7 @@ test.describe("Native Dashboard v2", () => {
       resources: [...payload.resources, { id: "example-assignment", name: "Example assignment", type: "authorization.role-assignment", status: "unknown" }],
     }));
     await openV2(page);
-    await expect(page.locator(".dv2-summary strong")).toHaveText(["6", "5", "1", "1"]);
+    await expect(page.locator(".dv2-summary strong")).toHaveText(["6", "5", "1", "0", "0", "1"]);
     await expect(page.locator(".dv2-coverage")).toContainText("Authorization and scope-container records are excluded");
     const input = page.getByRole("combobox", { name: "Type", exact: true });
     await input.fill("role-assignment");
@@ -366,7 +374,7 @@ test.describe("Native Dashboard v2", () => {
       await installApi(mobile);
       await mobile.goto("/dashboard-v2?locale=ko");
       await expect(mobile.locator(".page-header-title")).toContainText("대시보드 v2");
-      await expect(mobile.locator(".dv2-snapshot-card .dv2-summary a")).toHaveCount(4);
+      await expect(mobile.locator(".dv2-snapshot-card .dv2-summary a")).toHaveCount(6);
       await expect(mobile.getByRole("button", { name: "조밀하게", exact: true })).toBeDisabled();
       await expect(mobile.locator(".dashboard-v2-map-cell")).toHaveCount(48);
       await mobile.screenshot({ path: testInfo.outputPath("dashboard-v2-mobile-overview.png") });

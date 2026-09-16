@@ -3,12 +3,13 @@ import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api
 import { AsyncBoundary, EmptyState, PageHeader, type AsyncState } from "../components/ui";
 import { SearchableSelect, type SearchableSelectOption } from "../components/searchable-select";
 import { RecordedStateFacts } from "../components/recorded-state-facts";
+import { recordedStateValueText } from "../components/recorded-state-text";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
 import { currentRoute, routeHref } from "../router";
 import { DashboardResourceMap } from "./dashboard-v2-map";
 import {
-  dashboardCounts, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardStatusFilter, dashboardTypeKeywords, dashboardTypeLabel, dashboardUnknownCounts, dashboardUnknownReason,
+  dashboardCounts, dashboardLens, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardServingRecordedCount, dashboardStateMatchesFilter, dashboardStatusFilter, dashboardTypeKeywords, dashboardTypeLabel, dashboardUnknownCounts, dashboardUnknownReason,
   EMPTY_DASHBOARD_FILTERS, STATE_STYLE, dashboardStateFact,
   type DashboardFilters, type DashboardLens, type DashboardResource, type DashboardSnapshot, type DashboardState, type DashboardView,
 } from "./dashboard-v2.model";
@@ -19,42 +20,72 @@ import {
   type OntologyInstanceRefreshTrigger,
 } from "./ontology-instance-refresh";
 import { useOntologyInvalidationStream } from "./use-ontology-invalidation-stream";
+import { isRecordedStateGenerationTransition } from "../recorded-resource-state";
 import "./dashboard-v2.css";
+
+export const DASHBOARD_V2_REFRESH_INTERVAL_MS = 300_000;
 
 /** Additive read-only resource view; refresh replaces the entire projection, never merges generations. */
 export default function DashboardV2Route({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<DashboardSnapshot>>({ status: "loading" });
+  const [refreshDelayed, setRefreshDelayed] = useState(false);
+  const [refreshInFlight, setRefreshInFlight] = useState(false);
+  const readyClientRef = useRef<OperatorApiClient | null>(null);
   const [revision, setRevision] = useState(0);
+  const streamSnapshot = state.status === "ready" ? state.data : null;
   useOntologyInvalidationStream({
     url: `${client.operatorApiBaseUrl.replace(/\/$/, "")}/ontology/instances/stream`,
-    enabled: true,
+    enabled: streamSnapshot !== null,
+    initialLastEventId: streamSnapshot?.invalidationWatermark == null
+      ? null
+      : String(streamSnapshot.invalidationWatermark),
     getAuthorizationHeader: client.authorizationHeader,
     onEvent: () => window.dispatchEvent(new Event("fdai:ontology-invalidated")),
   });
   useEffect(() => {
     let cancelled = false;
     const refresh = async (trigger: OntologyInstanceRefreshTrigger) => {
-      if (trigger === "initial") setState({ status: "loading" });
+      const canRetain = readyClientRef.current === client;
+      const retainingForManualRefresh = trigger === "initial" && canRetain;
+      if (retainingForManualRefresh) setRefreshInFlight(true);
+      if (trigger === "initial" && !canRetain) setState({ status: "loading" });
       try {
         const snapshot = await loadDashboardRecordedStates(client, () => cancelled);
-        if (!cancelled && snapshot) setState({ status: "ready", data: snapshot });
+        if (!cancelled && snapshot) {
+          readyClientRef.current = client;
+          setRefreshDelayed(false);
+          setState({ status: "ready", data: snapshot });
+        }
       } catch (error: unknown) {
-        if (!cancelled) setState(isOptionalOperatorApiUnavailable(error)
+        if (cancelled) return;
+        if (canRetain && isRecordedStateGenerationTransition(error)) {
+          setRefreshDelayed(true);
+          return;
+        }
+        readyClientRef.current = null;
+        setRefreshDelayed(false);
+        setState(isOptionalOperatorApiUnavailable(error)
           ? { status: "unavailable", message: t("unavailable") }
           : { status: "error", message: error instanceof Error ? error.message : String(error) });
+      } finally {
+        if (!cancelled && retainingForManualRefresh) setRefreshInFlight(false);
       }
     };
-    const stopRefresh = installOntologyInstanceRefresh(refresh);
+    const stopRefresh = installOntologyInstanceRefresh(refresh, undefined, {
+      intervalMs: DASHBOARD_V2_REFRESH_INTERVAL_MS,
+    });
     return () => { cancelled = true; stopRefresh(); };
   }, [client, revision]);
   return <div class="stack dashboard-v2-page">
     <PageHeader title={t("title")} subtitle={t("subtitle")} actions={<>
       <a class="cs-control-button" href={routeHref("dashboard")}>{t("original")}</a>
-      <button type="button" class="cs-control-button" onClick={() => setRevision((value) => value + 1)} disabled={state.status === "loading"}>{t("refresh")}</button>
+      <button type="button" class="cs-control-button" onClick={() => setRevision((value) => value + 1)} disabled={state.status === "loading" || refreshInFlight}>{t("refresh")}</button>
     </>} />
+    {refreshInFlight && !refreshDelayed && <p class="dv2-notice" role="status">{t("refreshing")}</p>}
+    {refreshDelayed && <p class="dv2-notice" role="status">{t("refreshDelayed")}</p>}
     {state.status !== "ready" && <DashboardPendingContext status={state.status} />}
     <AsyncBoundary state={state} resourceLabel={t("title")}>
-      {(snapshot) => <DashboardBody key={revision} snapshot={snapshot} />}
+      {(snapshot) => <DashboardBody snapshot={snapshot} />}
     </AsyncBoundary>
   </div>;
 }
@@ -72,6 +103,12 @@ function DashboardPendingContext({ status }: { readonly status: string }) {
 
 function stateText(key: DashboardState): string { return t(`state.${key}`); }
 
+function stateBadgeText(resource: DashboardResource, lens: DashboardLens): string | null {
+  if (lens === "observation") return null;
+  const fact = dashboardStateFact(resource, lens);
+  return fact === null ? null : recordedStateValueText(fact);
+}
+
 function StateBadge({ value, text }: { readonly value: DashboardState; readonly text?: string | null | undefined }) {
   const style = STATE_STYLE[value];
   return <span class="dv2-state" data-tone={style.tone}>{style.symbol} {text ?? stateText(value)}</span>;
@@ -82,8 +119,12 @@ function resourceHref(resource?: DashboardResource): string {
 }
 
 function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
+  const hasServing = useMemo(
+    () => snapshot.resources.some((resource) => resource.states?.serving !== undefined),
+    [snapshot],
+  );
   const [filters, setFilters] = useState<DashboardFilters>(() => ({ ...EMPTY_DASHBOARD_FILTERS, status: dashboardStatusFilter(currentRoute().search.get("state")) }));
-  const [lens, setLens] = useState<DashboardLens>(() => currentRoute().search.get("lens") === "provisioning" ? "provisioning" : "operation");
+  const [lens, setLens] = useState<DashboardLens>(() => dashboardLens(currentRoute().search.get("lens"), hasServing));
   const [view, setView] = useState<DashboardView>("honeycomb");
   const [density, setDensity] = useState<"dense" | "comfortable">(snapshot.resources.length > 48 ? "dense" : "comfortable");
   const [width, setWidth] = useState(0);
@@ -91,6 +132,13 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
   const [page, setPage] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!hasServing && lens === "serving") {
+      setLens("operation");
+      setFilters((current) => ({ ...current, status: "" }));
+      setPage(0);
+    }
+  }, [hasServing, lens]);
   useEffect(() => {
     const panel = panelRef.current;
     if (panel === null) return;
@@ -110,8 +158,7 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
   const columns = dashboardMapColumns(width, effectiveDensity);
   const scoped = useMemo(() => dashboardScope(snapshot.resources, filters), [snapshot, filters]);
   const matches = useMemo(() => scoped.filter((resource) => {
-    const state = dashboardResourceState(resource, snapshot, lens);
-    return !filters.status || (filters.status === "known" ? state !== "unknown" && state !== "not-applicable" : state === filters.status);
+    return dashboardStateMatchesFilter(resource, snapshot, lens, filters.status);
   }), [scoped, filters.status, snapshot, lens]);
   const counts = useMemo(() => dashboardCounts(scoped, snapshot, lens), [scoped, snapshot, lens]);
   const groups = useMemo(() => {
@@ -148,11 +195,37 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
     }
     return [{ value: "", label: t("allTypes"), count: available.length }, ...result.values()];
   }, [snapshot, filters]);
-  const operations = dashboardCounts(snapshot.resources, snapshot, "operation");
-  const unknownCounts = dashboardUnknownCounts(snapshot.resources, snapshot);
-  const known = snapshot.resources.length - (operations.get("unknown") ?? 0) - (operations.get("not-applicable") ?? 0);
-  const provisioningRecorded = snapshot.resources.filter((resource) => resource.states?.provisioning.value != null).length;
-  const highlights = snapshot.resources.filter((resource) => ["unknown", "transitioning"].includes(dashboardResourceState(resource, snapshot, "operation"))).slice(0, 3);
+  const operations = useMemo(
+    () => dashboardCounts(snapshot.resources, snapshot, "operation"),
+    [snapshot],
+  );
+  const unknownCounts = useMemo(
+    () => dashboardUnknownCounts(snapshot.resources, snapshot),
+    [snapshot],
+  );
+  const known = snapshot.resources.length
+    - (operations.get("unknown") ?? 0)
+    - (operations.get("stale") ?? 0)
+    - (operations.get("not-applicable") ?? 0)
+    - (operations.get("not-provided") ?? 0);
+  const servingRecorded = useMemo(
+    () => dashboardServingRecordedCount(snapshot.resources),
+    [snapshot],
+  );
+  const provisioningRecorded = useMemo(
+    () => snapshot.resources.filter(
+      (resource) => resource.states?.provisioning.value != null,
+    ).length,
+    [snapshot],
+  );
+  const highlights = useMemo(
+    () => snapshot.resources.filter(
+      (resource) => ["unknown", "transitioning"].includes(
+        dashboardResourceState(resource, snapshot, "operation"),
+      ),
+    ).slice(0, 3),
+    [snapshot],
+  );
   const options = (axis: "subscription" | "group") => [...new Map(snapshot.resources
     .filter((resource) => axis !== "group" || !filters.subscription || resource.subscription === filters.subscription)
     .filter((resource) => resource[axis] !== null)
@@ -186,13 +259,24 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
           ["received", snapshot.resources.length, ""],
           ["known", known, "known"],
           ["unknown", operations.get("unknown") ?? 0, "unknown"],
+          ["notProvided", operations.get("not-provided") ?? 0, "not-provided"],
+          ["notApplicable", operations.get("not-applicable") ?? 0, "not-applicable"],
           ["provisioningRecorded", provisioningRecorded, "known"],
-        ] as const).map(([label, value, status]) =>
-          <a href={routeHref("dashboard-v2", { params: { state: status, lens: label === "provisioningRecorded" ? "provisioning" : null } })} key={label} onClick={(event) => {
+        ] as const).map(([label, value, status]) => {
+          const targetLens = label === "provisioningRecorded"
+            ? "provisioning"
+            : "operation";
+          return <a href={routeHref("dashboard-v2", { params: { state: status, lens: targetLens === "operation" ? null : targetLens } })} key={label} onClick={(event) => {
             if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
             event.preventDefault();
-            setFilters({ ...EMPTY_DASHBOARD_FILTERS, status }); setLens(label === "provisioningRecorded" ? "provisioning" : "operation"); setView("list"); setPage(0);
-          }}><strong>{number(value)}</strong><span>{t(label)}</span></a>)}
+            setFilters({ ...EMPTY_DASHBOARD_FILTERS, status }); setLens(targetLens); setView("list"); setPage(0);
+          }}><strong>{number(value)}</strong><span>{t(label)}</span></a>;
+        })}
+        {hasServing && <a href={routeHref("dashboard-v2", { params: { state: "serving", lens: "serving" } })} onClick={(event) => {
+          if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          setFilters({ ...EMPTY_DASHBOARD_FILTERS, status: "serving" }); setLens("serving"); setView("list"); setPage(0);
+        }}><strong>{number(servingRecorded)}</strong><span>{t("servingRecorded")}</span></a>}
       </div>
     </section>
     <div class="dv2-workspace">
@@ -201,7 +285,13 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
           <div class="dv2-controls" role="group" aria-label={t("landscape")}>{(["honeycomb", "list", "groups"] as const).map((key) =>
             <button type="button" class="cs-control-button" key={key} aria-pressed={view === key} onClick={() => { setView(key); setPage(0); }}>{t(key)}</button>)}</div></header>
         <div class="dv2-lenses"><div class="dv2-controls" role="group" aria-label={t("observation")}>
-          {(["operation", "provisioning", "availability", "observation"] as const).map((key) => <button type="button" class="cs-control-button" key={key} aria-pressed={lens === key} onClick={() => { setLens(key); update("status", ""); }}>{t(key)}</button>)}
+          {([
+            "operation",
+            "provisioning",
+            ...(hasServing ? ["serving"] as const : []),
+            "availability",
+            "observation",
+          ] as const).map((key) => <button type="button" class="cs-control-button" key={key} aria-pressed={lens === key} onClick={() => { setLens(key); update("status", ""); }}>{t(key)}</button>)}
         </div>{view === "honeycomb" && <div class="dv2-controls" role="group" aria-label={t("dense")}>{(["dense", "comfortable"] as const).map((key) =>
           <button type="button" class="cs-control-button" key={key} aria-pressed={effectiveDensity === key} disabled={key === "dense" && touch} onClick={() => { setDensity(key); setPage(0); }}>{t(key)}</button>)}</div>}</div>
         <div class="dv2-filters">
@@ -214,13 +304,13 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
         <div class="dv2-legend" role="group" aria-label={t("allStates")}><button type="button" class="cs-control-button" aria-pressed={!filters.status} onClick={() => update("status", "")}>{t("allStates")} {number(scoped.length)}</button>
           {[...counts].map(([key, count]) => <button type="button" class="cs-control-button" key={key} aria-pressed={filters.status === key} onClick={() => update("status", key)}><StateBadge value={key} /> {number(count)}</button>)}</div>
         {matches.length === 0 ? <EmptyState title={t("empty")} body={t("emptyBody")} /> : view === "honeycomb"
-          ? <DashboardResourceMap resources={displayed} snapshot={snapshot} lens={lens} density={effectiveDensity} columns={columns} selectedId={selectedId} onSelect={setSelectedId} labels={{ operation: t("operation"), provisioning: t("provisioning"), availability: t("availability"), observation: t("observation"), observedAt: t("observedAt"), snapshotAt: t("snapshotAt"), missing: t("missing"), state: stateText }} />
+          ? <DashboardResourceMap resources={displayed} snapshot={snapshot} lens={lens} density={effectiveDensity} columns={columns} selectedId={selectedId} onSelect={setSelectedId} labels={{ operation: t("operation"), provisioning: t("provisioning"), serving: t("serving"), availability: t("availability"), observation: t("observation"), observedAt: t("observedAt"), snapshotAt: t("snapshotAt"), missing: t("missing"), state: stateText }} />
           : view === "list" ? <div class="dv2-table-wrap"><table><thead><tr><th>{t("find")}</th><th>{t("type")}</th><th>{t(lens)}</th><th>{t("group")}</th></tr></thead><tbody>{displayed.map((resource) =>
-            <tr key={resource.id}><td><button type="button" class="dv2-link" aria-pressed={selectedId === resource.id} onClick={() => setSelectedId(resource.id)}>{resource.name}</button></td><td>{resource.type}</td><td><StateBadge value={dashboardResourceState(resource, snapshot, lens)} text={lens === "observation" ? null : dashboardStateFact(resource, lens)?.value} /></td><td>{resource.groupLabel ?? t("missing")}</td></tr>)}</tbody></table></div>
+            <tr key={resource.id}><td><button type="button" class="dv2-link" aria-pressed={selectedId === resource.id} onClick={() => setSelectedId(resource.id)}>{resource.name}</button></td><td>{resource.type}</td><td><StateBadge value={dashboardResourceState(resource, snapshot, lens)} text={stateBadgeText(resource, lens)} /></td><td>{resource.groupLabel ?? t("missing")}</td></tr>)}</tbody></table></div>
           : <div class="dv2-groups">{groups.slice(currentPage * 6, (currentPage + 1) * 6).map(([key, group]) =>
             <section key={key}><button type="button" class="dv2-link" onClick={() => { update("group", key || null); setView("honeycomb"); }}>{group.label} / {number(group.items.length)}</button><div>{[...dashboardCounts(group.items, snapshot, lens)].map(([key, count]) => <span key={key}><StateBadge value={key} /> {number(count)}</span>)}</div></section>)}</div>}
         {pages > 1 && <nav class="dv2-pagination" aria-label={t("page", { page: currentPage + 1, pages })}><button type="button" class="cs-control-button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>{t("previous")}</button><span>{t("page", { page: currentPage + 1, pages })}</span><button type="button" class="cs-control-button" disabled={currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)}>{t("next")}</button></nav>}
-        <p class="dv2-note">{t(lens === "operation" ? "operationHelp" : lens === "provisioning" ? "provisioningHelp" : lens === "availability" ? "availabilityHelp" : "observationHelp")}</p>
+        <p class="dv2-note">{t(lens === "operation" ? "operationHelp" : lens === "provisioning" ? "provisioningHelp" : lens === "serving" ? "servingHelp" : lens === "availability" ? "availabilityHelp" : "observationHelp")}</p>
         <p class="dv2-note">{t("pageBoundary")}</p>
       </section>
       <aside class={`dv2-side${selected ? " has-selection" : ""}`}>

@@ -355,6 +355,7 @@
       "kubernetes_runtime_inventory": "Kubernetes 런타임 인벤토리",
       "postgres_role_evidence": "PostgreSQL 역할 근거",
       "azure_resource_health": "Azure Resource Health",
+      "azure_model_serving_metrics": "Azure 모델 서비스 응답 메트릭",
       "azure_activity_log": "Azure Activity Log"
     }
   },

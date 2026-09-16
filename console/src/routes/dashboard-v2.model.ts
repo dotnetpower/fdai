@@ -2,11 +2,15 @@ import { resourceColorTokenOf, resourceTypeLabelOf } from "../components/archite
 import { ARCHITECTURE_RESOURCE_ABBREVIATIONS } from "../components/architecture-resource-abbreviations";
 import { isRfc3339Timestamp } from "../time-format";
 import { isOperationalResourceType } from "../resource-presentation";
-import type { RecordedResourceStates, RecordedStateFact } from "../recorded-resource-state";
+import {
+  selectRecordedStateFact,
+  type RecordedResourceStates,
+  type RecordedStateFact,
+} from "../recorded-resource-state";
 
-export type DashboardLens = "operation" | "provisioning" | "availability" | "observation";
+export type DashboardLens = "operation" | "provisioning" | "serving" | "availability" | "observation";
 export type DashboardView = "honeycomb" | "list" | "groups";
-export type DashboardState = "running" | "stopped" | "deallocated" | "transitioning" | "unknown" | "not-applicable" | "fresh" | "stale" | "enabled" | "disabled" | "active" | "online" | "offline" | "ready" | "paused" | "succeeded" | "failed" | "available" | "degraded" | "unavailable" | "recorded";
+export type DashboardState = "running" | "stopped" | "deallocated" | "transitioning" | "unknown" | "not-applicable" | "not-provided" | "fresh" | "stale" | "enabled" | "disabled" | "active" | "online" | "offline" | "ready" | "paused" | "succeeded" | "failed" | "available" | "degraded" | "unavailable" | "serving" | "recorded";
 export type DashboardTone = "active" | "neutral" | "attention" | "unknown" | "na" | "negative";
 
 export interface DashboardResource {
@@ -27,6 +31,7 @@ export interface DashboardSnapshot {
   readonly id: string | null;
   readonly ontologyGeneration?: string;
   readonly ontologyManifestDigest?: string;
+  readonly invalidationWatermark?: number | null;
   readonly at: string;
   readonly source: string | null;
   readonly scope: string | null;
@@ -49,6 +54,7 @@ export const STATE_STYLE: Readonly<Record<DashboardState, { readonly tone: Dashb
   transitioning: { tone: "attention", symbol: "~" },
   unknown: { tone: "unknown", symbol: "?" },
   "not-applicable": { tone: "na", symbol: "-" },
+  "not-provided": { tone: "na", symbol: "N" },
   fresh: { tone: "active", symbol: "+" },
   stale: { tone: "attention", symbol: "~" },
   enabled: { tone: "active", symbol: "E" }, disabled: { tone: "neutral", symbol: "D" },
@@ -57,6 +63,7 @@ export const STATE_STYLE: Readonly<Record<DashboardState, { readonly tone: Dashb
   paused: { tone: "neutral", symbol: "II" }, succeeded: { tone: "neutral", symbol: "+" },
   failed: { tone: "negative", symbol: "X" }, available: { tone: "active", symbol: "+" },
   degraded: { tone: "attention", symbol: "!" }, unavailable: { tone: "negative", symbol: "X" },
+  serving: { tone: "active", symbol: ">" },
   recorded: { tone: "neutral", symbol: "=" },
 };
 
@@ -149,14 +156,30 @@ export function decodeDashboardSnapshot(value: unknown): DashboardSnapshot {
 /** Never equates provisioning success or generic health labels with running or availability. */
 export function dashboardResourceState(resource: DashboardResource, snapshot: DashboardSnapshot, lens: DashboardLens): DashboardState {
   if (resource.states) {
-    const fact = dashboardStateFact(resource, lens)!;
+    const fact = dashboardStateFact(resource, lens);
+    if (fact === null) return lens === "serving" ? "not-applicable" : "unknown";
     if (lens === "observation") return fact.freshness === "fresh" ? "fresh" : fact.freshness === "stale" ? "stale" : "unknown";
-    if (fact.value === null) return "unknown";
+    if (fact.value === null) {
+      if (fact.reason === "state_not_applicable") return "not-applicable";
+      if (
+        fact.reason === "provider_operational_state_not_exposed"
+        || fact.reason === "provider_availability_state_not_exposed"
+      ) return "not-provided";
+      return "unknown";
+    }
+    if (fact.freshness === "stale") return "stale";
+    if (
+      fact.freshness !== "fresh"
+      || fact.completeness !== 1
+      || fact.conflicts.length > 0
+      || fact.reason !== null
+    ) return "unknown";
     const raw = fact.value.trim().toLowerCase().replace(/^powerstate\//, "");
     if (["starting", "stopping", "deallocating", "updating", "creating", "deleting"].includes(raw)) return "transitioning";
     return Object.hasOwn(STATE_STYLE, raw) ? raw as DashboardState : "recorded";
   }
   if (lens === "provisioning") return "unknown";
+  if (lens === "serving") return "not-applicable";
   if (lens === "availability") return "unknown";
   const observed = snapshot.observationKind === "OBSERVED" && snapshot.id !== null && snapshot.source !== null;
   if (lens === "observation") return observed ? snapshot.freshness : "unknown";
@@ -170,7 +193,9 @@ export function dashboardResourceState(resource: DashboardResource, snapshot: Da
 
 export function dashboardStateFact(resource: DashboardResource, lens: DashboardLens): RecordedStateFact | null {
   if (!resource.states) return null;
-  return resource.states[lens === "operation" || lens === "observation" ? "operational" : lens];
+  if (lens === "observation") return selectRecordedStateFact(resource.states).fact;
+  if (lens === "operation") return resource.states.operational;
+  return resource.states[lens] ?? null;
 }
 
 export type DashboardUnknownReason =
@@ -191,6 +216,7 @@ export function dashboardUnknownReason(
   resource: DashboardResource,
   snapshot: DashboardSnapshot,
 ): DashboardUnknownReason | null {
+  if (dashboardResourceState(resource, snapshot, "operation") !== "unknown") return null;
   if (resource.states) {
     const fact = resource.states.operational;
     if (fact.value !== null) return null;
@@ -202,7 +228,6 @@ export function dashboardUnknownReason(
     if (fact.reason === "state_after_cutoff") return "stateAfterCutoff";
     return fact.reason === "state_not_recorded" ? "stateNotRecorded" : "noState";
   }
-  if (dashboardResourceState(resource, snapshot, "operation") !== "unknown") return null;
   if (snapshot.observationKind !== "OBSERVED" || snapshot.id === null || snapshot.source === null) return "missingProvenance";
   if ((snapshot.pendingChanges ?? 0) > 0) return "pendingChanges";
   if (snapshot.freshness !== "fresh") return "oldSnapshot";
@@ -253,6 +278,16 @@ export function dashboardStatusFilter(value: string | null): DashboardFilters["s
     ? value as DashboardFilters["status"] : "";
 }
 
+export function dashboardLens(value: string | null, hasServing = true): DashboardLens {
+  if (value === "serving" && !hasServing) return "operation";
+  return value === "provisioning"
+    || value === "serving"
+    || value === "availability"
+    || value === "observation"
+    ? value
+    : "operation";
+}
+
 export function dashboardScope(resources: readonly DashboardResource[], filters: DashboardFilters, includeType = true): readonly DashboardResource[] {
   const query = filters.query.trim().toLowerCase();
   return resources.filter((resource) =>
@@ -269,4 +304,30 @@ export function dashboardCounts(resources: readonly DashboardResource[], snapsho
     result.set(key, (result.get(key) ?? 0) + 1);
   }
   return result;
+}
+
+export function dashboardStateMatchesFilter(
+  resource: DashboardResource,
+  snapshot: DashboardSnapshot,
+  lens: DashboardLens,
+  filter: DashboardFilters["status"],
+): boolean {
+  const state = dashboardResourceState(resource, snapshot, lens);
+  return !filter || (
+    filter === "known"
+      ? state !== "unknown"
+        && state !== "stale"
+        && state !== "not-applicable"
+        && state !== "not-provided"
+      : state === filter
+  );
+}
+
+export function dashboardServingRecordedCount(
+  resources: readonly DashboardResource[],
+): number {
+  return resources.filter(
+    (resource) => resource.states?.serving?.value != null
+      && resource.states.serving.freshness === "fresh",
+  ).length;
 }
