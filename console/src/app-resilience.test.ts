@@ -17,6 +17,21 @@ const settingsRoutes = [
 ].map((file) => readFileSync(new URL(`./routes/${file}`, import.meta.url), "utf8"));
 
 describe("Console route resilience", () => {
+  it("binds every authenticated client before a recoverable startup access failure", () => {
+    const accessCheck = app.indexOf("iamSelf = await withStartupTransportRetry");
+    expect(accessCheck).toBeGreaterThan(0);
+    for (const binding of [
+      "setDeckUser(deckUserFromAuth(auth));",
+      "setWorkflowAuth(auth);",
+      "setPythonTaskAuth(auth);",
+      "setUserContextAuth(auth);",
+      "setChatAuth(auth);",
+    ]) {
+      expect(app.indexOf(binding)).toBeGreaterThan(0);
+      expect(app.indexOf(binding)).toBeLessThan(accessCheck);
+    }
+  });
+
   it("keeps every top-level lazy surface inside a visible error and loading boundary", () => {
     expect(app).not.toContain("fallback={null}");
     expect(app).toContain('class="settings-overlay-scrim"');

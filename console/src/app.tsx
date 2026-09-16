@@ -228,6 +228,11 @@ export function App() {
           [config.operatorApiBaseUrl, config.ingestionApiBaseUrl],
           handleUnauthorized,
         );
+        setDeckUser(deckUserFromAuth(auth));
+        setWorkflowAuth(auth);
+        setPythonTaskAuth(auth);
+        setUserContextAuth(auth);
+        setChatAuth(auth);
         let iamSelf: IamSelfStatus | undefined;
         if (shouldLoadIamSelf(auth)) {
           try {
@@ -246,15 +251,6 @@ export function App() {
             return;
           }
         }
-        // Expose the signed-in operator's roles to the chat deck so it can
-        // answer capability questions ("what can I do?").
-        setDeckUser(deckUserFromAuth(auth));
-        // Thread the operator's bearer token to the workflow-builder's
-        // validate POST (the one non-GET, read-only call the console makes).
-        setWorkflowAuth(auth);
-        setPythonTaskAuth(auth);
-        setUserContextAuth(auth);
-        setChatAuth(auth);
         if (!cancelled) {
           setState({
             status: "ready",
