@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, OperatorApiError } from "../api";
 import type { OperatorApiClient } from "../api";
+import { EvidenceRefresh } from "../components/evidence-refresh";
 import {
   AsyncBoundary,
   DataTable,
@@ -104,11 +105,13 @@ export function buildForecastLearningViewSnapshot(
 }
 
 export function ForecastLearningRoute({ client }: { readonly client: OperatorApiClient }) {
+  const [refreshRevision, setRefreshRevision] = useState(0);
   const [state, setState] = useState<AsyncState<ForecastLearningResponse>>({
     status: "loading",
   });
   useEffect(() => {
     let cancelled = false;
+    setState({ status: "loading" });
     (async () => {
       try {
         const data = decodeForecastLearning(
@@ -133,12 +136,16 @@ export function ForecastLearningRoute({ client }: { readonly client: OperatorApi
     return () => {
       cancelled = true;
     };
-  }, [client]);
+  }, [client, refreshRevision]);
   return (
     <div class="stack governance-route">
       <PageHeader
         title={t("evidence.forecastLearning.title")}
         subtitle={t("evidence.forecastLearning.subtitle")}
+        actions={<EvidenceRefresh loading={state.status === "loading"} onRefresh={() => {
+          setState({ status: "loading" });
+          setRefreshRevision((revision) => revision + 1);
+        }} />}
       />
       <AsyncBoundary
         state={state}

@@ -38,7 +38,7 @@ Console operations use four boundaries:
 The Operator API relays typed events, never direct agent calls; its feature composition binds request state and supervised workers, not executor or workflow authority.
 Source facets preserve totals; alert table headers use readable text tokens. Isolated fixtures never establish authenticated accessibility.
 [Alert noise requests](../operations/alert-noise-governance.md) expose original acceptances and signed results.
-Only an exact-key terminal resolves uncertainty; the canonical Process owns approval and effect state.
+Only an exact-key terminal resolves uncertainty; the canonical Process owns approval and effect state. Configuration baselines, Skills, Conversation Delivery, and Forecast Learning expose an explicit Refresh evidence action using their existing GET projections. Refresh preserves the current view, enters a skeleton immediately, blocks duplicate activation while loading, and can recover after an unavailable source without activating a producer, polling automatically, or issuing a mutation.
 
 Recorded Resource state views consume the shared independent state axes rather than interpreting
 raw provider fields in the browser. An exact Static Web App default-environment `BuildStatus`
