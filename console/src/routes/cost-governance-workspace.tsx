@@ -292,10 +292,11 @@ function OptimizationCases({
   const cases = summary.rows.filter((row) => row.kind === "optimization_case");
   const recommendations = analytics?.recommendations ?? [];
   const savings = recommendationSavings(recommendations);
+  const liveCostBasis = cases.length === 0 && recommendations.length === 0 && summary.sourceRecordCount > 0;
   return (
     <>
       <div class="cost-kpi-grid">
-        <Metric label={t("costGovernance.cases.openCases")} value={cases.length ? String(cases.length) : "-"} hint={cases.length ? t("costGovernance.cases.projectedCases") : t("costGovernance.cases.noCases")} />
+        <Metric label={t(liveCostBasis ? "costGovernance.outcomes.costBasis" : "costGovernance.cases.openCases")} value={liveCostBasis ? formatKnownTotal(summary) : cases.length ? String(cases.length) : "-"} hint={liveCostBasis ? totalHint(summary) : cases.length ? t("costGovernance.cases.projectedCases") : t("costGovernance.cases.noCases")} />
         <Metric label={t("costGovernance.resource.opportunity")} value={savings.total === null ? "-" : formatCurrency(savings.total, savings.currency)} hint={recommendations.length ? t("costGovernance.cases.candidateOnly", { count: recommendations.length }) : t("costGovernance.resource.opportunityUnavailable")} />
         <Metric label={t("costGovernance.cases.pendingApproval")} value="-" hint={t("costGovernance.cases.approvalUnavailable")} />
         <Metric label={t("costGovernance.cases.capacityProtection")} value="-" hint={t("costGovernance.resource.utilizationUnavailable")} />
@@ -341,25 +342,12 @@ function Outcomes({
     outcomes,
     analytics?.recommendations ?? [],
   );
+  const liveCostBasis = sampleSavings === null && outcomes.length === 0 && summary.sourceRecordCount > 0;
   return (
     <>
       <div class="cost-kpi-grid">
-        <Metric
-          label={t("costGovernance.outcomes.verifiedSavings")}
-          value={sampleSavings
-            ? formatCurrency(sampleSavings.verifiedSavings, sampleSavings.currency)
-            : "-"}
-          hint={t(sampleSavings
-            ? "costGovernance.outcomes.sampleEvidence"
-            : "costGovernance.outcomes.noSettlement")}
-        />
-        <Metric
-          label={t("costGovernance.outcomes.realization")}
-          value={sampleSavings ? formatNullablePercent(sampleSavings.realization) : "-"}
-          hint={t(sampleSavings
-            ? "costGovernance.outcomes.sampleEvidence"
-            : "costGovernance.outcomes.noSettlement")}
-        />
+        <Metric label={t(liveCostBasis ? "costGovernance.outcomes.costBasis" : "costGovernance.outcomes.verifiedSavings")} value={liveCostBasis ? formatKnownTotal(summary) : sampleSavings ? formatCurrency(sampleSavings.verifiedSavings, sampleSavings.currency) : "-"} hint={liveCostBasis ? totalHint(summary) : t(sampleSavings ? "costGovernance.outcomes.sampleEvidence" : "costGovernance.outcomes.noSettlement")} />
+        <Metric label={t(liveCostBasis ? "costGovernance.outcomes.observations" : "costGovernance.outcomes.realization")} value={liveCostBasis ? summary.sourceRecordCount.toLocaleString(costLocale()) : sampleSavings ? formatNullablePercent(sampleSavings.realization) : "-"} hint={liveCostBasis ? t("costGovernance.outcomes.observationOnly") : t(sampleSavings ? "costGovernance.outcomes.sampleEvidence" : "costGovernance.outcomes.noSettlement")} />
         <Metric label={t("costGovernance.outcomes.sloRegression")} value="-" hint={t("costGovernance.outcomes.effectUnavailable")} />
         <Metric label={t("costGovernance.outcomes.pendingSettlement")} value="-" hint={t("costGovernance.outcomes.noSettlement")} />
       </div>
