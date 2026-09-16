@@ -17,6 +17,7 @@ Run only inside the independently deployed Operator Service process.
 """
 
 from fdai_operator_service.families.conversation.contracts import (
+    ActionConfirmationBody,
     ConversationAuthorizer,
     ConversationBoundaryError,
     ConversationEventStream,
@@ -43,6 +44,7 @@ from fdai_operator_service.families.conversation.manifest import (
 )
 
 __all__ = [
+    "ActionConfirmationBody",
     "CONVERSATION_ROUTE_MANIFEST",
     "ConversationAuthorizer",
     "ConversationBoundaryError",

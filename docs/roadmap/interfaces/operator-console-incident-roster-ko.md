@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 7582b81fb45b08bc0dd1ad82f11fca8a26d7a1ab
-translation_revised: 2026-09-15
+translation_source_sha: 94d46ea7ca49af5c914b8bfb61c9c34fd8d58b43
+translation_revised: 2026-09-16
 ---
 
 # Operator Console - 인시던트 명단 and Fix 이력
@@ -11,7 +11,7 @@ translation_revised: 2026-09-15
 
 ### 13.5 인시던트 목록 및 교정 이력
 
-읽기 전용 SPA는 일급 **실시간 > 인시던트** 패널을 제공합니다. 이 패널은
+얇은 SPA는 일급 **실시간 > 인시던트** 패널을 제공합니다. 이 패널은
 인시던트 대응을 위한 목록 중심 진입점입니다. 운영자는 상관관계 id를 미리
 알지 못해도 활성 또는 해결된 인시던트를 찾고, 하나를 선택하여 교정 이력을
 확인할 수 있습니다. 기존 감사 및 추적 패널은 각각 레코드 수준과 엔드투엔드
@@ -26,7 +26,7 @@ API 계약은 다음과 같습니다.
 | `GET /audit?correlation_id=<id>&limit=<n>&cursor=<opaque>` | 선택한 인시던트의 추가 전용 이력을 반환합니다. |
 | `GET /audit/{correlation_id}/trace` | 순서가 지정된 연관 감사 활동과 기록된 파이프라인 단계를 재구성합니다. |
 | `POST /chat/stream` | 레코드를 생성하지 않고 자연어에서 타입이 지정된 인시던트 초안을 만듭니다. |
-| `POST /chat/action/confirm` | 타입이 지정된 초안을 확인하고 감사되는 인시던트를 생성합니다. |
+| `POST /chat/action/confirm` | 타입이 지정된 인시던트 생성 요청을 다시 검증하고 영속 대기열에 넣습니다. |
 
 목록 조회는 읽기 전용으로 유지됩니다. 인증된 상세 패널에서는 범위가 제한된 개입 요청을
 제출할 수 있지만 관리 리소스에 대한 실행은 할 수 없습니다. 서버는 정본 `incident.open`
@@ -50,20 +50,30 @@ HTTP `202` 이후 Console은 일치하는 `incident.intervention-applied` 기록
 유입이 Core 적용 뒤에 실패하더라도 요청에서 파생한 안정적인 멱등성 키로 안전하게
 재전달할 수 있습니다.
 
-인시던트 생성은 의미 초안 및 타입이 지정된 확인 경로를 사용하며 목록 패널에 생성 버튼을
-추가하지 않습니다. 인식된 incident-open 요청은 다음 순서로 처리됩니다.
+인시던트 생성은 의미 기반 초안과 타입이 지정된 확인 경로를 사용하며 목록 패널에 생성
+버튼을 추가하지 않습니다. 이 요청은 관리 리소스 ActionType이 아니라 컨트롤 플레인
+레코드 작업이므로 shadow에서 적용 모드로 승격할 필요가 없고 Thor를 호출하지 않습니다.
+인식된 인시던트 열기 요청은 다음 순서로 처리됩니다.
 
-1. 기여자 기능, 심각도, 대상 상관관계 키를 요구합니다.
-2. 사람이 읽을 수 있는 요약과 10분 만료를 포함한
-  `incident_confirmation_required`를 반환합니다. 이 시점에는 인시던트가 없습니다.
-3. 같은 principal과 `session_id`에서 `confirm` 또는 `확인` 메시지를 보내면 audited
-  인시던트를 생성하고 id와 초기 `open` 상태를 반환합니다.
+1. 의미 기반 판정은 심각도 하나와 대상 하나를 가진 완전한 `incident_create` 의도를
+   요구한 뒤 10분 만료 시각이 있는 권한 없는 초안을 반환합니다. 이 시점에는
+   인시던트가 없습니다.
+2. 확인 요청은 `action_type`, 인자, `session_id`, 초안 멱등성 키만 보냅니다.
+   Operator는 principal이 소유한 원본 변환 결과를 다시 읽고 만료되거나 변경된 초안을
+   차단합니다.
+3. Operator는 영속 수락 후 HTTP `202`를 반환하고 전용 논리 토픽에 버전이 지정된
+   `IncidentCreationRequest`를 게시합니다. Core는 요청을 검증하고 감사되는 인시던트
+   하나를 생성하거나 재사용합니다. HTTP 응답이 아니라 `/incidents` 변환 결과가
+   완료를 입증합니다.
 
-Pending 제안의 `session_id`는 200자로 제한됩니다. Oversized 세션 또는
-멱등성 키는 truncate하지 않고 거부하므로 서로 다른 식별자가 같은 확인으로
-합쳐지지 않습니다. 운영은 제안을 Postgres에 저장하고 atomic하게 consume하므로
-확인이 다른 복제본에 도착해도 처리할 수 있습니다. 저장된 기록에는 출처
-프롬프트 원문이 아니라 SHA-256만 포함됩니다.
+대기 중인 제안의 `session_id`와 멱등성 키는 200자로 제한됩니다. 너무 긴 값은 자르지
+않고 차단하므로 서로 다른 식별자가 같은 확인으로 합쳐지지 않습니다. 운영 환경에서는
+제안을 PostgreSQL에 저장하고 원자적으로 소비하므로 확인 요청이 다른 복제본에 도착해도
+처리할 수 있습니다. 저장된 초안에는 원본 운영자 문장이 아니라 의미 기반 입력
+다이제스트가 포함됩니다.
+Core는 대상과 변경 불가능한 원본 요청을 함께 사용해 인시던트 신원을 만듭니다. 같은 확인
+요청이 재전달되면 동일한 인시던트를 재사용하지만, 같은 리소스에 대해 나중에 확인한 요청은
+별도의 인시던트 에피소드를 생성할 수 있습니다.
 
 누락된 값은 `incident_details_required`, 취소는
 `incident_creation_cancelled`를 반환합니다. 관련 없는 액션 명령은 기존
@@ -420,6 +430,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Incident 수명 주기, roster 변환 결과 및 Console 보기 | implemented | `services/core-control-plane/src/fdai/core/incident/`; `services/core-control-plane/tests/core/incident/`; `console/src/routes/incidents.tsx`; focused Console incident 테스트 | Incident 상태, 상관관계, 수명 주기, roster, attention, 범위가 제한된 presentation 및 분리된 A1 승인 전달과 A2 알림 전달 상태에 focused 검사가 있습니다. |
+| Console 인시던트 생성 | implemented | `fdai_service_contracts.incident_creation`, `semantic_incident_creation.py`, `incident_creation_confirmation.py`, `incident_creation_consumer.py`, 집중 교차 서비스 테스트 | 검증된 초안을 principal 소유 원본과 다시 비교하고 영속 대기열에 넣은 뒤 Core 인시던트 수명 주기가 소비합니다. 이 경로에는 관리 리소스 실행 또는 승격 의존성이 없습니다. |
 | 서버 기반 roster 검색 | implemented | `fdai_service_contracts.operator.IncidentQuery`; `fdai_operator_service.postgres_sql.INCIDENT_PAGE_SQL`; `console/src/api-operations-client.ts`; `console/src/routes/incidents.tsx`; focused Operator 및 Console 테스트 | 페이지 나누기 전에 범위가 제한된 기록 대상 근거를 검색하고, 측정은 같은 snapshot과 필터를 사용하며, 커서는 정규화된 검색어를 상태, 버티컬, 심각도와 함께 묶습니다. |
 | Projection-first PostgreSQL roster 읽기 | implemented | `operator_incident_projection`, `INCIDENT_PAGE_SQL`, Core 및 Operator service migration, 집중 Operator 및 migration 검사 | 감사 trigger가 최근 행 최대 100개와 영속 정본 Incident identity를 포함하는 temporal correlation version을 유지합니다. 읽기는 `incident.open`이 있는 version만 포함하고 정확한 as-of version을 고른 뒤 필터와 `LIMIT`을 적용해 선택한 history만 펼칩니다. |
 | 운영자가 읽을 수 있는 identity 및 단계별 조사 | implemented | `incident_projection.py`; `projection_logic.py`; `postgres.py`; `incidents.tsx`; `incidents.detail-sections.tsx`; `incidents.milestones.ts`; focused Operator 테스트(`31 passed`), Console 테스트(`66 passed`), typecheck, strict mypy, Ruff, Pylance 및 catalog parity | 제목 출처, 신뢰된 원본 context, 계획 미리 보기, 범위가 제한된 근거 milestone, 독립적으로 검증된 결과 cohort를 실행 권한 없이 구현했습니다. |
@@ -453,6 +464,8 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-25 | implemented | 인시던트 현재 상황 변환에서 기록된 A1 승인 요청 전달 실패를 A2 운영 알림 라우팅과 분리했습니다. Console은 필요한 사람 입력을 유지하고 승인 전달 불가 상태를 정확히 명명하며 보류된 승인 대기열과 위생 처리된 통합 준비 상태로 연결합니다. | `current change`; [이슈 #274](https://github.com/dotnetpower/fdai/issues/274); `incidents.overview.ts`, `incidents.tsx`, 두 Console 카탈로그 및 집중 인시던트 테스트. | 외부 승인 카드 전달이 필요하면 배포 소유 A1 채널 비밀을 구성합니다. 비밀이 없으면 A2 알림 실패가 아니라 명시적인 통합 사용 불가 상태로 유지합니다. |
 | 2026-09-15 | implemented | 적용된 운영자 의견이 새로 고침 없이 나타나도록 수락 이후 제한된 재조회를 추가하고, 적용된 `operator_guidance`를 Huginn에서 Saga의 담당 감사 경로로 보내되 ActionRun은 만들지 않도록 했습니다. | `current change`; 인시던트 Console 경로, 개입 대화 상자, 영문/국문 카탈로그, 서비스 계약, Core 소비자 및 런타임 바인딩, Saga/Forseti 라우팅과 집중 테스트입니다. Console 타입 검사, 단위 테스트 29개, 데스크톱 E2E 테스트 8개, 집중 Core 개입 및 에이전트 라우팅 테스트 10개, strict mypy 및 Ruff를 통과했습니다. | 새 지침 요청 하나가 적용 감사 행과 Saga 에이전트 감사 행을 모두 만드는 로컬 실시간 근거를 보존해야 합니다. |
 | 2026-09-15 | validated | 새로 시작한 로컬 전송 계층으로 기존 적용 지침 요청 하나를 재전달하고, ActionRun 없이 Core 적용과 Saga 담당 감사를 연결하는 내용 비포함 근거를 보존했습니다. | `current change`; `docs/baselines/incident-intervention-assurance-2026-09-15.json`; 관리형 로컬 스택 준비 상태 11/11, 일치하는 적용 감사 1건, Saga `object.event` 감사 1건, 일치하는 ActionRun 0건을 확인했습니다. | 개입 이후 갱신과 담당 지침 라우팅에 남은 작업은 없습니다. |
+| 2026-09-16 | implemented | 독립 Operator 경로 이행 뒤 확인 요청이 HTTP `404`로 끝나던 Console 의미 기반 인시던트 생성 흐름을 복구했습니다. 새 경로는 만료되는 원본 초안을 다시 검증하고 전용 버전 요청 토픽을 사용하며 Thor를 거치지 않고 기존 Core 수명 주기에서 인시던트를 생성합니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 계약, 의미 기반 계획 및 변환 결과, Operator 경로 및 보낼 편지함, Core 소비자, Console 확인 검사. | 확인 요청부터 생성된 `incident.open` 변환 결과까지 인증된 표준 포트 관측을 보존해야 합니다. |
+
 ### 남은 작업
 
 - [x] 기록된 제목, 요약, 룰, signal, 정리된 resource 대상을 우선하고 식별자 fallback을 사용 불가로 표시하는 범위가 제한된 `title_source` 계약과 focused projection, decoder, render 테스트를 추가합니다.
@@ -472,3 +485,6 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 - [x] 인증된 로컬 Console에서 복구된 Incident roster 렌더링을 확인합니다.
 - [x] 정본 `incident.open` 수명 주기만 Incident 명단과 결과 분모에 포함하고 Incident가 아닌 상관관계는 Audit, Trace, RCA에 유지합니다.
 - [x] `operator_guidance` 의견이 새로 고침 없이 나타나고 ActionRun 없이 Saga 감사 행을 만드는 로컬 근거를 보존합니다. `docs/baselines/incident-intervention-assurance-2026-09-15.json`은 내용이 포함되지 않은 요청 및 상관관계 참조를 적용 감사와 Saga 감사 관측에 연결합니다.
+- [x] ActionType을 활성화하거나 Thor를 호출하지 않고 principal에 연결된 만료 초안,
+  HTTP `202` 영속 수락, 전용 버전 요청, Core 인시던트 수명 주기를 통해 의미 기반
+  인시던트 생성을 복구했습니다([이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125)).

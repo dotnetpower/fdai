@@ -82,7 +82,10 @@ from fdai.runtime.bootstrap_pantheon import (
     _pantheon_enforce_enabled,
     _runtime_asset_root,
 )
-from fdai.runtime.bootstrap_tasks import schedule_incident_intervention_consumer
+from fdai.runtime.bootstrap_tasks import (
+    schedule_incident_creation_consumer,
+    schedule_incident_intervention_consumer,
+)
 from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.local.event_bus import LocalEventBus
@@ -760,6 +763,32 @@ async def test_incident_intervention_bootstrap_schedules_configured_binding() ->
 
     assert task is not None
     assert task.get_name() == "incident-intervention-consumer"
+    await task
+    assert calls == [(bus, stop)]
+
+
+async def test_incident_creation_bootstrap_schedules_configured_binding() -> None:
+    calls: list[tuple[LocalEventBus, asyncio.Event]] = []
+
+    class _Binding:
+        async def run(self, *, bus: LocalEventBus, stop: asyncio.Event) -> None:
+            calls.append((bus, stop))
+
+    class _Ready:
+        async def run_when_ready(self, stop: asyncio.Event, operation: object) -> None:
+            await operation()  # type: ignore[operator]
+
+    bus = LocalEventBus()
+    stop = asyncio.Event()
+    task = schedule_incident_creation_consumer(
+        binding=_Binding(),
+        readiness=_Ready(),  # type: ignore[arg-type]
+        bus=bus,
+        stop=stop,
+    )
+
+    assert task is not None
+    assert task.get_name() == "incident-creation-consumer"
     await task
     assert calls == [(bus, stop)]
 

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: a033193d80a6fca1c245ec8a145396f9665c3532
+translation_source_sha: 5f047679c0e11150f554031bcec8248132f30e7d
 translation_revised: 2026-09-16
 ---
 # FDAI Console 대화
@@ -595,7 +595,7 @@ N/N-1 JSON Schema에서 이 변환 결과를 만듭니다. 생성 인터페이�
 
 focused 소유자 문서로 분리했습니다:
 
-- [operator-console-wire-contracts-ko.md](operator-console-wire-contracts-ko.md) - 감사 항목, CLI REPL, 승인 콜백(13.1-13.3), 액션 제출, Python VM workbench, 그라운딩된 코드, 온톨로지 변환 결과(13.6-13.9).
+- [operator-console-wire-contracts-ko.md](operator-console-wire-contracts-ko.md) - 감사 항목, CLI REPL, 승인 콜백(13.1-13.3), 의미 기반 인시던트 생성, 관리 작업 제출 상태, Python VM 작업 영역, 근거 기반 코드, 온톨로지 변환 결과(13.6-13.9).
 - [operator-console-view-snapshot-ko.md](operator-console-view-snapshot-ko.md) - self-describing 화면 계약(13.4).
 - [operator-console-incident-roster-ko.md](operator-console-incident-roster-ko.md) - 인시던트 목록, 교정 이력, 카탈로그를 재사용하는 대기/적용 상태, 제한된 HTTP `202` 재조회, 권한을 부여하지 않는 Huginn-to-Saga 지침 감사 경로(13.5).
 ## 14. MCP 전달 및 managed 카탈로그

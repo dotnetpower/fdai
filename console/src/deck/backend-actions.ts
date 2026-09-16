@@ -104,19 +104,34 @@ export function createActionConfirmer(
     } catch {
       /* fall through - use the status only */
     }
+    const error = typeof payload.error === "object" && payload.error !== null
+      ? payload.error as Record<string, unknown>
+      : undefined;
     return {
       submitted: payload.submitted === true,
       status: response.status,
       ...(typeof payload.action_type === "string" ? { actionType: payload.action_type } : {}),
       ...(typeof payload.correlation_id === "string" ? { correlationId: payload.correlation_id } : {}),
-      ...(typeof payload.reason === "string" ? { reason: payload.reason } : {}),
+      ...(typeof payload.reason === "string"
+        ? { reason: payload.reason }
+        : typeof error?.code === "string"
+        ? { reason: error.code }
+        : {}),
       ...(typeof payload.required_capability === "string" ? { requiredCapability: payload.required_capability } : {}),
-      ...(typeof payload.message === "string" ? { message: payload.message } : {}),
+      ...(typeof payload.message === "string"
+        ? { message: payload.message }
+        : typeof error?.message === "string"
+        ? { message: error.message }
+        : {}),
       ...(typeof payload.incident_id === "string" ? { incidentId: payload.incident_id } : {}),
       ...(typeof payload.incident_state === "string" ? { incidentState: payload.incident_state } : {}),
       ...(typeof payload.created === "boolean" ? { created: payload.created } : {}),
     };
   };
+}
+
+export function actionConfirmationCanRetry(result: ActionSubmitResult): boolean {
+  return result.status === 0 || result.status >= 500;
 }
 
 export function renderActionResult(result: ActionSubmitResult): string {
@@ -148,6 +163,13 @@ export function renderActionResult(result: ActionSubmitResult): string {
     case "incident_confirmation_expired":
     case "incident_confirmation_invalid":
     case "incident_session_required":
+    case "incident_confirmation_forbidden":
+    case "incident_confirmation_mismatch":
+    case "incident_confirmation_conflict":
+    case "incident_draft_not_found":
+    case "incident_draft_invalid":
+    case "incident_draft_unavailable":
+    case "incident_confirmation_unavailable":
       return result.message ?? "The incident request needs more information before it can continue.";
     case "unmapped_action_intent":
       return "I recognised that as a command, but it maps to no known action yet, so I did not submit it.";

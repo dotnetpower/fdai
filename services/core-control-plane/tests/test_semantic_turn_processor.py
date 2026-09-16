@@ -94,6 +94,11 @@ from fdai_service_contracts import (
     rule_search_query_digest,
     semantic_document_context_digest,
 )
+from fdai_service_contracts.incident_creation import (
+    IncidentCreationArguments,
+    IncidentCreationDraft,
+    IncidentCreationIntent,
+)
 from fdai_service_contracts.ontology_query import (
     EvidenceAuthority,
     GoalEvidenceMode,
@@ -3177,6 +3182,7 @@ def _runtime_result(
     direct_response_intent: SemanticDirectResponseIntent = SemanticDirectResponseIntent.GREETING,
     direct_response_answer: str = "This answer came from the semantic judgment model.",
     model_observations: tuple[SemanticJudgmentObservation, ...] = (),
+    incident_creation_intent: IncidentCreationIntent | None = None,
 ) -> RuntimeSemanticTurnResult:
     plan = SimpleNamespace(
         ontology_release_digest=RELEASE_DIGEST,
@@ -3191,6 +3197,7 @@ def _runtime_result(
             output_shape="resource_list",
             subject_constraints=(),
             measure_concepts=(),
+            input_digest=RELEASE_DIGEST,
         ),
         manifest_digest=MANIFEST_DIGEST,
         direct_response_intent=(
@@ -3200,6 +3207,7 @@ def _runtime_result(
             direct_response_answer if disposition == "direct_response" else None
         ),
         model_observations=model_observations,
+        incident_creation_intent=incident_creation_intent,
     )
     if disposition != "answered":
         return RuntimeSemanticTurnResult(
@@ -4216,6 +4224,25 @@ async def test_action_draft_projection_retains_existing_fields_with_advisory_att
     assert {key: value for key, value in semantic.items() if key != "adaptive_answer"} == (
         baseline["semantic_result"]
     )
+
+
+async def test_incident_action_draft_projection_binds_confirmation_identity() -> None:
+    intent = IncidentCreationIntent(
+        arguments=IncidentCreationArguments(severity="sev2", target="service-api"),
+        source_input_digest=RELEASE_DIGEST,
+    )
+    projection = _projection(
+        await _processor(
+            _Runtime(_runtime_result("action_draft", incident_creation_intent=intent)),
+        ).process(_request(roles=["Contributor"]))
+    )
+
+    draft = IncidentCreationDraft.model_validate(projection["payload"]["incident_creation_draft"])
+    assert draft.action_type == "incident.create"
+    assert draft.arguments.target == "service-api"
+    assert draft.session_id == "session-1"
+    assert draft.idempotency_key == "semantic-turn-1"
+    assert draft.execution_authority is False
 
 
 async def test_advisory_projection_and_replay_preserve_goal_local_support() -> None:

@@ -439,12 +439,14 @@ judges it and, for a high-risk action, an approver signs off** (execution is
 shadow-first, and RBAC is enforced server-side - a Reader gets `403`). The deck
 renders the outcome (submitted with a correlation id / refused by role /
 unmapped) and never holds any execution authority. See
-[operator-console.md § 13.6](../docs/roadmap/interfaces/operator-console.md#136-action-submit---post-chataction-propose-never-execute).
+[the semantic action draft contract](../docs/roadmap/interfaces/operator-console-wire-contracts.md#136-semantic-action-draft-and-typed-confirmation).
 
-Incident creation uses the same semantic draft and typed confirmation flow.
-Only a confirmed draft with server-validated severity and target reaches
-`IncidentRegistry` to create the audited control-plane record. This path never
-invokes Thor or a cloud executor.
+Incident creation uses a dedicated semantic draft and typed confirmation flow.
+The Operator API reloads the principal-owned draft before returning HTTP `202`,
+then publishes a versioned request on the Incident creation topic. Core opens or
+reuses the audited record through `IncidentRegistry`; the `/incidents`
+projection, rather than HTTP acceptance, proves completion. This path never
+invokes Thor, a cloud executor, or an ActionType promotion mode.
 The local development composition runs the same proposal through a persistent
 in-memory pantheon bus, so a submitted restart reaches Forseti and finishes as
 a Thor shadow action instead of stopping at HTTP acceptance. Production binds

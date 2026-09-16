@@ -11,8 +11,13 @@ from dataclasses import replace as dataclass_replace
 from typing import Any, Protocol
 
 import httpx
+from fdai_core_service.incident_creation_consumer import IncidentCreationConsumerBinding
 from fdai_core_service.incident_intervention_consumer import (
     IncidentInterventionConsumerBinding,
+)
+from fdai_service_contracts.incident_creation import (
+    INCIDENT_CREATION_CONSUMER_GROUP,
+    INCIDENT_CREATION_REQUEST_TOPIC,
 )
 from fdai_service_contracts.incident_intervention import (
     INCIDENT_INTERVENTION_CONSUMER_GROUP,
@@ -117,6 +122,7 @@ class IncidentRuntime:
     entries: tuple[Mapping[str, Any], ...]
     notification_replay_worker: IncidentNotificationReplayWorker
     intervention_binding: IncidentInterventionConsumerBinding
+    creation_binding: IncidentCreationConsumerBinding
     open_incident_candidate: OpenIncidentCandidate
     observe_tool_receipt: ObserveToolReceipt
     notification_receipt_applier: NotificationDeliveryReceiptApplier
@@ -192,6 +198,11 @@ async def build_incident_runtime(
             state_store=state_store,
         ),
     )
+    creation_binding = IncidentCreationConsumerBinding(
+        request_topic=INCIDENT_CREATION_REQUEST_TOPIC,
+        group_id=INCIDENT_CREATION_CONSUMER_GROUP,
+        workflow=workflow,
+    )
 
     async def open_incident_candidate(candidate: dict[str, Any]) -> bool:
         result = await open_detected_incident_candidate(
@@ -223,6 +234,7 @@ async def build_incident_runtime(
         entries=entries,
         notification_replay_worker=notification_replay_worker,
         intervention_binding=intervention_binding,
+        creation_binding=creation_binding,
         open_incident_candidate=open_incident_candidate,
         observe_tool_receipt=observe_tool_receipt,
         notification_receipt_applier=NotificationDeliveryReceiptApplier(
@@ -236,6 +248,7 @@ __all__ = [
     "IncidentNotifierBuilder",
     "IncidentNotificationReplayWorker",
     "IncidentRuntime",
+    "IncidentCreationConsumerBinding",
     "IncidentInterventionConsumerBinding",
     "ObserveToolReceipt",
     "OpenIncidentCandidate",

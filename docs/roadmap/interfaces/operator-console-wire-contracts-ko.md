@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 747f7ed47642dc3b03fe2a329176dab09baa28c5
-translation_revised: 2026-09-14
+translation_source_sha: bf308973d4b56c7c2daa884bb848d6173aa199d1
+translation_revised: 2026-09-16
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -91,28 +91,26 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도�
 다시 시도하므로 실패한 소유자가 요청을 외부 기한까지 멈추게 할 수 없습니다. 대기 중 결과
 저장소가 실패하면 명시적인 보류 변환 결과를 반환합니다.
 
-- **초안**: `action_draft` 또는 `incident_draft`는 허용 목록에 있는
-  `action_type`, 범위가 제한된 타입이 지정된 arguments, 대화 `session_id`, request-scoped
-  멱등성 키를 반환합니다. 초안을 만드는 동안 이벤트를 발행하거나
-  인시던트를 생성하지 않습니다. 브라우저는 확인 및 취소 컨트롤을 표시합니다.
-- **타입이 지정된 확인**: `POST /chat/action/confirm`은
-  `{"action_type": str, "arguments": 객체, "session_id": str?,
-  "idempotency_key": str}`만 받습니다. 서버는 제안 하나를 발행하기 전에
-  ActionType 허용 목록, 인자 한계치, 인증된 principal 및 RBAC를 다시
-  확인합니다. 알 수 없는 필드 및 허용 목록에 없는 액션은 차단됩니다.
-- **호환 엔드포인트**: `POST /chat/action`, 본문 `{"프롬프트": str, "session_id": str?,
-  "idempotency_key": str?}`. `OperatorApiConfig.console_action` 이
-  `ConsoleActionSubmitter`
-  (`services/operator-service/src/fdai_operator_service/`)를 wire할 때만
-  등록됩니다. 이 raw-prompt 경로는 호환 API 클라이언트를 위해 남아 있으며 브라우저
-  Command Deck은 사용하지 않습니다. 오퍼레이터 제공 값은
-  한계된다(프롬프트 <= 4000, 질문 <= 2000, 리소스 id / 세션 id /
-  멱등성 키 <= 200자) - 하나의 큰 값이 파이프라인/감사 을 bloat 하지
-  못하게. 클라이언트 `idempotency_key` 는 제안 의 dedup 키가 되어(initiator 로
-  이름 공간 되므로 한 운영자 가 다른 운영자 의 키를 재사용해 그의 액션 을
-  suppress 할 수 없다), 재시도/중복 제출이 두 번째 액션 을 큐에 추가 하지 않고
-  Huginn 에서 collapse 된다; Thor 는 상관관계 단위로 추가 멱등이므로
-  at-least-once 재전달이 double-execute 되지 않는다.
+- **인시던트 초안**: 검증된 `incident_create` 판정은 범위가 제한된 심각도와 대상,
+  대화 `session_id`, 요청 범위 멱등성 키를 포함한 권한 없는 `incident.create`
+  초안을 반환합니다. 서버는 원본 다이제스트와 10분 만료 시각을 보존합니다. 초안을
+  만드는 동안 이벤트를 게시하거나 인시던트를 생성하지 않습니다. 브라우저는 확인 및
+  취소 컨트롤을 표시합니다.
+- **타입이 지정된 인시던트 확인**: `POST /chat/action/confirm`은
+  `{"action_type": str, "arguments": 객체, "session_id": str,
+  "idempotency_key": str}`만 받습니다. 서버는 principal이 소유한 정확한 의미 기반
+  변환 결과를 다시 읽고 모든 공개 필드를 비교한 뒤 만료 시각과 현재 RBAC를 확인하여
+  버전이 지정된 요청 하나를 영속 대기열에 넣습니다. 알 수 없는 필드, 만료된 초안,
+  변경된 인자, 지원되지 않는 작업 유형은 차단됩니다.
+- **전용 인시던트 전송**: 보낼 편지함은 `IncidentCreationRequest`를
+  `operator.incident-creation.requests`에 게시합니다. Core는 기존
+  `IncidentLifecycleWorkflow`가 인시던트를 생성하거나 재사용하기 전에 다이제스트,
+  역할 하한, 원본 신원, 파티션 키, 권한 없음 필드를 검증합니다. 이 레코드 작업은
+  Thor를 사용하지 않으며 ActionType의 shadow 또는 적용 모드에 의존하지 않습니다.
+- **호환 엔드포인트**: 독립 Operator Service는 이전 raw-prompt
+  `POST /chat/action` 경로를 등록하지 않습니다. 브라우저와 API 클라이언트는 의미 기반
+  초안과 타입이 지정된 확인 경로를 사용하므로 자연어가 쓰기 엔드포인트로 직접
+  전달되지 않습니다.
 - **서버 파생 RBAC**. 오퍼레이터 역할은 검증된 bearer 토큰(`Principal.roles`)
   에서 오며, 클라이언트 JSON이 아니다. 제출은 `author-draft-pr` 기능
   (기여자 이상)를 요구; 읽기 담당은 아무것도 발행되기 전에
@@ -149,10 +147,11 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도�
   조건은 표류하므로 요청은 파이프라인에 재진입해 새로 judged된다. 이 규칙은
   하나의 순수 함수(`fdai.core.console_request.evaluate_operator_rerequest`)에
   산다. 경계가 없으면 모든 요청은 fresh로 취급된다(deny-override 확인 없음).
-- **응답**(제출됨): `200 {"submitted": true, "correlation_id": ...,
-  "action_type": ..., "resource_id": ...}`. 오퍼레이터는 `correlation_id`
-  (추적 패널 / 감사)로 진행을 추적; 파이프라인 결과(auto shadow-exec,
-  HIL 대기, 거부)는 비동기.
+- **응답**(수락됨): `202 {"submitted": true, "created": false,
+  "action_type": "incident.create", "request_id": ..., "dispatch_status":
+  "pending", ...}`입니다. 이 응답은 영속 수락만 입증하며 인시던트 생성 완료를
+  입증하지 않습니다. Core가 `incident.open`을 기록한 뒤 권위 있는 `/incidents`
+  변환 결과에서 완료 여부를 확인합니다.
 - **조사 인시던트**. 명시적 `tool.run-investigation <kind> <resource>` 명령 자체를
   확인으로 간주하여 세션, 대상, 리소스 종류에 대한 결정론적 인시던트를 만들거나
   재사용합니다. 제안은 인시던트 ID를 상관관계로 사용하고 타입이 지정된 매개변수에
@@ -343,7 +342,8 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 | 증적 기반 런타임 Context snapshot | in-progress | 온톨로지 플랫폼의 보안 ObjectSet 및 Context 계약, 기존 Console 사용 불가 상태 | 워크벤치는 카탈로그 선언과 런타임 인스턴스를 병합하지 않습니다. principal 범위 Context 증적은 별도 전달 작업으로 남아 있습니다. |
 | HIL callback 계약 | implemented | Operator IAM family 경로; `services/operator-service/tests/test_operator_iam_family.py`; full-composition 테스트 | 서명, 재생 구간, 역할, 자기 승인 금지, 정확한 pending id 및 멱등적 결정 동작이 구현됐습니다. |
 | Python task workbench 및 근거 기반 code | implemented | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; Console Python task 테스트 | 정적 검증, inert 산출물, 기능 및 chat 실행 부재 경계에 focused 검사가 있습니다. |
-| Semantic action draft 및 타입이 지정된 확인 | in-progress | Operator conversation 및 workflow application 경로 | 범위가 제한된 draft 및 proposal 경로는 있지만 이 owner 문서는 모든 conflict 및 denial 사례를 통과하는 관리되는 request-to-audit 확인 증적을 보존하지 않습니다. |
+| 인시던트 생성 초안 및 타입이 지정된 확인 | implemented | `fdai_service_contracts.incident_creation`, Core 의미 기반 변환 결과 및 인시던트 생성 소비자, Operator 확인 경로 및 보낼 편지함 브리지, Console 확인 클라이언트, 서비스 테스트 묶음 소유권, 집중 교차 서비스 및 CI 계약 테스트 | 브라우저는 공개 초안 필드 네 개만 보냅니다. Operator는 정확한 원본을 다시 읽고 버전이 지정된 권한 없는 요청을 대기열에 넣으며, Core는 감사되는 인시던트 하나를 생성하거나 재사용합니다. HTTP `202`는 `/incidents`에서 레코드를 확인할 때까지 대기 상태입니다. |
+| 관리 리소스 의미 기반 작업 확인 | in-progress | 기존 `OntologyActionIntent` 검증, 확인 경로 및 작업 확인 작업자 | Core는 아직 확인 가능한 비인시던트 작업 의도를 변환하지 않습니다. 이 원본을 완료하려면 독립적으로 검토된 ActionType 초안과 요청부터 감사까지의 증적이 필요합니다. |
 | CLI, Teams 및 Slack wire 동등성 | in-progress | `cli/`; channel 어댑터 및 테스트 | 공유 presentation 계약은 있습니다. 현재 관리되는 다중 채널 동등성 증적은 여기에 보존되지 않았습니다. |
 | 관리되는 계약 간 런타임 근거 | in-progress | Operator 및 Console focused 테스트 | 단위 및 통합 검사는 동작 방식을 입증하지만 callback, proposal, code 산출물, 온톨로지 및 영속 감사 화면을 잇는 인증 증적은 아닙니다. |
 
@@ -360,6 +360,9 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 | 2026-08-19 | implemented | 읽기 전용 인벤토리 및 대화 테이블의 개별 변경, truncate, reference, trigger 권한을 Operator 데이터베이스 readiness가 각각 거부하도록 강화했습니다. 실수로 쓰기 권한 하나만 부여돼도 서비스 readiness 경계를 통과할 수 없습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused readiness 사례 2개와 Ruff, format, mypy가 통과했고 실제 로컬 `fdai_operator` 역할도 ready 상태를 유지했습니다. | 독립적인 hardening round를 계속합니다. 배포된 역할 변경은 migration으로만 통제합니다. |
 | 2026-08-19 | implemented | HTTP 경계에서 활성 인벤토리 대상 부재와 온톨로지 선언 부재를 분리했습니다. Impact scope는 이제 식별자를 포함하지 않는 Resource에 맞는 `404`를 반환하고 선언 경로는 기존 공개 문구를 유지합니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused operations 경로 회귀 검사와 Ruff, format, mypy가 통과했습니다. | 독립적인 hardening round를 계속합니다. 권한 있는 원본을 사용할 수 없으면 `503`, 잘못된 요청이면 `400`을 유지합니다. |
 | 2026-08-19 | implemented | Enhancement plan의 exact 선언, 종속 항목, 근거 상태, release diff 및 활성 인벤토리 영향 범위 묶음을 shipped field 이름으로 이 owner contract에 통합했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, 문서 pair 및 route contract gate입니다. | 보존 근거를 추가할 때 이 묶음을 유지하고 경로를 작성 또는 실행 화면으로 넓히지 않습니다. |
+| 2026-09-16 | implemented | 독립 서비스 이행에서 확인 경로가 누락되고 영속 작업자가 브라우저로 확인할 수 없는 원본을 요구해 중단된 Console 인시던트 생성을 복구했습니다. 타입이 지정된 만료 초안, 서버 측 원본 재검증, 전용 인시던트 생성 토픽, 기존 인시던트 수명 주기를 사용하는 Core 소비자를 추가했습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 서비스 계약, Core, Operator 및 Console 검사. | 인증된 요청부터 `incident.open`까지의 런타임 증적을 보존해야 합니다. HTTP 수락만으로 완료를 입증할 수 없습니다. |
+| 2026-09-16 | implemented | 서비스 테스트 묶음 소유권, 의미 검토 등록, 생성된 question-bank 출처, 집계 경로 수, Core bootstrap 크기를 저장소 CI 계약에 맞췄습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 CI 계약 테스트 76개, 설계 영향 회귀 테스트, strict mypy 및 Ruff. | 정확한 최신 head의 보호된 CI와 인증된 요청부터 `incident.open`까지의 런타임 증적은 아직 필요합니다. Wire 동작이나 권한은 변경하지 않았습니다. |
+| 2026-09-16 | implemented | 일반 작업 확인의 기존 유효 기간 동작을 유지하고, 정확한 타입의 인시던트 인자와 세션 신원을 요구했으며, 의미 기반 요청 및 결과 행을 모두 인증된 principal에 결속했습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 인시던트 확인, 일반 작업 및 PostgreSQL 조회 회귀 테스트. | 정확한 최신 head의 보호된 CI와 인증된 요청부터 `incident.open`까지의 런타임 증적은 아직 필요합니다. 실행 권한은 변경하지 않았습니다. |
 
 ### 남은 작업
 
