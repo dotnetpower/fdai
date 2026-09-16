@@ -151,8 +151,24 @@ def test_leaf_handler_defaults_and_typed_arguments_are_preserved(tmp_path):
     assert args.online is False
     assert args.monthly_cost_ceiling == 1000
     assert args.timeout_seconds == 14400
+    assert args.foundation_workload == "fdai"
     assert args.progress == "plain"
     assert args.output == "json"
+
+
+def test_source_foundation_workload_is_explicit_and_validated() -> None:
+    args = cli._parser().parse_args(
+        [
+            "provision",
+            "azure",
+            "--source",
+            ".",
+            "--foundation-workload",
+            "fdaihack",
+        ]
+    )
+
+    assert args.foundation_workload == "fdaihack"
 
 
 # R06: Public command registration owns documentation; hidden recovery switches stay hidden.

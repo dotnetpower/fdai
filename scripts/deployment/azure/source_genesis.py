@@ -7,6 +7,7 @@ import argparse
 import fcntl
 import json
 import os
+import re
 import stat
 import sys
 from datetime import UTC, datetime, timedelta
@@ -33,6 +34,8 @@ from resource_provider_reconcile import reconcile_resource_providers
 
 def prepare(args: argparse.Namespace) -> dict[str, object]:
     """Persist exact target/source inputs and an SSH key, never an artifact-signing key."""
+    if re.fullmatch(r"[a-z][a-z0-9]{1,11}", args.workload) is None:
+        raise ValueError("source Foundation workload token is invalid")
     source = inspect_source(Path(__file__).resolve().parents[3], expected_commit=args.source_commit)
     target = active_azure_target()
     binding = compute_target_binding(
@@ -67,6 +70,7 @@ def prepare(args: argparse.Namespace) -> dict[str, object]:
             "region": args.region,
             "provenance": "operator-selected-source",
             "runner_bootstrap_mode": "online",
+            "workload": args.workload,
         }
     )
     ssh_key = root / "runner_ed25519"
@@ -80,6 +84,7 @@ def prepare(args: argparse.Namespace) -> dict[str, object]:
             or values.get("run_digest") != run_binding
             or values.get("target_binding") != binding
             or values.get("runner_bootstrap_mode") != "online"
+            or values.get("workload") != args.workload
             or values.get("runner_source_image_id") != ""
             or not isinstance(values.get("runner_marketplace_image_version"), str)
             or not values["runner_marketplace_image_version"]
@@ -100,6 +105,7 @@ def prepare(args: argparse.Namespace) -> dict[str, object]:
             execution_transport="manual",
             evidence_directory=root,
             create_runner_image=False,
+            workload=args.workload,
         )
         write_plan_input(variables, values)
     source.reverify()
@@ -146,6 +152,7 @@ def advance(args: argparse.Namespace) -> dict[str, object]:
         or marker.get("source_input_digest") != source.digest
         or marker.get("source_commit") != source.commit
         or marker.get("target_binding") != args.target_binding
+        or read_plan_input(root / "foundation-variables.json").get("workload") != args.workload
     ):
         raise ValueError("source Foundation preparation receipt differs from execution")
     lock = os.open(
@@ -379,6 +386,7 @@ def main() -> int:
     parser.add_argument("--target-binding", required=True)
     parser.add_argument("--region", required=True)
     parser.add_argument("--monthly-cost-ceiling", type=int, required=True)
+    parser.add_argument("--workload", default="fdai")
     parser.add_argument("--advance", action="store_true")
     parser.add_argument("--source-snapshot", type=Path)
     parser.add_argument("--source-snapshot-digest")
