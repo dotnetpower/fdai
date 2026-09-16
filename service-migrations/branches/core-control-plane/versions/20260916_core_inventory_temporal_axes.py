@@ -23,15 +23,23 @@ rollback = {
 def upgrade() -> None:
     """Add temporal axes and backfill retained rows without changing identities."""
 
+    # The migration transaction holds the table lock until the update trigger is restored,
+    # so no concurrent session can observe a writable journal.
     op.execute(
         """
         ALTER TABLE inventory_observation_journal
             ADD COLUMN provider_event_at TIMESTAMPTZ,
             ADD COLUMN ingested_at TIMESTAMPTZ;
 
+        ALTER TABLE inventory_observation_journal
+            DISABLE TRIGGER inventory_observation_journal_no_modify;
+
         UPDATE inventory_observation_journal
         SET ingested_at = recorded_at
         WHERE ingested_at IS NULL;
+
+        ALTER TABLE inventory_observation_journal
+            ENABLE TRIGGER inventory_observation_journal_no_modify;
 
         ALTER TABLE inventory_observation_journal
             ALTER COLUMN ingested_at SET NOT NULL;
