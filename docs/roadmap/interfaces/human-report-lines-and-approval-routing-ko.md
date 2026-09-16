@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: a0d44d3f55b4d26a56ebba2acbb678f0adcb7ca1
+translation_source_sha: 41cc0d1a826b05c4fe554ea08044c0af35eb021e
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -135,9 +135,10 @@ Edge는 `unresolved`, `conflict`, `rejected`, `expired` 또는 `superseded` 상�
 전체 그래프 순환 감지는 edge 수와 독립적입니다. 제한된 탐색 깊이는 조직 크기 제한이 아니라
 개별 요청자의 승인 경로를 해석할 때 적용합니다.
 
-Edge가 변경되거나 만료되면 새 리비전을 만듭니다. 대기 중인 승인 요청은 생성 당시의 리비전과
-경로 다이제스트를 유지합니다. 그래프가 바뀌면 이전 경로를 조용히 재사용하지 않고 새 라우팅
-결정을 요구합니다.
+Edge가 변경되거나 만료되면 감사를 위한 새 전체 그래프 리비전을 만듭니다. 대기 중인 승인
+요청은 탐색한 모든 edge와 적격 rung을 포함한 별도의 경로 리비전을 유지합니다. 해당 경로가
+바뀌면 새 라우팅 결정을 요구하지만 조직의 다른 곳에서 바뀐 무관한 edge는 요청을 무효화하지
+않습니다.
 
 ## 관계 확인
 
@@ -166,8 +167,8 @@ approval_required
   -> approval_pending
 ```
 
-동의 레코드는 요청자, 정확한 Action 다이제스트, 대상 범위, 경로 미리보기 리비전 및 짧은
-만료 시간에 결속됩니다. 이 동의는 알림만 허용합니다. Action, 대상, 그래프 리비전이 바뀌거나
+동의 레코드는 요청자, 정확한 Action 다이제스트, 대상 범위, 경로 리비전 및 짧은 만료 시간에
+결속됩니다. 이 동의는 알림만 허용합니다. Action, 대상, 라우팅 edge 또는 적격 rung이 바뀌거나
 동의가 만료되면 다시 설명하고 동의받아야 합니다.
 
 거절, 시간 초과 또는 사용할 수 없는 경로는 감사 레코드와 함께 무작업 결과가 됩니다. 일반적인

@@ -148,7 +148,7 @@ async def test_contact_consent_is_requester_only_scoped_and_short_lived() -> Non
         requester_ref="person-a",
         action_digest="a" * 64,
         route_digest="b" * 64,
-        graph_revision="c" * 64,
+        path_revision="c" * 64,
         now=NOW,
     )
     assert pending.state is ApprovalContactConsentState.PENDING
@@ -179,7 +179,7 @@ async def test_contact_consent_cannot_be_decided_after_expiry() -> None:
         requester_ref="person-a",
         action_digest="a" * 64,
         route_digest="b" * 64,
-        graph_revision="c" * 64,
+        path_revision="c" * 64,
         now=NOW,
     )
 
@@ -199,7 +199,7 @@ async def test_contact_consent_exact_replay_returns_the_recorded_choice() -> Non
         requester_ref="person-a",
         action_digest="a" * 64,
         route_digest="b" * 64,
-        graph_revision="c" * 64,
+        path_revision="c" * 64,
         now=NOW,
     )
     first = await service.decide(

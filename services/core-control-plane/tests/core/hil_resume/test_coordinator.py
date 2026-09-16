@@ -94,6 +94,8 @@ REMEDIATION_ROOT = REPO_ROOT / "rule-catalog" / "remediation"
 _RULE_ID = "object-storage.owner-tag.required"
 _SUBMITTER = "system:control-loop"
 _APPROVER = "alice@example.com"
+_ROUTE_START = datetime(2020, 1, 1, tzinfo=UTC)
+_ROUTE_END = datetime(2100, 1, 1, tzinfo=UTC)
 
 
 class ResolveDeliveryRaceStore(InMemoryStateStore):
@@ -283,6 +285,7 @@ def _coordinator(
 class _ReportLineGraphs:
     def __init__(self) -> None:
         self.revision = "a" * 64
+        self.edge_digest = "b" * 64
 
     async def current_graph(self, *, at=None):
         observed_at = at or datetime.now(tz=UTC)
@@ -292,11 +295,11 @@ class _ReportLineGraphs:
             edges=(
                 ReportingGraphEdge(
                     case_id="report-line-case",
-                    edge_digest="b" * 64,
+                    edge_digest=self.edge_digest,
                     subject_ref=_SUBMITTER,
                     manager_ref=_APPROVER,
-                    effective_from=observed_at - timedelta(days=1),
-                    effective_until=observed_at + timedelta(days=1),
+                    effective_from=_ROUTE_START,
+                    effective_until=_ROUTE_END,
                 ),
             ),
         )
@@ -400,6 +403,7 @@ async def test_report_line_route_waits_for_requester_contact_consent() -> None:
     parked = await store.read_state("hil_park:report-line-approval")
     assert parked is not None and parked["status"] == "pending"
     assert parked["report_line_route"]["graph_revision"] == "a" * 64
+    assert len(parked["report_line_route"]["path_revision"]) == 64
 
 
 async def test_report_line_contact_decline_is_terminal_noop() -> None:
@@ -511,7 +515,7 @@ async def test_report_line_graph_change_blocks_a_late_approval() -> None:
         consent=True,
         expected_consent_revision=0,
     )
-    graphs.revision = "d" * 64
+    graphs.edge_digest = "d" * 64
 
     result = await coordinator.resolve(
         approval_id="report-line-stale",
@@ -522,6 +526,37 @@ async def test_report_line_graph_change_blocks_a_late_approval() -> None:
     assert result.outcome is ResolveOutcome.TIMED_OUT
     assert result.reason == "report_line_route_stale"
     assert publisher.records == ()
+
+
+async def test_unrelated_graph_revision_does_not_invalidate_pinned_path() -> None:
+    graphs = _ReportLineGraphs()
+    coordinator, publisher, _, _ = _coordinator(
+        with_escalation=True,
+        report_line_router=_report_line_router(graphs),
+    )
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="report-line-unrelated-change",
+        approval_id="report-line-unrelated-change",
+    )
+    await coordinator.decide_report_line_contact(
+        approval_id="report-line-unrelated-change",
+        requester_oid=_SUBMITTER,
+        consent=True,
+        expected_consent_revision=0,
+    )
+    graphs.revision = "d" * 64
+
+    result = await coordinator.resolve(
+        approval_id="report-line-unrelated-change",
+        decision=HilDecision.APPROVE,
+        approver_oid=_APPROVER,
+    )
+
+    assert result.outcome is ResolveOutcome.EXECUTED
+    assert len(publisher.records) == 1
 
 
 async def test_concurrent_terminal_decisions_have_one_winner() -> None:

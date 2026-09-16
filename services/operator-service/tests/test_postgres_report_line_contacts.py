@@ -98,6 +98,7 @@ async def test_contact_context_uses_shorter_consent_expiry_and_persists_command(
         "report_line_route": {
             "route_digest": "b" * 64,
             "graph_revision": "c" * 64,
+            "path_revision": "d" * 64,
             "rungs": [{"subject_ref": "person-b"}],
         },
     }
@@ -106,7 +107,7 @@ async def test_contact_context_uses_shorter_consent_expiry_and_persists_command(
         "requester_ref": "person-a",
         "action_digest": "a" * 64,
         "route_digest": "b" * 64,
-        "graph_revision": "c" * 64,
+        "path_revision": "d" * 64,
         "revision": 0,
         "created_at": NOW.isoformat(),
         "expires_at": (NOW + timedelta(minutes=5)).isoformat(),

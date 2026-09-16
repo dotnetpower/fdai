@@ -63,7 +63,7 @@ class PostgresReportLineContacts:
             or consent_state.get("requester_ref") != requester
             or consent_state.get("action_digest") != state.get("action_hash")
             or consent_state.get("route_digest") != route.get("route_digest")
-            or consent_state.get("graph_revision") != route.get("graph_revision")
+            or consent_state.get("path_revision") != route.get("path_revision")
         ):
             raise IamUnavailableError("report-line contact consent evidence is unavailable")
         expires_at = _aware_timestamp(

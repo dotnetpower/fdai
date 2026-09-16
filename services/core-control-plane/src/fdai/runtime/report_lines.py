@@ -99,7 +99,7 @@ class ReportLineAwareRungEligibility:
         return (
             current is not None
             and current.digest == route.get("route_digest")
-            and current.graph_revision == route.get("graph_revision")
+            and current.path_revision == route.get("path_revision")
             and any(rung.subject_ref.casefold() == subject_ref.casefold() for rung in current.rungs)
         )
 

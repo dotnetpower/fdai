@@ -39,7 +39,7 @@ class ApprovalContactConsent:
     requester_ref: str
     action_digest: str
     route_digest: str
-    graph_revision: str
+    path_revision: str
     created_at: datetime
     expires_at: datetime
     state: ApprovalContactConsentState = ApprovalContactConsentState.PENDING
@@ -51,7 +51,7 @@ class ApprovalContactConsent:
         for value, name in (
             (self.action_digest, "action_digest"),
             (self.route_digest, "route_digest"),
-            (self.graph_revision, "graph_revision"),
+            (self.path_revision, "path_revision"),
         ):
             if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
                 raise ReportingLineModelError(f"{name} MUST be a lowercase SHA-256")
@@ -73,7 +73,7 @@ class ApprovalContactConsent:
             "requester_ref": self.requester_ref,
             "action_digest": self.action_digest,
             "route_digest": self.route_digest,
-            "graph_revision": self.graph_revision,
+            "path_revision": self.path_revision,
             "created_at": self.created_at.isoformat(),
             "expires_at": self.expires_at.isoformat(),
         }
@@ -88,7 +88,7 @@ class ApprovalContactConsent:
             "requester_ref": self.requester_ref,
             "action_digest": self.action_digest,
             "route_digest": self.route_digest,
-            "graph_revision": self.graph_revision,
+            "path_revision": self.path_revision,
             "created_at": self.created_at.isoformat(),
             "expires_at": self.expires_at.isoformat(),
             "state": self.state.value,
@@ -117,7 +117,7 @@ class ApprovalContactConsent:
                 requester_ref=str(value["requester_ref"]),
                 action_digest=str(value["action_digest"]),
                 route_digest=str(value["route_digest"]),
-                graph_revision=str(value["graph_revision"]),
+                path_revision=str(value["path_revision"]),
                 created_at=created_at,
                 expires_at=expires_at,
                 state=ApprovalContactConsentState(str(value["state"])),
@@ -153,21 +153,21 @@ class ApprovalContactConsentService:
         requester_ref: str,
         action_digest: str,
         route_digest: str,
-        graph_revision: str,
+        path_revision: str,
         now: datetime | None = None,
     ) -> ApprovalContactConsent:
         """Create or replay consent for one exact action and route."""
 
         created_at = reporting_instant(now or datetime.now(tz=UTC))
         requester = normalize_principal(requester_ref)
-        identity = f"{requester}:{action_digest}:{route_digest}:{graph_revision}"
+        identity = f"{requester}:{action_digest}:{route_digest}:{path_revision}"
         consent_id = str(uuid5(NAMESPACE_URL, "fdai:report-line-consent:" + identity))
         requested = ApprovalContactConsent(
             consent_id=consent_id,
             requester_ref=requester,
             action_digest=action_digest,
             route_digest=route_digest,
-            graph_revision=graph_revision,
+            path_revision=path_revision,
             created_at=created_at,
             expires_at=created_at + self.ttl,
         )
@@ -193,7 +193,7 @@ class ApprovalContactConsentService:
             existing.requester_ref != requester
             or existing.action_digest != action_digest
             or existing.route_digest != route_digest
-            or existing.graph_revision != graph_revision
+            or existing.path_revision != path_revision
         ):
             raise ReportingLineModelError("approval contact consent id conflicts")
         return existing

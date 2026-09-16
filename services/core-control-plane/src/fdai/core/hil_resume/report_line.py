@@ -129,7 +129,7 @@ class ReportLineHilCoordinator:
         return (
             current is not None
             and current.digest == route_value.get("route_digest")
-            and current.graph_revision == route_value.get("graph_revision")
+            and current.path_revision == route_value.get("path_revision")
             and approver_oid.strip().casefold()
             == str(parked.get("assignee_oid") or "").strip().casefold()
         )
@@ -150,7 +150,7 @@ class ReportLineHilCoordinator:
             requester_ref=submitter_oid,
             action_digest=action_payload_hash(action.model_dump(mode="json")),
             route_digest=route.digest,
-            graph_revision=route.graph_revision,
+            path_revision=route.path_revision,
             now=at,
         )
         return route, consent
@@ -335,6 +335,7 @@ class ReportLineHilCoordinator:
                 "idempotency_key": f"{idempotency_key}:report_line_contact_consented",
                 "route_digest": route.digest,
                 "graph_revision": route.graph_revision,
+                "path_revision": route.path_revision,
                 "recorded_at": decided_at.isoformat(),
                 "mode": "shadow",
                 "approval_authority": False,
@@ -381,7 +382,8 @@ def _same_route(
         route is not None
         and route.quorum == 1
         and route.digest == retained.get("route_digest")
-        and route.graph_revision == consent.graph_revision
+        and route.path_revision == retained.get("path_revision")
+        and route.path_revision == consent.path_revision
         and route.digest == consent.route_digest
         and consent.action_digest == str(parked.get("action_hash") or "")
     )

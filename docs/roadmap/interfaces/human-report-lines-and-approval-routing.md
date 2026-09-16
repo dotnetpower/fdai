@@ -141,9 +141,10 @@ A current graph revision is accepted only when it has:
 Whole-graph cycle detection is independent of the number of edges. The bounded traversal depth
 applies when resolving one requester's approval path, not as an organization-size limit.
 
-Changing or expiring an edge creates a new revision. Pending approval requests retain the revision
-and path digest they were created from. A changed graph causes a fresh route decision instead of
-silently reusing the old path.
+Changing or expiring an edge creates a new whole-graph revision for audit. Pending approval
+requests retain a separate path revision over every traversed edge and eligible rung. A change on
+that path causes a fresh route decision; an unrelated edge elsewhere in the organization does not
+invalidate the request.
 
 ## Relationship confirmation
 
@@ -172,9 +173,9 @@ approval_required
   -> approval_pending
 ```
 
-The consent record binds the requester, exact Action digest, target scope, route preview revision,
-and a short expiry. It authorizes notification only. A changed action, target, graph revision, or
-expired consent requires a new explanation and consent.
+The consent record binds the requester, exact Action digest, target scope, path revision, and a
+short expiry. It authorizes notification only. A changed action, target, routed edge, eligible rung,
+or expired consent requires a new explanation and consent.
 
 Decline, timeout, or an unavailable route produces a no-op with an audit record. A generic
 affirmative message cannot approve a different pending request; the response must bind the

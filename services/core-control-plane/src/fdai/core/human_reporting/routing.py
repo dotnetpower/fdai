@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Protocol
 
 from fdai.core.hil_escalation import EscalationDuty, EscalationRung
-from fdai.core.human_reporting.graph import ReportingGraphSnapshot
+from fdai.core.human_reporting.graph import ReportingGraphEdge, ReportingGraphSnapshot
 from fdai.core.human_reporting.model import (
     ReportingLineModelError,
     normalize_principal,
@@ -52,6 +52,7 @@ class ReportLineRoutePlan:
     minimum_role: str
     quorum: int
     graph_revision: str
+    path_revision: str
     path_case_ids: tuple[str, ...]
     rungs: tuple[EscalationRung, ...]
     planned_at: datetime
@@ -64,7 +65,7 @@ class ReportLineRoutePlan:
             "scope_ref": self.scope_ref,
             "minimum_role": self.minimum_role,
             "quorum": self.quorum,
-            "graph_revision": self.graph_revision,
+            "path_revision": self.path_revision,
             "path_case_ids": list(self.path_case_ids),
             "rungs": [
                 {
@@ -87,6 +88,7 @@ class ReportLineRoutePlan:
             "minimum_role": self.minimum_role,
             "quorum": self.quorum,
             "graph_revision": self.graph_revision,
+            "path_revision": self.path_revision,
             "path_case_ids": list(self.path_case_ids),
             "rungs": [
                 {
@@ -183,10 +185,42 @@ class ReportLineApprovalRouter:
             minimum_role=minimum_role,
             quorum=quorum,
             graph_revision=graph.revision,
+            path_revision=_path_revision(path, tuple(rungs)),
             path_case_ids=tuple(edge.case_id for edge in path),
             rungs=tuple(rungs),
             planned_at=planned_at,
         )
+
+
+def _path_revision(
+    path: tuple[ReportingGraphEdge, ...],
+    rungs: tuple[EscalationRung, ...],
+) -> str:
+    edges = [
+        {
+            "case_id": edge.case_id,
+            "edge_digest": edge.edge_digest,
+            "subject_ref": edge.subject_ref,
+            "manager_ref": edge.manager_ref,
+            "effective_from": edge.effective_from.isoformat(),
+            "effective_until": edge.effective_until.isoformat(),
+        }
+        for edge in path
+    ]
+    material = {
+        "edges": edges,
+        "rungs": [
+            {
+                "subject_ref": rung.subject_ref,
+                "duty": rung.duty.value,
+                "minimum_role": rung.minimum_role,
+            }
+            for rung in rungs
+        ],
+    }
+    return hashlib.sha256(
+        json.dumps(material, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 __all__ = [
