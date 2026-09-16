@@ -555,8 +555,7 @@ and the authoritative registry, never inferred from phase names in this document
 - **Tools** - each tool has a shadow-mode test showing it never mutates
   when its `side_effect_class == read | simulate`; a `write` /
   `approve` test showing the verifier re-check gate.
-- **Channels** - CLI REPL golden transcript, Teams Bot Framework activity/JWT, Slack signed HTTP
-  Events API, and publisher receipts.
+- **Channels and service ownership** - CLI REPL golden transcript, Teams Bot Framework activity/JWT, Slack signed HTTP Events API, and publisher receipts. Every Operator service test is registered under exactly one group in `tests/integration/service-suites.json`; an unowned test fails the repository coverage gate before a service-specific runner can execute.
 - **RBAC matrix** - table-driven test over every (Role × Tool) cell to
   prove the floor from §3.1-§3.3 is applied.
 - **Break-glass** - tests prove `activate_break_glass` refuses `expiry > 4h`, requires Owner

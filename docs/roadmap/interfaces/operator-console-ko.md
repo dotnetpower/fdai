@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: d829869692a7c0566b8d129748bea46f63864f35
+translation_source_sha: ebce37db4ec192b9f17a1639028d5aa95ccb4558
 translation_revised: 2026-09-17
 ---
 # FDAI Console 대화
@@ -553,8 +553,7 @@ pull 어댑터 추가. 콘솔은 이제:
 - **도구** - 각 도구는 `side_effect_class == read | simulate` 일 때 절대
   mutate 하지 않음을 보이는 shadow-mode 테스트; `write` / `approve` 테스트는
   검증기 re-check gate를 보임.
-- **채널** - CLI REPL golden 대화 기록, Teams Bot Framework 활동/JWT, Slack signed HTTP
-  이벤트 API와 발행기 증적을 어댑터 테스트로 검증.
+- **채널과 서비스 소유권** - CLI REPL golden 대화 기록, Teams Bot Framework 활동/JWT, Slack signed HTTP 이벤트 API와 발행기 증적을 어댑터 테스트로 검증합니다. 모든 Operator 서비스 테스트는 `tests/integration/service-suites.json`의 정확히 한 그룹에 등록하며, 소유자가 없는 테스트는 서비스별 실행기가 실행되기 전에 저장소 범위 검사에서 실패합니다.
 - **RBAC 매트릭스** - §3.1-§3.3의 하한이 적용됨을 증명하는 모든 (역할 ×
   도구) 셀에 대한 table-driven 테스트.
 - **Break-glass** - `activate_break_glass`가 `expiry > 4h`를 refuse하고 Owner notification 및

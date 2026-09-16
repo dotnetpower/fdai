@@ -30,10 +30,10 @@ def checker() -> ModuleType:
 def test_repository_profile_and_f1_f8_corpus_are_valid(checker: ModuleType) -> None:
     assert checker.validate_repository() == {
         "ontology_release_digest": (
-            "sha256:71ffdfeed9c3a1bf180513eaa33f8291aeea111a0adf026dbaff3f870e9ceea8"
+            "sha256:67270de298b2008ba0173c07cd6ebef2b4931c350f572535600f92cc2c85d48e"
         ),
         "semantic_profile_sha256": (
-            "sha256:d18567194c4349242deb16a99fd693e011b081fff1130d87d3902f74f333e462"
+            "sha256:1c264486f17d14b40c9fc40eb8099f059f280a689dec9777bc74900b70be5e34"
         ),
         "fixtures": 16,
         "positive": 8,
