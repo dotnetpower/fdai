@@ -204,6 +204,211 @@ async def test_mutations_are_disabled_by_default() -> None:
     assert calls == 0
 
 
+async def test_tag_merge_preserves_existing_tags_and_verifies_with_reader() -> None:
+    requests: list[httpx.Request] = []
+    reads = iter(
+        (
+            {"properties": {"tags": {"owner": "platform"}}},
+            {"properties": {"tags": {"owner": "platform"}}},
+            {"properties": {"tags": {"owner": "platform", "environment": "dev"}}},
+        )
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.method == "GET":
+            return httpx.Response(200, json=next(reads))
+        return httpx.Response(200, json={"properties": {"tags": {}}})
+
+    payload = {
+        "target_resource_ref": (
+            "scope-0123456789abcdef/resource-group/rg-example/"
+            "providers/microsoft.storage/storageaccounts/storage-app"
+        ),
+        "tag_name": "environment",
+        "tag_value": "dev",
+        "safety": _safety("operation:tag-one"),
+    }
+    principal = GatewayPrincipal("principal-change", frozenset())
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        gateway = OperationsGateway(
+            config=_config(),
+            reader_token_provider=_Tokens(),
+            executor_token_provider=_Tokens(),
+            http_client=client,
+            idempotency_ledger=_Ledger(),
+        )
+        plan = await gateway.invoke(
+            "azure.operation.plan",
+            {
+                "operation_id": "azure.resource.tags.merge",
+                "arguments": {
+                    key: payload[key]
+                    for key in (
+                        "target_resource_ref",
+                        "tag_name",
+                        "tag_value",
+                    )
+                },
+                "safety": payload["safety"],
+            },
+            principal,
+        )
+        receipt = plan["result"]["dry_run_receipt"]
+        result = await gateway.invoke(
+            "azure.resource.tags.merge",
+            {
+                **payload,
+                "safety": {**payload["safety"], "dry_run_receipt": receipt},
+            },
+            principal,
+        )
+
+    assert result["status"] == "succeeded"
+    assert result["result"] == {"verified": True}
+    assert [request.method for request in requests] == ["GET", "GET", "PATCH", "GET"]
+    mutation = requests[2].read().decode()
+    assert '"operation":"Merge"' in mutation
+    assert '"environment":"dev"' in mutation
+    assert all(
+        "/providers/Microsoft.Resources/tags/default" in request.url.path for request in requests
+    )
+
+
+async def test_tag_merge_restores_snapshot_when_reader_does_not_confirm_effect() -> None:
+    requests: list[httpx.Request] = []
+    reads = iter(
+        (
+            {"properties": {"tags": {"owner": "platform"}}},
+            {"properties": {"tags": {"owner": "platform"}}},
+            {"properties": {"tags": {"owner": "platform"}}},
+            {"properties": {"tags": {"owner": "platform"}}},
+        )
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.method == "GET":
+            return httpx.Response(200, json=next(reads))
+        return httpx.Response(200, json={"properties": {"tags": {}}})
+
+    payload = {
+        "target_resource_ref": "scope-0123456789abcdef/resource-group/rg-example",
+        "tag_name": "environment",
+        "tag_value": "dev",
+        "safety": _safety("operation:tag-rollback"),
+    }
+    principal = GatewayPrincipal("principal-change", frozenset())
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        gateway = OperationsGateway(
+            config=_config(),
+            reader_token_provider=_Tokens(),
+            executor_token_provider=_Tokens(),
+            http_client=client,
+            idempotency_ledger=_Ledger(),
+        )
+        plan = await gateway.invoke(
+            "azure.operation.plan",
+            {
+                "operation_id": "azure.resource.tags.merge",
+                "arguments": {
+                    key: payload[key]
+                    for key in (
+                        "target_resource_ref",
+                        "tag_name",
+                        "tag_value",
+                    )
+                },
+                "safety": payload["safety"],
+            },
+            principal,
+        )
+        receipt = plan["result"]["dry_run_receipt"]
+        with pytest.raises(GatewayError, match="prior tag snapshot was restored") as caught:
+            await gateway.invoke(
+                "azure.resource.tags.merge",
+                {
+                    **payload,
+                    "safety": {**payload["safety"], "dry_run_receipt": receipt},
+                },
+                principal,
+            )
+
+    assert caught.value.code == "effect_verification_failed"
+    assert [request.method for request in requests] == [
+        "GET",
+        "GET",
+        "PATCH",
+        "GET",
+        "PATCH",
+        "GET",
+    ]
+    rollback = requests[4].read().decode()
+    assert '"operation":"Replace"' in rollback
+    assert '"owner":"platform"' in rollback
+
+
+async def test_tag_read_returns_only_match_state() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        return httpx.Response(
+            200,
+            json={"properties": {"tags": {"owner": "platform", "environment": "dev"}}},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        gateway = OperationsGateway(
+            config=_config(),
+            reader_token_provider=_Tokens(),
+            executor_token_provider=_Tokens(),
+            http_client=client,
+            idempotency_ledger=_Ledger(),
+        )
+        result = await gateway.invoke(
+            "azure.resource.tags.read",
+            {
+                "target_resource_ref": (
+                    "scope-0123456789abcdef/resource-group/rg-example/"
+                    "providers/microsoft.storage/storageaccounts/storage-app"
+                ),
+                "tag_name": "environment",
+                "tag_value": "dev",
+            },
+            GatewayPrincipal("principal-change", frozenset()),
+        )
+
+    assert result["result"] == {"matches": True, "present": True}
+
+
+async def test_tag_read_rejects_resource_group_outside_dev_scope() -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: httpx.Response(500))
+    ) as client:
+        gateway = OperationsGateway(
+            config=_config(),
+            reader_token_provider=_Tokens(),
+            executor_token_provider=_Tokens(),
+            http_client=client,
+            idempotency_ledger=_Ledger(),
+        )
+        with pytest.raises(GatewayError) as caught:
+            await gateway.invoke(
+                "azure.resource.tags.read",
+                {
+                    "target_resource_ref": (
+                        "scope-0123456789abcdef/resource-group/other/"
+                        "providers/microsoft.storage/storageaccounts/storage-app"
+                    ),
+                    "tag_name": "environment",
+                    "tag_value": "dev",
+                },
+                GatewayPrincipal("principal-change", frozenset()),
+            )
+
+    assert caught.value.status_code == 403
+    assert caught.value.code == "scope_denied"
+
+
 async def test_vmss_scale_plan_and_execution_are_bounded_to_one_instance() -> None:
     requests: list[httpx.Request] = []
 
