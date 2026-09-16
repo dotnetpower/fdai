@@ -1,7 +1,7 @@
 # FDAI Question Bank
 
 This directory materializes FDAI's existing question surfaces into one bilingual review catalog.
-It preserves each source's authority while giving maintainers stable question identities, six
+It preserves each source's authority while giving FDAI maintainers stable question identities, six
 operator-facing domains, independent readiness axes, and one deterministic drift check.
 
 > The question bank is an inventory and authoring surface. Inclusion does not mean that a question

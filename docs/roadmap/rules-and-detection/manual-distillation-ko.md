@@ -1,8 +1,8 @@
 ---
 title: 매뉴얼 증류(Manual Distillation)
 translation_of: manual-distillation.md
-translation_source_sha: 8c3b52da95e4af09f6ee146569861da4470d84fd
-translation_revised: 2026-09-15
+translation_source_sha: 1e104f083b40bf37609ed572b3506ddac1e707ec
+translation_revised: 2026-09-16
 ---
 
 # 매뉴얼 증류(수동 정제)
@@ -263,7 +263,7 @@ mixed-model 비교)에 한정되고 이벤트마다가 아니라 **매뉴얼 리
 못하면 계층은 HIL로 abstain한다. 관계 순회가 중요할 때는 평면 벡터 RAG보다 (새 서비스 없이
 기존 PostgreSQL 상태 저장소 위의) 구조적 knowledge-graph 검색이 선호된다.
 
-## 수락된 인수인계 원본 연결
+## 수락된 담당자 인수인계 원본 연결
 
 현재 Core 목표, 검토자, 원본 허용, 검색 연결이 기존 Norns/Mimir 담당 경로에 원본을 제공합니다.
 Norns는 독립적으로 수락된 원본의 정확한 문서 버전, 현재 검토자, ACL, 보존 기간,

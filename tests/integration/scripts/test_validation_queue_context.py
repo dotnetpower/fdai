@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -83,3 +84,28 @@ def test_validation_environment_pins_python_313_despite_primary_venv(
     environment = module.validation_environment(paths)
 
     assert environment["UV_PYTHON"] == "3.13"
+
+
+def test_validation_environment_prefers_synced_venv_tools(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    state_root = tmp_path / "state"
+    venv_bin = state_root / "venv" / "bin"
+    monkeypatch.setenv(
+        "PATH",
+        os.pathsep.join(("/custom/bin", str(venv_bin), "/usr/bin")),
+    )
+    paths = SimpleNamespace(
+        repo_root=tmp_path / "repo",
+        state_root=state_root,
+    )
+
+    environment = module.validation_environment(paths)
+
+    assert environment["PATH"].split(os.pathsep) == [
+        str(venv_bin),
+        "/custom/bin",
+        "/usr/bin",
+    ]
