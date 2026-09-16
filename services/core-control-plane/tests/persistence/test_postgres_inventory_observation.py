@@ -10,11 +10,13 @@ from typing import Any
 import pytest
 from fdai.delivery.persistence import postgres_inventory_observation as observation_module
 from fdai.delivery.persistence.postgres_inventory_observation import (
+    _INSERT_OBSERVATION_SQL,
     InventoryObservationAppendResult,
     PostgresInventoryObservationJournal,
     _active_scope_projection_watermark,
     _append_records,
     _global_projection_watermark,
+    _observation_params,
     _rebase_recovery_metadata,
     _retained_generation_watermark,
     _snapshot_recovery_observation,
@@ -243,7 +245,16 @@ def _observation(properties: dict[str, Any]) -> NormalizedInventoryObservation:
         observed_at=NOW,
         evidence_cutoff=NOW,
         recorded_at=NOW,
+        ingested_at=NOW,
     )
+
+
+def test_observation_insert_columns_match_parameters() -> None:
+    columns = _INSERT_OBSERVATION_SQL.split("(", 1)[1].split(")", 1)[0].split(",")
+
+    assert len(columns) == 32
+    assert _INSERT_OBSERVATION_SQL.split("VALUES (", 1)[1].split(")", 1)[0].count("%s") == 32
+    assert len(_observation_params(_observation({"state": "ready"}))) == 32
 
 
 def _tombstone() -> NormalizedInventoryObservation:
@@ -266,6 +277,7 @@ def _tombstone() -> NormalizedInventoryObservation:
         observed_at=NOW,
         evidence_cutoff=NOW,
         recorded_at=NOW,
+        ingested_at=NOW,
     )
 
 
@@ -420,6 +432,7 @@ def test_projection_replay_reconstructs_verified_relationship_metadata() -> None
             observed_at=NOW,
             evidence_cutoff=NOW,
             recorded_at=NOW,
+            ingested_at=NOW,
             from_id="resource-a",
             from_type="compute.vm",
             link_type="depends_on",
@@ -1024,6 +1037,7 @@ def _projection_record(generation: str, resource_id: str) -> NormalizedInventory
         observed_at=NOW,
         evidence_cutoff=NOW,
         recorded_at=NOW,
+        ingested_at=NOW,
     )
 
 

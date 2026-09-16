@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 43e982d766fd15f9de74e372a52fc0f326668d54
-translation_revised: 2026-09-15
+translation_source_sha: 519efa5a017dbfffaec91430a0b05ffecc583541
+translation_revised: 2026-09-16
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -69,8 +69,10 @@ Azure CLI로 대체하지 않습니다. 로컬 자격 증명 정책은 그대로
   관계를 삭제할 수 없습니다. 런타임 환경 바인딩은 메모리 안에서 정확한 신원으로 관계를
   결합할 때만 사용할 수 있습니다. 인벤토리 스냅샷이나 온톨로지에 저장하기 전에는 바인딩
   이름과 값을 제거합니다.
-- **시간과 출처:** 모든 사실은 유효 시간, 가능한 경우 이벤트 시간, 기록 시간, 근거 기준
-  시점, 원본 신원, 원본 수정본, 완전성, 충돌, 최신성 정책을 유지합니다.
+- **시간과 출처:** 모든 사실은 유효 시간, 가능한 경우 프로바이더 이벤트 시각, 관측 시각,
+  FDAI 수집 시각, 기록 시각, 근거 기준 시점, 원본 신원, 원본 수정본, 완전성, 충돌, 최신성
+  정책을 유지합니다. 정규화된 원장은 각 시각을 별도 필드로 저장하며 수집 지연이 프로바이더
+  이벤트 시각을 덮어쓰지 않습니다.
 - **잘못된 부재 방지:** 누락 이벤트, 잘린 조회, cursor 지연, 열린 실시간 overlay, archive
   사용 불가는 명시적인 알 수 없음 또는 불완전한 근거로 유지합니다.
   범위가 제한된 조회는 사용 가능한 범위의 검증된 양성 관측을 반환할 수 있지만 결과를
@@ -422,8 +424,9 @@ schema와 원본 수정본을 고정합니다. Partition 수명 주기, archive 
 - **확인된 tombstone:** 재관측 또는 완전한 reconciliation이 삭제를 확인하고 리소스 수명
   인스턴스, 유효 시각, 원본 개정 및 근거 참조를 기록한 경우입니다.
 
-원장은 프로바이더 이벤트 시각, 유효 시각, 관측 시각, 수집 시각, 기록 시각 및 근거 기준
-시점을 구분합니다. 또한 원본 신원, 원본 이벤트 ID, cursor 또는 개정, 범위, 완전성, 충돌,
+원장은 nullable `provider_event_at`, 유효 시각, 관측 시각, 필수 `ingested_at`, 기록 시각 및
+근거 기준 시점을 구분합니다. 기존 레코드는 프로바이더 이벤트 시각을 만들지 않고
+`ingested_at=recorded_at`으로 이행합니다. 또한 원본 신원, 원본 이벤트 ID, cursor 또는 개정, 범위, 완전성, 충돌,
 속성 마스크, 내용 다이제스트 및 보존 등급을 유지합니다. 성공한 쓰기와 같은 작업 상태는 변경
 metadata로 유지하며 리소스 운영 상태가 될 수 없습니다.
 
@@ -562,8 +565,10 @@ OI-01은 각 단계의 정확한 코드 소유자, 런타임 또는 저장소 bi
 binding을
 [`config/continuous-operational-instance-graph-audit.json`](../../../config/continuous-operational-instance-graph-audit.json)에
 기록합니다. Architecture checker는 단계 누락, 근거 경로 누락, 소유자가 없는 구현 작업,
-정확한 공백을 명시하지 않은 열린 단계를 거부합니다. 정본 소유권은 이 설계에서 검증하고 구현 상태와
-남은 작업은 연결된 전달 원장에서 검증합니다.
+일부만 연결되거나 연결되지 않은 binding을 가진 implemented 단계, 정확한 공백을 명시하지 않은
+열린 단계를 거부합니다. 인증 범위는 합성 작동 방식, 배포 binding, 프로덕션 데이터 검증을 별도로
+기록하므로 보호된 합성 campaign 하나가 일반 프로덕션 보존을 인증할 수 없습니다. 정본 소유권은
+이 설계에서 검증하고 구현 상태와 남은 작업은 연결된 전달 원장에서 검증합니다.
 
 | 단계 | 상태 | 감사 결과 |
 |------|------|-----------|
@@ -581,7 +586,7 @@ binding을
 | 적응형 일정 관리 | implemented | 검증된 source policy와 순수 reducer가 freshness, lag, demand, provider pressure, `Retry-After`, 남은 budget, concurrency, circuit-open 상태, recovery probe를 사용합니다. PostgreSQL은 durable due 상태를 제공하고 principal-safe health projection은 다음 bounded action을 노출합니다. |
 | Retention 및 hold | implemented | Archive purge coordinator는 정확한 verification, restore sampling, retention 또는 legal hold 평가가 통과하기 전까지 삭제를 차단합니다. Append-only PostgreSQL receipt는 blocked, pending, failed, successful, retry 결과를 보존합니다. |
 | 타입 지정 rollup | implemented | Fact별 policy가 gauge, counter, categorical state, relationship change, evidence health를 분리해 집계하면서 source와 generation 계보, bitemporal 범위, 누락 구간, 관측된 0, 충돌, 완전성, 병합 가능한 count와 sum을 보존합니다. Percentile은 unavailable로 유지합니다. |
-| Archive lifecycle | implemented | Content-addressed 매니페스트, 비공개 Azure Blob writer, principal 범위의 검증된 reader, database gate 기반 source purger, 추가 전용 verification, restore, coverage, hold 및 purge 증적, 전용 고정 shadow Container Apps Job을 구현했습니다. 보호된 인증은 정확한 source attestation 검증을 위해 GitHub API와 registry 자격 증명을 분리해 연결합니다. OCI 검증은 workflow 자격 증명을 프로세스 내부에서 mode 0700의 일시적 Docker 구성 안의 mode 0600 파일로 렌더링하고 Docker CLI에 의존하지 않으며 종료할 때 자격 증명 디렉터리를 제거합니다. Job 해석, 정확한 OCI 출처 증명 검증, ACR 연결은 별도의 보호된 단계이며 검증된 저장소, 개정 번호, 다이제스트만 검증 경계를 넘습니다. 인증은 Terraform ACR 출력 또는 검증된 배포 Job 이미지를 Azure login host로 정규화하고 같은 digest를 다시 빌드하지 않고 명시적으로 가져올 수 있습니다. OI-12 연결은 인벤토리 Job, 이력 Job, 보관 URL, 리소스 그룹의 최상위 출력을 우선 사용합니다. 배포된 상태가 해당 출력보다 오래된 경우 한 번의 범위가 제한된 ARM 열거에서 `Microsoft.App/jobs`만 읽고 리소스를 최대 64개까지 허용하며, 검토된 인벤토리 런타임 계약과 이력 런타임 계약에 일치하는 컨테이너를 각각 정확히 하나 요구합니다. 하나의 fail-closed 동등성 조건식이 두 정확한 런타임에서 공급자가 관측한 그룹이 동일함을 증명해야 누락된 리소스 그룹을 채택합니다. 인벤토리 새로 고침은 검토된 실제 Job을 검증하고 정식 컨테이너 이미지만 바꾸면서 안정 시작 API의 `containers` 및 `initContainers` 필드만 mode 0600 요청에 넣습니다. 컨테이너 수준의 명령, 인자, 환경, 리소스, 시크릿 참조와 볼륨 mount는 보존합니다. 시작 schema가 Job 소유 볼륨을 허용하지 않으므로 구성된 볼륨은 Job에서 상속합니다. 명령과 환경을 교체하는 CLI 이미지 단축 경로는 사용하지 않습니다. 대기 중인 스냅샷을 복구할 때 타입 지정 관측 메타데이터가 없는 관계는 제외하고 `unverified_metadata` drop을 보존합니다. 나머지 검증된 스냅샷은 계속 복구하므로 이후 새로 고침 전체가 차단되지 않습니다. 보존한 상태 전이 하위 항목은 동등성 검증 전에 입력 batch의 digest 결속 순서로 복원합니다. 누락되거나 추가되거나 중복되거나 개별 검증에 실패한 항목은 계속 거부합니다. 보호된 측정은 각 스냅샷 전에 최대 120초 동안 활성 인벤토리와 온톨로지 변환 결과 세대가 수렴하기를 기다립니다. 타입이 지정된 세대 대기 조건만 다시 시도하고 그 밖의 오류는 안전하게 종료합니다. 프로바이더 실패 및 복구 측정은 현재 활성 세대의 원본과 관측 종류에서 발생한 실패만 선택한 뒤 실패 원본, 관측 종류, 범위와 리소스 종류가 정확히 일치하는 이후 성공 스냅샷을 요구합니다. 폐기한 원본은 현재 인스턴스 측정값을 제공하거나 억제할 수 없습니다. 비어 있지 않은 최상위 출력은 선택한 ARM 런타임과 일치해야 하며 Job 이름은 신원 근거로 사용되지 않습니다. 프로바이더 출력은 단계가 끝난 뒤 제거됩니다. 보호된 계획은 이전 archive data owner를 보존하고 저장소에 바인딩된 deploy UAMI를 별도 주소에 추가하며 제거는 별도의 파괴적 작업으로 유지합니다. |
+| Archive lifecycle | in-progress | Content-addressed 매니페스트, 비공개 Azure Blob 입출력, principal 범위 읽기, 데이터베이스 게이트 기반 purge, 추가 전용 수명 주기 증적을 구현했습니다. Container Apps와 AKS는 고정 `shadow` 작업을 예약합니다. Non-shadow 시작은 상태 또는 Blob 접근 전에 정확히 저장된 인증 증적을 요구합니다. 보존된 OI-16 증적은 합성 작동 방식과 배포 binding을 검증하지만 반복되는 프로덕션 데이터 보존은 아직 검증되지 않았으며 별도 승인이 필요합니다. |
 
 보호된 증적 readback은 배포 실행기 VNet에 연결된 ops 소유의 Blob 비공개 DNS 영역에서
 storage 계정 전용 record를 해석합니다. Workload 해석은 앱 소유 영역에 유지합니다. 이

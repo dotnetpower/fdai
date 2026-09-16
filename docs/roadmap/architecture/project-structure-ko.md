@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 93aefad259f5b4586d915cb1a02132f7e0161ecc
+translation_source_sha: 1fe0076217309c3b6a2191c2312dead2a56ca271
 translation_revised: 2026-09-16
 ---
 # 프로젝트 구조
@@ -307,9 +307,9 @@ checkpoint부터 재개합니다.
   결과가 포함됩니다. 스냅샷 및 정렬 suppression은 이벤트 id와 범위가 제한된 사유를 포함한
   `inventory_delta_ignored`도 방출하여 안전한 no-op와 적용된 갱신을 구분할 수 있게 합니다. 기존
   two-field 결과 생성은 생략된 결과를 `applied`로 기본 설정하여 호환성을 유지합니다.
-  Event 타입을 명시한 페이로드는 `inventory.resource_changed`인 경우에만 변환 결과됩니다. 다른 도메인
-  이벤트에 `inventory_change` 필드가 있어도 `not_applicable`입니다. Direct 이전 방식 호출자를 위해
-  `event_type` 생략은 계속 지원합니다.
+  `inventory.resource_changed`만 변환 결과에 도달하고 다른 typed 이벤트는 `not_applicable`이며 기존 호출자는 `event_type`을 생략할 수 있습니다.
+  원장 레코드는 nullable 프로바이더 이벤트 시각과 필수 FDAI 수집 시각을 다른 시각과 분리하며 기존 행은 신원을 바꾸지 않고 기록 시각을 사용합니다.
+  지원되지 않는 Event Grid 타입은 `unclassified-resource`를 사용하며 신원이 완전한 `full_provider_scope` 범위만 rolling snapshot에서 허용합니다.
   `links_complete`가 없거나 false이면 관찰하지 못한 관계를 제거하지 않습니다. 스냅샷 승격은
   exclusive 승격 게이트를 유지하므로 어떤 delta 트랜잭션과도 동시에 실행되지 않습니다. 전용
   inventory sync 경로는 Azure Resource Graph와 ARM 대체 경로의 완전한 reconciliation

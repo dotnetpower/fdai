@@ -1,9 +1,15 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "package_id": "OI-01",
   "design_owner": "docs/roadmap/architecture/continuous-operational-instance-graph.md",
   "operational_validation": {
     "state": "validated",
+    "claim_scope": "synthetic-mechanics",
+    "validation_levels": {
+      "synthetic_mechanics": "validated",
+      "deployed_binding": "validated",
+      "production_data": "not-validated"
+    },
     "source_revision": "80b5892aa176e4a71eb2b3448982825b526d175b",
     "required_ci_run_id": 34058713875,
     "runtime_image_attestation_run_id": 34058973580,
@@ -570,7 +576,7 @@
     {
       "id": "archive-lifecycle",
       "family": "archive",
-      "state": "implemented",
+      "state": "in-progress",
       "owner": {
         "status": "assigned",
         "path": "services/core-control-plane/src/fdai/core/ontology_platform/archive_manifest.py",
@@ -675,7 +681,7 @@
         "tests/integration/services/test_service_migration_inventory.py",
         "tests/integration/infra/test_operational_history_lifecycle_job.py"
       ],
-      "missing_binding": null
+      "missing_binding": "Recurring production-data retention remains shadow-only; purge requires a separately authorized certification receipt."
     }
   ]
 }

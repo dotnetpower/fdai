@@ -315,9 +315,9 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   with the event id and bounded reason, so a safe no-op is distinguishable from an applied update.
   Existing two-field result construction remains compatible by defaulting an omitted outcome to
   `applied`.
-  A payload that explicitly declares an event type is projected only when it is
-  `inventory.resource_changed`; another domain's event is `not_applicable` even if it carries an
-  `inventory_change` field. Omitting `event_type` remains supported for direct legacy callers.
+  Only `inventory.resource_changed` reaches projection; other typed events are `not_applicable`, while legacy callers may omit `event_type`.
+  Journal records separate nullable provider-event and required FDAI-ingestion time from other clocks; old rows use recorded time without changing identity.
+  Unsupported Event Grid types use `unclassified-resource`, admitted from rolling snapshots only by identity-complete `full_provider_scope` coverage.
   An absent or false `links_complete` never removes an unobserved relationship. Snapshot promotion
   keeps the exclusive promotion gate and therefore cannot overlap any delta transaction. The
   dedicated Inventory sync path atomically promotes complete Azure Resource Graph and ARM fallback

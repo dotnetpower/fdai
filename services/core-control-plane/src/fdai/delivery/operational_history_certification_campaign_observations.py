@@ -148,6 +148,7 @@ def full_observation(
         observed_at=moment,
         evidence_cutoff=moment,
         recorded_at=moment,
+        ingested_at=moment,
     )
 
 
@@ -192,6 +193,7 @@ def confirmed_tombstone(binding: CampaignBinding, *, index: int) -> NormalizedIn
         observed_at=moment,
         evidence_cutoff=moment,
         recorded_at=moment,
+        ingested_at=moment,
     )
 
 

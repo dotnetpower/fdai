@@ -50,7 +50,7 @@ from fdai.shared.providers.declarative_inventory import (
     DeclarativeInventoryConfig,
 )
 from fdai.shared.providers.event_bus import EventBus
-from fdai.shared.providers.inventory import Inventory
+from fdai.shared.providers.inventory import UNCLASSIFIED_RESOURCE_TYPE, Inventory
 from fdai.shared.providers.inventory_snapshot import (
     InventoryCoverageManifest,
     InventoryObservationKind,
@@ -191,6 +191,13 @@ def build_sources(
                 )
             )
             observation_kind = InventoryObservationKind.EXPECTED
+        manifest_resource_types = (
+            (*resource_types, UNCLASSIFIED_RESOURCE_TYPE)
+            if source_name == "arg"
+            and not config.resource_types
+            and UNCLASSIFIED_RESOURCE_TYPE not in resource_types
+            else resource_types
+        )
         sources.append(
             InventorySource(
                 name=source_name,
@@ -198,7 +205,7 @@ def build_sources(
                 manifest=InventoryCoverageManifest(
                     source=source_name,
                     scopes=config.scopes,
-                    resource_types=resource_types,
+                    resource_types=manifest_resource_types,
                     observation_kind=observation_kind,
                     started_at=started_at,
                     metadata={
