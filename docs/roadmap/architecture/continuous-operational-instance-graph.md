@@ -227,7 +227,7 @@ The persisted Job template leaves this input unset.
 
 The current-graph checkpoint is bound to the active snapshot generation and exact scope set. A complete
 provider snapshot covers same-scope observations from its generation and start time, so the contiguous checkpoint scans only those scopes.
-Inactive-scope observations remain durable history and retention work without creating active-scope collection demand. Reactivation requires a new complete reconciliation, while active-scope
+Inactive-scope observations and cursor lag already covered by the latest complete snapshot remain durable health or retention evidence without creating another full-scan request. Reactivation requires a new complete reconciliation, while active-scope
 post-snapshot observations keep the graph incomplete until projection catches up.
 Checkpoint calculation is bounded by the journal high watermark observed by the same snapshot append.
 Concurrent later journal writes can lower completeness, but cannot advance either global or active-scope

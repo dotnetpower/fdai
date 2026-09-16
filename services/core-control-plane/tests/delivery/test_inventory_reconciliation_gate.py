@@ -13,6 +13,7 @@ from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     PostgresInventoryReconciliationGate,
     _pending_resource_count,
     _projection_pending,
+    _uncovered_cursor_lag_seconds,
     adaptive_reconciliation_decision,
     failure_retry_delay_seconds,
     has_unreconciled_change,
@@ -464,3 +465,55 @@ def test_cursor_lag_beyond_source_freshness_forces_collection() -> None:
 
     assert decision.action is CollectionScheduleAction.COLLECT
     assert decision.reason_codes == ("cursor_lag",)
+
+
+@pytest.mark.parametrize(
+    (
+        "cursor_lag_seconds",
+        "active_snapshot_age_seconds",
+        "stale_after_seconds",
+        "expected",
+    ),
+    [
+        (None, 30.0, 120.0, 0.0),
+        (325_000.0, 95.0, 120.0, 0.0),
+        (300.0, 600.0, 120.0, 180.0),
+        (300.0, None, 120.0, 180.0),
+        (60.0, 600.0, 120.0, 0.0),
+    ],
+)
+def test_cursor_lag_excludes_intervals_covered_by_the_active_snapshot(
+    cursor_lag_seconds: float | None,
+    active_snapshot_age_seconds: float | None,
+    stale_after_seconds: float,
+    expected: float,
+) -> None:
+    assert (
+        _uncovered_cursor_lag_seconds(
+            cursor_lag_seconds=cursor_lag_seconds,
+            active_snapshot_age_seconds=active_snapshot_age_seconds,
+            stale_after_seconds=stale_after_seconds,
+        )
+        == expected
+    )
+
+
+@pytest.mark.parametrize(
+    ("cursor_lag_seconds", "active_snapshot_age_seconds", "stale_after_seconds"),
+    [
+        (-1.0, 30.0, 120.0),
+        (30.0, -1.0, 120.0),
+        (30.0, 10.0, -1.0),
+    ],
+)
+def test_cursor_lag_rejects_negative_inputs(
+    cursor_lag_seconds: float,
+    active_snapshot_age_seconds: float,
+    stale_after_seconds: float,
+) -> None:
+    with pytest.raises(ValueError, match="MUST NOT be negative"):
+        _uncovered_cursor_lag_seconds(
+            cursor_lag_seconds=cursor_lag_seconds,
+            active_snapshot_age_seconds=active_snapshot_age_seconds,
+            stale_after_seconds=stale_after_seconds,
+        )

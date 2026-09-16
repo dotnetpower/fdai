@@ -208,6 +208,8 @@ class PostgresInventoryReconciliationGate:
         overlay_relationship_count = int(row["overlay_relationship_count"] or 0)
         cursor_count = int(cursor_health["cursor_count"] or 0) if cursor_health else 0
         cursor_lag = cursor_health["cursor_lag_seconds"] if cursor_health else None
+        cursor_lag_seconds = float(cursor_lag) if cursor_lag is not None else None
+        active_snapshot_age_seconds = float(age) if age is not None else None
         projection_pending = _projection_pending(
             watermark_row["value"] if watermark_row is not None else None,
             active_checkpoint=(
@@ -245,10 +247,10 @@ class PostgresInventoryReconciliationGate:
                 overlay_open=bool(overlay_resource_count or overlay_relationship_count),
                 projection_pending=projection_pending,
                 operator_requested=operator_requested,
-                cursor_lag_seconds=(
-                    max(0.0, float(cursor_lag) - self._cursor_stale_after_seconds)
-                    if cursor_lag is not None
-                    else 0.0
+                cursor_lag_seconds=_uncovered_cursor_lag_seconds(
+                    cursor_lag_seconds=cursor_lag_seconds,
+                    active_snapshot_age_seconds=active_snapshot_age_seconds,
+                    stale_after_seconds=self._cursor_stale_after_seconds,
                 ),
             )
             return self._last_decision
@@ -349,6 +351,28 @@ def _pending_resource_count(
     if overlay_resource_count < 0 or pending_tombstone_count < 0:
         raise ValueError("inventory pending resource counts MUST NOT be negative")
     return overlay_resource_count + pending_tombstone_count
+
+
+def _uncovered_cursor_lag_seconds(
+    *,
+    cursor_lag_seconds: float | None,
+    active_snapshot_age_seconds: float | None,
+    stale_after_seconds: float,
+) -> float:
+    """Return only cursor lag that a newer complete snapshot has not covered."""
+
+    if stale_after_seconds < 0:
+        raise ValueError("inventory cursor stale threshold MUST NOT be negative")
+    if cursor_lag_seconds is None:
+        return 0.0
+    if cursor_lag_seconds < 0:
+        raise ValueError("inventory cursor lag MUST NOT be negative")
+    if active_snapshot_age_seconds is not None:
+        if active_snapshot_age_seconds < 0:
+            raise ValueError("active inventory snapshot age MUST NOT be negative")
+        if cursor_lag_seconds >= active_snapshot_age_seconds:
+            return 0.0
+    return max(0.0, cursor_lag_seconds - stale_after_seconds)
 
 
 def _projection_pending(
