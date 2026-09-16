@@ -336,6 +336,11 @@ Each `AgentSpec` requires a unique immutable, versioned `ConversationCharter`: b
 
 Bragi obtains one schema-validated semantic judgment per bounded turn. `draft_only` actions re-enter the typed pipeline with the operator as initiator; chat never executes.
 Read tools use model-backed semantic planning and exact canonical tool-id ownership checks. Unbound/failed models return unavailable, never a phrase-dictionary fallback. Owned-state narrowing matches complete canonical identifiers, including internal `.`, `_`, or `-`, never a shorter prefix of an identifier in the bounded question.
+A Forseti read tool exposes the reviewed adaptive telemetry recipe ids and catalog digest. It never
+accepts KQL, a workspace, a table, an endpoint, a lookback, or a filter and carries
+`query_execution_authority: false`. Recipe execution remains a typed Heimdall observation behind
+the verified adaptive Process gateway; Saga retains the Process evidence. The tool cannot query a
+provider or turn a conversational choice into work.
 A single exact `question_domains` identifier also disambiguates the schema-validated semantic route to its owner without contributor fan-out; multiple or prefix-only identifiers remain with semantic scoring.
 `PantheonRuntime.introspect` supports attributed read-only peer projections and digest-only Bragi Turns; bounded presentation discussion is specified in [conversational-deliberation.md](conversational-deliberation.md).
 

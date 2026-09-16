@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: adc1d58e2f900b354e9cc38495061442a2ab2901
+translation_source_sha: 0257c42b2e3ea9ed434aab53193a03c79d8c9728
 translation_revised: 2026-09-16
 ---
 # 온톨로지 구조 모델
@@ -223,6 +223,13 @@ source property path 및 source schema identity와 일치해야 합니다. 카�
 리소스 상태 조회는 카탈로그에 선언된 상태 개념과 정확하고 범위가 제한된 리소스 집합만 받습니다.
 구체적인 상태 개념은 일반 관측 상태 표시자보다 우선합니다. 비어 있거나 불완전한 결과는 행 개수와
 출처 제한을 보존하며, 검증된 조회 범위 밖에 일치하는 리소스가 없다고 증명하지 않습니다.
+
+추가되는 `telemetry_recipe` 쿼리 노드는 내용 기반 주소가 지정된 `TelemetryEvidenceNeed` 하나를
+받습니다. 검증기 스키마는 검토된 recipe id와 버전, 정확한 리소스와 근거 기준 시점, 고정 lookback
+프로파일, 출력 스키마 다이제스트, 멱등성 키 및 조회/비용 상한만 허용합니다. 원시 KQL, 작업 영역
+id, 테이블, 엔드포인트 및 호출자 필터는 표현할 수 없습니다. 검증은 프로바이더 I/O보다 먼저
+실행되며 결과는 `server_operational_logs` 근거 권한 아래에서 권한이 없는 완전성, 경로, 행, 지연,
+비용 및 불투명 증적 변환 결과만 반환합니다.
 
 ### 탐색형 관계 탐색
 
@@ -458,6 +465,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 의미 기반 인시던트 초안 경계 | implemented | `semantic_incident_creation.py`, `semantic_turn_processor.py`, 타입이 지정된 인시던트 생성 계약, 집중 의미 기반 계획 및 변환 결과 검사 | 수락된 인시던트 생성 판정은 심각도 하나, 대상 하나, 의미 기반 입력 다이제스트를 권한 없는 후보 초안에 보존합니다. 쿼리를 실행하거나 온톨로지 관계를 추론하거나 변경 권한을 부여하지 않습니다. |
 | ResourceClass 카탈로그와 변환 결과 | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType 및 멤버 자격/특수화 선언, 카탈로그 변환 결과, 클로저 증적, 집중 카탈로그 검사 | 검토된 클래스 11개가 직접 멤버 자격 112개와 범위가 제한된 특수화 링크 11개를 통해 중립 ResourceType 112개를 모두 변환합니다. 클로저는 명시적 id만 사용하고 권한을 부여하지 않습니다. |
 | 순서가 있는 형식화된 경로 쿼리 | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, 결정적 검증기, 보안 적용 handler, composition binding, 집중 쿼리 검사 | 기존 v1 탐색은 LinkType 하나만 받습니다. 형식화된 경로는 방향이 고정된 단계 1-8개를 실행하고 불완전한 중간 근거에서 보류합니다. |
+| 검토된 telemetry recipe 쿼리 | implemented | `QueryNodeKind.TELEMETRY_RECIPE`, `query_telemetry_handlers.py`, 타입이 지정된 근거 계약, 검증된 적응형 게이트웨이 및 집중 계약/쿼리 테스트 | 정확한 recipe need 하나는 스키마 및 계보 검증 뒤에만 프로바이더 I/O에 도달합니다. 결과는 원시 조회나 로그 행을 노출하지 않으며 실행 권한을 갖지 않습니다. |
 | 링크 역할과 의미 특성 | implemented | 공유 LinkType 계약 및 스키마, 쿼리 매니페스트, 검토된 런타임 선언 7개와 분류 선언 2개, 카탈로그 테스트 | 선택적인 빈 필드는 기존 provenance를 보존합니다. 검토된 필드는 역방향 edge나 표현 레이아웃을 만들지 않습니다. |
 | 수명 주기 없는 선언과 권한 전달 객체 | implemented | `object-type-lifecycle-classification.yaml`, `CapacityGraduationRecommendation`, `EvidenceConflict`, `ProspectiveLineage`, 엄격한 카탈로그 및 일치 검사 | 수명 주기가 없는 모든 ObjectType에는 검토 가능한 분류가 하나씩 있습니다. 추가된 전달 객체 3개는 고정된 에이전트 소유권을 보존하고 실행 권한을 부여하지 않습니다. |
 | 완전성과 표현 분리 | implemented | 권위 있는 온톨로지 그래프 materializer, 통합 테스트, Console 디코더, LinkType 검사기, 그래프 우선 인스턴스 작업 영역, 이중 언어 제품 카탈로그, 타입 검사, 프로덕션 빌드 및 집중 브라우저 기하 검사 | 선언 그래프는 독립적인 제한 계열 4개를 전달하고 범위 내 모든 LinkType의 역할과 특성을 노출합니다. 인스턴스 작업 영역은 그래프 권한을 바꾸지 않고 간단한 상한과 새로고침 상태, 펼침 메뉴가 소유하는 커버리지와 범례 세부 정보, 선택, Inspector 상태 및 전체 높이의 방향 영역을 표현 계층에 유지합니다. |
@@ -475,6 +483,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | 적응형 RCA를 위해 권한이 없는 telemetry recipe 쿼리 노드를 검증된 쿼리 대수에 추가했습니다. 이 노드는 원시 조회 필드를 거부하고 정확한 need, 증적, 출처 처리 결과, 예산 및 근거 권한 계보를 보존합니다. | `current change`; 집중 ontology-query 계약, 적응형 게이트웨이, telemetry 도구, strict mypy 및 구조 검사. | 거버넌스를 따르는 live 출처 증적은 별도로 보존합니다. 이 구조 계약은 프로바이더 가용성이나 운영 원인 정확도를 주장하지 않습니다. |
 | 2026-09-16 | implemented | 온톨로지 쿼리와 근거 경계를 유지하면서 Console 확인 경로에 필요한 타입이 지정된 의미 기반 인시던트 초안 변환 결과를 추가했습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 의미 기반 계획 및 변환 결과 테스트. | 인증된 요청부터 인시던트까지의 근거는 별도로 보존해야 합니다. 온톨로지 런타임 상태 또는 ActionType 승격은 변경하지 않았습니다. |
 | 2026-09-16 | implemented | 각 상태 페이지를 커밋된 무효화 워터마크에 결속하고 Dashboard SSE를 이 커서에서 시작했으며, 이전 클라이언트에는 안전한 현재 표식 재생을 유지하고 대량 Dashboard의 5분 fallback을 선택한 인스턴스의 15초 재검증과 분리했습니다. | `current change`, 집중 Operator 테스트 153개, 집중 Console 테스트 74개, 실제 Dashboard 브라우저 시나리오 10개, 엄격한 타입 검사 및 프로덕션 빌드 | 스트림 동작을 `validated`로 분류하기 전에 로컬에서 커밋된 표식부터 화면 반영까지의 시간 증적 하나를 보존합니다. |
 | 2026-09-15 | implemented | 별도 디렉터리 상한 및 새로고침 행을 제거하고 두 상태를 검색 도구막대에 유지했으며, 표현 커버리지와 범례 세부 정보를 기본적으로 접고 전체 화면 도구를 하나의 공용 컨트롤 표면으로 줄였습니다. | `current change`, `ontology-instances.tsx`, `ontology-instance-graph.tsx`, `ontology-instances.css`, 경로 전용 카탈로그, 집중 소스, 지역화, 브라우저, 타입 검사 및 프로덕션 빌드 검사 | 공유 Browser 제어가 다시 연결되면 인증된 변경 후 DOM 기하를 보존합니다. 그래프, 근거 또는 실행 권한은 바뀌지 않았습니다. |

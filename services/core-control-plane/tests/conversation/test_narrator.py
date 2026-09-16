@@ -25,6 +25,7 @@ class TestToolSchemaDefaults:
         assert "approve_hil" not in rendered
         assert "list_hil" not in rendered
         assert "explore_catalog" in rendered
+        assert "query_log" not in rendered
 
     def test_approver_prompt_includes_write_tools(self) -> None:
         rendered = format_prompt_tool_list(default_tool_schemas(), principal_role="approver")

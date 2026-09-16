@@ -52,6 +52,7 @@ from fdai.agents._framework.forseti_decision_helpers import (
 from fdai.agents._framework.forseti_judgment import RISK_VERDICT as _RISK_VERDICT
 from fdai.agents._framework.forseti_judgment import RULE_MATCH as _RULE_MATCH
 from fdai.agents._framework.forseti_judgment import ForsetiJudgmentMixin
+from fdai.agents._framework.forseti_telemetry_introspection import telemetry_recipe_facts
 from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -1071,7 +1072,6 @@ class Forseti(
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Report whether any judged runtime state backs this turn.
-
         The risk table and rule matches are configuration. Answering "why
         was this denied" from them alone presents a default as if it were
         a decision, so the turn is grounded only once an arbitration, a
@@ -1082,6 +1082,7 @@ class Forseti(
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {
             **capability_facts(self.spec),
+            **telemetry_recipe_facts(),
             "known_action_verdicts": dict(_RISK_VERDICT),
             "rule_matches": dict(_RULE_MATCH),
             "arbitrations_recorded": len(self.arbitrations),
