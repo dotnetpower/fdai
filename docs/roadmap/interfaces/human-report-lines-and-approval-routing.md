@@ -280,7 +280,8 @@ The Operator Service authenticates people, renders projections, and publishes ty
 does not activate graph edges, decide approval eligibility, or execute an action. The document
 worker extracts candidates but cannot approve them. Its shared PostgreSQL store may read a
 generation-bound inventory invalidation cursor, but that cursor cannot enter report-line state,
-approval evidence, routing, or authority.
+approval evidence, routing, or authority. The Core wheel inventory may include the dedicated
+inventory-manifest helper without making it a report-line dependency.
 
 ## Privacy and retention
 
