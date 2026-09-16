@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 5d9397272c0f486b4353f1b4937f30897099221a
-translation_revised: 2026-09-15
+translation_source_sha: 59de330573e66b648043dcc1961e010f1e0f0d72
+translation_revised: 2026-09-16
 ---
 
 # 권한 인식 관측 캠페인
@@ -30,7 +30,7 @@ translation_revised: 2026-09-15
 | 정확한 WARA 평가 읽기 | implemented | `delivery/azure/wara_observation.py`; `delivery/wara_assessment_cli.py`; 정확한 평가기 overlay; 집중 어댑터 테스트 | 이 어댑터는 일반 캠페인 검색과 분리된 상태를 유지합니다. 전용 예약 Job이 배포에서 선언한 umbrella workload 하나를 제공하고 완전한 대상 가시성과 범위가 제한된 결정론적 증적을 사용해 정확한 검토 쿼리를 실행하며, 논리 결과를 기존 Pantheon Event Hub로 multiplex합니다. WARA를 캠페인 출처로 등록하거나 수정 권한을 부여하지 않습니다. |
 | 캠페인 계약 및 출처 레지스트리 | implemented | `config/observation-sources.yaml`, `fdai_service_contracts/operational_activity.py`, `delivery/observation_source_catalog.py`, 집중 계약 및 카탈로그 테스트 | 엄격한 의미 digest 카탈로그가 10개 도메인을 모두 다루고 알 수 없는 필드, 잘못된 소유자, 제한 없는 한도 및 원시 활동 사유 문구를 거부합니다. |
 | 영속 캠페인 실행기 | implemented | `delivery/observation_campaign.py`, 집중 수명 주기 테스트 | 원자적 lease, 개정 번호를 확인하는 종료 기록, 충돌 복구, 현재 상태 커서, 부분 격리, 동시성 4 및 개인정보가 제한된 활동 요약을 실행할 수 있습니다. |
-| 로컬 및 배포 예약 동등성 | implemented | `delivery/observation_campaign_cli.py`, `delivery/inventory_sync_cli.py`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 CLI 및 workspace 테스트 | 두 실행 위치 모두 매분 캠페인 실행 조건을 확인합니다. 유효한 기존 배포 Job 이름은 유지하며 환경 이름 때문에 길이 제한을 넘을 때만 축약된 `caj-<workload>-<env>-observation` 형식을 사용합니다. |
+| 로컬 및 배포 예약 동등성 | implemented | `delivery/observation_campaign_cli.py`, `delivery/inventory_sync_cli.py`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 CLI 및 workspace 테스트 | 두 실행 위치 모두 매분 캠페인 실행 조건을 확인합니다. 일회 실행은 캠페인이 완료됐을 때만 성공하고 반복 모드는 부분 커버리지를 기록한 뒤 계속 실행합니다. 유효한 기존 배포 Job 이름은 유지하며 환경 이름 때문에 길이 제한을 넘을 때만 축약된 `caj-<workload>-<env>-observation` 형식을 사용합니다. |
 | Agent Activity 관측 변환 결과 | validated | `fdai_operator_service/activity_projection.py`, `console/src/agent-operational-activity.ts`, `console/src/hooks/sse-client.ts`, 집중 Operator 및 Console 테스트, production-adapter Playwright, 인증된 표준 스택 검사 | 스키마 `1.3.0`은 안정적인 활동 인스턴스를 전이 id와 분리하고 측정된 0, 기록 안 됨, 사용 불가 결과를 구분하며 현재 활동을 중앙 Live SSE 스냅샷 및 delta 경로로 전달합니다. 보존 이력은 명시적인 bounded GET으로 유지됩니다. |
 | 통제된 실제 캠페인 근거 | in-progress | 로컬 캠페인 `campaign-20260819t005835689445-9e1850c2`, 카탈로그 digest `sha256:0a3a4fa0c1ef0a0893f3ce50aec56320c6a558424af1e935eed81e27f81dc9fd`, 인증된 Agent Activity | 보존된 로컬 캠페인은 출처 10개가 모두 준비되고 최신인 상태로 완료됐으며 사유 코드가 없고 성공한 빈 상태도 명시적으로 유지합니다. 동등한 배포 개정 번호 근거는 열려 있습니다. |
 
@@ -54,6 +54,7 @@ translation_revised: 2026-09-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | 필수 커버리지가 부분 상태인 일회 캠페인이 0이 아닌 프로세스 상태를 반환하도록 하고 반복 모드는 계속 실행하도록 유지했습니다. 이제 Kubernetes Job 완료가 필수 공급자 실패를 숨길 수 없습니다. | `current change`; `delivery/observation_campaign_cli.py`; 집중 CLI 검사 7개, Ruff 및 strict mypy 통과. | 수정된 런타임을 배포하고 배포 검증을 주장하기 전에 실패한 Job 하나와 출처별 사유 코드를 보존합니다. |
 | 2026-09-15 | implemented | 복구 기한과 커서, 변환할 수 없는 변경, 관측 메타데이터, 영속 재시도 대기, 분석 대상 근거와 준비 상태를 다루는 비평 및 하드닝 12라운드를 완료했습니다. | #1065; [라운드 근거](../../baselines/live-event-production-hardening-2026-09-15.json); 집중 테스트 367개, 소스 7개의 strict mypy 통과 및 중대한 문제가 남지 않은 독립 최종 검토입니다. | 런타임 반영과 독립 근거 승인은 별도 요건이며 가짜 이벤트나 보류 조건 완화는 없습니다. |
 | 2026-09-15 | validated | 로컬 스키마 `1.3.0` 활동 스냅샷 및 delta 경로와 보존 이력 경계를 검증했습니다. Live는 SSE 연결 하나를 사용하고 암묵적인 Agent GET을 보내지 않았으며, 명시적 Agent Activity는 요청한 `1.3.0` 행 500개를 모두 반환하고 live delta로 행을 잃지 않고 렌더링했습니다. | `current change`; backend 집중 테스트 `353 passed, 1 skipped`; Console 집중 테스트 `188 passed`; strict mypy 및 typecheck 통과; production-adapter Playwright `1 passed`; 표준 로컬 서비스 `11/11`; 인증된 표준 Live 검사와 안전한 1440×900 session screenshot. | 별도로 통제되는 실제 캠페인 행을 validated로 올리기 전에 동등한 배포 개정 번호 근거를 보존합니다. |
 | 2026-09-15 | implemented | 실행 중 및 실패한 부분 개수를 제한한 뒤 스키마 `1.3.0` 활동 생성과 영속 projection을 다시 검증했습니다. 표준 로컬 projection은 요청한 500개 행을 모두 `1.3.0`으로 반환했고 측정됨, 기록 안 됨, 사용 불가 상태를 포함했습니다. | `current change`; backend 집중 테스트 `278 passed, 1 skipped`; strict mypy 통과; 표준 로컬 서비스 `11/11`; 영속 활동 projection `500/500`. | Browser Entra를 갱신한 뒤 인증된 Live 카드와 실패 전이 artifact를 캡처하고, 통제된 실제 캠페인 근거를 validated로 올리기 전에 동등한 배포 개정 번호 근거를 보존합니다. |
@@ -170,9 +171,10 @@ translation_revised: 2026-09-15
 | `retention-gap` | 요청 구간이 권위 있는 출처의 보존 기간을 초과합니다. |
 | `stale` | 최신 완료 결과가 등록된 최신성 상한보다 오래됐습니다. |
 
-예상된 권한 거부나 실패 후에도 실행기는 독립 출처를 계속 실행합니다. 모든 필수 출처의 현재
-커버리지가 `ready`일 때만 집계 캠페인이 `completed`이며, 그 외에는 `partial`입니다. 누락된
-출처를 0건, 정상 상태 또는 권한 추론으로 바꾸지 않습니다. 승격 인벤토리 검사는 측정 개수를 요구하기 전에 명시적인 소스 사용 불가 상태를 분류하며, 준비 상태에는 유효한 최신성과 불리언 잘림 여부가 명시되어야 합니다.
+예상된 권한 거부나 실패 후에도 실행기는 독립 출처를 계속 실행합니다. 모든 필수 출처가
+`ready`일 때만 집계 결과가 `completed`이며, 그 외에는 `partial`입니다. 일회 모드는
+`completed`에서만 성공하고 반복 모드는 부분 결과를 기록한 뒤 계속 실행합니다. 누락된 출처를
+0건, 정상 상태 또는 권한 추론으로 바꾸지 않습니다. 승격 인벤토리 검사는 측정 개수를 요구하기 전에 명시적인 소스 사용 불가 상태를 분류하며, 준비 상태에는 유효한 최신성과 불리언 잘림 여부가 명시되어야 합니다.
 
 ## 수집 정책
 
