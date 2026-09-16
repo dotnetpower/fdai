@@ -1,4 +1,8 @@
-import type { RecordedResourceStates, RecordedStateAxis } from "../recorded-resource-state";
+import {
+  recordedStateAxes,
+  type RecordedResourceStates,
+  type RecordedStateAxis,
+} from "../recorded-resource-state";
 import { getLocale } from "../i18n";
 import {
   recordedStateReasonText,
@@ -18,14 +22,17 @@ export function RecordedStateFacts({ states }: { readonly states: RecordedResour
   return <section class="recorded-state-facts">
     <h4>{recordedText("heading")}</h4>
     <p>{recordedText("boundary")}</p>
-    {(["operational", "provisioning", "availability"] as const).map((axis: RecordedStateAxis) => {
+    {recordedStateAxes(states).map((axis: RecordedStateAxis) => {
       const fact = states[axis];
+      if (fact === undefined) return null;
       const reason = fact.reason === null ? null : recordedStateReasonText(fact.reason);
       return <div class="recorded-state-axis" data-state-axis={axis} key={axis}>
         <div><span>{recordedText(axis)}</span><strong>{recordedStateValueText(fact)}</strong></div>
         <span class="recorded-state-freshness">{recordedText("freshness")}: {recordedText(fact.freshness)}</span>
         <details><summary>{recordedText("evidence")}</summary><dl>
           <div><dt>{recordedText("source")}</dt><dd>{fact.source_path ?? recordedText("unknown")}</dd></div>
+          <div><dt>{recordedText("sourceIdentity")}</dt><dd>{fact.source_identity ?? recordedText("unknown")}</dd></div>
+          <div><dt>{recordedText("authority")}</dt><dd>{fact.authority ?? recordedText("unknown")}</dd></div>
           <div><dt>{recordedText("observed")}</dt><dd>{time(fact.observed_at)}</dd></div>
           <div><dt>{recordedText("recorded")}</dt><dd>{time(fact.recorded_at)}</dd></div>
           <div><dt>{recordedText("completeness")}</dt><dd>{fact.completeness === null ? recordedText("unknown") : `${Math.round(fact.completeness * 100)}%`}</dd></div>

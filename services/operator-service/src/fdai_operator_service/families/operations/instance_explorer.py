@@ -385,6 +385,11 @@ async def project_inventory_instance(
             ),
             *_projection_sources(
                 context,
+                source="azure_model_serving_metrics",
+                unavailable_reason="projection_not_bound",
+            ),
+            *_projection_sources(
+                context,
                 source="azure_activity_log",
                 unavailable_reason="projection_not_bound",
             ),

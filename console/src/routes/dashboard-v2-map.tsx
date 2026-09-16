@@ -1,5 +1,6 @@
 import type { JSX } from "preact";
 import { useCallback, useEffect, useId, useRef, useState } from "preact/hooks";
+import { recordedStateValueText } from "../components/recorded-state-text";
 import { DashboardResourcePreview } from "./dashboard-v2-preview";
 import { date } from "./i18n/dashboard-v2";
 import {
@@ -25,6 +26,7 @@ export interface DashboardResourceMapProps {
   readonly labels: {
     readonly operation: string;
     readonly provisioning: string;
+    readonly serving: string;
     readonly availability: string;
     readonly observation: string;
     readonly observedAt: string;
@@ -45,7 +47,13 @@ function resourceTooltip(
     resource.subscriptionLabel ?? resource.subscription ?? labels.missing,
     resource.groupLabel ?? resource.group ?? labels.missing,
   ].join(" / ");
-  const lenses: readonly DashboardLens[] = ["operation", "provisioning", "availability", "observation"];
+  const lenses: readonly DashboardLens[] = [
+    "operation",
+    "provisioning",
+    ...(resource.states?.serving === undefined ? [] : ["serving"] as const),
+    "availability",
+    "observation",
+  ];
   return (
     <span class="dashboard-v2-map-tooltip">
       <strong class="dashboard-v2-map-tooltip-name">{resource.name}</strong>
@@ -53,16 +61,24 @@ function resourceTooltip(
       <span class="dashboard-v2-map-tooltip-scope">{scope}</span>
       {snapshot.scope ? <span class="dashboard-v2-map-tooltip-scope">{snapshot.scope}</span> : null}
       <span class="dashboard-v2-map-tooltip-facts">
-        {lenses.map((lens) => (
-          <span class="dashboard-v2-map-tooltip-fact" key={lens}>
+        {lenses.map((lens) => {
+          const fact = dashboardStateFact(resource, lens);
+          return <span class="dashboard-v2-map-tooltip-fact" key={lens}>
             <span>{labels[lens]}</span>
             <span class="dashboard-v2-map-tooltip-value">
-              <span>{lens === "observation" ? labels.state(dashboardResourceState(resource, snapshot, lens)) : dashboardStateFact(resource, lens)?.value ?? labels.state(dashboardResourceState(resource, snapshot, lens))}</span>
+              <span>{lens === "observation"
+                ? labels.state(dashboardResourceState(resource, snapshot, lens))
+                : fact === null
+                ? labels.state(dashboardResourceState(resource, snapshot, lens))
+                : recordedStateValueText(fact)}</span>
+              {fact?.observed_at
+                ? <time dateTime={fact.observed_at}>{date(fact.observed_at)}</time>
+                : null}
               {lens === "operation" && !resource.states
                 ? <code>{resource.status.trim() ? resource.status : labels.missing}</code> : null}
             </span>
-          </span>
-        ))}
+          </span>;
+        })}
         <span class="dashboard-v2-map-tooltip-fact">
           <span>{labels.observedAt}</span>
           {resource.observedAt
@@ -139,6 +155,12 @@ export function DashboardResourceMap({
       </svg>
       {resources.map((resource, index) => {
         const state = dashboardResourceState(resource, snapshot, lens);
+        const fact = dashboardStateFact(resource, lens);
+        const accessibleState = lens === "observation"
+          ? labels.state(state)
+          : fact === null
+          ? labels.state(state)
+          : recordedStateValueText(fact);
         const style = STATE_STYLE[state];
         const row = Math.floor(index / columnCount);
         const pattern = style.tone === "unknown" ? `${id}-unknown`
@@ -155,7 +177,7 @@ export function DashboardResourceMap({
               data-resource-id={resource.id}
               data-tone={style.tone}
               data-state={state}
-              aria-label={`${resource.name}, ${resource.type}, ${labels[lens]}: ${lens === "observation" ? labels.state(state) : dashboardStateFact(resource, lens)?.value ?? labels.state(state)}`}
+              aria-label={`${resource.name}, ${resource.type}, ${labels[lens]}: ${accessibleState}`}
               aria-pressed={resource.id === selectedId}
               aria-describedby={preview?.id === resource.id ? `${id}-preview` : undefined}
               tabIndex={resource.id === tabStop ? 0 : -1}

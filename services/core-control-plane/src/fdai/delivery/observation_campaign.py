@@ -700,12 +700,18 @@ def _audit_transition(
         "actor": "fdai.delivery.observation_campaign",
         "owner_agent": spec.owner_agent,
         "action_kind": "observation-campaign.source-transition",
+        "record_kind": "source_observation",
         "source_id": spec.source_id,
+        "target_ref": spec.source_id,
         "domain": spec.domain.value,
         "campaign_id": campaign_id,
+        "correlation_id": campaign_id,
+        "idempotency_key": f"observation-campaign:{campaign_id}:{spec.source_id}:{revision}",
         "status": status,
+        "outcome": status,
         "revision": revision,
         "observed_at": observed_at.isoformat(),
+        "mode": "shadow",
         "execution_authority": False,
     }
 

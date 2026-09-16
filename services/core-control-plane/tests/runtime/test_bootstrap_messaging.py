@@ -7,6 +7,7 @@ from fdai.runtime.bootstrap_plan import build_bootstrap_plan
 from fdai.runtime.bootstrap_topics import RUNTIME_LOGICAL_TOPICS
 from fdai.shared.config.models import KafkaConfig, LlmMode
 from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.operating_model import OPERATING_MODEL_TOPIC
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -58,6 +59,7 @@ def test_messaging_runtime_builds_local_primary_transport() -> None:
     assert factory.configs[0].security_protocol == "PLAINTEXT"
     assert isinstance(runtime.bus, MultiplexedEventBus)
     assert runtime.bus.logical_topics == RUNTIME_LOGICAL_TOPICS
+    assert OPERATING_MODEL_TOPIC in runtime.bus.logical_topics
     assert runtime.operational_bus is runtime.bus
     assert runtime.auxiliary_bus is None
 

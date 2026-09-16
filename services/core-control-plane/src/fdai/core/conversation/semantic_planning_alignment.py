@@ -24,6 +24,7 @@ _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE = {
     "governed_document_excerpts": frozenset({GOVERNED_DOCUMENT_FUNCTION_NAME}),
     "incident_evidence": frozenset({"query.incident_evidence"}),
     "inventory_impact": frozenset({"query.inventory_impact"}),
+    "logical_service_current_state": frozenset({"query.resource_state_inventory"}),
     "ontology_declaration": frozenset({"query.ontology_declaration"}),
     "ontology_manifest": frozenset({"query.manifest"}),
     "ontology_relationships": frozenset({"query.ontology_relationships"}),

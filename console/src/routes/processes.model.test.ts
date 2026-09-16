@@ -244,6 +244,71 @@ describe("process view route model", () => {
     expect(decoded.investigation?.terminal?.disposition).toBe("held");
   });
 
+  it("decodes bounded telemetry source metadata without a raw query surface", () => {
+    const investigation = validInvestigationRoom();
+    const digest = `sha256:${"c".repeat(64)}`;
+    const sourceMetadata = {
+      source_kind: "telemetry_recipe",
+      receipt_digest: digest,
+      recipe_id: "requests.failed",
+      recipe_version: "1.0.0",
+      disposition: "complete_no_data",
+      observed_until: "2026-08-30T00:00:00Z",
+      route_count: 2,
+      queried_route_count: 2,
+      row_count: 0,
+      latency_ms: 12,
+      complete: true,
+      truncated: false,
+    };
+    const decoded = decodeProcessJournal({
+      ...validJournal(),
+      investigation: {
+        ...investigation,
+        rounds: [{
+          ...investigation.rounds[0],
+          execution: {
+            candidate_digest: digest,
+            verification_receipt_digest: digest,
+            plan_digest: digest,
+            result_digest: digest,
+            execution_digest: digest,
+            query_status: "completed",
+            evidence_refs: [`telemetry-receipt:${digest}`],
+            reserved_cost_units: 40,
+            actual_cost_units: 20,
+            source_metadata: sourceMetadata,
+          },
+        }],
+      },
+    });
+
+    expect(decoded.investigation?.rounds[0]?.execution?.source_metadata).toEqual(sourceMetadata);
+    expect(decoded.investigation?.rounds[0]?.execution?.source_metadata).not.toHaveProperty("kql");
+
+    expect(() => decodeProcessJournal({
+      ...validJournal(),
+      investigation: {
+        ...investigation,
+        rounds: [{
+          ...investigation.rounds[0],
+          execution: {
+            candidate_digest: digest,
+            verification_receipt_digest: digest,
+            plan_digest: digest,
+            result_digest: digest,
+            execution_digest: digest,
+            query_status: "completed",
+            evidence_refs: [`telemetry-receipt:${digest}`],
+            reserved_cost_units: 40,
+            actual_cost_units: 20,
+            source_metadata: { ...sourceMetadata, disposition: "unavailable" },
+          },
+        }],
+      },
+    })).toThrow(/complete conflicts/);
+  });
+
   it("rejects an Investigation Room with mutation controls or broken rounds", () => {
     const investigation = validInvestigationRoom();
     expect(() => decodeProcessJournal({

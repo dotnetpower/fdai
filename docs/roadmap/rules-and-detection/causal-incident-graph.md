@@ -203,6 +203,8 @@ watermarks, release digest, freshness, truncation, unavailable receipts, and exp
 active hypotheses, support and refutation counts, missing evidence, selected observation, shadow
 comparison, budgets, and terminal reason.
 
+**Azure Monitor recipe binding.** The production binding reuses this session rather than creating a second agent loop. Heimdall maps declared evidence gaps to reviewed `TelemetryEvidenceRecipe` candidates, Forseti selects the strongest predicted hypothesis separation per cost unit, and the verified gateway rechecks exact incident, resource, cutoff, recipe revision, workspace route, role, purpose, query count, cost, and deadline before Azure compiles or runs KQL. The first catalog covers failed requests, error timelines, dependency latency, slow traces, guest shutdown evidence, container restarts, throttling, and resource saturation, with supporting and refuting recipes paired where required. A model can propose only a recipe id from the frozen set; it cannot author KQL, add a table, widen a workspace, change lookback, or retry a terminal receipt. The session remains bounded to eight rounds and deployment-configured query, time, and cost ceilings. Forseti revises only from verified receipts and normalized facts: complete no-data can refute only with complete fresh route coverage, while partial, stale, timed-out, unauthorized, unavailable, or truncated evidence remains unknown with its limitation recorded. Saga preserves every recipe, source disposition, latency, rows, estimated and actual cost, and terminal reason without raw logs.
+
 ## Causal scoring and refutation
 
 Each candidate is scored over four independent factors:

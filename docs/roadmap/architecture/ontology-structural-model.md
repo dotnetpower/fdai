@@ -32,6 +32,12 @@ execution, and presentation. Each concern has one canonical representation and o
 consumer contract.
 Projection-source availability is qualified by `(source, scope_digest)`. This tuple is evidence
 metadata for one collection scope and does not replace Resource or link identity.
+An optional recorded `serving` fact is presentation evidence for one exact data-plane target. It
+does not add an ontology type, relationship, or authority edge and never replaces operational,
+provisioning, or availability facts. Its source identity, telemetry authority, effective time, and
+freshness metadata survive inventory-to-ontology projection in the shared state-fact envelope.
+Model-serving source availability uses a separate additive metadata list. Upgraded instance readers
+merge it with baseline sources, while older readers continue to consume only the baseline list.
 Current instance-detail consumers require explicit runtime-call and PostgreSQL-role source states.
 Omitting either state is an invalid projection, not evidence of availability or a measured zero.
 Additive identity fields use a fail-closed rollout boundary. A legacy Resource remains queryable,
@@ -49,6 +55,11 @@ not create another ObjectType or LinkType, and its content identity cannot repla
 or relationship identity.
 Every canonical ResourceType also has one explicit recorded-state disposition. Missing state is
 never converted into a generic healthy value. The shared Operator workflow adapter may expose an optional `rule.findings-summary` projection with server-recorded counts or explicit `evaluated: false`; that operational summary is not an ontology declaration, relationship, evidence admission, or authority source.
+Committed inventory invalidation markers coordinate browser rereads without becoming graph state.
+Bulk state pages carry the marker watermark bound to their committed generation, and SSE resumes
+from that cursor. Clients without a page-bound cursor receive the current marker instead of risking
+a missed generation. Bulk Dashboard traversal uses markers as its primary signal and a five-minute
+visible-tab fallback, while selected-instance revalidation retains its separate 15-second cadence.
 
 An ObjectSet with a predicate that cannot run in the store first evaluates a 1,000-object,
 relationship-free candidate window. If that window is truncated and does not prove the requested
@@ -216,6 +227,13 @@ Resource-state queries accept only catalog-declared state concepts and exact bou
 collections. A concrete state concept takes precedence over the generic observed-state sentinel.
 Empty or incomplete results preserve row-count and source limitations and never prove that matching
 resources do not exist outside the verified query scope.
+
+The additive `telemetry_recipe` query node accepts one content-addressed `TelemetryEvidenceNeed`.
+Its verifier schema permits only a reviewed recipe id and version, exact resource and evidence
+cutoff, fixed lookback profile, output schema digest, idempotency key, and query/cost ceilings. Raw
+KQL, workspace ids, tables, endpoints, and caller filters are not expressible. Verification precedes
+provider I/O, and execution returns only an authority-free completeness, route, row, latency, cost,
+and opaque receipt projection under `server_operational_logs` evidence authority.
 
 ### Exploratory traversal
 
@@ -465,6 +483,7 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | Semantic Incident draft boundary | implemented | `semantic_incident_creation.py`; `semantic_turn_processor.py`; typed Incident creation contract; focused semantic planning and projection checks | An accepted Incident creation judgment preserves one severity, one target, and the semantic input digest in a candidate-only draft. It does not execute a query, infer an ontology relationship, or grant mutation authority. |
 | ResourceClass catalog and projection | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType and membership/specialization declarations, catalog projection, closure receipt, and focused catalog checks | Eleven reviewed classes project all 112 neutral ResourceTypes through 112 direct memberships and 11 bounded specialization links. Closure uses only explicit ids and grants no authority. |
 | Ordered typed-path query | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, deterministic verifier, secured handler, composition binding, and focused query checks | Existing v1 traversal now accepts one LinkType. Typed paths execute 1-8 exact directed steps and hold on incomplete intermediate evidence. |
+| Reviewed telemetry recipe query | implemented | `QueryNodeKind.TELEMETRY_RECIPE`, `query_telemetry_handlers.py`, typed evidence contracts, verified adaptive gateway, and focused contract/query tests | One exact recipe need reaches provider I/O only after schema and lineage verification. Results expose no raw query or log rows and carry no execution authority. |
 | Link roles and semantic traits | implemented | Shared LinkType contract and schema, query manifest, seven reviewed runtime declarations plus two taxonomy declarations, and catalog tests | Optional empty fields preserve legacy provenance. Reviewed fields do not create inverse edges or presentation layout. |
 | Lifecycle-free declarations and authority carriers | implemented | `object-type-lifecycle-classification.yaml`; `CapacityGraduationRecommendation`, `EvidenceConflict`, and `ProspectiveLineage`; strict catalog and parity checks | Every lifecycle-free ObjectType has one reviewable classification. The three additive carriers preserve fixed agent ownership and grant no execution authority. |
 | Completeness and presentation separation | implemented | Authoritative ontology graph materializer, integration tests, Console decoder, LinkType inspector, graph-first instance workspace, bilingual product catalog, typecheck, production build, and focused browser geometry | The declaration graph carries four independent limitation families and exposes every bounded LinkType with roles and traits. The instance workspace keeps compact bound and refresh state, disclosure-owned coverage and legend details, selection, Inspector state, and full-height direction regions in the presentation layer without changing graph authority. |
@@ -483,7 +502,9 @@ major version or explicit graph migration. No rollout rewrites historical contex
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | implemented | Added an authority-free telemetry recipe query node to the verified query algebra for adaptive RCA. The node rejects raw query fields and preserves exact need, receipt, source disposition, budget, and evidence-authority lineage. | `current change`; focused ontology-query contract, adaptive gateway, telemetry tool, strict mypy, and structural checks. | Retain governed live source receipts separately; this structural contract does not claim provider availability or operational cause accuracy. |
 | 2026-09-16 | implemented | Added the typed semantic Incident draft projection required by the Console confirmation path while preserving the ontology query and evidence boundaries. | [Issue #1125](https://github.com/dotnetpower/fdai/issues/1125); `current change`; focused semantic planning and projection tests. | Retain authenticated request-to-Incident evidence separately; no ontology runtime state or ActionType promotion changed. |
+| 2026-09-16 | implemented | Bound each state page to its committed invalidation watermark, started Dashboard SSE from that cursor, preserved safe current-marker replay for legacy clients, and separated the five-minute bulk fallback from 15-second selected-instance revalidation. | `current change`; 153 focused Operator tests, 74 focused Console tests, 10 native Dashboard browser scenarios, strict type checks, and production build. | Retain one local committed-marker-to-screen timing receipt before classifying the stream behavior as `validated`. |
 | 2026-09-15 | implemented | Removed the standalone directory-bound and refresh rows, retained both states in the search toolbar, collapsed presentation coverage and legend details by default, and reduced the fullscreen tool to one shared control surface. | `current change`; `ontology-instances.tsx`; `ontology-instance-graph.tsx`; `ontology-instances.css`; route-local catalogs; focused source, localization, browser, typecheck, and production-build checks. | Retain authenticated post-change DOM geometry when the shared Browser control reconnects; no graph, evidence, or execution authority changed. |
 | 2026-09-14 | implemented | Added generation-fenced evidence envelopes to bounded impact edges and preserved the caller-to-target direction of `runtime_calls` in map and Inspector presentation. | `current change`; focused changed backend tests (`448 passed`, one optional skip), changed Console tests (`415 passed`), typecheck, production build, and browser checks (`115 passed`). | Retain current authenticated relationship evidence before classifying the new edge verification path as `validated`. |
 | 2026-09-14 | implemented | Moved the incoming, selected, and outgoing direction fills from layout-height SVG rectangles to a full-height graph-surface layer, preserving the exact SVG viewBox and node, edge, label, pan, and zoom geometry. | `current change`; `ontology-instance-graph.tsx`; `ontology-instances.css`; 158 focused Console tests; two focused Playwright scenarios across fullscreen desktop, constrained desktop, and Korean mobile; typecheck and production build. | Retain an authenticated post-fix DOM measurement when the shared Browser control reconnects; no graph, query, or execution authority changed. |

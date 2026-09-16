@@ -1,0 +1,107 @@
+{
+  "source_revision": "service-catalog:example@1.0.0",
+  "objects": [
+    {
+      "id": "service:example-shop",
+      "object_type": "BusinessService",
+      "properties": {
+        "id": "service:example-shop",
+        "name": "Example shop",
+        "aliases": [
+          "example commerce",
+          "example shop"
+        ],
+        "criticality": "high",
+        "effective_from": "2026-01-01T00:00:00+00:00",
+        "source_ref": "service-catalog:example"
+      }
+    },
+    {
+      "id": "workload:example-backend",
+      "object_type": "Workload",
+      "properties": {
+        "id": "workload:example-backend",
+        "name": "Example backend",
+        "aliases": [
+          "example api",
+          "shop backend"
+        ],
+        "workload_kind": "backend",
+        "effective_from": "2026-01-01T00:00:00+00:00",
+        "source_ref": "service-catalog:example"
+      }
+    },
+    {
+      "id": "resource:example-app-service",
+      "object_type": "Resource",
+      "properties": {
+        "id": "resource:example-app-service",
+        "type": "compute.web-app"
+      }
+    },
+    {
+      "id": "resource:example-container-app",
+      "object_type": "Resource",
+      "properties": {
+        "id": "resource:example-container-app",
+        "type": "compute.container-app"
+      }
+    },
+    {
+      "id": "resource:example-deployment",
+      "object_type": "Resource",
+      "properties": {
+        "id": "resource:example-deployment",
+        "type": "kubernetes.deployment"
+      }
+    },
+    {
+      "id": "resource:example-kubernetes-service",
+      "object_type": "Resource",
+      "properties": {
+        "id": "resource:example-kubernetes-service",
+        "type": "kubernetes.service"
+      }
+    },
+    {
+      "id": "resource:example-pod",
+      "object_type": "Resource",
+      "properties": {
+        "id": "resource:example-pod",
+        "type": "kubernetes.pod"
+      }
+    }
+  ],
+  "links": [
+    {
+      "link_type": "implemented_by",
+      "from_id": "service:example-shop",
+      "to_id": "workload:example-backend"
+    },
+    {
+      "link_type": "workload_runs_on",
+      "from_id": "workload:example-backend",
+      "to_id": "resource:example-app-service"
+    },
+    {
+      "link_type": "workload_runs_on",
+      "from_id": "workload:example-backend",
+      "to_id": "resource:example-container-app"
+    },
+    {
+      "link_type": "workload_runs_on",
+      "from_id": "workload:example-backend",
+      "to_id": "resource:example-deployment"
+    },
+    {
+      "link_type": "workload_runs_on",
+      "from_id": "workload:example-backend",
+      "to_id": "resource:example-kubernetes-service"
+    },
+    {
+      "link_type": "workload_runs_on",
+      "from_id": "workload:example-backend",
+      "to_id": "resource:example-pod"
+    }
+  ]
+}

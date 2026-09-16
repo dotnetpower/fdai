@@ -1,7 +1,7 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: c4a35378b4c3c5f67b1d975105d8e582ea90d7f9
-translation_revised: 2026-09-15
+translation_source_sha: f991105fa74b0007bd2c11466670bf0ad2b8d221
+translation_revised: 2026-09-16
 ---
 # Rule 의미 검색
 
@@ -59,6 +59,7 @@ translation_revised: 2026-09-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | `BusinessService`와 `Workload`에 선택적인 승인 alias가 추가된 후 소스 참조를 다시 평가했습니다. 생성기는 release digest만 갱신하지 않고 변경하지 않은 Cost Governance 선언 집합을 정확한 active 참조에 다시 결속하며, 이전 증적을 보존하고 평가 전용 사례 7개와 F1-F8 고정본 16개를 다시 실행해 새 한국어 표면 검증 전용 증적 하나를 기록합니다. | [이슈 #1170](https://github.com/dotnetpower/fdai/issues/1170), `current change`, 증적 `7116098edcd3b8cc5ea95bc75fc51b8db5955334288e544943a806feebe243b4`, 정확한 CI 회귀 및 생성기 검사 24개 통과, 두 번째 생성기 검사 `changed=0`. | 정확한 최신 head의 보호된 CI가 권위 있는 근거입니다. 배포 인덱스, package 활성화, 승격 레지스트리, 데이터 접근 또는 실행 권한은 변경하지 않았습니다. |
 | 2026-09-12 | implemented | 역사적 Rule 62개 inventory 기록은 다시 쓰지 않고 현재 코퍼스 근거를 활성 문서 50개와 발견 문서 8,487개로 정합화했습니다. | `current change`; in-memory 코퍼스 검사(`12 passed`); 로컬 PostgreSQL 전체 코퍼스 수명 주기(`1 passed`). | 통제된 실제 런타임 근거는 별도로 보존합니다. |
 | 2026-08-13 | in-progress | 구현 ledger를 도입하고 근거 없는 운영 바인딩 주장을 수정했습니다. 선택적 정확한 다이제스트 구성과 바인딩되지 않은 Rule 검색의 타입이 지정된 planner unavailable 처리를 추가했습니다. 이전 이력은 재구성하지 않았습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/pytest -q services/core-control-plane/tests/composition/test_wire_semantic_query.py services/core-control-plane/tests/core/ontology_platform/test_query_manifest.py`에서 focused 테스트 19개가 통과했습니다. | 영속 운영 인덱스, 운영 bootstrap 바인딩, Core-to-Operator 변환 결과 발행 및 실제 증적을 추가합니다. |
 | 2026-08-13 | in-progress | 최대 256개 행의 세대에는 순서가 있는 인라인 다이제스트를 유지하면서 코퍼스 규모 세대에 범위가 제한된 계층형 문서 식별자를 추가했습니다. | `current change`; 집중 `test_rule_semantic_retrieval.py` 모음에서 8,549개 행과 청크 34개 매니페스트, 256/257개 행 경계 및 실패 시 안전하게 닫히는 변조 사례를 포함한 테스트 17개가 통과했습니다. | 매니페스트를 제공 메타데이터와 통합하고 활성 및 발견 코퍼스의 독립적인 활성화와 롤백을 증명합니다. |
@@ -283,8 +284,9 @@ source revision
 [release 참조 생성기](../../../scripts/catalog/refresh-release-derived-pins.py)를 사용합니다.
 기본 동작은 검사이며, `--write`는 실제 메모리 내 어휘 검색과 정본 `evaluate_semantic_surface`로
 기존 평가 전용 사례 7개를 다시 평가하고 현재 정책에서 `ELIGIBLE_FOR_REVIEW`를 받은 뒤에만
-허용됩니다. 지표를 복사하지 않고 다시 계산하되 고정 데이터셋, 학습 질의, 구성된 임계값,
-직접 작성한 표면의 `promoted` 상태와 내용 기반 주소를 가진 이전 증적은 보존합니다.
+허용됩니다. 지표를 복사하지 않고 다시 계산합니다. 기존 profile 선언 집합을 정확한 active
+release 참조에 다시 결속하되 고정 데이터셋, 학습 질의, 구성된 임계값, 직접 작성한 표면의
+`promoted` 상태와 내용 기반 주소를 가진 이전 증적은 보존합니다.
 쓰기 전에는 소스/정책 지문과 대상 파일의 원래 바이트가 여전히 일치해야 합니다. 끊어진 링크를
 포함한 심볼릭 링크 대상과 변경 불가능한 증적의 덮어쓰기는 차단합니다. 활성화는 임시 평가
 인덱스에만 한정하며, 배포 인덱스나 승격 레지스트리는 변경하지 않습니다. 알림 ActionType 추가도 같은 재평가 기반 소스 갱신 경계를 사용합니다.

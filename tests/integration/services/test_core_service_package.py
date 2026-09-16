@@ -34,6 +34,7 @@ EXPECTED_FDAI_ROOTS = {
 EXPECTED_RUNTIME_MODULES = {
     "__init__.py",
     "adaptive_investigation_runtime.py",
+    "adaptive_telemetry.py",
     "alert_noise.py",
     "alert_noise_config.py",
     "alert_noise_control.py",
@@ -97,6 +98,7 @@ EXPECTED_RUNTIME_MODULES = {
     "human_access_recovery.py",
     "human_assignment_reconciliation.py",
     "inventory_ontology.py",
+    "inventory_ontology_manifest.py",
     "inventory_ontology_state.py",
     "isolated_executor_client.py",
     "isolated_executor_receipt_journal.py",

@@ -63,6 +63,25 @@ def test_all_charter_digests_are_deterministic_and_unique() -> None:
     assert len({policy["prompt_sha256"] for policy in first.values()}) == len(PANTHEON_SPECS)
 
 
+def test_forseti_recipe_tool_exposes_only_reviewed_no_authority_candidates() -> None:
+    runtime = _runtime()
+
+    result = asyncio.run(
+        runtime.invoke_conversation_tool(
+            agent_name="Forseti",
+            tool_id="read_adaptive_telemetry_recipes",
+            question="Which reviewed log evidence can the investigation query next?",
+            trace_ref="trace-adaptive-telemetry",
+        )
+    )
+
+    assert result.status is AgentToolStatus.OK
+    assert len(result.facts["telemetry_recipe_ids"]) == 8
+    assert result.facts["raw_kql_available"] is False
+    assert result.facts["query_execution_authority"] is False
+    assert not set(result.facts).intersection({"kql", "workspace_id", "table", "endpoint"})
+
+
 @pytest.mark.parametrize(
     "value",
     (True, 0.0, -1.0, float("nan"), float("inf"), 10**4_000),

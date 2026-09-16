@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: d8f9fe87f0636fb13b70bd23a577c9f4ab26fac0
-translation_revised: 2026-09-15
+translation_source_sha: befd82de061854873f9a003c004b481b5d06e48c
+translation_revised: 2026-09-16
 ---
 
 # 에이전트 판테온 구현 계획
@@ -28,7 +28,7 @@ translation_revised: 2026-09-15
 | W7 에이전트 간 shadow 작업 흐름 메커니즘 | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 작업 흐름에 실행 가능한 합성 shadow 추적이 있으며, enforce 작업 흐름을 기본값으로 사용하는 근거는 이 문서에 없습니다. |
 | W8 KPI, 승격 및 성능 저하 메커니즘 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 보고는 측정값과 사용 불가능한 근거를 구분하고, 근거가 없으면 승격을 차단하며, 주입된 성능 저하 훈련이 고정 판테온을 다룹니다. |
 | W3 추적 연속성 근거 인계 | implemented | `huginn.py`; `heimdall.py`; `test_trace_continuity_chain.py` | sensing 경로는 허용 목록의 범위가 제한된 연속성 근거만 보존하고 역할, topic, 작업 권한을 바꾸지 않은 채 관측된 사유를 인시던트 후보 하나에 전달합니다. |
-| 운영 활동 귀속 | implemented | `control_loop/_measurement.py`; `control_loop/_rca.py`; `agents/_framework/provider_adapters.py`; `delivery/{observation_campaign,startup_probe}.py`; Operator 활동 투영과 집중 테스트 | 기계 행위자와 책임지는 Pantheon 소유자를 구분합니다. 인증된 버스 게시자만 `producer_principal`을 채우며, 소유자를 알 수 없는 기존 사용자 정의 source는 감사 근거로 유지하고 임의의 에이전트 활동으로 만들지 않습니다. |
+| 운영 활동 귀속 | implemented | `control_loop/_measurement.py`; `control_loop/_rca.py`; `agents/_framework/provider_adapters.py`; `delivery/{agent_activity,observation_campaign,startup_probe}.py`; Operator 활동 투영과 집중 테스트 | 기계 행위자와 책임지는 Pantheon 소유자를 구분합니다. 주기적 런타임 스냅샷은 활성 handler 상태를 보존하고 서로 독립적인 에이전트 레코드를 동시에 게시합니다. 인증된 버스 게시자만 `producer_principal`을 채우며, 소유자를 알 수 없는 기존 사용자 정의 source는 감사 근거로 유지하고 임의의 에이전트 활동으로 만들지 않습니다. |
 | 최종 ActionRun 효과 관찰 경로 | implemented | [`executed_action_observation.py`](../../../services/core-control-plane/src/fdai/delivery/executed_action_observation.py), [`wire_azure_operational_evidence.py`](../../../services/core-control-plane/src/fdai/composition/wire_azure_operational_evidence.py), [`test_executed_action_observation.py`](../../../services/core-control-plane/tests/delivery/test_executed_action_observation.py) | Heimdall은 Thor의 최종 ActionRun을 소비하고 정확한 실행 전 아티팩트를 복원하며 검증기가 승인한 독립 관찰만 저장합니다. 배포가 소유하는 서명된 컨텍스트와 실제 종료 근거는 아직 필요합니다. |
 | O7 운영 승격 근거 측정 | implemented | [`operational_promotion.py`](../../../services/core-control-plane/src/fdai/core/measurement/operational_promotion.py), [`operational_promotion_evidence.py`](../../../services/core-control-plane/src/fdai/delivery/measurement/operational_promotion_evidence.py), [`test_operational_promotion_evidence.py`](../../../services/core-control-plane/tests/delivery/test_operational_promotion_evidence.py) | 실행기는 매니페스트에 결합된 불변 배치를 소비하고 인과관계, 측정 단위, 재발 또는 정책 이탈 근거가 없으면 안전하게 차단합니다. 현재 완전한 실제 배치를 구체화하는 런타임 생산자는 없습니다. |
 | 실제 운영 KPI 검증 및 실제 enforce 승격 | in-progress | [운영 학습 온톨로지](../rules-and-detection/operational-learning-ontology-ko.md), [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 측정 및 관찰 소비자는 있지만 완전하게 보존된 실제 shadow 코호트, 운영 승격 증적, 독립적인 검토 또는 실제 판테온 enforce 승격 근거는 없습니다. |
@@ -37,6 +37,7 @@ translation_revised: 2026-09-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | 주기적 런타임 스냅샷이 활성 handler 상태를 보존하고 서로 독립적인 에이전트 레코드 15개를 동시에 게시하도록 했습니다. 느린 Event Hubs 왕복 하나가 모든 새로 고침을 직렬로 지연하지 않습니다. 역할, topic, 판단 및 권한은 바뀌지 않았습니다. | `current change`; `delivery/agent_activity.py`; `runtime/bootstrap_pantheon.py`; 에이전트 활동, 런타임 종료, 인벤토리, 분석기 및 관측 집중 검사 260개 통과, strict mypy와 Ruff 통과. | 배포된 활동 근거를 보존합니다. 초기 전체 인벤토리 Rule 평가와 현재 점검 결과 요약은 [이슈 #1199](https://github.com/dotnetpower/fdai/issues/1199)에서 추적합니다. |
 | 2026-09-15 | implemented | 예측 기반 구현의 CI 등록 누락을 보완하고 Mimir 컨텍스트 처리, Muninn Pattern 읽기, Heimdall 이력 수신, Forseti 준비 상태 기록을 전용 framework 보조 모듈로 옮겼습니다. 역할, 소유 토픽, 제한된 대기 시간, 권한은 바뀌지 않았습니다. | `current change`; [PR #1029](https://github.com/dotnetpower/fdai/pull/1029); 분리 경로 집중 검사 234개, 근거 허용 경로 검사 316개, 구조 회귀 검사 55개, 실제 루프백 PostgreSQL 검사 3개, strict mypy와 Ruff 통과. | 보호된 CI와 병합은 대기 중이며 예측 후속 작업은 이슈 #1021부터 #1026에 남아 있습니다. |
 | 2026-09-15 | implemented | Rebase 뒤 Var의 공개 대기 티켓 유형을 보호된 main과 일치시키고 기존 배정 검토 바인딩을 집중 배정 작업 흐름 helper로 이동했습니다. | `current change`; 레이아웃, 배정 및 Wave 3 집중 검사 125개 통과, strict mypy, Ruff 및 enforced LOC 통과. | 승인, 배정, 역할 또는 권한 동작은 바뀌지 않았으며 기록된 Low 심각도 잔여 문제를 해결합니다. |
 | 2026-09-15 | implemented | 보호된 main으로 rebase한 뒤 Var shadow 검토 레코드, 범위 제한 티켓 제거 및 차단 시도 중복 제거를 집중 티켓 신원 helper로 이동했습니다. | `current change`; Wave 3, 런타임 및 정족수 검사 193개 통과, strict mypy, Ruff, 에이전트 가져오기 및 enforced LOC 통과, Var 800줄. | 승인 동작이나 권한은 바뀌지 않았으며 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
@@ -73,6 +74,9 @@ translation_revised: 2026-09-15
   통제된 실제 배치 생산자를 구현합니다.
 - [ ] 에이전트 역할, topic 소유권, 모델 정책 또는 작업 권한을 넓히지 않고 운영 의존성을
   대상으로 선언된 성능 저하 동작을 입증합니다.
+- [ ] [이슈 #1199](https://github.com/dotnetpower/fdai/issues/1199)를 완료합니다. 전체 인벤토리에서
+  내구성 있는 기준 평가 작업을 발행하고 Forseti 판단과 Saga 감사 소유권을 유지하며 근거 공백을
+  0으로 추론하지 않는 현재 Rule 점검 결과 요약을 구체화합니다.
 - [ ] 하나의 고정된 런타임, 카탈로그, ActionType, 작업 흐름 및 시나리오 집합 리비전에서
   보존된 실제 shadow 코호트를 대상으로 선언된 KPI 수집기를 실행합니다.
 - [ ] 승격 후보마다 표본 수와 신뢰 구간을 포함한 권위 있는 결과, 재발, 롤백 및 정책 이탈

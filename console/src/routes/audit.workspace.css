@@ -40,6 +40,8 @@
 .audit-metrics > a:hover { background: var(--cs-shade); }
 .audit-metrics span, .audit-metrics small { color: var(--fg-muted); font-size: var(--cs-type-label-size); }
 .audit-metrics strong { font-size: var(--cs-type-section-title-size); font-weight: 600; }
+.audit-metrics > a[data-status="verified"] strong { color: var(--success); }
+.audit-metrics > a[data-status="failed"] strong { color: var(--danger); }
 .audit-query { margin-block: 16px; padding: 10px; border: 1px solid var(--border); border-radius: var(--cs-radius); background: var(--bg-elevated); }
 .audit-query-main { display: grid; grid-template-columns: minmax(200px, 1fr) repeat(2, minmax(150px, 190px)) auto; align-items: end; gap: 8px; }
 .audit-query label { display: grid; gap: 4px; min-width: 0; }

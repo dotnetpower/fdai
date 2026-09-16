@@ -370,6 +370,7 @@ from fdai_service_contracts.operational_coverage import (
 from fdai_service_contracts.operator import (
     AgentActivityQuery,
     AgentActivityReadModel,
+    AuditPageProjection,
     AuditQuery,
     BrowserEvidenceQuery,
     BrowserEvidenceWorkspaceQuery,
@@ -551,6 +552,7 @@ __all__ = [
     "AgentOperationalActivity",
     "AnswerEvidenceMode",
     "ArtifactManifestEntry",
+    "AuditPageProjection",
     "AuditQuery",
     "AzureMonitorEvent",
     "AzureMonitorNormalizationError",

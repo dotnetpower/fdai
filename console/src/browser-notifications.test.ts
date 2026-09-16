@@ -109,7 +109,7 @@ describe("browser notification boundary", () => {
     expect(browserAlertForLiveEvent(event())).toEqual({
       kind: "approval",
       tag: "fdai:event-1",
-      path: "/audit?correlation=correlation-1",
+      path: "/audit?correlation=correlation-1&data=live",
     });
     expect(browserNotificationWorkerPaths("/fdai")).toEqual({
       scriptUrl: "/fdai/notification-sw.js",
@@ -132,7 +132,7 @@ describe("browser notification boundary", () => {
       channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
       tag: "fdai:event-1",
       acknowledgement_token: ACKNOWLEDGEMENT_TOKEN,
-      path: "/audit?correlation=correlation-1",
+      path: "/audit?correlation=correlation-1&data=live",
     });
     expect(() => browserAlertNotificationData(
       browserAlertForLiveEvent(event())!,
@@ -146,9 +146,10 @@ describe("browser notification boundary", () => {
     const target = new URL(alert!.path, "https://console.example.com");
     expect(target.pathname).toBe("/audit");
     expect(target.searchParams.get("correlation")).toBe("corr/one&two");
+    expect(target.searchParams.get("data")).toBe("live");
     expect(consoleDataMode("audit", target.searchParams, "sample")).toBe("live");
     expect(browserAlertNotificationData(alert!, "/fdai/", ACKNOWLEDGEMENT_TOKEN).path)
-      .toBe("/fdai/audit?correlation=corr%2Fone%26two");
+      .toBe("/fdai/audit?correlation=corr%2Fone%26two&data=live");
   });
 
   test("scopes opt-in storage to the browser principal", () => {

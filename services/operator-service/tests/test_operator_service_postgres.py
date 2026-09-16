@@ -68,6 +68,7 @@ from fdai_operator_service.postgres_sql import (
     AGENT_ONTOLOGY_ACTIVITY_SQL,
     AGENT_READ_ACTIVITY_SQL,
     AUDIT_PAGE_SQL,
+    AUDIT_SUMMARY_SQL,
     AUDIT_TRACE_SQL,
     HIL_COUNT_SQL,
     HIL_PAGE_SQL,
@@ -1832,6 +1833,29 @@ def _audit_row(
     }
 
 
+def _audit_summary_row(**overrides: object) -> dict[str, object]:
+    return {
+        "observed_at": _NOW,
+        "matching_record_count": 2,
+        "terminal_record_count": 1,
+        "human_review_record_count": 1,
+        "rollback_record_count": 0,
+        "current_record_count": 3,
+        "current_link_gap_count": 0,
+        "readiness": {
+            "generated_at": _NOW.isoformat(),
+            "results": [
+                {
+                    "probe_id": "audit.chain",
+                    "status": "passed",
+                    "evidence": {"audit_chain_verified": True},
+                }
+            ],
+        },
+        **overrides,
+    }
+
+
 class StubPostgresReadModel(PostgresOperatorReadModel):
     """Return deterministic rows while recording SQL parameter boundaries."""
 
@@ -1839,6 +1863,7 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
         super().__init__(PostgresOperatorReadModelConfig(dsn="postgresql://example.invalid/db"))
         self.calls: list[tuple[str, Mapping[str, object]]] = []
         self.audit_rows: list[dict[str, object]] = []
+        self.audit_summary_rows: list[dict[str, object]] = [_audit_summary_row()]
         self.routing_rows: list[dict[str, object]] = []
         self.hil_rows: list[dict[str, object]] = []
         self.incident_rows: list[dict[str, object]] = []
@@ -1859,6 +1884,8 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
         self.calls.append((statement, parameters))
         if statement in {AUDIT_PAGE_SQL, AUDIT_TRACE_SQL}:
             return self.audit_rows
+        if statement == AUDIT_SUMMARY_SQL:
+            return self.audit_summary_rows
         if statement == KPI_SAMPLE_SQL:
             return self.audit_rows
         if statement == ROUTING_SAMPLE_SQL:
@@ -1935,13 +1962,28 @@ async def test_audit_query_is_parameterized_paginated_and_redacted() -> None:
     ]
     attack = "corr' OR TRUE --"
 
-    page = await model.list_audit(AuditQuery(limit=1, correlation_id=attack))
+    page = await model.list_audit(AuditQuery(limit=1, correlation_id=attack, include_summary=True))
 
     assert page.next_cursor == "3"
     assert page.items[0]["entry"] == {
         "token": "[REDACTED]",
         "client-secret": "[REDACTED]",
         "nested": {"password": "[REDACTED]"},
+    }
+    assert page.summary == {
+        "observed_at": _NOW.isoformat(),
+        "matching_record_count": 2,
+        "terminal_record_count": 1,
+        "human_review_record_count": 1,
+        "rollback_record_count": 0,
+        "integrity": {
+            "status": "verified",
+            "reason": None,
+            "verified_at": _NOW.isoformat(),
+            "current_record_count": 3,
+            "current_link_gap_count": 0,
+        },
+        "redaction_applied": True,
     }
     statement, parameters = model.calls[0]
     assert attack not in statement
@@ -1957,6 +1999,168 @@ async def test_audit_projection_normalizes_null_string_correlation() -> None:
     page = await model.list_audit(AuditQuery(limit=1))
 
     assert page.items[0]["correlation_id"] is None
+    assert [statement for statement, _parameters in model.calls] == [AUDIT_PAGE_SQL]
+
+
+@pytest.mark.asyncio
+async def test_audit_projection_normalizes_source_observation_context() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            correlation_id="campaign-one",
+            action_kind="observation-campaign.source-transition",
+            entry={
+                "campaign_id": "campaign-one",
+                "source_id": "metrics",
+                "domain": "metrics",
+                "owner_agent": "Heimdall",
+                "status": "completed",
+                "execution_authority": False,
+            },
+        )
+    ]
+
+    page = await model.list_audit(AuditQuery(limit=1))
+
+    assert page.items[0]["context"] == {
+        "record_kind": "source_observation",
+        "action_lifecycle_applicable": False,
+        "target": "metrics",
+        "correlation_id": "campaign-one",
+        "phase": None,
+        "stage": None,
+        "outcome": "completed",
+        "tier": None,
+        "decision": None,
+        "idempotency_key": None,
+        "rollback_reference": None,
+        "owner_agent": "Heimdall",
+        "domain": "metrics",
+    }
+    assert "campaign_id" in AUDIT_PAGE_SQL
+    assert "campaign_id" in AUDIT_TRACE_SQL
+
+
+@pytest.mark.asyncio
+async def test_audit_projection_normalizes_handover_readiness_context() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            correlation_id="",
+            action_kind="handover.readiness.observed",
+            entry={
+                "partial": False,
+                "execution_authority": False,
+            },
+        )
+    ]
+
+    page = await model.list_audit(AuditQuery(limit=1))
+
+    assert page.items[0]["context"] == {
+        "record_kind": "source_observation",
+        "action_lifecycle_applicable": False,
+        "target": "handover-readiness",
+        "correlation_id": None,
+        "phase": None,
+        "stage": None,
+        "outcome": "complete",
+        "tier": None,
+        "decision": None,
+        "idempotency_key": None,
+        "rollback_reference": None,
+        "owner_agent": None,
+        "domain": "identity",
+    }
+
+
+@pytest.mark.asyncio
+async def test_audit_projection_unwraps_nested_action_context() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            correlation_id="corr-nested",
+            action_kind="audit.record",
+            entry={
+                "payload": {
+                    "resource_id": "resource-one",
+                    "correlation_id": "corr-nested",
+                    "idempotency_key": "idem-one",
+                    "risk_verdict": "hil",
+                    "action_type": "ops.restart",
+                }
+            },
+        )
+    ]
+
+    page = await model.list_audit(AuditQuery(limit=1))
+
+    assert page.items[0]["context"] == {
+        "record_kind": "action_lifecycle",
+        "action_lifecycle_applicable": True,
+        "target": "resource-one",
+        "correlation_id": "corr-nested",
+        "phase": None,
+        "stage": None,
+        "outcome": "hil",
+        "tier": None,
+        "decision": "hil",
+        "idempotency_key": "idem-one",
+        "rollback_reference": None,
+        "owner_agent": None,
+        "domain": None,
+    }
+    assert "entry#>>'{payload,correlation_id}'" in AUDIT_PAGE_SQL
+
+
+@pytest.mark.asyncio
+async def test_audit_projection_classifies_startup_audit_probe_as_read_only() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            correlation_id="",
+            action_kind="startup_readiness.audit_probe",
+            entry={"owner_agent": "Saga", "decision": "probe"},
+        )
+    ]
+
+    page = await model.list_audit(AuditQuery(limit=1))
+
+    assert page.items[0]["context"] == {
+        "record_kind": "source_observation",
+        "action_lifecycle_applicable": False,
+        "target": "startup-readiness",
+        "correlation_id": None,
+        "phase": None,
+        "stage": None,
+        "outcome": "recorded",
+        "tier": None,
+        "decision": "probe",
+        "idempotency_key": None,
+        "rollback_reference": None,
+        "owner_agent": "Saga",
+        "domain": "runtime",
+    }
+
+
+@pytest.mark.asyncio
+async def test_audit_summary_reports_current_hash_link_gaps_as_failed() -> None:
+    model = StubPostgresReadModel()
+    model.audit_summary_rows = [_audit_summary_row(current_link_gap_count=2)]
+
+    page = await model.list_audit(AuditQuery(limit=1, include_summary=True))
+
+    assert page.summary["integrity"] == {
+        "status": "failed",
+        "reason": "current_hash_link_gap",
+        "verified_at": _NOW.isoformat(),
+        "current_record_count": 3,
+        "current_link_gap_count": 2,
+    }
 
 
 async def test_audit_filters_are_parameterized_and_keep_immutable_bounds() -> None:
@@ -1965,6 +2169,7 @@ async def test_audit_filters_are_parameterized_and_keep_immutable_bounds() -> No
     await model.list_audit(
         AuditQuery(
             limit=25,
+            include_summary=True,
             action_kind=action,
             mode="shadow",
             tier="t0",
@@ -1983,6 +2188,12 @@ async def test_audit_filters_are_parameterized_and_keep_immutable_bounds() -> No
     assert parameters["mode"] == "shadow"
     assert parameters["tier"] == "t0"
     assert parameters["outcome"] == "auto"
+    summary_statement, summary_parameters = model.calls[1]
+    assert summary_statement == AUDIT_SUMMARY_SQL
+    assert summary_parameters["correlation_id"] is None
+    assert summary_parameters["action_kind"] == action
+    assert "LIKE 'hil.%%'" in AUDIT_SUMMARY_SQL
+    assert "LIKE '%%rollback%%'" in AUDIT_SUMMARY_SQL
 
 
 @pytest.mark.asyncio

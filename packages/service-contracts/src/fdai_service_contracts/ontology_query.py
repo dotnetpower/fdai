@@ -59,6 +59,7 @@ class QueryNodeKind(StrEnum):
     METRIC_SCOPE_SERIES = "metric_scope_series"
     METRIC_COMPARISON = "metric_comparison"
     EVIDENCE_JOIN = "evidence_join"
+    TELEMETRY_RECIPE = "telemetry_recipe"
 
 
 class GoalEvidenceMode(StrEnum):
@@ -101,6 +102,7 @@ class EvidenceAuthority(StrEnum):
     SERVER_ONTOLOGY_QUERY = "server_ontology_query"
     SERVER_OPERATIONAL_METRICS = "server_operational_metrics"
     SERVER_OPERATIONAL_STATE_HISTORY = "server_operational_state_history"
+    SERVER_OPERATIONAL_LOGS = "server_operational_logs"
     SERVER_RESOURCE_HEALTH = "server_resource_health"
     SERVER_GOVERNED_DOCUMENT = "server_governed_document"
     SERVER_SUBSCRIPTION_SCOPE = "server_subscription_scope"

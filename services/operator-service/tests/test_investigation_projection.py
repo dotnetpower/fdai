@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from fdai_operator_service.investigation_projection import (
+    _source_metadata,
     project_adaptive_investigation,
 )
 from fdai_service_contracts.ontology_query import content_digest
@@ -161,6 +162,50 @@ def test_projects_bounded_read_only_room() -> None:
     assert projection["process_revision"] == 2
     assert projection["round_count"] == 1
     assert projection["rounds"][0]["hold_reason"] == "no_candidates"  # type: ignore[index]
+
+
+def test_projects_bounded_telemetry_source_metadata_without_raw_query_fields() -> None:
+    projected = _source_metadata(
+        {
+            "source_kind": "telemetry_recipe",
+            "receipt_digest": DIGEST_A,
+            "recipe_id": "requests.failed",
+            "recipe_version": "1.0.0",
+            "disposition": "complete",
+            "observed_until": "2026-08-30T00:00:00Z",
+            "route_count": 2,
+            "queried_route_count": 2,
+            "row_count": 1,
+            "latency_ms": 12,
+            "complete": True,
+            "truncated": False,
+        }
+    )
+
+    assert projected["recipe_id"] == "requests.failed"
+    assert projected["disposition"] == "complete"
+    assert projected["latency_ms"] == 12
+    assert not set(projected).intersection({"kql", "query", "workspace_id", "table"})
+
+
+def test_rejects_telemetry_source_metadata_that_misstates_completeness() -> None:
+    with pytest.raises(ValueError, match="completeness conflicts"):
+        _source_metadata(
+            {
+                "source_kind": "telemetry_recipe",
+                "receipt_digest": DIGEST_A,
+                "recipe_id": "requests.failed",
+                "recipe_version": "1.0.0",
+                "disposition": "unavailable",
+                "observed_until": None,
+                "route_count": 2,
+                "queried_route_count": 1,
+                "row_count": 0,
+                "latency_ms": 12,
+                "complete": True,
+                "truncated": False,
+            }
+        )
 
 
 def test_non_adaptive_process_has_no_room() -> None:

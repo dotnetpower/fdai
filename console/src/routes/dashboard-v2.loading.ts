@@ -1,6 +1,7 @@
 import {
   decodeRecordedResourceStates,
   isRecordedStateGenerationTransition,
+  latestRecordedStateObservedAt,
   stateRecord,
   stateText,
   stateTime,
@@ -10,8 +11,17 @@ import type { DashboardResource, DashboardSnapshot } from "./dashboard-v2.model"
 
 const LIMIT = 500;
 const MAX_RECORDS = 20000;
-const MAX_READ_MS = 30000;
-const GENERATION_RETRY_DELAYS_MS = [250, 500] as const;
+const MAX_READ_MS = 45_000;
+const GENERATION_RETRY_DELAYS_MS = [
+  250,
+  500,
+  1_000,
+  2_000,
+  4_000,
+  8_000,
+  12_000,
+  12_000,
+] as const;
 interface RecordedStateClient {
   readonly panel: (path: string, params?: Record<string, string>) => Promise<unknown>;
 }
@@ -44,6 +54,7 @@ async function loadDashboardRecordedStateGeneration(
   let generation: string | null = null;
   let ontologyGeneration: string | null = null;
   let ontologyManifestDigest: string | null = null;
+  let invalidationWatermark: number | null | undefined;
   let cutoff: string | null = null;
   let release: string | null = null;
   let total: number | null = null;
@@ -63,6 +74,17 @@ async function loadDashboardRecordedStateGeneration(
     const nextGeneration = stateText(payload.source_generation, "generation");
     const nextOntologyGeneration = stateText(payload.ontology_generation, "ontology generation");
     const nextOntologyManifestDigest = stateText(payload.ontology_manifest_digest, "ontology manifest");
+    const rawInvalidationWatermark = payload.invalidation_watermark;
+    if (
+      rawInvalidationWatermark !== undefined
+      && rawInvalidationWatermark !== null
+      && (
+        typeof rawInvalidationWatermark !== "number"
+        || !Number.isSafeInteger(rawInvalidationWatermark)
+        || rawInvalidationWatermark < 1
+      )
+    ) throw new Error("Invalid recorded resource invalidation watermark");
+    const nextInvalidationWatermark = rawInvalidationWatermark ?? null;
     const sourceKind = stateText(payload.source_kind, "source kind");
     const nextCutoff = stateTime(payload.source_cutoff, "cutoff");
     const nextRelease = stateText(payload.ontology_release_digest, "ontology release");
@@ -74,12 +96,14 @@ async function loadDashboardRecordedStateGeneration(
       generation !== nextGeneration
       || ontologyGeneration !== nextOntologyGeneration
       || ontologyManifestDigest !== nextOntologyManifestDigest
+      || invalidationWatermark !== nextInvalidationWatermark
       || cutoff !== nextCutoff
       || release !== nextRelease
     )) throw new Error("Recorded resource generation changed; refresh the snapshot");
     generation = nextGeneration;
     ontologyGeneration = nextOntologyGeneration;
     ontologyManifestDigest = nextOntologyManifestDigest;
+    invalidationWatermark = nextInvalidationWatermark;
     cutoff = nextCutoff;
     release = nextRelease;
     if (!Number.isSafeInteger(payload.total_count) || typeof payload.total_count !== "number" || payload.total_count < 0) throw new Error("Invalid recorded resource total");
@@ -101,7 +125,7 @@ async function loadDashboardRecordedStateGeneration(
         status: nullable(resource.status, "status") ?? "",
         parentId: null, group: group === null ? null : `${subscription ?? ""}::${group}`, groupLabel: group,
         subscription, subscriptionLabel: subscription,
-        observedAt: states.operational.observed_at, states,
+        observedAt: latestRecordedStateObservedAt(states), states,
       });
     }
     cursor = nullable(payload.next_cursor, "next cursor");
@@ -125,6 +149,7 @@ async function loadDashboardRecordedStateGeneration(
     id: generation,
     ontologyGeneration,
     ontologyManifestDigest,
+    invalidationWatermark: invalidationWatermark ?? null,
     at: cutoff, source: "inventory_snapshot_resource", scope: null,
     freshness: "unknown", observationKind: null, truncated: cursor !== null,
     limitations: cursor !== null ? ["client_record_limit"] : [], resources,

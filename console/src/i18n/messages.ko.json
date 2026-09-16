@@ -1280,7 +1280,24 @@
     "investigationHypotheses": "활성 가설 {count}개",
     "investigationNoSelection": "선택된 관측 없음",
     "investigationSeparation": "구분된 가설 쌍: {total}개 중 {separated}개",
-    "investigationShadow": "shadow 비교"
+    "investigationShadow": "shadow 비교",
+    "investigationRecipe": "Recipe",
+    "investigationSourceState": "출처 상태",
+    "investigationRouteCoverage": "경로 범위",
+    "investigationRows": "행 수",
+    "investigationLatency": "지연 시간",
+    "investigationObservedUntil": "관측 기준 시각",
+    "investigationUnavailable": "사용 불가",
+    "telemetryMechanism": {
+      "failedRequests": "실패한 요청",
+      "errorTimeline": "오류 타임라인",
+      "dependencyLatency": "종속성 지연",
+      "slowTraces": "느린 추적",
+      "guestShutdown": "게스트 종료",
+      "containerRestarts": "컨테이너 재시작",
+      "throttling": "요청 제한",
+      "resourceSaturation": "리소스 포화"
+    }
   },
   "scope": {
     "subtitle": "구독 및 리소스 그룹 단위의 유효 모니터링 및 자동 작업 범위입니다. 읽기 전용: 변경을 작성하면 policy-as-code 아티팩트가 생성되며 이를 수정 / 구성 PR(GitOps)로 제출합니다. 콘솔은 범위를 직접 쓰지 않습니다.",

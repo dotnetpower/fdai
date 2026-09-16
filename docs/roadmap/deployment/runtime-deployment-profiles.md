@@ -185,7 +185,13 @@ The Container Apps renderer maps the specification to Container Apps and Contain
 AKS renderer maps it to typed Kubernetes `Deployment`, `Service`, `ServiceAccount`,
 `HorizontalPodAutoscaler`, `PodDisruptionBudget`, `NetworkPolicy`, and `CronJob` resources. The
 first AKS implementation keeps two replicas for each long-running service and does not require
-Knative or KEDA.
+Knative or KEDA. Console publication uses an exposed browser gateway base URL; otherwise, it retains the existing Container Apps FQDN without changing browser or API routes.
+
+Both renderers bind Core to the `fdai.operating-model` logical topic through
+`FDAI_OPERATING_MODEL_TOPIC`. The topic shares the existing semantic physical Event Hub and its
+managed-identity transport; it is not another Event Hub entity or authority channel. The AKS
+standalone renderer obtains the value from the exact substrate output, while the independent and
+legacy Container Apps renderers receive the same typed deployment input.
 
 Operator assignment and human-approval (HIL) transport imports share the existing `iam_composition`
 facade within the same Operator Service package and runtime; original adapter and factory objects
@@ -211,10 +217,12 @@ lifecycle CronJobs. The history job uses the read-only inventory identity, the s
 DSN, and the private archive URL in fixed `shadow` mode. A non-shadow lifecycle requires a separate
 protected transition and an exact persisted certification receipt; runtime selection grants neither.
 
-The inventory command and its CLI support module preserve read-only failure boundaries on both
-platforms and in the local managed stack. Activity Log recovery is independent of full reconciliation:
-failures before or after generation promotion are reported as unavailable, without advancing failed
-delta cursors or terminating the complete inventory loop.
+The inventory command preserves read-only failure boundaries; Activity Log recovery cannot advance
+delta cursors or stop reconciliation. Passive model-serving evidence reuses inventory identity and
+Azure Monitor without inference; failures lower only its coverage. Reconciliation bounds determine
+lookback, freshness, points, and timeout. The standalone substrate target set includes the existing
+subscription, workspace, exact-cluster, cost, and pipeline-stage roles. An inventory identity without
+these assignments cannot establish provider scope, metrics, logs, cost, or publication readiness.
 
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and
@@ -281,7 +289,7 @@ API Server VNet Integration at cluster creation and reserves at least a `/28` de
 subnet so private-cluster mode can be enabled later without replacing the cluster. The cluster state
 owns an explicit Standard NAT Gateway, static Standard outbound public IP, and both associations
 before AKS creation; its outbound type is `userAssignedNATGateway`, not the
-AKS-managed-VNet-only `managedNATGateway`.
+AKS-managed-VNet-only `managedNATGateway`. The outbound public IP excludes Azure Policy-owned `ip_tags` from Terraform lifecycle reconciliation while ordinary `tags` remain Terraform-owned. This prevents policy metadata from replacing the public IP and NAT association; it grants no exception to cluster, node-pool, or DCR changes.
 
 The basic profile keeps authenticated public API access enabled and applies the reviewed access
 restriction. API-server-to-node traffic still uses the integrated private path. This is the
@@ -297,7 +305,7 @@ the regional catalog once and uses an exact-name Azure CLI projection so only th
 SKUs are serialized, then checks their regional restrictions, three required zones, architecture,
 host encryption, and family plus total quota. It does not issue a second catalog request for a
 different node-pool SKU or retry a failed provider read. Unsupported targets do not disable
-encryption. Allocatable workload-envelope validation remains open in the implementation ledger.
+encryption. Allocatable workload-envelope validation remains open in the implementation ledger. Container Insights combines the managed-identity `oms_agent` addon with a Terraform-owned Data Collection Rule (DCR) and cluster association. It sends the default stream each minute with `ContainerLogV2`; without the association and current workspace records, monitoring is unavailable.
 
 The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
 ephemeral storage. Checkov exceptions stay attached to the affected resource: the pinned scanner
@@ -362,7 +370,7 @@ Every mutating node has its own exact plan, current human approval, pre-effect c
 rollback or recovery reference, and authoritative observer. `deployment_ready=true` requires all
 selected services healthy, workload identities effective, Kafka round trips complete, database
 migrations current, one canary job successful, and every selected state root at a second
-zero-change plan.
+zero-change plan. Mixed-revision service rollout preserves the Audit API's page-only default: a newer Console may send additive `summary=true` while an older Operator returns the prior page envelope, and new Operators compute the ledger-wide summary only for that opt-in so Incident, Agent Activity, Trace, and optional cost-package routes do not inherit its scan cost.
 
 ## Signed kit requirements
 

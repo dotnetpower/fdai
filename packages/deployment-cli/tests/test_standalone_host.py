@@ -785,6 +785,12 @@ def test_aks_substrate_includes_document_dependencies_without_container_apps() -
         "azurerm_key_vault_secret.ingestion_worker_dsn",
         "azurerm_role_assignment.ingestion_aks_eventhubs_sender",
         "azurerm_role_assignment.ingestion_worker_aks_eventhubs_receiver",
+        "azurerm_role_assignment.inventory_reader",
+        "azurerm_role_assignment.inventory_monitoring_reader",
+        "azurerm_role_assignment.inventory_log_analytics_reader",
+        "azurerm_role_assignment.inventory_cost_reader",
+        "azurerm_role_assignment.inventory_kubernetes_reader",
+        "azurerm_role_assignment.inventory_stage_sender",
     } <= targets
     assert "module.ingestion_gateway" not in targets
 

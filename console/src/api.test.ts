@@ -32,6 +32,14 @@ describe("Operator API response decoders", () => {
       change_lead_time_seconds: metric,
       cost_per_resolved_event_usd: metric,
     },
+    metric_samples: {
+      auto_resolution_rate: 1,
+      human_touchpoints_per_100: 1,
+      mttr_seconds: 1,
+      change_lead_time_seconds: 1,
+      cost_per_resolved_event_usd: 1,
+    },
+    measurement_gaps: [],
     leading: {
       mixed_model_disagreement_rate: metric,
       verifier_failure_rate: metric,
@@ -96,9 +104,24 @@ describe("Operator API response decoders", () => {
         ...autonomy.success,
         mttr_seconds: { value: null, baseline: null, direction: "lower" },
       },
+      metric_samples: { ...autonomy.metric_samples, mttr_seconds: 0 },
+      measurement_gaps: ["missing_source:mttr_seconds"],
     });
     expect(decoded.success.mttr_seconds.value).toBeNull();
     expect(decoded.success.mttr_seconds.baseline).toBeNull();
+    expect(decoded.metric_samples.mttr_seconds).toBe(0);
+    expect(decoded.measurement_gaps).toEqual(["missing_source:mttr_seconds"]);
+  });
+
+  test("rejects malformed metric evidence metadata", () => {
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      metric_samples: { ...autonomy.metric_samples, mttr_seconds: -1 },
+    })).toThrow(OperatorApiError);
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      measurement_gaps: ["missing_source:unknown"],
+    })).toThrow(OperatorApiError);
   });
 
   test("reject malformed always-on payloads with a uniform contract error", () => {
@@ -111,11 +134,76 @@ describe("Operator API response decoders", () => {
   });
 
   test("decodes empty audit and HIL pages", () => {
-    expect(decodeAuditPage({ items: [], next_cursor: null })).toEqual({ items: [], next_cursor: null });
+    expect(decodeAuditPage({ items: [], next_cursor: null })).toEqual({
+      items: [],
+      next_cursor: null,
+      summary: null,
+    });
     expect(decodeHilQueuePage({ items: [], total: 0 })).toEqual({
       items: [],
       total: 0,
       detail_level: "full",
+    });
+  });
+
+  test("decodes authoritative audit context and ledger summary evidence", () => {
+    const decoded = decodeAuditPage({
+      items: [{
+        seq: 42,
+        event_id: "event-42",
+        correlation_id: "campaign-one",
+        actor: "fdai.delivery.observation_campaign",
+        action_kind: "observation-campaign.source-transition",
+        mode: "shadow",
+        entry: { source_id: "metrics", status: "completed" },
+        context: {
+          record_kind: "source_observation",
+          action_lifecycle_applicable: false,
+          target: "metrics",
+          correlation_id: "campaign-one",
+          phase: null,
+          stage: null,
+          outcome: "completed",
+          tier: null,
+          decision: null,
+          idempotency_key: null,
+          rollback_reference: null,
+          owner_agent: "Heimdall",
+          domain: "metrics",
+        },
+        entry_hash: "hash-42",
+        previous_hash: "hash-41",
+        recorded_at: "2026-09-16T00:00:00Z",
+      }],
+      next_cursor: null,
+      summary: {
+        observed_at: "2026-09-16T00:00:01Z",
+        matching_record_count: 208915,
+        terminal_record_count: 60778,
+        human_review_record_count: 15307,
+        rollback_record_count: 0,
+        integrity: {
+          status: "verified",
+          reason: null,
+          verified_at: "2026-09-16T00:00:00Z",
+          current_record_count: 208915,
+          current_link_gap_count: 0,
+        },
+        redaction_applied: true,
+      },
+    });
+
+    expect(decoded.items[0]?.context).toMatchObject({
+      record_kind: "source_observation",
+      target: "metrics",
+      outcome: "completed",
+    });
+    expect(decoded.summary?.integrity).toEqual({
+      status: "verified",
+      reason: null,
+      verified_at: "2026-09-16T00:00:00Z",
+      current_record_count: 208915,
+      current_link_gap_count: 0,
     });
   });
 
