@@ -1,6 +1,6 @@
 """Operator Service process entry point and public ASGI factory."""
 
-from fdai_service_contracts import ServiceDescriptor, ServiceKind
+from fdai_service_contracts import ServiceDescriptor, ServiceKind, record_runtime_scope_receipt
 
 from fdai_operator_service.application import create_app as create_app
 from fdai_operator_service.production import serve
@@ -16,4 +16,5 @@ SERVICE = ServiceDescriptor(
 
 def main() -> int:
     """Serve the production Operator API."""
+    record_runtime_scope_receipt(SERVICE)
     return serve("fdai_operator_service.main:create_app")

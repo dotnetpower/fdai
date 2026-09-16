@@ -43,11 +43,50 @@ def test_a_reintroduced_venue_literal_comparison_fails_the_gate(tmp_path: Path) 
     contract = tmp_path / "venue.py"
     contract.write_text("VENUE = 'deployed'\n", encoding="utf-8")
     offender = tmp_path / "offender.py"
-    offender.write_text('use_tls = venue == "deployed"\n', encoding="utf-8")
+    offender.write_text(
+        'venue = resolve_execution_venue({})\nuse_tls = venue == "deployed"\n',
+        encoding="utf-8",
+    )
 
     findings = module._violations(tmp_path, contract)
 
     assert len(findings) == 1
+    assert "compares a venue literal" in findings[0]
+
+
+def test_a_computed_environment_key_fails_the_ast_gate(tmp_path: Path) -> None:
+    module = _load_module()
+    contract = tmp_path / "venue.py"
+    contract.write_text("VENUE = 'deployed'\n", encoding="utf-8")
+    offender = tmp_path / "offender.py"
+    offender.write_text(
+        'import os\nprefix = "FDAI_EXECUTION_"\nkey = prefix + "VENUE"\n'
+        "venue = os.environ.get(key)\n",
+        encoding="utf-8",
+    )
+
+    findings = module._violations(tmp_path, contract)
+
+    assert len(findings) == 1
+    assert "offender.py:4" in findings[0]
+    assert "reads FDAI_EXECUTION_VENUE directly" in findings[0]
+
+
+def test_a_computed_venue_literal_fails_the_ast_gate(tmp_path: Path) -> None:
+    module = _load_module()
+    contract = tmp_path / "venue.py"
+    contract.write_text("VENUE = 'deployed'\n", encoding="utf-8")
+    offender = tmp_path / "offender.py"
+    offender.write_text(
+        'venue = resolve_execution_venue({})\nprefix = "de"\n'
+        'expected = prefix + "ployed"\nuse_tls = venue == expected\n',
+        encoding="utf-8",
+    )
+
+    findings = module._violations(tmp_path, contract)
+
+    assert len(findings) == 1
+    assert "offender.py:4" in findings[0]
     assert "compares a venue literal" in findings[0]
 
 
@@ -89,3 +128,30 @@ def test_the_gate_scans_every_service_source_tree() -> None:
         "unscanned": sorted(str(path) for path in expected - scanned),
         "unexpected": sorted(str(path) for path in scanned - expected),
     }
+
+
+def test_every_service_entrypoint_records_exactly_one_runtime_scope_receipt() -> None:
+    module = _load_module()
+
+    assert module._entrypoint_violations() == []
+
+
+def test_a_service_entrypoint_without_a_runtime_scope_receipt_fails(tmp_path: Path) -> None:
+    module = _load_module()
+    entrypoint = tmp_path / "services/sample/src/sample_service/main.py"
+    entrypoint.parent.mkdir(parents=True)
+    entrypoint.write_text(
+        "from fdai_service_contracts import ServiceDescriptor\n"
+        "SERVICE = ServiceDescriptor(service_id='sample')\n"
+        "def main():\n"
+        "    return serve()\n",
+        encoding="utf-8",
+    )
+
+    findings = module._entrypoint_violations(tmp_path)
+
+    assert len(findings) == 1
+    assert findings[0].endswith(
+        "services/sample/src/sample_service/main.py: main() MUST record exactly one runtime "
+        "scope receipt; found 0"
+    )

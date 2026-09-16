@@ -1,6 +1,6 @@
 """Document Ingestion API process entry point."""
 
-from fdai_service_contracts import ServiceDescriptor, ServiceKind
+from fdai_service_contracts import ServiceDescriptor, ServiceKind, record_runtime_scope_receipt
 
 from fdai_ingestion_api_service.application import create_app as create_app
 from fdai_ingestion_api_service.server import serve
@@ -16,4 +16,5 @@ SERVICE = ServiceDescriptor(
 
 def main() -> int:
     """Serve the production Document Ingestion API."""
+    record_runtime_scope_receipt(SERVICE)
     return serve(create_app())
