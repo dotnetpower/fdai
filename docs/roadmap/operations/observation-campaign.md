@@ -52,6 +52,7 @@ campaign readiness as effect evidence. This shadow-only slice adds no runtime bi
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | implemented | Added canonical read-only audit context to every source transition: record kind, campaign correlation, source target, outcome, mode, and revision-bound idempotency. | `current change`; focused observation-campaign and Operator audit tests passed, including retained pre-change row normalization without mutation. | Retain equivalent exact-revision evidence in the governed deployment environment. |
 | 2026-09-15 | implemented | Completed twelve bounded event-production critique/hardening rounds covering recovery deadlines/cursors, non-projectable changes, observation metadata, persistent cooldown, analyzer admission, and readiness. | #1065; [round evidence](../../baselines/live-event-production-hardening-2026-09-15.json); 367 focused tests, strict mypy on seven source files, and independent final review with no significant issue. | Runtime adoption and independent admissions remain separately gated; no fabricated events or relaxed holds. |
 | 2026-09-15 | validated | Validated the local schema `1.3.0` activity snapshot/delta path and retained-history boundary. Live used one SSE connection and no implicit Agent GET, while explicit Agent Activity returned and rendered all 500 requested `1.3.0` rows without live-delta eviction. | `current change`; backend focused tests `353 passed, 1 skipped`; Console focused tests `188 passed`; strict mypy and typecheck passed; production-adapter Playwright `1 passed`; standard local services `11/11`; authenticated standard Live inspection and safe 1440×900 session screenshot. | Retain equivalent deployed-revision evidence before raising the separately governed live campaign row to validated. |
 | 2026-09-15 | implemented | Revalidated schema `1.3.0` activity production and durable projection after clamping in-flight and failed partial counts. The standard local projection returned all 500 requested rows as `1.3.0` with measured, not-recorded, and unavailable states. | `current change`; backend focused tests `278 passed, 1 skipped`; strict mypy passed; standard local services `11/11`; durable activity projection `500/500`. | Capture an authenticated Live card and failure-transition artifact after Browser Entra is refreshed, then retain equivalent deployed-revision evidence before raising governed live campaign evidence to validated. |
@@ -240,6 +241,10 @@ The durable source state and transition audit keep
 `actor: fdai.delivery.observation_campaign` as mechanical provenance and copy the source catalog's
 accountable Pantheon member into `owner_agent`. This ownership metadata grants no publishing,
 approval, or execution authority.
+Each transition also records `record_kind: source_observation`, the campaign correlation, source
+target, source status as its outcome, `shadow` mode, and a revision-bound idempotency key. These
+fields let the read-only Audit workspace present source evidence without treating the transition as
+an action dispatch, rollback, or managed-resource effect observation.
 An ownerless legacy state is reusable only when its original built-in source id has one fixed
 owner. A custom or reassigned source is collected again before reuse; a removed ambiguous row is
 withheld from Agent Activity instead of being assigned by domain.

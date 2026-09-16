@@ -69,6 +69,7 @@ from fdai_operator_service.production import serve
 from fdai_operator_service.projections import ProjectionUnavailableError
 from fdai_service_contracts import (
     AgentActivityQuery,
+    AuditPageProjection,
     AuditQuery,
     BrowserEvidenceQuery,
     BrowserEvidenceWorkspaceQuery,
@@ -92,6 +93,21 @@ from starlette.testclient import TestClient
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SERVICE_SOURCE = REPO_ROOT / "services/operator-service/src/fdai_operator_service"
 LEGACY_ADAPTER = SERVICE_SOURCE / "legacy_adapter.py"
+EMPTY_AUDIT_SUMMARY = {
+    "observed_at": "2026-09-16T00:00:00+00:00",
+    "matching_record_count": 0,
+    "terminal_record_count": 0,
+    "human_review_record_count": 0,
+    "rollback_record_count": 0,
+    "integrity": {
+        "status": "unavailable",
+        "reason": "startup_verification_unavailable",
+        "verified_at": None,
+        "current_record_count": 0,
+        "current_link_gap_count": 0,
+    },
+    "redaction_applied": True,
+}
 BASE_ENV = {
     TENANT_ENV: "tenant",
     AUDIENCE_ENV: "audience",
@@ -156,9 +172,10 @@ class EmptyReadModel(OperatorReadModel):
         del query
         return JsonProjection({"items": [], "snapshot_at": "", "source": "durable"})
 
-    async def list_audit(self, query: AuditQuery) -> PageProjection:
-        del query
-        return PageProjection(items=(), next_cursor=None)
+    async def list_audit(self, query: AuditQuery) -> PageProjection | AuditPageProjection:
+        if not query.include_summary:
+            return PageProjection(items=(), next_cursor=None)
+        return AuditPageProjection(items=(), next_cursor=None, summary=EMPTY_AUDIT_SUMMARY)
 
     async def list_browser_evidence(self, query: BrowserEvidenceQuery) -> JsonProjection:
         return JsonProjection(
@@ -269,17 +286,22 @@ def test_audit_drilldown_filters_reach_the_authoritative_read_model() -> None:
     class CapturingReadModel(EmptyReadModel):
         query: AuditQuery | None = None
 
-        async def list_audit(self, query: AuditQuery) -> PageProjection:
+        async def list_audit(self, query: AuditQuery) -> PageProjection | AuditPageProjection:
             self.query = query
-            return PageProjection(items=(), next_cursor=None)
+            return AuditPageProjection(
+                items=(),
+                next_cursor=None,
+                summary=EMPTY_AUDIT_SUMMARY,
+            )
 
     model = CapturingReadModel()
     response = _client(read_model=model).get(
         "/audit?mode=shadow&tier=t0&action=measurement.control_loop.v1"
-        "&outcome=auto&window=30d&from_seq=1&through_seq=50",
+        "&outcome=auto&window=30d&from_seq=1&through_seq=50&summary=true",
         headers={"Authorization": "Bearer reader"},
     )
     assert response.status_code == 200
+    assert response.json()["summary"] == EMPTY_AUDIT_SUMMARY
     assert model.query is not None
     assert model.query.action_kind == "measurement.control_loop.v1"
     assert model.query.mode == "shadow"
@@ -287,6 +309,7 @@ def test_audit_drilldown_filters_reach_the_authoritative_read_model() -> None:
     assert model.query.outcome == "auto"
     assert model.query.window_days == 30
     assert (model.query.from_seq, model.query.through_seq) == (1, 50)
+    assert model.query.include_summary is True
 
 
 @pytest.mark.parametrize(
@@ -299,6 +322,8 @@ def test_audit_drilldown_filters_reach_the_authoritative_read_model() -> None:
         "from_seq=-1",
         "from_seq=51&through_seq=50",
         "through_seq=9223372036854775808",
+        "summary=false",
+        "summary=1",
     ],
 )
 def test_invalid_audit_drilldown_is_rejected(query: str) -> None:

@@ -6,18 +6,48 @@ const rows = [
     seq: 42, event_id: "event-42", correlation_id: correlation,
     actor: "Saga", action_kind: "risk_gate.unified", mode: "shadow",
     entry: { decision: "hil", tier: "t0", idempotency_key: "idem-42", reason: "Independent approval required" },
+    context: {
+      record_kind: "action_lifecycle", action_lifecycle_applicable: true,
+      target: null, correlation_id: correlation, phase: null, stage: null,
+      outcome: null, tier: "t0", decision: "hil", idempotency_key: "idem-42",
+      rollback_reference: null, owner_agent: "Forseti", domain: null,
+    },
     entry_hash: "hash-42", previous_hash: "hash-41", recorded_at: "2026-09-15T06:00:00Z",
   },
   {
     seq: 41, event_id: "event-41", correlation_id: correlation,
     actor: "Thor", action_kind: "executor.dispatch.recorded", mode: "enforce",
     entry: { stage: "dispatch", outcome: "accepted", idempotency_key: "idem-41" },
+    context: {
+      record_kind: "action_lifecycle", action_lifecycle_applicable: true,
+      target: null, correlation_id: correlation, phase: "dispatch", stage: "dispatch",
+      outcome: "accepted", tier: null, decision: null, idempotency_key: "idem-41",
+      rollback_reference: null, owner_agent: "Thor", domain: null,
+    },
     entry_hash: "hash-41", previous_hash: "hash-40", recorded_at: "2026-09-15T05:59:00Z",
   },
 ];
 
+const sourceObservation = {
+  seq: 43, event_id: "event-43", correlation_id: "campaign-one",
+  actor: "fdai.delivery.observation_campaign",
+  action_kind: "observation-campaign.source-transition", mode: "shadow",
+  entry: {
+    source_id: "metrics", domain: "metrics", campaign_id: "campaign-one",
+    owner_agent: "Heimdall", status: "completed", execution_authority: false,
+  },
+  context: {
+    record_kind: "source_observation", action_lifecycle_applicable: false,
+    target: "metrics", correlation_id: "campaign-one", phase: null, stage: null,
+    outcome: "completed", tier: null, decision: null, idempotency_key: null,
+    rollback_reference: null, owner_agent: "Heimdall", domain: "metrics",
+  },
+  entry_hash: "hash-43", previous_hash: "hash-42", recorded_at: "2026-09-15T06:01:00Z",
+};
+
 async function fixture(page: Page, options: {
-  empty?: boolean; fail?: boolean; delay?: number; long?: boolean; paginated?: boolean; count?: number;
+  empty?: boolean; fail?: boolean; delay?: number; long?: boolean; paginated?: boolean;
+  count?: number; observation?: boolean;
 } = {}) {
   const requests: URL[] = [];
   let olderAttempts = 0;
@@ -40,7 +70,7 @@ async function fixture(page: Page, options: {
     if (options.fail || (url.searchParams.has("cursor") && ++olderAttempts === 1)) {
       return route.fulfill({ status: 503, json: { error: { message: "Audit source unavailable" } } });
     }
-    const base = options.count ? Array.from({length: options.count}, (_, index) => ({
+    const base = options.observation ? [sourceObservation] : options.count ? Array.from({length: options.count}, (_, index) => ({
       ...rows[0]!, seq: 100 - index, event_id: `event-many-${index}`,
       action_kind: index === options.count! - 1 ? "last.audit.record" : "record.review",
     })) : options.long ? rows.map(row => ({
@@ -53,6 +83,19 @@ async function fixture(page: Page, options: {
     ] : entry ? base.filter(row => String(row.seq) === entry) : base;
     return route.fulfill({ json: {
       items, next_cursor: options.paginated && !url.searchParams.has("cursor") ? "older" : null,
+      summary: {
+        observed_at: "2026-09-15T06:02:00Z",
+        matching_record_count: options.empty ? 0 : options.count ?? base.length,
+        terminal_record_count: options.empty ? 0 : 1,
+        human_review_record_count: options.empty || options.observation ? 0 : 1,
+        rollback_record_count: 0,
+        integrity: {
+          status: "verified", reason: null, verified_at: "2026-09-15T06:00:00Z",
+          current_record_count: options.empty ? 0 : options.count ?? base.length,
+          current_link_gap_count: 0,
+        },
+        redaction_applied: true,
+      },
     } });
   };
   await page.route("**/api/**", handler);
@@ -68,9 +111,10 @@ test("desktop mock hierarchy preserves selection, raw evidence, and exact record
   await expect(page.locator(".audit-record")).toHaveCount(2);
   await expect(page.locator(".audit-record").first()).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#audit-selected-title")).toHaveText("risk_gate.unified");
-  await expect(page.locator(".audit-metrics")).toContainText("No ledger-wide aggregate provided");
+  await expect(page.locator(".audit-metrics")).toContainText("Terminal records");
+  await expect(page.locator(".audit-metrics")).toContainText("Verified at startup");
   await expect(page.locator(".audit-phases [data-recorded=true]")).toHaveCount(0);
-  await expect(page.locator(".audit-ledger")).not.toContainText("Verified");
+  await expect(page.locator(".audit-ledger")).toContainText("Linked");
   await expect(page.locator(".audit-json")).toContainText('"decision": "hil"');
   await page.screenshot({ path: testInfo.outputPath("audit-workspace-desktop-default.png") });
   const second = page.locator(".audit-record").nth(1);
@@ -83,6 +127,7 @@ test("desktop mock hierarchy preserves selection, raw evidence, and exact record
   await expect(page.locator(".audit-context")).toContainText("Dispatch stage recorded");
   await expect(page.locator(".audit-context")).not.toContainText("Independently verified");
   expect(requests.length).toBe(1);
+  expect(requests[0]?.searchParams.get("summary")).toBe("true");
   expect(await page.locator(".audit-workspace").evaluate(e => getComputedStyle(e).gridTemplateColumns))
     .toMatch(/^290px /);
   await expect(page.locator(".audit-evidence-links a").first())
@@ -95,6 +140,41 @@ test("desktop mock hierarchy preserves selection, raw evidence, and exact record
   await expect(page.locator(".audit-record")).toHaveCount(1);
   expect(requests.at(-1)?.searchParams.get("from_seq")).toBe("41");
   expect(requests.at(-1)?.searchParams.get("through_seq")).toBe("41");
+});
+
+test("source observation records show recorded source evidence without action placeholders", async ({ page }, testInfo) => {
+  await fixture(page, { observation: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/audit");
+
+  await expect(page.locator("#audit-selected-title"))
+    .toHaveText("observation-campaign.source-transition");
+  await expect(page.locator(".audit-context")).toContainText("metrics");
+  await expect(page.locator(".audit-context")).toContainText("campaign-one");
+  await expect(page.locator(".audit-context")).toContainText("Source observation");
+  await expect(page.locator(".audit-context")).toContainText("Completed");
+  await expect(page.locator(".audit-facts")).toContainText("Heimdall");
+  await expect(page.locator(".audit-evidence")).toContainText("Source observation evidence");
+  await expect(page.locator(".audit-evidence")).toContainText("Read-only");
+  await expect(page.locator(".audit-evidence")).not.toContainText("Not recorded");
+  await expect(page.locator(".audit-phases")).toHaveCount(0);
+  await page.screenshot({
+    path: testInfo.outputPath("audit-source-observation.png"),
+    fullPage: true,
+  });
+  await page.goto("/audit?locale=ko");
+  await expect(page.locator(".audit-context")).toContainText("소스 관측");
+  await expect(page.locator(".audit-context")).toContainText("완료");
+  await expect(page.locator(".audit-evidence")).toContainText("소스 관측 근거");
+  await expect(page.locator(".audit-evidence")).toContainText("읽기 전용");
+  await expect(page.locator(".audit-evidence")).not.toContainText("기록 없음");
+  expect(await page.locator(".audit-route").evaluate(element =>
+    element.scrollWidth <= element.clientWidth
+  )).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath("audit-source-observation-ko.png"),
+    fullPage: true,
+  });
 });
 
 test("many records keep a bounded rail and selected detail without truncating loaded rows", async ({ page }) => {
