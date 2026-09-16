@@ -67,9 +67,14 @@ def test_foundation_recovery_planner_never_applies_or_copies_state(
     start = variables_text.index('variable "application_workload"')
     end = variables_text.index('variable "env"', start)
     (infra / "main.tf").write_bytes(main)
-    (infra / "main.tf").write_bytes(
-        main.replace(b"  operations_public_ip_tags    = var.operations_public_ip_tags\n", b"")
+    operations_line = (
+        recovery_planner._one_line(
+            (current / "main.tf").read_bytes(),
+            rb"^  operations_public_ip_tags\s+= var\.operations_public_ip_tags$",
+        )
+        + b"\n"
     )
+    (infra / "main.tf").write_bytes(main.replace(operations_line, b""))
     (infra / "variables.tf").write_text(variables_text[:start] + variables_text[end:])
     bootstrap = infra.parent / "bootstrap"
     bootstrap.mkdir()
@@ -265,7 +270,14 @@ def test_recovery_configuration_permits_only_application_naming(tmp_path):
     variables = (current / "variables.tf").read_text()
     start = variables.index('variable "application_workload"')
     end = variables.index('variable "env"', start)
-    main = main.replace(b"  operations_public_ip_tags    = var.operations_public_ip_tags\n", b"")
+    operations_line = (
+        recovery_planner._one_line(
+            (current / "main.tf").read_bytes(),
+            rb"^  operations_public_ip_tags\s+= var\.operations_public_ip_tags$",
+        )
+        + b"\n"
+    )
+    main = main.replace(operations_line, b"")
     (original / "main.tf").write_bytes(main)
     (original / "variables.tf").write_text(variables[:start] + variables[end:])
     require_naming_only(original, current)

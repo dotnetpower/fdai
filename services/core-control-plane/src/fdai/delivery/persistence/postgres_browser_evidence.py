@@ -136,8 +136,13 @@ class PostgresBrowserEvidenceArtifactStore:
     ) -> bool | None:
         """Place one monotonic hold; release belongs to a future governed workflow."""
 
-        if not hold_ref or len(hold_ref) > 512 or any(ord(char) < 32 for char in hold_ref):
-            raise ValueError("browser artifact legal hold reference MUST be bounded text")
+        if (
+            not hold_ref
+            or hold_ref != hold_ref.strip()
+            or len(hold_ref) > 512
+            or any(not 32 <= ord(char) <= 126 for char in hold_ref)
+        ):
+            raise ValueError("browser artifact legal hold reference MUST be bounded ASCII text")
         if held_at.tzinfo is None:
             raise ValueError("browser artifact legal hold time MUST include timezone")
         async with await self._connect() as connection, connection.transaction():

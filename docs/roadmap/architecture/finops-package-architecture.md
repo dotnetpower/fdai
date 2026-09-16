@@ -280,6 +280,8 @@ requests, preference contracts, and a signed result bridge in this host. Its sha
 activate Cost Governance, grant cost-data access, publish Njord-owned records, or promote the package.
 The shared static catalog guard can register another route-local English catalog without adding
 Cost Governance behavior or activating the optional package.
+The Browser evidence v2 read route and its route-local catalog are likewise host-owned. They do
+not import package providers or change Cost Governance routes, data, activation, or authority.
 The same host authenticator may pass a bounded verified username to the IAM display projection.
 That display-only value does not enter Cost Governance identity, activation, disclosure, or
 package authority.
@@ -378,6 +380,13 @@ an unavailable package available, grant cost-data access, or promote an action.
 The shared Console transport treats only an explicitly classified source-gate failure as an
 unavailable projection. A generic `503` remains an operational error and cannot be used to imply
 that Cost Governance is merely unconfigured.
+The client coalesces concurrent manifest reads and reuses a successful result for at most 15
+seconds. The next source-gated read revalidates expired provenance, so an Operator Service restart
+or configuration recovery cannot pin Cost Governance to an earlier unavailable state.
+Route-owned decoders load only after their owning read begins, so unrelated Audit, agent-activity,
+Insights, and Reporting decoders do not enter the initial Cost Governance Console path.
+Entry-bundle measurements bind to the exact Console and upstream revisions. A rebase or integration
+that changes those inputs requires a fresh measurement before the size evidence is reused.
 
 Install, upgrade, and rollback use a separate protected workflow on the private deployment runner.
 The workflow verifies protected `main`, required CI, the exact release source, the signed image

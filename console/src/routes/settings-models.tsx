@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
-import { DataTable, PageHeader, StatusPill } from "../components/ui";
+import { DataTable, ErrorState, PageHeader, StatusPill } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
@@ -61,6 +61,9 @@ export function SettingsModelsRoute({ client, auth }: Props) {
   const [t2CopyState, setT2CopyState] = useState<"idle" | "copied" | "failed">("idle");
   const [error, setError] = useState<string | null>(null);
   const loadGeneration = useRef(0);
+  const [failedLoad, setFailedLoad] = useState<
+    readonly [background: boolean, refreshCatalog: boolean] | null
+  >(null);
   const mounted = useRef(true);
 
   const applyProjection = (
@@ -85,6 +88,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
 
   const load = async (background = false, refreshCatalog = false) => {
     const generation = ++loadGeneration.current;
+    setFailedLoad(null);
     if (background) setRefreshingCatalog(true);
     else setLoading(true);
     setError(null);
@@ -96,6 +100,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
       setWebSearchError(null);
     } catch (reason) {
       if (!projectionGenerationIsCurrent(loadGeneration.current, generation)) return;
+      setFailedLoad([background, refreshCatalog]);
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
       if (projectionGenerationIsCurrent(loadGeneration.current, generation)) {
@@ -164,6 +169,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
     };
     const generation = ++loadGeneration.current;
     setSaving(true);
+    setFailedLoad(null);
     setError(null);
     try {
       const next = await saveNarratorPreference(
@@ -333,7 +339,15 @@ export function SettingsModelsRoute({ client, auth }: Props) {
     <div class="stack settings-route settings-models-route">
       <PageHeader title={t("route.settingsModels")} subtitle={t("settings.models.subtitle")} />
       {loading ? <p class="muted" role="status">{t("settings.models.loading")}</p> : null}
-      {error ? <div class="error" role="alert">{error}</div> : null}
+      {error ? (
+        <ErrorState
+          message={error}
+          {...(failedLoad ? {
+            onRetry: () => { void load(...failedLoad); },
+            retryLabel: t("settings.retry"),
+          } : {})}
+        />
+      ) : null}
       {!loading && view ? (
         <>
           <section class="settings-iam-panel" aria-labelledby="model-automation-heading">
@@ -732,7 +746,11 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                       placeholder={modelText("domainPlaceholder")}
                       onInput={(event) => setDomainDraft(event.currentTarget.value)}
                     />
-                    <button type="submit" disabled={!domainDraft.trim()}>
+                    <button
+                      type="submit"
+                      class="secondary"
+                      disabled={!domainDraft.trim()}
+                    >
                       {modelText("add")}
                     </button>
                   </div>

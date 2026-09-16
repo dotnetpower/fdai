@@ -34,9 +34,17 @@ test("admitted comparison stays separate, expires and reflows", async ({ page })
     }
     if (path === "/kpi") return route.fulfill({ json: {
       ...DASHBOARD_SAMPLE_DATA.kpi, event_count: 280, by_tier: {}, by_outcome: {},
+      audit_sample: {
+        from_seq: 1,
+        through_seq: 280,
+        row_count: 280,
+        limit: 500,
+      },
+      routing_sample: undefined,
     } });
     if (path === "/kpi/autonomy") return route.fulfill({ json: {
       ...DASHBOARD_SAMPLE_DATA.autonomy,
+      schema_version: "1.0.0",
       synthetic: false, sample_size: 0, verticals: [],
       success: Object.fromEntries(Object.entries(DASHBOARD_SAMPLE_DATA.autonomy!.success)
         .map(([key, value]) => [key, { ...value, value: null, baseline: null }])),

@@ -223,6 +223,8 @@ def _foundation_values(source_commit: str = SOURCE) -> dict[str, object]:
             f"/subscriptions/{SUBSCRIPTION}/resourceGroups/example/"
             "providers/Microsoft.Compute/images/example"
         ),
+        "runner_bootstrap_mode": "offline",
+        "runner_marketplace_image_version": "",
         "source_commit": source_commit,
         "run_digest": "b" * 64,
         "foundation_context_digest": "c" * 64,

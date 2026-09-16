@@ -18,6 +18,7 @@ const routes = [
   ["operations", "provision", "provision.html"],
   ["operations", "onboarding", "onboarding.html"],
   ["operations", "detection-readiness", "detection-coverage.html"],
+  ["operations", "alert-quality", "alert-quality.html"],
   ["operations", "configuration-baselines", "configuration-baselines.html"],
   ["operations", "processes", "processes.html"],
   ["operations", "workflow-apps", "workflow-apps.html"],
@@ -30,7 +31,17 @@ const routes = [
   ["agents", "pantheon", "agents-constellation.html"],
   ["agents", "agent-activity", "agent-activity.html"],
 ] as const;
-const recordPages = new Set<string>(routes.slice(13, 22).map((route) => route[2]));
+const recordPages = new Set([
+  "detection-coverage.html",
+  "configuration-baselines.html",
+  "processes.html",
+  "workflow-apps.html",
+  "scheduler-runs.html",
+  "background-tasks.html",
+  "automation-blueprints.html",
+  "scheduled-continuations.html",
+  "conversation-delivery.html",
+]);
 
 async function openOperator(page: Page, file: string, master = false) {
   const baseFile = file.replace(/[?:].*$/, "");
@@ -206,17 +217,21 @@ test("desktop interactions: incident filters and confirmation do not fabricate a
   expect(requests).toEqual([]);
 });
 
-test("desktop interactions: Live retains five filters and presentation-only freeze", async ({ page }) => {
+test("desktop interactions: Live retains typed filters and presentation-only freeze", async ({ page }) => {
   const frame = await openOperator(page, "live.html");
-  await expect(frame.locator("[data-live-filter]:visible")).toHaveCount(5);
+  const filters = frame.locator("[data-live-filter]:visible");
+  await expect(filters).toHaveCount(7);
+  expect(await filters.evaluateAll((buttons) =>
+    buttons.map((button) => button.getAttribute("data-live-filter")),
+  )).toEqual(["all", "control", "source", "hil", "deny", "failed", "stuck"]);
   await expect(frame.locator('[data-attention-filter="abstain"]')).toBeHidden();
-  await frame.getByRole("button", { name: "Queue", exact: true }).click();
+  await frame.getByRole("button", { name: "List", exact: true }).click();
   await expect(frame.locator("#queue-view")).toBeVisible();
   await expect(frame.locator("#flow-view")).toBeHidden();
   await frame.locator('[data-live-filter="hil"]').click();
   await expect(page).toHaveURL(/filter=hil/);
   await expect(frame.getByRole("button", { name: "Resume view", exact: true })).toBeVisible();
-  await frame.getByRole("button", { name: "Flow", exact: true }).click();
+  await frame.getByRole("button", { name: "Grid", exact: true }).click();
   await expect(frame.locator("#flow-view")).toBeVisible();
 });
 
@@ -473,6 +488,11 @@ for (const [width, height] of [[993, 641], [390, 844]] as const) {
       for (const tab of await frame.locator("[data-op-tab], [data-overview-tab]").all()) {
         await tab.click();
         await checkGeometry();
+      }
+      if (width === 390 && id === "alert-quality") {
+        expect(await frame.locator(".cp-table td").evaluateAll((cells) =>
+          cells.map((cell) => getComputedStyle(cell, "::before").content.replaceAll('"', "")),
+        )).toEqual(["Finding", "Evidence", "State", "Next safe step"]);
       }
       if (width === 390) {
         const shortControls = await frame.locator('button:visible, select:visible, input:not([type="checkbox"]):not([type="radio"]):visible').evaluateAll((controls) =>

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const manualStudioUrl = "http://127.0.0.1:5474";
 const catalog = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   generatedAt: "2026-09-01T05:00:00Z",
   minimumSlidesByLevel: {
     L100: 5,
@@ -32,6 +32,8 @@ const catalog = {
       eyebrow: "PLATFORM OVERVIEW",
       description: "신호에서 검증까지 이어지는 FDAI 운영 모델을 빠르게 살펴봅니다.",
       createdAt: "2026-09-01",
+      lastEditedAt: "2026-09-02",
+      reviewedAt: "2026-09-03",
       duration: "8분",
       slideCount: 5,
       coverImage: "assets/executive-briefing.jpeg",
@@ -48,6 +50,8 @@ const catalog = {
       eyebrow: "READINESS",
       description: "현재 준비 수준을 확인합니다.",
       createdAt: "2026-09-01",
+      lastEditedAt: "2026-09-02",
+      reviewedAt: null,
       duration: "12분",
       slideCount: 3,
       coverImage: "assets/readiness-maturity.jpeg",
@@ -64,6 +68,8 @@ const catalog = {
       eyebrow: "POSSIBILITIES",
       description: "미래 운영 경험을 탐색합니다.",
       createdAt: "2026-09-01",
+      lastEditedAt: "2026-09-02",
+      reviewedAt: null,
       duration: "10분",
       slideCount: 3,
       coverImage: "assets/art-possible.jpeg",
@@ -91,7 +97,7 @@ test("opens the independent manual library from the Console header", async ({ pa
       body: "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1600\" height=\"1600\"><rect width=\"1600\" height=\"1600\" fill=\"#0f6cbd\"/></svg>",
     });
   });
-  await page.context().route(`${manualStudioUrl}/library.html**`, async (route) => {
+  await page.context().route(`${manualStudioUrl}/executive-briefing.html`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "text/html",
@@ -197,6 +203,6 @@ test("opens the independent manual library from the Console header", async ({ pa
   await page.getByRole("link", { name: "Open FDAI 운영 개요" }).click();
   const manualPage = await popupPromise;
   await manualPage.waitForLoadState("networkidle");
-  await expect(manualPage).toHaveURL(/\/library\.html\?manual=executive-briefing$/);
+  await expect(manualPage).toHaveURL(/\/executive-briefing\.html$/);
   await expect(manualPage.getByRole("dialog", { name: "FDAI Executive Briefing" })).toBeVisible();
 });

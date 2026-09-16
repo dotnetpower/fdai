@@ -182,6 +182,7 @@ def test_as_audit_dict_without_authority() -> None:
     d = u.as_audit_dict()
     assert d["decision"] == "hil"
     assert d["gate_outcome"] == "hil"
+    assert d["effective_mode"] == "enforce"
     assert d["gate_reasons"] == ["blast"]
     assert "authority" not in d
 
@@ -190,5 +191,6 @@ def test_as_audit_dict_with_authority() -> None:
     u = combine(_gate(RiskDecisionOutcome.AUTO, mode=Mode.ENFORCE), _authority("hil"))
     d = u.as_audit_dict()
     assert d["decision"] == "hil"
+    assert d["effective_mode"] == "enforce"
     assert "authority" in d
     assert "resolved_ceiling" in d["authority"]

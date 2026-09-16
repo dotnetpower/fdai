@@ -49,35 +49,59 @@ _MAX = 64 * 1024 * 1024
 def require_naming_only(original: Path, current: Path) -> None:
     """Require only application naming and the bounded operations-IP policy input."""
     old_main = (original / "main.tf").read_bytes()
+    current_main = (current / "main.tf").read_bytes()
     expected = old_main
     replacements = (
         (
-            b'  suffix                = "${var.workload}-${var.env}-${var.region_short}"\n',
-            b'  suffix                = "${var.workload}-${var.env}-${var.region_short}"\n'
-            b'  application_suffix    = "${coalesce(var.application_workload, var.workload)}'
-            b'-${var.env}-${var.region_short}"\n',
+            _one_line(
+                old_main,
+                rb'^  suffix\s+= "\$\{var\.workload\}-\$\{var\.env\}-\$\{var\.region_short\}"$',
+            ),
+            _one_line(
+                current_main,
+                rb'^  suffix\s+= "\$\{var\.workload\}-\$\{var\.env\}-\$\{var\.region_short\}"$',
+            )
+            + b"\n"
+            + _one_line(
+                current_main,
+                (
+                    rb'^  application_suffix\s+= "\$\{coalesce\(var\.application_workload, '
+                    rb'var\.workload\)\}-\$\{var\.env\}-\$\{var\.region_short\}"$'
+                ),
+            ),
         ),
         (
-            b'  name      = "rg-${local.suffix}"\n',
-            b'  name      = "rg-${local.application_suffix}"\n',
+            _one_line(old_main, rb'^  name\s+= "rg-\$\{local\.suffix\}"$'),
+            _one_line(current_main, rb'^  name\s+= "rg-\$\{local\.application_suffix\}"$'),
         ),
         (
-            b"  workload                     = var.workload\n",
-            b"  workload                     = var.workload\n"
-            b"  operations_public_ip_tags    = var.operations_public_ip_tags\n",
+            _one_line(old_main, rb"^  workload\s+= var\.workload$"),
+            _one_line(current_main, rb"^  workload\s+= var\.workload$")
+            + b"\n"
+            + _one_line(
+                current_main,
+                rb"^  operations_public_ip_tags\s+= var\.operations_public_ip_tags$",
+            ),
         ),
     )
     for before, after in replacements:
         if expected.count(before) != 1:
             raise ValueError("Foundation recovery original naming configuration is unsupported")
         expected = expected.replace(before, after, 1)
-    if (current / "main.tf").read_bytes() != expected:
+    if current_main != expected:
         raise ValueError("Foundation recovery changes more than application naming")
     variables = (current / "variables.tf").read_bytes()
     for name in ("application_workload", "operations_public_ip_tags"):
         variables = _without_variable(variables, name)
     if variables != (original / "variables.tf").read_bytes():
         raise ValueError("Foundation recovery variable changes are outside naming scope")
+
+
+def _one_line(content: bytes, pattern: bytes) -> bytes:
+    matches = re.findall(pattern, content, flags=re.MULTILINE)
+    if len(matches) != 1:
+        raise ValueError("Foundation recovery naming configuration is unsupported")
+    return bytes(matches[0])
 
 
 def _without_variable(content: bytes, name: str) -> bytes:
@@ -484,8 +508,8 @@ def _run(
         capture_output=True,
         umask=0o077,
     )
-    output = result.stdout.encode()
-    errors = result.stderr.encode()
+    output = str(result.stdout).encode()
+    errors = str(result.stderr).encode()
     if len(output) > _MAX or len(errors) > _MAX:
         raise ValueError("Foundation recovery diagnostics exceed the private output bound")
     write_private_bytes(work / f"{label}.stdout", output)
@@ -497,10 +521,12 @@ def _run(
 
 
 def _json(path: Path) -> dict[str, object]:
-    return load_json_object(
-        read_private_bytes(path, max_bytes=_MAX),
-        label="Foundation recovery evidence",
-        max_bytes=_MAX,
+    return dict(
+        load_json_object(
+            read_private_bytes(path, max_bytes=_MAX),
+            label="Foundation recovery evidence",
+            max_bytes=_MAX,
+        )
     )
 
 

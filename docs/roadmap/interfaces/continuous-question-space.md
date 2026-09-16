@@ -64,7 +64,7 @@ The inventory preserves stable ids, bilingual wording, source digests, explicit 
 relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
 and validation states.
 Any change to a joined source, including a non-question Console label in a starter catalog, regenerates both the machine
-inventory and human review catalog; the generated-artifact test rejects any stale source digest.
+inventory and human review catalog; the generated-artifact test rejects any stale source digest. Moving Browser evidence copy from the global catalogs into a route-local catalog is such a digest-only source change; regeneration preserves all 400 question identities and wording.
 When only source digests change, regeneration preserves every logical question identity, review
 state, and denominator. Regeneration runs after upstream integration so derived commitments bind
 the final merged source set.
@@ -152,7 +152,6 @@ answer fidelity, presentation quality, and model invariance remain `not_scored` 
 controlled evidence exists.
 
 ## Implementation status
-
 ### Implementation scope
 
 | Area | State | Evidence | Notes |
@@ -183,6 +182,7 @@ controlled evidence exists.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | implemented | Regenerated federated question-bank and CQAS provenance after RCA product copy moved from the global Console catalogs to its route-owned bilingual catalog. All 400 question identities, wording, readiness states, metrics, denominators, and authority fields remain unchanged. | `current change`; #1086; official question-bank and semantic-intent generators; 12 focused generated-artifact checks passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-15 | implemented | Regenerated federated question-bank and CQAS provenance after final source integration changed the reviewed Console catalog and runtime-call ontology projection digests. All 400 question identities, readiness states, metrics, denominators, and authority fields remain unchanged. | `current change`; official question-bank and semantic-intent generators; 12 focused generated-artifact checks passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-15 | implemented | Regenerated the federated question bank and semantic-intent coverage inventory after the current Console message catalogs and ontology query sources changed. All 400 question identities, review states, metrics, and denominators remain unchanged. | `current change`; canonical question-bank and semantic-intent generators; focused generated-artifact equality tests. | No remaining work for this digest-only synchronization; live readiness and authority are unchanged. |
 | 2026-09-14 | implemented | Regenerated the federated question bank after the reviewed Roles and ownership label changed its Console catalog source digest. All 400 question identities, review states, metrics, and denominators remain unchanged. | `current change`; official question-bank generator and focused generated-artifact equality test. | No semantic, runtime-binding, evidence, or authority behavior changed. |

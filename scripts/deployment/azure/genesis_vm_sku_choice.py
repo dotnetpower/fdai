@@ -127,6 +127,28 @@ def choose_deployment_vms(
     raise CheckError(NO_QUOTA, 3)
 
 
+def choose_foundation_vm(
+    policy: VmPolicy,
+    *,
+    region: str,
+    rows: list[object],
+    usages: list[object],
+) -> VmCandidate:
+    """Choose one compatible Foundation host without reserving image-build quota."""
+
+    options = catalog_options(policy, region=region, rows=rows)
+    if not options.foundation:
+        raise CheckError(ALL_RESTRICTED if options.restricted == options.total else NO_HARDWARE, 3)
+    headroom = _quota_headroom(
+        usages,
+        families={candidate.family for candidate in options.foundation},
+    )
+    for host in options.foundation:
+        if _fits_quota((host,), headroom):
+            return host
+    raise CheckError(NO_QUOTA, 3)
+
+
 def require_deployment_vms(
     policy: VmPolicy,
     *,

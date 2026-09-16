@@ -305,7 +305,7 @@ not invoke T1 embedding lookups, T2 models, external adapters, or any
 mutation surface, and it writes no PR and no audit entry. Its
 `side_effect_class` is `read`, and a shadow-mode test asserts it never
 touches the executor, the PR adapter, or the state store. This is what
-keeps it safe at the Reader floor. Browser capture follows [Browser evidence collection](browser-evidence.md); Bragi never receives a browser handle.
+keeps it safe at the Reader floor. Browser capture and its Reader-only v2 workspace follow [Browser evidence collection](browser-evidence.md); admitted scalar custody metadata, identity-free withheld counts, and exact filters, cursors, and Audit or Trace links remain read-only and cannot request capture, reveal captured material, or grant promotion, approval, or execution authority. Bragi never receives a browser handle.
 ### 3.2 Week-1 additions (write / approve / runbook)
 
 | Tool | Purpose | RBAC floor | Notes |

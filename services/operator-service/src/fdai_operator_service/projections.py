@@ -10,6 +10,7 @@ from fdai_service_contracts import (
     AgentActivityQuery,
     AuditQuery,
     BrowserEvidenceQuery,
+    BrowserEvidenceWorkspaceQuery,
     HilQueueProjection,
     HilQueueQuery,
     IncidentAttentionProjection,
@@ -43,6 +44,12 @@ class UnavailableOperatorReadModel:
         self._raise()
 
     async def list_browser_evidence(self, query: BrowserEvidenceQuery) -> JsonProjection:
+        del query
+        self._raise()
+
+    async def list_browser_evidence_workspace(
+        self, query: BrowserEvidenceWorkspaceQuery
+    ) -> JsonProjection:
         del query
         self._raise()
 

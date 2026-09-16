@@ -66,6 +66,7 @@ def prepare(args: argparse.Namespace) -> dict[str, object]:
             "source_input_digest": source.digest,
             "region": args.region,
             "provenance": "operator-selected-source",
+            "runner_bootstrap_mode": "online",
         }
     )
     ssh_key = root / "runner_ed25519"
@@ -78,6 +79,10 @@ def prepare(args: argparse.Namespace) -> dict[str, object]:
             values.get("source_commit") != source.commit
             or values.get("run_digest") != run_binding
             or values.get("target_binding") != binding
+            or values.get("runner_bootstrap_mode") != "online"
+            or values.get("runner_source_image_id") != ""
+            or not isinstance(values.get("runner_marketplace_image_version"), str)
+            or not values["runner_marketplace_image_version"]
         ):
             raise ValueError("source Foundation retained variables differ")
     else:
@@ -94,6 +99,7 @@ def prepare(args: argparse.Namespace) -> dict[str, object]:
             .strip(),
             execution_transport="manual",
             evidence_directory=root,
+            create_runner_image=False,
         )
         write_plan_input(variables, values)
     source.reverify()
@@ -289,8 +295,8 @@ def _advance_locked(
                 foundation_inputs=inputs,
                 approval=approval,
                 approval_path=args.approval_file if approval is not None else None,
-                create_runner_image=True,
-                runner_image_terraform=args.terraform,
+                create_runner_image=False,
+                runner_image_terraform=None,
                 runner_ssh_private_key=root / "runner_ed25519",
                 execution_timeout_seconds=args.timeout_seconds,
             ),

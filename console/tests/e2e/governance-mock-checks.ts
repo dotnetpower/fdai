@@ -147,6 +147,11 @@ export async function exerciseGovernance(frame: FrameLocator) {
   for (const tab of await frame.locator("[data-ontology-tab]").all()) {
     await tab.click();
     await expect(tab).toHaveAttribute("aria-current", "page");
+    if (await tab.getAttribute("data-ontology-tab") === "instances") {
+      await expect(
+        frame.frameLocator(".flow-ontology-embed").locator("body"),
+      ).toHaveClass(/is-embedded/);
+    }
     await expectGovernance(frame);
   }
   for (const disclosure of await frame.locator("details").all()) {

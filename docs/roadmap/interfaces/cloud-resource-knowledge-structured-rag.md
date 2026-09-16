@@ -11,6 +11,11 @@ self-approval rejection, audit-before-index, no Thor execution, and English/Kore
 > independent human reviewers and live model evaluation remain under Issue #995. Implementation
 > tests and local preparation are not operational approval.
 
+The [requester-initiated application target](cloud-resource-knowledge-lifecycle.md#requester-initiated-application-target)
+uses independently approved content policy instead of a new approving person for each eligible
+reference update. It applies equally to v2/v3, remains unimplemented, and does not replace
+independent source/answer qualification. Requesters cannot supply their own approval authority.
+
 ## Design decisions
 
 | Initial option | Critique | Decision |
@@ -60,10 +65,10 @@ metadata limits are independent. Stable IDs bind source revision, block identity
 Expanded text is bounded to 16 MiB and 8192 blocks per complete generation, in addition to the
 per-excerpt ceiling; repeated required context cannot multiply an input into an unbounded index.
 
-The worker reproduces the sealed chunk inventory only after Saga-audited Var approval and Muninn's
-index command. A separate read-only transaction checks the complete persisted row set before the
-fenced visibility transition. This proves stored effects, not correctness of the shared parser;
-source/claim quality needs independent expected evidence.
+In the current manual lane, the worker reproduces the sealed chunk inventory only after
+Saga-audited Var approval and Muninn's index command. A separate read-only transaction checks the
+complete persisted row set before the fenced visibility transition. This proves stored effects,
+not correctness of the shared parser; source/claim quality needs independent expected evidence.
 Legacy and structured generations share a persisted-effect test matrix covering body/provenance
 tampering, changes after readback, invisible pending rows and exact-version/applicability rejection.
 

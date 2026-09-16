@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { ReadDataSourcesPayload } from "../api";
+import type { ReadDataSourcesPayload } from "../api-data-sources";
 import type { ProvisionEvent } from "../hooks/use-provision-stream";
 import { INITIAL, provisionSourceState, reducer, safeHttpUrl } from "./provision";
 

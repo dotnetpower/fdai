@@ -36,7 +36,7 @@ export async function loadDashboardOverview(
       () => client.panel<GatesSummary>("/kpi/promotion-gates"),
       [404, 501, 503],
     ),
-    optionalOverview(() => client.autonomy(), [404, 501, 502, 503]),
+    optionalOverview(() => client.autonomy(), [404, 501, 503]),
   ]);
   return { kpi, cost, gates, autonomy };
 }
@@ -60,7 +60,11 @@ async function optionalOverview<T>(
   try {
     return await load();
   } catch (error) {
-    if (error instanceof OperatorApiError && unavailableStatuses.includes(error.status)) return null;
+    if (
+      error instanceof OperatorApiError
+      && unavailableStatuses.includes(error.status)
+      && (error.status !== 503 || error.kind === "projection-unavailable")
+    ) return null;
     throw error;
   }
 }

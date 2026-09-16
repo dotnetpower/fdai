@@ -68,6 +68,7 @@ export class OperatorApiClient {
   readonly #iam: IamApiClient;
   readonly #reporting: ReportingApiClient;
   #dataSourcesPromise: Promise<ReadDataSourcesPayload> | null = null;
+  #dataSourcesCacheExpiresAt = 0;
 
   constructor(
     config: ConsoleConfig,
@@ -85,9 +86,8 @@ export class OperatorApiClient {
     return this.#transport.baseUrl;
   }
 
-  readonly authorizationHeader = async (): Promise<string | null> => {
-    return this.#transport.authorizationHeader();
-  };
+  readonly authorizationHeader = (): Promise<string | null> =>
+    this.#transport.authorizationHeader();
 
   async listAudit(options: AuditQuery = {}): Promise<AuditPage> {
     await this.#requireAuthoritativeSource("/audit");
@@ -200,16 +200,30 @@ export class OperatorApiClient {
     return this.#operations.listHilQueue(opts);
   }
 
-  async dataSources(): Promise<ReadDataSourcesPayload> {
-    this.#dataSourcesPromise ??= this.#insights
-      .panel<unknown>("/system/data-sources")
-      .then(decodeReadDataSources);
-    try {
-      return await this.#dataSourcesPromise;
-    } catch (error) {
-      this.#dataSourcesPromise = null;
-      throw error;
+  dataSources(): Promise<ReadDataSourcesPayload> {
+    if (
+      this.#dataSourcesPromise === null
+      || (
+        this.#dataSourcesCacheExpiresAt !== 0
+        && Date.now() >= this.#dataSourcesCacheExpiresAt
+      )
+    ) {
+      this.#dataSourcesCacheExpiresAt = 0;
+      this.#dataSourcesPromise = this.#insights
+        .panel<unknown>("/system/data-sources")
+        .then(decodeReadDataSources)
+        .then(
+          (payload) => {
+            this.#dataSourcesCacheExpiresAt = Date.now() + 15_000;
+            return payload;
+          },
+          (error: unknown) => {
+            this.#dataSourcesPromise = null;
+            throw error;
+          },
+        );
     }
+    return this.#dataSourcesPromise;
   }
 
   async iamOverview(): Promise<IamOverview> {
@@ -291,16 +305,4 @@ export class OperatorApiClient {
 }
 
 export { isOptionalOperatorApiUnavailable, OperatorApiError };
-export {
-  decodeAuditPage,
-  decodeHilQueuePage,
-  decodeIncidentPage,
-  decodeRcaView,
-} from "./api-operations";
-export {
-  decodeAutonomyPayload,
-  decodeDashboardKpi,
-  decodeScopeView,
-} from "./api-insights";
-export { decodeReadDataSources, sourceForRoute, unavailableSourceReason } from "./api-data-sources";
 export type { ReadDataSourceStatus, ReadDataSourcesPayload } from "./api-data-sources";

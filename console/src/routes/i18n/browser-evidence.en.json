@@ -1,0 +1,139 @@
+{
+  "subtitle": "Review admitted browser-capture custody, security attention, retention, and exact audit provenance without exposing captured content.",
+  "readOnlyTitle": "Payload-free inspection.",
+  "readOnlyBody": "Captured content stays outside this view. Browser text remains untrusted, and no record grants capture, promotion, approval, or execution authority.",
+  "resourceLabel": "Browser evidence workspace",
+  "unavailable": "The versioned authoritative Browser evidence workspace is unavailable.",
+  "workspaceLabel": "Browser evidence artifact review",
+  "observed": "Page observed",
+  "sourceObserved": "Source observed",
+  "notObserved": "No source record",
+  "consistency": "Consistency",
+  "viewHeadline": "{loaded} of {matching} matching artifacts loaded, {findings} security findings, {withheld} records withheld",
+  "artifacts": "Artifacts",
+  "loadedSummary": "{loaded} loaded of {matching} matching",
+  "pageComplete": "All currently matching admitted records are loaded.",
+  "loadMore": "Load more",
+  "loadingMore": "Loading more...",
+  "filters": {
+    "label": "Filter admitted Browser evidence",
+    "host": "Exact host",
+    "hostPlaceholder": "dashboard.example",
+    "hostScope": "Host field",
+    "hostEither": "Requested or final",
+    "hostRequested": "Requested host",
+    "hostFinal": "Final host",
+    "retention": "Retention",
+    "allRetention": "All retention states",
+    "finding": "Security finding",
+    "allFindings": "All finding states",
+    "findingsPresent": "Findings present",
+    "findingsClear": "No findings",
+    "sort": "Order",
+    "attentionFirst": "Attention first",
+    "newestFirst": "Newest first",
+    "apply": "Apply filters",
+    "more": "More exact filters",
+    "artifact": "Artifact SHA-256 id",
+    "policy": "Policy id",
+    "policyVersion": "Policy version",
+    "custody": "Custody reference",
+    "captureWindow": "Capture window",
+    "from": "From, inclusive",
+    "before": "Before, exclusive",
+    "clear": "Clear filters",
+    "invalid": "Invalid Browser evidence filters: {fields}"
+  },
+  "metrics": {
+    "loaded": "Loaded records",
+    "loadedHint": "Current accumulated pages",
+    "matching": "Matching admitted",
+    "admitted": "Snapshot admitted",
+    "findings": "Security findings",
+    "findingsHint": "Finding indicators across matching records",
+    "expiring": "Expiring soon",
+    "expiringHint": "Within seven days of observation",
+    "holds": "Legal holds",
+    "holdsHint": "Expiry suspended",
+    "withheld": "Snapshot withheld",
+    "withheldHint": "Non-identifying, snapshot-wide count"
+  },
+  "retention": {
+    "held": "Legal hold",
+    "expired_pending_purge": "Expired, cleanup pending",
+    "expiring": "Expiring soon",
+    "retained": "Retained"
+  },
+  "attention": {
+    "security": "Security review"
+  },
+  "empty": {
+    "title": "No admitted Browser evidence",
+    "body": "No payload-free record passed admission in this observation. {withheld} record(s) were withheld without exposing identity."
+  },
+  "noMatches": {
+    "title": "No admitted records match these filters",
+    "body": "The source contains admitted records, but none match the current exact filter set."
+  },
+  "detail": {
+    "selected": "Selected admitted artifact",
+    "securityReview": "Security review required",
+    "securityReviewBody": "{count} prompt-injection finding indicator(s) are recorded. Captured text remains hidden and cannot become an instruction.",
+    "source": "Capture destination",
+    "requestedHost": "Requested host",
+    "finalHost": "Final admitted host",
+    "redirect": "Redirect",
+    "redirected": "Redirect admitted by policy",
+    "notRedirected": "No host change",
+    "sanitization": "Sanitization summary",
+    "selectors": "Stable selectors",
+    "redactions": "Redactions",
+    "findings": "Finding indicators",
+    "digestCoverage": "Digest coverage",
+    "digest": {
+      "screenshot": "Screenshot digest",
+      "text": "Visible-text digest",
+      "accessibilitySnapshot": "Accessibility-snapshot digest",
+      "present": "Present",
+      "absent": "Not captured"
+    },
+    "custody": "Runtime and custody",
+    "browserRuntime": "Browser runtime",
+    "custodyReference": "Custody reference",
+    "auditLink": "Audit provenance",
+    "retention": "Retention and hold",
+    "holdReference": "Hold reference",
+    "holdApplied": "Hold applied",
+    "notApplicable": "Not applicable",
+    "identity": "Immutable identity",
+    "copyIdentity": "Copy artifact id",
+    "openDeepLink": "Open exact artifact",
+    "openAudit": "Open exact audit record",
+    "openTrace": "Open correlated trace",
+    "payloadHidden": "Captured payload not exposed.",
+    "payloadHiddenBody": "Only admitted scalar metadata is visible. Screenshot, text, accessibility snapshot, selector values, finding text, and isolation-receipt fields remain outside the Console."
+  },
+  "audit": {
+    "missing": "No exact custody audit row is available.",
+    "malformed": "The custody reference is not a canonical audit UUID.",
+    "ambiguous": "More than one custody audit row matched, so navigation is withheld.",
+    "unsupported_sequence": "The exact audit sequence exceeds the Console address range."
+  },
+  "withheld": {
+    "title": "Withheld admission summary",
+    "body": "These snapshot-wide counts explain records excluded before identity-bearing metadata reaches the Console.",
+    "count": "{count} withheld",
+    "scope": "Withheld counts are snapshot-wide and are not filtered or linked to record identities.",
+    "reason": {
+      "invalid_metadata": "Invalid bounded metadata",
+      "trust_invalid": "Invalid untrusted marker",
+      "isolation_unverified": "Isolation not verified"
+    }
+  },
+  "column": {
+    "policy": "Policy",
+    "captured": "Captured",
+    "expires": "Expires",
+    "retention": "Retention"
+  }
+}

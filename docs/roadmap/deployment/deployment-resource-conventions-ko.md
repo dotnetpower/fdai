@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 5b25f6e2151cf41a8c49873c5ccdc3532fc50fd7
+translation_source_sha: e12ce117eaeb8d7058e716da5c79badf0837f4e8
 translation_revised: 2026-09-15
 ---
 # 배포 리소스 규약
@@ -68,7 +68,9 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 `ag-<workload>-noise-pilot-<env>-<region>`과
 `alert-<workload>-noise-pilot-<env>-<region>`을 만듭니다. 수신자는 소유자 전용 배포 구성에
 유지합니다. 정확한 적용 전에 기준선, 조정안, 복구 및 정리 계획의 범위를 각각 독립적으로
-검증합니다.
+검증합니다. 별도 관리 신원이 실행하고 읽기 전용 공급자 경로가 관측하는 이 격리된 개발 환경
+형태는 유지관리자 한 명이 승인할 수 있습니다. 공용 또는 프로덕션 경보 변경은 기존 승인
+정족수를 유지합니다.
 
 ## 구현 상태
 

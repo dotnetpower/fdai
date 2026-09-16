@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import stat
 import subprocess
 import tempfile
@@ -15,11 +16,16 @@ from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.plan_input import read_plan_input, write_plan_input
 from genesis_checks import CheckError, trusted_tool
 from genesis_runner_image_sku_probe import read_vm_skus, read_vm_usage
-from genesis_runner_image_skus import EVIDENCE_INVALID
+from genesis_runner_image_skus import EVIDENCE_INVALID, load_sku_json
 from genesis_subprocess import run_with_heartbeat
 from genesis_vm_image_requirements import image_requirements
 from genesis_vm_sku_catalog import read_vm_catalog
-from genesis_vm_sku_choice import catalog_options, choose_deployment_vms, require_foundation_vm
+from genesis_vm_sku_choice import (
+    catalog_options,
+    choose_deployment_vms,
+    choose_foundation_vm,
+    require_foundation_vm,
+)
 from genesis_vm_sku_policy import VmPolicy, parse_vm_policy
 
 POLICY_NAME = "vm-sku-policy.json"
@@ -78,11 +84,12 @@ def discover_foundation_vm_size(
     source_commit: str,
     target_binding: str,
     capture: Callable[..., str] | None = None,
+    create_runner_image: bool = True,
 ) -> str:
-    """Choose all three new roles before other discovery; persist only private replay evidence.
+    """Choose required deployment hosts before other discovery and retain private evidence.
 
-    Only the host value enters Foundation variables. Image planning freshly selects its pair
-    while preserving this host, binding all three roles to the image approval review.
+    Connected deployment selects only the Foundation host. Offline image creation also reserves
+    compatible builder and verifier choices before its separate approval review.
     """
     policy = load_vm_policy(repository_root)
     context: VmReadContext = {
@@ -108,7 +115,16 @@ def discover_foundation_vm_size(
         if folder is not None:
             write_plan_input(folder / "quota.json", {"rows": usages})
         stage = "selection"
-        selected = choose_deployment_vms(policy, region=region, rows=rows, usages=usages)
+        if create_runner_image:
+            selected = choose_deployment_vms(policy, region=region, rows=rows, usages=usages)
+            runner_vm_size = selected.foundation.size
+            build_vm_size: str | None = selected.builder.size
+            verify_vm_size: str | None = selected.verifier.size
+        else:
+            host = choose_foundation_vm(policy, region=region, rows=rows, usages=usages)
+            runner_vm_size = host.size
+            build_vm_size = None
+            verify_vm_size = None
     except CheckError as exc:
         if folder is not None:
             try:
@@ -161,9 +177,10 @@ def discover_foundation_vm_size(
                 "source_commit": source_commit,
                 "target_binding": target_binding,
                 "region": region,
-                "runner_vm_size": selected.foundation.size,
-                "build_vm_size": selected.builder.size,
-                "verify_vm_size": selected.verifier.size,
+                "runner_vm_size": runner_vm_size,
+                "build_vm_size": build_vm_size,
+                "verify_vm_size": verify_vm_size,
+                "runner_image_creation": create_runner_image,
                 "policy_digest": policy.digest,
                 "sku_evidence_digest": canonical_digest({"rows": rows}),
                 "quota_evidence_digest": canonical_digest({"rows": usages}),
@@ -174,7 +191,7 @@ def discover_foundation_vm_size(
                 "capacity_reserved": False,
             },
         )
-    return selected.foundation.size
+    return str(runner_vm_size)
 
 
 def recheck_foundation_vm(
@@ -194,6 +211,8 @@ def recheck_foundation_vm(
     region, subscription = str(values.get("region", "")), str(values.get("subscription_id", ""))
     size = values.get("runner_vm_size")
     image = values.get("runner_source_image_id")
+    mode = values.get("runner_bootstrap_mode", "offline")
+    version = values.get("runner_marketplace_image_version", "")
     if not isinstance(size, str) or not isinstance(image, str):
         raise CheckError(EVIDENCE_INVALID, 3)
     reader = capture or capture_vm_metadata
@@ -208,17 +227,27 @@ def recheck_foundation_vm(
     }
     rows = read_vm_skus((size,), **context)
     usages = read_vm_usage(**context)
-    observed = image_requirements(
-        image=image,
-        subscription_id=subscription,
-        region=region,
-        capture=reader,
-        cwd=repository_root,
-        environment=environment,
-    )
-    disk = observed.get("diskSizeGB")
-    if type(disk) is not int:
-        raise CheckError(EVIDENCE_INVALID, 3)
+    if mode == "online":
+        observed = _marketplace_image_requirements(
+            version=version,
+            region=region,
+            capture=reader,
+            cwd=repository_root,
+            environment=environment,
+        )
+        disk = policy.os_disk_gib
+    else:
+        observed = image_requirements(
+            image=image,
+            subscription_id=subscription,
+            region=region,
+            capture=reader,
+            cwd=repository_root,
+            environment=environment,
+        )
+        disk = observed.get("diskSizeGB")
+        if type(disk) is not int:
+            raise CheckError(EVIDENCE_INVALID, 3)
     require_foundation_vm(
         policy, region=region, rows=rows, usages=usages, size=size, image_disk_gib=disk
     )
@@ -240,6 +269,57 @@ def recheck_foundation_vm(
     )
 
 
+def _marketplace_image_requirements(
+    *,
+    version: object,
+    region: str,
+    capture: Callable[..., str],
+    cwd: Path,
+    environment: Mapping[str, str],
+) -> dict[str, object]:
+    if not isinstance(version, str) or re.fullmatch(r"[0-9]+(?:\.[0-9]+)+", version) is None:
+        raise CheckError(EVIDENCE_INVALID, 3)
+    raw = capture(
+        [
+            "/usr/bin/az",
+            "vm",
+            "image",
+            "show",
+            "--location",
+            region,
+            "--urn",
+            f"Canonical:ubuntu-24_04-lts:server:{version}",
+            "--query",
+            (
+                "{version:name,location:location,"
+                "osType:osDiskImage.operatingSystem,"
+                "hyperVGeneration:hyperVGeneration}"
+            ),
+            "--output",
+            "json",
+            "--only-show-errors",
+        ],
+        cwd=cwd,
+        env=environment,
+        timeout=30,
+        reason=EVIDENCE_INVALID,
+    )
+    observed = load_sku_json(raw.encode("utf-8"), max_bytes=65_536)
+    if (
+        observed.get("version") != version
+        or str(observed.get("location", "")).casefold() != region.casefold()
+        or observed.get("osType") != "Linux"
+        or observed.get("hyperVGeneration") != "V2"
+    ):
+        raise CheckError(EVIDENCE_INVALID, 3)
+    return {
+        "marketplaceVersion": version,
+        "location": region,
+        "osType": "Linux",
+        "hyperVGeneration": "V2",
+    }
+
+
 def capture_vm_metadata(
     command: list[str], *, cwd: Path, env: Mapping[str, str], timeout: int, reason: str
 ) -> str:
@@ -254,7 +334,7 @@ def capture_vm_metadata(
         raise CheckError(reason, 3) from None
     if result.returncode != 0:
         raise CheckError(reason, 3)
-    return result.stdout
+    return str(result.stdout)
 
 
 def _environment() -> dict[str, str]:

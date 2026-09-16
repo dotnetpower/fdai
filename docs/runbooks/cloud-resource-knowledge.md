@@ -14,6 +14,21 @@ Collection, package verification, and import are separate from approval and sear
 > **Structured implementation:** Original-free v2 remains the default. The v3 opt-in is implemented;
 > source qualification, independent answer review and production rollout remain separate.
 
+## Requester application: target and current operation
+
+The [target workflow](../roadmap/interfaces/cloud-resource-knowledge-lifecycle.md#requester-initiated-application-target)
+lets an authorized requester apply eligible reference content under previously approved policy,
+without choosing another approver for every document. The uploader need not be identified during
+preparation; the real intake request supplies the authenticated identity. Content review can start
+before that request exists and does not itself grant runtime approval authority.
+
+This policy-backed application path is **not implemented**. The procedures below describe the
+current manual lane, not a permanent requirement to arrange another person for every future update.
+There is no supported setting that turns `Reader`, a successful import, or a package signature into
+activation authority. Do not change roles, forge approval fields or disable Var to simulate the target.
+After implementation and independent promotion, eligible requests should proceed without a manual
+wait while preserving scanning, policy rechecks and independently verified index completion.
+
 ## Prerequisites
 
 - **Services:** Run the existing Core, Operator, ingestion API, and document worker with their own
@@ -25,8 +40,8 @@ Collection, package verification, and import are separate from approval and sear
   `azure_network_sources()` provides disabled APIM, VNet, NSG, and Private DNS starter templates.
 - **Trust:** Establish independently approved Ed25519 public keys and current revocation evidence
   in `KnowledgeTrustPolicy`. Never obtain initial trust from the package being inspected.
-- **Reviewers:** Use separate requester and approver identities. The existing Approvals surface
-  carries Var decisions; a package uploader cannot approve their own content.
+- **Current manual-lane reviewers:** Use separate requester and approver identities. The existing
+  Approvals surface carries Var decisions; a package uploader cannot approve their own content.
 - **Scanner:** Supply the normal replica-local ClamAV service and current signature data.
   Cloud-reference inspection and activation require a signature database less than seven days old.
 
@@ -71,7 +86,7 @@ capabilities retain their own connectivity requirements.
    changes. A failure does not refresh source age. HTTP 429/503 stops the affected sweep.
 4. Expand a collection and download its **unsigned review manifest**, or submit the complete
    collected revision for review. A partial failed collection cannot silently shrink its manifest.
-5. Follow the resulting upload through inspection, independent human approval, and indexing.
+5. In the current manual lane, follow inspection, independent human approval, and indexing.
    **Ingestion requested** means received, not active. The existing document pipeline owns progress.
   Pending index verification is unavailable. A separate read-only database observation must match
   the sealed source and complete chunk set before the fenced visibility transition reports success.
@@ -190,8 +205,9 @@ Do not carry keys, credentials, deployment configuration, or an approval overrid
    only. The preview arrival time is not an import receipt.
 3. Confirm submission of the exact inspected bytes and select **Import inspected package for
    review**. The server verifies the bytes and current policy again and reserves the release sequence.
-4. Complete internal malware inspection and independent review through the existing document
-   pipeline. Stale scanner data, expired trust/admission, mismatched policy, and self-approval block it.
+4. In the current manual lane, complete internal malware inspection and independent review through
+  the document pipeline. Stale scanner data, expired trust/admission, mismatched policy, and
+  self-approval block it.
 5. Reload status and verify the intended document generation. Reference citations open stored
    document sections; an external source URL is provenance, not an automatic network request.
 

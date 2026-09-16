@@ -17,8 +17,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Final
 
-from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.aks_readiness import verify_workload_health
+from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
 from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
@@ -466,7 +466,7 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
     substrate = Path(str(context["infra"]))
     identities = _terraform_json_output(substrate, "runtime_identity_bindings")
     if not isinstance(identities, dict):
-        raise ValueError("AKS runtime identity output contract is invalid")
+        raise TypeError("AKS runtime identity output contract is invalid")
     principals = {
         str(_mapping(identities.get(name), f"{name} runtime identity")["principal_id"])
         for name in ("core", "operator", "executor", "inventory")
@@ -1670,7 +1670,7 @@ def _aks_job(
 ) -> dict[str, object]:
     image = refs.get("core-control-plane")
     if not isinstance(image, str):
-        raise ValueError("AKS scheduled job image is unavailable")
+        raise TypeError("AKS scheduled job image is unavailable")
     return {
         "component": component,
         "image": image,
@@ -2624,7 +2624,7 @@ def _moment(value: datetime) -> str:
 
 def _parse_moment(value: str) -> datetime:
     try:
-        result = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        result = datetime.fromisoformat(value)
     except ValueError as exc:
         raise ValueError("approval expiry is invalid") from exc
     if result.tzinfo is None:

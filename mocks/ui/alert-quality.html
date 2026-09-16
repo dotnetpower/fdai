@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alert quality - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=alert-quality-v1" />
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=alert-quality-v1" />
+  <script src="assets/calm-slate.js?v=alert-quality-v1" defer></script>
+</head>
+<body
+  class="cs-operator-neutral"
+  data-chat-theme="clear-neutral"
+  data-console-page="alert-quality"
+>
+  <main class="cs-container cs-page cp-page">
+    <header class="cp-header">
+      <div>
+        <h1>
+          <span class="cs-page-domain">Operations</span>
+          <span aria-hidden="true"> / </span>
+          Alert quality
+        </h1>
+        <p>Review duplicate, flapping, noisy, and unactionable alerts without changing provider state.</p>
+      </div>
+    </header>
+
+    <aside class="op-boundary" role="note">
+      <strong>Synthetic preview.</strong>
+      <span>
+        These values illustrate an assessment response. They are not operational evidence,
+        approval, promotion, or execution authority.
+      </span>
+    </aside>
+
+    <section class="cp-kpis" data-kpi-count="4" aria-label="Synthetic alert quality summary">
+      <a class="cp-kpi" href="#findings">
+        <span>Source episodes</span>
+        <strong data-assessment-value="source_episodes">3</strong>
+        <small>complete synthetic coverage</small>
+      </a>
+      <a class="cp-kpi" href="#findings">
+        <span>Notification attempts</span>
+        <strong class="op-value-label" data-assessment-value="notification_attempts">Not recorded</strong>
+        <small>missing is not zero</small>
+      </a>
+      <a class="cp-kpi" href="#findings">
+        <span>Confirmed deliveries</span>
+        <strong data-assessment-value="confirmed_deliveries">0</strong>
+        <small>measured zero</small>
+      </a>
+      <a class="cp-kpi" href="#source">
+        <span>Acknowledgements</span>
+        <strong class="op-value-label" data-assessment-value="acknowledgements">Not recorded</strong>
+        <small>missing is not zero</small>
+      </a>
+    </section>
+
+    <section class="cp-section" id="findings" aria-labelledby="alert-findings-title">
+      <header class="cp-section-head">
+        <div>
+          <h2 id="alert-findings-title">Assessment findings</h2>
+          <p>Exact synthetic findings remain separate from any proposal or provider effect.</p>
+        </div>
+      </header>
+      <div class="cp-table-wrap">
+        <table class="cp-table">
+          <caption>Synthetic alert quality findings</caption>
+          <thead>
+            <tr>
+              <th scope="col">Finding</th>
+              <th scope="col">Evidence</th>
+              <th scope="col">State</th>
+              <th scope="col">Next safe step</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="Finding">Overlapping notification path</td>
+              <td data-label="Evidence">1 duplicate path; 3 source episodes; delivery count not recorded</td>
+              <td data-label="State"><span class="cp-status is-warning">Review routing</span></td>
+              <td data-label="Next safe step">Compare the observed path before drafting a proposal.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="cp-section" id="source" aria-labelledby="alert-source-title">
+      <article class="cp-card">
+        <h2 id="alert-source-title">Source and authority</h2>
+        <p>
+          The assessment is a read-only synthetic specimen. A separate governed request,
+          independent review, promotion registry, and effect verification remain required before
+          any provider change.
+        </p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

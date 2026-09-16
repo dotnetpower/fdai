@@ -35,7 +35,9 @@ apply, resume, or tear down a tenant deployment.
 ## Connected source deployment
 
 Current source-mode support covers private preparation, read-only AKS capacity preflight,
-runner-image planning, exact-approved Foundation/state handoff, and verified source transfer.
+exact-approved Foundation execution through private state handoff, and verified source transfer
+to the enrolled host, plus source-runtime OCI image preparation. Connected deployment does not
+build a dedicated managed-host image.
 The public source command resumes these checkpoints using the shared private coordinator;
 new interactive source installations confirm settings at startup only; later stages and JSON
 execution never prompt. `--approval-file <path>` explicitly supplies an existing
@@ -53,61 +55,22 @@ After initial confirmation, a bounded public-price read adds an explicit partial
 cost review before Foundation planning. A compute-only overrun blocks; an under-ceiling result
 still leaves full installation and setup costs unverified. The [runtime profile owner](runtime-deployment-profiles.md#state-ownership)
 defines price selection and exclusions. Runner-image reviews retain their legacy numeric estimate
-for compatibility but label it `policy-estimate-only`, with price, setup, whole-installation and
-billing-cap verification all false. That estimate cannot stand in for independent cost evidence.
+for artifact-offline compatibility only. Connected deployment has no runner-image review.
 
-Foundation input and VM metadata reads resolve Azure CLI through the existing trusted installation
-roots, including the operator-owned local installation. They do not require `/usr/bin/az` to exist
-or accept an arbitrary executable from `PATH`. The selected Azure configuration, bounded reads and
-sanitized provider failures remain unchanged.
-Runner-image Terraform receives only a private mode-`0700` regular-file `az` launcher that
-executes the resolved CLI by absolute path. This preserves installation-relative CLI wrappers
-without allowing `PATH` substitution; resumption rejects any changed launcher. Human identity
-readback uses the same trusted CLI.
-The builder poweroff wait resolves `az` from that sealed process path, not `/usr/bin/az`.
-It accepts only stopped or deallocated power states and propagates CLI errors. A failure after
-an apply claim can leave billable resources even when the coordinator has no success receipt.
-Preserve the original plan, claim and Terraform state; read-only observation does not authorize
-reapplying the plan or establish that a stopped VM is deallocated.
+Connected Foundation preparation resolves one exact Canonical Ubuntu 24.04 Marketplace version,
+selects quota for only the managed host, and seals the existing checksum-pinned bootstrap script
+into the Foundation plan. The script installs and verifies the exact Azure CLI, Terraform, OPA,
+ORAS, attestation, and state-migration tools on that host. No builder VM, verifier VM, image capture,
+or runner-image approval is part of this path.
 
-For a failed local poweroff wait, recovery starts with a new read-only residual plan, not another
-apply of the claimed binary. Planning retains the original variables and authoritative state,
-binds the original review and claim, and permits only the reviewed CLI-path correction in a fresh
-Terraform configuration. It neither copies authoritative state into a second execution venue nor
-changes the original plan. Completed Azure resources and deprovision commands must remain no-op.
-Only the failed local wait marker may be replaced; remaining image capture, verifier and VM
-deallocation/generalization steps must preserve the original known intent. Unverified drift, deferred work,
-changed ownership, extra resources or failed checks block the result. This inspection grants no
-apply authority; a residual plan needs its own execution contract and current approval before use.
-Refresh-only differences are accepted only on preserved no-op resources with unchanged resource IDs:
-originally unknown computed fields, equivalent null/empty values, or order-only differences in
-Firewall application-rule sets. A changed known setting or ambiguous refresh record still blocks.
-Concurrent changes to the original state, claim, source or configuration prevent review publication;
-the planner preserves incomplete output and never overwrites a previous recovery directory.
-When mirror-only initialization creates provider links, the planner replaces only links to the
-same relative package in the original hash-verified provider tree with private file copies.
-Original provider bytes must remain unchanged, and the resulting execution tree must contain no
-links. Foreign links still fail; authoritative state is never part of this copy.
-
-The separate `genesis_runner_image_recovery_apply.py` command accepts only an explicitly supplied
-new Genesis approval: stage `runner-image`, run binding equal to the residual review digest, source
-equal to the recovery source, and evidence equal to the residual review and plan digests. Original
-approval records cannot satisfy that binding. Before claiming, it verifies current human identity,
-exact-source CI, configuration/provider/plan hashes, state lineage and unchanged original state bytes.
-The new immutable claim records human/executor digests and a stable idempotency key. The saved plan
-is applied with the original local state path; no second state owner or implicit adoption is created.
-
-A retained residual claim permits `--verify-only`, never another apply. Success requires the existing
-independent image, VM, extension and policy observers plus a fresh zero-change plan. It writes a
-separate residual receipt and never fabricates an original apply receipt or deployment readiness.
-The public full-install coordinator does not yet consume this residual receipt automatically.
+Artifact-offline deployment can still select a separately verified prebuilt host image when the
+managed host cannot download bootstrap artifacts. That optional path retains its image-specific
+review and recovery tools, but those tools do not block or define connected deployment.
 
 The interactive checkpoint prompt resolves that same trusted CLI before reading the current
 human approver. A missing trusted executable or a service-principal account cannot create approval.
-Its mutually exclusive `--residual-review <path>` input validates the new review's integrity,
-freshness, execution bindings and saved plan before prompting. It binds approval to the residual
-review and recovery source, not the original status. The existing human-only terminal confirmation
-remains mandatory; selecting this input does not grant approval or apply any resources.
+The existing human-only terminal confirmation remains mandatory; selecting a checkpoint does not
+grant approval or apply any resources.
 
 Source and kit Foundation inputs use distinct types and saved-plan schemas. A retained source
 plan must match the current snapshot and source-input digests. Source execution copies the
@@ -465,8 +428,7 @@ remains blocked rather than being treated as progress.
 After a failed child exit, a separate diagnostic reader may describe a recognized blocker from that
 exact failed attempt. It uses bounded private input, rejects duplicate JSON keys and mismatched
 context, and emits only fixed value-safe guidance. Missing or unrecognized evidence keeps the generic
-error. An incomplete runner image calls for retained-state review and a separately approved recovery
-plan; a retained apply claim permits verification only, not another apply. Diagnostics never grant
+error. A retained apply claim permits verification only, not another apply. Diagnostics never grant
 handoff, cleanup, approval, or permission to delete state or switch work directories.
 
 Before displaying an application approval, the coordinator validates the review schema, stage,

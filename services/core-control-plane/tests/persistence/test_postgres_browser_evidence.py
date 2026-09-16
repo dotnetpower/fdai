@@ -104,6 +104,30 @@ def test_browser_evidence_row_codec_round_trips_and_revalidates_hashes() -> None
         _row_to_stored(row)
 
 
+@pytest.mark.parametrize(
+    "hold_ref",
+    (
+        " padded-case",
+        "padded-case ",
+        "\N{NO-BREAK SPACE}case",
+        "case\N{DELETE}",
+    ),
+)
+async def test_browser_evidence_legal_hold_rejects_noncanonical_reference(
+    hold_ref: str,
+) -> None:
+    store = PostgresBrowserEvidenceArtifactStore(
+        config=PostgresBrowserEvidenceArtifactStoreConfig(dsn="postgresql://example.invalid/fdai")
+    )
+
+    with pytest.raises(ValueError, match="bounded ASCII text"):
+        await store.place_legal_hold(
+            artifact_id=f"sha256:{'a' * 64}",
+            hold_ref=hold_ref,
+            held_at=_NOW,
+        )
+
+
 def _row(stored: StoredBrowserEvidence) -> dict[str, object]:
     columns = (
         "artifact_id content_digest policy_id policy_version canonical_source_url "

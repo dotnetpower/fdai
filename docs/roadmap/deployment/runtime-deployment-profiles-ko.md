@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 4bf7716f14705caecc303a28c4918a21d9dd0024
-translation_revised: 2026-09-15
+translation_source_sha: 0333e2b30bc02bbf9fde15de842720b42b695c6c
+translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
 
@@ -89,10 +89,10 @@ $$
 
 ## 상태 소유권
 
-두 런타임 프로파일은 검증된 관리 호스트 이미지에 의존합니다. 로컬 제작 VM 종료 대기는
-`/usr/bin/az`를 요구하지 않고 조정기가 제공하는 신뢰된 Azure CLI 경로를 사용합니다.
-이미지 생성이 일부만 진행돼도 원래 실행 전 기록과 상태를 보존합니다. [소스 배포 경계](installable-deployment-cli-ko.md#연결된-소스-배포)는
-자동 재적용을 허용하지 않으며 성공 근거가 없다고 리소스 변경도 없었던 것으로 해석하지 않습니다.
+두 런타임 프로파일의 연결된 배포는 정확한 Azure Marketplace Ubuntu 버전으로 Managed Host를
+부팅하고 Foundation 단계에서 체크섬으로 고정된 도구 체인을 설치합니다. 전용 Managed Host
+이미지를 만들거나 요구하지 않습니다. 초기 구성 산출물을 내려받을 수 없는 아티팩트 오프라인
+배포는 별도로 검증된 사전 준비 호스트 이미지를 선택할 수 있습니다.
 
 Foundation의 선택 입력 `application_workload`는 AKS 프로파일을 바꾸지 않고 새 애플리케이션
 그룹 이름을 운영 리소스 이름과 분리합니다. 기존 그룹의 소유권을 부여하지는 않으며, 부분 상태

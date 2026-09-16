@@ -79,3 +79,18 @@ test("Live mock keeps authority and source activity explicit", () => {
   assert.match(script, /function openSourceDetail/);
   assert.match(script, /3,205 evidence items/);
 });
+
+test("nested Live frames reflow authority details without swallowing source rules", () => {
+  assert.match(
+    stylesheet,
+    /@media \(max-width: 720px\) \{[\s\S]*?\.cs-live-authority-heading \{ grid-template-columns: minmax\(0, 1fr\);/,
+  );
+  assert.match(
+    stylesheet,
+    /\.cs-live-status-rail \{ grid-template-columns: 1fr; \}\s*\.cs-source-tile \.cs-tile-meta \{/,
+  );
+  assert.doesNotMatch(
+    stylesheet,
+    /\.cs-live-status-rail \{[^}]*\.cs-source-tile/,
+  );
+});

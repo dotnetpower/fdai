@@ -2214,6 +2214,15 @@ body.cs-live-fullscreen-fallback { overflow: hidden; }
   .cs-live-status-rail { grid-template-columns: 1fr; }
   .cs-live-health { border-right: 0; border-bottom: 1px solid var(--cs-hairline); }
 }
+@media (max-width: 720px) {
+  .cs-live-authority-heading { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .cs-live-authority-heading p {
+    overflow: visible;
+    margin-left: 0;
+    text-overflow: clip;
+    white-space: normal;
+  }
+}
 @media (max-width: 620px) {
   .cs-swarm { grid-template-columns: 1fr; }
   .cs-live-workspace:fullscreen .cs-swarm,
@@ -2223,11 +2232,9 @@ body.cs-live-fullscreen-fallback { overflow: hidden; }
   .cs-live-scope { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 3px 8px; }
   .cs-live-scope span { min-width: 0; }
   .cs-live-scope .cs-live-scope-warning { grid-column: 1 / -1; margin-left: 0; white-space: normal; }
-  .cs-live-authority-heading { display: grid; gap: 2px; }
-  .cs-live-authority-heading p { margin-left: 0; white-space: normal; }
-  .cs-live-status-rail { grid-template-columns: 1fr;     .cs-source-tile .cs-tile-meta { grid-template-columns: auto 1fr; }
-    .cs-source-tile .cs-tile-meta time { grid-column: 1 / -1; justify-self: start; }
-  }
+  .cs-live-status-rail { grid-template-columns: 1fr; }
+  .cs-source-tile .cs-tile-meta { grid-template-columns: auto 1fr; }
+  .cs-source-tile .cs-tile-meta time { grid-column: 1 / -1; justify-self: start; }
   .cs-live-health { grid-template-columns: repeat(2, minmax(0, 1fr)); border-right: 0; border-bottom: 1px solid var(--cs-hairline); }
   .cs-live-health > div:nth-child(2n) { border-right: 0; }
   .cs-live-health > div:nth-child(-n+2) { border-bottom: 1px solid var(--cs-hairline); }

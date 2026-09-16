@@ -88,10 +88,10 @@ planning. The error reports the requested and allocatable quantities without exp
 
 ## State ownership
 
-Both runtime profiles depend on the verified managed-host image. Its local builder poweroff wait
-uses the coordinator's trusted Azure CLI path rather than requiring `/usr/bin/az`. Partial image
-construction retains its original claim and state; the [source transfer boundary](installable-deployment-cli.md#connected-source-deployment)
-does not permit an automatic reapply or treat missing success evidence as zero resource effects.
+Connected deployments for both runtime profiles boot the managed host from an exact Azure
+Marketplace Ubuntu version and install the checksum-pinned toolchain during Foundation. They do
+not build or require a dedicated managed-host image. Artifact-offline deployments can still select
+a separately verified prebuilt host image when bootstrap downloads are unavailable.
 
 An optional Foundation `application_workload` token can separate the new application group's name
 from operations naming without changing the AKS profile. It grants no ownership of an existing group;
