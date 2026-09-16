@@ -216,6 +216,7 @@
         "console/tests/live-e2e/golden-semantic-campaign*.ts",
         "service-migrations/branches/core-control-plane/versions/*operational_archive.py",
         "service-migrations/branches/core-control-plane/versions/*operational_state_transitions.py",
+        "service-migrations/branches/core-control-plane/versions/*inventory_temporal_axes.py",
         "service-migrations/branches/core-control-plane/versions/*oi16_certification_support.py",
         "tests/integration/services/test_oi16_certification_support_migration.py",
         "tests/integration/test_operational_instance_retention.py",
@@ -411,6 +412,37 @@
         "docs/roadmap/decisioning/process-automation.md"
       ],
       "validate": []
+    },
+    {
+      "id": "runtime-scope-receipt",
+      "paths": [
+        "config/constitution-traceability.json",
+        "docs/roadmap/deployment/dev-and-deploy-parity*.md",
+        "packages/service-contracts/src/fdai_service_contracts/runtime_scope.py",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/runtime-scope-receipt/**",
+        "packages/service-contracts/src/fdai_service_contracts/venue.py",
+        "packages/service-contracts/tests/test_runtime_scope.py",
+        "scripts/quality/architecture/check-venue-capability-contract.py",
+        "services/*/src/**/*main.py",
+        "tests/integration/scripts/test_venue_capability_contract.py"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity.md",
+        "config/constitution-traceability.json"
+      ],
+      "docs_update": [
+        "docs/roadmap/deployment/dev-and-deploy-parity.md",
+        "docs/roadmap-implementation/deployment/dev-and-deploy-parity.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov packages/service-contracts/tests/test_runtime_scope.py tests/integration/scripts/test_venue_capability_contract.py tests/integration/scripts/test_constitution.py",
+        "python3 scripts/quality/architecture/check-venue-capability-contract.py",
+        "python3 scripts/quality/architecture/check-constitution.py",
+        "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
     },
     {
       "id": "decision-evidence-admission",

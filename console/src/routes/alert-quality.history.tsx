@@ -28,7 +28,7 @@ export function AlertQualityHistory({ identity, scopes, scope, onReconciled }: {
     return () => { owner.dispose(); if (session.current === owner) session.current = null; };
   }, [binding]);
   const state: AsyncState<AlertRequestHistory> = result.owner === binding && current() ? result.value : { status: "loading" };
-  return <section class="stack" aria-labelledby="alert-quality-history-title" style={{ minWidth: 0 }}>
+  return <section class="alert-quality-section alert-quality-history" aria-labelledby="alert-quality-history-title">
     <h3 id="alert-quality-history-title">{text("history.title")}</h3>
     <p class="muted">{text("history.help")}</p>
     <button class="btn" type="button" style={{ minHeight: 44, alignSelf: "start" }} disabled={state.status === "loading"}

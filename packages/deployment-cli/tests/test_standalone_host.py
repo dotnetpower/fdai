@@ -708,6 +708,46 @@ def test_aks_stages_use_independent_roots_and_variables(tmp_path: Path) -> None:
     )
 
 
+def test_aks_operational_history_job_is_shadow_and_uses_inventory_identity() -> None:
+    identity = {"resource_id": "inventory-resource", "client_id": "inventory-client"}
+    job = standalone_host._aks_job(
+        {"core-control-plane": "example.azurecr.io/core@sha256:" + "a" * 64},
+        identity,
+        ["python", "-m", "fdai.delivery.operational_history_lifecycle_runner"],
+        "0 * * * *",
+        {
+            "FDAI_OPERATIONAL_HISTORY_CONTAINER_URL": "https://example.invalid/history",
+            "FDAI_OPERATIONAL_HISTORY_MODE": "shadow",
+            "FDAI_OPERATIONAL_HISTORY_MAX_PARTITIONS": "32",
+        },
+        {"FDAI_DATABASE_URL": "fdai-state-store-dsn"},
+        component="operational-history",
+        deadline_seconds=1800,
+        retry_limit=0,
+    )
+
+    assert job["identity_resource_id"] == identity["resource_id"]
+    assert job["identity_client_id"] == identity["client_id"]
+    assert job["environment"]["FDAI_OPERATIONAL_HISTORY_MODE"] == "shadow"
+    assert "FDAI_OPERATIONAL_HISTORY_AUTHORITY_RECEIPT" not in job["environment"]
+    assert job["secret_environment"] == {"FDAI_DATABASE_URL": "fdai-state-store-dsn"}
+    assert job["retry_limit"] == 0
+
+
+def test_aks_job_rejects_missing_core_image() -> None:
+    with pytest.raises(TypeError, match="image is unavailable"):
+        standalone_host._aks_job(
+            {},
+            {"resource_id": "inventory-resource", "client_id": "inventory-client"},
+            ["python", "-m", "fdai.delivery.operational_history_lifecycle_runner"],
+            "0 * * * *",
+            {},
+            {},
+            component="operational-history",
+            deadline_seconds=1800,
+        )
+
+
 def test_postgres_aks_substrate_excludes_flexible_server() -> None:
     context = {
         "runtime_profile": {

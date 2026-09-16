@@ -1,6 +1,7 @@
 # Alert quality browser review
 
-This review records isolated Console checks through hardening round 19 and final source integration.
+This review records isolated Console checks through the alert-quality parity correction and final
+source integration.
 The browser imports the real route and shell with a test-only identity module response and
 intercepted synthetic API records. It is not Browser Entra or provider validation.
 
@@ -10,10 +11,18 @@ intercepted synthetic API records. It is not Browser Entra or provider validatio
 - Navigation: default collapsed rail; evidence and retained-plan disclosures both expanded.
 - Browser: Chromium; desktop 1440x900 first, then 993x641 and 390x844.
 - Inputs: route-local report/Settings fixtures and signed-in test principal, no actual credentials.
-- [Browser scenarios](tests/e2e/alert-quality.spec.ts): all 14 passed on `15c41bf3a`, alongside
-  292 Console tests and TypeScript. This includes request detail, source selectors, contrast,
-  keyboard focus and expanded Korean geometry. Later changes only update backend packaging tests
-  and this record; those unchanged route inputs reuse the measured result.
+- [Browser scenarios](tests/e2e/alert-quality.spec.ts): all 16 pass on the task-owned source,
+  alongside 292 alert-quality unit checks and TypeScript. This includes direct singleton-scope
+  entry, the actionable zero-scope state, request detail, source selectors, contrast, keyboard
+  focus and expanded Korean geometry.
+- Direct `/alert-quality` navigation now opens the only exact server-returned scope. Zero scopes
+  remain an explicit configuration state and multiple scopes still require a human selection;
+  neither case starts a report read. The observed standard Browser Entra route returned zero
+  configured scopes, so no tenant configuration or authorization boundary was changed.
+- The ready route now follows the mock's first-screen hierarchy: authority boundary, scope context,
+  four separate evidence values, four-column findings, then source/authority and request controls.
+  Provenance, Settings, plans and history remain available below the primary evidence instead of
+  displacing it.
 - DOM checks: document and main have no horizontal overflow; standalone route controls are at
   least 44px high. The existing inline title breadcrumb is excluded from that standalone target
   requirement, not hidden or changed.
@@ -29,9 +38,10 @@ intercepted synthetic API records. It is not Browser Entra or provider validatio
   The main scroll container means a full-page capture can show only its opening viewport. Dedicated
   `alert-history-*` captures scroll the actual baseline into view; neither image proves unvisited
   content or a complete keyboard/assistive-technology matrix.
-- Final integration: English desktop and Korean 390px baseline captures were inspected again;
-  only synthetic references were present. The production build passed with 482421 raw / 149924
-  gzip entry bytes and 63 lazy imports. This is a build receipt, not authenticated runtime evidence.
+- Final integration: English desktop and Korean 1440px, 993px, 390px, 320px and 200% text captures
+  were inspected again; only synthetic references were present. The production build passed with
+  437945 raw / 137888 gzip entry bytes and 66 lazy imports. This is a build receipt, not
+  authenticated runtime evidence.
 
 ## Rubric assessment
 

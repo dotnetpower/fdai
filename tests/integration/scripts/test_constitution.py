@@ -76,6 +76,16 @@ def test_const_002_implemented_status_requires_fail_closed_proofs() -> None:
     )
 
 
+def test_const_001_implemented_status_requires_runtime_scope_proofs() -> None:
+    module = _load_module()
+
+    assert module.IMPLEMENTED_PROOF_TESTS["FDAI-CONST-001"] == (
+        "packages/service-contracts/tests/test_runtime_scope.py::test_runtime_scope_receipt_binds_product_and_complete_venue_contract",
+        "tests/integration/scripts/test_venue_capability_contract.py::test_a_computed_environment_key_fails_the_ast_gate",
+        "tests/integration/scripts/test_venue_capability_contract.py::test_every_service_entrypoint_records_exactly_one_runtime_scope_receipt",
+    )
+
+
 def test_traceability_rejects_missing_evidence_path(tmp_path: Path) -> None:
     module = _load_module()
     manifest = {

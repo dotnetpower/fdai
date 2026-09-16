@@ -28,6 +28,7 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
     _PROMOTION_LOCK,
     PostgresInventorySnapshotStoreConfig,
 )
+from fdai.shared.providers.inventory import UNCLASSIFIED_RESOURCE_TYPE
 from fdai.shared.providers.inventory_observation import InventoryObservationKind
 
 _CHANGE_KINDS = frozenset({"upsert", "delete"})
@@ -161,8 +162,18 @@ class PostgresInventoryDeltaProjector:
         now = self._clock()
         if now.tzinfo is None:
             raise RuntimeError("inventory delta clock MUST be timezone-aware")
+        recorded_at = now.astimezone(UTC)
+        ingested_at = _optional_timestamp(payload.get("ingested_at"), "ingested_at") or recorded_at
+        provider_event_at = _optional_timestamp(
+            change.get("provider_event_at")
+            or payload.get("occurred_at")
+            or payload.get("detected_at"),
+            "provider_event_at",
+        )
         if observed_at > now.astimezone(UTC) + timedelta(seconds=self._max_future_skew_seconds):
             raise ValueError("inventory change observation exceeds the allowed future skew")
+        if ingested_at > recorded_at + timedelta(seconds=self._max_future_skew_seconds):
+            raise ValueError("inventory change ingestion exceeds the allowed future skew")
         event_id = _required_str(payload, "event_id")
         idempotency_key = _required_str(payload, "idempotency_key")
         props = resource.get("props", {})
@@ -227,6 +238,7 @@ class PostgresInventoryDeltaProjector:
         if any(not _link_owned_by(resource_id, link) for link in links):
             raise ValueError("inventory change relationships MUST be owned by the changed resource")
         covered_resource_types = _covered_resource_types(resource_type, links)
+        unclassified_full_scope_fallback = covered_resource_types == (UNCLASSIFIED_RESOURCE_TYPE,)
         reconcile_graph = change_kind == "delete" or links_complete
 
         async with await self._connect() as connection:
@@ -237,8 +249,11 @@ class PostgresInventoryDeltaProjector:
                     "SELECT s.id, s.started_at, s.scopes FROM inventory_active a "
                     "JOIN inventory_snapshot s ON s.id=a.snapshot_id "
                     "WHERE a.singleton=TRUE AND s.status='active' "
-                    "AND s.resource_types ?& %s",
-                    (list(covered_resource_types),),
+                    "AND (s.resource_types ?& %s OR (%s AND "
+                    "s.metadata->>'coverage_scope'='full_provider_scope' AND "
+                    "s.metadata->'provider_scope_coverage'->>'provider_identity_complete'="
+                    "'true'))",
+                    (list(covered_resource_types), unclassified_full_scope_fallback),
                 )
                 coverage = await coverage_cursor.fetchone()
                 if coverage is None:
@@ -260,7 +275,9 @@ class PostgresInventoryDeltaProjector:
                     operation=operation,
                     operation_status=operation_status,
                     observed_at=observed_at,
-                    recorded_at=now.astimezone(UTC),
+                    recorded_at=recorded_at,
+                    ingested_at=ingested_at,
+                    provider_event_at=provider_event_at,
                     active_scope_refs=tuple(str(value) for value in coverage["scopes"]),
                 )
                 if observed_at <= coverage["started_at"]:
@@ -540,6 +557,21 @@ def _timestamp(value: object) -> datetime:
         ) from exc
     if parsed.tzinfo is None:
         raise ValueError("inventory_change.resource.last_seen MUST include a timezone")
+    return parsed.astimezone(UTC)
+
+
+def _optional_timestamp(value: object, field: str) -> datetime | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"inventory change {field} MUST be an RFC 3339 string or null")
+    text = value[:-1] + "+00:00" if value.endswith("Z") else value
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError as exc:
+        raise ValueError(f"inventory change {field} MUST be valid RFC 3339") from exc
+    if parsed.tzinfo is None:
+        raise ValueError(f"inventory change {field} MUST include a timezone")
     return parsed.astimezone(UTC)
 
 
