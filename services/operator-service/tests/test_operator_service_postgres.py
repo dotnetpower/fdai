@@ -2013,20 +2013,28 @@ async def test_hil_reader_gets_count_only_and_approver_gets_redacted_detail() ->
 
 
 def test_hil_queue_excludes_approvals_with_a_durable_decision_receipt() -> None:
+    assert "jsonb_to_record(" in HIL_COUNT_SQL
+    assert "'operator-hil-decision:' || (park.approval_id #>> '{}')" in HIL_COUNT_SQL
+    assert "'operator-hil-decision:' || (state_kv.value->>'approval_id')" in HIL_PAGE_SQL
     for statement in (HIL_COUNT_SQL, HIL_PAGE_SQL):
         assert "NOT EXISTS" in statement
-        assert "'operator-hil-decision:' || (state_kv.value->>'approval_id')" in statement
         assert "LIKE %(key_pattern)s ESCAPE E'\\\\'" in statement
 
 
 def test_hil_queue_excludes_incomplete_or_expired_decisions() -> None:
+    assert "COUNT(*) FILTER (WHERE NOT COALESCE((" in HIL_COUNT_SQL
+    assert "jsonb_typeof(park.submitter_oid) = 'string'" in HIL_COUNT_SQL
+    assert "jsonb_typeof(park.request_fingerprint) = 'string'" in HIL_COUNT_SQL
+    assert "jsonb_typeof(park.approval_context->'expires_at') = 'string'" in HIL_COUNT_SQL
+    assert "park.metadata->>'decision_route' IN ('action', 'workflow')" in HIL_COUNT_SQL
+    assert "jsonb_typeof(park.metadata->'required_role') = 'string'" in HIL_COUNT_SQL
+    assert "jsonb_typeof(value->'submitter_oid') = 'string'" in HIL_PAGE_SQL
+    assert "jsonb_typeof(value->'request_fingerprint') = 'string'" in HIL_PAGE_SQL
+    assert "jsonb_typeof(value#>'{approval_context,expires_at}') = 'string'" in HIL_PAGE_SQL
+    assert "value#>>'{metadata,decision_route}' IN ('action', 'workflow')" in HIL_PAGE_SQL
+    assert "jsonb_typeof(value#>'{metadata,required_role}') = 'string'" in HIL_PAGE_SQL
     for statement in (HIL_COUNT_SQL, HIL_PAGE_SQL):
-        assert "jsonb_typeof(value->'submitter_oid') = 'string'" in statement
-        assert "jsonb_typeof(value->'request_fingerprint') = 'string'" in statement
-        assert "jsonb_typeof(value#>'{approval_context,expires_at}') = 'string'" in statement
         assert "> CURRENT_TIMESTAMP" in statement
-        assert "value#>>'{metadata,decision_route}' IN ('action', 'workflow')" in statement
-        assert "jsonb_typeof(value#>'{metadata,required_role}') = 'string'" in statement
 
 
 def test_hil_queue_links_only_current_canonical_incidents() -> None:

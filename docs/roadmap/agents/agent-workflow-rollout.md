@@ -15,12 +15,14 @@ remains independently reviewable and starts in shadow mode before any enforcemen
 | Thirteen-workflow rollout inventory | implemented | `docs/roadmap/agents/agent-workflows.md`; `services/core-control-plane/src/fdai/agents/_framework/workflows.py`; `services/core-control-plane/tests/agents/test_wave7_workflows.py` | The registry and tests preserve the documented workflow count and shadow defaults. |
 | Focused shadow-path evidence | implemented | `services/core-control-plane/tests/agents/test_wave7_workflows.py`; registered `trace_ref` targets | Focused tests establish implementation behavior only; they are not retained runtime rollout traces. |
 | Shared operational exit gate | not-started | Exit criteria in this document | No retained evidence establishes KPI baselines, required shadow durations, or zero policy-violation escapes for all workflows. |
+| Per-workflow promotion verdict inventory | implemented | `config/workflow-promotion-verdicts.json`; `scripts/quality/architecture/check-workflow-promotion-verdicts.py`; focused checker tests | Twelve workflows have explicit deferrals for named missing evidence, and retrospective what-if has a permanent-shadow verdict. The inventory is authority-neutral and cannot promote a workflow. |
 | Independent enforce promotion | not-started | Promotion gates in `docs/roadmap/agents/agent-workflows.md` | All registry entries remain in `shadow`; retrospective what-if remains permanently shadow. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | implemented | Added an exact-definition verdict inventory for all 13 workflows. The gate rejects omitted workflows, stale definitions or traces, incomplete blocker classes, unresolved evidence references, and any attempt by the inventory to grant authority or change mode. | `current change`; workflow verdict config and schema; focused checker tests passed 7 cases. | Capture governed operational evidence and use the separate authoritative promotion path before any eligible workflow can leave shadow. |
 | 2026-09-15 | implemented | Extracted Heimdall's episode identity, bounded history, and rolling alert-budget helpers into the private framework solely to restore the enforced agent-file ceiling. AgentSpec, topics, ownership, model policy, hot-path determinism, and authority are unchanged. | `current change`; `heimdall_alert_window.py`; Heimdall 830 lines; focused framework-layout, Wave 3, and Wave 6 checks (`96 passed`); Ruff, strict mypy, and enforced LOC gate. | Runtime exit-gate and deployment evidence remain unchanged. |
 | 2026-08-24 | implemented | Moved forecast-outcome and provider-schema publication into focused private Heimdall mixins solely to restore the enforced agent file ceiling. AgentSpec, topics, ownership, model policy, and authority are unchanged. | `current change`; Heimdall is 789 lines; focused provider-schema, forecast-outcome, framework-layout, agent-import, LOC, Ruff, format, and strict mypy checks. | Runtime exit-gate and deployed provider-schema evidence remain unchanged. |
 | 2026-08-24 | implemented | Replaced Heimdall's direct delivery import for provider-schema review with an injected shared provider Protocol. A missing projector holds publication; AgentSpec, topics, ownership, model policy, and authority are unchanged. | `current change`; provider-schema agent and watcher checks, agent import gate, Ruff, and strict mypy. | Retain the existing deployed shadow and Saga-audit evidence required by the provider-schema owner. |
@@ -36,7 +38,7 @@ remains independently reviewable and starts in shadow mode before any enforcemen
 
 - [ ] Capture durable per-workflow shadow traces, KPI baselines, and policy-escape observations from an operating environment.
 - [ ] Evaluate promotion only after the applicable duration and threshold evidence exists.
-- [ ] Record promotion or continued-shadow outcomes separately for every eligible workflow.
+- [x] Record one current continued-shadow or permanent-shadow verdict for every metadata workflow, bound to its exact definition and implementation trace.
 
 ## Workflow order
 
