@@ -828,6 +828,20 @@ resource "azurerm_role_assignment" "ingestion_worker_pantheon_receiver" {
   principal_id         = module.ingestion_worker_identity[0].principal_id
 }
 
+resource "azurerm_role_assignment" "ingestion_aks_eventhubs_sender" {
+  count                = var.enable_document_ingestion && var.compute_kind == "aks" ? 1 : 0
+  scope                = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
+  role_definition_name = "Azure Event Hubs Data Sender"
+  principal_id         = module.ingestion_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "ingestion_worker_aks_eventhubs_receiver" {
+  count                = var.enable_document_ingestion && !var.ingestion_cohost_worker && var.compute_kind == "aks" ? 1 : 0
+  scope                = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
+  role_definition_name = "Azure Event Hubs Data Receiver"
+  principal_id         = module.ingestion_worker_identity[0].principal_id
+}
+
 resource "azurerm_role_assignment" "ingestion_ocr_user" {
   count                = var.enable_document_ingestion && local.document_ocr_binding_enabled ? 1 : 0
   scope                = local.document_ocr_effective_resource_id
