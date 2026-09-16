@@ -615,7 +615,17 @@ def _independent_readback(
     access = _object(handoff["access"], "Foundation access handoff")
     group = json.loads(
         capture(
-            ["az", "group", "show", "--ids", str(app["id"]), "--output", "json"],
+            [
+                "az",
+                "group",
+                "show",
+                "--name",
+                str(app["name"]),
+                "--subscription",
+                str(handoff["subscription_id"]),
+                "--output",
+                "json",
+            ],
             cwd=cwd,
             timeout=60,
             reason="Foundation application group readback failed",
