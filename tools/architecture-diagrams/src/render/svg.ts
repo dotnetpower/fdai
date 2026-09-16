@@ -140,6 +140,7 @@ interface PantheonIconManifest {
 const iconCatalogs = await Promise.all([
   loadIconCatalog("azure"),
   loadIconCatalog("brands"),
+  loadIconCatalog("kubernetes"),
 ]);
 const pantheonIconDirectory = fileURLToPath(
   new URL("../../../../console/public/agent-icons/", import.meta.url),

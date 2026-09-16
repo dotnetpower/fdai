@@ -27,12 +27,13 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
 | Managed-host stage routing | implemented | `standalone_application.py`; `standalone_host.py`; 36 focused coordinator tests pass in the current change. | Shared substrate, AKS cluster, optional database, migrations, workloads, and second plans use distinct exact-plan approvals and recovery receipts. |
 | Signed online and offline kit inputs | implemented | `build-standalone-deployment-kit.sh`; `stage-offline-kit.sh`; `mirror-locked-providers.sh`; `test_extract_kubelogin_archive.py`; six extractor tests pass in the current change. | The exact-file-set kit includes the three AKS roots, provider locks, pgvector OCI archive, `kubectl`, and `kubelogin`. A complete kit build remains to be recorded. |
 | Capacity and regional feasibility | in-progress | `aks_preflight.py`; structural node floors in `runtime_profile.py`; focused preflight and profile tests | The read-only preflight performs one regional catalog read, serializes only exact selected SKU names, and checks regional restrictions, zones, architecture, host encryption, and family plus total quota. Allocatable workload-envelope calculations and a governed deployment receipt remain open. |
-| Operational readiness | in-progress | Local source, test, and Terraform validation evidence only. | No live new-subscription online or artifact-offline AKS receipt exists yet. The path is not classified as production validated. |
+| Operational readiness | in-progress | Local source, test, and Terraform validation evidence only. | No live local-coordinator or appliance-entry-point AKS receipt exists yet. Public release publication and online Azure convergence are not validation prerequisites. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-17 | in-progress | Decoupled AKS operational validation from public release publication. The local coordinator and appliance entry point use the same locally built exact signed kit; online acquisition remains optional distribution behavior. | `current change`; deployment owner documents and Azure deployment skill; no runtime or Azure behavior changed. | Retain exact approved plan, apply, rollout, and second-plan receipts from both local-kit entry points. |
 | 2026-09-16 | implemented | Added the supported Python Azure Monitor OpenTelemetry Distro to Core and routed the existing workspace-based Application Insights connection through a Core-only Key Vault secret and AKS CSI binding. The exporter remains disabled without that binding, and simultaneous Application Insights and OTLP configuration fails before provider installation. | `current change`; Core telemetry setup and dependency lock; shared Terraform secret, role and name-only output; standalone AKS renderer; focused telemetry, infrastructure, Terraform, and deployment CLI checks. | Publish a signed Core image, apply the exact substrate and workload plans, verify healthy replicas, and retain fresh Application Insights telemetry without disclosing the connection string. |
 | 2026-09-16 | implemented | Removed the Container Insights association's direct dependency on the managed cluster resource while retaining the same exact authenticated subscription, resource group, and canonical cluster identity. Monitoring-only plans can now exclude unrelated cluster drift. | `current change`; `infra/runtimes/aks/cluster/main.tf`; `tests/integration/infra/test_aks_runtime_security.py`; focused infrastructure and Terraform checks. | Publish through protected CI, generate and approve a DCR-and-association-only plan, then retain fresh workspace and authenticated Console evidence. |
 | 2026-09-16 | implemented | Added all existing inventory read and pipeline-stage sender assignments to the standalone substrate Terraform target set. This closes the source defect that could create the identity while leaving ARG, metrics, logs, cost, Kubernetes, and activity publication unauthorized. | `current change`; `standalone_host.py`; `test_standalone_host.py`; 56 focused tests, strict mypy, and Ruff passed. | Apply an exact reviewed substrate plan and retain role readback plus successful provider-source evidence before calling the deployed observation plane validated. |
@@ -97,12 +98,13 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
   ClamAV sidecar. Focused host and native Terraform tests cover the source implementation.
 - [ ] Build one complete signed kit and verify that its manifest contains the AKS roots, all three
   provider families, pgvector OCI archive, `kubectl`, and `kubelogin`.
-- [ ] Record a successful new-subscription online deployment receipt for AKS with
-  `postgres-flex`, including all second-plan and rollout checks.
-- [ ] Record a successful new-subscription online deployment receipt for AKS with
-  `postgres-aks`, including migration, pgvector extension, persistent-volume, and restart checks.
-- [ ] Run both AKS profiles from an artifact-offline kit and record that no provider, image, or
-  executable is downloaded after verification.
+- [ ] Record a successful new-subscription local-coordinator deployment receipt for AKS with
+  `postgres-flex`, using the exact local signed kit and including all second-plan and rollout checks.
+- [ ] Record a successful new-subscription local-coordinator deployment receipt for AKS with
+  `postgres-aks`, using the exact local signed kit and including migration, pgvector extension,
+  persistent-volume, and restart checks.
+- [ ] Run both AKS profiles from an appliance containing those same exact kit bytes and record that
+  no provider, image, or executable is downloaded after verification.
 - [ ] Add subscription quota, regional SKU, availability-zone, and allocatable workload-envelope
   checks, including host-encryption eligibility, that block an infeasible profile before Terraform planning.
 - [ ] Demonstrate coordinated `postgres-aks` credential rotation and workload rollout without
