@@ -335,6 +335,13 @@ The exact plan orders changes to avoid losing access:
 The operator's current VM may be the execution host when exact target, identity, route, DNS, TLS and
 backend checks pass. Peering that VM's VNet is a planned network effect, not evidence by itself.
 
+For an operator host already running in a same-subscription VNet, `operator_access_vnets` selects
+the existing networks that receive direct, bidirectional, non-transitive workload peering. Each
+selected VNet links only the authoritative zones supplied through `operator_private_dns_zones`.
+`operator_inventory_principal_ids` grants subscription `Reader` only to selected Managed
+Identities and grants no service data-plane role. Deployment-specific IDs and names remain outside
+source control, and the resulting plan, approval, DNS/TLS checks and effect readback remain required.
+
 ## PostgreSQL profiles
 
 `postgres-flex` remains the default for both runtime platforms. Production uses private networking,

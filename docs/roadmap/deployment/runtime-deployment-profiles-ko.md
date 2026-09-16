@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 99df4d0016abc51f57fd7f19f06c1ebb5e41c36c
+translation_source_sha: 57d3cf7dcb99c1de4aebae59b790190f0af60504
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -334,6 +334,13 @@ quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로�
 운영자의 현재 VM은 정확한 대상, 신원, 경로, DNS, TLS 및 백엔드 검사를 통과하면 실행 호스트로
 사용할 수 있습니다. 해당 VM의 VNet 피어링은 계획된 네트워크 효과이며 그 자체가 접근 근거는
 아닙니다.
+
+동일 구독 VNet에서 이미 실행 중인 운영자 호스트의 경우 `operator_access_vnets`로 기존 네트워크를
+선택하여 워크로드 VNet과 직접, 양방향, 비전이 피어링을 구성합니다. 선택한 각 VNet은
+`operator_private_dns_zones`로 지정한 권위 있는 영역에만 연결합니다.
+`operator_inventory_principal_ids`는 선택한 Managed Identity에만 구독 `Reader`를 부여하며 서비스
+데이터 플레인 역할은 부여하지 않습니다. 배포별 ID와 이름은 소스 제어 외부에 유지하고, 생성된
+플랜, 승인, DNS/TLS 검사 및 효과 확인은 계속 필요합니다.
 
 ## PostgreSQL 프로파일
 
