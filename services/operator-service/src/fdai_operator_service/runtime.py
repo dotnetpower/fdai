@@ -31,6 +31,26 @@ class OperatorRuntime:
     local_cli_session_token: str | None = None
     lifecycle: ApplicationLifecycle | None = None
 
+    def __post_init__(self) -> None:
+        """Declare the provisioning replay source when a composition has not overridden it."""
+        if any("/provision/stream" in source.routes for source in self.data_sources):
+            return
+        configured = self.environment.database_url is not None
+        source = ReadDataSource(
+            key="provisioning-stream",
+            source="operator-audit-replay" if configured else "not-configured",
+            routes=("/provision/stream",),
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
+            reachable=None,
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=(
+                None if configured else "Authoritative provisioning event replay is not configured."
+            ),
+        )
+        object.__setattr__(self, "data_sources", (*self.data_sources, source))
+
     def create_app(self) -> AsgiApplication:
         """Create the service-owned Starlette application without privileged identity."""
         return build_operator_app(

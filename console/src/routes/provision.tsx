@@ -2,24 +2,17 @@
  * Provisioning route (surface B) - a read-only view of an in-flight
  * re-provision, driven by the `GET /provision/stream` SSE endpoint.
  *
- * This is the in-console counterpart of the immersive Day-1 "Genesis"
- * bootstrap screen (`mocks/ui-webgl/provision-genesis.html`): the same
- * `provision.*` event contract, rendered here as a calm, utilitarian
- * progress view fit for the operator console shell. It never executes
- * provisioning - it renders progress and, on `provision.done`, surfaces a
- * link to the resulting console URL (app-shape.instructions.md § Operator
- * console: the console is a read surface).
- *
- * The heavy cinematic (WebGL nebula, word-by-word narration) stays in the
- * mock as the design reference; in-product re-provisioning wants legibility
- * over spectacle.
+ * It follows the information hierarchy of `mocks/ui/provision.html` while
+ * rendering only evidence present in the durable `provision.*` contract.
+ * It never executes provisioning; on `provision.done`, it may surface a safe
+ * link to the resulting Console URL.
  */
 
 import { useEffect, useMemo, useReducer, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import { sourceForRoute, type ReadDataSourcesPayload } from "../api-data-sources";
-import { PageHeader, StatusPill } from "../components/ui";
 import { loadConfig } from "../config";
+import type { ConsoleDataMode } from "../console-data-mode";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import type {
@@ -31,21 +24,23 @@ import type {
 } from "../hooks/use-provision-stream";
 import { useProvisionStream } from "../hooks/use-provision-stream";
 import { t } from "./i18n/provision";
+import { OPERATIONS_SAMPLE_PROVISION_EVENTS } from "./operations.sample-events";
+import { ProvisionView } from "./provision-view";
 import "./provision.css";
-import type { ConsoleDataMode } from "../console-data-mode";
-import { OPERATIONS_SAMPLE_PROVISION_EVENTS } from "./operations.sample";
 
 interface Props {
   readonly client: OperatorApiClient;
   readonly dataMode: ConsoleDataMode;
 }
 
-interface ProvisionSourceState {
+/** Source-manifest state that gates the authenticated provisioning replay. */
+export interface ProvisionSourceState {
   readonly status: "loading" | "ready" | "unavailable";
   readonly reason: string | null;
 }
 
-interface ProvisionState {
+/** Reduced, display-safe state for one durable provisioning run. */
+export interface ProvisionState {
   readonly observed: boolean;
   readonly fraction: number;
   readonly waiting: string | null;
@@ -258,7 +253,11 @@ function statusLabel(status: ProvisionConnectionStatus): string {
   }
 }
 
-export function ProvisionRoute({ client, dataMode }: Props) {
+export function ProvisionRoute(props: Props) {
+  return <ProvisionRouteSession key={props.dataMode} {...props} />;
+}
+
+function ProvisionRouteSession({ client, dataMode }: Props) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const [source, setSource] = useState<ProvisionSourceState>({
     status: "loading",
@@ -357,170 +356,14 @@ export function ProvisionRoute({ client, dataMode }: Props) {
   );
 
   return (
-    <div class="provision">
-      <PageHeader
-        title={t("nav.panel.provision")}
-        subtitle={t("provision.subtitle")}
-        actions={<StatusPill kind={status === "open" ? "success" : status === "closed" ? "danger" : "neutral"} label={statusLabel(status)} />}
-      />
-
-      <p class="provision-sub">
-        {t("provision.readOnlyPrefix")} <code>GET /provision/stream</code>. {t("provision.readOnlySuffix")}
-      </p>
-
-      {source.status === "unavailable" ? (
-        <div class="state-block state-unavailable" role="status">
-          {t("provision.unavailable")}
-        </div>
-      ) : state.observed ? (
-        <>
-          <div
-            class={`provision-meter${state.failed ? " is-failed" : ""}${
-              state.ready ? " is-done" : ""
-            }`}
-            role="progressbar"
-            aria-label={t("provision.progressLabel")}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={pct}
-          >
-            <div class="provision-meter-fill" style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
-          </div>
-          <div class="provision-pct">{pct.toFixed(1)}%</div>
-        </>
-      ) : (
-        <div class="state-block state-unavailable" role="status">
-          {t("provision.notObserved")}
-        </div>
-      )}
-
-      {/* Live region: state transitions (waiting / failed / done) are
-          announced to assistive tech, which a purely visual meter cannot do. */}
-      <div class="provision-status" role="status" aria-live="polite">
-        {state.waiting && (
-          <p class="provision-line provision-line--waiting">
-            {t("provision.waitingOn")} <code>{state.waiting}</code>
-            {state.waitingReason ? ` - ${state.waitingReason}` : ""}. {t("provision.waitingSuffix")}
-          </p>
-        )}
-
-        {state.failed && (
-          <p class="provision-line provision-line--failed">
-            {t("provision.failedOn")} <code>{state.failed}</code>
-            {state.failedReason ? ` - ${state.failedReason}` : ""}.
-          </p>
-        )}
-
-        {state.cancelled && (
-          <p class="provision-line provision-line--cancelled">{t("provision.cancelled")}</p>
-        )}
-
-        {state.ready && (
-          <div class="provision-done">
-            <p class="provision-line provision-line--done">{t("provision.ready")}</p>
-            {consoleUrl && (
-              <a class="provision-enter" href={consoleUrl} rel="noopener noreferrer">
-                {t("provision.enter")}
-              </a>
-            )}
-          </div>
-        )}
-      </div>
-
-      {state.stages.length > 0 && (
-        <section class="provision-section" aria-labelledby="provision-stages-title">
-          <div class="provision-section-head">
-            <div>
-              <h2 id="provision-stages-title">{t("provision.stages")}</h2>
-              <p>{t("provision.stagesSummary", {
-                completed: state.stagesCompleted ?? 0,
-                total: state.stagesTotal ?? state.stages.length,
-              })}</p>
-            </div>
-            {state.runId ? <code>{state.runId}</code> : null}
-          </div>
-          <ol class="provision-stages">
-            {state.stages.map((stage) => (
-              <li
-                key={stage.id}
-                class={`provision-stage provision-stage--${stage.status}`}
-                aria-current={stage.id === state.currentStage ? "step" : undefined}
-              >
-                <span class="provision-stage-marker" aria-hidden="true" />
-                <code>{stage.id}</code>
-                <span>{t(`provision.stageStatus.${stage.status}`)}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
-
-      {state.readiness && (
-        <section class="provision-section" aria-labelledby="provision-readiness-title">
-          <div class="provision-section-head">
-            <div>
-              <h2 id="provision-readiness-title">{t("provision.readinessTitle")}</h2>
-              <p>{t("provision.readinessDescription")}</p>
-            </div>
-          </div>
-          <dl class="provision-readiness">
-            {Object.entries(state.readiness).map(([key, ready]) => (
-              <div key={key}>
-                <dt>{t(`provision.readiness.${key}`)}</dt>
-                <dd><StatusPill kind={ready ? "success" : "neutral"} label={t(ready ? "provision.verified" : "provision.pending")} /></dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      )}
-
-      {state.inventory && (
-        <section class="provision-section" aria-labelledby="provision-inventory-title">
-          <div class="provision-section-head">
-            <div>
-              <h2 id="provision-inventory-title">{t("provision.inventoryTitle")}</h2>
-              <p>{t("provision.inventoryEstimate")}</p>
-            </div>
-          </div>
-          <dl class="provision-inventory">
-            <div>
-              <dt>{t("provision.resources")}</dt>
-              <dd>{progressPair(state.inventory.resources_observed, state.inventory.resources_expected)}</dd>
-            </div>
-            <div>
-              <dt>{t("provision.pages")}</dt>
-              <dd>{progressPair(state.inventory.pages_completed, state.inventory.pages_expected)}</dd>
-            </div>
-            <div>
-              <dt>{t("provision.completeness")}</dt>
-              <dd>{state.readiness?.inventory ? t("provision.independentlyVerified") : t("provision.awaitingVerification")}</dd>
-            </div>
-          </dl>
-        </section>
-      )}
-
-      {state.recent.length > 0 && (
-        <ul class="provision-recent" aria-label={t("provision.recentLabel")}>
-          {state.recent.map((node) => (
-            <li key={node} class="provision-recent-item">
-              <code>{node}</code>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {status === "idle" && !state.ready && (
-        <p class="provision-idle">
-          {t("provision.idlePrefix")} <code>provision.*</code> {t("provision.idleSuffix")}
-        </p>
-      )}
-
-      {lastError && <p class="provision-error mono" role="alert">{lastError}</p>}
-    </div>
+    <ProvisionView
+      consoleUrl={consoleUrl}
+      dataMode={dataMode}
+      lastError={lastError}
+      percent={pct}
+      source={source}
+      state={state}
+      status={status}
+    />
   );
-}
-
-function progressPair(completed: number | null, expected: number | null): string {
-  if (completed === null || expected === null) return t("provision.notMeasured");
-  return t("provision.progressPair", { completed, expected });
 }

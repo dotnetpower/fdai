@@ -1194,6 +1194,33 @@ def test_autonomy_measurement_declares_an_authoritative_projection_source() -> N
     assert source.reason is None
 
 
+@pytest.mark.parametrize("configured", [False, True])
+def test_provisioning_stream_declares_its_durable_replay_source(configured: bool) -> None:
+    composition = ProductionOperatorComposition(verifier_factory=lambda environment: _verify)
+    environment = {
+        **BASE_ENV,
+        **(
+            {
+                DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+                DATABASE_ROLE_ENV: "fdai_operator",
+            }
+            if configured
+            else {}
+        ),
+    }
+
+    runtime = composition.build_runtime(environment)
+    source = next(item for item in runtime.data_sources if item.key == "provisioning-stream")
+
+    assert source.routes == ("/provision/stream",)
+    assert source.source == ("operator-audit-replay" if configured else "not-configured")
+    assert source.availability == ("unknown" if configured else "unavailable")
+    assert source.configured is configured
+    assert source.authoritative is configured
+    assert source.durable is (True if configured else None)
+    assert (source.reason is None) is configured
+
+
 def test_durable_console_evidence_routes_declare_authoritative_sources() -> None:
     composition = ProductionOperatorComposition(verifier_factory=lambda environment: _verify)
     runtime = composition.build_runtime(
