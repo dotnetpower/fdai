@@ -484,7 +484,7 @@ not merge configuration ownership.
 ## 9. Growth model (catalog + operator memory)
 
 The console gets better over time via three deterministic mechanisms; model-side learning is **not** one of them.
-After a joined Console catalog source changes, regenerate the question bank and then semantic intent coverage; artifact equality rejects stale source digests.
+After a joined Console catalog source changes, regenerate the complete question bank and then semantic intent coverage; artifact equality rejects stale source digests, and a provenance-only refresh cannot change question identity, readiness, or authority.
 
 ### 9.1 Day 1
 

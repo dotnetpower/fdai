@@ -90,7 +90,7 @@ prove neither model quality nor production readiness and do not enlarge the revi
 ## Conversation quality assurance scorecard
 
 Run `uv run python scripts/automation/build_semantic_intent_coverage.py` to generate
-`eval/golden-dataset/semantic-intent-coverage.json`; its contract test rejects stale source digests, so any authoritative source change requires deterministic regeneration rather than a manual digest edit. The generated FDAI Conversation Quality
+`eval/golden-dataset/semantic-intent-coverage.json`; its contract test rejects stale source digests, so any authoritative source change requires deterministic regeneration rather than a manual digest edit. A joined Console catalog change regenerates the complete 400-question bank first and CQAS second without changing identities, readiness, metric definitions, denominators, or authority. The generated FDAI Conversation Quality
 Assurance Scorecard (CQAS) keeps these source-derived topic layers separate:
 
 - **Operating model:** SRE operations, resilience engineering, change and architecture governance,
