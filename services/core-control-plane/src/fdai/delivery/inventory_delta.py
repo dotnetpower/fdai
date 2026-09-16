@@ -22,6 +22,7 @@ from fdai.shared.providers.inventory import (
 from fdai.shared.providers.state_store import StateStore
 
 _CURSOR_PREFIX = "inventory_delta_cursor:"
+_RECONCILIATION_CURSOR_FIELD = "relationship_reconciliation_after"
 DEFAULT_DELTA_DEADLINE_SECONDS = 300.0
 
 
@@ -73,6 +74,15 @@ async def _forward_inventory_delta(
     cursor = "" if saved is None else saved.get("cursor")
     if not isinstance(cursor, str):
         raise RuntimeError("inventory delta persisted cursor MUST be text")
+    reconciliation_high_watermark = _cursor_reconciliation_after(saved)
+    marker_key = f"{INVENTORY_RELATIONSHIP_RECONCILIATION_PREFIX}{scope}"
+    previous_marker = await state_store.read_state(marker_key)
+    previous_observed_at = _marker_observed_at(previous_marker)
+    if previous_observed_at is not None and (
+        reconciliation_high_watermark is None
+        or previous_observed_at > reconciliation_high_watermark
+    ):
+        reconciliation_high_watermark = previous_observed_at
     latest_cursor = cursor
     published = 0
     final_cursor: str | None = None
@@ -113,19 +123,22 @@ async def _forward_inventory_delta(
             published += 1
     if final_cursor is None:
         raise RuntimeError("inventory delta stream ended without a final fence")
-    if relationship_reconciliation_after is not None:
-        marker_key = f"{INVENTORY_RELATIONSHIP_RECONCILIATION_PREFIX}{scope}"
-        previous_marker = await state_store.read_state(marker_key)
-        previous_observed_at = _marker_observed_at(previous_marker)
-        if previous_observed_at is None or relationship_reconciliation_after > previous_observed_at:
-            await state_store.write_state(
-                marker_key,
-                {
-                    "observed_at": relationship_reconciliation_after.isoformat(),
-                    "recorded_at": datetime.now(tz=UTC).isoformat(),
-                },
-            )
-    await state_store.write_state(cursor_key, {"cursor": final_cursor})
+    if relationship_reconciliation_after is not None and (
+        reconciliation_high_watermark is None
+        or relationship_reconciliation_after > reconciliation_high_watermark
+    ):
+        await state_store.write_state(
+            marker_key,
+            {
+                "observed_at": relationship_reconciliation_after.isoformat(),
+                "recorded_at": datetime.now(tz=UTC).isoformat(),
+            },
+        )
+        reconciliation_high_watermark = relationship_reconciliation_after
+    cursor_state = {"cursor": final_cursor}
+    if reconciliation_high_watermark is not None:
+        cursor_state[_RECONCILIATION_CURSOR_FIELD] = reconciliation_high_watermark.isoformat()
+    await state_store.write_state(cursor_key, cursor_state)
     return published
 
 
@@ -265,6 +278,20 @@ def _marker_observed_at(value: object) -> datetime | None:
         return _parse_reconciliation_timestamp(value.get("observed_at"))
     except ValueError as exc:
         raise RuntimeError("inventory relationship reconciliation marker is malformed") from exc
+
+
+def _cursor_reconciliation_after(value: object) -> datetime | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise RuntimeError("inventory delta persisted cursor is malformed")
+    raw = value.get(_RECONCILIATION_CURSOR_FIELD)
+    if raw is None:
+        return None
+    try:
+        return _parse_reconciliation_timestamp(raw)
+    except ValueError as exc:
+        raise RuntimeError("inventory delta persisted reconciliation cursor is malformed") from exc
 
 
 __all__ = ["forward_inventory_delta"]
