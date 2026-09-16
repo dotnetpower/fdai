@@ -55,6 +55,45 @@ class GraphBarrierStore(InMemoryStateStore):
         return await super().write_state_with_audit_if_absent(key, value, audit_entry)
 
 
+class ActivationOutcomeRaceStore(InMemoryStateStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.inject_conflict = False
+
+    async def compare_and_set_state_with_audit(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        if (
+            self.inject_conflict
+            and audit_entry.get("action_kind") == "human.reporting.activation_completed"
+        ):
+            self.inject_conflict = False
+            conflict = {**value, "state": ReportingLineCaseState.CONFLICT.value}
+            applied = await super().compare_and_set_state_with_audit(
+                key,
+                conflict,
+                expected_revision=expected_revision,
+                audit_entry={
+                    "actor": "test",
+                    "action_kind": "human.reporting.concurrent_conflict",
+                    "case_id": value["case_id"],
+                },
+            )
+            assert applied
+            return False
+        return await super().compare_and_set_state_with_audit(
+            key,
+            value,
+            expected_revision=expected_revision,
+            audit_entry=audit_entry,
+        )
+
+
 def _candidate(
     subject: str,
     manager: str,
@@ -646,6 +685,43 @@ async def test_activation_race_conflict_exits_frozen_state(
     assert conflicted.state is ReportingLineCaseState.CONFLICT
     assert conflicted.owner_review is not None
     assert conflicted.owner_review.decision is OwnerDecision.APPROVE
+
+
+async def test_case_conflict_after_graph_write_retracts_the_exact_edge() -> None:
+    store = ActivationOutcomeRaceStore()
+    service = ReportingLineService(store)
+    candidate = _candidate("person-a", "person-b")
+    case = await service.create_case(
+        principal=_principal("uploader", Role.CONTRIBUTOR),
+        artifact=_artifact(candidate),
+        candidate_id=candidate.candidate_id,
+        now=NOW,
+    )
+    confirmed = await service.confirm(
+        principal=_principal("person-a", Role.READER),
+        case_id=case.case_id,
+        expected_revision=case.revision,
+        decision=EndpointDecision.CONFIRM,
+        edge_digest=case.edge_digest,
+        now=NOW + timedelta(minutes=1),
+    )
+    store.inject_conflict = True
+
+    conflicted = await service.review(
+        principal=_principal("owner", Role.OWNER),
+        case_id=case.case_id,
+        expected_revision=confirmed.revision,
+        decision=OwnerDecision.APPROVE,
+        edge_digest=confirmed.edge_digest,
+        now=NOW + timedelta(minutes=2),
+    )
+
+    assert conflicted.state is ReportingLineCaseState.CONFLICT
+    assert (await service.current_graph(at=NOW + timedelta(minutes=3))).edges == ()
+    assert any(
+        item["entry"].get("action_kind") == "human.reporting.graph_activation_retracted"
+        for item in store.audit_entries
+    )
 
 
 async def test_graph_accepts_more_than_thirty_two_independent_edges() -> None:

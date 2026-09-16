@@ -15,6 +15,7 @@ from fdai.core.human_reporting.graph import (
 from fdai.core.human_reporting.graph_repository import (
     activate_reporting_case,
     load_reporting_graph,
+    retract_reporting_case,
     validate_reporting_case_activation,
 )
 from fdai.core.human_reporting.model import (
@@ -331,14 +332,31 @@ class ReportingLineService:
                 action_kind="human.reporting.activation_conflict",
                 at=current.owner_review.decided_at,
             )
-        return await persist_case_state(
-            self.store,
-            current,
-            active,
-            actor_ref=actor_ref,
-            action_kind="human.reporting.activation_completed",
-            at=current.owner_review.decided_at,
-        )
+        try:
+            return await persist_case_state(
+                self.store,
+                current,
+                active,
+                actor_ref=actor_ref,
+                action_kind="human.reporting.activation_completed",
+                at=current.owner_review.decided_at,
+            )
+        except ReportingLineModelError:
+            actual = await load_case_state(self.store, current.case_id)
+            if actual.state is not ReportingLineCaseState.ACTIVE:
+                await retract_reporting_case(
+                    self.store,
+                    active,
+                    actor_ref=actor_ref,
+                    at=current.owner_review.decided_at,
+                )
+            if (
+                actual.state is ReportingLineCaseState.CONFLICT
+                and actual.owner_review == current.owner_review
+                and actual.edge_digest == current.edge_digest
+            ):
+                return actual
+            raise
 
     async def current_graph(self, *, at: datetime | None = None) -> ReportingGraphSnapshot:
         """Return the complete current graph or fail closed on incomplete coverage."""

@@ -16,6 +16,7 @@ from fdai.core.human_reporting.graph_repository import (
     GRAPH_KEY,
     activate_reporting_case,
     load_reporting_graph,
+    retract_reporting_case,
     validate_reporting_case_activation,
 )
 from fdai.core.human_reporting.model import (
@@ -79,5 +80,6 @@ __all__ = [
     "load_reporting_graph",
     "normalize_principal",
     "report_line_case_result",
+    "retract_reporting_case",
     "validate_reporting_case_activation",
 ]

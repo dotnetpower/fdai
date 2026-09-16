@@ -111,6 +111,54 @@ async def validate_reporting_case_activation(
     return build_reporting_graph(retained_cases, at=observed_at)
 
 
+async def retract_reporting_case(
+    store: StateStore,
+    candidate: ReportingLineCase,
+    *,
+    actor_ref: str,
+    at: datetime,
+) -> ReportingGraphSnapshot:
+    """Remove one exact edge whose corresponding ACTIVE case CAS did not land."""
+
+    if candidate.state is not ReportingLineCaseState.ACTIVE:
+        raise ReportingLineModelError("only an active graph edge can be retracted")
+    observed_at = reporting_instant(at)
+    for _attempt in range(3):
+        raw = await store.read_state(GRAPH_KEY)
+        revision, cases = _decode_graph_record(raw)
+        existing = next((item for item in cases if item.case_id == candidate.case_id), None)
+        if existing is None:
+            return build_reporting_graph(cases, at=observed_at)
+        if existing != candidate:
+            raise ReportingLineModelError(
+                "reporting-line graph retraction does not match its exact edge"
+            )
+        retained_cases = tuple(item for item in cases if item.case_id != candidate.case_id)
+        _validate_graph_history(retained_cases)
+        graph = build_reporting_graph(retained_cases, at=observed_at)
+        record = _graph_record(revision + 1, retained_cases)
+        audit = {
+            "actor": normalize_principal(actor_ref),
+            "action_kind": "human.reporting.graph_activation_retracted",
+            "case_id": candidate.case_id,
+            "edge_digest": candidate.edge_digest,
+            "graph_revision": graph.revision,
+            "recorded_at": observed_at.isoformat(),
+            "mode": "shadow",
+            "approval_authority": False,
+            "execution_authority": False,
+        }
+        applied = await store.compare_and_set_state_with_audit(
+            GRAPH_KEY,
+            record,
+            expected_revision=revision,
+            audit_entry=audit,
+        )
+        if applied:
+            return graph
+    raise ReportingLineModelError("reporting-line graph changed during retraction")
+
+
 async def load_reporting_graph(
     store: StateStore,
     *,
@@ -217,5 +265,6 @@ __all__ = [
     "GRAPH_KEY",
     "activate_reporting_case",
     "load_reporting_graph",
+    "retract_reporting_case",
     "validate_reporting_case_activation",
 ]
