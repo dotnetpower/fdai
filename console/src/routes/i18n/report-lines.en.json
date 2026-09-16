@@ -23,6 +23,7 @@
   "active": "Active",
   "pendingConfirmation": "Pending endpoint confirmation",
   "pendingOwnerReview": "Pending Owner review",
+  "activationPending": "Approved, awaiting graph activation",
   "conflict": "Conflict",
   "rejected": "Rejected",
   "superseded": "Superseded",

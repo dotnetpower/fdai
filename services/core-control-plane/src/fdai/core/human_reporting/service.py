@@ -192,13 +192,32 @@ class ReportingLineService:
         if Role.OWNER not in principal.roles:
             raise PermissionError("reporting-line review requires the Owner role")
         current = await self.get_case(case_id)
+        actor = normalize_principal(principal.oid)
+        decided_at = reporting_instant(now or datetime.now(tz=UTC))
+        if _same_owner_review(
+            current,
+            actor=actor,
+            decision=decision,
+            edge_digest=edge_digest,
+            decided_at=decided_at,
+            expected_revision=expected_revision,
+        ):
+            if current.state is ReportingLineCaseState.ACTIVATION_PENDING:
+                return await self._finish_activation(current, actor_ref=actor)
+            if current.state is ReportingLineCaseState.ACTIVE:
+                await activate_reporting_case(
+                    self.store,
+                    current,
+                    actor_ref=actor,
+                    at=current.recorded_at,
+                )
+            return current
         if current.state is not ReportingLineCaseState.PENDING_OWNER_REVIEW:
             raise ReportingLineModelError("reporting-line case is not pending Owner review")
         if current.revision != expected_revision or current.edge_digest != edge_digest:
             raise ReportingLineModelError("reporting-line Owner review is stale")
         if current.confirmation is None:
             raise ReportingLineModelError("reporting-line Owner review requires confirmation")
-        actor = normalize_principal(principal.oid)
         if actor in {
             current.requester_ref,
             current.subject_ref,
@@ -206,7 +225,6 @@ class ReportingLineService:
             current.confirmation.principal_ref,
         }:
             raise PermissionError("reporting-line Owner review MUST be independent")
-        decided_at = reporting_instant(now or datetime.now(tz=UTC))
         if decided_at >= current.effective_until:
             raise ReportingLineModelError("expired reporting-line evidence cannot be activated")
         review = OwnerReview(
@@ -216,7 +234,7 @@ class ReportingLineService:
             edge_digest=current.edge_digest,
         )
         target = (
-            ReportingLineCaseState.ACTIVE
+            ReportingLineCaseState.ACTIVATION_PENDING
             if decision is OwnerDecision.APPROVE
             else ReportingLineCaseState.REJECTED
         )
@@ -227,20 +245,51 @@ class ReportingLineService:
             recorded_at=decided_at,
             owner_review=review,
         )
-        if target is ReportingLineCaseState.ACTIVE:
-            await activate_reporting_case(
-                self.store,
-                candidate,
-                actor_ref=actor,
-                at=decided_at,
-            )
-        return await persist_case_state(
+        reviewed = await persist_case_state(
             self.store,
             current,
             candidate,
             actor_ref=actor,
             action_kind="human.reporting.owner_reviewed",
             at=decided_at,
+        )
+        return (
+            await self._finish_activation(reviewed, actor_ref=actor)
+            if target is ReportingLineCaseState.ACTIVATION_PENDING
+            else reviewed
+        )
+
+    async def _finish_activation(
+        self,
+        current: ReportingLineCase,
+        *,
+        actor_ref: str,
+    ) -> ReportingLineCase:
+        """Activate a frozen approved case, then advance its projection."""
+
+        if (
+            current.state is not ReportingLineCaseState.ACTIVATION_PENDING
+            or current.owner_review is None
+        ):
+            raise ReportingLineModelError("reporting-line activation requires an approved case")
+        active = replace(
+            current,
+            state=ReportingLineCaseState.ACTIVE,
+            revision=current.revision + 1,
+        )
+        await activate_reporting_case(
+            self.store,
+            active,
+            actor_ref=actor_ref,
+            at=current.owner_review.decided_at,
+        )
+        return await persist_case_state(
+            self.store,
+            current,
+            active,
+            actor_ref=actor_ref,
+            action_kind="human.reporting.activation_completed",
+            at=current.owner_review.decided_at,
         )
 
     async def current_graph(self, *, at: datetime | None = None) -> ReportingGraphSnapshot:
@@ -277,6 +326,32 @@ def report_line_case_result(
         "iam_effect_ref": None,
         "execution_authority": False,
     }
+
+
+def _same_owner_review(
+    case: ReportingLineCase,
+    *,
+    actor: str,
+    decision: OwnerDecision,
+    edge_digest: str,
+    decided_at: datetime,
+    expected_revision: int,
+) -> bool:
+    review = case.owner_review
+    if (
+        review is None
+        or review.principal_ref != actor
+        or review.decision is not decision
+        or review.edge_digest != edge_digest
+        or review.decided_at != decided_at
+    ):
+        return False
+    expected_state_revision = {
+        ReportingLineCaseState.ACTIVATION_PENDING: expected_revision + 1,
+        ReportingLineCaseState.ACTIVE: expected_revision + 2,
+        ReportingLineCaseState.REJECTED: expected_revision + 1,
+    }
+    return expected_state_revision.get(case.state) == case.revision
 
 
 __all__ = ["ReportingLineService", "report_line_case_result"]

@@ -101,10 +101,15 @@ extracted
   -> identity_pending
   -> pending_confirmation
   -> pending_owner_review
+  -> activation_pending
   -> active
 ```
 
 An edge can instead become `unresolved`, `conflict`, `rejected`, `expired`, or `superseded`.
+
+`activation_pending` records the Owner decision before the graph write. Endpoint decisions are
+closed at that point. A retry can finish graph activation after interruption, while an edge never
+becomes routable before both human decisions are durably fixed.
 
 An active edge records:
 

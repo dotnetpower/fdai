@@ -34,6 +34,7 @@ function projection() {
       active: 0,
       pending_confirmation: 1,
       pending_owner_review: 0,
+      activation_pending: 0,
       conflict: 0,
       awaiting_core: 0,
     },

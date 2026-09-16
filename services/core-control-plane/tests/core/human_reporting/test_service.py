@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -12,6 +14,7 @@ from fdai.core.human_reporting import (
     ReportingLineModelError,
     ReportingLineService,
 )
+from fdai.core.human_reporting.graph_repository import GRAPH_KEY
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Role
 from fdai.shared.providers.testing import InMemoryStateStore
@@ -27,6 +30,24 @@ from fdai_service_contracts import (
 )
 
 NOW = datetime(2026, 9, 16, 1, 0, tzinfo=UTC)
+
+
+class GraphBarrierStore(InMemoryStateStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.graph_write_started = asyncio.Event()
+        self.release_graph_write = asyncio.Event()
+
+    async def write_state_with_audit_if_absent(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        if key == GRAPH_KEY:
+            self.graph_write_started.set()
+            await self.release_graph_write.wait()
+        return await super().write_state_with_audit_if_absent(key, value, audit_entry)
 
 
 def _candidate(
@@ -259,6 +280,67 @@ async def test_other_endpoint_can_reject_after_first_confirmation() -> None:
     )
 
     assert rejected.state is ReportingLineCaseState.CONFLICT
+
+
+async def test_owner_review_freezes_endpoint_decisions_before_graph_activation() -> None:
+    store = GraphBarrierStore()
+    service = ReportingLineService(store)
+    candidate = _candidate("person-a", "person-b")
+    case = await service.create_case(
+        principal=_principal("uploader", Role.CONTRIBUTOR),
+        artifact=_artifact(candidate),
+        candidate_id=candidate.candidate_id,
+        now=NOW,
+    )
+    confirmed = await service.confirm(
+        principal=_principal("person-a", Role.READER),
+        case_id=case.case_id,
+        expected_revision=case.revision,
+        decision=EndpointDecision.CONFIRM,
+        edge_digest=case.edge_digest,
+        now=NOW + timedelta(minutes=1),
+    )
+    review = asyncio.create_task(
+        service.review(
+            principal=_principal("owner", Role.OWNER),
+            case_id=case.case_id,
+            expected_revision=confirmed.revision,
+            decision=OwnerDecision.APPROVE,
+            edge_digest=confirmed.edge_digest,
+            now=NOW + timedelta(minutes=2),
+        )
+    )
+    await store.graph_write_started.wait()
+    try:
+        frozen = await service.get_case(case.case_id)
+        assert frozen.state is ReportingLineCaseState.ACTIVATION_PENDING
+        with pytest.raises(ReportingLineModelError, match="revision is stale"):
+            await service.confirm(
+                principal=_principal("person-b", Role.READER),
+                case_id=case.case_id,
+                expected_revision=confirmed.revision,
+                decision=EndpointDecision.REJECT,
+                edge_digest=confirmed.edge_digest,
+                now=NOW + timedelta(minutes=2),
+            )
+    finally:
+        store.release_graph_write.set()
+
+    active = await review
+    assert active.state is ReportingLineCaseState.ACTIVE
+    assert (await service.current_graph(at=NOW + timedelta(minutes=3))).edges[0].case_id == (
+        active.case_id
+    )
+
+    replay = await service.review(
+        principal=_principal("owner", Role.OWNER),
+        case_id=case.case_id,
+        expected_revision=confirmed.revision,
+        decision=OwnerDecision.APPROVE,
+        edge_digest=confirmed.edge_digest,
+        now=NOW + timedelta(minutes=2),
+    )
+    assert replay == active
 
 
 async def test_owner_cannot_activate_expired_relationship_evidence() -> None:

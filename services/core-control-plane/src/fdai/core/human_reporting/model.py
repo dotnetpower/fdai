@@ -24,6 +24,7 @@ class ReportingLineCaseState(StrEnum):
 
     PENDING_CONFIRMATION = "pending_confirmation"
     PENDING_OWNER_REVIEW = "pending_owner_review"
+    ACTIVATION_PENDING = "activation_pending"
     ACTIVE = "active"
     CONFLICT = "conflict"
     REJECTED = "rejected"
@@ -244,12 +245,19 @@ class ReportingLineCase:
                     "rejected endpoint confirmation requires conflict state"
                 )
         if self.owner_review is not None:
-            expected_state = (
-                ReportingLineCaseState.ACTIVE
+            expected_states = (
+                {
+                    ReportingLineCaseState.ACTIVATION_PENDING,
+                    ReportingLineCaseState.ACTIVE,
+                    ReportingLineCaseState.SUPERSEDED,
+                }
                 if self.owner_review.decision is OwnerDecision.APPROVE
-                else ReportingLineCaseState.REJECTED
+                else {
+                    ReportingLineCaseState.REJECTED,
+                    ReportingLineCaseState.SUPERSEDED,
+                }
             )
-            if self.state not in {expected_state, ReportingLineCaseState.SUPERSEDED}:
+            if self.state not in expected_states:
                 raise ReportingLineModelError(
                     "Owner review decision does not match reporting-line state"
                 )
@@ -258,6 +266,7 @@ class ReportingLineCase:
         ):
             raise ReportingLineModelError("rejected report line requires an Owner rejection")
         if self.state in {
+            ReportingLineCaseState.ACTIVATION_PENDING,
             ReportingLineCaseState.ACTIVE,
             ReportingLineCaseState.SUPERSEDED,
         }:

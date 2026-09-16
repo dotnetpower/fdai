@@ -434,6 +434,7 @@ function statusLabel(value: ReportingLineState): string {
     active: text("active"),
     pending_confirmation: text("pendingConfirmation"),
     pending_owner_review: text("pendingOwnerReview"),
+    activation_pending: text("activationPending"),
     conflict: text("conflict"),
     awaiting_core: text("awaitingCore"),
     rejected: text("rejected"),
@@ -445,6 +446,10 @@ function statusLabel(value: ReportingLineState): string {
 function statusKind(value: ReportingLineState): "success" | "hil" | "danger" | "neutral" {
   if (value === "active") return "success";
   if (value === "conflict" || value === "rejected") return "danger";
-  if (value === "pending_confirmation" || value === "pending_owner_review") return "hil";
+  if (
+    value === "pending_confirmation"
+    || value === "pending_owner_review"
+    || value === "activation_pending"
+  ) return "hil";
   return "neutral";
 }

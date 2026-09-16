@@ -11,6 +11,7 @@ export type ReportingLineState =
   | "awaiting_core"
   | "pending_confirmation"
   | "pending_owner_review"
+  | "activation_pending"
   | "active"
   | "conflict"
   | "rejected"
@@ -42,6 +43,7 @@ export interface ReportingLineProjection {
     readonly active: number;
     readonly pendingConfirmation: number;
     readonly pendingOwnerReview: number;
+    readonly activationPending: number;
     readonly conflict: number;
     readonly awaitingCore: number;
   };
@@ -61,6 +63,7 @@ const STATES: readonly ReportingLineState[] = [
   "awaiting_core",
   "pending_confirmation",
   "pending_owner_review",
+  "activation_pending",
   "active",
   "conflict",
   "rejected",
@@ -85,6 +88,11 @@ export function decodeReportingLineProjection(value: unknown): ReportingLineProj
       pendingOwnerReview: panelNonNegativeInteger(
         summary,
         "pending_owner_review",
+        "reporting lines.summary",
+      ),
+      activationPending: panelNonNegativeInteger(
+        summary,
+        "activation_pending",
         "reporting lines.summary",
       ),
       conflict: panelNonNegativeInteger(summary, "conflict", "reporting lines.summary"),

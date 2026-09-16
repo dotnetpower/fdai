@@ -142,6 +142,7 @@ class PostgresReportingLines:
                 "active": len(active),
                 "pending_confirmation": _count(visible, "pending_confirmation"),
                 "pending_owner_review": _count(visible, "pending_owner_review"),
+                "activation_pending": _count(visible, "activation_pending"),
                 "conflict": _count(visible, "conflict"),
                 "awaiting_core": _count(visible, "awaiting_core"),
             },

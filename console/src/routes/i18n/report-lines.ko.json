@@ -23,6 +23,7 @@
   "active": "활성",
   "pendingConfirmation": "당사자 확인 대기",
   "pendingOwnerReview": "Owner 검토 대기",
+  "activationPending": "승인됨, 그래프 활성화 대기",
   "conflict": "충돌",
   "rejected": "반려됨",
   "superseded": "대체됨",

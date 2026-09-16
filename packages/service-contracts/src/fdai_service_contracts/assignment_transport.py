@@ -158,6 +158,7 @@ class AssignmentCaseResult(_NoAuthorityRecord):
         "superseded",
         "pending_confirmation",
         "pending_owner_review",
+        "activation_pending",
         "conflict",
     ]
     revision: Annotated[int, Field(strict=True, ge=1)]
@@ -199,6 +200,7 @@ class AssignmentCaseResult(_NoAuthorityRecord):
             if self.state not in {
                 "pending_confirmation",
                 "pending_owner_review",
+                "activation_pending",
                 "active",
                 "conflict",
                 "rejected",

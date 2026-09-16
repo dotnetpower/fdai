@@ -11,7 +11,12 @@ from uuid import UUID
 from fdai_service_contracts.assignment_transport import AssignmentRequestNotice
 
 from fdai.core.human_assignment.request_intake import AssignmentRequestIntake
-from fdai.core.human_reporting.model import EndpointDecision, OwnerDecision, ReportingLineCase
+from fdai.core.human_reporting.model import (
+    EndpointDecision,
+    OwnerDecision,
+    ReportingLineCase,
+    ReportingLineCaseState,
+)
 from fdai.core.human_reporting.service import ReportingLineService, report_line_case_result
 from fdai.core.human_reporting.source import ReportingLineDraftReader
 from fdai.core.rbac.resolver import Principal
@@ -97,13 +102,28 @@ class ReportingLineRequestProcessor:
         if notice.operation not in {"assignments.confirm", "assignments.review"}:
             raise ValueError("reporting-line validation requires create, confirm, or review")
         current = await self.case(notice, payload)
-        if _revision(payload) != current.revision:
-            raise ValueError("reporting-line command revision is stale")
-        if _text(payload, "edge_digest") != current.edge_digest:
-            raise ValueError("reporting-line command digest is stale")
+        expected_revision = _revision(payload)
+        edge_digest = _text(payload, "edge_digest")
         if notice.operation == "assignments.review":
-            OwnerDecision(_text(payload, "decision"))
+            decision = OwnerDecision(_text(payload, "decision"))
+            if _owner_review_replay(
+                current,
+                principal_ref=principal.oid,
+                decision=decision,
+                edge_digest=edge_digest,
+                decided_at=notice.accepted_at,
+                expected_revision=expected_revision,
+            ):
+                return
+            if expected_revision != current.revision:
+                raise ValueError("reporting-line command revision is stale")
+            if edge_digest != current.edge_digest:
+                raise ValueError("reporting-line command digest is stale")
             return
+        if expected_revision != current.revision:
+            raise ValueError("reporting-line command revision is stale")
+        if edge_digest != current.edge_digest:
+            raise ValueError("reporting-line command digest is stale")
         if principal.oid not in {current.subject_ref, current.manager_ref}:
             raise PermissionError("only a reporting-line endpoint may confirm")
         EndpointDecision(_text(payload, "decision"))
@@ -127,10 +147,21 @@ class ReportingLineRequestProcessor:
             current.confirmation.principal_ref,
         }:
             raise PermissionError("reporting-line Owner review is not independent")
-        if _revision(payload) != current.revision:
+        expected_revision = _revision(payload)
+        decision = OwnerDecision(_text(payload, "decision"))
+        edge_digest = _text(payload, "edge_digest")
+        if _owner_review_replay(
+            current,
+            principal_ref=principal.oid,
+            decision=decision,
+            edge_digest=edge_digest,
+            decided_at=notice.accepted_at,
+            expected_revision=expected_revision,
+        ):
+            return
+        if expected_revision != current.revision:
             raise ValueError("reporting-line Owner review revision is stale")
-        OwnerDecision(_text(payload, "decision"))
-        if _text(payload, "edge_digest") != current.edge_digest:
+        if edge_digest != current.edge_digest:
             raise ValueError("reporting-line Owner review digest is stale")
 
     async def case(
@@ -245,6 +276,32 @@ def _text(value: Mapping[str, Any], key: str) -> str:
     if not isinstance(item, str) or not item or item != item.strip():
         raise ValueError("reporting-line command requires exact non-empty text")
     return item
+
+
+def _owner_review_replay(
+    case: ReportingLineCase,
+    *,
+    principal_ref: str,
+    decision: OwnerDecision,
+    edge_digest: str,
+    decided_at: datetime,
+    expected_revision: int,
+) -> bool:
+    review = case.owner_review
+    if (
+        review is None
+        or review.principal_ref != principal_ref
+        or review.decision is not decision
+        or review.edge_digest != edge_digest
+        or review.decided_at != decided_at
+    ):
+        return False
+    expected_state_revision = {
+        ReportingLineCaseState.ACTIVATION_PENDING: expected_revision + 1,
+        ReportingLineCaseState.ACTIVE: expected_revision + 2,
+        ReportingLineCaseState.REJECTED: expected_revision + 1,
+    }
+    return expected_state_revision.get(case.state) == case.revision
 
 
 def _optional_text(value: Mapping[str, Any], key: str) -> str | None:

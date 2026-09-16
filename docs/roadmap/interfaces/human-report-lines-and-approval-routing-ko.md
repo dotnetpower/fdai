@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 5f5da65d3c87750c3bcdaa69189adf260597d6fb
+translation_source_sha: ffef72bf5c2e1c049ddf915d918b32001aabee8d
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -96,10 +96,15 @@ extracted
   -> identity_pending
   -> pending_confirmation
   -> pending_owner_review
+  -> activation_pending
   -> active
 ```
 
 Edge는 `unresolved`, `conflict`, `rejected`, `expired` 또는 `superseded` 상태가 될 수도 있습니다.
+
+`activation_pending`은 그래프를 쓰기 전에 Owner 결정을 기록합니다. 이 시점부터 당사자 결정을
+추가로 변경할 수 없습니다. 중단 후 재시도로 그래프 활성화를 완료할 수 있으며 두 사람의 결정이
+영속적으로 확정되기 전에는 edge를 라우팅에 사용할 수 없습니다.
 
 활성 edge는 다음을 기록합니다.
 

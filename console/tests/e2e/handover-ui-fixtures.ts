@@ -131,7 +131,8 @@ export async function installHandoverUiFixture(page: Page) {
         items: [fixture.reportingLine], total: 1, next_cursor: null,
         summary: { active: 0, pending_confirmation: fixture.reportingLine.state === "pending_confirmation" ? 1 : 0,
           pending_owner_review: fixture.reportingLine.state === "pending_owner_review" ? 1 : 0,
-          conflict: 0, awaiting_core: 0 },
+        activation_pending: fixture.reportingLine.state === "activation_pending" ? 1 : 0,
+        conflict: 0, awaiting_core: 0 },
         execution_authority: false, approval_authority: false,
       } });
     } else if (path.endsWith("/confirm") && path.includes("/handover/reporting-line-cases/")) {
