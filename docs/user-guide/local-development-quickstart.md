@@ -84,15 +84,17 @@ Install these additional tools:
 - OPA matching `OPA_VERSION` in the [Core image](../../services/core-control-plane/docker/Dockerfile).
   Run `opa version` and `opa check policies` from the repository root. OPA must be on the VS Code
   task's `PATH`; the workspace includes `~/.local/bin` for user-installed tools.
+- ShellCheck for validating repository shell scripts before commit and push.
 - `git`, `bash`, `make`, `curl`, and standard Linux command-line tools.
 - Tesseract with English and Korean language data. The Document Processing Worker runs on the host,
   while ClamAV runs in Docker.
 
-On Ubuntu or WSL, install Tesseract with:
+On Ubuntu or WSL, install ShellCheck and Tesseract with:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor
+sudo apt-get install -y shellcheck tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor
+shellcheck --version
 tesseract --list-langs
 ```
 

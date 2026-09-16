@@ -217,8 +217,9 @@ approved grant, and fresh effective-access evidence is required before the actio
 - **The app reads only environment variables (or K8s Secret mounts).** It MUST NOT call a CSP
   secret SDK (`SecretClient`, `SecretsManagerClient`, `SecretManagerServiceClient`, ...); this
   realizes the [Secret contract](csp-neutrality.md#3-secret-contract--environment--k8s-secret).
-  On Azure the injection layer is **Container Apps native secret + Key Vault reference**; on
-  Kubernetes it is **External Secrets Operator** with a `SecretStore` CRD.
+  On the AKS baseline, the injection layer is the **managed Key Vault CSI provider + workload
+  identity**, which synchronizes fixed references into namespaced Kubernetes Secrets. Existing
+  Container Apps installations retain native Key Vault references only as a compatibility path.
 - Access secrets through an injected `SecretProvider` in `shared/providers/`, never a global
   read at import.
 - **Lifecycle**: every secret has an owner, a defined rotation interval, and automated rotation;

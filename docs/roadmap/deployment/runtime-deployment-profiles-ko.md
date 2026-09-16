@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 7e7199e5d66029be9cef1a5e99fac1e0b9ec86f3
+translation_source_sha: d10479d2a73183a1fe9451cd7972110936a9088b
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -64,6 +64,33 @@ fdaictl provision azure \
 
 명령은 변경을 일으키는 각 플랜 경계에서 대화형 승인을 유지합니다. 런타임 또는 데이터베이스
 선택은 작업 권한을 부여하거나, 선택된 환경을 바꾸거나, 적용 모드를 활성화하지 않습니다.
+
+### AKS 브라우저 접근
+
+기본 AKS 프로파일은 다음 브라우저 경로를 사용합니다.
+
+```text
+브라우저 -> Static Web Apps -> API Management -> AKS LoadBalancer Service -> Pod
+```
+
+Static Web Apps는 미리 빌드된 Console을 호스팅합니다. API Management(APIM)는 공용 HTTPS API
+경계를 제공합니다. Operator API는 APIM origin root에서 라우팅하고 Document Ingestion은
+`/ingestion`에서 라우팅합니다. Kubernetes Service는 포트 80에서 요청을 받고 기존 컨테이너
+포트로 전달합니다. 워크로드 상태는 Service backend 주소를 사용하므로 APIM도 소유합니다. 공유
+기반은 이 경로에 Azure Front Door를 만들지 않습니다.
+
+APIM은 Microsoft Entra 인증을 대체하지 않습니다. API는 token issuer, audience, lifetime 및
+App Role을 계속 검증합니다. CORS(Cross-Origin Resource Sharing)는 정확한 Static Web Apps
+origin만 허용합니다. Azure Policy가 AKS 서브넷에 네트워크 보안 그룹을 연결하면 워크로드 플랜은
+정확한 공용 Service frontend 주소에 대해서만 TCP 포트 80을 허용합니다. APIM Consumption은
+source 규칙에 사용할 수 있는 고정 outbound 주소를 제공하지 않습니다.
+
+승인된 애플리케이션 플랜이 수렴하면 `fdaictl provision azure`는 각 Terraform 상태에서 SWA와
+APIM 연결을 읽고, 기존 Entra SPA 등록에 정확한 SWA redirect를 추가한 뒤, 서명된 키트의 미리
+빌드된 Console을 게시합니다. 테넌트 프로비저닝에서는 npm build를 실행하지 않습니다. 완료로
+판단하려면 원격 산출물 hash, SPA route fallback, 두 API 상태 확인, 정확한 origin의 authorization
+preflight, `/audit`의 인증되지 않은 요청에 대한 `401`, 구성한 Console origin으로 돌아오는 Entra
+redirect를 모두 확인해야 합니다.
 
 ### 기본값 및 검증
 
@@ -213,8 +240,9 @@ Activity Log 복구 가속은 전체 조정과 독립적입니다. 세대 승격
 요구합니다. 비어 있거나 중복되거나 오래되거나 형식이 잘못됐거나 일부만 정상인 응답은 성공이
 아니라 사용 불가로 처리합니다. 기대 목록에는 다섯 기본 서비스가 모두 있어야 하며, 생성기가
 하나를 누락했다고 해서 부분 롤아웃을 완료된 것으로 판단해서는 안 됩니다.
-이 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는
-전체 배포 준비가 검증되지는 않습니다. 워크로드 생성기는 Operator, 격리된 Executor, 문서 API,
+이 워크로드 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는 전체 배포 준비가
+검증되지는 않습니다. 별도의 브라우저 게시 게이트가 워크로드 수렴 뒤 Console과 API 경계를
+검증합니다. 워크로드 생성기는 Operator, 격리된 Executor, 문서 API,
 문서 Worker에 각각 `fdai_operator`, `fdai_executor`, `fdai_ingestion_api`,
 `fdai_ingestion_worker` 역할을 `FDAI_DATABASE_ROLE`과 일치하는 `PGOPTIONS`로 설정합니다.
 호출자의 환경은 변경하지 않습니다. 생성되는 모든 서비스는 배포된 실행 위치를 명시적으로

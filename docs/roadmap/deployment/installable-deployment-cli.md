@@ -247,38 +247,23 @@ The public command checks that receipt against current local source and handoff 
 `source_application_execution_not_connected`. Registry import and application execution remain
 open. Local and mocked transport evidence do not establish a successful Azure deployment.
 
-### Source image construction
+### Source runtime artifact admission
 
-**Initial design:** Build service images after transferring source to the managed host.
-**Critique:** The attested manual host has Terraform, OPA and ORAS, but no Docker or Buildx.
-Adding an unreviewed privileged builder during installation would change its tool and execution
-contract. Requiring a complete signed kit instead would defeat explicit source mode.
-**Revised contract:** Build public, customer-agnostic service artifacts on the operator's local
-Docker engine; keep private registry publication and all private data-plane work on the attested
-managed host. These build artifacts are operator-selected source, not signed releases.
+Source mode does not create service, dependency, deployment-host or appliance images. Tenant
+provisioning never invokes Docker, Buildx, ACR Tasks, a remote builder or VM image capture. A source
+checkout can prepare and verify Foundation inputs, but it cannot enter the application stage until
+the operator supplies a trusted prebuilt runtime artifact manifest whose source revision matches the
+immutable checkout.
 
-Before Foundation preparation, source installation checks a trusted Docker executable, the explicit
-local Unix endpoint and Buildx without prompting, building, or contacting a registry. Ambient
-Docker context and BuildKit endpoint variables are excluded. Missing or invalid tools return
-`source-image-tools` blocked evidence before any Foundation execution.
+The manifest identifies all five baseline service images, dependency images, Console content and
+migration support by digest. The coordinator verifies signatures, provenance, SBOM coverage,
+platform, source revision and exact file bounds before registry credentials are acquired. A cache
+hit is accepted only after the same verification. Missing, partial, mutable-tagged or mismatched
+artifacts stop with `runtime_artifacts_required`; the installer never repairs them by building.
 
-After verified source handoff, the coordinator builds all five baseline services from the immutable
-snapshot's existing Dockerfiles with locked source inputs, `linux/amd64`, an exact revision label,
-and OCI output outside the snapshot. It never selects an alternate source, remote builder or push
-target. One shared deadline bounds the inventory; each process uses the existing bounded runner
-with a 300-second maximum no-progress interval. Private build logs and per-service immutable
-claims precede execution. A failed or interrupted claim cannot trigger an automatic rebuild.
-Explicit `--verify-only` for one service checks retained output under its exact claim without
-invoking Docker. Incomplete or inconsistent OCI content still fails. Buildx creates its metadata
-with mode 0644 even under a restrictive umask; the coordinator validates the current owner,
-single-link regular file and private parent, then tightens that metadata to 0600 before reading.
-
-Buildx metadata supplies the expected manifest digest, and the existing OCI validator independently
-checks archive hashes, every blob, platform and source revision. A reusable receipt requires that
-same validation again and unchanged source. The current 512 MiB OCI archive limit remains enforced.
-Local build receipts keep registry publication, apply authority and deployment readiness false;
-the inventory also keeps dependency-image verification false. ClamAV, Console assets, authenticated
-image transport/import, runtime configuration and acceptance remain separate unfinished steps.
+Private registry mirror or import remains execution-host work when selected. It changes only the
+artifact location, independently reads back the same digest and cannot alter image bytes. An
+ambiguous publication claim resumes verification only and never rebuilds or republishes the image.
 
 The development source path is selected explicitly with `fdaictl provision azure --source <path>`.
 It is mutually exclusive with `--online` and `--offline-kit`. Initial support targets a new
@@ -346,11 +331,12 @@ Reading an internal tracked document link may update its access time without cha
 Verification ignores that access-time-only change, while checking the target bytes, file identity,
 mode, size, modification time, and change time; links outside the tracked snapshot stay blocked.
 
-Source mode avoids complete release assembly, offline wheelhouses, dependency OCI exports, and
-publisher keys. Required service images still need a build or a verified cache hit, digest
-readback, and configuration validation. Foundation, private data-plane execution, exact-plan
-approvals, immutable claims, bounded commands, independent effect checks, and recovery remain
-required. A failed kit verification never falls back to source mode.
+Source alone is not a complete runtime deployment input. It avoids local release assembly and
+publisher keys, but the application stage still requires the prebuilt signed runtime artifact
+manifest described above, digest readback and configuration validation. Foundation, private
+data-plane execution, exact-plan approvals, immutable claims, bounded commands, independent effect
+checks, and recovery remain required. A failed kit or runtime-artifact verification never falls
+back to source mode or an installation-time build.
 
 No license starts a durable 30-day Trial at first activation, not on each process start or image
 upgrade. Trial availability does not change promotion, risk, RBAC, human approval, or executor
@@ -575,23 +561,11 @@ human approval, executor identity, and effect verification remain separate contr
 
 ## Deployment appliance
 
-A disconnected release packages the same complete signed kit inside one OCI deployment appliance.
-The release command is:
-
-```bash
-bash scripts/deployment/release/build-deployment-appliance.sh \
-  --kit /private/fdai-deployment-kit.tar.gz \
-  --base-image <approved-deployer-base>@sha256:<digest> \
-  --output /private/fdai-deployment-appliance.oci.tar
-```
-
-The approved base contains Python 3 with pip, Azure CLI, OpenSSH, and `tar`. The builder verifies the kit
-before constructing the image, installs the CLI only from the kit wheelhouse, runs the image build
-without network access, and emits an OCI archive with SBOM and provenance.
-
-`build-standalone-deployment-kit.sh --appliance-base-image <image>@sha256:<digest>` composes kit and
-appliance creation in one clean-checkout release run. The separate builder remains available when
-an already verified kit needs an appliance wrapper.
+A disconnected release may publish the same complete signed kit inside a prebuilt OCI deployment
+appliance. Appliance construction is an upstream release responsibility and is not a tenant
+provisioning command. The tenant accepts only a digest-pinned appliance with verified provenance,
+SBOM and embedded-kit signatures; otherwise it uses the kit directly. Tenant deployment never
+constructs or modifies the appliance image.
 
 The image entry point accepts either interactive Azure authentication or a specifically selected
 user-assigned managed identity. It invokes

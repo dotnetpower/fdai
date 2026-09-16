@@ -591,11 +591,11 @@ and the authoritative registry, never inferred from phase names in this document
   structured error, not an exception traceback.
 ## 13. Data + wire contracts
 
-FDAI Console compiles the generated TypeScript view at
-`console/src/generated/service-contracts.ts`. The checksum-pinned repository generator derives this
-view from the same N/N-1 JSON Schemas used by the five backend services. The generated interface
-improves compile-time alignment only; the Operator service still validates wire payloads against
-the canonical schema, and Console receives no approval, mutation, or execution authority.
+FDAI Console compiles the generated TypeScript view at `console/src/generated/service-contracts.ts`.
+The checksum-pinned generator derives it from the same N/N-1 JSON Schemas used by the five backend
+services. For deployed AKS, the deployment coordinator registers the exact Static Web Apps redirect
+and publishes runtime API bindings after convergence. The Operator service still validates wire
+payloads, and Console receives no deployment, approval, mutation, or execution authority.
 
 Split into focused owner documents:
 

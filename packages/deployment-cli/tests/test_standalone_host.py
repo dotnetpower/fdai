@@ -97,6 +97,233 @@ def test_aks_baseline_defers_detailed_private_networking() -> None:
     assert '"acr_sku": "Basic" if aks_baseline else "Premium"' in source
 
 
+@pytest.mark.parametrize(
+    ("hostname", "origin"),
+    [
+        (
+            "calm-field-012345678.3.azurestaticapps.net",
+            "https://calm-field-012345678.3.azurestaticapps.net",
+        ),
+        (
+            "calm-field-012345678.azurestaticapps.net",
+            "https://calm-field-012345678.azurestaticapps.net",
+        ),
+    ],
+)
+def test_console_origin_accepts_deployed_static_web_app_hostname(
+    hostname: str, origin: str
+) -> None:
+    assert standalone_host._console_origin(hostname) == origin
+
+
+@pytest.mark.parametrize(
+    "hostname",
+    [
+        "https://calm-field.azurestaticapps.net",
+        "calm-field.example.com",
+        "calm-field.azurestaticapps.net/path",
+        "CALM-FIELD.azurestaticapps.net",
+    ],
+)
+def test_console_origin_rejects_noncanonical_hostname(hostname: str) -> None:
+    with pytest.raises(ValueError, match="Static Web App hostname"):
+        standalone_host._console_origin(hostname)
+
+
+@pytest.mark.parametrize("observed_nsg", ["", "same-subscription"])
+def test_subnet_network_security_group_reads_exact_selected_subnet(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    observed_nsg: str,
+) -> None:
+    subscription_id = "00000000-0000-0000-0000-000000000001"
+    subnet_id = (
+        f"/subscriptions/{subscription_id}/resourceGroups/rg-network/providers/"
+        "Microsoft.Network/virtualNetworks/vnet-aks/subnets/snet-aks"
+    )
+    nsg_id = (
+        f"/subscriptions/{subscription_id}/resourceGroups/rg-network/providers/"
+        "Microsoft.Network/networkSecurityGroups/nsg-aks"
+    )
+    calls: list[tuple[str, ...]] = []
+
+    def capture(command: tuple[str, ...], **kwargs: object) -> str:
+        calls.append(command)
+        assert kwargs == {
+            "cwd": tmp_path,
+            "timeout": 60,
+            "reason": "AKS subnet network security group readback failed",
+        }
+        return f"{nsg_id}\n" if observed_nsg else "\n"
+
+    monkeypatch.setattr(standalone_host, "_capture", capture)
+
+    assert standalone_host._subnet_network_security_group(
+        subnet_id,
+        context={"subscription_id": subscription_id},
+        cwd=tmp_path,
+    ) == (nsg_id if observed_nsg else "")
+    assert calls == [
+        (
+            "az",
+            "network",
+            "vnet",
+            "subnet",
+            "show",
+            "--ids",
+            subnet_id,
+            "--subscription",
+            subscription_id,
+            "--query",
+            "networkSecurityGroup.id",
+            "--output",
+            "tsv",
+            "--only-show-errors",
+        )
+    ]
+
+
+@pytest.mark.parametrize("resource", ["subnet", "nsg"])
+@pytest.mark.parametrize("failure", ["malformed", "foreign"])
+def test_subnet_network_security_group_rejects_invalid_resource_ids(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    resource: str,
+    failure: str,
+) -> None:
+    subscription_id = "00000000-0000-0000-0000-000000000001"
+    observed_subscription = (
+        "00000000-0000-0000-0000-000000000002" if failure == "foreign" else subscription_id
+    )
+    subnet_id = (
+        f"/subscriptions/{observed_subscription}/resourceGroups/rg-network/providers/"
+        "Microsoft.Network/virtualNetworks/vnet-aks/subnets/snet-aks"
+    )
+    nsg_id = (
+        f"/subscriptions/{observed_subscription}/resourceGroups/rg-network/providers/"
+        "Microsoft.Network/networkSecurityGroups/nsg-aks"
+    )
+    if failure == "malformed":
+        subnet_id = "/not-a-subnet" if resource == "subnet" else subnet_id
+        nsg_id = "/not-an-nsg" if resource == "nsg" else nsg_id
+
+    def capture(*_args: object, **_kwargs: object) -> str:
+        if resource == "subnet":
+            pytest.fail("invalid subnet IDs must be rejected before Azure CLI execution")
+        return nsg_id
+
+    monkeypatch.setattr(standalone_host, "_capture", capture)
+
+    with pytest.raises(ValueError, match="subnet|network security group"):
+        standalone_host._subnet_network_security_group(
+            subnet_id,
+            context={"subscription_id": subscription_id},
+            cwd=tmp_path,
+        )
+
+
+def test_browser_console_binding_reads_owning_terraform_states(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    subscription_id = "00000000-0000-0000-0000-000000000001"
+    context = {
+        "subscription_id": subscription_id,
+        "infra": str(tmp_path / "substrate"),
+        "workloads_infra": str(tmp_path / "workloads"),
+    }
+    values = {
+        "console_default_hostname": "calm-field-012345678.3.azurestaticapps.net",
+        "console_static_web_app_id": (
+            f"/subscriptions/{subscription_id}/resourceGroups/rg-app/providers/"
+            "Microsoft.Web/staticSites/swa-console"
+        ),
+        "browser_gateway_operator_url": "https://apim-fdai.azure-api.net/",
+        "browser_gateway_ingestion_url": "https://apim-fdai.azure-api.net/ingestion/",
+    }
+    activations: list[str] = []
+    reads: list[tuple[Path, str]] = []
+
+    monkeypatch.setattr(
+        standalone_host,
+        "_activate_terraform_stage",
+        lambda stage, *_args: activations.append(stage),
+    )
+
+    def terraform_output(infra: Path, name: str) -> str:
+        reads.append((infra, name))
+        return values[name]
+
+    monkeypatch.setattr(standalone_host, "_terraform_output", terraform_output)
+
+    assert standalone_host._browser_console_binding(context, tmp_path) == {
+        "console_hostname": values["console_default_hostname"],
+        "console_origin": f"https://{values['console_default_hostname']}",
+        "console_static_web_app_id": values["console_static_web_app_id"],
+        "operator_api_base_url": "https://apim-fdai.azure-api.net",
+        "ingestion_api_base_url": "https://apim-fdai.azure-api.net/ingestion",
+    }
+    assert activations == ["substrate", "application"]
+    assert reads == [
+        (tmp_path / "substrate", "console_default_hostname"),
+        (tmp_path / "substrate", "console_static_web_app_id"),
+        (tmp_path / "workloads", "browser_gateway_operator_url"),
+        (tmp_path / "workloads", "browser_gateway_ingestion_url"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("console_default_hostname", "console.example.com", "hostname"),
+        ("console_static_web_app_id", "/not-a-static-site", "resource ID"),
+        (
+            "browser_gateway_operator_url",
+            "https://gateway.example.com",
+            "Operator URL",
+        ),
+        (
+            "browser_gateway_ingestion_url",
+            "https://apim-fdai.azure-api.net/wrong",
+            "ingestion URL",
+        ),
+    ],
+)
+def test_browser_console_binding_rejects_invalid_cross_state_values(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: str,
+    message: str,
+) -> None:
+    subscription_id = "00000000-0000-0000-0000-000000000001"
+    values = {
+        "console_default_hostname": "calm-field-012345678.3.azurestaticapps.net",
+        "console_static_web_app_id": (
+            f"/subscriptions/{subscription_id}/resourceGroups/rg-app/providers/"
+            "Microsoft.Web/staticSites/swa-console"
+        ),
+        "browser_gateway_operator_url": "https://apim-fdai.azure-api.net",
+        "browser_gateway_ingestion_url": "https://apim-fdai.azure-api.net/ingestion",
+    }
+    values[field] = value
+    monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_args: None)
+    monkeypatch.setattr(
+        standalone_host,
+        "_terraform_output",
+        lambda _infra, name: values[name],
+    )
+
+    with pytest.raises(ValueError, match=message):
+        standalone_host._browser_console_binding(
+            {
+                "subscription_id": subscription_id,
+                "infra": str(tmp_path / "substrate"),
+                "workloads_infra": str(tmp_path / "workloads"),
+            },
+            tmp_path,
+        )
+
+
 def _review() -> dict[str, object]:
     value: dict[str, object] = {
         "schema_version": "fdai.standalone-application-plan.v1",
@@ -994,6 +1221,7 @@ def test_aks_document_workloads_bind_complete_service_contracts() -> None:
             "pipeline_stages": "fdai.pipeline.stages",
             "pantheon_objects": "fdai.pantheon.objects",
         },
+        console_origin="https://example.azurestaticapps.net",
     )
 
     assert set(workloads) == {"document-ingestion-api", "document-processing-worker"}
@@ -1001,7 +1229,10 @@ def test_aks_document_workloads_bind_complete_service_contracts() -> None:
     worker = workloads["document-processing-worker"]
     assert api["environment"]["FDAI_DATABASE_ROLE"] == "fdai_ingestion_api"
     assert api["environment"]["FDAI_DOCUMENT_RETRIEVAL_MODE"] == "lexical"
-    assert api["environment"]["FDAI_INGESTION_CORS_ALLOW_ORIGINS"] == "https://localhost"
+    assert api["environment"]["FDAI_INGESTION_CORS_ALLOW_ORIGINS"] == (
+        "https://example.azurestaticapps.net"
+    )
+    assert api["service_port"] == 80
     assert worker["environment"]["FDAI_DATABASE_ROLE"] == "fdai_ingestion_worker"
     assert worker["environment"]["FDAI_CLAMAV_HOST"] == "127.0.0.1"
     assert worker["sidecars"]["clamav"]["image"] == refs["clamav"]

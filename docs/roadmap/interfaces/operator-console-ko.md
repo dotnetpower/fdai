@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 5f047679c0e11150f554031bcec8248132f30e7d
+translation_source_sha: 0ef1fac1fecbbe5c7eb62feb3a36fb14ca21b5c6
 translation_revised: 2026-09-16
 ---
 # FDAI Console 대화
@@ -587,11 +587,11 @@ pull 어댑터 추가. 콘솔은 이제:
   아닌 구조화된 오류를 봄.
 ## 13. 데이터 + wire 계약
 
-FDAI Console은 `console/src/generated/service-contracts.ts`의 생성 TypeScript 변환 결과를
-컴파일합니다. 체크섬으로 고정한 저장소 생성기는 백엔드 서비스 5개가 사용하는 것과 같은
-N/N-1 JSON Schema에서 이 변환 결과를 만듭니다. 생성 인터페이스는 컴파일 시점의 정렬만
-개선합니다. Operator 서비스는 계속 기준 스키마로 와이어 페이로드를 검증하며 Console에는
-승인, 변경 또는 실행 권한이 없습니다.
+FDAI Console은 `console/src/generated/service-contracts.ts`의 생성 TypeScript 변환 결과를 컴파일합니다.
+체크섬으로 고정한 생성기는 백엔드 서비스 5개가 사용하는 것과 같은 N/N-1 JSON Schema에서 이를
+만듭니다. 배포된 AKS에서는 배포 조정기가 수렴 뒤 정확한 Static Web Apps redirect를 등록하고
+런타임 API 연결을 게시합니다. Operator 서비스는 계속 와이어 페이로드를 검증하며 Console에는
+배포, 승인, 변경 또는 실행 권한이 없습니다.
 
 focused 소유자 문서로 분리했습니다:
 

@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: a941d9964d4788b8c8025ec268d47cd12c1f9dc8
-translation_revised: 2026-09-15
+translation_source_sha: 4b7426d64e6da6095ce651301594785f8122735d
+translation_revised: 2026-09-16
 ---
 
 # 보안과 아이덴티티
@@ -215,8 +215,9 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
 - **앱은 환경변수 (또는 K8s 시크릿 마운트) 만 읽습니다.** CSP 시크릿 SDK (`SecretClient`,
   `SecretsManagerClient`, `SecretManagerServiceClient` 등) 를 호출해서는 안 됩니다; 이것이
   [시크릿 계약](csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) 의 구현입니다.
-  Azure 에서 주입 레이어는 **Container Apps native 시크릿 + Key Vault 참조** ; Kubernetes
-  에서는 `SecretStore` CRD 를 가진 **외부 Secrets Operator** .
+  AKS 기본 구성의 주입 계층은 **관리형 Key Vault CSI 공급자 + 워크로드 신원**이며, 고정된 참조를
+  namespace별 Kubernetes Secret으로 동기화합니다. 기존 Container Apps 설치는 호환 경로로만
+  native Key Vault 참조를 유지합니다.
 - 시크릿은 `shared/providers/` 의 주입된 `SecretProvider` 로 접근하며, 가져오기 시점 전역 읽기는
   절대 금지.
 - **라이프사이클**: 모든 시크릿은 소유자, 정의된 로테이션 간격, 자동 로테이션을 가짐; 손상되거나

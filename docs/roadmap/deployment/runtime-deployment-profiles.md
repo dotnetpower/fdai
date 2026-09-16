@@ -63,6 +63,33 @@ fdaictl provision azure \
 The command remains interactive at each mutating plan boundary. A runtime or database choice never
 grants action authority, changes the selected environment, or enables enforcement mode.
 
+### AKS browser access
+
+The default AKS profile uses this browser path:
+
+```text
+Browser -> Static Web Apps -> API Management -> AKS LoadBalancer Service -> Pod
+```
+
+Static Web Apps hosts the prebuilt Console. API Management (APIM) provides the public HTTPS API
+edge: the Operator API is routed at the APIM origin root, and Document Ingestion is routed at
+`/ingestion`. The Kubernetes Services listen on port 80 and forward to the existing container port.
+The workload state owns APIM because its backend addresses come from those Services. The shared
+substrate does not create Azure Front Door for this path.
+
+APIM does not replace Microsoft Entra authentication. The APIs continue to validate token issuer,
+audience, lifetime, and App Roles. Cross-origin resource sharing (CORS) accepts only the exact
+Static Web Apps origin. When Azure Policy attaches a network security group to the AKS subnet, the
+workload plan permits TCP port 80 only for the exact public Service frontend addresses. APIM
+Consumption has no fixed outbound address that can be used as the source rule.
+
+After the approved application plan converges, `fdaictl provision azure` reads the SWA and APIM
+bindings from their owning Terraform states, adds the exact SWA redirect to the existing Entra SPA
+registration, and publishes the signed kit's prebuilt Console. Tenant provisioning does not run an
+npm build. Completion requires remote artifact hashes, SPA route fallback, both API health checks,
+the exact-origin authorization preflight, an unauthenticated `401` from `/audit`, and an Entra
+redirect to the configured Console origin.
+
 ### Defaults and validation
 
 | Setting | Validation | Recommended value |
@@ -216,8 +243,9 @@ Health readback requires that complete set, current observed generations, ready 
 running Pod image digests from the same source revision. Empty, duplicate, stale, malformed, or
 partially healthy responses are unavailable, not success. The expected set must contain all five
 baseline services; a renderer that omits one cannot redefine a partial rollout as complete.
-This readback does not establish Kafka
-round trips, scheduled-job success, Console authentication, or full deployment readiness.
+This workload readback does not establish Kafka round trips, scheduled-job success, Console
+authentication, or full deployment readiness. The separate browser publication gate verifies the
+Console and API edge after workload convergence.
 The workload factory binds Operator, isolated Executor, Document API and Document Worker to
 `fdai_operator`, `fdai_executor`, `fdai_ingestion_api` and `fdai_ingestion_worker`, respectively,
 through `FDAI_DATABASE_ROLE` and matching `PGOPTIONS`. It leaves the caller's environment unchanged.

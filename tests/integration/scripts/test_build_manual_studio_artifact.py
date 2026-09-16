@@ -180,8 +180,21 @@ def test_console_publisher_binds_and_verifies_same_origin_manuals() -> None:
     assert "target-architecture.html" in publisher
     assert '"https://$hostname/manuals/$manual_file"' in publisher
     assert "sha256sum --check --status" in publisher
-    assert "resolve_service_fqdn operator-service" in publisher
-    assert "resolve_service_fqdn document-ingestion-api" in publisher
+    operator_gateway_binding = (
+        "browser_gateway_operator_url BROWSER_GATEWAY_OPERATOR_URL "
+        "operator_api_fqdn operator-service"
+    )
+    assert operator_gateway_binding in publisher
+    assert "browser_gateway_ingestion_url BROWSER_GATEWAY_INGESTION_URL" in publisher
+    assert 'export VITE_OPERATOR_API_BASE_URL="$operator_api_url"' in publisher
+    assert 'export VITE_INGESTION_API_BASE_URL="$ingestion_api_url"' in publisher
+    assert 'console_directory="${CONSOLE_PREBUILT_DIRECTORY:-}"' in publisher
+    assert '"$console_directory/fdai-config.js"' in publisher
+    assert '"https://$hostname/ontology"' in publisher
+    assert '"$operator_api_url/audit"' in publisher
+    assert "Access-Control-Request-Headers: authorization" in publisher
+    assert '[[ "$unauthenticated_status" != 401 ]]' in publisher
+    assert "login.microsoftonline.com" in publisher
     assert 'state_key="services/$service/$FDAI_DEPLOY_ENVIRONMENT.tfstate"' in publisher
     assert "jq -er '.fqdn | select(type == \"string\" and length > 0)'" in publisher
     assert "DEPLOY_OPERATOR_API" not in publisher

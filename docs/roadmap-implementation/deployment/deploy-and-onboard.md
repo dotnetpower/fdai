@@ -8,6 +8,9 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation scope
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| AKS-first minimum inventory | in-progress | `infra/modules/network`; `infra/runtimes/aks/cluster`; focused AKS infrastructure tests and Terraform validation pass in the current change | The Terraform substrate now reserves node and delegated API-server subnets and the cluster enables API Server VNet Integration with explicit public CIDRs. Default CLI selection, complete workloads and an Azure receipt remain open. |
+| Console-originated private-network transition | not-started | Revised owner, app-shape instruction and deployment skill only | The typed intent, assessment, protected exact plan, approval, apply, rollback and independent readback states are not implemented. |
+| Prebuilt-only tenant image consumption | in-progress | Existing signed-kit verification, OCI validation, ACR import and digest readback; tenant source and runner image builders still exist | Deployment must remove image construction and capture while preserving signature, provenance, mirror/import and deployed-digest verification. |
 | Genesis image and host VM selection | implemented | [Genesis assurance ledger](subscription-genesis-assurance.md); full-catalog hardware policy and 451 focused Genesis boundary tests | New preparation chooses compatible builder, verifier, and Foundation sizes with aggregate quota. Image planning preserves the prepared host, and host readback checks the actual image against ephemeral ResourceDisk requirements. It neither reserves capacity nor recovers prior partial effects. Signed publication and live allocation remain separate. |
 | Direct Terraform saved-plan approval and recovery | implemented | `scripts/deployment/azure/contributor-plan.sh`; `azd-up.sh`; focused contributor deployment regressions | Platform and Core apply only owner-only saved plans after exact interactive digest approval. A failed apply remains fenced until a clean descendant verifies the same actor and target through refresh-only readback and records a separate closure receipt. The old plan is never reapplied. |
 | Contributor azd bootstrap | implemented | `scripts/deployment/azure/contributor-target.sh`; focused Azure-context regressions | Missing Linux x64/ARM64 azd is installed from a checksum-pinned official archive into the user path without sudo or replacement. Existing executables are reused and every download, checksum, platform, ownership, or path failure stops before provisioning. |
@@ -42,6 +45,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | implemented | Added the minimum AKS network substrate and cluster-side API Server VNet Integration contract. Public baseline access is restricted to explicit CIDRs, and private mode rejects those CIDRs before planning. | `current change`; network and AKS cluster Terraform paths; focused AKS infrastructure tests report 4 passed; shared and cluster roots validate. | Wire deployment input, retain an exact plan/apply/readback receipt and complete five-service activation without tenant image construction. |
+| 2026-09-16 | not-started | Revised the minimum inventory to AKS Standard and moved selected private networking to a Console-originated protected provisioning stage. Tenant deployment now consumes prebuilt signed images only. | `current change`; design, instruction and skill paths only; no implementation or Azure effect claimed. | Reconcile the CLI and Terraform defaults, remove tenant image builders, implement protected network transitions, and retain basic plus private-stage receipts. |
 | 2026-09-14 | implemented | Scoped separate provider identity to explicit metric-backed targets when inventory is unavailable, preserving logical-only Pod lifecycle targets that use typed evidence rather than metric-provider queries. | `current change`; analyzer target and Pod lifecycle scenario regressions (`47 passed`). | No implementation work remains for non-metric target compatibility. |
 | 2026-09-14 | implemented | Added separate `resource_id` and `provider_resource_id` target configuration, active-snapshot reconciliation for legacy Azure IDs, and configured-discovered deduplication before analyzer provider access. | `current change`; analyzer target, CLI parser, routed-provider, and inventory identity regressions (`86 passed`). | Retain a protected scheduled analyzer receipt using the separated target form. |
 | 2026-09-14 | implemented | Bound an explicitly configured logical target to its active inventory provider reference and rejected a configured analyzer kind that conflicts with the reviewed inventory Resource type. Explicit selection can still bypass state-fact freshness, but it can no longer query the provider with the wrong identity or analyzer. | `current change`; `analyzer_targets.py`; focused configured-target regressions. | No remaining implementation work for configured inventory target identity. |
@@ -194,6 +199,12 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 ### Remaining work
 
+- [ ] Make the finite manifest and CLI default to AKS Standard with API Server VNet Integration,
+    dedicated workload/API-server subnets and the five baseline Kubernetes workloads.
+- [ ] Implement the Console network request and protected peering, DNS, private endpoint,
+    private-cluster and public-access-removal plan with rollback and independent observations.
+- [ ] Remove tenant image construction and VM capture paths while retaining prebuilt artifact
+    verification, unchanged-digest ACR mirror/import and deployed Pod digest readback.
 - [ ] Publish and verify the full-catalog VM selection in an exact signed kit; retain successful
     image and Foundation readback under new exact approvals without repeating a retained claim.
 - [ ] Retain one approved private Foundation run that proves image and control-plane readback,

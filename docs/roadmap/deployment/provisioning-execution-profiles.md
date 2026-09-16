@@ -16,10 +16,11 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| AKS basic deployment followed by detailed private-network provisioning | not-started | Two-stage contract below; no new runtime acceptance evidence | An ordinary PC can initiate the AKS baseline without prebuilt internal infrastructure. API Server VNet Integration, stage selection, baseline acceptance, Console network requests and resumable protected execution still need implementation and end-to-end validation. |
 | Read-only inspection and profile initialization commands | implemented | `packages/deployment-cli`; focused profile, target, tool, and productization tests | The dedicated distribution registers `fdaictl`, writes private target-bound profiles, and returns review until execution-host evidence exists. |
 | Managed VM, private backend, and manual deployment host | implemented | `infra/bootstrap/`, standalone deployment modules, and focused bootstrap tests | The durable VNet host, workload identity, private state, exact plans, and application apply run without GitHub Actions. |
 | Fresh-subscription local coordinator | implemented | `fdaictl provision azure`; `fdai-up.sh`; signed-kit, Foundation, Bastion, managed-host, approval, license, migration, and convergence modules; routed lifecycle tests | One `dev` process derives the target from the active Azure CLI user and keeps stateful transitions serial. Tenant deployment has no GitHub transport. A governed Azure receipt and complete subscription-assurance evidence remain open. |
-| OCI deployment appliance | implemented | `build-deployment-appliance.sh`; `run-deployment-appliance.sh`; focused script and CLI tests | A release owner can wrap one verified complete kit in a digest-pinned, no-network OCI build. The image starts the manual standalone coordinator with no public artifact fallback. A clean production image build and Azure receipt remain open. |
+| Prebuilt OCI deployment appliance consumption | in-progress | `run-deployment-appliance.sh`; focused script and CLI tests | Tenant provisioning can start the manual standalone coordinator from a release-published, digest-pinned appliance with no public artifact fallback. A governed artifact-offline Azure receipt remains open; tenant deployment does not construct the image. |
 | Offline-kit construction and verification | validated | `fdai_deployment_cli.offline_kit`; locked release scripts; successful network-isolated air-gap drill | Signature-first verification, exact files, SBOM coverage, ABI/libc binding, private snapshots, and shipped-wheel installation pass. |
 | Stable Network API Foundation discovery | validated | PR #926; `deployment-v0.1.0-r4`; [issue #803 evidence](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906) | The published signed bundle passed all Foundation input reads in West US 2; no plan, apply, recovery, or deployment-readiness claim was produced. |
 | Temporary public-access cleanup | not-started | The access preference contract in this document | No composed command proves bounded creation, automatic cleanup, incomplete-on-cleanup-failure behavior, and audit closure. |
@@ -30,6 +31,9 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | not-started | Made AKS the explicit basic-deployment target and moved selected peering, private endpoints, private DNS, private-cluster mode and public-access removal into a Console-originated detailed provisioning plan. Tenant provisioning consumes prebuilt signed images and never builds or captures them. | `current change`; documentation and deployment-skill contracts only; no CLI, Console, Terraform or Azure effect claimed. | Implement the API-server subnet and public baseline, remove tenant image builders, add Console network request states and protected execution, and retain both baseline and private-transition receipts. |
+| 2026-09-15 | not-started | Defined ordinary-PC initiation and separated baseline service deployment from later detailed provisioning. Advanced unselected configuration cannot block baseline success; policy-mandated security and state protection remain prerequisites for the effects that need them. | Current design and deployment-skill update only; no new CLI commands, schema fields, platform support or deployed behavior claimed. | Implement both stages and prove an outside-PC start reaches authenticated baseline health, then add a selected capability without reinstalling or resetting persistent state. |
+| 2026-09-15 | in-progress | Clarified existing-host-first deployment: the current internal VM may own coordinator and execution roles; another VM, Bastion or state relocation is not automatically required. Separated actual endpoint/identity failures from installer wiring gaps. | Current documentation change in this profile and the deployment skill; no execution-path implementation or Azure acceptance is claimed. | Make the public coordinator honor an eligible current-host selection, preserve existing backend ownership and completed effects, and demonstrate exact-plan execution and independent readback without a redundant host transfer. |
 | 2026-09-13 | validated | Published `deployment-v0.1.0-r4` with the stable Network API correction, verified actual draft/public downloads and installed bytes, and passed signed-bundle Foundation discovery in West US 2 without Azure mutation. | PR #926; source `c137aa104682a59b979f5f3554a06bf87c555b8e`, tree-identical protected merge `d312225c795ce9bb90022f37ebb7fd6f83a4d343`; successful CI `34755232779` and `34755464071`; archive SHA-256 `c7e8b3e99fd77534ad7e2b2321d2e677fb3fe316a946e4c58ef797d5682bbab5`; 11 isolated artifact checks, 304 signed files, 59 matching installed files, and 12 read-only calls yielding seven layout prefixes; [issue #803 evidence](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906). | Existing r1/r3 state and claims remain unchanged. Explicit r4 source selection and a distinct prepared context are required; exact-plan approval, partial-image recovery, and online/offline deployment convergence remain open. |
 | 2026-09-13 | implemented | Corrected Foundation discovery after Azure CLI selected a Network API unavailable in an existing resource's region. Route-table and local-gateway detail reads now pin `2024-05-01` without changing inventory scope, failure handling, or approval. | `current change`; `test_genesis_network_api.py`, `test_genesis_network_layout.py`, and `test_genesis_prepare.py`: 32 passed; Ruff, format, strict typing, and a bounded read-only provider check passed. | Publish and verify a replacement signed kit; r3 retains its original bytes. No apply or recovery was performed, and deployment convergence remains open. |
 | 2026-09-13 | validated | Published and installed `deployment-v0.1.0-r3`, including all 14 additional rounds (nine production corrections and five rejected hypotheses with regressions). Both protected PRs merged and exact-source main CI completed successfully. | PR #918 and #920; source `3b4c088ea20d1d77770912394141847bf9940886`; CI `34746227767`; archive SHA-256 `7b454ff37833d7f5c665fddb1f7954c99f8ebeda363c3a3d807f9707e4c6f82b`; 11 no-network acceptance checks for 304 files, 59 installed payload files, six images, seven support packages, and 11 Terraform roots; actual public download and network-denied online/offline retry checks. | The bounded reviewed slice has no confirmed Medium-or-higher defect; retained-copy accumulation is Low. Azure SKU eligibility and separately approved partial-image recovery/convergence remain blocked. The prerelease requires explicit artifact selection. |
@@ -72,7 +76,18 @@ that applies before Terraform changes infrastructure or role assignments.
 - [x] Publish a replacement complete kit containing the subsequent CLI hardening and repeat exact installed-artifact acceptance. Evidence: `deployment-v0.1.0-r3` includes H01-H14, all 59 default-installed payload files match its signed wheel, and the prior installation was backed up.
 - [x] Publish and verify a replacement signed kit containing the stable Network API correction, then confirm Foundation discovery from that exact artifact without treating discovery as deployment readiness. Evidence: `deployment-v0.1.0-r4` and the linked issue #803 read-only checkpoint; the existing installed CLI already matches all 59 signed wheel files and was not replaced.
 - [ ] Retain target-bound Foundation and application convergence receipts from both active-login modes without claiming whole-subscription readiness.
-- [ ] Build one deployment appliance from an approved digest-pinned base, verify its SBOM and provenance, and retain an artifact-offline Azure deployment receipt from the image entry point.
+- [ ] Demonstrate current-VM `existing-host` execution without creating a redundant host or relocating an already correct protected backend, retaining identity, exact-plan, no-repeat and readback checks.
+- [ ] Demonstrate ordinary-PC basic deployment without preconfigured private access, with later detailed provisioning that preserves installation identity, existing state and Trial start time; keep optional missing capabilities separate from baseline health.
+- [ ] Create the AKS basic profile with API Server VNet Integration and dedicated workload and
+	API-server subnets, then prove authenticated restricted public management access from the
+	initiating coordinator.
+- [ ] Implement `/provisioning` network intent, assessment, exact-plan request, approval, apply,
+	rollback and independent readback for peering, private endpoints, DNS and private-cluster mode.
+- [ ] Remove tenant-run Docker, Buildx, ACR Tasks and VM image-capture paths; require a prebuilt
+	signed image manifest and deployed-digest readback instead.
+- [ ] Accept one release-published digest-pinned deployment appliance, verify its SBOM, provenance
+	and embedded kit, and retain an artifact-offline Azure deployment receipt without constructing
+	an image during tenant provisioning.
 
 ## Design at a glance
 
@@ -88,6 +103,11 @@ operator installed the wheel.
 | Ownership | `fdai-managed` | Terraform manages declared resources and role assignments after approval |
 
 ### Standalone active-login deployment
+
+The default product experience is basic deployment from an ordinary PC, followed by detailed
+provisioning on the same installation. The current `provision azure` name does not require all
+advanced configuration to finish before basic service availability. Stage separation is a target
+contract below; this documentation adds no implemented CLI flag or command.
 
 The installed package supports one default subscription deployment boundary after `az login`:
 
@@ -122,13 +142,18 @@ selected subscription using the stable Network API `2024-05-01`. It does not let
 a newer version that may be unavailable in an existing resource's region. A failed read still
 blocks discovery; it never drops a reservation, registers a provider, or retries another version.
 
-For a private route, the signed-in human performs only the bounded Foundation control-plane apply.
-The resulting Bastion-reachable VM uses a user-assigned managed identity and a manual-host image
-that contains no GitHub runner software. It verifies the kit again, creates the private application
-backend and registry path through a separate exact plan, imports and reads back the verified OCI
-archives, installs the deployment-bound license, runs migrations before application activation,
-and then runs the application plan, apply, health checks, and second zero-change plan.
-Private data-plane work never falls back to the operator workstation.
+Basic deployment verifies the prebuilt signed image set, creates the AKS substrate with API Server
+VNet Integration, deploys the five baseline services, installs the deployment-bound license, runs
+migrations before application activation, and requires health checks plus second zero-change plans.
+Tenant provisioning never builds or captures an image. The basic path keeps authenticated,
+restricted public management access unless tenant policy requires private access from the first
+effect.
+
+Selected private application backends, private registry paths and private service endpoints are a
+later detailed provisioning plan. An eligible current VM can serve as `existing-host`, with
+coordinator and execution on the same machine. When policy requires private access during basic
+deployment, that host or the minimum `managed-vm` path must have verified line-of-sight before the
+effect; private work never falls back to an ineligible host.
 
 Every mutating checkpoint retains exact-plan approval, an immutable pre-effect claim, a bounded
 stop and cleanup path, target locking, stable idempotency, and independent effect readback. The
@@ -208,9 +233,60 @@ resource and reports `mutation_performed=false` in JSON output.
 
 ## Execution hosts
 
+### Basic deployment and detailed provisioning
+
+**Design and critique:** Requiring complete private infrastructure and every operational integration
+before starting turns setup into a prerequisite for itself. Deferring authentication, data protection
+or tenant-mandated policy would instead create an unsafe baseline. Split the work by what is needed
+to run the product safely, not by whether the operator's PC happens to be inside Azure.
+
+An ordinary PC with a supported CLI runtime and access to Azure management/identity endpoints can
+initiate deployment. Internal-VM location, VPN, IMDS, an attached Managed Identity or a precreated
+Foundation are not universal PC prerequisites. Native OS support remains subject to the implemented
+toolchain; using a supported Linux environment does not require the physical PC to be an Azure VM.
+
+| Stage | Required outcome | Not a prerequisite for this stage |
+|-------|------------------|----------------------------------|
+| Basic deployment | AKS Standard with API Server VNet Integration, dedicated workload and API-server subnets, the five baseline services and required dependencies, durable state and migrations, minimum workload identity/RBAC, authenticated Console URL, restricted public management access, independent baseline health and restart persistence. | Private endpoints, VNet peering, private DNS, private-cluster mode, full resource discovery, model-capacity certification, optional connectors/ChatOps, organization-specific policies, production scale tuning or autonomous-action promotion. |
+| Detailed provisioning | Add selected private networking, operating scope, models, integrations, policies and capacity to the existing installation, with capability-specific exact plans, readiness and approvals. | Reinstalling the baseline, recreating verified resources or resetting persistent data and Trial start time. |
+
+For basic deployment, collect only target, region, runtime/database choices and necessary cost/access
+decisions. Reuse unchanged selections. Minimum dependencies and mandatory subscription policy cannot
+be deferred; optional setup stays unavailable rather than represented by fake health or evidence.
+Following the [Trial contract](installable-deployment-cli.md#source-provenance-and-trial), basic
+installation requires no publisher signing key, and later provisioning does not renew the Trial.
+
+The coordinator executes eligible management-plane steps from the PC. Basic deployment reserves
+the network structure needed for later hardening, but it does not require peering the PC, attaching
+a VM identity to it, creating private endpoints or manually building Foundation before starting.
+Private data-plane steps required by policy use an eligible existing host or the minimum
+installer-managed execution path included in the approved plan. Do not expose a policy-required
+private service publicly or switch an existing backend merely to avoid the internal execution path.
+Host preparation is installer work, not an extra product stage.
+
+After baseline Console health passes, `/provisioning` may collect the intended peer VNet, address
+ranges, private services, DNS and egress posture. The browser submits a content-addressed request;
+it never receives the deployment identity or runs Terraform. The protected executor validates
+non-overlap, produces an exact plan, waits for distinct human approval, applies it and independently
+verifies peering, route, DNS, TLS, identity and endpoint reachability before public access is
+removed. An ambiguous effect resumes verification only.
+
+Report basic deployment success only after authoritative service and access checks pass. Detailed
+provisioning may remain incomplete while the baseline is healthy; `subscription_ready=false` alone
+does not mean basic deployment failed. Conversely, a cluster or Console shell alone is not baseline
+success. Preserve existing result-field semantics and define any new stage-specific contracts before
+implementation; do not relabel legacy whole-run receipts as basic success without their evidence.
+
+Example: start from a laptop, review the baseline plan, and open the authenticated Console after
+service checks pass. Then configure a model and managed-resource scope during detailed provisioning
+without redeploying the working baseline or granting autonomous action authority implicitly.
+
 ### Existing host
 
-Use `existing-host` for a jumpbox or deployment host that already has:
+Prefer `existing-host` for an eligible current internal VM, jumpbox or deployment host. Calling a
+machine a PC or using a local terminal does not make it external. Verify the actual execution
+environment, including Linux tooling under WSL where applicable, rather than inferring eligibility
+from the desktop operating system. The selected host needs:
 
 - network and private DNS reachability to every required private endpoint;
 - Azure CLI and Terraform;
@@ -218,17 +294,37 @@ Use `existing-host` for a jumpbox or deployment host that already has:
 - durable access to the protected Terraform backend and plan store.
 
 Manual execution means that the operator starts `fdaictl` on this host. It does not mean that
-Terraform uses the operator's interactive Azure identity. A host without a workload identity is
-reported as incomplete.
+Terraform uses the operator's interactive Azure identity. An execution host without the required
+workload identity is incomplete; this does not reject an ordinary PC acting only as coordinator.
+Reuse an existing appropriately scoped deployment identity where permitted;
+do not require the identity or host to have been created by the current Foundation run. Identity
+attachment, role changes and network changes still need their own reviewed scope and exact approval.
+
+**Design and critique:** A separate managed VM is one implementation, not proof that a current VM
+is unsuitable. Conversely, being inside Azure does not prove access to a particular private endpoint.
+Check target, DNS, routes, TLS, backend authorization and executor identity separately. A missing
+direct VNet peering alone does not prove that no approved routed path exists. Report the failed
+check and the smallest repair, not a blanket requirement to provision another host.
+
+When coordinator and execution share an eligible host, no SSH/Bastion hop or source transfer to a
+second machine is required. Foundation handoff preserves verified resource context and authoritative
+Terraform state; it does not inherently move resources or application data. Reuse a correct protected
+backend. When migration is actually required, retain its exact approval and single-owner checks.
+Never repeat a completed apply or fabricate a receipt to repair a missing installer completion record.
+
+Existing-host selection does not by itself prove that every public coordinator path implements it.
+Report an unsupported entrypoint or recovery-receipt path as an installer gap, separately from host
+eligibility. Do not claim this documentation change completes that implementation or deployment.
 
 ### Managed VM
 
-Use `managed-vm` when the operator laptop is outside the private network, the existing jumpbox is
-unsuitable, or policy requires a dedicated deployment host. The VM remains durable but is normally
+Use `managed-vm` when no suitable existing host is available or policy requires a dedicated deployment
+host. External coordinator location alone does not justify replacing an eligible host.
+The VM remains durable but is normally
 deallocated. Protected state, plans, approvals, and audit records remain in private storage so VM
 start, stop, or rebuild does not change deployment authority.
 
-The target CLI recommends a managed VM but does not create one during inspection. Bootstrap planning
+Inspection evaluates existing-host suitability first and creates no VM. Bootstrap planning
 shows the VM, network, identity, role, access, cost, stop, and cleanup effects before approval.
 
 ## Access preference

@@ -20,6 +20,7 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Prebuilt-only tenant image supply | in-progress | Signed-kit, OCI verification, ACR import and digest readback exist; source and Genesis image builders remain | Production tenant provisioning must consume release-built signed images and must not build or capture images. Existing builder paths require removal and focused regressions. |
 | Production plan gates and environment knobs | implemented | `infra/production-gates.tf`; `infra/envs/{staging,prod}.tfvars.example`; Terraform configuration tests | Missing signed image, private network, durability, monitoring, or cost inputs block a production plan. Standard profiles permanently delete globally named resources and leave management locks disabled. |
 | Manual production execution boundary | implemented | deployment CLI manual profile; standalone managed-host modules; focused package tests | Public workflow dispatch is removed. Operational production evidence remains open. |
 | Credential-free infrastructure and drift guards | implemented | `.github/workflows/ci.yml`; `.github/workflows/infra-drift.yml`; stable deploy identity helper; runner posture script; CI contract tests | Required CI validates every Terraform root without credentials. Protected workflows select one bootstrap-owned UAMI and verify its token `oid`. Subscription role delegation is conditioned to three read roles for service principals. Drift checks cover every state root and reject missing state, unexpected runner storage, or non-local placement. |
@@ -36,6 +37,7 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | in-progress | Replaced tenant-side runtime and Genesis image construction guidance with prebuilt signed release image verification and unchanged-digest mirroring. | `current change`; documentation and deployment-skill contracts only; implementation remains unchanged. | Remove the tenant image builders and recovery paths, then prove production deployment performs only verified mirror/import and deployed-digest readback. |
 | 2026-09-13 | implemented | Corrected the Genesis runner-image verifier after a live fail-closed apply showed that its own `az version` check recreated the forbidden root Azure CLI profile. The verifier now uses and removes a dedicated temporary Azure CLI configuration before asserting that the captured image contains no credential artifacts. | Failed approved runner-image apply retained under issue #94; `current change`; `infra/genesis-runner-image/main.tf`; Terraform runner-image contract test. | Publish a new signed kit, create a separately reviewed exact plan, and verify the captured image without reusing the failed apply claim. |
 | 2026-09-13 | implemented | Added protected repository-variable overrides for the scenario-lab AKS node and stress VM sizes while retaining the existing defaults. This permits an exact plan to select subscription-compatible SKUs without weakening plan-first approval or enabling the reference sweep. | `current change`; `.github/workflows/sre-demo-lab.yml`; `infra/scenario-lab/README.md`; `tests/integration/infra/test_scenario_lab.py`; focused scenario-lab tests passed 8 cases; design-route and diff checks passed. | Merge through protected CI, configure only validated regional SKUs, and retain a zero-delete plan before any apply. |
 | 2026-09-12 | implemented | Restricted production tenant execution to the standalone manual managed host and removed public workflow dispatch from the deployment CLI. | `current change`; deployment CLI contracts and focused package tests | Retain a production plan and apply receipt from the manual host before advancing validation state. |
@@ -83,6 +85,8 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 - [ ] Retain an exact-revision protected production plan and apply receipt proving the unlocked
     teardown profile, private networking, PostgreSQL durability, trusted image digest, notifications,
     monitoring, and the cost budget together, including one blocked negative plan.
+- [ ] Remove tenant-side service and deployment-host image builders, require the prebuilt signed
+    release manifest, and prove production deployment invokes no image build or capture tool.
 - [ ] Retain a protected non-production destroy and exact-name recreation receipt for Key Vault,
     Cognitive Services, Log Analytics, and the resource group.
 - [ ] After green required CI, retain zero-unrelated-destroy UAMI role-migration plans and one
@@ -162,22 +166,21 @@ permanent-delete operation before their names are released.
 
 ## Trusted image source
 
-A tenant without public registry egress builds the runtime image with
-`--build-arg BASE_IMAGE_REGISTRY=<internal-mirror>`. Only the registry host moves; the base image
-digests stay pinned in the `Dockerfile`, so a mirror can change where the bytes come from but never
-which bytes are accepted. `scripts/quality/ci/check-ci-contracts.py` fails the build when a base
-image loses either property. The same contract pins security-upgraded runtime libraries that are
-newer than vulnerable versions retained in the accepted base image.
+A tenant without public registry egress mirrors the prebuilt release image through an approved
+internal registry. The release manifest pins the complete image digest, provenance, SBOM and source
+revision. A mirror can change where the bytes come from but never which bytes are accepted. Tenant
+provisioning does not invoke Docker, Buildx, ACR Tasks, a remote builder or VM image capture. It
+verifies the mirrored digest before planning and reads the running Pod digest back after rollout.
 
 Signed deployment bundles keep regular source files non-executable after extraction. Bootstrap,
 policy, migration, and public-path callers launch those authenticated sources only through fixed
 trusted interpreters. They never restore execute bits broadly or select an interpreter from an
 untrusted ambient path.
 
-The Genesis image builder treats only tenant-policy-appended `ip_tags` on its two Firewall public
-IPs as externally owned. It accepts only matching absence or
-`FirstPartyUsage=/Unprivileged`, rejects every other value through independent ARM readback, and
-requires a refreshed zero-change Terraform plan before publishing the image receipt.
+The legacy Genesis image-builder and residual recovery paths are being retired. Connected
+deployment uses an exact Marketplace host plus a checksum-pinned bootstrap, while artifact-offline
+deployment may consume a separately published prebuilt host image. Neither path creates or captures
+a host image in the tenant deployment run.
 
 ## Private data services
 
