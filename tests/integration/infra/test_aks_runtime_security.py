@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[3]
             "runtime",
             {
                 "azure_policy_enabled": "true",
-                "private_cluster_enabled": "true",
+                "private_cluster_enabled": "var.private_cluster_enabled",
                 "local_account_disabled": "true",
                 "role_based_access_control_enabled": "true",
                 "automatic_upgrade_channel": '"patch"',
@@ -60,3 +60,29 @@ def test_aks_existing_subnet_has_explicit_egress_before_cluster_creation() -> No
     assert "azurerm_nat_gateway_public_ip_association.egress," in source
     assert "azurerm_subnet_nat_gateway_association.egress," in source
     assert '"managedNATGateway"' not in source
+
+
+def test_aks_baseline_uses_api_server_vnet_integration() -> None:
+    cluster = (ROOT / "infra/runtimes/aks/cluster/main.tf").read_text(encoding="utf-8")
+    network = (ROOT / "infra/modules/network/main.tf").read_text(encoding="utf-8")
+    substrate = (ROOT / "infra/main.tf").read_text(encoding="utf-8")
+    outputs = (ROOT / "infra/outputs.tf").read_text(encoding="utf-8")
+
+    assert 'resource "azurerm_subnet" "aks_api_server"' in network
+    assert 'name    = "Microsoft.ContainerService/managedClusters"' in network
+    assert re.search(
+        r'count\s*=\s*var\.enable_private_networking \|\| var\.compute_kind == "aks" \? 1 : 0',
+        substrate,
+    )
+    assert re.search(r'var\.compute_kind == "aks" \? module\.network\[0\]\.aks_subnet_id', outputs)
+    assert re.search(
+        r'var\.compute_kind == "aks" \? module\.network\[0\]\.aks_api_server_subnet_id',
+        outputs,
+    )
+    assert "virtual_network_integration_enabled = true" in cluster
+    assert re.search(r"subnet_id\s*=\s*var\.aks_api_server_subnet_id", cluster)
+    assert re.search(r"authorized_ip_ranges\s*=\s*var\.api_server_authorized_ip_ranges", cluster)
+    assert re.search(r"private_cluster_enabled\s*=\s*var\.private_cluster_enabled", cluster)
+    assert "#trivy:ignore:AZU-0065" in cluster
+    assert "checkov:skip=CKV_AZURE_115" in cluster
+    assert "explicit authorized CIDRs, Entra RBAC, disabled local accounts" in cluster

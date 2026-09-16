@@ -32,6 +32,8 @@ The layers communicate through the event bus and git, not direct in-process call
   revision, idempotency, and audit. It and the SPA MUST NOT receive Thor's identity, mutate managed
   resources, derive browser authorization, or bypass agent, quality, risk, approval, recovery, or audit. See
   [../../docs/roadmap/interfaces/console-operations.md](../../docs/roadmap/interfaces/console-operations.md).
+- `/provisioning` MAY submit a typed, content-addressed intent to the protected deployment executor,
+  but browser/API MUST NOT run Terraform, mutate Azure, hold deploy identity, or read state; plan, approval, apply, rollback, and independent readback stay separate audited stages.
 - The console uses **clean History API URLs** for operator-facing navigation. Paths use
   lowercase `kebab-case` with no spaces or underscores (for example,
   `/operating-outcomes/change-lead-time` and `/verticals/change-safety`). Internal API
@@ -199,30 +201,30 @@ Recommended mapping:
   subscription resource-write/delete signals into a raw Event Hub. It is not a core contract,
   broker, or decision surface. Huginn normalizes those records after Kafka ingress, so the core
   still sees Kafka only. Event Hubs local authentication remains disabled.
-- Runtime services: **Azure Container Apps** (Consumption). The current topology contains five
-  independently packaged services: Core Control Plane, Operator Service, Document Ingestion API,
-  Document Processing Worker, and Isolated Executor. Core is non-privileged, and effect authority
-  stays in the internal Executor behind versioned transport, durability, identity, observability,
-  exact-topology smoke, and rollback gates. The Core baseline keeps `minReplicas = 1`; scale-to-zero remains blocked until
-  an Event Hubs Kafka-lag scaler authenticates without a long-lived secret. AKS is reserved for a
-  measured heavier profile. Both apps ship as an **OCI image + a Knative-compatible manifest
-  subset**, rendered into `containerapp` resources by IaC. **Dapr sidecars and Envoy-specific
-  ingress rules are prohibited** to keep the runtime contract portable. Track the cutover in
+- Runtime services: **AKS Standard** is the new-install default for the five packaged services.
+  Core stays non-privileged and only internal Executor may hold effect authority. Prebuilt, signed,
+  digest-pinned OCI images and runtime-neutral specs render to Kubernetes `Deployment`, `Service`,
+  `ServiceAccount`, HPA, PDB, `NetworkPolicy`, and `CronJob`; tenant provisioning MUST NOT build or
+  capture images. Existing Container Apps installations are compatibility/migration sources. See
   [../../docs/roadmap/architecture/service-decomposition-execution-plan.md](../../docs/roadmap/architecture/service-decomposition-execution-plan.md).
-- Light triggers: **Container Apps Jobs** in the same environment for out-of-band change detection
-  and cost-anomaly probes; the same manifest renders a K8s `CronJob` on non-Azure targets.
+- Light triggers: AKS `CronJob` resources use the portable schedule contract.
 - Audit/state/KPI + T1 vectors: **PostgreSQL Flexible** with **pgvector** co-located. Dev uses Burstable
   without HA; production requires zone-redundant HA plus geo-redundant backup. Cosmos DB is considered
   only if RU-metering and geo-distribution outgrow this boundary.
-- Secrets: the app reads **environment variables only**; **Key Vault** uses a **Container Apps native
-  secret + Key Vault reference** (K8s targets use External Secrets Operator). The app never calls a secret SDK.
+- Secrets: apps read env/mounted Secrets only; AKS uses managed Key Vault CSI with workload identity, never an app secret SDK.
 - PR gate: **GitHub App** (Checks API) or Azure DevOps service hooks.
 - HIL approval: **Bot Framework / Teams** Adaptive Cards (Azure Bot Free tier).
 - Execution identity: **user-assigned Managed Identity** + action whitelist (least privilege), exposed
   as an **OIDC token** via `WorkloadIdentity` so IRSA / GCP Workload Identity / SPIRE remain additive.
   `DefaultAzureCredential()` and similar SDK entry points stay in the Azure adapter, never `core/`.
-- Observability: **Log Analytics** with **App Insights bound to it**; default 30-day retention,
-  UI-configurable.
+- Observability: **Log Analytics** + **App Insights**; default 30-day retention, UI-configurable.
+
+### AKS Basic and Private-Network Stages
+
+- Basic deployment reserves workload and API-server subnets, enables API Server VNet Integration and workload identity, and keeps authenticated, policy-restricted public management access.
+- After baseline health, `/provisioning` MAY request peering, private endpoints/DNS, private-cluster mode, public-access removal, and egress controls through the protected executor.
+- Before closing the last public path, the executor MUST prove routes, DNS, TLS, identities, AKS API, registry, state, Key Vault, PostgreSQL, Event Hubs, and rollback.
+- Policy-required day-zero privacy MUST use an eligible internal host and exact private plan, never weakened policy.
 
 ## Failure Modes
 
