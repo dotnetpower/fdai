@@ -1,4 +1,4 @@
-# Human-agent handover implementation and hardening
+# Human-agent ownership handover implementation and hardening
 
 This engineering record tracks the bounded source-delivery work for
 [issue #946](https://github.com/dotnetpower/fdai/issues/946). It separates local implementation
@@ -898,7 +898,7 @@ Mimir subscription and source scheduler; legal-hold release/deletion policy in a
 operational latency/cohort evidence remain separate. Retained unknown-policy content is an explicit
 held outcome, not a completed purge or Low-only operational claim.
 
-### Next execution connection: source findings, not an enforcement shortcut
+### Next execution connection: source detected issues, not an enforcement shortcut
 
 Current isolated dispatch accepts only canonical Azure operation targets; a human-assignment case
 is not such a target. The existing operations gateway has only Change/Resilience/FinOps identities

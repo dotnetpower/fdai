@@ -136,8 +136,13 @@ installation cannot switch platforms by changing one variable.
 | In-cluster PostgreSQL | `fdai-<environment>-aks-database.tfstate` |
 
 The shared platform continues to own Event Hubs, Key Vault, Azure Container Registry, monitoring,
-workload identities, and `postgres-flex`. The AKS substrate state owns only the cluster, node
-pools, cluster identity, networking attachment, and cluster-scoped Azure role assignments.
+workload identities, case-history storage, and `postgres-flex`. Case-history content defaults its
+active, deletion-due, superseded-version, and change-feed periods to 30 days; operational-history and
+decision-evidence metadata keep their separate schedules. The AKS substrate state owns only the
+cluster, node pools, cluster identity, networking attachment, and cluster-scoped Azure role
+assignments.
+AKS consumes the shared root's Key Vault output; overlength candidates use the deterministic
+`kv-aip-<8hex>` fallback without creating a second runtime naming rule.
 Selecting AKS creates the application VNet plus node and API-server subnets even when detailed
 private networking is off. The separate private-networking input controls service private
 endpoints, hub peering and private DNS rather than the AKS subnet prerequisite.
@@ -189,9 +194,19 @@ a dedicated `/tmp` temporary volume limited to `1Gi`. Workload validation reject
 and malformed image digests before planning. Other writable paths require an explicit workload
 contract; making the whole root filesystem writable is not a compatibility fallback.
 
+The five-service AKS baseline enables lexical document retrieval without requiring an embedding
+deployment. Document API and Worker use distinct workload identities, role-scoped database DSNs,
+the shared ADLS account and the `fdai.pipeline.stages` entity. The Worker Pod includes the existing
+digest-pinned ClamAV image as a replica-local TCP sidecar. Its root remains read-only and only the
+declared database, run and temporary paths receive size-limited `emptyDir` volumes.
+
 Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active
 deadline, a retry limit, and bounded history. Manual jobs are created only by a separately approved
 request and are not perpetual desired-state resources.
+The AKS baseline renders analyzer, canary, inventory, observation campaign, and operational-history
+lifecycle CronJobs. The history job uses the read-only inventory identity, the service-owned state
+DSN, and the private archive URL in fixed `shadow` mode. A non-shadow lifecycle requires a separate
+protected transition and an exact persisted certification receipt; runtime selection grants neither.
 
 The inventory command and its CLI support module preserve read-only failure boundaries on both
 platforms and in the local managed stack. Activity Log recovery is independent of full reconciliation:

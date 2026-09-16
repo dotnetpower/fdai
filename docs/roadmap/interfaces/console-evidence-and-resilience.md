@@ -78,7 +78,7 @@ geometry, forced colors, reduced motion, and keyboard focus. It must redact scop
 content and classify audible or braille output as `needs-human` until a person using the named
 assistive technology confirms it.
 With a server-pinned drift context, the GET-only Configuration baselines route fresh-reads identity, lifecycle, drift, Knowledge citation, topology, latency, scheduled-review, and four safety counters.
-It reports absent binding or campaign as unavailable or `not-configured`, never invents progress, strictly rejects malformed data, and compares immutable in-scope versions with failed-attempt counts. The SPA exposes no activation, resume, schedule creation, approval, mitigation, or resource mutation; evidence-run, resume, blueprint review, and materialization use separate authenticated routes.
+The Console separates Baseline, Drift, and Review views, renders `performance: null` as `Not measured` rather than zero, reports absent binding or campaign as unavailable or `not-configured`, never invents progress, strictly rejects malformed data, and compares immutable in-scope versions with failed-attempt counts. The SPA exposes no activation, resume, schedule creation, approval, mitigation, or resource mutation; evidence-run, resume, blueprint review, and materialization use separate authenticated routes.
 Production exposes the panel only after its mounted JSON/DOCX pair, read-only Managed Identity, and exact resource-group allowlist validate at startup. The Operator API never receives executor identity.
 
 The Processes detail route conditionally renders a Planning Room from the same authoritative
@@ -207,8 +207,7 @@ inclusive and maps to the next UTC midnight as the exclusive API boundary.
 
 ## Loading presentation
 
-The [Console loading presentation reference](../../reference/console-loading-presentation.md)
-defines skeleton, reduced-motion, stylesheet, and hot-update behavior.
+The [Console loading presentation reference](../../reference/console-loading-presentation.md) defines skeleton, reduced-motion, stylesheet, and hot-update behavior. Alert quality opens the only exact scope returned for the signed-in principal without requiring a redundant URL selector; zero scopes render configuration guidance and start no report read, while two or more scopes require an explicit operator choice. A ready report presents the authority boundary, scope context, four separate evidence values, and findings before provenance, request controls, Settings, plans, and history. Missing, measured zero, partial, and unavailable values remain distinct, and the Console never substitutes synthetic evidence.
 
 ## Localization boundary
 

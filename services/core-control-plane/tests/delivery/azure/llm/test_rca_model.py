@@ -19,7 +19,11 @@ from fdai.core.rca import Citation, CitationKind, LlmRcaReasoner, RcaTier
 from fdai.delivery.azure.llm import AzureOpenAIRcaModel, AzureOpenAIRcaModelConfig
 
 _CANDIDATES = (
-    Citation(kind=CitationKind.RULE, ref="object-storage.owner-tag.required"),
+    Citation(
+        kind=CitationKind.RULE,
+        ref="object-storage.owner-tag.required",
+        facts=("marker:storage", "signal:log_error"),
+    ),
     Citation(kind=CitationKind.EVENT, ref="e-1"),
 )
 
@@ -80,6 +84,8 @@ async def test_propose_cause_builds_request_and_returns_content() -> None:
     # User prompt lists the candidate refs and constrains grounding.
     user = body["messages"][1]["content"]
     assert "object-storage.owner-tag.required" in user
+    assert '"marker:storage"' in user
+    assert '"evidence_facts"' in user
     assert "Cite ONLY" in user
 
 

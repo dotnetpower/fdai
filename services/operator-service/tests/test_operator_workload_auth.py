@@ -160,7 +160,13 @@ async def test_delegated_reader_without_idtyp_can_start_interactive_chat() -> No
 
 @pytest.mark.parametrize(
     "operation",
-    ["chat.exchange", "busy.submit", "background.create", "user.preferences.put"],
+    [
+        "chat.exchange",
+        "chat.action.confirm",
+        "busy.submit",
+        "background.create",
+        "user.preferences.put",
+    ],
 )
 async def test_delegated_reader_cannot_submit_non_stream_proposals(operation: str) -> None:
     authorizer = OperatorFamilyAuthorizer(

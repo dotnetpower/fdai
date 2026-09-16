@@ -1,6 +1,6 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: a52479d80621ffa543b69bf56f08032783a68a5f
+translation_source_sha: 2911871c69b35c20f6ee7e2bd3c639a49906dd70
 translation_revised: 2026-09-16
 ---
 
@@ -65,7 +65,8 @@ Saga가 감사한 `stage = received`, `decision = admit` 레코드만 소비합�
 `object.anomaly`로 정규화하며, Forseti가 protection 판정을 발행하고 Saga가 봉인합니다.
 감사된 clear 결정은 Muninn으로 전달되고, Muninn만 추출과 인덱싱을 여는
 `object.context-index` 명령을 발행합니다. 차단된 결정은 버전을 `HELD`로 이동합니다.
-현재 구현에서는 민감도 레이블이 있거나 `handover_bootstrap`, `manual_distillation`, `cloud_reference` 용도로
+현재 구현에서는 민감도 레이블이 있거나 `handover_bootstrap`, `report_line_bootstrap`,
+`manual_distillation`, `cloud_reference` 용도로
 제출된 문서는 안전성 검사를 통과해도 사람 승인(`hil`) 판정을 받습니다. `cloud_reference`
 패키지의 서명이 유효해도 Var의 독립적인 사람 검토와 승인은 생략할 수 없습니다.
 Saga가 이 판정을 봉인하고 Var가 문서 승인 티켓을 만듭니다. 업로더는 자신의 문서를
@@ -94,6 +95,10 @@ Var는 해당 요청에 대한 기존 사람 승인을 검증하며, 사람의 �
 때 인증된 요청자를 기록합니다. 이 정책 경로는 구현하거나 승격하지 않았습니다. 현재의 문서별
 승인과 자기 승인 금지는 계속 적용합니다. 민감한 내용과 판단 기준이 되는 규칙이나 정책으로의
 승격은 자체 승인 요건을 유지합니다.
+
+`report_line_bootstrap` 용도는 근거가 있고 검토 전용인 사람-관리자 후보만 만듭니다. 각 edge가
+현재 보고 그래프에 들어가려면 관계의 한쪽 당사자와 독립 Owner가 확인해야 합니다. 자세한 내용은
+[사람 보고선 및 승인 라우팅](human-report-lines-and-approval-routing-ko.md)을 참조하세요.
 
 ## 지속성 있는 워커 소유권
 

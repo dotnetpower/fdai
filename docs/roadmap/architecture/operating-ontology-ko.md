@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 9a0024f7713d153fafb265315ff16b5a08443911
-translation_revised: 2026-09-09
+translation_source_sha: 4330d3cf80f086012cc9ecd24507a613c2e04680
+translation_revised: 2026-09-16
 ---
 # FDAI 운영 온톨로지
 
@@ -49,7 +49,7 @@ Catalog-owned `Property` ObjectType은 룰 속성 참조를 위한 meta 객체�
 검토된 정본 `semantic_id`, 값 종류, 선택적 단위, enum 또는 범위, 정규화 룰, 권한과 최신성 정책,
 equivalent 프로바이더 경로, 그리고 그 근거를 데이터로 추가합니다. 프로바이더 경로는 코어 코드를
 분기시키지 않으며 `scripts/quality/architecture/check-property-semantic-coverage.py`가 아래
-커버리지를 측정합니다.
+커버리지를 측정합니다. 프로덕션 제어 임계값도 의미와 활성 정책을 같은 방식으로 분리합니다. 고정된 `ontology/detection-routing-bounds@1.0.0` 계약은 LLM 라우팅 제어 7개와 인시던트 탐지 제어 5개의 형식, 단위, 적용 범위 및 절대 허용 구간을 선언하고, 활성 기본값과 값은 버전이 지정된 구성에 남습니다. AST 기반의 정확한 결속 검사는 등록되지 않은 소비자, 사용되지 않는 선언 또는 활성 구성 범위와 온톨로지 범위 사이의 표류를 거부합니다. 이 선언은 값을 선택하거나 판단, 승격 또는 실행 권한을 부여할 수 없습니다.
 
 <!-- property-semantic-coverage:begin -->
 측정된 검토 커버리지: 룰이 평가하는 Property 참조 62개 중 **62개**(100.0%)이며 검토된 의미는 45개입니다. 이 수치는 손으로 관리하지 않고 커버리지

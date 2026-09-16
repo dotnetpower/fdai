@@ -55,17 +55,16 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
   directly. One projection owner adjudicates observations and atomically advances its current
   subgraph. Snapshot and journal record conversion call one support-owned relationship-evidence
   encoder, so the two persistence paths cannot diverge in retained evidence.
-- **Graph first:** Ordinary questions read the current operational graph before any provider API.
-  A live provider read is allowed only when required evidence is missing, stale, incomplete,
-  conflicting, or explicitly requested under a bounded read policy.
+- **Graph first:** Ordinary questions read the current operational graph before any provider API. A live provider read is allowed only when required evidence is missing, stale, incomplete, conflicting, or explicitly requested under a bounded read policy.
+  The generated question bank binds every source blob digest; any source-catalog change requires full deterministic regeneration, while unchanged question records grant no graph freshness, completeness, or action authority.
 - **Safe enrichment:** A live read can support the current answer and publishes a typed observation
   through the same ingress. A partial read cannot replace a complete generation or delete an
   unobserved object or relationship. Runtime environment bindings can participate in an in-memory,
   exact-identity relationship join, but their names and values are redacted before inventory
   snapshot or ontology persistence.
-- **Time and provenance:** Every fact retains effective time, event time when available, recorded
-  time, evidence cutoff, source identity, source revision, completeness, conflicts, and freshness
-  policy.
+- **Time and provenance:** Every fact retains effective, provider-event, observation, FDAI-ingestion,
+  recorded, and evidence-cutoff time plus source, revision, completeness, conflicts, and freshness.
+  The normalized journal keeps these distinct; ingestion latency never rewrites provider event time.
 - **No false absence:** Missing events, truncated reads, cursor lag, an open realtime overlay, and
   archive unavailability remain explicit unknown or incomplete evidence.
   A bounded query can return verified positive observations from the available scope, but it keeps
@@ -228,7 +227,7 @@ The persisted Job template leaves this input unset.
 
 The current-graph checkpoint is bound to the active snapshot generation and exact scope set. A complete
 provider snapshot covers same-scope observations from its generation and start time, so the contiguous checkpoint scans only those scopes.
-Inactive-scope observations remain durable history and retention work. Reactivation requires a new complete reconciliation, while active-scope
+Inactive-scope observations and cursor lag already covered by the latest complete snapshot remain durable health or retention evidence without creating another full-scan request. Reactivation requires a new complete reconciliation, while active-scope
 post-snapshot observations keep the graph incomplete until projection catches up.
 Checkpoint calculation is bounded by the journal high watermark observed by the same snapshot append.
 Concurrent later journal writes can lower completeness, but cannot advance either global or active-scope
@@ -429,11 +428,10 @@ Each record distinguishes these meanings:
 - **Confirmed tombstone:** Re-observation or complete reconciliation confirms deletion and records
   the resource incarnation, effective time, source revision, and evidence reference.
 
-The journal keeps provider event time, effective time, observation time, ingestion time, recorded
-time, and evidence cutoff distinct. It also keeps source identity, source event id, cursor or
-revision, scope, completeness, conflicts, property mask, content digest, and retention class.
-Operation status such as a successful write remains change metadata and never becomes resource
-operational state.
+The journal keeps nullable `provider_event_at`, effective and observation time, required `ingested_at`, recorded time, and evidence cutoff distinct.
+Existing records use `ingested_at=recorded_at` without inventing provider event time; source, revision, scope, completeness, conflicts, masks, digest, and retention remain pinned.
+The additive migration holds the table lock, suspends only the update guard while backfilling existing rows, restores it before enforcing `NOT NULL`, and leaves the delete guard active.
+Operation status such as a successful write remains change metadata and never becomes resource operational state.
 
 A resource id can be reused after deletion. Projection therefore assigns a resource incarnation
 from an immutable provider identity, generation, or independently verified lifecycle boundary.
@@ -572,9 +570,9 @@ step. It never claims complete inventory or global absence, and holds when no su
 OI-01 records the exact code owner, runtime or storage binding, focused tests, state, and missing
 binding for each stage in
 [`config/continuous-operational-instance-graph-audit.json`](../../../config/continuous-operational-instance-graph-audit.json).
-The architecture checker rejects a missing stage, missing evidence path, unassigned implemented
-work, or an open stage that does not name its exact gap. It validates normative ownership in this
-design and implementation status and remaining work in the linked delivery ledger.
+The checker rejects missing stages or evidence, unassigned work, implemented work with partial or
+unbound bindings, and unnamed open gaps. It records synthetic, deployed-binding, and production-data
+validation separately; normative ownership remains here and delivery status remains in the linked ledger.
 
 | Stage | State | Audited result |
 |-------|-------|----------------|
@@ -592,7 +590,7 @@ design and implementation status and remaining work in the linked delivery ledge
 | Adaptive scheduling | implemented | Validated source policies and a pure reducer consume freshness, lag, demand, provider pressure, `Retry-After`, remaining budget, concurrency, circuit-open state, and recovery probes. PostgreSQL supplies durable due state, and the principal-safe health projection exposes the next bounded action. |
 | Retention and holds | implemented | The archive purge coordinator blocks deletion until exact verification, restore sampling, and retention or legal-hold evaluation pass. Append-only PostgreSQL receipts preserve blocked, pending, failed, successful, and retry outcomes. |
 | Typed rollup | implemented | Fact-specific policies separately aggregate gauges, counters, categorical state, relationship changes, and evidence health while preserving source and generation lineage, bitemporal ranges, missing intervals, observed zero, conflicts, completeness, and mergeable count and sum. Percentiles remain unavailable. |
-| Archive lifecycle | implemented | Content-addressed manifests, the private Azure Blob writer, principal-scoped verified reader, database-gated source purger, append-only verification, restore, coverage, hold, and purge receipts, and a dedicated fixed-shadow Container Apps Job are implemented. Protected certification binds separate GitHub API and registry credentials to exact-source attestation verification. OCI verification renders the workflow credential in process into a mode-0600 file inside a mode-0700 transient Docker config and removes the credential directory at exit without a Docker CLI dependency. Job resolution, exact OCI provenance verification, and ACR binding are separate protected steps; only the verified repository, revision, and digest cross the verification boundary. Certification normalizes the Terraform ACR output or verified deployed Job image to an Azure login host and can explicitly import the same digest without rebuilding. OI-12 binding prefers the inventory Job, history Job, archive URL, and resource-group root outputs. When the deployed state predates them, one bounded ARM enumeration reads only `Microsoft.App/jobs`, admits at most 64 resources, and requires exactly one container matching each reviewed inventory and history runtime contract. One fail-closed equality predicate must prove both exact runtimes report the same provider-observed group before a missing resource group is adopted. Inventory refresh validates the reviewed live Job and places only the stable start API's `containers` and `initContainers` fields in a mode-0600 request while changing the canonical container image. Container-level command, arguments, environment, resources, secret references, and volume mounts are preserved; Job-owned volumes remain inherited because the start schema does not admit them. The CLI image shortcut is excluded because it replaces command and environment. Pending snapshot recovery suppresses a relationship that lacks typed observation metadata, retains an `unverified_metadata` drop, and continues with the remaining verified snapshot instead of blocking every later refresh. Retained state-transition children are restored in the incoming digest-bearing order before equality verification, while missing, extra, duplicate, or individually invalid children remain rejected. Protected measurement waits up to 120 seconds for the active inventory and ontology projection generations to converge before each snapshot, retries only the typed generation-pending condition, and otherwise fails closed. Provider failure/recovery measurement selects failures only from the current active generation's source and observation kind, then requires a later successful snapshot with the exact failed source, observation kind, scopes, and resource types; retired sources cannot supply or suppress the current instance measurement. Any non-empty root output must match the selected ARM runtime; Job names never supply identity, and provider output is removed after the step. A protected plan preserves the prior archive data owner and adds the repository-bound deploy UAMI at a separate address; any retirement remains a separate destructive operation. |
+| Archive lifecycle | in-progress | Content-addressed manifests, private Azure Blob I/O, principal-scoped reads, database-gated purge, and append-only lifecycle receipts are implemented. Container Apps and AKS schedule fixed `shadow` jobs. Non-shadow startup requires an exact persisted certification receipt before state or Blob access. The retained OI-16 receipt validates synthetic mechanics and deployed binding; recurring production-data retention remains unvalidated and separately authorized. |
 
 Protected receipt readback resolves the storage account through an account-specific record in the
 ops-owned Blob private DNS zone linked to the deploy runner VNet. Workload resolution remains in the

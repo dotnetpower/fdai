@@ -124,4 +124,4 @@ The contract lists these as residuals, and they stay listed until each one is ge
 - no independent review has been performed.
 
 FDAI-CONST-007 stays `partial` until every one of these is closed and an independent review has no
-unresolved Medium-or-higher finding.
+unresolved Medium-or-higher detected issue.

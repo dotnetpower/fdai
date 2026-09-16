@@ -56,7 +56,8 @@ class PostgresAssignmentOutbox:
                    ON receipt.proposal_ref = request.key
                  WHERE starts_with(request.key, 'operator-proposal:iam:')
                    AND request.value ->> 'operation' IN
-                       ('assignments.create', 'assignments.submit', 'assignments.review')
+                       ('assignments.create', 'assignments.submit',
+                        'assignments.confirm', 'assignments.review')
                    AND (request.value ->> 'dispatch_status' = 'pending'
                        OR (request.value ->> 'dispatch_status' = 'claimed'
                            AND (request.value ->> 'claim_expires_at')::timestamptz <= NOW()))
@@ -69,7 +70,9 @@ class PostgresAssignmentOutbox:
                              ON snapshot.key = CASE
                                  WHEN binding.value ->> 'case_kind' = 'scoped_duty'
                                  THEN 'human_assignment:scoped-case:'
-                                 ELSE 'human_assignment:case:' END ||
+                                 WHEN binding.value ->> 'case_kind' = 'report_line'
+                                  THEN 'human_reporting:case:'
+                                  ELSE 'human_assignment:case:' END ||
                                  (binding.value ->> 'case_id')
                             WHERE binding.key = 'human_assignment:operator-case:' ||
                                   (request.value -> 'payload' ->> 'case_id')

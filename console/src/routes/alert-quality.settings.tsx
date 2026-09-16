@@ -33,7 +33,7 @@ export function AlertQualitySettingsEditor({ state, isCurrent, onRefresh, onSave
   const body = data === null ? null : buildAlertQualitySettingsUpdate(data, data.scope_ref, value, data.revision);
   const read = state.read.status === "error" ? { ...state.read, message: text("settings.loadFailed") }
     : state.read.status === "unavailable" ? { ...state.read, message: text("settings.loadUnavailable") } : state.read;
-  return <section class="stack" style={{ minWidth: 0, gap: 24 }} aria-labelledby="alert-quality-settings-title">
+  return <section class="alert-quality-section alert-quality-settings" aria-labelledby="alert-quality-settings-title">
     <div class="stack-section">
       <h3 id="alert-quality-settings-title">{text("settings.title")}</h3>
       <p id="alert-quality-settings-help" class="muted">{text("settings.help")}</p>

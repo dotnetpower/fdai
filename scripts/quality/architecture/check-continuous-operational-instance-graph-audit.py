@@ -36,6 +36,12 @@ REQUIRED_STAGES = (
 REQUIRED_FAMILIES = frozenset({"collection", "projection", "query", "retention", "archive"})
 ALLOWED_STATES = frozenset({"implemented", "in-progress", "not-started"})
 ALLOWED_BINDING_STATES = frozenset({"bound", "partial", "unbound"})
+ALLOWED_VALIDATION_STATES = frozenset({"validated", "not-validated"})
+REQUIRED_VALIDATION_LEVELS = {
+    "synthetic_mechanics": "validated",
+    "deployed_binding": "validated",
+    "production_data": "not-validated",
+}
 OWNER_DOC_FRAGMENT = "## Source-to-store implementation audit"
 LEDGER_FRAGMENTS = (
     "| Source-to-store implementation audit | implemented |",
@@ -78,6 +84,52 @@ def _repo_symbol(path: Path | None, value: object, field: str, errors: list[str]
         errors.append(f"{field} is not present in {path.relative_to(REPO_ROOT)}: {value}")
 
 
+def _validate_operational_validation(value: object) -> list[str]:
+    prefix = "operational_validation"
+    if not isinstance(value, Mapping):
+        return [f"{prefix} must be an object"]
+    errors: list[str] = []
+    if value.get("state") != "validated" or value.get("operationally_validated") is not True:
+        errors.append(f"{prefix} must retain the validated certification receipt")
+    if value.get("claim_scope") != "synthetic-mechanics":
+        errors.append(f"{prefix}.claim_scope must be synthetic-mechanics")
+    levels = value.get("validation_levels")
+    if not isinstance(levels, Mapping):
+        errors.append(f"{prefix}.validation_levels must be an object")
+    else:
+        if set(levels) != set(REQUIRED_VALIDATION_LEVELS):
+            errors.append(
+                f"{prefix}.validation_levels must contain exactly "
+                f"{sorted(REQUIRED_VALIDATION_LEVELS)}"
+            )
+        for key, expected in REQUIRED_VALIDATION_LEVELS.items():
+            state = levels.get(key)
+            if state not in ALLOWED_VALIDATION_STATES:
+                errors.append(f"{prefix}.validation_levels.{key} has an invalid state")
+            elif state != expected:
+                errors.append(
+                    f"{prefix}.validation_levels.{key} must be {expected} for this receipt"
+                )
+    for field in ("receipt_digest", "private_artifact_digest"):
+        item = value.get(field)
+        if (
+            not isinstance(item, str)
+            or len(item) != 71
+            or not item.startswith("sha256:")
+            or any(character not in "0123456789abcdef" for character in item[7:])
+        ):
+            errors.append(f"{prefix}.{field} must be a canonical sha256 digest")
+    scenarios = value.get("passed_scenarios")
+    if (
+        not isinstance(scenarios, list)
+        or not scenarios
+        or any(not isinstance(item, str) or not item for item in scenarios)
+        or scenarios != sorted(set(scenarios))
+    ):
+        errors.append(f"{prefix}.passed_scenarios must be a sorted unique non-empty list")
+    return errors
+
+
 def _validate_stage(root: Path, value: object, index: int) -> tuple[str | None, list[str]]:
     prefix = f"stages[{index}]"
     errors: list[str] = []
@@ -113,6 +165,7 @@ def _validate_stage(root: Path, value: object, index: int) -> tuple[str | None, 
     if not isinstance(bindings, list):
         errors.append(f"{prefix}.bindings must be an array")
     else:
+        binding_states: list[object] = []
         for binding_index, binding in enumerate(bindings):
             binding_prefix = f"{prefix}.bindings[{binding_index}]"
             if not isinstance(binding, Mapping):
@@ -120,6 +173,7 @@ def _validate_stage(root: Path, value: object, index: int) -> tuple[str | None, 
                 continue
             if binding.get("state") not in ALLOWED_BINDING_STATES:
                 errors.append(f"{binding_prefix}.state must be bound, partial, or unbound")
+            binding_states.append(binding.get("state"))
             binding_path = _repo_file(
                 root,
                 binding.get("path"),
@@ -131,6 +185,8 @@ def _validate_stage(root: Path, value: object, index: int) -> tuple[str | None, 
                 errors.append(f"{binding_prefix}.symbol must be null or a non-empty string")
             elif symbol is not None:
                 _repo_symbol(binding_path, symbol, f"{binding_prefix}.symbol", errors)
+        if state == "implemented" and any(item != "bound" for item in binding_states):
+            errors.append(f"{prefix} implemented work must have only bound bindings")
 
     tests = value.get("tests")
     if not isinstance(tests, list):
@@ -165,10 +221,11 @@ def validate(root: Path = REPO_ROOT, audit_path: Path = AUDIT_PATH) -> list[str]
         return [f"invalid audit record: {exc}"]
 
     errors: list[str] = []
-    if payload.get("schema_version") != "1.0.0":
-        errors.append("schema_version must be 1.0.0")
+    if payload.get("schema_version") != "1.1.0":
+        errors.append("schema_version must be 1.1.0")
     if payload.get("package_id") != "OI-01":
         errors.append("package_id must be OI-01")
+    errors.extend(_validate_operational_validation(payload.get("operational_validation")))
     if payload.get("design_owner") != DESIGN_OWNER.as_posix():
         errors.append(f"design_owner must be {DESIGN_OWNER.as_posix()}")
     else:

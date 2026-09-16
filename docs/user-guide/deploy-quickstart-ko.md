@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 82dd6a33669b60df9a6f068558b6842284d28706
+translation_source_sha: e5d09fb140e85a9d2d2699e1b3525f788623e5c9
 translation_revised: 2026-09-16
 ---
 
@@ -61,7 +61,7 @@ uv tool update-shell
 ```
 
 내보낸 제약 조건은 런타임 의존성 버전을 저장소 잠금 파일과 일치시킵니다. 패키지는 PyPI의
-동명 패키지가 아니라 현재 복제본에서 설치합니다. Azure 로그인, 유지관리자 키, `sudo`, 전체
+동명 패키지가 아니라 현재 복제본에서 설치합니다. Azure 로그인, FDAI 유지관리자 키, `sudo`, 전체
 애플리케이션 환경, 가상 환경 활성화는 필요하지 않으며 Azure 리소스를 배포하지 않습니다.
 설치가 실패하면 중단하고, 이전 실행 파일로 계속 진행하지 마세요.
 

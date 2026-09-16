@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: e97463feeb51f557b24ac9233a78d34fa4419618
+translation_source_sha: 2615d356ca72227f76c3b76cbd28f3ff8d0ff0ba
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -136,8 +136,12 @@ DB, 네트워크, 레지스트리, 저장소, 모니터링, 메시지, 모델, �
 | 클러스터 내부 PostgreSQL | `fdai-<environment>-aks-database.tfstate` |
 
 공유 플랫폼은 Event Hubs, Key Vault, Azure Container Registry, 모니터링, 워크로드 신원,
-`postgres-flex`를 계속 소유합니다. AKS 기반 상태는 클러스터, 노드 풀, 클러스터 신원, 네트워크
-연결, 클러스터 범위 Azure 역할 할당만 소유합니다.
+case-history 저장소 및 `postgres-flex`를 계속 소유합니다. Case-history 콘텐츠의 활성, 삭제 예정,
+이전 버전 및 변경 피드 기간 기본값은 30일이며 운영 이력과 의사 결정 근거 메타데이터는 별도 일정을
+유지합니다. AKS 기반 상태는 클러스터, 노드 풀, 클러스터 신원, 네트워크 연결 및 클러스터 범위
+Azure 역할 할당만 소유합니다.
+AKS는 공유 루트의 Key Vault 출력을 사용합니다. 이름이 너무 긴 후보는 별도의 런타임 명명 규칙을
+만들지 않고 결정론적 `kv-aip-<8hex>` 대체 이름을 사용합니다.
 AKS를 선택하면 상세 비공개 네트워킹이 꺼져 있어도 애플리케이션 VNet, 노드 서브넷 및 API 서버
 서브넷을 만듭니다. 별도의 비공개 네트워킹 입력은 AKS 서브넷 선행 조건이 아니라 서비스 비공개
 엔드포인트, 허브 피어링 및 비공개 DNS를 제어합니다.
@@ -187,9 +191,19 @@ Operator의 배정 알림과 사람 승인(HIL) 전송에 필요한 가져오기
 태그와 형식이 잘못된 이미지 digest를 거부합니다. 다른 경로에 쓰기가 필요하면 명시적인 워크로드
 계약을 추가해야 합니다. 호환성을 이유로 전체 루트 파일시스템에 쓰기를 허용하지 않습니다.
 
+5개 서비스 AKS 기본 구성은 embedding 배포를 요구하지 않는 lexical 문서 검색을 활성화합니다.
+Document API와 Worker는 서로 다른 워크로드 신원, 역할 범위 데이터베이스 DSN, 공유 ADLS 계정 및
+`fdai.pipeline.stages` 엔터티를 사용합니다. Worker Pod는 기존 digest 고정 ClamAV 이미지를
+replica-local TCP sidecar로 포함합니다. 루트는 읽기 전용으로 유지하고 선언된 데이터베이스, 실행 및
+임시 경로에만 크기가 제한된 `emptyDir` 볼륨을 제공합니다.
+
 예약 작업은 `concurrencyPolicy=Forbid`, 완료 수 1, 병렬 작업자 1, 제한된 active deadline, 재시도
 한도, 제한된 이력을 사용합니다. 수동 작업은 별도로 승인된 요청으로만 만들며 영구 desired-state
 리소스로 두지 않습니다.
+AKS 기본 구성은 analyzer, canary, inventory, observation campaign, operational-history lifecycle
+CronJob을 렌더링합니다. 이력 작업은 읽기 전용 inventory 신원, 서비스 소유 상태 DSN, 비공개
+archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle은 별도의 보호된 전환과
+정확히 저장된 인증 증적을 요구하며 런타임 선택은 어느 권한도 부여하지 않습니다.
 
 인벤토리 명령과 CLI 지원 모듈은 두 플랫폼과 로컬 관리 스택에서 동일한 읽기 전용 실패 경계를 유지합니다.
 Activity Log 복구 가속은 전체 조정과 독립적입니다. 세대 승격 전후에 가속기가 실패하면

@@ -708,6 +708,46 @@ def test_aks_stages_use_independent_roots_and_variables(tmp_path: Path) -> None:
     )
 
 
+def test_aks_operational_history_job_is_shadow_and_uses_inventory_identity() -> None:
+    identity = {"resource_id": "inventory-resource", "client_id": "inventory-client"}
+    job = standalone_host._aks_job(
+        {"core-control-plane": "example.azurecr.io/core@sha256:" + "a" * 64},
+        identity,
+        ["python", "-m", "fdai.delivery.operational_history_lifecycle_runner"],
+        "0 * * * *",
+        {
+            "FDAI_OPERATIONAL_HISTORY_CONTAINER_URL": "https://example.invalid/history",
+            "FDAI_OPERATIONAL_HISTORY_MODE": "shadow",
+            "FDAI_OPERATIONAL_HISTORY_MAX_PARTITIONS": "32",
+        },
+        {"FDAI_DATABASE_URL": "fdai-state-store-dsn"},
+        component="operational-history",
+        deadline_seconds=1800,
+        retry_limit=0,
+    )
+
+    assert job["identity_resource_id"] == identity["resource_id"]
+    assert job["identity_client_id"] == identity["client_id"]
+    assert job["environment"]["FDAI_OPERATIONAL_HISTORY_MODE"] == "shadow"
+    assert "FDAI_OPERATIONAL_HISTORY_AUTHORITY_RECEIPT" not in job["environment"]
+    assert job["secret_environment"] == {"FDAI_DATABASE_URL": "fdai-state-store-dsn"}
+    assert job["retry_limit"] == 0
+
+
+def test_aks_job_rejects_missing_core_image() -> None:
+    with pytest.raises(TypeError, match="image is unavailable"):
+        standalone_host._aks_job(
+            {},
+            {"resource_id": "inventory-resource", "client_id": "inventory-client"},
+            ["python", "-m", "fdai.delivery.operational_history_lifecycle_runner"],
+            "0 * * * *",
+            {},
+            {},
+            component="operational-history",
+            deadline_seconds=1800,
+        )
+
+
 def test_postgres_aks_substrate_excludes_flexible_server() -> None:
     context = {
         "runtime_profile": {
@@ -723,6 +763,30 @@ def test_postgres_aks_substrate_excludes_flexible_server() -> None:
     assert "azurerm_role_assignment.inventory_kv_secrets_user" not in targets
     assert "module.event_bus" in targets
     assert "module.key_vault" in targets
+
+
+def test_aks_substrate_includes_document_dependencies_without_container_apps() -> None:
+    targets = set(
+        standalone_host._substrate_targets(
+            {
+                "runtime_profile": {
+                    "runtime_platform": "aks",
+                    "database_placement": "postgres-flex",
+                }
+            }
+        )
+    )
+
+    assert {
+        "module.ingestion_identity",
+        "module.ingestion_worker_identity",
+        "module.document_storage",
+        "azurerm_key_vault_secret.ingestion_api_dsn",
+        "azurerm_key_vault_secret.ingestion_worker_dsn",
+        "azurerm_role_assignment.ingestion_aks_eventhubs_sender",
+        "azurerm_role_assignment.ingestion_worker_aks_eventhubs_receiver",
+    } <= targets
+    assert "module.ingestion_gateway" not in targets
 
 
 @pytest.mark.parametrize("existing", [False, True])
@@ -893,6 +957,57 @@ def test_aks_workload_binds_digest_image_and_additional_identity() -> None:
             "resource_id": "/identities/command",
             "client_id": "command-client",
         }
+    }
+
+
+def test_aks_document_workloads_bind_complete_service_contracts() -> None:
+    digest = "a" * 64
+    refs = {
+        name: f"example.azurecr.io/{name}@sha256:{digest}"
+        for name in ("document-ingestion-api", "document-processing-worker", "clamav")
+    }
+    application = {
+        "env": "dev",
+        "tenant_id": "tenant",
+        "operator_api_audience": "audience",
+        "rbac_readers_group_id": "readers",
+        "rbac_contributors_group_id": "contributors",
+        "rbac_approvers_group_id": "approvers",
+        "rbac_owners_group_id": "owners",
+        "rbac_break_glass_group_id": "break-glass",
+        "ingestion_cors_allow_origins": "https://localhost",
+    }
+    workloads = standalone_host._aks_document_workloads(
+        refs=refs,
+        ingestion_identity={"resource_id": "/identities/api", "client_id": "api-client"},
+        worker_identity={"resource_id": "/identities/worker", "client_id": "worker-client"},
+        application_values=application,
+        kafka="example.servicebus.windows.net:9093",
+        postgres_fqdn="example.postgres.database.azure.com",
+        document_store={
+            "account_name": "documents",
+            "account_url": "https://documents.dfs.core.windows.net/",
+            "source_file_system": "documents",
+            "derived_file_system": "derived",
+        },
+        document_topics={
+            "pipeline_stages": "fdai.pipeline.stages",
+            "pantheon_objects": "fdai.pantheon.objects",
+        },
+    )
+
+    assert set(workloads) == {"document-ingestion-api", "document-processing-worker"}
+    api = workloads["document-ingestion-api"]
+    worker = workloads["document-processing-worker"]
+    assert api["environment"]["FDAI_DATABASE_ROLE"] == "fdai_ingestion_api"
+    assert api["environment"]["FDAI_DOCUMENT_RETRIEVAL_MODE"] == "lexical"
+    assert api["environment"]["FDAI_INGESTION_CORS_ALLOW_ORIGINS"] == "https://localhost"
+    assert worker["environment"]["FDAI_DATABASE_ROLE"] == "fdai_ingestion_worker"
+    assert worker["environment"]["FDAI_CLAMAV_HOST"] == "127.0.0.1"
+    assert worker["sidecars"]["clamav"]["image"] == refs["clamav"]
+    assert worker["sidecars"]["clamav"]["writable_paths"]["database"] == {
+        "mount_path": "/var/lib/clamav",
+        "size_limit": "1Gi",
     }
 
 

@@ -179,6 +179,11 @@ GLOBAL_ROADMAP_FORBIDDEN = (
 TRACE_STATUSES = frozenset({"implemented", "partial", "planned"})
 TRACE_PATH_FIELDS = ("owner_docs", "implementation", "schemas", "tests", "runtime_evidence")
 IMPLEMENTED_PROOF_TESTS: Mapping[str, tuple[str, ...]] = {
+    "FDAI-CONST-001": (
+        "packages/service-contracts/tests/test_runtime_scope.py::test_runtime_scope_receipt_binds_product_and_complete_venue_contract",
+        "tests/integration/scripts/test_venue_capability_contract.py::test_a_computed_environment_key_fails_the_ast_gate",
+        "tests/integration/scripts/test_venue_capability_contract.py::test_every_service_entrypoint_records_exactly_one_runtime_scope_receipt",
+    ),
     "FDAI-CONST-002": (
         "packages/service-contracts/tests/test_decision_evidence.py::test_json_schema_requires_authentication_evidence",
         "packages/service-contracts/tests/test_decision_evidence.py::test_synthetic_evidence_never_reaches_live_verification",
@@ -189,6 +194,12 @@ IMPLEMENTED_PROOF_TESTS: Mapping[str, tuple[str, ...]] = {
     "FDAI-CONST-003": (
         "services/core-control-plane/tests/agents/test_pantheon_doc_parity.py::test_agent_catalog_layer_and_ownership_match_specs_in_both_locales",
         "services/core-control-plane/tests/agents/test_pantheon_concurrency_proof.py::test_multi_message_fanout_does_not_serialize_or_steal",
+    ),
+    "FDAI-CONST-004": (
+        "services/core-control-plane/tests/core/operational_learning/test_threshold_bounds.py::test_every_adaptive_threshold_field_declares_an_ontology_bound",
+        "services/core-control-plane/tests/core/operational_learning/test_threshold_bounds.py::test_detection_routing_bounds_load_from_the_pinned_shipped_contract",
+        "services/core-control-plane/tests/core/operational_learning/test_threshold_bounds.py::test_every_detection_routing_threshold_stays_inside_its_ontology_bound",
+        "services/core-control-plane/tests/core/operational_learning/test_threshold_bounds.py::test_every_production_routing_and_detection_threshold_has_a_versioned_bound",
     ),
     "FDAI-CONST-005": (
         "services/core-control-plane/tests/scenarios/test_v2026_10_frozen.py::test_v2026_10_completion_uses_only_reviewed_replay_and_outcome_bindings",

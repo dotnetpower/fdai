@@ -125,7 +125,7 @@ flowchart LR
 직접 읽고, 이후 tablet, mobile, fullscreen, print를 실행합니다. 자동 검사는 최상위 슬라이드
 번호 영역과 제목 영역 사이의 겹침도 별도 semantic region 충돌로 판정합니다.
 
-## Clipping remediation - 2026-09-11
+## Clipping fix - 2026-09-11
 
 The operator's second review exposed a gap in the earlier evidence: text can fit a node or the
 overall visual while a containing boundary clips its last row. The shared browser also uses

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 692f7b6e4ebc884b430cf7ee15b7731ebfb91e93
+translation_source_sha: bb7ca0b557fc87de825ab935b76db7beb7336aaa
 translation_revised: 2026-09-16
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -9,7 +9,7 @@ translation_revised: 2026-09-16
 - **자동화 테스트 truth**: pytest와 committed mock은 결정론적 가짜를 사용할 수 있습니다. 명시적 test-fixture 빌더를 사용하며 Azure 관측 상태로 표현하지 않습니다.
 - **Full-stack 로컬 truth**: `Console Web: Full Stack`은 배포와 같은 App 역할 검사를 적용하는 브라우저 Entra sign-in을 사용합니다. 서버의 Azure CLI 세션은 Azure 개발 데이터 평면 프로바이더 자격 증명만 제공합니다. 인벤토리, 모델 가용성, 에이전트 활동, 프로세스 상태, 승격 근거, 감사 데이터는 권위 있는 프로바이더에서만 표시합니다. 출처가 없으면 사용 불가 또는 명시적 빈으로 표시하며 생성 예제로 대체하지 않습니다.
 - **Deploy truth**: `terraform apply` 가 CSP-neutral 컨트랙트의 Azure 측 실현체를 생성. **LLM 부분은 배포자-스코프**: 초기화 해석기가 배포자 아이덴티티를 대상 리전 카탈로그와 대조해 **배포자가 만들 권한이 있는 것만** 프로비저닝하고, resolved `{capability → deployment}` 매핑과 해석기 입력 출처 이력을 산출물에 기록합니다. 독립 배포 service는 inactive revision 2개를 보존하므로 보호된 apply가 apply 이전 current revision과 exact last-ready rollback baseline을 모두 유지할 수 있습니다. Core 안전조건 근거는 정확한 배포 소스 revision을 결속하고, Isolated 실행은 기본값이 꺼진 명시적 권한 전환 transition에서만 기존 결속되지 않은 명령을 허용하며, 복구 효과 수신은 타입이 지정된 agent relay 이후 구성된 Heimdall observer 신원만 허용합니다. 격리된 공개 `dev` 경로는 검증된 Azure CLI 사람을 Terraform 관리 principal로 결합할 수 있지만, 보호된 경로는 안정 deploy UAMI를 유지하고 runtime 실행은 별도 신원에 남습니다. VS Code 터미널은 사용자 소유 `~/.local/bin`을 PATH 앞에 추가하여 시스템 경로나 권한을 변경하지 않고 checksum으로 고정된 `azd` bootstrap을 찾습니다.
-모든 프로파일은 **하나의 컨트롤 경로**를 공유하며 composition-root 어댑터와 자격 증명만 다릅니다([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나 상태 소유권을 변경하거나 고정본을 허용하지 않습니다. 공유 인증기는 브라우저 Entra 및 로컬 Azure CLI 신원의 범위가 제한된 검증 사용자명을 IAM 표시 변환 결과로 전달합니다. 권한 부여는 계속 안정적인 `oid`와 검증된 App 역할만 사용합니다. 실제 Azure 클라이언트 추가는 fork-side 주입이며 `core/`를 편집하지 않습니다. Teams Workflows 엔드포인트 구성도 같은 동등성 규칙을 따릅니다. 로컬 Operator Service는 URL을 도메인이 분리된 키 자료로 암호화하고 루프백 데이터베이스에는 암호문만 저장하며, 배포 환경은 단일 시크릿으로 범위가 제한된 전용 Managed Identity를 통해 버전이 지정된 Key Vault 시크릿을 씁니다. 두 모드 모두 테스트 전에 저장된 버전을 확인하고 시크릿이 없는 메타데이터만 반환합니다. 저장은 로컬 또는 배포 A2/A4의 명시적 활성화와 분리됩니다. 표준 `console: prepare full stack` 작업은 `FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION=1`을 통해 로컬 프로필의 활성화 결정을 명시적으로 설정하며, 스크립트를 직접 실행하면 기본적으로 비활성 상태를 유지합니다. 런타임 환경 캐시는 이 값과 선택적 Kubernetes 수명 주기 플래그를 다이제스트에 결속하므로 두 입력 중 하나를 변경하면 항상 환경을 다시 생성합니다.
+모든 프로파일은 **하나의 컨트롤 경로**를 공유하며 composition-root 어댑터와 자격 증명만 다릅니다([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 로컬과 배포 프로필은 LLM 라우팅 및 인시던트 탐지에 고정된 같은 의미 절대 범위를 불러옵니다. 활성 상태인 버전 지정 구성 값만 이 범위 안에서 달라질 수 있으며 어느 프로필도 선언에서 권한을 도출할 수 없습니다. 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나 상태 소유권을 변경하거나 고정본을 허용하지 않습니다. 공유 인증기는 브라우저 Entra 및 로컬 Azure CLI 신원의 범위가 제한된 검증 사용자명을 IAM 표시 변환 결과로 전달합니다. 권한 부여는 계속 안정적인 `oid`와 검증된 App 역할만 사용합니다. 실제 Azure 클라이언트 추가는 fork-side 주입이며 `core/`를 편집하지 않습니다. Teams Workflows 엔드포인트 구성도 같은 동등성 규칙을 따릅니다. 로컬 Operator Service는 URL을 도메인이 분리된 키 자료로 암호화하고 루프백 데이터베이스에는 암호문만 저장하며, 배포 환경은 단일 시크릿으로 범위가 제한된 전용 Managed Identity를 통해 버전이 지정된 Key Vault 시크릿을 씁니다. 두 모드 모두 테스트 전에 저장된 버전을 확인하고 시크릿이 없는 메타데이터만 반환합니다. 저장은 로컬 또는 배포 A2/A4의 명시적 활성화와 분리됩니다. 표준 `console: prepare full stack` 작업은 `FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION=1`을 통해 로컬 프로필의 활성화 결정을 명시적으로 설정하며, 스크립트를 직접 실행하면 기본적으로 비활성 상태를 유지합니다. 런타임 환경 캐시는 이 값과 선택적 Kubernetes 수명 주기 플래그를 다이제스트에 결속하므로 두 입력 중 하나를 변경하면 항상 환경을 다시 생성합니다.
 인벤토리 무효화는 두 프로필에서 같은 읽기 경로를 사용합니다. Core가 정규화된 관측을 커밋한 뒤 Operator 역할이 SELECT 전용 watermark를 읽습니다. 인증된 SSE에는 Resource 또는 프로바이더 payload가 없으며 Console은 같은 범위가 제한된 인스턴스 변환 결과를 다시 읽습니다. 로컬과 배포 프로필은 구성된 Azure 아이덴티티와 네트워크 경로만 다릅니다. 교차 출처 스트림 재현은 허용된 출처, 메서드 또는 자격 증명 범위를 넓히지 않고 인증된 `Authorization`과 범위가 제한된 `Last-Event-ID` 헤더를 허용합니다.
 공유 Operator 데이터 출처 매니페스트도 두 프로필에서 Assurance Twin 읽기 경로 3개를 같은 서비스 로컬 변환 결과에 할당합니다. 이 소유권은 PostgreSQL이 구성되지 않았을 때 명시적인 사용 불가 이유를 보고하며 WARA, 비용 거버넌스 또는 다른 경로의 권한을 바꾸지 않습니다. 두 프로필 모두 전용 보낼 편지함 수명 주기 facade를 사용하며 PostgreSQL과 이벤트 버스가 구성된 경우에만 재시도 가능한 Incident 개입 작업자를 시작합니다. 같은 준비 상태 검사는 해당 작업자가 중지되면 서비스 준비를 차단하며 Console 또는 Operator API에 실행 권한을 부여하지 않습니다. 신뢰된 복구 observer 신원은 조건 없는 Core 서비스 binding이며 선택적 Teams 승인 구성에 의존하지 않습니다.
 WAF 및 CAF 평가 소비자도 같은 동등성 규칙을 따릅니다. 로컬과 배포 Operator 프로필은 같은 논리 토픽을 사용하고 같은 변경 불가능한 스냅샷을 검증하며 같은 PostgreSQL 변환 결과를 씁니다. 배포 러너에는 평가 전송자 역할이 없으므로 보호된 실제 검증 워크플로는 의도적으로 감사 전용입니다. 해당 결과물은 Operator 변환 결과를 대신하지 않습니다. 두 프로필은 실행 위치 선택을 바꾸지 않고 자격 증명 생성에 기존 adapters 공개 모듈을 사용합니다.
@@ -89,7 +89,7 @@ SPA, Manual Studio를 시작합니다. 일반 Console 빌드는 모듈 진입점
 
 프로세스 launcher는 `RUNTIME_ENV`와 독립적으로 `FDAI_EXECUTION_VENUE=local`을 설정합니다. 로컬 상태는 `127.0.0.1:5432`의 Docker PostgreSQL과 담당 서비스 역할을 사용하며, 로컬 이벤트 전송은 `127.0.0.1:19092`의 Redpanda를 사용합니다.
 준비 과정은 의미 physical topic을 배포된 Event Hubs와 같은 최소 두 partition으로 유지합니다.
-Azure에 배포된 프로세스는 `FDAI_EXECUTION_VENUE=deployed`와 서비스 소유 Azure Database for PostgreSQL DSN 및 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는 executor 권한을 변경하지 않습니다. Schema parity는 legacy 및 서비스 소유 migration 5개로 이동한 뒤 대상 Settings, catalog, ontology 및 inventory projection을 권위 있는 입력에서 다시 생성합니다. 로컬 `audit_log`, `state_kv`, 승인, idempotency record, lease 또는 executor receipt를 배포 환경에 복제하지 않습니다. 이러한 record는 출처 venue의 인과 관계와 권한을 유지합니다.
+Azure에 배포된 프로세스는 `FDAI_EXECUTION_VENUE=deployed`와 서비스 소유 Azure Database for PostgreSQL DSN 및 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는 executor 권한을 변경하지 않습니다. 서비스가 소유하는 모든 프로세스 진입점은 시작 전에 버전이 지정되고 내용 주소를 사용하는 `RuntimeScopeReceipt`를 하나 기록합니다. 이 증적은 안정적인 서비스 ID, 클라우드 운영 제품 목적, 선택한 실행 위치, 완전한 기능 행, 허용되는 유일한 차이 종류인 자격 증명, 엔드포인트, 프로바이더 범위 및 규모를 결속합니다. 외부 상태 권한과 실행 권한은 모두 false이며, 이 증적은 시작 구성을 증명할 뿐 프로바이더 접근 가능성이나 운영 성공을 증명하지 않습니다. AST 실행 위치 게이트는 모든 진입점을 찾아내고 공유 계약 밖의 직접, 별칭 또는 계산된 원시 실행 위치 읽기를 거부합니다. Schema parity는 legacy 및 서비스 소유 migration 5개로 이동한 뒤 대상 Settings, catalog, ontology 및 inventory projection을 권위 있는 입력에서 다시 생성합니다. 로컬 `audit_log`, `state_kv`, 승인, idempotency record, lease 또는 executor receipt를 배포 환경에 복제하지 않습니다. 이러한 record는 출처 venue의 인과 관계와 권한을 유지합니다.
 
 두 번째 `db-integration` 샤드는 격리된 검증 PostgreSQL 포트 `5433`과 Redpanda 호스트 포트
 `19092`만 사용해 프로바이더 계약 Docker 매트릭스를 실행하며 Compose 클라이언트는
@@ -367,20 +367,16 @@ Best Practice 정의를 로드합니다. 이 동등성은 런타임 점유를 �
 두 factory는 같은 온톨로지 release에 읽기 전용 카탈로그 조회 함수도 등록하므로 로컬 및 deployed
 Command Deck 턴은 동일한 타입이 지정된, 범위가 제한된, non-mutating 근거 계약을 사용합니다.
 
-로컬 API는 `GET /system/data-sources`를 제공합니다. Standard full stack에서는 운영
-PostgreSQL read-model 어댑터가 로컬 pgvector를 사용합니다. 로컬 Operator API는 트래픽을 받기 전에
-해당 어댑터를 통해 범위가 제한된 `SELECT 1`을 실행합니다. 탐색이 실패하면 부분적으로 연결된 콘솔을
-노출하지 않고 시작을 중단합니다. 탐색이 성공하면 PostgreSQL 기반 항목은 `available` 및
-`reachable=true`를 보고합니다. 구성된 원격 및 Azure request-time 출처는 자체 근거
-계약이 검증할 때까지 `unknown`을 유지합니다.
-`FDAI_DATABASE_URL`과 `FDAI_AUTHORITATIVE_OPERATOR_API_BASE_URL`은 상호배타적인 출처 프로파일을
-선택합니다. 둘을 함께 구성하면 프로바이더를 만들기 전에 시작을 중단하므로 매니페스트가 로컬
-PostgreSQL을 설명하면서 허용 목록 요청을 원격 API가 처리하는 상태를 허용하지 않습니다.
-원격 forwarding은 decoded 정본 허용 목록에 있는 경로만 일치시키며 정규화된, encoded, 중복
-구분자 및 control-character 변형은 로컬에 유지합니다. 업스트림 캐시 directive를 폐기하고
-모든 proxy 응답에 `Cache-Control: no-store`를 보내므로 인증된 operational 근거가 브라우저
-또는 shared 캐시에 저장되지 않습니다. 응답 헤더 전에 발생한 원격 실패는 범위가 제한된 JSON
-`503`으로 변환하고, 헤더 이후 실패는 두 번째 ASGI 응답 시작 없이 응답 본문을 닫습니다.
+로컬 API는 `GET /system/data-sources`를 제공합니다. 표준 전체 스택에서는 운영 PostgreSQL 읽기 모델 어댑터가 로컬 pgvector를 사용합니다.
+로컬 Operator API는 트래픽을 받기 전에 범위가 제한된 `SELECT 1`을 실행합니다. 실패하면 시작을 중단하고 성공하면 PostgreSQL 기반 항목이 `available` 및 `reachable=true`를 보고합니다.
+구성된 원격 및 Azure 요청 시점 출처는 자체 근거 계약이 검증할 때까지 `unknown`을 유지합니다.
+`FDAI_DATABASE_URL`과 `FDAI_AUTHORITATIVE_OPERATOR_API_BASE_URL`은 상호 배타적인 출처 프로파일이며, 둘을 함께 구성하면 프로바이더를 만들기 전에 시작을 중단합니다.
+따라서 매니페스트가 로컬 PostgreSQL을 설명하면서 원격 API가 허용 목록 요청을 처리하는 상태는 허용하지 않습니다.
+원격 전달은 디코딩된 정식 허용 목록 경로만 일치시키며 정규화, 인코딩, 중복 구분자, 제어 문자 변형은 로컬에 유지합니다.
+업스트림 캐시 지시문을 폐기하고 모든 프록시 응답에 `Cache-Control: no-store`를 보내므로 인증된 운영 근거가 브라우저나 공유 캐시에 저장되지 않습니다.
+응답 헤더 전 원격 실패는 범위가 제한된 JSON `503`으로 변환하고, 헤더 이후 실패는 두 번째 ASGI 응답 시작 없이 본문을 닫습니다.
+어느 실행 위치에서든 Operator PostgreSQL 저장소가 구성된 경우에만 매니페스트가 `/provision/stream`을 권위 있는 영속 재생 소스로 선언합니다.
+저장소가 없으면 등록된 경로를 명시적으로 사용 불가 상태로 두므로 Console은 근거 없이 스트림을 요청하거나 Sample 상태로 대체하지 않습니다.
 
 런타임 스킬 점검도 같은 규칙을 따릅니다. 운영은 트래픽을 받기 전에 signed
 PostgreSQL trusted-artifact 기록에서 활성화된 카탈로그를 재구성합니다. Interactive 로컬은 영속

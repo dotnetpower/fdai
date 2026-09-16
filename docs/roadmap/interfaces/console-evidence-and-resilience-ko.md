@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 0acef80b142045e95652f37224db2cf760c64adc
+translation_source_sha: 11c404f1a78290c638a0a855d732d8009ebc013b
 translation_revised: 2026-09-16
 ---
 # 콘솔 근거 및 복원력
@@ -91,7 +91,7 @@ shadow 및 실행 권한 없음 상태, 제출하지 않은 세 가지 비활성
 지정된 보조기술을 사용하는 사람이 음성 또는 점자 출력을 확인하기 전까지 해당 결과를
 `needs-human`으로 분류해야 합니다.
 Server-pinned drift 맥락이 있으면 GET-only 구성 기준선 경로가 신원, 수명 주기, drift, Knowledge 인용, topology, 지연 시간, 예약 검토, 네 안전성 counter를 fresh 읽기로 표시합니다.
-연결 또는 campaign 부재는 사용 불가이나 `not-configured`로 보고하며 진행 상황을 만들지 않고 malformed 데이터를 strict하게 거부하며 in-scope 변경할 수 없는 버전 비교와 failed-attempt 개수를 읽습니다. SPA는 activation, 재개, 예약 생성, 승인, 완화, 리소스 변경을 노출하지 않고 evidence-run, 재개, 청사진 검토, 구체화는 별도 인증된 경로를 사용합니다.
+Console은 기준선, 구성 차이, 검토 보기를 분리하고 `performance: null`을 0이 아닌 `측정되지 않음`으로 표시합니다. 연결 또는 캠페인이 없으면 사용 불가 또는 `not-configured`로 보고하고 진행 상황을 만들지 않습니다. 잘못된 데이터는 엄격하게 거부하며 범위 안의 불변 버전 비교와 실패한 시도 횟수를 읽습니다. SPA는 활성화, 재개, 일정 생성, 승인, 완화, 리소스 변경을 노출하지 않고 근거 실행, 재개, 청사진 검토, 구체화는 별도 인증 경로를 사용합니다.
 운영은 mounted JSON/DOCX 쌍, 읽기 전용 Managed Identity, exact resource-group 허용 목록을 시작에서 검증한 뒤 패널을 노출합니다. Operator API는 실행기 신원을 받지 않습니다.
 
 Processes 상세 경로는 동일한 권위 있는 프로세스 journal에서 계획 수립 Room을 조건부로
@@ -217,7 +217,7 @@ LLM 비용은 측정된 호출, 토큰, chat 비율 및 최근 호출 근거를 
 
 ## 로딩 표현
 
-[Console 로딩 표현 참조](../../reference/console-loading-presentation-ko.md)에서 골격, 동작 감소, 스타일시트 및 hot-update 동작을 정의합니다.
+[Console 로딩 표현 참조](../../reference/console-loading-presentation-ko.md)에서 골격, 동작 감소, 스타일시트 및 hot-update 동작을 정의합니다. 알림 품질 화면은 로그인한 사용자에게 반환된 정확한 범위가 하나뿐일 때 불필요한 URL 선택 없이 해당 범위를 엽니다. 범위가 없으면 설정 안내를 표시하고 보고서를 조회하지 않으며, 범위가 둘 이상이면 운영자가 명시적으로 선택해야 합니다. 준비된 보고서는 권한 경계, 범위 맥락, 서로 구분된 네 가지 근거 값, 발견 사항을 먼저 표시하고 그 뒤에 출처 이력, 요청 제어, Settings, 계획, 이력을 표시합니다. 누락, 측정된 0, 부분 수집, 사용 불가 값을 서로 구분하고 합성 근거로 대체하지 않습니다.
 
 ## Localization 경계
 

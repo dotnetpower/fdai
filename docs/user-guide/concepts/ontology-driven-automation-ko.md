@@ -2,8 +2,8 @@
 title: 에이전트 기반 자동화(Agent-driven automation)
 description: FDAI 에이전트가 typed operational truth와 ActionType 안전 계약으로 cloud operations를 자동화하는 방식을 설명합니다.
 translation_of: ontology-driven-automation.md
-translation_source_sha: c932e9a055db17c4cdbbd1641f1a869347cb80a3
-translation_revised: 2026-09-09
+translation_source_sha: 3c9b19efbcade0173d0c56c39b4da9a6f4d38930
+translation_revised: 2026-09-16
 sidebar:
   order: 4
 ---

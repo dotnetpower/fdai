@@ -135,6 +135,7 @@ class DocumentPurpose(StrEnum):
     CLOUD_REFERENCE = "cloud_reference"
     HANDOVER_BOOTSTRAP = "handover_bootstrap"
     HANDOVER_EVIDENCE = "handover_evidence"
+    REPORT_LINE_BOOTSTRAP = "report_line_bootstrap"
 
 
 class DocumentWorkerStage(StrEnum):

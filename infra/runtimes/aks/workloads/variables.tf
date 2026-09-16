@@ -47,6 +47,18 @@ variable "workloads" {
     liveness_path      = string
     environment        = map(string)
     secret_environment = optional(map(string), {})
+    sidecars = optional(map(object({
+      image   = string
+      command = optional(list(string), [])
+      args    = optional(list(string), [])
+      cpu     = string
+      memory  = string
+      port    = number
+      writable_paths = optional(map(object({
+        mount_path = string
+        size_limit = string
+      })), {})
+    })), {})
   }))
 
   validation {
@@ -54,9 +66,14 @@ variable "workloads" {
       for workload in values(var.workloads) :
       workload.replicas >= 1 && workload.max_replicas >= workload.replicas &&
       can(regex("^[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$", workload.image)) &&
-      workload.port >= 1
+      workload.port >= 1 && alltrue([
+        for sidecar_name, sidecar in workload.sidecars :
+        can(regex("^[a-z][a-z0-9-]{0,62}$", sidecar_name)) &&
+        can(regex("^[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$", sidecar.image)) &&
+        sidecar.port >= 1 && sidecar.port <= 65535
+      ])
     ])
-    error_message = "Every workload requires a digest-pinned image, valid scaling bounds, and a valid port."
+    error_message = "Every workload and sidecar requires a digest-pinned image, valid scaling bounds, and a valid port."
   }
 }
 

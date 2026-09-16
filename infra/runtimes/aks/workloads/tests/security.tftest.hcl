@@ -21,6 +21,17 @@ variables {
       readiness_path       = "/ready"
       liveness_path        = "/health"
       environment          = {}
+      sidecars = {
+        clamav = {
+          image  = "example.com/fdai/clamav@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+          cpu    = "500m"
+          memory = "1Gi"
+          port   = 3310
+          writable_paths = {
+            database = { mount_path = "/var/lib/clamav", size_limit = "1Gi" }
+          }
+        }
+      }
     }
   }
 }
@@ -46,6 +57,19 @@ run "workload_security_baseline" {
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].volume[0].empty_dir[0].size_limit == "1Gi"
     )
     error_message = "Writable scratch space must remain a bounded temporary volume."
+  }
+
+
+  assert {
+    condition = (
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].name == "clamav" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].image == var.workloads.example.sidecars.clamav.image &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].readiness_probe[0].tcp_socket[0].port == "3310" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].security_context[0].read_only_root_filesystem &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].volume_mount[0].mount_path == "/var/lib/clamav" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].volume[1].empty_dir[0].size_limit == "1Gi"
+    )
+    error_message = "Sidecars must stay digest-pinned, health-checked, read-only, and limited to declared writable volumes."
   }
 }
 

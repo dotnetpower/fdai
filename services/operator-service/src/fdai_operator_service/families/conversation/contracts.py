@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Annotated, Protocol
 
 from fdai_service_contracts import OperatorPrincipalKind
+from pydantic import BaseModel, ConfigDict, Field
 from starlette.requests import Request
 
 type JsonScalar = str | int | float | bool | None
@@ -42,6 +43,17 @@ class PrincipalScope:
             raise ValueError("groups MUST contain at most 64 values")
         for group in self.groups:
             _bounded_text("group", group, maximum=256)
+
+
+class ActionConfirmationBody(BaseModel):
+    """Minimal typed browser confirmation with no client-asserted identity."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    action_type: Annotated[str, Field(min_length=1, max_length=80, pattern=r"^[a-z][a-z0-9_.-]+$")]
+    arguments: JsonObject
+    session_id: Annotated[str, Field(min_length=1, max_length=200)] | None
+    idempotency_key: Annotated[str, Field(min_length=1, max_length=200)]
 
 
 @dataclass(frozen=True, slots=True)

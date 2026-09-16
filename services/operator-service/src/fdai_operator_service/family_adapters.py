@@ -24,6 +24,7 @@ from fdai_operator_service.families.conversation.background_tasks import (
     open_background_task_stream,
 )
 from fdai_operator_service.families.conversation.contracts import (
+    ActionConfirmationBody,
     ConversationEventStream,
     ConversationProposal,
     ConversationQuery,
@@ -72,6 +73,9 @@ from fdai_operator_service.families.workflow.contracts import (
     WorkflowProposalReceipt,
     WorkflowReadRequest,
     WorkflowReadResult,
+)
+from fdai_operator_service.incident_creation_confirmation import (
+    IncidentCreationConfirmationService,
 )
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
@@ -190,6 +194,11 @@ class PostgresConversationAdapters:
 
     async def append(self, proposal: ConversationProposal) -> OutboxReceipt:
         """Persist one proposal-only conversation intent with duplicate suppression."""
+        if proposal.operation == "chat.action.confirm":
+            return await IncidentCreationConfirmationService(self.store).confirm(
+                scope=proposal.scope,
+                body=ActionConfirmationBody.model_validate(proposal.body),
+            )
         try:
             stored = await self.store.append_proposal(
                 family="conversation",

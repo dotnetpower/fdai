@@ -62,6 +62,8 @@ class NormalizedInventoryObservation:
     observed_at: datetime
     evidence_cutoff: datetime
     recorded_at: datetime
+    ingested_at: datetime
+    provider_event_at: datetime | None = None
     provider_ref: str | None = None
     scope_ref: str | None = None
     operation: str | None = None
@@ -95,7 +97,14 @@ class NormalizedInventoryObservation:
             self.observed_at,
             self.evidence_cutoff,
             self.recorded_at,
+            self.ingested_at,
         )
+        if self.provider_event_at is not None:
+            _aware_times(self.provider_event_at)
+            if self.provider_event_at > self.ingested_at:
+                raise ValueError("inventory observation provider_event_at exceeds ingested_at")
+        if self.ingested_at > self.recorded_at:
+            raise ValueError("inventory observation ingested_at exceeds recorded_at")
         properties = self.properties
         if self.property_mask != tuple(sorted(set(self.property_mask))):
             raise ValueError("inventory observation property_mask MUST be sorted and unique")
@@ -208,6 +217,8 @@ class NormalizedInventoryObservation:
         observed_at: datetime,
         evidence_cutoff: datetime,
         recorded_at: datetime,
+        ingested_at: datetime,
+        provider_event_at: datetime | None = None,
         provider_ref: str | None = None,
         scope_ref: str | None = None,
         operation: str | None = None,
@@ -243,43 +254,44 @@ class NormalizedInventoryObservation:
             "observed_at": observed_at,
             "evidence_cutoff": evidence_cutoff,
             "recorded_at": recorded_at,
+            "ingested_at": ingested_at,
+            "provider_event_at": provider_event_at,
             "from_id": from_id,
             "from_type": from_type,
             "link_type": link_type,
             "to_id": to_id,
             "to_type": to_type,
         }
-        digest = _digest(
-            {
-                "schema_version": INVENTORY_OBSERVATION_SCHEMA_VERSION,
-                "idempotency_key": idempotency_key,
-                "subject_kind": subject_kind.value,
-                "observation_kind": observation_kind.value,
-                "mutation_kind": mutation_kind.value,
-                "subject_ref": subject_ref,
-                "subject_type": subject_type,
-                "properties": json.loads(properties_json),
-                "property_mask": list(normalized_mask),
-                "properties_complete": properties_complete,
-                "links_complete": links_complete,
-                "tombstone_confirmed": tombstone_confirmed,
-                "provider_ref": provider_ref,
-                "scope_ref": scope_ref,
-                "operation": operation,
-                "operation_status": operation_status,
-                "source_identity": source_identity,
-                "source_event_id": source_event_id,
-                "source_revision": source_revision,
-                "effective_at": effective_at.isoformat(),
-                "observed_at": observed_at.isoformat(),
-                "evidence_cutoff": evidence_cutoff.isoformat(),
-                "from_id": from_id,
-                "from_type": from_type,
-                "link_type": link_type,
-                "to_id": to_id,
-                "to_type": to_type,
-            }
-        )
+        content_body = {
+            "schema_version": INVENTORY_OBSERVATION_SCHEMA_VERSION,
+            "idempotency_key": idempotency_key,
+            "subject_kind": subject_kind.value,
+            "observation_kind": observation_kind.value,
+            "mutation_kind": mutation_kind.value,
+            "subject_ref": subject_ref,
+            "subject_type": subject_type,
+            "properties": json.loads(properties_json),
+            "property_mask": list(normalized_mask),
+            "properties_complete": properties_complete,
+            "links_complete": links_complete,
+            "tombstone_confirmed": tombstone_confirmed,
+            "provider_ref": provider_ref,
+            "scope_ref": scope_ref,
+            "operation": operation,
+            "operation_status": operation_status,
+            "source_identity": source_identity,
+            "source_event_id": source_event_id,
+            "source_revision": source_revision,
+            "effective_at": effective_at.isoformat(),
+            "observed_at": observed_at.isoformat(),
+            "evidence_cutoff": evidence_cutoff.isoformat(),
+            "from_id": from_id,
+            "from_type": from_type,
+            "link_type": link_type,
+            "to_id": to_id,
+            "to_type": to_type,
+        }
+        digest = _digest(content_body)
         return cls(observation_id=digest, content_digest=digest, **values)
 
 

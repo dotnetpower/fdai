@@ -12,7 +12,7 @@ from uuid import UUID
 
 import httpx
 
-from fdai.composition import Container
+from fdai.composition import Container, attach_telemetry_workspace_resolver
 from fdai.core.ontology_platform.topology_history import (
     TopologyHistoryReader,
     graph_at,
@@ -26,6 +26,10 @@ from fdai.core.rca.member_source import (
 from fdai.delivery.azure.deployment_history import (
     AzureActivityDeploymentHistoryProvider,
     AzureDeploymentHistoryConfig,
+)
+from fdai.delivery.azure.telemetry_workspace import (
+    AzureMonitorTelemetryWorkspaceConfig,
+    AzureMonitorTelemetryWorkspaceResolver,
 )
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.persistence.postgres_provider_identity import (
@@ -197,7 +201,7 @@ async def bind_t1_rca_from_environment(
     identity: WorkloadIdentity | None,
     environment: Mapping[str, str],
 ) -> Container:
-    """Bind Azure deployment history only with a complete current dependency graph."""
+    """Bind event-time Azure telemetry routing and deployment-history RCA context."""
 
     if (
         container.incident_member_source is not None
@@ -250,19 +254,33 @@ async def bind_t1_rca_from_environment(
             freshness_budget_seconds=freshness_seconds,
         )
     )
+    management_endpoint = environment.get(
+        "FDAI_INVENTORY_MANAGEMENT_ENDPOINT",
+        "https://management.azure.com",
+    ).strip()
+    management_audience = environment.get(
+        "FDAI_INVENTORY_MANAGEMENT_AUDIENCE",
+        "https://management.azure.com/.default",
+    ).strip()
+    container = attach_telemetry_workspace_resolver(
+        container,
+        resolver=AzureMonitorTelemetryWorkspaceResolver(
+            identity=reader_identity,
+            resource_identities=resource_identities,
+            http_client=http_client,
+            config=AzureMonitorTelemetryWorkspaceConfig(
+                endpoint=management_endpoint,
+                audience=management_audience,
+            ),
+        ),
+    )
     history = AzureActivityDeploymentHistoryProvider(
         identity=reader_identity,
         resource_identities=resource_identities,
         http_client=http_client,
         config=AzureDeploymentHistoryConfig(
-            endpoint=environment.get(
-                "FDAI_INVENTORY_MANAGEMENT_ENDPOINT",
-                "https://management.azure.com",
-            ).strip(),
-            audience=environment.get(
-                "FDAI_INVENTORY_MANAGEMENT_AUDIENCE",
-                "https://management.azure.com/.default",
-            ).strip(),
+            endpoint=management_endpoint,
+            audience=management_audience,
         ),
     )
 

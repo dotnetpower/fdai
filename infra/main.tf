@@ -76,6 +76,12 @@ locals {
   full_suffix                        = "${local.env_suffix}${local.region_suffix}"
   global_name_suffix                 = var.resource_name_suffix == "" ? "" : "-${var.resource_name_suffix}"
   document_intelligence_account_name = "di-${var.workload}${local.full_suffix}${local.global_name_suffix}"
+  key_vault_full_name                = "kv-${var.workload}${local.full_suffix}${local.global_name_suffix}"
+  key_vault_name = (
+    length(local.key_vault_full_name) <= 24
+    ? local.key_vault_full_name
+    : "kv-aip-${substr(sha256(local.key_vault_full_name), 0, 8)}"
+  )
 
   static_web_app_region_shorts = {
     westus2    = "wus2"
@@ -828,6 +834,20 @@ resource "azurerm_role_assignment" "ingestion_worker_pantheon_receiver" {
   principal_id         = module.ingestion_worker_identity[0].principal_id
 }
 
+resource "azurerm_role_assignment" "ingestion_aks_eventhubs_sender" {
+  count                = var.enable_document_ingestion && var.compute_kind == "aks" ? 1 : 0
+  scope                = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
+  role_definition_name = "Azure Event Hubs Data Sender"
+  principal_id         = module.ingestion_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "ingestion_worker_aks_eventhubs_receiver" {
+  count                = var.enable_document_ingestion && !var.ingestion_cohost_worker && var.compute_kind == "aks" ? 1 : 0
+  scope                = module.event_bus.auxiliary_topic_ids["fdai.pipeline.stages"]
+  role_definition_name = "Azure Event Hubs Data Receiver"
+  principal_id         = module.ingestion_worker_identity[0].principal_id
+}
+
 resource "azurerm_role_assignment" "ingestion_ocr_user" {
   count                = var.enable_document_ingestion && local.document_ocr_binding_enabled ? 1 : 0
   scope                = local.document_ocr_effective_resource_id
@@ -1165,7 +1185,7 @@ resource "terraform_data" "isolated_executor_authority_cutover_contract" {
 # -----------------------------------------------------------------------
 module "key_vault" {
   source                = "./modules/secret-store/key-vault"
-  name                  = "kv-${var.workload}${local.full_suffix}${local.global_name_suffix}"
+  name                  = local.key_vault_name
   location              = var.region
   resource_group_name   = module.resource_group.name
   tenant_id             = var.tenant_id
