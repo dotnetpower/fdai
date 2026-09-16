@@ -241,7 +241,7 @@ splits do not change cursor progress, completeness, or writer authority.
 ### Private-safe change acceleration
 
 The private deployment profile polls Azure Resource Graph `resourcechanges` with a durable cursor
-and tracks every enabled accelerator heartbeat even when positions are unchanged. Each bounded page is
+and tracks every enabled accelerator heartbeat even when positions are unchanged. The ARG query entry point remains structurally bounded, and each page is
 ordered oldest first, boundary duplicates are idempotent, and the cursor advances only after every
 accepted change enters observation ingress. Create and update rows trigger exact Resource Graph hydration for the
 changed Resource ids. Delete rows become unconfirmed tombstones and wait for complete reconciliation

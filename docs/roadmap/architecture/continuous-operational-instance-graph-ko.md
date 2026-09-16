@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 7701847593a3ae9001d56445d59566b2e8284a24
+translation_source_sha: 6f66312fcbb390d777574b77c2b8b577f11c5652
 translation_revised: 2026-09-17
 ---
 # 지속형 운영 인스턴스 그래프
@@ -249,7 +249,7 @@ PostgreSQL 영속성은 저장소 조정을 `postgres_ontology.py`에 유지하�
 ### 비공개 네트워크 변경 가속
 
 비공개 배포 프로필은 내구성 있는 cursor로 Azure Resource Graph `resourcechanges`를 폴링하고
-위치가 그대로여도 활성화된 모든 가속기의 폴링 상태를 추적합니다. 범위가 제한된 각 페이지는 오래된 항목부터
+위치가 그대로여도 활성화된 모든 가속기의 폴링 상태를 추적합니다. ARG 조회 진입점은 구조 한도 안에 유지되며 각 페이지는 오래된 항목부터
 정렬하고 경계 중복을 멱등하게 처리하며, 수락된 모든 변경이 정식 관측 수신 경로에 들어간 뒤 cursor를
 진행합니다. 생성 및 업데이트 행은 변경된 Resource ID만 대상으로 범위가 제한된 정확한 Resource
 Graph 재조회를 실행합니다. 삭제 행은 확인되지 않은 tombstone이 되며 완전한 reconciliation이
