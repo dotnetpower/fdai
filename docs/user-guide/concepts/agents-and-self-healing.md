@@ -39,7 +39,7 @@ execution authority.
 | Njord | Cost specialist | Advises on cost and never executes |
 | Freyr | Capacity specialist | Advises on capacity and never executes |
 | Loki | Chaos specialist | Proposes bounded experiments and never executes |
-| Mimir | Rule steward | Owns governed rule lifecycle decisions |
+| Mimir | Rule accountable owner | Owns governed rule lifecycle decisions |
 | Norns | Learning specialist | Proposes inert candidates from audited outcomes |
 | Muninn | Memory specialist | Supplies scoped context and prior evidence |
 | Saga | Auditor | Writes the append-only audit log |
