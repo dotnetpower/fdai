@@ -217,6 +217,19 @@ function ReportLineContactRequests({
               <p>{t("approvals.contactExpires", {
                 timestamp: formatConsoleTimestamp(item.expiresAt),
               })}</p>
+              <details>
+                <summary>{t("approvals.contactTechnicalDetails")}</summary>
+                <dl class="approval-facts">
+                  <div>
+                    <dt>{t("approvals.contactApprovalId")}</dt>
+                    <dd><code>{item.approvalId}</code></dd>
+                  </div>
+                  <div>
+                    <dt>{t("approvals.contactConsentId")}</dt>
+                    <dd><code>{item.consentId}</code></dd>
+                  </div>
+                </dl>
+              </details>
               <div class="approval-decision-actions">
                 <button
                   type="button"

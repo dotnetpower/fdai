@@ -127,6 +127,8 @@ describe("approval decision availability", () => {
       expect(source).toContain("client.decideReportLineContact(");
       expect(source).toContain("approvals.sendContact");
       expect(source).toContain("approvals.declineContact");
+      expect(source).toContain("approvals.contactTechnicalDetails");
+      expect(source).toContain("<details>");
       expect(catalog).toContain("Sending the request does not approve");
     });
   });

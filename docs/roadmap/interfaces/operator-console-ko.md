@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 142e43a6d5db065afa9c842db0228fdaf85f0349
+translation_source_sha: 8883df7c45b51eee520eb9d5b9c5ab574406b68a
 translation_revised: 2026-09-16
 ---
 # FDAI Console 대화
@@ -436,7 +436,7 @@ Narrator는 오퍼레이터가 "그냥 fix 해" 라고 말할 때
 - 검증기 pass AND RBAC 충족 → 도구 호출 진행.
 - 검증기 abstain 또는 RBAC 하한 미달 → 조정기는 내부적으로 기존 HIL 큐에
   검토 항목을 파일 하고 오퍼레이터에게 "HIL 항목 id X를 파일 했어" 반환.
-- 어떠한 상황에서도 전달 전 감사 항목 없이 쓰기는 발생하지 않습니다. 검토된 [사람 보고선](human-report-lines-and-approval-routing-ko.md)을 사용하도록 명시적으로 구성한 ActionType에서는 먼저 요청자에게 별도 연락 동의 카드를 표시합니다. `승인 요청 보내기`는 고정된 정확한 경로로 알림을 보내는 것만 허용하며 작업을 승인하지 않습니다. 전달 전과 승인이 도착할 때 관계 그래프, RBAC 및 ActionType 정책을 다시 확인합니다. 보고선 검토는 Owner 결정 후 Core가 그래프를 원자적으로 수렴하는 동안 잠시 `activation_pending`을 표시할 수 있습니다.
+- 어떠한 상황에서도 전달 전 감사 항목 없이 쓰기는 발생하지 않습니다. 검토된 [사람 보고선](human-report-lines-and-approval-routing-ko.md)을 사용하도록 명시적으로 구성한 ActionType에서는 먼저 요청자에게 별도 연락 동의 카드를 표시합니다. `승인 요청 보내기`는 고정된 정확한 경로로 알림을 보내는 것만 허용하며 작업을 승인하지 않습니다. 전달 전과 승인이 도착할 때 관계 그래프, RBAC 및 ActionType 정책을 다시 확인합니다. 보고선 검토는 Owner 결정 후 Core가 그래프를 원자적으로 수렴하는 동안 잠시 `activation_pending`을 표시할 수 있습니다. Native detail control은 감사 drill-down을 위한 안정적인 승인 및 동의 식별자를 표시합니다.
 ## 8. 채널 통합 (push vs pull)
 
 채널 추상화 ([channels-and-notifications.md](channels-and-notifications-ko.md))

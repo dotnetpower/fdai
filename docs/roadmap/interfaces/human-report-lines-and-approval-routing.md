@@ -302,7 +302,9 @@ Organization documents and reporting relationships are sensitive identity data:
 
 For a high-risk conversational request, FDAI shows an explicit consent card with the action summary,
 impact scope, intended report-line route, expiry, and `Send approval request` or `Cancel` actions.
-No notification is sent before that consent is recorded.
+No notification is sent before that consent is recorded. Native detail controls expose the
+approval and consent identifiers for audit drill-down without turning the card into an action
+approval surface.
 
 ## Rollout and verification
 

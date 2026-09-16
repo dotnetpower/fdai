@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 1642d5b67cbf7d431cefd9c0df3272fd34d033fa
+translation_source_sha: 33e496f33b5aac45c7d63ead9470623a5bec0b83
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -295,7 +295,8 @@ Operator Service는 사람을 인증하고 변환 결과를 렌더링하며 타�
 
 고위험 대화 요청에서는 Action 요약, 영향 범위, 예정된 report-line 경로, 만료 및
 `승인 요청 보내기` 또는 `취소` 작업을 포함한 명시적 동의 카드를 표시합니다. 동의가
-기록되기 전에는 알림을 보내지 않습니다.
+기록되기 전에는 알림을 보내지 않습니다. Native detail control은 카드를 작업 승인 표면으로
+바꾸지 않고 감사 drill-down을 위한 승인 및 동의 식별자를 표시합니다.
 
 ## 롤아웃 및 검증
 
