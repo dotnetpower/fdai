@@ -538,7 +538,7 @@ async def test_arm_overlay_hydrates_only_vm_run_command_execution_state() -> Non
     }
     assert "sensitive output" not in repr(result.resources[0].props)
     assert "sensitive error" not in repr(result.resources[0].props)
-    assert result.resources[0].last_seen is None
+    assert result.resources[0].last_seen is not None
 
 
 @pytest.mark.parametrize(
@@ -562,6 +562,76 @@ def test_vmss_instance_view_is_scrubbed_when_statuses_are_missing_or_malformed(
 
     assert projected["properties"]["instanceView"] == {}
     assert "sensitive status" not in repr(projected)
+
+
+def test_vmss_instance_view_deduplicates_equivalent_power_state_casing() -> None:
+    projected = _project_vmss_instance_state(
+        {
+            "id": "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+            "Microsoft.Compute/virtualMachineScaleSets/vmss-1/virtualMachines/0",
+            "properties": {
+                "instanceView": {
+                    "statuses": [
+                        {"code": "PowerState/running"},
+                        {"code": "powerstate/RUNNING"},
+                    ]
+                }
+            },
+        }
+    )
+
+    assert projected["properties"]["instanceView"] == {"powerState": {"code": "PowerState/running"}}
+
+
+def test_vmss_instance_view_rejects_genuinely_conflicting_power_states() -> None:
+    with pytest.raises(ArmInventoryError, match="conflicting power states"):
+        _project_vmss_instance_state(
+            {
+                "id": "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+                "Microsoft.Compute/virtualMachineScaleSets/vmss-1/virtualMachines/0",
+                "properties": {
+                    "instanceView": {
+                        "statuses": [
+                            {"code": "PowerState/running"},
+                            {"code": "PowerState/deallocated"},
+                        ]
+                    }
+                },
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    ("resource_id", "collection"),
+    [
+        (
+            "/subscriptions/sub-1/resourceGroups/rg-1/providers/Microsoft.Compute/"
+            "virtualMachineScaleSets/other/virtualMachines/0",
+            "virtualMachines",
+        ),
+        (
+            "/subscriptions/sub-1/resourceGroups/rg-1/providers/Microsoft.Compute/"
+            "virtualMachineScaleSets/vmss-1/virtualMachines/0/networkInterfaces/nic/extra",
+            "networkInterfaces",
+        ),
+    ],
+)
+def test_vmss_child_identity_must_name_one_exact_parent(
+    resource_id: str,
+    collection: str,
+) -> None:
+    parent_id = (
+        "/subscriptions/sub-1/resourceGroups/rg-1/providers/Microsoft.Compute/"
+        "virtualMachineScaleSets/vmss-1"
+    )
+    if collection == "networkInterfaces":
+        parent_id += "/virtualMachines/0"
+    with pytest.raises(ArmInventoryError, match="parent identity"):
+        arm_inventory._validate_child_identity(
+            resource_id,
+            parent_id=parent_id,
+            collection=collection,
+        )
 
 
 def test_vm_run_command_scrubs_prior_instance_view_when_execution_state_is_missing() -> None:
@@ -617,7 +687,15 @@ async def test_arm_overlay_bounds_vm_scale_set_child_collections() -> None:
         )
 
     async def primary_query(_resource_type: str) -> ResourceQueryResult:
-        return ResourceQueryResult()
+        return ResourceQueryResult(
+            resources=(
+                ResourceRecord(
+                    resource_id=to_neutral_id(scale_set_id),
+                    type="compute.vm-scale-set",
+                    provider_ref=scale_set_id,
+                ),
+            )
+        )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         query = AzureArmInventoryFactory(
@@ -631,6 +709,34 @@ async def test_arm_overlay_bounds_vm_scale_set_child_collections() -> None:
         ).build_child_overlay_query_fn(primary_query)
         with pytest.raises(ArmInventoryError, match="child collection cap"):
             await query("compute.vm-scale-set")
+
+
+async def test_arm_overlay_skips_vmss_children_outside_the_primary_generation() -> None:
+    scale_set_id = (
+        "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+        "Microsoft.Compute/virtualMachineScaleSets/vmss-direct-only"
+    )
+    requested_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_paths.append(request.url.path)
+        return httpx.Response(200, json={"value": [{"id": scale_set_id}]})
+
+    async def primary_query(_resource_type: str) -> ResourceQueryResult:
+        return ResourceQueryResult()
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        query = AzureArmInventoryFactory(
+            identity=_identity(),
+            resource_types=_vocabulary(),
+            http_client=client,
+            config=AzureArmInventoryFactoryConfig(subscription_scopes=("sub-1",)),
+        ).build_child_overlay_query_fn(primary_query)
+        result = await query("compute.vm-scale-set")
+
+    assert isinstance(result, ResourceQueryResult)
+    assert result.resources == ()
+    assert requested_paths == ["/subscriptions/sub-1/resources"]
 
 
 async def test_arm_fallback_rejects_cross_host_next_link() -> None:

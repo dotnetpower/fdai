@@ -240,6 +240,8 @@ the exact ResourceTypes whose ARM type is supported:
 - VM scale-set child collection requests `instanceView` and retains only the exact power-state code.
   VM Run Command hydration retains only `instanceView.executionState`. Status messages, command
   output, command error text, and other unreviewed instance-view fields do not enter inventory.
+  Direct ARM children enter only when their exact scale-set parent is present in the primary
+  generation, and their returned ARM ids must name one direct child of that parent.
 - A failed, unauthorized, malformed, partial, or stale state read records the exact source
   limitation and never substitutes `provisioningState`, existence, or a previous unqualified value.
 - Every canonical ResourceType has a reviewed availability outcome: an exact Resource Health

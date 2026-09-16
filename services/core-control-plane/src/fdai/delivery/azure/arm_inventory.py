@@ -232,7 +232,14 @@ class AzureArmInventoryFactory:
         ) -> ResourceQueryResult | tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
             if resource_type == _VM_SCALE_SET_RESOURCE_TYPE:
                 primary = _as_query_result(await primary_query(resource_type))
-                children = await self._fetch_vm_scale_set_children()
+                children = await self._fetch_vm_scale_set_children(
+                    allowed_scale_set_ids=frozenset(
+                        resource.provider_ref.casefold()
+                        for resource in primary.resources
+                        if resource.type == _VM_SCALE_SET_RESOURCE_TYPE
+                        and resource.provider_ref is not None
+                    )
+                )
                 return ResourceQueryResult(
                     resources=(*primary.resources, *children.resources),
                     links=(*primary.links, *children.links),
@@ -254,7 +261,11 @@ class AzureArmInventoryFactory:
 
         return _fetch
 
-    async def _fetch_vm_scale_set_children(self) -> ResourceQueryResult:
+    async def _fetch_vm_scale_set_children(
+        self,
+        *,
+        allowed_scale_set_ids: frozenset[str],
+    ) -> ResourceQueryResult:
         """Collect VMSS VM and NIC children under one bounded ARM compute observation."""
 
         token = await self._identity.get_token(self._config.audience)
@@ -272,15 +283,22 @@ class AzureArmInventoryFactory:
                 resource_type=_VM_SCALE_SET_RESOURCE_TYPE,
             )
             for scale_set in scale_sets:
+                scale_set_id = str(scale_set["id"])
+                if scale_set_id.casefold() not in allowed_scale_set_ids:
+                    continue
                 collection_count += 1
                 self._validate_child_collection_count(collection_count)
-                scale_set_id = str(scale_set["id"])
                 virtual_machines = await self._fetch_pages(
                     self._child_url(scale_set_id, "virtualMachines", expand="instanceView"),
                     headers=headers,
                     resource_type=_VM_SCALE_SET_VM_RESOURCE_TYPE,
                 )
                 for virtual_machine in virtual_machines:
+                    _validate_child_identity(
+                        str(virtual_machine["id"]),
+                        parent_id=scale_set_id,
+                        collection="virtualMachines",
+                    )
                     virtual_machine = _project_vmss_instance_state(virtual_machine)
                     virtual_machine_id = str(virtual_machine["id"])
                     typed_rows.append(
@@ -293,6 +311,12 @@ class AzureArmInventoryFactory:
                         headers=headers,
                         resource_type=_VM_SCALE_SET_NIC_RESOURCE_TYPE,
                     )
+                    for network_interface in network_interfaces:
+                        _validate_child_identity(
+                            str(network_interface["id"]),
+                            parent_id=virtual_machine_id,
+                            collection="networkInterfaces",
+                        )
                     typed_rows.extend(
                         (network_interface, _VM_SCALE_SET_NIC_RESOURCE_TYPE, virtual_machine_id)
                         for network_interface in network_interfaces
@@ -649,7 +673,7 @@ def _project_vmss_instance_state(row: Mapping[str, Any]) -> Mapping[str, Any]:
     if not isinstance(statuses, list):
         return {**row, "properties": {**properties, "instanceView": {}}}
     power_states = {
-        code.strip()
+        code.strip().casefold()
         for item in statuses
         if isinstance(item, Mapping)
         and isinstance((code := item.get("code")), str)
@@ -657,7 +681,11 @@ def _project_vmss_instance_state(row: Mapping[str, Any]) -> Mapping[str, Any]:
     }
     if len(power_states) > 1:
         raise ArmInventoryError("ARM VM scale-set instance view has conflicting power states")
-    sanitized_view = {"powerState": {"code": next(iter(power_states))}} if power_states else {}
+    sanitized_view = (
+        {"powerState": {"code": f"PowerState/{next(iter(power_states)).split('/', 1)[1]}"}}
+        if power_states
+        else {}
+    )
     return {**row, "properties": {**properties, "instanceView": sanitized_view}}
 
 
@@ -681,7 +709,28 @@ def _with_vm_run_command_state(
         else {}
     )
     props["properties"] = nested
-    return replace(resource, props=props)
+    return replace(
+        resource,
+        props=props,
+        last_seen=(
+            datetime.now(tz=UTC).isoformat()
+            if isinstance(execution_state, str) and execution_state.strip()
+            else resource.last_seen
+        ),
+    )
+
+
+def _validate_child_identity(
+    resource_id: str,
+    *,
+    parent_id: str,
+    collection: str,
+) -> None:
+    expected = f"{parent_id.rstrip('/')}/{collection}/".casefold()
+    normalized = resource_id.casefold()
+    remainder = normalized.removeprefix(expected)
+    if normalized == remainder or not remainder or "/" in remainder:
+        raise ArmInventoryError("ARM child response changed parent identity")
 
 
 def _map_arm_row(

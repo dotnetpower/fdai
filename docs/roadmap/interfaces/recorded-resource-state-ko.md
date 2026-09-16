@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 77ec96fd1b66a90ed4c1fee6670838bda912276c
+translation_source_sha: 70e64f9eb21e82f12ca14bc50c1fa86b31523a30
 translation_revised: 2026-09-16
 ---
 # 기록된 리소스 상태
@@ -232,6 +232,8 @@ ResourceType을 선언합니다.
 - VM scale set 하위 리소스 수집은 `instanceView`를 요청하고 정확한 전원 상태 코드만 유지합니다.
   VM Run Command 보강은 `instanceView.executionState`만 유지합니다. 상태 메시지, 명령 출력,
   명령 오류 텍스트 및 그 밖의 검토되지 않은 인스턴스 보기 필드는 인벤토리에 들어가지 않습니다.
+  직접 ARM 하위 리소스는 정확한 scale set 상위 항목이 기본 세대에 있을 때만 들어오며, 반환된 ARM
+  ID는 해당 상위 항목의 직접 하위 항목 하나를 가리켜야 합니다.
 - 실패, 권한 부족, 잘못된 형식, 일부 범위 또는 오래된 상태 조회는 정확한 출처 제한을 기록합니다.
   `provisioningState`, 존재 여부 또는 설명이 없는 이전 값으로 대체하지 않습니다.
 - 모든 표준 ResourceType에는 정확한 Resource Health 출처, 적용 대상 아님 또는 현재 공급자
