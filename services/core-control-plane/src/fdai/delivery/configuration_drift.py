@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,6 +33,7 @@ from fdai.core.tools import CapabilityGate, ToolArtifact
 _MAX_BASELINE_BYTES: Final[int] = 16 * 1024 * 1024
 _PROVIDER_ID: Final[str] = "ConfigurationDriftProvider"
 _TOOL_ID: Final[str] = "configuration.drift.check"
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +81,10 @@ class ConfigurationDriftToolProvider:
         try:
             report = await self.service.run()
         except Exception as exc:  # noqa: BLE001 - external evidence fails closed
+            _LOGGER.warning(
+                "configuration_drift_check_failed",
+                extra={"tool_id": artifact.id, "error_type": type(exc).__name__},
+            )
             return {
                 "schema_version": "1.0.0",
                 "verdict": "blocked",
