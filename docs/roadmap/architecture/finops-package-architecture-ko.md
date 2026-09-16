@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: e0f918d7c6b517566debc6801f1d4533f54e5f6f
+translation_source_sha: fce74e8ad1e4b2b88342986e20085a03316f9e03
 translation_revised: 2026-09-17
 ---
 
@@ -61,7 +61,7 @@ translation_revised: 2026-09-17
 > 않았습니다.
 > 패키지 semantic profile과 parity corpus는 항상 active ontology release를 고정합니다. 가산
 > kernel 선언이 바뀌면 보류 평가 집단, 긍정 결과, 낮춘 결과를 유지하면서 profile, manifest,
-> fixture identity 및 정확한 digest 단언을 함께 갱신합니다.
+> fixture identity 및 정확한 digest 회귀 기준을 함께 갱신합니다.
 > 컨테이너 게시는 수동 디스패치 검증 코드를 실행하기 전에 보호된 워크플로 원본을 검증하고,
 > 루트 디스패치 작업을 보호된 `main`으로 제한합니다. 따라서 검증되지 않은 워크플로 텍스트가
 > 출처 확인 게이트보다 먼저 실행될 수 없습니다. 검증기는 실행 중인 워크플로 원본 참조가
