@@ -51,7 +51,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Final
 
 import httpx
@@ -130,6 +130,21 @@ class AzureLogAnalyticsQueryProvider:
         self._config: Final[AzureLogAnalyticsQueryConfig] = config
         self._identity: Final[WorkloadIdentity] = identity
         self._http: Final[httpx.AsyncClient] = http_client
+
+    @property
+    def workspace_id(self) -> str:
+        """Return the server-configured workspace customer ID."""
+
+        return self._config.workspace_id
+
+    def for_workspace(self, workspace_id: str) -> AzureLogAnalyticsQueryProvider:
+        """Return an equivalent provider pinned to another verified workspace."""
+
+        return AzureLogAnalyticsQueryProvider(
+            config=replace(self._config, workspace_id=workspace_id),
+            identity=self._identity,
+            http_client=self._http,
+        )
 
     async def query_log(
         self,

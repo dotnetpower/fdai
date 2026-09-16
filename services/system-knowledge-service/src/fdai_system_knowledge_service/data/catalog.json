@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:c5882a4451658d3c08499581de6afc7690947106ed16cdfa188e7835125ff83e",
+  "catalog_digest": "sha256:11029f26956b0ca999d8a73550c85489659a003ec4fdd65a045ff00f6d18300a",
   "execution_authority": false,
-  "generated_at": "2026-09-16T02:05:41.409537Z",
+  "generated_at": "2026-09-16T05:44:30.944847Z",
   "records": [
     {
       "designed_behavior": [
@@ -302,11 +302,11 @@
         "What does the FDAI ontology do?",
         "FDAI 온톨로지는 어떤 역할을 하나요?"
       ],
-      "record_digest": "sha256:c06ea28eaaf8ff4f88573cdd828a4c641b8194fdc349e56567b7ede4eeddc761",
+      "record_digest": "sha256:feb34ba9b999c60a716e75d61c242e3122ac647e33618e5a8f3944c9336e9e7e",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "9a0024f7713d153fafb265315ff16b5a08443911",
+          "blob_sha": "4330d3cf80f086012cc9ecd24507a613c2e04680",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/architecture/operating-ontology.md",
@@ -379,11 +379,11 @@
         "How does FDAI perform root cause analysis?",
         "FDAI는 근본 원인 분석을 어떻게 수행하나요?"
       ],
-      "record_digest": "sha256:65d52d2e643ffe7034de5172a9d0abc90827fd8c8dd93aefd5443aeb1c831ae7",
+      "record_digest": "sha256:a4eb05d892edb1d163269809c83f166bc4bc6d3afe324181d5c8a6d7d39d9580",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "6f1acb9259878b92d17a041f3dfd885d633116bb",
+          "blob_sha": "a3fc9ff7905dc01beb77b37bb1bd9ce58cea6564",
           "line_end": 12,
           "line_start": 12,
           "path": "docs/roadmap/rules-and-detection/root-cause-analysis.md",
@@ -448,7 +448,7 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:04423c119a6defacff01848af89920db91af65d8b17cfd06a70e64a2a296ed04",
+      "record_digest": "sha256:183e0d9f0e727bc20b81cd89affdab0fd387dac7750c1abb0ace7ea29010f1bf",
       "sources": [
         {
           "authority_role": "design",
@@ -461,7 +461,7 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "e9e2774da19ee01a72d0cdd89e94f650cc376745",
+          "blob_sha": "6d133a5e5e309f22e06b2b233ec7052ccc5363a4",
           "line_end": 86,
           "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:f21139c51c34b37dce1aa527eeaa113ad38f7234433f60f9420736bf7eb993ba",
+      "record_digest": "sha256:12014cc481b8353cffe580fff56cf3df609c0718f1901942ad2b099634a828c2",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "e9e2774da19ee01a72d0cdd89e94f650cc376745",
+          "blob_sha": "6d133a5e5e309f22e06b2b233ec7052ccc5363a4",
           "line_end": 86,
           "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "203d6f2f6cbec5ff387bdb93adb27012a59637c2"
+  "source_revision": "91cb534be68e186eff2ef346896e0f29708e18cf"
 }

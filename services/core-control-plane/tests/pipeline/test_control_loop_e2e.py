@@ -1955,6 +1955,54 @@ class _KnowledgeT2Reasoner:
         )
 
 
+class _TelemetryT2Reasoner:
+    def __init__(self) -> None:
+        self.candidates: tuple[Citation, ...] = ()
+
+    async def reason(self, *, incident_summary: str, candidate_citations: Any) -> Any:
+        assert incident_summary
+        self.candidates = tuple(candidate_citations)
+        citation = next(
+            candidate
+            for candidate in self.candidates
+            if candidate.kind is CitationKind.TELEMETRY and candidate.facts
+        )
+        return RootCauseHypothesis(
+            tier=RcaTier.T2,
+            cause="bounded telemetry hypothesis",
+            confidence=0.8,
+            citations=(citation,),
+        )
+
+
+class _RecordingTelemetryGatherer:
+    def __init__(self) -> None:
+        self.resource_ref: str | None = None
+
+    async def gather(
+        self,
+        *,
+        resource_ref: str,
+        since: datetime,
+        until: datetime,
+        log_expression: str = "",
+        trace_service: str | None = None,
+        limit: int = 20,
+    ) -> tuple[Citation, ...]:
+        assert since < until
+        assert not log_expression
+        assert trace_service is None
+        assert limit == 20
+        self.resource_ref = resource_ref
+        return (
+            Citation(
+                kind=CitationKind.TELEMETRY,
+                ref="log:opaque",
+                facts=("marker:timeout", "signal:log_error"),
+            ),
+        )
+
+
 class _SlowT2Reasoner:
     async def reason(self, *, incident_summary: str, candidate_citations: Any) -> Any:
         del incident_summary, candidate_citations
@@ -2014,6 +2062,43 @@ async def test_t2_rca_audited_on_abstain_with_reasoner(
     assert result.rca_result is not None
     assert result.rca_result.is_grounded
     assert "Untrusted bounded evidence" in reasoner.incident_summary
+
+
+@pytest.mark.asyncio
+async def test_t2_rca_collects_telemetry_without_governed_documents(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    reasoner = _TelemetryT2Reasoner()
+    gatherer = _RecordingTelemetryGatherer()
+    loop, _, audit = _make_loop(
+        shipped_catalog,
+        with_opa=False,
+        rca_coordinator=RcaCoordinator(  # type: ignore[arg-type]
+            reasoner=reasoner,
+            evidence_gatherer=gatherer,
+        ),
+        event_correlator=EventCorrelator(),
+    )
+
+    result = await loop.process(
+        _make_event(
+            idempotency_key="t2-telemetry",
+            resource_type="object-storage",
+            resource_id="resource-sensitive-name",
+            props={},
+        )
+    )
+
+    assert result.rca_result is not None
+    assert result.rca_result.is_grounded
+    assert gatherer.resource_ref == "resource-sensitive-name"
+    assert all(candidate.ref != "resource-sensitive-name" for candidate in reasoner.candidates)
+    t2_entry = next(
+        entry["entry"]
+        for entry in audit.audit_entries
+        if entry["entry"].get("idempotency_key") == "t2-telemetry:rca_t2"
+    )
+    assert t2_entry["rca_citations"] == [{"kind": "telemetry", "ref": "log:opaque"}]
 
 
 @pytest.mark.asyncio

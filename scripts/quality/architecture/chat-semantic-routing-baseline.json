@@ -478,6 +478,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/core/rca/evidence.py",
+      "disposition": "retain",
+      "owner": "rca-telemetry-evidence",
+      "reason": "Retains bounded cause-marker reduction over typed LogRecord evidence. It accepts no operator utterance, selects no natural-language intent, emits no raw log text and grants no execution or recovery authority.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/delivery/azure/llm/gateway_evidence.py",
       "disposition": "retain",
       "owner": "llm-delivery",
