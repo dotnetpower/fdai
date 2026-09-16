@@ -346,6 +346,93 @@ def test_pending_ontology_projection_forces_collection() -> None:
     assert decision.reason_codes == ("projection_pending",)
 
 
+def test_current_active_scope_checkpoint_ignores_inactive_scope_backlog() -> None:
+    assert (
+        _projection_pending(
+            {
+                "journal_high_watermark": 100,
+                "ontology_projection_watermark": 4,
+            },
+            active_checkpoint={
+                "generation": "generation-2",
+                "scope_refs": ["scope-b", "scope-a"],
+                "journal_high_watermark": 100,
+                "projection_high_watermark": 100,
+            },
+            active_generation="generation-2",
+            active_scopes=["scope-a", "scope-b"],
+        )
+        is False
+    )
+
+
+def test_current_active_scope_checkpoint_keeps_its_own_gap_pending() -> None:
+    assert (
+        _projection_pending(
+            {
+                "journal_high_watermark": 100,
+                "ontology_projection_watermark": 100,
+            },
+            active_checkpoint={
+                "generation": "generation-2",
+                "scope_refs": ["scope-a"],
+                "journal_high_watermark": 100,
+                "projection_high_watermark": 99,
+            },
+            active_generation="generation-2",
+            active_scopes=["scope-a"],
+        )
+        is True
+    )
+
+
+def test_mismatched_active_scope_checkpoint_keeps_global_backlog_pending() -> None:
+    assert (
+        _projection_pending(
+            {
+                "journal_high_watermark": 100,
+                "ontology_projection_watermark": 4,
+            },
+            active_checkpoint={
+                "generation": "generation-1",
+                "scope_refs": ["scope-a"],
+                "journal_high_watermark": 100,
+                "projection_high_watermark": 100,
+            },
+            active_generation="generation-2",
+            active_scopes=["scope-a"],
+        )
+        is True
+    )
+
+
+@pytest.mark.parametrize(
+    "checkpoint",
+    [
+        [],
+        {"generation": "", "scope_refs": ["scope-a"]},
+        {"generation": "generation-2", "scope_refs": ["scope-a", "scope-a"]},
+        {
+            "generation": "generation-2",
+            "scope_refs": ["scope-a"],
+            "journal_high_watermark": 4,
+            "projection_high_watermark": 5,
+        },
+    ],
+)
+def test_malformed_active_scope_checkpoint_fails_closed(checkpoint: object) -> None:
+    with pytest.raises(ValueError, match="active inventory"):
+        _projection_pending(
+            {
+                "journal_high_watermark": 100,
+                "ontology_projection_watermark": 4,
+            },
+            active_checkpoint=checkpoint,
+            active_generation="generation-2",
+            active_scopes=["scope-a"],
+        )
+
+
 def test_reconciliation_gate_tracks_every_enabled_accelerator_cursor() -> None:
     gate = PostgresInventoryReconciliationGate(
         config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://example"),
