@@ -323,7 +323,8 @@ Focused verification covers no-eligible-ancestor refusal, malformed escalation c
 path evidence, current role and scope policy, and approval by a later eligible rung after
 non-response advancement.
 Repository integration also pins report-line routes, service tests, runtime wheel members,
-transport `1.3.0`, and source-derived question-bank artifacts in their canonical inventories.
+transport `1.3.0`, source-derived question-bank artifacts, and their semantic coverage digest in
+their canonical inventories.
 The linked implementation ledger records the completed 22-round critique campaign and the local
 validation evidence separately from deployment evidence. After integrating a newer protected base,
 the same focused gates must pass before publication; a successful rebase or merge is not evidence

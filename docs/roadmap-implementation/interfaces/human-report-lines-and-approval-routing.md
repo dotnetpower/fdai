@@ -27,6 +27,7 @@ evidence for document-derived human report lines and their use in selected appro
 | 2026-09-16 | implemented | Corrected hardening commit references after rebasing and integrating the latest protected base; the earlier pre-rebase hash remains historical evidence only. | Rebased hashes in the hardening table; focused validation is required again before publication. | Retain the new focused results and protected PR evidence on #1159. |
 | 2026-09-16 | implemented | Revalidated the complete feature after integrating the latest protected base. | 439 focused Python tests; strict mypy on 58 source modules; Ruff on 78 Python files; 34 Console tests; Console typecheck and production build; two Playwright scenarios; full translation, catalog, design-route, document-size, roadmap-ledger, and stewardship gates | Publish the exact local head and retain protected CI and merge evidence on #1159. |
 | 2026-09-16 | implemented | Reconciled repository route, service-test, wheel, transport-version, and generated question-bank inventories exposed by protected regression shards. | 56 focused inventory and generation tests passed; official `build_question_bank.py` output; PR #1164 CI diagnosis | Retain the next exact-head protected CI result on #1159. |
+| 2026-09-16 | implemented | Regenerated the semantic intent coverage derived from the updated question bank. | Official `build_semantic_intent_coverage.py` output and focused artifact parity test | Retain the next exact-head protected CI result on #1159. |
 
 #### Hardening evidence
 

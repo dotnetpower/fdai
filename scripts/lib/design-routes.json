@@ -1795,6 +1795,7 @@
         "tests/integration/services/test_core_service_package.py",
         "eval/golden-dataset/question-bank/question-bank.json",
         "eval/golden-dataset/question-bank/review-catalog.md",
+        "eval/golden-dataset/semantic-intent-coverage.json",
         "console/src/routes/*report*line*",
         "console/src/routes/i18n/*report*line*",
         "console/src/api.ts",
