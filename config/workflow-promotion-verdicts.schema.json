@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/workflow-promotion-verdicts/1.0.0",
+  "title": "Workflow promotion verdict inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "catalog_ref",
+    "catalog_digest",
+    "reviewed_on",
+    "authority",
+    "summary",
+    "verdicts"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "catalog_ref": {
+      "const": "services/core-control-plane/src/fdai/agents/_framework/workflows.py"
+    },
+    "catalog_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "reviewed_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "changes_workflow_mode",
+        "grants_execution_authority",
+        "records_operational_evidence"
+      ],
+      "properties": {
+        "changes_workflow_mode": {
+          "const": false
+        },
+        "grants_execution_authority": {
+          "const": false
+        },
+        "records_operational_evidence": {
+          "const": false
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflow_count",
+        "deferred",
+        "permanent_shadow"
+      ],
+      "properties": {
+        "workflow_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "deferred": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "permanent_shadow": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "verdicts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/verdict"
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "repo_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "^[A-Za-z0-9_./:-]+(?:::[A-Za-z0-9_]+)?$"
+    },
+    "evidence_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shadow_duration",
+        "kpi_baseline",
+        "guard_regression",
+        "policy_escapes",
+        "trace"
+      ],
+      "properties": {
+        "shadow_duration": {
+          "enum": [
+            "missing",
+            "not_applicable"
+          ]
+        },
+        "kpi_baseline": {
+          "enum": [
+            "missing",
+            "not_applicable"
+          ]
+        },
+        "guard_regression": {
+          "enum": [
+            "not_evaluated",
+            "not_applicable"
+          ]
+        },
+        "policy_escapes": {
+          "enum": [
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "trace": {
+          "const": "implementation_only"
+        }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflow_id",
+        "workflow_name",
+        "definition_digest",
+        "trace_ref",
+        "current_mode",
+        "verdict",
+        "evidence_status",
+        "blocking_reasons",
+        "evidence_refs"
+      ],
+      "properties": {
+        "workflow_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,79}$"
+        },
+        "workflow_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "definition_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "trace_ref": {
+          "$ref": "#/$defs/repo_ref"
+        },
+        "current_mode": {
+          "const": "shadow"
+        },
+        "verdict": {
+          "enum": [
+            "deferred",
+            "permanent_shadow"
+          ]
+        },
+        "evidence_status": {
+          "$ref": "#/$defs/evidence_status"
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "runtime_shadow_duration_missing",
+              "kpi_baseline_missing",
+              "guard_metrics_not_evaluated",
+              "policy_escape_observation_missing",
+              "judge_only_workflow"
+            ]
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/repo_ref"
+          }
+        }
+      }
+    }
+  }
+}

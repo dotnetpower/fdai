@@ -1,0 +1,353 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_ref": "services/core-control-plane/src/fdai/agents/_framework/workflows.py",
+  "catalog_digest": "0702e932b27232c08dc222bc4f3ebc950dcdc7d25ba612e466f7ad560dbfe9e1",
+  "reviewed_on": "2026-09-16",
+  "authority": {
+    "changes_workflow_mode": false,
+    "grants_execution_authority": false,
+    "records_operational_evidence": false
+  },
+  "summary": {
+    "workflow_count": 13,
+    "deferred": 12,
+    "permanent_shadow": 1
+  },
+  "verdicts": [
+    {
+      "workflow_id": "cost-aware-remediation",
+      "workflow_name": "Cost-aware remediation",
+      "definition_digest": "2294b9599cfb61e69496e5d5864ba4d624dc35c3c0d661721806d51b599d853b",
+      "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_cost_aware_remediation_shadow_trace",
+      "current_mode": "shadow",
+      "verdict": "deferred",
+      "evidence_status": {
+        "shadow_duration": "missing",
+        "kpi_baseline": "missing",
+        "guard_regression": "not_evaluated",
+        "policy_escapes": "unknown",
+        "trace": "implementation_only"
+      },
+      "blocking_reasons": [
+        "runtime_shadow_duration_missing",
+        "kpi_baseline_missing",
+        "guard_metrics_not_evaluated",
+        "policy_escape_observation_missing"
+      ],
+      "evidence_refs": [
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_cost_aware_remediation_shadow_trace"
+      ]
+    },
+    {
+      "workflow_id": "predictive-scale",
+      "workflow_name": "Predictive scale",
+      "definition_digest": "b175ffe05ed87d6b25db878bf388269a8d0a8e54f3ea0204330f455652e18961",
+      "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_predictive_scale_shadow_trace",
+      "current_mode": "shadow",
+      "verdict": "deferred",
+      "evidence_status": {
+        "shadow_duration": "missing",
+        "kpi_baseline": "missing",
+        "guard_regression": "not_evaluated",
+        "policy_escapes": "unknown",
+        "trace": "implementation_only"
+      },
+      "blocking_reasons": [
+        "runtime_shadow_duration_missing",
+        "kpi_baseline_missing",
+        "guard_metrics_not_evaluated",
+        "policy_escape_observation_missing"
+      ],
+      "evidence_refs": [
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_predictive_scale_shadow_trace"
+      ]
+    },
+    {
+      "workflow_id": "dr-drill-orchestration",
+      "workflow_name": "DR drill orchestration",
+      "definition_digest": "ac1ec3b446e29fa38e75f03049c84b7698f0e59cc34f8bc7247187c34bd15e88",
+      "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_dr_drill_orchestration_respects_blast_radius",
+      "current_mode": "shadow",
+      "verdict": "deferred",
+      "evidence_status": {
+        "shadow_duration": "missing",
+        "kpi_baseline": "missing",
+        "guard_regression": "not_evaluated",
+        "policy_escapes": "unknown",
+        "trace": "implementation_only"
+      },
+      "blocking_reasons": [
+        "runtime_shadow_duration_missing",
+        "kpi_baseline_missing",
+        "guard_metrics_not_evaluated",
+        "policy_escape_observation_missing"
+      ],
+      "evidence_refs": [
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_dr_drill_orchestration_respects_blast_radius"
+      ]
+    },
+    {
+      "workflow_id": "override-discovery",
+      "workflow_name": "Override -> Discovery",
+      "definition_digest": "b8532cafaaf70d81b5a35f9beafaaaf24a0812cbc9187dd5d39614968c6c02d0",
+      "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_override_to_discovery_via_norns",
+      "current_mode": "shadow",
+      "verdict": "deferred",
+      "evidence_status": {
+        "shadow_duration": "missing",
+        "kpi_baseline": "missing",
+        "guard_regression": "not_evaluated",
+        "policy_escapes": "unknown",
+        "trace": "implementation_only"
+      },
+      "blocking_reasons": [
+        "runtime_shadow_duration_missing",
+        "kpi_baseline_missing",
+        "guard_metrics_not_evaluated",
+        "policy_escape_observation_missing"
+      ],
+      "evidence_refs": [
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_override_to_discovery_via_norns"
+      ]
+    },
+    {
+      "workflow_id": "security-escalation",
+      "workflow_name": "Security escalation",
+      "definition_digest": "ce5d6325cd1904579934f7059712b054aacc0b68d82ce57f002f1fc758243ed6",
+      "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_security_escalation_reaches_admin_channel",
+      "current_mode": "shadow",
+      "verdict": "deferred",
+      "evidence_status": {
+        "shadow_duration": "missing",
+        "kpi_baseline": "missing",
+        "guard_regression": "not_evaluated",
+        "policy_escapes": "unknown",
+        "trace": "implementation_only"
+      },
+      "blocking_reasons": [
+        "runtime_shadow_duration_missing",
+        "kpi_baseline_missing",
+        "guard_metrics_not_evaluated",
+        "policy_escape_observation_missing"
+      ],
+      "evidence_refs": [
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_security_escalation_reaches_admin_channel"
+      ]
+    },
+    {
+      "workflow_id": "handoff-capability",
+      "workflow_name": "Handoff -> Capability",
+      "definition_digest": "121789b3d89063ded4f8e910c8c9ae0e83b237f436a6714db3744825d190f958",
+      "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_handoff_capability_promotes_and_closes_issue",
+      "current_mode": "shadow",
+      "verdict": "deferred",
+      "evidence_status": {
+        "shadow_duration": "missing",
+        "kpi_baseline": "missing",
+        "guard_regression": "not_evaluated",
+        "policy_escapes": "unknown",
+        "trace": "implementation_only"
+      },
+      "blocking_reasons": [
+        "runtime_shadow_duration_missing",
+        "kpi_baseline_missing",
+        "guard_metrics_not_evaluated",
+        "policy_escape_observation_missing"
+      ],
+      "evidence_refs": [
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_handoff_capability_promotes_and_closes_issue"
+      ]
+    },
+    {
+      "workflow_id": "agent-health-degradation",
+      "workflow_name": "Agent health degradation",
+      "definition_digest": "7ab12dc5d5d4ea901eb4e5e1d972f5699d543faccb8970195dad081c54138300",
+      "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_agent_health_degradation_reports_via_odin",
+      "current_mode": "shadow",
+      "verdict": "deferred",
+      "evidence_status": {
+        "shadow_duration": "missing",
+        "kpi_baseline": "missing",
+        "guard_regression": "not_evaluated",
+        "policy_escapes": "unknown",
+        "trace": "implementation_only"
+      },
+      "blocking_reasons": [
+        "runtime_shadow_duration_missing",
+        "kpi_baseline_missing",
+        "guard_metrics_not_evaluated",
+        "policy_escape_observation_missing"
+      ],
+      "evidence_refs": [
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_agent_health_degradation_reports_via_odin"
+      ]
+    },
+    {
+      "workflow_id": "judgment-coherence-audit",
+      "workflow_name": "Judgment coherence audit",
+      "definition_digest": "7132e1dc397b9346936b7c4644efdb898528115b5ca81162af8bfe9b054d94fe",
+      "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_judgment_coherence_deterministic_verdict",
+      "current_mode": "shadow",
+      "verdict": "deferred",
+      "evidence_status": {
+        "shadow_duration": "missing",
+        "kpi_baseline": "missing",
+        "guard_regression": "not_evaluated",
+        "policy_escapes": "unknown",
+        "trace": "implementation_only"
+      },
+      "blocking_reasons": [
+        "runtime_shadow_duration_missing",
+        "kpi_baseline_missing",
+        "guard_metrics_not_evaluated",
+        "policy_escape_observation_missing"
+      ],
+      "evidence_refs": [
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_judgment_coherence_deterministic_verdict"
+      ]
+    },
+    {
+      "workflow_id": "rollback-rehearsal",
+      "workflow_name": "Rollback rehearsal",
+      "definition_digest": "cb3f63d90ef8a06b5f9a151eba541640034735c436ab3502c4e06d8168975c27",
+      "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_rollback_rehearsal_uses_loki_and_leaves_no_flight_targets",
+      "current_mode": "shadow",
+      "verdict": "deferred",
+      "evidence_status": {
+        "shadow_duration": "missing",
+        "kpi_baseline": "missing",
+        "guard_regression": "not_evaluated",
+        "policy_escapes": "unknown",
+        "trace": "implementation_only"
+      },
+      "blocking_reasons": [
+        "runtime_shadow_duration_missing",
+        "kpi_baseline_missing",
+        "guard_metrics_not_evaluated",
+        "policy_escape_observation_missing"
+      ],
+      "evidence_refs": [
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_rollback_rehearsal_uses_loki_and_leaves_no_flight_targets"
+      ]
+    },
+    {
+      "workflow_id": "retrospective-what-if",
+      "workflow_name": "Retrospective what-if",
+      "definition_digest": "f3b7a883e21b1eb6c8fec42c0d8f37d565b33c715ca2fa79bb8cbc2f6c5e6faa",
+      "trace_ref": "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_retrospective_what_if_is_judge_only",
+      "current_mode": "shadow",
+      "verdict": "permanent_shadow",
+      "evidence_status": {
+        "shadow_duration": "not_applicable",
+        "kpi_baseline": "not_applicable",
+        "guard_regression": "not_applicable",
+        "policy_escapes": "not_applicable",
+        "trace": "implementation_only"
+      },
+      "blocking_reasons": [
+        "judge_only_workflow"
+      ],
+      "evidence_refs": [
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "services/core-control-plane/tests/agents/test_wave7_workflows.py::test_workflow_retrospective_what_if_is_judge_only"
+      ]
+    },
+    {
+      "workflow_id": "operational-readiness-handoff",
+      "workflow_name": "Operational readiness handoff",
+      "definition_digest": "2334d0c786b3edecbd969c0134efda10a619453e6d44ac0265338eb0ae79de22",
+      "trace_ref": "services/core-control-plane/tests/composition/test_readiness_service.py::test_blocking_posture_finding_gates_enforce_handoff",
+      "current_mode": "shadow",
+      "verdict": "deferred",
+      "evidence_status": {
+        "shadow_duration": "missing",
+        "kpi_baseline": "missing",
+        "guard_regression": "not_evaluated",
+        "policy_escapes": "unknown",
+        "trace": "implementation_only"
+      },
+      "blocking_reasons": [
+        "runtime_shadow_duration_missing",
+        "kpi_baseline_missing",
+        "guard_metrics_not_evaluated",
+        "policy_escape_observation_missing"
+      ],
+      "evidence_refs": [
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "services/core-control-plane/tests/composition/test_readiness_service.py::test_blocking_posture_finding_gates_enforce_handoff"
+      ]
+    },
+    {
+      "workflow_id": "scheduled-governed-python-task",
+      "workflow_name": "Scheduled governed Python task",
+      "definition_digest": "7ff0a55a5401be8ab2ec232cd2f8c221b4abf65b860c33bb4ed7e1f8aa711487",
+      "trace_ref": "services/core-control-plane/tests/core/test_control_loop_operator_request.py::test_raw_proposal_reaches_vm_runner_after_owner_approval",
+      "current_mode": "shadow",
+      "verdict": "deferred",
+      "evidence_status": {
+        "shadow_duration": "missing",
+        "kpi_baseline": "missing",
+        "guard_regression": "not_evaluated",
+        "policy_escapes": "unknown",
+        "trace": "implementation_only"
+      },
+      "blocking_reasons": [
+        "runtime_shadow_duration_missing",
+        "kpi_baseline_missing",
+        "guard_metrics_not_evaluated",
+        "policy_escape_observation_missing"
+      ],
+      "evidence_refs": [
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "services/core-control-plane/tests/core/test_control_loop_operator_request.py::test_raw_proposal_reaches_vm_runner_after_owner_approval"
+      ]
+    },
+    {
+      "workflow_id": "detection-readiness-assurance",
+      "workflow_name": "Detection readiness assurance",
+      "definition_digest": "8794d13efed6423e551259699a58ef548f88e3e3ece47d9b3975f8d98994c23a",
+      "trace_ref": "services/core-control-plane/tests/agents/test_detection_readiness.py::test_huginn_to_heimdall_reduces_readiness_in_shadow",
+      "current_mode": "shadow",
+      "verdict": "deferred",
+      "evidence_status": {
+        "shadow_duration": "missing",
+        "kpi_baseline": "missing",
+        "guard_regression": "not_evaluated",
+        "policy_escapes": "unknown",
+        "trace": "implementation_only"
+      },
+      "blocking_reasons": [
+        "runtime_shadow_duration_missing",
+        "kpi_baseline_missing",
+        "guard_metrics_not_evaluated",
+        "policy_escape_observation_missing"
+      ],
+      "evidence_refs": [
+        "docs/roadmap/agents/agent-workflows.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "services/core-control-plane/tests/agents/test_detection_readiness.py::test_huginn_to_heimdall_reduces_readiness_in_shadow"
+      ]
+    }
+  ]
+}
