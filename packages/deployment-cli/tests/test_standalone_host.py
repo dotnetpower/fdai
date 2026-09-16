@@ -966,9 +966,9 @@ def test_aks_workload_binds_digest_image_and_additional_identity() -> None:
     }
 
 
-def test_aks_core_semantic_environment_binds_topics_and_enabled_model() -> None:
+def test_aks_core_conversation_environment_binds_topics_and_enabled_model() -> None:
     digest = "a" * 64
-    environment = standalone_host._aks_core_semantic_environment(
+    environment = standalone_host._aks_core_conversation_environment(
         application_values={"enable_llm": True},
         substrate_outputs={
             "semantic_physical": "fdai.pantheon.objects",
@@ -998,8 +998,8 @@ def test_aks_core_semantic_environment_binds_topics_and_enabled_model() -> None:
     }
 
 
-def test_aks_core_semantic_environment_keeps_transport_when_model_is_disabled() -> None:
-    environment = standalone_host._aks_core_semantic_environment(
+def test_aks_core_conversation_environment_keeps_transport_when_model_is_disabled() -> None:
+    environment = standalone_host._aks_core_conversation_environment(
         application_values={"enable_llm": False},
         substrate_outputs={"semantic_physical": "fdai.pantheon.objects"},
         semantic_topics=["requests", "projections", "investigations"],
@@ -1014,11 +1014,11 @@ def test_aks_core_semantic_environment_keeps_transport_when_model_is_disabled() 
 
 
 @pytest.mark.parametrize("enable_llm", [None, "true", 1])
-def test_aks_core_semantic_environment_rejects_non_boolean_model_activation(
+def test_aks_core_conversation_environment_rejects_non_boolean_model_activation(
     enable_llm: object,
 ) -> None:
     with pytest.raises(TypeError, match="enable_llm setting MUST be a boolean"):
-        standalone_host._aks_core_semantic_environment(
+        standalone_host._aks_core_conversation_environment(
             application_values={"enable_llm": enable_llm},
             substrate_outputs={"semantic_physical": "physical"},
             semantic_topics=["requests", "projections", "investigations"],
@@ -1033,7 +1033,7 @@ def test_aks_core_semantic_environment_rejects_non_boolean_model_activation(
         ({"resolved_models_sha256": "invalid"}, "lowercase SHA-256"),
     ],
 )
-def test_aks_core_semantic_environment_rejects_incomplete_enabled_model(
+def test_aks_core_conversation_environment_rejects_incomplete_enabled_model(
     substrate_update: dict[str, object], message: str
 ) -> None:
     substrate_outputs: dict[str, object] = {
@@ -1045,7 +1045,7 @@ def test_aks_core_semantic_environment_rejects_incomplete_enabled_model(
     }
 
     with pytest.raises(ValueError, match=message):
-        standalone_host._aks_core_semantic_environment(
+        standalone_host._aks_core_conversation_environment(
             application_values={"enable_llm": True},
             substrate_outputs=substrate_outputs,
             semantic_topics=["requests", "projections", "investigations"],
@@ -1121,7 +1121,7 @@ def test_prepare_aks_application_requires_core_semantic_environment(
     )
     monkeypatch.setattr(
         standalone_host,
-        "_aks_core_semantic_environment",
+        "_aks_core_conversation_environment",
         require_semantic_environment,
     )
 

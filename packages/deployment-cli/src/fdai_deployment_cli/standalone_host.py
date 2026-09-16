@@ -539,7 +539,7 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
     }
 
 
-def _aks_core_semantic_environment(
+def _aks_core_conversation_environment(
     *,
     application_values: dict[str, Any],
     substrate_outputs: dict[str, object],
@@ -700,7 +700,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "FDAI_OPERATING_MODEL_TOPIC": substrate_outputs["operating_model_topic"],
     }
     core_environment.update(
-        _aks_core_semantic_environment(
+        _aks_core_conversation_environment(
             application_values=application_values,
             substrate_outputs=substrate_outputs,
             semantic_topics=semantic_topics,
