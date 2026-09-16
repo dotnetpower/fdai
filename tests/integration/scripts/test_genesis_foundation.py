@@ -304,6 +304,28 @@ def test_recovery_accepts_current_source_with_existing_recovery_inputs(tmp_path)
         require_naming_only(original, current)
 
 
+@pytest.mark.parametrize(
+    ("with_image", "expected_name"),
+    [
+        (True, "foundation-variables-with-image.json"),
+        (False, "foundation-variables.json"),
+    ],
+)
+def test_recovery_selects_retained_foundation_variables(
+    tmp_path,
+    with_image,
+    expected_name,
+):
+    root = tmp_path / "foundation"
+    root.mkdir(mode=0o700)
+    if with_image:
+        write_private_bytes(root / "foundation-variables-with-image.json", b"{}")
+    else:
+        write_private_bytes(root / "foundation-variables.json", b"{}")
+
+    assert recovery_planner._foundation_variables(root).name == expected_name
+
+
 def test_recovery_requires_original_lock_before_any_planning(tmp_path):
     original = tmp_path / "original"
     original.mkdir()

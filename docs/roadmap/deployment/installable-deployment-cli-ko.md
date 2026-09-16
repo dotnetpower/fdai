@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 0cabc23280169d262cf16616ad4e8e00de9c71de
+translation_source_sha: 19bced5a9f5dbb2a6ac4d3b25b8f9d4ff8228053
 translation_revised: 2026-09-16
 ---
 
@@ -129,6 +129,9 @@ NAT IP에 명시적으로 전달합니다. 복구는 보존된 두 IP의 허용 
 원래 계획에 지원되는 애플리케이션 이름과 공개 IP 정책 입력이 이미 있으면 recovery planner는
 레거시 소스 이행을 다시 요구하지 않고 바이트가 동일한 현재 구성을 허용합니다. 그 밖의 소스
 차이는 계속 차단합니다.
+아티팩트 오프라인 이미지를 사용했으면 이미지 정보가 추가된 Foundation 변수를 읽고, 이미지
+없는 연결된 실행이면 기본 Foundation 변수를 읽습니다. 보존 입력을 선택하면서 이미지 증적을
+만들거나 Bootstrap 모드를 바꾸지 않습니다.
 
 `genesis_foundation_recovery_apply.py`에는 복구 검토와 코드에 연결된 새 `foundation-apply`
 승인이 필요하며 공식 프롬프트는 `--foundation-recovery-review`를 받습니다. 불변 실행 전
