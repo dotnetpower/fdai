@@ -11,10 +11,15 @@ import ssl
 import sys
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import httpx
-from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
+from fdai_service_contracts import (
+    InventoryProgressStage,
+    OperationalActivityStatus,
+    OperationalFreshness,
+)
 
 from fdai.core.ontology_platform.aks_diagnostic_receipt_service import (
     AksDiagnosticReceiptService,
@@ -24,6 +29,10 @@ from fdai.delivery import inventory_collection_health_reporting, inventory_sync_
 from fdai.delivery.aks_diagnostic_receipts import (
     InventoryPromotionAksDiagnosticObserver,
     StateStoreAksDiagnosticReceiptWriter,
+)
+from fdai.delivery.azure.inventory_progress_blob import (
+    AzureBlobInventoryProgressConfig,
+    AzureBlobInventoryProgressPublisher,
 )
 from fdai.delivery.azure.log_query import (
     AzureLogAnalyticsQueryConfig,
@@ -55,6 +64,12 @@ from fdai.delivery.inventory_change_acceleration import workload_identity as _wo
 from fdai.delivery.inventory_job_config import (
     InventoryJobConfig,
     read_bool_env,
+)
+from fdai.delivery.inventory_progress import (
+    CompositeInventoryProgressPublisher,
+    InventoryProgressPublisher,
+    InventoryProgressRecorder,
+    InventoryProgressUnavailableError,
 )
 from fdai.delivery.inventory_scheduler import CollectionScheduleDecision
 from fdai.delivery.inventory_sync import (
@@ -89,6 +104,10 @@ from fdai.delivery.persistence import (
     PostgresOntologyInstanceStoreConfig,
     PostgresStateStore,
     PostgresStateStoreConfig,
+)
+from fdai.delivery.persistence.postgres_inventory_progress import (
+    PostgresInventoryProgressStore,
+    PostgresInventoryProgressStoreConfig,
 )
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     InventoryReconciliationHealthState,
@@ -482,6 +501,34 @@ async def run(
     async with AsyncExitStack() as stack:
         client = await stack.enter_async_context(httpx.AsyncClient())
         identity = _workload_identity(http_client=client)
+        progress_started_at = datetime.now(tz=UTC)
+        progress_publishers: list[InventoryProgressPublisher] = [
+            PostgresInventoryProgressStore(
+                config=PostgresInventoryProgressStoreConfig(dsn=config.dsn)
+            )
+        ]
+        if progress_container_url := os.environ.get("FDAI_INVENTORY_PROGRESS_CONTAINER_URL"):
+            progress_publishers.append(
+                AzureBlobInventoryProgressPublisher(
+                    config=AzureBlobInventoryProgressConfig(container_url=progress_container_url),
+                    identity=identity,
+                    http_client=client,
+                )
+            )
+        progress_recorder = InventoryProgressRecorder(
+            run_id=os.environ.get("FDAI_INVENTORY_PROGRESS_RUN_ID") or f"inventory.{uuid4().hex}",
+            attempt_id=os.environ.get("FDAI_INVENTORY_PROGRESS_ATTEMPT_ID")
+            or f"attempt.{uuid4().hex}",
+            scopes_total=len(config.scopes),
+            provider_types_total=0,
+            pages_expected=0,
+            started_at=progress_started_at,
+            deadline_at=progress_started_at
+            + timedelta(seconds=config.attempt_deadline_seconds + 300),
+            publisher=CompositeInventoryProgressPublisher(*progress_publishers),
+            clock=lambda: datetime.now(tz=UTC),
+        )
+        await progress_recorder.advance(InventoryProgressStage.COUNT)
         effective_enricher = await build_inventory_promotion_enricher(
             config=config,
             identity=identity,
@@ -527,12 +574,20 @@ async def run(
                     identity=identity,
                     http_client=client,
                     started_at=datetime.now(tz=UTC),
+                    progress_recorder=progress_recorder,
                 )
+            )
+            await progress_recorder.advance(
+                InventoryProgressStage.VERIFY,
+                generation_digest="sha256:"
+                + hashlib.sha256(result.attempt_id.encode("utf-8")).hexdigest(),
             )
             active_snapshot_id = await durable_store.active_snapshot_id()
             if active_snapshot_id is None:
                 raise RuntimeError("inventory promotion completed without a durable active pointer")
             active = active_snapshot_id == result.attempt_id
+            if not active:
+                raise RuntimeError("inventory active generation readback did not match promotion")
             await observed_store.publish_terminal(
                 attempt_id=result.attempt_id,
                 source=result.source,
@@ -557,6 +612,14 @@ async def run(
                     ),
                     logger=_LOGGER,
                 )
+        except Exception:
+            try:
+                await progress_recorder.fail("inventory_reconciliation_failed")
+            except (ValueError, InventoryProgressUnavailableError) as progress_error:
+                if "terminal inventory progress" not in str(progress_error):
+                    if not isinstance(progress_error, InventoryProgressUnavailableError):
+                        raise
+            raise
         finally:
             await event_bus.close()
     return InventoryJobResult(
@@ -734,10 +797,14 @@ async def _try_recovery_delta(config: InventoryJobConfig) -> int | None:
 
 async def _main(argv: list[str]) -> None:
     loop = argv == ["--loop"]
-    if argv and not loop:
-        raise ValueError("inventory reconciliation accepts only --loop")
+    initial = argv == ["--initial"]
+    if argv and not loop and not initial:
+        raise ValueError("inventory reconciliation accepts only --initial or --loop")
     while True:
         config = await _load_job_config()
+        if initial:
+            await run(config)
+            return
         try:
             await _run_due_once(config)
         except (InventorySourcesExhaustedError, InventoryPromotionObserverError) as exc:

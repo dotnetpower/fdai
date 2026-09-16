@@ -13,6 +13,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Final
@@ -131,6 +132,9 @@ def main(argv: list[str] | None = None) -> int:
 
     migrate = subcommands.add_parser("migrate")
     migrate.set_defaults(handler=_migrate)
+
+    initial_inventory = subcommands.add_parser("initial-inventory")
+    initial_inventory.set_defaults(handler=_initial_inventory)
 
     license_command = subcommands.add_parser("install-license")
     license_command.add_argument("--image-digest", required=True)
@@ -378,6 +382,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "state_resource_group": str(ops["resource_group_name"]),
         "state_account": str(state["account_name"]),
         "state_container": str(state["container_name"]),
+        "inventory_progress_container_url": str(state["progress_container_url"]),
         "state_key": f"fdai-{values['env']}.tfstate",
         "kit_manifest_digest": kit.verification.manifest_digest,
         "runtime_release_digest": kit.runtime.digest,
@@ -1221,6 +1226,112 @@ def _migrate(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "state": "migrated",
         "service_count": len(order),
         "catalogs_materialized": True,
+        "effect_verified": True,
+        "mutation_performed": True,
+        "subscription_ready": False,
+    }
+    receipt["receipt_digest"] = canonical_digest(receipt)
+    _replace_private_json(receipt_path, receipt)
+    return receipt
+
+
+def _initial_inventory(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
+    """Run and independently process-check one explicit full-subscription inventory."""
+
+    receipt_path = work_dir / "initial-inventory-receipt.json"
+    if receipt_path.exists():
+        return _private_json(receipt_path, "standalone initial inventory receipt")
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    _managed_identity_login_from_context(context, work_dir)
+    for prerequisite in ("migration-receipt.json", "application-receipt.json"):
+        if not (work_dir / prerequisite).exists():
+            raise ValueError("initial inventory prerequisites are incomplete")
+    infra = Path(str(context["infra"]))
+    bundle = infra.parent
+    vault_name = _vault_name(_terraform_output(infra, "key_vault_uri"))
+    dsn = _capture(
+        (
+            "az",
+            "keyvault",
+            "secret",
+            "show",
+            "--vault-name",
+            vault_name,
+            "--name",
+            "fdai-state-store-dsn",
+            "--query",
+            "value",
+            "--output",
+            "tsv",
+            "--only-show-errors",
+        ),
+        cwd=work_dir,
+        timeout=120,
+        reason="initial inventory database reference is unavailable",
+    ).strip()
+    if not dsn or any(character in dsn for character in "\r\n"):
+        raise ValueError("initial inventory database reference is invalid")
+    progress_url = str(context["inventory_progress_container_url"])
+    if not progress_url.startswith("https://"):
+        raise ValueError("initial inventory progress endpoint is invalid")
+    runtime_python = work_dir / "runtime-venv/bin/python"
+    attempt_id = f"attempt.{uuid.uuid4().hex}"
+    environment = {
+        **os.environ,
+        "AZURE_CLIENT_ID": str(context["client_id"]),
+        "FDAI_MI_CLIENT_ID": str(context["client_id"]),
+        "FDAI_EXECUTION_VENUE": "deployed",
+        "FDAI_INVENTORY_DSN": dsn,
+        "FDAI_INVENTORY_SCOPES": str(context["subscription_id"]),
+        "FDAI_INVENTORY_SOURCES": "arg,arm",
+        "FDAI_INVENTORY_PROGRESS_CONTAINER_URL": progress_url,
+        "FDAI_INVENTORY_PROGRESS_RUN_ID": f"genesis.{context['source_commit']}",
+        "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": attempt_id,
+        "KAFKA_BOOTSTRAP_SERVERS": _terraform_output(infra, "operational_kafka"),
+        "PYTHONPATH": os.pathsep.join(
+            (
+                str(bundle / "services/core-control-plane/src"),
+                str(bundle / "packages/service-contracts/src"),
+            )
+        ),
+    }
+    _run_env(
+        (str(runtime_python), "-m", "fdai.delivery.inventory_sync_cli", "--initial"),
+        cwd=bundle,
+        env=environment,
+        timeout=3600,
+        reason="initial inventory reconciliation failed",
+    )
+    closure_raw = _capture_env(
+        (str(runtime_python), "-m", "fdai.delivery.inventory_closure_cli"),
+        cwd=bundle,
+        env=environment,
+        timeout=300,
+        reason="initial inventory independent closure failed",
+    )
+    try:
+        closure = json.loads(closure_raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError("initial inventory closure receipt is invalid") from exc
+    if (
+        not isinstance(closure, dict)
+        or closure.get("observer_distinct") is not True
+        or closure.get("active_generation_matches") is not True
+        or closure.get("provider_coverage_complete") is not True
+        or closure.get("receipt_digest") is None
+    ):
+        raise ValueError("initial inventory closure receipt is incomplete")
+    dsn = ""
+    receipt: dict[str, object] = {
+        "schema_version": "fdai.standalone-initial-inventory-receipt.v1",
+        "state": "inventory-verified",
+        "run_id": f"genesis.{context['source_commit']}",
+        "attempt_id": attempt_id,
+        "full_subscription": True,
+        "resource_type_filter": False,
+        "progress_persisted": True,
+        "active_generation_readback_verified": True,
+        "closure_receipt_digest": closure["receipt_digest"],
         "effect_verified": True,
         "mutation_performed": True,
         "subscription_ready": False,

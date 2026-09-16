@@ -119,6 +119,7 @@ from fdai.delivery.azure.arg_transport import (
     DEFAULT_ARG_REQUEST_BURST,
     DEFAULT_ARG_REQUESTS_PER_SECOND,
     DEFAULT_ARG_THROTTLE_MAX_DEFER_SECONDS,
+    ArgPageObserver,
     ArgRateLimiter,
     ArgThrottleGate,
     fetch_arg_pages,
@@ -254,6 +255,7 @@ class AzureArgQueryFactory:
         resource_types: ResourceTypeRegistry,
         http_client: httpx.AsyncClient,
         config: AzureArgQueryFactoryConfig,
+        page_observer: ArgPageObserver | None = None,
     ) -> None:
         if not config.subscription_scopes:
             raise ValueError("AzureArgQueryFactoryConfig.subscription_scopes MUST NOT be empty")
@@ -275,6 +277,7 @@ class AzureArgQueryFactory:
         self._resource_types: Final[ResourceTypeRegistry] = resource_types
         self._http: Final[httpx.AsyncClient] = http_client
         self._config: Final[AzureArgQueryFactoryConfig] = config
+        self._page_observer = page_observer
         self._throttle_gate = ArgThrottleGate(
             max_defer_seconds=config.throttle_max_defer_seconds,
         )
@@ -381,6 +384,7 @@ class AzureArgQueryFactory:
                 throttle_gate=self._throttle_gate,
                 rate_limiter=self._rate_limiter,
                 max_records=_MAX_PROVIDER_TYPES,
+                page_observer=self._page_observer,
             )
             return self._project_scope_coverage(rows)
 
@@ -429,6 +433,7 @@ class AzureArgQueryFactory:
                 project_links=self._project_links,
                 throttle_gate=self._throttle_gate,
                 rate_limiter=self._rate_limiter,
+                page_observer=self._page_observer,
             )
 
         return _fetch
@@ -610,6 +615,7 @@ class AzureArgQueryFactory:
             project_links=self._project_links,
             throttle_gate=self._throttle_gate,
             rate_limiter=self._rate_limiter,
+            page_observer=self._page_observer,
         )
 
     def _project_links(

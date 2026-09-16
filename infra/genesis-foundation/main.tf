@@ -126,7 +126,7 @@ resource "azapi_update_resource" "state_blob_service" {
 }
 
 resource "azapi_resource" "state_container" {
-  for_each = toset(["deployment-plans", "tfstate"])
+  for_each = toset(["deployment-plans", "provisioning-events", "tfstate"])
 
   type      = "Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01"
   name      = each.value
