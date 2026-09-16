@@ -448,9 +448,8 @@ class SemanticPlanningCascade:
                         metric_concepts=metric_concepts,
                         inventory_query_language=self._inventory_query_language,
                     )
-                    investigation = normalize_investigation_competitors(investigation)
                     investigation = normalize_investigation_target(
-                        investigation,
+                        normalize_investigation_competitors(investigation),
                         subject_constraints=proposal.subject_constraints,
                         utterance=utterance,
                         descriptors=descriptors,

@@ -5,6 +5,13 @@ This module acts as a compatibility facade exposing split sub-modules.
 
 from __future__ import annotations
 
+from .semantic_logical_service_frame import (
+    build_logical_service_current_state_frame as build_logical_service_current_state_frame,
+)
+from .semantic_logical_service_frame import (
+    build_service_current_health_clarification as build_service_current_health_clarification,
+)
+
 # Import all from builders
 from .semantic_planning_frame_builders import (
     build_bound_incident_metric_comparison_frame,
@@ -17,11 +24,7 @@ from .semantic_planning_frame_builders import (
     build_resource_event_history_clarification,
     build_rule_state_frame,
     build_service_agent_ownership_frame,
-    build_service_current_health_clarification,
     build_unbound_change_correlation_frame,
-)
-from .semantic_planning_frame_builders import (
-    build_logical_service_current_state_frame as build_logical_service_current_state_frame,
 )
 from .semantic_planning_frame_builders import (
     build_ontology_release_health_frame as build_ontology_release_health_frame,
