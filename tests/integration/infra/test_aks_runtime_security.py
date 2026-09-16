@@ -127,6 +127,27 @@ def test_aks_container_insights_has_dcr_and_cluster_association() -> None:
     )
 
 
+def test_aks_core_application_insights_uses_key_vault_secret() -> None:
+    root = (ROOT / "infra/main.tf").read_text(encoding="utf-8")
+    outputs = (ROOT / "infra/outputs.tf").read_text(encoding="utf-8")
+    host = (ROOT / "packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'resource "azurerm_key_vault_secret" "application_insights_connection_string"' in root
+    assert "value        = azurerm_application_insights.core.connection_string" in root
+    assert 'resource "azurerm_role_assignment" "core_application_insights_secret_reader"' in root
+    assert (
+        "scope                = azurerm_key_vault_secret."
+        "application_insights_connection_string.resource_versionless_id" in root
+    )
+    assert 'output "application_insights_connection_string_secret_name"' in outputs
+    assert '"APPLICATIONINSIGHTS_CONNECTION_STRING": str(' in host
+    assert 'substrate_outputs["application_insights_secret_name"]' in host
+    assert '"application_insights_secret_name"' in host
+    assert "azurerm_application_insights.core.connection_string" not in outputs
+
+
 def test_aks_document_workloads_have_dedicated_substrate_roles() -> None:
     root = (ROOT / "infra/main.tf").read_text(encoding="utf-8")
     outputs = (ROOT / "infra/outputs.tf").read_text(encoding="utf-8")
