@@ -212,5 +212,17 @@ test("renders bounded Sample optimization cases and outcomes", async ({ page }, 
   await page.getByRole("link", { name: "Outcomes", exact: true }).click();
   await expect(page.locator(".cost-settlement-grid > div")).toHaveCount(2);
   await expect(page.locator(".cost-settlement-grid")).toContainText("effect_verified");
+  await expect(page.locator(".cost-kpi-grid > div").nth(0)).toContainText("$41,400");
+  await expect(page.locator(".cost-kpi-grid > div").nth(1)).toContainText("60.7%");
+  await expect(page.locator(".cost-waterfall strong")).toHaveText([
+    "$68,200",
+    "-",
+    "-",
+    "-",
+    "-",
+    "$41,400",
+  ]);
+  await expect(page.locator(".cost-settlement-grid")).toContainText("$12,800");
+  await expect(page.locator(".cost-settlement-grid")).toContainText("$28,600");
   await assertNoHorizontalOverflow(page);
 });

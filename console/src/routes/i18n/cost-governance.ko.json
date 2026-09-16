@@ -221,6 +221,7 @@
     "observationOnly": "비용 근거만 있음",
     "verifiedSavings": "검증된 절감액",
     "noSettlement": "정산된 성과 없음",
+    "sampleEvidence": "화면 표현을 위한 합성 값이며 운영 근거가 아닙니다",
     "projectedRecords": "성과 레코드 {count}건 제공됨, 절감 금액은 사용할 수 없음",
     "recordsTitle": "제공된 성과",
     "state": "정산 상태",
