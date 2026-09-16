@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "core_inventory_progress_20260916"
-down_revision: str | Sequence[str] | None = "core_inventory_temporal_axes_20260916"
+down_revision: str | Sequence[str] | None = "core_inventory_activity_counts_20260917"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -15,7 +15,7 @@ migration_owner = "core-control-plane"
 owned_tables = ("inventory_progress_event",)
 rollback = {
     "strategy": "drop-inventory-progress-after-producer-and-operator-stop",
-    "restores": "core_inventory_temporal_axes_20260916",
+    "restores": "core_inventory_activity_counts_20260917",
     "requires": "inventory-progress-producer-and-operator-consumer-stopped",
 }
 
