@@ -6,6 +6,7 @@ import {
   DataTable,
   KpiCard,
   KpiGrid,
+  kpiEvidenceLabel,
   PageHeader,
   StatusPill,
   type AsyncState,
@@ -233,7 +234,7 @@ function ForecastLearningBody({ data }: { readonly data: ForecastLearningRespons
           href={anchor}
           label={t("evidence.forecastLearning.completeness")}
           evidenceState={completeness === null ? "not-measured" : "measured"}
-          value={completeness === null ? null : `${(completeness * 100).toFixed(1)}%`}
+          value={completeness === null ? kpiEvidenceLabel("not-measured") : `${(completeness * 100).toFixed(1)}%`}
         />
         <KpiCard
           href={anchor}
