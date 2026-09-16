@@ -19,6 +19,7 @@ unrelated resources in that group.
 | Security | Generated MySQL password in encrypted private state and a mode-0600 runner file, managed-identity role assignments, no VM public IP |
 | Network | Isolated VNet, delegated and private-endpoint subnets, egress-only NAT gateway, bidirectional peering to the VNet-integrated deploy runner |
 | Evidence | Log Analytics, Application Insights, AKS monitoring, MySQL and Azure OpenAI metrics |
+| Optional commerce | Private Service Bus and Cosmos DB, workload identity, public HTTPS storefront, private administration and backend services |
 
 This root does not deploy the full C1-C4 path through Application Gateway and API Management. It
 also does not deploy FDAI itself. S13 uses the existing configuration-baseline and scheduling
@@ -76,6 +77,26 @@ commit already present on protected `main`:
    reference sweep sequentially.
 4. Run `action=destroy` with `confirm_destroy=destroy-sre-demo-lab` after evidence review. Destroy
    applies an exact destroy plan from the same job.
+
+## Deploy the optional commerce scenario
+
+Set `commerce_enabled=true` in the reviewed Terraform plan to provision private Service Bus and
+Cosmos DB dependencies plus one workload identity. After apply, create or bind the reviewed TLS
+secret for the public hostname, then run:
+
+```bash
+export SCENARIO_LAB_STOREFRONT_HOSTNAME="<public-hostname>"
+export SCENARIO_LAB_STOREFRONT_TLS_SECRET_NAME="<tls-secret-name>"
+export SCENARIO_LAB_SYNTHETIC_AUTHORIZATION_REF="<standing-authorization-reference>"
+export SCENARIO_LAB_SYNTHETIC_AUTHORIZATION_EXPIRES_AT="<yyyy-mm-ddThh:mm:ssZ>"
+bash scripts/deployment/scenario-lab/prepare-commerce.sh "$runtime_dir"
+```
+
+The script installs the exact pinned AKS Store Demo commit with prebuilt images, exposes only
+`store-front` through HTTPS, keeps `store-admin` and the APIs on `ClusterIP`, applies an ingress
+policy for the administration workload, verifies the public health path, and writes a mode-0600
+`commerce.env`. It never creates a certificate or chooses a DNS zone. Those values remain part of
+the approved deployment plan.
 
 ## Test from the operator PC
 

@@ -42,6 +42,13 @@ output "enforce_environment" {
       var.azure_openai_deployment_name,
       var.azure_openai_deployment_name,
     )
+    commerce_enabled             = var.commerce_enabled
+    commerce_namespace           = var.commerce_namespace
+    commerce_identity_client_id  = var.commerce_enabled ? azurerm_user_assigned_identity.commerce[0].client_id : null
+    commerce_servicebus_id       = var.commerce_enabled ? azurerm_servicebus_namespace.commerce[0].id : null
+    commerce_servicebus_hostname = var.commerce_enabled ? "${azurerm_servicebus_namespace.commerce[0].name}.servicebus.windows.net" : null
+    commerce_cosmos_id           = var.commerce_enabled ? azurerm_cosmosdb_account.commerce[0].id : null
+    commerce_cosmos_endpoint     = var.commerce_enabled ? azurerm_cosmosdb_account.commerce[0].endpoint : null
   }
 }
 

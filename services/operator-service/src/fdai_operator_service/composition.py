@@ -58,6 +58,11 @@ from fdai_operator_service.conversation_assurance_reader import (
 from fdai_operator_service.environment import (
     OperatorEnvironment,
 )
+from fdai_operator_service.families.aks_commerce import (
+    AksCommerceFamilyDependencies,
+    StateStoreAksCommerceProjectionReader,
+    UnavailableAksCommerceProjectionReader,
+)
 from fdai_operator_service.families.conversation import (
     ConversationFamilyDependencies,
 )
@@ -642,6 +647,10 @@ def _build_route_families(
             operations_webhook_verifier=unavailable_operations,
             report_pdf_encoder=report_pdf_encoder,
             operation_panels=REFERENCE_PANEL_ROUTES,
+            aks_commerce=AksCommerceFamilyDependencies(
+                authenticator=authenticator,
+                projections=UnavailableAksCommerceProjectionReader(),
+            ),
             cost_governance=CostGovernanceFamilyDependencies(
                 authenticator=authenticator,
                 access=unavailable_cost,
@@ -749,6 +758,10 @@ def _build_route_families(
         ),
         report_pdf_encoder=report_pdf_encoder,
         operation_panels=REFERENCE_PANEL_ROUTES,
+        aks_commerce=AksCommerceFamilyDependencies(
+            authenticator=authenticator,
+            projections=StateStoreAksCommerceProjectionReader(store),
+        ),
         cost_governance=CostGovernanceFamilyDependencies(
             authenticator=authenticator,
             access=cost_reader,
@@ -1093,6 +1106,17 @@ def _build_data_sources(
                 "/assurance-twin/reviews",
                 "/assurance-twin/review",
             ),
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
+            reachable=None,
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=reason,
+        ),
+        ReadDataSource(
+            key="aks-commerce",
+            source="core-tracked-state" if configured else "not-configured",
+            routes=("/aks-commerce/overview",),
             availability="unknown" if configured else "unavailable",
             configured=configured,
             reachable=None,

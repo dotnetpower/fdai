@@ -42,6 +42,7 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
   scope: "/scope",
   "llm-cost": "/llm-cost",
   "cost-governance": "/cost-governance",
+  "aks-commerce": "/aks-commerce",
   "settings-general": "/settings/general",
   "settings-models": "/settings/models",
   "settings-runtime": "/settings/runtime-policies",

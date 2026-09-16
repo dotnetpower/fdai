@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:7e7cb00c2750e885d93f0a98282f8e19fc7a05ed484551c4fe2dcb8652865e3f",
+  "catalog_digest": "sha256:a0ee1fd6b53d8c9883ef6b14fa66a4bccb6f269c734431bffb15e4d5a455b790",
   "execution_authority": false,
-  "generated_at": "2026-09-16T13:18:26.686475Z",
+  "generated_at": "2026-09-16T16:19:26.656111Z",
   "records": [
     {
       "designed_behavior": [
@@ -21,17 +21,8 @@
         "How does FDAI keep actions safe?",
         "FDAI는 작업을 어떻게 안전하게 실행하나요?"
       ],
-      "record_digest": "sha256:6f2fed70d02cf476a14a4d9aefed8b62cf857de35cd2f934c825f26e8fb71786",
+      "record_digest": "sha256:3b82c8807e78d5a136b29144f311e91d1b9da32f386c87229926a843e6aeaba8",
       "sources": [
-        {
-          "authority_role": "design",
-          "blob_sha": "ba4da66df9512eb4253aa1f0405ff7e86882c30c",
-          "line_end": 24,
-          "line_start": 24,
-          "path": "docs/roadmap/decisioning/action-ontology.md",
-          "source_kind": "doc",
-          "symbol": "One ontology, two triggers"
-        },
         {
           "authority_role": "design",
           "blob_sha": "d1464ccab1866fdd17ce2a57ea10a76e904f1daf",
@@ -40,6 +31,15 @@
           "path": "docs/roadmap/architecture/fdai-constitution.md",
           "source_kind": "doc",
           "symbol": "Article 3: Agent-driven authority"
+        },
+        {
+          "authority_role": "design",
+          "blob_sha": "f4a1a6b8fbfab8527efd5dfe13d32e301b076759",
+          "line_end": 24,
+          "line_start": 24,
+          "path": "docs/roadmap/decisioning/action-ontology.md",
+          "source_kind": "doc",
+          "symbol": "One ontology, two triggers"
         }
       ],
       "status": "implemented",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "d60756ff8c5ac76cbceba549e63d99a359e1a5f5"
+  "source_revision": "ea699f97738a90aa760d20b7487a1eb1245a257c"
 }

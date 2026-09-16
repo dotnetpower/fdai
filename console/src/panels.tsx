@@ -101,6 +101,10 @@ const CostGovernanceRoute = lazyRoute(
   () => import("./routes/cost-governance"),
   "CostGovernanceRoute",
 );
+const AksCommerceRoute = lazyRoute(
+  () => import("./routes/aks-commerce"),
+  "AksCommerceRoute",
+);
 const CapabilitiesRoute = lazyRoute(
   () => import("./routes/capabilities"),
   "CapabilitiesRoute",
@@ -587,6 +591,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.llmCost"),
     group: "overview",
     component: LlmCostRoute,
+  },
+  {
+    id: "aks-commerce",
+    label: t("nav.panel.aksCommerce"),
+    subtitle: t("nav.panelSub.aksCommerce"),
+    group: "overview",
+    component: AksCommerceRoute,
   },
   {
     id: "cost-governance",

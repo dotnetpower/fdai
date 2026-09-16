@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: b7aa71c00ff975059c8ebcd2035cc318539cdbd4
-translation_revised: 2026-09-16
+translation_source_sha: 82a618c1433f2aff8c21b1f6251348ddd43b114b
+translation_revised: 2026-09-17
 ---
 # FDAI 로드맵
 
@@ -97,6 +97,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 13 | [operating-and-verification-ko.md](operations/operating-and-verification-ko.md) | 자체 헬스 신호, canary 이벤트, 스모크 테스트, 알림 라우팅, 런북 |
 | 13a | [observation-campaign-ko.md](operations/observation-campaign-ko.md) | 등록된 인벤토리, 활동, 상태, 메트릭, 로그, 네트워크, 비용 및 복구 출처의 권한 인식 주기 수집과 로컬/배포 동등성 |
 | 13b | [alert-noise-governance-ko.md](operations/alert-noise-governance-ko.md) | shadow 우선 알림 평가, 수신 대상 근거, 정확한 계획에 따른 수동 PR 작업, 보호 경로 및 독립 효과 검증. 운영 도입에는 아직 충족해야 할 조건이 있음 |
+| 13c | [aks-commerce-business-scenario-ko.md](operations/aks-commerce-business-scenario-ko.md) | 공개 스토어프런트 여정, AKS 및 메시징 근거, 워크로드 SLO 영향, 결정론적 진단, 통제된 복구, 독립 비즈니스 효과 검증 |
 | 20 | [deployment-preflight-ko.md](deployment/deployment-preflight-ko.md) | 배포 가능성과 선행 장애 요인 점검: 프로브 분류, 준비 상태 보고서, 장애 요인과 Terraform 설정의 매핑 |
 | 20a | [preflight-active-reassembly-ko.md](deployment/preflight-active-reassembly-ko.md) | 능동 플랜 재조립: 정책 차단 요인을 capability-mode 토글로 재렌더된 terraform 플랜으로 바꿔 실행기를 통해 교정 PR로 전달 (수렴 루프, stop-condition, 한계) |
 | 20b | [installable-deployment-cli-ko.md](deployment/installable-deployment-cli-ko.md) | 설치형 `fdaictl` 파사드: 격리된 `uv` 설치, 읽기 전용 preflight, 서명된 배포 번들, 비공개 실행기로 exact-plan 제출 |
