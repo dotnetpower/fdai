@@ -163,6 +163,11 @@ export interface TileState {
   readonly action_type: string | undefined;
   readonly action_types: ReadonlySet<string>;
   readonly gate_decision: string | undefined;
+  readonly approval_status: string | undefined;
+  readonly provider_status: string | undefined;
+  readonly observation_status: string | undefined;
+  readonly reconciliation_status: string | undefined;
+  readonly recovery_status: string | undefined;
   readonly outcome: string | undefined;
   readonly stages_completed: ReadonlySet<LiveStageName>;
   readonly stage_agents: ReadonlyMap<LiveStageName, string>;
@@ -347,6 +352,11 @@ export function applyEvent(state: LiveState, evt: LiveStageEvent): LiveState {
     pickString(detail, "gate_decision") ??
     (evt.stage === "audit" ? pickString(detail, "decision") : undefined);
   const outcome = pickString(detail, "outcome");
+  const approvalStatus = pickString(detail, "approval_status");
+  const providerStatus = pickString(detail, "provider_status");
+  const observationStatus = pickString(detail, "observation_status");
+  const reconciliationStatus = pickString(detail, "reconciliation_status");
+  const recoveryStatus = pickString(detail, "recovery_status");
   const mode = pickString(detail, "mode");
   const autonomy = pickString(detail, "autonomy") ?? pickString(detail, "autonomy_class");
   const target = pickString(detail, "target") ?? pickString(detail, "resource_ref");
@@ -408,6 +418,11 @@ export function applyEvent(state: LiveState, evt: LiveStageEvent): LiveState {
     action_type: actionType ?? previous?.action_type,
     action_types,
     gate_decision: gateDecision ?? previous?.gate_decision,
+    approval_status: approvalStatus ?? previous?.approval_status,
+    provider_status: providerStatus ?? previous?.provider_status,
+    observation_status: observationStatus ?? previous?.observation_status,
+    reconciliation_status: reconciliationStatus ?? previous?.reconciliation_status,
+    recovery_status: recoveryStatus ?? previous?.recovery_status,
     outcome: outcome ?? previous?.outcome,
     stages_completed,
     stage_agents,

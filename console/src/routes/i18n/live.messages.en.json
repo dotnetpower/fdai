@@ -131,11 +131,41 @@
     "columns": {"controlLoop": "Control loop", "stage": "Current stage", "age": "Age", "tier": "Tier", "mode": "Mode", "decision": "Decision", "work": "Work", "tierMode": "Tier / mode", "why": "Why", "ownerStage": "Owner / stage", "riskImpact": "Risk / impact", "ageSla": "Age / SLA", "controlState": "Control state"}
   },
   "control": {"notObserved": "Not observed", "notStarted": "Not started", "notDispatched": "Not dispatched", "simulated": "Simulated", "inProgress": "In progress", "completed": "Completed", "executionFailed": "Failed"},
+  "outcome": {"effect_verified": "Effect independently verified"},
+  "scenario": {
+    "eyebrow": "115-second review path",
+    "title": "Restore checkout capacity with one governed VM action",
+    "summary": "One correlation connects the operator question, evidence, approval, provider receipt, independent observation, and final reconciliation.",
+    "resultLabel": "Final state",
+    "result": "Effect independently verified",
+    "actionLabel": "ActionType",
+    "targetLabel": "Target",
+    "target": "One synthetic checkout capacity VM",
+    "authorityLabel": "Authority",
+    "authority": "Per-execution human approval",
+    "boundary": "Synthetic walkthrough only. It does not claim a live Azure action or measured business outcome.",
+    "inspect": "Inspect complete correlation",
+    "steps": {
+      "question": {"title": "Operator question", "detail": "Why is checkout capacity below its objective?"},
+      "evidence": {"title": "Grounded evidence", "detail": "The VM is deallocated after a recorded maintenance change."},
+      "approval": {"title": "Human approval", "detail": "A distinct operator approves one target and one execution."},
+      "dispatch": {"title": "Provider receipt", "detail": "The executor records that Azure accepted the start request."},
+      "observation": {"title": "Independent observation", "detail": "A separate observer reads the VM as running."},
+      "reconciliation": {"title": "Final reconciliation", "detail": "The correlation closes only after the observation matches the expected effect."}
+    }
+  },
+  "evidence": {
+    "approval": {"approved": "Approved by a distinct human", "not_observed": "Not observed"},
+    "provider": {"accepted": "Provider accepted the request", "not_observed": "Not observed"},
+    "observation": {"verified": "Running state independently observed", "not_observed": "Not observed"},
+    "reconciliation": {"effect_verified": "Expected effect reconciled", "not_observed": "Not observed"},
+    "recovery": {"not_required": "Ready, not required", "not_observed": "Not observed"}
+  },
   "sample": {
     "restart": "Replay Sample",
     "restartHelp": "Restart the same synthetic story sequence. No runtime records or actions.",
     "title": {
-      "publicBlob": "Disable public blob access", "restore": "Enable point-in-time restore",
+      "vmStart": "Restore checkout VM capacity", "restore": "Enable point-in-time restore",
       "autoscale": "Raise autoscale minimum", "certificate": "Rotate expiring certificate",
       "rightsize": "Right-size batch compute", "firewall": "Remove orphan firewall rule",
       "clusterAccess": "Narrow cluster admin access", "dns": "Pin DNS to internal resolver",
@@ -143,13 +173,13 @@
       "disk": "Delete unattached disk", "replica": "Fail over lagging replica"
     },
     "target": {
-      "publicBlob": "Web app storage", "restore": "Billing database", "autoscale": "EU web service",
+      "vmStart": "Checkout capacity VM", "restore": "Billing database", "autoscale": "EU web service",
       "certificate": "Core identity service", "rightsize": "Batch worker pool", "firewall": "Shared network",
       "clusterAccess": "Production Kubernetes", "dns": "Shared network", "vault": "Identity secrets vault",
       "retention": "Operations workspace", "disk": "Legacy workload", "replica": "EU database replica"
     },
     "reason": {
-      "publicBlob": "Public access violates storage policy", "restore": "Recovery coverage is below policy",
+      "vmStart": "Recorded maintenance left checkout capacity below its objective", "restore": "Recovery coverage is below policy",
       "autoscale": "Capacity is below the reliability floor", "certificate": "Certificate expires within 30 days",
       "rightsize": "CPU is consistently underused", "firewall": "Rule has no active workload owner",
       "clusterAccess": "Cluster-wide privilege exceeds need", "dns": "Public resolver bypasses network policy",
@@ -171,5 +201,5 @@
   "spark": {"awaiting": "Awaiting stream samples", "noCompletions": "No completions", "averageMs": "Avg {value}ms", "averageSeconds": "Avg {value}s", "averageUnderMs": "Avg <1ms", "lastSecond": "Last full second", "secondsAgo": "{count}s ago"},
   "stage": {"ingest": "Ingest", "route": "Route", "verify": "Verify", "gate": "Gate", "execute": "Execute", "audit": "Audit"},
   "role": {"Huginn": "Event Collector", "Heimdall": "Observer", "Forseti": "Judge", "Thor": "Responder", "Var": "Approver", "Vidar": "Recovery", "Saga": "Auditor", "Odin": "Master Planner", "Bragi": "Narrator", "unknown": "Agent"},
-  "detail": {"pending": "Pending", "close": "Close", "boundaryTitle": "Read-only control-loop projection", "traceLabel": "Control-loop stage trace", "inProgress": "In progress", "notObserved": "Not observed", "controlState": "Control state", "policyDecision": "Policy decision", "authority": "Authority", "execution": "Execution", "effect": "Effect", "workSummary": "Work summary", "reason": "Why", "target": "Target", "technicalDetails": "Technical identifiers", "eventId": "Event id", "correlationId": "Correlation id", "rule": "Rule", "actionType": "ActionType", "actionTypes": "ActionTypes", "mode": "Mode", "vertical": "Vertical", "resourceType": "Resource type", "scope": "Scope", "tier": "Tier", "gateDecision": "Gate decision", "stagesCompleted": "Stages completed", "failed": "Failed", "age": "Age", "outcome": "Outcome", "yes": "Yes", "no": "No", "safety": "Required safety evidence", "stopCondition": "ActionType stop condition", "rollback": "Tested rollback path", "blastRadius": "Blast-radius cap", "auditEntry": "Terminal audit entry", "readOnly": "This panel is read-only. It presents recorded control-loop state and cannot approve or execute an action.", "openTrace": "Open trace", "openAudit": "Open audit", "architecture": "Architecture"}
+  "detail": {"pending": "Pending", "close": "Close", "boundaryTitle": "Read-only control-loop projection", "traceLabel": "Control-loop stage trace", "inProgress": "In progress", "notObserved": "Not observed", "controlState": "Control state", "policyDecision": "Policy decision", "authority": "Authority", "execution": "Execution", "effect": "Effect", "workSummary": "Work summary", "reason": "Why", "target": "Target", "technicalDetails": "Technical identifiers", "eventId": "Event id", "correlationId": "Correlation id", "rule": "Rule", "actionType": "ActionType", "actionTypes": "ActionTypes", "mode": "Mode", "vertical": "Vertical", "resourceType": "Resource type", "scope": "Scope", "tier": "Tier", "gateDecision": "Gate decision", "stagesCompleted": "Stages completed", "failed": "Failed", "age": "Age", "outcome": "Outcome", "yes": "Yes", "no": "No", "effectEvidence": "Execution and effect evidence", "approvalStatus": "Human approval", "providerStatus": "Provider receipt", "observationStatus": "Independent observation", "reconciliationStatus": "Reconciliation", "recoveryStatus": "Recovery readiness", "safety": "Required safety evidence", "stopCondition": "ActionType stop condition", "rollback": "Tested rollback path", "blastRadius": "Blast-radius cap", "auditEntry": "Terminal audit entry", "readOnly": "This panel is read-only. It presents recorded control-loop state and cannot approve or execute an action.", "openTrace": "Open trace", "openAudit": "Open audit", "architecture": "Architecture"}
 }

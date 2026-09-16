@@ -1,6 +1,6 @@
 /** Generic Sample stories aligned with the static Live specimen, never runtime evidence. */
 export const LIVE_SAMPLE_STORIES = [
-  { key: "publicBlob", resourceType: "object-storage", actionType: "remediate.disable-public-access", target: "sample-web-storage", scope: "rg-webapp", vertical: "change", rule: "sample.storage.public-blob.deny", impact: "one sample storage account" },
+  { key: "vmStart", resourceType: "compute.vm", actionType: "ops.start-vm", target: "sample-checkout-vm", scope: "rg-checkout", vertical: "resilience", rule: "sample.compute.checkout-capacity.restore", impact: "one sample virtual machine" },
   { key: "restore", resourceType: "postgresql-server", actionType: "remediate.enable-backup-protection", target: "sample-billing-database", scope: "rg-billing", vertical: "resilience", rule: "sample.database.pitr.required", impact: "one sample database" },
   { key: "autoscale", resourceType: "compute.container-app", actionType: "ops.scale-out", target: "sample-web-service", scope: "rg-web-eu", vertical: "resilience", rule: "sample.compute.autoscale.floor", impact: "one sample service" },
   { key: "certificate", resourceType: "certificate", actionType: "ops.rotate-cert", target: "sample-identity-service", scope: "rg-core", vertical: "change", rule: "sample.identity.cert.expiry", impact: "one sample certificate" },

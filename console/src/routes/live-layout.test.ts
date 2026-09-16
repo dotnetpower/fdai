@@ -113,6 +113,11 @@ describe("Live responsive header", () => {
     expect(routeStyles).toMatch(
       /\.live-status-rail\s*\{[^}]*grid-template-columns: minmax\(0, auto\) minmax\(220px, 1fr\)/,
     );
+    expect(panels).toContain('<section class="live-sample-scenario"');
+    expect(panels).toContain('selectEvent("sample-event-001")');
+    expect(routeStyles).toMatch(
+      /\.live-sample-scenario-steps\s*\{[^}]*grid-template-columns: repeat\(6/,
+    );
   });
 
   it("packs flow events sequentially while signaling semantic updates", () => {
