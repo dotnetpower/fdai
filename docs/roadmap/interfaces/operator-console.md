@@ -597,6 +597,11 @@ view from the same N/N-1 JSON Schemas used by the five backend services. The gen
 improves compile-time alignment only; the Operator service still validates wire payloads against
 the canonical schema, and Console receives no approval, mutation, or execution authority.
 
+The Audit workspace requests the additive `summary=true` envelope. A current Operator returns
+retained-query counts, record context, and integrity observations; an older Operator keeps the
+page-only envelope, which the Console accepts as explicitly unavailable summary evidence. Incident,
+Agent Activity, and Trace reads omit the flag and retain their existing bounded page cost.
+
 Split into focused owner documents:
 
 - [operator-console-wire-contracts.md](operator-console-wire-contracts.md) - audit entry, CLI REPL, approval callback (13.1-13.3), semantic Incident creation, managed-action submission status, Python VM workbench, grounded code, and ontology projection (13.6-13.9).

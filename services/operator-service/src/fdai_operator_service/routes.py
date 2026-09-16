@@ -41,7 +41,11 @@ from fdai_operator_service.alert_quality import (
     AlertQualityDependencies,
     build_alert_quality_routes,
 )
-from fdai_operator_service.audit_filters import audit_sequence, audit_window
+from fdai_operator_service.audit_filters import (
+    audit_include_summary,
+    audit_sequence,
+    audit_window,
+)
 from fdai_operator_service.auth import (
     AuthenticationError,
     AuthorizationError,
@@ -263,6 +267,9 @@ def build_operator_app(
                     window_days=audit_window(_bounded_query(request, "window", maximum=4)),
                     from_seq=audit_sequence(_bounded_query(request, "from_seq", maximum=19)),
                     through_seq=audit_sequence(_bounded_query(request, "through_seq", maximum=19)),
+                    include_summary=audit_include_summary(
+                        _bounded_query(request, "summary", maximum=4)
+                    ),
                 )
             )
         except ValueError as exc:

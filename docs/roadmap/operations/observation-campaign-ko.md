@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 5d9397272c0f486b4353f1b4937f30897099221a
-translation_revised: 2026-09-15
+translation_source_sha: b6e6449528eb1e10387921ad5869963d7ff99a0a
+translation_revised: 2026-09-16
 ---
 
 # 권한 인식 관측 캠페인
@@ -54,6 +54,7 @@ translation_revised: 2026-09-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | 모든 소스 전이에 기록 종류, 캠페인 상관관계, 소스 대상, 결과, 모드 및 리비전에 연결된 멱등성을 포함하는 표준 읽기 전용 감사 맥락을 추가했습니다. | `current change`; 변경 전 보존 행을 변경하지 않고 정규화하는 회귀 검사를 포함해 관측 캠페인 및 Operator 감사 집중 테스트가 통과했습니다. | 통제되는 배포 환경에서 동등한 정확한 개정 번호 근거를 보존합니다. |
 | 2026-09-15 | implemented | 복구 기한과 커서, 변환할 수 없는 변경, 관측 메타데이터, 영속 재시도 대기, 분석 대상 근거와 준비 상태를 다루는 비평 및 하드닝 12라운드를 완료했습니다. | #1065; [라운드 근거](../../baselines/live-event-production-hardening-2026-09-15.json); 집중 테스트 367개, 소스 7개의 strict mypy 통과 및 중대한 문제가 남지 않은 독립 최종 검토입니다. | 런타임 반영과 독립 근거 승인은 별도 요건이며 가짜 이벤트나 보류 조건 완화는 없습니다. |
 | 2026-09-15 | validated | 로컬 스키마 `1.3.0` 활동 스냅샷 및 delta 경로와 보존 이력 경계를 검증했습니다. Live는 SSE 연결 하나를 사용하고 암묵적인 Agent GET을 보내지 않았으며, 명시적 Agent Activity는 요청한 `1.3.0` 행 500개를 모두 반환하고 live delta로 행을 잃지 않고 렌더링했습니다. | `current change`; backend 집중 테스트 `353 passed, 1 skipped`; Console 집중 테스트 `188 passed`; strict mypy 및 typecheck 통과; production-adapter Playwright `1 passed`; 표준 로컬 서비스 `11/11`; 인증된 표준 Live 검사와 안전한 1440×900 session screenshot. | 별도로 통제되는 실제 캠페인 행을 validated로 올리기 전에 동등한 배포 개정 번호 근거를 보존합니다. |
 | 2026-09-15 | implemented | 실행 중 및 실패한 부분 개수를 제한한 뒤 스키마 `1.3.0` 활동 생성과 영속 projection을 다시 검증했습니다. 표준 로컬 projection은 요청한 500개 행을 모두 `1.3.0`으로 반환했고 측정됨, 기록 안 됨, 사용 불가 상태를 포함했습니다. | `current change`; backend 집중 테스트 `278 passed, 1 skipped`; strict mypy 통과; 표준 로컬 서비스 `11/11`; 영속 활동 projection `500/500`. | Browser Entra를 갱신한 뒤 인증된 Live 카드와 실패 전이 artifact를 캡처하고, 통제된 실제 캠페인 근거를 validated로 올리기 전에 동등한 배포 개정 번호 근거를 보존합니다. |
@@ -242,6 +243,10 @@ Agent Activity는 도메인, 소유자, 출처 레이블, 종료 상태, 최신�
 영속 출처 상태와 전이 감사에는 기계 실행 출처인
 `actor: fdai.delivery.observation_campaign`을 유지하고 출처 카탈로그의 책임 Pantheon 구성원을
 `owner_agent`에 기록합니다. 이 책임 메타데이터는 발행, 승인 또는 실행 권한을 부여하지 않습니다.
+각 전이는 `record_kind: source_observation`, 캠페인 상관관계, 소스 대상, 결과로 표현한 소스
+상태, `shadow` 모드 및 리비전에 연결된 멱등성 키도 기록합니다. 이 필드를 통해 읽기 전용 감사
+작업 영역은 전이를 작업 전달, 롤백 또는 관리 리소스 효과 관측으로 취급하지 않고 소스 근거를
+표시할 수 있습니다.
 소유자가 없는 레거시 상태는 원래 기본 제공 출처 id의 소유자가 하나로 고정된 경우에만 재사용합니다.
 사용자 정의 또는 재배정된 출처는 재사용 전에 다시 수집하며, 제거된 모호한 행은 도메인만으로
 소유자를 추정하지 않고 Agent Activity에서 제외합니다.

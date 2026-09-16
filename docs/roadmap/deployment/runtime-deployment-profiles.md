@@ -363,6 +363,12 @@ selected services healthy, workload identities effective, Kafka round trips comp
 migrations current, one canary job successful, and every selected state root at a second
 zero-change plan.
 
+Mixed-revision service rollout preserves the Audit API's page-only default. A newer Console may
+send the additive `summary=true` query while an older Operator returns the prior page envelope; the
+Console keeps the summary explicitly unavailable until the Operator revision advances. New
+Operators compute the ledger-wide summary only for that opt-in, so Incident, Agent Activity,
+Trace, and optional cost-package routes do not inherit its scan cost.
+
 ## Signed kit requirements
 
 The complete signed kit includes every prebuilt input needed by either profile:

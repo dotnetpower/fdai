@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 02d9daf4406147c15a8db4949fec17582c8e1b60
+translation_source_sha: 5095ccfb77f536cbff124a3bafc3d2a06da36b5c
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -353,6 +353,12 @@ anti-affinity, disruption budget, 백업 불변성, 특정 시점 복구, 노드
 정상이어야 하고, 워크로드 신원이 유효해야 하며, Kafka 왕복이 완료되어야 합니다. 또한 데이터베이스
 마이그레이션이 최신이고 canary 작업 하나가 성공해야 하며 선택된 모든 상태 root의 두 번째 플랜에서
 변경이 없어야 합니다.
+
+혼합 개정 서비스 배포는 감사 API의 페이지 전용 기본값을 유지합니다. 최신 Console이 추가적인
+`summary=true` 쿼리를 보내더라도 이전 Operator는 기존 페이지 묶음을 반환할 수 있으며,
+Console은 Operator 개정 번호가 갱신될 때까지 요약을 사용할 수 없는 상태로 명시합니다. 새
+Operator는 이 활성화 설정이 있을 때만 원장 전체 요약을 계산하므로 Incident, Agent Activity,
+Trace 및 선택적 비용 패키지 경로가 이 조회 비용을 이어받지 않습니다.
 
 ## 서명된 키트 요구 사항
 
