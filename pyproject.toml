@@ -34,6 +34,7 @@ dev = [
     "aiohttp>=3.14.2,<4",
     "aiokafka>=0.12,<0.13",
     "alembic>=1.13,<2",
+    "azure-monitor-opentelemetry>=1.6,<2",
     "azure-storage-file-datalake>=12.25,<13",
     "croniter>=6,<7",
     "httpx>=0.27,<1",
@@ -219,11 +220,16 @@ mypy_path = [
     "extensions/cost-governance/src",
 ]
 
-# aiokafka and the async Azure identity surface ship without complete typing.
-# Imports remain isolated to concrete service-owned transport adapters, which
-# validate payload and credential boundaries before exposing typed protocols.
+# aiokafka, the async Azure identity surface, and the Azure Monitor distro ship
+# without complete typing. Imports remain isolated to concrete service-owned
+# adapters, which validate their typed boundaries.
 [[tool.mypy.overrides]]
-module = ["aiokafka", "aiokafka.abc", "azure.identity.aio"]
+module = [
+    "aiokafka",
+    "aiokafka.abc",
+    "azure.identity.aio",
+    "azure.monitor.opentelemetry",
+]
 ignore_missing_imports = true
 
 # WeasyPrint is isolated to the optional delivery/reporting adapter and ships
