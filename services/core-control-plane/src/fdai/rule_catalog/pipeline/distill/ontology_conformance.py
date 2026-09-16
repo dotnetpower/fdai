@@ -5,11 +5,27 @@ from __future__ import annotations
 import hashlib
 import math
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from datetime import datetime
 
 from fdai.rule_catalog.pipeline.distill.ontology_claims import inventory_claims
+from fdai.rule_catalog.pipeline.distill.ontology_conformance_models import (
+    CONFORMANCE_CONTRACT,
+    PRODUCTION_REQUIRED_PARTITIONS,
+    ConformanceCase,
+    ConformanceCaseResult,
+    ConformanceCostContext,
+    ConformanceCostEvidence,
+    ConformanceCostEvidenceProvider,
+    ConformanceCostEvidenceVerifier,
+    ConformanceEvidenceClass,
+    ConformanceExpectedFact,
+    ConformanceSourceEvidence,
+    ConformanceSourceEvidenceVerifier,
+    DistillerConformanceReport,
+    OntologyExtractionAvailability,
+    distiller_descriptor_digest,
+)
 from fdai.rule_catalog.pipeline.distill.ontology_corpus_gate import (
-    CorpusGateAssessment,
     CorpusGateDecision,
     CorpusGatePolicy,
     CorpusPartition,
@@ -17,7 +33,6 @@ from fdai.rule_catalog.pipeline.distill.ontology_corpus_gate import (
     assess_corpus_gate,
 )
 from fdai.rule_catalog.pipeline.distill.ontology_council import OntologyAwareDistiller
-from fdai.rule_catalog.pipeline.distill.ontology_evaluation import ExpectedOntologyFact
 from fdai.rule_catalog.pipeline.distill.ontology_models import (
     ClaimDisposition,
     GateOutcome,
@@ -43,97 +58,6 @@ from fdai.shared.providers.distiller import (
     describe_distiller,
 )
 
-_CONFORMANCE_CONTRACT = "ontology-distiller-conformance.v1"
-
-
-@dataclass(frozen=True, slots=True)
-class ConformanceExpectedFact:
-    claim_id: str
-    fact_key: str
-    value_digest: str
-    target_kind: OntologyTargetKind
-    critical: bool
-
-    def as_expected_fact(self) -> ExpectedOntologyFact:
-        return ExpectedOntologyFact(
-            claim_id=self.claim_id,
-            fact_key=self.fact_key,
-            value_digest=self.value_digest,
-            critical=self.critical,
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class ConformanceCase:
-    case_id: str
-    partition: CorpusPartition
-    document: ManualDocument
-    verification_context: VerificationContext
-    expected_facts: tuple[ConformanceExpectedFact, ...]
-
-    def __post_init__(self) -> None:
-        if not self.case_id.strip() or len(self.case_id) > 128:
-            raise ValueError("conformance case id MUST be bounded and non-empty")
-        if not self.expected_facts:
-            raise ValueError("conformance case expected facts MUST be non-empty")
-        identities = [(item.fact_key, item.value_digest) for item in self.expected_facts]
-        if len(identities) != len(set(identities)):
-            raise ValueError("conformance expected facts MUST be unique")
-
-
-@dataclass(frozen=True, slots=True)
-class ConformanceCaseResult:
-    case_id: str
-    partition: CorpusPartition
-    candidate_count: int
-    extraction_success: bool
-    abstention_reason: str | None
-    detected_claim_count: int
-    accounted_detected_claim_count: int
-    expected_critical_claim_count: int
-    mapped_critical_claim_count: int
-    predicted_entity_count: int
-    correct_entity_count: int
-    predicted_link_count: int
-    correct_link_count: int
-    citation_count: int
-    citation_error_count: int
-    semantic_error_count: int
-    false_positive_count: int
-    false_negative_count: int
-    replay_match: bool
-    latency_ms: float
-    cost_microunits: int | None
-
-    @property
-    def mapped_critical_recall(self) -> float:
-        return _ratio_or_one(
-            self.mapped_critical_claim_count,
-            self.expected_critical_claim_count,
-        )
-
-    @property
-    def entity_precision(self) -> float:
-        return _ratio_or_one(self.correct_entity_count, self.predicted_entity_count)
-
-    @property
-    def link_precision(self) -> float:
-        return _ratio_or_one(self.correct_link_count, self.predicted_link_count)
-
-
-@dataclass(frozen=True, slots=True)
-class DistillerConformanceReport:
-    descriptor: DistillerCapabilityDescriptor
-    case_results: tuple[ConformanceCaseResult, ...]
-    assessment: CorpusGateAssessment
-
-
-@dataclass(frozen=True, slots=True)
-class OntologyExtractionAvailability:
-    available: bool
-    reason_code: str | None
-    conformance_contract: str
-
 
 async def evaluate_distiller_conformance(
     distiller: Distiller | OntologyAwareDistiller,
@@ -141,7 +65,10 @@ async def evaluate_distiller_conformance(
     cases: tuple[ConformanceCase, ...],
     required_partitions: tuple[CorpusPartition, ...],
     monotonic: Callable[[], float],
-    cost_microunits: Callable[[ConformanceCase, DistillationResult], int] | None = None,
+    evaluated_at: datetime,
+    source_evidence_verifier: ConformanceSourceEvidenceVerifier,
+    cost_evidence: ConformanceCostEvidenceProvider | None = None,
+    cost_evidence_verifier: ConformanceCostEvidenceVerifier | None = None,
     policy: CorpusGatePolicy | None = None,
 ) -> DistillerConformanceReport:
     """Exercise one real binding twice per case and assess partition evidence."""
@@ -150,15 +77,23 @@ async def evaluate_distiller_conformance(
     case_ids = [case.case_id for case in cases]
     if len(case_ids) != len(set(case_ids)):
         raise ValueError("Distiller conformance case ids MUST be unique")
+    if evaluated_at.tzinfo is None:
+        raise ValueError("Distiller conformance evaluated_at MUST be timezone-aware")
+    if any(not source_evidence_verifier.verify(case) for case in cases):
+        raise ValueError("Distiller conformance source evidence verification failed")
     descriptor = describe_distiller(distiller)
+    descriptor_digest = distiller_descriptor_digest(descriptor)
     results = tuple(
         [
             await _evaluate_case(
                 distiller,
                 descriptor=descriptor,
+                descriptor_digest=descriptor_digest,
                 case=case,
                 monotonic=monotonic,
-                cost_microunits=cost_microunits,
+                evaluated_at=evaluated_at,
+                cost_evidence=cost_evidence,
+                cost_evidence_verifier=cost_evidence_verifier,
             )
             for case in cases
         ]
@@ -176,34 +111,47 @@ async def evaluate_distiller_conformance(
             required_partitions=required_partitions,
             policy=policy,
         ),
+        required_partitions=required_partitions,
+        descriptor_digest=descriptor_digest,
     )
 
 
 def resolve_ontology_extraction_capability(
-    descriptor: DistillerCapabilityDescriptor,
-    assessment: CorpusGateAssessment | None,
+    report: DistillerConformanceReport | None,
 ) -> OntologyExtractionAvailability:
     """Resolve availability only; never alter enablement, mode, or authority."""
+    if report is None:
+        return OntologyExtractionAvailability(
+            available=False,
+            reason_code="conformance_not_passed",
+            conformance_contract=CONFORMANCE_CONTRACT,
+        )
+    descriptor = report.descriptor
     if descriptor.availability is not DistillerAvailability.AVAILABLE:
         return OntologyExtractionAvailability(
             available=False,
             reason_code=descriptor.reason_code or "provider_unavailable",
-            conformance_contract=_CONFORMANCE_CONTRACT,
+            conformance_contract=CONFORMANCE_CONTRACT,
         )
     if (
-        descriptor.contract_version != _CONFORMANCE_CONTRACT
-        or assessment is None
-        or assessment.decision is not CorpusGateDecision.PASS
+        descriptor.contract_version != CONFORMANCE_CONTRACT
+        or report.descriptor_digest != distiller_descriptor_digest(descriptor)
+        or report.required_partitions != PRODUCTION_REQUIRED_PARTITIONS
+        or report.assessment.required_partitions != PRODUCTION_REQUIRED_PARTITIONS
+        or report.assessment.decision is not CorpusGateDecision.PASS
+        or not report.assessment.policy.require_independent_source_evidence
+        or not report.assessment.policy.require_cost_evidence
+        or not report.assessment.policy.require_verified_cost_evidence
     ):
         return OntologyExtractionAvailability(
             available=False,
             reason_code="conformance_not_passed",
-            conformance_contract=_CONFORMANCE_CONTRACT,
+            conformance_contract=CONFORMANCE_CONTRACT,
         )
     return OntologyExtractionAvailability(
         available=True,
         reason_code=None,
-        conformance_contract=_CONFORMANCE_CONTRACT,
+        conformance_contract=CONFORMANCE_CONTRACT,
     )
 
 
@@ -211,9 +159,12 @@ async def _evaluate_case(
     distiller: Distiller | OntologyAwareDistiller,
     *,
     descriptor: DistillerCapabilityDescriptor,
+    descriptor_digest: str,
     case: ConformanceCase,
     monotonic: Callable[[], float],
-    cost_microunits: Callable[[ConformanceCase, DistillationResult], int] | None,
+    evaluated_at: datetime,
+    cost_evidence: ConformanceCostEvidenceProvider | None,
+    cost_evidence_verifier: ConformanceCostEvidenceVerifier | None,
 ) -> ConformanceCaseResult:
     first, first_elapsed = await _timed_distill(
         distiller,
@@ -263,9 +214,24 @@ async def _evaluate_case(
     expected_critical_claim_ids = {item.claim_id for item in case.expected_facts if item.critical}
     citation_errors = _citation_error_count(case.document, first, package)
     semantic_errors = _semantic_error_count(case.document, first, package, citation_errors)
-    cost = cost_microunits(case, first) if cost_microunits is not None else None
-    if cost is not None and (type(cost) is not int or cost < 0):
-        raise ValueError("Distiller conformance cost MUST be a non-negative integer")
+    cost_context = ConformanceCostContext(
+        case_id=case.case_id,
+        binding_digest=descriptor_digest,
+        source_digest=case.source_evidence.source_digest,
+        first_package_digest=package.package_digest,
+        replay_package_digest=replay_package.package_digest,
+        usage_digest=_usage_digest(first, replay),
+        first_result=first,
+        replay_result=replay,
+    )
+    cost_receipt = cost_evidence(cost_context) if cost_evidence is not None else None
+    cost_verified = bool(
+        cost_receipt is not None
+        and cost_receipt.valid_for(cost_context, evaluated_at)
+        and cost_evidence_verifier is not None
+        and cost_evidence_verifier.verify(cost_context, cost_receipt)
+    )
+    cost = cost_receipt.total_microunits if cost_verified and cost_receipt is not None else None
     return ConformanceCaseResult(
         case_id=case.case_id,
         partition=case.partition,
@@ -298,6 +264,20 @@ async def _evaluate_case(
         replay_match=package.package_digest == replay_package.package_digest,
         latency_ms=round((first_elapsed + replay_elapsed) * 1000.0, 6),
         cost_microunits=cost,
+        independently_authored=case.source_evidence.independently_authored,
+        cost_verified=cost_verified,
+        source_evidence_digest=case.source_evidence.content_digest,
+        cost_evidence_digest=(
+            cost_receipt.content_digest if cost_receipt is not None and cost_verified else None
+        ),
+        cost_verification_receipt_digest=(
+            cost_receipt.verification_receipt_digest
+            if cost_receipt is not None and cost_verified
+            else None
+        ),
+        cost_currency=(
+            cost_receipt.currency if cost_receipt is not None and cost_verified else None
+        ),
     )
 
 
@@ -349,7 +329,7 @@ def _semantic_error_count(
     package: OntologyReviewPackage,
     citation_error_count: int,
 ) -> int:
-    del document
+    del document, result
     invalid_shapes = sum(issue.reason_code == "invalid_candidate_shape" for issue in package.issues)
     semantic_receipts = sum(
         receipt.gate == "semantic_fidelity" and receipt.outcome is not GateOutcome.PASS
@@ -364,6 +344,9 @@ def _partition_evidence(
     results: Sequence[ConformanceCaseResult],
 ) -> PartitionEvidence:
     selected = tuple(item for item in results if item.partition == partition)
+    currencies = {item.cost_currency for item in selected if item.cost_currency is not None}
+    if len(currencies) > 1:
+        raise ValueError("Distiller conformance partition cost currencies MUST match")
     return PartitionEvidence(
         partition=partition,
         case_count=len(selected),
@@ -388,19 +371,55 @@ def _partition_evidence(
         latency_total_ms=sum(item.latency_ms for item in selected),
         cost_observation_count=sum(item.cost_microunits is not None for item in selected),
         cost_total_microunits=sum(item.cost_microunits or 0 for item in selected),
+        independent_source_case_count=sum(item.independently_authored for item in selected),
+        verified_cost_observation_count=sum(item.cost_verified for item in selected),
+        cost_currency=next(iter(currencies), None),
     )
 
 
-def _ratio_or_one(numerator: int, denominator: int) -> float:
-    return numerator / denominator if denominator else 1.0
+def _usage_digest(first: DistillationResult, replay: DistillationResult) -> str:
+    def material(result: DistillationResult) -> list[dict[str, object]]:
+        return [
+            {
+                "initial": [
+                    {
+                        "completion_tokens": item.completion_tokens,
+                        "model_digest": item.model_digest,
+                        "prompt_tokens": item.prompt_tokens,
+                    }
+                    for item in receipt.initial_invocations
+                ],
+                "models": receipt.model_digests,
+                "policy_digest": receipt.policy_digest,
+                "revised": [
+                    {
+                        "completion_tokens": item.completion_tokens,
+                        "model_digest": item.model_digest,
+                        "prompt_tokens": item.prompt_tokens,
+                    }
+                    for item in receipt.revised_invocations
+                ],
+            }
+            for receipt in result.council_receipts
+        ]
+
+    return stable_digest({"first": material(first), "replay": material(replay)})
 
 
 __all__ = [
     "ConformanceCase",
     "ConformanceCaseResult",
+    "ConformanceCostContext",
+    "ConformanceCostEvidence",
+    "ConformanceCostEvidenceProvider",
+    "ConformanceCostEvidenceVerifier",
+    "ConformanceEvidenceClass",
     "ConformanceExpectedFact",
+    "ConformanceSourceEvidence",
+    "ConformanceSourceEvidenceVerifier",
     "DistillerConformanceReport",
     "OntologyExtractionAvailability",
+    "PRODUCTION_REQUIRED_PARTITIONS",
     "evaluate_distiller_conformance",
     "resolve_ontology_extraction_capability",
 ]

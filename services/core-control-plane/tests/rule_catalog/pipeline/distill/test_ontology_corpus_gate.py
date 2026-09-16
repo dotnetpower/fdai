@@ -40,6 +40,9 @@ def _passing_evidence(partition: CorpusPartition) -> PartitionEvidence:
         latency_total_ms=500.0,
         cost_observation_count=50,
         cost_total_microunits=250,
+        independent_source_case_count=50,
+        verified_cost_observation_count=50,
+        cost_currency="USD",
     )
 
 
@@ -82,6 +85,9 @@ def test_zero_candidate_abstention_is_safe_but_not_extraction_success() -> None:
         latency_total_ms=1.0,
         cost_observation_count=1,
         cost_total_microunits=0,
+        independent_source_case_count=1,
+        verified_cost_observation_count=1,
+        cost_currency="USD",
     )
 
     assessment = assess_corpus_gate(
@@ -212,6 +218,8 @@ def test_parser_rejection_and_missing_measurement_evidence_route_to_review() -> 
         latency_total_ms=0.0,
         cost_observation_count=0,
         cost_total_microunits=0,
+        verified_cost_observation_count=0,
+        cost_currency=None,
     )
 
     assessment = assess_corpus_gate(
@@ -224,6 +232,26 @@ def test_parser_rejection_and_missing_measurement_evidence_route_to_review() -> 
         "markdown:en:parser_rejection",
         "markdown:en:missing_latency_evidence",
         "markdown:en:missing_cost_evidence",
+        "markdown:en:verified_cost_evidence_incomplete",
+    )
+
+
+def test_synthetic_or_unverified_cost_evidence_cannot_pass_release_gate() -> None:
+    incomplete = replace(
+        _passing_evidence(_MARKDOWN_EN),
+        independent_source_case_count=0,
+        verified_cost_observation_count=0,
+    )
+
+    assessment = assess_corpus_gate(
+        (incomplete,),
+        required_partitions=(_MARKDOWN_EN,),
+    )
+
+    assert assessment.decision is CorpusGateDecision.REVIEW
+    assert assessment.reason_codes == (
+        "markdown:en:independent_source_evidence_incomplete",
+        "markdown:en:verified_cost_evidence_incomplete",
     )
 
 
@@ -282,6 +310,8 @@ def test_detected_claim_accounting_below_threshold_routes_to_review() -> None:
         ({"citation_error_count": 101}, "citation error count"),
         ({"latency_total_ms": float("nan")}, "latency total MUST be finite"),
         ({"latency_total_ms": -0.1}, "latency total MUST be finite"),
+        ({"cost_currency": "usd"}, "uppercase three-letter code"),
+        ({"cost_currency": None}, "uppercase three-letter code"),
     ],
 )
 def test_partition_evidence_rejects_invalid_counts_and_latency(
@@ -313,6 +343,8 @@ def test_corpus_gate_policy_rejects_invalid_rates(changes: dict[str, object]) ->
         ({"max_citation_error_count": True}, "non-negative integer"),
         ({"require_latency_evidence": 1}, "requirement MUST be boolean"),
         ({"require_cost_evidence": 0}, "requirement MUST be boolean"),
+        ({"require_independent_source_evidence": 0}, "requirement MUST be boolean"),
+        ({"require_verified_cost_evidence": 0}, "requirement MUST be boolean"),
     ],
 )
 def test_corpus_gate_policy_rejects_invalid_counts_and_flags(
@@ -321,6 +353,11 @@ def test_corpus_gate_policy_rejects_invalid_counts_and_flags(
 ) -> None:
     with pytest.raises(ValueError, match=message):
         replace(CorpusGatePolicy(), **changes)
+
+
+def test_verified_cost_requirement_cannot_outlive_cost_requirement() -> None:
+    with pytest.raises(ValueError, match="requires cost evidence"):
+        CorpusGatePolicy(require_cost_evidence=False, require_verified_cost_evidence=True)
 
 
 def test_required_partitions_must_be_non_empty_and_unique() -> None:
