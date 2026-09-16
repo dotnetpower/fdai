@@ -126,6 +126,7 @@ does not authenticate conversational text or supply a human-review channel by it
 Accepted `create.test_context` semantic judgments produce a typed `TestContextDraft` through the
 ordinary chat projection. Exact source spans bind the target, signal, range, and explicit aware
 times; unresolved fields require clarification. Drafts grant no scope or review authority.
+The shared SDK exposes the existing draft, command, and application models and their version `1.0.0` schemas. JSON Schema checks structure; `JsonSchemaContractValidator` also runs typed range, interval, role, and proposal/review constraints. Neither check authenticates a principal or grants admission. Generate the standalone schemas with `scripts/quality/contracts/generate_test_context_schemas.py`; broker compatibility, consumer rollout, and operational proof remain separate qualification requirements.
 Console decoding and replay retain valid drafts; scope/policy selection and submission UI remain open.
 Authenticated `POST /test-context/proposals`, `/test-context/reviews`, and `/test-context/revocations`
 persist commands in the Operator outbox. Huginn normalizes ingress, Var publishes independent
