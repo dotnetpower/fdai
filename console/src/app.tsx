@@ -42,6 +42,7 @@ import { withStartupTransportRetry } from "./bootstrap-retry";
 import {
   consoleDataMode,
   consoleDataModeHref,
+  explicitConsoleDataMode,
   readConsoleDataMode,
   supportsSampleData,
   writeConsoleDataMode,
@@ -160,10 +161,15 @@ export function App() {
     const syncRoute = () => {
       let route = currentRoute();
       if (supportsSampleData(route.panelId)) {
-        if (route.search.get("data") === "sample") {
+        const explicitDataMode = explicitConsoleDataMode(route.search);
+        if (explicitDataMode === "sample") {
           preferredDataModeRef.current = "sample";
           writeConsoleDataMode("sample");
           setPreferredDataMode("sample");
+        } else if (explicitDataMode === "live") {
+          preferredDataModeRef.current = "live";
+          writeConsoleDataMode("live");
+          setPreferredDataMode("live");
         } else if (preferredDataModeRef.current === "sample") {
           window.history.replaceState(
             window.history.state,
