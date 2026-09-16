@@ -502,6 +502,23 @@ def test_model_serving_unavailability_reason_is_preserved_without_a_value() -> N
     }
 
 
+def test_model_serving_state_requires_explicit_telemetry_metadata() -> None:
+    states = recorded_resource_states(
+        {"servingState": "Serving"},
+        resource_type="llm-model-deployment",
+        observation=RecordedStateObservation(
+            generation="generation-1",
+            observed_at=datetime(2026, 9, 5, 0, 0, tzinfo=UTC),
+            recorded_at=datetime(2026, 9, 5, 0, 1, tzinfo=UTC),
+        ),
+        now=NOW,
+    )
+
+    assert states["serving"]["value"] is None
+    assert states["serving"]["source_path"] is None
+    assert states["serving"]["reason"] == "state_metadata_not_recorded"
+
+
 @pytest.mark.parametrize("resource_type", AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE)
 def test_resource_health_availability_preserves_exact_evidence(resource_type: str) -> None:
     metadata = _metadata(

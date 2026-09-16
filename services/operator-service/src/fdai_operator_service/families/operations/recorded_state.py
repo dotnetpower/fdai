@@ -165,9 +165,12 @@ def _fact(
             result["value"] = value
             result["source_path"] = source_path
             metadata = _metadata(properties, source_path, prefix, path)
-            if metadata is None and observation is not None:
+            if metadata is None and observation is not None and paths != _SERVING_PATHS:
                 metadata = _snapshot_metadata(observation, source_path)
             if metadata is None:
+                if paths == _SERVING_PATHS:
+                    result["value"] = None
+                    result["source_path"] = None
                 result["reason"] = "state_metadata_not_recorded"
                 return result
             try:
@@ -175,6 +178,7 @@ def _fact(
             except ValueError:
                 result.update(
                     {
+                        **({"value": None, "source_path": None} if paths == _SERVING_PATHS else {}),
                         "observed_at": None,
                         "recorded_at": None,
                         "freshness": "unknown",
@@ -324,9 +328,9 @@ def _qualify_metadata(
     """Qualify recorded time and limits only; this is not evidence admission."""
     if metadata.get("lane", "observed") != "observed":
         raise ValueError("metadata does not describe an observed property")
-    if metadata.get("authority", "provider") not in ("provider", "telemetry"):
-        raise ValueError("metadata does not describe a provider or telemetry property")
     authority = metadata.get("authority", "provider")
+    if not isinstance(authority, str) or authority not in ("provider", "telemetry"):
+        raise ValueError("metadata does not describe a provider or telemetry property")
     source_identity = metadata.get("source_identity")
     if source_identity is not None and (
         not isinstance(source_identity, str)

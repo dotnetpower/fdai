@@ -364,9 +364,27 @@ async def test_arm_overlay_lists_vm_scale_set_vm_and_nic_children() -> None:
         if request.url.path.endswith("/resources"):
             return httpx.Response(200, json={"value": [{"id": scale_set_id, "name": "vmss-1"}]})
         if request.url.path.endswith("/virtualMachines"):
+            assert request.url.params["$expand"] == "instanceView"
             return httpx.Response(
                 200,
-                json={"value": [{"id": virtual_machine_id, "name": "0"}]},
+                json={
+                    "value": [
+                        {
+                            "id": virtual_machine_id,
+                            "name": "0",
+                            "properties": {
+                                "instanceView": {
+                                    "statuses": [
+                                        {
+                                            "code": "PowerState/running",
+                                            "message": "provider detail must not persist",
+                                        }
+                                    ]
+                                }
+                            },
+                        }
+                    ]
+                },
             )
         return httpx.Response(
             200,
@@ -437,6 +455,13 @@ async def test_arm_overlay_lists_vm_scale_set_vm_and_nic_children() -> None:
             continue
         assert resource.props["subscriptionId"] == "sub-1"
         assert resource.props["resourceGroup"] == "rg-1"
+    virtual_machine = next(
+        resource for resource in result.resources if resource.type == "compute.vm"
+    )
+    assert virtual_machine.props["properties"]["instanceView"] == {
+        "powerState": {"code": "PowerState/running"}
+    }
+    assert "provider detail must not persist" not in repr(virtual_machine.props)
     by_mapping = {
         link.mapping_evidence.mapping_id: link
         for link in result.links
@@ -452,6 +477,65 @@ async def test_arm_overlay_lists_vm_scale_set_vm_and_nic_children() -> None:
     assert subnet.from_id == attached.from_id
     assert result.relationship_drops == ()
     assert all(link.mapping_evidence is not None for link in result.links)
+
+
+async def test_arm_overlay_hydrates_only_vm_run_command_execution_state() -> None:
+    command_id = (
+        "/subscriptions/sub-1/resourceGroups/rg-1/providers/Microsoft.Compute/"
+        "virtualMachines/vm-1/runCommands/example-command"
+    )
+    requested: list[httpx.URL] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(request.url)
+        return httpx.Response(
+            200,
+            json={
+                "id": command_id,
+                "type": "Microsoft.Compute/virtualMachines/runCommands",
+                "properties": {
+                    "instanceView": {
+                        "executionState": "Succeeded",
+                        "output": "sensitive output",
+                        "error": "sensitive error",
+                    }
+                },
+            },
+        )
+
+    async def primary_query(_resource_type: str) -> ResourceQueryResult:
+        return ResourceQueryResult(
+            resources=(
+                ResourceRecord(
+                    resource_id=to_neutral_id(command_id),
+                    type="compute.vm-run-command",
+                    props={
+                        "name": "example-command",
+                        "properties": {"provisioningState": "Succeeded"},
+                    },
+                    provider_ref=command_id,
+                ),
+            )
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        query = AzureArmInventoryFactory(
+            identity=_identity(),
+            resource_types=_vocabulary(),
+            http_client=client,
+            config=AzureArmInventoryFactoryConfig(subscription_scopes=("sub-1",)),
+        ).build_child_overlay_query_fn(primary_query)
+        result = await query("compute.vm-run-command")
+
+    assert isinstance(result, ResourceQueryResult)
+    assert len(requested) == 1
+    assert requested[0].params["$expand"] == "instanceView"
+    assert result.resources[0].props["properties"] == {
+        "provisioningState": "Succeeded",
+        "instanceView": {"executionState": "Succeeded"},
+    }
+    assert "sensitive output" not in repr(result.resources[0].props)
+    assert "sensitive error" not in repr(result.resources[0].props)
 
 
 async def test_arm_overlay_bounds_vm_scale_set_child_collections() -> None:

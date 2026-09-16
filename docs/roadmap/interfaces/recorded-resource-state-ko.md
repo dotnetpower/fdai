@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 16956423f545d0eced1b33ed3b9269a4d4905247
+translation_source_sha: 10f82d9678648d2d03b0dd237cec45401bf08124
 translation_revised: 2026-09-16
 ---
 # 기록된 리소스 상태
@@ -213,7 +213,10 @@ ResourceType을 선언합니다.
 - 모델 서비스 응답 수집은 수동적이며 범위가 제한됩니다. 모델을 호출하거나 프롬프트 내용을
   보내거나 추론 토큰을 사용하지 않습니다. 상위 계정의 Resource Health 값을 복사하거나
   `provisioningState`를 서비스 응답 근거로 바꾸지도 않습니다. 정확한 대상 검증, 동시성, 대상 수,
-  응답 크기, 호출별 제한 시간 및 전체 제한 시간이 조회를 제한합니다.
+  응답 크기, 호출별 제한 시간 및 전체 제한 시간이 조회를 제한합니다. 누락된 사실에는
+  `model_serving_not_observed`, `model_serving_source_unavailable`,
+  `model_serving_response_invalid`, `model_serving_target_limit`,
+  `model_serving_target_unresolved` 중 하나를 기록합니다.
 - VM scale set 하위 리소스 수집은 `instanceView`를 요청하고 정확한 전원 상태 코드만 유지합니다.
   VM Run Command 보강은 `instanceView.executionState`만 유지합니다. 상태 메시지, 명령 출력,
   명령 오류 텍스트 및 그 밖의 검토되지 않은 인스턴스 보기 필드는 인벤토리에 들어가지 않습니다.

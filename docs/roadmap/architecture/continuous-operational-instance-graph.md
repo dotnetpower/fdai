@@ -312,7 +312,9 @@ next accepted observation commits; invalidation accelerates the reread but does 
 immediate or strongly consistent provider guarantee.
 An optional `serving` fact remains separate from Resource Health and records only a recent exact
 deployment success observation with telemetry provenance. It never changes ontology identity,
-structural relationships, Kubernetes diagnostics, or execution authority.
+structural relationships, Kubernetes diagnostics, or execution authority. The collector reuses the
+existing exact-deployment Azure Monitor adapter under bounded target, concurrency, point, and total
+deadline limits and performs no inference request.
 
 ### Load-aware scheduling
 

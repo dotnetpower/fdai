@@ -5,8 +5,12 @@ import { decodeRecordedResourceStates } from "../recorded-resource-state";
 import { loadDashboardRecordedStates } from "./dashboard-v2.loading";
 import { dashboardResourceState } from "./dashboard-v2.model";
 
-const fact = (value: string | null, source_path: string | null) => ({
-  value, source_path, observed_at: null, recorded_at: null,
+const fact = (
+  value: string | null,
+  source_path: string | null,
+  observed_at: string | null = null,
+) => ({
+  value, source_path, observed_at, recorded_at: observed_at,
   freshness: "unknown", completeness: null, conflicts: [], reason: value === null ? "state_not_recorded" : "metadata_not_recorded",
 });
 function resource(id: string, value = "Running") {
@@ -57,6 +61,33 @@ describe("shared recorded state consumption", () => {
     expect(dashboardResourceState(snapshot!.resources[0]!, snapshot!, "operation")).not.toBe("unknown");
     expect(dashboardResourceState(snapshot!.resources[0]!, snapshot!, "operation")).not.toBe("running");
     expect(dashboardResourceState(snapshot!.resources[0]!, snapshot!, "availability")).toBe("unknown");
+  });
+
+  test("retains serving evidence and uses the latest exact axis observation time", async () => {
+    const original = page(["one"]);
+    const payload: Record<string, unknown> = {
+      ...original,
+      resources: [{
+        ...original.resources[0],
+        states: {
+          ...original.resources[0]!.states,
+          provisioning: {
+            ...fact("Succeeded", "properties.provisioningState", "2026-09-05T11:55:00Z"),
+          },
+          serving: {
+            ...fact("Serving", "servingState", "2026-09-05T11:59:00Z"),
+            source_identity: "azure-monitor-model-serving",
+            authority: "telemetry",
+          },
+        },
+      }],
+    };
+    const panel = vi.fn<OperatorApiClient["panel"]>().mockResolvedValue(payload);
+
+    const snapshot = await loadDashboardRecordedStates({ panel });
+
+    expect(snapshot?.resources[0]?.states?.serving?.value).toBe("Serving");
+    expect(snapshot?.resources[0]?.observedAt).toBe("2026-09-05T11:59:00Z");
   });
 
   test.each([

@@ -219,7 +219,10 @@ the exact ResourceTypes whose ARM type is supported:
 - Model serving collection is passive and bounded. It does not invoke a model, send prompt content,
   consume inference tokens, copy a parent account's Resource Health value, or turn
   `provisioningState` into serving evidence. Exact target validation, concurrency, target count,
-  response size, per-call timeout, and a total deadline bound the read.
+  response size, per-call timeout, and a total deadline bound the read. Missing facts retain one of
+  `model_serving_not_observed`, `model_serving_source_unavailable`,
+  `model_serving_response_invalid`, `model_serving_target_limit`, or
+  `model_serving_target_unresolved`.
 - VM scale-set child collection requests `instanceView` and retains only the exact power-state code.
   VM Run Command hydration retains only `instanceView.executionState`. Status messages, command
   output, command error text, and other unreviewed instance-view fields do not enter inventory.

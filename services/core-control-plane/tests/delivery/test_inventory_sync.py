@@ -780,7 +780,7 @@ def test_state_enrichment_rejects_unbound_evidence(
         },
     )
 
-    with pytest.raises(ValueError, match="authoritative provider evidence"):
+    with pytest.raises(ValueError, match="authoritative observed evidence"):
         _validate_resource_state_enrichment(original, candidate)
 
 
@@ -830,6 +830,43 @@ def test_state_enrichment_accepts_a_reviewed_availability_unavailable_reason() -
     )
 
     _validate_resource_state_enrichment(original, candidate)
+
+
+def test_state_enrichment_accepts_exact_model_serving_telemetry() -> None:
+    observed_at = datetime(2026, 9, 6, tzinfo=UTC)
+    revision = "azure-monitor-model-serving:sha256:" + "1" * 64
+    original = ResourceRecord(resource_id="model-1", type="llm-model-deployment")
+    candidate = replace(
+        original,
+        props={
+            "servingState": "Serving",
+            "state_fact_metadata": {
+                "servingState": StateFactMetadata(
+                    lane=StateFactLane.OBSERVED,
+                    authority=StateFactAuthority.TELEMETRY,
+                    source_identity="azure-monitor-model-serving",
+                    source_revision=revision,
+                    effective_at=observed_at,
+                    recorded_at=observed_at,
+                    evidence_cutoff=observed_at,
+                    freshness_ceiling_seconds=600,
+                    completeness=1.0,
+                    synthetic=False,
+                    evidence_refs=(revision,),
+                ).to_mapping()
+            },
+        },
+    )
+
+    _validate_resource_state_enrichment(original, candidate)
+
+
+def test_state_enrichment_rejects_model_serving_on_another_resource_type() -> None:
+    original = ResourceRecord(resource_id="vm-1", type="compute.vm")
+    candidate = replace(original, props={"servingState": "Serving"})
+
+    with pytest.raises(ValueError, match="unsupported property"):
+        _validate_resource_state_enrichment(original, candidate)
 
 
 @pytest.mark.parametrize(

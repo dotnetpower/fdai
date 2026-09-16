@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 7e7199e5d66029be9cef1a5e99fac1e0b9ec86f3
+translation_source_sha: a88842ab647c454eff8ea736e0e42b23da56b508
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -206,7 +206,8 @@ archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle�
 인벤토리 명령과 CLI 지원 모듈은 두 플랫폼과 로컬 관리 스택에서 동일한 읽기 전용 실패 경계를 유지합니다.
 Activity Log 복구 가속은 전체 조정과 독립적입니다. 세대 승격 전후에 가속기가 실패하면
 사용 불가 상태로 보고하며, 실패한 변경분의 커서를 진행하거나 전체 인벤토리 루프를
-종료하지 않습니다.
+종료하지 않습니다. 수동적인 모델 서비스 응답 근거는 인벤토리 판독기 신원과 Azure Monitor 관리
+API를 재사용하며 모델 자격 증명을 받거나 추론 요청을 수행하지 않습니다.
 
 관리 호스트는 선택한 Deployment 이름, 이미지 참조, 복제본 수 범위를 기록합니다. 상태 재조회는
 해당 목록 전체, 현재 관측 세대, 준비된 복제본, 같은 소스 버전에서 실행 중인 Pod 이미지 digest를

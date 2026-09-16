@@ -622,8 +622,8 @@ Landscape aggregation, Resource focus, generated geometry, Network paths, Impact
 responsive interaction, and the geometry-less live-response regression gates.
 
 This resilience owner continues to define inventory source availability, snapshot freshness, bounded refresh, localization fallback, and unavailable-state behavior shared with other Console routes.
-A generation-transition refresh keeps the last complete view and a delay notice visible; unrelated failures remain visible errors. Recorded-state surfaces keep Not provided and Not applicable separate
-from genuine Unknown values, and expose the selected fact's source authority and observation time.
+A generation-transition refresh keeps the last complete view and a delay notice visible; unrelated failures remain visible errors. Recorded-state summaries and filters count Not provided and Not applicable separately
+from genuine Unknown values, while tooltips expose each fact's source authority and observation time.
 
 ## Verification
 

@@ -1182,6 +1182,23 @@ def _invalidation_row(
     }
 
 
+def test_projection_source_states_accept_model_serving_metrics() -> None:
+    states = _projection_source_states(
+        [
+            {
+                "source": "azure_model_serving_metrics",
+                "status": "available",
+                "observed_at": "2026-09-16T02:00:00+00:00",
+                "reason": None,
+                "coverage": {"observed": 3, "targets": 5},
+            }
+        ]
+    )
+
+    assert states[0].source == "azure_model_serving_metrics"
+    assert states[0].status == "available"
+
+
 async def test_inventory_invalidation_initial_connect_establishes_watermark_without_full_replay(
     monkeypatch: Any,
 ) -> None:

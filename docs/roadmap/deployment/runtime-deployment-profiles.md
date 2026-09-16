@@ -209,7 +209,9 @@ protected transition and an exact persisted certification receipt; runtime selec
 The inventory command and its CLI support module preserve read-only failure boundaries on both
 platforms and in the local managed stack. Activity Log recovery is independent of full reconciliation:
 failures before or after generation promotion are reported as unavailable, without advancing failed
-delta cursors or terminating the complete inventory loop.
+delta cursors or terminating the complete inventory loop. Passive model-serving evidence reuses the
+inventory reader identity and Azure Monitor management API; it never receives a model credential or
+issues an inference request.
 
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 944d302b94bea21031b71439ddd8e4032739b958
+translation_source_sha: 89c01f8c035068002189dd53961f4808c944784a
 translation_revised: 2026-09-16
 ---
 # 온톨로지 구조 모델
@@ -35,7 +35,7 @@ translation_revised: 2026-09-16
 메타데이터이며 Resource 또는 링크 신원을 대체하지 않습니다.
 선택적인 기록 `serving` 사실은 하나의 정확한 데이터 플레인 대상에 대한 표시 근거입니다. 새로운
 온톨로지 유형, 관계 또는 권한 edge를 추가하지 않으며 운영, 프로비저닝 또는 가용성 사실을
-대체하지 않습니다.
+대체하지 않습니다. 출처 신원과 텔레메트리 권한은 공통 상태 사실 묶음에 표시됩니다.
 현재 인스턴스 상세 소비자는 런타임 호출 및 PostgreSQL 역할 원본 상태를 명시적으로 요구합니다.
 둘 중 하나를 생략하면 가용성이나 측정된 0이 아니라 잘못된 변환 결과로 처리합니다.
 추가 방식 신원 필드는 안전한 방향으로 실패하는 이행 경계를 사용합니다. 기존 Resource는 계속

@@ -32,6 +32,10 @@ describe("recorded state text", () => {
     ["model_serving_source_unavailable", "Source unavailable"],
     ["model_serving_target_unresolved", "Source unavailable"],
     ["model_serving_response_invalid", "Invalid source evidence"],
+    ["resource_health_not_modeled", "Not provided"],
+    ["resource_health_target_limit", "Not checked"],
+    ["resource_health_source_unavailable", "Source unavailable"],
+    ["resource_health_response_invalid", "Invalid source evidence"],
   ])("distinguishes %s from a generic missing record", (reason, expected) => {
     expect(recordedStateValueText(missingFact(reason))).toBe(expected);
   });
@@ -54,6 +58,8 @@ describe("recorded state text", () => {
     expect(recordedStateReasonText("model_serving_not_observed")).toBe(
       "No successful request was observed for this deployment in the bounded metric window.",
     );
-    expect(recordedStateReasonText("state_metadata_invalid")).toBeNull();
+    expect(recordedStateReasonText("state_metadata_invalid")).toBe(
+      "The state observation metadata is invalid.",
+    );
   });
 });

@@ -132,22 +132,26 @@ async def test_apim_status_counts_use_exact_response_dimension(status: str, back
     assert points[0].labels == {"resource_id": APIM.lower(), dimension: status}
 
 
-async def test_deployment_metric_window_queries_account_without_widening_child() -> None:
+@pytest.mark.parametrize("status", ["200", "429"])
+async def test_deployment_metric_window_queries_account_without_widening_child(
+    status: str,
+) -> None:
     definition = load_metric_semantic_registry(
         ROOT / "rule-catalog/vocabulary/metric-semantics.yaml"
-    ).resolve("model.response.429.count")
+    ).resolve(f"model.response.{status}.count")
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path.casefold() == (
             f"{ACCOUNT}/providers/Microsoft.Insights/metrics".casefold()
         )
         assert request.url.params["$filter"] == (
-            "StatusCode eq '429' and ModelDeploymentName eq 'example-model'"
+            f"StatusCode eq '{status}' and ModelDeploymentName eq 'example-model'"
         )
         return httpx.Response(
             200,
             json=_payload(
-                "AzureOpenAIRequests", {"StatusCode": "429", "ModelDeploymentName": "example-model"}
+                "AzureOpenAIRequests",
+                {"StatusCode": status, "ModelDeploymentName": "example-model"},
             ),
         )
 

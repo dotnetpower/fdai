@@ -103,6 +103,8 @@ describe("Dashboard v2 inventory projection", () => {
   test("accepts only declared summary-state deep-link filters", () => {
     expect(dashboardStatusFilter("known")).toBe("known");
     expect(dashboardStatusFilter("unknown")).toBe("unknown");
+    expect(dashboardStatusFilter("not-provided")).toBe("not-provided");
+    expect(dashboardStatusFilter("serving")).toBe("serving");
     expect(dashboardStatusFilter("__proto__")).toBe("");
     expect(dashboardStatusFilter(null)).toBe("");
   });

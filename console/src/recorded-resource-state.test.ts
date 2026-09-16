@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { decodeRecordedResourceStates } from "./recorded-resource-state";
+import {
+  decodeRecordedResourceStates,
+  latestRecordedStateObservedAt,
+  recordedStateAxes,
+  selectRecordedStateFact,
+} from "./recorded-resource-state";
 
 const missing = (reason: string) => ({
   value: null,
@@ -69,6 +74,17 @@ describe("recorded resource state decoder", () => {
       source_identity: "azure-monitor-model-serving",
       authority: "telemetry",
     });
+    expect(recordedStateAxes(states)).toEqual([
+      "operational",
+      "provisioning",
+      "serving",
+      "availability",
+    ]);
+    expect(selectRecordedStateFact(states)).toEqual({
+      axis: "serving",
+      fact: states.serving,
+    });
+    expect(latestRecordedStateObservedAt(states)).toBe("2026-09-06T01:43:22Z");
   });
 
   test("rejects an unsupported state authority", () => {

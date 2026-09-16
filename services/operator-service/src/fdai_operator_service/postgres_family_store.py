@@ -4181,6 +4181,7 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
         raise PostgresFamilyStoreUnavailable("active inventory source states are malformed")
     allowed_sources = {
         "azure_activity_log",
+        "azure_model_serving_metrics",
         "azure_resource_health",
         "azure_static_web_app_environment",
         "kubernetes_runtime_inventory",
