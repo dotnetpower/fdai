@@ -4,7 +4,7 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: 470f94f78778978a0f88e06ee7715d633b4c7f7c
+translation_source_sha: 35785ccba706841498412bcee04d35a2d3e905fe
 translation_revised: 2026-09-16
 ---
 
@@ -70,6 +70,59 @@ FDAI는 느슨하게 결합된 5개 레이어로 이루어집니다. 레이어�
 
 ## Azure 배포 토폴로지
 
+배포 런타임에 맞는 보기를 선택하세요. 새 설치의 기본값은 AKS이며 Container Apps는
+호환 프로파일로 유지됩니다. 두 방식의 논리적인 컨트롤 루프와 권한 경계는 같습니다.
+
+### AKS 배포
+
+이 보기는 인증된 공개 콘솔과 `postgres-flex`를 사용하는 AKS 프로파일입니다.
+Azure Static Web Apps는 클러스터 밖에서 브라우저 애플리케이션을 호스팅합니다.
+Azure API Management(APIM)는 HTTPS API 게이트웨이를 제공하며 Operator 요청과
+`/ingestion` 요청을 각각의 AKS 서비스로 전달합니다.
+
+다이어그램은 왼쪽의 인증된 접근 경로에서 가운데 AKS 런타임을 거쳐 오른쪽의 Azure
+데이터 및 운영 서비스로 읽습니다. 공통 의존 서비스는 주요 흐름 아래에 배치했습니다.
+API 접근 경계에는 예약 작업이 포함되지 않으며 Event Hubs 연결선은 Core 전용 버스가
+아니라 서비스들이 함께 사용하는 이벤트 전송 경로를 대표합니다.
+
+<fdai-architecture-diagram manifest="../../diagrams/generated/fdai-azure-aks-deployment.manifest.json" locale="ko" style="display:block">
+  <img src="../../diagrams/generated/fdai-azure-aks-deployment.ko.svg" alt="운영자는 Microsoft Entra ID로 인증하고 Azure Static Web Apps의 콘솔을 사용합니다. Azure API Management는 브라우저 요청을 AKS의 Operator Service와 Document Ingestion API로 전달합니다. 클러스터는 관리형 API 서버, 시스템 및 사용자 노드 풀, 5개 서비스 Deployment와 CronJob을 구분합니다. Event Hubs는 스키마가 검증된 서비스 이벤트를 전달합니다. PostgreSQL과 문서 저장소는 클러스터 밖에 있습니다. Workload Identity와 Key Vault는 서비스별 ID와 비밀을 분리합니다. 격리된 실행기만 승인된 리소스 변경 권한을 보유할 수 있습니다. Container Registry는 다이제스트로 고정된 이미지를 제공하고 Azure OpenAI와 모니터링은 공유 의존 서비스입니다. 이 그림은 배포 프로파일이며 실시간 상태나 사설망 검증 근거가 아닙니다." loading="lazy" style="display:block;width:100%;height:auto" />
+</fdai-architecture-diagram>
+
+- **서비스 배치**: Core Control Plane, Operator Service, Document Ingestion API,
+  Document Processing Worker, 격리된 실행기를 각각 독립적인 Deployment로 실행합니다.
+  Worker에는 ClamAV 사이드카가 포함됩니다. 예약 작업은 Container Apps Jobs가 아니라
+  CronJob으로 실행합니다.
+- **API 접근**: 외부에 노출하는 API는 Kubernetes `LoadBalancer` Service를 사용하고
+  나머지는 `ClusterIP`를 사용합니다. API 서비스는 Entra 토큰을 검증합니다. APIM은
+  브라우저 게이트웨이이며 Kubernetes 관리 API가 아닙니다.
+- **ID와 이미지**: 네임스페이스별 ServiceAccount는 AKS Workload Identity를 통해
+  각각의 관리 ID와 페더레이션됩니다. Key Vault는 CSI 드라이버를 통해 서비스별 비밀
+  참조를 제공하고 Container Registry는 다이제스트로 고정된 이미지를 제공합니다.
+  격리된 실행기만 승인된 리소스 변경 역할을 보유할 수 있으며 런타임 선택만으로 실행이
+  활성화되지는 않습니다.
+- **데이터와 이벤트**: Event Hubs가 스키마가 검증된 서비스 이벤트를 전달하며 에이전트는
+  서로 직접 호출하지 않습니다. PostgreSQL은 서비스별 역할을 사용하고 Azure Storage는
+  문서와 이력을 보관합니다. 그룹 단위 연결선은 이 경로를 요약한 것이며 자격 증명 공유나
+  무제한 데이터 접근을 뜻하지 않습니다.
+  공통 의존 서비스와 운영 영역은 지원 서비스를 표시하며 ID, 이미지, 모델, 승인 및
+  관찰 데이터 연결을 모두 반복해서 그리지는 않습니다. Azure 제품은 해당 제품 아이콘을,
+  Kubernetes Deployment, 노드 및 CronJob은 해당 Kubernetes 아이콘을 사용합니다.
+- **네트워크 범위**: AKS는 애플리케이션 VNet, 노드 서브넷 및 API Server VNet
+  Integration을 사용하는 위임된 API 서버 서브넷으로 구성됩니다. 기본 프로파일은
+  CIDR과 Entra RBAC로 공개 관리 접근을 제한합니다. 비공개 클러스터 접근, 서비스
+  비공개 엔드포인트, 피어링 및 비공개 DNS는 선택한 네트워크 프로파일에 따라 달라지며
+  이 그림은 해당 기능이 활성화되었다는 의미가 아닙니다.
+
+이 그림은 재사용 가능한 배포 구성을 설명하며 특정 테넌트의 인벤토리나 실시간 상태
+보고서가 아닙니다. 모델 접근, 승인 채널 및 진단 데이터 수집은 각각 구성과 검증이
+필요합니다. 선택적인 `postgres-aks` 프로파일은 PostgreSQL을 AKS 안에 배치하며 이
+그림에는 표시하지 않습니다. 배치 및 준비 상태 요건은
+[런타임 배포 프로파일](../roadmap/deployment/runtime-deployment-profiles-ko.md)을
+참조하세요.
+
+### Container Apps 배포
+
 논리적인 컨트롤 루프 책임 대신 운영 private-network 기준선을 추적하려면 배포
 다이어그램을 사용하세요. 번호가 지정된 연결선은 주요 신호, 결정, 근거, 승인 및 전달
 경로를 보여 줍니다. 중첩된 경계는 Azure 지역, virtual 네트워크 및 delegated 서브넷을
@@ -84,6 +137,8 @@ FDAI는 느슨하게 결합된 5개 레이어로 이루어집니다. 레이어�
 권한 있는 실행기 managed 신원은 모든 프로파일에서 분리됩니다.
 
 ## Azure 리소스 네트워크 흐름
+
+이 보기는 Container Apps의 사설망 참조 구성이며 위의 AKS 프로파일과 구분됩니다.
 
 현재 및 target-state 연결을 Azure 리소스 수준에서 추적하려면 이 보기를 사용하세요.
 비공개 애플리케이션 게이트웨이, Container Apps infrastructure 및 비공개 엔드포인트 서브넷을
@@ -136,7 +191,7 @@ private-link pattern을 사용하므로 하나의 Event Hubs symbol로 나타냅
 누락된 아키텍처가 아니라 의도적인 abstraction으로 유지합니다.
 
 Azure Resource Graph 조회와 observability 쓰기는 Azure 컨트롤 플레인 및 텔레메트리 계약을
-사용하므로 비공개 데이터 플레인 경로 밖에 표시합니다. Day-zero Terraform 기준선은 여전히
+사용하므로 비공개 데이터 플레인 경로 밖에 표시합니다. 이 Container Apps 참조 구성은 여전히
 애플리케이션 게이트웨이, WAF, Managed Grafana 또는 부하 balancer를 추가하지 않습니다.
 
 ## 검증된 5개 서비스 기준선과 후보 1개
