@@ -101,6 +101,8 @@ an upstream supply-chain activity and is never recovered by rebuilding inside a 
 An optional Foundation `application_workload` token can separate the new application group's name
 from operations naming without changing the AKS profile. It grants no ownership of an existing group;
 partial-state recovery follows the [application group collision contract](installable-deployment-cli.md#application-group-collision-recovery).
+The application stage derives the shared Terraform workload token from the exact Foundation handoff
+resource-group name and rejects a mismatched environment, region or workload grammar before planning.
 The separate `operations_public_ip_tags` input preserves only the exact observed Foundation
 Bastion/NAT policy tag; it does not alter AKS node settings or grant lifecycle drift exceptions.
 

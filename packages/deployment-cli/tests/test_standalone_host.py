@@ -62,6 +62,34 @@ def test_runtime_support_does_not_fall_back_to_kit(tmp_path: Path, monkeypatch) 
         )
 
 
+def test_foundation_application_workload_matches_resource_group_name() -> None:
+    assert (
+        standalone_host._foundation_application_workload(
+            {"name": "rg-fdaiaks-dev-wus2"},
+            environment="dev",
+            region_short="wus2",
+        )
+        == "fdaiaks"
+    )
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "rg-fdaiaks-staging-wus2",
+        "rg-fdaiaks-dev-krc",
+        "rg-invalid/name-dev-wus2",
+    ],
+)
+def test_foundation_application_workload_rejects_mismatched_name(name: str) -> None:
+    with pytest.raises(ValueError, match="Foundation application"):
+        standalone_host._foundation_application_workload(
+            {"name": name},
+            environment="dev",
+            region_short="wus2",
+        )
+
+
 def _review() -> dict[str, object]:
     value: dict[str, object] = {
         "schema_version": "fdai.standalone-application-plan.v1",

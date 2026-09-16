@@ -305,6 +305,11 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "Freyr",
     )
     values: dict[str, object] = {
+        "workload": _foundation_application_workload(
+            app,
+            environment="dev",
+            region_short=region_short,
+        ),
         "env": "dev",
         "region": region,
         "region_short": region_short,
@@ -2435,6 +2440,19 @@ def _foundation_binding_digest(
             "app_resource_group": app,
         }
     )
+
+
+def _foundation_application_workload(
+    app: dict[str, object], *, environment: str, region_short: str
+) -> str:
+    name = app.get("name")
+    suffix = f"-{environment}-{region_short}"
+    if not isinstance(name, str) or not name.startswith("rg-") or not name.endswith(suffix):
+        raise ValueError("Foundation application resource-group name is invalid")
+    workload = name[3 : -len(suffix)]
+    if re.fullmatch(r"[a-z][a-z0-9]{1,11}", workload) is None:
+        raise ValueError("Foundation application workload is invalid")
+    return workload
 
 
 def _vault_name(uri: str) -> str:

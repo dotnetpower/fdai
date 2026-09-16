@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: fc176da92b4a305162bbd644e990571a95d56aa3
+translation_source_sha: b399960e7cdff98a0f8b022274c0b444b75355bf
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -102,6 +102,8 @@ ACR Tasks, 원격 builder 또는 VM 이미지 캡처를 실행하지 않습니�
 Foundation의 선택 입력 `application_workload`는 AKS 프로파일을 바꾸지 않고 새 애플리케이션
 그룹 이름을 운영 리소스 이름과 분리합니다. 기존 그룹의 소유권을 부여하지는 않으며, 부분 상태
 복구는 [애플리케이션 그룹 충돌 계약](installable-deployment-cli-ko.md#애플리케이션-그룹-충돌-복구)을 따릅니다.
+애플리케이션 단계는 정확한 Foundation 인계 리소스 그룹 이름에서 공유 Terraform 워크로드
+토큰을 가져오며, 환경, 리전 또는 워크로드 문법이 다르면 계획 전에 차단합니다.
 별도 입력 `operations_public_ip_tags`는 관측된 정확한 Foundation Bastion/NAT 정책 태그만
 유지하며, AKS 노드 설정을 바꾸거나 수명주기 차이를 무시하는 예외를 부여하지 않습니다.
 
