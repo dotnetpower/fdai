@@ -74,6 +74,31 @@ async def activate_reporting_case(
     raise ReportingLineModelError("reporting-line graph changed during activation")
 
 
+async def validate_reporting_case_activation(
+    store: StateStore,
+    candidate: ReportingLineCase,
+    *,
+    at: datetime,
+) -> ReportingGraphSnapshot:
+    """Validate a proposed activation without mutating the graph authority."""
+
+    if candidate.state is not ReportingLineCaseState.ACTIVE:
+        raise ReportingLineModelError("only an active reviewed edge can enter the graph")
+    observed_at = reporting_instant(at)
+    raw = await store.read_state(GRAPH_KEY)
+    _revision, cases = _decode_graph_record(raw)
+    existing = next((item for item in cases if item.case_id == candidate.case_id), None)
+    if existing is not None:
+        if existing != candidate:
+            raise ReportingLineModelError(
+                "reporting-line graph case id is bound to different evidence"
+            )
+        return build_reporting_graph(cases, at=observed_at)
+    updated_cases = (*cases, candidate)
+    _validate_graph_history(updated_cases)
+    return build_reporting_graph(updated_cases, at=observed_at)
+
+
 async def load_reporting_graph(
     store: StateStore,
     *,
@@ -148,4 +173,9 @@ def _mapping(value: object) -> dict[str, Any]:
     return value
 
 
-__all__ = ["GRAPH_KEY", "activate_reporting_case", "load_reporting_graph"]
+__all__ = [
+    "GRAPH_KEY",
+    "activate_reporting_case",
+    "load_reporting_graph",
+    "validate_reporting_case_activation",
+]

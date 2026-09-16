@@ -16,6 +16,10 @@ from fdai.core.human_reporting.model import (
 )
 
 
+class ReportingLineGraphConflictError(ReportingLineModelError):
+    """Raised when reviewed edges cannot coexist in one reporting graph."""
+
+
 @dataclass(frozen=True, slots=True)
 class ReportingGraphEdge:
     """One effective reviewed edge in a current graph snapshot."""
@@ -86,7 +90,7 @@ def build_reporting_graph(
     for case in current:
         previous = by_subject.get(case.subject_ref)
         if previous is not None:
-            raise ReportingLineModelError(
+            raise ReportingLineGraphConflictError(
                 "reporting-line graph has multiple active primary managers for one subject"
             )
         by_subject[case.subject_ref] = case
@@ -119,7 +123,7 @@ def _assert_acyclic(by_subject: dict[str, ReportingLineCase]) -> None:
         current = subject
         while current in by_subject and current not in complete:
             if current in chain:
-                raise ReportingLineModelError("reporting-line graph contains a cycle")
+                raise ReportingLineGraphConflictError("reporting-line graph contains a cycle")
             chain.add(current)
             current = by_subject[current].manager_ref
         complete.update(chain)
@@ -145,5 +149,6 @@ def _graph_revision(edges: tuple[ReportingGraphEdge, ...]) -> str:
 __all__ = [
     "ReportingGraphEdge",
     "ReportingGraphSnapshot",
+    "ReportingLineGraphConflictError",
     "build_reporting_graph",
 ]

@@ -8,12 +8,14 @@ from typing import Any
 from uuid import uuid4
 
 import fdai.core.human_reporting.graph_repository as graph_repository
+import fdai.core.human_reporting.service as reporting_service
 import pytest
 from fdai.core.human_reporting import (
     EndpointConfirmation,
     EndpointDecision,
     OwnerDecision,
     ReportingLineCaseState,
+    ReportingLineGraphConflictError,
     ReportingLineModelError,
     ReportingLineService,
 )
@@ -520,6 +522,17 @@ async def test_parallel_active_manager_without_supersession_is_rejected() -> Non
             edge_digest=second.edge_digest,
             now=NOW + timedelta(minutes=2),
         )
+    still_pending = await service.get_case(second.case_id)
+    assert still_pending.state is ReportingLineCaseState.PENDING_OWNER_REVIEW
+    rejected = await service.review(
+        principal=_principal("owner-2", Role.OWNER),
+        case_id=second.case_id,
+        expected_revision=still_pending.revision,
+        decision=OwnerDecision.REJECT,
+        edge_digest=still_pending.edge_digest,
+        now=NOW + timedelta(minutes=3),
+    )
+    assert rejected.state is ReportingLineCaseState.REJECTED
 
 
 async def test_replacement_cannot_target_an_unreviewed_edge() -> None:
@@ -578,6 +591,57 @@ async def test_cycle_is_rejected_before_second_edge_activates() -> None:
             edge_digest=second.edge_digest,
             now=NOW + timedelta(minutes=2),
         )
+
+
+async def test_activation_race_conflict_exits_frozen_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = ReportingLineService(InMemoryStateStore())
+    candidate = _candidate("person-a", "person-b")
+    case = await service.create_case(
+        principal=_principal("uploader", Role.CONTRIBUTOR),
+        artifact=_artifact(candidate),
+        candidate_id=candidate.candidate_id,
+        now=NOW,
+    )
+    confirmed = await service.confirm(
+        principal=_principal("person-a", Role.READER),
+        case_id=case.case_id,
+        expected_revision=case.revision,
+        decision=EndpointDecision.CONFIRM,
+        edge_digest=case.edge_digest,
+        now=NOW + timedelta(minutes=1),
+    )
+
+    async def precheck_succeeds(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    async def activation_conflicts(*_args: object, **_kwargs: object) -> None:
+        raise ReportingLineGraphConflictError("concurrent graph conflict")
+
+    monkeypatch.setattr(
+        reporting_service,
+        "validate_reporting_case_activation",
+        precheck_succeeds,
+    )
+    monkeypatch.setattr(
+        reporting_service,
+        "activate_reporting_case",
+        activation_conflicts,
+    )
+
+    conflicted = await service.review(
+        principal=_principal("owner", Role.OWNER),
+        case_id=case.case_id,
+        expected_revision=confirmed.revision,
+        decision=OwnerDecision.APPROVE,
+        edge_digest=confirmed.edge_digest,
+        now=NOW + timedelta(minutes=2),
+    )
+
+    assert conflicted.state is ReportingLineCaseState.CONFLICT
+    assert conflicted.owner_review is not None
+    assert conflicted.owner_review.decision is OwnerDecision.APPROVE
 
 
 async def test_graph_accepts_more_than_thirty_two_independent_edges() -> None:

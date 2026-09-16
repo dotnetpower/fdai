@@ -8,10 +8,14 @@ from uuid import UUID
 
 from fdai_service_contracts import ReportingLineDraftArtifact, ReportingLineDraftOutcome
 
-from fdai.core.human_reporting.graph import ReportingGraphSnapshot
+from fdai.core.human_reporting.graph import (
+    ReportingGraphSnapshot,
+    ReportingLineGraphConflictError,
+)
 from fdai.core.human_reporting.graph_repository import (
     activate_reporting_case,
     load_reporting_graph,
+    validate_reporting_case_activation,
 )
 from fdai.core.human_reporting.model import (
     EndpointConfirmation,
@@ -264,6 +268,16 @@ class ReportingLineService:
             recorded_at=decided_at,
             owner_review=review,
         )
+        if target is ReportingLineCaseState.ACTIVATION_PENDING:
+            await validate_reporting_case_activation(
+                self.store,
+                replace(
+                    candidate,
+                    state=ReportingLineCaseState.ACTIVE,
+                    revision=candidate.revision + 1,
+                ),
+                at=decided_at,
+            )
         reviewed = await persist_case_state(
             self.store,
             current,
@@ -296,12 +310,27 @@ class ReportingLineService:
             state=ReportingLineCaseState.ACTIVE,
             revision=current.revision + 1,
         )
-        await activate_reporting_case(
-            self.store,
-            active,
-            actor_ref=actor_ref,
-            at=current.owner_review.decided_at,
-        )
+        try:
+            await activate_reporting_case(
+                self.store,
+                active,
+                actor_ref=actor_ref,
+                at=current.owner_review.decided_at,
+            )
+        except ReportingLineGraphConflictError:
+            conflict = replace(
+                current,
+                state=ReportingLineCaseState.CONFLICT,
+                revision=current.revision + 1,
+            )
+            return await persist_case_state(
+                self.store,
+                current,
+                conflict,
+                actor_ref=actor_ref,
+                action_kind="human.reporting.activation_conflict",
+                at=current.owner_review.decided_at,
+            )
         return await persist_case_state(
             self.store,
             current,
@@ -368,6 +397,7 @@ def _same_owner_review(
     expected_state_revision = {
         ReportingLineCaseState.ACTIVATION_PENDING: expected_revision + 1,
         ReportingLineCaseState.ACTIVE: expected_revision + 2,
+        ReportingLineCaseState.CONFLICT: expected_revision + 2,
         ReportingLineCaseState.REJECTED: expected_revision + 1,
     }
     return expected_state_revision.get(case.state) == case.revision

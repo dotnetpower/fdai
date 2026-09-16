@@ -109,7 +109,9 @@ An edge can instead become `unresolved`, `conflict`, `rejected`, `expired`, or `
 
 `activation_pending` records the Owner decision before the graph write. Endpoint decisions are
 closed at that point. A retry can finish graph activation after interruption, while an edge never
-becomes routable before both human decisions are durably fixed.
+becomes routable before both human decisions are durably fixed. A read-only structural precheck
+leaves deterministic conflicts in Owner review, and a conflict won by a concurrent graph update
+moves the frozen case to `conflict` instead of leaving it stuck.
 
 An active edge records:
 

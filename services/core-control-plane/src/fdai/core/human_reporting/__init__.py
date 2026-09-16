@@ -9,12 +9,14 @@ from fdai.core.human_reporting.consent import (
 from fdai.core.human_reporting.graph import (
     ReportingGraphEdge,
     ReportingGraphSnapshot,
+    ReportingLineGraphConflictError,
     build_reporting_graph,
 )
 from fdai.core.human_reporting.graph_repository import (
     GRAPH_KEY,
     activate_reporting_case,
     load_reporting_graph,
+    validate_reporting_case_activation,
 )
 from fdai.core.human_reporting.model import (
     EndpointConfirmation,
@@ -65,6 +67,7 @@ __all__ = [
     "ReportingGraphSnapshot",
     "ReportingLineCase",
     "ReportingLineCaseState",
+    "ReportingLineGraphConflictError",
     "ReportingLineEligibility",
     "ReportingLineDraftReader",
     "ReportingLineModelError",
@@ -76,4 +79,5 @@ __all__ = [
     "load_reporting_graph",
     "normalize_principal",
     "report_line_case_result",
+    "validate_reporting_case_activation",
 ]

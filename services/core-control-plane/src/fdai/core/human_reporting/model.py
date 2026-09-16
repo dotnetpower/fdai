@@ -256,6 +256,7 @@ class ReportingLineCase:
                 {
                     ReportingLineCaseState.ACTIVATION_PENDING,
                     ReportingLineCaseState.ACTIVE,
+                    ReportingLineCaseState.CONFLICT,
                     ReportingLineCaseState.SUPERSEDED,
                 }
                 if self.owner_review.decision is OwnerDecision.APPROVE
@@ -295,6 +296,13 @@ class ReportingLineCase:
             raise ReportingLineModelError("endpoint confirmation is bound to another edge")
         if self.owner_review is not None and self.owner_review.edge_digest != self.edge_digest:
             raise ReportingLineModelError("Owner review is bound to another edge")
+        if self.owner_review is not None and self.owner_review.principal_ref in {
+            self.requester_ref,
+            self.subject_ref,
+            self.manager_ref,
+            self.confirmation.principal_ref if self.confirmation is not None else "",
+        }:
+            raise ReportingLineModelError("Owner review MUST be independent")
 
     @property
     def edge_digest(self) -> str:

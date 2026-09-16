@@ -308,6 +308,7 @@ def _owner_review_replay(
     expected_state_revision = {
         ReportingLineCaseState.ACTIVATION_PENDING: expected_revision + 1,
         ReportingLineCaseState.ACTIVE: expected_revision + 2,
+        ReportingLineCaseState.CONFLICT: expected_revision + 2,
         ReportingLineCaseState.REJECTED: expected_revision + 1,
     }
     return expected_state_revision.get(case.state) == case.revision

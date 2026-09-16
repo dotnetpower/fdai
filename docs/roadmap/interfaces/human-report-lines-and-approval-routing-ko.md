@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 1306a6917ee6b7eba37973885436baab42cb53e5
+translation_source_sha: e998e9d262837ac100b98d39ddd323f7e1cd465e
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -104,7 +104,9 @@ Edge는 `unresolved`, `conflict`, `rejected`, `expired` 또는 `superseded` 상�
 
 `activation_pending`은 그래프를 쓰기 전에 Owner 결정을 기록합니다. 이 시점부터 당사자 결정을
 추가로 변경할 수 없습니다. 중단 후 재시도로 그래프 활성화를 완료할 수 있으며 두 사람의 결정이
-영속적으로 확정되기 전에는 edge를 라우팅에 사용할 수 없습니다.
+영속적으로 확정되기 전에는 edge를 라우팅에 사용할 수 없습니다. 읽기 전용 구조 사전 검사는
+결정론적 충돌을 Owner 검토 상태에 남기며, 동시 그래프 갱신에서 발생한 충돌은 고정된 case를
+멈춘 상태로 두지 않고 `conflict`로 전환합니다.
 
 활성 edge는 다음을 기록합니다.
 
