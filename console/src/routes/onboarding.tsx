@@ -1,19 +1,17 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
-import { AsyncBoundary, ErrorState, KpiCard, KpiGrid, PageHeader, StatusPill, UnavailableState, kpiEvidenceLabel, type AsyncState } from "../components/ui";
-import { usePublishViewContext } from "../deck/context";
-import { TERMS, composeGlossary } from "../deck/glossary";
+import { AsyncBoundary, ErrorState, PageHeader, type AsyncState } from "../components/ui";
+import type { ConsoleDataMode } from "../console-data-mode";
 import { t } from "../i18n";
-import { routeHref } from "../router";
-import { formatConsoleTimestamp } from "../time-format";
+import { OnboardingBody, OnboardingLoadingState } from "./onboarding.presentation";
 import { panelArray, panelBoolean, panelNumber, panelRecord, panelString, panelStringArray } from "./panel-decode";
 
-interface OnboardingResponse {
+export interface OnboardingResponse {
   readonly probe_mode: "configured" | "not-configured";
   readonly ready: boolean;
   readonly blocked: boolean;
   readonly missing_resources: readonly string[];
-  readonly missing_role_assignments: readonly (readonly string[])[];
+  readonly missing_role_assignments: readonly (readonly [string, string, string])[];
   readonly present_resource_count: number;
   readonly present_role_count: number;
   readonly error: string | null;
@@ -34,7 +32,13 @@ export async function loadOnboardingState(
   }
 }
 
-export function OnboardingRoute({ client }: { readonly client: OperatorApiClient }) {
+export function OnboardingRoute({
+  client,
+  dataMode,
+}: {
+  readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
+}) {
   const [state, setState] = useState<AsyncState<OnboardingResponse>>({ status: "loading" });
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -59,11 +63,12 @@ export function OnboardingRoute({ client }: { readonly client: OperatorApiClient
   return (
     <div class="stack onboarding-route">
       <PageHeader
-        title={t("route.onboarding")}
-        subtitle={t("nav.panelSub.onboarding")}
+        title={t("onboardingView.title")}
+        subtitle={t("onboardingView.viewPurpose")}
         actions={
           <button
             type="button"
+            class="btn secondary"
             disabled={state.status === "loading" || refreshing}
             aria-busy={refreshing}
             onClick={() => { void load(false); }}
@@ -72,9 +77,24 @@ export function OnboardingRoute({ client }: { readonly client: OperatorApiClient
           </button>
         }
       />
-      <AsyncBoundary state={state} resourceLabel={t("onboardingView.resourceLabel")}>
-        {(data) => <OnboardingBody data={data} checkedAt={checkedAt} />}
-      </AsyncBoundary>
+      {state.status === "error" ? (
+        <ErrorState
+          message={t("shared.loadFailed", {
+            resource: t("onboardingView.resourceLabel"),
+            message: state.message,
+          })}
+          onRetry={() => { void load(true); }}
+          retryLabel={t("onboardingView.retry")}
+        />
+      ) : (
+        <AsyncBoundary
+          state={state}
+          resourceLabel={t("onboardingView.resourceLabel")}
+          loading={<OnboardingLoadingState />}
+        >
+          {(data) => <OnboardingBody data={data} checkedAt={checkedAt} dataMode={dataMode} />}
+        </AsyncBoundary>
+      )}
     </div>
   );
 }
@@ -92,10 +112,11 @@ export function decodeOnboarding(value: unknown): OnboardingResponse {
   const missingResources = panelStringArray(root["missing_resources"], "onboarding.missing_resources");
   const missingRoleAssignments = panelArray(root["missing_role_assignments"], "onboarding.missing_role_assignments").map((item, index) => {
     const assignment = panelStringArray(item, `onboarding.missing_role_assignments[${index}]`);
-    if (assignment.length !== 3) {
+    const [principal, role, target, ...extra] = assignment;
+    if (principal === undefined || role === undefined || target === undefined || extra.length > 0) {
       throw new Error(`onboarding.missing_role_assignments[${index}] MUST contain principal, role, and target`);
     }
-    return assignment;
+    return [principal, role, target] as const;
   });
   const ready = panelBoolean(root, "ready", "onboarding");
   const blocked = panelBoolean(root, "blocked", "onboarding");
@@ -104,6 +125,10 @@ export function decodeOnboarding(value: unknown): OnboardingResponse {
   if (ready && blocked) throw new Error("onboarding.ready and onboarding.blocked MUST NOT both be true");
   if (probeMode === "configured" && error == null && ready === blocked) {
     throw new Error("configured onboarding readiness MUST be either ready or blocked");
+  }
+  const gapCount = missingResources.length + missingRoleAssignments.length;
+  if (probeMode === "configured" && error == null && ready !== (gapCount === 0)) {
+    throw new Error("configured onboarding readiness MUST agree with the reported gaps");
   }
   return {
     probe_mode: probeMode,
@@ -123,80 +148,4 @@ function nonNegativeInteger(root: Readonly<Record<string, unknown>>, key: string
     throw new Error(`onboarding.${key} MUST be a non-negative integer`);
   }
   return value;
-}
-
-function OnboardingBody({ data, checkedAt }: { readonly data: OnboardingResponse; readonly checkedAt: string | null }) {
-  const observed = data.probe_mode === "configured" && data.error === null;
-  usePublishViewContext(
-    () => ({
-      routeId: "onboarding",
-      routeLabel: t("route.onboarding"),
-      purpose: t("onboardingView.viewPurpose"),
-      glossary: composeGlossary([TERMS.humanRbac]),
-      headline: !observed
-        ? t("onboardingView.headlineUnavailable")
-        : data.ready
-        ? t("onboardingView.headlineReady")
-        : t("onboardingView.headlineBlocked", {
-            resources: data.missing_resources.length,
-            roles: data.missing_role_assignments.length,
-          }),
-      capturedAt: checkedAt ?? new Date().toISOString(),
-      facts: [
-        { key: "probe_mode", value: data.probe_mode, group: "readiness" },
-        { key: "ready", value: observed ? data.ready : null, group: "readiness" },
-        { key: "resources_observed", value: observed ? data.present_resource_count : null, group: "readiness" },
-        { key: "roles_observed", value: observed ? data.present_role_count : null, group: "readiness" },
-        { key: "probe_error", value: data.error, group: "readiness" },
-      ],
-      records: {
-        [observed ? "missing_resources" : "required_resources"]:
-          data.missing_resources.map((resource) => ({ resource })),
-        [observed ? "missing_role_assignments" : "required_role_assignments"]:
-          data.missing_role_assignments.map(([principal, role, target]) => ({ principal, role, target })),
-      },
-    }),
-    [checkedAt, data],
-  );
-  return (
-    <div class="stack">
-      {data.probe_mode === "not-configured" ? (
-        <UnavailableState evidenceState="not-connected" message={t("onboardingView.notConfigured")} />
-      ) : null}
-      {data.error !== null ? (
-        <ErrorState message={`${t("onboardingView.probeFailed")} ${data.error}`} />
-      ) : null}
-      <KpiGrid>
-        <KpiCard evidenceState={observed ? "measured" : "not-connected"} href={routeHref("provision")} label={t("onboardingView.readiness")} value={observed ? <StatusPill kind={data.ready ? "success" : "danger"} label={t(data.ready ? "onboardingView.ready" : "onboardingView.blocked")} /> : kpiEvidenceLabel("not-connected")} />
-        <KpiCard evidenceState={observed ? "measured" : "not-connected"} href={routeHref("architecture")} label={t("onboardingView.resourcesObserved")} value={observed ? data.present_resource_count.toLocaleString() : kpiEvidenceLabel("not-connected")} />
-        <KpiCard evidenceState={observed ? "measured" : "not-connected"} href={routeHref("settings-iam", { segments: ["requests"] })} label={t("onboardingView.rolesObserved")} value={observed ? data.present_role_count.toLocaleString() : kpiEvidenceLabel("not-connected")} />
-        <KpiCard evidenceState={!observed ? "not-connected" : checkedAt === null ? "not-measured" : "measured"} href={routeHref("provision")} label={t("onboardingView.lastChecked")} value={!observed ? kpiEvidenceLabel("not-connected") : checkedAt === null ? kpiEvidenceLabel("not-measured") : formatConsoleTimestamp(checkedAt)} />
-      </KpiGrid>
-      <nav class="onboarding-actions" aria-label={t("onboardingView.drilldowns") }>
-        <a href={routeHref("provision")}>{t("onboardingView.openProvisioning")}</a>
-        <a href={routeHref("settings-iam", { segments: ["requests"] })}>{t("onboardingView.reviewAccess")}</a>
-        <a href={routeHref("architecture")}>{t("onboardingView.inspectArchitecture")}</a>
-      </nav>
-      <section class="stack-section">
-        <h3 class="section-title">{t(observed ? "onboardingView.missingResources" : "onboardingView.requiredResources")} ({data.missing_resources.length})</h3>
-        {data.missing_resources.length ? (
-          <ul class="onboarding-gap-list">
-            {data.missing_resources.map((resource) => <li key={resource}><code>{resource}</code></li>)}
-          </ul>
-        ) : <p class="muted">{t("onboardingView.none")}</p>}
-      </section>
-      <section class="stack-section">
-        <h3 class="section-title">{t(observed ? "onboardingView.missingRoles" : "onboardingView.requiredRoles")} ({data.missing_role_assignments.length})</h3>
-        {data.missing_role_assignments.length ? (
-          <ul class="onboarding-role-list">
-            {data.missing_role_assignments.map(([principal, role, target]) => (
-              <li key={`${principal}:${role}:${target}`}>
-                <code>{principal}</code><span>{role}</span><code>{target}</code>
-              </li>
-            ))}
-          </ul>
-        ) : <p class="muted">{t("onboardingView.none")}</p>}
-      </section>
-    </div>
-  );
 }
