@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 692f7b6e4ebc884b430cf7ee15b7731ebfb91e93
+translation_source_sha: 03be5be6aa3bfb2cab13c5e54a4d517a0b646dfd
 translation_revised: 2026-09-16
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -367,20 +367,16 @@ Best Practice 정의를 로드합니다. 이 동등성은 런타임 점유를 �
 두 factory는 같은 온톨로지 release에 읽기 전용 카탈로그 조회 함수도 등록하므로 로컬 및 deployed
 Command Deck 턴은 동일한 타입이 지정된, 범위가 제한된, non-mutating 근거 계약을 사용합니다.
 
-로컬 API는 `GET /system/data-sources`를 제공합니다. Standard full stack에서는 운영
-PostgreSQL read-model 어댑터가 로컬 pgvector를 사용합니다. 로컬 Operator API는 트래픽을 받기 전에
-해당 어댑터를 통해 범위가 제한된 `SELECT 1`을 실행합니다. 탐색이 실패하면 부분적으로 연결된 콘솔을
-노출하지 않고 시작을 중단합니다. 탐색이 성공하면 PostgreSQL 기반 항목은 `available` 및
-`reachable=true`를 보고합니다. 구성된 원격 및 Azure request-time 출처는 자체 근거
-계약이 검증할 때까지 `unknown`을 유지합니다.
-`FDAI_DATABASE_URL`과 `FDAI_AUTHORITATIVE_OPERATOR_API_BASE_URL`은 상호배타적인 출처 프로파일을
-선택합니다. 둘을 함께 구성하면 프로바이더를 만들기 전에 시작을 중단하므로 매니페스트가 로컬
-PostgreSQL을 설명하면서 허용 목록 요청을 원격 API가 처리하는 상태를 허용하지 않습니다.
-원격 forwarding은 decoded 정본 허용 목록에 있는 경로만 일치시키며 정규화된, encoded, 중복
-구분자 및 control-character 변형은 로컬에 유지합니다. 업스트림 캐시 directive를 폐기하고
-모든 proxy 응답에 `Cache-Control: no-store`를 보내므로 인증된 operational 근거가 브라우저
-또는 shared 캐시에 저장되지 않습니다. 응답 헤더 전에 발생한 원격 실패는 범위가 제한된 JSON
-`503`으로 변환하고, 헤더 이후 실패는 두 번째 ASGI 응답 시작 없이 응답 본문을 닫습니다.
+로컬 API는 `GET /system/data-sources`를 제공합니다. 표준 전체 스택에서는 운영 PostgreSQL 읽기 모델 어댑터가 로컬 pgvector를 사용합니다.
+로컬 Operator API는 트래픽을 받기 전에 범위가 제한된 `SELECT 1`을 실행합니다. 실패하면 시작을 중단하고 성공하면 PostgreSQL 기반 항목이 `available` 및 `reachable=true`를 보고합니다.
+구성된 원격 및 Azure 요청 시점 출처는 자체 근거 계약이 검증할 때까지 `unknown`을 유지합니다.
+`FDAI_DATABASE_URL`과 `FDAI_AUTHORITATIVE_OPERATOR_API_BASE_URL`은 상호 배타적인 출처 프로파일이며, 둘을 함께 구성하면 프로바이더를 만들기 전에 시작을 중단합니다.
+따라서 매니페스트가 로컬 PostgreSQL을 설명하면서 원격 API가 허용 목록 요청을 처리하는 상태는 허용하지 않습니다.
+원격 전달은 디코딩된 정식 허용 목록 경로만 일치시키며 정규화, 인코딩, 중복 구분자, 제어 문자 변형은 로컬에 유지합니다.
+업스트림 캐시 지시문을 폐기하고 모든 프록시 응답에 `Cache-Control: no-store`를 보내므로 인증된 운영 근거가 브라우저나 공유 캐시에 저장되지 않습니다.
+응답 헤더 전 원격 실패는 범위가 제한된 JSON `503`으로 변환하고, 헤더 이후 실패는 두 번째 ASGI 응답 시작 없이 본문을 닫습니다.
+어느 실행 위치에서든 Operator PostgreSQL 저장소가 구성된 경우에만 매니페스트가 `/provision/stream`을 권위 있는 영속 재생 소스로 선언합니다.
+저장소가 없으면 등록된 경로를 명시적으로 사용 불가 상태로 두므로 Console은 근거 없이 스트림을 요청하거나 Sample 상태로 대체하지 않습니다.
 
 런타임 스킬 점검도 같은 규칙을 따릅니다. 운영은 트래픽을 받기 전에 signed
 PostgreSQL trusted-artifact 기록에서 활성화된 카탈로그를 재구성합니다. Interactive 로컬은 영속
