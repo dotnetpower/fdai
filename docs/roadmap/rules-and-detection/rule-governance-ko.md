@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: d2a7e3a1f3b77d136d782d602caba584979d7742
-translation_revised: 2026-08-31
+translation_source_sha: 66eec347eff1656472786590d6a70e1d8472074e
+translation_revised: 2026-09-16
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -524,11 +524,13 @@ provenance:
 | 재정의 아티팩트 및 해석 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/override.py`; `override.schema.json`; `parameter_relaxation_policy.py`; `governance_loader.py`; `governance_catalog.py`; `rule-catalog/overrides/`; `rule-catalog/override-parameter-bounds.yaml`; `core/control_loop/_execution.py`, `_helpers.py`, `_process.py`, `_audit_helpers.py`, `_boundary.py`, `orchestrator.py`; 집중 스키마, 로더, 카탈로그, 파이프라인 테스트 | 디렉터리 로더, resource-group-이하 범위 강제, no-stacking, 서로 다른 승인자, 리뷰된 parameter-relaxation-bounds 정책 모두 카탈로그 로드에서 fail closed 됩니다. `resolve_override` 와 T0 소비가 배정 해석 위에 `disabled` / `severity-downgrade` / `parameter-relaxation` 을 적용하고 모든 해석을 감사합니다. |
 | T0 배정 소비 | implemented | `services/core-control-plane/src/fdai/runtime/control_loop.py`; `services/core-control-plane/src/fdai/core/control_loop/_execution.py`; `services/core-control-plane/src/fdai/core/control_loop/_process.py`; 집중 거버넌스 및 파이프라인 테스트 | 하나의 불변 시작 카탈로그가 범위, 제외, 선택기, 효과, 적용, 파라미터 및 우선순위를 제공합니다. 적용되는 remediation도 실행 권한 부여와 통합 안전성 검토를 통과합니다. |
 | 거버넌스 pull request 신원 검사 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_review.py`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; 집중 권한, 메타데이터, CLI 및 workflow 테스트 | CI는 exact-head GitHub commit, review, Check Run 사실을 수집하고 구성된 trusted verifier App의 identity 근거만 수락합니다. 강제 적용 승격, 예외, 재정의 및 A1 라우팅은 정족수 2를 요구하고 제안자, 공동 작성자 또는 커미터의 자기 승인을 차단합니다. 구성이나 attestation이 없으면 관리되는 변경을 차단합니다. |
+| 탐지 및 라우팅 절대 범위 | implemented | `shared/contracts/ontology/detection-routing-bounds.json`; `shared/ontology/threshold_bounds.py`; 집중 임계값 테스트 | LLM 제어 7개와 인시던트 제어 5개가 버전이 지정된 의미 범위에 정확하게 결속됩니다. 활성 값은 구성에 남고 어떤 범위도 권한을 부여하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | 기존 이력을 다시 쓰지 않고 2026-08-19 적응형 임계값 행에 남아 있던 레지스트리 잔여를 닫았습니다. 새로 고정한 온톨로지 계약은 프로덕션 LLM 라우팅 제어 7개와 Heimdall 인시던트 제어 5개 모두의 형식, 단위, 적용 범위 및 절대 허용 구간을 선언합니다. AST 기반의 정확한 결속 테스트는 모든 활성 구성 범위를 온톨로지와 비교하고 추가되거나 누락된 항목을 거부하며 각 한계의 경계값 안팎을 검사합니다. | `current change`; `detection-routing-bounds.json`; `threshold_bounds.py`; `test_threshold_bounds.py`; 헌법 증명 선택자. | FDAI-CONST-004 소스 경계에 남은 작업은 없습니다. 활성 정책 값과 승격 근거는 별도의 버전이 지정된 기록으로 유지합니다. |
 | 2026-08-19 | implemented | 헌법 제4조에 맞춰 오래된 탐지 및 라우팅 threshold 잔여를 닫았습니다. Production T1, quality gate 및 self-consistency 값은 이미 versioned `config/1.0.0` schema에서 오고 Heimdall 반복 정책은 bounded Runtime Settings에서 옵니다. 남아 있던 Heimdall 보안 상관관계 literal 3개도 기본값을 바꾸지 않고 bounded startup setting을 사용합니다. AST 기반 테스트가 숫자 LLM consumer 7개와 Heimdall setting consumer 5개의 exact 집합을 고정하므로 새로운 unbound production threshold는 gate를 실패시킵니다. | [이슈 #219](https://github.com/dotnetpower/fdai/issues/219). Focused setting, runtime, framework layout, ingress 및 threshold 검사 134개가 통과했습니다. | Production composition의 routing 및 detection threshold bound에 남은 작업은 없습니다. 순수 detector constructor default는 active composition policy가 아니라 주입 가능한 algorithm default로 남습니다. |
 | 2026-08-19 | implemented | 마지막까지 남아 있던 미바운드 적응 임계값 2개를 선언했습니다. 출하되는 `ontology/action-type` 계약의 `promotion_gate`가 이제 `min_fidelity`와 `max_recurrence_rate`를 선택적 비율 범위로 선언하며, ActionType 승격 평가기가 읽지 않는 범위 선언 전용임을 문서화했습니다. `GraphModelPromotionPolicy`는 다시 적은 리터럴 `0.0 <= value <= 1.0` 대신 이 선언에서 허용 범위를 도출합니다. `UNBOUND_ADAPTIVE_THRESHOLDS`는 이제 비어 있고, focused 테스트가 발견된 모든 수치 임계값이 바인딩되었음을 단언합니다. 아울러 `544e80a72`가 `sre.*` 시나리오 3건을 추가하면서 갱신하지 않아 깨져 있던 `test_shadow_eval.py`의 고정 시나리오 개수도 바로잡았습니다. | `current change`, `tests/core/operational_learning/test_threshold_bounds.py`·`tests/core/assurance_twin`·`tests/contracts`·`tests/rule_catalog`·`tests/core/measurement`가 focused 1640건 통과, 작업 범위 Ruff·format·mypy 통과, `check-core-imports`와 `check-property-semantic-coverage` 통과 | promotion gate 밖의 탐지·라우팅 임계값까지 등록부를 넓혀야 합니다. 그 값들은 아직 사용 지점의 리터럴입니다. |
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스, CI 연결, 집중 테스트. | T0 소비를 연결하고 exemption 운영을 완성하며 관리되는 재정의와 PR 신원 검사를 구현합니다. |

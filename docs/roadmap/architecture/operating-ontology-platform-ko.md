@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: d164b7bc5cf669d43e9fe7e59b29a02591b7fc77
-translation_revised: 2026-09-15
+translation_source_sha: b2873d761848cda2d744205017c81fca2af5acef
+translation_revised: 2026-09-16
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -110,7 +110,7 @@ ResourceType 선언을 만들지 않습니다.
 Shared property-semantics 레지스트리는 정본 속성마다 meaning, 단위, 값 종류, 한계에 대한
 내용 기반 주소를 가진 신원 하나를 제공합니다. 카탈로그 변환 결과는 모든 참조를 레지스트리에 대해
 검증하고 float 강제 변환 없이 finite numeric 값을 보존하므로 서비스와 재생이 같은 속성을
-조용히 다르게 해석할 수 없습니다.
+조용히 다르게 해석할 수 없습니다. 별도로 고정된 탐지 및 라우팅 범위 계약은 활성 구성의 제어 임계값에도 같은 정확한 형식, 단위, 적용 범위 및 허용 구간 규칙을 적용하지만 객체 그래프에 들어가거나 조회, 승격 또는 실행 권한을 부여하지 않습니다.
 
 적응형 인과 판별은 정확한 가설 프레임, 온톨로지 그래프 개정 번호 및 근거 기준 시점을 사용합니다.
 서로 경쟁하는 가설 쌍을 얼마나 많이 구분하는지에 따라 미리 검증된 읽기 전용 관측 후보만

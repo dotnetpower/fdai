@@ -83,6 +83,7 @@ def test_registry_names_covers_expected_set(
         "ontology/function-type",
         "ontology/interface-implementation",
         "ontology/action-type",
+        "ontology/detection-routing-bounds",
         "ontology/release-ref",
     }
     assert set(registry.names()) == expected
