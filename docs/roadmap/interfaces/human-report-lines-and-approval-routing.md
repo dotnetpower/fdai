@@ -193,9 +193,9 @@ the approved eligible route.
 Eligibility, graph revision, consent expiry, action integrity, and no-self-approval are rechecked
 when a decision arrives and immediately before dispatch.
 
-The current runtime opt-in accepts quorum `1`. Higher-quorum ActionTypes remain on their existing
-workflow or human-access approval path until a separately reviewed multi-slot report-line contract
-is implemented.
+The report-line policy and runtime accept quorum `1` only. Higher-quorum ActionTypes remain on
+their existing workflow or human-access approval path until a separately reviewed multi-slot
+report-line contract is implemented; unsupported quorum values fail during configuration.
 
 ## Configuration
 

@@ -93,23 +93,12 @@ async def test_router_selects_nearest_eligible_ancestor() -> None:
     assert eligibility.seen == ["person-b", "person-c"]
 
 
-async def test_router_requires_complete_quorum_without_implicit_fallback() -> None:
-    router = ReportLineApprovalRouter(
-        graphs=Graphs(),
-        eligibility=Eligibility({"person-b"}),
-        policy=ReportLineRoutingPolicy(
+@pytest.mark.parametrize("quorum", [0, 2, 4, True])
+def test_policy_rejects_unsupported_quorum(quorum: int) -> None:
+    with pytest.raises(ValueError, match="quorum 1"):
+        ReportLineRoutingPolicy(
             action_types=frozenset({"ops.restart-service"}),
-            quorum_by_action={"ops.restart-service": 2},
-        ),
-    )
-
-    with pytest.raises(ReportLineRouteUnavailableError, match="cannot satisfy"):
-        await router.plan(
-            requester_ref="person-a",
-            action_type="ops.restart-service",
-            scope_ref="scope://service/example",
-            minimum_role="Approver",
-            at=NOW,
+            quorum_by_action={"ops.restart-service": quorum},
         )
 
 

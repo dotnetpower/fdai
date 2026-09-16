@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 51607f37fbb35152ff5ddffb6c27c8c22ba57460
+translation_source_sha: 9a19218176cdea71b45f841c60c7b626912f9905
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -186,9 +186,9 @@ approval_required
 결정이 도착할 때와 실행 직전에 적격성, 그래프 리비전, 동의 만료, Action 무결성 및 자기 승인
 금지를 다시 검사합니다.
 
-현재 런타임 opt-in은 quorum `1`을 지원합니다. 더 높은 quorum이 필요한 ActionType은 별도로
-검토된 다중 slot report-line 계약이 구현될 때까지 기존 workflow 또는 human-access 승인 경로를
-계속 사용합니다.
+Report-line 정책과 런타임은 quorum `1`만 허용합니다. 더 높은 quorum이 필요한 ActionType은
+별도로 검토된 다중 slot report-line 계약이 구현될 때까지 기존 workflow 또는 human-access
+승인 경로를 계속 사용하며 지원하지 않는 quorum 값은 구성 중 실패합니다.
 
 ## 구성
 

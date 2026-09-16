@@ -114,11 +114,8 @@ class ReportLineRoutingPolicy:
             raise ValueError("report-line ActionType ids MUST be exact")
         if set(self.quorum_by_action) - set(self.action_types):
             raise ValueError("report-line quorum policy references an unselected ActionType")
-        if any(
-            isinstance(value, bool) or not 1 <= value <= 4
-            for value in self.quorum_by_action.values()
-        ):
-            raise ValueError("report-line quorum MUST be in [1, 4]")
+        if any(type(value) is not int or value != 1 for value in self.quorum_by_action.values()):
+            raise ValueError("report-line routing currently supports quorum 1 only")
 
     def selects(self, action_type: str) -> bool:
         return action_type in self.action_types
