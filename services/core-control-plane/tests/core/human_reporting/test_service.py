@@ -113,6 +113,7 @@ async def _activate(
     owner: str,
     supersedes_case_id: str | None = None,
     effective_until: datetime | None = None,
+    at: datetime = NOW,
 ):
     case = await service.create_case(
         principal=_principal(requester, Role.CONTRIBUTOR),
@@ -120,7 +121,7 @@ async def _activate(
         candidate_id=candidate_id,
         supersedes_case_id=supersedes_case_id,
         effective_until=effective_until,
-        now=NOW,
+        now=at,
     )
     case = await service.confirm(
         principal=_principal(confirmer, Role.READER),
@@ -128,7 +129,7 @@ async def _activate(
         expected_revision=case.revision,
         decision=EndpointDecision.CONFIRM,
         edge_digest=case.edge_digest,
-        now=NOW + timedelta(minutes=1),
+        now=at + timedelta(minutes=1),
     )
     return await service.review(
         principal=_principal(owner, Role.OWNER),
@@ -136,7 +137,7 @@ async def _activate(
         expected_revision=case.revision,
         decision=OwnerDecision.APPROVE,
         edge_digest=case.edge_digest,
-        now=NOW + timedelta(minutes=2),
+        now=at + timedelta(minutes=2),
     )
 
 
@@ -483,6 +484,9 @@ async def test_replacement_requires_same_subject_and_supersedes_current_edge() -
     assert len(graph.edges) == 1
     assert graph.edges[0].case_id == second.case_id
     assert graph.edges[0].manager_ref == "person-c"
+    graph_record = await service.store.read_state(GRAPH_KEY)
+    assert graph_record is not None
+    assert [item["case_id"] for item in graph_record["cases"]] == [second.case_id]
     assert (await service.current_graph(at=NOW + timedelta(days=31))).edges == ()
 
 
@@ -681,6 +685,38 @@ async def test_graph_read_does_not_replay_historical_validation(
 
     graph = await service.current_graph(at=NOW + timedelta(minutes=3))
     assert len(graph.edges) == 1
+
+
+async def test_graph_aggregate_prunes_expired_authority_but_keeps_case_evidence() -> None:
+    store = InMemoryStateStore()
+    service = ReportingLineService(store)
+    expired_candidate = _candidate("person-a", "person-b")
+    expired = await _activate(
+        service,
+        artifact=_artifact(expired_candidate),
+        candidate_id=expired_candidate.candidate_id,
+        confirmer="person-a",
+        owner="owner-a",
+        effective_until=NOW + timedelta(days=1),
+    )
+    current_candidate = _candidate("person-c", "person-d")
+    current = await _activate(
+        service,
+        artifact=_artifact(current_candidate),
+        candidate_id=current_candidate.candidate_id,
+        confirmer="person-c",
+        owner="owner-c",
+        at=NOW + timedelta(days=2),
+    )
+
+    graph_record = await store.read_state(GRAPH_KEY)
+    assert graph_record is not None
+    assert [item["case_id"] for item in graph_record["cases"]] == [current.case_id]
+    assert (await service.get_case(expired.case_id)).state is ReportingLineCaseState.ACTIVE
+    assert {
+        edge.case_id
+        for edge in (await service.current_graph(at=NOW + timedelta(days=2, minutes=3))).edges
+    } == {current.case_id}
 
 
 async def test_concurrent_reviews_cannot_activate_two_primary_managers() -> None:

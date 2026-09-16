@@ -152,6 +152,9 @@ applies when resolving one requester's approval path, not as an organization-siz
 Activation validates historical effective-time boundaries before the aggregate compare-and-set.
 Approval reads verify the stored case-set digest and build only the requested current snapshot;
 they do not replay quadratic history validation on the async hot path.
+Each activation compacts expired and already-superseded routing entries from the aggregate record.
+The immutable per-case state and audit chain retain the historical evidence, while the aggregate's
+5,000-case bound applies only to current and future routing authority.
 
 Changing or expiring an edge creates a new whole-graph revision for audit. Pending approval
 requests retain a separate path revision over every traversed edge and eligible rung. A change on

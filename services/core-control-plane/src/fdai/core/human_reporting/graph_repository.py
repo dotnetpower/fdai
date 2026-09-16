@@ -45,9 +45,15 @@ async def activate_reporting_case(
                 )
             return build_reporting_graph(cases, at=observed_at)
         updated_cases = (*cases, candidate)
-        _validate_graph_history(updated_cases)
-        graph = build_reporting_graph(updated_cases, at=observed_at)
-        record = _graph_record(revision + 1, updated_cases)
+        _validate_graph_history(
+            updated_cases,
+            changed=candidate,
+            enforce_bound=False,
+        )
+        retained_cases = _retained_graph_cases(updated_cases, at=observed_at)
+        _validate_graph_history(retained_cases)
+        graph = build_reporting_graph(retained_cases, at=observed_at)
+        record = _graph_record(revision + 1, retained_cases)
         audit = {
             "actor": normalize_principal(actor_ref),
             "action_kind": "human.reporting.graph_activated",
@@ -95,8 +101,14 @@ async def validate_reporting_case_activation(
             )
         return build_reporting_graph(cases, at=observed_at)
     updated_cases = (*cases, candidate)
-    _validate_graph_history(updated_cases)
-    return build_reporting_graph(updated_cases, at=observed_at)
+    _validate_graph_history(
+        updated_cases,
+        changed=candidate,
+        enforce_bound=False,
+    )
+    retained_cases = _retained_graph_cases(updated_cases, at=observed_at)
+    _validate_graph_history(retained_cases)
+    return build_reporting_graph(retained_cases, at=observed_at)
 
 
 async def load_reporting_graph(
@@ -115,16 +127,44 @@ async def load_reporting_graph(
     return build_reporting_graph(cases, at=reporting_instant(at))
 
 
-def _validate_graph_history(cases: tuple[ReportingLineCase, ...]) -> None:
-    if len(cases) > _MAX_GRAPH_CASES:
+def _validate_graph_history(
+    cases: tuple[ReportingLineCase, ...],
+    *,
+    changed: ReportingLineCase | None = None,
+    enforce_bound: bool = True,
+) -> None:
+    if enforce_bound and len(cases) > _MAX_GRAPH_CASES:
         raise ReportingLineModelError("reporting-line graph exceeds its case bound")
     identifiers = [case.case_id for case in cases]
     if len(identifiers) != len(set(identifiers)):
         raise ReportingLineModelError("reporting-line graph contains duplicate cases")
     if any(case.state is not ReportingLineCaseState.ACTIVE for case in cases):
         raise ReportingLineModelError("reporting-line graph contains an unreviewed edge")
-    for boundary in sorted({case.effective_from for case in cases}):
+    boundaries = {case.effective_from for case in cases}
+    if changed is not None:
+        boundaries = {
+            boundary
+            for boundary in boundaries
+            if changed.effective_from <= boundary < changed.effective_until
+        }
+        boundaries.add(changed.effective_from)
+    for boundary in sorted(boundaries):
         build_reporting_graph(cases, at=boundary)
+
+
+def _retained_graph_cases(
+    cases: tuple[ReportingLineCase, ...],
+    *,
+    at: datetime,
+) -> tuple[ReportingLineCase, ...]:
+    superseded = {
+        case.supersedes_case_id
+        for case in cases
+        if case.supersedes_case_id is not None and case.effective_from <= at
+    }
+    return tuple(
+        case for case in cases if case.effective_until > at and case.case_id not in superseded
+    )
 
 
 def _graph_record(
