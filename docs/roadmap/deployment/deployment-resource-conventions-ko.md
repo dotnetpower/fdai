@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: e12ce117eaeb8d7058e716da5c79badf0837f4e8
-translation_revised: 2026-09-15
+translation_source_sha: 11157fc7bfb905cad38f1d6ad992fe10a99159b7
+translation_revised: 2026-09-16
 ---
 # 배포 리소스 규약
 
@@ -311,6 +311,9 @@ State가 정본 key에 도달한 뒤 legacy 토픽을 프로비저닝하거나 �
 - env/지역/인스턴스를 추가한 합법적 이름이 문자 제한을 넘으면 해당 리소스 종류에만
   문서화된 짧은 이름 `aip`를 `fdai` 대신 사용합니다. 전체 이름이 제한 안에 있으면
   `aip`를 사용하지 않습니다.
+- **Key Vault는 기존의 유효한 이름을 모두 보존합니다.** 전체 후보가 24자를 넘을 때만
+  Terraform은 `kv-aip-<8hex>`를 사용합니다. `<8hex>`는 워크로드, 환경, 지역 및 전역 접미사를
+  포함한 전체 후보의 안정적인 SHA-256 접두사입니다.
 
 ### 이 규칙이 방지하는 항목
 

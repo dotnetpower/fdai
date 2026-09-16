@@ -1,8 +1,22 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
+
+
+def test_key_vault_name_uses_deterministic_length_safe_fallback() -> None:
+    source = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
+    candidate = "kv-fdaiaks-dev-wus2-2b95a2"
+    fallback = f"kv-aip-{hashlib.sha256(candidate.encode()).hexdigest()[:8]}"
+
+    assert 'key_vault_full_name                = "kv-${var.workload}' in source
+    assert "length(local.key_vault_full_name) <= 24" in source
+    assert '"kv-aip-${substr(sha256(local.key_vault_full_name), 0, 8)}"' in source
+    assert "name                  = local.key_vault_name" in source
+    assert len(candidate) > 24
+    assert len(fallback) <= 24
 
 
 def test_provider_roots_permanently_delete_recreatable_resources() -> None:
