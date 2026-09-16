@@ -83,7 +83,8 @@ descriptors, retention, and audit. The report-line consumer receives only an adm
 6. Hold ambiguous, incomplete, low-confidence, or ungrounded proposals for review.
 
 The upstream default interpreter abstains. A deployment can bind a provider, but model output is
-always a proposal and cannot activate an edge.
+always a proposal and cannot activate an edge. The worker does not invoke that interpreter when
+deterministic extraction already produced at least one grounded edge.
 
 The current source implementation recognizes exact `subject`/`employee` plus
 `manager`/`reports_to` rows and supported DOCX, PPTX, and XLSX table cells. A visual chart whose

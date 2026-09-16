@@ -131,10 +131,9 @@ class ReportLineBootstrapConsumer:
                 envelope,
                 "reporting-line source unit budget exceeded",
             )
-        extracted = [
-            *_deterministic_edges(envelope.units),
-            *(await self._interpreter.interpret(envelope)),
-        ]
+        extracted = list(_deterministic_edges(envelope.units))
+        if not extracted:
+            extracted.extend(await self._interpreter.interpret(envelope))
         extracted = list(_dedupe_edges(extracted))
         if len(extracted) > self._budget.max_candidates:
             return await self._store_abstention(

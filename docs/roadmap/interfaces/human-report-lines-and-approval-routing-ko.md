@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: d3c368aa71b0ba65d574d6ac7f123e6a6691492a
+translation_source_sha: 4c535f93194b036c340b3bf497c980c75e27f7e8
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -77,7 +77,8 @@ OCR, 변경할 수 없는 버전, 접근 서술자, 보존 및 감사를 담당�
 6. 모호하거나 불완전하거나 신뢰도가 낮거나 근거가 없는 제안은 검토 대상으로 보류합니다.
 
 Upstream 기본 해석기는 판단을 보류합니다. 배포 환경에서 프로바이더를 연결할 수 있지만 모델
-출력은 항상 제안이며 edge를 활성화할 수 없습니다.
+출력은 항상 제안이며 edge를 활성화할 수 없습니다. 결정론적 추출에서 근거가 있는 edge를 하나
+이상 생성한 경우 워커는 해당 해석기를 호출하지 않습니다.
 
 현재 소스 구현은 정확한 `subject`/`employee` 및 `manager`/`reports_to` 행과 지원되는 DOCX,
 PPTX, XLSX 표 셀을 인식합니다. 구조 단위에서 연결선을 복구할 수 없는 시각적 조직도는 배포

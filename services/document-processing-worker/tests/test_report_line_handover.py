@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from fdai_document_worker_service.report_lines import (
+    ExtractedReportingLine,
     ReportLineBootstrapConsumer,
     ReportLineGenerationBudget,
 )
@@ -64,6 +65,16 @@ class Store:
 
     async def put(self, artifact: ReportingLineDraftArtifact) -> None:
         self.artifact = artifact
+
+
+class RecordingInterpreter:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def interpret(self, envelope: DocumentEnvelope) -> tuple[ExtractedReportingLine, ...]:
+        del envelope
+        self.calls += 1
+        return ()
 
 
 def _session_and_envelope(
@@ -139,6 +150,29 @@ async def test_consumer_extracts_explicit_edge_and_matches_directory_manager() -
     assert candidate.manager.oid == "person-b"
     assert candidate.directory_comparison is ReportingLineDirectoryComparison.MATCHED
     assert candidate.citations[0].locator == "paragraph:1#line:1"
+
+
+async def test_consumer_does_not_send_deterministic_edges_to_interpreter() -> None:
+    session, envelope = _session_and_envelope(
+        StructuralUnit(
+            unit_id="line-1",
+            kind="paragraph",
+            locator="paragraph:1",
+            text="subject: Alex Kim; manager: Morgan Lee",
+        )
+    )
+    interpreter = RecordingInterpreter()
+
+    await ReportLineBootstrapConsumer(
+        directory=Directory(
+            {"Alex Kim": "person-a", "Morgan Lee": "person-b"},
+            {"person-a": "person-b"},
+        ),
+        store=Store(),
+        interpreter=interpreter,
+    ).consume(session=session, envelope=envelope)
+
+    assert interpreter.calls == 0
 
 
 async def test_consumer_extracts_docx_table_by_header_and_row() -> None:
