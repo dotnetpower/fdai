@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 9eda10eeb8f09bfef802c1d9c7f84ab15dce535f
+translation_source_sha: 433b1809d32c8be27fcd5d27b3871cce9c49da18
 translation_revised: 2026-09-16
 ---
 # 운영 배포 강화
@@ -41,6 +41,7 @@ translation_revised: 2026-09-16
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-17 | implemented | 승인된 실제 apply에서 Azure network interface 쓰기에 HTTP 429가 발생한 뒤 scenario-lab 생성 apply의 동시 실행을 Terraform 작업 2개로 제한했습니다. 실패한 시도는 워크로드 준비 전에 중단됐고, 범위가 제한된 readback에서 partial state를 확인했으며, recovery plan은 update 또는 delete 작업 0개를 유지했습니다. | 실패한 protected apply `35123919441`, Azure Activity Log의 `Microsoft.Network/networkInterfaces/write` 상태 `429`, `current change`, `.github/workflows/sre-demo-lab.yml`, 집중 scenario-lab 및 workflow 검사 | 수정한 workflow를 게시하고 partial state에 대해 새로운 exact recovery plan을 생성한 뒤 성공한 apply와 DNS 및 워크로드 준비 근거를 보존합니다. |
 | 2026-09-16 | in-progress | 테넌트 측 런타임 및 Genesis 이미지 생성 지침을 사전 빌드 서명 release 이미지 검증과 변경 없는 digest 미러링으로 교체했습니다. | `current change`, 문서 및 배포 스킬 계약만 변경했으며 구현은 그대로입니다. | 테넌트 이미지 builder와 복구 경로를 제거하고 운영 배포가 검증된 미러 또는 반입과 배포 digest 재확인만 수행함을 입증합니다. |
 | 2026-09-17 | implemented | 결정론적인 Azure 제공 `cloudapp.azure.com` hostname을 통해 일회용 Store Demo에 브라우저로 직접 접속할 수 있게 했습니다. Renderer는 `store-front`만 공개합니다. 준비 단계는 Load Balancer 주소를 기다리고 정확한 DNS 해석 및 HTTP 상태를 검증한 다음 보호된 workflow 요약에 검증된 URL을 게시합니다. | `current change`, `.github/workflows/sre-demo-lab.yml`, `infra/scenario-lab/`, `scripts/deployment/scenario-lab/`, `tests/integration/infra/test_scenario_lab.py`, 집중 scenario-lab, Terraform, workflow 및 문서 검사 | exact protected apply를 실행하여 DNS, Load Balancer 및 HTTP 상태 관찰을 보존하고 승인된 데모 기간 후 endpoint를 제거합니다. |
 | 2026-09-17 | implemented | 생성된 NGINX 장애 대상을 공식 AKS Store Demo로 교체했습니다. 준비 단계는 변경할 수 없는 upstream manifest 하나를 검증하고, image 참조 10개를 검토된 multi-platform digest로 바꾸고, 공개 Service를 `ClusterIP`로 변경하며, 기존 10개 시나리오 모음을 `order-service` replica 3개에 연결합니다. | `current change`, `.github/workflows/sre-demo-lab.yml`, `infra/scenario-lab/`, `scripts/deployment/scenario-lab/`, `tests/integration/infra/test_scenario_lab.py`, 집중 scenario-lab, formatting, Terraform, workflow 및 문서 검사 | 실제 검증을 주장하기 전에 exact protected apply를 실행하여 Store Demo 준비 상태와 image readback을 보존하고, 별도로 승인된 참조 시나리오 모음을 실행합니다. |
