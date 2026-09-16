@@ -85,8 +85,23 @@ describe("runtime Skills panel contract", () => {
     });
     expect(decoded.bundles[0]?.compatible).toBe(true);
     expect(decoded.diagnostics[0]?.reason).toBe("skill_loaded");
+    expect(decoded.diagnostics[0]?.observed_at).toBeNull();
   });
 
+  test("retains source refresh measurement and explicit absence", () => {
+    const value = payload();
+    const diagnostic = value.diagnostics[0]!;
+    const observed = "2026-09-17T00:00:00+00:00";
+    const decode = (observed_at: unknown) => decodeRuntimeSkills({
+      ...value,
+      diagnostics: [{ ...diagnostic, operation: "source.refresh", observed_at }],
+    });
+    expect(decode(observed).diagnostics[0]?.observed_at).toBe(observed);
+    expect(decode(null).diagnostics[0]?.observed_at).toBeNull();
+    expect(() => decode(42)).toThrow();
+    expect(() => decode("yesterday")).toThrow();
+    expect(() => decode("2026-02-30T00:00:00Z")).toThrow();
+  });
   test("rejects contradictory counts and duplicate names", () => {
     expect(() => decodeRuntimeSkills({ ...payload(), installed_count: 2 }))
       .toThrow(/installed_count MUST match/);

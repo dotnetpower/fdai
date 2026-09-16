@@ -644,9 +644,23 @@ class RuntimeProjectionReader:
                         if not bool(row["enabled"])
                         else "error"
                         if int(row["error_count"] or 0) > 0
+                        else "not-measured"
+                        if row["last_refresh_at"] is None
                         else "ready"
                     ),
-                    "reason": str(row["last_error_kind"] or "source_registered"),
+                    "reason": str(
+                        row["last_error_kind"]
+                        or (
+                            "source_refresh_not_recorded"
+                            if row["last_refresh_at"] is None
+                            else "source_refreshed"
+                        )
+                    ),
+                    "observed_at": (
+                        _required_timestamp(row["last_refresh_at"]).isoformat()
+                        if row["last_refresh_at"] is not None
+                        else None
+                    ),
                     "digests": {},
                 }
                 for row in sources
@@ -704,7 +718,7 @@ class RuntimeProjectionReader:
         rows = await self._fetch_all(
             "SELECT value, updated_at FROM state_kv "
             "WHERE key LIKE 'runtime:configuration-baseline:%%' "
-            "ORDER BY updated_at DESC, key LIMIT 1"
+            "ORDER BY value ->> 'observed_at' DESC NULLS LAST, updated_at DESC, key LIMIT 1"
         )
         if rows:
             return _json_mapping(rows[0]["value"])

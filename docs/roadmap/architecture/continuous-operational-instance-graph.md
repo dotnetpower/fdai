@@ -373,7 +373,7 @@ unsupported reversed orientations, and self-links remain blocking.
 
 An exact reviewed provider parent shadows generic Resource Group containment for the same child.
 Snapshot promotion independently rejects more than one `contains` parent for any child before the
-active pointer changes, and the ontology store revalidates LinkType cardinality before commit. The
+active pointer changes, and the ontology store revalidates LinkType cardinality before commit. The promotion transaction also stores exact Resource and Link child-row counts on the immutable snapshot. These derived counts serve bounded operational-activity reads only. A nullable count marks a mixed-version row and triggers a bounded child-row fallback until the current writer records it; the summary neither changes source completeness nor replaces the authoritative child rows. The
 bounded ARM compute source lists VM Scale Set VM children and each child's network interfaces under
 the same page, child-collection, host, and generation fences as other ARM-only nested resources.
 Child collection failure aborts the generation; template network configuration never fabricates an
@@ -582,7 +582,7 @@ validation separately; normative ownership remains here and delivery status rema
 | Resumable delta cursor | implemented | `forward_inventory_delta` advances the durable Activity Log cursor only after the final fence. |
 | Complete reconciliation | implemented | `InventorySyncCoordinator.run` stages bounded ARG or ARM observations and accepts only a complete stream. |
 | Normalized observation ingress | implemented | `PostgresInventoryDeltaProjector.__call__` validates typed observation semantics and dual-writes the Core-owned append-only observation journal before updating the existing overlay. |
-| Snapshot promotion | implemented | `PostgresInventorySnapshotStore.promote` atomically advances the active generation under the promotion lock. |
+| Snapshot promotion | implemented | `PostgresInventorySnapshotStore.promote` atomically advances the active generation and records exact Resource and Link counts under the promotion lock. Operator activity reads use those immutable summaries and fall back to bounded child-row aggregation only for mixed-version rows without counts. |
 | Realtime overlay | implemented | PostgreSQL overlay rows replay normalized observations by effective time and content identity, merge only the declared property mask, preserve unobserved snapshot properties, and keep tombstone candidates pending until complete reconciliation. |
 | Ontology projection | implemented | `InventoryOntologyProjector.apply` is the single writer for the inventory-owned Resource and Link subgraph. Reviewed nested operational fields are lifted with their observation metadata, while journal and projection watermarks plus pending tombstones independently lower source completeness. |
 | Topology history | implemented | `InventoryTopologyHistoryPublisher.publish` appends complete baselines through the Core-owned bitemporal PostgreSQL store and migration. |
