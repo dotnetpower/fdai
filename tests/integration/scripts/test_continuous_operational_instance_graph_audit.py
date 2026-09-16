@@ -65,3 +65,40 @@ def test_audit_rejects_an_open_stage_without_the_exact_gap(tmp_path: Path) -> No
     errors = module.validate(audit_path=audit)
 
     assert errors == [f"stages[{graph_first_index}] open work must name its exact missing binding"]
+
+
+def test_audit_rejects_implemented_stage_with_partial_binding(tmp_path: Path) -> None:
+    module = _load_module()
+    payload = _payload()
+    stages = payload["stages"]
+    assert isinstance(stages, list)
+    graph_first = next(stage for stage in stages if stage["id"] == "graph-first-query")
+    graph_first_index = stages.index(graph_first)
+    graph_first["bindings"][0]["state"] = "partial"
+    audit = tmp_path / "audit.json"
+    audit.write_text(json.dumps(payload), encoding="utf-8")
+
+    errors = module.validate(audit_path=audit)
+
+    assert errors == [f"stages[{graph_first_index}] implemented work must have only bound bindings"]
+
+
+def test_audit_rejects_production_validation_claim_for_synthetic_receipt(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    payload = _payload()
+    validation = payload["operational_validation"]
+    assert isinstance(validation, dict)
+    levels = validation["validation_levels"]
+    assert isinstance(levels, dict)
+    levels["production_data"] = "validated"
+    audit = tmp_path / "audit.json"
+    audit.write_text(json.dumps(payload), encoding="utf-8")
+
+    errors = module.validate(audit_path=audit)
+
+    assert errors == [
+        "operational_validation.validation_levels.production_data must be "
+        "not-validated for this receipt"
+    ]
