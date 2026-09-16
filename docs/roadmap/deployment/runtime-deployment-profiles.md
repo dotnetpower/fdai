@@ -3,9 +3,10 @@ title: Runtime Deployment Profiles
 ---
 # Runtime Deployment Profiles
 
-This document defines how a new FDAI installation selects Azure Container Apps or Azure
-Kubernetes Service (AKS) without changing application behavior or deployment authority. The
-selection is part of the signed `fdaictl` provisioning profile and every exact Terraform plan.
+This document defines Azure Kubernetes Service (AKS) as the default runtime for new FDAI
+installations without changing application behavior or deployment authority. Azure Container Apps
+remains a supported compatibility profile for existing installations. The selection is part of the
+signed `fdaictl` provisioning profile and every exact Terraform plan.
 
 > **Scope:** This contract covers new installations. Moving an existing installation between
 > runtime platforms requires a separate migration design and is not an implicit profile update.
@@ -25,7 +26,7 @@ change either choice or repeat an ambiguous apply.
 
 | Axis | Supported values | Default | Meaning |
 |------|------------------|---------|---------|
-| Runtime platform | `container-apps`, `aks` | `container-apps` | Hosts FDAI services and scheduled jobs. |
+| Runtime platform | `aks`, `container-apps` | `aks` | Hosts FDAI services and scheduled jobs. Container Apps is compatibility-only for new planning. |
 | Database placement | `postgres-flex`, `postgres-aks` | `postgres-flex` | Uses Azure Database for PostgreSQL Flexible Server or a PostgreSQL cluster inside AKS. |
 
 `postgres-aks` is accepted only with `runtime_platform=aks`. Production keeps
@@ -34,18 +35,17 @@ recovery, and upgrade evidence.
 
 ## Operator contract
 
-The public command accepts explicit choices for both online and artifact-offline installation:
+The public command accepts explicit choices for both online and artifact-offline installation. An
+omitted runtime selects AKS for a new installation:
 
 ```bash
 fdaictl provision azure --online \
-  --runtime container-apps \
   --database postgres-flex
 
 fdaictl provision azure --online \
-  --runtime aks \
+  --runtime container-apps \
   --database postgres-flex \
-  --system-nodes 3 \
-  --user-nodes 3
+  --existing-installation
 
 fdaictl provision azure \
   --offline-kit /media/fdai/fdai-deployment-kit.tar.gz \
@@ -88,6 +88,11 @@ Marketplace Ubuntu version and install the checksum-pinned toolchain during Foun
 not build or require a dedicated managed-host image. Artifact-offline deployments can still select
 a separately verified prebuilt host image when bootstrap downloads are unavailable.
 
+Tenant provisioning consumes prebuilt service and dependency images only. It verifies signatures,
+provenance, source revision, platform and digest before making the images available to AKS. It does
+not invoke Docker, Buildx, ACR Tasks, a remote builder or VM image capture. Release construction is
+an upstream supply-chain activity and is never recovered by rebuilding inside a tenant run.
+
 An optional Foundation `application_workload` token can separate the new application group's name
 from operations naming without changing the AKS profile. It grants no ownership of an existing group;
 partial-state recovery follows the [application group collision contract](installable-deployment-cli.md#application-group-collision-recovery).
@@ -128,8 +133,10 @@ The default-disabled dev alert-noise pilot remains a shared-platform prerequisit
 runtime choice. Its exact target contains only one dedicated Action Group and one metric alert;
 runtime selection grants no pilot approval, notification authority, or promotion.
 Kubernetes resources are applied only after independent Azure control-plane readback proves that
-the private cluster reached `Succeeded`. The workload state then reads the approved cluster's OIDC
-issuer and uses a private kubeconfig on the managed deployment host.
+the cluster reached `Succeeded`, API Server VNet Integration is active and the reviewed management
+path is reachable. Basic deployment initially keeps authenticated public API access so an external
+coordinator can complete the baseline. The workload state then reads the approved cluster's OIDC
+issuer and uses an owner-only kubeconfig on the deployment host.
 Database and application preparation both convert that owner-only kubeconfig with
 [`kubelogin` managed identity authentication](https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication)
 using `--login msi` and the exact managed-host client ID. Credential acquisition pins the
@@ -236,12 +243,19 @@ after kit verification.
 
 ### Cluster security baseline
 
-The shared platform supplies the existing AKS subnet. The cluster state owns an explicit Standard
-NAT Gateway, static Standard outbound public IP, and both associations before AKS creation; its
-outbound type is `userAssignedNATGateway`, not the AKS-managed-VNet-only `managedNATGateway`.
-The private API endpoint remains private. This is the connected development egress profile, not a
-claim of zone-redundant NAT or policy compatibility where a firewall/UDR path is required. Such
-targets remain blocked until their separate egress contract is selected and verified.
+The shared platform supplies dedicated AKS workload and API-server subnets. Basic deployment enables
+API Server VNet Integration at cluster creation and reserves at least a `/28` delegated API-server
+subnet so private-cluster mode can be enabled later without replacing the cluster. The cluster state
+owns an explicit Standard NAT Gateway, static Standard outbound public IP, and both associations
+before AKS creation; its outbound type is `userAssignedNATGateway`, not the
+AKS-managed-VNet-only `managedNATGateway`.
+
+The basic profile keeps authenticated public API access enabled and applies the reviewed access
+restriction. API-server-to-node traffic still uses the integrated private path. This is the
+connected baseline, not a claim of private-cluster, network-isolated, zone-redundant NAT or
+firewall/UDR compatibility. A tenant policy that requires private access from the first effect
+blocks the public baseline and selects an eligible internal execution host plus an exact private
+plan instead of weakening the policy.
 
 The cluster enables Azure Policy, patch-channel Kubernetes upgrades, and NodeImage OS upgrades.
 Both node pools enable host encryption and allow 50 pods per node. Confirm the selected
@@ -257,6 +271,31 @@ ephemeral storage. Checkov exceptions stay attached to the affected resource: th
 reads retired AzureRM upgrade and encryption attribute names and cannot resolve validated image
 map entries. Focused configuration and plan tests cover those controls; no global baseline or
 scanner downgrade is used.
+
+### Detailed private-network provisioning
+
+After the authenticated Console and all baseline services are healthy, `/provisioning` can create a
+network-hardening request. The request may select existing-VNet or hub peering, route and firewall
+bindings, private DNS zones and links, private endpoints, AKS private-cluster mode, registry cache or
+private-link changes, and public-access removal. Console stores only the sanitized intent, plan
+metadata, approval state and effect evidence. The protected deployment executor owns Terraform and
+Azure mutation.
+
+The exact plan orders changes to avoid losing access:
+
+1. Validate every selected address range and prove that peer, service, Pod and Kubernetes service
+  ranges do not overlap.
+2. Establish peering, routes and DNS, then verify the execution host can resolve and reach the AKS
+  API and every selected service endpoint.
+3. Create private endpoints and registry paths, verify workload and deployment identities, and run
+  baseline health through the new path.
+4. Enable AKS private-cluster or network-isolated settings and disable public paths only after the
+  private observations pass.
+5. Retain rollback and an independently observed terminal receipt. An ambiguous effect is
+  verification-only and never triggers the same apply again.
+
+The operator's current VM may be the execution host when exact target, identity, route, DNS, TLS and
+backend checks pass. Peering that VM's VNet is a planned network effect, not evidence by itself.
 
 ## PostgreSQL profiles
 
@@ -294,12 +333,12 @@ zero-change plan.
 
 ## Signed kit requirements
 
-The complete signed kit includes every input needed by either profile:
+The complete signed kit includes every prebuilt input needed by either profile:
 
 - all Terraform roots and their lock files;
 - AzureRM, Kubernetes, Random, and TLS provider mirrors;
 - Terraform, OPA, `kubectl`, `kubelogin`, and bounded deployment helpers;
-- digest-pinned FDAI and dependency OCI archives;
+- signed, digest-pinned FDAI and dependency OCI archives that tenant provisioning never rebuilds;
 - managed AKS CSI integration and federated identity inputs;
 - migration support, Console assets, manifests, signatures, provenance, and software bills of
   materials.
@@ -322,6 +361,8 @@ reviewable evidence:
 8. A failed service rollout restores the prior healthy workload and still reports deployment
    failure.
 9. Backup and point-in-time restore succeed for each selected database placement.
+10. A separately approved Console-originated network plan enables private access without replacing
+  the cluster, losing the last verified management path or allowing the browser to mutate Azure.
 
 Source and provider tests prove implementation. Live receipts are required before the AKS path is
 classified as validated or advertised as ready for production.

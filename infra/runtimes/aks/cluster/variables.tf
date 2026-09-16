@@ -19,6 +19,27 @@ variable "aks_subnet_id" {
   type        = string
 }
 
+variable "aks_api_server_subnet_id" {
+  description = "Existing delegated subnet dedicated to AKS API Server VNet Integration."
+  type        = string
+}
+
+variable "private_cluster_enabled" {
+  description = "Whether to disable the public API endpoint after a verified private management path exists."
+  type        = bool
+  default     = false
+}
+
+variable "api_server_authorized_ip_ranges" {
+  description = "Public IPv4 CIDRs permitted to reach the authenticated API endpoint during baseline deployment."
+  type        = set(string)
+
+  validation {
+    condition     = alltrue([for cidr in var.api_server_authorized_ip_ranges : can(cidrnetmask(cidr))])
+    error_message = "api_server_authorized_ip_ranges must contain valid IPv4 CIDRs."
+  }
+}
+
 variable "container_registry_id" {
   description = "Existing ACR resource id granted to the kubelet identity."
   type        = string
@@ -145,5 +166,15 @@ check "in_cluster_postgres_is_non_production" {
   assert {
     condition     = var.environment != "prod" || var.database_placement == "postgres-flex"
     error_message = "Production keeps PostgreSQL Flexible Server until in-cluster HA is validated."
+  }
+}
+
+check "api_server_access_matches_cluster_mode" {
+  assert {
+    condition = (
+      (var.private_cluster_enabled && length(var.api_server_authorized_ip_ranges) == 0) ||
+      (!var.private_cluster_enabled && length(var.api_server_authorized_ip_ranges) > 0)
+    )
+    error_message = "Public baseline clusters require at least one authorized API CIDR; private clusters require none."
   }
 }

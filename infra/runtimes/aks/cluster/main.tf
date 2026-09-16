@@ -50,6 +50,12 @@ resource "azurerm_role_assignment" "cluster_network" {
   principal_id         = azurerm_user_assigned_identity.cluster.principal_id
 }
 
+resource "azurerm_role_assignment" "cluster_api_network" {
+  scope                = var.aks_api_server_subnet_id
+  role_definition_name = "Network Contributor"
+  principal_id         = azurerm_user_assigned_identity.cluster.principal_id
+}
+
 resource "azurerm_kubernetes_cluster" "runtime" {
   # checkov:skip=CKV_AZURE_117:Azure-managed encryption is retained until a deployment selects an independently governed CMK profile.
   # checkov:skip=CKV_AZURE_171:AzureRM 4.x uses automatic_upgrade_channel; the pinned scanner reads the retired automatic_channel_upgrade attribute.
@@ -59,9 +65,9 @@ resource "azurerm_kubernetes_cluster" "runtime" {
   location                            = var.location
   resource_group_name                 = var.resource_group_name
   dns_prefix                          = local.name
-  private_cluster_enabled             = true
-  private_cluster_public_fqdn_enabled = true
-  private_dns_zone_id                 = "System"
+  private_cluster_enabled             = var.private_cluster_enabled
+  private_cluster_public_fqdn_enabled = var.private_cluster_enabled
+  private_dns_zone_id                 = var.private_cluster_enabled ? "System" : null
   local_account_disabled              = true
   oidc_issuer_enabled                 = true
   workload_identity_enabled           = true
@@ -102,6 +108,12 @@ resource "azurerm_kubernetes_cluster" "runtime" {
     tenant_id          = data.azurerm_client_config.current.tenant_id
   }
 
+  api_server_access_profile {
+    virtual_network_integration_enabled = true
+    subnet_id                           = var.aks_api_server_subnet_id
+    authorized_ip_ranges                = var.api_server_authorized_ip_ranges
+  }
+
   network_profile {
     network_plugin      = "azure"
     network_plugin_mode = "overlay"
@@ -125,6 +137,7 @@ resource "azurerm_kubernetes_cluster" "runtime" {
 
   depends_on = [
     azurerm_role_assignment.cluster_network,
+    azurerm_role_assignment.cluster_api_network,
     azurerm_nat_gateway_public_ip_association.egress,
     azurerm_subnet_nat_gateway_association.egress,
   ]

@@ -145,6 +145,11 @@ output "aks_subnet_id" {
   value       = var.enable_private_networking && var.compute_kind == "aks" ? module.network[0].aks_subnet_id : null
 }
 
+output "aks_api_server_subnet_id" {
+  description = "AKS API Server VNet Integration subnet id, or null unless the AKS runtime is selected."
+  value       = var.enable_private_networking && var.compute_kind == "aks" ? module.network[0].aks_api_server_subnet_id : null
+}
+
 output "container_registry_id" {
   description = "Container Registry resource id for runtime-specific pull authorization."
   value       = module.container_registry.id
