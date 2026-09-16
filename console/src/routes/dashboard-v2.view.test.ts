@@ -11,5 +11,6 @@ describe("Dashboard v2 refresh presentation", () => {
     expect(source).toContain('role="status">{t("refreshing")}');
     expect(source).toContain("<DashboardBody snapshot={snapshot} />");
     expect(source).not.toContain("<DashboardBody key={revision}");
+    expect(source).toContain('if (!hasServing && lens === "serving")');
   });
 });

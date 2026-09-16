@@ -172,6 +172,7 @@ export function dashboardResourceState(resource: DashboardResource, snapshot: Da
     return Object.hasOwn(STATE_STYLE, raw) ? raw as DashboardState : "recorded";
   }
   if (lens === "provisioning") return "unknown";
+  if (lens === "serving") return "not-applicable";
   if (lens === "availability") return "unknown";
   const observed = snapshot.observationKind === "OBSERVED" && snapshot.id !== null && snapshot.source !== null;
   if (lens === "observation") return observed ? snapshot.freshness : "unknown";

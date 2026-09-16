@@ -60,6 +60,7 @@ describe("Dashboard v2 inventory projection", () => {
     const snapshot = decodeDashboardSnapshot({ ...base, freshness });
     expect(snapshot.resources.map((resource) => dashboardResourceState(resource, snapshot, "availability"))).toEqual(["unknown", "unknown", "unknown"]);
     expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "operation")).toBe(freshness === "fresh" ? "running" : "unknown");
+    expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "serving")).toBe("not-applicable");
   });
 
   test.each([

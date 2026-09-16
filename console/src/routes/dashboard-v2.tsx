@@ -125,6 +125,13 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
+    if (!hasServing && lens === "serving") {
+      setLens("operation");
+      setFilters((current) => ({ ...current, status: "" }));
+      setPage(0);
+    }
+  }, [hasServing, lens]);
+  useEffect(() => {
     const panel = panelRef.current;
     if (panel === null) return;
     const media = matchMedia("(max-width: 700px), (pointer: coarse)");

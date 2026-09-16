@@ -299,7 +299,9 @@ the exact ResourceTypes whose ARM type is supported:
   not resource availability. Legacy generations can still identify an unbound source explicitly.
 - Dashboard counts Not provided and Not applicable separately from genuine Unknown records.
   Tooltips render each recorded axis with its own observation time and use the latest exact axis
-  timestamp only for a compact summary. A null fact never discards its machine reason.
+  timestamp only for a compact summary. A null fact never discards its machine reason. A legacy
+  resource without recorded axes is never treated as Serving from its generic status, and the
+  selected Serving lens returns to Operational when a refreshed projection no longer has that axis.
 - Compact ontology graph nodes use an exact operational value first. When operation is not
   applicable or the provider exposes no operational state, an exact availability value or useful
   availability evidence gap leads, followed by an exact provisioning value. A missing applicable

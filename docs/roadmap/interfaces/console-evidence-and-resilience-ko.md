@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 5f7d665a452a9a6dfb715e5430909a986a92557a
+translation_source_sha: 0861a4468ca6e8aa307f914e0f1ab57c64a38c40
 translation_revised: 2026-09-16
 ---
 # 콘솔 근거 및 복원력
@@ -616,6 +616,8 @@ Resource 포커스, 생성 형상, Network 경로, 영향 표현, 반응형 상�
 유지하지만 현재 서비스 응답 수에는 포함하지 않습니다.
 온톨로지 인스턴스는 추가 방식 Azure 모델 서비스 응답 메트릭 출처를 별도로 표시하고 기본 출처를
 숨기지 않으면서 일부 범위 또는 사용 불가 사유를 유지합니다.
+새로 고친 변환 결과에 선택적인 서비스 응답 축이 더 이상 없으면 선택 렌즈는 레이블이 없는 적용
+불가 화면을 남기지 않고 운영 상태로 돌아갑니다.
 
 ## 검증
 
