@@ -220,10 +220,12 @@ describe("Operator API response decoders", () => {
     expect(legacyItem?.stop_condition).toBe("");
     expect(legacyItem?.citing_rule_ids).toEqual([]);
     expect(legacyItem?.ttl_expires_at).toBeNull();
+    expect(legacyItem?.incident_available).toBe(false);
 
     const enrichedItem = decodeHilQueuePage({
       items: [{
         ...legacy,
+        incident_available: true,
         approval_id: "approval-1",
         action_id: "action-1",
         target_resource_ref: "resource-1",
@@ -246,6 +248,7 @@ describe("Operator API response decoders", () => {
     expect(enrichedItem?.rollback_kind).toBe("pr_revert");
     expect(enrichedItem?.blast_radius_count).toBe(1);
     expect(enrichedItem?.citing_rule_ids).toEqual(["example.rule"]);
+    expect(enrichedItem?.incident_available).toBe(true);
 
     expect(decodeHilQueuePage({ items: [], total: 3, detail_level: "count_only" }))
       .toEqual({ items: [], total: 3, detail_level: "count_only" });
@@ -271,6 +274,10 @@ describe("Operator API response decoders", () => {
       .toThrow(/RFC 3339/);
     expect(() => decodeHilQueuePage({ items: [{ ...item, ttl_expires_at: "later" }], total: 1 }))
       .toThrow(/RFC 3339/);
+    expect(() => decodeHilQueuePage({
+      items: [{ ...item, incident_available: "yes" }],
+      total: 1,
+    })).toThrow(/incident_available MUST be a boolean/);
   });
 
   test("decodes truthful HIL decision delivery state", () => {

@@ -451,6 +451,9 @@ export function decodeHilQueuePage(value: unknown): HilQueuePage {
         reason: apiString(item, "reason", "HIL queue item"),
         requested_at: requestedAt,
         correlation_id: apiNullableString(item, "correlation_id", "HIL queue item"),
+        incident_available: item["incident_available"] === undefined
+          ? false
+          : apiBoolean(item, "incident_available", "HIL queue item"),
         approval_id: apiOptionalString(item, "approval_id", "HIL queue item"),
         action_id: apiOptionalString(item, "action_id", "HIL queue item"),
         target_resource_ref: apiOptionalString(item, "target_resource_ref", "HIL queue item"),
