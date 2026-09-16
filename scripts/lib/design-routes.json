@@ -2392,6 +2392,9 @@
         "docs/roadmap/interfaces/operator-console-wire-contracts.md",
         "docs/roadmap/interfaces/operator-console-incident-roster.md"
       ],
+      "docs_update_routes": [
+        "human-report-lines"
+      ],
       "docs_update": [
         "docs/roadmap/operations/operator-initiated-sre-and-arb.md",
         "docs/roadmap/interfaces/operator-console-wire-contracts.md",
