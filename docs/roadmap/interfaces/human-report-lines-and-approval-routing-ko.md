@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 08a7b2ef182998ce0926fba6e194d377a8045fa3
+translation_source_sha: d0893e9d2c706d122f6c440b57e1fef6667030ea
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -308,6 +308,7 @@ Operator Service는 사람을 인증하고 변환 결과를 렌더링하며 타�
 
 집중 검증은 적격 상위자가 없을 때의 거부, 잘못된 에스컬레이션 컨텍스트, 변경된 경로 근거,
 현재 역할과 범위 정책, 무응답 에스컬레이션 후 다음 적격 rung의 승인을 포함합니다.
+연결된 구현 원장은 완료된 22회 비평 캠페인과 로컬 검증 근거를 배포 근거와 분리해 기록합니다.
 
 권한이 없는 경로, 오래된 edge 사용, 신원 불일치, 동의 우회 또는 자기 승인이 발견되면 기능을
 shadow 모드로 내리고 영향을 받는 작업을 보류합니다.
