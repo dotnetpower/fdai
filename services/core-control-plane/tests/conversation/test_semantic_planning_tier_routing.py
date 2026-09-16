@@ -275,6 +275,35 @@ class _DraftJudgmentModel:
         }
 
 
+class _IncidentCreateDraftJudgmentModel:
+    def judge(self, *, utterance: str, **_kwargs: Any) -> dict[str, object]:
+        severity = "SEV2"
+        target = "service-api"
+        return {
+            "primary_intent": "action_request",
+            "targets": [
+                {
+                    "kind": "severity",
+                    "value": severity,
+                    "source_start": utterance.index(severity),
+                    "source_end": utterance.index(severity) + len(severity),
+                },
+                {
+                    "kind": "resource",
+                    "value": target,
+                    "source_start": utterance.index(target),
+                    "source_end": utterance.index(target) + len(target),
+                },
+            ],
+            "requested_facets": ["incident_create", "severity"],
+            "confidence": 0.98,
+            "ambiguous": False,
+            "action_posture": "draft_only",
+            "action_subject": "Incident",
+            "execution_authority": False,
+        }
+
+
 class _GreetingJudgmentModel:
     def __init__(
         self,
@@ -6173,6 +6202,39 @@ def test_typed_draft_judgment_canonicalizes_mismatched_candidate_frame() -> None
     assert outcome.frame.output_shape == "action_draft"
     assert outcome.execution_authority is False
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+
+
+def test_incident_create_draft_preserves_typed_confirmation_arguments() -> None:
+    manifest, _definition = _fixture()
+    t1 = _Model(frame=_frame(), plan=None)
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_IncidentCreateDraftJudgmentModel(),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Create a SEV2 incident for service-api")
+
+    assert outcome.disposition is SemanticPlanningDisposition.ACTION_DRAFT
+    assert outcome.incident_creation_intent is not None
+    assert outcome.incident_creation_intent.action_type == "incident.create"
+    assert outcome.incident_creation_intent.arguments.model_dump() == {
+        "severity": "sev2",
+        "target": "service-api",
+    }
+    assert outcome.incident_creation_intent.execution_authority is False
 
 
 def test_draft_judgment_preserves_verified_frame_artifact_subject() -> None:

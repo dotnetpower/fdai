@@ -28,6 +28,7 @@ from fdai.delivery.notifications.local_binding import resolve_local_notification
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
+from fdai.runtime import bootstrap_incidents
 from fdai.runtime.blast_probe import bind_live_blast_probe_failure_streak
 from fdai.runtime.bootstrap_bindings import EffectReconciliationRequestRuntimeBinding
 from fdai.runtime.bootstrap_bindings import (
@@ -41,11 +42,6 @@ from fdai.runtime.bootstrap_bindings import (
 )
 from fdai.runtime.bootstrap_bindings import (
     build_vertical_execution_identities as _build_vertical_execution_identities,
-)
-from fdai.runtime.bootstrap_incidents import (
-    IncidentInterventionConsumerBinding,
-    IncidentNotificationReplayWorker,
-    build_incident_runtime,
 )
 from fdai.runtime.bootstrap_lifecycle import (
     DiscoveryActivationRuntime,
@@ -144,8 +140,9 @@ class CoreRuntime:
     operational_readiness_handler: OperationalReadinessEventHandler | None
     continuous_operating_model_worker: Any
     operating_intent_revalidation_worker: OperatingIntentSourceRevalidationWorker | None
-    incident_intervention_binding: IncidentInterventionConsumerBinding
-    incident_notification_replay_worker: IncidentNotificationReplayWorker
+    incident_creation_binding: bootstrap_incidents.IncidentCreationConsumerBinding
+    incident_intervention_binding: bootstrap_incidents.IncidentInterventionConsumerBinding
+    incident_notification_replay_worker: bootstrap_incidents.IncidentNotificationReplayWorker
     notification_receipt_applier: NotificationDeliveryReceiptApplier
     environment: Mapping[str, str]
     diagnostic_event_ingest_bridge: DiagnosticEventIngestBridge | None = None
@@ -191,6 +188,7 @@ class CoreRuntime:
             environment=self.environment,
             read_investigation_binding=self.semantic.read_investigation_binding,
             operational_readiness_handler=self.operational_readiness_handler,
+            incident_creation_binding=self.incident_creation_binding,
             incident_intervention_binding=self.incident_intervention_binding,
             incident_notification_replay_worker=self.incident_notification_replay_worker,
             notification_receipt_applier=self.notification_receipt_applier,
@@ -434,7 +432,7 @@ async def build_core_runtime(
         positive_integer=_runtime_positive_integer,
     )
     logging.getLogger().setLevel(str(runtime_values["logging.level"]))
-    incident_runtime = await build_incident_runtime(
+    incident_runtime = await bootstrap_incidents.build_incident_runtime(
         state_store=state_store,
         runtime_values=runtime_values,
         http_client=resources.http_client,
@@ -760,6 +758,7 @@ async def build_core_runtime(
         operational_readiness_handler=operational_readiness_handler,
         continuous_operating_model_worker=continuous_operating_model_worker,
         operating_intent_revalidation_worker=operating_intent_revalidation_worker,
+        incident_creation_binding=incident_runtime.creation_binding,
         incident_intervention_binding=incident_runtime.with_pantheon(resources.pantheon.runtime),
         incident_notification_replay_worker=incident_runtime.notification_replay_worker,
         notification_receipt_applier=incident_runtime.notification_receipt_applier,
