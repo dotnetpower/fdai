@@ -1365,6 +1365,11 @@ async def test_source_builder_preserves_order_and_fallback_coverage() -> None:
     assert sources[0].inventory._scope_coverage is not None  # noqa: SLF001
     assert sources[0].inventory._unmapped_resources is not None  # noqa: SLF001
     assert sources[0].inventory._generation_relationships is not None  # noqa: SLF001
+    assert sources[0].manifest.resource_types == (
+        "resource-group",
+        "compute.vm",
+        "unclassified-resource",
+    )
     assert sources[1].manifest.metadata["link_types"] == ("contains",)
     assert isinstance(sources[1].inventory, AzureResourceGraphInventory)
     assert sources[1].inventory._scope_coverage is None  # noqa: SLF001
@@ -1395,6 +1400,7 @@ async def test_source_builder_does_not_claim_full_provider_coverage_for_subset()
         )
 
     assert sources[0].manifest.metadata["coverage_scope"] == "requested_resource_types"
+    assert "unclassified-resource" not in sources[0].manifest.resource_types
     assert sources[0].inventory._scope_coverage is None  # noqa: SLF001
     assert sources[0].inventory._unmapped_resources is None  # noqa: SLF001
 

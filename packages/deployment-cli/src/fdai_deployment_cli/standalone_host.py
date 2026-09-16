@@ -106,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--adoption-state", type=Path)
     prepare.add_argument("--adoption-models", type=Path)
     prepare.add_argument("--adoption-descriptor", type=Path)
-    prepare.add_argument("--runtime-platform", default="container-apps")
+    prepare.add_argument("--runtime-platform", default="aks")
     prepare.add_argument("--database-placement", default="postgres-flex")
     prepare.add_argument("--system-node-count", type=int, default=3)
     prepare.add_argument("--system-node-sku", default=None)
@@ -562,6 +562,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "workspace": _terraform_output(substrate, "log_workspace_customer_id"),
         "semantic_physical": _terraform_output(substrate, "event_bus_semantic_physical_topic"),
         "key_vault_uri": _terraform_output(substrate, "key_vault_uri"),
+        "operational_history_container_url": _terraform_output(
+            substrate, "operational_history_container_url"
+        ),
         "document_store": _terraform_json_output(substrate, "document_storage_binding"),
         "document_topics": _terraform_json_output(substrate, "document_event_topics"),
     }
@@ -768,6 +771,24 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             deadline_seconds=900,
         ),
     }
+    operational_history_container_url = str(substrate_outputs["operational_history_container_url"])
+    if operational_history_container_url:
+        scheduled_jobs["operational-history-lifecycle"] = _aks_job(
+            refs,
+            inventory_identity,
+            ["python", "-m", "fdai.delivery.operational_history_lifecycle_runner"],
+            "0 * * * *",
+            {
+                **inventory_environment,
+                "FDAI_OPERATIONAL_HISTORY_CONTAINER_URL": operational_history_container_url,
+                "FDAI_OPERATIONAL_HISTORY_MODE": "shadow",
+                "FDAI_OPERATIONAL_HISTORY_MAX_PARTITIONS": "32",
+            },
+            {"FDAI_DATABASE_URL": "fdai-state-store-dsn"},
+            component="operational-history",
+            deadline_seconds=1800,
+            retry_limit=0,
+        )
     workloads_infra = substrate / "runtimes/aks/workloads"
     values = {
         "kubeconfig_path": str(kubeconfig),
