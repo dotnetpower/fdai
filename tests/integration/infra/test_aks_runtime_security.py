@@ -65,9 +65,20 @@ def test_aks_existing_subnet_has_explicit_egress_before_cluster_creation() -> No
 def test_aks_baseline_uses_api_server_vnet_integration() -> None:
     cluster = (ROOT / "infra/runtimes/aks/cluster/main.tf").read_text(encoding="utf-8")
     network = (ROOT / "infra/modules/network/main.tf").read_text(encoding="utf-8")
+    substrate = (ROOT / "infra/main.tf").read_text(encoding="utf-8")
+    outputs = (ROOT / "infra/outputs.tf").read_text(encoding="utf-8")
 
     assert 'resource "azurerm_subnet" "aks_api_server"' in network
     assert 'name    = "Microsoft.ContainerService/managedClusters"' in network
+    assert re.search(
+        r'count\s*=\s*var\.enable_private_networking \|\| var\.compute_kind == "aks" \? 1 : 0',
+        substrate,
+    )
+    assert re.search(r'var\.compute_kind == "aks" \? module\.network\[0\]\.aks_subnet_id', outputs)
+    assert re.search(
+        r'var\.compute_kind == "aks" \? module\.network\[0\]\.aks_api_server_subnet_id',
+        outputs,
+    )
     assert "virtual_network_integration_enabled = true" in cluster
     assert re.search(r"subnet_id\s*=\s*var\.aks_api_server_subnet_id", cluster)
     assert re.search(r"authorized_ip_ranges\s*=\s*var\.api_server_authorized_ip_ranges", cluster)

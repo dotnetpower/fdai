@@ -90,6 +90,13 @@ def test_foundation_application_workload_rejects_mismatched_name(name: str) -> N
         )
 
 
+def test_aks_baseline_defers_detailed_private_networking() -> None:
+    source = Path(standalone_host.__file__).read_text(encoding="utf-8")
+
+    assert '"enable_private_networking": not aks_baseline' in source
+    assert '"acr_sku": "Basic" if aks_baseline else "Premium"' in source
+
+
 def _review() -> dict[str, object]:
     value: dict[str, object] = {
         "schema_version": "fdai.standalone-application-plan.v1",

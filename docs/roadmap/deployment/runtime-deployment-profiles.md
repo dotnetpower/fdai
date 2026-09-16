@@ -136,6 +136,9 @@ installation cannot switch platforms by changing one variable.
 The shared platform continues to own Event Hubs, Key Vault, Azure Container Registry, monitoring,
 workload identities, and `postgres-flex`. The AKS substrate state owns only the cluster, node
 pools, cluster identity, networking attachment, and cluster-scoped Azure role assignments.
+Selecting AKS creates the application VNet plus node and API-server subnets even when detailed
+private networking is off. The separate private-networking input controls service private
+endpoints, hub peering and private DNS rather than the AKS subnet prerequisite.
 The default-disabled dev alert-noise pilot remains a shared-platform prerequisite for either
 runtime choice. Its exact target contains only one dedicated Action Group and one metric alert;
 runtime selection grants no pilot approval, notification authority, or promotion.

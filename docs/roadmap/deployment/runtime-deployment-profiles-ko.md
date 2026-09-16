@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: b399960e7cdff98a0f8b022274c0b444b75355bf
+translation_source_sha: a9fff1b30c81112e7c972dac6a87acc8947d08af
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -136,6 +136,9 @@ DB, 네트워크, 레지스트리, 저장소, 모니터링, 메시지, 모델, �
 공유 플랫폼은 Event Hubs, Key Vault, Azure Container Registry, 모니터링, 워크로드 신원,
 `postgres-flex`를 계속 소유합니다. AKS 기반 상태는 클러스터, 노드 풀, 클러스터 신원, 네트워크
 연결, 클러스터 범위 Azure 역할 할당만 소유합니다.
+AKS를 선택하면 상세 비공개 네트워킹이 꺼져 있어도 애플리케이션 VNet, 노드 서브넷 및 API 서버
+서브넷을 만듭니다. 별도의 비공개 네트워킹 입력은 AKS 서브넷 선행 조건이 아니라 서비스 비공개
+엔드포인트, 허브 피어링 및 비공개 DNS를 제어합니다.
 기본적으로 비활성화되는 개발 환경 알림 과다 수신 파일럿은 어느 런타임을 선택하더라도 공유
 플랫폼 선행 조건으로 유지됩니다. 정확한 대상에는 전용 Action Group 하나와 메트릭 경보 하나만
 포함됩니다. 런타임 선택은 파일럿 승인, 알림 발송 권한 또는 승격을 부여하지 않습니다.
