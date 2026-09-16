@@ -498,7 +498,7 @@ async def test_unanswered_report_line_contact_is_reaped_at_consent_deadline() ->
 
 async def test_report_line_graph_change_blocks_a_late_approval() -> None:
     graphs = _ReportLineGraphs()
-    coordinator, publisher, _, _ = _coordinator(
+    coordinator, publisher, store, _ = _coordinator(
         with_escalation=True,
         report_line_router=_report_line_router(graphs),
     )
@@ -530,7 +530,7 @@ async def test_report_line_graph_change_blocks_a_late_approval() -> None:
 
 async def test_unrelated_graph_revision_does_not_invalidate_pinned_path() -> None:
     graphs = _ReportLineGraphs()
-    coordinator, publisher, _, _ = _coordinator(
+    coordinator, publisher, store, _ = _coordinator(
         with_escalation=True,
         report_line_router=_report_line_router(graphs),
     )
@@ -557,6 +557,15 @@ async def test_unrelated_graph_revision_does_not_invalidate_pinned_path() -> Non
 
     assert result.outcome is ResolveOutcome.EXECUTED
     assert len(publisher.records) == 1
+    terminal = [
+        item["entry"]
+        for item in store.audit_entries
+        if item["entry"].get("action_kind") in {"hil.approved.claimed", "hil.approved.executed"}
+    ]
+    assert len(terminal) == 2
+    assert all(item.get("report_line_route_digest") for item in terminal)
+    assert all(item.get("report_line_path_revision") for item in terminal)
+    assert all(item.get("report_line_graph_revision") for item in terminal)
 
 
 async def test_concurrent_terminal_decisions_have_one_winner() -> None:

@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: f7caa5102a80f949f781de883cb55cadfda22f6f
+translation_source_sha: f81fae4df917504ae414fee6a6edb5e3267b22b1
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -198,6 +198,9 @@ approval_required
 4. 활성 신원과 ActionType 및 범위 승인 정책을 다시 검사합니다.
 5. Quorum이 충족될 때까지 가장 가까운 서로 다른 적격 principal을 선택합니다.
 6. 경로와 적격성 근거 다이제스트를 대기 중인 승인에 기록합니다.
+
+성공한 승인 claim과 최종 실행 감사에는 해당 결정에서 확인한 경로 다이제스트, 경로 리비전 및
+전체 그래프 리비전을 기록합니다.
 
 경로가 quorum을 충족하지 못하면 FDAI는 임의의 Owner나 그룹으로 자동 확장하지 않습니다.
 명시적인 ActionType 경로 정책만 별도 fallback을 선택할 수 있습니다. 기존 채널 fallback은

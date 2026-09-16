@@ -750,7 +750,10 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
             decision=decision,
             approver_oid=approver_oid,
             action_kind="hil.approved.claimed",
-            detail={"approver_oid": approver_oid},
+            detail={
+                "approver_oid": approver_oid,
+                **_report_line_audit_detail(parked),
+            },
         )
         if not claimed:
             return await self._race_result(approval_id, attempted=decision)
@@ -772,6 +775,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
                         else None
                     ),
                     "reason": "rule_not_in_catalog",
+                    **_report_line_audit_detail(parked),
                 },
             )
             return ResolveResult(
@@ -829,6 +833,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
                 "mode": action.mode.value,
                 "execution_outcome": result.outcome.value,
                 "safeguard_bundle_digest": result.safeguard_bundle_digest,
+                **_report_line_audit_detail(parked),
                 **(
                     {
                         "effect_reconciliation_request_status": reconciliation.status.value,
@@ -884,6 +889,18 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
                 reason=f"already resolved as {prior}",
             )
         return ResolveResult(outcome=ResolveOutcome.ALREADY_RESOLVED, approval_id=approval_id)
+
+
+def _report_line_audit_detail(parked: Mapping[str, object]) -> dict[str, str]:
+    route = parked.get("report_line_route")
+    if not isinstance(route, Mapping):
+        return {}
+    fields = {
+        "report_line_route_digest": route.get("route_digest"),
+        "report_line_path_revision": route.get("path_revision"),
+        "report_line_graph_revision": route.get("graph_revision"),
+    }
+    return {key: value for key, value in fields.items() if isinstance(value, str) and value}
 
 
 __all__ = [

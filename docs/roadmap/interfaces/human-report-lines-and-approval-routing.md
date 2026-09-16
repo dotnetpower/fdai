@@ -207,6 +207,9 @@ report-line resolver then:
 5. selects the nearest eligible distinct principals until quorum is met;
 6. records the path and eligibility evidence digest in the parked approval.
 
+Successful approval-claim and terminal execution audits carry the route digest, path revision, and
+whole-graph revision observed for that decision.
+
 If the route cannot satisfy quorum, FDAI does not silently widen to an arbitrary Owner or group.
 Only an explicit ActionType route policy can select a separate fallback. Existing channel fallback
 continues to handle delivery failures, while the non-response supervisor advances only through
