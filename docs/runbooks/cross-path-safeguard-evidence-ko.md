@@ -1,8 +1,8 @@
 ---
 title: 경로 교차 안전장치 근거 Runbook
 translation_of: cross-path-safeguard-evidence.md
-translation_source_sha: adf0884e18fe410eba9191d47ec49a1796b5a284
-translation_revised: 2026-09-13
+translation_source_sha: 609f3887c93537169a86fe444489c1c69b203b24
+translation_revised: 2026-09-16
 ---
 # 경로 교차 안전장치 근거 Runbook
 
@@ -121,5 +121,5 @@ uv run python scripts/quality/repository/validate-cross-path-safeguard-evidence.
 - `tool_call` 강제 적용 바인딩에 Terraform 변수가 없습니다.
 - 독립 검토가 아직 수행되지 않았습니다.
 
-FDAI-CONST-007은 이 항목이 모두 닫히고 독립 검토에서 Medium 이상 미해결 발견이 없을 때까지
+FDAI-CONST-007은 이 항목이 모두 닫히고 독립 검토에서 Medium 이상 미해결 문제가 없을 때까지
 `partial`로 유지됩니다.

@@ -296,7 +296,7 @@ when it cannot cite support the tier abstains to HIL. A structured
 knowledge-graph retrieval (over the existing PostgreSQL state store, no new service)
 is preferred over flat vector RAG when relationship traversal matters.
 
-## Accepted handover source integration
+## Accepted ownership handover source integration
 
 Current Core goal, reviewer, admission, and retrieval bindings feed the existing Norns/Mimir owner
 chain. Norns compiles only independently accepted sources with exact document versions, current
