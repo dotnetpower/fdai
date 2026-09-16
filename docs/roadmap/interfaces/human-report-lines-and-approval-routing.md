@@ -319,7 +319,8 @@ non-response advancement.
 The linked implementation ledger records the completed 22-round critique campaign and the local
 validation evidence separately from deployment evidence. After integrating a newer protected base,
 the same focused gates must pass before publication; a successful rebase or merge is not evidence
-that behavior remains valid.
+that behavior remains valid. The recorded latest-base integration passed the same focused source,
+Console, browser, localization, and structural gates.
 
 Any unauthorized route, stale-edge use, identity mismatch, consent bypass, or self-approval
 demotes the capability to shadow mode and holds affected actions.
