@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: cc1cd46884376bae8404c8d4e541471b1086c96e
-translation_revised: 2026-09-17
+translation_source_sha: 59e97f99e8dc43eb1804d12c5141ab37cc79793c
+translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
 
@@ -189,6 +189,7 @@ AKS standalone 렌더러는 Core semantic 요청, 변환 결과, physical, 읽�
 연결하므로 모델이 비활성화되어도 요청을 대기시키지 않고 typed hold를 반환합니다. 모델 지원이
 활성화되면 Azure 모드, 이미지의 resolved-model 경로, 정확한 산출물 digest, 기본 endpoint,
 endpoint map이 하나의 계약을 이루며 잘못된 출력은 애플리케이션 준비를 중단합니다.
+`enable_llm` 입력은 JSON boolean이어야 하며 문자열이나 다른 타입이면 애플리케이션 준비를 중단합니다.
 
 Operator의 배정 알림과 사람 승인(HIL) 전송에 필요한 가져오기는 같은 Operator Service
 패키지와 런타임 안의 기존 `iam_composition` 모듈에 모읍니다. 원래 어댑터와 팩터리 객체를

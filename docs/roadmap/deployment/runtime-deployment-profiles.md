@@ -189,6 +189,7 @@ legacy Container Apps renderers receive the same typed deployment input.
 The AKS standalone renderer always binds Core semantic request, projection, physical and read-investigation topics,
 so a disabled model returns a typed hold instead of leaving a request pending. With model support,
 Azure mode, resolved-model path, digest, primary endpoint and endpoint map form one fail-fast contract.
+The `enable_llm` input must be a JSON boolean; strings and other types stop application preparation.
 
 Operator assignment and human-approval (HIL) transport imports share the existing `iam_composition`
 facade within the same Operator Service package and runtime; original adapter and factory objects

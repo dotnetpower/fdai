@@ -1013,6 +1013,18 @@ def test_aks_core_semantic_environment_keeps_transport_when_model_is_disabled() 
     }
 
 
+@pytest.mark.parametrize("enable_llm", [None, "true", 1])
+def test_aks_core_semantic_environment_rejects_non_boolean_model_activation(
+    enable_llm: object,
+) -> None:
+    with pytest.raises(TypeError, match="enable_llm setting MUST be a boolean"):
+        standalone_host._aks_core_semantic_environment(
+            application_values={"enable_llm": enable_llm},
+            substrate_outputs={"semantic_physical": "physical"},
+            semantic_topics=["requests", "projections", "investigations"],
+        )
+
+
 @pytest.mark.parametrize(
     ("substrate_update", "message"),
     [

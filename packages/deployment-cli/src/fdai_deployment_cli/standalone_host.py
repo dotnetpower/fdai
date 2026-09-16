@@ -571,7 +571,7 @@ def _aks_core_semantic_environment(
     }
     enable_llm = application_values.get("enable_llm")
     if not isinstance(enable_llm, bool):
-        raise ValueError("AKS enable_llm setting MUST be a boolean")
+        raise TypeError("AKS enable_llm setting MUST be a boolean")
     if not enable_llm:
         return environment
 
