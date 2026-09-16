@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 61e7445e4d51b9ecf9e08775e317be4cf3897fc6
+translation_source_sha: b74d6ba00138b255a3e1c96e9583cce08c56e2e1
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -318,7 +318,7 @@ Operator Service는 사람을 인증하고 변환 결과를 렌더링하며 타�
 현재 역할과 범위 정책, 무응답 에스컬레이션 후 다음 적격 rung의 승인을 포함합니다.
 저장소 통합은 report-line route, 서비스 테스트, runtime wheel 구성원, transport `1.3.0` 및
 source-derived question-bank 산출물과 그 semantic coverage 다이제스트를 각각의 정규
-인벤토리에 고정합니다.
+인벤토리에 고정하며, 카탈로그 원본이 바뀌면 두 산출물을 의존 순서대로 다시 생성합니다.
 연결된 구현 원장은 완료된 22회 비평 캠페인과 로컬 검증 근거를 배포 근거와 분리해 기록합니다.
 더 최신 보호 base를 통합한 뒤에는 게시 전에 같은 집중 gate를 다시 통과해야 합니다. Rebase나
 merge 성공만으로 동작이 계속 유효하다고 판단하지 않습니다. 기록된 최신 base 통합은 같은
