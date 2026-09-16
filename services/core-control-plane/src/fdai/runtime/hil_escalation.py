@@ -19,6 +19,7 @@ from fdai.core.hil_resume.escalation_supervisor import (
 )
 from fdai.core.hil_resume.forecast_urgency import ForecastUrgencyReader
 from fdai.core.hil_resume.load_control import (
+    ApprovalExpiryReconciler,
     ApprovalLoadController,
     ApprovalLoadPolicy,
     ApprovalReminderDispatcher,
@@ -43,6 +44,7 @@ class HilRuntimeSupport:
 
     report_lines: ReportLineRuntime | None
     escalation: HumanNonResponseSupervisor | None
+    expiry_reconciler: ApprovalExpiryReconciler | None
     load_controller: ApprovalLoadController | None
     reminder_dispatcher: ApprovalReminderDispatcher | None
 
@@ -103,6 +105,11 @@ def build_hil_runtime_support(
         if channel is not None and load_policy is not None
         else None
     )
+    expiry_reconciler = (
+        ApprovalExpiryReconciler(state_store=store, policy=load_policy)
+        if load_policy is not None
+        else None
+    )
     reminder_dispatcher = (
         ApprovalReminderDispatcher(
             state_store=store,
@@ -116,6 +123,7 @@ def build_hil_runtime_support(
     return HilRuntimeSupport(
         report_lines=report_lines,
         escalation=escalation,
+        expiry_reconciler=expiry_reconciler,
         load_controller=load_controller,
         reminder_dispatcher=reminder_dispatcher,
     )
