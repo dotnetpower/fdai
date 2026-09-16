@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: a5de6df16767a27fc408af2a33e40a5cad89a085
+translation_source_sha: 917034bc25317b760358013a6bc194c1b77dacd0
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -250,6 +250,11 @@ Report-line 정책과 런타임은 quorum `1`만 허용합니다. 더 높은 quo
 | `GET/POST /handover/reporting-line-cases...` | 변경할 수 없는 edge 사례를 생성, 조회, 확인 또는 독립 검토합니다. |
 | `GET /hil/report-line-contact-requests` | 인증된 요청자가 소유한 연락 동의 요청을 나열합니다. |
 | `POST /hil/{approval_id}/report-line-contact` | 작업 승인 없이 연락 동의 또는 취소를 기록합니다. |
+
+`GET /hil/report-line-contact-requests`는 요청자 표시 범위를 적용하기 전에 현재
+`awaiting_contact_consent` 집합의 완전성을 확인합니다. 종료된 보류 승인 이력은 감사 근거로
+남지만 범위가 제한된 목록 조회 한도를 소비하지 않습니다. 현재 대기 집합이 조회 한도를 넘으면
+일부 결과를 반환하지 않고 엔드포인트를 사용할 수 없는 상태로 유지합니다.
 
 ## 에이전트 및 서비스 소유권
 
