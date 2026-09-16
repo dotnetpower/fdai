@@ -55,9 +55,8 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
   directly. One projection owner adjudicates observations and atomically advances its current
   subgraph. Snapshot and journal record conversion call one support-owned relationship-evidence
   encoder, so the two persistence paths cannot diverge in retained evidence.
-- **Graph first:** Ordinary questions read the current operational graph before any provider API.
-  A live provider read is allowed only when required evidence is missing, stale, incomplete,
-  conflicting, or explicitly requested under a bounded read policy.
+- **Graph first:** Ordinary questions read the current operational graph before any provider API. A live provider read is allowed only when required evidence is missing, stale, incomplete, conflicting, or explicitly requested under a bounded read policy.
+  The generated question bank binds every source blob digest; any source-catalog change requires full deterministic regeneration, while unchanged question records grant no graph freshness, completeness, or action authority.
 - **Safe enrichment:** A live read can support the current answer and publishes a typed observation
   through the same ingress. A partial read cannot replace a complete generation or delete an
   unobserved object or relationship. Runtime environment bindings can participate in an in-memory,
