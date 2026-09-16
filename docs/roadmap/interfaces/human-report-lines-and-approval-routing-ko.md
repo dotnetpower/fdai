@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: c860d964388d85ae2c16cd72ff5785fd806d272f
+translation_source_sha: 48ab85c8087347586c75253170472159bb2b1151
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -269,7 +269,8 @@ mixin에 위임합니다. Report-line 라우팅, 에스컬레이션 및 load con
 
 Operator Service는 사람을 인증하고 변환 결과를 렌더링하며 타입이 지정된 명령을 게시합니다.
 그래프 edge를 활성화하거나 승인 자격을 결정하거나 작업을 실행하지 않습니다. 문서 워커는
-후보를 추출하지만 승인할 수 없습니다.
+후보를 추출하지만 승인할 수 없습니다. 공용 PostgreSQL 저장소가 세대에 결속된 인벤토리 무효화
+커서를 읽을 수 있지만, 이 커서는 보고 체계 상태, 승인 근거, 경로 지정 또는 권한에 들어갈 수 없습니다.
 
 ## 개인정보 및 보존
 

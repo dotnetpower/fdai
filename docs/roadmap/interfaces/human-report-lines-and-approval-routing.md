@@ -278,7 +278,9 @@ control lives in `runtime/hil_escalation.py`; neither separation changes the aut
 
 The Operator Service authenticates people, renders projections, and publishes typed commands. It
 does not activate graph edges, decide approval eligibility, or execute an action. The document
-worker extracts candidates but cannot approve them.
+worker extracts candidates but cannot approve them. Its shared PostgreSQL store may read a
+generation-bound inventory invalidation cursor, but that cursor cannot enter report-line state,
+approval evidence, routing, or authority.
 
 ## Privacy and retention
 
