@@ -170,13 +170,9 @@ Accepting an AKS stage never grants it approval or permission to skip an earlier
 
 ## Runtime rendering
 
-FDAI services keep one runtime-neutral workload specification containing these fields:
-
-- digest-pinned image, command, arguments, and environment names;
-- resource requests and limits;
-- startup, liveness, and readiness probes;
-- ingress intent and service port;
-- sidecars, secret references, workload identity, and scaling bounds.
+FDAI services keep one runtime-neutral workload specification containing the digest-pinned image,
+command, arguments, environment names, resource requests and limits, startup, liveness and readiness
+probes, ingress intent, service port, sidecars, secret references, workload identity and scaling bounds.
 
 The Container Apps renderer maps the specification to Container Apps and Container Apps Jobs. The
 AKS renderer maps it to typed Kubernetes `Deployment`, `Service`, `ServiceAccount`,
@@ -189,6 +185,10 @@ Both renderers bind Core to the `fdai.operating-model` logical topic through
 managed-identity transport; it is not another Event Hub entity or authority channel. The AKS
 standalone renderer obtains the value from the exact substrate output, while the independent and
 legacy Container Apps renderers receive the same typed deployment input.
+
+The AKS standalone renderer always binds Core semantic request, projection, physical and read-investigation topics,
+so a disabled model returns a typed hold instead of leaving a request pending. With model support,
+Azure mode, resolved-model path, digest, primary endpoint and endpoint map form one fail-fast contract.
 
 Operator assignment and human-approval (HIL) transport imports share the existing `iam_composition`
 facade within the same Operator Service package and runtime; original adapter and factory objects

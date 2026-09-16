@@ -539,6 +539,75 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
     }
 
 
+def _aks_core_semantic_environment(
+    *,
+    application_values: dict[str, Any],
+    substrate_outputs: dict[str, object],
+    semantic_topics: list[object],
+) -> dict[str, str]:
+    """Build a complete Core semantic binding or reject incomplete model outputs."""
+
+    if len(semantic_topics) < 3:
+        raise ValueError("AKS semantic topic output contract is incomplete")
+
+    def required_text(value: object, label: str) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"AKS {label} output is unavailable")
+        return value.strip()
+
+    environment = {
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": required_text(
+            semantic_topics[0], "semantic request topic"
+        ),
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": required_text(
+            semantic_topics[1], "semantic projection topic"
+        ),
+        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": required_text(
+            semantic_topics[2], "read investigation topic"
+        ),
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": required_text(
+            substrate_outputs.get("semantic_physical"), "semantic physical topic"
+        ),
+    }
+    enable_llm = application_values.get("enable_llm")
+    if not isinstance(enable_llm, bool):
+        raise ValueError("AKS enable_llm setting MUST be a boolean")
+    if not enable_llm:
+        return environment
+
+    endpoint = required_text(substrate_outputs.get("llm_endpoint"), "LLM endpoint")
+    digest = required_text(substrate_outputs.get("resolved_models_sha256"), "resolved-model digest")
+    if re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        raise ValueError("AKS resolved-model digest MUST be a lowercase SHA-256 digest")
+    model_endpoints = substrate_outputs.get("llm_model_endpoints")
+    if (
+        not isinstance(model_endpoints, dict)
+        or not model_endpoints
+        or any(
+            not isinstance(reference, str)
+            or not reference.strip()
+            or not isinstance(model_endpoint, str)
+            or not model_endpoint.strip()
+            for reference, model_endpoint in model_endpoints.items()
+        )
+    ):
+        raise ValueError("AKS LLM model endpoint outputs are incomplete")
+    environment.update(
+        {
+            "LLM_MODE": "azure",
+            "LLM_RESOLVED_MODELS_PATH": "/app/resolved-models.json",
+            "LLM_RESOLVED_MODELS_SHA256": digest,
+            "FDAI_LLM_ENDPOINT": endpoint,
+            "FDAI_MODEL_ENDPOINTS_JSON": json.dumps(
+                model_endpoints,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        }
+    )
+    return environment
+
+
 def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     context = _private_json(work_dir / "context.json", "standalone host context")
     if _runtime_platform(context) != "aks":
@@ -563,6 +632,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "operational_kafka": _terraform_output(substrate, "event_bus_operational_kafka_bootstrap"),
         "workspace": _terraform_output(substrate, "log_workspace_customer_id"),
         "semantic_physical": _terraform_output(substrate, "event_bus_semantic_physical_topic"),
+        "llm_endpoint": _terraform_output(substrate, "llm_endpoint"),
+        "llm_model_endpoints": _terraform_json_output(substrate, "llm_model_endpoints"),
+        "resolved_models_sha256": _terraform_output(substrate, "resolved_models_sha256"),
         "key_vault_uri": _terraform_output(substrate, "key_vault_uri"),
         "operational_history_container_url": _terraform_output(
             substrate, "operational_history_container_url"
@@ -627,6 +699,13 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "FDAI_MONITOR_WORKSPACE_ID": substrate_outputs["workspace"],
         "FDAI_OPERATING_MODEL_TOPIC": substrate_outputs["operating_model_topic"],
     }
+    core_environment.update(
+        _aks_core_semantic_environment(
+            application_values=application_values,
+            substrate_outputs=substrate_outputs,
+            semantic_topics=semantic_topics,
+        )
+    )
     operator_environment = {
         "AZURE_CLIENT_ID": operator_identity["client_id"],
         "FDAI_COMMAND_MI_CLIENT_ID": command_identity["client_id"],
