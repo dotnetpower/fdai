@@ -444,7 +444,7 @@ tier. Missing T1 capacity makes semantic planning unavailable; it never starts w
 | Governed execution backend | Provider-neutral Protocol, profile registry, durable PostgreSQL ledger, bubblewrap/VM adapters, and Azure Container Apps Job adapter exist | profiles are disabled by default; local interactive has no executor binding, and live Azure Job evidence remains required before promotion |
 | Browser evidence | Provider-neutral contracts, optional Playwright adapter, PostgreSQL artifacts, and GET-only inspection exist | unbound by default; interactive local has no executor identity and renders unavailable until an isolated restricted-egress browser runtime and exact origin policies are configured |
 | Key Vault secret provider (`SecretProvider`) | deployment injects Key Vault references | interactive adapters use environment references; fixture values remain test-only |
-| GitOps PR publisher | Real GitHub adapter exists | interactive execution uses the configured adapter; recording publishers are test-only |
+| GitOps PR publisher and workflow tools | Real GitHub adapters exist; protected Core configuration exposes a default-off `workflow_tools_enforce` input only inside the enabled stewardship GitOps binding | interactive execution uses the configured adapter; recording publishers are test-only, and setting the input does not promote an ActionType or grant effect authority |
 The [Permission-Aware Observation Campaign](../operations/observation-campaign.md) coordinates
 periodic coverage checks for inventory, Activity Log, Resource and Service Health, metrics, Log
 Analytics, guest-log, network, cost, and recovery sources. The authoritative inventory CLI owns
