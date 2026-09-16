@@ -94,7 +94,7 @@ _DIMENSION_NAME = re.compile(r"[A-Za-z][A-Za-z0-9]{0,127}")
 _DIMENSION_VALUE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
 _RESOURCE_TYPE = re.compile(r"[A-Za-z][A-Za-z0-9.]+/[A-Za-z][A-Za-z0-9]+")
 _ARM_RESOURCE = re.compile(
-    r"/subscriptions/[A-Za-z0-9-]+/resourceGroups/[A-Za-z0-9_.()-]+"
+    r"/subscriptions/[A-Za-z0-9-]+/resourceGroups/[^/?#\x00-\x1f\x7f]+"
     r"/providers/(?P<namespace>[A-Za-z][A-Za-z0-9.]+)/"
     r"(?P<kind>[A-Za-z][A-Za-z0-9]+)/(?P<name>[A-Za-z0-9_.()-]+)"
     r"(?P<child>/deployments/(?P<deployment>[A-Za-z0-9][A-Za-z0-9_.-]{0,127}))?",
@@ -269,7 +269,20 @@ class AzureMonitorMetricsProvider:
             params["$filter"] = " and ".join(f"{item.name} eq '{item.value}'" for item in filters)
             params["ValidateDimensions"] = "true"
 
-        token = await self._identity.get_token(self._config.audience)
+        try:
+            token = await self._identity.get_token(self._config.audience)
+        except (
+            OSError,
+            OverflowError,
+            RuntimeError,
+            TimeoutError,
+            ValueError,
+            httpx.HTTPError,
+        ) as exc:
+            raise MetricProviderError(
+                f"Azure Monitor Metrics identity is unavailable for {query.metric_name!r}",
+                reason=MetricFailureReason.TRANSPORT_ERROR,
+            ) from exc
         headers = {
             "Authorization": f"Bearer {token.token}",
             "Accept": "application/json",
@@ -392,7 +405,7 @@ class AzureMonitorMetricsProvider:
                 )
             series_labels = dict(base_labels)
             dimensions = _series_dimensions(series)
-            if scoped and dimensions != {item.name: item.value for item in filters}:
+            if scoped and not _metric_dimensions_match(dimensions, filters):
                 raise MetricProviderError(
                     "Azure Monitor Metrics returned unexpected dimensions",
                     reason=MetricFailureReason.INVALID_RESPONSE,
@@ -568,6 +581,15 @@ def _series_dimensions(series: Mapping[str, Any]) -> dict[str, str]:
         names.add(key.casefold())
         dimensions[key] = value
     return dimensions
+
+
+def _metric_dimensions_match(
+    dimensions: Mapping[str, str],
+    filters: tuple[MetricsApiDimensionFilter, ...],
+) -> bool:
+    expected = {item.name.casefold(): item.value.casefold() for item in filters}
+    actual = {name.casefold(): value.casefold() for name, value in dimensions.items()}
+    return actual == expected
 
 
 def _build_timespan(

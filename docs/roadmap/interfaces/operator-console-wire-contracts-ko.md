@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 119d943720f68e69bc4ab77e6206b1256ab0502c
+translation_source_sha: 8f68c6d284d0728445876dd42142407b1a1560c6
 translation_revised: 2026-09-16
 ---
 
@@ -369,6 +369,7 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 | 2026-09-16 | implemented | 독립 서비스 이행에서 확인 경로가 누락되고 영속 작업자가 브라우저로 확인할 수 없는 원본을 요구해 중단된 Console 인시던트 생성을 복구했습니다. 타입이 지정된 만료 초안, 서버 측 원본 재검증, 전용 인시던트 생성 토픽, 기존 인시던트 수명 주기를 사용하는 Core 소비자를 추가했습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 서비스 계약, Core, Operator 및 Console 검사. | 인증된 요청부터 `incident.open`까지의 런타임 증적을 보존해야 합니다. HTTP 수락만으로 완료를 입증할 수 없습니다. |
 | 2026-09-16 | implemented | 서비스 테스트 묶음 소유권, 의미 검토 등록, 생성된 question-bank 출처, 집계 경로 수, Core bootstrap 크기를 저장소 CI 계약에 맞췄습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 CI 계약 테스트 76개, 설계 영향 회귀 테스트, strict mypy 및 Ruff. | 정확한 최신 head의 보호된 CI와 인증된 요청부터 `incident.open`까지의 런타임 증적은 아직 필요합니다. Wire 동작이나 권한은 변경하지 않았습니다. |
 | 2026-09-16 | implemented | 일반 작업 확인의 기존 유효 기간 동작을 유지하고, 정확한 타입의 인시던트 인자와 세션 신원을 요구했으며, 의미 기반 요청 및 결과 행을 모두 인증된 principal에 결속했습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 인시던트 확인, 일반 작업 및 PostgreSQL 조회 회귀 테스트. | 정확한 최신 head의 보호된 CI와 인증된 요청부터 `incident.open`까지의 런타임 증적은 아직 필요합니다. 실행 권한은 변경하지 않았습니다. |
+| 2026-09-16 | implemented | 공용 PostgreSQL 읽기 컨텍스트에 세대에 결속된 인벤토리 무효화 커서를 추가했습니다. 인시던트 초안, 원본 재검증, 제안 저장, 게시, 수명 주기 소유권 및 실행 권한은 바뀌지 않았습니다. | `current change`, 집중 Operator 인벤토리 상태 및 재생 테스트 153개, strict mypy 및 Ruff | Operator가 시작하는 인시던트 wire 동작은 바뀌지 않았습니다. |
 
 ### 남은 작업
 

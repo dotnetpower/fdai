@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 11b8ebef4f578703b9aa0bbec7304aa288681873
+translation_source_sha: 5f6755f0445cb4d570bb1073a86f4ebddcb3c4f1
 translation_revised: 2026-09-16
 ---
 # 지속형 운영 인스턴스 그래프
@@ -294,17 +294,20 @@ AKS AgentPool 크기는 Resource Graph가 해당 자식을 일반 Resource로 �
 가져옵니다. 두 값은 인벤토리 작성기가 새 관측 또는 완전한 세대를 커밋한 뒤에만 Console에
 도달합니다. SSE watermark는 다시 읽기를 앞당기지만 용량을 만들거나 추정하지 않습니다.
 
-관측 journal과 실시간 overlay가 커밋된 뒤 단조 증가 watermark를 정제된 인벤토리 무효화 이벤트로
-사용합니다. Operator SSE 경로는 인증된 읽기 권한 아래에서 watermark, 개수, 관측 시각만
-노출합니다. 프로바이더 payload를 노출하거나 그래프 사실을 만들지 않습니다. 표시 중인 Console이
-무효화 이벤트를 받으면 범위가 제한된 선택 인스턴스 변환 결과를 다시 읽습니다. SSE는
-`Last-Event-ID`부터 다시 연결하며 폴링은 범위가 제한된 fallback으로 유지합니다.
+온톨로지 변환기는 Resource 하위 그래프, 매니페스트, 상태, 활성 범위 및 journal 워터마크보다 큰
+표식을 원자적으로 커밋합니다. Operator SSE는 정제된 커밋 표식, 개수 및 시각만 보내며 journal
+페이지, 프로바이더 payload 또는 그래프 사실을 보내지 않습니다. 잘못된 표식은 교체하고 대량
+페이지는 유효한 표식을 세대에 결속하며, 커서가 없으면 세대를 놓치는 대신 안전한 중복 읽기를
+선택합니다. 표준 매니페스트 및 상태 직렬화는 원자적 트랜잭션 경계를 바꾸지 않고 전용 런타임 도우미에 유지하며, 다시 생성한 question-bank 커버리지 다이제스트는 그래프 권한을 부여하지 않습니다.
 
 관측된 모델 배포도 같은 세대와 무효화 경로를 사용합니다. Operator 변환 결과는 추가
 `model_deployment` 객체에서 모델 이름, 모델 버전, 배포 SKU 및 정규화된 TPM만 노출합니다.
 Console 카드, 도구 설명, 상세 패널 및 화면 맥락은 원시 프로바이더 속성을 받지 않고 이 허용
 목록을 사용합니다. 변경된 TPM은 다음 관측이 수락되어 커밋된 뒤에만 표시됩니다. 무효화 이벤트는
 다시 읽기를 앞당기지만 즉시성이나 강한 일관성을 프로바이더 수준에서 보장하지 않습니다.
+선택적인 `serving` 사실은 Resource Health 및 권한과 분리하여 텔레메트리 출처가 있는 최근의 정확한
+배포 성공만 기록합니다. Azure Monitor 조회는 추론 없이 제한되며, 유효한 완료 결과는 제한 시간에도
+유지하고 잘못된 예산은 차단하며 추가 방식 메타데이터는 N-1 판독기의 호환성을 보존합니다.
 
 ### 부하 인식 일정 관리
 

@@ -355,6 +355,7 @@
       "kubernetes_runtime_inventory": "Kubernetes runtime inventory",
       "postgres_role_evidence": "PostgreSQL role evidence",
       "azure_resource_health": "Azure Resource Health",
+      "azure_model_serving_metrics": "Azure model serving metrics",
       "azure_activity_log": "Azure Activity Log"
     }
   },
