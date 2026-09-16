@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: ad76b53deb2369f4c63ba6db5944d43e3f3a6ef9
+translation_source_sha: 7e3c7996b9c37e9b430142f7383efc536d19d6f2
 translation_revised: 2026-09-16
 ---
 # 지속형 운영 인스턴스 그래프
@@ -134,6 +134,8 @@ Kubernetes fleet 수집은 정확한 클러스터 연결마다 출처 상태 레
 수명 주기 수집은 각 연결마다 독립 lease와 resourceVersion 커서를 획득합니다. 한 클러스터 실패는
 fleet 근거를 불완전하게 유지하지만 다른 클러스터에서 수락된 Event 관측을 중지하거나 지우지
 않습니다.
+각 연결은 권한 범위와 원본 귀속을 위해 정확한 AKS ARM ID를 유지합니다. Kubernetes 리소스나 관계가
+그래프에 들어가기 전에 Azure 구성 계층은 승격된 Azure 인벤토리와 동일한 공급자 중립 신원 매핑으로 해당 ARM ID를 변환합니다.
 
 런타임 호출 근거에는 해시된 요청 식별자와 정확한 호출자 및 대상 Container App Resource ID가
 같은 타입 지정 엔드포인트 증표 두 개가 필요합니다. Operator는 인증된 브로커 수락 뒤에만 호출자

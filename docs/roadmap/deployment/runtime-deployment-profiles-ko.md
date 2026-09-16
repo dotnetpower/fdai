@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 2615d356ca72227f76c3b76cbd28f3ff8d0ff0ba
+translation_source_sha: 3e2b1cdaa5eed4e3aae2371296f16511dcfe9322
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -162,6 +162,9 @@ DB 및 애플리케이션 준비는 모두 소유자 전용 kubeconfig를 [`kube
 사용하는 사용자 하나, `kubelogin get-token`, 일치하는 client 하나와 MSI 로그인 옵션 하나를
 확인하며 환경 변수 재정의를 허용하지 않습니다. 변환 실패나 재조회 불일치 시 Kubernetes
 작업 전에 중단합니다. 브라우저/디바이스 코드 로그인이나 기본/노드 신원으로 대체하지 않습니다.
+런타임 토폴로지 인벤토리는 정확한 AKS ARM ID를 권한 연결로 유지한 다음, Kubernetes 객체와
+관계를 구성하기 전에 공급자 중립 Resource 신원으로 변환합니다. 이 신원 변환은 배포 범위를
+넓히거나 관측 권한을 부여하지 않습니다.
 공용 계획 검토기는 기존 `substrate`, `runtime`, `database`, `application` 단계에 같은
 정확한 digest·만료·파괴적 변경 확인 조건을 적용합니다. AKS 단계를 허용한다고 승인하거나
 선행 단계를 생략할 권한을 부여하지는 않습니다.
