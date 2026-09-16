@@ -19,6 +19,8 @@ async function fixture(page: Page, options: {
   scopeGate?: Promise<void>;
   reconcile?: boolean;
   facets?: boolean;
+  omitScopeQuery?: boolean;
+  noScopes?: boolean;
 } = {}) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.clock.setFixedTime(new Date(now));
@@ -65,7 +67,7 @@ async function fixture(page: Page, options: {
     if (path === "/alert-quality/scopes") {
       await options.scopeGate;
       return route.fulfill({ json: {
-        source: "alert-noise-governance", scope_refs: [scope], execution_authority: false,
+        source: "alert-noise-governance", scope_refs: options.noScopes ? [] : [scope], execution_authority: false,
       } });
     }
     if (path === "/alert-quality/requests") {
@@ -97,7 +99,9 @@ async function fixture(page: Page, options: {
       ? { ...report, assessment: null, plans: [], unavailable_reason: "assessment_missing" } : report });
     return route.fulfill({ status: 503, json: { detail: "test-only unavailable source" } });
   });
-  await page.goto(`/alert-quality?scope_ref=${encodeURIComponent(scope)}&locale=${options.locale ?? "en"}`);
+  const params = new URLSearchParams({ locale: options.locale ?? "en" });
+  if (!options.omitScopeQuery) params.set("scope_ref", scope);
+  await page.goto(`/alert-quality?${params.toString()}`);
   return { writes, reads };
 }
 
@@ -105,8 +109,14 @@ async function geometry(page: Page) {
   for (const selector of ["html", "main"]) {
     const measured = await page.locator(selector).evaluate((element) => ({
       width: element.clientWidth, scroll: element.scrollWidth,
+      offenders: [...element.querySelectorAll<HTMLElement>("*")]
+        .filter((child) => child.scrollWidth > child.clientWidth + 1
+          && getComputedStyle(child).overflowX === "visible")
+        .slice(0, 8)
+        .map((child) => ({ tag: child.tagName, id: child.id, className: child.className,
+          width: child.clientWidth, scroll: child.scrollWidth })),
     }));
-    expect(measured.scroll).toBeLessThanOrEqual(measured.width);
+    expect(measured.scroll, JSON.stringify(measured)).toBeLessThanOrEqual(measured.width);
   }
   // The pre-existing inline title breadcrumb is not a standalone form target.
   const undersized = await page.locator("main button:not(.page-header-domain-trigger), main select, main input[type=text]").evaluateAll((elements) =>
@@ -117,6 +127,32 @@ async function geometry(page: Page) {
 }
 
 test.describe.configure({ mode: "serial" });
+
+test("direct navigation opens the only authorized scope and prioritizes the assessment summary", async ({ page }, info) => {
+  const { reads, writes } = await fixture(page, { omitScopeQuery: true });
+  const main = page.locator("main");
+  await expect(main.getByRole("heading", { name: en.title, exact: true })).toBeVisible();
+  await expect(main.getByRole("region", { name: en.summary })).toBeVisible();
+  await expect(main.getByRole("heading", { name: en.findings, exact: true })).toBeVisible();
+  expect(reads).toContain("/alert-quality");
+  expect(writes).toHaveLength(0);
+  const order = await main.locator("#alert-quality-evidence, #alert-quality-findings, #alert-quality-source-title, #alert-quality-workspace-title")
+    .evaluateAll((elements) => elements.map((element) => element.id));
+  expect(order).toEqual(["alert-quality-evidence", "alert-quality-findings", "alert-quality-source-title", "alert-quality-workspace-title"]);
+  const summaryTop = await main.getByRole("region", { name: en.summary }).evaluate((element) => element.getBoundingClientRect().top);
+  expect(summaryTop).toBeLessThan(900);
+  await geometry(page);
+  await page.screenshot({ path: info.outputPath("alert-quality-summary-en-desktop.png") });
+});
+
+test("an unconfigured principal gets an actionable no-scope state without a report read", async ({ page }) => {
+  const { reads, writes } = await fixture(page, { omitScopeQuery: true, noScopes: true });
+  await expect(page.getByText(en.noScopes, { exact: true })).toBeVisible();
+  expect(reads).toContain("/alert-quality/scopes");
+  expect(reads).not.toContain("/alert-quality");
+  expect(writes).toHaveLength(0);
+  await geometry(page);
+});
 
 test("expanded route text contrast and tab order remain accessible", async ({ page }, info) => {
   await fixture(page, { facets: true });
@@ -211,7 +247,7 @@ test("source facets and period use keyboard without changing retained totals", a
   await period.press("Home");
   await period.press("Enter");
   await expect(period).toHaveValue("3600");
-  await expect(main.locator("#alert-quality-evidence time").first()).toHaveAttribute("datetime", reportFixture.assessment.observed_at);
+  await expect(main.locator("#alert-quality-source time").first()).toHaveAttribute("datetime", reportFixture.assessment.observed_at);
   const assess = main.getByRole("button", { name: en.assess, exact: true });
   await assess.focus();
   await assess.press("Enter");
@@ -365,7 +401,8 @@ for (const state of ["missing", "expired"] as const) {
   test(`${state} reports permit only a new assessment`, async ({ page }) => {
     await fixture(page, { [state]: true });
     await expect(page.getByRole("button", { name: en.assess, exact: true })).toBeEnabled();
-    await expect(page.getByRole("button", { name: en.submitProposal })).toBeDisabled();
+    if (state === "missing") await expect(page.getByRole("button", { name: en.submitProposal })).toHaveCount(0);
+    else await expect(page.getByRole("button", { name: en.submitProposal })).toBeDisabled();
   });
 }
 
