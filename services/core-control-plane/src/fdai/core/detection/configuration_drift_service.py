@@ -37,6 +37,16 @@ class ConfigurationObservationSource(Protocol):
     async def observe(self, *, scope: str) -> ConfigurationObservation: ...
 
 
+class ConfigurationDriftReportSink(Protocol):
+    """Record completed, integrity-checked evidence without granting authority."""
+
+    async def record(
+        self,
+        baseline: FrozenConfigurationBaseline,
+        report: ConfigurationDriftReport,
+    ) -> None: ...
+
+
 class ConfigurationDriftService:
     """Compare server-pinned intent with an authoritative scoped observation."""
 
@@ -49,6 +59,7 @@ class ConfigurationDriftService:
         expected_sha256: str,
         expected_scope: str,
         knowledge_source: KnowledgeSource | None = None,
+        report_sink: ConfigurationDriftReportSink | None = None,
         monotonic: Callable[[], float] = time.perf_counter,
     ) -> None:
         if not expected_version.strip() or not expected_scope.strip():
@@ -61,10 +72,16 @@ class ConfigurationDriftService:
         self._expected_sha256 = expected_sha256.lower()
         self._expected_scope = expected_scope
         self._knowledge_source = knowledge_source
+        self._report_sink = report_sink
         self._monotonic = monotonic
 
     async def run(self) -> ConfigurationDriftReport:
-        """Execute one A0 read; never accepts caller-selected scope or baseline."""
+        """Read the pinned scope and record the result before returning it.
+
+        A configured sink failure propagates instead of claiming a durably
+        recorded result. Measured latency covers evidence acquisition and
+        comparison, not persistence.
+        """
 
         started_at = self._monotonic()
         baseline = await self._baseline_source.load()
@@ -84,7 +101,7 @@ class ConfigurationDriftService:
         compared_at = self._monotonic()
         status, citations = await self._knowledge_citations(baseline)
         completed_at = self._monotonic()
-        return replace(
+        completed_report = replace(
             report,
             knowledge_status=status,
             knowledge_citations=citations,
@@ -98,6 +115,9 @@ class ConfigurationDriftService:
                 finding_count=len(report.findings),
             ),
         )
+        if self._report_sink is not None:
+            await self._report_sink.record(baseline, completed_report)
+        return completed_report
 
     async def _knowledge_citations(
         self,
@@ -134,5 +154,6 @@ __all__ = [
     "BaselineIntegrityError",
     "ConfigurationBaselineSource",
     "ConfigurationDriftService",
+    "ConfigurationDriftReportSink",
     "ConfigurationObservationSource",
 ]

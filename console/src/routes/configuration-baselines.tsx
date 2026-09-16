@@ -129,7 +129,7 @@ function ConfigurationBaselinesBody({
 }) {
   const published = data.baseline.lifecycle !== "not-published";
   const driftEvaluated = data.drift.observedAt !== null && data.drift.verdict !== "not-evaluated";
-  const knowledgeIndexed = data.knowledge.status !== "not-indexed";
+  const knowledgeIndexed = data.knowledge.status === "cited";
   return (
     <div class="stack configuration-baselines-body">
       <div class="governance-readonly-banner">
@@ -157,7 +157,7 @@ function ConfigurationBaselinesBody({
           label={configurationBaselinesText("citations")}
           value={knowledgeIndexed
             ? data.knowledge.citationCount
-            : configurationBaselinesText("knowledgeNotIndexed")}
+            : knowledgeStatusLabel(data.knowledge.status)}
           hint={configurationBaselinesText("citationsHint")}
         />
         <KpiCard
@@ -364,6 +364,7 @@ function verdictLabel(verdict: string): string {
 function knowledgeStatusLabel(status: string): string {
   if (status === "cited") return configurationBaselinesText("knowledgeCited");
   if (status === "not-indexed") return configurationBaselinesText("knowledgeNotIndexed");
+  if (status === "not-configured") return configurationBaselinesText("notConfigured");
   return verdictLabel(status);
 }
 
