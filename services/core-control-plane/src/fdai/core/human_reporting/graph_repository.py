@@ -79,11 +79,14 @@ async def load_reporting_graph(
     *,
     at: datetime,
 ) -> ReportingGraphSnapshot:
-    """Read and verify the authoritative graph record at one effective instant."""
+    """Verify record integrity and build the current graph at one effective instant.
+
+    Activation validates every historical boundary before the aggregate CAS. Replaying that
+    quadratic validation on each approval read would block the async control-plane hot path.
+    """
 
     raw = await store.read_state(GRAPH_KEY)
     _revision, cases = _decode_graph_record(raw)
-    _validate_graph_history(cases)
     return build_reporting_graph(cases, at=reporting_instant(at))
 
 

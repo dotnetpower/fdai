@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+import fdai.core.human_reporting.graph_repository as graph_repository
 import pytest
 from fdai.core.human_reporting import (
     EndpointDecision,
@@ -513,6 +514,28 @@ async def test_graph_accepts_more_than_thirty_two_independent_edges() -> None:
 
     graph = await service.current_graph(at=NOW + timedelta(minutes=3))
     assert len(graph.edges) == 40
+
+
+async def test_graph_read_does_not_replay_historical_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = ReportingLineService(InMemoryStateStore())
+    candidate = _candidate("person-a", "person-b")
+    await _activate(
+        service,
+        artifact=_artifact(candidate),
+        candidate_id=candidate.candidate_id,
+        confirmer="person-a",
+        owner="owner",
+    )
+
+    def fail_if_replayed(_cases: object) -> None:
+        raise AssertionError("historical graph validation ran on the read path")
+
+    monkeypatch.setattr(graph_repository, "_validate_graph_history", fail_if_replayed)
+
+    graph = await service.current_graph(at=NOW + timedelta(minutes=3))
+    assert len(graph.edges) == 1
 
 
 async def test_concurrent_reviews_cannot_activate_two_primary_managers() -> None:

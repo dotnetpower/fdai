@@ -140,6 +140,9 @@ A current graph revision is accepted only when it has:
 
 Whole-graph cycle detection is independent of the number of edges. The bounded traversal depth
 applies when resolving one requester's approval path, not as an organization-size limit.
+Activation validates historical effective-time boundaries before the aggregate compare-and-set.
+Approval reads verify the stored case-set digest and build only the requested current snapshot;
+they do not replay quadratic history validation on the async hot path.
 
 Changing or expiring an edge creates a new whole-graph revision for audit. Pending approval
 requests retain a separate path revision over every traversed edge and eligible rung. A change on
