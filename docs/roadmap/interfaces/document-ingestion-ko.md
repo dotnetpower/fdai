@@ -1,8 +1,8 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: c4244b042e8eba19f4ad73b9fb4ef1cd7e92726a
-translation_revised: 2026-09-15
+translation_source_sha: bcd02fda25ca4f51cd6708b7647a8bc74c4f173e
+translation_revised: 2026-09-16
 ---
 # 문서 인제스트와 투입 구역
 
@@ -486,13 +486,14 @@ launcher는 `FDAI_EXECUTION_VENUE=local`로 이러한 adapter를 선택합니다
 `FDAI_EXECUTION_VENUE=deployed`를 사용해 ADLS, Azure Database for PostgreSQL, Event Hubs,
 Azure embedding 및 managed identity를 선택합니다.
 
-운영 워커는 `handover_bootstrap` 소비자를 영속 `PostgresStateStore`
-변환 결과에 연결하고 워커 managed 신원으로 Microsoft Graph의 정확한 user/그룹 display
-이름을 해석합니다. 신원에는 최소 권한 Graph 애플리케이션 역할인 `User.Read.All`과
-`Group.Read.All`이 필요합니다. 일치 항목이 없거나 모호하면 사람 검토를 위해 해결되지 않은으로
-남깁니다. 근거에 기반한 mixed-model `HandoverInterpreter`가 구성되지 않으면 interpreter는
-abstain하고 결정론적 추출은 계속됩니다.
-
+운영 워커는 `handover_bootstrap`과 `report_line_bootstrap` 소비자를 영속
+`PostgresStateStore` 변환 결과에 연결합니다. 워커 managed 신원으로 담당 체계용 정확한
+Microsoft Graph 사용자나 그룹을 해석하고, 보고선용 정확한 활성 사용자와 현재 관리자 근거를
+확인합니다. 신원에는 최소 권한 Graph 애플리케이션 역할인 `User.Read.All`과 `Group.Read.All`이
+필요합니다. 일치 항목이 없거나 모호하거나 충돌하거나 사용할 수 없으면 검토 전용으로
+보류합니다. 근거에 기반한 mixed-model `HandoverInterpreter`가 없으면 판단을 보류하면서
+결정론적 추출을 계속합니다. Report-line 소비자는 명시적 행과 지원되는 Office 표 셀을
+허용하며 지원하지 않는 시각적 관계는 보류하고 API는 edge를 활성화하지 않습니다.
 Azure 구독 테넌트와 Microsoft 365 테넌트가 다르면 FDAI-native SharePoint 커넥터를
 사용합니다. Power Platform 커넥터는 제품 설계 참고 모델일 뿐이며 FDAI는 Power Platform
 Custom Connector를 가져오거나 호출하지 않습니다. 인제스트 UAMI는 Azure 테넌트에서
@@ -507,7 +508,6 @@ managed-copy 수명 주기로 보냅니다. 삭제 이벤트는 영속 원본 �
 Graph가 delta 토큰을 만료시키면 커넥터는 잘못된 연속 URL을 반복하지 않고 reset을 revision
 펜스로 기록한 뒤 다음 주기에 전체 delta를 다시 시작합니다. 마지막 페이지는 새 resync
 epoch에서 확인되지 않은 영속 항목을 철회한 후에만 새 커서를 커밋합니다.
-
 | 메서드 and 경로 | 용도 |
 |-----------------|---------|
 | `GET /healthz` | 배포 검증용 인증되지 않은 프로세스 생존, `{"status":"ok"}`만 반환 |
@@ -518,6 +518,7 @@ epoch에서 확인되지 않은 영속 항목을 철회한 후에만 새 커서�
 | `POST /ingestion/uploads/{upload_id}/complete` | 수신한 객체를 verify하고 커밋 |
 | `GET /ingestion/uploads/{upload_id}` | 권한이 적용된 upload-session과 처리 상태 |
 | `GET /ingestion/uploads/{upload_id}/handover-draft` | `handover_bootstrap` 용도의 권한 적용 근거에 기반한 steward-map 초안 |
+| `GET /ingestion/uploads/{upload_id}/report-line-draft` | `report_line_bootstrap` 용도의 권한 적용 근거에 기반한 사람-관리자 초안 |
 | `POST /ingestion/uploads/{upload_id}/cancel` | 권한 부여를 철회하고 부분 데이터 정리 |
 | `GET /documents?collection_id=...&limit=...` | 컬렉션의 최신 문서 버전을 권한에 따라 범위가 제한된 개수로 반환 |
 | `GET /documents/search?q=...&collection_id=...` | 인증과 수집 범위가 적용된 인용 포함 하이브리드 검색 |
@@ -525,7 +526,6 @@ epoch에서 확인되지 않은 영속 항목을 철회한 후에만 새 커서�
 | `GET /documents/{document_id}/versions/{version_id}/preview` | 컬렉션 권한과 위임된 보호 권한 확인을 모두 통과한 범위가 제한된 추출 결과 미리 보기 |
 | `GET /documents/{document_id}/versions/{version_id}/download` | 권한이 있는 보호되지 않은 인덱싱 완료 버전의 감사를 기록하는 변경 불가능한 원본 스트림 |
 | `DELETE /documents/{document_id}/versions/{version_id}` | 통제된 deletion 요청 |
-
 출처 바이트는 클라이언트에서 전용 게이트웨이를 거쳐 객체 저장소로 스트리밍됩니다. Authentication 토큰은 헤더로 전달하며 저장소 자격 증명이나 권한 부여를 조회 문자열로 브라우저에 노출하지 않습니다.
 객체가 수락된 후 `complete`를 다시 호출하면 현재 세션을 `202`로 반환하고 `document.received` 이벤트를 다시 publish하지 않습니다. 따라서 HTTP 응답이 유실되어도 안전하게 재시도할 수 있습니다.
 
@@ -534,7 +534,7 @@ epoch에서 확인되지 않은 영속 항목을 철회한 후에만 새 커서�
 
 상태 전이는 `document.received`, `document.held`, `document.ready`, `document.superseded`, `document.access_changed`, `document.deleted` 같은 타입이 지정된 이벤트를 publish합니다. 소비자는 멱등적하게 동작합니다.
 Knowledge 인덱싱과 수동 정제는 버전의 선언된 용도에 자신이 포함된 경우에만 `document.ready`를 구독합니다. 용도별 처리는 `DocumentReadyConsumer`를 연결할 수도 있습니다. 워커는 안전성 검사를 통과한 `DocumentEnvelope`만 전달합니다.
-제공되는 `handover_bootstrap` 소비자는 이 묶음을 근거가 있고 검토 전용인 steward-map 초안으로 변환합니다. 영속 조정기는 업로드 또는 메타데이터 cycle 예외의 타입을 로그에 기록하고 프로세스 내 deduplication 자리를 해제한 뒤, 작업을 종료하지 않고 다음 범위가 제한된 간격에 계속 실행합니다.
+제공되는 소비자는 `handover_bootstrap` 및 `report_line_bootstrap` 묶음을 근거가 있고 검토 전용인 steward-map 또는 사람-관리자 초안으로 변환하며 직접 적용하지 않습니다. 영속 조정기는 업로드 또는 메타데이터 cycle 예외의 타입을 로그에 기록하고 프로세스 내 deduplication 자리를 해제한 뒤, 작업을 종료하지 않고 다음 범위가 제한된 간격에 계속 실행합니다.
 
 ## 실패 동작
 

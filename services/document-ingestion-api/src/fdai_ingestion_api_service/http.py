@@ -87,6 +87,7 @@ def build_app(
     preview: DocumentPreviewService | None = None,
     search_index: DocumentSearch | None = None,
     handover_drafts: HandoverDraftReader | None = None,
+    report_line_drafts: HandoverDraftReader | None = None,
     stewardship_webhook: StewardshipWebhook | None = None,
     repository_handover_intake: StewardshipWebhook | None = None,
     cloud_knowledge: CloudKnowledgeService | None = None,
@@ -218,6 +219,18 @@ def build_app(
             upload_id=upload_id,
         )
         return JSONResponse((await handover_drafts.get(upload_id)).to_dict())
+
+    async def report_line_draft(request: Request) -> Response:
+        if report_line_drafts is None:
+            return _error(404, "not_found", "reporting-line bootstrap is unavailable")
+        principal = authorize(request, _READER_ROLES)
+        upload_id = _uuid(request.path_params["upload_id"], "upload_id")
+        await service.get_upload(
+            actor_id=principal.oid,
+            actor_groups=_access_principals(principal),
+            upload_id=upload_id,
+        )
+        return JSONResponse((await report_line_drafts.get(upload_id)).to_dict())
 
     async def cancel_upload(request: Request) -> Response:
         principal = authorize(request, _CONTRIBUTOR_ROLES)
@@ -514,6 +527,11 @@ def build_app(
         Route("/ingestion/uploads/{upload_id}/complete", complete_upload, methods=["POST"]),
         Route("/ingestion/uploads/{upload_id}", upload_status, methods=["GET"]),
         Route("/ingestion/uploads/{upload_id}/handover-draft", handover_draft, methods=["GET"]),
+        Route(
+            "/ingestion/uploads/{upload_id}/report-line-draft",
+            report_line_draft,
+            methods=["GET"],
+        ),
         Route("/ingestion/uploads/{upload_id}/cancel", cancel_upload, methods=["POST"]),
         Route("/documents", documents, methods=["GET"]),
         Route("/documents/{document_id}/versions", versions, methods=["GET"]),

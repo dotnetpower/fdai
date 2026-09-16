@@ -29,6 +29,7 @@ from fdai.core.human_assignment.revocation_intent import AssignmentRevocation
 from fdai.core.human_assignment.revocation_target import require_revocation_target
 from fdai.core.human_assignment.scoped_duty_requests import ScopedDutyRequestProcessor
 from fdai.core.human_assignment.service import AssignmentCaseService
+from fdai.core.human_reporting.request_processor import ReportingLineRequestProcessor
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Role
 from fdai.core.stewardship import Duty
@@ -49,6 +50,7 @@ class AssignmentRequestProcessor:
     intake: AssignmentRequestIntake
     cases: AssignmentCaseService
     scoped: ScopedDutyRequestProcessor | None = None
+    reporting: ReportingLineRequestProcessor | None = None
 
     async def validate(self, notice: AssignmentRequestNotice, *, at: datetime) -> None:
         """Forseti validates exact source identity, command shape, and current case revision."""
@@ -56,6 +58,11 @@ class AssignmentRequestProcessor:
             if self.scoped is None:
                 raise ValueError("scoped duty current-source bindings are unavailable")
             await self.scoped.validate(notice, at=at)
+            return
+        if notice.schema_version == "1.3.0":
+            if self.reporting is None:
+                raise ValueError("reporting-line current-source bindings are unavailable")
+            await self.reporting.validate(notice, at=at)
             return
         payload, principal = await self._source(notice, at=at)
         if notice.operation == "assignments.create":
@@ -92,6 +99,11 @@ class AssignmentRequestProcessor:
                 raise ValueError("scoped duty current-source bindings are unavailable")
             await self.scoped.validate_review(notice, at=at)
             return
+        if notice.schema_version == "1.3.0":
+            if self.reporting is None:
+                raise ValueError("reporting-line current-source bindings are unavailable")
+            await self.reporting.validate_review(notice, at=at)
+            return
         if notice.operation != "assignments.review":
             raise ValueError("human review requires a review command")
         payload, principal = await self._source(notice, at=at)
@@ -122,6 +134,10 @@ class AssignmentRequestProcessor:
             if self.scoped is None:
                 raise ValueError("scoped duty current-source bindings are unavailable")
             return await self.scoped.apply(notice, at=at)
+        if notice.schema_version == "1.3.0":
+            if self.reporting is None:
+                raise ValueError("reporting-line current-source bindings are unavailable")
+            return await self.reporting.apply(notice, at=at)
         payload, principal = await self._source(notice, at=at)
         result_key = f"{_RESULT_PREFIX}{notice.proposal_id}"
         previous = await self.cases.store.read_state(result_key)

@@ -112,7 +112,10 @@ def test_blocked_document_never_reaches_muninn_or_thor() -> None:
     assert bus.messages_on("object.action-run") == []
 
 
-@pytest.mark.parametrize("purpose", ["handover_bootstrap", "cloud_reference"])
+@pytest.mark.parametrize(
+    "purpose",
+    ["handover_bootstrap", "report_line_bootstrap", "cloud_reference"],
+)
 def test_authoritative_document_waits_for_var_before_muninn(purpose: str) -> None:
     bus = InMemoryBus(registry=load_pantheon())
     heimdall = Heimdall(bus=bus)

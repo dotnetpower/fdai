@@ -13,6 +13,9 @@ operate FDAI" (Reader / Contributor / Approver / Owner). Stewardship answers "wh
 owned this work before FDAI, and who is now accountable for this agent's domain".
 A person is typically in both models (an Approver who is also Var's steward), but
 the two are resolved and validated independently.
+Human-to-human management relationships are a third independent axis defined by
+[Human report lines and approval routing](human-report-lines-and-approval-routing.md). A steward or
+manager gains no approval capability from either relationship.
 
 > Customer-agnostic: every objectId, group id, and name below is a **placeholder**
 > (all-zero UUID). Deployment configuration supplies the real Entra values

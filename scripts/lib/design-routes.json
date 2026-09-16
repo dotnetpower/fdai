@@ -592,7 +592,8 @@
         "docs/roadmap/architecture/code-map.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "human-report-lines"
       ],
       "docs_update": [
         "docs/roadmap/architecture/project-structure.md",
@@ -954,6 +955,9 @@
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/rules-and-detection/rule-governance.md"
       ],
+      "docs_update_routes": [
+        "human-report-lines"
+      ],
       "docs_update": [
         "docs/roadmap/decisioning/execution-authorization-ontology.md",
         "docs/roadmap/architecture/project-structure.md",
@@ -1078,6 +1082,9 @@
         ".github/instructions/architecture.instructions.md",
         "docs/roadmap/architecture/mscp-operational-profile.md"
       ],
+      "docs_update_routes": [
+        "human-report-lines"
+      ],
       "docs_update": [
         "docs/roadmap/architecture/mscp-operational-profile.md",
         "docs/roadmap/architecture/project-structure.md"
@@ -1130,6 +1137,9 @@
         "docs/roadmap/agents/agent-workflow-rollout.md",
         "docs/roadmap/decisioning/operational-planning.md",
         "docs/roadmap/rules-and-detection/operational-learning-ontology.md"
+      ],
+      "docs_update_routes": [
+        "human-report-lines"
       ],
       "docs_update": [
         "docs/roadmap/agents/agent-pantheon.md",
@@ -1692,6 +1702,9 @@
         "docs/roadmap/interfaces/document-ingestion-agent-ownership.md",
         "docs/roadmap/interfaces/operator-console.md"
       ],
+      "docs_update_routes": [
+        "human-report-lines"
+      ],
       "docs_update": [
         "docs/roadmap/interfaces/conversation-attachments.md",
         "docs/roadmap/interfaces/document-ingestion.md",
@@ -1733,6 +1746,95 @@
       ]
     },
     {
+      "id": "human-report-lines",
+      "paths": [
+        "docs/roadmap/interfaces/human-report-lines-and-approval-routing*.md",
+        "docs/roadmap-implementation/interfaces/human-report-lines-and-approval-routing.md",
+        "packages/service-contracts/src/fdai_service_contracts/*report*line*.py",
+        "packages/service-contracts/src/fdai_service_contracts/assignment_transport.py",
+        "packages/service-contracts/src/fdai_service_contracts/document.py",
+        "packages/service-contracts/tests/test_assignment_transport.py",
+        "services/core-control-plane/src/fdai/shared/contracts/models/document.py",
+        "services/core-control-plane/src/fdai/core/human_reporting/**",
+        "services/core-control-plane/src/fdai/core/hil_escalation.py",
+        "services/core-control-plane/src/fdai/core/hil_resume/*.py",
+        "services/core-control-plane/src/fdai/core/human_assignment/request_*.py",
+        "services/core-control-plane/src/fdai/core/workflow/approval.py",
+        "services/core-control-plane/src/fdai/runtime/approval_policy.py",
+        "services/core-control-plane/src/fdai/runtime/assignment_transport.py",
+        "services/core-control-plane/src/fdai/runtime/consumers.py",
+        "services/core-control-plane/src/fdai/runtime/control_loop.py",
+        "services/core-control-plane/src/fdai/runtime/hil_escalation.py",
+        "services/core-control-plane/src/fdai/runtime/report_lines.py",
+        "services/core-control-plane/src/fdai/agents/_framework/assignment_workflow.py",
+        "services/core-control-plane/src/fdai/agents/_framework/forseti_judgment.py",
+        "services/core-control-plane/tests/agents/test_reporting_line_workflow.py",
+        "services/core-control-plane/tests/core/human_reporting/**",
+        "services/core-control-plane/tests/core/hil_resume/**",
+        "services/core-control-plane/tests/runtime/*report*line*.py",
+        "services/document-processing-worker/src/fdai_document_worker_service/*report*line*.py",
+        "services/document-processing-worker/src/fdai_document_worker_service/production.py",
+        "services/document-processing-worker/src/fdai_document_worker_service/adapters/graph.py",
+        "services/document-processing-worker/tests/*report*line*.py",
+        "services/document-ingestion-api/src/fdai_ingestion_api_service/http.py",
+        "services/document-ingestion-api/src/fdai_ingestion_api_service/production.py",
+        "services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/report_lines.py",
+        "services/operator-service/src/fdai_operator_service/**/*report*line*.py",
+        "services/operator-service/src/fdai_operator_service/assignment_notice.py",
+        "services/operator-service/src/fdai_operator_service/iam_composition.py",
+        "services/operator-service/src/fdai_operator_service/postgres_assignment_outbox.py",
+        "services/operator-service/src/fdai_operator_service/postgres_family_store.py",
+        "services/operator-service/src/fdai_operator_service/postgres_iam.py",
+        "services/operator-service/src/fdai_operator_service/families/iam/__init__.py",
+        "services/operator-service/src/fdai_operator_service/families/iam/contracts.py",
+        "services/operator-service/src/fdai_operator_service/families/iam/hil_decision_outbox.py",
+        "services/operator-service/src/fdai_operator_service/families/iam/manifest.py",
+        "services/operator-service/tests/*report*line*.py",
+        "services/operator-service/tests/test_operator_service_full_composition.py",
+        "tests/integration/service-suites.json",
+        "tests/integration/services/test_core_service_package.py",
+        "eval/golden-dataset/question-bank/question-bank.json",
+        "eval/golden-dataset/question-bank/review-catalog.md",
+        "eval/golden-dataset/semantic-intent-coverage.json",
+        "console/src/routes/*report*line*",
+        "console/src/routes/i18n/*report*line*",
+        "console/src/api.ts",
+        "console/src/api-iam-client.ts",
+        "console/src/ingestion-api.ts",
+        "console/src/routes/agent-oversight-views.tsx",
+        "console/src/routes/hil-queue.tsx",
+        "console/src/routes/i18n/approvals.*.json",
+        "services/system-knowledge-service/src/fdai_system_knowledge_service/data/catalog.json"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/interfaces/human-report-lines-and-approval-routing.md",
+        "docs/roadmap/interfaces/human-agent-assignment-and-knowledge-handover.md",
+        "docs/roadmap/interfaces/user-rbac-and-identity.md",
+        "docs/roadmap/decisioning/escalation-and-standing-authority.md",
+        "docs/roadmap/interfaces/conversation-attachments.md",
+        "docs/roadmap/interfaces/document-ingestion-agent-ownership.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/interfaces/human-report-lines-and-approval-routing.md",
+        "docs/roadmap/interfaces/human-agent-assignment-and-knowledge-handover.md",
+        "docs/roadmap/interfaces/user-rbac-and-identity.md",
+        "docs/roadmap/decisioning/escalation-and-standing-authority.md",
+        "docs/roadmap/interfaces/conversation-attachments.md",
+        "docs/roadmap/interfaces/document-ingestion-agent-ownership.md",
+        "docs/roadmap/interfaces/operator-console.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/core/human_reporting",
+        "uv run pytest -q --no-cov services/document-processing-worker/tests/test_report_line_handover.py",
+        "uv run pytest -q --no-cov services/operator-service/tests/test_report_lines.py",
+        "npm --prefix console test -- --run src/routes/report-lines.test.tsx src/routes/handover.test.ts src/routes/hil-queue.test.ts",
+        "npm --prefix console run typecheck"
+      ]
+    },
+    {
       "id": "human-agent-assignment",
       "paths": [
         "docs/roadmap/interfaces/human-agent-assignment*.md",
@@ -1762,6 +1864,9 @@
         "docs/roadmap/interfaces/agent-stewardship-and-handover.md",
         "docs/roadmap/decisioning/escalation-and-standing-authority.md",
         "docs/roadmap/interfaces/document-ingestion-agent-ownership.md"
+      ],
+      "docs_update_routes": [
+        "human-report-lines"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/human-agent-assignment-and-knowledge-handover.md",
@@ -1877,7 +1982,8 @@
         "docs/roadmap/interfaces/console-evidence-and-resilience.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "human-report-lines"
       ],
       "docs_update": [
         "docs/roadmap/architecture/service-graduation-and-ownership.md",
@@ -1919,7 +2025,8 @@
         "docs/roadmap/rules-and-detection/causal-incident-graph.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "human-report-lines"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
@@ -2125,7 +2232,8 @@
         "docs/roadmap/interfaces/channels-and-notifications.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "human-report-lines"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -2184,6 +2292,9 @@
         "docs/roadmap/decisioning/process-automation.md",
         "docs/roadmap/decisioning/customer-workflow-automation-plan.md",
         "docs/roadmap/decisioning/execution-model.md"
+      ],
+      "docs_update_routes": [
+        "human-report-lines"
       ],
       "docs_update": [
         "docs/roadmap/decisioning/process-automation.md",
@@ -2282,6 +2393,9 @@
         "docs/roadmap/interfaces/operator-console-wire-contracts.md",
         "docs/roadmap/interfaces/operator-console-incident-roster.md"
       ],
+      "docs_update_routes": [
+        "human-report-lines"
+      ],
       "docs_update": [
         "docs/roadmap/operations/operator-initiated-sre-and-arb.md",
         "docs/roadmap/interfaces/operator-console-wire-contracts.md",
@@ -2317,7 +2431,8 @@
         "docs/roadmap/operations/operator-initiated-sre-and-arb.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "human-report-lines"
       ],
       "docs_update": [
         "docs/roadmap/deployment/console-read-boundary.md",
@@ -2465,7 +2580,8 @@
         "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "human-report-lines"
       ],
       "docs_update": [
         "docs/roadmap/architecture/finops-package-architecture.md",
@@ -2876,6 +2992,7 @@
       ],
       "docs_update_routes": [
         "conversation-attachments",
+        "human-report-lines",
         "operator-incident-creation"
       ],
       "docs_update": [
@@ -2929,6 +3046,7 @@
       ],
       "docs_update_routes": [
         "conversation-attachments",
+        "human-report-lines",
         "operator-incident-creation"
       ],
       "docs_update": [

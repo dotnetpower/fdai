@@ -437,8 +437,8 @@ verifier re-check (safeguard 8):
 - If verifier abstains or RBAC is under the floor → the coordinator
   internally files a review item in the existing HIL queue and returns
   "I filed a HIL item, id X" to the operator.
-- Under no circumstance does the write happen without an audit entry
-  before dispatch.
+- Under no circumstance does the write happen without an audit entry before dispatch. For an ActionType explicitly configured to use a reviewed [human report line](human-report-lines-and-approval-routing.md), the queue first shows the requester a separate contact-consent card.
+  `Send approval request` authorizes only notification of the exact pinned route, not the action. The route, graph, RBAC, and ActionType policy are rechecked before delivery and when an approval arrives. Reporting-line review can briefly show `activation_pending` after the Owner decision while Core atomically converges the graph. Native detail controls expose stable approval and consent identifiers for audit drill-down.
 ## 8. Channel integration (push vs pull)
 
 The channel abstraction ([channels-and-notifications.md](channels-and-notifications.md)) already handles push (system → human). Pull uses

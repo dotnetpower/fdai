@@ -60,6 +60,26 @@ export async function installHandoverUiFixture(page: Page) {
       artifact_delivery_available: true, execution_authority: false },
     owner: true, readStatus: 200, writeStatus: 200, catalogStatus: 200, caseStatus: 200,
     observation: null as Record<string, unknown> | null,
+    reportingLine: {
+      operator_case_id: `operator-${"9".repeat(32)}`,
+      case_id: "00000000-0000-0000-0000-000000000099",
+      candidate_id: `report-line-${"8".repeat(32)}`,
+      upload_id: "00000000-0000-0000-0000-000000000098",
+      requester_ref: "uploader-1",
+      subject_ref: "owner-1",
+      manager_ref: "manager-1",
+      state: "pending_confirmation",
+      revision: 1,
+      edge_digest: "7".repeat(64),
+      directory_comparison: "matched",
+      can_confirm: true,
+      can_review: false,
+      effective_from: "2026-09-15T11:00:00Z",
+      effective_until: "2026-12-15T11:00:00Z",
+      execution_authority: false,
+      approval_authority: false,
+    } as Record<string, unknown>,
+    contactPending: true,
     readGate: Promise.resolve(), writeGate: Promise.resolve(),
     nextGoal: null as Record<string, unknown> | null,
     posts: [] as { path: string; body: Record<string, unknown> }[], reads: [] as string[],
@@ -105,6 +125,34 @@ export async function installHandoverUiFixture(page: Page) {
       } });
     } else if (path === "/handover/scoped-duties/catalog") {
       await route.fulfill({ status: fixture.catalogStatus, json: fixture.catalog });
+    } else if (path === "/handover/reporting-lines") {
+      await route.fulfill({ json: {
+        schema_version: "1.0.0", graph_revision: "6".repeat(64),
+        items: [fixture.reportingLine], total: 1, next_cursor: null,
+        summary: { active: 0, pending_confirmation: fixture.reportingLine.state === "pending_confirmation" ? 1 : 0,
+          pending_owner_review: fixture.reportingLine.state === "pending_owner_review" ? 1 : 0,
+        activation_pending: fixture.reportingLine.state === "activation_pending" ? 1 : 0,
+        conflict: 0, awaiting_core: 0 },
+        execution_authority: false, approval_authority: false,
+      } });
+    } else if (path.endsWith("/confirm") && path.includes("/handover/reporting-line-cases/")) {
+      fixture.reportingLine = { ...fixture.reportingLine, state: "pending_owner_review",
+        revision: 2, can_confirm: false };
+      await route.fulfill({ status: 202, json: fixture.reportingLine });
+    } else if (path === "/hil/report-line-contact-requests") {
+      await route.fulfill({ json: { items: fixture.contactPending ? [{
+        approval_id: "approval-1", consent_id: "consent-1", consent_revision: 0,
+        action_type: "ops.restart-service", target_ref: "scope://service/example",
+        route_subjects: ["manager-1"], expires_at: "2026-09-15T12:05:00Z",
+        approval_authority: false, execution_authority: false,
+      }] : [], total: fixture.contactPending ? 1 : 0 } });
+    } else if (path === "/hil/approval-1/report-line-contact" && method === "POST") {
+      fixture.contactPending = false;
+      await route.fulfill({ status: 202, json: { approval_id: "approval-1",
+        status: "contact_queued", consent: true, consent_id: "consent-1",
+        execution_authority: false, approval_authority: false } });
+    } else if (path === "/hil-queue") {
+      await route.fulfill({ json: { items: [], total: 0, detail_level: "full" } });
     } else if (path.startsWith("/handover/scoped-duty-cases") && method === "POST") {
       await fixture.writeGate;
       await route.fulfill({ status: 202, json: { case_id: SCOPED_CASE, proposal_id: SCOPED_CASE,
