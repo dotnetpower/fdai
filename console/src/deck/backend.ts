@@ -60,7 +60,11 @@ import { parsePresentationArtifact } from "./presentation-artifact";
 import { chartArtifactText } from "./rich-parse";
 
 export { setChatAuth } from "./auth";
-export { renderActionResult, type ActionSubmitResult } from "./backend-actions";
+export {
+  actionConfirmationCanRetry,
+  renderActionResult,
+  type ActionSubmitResult,
+} from "./backend-actions";
 export {
   parseAnswerPlan,
   parseAnswerPlanning,

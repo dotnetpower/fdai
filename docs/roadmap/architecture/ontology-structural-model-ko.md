@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 28e1bf0f2949c23af152b82ced95920614a03af9
-translation_revised: 2026-09-15
+translation_source_sha: a7b22259c08423f9bed9b459e479e704619a9acf
+translation_revised: 2026-09-16
 ---
 # 온톨로지 구조 모델
 
@@ -444,6 +444,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 구조 설계와 호환성 | implemented | 이 문서 쌍, `design-routes.json`, 로드맵 인덱스, 코드 맵, 집중 문서 검사 | 추가 모델은 기존 Resource, ResourceType, 직접 링크 아이덴티티, 저장 방향, 과거 선언을 보존합니다. |
+| 의미 기반 인시던트 초안 경계 | implemented | `semantic_incident_creation.py`, `semantic_turn_processor.py`, 타입이 지정된 인시던트 생성 계약, 집중 의미 기반 계획 및 변환 결과 검사 | 수락된 인시던트 생성 판정은 심각도 하나, 대상 하나, 의미 기반 입력 다이제스트를 권한 없는 후보 초안에 보존합니다. 쿼리를 실행하거나 온톨로지 관계를 추론하거나 변경 권한을 부여하지 않습니다. |
 | ResourceClass 카탈로그와 변환 결과 | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType 및 멤버 자격/특수화 선언, 카탈로그 변환 결과, 클로저 증적, 집중 카탈로그 검사 | 검토된 클래스 11개가 직접 멤버 자격 112개와 범위가 제한된 특수화 링크 11개를 통해 중립 ResourceType 112개를 모두 변환합니다. 클로저는 명시적 id만 사용하고 권한을 부여하지 않습니다. |
 | 순서가 있는 형식화된 경로 쿼리 | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, 결정적 검증기, 보안 적용 handler, composition binding, 집중 쿼리 검사 | 기존 v1 탐색은 LinkType 하나만 받습니다. 형식화된 경로는 방향이 고정된 단계 1-8개를 실행하고 불완전한 중간 근거에서 보류합니다. |
 | 링크 역할과 의미 특성 | implemented | 공유 LinkType 계약 및 스키마, 쿼리 매니페스트, 검토된 런타임 선언 7개와 분류 선언 2개, 카탈로그 테스트 | 선택적인 빈 필드는 기존 provenance를 보존합니다. 검토된 필드는 역방향 edge나 표현 레이아웃을 만들지 않습니다. |
@@ -463,6 +464,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | 온톨로지 쿼리와 근거 경계를 유지하면서 Console 확인 경로에 필요한 타입이 지정된 의미 기반 인시던트 초안 변환 결과를 추가했습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 의미 기반 계획 및 변환 결과 테스트. | 인증된 요청부터 인시던트까지의 근거는 별도로 보존해야 합니다. 온톨로지 런타임 상태 또는 ActionType 승격은 변경하지 않았습니다. |
 | 2026-09-15 | implemented | 별도 디렉터리 상한 및 새로고침 행을 제거하고 두 상태를 검색 도구막대에 유지했으며, 표현 커버리지와 범례 세부 정보를 기본적으로 접고 전체 화면 도구를 하나의 공용 컨트롤 표면으로 줄였습니다. | `current change`, `ontology-instances.tsx`, `ontology-instance-graph.tsx`, `ontology-instances.css`, 경로 전용 카탈로그, 집중 소스, 지역화, 브라우저, 타입 검사 및 프로덕션 빌드 검사 | 공유 Browser 제어가 다시 연결되면 인증된 변경 후 DOM 기하를 보존합니다. 그래프, 근거 또는 실행 권한은 바뀌지 않았습니다. |
 | 2026-09-14 | implemented | 범위가 제한된 영향 edge에 세대 일치 검사를 적용한 근거 묶음을 추가하고 지도와 Inspector에서 `runtime_calls`의 호출자에서 대상으로의 방향을 보존했습니다. | `current change`, 변경 backend 집중 테스트 448개 통과 및 선택형 테스트 1개 건너뜀, 변경 Console 테스트 415개 통과, 타입 검사, 프로덕션 빌드, 브라우저 테스트 115개 통과 | 새 edge 검증 경로를 `validated`로 분류하기 전에 현재 인증된 관계 근거를 보존합니다. |
 | 2026-09-14 | implemented | 들어오는 방향, 선택 영역 및 나가는 방향의 채우기를 레이아웃 높이의 SVG 사각형에서 전체 높이의 그래프 표면 계층으로 옮기고 정확한 SVG `viewBox`와 노드, 관계선, 레이블, 이동 및 확대·축소 기하를 유지했습니다. | `current change`, `ontology-instance-graph.tsx`, `ontology-instances.css`, 집중 Console 테스트 158개, 전체 화면 데스크톱, 제한된 데스크톱 및 한국어 모바일을 다룬 집중 Playwright 시나리오 2개, 타입 검사와 프로덕션 빌드 | 공유 Browser 제어가 다시 연결되면 인증된 수정 후 DOM 측정을 보존합니다. 그래프, 쿼리 또는 실행 권한은 바뀌지 않았습니다. |

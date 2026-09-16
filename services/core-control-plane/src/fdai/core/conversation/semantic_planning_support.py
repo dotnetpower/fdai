@@ -9,6 +9,7 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from fdai_service_contracts.incident_creation import IncidentCreationIntent
 from fdai_service_contracts.ontology_query import (
     IntentGraph,
     OntologyQueryNode,
@@ -331,6 +332,7 @@ def _outcome(
     plan: OntologyQueryPlan | None = None,
     intent_graph: IntentGraph | None = None,
     investigation_intent: VerifiedInvestigationIntent | None = None,
+    incident_creation_intent: IncidentCreationIntent | None = None,
     clarification: str | None = None,
     direct_response_intent: SemanticDirectResponseIntent | None = None,
     direct_response_answer: str | None = None,
@@ -347,6 +349,7 @@ def _outcome(
         plan=plan,
         intent_graph=intent_graph,
         investigation_intent=investigation_intent,
+        incident_creation_intent=incident_creation_intent,
         clarification=clarification,
         direct_response_intent=direct_response_intent,
         direct_response_answer=direct_response_answer,

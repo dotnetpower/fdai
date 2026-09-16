@@ -9,6 +9,7 @@ from enum import StrEnum
 from typing import Annotated, Any, Literal, Protocol, runtime_checkable
 
 from fdai_service_contracts.cloud_knowledge_query import DocumentRetrievalQuery
+from fdai_service_contracts.incident_creation import IncidentCreationIntent
 from fdai_service_contracts.ontology_query import (
     IntentGraph,
     OntologyQueryPlan,
@@ -404,6 +405,7 @@ class SemanticPlanningOutcome:
     plan: OntologyQueryPlan | None = None
     intent_graph: IntentGraph | None = None
     investigation_intent: VerifiedInvestigationIntent | None = None
+    incident_creation_intent: IncidentCreationIntent | None = None
     test_context_draft: TestContextDraft | None = None
     clarification: str | None = None
     direct_response_intent: SemanticDirectResponseIntent | None = None
@@ -430,6 +432,11 @@ class SemanticPlanningOutcome:
             raise ValueError("planned semantic outcome requires frame, plan, and intent graph")
         if self.investigation_intent is not None and not planned:
             raise ValueError("verified investigation intent requires a planned outcome")
+        if (
+            self.incident_creation_intent is not None
+            and self.disposition is not SemanticPlanningDisposition.ACTION_DRAFT
+        ):
+            raise ValueError("incident creation intent requires an action-draft outcome")
         clarification = self.disposition is SemanticPlanningDisposition.CLARIFICATION
         if clarification != (self.clarification is not None):
             raise ValueError("clarification disposition requires exactly one question")
