@@ -4,22 +4,17 @@ title: Console Operations
 
 # Console Operations
 
-This document defines how the existing FDAI Console presents operational work and accepts bounded
-operational requests. It does not introduce another application, a generic work-item model, or a
-second execution authority.
+This document defines how the existing FDAI Console presents operational work and accepts bounded operational requests.
+It does not introduce another application, a generic work-item model, or a second execution authority.
 
-> **Product boundary:** The product remains `FDAI Console`. `Operations` is an existing navigation
-> group inside that product. The console never receives Thor's executor identity or mutates a
-> managed resource directly.
+> **Product boundary:** The product remains `FDAI Console`. `Operations` is an existing navigation group inside that
+> product. The console never receives Thor's executor identity or mutates a managed resource directly.
 >
-> **Knowledge boundary:** `Knowledge` is a peer navigation group for governed document upload and
-> repository-source setup. Provider credentials remain in Settings > Integrations, and unconfigured
-> GitHub, GitLab, or Azure DevOps connectors stay explicitly unavailable.
+> **Knowledge boundary:** `Knowledge` is a peer navigation group for governed document upload and repository-source setup.
+> Provider credentials remain in Settings > Integrations, and unconfigured GitHub, GitLab, or Azure DevOps connectors stay explicitly unavailable.
 >
-> **Environment setup boundary:** Readiness and deployment-run evidence share Settings >
-> Environment and deployment. `/onboarding` and `/provisioning` remain compatibility routes rather
-> than primary Operations destinations. Both views remain read-only and cannot start, retry,
-> approve, or alter provisioning.
+> **Environment setup boundary:** Readiness and deployment-run evidence share Settings > Environment and deployment.
+> `/onboarding` and `/provisioning` remain compatibility routes rather than primary Operations destinations. Both views remain read-only and cannot start, retry, approve, or alter provisioning.
 >
 ## Design at a glance
 
