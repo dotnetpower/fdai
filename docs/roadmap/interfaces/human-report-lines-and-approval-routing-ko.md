@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 4096a44fbfd0015fff04ec86cee688a7a0b4091d
+translation_source_sha: f7caa5102a80f949f781de883cb55cadfda22f6f
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -132,6 +132,7 @@ Edge는 `unresolved`, `conflict`, `rejected`, `expired` 또는 `superseded` 상�
 - 자기 참조나 방향성 순환이 없습니다.
 - 한 유효 시점에 주체별 활성 직속 관리자가 최대 한 명입니다.
 - 양쪽 당사자가 정확한 활성 사람 신원입니다.
+- 저장된 상태를 읽을 때마다 확인 principal이 해당하는 정확한 당사자 중 한 명인지 검증합니다.
 - 같은 주체에 대해 대체되지 않은 edge의 기간이 겹치지 않습니다.
 - 탐색 깊이가 제한됩니다.
 - 확인과 Owner 검토 체인이 완전합니다.

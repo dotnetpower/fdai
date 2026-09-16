@@ -244,6 +244,13 @@ class ReportingLineCase:
                 raise ReportingLineModelError(
                     "rejected endpoint confirmation requires conflict state"
                 )
+        if self.confirmation is not None and self.confirmation.principal_ref not in {
+            self.subject_ref,
+            self.manager_ref,
+        }:
+            raise ReportingLineModelError(
+                "reporting-line confirmation principal MUST be a relationship endpoint"
+            )
         if self.owner_review is not None:
             expected_states = (
                 {

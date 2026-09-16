@@ -138,6 +138,8 @@ A current graph revision is accepted only when it has:
 - no self-loop or directed cycle;
 - at most one active primary manager for a subject at an effective instant;
 - exact active human identities for both endpoints;
+- a confirmation principal that is one of those exact endpoints, including on every stored-state
+  read;
 - no overlapping unsuperseded edge for the same subject;
 - bounded traversal depth;
 - a complete confirmation and Owner-review chain;

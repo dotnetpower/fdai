@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
@@ -9,6 +10,7 @@ from uuid import uuid4
 import fdai.core.human_reporting.graph_repository as graph_repository
 import pytest
 from fdai.core.human_reporting import (
+    EndpointConfirmation,
     EndpointDecision,
     OwnerDecision,
     ReportingLineCaseState,
@@ -311,6 +313,30 @@ async def test_exact_endpoint_confirmation_replay_returns_recorded_transition() 
     )
 
     assert replay == confirmed
+
+
+async def test_case_model_rejects_non_endpoint_confirmation() -> None:
+    service = ReportingLineService(InMemoryStateStore())
+    candidate = _candidate("person-a", "person-b")
+    case = await service.create_case(
+        principal=_principal("uploader", Role.CONTRIBUTOR),
+        artifact=_artifact(candidate),
+        candidate_id=candidate.candidate_id,
+        now=NOW,
+    )
+
+    with pytest.raises(ReportingLineModelError, match="relationship endpoint"):
+        replace(
+            case,
+            state=ReportingLineCaseState.PENDING_OWNER_REVIEW,
+            revision=case.revision + 1,
+            confirmation=EndpointConfirmation(
+                principal_ref="unrelated-person",
+                decision=EndpointDecision.CONFIRM,
+                decided_at=NOW + timedelta(minutes=1),
+                edge_digest=case.edge_digest,
+            ),
+        )
 
 
 async def test_owner_review_freezes_endpoint_decisions_before_graph_activation() -> None:
