@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -214,11 +215,43 @@ def _object_record(raw: object, *, strict_members: bool = False) -> OntologyObje
     properties = raw.get("properties")
     if not isinstance(properties, Mapping):
         raise ValueError("operating model object properties MUST be an object")
+    object_type = _required_string(raw, "object_type")
+    _validate_operating_aliases(properties, object_type=object_type)
     return OntologyObjectRecord(
         id=_required_string(raw, "id"),
-        object_type=_required_string(raw, "object_type"),
+        object_type=object_type,
         properties=dict(properties),
     )
+
+
+def _validate_operating_aliases(
+    properties: Mapping[str, object],
+    *,
+    object_type: str,
+) -> None:
+    aliases = properties.get("aliases")
+    if aliases is None or object_type not in {"BusinessService", "Workload"}:
+        return
+    if not isinstance(aliases, Sequence) or isinstance(aliases, (str, bytes)):
+        raise ValueError("operating model logical target aliases MUST be an array")
+    if not 1 <= len(aliases) <= 32:
+        raise ValueError("operating model logical target aliases MUST contain 1-32 values")
+    normalized: list[str] = []
+    for alias in aliases:
+        if (
+            not isinstance(alias, str)
+            or not alias.strip()
+            or alias != alias.strip()
+            or len(alias) > 256
+            or unicodedata.normalize("NFC", alias) != alias
+            or any(unicodedata.category(character) in {"Cc", "Cf"} for character in alias)
+        ):
+            raise ValueError(
+                "operating model logical target aliases MUST be trimmed NFC text up to 256 chars"
+            )
+        normalized.append(alias.casefold())
+    if len(normalized) != len(set(normalized)):
+        raise ValueError("operating model logical target aliases MUST be case-insensitively unique")
 
 
 def _link_record(raw: object, *, strict_members: bool = False) -> OntologyLinkRecord:

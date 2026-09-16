@@ -1,7 +1,7 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 27fb7db269a4a2c48be32d28d49e6eea4c049074
+translation_source_sha: 89e8edf33ad869a509d3c4facd2fe8de611e97eb
 translation_revised: 2026-09-16
 ---
 
@@ -23,6 +23,8 @@ translation_revised: 2026-09-16
 > 시점에 결정론적으로 재검증된다 - 절대 fail-open 경로가 아니며 LLM 이 실행을 부여하지
 > 못한다. 이 문서의 모든 신규 역량은 **shadow 우선** 으로 ship 된다
 > ([architecture.instructions.md § 안전성 Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
+
+사람 보고 원본 고정값 갱신은 설명에만 사용되며 승인이나 실행 권한을 부여하지 않습니다.
 
 ## 구현 상태
 

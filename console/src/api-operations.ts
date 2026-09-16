@@ -1,4 +1,11 @@
-import type { AuditPage, HilQueuePage, IncidentPage, RcaView } from "./types";
+import type {
+  AuditPage,
+  AuditRecordContext,
+  AuditSummary,
+  HilQueuePage,
+  IncidentPage,
+  RcaView,
+} from "./types";
 import {
   apiBoolean,
   apiMode,
@@ -36,12 +43,109 @@ export function decodeAuditPage(value: unknown): AuditPage {
         action_kind: apiString(item, "action_kind", "audit item"),
         mode: apiMode(item["mode"]),
         entry: apiRecord(item["entry"], "audit item.entry") as Record<string, unknown>,
+        context: item["context"] === undefined || item["context"] === null
+          ? null
+          : decodeAuditRecordContext(item["context"], `audit page.items[${index}].context`),
         entry_hash: apiString(item, "entry_hash", "audit item"),
         previous_hash: apiString(item, "previous_hash", "audit item"),
         recorded_at: apiString(item, "recorded_at", "audit item"),
       };
     }),
     next_cursor: cursor,
+    summary: root["summary"] === undefined || root["summary"] === null
+      ? null
+      : decodeAuditSummary(root["summary"]),
+  };
+}
+
+function decodeAuditRecordContext(value: unknown, label: string): AuditRecordContext {
+  const context = apiRecord(value, label);
+  const recordKind = apiString(context, "record_kind", label);
+  if (!["source_observation", "action_lifecycle", "audit_record"].includes(recordKind)) {
+    throw contractError(`${label}.record_kind MUST be a supported audit record kind`);
+  }
+  const phase = apiNullableString(context, "phase", label);
+  if (phase !== null && !["intent", "dispatch", "observe", "close"].includes(phase)) {
+    throw contractError(`${label}.phase MUST be a supported audit phase or null`);
+  }
+  return {
+    record_kind: recordKind as AuditRecordContext["record_kind"],
+    action_lifecycle_applicable: apiBoolean(
+      context,
+      "action_lifecycle_applicable",
+      label,
+    ),
+    target: apiNullableString(context, "target", label),
+    correlation_id: apiNullableString(context, "correlation_id", label),
+    phase: phase as AuditRecordContext["phase"],
+    stage: apiNullableString(context, "stage", label),
+    outcome: apiNullableString(context, "outcome", label),
+    tier: apiNullableString(context, "tier", label),
+    decision: apiNullableString(context, "decision", label),
+    idempotency_key: apiNullableString(context, "idempotency_key", label),
+    rollback_reference: apiNullableString(context, "rollback_reference", label),
+    owner_agent: apiNullableString(context, "owner_agent", label),
+    domain: apiNullableString(context, "domain", label),
+  };
+}
+
+function decodeAuditSummary(value: unknown): AuditSummary {
+  const summary = apiRecord(value, "audit page.summary");
+  const observedAt = apiString(summary, "observed_at", "audit page.summary");
+  if (!isRfc3339Timestamp(observedAt)) {
+    throw contractError("audit page.summary.observed_at MUST be RFC 3339");
+  }
+  const integrity = apiRecord(summary["integrity"], "audit page.summary.integrity");
+  const status = apiString(integrity, "status", "audit page.summary.integrity");
+  if (!["verified", "failed", "unavailable"].includes(status)) {
+    throw contractError("audit page.summary.integrity.status MUST be supported");
+  }
+  const verifiedAt = apiNullableString(
+    integrity,
+    "verified_at",
+    "audit page.summary.integrity",
+  );
+  if (verifiedAt !== null && !isRfc3339Timestamp(verifiedAt)) {
+    throw contractError("audit page.summary.integrity.verified_at MUST be RFC 3339 or null");
+  }
+  return {
+    observed_at: observedAt,
+    matching_record_count: apiNonNegativeInteger(
+      summary,
+      "matching_record_count",
+      "audit page.summary",
+    ),
+    terminal_record_count: apiNonNegativeInteger(
+      summary,
+      "terminal_record_count",
+      "audit page.summary",
+    ),
+    human_review_record_count: apiNonNegativeInteger(
+      summary,
+      "human_review_record_count",
+      "audit page.summary",
+    ),
+    rollback_record_count: apiNonNegativeInteger(
+      summary,
+      "rollback_record_count",
+      "audit page.summary",
+    ),
+    integrity: {
+      status: status as AuditSummary["integrity"]["status"],
+      reason: apiNullableString(integrity, "reason", "audit page.summary.integrity"),
+      verified_at: verifiedAt,
+      current_record_count: apiNonNegativeInteger(
+        integrity,
+        "current_record_count",
+        "audit page.summary.integrity",
+      ),
+      current_link_gap_count: apiNonNegativeInteger(
+        integrity,
+        "current_link_gap_count",
+        "audit page.summary.integrity",
+      ),
+    },
+    redaction_applied: apiBoolean(summary, "redaction_applied", "audit page.summary"),
   };
 }
 
@@ -71,6 +175,7 @@ export function decodeIncidentPage(value: unknown): IncidentPage {
         ticket_id: apiNullableString(item, "ticket_id", "incident item"),
         title: apiString(item, "title", "incident item"),
         title_source: apiIncidentTitleSource(item["title_source"]),
+        title_presentation: decodeIncidentTitlePresentation(item["title_presentation"]),
         source: decodeIncidentSource(item["source"]),
         response_plan: decodeIncidentResponsePlan(item["response_plan"]),
         severity: apiString(item, "severity", "incident item"),
@@ -414,6 +519,61 @@ function apiIncidentTitleSource(value: unknown): import("./types").IncidentTitle
     value === "identifier_fallback"
   ) return value;
   throw contractError("incident item.title_source MUST be a supported title source");
+}
+
+function decodeIncidentTitlePresentation(
+  value: unknown,
+): import("./types").IncidentTitlePresentation | null {
+  if (value === undefined || value === null) return null;
+  const presentation = apiRecord(value, "incident item.title_presentation");
+  const kind = presentation["kind"];
+  if (
+    kind !== "rule_attention"
+    && kind !== "signal_on_subject"
+    && kind !== "signal"
+    && kind !== "resource_attention"
+    && kind !== "subject_reason"
+    && kind !== "reason"
+  ) {
+    throw contractError("incident item.title_presentation.kind MUST be supported");
+  }
+  const subjectKind = presentation["subject_kind"];
+  if (
+    subjectKind !== null
+    && subjectKind !== "cloud_resource"
+    && subjectKind !== "integration_resource"
+    && subjectKind !== "kubernetes_pod"
+    && subjectKind !== "kubernetes_resource"
+    && subjectKind !== "kubernetes_workload"
+    && subjectKind !== "trace_target"
+    && subjectKind !== "resource"
+  ) {
+    throw contractError("incident item.title_presentation.subject_kind MUST be supported or null");
+  }
+  return {
+    kind,
+    subject: apiIncidentTitlePresentationString(presentation, "subject", 72),
+    subject_kind: subjectKind,
+    signal: apiIncidentTitlePresentationString(presentation, "signal", 72),
+    signal_label: apiIncidentTitlePresentationString(presentation, "signal_label", 72),
+    reason: apiIncidentTitlePresentationString(presentation, "reason", 72),
+    reason_label: apiIncidentTitlePresentationString(presentation, "reason_label", 72),
+    technical_ref: apiIncidentTitlePresentationString(presentation, "technical_ref", 160),
+  };
+}
+
+function apiIncidentTitlePresentationString(
+  presentation: Readonly<Record<string, unknown>>,
+  key: string,
+  maxLength: number,
+): string | null {
+  const value = apiNullableString(presentation, key, "incident item.title_presentation");
+  if (value !== null && value.length > maxLength) {
+    throw contractError(
+      `incident item.title_presentation.${key} MUST be ${maxLength} characters or fewer`,
+    );
+  }
+  return value;
 }
 
 function decodeIncidentSource(value: unknown): import("./types").IncidentSourceContext | null {

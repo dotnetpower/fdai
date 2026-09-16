@@ -129,8 +129,8 @@ The revised design creates `fdai-system-knowledge-service` as a separate distrib
 `catalog_digest` covers the schema version, source revision, build time, records, and authority
 flag. Rebuilding the same records at a different time therefore creates a distinct packaged
 artifact. Any cited-source change requires a catalog rebuild in the same change before packaging so
-its blob pins and digest match the release tree. Formatting-only compaction or Markdown structure
-repair leaves the behavior claim unchanged but still changes the cited blob identity.
+its blob pins and digest match the release tree. Formatting-only compaction, route-context reflow,
+or Markdown structure repair leaves the behavior claim unchanged but still changes the cited blob identity.
 This mechanical refresh carries the revised source identity, including CI-verified Pantheon
 attribution, localized scope-safe and digest-verified temporal evidence, role and authority boundaries, status-compatible shared role rendering, deterministic canonical-domain routing with locale-preserving aggregation, append-only, fail-closed, translator-only, governed-catalog, inert off-path learning, advisory, and HIL-gated chaos behavior, and prompt confidentiality; it adds no operational, approval, or execution authority. Deployment-guard source revisions follow the same rebuild rule.
 A cited Reader interactive-chat correction remains descriptive: it records that Reader can use `chat.stream` at the Reader tool floor while background, mutation, approval, and execution operations stay role-gated.
@@ -149,6 +149,9 @@ invoke reversion, or establish operational evidence.
 Threshold-parity source revisions follow the same rule: the catalog records the reviewed hard-bound and configuration separation but does not select an active threshold, promote a policy, or grant runtime authority.
 Question-bank source integration and owner-doc compaction follow the same rule: refreshing the
 generated digest preserves 400 questions without certifying semantic coverage or live evidence.
+Adaptive Azure Monitor investigation sources follow it as well: the catalog describes reviewed
+recipe selection, fixed-KQL execution, and no-data limits without exposing raw KQL or granting
+query authority.
 Document baseline validation rejects non-finite inputs and derived rates. Refreshing its source
 pins records that numeric contract, not an authenticated corpus receipt or measured deployment capacity.
 Post-turn migration citations follow the shared Operator rollback contract: evidence inherited

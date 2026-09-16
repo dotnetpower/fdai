@@ -118,6 +118,8 @@ class PostgresReportLineContacts:
             page = await self.store.read_state_page(
                 prefix=_HIL_PARK_PREFIX,
                 limit=1_000,
+                match_field="status",
+                match_value="awaiting_contact_consent",
             )
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("report-line contact source is unavailable") from exc

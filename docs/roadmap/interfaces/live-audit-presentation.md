@@ -51,6 +51,20 @@ Context facts, query controls, and record details keep visible provenance and se
 explanations. Recorded hashes alone do not verify ledger integrity; source-only evidence
 does not become an independently verified effect.
 
+The Operator API owns additive audit summary and record-context projections. The Audit workspace
+explicitly requests the summary; Incident, Agent Activity, and Trace consumers retain the bounded
+page-only read. Summary counts cover the complete retained query scope, not only the loaded page.
+Chain status combines the latest retained Core `audit.chain` startup receipt with a current
+structural scan of stored hash links; the Console does not describe rows appended after that
+receipt as fully rehashed.
+
+Record context is kind-aware. Read-only observation-source transitions expose their source,
+campaign correlation, domain, owner, and recorded state without presenting action tier, rollback,
+dispatch, or effect-verification fields as missing. Existing retained campaign rows are normalized
+from their recorded `campaign_id`, `source_id`, and `status`; new rows also record canonical
+correlation, target, outcome, mode, and idempotency fields. This compatibility projection does not
+rewrite the immutable ledger or convert source readiness into managed-resource effect evidence.
+
 ## Related docs
 
 | To learn about | Read |

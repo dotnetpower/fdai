@@ -81,7 +81,6 @@ jobs:
       TF_VAR_azure_openai_deployment_sku: ${{ vars.SCENARIO_LAB_AOAI_DEPLOYMENT_SKU || 'GlobalStandard' }}
       TF_VAR_azure_openai_private_dns_zone: >-
         {"id":"${{ vars.SCENARIO_LAB_OPENAI_PRIVATE_DNS_ZONE_ID }}","name":"privatelink.openai.azure.com","resource_group_name":"${{ vars.SCENARIO_LAB_OPENAI_PRIVATE_DNS_RESOURCE_GROUP_NAME }}"}
-      SCENARIO_LAB_BACKEND_IMAGE: ${{ vars.SCENARIO_LAB_BACKEND_IMAGE }}
       SCENARIO_LAB_CHAOS_MESH_CHART_VERSION: ${{ vars.SCENARIO_LAB_CHAOS_MESH_CHART_VERSION }}
       SCENARIO_LAB_APPROVAL_REF: ${{ inputs.approval_ref }}
       SCENARIO_LAB_CONFIRM_ENFORCE: ${{ inputs.run_reference_sweep && 'true' || 'false' }}
@@ -184,16 +183,12 @@ jobs:
             TF_VAR_region TF_VAR_region_short \
             TF_VAR_azure_openai_private_dns_zone \
             TF_VAR_admin_ssh_public_key TF_VAR_vm_image_version \
-            SCENARIO_LAB_BACKEND_IMAGE SCENARIO_LAB_CHAOS_MESH_CHART_VERSION; do
+            SCENARIO_LAB_CHAOS_MESH_CHART_VERSION; do
             [[ -n "${!required_name:-}" ]] || {
               echo "required scenario-lab setting is empty: $required_name" >&2
               exit 1
             }
           done
-          [[ "$SCENARIO_LAB_BACKEND_IMAGE" =~ @sha256:[0-9a-f]{64}$ ]] || {
-            echo "SCENARIO_LAB_BACKEND_IMAGE must be pinned by sha256 digest." >&2
-            exit 1
-          }
           [[ "$SCENARIO_LAB_CHAOS_MESH_CHART_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
             echo "SCENARIO_LAB_CHAOS_MESH_CHART_VERSION must be exact." >&2
             exit 1
@@ -703,7 +698,7 @@ jobs:
           fi
           echo "scenario-lab Terraform apply completed."
 
-      - name: Configure private AKS test substrate
+      - name: Configure AKS test substrate
         if: inputs.action == 'apply'
         id: prepare
         working-directory: ${{ github.workspace }}
@@ -717,6 +712,14 @@ jobs:
             exit 1
           }
           printf 'environment_file=%s\n' "$environment_file" >>"$GITHUB_OUTPUT"
+          store_front_url_file="$output_dir/store-front-url"
+          [[ -f "$store_front_url_file" ]] || {
+            echo "scenario-lab environment preparation did not produce the Store Demo URL." >&2
+            exit 1
+          }
+          store_front_url="$(<"$store_front_url_file")"
+          printf 'store_front_url=%s\n' "$store_front_url" >>"$GITHUB_OUTPUT"
+          printf 'AKS Store Demo: %s\n' "$store_front_url" >>"$GITHUB_STEP_SUMMARY"
 
       - name: Run approved reference sweep
         if: inputs.action == 'apply' && inputs.run_reference_sweep

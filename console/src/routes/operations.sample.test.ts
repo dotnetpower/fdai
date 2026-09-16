@@ -1,7 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { decodeAgentOperationalActivity } from "../agent-operational-activity";
-import { decodeHilQueuePage, decodeIncidentPage } from "../api-operations";
+import {
+  decodeAuditPage,
+  decodeHilQueuePage,
+  decodeIncidentPage,
+  decodeRcaView,
+} from "../api-operations";
 import { decodeAutomationBlueprints } from "./automation-blueprints";
 import {
   decodeBackgroundTaskDetail,
@@ -30,6 +35,7 @@ import { decodeProcessJournal, decodeProcessList } from "./processes.model";
 import { decodeSchedulerRunPage } from "./scheduler-runs.model";
 import { decodeWorkflowApps } from "./workflow-apps.model";
 import { LIVE_SAMPLE_STORIES, liveSampleStory } from "./operations.sample-live-stories";
+import { decodeTraceResponse } from "./rule-trace";
 
 function response(path: string, query = ""): unknown {
   const value = operationsSampleResponse(path, new URLSearchParams(query));
@@ -77,15 +83,53 @@ test("Live comparison stories retain declared resource and action types", () => 
 
 describe("Operations Sample registry", () => {
   test("provides valid list and evidence projections", () => {
-    expect(decodeIncidentPage(response("/incidents")).items[0]).toMatchObject({
-      correlation_id: "sample-correlation-001",
-      target_ref: "sample-checkout-vm-01",
+    const incidents = decodeIncidentPage(response("/incidents", "status=all"));
+    expect(incidents.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        correlation_id: "sample-correlation-001",
+        target_ref: "sample-checkout-vm-01",
+        status: "resolved",
+      }),
+      expect.objectContaining({
+        correlation_id: "sample-correlation-002",
+        target_ref: "sample-checkout-standby-vm-01",
+        disposition: "awaiting_hil",
+      }),
+    ]));
+    expect(incidents.metrics).toMatchObject({
+      denominator: 2,
+      cohorts: { agent_assisted: 1, pending: 1 },
     });
     expect(decodeHilQueuePage(response("/hil-queue")).items[0]).toMatchObject({
       correlation_id: "sample-correlation-002",
       action_kind: "ops.start-vm",
       target_resource_ref: "sample-checkout-standby-vm-01",
     });
+    const pendingAudit = decodeAuditPage(
+      response("/audit", "correlation_id=sample-correlation-002"),
+    );
+    expect(pendingAudit.items).toHaveLength(3);
+    expect(pendingAudit.items.every(
+      (item) => item.correlation_id === "sample-correlation-002",
+    )).toBe(true);
+    const pendingTrace = decodeTraceResponse(
+      response("/audit/sample-correlation-002/trace"),
+      "sample-correlation-002",
+    );
+    expect(pendingTrace).toMatchObject({
+      step_count: 3,
+      terminal_stage: "approval",
+      latest_decision: "hil",
+      latest_outcome: "awaiting_hil",
+      complete: true,
+    });
+    expect(decodeRcaView(response("/rca", "correlation=sample-correlation-002")))
+      .toMatchObject({
+        correlation_id: "sample-correlation-002",
+        incident_id: "sample-incident-2",
+        hypotheses: [],
+        response: null,
+      });
     const onboarding = decodeOnboarding(response("/onboarding"));
     expect(onboarding).toMatchObject({
       blocked: true,

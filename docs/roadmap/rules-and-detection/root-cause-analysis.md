@@ -20,6 +20,7 @@ existing trust tiers. RCA explains an incident; it never grants approval or exec
 | Governed automated Incident RCA context | implemented | `delivery/persistence/postgres_governed_document_read.py`; `delivery/governed_rca_context.py`; `runtime/governed_rca.py`; automated T2 and context tests | A complete deployment binding supplies a separate read-only DSN, collection, access references, and reader groups. Automated Incident T2 uses the fixed Forseti principal and `incident-review` purpose, binds incident, resource, cutoff, ontology, and catalog identity, and holds when authorized document evidence is absent. |
 | Azure deployment history and dependency context | implemented | `delivery/azure/deployment_history.py`; `delivery/persistence/postgres_provider_identity.py`; `runtime/rca_bindings.py`; topology-history, provider, runtime, and control-loop tests | A dedicated Monitoring Reader resolves provider identity from the inventory generation at the event cutoff. Runtime materializes the bitemporal topology at the same cutoff, admits only successful exact-scope mutations with matching generation, supports lifecycle reopen intervals, and bounds context, analysis, and audit in one side-path deadline. |
 | Azure Monitor telemetry routing and model-safe facts | implemented | `delivery/azure/telemetry_workspace.py`; `delivery/azure/telemetry_query.py`; `core/rca/evidence.py`; `delivery/azure/llm/rca_model.py`; focused workspace, KQL, RCA, control-loop, and runtime tests | Event-time inventory identity selects exact Diagnostic Settings and workspace-based Application Insights routes under the dedicated reader. Up to three discovered workspaces plus one explicit fallback are queried. T2 receives bounded fact tokens and opaque citations, never raw log bodies from this telemetry leg. |
+| Adaptive telemetry recipe investigation | implemented | `core/rca/telemetry_evidence.py`; `core/rca/telemetry_recipes.py`; `core/read_investigation/telemetry_adaptive.py`; `delivery/azure/telemetry_recipe_query.py`; `runtime/adaptive_telemetry.py`; focused Core, Azure, Process, Operator, Pantheon, and Console tests | Forseti selects only reviewed recipe ids through the existing bounded adaptive Process. Heimdall supplies typed completeness receipts, Saga retains replay evidence, and complete positive receipts alone can ground T2. Raw KQL remains operator-only. |
 | Distributed trace cause discrimination | implemented | `core/rca/trace_continuity.py`; `tests/core/rca/test_trace_continuity.py` | One independently cited signal can distinguish instrumentation, collector, or header-propagation causes. Missing, conflicting, or scope-mismatched evidence holds for review, and the result carries no remediation reference. |
 | Read-only operator projection | implemented | `services/operator-service/src/fdai_operator_service/rca_projection.py`; focused projection tests | Audit hypotheses, citations, structured causal chains, and linked response plans are projected without action authority. |
 | Governed operational RCA accuracy | in-progress | [Observability and Detection](observability-and-detection.md#implementation-status) | No retained exact-revision cohort proves live cause accuracy, abstention, and downstream outcome closure across the tier mix. |
@@ -28,6 +29,7 @@ existing trust tiers. RCA explains an incident; it never grants approval or exec
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | implemented | Bound the reviewed telemetry recipe catalog to the existing adaptive investigation Process, exact event-time Azure workspace routing, completeness-aware Forseti revision, Saga Process evidence, Operator projection, and bilingual Console Investigation Room. Raw KQL is excluded from narrator and Pantheon model-visible tools. Completed 10 focused critique rounds; fixed raw-query authority exposure, unversioned policy identity, metadata substitution, cancellation leakage, no-data grounding, replay-unstable deadlines and citations, disabled production binding, module ownership, and projection/localization gaps. No finding above Low remains in this bounded slice. | `current change`; focused Core, Azure, Process replay, control-loop, Pantheon, Operator, Console model/i18n/typecheck, and 1440/993/390 Playwright checks passed. | Retain a governed live multi-workspace receipt and exact-revision cause-accuracy cohort before claiming operational validation. |
 | 2026-09-16 | implemented | Registered the bounded log fact reducer as a reviewed typed-evidence path after exact-head CI correctly flagged its regular expressions as an unreviewed lexical classifier. The reducer accepts one `LogRecord`, never operator utterance, and cannot select intent or authority. The semantic-routing detector remains unchanged. | PR #1145 CI run `35054516295`, attempt 1, regression shard 3/4 job `104662007669`; exact semantic-routing and typed-input regressions. | Require fresh exact-head CI before merge. Live multi-workspace evidence remains separate. |
 | 2026-09-16 | implemented | Connected event-time Azure resource identity to Diagnostic Settings and workspace-based Application Insights discovery, queried a capped workspace set with exact resource and time filters, and supplied model-safe telemetry fact tokens independently from governed document configuration. Completed 12 critique and hardening rounds over identity, ARM response integrity, route bounds, KQL semantics, event time, partial evidence, disclosure, determinism, cancellation, sovereign clouds, runtime parity, and typing. The rounds fixed strict ARM and Diagnostic Settings identity checks, case-equivalent route deduplication, fallback-inclusive limits, escaped KQL bounds, marker false positives, and citation identity collisions. Two reported higher-severity hypotheses were rejected because non-mapping payloads already fail before member access and KQL `=~` is case-insensitive equality rather than a regular-expression operator. No finding above Low remains in this bounded slice. | `current change`; focused RCA, Azure KQL, composition, control-loop, and runtime tests passed 483 cases; the new resolver reached 99.16% branch coverage; task-scoped Ruff and strict mypy passed. | Retain a governed live multi-workspace RCA receipt and include its cause accuracy and abstention outcomes in the exact-revision operational cohort. |
 | 2026-09-09 | implemented | Added deterministic T1 discrimination for distributed trace discontinuities. The classifier accepts exactly one bounded telemetry signal, requires its affected hop or boundary to match the detector result, cites both continuity and cause evidence, and returns no remediation reference. | `current change`; focused trace RCA checks passed 9 cases; Ruff and strict mypy passed the new Core slice. | Bind authoritative instrumentation, collector, and header-propagation evidence producers, then retain the governed live cohort tracked by issue #142. |
@@ -106,6 +108,33 @@ The revised design keeps source selection and disclosure deterministic:
 
 This path remains read-only and shadow-only. It can improve a hypothesis and its citations, but it
 does not grant action, approval, or execution authority.
+
+### Deciding when to query logs
+
+The initial automatic path queries both the default log and trace projections whenever T0 or T1
+cannot close a resource-bound case. The conversational `query_log` surface separately accepts raw
+KQL from an operator. Neither behavior lets an agent decide which missing evidence would distinguish
+the active hypotheses, and exposing raw KQL to a model would turn untrusted text into provider work.
+
+The revised path uses a typed `TelemetryEvidenceNeed`. Forseti may select only a catalogued recipe
+identifier after the current evidence declares one of `missing`, `partial`, `no_data`, `timed_out`,
+`unauthorized`, or `unavailable`. Heimdall supplies the source completeness record. The request pins
+the incident, exact resource, evidence cutoff, lookback profile, expected output schema, query and
+cost budgets, and idempotency key. It contains no KQL, workspace identifier, endpoint, table name,
+or caller-provided filter text.
+
+The Azure delivery adapter compiles the recipe identifier into reviewed KQL after exact workspace
+resolution. Results return bounded fact tokens and one source receipt with route count, rows,
+latency, truncation, freshness, completeness, and estimated cost units. A missing or failed source
+does not become an empty healthy observation. The existing raw `query_log` command remains an
+operator diagnostic surface and is not registered as a Pantheon autonomous tool.
+
+The runtime binds this shadow read path automatically when exact Azure telemetry routing is
+available. `FDAI_RCA_ADAPTIVE_TELEMETRY_ENABLED=false` is a deployment ceiling that disables it.
+The optional `MAX_ROUNDS`, `MAX_QUERIES`, `MAX_COST_UNITS`, and `DEADLINE_SECONDS` suffix settings
+narrow server-owned bounds; malformed or excessive values fail startup. Configuration version,
+recipe catalog digest, bounds, evidence cutoff, and terminal usage remain replay-stable Process
+evidence.
 
 ## Cause domains
 

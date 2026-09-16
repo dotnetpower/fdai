@@ -15,6 +15,7 @@ from fdai.delivery.azure.telemetry_query import (
     AzureLogAnalyticsRcaLogProvider,
     AzureLogAnalyticsTraceProvider,
 )
+from fdai.delivery.azure.telemetry_recipe_query import AzureMonitorTelemetryRecipeProvider
 from fdai.delivery.azure.telemetry_workspace import AzureTelemetryWorkspaceResolver
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -51,7 +52,12 @@ def attach_telemetry_workspace_resolver(
 
     log_provider = container.log_query_provider
     trace_provider = container.trace_query_provider
+    telemetry_evidence_provider = container.telemetry_evidence_provider
     if isinstance(log_provider, AzureLogAnalyticsRcaLogProvider):
+        telemetry_evidence_provider = AzureMonitorTelemetryRecipeProvider(
+            query_provider=log_provider.query_provider,
+            workspace_resolver=resolver,
+        )
         log_provider = log_provider.with_workspace_resolver(resolver)
     if isinstance(trace_provider, AzureLogAnalyticsTraceProvider):
         trace_provider = trace_provider.with_workspace_resolver(resolver)
@@ -59,6 +65,7 @@ def attach_telemetry_workspace_resolver(
         container,
         log_query_provider=log_provider,
         trace_query_provider=trace_provider,
+        telemetry_evidence_provider=telemetry_evidence_provider,
     )
 
 

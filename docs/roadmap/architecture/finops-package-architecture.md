@@ -145,14 +145,9 @@ cutoff. Missing service mapping, stale topology, conflicting objectives, incompl
 an unverified link can only lower autonomy. The graph never becomes a coordination store, policy
 engine, approval record, or execution surface.
 
-For a reviewed ontology release change, use the [release-derived pin generator](../../../scripts/catalog/refresh-release-derived-pins.py)
-under the [check-by-default, review-gated write workflow](../rules-and-detection/rule-semantic-retrieval.md#source-only-release-refresh).
-Refresh the exact release and canonical profile digest, packaged profile-byte SHA-256, asset
-manifest reference, and W6 source inventory's `package_manifest_sha256` together with all 16 F1-F8
-fixture references. Re-evaluate the unchanged expected outcomes for eight positive and eight
-negative cases; retain the deliberately foreign release in the F6 mixed-release negative case.
-This source-only refresh does not qualify W7 live evidence or change enablement, data access,
-mode, or promotion. Earlier live receipts remain bound to their original release. Adding alert ActionTypes follows this same source-only refresh and cannot activate Cost Governance.
+For a reviewed ontology release change, use the [release-derived pin generator](../../../scripts/catalog/refresh-release-derived-pins.py) under the [check-by-default, review-gated write workflow](../rules-and-detection/rule-semantic-retrieval.md#source-only-release-refresh).
+Preserve the reviewed declaration set while rebinding every semantic-profile declaration to its exact active ref. Refresh the exact release and canonical profile digest, packaged profile-byte SHA-256, asset manifest reference, and W6 source inventory's `package_manifest_sha256` together with all 16 F1-F8 fixture references. Re-evaluate the unchanged expected outcomes for eight positive and eight negative cases; retain the deliberately foreign release in the F6 mixed-release negative case.
+This source-only refresh does not qualify W7 live evidence or change enablement, data access, mode, or promotion. Earlier live receipts remain bound to their original release. Adding alert ActionTypes follows this same source-only refresh and cannot activate Cost Governance.
 
 ### Keep agents active and ownership fixed
 
@@ -385,6 +380,7 @@ seconds. The next source-gated read revalidates expired provenance, so an Operat
 or configuration recovery cannot pin Cost Governance to an earlier unavailable state.
 Route-owned decoders load only after their owning read begins, so unrelated Audit, agent-activity,
 Insights, and Reporting decoders do not enter the initial Cost Governance Console path.
+The explicit Sample path selects separate `synthetic-preview` records for cost, `optimization_case`, and `outcome` screens. These records exercise presentation only; they do not prove effect settlement or change package activation, cost-data access, or Live source state. The Console may sum complete `effect_verified` Sample amounts and compare them with Sample recommendation savings, but it keeps intermediate settlement, SLO regression, and unit-economics values unavailable. A Live projection containing only retained cost observations may expose its disclosed cost basis and record count on later-stage screens; those values remain observation evidence and cannot become a case, recommendation, saving, or settlement.
 Entry-bundle measurements bind to the exact Console and upstream revisions. A rebase or integration
 that changes those inputs requires a fresh measurement before the size evidence is reused.
 

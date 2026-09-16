@@ -22,6 +22,8 @@ existing single-pass control loop.
 > this doc ships **shadow-first** ([architecture.instructions.md § Safety
 > Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
 
+Human reporting source-pin refreshes remain descriptive and grant no approval or execution authority.
+
 ## Implementation status
 
 ### Implementation scope

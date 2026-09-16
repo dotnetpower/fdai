@@ -117,6 +117,7 @@ variable "event_topics" {
     semantic_requests              = optional(string, "operator.semantic-turn.requests")
     semantic_projections           = optional(string, "core.semantic-turn.projections")
     semantic_physical              = optional(string, "fdai.pantheon.objects")
+    operating_model                = optional(string, "fdai.operating-model")
     read_investigation_requests    = optional(string, "operator.read-investigation.requests")
     incident_intervention_requests = optional(string, "operator.incident-intervention.requests")
     notification_receipts          = optional(string, "fdai.notifications.delivery-receipts")
@@ -192,6 +193,7 @@ variable "stewardship_gitops" {
   type = object({
     enabled                   = optional(bool, false)
     owner                     = optional(string, "")
+    workflow_tools_enforce    = optional(bool, false)
     repo                      = optional(string, "")
     auth_mode                 = optional(string, "")
     token_secret_id           = optional(string, "")
@@ -223,6 +225,10 @@ variable "stewardship_gitops" {
       )
     )
     error_message = "Enabled stewardship GitOps requires owner, repo, and exactly one static-token or GitHub App credential binding."
+  }
+  validation {
+    condition     = !var.stewardship_gitops.workflow_tools_enforce || var.stewardship_gitops.enabled
+    error_message = "Workflow tool enforcement requires stewardship GitOps to be enabled."
   }
 }
 

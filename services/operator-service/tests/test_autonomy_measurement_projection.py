@@ -34,6 +34,18 @@ def _projection() -> dict[str, object]:
             "change_lead_time_seconds": unavailable_lower,
             "cost_per_resolved_event_usd": unavailable_lower,
         },
+        "metric_samples": {
+            "auto_resolution_rate": 1,
+            "human_touchpoints_per_100": 1,
+            "mttr_seconds": 0,
+            "change_lead_time_seconds": 0,
+            "cost_per_resolved_event_usd": 0,
+        },
+        "measurement_gaps": [
+            "missing_source:attributed_cost_usd",
+            "missing_source:change_lead_time_seconds",
+            "missing_source:mttr_seconds",
+        ],
         "leading": {
             "mixed_model_disagreement_rate": unavailable_lower,
             "verifier_failure_rate": unavailable_lower,
@@ -142,6 +154,38 @@ def test_rejects_numeric_overflow_as_projection_unavailable() -> None:
     verifier = leading["verifier_failure_rate"]
     assert isinstance(verifier, dict)
     verifier["value"] = 10**10_000
+
+    with pytest.raises(ProjectionUnavailableError):
+        validate_autonomy_measurement(projection)
+
+
+def test_rejects_metric_value_without_a_metric_sample() -> None:
+    projection = deepcopy(_projection())
+    success = projection["success"]
+    samples = projection["metric_samples"]
+    assert isinstance(success, dict)
+    assert isinstance(samples, dict)
+    mttr = success["mttr_seconds"]
+    assert isinstance(mttr, dict)
+    mttr["value"] = 30.0
+    samples["mttr_seconds"] = 0
+
+    with pytest.raises(ProjectionUnavailableError):
+        validate_autonomy_measurement(projection)
+
+
+@pytest.mark.parametrize(
+    "gap",
+    [
+        "missing_source:unknown",
+        "unknown:mttr_seconds",
+        "missing_source",
+        "",
+    ],
+)
+def test_rejects_unknown_measurement_gap(gap: str) -> None:
+    projection = deepcopy(_projection())
+    projection["measurement_gaps"] = [gap]
 
     with pytest.raises(ProjectionUnavailableError):
         validate_autonomy_measurement(projection)

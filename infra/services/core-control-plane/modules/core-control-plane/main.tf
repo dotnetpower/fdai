@@ -16,6 +16,7 @@ locals {
       endpoint_env = "FDAI_TEAMS_NOTIFICATION_ENDPOINT"
     }
   })
+  github_workflow_tools_enforce = local.stewardship_gitops_enabled && var.stewardship_gitops.workflow_tools_enforce
 }
 
 module "container_app" {
@@ -101,6 +102,7 @@ module "container_app" {
     { name = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC", value = var.event_topics.semantic_requests },
     { name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC", value = var.event_topics.semantic_projections },
     { name = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC", value = var.event_topics.semantic_physical },
+    { name = "FDAI_OPERATING_MODEL_TOPIC", value = var.event_topics.operating_model },
     { name = "FDAI_READ_INVESTIGATION_REQUEST_TOPIC", value = var.event_topics.read_investigation_requests },
     { name = "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC", value = var.event_topics.incident_intervention_requests },
     { name = "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES", value = "observer:heimdall:azure-container-apps" },
@@ -128,6 +130,7 @@ module "container_app" {
     { name = "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", value = "true" },
     { name = "FDAI_GITOPS_OWNER", value = var.stewardship_gitops.owner },
     { name = "FDAI_GITOPS_REPO", value = var.stewardship_gitops.repo },
+    { name = "FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE", value = local.github_workflow_tools_enforce ? "1" : "0" },
     ], local.stewardship_gitops_token_enabled ? [
     { name = "FDAI_GITOPS_TOKEN", secret_name = "stewardship-gitops-token" },
     ] : local.stewardship_gitops_app_enabled ? [

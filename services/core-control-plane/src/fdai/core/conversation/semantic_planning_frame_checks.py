@@ -41,6 +41,9 @@ from .semantic_planning_frame import (
     build_historical_topology_clarification as _build_historical_topology_clarification,
 )
 from .semantic_planning_frame import (
+    build_logical_service_current_state_frame as _build_logical_service_current_state_frame,
+)
+from .semantic_planning_frame import (
     build_named_resource_group_membership_frame as _build_named_resource_group_membership_frame,
 )
 from .semantic_planning_frame import (
@@ -666,6 +669,14 @@ def deterministic_pre_frame_selection(
     )
     if named_resource_group is not None:
         proposal, frame = named_resource_group
+        return proposal, frame, None
+    logical_service_state = _build_logical_service_current_state_frame(
+        judgment if judgment_accepted else None,
+        utterance=utterance,
+        context=context,
+    )
+    if logical_service_state is not None:
+        proposal, frame = logical_service_state
         return proposal, frame, None
     summary = build_function_backed_summary_frame(
         judgment if judgment_accepted else None,

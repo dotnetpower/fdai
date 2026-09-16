@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 2615d356ca72227f76c3b76cbd28f3ff8d0ff0ba
+translation_source_sha: 1964bcfe22f4a25c00e52681f49124215081d82a
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -179,7 +179,15 @@ FDAI 서비스는 다음 필드를 포함하는 하나의 런타임 중립 워�
 Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 변환합니다. AKS 렌더러는
 명세를 typed Kubernetes `Deployment`, `Service`, `ServiceAccount`, `HorizontalPodAutoscaler`,
 `PodDisruptionBudget`, `NetworkPolicy`, `CronJob` 리소스로 변환합니다. 첫 AKS 구현은 장기 실행
-서비스마다 두 개의 replica를 유지하며 Knative 또는 KEDA를 요구하지 않습니다.
+서비스마다 두 개의 replica를 유지하며 Knative 또는 KEDA를 요구하지 않습니다. Console 게시는 선택한 Terraform 프로필에 브라우저 gateway 기준 URL 출력이 있으면 해당 URL을
+사용합니다. 출력이 없으면 기존 Container Apps 서비스 FQDN 조회를 유지합니다. 게시기는 선택한
+HTTPS 기준 URL을 동일한 Console 빌드 계약에 전달합니다. 런타임 선택으로 브라우저 경로를 다시
+작성하거나 Operator API 경로를 변경하지 않습니다.
+
+두 렌더러 모두 `FDAI_OPERATING_MODEL_TOPIC`을 통해 Core를 `fdai.operating-model` 논리 토픽에
+연결합니다. 이 토픽은 기존 의미 physical Event Hub와 Managed Identity 전송을 공유하며 별도
+Event Hub 엔터티나 권한 채널이 아닙니다. AKS standalone 렌더러는 정확한 substrate 출력에서
+값을 가져오고 독립 및 legacy Container Apps 렌더러는 같은 typed 배포 입력을 받습니다.
 
 Operator의 배정 알림과 사람 승인(HIL) 전송에 필요한 가져오기는 같은 Operator Service
 패키지와 런타임 안의 기존 `iam_composition` 모듈에 모읍니다. 원래 어댑터와 팩터리 객체를
@@ -205,10 +213,12 @@ CronJob을 렌더링합니다. 이력 작업은 읽기 전용 inventory 신원, 
 archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle은 별도의 보호된 전환과
 정확히 저장된 인증 증적을 요구하며 런타임 선택은 어느 권한도 부여하지 않습니다.
 
-인벤토리 명령과 CLI 지원 모듈은 두 플랫폼과 로컬 관리 스택에서 동일한 읽기 전용 실패 경계를 유지합니다.
-Activity Log 복구 가속은 전체 조정과 독립적입니다. 세대 승격 전후에 가속기가 실패하면
-사용 불가 상태로 보고하며, 실패한 변경분의 커서를 진행하거나 전체 인벤토리 루프를
-종료하지 않습니다.
+인벤토리 명령은 읽기 전용 실패 경계를 유지하며 Activity Log 복구 실패는 변경분 커서를 진행하거나
+재조정을 중단할 수 없습니다. 수동 모델 서비스 근거는 추론 없이 인벤토리 신원과 Azure Monitor를
+재사용하며 실패하면 해당 범위만 낮춥니다. 재조정 범위가 조회 구간, 최신성, 데이터 지점 및 제한
+시간을 결정합니다. 독립 실행형 기반 대상 집합에는 기존 구독, 작업 영역, 정확한 클러스터, 비용 및
+파이프라인 단계 역할이 포함됩니다. 이러한 할당이 없는 인벤토리 신원은 공급자 범위, 메트릭, 로그,
+비용 또는 게시 준비 상태를 입증할 수 없습니다.
 
 관리 호스트는 선택한 Deployment 이름, 이미지 참조, 복제본 수 범위를 기록합니다. 상태 재조회는
 해당 목록 전체, 현재 관측 세대, 준비된 복제본, 같은 소스 버전에서 실행 중인 Pod 이미지 digest를
@@ -272,7 +282,9 @@ API Server VNet Integration을 활성화하고, 나중에 클러스터를 교체
 모드를 활성화할 수 있도록 최소 `/28`의 위임된 API 서버 서브넷을 예약합니다. 클러스터 상태는
 명시적인 Standard NAT Gateway, 고정 Standard 송신 공용 IP와 두 연결을 소유하고 AKS를 만들기
 전에 연결을 완료합니다. 송신 유형은 AKS 관리형 VNet 전용 `managedNATGateway`가 아니라
-`userAssignedNATGateway`입니다.
+`userAssignedNATGateway`입니다. 송신 공용 IP의 Azure Policy 소유 `ip_tags`는 Terraform 수명 주기 조정 대상에서 제외하지만 일반
+`tags`는 Terraform이 계속 소유합니다. 이 경계는 정책 메타데이터 때문에 공용 IP 및 NAT 연결이
+교체되는 것을 막을 뿐이며 클러스터, 노드 풀 또는 DCR 변경에는 예외를 부여하지 않습니다.
 
 기본 프로파일은 인증된 공개 API 접근을 유지하고 검토된 접근 제한을 적용합니다. API 서버와 노드
 사이 트래픽은 통합된 비공개 경로를 사용합니다. 이는 연결된 기본 구성일 뿐 비공개 클러스터,
@@ -287,7 +299,7 @@ API Server VNet Integration을 활성화하고, 나중에 클러스터를 교체
 직렬화한 다음 지역 제한, 필요한 세 개 영역, 아키텍처, 호스트 암호화, 제품군별 quota 및 전체
 quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로그 요청을 보내거나 실패한
 프로바이더 읽기를 재시도하지 않습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
-할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다.
+할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다. Container Insights는 Managed Identity를 사용하는 `oms_agent` 추가 기능과 Terraform이 소유하는 데이터 수집 규칙(DCR) 및 클러스터 연결을 함께 사용합니다. 이 규칙은 `Microsoft-ContainerInsights-Group-Default` 스트림을 1분마다 선택한 Log Analytics workspace로 보내고 `ContainerLogV2`를 활성화합니다. 실행 중인 agent Pod에 이 연결이 없으면 모니터링 준비 상태가 아닙니다. DCR이 존재하고 workspace 테이블에 현재 레코드가 수집될 때까지 메트릭 및 로그 소스는 사용 불가 상태로 유지됩니다.
 
 로컬 디스크가 없는 기본 SKU는 임시 저장소 대신 플랫폼에서 암호화하는 Managed OS 디스크를
 유지합니다. Checkov 예외는 해당 리소스에만 둡니다. 고정된 검사기 버전은 AzureRM의 이전 업그레이드
@@ -350,7 +362,7 @@ anti-affinity, disruption budget, 백업 불변성, 특정 시점 복구, 노드
 복구 참조, 권위 있는 observer를 가집니다. `deployment_ready=true`가 되려면 선택된 모든 서비스가
 정상이어야 하고, 워크로드 신원이 유효해야 하며, Kafka 왕복이 완료되어야 합니다. 또한 데이터베이스
 마이그레이션이 최신이고 canary 작업 하나가 성공해야 하며 선택된 모든 상태 root의 두 번째 플랜에서
-변경이 없어야 합니다.
+변경이 없어야 합니다. 혼합 개정 서비스 배포는 감사 API의 페이지 전용 기본값을 유지합니다. 최신 Console이 추가적인 `summary=true`를 보내더라도 이전 Operator는 기존 페이지 묶음을 반환하며, 새 Operator는 이 활성화 설정이 있을 때만 원장 전체 요약을 계산하므로 Incident, Agent Activity, Trace 및 선택적 비용 패키지 경로가 이 조회 비용을 이어받지 않습니다.
 
 ## 서명된 키트 요구 사항
 

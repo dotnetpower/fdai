@@ -5,8 +5,12 @@ import { decodeRecordedResourceStates } from "../recorded-resource-state";
 import { loadDashboardRecordedStates } from "./dashboard-v2.loading";
 import { dashboardResourceState } from "./dashboard-v2.model";
 
-const fact = (value: string | null, source_path: string | null) => ({
-  value, source_path, observed_at: null, recorded_at: null,
+const fact = (
+  value: string | null,
+  source_path: string | null,
+  observed_at: string | null = null,
+) => ({
+  value, source_path, observed_at, recorded_at: observed_at,
   freshness: "unknown", completeness: null, conflicts: [], reason: value === null ? "state_not_recorded" : "metadata_not_recorded",
 });
 function resource(id: string, value = "Running") {
@@ -22,6 +26,7 @@ function page(ids: string[], next_cursor: string | null = null, total_count = id
     schema_version: "1.0.0", source_generation: "example-generation",
     ontology_generation: "example-generation",
     ontology_manifest_digest: `sha256:${"c".repeat(64)}`,
+    invalidation_watermark: 42,
     source_kind: "inventory_snapshot_resource",
     source_cutoff: "2026-09-05T12:00:00Z", ontology_release_digest: `sha256:${"a".repeat(64)}`,
     resources: ids.map((id) => resource(id)), total_count, next_cursor,
@@ -48,21 +53,49 @@ describe("shared recorded state consumption", () => {
     expect(snapshot?.source).toBe("inventory_snapshot_resource");
     expect(snapshot?.ontologyGeneration).toBe("example-generation");
     expect(snapshot?.ontologyManifestDigest).toBe(`sha256:${"c".repeat(64)}`);
+    expect(snapshot?.invalidationWatermark).toBe(42);
   });
 
-  test.each(["Online", "Active", "Enabled", "Ready", "Custom retained state"])("retains %s without turning it into Running or discarding it", async (value) => {
+  test.each(["Online", "Active", "Enabled", "Ready", "Custom retained state"])("retains unqualified %s without presenting it as active", async (value) => {
     const panel = vi.fn<OperatorApiClient["panel"]>().mockResolvedValue({ ...page(["one"]), resources: [resource("one", value)] });
     const snapshot = await loadDashboardRecordedStates({ panel });
     expect(snapshot!.resources[0]!.states!.operational.value).toBe(value);
-    expect(dashboardResourceState(snapshot!.resources[0]!, snapshot!, "operation")).not.toBe("unknown");
+    expect(dashboardResourceState(snapshot!.resources[0]!, snapshot!, "operation")).toBe("unknown");
     expect(dashboardResourceState(snapshot!.resources[0]!, snapshot!, "operation")).not.toBe("running");
     expect(dashboardResourceState(snapshot!.resources[0]!, snapshot!, "availability")).toBe("unknown");
+  });
+
+  test("retains serving evidence and uses the latest exact axis observation time", async () => {
+    const original = page(["one"]);
+    const payload: Record<string, unknown> = {
+      ...original,
+      resources: [{
+        ...original.resources[0],
+        states: {
+          ...original.resources[0]!.states,
+          provisioning: {
+            ...fact("Succeeded", "properties.provisioningState", "2026-09-05T11:55:00Z"),
+          },
+          serving: {
+            ...fact("Serving", "servingState", "2026-09-05T11:59:00Z"),
+            source_identity: "azure-monitor-model-serving",
+            authority: "telemetry",
+          },
+        },
+      }],
+    };
+    const panel = vi.fn<OperatorApiClient["panel"]>().mockResolvedValue(payload);
+
+    const snapshot = await loadDashboardRecordedStates({ panel });
+
+    expect(snapshot?.resources[0]?.states?.serving?.value).toBe("Serving");
+    expect(snapshot?.resources[0]?.observedAt).toBe("2026-09-05T11:59:00Z");
   });
 
   test.each([
     { source_generation: "different" }, { source_cutoff: "2026-09-05T12:01:00Z" },
     { total_count: 3 }, { ontology_release_digest: `sha256:${"b".repeat(64)}` },
-    { ontology_manifest_digest: `sha256:${"d".repeat(64)}` },
+    { ontology_manifest_digest: `sha256:${"d".repeat(64)}` }, { invalidation_watermark: 43 },
     { resources: [resource("one")] },
   ])("rejects mixed, overlapping or inconsistent pages: %j", async (patch) => {
     const panel = vi.fn<OperatorApiClient["panel"]>().mockResolvedValueOnce(page(["one"], "next", 2))
@@ -74,6 +107,7 @@ describe("shared recorded state consumption", () => {
     { next_cursor: "loop" }, { resources: [] }, { execution_authority: true },
     { complete: true, next_cursor: "next" }, { total_count: 0 },
     { ontology_generation: "different" }, { source_kind: "ontology_resource" },
+    { invalidation_watermark: 0 },
     { resources: [{ ...resource("one"), resource_type: "authorization.role-assignment" }] },
   ])("fails closed on malformed or stalled responses: %j", async (patch) => {
     const panel = vi.fn<OperatorApiClient["panel"]>().mockResolvedValue({ ...page(["one"], "loop", 2), ...patch });
@@ -96,7 +130,7 @@ describe("shared recorded state consumption", () => {
     try {
       const panel = vi.fn<OperatorApiClient["panel"]>().mockReturnValue(new Promise(() => {}));
       const outcome = expect(loadDashboardRecordedStates({ panel })).rejects.toThrow("total deadline");
-      await vi.advanceTimersByTimeAsync(30000);
+      await vi.advanceTimersByTimeAsync(45_000);
       await outcome;
       expect(panel).toHaveBeenCalledTimes(1);
     } finally { vi.useRealTimers(); }
@@ -174,8 +208,17 @@ describe("shared recorded state consumption", () => {
       waitForRetry,
     )).rejects.toBe(error);
 
-    expect(panel).toHaveBeenCalledTimes(3);
-    expect(waitForRetry.mock.calls).toEqual([[250], [500]]);
+    expect(panel).toHaveBeenCalledTimes(9);
+    expect(waitForRetry.mock.calls).toEqual([
+      [250],
+      [500],
+      [1_000],
+      [2_000],
+      [4_000],
+      [8_000],
+      [12_000],
+      [12_000],
+    ]);
   });
 
   test("rejects invalid state-fact fields instead of synthesizing metadata", () => {

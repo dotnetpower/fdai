@@ -7,6 +7,7 @@ from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 from fdai_service_contracts.ontology_query import SemanticOperation, content_digest
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from fdai.rule_catalog.schema.inventory_query_language import (
@@ -217,8 +218,9 @@ def normalize_investigation_target(
     subject_constraints: tuple[str, ...],
     utterance: str,
     descriptors: Sequence[Mapping[str, Any]],
+    semantic_judgment: SemanticJudgmentProposal | Mapping[str, Any] | None = None,
 ) -> InvestigationIntentProposal:
-    """Repair one wholly unrecognized affected target from exact outer-frame facts."""
+    """Resolve one target type from exact frame or accepted judgment facts."""
 
     available_types = {
         name
@@ -232,27 +234,41 @@ def normalize_investigation_target(
         for entity in proposal.entities
         if entity.role is InvestigationEntityRole.AFFECTED_TARGET
     )
-    target_text = exact_target_from_constraints(
-        subject_constraints,
-        utterance=utterance,
-        descriptors=tuple(dict(descriptor) for descriptor in descriptors),
-    )
-    if len(declared_types) > 1 or len(targets) != 1 or target_text is None:
+    if len(targets) != 1:
         return proposal
     target = targets[0]
-    canonical_type = (
-        declared_types[0]
-        if declared_types
-        else _relationship_source_type(
-            proposal.relationship_intents,
-            source_mention_id=target.mention_id,
-            descriptors=descriptors,
-        )
+    judgment_target = _exact_judgment_target(
+        semantic_judgment,
+        target=target,
+        utterance=utterance,
+        available_types=available_types,
     )
+    if judgment_target is None:
+        target_text = exact_target_from_constraints(
+            subject_constraints,
+            utterance=utterance,
+            descriptors=tuple(dict(descriptor) for descriptor in descriptors),
+        )
+        if len(declared_types) > 1 or target_text is None:
+            return proposal
+        canonical_type = (
+            declared_types[0]
+            if declared_types
+            else _relationship_source_type(
+                proposal.relationship_intents,
+                source_mention_id=target.mention_id,
+                descriptors=descriptors,
+            )
+        )
+    else:
+        canonical_type, target_text = judgment_target
     if canonical_type not in available_types:
         return proposal
     candidate_types = set(target.object_type_candidates)
-    if candidate_types.intersection(available_types) and candidate_types != {canonical_type}:
+    if judgment_target is not None:
+        if canonical_type not in candidate_types:
+            return proposal
+    elif candidate_types.intersection(available_types) and candidate_types != {canonical_type}:
         return proposal
     start = utterance.index(target_text)
     repaired_target = target.model_copy(
@@ -271,6 +287,35 @@ def normalize_investigation_target(
             )
         }
     )
+
+
+def _exact_judgment_target(
+    judgment: SemanticJudgmentProposal | Mapping[str, Any] | None,
+    *,
+    target: InvestigationEntityMention,
+    utterance: str,
+    available_types: set[str],
+) -> tuple[str, str] | None:
+    if isinstance(judgment, Mapping):
+        try:
+            judgment = SemanticJudgmentProposal.model_validate(judgment)
+        except ValueError:
+            return None
+    if judgment is None or judgment.ambiguous:
+        return None
+    candidates = tuple(
+        item
+        for item in judgment.targets
+        if item.kind != "object_type"
+        and item.canonical_value in available_types
+        and item.source_start == target.span.start
+        and item.source_end == target.span.end
+        and item.value == target.span.text
+        and utterance[item.source_start : item.source_end] == item.value
+    )
+    if len(candidates) != 1 or candidates[0].canonical_value is None:
+        return None
+    return candidates[0].canonical_value, candidates[0].value
 
 
 def normalize_investigation_relationships(

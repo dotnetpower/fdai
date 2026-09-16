@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 6da8e2fc5076c44330b070ff4f92798032f3c9ff
+translation_source_sha: c2170cacee07463bd22e2d5373061d7cb55dd663
 translation_revised: 2026-09-16
 ---
 
@@ -145,9 +145,10 @@ exact release, 프로필 버전, principal, 목적 및 기준 시점에 고정�
 
 검토된 온톨로지 release가 바뀌면 [release 참조 생성기](../../../scripts/catalog/refresh-release-derived-pins.py)를
 [기본 검사와 검토 자격에 따른 쓰기 절차](../rules-and-detection/rule-semantic-retrieval-ko.md#소스-전용-release-갱신)에 따라 사용합니다.
-정확한 release와 정본 프로필 다이제스트, 패키지에 포함된 프로필 바이트의 SHA-256, 자산
-매니페스트 참조, W6 소스 목록의 `package_manifest_sha256`을 F1-F8 고정본 16개의 참조와 함께
-갱신합니다. 양성 8개와 음성 8개의 예상 결과는 바꾸지 않고 다시 평가하며, F6의 release 혼합
+검토된 선언 집합은 보존하면서 semantic profile의 모든 선언을 정확한 active 참조에 다시
+결속합니다. 정확한 release와 정본 프로필 다이제스트, 패키지에 포함된 프로필 바이트의
+SHA-256, 자산 매니페스트 참조, W6 소스 목록의 `package_manifest_sha256`을 F1-F8 고정본
+16개의 참조와 함께 갱신합니다. 양성 8개와 음성 8개의 예상 결과는 바꾸지 않고 다시 평가하며, F6의 release 혼합
 음성 사례에는 의도적으로 다른 release를 유지합니다. 이 소스 전용 갱신은 W7 실제 근거의
 적격성을 입증하지 않으며 활성화, 데이터 접근, 모드 또는 승격을 변경하지 않습니다.
 이전 실제 증적은 원래 release에 계속 연결됩니다. 알림 ActionType 추가도 같은 소스 전용 갱신 절차를 따르며 Cost Governance를 활성화할 수 없습니다.
@@ -377,6 +378,13 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 않습니다.
 경로가 소유한 디코더는 해당 읽기가 시작된 뒤에만 로드되므로 관련 없는 감사, 에이전트 활동,
 분석 및 보고 디코더가 초기 Cost Governance Console 경로에 포함되지 않습니다.
+명시적인 Sample 경로는 비용, `optimization_case`, `outcome` 화면마다 서로 다른
+`synthetic-preview` 레코드를 선택합니다. 이 레코드는 화면 표현만 검증하며 효과 정산을
+입증하거나 패키지 활성화, 비용 데이터 접근 또는 Live 출처 상태를 변경하지 않습니다. Console은
+완전한 `effect_verified` Sample 금액을 합산하고 Sample 추천 절감액과 비교할 수 있지만 중간 정산,
+SLO 회귀 및 단위 경제 값은 사용 불가 상태로 유지합니다. 보존된 비용 관찰만 포함한 Live 변환
+결과는 이후 단계 화면에 공개 가능한 비용 기준과 레코드 건수를 표시할 수 있지만, 이 값은 관찰
+근거로 남으며 사례, 추천, 절감액 또는 정산으로 바뀔 수 없습니다.
 진입 번들 측정값은 정확한 Console 및 upstream revision에 결속됩니다. 해당 입력을 바꾸는 rebase
 또는 통합이 있으면 크기 근거를 재사용하기 전에 다시 측정합니다.
 

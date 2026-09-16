@@ -30,6 +30,7 @@ from fdai_operator_service.family_adapters import PostgresOperationsAdapters
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
+    _matching_inventory_invalidation_watermark,
 )
 from fdai_service_contracts import OperatorRole
 
@@ -42,6 +43,7 @@ ONTOLOGY_CONTEXT = InventoryOntologyContext(
     generation="generation-1",
     ontology_release_digest=f"sha256:{'a' * 64}",
     manifest_digest=f"sha256:{'c' * 64}",
+    invalidation_watermark=42,
 )
 QUERY = ProjectionQuery(
     operation="ontology.instance.states",
@@ -131,6 +133,7 @@ async def test_page_contract_and_last_page_completeness_with_one_read_per_page()
         "ontology_release_digest",
         "ontology_generation",
         "ontology_manifest_digest",
+        "invalidation_watermark",
         "source_kind",
         "source_generation",
         "source_cutoff",
@@ -145,6 +148,7 @@ async def test_page_contract_and_last_page_completeness_with_one_read_per_page()
     assert first["source_generation"] == "generation-1"
     assert first["ontology_generation"] == "generation-1"
     assert first["ontology_manifest_digest"] == f"sha256:{'c' * 64}"
+    assert first["invalidation_watermark"] == 42
     assert first["source_kind"] == "inventory_snapshot_resource"
     assert first["source_cutoff"] == NOW.isoformat()
     assert first["total_count"] == 3
@@ -537,7 +541,17 @@ async def test_postgres_reads_the_committed_inventory_ontology_manifest(
                     "ontology_release_digest": f"sha256:{'a' * 64}",
                     "manifest_digest": f"sha256:{'c' * 64}",
                     "complete": True,
-                }
+                },
+                "invalidation": {
+                    "schema_version": "1.0.0",
+                    "sequence": 42,
+                    "generation": "generation-1",
+                    "manifest_digest": f"sha256:{'c' * 64}",
+                    "recorded_at": NOW.isoformat(),
+                    "complete": True,
+                    "execution_authority": False,
+                    "mutation_authority": False,
+                },
             }
         ]
 
@@ -546,10 +560,42 @@ async def test_postgres_reads_the_committed_inventory_ontology_manifest(
     assert await store.read_inventory_ontology_context() == ONTOLOGY_CONTEXT
     assert calls == [
         (
-            "SELECT value FROM state_kv WHERE key = %(key)s",
-            {"key": "inventory-ontology:manifest"},
+            """
+            SELECT manifest.value AS value,
+                   invalidation.value AS invalidation
+              FROM state_kv AS manifest
+              LEFT JOIN state_kv AS invalidation
+                ON invalidation.key = %(invalidation_key)s
+             WHERE manifest.key = %(manifest_key)s
+            """,
+            {
+                "manifest_key": "inventory-ontology:manifest",
+                "invalidation_key": "inventory-ontology:invalidation",
+            },
         )
     ]
+
+
+def test_inventory_invalidation_cursor_must_match_the_committed_manifest() -> None:
+    marker = {
+        "schema_version": "1.0.0",
+        "sequence": 42,
+        "generation": "generation-2",
+        "manifest_digest": f"sha256:{'c' * 64}",
+        "recorded_at": NOW.isoformat(),
+        "complete": True,
+        "execution_authority": False,
+        "mutation_authority": False,
+    }
+
+    assert (
+        _matching_inventory_invalidation_watermark(
+            marker,
+            generation="generation-1",
+            manifest_digest=f"sha256:{'c' * 64}",
+        )
+        is None
+    )
 
 
 async def test_postgres_empty_page_retains_zero_count(

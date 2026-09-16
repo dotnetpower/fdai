@@ -279,6 +279,8 @@ async def test_trace_reader_rejects_a_non_object_audit_entry() -> None:
 
 
 def test_trace_query_joins_executor_rows_through_correlated_event_ids() -> None:
-    assert "correlation_id = %(correlation_id)s::text" in AUDIT_TRACE_SQL
+    assert AUDIT_TRACE_SQL.count("= %(correlation_id)s::text") == 2
+    assert "entry#>>'{payload,correlation_id}'" in AUDIT_TRACE_SQL
+    assert "entry->>'campaign_id'" in AUDIT_TRACE_SQL
     assert "event_id IN (SELECT event_id FROM correlated_events)" in AUDIT_TRACE_SQL
     assert "LIMIT %(fetch)s" in AUDIT_TRACE_SQL
