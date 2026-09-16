@@ -20,7 +20,7 @@ registration, app package, or Microsoft Graph installation permission.
 You need:
 
 - an approved standard Team and channel;
-- an enabled Teams service plan for the maintainer when a dedicated Team must be created;
+- an enabled Teams service plan for the FDAI maintainer when a dedicated Team must be created;
 - one or more Entra users mapped to stable FDAI knowledge principal names;
 - a clean, pushed protected-main revision with required CI and an attested
   `fdai-system-knowledge-service` image;

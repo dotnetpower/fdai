@@ -1,8 +1,8 @@
 ---
 title: 시스템 지식 Teams 봇 온보딩
 translation_of: system-knowledge-teams-onboarding.md
-translation_source_sha: 943260ffe87fc1976df277909cef0c67da8b1dd1
-translation_revised: 2026-09-10
+translation_source_sha: 369c14ad44a68ae23131fe4de412e3cd8577ad11
+translation_revised: 2026-09-16
 ---
 # 시스템 지식 Teams 봇 온보딩
 
@@ -23,7 +23,7 @@ Webhook을 사용할 수 있습니다. Outgoing Webhook 경로에는 Entra appli
 다음 항목이 필요합니다.
 
 - 승인된 표준 Team과 channel
-- 전용 Team을 만들어야 할 때 유지관리자에게 활성화된 Teams service plan
+- 전용 Team을 만들어야 할 때 FDAI 유지관리자에게 활성화된 Teams service plan
 - 안정적인 FDAI 지식 principal 이름에 매핑할 Entra 사용자 한 명 이상
 - 필수 CI를 통과하고 attestation을 받은 `fdai-system-knowledge-service` 이미지가 있는 clean
   protected-main 개정

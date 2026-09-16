@@ -173,9 +173,10 @@ Coverage-inventory regeneration refreshes source digests, not measured coverage.
 > gate can pass; stale deterministic receipts are never accepted by compatibility.
 > The `resource_classified_as` and `Forecast`/`Pattern` catalog revisions each refreshed those
 > deterministic fixture digests in the same release change.
-> The current structural release refresh pins the four answered deterministic fixtures to the exact
-> release and Reader principal-manifest digests. Its design route relies on the App Shape contract
-> instead of duplicating the full Operator Console owner, and retains `production_ready=false`.
+> Every structural release refresh, including the current validation repair, pins the four answered
+> deterministic fixtures to the exact release and Reader principal-manifest digests in the same
+> change. The design route relies on the App Shape contract instead of duplicating the full
+> Operator Console owner, and retains `production_ready=false`.
 > The first epistemic-closure implementation slice now ships immutable finite
 > `QuestionUniverseReceipt`, typed `EpistemicStatus`, proof-carrying `EpistemicQuestionRecord`, and a
 > zero-threshold `EpistemicCoverageReceipt`. The existing coverage gate requires a matching passed

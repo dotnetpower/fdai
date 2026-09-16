@@ -1,4 +1,4 @@
-# Handover UI evidence follow-up
+# Ownership handover UI evidence follow-up
 
 This record bounds the local Console follow-up in issue #1017 after the protected delivery of
 #946 through PR #1014. It records falsifiable UI questions, measured results, and evidence gaps;

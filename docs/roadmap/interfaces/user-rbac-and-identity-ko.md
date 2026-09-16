@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: f806f62926b40ad7e07a4ac81beebbb800a07339
+translation_source_sha: 7372044e9ed9be186cb71fb1c4185bb5ce118dd8
 translation_revised: 2026-09-16
 ---
 
@@ -612,7 +612,7 @@ Owner는 ID 및 액세스에서 요청자, 공급자 주체, 역할, 감사 상�
 `approved`여도 새 토큰에 역할을 담으려면 공급자 멤버십이 필요합니다. 승인과 할당 주체는
 분리되며 향후 자동화도 이 변환 결과를 소비할 뿐 다시 쓰지 않습니다.
 
-### 11.4 인수인계 권한과 준비도
+### 11.4 담당자 인수인계 권한과 준비도
 
 현재 소스의 다음 경계는 RBAC, 담당 체계, 근거 검토, 실행을 서로 다른 권한으로 유지합니다.
 

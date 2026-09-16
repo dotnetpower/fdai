@@ -15,7 +15,7 @@ Manual Studio, and does not claim publication or deployment.
   search results and empty results, 200% text enlargement with spacing overrides,
   forced colors, reduced motion, and reading without JavaScript.
 
-## Findings and completed plan
+## Detected issues and completed plan
 
 | Priority | Finding | Change | Verification |
 | --- | --- | --- | --- |
