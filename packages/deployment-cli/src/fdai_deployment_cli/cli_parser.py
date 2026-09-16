@@ -203,6 +203,15 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         metavar="PATH",
         help="Private run directory (default: ~/.local/state/fdai/azure)",
     )
+    settings.add_argument(
+        "--foundation-workload",
+        default="fdai",
+        metavar="TOKEN",
+        help=(
+            "Foundation naming token for a new source installation "
+            "(default: %(default)s); repeat unchanged on approval resume"
+        ),
+    )
     initial = azure.add_argument_group("Initial source installation scope")
     initial.add_argument(
         "--setup-cost-ceiling",

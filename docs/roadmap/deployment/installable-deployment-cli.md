@@ -42,6 +42,11 @@ The public source command resumes these checkpoints using the shared private coo
 new interactive source installations confirm settings at startup only; later stages and JSON
 execution never prompt. `--approval-file <path>` explicitly supplies an existing
 private human approval to the shared verifier. Without it, retained ambient approvals are ignored.
+`--foundation-workload <token>` selects the naming token for a new source installation and defaults
+to `fdai`. Use a distinct token when canonical application or operations groups already exist.
+The token is sealed into source preparation, retained variables, the run binding, and every exact
+Foundation plan. Repeat it unchanged on approval resume. It grants no ownership of existing
+resources and never authorizes deletion or adoption.
 Initial confirmation is separate from that approval. The coordinator advances within exact approval and returns review state when another
 checkpoint needs authority; it does not create approval, read stdin or report success. Managed-host application
 execution and durable Trial activation are not yet connected. A plan
