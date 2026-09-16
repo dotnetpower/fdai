@@ -48,6 +48,8 @@ describe("clean console routes", () => {
     expect(panelPath("conversation-delivery")).toBe("/conversation-delivery");
     expect(panelPath("browser-evidence")).toBe("/browser-evidence");
     expect(panelPath("forecast-learning")).toBe("/forecast-learning");
+    expect(panelPath("architecture")).toBe("/architecture");
+    expect(parseConsoleRoute("/architecture").panelId).toBe("architecture");
     expect(panelPath("knowledge")).toBe("/knowledge");
     expect(panelPath("github")).toBe("/github");
     expect(panelPath("gitlab")).toBe("/gitlab");

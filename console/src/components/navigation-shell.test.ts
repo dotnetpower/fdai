@@ -6,8 +6,10 @@ import {
   displayedNavigationGroups,
   navigationGroupSelectionAction,
   nextMenuItemIndex,
+  visibleExplorerPanels,
   visibleNavigationGroups,
 } from "./navigation-shell";
+import { panelsInGroup } from "../panels";
 import { TOOLTIP_DELAY_MS, TOOLTIP_EXIT_MS } from "./tooltip";
 
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
@@ -26,6 +28,11 @@ describe("navigation shell groups", () => {
   test("keeps Cost Governance discoverable while activation state loads", () => {
     expect(source).not.toContain("costGovernanceVisible");
     expect(source).not.toContain('panel.id !== "cost-governance"');
+  });
+
+  test("omits Architecture from the Governance Explorer", () => {
+    expect(visibleExplorerPanels(panelsInGroup("governance")).map((panel) => panel.id))
+      .not.toContain("architecture");
   });
 
   test("hides optional groups while keeping Overview and Settings fixed", () => {
