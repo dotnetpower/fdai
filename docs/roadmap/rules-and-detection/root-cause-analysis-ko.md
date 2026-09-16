@@ -1,7 +1,7 @@
 ---
 title: 근본원인 분석
 translation_of: root-cause-analysis.md
-translation_source_sha: 3c3f6c132e99018367df755d36c3a623acc15ba8
+translation_source_sha: a3fc9ff7905dc01beb77b37bb1bd9ce58cea6564
 translation_revised: 2026-09-16
 ---
 # 근본원인 분석
@@ -31,6 +31,7 @@ translation_revised: 2026-09-16
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | 정확한 head의 CI가 정규식을 검토되지 않은 lexical 분류기로 올바르게 탐지한 뒤 범위가 제한된 로그 fact reducer를 검토된 typed-evidence 경로로 등록했습니다. 이 reducer는 `LogRecord` 하나만 받고 운영자 발화를 받지 않으며 의도 또는 권한을 선택할 수 없습니다. Semantic-routing 감지기는 변경하지 않았습니다. | PR #1145 CI run `35054516295`, attempt 1, regression shard 3/4 job `104662007669`, exact semantic-routing 및 typed-input 회귀 검사. | 병합 전에 새로운 정확한 head의 CI를 요구합니다. 실제 다중 작업 영역 근거는 별도입니다. |
 | 2026-09-16 | implemented | 이벤트 시각 Azure 리소스 신원을 Diagnostic Settings 및 작업 영역 기반 Application Insights 발견에 연결하고, 정확한 리소스 및 시간 필터로 개수가 제한된 작업 영역 집합을 조회하며, 관리되는 문서 구성과 독립적으로 모델 안전 원격 측정 fact token을 제공했습니다. 신원, ARM 응답 무결성, 경로 상한, KQL 의미 체계, 이벤트 시각, 부분 근거, 정보 공개, 결정성, 취소, 소버린 클라우드, 런타임 동등성 및 형식을 대상으로 12회의 비평 및 하드닝을 완료했습니다. 이 과정에서 엄격한 ARM 및 Diagnostic Settings 신원 검사, 대소문자가 같은 경로 중복 제거, 대체 경로를 포함한 상한, 이스케이프 후 KQL 상한, 표지 오탐 및 인용 신원 충돌을 수정했습니다. 보고된 상위 심각도 가설 두 개는 매핑이 아닌 payload가 멤버 접근 전에 이미 실패하고 KQL `=~`가 정규식 연산자가 아니라 대소문자를 무시하는 동등 비교이므로 기각했습니다. 이 제한된 범위에는 Low를 넘는 발견 사항이 남아 있지 않습니다. | `current change`; 집중 RCA, Azure KQL, 조립, control-loop 및 런타임 테스트 483건 통과, 새 resolver branch coverage 99.16%, 작업 범위 Ruff 및 strict mypy 통과. | 통제된 실제 다중 작업 영역 RCA 증적을 보존하고 원인 정확도 및 판단 보류 결과를 정확한 개정 번호의 운영 cohort에 포함합니다. |
 | 2026-09-09 | implemented | 분산 추적 불연속을 위한 결정론적 T1 구분을 추가했습니다. 분류기는 범위가 제한된 원격 측정 신호 하나만 받고, 영향을 받은 홉 또는 경계가 감지 결과와 일치하는지 확인하며, 연속성 근거와 원인 근거를 모두 인용하고, 수정 참조를 반환하지 않습니다. | `current change`; 집중 추적 RCA 검사 9건, 새 Core 범위의 Ruff 및 strict mypy가 통과했습니다. | 권위 있는 계측, 수집기, 헤더 전파 근거 생산자를 연결한 후 #142에서 추적하는 통제된 실제 cohort를 보존합니다. |
 | 2026-09-09 | implemented | 범위가 제한된 추적 원인 항목과 인용을 표준화하고 공백, 중복, 전체 텍스트 상한 초과를 차단했습니다. | `current change`; 집중 추적 RCA 정규화 검사. | 범위가 제한된 추적 RCA 비평 캠페인을 계속합니다. |
