@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
+import { sampleOutcomeSavings } from "./cost-governance-format";
 import { sampleCostGovernance } from "./cost-governance.sample";
+import { summarizeCostGovernance } from "./cost-governance.view-model";
 
 describe("Cost Governance Sample projection", () => {
   test.each([
@@ -30,5 +32,27 @@ describe("Cost Governance Sample projection", () => {
       item["status"] === "effect_verified"
       && item["source_authority"] === "synthetic-preview"
     ))).toBe(true);
+  });
+
+  test("derives presentation-only Sample savings without changing Live evidence", () => {
+    const projection = sampleCostGovernance("outcomes");
+    const summary = summarizeCostGovernance(projection);
+    const sample = sampleOutcomeSavings(
+      projection.source_authority,
+      summary.rows,
+      projection.analytics!.recommendations,
+    );
+
+    expect(sample).toEqual({
+      verifiedSavings: 41400,
+      projectedSavings: 68200,
+      realization: 41400 / 68200,
+      currency: "USD",
+    });
+    expect(sampleOutcomeSavings(
+      "authoritative-live-source",
+      summary.rows,
+      projection.analytics!.recommendations,
+    )).toBeNull();
   });
 });
