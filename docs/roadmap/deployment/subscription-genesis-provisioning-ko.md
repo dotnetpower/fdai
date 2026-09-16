@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 672362e12ef7bdd61257006841cf89ef4165729c
+translation_source_sha: f10b35e230018d4718cfb6421bf7a4308a399249
 translation_revised: 2026-09-16
 ---
 # 구독 초기 프로비저닝
@@ -61,7 +61,7 @@ Activity Log 복구와 Resource Graph 변경 가속은 범위별 잠금과 커�
 원본을 사용할 수 없으면 일회성 예약 실행은 계속 실패하므로 초기 구성 조정기가 실패를 관측할
 수 있습니다. Activity Log 복구 가속기는 `inventory_change_acceleration.py`에 있는 하나의
 정식 조립 진입점만 사용하며, CLI는 원본 구성 도우미에 복구 동작을 중복하지 않고 이를
-가져옵니다. 이 진입점은 일부 속성 완전성을 명시적으로 선언하고 각 범위의 마지막 경계 이후에만
+가져옵니다. 짧은 가져오기는 압축하고 별칭은 따로 정렬해 구조 크기 한도 아래를 유지합니다. 이 진입점은 일부 속성 완전성을 명시적으로 선언하고 각 범위의 마지막 경계 이후에만
 커서를 전진시킵니다. 로컬 장기 실행 프로필은 같은 실패를 명시적으로 기록하고 구성된 루프 간격 후에만
 다시 시도합니다. 두 모드 모두 출처 권한이나 준비 상태 의미를 바꾸지 않습니다.
 AKS fleet 관측은 정확한 클러스터 연결을 최대 32개 허용하며 기존 단일 클러스터 변수와 함께

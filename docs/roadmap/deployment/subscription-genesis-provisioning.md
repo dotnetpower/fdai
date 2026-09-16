@@ -58,7 +58,7 @@ acceleration remain in a separate composition module with per-scope locks and cu
 cannot replace complete reconciliation or raise readiness. A one-shot scheduled run still fails
 when every inventory source is exhausted so the genesis orchestrator can observe the failure. The
 Activity Log recovery accelerator has one canonical composition entry in
-`inventory_change_acceleration.py`; the CLI imports it rather than duplicating recovery behavior in
+`inventory_change_acceleration.py`; the CLI imports it rather than duplicating recovery behavior, with short imports compacted and aliases separately sorted below the structural size ceiling, in
 its source-construction helpers. That entry declares sparse property completeness explicitly and
 advances each scope cursor only after its final fence. The
 local long-running profile records that exact failure and retries only after its configured loop

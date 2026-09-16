@@ -57,9 +57,7 @@ from fdai.delivery.inventory_job_config import (
     InventoryJobConfig,
     read_bool_env,
 )
-from fdai.delivery.inventory_progress import (
-    InventoryProgressUnavailableError,
-)
+from fdai.delivery.inventory_progress import InventoryProgressUnavailableError
 from fdai.delivery.inventory_progress_wiring import build_inventory_progress_recorder
 from fdai.delivery.inventory_scheduler import CollectionScheduleDecision
 from fdai.delivery.inventory_sync import (
