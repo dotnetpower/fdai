@@ -144,6 +144,8 @@ does not claim that protected channel ingestion is enabled or runtime-validated.
 Console resilience source revisions follow the same rule. Retry and loading-presentation changes
 update source blob pins and the catalog digest only; they do not widen catalog content, retrieval,
 message delivery, or authority.
+A3-E ledger table repairs likewise update source pins only; they do not bind an approval verifier,
+invoke reversion, or establish operational evidence.
 Document baseline validation rejects non-finite inputs and derived rates. Refreshing its source
 pins records that numeric contract, not an authenticated corpus receipt or measured deployment capacity.
 Post-turn migration citations follow the shared Operator rollback contract: evidence inherited
