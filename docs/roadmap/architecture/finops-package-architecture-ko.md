@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 77348e010dad0484924159ab593cf58a2823b17f
+translation_source_sha: eb2ede57f7ca7e593d8c87fa22322bf648c49a0f
 translation_revised: 2026-09-16
 ---
 
@@ -381,7 +381,9 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 `synthetic-preview` 레코드를 선택합니다. 이 레코드는 화면 표현만 검증하며 효과 정산을
 입증하거나 패키지 활성화, 비용 데이터 접근 또는 Live 출처 상태를 변경하지 않습니다. Console은
 완전한 `effect_verified` Sample 금액을 합산하고 Sample 추천 절감액과 비교할 수 있지만 중간 정산,
-SLO 회귀 및 단위 경제 값은 사용 불가 상태로 유지합니다.
+SLO 회귀 및 단위 경제 값은 사용 불가 상태로 유지합니다. 보존된 비용 관찰만 포함한 Live 변환
+결과는 이후 단계 화면에 공개 가능한 비용 기준과 레코드 건수를 표시할 수 있지만, 이 값은 관찰
+근거로 남으며 사례, 추천, 절감액 또는 정산으로 바뀔 수 없습니다.
 진입 번들 측정값은 정확한 Console 및 upstream revision에 결속됩니다. 해당 입력을 바꾸는 rebase
 또는 통합이 있으면 크기 근거를 재사용하기 전에 다시 측정합니다.
 
