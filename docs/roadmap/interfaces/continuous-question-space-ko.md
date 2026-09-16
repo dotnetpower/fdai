@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 4628957dcb03ff3efa3932db7913b5ff1ed79637
+translation_source_sha: 3f68f8481129e1125cdc3c78733254abb3e65085
 translation_revised: 2026-09-16
 ---
 # 지속형 질문 공간
@@ -177,7 +177,6 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 | Strict v2 릴리스 게이트 | implemented | `console/tests/live-e2e/ontology-query-assurance.ts`; `scripts/automation/run_ontology_assurance.py`; 집중 Console 및 감독기 검사 | 고정 100개 사례는 영어와 한국어 각각 50개를 유지합니다. Strict v2는 기존 14개와 선언, 릴리스/근거, 인벤토리 영향, Rule 상태를 두 로캘로 추가한 22개를 선택합니다. 릴리스 근거는 정확한 전송 22/22를 요구합니다. |
 | 현재 라이브 인증 | validated | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); 실행 `question-space-final-4dc5365aa-20260820-r15`; [`ontology-query-randomized-assurance-2026-08-20.json`](../../baselines/ontology-query-randomized-assurance-2026-08-20.json) | 중앙 검증된 정확한 소스가 요청 및 변환 결과 전송 22/22, 형식화된 판단 22/22, 완전한 근거 답변 16/16으로 strict v2를 통과했습니다. Seeded 보증은 완전한 근거 답변 73/73, 재시도 및 기능 불일치 0건, 모든 hard-zero 카운터 0으로 live 판단과 정확한 전송 100/100을 통과했습니다. |
 | 예약 workload 인증 | in-progress | `fdai_service_contracts/operator.py`, `fdai_operator_service/{auth,family_authorization}.py`, 집중 shared 계약 및 Operator bridge 검사 | 검증된 앱 전용 Entra 토큰은 불투명한 대상 다이제스트와 정확히 Reader App Role로 축소됩니다. Workload principal은 `chat.stream`만 제출할 수 있으며 사람 경로와 상위 역할을 물려받지 않습니다. Browser Entra campaign port는 구현됐고 서버 소유 workload 범위 및 인증 증적 mapper는 열린 상태입니다. |
-
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |

@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:a403aa8f591dc738fe9102f2e8139a3a0d9ed640e47991e77412bb0e84c03e47",
+  "catalog_digest": "sha256:c7b1e68b9fc3b7f93ea4d67ebbca527fe508dff6c6f20b98c40f80ecdf4f1963",
   "execution_authority": false,
-  "generated_at": "2026-09-16T05:31:43.871483Z",
+  "generated_at": "2026-09-16T05:34:52.610241Z",
   "records": [
     {
       "designed_behavior": [
@@ -448,7 +448,7 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:46d9c61f8bcd02fba8aab1e1e26a247ad874beb15fbcf96c518f93e32dc78a57",
+      "record_digest": "sha256:183e0d9f0e727bc20b81cd89affdab0fd387dac7750c1abb0ace7ea29010f1bf",
       "sources": [
         {
           "authority_role": "design",
@@ -461,7 +461,7 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "613915f659e86e702c200bc493f3daadb355c5fa",
+          "blob_sha": "6d133a5e5e309f22e06b2b233ec7052ccc5363a4",
           "line_end": 86,
           "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:b4ec79b8eb9c4184dda7835f0ac09c2f4e904430470476dd20a3f5241feb61e1",
+      "record_digest": "sha256:12014cc481b8353cffe580fff56cf3df609c0718f1901942ad2b099634a828c2",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "613915f659e86e702c200bc493f3daadb355c5fa",
+          "blob_sha": "6d133a5e5e309f22e06b2b233ec7052ccc5363a4",
           "line_end": 86,
           "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
