@@ -5,8 +5,9 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from enum import StrEnum
+from typing import Protocol
 
 from fdai.rule_catalog.pipeline.distill.ontology_models import (
     ClaimDisposition,
@@ -21,6 +22,8 @@ from fdai.rule_catalog.pipeline.distill.ontology_verify import (
 )
 
 _SHA256 = re.compile(r"^[a-f0-9]{64}$")
+_GIT_REVISION = re.compile(r"^(?:[a-f0-9]{40}|[a-f0-9]{64})$")
+_IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._:-][a-z0-9]+)*$")
 
 
 class ChangeRiskClass(StrEnum):
@@ -130,8 +133,16 @@ def normalize_review_package(package: OntologyReviewPackage) -> NormalizedReview
 
 @dataclass(frozen=True, slots=True)
 class ShadowReviewOutcome:
+    outcome_id: str
     proposal_digest: str
-    observed_day: date
+    observed_at: datetime
+    audit_sequence: int
+    review_receipt_digest: str
+    reviewer_id: str
+    requester_id: str
+    fdai_revision: str
+    ontology_release: str
+    binding_digest: str
     reviewed: bool
     risk_class: ChangeRiskClass
     correct: bool
@@ -141,10 +152,29 @@ class ShadowReviewOutcome:
     unverified_truth: bool = False
 
     def __post_init__(self) -> None:
-        if _SHA256.fullmatch(self.proposal_digest) is None:
-            raise ValueError("shadow outcome proposal_digest MUST be a SHA-256 digest")
-        if type(self.observed_day) is not date:
-            raise ValueError("shadow outcome observed_day MUST be a date")
+        for value in (
+            self.outcome_id,
+            self.proposal_digest,
+            self.review_receipt_digest,
+            self.ontology_release,
+            self.binding_digest,
+        ):
+            if _SHA256.fullmatch(value) is None:
+                raise ValueError("shadow outcome evidence identities MUST be SHA-256 digests")
+        if _GIT_REVISION.fullmatch(self.fdai_revision) is None:
+            raise ValueError("shadow outcome FDAI revision MUST be immutable")
+        if self.observed_at.tzinfo is None:
+            raise ValueError("shadow outcome observed_at MUST be timezone-aware")
+        if type(self.audit_sequence) is not int or self.audit_sequence < 1:
+            raise ValueError("shadow outcome audit_sequence MUST be positive")
+        if any(
+            _IDENTIFIER.fullmatch(value) is None for value in (self.reviewer_id, self.requester_id)
+        ):
+            raise ValueError("shadow outcome actor identities MUST be canonical")
+        if self.reviewer_id == self.requester_id:
+            raise ValueError("shadow outcome reviewer MUST be distinct from requester")
+        if not isinstance(self.risk_class, ChangeRiskClass):
+            raise ValueError("shadow outcome risk_class is invalid")
         flags = (
             self.reviewed,
             self.correct,
@@ -156,6 +186,103 @@ class ShadowReviewOutcome:
         if any(type(flag) is not bool for flag in flags):
             raise ValueError("shadow outcome flags MUST be booleans")
 
+    @property
+    def observed_day(self) -> date:
+        return self.observed_at.astimezone(UTC).date()
+
+
+@dataclass(frozen=True, slots=True)
+class ShadowReviewEvidenceBatch:
+    """Sealed live-shadow evidence for one exact code, ontology, and model binding."""
+
+    fdai_revision: str
+    ontology_release: str
+    binding_digest: str
+    policy_digest: str
+    sealed_at: datetime
+    source_receipt_digest: str
+    outcomes: tuple[ShadowReviewOutcome, ...]
+
+    def __post_init__(self) -> None:
+        if _GIT_REVISION.fullmatch(self.fdai_revision) is None:
+            raise ValueError("shadow evidence FDAI revision MUST be immutable")
+        for value in (
+            self.ontology_release,
+            self.binding_digest,
+            self.policy_digest,
+            self.source_receipt_digest,
+        ):
+            if _SHA256.fullmatch(value) is None:
+                raise ValueError("shadow evidence identities MUST be SHA-256 digests")
+        if self.sealed_at.tzinfo is None:
+            raise ValueError("shadow evidence sealed_at MUST be timezone-aware")
+        if len(self.outcomes) > 10_000:
+            raise ValueError("shadow evidence exceeds the outcome limit")
+        if len({item.outcome_id for item in self.outcomes}) != len(self.outcomes):
+            raise ValueError("shadow evidence outcome ids MUST be unique")
+        if len({item.review_receipt_digest for item in self.outcomes}) != len(self.outcomes):
+            raise ValueError("shadow evidence review receipts MUST be unique")
+        lineage: dict[str, tuple[object, ...]] = {}
+        sequences: set[tuple[str, int]] = set()
+        for outcome in self.outcomes:
+            if (
+                outcome.fdai_revision != self.fdai_revision
+                or outcome.ontology_release != self.ontology_release
+                or outcome.binding_digest != self.binding_digest
+            ):
+                raise ValueError("shadow outcomes MUST match the sealed evidence identity")
+            if outcome.observed_at > self.sealed_at:
+                raise ValueError("shadow outcomes MUST NOT follow evidence sealing")
+            sequence_key = (outcome.proposal_digest, outcome.audit_sequence)
+            if sequence_key in sequences:
+                raise ValueError("shadow outcome corrections MUST have unique audit sequences")
+            sequences.add(sequence_key)
+            lineage_value = (
+                outcome.observed_at,
+                outcome.requester_id,
+                outcome.risk_class,
+            )
+            if lineage.setdefault(outcome.proposal_digest, lineage_value) != lineage_value:
+                raise ValueError("shadow outcome corrections MUST preserve proposal lineage")
+
+    @property
+    def content_digest(self) -> str:
+        return stable_digest(
+            {
+                "binding_digest": self.binding_digest,
+                "fdai_revision": self.fdai_revision,
+                "ontology_release": self.ontology_release,
+                "outcomes": [
+                    {
+                        "audit_sequence": item.audit_sequence,
+                        "authority_violation": item.authority_violation,
+                        "correct": item.correct,
+                        "outcome_id": item.outcome_id,
+                        "observed_at": item.observed_at.astimezone(UTC).isoformat(),
+                        "policy_escape": item.policy_escape,
+                        "proposal_digest": item.proposal_digest,
+                        "review_receipt_digest": item.review_receipt_digest,
+                        "reviewed": item.reviewed,
+                        "reviewer_id": item.reviewer_id,
+                        "requester_id": item.requester_id,
+                        "risk_class": item.risk_class.value,
+                        "unverified_truth": item.unverified_truth,
+                        "wrong_target": item.wrong_target,
+                    }
+                    for item in sorted(self.outcomes, key=lambda value: value.outcome_id)
+                ],
+                "sealed_at": self.sealed_at.astimezone(UTC).isoformat(),
+                "policy_digest": self.policy_digest,
+                "source_receipt_digest": self.source_receipt_digest,
+            }
+        )
+
+
+class ShadowReviewEvidenceVerifier(Protocol):
+    """Verify the source receipt and every review unit in one shadow batch."""
+
+    def verify(self, batch: ShadowReviewEvidenceBatch) -> bool: ...
+
 
 @dataclass(frozen=True, slots=True)
 class PromotionPolicy:
@@ -164,10 +291,30 @@ class PromotionPolicy:
     min_precision_lower_bound: float = 0.99
 
     def __post_init__(self) -> None:
-        if self.min_distinct_days < 1 or self.min_reviewed_samples < 1:
+        if (
+            type(self.min_distinct_days) is not int
+            or type(self.min_reviewed_samples) is not int
+            or self.min_distinct_days < 1
+            or self.min_reviewed_samples < 1
+        ):
             raise ValueError("promotion day and sample floors MUST be positive")
-        if not 0.0 <= self.min_precision_lower_bound <= 1.0:
+        if (
+            isinstance(self.min_precision_lower_bound, bool)
+            or not isinstance(self.min_precision_lower_bound, (int, float))
+            or not math.isfinite(self.min_precision_lower_bound)
+            or not 0.0 <= self.min_precision_lower_bound <= 1.0
+        ):
             raise ValueError("promotion precision lower bound MUST be in [0, 1]")
+
+    @property
+    def policy_digest(self) -> str:
+        return stable_digest(
+            {
+                "min_distinct_days": self.min_distinct_days,
+                "min_precision_lower_bound": self.min_precision_lower_bound,
+                "min_reviewed_samples": self.min_reviewed_samples,
+            }
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,6 +325,8 @@ class PromotionAssessment:
     distinct_days: int
     precision_lower_bound: float
     reason_codes: tuple[str, ...]
+    evidence_digest: str
+    policy_digest: str
 
 
 def evaluate_review_package(
@@ -215,18 +364,22 @@ def evaluate_review_package(
 
 
 def assess_low_risk_promotion(
-    outcomes: tuple[ShadowReviewOutcome, ...],
+    batch: ShadowReviewEvidenceBatch,
     *,
     as_of: date,
+    verifier: ShadowReviewEvidenceVerifier,
     policy: PromotionPolicy | None = None,
 ) -> PromotionAssessment:
     """Assess evidence only; this function never changes a promotion registry."""
     if type(as_of) is not date:
         raise ValueError("promotion assessment as_of MUST be a date")
     active_policy = policy or PromotionPolicy()
-    digests = [outcome.proposal_digest for outcome in outcomes]
-    if len(digests) != len(set(digests)):
-        raise ValueError("shadow promotion proposal digests MUST be unique")
+    latest: dict[str, ShadowReviewOutcome] = {}
+    for outcome in batch.outcomes:
+        prior = latest.get(outcome.proposal_digest)
+        if prior is None or outcome.audit_sequence > prior.audit_sequence:
+            latest[outcome.proposal_digest] = outcome
+    outcomes = tuple(latest.values())
 
     future = tuple(outcome for outcome in outcomes if outcome.observed_day > as_of)
     samples = tuple(
@@ -240,6 +393,10 @@ def assess_low_risk_promotion(
     days = len({outcome.observed_day for outcome in samples})
     lower, _ = _wilson_interval(correct, len(samples))
     reasons: list[str] = []
+    if batch.policy_digest != active_policy.policy_digest:
+        reasons.append("policy_digest_mismatch")
+    if not verifier.verify(batch):
+        reasons.append("evidence_verification_failed")
     if len(samples) < active_policy.min_reviewed_samples:
         reasons.append("insufficient_reviewed_samples")
     if days < active_policy.min_distinct_days:
@@ -263,6 +420,8 @@ def assess_low_risk_promotion(
         distinct_days=days,
         precision_lower_bound=lower,
         reason_codes=tuple(reasons),
+        evidence_digest=batch.content_digest,
+        policy_digest=active_policy.policy_digest,
     )
 
 
@@ -288,6 +447,8 @@ __all__ = [
     "PromotionAssessment",
     "PromotionPolicy",
     "ReviewEvaluationReport",
+    "ShadowReviewEvidenceBatch",
+    "ShadowReviewEvidenceVerifier",
     "ShadowReviewOutcome",
     "assess_low_risk_promotion",
     "evaluate_review_package",

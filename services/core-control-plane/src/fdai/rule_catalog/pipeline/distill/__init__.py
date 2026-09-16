@@ -23,6 +23,8 @@ from fdai.rule_catalog.pipeline.distill.ontology_council import (
 )
 from fdai.rule_catalog.pipeline.distill.ontology_evaluation import (
     ChangeRiskClass,
+    ShadowReviewEvidenceBatch,
+    ShadowReviewEvidenceVerifier,
     assess_low_risk_promotion,
     evaluate_review_package,
     normalize_review_package,
@@ -39,6 +41,12 @@ from fdai.rule_catalog.pipeline.distill.ontology_lifecycle import (
     record_reconciliation,
 )
 from fdai.rule_catalog.pipeline.distill.ontology_review import build_ontology_review_package
+from fdai.rule_catalog.pipeline.distill.ontology_shadow_evidence import (
+    GovernedShadowReviewBatchProducer,
+    ImmutableFileShadowReviewEvidenceSource,
+    ManifestShadowReviewEvidenceVerifier,
+    ShadowReviewEvidenceManifest,
+)
 from fdai.rule_catalog.pipeline.distill.ontology_view import build_ontology_review_view
 
 __all__ = [
@@ -46,6 +54,7 @@ __all__ = [
     "assess_low_risk_promotion",
     "ChangeRiskClass",
     "EnvelopeOntologyReviewConsumer",
+    "GovernedShadowReviewBatchProducer",
     "build_ontology_review_package",
     "build_ontology_review_view",
     "build_projection_plan",
@@ -53,7 +62,9 @@ __all__ = [
     "document_content_digest",
     "evaluate_review_package",
     "inventory_claims",
+    "ImmutableFileShadowReviewEvidenceSource",
     "manual_document_from_envelope",
+    "ManifestShadowReviewEvidenceVerifier",
     "normalize_review_package",
     "OntologyAwareDistiller",
     "OntologyCouncilDistiller",
@@ -63,4 +74,7 @@ __all__ = [
     "reconcile_claims",
     "reconcile_projection",
     "record_reconciliation",
+    "ShadowReviewEvidenceBatch",
+    "ShadowReviewEvidenceManifest",
+    "ShadowReviewEvidenceVerifier",
 ]
