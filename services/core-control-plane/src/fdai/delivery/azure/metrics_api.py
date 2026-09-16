@@ -94,7 +94,7 @@ _DIMENSION_NAME = re.compile(r"[A-Za-z][A-Za-z0-9]{0,127}")
 _DIMENSION_VALUE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
 _RESOURCE_TYPE = re.compile(r"[A-Za-z][A-Za-z0-9.]+/[A-Za-z][A-Za-z0-9]+")
 _ARM_RESOURCE = re.compile(
-    r"/subscriptions/[A-Za-z0-9-]+/resourceGroups/[A-Za-z0-9_.()-]+"
+    r"/subscriptions/[A-Za-z0-9-]+/resourceGroups/[^/?#\x00-\x1f\x7f]+"
     r"/providers/(?P<namespace>[A-Za-z][A-Za-z0-9.]+)/"
     r"(?P<kind>[A-Za-z][A-Za-z0-9]+)/(?P<name>[A-Za-z0-9_.()-]+)"
     r"(?P<child>/deployments/(?P<deployment>[A-Za-z0-9][A-Za-z0-9_.-]{0,127}))?",

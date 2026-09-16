@@ -353,6 +353,19 @@ async def test_model_serving_enricher_matches_full_reconciliation_cadence() -> N
     )
     assert serving._config.max_points_per_target == 361  # noqa: SLF001
 
+    longer = replace(config, reconciliation_interval_seconds=43_200)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_http_ok)) as client:
+        long_interval_enrichers = inventory_sync_cli_support.build_azure_inventory_enrichers(
+            config=longer,
+            identity=identity,
+            http_client=client,
+            previous_state_reader=cast(Any, SimpleNamespace()),
+        )
+    long_serving = long_interval_enrichers[1]
+    assert isinstance(long_serving, AzureModelServingInventoryEnricher)
+    assert long_serving._config.lookback_seconds == 21_600  # noqa: SLF001
+    assert long_serving._config.freshness_ceiling_seconds == 43_200  # noqa: SLF001
+
 
 async def test_ontology_observer_persists_diagnostics_on_inventory_promotion(
     monkeypatch: pytest.MonkeyPatch,

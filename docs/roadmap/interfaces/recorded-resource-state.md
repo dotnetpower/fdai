@@ -226,12 +226,17 @@ the exact ResourceTypes whose ARM type is supported:
   `model_serving_response_invalid`, `model_serving_target_limit`, or
   `model_serving_target_unresolved`.
 - The serving lookback and freshness ceiling match the full reconciliation interval. The
-  one-minute metric point cap and total deadline are derived from that window, target count,
-  concurrency, and per-request timeout. Completed targets survive a deadline; an unqueried
-  target-limit remainder makes source coverage partial rather than fully available.
+  lookback is capped at six hours for a downstream profile with a longer interval. The one-minute
+  metric point cap and total deadline are derived from that window, target count, concurrency, and
+  per-request timeout. Completed targets survive a deadline; an unqueried target-limit remainder or
+  unresolved target makes source coverage explicitly unavailable with a partial reason rather than
+  fully available.
 - A retained Serving fact keeps its original timestamp only while its evidence cutoff remains
   inside the declared freshness ceiling. After that bound, the current missing-state reason
   replaces the value instead of carrying Serving indefinitely.
+- Baseline source states remain in `derived_source_states`. The new model-serving source uses the
+  additive `additive_source_states` metadata field, which an N-1 Operator ignores. Upgraded readers
+  merge both fields and ignore future bounded source names they do not yet present.
 - VM scale-set child collection requests `instanceView` and retains only the exact power-state code.
   VM Run Command hydration retains only `instanceView.executionState`. Status messages, command
   output, command error text, and other unreviewed instance-view fields do not enter inventory.

@@ -32,7 +32,7 @@ MODEL_SERVING_SOURCE_IDENTITY: Final = "azure-monitor-model-serving"
 _EVIDENCE_PREFIX: Final = f"{MODEL_SERVING_SOURCE_IDENTITY}:sha256:"
 _EVIDENCE_REF = re.compile(r"azure-monitor-model-serving:sha256:[0-9a-f]{64}")
 _MODEL_DEPLOYMENT_ARM_ID = re.compile(
-    r"^/subscriptions/[A-Za-z0-9-]+/resourceGroups/[A-Za-z0-9_.()-]+"
+    r"^/subscriptions/[A-Za-z0-9-]+/resourceGroups/[^/?#\x00-\x1f\x7f]+"
     r"/providers/Microsoft\.CognitiveServices/accounts/[A-Za-z0-9_.()-]+"
     r"/deployments/(?P<deployment>[A-Za-z0-9_.-]+)$",
     re.IGNORECASE,
@@ -57,6 +57,7 @@ def valid_model_serving_point(
 ) -> bool:
     """Validate exact target, dimensions, time, and numeric bounds for one metric point."""
 
+    labels = {name.casefold(): value for name, value in point.labels.items()}
     return (
         point.metric_name == metric_name
         and point.at.tzinfo is not None
@@ -65,9 +66,9 @@ def valid_model_serving_point(
         and not isinstance(point.value, bool)
         and math.isfinite(point.value)
         and point.value >= 0
-        and point.labels.get("resource_id", "").casefold() == provider_ref.casefold()
-        and point.labels.get("ModelDeploymentName", "").casefold() == deployment_name.casefold()
-        and point.labels.get("StatusCode") == "200"
+        and labels.get("resource_id", "").casefold() == provider_ref.casefold()
+        and labels.get("modeldeploymentname", "").casefold() == deployment_name.casefold()
+        and labels.get("statuscode") == "200"
     )
 
 

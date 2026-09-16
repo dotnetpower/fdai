@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 0429d8a310cd065be35388b444f4cd853cd87245
+translation_source_sha: 5f7d665a452a9a6dfb715e5430909a986a92557a
 translation_revised: 2026-09-16
 ---
 # 콘솔 근거 및 복원력
@@ -614,6 +614,8 @@ Resource 포커스, 생성 형상, Network 경로, 영향 표현, 반응형 상�
 기록 상태 요약과 필터는 미제공 및 적용 대상 아님을 실제 알 수 없음 값과 별도로 집계하고, 도구
 설명은 각 사실의 출처 권한과 관측 시각을 표시합니다. 오래된 `Serving` 근거는 경고 색상으로 값을
 유지하지만 현재 서비스 응답 수에는 포함하지 않습니다.
+온톨로지 인스턴스는 추가 방식 Azure 모델 서비스 응답 메트릭 출처를 별도로 표시하고 기본 출처를
+숨기지 않으면서 일부 범위 또는 사용 불가 사유를 유지합니다.
 
 ## 검증
 

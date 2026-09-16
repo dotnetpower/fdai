@@ -371,6 +371,9 @@ class InventoryOntologyProjector:
             sequence = previous.get("sequence")
             if isinstance(sequence, int) and not isinstance(sequence, bool) and sequence >= 1:
                 previous_sequence = sequence
+            else:
+                _LOG.warning("inventory_ontology_invalidation_marker_unrecoverable")
+                return None
             valid_previous = (
                 previous.get("schema_version") == "1.0.0"
                 and previous_sequence >= 1
@@ -392,7 +395,8 @@ class InventoryOntologyProjector:
             if not valid_previous:
                 _LOG.warning("inventory_ontology_invalidation_marker_replaced")
         elif previous is not None:
-            _LOG.warning("inventory_ontology_invalidation_marker_replaced")
+            _LOG.warning("inventory_ontology_invalidation_marker_unrecoverable")
+            return None
         if journal_high_watermark is None and previous_sequence == 0:
             return None
         journal_cursor = journal_high_watermark or 0

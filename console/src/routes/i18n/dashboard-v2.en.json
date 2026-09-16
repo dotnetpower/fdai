@@ -126,5 +126,5 @@
   "state.not-applicable": "Not applicable",
   "state.not-provided": "Not provided",
   "state.fresh": "Snapshot fresh",
-  "state.stale": "Snapshot stale"
+  "state.stale": "Stale evidence"
 }

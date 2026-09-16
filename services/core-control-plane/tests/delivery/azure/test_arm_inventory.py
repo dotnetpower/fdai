@@ -538,6 +538,7 @@ async def test_arm_overlay_hydrates_only_vm_run_command_execution_state() -> Non
     }
     assert "sensitive output" not in repr(result.resources[0].props)
     assert "sensitive error" not in repr(result.resources[0].props)
+    assert result.resources[0].last_seen is None
 
 
 @pytest.mark.parametrize(

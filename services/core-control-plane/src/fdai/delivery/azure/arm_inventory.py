@@ -681,15 +681,7 @@ def _with_vm_run_command_state(
         else {}
     )
     props["properties"] = nested
-    return replace(
-        resource,
-        props=props,
-        last_seen=(
-            datetime.now(tz=UTC).isoformat()
-            if isinstance(execution_state, str) and execution_state.strip()
-            else resource.last_seen
-        ),
-    )
+    return replace(resource, props=props)
 
 
 def _map_arm_row(

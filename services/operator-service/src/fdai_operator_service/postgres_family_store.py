@@ -888,7 +888,7 @@ class PostgresFamilyStore:
             metadata.get("relationship_drop_classifications", [])
         )
         projection_source_states = _projection_source_states(
-            metadata.get("derived_source_states", [])
+            _combined_projection_source_state_metadata(metadata)
         )
         relationship_coverage = _relationship_coverage(metadata.get("relationship_coverage"))
         provider_scope_coverage = _provider_scope_coverage(metadata.get("provider_scope_coverage"))
@@ -4210,7 +4210,7 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
         scope_digest = item.get("scope_digest")
         if (
             not isinstance(source, str)
-            or source not in allowed_sources
+            or re.fullmatch(r"[a-z][a-z0-9_]{0,127}", source) is None
             or status not in {"available", "unavailable"}
             or (
                 scope_digest is not None
@@ -4221,6 +4221,12 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
             )
         ):
             raise PostgresFamilyStoreUnavailable("active inventory source state is malformed")
+        if source not in allowed_sources:
+            _LOGGER.warning(
+                "ignored_unreviewed_inventory_source_state",
+                extra={"source": source},
+            )
+            continue
         if status == "available":
             if reason is not None or observed_at is None:
                 raise PostgresFamilyStoreUnavailable("active inventory source state is malformed")
@@ -4256,6 +4262,18 @@ def _projection_source_states(value: object) -> tuple[InventoryProjectionSourceS
     if len({(state.source, state.scope_digest) for state in states}) != len(states):
         raise PostgresFamilyStoreUnavailable("active inventory source states are duplicated")
     return tuple(sorted(states, key=lambda state: (state.source, state.scope_digest or "")))
+
+
+def _combined_projection_source_state_metadata(
+    metadata: Mapping[str, object],
+) -> list[object]:
+    """Merge baseline and forward-compatible source records for upgraded readers."""
+
+    baseline = metadata.get("derived_source_states", [])
+    additive = metadata.get("additive_source_states", [])
+    if not isinstance(baseline, list) or not isinstance(additive, list):
+        raise PostgresFamilyStoreUnavailable("active inventory source states are malformed")
+    return [*baseline, *additive]
 
 
 def _relationship_coverage(value: object) -> InventoryRelationshipCoverage | None:

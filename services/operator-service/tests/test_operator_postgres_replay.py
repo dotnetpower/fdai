@@ -31,6 +31,7 @@ from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
     PostgresFamilyStoreUnavailable,
+    _combined_projection_source_state_metadata,
     _instance_relationship_evidence,
     _projection_source_states,
 )
@@ -1199,6 +1200,52 @@ def test_projection_source_states_accept_model_serving_metrics() -> None:
 
     assert states[0].source == "azure_model_serving_metrics"
     assert states[0].status == "available"
+
+
+def test_projection_source_states_ignore_a_future_bounded_source() -> None:
+    assert (
+        _projection_source_states(
+            [
+                {
+                    "source": "future_observation_source",
+                    "status": "available",
+                    "observed_at": "2026-09-16T02:00:00+00:00",
+                    "reason": None,
+                }
+            ]
+        )
+        == ()
+    )
+
+
+def test_additive_source_metadata_is_forward_compatible_with_baseline_readers() -> None:
+    metadata = {
+        "derived_source_states": [
+            {
+                "source": "azure_resource_health",
+                "status": "available",
+                "observed_at": "2026-09-16T02:00:00+00:00",
+                "reason": None,
+            }
+        ],
+        "additive_source_states": [
+            {
+                "source": "azure_model_serving_metrics",
+                "status": "unavailable",
+                "observed_at": None,
+                "reason": "model_serving_partial",
+            }
+        ],
+    }
+
+    combined = _combined_projection_source_state_metadata(metadata)
+
+    assert len(combined) == 2
+    assert [state.source for state in _projection_source_states(combined)] == [
+        "azure_model_serving_metrics",
+        "azure_resource_health",
+    ]
+    assert metadata["derived_source_states"][0]["source"] == "azure_resource_health"
 
 
 async def test_inventory_invalidation_initial_connect_establishes_watermark_without_full_replay(

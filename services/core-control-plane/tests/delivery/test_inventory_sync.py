@@ -542,6 +542,13 @@ async def test_promotion_enrichment_stages_verified_links_before_single_writer_o
                         observed_at=observation.recorded_at,
                         reason=None,
                     ),
+                    InventoryProjectionSourceState(
+                        source="azure_model_serving_metrics",
+                        status=InventoryProjectionSourceStatus.AVAILABLE,
+                        observed_at=observation.recorded_at,
+                        reason=None,
+                        additive=True,
+                    ),
                 ),
             )
 
@@ -566,6 +573,14 @@ async def test_promotion_enrichment_stages_verified_links_before_single_writer_o
     assert store.promoted_manifests[0].metadata["derived_source_states"] == [
         {
             "source": "runtime_call_graph",
+            "status": "available",
+            "observed_at": observed[0].recorded_at.isoformat(),
+            "reason": None,
+        }
+    ]
+    assert store.promoted_manifests[0].metadata["additive_source_states"] == [
+        {
+            "source": "azure_model_serving_metrics",
             "status": "available",
             "observed_at": observed[0].recorded_at.isoformat(),
             "reason": None,
@@ -830,6 +845,26 @@ def test_state_enrichment_accepts_a_reviewed_availability_unavailable_reason() -
     )
 
     _validate_resource_state_enrichment(original, candidate)
+
+
+@pytest.mark.parametrize(
+    "reasons",
+    [
+        {"availabilityState": "model_serving_not_observed"},
+        {"servingState": "resource_health_not_modeled"},
+    ],
+)
+def test_state_enrichment_rejects_cross_axis_unavailable_reasons(
+    reasons: dict[str, str],
+) -> None:
+    original = ResourceRecord(resource_id="model-1", type="llm-model-deployment")
+    candidate = replace(
+        original,
+        props={"state_fact_unavailable_reasons": reasons},
+    )
+
+    with pytest.raises(ValueError, match="unsupported unavailable reason"):
+        _validate_resource_state_enrichment(original, candidate)
 
 
 def test_state_enrichment_accepts_exact_model_serving_telemetry() -> None:

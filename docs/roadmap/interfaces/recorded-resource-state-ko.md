@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: b619f08e759d19e506ff89d6ce285b41403b6061
+translation_source_sha: 77ec96fd1b66a90ed4c1fee6670838bda912276c
 translation_revised: 2026-09-16
 ---
 # 기록된 리소스 상태
@@ -220,11 +220,15 @@ ResourceType을 선언합니다.
   `model_serving_response_invalid`, `model_serving_target_limit`,
   `model_serving_target_unresolved` 중 하나를 기록합니다.
 - 서비스 응답 조회 구간과 최신성 상한은 전체 재조정 간격과 일치합니다. 1분 메트릭 데이터 지점
-  상한과 전체 제한 시간은 해당 구간, 대상 수, 동시성 및 요청별 제한 시간에서 파생합니다. 전체
-  제한 시간 전에 완료된 대상은 유지하며, 대상 상한으로 조회하지 못한 나머지가 있으면 출처 범위를
-  완전한 사용 가능이 아닌 일부 범위로 보고합니다.
+  하위 배포판의 간격이 더 길면 조회 구간은 6시간으로 제한합니다. 1분 메트릭 데이터 지점 상한과
+  전체 제한 시간은 해당 구간, 대상 수, 동시성 및 요청별 제한 시간에서 파생합니다. 전체 제한 시간
+  전에 완료된 대상은 유지하며, 대상 상한으로 조회하지 못한 나머지나 확인할 수 없는 대상이 있으면
+  출처 범위를 완전한 사용 가능이 아닌 일부 사유가 있는 사용 불가로 명시합니다.
 - 유지된 `Serving` 사실은 근거 기준 시점이 선언된 최신성 상한 안에 있을 때만 원래 시각과 함께
   유지합니다. 상한이 지나면 `Serving`을 계속 전달하지 않고 현재 누락 사유로 대체합니다.
+- 기본 출처 상태는 `derived_source_states`에 유지합니다. 새 모델 서비스 응답 출처는 추가 방식의
+  `additive_source_states` 메타데이터 필드를 사용하므로 N-1 Operator가 이를 무시할 수 있습니다.
+  업그레이드된 판독기는 두 필드를 합치고 아직 표시하지 않는 미래의 제한된 출처 이름은 무시합니다.
 - VM scale set 하위 리소스 수집은 `instanceView`를 요청하고 정확한 전원 상태 코드만 유지합니다.
   VM Run Command 보강은 `instanceView.executionState`만 유지합니다. 상태 메시지, 명령 출력,
   명령 오류 텍스트 및 그 밖의 검토되지 않은 인스턴스 보기 필드는 인벤토리에 들어가지 않습니다.

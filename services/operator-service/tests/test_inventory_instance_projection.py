@@ -778,13 +778,13 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
     }
     sources = result["sources"]
     assert isinstance(sources, list)
-    assert sources[-5] == {
+    assert sources[-6] == {
         "source": "runtime_call_graph",
         "status": "available",
         "observed_at": "2026-08-22T00:57:00+00:00",
         "reason": None,
     }
-    assert sources[-4:] == [
+    assert sources[-5:] == [
         {
             "source": "kubernetes_runtime_inventory",
             "status": "unavailable",
@@ -799,6 +799,12 @@ async def test_instance_projection_combines_snapshot_neighborhood_and_activity()
         },
         {
             "source": "azure_resource_health",
+            "status": "unavailable",
+            "observed_at": None,
+            "reason": "projection_not_bound",
+        },
+        {
+            "source": "azure_model_serving_metrics",
             "status": "unavailable",
             "observed_at": None,
             "reason": "projection_not_bound",
@@ -964,6 +970,12 @@ class _FullCoverageReader(_Reader):
                     reason=None,
                 ),
                 InventoryProjectionSourceState(
+                    source="azure_model_serving_metrics",
+                    status="unavailable",
+                    observed_at=None,
+                    reason="model_serving_partial",
+                ),
+                InventoryProjectionSourceState(
                     source="azure_activity_log",
                     status="unavailable",
                     observed_at=None,
@@ -1072,12 +1084,18 @@ async def test_instance_projection_reports_full_source_coverage_and_truncation_r
     assert result["complete"] is False
     sources = result["sources"]
     assert isinstance(sources, list)
-    assert sources[-2:] == [
+    assert sources[-3:] == [
         {
             "source": "azure_resource_health",
             "status": "available",
             "observed_at": "2026-08-22T00:55:00+00:00",
             "reason": None,
+        },
+        {
+            "source": "azure_model_serving_metrics",
+            "status": "unavailable",
+            "observed_at": None,
+            "reason": "model_serving_partial",
         },
         {
             "source": "azure_activity_log",

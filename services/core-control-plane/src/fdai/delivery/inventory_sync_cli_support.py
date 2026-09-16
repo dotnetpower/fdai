@@ -239,10 +239,11 @@ def build_azure_inventory_enrichers(
 ) -> tuple[InventoryPromotionEnricher, ...]:
     """Build the ordered Azure-owned enrichers for one full inventory refresh."""
 
+    serving_lookback_seconds = min(config.reconciliation_interval_seconds, 21_600)
     serving_config = AzureModelServingInventoryConfig(
-        lookback_seconds=config.reconciliation_interval_seconds,
+        lookback_seconds=serving_lookback_seconds,
         freshness_ceiling_seconds=config.reconciliation_interval_seconds,
-        max_points_per_target=(config.reconciliation_interval_seconds + 59) // 60 + 1,
+        max_points_per_target=(serving_lookback_seconds + 59) // 60 + 1,
     )
     return (
         AzureResourceHealthInventoryEnricher(

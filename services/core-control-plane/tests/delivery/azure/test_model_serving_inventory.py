@@ -143,6 +143,35 @@ async def test_recent_exact_success_records_serving_with_telemetry_provenance() 
     assert enriched.source_states[0].coverage == {"observed": 1, "targets": 1}
 
 
+async def test_lowercase_provider_dimension_names_still_bind_the_exact_deployment() -> None:
+    point = MetricPoint(
+        metric_name=MODEL_SERVING_METRIC_NAME,
+        at=NOW - timedelta(minutes=1),
+        value=1,
+        labels={
+            "resource_id": ARM_ID,
+            "modeldeploymentname": "EXAMPLE-MODEL",
+            "statuscode": "200",
+        },
+    )
+    enriched = await AzureModelServingInventoryEnricher(
+        provider=StaticMetricProvider([point]),
+        clock=lambda: NOW,
+    ).enrich(_observation())
+
+    assert enriched.resources[0].props["servingState"] == "Serving"
+
+
+async def test_unicode_resource_group_still_binds_the_exact_deployment() -> None:
+    provider_ref = ARM_ID.replace("example-rg", "예제-rg")
+    enriched = await AzureModelServingInventoryEnricher(
+        provider=StaticMetricProvider([_point(value=1, provider_ref=provider_ref)]),
+        clock=lambda: NOW,
+    ).enrich(_observation(_resource(provider_ref=provider_ref)))
+
+    assert enriched.resources[0].props["servingState"] == "Serving"
+
+
 async def test_zero_or_empty_success_window_stays_explicitly_unobserved() -> None:
     for points in ([], [_point(value=0)]):
         enriched = await AzureModelServingInventoryEnricher(

@@ -394,6 +394,7 @@ class AzureModelServingInventoryEnricher:
                     observed_at=observed_at,
                     reason=None,
                     coverage=coverage,
+                    additive=True,
                 ),
             ),
         )
@@ -415,6 +416,7 @@ class AzureModelServingInventoryEnricher:
                     observed_at=None,
                     reason=reason,
                     coverage=coverage,
+                    additive=True,
                 ),
             ),
         )

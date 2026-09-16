@@ -116,6 +116,7 @@ export function selectRecordedStateFact(
     states.serving !== undefined
     && states.serving.reason !== null
     && states.serving.reason !== "state_not_recorded"
+    && states.serving.reason !== "state_source_not_recorded"
   ) {
     return { axis: "serving", fact: states.serving };
   }

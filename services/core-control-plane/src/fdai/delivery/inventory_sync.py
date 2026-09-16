@@ -204,8 +204,17 @@ class InventorySyncCoordinator:
                     )
                 )
                 metadata["derived_source_states"] = [
-                    state.to_metadata() for state in promoted_observation.source_states
+                    state.to_metadata()
+                    for state in promoted_observation.source_states
+                    if not state.additive
                 ]
+                additive_source_states = [
+                    state.to_metadata()
+                    for state in promoted_observation.source_states
+                    if state.additive
+                ]
+                if additive_source_states:
+                    metadata["additive_source_states"] = additive_source_states
                 if promoted_observation.state_base_generation_checked:
                     metadata["state_base_generation"] = promoted_observation.state_base_generation
                 metadata["projection_complete"] = promoted_observation.complete
@@ -612,7 +621,9 @@ def _validate_resource_state_enrichment(
             or set(unavailable_reasons) - allowed_unavailable_keys
             or any(
                 reason not in RECORDED_STATE_UNAVAILABLE_REASONS
-                for reason in unavailable_reasons.values()
+                or (key == "availabilityState" and not str(reason).startswith("resource_health_"))
+                or (key == "servingState" and not str(reason).startswith("model_serving_"))
+                for key, reason in unavailable_reasons.items()
             )
         ):
             raise ValueError("inventory state enrichment added an unsupported unavailable reason")

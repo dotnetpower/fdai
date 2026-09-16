@@ -36,6 +36,8 @@ An optional recorded `serving` fact is presentation evidence for one exact data-
 does not add an ontology type, relationship, or authority edge and never replaces operational,
 provisioning, or availability facts. Its source identity, telemetry authority, effective time, and
 freshness metadata survive inventory-to-ontology projection in the shared state-fact envelope.
+Model-serving source availability uses a separate additive metadata list. Upgraded instance readers
+merge it with baseline sources, while older readers continue to consume only the baseline list.
 Current instance-detail consumers require explicit runtime-call and PostgreSQL-role source states.
 Omitting either state is an invalid projection, not evidence of availability or a measured zero.
 Additive identity fields use a fail-closed rollout boundary. A legacy Resource remains queryable,

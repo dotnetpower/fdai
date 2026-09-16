@@ -318,7 +318,9 @@ existing exact-deployment Azure Monitor adapter under bounded target, concurrenc
 deadline limits and performs no inference request. A total deadline retains completed target reads,
 cancels only unfinished reads, and reports the remaining exact targets as unavailable. Serving
 lookback and freshness match the reconciliation cadence; cross-field validation rejects a point or
-deadline budget that cannot cover its configured window and fan-out.
+deadline budget that cannot cover its configured window and fan-out. Forward-compatible source
+metadata stores model serving separately from baseline source states so an N-1 Operator continues
+to read the generation while upgraded readers merge both lists.
 
 ### Load-aware scheduling
 

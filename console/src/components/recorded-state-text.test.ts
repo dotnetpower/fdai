@@ -58,6 +58,12 @@ describe("recorded state text", () => {
     expect(recordedStateReasonText("model_serving_not_observed")).toBe(
       "No successful request was observed for this deployment in the bounded metric window.",
     );
+    expect(recordedStateReasonText("state_source_not_recorded")).toBe(
+      "The expected state source did not record a value.",
+    );
+    expect(recordedStateReasonText("state_stale")).toBe(
+      "The retained state evidence is older than its freshness ceiling.",
+    );
     expect(recordedStateReasonText("state_metadata_invalid")).toBe(
       "The state observation metadata is invalid.",
     );

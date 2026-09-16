@@ -451,6 +451,15 @@ describe("decodeOntologyInstanceExploration", () => {
       ))).toEqual({ axis: "serving", fact: fact("Serving", null) });
     });
 
+    it("does not let an uncollected serving source hide provisioning", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "provider_operational_state_not_exposed"),
+        fact("Succeeded", null),
+        fact(null, "provider_availability_state_not_exposed"),
+        fact(null, "state_source_not_recorded"),
+      ))).toEqual({ axis: "provisioning", fact: fact("Succeeded", null) });
+    });
+
     it("keeps an applicable availability evidence gap ahead of provisioning", () => {
       expect(ontologyInstanceNodeState(resource(
         fact(null, "state_not_applicable"),

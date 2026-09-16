@@ -329,6 +329,26 @@ async def test_projection_replaces_a_malformed_invalidation_without_blocking_gra
     assert await store.get_object("vm-1") is not None
 
 
+async def test_projection_does_not_replace_a_marker_with_an_unreadable_sequence() -> None:
+    status = InMemoryStateStore()
+    malformed = {"schema_version": "0.9.0", "sequence": "unknown"}
+    await status.write_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY, malformed)
+    store = _AtomicOntologyStore(status)
+
+    await InventoryOntologyProjector(
+        store=store,
+        status_store=status,
+        ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
+    ).apply(
+        _observation(generation="snapshot-recovered", resource_ids=("vm-1",)),
+        journal_high_watermark=7,
+        projection_high_watermark=6,
+    )
+
+    assert await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY) == malformed
+    assert await store.get_object("vm-1") is not None
+
+
 def _observation(
     *,
     generation: str,

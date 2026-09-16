@@ -126,5 +126,5 @@
   "state.not-applicable": "적용 대상 아님",
   "state.not-provided": "미제공",
   "state.fresh": "최신 스냅샷",
-  "state.stale": "오래된 스냅샷"
+  "state.stale": "오래된 근거"
 }

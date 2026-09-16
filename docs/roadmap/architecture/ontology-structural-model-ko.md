@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: fe5434a2a868589e05d532e58bd065eed68ade6c
+translation_source_sha: 92d74c33b9463cb089ef43b345d0d185901951ea
 translation_revised: 2026-09-16
 ---
 # 온톨로지 구조 모델
@@ -37,6 +37,8 @@ translation_revised: 2026-09-16
 온톨로지 유형, 관계 또는 권한 edge를 추가하지 않으며 운영, 프로비저닝 또는 가용성 사실을
 대체하지 않습니다. 출처 신원, 텔레메트리 권한, 실제 적용 시각 및 최신성 메타데이터는
 inventory-to-ontology 변환 이후에도 공통 상태 사실 묶음에 유지됩니다.
+모델 서비스 응답 출처 가용성은 별도의 추가 방식 메타데이터 목록을 사용합니다. 업그레이드된
+인스턴스 판독기는 이를 기본 출처와 합치고 기존 판독기는 기본 목록만 계속 사용합니다.
 현재 인스턴스 상세 소비자는 런타임 호출 및 PostgreSQL 역할 원본 상태를 명시적으로 요구합니다.
 둘 중 하나를 생략하면 가용성이나 측정된 0이 아니라 잘못된 변환 결과로 처리합니다.
 추가 방식 신원 필드는 안전한 방향으로 실패하는 이행 경계를 사용합니다. 기존 Resource는 계속
