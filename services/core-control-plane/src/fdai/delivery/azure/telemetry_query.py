@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 from fdai.delivery.azure.log_query import AzureLogAnalyticsQueryProvider
+from fdai.delivery.azure.telemetry_workspace import AzureTelemetryWorkspaceResolver
 from fdai.shared.providers.log_query import (
     LogQuery,
     LogQueryProviderError,
@@ -21,6 +22,7 @@ from fdai.shared.providers.trace_query import (
 _DEFAULT_LIMIT: Final[int] = 100
 _MAX_LIMIT: Final[int] = 500
 _MAX_WINDOW: Final[timedelta] = timedelta(days=31)
+_MAX_WORKSPACE_ROUTES: Final[int] = 4
 _RESOURCE_LABEL: Final[str] = "resource_id"
 _POD_UID_LABEL: Final[str] = "pod_uid"
 _SEVERITIES: Final[tuple[str, ...]] = (
@@ -35,26 +37,52 @@ _SEVERITIES: Final[tuple[str, ...]] = (
 class AzureLogAnalyticsRcaLogProvider:
     """Project workspace-based Application Insights logs into ``LogRecord``."""
 
-    def __init__(self, query_provider: AzureLogAnalyticsQueryProvider) -> None:
+    def __init__(
+        self,
+        query_provider: AzureLogAnalyticsQueryProvider,
+        *,
+        workspace_resolver: AzureTelemetryWorkspaceResolver | None = None,
+    ) -> None:
         self._query_provider = query_provider
+        self._workspace_resolver = workspace_resolver
+
+    def with_workspace_resolver(
+        self,
+        resolver: AzureTelemetryWorkspaceResolver,
+    ) -> AzureLogAnalyticsRcaLogProvider:
+        """Return the same typed provider with exact workspace routing enabled."""
+
+        return AzureLogAnalyticsRcaLogProvider(
+            self._query_provider,
+            workspace_resolver=resolver,
+        )
 
     async def query(self, query: LogQuery) -> AsyncIterator[LogRecord]:
         try:
             since, until, limit = _bounds(query.since, query.until, query.limit)
             resource_ref, pod_uid = _log_identity_filters(query.labels)
+            routed_ref, providers = await _query_providers(
+                self._query_provider,
+                self._workspace_resolver,
+                resource_ref=resource_ref,
+                at=until,
+            )
             kql = _log_kql(
                 since=since,
                 until=until,
-                resource_ref=resource_ref,
+                resource_ref=routed_ref,
                 pod_uid=pod_uid,
                 body_filter=query.expression,
             )
-            result = await self._query_provider.query_log(
-                query=kql,
-                window=_duration(until - since),
-                max_rows=limit,
-            )
-            records = tuple(_log_record(row) for row in result.rows)
+            collected_records: list[LogRecord] = []
+            for provider in providers:
+                result = await provider.query_log(
+                    query=kql,
+                    window=_duration(until - since),
+                    max_rows=limit,
+                )
+                collected_records.extend(_log_record(row) for row in result.rows)
+            records = tuple(sorted(collected_records, key=lambda record: record.at)[:limit])
         except Exception as exc:  # noqa: BLE001 - normalize delivery failures at provider seam
             if isinstance(exc, LogQueryProviderError):
                 raise
@@ -66,28 +94,54 @@ class AzureLogAnalyticsRcaLogProvider:
 class AzureLogAnalyticsTraceProvider:
     """Project AppRequests and AppDependencies rows into distributed spans."""
 
-    def __init__(self, query_provider: AzureLogAnalyticsQueryProvider) -> None:
+    def __init__(
+        self,
+        query_provider: AzureLogAnalyticsQueryProvider,
+        *,
+        workspace_resolver: AzureTelemetryWorkspaceResolver | None = None,
+    ) -> None:
         self._query_provider = query_provider
+        self._workspace_resolver = workspace_resolver
+
+    def with_workspace_resolver(
+        self,
+        resolver: AzureTelemetryWorkspaceResolver,
+    ) -> AzureLogAnalyticsTraceProvider:
+        """Return the same typed provider with exact workspace routing enabled."""
+
+        return AzureLogAnalyticsTraceProvider(
+            self._query_provider,
+            workspace_resolver=resolver,
+        )
 
     async def query(self, query: TraceQuery) -> AsyncIterator[Span]:
         try:
             since, until, limit = _bounds(query.since, query.until, query.limit)
             resource_ref = _resource_ref(query.labels)
+            routed_ref, providers = await _query_providers(
+                self._query_provider,
+                self._workspace_resolver,
+                resource_ref=resource_ref,
+                at=until,
+            )
             kql = _trace_kql(
                 since=since,
                 until=until,
-                resource_ref=resource_ref,
+                resource_ref=routed_ref,
                 trace_id=query.trace_id,
                 service=query.service,
                 operation=query.operation,
                 min_duration=query.min_duration,
             )
-            result = await self._query_provider.query_log(
-                query=kql,
-                window=_duration(until - since),
-                max_rows=limit,
-            )
-            spans = tuple(_span(row) for row in result.rows)
+            collected_spans: list[Span] = []
+            for provider in providers:
+                result = await provider.query_log(
+                    query=kql,
+                    window=_duration(until - since),
+                    max_rows=limit,
+                )
+                collected_spans.extend(_span(row) for row in result.rows)
+            spans = tuple(sorted(collected_spans, key=lambda span: span.start)[:limit])
         except Exception as exc:  # noqa: BLE001 - normalize delivery failures at provider seam
             if isinstance(exc, TraceQueryProviderError):
                 raise
@@ -145,6 +199,33 @@ def _optional_label(labels: Mapping[str, str], name: str) -> str | None:
     return value.strip()
 
 
+async def _query_providers(
+    base: AzureLogAnalyticsQueryProvider,
+    resolver: AzureTelemetryWorkspaceResolver | None,
+    *,
+    resource_ref: str | None,
+    at: datetime,
+) -> tuple[str | None, tuple[AzureLogAnalyticsQueryProvider, ...]]:
+    """Resolve routes at the evidence cutoff, with the static fallback last."""
+
+    if resolver is None or resource_ref is None:
+        return resource_ref, (base,)
+    resolution = await resolver.resolve(resource_ref, at=at)
+    workspace_ids_by_key: dict[str, str] = {}
+    for workspace_id in (*resolution.workspace_ids, base.workspace_id):
+        workspace_ids_by_key.setdefault(workspace_id.casefold(), workspace_id)
+    workspace_ids = tuple(workspace_ids_by_key.values())
+    if len(workspace_ids) > _MAX_WORKSPACE_ROUTES:
+        raise ValueError("Azure Monitor telemetry workspace route count exceeded")
+    return (
+        resolution.provider_resource_id,
+        tuple(
+            base if workspace_id == base.workspace_id else base.for_workspace(workspace_id)
+            for workspace_id in workspace_ids
+        ),
+    )
+
+
 def _log_kql(
     *,
     since: datetime,
@@ -166,13 +247,15 @@ def _log_kql(
             "body=tostring(column_ifexists('Message', '')), "
             "severity=tostring(column_ifexists('SeverityLevel', 0)), "
             "service=tostring(column_ifexists('AppRoleName', '')), "
-            "resource_id=tostring(column_ifexists('_ResourceId', '')), "
+            "resource_id=tostring(coalesce(Properties['cloud.resource_id'], "
+            "column_ifexists('_ResourceId', ''))), "
             "pod_uid=tostring(column_ifexists('PodUid', '')), source='AppTraces'),",
             "(AppExceptions | project at=TimeGenerated, "
             "body=tostring(column_ifexists('OuterMessage', '')), "
             "severity=tostring(column_ifexists('SeverityLevel', 3)), "
             "service=tostring(column_ifexists('AppRoleName', '')), "
-            "resource_id=tostring(column_ifexists('_ResourceId', '')), "
+            "resource_id=tostring(coalesce(Properties['cloud.resource_id'], "
+            "column_ifexists('_ResourceId', ''))), "
             "pod_uid=tostring(column_ifexists('PodUid', '')), source='AppExceptions'),",
             "(ContainerLogV2 | project at=TimeGenerated, "
             "body=tostring(column_ifexists('LogMessage', '')), "
@@ -220,7 +303,8 @@ def _trace_kql(
             "operation=tostring(column_ifexists('Name', '')), "
             "duration_ms=todouble(column_ifexists('DurationMs', 0.0)), "
             "success=tobool(column_ifexists('Success', false)), "
-            "resource_id=tostring(column_ifexists('_ResourceId', ''))),",
+            "resource_id=tostring(coalesce(Properties['cloud.resource_id'], "
+            "column_ifexists('_ResourceId', '')))),",
             "(AppDependencies | project at=TimeGenerated, "
             "trace_id=tostring(column_ifexists('OperationId', '')), "
             "span_id=tostring(column_ifexists('Id', '')), "
@@ -229,7 +313,8 @@ def _trace_kql(
             "operation=tostring(column_ifexists('Name', '')), "
             "duration_ms=todouble(column_ifexists('DurationMs', 0.0)), "
             "success=tobool(column_ifexists('Success', false)), "
-            "resource_id=tostring(column_ifexists('_ResourceId', '')))",
+            "resource_id=tostring(coalesce(Properties['cloud.resource_id'], "
+            "column_ifexists('_ResourceId', ''))))",
             *filters,
             "| project at, trace_id, span_id, parent_span_id, service, operation, "
             "duration_ms, success, resource_id",
@@ -317,9 +402,10 @@ def _non_negative_float(value: Any) -> float:
 
 
 def _kql_string(value: str) -> str:
-    if len(value) > 2_000:
+    escaped = value.replace("'", "''")
+    if len(escaped) > 2_000:
         raise ValueError("Azure Monitor telemetry filter exceeds 2000 characters")
-    return "'" + value.replace("'", "''") + "'"
+    return "'" + escaped + "'"
 
 
 def _duration(value: timedelta) -> str:
