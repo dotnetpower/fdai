@@ -166,7 +166,11 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
   }, [snapshot, filters]);
   const operations = dashboardCounts(snapshot.resources, snapshot, "operation");
   const unknownCounts = dashboardUnknownCounts(snapshot.resources, snapshot);
-  const known = snapshot.resources.length - (operations.get("unknown") ?? 0) - (operations.get("not-applicable") ?? 0);
+  const known = snapshot.resources.length
+    - (operations.get("unknown") ?? 0)
+    - (operations.get("not-applicable") ?? 0)
+    - (operations.get("not-provided") ?? 0);
+  const servingRecorded = snapshot.resources.filter((resource) => resource.states?.serving?.value != null).length;
   const provisioningRecorded = snapshot.resources.filter((resource) => resource.states?.provisioning.value != null).length;
   const highlights = snapshot.resources.filter((resource) => ["unknown", "transitioning"].includes(dashboardResourceState(resource, snapshot, "operation"))).slice(0, 3);
   const options = (axis: "subscription" | "group") => [...new Map(snapshot.resources
@@ -202,7 +206,10 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
           ["received", snapshot.resources.length, ""],
           ["known", known, "known"],
           ["unknown", operations.get("unknown") ?? 0, "unknown"],
+          ["notProvided", operations.get("not-provided") ?? 0, "not-provided"],
+          ["notApplicable", operations.get("not-applicable") ?? 0, "not-applicable"],
           ["provisioningRecorded", provisioningRecorded, "known"],
+          ["servingRecorded", servingRecorded, "serving"],
         ] as const).map(([label, value, status]) =>
           <a href={routeHref("dashboard-v2", { params: { state: status, lens: label === "provisioningRecorded" ? "provisioning" : null } })} key={label} onClick={(event) => {
             if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
@@ -217,7 +224,13 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
           <div class="dv2-controls" role="group" aria-label={t("landscape")}>{(["honeycomb", "list", "groups"] as const).map((key) =>
             <button type="button" class="cs-control-button" key={key} aria-pressed={view === key} onClick={() => { setView(key); setPage(0); }}>{t(key)}</button>)}</div></header>
         <div class="dv2-lenses"><div class="dv2-controls" role="group" aria-label={t("observation")}>
-          {(["operation", "provisioning", "availability", "observation"] as const).map((key) => <button type="button" class="cs-control-button" key={key} aria-pressed={lens === key} onClick={() => { setLens(key); update("status", ""); }}>{t(key)}</button>)}
+          {([
+            "operation",
+            "provisioning",
+            ...(snapshot.resources.some((resource) => resource.states?.serving !== undefined) ? ["serving"] as const : []),
+            "availability",
+            "observation",
+          ] as const).map((key) => <button type="button" class="cs-control-button" key={key} aria-pressed={lens === key} onClick={() => { setLens(key); update("status", ""); }}>{t(key)}</button>)}
         </div>{view === "honeycomb" && <div class="dv2-controls" role="group" aria-label={t("dense")}>{(["dense", "comfortable"] as const).map((key) =>
           <button type="button" class="cs-control-button" key={key} aria-pressed={effectiveDensity === key} disabled={key === "dense" && touch} onClick={() => { setDensity(key); setPage(0); }}>{t(key)}</button>)}</div>}</div>
         <div class="dv2-filters">
@@ -230,7 +243,7 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
         <div class="dv2-legend" role="group" aria-label={t("allStates")}><button type="button" class="cs-control-button" aria-pressed={!filters.status} onClick={() => update("status", "")}>{t("allStates")} {number(scoped.length)}</button>
           {[...counts].map(([key, count]) => <button type="button" class="cs-control-button" key={key} aria-pressed={filters.status === key} onClick={() => update("status", key)}><StateBadge value={key} /> {number(count)}</button>)}</div>
         {matches.length === 0 ? <EmptyState title={t("empty")} body={t("emptyBody")} /> : view === "honeycomb"
-          ? <DashboardResourceMap resources={displayed} snapshot={snapshot} lens={lens} density={effectiveDensity} columns={columns} selectedId={selectedId} onSelect={setSelectedId} labels={{ operation: t("operation"), provisioning: t("provisioning"), availability: t("availability"), observation: t("observation"), observedAt: t("observedAt"), snapshotAt: t("snapshotAt"), missing: t("missing"), state: stateText }} />
+          ? <DashboardResourceMap resources={displayed} snapshot={snapshot} lens={lens} density={effectiveDensity} columns={columns} selectedId={selectedId} onSelect={setSelectedId} labels={{ operation: t("operation"), provisioning: t("provisioning"), serving: t("serving"), availability: t("availability"), observation: t("observation"), observedAt: t("observedAt"), snapshotAt: t("snapshotAt"), missing: t("missing"), state: stateText }} />
           : view === "list" ? <div class="dv2-table-wrap"><table><thead><tr><th>{t("find")}</th><th>{t("type")}</th><th>{t(lens)}</th><th>{t("group")}</th></tr></thead><tbody>{displayed.map((resource) =>
             <tr key={resource.id}><td><button type="button" class="dv2-link" aria-pressed={selectedId === resource.id} onClick={() => setSelectedId(resource.id)}>{resource.name}</button></td><td>{resource.type}</td><td><StateBadge value={dashboardResourceState(resource, snapshot, lens)} text={lens === "observation" ? null : dashboardStateFact(resource, lens)?.value} /></td><td>{resource.groupLabel ?? t("missing")}</td></tr>)}</tbody></table></div>
           : <div class="dv2-groups">{groups.slice(currentPage * 6, (currentPage + 1) * 6).map(([key, group]) =>

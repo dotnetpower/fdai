@@ -19,10 +19,13 @@ from fdai_service_contracts.recorded_resource_state import (
     PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES,
     PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
     RECORDED_STATE_UNAVAILABLE_REASONS,
+    SERVING_STATE_PATHS,
+    SERVING_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
     STATE_FACT_UNAVAILABLE_REASONS_PROPERTY,
     availability_state_paths,
     is_recorded_state_value_valid,
     operational_state_paths,
+    serving_state_paths,
 )
 
 MAX_STATE_VALUE_CHARS = MAX_RECORDED_STATE_VALUE_CHARS
@@ -31,6 +34,7 @@ DEFAULT_STATE_FRESHNESS_CEILING_SECONDS = 21_600
 _TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})")
 _OPERATIONAL_PATHS = OPERATIONAL_STATE_PATHS
 _AVAILABILITY_PATHS = AVAILABILITY_STATE_PATHS
+_SERVING_PATHS = SERVING_STATE_PATHS
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +72,8 @@ class RecordedStateFact(TypedDict):
     completeness: float | None
     conflicts: list[str]
     reason: str | None
+    source_identity: str | None
+    authority: str | None
 
 
 def recorded_resource_states(
@@ -86,7 +92,7 @@ def recorded_resource_states(
     evaluated_at = now if now is not None else datetime.now(UTC)
     if evaluated_at.tzinfo is None or evaluated_at.utcoffset() is None:
         raise ValueError("recorded state evaluation time MUST be timezone-aware")
-    return {
+    states: dict[str, object] = {
         "schema_version": "1.0.0",
         "operational": _fact(
             properties,
@@ -110,6 +116,15 @@ def recorded_resource_states(
             observation=observation,
         ),
     }
+    if resource_type in SERVING_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE:
+        states["serving"] = _fact(
+            properties,
+            _SERVING_PATHS,
+            evaluated_at,
+            resource_type=resource_type,
+            observation=observation,
+        )
+    return states
 
 
 def _fact(
@@ -129,6 +144,8 @@ def _fact(
         "completeness": None,
         "conflicts": [],
         "reason": _missing_reason(resource_type, paths),
+        "source_identity": None,
+        "authority": None,
     }
     selected_paths = _applicable_paths(resource_type, paths)
     for prefix in ("", "properties.", "properties.properties."):
@@ -183,6 +200,8 @@ def _applicable_paths(
         return operational_state_paths(resource_type)
     if paths == _AVAILABILITY_PATHS:
         return availability_state_paths(resource_type)
+    if paths == _SERVING_PATHS:
+        return serving_state_paths(resource_type)
     return paths
 
 
@@ -204,6 +223,9 @@ def _missing_reason(resource_type: str | None, paths: tuple[str, ...]) -> str:
             return "state_not_applicable"
         if resource_type in PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES:
             return "provider_availability_state_not_exposed"
+    if paths == _SERVING_PATHS and resource_type is not None:
+        if resource_type in SERVING_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE:
+            return "state_source_not_recorded"
     return "state_not_recorded"
 
 
@@ -211,7 +233,14 @@ def _unavailable_reason(
     properties: Mapping[str, object],
     paths: tuple[str, ...],
 ) -> str | None:
-    if paths != _AVAILABILITY_PATHS:
+    reason_property = (
+        "availabilityState"
+        if paths == _AVAILABILITY_PATHS
+        else "servingState"
+        if paths == _SERVING_PATHS
+        else None
+    )
+    if reason_property is None:
         return None
     for prefix in ("", "properties.", "properties.properties."):
         owner = _at(properties, prefix[:-1]) if prefix else properties
@@ -220,7 +249,7 @@ def _unavailable_reason(
         reasons = owner.get(STATE_FACT_UNAVAILABLE_REASONS_PROPERTY)
         if not isinstance(reasons, Mapping):
             continue
-        reason = reasons.get("availabilityState")
+        reason = reasons.get(reason_property)
         if isinstance(reason, str) and reason in RECORDED_STATE_UNAVAILABLE_REASONS:
             return reason
     return None
@@ -297,6 +326,15 @@ def _qualify_metadata(
         raise ValueError("metadata does not describe an observed property")
     if metadata.get("authority", "provider") not in ("provider", "telemetry"):
         raise ValueError("metadata does not describe a provider or telemetry property")
+    authority = metadata.get("authority", "provider")
+    source_identity = metadata.get("source_identity")
+    if source_identity is not None and (
+        not isinstance(source_identity, str)
+        or not source_identity.strip()
+        or len(source_identity) > MAX_STATE_VALUE_CHARS
+        or any(ord(char) < 32 for char in source_identity)
+    ):
+        raise ValueError("invalid recorded source identity")
     if "synthetic" in metadata and not isinstance(metadata["synthetic"], bool):
         raise ValueError("invalid recorded synthetic flag")
     observed = _timestamp(metadata.get("effective_at", metadata.get("observed_at")))
@@ -332,6 +370,8 @@ def _qualify_metadata(
     result["completeness"] = float(completeness) if completeness is not None else None
     result["conflicts"] = list(conflicts)
     result["reason"] = None
+    result["source_identity"] = source_identity
+    result["authority"] = authority
     if (
         (observed is not None and cutoff is not None and observed > cutoff)
         or (cutoff is not None and recorded is not None and cutoff > recorded)

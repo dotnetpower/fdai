@@ -32,6 +32,9 @@ execution, and presentation. Each concern has one canonical representation and o
 consumer contract.
 Projection-source availability is qualified by `(source, scope_digest)`. This tuple is evidence
 metadata for one collection scope and does not replace Resource or link identity.
+An optional recorded `serving` fact is presentation evidence for one exact data-plane target. It
+does not add an ontology type, relationship, or authority edge and never replaces operational,
+provisioning, or availability facts.
 Current instance-detail consumers require explicit runtime-call and PostgreSQL-role source states.
 Omitting either state is an invalid projection, not evidence of availability or a measured zero.
 Additive identity fields use a fail-closed rollout boundary. A legacy Resource remains queryable,

@@ -16,6 +16,11 @@ RECORDED_STATE_UNAVAILABLE_REASONS = frozenset(
         "resource_health_target_unresolved",
         "resource_health_transport_unavailable",
         "resource_health_unauthorized",
+        "model_serving_not_observed",
+        "model_serving_response_invalid",
+        "model_serving_source_unavailable",
+        "model_serving_target_limit",
+        "model_serving_target_unresolved",
     }
 )
 
@@ -42,6 +47,7 @@ OPERATIONAL_STATE_PATHS = (
     "registrationStatus",
 )
 AVAILABILITY_STATE_PATHS = ("availabilityState",)
+SERVING_STATE_PATHS = ("servingState",)
 
 OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] = {
     "app-service-plan": ("powerState", "status"),
@@ -290,6 +296,9 @@ PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES = frozenset(
         "workflow.logic-app",
     }
 )
+SERVING_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] = {
+    "llm-model-deployment": SERVING_STATE_PATHS,
+}
 
 
 def operational_state_paths(resource_type: str | None) -> tuple[str, ...]:
@@ -306,6 +315,14 @@ def availability_state_paths(resource_type: str | None) -> tuple[str, ...]:
     if resource_type is None:
         return AVAILABILITY_STATE_PATHS
     return AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE.get(resource_type, ())
+
+
+def serving_state_paths(resource_type: str | None) -> tuple[str, ...]:
+    """Return only reviewed serving source paths for one ResourceType."""
+
+    if resource_type is None:
+        return SERVING_STATE_PATHS
+    return SERVING_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE.get(resource_type, ())
 
 
 def is_recorded_state_value_valid(value: object, *, allow_unknown: bool = False) -> bool:
@@ -331,8 +348,11 @@ __all__ = [
     "PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES",
     "PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES",
     "RECORDED_STATE_UNAVAILABLE_REASONS",
+    "SERVING_STATE_PATHS",
+    "SERVING_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE",
     "STATE_FACT_UNAVAILABLE_REASONS_PROPERTY",
     "availability_state_paths",
     "is_recorded_state_value_valid",
     "operational_state_paths",
+    "serving_state_paths",
 ]

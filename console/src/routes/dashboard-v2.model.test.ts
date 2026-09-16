@@ -151,4 +151,38 @@ describe("Dashboard v2 inventory projection", () => {
     ]);
     expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "operation")).toBe("unknown");
   });
+
+  test("separates provider non-exposure and serving evidence from genuine Unknown", () => {
+    const state = (value: string | null, reason: string | null, observed_at: string | null = null) => ({
+      value,
+      source_path: value === null ? null : "state",
+      observed_at,
+      recorded_at: observed_at,
+      freshness: observed_at === null ? "unknown" as const : "fresh" as const,
+      completeness: observed_at === null ? null : 1,
+      conflicts: [],
+      reason,
+    });
+    const snapshot = {
+      ...decodeDashboardSnapshot(base),
+      resources: [{
+        id: "model", name: "Model", type: "llm-model-deployment", status: "",
+        parentId: null, group: null, groupLabel: null, subscription: null,
+        subscriptionLabel: null, observedAt: "2026-09-05T03:00:00Z",
+        states: {
+          schema_version: "1.0.0" as const,
+          operational: state(null, "provider_operational_state_not_exposed"),
+          provisioning: state("Succeeded", null, "2026-09-05T02:55:00Z"),
+          availability: state(null, "provider_availability_state_not_exposed"),
+          serving: state("Serving", null, "2026-09-05T03:00:00Z"),
+        },
+      }],
+    };
+
+    expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "operation")).toBe("not-provided");
+    expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "availability")).toBe("not-provided");
+    expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "serving")).toBe("serving");
+    expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "observation")).toBe("fresh");
+    expect(dashboardUnknownCounts(snapshot.resources, snapshot).size).toBe(0);
+  });
 });

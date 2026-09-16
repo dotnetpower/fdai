@@ -310,6 +310,9 @@ exposes only model name, model version, deployment SKU, and normalized TPM in an
 allowlist without receiving raw provider properties. A changed TPM becomes visible only after the
 next accepted observation commits; invalidation accelerates the reread but does not provide an
 immediate or strongly consistent provider guarantee.
+An optional `serving` fact remains separate from Resource Health and records only a recent exact
+deployment success observation with telemetry provenance. It never changes ontology identity,
+structural relationships, Kubernetes diagnostics, or execution authority.
 
 ### Load-aware scheduling
 

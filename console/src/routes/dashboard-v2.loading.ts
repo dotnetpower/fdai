@@ -1,6 +1,7 @@
 import {
   decodeRecordedResourceStates,
   isRecordedStateGenerationTransition,
+  latestRecordedStateObservedAt,
   stateRecord,
   stateText,
   stateTime,
@@ -110,7 +111,7 @@ async function loadDashboardRecordedStateGeneration(
         status: nullable(resource.status, "status") ?? "",
         parentId: null, group: group === null ? null : `${subscription ?? ""}::${group}`, groupLabel: group,
         subscription, subscriptionLabel: subscription,
-        observedAt: states.operational.observed_at, states,
+        observedAt: latestRecordedStateObservedAt(states), states,
       });
     }
     cursor = nullable(payload.next_cursor, "next cursor");

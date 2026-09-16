@@ -70,6 +70,8 @@ fact. Existing `status` remains for older consumers.
 Each fact carries:
 
 - `value` and `source_path`, nullable when no state was recorded.
+- `source_identity` and `authority`, nullable for legacy or missing metadata and otherwise limited
+  to the reviewed provider or telemetry source.
 - `observed_at` and `recorded_at`, without substituting an inventory read time for effective time.
 - `freshness: fresh | stale | unknown` and nullable `completeness`.
 - Bounded `conflicts` and a nullable machine-readable `reason`.

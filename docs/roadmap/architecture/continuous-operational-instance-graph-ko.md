@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: a519c36b71cebeddc17398cddf2bdabfd8829f39
+translation_source_sha: d98773e92bbd37f0770adfb4af7b238fb878d438
 translation_revised: 2026-09-16
 ---
 # 지속형 운영 인스턴스 그래프
@@ -308,6 +308,9 @@ payload를 노출하거나 그래프 사실을 만들지 않습니다. 표시 �
 Console 카드, 도구 설명, 상세 패널 및 화면 맥락은 원시 프로바이더 속성을 받지 않고 이 허용
 목록을 사용합니다. 변경된 TPM은 다음 관측이 수락되어 커밋된 뒤에만 표시됩니다. 무효화 이벤트는
 다시 읽기를 앞당기지만 즉시성이나 강한 일관성을 프로바이더 수준에서 보장하지 않습니다.
+선택적인 `serving` 사실은 Resource Health와 분리되며 텔레메트리 출처가 있는 최근의 정확한 배포
+성공 관측만 기록합니다. 온톨로지 신원, 구조 관계, Kubernetes 진단 또는 실행 권한은 바꾸지
+않습니다.
 
 ### 부하 인식 일정 관리
 

@@ -406,6 +406,7 @@ describe("decodeOntologyInstanceExploration", () => {
       operational: ReturnType<typeof fact>,
       provisioning: ReturnType<typeof fact>,
       availability: ReturnType<typeof fact>,
+      serving?: ReturnType<typeof fact>,
     ) => ({
       ...decodeOntologyInstanceExploration(payload()).resources[0]!,
       states: {
@@ -413,6 +414,7 @@ describe("decodeOntologyInstanceExploration", () => {
         operational,
         provisioning,
         availability,
+        ...(serving === undefined ? {} : { serving }),
       },
     });
 
@@ -438,6 +440,15 @@ describe("decodeOntologyInstanceExploration", () => {
         fact("Succeeded", null),
         fact("Available", null),
       ))).toEqual({ axis: "availability", fact: fact("Available", null) });
+    });
+
+    it("shows exact serving evidence before availability or provisioning fallbacks", () => {
+      expect(ontologyInstanceNodeState(resource(
+        fact(null, "provider_operational_state_not_exposed"),
+        fact("Succeeded", null),
+        fact(null, "provider_availability_state_not_exposed"),
+        fact("Serving", null),
+      ))).toEqual({ axis: "serving", fact: fact("Serving", null) });
     });
 
     it("keeps an applicable availability evidence gap ahead of provisioning", () => {

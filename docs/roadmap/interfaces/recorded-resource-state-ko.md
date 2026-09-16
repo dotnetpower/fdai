@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 1e45fe1693737aeb7f0cdff39b2e95232461aaa4
+translation_source_sha: 16956423f545d0eced1b33ed3b9269a4d4905247
 translation_revised: 2026-09-16
 ---
 # 기록된 리소스 상태
@@ -68,6 +68,8 @@ Console은 증적을 사용 불가로 표시합니다.
 각 상태에는 다음 정보가 있습니다.
 
 - `value`, `source_path`: 상태가 기록되지 않았으면 null입니다.
+- `source_identity`, `authority`: 기존 형식 또는 누락된 메타데이터에서는 null이며, 그 밖의
+  경우에는 검토된 공급자 또는 텔레메트리 출처로 제한합니다.
 - `observed_at`, `recorded_at`: 인벤토리를 읽은 시각으로 실제 관측 시각을 대체하지 않습니다.
 - `freshness: fresh | stale | unknown`, null을 허용하는 `completeness`.
 - 개수가 제한된 `conflicts`, null을 허용하는 기계 판독용 `reason`.

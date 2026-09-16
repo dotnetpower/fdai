@@ -22,10 +22,16 @@ describe("recorded state text", () => {
   test.each([
     ["state_source_not_recorded", "Not recorded"],
     ["provider_operational_state_not_exposed", "Not provided"],
+    ["provider_availability_state_not_exposed", "Not provided"],
     ["resource_health_projection_not_bound", "State source not connected"],
     ["state_not_applicable", "Not applicable"],
     ["state_applicability_unknown", "Applicability unknown"],
     ["resource_type_unclassified", "Unclassified"],
+    ["model_serving_not_observed", "No recent successful request"],
+    ["model_serving_target_limit", "Not checked"],
+    ["model_serving_source_unavailable", "Source unavailable"],
+    ["model_serving_target_unresolved", "Source unavailable"],
+    ["model_serving_response_invalid", "Invalid source evidence"],
   ])("distinguishes %s from a generic missing record", (reason, expected) => {
     expect(recordedStateValueText(missingFact(reason))).toBe(expected);
   });
@@ -44,6 +50,9 @@ describe("recorded state text", () => {
     );
     expect(recordedStateReasonText("resource_health_projection_not_bound")).toBe(
       "Azure Resource Health is not connected to recorded resource state for this resource type.",
+    );
+    expect(recordedStateReasonText("model_serving_not_observed")).toBe(
+      "No successful request was observed for this deployment in the bounded metric window.",
     );
     expect(recordedStateReasonText("state_metadata_invalid")).toBeNull();
   });

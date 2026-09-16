@@ -17,6 +17,7 @@ from fdai_operator_service.families.operations.recorded_state import (
     OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
     PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES,
     PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
+    SERVING_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
     RecordedStateObservation,
     recorded_resource_states,
 )
@@ -88,6 +89,8 @@ def test_all_29_previously_dropped_raw_states_are_retained(index: int) -> None:
         "completeness": None,
         "conflicts": [],
         "reason": "state_metadata_not_recorded",
+        "source_identity": None,
+        "authority": None,
     }
     assert states["provisioning"]["value"] == "Succeeded"
     assert states["availability"]["value"] is None
@@ -454,6 +457,51 @@ def test_vm_run_command_execution_state_is_retained() -> None:
     assert fact["completeness"] == 1.0
 
 
+def test_model_serving_state_preserves_telemetry_provenance() -> None:
+    metadata = _metadata(
+        authority="telemetry",
+        source_identity="azure-monitor-model-serving",
+        source_revision="azure-monitor-model-serving:sha256:" + "1" * 64,
+        evidence_refs=["azure-monitor-model-serving:sha256:" + "1" * 64],
+    )
+    states = recorded_resource_states(
+        {
+            "servingState": "Serving",
+            "state_fact_metadata": {"servingState": metadata},
+        },
+        resource_type="llm-model-deployment",
+        now=NOW,
+    )
+
+    assert states["serving"]["value"] == "Serving"
+    assert states["serving"]["source_path"] == "servingState"
+    assert states["serving"]["source_identity"] == "azure-monitor-model-serving"
+    assert states["serving"]["authority"] == "telemetry"
+
+
+def test_model_serving_unavailability_reason_is_preserved_without_a_value() -> None:
+    states = recorded_resource_states(
+        {
+            "state_fact_unavailable_reasons": {
+                "servingState": "model_serving_not_observed",
+            }
+        },
+        resource_type="llm-model-deployment",
+        now=NOW,
+    )
+
+    assert states["serving"]["value"] is None
+    assert states["serving"]["reason"] == "model_serving_not_observed"
+    assert "serving" not in recorded_resource_states(
+        {},
+        resource_type="compute.vm",
+        now=NOW,
+    )
+    assert SERVING_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE == {
+        "llm-model-deployment": ("servingState",)
+    }
+
+
 @pytest.mark.parametrize("resource_type", AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE)
 def test_resource_health_availability_preserves_exact_evidence(resource_type: str) -> None:
     metadata = _metadata(
@@ -483,6 +531,8 @@ def test_resource_health_availability_preserves_exact_evidence(resource_type: st
         "completeness": 1.0,
         "conflicts": [],
         "reason": None,
+        "source_identity": "azure-resource-health",
+        "authority": "provider",
     }
     unknown = recorded_resource_states(
         {
@@ -506,6 +556,8 @@ def test_missing_and_unknown_values_are_not_supplied_states(value: object) -> No
         "completeness": None,
         "conflicts": [],
         "reason": "state_not_recorded",
+        "source_identity": None,
+        "authority": None,
     }
 
 
