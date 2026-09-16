@@ -329,15 +329,21 @@ function recordLiveActivity(
 function boundLiveActivity(
   events: readonly LiveAgentActivityEvent[],
 ): readonly LiveAgentActivityEvent[] {
-  const operational = events
-    .filter((event) => event.operationalKind !== null)
-    .slice(0, MAX_OPERATIONAL_ACTIVITY);
-  const other = events
-    .filter((event) => event.operationalKind === null)
-    .slice(0, MAX_OTHER_LIVE_ACTIVITY);
-  return [...operational, ...other].sort(
-    (left, right) => right.sequence - left.sequence,
-  );
+  // Callers keep this collection newest-first, so one pass can preserve order and both caps.
+  const bounded: LiveAgentActivityEvent[] = [];
+  let operationalCount = 0;
+  let otherCount = 0;
+  for (const event of events) {
+    if (event.operationalKind !== null) {
+      if (operationalCount >= MAX_OPERATIONAL_ACTIVITY) continue;
+      operationalCount += 1;
+    } else {
+      if (otherCount >= MAX_OTHER_LIVE_ACTIVITY) continue;
+      otherCount += 1;
+    }
+    bounded.push(event);
+  }
+  return bounded;
 }
 
 function isRuntimeInitializationSnapshot(msg: AgentActivityMessage): boolean {
@@ -463,25 +469,33 @@ function applyOperationalActivity(
   state: AgentsState,
   msg: Extract<AgentActivityMessage, { type: "agent.operational-activity" }>,
 ): AgentsState {
-  const previous = state.agents[msg.owner_agent];
-  if (previous === undefined) return state;
-  if (previous.since && new Date(previous.since).getTime() > new Date(msg.observed_at).getTime()) {
-    return state;
-  }
-  const activeState: AgentStatus = msg.kind === "inventory.scan" ? "collecting" : "analyzing";
+  const next = operationalAgentNode(state.agents[msg.owner_agent], msg);
+  if (next === null) return state;
   return {
     ...state,
     agents: {
       ...state.agents,
-      [msg.owner_agent]: {
-        ...previous,
-        state: msg.status === "started" ? activeState : "watching",
-        observed: true,
-        correlationId: msg.status === "started" ? msg.correlation_id : null,
-        since: msg.observed_at,
-        detail: `${msg.kind} ${msg.status} (${msg.producer})`,
-      },
+      [msg.owner_agent]: next,
     },
+  };
+}
+
+function operationalAgentNode(
+  previous: AgentNode | undefined,
+  msg: Extract<AgentActivityMessage, { type: "agent.operational-activity" }>,
+): AgentNode | null {
+  if (previous === undefined) return null;
+  if (previous.since && new Date(previous.since).getTime() > new Date(msg.observed_at).getTime()) {
+    return null;
+  }
+  const activeState: AgentStatus = msg.kind === "inventory.scan" ? "collecting" : "analyzing";
+  return {
+    ...previous,
+    state: msg.status === "started" ? activeState : "watching",
+    observed: true,
+    correlationId: msg.status === "started" ? msg.correlation_id : null,
+    since: msg.observed_at,
+    detail: `${msg.kind} ${msg.status} (${msg.producer})`,
   };
 }
 
@@ -498,10 +512,42 @@ function hydrateOperationalActivity(
   state: AgentsState,
   activities: readonly AgentOperationalActivityMessage[],
 ): AgentsState {
-  return [...activities].reverse().reduce((current, message) => {
-    const recorded = recordLiveActivity(current, message, "replay");
-    return applyOperationalActivity(recorded, message);
-  }, state);
+  const agents = { ...state.agents };
+  const liveActivity = [...state.liveActivity];
+  const activityIndexes = new Map<string, number>();
+  liveActivity.forEach((event, index) => {
+    if (event.activityId !== null && !activityIndexes.has(event.activityId)) {
+      activityIndexes.set(event.activityId, index);
+    }
+  });
+  let nextSequence = state.nextLiveActivitySequence;
+
+  for (const message of [...activities].reverse()) {
+    const projected = projectLiveActivity(message, nextSequence, "replay");
+    if (projected !== null && projected.activityId !== null) {
+      const duplicateIndex = activityIndexes.get(projected.activityId);
+      if (duplicateIndex === undefined) {
+        activityIndexes.set(projected.activityId, liveActivity.length);
+        liveActivity.push(projected);
+        nextSequence += 1;
+      } else {
+        const duplicate = liveActivity[duplicateIndex];
+        if (duplicate !== undefined && duplicate.retained !== true) {
+          liveActivity[duplicateIndex] = { ...duplicate, retained: true };
+        }
+      }
+    }
+    const nextAgent = operationalAgentNode(agents[message.owner_agent], message);
+    if (nextAgent !== null) agents[message.owner_agent] = nextAgent;
+  }
+
+  liveActivity.sort((left, right) => right.sequence - left.sequence);
+  return {
+    ...state,
+    agents,
+    liveActivity: boundLiveActivity(liveActivity),
+    nextLiveActivitySequence: nextSequence,
+  };
 }
 
 function hydrateIncidents(

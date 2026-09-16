@@ -1941,6 +1941,14 @@ async def test_agent_activity_reads_each_durable_source_with_bounded_limits() ->
     read_call = next(call for call in model.calls if call[0] == AGENT_READ_ACTIVITY_SQL)
     assert inventory_call[1] == {"limit": 25}
     assert read_call[1] == {"limit": 25}
+    assert "WITH recent AS MATERIALIZED" in AGENT_INVENTORY_ACTIVITY_SQL
+    assert "JOIN recent ON recent.id = resource.snapshot_id" in AGENT_INVENTORY_ACTIVITY_SQL
+    assert "JOIN recent ON recent.id = link.snapshot_id" in AGENT_INVENTORY_ACTIVITY_SQL
+    assert "recent.resource_count IS NULL" in AGENT_INVENTORY_ACTIVITY_SQL
+    assert "recent.link_count IS NULL" in AGENT_INVENTORY_ACTIVITY_SQL
+    assert "COALESCE(recent.resource_count" in AGENT_INVENTORY_ACTIVITY_SQL
+    assert "COALESCE(recent.link_count" in AGENT_INVENTORY_ACTIVITY_SQL
+    assert "(SELECT COUNT(*) FROM inventory_snapshot_resource" not in (AGENT_INVENTORY_ACTIVITY_SQL)
     assert "get_resource_state" in AGENT_READ_ACTIVITY_SQL
     assert "operation_class' = 'resource_state'" in AGENT_READ_ACTIVITY_SQL
     assert "read-investigation-latency:%%" in AGENT_READ_ACTIVITY_SQL
