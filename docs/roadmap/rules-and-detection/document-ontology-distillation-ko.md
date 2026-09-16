@@ -1,7 +1,7 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: ebfd46a61c5142e7d3feb3967fc1a96b5719e39a
-translation_revised: 2026-09-15
+translation_source_sha: e7871e85475708386c00bcedc518556da123f057
+translation_revised: 2026-09-16
 ---
 # 문서 온톨로지 증류
 
@@ -248,6 +248,19 @@ critical 재현율, 개체/링크 정밀도, 인용/의미 오류 및 재생 다
 근거를 별도로 inject합니다. 비용 측정 부재는 추론된 zero-cost 성공이 아니라 누락된
 근거로 남습니다.
 
+운영 가용성은 영어 Markdown과 SGML, 영어와 한국어 native PDF 및 OOXML, 한국어 OCR로 구성된
+고정된 7개 파티션 프로필을 사용합니다. 각 사례는 내용 주소가 지정된 출처, 매니페스트, 파서,
+그리고 해당하는 라이선스 증적을 포함합니다. 독립적인 출처 검증기는 프로바이더 호출 전에 이러한
+연결을 인증합니다. 합성 사례는 구현 계약을 시험할 수 있지만 운영 가용성에 필요한 독립 출처
+개수를 충족할 수 없습니다.
+
+비용 근거는 정확한 프로바이더 서술자, 출처, 최초 및 재생 패키지 다이제스트, 두 실행의 council
+사용량 다이제스트를 연결합니다. 최초 실행과 재생 비용, 통화, 가격 출처 다이제스트, 범위가 제한된
+유효 기간, 독립적인 검증 증적을 각각 기록합니다. 누락됐거나 만료됐거나 맥락이 일치하지 않거나
+산술 검증을 통과하지 못한 가격은 검토 전용으로 남습니다. 가용성 해석기는 자체 일관성이 있는 보고
+하나를 사용하며 축소된 파티션 집합, 합성 근거만 있는 경우, 비용 선택 정책, 다른 보고에서 결합한
+서술자를 거부합니다.
+
 연결은 선택적 `DescribedDistiller` 프로토콜을 구현하여 versioned
 `DistillerCapabilityDescriptor`를 반환할 수 있습니다. 기존 `Distiller` 프로토콜은 하위 호환됩니다.
 서술자가 없는 연결은 사용 불가로 해석하고, `AbstainingDistiller`는 `provider_unbound` 사유와
@@ -450,6 +463,19 @@ release 게이트는 다음과 같습니다.
 정책, 작업 흐름, ActionType, 권한, 자율성, 스키마 변경, 충돌 및 모호한 신원은 항상
 책임 있는 검토가 필요합니다.
 
+Live-shadow 평가는 변경할 수 없는 FDAI 개정 번호, 온톨로지 release, 모델 연결, 수집 당시 정책,
+출처 증적, 서로 다른 요청자와 검토자 신원에 연결된 sealed 묶음 하나만 허용합니다. 독립적인
+검증기가 묶음을 인증합니다. Append-only 정정은 제안 계보를 보존하며 가장 최신 감사 순서만 표본
+하나로 계산합니다. 평가 다이제스트는 관측 시간, risk 등급, 행위자, 검토 증적, 정확성 및 모든
+방어 규칙 플래그를 포함합니다.
+
+통제된 묶음 생산자는 주입된 배포 소유 출처에서 이미 감사된 결과를 읽습니다. 승격 레지스트리를
+변경하지 않고 내용 주소가 지정된 묶음과 strict 매니페스트 파일을 게시합니다. 변경할 수 없는 파일
+읽기 경로는 다시 시작한 뒤 심볼릭 링크, 경로 탈출, 크기 상한 초과 또는 잘못된 JSON, 다이제스트
+변경, 요청한 개정 번호, release, 연결 또는 정책 불일치를 거부합니다. 매니페스트 검증기는 정확한
+출처 증적과 완전한 검토 증적 집합을 요구합니다. 출처 결과의 순서가 바뀌어도 같은 바이트로
+인코딩하므로 재시도는 충돌하는 스냅샷이 아니라 no-op이 됩니다.
+
 D4d council 합의는 이 수명 주기 전체에서 inert review-only 제안으로 유지됩니다. Conformance
 또는 shadow 근거와 관계없이 그래프를 변경하거나 실행 권한을 부여하거나 기존
 결정론적 검증기와 책임 있는 검토를 우회하지 않습니다.
@@ -470,7 +496,7 @@ D4d council 합의는 이 수명 주기 전체에서 inert review-only 제안으
 
 ## 하드닝 기록
 
-43개의 adversarial 라운드가 제안 경로, 묶음 브리지, 실제 말뭉치 후속 구현 및 온톨로지 모델
+65개의 adversarial 라운드가 제안 경로, 묶음 브리지, 실제 말뭉치 후속 구현 및 온톨로지 모델
 council을 검토했습니다.
 
 | 라운드 | Focus | 결과 |
@@ -500,14 +526,16 @@ council을 검토했습니다.
 | 32 | 파서 security | shared 한도가 입력, 중첩, XML, 보관, PDF, OCR, 단위 및 character를 제한하고 오류는 내용이 없는 상태를 유지함 |
 | 33 | 독립적인 종결 | 독립 adversarial 감사 3개로 범위가 제한된 별칭, 캐시, SGML 깊이, vacuous 게이트, 기억 정규화 및 고정본 escaping 발견 사항을 닫음. Annotation 22/22, 파서 거절 0, 재생 mismatch 0, focused 테스트 372개 및 가지 커버리지 93.51% 통과 |
 | 34-43 | 모델 council 종결 | 부분 시간 초과, stale conformance 신원, 명시적 모델/사용량 증적, 개정 번호 실패와 필드 범위, malformed 값, 계열/발행기 independence, compromised 신원, digest-verified 비평, 정본 링크 대상 및 실제 운영 말뭉치 재생을 검증함. Focused 테스트 290개 및 가지 커버리지 90.62% 통과 |
+| 44-55 | 승격 근거 종결 | exact 운영 파티션, 합성 근거 분리, 비용 필수 가용성, 타입이 지정된 2회 실행 가격, 서술자/보고 연결, 출처 매니페스트 검증, 사용량에 연결된 가격, 가격 최신성, exact shadow 계보, append-only 정정, 독립적인 검토 허용, 정책/다이제스트 무결성을 검증함. 확인된 Medium 이상 소스 발견 사항은 남지 않음 |
+| 56-65 | live-shadow 수집 종결 | 출처 신원, 빈 입력과 부분 입력, append-only 정정, 순서 독립적인 재시도, 묶음과 매니페스트 변조, 경로와 심볼릭 링크 안전성, 범위가 제한된 strict 디코딩, 다시 시작 신원 및 승격 권한 부재를 검증함. Medium 재시도 순서 결함 하나를 수정했고 확인된 Medium 이상 발견 사항은 남지 않음 |
 
 D4c 방식과 공개 인벤토리 말뭉치는 검증된 Medium 이상 발견 사항 없이 닫혔습니다. 업스트림
 `AbstainingDistiller`는 11개 수동 모두에서 후보 0개를 반환하므로 연결된 프로바이더가
 conformance 말뭉치를 통과할 때까지 온톨로지 추출 가용성은 false입니다. Checked-in 공개
 말뭉치는 현재 English Markdown과 SGML을 다룹니다. 배포가 PDF, Office, OCR 및 Korean 프로바이더
-파티션을 지원한다고 주장하려면 licensed 또는 synthetic annotation이 더 필요합니다. 신뢰할 수 없는 PDF
-decompression에는 문서화된 isolated-worker 요구사항도 남습니다. 이 잔여는 기능을
-review-only로 유지하며 권한을 높일 수 없습니다.
+파티션을 지원한다고 주장하려면 독립 검증된 비합성 출처와 가격 증적이 더 필요합니다. 격리 작업자의
+PDF 검사는 defense in depth로 유지됩니다. 이 잔여는 기능을 review-only로 유지하며 권한을
+높일 수 없습니다.
 
 D4d 실제 운영 검사는 세 pinned 배포 모두에서 Entra-authenticated strict 구조화된 출력을
 검증했습니다. 객체 대응 2개와 링크 대응 2개를 포함한 pinned 공개 Markdown 점유 4개를 각각
@@ -542,9 +570,9 @@ D4d 실제 운영 검사는 세 pinned 배포 모두에서 Entra-authenticated s
 | 최종 인수인계 소스 비판 검토 | implemented | [FI-01부터 FI-12](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) | 잔여 소스 구현 이후 서로 다른 통합 검토 12회를 완료했으며 미해결로 확인된 Medium/High 소스 문제는 없습니다. 번역 갱신, 정본 생성, 훅, 게시/CI, 전체 UI/보조 기술 근거, 실제 적합성 확인은 별도의 열린 요건입니다. |
 | 제안, 점유 인벤토리, 결정론적 게이트 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_claims.py`; `ontology_verify.py`; `ontology_review.py`; `tests/rule_catalog/pipeline/distill/`의 집중 테스트 | D0-D4 계약과 실패 시 차단되는 검토 패키지가 구현되어 있습니다. 구조 인벤토리는 모델과 통제된 근거가 의미를 제공할 때까지 분류되지 않은 상태를 유지합니다. |
 | 묶음 출처 이력 및 형식 동등성 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_ingestion.py`; `ontology_evaluation.py`; `tests/rule_catalog/pipeline/distill/test_ontology_format_equivalence.py` | 구조화된 위치와 정규화된 제안 신원을 합성 교차 형식 근거로 검증합니다. |
-| 실제 말뭉치 추출 적합성 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_conformance.py`; `ontology_corpus_gate.py`; `tests/rule_catalog/pipeline/distill/test_ontology_conformance.py` | 영어 Markdown 및 SGML 구획은 검증됐습니다. 필수 PDF, Office, OCR, 한국어 주석은 남아 있습니다. |
+| 실제 말뭉치 추출 적합성 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_conformance.py`; `ontology_conformance_models.py`; `ontology_corpus_gate.py`; `tests/rule_catalog/pipeline/distill/test_ontology_conformance.py` | exact 운영 프로필과 독립 출처/비용 검증은 실패 시 차단됩니다. 영어 Markdown 및 SGML은 검증됐고 배포된 PDF, Office, OCR, 한국어 근거는 남아 있습니다. |
 | T2 온톨로지 모델 위원회 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_council.py`; `ontology_council_reducer.py`; `tests/rule_catalog/pipeline/distill/test_ontology_council.py` | 블라인드 투표, 결정론적 합의, 불일치 근거, 범위가 제한된 증적이 권한 없이 구현되어 있습니다. |
-| Shadow 측정 및 승격 평가 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_evaluation.py`; [평가 및 승격](#평가-및-승격) | 평가는 검토 전용입니다. 필수 live-shadow 기간, 제안 수, 가격 근거, 자동 승격 제외가 명시적 게이트로 남아 있습니다. |
+| Shadow 측정 및 승격 평가 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_evaluation.py`; `ontology_shadow_evidence.py`; `ontology_shadow_evidence_io.py`; [평가 및 승격](#평가-및-승격) | 통제된 수집, 내용 주소 기반 게시, 다시 시작 로드, 매니페스트 검증 및 sealed 평가가 구현됐고 검토 전용을 유지합니다. 필수 경과 기간과 제안 수는 아직 없습니다. |
 
 ### 구현 이력
 
@@ -562,10 +590,10 @@ D4d 실제 운영 검사는 세 pinned 배포 모두에서 Entra-authenticated s
 - [x] 잔여 구현 이후 서로 다른 최종 통합 소스 검토 12회를 완료했습니다. [최종 기록](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)에 미해결로 확인된 Medium/High 소스 문제는 없습니다.
 - [ ] 영문/한국어 검토, 번역 SHA 갱신, 정본 생성, 로컬 훅, 게시, 정확한 게시 SHA의 CI를 완료합니다. 전체 UI/보조 기술 근거는 [인수인계 계획](../interfaces/human-agent-assignment-implementation-plan-ko.md#현재-변경의-근거와-남은-범위)의 별도 열린 요건입니다.
 - [ ] [#458](https://github.com/dotnetpower/fdai/issues/458) 및 [#424](https://github.com/dotnetpower/fdai/issues/424)의 배포 원본 ACL, 법적 보존 해제/삭제, 코호트 근거를 보존합니다.
-- [ ] 필수 PDF, Office, OCR, 한국어 구획에 라이선스가 허용된 주석 또는 합성 주석을 추가하고 연결된 프로바이더로 말뭉치 게이트를 통과합니다.
-- [ ] 문서화된 격리 작업자 경계에서 신뢰할 수 없는 PDF 압축 해제를 실행하고 실패 시 차단되는 적합성 근거를 보존합니다.
+- [x] 필수 PDF, Office, OCR, 한국어 구획에 합성 주석을 추가하고 결정론적으로 연결된 프로바이더로 말뭉치 게이트를 통과했습니다(`47 passed`).
+- [x] 문서화된 격리 작업자 경계에서 신뢰할 수 없는 native PDF를 구문 분석하고 실패 시 차단되는 손상 문서 및 페이지 상한 근거를 보존했습니다.
 - [ ] 승격 검토 전에 최소 30개의 서로 다른 live-shadow 일자와 적격 검토 제안 500건을 방어 규칙 위반 없이 보존합니다.
-- [ ] 비용이 필수 위원회 게이트인 경우 검증 가능한 모델 가격 근거를 제공하고, 그렇지 않으면 배포 가용성을 미통과로 유지합니다.
+- [x] 현재 독립 검증된 모델 가격이 없으면 배포 가용성을 미통과로 유지합니다. 오래됐거나 날조됐거나 비용이 선택 사항이거나 맥락이 일치하지 않는 근거는 게이트를 통과할 수 없습니다.
 
 ## 관련 문서
 
