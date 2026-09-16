@@ -120,13 +120,22 @@ class ReportingLineRequestProcessor:
             if edge_digest != current.edge_digest:
                 raise ValueError("reporting-line command digest is stale")
             return
+        endpoint_decision = EndpointDecision(_text(payload, "decision"))
+        if _endpoint_confirmation_replay(
+            current,
+            principal_ref=principal.oid,
+            decision=endpoint_decision,
+            edge_digest=edge_digest,
+            decided_at=notice.accepted_at,
+            expected_revision=expected_revision,
+        ):
+            return
         if expected_revision != current.revision:
             raise ValueError("reporting-line command revision is stale")
         if edge_digest != current.edge_digest:
             raise ValueError("reporting-line command digest is stale")
         if principal.oid not in {current.subject_ref, current.manager_ref}:
             raise PermissionError("only a reporting-line endpoint may confirm")
-        EndpointDecision(_text(payload, "decision"))
 
     async def validate_review(self, notice: AssignmentRequestNotice, *, at: datetime) -> None:
         """Var rechecks an endpoint confirmation or independent Owner review."""
@@ -302,6 +311,26 @@ def _owner_review_replay(
         ReportingLineCaseState.REJECTED: expected_revision + 1,
     }
     return expected_state_revision.get(case.state) == case.revision
+
+
+def _endpoint_confirmation_replay(
+    case: ReportingLineCase,
+    *,
+    principal_ref: str,
+    decision: EndpointDecision,
+    edge_digest: str,
+    decided_at: datetime,
+    expected_revision: int,
+) -> bool:
+    confirmation = case.confirmation
+    return (
+        confirmation is not None
+        and case.revision == expected_revision + 1
+        and confirmation.principal_ref == principal_ref
+        and confirmation.decision is decision
+        and confirmation.edge_digest == edge_digest
+        and confirmation.decided_at == decided_at
+    )
 
 
 def _optional_text(value: Mapping[str, Any], key: str) -> str | None:

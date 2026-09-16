@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 2d207f27384d5b43022d63112898d47bbe200fb1
+translation_source_sha: 18b4868be32611fc13789e29e473a0d62393b5ea
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -119,6 +119,8 @@ Edge는 `unresolved`, `conflict`, `rejected`, `expired` 또는 `superseded` 상�
 
 한쪽 당사자가 명시적으로 거부하면 다른 당사자가 이전에 확인했더라도 edge는 `conflict`로
 이동합니다. 충돌을 해결할 때는 새 후보를 만들며 이전 근거를 다시 쓰지 않습니다.
+정확히 같은 당사자 확인 및 Owner 검토 명령을 재생하면 transport 결과를 쓰기 전에 상태 쓰기가
+완료된 복구 상황을 포함해 기록된 전이를 반환합니다.
 
 ## 그래프 검증 및 최신성
 

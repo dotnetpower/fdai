@@ -133,6 +133,16 @@ class ReportingLineService:
             raise PermissionError("only a reporting-line endpoint may confirm the relationship")
         if current.edge_digest != edge_digest:
             raise ReportingLineModelError("reporting-line confirmation digest is stale")
+        decided_at = reporting_instant(now or datetime.now(tz=UTC))
+        if _same_endpoint_confirmation(
+            current,
+            actor=actor,
+            decision=decision,
+            edge_digest=edge_digest,
+            decided_at=decided_at,
+            expected_revision=expected_revision,
+        ):
+            return current
         if current.revision != expected_revision:
             raise ReportingLineModelError("reporting-line confirmation revision is stale")
         if current.state not in {
@@ -148,7 +158,6 @@ class ReportingLineService:
                 return current
             if decision is EndpointDecision.CONFIRM:
                 return current
-        decided_at = reporting_instant(now or datetime.now(tz=UTC))
         confirmation = EndpointConfirmation(
             principal_ref=actor,
             decision=decision,
@@ -352,6 +361,26 @@ def _same_owner_review(
         ReportingLineCaseState.REJECTED: expected_revision + 1,
     }
     return expected_state_revision.get(case.state) == case.revision
+
+
+def _same_endpoint_confirmation(
+    case: ReportingLineCase,
+    *,
+    actor: str,
+    decision: EndpointDecision,
+    edge_digest: str,
+    decided_at: datetime,
+    expected_revision: int,
+) -> bool:
+    confirmation = case.confirmation
+    return (
+        confirmation is not None
+        and case.revision == expected_revision + 1
+        and confirmation.principal_ref == actor
+        and confirmation.decision is decision
+        and confirmation.edge_digest == edge_digest
+        and confirmation.decided_at == decided_at
+    )
 
 
 __all__ = ["ReportingLineService", "report_line_case_result"]

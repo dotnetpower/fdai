@@ -124,7 +124,8 @@ An active edge records:
 
 An explicit rejection by either endpoint moves the edge to `conflict`, even if the other endpoint
 previously confirmed it. Resolving the conflict creates a new candidate and does not rewrite the
-old evidence.
+old evidence. Exact endpoint-confirmation and Owner-review command replays return the recorded
+transition, including recovery after a state write completed before its transport result.
 
 ## Graph validation and freshness
 

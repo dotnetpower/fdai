@@ -283,6 +283,36 @@ async def test_other_endpoint_can_reject_after_first_confirmation() -> None:
     assert rejected.state is ReportingLineCaseState.CONFLICT
 
 
+async def test_exact_endpoint_confirmation_replay_returns_recorded_transition() -> None:
+    service = ReportingLineService(InMemoryStateStore())
+    candidate = _candidate("person-a", "person-b")
+    case = await service.create_case(
+        principal=_principal("uploader", Role.CONTRIBUTOR),
+        artifact=_artifact(candidate),
+        candidate_id=candidate.candidate_id,
+        now=NOW,
+    )
+    confirmed = await service.confirm(
+        principal=_principal("person-a", Role.READER),
+        case_id=case.case_id,
+        expected_revision=case.revision,
+        decision=EndpointDecision.CONFIRM,
+        edge_digest=case.edge_digest,
+        now=NOW + timedelta(minutes=1),
+    )
+
+    replay = await service.confirm(
+        principal=_principal("person-a", Role.READER),
+        case_id=case.case_id,
+        expected_revision=case.revision,
+        decision=EndpointDecision.CONFIRM,
+        edge_digest=case.edge_digest,
+        now=NOW + timedelta(minutes=1),
+    )
+
+    assert replay == confirmed
+
+
 async def test_owner_review_freezes_endpoint_decisions_before_graph_activation() -> None:
     store = GraphBarrierStore()
     service = ReportingLineService(store)
