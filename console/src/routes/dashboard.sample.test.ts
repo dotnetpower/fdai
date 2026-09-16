@@ -21,4 +21,20 @@ describe("Dashboard sample mode", () => {
     expect(client.panel).not.toHaveBeenCalled();
     expect(client.autonomy).not.toHaveBeenCalled();
   });
+
+  test("provides a multi-point trend for every Sample operating outcome", () => {
+    const autonomy = DASHBOARD_SAMPLE_DATA.autonomy!;
+    const trends = {
+      auto_resolution_rate: autonomy.success.auto_resolution_rate.value,
+      human_touchpoints: autonomy.success.human_touchpoints_per_100.value,
+      mttr: autonomy.success.mttr_seconds.value,
+      change_lead_time: autonomy.success.change_lead_time_seconds.value,
+      cost_per_resolved_event: autonomy.success.cost_per_resolved_event_usd.value,
+    };
+
+    for (const [key, current] of Object.entries(trends)) {
+      expect(autonomy.trend[key]).toHaveLength(8);
+      expect(autonomy.trend[key]?.at(-1)).toBe(current);
+    }
+  });
 });
