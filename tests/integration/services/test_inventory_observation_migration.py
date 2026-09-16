@@ -104,6 +104,11 @@ def test_inventory_temporal_axes_migration_backfills_without_changing_identity(
     assert "ADD COLUMN ingested_at TIMESTAMPTZ" in sql
     assert "SET ingested_at = recorded_at" in sql
     assert "ALTER COLUMN ingested_at SET NOT NULL" in sql
+    disable_trigger = "DISABLE TRIGGER inventory_observation_journal_no_modify"
+    backfill = "UPDATE inventory_observation_journal"
+    enable_trigger = "ENABLE TRIGGER inventory_observation_journal_no_modify"
+    assert sql.index(disable_trigger) < sql.index(backfill) < sql.index(enable_trigger)
+    assert "DISABLE TRIGGER inventory_observation_journal_no_delete" not in sql
     assert "observation_id" not in sql
 
 
