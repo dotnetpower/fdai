@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 216c1555921614fc4ee9d1d92f61818afcc915f1
+translation_source_sha: 9c7057f61c40ba836d8e23522cecba209b0de8e8
 translation_revised: 2026-09-16
 ---
 # 배포 리소스 규약
@@ -77,8 +77,9 @@ A3-E 근거 대상은 별도의 개발 환경 전용 Terraform root입니다. �
 이름은 `fdai-a3e-<env>-<region>` 접미사를 사용합니다. 구독, 보유 그룹, 작업자, 리전, SKU,
 정확한 이미지 버전, 만료 시각, 주소 공간 및 SSH 공개키는 보호된 배포 입력으로 유지합니다.
 실행기 역할은 VM 읽기, 시작 및 할당 해제만 허용하고 관측자는 같은 VM에서 Reader 역할을
-받습니다. 값을 노출하지 않는 gate는 정확한 생성 집합만 수락합니다. 적용, 초기 할당 해제,
-캠페인 효과, rollback 및 정리는 각각 별도의 승인 단계로 유지합니다.
+받습니다. Subnet과 VM NIC는 모두 외부 송신을 거부하는 NSG에 연결하고 VM extension 작업은
+비활성화합니다. 값을 노출하지 않는 gate는 정확한 생성 집합만 수락합니다. 적용, 초기 할당
+해제, 캠페인 효과, rollback 및 정리는 각각 별도의 승인 단계로 유지합니다.
 
 ## 구현 상태
 
@@ -110,6 +111,7 @@ A3-E 근거 대상은 별도의 개발 환경 전용 Terraform root입니다. �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | 정확한 Terraform 보안 검사가 초기 형태를 거부한 뒤 외부 송신을 거부하는 NSG를 A3-E VM NIC와 subnet에 모두 직접 연결하고 VM extension 작업을 비활성화했습니다. | `current change`; Trivy `0.72.0`에서 잘못된 구성 0건, Checkov `3.2.256`에서 16건 통과 및 0건 실패, 값을 노출하지 않는 미리 보기 검증기에서 정확히 생성 13건, 갱신 0건 및 삭제 0건. | 관리 호스트 계획이나 Azure 효과를 만들기 전에 필수 CI를 통해 수정된 정확한 개정 번호를 게시합니다. |
 | 2026-09-15 | implemented | 실제 부분 Foundation 복구에서 provider와 Azure 조건 오류가 드러난 뒤 임시 OS 캐시와 범위가 포함된 역할 정의 비교 값을 수정했습니다. | 현재 변경; `terraform -chdir=infra/bootstrap test -filter=tests/offline_runner.tftest.hcl`: 정확한 역할·principal 제한과 디스크 캐시를 포함해 14건 통과. | 완료된 작업을 보존하는 별도 승인 후속 계획·적용과 독립 호스트·상태 인계 근거를 보존합니다. |
 | 2026-09-16 | implemented | 일회성 A3-E 근거 VM 하나에 결정론적 이름, 필수 무권한 및 만료 태그, 분리된 실행기 및 관측자 신원, 대상 범위 최소 역할, 정확한 생성 전용 계획 검증을 추가했습니다. | `current change`; `infra/a3e-evidence-target/`; 집중 Terraform, 계획 검증기, CI 계약 및 문서 검사. | 정확한 개정 번호 하나를 게시하고 승인된 원격 상태 계획을 보존한 뒤 이슈 `#632` 및 `#633`에서 별도로 승인된 적용, 할당 해제, 신원, 정리 및 독립 효과 근거를 수집합니다. |
 | 2026-09-09 | implemented | 동작을 바꾸지 않고 배포 workflow 검토 예산을 복원하고 직접 azd 테스트 harness가 필요한 모든 실행 파일 전제 조건을 제공하도록 수정했습니다. | `current change`, 정확한 deploy-workflow diet 및 Azure context 테스트 23건 통과 | 보호된 배포를 재개하기 전에 새 exact-green main 증적을 보존합니다. |

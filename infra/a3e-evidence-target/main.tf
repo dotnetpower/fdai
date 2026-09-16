@@ -130,6 +130,11 @@ resource "azurerm_network_interface" "target" {
   depends_on = [azurerm_subnet_network_security_group_association.target]
 }
 
+resource "azurerm_network_interface_security_group_association" "target" {
+  network_interface_id      = azurerm_network_interface.target.id
+  network_security_group_id = azurerm_network_security_group.target.id
+}
+
 resource "azurerm_linux_virtual_machine" "target" {
   name                            = "vm-${local.suffix}"
   computer_name                   = "fdaia3eevidence"
@@ -137,6 +142,7 @@ resource "azurerm_linux_virtual_machine" "target" {
   resource_group_name             = data.azurerm_resource_group.target.name
   size                            = var.vm_size
   admin_username                  = "fdaievidence"
+  allow_extension_operations      = false
   disable_password_authentication = true
   network_interface_ids           = [azurerm_network_interface.target.id]
   secure_boot_enabled             = true
@@ -161,6 +167,8 @@ resource "azurerm_linux_virtual_machine" "target" {
     sku       = var.vm_image.sku
     version   = var.vm_image.version
   }
+
+  depends_on = [azurerm_network_interface_security_group_association.target]
 
 }
 

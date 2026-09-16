@@ -18,6 +18,7 @@ def test_a3e_evidence_target_is_private_separated_and_plan_bound() -> None:
     assert 'data "azurerm_resource_group" "target"' in main
     assert 'resource "azurerm_resource_group"' not in main
     assert 'resource "azurerm_public_ip"' not in main
+    assert "allow_extension_operations      = false" in main
     assert main.count('resource "azurerm_user_assigned_identity"') == 2
     assert 'resource "azurerm_role_definition" "executor"' in main
     assert '"Microsoft.Compute/virtualMachines/start/action"' in main
@@ -28,6 +29,8 @@ def test_a3e_evidence_target_is_private_separated_and_plan_bound() -> None:
     assert 'source_address_prefix      = "Internet"' in main
     assert 'destination_address_prefix = "Internet"' in main
     assert 'resource "azurerm_subnet_network_security_group_association" "target"' in main
+    assert 'resource "azurerm_network_interface_security_group_association" "target"' in main
+    assert "depends_on = [azurerm_network_interface_security_group_association.target]" in main
     assert "tags = merge(var.additional_tags, {" in main
     assert "subnet_address_prefix = cidrsubnet(var.vnet_address_space, 3, 0)" in main
     assert 'can(regex("/24$", var.vnet_address_space))' in variables

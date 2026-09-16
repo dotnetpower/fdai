@@ -69,7 +69,7 @@ def test_main_reports_only_value_free_summary(
 
     assert main([str(plan_path)]) == 0
     captured = capsys.readouterr()
-    assert captured.out == "A3E_EVIDENCE_PLAN_OK create=12 update=0 delete=0\n"
+    assert captured.out == "A3E_EVIDENCE_PLAN_OK create=13 update=0 delete=0\n"
     assert captured.err == ""
 
 

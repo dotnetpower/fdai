@@ -76,9 +76,10 @@ protected holding resource group and owns only its private network, single VM, t
 target-scoped roles in a separate state. Names use the `fdai-a3e-<env>-<region>` suffix while the
 subscription, holding group, actor, region, SKU, exact image version, expiry, address space, and SSH
 public key remain protected deployment inputs. The executor role permits only VM read, start, and
-deallocate; the observer receives Reader on the same VM. A value-blind gate accepts only the exact
-create set. Apply, initial deallocation, campaign effects, rollback, and cleanup remain separately
-approved stages.
+deallocate; the observer receives Reader on the same VM. The subnet and VM NIC both bind the
+egress-deny NSG, and VM extension operations remain disabled. A value-blind gate accepts only the
+exact create set. Apply, initial deallocation, campaign effects, rollback, and cleanup remain
+separately approved stages.
 
 ## Implementation status
 
@@ -110,6 +111,7 @@ approved stages.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | implemented | Bound the egress-deny NSG directly to the A3-E VM NIC as well as its subnet and disabled VM extension operations after exact Terraform security scans rejected the initial shape. | `current change`; Trivy `0.72.0` reports 0 misconfigurations; Checkov `3.2.256` reports 16 passed and 0 failed; the value-blind preview verifier accepts exactly 13 creates, 0 updates, and 0 deletes. | Publish the corrected exact revision through protected CI before any managed-host plan or Azure effect. |
 | 2026-09-15 | implemented | Corrected bootstrap ephemeral OS caching and scoped role-definition operands after an actual partial Foundation recovery exposed provider and Azure condition errors. | Current change; `terraform -chdir=infra/bootstrap test -filter=tests/offline_runner.tftest.hcl`: 14 passed, including exact role/principal restrictions and disk cache. | Retain a separately approved successor plan/apply preserving completed work, followed by independent host and state-handoff evidence. |
 | 2026-09-16 | implemented | Added deterministic names, required no-authority and expiry tags, separate executor and observer identities, target-scoped minimum roles, and exact create-only plan validation for one disposable A3-E evidence VM. | `current change`; `infra/a3e-evidence-target/`; focused Terraform, plan-verifier, CI-contract, and documentation checks. | Publish one exact revision, retain an approved remote-state plan, and collect separately approved apply, deallocation, identity, cleanup, and independent effect evidence under issues `#632` and `#633`. |
 | 2026-09-09 | implemented | Restored the deploy workflow review budget without changing behavior and updated the direct azd test harness to provide every required executable prerequisite. | `current change`; exact deploy-workflow diet and Azure-context tests passed 23 cases. | Retain a new exact-green main receipt before resuming protected deployment. |

@@ -14,6 +14,7 @@ EXPECTED_CREATES = frozenset(
     {
         "azurerm_linux_virtual_machine.target",
         "azurerm_network_interface.target",
+        "azurerm_network_interface_security_group_association.target",
         "azurerm_network_security_group.target",
         "azurerm_role_assignment.executor",
         "azurerm_role_assignment.observer",
