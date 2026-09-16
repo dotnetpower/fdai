@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: c36eeb87b149efade688bc3a9f1629b2e6ec43d2
+translation_source_sha: b0b431402fbbd3f67dae6a56d6bad51d258fddf1
 translation_revised: 2026-09-16
 ---
 # 지속형 운영 인스턴스 그래프
@@ -301,7 +301,9 @@ SSE 경로는 변환 전 journal 페이지가 아니라 커밋된 표식에서 �
 인증된 읽기 권한 아래에서 표식, 커밋된 세대 한 건의 개수 및 관측 시각만 노출합니다. 프로바이더
 payload를 노출하거나 그래프 사실을 만들지 않습니다. 표시 중인 Console이 무효화 이벤트를 받으면
 범위가 제한된 선택 인스턴스 변환 결과를 다시 읽습니다. SSE는 `Last-Event-ID`부터 다시 연결하며
-폴링은 범위가 제한된 fallback으로 유지합니다.
+폴링은 범위가 제한된 fallback으로 유지합니다. 이전 표식의 형식이 잘못돼도 그래프 변환을
+차단하지 않고 교체합니다. 이전 표식과 journal 워터마크 하한이 모두 없는 변환은 표식을 만들지
+않고 폴링을 사용합니다.
 
 관측된 모델 배포도 같은 세대와 무효화 경로를 사용합니다. Operator 변환 결과는 추가
 `model_deployment` 객체에서 모델 이름, 모델 버전, 배포 SKU 및 정규화된 TPM만 노출합니다.

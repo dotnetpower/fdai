@@ -271,16 +271,18 @@ class InventoryOntologyProjector:
             journal_high_watermark=journal_high_watermark,
             projection_high_watermark=projection_high_watermark,
         )
+        invalidation_state = await self._invalidation_state(
+            generation=projection.generation,
+            manifest_digest=current_manifest_digest,
+            journal_high_watermark=journal_high_watermark,
+            recorded_at=observation.recorded_at,
+        )
         state_updates = {
             INVENTORY_ONTOLOGY_MANIFEST_KEY: manifest_state,
             INVENTORY_ONTOLOGY_STATUS_KEY: status_state,
-            INVENTORY_ONTOLOGY_INVALIDATION_KEY: await self._invalidation_state(
-                generation=projection.generation,
-                manifest_digest=current_manifest_digest,
-                journal_high_watermark=journal_high_watermark,
-                recorded_at=observation.recorded_at,
-            ),
         }
+        if invalidation_state is not None:
+            state_updates[INVENTORY_ONTOLOGY_INVALIDATION_KEY] = invalidation_state
         active_scope_state = checkpoints.active_scope_state(generation=projection.generation)
         if active_scope_state is not None:
             state_updates[INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY] = active_scope_state
@@ -319,10 +321,11 @@ class InventoryOntologyProjector:
                     INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY,
                     active_scope_state,
                 )
-            await self._status_store.write_state(
-                INVENTORY_ONTOLOGY_INVALIDATION_KEY,
-                state_updates[INVENTORY_ONTOLOGY_INVALIDATION_KEY],
-            )
+            if invalidation_state is not None:
+                await self._status_store.write_state(
+                    INVENTORY_ONTOLOGY_INVALIDATION_KEY,
+                    invalidation_state,
+                )
         if projection_high_watermark is not None and not callable(atomic_replace):
             if self._observation_journal is None:
                 raise RuntimeError("inventory ontology journal watermark has no durable writer")
@@ -359,36 +362,40 @@ class InventoryOntologyProjector:
         manifest_digest: str,
         journal_high_watermark: int | None,
         recorded_at: datetime | None,
-    ) -> dict[str, object]:
+    ) -> dict[str, object] | None:
         """Build an idempotent post-commit browser cursor compatible with legacy ids."""
 
         previous = await self._status_store.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
         previous_sequence = 0
-        if previous is not None:
-            if not isinstance(previous, Mapping):
-                raise ValueError("inventory ontology invalidation marker is malformed")
+        if isinstance(previous, Mapping):
+            sequence = previous.get("sequence")
+            if isinstance(sequence, int) and not isinstance(sequence, bool) and sequence >= 1:
+                previous_sequence = sequence
+            valid_previous = (
+                previous.get("schema_version") == "1.0.0"
+                and previous_sequence >= 1
+                and isinstance(previous.get("generation"), str)
+                and bool(previous["generation"])
+                and isinstance(previous.get("manifest_digest"), str)
+                and _DIGEST_PATTERN.fullmatch(previous["manifest_digest"]) is not None
+                and isinstance(previous.get("recorded_at"), str)
+                and previous.get("complete") is True
+                and previous.get("execution_authority") is False
+                and previous.get("mutation_authority") is False
+            )
             if (
-                previous.get("schema_version") != "1.0.0"
-                or isinstance(previous.get("sequence"), bool)
-                or not isinstance(previous.get("sequence"), int)
-                or previous["sequence"] < 1
-                or not isinstance(previous.get("generation"), str)
-                or not previous["generation"]
-                or not isinstance(previous.get("manifest_digest"), str)
-                or _DIGEST_PATTERN.fullmatch(previous["manifest_digest"]) is None
-                or not isinstance(previous.get("recorded_at"), str)
-                or previous.get("complete") is not True
-                or previous.get("execution_authority") is not False
-                or previous.get("mutation_authority") is not False
-            ):
-                raise ValueError("inventory ontology invalidation marker is malformed")
-            if (
-                previous["generation"] == generation
+                valid_previous
+                and previous["generation"] == generation
                 and previous["manifest_digest"] == manifest_digest
             ):
                 return dict(previous)
-            previous_sequence = previous["sequence"]
-        journal_cursor = journal_high_watermark if journal_high_watermark is not None else 0
+            if not valid_previous:
+                _LOG.warning("inventory_ontology_invalidation_marker_replaced")
+        elif previous is not None:
+            _LOG.warning("inventory_ontology_invalidation_marker_replaced")
+        if journal_high_watermark is None and previous_sequence == 0:
+            return None
+        journal_cursor = journal_high_watermark or 0
         committed_at = recorded_at or datetime.now(UTC)
         if committed_at.tzinfo is None:
             raise ValueError("inventory ontology invalidation time MUST be timezone-aware")

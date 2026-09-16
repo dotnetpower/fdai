@@ -27,6 +27,7 @@ import "./dashboard-v2.css";
 export default function DashboardV2Route({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<DashboardSnapshot>>({ status: "loading" });
   const [refreshDelayed, setRefreshDelayed] = useState(false);
+  const [refreshInFlight, setRefreshInFlight] = useState(false);
   const readyClientRef = useRef<OperatorApiClient | null>(null);
   const [revision, setRevision] = useState(0);
   useOntologyInvalidationStream({
@@ -39,6 +40,8 @@ export default function DashboardV2Route({ client }: { readonly client: Operator
     let cancelled = false;
     const refresh = async (trigger: OntologyInstanceRefreshTrigger) => {
       const canRetain = readyClientRef.current === client;
+      const retainingForManualRefresh = trigger === "initial" && canRetain;
+      if (retainingForManualRefresh) setRefreshInFlight(true);
       if (trigger === "initial" && !canRetain) setState({ status: "loading" });
       try {
         const snapshot = await loadDashboardRecordedStates(client, () => cancelled);
@@ -58,6 +61,8 @@ export default function DashboardV2Route({ client }: { readonly client: Operator
         setState(isOptionalOperatorApiUnavailable(error)
           ? { status: "unavailable", message: t("unavailable") }
           : { status: "error", message: error instanceof Error ? error.message : String(error) });
+      } finally {
+        if (!cancelled && retainingForManualRefresh) setRefreshInFlight(false);
       }
     };
     const stopRefresh = installOntologyInstanceRefresh(refresh);
@@ -66,12 +71,13 @@ export default function DashboardV2Route({ client }: { readonly client: Operator
   return <div class="stack dashboard-v2-page">
     <PageHeader title={t("title")} subtitle={t("subtitle")} actions={<>
       <a class="cs-control-button" href={routeHref("dashboard")}>{t("original")}</a>
-      <button type="button" class="cs-control-button" onClick={() => setRevision((value) => value + 1)} disabled={state.status === "loading"}>{t("refresh")}</button>
+      <button type="button" class="cs-control-button" onClick={() => setRevision((value) => value + 1)} disabled={state.status === "loading" || refreshInFlight}>{t("refresh")}</button>
     </>} />
+    {refreshInFlight && !refreshDelayed && <p class="dv2-notice" role="status">{t("refreshing")}</p>}
     {refreshDelayed && <p class="dv2-notice" role="status">{t("refreshDelayed")}</p>}
     {state.status !== "ready" && <DashboardPendingContext status={state.status} />}
     <AsyncBoundary state={state} resourceLabel={t("title")}>
-      {(snapshot) => <DashboardBody key={revision} snapshot={snapshot} />}
+      {(snapshot) => <DashboardBody snapshot={snapshot} />}
     </AsyncBoundary>
   </div>;
 }

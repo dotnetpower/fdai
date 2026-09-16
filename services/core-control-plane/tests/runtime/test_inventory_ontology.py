@@ -286,6 +286,49 @@ async def test_projection_invalidation_cursor_advances_once_per_distinct_commit(
     assert repeated == second
 
 
+async def test_projection_without_a_cursor_floor_does_not_emit_an_invalidation() -> None:
+    status = InMemoryStateStore()
+    store = _AtomicOntologyStore(status)
+
+    await InventoryOntologyProjector(
+        store=store,
+        status_store=status,
+        ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
+    ).apply(_observation(generation="snapshot-no-watermark", resource_ids=("vm-1",)))
+
+    assert await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY) is None
+    assert await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY) is not None
+
+
+async def test_projection_replaces_a_malformed_invalidation_without_blocking_graph() -> None:
+    status = InMemoryStateStore()
+    await status.write_state(
+        INVENTORY_ONTOLOGY_INVALIDATION_KEY,
+        {
+            "schema_version": "0.9.0",
+            "sequence": 100,
+            "generation": "legacy",
+        },
+    )
+    store = _AtomicOntologyStore(status)
+
+    await InventoryOntologyProjector(
+        store=store,
+        status_store=status,
+        ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
+    ).apply(
+        _observation(generation="snapshot-recovered", resource_ids=("vm-1",)),
+        journal_high_watermark=7,
+        projection_high_watermark=6,
+    )
+
+    marker = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+    assert marker is not None
+    assert marker["sequence"] == 101
+    assert marker["generation"] == "snapshot-recovered"
+    assert await store.get_object("vm-1") is not None
+
+
 def _observation(
     *,
     generation: str,

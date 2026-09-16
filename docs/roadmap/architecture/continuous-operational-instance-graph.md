@@ -302,7 +302,8 @@ never from pre-projection journal pages. It exposes only the marker, one committ
 count, and observation time under authenticated read access. It never exposes provider payloads or
 creates graph facts. A visible Console receiving the invalidation re-reads its bounded
 selected-instance projection. SSE reconnects from `Last-Event-ID`; polling remains the bounded
-fallback.
+fallback. A malformed previous marker is replaced without blocking graph projection. A projection
+with neither a prior marker nor a journal-watermark floor emits no marker and relies on polling.
 
 Observed model deployments use that same generation and invalidation path. The Operator projection
 exposes only model name, model version, deployment SKU, and normalized TPM in an additive
