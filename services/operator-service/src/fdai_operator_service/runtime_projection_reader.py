@@ -640,9 +640,23 @@ class RuntimeProjectionReader:
                         if not bool(row["enabled"])
                         else "error"
                         if int(row["error_count"] or 0) > 0
+                        else "not-measured"
+                        if row["last_refresh_at"] is None
                         else "ready"
                     ),
-                    "reason": str(row["last_error_kind"] or "source_registered"),
+                    "reason": str(
+                        row["last_error_kind"]
+                        or (
+                            "source_refresh_not_recorded"
+                            if row["last_refresh_at"] is None
+                            else "source_refreshed"
+                        )
+                    ),
+                    "observed_at": (
+                        _required_timestamp(row["last_refresh_at"]).isoformat()
+                        if row["last_refresh_at"] is not None
+                        else None
+                    ),
                     "digests": {},
                 }
                 for row in sources

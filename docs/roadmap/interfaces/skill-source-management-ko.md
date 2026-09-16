@@ -1,8 +1,8 @@
 ---
 title: 스킬 소스 관리
 translation_of: skill-source-management.md
-translation_source_sha: f55819c29125b4e411659f8ca5820dafe694b43d
-translation_revised: 2026-08-20
+translation_source_sha: fb8f2072100222021dc3a3e564f80e9022edd477
+translation_revised: 2026-09-17
 ---
 # 스킬 소스 관리
 
@@ -95,6 +95,11 @@ bootstrap은 오케스트레이터, 주기 실행기, 구체 GitHub 어댑터를
 있습니다.
 
 ## HTTP 표면
+
+Console의 `/skills` 진단에는 마지막으로 성공한 출처 갱신 시각을 표시합니다.
+출처를 활성화했더라도 갱신 기록이 없으면 `ready`가 아니라 `not-measured`로 표시합니다.
+비활성화와 실패 상태는 구분하며, 이전 성공 시각이 있어도 현재 오류를 정상 상태로 바꾸지
+않습니다. 이 조회로 콘텐츠를 가져오거나 스킬을 활성화하지 않습니다.
 
 Operator Service workflow family가 이 경로를 등록하고 서버가 해석한 인증된 principal을
 사용합니다.

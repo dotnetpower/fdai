@@ -782,6 +782,7 @@ async def test_remaining_console_evidence_projects_durable_tables(
     assert memory["items"][0]["active"] is True
     assert skills["installed_count"] == 0
     assert skills["diagnostics"][0]["status"] == "ready"
+    assert skills["diagnostics"][0]["observed_at"] == now.isoformat()
     assert detection["target_count"] == 0
     assert detection["counts"]["unknown"] == 0
     assert detection["lifecycle"]["target_count"] == 0
@@ -792,6 +793,65 @@ async def test_remaining_console_evidence_projects_durable_tables(
     assert baselines["baseline"]["version"] == "not-published"
     assert baselines["drift"]["verdict"] == "not-evaluated"
     assert baselines["performance"] is None
+
+
+@pytest.mark.parametrize(
+    ("enabled", "refreshed", "error_count", "expected"),
+    (
+        (True, False, 0, "not-measured"),
+        (True, True, 0, "ready"),
+        (True, False, 1, "error"),
+        (True, True, 1, "error"),
+        (False, False, 0, "disabled"),
+        (False, True, 1, "disabled"),
+    ),
+)
+async def test_skill_source_readiness_requires_recorded_refresh(
+    monkeypatch: pytest.MonkeyPatch,
+    enabled: bool,
+    refreshed: bool,
+    error_count: int,
+    expected: str,
+) -> None:
+    observed_at = datetime(2026, 9, 17, tzinfo=UTC) if refreshed else None
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        assert "FROM skill_source " in statement
+        return [
+            {
+                "source_id": "source-example",
+                "kind": "github_repository",
+                "enabled": enabled,
+                "last_refresh_at": observed_at,
+                "error_count": error_count,
+                "last_error_kind": "rate_limited" if error_count else None,
+            }
+        ]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+    result = await reader.read(_query("skills"))
+    diagnostic = result["diagnostics"][0]
+    assert diagnostic["status"] == expected
+    assert diagnostic["observed_at"] == (
+        observed_at.isoformat() if observed_at is not None else None
+    )
+    assert diagnostic["reason"] == (
+        "rate_limited"
+        if error_count
+        else "source_refreshed"
+        if refreshed
+        else "source_refresh_not_recorded"
+    )
+    assert result["execution_eligibility"] is False
+    assert result["mutation_controls"] is False
 
 
 async def test_detection_readiness_includes_latest_analyzer_tick(
