@@ -178,6 +178,8 @@ class OperationalHistoryLifecycleRunResult:
 class OperationalHistoryLifecycleRepository(Protocol):
     """Read lifecycle evidence and commit exact monotonic state transitions."""
 
+    async def certification_authorizes(self, receipt_digest: str) -> bool: ...
+
     async def assess_pressure(self, policy: StoragePressurePolicy) -> StoragePressureAssessment: ...
 
     async def list_partitions(
@@ -259,6 +261,14 @@ class OperationalHistoryLifecycleRunner:
 
         if now.tzinfo is None:
             raise ValueError("operational history lifecycle time MUST be timezone-aware")
+        if self._config.mode is not OperationalHistoryLifecycleMode.SHADOW:
+            receipt_digest = self._config.authority_receipt_digest
+            if receipt_digest is None or not await self._repository.certification_authorizes(
+                receipt_digest
+            ):
+                raise PermissionError(
+                    "operational history authority receipt is unavailable or invalid"
+                )
         pressure = await self._repository.assess_pressure(self._pressure_policy())
         if self._config.mode is not OperationalHistoryLifecycleMode.SHADOW:
             await self._history.write_storage_pressure(pressure, observed_at=now)

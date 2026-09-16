@@ -23,7 +23,12 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStore,
     PostgresInventorySnapshotStoreConfig,
 )
-from fdai.shared.providers.inventory import InventoryBatch, LinkRecord, ResourceRecord
+from fdai.shared.providers.inventory import (
+    UNCLASSIFIED_RESOURCE_TYPE,
+    InventoryBatch,
+    LinkRecord,
+    ResourceRecord,
+)
 from fdai.shared.providers.inventory_snapshot import InventoryCoverageManifest
 
 _NOW = datetime(2026, 7, 25, 12, 0, tzinfo=UTC)
@@ -253,6 +258,10 @@ def test_coverage_set_includes_resource_and_link_endpoint_types() -> None:
     covered = _covered_resource_types("compute.vm", [_link()])
 
     assert covered == ("compute.vm", "resource-group")
+
+
+def test_unclassified_change_has_one_exact_coverage_type() -> None:
+    assert _covered_resource_types(UNCLASSIFIED_RESOURCE_TYPE, ()) == (UNCLASSIFIED_RESOURCE_TYPE,)
 
 
 def test_lock_resource_ids_are_deduplicated_and_sorted() -> None:

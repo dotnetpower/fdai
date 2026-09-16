@@ -46,6 +46,9 @@ from fdai.delivery.persistence.postgres_operational_archive import (
 from fdai.delivery.persistence.postgres_operational_history import (
     PostgresOperationalHistoryStore,
 )
+from fdai.delivery.persistence.postgres_operational_history_lifecycle_runner import (
+    PostgresOperationalHistoryLifecycleRepository,
+)
 
 NOW = datetime(2026, 9, 5, tzinfo=UTC)
 DIGEST_A = "sha256:" + "a" * 64
@@ -147,6 +150,7 @@ def _repository(
     holds=(),
 ):
     return SimpleNamespace(
+        certification_authorizes=AsyncMock(return_value=True),
         assess_pressure=AsyncMock(
             return_value=StoragePressureAssessment(
                 level=StoragePressureLevel.NORMAL,
@@ -169,6 +173,38 @@ def _repository(
         archive_records=AsyncMock(return_value=()),
         transition=AsyncMock(),
     )
+
+
+async def test_non_shadow_rejects_unpersisted_authority_before_state_reads() -> None:
+    repository = _repository(_partition(ObservationPartitionState.OPEN))
+    repository.certification_authorizes.return_value = False
+    runner, _, _, _ = _runner(OperationalHistoryLifecycleMode.ENFORCE, repository)
+
+    with pytest.raises(PermissionError, match="authority receipt"):
+        await runner.run_once(now=NOW)
+
+    repository.certification_authorizes.assert_awaited_once_with(DIGEST_D)
+    repository.assess_pressure.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("row", "expected"),
+    [
+        (None, False),
+        ({"complete": False, "validated": "true"}, False),
+        ({"complete": True, "validated": "false"}, False),
+        ({"complete": True, "validated": "true"}, True),
+    ],
+)
+async def test_persisted_certification_must_be_complete_and_validated(
+    row: dict[str, object] | None,
+    expected: bool,
+) -> None:
+    repository = PostgresOperationalHistoryLifecycleRepository(dsn="postgresql://unused")
+    repository._optional_one = AsyncMock(return_value=row)  # type: ignore[method-assign]
+
+    assert await repository.certification_authorizes(DIGEST_D) is expected
+    repository._optional_one.assert_awaited_once()  # type: ignore[attr-defined]
 
 
 def _runner(mode, repository):
