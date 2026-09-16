@@ -1,6 +1,6 @@
 """Isolated Executor service entry point."""
 
-from fdai_service_contracts import ServiceDescriptor, ServiceKind
+from fdai_service_contracts import ServiceDescriptor, ServiceKind, record_runtime_scope_receipt
 
 SERVICE = ServiceDescriptor(
     service_id="isolated-executor",
@@ -14,6 +14,7 @@ SERVICE = ServiceDescriptor(
 
 def main() -> int:
     """Start the service-owned isolated Executor process."""
+    record_runtime_scope_receipt(SERVICE)
     from fdai_executor_service.cli import main as run
 
     return run()
