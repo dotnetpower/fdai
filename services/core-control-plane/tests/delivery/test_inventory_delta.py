@@ -570,7 +570,37 @@ async def test_forward_delta_persists_newest_relationship_reconciliation_marker(
 
     assert await state.read_state(marker_key) == {"observed_at": "2026-07-15T00:30:00+00:00"}
     assert await state.read_state("inventory_delta_cursor:subscription-1") == {
-        "cursor": "cursor-final"
+        "cursor": "cursor-final",
+        "relationship_reconciliation_after": "2026-07-15T00:30:00+00:00",
+    }
+
+
+@pytest.mark.asyncio
+async def test_forward_delta_does_not_recreate_a_covered_inclusive_boundary_marker() -> None:
+    state = InMemoryStateStore()
+    cursor_key = "inventory_delta_cursor:subscription-1"
+    marker_key = "inventory-relationship-reconciliation:subscription-1"
+    await state.write_state(
+        cursor_key,
+        {
+            "cursor": "cursor-old",
+            "relationship_reconciliation_after": "2026-07-15T00:30:00+00:00",
+        },
+    )
+
+    await forward_inventory_delta(
+        inventory=_FinalBatchInventory(relationship_reconciliation_after="2026-07-15T00:30:00Z"),
+        state_store=state,
+        event_bus=InMemoryEventBus(),
+        topic="events",
+        scope="subscription-1",
+        properties_complete=False,
+    )
+
+    assert await state.read_state(marker_key) is None
+    assert await state.read_state(cursor_key) == {
+        "cursor": "cursor-final",
+        "relationship_reconciliation_after": "2026-07-15T00:30:00+00:00",
     }
 
 
