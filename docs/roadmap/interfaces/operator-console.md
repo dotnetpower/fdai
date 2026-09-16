@@ -483,8 +483,8 @@ Teams identity/principal bindings, and queue-capacity settings. Sharing a creden
 not merge configuration ownership.
 ## 9. Growth model (catalog + operator memory)
 
-The console gets better over time via three deterministic mechanisms.
-Model-side learning is **not** one of them.
+The console gets better over time via three deterministic mechanisms; model-side learning is **not** one of them.
+After a joined Console catalog source changes, regenerate the question bank and then semantic intent coverage; artifact equality rejects stale source digests.
 
 ### 9.1 Day 1
 

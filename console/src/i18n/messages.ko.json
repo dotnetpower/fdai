@@ -1466,8 +1466,35 @@
       "title": "에이전트 대응 인수인계",
       "count": "책임 기여자 {count}명"
     },
+    "incidentTitle": "인시던트 제목",
     "titleUnavailable": "제목을 확인할 수 없음",
     "titleSource": "제목 출처",
+    "titlePresentation": {
+      "ruleAttention": "규칙 확인 필요: {rule}",
+      "signalOnSubject": "{subject}: {signal}",
+      "resourceAttention": "{resource} 확인 필요",
+      "subjectReason": "{subject}: {reason}",
+      "resourceKind": {
+        "cloudResource": "클라우드 리소스",
+        "integrationResource": "통합 리소스",
+        "kubernetesPod": "Kubernetes 파드",
+        "kubernetesResource": "Kubernetes 리소스",
+        "kubernetesWorkload": "Kubernetes 워크로드",
+        "traceTarget": "추적 대상",
+        "resource": "리소스"
+      },
+      "signal": {
+        "kubernetesPodRestart": "Kubernetes 파드 재시작 감지",
+        "resourceInventoryChange": "리소스 인벤토리 변경 감지",
+        "traceContinuityInterrupted": "추적 연속성 끊김",
+        "tracePropagationGap": "추적 전파 누락"
+      },
+      "reason": {
+        "controlLoopError": "컨트롤 루프 오류",
+        "noRuleMatch": "일치하는 대응 규칙 없음",
+        "noRuleForResourceAndSignal": "이 리소스와 신호에 일치하는 대응 규칙 없음"
+      }
+    },
     "source": {
       "title": "원본 인시던트 및 대응 계획",
       "platform": "원본 플랫폼",
