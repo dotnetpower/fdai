@@ -1,8 +1,8 @@
 ---
 title: 다중 서비스 저장소 레이아웃
 translation_of: multi-service-repository-layout.md
-translation_source_sha: 357ed2daebd34cb10d8bbca9c06a40ff860787a1
-translation_revised: 2026-09-13
+translation_source_sha: c04058eb0c32910e2a630c757207a07dc834cf77
+translation_revised: 2026-09-16
 ---
 # 다중 서비스 저장소 레이아웃
 
@@ -27,6 +27,11 @@ FDAI는 하나의 개발 저장소에 독립적으로 패키징하고 검증한 
 루트 테스트 수집은 독립 CLI의 Rich 렌더러와 pyte 터미널 테스트도 가져옵니다. 루트 개발용
 추가 의존성은 CLI가 지원하는 버전 범위로 두 패키지를 선언하고 루트 잠금 파일에 고정합니다.
 CLI는 자체 잠금 파일을 유지하며, 두 의존성 모두 서비스 런타임 입력이 되지 않습니다.
+
+루트 회귀 수집은 Core 원격 분석 테스트도 가져옵니다. 따라서 루트 `dev` 추가 의존성은 Core
+매니페스트가 지원하는 범위의 `azure-monitor-opentelemetry`를 미러링합니다. 런타임 소유자는 계속
+Core이고 루트는 설치할 수 없습니다. 정확한 모듈에 대한 mypy 예외는 이 패키지에 타입 정보가 없는
+경우만 다룹니다.
 
 ## 다중 서비스 저장소 레이아웃
 
