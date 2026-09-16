@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 5c7c86090071237350e427da06119803dbf5d131
+translation_source_sha: 99df4d0016abc51f57fd7f19f06c1ebb5e41c36c
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -171,13 +171,9 @@ DB 및 애플리케이션 준비는 모두 소유자 전용 kubeconfig를 [`kube
 
 ## 런타임 렌더링
 
-FDAI 서비스는 다음 필드를 포함하는 하나의 런타임 중립 워크로드 명세를 유지합니다.
-
-- **이미지 및 실행:** digest로 고정된 이미지, 명령, 인자, 환경 변수 이름을 포함합니다.
-- **리소스:** 요청량과 제한량을 포함합니다.
-- **상태 확인:** 시작, 활성, 준비 프로브를 포함합니다.
-- **접근:** 수신 의도와 서비스 포트를 포함합니다.
-- **런타임 계약:** sidecar, secret 참조, 워크로드 신원, 확장 범위를 포함합니다.
+FDAI 서비스는 하나의 런타임 중립 워크로드 명세를 유지합니다. 이 명세에는 digest로 고정된 이미지,
+명령, 인자, 환경 변수 이름, 리소스 요청량과 제한량, 시작, 활성, 준비 프로브, 수신 의도, 서비스
+포트, sidecar, secret 참조, 워크로드 신원, 확장 범위가 포함됩니다.
 
 Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 변환합니다. AKS 렌더러는
 명세를 typed Kubernetes `Deployment`, `Service`, `ServiceAccount`, `HorizontalPodAutoscaler`,
@@ -191,6 +187,11 @@ HTTPS 기준 URL을 동일한 Console 빌드 계약에 전달합니다. 런타�
 연결합니다. 이 토픽은 기존 의미 physical Event Hub와 Managed Identity 전송을 공유하며 별도
 Event Hub 엔터티나 권한 채널이 아닙니다. AKS standalone 렌더러는 정확한 substrate 출력에서
 값을 가져오고 독립 및 legacy Container Apps 렌더러는 같은 typed 배포 입력을 받습니다.
+
+AKS standalone 렌더러는 Core semantic 요청, 변환 결과, physical, 읽기 전용 조사 토픽을 항상
+연결하므로 모델이 비활성화되어도 요청을 대기시키지 않고 typed hold를 반환합니다. 모델 지원이
+활성화되면 Azure 모드, 이미지의 resolved-model 경로, 정확한 산출물 digest, 기본 endpoint,
+endpoint map이 하나의 계약을 이루며 잘못된 출력은 준비를 중단합니다. `enable_llm`은 JSON boolean이어야 하며 다른 타입도 애플리케이션 준비를 중단합니다. 이 검증은 구조만 확인하고 자연어 의도를 분류하지 않습니다.
 
 Operator의 배정 알림과 사람 승인(HIL) 전송에 필요한 가져오기는 같은 Operator Service
 패키지와 런타임 안의 기존 `iam_composition` 모듈에 모읍니다. 원래 어댑터와 팩터리 객체를
