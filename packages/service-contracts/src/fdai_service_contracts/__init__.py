@@ -464,6 +464,14 @@ from fdai_service_contracts.system_knowledge import (
     SystemKnowledgeStatus,
     system_knowledge_digest,
 )
+from fdai_service_contracts.test_context import (
+    TEST_CONTEXT_RESULT_TOPIC,
+    TestContextApplication,
+    TestContextCommand,
+    TestContextDraft,
+    TestContextRequest,
+    TestContextWindow,
+)
 from fdai_service_contracts.transition import (
     CommitFailedError,
     DeliveryReceipt,
@@ -495,6 +503,7 @@ __all__ = [
     "READ_INVESTIGATION_CONSUMER_GROUP",
     "READ_INVESTIGATION_REQUEST_TOPIC",
     "SEMANTIC_PROGRESS_TOPIC",
+    "TEST_CONTEXT_RESULT_TOPIC",
     "AccessDescriptor",
     "Action",
     "ActionStopCondition",
@@ -811,6 +820,11 @@ __all__ = [
     "SystemKnowledgeSourceKind",
     "SystemKnowledgeStatus",
     "TaskStatus",
+    "TestContextApplication",
+    "TestContextCommand",
+    "TestContextDraft",
+    "TestContextRequest",
+    "TestContextWindow",
     "TransitionConsumer",
     "UploadGrant",
     "UploadSession",

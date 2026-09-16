@@ -1,6 +1,6 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: 2f893511e6d18ae94371317446f8254ec1791197
+translation_source_sha: 8049e3b272f31e60f88ea19bbf3b56a9ee560ab1
 translation_revised: 2026-09-15
 ---
 # 예측 학습 및 케이스 히스토리
@@ -127,6 +127,7 @@ Forseti는 진술과 관측을 각각 다시 검증합니다. 저장 서비스 �
 수용된 `create.test_context` 의미 판단은 일반 채팅 응답을 통해 `TestContextDraft` 초안을
 전달합니다. 대상, 신호, 상하한, 시간대가 명시된 시각은 정확한 원문 구간에 결합하며 누락된
 필드는 확인 질문으로 처리합니다. 초안 자체에는 접근 범위나 검토 권한이 없습니다.
+공유 SDK는 기존 초안, 명령, 적용 결과 모델과 버전 `1.0.0` 스키마를 제공합니다. JSON Schema는 구조를 검사하고 `JsonSchemaContractValidator`는 타입 모델의 범위, 시간 구간, 역할, 제안 및 검토 조건도 검사합니다. 어느 검사도 principal을 인증하거나 근거 허용 권한을 부여하지 않습니다. 개별 스키마는 `scripts/quality/contracts/generate_test_context_schemas.py`로 생성합니다. 브로커 호환성, 소비자 배포 순서, 운영 근거는 별도 검증 요건으로 남습니다.
 Console은 유효한 초안을 해석하고 재생하지만, 범위 및 정책 선택과 제출 화면은 아직 구현되지 않았습니다.
 인증된 `POST /test-context/proposals`, `/test-context/reviews`, `/test-context/revocations`는
 Operator 발신함에 명령을 보존합니다. Huginn이 입력을 정규화하고 Var가 독립 검토를 발행하며
