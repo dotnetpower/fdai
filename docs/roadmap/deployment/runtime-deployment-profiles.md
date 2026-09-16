@@ -214,9 +214,8 @@ inventory reader identity and Azure Monitor management API; it never receives a 
 issues an inference request. Identity, transport, and bounded provider failures lower only that
 optional source's evidence coverage and do not block inventory promotion. Malformed credential
 responses follow the same redacted source-unavailable boundary. Its lookback, freshness, point cap,
-and total timeout are derived from the configured reconciliation interval and fan-out bounds. The
-new source record uses a separate additive metadata field, so Core-first or Operator-first rolling
-updates do not make baseline inventory reads unavailable.
+and total timeout derive from the configured reconciliation interval and fan-out bounds. A separate
+additive metadata field keeps baseline inventory available during Core-first or Operator-first updates.
 
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and

@@ -294,20 +294,10 @@ expose that child as an ordinary Resource. VM Scale Set size comes from its prov
 Both values reach the Console only after the inventory writer commits a new observation or complete
 generation; the SSE watermark accelerates re-reading but does not create or estimate capacity.
 
-The ontology projector writes a monotonic invalidation marker in the same transaction as the
-Resource subgraph, manifest, status, and active-scope checkpoint. The marker starts above the
-current observation-journal watermark so a legacy `Last-Event-ID` cannot suppress the first
-post-upgrade event. The Operator SSE route emits one sanitized event from that committed marker and
-never from pre-projection journal pages. It exposes only the marker, one committed-generation
-count, and observation time under authenticated read access. It never exposes provider payloads or
-creates graph facts. A visible Console receiving the invalidation re-reads its bounded
-selected-instance projection. SSE reconnects from `Last-Event-ID`; polling remains the bounded
-fallback. A malformed previous marker is replaced without blocking graph projection. A projection
-with neither a prior marker nor a journal-watermark floor emits no marker and relies on polling.
-Bulk state pages expose the invalidation watermark bound to their committed generation. A new SSE
-connection resumes from that cursor, so only a later committed marker triggers a reread. A client
-without a page-bound cursor receives the current marker and favors a safe duplicate read over a
-missed generation.
+The ontology projector atomically commits the Resource subgraph, manifest, status, active scope, and
+a marker above the journal watermark. Operator SSE emits only a sanitized committed marker, count,
+and time, never journal pages, provider payloads, or graph facts. Malformed markers are replaced;
+bulk pages bind valid markers to their generation, while missing cursors favor a safe duplicate read.
 
 Observed model deployments use that same generation and invalidation path. The Operator projection
 exposes only model name, model version, deployment SKU, and normalized TPM in an additive
@@ -315,16 +305,9 @@ exposes only model name, model version, deployment SKU, and normalized TPM in an
 allowlist without receiving raw provider properties. A changed TPM becomes visible only after the
 next accepted observation commits; invalidation accelerates the reread but does not provide an
 immediate or strongly consistent provider guarantee.
-An optional `serving` fact remains separate from Resource Health and records only a recent exact
-deployment success observation with telemetry provenance. It never changes ontology identity,
-structural relationships, Kubernetes diagnostics, or execution authority. The collector reuses the
-existing exact-deployment Azure Monitor adapter under bounded target, concurrency, point, and total
-deadline limits and performs no inference request. A total deadline retains completed target reads,
-cancels only unfinished reads, and reports the remaining exact targets as unavailable. Serving
-lookback and freshness match the reconciliation cadence; cross-field validation rejects a point or
-deadline budget that cannot cover its configured window and fan-out. Forward-compatible source
-metadata stores model serving separately from baseline source states so an N-1 Operator continues
-to read the generation while upgraded readers merge both lists.
+An optional `serving` fact records only recent exact-deployment success with telemetry provenance,
+separate from Resource Health and authority. Azure Monitor reads are bounded and make no inference;
+valid completed results survive timeout, invalid budgets fail closed, and additive metadata preserves N-1 readers.
 
 ### Load-aware scheduling
 
