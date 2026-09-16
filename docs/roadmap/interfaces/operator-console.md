@@ -569,6 +569,9 @@ and the authoritative registry, never inferred from phase names in this document
 - **Session recovery** - principal-scoped `ConversationHistoryStore` reloads prior turns by session
   id, while stable request idempotency prevents duplicate appends. Audit/ontology retain hashes and
   references rather than raw transcripts.
+- **Question-bank provenance** - generated-artifact tests bind the complete bilingual Console
+  catalogs and dependent CQAS inventory. Any catalog change regenerates the exact source digests
+  even when starter wording is unchanged; this changes no semantic or execution authority.
 ## 12. Failure modes
 
 - **Narrator unavailable** - fall through to Chat T0 direct-hit; if the

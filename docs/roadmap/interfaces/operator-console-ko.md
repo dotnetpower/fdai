@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 7f1bbe8a13615aa034fa928db968982a9b26f0f8
+translation_source_sha: 11c2b4a55187cce756c70e77e118505f3e03f8a4
 translation_revised: 2026-09-16
 ---
 # FDAI Console 대화
@@ -566,6 +566,9 @@ pull 어댑터 추가. 콘솔은 이제:
 - **세션 복구** - principal 범위로 한정된 `ConversationHistoryStore`에서 세션 id로 이전 턴을
   reload하고 고정된 요청 멱등성이 중복 덧붙이기를 막는지 검증. 감사/온톨로지에는
   raw 대화 기록이 아니라 해시와 참조만 남습니다.
+- **질문은행 출처 이력** - 생성 산출물 검사는 전체 이중 언어 Console 카탈로그와 종속 CQAS
+  인벤토리를 연결합니다. 시작 질문 문구가 바뀌지 않더라도 카탈로그를 변경하면 정확한 원본
+  다이제스트를 다시 생성합니다. 이 작업은 의미 판단이나 실행 권한을 바꾸지 않습니다.
 ## 12. 실패 모드
 
 - **Narrator 사용 불가** - Chat T0 direct-hit로 fall through; 턴이
