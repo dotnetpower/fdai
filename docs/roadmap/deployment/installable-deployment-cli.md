@@ -126,6 +126,9 @@ checks group ownership and rejects concurrent state changes. Its expiring review
 When the original plan already contains the supported application-name and public-IP policy inputs,
 the recovery planner accepts byte-identical current configuration instead of requiring the legacy
 source migration again. Any other source difference remains blocked.
+Recovery reads the image-augmented Foundation variables when an artifact-offline image was used,
+or the base Foundation variables for an image-free connected run. It never fabricates an image
+receipt or changes bootstrap mode while selecting the retained input.
 
 `genesis_foundation_recovery_apply.py` requires fresh `foundation-apply` approval bound to the recovery
 review and code; the official prompt accepts `--foundation-recovery-review`. Before its immutable claim,

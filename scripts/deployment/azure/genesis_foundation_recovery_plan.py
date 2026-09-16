@@ -108,6 +108,17 @@ def _one_line(content: bytes, pattern: bytes) -> bytes:
     return bytes(matches[0])
 
 
+def _foundation_variables(root: Path) -> Path:
+    """Select the exact retained variables without changing bootstrap mode."""
+
+    augmented = root / "foundation-variables-with-image.json"
+    return (
+        augmented
+        if augmented.exists() or augmented.is_symlink()
+        else root / "foundation-variables.json"
+    )
+
+
 def _without_variable(content: bytes, name: str) -> bytes:
     pattern = rb'^variable "' + name.encode() + rb'" \{\n.*?^\}\n\n'
     result, count = re.subn(pattern, b"", content, flags=re.MULTILINE | re.DOTALL)
@@ -311,8 +322,9 @@ def _prepare_locked(
         write_private_bytes(candidate / "infra" / name, content)
     configuration_digest = image._execution_tree_digest(candidate)
     normalized = work / "original-variables.json"
+    variables_source = _foundation_variables(original.parent)
     snapshot_foundation_input(
-        original.parent / "foundation-variables-with-image.json",
+        variables_source,
         normalized,
         expected_target_binding=profile.target_binding,
         expected_region=profile.region,
