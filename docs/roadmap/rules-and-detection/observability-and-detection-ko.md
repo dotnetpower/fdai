@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 1ef0f4edf5d6959363dcaebb3ea2618c729f53c5
+translation_source_sha: 6bc423ad0c77a9d5c91ff3bed6c58a3afc9eedda
 translation_revised: 2026-09-17
 ---
 
@@ -418,7 +418,7 @@ reducer는 정밀도, 재현율, 놓친 위반율, 구간 포괄률, 양수인 �
 아닌 선행 시간 수, 판단 보류율, 명시적인 결과 수와 분모 공백을 보고합니다. 발견된 문제를
 발행하기 전에 이미 발생한 위반은 snapshot을 실패시키거나 선행 시간을 부풀리지 않고 액션할
 수 없는 근거로 보존합니다. 개입으로 검열되거나 점수화할 수 없는 결과는 계속 표시하지만
-점수화 가능한 분모에는 넣지 않으며, snapshot은 실행 또는 승격 권한을 부여하지 않습니다.
+점수화 가능한 분모에는 넣지 않으며, snapshot은 실행 또는 승격 권한을 부여하지 않습니다. Console의 종료 완전성은 종료 기한이 도래한 에피소드만으로 계산합니다. 기한이 남은 에피소드는 실패로 세지 않고, 기한이 도래한 집단이 없으면 측정되지 않은 상태로 표시합니다. 결과 행에는 수명 주기의 종료 사유가 아니라 `object.forecast-outcome` 발행 대기 기록의 평가 라벨과 누락 원인을 그대로 표시합니다.
 
 ## 4. 근본원인 분석(Root-Cause Analysis)
 
