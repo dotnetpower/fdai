@@ -38,7 +38,7 @@ Console operations use four boundaries:
 The Operator API relays typed events, never direct agent calls; its feature composition binds request state and supervised workers, not executor or workflow authority.
 Source facets preserve totals; alert table headers use readable text tokens. Isolated fixtures never establish authenticated accessibility.
 [Alert noise requests](../operations/alert-noise-governance.md) expose original acceptances and signed results.
-Only an exact-key terminal resolves uncertainty; the canonical Process owns approval and effect state.
+Only an exact-key terminal resolves uncertainty; the canonical Process owns approval and effect state. Repeating Scheduler Runs' active task/status lookup re-reads the first evidence page with the existing generation fence rather than navigating to the same URL without fetching. Refresh resets loaded pagination, preserves task/status scope, and never retries, cancels or executes a scheduled task.
 
 Recorded Resource state views consume the shared independent state axes rather than interpreting
 raw provider fields in the browser. An exact Static Web App default-environment `BuildStatus`
