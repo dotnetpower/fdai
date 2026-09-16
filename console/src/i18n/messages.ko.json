@@ -1377,6 +1377,8 @@
       "authorityNotice": "이 요청은 실행 권한을 부여하지 않습니다. Core가 역할, 상태, 정확한 대상, 멱등성 및 수명 주기 적법성을 검증합니다.",
       "queuedTitle": "개입 요청을 내구성 있게 대기열에 추가함",
       "queuedBody": "Operator 서비스가 Core 처리를 위해 요청을 수락했습니다. 수락은 인시던트가 변경됐음을 의미하지 않습니다.",
+      "appliedTitle": "개입 적용 완료",
+      "appliedBody": "Core가 개입을 기록했습니다. 새로 고친 인시던트 타임라인에 이제 권위 있는 감사 근거가 표시됩니다.",
       "cancel": "취소",
       "review": "요청 검토",
       "back": "뒤로",
@@ -1466,8 +1468,35 @@
       "title": "에이전트 대응 인수인계",
       "count": "책임 기여자 {count}명"
     },
+    "incidentTitle": "인시던트 제목",
     "titleUnavailable": "제목을 확인할 수 없음",
     "titleSource": "제목 출처",
+    "titlePresentation": {
+      "ruleAttention": "규칙 확인 필요: {rule}",
+      "signalOnSubject": "{subject}: {signal}",
+      "resourceAttention": "{resource} 확인 필요",
+      "subjectReason": "{subject}: {reason}",
+      "resourceKind": {
+        "cloudResource": "클라우드 리소스",
+        "integrationResource": "통합 리소스",
+        "kubernetesPod": "Kubernetes 파드",
+        "kubernetesResource": "Kubernetes 리소스",
+        "kubernetesWorkload": "Kubernetes 워크로드",
+        "traceTarget": "추적 대상",
+        "resource": "리소스"
+      },
+      "signal": {
+        "kubernetesPodRestart": "Kubernetes 파드 재시작 감지",
+        "resourceInventoryChange": "리소스 인벤토리 변경 감지",
+        "traceContinuityInterrupted": "추적 연속성 끊김",
+        "tracePropagationGap": "추적 전파 누락"
+      },
+      "reason": {
+        "controlLoopError": "컨트롤 루프 오류",
+        "noRuleMatch": "일치하는 대응 규칙 없음",
+        "noRuleForResourceAndSignal": "이 리소스와 신호에 일치하는 대응 규칙 없음"
+      }
+    },
     "source": {
       "title": "원본 인시던트 및 대응 계획",
       "platform": "원본 플랫폼",

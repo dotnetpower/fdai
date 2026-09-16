@@ -35,6 +35,10 @@ import {
 } from "./incidents.overview";
 import { incidentTimelinePresentation } from "./incidents.timeline";
 import { IncidentIntervention } from "./incidents.intervention";
+import {
+  incidentDisplayTechnicalContext,
+  incidentDisplayTitle,
+} from "./incidents.title";
 import type { ConsoleDataMode } from "../console-data-mode";
 
 const INCIDENT_DETAIL_ID = "incident-detail";
@@ -114,12 +118,10 @@ export function resolveIncidentSelection(
   return requested ?? items[0]?.correlation_id ?? null;
 }
 
-export function incidentDisplayTitle(
-  incident: Pick<IncidentSummary, "title" | "title_source">,
-  unavailable: string,
-): string {
-  return incident.title_source === "identifier_fallback" ? unavailable : incident.title;
-}
+export {
+  incidentDisplayTechnicalContext,
+  incidentDisplayTitle,
+} from "./incidents.title";
 
 /** Prefer the human-readable number without changing correlation-based links. */
 export function incidentDisplayIdentifier(
@@ -772,6 +774,7 @@ function IncidentBody({
           <ul class="incidents-roster-list">
             {data.items.map((item) => {
               const stage = incidentRosterStage(item);
+              const technicalContext = incidentDisplayTechnicalContext(item);
               return <li key={item.correlation_id}>
                 <button
                   type="button"
@@ -783,6 +786,9 @@ function IncidentBody({
                   <span class="incident-roster-title">
                     {incidentDisplayTitle(item, t("incidents.titleUnavailable"))}
                   </span>
+                  {technicalContext !== null ? (
+                    <span class="incident-roster-context mono">{technicalContext}</span>
+                  ) : null}
                   {item.incident_number !== null || item.title_source === "identifier_fallback" ? (
                     <span class="incident-roster-identifier mono">
                       {incidentDisplayIdentifier(item)}
@@ -949,19 +955,25 @@ function IncidentDetail({
     <section id={INCIDENT_DETAIL_ID} class="incident-detail" aria-labelledby={`${INCIDENT_DETAIL_ID}-title`}>
       <header class="incident-detail-head">
         <div class="incident-detail-primary-identity">
-          <span>
-            {t(incident.incident_number === null
-              ? "incidents.correlation"
-              : "incidents.incidentNumber")}
-          </span>
-          <h2 id={`${INCIDENT_DETAIL_ID}-title`} class="mono">
-            {incidentDisplayIdentifier(incident)}
+          <span>{t("incidents.incidentTitle")}</span>
+          <h2 id={`${INCIDENT_DETAIL_ID}-title`}>
+            {incidentDisplayTitle(incident, t("incidents.titleUnavailable"))}
           </h2>
+          {incidentDisplayTechnicalContext(incident) !== null ? (
+            <span class="incident-detail-technical-ref mono">
+              {incidentDisplayTechnicalContext(incident)}
+            </span>
+          ) : null}
         </div>
         <div class="incident-detail-title-row">
-          <p class="incident-detail-subject">
-            {incidentDisplayTitle(incident, t("incidents.titleUnavailable"))}
-          </p>
+          <div class="incident-detail-secondary-identity">
+            <span>
+              {t(incident.incident_number === null
+                ? "incidents.correlation"
+                : "incidents.incidentNumber")}
+            </span>
+            <strong class="mono">{incidentDisplayIdentifier(incident)}</strong>
+          </div>
           <StatusPill kind={severityPill(incident.severity)} label={localized("severity", incident.severity)} />
           <StatusPill kind={statusPill(incident.status)} label={localized("status", incident.status)} />
           {dataMode === "live" ? (

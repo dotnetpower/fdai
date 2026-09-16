@@ -221,6 +221,7 @@
     "observationOnly": "Cost evidence only",
     "verifiedSavings": "Verified savings",
     "noSettlement": "No settled outcomes",
+    "sampleEvidence": "Synthetic presentation value; not operational evidence",
     "projectedRecords": "{count} outcome records projected; savings amount unavailable",
     "recordsTitle": "Projected outcomes",
     "state": "Settlement state",

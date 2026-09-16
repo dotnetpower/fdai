@@ -3,6 +3,7 @@ import { setLocale } from "../i18n";
 import type { AuditItem } from "../types";
 import {
   incidentCommandSummary,
+  incidentDisplayTechnicalContext,
   incidentDisplayTitle,
   incidentHandoffSteps,
   incidentInterventionWasApplied,
@@ -191,6 +192,87 @@ describe("incident title presentation", () => {
       { title: "Incident corr-1", title_source: "identifier_fallback" },
       "Title unavailable",
     )).toBe("Title unavailable");
+  });
+
+  it("localizes an opaque integration resource without promoting its reference", () => {
+    const incident = {
+      title: "Integration resource requires attention",
+      title_source: "correlation_subject" as const,
+      title_presentation: {
+        kind: "resource_attention" as const,
+        subject: null,
+        subject_kind: "integration_resource" as const,
+        signal: null,
+        signal_label: null,
+        reason: null,
+        reason_label: null,
+        technical_ref: "integration-aa53cf400b094fd19bbe0a0b54f51858-second",
+      },
+    };
+    setLocale("ko");
+    expect(incidentDisplayTitle(incident, "제목을 확인할 수 없음"))
+      .toBe("통합 리소스 확인 필요");
+    expect(incidentDisplayTechnicalContext(incident))
+      .toBe("integration-aa53cf400b094fd19bbe0a0b54f51858-second");
+  });
+
+  it.each([
+    {
+      signal: "trace_continuity_discontinuity",
+      signalLabel: "Trace continuity interrupted",
+      subject: "payments-checkout",
+      expected: "payments-checkout: 추적 연속성 끊김",
+    },
+    {
+      signal: "trace_propagation_gap",
+      signalLabel: "Trace propagation gap",
+      subject: "shallow-app",
+      expected: "shallow-app: 추적 전파 누락",
+    },
+    {
+      signal: "kubernetes_pod_restart_detected",
+      signalLabel: "Kubernetes pod restart detected",
+      subject: "sub-agent-1",
+      expected: "sub-agent-1: Kubernetes 파드 재시작 감지",
+    },
+  ])("localizes $signal from typed server presentation", ({
+    signal,
+    signalLabel,
+    subject,
+    expected,
+  }) => {
+    setLocale("ko");
+    expect(incidentDisplayTitle({
+      title: `${subject}: ${signalLabel}`,
+      title_source: "correlation_subject",
+      title_presentation: {
+        kind: "signal_on_subject",
+        subject,
+        subject_kind: "resource",
+        signal,
+        signal_label: signalLabel,
+        reason: null,
+        reason_label: null,
+        technical_ref: `technical/${subject}`,
+      },
+    }, "제목을 확인할 수 없음")).toBe(expected);
+  });
+
+  it("uses the server label for an unknown machine signal", () => {
+    expect(incidentDisplayTitle({
+      title: "checkout: Queue depth elevated",
+      title_source: "correlation_subject",
+      title_presentation: {
+        kind: "signal_on_subject",
+        subject: "checkout",
+        subject_kind: "resource",
+        signal: "queue_depth_elevated",
+        signal_label: "Queue depth elevated",
+        reason: null,
+        reason_label: null,
+        technical_ref: null,
+      },
+    }, "Title unavailable")).toBe("checkout: Queue depth elevated");
   });
 
   it("falls back to the correlation id for a legacy incident", () => {

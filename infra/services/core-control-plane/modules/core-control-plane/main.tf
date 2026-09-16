@@ -16,6 +16,7 @@ locals {
       endpoint_env = "FDAI_TEAMS_NOTIFICATION_ENDPOINT"
     }
   })
+  github_workflow_tools_enforce = local.stewardship_gitops_enabled && var.stewardship_gitops.workflow_tools_enforce
 }
 
 module "container_app" {
@@ -129,6 +130,7 @@ module "container_app" {
     { name = "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", value = "true" },
     { name = "FDAI_GITOPS_OWNER", value = var.stewardship_gitops.owner },
     { name = "FDAI_GITOPS_REPO", value = var.stewardship_gitops.repo },
+    { name = "FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE", value = local.github_workflow_tools_enforce ? "1" : "0" },
     ], local.stewardship_gitops_token_enabled ? [
     { name = "FDAI_GITOPS_TOKEN", secret_name = "stewardship-gitops-token" },
     ] : local.stewardship_gitops_app_enabled ? [

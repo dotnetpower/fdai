@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 5f047679c0e11150f554031bcec8248132f30e7d
+translation_source_sha: a8e9c4839c51ba47e10e154c656a97211236c55f
 translation_revised: 2026-09-16
 ---
 # FDAI Console 대화
@@ -485,8 +485,8 @@ notification 라우팅만 소유합니다. 대화 채널은 `FDAI_SLACK_CHANNEL_
 계약을 별도로 사용합니다. Shared 자격 증명 백엔드는 구성 소유권을 합친다는 뜻이 아닙니다.
 ## 9. 성장 모델 (카탈로그 + 운영자 기억)
 
-콘솔은 시간이 지남에 따라 세 가지 결정론적 방식으로 나아진다.
-모델-측 학습은 그 중 하나가 **아니다**.
+콘솔은 시간이 지나면서 세 가지 결정론적 방식으로 개선되며 모델 학습은 여기에 **포함되지 않습니다**.
+연결된 Console 카탈로그 원본이 바뀌면 질문 은행과 의미 의도 범위를 차례로 다시 생성하며, 산출물 동등성 검사는 오래된 원본 다이제스트를 차단합니다.
 
 ### 9.1 Day 1
 

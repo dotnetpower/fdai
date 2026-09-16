@@ -196,3 +196,33 @@ test("keeps the Cost Governance workspace bounded at constrained widths", async 
   await assertNoHorizontalOverflow(page);
   await capture(page, testInfo, "cost-governance-mobile");
 });
+
+test("renders bounded Sample optimization cases and outcomes", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Desktop presentation gate runs once.");
+  await installFixture(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/cost-governance/optimization-cases?data=sample&locale=en");
+
+  await expect(page.getByText("synthetic-preview", { exact: true }).first()).toBeVisible();
+  await expect(page.locator(".cost-case-rows > div")).toHaveCount(2);
+  await expect(page.locator(".cost-case-rows")).toContainText("Compute");
+  await expect(page.locator(".cost-case-rows")).toContainText("Databases");
+  await assertNoHorizontalOverflow(page);
+
+  await page.getByRole("link", { name: "Outcomes", exact: true }).click();
+  await expect(page.locator(".cost-settlement-grid > div")).toHaveCount(2);
+  await expect(page.locator(".cost-settlement-grid")).toContainText("effect_verified");
+  await expect(page.locator(".cost-kpi-grid > div").nth(0)).toContainText("$41,400");
+  await expect(page.locator(".cost-kpi-grid > div").nth(1)).toContainText("60.7%");
+  await expect(page.locator(".cost-waterfall strong")).toHaveText([
+    "$68,200",
+    "-",
+    "-",
+    "-",
+    "-",
+    "$41,400",
+  ]);
+  await expect(page.locator(".cost-settlement-grid")).toContainText("$12,800");
+  await expect(page.locator(".cost-settlement-grid")).toContainText("$28,600");
+  await assertNoHorizontalOverflow(page);
+});
