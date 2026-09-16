@@ -1702,6 +1702,9 @@
         "docs/roadmap/interfaces/document-ingestion-agent-ownership.md",
         "docs/roadmap/interfaces/operator-console.md"
       ],
+      "docs_update_routes": [
+        "human-report-lines"
+      ],
       "docs_update": [
         "docs/roadmap/interfaces/conversation-attachments.md",
         "docs/roadmap/interfaces/document-ingestion.md",
@@ -1750,6 +1753,7 @@
         "packages/service-contracts/src/fdai_service_contracts/*report*line*.py",
         "packages/service-contracts/src/fdai_service_contracts/assignment_transport.py",
         "packages/service-contracts/src/fdai_service_contracts/document.py",
+        "packages/service-contracts/tests/test_assignment_transport.py",
         "services/core-control-plane/src/fdai/shared/contracts/models/document.py",
         "services/core-control-plane/src/fdai/core/human_reporting/**",
         "services/core-control-plane/src/fdai/core/hil_escalation.py",
@@ -1786,6 +1790,11 @@
         "services/operator-service/src/fdai_operator_service/families/iam/hil_decision_outbox.py",
         "services/operator-service/src/fdai_operator_service/families/iam/manifest.py",
         "services/operator-service/tests/*report*line*.py",
+        "services/operator-service/tests/test_operator_service_full_composition.py",
+        "tests/integration/service-suites.json",
+        "tests/integration/services/test_core_service_package.py",
+        "eval/golden-dataset/question-bank/question-bank.json",
+        "eval/golden-dataset/question-bank/review-catalog.md",
         "console/src/routes/*report*line*",
         "console/src/routes/i18n/*report*line*",
         "console/src/api.ts",
@@ -2015,7 +2024,8 @@
         "docs/roadmap/rules-and-detection/causal-incident-graph.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "human-report-lines"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
