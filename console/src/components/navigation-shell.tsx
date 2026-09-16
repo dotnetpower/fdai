@@ -50,12 +50,17 @@ interface ActivityBarMenuPosition {
 
 const MOBILE_QUERY = "(max-width: 720px)";
 const FIXED_GROUP_IDS = new Set<PanelGroup>(["overview", "settings"]);
+const EXPLORER_HIDDEN_PANEL_IDS = new Set(["architecture"]);
 const ACTIVITY_BAR_MENU_WIDTH = 224;
 const ACTIVITY_BAR_MENU_MARGIN = 8;
 const ACTIVITY_BAR_MENU_ITEM_HEIGHT = 34;
 
 export function visibleNavigationGroups(devMode: boolean): readonly (typeof PANEL_GROUPS)[number][] {
   return PANEL_GROUPS.filter((group) => !group.devOnly || devMode);
+}
+
+export function visibleExplorerPanels(panels: readonly ConsolePanel[]): readonly ConsolePanel[] {
+  return panels.filter((panel) => !EXPLORER_HIDDEN_PANEL_IDS.has(panel.id));
 }
 
 export function NavigationShell({
@@ -206,7 +211,7 @@ export function NavigationShell({
   }, [activityBarMenu]);
 
   const selectedMeta = PANEL_GROUPS.find((group) => group.id === selectedGroup)!;
-  const eligiblePanels = panelsInGroup(selectedGroup);
+  const eligiblePanels = visibleExplorerPanels(panelsInGroup(selectedGroup));
   const orderedPanels = orderPanels(eligiblePanels, preferences.groupOrder[selectedGroup]);
   const visiblePanels = orderedPanels.filter(
     (panel) => panel.id === activePanelId || !preferences.hiddenPanelIds.includes(panel.id),
