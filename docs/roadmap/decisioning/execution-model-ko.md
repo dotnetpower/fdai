@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 836b1c8fb005f33bbaf05c9f9ac6467200c2f1b1
+translation_source_sha: 1fbb6942d0e6a2d9f7190e031dce75b661467bc1
 translation_revised: 2026-09-17
 ---
 
@@ -460,15 +460,7 @@ Best for: 구성 변경, IaC patch, 카탈로그 업데이트, 거버넌스 변�
 - **업스트림 Azure 게이트웨이 연결** - 개발 operations 게이트웨이 URL과 Easy Auth 대상이
   모두 구성되면 headless 런타임은 enforce-capable `AzureGatewayDirectApiExecutor`를 연결합니다. Core는 `ops.start-vm`, `ops.deallocate-vm`, `ops.scale-out`, `ops.upsert-network-rule`, `ops.delete-network-rule`, `remediate.tag-add`를 지원하고 격리 실행기는 `ops.scale-out`을 제외합니다.
   모든 ActionType은 사람 승인이 필요한 T0 상한과 shadow-first를 유지하며 `config/action-type-runtime-support.json`이 표면별 지원을 기록합니다. `dispatch_not_attempted`는 무효과이고 `receipt_timeout`, `execution_unknown`, `awaiting_effect_evidence`는 실패나 성공이 아닌 대기 상태입니다. 현재 개정 증적은 축약 액션 이름이 아니라 버전을 포함한 정확한 `action_type_ref`에 결속됩니다.
-  PR, direct-API, 도구, 원격, 작업 흐름, HIL 경로는 원래 상관관계와 제공된 Action ID 및 시도 번호를 보존합니다. Trace는 각 액션 시도를 분리하고 효과가 발생했을 수 있는 HIL 결과는 종료 전에 독립 조정으로 보냅니다. 실행 전 무효과 종료도 프로바이더를 호출하지 않은 채 작업 흐름의 영속 `not_attempted` 결과를 기록합니다.
-- **태그 canary 경계** - `remediate.tag-add@1.1.0`은 허용 목록에 있는 개발 리소스 그룹
-  아래의 논리 Resource ID 하나를 받아 change identity로 범위가 제한된 태그 하나를
-  병합합니다. 게이트웨이는 대상 잠금을 유지하고 이전 태그 맵을 캡처한 뒤 별도 reader
-  identity로 쓰기 후 결과를 확인합니다. 결과가 일치하지 않으면 정확한 snapshot을
-  복원하고 실패를 보고합니다. 제어 루프는 실행기 receipt가 아니라 Action과 예상 효과만
-  받는 두 번째 reader 호출이 성공한 후에만 검증된 효과 근거를 기록합니다. 이 기능은
-  기존 7일, 50개 표본, 정확도 99%, 정책 위반 0건 승격 gate와 별도 governance 승인이
-  완료될 때까지 관찰 모드로 유지됩니다.
+  PR, direct-API, 도구, 원격, 작업 흐름, HIL 경로는 원래 상관관계와 제공된 Action ID 및 시도 번호를 보존합니다. Trace는 각 액션 시도를 분리하고 효과가 발생했을 수 있는 HIL 결과는 종료 전에 독립 조정으로 보냅니다. 실행 전 무효과 종료도 프로바이더를 호출하지 않은 채 작업 흐름의 영속 `not_attempted` 결과를 기록합니다. `remediate.tag-add@1.1.0`에서 gateway는 허용된 dev 그룹의 논리 Resource ID 하나를 받아 잠그고 이전 태그 맵을 저장한 뒤 태그 하나를 병합합니다. Reader identity 확인이 일치하지 않으면 snapshot을 복원합니다. 별도 reader 호출은 실행기 receipt가 아닌 Action과 예상 효과를 받습니다. 기존 7일, 50개 표본, 정확도 99%, 정책 위반 0건 gate와 governance 승격 승인은 그대로 유지됩니다.
 - **Long-running 연산 잠금** - ARM `202`는 대상 Blob 임차 기간을 비공개 연산 기록에
   유지합니다. 실행기 상태 polling이 임차 기간을 renew하고 최종 상태를 ETag
   compare-and-swap으로 기록한 후 release합니다. 알 수 없는 상태 URL 조회 필드는 차단합니다.
