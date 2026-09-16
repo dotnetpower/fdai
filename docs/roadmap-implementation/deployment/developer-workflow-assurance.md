@@ -10,7 +10,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Shared writes and hooks | implemented | `developer_workflow_repository.py`; workflow tests for overlap and recovery classification | Enforcement remains in existing hooks. |
-| Validation and handover | implemented | Versioned queue records, bounded latency diagnostics, handover schema v2; current CI scope routing and four-shard regression change passed 78 focused tests plus the CI contract checker | Window uncertainty and malformed state fail closed; pushed-SHA latency measurement remains open. |
+| Validation and handover | validated | Versioned queue records, bounded latency diagnostics, handover schema v2; current CI scope routing and four-shard regression change passed 78 focused tests plus the CI contract checker; issue #688 fixed 20-run baseline and post-change cohorts | Window uncertainty and malformed state fail closed; authoritative required-leaf queue p95 improved from 38 to 13 seconds while regression-shard p95 improved from 365 to 264 seconds. |
 | Campaign continuation | implemented | `install_roadmap_implementation_campaign.py`; shared worktree preparation; 35 campaign and watchdog tests | A timer cycle recreates a deleted registered worktree; the installed legacy unit remains held until explicitly reinstalled. |
 | Hermetic checks and local services | implemented | Workflow environment preflight and checkout-owned service readiness; focused workflow tests | The diagnostic never starts or restarts a service. |
 | Browser and editor pressure | implemented | Existing focused Playwright entry points, 10-slot lease pool, and profile pressure controls | Final critique must verify no Medium residual. |
@@ -60,6 +60,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-09-10 | implemented | Moved the roadmap implementation timer entry point to the primary project checkout and made each cycle remove only its own stale worktree registration before recreating a missing isolated campaign checkout. Status now distinguishes a missing worktree without claiming the timer is healthy. | Current change; `uv run pytest -q --no-cov tests/integration/scripts/test_roadmap_implementation_campaign.py tests/integration/scripts/test_roadmap_verification_watchdog.py` passed 35 tests; preview and status commands rendered the expected project-owned cycle. | Reinstall the legacy timer only after the active fixed two-document campaign conflict is intentionally resolved. |
 | 2026-09-11 | implemented | Cleared repository-local Git environment after the pre-push hook creates and enters its detached validation worktree. Nested structural tests now resolve their temporary repositories instead of moving or rewriting the branch that invoked the hook. | `current change`; issue #766; 133 focused workflow-contract and structural-gate regression tests; Bash syntax, Ruff, and CI-contract checks. | Complete an exact hook-driven push, merge the fix, close #766, and re-synchronize the blocked cohort importer PR #719. |
 | 2026-09-12 | in-progress | Reconciled local validation stages, removed unscoped route defaults, made the focused facade pytest-only, scoped translation checks, and stopped implicit whole-suite fallback. A bounded read-only baseline found 12 completed CI runs at 265-391 seconds (mean 337.2) and six supply-chain runs at 168-281 seconds (mean 192.2). These are workflow elapsed times, not queue-only measurements or proof of a 90% waiting ratio. | `current change`; focused selector, facade, routing, and text-gate tests; CI run `34663201915` and supply-chain run `34663201914` anchor the sampled metadata. | Finish cache and candidate integration, retain focused checks, and measure the same cohorts after an authorized push. |
+| 2026-09-16 | validated | Recomputed the issue #688 passive cohort with the operator-selected runner-queue metric: per-run maximum start delay across non-skipped direct `required` dependencies that have no upstream `needs`. Dependency-gated jobs and the final aggregator remain separate observations. | The fixed 20-run baseline and 20-run post-change inventories recorded in issue #688; empirical nearest-rank p95 was 38 to 13 seconds for authoritative queue delay, 280 to 241 seconds for dependency-gated delay, 426 to 289 seconds for the final aggregator, and 365 to 264 seconds for per-run maximum regression-shard duration. No workflow was triggered, rerun, or cancelled for this reconciliation. | The CI throughput cohort criterion is satisfied; the separate roadmap timer reinstall remains open. |
 
 ### Remaining work
 
@@ -76,9 +77,9 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [x] Removed automatic queue enrollment and per-commit receipt requirements from ordinary commit,
   push, and agent-tool paths in issue #148.
 - [x] Issue #122 is closed with the `completed` label and its bounded wait evidence retained.
-- [ ] After an authorized push, record at least 20 Python-triggering CI runs and confirm the
-  regression-shard p95 is below 5.0 minutes without increasing workflow queue p95; reopen tuning
-  if either condition fails.
+- [x] Recorded fixed 20-run baseline and post-change Python-triggering CI cohorts for issue #688:
+  regression-shard p95 is 264 seconds and authoritative workflow queue p95 improved from 38 to
+  13 seconds.
 - [ ] After resolving the active fixed two-document campaign conflict, reinstall the roadmap
   implementation timer and verify one cycle recreates its missing worktree without a systemd
   `CHDIR` failure.
