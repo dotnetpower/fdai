@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: f1dfb984e116073a39c69186ec6b75742382e3f2
+translation_source_sha: 19ca43d4d65c6348145215bf22e04de8ebafcfa0
 translation_revised: 2026-09-16
 ---
 # 지속형 운영 인스턴스 그래프
@@ -228,7 +228,7 @@ adaptive scheduler의 기존 operator 우선순위를 활성화할 수 있습니
 근거 gate를 계속 적용합니다. 영속 Job template에서는 이 입력을 설정하지 않습니다.
 
 현재 그래프 checkpoint는 활성 스냅샷 세대와 정확한 범위 집합에 결속됩니다. 완전한 프로바이더 스냅샷은 같은 범위의 해당 세대 및 시작 시각 이전 관측을 포함하므로 연속된 checkpoint는 해당 범위만 탐색합니다.
-비활성 범위 관측은 내구성 있는 이력과 보존 작업으로 유지합니다. 범위를 다시 활성화하려면 새로운 완전한 reconciliation이 필요하며, 활성 범위의 스냅샷 이후 관측은 변환 결과가 따라잡을 때까지 그래프를 불완전하게 유지합니다.
+비활성 범위 관측은 활성 범위 수집을 요청하지 않고 내구성 있는 이력과 보존 작업으로 유지합니다. 범위를 다시 활성화하려면 새로운 완전한 reconciliation이 필요하며, 활성 범위의 스냅샷 이후 관측은 변환 결과가 따라잡을 때까지 그래프를 불완전하게 유지합니다.
 Checkpoint 계산은 같은 스냅샷 append가 관측한 journal high watermark로 제한합니다. 이후의 동시
 journal 기록은 완전성을 낮출 수 있지만 전역 또는 활성 범위 변환 checkpoint를 해당 append
 경계보다 앞으로 이동시킬 수 없습니다.

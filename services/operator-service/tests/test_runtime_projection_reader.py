@@ -791,6 +791,7 @@ async def test_remaining_console_evidence_projects_durable_tables(
     assert detection["pod_lifecycle"]["target_count"] == 0
     assert baselines["baseline"]["version"] == "not-published"
     assert baselines["drift"]["verdict"] == "not-evaluated"
+    assert baselines["performance"] is None
 
 
 async def test_detection_readiness_includes_latest_analyzer_tick(
