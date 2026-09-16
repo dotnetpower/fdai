@@ -495,34 +495,48 @@ class RuntimeProjectionReader:
         }
 
     async def _forecast_learning(self) -> Mapping[str, object]:
+        """Read due-cohort closure and scored outcomes without reclassifying them."""
         episode_rows = await self._fetch_all(
             "SELECT COUNT(*) AS total, "
-            "COUNT(*) FILTER (WHERE closed_at IS NOT NULL) AS closed, "
-            "COUNT(*) FILTER (WHERE closed_at IS NULL) AS open, "
-            "COUNT(*) FILTER (WHERE closed_at IS NULL AND closure_due_at < now()) AS overdue, "
-            "COUNT(*) FILTER (WHERE abstain_reason IS NOT NULL) AS abstained "
+            "COUNT(*) FILTER (WHERE state = 'closed') AS closed, "
+            "COUNT(*) FILTER (WHERE state = 'open') AS open, "
+            "COUNT(*) FILTER (WHERE state = 'open' AND closure_due_at < now()) AS overdue, "
+            "COUNT(*) FILTER (WHERE closure_due_at <= now()) AS due_total, "
+            "COUNT(*) FILTER (WHERE state = 'closed' "
+            "AND closure_due_at <= now()) AS due_closed, "
+            "COUNT(*) FILTER (WHERE evaluation_kind = 'abstained') AS abstained "
             "FROM forecast_episode"
         )
         outcome_rows = await self._fetch_all(
-            "SELECT COALESCE(closure_reason, 'closed') AS label, COUNT(*) AS count "
-            "FROM forecast_episode WHERE closed_at IS NOT NULL "
-            "GROUP BY COALESCE(closure_reason, 'closed') ORDER BY label"
+            "SELECT payload->>'label' AS label, payload->>'miss_origin' AS miss_origin, "
+            "COUNT(*) AS count FROM forecast_publication_outbox "
+            "WHERE topic = 'object.forecast-outcome' "
+            "GROUP BY payload->>'label', payload->>'miss_origin' "
+            "ORDER BY label, miss_origin NULLS FIRST"
         )
         publication_rows = await self._fetch_all(
             "SELECT COUNT(*) FILTER ("
-            "WHERE published_at IS NULL AND dead_lettered_at IS NULL"
+            "WHERE published_at IS NULL AND dead_lettered_at IS NULL AND available_at <= now()"
             ") AS pending, "
             "COUNT(*) FILTER (WHERE dead_lettered_at IS NOT NULL) AS dead_lettered, "
-            "MIN(available_at) FILTER ("
-            "WHERE published_at IS NULL AND dead_lettered_at IS NULL"
+            "MIN(created_at) FILTER ("
+            "WHERE published_at IS NULL AND dead_lettered_at IS NULL AND available_at <= now()"
             ") AS oldest_pending_at FROM forecast_publication_outbox"
         )
-        if len(episode_rows) != 1 or len(publication_rows) != 1:
+        retention_rows = await self._fetch_all(
+            "SELECT pending, overdue FROM operator_forecast_retention"
+        )
+        if len(episode_rows) != 1 or len(publication_rows) != 1 or len(retention_rows) != 1:
             raise ProjectionUnavailableError("forecast learning summary is unavailable")
         episodes = episode_rows[0]
         publication = publication_rows[0]
         total = _integer(episodes["total"], "forecast episode total")
         closed = _integer(episodes["closed"], "forecast closed count")
+        due_total = _integer(episodes["due_total"], "forecast due total")
+        due_closed = _integer(episodes["due_closed"], "forecast due closed count")
+        for row in outcome_rows:
+            if not isinstance(row["label"], str) or not row["label"].strip():
+                raise ProjectionUnavailableError("forecast outcome label is unavailable")
         return {
             "source": "postgresql:forecast_episode",
             "durable": True,
@@ -532,12 +546,12 @@ class RuntimeProjectionReader:
                 "open": _integer(episodes["open"], "forecast open count"),
                 "overdue": _integer(episodes["overdue"], "forecast overdue count"),
                 "abstained": _integer(episodes["abstained"], "forecast abstained count"),
-                "closure_completeness": closed / total if total else None,
+                "closure_completeness": due_closed / due_total if due_total else None,
             },
             "outcomes": [
                 {
                     "label": str(row["label"]),
-                    "miss_origin": None,
+                    "miss_origin": _optional_text(row["miss_origin"]),
                     "count": _integer(row["count"], "forecast outcome count"),
                 }
                 for row in outcome_rows
@@ -557,7 +571,10 @@ class RuntimeProjectionReader:
                     else None
                 ),
             },
-            "retention": {"pending": 0, "overdue": 0},
+            "retention": {
+                "pending": _integer(retention_rows[0]["pending"], "forecast retention pending"),
+                "overdue": _integer(retention_rows[0]["overdue"], "forecast retention overdue"),
+            },
         }
 
     async def _operator_memory(self, query: ProjectionQuery) -> Mapping[str, object]:

@@ -11,11 +11,11 @@ describe("decodeForecastLearning", () => {
       durable: true,
       episodes: {
         total: 10,
-        closed: 9,
-        open: 1,
+        closed: 4,
+        open: 6,
         overdue: 1,
         abstained: 2,
-        closure_completeness: 0.9,
+        closure_completeness: 0.8,
       },
       outcomes: [{ label: "false_negative", miss_origin: "pipeline", count: 1 }],
       publication: {
@@ -26,6 +26,7 @@ describe("decodeForecastLearning", () => {
       retention: { pending: 1, overdue: 1 },
     });
     expect(value.outcomes[0]?.miss_origin).toBe("pipeline");
+    expect(value.episodes.closure_completeness).toBe(0.8);
     expect(value.publication.dead_lettered).toBe(1);
     expect(value.retention.overdue).toBe(1);
 
@@ -34,6 +35,7 @@ describe("decodeForecastLearning", () => {
       routeId: "forecast-learning",
       routeLabel: "Forecast learning",
       facts: expect.arrayContaining([
+        expect.objectContaining({ key: "closure_completeness", value: 0.8 }),
         expect.objectContaining({ key: "overdue_episodes", value: 1 }),
         expect.objectContaining({ key: "publication_debt", value: 2 }),
       ]),
