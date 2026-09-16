@@ -1,73 +1,16 @@
-"""Azure Resource Graph query factory - turns a
-:class:`~fdai.shared.providers.inventory.Inventory` shard call into a
-real Kusto-over-ARG REST request.
+"""Execute bounded Azure Resource Graph shards through injected provider seams.
 
-Design boundaries
------------------
+Core never imports this delivery module. Identity and HTTP transport are injected;
+the module does not use ``DefaultAzureCredential``. Kusto queries and CSP-neutral
+ARM mappings come from the reviewed resource-type registry.
 
-- ``core/`` never imports this module. It sits under ``delivery/azure/`` and
-  is bound at the composition root through the existing
-  :type:`~fdai.delivery.azure.inventory.ResourceQueryFn` seam
-  (a plain async callable). The
-  :class:`~fdai.delivery.azure.inventory.AzureResourceGraphInventory`
-  keeps its bounded-concurrency + atomic-promote fence guarantees; this
-  file adds only the "how do I fetch one shard from ARG" concern.
-- Identity flows through the injected
-  :class:`~fdai.shared.providers.workload_identity.WorkloadIdentity`
-  Protocol - no ``DefaultAzureCredential``, no ``azure-identity`` import.
-  A fork MAY plug in IRSA / SPIFFE / GCP-WIF under the same seam.
-- HTTP transport is an injected :class:`httpx.AsyncClient`. Tests pass a
-  client backed by :class:`httpx.MockTransport`; production wires a
-  long-lived shared client at the composition root.
-- Kusto query and CSP-neutral → ARM-type mapping come from
-  :class:`~fdai.rule_catalog.schema.resource_type.ResourceTypeRegistry`
-  (the ``azure_arm_type`` field). Resource types with ``azure_arm_type is None``
-  are not shardable from ARG and are silently skipped by the factory.
+Pagination stops on an empty token or page and is capped by ``max_pages``. Returned
+properties are size-bounded. ARM hierarchy produces ``contains`` links; reviewed
+property paths produce ``attached_to`` and ``depends_on`` links only when their
+target types resolve. Unknown targets are omitted rather than assigned a type.
 
-What this cut ships (Step 3d)
------------------------------
-
-- Bearer-token authenticated ``POST`` against the ARG REST endpoint under
-  a bounded per-request timeout.
-- ``$skipToken`` pagination - the loop halts on an empty token or an empty
-  ``data`` page.
-- Response → :class:`ResourceRecord` mapping (``resource_id`` = CSP-neutral
-  path; ``provider_ref`` = raw ARM id; ``props`` carries a length-bounded
-  subset of the ARG row).
-- **``contains`` link extraction** from the ARM id hierarchy: every
-  resource inside a resource-group emits a ``contains(rg, resource)``
-  edge. Purely a function of the ARM id - never reads untrusted vendor
-  ``properties`` for this - so the blast-radius seam has a real edge
-  set without a trust boundary.
-- **``attached_to`` link extraction** from a narrow whitelist of
-  well-known ``properties`` paths (``subnet.id`` /
-  ``networkSecurityGroup.id`` / ``publicIPAddress.id``). The referenced
-  target's CSP-neutral ``resource_type`` is resolved through the
-  vocabulary's ``azure_arm_type`` reverse map; targets whose ARM type
-  is not in the vocabulary are dropped rather than emitted with an
-  unknown ``to_type``.
-- **``depends_on`` link extraction** from a separate soft-dependency
-  whitelist (``storageAccount.id`` / ``workspaceResourceId`` /
-  ``acrLoginServer``). The first two carry ARM ids and resolve through
-  the same reverse map as ``attached_to``; ``acrLoginServer`` is a DNS
-  name that requires a login-server → ARM id registry lookup and is
-  skipped when the resolver cannot map it (the current default -
-  positive resolution lands when the ACR registry is wired).
-
-Safety / cost invariants
-------------------------
-
-- **Bounded pagination**: :attr:`AzureArgQueryFactoryConfig.max_pages` caps
-  the number of ``$skipToken`` follows so a runaway subscription cannot
-  starve the event loop.
-- **Bounded record size**: property maps are truncated at
-  :attr:`AzureArgQueryFactoryConfig.max_props_bytes` to keep untrusted
-  vendor properties inert.
-- **Fail-closed on partial**: a non-2xx response or a malformed page
-  raises :class:`ArgQueryError`. The
-  :class:`~fdai.delivery.azure.inventory.AzureResourceGraphInventory`
-  cancels outstanding shards and skips the ``final=True`` fence, so the
-  caller retains the previous graph - matches ``csp-neutrality.md § 5``.
+Non-successful or malformed responses fail closed. The inventory coordinator then
+omits its final fence and retains the previous promoted graph.
 """
 
 from __future__ import annotations
