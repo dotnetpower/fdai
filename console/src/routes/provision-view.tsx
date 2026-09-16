@@ -67,18 +67,18 @@ export function ProvisionView({
 
       {source.status === "loading" ? (
         <ProvisionNotice
-          title={t("provision.sourceLoadingTitle")}
+          heading={t("provision.sourceLoadingTitle")}
           body={t("provision.sourceLoadingBody")}
         />
       ) : source.status === "unavailable" ? (
         <ProvisionNotice
-          title={t("provision.sourceUnavailableTitle")}
+          heading={t("provision.sourceUnavailableTitle")}
           body={t("provision.unavailable")}
           detail={source.reason}
         />
       ) : !state.observed ? (
         <ProvisionNotice
-          title={visibleStreamError ? t("provision.streamErrorTitle") : t("provision.noRunTitle")}
+          heading={visibleStreamError ? t("provision.streamErrorTitle") : t("provision.noRunTitle")}
           body={visibleStreamError ?? t("provision.notObserved")}
           tone={visibleStreamError ? "error" : "neutral"}
         />
@@ -138,12 +138,12 @@ export function ProvisionView({
 }
 
 function ProvisionNotice({
-  title,
+  heading,
   body,
   detail = null,
   tone = "neutral",
 }: {
-  readonly title: string;
+  readonly heading: string;
   readonly body: string;
   readonly detail?: string | null;
   readonly tone?: "neutral" | "error";
@@ -156,7 +156,7 @@ function ProvisionNotice({
     >
       <span class="provision-notice-marker" aria-hidden="true" />
       <div>
-        <h2 id="provision-notice-title">{title}</h2>
+        <h2 id="provision-notice-title">{heading}</h2>
         <p>{body}</p>
         {detail ? (
           <details>
