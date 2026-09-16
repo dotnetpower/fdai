@@ -70,7 +70,7 @@ def require_current_approval(review: dict[str, object], approval_file: Path | No
         raise ValueError("Foundation recovery requires exact current human approval")
     if approval.actor_digest != current_actor_digest(binding):
         raise ValueError("Foundation recovery approver differs from the authenticated human")
-    return approval.actor_digest
+    return str(approval.actor_digest)
 
 
 def apply_recovery(
@@ -268,16 +268,17 @@ def _locked(
             for entry in entries
             if entry["address"] == "azapi_resource.app_resource_group"
         )
+        application_preserved = review.get("application_group_preserved") is True
         exists = image._capture(
             [
                 str(image._trusted_azure_cli()),
                 "group",
-                "show" if predecessor is not None else "exists",
+                "show" if predecessor is not None or application_preserved else "exists",
                 "--subscription",
                 target.subscription_id,
                 "--name",
                 group["name"],
-                *(("--query", "id") if predecessor is not None else ()),
+                *(("--query", "id") if predecessor is not None or application_preserved else ()),
                 "--output",
                 "tsv",
                 "--only-show-errors",
@@ -287,7 +288,9 @@ def _locked(
             timeout=deadline.remaining(30),
             reason="Foundation recovery group availability is unknown",
         )
-        expected_group = str(group.get("id")) if predecessor is not None else "false"
+        expected_group = (
+            str(group.get("id")) if predecessor is not None or application_preserved else "false"
+        )
         if exists.strip().casefold() != expected_group.casefold():
             raise ValueError("Foundation recovery application group ownership changed")
         if deadline.remaining() < 180:
@@ -361,12 +364,14 @@ def _locked(
     def capture(command: list[str], *, cwd: Path, timeout: int, reason: str) -> str:
         if not command or command[0] != "az":
             raise ValueError("Foundation recovery observer command is invalid")
-        return image._capture(
-            [str(image._trusted_azure_cli()), *command[1:]],
-            cwd=cwd,
-            env=environment,
-            timeout=deadline.remaining(timeout),
-            reason=reason,
+        return str(
+            image._capture(
+                [str(image._trusted_azure_cli()), *command[1:]],
+                cwd=cwd,
+                env=environment,
+                timeout=deadline.remaining(timeout),
+                reason=reason,
+            )
         )
 
     _independent_readback(handoff, work, capture=capture)
