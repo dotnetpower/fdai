@@ -113,6 +113,7 @@ function sampleApprovals() {
         reason: t("approvals.sampleReason"),
         requested_at: SAMPLE_AT,
         correlation_id: "sample-correlation-002",
+        incident_available: true,
         approval_id: "sample-approval-1",
         action_id: "sample-action-1",
         target_resource_ref: "sample-checkout-standby-vm-01",

@@ -8,9 +8,9 @@ Covers:
 - Two-phase audit: intent digest precedes mutation; terminal digest covers it.
 - Fail-closed orchestration on unrecorded intent, stale fence, writer failure,
   duplicate application, and unrecorded terminal audit.
-- Static proofs: no authority, runtime, or delivery path imports the module, no
-  shipped writer implementation exists, and the module never reaches the
-  authoritative ActionPromotionRegistry.
+- Static proofs: only the named persistence adapter imports the mutation seam;
+    no authority or runtime path imports it, and the command module never reaches
+    the authoritative ActionPromotionRegistry.
 """
 
 from __future__ import annotations
@@ -106,7 +106,7 @@ def _command(**overrides: object) -> ShadowReversionCommand:
 
 
 class _Writer:
-    """Test-only writer double. No shipped adapter implements the Protocol."""
+    """Test-only writer double for orchestration fault injection."""
 
     def __init__(
         self,
@@ -475,6 +475,7 @@ async def test_writer_failure_fails_closed() -> None:
     terminal = await apply_shadow_reversion(command=_command(), writer=writer, recorded_at=NOW)
     assert terminal.outcome is ShadowReversionOutcome.REJECTED_WRITER_FAILURE
     assert "RuntimeError" in terminal.detail
+    assert writer.calls[-1] == "record_terminal"
 
 
 async def test_unrecorded_terminal_audit_is_reported() -> None:
@@ -540,8 +541,8 @@ def test_reversion_command_never_reaches_the_promotion_registry() -> None:
     assert "consider_promotion" not in identifiers
 
 
-def test_no_authority_path_imports_the_reversion_command() -> None:
-    """Whole-tree scan: no shipped module outside the package may reach the command.
+def test_only_the_named_persistence_adapter_imports_the_reversion_command() -> None:
+    """Whole-tree scan: only the unbound persistence adapter may reach the command.
 
     A hardcoded authority-root list would silently miss shipped directories such as
     ``core/decision_case``, ``core/execution_authorization``, and ``shared/providers``,
@@ -565,7 +566,13 @@ def test_no_authority_path_imports_the_reversion_command() -> None:
             }
         ),
     )
-    assert violations == [], f"shipped modules reach the reversion command: {violations}"
+    assert violations
+    unexpected = [
+        violation
+        for violation in violations
+        if not violation.startswith("delivery/persistence/state_store_shadow_reversion.py -> ")
+    ]
+    assert unexpected == [], f"authority/runtime modules reach the reversion command: {unexpected}"
 
 
 def test_whole_tree_scan_covers_previously_unscanned_authority_surfaces() -> None:
@@ -638,8 +645,8 @@ def test_scanner_resolves_relative_dynamic_and_re_export_import_forms(tmp_path: 
     }
 
 
-def test_no_shipped_module_names_the_writer_or_orchestrator() -> None:
-    """Text backstop for the structural Protocol and the un-exported orchestrator.
+def test_only_the_named_persistence_adapter_names_the_writer_seam() -> None:
+    """Text backstop for the structural Protocol and unexported orchestrator.
 
     A conforming adapter need never name ``ShadowReversionWriter`` (the Protocol is
     structural), so the orchestrator name is checked too: without it the orchestration
@@ -650,7 +657,7 @@ def test_no_shipped_module_names_the_writer_or_orchestrator() -> None:
         frozenset({"ShadowReversionWriter", "apply_shadow_reversion"}),
         exclude=frozenset({MODULE_PATH}),
     )
-    assert hits == [], f"shipped modules name the reversion mutation seam: {hits}"
+    assert hits == ["delivery/persistence/state_store_shadow_reversion.py"]
 
 
 def test_mutation_seam_is_not_in_the_package_namespace() -> None:

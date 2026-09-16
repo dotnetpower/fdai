@@ -115,6 +115,14 @@ run "a_dev_plan_with_private_networking_is_accepted" {
     condition     = length(azurerm_function_app_flex_consumption.dev_gateway) == 1
     error_message = "dev with private networking is the supported combination and MUST plan the gateway"
   }
+
+  assert {
+    condition = (
+      length(azurerm_role_assignment.dev_gateway_executor_tags) == 1 &&
+      azurerm_role_assignment.dev_gateway_executor_tags[0].role_definition_name == "Tag Contributor"
+    )
+    error_message = "tag remediation MUST use the tag-only role at the FDAI dev resource-group scope"
+  }
 }
 
 run "an_evidence_target_without_the_gateway_is_refused" {

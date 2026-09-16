@@ -591,6 +591,13 @@ resource "azurerm_role_assignment" "dev_gateway_executor_vm" {
   principal_id         = module.dev_gateway_executor_identity[0].principal_id
 }
 
+resource "azurerm_role_assignment" "dev_gateway_executor_tags" {
+  count                = var.enable_dev_operations_gateway ? 1 : 0
+  scope                = module.resource_group.id
+  role_definition_name = "Tag Contributor"
+  principal_id         = module.dev_gateway_executor_identity[0].principal_id
+}
+
 module "ingestion_identity" {
   count               = var.enable_document_ingestion ? 1 : 0
   source              = "./modules/identity/user-assigned-mi"

@@ -172,9 +172,6 @@ export function OnboardingBody({
           >
             {t("onboardingView.reviewAccess")}
           </a>
-          <a class="btn secondary" href={routeHref("architecture")}>
-            {t("onboardingView.inspectArchitecture")}
-          </a>
         </div>
       </nav>
       <div class="onboarding-details">

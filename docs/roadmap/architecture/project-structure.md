@@ -418,7 +418,7 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
 - **Operational promotion authority**: `OperationalPromotionReceiptVerifier` and
   `OperationalPromotionUnitVerifier` resolve immutable evidence. The production registry remains
   shadow without them; raw scalar metrics are a test-only legacy fixture mode. A promotion-state
-  refresh failure lowers the unified system-health ceiling instead of reusing stale enforcement. Decision-evidence admission uses StateStore locally and read-only immutable Blob records when deployed; the protected policy fixes authority, purpose, source revision, verifier separation, and expiry, while missing or malformed evidence grants no execution or promotion authority.
+  refresh failure lowers the unified system-health ceiling instead of reusing stale enforcement. Decision-evidence admission uses StateStore locally and read-only immutable Blob records when deployed; the protected policy fixes authority, purpose, source revision, verifier separation, and expiry, while missing or malformed evidence grants no execution or promotion authority. The development `remediate.tag-add@1.1.0` binding resolves one bounded logical Resource id through the shared executor-target contract and reaches the gateway only with change identity, authorization, and promotion. The gateway owns tag-only mutation, snapshot rollback, and reader-identity readback; runtime supplies that readback as the MSCP independent observer without changing promotion or Console authority.
 - **Operational catalog review and measurement**: `DeterministicCatalogValidator` reuses the
   shipped Rule loader, shadow evaluator, and regression gate over a frozen scenario directory.
   `GitOpsCatalogReviewPublisher` publishes only a content-addressed inert review package. The
@@ -440,8 +440,8 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   HIL resume resolves rules only from that current active map; serialized parked
   rule bodies are never trusted after a catalog retirement or reload.
 - **Independent effect observation**: the durable kinetic artifact store is the exact-plan source.
-  `StateStoreExecutedActionObservationStore` accepts only Heimdall-attributed observations whose
-  signed context passes the configured verifier. `effect_evidence_bridge.py` maps only verified receipts to matched; failed and unknown results require shadow reversion without registry access.
+  `StateStoreExecutedActionObservationStore` accepts verifier-approved Heimdall observations;
+  `effect_evidence_bridge.py` maps only verified receipts to matched, while failed or unknown results require the unbound, current-approval-gated `StateStoreShadowReversionWriter` to revert one ActionType without registry access.
 - **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch estimator, and effect-model reader. Temporal adapters reject non-finite metric values before evidence hashing. Partial binding fails at container construction.
 - **Dashboard availability projection**: `shared/telemetry/dashboard_status.py` consumes normalized
   metric observations after provider and domain reducers have produced them. It performs no provider

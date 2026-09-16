@@ -29,6 +29,7 @@ _ACTION_IDENTITY_REFS = {
     "ops.deallocate-vm": "identity/finops",
     "ops.upsert-network-rule": "identity/change",
     "ops.delete-network-rule": "identity/change",
+    "remediate.tag-add": "identity/change",
 }
 _EXECUTOR_IDENTITY_REFS = frozenset({"identity/change", "identity/resilience", "identity/finops"})
 
