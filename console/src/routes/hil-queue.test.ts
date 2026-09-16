@@ -66,6 +66,7 @@ describe("approval search evidence", () => {
       target_resource_ref: "Resource-A",
       event_id: "EVENT-1",
       correlation_id: "CORR-1",
+      incident_available: false,
       reason: "Risk Gate",
       reasons: ["Verifier Review"],
       citing_rule_ids: ["Rule.Example"],
@@ -139,6 +140,7 @@ describe("approval decision availability", () => {
       expect(source).toContain('dataMode === "live"');
       expect(source).toContain('architectureHref(item.target_resource_ref)');
       expect(source).toContain('routeHref("rules"');
+      expect(source).toContain("item.incident_available");
     });
   });
 });
