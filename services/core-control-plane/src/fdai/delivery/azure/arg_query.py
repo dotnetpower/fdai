@@ -16,7 +16,9 @@ omits its final fence and retains the previous promoted graph.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlparse
 
@@ -52,17 +54,14 @@ from fdai.delivery.azure.arg_projection import (
 from fdai.delivery.azure.arg_projection import (
     truncate_props as _truncate_props,
 )
-from fdai.delivery.azure.arg_query_config import (
-    DEFAULT_RELATIONSHIP_MAPPING_ROOT as _DEFAULT_RELATIONSHIP_MAPPING_ROOT,
-)
-from fdai.delivery.azure.arg_query_config import (
-    AzureArgQueryFactoryConfig,
-)
 from fdai.delivery.azure.arg_relationships import (
     RelationshipProjectionResult,
     project_provider_relationships,
 )
 from fdai.delivery.azure.arg_transport import (
+    DEFAULT_ARG_REQUEST_BURST,
+    DEFAULT_ARG_REQUESTS_PER_SECOND,
+    DEFAULT_ARG_THROTTLE_MAX_DEFER_SECONDS,
     ArgPageObserver,
     ArgRateLimiter,
     ArgThrottleGate,
@@ -103,7 +102,17 @@ from fdai.shared.providers.inventory import (
 )
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
+_DEFAULT_ARG_ENDPOINT: Final[str] = "https://management.azure.com"
+_DEFAULT_ARG_API_VERSION: Final[str] = "2022-10-01"
+_DEFAULT_AUDIENCE: Final[str] = "https://management.azure.com/.default"
+_DEFAULT_PAGE_SIZE: Final[int] = 1000
+_DEFAULT_MAX_PAGES: Final[int] = 32
+_DEFAULT_TIMEOUT_SECONDS: Final[float] = 30.0
+_DEFAULT_MAX_PROPS_BYTES: Final[int] = 64 * 1024
 _SUBNET_PROVIDER_TYPE: Final[str] = "Microsoft.Network/virtualNetworks/subnets"
+_DEFAULT_RELATIONSHIP_MAPPING_ROOT: Final[Path] = Path(
+    "rule-catalog/vocabulary/provider-relationship-mappings"
+)
 _MAX_PROVIDER_TYPES: Final[int] = 10_000
 _RESOURCE_GROUP_PROVIDER_TYPE: Final[str] = "microsoft.resources/resourcegroups"
 
@@ -115,6 +124,68 @@ class ArgQueryError(RuntimeError):
     tenant-identifying values, only the failing shard's resource_type,
     HTTP status, and a short-truncated reason string.
     """
+
+
+@dataclass(frozen=True, slots=True)
+class AzureArgQueryFactoryConfig:
+    """Configuration for the ARG query factory.
+
+    Every value has a documented default so the composition root
+    only needs to supply what a fork wants to override.
+    """
+
+    subscription_scopes: tuple[str, ...]
+    """Subscription (or management-group) ids the ARG query runs over.
+
+    MUST NOT be empty; ARG rejects the request when no scope is supplied,
+    and an empty scope is almost always an environment-loading bug.
+    """
+
+    arg_endpoint: str = _DEFAULT_ARG_ENDPOINT
+    """Root URL for the ARM control plane; ``azure-china`` / ``us-gov`` clouds override this."""
+
+    arg_api_version: str = _DEFAULT_ARG_API_VERSION
+    """ARG REST API version.
+
+    Pinned by the adapter, not the SDK - a version bump is an intentional,
+    reviewable change (contract diff), never a mid-flight upgrade.
+    """
+
+    audience: str = _DEFAULT_AUDIENCE
+    """OIDC audience the executor requests from :class:`WorkloadIdentity`."""
+
+    page_size: int = _DEFAULT_PAGE_SIZE
+    """ARG `$top` value; the API caps this at 1000."""
+
+    max_pages: int = _DEFAULT_MAX_PAGES
+    """Upper bound on ``$skipToken`` follow-ups per shard.
+
+    Ceiling defense against a runaway result set. Exceeding it raises
+    :class:`ArgQueryError` - the caller retries with a narrower query
+    rather than silently truncating.
+    """
+
+    timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
+    """Per-HTTP-request timeout applied to every page fetch."""
+
+    max_props_bytes: int = _DEFAULT_MAX_PROPS_BYTES
+    """Cap on the serialized size of the untrusted ``props`` map per record.
+
+    Vendor properties (tags, descriptions) are inert data and MUST be
+    length-bounded before they flow into the ontology graph.
+    """
+
+    relationship_mapping_root: Path = _DEFAULT_RELATIONSHIP_MAPPING_ROOT
+    """Reviewed provider relationship mapping catalog loaded at adapter startup."""
+
+    requests_per_second: float = DEFAULT_ARG_REQUESTS_PER_SECOND
+    """Sustained ARG request budget shared by every shard of one adapter."""
+
+    requests_burst: int = DEFAULT_ARG_REQUEST_BURST
+    """Requests that may run ahead before the sustained budget applies."""
+
+    throttle_max_defer_seconds: float = DEFAULT_ARG_THROTTLE_MAX_DEFER_SECONDS
+    """Cap on one reactive quota deferral before the attempt deadline decides."""
 
 
 class AzureArgQueryFactory:
