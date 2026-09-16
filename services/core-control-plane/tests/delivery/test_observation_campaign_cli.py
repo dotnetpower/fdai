@@ -10,6 +10,7 @@ from fdai.delivery.observation_campaign_cli import (
     _build_probes,
     _campaign_id,
     _csv,
+    _main,
     _required_consistent,
     _required_first,
 )
@@ -80,3 +81,19 @@ async def test_workspace_metric_coverage_uses_target_free_log_analytics(
 
     metric_probe = probes["metrics"]
     assert isinstance(metric_probe._provider, AzureMonitorLogsMetricProvider)
+
+
+async def test_one_shot_returns_failure_for_partial_required_coverage(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def partial_run_once() -> dict[str, object]:
+        return {"campaign_id": "campaign-1", "status": "partial", "sources": []}
+
+    monkeypatch.setattr(
+        "fdai.delivery.observation_campaign_cli.run_once",
+        partial_run_once,
+    )
+
+    assert await _main([]) == 1
+    assert '"status":"partial"' in capsys.readouterr().out
