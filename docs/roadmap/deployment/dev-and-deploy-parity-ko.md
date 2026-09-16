@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 29df7194ea68c7619d3adc9277422c6c77909153
+translation_source_sha: e29fddbc32b060a7aeef004b8c6fb0844e6e351b
 translation_revised: 2026-09-16
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -88,7 +88,7 @@ SPA, Manual Studio를 시작합니다. 일반 Console 빌드는 모듈 진입점
 작업 기반 `console: start full stack` 감독기는 Manual Studio와 Core 배포판의 지속 인벤토리 조정 및 관찰 캠페인 모드를 추가로 시작합니다. 준비가 완료됐지만 복합 작업이 감독기를 연결하지 못한 경우 표시되는 `console: start local services` 작업이 준비를 반복하지 않고 동일한 서비스 집합을 시작합니다. 로컬 준비 상태와 10분 감시기는 세 프로세스와 활성 범위 인벤토리 커버리지 경계를 포함하므로 도움말 라이브러리나 인벤토리 생성기가 중지되거나 checkpoint가 활성 세대 및 정확한 범위 집합과 일치하지 않으면 스택을 사용할 수 없는 상태로 유지합니다. 이후 관측이 대기 중이면 답변 완전성은 낮아지지만 지속적으로 수집하는 프로세스를 준비되지 않은 상태로 만들지는 않습니다. 시작 감독기는 실패를 보고하고 하위 프로세스를 중지하기 전에 세대 복구와 그래프 변환 결과에 범위가 제한된 180초 준비 구간을 제공합니다. 준비 캐시는 같은 checkpoint 검사가 통과할 때만 권위 있는 인벤토리 단계를 재사용하므로 변경되지 않은 파일이 오래된 데이터베이스 세대를 숨길 수 없습니다.
 
 프로세스 launcher는 `RUNTIME_ENV`와 독립적으로 `FDAI_EXECUTION_VENUE=local`을 설정합니다. 로컬 상태는 `127.0.0.1:5432`의 Docker PostgreSQL과 담당 서비스 역할을 사용하며, 로컬 이벤트 전송은 `127.0.0.1:19092`의 Redpanda를 사용합니다.
-준비 과정은 의미 physical topic을 배포된 Event Hubs와 같은 최소 두 partition으로 유지합니다.
+준비 과정은 의미 physical topic을 배포된 Event Hubs와 같은 최소 두 partition으로 유지하고 `FDAI_OPERATING_MODEL_TOPIC=fdai.operating-model`을 설정합니다. 같은 논리 토픽 필터와 단조 프로바이더가 로컬 및 배포 환경에서 동작하며 게시자가 없으면 매핑을 사용할 수 없는 상태로 유지하고 sample 서비스 신원을 만들지 않습니다.
 Azure에 배포된 프로세스는 `FDAI_EXECUTION_VENUE=deployed`와 서비스 소유 Azure Database for PostgreSQL DSN 및 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는 executor 권한을 변경하지 않습니다. 서비스가 소유하는 모든 프로세스 진입점은 시작 전에 버전이 지정되고 내용 주소를 사용하는 `RuntimeScopeReceipt`를 하나 기록합니다. 이 증적은 안정적인 서비스 ID, 클라우드 운영 제품 목적, 선택한 실행 위치, 완전한 기능 행, 허용되는 유일한 차이 종류인 자격 증명, 엔드포인트, 프로바이더 범위 및 규모를 결속합니다. 외부 상태 권한과 실행 권한은 모두 false이며, 이 증적은 시작 구성을 증명할 뿐 프로바이더 접근 가능성이나 운영 성공을 증명하지 않습니다. AST 실행 위치 게이트는 모든 진입점을 찾아내고 공유 계약 밖의 직접, 별칭 또는 계산된 원시 실행 위치 읽기를 거부합니다. Schema parity는 legacy 및 서비스 소유 migration 5개로 이동한 뒤 대상 Settings, catalog, ontology 및 inventory projection을 권위 있는 입력에서 다시 생성합니다. 로컬 `audit_log`, `state_kv`, 승인, idempotency record, lease 또는 executor receipt를 배포 환경에 복제하지 않습니다. 이러한 record는 출처 venue의 인과 관계와 권한을 유지합니다.
 
 두 번째 `db-integration` 샤드는 격리된 검증 PostgreSQL 포트 `5433`과 Redpanda 호스트 포트

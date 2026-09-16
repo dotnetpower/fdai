@@ -7,6 +7,11 @@ from typing import Any
 
 import pytest
 from fdai.core.executor.lock import ResourceLockManager
+from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
+from fdai.delivery.operating_model.event_bus import (
+    EventBusOperatingModelProvider,
+    EventBusOperatingModelProviderConfig,
+)
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.runtime.continuous_operating_model import (
     OPERATING_MODEL_CURSOR_KEY,
@@ -16,8 +21,13 @@ from fdai.runtime.continuous_operating_model import (
 )
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
-from fdai.shared.providers.operating_model import OperatingModelSnapshot, OperatingModelUpdate
+from fdai.shared.providers.operating_model import (
+    OPERATING_MODEL_TOPIC,
+    OperatingModelSnapshot,
+    OperatingModelUpdate,
+)
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
+from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -103,6 +113,67 @@ def _update(*, cursor: str, sequence: int, revision: str, identifier: str) -> Op
             links=(),
         ),
     )
+
+
+def _event_payload(*, cursor: str = "cursor-1") -> dict[str, object]:
+    return {
+        "cursor": cursor,
+        "sequence": 1,
+        "snapshot": {
+            "source_revision": "revision-1",
+            "objects": [],
+            "links": [],
+        },
+    }
+
+
+async def test_event_provider_ignores_other_logical_topics_on_shared_transport() -> None:
+    physical = InMemoryEventBus()
+    bus = MultiplexedEventBus(
+        bus=physical,
+        logical_topics=frozenset({OPERATING_MODEL_TOPIC, "other.logical-topic"}),
+        physical_topic="fdai.pantheon.objects",
+    )
+    await bus.publish("other.logical-topic", "other", {"kind": "unrelated"})
+    await bus.publish(OPERATING_MODEL_TOPIC, "model", _event_payload())
+    provider = EventBusOperatingModelProvider(
+        bus=bus,
+        config=EventBusOperatingModelProviderConfig(topic=OPERATING_MODEL_TOPIC),
+    )
+    stream = provider.updates(after_cursor=None, stop=asyncio.Event())
+
+    update = await anext(stream)
+    await stream.aclose()
+
+    assert update.cursor == "cursor-1"
+    assert update.snapshot.source_revision == "revision-1"
+
+
+async def test_event_provider_dead_letters_only_malformed_operating_model_record() -> None:
+    physical = InMemoryEventBus()
+    bus = MultiplexedEventBus(
+        bus=physical,
+        logical_topics=frozenset({OPERATING_MODEL_TOPIC}),
+        physical_topic="fdai.pantheon.objects",
+    )
+    await bus.publish(OPERATING_MODEL_TOPIC, "invalid", {"cursor": 1})
+    await bus.publish(OPERATING_MODEL_TOPIC, "valid", _event_payload(cursor="cursor-2"))
+    provider = EventBusOperatingModelProvider(
+        bus=bus,
+        config=EventBusOperatingModelProviderConfig(topic=OPERATING_MODEL_TOPIC),
+    )
+    stream = provider.updates(after_cursor=None, stop=asyncio.Event())
+
+    update = await anext(stream)
+    await stream.aclose()
+    dlq_stream = bus.subscribe(f"{OPERATING_MODEL_TOPIC}.dlq", "dlq-review")
+    dead_letter = await anext(dlq_stream)
+    await dlq_stream.aclose()
+
+    assert update.cursor == "cursor-2"
+    assert dead_letter.key == "invalid"
+    assert dead_letter.payload["reason"] == "operating_model_update_invalid"
+    assert dead_letter.payload["original_topic"] == OPERATING_MODEL_TOPIC
 
 
 async def test_continuous_worker_projects_newer_snapshot_and_suppresses_duplicate() -> None:

@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: b74d6ba00138b255a3e1c96e9583cce08c56e2e1
+translation_source_sha: a5de6df16767a27fc408af2a33e40a5cad89a085
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -63,7 +63,9 @@ ActionType에 report-line 승인이 필요하면 FDAI는 요청자에게 해당 
 ## 통제된 조직 문서 수집
 
 Report-line 추출은 운영자가 명시적인 `report_line_bootstrap` 용도를 선택한 뒤에만 시작합니다.
-FDAI는 파일 이름, 첨부 텍스트 또는 일반 지식 업로드에서 이 용도를 추론하지 않습니다.
+FDAI는 파일 이름, 첨부 텍스트 또는 일반 지식 업로드에서 이 용도를 추론하지 않습니다. 생성된
+System Knowledge 카탈로그는 이 설계 문서를 색인할 수 있지만 조직 근거가 아니며 report-line
+또는 승인 라우팅 권한을 부여하지 않습니다.
 
 기존 문서 파이프라인은 업로드 인증, 바이트 제한, 악성코드 및 보호 검사, 형식 검증,
 OCR, 변경할 수 없는 버전, 접근 서술자, 보존 및 감사를 담당합니다. Report-line consumer는
