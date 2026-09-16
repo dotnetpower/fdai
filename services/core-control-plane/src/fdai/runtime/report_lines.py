@@ -15,7 +15,10 @@ from fdai.core.human_reporting import (
     ReportLineApprovalRouter,
     ReportLineRoutingPolicy,
 )
-from fdai.runtime.approval_policy import approver_authorizer_from_environment
+from fdai.runtime.approval_policy import (
+    approver_authorizer_from_environment,
+    report_line_scope_authorizer_from_environment,
+)
 from fdai.shared.providers.state_store import StateStore
 
 _ROUTES_ENV = "FDAI_REPORT_LINE_APPROVAL_ROUTES_JSON"
@@ -27,6 +30,7 @@ class CurrentReportLineEligibility:
 
     roles: DirectoryRungEligibility
     can_approve: Callable[[str, str], bool]
+    can_approve_scope: Callable[[str, str, str], bool]
 
     async def is_eligible(
         self,
@@ -37,11 +41,19 @@ class CurrentReportLineEligibility:
         scope_ref: str,
         at: datetime,
     ) -> bool:
-        del scope_ref, at
-        return await self.roles.is_eligible(
-            subject_ref=subject_ref,
-            minimum_role=minimum_role,
-        ) and self.can_approve(subject_ref, action_type)
+        del at
+        return (
+            await self.roles.is_eligible(
+                subject_ref=subject_ref,
+                minimum_role=minimum_role,
+            )
+            and self.can_approve(subject_ref, action_type)
+            and self.can_approve_scope(
+                subject_ref,
+                action_type,
+                scope_ref,
+            )
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,10 +148,12 @@ def build_report_line_runtime(
             )
         quorum[action_type] = value
     authorizer = approver_authorizer_from_environment(environment)
-    if role_eligibility is None or authorizer is None:
+    scope_authorizer = report_line_scope_authorizer_from_environment(environment)
+    if role_eligibility is None or authorizer is None or scope_authorizer is None:
         raise ValueError(
             "report-line routing requires current directory roles and "
-            "FDAI_PANTHEON_APPROVER_ACTIONS_JSON"
+            "FDAI_PANTHEON_APPROVER_ACTIONS_JSON plus "
+            "FDAI_REPORT_LINE_APPROVER_SCOPES_JSON"
         )
     policy = ReportLineRoutingPolicy(
         action_types=frozenset(quorum),
@@ -147,7 +161,11 @@ def build_report_line_runtime(
     )
     router = ReportLineApprovalRouter(
         graphs=ReportingLineService(store),
-        eligibility=CurrentReportLineEligibility(role_eligibility, authorizer),
+        eligibility=CurrentReportLineEligibility(
+            role_eligibility,
+            authorizer,
+            scope_authorizer,
+        ),
         policy=policy,
     )
     return ReportLineRuntime(

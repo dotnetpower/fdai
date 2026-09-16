@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: bd5b4fd1d1b8adcce1113be3e3ccca3086b3ecb8
+translation_source_sha: 7c56aa6418b52160c6f6d957242fbdd0436124a7
 translation_revised: 2026-09-16
 ---
 # 사용자-에이전트 할당 구현 계획
@@ -436,6 +436,8 @@ null, 명시적인 차단 요인, Owner 권한, 만료, 미래 시각, 잘못된
 초기 런타임 opt-in은 quorum `1`을 지원합니다. 더 높은 quorum의 작업은 기존 workflow 또는
 human-access 승인 경로를 유지합니다. `FDAI_REPORT_LINE_APPROVAL_ROUTES_JSON`은 정확한
 ActionType을 선택하며 빈 값은 기존 승인 라우팅을 보존합니다.
+`FDAI_REPORT_LINE_APPROVER_SCOPES_JSON`은 선택된 각 principal과 ActionType을 정확한 대상
+범위로 독립적으로 제한합니다.
 
 **테스트:** 계약 다이제스트와 변조 검사, 추출과 디렉터리 충돌 보류, edge 전이와 그래프 순환
 속성, 독립 검토자 검사, 현재 경로 적격성, 연락 동의 만료와 재생, 영속 Operator 전달, HIL 전달과

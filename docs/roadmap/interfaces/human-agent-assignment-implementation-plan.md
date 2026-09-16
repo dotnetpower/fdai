@@ -445,6 +445,8 @@ identity, and neither a report line nor contact consent grants approval authorit
 The initial runtime opt-in accepts quorum `1`. Higher-quorum actions remain on their existing
 workflow or human-access approval path. `FDAI_REPORT_LINE_APPROVAL_ROUTES_JSON` selects exact
 ActionTypes, while an empty value preserves existing approval routing.
+`FDAI_REPORT_LINE_APPROVER_SCOPES_JSON` independently constrains each selected principal and
+ActionType to exact target scopes.
 
 **Tests:** Contract digest and tamper checks, extraction and directory-conflict holds, edge
 transition and graph-cycle properties, independent reviewer checks, current-route eligibility,

@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 52cbbd0d363798d3995fdd1424987b7654478fab
+translation_source_sha: 2d207f27384d5b43022d63112898d47bbe200fb1
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -215,6 +215,7 @@ Report-line 정책과 런타임은 quorum `1`만 허용합니다. 더 높은 quo
 | `FDAI_REPORT_LINE_CONFIDENCE_FLOOR` | 후보 신뢰도 하한을 설정하지만 활성화 권한은 부여하지 않습니다. |
 | `FDAI_REPORT_LINE_APPROVAL_ROUTES_JSON` | 현재 quorum `1`을 사용하는 정확한 ActionType을 선택합니다. 빈 값은 기존 승인 경로를 유지합니다. |
 | `FDAI_PANTHEON_APPROVER_ACTIONS_JSON` | 정규화된 각 사람 principal이 승인할 수 있는 정확한 ActionType을 나열합니다. |
+| `FDAI_REPORT_LINE_APPROVER_SCOPES_JSON` | 선택된 ActionType별로 각 principal이 승인할 수 있는 정확한 대상 범위를 나열합니다. |
 
 현재 Graph 어댑터는 기존 워커 managed identity와 `User.Read.All`을 사용합니다. 디렉터리 쓰기
 권한이나 실행기 자격 증명을 추가하지 않습니다.

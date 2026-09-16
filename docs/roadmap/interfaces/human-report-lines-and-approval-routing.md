@@ -223,6 +223,7 @@ available:
 | `FDAI_REPORT_LINE_CONFIDENCE_FLOOR` | Sets the candidate confidence floor without granting activation. |
 | `FDAI_REPORT_LINE_APPROVAL_ROUTES_JSON` | Selects exact ActionTypes with current quorum `1`; an empty value preserves existing approval routes. |
 | `FDAI_PANTHEON_APPROVER_ACTIONS_JSON` | Lists the exact ActionTypes each normalized human principal may approve. |
+| `FDAI_REPORT_LINE_APPROVER_SCOPES_JSON` | Lists the exact target scopes each principal may approve for each selected ActionType. |
 
 The current Graph adapter uses the existing worker managed identity and `User.Read.All`. No
 directory writer or executor credential is added.
