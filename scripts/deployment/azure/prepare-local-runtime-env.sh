@@ -471,6 +471,9 @@ fi
   fi
 } >> "$temp_env"
 
+# The bootstrap login owns migrations; running services must exercise the Core SQL boundary.
+sed -i '/^FDAI_STATE_STORE_DSN=/s|$|?options=-c%20role%3Dfdai_core|' "$temp_env"
+
 mv "$temp_env" "$OUTPUT_ENV"
 trap - EXIT
 if [[ -z "$inventory_topic" ]]; then
