@@ -25,6 +25,7 @@
   "provisioning": "Provisioning",
   "serving": "Serving",
   "provisioningHelp": "Recorded provisioning state describes creation or configuration, not running state or health.",
+  "servingHelp": "Serving means the exact deployment processed at least one successful request in the bounded metric window. It is not a complete health or SLO verdict.",
   "ontologyScope": "Active ontology Resource generation",
   "inventoryScope": "Immutable inventory snapshot aligned with the ontology generation",
   "queryTotal": "{total} resources in the same-generation query",

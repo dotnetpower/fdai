@@ -676,6 +676,8 @@ def test_missing_observation_metadata_never_becomes_fresh(missing: str) -> None:
     fact = _state({"state": "Running", "state_fact_metadata": {"state": metadata}})
     assert fact["value"] == "Running"
     assert fact["freshness"] == "unknown"
+    if missing == "authority":
+        assert fact["authority"] is None
 
 
 def test_impossible_time_order_is_sanitized_before_crossing_the_api() -> None:

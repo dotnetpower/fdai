@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 10f82d9678648d2d03b0dd237cec45401bf08124
+translation_source_sha: 0cd44e34cf957256261d4a4662f24f12515c0db4
 translation_revised: 2026-09-16
 ---
 # 기록된 리소스 상태
@@ -205,8 +205,9 @@ ResourceType을 선언합니다.
 - Static Web App 상태 메타데이터는 공급자의 `lastUpdatedOn`을 실제 적용 시각으로 유지하고 필요한
   경우에만 `createdTimeUtc`를 사용합니다. 수집 완료 시각은 기록 시각과 근거 기준 시점으로
   유지합니다. HTTP 응답 성공이나 상위 리소스 존재 여부로 `Ready`를 추론하지 않습니다.
-- 모델 배포는 정확한 `ModelDeploymentName` 및 `StatusCode=200`으로 범위를 제한한
-  `AzureOpenAIRequests` 메트릭에서 선택적인 `servingState`를 기록할 수 있습니다. 제한된 구간에
+- 모델 배포는 `model.response.200.count` 개념에서 선택적인 `servingState`를 기록할 수 있습니다.
+  이 개념은 정확한 `ModelDeploymentName` 및 `StatusCode=200`으로 범위를 제한한
+  `AzureOpenAIRequests` 메트릭에 매핑됩니다. 제한된 구간에
   성공한 요청이 하나 이상 있으면 가장 최근 성공 메트릭 시각과 텔레메트리 권한을 사용해
   `Serving`을 기록합니다. 빈 구간에서는 긍정 상태를 기록하지 않으며, 사용 불가, 성능 저하 또는
   정상으로 바꾸지 않습니다. 이전에 유지한 사실은 시간에 따라 정상적으로 오래된 근거가 됩니다.

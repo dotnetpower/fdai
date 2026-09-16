@@ -156,19 +156,19 @@ class AzureModelServingInventoryEnricher:
             async with semaphore:
                 return resource, await self._read(resource, since=since, until=until)
 
-        try:
-            async with asyncio.timeout(self._config.total_timeout_seconds):
-                results = await asyncio.gather(*(collect(resource) for resource in selected))
-        except TimeoutError:
-            return self._source_unavailable(
-                retain_model_serving_or_reason(
-                    base,
-                    previous,
-                    "model_serving_source_unavailable",
-                ),
-                reason="model_serving_timeout",
-                coverage={"targets": len(targets), "timeout": len(selected)},
-            )
+        tasks = {asyncio.create_task(collect(resource)): resource for resource in selected}
+        completed, pending = await asyncio.wait(
+            tuple(tasks),
+            timeout=self._config.total_timeout_seconds,
+        )
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+        results = sorted(
+            (task.result() for task in completed),
+            key=lambda item: item[0].resource_id,
+        )
 
         completed_at = self._now()
         coverage: Counter[str] = Counter()
@@ -181,6 +181,14 @@ class AzureModelServingInventoryEnricher:
                 previous.get(resource.resource_id),
                 "model_serving_target_limit",
             )
+        for task in pending:
+            resource = tasks[task]
+            coverage["source_unavailable"] += 1
+            retained[resource.resource_id] = carry_model_serving_or_reason(
+                resource,
+                previous.get(resource.resource_id),
+                "model_serving_source_unavailable",
+            )
         for resource, result in results:
             if isinstance(result, str):
                 coverage[result] += 1
@@ -191,6 +199,14 @@ class AzureModelServingInventoryEnricher:
                 )
                 continue
             prior = prior_model_serving_resource(previous.get(resource.resource_id))
+            if result.effective_at > completed_at:
+                coverage["response_invalid"] += 1
+                retained[resource.resource_id] = carry_model_serving_or_reason(
+                    resource,
+                    previous.get(resource.resource_id),
+                    "model_serving_response_invalid",
+                )
+                continue
             if prior is not None and result.effective_at < prior[1].effective_at:
                 coverage["out_of_order"] += 1
                 retained[resource.resource_id] = carry_prior_model_serving(resource, prior)
@@ -214,6 +230,7 @@ class AzureModelServingInventoryEnricher:
                 "not_observed",
                 "observed",
                 "out_of_order",
+                "target_limit",
             }
         )
         if source_failures:

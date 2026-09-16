@@ -208,9 +208,13 @@ async def test_projection_advances_journal_watermark_with_graph_commit() -> None
         ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
         observation_journal=journal,
     )
+    committed_at = datetime(2026, 9, 6, 1, 2, tzinfo=UTC)
 
     result = await projector.apply(
-        _observation(generation="snapshot-watermark", resource_ids=("vm-1",)),
+        replace(
+            _observation(generation="snapshot-watermark", resource_ids=("vm-1",)),
+            recorded_at=committed_at,
+        ),
         journal_high_watermark=7,
         projection_high_watermark=6,
         active_scope_projection_watermark=7,
@@ -231,6 +235,7 @@ async def test_projection_advances_journal_watermark_with_graph_commit() -> None
         "sequence": 8,
         "generation": "snapshot-watermark",
         "manifest_digest": manifest["manifest_digest"],
+        "recorded_at": committed_at.isoformat(),
         "complete": True,
         "execution_authority": False,
         "mutation_authority": False,

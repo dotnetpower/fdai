@@ -1167,6 +1167,9 @@ def _invalidation_row(
             "sequence": sequence,
             "generation": generation,
             "manifest_digest": digest,
+            "recorded_at": (
+                recorded_at.isoformat() if isinstance(recorded_at, datetime) else recorded_at
+            ),
             "complete": True,
             "execution_authority": False,
             "mutation_authority": False,
@@ -1178,7 +1181,6 @@ def _invalidation_row(
             "complete": True,
         },
         "observed_at": observed_at,
-        "recorded_at": recorded_at,
     }
 
 
@@ -1392,7 +1394,7 @@ async def test_inventory_invalidation_rejects_a_missing_recorded_at(monkeypatch:
     monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
     store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
 
-    with pytest.raises(PostgresFamilyStoreUnavailable, match="timestamps are malformed"):
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="marker is malformed"):
         await store.replay(
             stream=INVENTORY_INVALIDATION_STREAM,
             principal_id="reader-oid",

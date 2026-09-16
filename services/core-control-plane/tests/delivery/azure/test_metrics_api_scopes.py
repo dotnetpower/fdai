@@ -23,7 +23,7 @@ from fdai.delivery.azure.metrics_api import (
 from fdai.delivery.azure.metrics_api_queries import azure_metrics_api_queries
 from fdai.delivery.metric_window import ProviderMetricWindowReader
 from fdai.runtime.metric_semantic_catalog import load_metric_semantic_registry
-from fdai.shared.providers.metric import MetricProviderError, MetricQuery
+from fdai.shared.providers.metric import MetricFailureReason, MetricProviderError, MetricQuery
 from fdai.shared.providers.workload_identity import IdentityToken
 
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000000"
@@ -40,6 +40,12 @@ NOW = datetime(2026, 8, 21, tzinfo=UTC)
 class _Identity:
     async def get_token(self, audience: str) -> IdentityToken:
         return IdentityToken(token="fake", expires_at=NOW + timedelta(days=1), audience=audience)
+
+
+class _FailingIdentity:
+    async def get_token(self, audience: str) -> IdentityToken:
+        del audience
+        raise RuntimeError("credential unavailable")
 
 
 def _payload(metric: str, dimensions: dict[str, str] | None = None) -> dict[str, Any]:
@@ -98,6 +104,31 @@ def test_templates_preserve_legacy_constructor_and_bound_filter_scope() -> None:
         )
     with pytest.raises(ValueError, match="deployment scope"):
         MetricsApiTemplate("Requests", "Total", deployment_scope=True)
+
+
+async def test_identity_failure_is_normalized_without_exposing_credential_details() -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: pytest.fail("unexpected HTTP request"))
+    ) as client:
+        provider = AzureMonitorMetricsProvider(
+            config=AzureMonitorMetricsConfig(templates=azure_metrics_api_queries()),
+            http_client=client,
+            identity=_FailingIdentity(),
+        )
+        with pytest.raises(MetricProviderError) as error:
+            _ = [
+                point
+                async for point in provider.query(
+                    MetricQuery(
+                        metric_name="model.response.200.count",
+                        labels={"resource_id": DEPLOYMENT},
+                        since=NOW,
+                    )
+                )
+            ]
+
+    assert error.value.reason is MetricFailureReason.TRANSPORT_ERROR
+    assert "credential unavailable" not in str(error.value)
 
 
 @pytest.mark.parametrize("status", ["429", "500", "503"])

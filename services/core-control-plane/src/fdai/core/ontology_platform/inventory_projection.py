@@ -28,6 +28,7 @@ from fdai_service_contracts.recorded_resource_state import (
     availability_state_paths,
     is_recorded_state_value_valid,
     operational_state_paths,
+    serving_state_paths,
 )
 
 from fdai.shared.providers.inventory import LinkRecord, RelationshipDrop, ResourceRecord
@@ -547,7 +548,8 @@ def _allowlisted_state_metadata(
 ) -> dict[str, object]:
     operational_paths = operational_state_paths(resource_type)
     availability_paths = availability_state_paths(resource_type)
-    allowed_paths = (*operational_paths, *availability_paths)
+    serving_paths = serving_state_paths(resource_type)
+    allowed_paths = (*operational_paths, *availability_paths, *serving_paths)
     allowed_keys = {
         prefix + path: path
         for prefix in ("", "properties.", "properties.properties.")

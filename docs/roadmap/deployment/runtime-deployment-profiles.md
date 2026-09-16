@@ -211,7 +211,8 @@ platforms and in the local managed stack. Activity Log recovery is independent o
 failures before or after generation promotion are reported as unavailable, without advancing failed
 delta cursors or terminating the complete inventory loop. Passive model-serving evidence reuses the
 inventory reader identity and Azure Monitor management API; it never receives a model credential or
-issues an inference request.
+issues an inference request. Identity, transport, and bounded provider failures lower only that
+optional source's evidence coverage and do not block inventory promotion.
 
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and

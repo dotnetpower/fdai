@@ -91,6 +91,15 @@ class _SlowProvider:
         yield _point()  # pragma: no cover
 
 
+class _PartiallySlowProvider:
+    async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
+        resource_id = query.labels["resource_id"]
+        if resource_id.endswith("example-model-2"):
+            await asyncio.sleep(1)
+            return
+        yield _point(value=1, provider_ref=resource_id)
+
+
 class _PreviousReader:
     def __init__(self, resource: ResourceRecord) -> None:
         self.resource = resource
@@ -222,6 +231,7 @@ async def test_target_limit_and_total_deadline_do_not_block_promotion() -> None:
     assert limited.resources[1].props["state_fact_unavailable_reasons"] == {
         "servingState": "model_serving_target_limit"
     }
+    assert limited.source_states[0].status == "available"
 
     timed_out = await AzureModelServingInventoryEnricher(
         provider=_SlowProvider(),
@@ -231,7 +241,48 @@ async def test_target_limit_and_total_deadline_do_not_block_promotion() -> None:
     assert timed_out.resources[0].props["state_fact_unavailable_reasons"] == {
         "servingState": "model_serving_source_unavailable"
     }
-    assert timed_out.source_states[0].reason == "model_serving_timeout"
+    assert timed_out.source_states[0].reason == "model_serving_partial"
+
+
+async def test_total_deadline_retains_completed_targets() -> None:
+    resources = (
+        _resource(resource_id="model-1"),
+        _resource(
+            resource_id="model-2",
+            provider_ref=ARM_ID.replace("example-model", "example-model-2"),
+        ),
+    )
+    enriched = await AzureModelServingInventoryEnricher(
+        provider=_PartiallySlowProvider(),
+        config=AzureModelServingInventoryConfig(
+            max_concurrency=2,
+            total_timeout_seconds=0.1,
+        ),
+        clock=lambda: NOW,
+    ).enrich(_observation(*resources))
+
+    assert enriched.resources[0].props["servingState"] == "Serving"
+    assert enriched.resources[1].props["state_fact_unavailable_reasons"] == {
+        "servingState": "model_serving_source_unavailable"
+    }
+    assert enriched.source_states[0].coverage == {
+        "observed": 1,
+        "source_unavailable": 1,
+        "targets": 2,
+    }
+
+
+async def test_backwards_clock_does_not_abort_inventory_promotion() -> None:
+    times = iter((NOW, NOW - timedelta(minutes=2)))
+    enriched = await AzureModelServingInventoryEnricher(
+        provider=StaticMetricProvider([_point(value=1)]),
+        clock=lambda: next(times),
+    ).enrich(_observation())
+
+    assert enriched.resources[0].props["state_fact_unavailable_reasons"] == {
+        "servingState": "model_serving_response_invalid"
+    }
+    assert enriched.source_states[0].status == "unavailable"
 
 
 def test_config_rejects_unbounded_values() -> None:

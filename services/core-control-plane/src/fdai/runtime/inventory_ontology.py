@@ -20,6 +20,7 @@ import logging
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 
 from fdai.core.ontology_platform.inventory_projection import (
     DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
@@ -277,6 +278,7 @@ class InventoryOntologyProjector:
                 generation=projection.generation,
                 manifest_digest=current_manifest_digest,
                 journal_high_watermark=journal_high_watermark,
+                recorded_at=observation.recorded_at,
             ),
         }
         active_scope_state = checkpoints.active_scope_state(generation=projection.generation)
@@ -356,6 +358,7 @@ class InventoryOntologyProjector:
         generation: str,
         manifest_digest: str,
         journal_high_watermark: int | None,
+        recorded_at: datetime | None,
     ) -> dict[str, object]:
         """Build an idempotent post-commit browser cursor compatible with legacy ids."""
 
@@ -373,6 +376,7 @@ class InventoryOntologyProjector:
                 or not previous["generation"]
                 or not isinstance(previous.get("manifest_digest"), str)
                 or _DIGEST_PATTERN.fullmatch(previous["manifest_digest"]) is None
+                or not isinstance(previous.get("recorded_at"), str)
                 or previous.get("complete") is not True
                 or previous.get("execution_authority") is not False
                 or previous.get("mutation_authority") is not False
@@ -385,11 +389,15 @@ class InventoryOntologyProjector:
                 return dict(previous)
             previous_sequence = previous["sequence"]
         journal_cursor = journal_high_watermark if journal_high_watermark is not None else 0
+        committed_at = recorded_at or datetime.now(UTC)
+        if committed_at.tzinfo is None:
+            raise ValueError("inventory ontology invalidation time MUST be timezone-aware")
         return {
             "schema_version": "1.0.0",
             "sequence": max(previous_sequence, journal_cursor) + 1,
             "generation": generation,
             "manifest_digest": manifest_digest,
+            "recorded_at": committed_at.astimezone(UTC).isoformat(),
             "complete": True,
             "execution_authority": False,
             "mutation_authority": False,

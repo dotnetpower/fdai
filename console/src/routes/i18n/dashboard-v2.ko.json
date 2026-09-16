@@ -25,6 +25,7 @@
   "provisioning": "프로비저닝",
   "serving": "서비스 응답",
   "provisioningHelp": "기록된 프로비저닝 상태는 생성과 구성을 나타냅니다. 실행 상태나 정상 여부를 뜻하지 않습니다.",
+  "servingHelp": "서비스 응답은 제한된 메트릭 구간에서 정확한 배포가 하나 이상의 성공 요청을 처리했음을 뜻합니다. 전체 정상 상태나 SLO 판정이 아닙니다.",
   "ontologyScope": "현재 온톨로지 Resource 세대",
   "inventoryScope": "온톨로지 세대와 일치하는 불변 인벤토리 스냅샷",
   "queryTotal": "동일 세대 조회의 리소스 {total}개",

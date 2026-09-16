@@ -644,10 +644,10 @@ def _project_vmss_instance_state(row: Mapping[str, Any]) -> Mapping[str, Any]:
         return row
     instance_view = properties.get("instanceView")
     if not isinstance(instance_view, Mapping):
-        return row
+        return {**row, "properties": {**properties, "instanceView": {}}}
     statuses = instance_view.get("statuses")
     if not isinstance(statuses, list):
-        return row
+        return {**row, "properties": {**properties, "instanceView": {}}}
     power_states = {
         code.strip()
         for item in statuses

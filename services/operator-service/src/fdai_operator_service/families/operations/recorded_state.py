@@ -328,7 +328,8 @@ def _qualify_metadata(
     """Qualify recorded time and limits only; this is not evidence admission."""
     if metadata.get("lane", "observed") != "observed":
         raise ValueError("metadata does not describe an observed property")
-    authority = metadata.get("authority", "provider")
+    raw_authority = metadata.get("authority")
+    authority = "provider" if raw_authority is None else raw_authority
     if not isinstance(authority, str) or authority not in ("provider", "telemetry"):
         raise ValueError("metadata does not describe a provider or telemetry property")
     source_identity = metadata.get("source_identity")
@@ -375,7 +376,7 @@ def _qualify_metadata(
     result["conflicts"] = list(conflicts)
     result["reason"] = None
     result["source_identity"] = source_identity
-    result["authority"] = authority
+    result["authority"] = authority if raw_authority is not None else None
     if (
         (observed is not None and cutoff is not None and observed > cutoff)
         or (cutoff is not None and recorded is not None and cutoff > recorded)

@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: aadfafb7eb05755d36357ce7e6139a0effb6edd9
+translation_source_sha: c36eeb87b149efade688bc3a9f1629b2e6ec43d2
 translation_revised: 2026-09-16
 ---
 # 지속형 운영 인스턴스 그래프
@@ -311,7 +311,8 @@ Console 카드, 도구 설명, 상세 패널 및 화면 맥락은 원시 프로�
 선택적인 `serving` 사실은 Resource Health와 분리되며 텔레메트리 출처가 있는 최근의 정확한 배포
 성공 관측만 기록합니다. 온톨로지 신원, 구조 관계, Kubernetes 진단 또는 실행 권한은 바꾸지
 않습니다. 수집기는 기존의 정확한 배포 Azure Monitor 어댑터를 재사용하고 대상, 동시성, 데이터
-지점 수 및 전체 제한 시간을 적용하며 추론 요청을 수행하지 않습니다.
+지점 수 및 전체 제한 시간을 적용하며 추론 요청을 수행하지 않습니다. 전체 제한 시간에 도달하면
+완료된 대상 조회는 유지하고 끝나지 않은 조회만 취소하며 남은 정확한 대상을 사용 불가로 보고합니다.
 
 ### 부하 인식 일정 관리
 

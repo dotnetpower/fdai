@@ -211,8 +211,9 @@ the exact ResourceTypes whose ARM type is supported:
 - Static Web App state metadata keeps the provider `lastUpdatedOn` value as effective time, falling
   back to `createdTimeUtc` only when needed. The collection completion remains the recorded time and
   evidence cutoff. A successful HTTP response or parent-resource existence never implies `Ready`.
-- A model deployment can carry an optional `servingState` from the exact
-  `AzureOpenAIRequests` metric scoped by `ModelDeploymentName` and `StatusCode=200`. One or more
+- A model deployment can carry an optional `servingState` from the
+  `model.response.200.count` concept, which maps to the exact `AzureOpenAIRequests` metric scoped
+  by `ModelDeploymentName` and `StatusCode=200`. One or more
   successful requests in the bounded window records `Serving` with telemetry authority and the
   latest successful metric timestamp. An empty window records no positive state. It does not become
   unavailable, degraded, or healthy, and a retained earlier fact ages normally.

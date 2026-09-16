@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
-  dashboardCounts, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardStatusFilter, dashboardTypeLabel, dashboardUnknownCounts, dashboardUnknownReason,
+  dashboardCounts, dashboardLens, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardServingRecordedCount, dashboardStateMatchesFilter, dashboardStatusFilter, dashboardTypeLabel, dashboardUnknownCounts, dashboardUnknownReason,
   decodeDashboardSnapshot, EMPTY_DASHBOARD_FILTERS,
 } from "./dashboard-v2.model";
 import en from "./i18n/dashboard-v2.en.json";
@@ -107,6 +107,10 @@ describe("Dashboard v2 inventory projection", () => {
     expect(dashboardStatusFilter("serving")).toBe("serving");
     expect(dashboardStatusFilter("__proto__")).toBe("");
     expect(dashboardStatusFilter(null)).toBe("");
+    expect(dashboardLens("serving")).toBe("serving");
+    expect(dashboardLens("serving", false)).toBe("operation");
+    expect(dashboardLens("availability")).toBe("availability");
+    expect(dashboardLens("invalid")).toBe("operation");
   });
 
   test("native locale catalogs have matching keys and nonempty readable values", () => {
@@ -185,6 +189,46 @@ describe("Dashboard v2 inventory projection", () => {
     expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "availability")).toBe("not-provided");
     expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "serving")).toBe("serving");
     expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "observation")).toBe("fresh");
+    expect(dashboardStateMatchesFilter(snapshot.resources[0]!, snapshot, "operation", "known")).toBe(false);
+    expect(dashboardStateMatchesFilter(snapshot.resources[0]!, snapshot, "serving", "serving")).toBe(true);
+    expect(dashboardServingRecordedCount(snapshot.resources)).toBe(1);
     expect(dashboardUnknownCounts(snapshot.resources, snapshot).size).toBe(0);
+  });
+
+  test("stale serving evidence is visible but not counted as currently serving", () => {
+    const snapshot = {
+      ...decodeDashboardSnapshot(base),
+      resources: [{
+        id: "model", name: "Model", type: "llm-model-deployment", status: "",
+        parentId: null, group: null, groupLabel: null, subscription: null,
+        subscriptionLabel: null, observedAt: "2026-09-05T02:00:00Z",
+        states: {
+          schema_version: "1.0.0" as const,
+          operational: {
+            value: null, source_path: null, observed_at: null, recorded_at: null,
+            freshness: "unknown" as const, completeness: null, conflicts: [],
+            reason: "provider_operational_state_not_exposed",
+          },
+          provisioning: {
+            value: "Succeeded", source_path: "provisioningState",
+            observed_at: "2026-09-05T02:00:00Z", recorded_at: "2026-09-05T02:00:00Z",
+            freshness: "stale" as const, completeness: 1, conflicts: [], reason: "state_stale",
+          },
+          availability: {
+            value: null, source_path: null, observed_at: null, recorded_at: null,
+            freshness: "unknown" as const, completeness: null, conflicts: [],
+            reason: "provider_availability_state_not_exposed",
+          },
+          serving: {
+            value: "Serving", source_path: "servingState",
+            observed_at: "2026-09-05T02:00:00Z", recorded_at: "2026-09-05T02:00:00Z",
+            freshness: "stale" as const, completeness: 1, conflicts: [], reason: "state_stale",
+          },
+        },
+      }],
+    };
+
+    expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "serving")).toBe("stale");
+    expect(dashboardServingRecordedCount(snapshot.resources)).toBe(0);
   });
 });

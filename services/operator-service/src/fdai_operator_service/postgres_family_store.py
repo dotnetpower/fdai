@@ -2964,7 +2964,6 @@ class PostgresFamilyStore:
         rows = await self._fetch_all(
             """
             SELECT marker.value AS marker,
-                   marker.updated_at AS recorded_at,
                    active.snapshot_id AS active_generation,
                    snapshot.completed_at AS observed_at,
                    manifest.value AS manifest
@@ -2989,6 +2988,7 @@ class PostgresFamilyStore:
             "sequence",
             "generation",
             "manifest_digest",
+            "recorded_at",
             "complete",
             "execution_authority",
             "mutation_authority",
@@ -2999,6 +2999,7 @@ class PostgresFamilyStore:
         watermark = marker.get("sequence")
         generation = marker.get("generation")
         manifest_digest = marker.get("manifest_digest")
+        marker_recorded_at = marker.get("recorded_at")
         if (
             marker.get("schema_version") != _INVENTORY_INVALIDATION_SCHEMA_VERSION
             or isinstance(watermark, bool)
@@ -3008,6 +3009,8 @@ class PostgresFamilyStore:
             or not generation
             or not isinstance(manifest_digest, str)
             or re.fullmatch(r"sha256:[a-f0-9]{64}", manifest_digest) is None
+            or not isinstance(marker_recorded_at, str)
+            or _RFC3339_TIMESTAMP.fullmatch(marker_recorded_at) is None
             or marker.get("complete") is not True
             or marker.get("execution_authority") is not False
             or marker.get("mutation_authority") is not False
@@ -3027,8 +3030,17 @@ class PostgresFamilyStore:
         if after_sequence is not None and watermark <= after_sequence:
             return ()
         observed_at = row.get("observed_at")
-        recorded_at = row.get("recorded_at")
-        if not isinstance(observed_at, datetime) or not isinstance(recorded_at, datetime):
+        if not isinstance(observed_at, datetime):
+            raise PostgresFamilyStoreUnavailable(
+                "inventory ontology invalidation timestamps are malformed"
+            )
+        try:
+            recorded_at = datetime.fromisoformat(marker_recorded_at.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise PostgresFamilyStoreUnavailable(
+                "inventory ontology invalidation timestamps are malformed"
+            ) from exc
+        if recorded_at.tzinfo is None:
             raise PostgresFamilyStoreUnavailable(
                 "inventory ontology invalidation timestamps are malformed"
             )

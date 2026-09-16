@@ -166,6 +166,7 @@ export function dashboardResourceState(resource: DashboardResource, snapshot: Da
       ) return "not-provided";
       return "unknown";
     }
+    if (lens === "serving" && fact.freshness !== "fresh") return fact.freshness;
     const raw = fact.value.trim().toLowerCase().replace(/^powerstate\//, "");
     if (["starting", "stopping", "deallocating", "updating", "creating", "deleting"].includes(raw)) return "transitioning";
     return Object.hasOwn(STATE_STYLE, raw) ? raw as DashboardState : "recorded";
@@ -269,6 +270,16 @@ export function dashboardStatusFilter(value: string | null): DashboardFilters["s
     ? value as DashboardFilters["status"] : "";
 }
 
+export function dashboardLens(value: string | null, hasServing = true): DashboardLens {
+  if (value === "serving" && !hasServing) return "operation";
+  return value === "provisioning"
+    || value === "serving"
+    || value === "availability"
+    || value === "observation"
+    ? value
+    : "operation";
+}
+
 export function dashboardScope(resources: readonly DashboardResource[], filters: DashboardFilters, includeType = true): readonly DashboardResource[] {
   const query = filters.query.trim().toLowerCase();
   return resources.filter((resource) =>
@@ -285,4 +296,27 @@ export function dashboardCounts(resources: readonly DashboardResource[], snapsho
     result.set(key, (result.get(key) ?? 0) + 1);
   }
   return result;
+}
+
+export function dashboardStateMatchesFilter(
+  resource: DashboardResource,
+  snapshot: DashboardSnapshot,
+  lens: DashboardLens,
+  filter: DashboardFilters["status"],
+): boolean {
+  const state = dashboardResourceState(resource, snapshot, lens);
+  return !filter || (
+    filter === "known"
+      ? state !== "unknown" && state !== "not-applicable" && state !== "not-provided"
+      : state === filter
+  );
+}
+
+export function dashboardServingRecordedCount(
+  resources: readonly DashboardResource[],
+): number {
+  return resources.filter(
+    (resource) => resource.states?.serving?.value != null
+      && resource.states.serving.freshness === "fresh",
+  ).length;
 }

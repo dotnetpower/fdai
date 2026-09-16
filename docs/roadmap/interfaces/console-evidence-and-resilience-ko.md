@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: ec79953f9969c2ea6f6033d1430edcf0bf38d104
+translation_source_sha: 08868385dbead6c40c354dc87a6fe844a49bf1a4
 translation_revised: 2026-09-16
 ---
 # 콘솔 근거 및 복원력
@@ -611,7 +611,8 @@ Resource 포커스, 생성 형상, Network 경로, 영향 표현, 반응형 상�
 새로 고침, 지역화 대체 경로 및 사용 불가 상태 동작을 계속 정의합니다. 세대 전환 중 새로 고침은
 마지막으로 완료된 화면과 명시적인 지연 안내를 유지하며, 관련 없는 실패는 계속 오류로 표시합니다.
 기록 상태 요약과 필터는 미제공 및 적용 대상 아님을 실제 알 수 없음 값과 별도로 집계하고, 도구
-설명은 각 사실의 출처 권한과 관측 시각을 표시합니다.
+설명은 각 사실의 출처 권한과 관측 시각을 표시합니다. 오래된 `Serving` 근거는 경고 색상으로 값을
+유지하지만 현재 서비스 응답 수에는 포함하지 않습니다.
 
 ## 검증
 

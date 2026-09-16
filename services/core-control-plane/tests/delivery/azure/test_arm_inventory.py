@@ -12,6 +12,7 @@ from fdai.delivery.azure.arm_inventory import (
     ArmInventoryError,
     AzureArmInventoryFactory,
     AzureArmInventoryFactoryConfig,
+    _project_vmss_instance_state,
 )
 from fdai.delivery.azure.inventory import ResourceQueryResult
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
@@ -536,6 +537,29 @@ async def test_arm_overlay_hydrates_only_vm_run_command_execution_state() -> Non
     }
     assert "sensitive output" not in repr(result.resources[0].props)
     assert "sensitive error" not in repr(result.resources[0].props)
+
+
+@pytest.mark.parametrize(
+    "instance_view",
+    [
+        {"message": "sensitive status"},
+        {"statuses": None, "message": "sensitive status"},
+        {"statuses": {"code": "PowerState/running"}, "message": "sensitive status"},
+    ],
+)
+def test_vmss_instance_view_is_scrubbed_when_statuses_are_missing_or_malformed(
+    instance_view: object,
+) -> None:
+    projected = _project_vmss_instance_state(
+        {
+            "id": "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+            "Microsoft.Compute/virtualMachineScaleSets/vmss-1/virtualMachines/0",
+            "properties": {"instanceView": instance_view},
+        }
+    )
+
+    assert projected["properties"]["instanceView"] == {}
+    assert "sensitive status" not in repr(projected)
 
 
 async def test_arm_overlay_bounds_vm_scale_set_child_collections() -> None:
