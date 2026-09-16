@@ -23,6 +23,8 @@ import { useOntologyInvalidationStream } from "./use-ontology-invalidation-strea
 import { isRecordedStateGenerationTransition } from "../recorded-resource-state";
 import "./dashboard-v2.css";
 
+export const DASHBOARD_V2_REFRESH_INTERVAL_MS = 300_000;
+
 /** Additive read-only resource view; refresh replaces the entire projection, never merges generations. */
 export default function DashboardV2Route({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<DashboardSnapshot>>({ status: "loading" });
@@ -30,9 +32,13 @@ export default function DashboardV2Route({ client }: { readonly client: Operator
   const [refreshInFlight, setRefreshInFlight] = useState(false);
   const readyClientRef = useRef<OperatorApiClient | null>(null);
   const [revision, setRevision] = useState(0);
+  const streamSnapshot = state.status === "ready" ? state.data : null;
   useOntologyInvalidationStream({
     url: `${client.operatorApiBaseUrl.replace(/\/$/, "")}/ontology/instances/stream`,
-    enabled: true,
+    enabled: streamSnapshot !== null,
+    initialLastEventId: streamSnapshot?.invalidationWatermark == null
+      ? null
+      : String(streamSnapshot.invalidationWatermark),
     getAuthorizationHeader: client.authorizationHeader,
     onEvent: () => window.dispatchEvent(new Event("fdai:ontology-invalidated")),
   });
@@ -65,7 +71,9 @@ export default function DashboardV2Route({ client }: { readonly client: Operator
         if (!cancelled && retainingForManualRefresh) setRefreshInFlight(false);
       }
     };
-    const stopRefresh = installOntologyInstanceRefresh(refresh);
+    const stopRefresh = installOntologyInstanceRefresh(refresh, undefined, {
+      intervalMs: DASHBOARD_V2_REFRESH_INTERVAL_MS,
+    });
     return () => { cancelled = true; stopRefresh(); };
   }, [client, revision]);
   return <div class="stack dashboard-v2-page">
@@ -197,6 +205,7 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
   );
   const known = snapshot.resources.length
     - (operations.get("unknown") ?? 0)
+    - (operations.get("stale") ?? 0)
     - (operations.get("not-applicable") ?? 0)
     - (operations.get("not-provided") ?? 0);
   const servingRecorded = useMemo(

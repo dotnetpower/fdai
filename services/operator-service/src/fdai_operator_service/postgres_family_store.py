@@ -430,6 +430,50 @@ PostgresProposalConflict = PostgresProposalConflictError
 PostgresSemanticTurnConflict = SemanticTurnConflictError
 
 
+def _matching_inventory_invalidation_watermark(
+    raw: object,
+    *,
+    generation: str,
+    manifest_digest: str,
+) -> int | None:
+    """Return the cursor only when the marker belongs to the committed manifest."""
+
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        _LOGGER.warning("withheld malformed inventory ontology invalidation cursor")
+        return None
+    sequence = raw.get("sequence")
+    recorded_at = raw.get("recorded_at")
+    if (
+        set(raw)
+        != {
+            "schema_version",
+            "sequence",
+            "generation",
+            "manifest_digest",
+            "recorded_at",
+            "complete",
+            "execution_authority",
+            "mutation_authority",
+        }
+        or raw.get("schema_version") != _INVENTORY_INVALIDATION_SCHEMA_VERSION
+        or isinstance(sequence, bool)
+        or not isinstance(sequence, int)
+        or sequence < 1
+        or raw.get("generation") != generation
+        or raw.get("manifest_digest") != manifest_digest
+        or not isinstance(recorded_at, str)
+        or _RFC3339_TIMESTAMP.fullmatch(recorded_at) is None
+        or raw.get("complete") is not True
+        or raw.get("execution_authority") is not False
+        or raw.get("mutation_authority") is not False
+    ):
+        _LOGGER.warning("withheld mismatched inventory ontology invalidation cursor")
+        return None
+    return sequence
+
+
 @dataclass(frozen=True, slots=True)
 class PostgresFamilyStoreConfig:
     """Bound PostgreSQL connection and statement timeouts for family adapters."""
@@ -909,8 +953,18 @@ class PostgresFamilyStore:
         """Read the committed inventory-owned ontology manifest identity."""
 
         rows = await self._fetch_all(
-            "SELECT value FROM state_kv WHERE key = %(key)s",
-            {"key": "inventory-ontology:manifest"},
+            """
+            SELECT manifest.value AS value,
+                   invalidation.value AS invalidation
+              FROM state_kv AS manifest
+              LEFT JOIN state_kv AS invalidation
+                ON invalidation.key = %(invalidation_key)s
+             WHERE manifest.key = %(manifest_key)s
+            """,
+            {
+                "manifest_key": _INVENTORY_MANIFEST_STATE_KEY,
+                "invalidation_key": _INVENTORY_INVALIDATION_STATE_KEY,
+            },
         )
         if not rows:
             return None
@@ -928,10 +982,16 @@ class PostgresFamilyStore:
             or re.fullmatch(r"sha256:[a-f0-9]{64}", manifest_digest) is None
         ):
             raise PostgresFamilyStoreUnavailable("inventory ontology manifest is malformed")
+        invalidation_watermark = _matching_inventory_invalidation_watermark(
+            rows[0].get("invalidation"),
+            generation=generation,
+            manifest_digest=manifest_digest,
+        )
         return InventoryOntologyContext(
             generation=generation,
             ontology_release_digest=release_digest,
             manifest_digest=manifest_digest,
+            invalidation_watermark=invalidation_watermark,
         )
 
     async def read_latest_aks_diagnostic_receipt(

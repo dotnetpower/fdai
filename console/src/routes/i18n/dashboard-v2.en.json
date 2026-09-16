@@ -19,7 +19,7 @@
   "unverified": "This projection does not declare observed evidence. Current operating state remains unknown.",
   "stale": "Stale snapshot. Recorded state cannot establish current operating state.",
   "received": "Received resources",
-  "known": "Operational state recorded",
+  "known": "Qualified operational state",
   "unknown": "Operational state not recorded",
   "provisioningRecorded": "Provisioning state recorded",
   "servingRecorded": "Serving evidence recorded",

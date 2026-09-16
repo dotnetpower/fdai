@@ -304,6 +304,10 @@ creates graph facts. A visible Console receiving the invalidation re-reads its b
 selected-instance projection. SSE reconnects from `Last-Event-ID`; polling remains the bounded
 fallback. A malformed previous marker is replaced without blocking graph projection. A projection
 with neither a prior marker nor a journal-watermark floor emits no marker and relies on polling.
+Bulk state pages expose the invalidation watermark bound to their committed generation. A new SSE
+connection resumes from that cursor, so only a later committed marker triggers a reread. A client
+without a page-bound cursor receives the current marker and favors a safe duplicate read over a
+missed generation.
 
 Observed model deployments use that same generation and invalidation path. The Operator projection
 exposes only model name, model version, deployment SKU, and normalized TPM in an additive

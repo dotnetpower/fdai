@@ -12,5 +12,9 @@ describe("Dashboard v2 refresh presentation", () => {
     expect(source).toContain("<DashboardBody snapshot={snapshot} />");
     expect(source).not.toContain("<DashboardBody key={revision}");
     expect(source).toContain('if (!hasServing && lens === "serving")');
+    expect(source).toContain("intervalMs: DASHBOARD_V2_REFRESH_INTERVAL_MS");
+    expect(source).toContain("DASHBOARD_V2_REFRESH_INTERVAL_MS = 300_000");
+    expect(source).toContain("enabled: streamSnapshot !== null");
+    expect(source).toContain("String(streamSnapshot.invalidationWatermark)");
   });
 });

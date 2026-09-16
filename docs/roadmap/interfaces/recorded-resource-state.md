@@ -136,6 +136,12 @@ A classified source-gate `503` for this route renders unavailable. A generic ser
 Validation evidence for this client behavior binds to the exact Console and upstream revisions.
 An integration that changes routing or loading inputs requires the owning unit, build, and browser
 checks to run again before their evidence is reused.
+The bulk Dashboard uses committed invalidation events as its primary refresh signal and a five-minute
+visible-tab fallback rather than the selected-instance 15-second interval. Each state page carries
+the invalidation watermark bound to its committed generation. The Dashboard starts its stream from
+that cursor, so it receives every newer marker without rereading the generation it already loaded.
+A legacy response without a cursor receives the current marker and may reread once rather than
+silently missing a generation.
 
 ## Unified state ingestion and readers
 
@@ -314,6 +320,9 @@ the exact ResourceTypes whose ARM type is supported:
 - Dashboard labels the source as `inventory_snapshot_resource`, groups Unknown records by their
   machine reason, and refreshes on the shared interval, browser resume, and inventory invalidation.
 - State colors organize recorded values; they do not assert a current operational success.
+- A retained value with stale, conflicting, synthetic, future-dated, invalid, or incomplete
+  evidence keeps its exact text but uses a stale or unknown tone and stays outside the qualified
+  operational-state count.
 - A `Succeeded` model deployment state reports provisioning completion only. It does not establish
   inference health, successful requests, quota headroom, or caller authorization. A fresh
   `Serving` fact proves only that the exact deployment processed at least one successful request in

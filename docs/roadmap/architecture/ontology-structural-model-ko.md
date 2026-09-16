@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 92d74c33b9463cb089ef43b345d0d185901951ea
+translation_source_sha: adc1d58e2f900b354e9cc38495061442a2ab2901
 translation_revised: 2026-09-16
 ---
 # 온톨로지 구조 모델
@@ -55,6 +55,11 @@ AKS 진단 증적은 선택한 Resource 조회 응답에 연결된 형식화된 
 LinkType을 만들지 않으며 내용 신원은 Resource UID나 관계 신원을 대체할 수 없습니다.
 모든 정본 ResourceType에는 명시적인 기록 상태 처리 결과가 하나씩 있습니다. 누락된 상태를 일반
 정상 값으로 바꾸지 않습니다. 공유 Operator 워크플로 어댑터는 서버에 기록된 개수 또는 명시적인 `evaluated: false`를 포함하는 선택적 `rule.findings-summary` 변환 결과를 노출할 수 있습니다. 이 운영 요약은 온톨로지 선언, 관계, 근거 승인 또는 권한 출처가 아닙니다.
+커밋된 인벤토리 무효화 표식은 그래프 상태가 되지 않고 브라우저 다시 읽기를 조정합니다. 대량 상태
+페이지는 커밋된 세대에 결속된 표식 워터마크를 전달하고 SSE는 이 커서에서 재개합니다. 페이지에
+결속된 커서가 없는 클라이언트는 세대를 놓칠 위험을 피하도록 현재 표식을 받습니다. 대량 Dashboard
+탐색은 표식을 기본 신호로 사용하고 표시 중인 탭에서 5분 fallback을 사용하지만, 선택한 인스턴스의
+재검증은 별도의 15초 간격을 유지합니다.
 
 저장소에서 실행할 수 없는 조건식이 있는 ObjectSet은 먼저 관계를 제외한 객체 1,000개 후보 구간을
 평가합니다. 이 구간이 잘렸고 요청한 결과 제한을 증명하지 못하면 저장소는 객체 50,000개로 제한된
@@ -471,6 +476,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-09-16 | implemented | 온톨로지 쿼리와 근거 경계를 유지하면서 Console 확인 경로에 필요한 타입이 지정된 의미 기반 인시던트 초안 변환 결과를 추가했습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 의미 기반 계획 및 변환 결과 테스트. | 인증된 요청부터 인시던트까지의 근거는 별도로 보존해야 합니다. 온톨로지 런타임 상태 또는 ActionType 승격은 변경하지 않았습니다. |
+| 2026-09-16 | implemented | 각 상태 페이지를 커밋된 무효화 워터마크에 결속하고 Dashboard SSE를 이 커서에서 시작했으며, 이전 클라이언트에는 안전한 현재 표식 재생을 유지하고 대량 Dashboard의 5분 fallback을 선택한 인스턴스의 15초 재검증과 분리했습니다. | `current change`, 집중 Operator 테스트 153개, 집중 Console 테스트 74개, 실제 Dashboard 브라우저 시나리오 10개, 엄격한 타입 검사 및 프로덕션 빌드 | 스트림 동작을 `validated`로 분류하기 전에 로컬에서 커밋된 표식부터 화면 반영까지의 시간 증적 하나를 보존합니다. |
 | 2026-09-15 | implemented | 별도 디렉터리 상한 및 새로고침 행을 제거하고 두 상태를 검색 도구막대에 유지했으며, 표현 커버리지와 범례 세부 정보를 기본적으로 접고 전체 화면 도구를 하나의 공용 컨트롤 표면으로 줄였습니다. | `current change`, `ontology-instances.tsx`, `ontology-instance-graph.tsx`, `ontology-instances.css`, 경로 전용 카탈로그, 집중 소스, 지역화, 브라우저, 타입 검사 및 프로덕션 빌드 검사 | 공유 Browser 제어가 다시 연결되면 인증된 변경 후 DOM 기하를 보존합니다. 그래프, 근거 또는 실행 권한은 바뀌지 않았습니다. |
 | 2026-09-14 | implemented | 범위가 제한된 영향 edge에 세대 일치 검사를 적용한 근거 묶음을 추가하고 지도와 Inspector에서 `runtime_calls`의 호출자에서 대상으로의 방향을 보존했습니다. | `current change`, 변경 backend 집중 테스트 448개 통과 및 선택형 테스트 1개 건너뜀, 변경 Console 테스트 415개 통과, 타입 검사, 프로덕션 빌드, 브라우저 테스트 115개 통과 | 새 edge 검증 경로를 `validated`로 분류하기 전에 현재 인증된 관계 근거를 보존합니다. |
 | 2026-09-14 | implemented | 들어오는 방향, 선택 영역 및 나가는 방향의 채우기를 레이아웃 높이의 SVG 사각형에서 전체 높이의 그래프 표면 계층으로 옮기고 정확한 SVG `viewBox`와 노드, 관계선, 레이블, 이동 및 확대·축소 기하를 유지했습니다. | `current change`, `ontology-instance-graph.tsx`, `ontology-instances.css`, 집중 Console 테스트 158개, 전체 화면 데스크톱, 제한된 데스크톱 및 한국어 모바일을 다룬 집중 Playwright 시나리오 2개, 타입 검사와 프로덕션 빌드 | 공유 Browser 제어가 다시 연결되면 인증된 수정 후 DOM 측정을 보존합니다. 그래프, 쿼리 또는 실행 권한은 바뀌지 않았습니다. |

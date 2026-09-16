@@ -230,6 +230,7 @@ describe("Dashboard v2 inventory projection", () => {
     };
 
     expect(dashboardResourceState(snapshot.resources[0]!, snapshot, "serving")).toBe("stale");
+    expect(dashboardStateMatchesFilter(snapshot.resources[0]!, snapshot, "serving", "known")).toBe(false);
     expect(dashboardServingRecordedCount(snapshot.resources)).toBe(0);
   });
 });

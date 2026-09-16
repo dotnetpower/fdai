@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: d2fe01b6a031186e35c4e8a97d68ae375db4ca0f
+translation_source_sha: 9d6b5354e26ddbfff26337a71c9b582dc897901f
 translation_revised: 2026-09-16
 ---
 # 지속형 운영 인스턴스 그래프
@@ -304,6 +304,9 @@ payload를 노출하거나 그래프 사실을 만들지 않습니다. 표시 �
 폴링은 범위가 제한된 fallback으로 유지합니다. 이전 표식의 형식이 잘못돼도 그래프 변환을
 차단하지 않고 교체합니다. 이전 표식과 journal 워터마크 하한이 모두 없는 변환은 표식을 만들지
 않고 폴링을 사용합니다.
+대량 상태 페이지는 커밋된 세대에 결속된 무효화 워터마크를 노출합니다. 새 SSE 연결은 이 커서부터
+재개하므로 이후 커밋된 표식만 다시 읽기를 일으킵니다. 페이지에 결속된 커서가 없는 클라이언트는
+현재 표식을 받으며, 세대를 놓치는 대신 안전한 중복 읽기를 선택합니다.
 
 관측된 모델 배포도 같은 세대와 무효화 경로를 사용합니다. Operator 변환 결과는 추가
 `model_deployment` 객체에서 모델 이름, 모델 버전, 배포 SKU 및 정규화된 TPM만 노출합니다.

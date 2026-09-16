@@ -8,7 +8,10 @@ import {
   type OntologyInstanceRefreshTrigger,
 } from "./ontology-instance-refresh";
 
-function refreshHost(initiallyVisible = true) {
+function refreshHost(
+  initiallyVisible = true,
+  expectedIntervalMs = ONTOLOGY_INSTANCE_REFRESH_INTERVAL_MS,
+) {
   let visible = initiallyVisible;
   let now = 1_000;
   let interval: (() => void) | undefined;
@@ -16,7 +19,7 @@ function refreshHost(initiallyVisible = true) {
   const documentListeners = new Map<string, () => void>();
   const host: OntologyInstanceRefreshHost = {
     setInterval(callback, intervalMs) {
-      expect(intervalMs).toBe(ONTOLOGY_INSTANCE_REFRESH_INTERVAL_MS);
+      expect(intervalMs).toBe(expectedIntervalMs);
       interval = callback;
       return "interval";
     },
@@ -108,6 +111,32 @@ describe("ontology instance refresh scheduling", () => {
     await settleRefresh();
     expect(refresh).toHaveBeenLastCalledWith("visible");
     stop();
+  });
+
+  it("supports a slower bounded interval for bulk projections", async () => {
+    const refresh = vi.fn(async (_trigger: OntologyInstanceRefreshTrigger) => undefined);
+    const fixture = refreshHost(true, 300_000);
+    const deadlines: Array<number | null> = [];
+    const stop = installOntologyInstanceRefresh(refresh, fixture.host, {
+      intervalMs: 300_000,
+      onNextPeriodicAt: (deadline) => deadlines.push(deadline),
+    });
+
+    expect(deadlines).toEqual([301_000]);
+    await settleRefresh();
+    fixture.triggerInterval();
+    await settleRefresh();
+    expect(refresh).toHaveBeenLastCalledWith("periodic");
+    expect(deadlines).toEqual([301_000, 301_000]);
+    stop();
+  });
+
+  it("rejects an unsafe custom interval", () => {
+    expect(() => installOntologyInstanceRefresh(
+      async () => undefined,
+      refreshHost().host,
+      { intervalMs: 999 },
+    )).toThrow("positive whole number");
   });
 
   it("coalesces overlapping triggers and releases the lock after failure", async () => {

@@ -1125,7 +1125,8 @@ def test_inventory_invalidation_stream_establishes_watermark_without_a_replay_st
         after_sequence=None,
         limit=500,
     )
-    # SSE id equals the coalesced event's watermark.
+    # Clients without a page-bound cursor receive the current marker so a
+    # connection race cannot silently skip a committed generation.
     assert "id: 42\nevent: inventory.invalidated" in body
     assert '"watermark":42' in body
     assert '"observation_count":3' in body
@@ -1188,7 +1189,7 @@ def test_inventory_invalidation_stream_coalesces_page_and_exposes_no_sensitive_f
     with _client(dependencies).stream(
         "GET",
         "/ontology/instances/stream",
-        headers=HEADERS,
+        headers={**HEADERS, "Last-Event-ID": "42"},
     ) as response:
         body = b"".join(response.iter_bytes()).decode()
 

@@ -31,6 +31,7 @@ export interface DashboardSnapshot {
   readonly id: string | null;
   readonly ontologyGeneration?: string;
   readonly ontologyManifestDigest?: string;
+  readonly invalidationWatermark?: number | null;
   readonly at: string;
   readonly source: string | null;
   readonly scope: string | null;
@@ -166,7 +167,13 @@ export function dashboardResourceState(resource: DashboardResource, snapshot: Da
       ) return "not-provided";
       return "unknown";
     }
-    if (lens === "serving" && fact.freshness !== "fresh") return fact.freshness;
+    if (fact.freshness === "stale") return "stale";
+    if (
+      fact.freshness !== "fresh"
+      || fact.completeness !== 1
+      || fact.conflicts.length > 0
+      || fact.reason !== null
+    ) return "unknown";
     const raw = fact.value.trim().toLowerCase().replace(/^powerstate\//, "");
     if (["starting", "stopping", "deallocating", "updating", "creating", "deleting"].includes(raw)) return "transitioning";
     return Object.hasOwn(STATE_STYLE, raw) ? raw as DashboardState : "recorded";
@@ -308,7 +315,10 @@ export function dashboardStateMatchesFilter(
   const state = dashboardResourceState(resource, snapshot, lens);
   return !filter || (
     filter === "known"
-      ? state !== "unknown" && state !== "not-applicable" && state !== "not-provided"
+      ? state !== "unknown"
+        && state !== "stale"
+        && state !== "not-applicable"
+        && state !== "not-provided"
       : state === filter
   );
 }
