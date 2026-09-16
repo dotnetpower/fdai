@@ -15,7 +15,9 @@ import {
   formatNullablePercent,
   formatSignedPercent,
   recommendationSavings,
+  sampleOutcomeSavings,
   totalHint,
+  type SampleCostOutcomeSavings,
 } from "./cost-governance-format";
 import {
   costShare,
@@ -47,7 +49,11 @@ export function CostGovernanceWorkspace({
       ) : projection.surface === "optimization-cases" ? (
         <OptimizationCases summary={summary} analytics={projection.analytics ?? null} />
       ) : (
-        <Outcomes summary={summary} />
+        <Outcomes
+          projection={projection}
+          summary={summary}
+          analytics={projection.analytics ?? null}
+        />
       )}
     </section>
   );
@@ -320,20 +326,49 @@ function OptimizationCases({
   );
 }
 
-function Outcomes({ summary }: { readonly summary: CostGovernanceSummary }) {
+function Outcomes({
+  projection,
+  summary,
+  analytics,
+}: {
+  readonly projection: CostGovernanceProjection;
+  readonly summary: CostGovernanceSummary;
+  readonly analytics: CostGovernanceAnalytics | null;
+}) {
   const outcomes = summary.rows.filter((row) => row.kind === "outcome");
+  const sampleSavings = sampleOutcomeSavings(
+    projection.source_authority,
+    outcomes,
+    analytics?.recommendations ?? [],
+  );
   return (
     <>
       <div class="cost-kpi-grid">
-        <Metric label={t("costGovernance.outcomes.verifiedSavings")} value="-" hint={t("costGovernance.outcomes.noSettlement")} />
-        <Metric label={t("costGovernance.outcomes.realization")} value="-" hint={t("costGovernance.outcomes.noSettlement")} />
+        <Metric
+          label={t("costGovernance.outcomes.verifiedSavings")}
+          value={sampleSavings
+            ? formatCurrency(sampleSavings.verifiedSavings, sampleSavings.currency)
+            : "-"}
+          hint={t(sampleSavings
+            ? "costGovernance.outcomes.sampleEvidence"
+            : "costGovernance.outcomes.noSettlement")}
+        />
+        <Metric
+          label={t("costGovernance.outcomes.realization")}
+          value={sampleSavings ? formatNullablePercent(sampleSavings.realization) : "-"}
+          hint={t(sampleSavings
+            ? "costGovernance.outcomes.sampleEvidence"
+            : "costGovernance.outcomes.noSettlement")}
+        />
         <Metric label={t("costGovernance.outcomes.sloRegression")} value="-" hint={t("costGovernance.outcomes.effectUnavailable")} />
         <Metric label={t("costGovernance.outcomes.pendingSettlement")} value="-" hint={t("costGovernance.outcomes.noSettlement")} />
       </div>
       <div class="cost-outcome-grid">
         <article class="cost-visual-card">
           <CardHeader eyebrow={t("costGovernance.outcomes.waterfallEyebrow")} title={t("costGovernance.outcomes.waterfallTitle")} description={t("costGovernance.outcomes.waterfallDescription")} />
-          <UnavailableWaterfall />
+          {sampleSavings
+            ? <SampleWaterfall savings={sampleSavings} />
+            : <UnavailableWaterfall />}
           <a class="cost-text-action" href="#cost-effect-list">{t("costGovernance.outcomes.openWaterfallDetail")} <span aria-hidden="true">{"->"}</span></a>
         </article>
         <article class="cost-visual-card">
@@ -655,6 +690,32 @@ function UnavailableWaterfall() {
   );
 }
 
+function SampleWaterfall({ savings }: { readonly savings: SampleCostOutcomeSavings }) {
+  const stages = [
+    { key: "projected", amount: savings.projectedSavings, height: 1 },
+    { key: "deduplicated", amount: null, height: null },
+    { key: "protected", amount: null, height: null },
+    { key: "pending", amount: null, height: null },
+    { key: "unrealized", amount: null, height: null },
+    { key: "verified", amount: savings.verifiedSavings, height: savings.realization },
+  ] as const;
+  return (
+    <div class="cost-waterfall" role="img" aria-label={t("costGovernance.outcomes.waterfallTitle")}>
+      {stages.map((stage) => (
+        <div key={stage.key}>
+          <strong>{stage.amount === null
+            ? "-"
+            : formatCurrency(stage.amount, savings.currency)}</strong>
+          <i style={stage.height === null ? undefined : {
+            height: `${Math.max(8, Math.min(100, stage.height * 100))}%`,
+          }} />
+          <span>{t(`costGovernance.outcomes.waterfall.${stage.key}`)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function UnavailableUnitChart() {
   return (
     <div class="cost-unit-chart unavailable" role="img" aria-label={t("costGovernance.outcomes.unitUnavailable")}>
@@ -667,13 +728,20 @@ function UnavailableUnitChart() {
 
 function SettlementGrid({ rows }: { readonly rows: readonly CostGovernanceRow[] }) {
   return (
-    <div class="cost-settlement-grid">{rows.map((row) => (
-      <div key={row.id}>
-        <span>{row.status}</span>
-        <strong>{row.label}</strong>
-        <small>{row.observedAt ? new Date(row.observedAt).toLocaleString(costLocale()) : "-"}</small>
-      </div>
-    ))}</div>
+    <div class="cost-settlement-grid">{rows.map((row) => {
+      const observedAt = row.observedAt
+        ? new Date(row.observedAt).toLocaleString(costLocale())
+        : "-";
+      return (
+        <div key={row.id}>
+          <span>{row.status}</span>
+          <strong>{row.label}</strong>
+          <small>{row.amount === null
+            ? observedAt
+            : `${formatCurrency(row.amount, row.currency)} - ${observedAt}`}</small>
+        </div>
+      );
+    })}</div>
   );
 }
 

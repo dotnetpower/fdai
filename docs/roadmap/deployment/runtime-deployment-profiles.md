@@ -93,7 +93,9 @@ Marketplace Ubuntu version and install the checksum-pinned toolchain during Foun
 not build or require a dedicated managed-host image. Artifact-offline deployments can still select
 a separately verified prebuilt host image when bootstrap downloads are unavailable.
 
-Tenant provisioning consumes prebuilt service and dependency images only. It verifies signatures,
+Tenant provisioning consumes prebuilt service and dependency images only. A complete release's
+closed dependency-image set includes both ClamAV and pgvector; neither can be omitted from the
+signed kit when one deployment profile does not use it. The provisioner verifies signatures,
 provenance, source revision, platform and digest before making the images available to AKS. It does
 not invoke Docker, Buildx, ACR Tasks, a remote builder or VM image capture. Release construction is
 an upstream supply-chain activity and is never recovered by rebuilding inside a tenant run.
@@ -294,11 +296,7 @@ the regional catalog once and uses an exact-name Azure CLI projection so only th
 SKUs are serialized, then checks their regional restrictions, three required zones, architecture,
 host encryption, and family plus total quota. It does not issue a second catalog request for a
 different node-pool SKU or retry a failed provider read. Unsupported targets do not disable
-encryption. Allocatable workload-envelope validation remains open in the implementation ledger.
-
-Container Insights combines the managed-identity `oms_agent` addon with a Terraform-owned Data
-Collection Rule (DCR) and cluster association. It sends the default stream each minute with
-`ContainerLogV2`; without the association and current workspace records, monitoring is unavailable.
+encryption. Allocatable workload-envelope validation remains open in the implementation ledger. Container Insights combines the managed-identity `oms_agent` addon with a Terraform-owned Data Collection Rule (DCR) and cluster association. It sends the default stream each minute with `ContainerLogV2`; without the association and current workspace records, monitoring is unavailable.
 
 The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
 ephemeral storage. Checkov exceptions stay attached to the affected resource: the pinned scanner

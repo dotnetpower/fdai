@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 030e203cd8d2cabe3e56c7a4a885f8a670031ed1
+translation_source_sha: 704ccd23775c6a2081c17a782ded516d80370e73
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -94,10 +94,12 @@ $$
 이미지를 만들거나 요구하지 않습니다. 초기 구성 산출물을 내려받을 수 없는 아티팩트 오프라인
 배포는 별도로 검증된 사전 준비 호스트 이미지를 선택할 수 있습니다.
 
-테넌트 프로비저닝은 미리 빌드된 서비스 및 의존성 이미지만 사용합니다. AKS에서 이미지를 사용할
-수 있게 만들기 전에 서명, 출처, 소스 버전, 플랫폼 및 digest를 검증합니다. Docker, Buildx,
-ACR Tasks, 원격 builder 또는 VM 이미지 캡처를 실행하지 않습니다. release 생성은 업스트림
-공급망의 작업이며 테넌트 실행 안에서 다시 빌드하는 방식으로 복구하지 않습니다.
+테넌트 프로비저닝은 미리 빌드된 서비스 및 의존성 이미지만 사용합니다. 완전한 release의 닫힌
+의존성 이미지 집합에는 ClamAV와 pgvector가 모두 포함됩니다. 배포 프로파일 하나가 특정 이미지를
+사용하지 않더라도 서명된 키트에서 해당 이미지를 생략할 수 없습니다. 프로비저닝 도구는 AKS에서
+이미지를 사용할 수 있게 만들기 전에 서명, 출처, 소스 버전, 플랫폼 및 digest를 검증합니다.
+Docker, Buildx, ACR Tasks, 원격 빌더 또는 VM 이미지 캡처를 실행하지 않습니다. release 생성은
+업스트림 공급망의 작업이며 테넌트 실행 안에서 다시 빌드하는 방식으로 복구하지 않습니다.
 
 Foundation의 선택 입력 `application_workload`는 AKS 프로파일을 바꾸지 않고 새 애플리케이션
 그룹 이름을 운영 리소스 이름과 분리합니다. 기존 그룹의 소유권을 부여하지는 않으며, 부분 상태
@@ -292,14 +294,7 @@ API Server VNet Integration을 활성화하고, 나중에 클러스터를 교체
 직렬화한 다음 지역 제한, 필요한 세 개 영역, 아키텍처, 호스트 암호화, 제품군별 quota 및 전체
 quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로그 요청을 보내거나 실패한
 프로바이더 읽기를 재시도하지 않습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
-할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다.
-
-Container Insights는 Managed Identity를 사용하는 `oms_agent` 추가 기능과 Terraform이 소유하는
-데이터 수집 규칙(DCR) 및 클러스터 연결을 함께 사용합니다. 이 규칙은
-`Microsoft-ContainerInsights-Group-Default` 스트림을 1분마다 선택한 Log Analytics workspace로
-보내고 `ContainerLogV2`를 활성화합니다. 실행 중인 agent Pod에 이 연결이 없으면 모니터링 준비
-상태가 아닙니다. DCR이 존재하고 workspace 테이블에 현재 레코드가 수집될 때까지 메트릭 및 로그
-소스는 사용 불가 상태로 유지됩니다.
+할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다. Container Insights는 Managed Identity를 사용하는 `oms_agent` 추가 기능과 Terraform이 소유하는 데이터 수집 규칙(DCR) 및 클러스터 연결을 함께 사용합니다. 이 규칙은 `Microsoft-ContainerInsights-Group-Default` 스트림을 1분마다 선택한 Log Analytics workspace로 보내고 `ContainerLogV2`를 활성화합니다. 실행 중인 agent Pod에 이 연결이 없으면 모니터링 준비 상태가 아닙니다. DCR이 존재하고 workspace 테이블에 현재 레코드가 수집될 때까지 메트릭 및 로그 소스는 사용 불가 상태로 유지됩니다.
 
 로컬 디스크가 없는 기본 SKU는 임시 저장소 대신 플랫폼에서 암호화하는 Managed OS 디스크를
 유지합니다. Checkov 예외는 해당 리소스에만 둡니다. 고정된 검사기 버전은 AzureRM의 이전 업그레이드
