@@ -113,6 +113,27 @@ async def test_router_requires_complete_quorum_without_implicit_fallback() -> No
         )
 
 
+async def test_router_converts_depth_overflow_to_route_unavailable() -> None:
+    router = ReportLineApprovalRouter(
+        graphs=Graphs(),
+        eligibility=Eligibility({"person-b", "person-c"}),
+        policy=ReportLineRoutingPolicy(
+            action_types=frozenset({"ops.restart-service"}),
+            quorum_by_action={},
+        ),
+        maximum_depth=1,
+    )
+
+    with pytest.raises(ReportLineRouteUnavailableError, match="traversal bound"):
+        await router.plan(
+            requester_ref="person-a",
+            action_type="ops.restart-service",
+            scope_ref="scope://service/example",
+            minimum_role="Approver",
+            at=NOW,
+        )
+
+
 async def test_router_leaves_unselected_actions_on_existing_route() -> None:
     router = ReportLineApprovalRouter(
         graphs=Graphs(),

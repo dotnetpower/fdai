@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 97483883b3be4d119e82dc6e3c71ff983ea36fcb
+translation_source_sha: 51607f37fbb35152ff5ddffb6c27c8c22ba57460
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -55,6 +55,8 @@ ActionType에 report-line 승인이 필요하면 FDAI는 요청자에게 해당 
   관리자는 현재 ActionType, 범위, 역할, quorum 및 역할 분리 정책도 충족해야 합니다.
 - **실패 시 차단:** 그래프가 충분한 적격 승인자를 제공하지 못하면 작업을 실행하지 않습니다.
   구성된 거버넌스 대상에게 담당 범위 복구 알림을 보낼 수 있지만 알림은 승인이 아닙니다.
+  잘못됐거나 순환하거나 깊이 한도를 넘는 경로도 제어 루프를 벗어나지 않고 같은 감사 가능한
+  경로 사용 불가 결과로 처리합니다.
 - **직속 관리자 범위:** 초기 구현은 주체별 현재 시점의 활성 `primary_manager` edge 하나만
   사용합니다. 참고, 점선 보고, 멘토 및 프로젝트 관계는 승인 라우팅에 참여하지 않습니다.
 

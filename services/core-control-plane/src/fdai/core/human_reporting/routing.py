@@ -11,7 +11,11 @@ from typing import Protocol
 
 from fdai.core.hil_escalation import EscalationDuty, EscalationRung
 from fdai.core.human_reporting.graph import ReportingGraphSnapshot
-from fdai.core.human_reporting.model import normalize_principal, reporting_instant
+from fdai.core.human_reporting.model import (
+    ReportingLineModelError,
+    normalize_principal,
+    reporting_instant,
+)
 
 
 class ReportLineRouteUnavailableError(PermissionError):
@@ -147,8 +151,13 @@ class ReportLineApprovalRouter:
             return None
         planned_at = reporting_instant(at)
         requester = normalize_principal(requester_ref)
-        graph = await self.graphs.current_graph(at=planned_at)
-        path = graph.manager_chain(requester, maximum_depth=self.maximum_depth)
+        try:
+            graph = await self.graphs.current_graph(at=planned_at)
+            path = graph.manager_chain(requester, maximum_depth=self.maximum_depth)
+        except ReportingLineModelError as exc:
+            raise ReportLineRouteUnavailableError(
+                "current reporting line is invalid or exceeds its traversal bound"
+            ) from exc
         quorum = self.policy.quorum_for(action_type)
         rungs: list[EscalationRung] = []
         for edge in path:

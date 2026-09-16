@@ -56,7 +56,8 @@ A person can participate in several axes, but evidence from one axis cannot sati
   A manager must still satisfy the current ActionType, scope, role, quorum, and separation policy.
 - **Fail closed:** If the graph cannot provide enough eligible approvers, the action does not run.
   A configured governance audience can be notified to repair coverage, but notification is not
-  approval.
+  approval. An invalid, cyclic, or depth-bounded path is reported through the same audited
+  route-unavailable outcome rather than escaping the control loop.
 - **Primary-manager scope:** The initial implementation uses one active `primary_manager` edge per
   subject and effective instant. Advisory, dotted-line, mentoring, and project relationships do
   not participate in approval routing.
