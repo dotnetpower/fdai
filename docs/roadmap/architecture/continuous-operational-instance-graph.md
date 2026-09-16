@@ -428,14 +428,10 @@ Each record distinguishes these meanings:
 - **Confirmed tombstone:** Re-observation or complete reconciliation confirms deletion and records
   the resource incarnation, effective time, source revision, and evidence reference.
 
-The journal keeps nullable `provider_event_at`, effective and observation time, required `ingested_at`,
-recorded time, and evidence cutoff distinct. Existing records use `ingested_at=recorded_at` without
-inventing provider event time. Source, revision, scope, completeness, conflicts, masks, digest, and retention remain pinned.
-Operation status such as a successful write remains change metadata and never becomes resource
-operational state.
-The additive migration backfills existing rows in one transaction. It holds the table lock,
-suspends only the update guard, restores that guard before enforcing `NOT NULL`, and leaves the
-delete guard active throughout.
+The journal keeps nullable `provider_event_at`, effective and observation time, required `ingested_at`, recorded time, and evidence cutoff distinct.
+Existing records use `ingested_at=recorded_at` without inventing provider event time; source, revision, scope, completeness, conflicts, masks, digest, and retention remain pinned.
+The additive migration holds the table lock, suspends only the update guard while backfilling existing rows, restores it before enforcing `NOT NULL`, and leaves the delete guard active.
+Operation status such as a successful write remains change metadata and never becomes resource operational state.
 
 A resource id can be reused after deletion. Projection therefore assigns a resource incarnation
 from an immutable provider identity, generation, or independently verified lifecycle boundary.
