@@ -4,7 +4,7 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: dcbece141981e376790f2e4f57714f39ec8de837
+translation_source_sha: 35785ccba706841498412bcee04d35a2d3e905fe
 translation_revised: 2026-09-16
 ---
 
@@ -86,7 +86,7 @@ API 접근 경계에는 예약 작업이 포함되지 않으며 Event Hubs 연�
 아니라 서비스들이 함께 사용하는 이벤트 전송 경로를 대표합니다.
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-azure-aks-deployment.manifest.json" locale="ko" style="display:block">
-  <img src="../../diagrams/generated/fdai-azure-aks-deployment.ko.svg" alt="AKS의 FDAI: Microsoft Entra ID와 Static Web Apps가 API Management를 통해 별도의 Operator API 및 Document Ingestion API에 연결됩니다. 5개 서비스 Deployment와 CronJob은 Event Hubs, PostgreSQL, 저장소, 분리된 워크로드 ID, Key Vault, Container Registry 및 구성된 모델과 모니터링 서비스를 사용합니다. 격리된 실행기만 승인된 리소스 변경 권한을 보유할 수 있습니다." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../../diagrams/generated/fdai-azure-aks-deployment.ko.svg" alt="운영자는 Microsoft Entra ID로 인증하고 Azure Static Web Apps의 콘솔을 사용합니다. Azure API Management는 브라우저 요청을 AKS의 Operator Service와 Document Ingestion API로 전달합니다. 클러스터는 관리형 API 서버, 시스템 및 사용자 노드 풀, 5개 서비스 Deployment와 CronJob을 구분합니다. Event Hubs는 스키마가 검증된 서비스 이벤트를 전달합니다. PostgreSQL과 문서 저장소는 클러스터 밖에 있습니다. Workload Identity와 Key Vault는 서비스별 ID와 비밀을 분리합니다. 격리된 실행기만 승인된 리소스 변경 권한을 보유할 수 있습니다. Container Registry는 다이제스트로 고정된 이미지를 제공하고 Azure OpenAI와 모니터링은 공유 의존 서비스입니다. 이 그림은 배포 프로파일이며 실시간 상태나 사설망 검증 근거가 아닙니다." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 - **서비스 배치**: Core Control Plane, Operator Service, Document Ingestion API,
