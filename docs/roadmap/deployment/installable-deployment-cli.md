@@ -123,6 +123,9 @@ This prevents a policy-added tag from forcing replacement of the IPs and their d
 validates original review/claim/snapshot/configuration, and passes the original state path directly
 to Terraform. It binds current source, provider and plan bytes, retains bounded private diagnostics,
 checks group ownership and rejects concurrent state changes. Its expiring review grants no authority.
+When the original plan already contains the supported application-name and public-IP policy inputs,
+the recovery planner accepts byte-identical current configuration instead of requiring the legacy
+source migration again. Any other source difference remains blocked.
 
 `genesis_foundation_recovery_apply.py` requires fresh `foundation-apply` approval bound to the recovery
 review and code; the official prompt accepts `--foundation-recovery-review`. Before its immutable claim,

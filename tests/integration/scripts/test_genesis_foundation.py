@@ -34,6 +34,7 @@ from genesis_foundation_recovery import (  # noqa: E402
 )
 from genesis_foundation_recovery_plan import (  # noqa: E402
     prepare_recovery_plan,
+    require_ip_policy_only,
     require_naming_only,
 )
 from genesis_status import StatusStore  # noqa: E402
@@ -283,6 +284,23 @@ def test_recovery_configuration_permits_only_application_naming(tmp_path):
     require_naming_only(original, current)
     (original / "main.tf").write_bytes(main + b"\nchanged\n")
     with pytest.raises(ValueError, match="more than application"):
+        require_naming_only(original, current)
+
+
+def test_recovery_accepts_current_source_with_existing_recovery_inputs(tmp_path):
+    current = _ROOT / "infra/genesis-foundation"
+    original = tmp_path / "original"
+    shutil.copytree(current, original)
+    bootstrap = tmp_path / "bootstrap"
+    bootstrap.mkdir()
+    for name in ("nat.tf", "bastion.tf", "variables.tf"):
+        shutil.copy2(_ROOT / "infra/bootstrap" / name, bootstrap / name)
+
+    require_naming_only(original, current)
+    require_ip_policy_only(bootstrap, _ROOT / "infra/bootstrap")
+
+    (original / "main.tf").write_bytes((original / "main.tf").read_bytes() + b"\nchanged\n")
+    with pytest.raises(ValueError, match="unsupported|more than application"):
         require_naming_only(original, current)
 
 
