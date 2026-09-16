@@ -21,6 +21,7 @@ from .metrics import configure_metrics
 from .tracing import configure_tracing
 
 _SERVICE_NAME = "fdai"
+_AZURE_MONITOR_CONFIGURED = False
 
 
 def configure_telemetry(config: AppConfig, *, level: int = logging.INFO) -> None:
@@ -34,7 +35,16 @@ def configure_telemetry(config: AppConfig, *, level: int = logging.INFO) -> None
         level=level,
         warning_log_path=_local_warning_log_path(config, Path.cwd()),
     )
-    endpoint, insecure = _otlp_config(os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", ""))
+    application_insights_configured = bool(
+        os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING", "").strip()
+    )
+    raw_otlp_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+    if application_insights_configured and raw_otlp_endpoint.strip():
+        raise ValueError("Application Insights and OTLP exporters MUST NOT be configured together")
+    if application_insights_configured:
+        _configure_azure_monitor(config)
+        return
+    endpoint, insecure = _otlp_config(raw_otlp_endpoint)
     configure_tracing(
         service_name=_SERVICE_NAME,
         env=config.runtime.env,
@@ -47,6 +57,27 @@ def configure_telemetry(config: AppConfig, *, level: int = logging.INFO) -> None
         otlp_endpoint=endpoint,
         otlp_insecure=insecure,
     )
+
+
+def _configure_azure_monitor(config: AppConfig) -> None:
+    """Install the Azure Monitor Distro without copying its secret from the environment."""
+    global _AZURE_MONITOR_CONFIGURED
+    if _AZURE_MONITOR_CONFIGURED:
+        return
+
+    from azure.monitor.opentelemetry import configure_azure_monitor
+    from opentelemetry.sdk.resources import Resource
+
+    configure_azure_monitor(
+        logger_name="fdai",
+        resource=Resource.create(
+            {
+                "service.name": _SERVICE_NAME,
+                "runtime.env": config.runtime.env,
+            }
+        ),
+    )
+    _AZURE_MONITOR_CONFIGURED = True
 
 
 def _local_warning_log_path(
