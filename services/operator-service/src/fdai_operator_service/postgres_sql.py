@@ -433,29 +433,69 @@ _HIL_DECISIONABLE_SQL: Final = """
    )
 """
 
-_HIL_COUNT_SQL_PREFIX: Final = """
+HIL_COUNT_SQL: Final = """
 SELECT COUNT(*) AS total_count,
-       COUNT(*) FILTER (WHERE NOT (
-            jsonb_typeof(value->'approval_id') = 'string'
-        AND TRIM(value->>'approval_id') <> ''
-        AND jsonb_typeof(value->'parked_at') = 'string'
-        AND TRIM(value->>'parked_at') <> ''
-        AND jsonb_typeof(value#>'{action,event_id}') = 'string'
-        AND TRIM(value#>>'{action,event_id}') <> ''
+       COUNT(*) FILTER (WHERE NOT COALESCE((
+            jsonb_typeof(park.approval_id) = 'string'
+        AND TRIM(park.approval_id #>> '{}') <> ''
+        AND jsonb_typeof(park.parked_at) = 'string'
+        AND TRIM(park.parked_at #>> '{}') <> ''
+        AND jsonb_typeof(park.action->'event_id') = 'string'
+        AND TRIM(park.action->>'event_id') <> ''
         AND (
-             (jsonb_typeof(value->'idempotency_key') = 'string'
-              AND TRIM(value->>'idempotency_key') <> '')
-          OR (jsonb_typeof(value#>'{action,idempotency_key}') = 'string'
-              AND TRIM(value#>>'{action,idempotency_key}') <> '')
+             (jsonb_typeof(park.idempotency_key) = 'string'
+              AND TRIM(park.idempotency_key #>> '{}') <> '')
+          OR (jsonb_typeof(park.action->'idempotency_key') = 'string'
+              AND TRIM(park.action->>'idempotency_key') <> '')
         )
-       )) AS unprojectable_count
+       ), FALSE)) AS unprojectable_count
   FROM state_kv
- WHERE key LIKE %(key_pattern)s ESCAPE E'\\\\'
-   AND value->>'status' = 'pending'
+ CROSS JOIN LATERAL jsonb_to_record(
+      CASE WHEN jsonb_typeof(state_kv.value) = 'object'
+           THEN state_kv.value ELSE '{}'::jsonb END
+ ) AS park(
+      approval_id jsonb,
+      parked_at jsonb,
+      idempotency_key jsonb,
+      status jsonb,
+      submitter_oid jsonb,
+      request_fingerprint jsonb,
+      approval_context jsonb,
+      action jsonb,
+      metadata jsonb
+ )
+ WHERE state_kv.key LIKE %(key_pattern)s ESCAPE E'\\\\'
+   AND park.status #>> '{}' = 'pending'
    AND NOT EXISTS (
        SELECT 1
          FROM state_kv AS decision
-        WHERE decision.key = 'operator-hil-decision:' || (state_kv.value->>'approval_id')
+        WHERE decision.key = 'operator-hil-decision:' || (park.approval_id #>> '{}')
+   )
+   AND jsonb_typeof(park.submitter_oid) = 'string'
+   AND TRIM(park.submitter_oid #>> '{}') <> ''
+   AND jsonb_typeof(park.request_fingerprint) = 'string'
+   AND TRIM(park.request_fingerprint #>> '{}') <> ''
+   AND jsonb_typeof(park.approval_context->'expires_at') = 'string'
+   AND CASE
+       WHEN park.approval_context->>'expires_at' ~
+         '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}'
+       THEN (park.approval_context->>'expires_at')::timestamptz
+         > CURRENT_TIMESTAMP
+       ELSE FALSE
+   END
+   AND (
+       NOT (state_kv.value ? 'metadata')
+       OR (
+           jsonb_typeof(park.metadata) = 'object'
+           AND park.metadata->>'decision_route' IN ('action', 'workflow')
+           AND (
+               park.metadata->>'decision_route' <> 'workflow'
+               OR (
+                   jsonb_typeof(park.metadata->'required_role') = 'string'
+                   AND TRIM(park.metadata->>'required_role') <> ''
+               )
+           )
+       )
    )
 """
 
@@ -499,7 +539,6 @@ _HIL_PAGE_SQL_SUFFIX: Final = """
 """
 
 # These statements compose only static module literals; runtime values remain bound parameters.
-HIL_COUNT_SQL: Final = _HIL_COUNT_SQL_PREFIX + _HIL_DECISIONABLE_SQL  # noqa: S608
 HIL_PAGE_SQL: Final = (  # noqa: S608
     _HIL_PAGE_SQL_PREFIX + _HIL_DECISIONABLE_SQL + _HIL_PAGE_SQL_SUFFIX
 )
