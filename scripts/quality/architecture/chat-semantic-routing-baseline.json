@@ -317,6 +317,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_incident_creation.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains exact severity and target extraction from a schema-validated semantic judgment proposal without interpreting operator prose or granting execution authority.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/core/conversation/semantic_judgment.py",
       "disposition": "retain",
       "owner": "semantic-conversation",

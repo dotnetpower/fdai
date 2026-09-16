@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: b12e9fd9e1343b47e879efb05c36fd87ca63d461
+translation_source_sha: a7b22259c08423f9bed9b459e479e704619a9acf
 translation_revised: 2026-09-16
 ---
 # 온톨로지 구조 모델
@@ -464,6 +464,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | implemented | 온톨로지 쿼리와 근거 경계를 유지하면서 Console 확인 경로에 필요한 타입이 지정된 의미 기반 인시던트 초안 변환 결과를 추가했습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 의미 기반 계획 및 변환 결과 테스트. | 인증된 요청부터 인시던트까지의 근거는 별도로 보존해야 합니다. 온톨로지 런타임 상태 또는 ActionType 승격은 변경하지 않았습니다. |
 | 2026-09-15 | implemented | 별도 디렉터리 상한 및 새로고침 행을 제거하고 두 상태를 검색 도구막대에 유지했으며, 표현 커버리지와 범례 세부 정보를 기본적으로 접고 전체 화면 도구를 하나의 공용 컨트롤 표면으로 줄였습니다. | `current change`, `ontology-instances.tsx`, `ontology-instance-graph.tsx`, `ontology-instances.css`, 경로 전용 카탈로그, 집중 소스, 지역화, 브라우저, 타입 검사 및 프로덕션 빌드 검사 | 공유 Browser 제어가 다시 연결되면 인증된 변경 후 DOM 기하를 보존합니다. 그래프, 근거 또는 실행 권한은 바뀌지 않았습니다. |
 | 2026-09-14 | implemented | 범위가 제한된 영향 edge에 세대 일치 검사를 적용한 근거 묶음을 추가하고 지도와 Inspector에서 `runtime_calls`의 호출자에서 대상으로의 방향을 보존했습니다. | `current change`, 변경 backend 집중 테스트 448개 통과 및 선택형 테스트 1개 건너뜀, 변경 Console 테스트 415개 통과, 타입 검사, 프로덕션 빌드, 브라우저 테스트 115개 통과 | 새 edge 검증 경로를 `validated`로 분류하기 전에 현재 인증된 관계 근거를 보존합니다. |
 | 2026-09-14 | implemented | 들어오는 방향, 선택 영역 및 나가는 방향의 채우기를 레이아웃 높이의 SVG 사각형에서 전체 높이의 그래프 표면 계층으로 옮기고 정확한 SVG `viewBox`와 노드, 관계선, 레이블, 이동 및 확대·축소 기하를 유지했습니다. | `current change`, `ontology-instance-graph.tsx`, `ontology-instances.css`, 집중 Console 테스트 158개, 전체 화면 데스크톱, 제한된 데스크톱 및 한국어 모바일을 다룬 집중 Playwright 시나리오 2개, 타입 검사와 프로덕션 빌드 | 공유 Browser 제어가 다시 연결되면 인증된 수정 후 DOM 측정을 보존합니다. 그래프, 쿼리 또는 실행 권한은 바뀌지 않았습니다. |
@@ -552,8 +553,6 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 44 | 복합 프로바이더 상태 색조 | `NotAvailable`이 긍정 상태인 `available` 부분 문자열과 일치해 성공으로 표시될 수 있던 Medium 결함을 해결했습니다. | 준비, 사용 가능, 정상, 활성, 실행 중 및 성공 상태의 음성 표현을 긍정 토큰보다 먼저 평가하며 집중 상태 색조 회귀 검사를 통과합니다. |
 | 45 | 로컬 준비 출처 일치 | Kubernetes를 활성화한 전체 스택 준비가 예약 인벤토리 작성기가 복구할 때까지 `kubernetes_source_unconfigured`를 승격하던 Medium 결함을 해결했습니다. | 권위 있는 새로 고침은 이제 검증된 인벤토리 조합 도우미를 재사용하며, 집중 배선 검사는 하드코딩된 사용 불가 보강기를 차단합니다. |
 | 46 | 보강 기준 시점의 단조 증가 | 수락한 Kubernetes 근거의 `observed_at`이 승격된 세대 기준 시점보다 늦을 수 있던 Medium 시간 순서 결함을 해결했습니다. | 성공한 보강은 `recorded_at`을 뒤로 이동하지 않으면서 가장 최근에 수락한 출처 관측 시점까지 전진시키며, 집중 회귀 검사가 1초 경계 사례를 고정합니다. |
-
-| 2026-09-16 | implemented | 온톨로지 쿼리와 근거 경계를 유지하면서 Console 확인 경로에 필요한 타입이 지정된 의미 기반 인시던트 초안 변환 결과를 추가했습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 의미 기반 계획 및 변환 결과 테스트. | 인증된 요청부터 인시던트까지의 근거는 별도로 보존해야 합니다. 온톨로지 런타임 상태 또는 ActionType 승격은 변경하지 않았습니다. |
 
 ### 남은 작업
 
