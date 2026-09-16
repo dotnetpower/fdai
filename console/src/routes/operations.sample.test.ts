@@ -102,6 +102,7 @@ describe("Operations Sample registry", () => {
     });
     expect(decodeHilQueuePage(response("/hil-queue")).items[0]).toMatchObject({
       correlation_id: "sample-correlation-002",
+      incident_available: true,
       action_kind: "ops.start-vm",
       target_resource_ref: "sample-checkout-standby-vm-01",
     });
