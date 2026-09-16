@@ -96,7 +96,7 @@ describe("shared recorded state consumption", () => {
     try {
       const panel = vi.fn<OperatorApiClient["panel"]>().mockReturnValue(new Promise(() => {}));
       const outcome = expect(loadDashboardRecordedStates({ panel })).rejects.toThrow("total deadline");
-      await vi.advanceTimersByTimeAsync(30000);
+      await vi.advanceTimersByTimeAsync(45_000);
       await outcome;
       expect(panel).toHaveBeenCalledTimes(1);
     } finally { vi.useRealTimers(); }
@@ -174,8 +174,17 @@ describe("shared recorded state consumption", () => {
       waitForRetry,
     )).rejects.toBe(error);
 
-    expect(panel).toHaveBeenCalledTimes(3);
-    expect(waitForRetry.mock.calls).toEqual([[250], [500]]);
+    expect(panel).toHaveBeenCalledTimes(9);
+    expect(waitForRetry.mock.calls).toEqual([
+      [250],
+      [500],
+      [1_000],
+      [2_000],
+      [4_000],
+      [8_000],
+      [12_000],
+      [12_000],
+    ]);
   });
 
   test("rejects invalid state-fact fields instead of synthesizing metadata", () => {

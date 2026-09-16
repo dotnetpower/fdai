@@ -3,6 +3,7 @@
   "subtitle": "Recorded state and evidence from the shared immutable inventory query.",
   "original": "Original Dashboard",
   "refresh": "Refresh snapshot",
+  "refreshDelayed": "A newer inventory generation is still being projected. Showing the last complete snapshot.",
   "loading": "Loading inventory snapshot",
   "unavailable": "The inventory projection is not available. Check its source in Diagnostics.",
   "source": "Source",

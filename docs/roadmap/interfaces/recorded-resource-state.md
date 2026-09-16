@@ -124,9 +124,9 @@ Dashboard loads bounded pages, rejects duplicate records and changing totals/cut
 caps accumulation at 20,000 records under a total deadline. Reaching that bound is explicit partial
 coverage. A transport or schema failure is not converted into an empty inventory or a graph fallback.
 Only a typed inventory or ontology generation transition restarts the entire bounded traversal,
-discarding every accumulated page. Initial loading uses bounded exponential delays within one total
-deadline. A later periodic or stream-triggered transition keeps the last complete view visible and
-labels the refresh as delayed rather than replacing evidence with an error.
+discarding every accumulated page. Initial loading uses bounded exponential delays within one
+45-second total deadline. A later periodic or stream-triggered transition keeps the last complete
+view visible and labels the refresh as delayed rather than replacing evidence with an error.
 Display filters and local pages operate on this received set; the server query remains the authority. The shared Console decoder recognizes only an `OperatorApiError` with status `409` and the exact `inventory_generation_changed` or `ontology_generation_changed` code as a generation transition; every other failure remains terminal for that load.
 A classified source-gate `503` for this route renders unavailable. A generic service or proxy
 `503` remains a visible error; it is not evidence that the projection is absent.

@@ -19,11 +19,14 @@ import {
   type OntologyInstanceRefreshTrigger,
 } from "./ontology-instance-refresh";
 import { useOntologyInvalidationStream } from "./use-ontology-invalidation-stream";
+import { isRecordedStateGenerationTransition } from "../recorded-resource-state";
 import "./dashboard-v2.css";
 
 /** Additive read-only resource view; refresh replaces the entire projection, never merges generations. */
 export default function DashboardV2Route({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<DashboardSnapshot>>({ status: "loading" });
+  const [refreshDelayed, setRefreshDelayed] = useState(false);
+  const readyClientRef = useRef<OperatorApiClient | null>(null);
   const [revision, setRevision] = useState(0);
   useOntologyInvalidationStream({
     url: `${client.operatorApiBaseUrl.replace(/\/$/, "")}/ontology/instances/stream`,
@@ -34,12 +37,24 @@ export default function DashboardV2Route({ client }: { readonly client: Operator
   useEffect(() => {
     let cancelled = false;
     const refresh = async (trigger: OntologyInstanceRefreshTrigger) => {
-      if (trigger === "initial") setState({ status: "loading" });
+      const canRetain = readyClientRef.current === client;
+      if (trigger === "initial" && !canRetain) setState({ status: "loading" });
       try {
         const snapshot = await loadDashboardRecordedStates(client, () => cancelled);
-        if (!cancelled && snapshot) setState({ status: "ready", data: snapshot });
+        if (!cancelled && snapshot) {
+          readyClientRef.current = client;
+          setRefreshDelayed(false);
+          setState({ status: "ready", data: snapshot });
+        }
       } catch (error: unknown) {
-        if (!cancelled) setState(isOptionalOperatorApiUnavailable(error)
+        if (cancelled) return;
+        if (canRetain && isRecordedStateGenerationTransition(error)) {
+          setRefreshDelayed(true);
+          return;
+        }
+        readyClientRef.current = null;
+        setRefreshDelayed(false);
+        setState(isOptionalOperatorApiUnavailable(error)
           ? { status: "unavailable", message: t("unavailable") }
           : { status: "error", message: error instanceof Error ? error.message : String(error) });
       }
@@ -52,6 +67,7 @@ export default function DashboardV2Route({ client }: { readonly client: Operator
       <a class="cs-control-button" href={routeHref("dashboard")}>{t("original")}</a>
       <button type="button" class="cs-control-button" onClick={() => setRevision((value) => value + 1)} disabled={state.status === "loading"}>{t("refresh")}</button>
     </>} />
+    {refreshDelayed && <p class="dv2-notice" role="status">{t("refreshDelayed")}</p>}
     {state.status !== "ready" && <DashboardPendingContext status={state.status} />}
     <AsyncBoundary state={state} resourceLabel={t("title")}>
       {(snapshot) => <DashboardBody key={revision} snapshot={snapshot} />}

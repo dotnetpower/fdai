@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 11c404f1a78290c638a0a855d732d8009ebc013b
+translation_source_sha: 0dbe3dd63a44c84b031d0f90293e37a66625e6b2
 translation_revised: 2026-09-16
 ---
 # 콘솔 근거 및 복원력
@@ -608,7 +608,8 @@ Resource 포커스, 생성 형상, Network 경로, 영향 표현, 반응형 상�
 회귀 게이트를 정의합니다.
 
 이 복원력 문서는 다른 Console 경로와 공유하는 인벤토리 출처 가용성, 스냅샷 최신성, 범위가 제한된
-새로 고침, 지역화 대체 경로 및 사용 불가 상태 동작을 계속 정의합니다.
+새로 고침, 지역화 대체 경로 및 사용 불가 상태 동작을 계속 정의합니다. 세대 전환 중 새로 고침은
+마지막으로 완료된 화면과 명시적인 지연 안내를 유지하며, 관련 없는 실패는 계속 오류로 표시합니다.
 
 ## 검증
 

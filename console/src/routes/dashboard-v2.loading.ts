@@ -10,8 +10,17 @@ import type { DashboardResource, DashboardSnapshot } from "./dashboard-v2.model"
 
 const LIMIT = 500;
 const MAX_RECORDS = 20000;
-const MAX_READ_MS = 30000;
-const GENERATION_RETRY_DELAYS_MS = [250, 500] as const;
+const MAX_READ_MS = 45_000;
+const GENERATION_RETRY_DELAYS_MS = [
+  250,
+  500,
+  1_000,
+  2_000,
+  4_000,
+  8_000,
+  12_000,
+  12_000,
+] as const;
 interface RecordedStateClient {
   readonly panel: (path: string, params?: Record<string, string>) => Promise<unknown>;
 }
