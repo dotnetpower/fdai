@@ -76,6 +76,61 @@ API that changes anything.
 
 ## Azure deployment topology
 
+Choose the view that matches the deployment runtime. AKS is the default for new
+installations; Container Apps remains a compatibility profile. The logical
+control loop and authority boundaries are the same in both.
+
+### AKS deployment
+
+This view shows the AKS profile with an authenticated public Console and
+`postgres-flex`. Azure Static Web Apps hosts the browser application outside
+the cluster. Azure API Management (APIM) provides its HTTPS API gateway and
+routes Operator requests and `/ingestion` requests to separate AKS services.
+
+Read the diagram from left to right: authenticated access, the AKS runtime,
+then Azure data and operational services. Shared workload dependencies sit
+below the main flow. The API boundary excludes scheduled jobs, and the Event
+Hubs connection represents shared service transport, not a Core-only bus.
+
+<fdai-architecture-diagram manifest="../diagrams/generated/fdai-azure-aks-deployment.manifest.json" locale="en" style="display:block">
+  <img src="../diagrams/generated/fdai-azure-aks-deployment.en.svg" alt="FDAI on AKS: Microsoft Entra ID and Static Web Apps connect through API Management to separate Operator and Document Ingestion APIs. Five service Deployments and CronJobs use Event Hubs, PostgreSQL, storage, separate workload identities, Key Vault, Container Registry, and configured model and monitoring services. Only the isolated Executor is eligible for approved resource effects." loading="lazy" style="display:block;width:100%;height:auto" />
+</fdai-architecture-diagram>
+
+- **Service placement**: Five independent Deployments run the Core Control
+  Plane, Operator Service, Document Ingestion API, Document Processing Worker,
+  and isolated Executor. The Worker includes a ClamAV sidecar. Scheduled work
+  runs as CronJobs, not Container Apps Jobs.
+- **API access**: Externally exposed APIs use Kubernetes `LoadBalancer`
+  Services; other services use `ClusterIP`. The API services validate Entra
+  tokens. APIM is the browser gateway, not the Kubernetes management API.
+- **Identity and images**: Namespaced ServiceAccounts federate through AKS
+  Workload Identity to separate managed identities. Key Vault supplies
+  service-specific secret references through the CSI driver. Container Registry
+  supplies digest-pinned images. Only the isolated Executor is eligible to hold
+  approved resource-effect roles; runtime selection does not enable execution.
+- **Data and events**: Event Hubs carries schema-validated service events;
+  there are no direct agent-to-agent calls. PostgreSQL uses service-owned roles,
+  and Azure Storage holds documents and history. Group-level connections
+  summarize these paths, not shared credentials or unrestricted data access.
+  The common-dependency and operations areas list supporting services without
+  repeating every identity, image, model, approval, and telemetry connection.
+  Azure products use their product icons; Kubernetes Deployments, nodes, and
+  CronJobs use their corresponding Kubernetes icons.
+- **Network scope**: AKS uses an application VNet, a node subnet, and a
+  delegated API-server subnet with API Server VNet Integration. The basic
+  profile restricts public management access by CIDR and Entra RBAC. Private
+  cluster access, service private endpoints, peering, and private DNS depend on
+  the selected networking profile; this picture does not assert they are enabled.
+
+The diagram describes reusable deployment configuration, not a tenant inventory
+or live health report. Model access, approval channels, and diagnostic collection
+need their own configuration and verification. The optional `postgres-aks`
+profile places PostgreSQL inside AKS and is not depicted here. See
+[runtime deployment profiles](../roadmap/deployment/runtime-deployment-profiles.md)
+for placement and readiness requirements.
+
+### Container Apps deployment
+
 Use the deployment view to trace the production private-network baseline rather
 than the logical control-loop responsibilities. Numbered connectors follow the
 primary signal, decision, evidence, approval, and delivery paths. Nested
@@ -91,6 +146,8 @@ App Roles and the privileged executor managed identity stay separate in every
 profile.
 
 ## Azure resource network flow
+
+This is the Container Apps private-network reference, not the AKS profile above.
 
 Use this view to trace current and target-state connections at the Azure resource
 level. It separates the private Application Gateway, Container Apps infrastructure,
@@ -146,7 +203,7 @@ resources remain intentional abstractions rather than missing architecture.
 
 Azure Resource Graph reads and observability writes are shown outside the
 private data-plane path because they use Azure control-plane and telemetry
-contracts. The day-zero Terraform baseline still doesn't add an Application
+contracts. This Container Apps reference still doesn't add an Application
 Gateway, WAF, Managed Grafana, or load balancer.
 
 ## The validated five-service baseline and one candidate
