@@ -110,7 +110,17 @@ def test_aks_container_insights_has_dcr_and_cluster_association() -> None:
         in cluster
     )
     assert 'name                    = "ContainerInsightsExtension"' in cluster
-    assert "target_resource_id      = azurerm_kubernetes_cluster.runtime.id" in cluster
+    assert "target_resource_id      = local.cluster_resource_id" in cluster
+    assert '"/subscriptions/%s/resourceGroups/%s/providers/' in cluster
+    assert "data.azurerm_client_config.current.subscription_id" in cluster
+    assert (
+        "azurerm_kubernetes_cluster.runtime.id"
+        not in cluster[
+            cluster.index(
+                'resource "azurerm_monitor_data_collection_rule_association" "container_insights"'
+            ) : cluster.index('resource "azurerm_kubernetes_cluster_node_pool" "user"')
+        ]
+    )
     assert (
         "data_collection_rule_id = azurerm_monitor_data_collection_rule.container_insights.id"
         in cluster
