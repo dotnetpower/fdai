@@ -983,6 +983,169 @@ def test_aks_workload_binds_digest_image_and_additional_identity() -> None:
     }
 
 
+def test_aks_core_conversation_environment_binds_topics_and_enabled_model() -> None:
+    digest = "a" * 64
+    environment = standalone_host._aks_core_conversation_environment(
+        application_values={"enable_llm": True},
+        substrate_outputs={
+            "semantic_physical": "fdai.pantheon.objects",
+            "llm_endpoint": "https://example.openai.azure.com/",
+            "llm_model_endpoints": {"azure-openai:example": "https://example.openai.azure.com/"},
+            "resolved_models_sha256": digest,
+        },
+        semantic_topics=[
+            "operator.semantic-turn.requests",
+            "core.semantic-turn.projections",
+            "operator.read-investigation.requests",
+        ],
+    )
+
+    assert environment == {
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.semantic-turn.requests",
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "core.semantic-turn.projections",
+        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": "operator.read-investigation.requests",
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
+        "LLM_MODE": "azure",
+        "LLM_RESOLVED_MODELS_PATH": "/app/resolved-models.json",
+        "LLM_RESOLVED_MODELS_SHA256": digest,
+        "FDAI_LLM_ENDPOINT": "https://example.openai.azure.com/",
+        "FDAI_MODEL_ENDPOINTS_JSON": (
+            '{"azure-openai:example":"https://example.openai.azure.com/"}'
+        ),
+    }
+
+
+def test_aks_core_conversation_environment_keeps_transport_when_model_is_disabled() -> None:
+    environment = standalone_host._aks_core_conversation_environment(
+        application_values={"enable_llm": False},
+        substrate_outputs={"semantic_physical": "fdai.pantheon.objects"},
+        semantic_topics=["requests", "projections", "investigations"],
+    )
+
+    assert environment == {
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "requests",
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "projections",
+        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": "investigations",
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": "fdai.pantheon.objects",
+    }
+
+
+@pytest.mark.parametrize("enable_llm", [None, "true", 1])
+def test_aks_core_conversation_environment_rejects_non_boolean_model_activation(
+    enable_llm: object,
+) -> None:
+    with pytest.raises(TypeError, match="enable_llm setting MUST be a boolean"):
+        standalone_host._aks_core_conversation_environment(
+            application_values={"enable_llm": enable_llm},
+            substrate_outputs={"semantic_physical": "physical"},
+            semantic_topics=["requests", "projections", "investigations"],
+        )
+
+
+@pytest.mark.parametrize(
+    ("substrate_update", "message"),
+    [
+        ({"llm_endpoint": ""}, "LLM endpoint"),
+        ({"llm_model_endpoints": {}}, "model endpoint outputs"),
+        ({"resolved_models_sha256": "invalid"}, "lowercase SHA-256"),
+    ],
+)
+def test_aks_core_conversation_environment_rejects_incomplete_enabled_model(
+    substrate_update: dict[str, object], message: str
+) -> None:
+    substrate_outputs: dict[str, object] = {
+        "semantic_physical": "physical",
+        "llm_endpoint": "https://example.openai.azure.com/",
+        "llm_model_endpoints": {"azure-openai:example": "https://example.openai.azure.com/"},
+        "resolved_models_sha256": "a" * 64,
+        **substrate_update,
+    }
+
+    with pytest.raises(ValueError, match=message):
+        standalone_host._aks_core_conversation_environment(
+            application_values={"enable_llm": True},
+            substrate_outputs=substrate_outputs,
+            semantic_topics=["requests", "projections", "investigations"],
+        )
+
+
+def test_prepare_aks_application_requires_core_semantic_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for name in ("runtime-receipt.json", "image-import-receipt.json", "migration-receipt.json"):
+        (tmp_path / name).write_text("{}", encoding="utf-8")
+    context = {
+        "runtime_profile": {
+            "runtime_platform": "aks",
+            "database_placement": "postgres-flex",
+        },
+        "infra": str(tmp_path / "infra"),
+        "runtime_infra": str(tmp_path / "runtime"),
+        "tenant_id": "tenant",
+        "subscription_id": "subscription",
+    }
+    application = {"enable_llm": True, "region": "westus2", "env": "dev"}
+    identities = {
+        name: {"resource_id": f"/identities/{name}", "client_id": f"{name}-client"}
+        for name in (
+            "core",
+            "operator",
+            "command",
+            "executor",
+            "inventory",
+            "canary",
+            "ingestion",
+            "ingestion_worker",
+        )
+    }
+    semantic_topics = ["requests", "projections", "investigations"]
+
+    def private_json(path: Path, _label: str) -> dict[str, object]:
+        return context if path.name == "context.json" else application
+
+    def json_output(_infra: Path, name: str) -> object:
+        return {
+            "runtime_identity_bindings": identities,
+            "event_bus_topics": ["events"],
+            "event_bus_semantic_topics": semantic_topics,
+            "llm_model_endpoints": {"model": "endpoint"},
+        }.get(name, {})
+
+    def require_semantic_environment(**kwargs: object) -> dict[str, str]:
+        assert kwargs["application_values"] == application
+        assert kwargs["semantic_topics"] == semantic_topics
+        outputs = kwargs["substrate_outputs"]
+        assert isinstance(outputs, dict)
+        assert outputs["semantic_physical"] == "event_bus_semantic_physical_topic"
+        assert outputs["llm_endpoint"] == "llm_endpoint"
+        assert outputs["llm_model_endpoints"] == {"model": "endpoint"}
+        assert outputs["resolved_models_sha256"] == "resolved_models_sha256"
+        raise RuntimeError("core semantic environment required")
+
+    monkeypatch.setattr(standalone_host, "_private_json", private_json)
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
+    monkeypatch.setattr(
+        standalone_host,
+        "_terraform_output",
+        lambda _infra, name: name,
+    )
+    monkeypatch.setattr(standalone_host, "_terraform_json_output", json_output)
+    monkeypatch.setattr(
+        standalone_host,
+        "_prepare_aks_kubeconfig",
+        lambda *_args, **_kwargs: tmp_path / "aks.kubeconfig",
+    )
+    monkeypatch.setattr(
+        standalone_host,
+        "_aks_core_conversation_environment",
+        require_semantic_environment,
+    )
+
+    with pytest.raises(RuntimeError, match="core semantic environment required"):
+        standalone_host._prepare_aks_application(SimpleNamespace(), tmp_path)
+
+
 def test_aks_document_workloads_bind_complete_service_contracts() -> None:
     digest = "a" * 64
     refs = {
