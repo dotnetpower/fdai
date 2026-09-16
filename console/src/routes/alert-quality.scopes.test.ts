@@ -50,12 +50,13 @@ beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { for (const owner of owners.splice(0)) owner.dispose(); vi.useRealTimers(); });
 
 describe("exact bounded authorized-scope contract", () => {
-  it("accepts an empty list and the exact 64-reference limit without choosing a scope", () => {
+  it("accepts an empty list and the exact 64-reference limit without inventing a scope", () => {
     const empty = decodeAlertQualityScopes(payload([]));
     expect(empty.scope_refs).toEqual([]);
     expect(selectAlertQualityScope(new URLSearchParams(), empty)).toEqual({ status: "missing" });
     const maximum = Array.from({ length: ALERT_MAX_SCOPES }, (_, index) => `scope:example-${String(index).padStart(2, "0")}`);
     expect(decodeAlertQualityScopes(payload(maximum)).scope_refs).toEqual(maximum);
+    expect(selectAlertQualityScope(new URLSearchParams(), decodeAlertQualityScopes(payload(maximum)))).toEqual({ status: "missing" });
     expect(Object.isFrozen(decodeAlertQualityScopes(payload()).scope_refs)).toBe(true);
   });
 
@@ -70,14 +71,16 @@ describe("exact bounded authorized-scope contract", () => {
     expect(() => decodeAlertQualityScopes(value)).toThrow();
   });
 
-  it("admits explicit URL scope only by exact membership, including opaque punctuation", () => {
+  it("opens one unambiguous discovered scope and admits explicit URL scope only by exact membership", () => {
     const scopes = decodeAlertQualityScopes(payload());
+    expect(selectAlertQualityScope(new URLSearchParams(), scopes)).toEqual({ status: "selected", scope });
     expect(selectAlertQualityScope(new URLSearchParams({ scope_ref: scope }), scopes)).toEqual({ status: "selected", scope });
     expect(selectAlertQualityScope(new URLSearchParams("scope_ref=scope:other"), scopes)).toEqual({ status: "unauthorized" });
     for (const query of [`scope_ref=${scope}&scope_ref=${scope}`, "scope_ref=", "scope_ref=%20scope:example", "scope_ref=%2Fprovider%2Fpath"]) {
       expect(selectAlertQualityScope(new URLSearchParams(query), scopes)).toEqual({ status: "invalid" });
     }
-    expect(selectAlertQualityScope(new URLSearchParams(), scopes)).toEqual({ status: "missing" });
+    expect(selectAlertQualityScope(new URLSearchParams(), decodeAlertQualityScopes(payload([scope, "scope:other"]))))
+      .toEqual({ status: "missing" });
   });
 });
 
@@ -112,8 +115,12 @@ describe("authenticated Live-only discovery with no polling", () => {
     const fixture = setup();
     await fixture.owner.load();
     const scopes = decodeAlertQualityScopes(payload());
-    for (const query of ["scope_ref=scope:other", "", `scope_ref=${scope}&scope_ref=${scope}`]) {
-      const selection = selectAlertQualityScope(new URLSearchParams(query), scopes);
+    for (const [query, available] of [
+      ["scope_ref=scope:other", scopes],
+      ["", decodeAlertQualityScopes(payload([scope, "scope:other"]))],
+      [`scope_ref=${scope}&scope_ref=${scope}`, scopes],
+    ] as const) {
+      const selection = selectAlertQualityScope(new URLSearchParams(query), available);
       const report = createAlertQualitySession(fixture.client, "scope:other", vi.fn(), vi.fn(),
         () => fixture.current() && selection.status === "selected");
       await report.load();

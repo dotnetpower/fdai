@@ -15,10 +15,10 @@ import { alertQualityText as text, type AlertQualityMessage } from "./i18n/alert
 
 /** Reuse shared form geometry and semantic descriptions rather than decorative cards or rails. */
 export function AlertQualityFacts({ children }: { readonly children: ComponentChildren }) {
-  return <dl class="form-grid" style={{ margin: 0, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))" }}>{children}</dl>;
+  return <dl class="alert-quality-facts">{children}</dl>;
 }
 export function AlertQualityFact({ label, children }: { readonly label: string; readonly children: ComponentChildren }) {
-  return <div style={{ minWidth: 0 }}><dt class="muted">{label}</dt><dd style={{ margin: "8px 0 0", overflowWrap: "anywhere" }}>{children}</dd></div>;
+  return <div><dt>{label}</dt><dd>{children}</dd></div>;
 }
 export function AlertQualityTime({ value }: { readonly value: string }) {
   return <time dateTime={value}>{formatConsoleTimestamp(value)}</time>;
@@ -117,16 +117,38 @@ export function AlertQualityEvidence({ report, now }: { readonly report: AlertNo
     ["sourceEpisodes", report.source_episodes], ["attempts", report.notification_attempts],
     ["deliveries", report.confirmed_deliveries], ["acknowledgements", report.acknowledgements],
   ] as const;
-  return <section class="stack" id="alert-quality-evidence" aria-labelledby="alert-quality-evidence-title">
-    <h3 id="alert-quality-evidence-title">{text("evidence")}</h3>
-    <Facts>{metrics.map(([key, value]) => <Fact key={key} label={text(key)}>
-      <a href="#alert-quality-findings" style={{ display: "inline-flex", alignItems: "center", minHeight: 44 }}>
-        {key === "sourceEpisodes" && value === null ? text("unknown")
-          : alertQualityCount(report.coverage === "unavailable" ? null : value)}
-      </a>
-    </Fact>)}</Facts>
-    <p class="muted">{text("denominators")}</p>
+  return <section class="alert-quality-section" id="alert-quality-evidence" aria-labelledby="alert-quality-evidence-title">
+    <header class="alert-quality-section-header">
+      <div>
+        <h3 id="alert-quality-evidence-title">{text("evidence")}</h3>
+        <p>{text("denominators")}</p>
+      </div>
+    </header>
+    <div class="alert-quality-metrics" role="region" aria-label={text("summary")}>
+      {metrics.map(([key, value]) => {
+        const unavailable = report.coverage === "unavailable";
+        const measured = !unavailable && value !== null;
+        const display = key === "sourceEpisodes" && value === null && !unavailable
+          ? text("unknown") : alertQualityCount(unavailable ? null : value);
+        const hint = key === "sourceEpisodes"
+          ? text(`summary.coverage.${report.coverage}`)
+          : text(measured ? "summary.measured" : "summary.notMeasured");
+        return <a key={key} class="alert-quality-metric"
+          data-evidence-state={measured ? "measured" : "not-measured"}
+          href={key === "acknowledgements" ? "#alert-quality-source" : "#alert-quality-findings"}>
+          <span class="alert-quality-metric-label">{text(key)}</span>
+          <strong class="alert-quality-metric-value">{display}</strong>
+          <small>{hint}</small>
+        </a>;
+      })}
+    </div>
     {report.coverage !== "complete" ? <UnavailableState message={text("partialCounts")} /> : null}
+  </section>;
+}
+
+/** Source timing, validity and digests remain below the primary findings in reading order. */
+export function AlertQualityProvenance({ report, now }: { readonly report: AlertNoiseAssessment; readonly now: number }) {
+  return <div class="alert-quality-provenance" id="alert-quality-provenance">
     <Facts>
       <Fact label={text("coverage")}>{text(`coverage.${report.coverage}`)}</Fact>
       <Fact label={text("cutoff")}><Time value={report.observed_at} /></Fact>
@@ -136,7 +158,7 @@ export function AlertQualityEvidence({ report, now }: { readonly report: AlertNo
         ? <><Time value={report.window_start} /> - <Time value={report.window_end} /><br /><span class="muted">{text("periodHelp")}</span></>
         : text("periodMissing")}</Fact>
     </Facts>
-    <details>
+    <details class="alert-quality-provenance-details">
       <summary style={{ minHeight: 44, cursor: "pointer" }}>{text("technical")}</summary>
       <div class="stack-section">
         <Facts>
@@ -150,7 +172,7 @@ export function AlertQualityEvidence({ report, now }: { readonly report: AlertNo
         <p class="muted">{text("clockNote")}</p>
       </div>
     </details>
-  </section>;
+  </div>;
 }
 
 /** Facets narrow returned evidence only; missing ownership/routing has its own unknown choice. */
@@ -167,8 +189,13 @@ export function AlertQualityFindings({ report, rule, invalidRule }: {
   const audiences = [...new Set(report.findings.flatMap((row) => row.audience_kinds ?? []))].sort();
   const rows = invalidRule ? [] : filterAlertFindings(report.findings, { rule, service, team, audience });
   const start = Math.min(page, Math.max(0, Math.ceil(rows.length / ALERT_FINDINGS_PAGE_SIZE) - 1)) * ALERT_FINDINGS_PAGE_SIZE;
-  return <section class="stack-section" id="alert-quality-findings" aria-labelledby="alert-quality-findings-title">
-    <h3 id="alert-quality-findings-title">{text("findings")}</h3>
+  return <section class="alert-quality-section" id="alert-quality-findings" aria-labelledby="alert-quality-findings-title">
+    <header class="alert-quality-section-header">
+      <div>
+        <h3 id="alert-quality-findings-title">{text("findings")}</h3>
+        <p>{text("findingsHelp")}</p>
+      </div>
+    </header>
     <div class="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))" }}>
       <label style={{ minWidth: 0 }}><span>{text("rule")}</span>
         <select style={{ minHeight: 44, minWidth: 0, width: "100%" }} value={rule ?? ""}
@@ -225,23 +252,31 @@ export function AlertQualityFindings({ report, rule, invalidRule }: {
 export function AlertQualityFindingTable({ rows, scope, coverage }: {
   readonly rows: readonly AlertNoiseFinding[]; readonly scope: string; readonly coverage: AlertNoiseAssessment["coverage"];
 }) {
-  const headers: readonly AlertQualityMessage[] = ["rule", "reason", "guidance", "sourceEpisodes", "deliveries", "potential", "protection"];
+  const headers: readonly AlertQualityMessage[] = ["finding", "findingEvidence", "state", "nextSafeStep"];
   const count = (value: number | null) => alertQualityCount(coverage === "unavailable" ? null : value);
   const potential = (value: number | null) => coverage === "unavailable" || value === null ? text("unknown") : alertQualityCount(value);
-  return <div style={{ maxWidth: "100%", minWidth: 0, overflowX: "auto" }} tabIndex={0} role="region" aria-label={text("findings")}>
-    <table class="data-table" style={{ minWidth: 840 }}>
+  return <div class="data-table-wrap alert-quality-findings-table" tabIndex={0} role="region" aria-label={text("findings")}>
+    <table class="data-table">
       <caption>{text("findings")}</caption>
       <thead><tr>{headers.map((key) => <th key={key} scope="col" style={{ color: "var(--fg)" }}>{text(key)}</th>)}</tr></thead>
       <tbody>{rows.map((row, index) => <tr key={`${row.rule_ref}:${row.reason}:${index}`}>
-        <td><a style={{ display: "inline-flex", alignItems: "center", minHeight: 44 }} href={routeHref("alert-quality", { params: { scope_ref: scope, rule_ref: row.rule_ref } })}>{row.rule_ref}</a><br />{text("service")}: {row.service_ref}
-          <br />{text("team")}: {row.team_refs?.join(", ") ?? text("unknown")}
-          <br />{text("audienceKind")}: {row.audience_kinds == null ? text("unknown") : row.audience_kinds.length === 0 ? text("noAudience") : row.audience_kinds.map((kind) => text(`audience.${kind}`)).join(", ")}
-        </td>
-        <td>{text(`reason.${row.reason}`)}</td><td>{text(`guidance.${row.guidance}`)}<br />{text("duplicates")}: {count(row.duplicate_paths)}</td>
-        <td class="num">{row.source_episodes === null ? text("unknown") : count(row.source_episodes)}</td>
-        <td class="num">{count(row.observed_deliveries)}</td>
-        <td class="num">{potential(row.potential_recipients_lower)} / {potential(row.potential_recipients_upper)}</td>
-        <td>{text(row.protected ? "protected" : "notProtected")}</td>
+        <td><div class="alert-quality-cell-stack">
+          <a href={routeHref("alert-quality", { params: { scope_ref: scope, rule_ref: row.rule_ref } })}>{row.rule_ref}</a>
+          <span>{text("service")}: {row.service_ref}</span>
+          <span>{text("team")}: {row.team_refs?.join(", ") ?? text("unknown")}</span>
+          <span>{text("audienceKind")}: {row.audience_kinds == null ? text("unknown") : row.audience_kinds.length === 0 ? text("noAudience") : row.audience_kinds.map((kind) => text(`audience.${kind}`)).join(", ")}</span>
+        </div></td>
+        <td><div class="alert-quality-cell-stack">
+          <strong>{text(`reason.${row.reason}`)}</strong>
+          <span>{text("duplicates")}: {count(row.duplicate_paths)}</span>
+          <span>{text("sourceEpisodes")}: {row.source_episodes === null ? text("unknown") : count(row.source_episodes)}</span>
+          <span>{text("deliveries")}: {count(row.observed_deliveries)}</span>
+          <span>{text("potential")}: {potential(row.potential_recipients_lower)} / {potential(row.potential_recipients_upper)}</span>
+        </div></td>
+        <td><span class={`status-pill ${row.protected ? "status-pill-warning" : "status-pill-neutral"}`}>
+          {text(row.protected ? "protected" : "notProtected")}
+        </span></td>
+        <td>{text(`guidance.${row.guidance}`)}</td>
       </tr>)}</tbody>
     </table>
   </div>;
@@ -249,7 +284,7 @@ export function AlertQualityFindingTable({ rows, scope, coverage }: {
 
 /** Required approvers, protected paths, recovery and outcome remain independent of plan presence. */
 export function AlertQualityPlans({ plans, now }: { readonly plans: readonly AlertQualityPlan[]; readonly now: number }) {
-  return <section class="stack" id="alert-quality-plans" aria-labelledby="alert-quality-plans-title">
+  return <section class="stack alert-quality-plans" id="alert-quality-plans" aria-labelledby="alert-quality-plans-title">
     <h3 id="alert-quality-plans-title">{text("plans")}</h3>
     <a style={{ alignSelf: "start", display: "inline-flex", alignItems: "center", minHeight: 44 }} href={routeHref("hil-queue")}>{text("approvals")}</a>
     <p class="muted">{text("approvalsHelp")}</p>
