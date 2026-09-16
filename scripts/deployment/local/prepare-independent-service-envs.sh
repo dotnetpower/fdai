@@ -27,10 +27,15 @@ fi
 
 role_dsn() {
   local role="$1"
-  if [[ "$FDAI_STATE_STORE_DSN" == *\?* ]]; then
-    printf '%s&options=-c%%20role%%3D%s' "$FDAI_STATE_STORE_DSN" "$role"
+  local dsn="$FDAI_STATE_STORE_DSN"
+  local core_role_option='?options=-c%20role%3Dfdai_core'
+  if [[ "$dsn" == *"$core_role_option" ]]; then
+    dsn="${dsn%"$core_role_option"}"
+  fi
+  if [[ "$dsn" == *\?* ]]; then
+    printf '%s&options=-c%%20role%%3D%s' "$dsn" "$role"
   else
-    printf '%s?options=-c%%20role%%3D%s' "$FDAI_STATE_STORE_DSN" "$role"
+    printf '%s?options=-c%%20role%%3D%s' "$dsn" "$role"
   fi
 }
 
@@ -40,7 +45,7 @@ write_env() {
   shift 2
   local temporary
   temporary="$(mktemp "${target}.XXXXXX")"
-  grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_INGESTION_DEPLOYMENT_ROLE|FDAI_INGESTION_CORS_ALLOW_ORIGINS|FDAI_DOCUMENT_EVENT_TOPIC|FDAI_LOCAL_DOCUMENT_STORE_DIR|FDAI_CLAMAV_HOST|FDAI_CLAMAV_PORT|FDAI_INGESTION_WORKER_HEALTH_PORT|FDAI_ISOLATED_EXECUTOR_(DEPLOYED|AUTHORITY_CUTOVER|MI_CLIENT_ID|HEALTH_PORT|LOCK_FILE))=' "$source" > "$temporary" || true
+  grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_STATE_STORE_DSN|FDAI_INGESTION_DEPLOYMENT_ROLE|FDAI_INGESTION_CORS_ALLOW_ORIGINS|FDAI_DOCUMENT_EVENT_TOPIC|FDAI_LOCAL_DOCUMENT_STORE_DIR|FDAI_CLAMAV_HOST|FDAI_CLAMAV_PORT|FDAI_INGESTION_WORKER_HEALTH_PORT|FDAI_ISOLATED_EXECUTOR_(DEPLOYED|AUTHORITY_CUTOVER|MI_CLIENT_ID|HEALTH_PORT|LOCK_FILE))=' "$source" > "$temporary" || true
   printf '%s\n' "$@" >> "$temporary"
   chmod 600 "$temporary"
   mv "$temporary" "$target"

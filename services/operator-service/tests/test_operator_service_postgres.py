@@ -1521,6 +1521,36 @@ async def test_operator_readiness_verifies_exact_projection_and_conversation_pri
 
 
 @pytest.mark.asyncio
+async def test_action_promotion_modes_parameterize_the_like_wildcard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, Mapping[str, object]]] = []
+
+    async def fetch_all(
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        calls.append((statement, parameters))
+        return [
+            {
+                "value": {
+                    "schema_version": "1.0.0",
+                    "action_type": "ops.restart-service",
+                    "mode": "shadow",
+                }
+            }
+        ]
+
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+    monkeypatch.setattr(store, "_fetch_all", fetch_all)
+
+    assert await store.read_action_promotion_modes() == {"ops.restart-service": "shadow"}
+    statement, parameters = calls[-1]
+    assert "key LIKE %(key_pattern)s ESCAPE '\\'" in statement
+    assert parameters == {"key_pattern": "action\\_promotion:%"}
+
+
+@pytest.mark.asyncio
 async def test_operator_readiness_rejects_role_or_privilege_failure() -> None:
     store = ReadinessPostgresFamilyStore({"ready": False})
 
