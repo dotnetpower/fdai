@@ -55,6 +55,9 @@ class PartitionEvidence:
     latency_total_ms: float
     cost_observation_count: int
     cost_total_microunits: int
+    independent_source_case_count: int = 0
+    verified_cost_observation_count: int = 0
+    cost_currency: str | None = None
 
     def __post_init__(self) -> None:
         counts = (
@@ -77,6 +80,8 @@ class PartitionEvidence:
             self.latency_observation_count,
             self.cost_observation_count,
             self.cost_total_microunits,
+            self.independent_source_case_count,
+            self.verified_cost_observation_count,
         )
         if any(type(value) is not int or value < 0 for value in counts):
             raise ValueError("corpus evidence counts MUST be non-negative integers")
@@ -104,12 +109,33 @@ class PartitionEvidence:
             (self.replay_mismatch_count, self.case_count, "replay mismatch count"),
             (self.latency_observation_count, self.case_count, "latency observation count"),
             (self.cost_observation_count, self.case_count, "cost observation count"),
+            (
+                self.independent_source_case_count,
+                self.case_count,
+                "independent source case count",
+            ),
+            (
+                self.verified_cost_observation_count,
+                self.cost_observation_count,
+                "verified cost observation count",
+            ),
         )
         for value, ceiling, label in bounded_counts:
             if value > ceiling:
                 raise ValueError(f"corpus {label} MUST NOT exceed its denominator")
         if not math.isfinite(self.latency_total_ms) or self.latency_total_ms < 0.0:
             raise ValueError("corpus latency total MUST be finite and non-negative")
+        if self.cost_observation_count:
+            if (
+                self.cost_currency is None
+                or not self.cost_currency.isascii()
+                or not self.cost_currency.isalpha()
+                or not self.cost_currency.isupper()
+                or len(self.cost_currency) != 3
+            ):
+                raise ValueError("corpus cost currency MUST be an uppercase three-letter code")
+        elif self.cost_currency is not None:
+            raise ValueError("corpus cost currency requires cost observations")
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +155,9 @@ class PartitionMetrics:
     latency_total_ms: float
     cost_observation_count: int
     cost_total_microunits: int
+    independent_source_case_count: int
+    verified_cost_observation_count: int
+    cost_currency: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,6 +170,8 @@ class CorpusGatePolicy:
     max_citation_error_count: int = 0
     require_latency_evidence: bool = True
     require_cost_evidence: bool = True
+    require_independent_source_evidence: bool = True
+    require_verified_cost_evidence: bool = True
 
     def __post_init__(self) -> None:
         rates = (
@@ -158,6 +189,12 @@ class CorpusGatePolicy:
             raise ValueError("latency evidence requirement MUST be boolean")
         if type(self.require_cost_evidence) is not bool:
             raise ValueError("cost evidence requirement MUST be boolean")
+        if type(self.require_independent_source_evidence) is not bool:
+            raise ValueError("independent source evidence requirement MUST be boolean")
+        if type(self.require_verified_cost_evidence) is not bool:
+            raise ValueError("verified cost evidence requirement MUST be boolean")
+        if self.require_verified_cost_evidence and not self.require_cost_evidence:
+            raise ValueError("verified cost evidence requires cost evidence")
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,6 +210,8 @@ class CorpusGateAssessment:
     decision: CorpusGateDecision
     reason_codes: tuple[str, ...]
     partitions: tuple[PartitionGateAssessment, ...]
+    required_partitions: tuple[CorpusPartition, ...]
+    policy: CorpusGatePolicy
     review_only: bool = field(default=True, init=False)
     authority_neutral: bool = field(default=True, init=False)
 
@@ -204,6 +243,8 @@ def assess_corpus_gate(
         decision=_combined_decision(tuple(item.decision for item in partitions)),
         reason_codes=reason_codes,
         partitions=partitions,
+        required_partitions=required_partitions,
+        policy=active_policy,
     )
 
 
@@ -256,6 +297,16 @@ def _assess_partition(
         review_reasons.append("missing_latency_evidence")
     if policy.require_cost_evidence and evidence.cost_observation_count == 0:
         review_reasons.append("missing_cost_evidence")
+    if (
+        policy.require_independent_source_evidence
+        and evidence.independent_source_case_count < evidence.case_count
+    ):
+        review_reasons.append("independent_source_evidence_incomplete")
+    if (
+        policy.require_verified_cost_evidence
+        and evidence.verified_cost_observation_count < evidence.case_count
+    ):
+        review_reasons.append("verified_cost_evidence_incomplete")
 
     ordered_reasons = _ordered_reasons(review_reasons, deny_reasons)
     decision = CorpusGateDecision.DENY if deny_reasons else CorpusGateDecision.REVIEW
@@ -296,6 +347,9 @@ def _metrics(evidence: PartitionEvidence) -> PartitionMetrics:
         latency_total_ms=evidence.latency_total_ms,
         cost_observation_count=evidence.cost_observation_count,
         cost_total_microunits=evidence.cost_total_microunits,
+        independent_source_case_count=evidence.independent_source_case_count,
+        verified_cost_observation_count=evidence.verified_cost_observation_count,
+        cost_currency=evidence.cost_currency,
     )
 
 
@@ -315,6 +369,8 @@ def _ordered_reasons(review_reasons: list[str], deny_reasons: list[str]) -> tupl
         "semantic_error",
         "missing_latency_evidence",
         "missing_cost_evidence",
+        "independent_source_evidence_incomplete",
+        "verified_cost_evidence_incomplete",
     )
     reasons = set(review_reasons) | set(deny_reasons)
     return tuple(reason for reason in reason_order if reason in reasons)

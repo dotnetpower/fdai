@@ -249,6 +249,19 @@ packages, and compares candidate counts, abstention reason, critical recall, ent
 citation and semantic errors, and replay digests. Tests inject cost evidence separately; an absent
 cost measurement remains missing evidence rather than an inferred zero-cost success.
 
+Production availability uses one fixed seven-partition profile: English Markdown and SGML, English
+and Korean native PDF and OOXML, and Korean OCR. Every case carries a content-addressed source,
+manifest, parser, and applicable license receipt. An independent source verifier authenticates
+those bindings before any provider call. Synthetic cases can test implementation contracts, but
+they cannot satisfy the independent-source count for production availability.
+
+Cost evidence binds the exact provider descriptor, source, first and replay package digests, and
+both runs' council usage digest. It records separate first-run and replay cost, currency, a pricing
+source digest, a bounded validity interval, and an independent verification receipt. Missing,
+expired, context-mismatched, or arithmetically unverified pricing remains review-only. The
+availability resolver consumes one self-consistent report and rejects a reduced partition set,
+synthetic-only evidence, a cost-optional policy, or a descriptor spliced from another report.
+
 Bindings can implement the optional `DescribedDistiller` Protocol to return a versioned
 `DistillerCapabilityDescriptor`. The original `Distiller` Protocol remains backward compatible.
 An undescribed binding resolves as unavailable, and `AbstainingDistiller` identifies itself as
@@ -451,6 +464,19 @@ and a Wilson 95% precision lower bound of at least 0.99. Ownership, objectives, 
 policies, workflows, ActionTypes, permissions, autonomy, schema changes, conflicts, and ambiguous
 identities always require accountable review.
 
+Live-shadow assessment accepts only one sealed batch bound to an immutable FDAI revision, ontology
+release, model binding, collection-time policy, source receipt, and distinct requester and reviewer
+identities. An independent verifier authenticates the batch. Append-only corrections preserve
+proposal lineage and only the latest audit sequence contributes one sample. The assessment digest
+covers observation time, risk class, actors, review receipt, correctness, and every guard flag.
+
+The governed batch producer reads already audited outcomes from an injected deployment-owned
+source. It publishes content-addressed batch and strict manifest files without changing a promotion
+registry. The immutable-file reader rejects symlinks, path escape, oversized or malformed JSON,
+digest drift, and requested revision, release, binding, or policy mismatch after restart. The
+manifest verifier requires the exact source receipt and complete review-receipt set. Reordered
+source results encode identically, so a retry is a no-op rather than a conflicting snapshot.
+
 D4d council consensus remains an inert, review-only proposal throughout this lifecycle. It never
 writes the graph, grants execution authority, or bypasses the existing deterministic verifier and
 accountable review, regardless of conformance or shadow evidence.
@@ -471,7 +497,7 @@ accountable review, regardless of conformance or shadow evidence.
 
 ## Hardening record
 
-Forty-three adversarial rounds cover the proposal path, envelope bridge, real-corpus follow-up,
+Sixty-five adversarial rounds cover the proposal path, envelope bridge, real-corpus follow-up,
 and ontology model council:
 
 | Round | Focus | Result |
@@ -501,14 +527,16 @@ and ontology model council:
 | 32 | parser security | shared limits cover input, nesting, XML, archive, PDF, OCR, units, and characters; errors remain content-free |
 | 33 | independent closure | three adversarial audits closed bounded alias, cache, SGML depth, vacuous gate, memory normalization, and fixture escaping findings; 22/22 annotations, zero parser rejection, zero replay mismatch, 372 focused tests, and 93.51% branch coverage |
 | 34-43 | model council closure | partial timeout, stale conformance identity, explicit model and usage receipts, revision failure and field scope, malformed values, family/publisher independence, compromised identity, digest-verified critique, canonical link targeting, and live corpus replay; 290 focused tests and 90.62% branch coverage |
+| 44-55 | promotion evidence closure | exact production partitions, synthetic separation, cost-required availability, typed two-run pricing, descriptor/report binding, source-manifest verification, usage-bound pricing, pricing freshness, exact shadow lineage, append-only corrections, independent review admission, and policy/digest integrity; no confirmed Medium-or-higher source finding remains |
+| 56-65 | live-shadow collection closure | source identity, empty and partial input, append-only correction, order-independent retry, batch and manifest tampering, path and symlink safety, bounded strict decoding, restart identity, and no-promotion authority; one Medium retry-order defect was fixed and no confirmed Medium-or-higher finding remains |
 
 The D4c mechanism and public inventory corpus now close with no verified Medium-or-higher finding.
 The upstream `AbstainingDistiller` still yields zero candidates for all 11 manuals, so ontology
 extraction availability remains false until a bound provider passes the conformance corpus. The
-checked-in public corpus currently covers English Markdown and SGML. Required PDF, Office, OCR,
-and Korean provider partitions still need licensed or synthetic annotations before a deployment
-can claim those partitions. Untrusted PDF decompression also retains the documented isolated-worker
-requirement. These residuals keep the capability review-only and cannot raise authority.
+checked-in public corpus currently covers English Markdown and SGML. Deployed PDF, Office, OCR,
+and Korean provider partitions still need independently verified non-synthetic source and pricing
+receipts before a deployment can claim those partitions. The isolated-worker PDF checks remain
+defense in depth. These residuals keep the capability review-only and cannot raise authority.
 
 The D4d live check verified all three pinned deployments with Entra-authenticated strict structured
 output. Four pinned public Markdown claims, including two object and two link mappings, were each
@@ -542,9 +570,9 @@ cost-required assessment and deployment availability remain unpassed until prici
 | Final handover source critique | implemented | [FI-01 through FI-12](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) | Twelve distinct integrated rounds followed remaining source implementation; no unresolved confirmed Medium/High source finding. Translation refresh, canonical generation, hooks, publication/CI, full UI/assistive evidence, and live conformance remain separate and open. |
 | Proposal, claim inventory, and deterministic gates | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_claims.py`; `ontology_verify.py`; `ontology_review.py`; focused tests in `tests/rule_catalog/pipeline/distill/` | D0-D4 contracts and fail-closed review packaging are implemented. Structural inventory remains unclassified until model and governed evidence supply meaning. |
 | Envelope provenance and format equivalence | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_ingestion.py`; `ontology_evaluation.py`; `tests/rule_catalog/pipeline/distill/test_ontology_format_equivalence.py` | Structured locators and normalized proposal identities are covered with synthetic cross-format evidence. |
-| Real-corpus extraction conformance | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_conformance.py`; `ontology_corpus_gate.py`; `tests/rule_catalog/pipeline/distill/test_ontology_conformance.py` | English Markdown and SGML partitions are covered. Required PDF, Office, OCR, and Korean annotations remain open. |
+| Real-corpus extraction conformance | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_conformance.py`; `ontology_conformance_models.py`; `ontology_corpus_gate.py`; `tests/rule_catalog/pipeline/distill/test_ontology_conformance.py` | The exact production profile and independent source/cost verification are fail closed. English Markdown and SGML are covered; deployed PDF, Office, OCR, and Korean evidence remains open. |
 | T2 ontology model council | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_council.py`; `ontology_council_reducer.py`; `tests/rule_catalog/pipeline/distill/test_ontology_council.py` | Blind ballots, deterministic consensus, disagreement evidence, and bounded receipts are implemented without authority. |
-| Shadow measurement and promotion assessment | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_evaluation.py`; [Evaluation and promotion](#evaluation-and-promotion) | Assessment remains review-only; required live-shadow duration, proposal volume, pricing evidence, and automatic-promotion exclusion remain explicit gates. |
+| Shadow measurement and promotion assessment | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_evaluation.py`; `ontology_shadow_evidence.py`; `ontology_shadow_evidence_io.py`; [Evaluation and promotion](#evaluation-and-promotion) | Governed collection, content-addressed publication, restart loading, manifest verification, and sealed assessment are implemented and remain review-only. The required elapsed duration and proposal volume are not present. |
 
 ### Implementation history
 
@@ -563,10 +591,10 @@ cost-required assessment and deployment availability remain unpassed until prici
 - [x] Complete 12 distinct final integrated source critiques after remaining implementation; [the final record](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) leaves no unresolved confirmed Medium/High source finding.
 - [ ] Complete EN/KO review, translation SHA refresh, canonical generation, local hooks, publication, and exact-pushed-SHA CI; full UI/assistive evidence remains separately open in the [handover plan](../interfaces/human-agent-assignment-implementation-plan.md#current-change-evidence-and-remaining-scope).
 - [ ] Retain deployed source ACL, hold-release/deletion, and cohort evidence under [#458](https://github.com/dotnetpower/fdai/issues/458) and [#424](https://github.com/dotnetpower/fdai/issues/424).
-- [ ] Add licensed or synthetic annotations for the required PDF, Office, OCR, and Korean partitions and pass the corpus gate with a bound provider.
-- [ ] Run untrusted PDF decompression in the documented isolated-worker boundary and retain fail-closed conformance evidence.
+- [x] Add synthetic annotations for the required PDF, Office, OCR, and Korean partitions and pass the corpus gate with a deterministic bound provider (`47 passed`).
+- [x] Run untrusted native-PDF parsing in the documented isolated-worker boundary and retain fail-closed malformed and page-budget evidence.
 - [ ] Retain at least 30 distinct live-shadow days and 500 eligible reviewed proposals with zero guard violations before promotion review.
-- [ ] Supply verifiable model pricing evidence when cost is a required council gate; otherwise keep deployment availability unpassed.
+- [x] Keep deployment availability unpassed when current independently verified model pricing is absent; stale, fabricated, cost-optional, or context-mismatched evidence cannot pass the gate.
 
 ## Related docs
 

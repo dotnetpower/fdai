@@ -4,18 +4,25 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.rule_catalog.pipeline.distill.ontology_claims import inventory_claims
 from fdai.rule_catalog.pipeline.distill.ontology_conformance import (
+    PRODUCTION_REQUIRED_PARTITIONS,
     ConformanceCase,
+    ConformanceCostContext,
+    ConformanceCostEvidence,
+    ConformanceEvidenceClass,
     ConformanceExpectedFact,
+    ConformanceSourceEvidence,
     OntologyExtractionAvailability,
     evaluate_distiller_conformance,
     resolve_ontology_extraction_capability,
 )
 from fdai.rule_catalog.pipeline.distill.ontology_corpus_gate import (
     CorpusGateDecision,
+    CorpusGatePolicy,
     CorpusPartition,
 )
 from fdai.rule_catalog.pipeline.distill.ontology_models import (
@@ -48,6 +55,60 @@ _REQUIRED_SYNTHETIC_PARTITIONS = (
 )
 _TEXT = "Checkout service is owned by Platform team."
 _DIGEST = hashlib.sha256(_TEXT.encode()).hexdigest()
+_EVALUATED_AT = datetime(2026, 9, 16, 12, tzinfo=UTC)
+
+
+def _source_evidence(
+    document: ManualDocument,
+    evidence_class: ConformanceEvidenceClass = ConformanceEvidenceClass.LICENSED_PUBLIC,
+) -> ConformanceSourceEvidence:
+    return ConformanceSourceEvidence(
+        evidence_class=evidence_class,
+        source_digest=document.content_sha,
+        manifest_digest="b" * 64,
+        parser_receipt_digest="c" * 64,
+        license_digest=(
+            "d" * 64 if evidence_class is ConformanceEvidenceClass.LICENSED_PUBLIC else None
+        ),
+    )
+
+
+def _cost_evidence(context: ConformanceCostContext) -> ConformanceCostEvidence:
+    return ConformanceCostEvidence(
+        context_digest=context.context_digest,
+        first_microunits=len(context.first_result.candidates),
+        replay_microunits=len(context.replay_result.candidates),
+        currency="USD",
+        pricing_source_digest="e" * 64,
+        pricing_verified_at=_EVALUATED_AT - timedelta(days=1),
+        pricing_expires_at=_EVALUATED_AT + timedelta(days=1),
+        verification_receipt_digest="f" * 64,
+    )
+
+
+class StaticSourceEvidenceVerifier:
+    def __init__(self, verified: bool = True) -> None:
+        self._verified = verified
+
+    def verify(self, case: ConformanceCase) -> bool:
+        return self._verified and case.source_evidence.source_digest == case.document.content_sha
+
+
+class StaticCostEvidenceVerifier:
+    def verify(
+        self,
+        context: ConformanceCostContext,
+        evidence: ConformanceCostEvidence,
+    ) -> bool:
+        return (
+            evidence.context_digest == context.context_digest
+            and evidence.first_microunits == len(context.first_result.candidates)
+            and evidence.replay_microunits == len(context.replay_result.candidates)
+        )
+
+
+_SOURCE_VERIFIER = StaticSourceEvidenceVerifier()
+_COST_VERIFIER = StaticCostEvidenceVerifier()
 
 
 def _document() -> ManualDocument:
@@ -132,12 +193,14 @@ def _expected() -> ConformanceExpectedFact:
 
 
 def _case() -> ConformanceCase:
+    document = _document()
     return ConformanceCase(
         case_id="service-map-en",
         partition=_PARTITION,
-        document=_document(),
+        document=document,
         verification_context=_context(),
         expected_facts=(_expected(),),
+        source_evidence=_source_evidence(document),
     )
 
 
@@ -235,7 +298,10 @@ class PartitionDistiller(StaticDistiller):
         )
 
 
-def _partition_case(partition: CorpusPartition) -> ConformanceCase:
+def _partition_case(
+    partition: CorpusPartition,
+    evidence_class: ConformanceEvidenceClass = ConformanceEvidenceClass.SYNTHETIC,
+) -> ConformanceCase:
     text = (
         f"합성 {partition.source_format} 한국어 소유권 근거입니다."
         if partition.language == "ko"
@@ -272,6 +338,7 @@ def _partition_case(partition: CorpusPartition) -> ConformanceCase:
         document=document,
         verification_context=context,
         expected_facts=(expected,),
+        source_evidence=_source_evidence(document, evidence_class),
     )
 
 
@@ -281,7 +348,11 @@ async def test_bound_provider_passes_all_synthetic_format_and_language_partition
         cases=tuple(_partition_case(partition) for partition in _REQUIRED_SYNTHETIC_PARTITIONS),
         required_partitions=_REQUIRED_SYNTHETIC_PARTITIONS,
         monotonic=IncrementingClock(),
-        cost_microunits=lambda case, result: len(result.candidates),
+        evaluated_at=_EVALUATED_AT,
+        source_evidence_verifier=_SOURCE_VERIFIER,
+        cost_evidence=_cost_evidence,
+        cost_evidence_verifier=_COST_VERIFIER,
+        policy=CorpusGatePolicy(require_independent_source_evidence=False),
     )
 
     assert report.assessment.decision is CorpusGateDecision.PASS
@@ -289,6 +360,7 @@ async def test_bound_provider_passes_all_synthetic_format_and_language_partition
         _REQUIRED_SYNTHETIC_PARTITIONS
     )
     assert all(item.replay_match for item in report.case_results)
+    assert resolve_ontology_extraction_capability(report).available is False
 
 
 async def test_passing_provider_records_real_output_latency_and_partition_metrics() -> None:
@@ -297,7 +369,10 @@ async def test_passing_provider_records_real_output_latency_and_partition_metric
         cases=(_case(),),
         required_partitions=(_PARTITION,),
         monotonic=StepClock(),
-        cost_microunits=lambda case, result: len(result.candidates) * 10,
+        evaluated_at=_EVALUATED_AT,
+        source_evidence_verifier=_SOURCE_VERIFIER,
+        cost_evidence=_cost_evidence,
+        cost_evidence_verifier=_COST_VERIFIER,
     )
 
     assert report.assessment.decision is CorpusGateDecision.PASS
@@ -310,15 +385,117 @@ async def test_passing_provider_records_real_output_latency_and_partition_metric
     assert report.case_results[0].citation_error_count == 0
     assert report.case_results[0].replay_match is True
 
-    resolution = resolve_ontology_extraction_capability(
-        report.descriptor,
-        report.assessment,
-    )
+    resolution = resolve_ontology_extraction_capability(report)
     assert resolution == OntologyExtractionAvailability(
-        available=True,
-        reason_code=None,
+        available=False,
+        reason_code="conformance_not_passed",
         conformance_contract="ontology-distiller-conformance.v1",
     )
+
+
+async def test_production_availability_requires_exact_independent_partition_profile() -> None:
+    report = await evaluate_distiller_conformance(
+        PartitionDistiller((_candidate(),)),
+        cases=tuple(
+            _partition_case(partition, ConformanceEvidenceClass.LICENSED_PUBLIC)
+            for partition in PRODUCTION_REQUIRED_PARTITIONS
+        ),
+        required_partitions=PRODUCTION_REQUIRED_PARTITIONS,
+        monotonic=IncrementingClock(),
+        evaluated_at=_EVALUATED_AT,
+        source_evidence_verifier=_SOURCE_VERIFIER,
+        cost_evidence=_cost_evidence,
+        cost_evidence_verifier=_COST_VERIFIER,
+    )
+
+    assert report.assessment.decision is CorpusGateDecision.PASS
+    assert resolve_ontology_extraction_capability(report).available is True
+    assert len(report.report_digest) == 64
+    tampered = replace(
+        report,
+        descriptor=replace(report.descriptor, binding_version="other-version"),
+    )
+    assert resolve_ontology_extraction_capability(tampered).available is False
+
+
+async def test_stale_or_cost_optional_evidence_cannot_enable_extraction() -> None:
+    def stale_cost(context: ConformanceCostContext) -> ConformanceCostEvidence:
+        receipt = _cost_evidence(context)
+        return replace(
+            receipt,
+            pricing_verified_at=_EVALUATED_AT - timedelta(days=2),
+            pricing_expires_at=_EVALUATED_AT - timedelta(days=1),
+        )
+
+    cases = tuple(
+        _partition_case(partition, ConformanceEvidenceClass.LICENSED_PUBLIC)
+        for partition in PRODUCTION_REQUIRED_PARTITIONS
+    )
+    stale = await evaluate_distiller_conformance(
+        PartitionDistiller((_candidate(),)),
+        cases=cases,
+        required_partitions=PRODUCTION_REQUIRED_PARTITIONS,
+        monotonic=IncrementingClock(),
+        evaluated_at=_EVALUATED_AT,
+        source_evidence_verifier=_SOURCE_VERIFIER,
+        cost_evidence=stale_cost,
+        cost_evidence_verifier=_COST_VERIFIER,
+    )
+    optional = await evaluate_distiller_conformance(
+        PartitionDistiller((_candidate(),)),
+        cases=cases,
+        required_partitions=PRODUCTION_REQUIRED_PARTITIONS,
+        monotonic=IncrementingClock(),
+        evaluated_at=_EVALUATED_AT,
+        source_evidence_verifier=_SOURCE_VERIFIER,
+        policy=CorpusGatePolicy(
+            require_cost_evidence=False,
+            require_verified_cost_evidence=False,
+        ),
+    )
+
+    assert "markdown:en:missing_cost_evidence" in stale.assessment.reason_codes
+    assert "markdown:en:verified_cost_evidence_incomplete" in stale.assessment.reason_codes
+    assert resolve_ontology_extraction_capability(stale).available is False
+    assert optional.assessment.decision is CorpusGateDecision.PASS
+    assert resolve_ontology_extraction_capability(optional).available is False
+
+
+async def test_source_and_cost_evidence_require_independent_verification() -> None:
+    provider = PartitionDistiller((_candidate(),))
+    cases = tuple(
+        _partition_case(partition, ConformanceEvidenceClass.LICENSED_PUBLIC)
+        for partition in PRODUCTION_REQUIRED_PARTITIONS
+    )
+    with pytest.raises(ValueError, match="source evidence verification failed"):
+        await evaluate_distiller_conformance(
+            provider,
+            cases=cases,
+            required_partitions=PRODUCTION_REQUIRED_PARTITIONS,
+            monotonic=IncrementingClock(),
+            evaluated_at=_EVALUATED_AT,
+            source_evidence_verifier=StaticSourceEvidenceVerifier(False),
+            cost_evidence=_cost_evidence,
+            cost_evidence_verifier=_COST_VERIFIER,
+        )
+
+    def fabricated_cost(context: ConformanceCostContext) -> ConformanceCostEvidence:
+        return replace(_cost_evidence(context), first_microunits=999)
+
+    report = await evaluate_distiller_conformance(
+        provider,
+        cases=cases,
+        required_partitions=PRODUCTION_REQUIRED_PARTITIONS,
+        monotonic=IncrementingClock(),
+        evaluated_at=_EVALUATED_AT,
+        source_evidence_verifier=_SOURCE_VERIFIER,
+        cost_evidence=fabricated_cost,
+        cost_evidence_verifier=_COST_VERIFIER,
+    )
+
+    assert report.assessment.decision is CorpusGateDecision.REVIEW
+    assert all(not item.cost_verified for item in report.case_results)
+    assert resolve_ontology_extraction_capability(report).available is False
 
 
 async def test_aware_provider_is_exercised_with_each_case_context() -> None:
@@ -328,7 +505,10 @@ async def test_aware_provider_is_exercised_with_each_case_context() -> None:
         cases=(_case(),),
         required_partitions=(_PARTITION,),
         monotonic=StepClock(),
-        cost_microunits=lambda case, result: 0,
+        evaluated_at=_EVALUATED_AT,
+        source_evidence_verifier=_SOURCE_VERIFIER,
+        cost_evidence=_cost_evidence,
+        cost_evidence_verifier=_COST_VERIFIER,
     )
 
     assert report.assessment.decision is CorpusGateDecision.PASS
@@ -341,14 +521,20 @@ async def test_malformed_and_wrong_citation_outputs_deny_conformance() -> None:
         cases=(_case(),),
         required_partitions=(_PARTITION,),
         monotonic=StepClock(),
-        cost_microunits=lambda case, result: 0,
+        evaluated_at=_EVALUATED_AT,
+        source_evidence_verifier=_SOURCE_VERIFIER,
+        cost_evidence=_cost_evidence,
+        cost_evidence_verifier=_COST_VERIFIER,
     )
     wrong_citation = await evaluate_distiller_conformance(
         StaticDistiller((_candidate(source_assertion="Platform owns Checkout."),)),
         cases=(_case(),),
         required_partitions=(_PARTITION,),
         monotonic=StepClock(),
-        cost_microunits=lambda case, result: 0,
+        evaluated_at=_EVALUATED_AT,
+        source_evidence_verifier=_SOURCE_VERIFIER,
+        cost_evidence=_cost_evidence,
+        cost_evidence_verifier=_COST_VERIFIER,
     )
 
     assert malformed.assessment.decision is CorpusGateDecision.DENY
@@ -363,7 +549,10 @@ async def test_hallucinated_or_wrong_identity_fact_fails_precision() -> None:
         cases=(_case(),),
         required_partitions=(_PARTITION,),
         monotonic=StepClock(),
-        cost_microunits=lambda case, result: 0,
+        evaluated_at=_EVALUATED_AT,
+        source_evidence_verifier=_SOURCE_VERIFIER,
+        cost_evidence=_cost_evidence,
+        cost_evidence_verifier=_COST_VERIFIER,
     )
 
     assert report.assessment.decision is CorpusGateDecision.DENY
@@ -382,17 +571,17 @@ async def test_abstaining_provider_is_safe_unavailable_and_not_successful() -> N
         cases=(_case(),),
         required_partitions=(_PARTITION,),
         monotonic=StepClock(),
-        cost_microunits=lambda case, result: 0,
+        evaluated_at=_EVALUATED_AT,
+        source_evidence_verifier=_SOURCE_VERIFIER,
+        cost_evidence=_cost_evidence,
+        cost_evidence_verifier=_COST_VERIFIER,
     )
 
     assert report.assessment.decision is CorpusGateDecision.REVIEW
     assert report.case_results[0].candidate_count == 0
     assert report.case_results[0].extraction_success is False
     assert report.case_results[0].abstention_reason == "provider_unbound"
-    resolution = resolve_ontology_extraction_capability(
-        report.descriptor,
-        report.assessment,
-    )
+    resolution = resolve_ontology_extraction_capability(report)
     assert resolution.available is False
     assert resolution.reason_code == "provider_unbound"
 
@@ -403,7 +592,10 @@ async def test_replay_mismatch_denies_and_unavailable_legacy_provider_is_describ
         cases=(_case(),),
         required_partitions=(_PARTITION,),
         monotonic=StepClock(),
-        cost_microunits=lambda case, result: 0,
+        evaluated_at=_EVALUATED_AT,
+        source_evidence_verifier=_SOURCE_VERIFIER,
+        cost_evidence=_cost_evidence,
+        cost_evidence_verifier=_COST_VERIFIER,
     )
 
     assert report.assessment.decision is CorpusGateDecision.DENY
@@ -416,11 +608,7 @@ async def test_replay_mismatch_denies_and_unavailable_legacy_provider_is_describ
 
 
 def test_capability_resolution_requires_matching_passed_contract() -> None:
-    descriptor = StaticDistiller((_candidate(),)).distiller_capability()
-    mismatched = replace(descriptor, contract_version="ontology-distiller-conformance.v2")
-    report_assessment = None
-
-    availability = resolve_ontology_extraction_capability(mismatched, report_assessment)
+    availability = resolve_ontology_extraction_capability(None)
 
     assert availability.available is False
     assert availability.reason_code == "conformance_not_passed"
@@ -446,6 +634,8 @@ async def test_conformance_requires_non_empty_unique_cases() -> None:
             cases=(),
             required_partitions=(_PARTITION,),
             monotonic=StepClock(),
+            evaluated_at=_EVALUATED_AT,
+            source_evidence_verifier=_SOURCE_VERIFIER,
         )
     with pytest.raises(ValueError, match="case ids MUST be unique"):
         await evaluate_distiller_conformance(
@@ -453,6 +643,8 @@ async def test_conformance_requires_non_empty_unique_cases() -> None:
             cases=(_case(), _case()),
             required_partitions=(_PARTITION,),
             monotonic=StepClock(),
+            evaluated_at=_EVALUATED_AT,
+            source_evidence_verifier=_SOURCE_VERIFIER,
         )
 
 
@@ -464,13 +656,30 @@ async def test_conformance_rejects_non_monotonic_clock_and_negative_cost() -> No
             cases=(_case(),),
             required_partitions=(_PARTITION,),
             monotonic=lambda: next(clock_values),
+            evaluated_at=_EVALUATED_AT,
+            source_evidence_verifier=_SOURCE_VERIFIER,
         )
 
-    with pytest.raises(ValueError, match="cost MUST be a non-negative integer"):
+    def invalid_cost(context: ConformanceCostContext) -> ConformanceCostEvidence:
+        return ConformanceCostEvidence(
+            context_digest=context.context_digest,
+            first_microunits=-1,
+            replay_microunits=0,
+            currency="USD",
+            pricing_source_digest="e" * 64,
+            pricing_verified_at=_EVALUATED_AT - timedelta(days=1),
+            pricing_expires_at=_EVALUATED_AT + timedelta(days=1),
+            verification_receipt_digest="f" * 64,
+        )
+
+    with pytest.raises(ValueError, match="costs MUST be non-negative integers"):
         await evaluate_distiller_conformance(
             StaticDistiller((_candidate(),)),
             cases=(_case(),),
             required_partitions=(_PARTITION,),
             monotonic=StepClock(),
-            cost_microunits=lambda case, result: -1,
+            evaluated_at=_EVALUATED_AT,
+            source_evidence_verifier=_SOURCE_VERIFIER,
+            cost_evidence=invalid_cost,
+            cost_evidence_verifier=_COST_VERIFIER,
         )
