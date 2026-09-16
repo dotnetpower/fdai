@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "preact/hooks";
-import { architectureHref } from "../components/architecture-map.model";
 import {
   CopyButton,
   ErrorState,
@@ -265,9 +264,6 @@ function AffectedResources({ findings }: { readonly findings: FindingsState }) {
           <li key={finding.resource_id + index} class="finding-item">
             <div class="finding-head">
               <span class="mono finding-res">{finding.resource_name ?? finding.resource_id}</span>
-              <a class="finding-architecture-link" href={architectureHref(finding.resource_id)}>
-                {t("governance.rules.detail.viewArchitecture")}
-              </a>
               {finding.severity ? (
                 <StatusPill kind={SEVERITY_PILL[finding.severity] ?? "neutral"} label={finding.severity} />
               ) : null}
