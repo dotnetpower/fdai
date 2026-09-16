@@ -39,7 +39,6 @@ from pathlib import Path
 from typing import Any
 
 from azure.identity import DefaultAzureCredential
-
 from fdai.core.chaos.contract import FaultScenario
 from fdai.core.chaos.injector import FaultInjector, SignalProbe
 from fdai.core.chaos.scenarios import (
@@ -96,6 +95,8 @@ CHAOS_NS = _env("FDAI_ENFORCE_CHAOS_NS")
 BACKEND_DEPLOY = _env("FDAI_ENFORCE_BACKEND_DEPLOY")
 BACKEND_SVC = _env("FDAI_ENFORCE_BACKEND_SVC")
 BACKEND_LABEL = _env("FDAI_ENFORCE_BACKEND_LABEL")
+BACKEND_CONTAINER = _env("FDAI_ENFORCE_BACKEND_CONTAINER")
+BACKEND_IMAGE = _env("FDAI_ENFORCE_BACKEND_IMAGE")
 VM_NAME = _env("FDAI_ENFORCE_VM")
 VM_ID = (
     f"/subscriptions/{SUB_ID}/resourceGroups/{RG}"
@@ -355,8 +356,8 @@ def _runs() -> list[tuple[FaultScenario, FaultInjector, SignalProbe, list[str], 
                 context=CTX,
                 namespace=NS,
                 deployment=BACKEND_DEPLOY,
-                container="web",
-                bad_image="nginx:does-not-exist-latency-run",
+                container=BACKEND_CONTAINER,
+                bad_image=f"{BACKEND_IMAGE}:does-not-exist-latency-run",
             ),
             KubeRolloutStallProbe(context=CTX, namespace=NS, selector=BACKEND_LABEL),
             [BACKEND_LABEL],
