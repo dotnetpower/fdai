@@ -10,7 +10,6 @@
  */
 
 import { useState } from "preact/hooks";
-import { architectureHref } from "../components/architecture-map.model";
 import { Tooltip } from "../components/tooltip";
 import type { LiveStageName } from "../hooks/use-live-stream";
 import { useContentUpdatePulse } from "../hooks/use-content-update-pulse";
@@ -617,9 +616,6 @@ export function DetailPanel({
           </a>
           <a class="btn" href={routeHref("audit", { params: { correlation: tile.correlation_id } })}>
             {t("live.detail.openAudit")}
-          </a>
-          <a class="btn" href={architectureHref(tile.scope ?? undefined)}>
-            {t("live.detail.architecture")}
           </a>
         </div>
     </LiveDetailShell>
