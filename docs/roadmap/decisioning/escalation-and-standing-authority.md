@@ -106,10 +106,12 @@ current role, expiry, and separation of duty, then atomically retain the decisio
 outbox. This adds another safe response surface; it does not change the escalation timer,
 standing-authority rules, or Thor's execution boundary.
 
-- A `hil` verdict fires an approval request with a TTL. Today, TTL expiry is a
-  **no-op + audit + A2 alert** ([channels-and-notifications.md § on-call,
-  escalation, timeouts](../interfaces/channels-and-notifications.md)). Fail-closed, correct -
-  but it stops there.
+- A `hil` verdict fires an approval request with a TTL. TTL expiry always converges to a
+  **terminal no-op + audit**, even when no notification channel is configured. An available
+  channel may add the A2 alert described in
+  [channels-and-notifications.md § on-call, escalation, timeouts](../interfaces/channels-and-notifications.md),
+  but delivery availability never controls expiry. This is fail-closed and correct, but it stops
+  there.
 - **Channel fallback** already exists: a failed Teams approval falls to another
   A1-capable channel, then pages the ops lane
   ([channels-and-notifications.md](../interfaces/channels-and-notifications.md)). That handles

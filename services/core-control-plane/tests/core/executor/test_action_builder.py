@@ -108,11 +108,11 @@ def test_builds_valid_action_for_tag_add_type() -> None:
     assert action.target_resource_ref == "rid-1"
     assert action.mode is Mode.SHADOW
     assert action.citing_rules == ["r1"]
-    assert action.rollback_ref.kind is RollbackKind.PR_REVERT
+    assert action.rollback_ref.kind is RollbackKind.SNAPSHOT_RESTORE
     assert action.blast_radius.scope is BlastRadiusScope.RESOURCE
     assert action.action_type_ref is not None
     assert action.action_type_ref.name == "remediate.tag-add"
-    assert action.action_type_ref.version == "1.0.0"
+    assert action.action_type_ref.version == "1.1.0"
     assert action.action_type_ref.catalog_digest.startswith("sha256:")
 
 
@@ -143,7 +143,7 @@ def test_finding_context_stays_out_of_action_params() -> None:
     rule = _rule("r1", "remediate.tag-add", parameters={"tag_name": "owner"})
     builder = ActionBuilder(action_types_by_name=_shipped_action_types())  # type: ignore[arg-type]
     action = builder.build_from_finding(event=_event(), finding=_finding(rule), rule=rule)
-    assert action.params == {"tag_name": "owner"}
+    assert action.params == {"tag_name": "owner", "target_resource_ref": "rid-1"}
     assert "_finding_context" not in action.params
 
 

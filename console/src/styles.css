@@ -143,17 +143,6 @@
 .segmented-control button.active { background: var(--bg-elevated); color: var(--fg); font-weight: 650; box-shadow: var(--cs-shadow); }
 .segmented-control button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .blast-map-wrap { position: relative; height: min(620px, 66vh); min-height: 430px; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; background: var(--cs-shade); }
-.blast-map-open {
-  position: absolute;
-  z-index: 7;
-  top: 10px;
-  left: 10px;
-  min-height: 44px;
-  background: var(--bg-elevated);
-  box-shadow: 0 3px 12px rgba(29,42,56,.1);
-}
-.finding-architecture-link { margin-left: auto; font-size: 10px; color: #146c77; text-decoration: none; }
-.finding-architecture-link:hover { text-decoration: underline; }
 
 /* Console SPA styling - deliberately minimal, no design-system dep.
  * The console is a low-frequency, read-only surface for operators; a
