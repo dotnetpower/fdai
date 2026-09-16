@@ -32,6 +32,7 @@ def plan_source_installation(
     region: str,
     monthly_cost_ceiling: int,
     timeout_seconds: int,
+    foundation_workload: str = "fdai",
     interactive: bool = False,
     approval_file: Path | None = None,
     installation_options: InstallationOptions | None = None,
@@ -169,6 +170,8 @@ def plan_source_installation(
             region,
             "--monthly-cost-ceiling",
             str(monthly_cost_ceiling),
+            "--workload",
+            foundation_workload,
         ),
         source.root,
         environment,
@@ -182,7 +185,9 @@ def plan_source_installation(
     environment["AZURE_TENANT_ID"] = str(values["tenant_id"])
     run_binding = preparation.get("run_binding")
     if not isinstance(run_binding, str):
-        raise ValueError("source Foundation preparation has no retained run binding")
+        raise ValueError(  # noqa: TRY004 - stable CLI invariant error, not caller type misuse
+            "source Foundation preparation has no retained run binding"
+        )
     approval = (
         approval_file.absolute()
         if approval_file is not None
@@ -207,6 +212,8 @@ def plan_source_installation(
                 region,
                 "--monthly-cost-ceiling",
                 str(monthly_cost_ceiling),
+                "--workload",
+                foundation_workload,
                 "--source-snapshot",
                 str(work_dir / "source-snapshot"),
                 "--source-snapshot-digest",

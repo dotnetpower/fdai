@@ -50,6 +50,10 @@ def require_naming_only(original: Path, current: Path) -> None:
     """Require only application naming and the bounded operations-IP policy input."""
     old_main = (original / "main.tf").read_bytes()
     current_main = (current / "main.tf").read_bytes()
+    old_variables = (original / "variables.tf").read_bytes()
+    current_variables = (current / "variables.tf").read_bytes()
+    if old_main == current_main and old_variables == current_variables:
+        return
     expected = old_main
     replacements = (
         (
@@ -90,10 +94,10 @@ def require_naming_only(original: Path, current: Path) -> None:
         expected = expected.replace(before, after, 1)
     if current_main != expected:
         raise ValueError("Foundation recovery changes more than application naming")
-    variables = (current / "variables.tf").read_bytes()
+    variables = current_variables
     for name in ("application_workload", "operations_public_ip_tags"):
         variables = _without_variable(variables, name)
-    if variables != (original / "variables.tf").read_bytes():
+    if variables != old_variables:
         raise ValueError("Foundation recovery variable changes are outside naming scope")
 
 
@@ -102,6 +106,17 @@ def _one_line(content: bytes, pattern: bytes) -> bytes:
     if len(matches) != 1:
         raise ValueError("Foundation recovery naming configuration is unsupported")
     return bytes(matches[0])
+
+
+def _foundation_variables(root: Path) -> Path:
+    """Select the exact retained variables without changing bootstrap mode."""
+
+    augmented = root / "foundation-variables-with-image.json"
+    return (
+        augmented
+        if augmented.exists() or augmented.is_symlink()
+        else root / "foundation-variables.json"
+    )
 
 
 def _without_variable(content: bytes, name: str) -> bytes:
@@ -114,6 +129,13 @@ def _without_variable(content: bytes, name: str) -> bytes:
 
 def require_ip_policy_only(original: Path, current: Path) -> None:
     """Permit only the explicit tag input on the two original public-IP resources."""
+    old_variables = (original / "variables.tf").read_bytes()
+    current_variables = (current / "variables.tf").read_bytes()
+    if old_variables == current_variables and all(
+        (original / name).read_bytes() == (current / name).read_bytes()
+        for name in ("nat.tf", "bastion.tf")
+    ):
+        return
     before = b'  sku                 = "Standard"\n'
     after = before + b"  ip_tags             = var.operations_public_ip_tags\n"
     for name in ("nat.tf", "bastion.tf"):
@@ -123,10 +145,8 @@ def require_ip_policy_only(original: Path, current: Path) -> None:
             or content.replace(before, after, 1) != (current / name).read_bytes()
         ):
             raise ValueError("Foundation recovery bootstrap changes exceed IP policy scope")
-    variables = _without_variable(
-        (current / "variables.tf").read_bytes(), "operations_public_ip_tags"
-    )
-    if variables != (original / "variables.tf").read_bytes():
+    variables = _without_variable(current_variables, "operations_public_ip_tags")
+    if variables != old_variables:
         raise ValueError("Foundation recovery bootstrap variable changes exceed IP policy scope")
 
 
@@ -302,8 +322,9 @@ def _prepare_locked(
         write_private_bytes(candidate / "infra" / name, content)
     configuration_digest = image._execution_tree_digest(candidate)
     normalized = work / "original-variables.json"
+    variables_source = _foundation_variables(original.parent)
     snapshot_foundation_input(
-        original.parent / "foundation-variables-with-image.json",
+        variables_source,
         normalized,
         expected_target_binding=profile.target_binding,
         expected_region=profile.region,
@@ -403,6 +424,9 @@ def _prepare_locked(
             application_workload=application_workload,
         )
     )
+    application_preserved = (
+        predecessor is not None or summary.get("application_group_preserved") is True
+    )
     changes = cast(list[dict[str, Any]], projection["resource_changes"])
     application = next(
         entry["change"]["after"]
@@ -413,12 +437,12 @@ def _prepare_locked(
         [
             str(image._trusted_azure_cli()),
             "group",
-            "show" if predecessor is not None else "exists",
+            "show" if predecessor is not None or application_preserved else "exists",
             "--subscription",
             target.subscription_id,
             "--name",
             application["name"],
-            *(("--query", "id") if predecessor is not None else ()),
+            *(("--query", "id") if predecessor is not None or application_preserved else ()),
             "--output",
             "tsv",
             "--only-show-errors",
@@ -428,7 +452,9 @@ def _prepare_locked(
         timeout=deadline.remaining(30),
         reason="Foundation recovery application group availability is unknown",
     )
-    expected_group = str(application.get("id")) if predecessor is not None else "false"
+    expected_group = (
+        str(application.get("id")) if predecessor is not None or application_preserved else "false"
+    )
     if exists.strip().casefold() != expected_group.casefold():
         raise ValueError("Foundation recovery application group does not match required ownership")
     source.reverify()
@@ -471,11 +497,13 @@ def _prepare_locked(
             read_private_bytes(work / "recovery.tfplan", max_bytes=_MAX)
         ).hexdigest(),
         "plan_json_digest": hashlib.sha256(projection_bytes).hexdigest(),
-        "application_group_absent": predecessor is None,
+        "application_group_absent": not application_preserved,
         "original_state_unchanged": True,
         "created_at": moment.isoformat(),
         "expires_at": (moment + timedelta(hours=1)).isoformat(),
     }
+    if application_preserved:
+        result["application_group_preserved"] = True
     if predecessor is not None:
         result.update(
             {

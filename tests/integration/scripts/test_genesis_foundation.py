@@ -34,6 +34,7 @@ from genesis_foundation_recovery import (  # noqa: E402
 )
 from genesis_foundation_recovery_plan import (  # noqa: E402
     prepare_recovery_plan,
+    require_ip_policy_only,
     require_naming_only,
 )
 from genesis_status import StatusStore  # noqa: E402
@@ -286,6 +287,45 @@ def test_recovery_configuration_permits_only_application_naming(tmp_path):
         require_naming_only(original, current)
 
 
+def test_recovery_accepts_current_source_with_existing_recovery_inputs(tmp_path):
+    current = _ROOT / "infra/genesis-foundation"
+    original = tmp_path / "original"
+    shutil.copytree(current, original)
+    bootstrap = tmp_path / "bootstrap"
+    bootstrap.mkdir()
+    for name in ("nat.tf", "bastion.tf", "variables.tf"):
+        shutil.copy2(_ROOT / "infra/bootstrap" / name, bootstrap / name)
+
+    require_naming_only(original, current)
+    require_ip_policy_only(bootstrap, _ROOT / "infra/bootstrap")
+
+    (original / "main.tf").write_bytes((original / "main.tf").read_bytes() + b"\nchanged\n")
+    with pytest.raises(ValueError, match="unsupported|more than application"):
+        require_naming_only(original, current)
+
+
+@pytest.mark.parametrize(
+    ("with_image", "expected_name"),
+    [
+        (True, "foundation-variables-with-image.json"),
+        (False, "foundation-variables.json"),
+    ],
+)
+def test_recovery_selects_retained_foundation_variables(
+    tmp_path,
+    with_image,
+    expected_name,
+):
+    root = tmp_path / "foundation"
+    root.mkdir(mode=0o700)
+    if with_image:
+        write_private_bytes(root / "foundation-variables-with-image.json", b"{}")
+    else:
+        write_private_bytes(root / "foundation-variables.json", b"{}")
+
+    assert recovery_planner._foundation_variables(root).name == expected_name
+
+
 def test_recovery_requires_original_lock_before_any_planning(tmp_path):
     original = tmp_path / "original"
     original.mkdir()
@@ -411,6 +451,51 @@ def test_residual_foundation_only_names_missing_application_group(recovery_plans
     assert result["apply_authorized"] is False
     assert result["mutation_performed"] is False
     assert result["deployment_ready"] is False
+
+
+@pytest.mark.parametrize("rename", [False, True])
+def test_policy_only_recovery_preserves_existing_application_group(recovery_plans, rename):
+    original, current, state = recovery_plans
+    current["variables"]["application_workload"] = {"value": "example"}
+    application = current["resource_changes"][0]["change"]
+    application["after"] = {
+        "id": "application-id",
+        "name": "separate" if rename else "original",
+        "tags": {"run": "same"},
+    }
+    application["before"] = copy.deepcopy(application["after"])
+    application["actions"] = ["no-op"]
+    state["resources"].append(
+        {
+            "mode": "managed",
+            "type": "azapi_resource",
+            "name": "app_resource_group",
+            "instances": [
+                {
+                    "attributes": {
+                        "id": "application-id",
+                        "name": "original",
+                        "tags": {"run": "same"},
+                    }
+                }
+            ],
+        }
+    )
+
+    if rename:
+        with pytest.raises(ValueError, match="rename"):
+            validate_recovery_plan(current, original, state, application_workload="example")
+        return
+
+    result = validate_recovery_plan(
+        current,
+        original,
+        state,
+        application_workload="example",
+    )
+    assert result["application_group_absent"] is False
+    assert result["application_group_preserved"] is True
+    assert result["preserved_managed_count"] == 2
 
 
 @pytest.mark.parametrize(

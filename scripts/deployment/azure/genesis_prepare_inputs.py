@@ -34,11 +34,14 @@ def foundation_values(
     execution_transport: str = "github-actions",
     evidence_directory: Path | None = None,
     create_runner_image: bool = True,
+    workload: str = "fdai",
 ) -> dict[str, object]:
     """Select required VM capacity before resolving image, name, and network inputs."""
 
     if type(create_runner_image) is not bool:
         raise ValueError("runner image selection must be boolean")
+    if re.fullmatch(r"[a-z][a-z0-9]{1,11}", workload) is None:
+        raise ValueError("Foundation workload token is invalid")
     try:
         runner_vm_size = discover_foundation_vm_size(
             repository_root=repository_root,
@@ -127,7 +130,7 @@ def foundation_values(
         "tenant_id": tenant_id,
         "subscription_id": subscription_id,
         "target_binding": target_binding,
-        "workload": "fdai",
+        "workload": workload,
         "region": region,
         "region_short": azure_region_short_name(region),
         "state_storage_account_name": account_name,

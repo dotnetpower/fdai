@@ -231,12 +231,12 @@ resource "azurerm_consumption_budget_resource_group" "monthly" {
 }
 
 # -----------------------------------------------------------------------
-# Private networking (policy-locked tenants) - VNet + delegated subnets.
-# Only instantiated when enable_private_networking = true; the default
-# public path never creates a VNet (see variables.tf).
+# Application networking. AKS always requires node and API-server subnets;
+# detailed private networking additionally uses the private-endpoint and
+# service-specific subnets created by the same module.
 # -----------------------------------------------------------------------
 module "network" {
-  count                         = var.enable_private_networking ? 1 : 0
+  count                         = var.enable_private_networking || var.compute_kind == "aks" ? 1 : 0
   source                        = "./modules/network"
   name                          = "vnet-${var.workload}${local.full_suffix}"
   location                      = var.region

@@ -54,6 +54,7 @@ def test_source_preparation_retains_inputs_without_publisher_keys(tmp_path, monk
         target_binding=binding,
         work_dir=tmp_path / "source",
         region="koreacentral",
+        workload="fdai",
         monthly_cost_ceiling=1000,
     )
     result = source_genesis.prepare(args)
@@ -152,6 +153,7 @@ def test_source_advance_never_registers_or_applies_without_exact_approval(
         ),
         work_dir=tmp_path / "source",
         region="koreacentral",
+        workload="fdai",
         monthly_cost_ceiling=1000,
         timeout_seconds=3600,
         source_snapshot=tmp_path / "snapshot",
@@ -232,7 +234,7 @@ def _values(**kwargs: object) -> dict[str, object]:
         "tenant_id": TENANT,
         "subscription_id": SUBSCRIPTION,
         "target_binding": kwargs["target_binding"],
-        "workload": "fdai",
+        "workload": str(kwargs.get("workload", "fdai")),
         "region": "koreacentral",
         "region_short": "kor",
         "state_storage_account_name": "stateexample",

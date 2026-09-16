@@ -653,9 +653,9 @@ class PostgresFamilyStore:
         """Read the bounded durable current mode for every promoted ActionType."""
 
         rows = await self._fetch_all(
-            "SELECT value FROM state_kv WHERE key LIKE 'action\\_promotion:%' ESCAPE '\\' "
+            "SELECT value FROM state_kv WHERE key LIKE %(key_pattern)s ESCAPE '\\' "
             "ORDER BY key LIMIT 1001",
-            {},
+            {"key_pattern": "action\\_promotion:%"},
         )
         if len(rows) > 1000:
             raise PostgresFamilyStoreUnavailable(

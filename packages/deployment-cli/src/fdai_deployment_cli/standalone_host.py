@@ -291,6 +291,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     refs["clamav"] = f"{login_server}/clamav@{_required_image_digest(sidecars, 'clamav')}"
     if runtime_profile.database_placement.value == "postgres-aks":
         refs["pgvector"] = f"{login_server}/pgvector@{_required_image_digest(sidecars, 'pgvector')}"
+    aks_baseline = runtime_profile.runtime_platform.value == "aks"
     operator_id = _required_guid(entra, "CURRENT_OPERATOR_OBJECT_ID")
     steward_names = (
         "Odin",
@@ -309,6 +310,11 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "Freyr",
     )
     values: dict[str, object] = {
+        "workload": _foundation_application_workload(
+            app,
+            environment="dev",
+            region_short=region_short,
+        ),
         "env": "dev",
         "region": region,
         "region_short": region_short,
@@ -318,7 +324,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "generate_initial_postgres_password": True,
         "resource_name_suffix": suffix,
         "foundation_resource_group_context_digest": str(app["foundation_context_digest"]),
-        "enable_private_networking": True,
+        "enable_private_networking": not aks_baseline,
         "compute_kind": (
             "aks" if runtime_profile.runtime_platform.value == "aks" else "container_apps"
         ),
@@ -331,7 +337,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "runner_vnet_id": str(ops["vnet_id"]),
         "runner_vnet_name": str(ops["vnet_name"]),
         "ops_resource_group_name": str(ops["resource_group_name"]),
-        "acr_sku": "Premium",
+        "acr_sku": "Basic" if aks_baseline else "Premium",
         "core_image": refs["core-control-plane"],
         "operator_api_image": refs["operator-service"],
         "operator_api_migration_image": refs["operator-service"],
@@ -2546,6 +2552,19 @@ def _foundation_binding_digest(
             "app_resource_group": app,
         }
     )
+
+
+def _foundation_application_workload(
+    app: dict[str, object], *, environment: str, region_short: str
+) -> str:
+    name = app.get("name")
+    suffix = f"-{environment}-{region_short}"
+    if not isinstance(name, str) or not name.startswith("rg-") or not name.endswith(suffix):
+        raise ValueError("Foundation application resource-group name is invalid")
+    workload = name[3 : -len(suffix)]
+    if re.fullmatch(r"[a-z][a-z0-9]{1,11}", workload) is None:
+        raise ValueError("Foundation application workload is invalid")
+    return workload
 
 
 def _vault_name(uri: str) -> str:

@@ -10,6 +10,7 @@ from fdai.rule_catalog.pipeline.distill.ontology_evaluation import (
     ChangeRiskClass,
     ExpectedOntologyFact,
     PromotionPolicy,
+    ShadowReviewEvidenceBatch,
     ShadowReviewOutcome,
     assess_low_risk_promotion,
     evaluate_review_package,
@@ -172,12 +173,28 @@ def test_frozen_evaluation_reports_false_positive_and_negative() -> None:
     assert report.critical_claim_recall == 0.0
 
 
+class StaticEvidenceVerifier:
+    def __init__(self, verified: bool = True) -> None:
+        self._verified = verified
+
+    def verify(self, batch: ShadowReviewEvidenceBatch) -> bool:
+        return self._verified and len(batch.content_digest) == 64
+
+
 def _outcomes(count: int, *, violation_at: int | None = None):
-    start = date(2026, 1, 1)
+    start = datetime(2026, 1, 1, tzinfo=UTC)
     return tuple(
         ShadowReviewOutcome(
+            outcome_id=f"{index + 10_001:064x}",
             proposal_digest=f"{index + 1:064x}",
-            observed_day=start + timedelta(days=index % 30),
+            observed_at=start + timedelta(days=index % 30),
+            audit_sequence=1,
+            review_receipt_digest=f"{index + 20_001:064x}",
+            reviewer_id="reviewer:independent",
+            requester_id="requester:source",
+            fdai_revision="a" * 40,
+            ontology_release="b" * 64,
+            binding_digest="c" * 64,
             reviewed=True,
             risk_class=ChangeRiskClass.LOW_RISK_MAPPING,
             correct=True,
@@ -187,8 +204,24 @@ def _outcomes(count: int, *, violation_at: int | None = None):
     )
 
 
+def _batch(outcomes: tuple[ShadowReviewOutcome, ...]) -> ShadowReviewEvidenceBatch:
+    return ShadowReviewEvidenceBatch(
+        fdai_revision="a" * 40,
+        ontology_release="b" * 64,
+        binding_digest="c" * 64,
+        policy_digest=PromotionPolicy().policy_digest,
+        sealed_at=datetime(2026, 1, 31, tzinfo=UTC),
+        source_receipt_digest="d" * 64,
+        outcomes=outcomes,
+    )
+
+
 def test_complete_live_shadow_evidence_is_eligible() -> None:
-    assessment = assess_low_risk_promotion(_outcomes(500), as_of=date(2026, 1, 30))
+    assessment = assess_low_risk_promotion(
+        _batch(_outcomes(500)),
+        as_of=date(2026, 1, 30),
+        verifier=StaticEvidenceVerifier(),
+    )
     assert assessment.eligible is True
     assert assessment.reviewed_samples == 500
     assert assessment.distinct_days == 30
@@ -197,8 +230,9 @@ def test_complete_live_shadow_evidence_is_eligible() -> None:
 
 def test_guard_violation_blocks_promotion() -> None:
     assessment = assess_low_risk_promotion(
-        _outcomes(500, violation_at=1),
+        _batch(_outcomes(500, violation_at=1)),
         as_of=date(2026, 1, 30),
+        verifier=StaticEvidenceVerifier(),
     )
     assert assessment.eligible is False
     assert "authority_violation" in assessment.reason_codes
@@ -206,8 +240,9 @@ def test_guard_violation_blocks_promotion() -> None:
 
 def test_insufficient_evidence_reports_each_failed_gate() -> None:
     assessment = assess_low_risk_promotion(
-        _outcomes(10),
+        _batch(_outcomes(10)),
         as_of=date(2026, 1, 30),
+        verifier=StaticEvidenceVerifier(),
         policy=PromotionPolicy(min_distinct_days=30, min_reviewed_samples=500),
     )
     assert assessment.eligible is False
@@ -216,31 +251,69 @@ def test_insufficient_evidence_reports_each_failed_gate() -> None:
     assert "precision_lower_bound_not_met" in assessment.reason_codes
 
 
-def test_duplicate_shadow_observation_cannot_inflate_sample_size() -> None:
-    duplicate = _outcomes(1)[0]
-    with pytest.raises(ValueError, match="MUST be unique"):
-        assess_low_risk_promotion((duplicate, duplicate), as_of=date(2026, 1, 30))
+def test_append_only_correction_cannot_inflate_sample_size() -> None:
+    original = _outcomes(1)[0]
+    correction = replace(
+        original,
+        outcome_id="e" * 64,
+        audit_sequence=2,
+        review_receipt_digest="f" * 64,
+        correct=False,
+    )
+    assessment = assess_low_risk_promotion(
+        _batch((original, correction)),
+        as_of=date(2026, 1, 30),
+        verifier=StaticEvidenceVerifier(),
+    )
+    assert assessment.reviewed_samples == 1
+    assert assessment.correct_samples == 0
 
 
 def test_future_observations_and_governed_changes_cannot_promote() -> None:
     future = ShadowReviewOutcome(
+        outcome_id="e" * 64,
         proposal_digest="f" * 64,
-        observed_day=date(2026, 2, 1),
+        observed_at=datetime(2026, 2, 1, tzinfo=UTC),
+        audit_sequence=1,
+        review_receipt_digest="1" * 64,
+        reviewer_id="reviewer:independent",
+        requester_id="requester:source",
+        fdai_revision="a" * 40,
+        ontology_release="b" * 64,
+        binding_digest="c" * 64,
         reviewed=True,
         risk_class=ChangeRiskClass.LOW_RISK_MAPPING,
         correct=True,
     )
+    future_batch = ShadowReviewEvidenceBatch(
+        fdai_revision="a" * 40,
+        ontology_release="b" * 64,
+        binding_digest="c" * 64,
+        policy_digest=PromotionPolicy().policy_digest,
+        sealed_at=datetime(2026, 2, 2, tzinfo=UTC),
+        source_receipt_digest="d" * 64,
+        outcomes=_outcomes(500) + (future,),
+    )
     assessment = assess_low_risk_promotion(
-        _outcomes(500) + (future,),
+        future_batch,
         as_of=date(2026, 1, 30),
+        verifier=StaticEvidenceVerifier(),
     )
     assert assessment.eligible is False
     assert "future_observation" in assessment.reason_codes
 
     governed = tuple(
         ShadowReviewOutcome(
+            outcome_id=f"{index + 30_001:064x}",
             proposal_digest=f"{index + 1000:064x}",
-            observed_day=date(2026, 1, 1) + timedelta(days=index % 30),
+            observed_at=datetime(2026, 1, 1, tzinfo=UTC) + timedelta(days=index % 30),
+            audit_sequence=1,
+            review_receipt_digest=f"{index + 40_001:064x}",
+            reviewer_id="reviewer:independent",
+            requester_id="requester:source",
+            fdai_revision="a" * 40,
+            ontology_release="b" * 64,
+            binding_digest="c" * 64,
             reviewed=True,
             risk_class=ChangeRiskClass.GOVERNED_INTENT,
             correct=True,
@@ -248,8 +321,9 @@ def test_future_observations_and_governed_changes_cannot_promote() -> None:
         for index in range(500)
     )
     governed_assessment = assess_low_risk_promotion(
-        governed,
+        _batch(governed),
         as_of=date(2026, 1, 30),
+        verifier=StaticEvidenceVerifier(),
     )
     assert governed_assessment.reviewed_samples == 0
     assert governed_assessment.eligible is False
@@ -261,9 +335,62 @@ def test_duplicate_expected_facts_are_rejected() -> None:
         evaluate_review_package(_package(), (expected, expected))
 
 
+def test_unverified_shadow_batch_cannot_be_eligible() -> None:
+    assessment = assess_low_risk_promotion(
+        _batch(_outcomes(500)),
+        as_of=date(2026, 1, 30),
+        verifier=StaticEvidenceVerifier(False),
+    )
+
+    assert assessment.eligible is False
+    assert "evidence_verification_failed" in assessment.reason_codes
+    assert len(assessment.evidence_digest) == 64
+    assert len(assessment.policy_digest) == 64
+
+
+def test_shadow_policy_drift_and_field_changes_invalidate_evidence() -> None:
+    batch = _batch(_outcomes(500))
+    drifted = assess_low_risk_promotion(
+        batch,
+        as_of=date(2026, 1, 30),
+        verifier=StaticEvidenceVerifier(),
+        policy=PromotionPolicy(min_reviewed_samples=499),
+    )
+    changed = replace(
+        batch,
+        outcomes=(replace(batch.outcomes[0], requester_id="requester:other"),) + batch.outcomes[1:],
+    )
+
+    assert "policy_digest_mismatch" in drifted.reason_codes
+    assert changed.content_digest != batch.content_digest
+
+
+def test_shadow_batch_rejects_mixed_lineage_and_self_review() -> None:
+    original = _outcomes(1)[0]
+    with pytest.raises(ValueError, match="match the sealed evidence identity"):
+        _batch((replace(original, binding_digest="e" * 64),))
+    with pytest.raises(ValueError, match="distinct from requester"):
+        replace(original, reviewer_id=original.requester_id)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"min_distinct_days": True},
+        {"min_reviewed_samples": True},
+        {"min_precision_lower_bound": float("nan")},
+        {"min_precision_lower_bound": True},
+    ],
+)
+def test_promotion_policy_rejects_invalid_machine_values(changes: dict[str, object]) -> None:
+    with pytest.raises(ValueError):
+        replace(PromotionPolicy(), **changes)
+
+
 def test_promotion_assessment_rejects_non_date_cutoff() -> None:
     with pytest.raises(ValueError, match="as_of MUST be a date"):
         assess_low_risk_promotion(
-            _outcomes(1),
+            _batch(_outcomes(1)),
             as_of=datetime(2026, 1, 1, tzinfo=UTC),  # type: ignore[arg-type]
+            verifier=StaticEvidenceVerifier(),
         )

@@ -42,6 +42,11 @@ The public source command resumes these checkpoints using the shared private coo
 new interactive source installations confirm settings at startup only; later stages and JSON
 execution never prompt. `--approval-file <path>` explicitly supplies an existing
 private human approval to the shared verifier. Without it, retained ambient approvals are ignored.
+`--foundation-workload <token>` selects the naming token for a new source installation and defaults
+to `fdai`. Use a distinct token when canonical application or operations groups already exist.
+The token is sealed into source preparation, retained variables, the run binding, and every exact
+Foundation plan. Repeat it unchanged on approval resume. It grants no ownership of existing
+resources and never authorizes deletion or adoption.
 Initial confirmation is separate from that approval. The coordinator advances within exact approval and returns review state when another
 checkpoint needs authority; it does not create approval, read stdin or report success. Managed-host application
 execution and durable Trial activation are not yet connected. A plan
@@ -118,6 +123,15 @@ This prevents a policy-added tag from forcing replacement of the IPs and their d
 validates original review/claim/snapshot/configuration, and passes the original state path directly
 to Terraform. It binds current source, provider and plan bytes, retains bounded private diagnostics,
 checks group ownership and rejects concurrent state changes. Its expiring review grants no authority.
+When the original plan already contains the supported application-name and public-IP policy inputs,
+the recovery planner accepts byte-identical current configuration instead of requiring the legacy
+source migration again. Any other source difference remains blocked.
+Recovery reads the image-augmented Foundation variables when an artifact-offline image was used,
+or the base Foundation variables for an image-free connected run. It never fabricates an image
+receipt or changes bootstrap mode while selecting the retained input.
+When the application group already exists in the original state, policy-only recovery preserves
+its exact state ID and requires a no-op. It never renames or adopts that group. A missing
+application group still follows the distinct-name and verified-absence contract.
 
 `genesis_foundation_recovery_apply.py` requires fresh `foundation-apply` approval bound to the recovery
 review and code; the official prompt accepts `--foundation-recovery-review`. Before its immutable claim,
