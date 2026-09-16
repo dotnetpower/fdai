@@ -34,6 +34,7 @@ EXPECTED_FDAI_ROOTS = {
 EXPECTED_RUNTIME_MODULES = {
     "__init__.py",
     "adaptive_investigation_runtime.py",
+    "adaptive_telemetry.py",
     "alert_noise.py",
     "alert_noise_config.py",
     "alert_noise_control.py",

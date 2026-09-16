@@ -7,6 +7,7 @@ import {
   StatusPill,
   type AsyncState,
 } from "../components/ui";
+import { Tooltip } from "../components/tooltip";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, routeHref } from "../router";
@@ -452,7 +453,9 @@ function InvestigationRoom({
             </p>
             <div class="investigation-hypotheses">
               {round.active_hypothesis_ids.map((hypothesis) => (
-                <code key={hypothesis} title={hypothesis}>{investigationHypothesisLabel(hypothesis)}</code>
+                <Tooltip key={hypothesis} content={hypothesis} placement="top">
+                  <code>{investigationHypothesisLabel(hypothesis)}</code>
+                </Tooltip>
               ))}
             </div>
             {round.execution?.source_metadata ? (
