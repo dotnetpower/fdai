@@ -23,14 +23,14 @@ inside the target virtual network.
 | Infrastructure engine | Terraform from the signed complete kit |
 | Target selection | Active interactive Azure CLI user |
 | Apply location | Managed deployment host inside the target VNet |
-| Connected artifact source | Versioned signed release kit over bounded HTTPS |
+| Connected artifact source | Local complete signed kit for validation; versioned bounded HTTPS distribution is optional |
 | Disconnected artifact source | Complete signed kit embedded in a digest-pinned deployment appliance |
 | Approval | Current human approval bound to each exact plan digest |
 | Execution identity | Managed host user-assigned Managed Identity |
 | GitHub dependency | None for tenant deployment |
 
-GitHub Actions may validate source, build images, and publish signed releases. It cannot plan,
-apply, resume, or tear down a tenant deployment.
+GitHub Actions may validate source, build images, and optionally publish signed releases; publication
+is not a deployment-validation prerequisite. GitHub Actions cannot plan, apply, resume, or tear down a tenant deployment.
 
 ## Connected source deployment
 
@@ -352,26 +352,24 @@ Console authentication, cleanup, and second zero-change plans have been independ
 
 ## Operator experience
 
-From a source checkout, run:
+Use one exact local signed kit for both required operational-validation entry points:
 
 ```bash
 az login
-scripts/deployment/azure/fdai-up.sh --region <azure-region>
-```
-
-The wrapper creates the locked local environment when needed and invokes:
-
-```bash
-fdaictl provision azure --online --region <azure-region>
-```
-
-For artifact-offline deployment, use the same coordinator with a local complete kit:
-
-```bash
-fdaictl provision azure \
-  --offline-kit /media/fdai/fdai-deployment-kit.tar.gz \
+scripts/deployment/azure/fdai-up.sh \
+  --offline-kit /private/fdai-deployment-kit.tar.gz \
   --region <azure-region>
 ```
+
+The wrapper creates the locked environment and invokes `fdaictl provision azure --offline-kit`.
+Embed those same verified bytes in the deployment appliance for its separate receipt.
+
+**Design revision:** The initial online-plus-appliance evidence rule coupled tenant validation to
+external release publication. Local signature, exact-file, source, image, SBOM, and provenance
+checks already bind the archive. Therefore the local coordinator and appliance receipts use the
+same locally built kit; public publication and `--online` Azure convergence are optional
+distribution evidence. Exact-plan approval, managed identity, verification-only recovery, and
+second-plan zero change remain mandatory.
 
 The command derives tenant and subscription only from the active Azure CLI user. It does not
 require a GitHub account, Git remote, repository variable, repository secret, workflow dispatch,

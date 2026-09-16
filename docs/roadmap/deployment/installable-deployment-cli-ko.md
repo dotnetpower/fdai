@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 78cd995a2341f9aed0b3ac09884f20d12a7b970b
-translation_revised: 2026-09-16
+translation_source_sha: d09c6e755f15daea583a2801b7fffd888004d3ae
+translation_revised: 2026-09-17
 ---
 
 # 설치형 배포 CLI
@@ -26,14 +26,15 @@ Host에서 실행됩니다.
 | 인프라 엔진 | 서명된 완전한 키트의 Terraform |
 | 대상 선택 | 활성 대화형 Azure CLI 사용자 |
 | 적용 위치 | 대상 VNet 내부의 Managed Host |
-| 연결된 산출물 원본 | 범위가 제한된 HTTPS로 받는 버전 지정 서명 키트 |
+| 연결된 산출물 원본 | 검증에는 로컬 완전한 서명 키트 사용, 버전이 지정된 제한된 HTTPS 배포는 선택 사항 |
 | 폐쇄망 산출물 원본 | digest로 고정된 배포 어플라이언스에 포함된 완전한 서명 키트 |
 | 승인 | 각 정확한 계획 digest에 연결된 현재 사람 승인 |
 | 실행 신원 | Managed Host의 사용자 할당 Managed Identity |
 | GitHub 의존성 | 대상 환경 배포에는 없음 |
 
-GitHub Actions는 소스를 검증하고 이미지를 빌드하며 서명된 release를 게시할 수 있습니다. 대상
-환경을 계획, 적용, 재개 또는 제거할 수 없습니다.
+GitHub Actions는 소스를 검증하고 이미지를 빌드하며 선택적으로 서명된 release를 게시할 수
+있지만, 게시는 배포 검증의 필수 조건이 아닙니다. GitHub Actions는 대상 환경을 계획, 적용,
+재개 또는 제거할 수 없습니다.
 
 ## 연결된 소스 배포
 
@@ -351,26 +352,23 @@ Console 인증, 정리, 두 번째 계획의 변경 없음이 독립적으로 �
 
 ## 운영자 경험
 
-소스 checkout에서는 다음 명령을 실행합니다.
+필수 운영 검증 진입점 두 곳에 정확한 로컬 서명 키트 하나를 사용합니다.
 
 ```bash
 az login
-scripts/deployment/azure/fdai-up.sh --region <azure-region>
-```
-
-래퍼는 필요할 때 잠긴 로컬 환경을 만들고 다음 명령을 호출합니다.
-
-```bash
-fdaictl provision azure --online --region <azure-region>
-```
-
-산출물 오프라인 배포에는 로컬 완전한 키트와 동일한 조정기를 사용합니다.
-
-```bash
-fdaictl provision azure \
-  --offline-kit /media/fdai/fdai-deployment-kit.tar.gz \
+scripts/deployment/azure/fdai-up.sh \
+  --offline-kit /private/fdai-deployment-kit.tar.gz \
   --region <azure-region>
 ```
+
+래퍼는 잠긴 환경을 만들고 `fdaictl provision azure --offline-kit`을 호출합니다. 같은 검증
+바이트를 배포 어플라이언스에 포함해 별도 증적을 만듭니다.
+
+**설계 수정:** 초기 온라인 및 어플라이언스 근거 규칙은 대상 환경 검증을 외부 release 게시와
+결합했습니다. 로컬 서명, 정확한 파일, 소스, 이미지, SBOM 및 provenance 검사가 이미 압축
+파일을 고정합니다. 따라서 로컬 조정기와 어플라이언스 증적은 로컬에서 빌드한 같은 키트를
+사용하며, 공개 게시와 `--online` Azure 수렴은 선택적인 배포판 근거로 유지합니다. 정확한 계획
+승인, Managed Identity, 검증 전용 복구 및 두 번째 계획의 변경 없음은 계속 필수입니다.
 
 명령은 활성 Azure CLI 사용자에서만 tenant와 subscription을 결정합니다. GitHub 계정, Git
 remote, 저장소 변수, 저장소 비밀, workflow dispatch 또는 등록된 GitHub runner가 필요하지

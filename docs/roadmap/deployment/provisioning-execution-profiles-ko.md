@@ -1,8 +1,8 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 87c28a8af4f94ebd48591cb2023acc48b35da734
-translation_revised: 2026-09-16
+translation_source_sha: e8d0113b41ffc32bbf4c61116b2ef252f0ee48b7
+translation_revised: 2026-09-17
 ---
 # 프로비저닝 실행 프로파일
 
@@ -28,12 +28,13 @@ translation_revised: 2026-09-16
 | 안정 Network API 기반 Foundation 검색 | validated | PR #926, `deployment-v0.1.0-r4`, [이슈 #803 근거](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906) | 게시된 서명 번들로 West US 2의 모든 Foundation 입력 조회를 통과했습니다. 계획, 적용, 복구 또는 배포 준비 완료 주장은 만들지 않았습니다. |
 | Temporary 공개 접근 정리 | not-started | 이 문서의 접근 선호 설정 계약 | 범위가 제한된 생성, 자동 정리, 정리 실패 시 불완전 상태 및 감사 종결을 입증하는 조립 명령이 없습니다. |
 | Pinned TUF 루트 및 교대 | not-started | `docs/runbooks/offline-trust-ceremony.md` | 첫 루트 의식, 패키지 리소스, 클라이언트 초기화 및 교대 근거가 남아 있습니다. |
-| 배포 후 검증 | in-progress | 관리 호스트 exact-plan 적용 증적, ACR 다이제스트 재확인, 마이그레이션, 상태 재확인, 두 번째 변경 없음 계획 및 라우팅된 수명 주기 테스트 | 구현은 존재하지만 완전한 CLI 기반 Azure 수명 주기와 아티팩트 오프라인 운영 증적은 아직 없습니다. |
+| 배포 후 검증 | in-progress | 관리 호스트 exact-plan 적용 증적, ACR 다이제스트 재확인, 마이그레이션, 상태 재확인, 두 번째 변경 없음 계획 및 라우팅된 수명 주기 테스트 | 구현은 존재하지만 정확한 로컬 서명 키트 하나에서 생성한 로컬 조정기 및 어플라이언스 진입점 증적은 아직 없습니다. 공개 release 게시는 필수가 아닙니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-17 | in-progress | 공개 release 게시와 온라인 Azure 수렴을 운영 검증의 필수 조건에서 제거했습니다. 로컬에서 빌드한 정확한 서명 키트 하나를 로컬 조정기와 어플라이언스 진입점에 함께 사용하며, 온라인 획득은 지원되는 선택적 배포판 경로로 유지합니다. | `current change`, 설계 소유자 문서 및 Azure 배포 스킬, 런타임·서명·승인·Azure 동작 변경 없음 | 로컬 완전한 키트 하나를 빌드하고 독립적으로 검증한 뒤 같은 바이트에서 별도 승인된 로컬 조정기 및 어플라이언스 진입점 수렴 증적을 보존합니다. |
 | 2026-09-16 | not-started | AKS를 명시적인 기본 배포 대상으로 정하고, 선택한 피어링, 비공개 엔드포인트, 비공개 DNS, 비공개 클러스터 모드와 공개 접근 제거를 Console에서 시작하는 상세 프로비저닝 계획으로 옮겼습니다. 테넌트 프로비저닝은 미리 빌드하고 서명한 이미지만 사용하며 이미지를 빌드하거나 캡처하지 않습니다. | `current change`, 문서 및 배포 스킬 계약만 변경했으며 CLI, Console, Terraform 또는 Azure 효과는 주장하지 않습니다. | API 서버 서브넷과 공개 기본 구성을 구현하고 테넌트 이미지 builder를 제거하며 Console 네트워크 요청 상태와 보호된 실행을 추가한 뒤 기본 및 비공개 전환 증적을 보존합니다. |
 | 2026-09-15 | not-started | 일반 PC에서의 시작을 정의하고 기본 서비스 배포와 후속 상세 프로비저닝을 분리했습니다. 선택하지 않은 고급 구성은 기본 배포 성공을 막지 않으며 정책상 필수 보안과 상태 보호는 해당 변경의 선행 조건으로 유지합니다. | 현재 설계와 배포 스킬 변경만 포함하며 새 CLI 명령, 스키마 필드, 플랫폼 지원이나 배포된 동작을 주장하지 않습니다. | 외부 PC에서 시작해 인증된 기본 서비스 상태에 도달하는 두 단계를 구현·검증하고, 재설치나 영속 상태 초기화 없이 선택한 기능을 추가합니다. |
 | 2026-09-15 | in-progress | 기존 호스트 우선 배포를 명확히 했습니다. 현재 내부 VM이 조정기와 실행 역할을 함께 맡을 수 있으며 별도 VM, Bastion 또는 상태 이동을 일률적으로 요구하지 않습니다. 실제 연결·신원 문제와 설치기 연결 미구현을 구분합니다. | 현재 프로파일과 배포 스킬의 문서 변경이며 실행 경로 구현이나 Azure 검증을 주장하지 않습니다. | 공개 조정기가 적합한 현재 호스트 선택을 처리하도록 하고, 기존 백엔드 소유권과 완료된 변경을 보존하며, 불필요한 호스트 전송 없이 정확한 계획 실행과 독립 조회를 검증합니다. |
@@ -78,7 +79,9 @@ translation_revised: 2026-09-16
 - [x] 깨끗한 스냅샷에서 완전한 서명 키트 하나를 빌드하고 다시 검증한 뒤 새 환경에 CLI를 설치하고 online 및 로컬 아티팩트 경로에서 같은 키트를 획득합니다. 근거: `deployment-v0.1.0-r2`와 위의 2026-09-13 아티팩트 기록입니다.
 - [x] 후속 CLI 하드닝을 포함한 완전한 대체 키트를 게시하고 정확한 설치 아티팩트 검증을 반복합니다. 근거: `deployment-v0.1.0-r3`에 H01-H14가 포함되고 기본 설치 파일 59개가 모두 서명된 휠과 일치하며 이전 설치는 백업했습니다.
 - [x] 안정 Network API 수정을 포함한 대체 서명 키트를 게시하고 검증한 뒤 해당 아티팩트에서 Foundation 검색을 확인합니다. 검색 성공을 배포 준비 완료로 취급하지 않습니다. 근거: `deployment-v0.1.0-r4`와 연결된 이슈 #803의 읽기 전용 검증 기록입니다. 기존 CLI 설치 파일 59개가 이미 서명된 휠과 일치하므로 교체하지 않았습니다.
-- [ ] 전체 구독 준비 상태를 주장하지 않고 두 활성 로그인 모드의 대상 연결 기반 Foundation 및 애플리케이션 수렴 증적을 보존합니다.
+- [ ] 공개 release 게시 또는 전체 구독 준비 상태 주장을 요구하지 않고 같은 정확한 로컬 서명
+  키트로 실행한 로컬 조정기와 어플라이언스 진입점의 대상 연결 기반 Foundation 및 애플리케이션
+  수렴 증적을 보존합니다.
 - [ ] 별도 호스트를 불필요하게 만들거나 올바르게 보호된 기존 백엔드를 옮기지 않고 현재 VM에서 `existing-host` 실행을 검증하며, 신원·정확한 계획·재적용 금지·독립 조회 검사를 유지합니다.
 - [ ] 사설 접근을 미리 설정하지 않은 일반 PC에서 기본 배포를 검증하고, 설치 식별자·기존 상태·Trial 시작 시점을 보존한 채 상세 프로비저닝을 진행하며, 선택 기능의 미설정 상태와 기본 서비스 상태를 구분합니다.
 - [ ] API Server VNet Integration과 워크로드 및 API 서버 전용 서브넷을 포함한 AKS 기본
@@ -87,9 +90,7 @@ translation_revised: 2026-09-16
   의도, 평가, 정확한 계획 요청, 승인, 적용, rollback 및 독립 재확인 상태를 구현합니다.
 - [ ] 테넌트 실행의 Docker, Buildx, ACR Tasks 및 VM 이미지 캡처 경로를 제거하고, 미리 빌드한
   서명 이미지 매니페스트와 배포된 digest 재확인을 요구합니다.
-- [ ] release에서 게시하고 digest로 고정한 배포 어플라이언스 하나를 수락하고 SBOM, 출처 및
-  내장 키트를 검증한 뒤 테넌트 프로비저닝에서 이미지를 만들지 않고 아티팩트 오프라인 Azure
-  배포 증적을 보존합니다.
+- [ ] 승인되고 digest로 고정된 기본 이미지에서 배포 어플라이언스를 빌드하고 SBOM과 provenance를 검증한 뒤 이미지 진입점의 아티팩트 오프라인 Azure 배포 증적을 보존합니다.
 
 ## 한눈에 보는 설계
 
@@ -113,17 +114,19 @@ translation_revised: 2026-09-16
 설치 패키지는 `az login` 후 하나의 기본 구독 배포 경계를 지원합니다.
 
 ```bash
-fdaictl provision azure --online
 fdaictl provision azure --offline-kit /media/fdai/fdai-kit.tar
-# 소스 checkout 편의 wrapper이며 online이 기본값입니다.
-scripts/deployment/azure/fdai-up.sh
+# 같은 로컬 키트를 사용하는 소스 checkout 편의 wrapper입니다.
+scripts/deployment/azure/fdai-up.sh --offline-kit /media/fdai/fdai-kit.tar
+# 범위가 제한된 HTTPS 배포판을 위한 선택적 경로입니다.
+fdaictl provision azure --online
 ```
 
 두 명령은 활성 Azure CLI 사용자 컨텍스트에서만 테넌트와 구독을 결정합니다. 소스 checkout,
 Git remote, GitHub 계정, GitHub 저장소, required CI 검사, 저장소 변수, 저장소 비밀, 작업 흐름
-dispatch 또는 GitHub runner 등록이 필요하지 않습니다. Online 모드는 각 리다이렉트에 접촉하기 전에 검증하는 제한된 HTTPS로
-버전이 지정된 완전한 키트 하나를 다운로드합니다. Offline 모드는 같은 키트 형식을 로컬
-경로에서 읽고 모든 공개 아티팩트 대체 경로를 차단합니다. 여기서 offline은 아티팩트가
+dispatch 또는 GitHub runner 등록이 필요하지 않습니다. Offline 모드는 완전한 키트를 로컬
+경로에서 읽고 모든 공개 아티팩트 대체 경로를 차단합니다. Online 모드는 선택 사항으로 유지되며
+각 리다이렉트에 접촉하기 전에 검증하는 제한된 HTTPS로 같은 형식을 다운로드합니다. 여기서
+offline은 아티팩트가
 오프라인이라는 뜻이며 선택한 Azure control plane 또는 Bastion 엔드포인트와 단절된다는 뜻은
 아닙니다.
 
@@ -344,9 +347,12 @@ persistent 공개 IP는 허용되지 않습니다. 정리는 연산 성공 기�
 
 ## Online 및 offline 전달
 
-Online 전달은 공개 `fdai-deployment-cli` 패키지와 버전이 일치하는 완전한 서명 배포 키트를
-사용합니다. 관리 호스트는 키트의 인증된 binary, provider, runtime image 및 migration wheel만
-사용합니다.
+Online 전달은 선택적인 배포판 경로입니다. 공개 `fdai-deployment-cli` 패키지와 버전이
+일치하는 완전한 서명 배포 키트를 사용합니다. 관리 호스트는 키트의 인증된 binary, provider,
+runtime image 및 migration wheel만 사용합니다.
+
+운영 검증에는 이 게시 경로가 필요하지 않습니다. 로컬에서 빌드하고 독립적으로 검증한 완전한
+서명 키트 하나를 로컬 조정기와 배포 어플라이언스에 함께 제공할 수 있습니다.
 
 목표 release 작업 흐름은 읽기 전용 작업에서 휠과 출처 분포를 한 번만 빌드하고 Python과
 번들 버전이 일치하는지 검사합니다. 일치하는 signed 번들을 게시한 후에만 같은 산출물을

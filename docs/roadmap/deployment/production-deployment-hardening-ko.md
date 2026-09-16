@@ -1,8 +1,8 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 433b1809d32c8be27fcd5d27b3871cce9c49da18
-translation_revised: 2026-09-16
+translation_source_sha: 5ec78bc767bdbec08f41eb0c5a2107d4e32f3fd8
+translation_revised: 2026-09-17
 ---
 # 운영 배포 강화
 
@@ -41,6 +41,7 @@ translation_revised: 2026-09-16
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-17 | implemented | candidate runner가 필수 명령인 `kubectl` 없이 요청 검증 단계에 도달한 뒤 scenario-lab workflow에 checksum으로 고정된 `kubectl` bootstrap을 추가했습니다. Workflow는 offline deployment kit가 이미 소유한 `1.31.14` binary와 SHA-256을 재사용하고 runner 임시 저장소에만 설치하며 Azure 인증 또는 plan 전에 client를 검증합니다. | 실패한 protected recovery plan `35130727585`, `current change`, `.github/workflows/sre-demo-lab.yml`, `stage-offline-kit.sh`, 집중 scenario-lab 및 workflow 검사 | 수정한 workflow를 게시하고 기존 partial scenario state에 대해 새로운 exact recovery plan을 생성합니다. |
 | 2026-09-17 | implemented | 승인된 실제 apply에서 Azure network interface 쓰기에 HTTP 429가 발생한 뒤 scenario-lab 생성 apply의 동시 실행을 Terraform 작업 2개로 제한했습니다. 실패한 시도는 워크로드 준비 전에 중단됐고, 범위가 제한된 readback에서 partial state를 확인했으며, recovery plan은 update 또는 delete 작업 0개를 유지했습니다. | 실패한 protected apply `35123919441`, Azure Activity Log의 `Microsoft.Network/networkInterfaces/write` 상태 `429`, `current change`, `.github/workflows/sre-demo-lab.yml`, 집중 scenario-lab 및 workflow 검사 | 수정한 workflow를 게시하고 partial state에 대해 새로운 exact recovery plan을 생성한 뒤 성공한 apply와 DNS 및 워크로드 준비 근거를 보존합니다. |
 | 2026-09-16 | in-progress | 테넌트 측 런타임 및 Genesis 이미지 생성 지침을 사전 빌드 서명 release 이미지 검증과 변경 없는 digest 미러링으로 교체했습니다. | `current change`, 문서 및 배포 스킬 계약만 변경했으며 구현은 그대로입니다. | 테넌트 이미지 builder와 복구 경로를 제거하고 운영 배포가 검증된 미러 또는 반입과 배포 digest 재확인만 수행함을 입증합니다. |
 | 2026-09-17 | implemented | 결정론적인 Azure 제공 `cloudapp.azure.com` hostname을 통해 일회용 Store Demo에 브라우저로 직접 접속할 수 있게 했습니다. Renderer는 `store-front`만 공개합니다. 준비 단계는 Load Balancer 주소를 기다리고 정확한 DNS 해석 및 HTTP 상태를 검증한 다음 보호된 workflow 요약에 검증된 URL을 게시합니다. | `current change`, `.github/workflows/sre-demo-lab.yml`, `infra/scenario-lab/`, `scripts/deployment/scenario-lab/`, `tests/integration/infra/test_scenario_lab.py`, 집중 scenario-lab, Terraform, workflow 및 문서 검사 | exact protected apply를 실행하여 DNS, Load Balancer 및 HTTP 상태 관찰을 보존하고 승인된 데모 기간 후 endpoint를 제거합니다. |

@@ -466,15 +466,39 @@ BROWSER_EVIDENCE_WORKSPACE_SQL: Final = """
 """
 
 AGENT_INVENTORY_ACTIVITY_SQL: Final = """
-SELECT s.id, s.status, s.source, s.observation_kind, s.started_at,
-       s.completed_at, s.promoted_at, s.failure_code,
-       (SELECT COUNT(*) FROM inventory_snapshot_resource r
-         WHERE r.snapshot_id=s.id) AS resource_count,
-       (SELECT COUNT(*) FROM inventory_snapshot_link l
-         WHERE l.snapshot_id=s.id) AS link_count
-  FROM inventory_snapshot s
- ORDER BY s.started_at DESC, s.id DESC
- LIMIT %(limit)s
+WITH recent AS MATERIALIZED (
+    SELECT id, status, source, observation_kind, started_at,
+           completed_at, promoted_at, failure_code,
+           resource_count, link_count
+      FROM inventory_snapshot
+     ORDER BY started_at DESC, id DESC
+     LIMIT %(limit)s
+),
+resource_counts AS (
+    SELECT resource.snapshot_id, COUNT(resource.resource_type) AS resource_count
+      FROM inventory_snapshot_resource AS resource
+      JOIN recent ON recent.id = resource.snapshot_id
+       AND recent.status IN ('active', 'superseded')
+       AND recent.resource_count IS NULL
+     GROUP BY resource.snapshot_id
+),
+link_counts AS (
+    SELECT link.snapshot_id, COUNT(*) AS link_count
+      FROM inventory_snapshot_link AS link
+      JOIN recent ON recent.id = link.snapshot_id
+       AND recent.status IN ('active', 'superseded')
+       AND recent.link_count IS NULL
+     GROUP BY link.snapshot_id
+)
+SELECT recent.id, recent.status, recent.source, recent.observation_kind,
+       recent.started_at, recent.completed_at, recent.promoted_at,
+       recent.failure_code,
+       COALESCE(recent.resource_count, resource_counts.resource_count, 0) AS resource_count,
+       COALESCE(recent.link_count, link_counts.link_count, 0) AS link_count
+  FROM recent
+  LEFT JOIN resource_counts ON resource_counts.snapshot_id = recent.id
+  LEFT JOIN link_counts ON link_counts.snapshot_id = recent.id
+ ORDER BY recent.started_at DESC, recent.id DESC
 """
 
 AGENT_ONTOLOGY_ACTIVITY_SQL: Final = """

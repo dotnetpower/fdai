@@ -12,6 +12,7 @@ from fdai.core.capability_catalog import (
 )
 from fdai.core.detection.configuration_drift_service import (
     ConfigurationBaselineSource,
+    ConfigurationDriftReportSink,
     ConfigurationDriftService,
     ConfigurationObservationSource,
 )
@@ -86,8 +87,13 @@ def bind_configuration_drift(
     expected_sha256: str,
     expected_scope: str,
     knowledge_source: KnowledgeSource | None = None,
+    report_sink: ConfigurationDriftReportSink | None = None,
 ) -> Container:
-    """Return a new container with one server-pinned read-only drift capability."""
+    """Bind a pinned read capability and its optional completed-evidence sink.
+
+    Runtime composition supplies the durable sink; omitting it preserves
+    stand-alone read/replay behavior without creating a Console projection.
+    """
 
     service = ConfigurationDriftService(
         baseline_source=baseline_source,
@@ -96,6 +102,7 @@ def bind_configuration_drift(
         expected_sha256=expected_sha256,
         expected_scope=expected_scope,
         knowledge_source=knowledge_source,
+        report_sink=report_sink,
     )
     return install_capability_bundle(
         container,

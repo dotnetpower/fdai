@@ -992,6 +992,23 @@ def test_postgres_aks_substrate_excludes_flexible_server() -> None:
     assert "module.key_vault" in targets
 
 
+def test_aks_substrate_includes_application_insights_secret_binding() -> None:
+    targets = set(
+        standalone_host._substrate_targets(
+            {
+                "runtime_profile": {
+                    "runtime_platform": "aks",
+                    "database_placement": "postgres-flex",
+                }
+            }
+        )
+    )
+
+    assert "azurerm_application_insights.core" in targets
+    assert "azurerm_key_vault_secret.application_insights_connection_string" in targets
+    assert "azurerm_role_assignment.core_application_insights_secret_reader" in targets
+
+
 def test_aks_substrate_includes_document_dependencies_without_container_apps() -> None:
     targets = set(
         standalone_host._substrate_targets(

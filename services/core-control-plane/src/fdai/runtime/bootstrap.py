@@ -145,11 +145,14 @@ async def _run() -> int:
                 raise RuntimeError(
                     "Azure configuration drift requires HTTP and workload identity bindings"
                 )
+            if state_store is None:
+                state_store = _build_audit_store()
             container = _attach_runtime_configuration_drift(
                 container,
                 http_client=resources.http_client,
                 identity=identity,
                 environment=os.environ,
+                state_store=state_store,
             )
 
         core_runtime: CoreRuntime | None = None

@@ -2168,6 +2168,23 @@ resource "azurerm_key_vault_secret" "state_store_dsn" {
   depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
 }
 
+resource "azurerm_key_vault_secret" "application_insights_connection_string" {
+  # checkov:skip=CKV_AZURE_41:Application Insights rotates the connection string through a new secret version; fixed expiry would interrupt telemetry without coordinating a rollout.
+  name         = "fdai-application-insights-connection-string"
+  value        = azurerm_application_insights.core.connection_string
+  key_vault_id = module.key_vault.id
+  content_type = "application-insights-connection-string"
+  tags         = local.tags
+
+  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
+}
+
+resource "azurerm_role_assignment" "core_application_insights_secret_reader" {
+  scope                = azurerm_key_vault_secret.application_insights_connection_string.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.identity.principal_id
+}
+
 resource "azurerm_key_vault_secret" "teams_workflow_endpoint" {
   count        = var.enable_operator_api ? 1 : 0
   name         = "fdai-teams-workflow-endpoint"
