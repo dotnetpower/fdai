@@ -593,13 +593,15 @@ function ApprovalCard({
         </footer>
         {item.correlation_id ? (
           <nav class="approval-card-actions" aria-label={t("approvals.relatedEvidence")}>
-            <a href={routeHref("incidents", { params: {
-              status: "all",
-              correlation: item.correlation_id,
-              data: dataMode === "sample" ? "sample" : null,
-            } })}>
-              {t("approvals.openIncident")}
-            </a>
+            {item.incident_available ? (
+              <a href={routeHref("incidents", { params: {
+                status: "all",
+                correlation: item.correlation_id,
+                data: dataMode === "sample" ? "sample" : null,
+              } })}>
+                {t("approvals.openIncident")}
+              </a>
+            ) : null}
             <a href={routeHref("trace", { params: {
               correlation: item.correlation_id,
               data: dataMode === "sample" ? "sample" : null,

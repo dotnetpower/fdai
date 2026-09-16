@@ -164,8 +164,8 @@ subscription and never requests admin credentials. Local `kubectl config view --
 must show one exec-only user, `kubelogin get-token`, one matching client and one MSI login option,
 without environment overrides. Failed conversion or mismatched readback stops before Kubernetes
 operations; neither browser/device-code login nor default/node identity is a fallback.
-The common plan-review validator accepts the existing `substrate`, `runtime`, `database` and
-`application` stages with the same exact digest, expiry and destructive-confirmation checks.
+Runtime topology inventory keeps the exact AKS ARM ID as its authorization binding, then converts it to the provider-neutral Resource identity before composing Kubernetes objects and relationships. This identity conversion does not widen the deployment scope or grant observation authority.
+The common plan-review validator accepts the existing `substrate`, `runtime`, `database` and `application` stages with the same exact digest, expiry and destructive-confirmation checks.
 Accepting an AKS stage never grants it approval or permission to skip an earlier stage.
 
 ## Runtime rendering
@@ -238,7 +238,7 @@ database membership nor supplies service-owned DSNs, and never enables Executor 
 
 Each FDAI workload keeps its current user-assigned Managed Identity. On AKS, one namespaced
 Kubernetes ServiceAccount receives one federated identity credential. The privileged Executor
-identity is never shared with the console, Operator Service, jobs, or other workloads.
+identity is never shared with the console, Operator Service, jobs, or other workloads. The optional dev operations gateway keeps reader and executor identities separate: tag canaries grant only `Tag Contributor` on the FDAI application resource group, while reader access covers preflight, post-write verification, and rollback confirmation. Versioning the ActionType refreshes exact ontology and Cost Governance profile pins, including both convergence-test expectations, without activating the package. This role does not promote `remediate.tag-add`; deployment and ActionType promotion remain separate approvals.
 
 The five baseline services select the Azure Identity SDK's workload credential when
 `AZURE_FEDERATED_TOKEN_FILE` is declared. The projected token path must be absolute, tenant and
@@ -302,7 +302,7 @@ the regional catalog once and uses an exact-name Azure CLI projection so only th
 SKUs are serialized, then checks their regional restrictions, three required zones, architecture,
 host encryption, and family plus total quota. It does not issue a second catalog request for a
 different node-pool SKU or retry a failed provider read. Unsupported targets do not disable
-encryption. Allocatable workload-envelope validation remains open in the implementation ledger. Container Insights combines the managed-identity `oms_agent` addon with a Terraform-owned Data Collection Rule (DCR) and cluster association. It sends the default stream each minute with `ContainerLogV2`; without the association and current workspace records, monitoring is unavailable.
+encryption. Allocatable workload-envelope validation remains open in the implementation ledger. Container Insights combines the managed-identity `oms_agent` addon with a Terraform-owned Data Collection Rule (DCR) and cluster association. The association reconstructs the exact cluster Resource ID from the authenticated subscription and reviewed deployment inputs instead of depending on the managed cluster resource, so a monitoring-only plan cannot admit unrelated cluster drift. It sends the default stream each minute with `ContainerLogV2`; without the association and current workspace records, monitoring is unavailable.
 
 The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
 ephemeral storage. Checkov exceptions stay attached to the affected resource: the pinned scanner

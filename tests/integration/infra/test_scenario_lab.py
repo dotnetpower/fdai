@@ -14,6 +14,9 @@ PREPARE_SCRIPT = REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "prepar
 SWEEP_SCRIPT = REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "run-reference-sweep.sh"
 CLEANUP_SCRIPT = REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "cleanup-runner.sh"
 STORE_RENDERER = REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "render_aks_store_demo.py"
+STORE_DOMAIN_VERIFIER = (
+    REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "verify_store_front_domain.py"
+)
 BASH = shutil.which("bash")
 assert BASH is not None
 
@@ -82,33 +85,54 @@ def test_scenario_lab_keeps_secrets_inside_the_sensitive_runner_output() -> None
     )
 
 
-def test_scenario_lab_renders_the_pinned_private_aks_store_demo() -> None:
+def test_scenario_lab_renders_the_pinned_aks_store_demo_domain() -> None:
     renderer = runpy.run_path(str(STORE_RENDERER))
     render_manifest = renderer["render_manifest"]
     replacements = renderer["IMAGE_REPLACEMENTS"]
     order_source = renderer["ORDER_SERVICE_REPLICA_SOURCE"]
+    store_front_source = renderer["STORE_FRONT_METADATA_SOURCE"]
+    store_admin_source = renderer["STORE_ADMIN_SERVICE_SOURCE"]
 
     source = (
         order_source
         + "\n"
         + "\n".join(f"image: {image}" for image in replacements)
-        + "\ntype: LoadBalancer\n"
-        + "type: LoadBalancer\n"
+        + "\n"
+        + store_front_source
+        + "  type: LoadBalancer\n"
+        + store_admin_source
     )
-    rendered = render_manifest(source)
+    rendered = render_manifest(source, "fdai-store-lab-krc-abc123")
 
     assert "replicas: 3" in rendered
     assert "replicas: 1" not in rendered
-    assert rendered.count("type: ClusterIP") == 2
-    assert "type: LoadBalancer" not in rendered
+    assert rendered.count("type: LoadBalancer") == 1
+    assert rendered.count("type: ClusterIP") == 1
+    assert (
+        'service.beta.kubernetes.io/azure-dns-label-name: "fdai-store-lab-krc-abc123"' in rendered
+    )
     for tagged_image, digest_image in replacements.items():
         assert tagged_image not in rendered
         assert f"image: {digest_image}" in rendered
 
 
+def test_scenario_lab_store_domain_verifier_checks_dns_and_health(monkeypatch) -> None:
+    verifier = runpy.run_path(str(STORE_DOMAIN_VERIFIER))
+    verify = verifier["verify"]
+    monkeypatch.setitem(
+        verify.__globals__,
+        "_resolved_addresses",
+        lambda hostname: {"203.0.113.10"},
+    )
+    monkeypatch.setitem(verify.__globals__, "_healthy", lambda hostname: True)
+
+    assert verify("fdai-store-lab-krc-abc123.koreacentral.cloudapp.azure.com", "203.0.113.10")
+
+
 def test_scenario_lab_prepares_store_demo_as_the_fault_target() -> None:
     prepare = PREPARE_SCRIPT.read_text(encoding="utf-8")
     outputs = (LAB_ROOT / "outputs.tf").read_text(encoding="utf-8")
+    main = (LAB_ROOT / "main.tf").read_text(encoding="utf-8")
     renderer = STORE_RENDERER.read_text(encoding="utf-8")
 
     assert 'SOURCE_COMMIT = "61b033448904a930f01d497ce7139aca87a1b12d"' in renderer
@@ -117,7 +141,14 @@ def test_scenario_lab_prepares_store_demo_as_the_fault_target() -> None:
         in renderer
     )
     assert len(re.findall(r"@sha256:[0-9a-f]{64}", renderer)) == 10
-    assert 'render_aks_store_demo.py" "$store_manifest"' in prepare
+    assert (
+        'render_aks_store_demo.py" \\\n  "$store_manifest" \\\n  "$store_front_dns_label"'
+        in prepare
+    )
+    assert "verify_store_front_domain.py" in prepare
+    assert "service/store-front" in prepare
+    assert "store-front-url" in prepare
+    assert "FDAI_STORE_FRONT_URL" in prepare
     assert "create deployment api-backend" not in prepare
     assert "rollout status statefulset/documentdb" in prepare
     assert "rollout status statefulset/rabbitmq" in prepare
@@ -130,6 +161,10 @@ def test_scenario_lab_prepares_store_demo_as_the_fault_target() -> None:
     assert 'backend_label         = "app=order-service"' in outputs
     assert 'backend_container     = "order-service"' in outputs
     assert "backend_replicas      = 3" in outputs
+    assert 'store_front_dns_label    = "fdai-store-${var.environment}-${var.region_short}-' in main
+    assert 'store_front_dns_hostname = "${local.store_front_dns_label}.${var.region}' in main
+    assert "store_front_dns_label = local.store_front_dns_label" in outputs
+    assert "store_front_hostname  = local.store_front_dns_hostname" in outputs
 
 
 def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
@@ -164,6 +199,9 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
         "${{ vars.SCENARIO_LAB_STRESS_VM_SIZE || 'Standard_B2s' }}" in workflow
     )
     assert "SCENARIO_LAB_BACKEND_IMAGE" not in workflow
+    assert "Configure AKS test substrate" in workflow
+    assert "printf 'store_front_url=%s\\n' \"$store_front_url\"" in workflow
+    assert "AKS Store Demo: %s" in workflow
     assert "DEV_ACCESS_VNET_ID" in workflow
     assert "Grant bounded scenario-lab deployment authority" in workflow
     assert "Revoke bounded scenario-lab deployment authority" in workflow
@@ -242,6 +280,7 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert 'CONFIRM_DESTROY" != "destroy-sre-demo-lab"' in workflow
     assert "terraform apply -input=false -auto-approve" not in workflow
     assert workflow.count("terraform apply -json -input=false -auto-approve") == 3
+    assert workflow.count("terraform apply -json -input=false -auto-approve -parallelism=2") == 1
     assert workflow.count('"$RUNNER_TEMP/sre-demo-lab.tfplan"') >= 3
     assert "terraform destroy" not in workflow
     assert "plan_args=(-destroy -refresh=false)" in workflow

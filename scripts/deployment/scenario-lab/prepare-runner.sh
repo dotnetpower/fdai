@@ -28,12 +28,15 @@ kubeconfig="$output_dir/kubeconfig"
 password_file="$output_dir/mysql-password"
 environment_file="$output_dir/enforce.env"
 store_manifest="$output_dir/aks-store-demo.yaml"
+store_front_url_file="$output_dir/store-front-url"
 terraform_output="$(terraform -chdir="$terraform_root" output -json enforce_environment)"
 
 subscription_id="$(jq -er '.subscription_id' <<<"$terraform_output")"
 resource_group="$(jq -er '.resource_group' <<<"$terraform_output")"
 aks_cluster_name="$(jq -er '.aks_cluster_name' <<<"$terraform_output")"
 vm_name="$(jq -er '.vm_name' <<<"$terraform_output")"
+store_front_dns_label="$(jq -er '.store_front_dns_label' <<<"$terraform_output")"
+store_front_hostname="$(jq -er '.store_front_hostname' <<<"$terraform_output")"
 
 active_subscription="$(az account show --query id --output tsv --only-show-errors)"
 if [[ "$active_subscription" != "$subscription_id" ]]; then
@@ -65,7 +68,9 @@ helm upgrade --install chaos-mesh chaos-mesh/chaos-mesh \
 
 kubectl create namespace fdai-sre-demo --dry-run=client --output=json \
   | kubectl apply --filename=-
-python3 "$repo_root/scripts/deployment/scenario-lab/render_aks_store_demo.py" "$store_manifest"
+python3 "$repo_root/scripts/deployment/scenario-lab/render_aks_store_demo.py" \
+  "$store_manifest" \
+  "$store_front_dns_label"
 kubectl --namespace fdai-sre-demo apply --filename="$store_manifest"
 kubectl --namespace fdai-sre-demo delete deployment,service api-backend \
   --ignore-not-found=true
@@ -73,6 +78,19 @@ kubectl --namespace fdai-sre-demo rollout status statefulset/documentdb --timeou
 kubectl --namespace fdai-sre-demo rollout status statefulset/rabbitmq --timeout=15m
 kubectl --namespace fdai-sre-demo wait --for=condition=available deployment \
   --all --timeout=15m
+kubectl --namespace fdai-sre-demo wait \
+  --for=jsonpath='{.status.loadBalancer.ingress[0].ip}' \
+  service/store-front \
+  --timeout=15m
+store_front_ip="$(
+  kubectl --namespace fdai-sre-demo get service/store-front \
+    --output=jsonpath='{.status.loadBalancer.ingress[0].ip}'
+)"
+python3 "$repo_root/scripts/deployment/scenario-lab/verify_store_front_domain.py" \
+  "$store_front_hostname" \
+  "$store_front_ip"
+printf 'http://%s\n' "$store_front_hostname" >"$store_front_url_file"
+chmod 600 "$store_front_url_file"
 
 readonly vm_run_command_max_attempts=20
 readonly vm_run_command_retry_seconds=15
@@ -152,6 +170,7 @@ write_export FDAI_ENFORCE_BACKEND_LABEL "$(jq -er '.backend_label' <<<"$terrafor
 write_export FDAI_ENFORCE_BACKEND_CONTAINER "$(jq -er '.backend_container' <<<"$terraform_output")"
 write_export FDAI_ENFORCE_BACKEND_REPLICAS "$(jq -er '.backend_replicas' <<<"$terraform_output")"
 write_export FDAI_ENFORCE_BACKEND_IMAGE "$(jq -er '.backend_image' <<<"$terraform_output")"
+write_export FDAI_STORE_FRONT_URL "http://$store_front_hostname"
 write_export FDAI_ENFORCE_VM "$vm_name"
 write_export FDAI_ENFORCE_MYSQL_HOST "$(jq -er '.mysql_host' <<<"$terraform_output")"
 write_export FDAI_ENFORCE_MYSQL_USER "$(jq -er '.mysql_user' <<<"$terraform_output")"

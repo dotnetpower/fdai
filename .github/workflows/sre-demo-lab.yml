@@ -689,7 +689,7 @@ jobs:
           print("Terraform apply diagnostic Azure codes: " + (", ".join(sorted(codes)) or "unavailable"))
           PY
           }
-          if ! terraform apply -json -input=false -auto-approve \
+          if ! terraform apply -json -input=false -auto-approve -parallelism=2 \
             "$RUNNER_TEMP/sre-demo-lab.tfplan" \
             >"$RUNNER_TEMP/sre-demo-lab-apply.log" 2>&1; then
             print_apply_diagnostic "$RUNNER_TEMP/sre-demo-lab-apply.log"
@@ -698,7 +698,7 @@ jobs:
           fi
           echo "scenario-lab Terraform apply completed."
 
-      - name: Configure private AKS test substrate
+      - name: Configure AKS test substrate
         if: inputs.action == 'apply'
         id: prepare
         working-directory: ${{ github.workspace }}
@@ -712,6 +712,14 @@ jobs:
             exit 1
           }
           printf 'environment_file=%s\n' "$environment_file" >>"$GITHUB_OUTPUT"
+          store_front_url_file="$output_dir/store-front-url"
+          [[ -f "$store_front_url_file" ]] || {
+            echo "scenario-lab environment preparation did not produce the Store Demo URL." >&2
+            exit 1
+          }
+          store_front_url="$(<"$store_front_url_file")"
+          printf 'store_front_url=%s\n' "$store_front_url" >>"$GITHUB_OUTPUT"
+          printf 'AKS Store Demo: %s\n' "$store_front_url" >>"$GITHUB_STEP_SUMMARY"
 
       - name: Run approved reference sweep
         if: inputs.action == 'apply' && inputs.run_reference_sweep

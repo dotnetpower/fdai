@@ -542,7 +542,10 @@ async def test_known_delete_envelope_persists_marker_and_cursor_only_after_compl
         marker = await state.read_state(marker_key)
         assert marker is not None
         assert marker["observed_at"] == "2026-07-10T06:15:00+00:00"
-        assert await state.read_state(cursor_key) == {"cursor": "2026-07-10T06:15:00+00:00"}
+        assert await state.read_state(cursor_key) == {
+            "cursor": "2026-07-10T06:15:00+00:00",
+            "relationship_reconciliation_after": "2026-07-10T06:15:00+00:00",
+        }
     else:
         assert written_keys == ([marker_key] if failure == "marker" else [])
         assert await state.read_state(marker_key) is None

@@ -690,8 +690,7 @@ test("renders Impact scope with the shared SVG instead of the retired Canvas", a
   await expect(page.locator('.architecture-topology-node[data-resource-id="vm"]'))
     .toHaveClass(/is-selected/);
   await expect(page.locator(".architecture-topology-resource.is-muted")).not.toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Open full architecture" }))
-    .toHaveAttribute("href", /resource=vm/);
+  await expect(page.locator('main a[href^="/architecture"]')).toHaveCount(0);
   await assertNoHorizontalOverflow(page);
   await captureArchitectureViewport(page, testInfo, "impact-desktop");
 });
