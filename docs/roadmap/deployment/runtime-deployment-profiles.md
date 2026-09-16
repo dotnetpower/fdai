@@ -120,7 +120,9 @@ Marketplace Ubuntu version and install the checksum-pinned toolchain during Foun
 not build or require a dedicated managed-host image. Artifact-offline deployments can still select
 a separately verified prebuilt host image when bootstrap downloads are unavailable.
 
-Tenant provisioning consumes prebuilt service and dependency images only. It verifies signatures,
+Tenant provisioning consumes prebuilt service and dependency images only. A complete release's
+closed dependency-image set includes both ClamAV and pgvector; neither can be omitted from the
+signed kit when one deployment profile does not use it. The provisioner verifies signatures,
 provenance, source revision, platform and digest before making the images available to AKS. It does
 not invoke Docker, Buildx, ACR Tasks, a remote builder or VM image capture. Release construction is
 an upstream supply-chain activity and is never recovered by rebuilding inside a tenant run.

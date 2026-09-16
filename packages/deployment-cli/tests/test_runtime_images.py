@@ -17,6 +17,7 @@ from fdai_deployment_cli.oci_archive import (
 )
 from fdai_deployment_cli.offline_kit import SIGNATURE_NAME
 from fdai_deployment_cli.runtime_release import (
+    RUNTIME_SIDECARS,
     RuntimeReleaseError,
     load_runtime_release,
     validate_runtime_images,
@@ -25,7 +26,9 @@ from fdai_deployment_cli.runtime_stage import stage_runtime_release
 
 pytest_plugins = ["test_offline_prepare"]
 PLATFORM = "linux-x86_64"
-IMAGES = [(name, "services") for name in SERVICES] + [("clamav", "sidecars")]
+IMAGES = [(name, "services") for name in SERVICES] + [
+    (name, "sidecars") for name in sorted(RUNTIME_SIDECARS)
+]
 
 
 def _load(root: Path):
@@ -36,7 +39,7 @@ def test_v2_checks_every_image_without_claiming_dependency_source(release) -> No
     root = release[0]
     runtime = _load(root)
     assert runtime.schema_version == "fdai.runtime-release.v2"
-    assert len(runtime.artifact_paths) == 22
+    assert len(runtime.artifact_paths) == 25
     catalog = runtime.to_mapping()
     checked = validate_runtime_images(root, runtime)
     assert checked == {
@@ -63,6 +66,7 @@ def test_dependency_validation_does_not_require_an_fdai_revision(tmp_path: Path,
     [
         "missing-sidecars",
         "missing-clamav",
+        "missing-pgvector",
         "extra-sidecar",
         "not-object",
         "missing-archive",
@@ -82,7 +86,7 @@ def test_sidecars_use_the_same_closed_catalog_boundary(release, defect: str) -> 
     clamav = sidecars["clamav"]
     if defect == "missing-sidecars":
         del catalog["sidecars"]
-    elif defect == "missing-clamav":
+    elif defect in {"missing-clamav", "missing-pgvector"}:
         del sidecars[defect.removeprefix("missing-")]
     elif defect == "extra-sidecar":
         sidecars["opa"] = clamav

@@ -4,8 +4,9 @@ import type {
 } from "../api-cost-governance";
 
 const SAMPLE_AT = "2026-08-31T09:00:00Z";
+const SAMPLE_DIGEST = `sha256:${"a".repeat(64)}`;
 
-const ITEMS: CostGovernanceProjection["items"] = [
+const COST_ITEMS: CostGovernanceProjection["items"] = [
   {
     record_id: "sample-compute",
     kind: "service-cost",
@@ -60,6 +61,76 @@ const ITEMS: CostGovernanceProjection["items"] = [
   },
 ];
 
+const OPTIMIZATION_CASE_ITEMS: CostGovernanceProjection["items"] = [
+  {
+    record_id: "sample-case-compute",
+    kind: "optimization_case",
+    resource: null,
+    service_id: "Compute",
+    amount_exact: 18400,
+    currency: "USD",
+    status: "review_ready",
+    observed_at: SAMPLE_AT,
+    completeness: 1,
+    relative_change: -0.08,
+    source_authority: "synthetic-preview",
+    provenance_digest: SAMPLE_DIGEST,
+  },
+  {
+    record_id: "sample-case-database",
+    kind: "optimization_case",
+    resource: null,
+    service_id: "Databases",
+    amount_exact: 49800,
+    currency: "USD",
+    status: "review_ready",
+    observed_at: SAMPLE_AT,
+    completeness: 1,
+    relative_change: -0.12,
+    source_authority: "synthetic-preview",
+    provenance_digest: SAMPLE_DIGEST,
+  },
+];
+
+const OUTCOME_ITEMS: CostGovernanceProjection["items"] = [
+  {
+    record_id: "sample-outcome-compute",
+    kind: "outcome",
+    resource: null,
+    service_id: "Compute",
+    amount_exact: 12800,
+    currency: "USD",
+    status: "effect_verified",
+    observed_at: SAMPLE_AT,
+    completeness: 1,
+    relative_change: -0.06,
+    source_authority: "synthetic-preview",
+    provenance_digest: SAMPLE_DIGEST,
+  },
+  {
+    record_id: "sample-outcome-database",
+    kind: "outcome",
+    resource: null,
+    service_id: "Databases",
+    amount_exact: 28600,
+    currency: "USD",
+    status: "effect_verified",
+    observed_at: SAMPLE_AT,
+    completeness: 1,
+    relative_change: -0.09,
+    source_authority: "synthetic-preview",
+    provenance_digest: SAMPLE_DIGEST,
+  },
+];
+
+function sampleItems(
+  surface: CostGovernanceSurface,
+): CostGovernanceProjection["items"] {
+  if (surface === "optimization-cases") return OPTIMIZATION_CASE_ITEMS;
+  if (surface === "outcomes") return OUTCOME_ITEMS;
+  return COST_ITEMS;
+}
+
 export function sampleCostGovernance(
   surface: CostGovernanceSurface,
 ): CostGovernanceProjection {
@@ -67,7 +138,7 @@ export function sampleCostGovernance(
     surface,
     complete: true,
     source_authority: "synthetic-preview",
-    items: ITEMS,
+    items: sampleItems(surface),
     suppressed_count: 0,
     analytics: {
       source_authority: "synthetic-preview",
