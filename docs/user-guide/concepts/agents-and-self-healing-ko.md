@@ -2,8 +2,8 @@
 title: 에이전트와 자가 치유
 description: FDAI의 고정된 에이전트 조직이 클라우드를 감시하고, 장애 해결을 위해 협력하며, 여러분이 승인 또는 거절에 집중하도록 돕는 방식입니다.
 translation_of: agents-and-self-healing.md
-translation_source_sha: fb54aa2e79cf14f102ae79dcd7ebb0ab93ca95fb
-translation_revised: 2026-09-09
+translation_source_sha: 572309ef4c66399008880d242d1cf9e93f3c5171
+translation_revised: 2026-09-16
 sidebar:
   order: 5
 ---

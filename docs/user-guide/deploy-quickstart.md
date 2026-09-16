@@ -61,7 +61,7 @@ uv tool update-shell
 ```
 
 The export constrains runtime dependency versions to the repository lock. The package comes from
-your checkout, not a same-named package on PyPI. Installation needs no Azure login, maintainer key,
+your checkout, not a same-named package on PyPI. Installation needs no Azure login, FDAI maintainer key,
 `sudo`, full application environment, or virtual-environment activation, and it does not deploy
 Azure resources. Stop if installation fails; do not continue with an older executable.
 
@@ -289,7 +289,7 @@ not mean that the selected application failed to deploy.
 If you configure analyzer targets directly, use `resource_id` for the logical FDAI Resource and
 `provider_resource_id` for the exact Azure resource ID used by metric queries. When inventory is
 available, FDAI can reconcile a legacy Azure ID to its logical Resource. Without inventory, provide
-both fields for metric-backed targets so findings and Incidents never expose the provider identity
+both fields for metric-backed targets so detected issues and Incidents never expose the provider identity
 as their target. Non-metric targets, such as Pod lifecycle evidence, use only their logical ID.
 
 The private work directory can contain SSH keys, target-specific inputs, plans, and recovery state.

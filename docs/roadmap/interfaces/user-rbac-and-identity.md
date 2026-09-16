@@ -612,7 +612,7 @@ may record a justified `approve` or `reject`. Self-approval is blocked; the sepa
 authority. `approved` still needs provider membership before a new token carries the role; approval
 and assignment principals remain separate. Future automation may consume, not rewrite, that projection.
 
-### 11.4 Handover authorization and readiness
+### 11.4 Ownership handover authorization and readiness
 
 These current-source boundaries preserve RBAC, ownership, evidence review, and execution as separate authorities.
 

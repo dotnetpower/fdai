@@ -166,7 +166,7 @@ Homepage images and geometry stay under `.fdai/homepage-premium/`. Automated
 checks supplement browser review; they are not a WCAG certification or a
 screen-reader usability study.
 
-See the [2026-09-13 UI/UX review](ui-ux-review.md) for the scoped findings,
+See the [2026-09-13 UI/UX review](ui-ux-review.md) for the scoped detected issues,
 completed fixes, and evidence limits.
 
 ## Local development
