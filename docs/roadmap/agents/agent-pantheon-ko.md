@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 0a8ac475e917762896bef24dbf6251b4c5cda48c
-translation_revised: 2026-09-15
+translation_source_sha: 7e532a0af1234cf4527cf9b0fbef2d22e69c23f1
+translation_revised: 2026-09-16
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -334,6 +334,11 @@ Bragi를 포함한 15개 에이전트 모두 정본 이름 또는 도메인 라�
 
 Bragi는 범위가 제한된 턴마다 스키마로 검증된 의미 판단 하나를 얻습니다. `draft_only` 작업은 운영자를 시작 주체로 유지한 채 타입 지정 파이프라인에 다시 들어가며 채팅은 실행하지 않습니다.
 읽기 도구는 모델 기반 의미 계획과 정확한 정본 도구 ID 소유권 검사를 사용합니다. 연결되지 않았거나 실패한 모델은 사용 불가를 반환하고 구문 사전으로 대체하지 않습니다. 소유 상태의 범위를 좁힐 때는 질문 안에서 내부 `.`, `_`, `-`를 포함한 완전한 정본 식별자만 매칭하며 더 긴 식별자의 접두사는 허용하지 않습니다.
+Forseti 읽기 도구 하나는 검토된 적응형 telemetry recipe id와 카탈로그 다이제스트를
+노출합니다. KQL, 작업 영역, 테이블, 엔드포인트, lookback 또는 필터를 받지 않으며
+`query_execution_authority: false`를 유지합니다. recipe 실행은 검증된 적응형 Process
+게이트웨이 뒤의 타입 지정 Heimdall 관측으로 남고 Saga가 Process 근거를 보존합니다. 이 도구는
+프로바이더를 조회하거나 대화에서 선택한 내용을 작업으로 바꿀 수 없습니다.
 단 하나의 정확한 `question_domains` 식별자는 여러 기여자에게 요청을 보내지 않고 스키마로 검증된 의미 경로를 해당 소유자로 확정합니다. 여러 식별자 또는 접두사만 일치하는 식별자는 의미 채점에 남깁니다.
 `PantheonRuntime.introspect`는 귀속되는 읽기 전용 peer 변환 결과와 digest-only Bragi Turn을 제공하며 제한된 표현 discussion은 [conversational-deliberation-ko.md](conversational-deliberation-ko.md)에 정의합니다.
 

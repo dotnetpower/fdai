@@ -26,9 +26,10 @@ Query trust model
 
 Unlike the metric adapter (a trusted, CSP-neutral ``metric_name`` -> KQL
 template), the ``LogQueryProvider`` contract takes an **opaque, caller-
-supplied KQL query** - the narrator composes it and the tool passes it
-through. That input is untrusted, so the adapter bounds it structurally
-rather than trusting it:
+supplied KQL query** from an explicit operator command. Narrator-visible
+schemas exclude this command, so agents and model-backed read plans cannot
+author raw KQL. The input remains untrusted, and the adapter bounds it
+structurally rather than trusting it:
 
 - **Read-only language**: Log Analytics KQL is a query-only language over
   a single workspace; it cannot mutate or delete data. Combined with the

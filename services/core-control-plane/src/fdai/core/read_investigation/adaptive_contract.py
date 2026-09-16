@@ -21,6 +21,13 @@ from fdai.core.rca.discrimination import (
     build_hypothesis_discrimination_frame,
 )
 
+from .adaptive_source_metadata import (
+    AdaptiveObservationSourceMetadata,
+    _execution_material,
+    _source_metadata_material,
+    validate_source_metadata_lineage,
+)
+
 MAX_ADAPTIVE_ROUNDS = 8
 MAX_ADAPTIVE_QUERIES = 8
 MAX_ADAPTIVE_COST_UNITS = 1_000_000_000
@@ -156,6 +163,7 @@ class AdaptiveObservationExecution:
     reserved_cost_units: int
     actual_cost_units: int | None
     execution_digest: str
+    source_metadata: AdaptiveObservationSourceMetadata | None = None
     execution_authority: Literal[False] = False
     mutation_authority: Literal[False] = False
 
@@ -185,6 +193,11 @@ class AdaptiveObservationExecution:
             or not 0 <= self.actual_cost_units <= MAX_ADAPTIVE_COST_UNITS
         ):
             raise ValueError("actual_cost_units MUST be bounded or unknown")
+        if self.source_metadata is not None and not isinstance(
+            self.source_metadata,
+            AdaptiveObservationSourceMetadata,
+        ):
+            raise ValueError("adaptive observation source metadata has an invalid type")
         _authority_free(
             "adaptive observation execution",
             self.execution_authority,
@@ -299,6 +312,7 @@ class AdaptiveInvestigationIteration:
                 raise ValueError(
                     "adaptive iteration execution does not match the selected candidate"
                 )
+            validate_source_metadata_lineage(self.execution, self.frame.evidence_cutoff)
         if self.revision is not None:
             if self.execution is None:
                 raise ValueError("adaptive iteration revision requires an execution")
@@ -719,6 +733,7 @@ def build_adaptive_observation_execution(
     evidence_refs: tuple[str, ...],
     reserved_cost_units: int,
     actual_cost_units: int | None,
+    source_metadata: AdaptiveObservationSourceMetadata | None = None,
 ) -> AdaptiveObservationExecution:
     """Build one content-addressed execution lineage receipt."""
 
@@ -739,6 +754,8 @@ def build_adaptive_observation_execution(
         "execution_authority": False,
         "mutation_authority": False,
     }
+    if source_metadata is not None:
+        material["source_metadata"] = _source_metadata_material(source_metadata)
     return AdaptiveObservationExecution(
         round_index=round_index,
         frame_digest=frame_digest,
@@ -753,6 +770,7 @@ def build_adaptive_observation_execution(
         reserved_cost_units=reserved_cost_units,
         actual_cost_units=actual_cost_units,
         execution_digest=content_digest(material),
+        source_metadata=source_metadata,
     )
 
 
@@ -835,25 +853,6 @@ def _result_material(result: AdaptiveInvestigationResult) -> dict[str, object]:
     }
 
 
-def _execution_material(execution: AdaptiveObservationExecution) -> dict[str, object]:
-    return {
-        "round_index": execution.round_index,
-        "frame_digest": execution.frame_digest,
-        "selection_digest": execution.selection_digest,
-        "candidate_digest": execution.candidate_digest,
-        "binding_digest": execution.binding_digest,
-        "verification_receipt_digest": execution.verification_receipt_digest,
-        "plan_digest": execution.plan_digest,
-        "result_digest": execution.result_digest,
-        "query_status": execution.query_status,
-        "evidence_refs": list(execution.evidence_refs),
-        "reserved_cost_units": execution.reserved_cost_units,
-        "actual_cost_units": execution.actual_cost_units,
-        "execution_authority": False,
-        "mutation_authority": False,
-    }
-
-
 def _text(name: str, value: str) -> None:
     if not value.strip() or len(value) > 512:
         raise ValueError(f"{name} MUST be non-empty and bounded")
@@ -919,6 +918,7 @@ __all__ = [
     "AdaptiveQueryAuthorityContext",
     "AdaptiveInvestigationResult",
     "AdaptiveObservationExecution",
+    "AdaptiveObservationSourceMetadata",
     "HypothesisRevisionSet",
     "VerifiedObservationPlanBinding",
     "build_adaptive_investigation_iteration",

@@ -1279,7 +1279,24 @@
     "investigationHypotheses": "{count} active hypotheses",
     "investigationNoSelection": "No observation selected",
     "investigationSeparation": "Separated hypothesis pairs: {separated} of {total}",
-    "investigationShadow": "Shadow comparison"
+    "investigationShadow": "Shadow comparison",
+    "investigationRecipe": "Recipe",
+    "investigationSourceState": "Source state",
+    "investigationRouteCoverage": "Route coverage",
+    "investigationRows": "Rows",
+    "investigationLatency": "Latency",
+    "investigationObservedUntil": "Observed until",
+    "investigationUnavailable": "Unavailable",
+    "telemetryMechanism": {
+      "failedRequests": "Failed requests",
+      "errorTimeline": "Error timeline",
+      "dependencyLatency": "Dependency latency",
+      "slowTraces": "Slow traces",
+      "guestShutdown": "Guest shutdown",
+      "containerRestarts": "Container restarts",
+      "throttling": "Request throttling",
+      "resourceSaturation": "Resource saturation"
+    }
   },
   "scope": {
     "subtitle": "Effective monitoring and automated-action scope by subscription and resource group. Read-only: authoring a change generates a policy-as-code artifact you submit as a fix / config PR (GitOps); the console never writes scope.",

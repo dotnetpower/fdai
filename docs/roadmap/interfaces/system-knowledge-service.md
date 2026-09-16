@@ -147,6 +147,9 @@ message delivery, or authority.
 Threshold-parity source revisions follow the same rule: the catalog records the reviewed hard-bound and configuration separation but does not select an active threshold, promote a policy, or grant runtime authority.
 Question-bank source integration and owner-doc compaction follow the same rule: refreshing the
 generated digest preserves 400 questions without certifying semantic coverage or live evidence.
+Adaptive Azure Monitor investigation sources follow it as well: the catalog describes reviewed
+recipe selection, fixed-KQL execution, and no-data limits without exposing raw KQL or granting
+query authority.
 Document baseline validation rejects non-finite inputs and derived rates. Refreshing its source
 pins records that numeric contract, not an authenticated corpus receipt or measured deployment capacity.
 Post-turn migration citations follow the shared Operator rollback contract: evidence inherited

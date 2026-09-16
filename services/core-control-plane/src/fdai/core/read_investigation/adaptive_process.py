@@ -379,6 +379,30 @@ class AdaptiveInvestigationProcessRecorder:
                 "evidence_refs": list(iteration.execution.evidence_refs),
                 "reserved_cost_units": iteration.execution.reserved_cost_units,
                 "actual_cost_units": iteration.execution.actual_cost_units,
+                "source_metadata": (
+                    {
+                        "source_kind": iteration.execution.source_metadata.source_kind,
+                        "receipt_digest": iteration.execution.source_metadata.receipt_digest,
+                        "recipe_id": iteration.execution.source_metadata.recipe_id,
+                        "recipe_version": iteration.execution.source_metadata.recipe_version,
+                        "disposition": iteration.execution.source_metadata.disposition,
+                        "observed_until": (
+                            _timestamp(iteration.execution.source_metadata.observed_until)
+                            if iteration.execution.source_metadata.observed_until is not None
+                            else None
+                        ),
+                        "route_count": iteration.execution.source_metadata.route_count,
+                        "queried_route_count": (
+                            iteration.execution.source_metadata.queried_route_count
+                        ),
+                        "row_count": iteration.execution.source_metadata.row_count,
+                        "latency_ms": iteration.execution.source_metadata.latency_ms,
+                        "complete": iteration.execution.source_metadata.complete,
+                        "truncated": iteration.execution.source_metadata.truncated,
+                    }
+                    if iteration.execution.source_metadata is not None
+                    else None
+                ),
             }
         if iteration.revision is not None:
             payload["revision"] = {

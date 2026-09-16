@@ -215,11 +215,10 @@ class LlmBindings:
 
 @dataclass(frozen=True, slots=True)
 class Container:
-    """Bag of already-bound seams handed to the rest of the app.
+    """Immutable bag of already-bound seams handed to the rest of the app.
 
-    Immutable so a caller cannot silently rewire a seam mid-flight. A
-    fork MAY produce a new :class:`Container` via
-    :func:`dataclasses.replace` to substitute individual seams without
+    A caller cannot silently rewire a seam mid-flight. A fork MAY produce a new
+    :class:`Container` via :func:`dataclasses.replace` to substitute seams without
     editing ``core/``.
     """
 
@@ -246,6 +245,7 @@ class Container:
     live_blast_probe: LiveBlastProbe | None = None
     log_query_provider: LogQueryProvider = field(default_factory=NoopLogQueryProvider)
     trace_query_provider: TraceQueryProvider = field(default_factory=NoopTraceQueryProvider)
+    telemetry_evidence_provider: _rca.TelemetryEvidenceProvider | None = None
     inventory: Inventory = field(default_factory=EmptyInventory)
     knowledge_source: KnowledgeSource = field(default_factory=EmptyKnowledgeSource)
     change_feed: ChangeFeed = field(default_factory=EmptyChangeFeed)

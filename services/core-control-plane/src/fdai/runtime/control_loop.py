@@ -100,6 +100,7 @@ from fdai.rule_catalog.schema.resource_type import (
 from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
+from fdai.runtime.adaptive_telemetry import build_adaptive_telemetry_from_container
 from fdai.runtime.alert_noise_control import build_alert_workflow_bindings
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
 from fdai.runtime.control_loop_execution_ports import (
@@ -382,9 +383,15 @@ def _build_control_loop(
         action_types_by_name=action_types_by_name,
         ontology_release=ontology_release,
     )
-
     audit_store = audit_store or _build_audit_store()
     process_runtime_store = _build_process_store()
+    adaptive_telemetry_investigator = build_adaptive_telemetry_from_container(
+        container=container,
+        process_store=process_runtime_store,
+        ontology_release=ontology_release,
+        action_types=action_types,
+        environment=os.environ,
+    )
     publisher: Any = None
     renderer: TemplateRenderer | None = None
     resource_lock: Any = _build_resource_lock()
@@ -754,6 +761,7 @@ def _build_control_loop(
         rca_catalog_revision=rca_catalog_revision,
         resource_dependency_graph=container.resource_dependency_graph or None,
         causal_runtime_coordinator=causal_runtime_coordinator,
+        adaptive_telemetry_investigator=adaptive_telemetry_investigator,
         hil_resume_coordinator=hil_resume_coordinator,
         workflow_coordinator=workflow_coordinator,
         alert_workflows=alert_bindings.workflows,

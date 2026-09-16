@@ -451,8 +451,40 @@ function InvestigationRoom({
               {round.selected_candidate_id ?? round.hold_reason ?? t("processesView.investigationNoSelection")}
             </p>
             <div class="investigation-hypotheses">
-              {round.active_hypothesis_ids.map((hypothesis) => <code key={hypothesis}>{hypothesis}</code>)}
+              {round.active_hypothesis_ids.map((hypothesis) => (
+                <code key={hypothesis} title={hypothesis}>{investigationHypothesisLabel(hypothesis)}</code>
+              ))}
             </div>
+            {round.execution?.source_metadata ? (
+              <dl class="investigation-meta investigation-source-meta">
+                <div>
+                  <dt>{t("processesView.investigationRecipe")}</dt>
+                  <dd><code>{round.execution.source_metadata.recipe_id}@{round.execution.source_metadata.recipe_version}</code></dd>
+                </div>
+                <div>
+                  <dt>{t("processesView.investigationSourceState")}</dt>
+                  <dd>{round.execution.source_metadata.disposition}</dd>
+                </div>
+                <div>
+                  <dt>{t("processesView.investigationRouteCoverage")}</dt>
+                  <dd>{round.execution.source_metadata.queried_route_count} / {round.execution.source_metadata.route_count}</dd>
+                </div>
+                <div>
+                  <dt>{t("processesView.investigationRows")}</dt>
+                  <dd>{round.execution.source_metadata.row_count}</dd>
+                </div>
+                <div>
+                  <dt>{t("processesView.investigationLatency")}</dt>
+                  <dd>{round.execution.source_metadata.latency_ms} ms</dd>
+                </div>
+                <div>
+                  <dt>{t("processesView.investigationObservedUntil")}</dt>
+                  <dd>{round.execution.source_metadata.observed_until
+                    ? formatConsoleTimestamp(round.execution.source_metadata.observed_until)
+                    : t("processesView.investigationUnavailable")}</dd>
+                </div>
+              </dl>
+            ) : null}
             <small>
               {t("processesView.investigationSeparation", {
                 separated: round.separated_pair_count,
@@ -468,6 +500,20 @@ function InvestigationRoom({
       </ol>
     </section>
   );
+}
+
+function investigationHypothesisLabel(hypothesis: string): string {
+  switch (hypothesis) {
+    case "telemetry:failed_requests": return t("processesView.telemetryMechanism.failedRequests");
+    case "telemetry:error_timeline": return t("processesView.telemetryMechanism.errorTimeline");
+    case "telemetry:dependency_latency": return t("processesView.telemetryMechanism.dependencyLatency");
+    case "telemetry:slow_traces": return t("processesView.telemetryMechanism.slowTraces");
+    case "telemetry:guest_shutdown": return t("processesView.telemetryMechanism.guestShutdown");
+    case "telemetry:container_restarts": return t("processesView.telemetryMechanism.containerRestarts");
+    case "telemetry:throttling": return t("processesView.telemetryMechanism.throttling");
+    case "telemetry:resource_saturation": return t("processesView.telemetryMechanism.resourceSaturation");
+    default: return hypothesis;
+  }
 }
 
 function PlanningRoom({ planning }: { readonly planning: PlanningRoomData }) {
