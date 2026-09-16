@@ -16,6 +16,11 @@ second execution authority.
 > repository-source setup. Provider credentials remain in Settings > Integrations, and unconfigured
 > GitHub, GitLab, or Azure DevOps connectors stay explicitly unavailable.
 >
+> **Environment setup boundary:** Readiness and deployment-run evidence share Settings >
+> Environment and deployment. `/onboarding` and `/provisioning` remain compatibility routes rather
+> than primary Operations destinations. Both views remain read-only and cannot start, retry,
+> approve, or alter provisioning.
+>
 ## Design at a glance
 
 The Operations area reads existing domain projections and submits requests through the domain path

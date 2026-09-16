@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 82d769beae837c92c54ca4e551fc9a70f91f774a
+translation_source_sha: c93b62fd9ab6a43c2ce562233659fb53ea209c4d
 translation_revised: 2026-09-17
 ---
 
@@ -18,6 +18,10 @@ translation_revised: 2026-09-17
 > **지식 경계:** `Knowledge` / `지식`은 거버넌스가 적용된 문서 업로드와 리포지토리 원본
 > 설정을 위한 동급 탐색 그룹입니다. 공급자 자격 증명은 설정 > 통합에서 관리하며, 구성되지
 > 않은 GitHub, GitLab 또는 Azure DevOps 커넥터는 명시적으로 사용할 수 없는 상태를 유지합니다.
+>
+> **환경 설정 경계:** 준비 상태와 배포 실행 근거는 설정 > 환경 및 배포에서 함께 제공합니다.
+> `/onboarding`과 `/provisioning`은 운영의 기본 탐색 대상이 아니라 호환 경로로 유지합니다.
+> 두 보기는 모두 읽기 전용이며 프로비저닝을 시작, 재시도, 승인 또는 변경할 수 없습니다.
 >
 ## 설계 요약
 

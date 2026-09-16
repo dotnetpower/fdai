@@ -230,7 +230,7 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
         </AsyncBoundary>
         <nav class="settings-integration-links" aria-label={t("settings.integrationEvidence")}>
           <a href={routeHref("settings-diagnostics")}>{t("route.settingsDiagnostics")}</a>
-          <a href={routeHref("onboarding")}>{t("route.onboarding")}</a>
+          <a href={routeHref("settings-environment")}>{t("route.settingsEnvironment")}</a>
         </nav>
       </section>
       <DocumentOcrSettingsPanel client={client} auth={auth} />

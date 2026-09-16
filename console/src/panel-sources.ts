@@ -49,6 +49,7 @@ const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
   "workflow-builder": ["/workflows/catalog", "/workflows/action-types", "/workflows/definitions", "/python-tasks/capabilities"],
   skills: ["/skills"],
   "settings-general": ["/me/context"],
+  "settings-environment": ["/onboarding", "/provision/stream"],
   "settings-models": ["/models/settings"],
   "settings-runtime": ["/runtime/settings"],
   "settings-memory": ["/operator-memory"],
