@@ -1,7 +1,7 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 093e0c81580c01f470a0d95895f642fe3494de4d
-translation_revised: 2026-09-14
+translation_source_sha: 8bc9e5887c09a3279464bc297b050c8b3b9a5274
+translation_revised: 2026-09-17
 ---
 # 영구 대화 전송
 
@@ -288,7 +288,7 @@ Slack 및 Teams 결과를 제출해야 합니다. 이미 저장된 결과 요약
 해당 페이로드는 `read_only=true` 및 `mutations_available=false`를 설정하고 집계만 담으므로
 답변 본문과 주체, 범위, 대화, 전달, 시도, 공급자 식별자를 포함하지 않습니다. 패널은 스냅샷
 읽기 능력에만 도달하며 Console은 일시 중지, 재개, 재시도, 중복 위험 재정의 또는 재전송 제어를
-노출해서는 안 됩니다. 아직 Console 경로나 운영 저장소가 이 투영을 연결하지 않았습니다.
+노출해서는 안 됩니다. 아직 Core 패널 클래스 자체를 운영 저장소에 연결하지는 않았습니다. 독립 Operator의 `RuntimeProjectionReader`는 기존 Console 경로에 영속 전달 테이블의 집계를 직접 제공하며, `conversation_adapter_breaker.mode`별 개수도 포함합니다. 빈 맵은 조회 결과에 기록된 차단기가 없다는 뜻입니다. 조회 실패나 잘못된 모드는 빈 맵으로 대체하지 않고 사용 불가로 표시합니다.
 
 ## 검증
 

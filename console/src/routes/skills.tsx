@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import { EvidenceRefresh } from "../components/evidence-refresh";
 import {
   AsyncBoundary,
   DataTable,
@@ -101,9 +102,11 @@ export interface RuntimeSkillsResponse {
 }
 
 export function SkillsRoute({ client }: { readonly client: OperatorApiClient }) {
+  const [refreshRevision, setRefreshRevision] = useState(0);
   const [state, setState] = useState<AsyncState<RuntimeSkillsResponse>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
+    setState({ status: "loading" });
     client.panel<unknown>("/skills")
       .then((value) => {
         if (!cancelled) setState({ status: "ready", data: decodeRuntimeSkills(value) });
@@ -117,10 +120,15 @@ export function SkillsRoute({ client }: { readonly client: OperatorApiClient }) 
         }
       });
     return () => { cancelled = true; };
-  }, [client]);
+  }, [client, refreshRevision]);
   return (
     <div class="stack skills-route">
-      <PageHeader title={t("route.skills")} subtitle={t("nav.panelSub.skills")} />
+      <PageHeader title={t("route.skills")} subtitle={t("nav.panelSub.skills")} actions={
+        <EvidenceRefresh loading={state.status === "loading"} onRefresh={() => {
+          setState({ status: "loading" });
+          setRefreshRevision((revision) => revision + 1);
+        }} />
+      } />
       <AsyncBoundary state={state} resourceLabel={t("governance.skills.resourceLabel")}>
         {(data) => <SkillsBody data={data} />}
       </AsyncBoundary>

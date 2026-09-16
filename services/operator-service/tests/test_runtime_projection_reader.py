@@ -681,6 +681,9 @@ async def test_remaining_console_evidence_projects_durable_tables(
         del self
         if "GROUP BY state" in statement:
             return [{"state": "delivered", "count": 1}]
+        if "FROM conversation_adapter_breaker" in statement:
+            assert "GROUP BY mode ORDER BY mode" in statement
+            return [{"mode": "open", "count": 2}, {"mode": "closed", "count": 1}]
         if "COUNT(*) AS delivery_count" in statement:
             return [
                 {
@@ -710,7 +713,11 @@ async def test_remaining_console_evidence_projects_durable_tables(
         if "payload->>'label' AS label" in statement:
             return []
         if "FROM forecast_publication_outbox" in statement:
+            assert statement.count("available_at <= now()") == 2
+            assert "MIN(created_at)" in statement
             return [{"pending": 0, "dead_lettered": 0, "oldest_pending_at": None}]
+        if "FROM operator_forecast_retention" in statement:
+            return [{"pending": 2, "overdue": 3}]
         if "FROM operator_memory " in statement:
             assert parameters == ("resource", "resource", "resource-1", "resource-1")
             return [
@@ -777,10 +784,12 @@ async def test_remaining_console_evidence_projects_durable_tables(
     baselines = await reader.read(_query("configuration-baselines"))
 
     assert delivery["delivery_count"] == 1
+    assert delivery["breaker_states"] == {"open": 2, "closed": 1}
     assert delivery["retry_count"] == 1
     assert delivery["acknowledgement_count"] == 1
     assert forecast["episodes"]["total"] == 0
     assert forecast["episodes"]["closure_completeness"] is None
+    assert forecast["retention"] == {"pending": 2, "overdue": 3}
     assert memory["items"][0]["id"] == "memory-1"
     assert memory["items"][0]["active"] is True
     assert skills["installed_count"] == 0
@@ -796,6 +805,42 @@ async def test_remaining_console_evidence_projects_durable_tables(
     assert baselines["baseline"]["version"] == "not-published"
     assert baselines["drift"]["verdict"] == "not-evaluated"
     assert baselines["performance"] is None
+
+
+@pytest.mark.parametrize("retention", ([], [{"pending": -1, "overdue": 0}]))
+async def test_forecast_retention_does_not_replace_missing_or_malformed_evidence_with_zero(
+    monkeypatch: pytest.MonkeyPatch, retention: list[dict[str, object]]
+) -> None:
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        if "FROM operator_forecast_retention" in statement:
+            return retention
+        if "COUNT(*) AS total" in statement:
+            return [
+                {
+                    "total": 0,
+                    "closed": 0,
+                    "open": 0,
+                    "overdue": 0,
+                    "abstained": 0,
+                    "due_total": 0,
+                    "due_closed": 0,
+                }
+            ]
+        if "GROUP BY" in statement:
+            return []
+        return [{"pending": 0, "dead_lettered": 0, "oldest_pending_at": None}]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+    with pytest.raises(ProjectionUnavailableError):
+        await reader.read(_query("forecast-learning"))
 
 
 @pytest.mark.parametrize(
@@ -829,6 +874,8 @@ async def test_forecast_summary_uses_due_cohort_and_recorded_outcome_provenance(
                     "due_closed": due_closed,
                 }
             ]
+        if "FROM operator_forecast_retention" in statement:
+            return [{"pending": 0, "overdue": 0}]
         assert "FROM forecast_publication_outbox" in statement
         if "GROUP BY" in statement:
             assert "topic = 'object.forecast-outcome'" in statement
@@ -882,6 +929,27 @@ async def test_forecast_summary_rejects_unlabeled_outcome_records(
     )
     with pytest.raises(ProjectionUnavailableError, match="outcome label"):
         await reader.read(_query("forecast-learning"))
+
+
+@pytest.mark.parametrize("mode", ("", "unexpected", None))
+async def test_delivery_rejects_malformed_recorded_breaker_modes(
+    monkeypatch: pytest.MonkeyPatch, mode: str | None
+) -> None:
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        if "FROM conversation_adapter_breaker" in statement:
+            return [{"mode": mode, "count": 1}]
+        return []
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"), RecordingFallback()
+    )
+    with pytest.raises(ProjectionUnavailableError, match="breaker mode"):
+        await reader.read(_query("conversation-delivery"))
 
 
 @pytest.mark.parametrize(

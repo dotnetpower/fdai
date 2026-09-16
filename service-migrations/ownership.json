@@ -7,6 +7,14 @@
   },
   "migration_dependencies": [
     {
+      "consumer_service": "operator-service",
+      "consumer_revision": "operator_forecast_retention_20260917",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_runtime_role_20260809",
+      "schema_prerequisites": ["case_history"],
+      "provider_rollback": "blocked-until-operator-forecast-retention-rollback"
+    },
+    {
       "consumer_service": "core-control-plane",
       "consumer_revision": "core_handover_review_read_20260914",
       "provider_service": "document-processing-worker",
