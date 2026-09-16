@@ -27,6 +27,7 @@ def approval_request_fingerprint(
     blast_radius_summary: str,
     ttl_seconds: int,
     assignee_oid: str | None,
+    route_digest: str | None = None,
 ) -> str:
     """Return the canonical identity of one approval request."""
     payload = {
@@ -39,6 +40,8 @@ def approval_request_fingerprint(
         "ttl_seconds": ttl_seconds,
         "assignee_oid": assignee_oid,
     }
+    if route_digest is not None:
+        payload["route_digest"] = route_digest
     canonical = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 

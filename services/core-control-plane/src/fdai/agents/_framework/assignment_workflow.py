@@ -176,7 +176,13 @@ async def review_assignment(
     if (
         payload.get("audited_topic") != "object.verdict"
         or decision.disposition != "validated"
-        or decision.notice.operation != "assignments.review"
+        or (
+            decision.notice.operation != "assignments.review"
+            and not (
+                decision.notice.schema_version == "1.3.0"
+                and decision.notice.operation == "assignments.confirm"
+            )
+        )
     ):
         return
     reviewed = AssignmentAgentDecision(
@@ -193,7 +199,11 @@ async def review_assignment(
             reviewed = AssignmentAgentDecision(
                 notice=decision.notice,
                 disposition="reviewed",
-                reason="independent_review_verified",
+                reason=(
+                    "human_confirmation_verified"
+                    if decision.notice.operation == "assignments.confirm"
+                    else "independent_review_verified"
+                ),
             )
     await _publish(agent, "object.approval", reviewed)
 
@@ -207,10 +217,12 @@ async def materialize_assignment(
 ) -> None:
     """Muninn applies only the matching Saga seal, then emits its owned StateSnapshot."""
     decision = _sealed(payload)
+    requires_human_seal = decision.notice.operation == "assignments.review" or (
+        decision.notice.schema_version == "1.3.0"
+        and decision.notice.operation == "assignments.confirm"
+    )
     expected = (
-        ("object.approval", "reviewed")
-        if decision.notice.operation == "assignments.review"
-        else ("object.verdict", "validated")
+        ("object.approval", "reviewed") if requires_human_seal else ("object.verdict", "validated")
     )
     if (payload.get("audited_topic"), decision.disposition) != expected:
         return

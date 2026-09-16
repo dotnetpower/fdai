@@ -40,6 +40,7 @@ from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentit
 from fdai.delivery.metric_window import ProviderMetricWindowReader
 from fdai.delivery.operational_lineage import EffectReconciliationLineageMaterializer
 from fdai.delivery.persistence.postgres_topology_history import PostgresTopologyHistoryStore
+from fdai.runtime.approval_policy import approver_authorizer_from_environment
 from fdai.runtime.bootstrap import (
     _RUNTIME_LOGICAL_TOPICS,
     _schedule_semantic_turn_consumer,
@@ -77,7 +78,6 @@ from fdai.runtime.bootstrap_lifecycle import (
     semantic_turn_readiness_registration as _semantic_turn_readiness_registration,
 )
 from fdai.runtime.bootstrap_pantheon import (
-    _approver_authorizer_from_env,
     _bind_post_turn_learning,
     _pantheon_enforce_enabled,
     _runtime_asset_root,
@@ -185,7 +185,7 @@ def test_pantheon_enforce_requires_deployment_authority_ceiling() -> None:
 
 
 def test_pantheon_approver_policy_is_explicit_and_action_scoped() -> None:
-    authorizer = _approver_authorizer_from_env(
+    authorizer = approver_authorizer_from_environment(
         {
             "FDAI_PANTHEON_APPROVER_ACTIONS_JSON": (
                 '{"Approver-A":["ops.restart-service","ops.failover-primary"]}'
@@ -202,7 +202,7 @@ def test_pantheon_approver_policy_is_explicit_and_action_scoped() -> None:
 @pytest.mark.parametrize("raw", ["[]", '{"approver":[]}', '{"approver":[1]}'])
 def test_pantheon_approver_policy_rejects_invalid_contract(raw: str) -> None:
     with pytest.raises(ValueError, match="APPROVER_ACTIONS_JSON"):
-        _approver_authorizer_from_env({"FDAI_PANTHEON_APPROVER_ACTIONS_JSON": raw})
+        approver_authorizer_from_environment({"FDAI_PANTHEON_APPROVER_ACTIONS_JSON": raw})
 
 
 def test_runtime_multiplexes_startup_readiness_transitions() -> None:

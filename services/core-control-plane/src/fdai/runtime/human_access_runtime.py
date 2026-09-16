@@ -31,7 +31,7 @@ from fdai.delivery.identity.human_access_observer import IndependentHumanAccessO
 from fdai.delivery.identity.scoped_duty_directory import EntraDutySubjectResolver
 from fdai.delivery.identity.scoped_duty_owners import CurrentScopedDutyOwners
 from fdai.delivery.persistence.state_store_action_promotion import StateStoreActionPromotionRegistry
-from fdai.runtime.bootstrap_pantheon import _approver_authorizer_from_env
+from fdai.runtime.approval_policy import approver_authorizer_from_environment
 from fdai.runtime.human_access_workflow import HumanAccessWorkflowRuntime
 from fdai.runtime.safeguard_isolated_executor import SafeguardBoundEventBusDirectApiExecutionClient
 from fdai.shared.providers.state_store import StateStore
@@ -92,7 +92,11 @@ def build_human_access_workflow(
     recovery = HumanAccessRecoverySource(builder, port.coordinator.target_fences)
     source = HumanAccessCaseSource(cases, groups, registry, clock, recovery.check)
     approvals = HumanAccessApprovalService(
-        store, owners, source.check, clock, _approver_authorizer_from_env(environment)
+        store,
+        owners,
+        source.check,
+        clock,
+        approver_authorizer_from_environment(environment),
     )
     current = HumanAccessCurrentPublisher(source, approvals, clock)
     observer = IndependentHumanAccessObserver(

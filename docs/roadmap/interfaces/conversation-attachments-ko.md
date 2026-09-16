@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: b3bc995a4a20245ba19a6f50b1c68dd5a555f199
+translation_source_sha: c0c0c0aea2f9e8070365423e71e639071c2fc89c
 translation_revised: 2026-09-16
 title: 대화 첨부파일
 ---
@@ -30,7 +30,7 @@ title: 대화 첨부파일
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 벤더 중립 첨부 메타데이터 | implemented | [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | `ChannelAttachment`와 `InboundTurn`은 범위가 제한된 opaque 메타데이터를 강제합니다. 이 계약이 벤더 어댑터 구현을 의미하지는 않습니다. |
-| 명시적 첨부 용도 | implemented | [`attachment_directive.py`](../../../services/core-control-plane/src/fdai/core/conversation/attachment_directive.py), [`test_attachment_directive.py`](../../../services/core-control-plane/tests/core/conversation/test_attachment_directive.py) | 정확한 선행 directive만 인계 의도를 선택하며 일반 문장과 파일 이름은 선택하지 않습니다. |
+| 명시적 첨부 용도 | implemented | [`attachment_directive.py`](../../../services/core-control-plane/src/fdai/core/conversation/attachment_directive.py), [`test_attachment_directive.py`](../../../services/core-control-plane/tests/core/conversation/test_attachment_directive.py) | 정확한 선행 directive만 담당 체계 인수인계 의도를 선택하며 일반 문장과 파일 이름은 선택하지 않습니다. 조직도 가져오기는 `report_line_bootstrap`을 사용하는 전용 Console 업로드를 통해 처리하며 일반 채널 첨부에서 추론하지 않습니다. |
 | 채널 인제스트 gateway seam | implemented | [`channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | Gateway는 주입된 ingestor를 받고 없으면 실패 시 차단합니다. 구체적인 protected-ingestion 구현은 아닙니다. |
 | Slack 첨부 전달 | implemented | Operator `channel_edge/{slack_ingress,attachment_handoff}.py`, 집중 전달, 환경 및 파이프라인 검사 | 서명된 어댑터는 범위가 제한된 불투명 메타데이터를 유지하고 페이로드 URL을 버립니다. 고정 HTTPS 호스트를 통해 `files.info`를 해석하고 비공개 바이트를 이름이 없는 범위 제한 스풀로 스트리밍합니다. |
 | Teams 첨부 전달 | implemented | Operator `channel_edge/{teams_ingress,attachment_handoff}.py`, 집중 전달, 환경 및 파이프라인 검사 | 인증된 어댑터는 범위가 제한된 불투명 메타데이터를 유지하고 페이로드 URL을 버립니다. 구성된 HTTPS 해석기, 호스트 허용 목록 및 토큰 대상 허용 목록만 사용합니다. |
@@ -476,4 +476,5 @@ Slack 및 Teams 대상 제어, 인증된 워크로드 준비 상태, 취소, han
 | 문서 안전성 및 저장소 | [document-ingestion-ko.md](document-ingestion-ko.md) |
 | Conversational 채널 권한 | [operator-console-ko.md](operator-console-ko.md) |
 | 소유권 초안 및 병합 수명 주기 | [agent-stewardship-operations-ko.md](agent-stewardship-operations-ko.md) |
+| 조직도 가져오기 및 보고 승인 경로 | [사람 보고선 및 승인 라우팅](human-report-lines-and-approval-routing-ko.md) |
 | 영속 채널 전달 | [durable-conversation-delivery-ko.md](durable-conversation-delivery-ko.md) |

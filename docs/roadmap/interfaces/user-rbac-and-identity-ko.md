@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 7372044e9ed9be186cb71fb1c4185bb5ce118dd8
+translation_source_sha: c01a278243cab80909053f99b41dae99cdaed881
 translation_revised: 2026-09-16
 ---
 
@@ -18,7 +18,7 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 
 > RBAC는 사람이 어떤 작업을 할 수 있는지 정의합니다. 별도의 [담당 체계](agent-stewardship-and-handover-ko.md)는
 > FDAI가 업무를 수행하는 동안 15개 에이전트 각각의 책임, 에스컬레이션 및 인수인계 담당자를 정합니다.
-> 두 역할은 한 사람에게 겹칠 수 있지만 담당자라는 사실만으로 RBAC 기능을 부여하지 않습니다. 인증된 설정 카탈로그 조회는 별도의 범위가 제한된 모델 구성 읽기 모듈을 사용하며, 배포된 모델을 발견했다고 해서 모델 선택, 프로비저닝, 담당자 할당 또는 실행 권한을 부여하지 않습니다.
+> 두 역할은 한 사람에게 겹칠 수 있지만 담당자라는 사실만으로 RBAC 기능을 부여하지 않습니다. 별도로 검토된 [사람 보고선](human-report-lines-and-approval-routing-ko.md)은 가장 가까운 관리자를 추천할 수 있지만 해당 사람은 현재 RBAC 및 ActionType 정책을 계속 충족해야 합니다. 인증된 설정 카탈로그 조회는 별도의 범위가 제한된 모델 구성 읽기 모듈을 사용하며, 배포된 모델을 발견했다고 해서 모델 선택, 프로비저닝, 담당자 할당 또는 실행 권한을 부여하지 않습니다.
 > 로컬과 배포 환경의 대화 조립은 `iam_composition` 모듈을 통해 기존 담당 체계, 디렉터리 및 할당 인터페이스에서 선택적 읽기 전용 관계 어댑터를 연결하며 주입된 확인기를 보존합니다. 생성 시 읽기나 쓰기는 수행하지 않습니다. 증명은 인증된 사람, 고정된 대상 에이전트, 원본 리비전 및 최대 5분의 유효 기간에 결속합니다. Core는 신원과 시각을 다시 확인한 뒤 식별자가 없는 프롬프트 프로필을 사용합니다. 근거가 없거나 오래되었거나 모호하거나 일치하지 않으면 관계는 확인되지 않은 상태로 남으며 RBAC, 승인 또는 실행기 신원을 바꾸지 않습니다. 같은 모듈은 원래 `AssignmentNoticeBridge`와 `build_assignment_notice_bridge` 객체를 `HilDecisionOutboxBridge`와 함께 래퍼 없이 다시 내보냅니다. 배정과 HIL 전송의 가져오기 경로만 모으며 결정의 인증과 인가, Core 전용 배정 사례 쓰기, 실행기 신원은 바뀌지 않습니다.
 
 > 고객-비종속: 아래 모든 그룹 이름, 앱 registration 이름, GUID는 **자리 표시자** ;

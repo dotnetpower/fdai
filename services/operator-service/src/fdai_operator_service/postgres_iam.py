@@ -402,7 +402,7 @@ class PostgresIamAdapters:
             payload = record.value.get("payload")
             if not isinstance(payload, Mapping):
                 continue
-            if payload.get("case_kind") == "scoped_duty":
+            if payload.get("case_kind") is not None:
                 continue
             case_id = payload.get("case_id")
             if operation == "assignments.create":
@@ -1426,7 +1426,13 @@ def _validate_runtime_setting_value(
 
 
 def _principal_id(payload: Mapping[str, object]) -> str | None:
-    for key in ("principal_id", "actor_id", "actor_oid", "reviewer_ref"):
+    for key in (
+        "principal_id",
+        "actor_id",
+        "actor_oid",
+        "reviewer_ref",
+        "requester_ref",
+    ):
         value = payload.get(key)
         if isinstance(value, str) and value:
             return value

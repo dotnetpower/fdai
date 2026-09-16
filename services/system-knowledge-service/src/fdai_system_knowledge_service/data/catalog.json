@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:2f808fdef9d3c8bd96c79c939a0b7adf967c2bd508593c2dc51be81a14266d88",
+  "catalog_digest": "sha256:61102f4e6a5b628d1ac12515d14b0a48e6f48c66a110a32a11611cc6090a331f",
   "execution_authority": false,
-  "generated_at": "2026-09-16T08:24:03.072915Z",
+  "generated_at": "2026-09-16T08:55:35.703575Z",
   "records": [
     {
       "designed_behavior": [
@@ -149,11 +149,11 @@
         "How does FDAI ingest documents?",
         "FDAI는 문서를 어떻게 수집하나요?"
       ],
-      "record_digest": "sha256:696ed164f5710976136ff19a5b022b1ff3401dda1c5f74aeb15b400de828570f",
+      "record_digest": "sha256:06f36bc884f542aa8d7183ffc47db95f43e4b5c2d3d5dc2fd950cbfc43f4147f",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "c4244b042e8eba19f4ad73b9fb4ef1cd7e92726a",
+          "blob_sha": "bcd02fda25ca4f51cd6708b7647a8bc74c4f173e",
           "line_end": 104,
           "line_start": 104,
           "path": "docs/roadmap/interfaces/document-ingestion.md",
@@ -162,7 +162,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "c4244b042e8eba19f4ad73b9fb4ef1cd7e92726a",
+          "blob_sha": "bcd02fda25ca4f51cd6708b7647a8bc74c4f173e",
           "line_end": 573,
           "line_start": 573,
           "path": "docs/roadmap/interfaces/document-ingestion.md",
@@ -268,11 +268,11 @@
         "How does FDAI authenticate and authorize people?",
         "FDAI는 사용자를 어떻게 인증하고 권한을 확인하나요?"
       ],
-      "record_digest": "sha256:e628c02b30420c31d8db80a3abd9c82e7a63b72b51b743252f34645884beab00",
+      "record_digest": "sha256:d9a0b12265f6ba47df3dfb6710df05e469dc4a83e2b78fabc57d8234fed3d9c1",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "7372044e9ed9be186cb71fb1c4185bb5ce118dd8",
+          "blob_sha": "c01a278243cab80909053f99b41dae99cdaed881",
           "line_end": 23,
           "line_start": 23,
           "path": "docs/roadmap/interfaces/user-rbac-and-identity.md",
