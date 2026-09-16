@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 907d29333898acea7a81943b9ba82b0de16c58a3
+translation_source_sha: 7bbcee2ff48809579608fa20ed1dcf8ee67071f9
 translation_revised: 2026-09-16
 ---
 # 지속형 질문 공간
@@ -58,8 +58,7 @@ logical-topic 표시를 받습니다. 스키마로 검증되는 request payload�
 
 ## 통합 질문은행 인벤토리
 
-저장소는 검토된 Golden 문구, 수동 브라우저 프롬프트, Console 시작 질문, 운영자 후보를
-하나의 생성된 검토 인벤토리로 연결할 수 있습니다. 각 원본은 계속 해당 질문의 권위 있는
+저장소는 검토된 Golden 문구, 수동 브라우저 프롬프트, Console 시작 질문, 운영자 후보를 하나의 생성된 검토 인벤토리로 연결할 수 있습니다. 각 원본은 계속 해당 질문의 권위 있는
 출처로 유지됩니다. 인벤토리는 안정적인 ID, 이중 언어 문구, 원본 다이제스트, 명시적인 중복
 관계와 콘텐츠 검토, 의미 계약, 런타임 연결, 근거 출처, 검증 상태를 서로 독립적으로
 보존합니다.
