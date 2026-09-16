@@ -15,9 +15,11 @@ resource "terraform_data" "deploy_runner_identity_fence" {
 }
 
 locals {
-  suffix           = "fdai-sre-${var.environment}-${var.region_short}"
-  unique_suffix    = substr(sha1("${data.azurerm_client_config.current.subscription_id}:${var.environment}:${var.region}"), 0, 6)
-  operator_enabled = var.operator_access != null
+  suffix                   = "fdai-sre-${var.environment}-${var.region_short}"
+  unique_suffix            = substr(sha1("${data.azurerm_client_config.current.subscription_id}:${var.environment}:${var.region}"), 0, 6)
+  operator_enabled         = var.operator_access != null
+  store_front_dns_label    = "fdai-store-${var.environment}-${var.region_short}-${local.unique_suffix}"
+  store_front_dns_hostname = "${local.store_front_dns_label}.${var.region}.cloudapp.azure.com"
   tags = merge({
     "fdai:managed"    = "true"
     "fdai:workload"   = "fdai"

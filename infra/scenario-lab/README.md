@@ -87,22 +87,20 @@ each version tag with its reviewed multi-platform image digest before `kubectl a
 The lab applies only these safety overlays:
 
 - `order-service` runs with three replicas and is the target for the existing AKS fault scenarios.
-- The two upstream `LoadBalancer` services become `ClusterIP` services so the private lab does not
-  allocate public ingress.
+- `store-front` keeps one public Azure Load Balancer and receives a deterministic Azure-provided
+  hostname in the form `fdai-store-<environment>-<region>-<hash>.<azure-region>.cloudapp.azure.com`.
+- `store-admin` becomes a private `ClusterIP` service and is not reachable from the public endpoint.
 - The previous `api-backend` Deployment and Service are removed from the dedicated namespace.
 
 The application remains an external MIT-licensed demonstration workload and is not an FDAI
 runtime component. It retains the upstream synthetic credentials and data, so do not use it for
-production or real customer information.
+production or real customer information. The public endpoint uses HTTP and exists only for the
+approved disposable lab window. The expiry tag does not remove it automatically; run the protected
+destroy operation after the demo.
 
-From a prepared private operator connection, open the store through a local port forward:
-
-```bash
-kubectl --namespace fdai-sre-demo port-forward service/store-front 8080:80
-```
-
-Then browse to `http://127.0.0.1:8080`. The forwarding process is local and temporary; it does not
-create public cluster ingress.
+After an approved apply, the workflow waits for the Load Balancer address, verifies that the Azure
+hostname resolves to that exact address, checks `http://<hostname>/health`, and prints the browser
+URL in the workflow summary. No VPN or port forwarding is required to open the store front.
 
 ## Test from the operator PC
 
