@@ -113,6 +113,24 @@ resource "azurerm_subnet" "aks" {
   default_outbound_access_enabled = false
 }
 
+resource "azurerm_subnet" "aks_api_server" {
+  # checkov:skip=CKV2_AZURE_31:AKS owns the delegated API Server VNet Integration subnet and applies its control-plane policy.
+  count                           = var.enable_aks_subnet ? 1 : 0
+  name                            = "snet-aks-api"
+  resource_group_name             = var.resource_group_name
+  virtual_network_name            = azurerm_virtual_network.primary.name
+  address_prefixes                = [var.aks_api_server_subnet_prefix]
+  default_outbound_access_enabled = false
+
+  delegation {
+    name = "aks-api-server"
+    service_delegation {
+      name    = "Microsoft.ContainerService/managedClusters"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+    }
+  }
+}
+
 resource "azurerm_network_security_group" "evidence_target" {
   count               = var.enable_evidence_target_subnet ? 1 : 0
   name                = "nsg-ohl-evidence"

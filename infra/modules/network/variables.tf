@@ -53,6 +53,12 @@ variable "aks_subnet_prefix" {
   default     = "10.60.8.0/24"
 }
 
+variable "aks_api_server_subnet_prefix" {
+  description = "AKS API Server VNet Integration subnet CIDR inside aks_address_space."
+  type        = string
+  default     = "10.60.9.0/28"
+}
+
 variable "pe_subnet_prefix" {
   description = "Private-endpoint subnet CIDR (must fit inside address_space)."
   type        = string
