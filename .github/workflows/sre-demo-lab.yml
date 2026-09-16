@@ -663,6 +663,13 @@ jobs:
             select((.change.before | getpath($path)) != (.change.after | getpath($path))) |
             "field\t\($address)\t\($path | map(tostring) | join("."))"
           ' "$RUNNER_TEMP/sre-demo-lab-plan.json"
+          jq -r '
+            .resource_changes[]? |
+            select(.change.actions | index("delete")) |
+            .address as $address |
+            (.change.replace_paths // [])[]? |
+            "replace-path\t\($address)\t\(map(tostring) | join("."))"
+          ' "$RUNNER_TEMP/sre-demo-lab-plan.json"
           if [[ "$REQUESTED_ACTION" == "apply" && "$delete_count" -ne 0 ]]; then
             echo "apply refuses delete or replacement actions; use plan for review, then explicit destroy." >&2
             exit 1
