@@ -59,14 +59,15 @@ def validate_recovery_plan(
     old_changes = _changes(original)
     changes = _changes(projection)
     existing = _state_instances(state)
+    application_preserved = _APPLICATION in existing
     if variables.get("operations_public_ip_tags", {"value": {}}) != {
         "value": select_public_ip_tags(state)
     }:
         raise ValueError("Foundation recovery IP tags differ from the retained policy value")
     if set(changes) != set(old_changes) or not existing.keys() <= changes.keys():
         raise ValueError("Foundation recovery inventory changed")
-    if _APPLICATION not in changes or _APPLICATION in existing:
-        raise ValueError("Foundation recovery cannot rename or adopt a managed application group")
+    if _APPLICATION not in changes:
+        raise ValueError("Foundation recovery application group is unavailable")
     pending = []
     for address, entry in changes.items():
         prior = old_changes[address]
@@ -105,15 +106,25 @@ def validate_recovery_plan(
             pending.append(address)
         if address == _APPLICATION:
             name = actual.get("name")
-            if not isinstance(name, str) or not name or name == intended.get("name"):
-                raise ValueError("Foundation recovery requires a distinct application group")
-            intended = {**intended, "name": name}
+            if not isinstance(name, str) or not name:
+                raise ValueError("Foundation recovery application group name is invalid")
+            if application_preserved:
+                if name != intended.get("name"):
+                    raise ValueError(
+                        "Foundation recovery would rename the managed application group"
+                    )
+            else:
+                if name == intended.get("name"):
+                    raise ValueError("Foundation recovery requires a distinct application group")
+                intended = {**intended, "name": name}
         if not _same_known(intended, actual, old_change.get("after_unknown", {})):
             raise ValueError("Foundation recovery changed a known resource setting")
     return {
         "state": "review",
         "preserved_managed_count": len(existing),
         "remaining_addresses": sorted(pending),
+        "application_group_absent": not application_preserved,
+        "application_group_preserved": application_preserved,
         "apply_authorized": False,
         "mutation_performed": False,
         "deployment_ready": False,

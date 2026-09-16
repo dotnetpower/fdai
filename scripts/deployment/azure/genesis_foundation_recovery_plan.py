@@ -424,6 +424,9 @@ def _prepare_locked(
             application_workload=application_workload,
         )
     )
+    application_preserved = (
+        predecessor is not None or summary.get("application_group_preserved") is True
+    )
     changes = cast(list[dict[str, Any]], projection["resource_changes"])
     application = next(
         entry["change"]["after"]
@@ -434,12 +437,12 @@ def _prepare_locked(
         [
             str(image._trusted_azure_cli()),
             "group",
-            "show" if predecessor is not None else "exists",
+            "show" if predecessor is not None or application_preserved else "exists",
             "--subscription",
             target.subscription_id,
             "--name",
             application["name"],
-            *(("--query", "id") if predecessor is not None else ()),
+            *(("--query", "id") if predecessor is not None or application_preserved else ()),
             "--output",
             "tsv",
             "--only-show-errors",
@@ -449,7 +452,9 @@ def _prepare_locked(
         timeout=deadline.remaining(30),
         reason="Foundation recovery application group availability is unknown",
     )
-    expected_group = str(application.get("id")) if predecessor is not None else "false"
+    expected_group = (
+        str(application.get("id")) if predecessor is not None or application_preserved else "false"
+    )
     if exists.strip().casefold() != expected_group.casefold():
         raise ValueError("Foundation recovery application group does not match required ownership")
     source.reverify()
@@ -492,11 +497,13 @@ def _prepare_locked(
             read_private_bytes(work / "recovery.tfplan", max_bytes=_MAX)
         ).hexdigest(),
         "plan_json_digest": hashlib.sha256(projection_bytes).hexdigest(),
-        "application_group_absent": predecessor is None,
+        "application_group_absent": not application_preserved,
         "original_state_unchanged": True,
         "created_at": moment.isoformat(),
         "expires_at": (moment + timedelta(hours=1)).isoformat(),
     }
+    if application_preserved:
+        result["application_group_preserved"] = True
     if predecessor is not None:
         result.update(
             {
