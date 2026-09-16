@@ -145,6 +145,8 @@ Console resilience source revisions follow the same rule. Retry and loading-pres
 update source blob pins and the catalog digest only; they do not widen catalog content, retrieval,
 message delivery, or authority.
 Threshold-parity source revisions follow the same rule: the catalog records the reviewed hard-bound and configuration separation but does not select an active threshold, promote a policy, or grant runtime authority.
+Question-bank source integration follows the same rule: refreshing its generated digest records the
+current 400-question inventory without certifying semantic coverage or live evidence.
 Document baseline validation rejects non-finite inputs and derived rates. Refreshing its source
 pins records that numeric contract, not an authenticated corpus receipt or measured deployment capacity.
 Post-turn migration citations follow the shared Operator rollback contract: evidence inherited
