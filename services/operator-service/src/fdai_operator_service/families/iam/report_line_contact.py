@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
-from datetime import UTC, datetime
 from typing import Final
 
 from fdai_operator_service.families.iam.contracts import (
@@ -33,11 +31,8 @@ def make_report_line_contact_route(
     *,
     authorize: AuthorizePrincipal,
     outbox: ReportLineContactOutbox | None,
-    clock: Callable[[], datetime] | None = None,
 ) -> tuple[Route, ...]:
     """Build a consent route that cannot approve or execute the parked action."""
-
-    now = clock or (lambda: datetime.now(tz=UTC))
 
     async def list_report_line_contacts(request: Request) -> Response:
         if outbox is None:
@@ -115,7 +110,7 @@ def make_report_line_contact_route(
             requester_ref=principal.oid,
             consent=consent,
             expected_consent_revision=expected_revision,
-            requested_at=now(),
+            requested_at=context.consent_requested_at,
             idempotency_key=request_key,
         )
         try:

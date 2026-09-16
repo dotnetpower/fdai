@@ -70,8 +70,14 @@ class PostgresReportLineContacts:
             consent_state.get("expires_at"),
             "report-line contact consent expiry",
         )
-        if expires_at > approval_expires_at or expires_at <= _aware_timestamp(
-            self.clock(), "report-line contact clock"
+        consent_requested_at = _aware_timestamp(
+            consent_state.get("created_at"),
+            "report-line contact consent creation",
+        )
+        if (
+            consent_requested_at >= expires_at
+            or expires_at > approval_expires_at
+            or expires_at <= _aware_timestamp(self.clock(), "report-line contact clock")
         ):
             return None
         revision = consent_state.get("revision")
@@ -95,6 +101,7 @@ class PostgresReportLineContacts:
             action_type=action_type,
             target_ref=target_ref,
             route_subjects=route_subjects,
+            consent_requested_at=consent_requested_at,
             expires_at=expires_at,
         )
 

@@ -773,6 +773,7 @@ class ReportLineContactContext:
     action_type: str
     target_ref: str
     route_subjects: tuple[str, ...]
+    consent_requested_at: datetime
     expires_at: datetime
 
 

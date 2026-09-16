@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 4c535f93194b036c340b3bf497c980c75e27f7e8
+translation_source_sha: 18ed0cf47b0bf2a07b51bb9f25b8abeea42a7dc2
 translation_revised: 2026-09-16
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -162,7 +162,8 @@ approval_required
 
 거절, 시간 초과 또는 사용할 수 없는 경로는 감사 레코드와 함께 무작업 결과가 됩니다. 일반적인
 긍정 응답으로 다른 대기 요청을 승인할 수 없습니다. 응답은 서버가 발급한 동의 ID에 결속되어야
-합니다.
+합니다. Operator는 변경할 수 없는 동의 요청에서 명령 시간을 가져오므로 같은 멱등성 키를
+사용한 HTTP 재시도는 동일한 영속 명령을 생성합니다.
 
 ## 적격 상위자 라우팅
 

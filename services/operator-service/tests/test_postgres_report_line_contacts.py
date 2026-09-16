@@ -108,11 +108,13 @@ async def test_contact_context_uses_shorter_consent_expiry_and_persists_command(
         "route_digest": "b" * 64,
         "graph_revision": "c" * 64,
         "revision": 0,
+        "created_at": NOW.isoformat(),
         "expires_at": (NOW + timedelta(minutes=5)).isoformat(),
     }
 
     context = await adapter.get_report_line_contact_context(approval_id)
     assert context is not None
+    assert context.consent_requested_at == NOW
     assert context.expires_at == NOW + timedelta(minutes=5)
     assert await adapter.list_report_line_contact_contexts(
         requester_ref="person-a",

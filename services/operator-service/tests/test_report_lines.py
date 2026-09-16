@@ -114,6 +114,7 @@ class Outbox:
             action_type="ops.restart-service",
             target_ref="scope://service/example",
             route_subjects=("person-b",),
+            consent_requested_at=NOW,
             expires_at=datetime(2026, 9, 16, 1, 5, tzinfo=UTC),
         )
 
@@ -246,6 +247,13 @@ def test_requester_can_consent_to_contact_without_approving_action() -> None:
     assert response.json()["execution_authority"] is False
     assert len(outbox.contacts) == 1
     assert outbox.contacts[0].requester_ref == "person-a"
+    replay = client.post(
+        "/hil/approval-1/report-line-contact",
+        headers={"Idempotency-Key": "report-line-contact-1"},
+        json={"consent": True, "expected_revision": 0},
+    )
+    assert replay.status_code == 202
+    assert outbox.contacts[1] == outbox.contacts[0]
     listed = client.get("/hil/report-line-contact-requests")
     assert listed.status_code == 200
     assert listed.json()["items"][0]["approval_id"] == "approval-1"

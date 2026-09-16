@@ -1854,6 +1854,9 @@
         "docs/roadmap/decisioning/escalation-and-standing-authority.md",
         "docs/roadmap/interfaces/document-ingestion-agent-ownership.md"
       ],
+      "docs_update_routes": [
+        "human-report-lines"
+      ],
       "docs_update": [
         "docs/roadmap/interfaces/human-agent-assignment-and-knowledge-handover.md",
         "docs/roadmap/interfaces/human-agent-assignment-implementation-plan.md",
