@@ -5,6 +5,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 
 
+def _variable_block(source: str, name: str) -> str:
+    return source.split(f'variable "{name}" {{', 1)[1].split("\n}\n", 1)[0]
+
+
 def test_case_history_storage_is_private_versioned_and_keyless() -> None:
     module = (ROOT / "infra/modules/storage/case-history/main.tf").read_text(encoding="utf-8")
     assert "shared_access_key_enabled         = false" in module
@@ -22,6 +26,21 @@ def test_case_history_storage_is_private_versioned_and_keyless() -> None:
     assert 'category = "StorageRead"' in module
     assert 'category = "StorageWrite"' in module
     assert 'category = "StorageDelete"' in module
+
+
+def test_case_history_content_retention_defaults_to_30_days() -> None:
+    variables = (ROOT / "infra/variables.tf").read_text(encoding="utf-8")
+
+    for name in (
+        "case_history_retention_days",
+        "case_history_deletion_days",
+        "case_history_version_retention_days",
+    ):
+        assert "default     = 30" in _variable_block(variables, name)
+
+    assert "default     = 90" in _variable_block(
+        variables, "operational_history_version_retention_days"
+    )
 
 
 def test_root_wires_case_history_private_endpoint_and_core_environment() -> None:

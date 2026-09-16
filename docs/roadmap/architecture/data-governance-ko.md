@@ -1,8 +1,8 @@
 ---
 title: Data Governance와 Privacy Evidence
 translation_of: data-governance.md
-translation_source_sha: 00ec11b174c0e247bfc4c525808404ffd2751ab1
-translation_revised: 2026-08-29
+translation_source_sha: 3317966f41f802601d3322810d8daf8a42f1fad4
+translation_revised: 2026-09-16
 ---
 # 데이터 거버넌스와 Privacy 근거
 
@@ -27,7 +27,7 @@ at-rest encryption이 필요합니다. 모델로 보내는 내용은 trust 경�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 용도, 보존, 삭제 및 legal hold 계약 | implemented | `shared/contracts/models/document.py`; `core/case_history/`; `core/trajectory/`; `delivery/persistence/postgres_user_context_retention.py`; 집중 보존 테스트 | 여러 통제된 저장소가 범위가 제한된 보존과 legal hold 메타데이터를 강제합니다. 모든 데이터 등급을 아우르는 하나의 배포 일정은 포크가 소유합니다. |
+| 용도, 보존, 삭제 및 legal hold 계약 | implemented | `shared/contracts/models/document.py`; `core/case_history/`; `core/trajectory/`; `delivery/persistence/postgres_user_context_retention.py`; `infra/variables.tf`; 집중 보존 테스트 | 여러 통제된 저장소가 범위가 제한된 보존과 legal hold 메타데이터를 강제합니다. Azure case-history의 활성, 삭제 예정 및 이전 버전 기본값은 30일이며, 모든 데이터 등급을 아우르는 승인된 배포 일정은 포크가 소유합니다. |
 | 민감정보 제거와 데이터 최소화 컨트롤 | implemented | `rule_catalog/pipeline/distill/sensitivity.py`; `core/browser_evidence/redaction.py`; `delivery/azure/llm/model_trace.py`; `delivery/azure/llm/`; 집중 Azure 모델 경계 테스트 | 결정론적 민감정보 제거가 주요 문서, 브라우저, 온톨로지, 작업 흐름, 채널, 모델 및 임베딩 경계까지 확장되었습니다. 운영 프로바이더 조건과 privacy 승인은 계속해서 배포 게이트에서 연결합니다. |
 | 추가 전용 감사와 privacy 범위 근거 | implemented | `core/audit/`; `delivery/persistence/postgres.py`; `core/operational_context/evidence_bundle.py`; 집중 감사 및 근거 테스트 | 해시 체인 감사와 민감정보가 제거된 근거 변환 결과가 있습니다. 배포 보존, 앵커 주기, WORM 저장 및 legal hold 운영은 환경 근거로 남습니다. |
 | 운영 privacy 평가와 compliance 바인딩 | not-started | `config/architecture-review.yaml`; [운영 게이트](#운영-게이트) | 업스트림은 필수 키만 정의합니다. 승인된 평가, 소유자, processor 조건, 지역, crosswalk 및 운영 근거는 각 배포가 제공해야 합니다. |
@@ -36,6 +36,7 @@ at-rest encryption이 필요합니다. 모델로 보내는 내용은 trust 경�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | in-progress | 운영 이력 또는 의사 결정 근거의 메타데이터 보존은 바꾸지 않고 Azure case-history의 활성, 삭제 예정 및 이전 버전 기본값을 30일로 맞췄습니다. | `current change`; `infra/variables.tf`; 집중 case-history 저장소 회귀 테스트. | 변경을 게시하고, 배포된 case-history 버전 정책을 90일에서 30일로 수렴하는 보호된 계획과 적용 증적을 보존하며, 삭제 동작을 독립적으로 검증합니다. |
 | 2026-08-29 | in-progress | 타입이 지정된 하나의 사전 모델 및 사전 임베딩 최소화 증적을 추가하고, 안전하지 않은 페이로드를 전송 전에 보류하도록 모든 직접 Azure 모델 및 임베딩 경계에 강제했으며, 남은 배포 소유 privacy 게이트 근거를 위해 이슈 `#371`을 열었습니다. | `delivery/azure/llm/model_trace.py`; `delivery/azure/llm/`; `tests/delivery/azure/llm/test_model_trace.py`; `tests/delivery/azure/llm/test_adapters.py`; 집중 Azure LLM 어댑터 테스트; 이슈 `#371` | 운영 게이트에서 배포 소유 privacy 승인, 보존 근거, 운영 증적을 연결합니다. |
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 재사용 가능한 업스트림 컨트롤을 배포가 소유하는 privacy 승인과 분리했습니다. | `current change`; 구현 범위 표의 계약, 보존 서비스, 민감정보 제거 경로 및 감사 근거입니다. | 공유 사전 모델 근거 경계를 완료하고 배포 privacy 게이트 증적을 보존합니다. |
 
@@ -90,6 +91,11 @@ processor를 기록합니다. 분류가 없으면 가장 제한적인 구성된 
 Azure day-zero 텔레메트리 기본값은 30일입니다. 감사, 대화, 임베딩, customer 기록
 보존은 이 값을 자동 상속하지 않습니다. 포크에서 값을 승인하고 운영 근거
 연결에 첨부해야 합니다.
+
+Azure case-history의 안전한 기본값은 조회 가능한 산출물, 삭제 예정일 및 이전 Blob 버전에
+30일을 사용합니다. 운영 이력과 의사 결정 근거 레코드는 별도의 메타데이터 및 감사 일정을
+따릅니다. 배포 재정의 값은 승인된 인벤토리, 데이터 등급, 소유자, legal hold 동작 및 삭제
+검증이 해당 값을 뒷받침할 때만 유효합니다.
 
 ## Privacy 평가
 
