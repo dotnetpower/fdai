@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 0257c42b2e3ea9ed434aab53193a03c79d8c9728
-translation_revised: 2026-09-16
+translation_source_sha: 67d31f6371db87d826387c8f529ca6260ecb0b79
+translation_revised: 2026-09-17
 ---
 # 온톨로지 구조 모델
 
@@ -385,6 +385,9 @@ Resource 유형 아이콘은 표현일 뿐입니다. 객체 identity, 유형 권
 도구막대에 두고, 표현 커버리지와 그래프 범례 세부 정보는 네이티브 펼침 메뉴에서 기본적으로
 접힌 상태로 시작합니다. 간단한 표현은 제한, 관계 의미, 근거 개수 또는 복구 상태를 제거하지
 않습니다.
+검토된 Resource 글리프는 모든 글리프를 런타임 모듈로 가져오지 않고 정적 자산 URL로 해석합니다.
+그래프는 렌더링된 노드가 사용하는 글리프 파일만 요청하며, 매핑되지 않은 ResourceType에는
+명시적인 일반 글리프를 계속 사용합니다.
 
 포함 관계는 Resource의 아래쪽에서, 연결 관계는 측면에서 나가며, 포함된 Resource는 열 안에서
 소유자의 순서를 따릅니다. Resource가 연결된 대상은 위에, 포함한 대상은 아래에 그리고 두 묶음
@@ -469,6 +472,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 링크 역할과 의미 특성 | implemented | 공유 LinkType 계약 및 스키마, 쿼리 매니페스트, 검토된 런타임 선언 7개와 분류 선언 2개, 카탈로그 테스트 | 선택적인 빈 필드는 기존 provenance를 보존합니다. 검토된 필드는 역방향 edge나 표현 레이아웃을 만들지 않습니다. |
 | 수명 주기 없는 선언과 권한 전달 객체 | implemented | `object-type-lifecycle-classification.yaml`, `CapacityGraduationRecommendation`, `EvidenceConflict`, `ProspectiveLineage`, 엄격한 카탈로그 및 일치 검사 | 수명 주기가 없는 모든 ObjectType에는 검토 가능한 분류가 하나씩 있습니다. 추가된 전달 객체 3개는 고정된 에이전트 소유권을 보존하고 실행 권한을 부여하지 않습니다. |
 | 완전성과 표현 분리 | implemented | 권위 있는 온톨로지 그래프 materializer, 통합 테스트, Console 디코더, LinkType 검사기, 그래프 우선 인스턴스 작업 영역, 이중 언어 제품 카탈로그, 타입 검사, 프로덕션 빌드 및 집중 브라우저 기하 검사 | 선언 그래프는 독립적인 제한 계열 4개를 전달하고 범위 내 모든 LinkType의 역할과 특성을 노출합니다. 인스턴스 작업 영역은 그래프 권한을 바꾸지 않고 간단한 상한과 새로고침 상태, 펼침 메뉴가 소유하는 커버리지와 범례 세부 정보, 선택, Inspector 상태 및 전체 높이의 방향 영역을 표현 계층에 유지합니다. |
+| 인스턴스 아이콘 자산 로딩 | implemented | `ontology-instance-resource-icons.ts`, URL 전용 네트워크 아이콘 해석기, 집중 아이콘 및 인스턴스 테스트, Console 타입 검사와 프로덕션 빌드 | 검토된 ResourceType과 글리프 간 매핑 및 일반 대체 글리프는 바뀌지 않습니다. 대화형 화면 진입 시 그래프 쿼리를 렌더링하기 전에 검토된 모든 SVG URL이나 원시 내보내기 출처를 가져오지 않습니다. |
 | edge별 관계 근거와 영향 탐색 | implemented | `runtime_call.py`, `relationship_evidence.py`, `inventory_impact.py`, Console 영향 범위 및 온톨로지 인스턴스 모델, 집중 backend 및 Console 검사 | 탐색한 각 edge는 가용성, 검증 등급, 출처 이력 및 저장 방향을 보존합니다. 쿼리 완전성은 관계 근거 완전성과 독립적이며 권한을 부여하지 않습니다. |
 | 인스턴스 우선 Console 진입 | implemented | `ontology.tsx`, `ontology-navigation.tsx`, 온톨로지 경로, 보기 및 지역화 검사, Console 타입 검사와 프로덕션 빌드 | `/ontology`는 선언 그래프를 기다리지 않고 관측된 Resource 인스턴스를 표시합니다. 정의와 토폴로지는 이름이 명확한 네이티브 펼침 메뉴와 기존 상세 링크에서 계속 사용할 수 있습니다. |
 | 범위가 제한된 ObjectSet 후보 스캔 | validated | `OntologyInstanceStore.scan_objects`, PostgreSQL 및 메모리 어댑터, `object_sets.py`, 집중 검사 및 인증된 최근 전이 재실행 | 저장소에서 직접 평가할 수 없는 객체 전용 조건식은 객체 1,000개 probe와 최대 한 번의 객체 50,000개 단일 연결 후보 스냅샷을 사용합니다. 관계 조회는 일반 제한을 유지하며 잘림은 완전한 결과로 바뀌지 않습니다. |
@@ -483,6 +487,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-17 | implemented | 검토된 ResourceType 글리프 의미를 보존하면서 온톨로지 인스턴스 시작 경로에서 즉시 로딩되는 SVG URL 모듈과 원시 내보내기 출처를 제거했습니다. | `current change`, 집중 Vitest(`125 passed`), Console 타입 검사, 프로덕션 빌드, Vite 변환 검사에서 즉시 요청하는 SVG 프록시 수가 `72`에서 `0`으로 줄었습니다. | 이 전환을 `validated`로 바꾸기 전에 병합된 인증 5273 화면의 로딩 시간 근거를 보존합니다. |
 | 2026-09-16 | implemented | 적응형 RCA를 위해 권한이 없는 telemetry recipe 쿼리 노드를 검증된 쿼리 대수에 추가했습니다. 이 노드는 원시 조회 필드를 거부하고 정확한 need, 증적, 출처 처리 결과, 예산 및 근거 권한 계보를 보존합니다. | `current change`; 집중 ontology-query 계약, 적응형 게이트웨이, telemetry 도구, strict mypy 및 구조 검사. | 거버넌스를 따르는 live 출처 증적은 별도로 보존합니다. 이 구조 계약은 프로바이더 가용성이나 운영 원인 정확도를 주장하지 않습니다. |
 | 2026-09-16 | implemented | 온톨로지 쿼리와 근거 경계를 유지하면서 Console 확인 경로에 필요한 타입이 지정된 의미 기반 인시던트 초안 변환 결과를 추가했습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 의미 기반 계획 및 변환 결과 테스트. | 인증된 요청부터 인시던트까지의 근거는 별도로 보존해야 합니다. 온톨로지 런타임 상태 또는 ActionType 승격은 변경하지 않았습니다. |
 | 2026-09-16 | implemented | 각 상태 페이지를 커밋된 무효화 워터마크에 결속하고 Dashboard SSE를 이 커서에서 시작했으며, 이전 클라이언트에는 안전한 현재 표식 재생을 유지하고 대량 Dashboard의 5분 fallback을 선택한 인스턴스의 15초 재검증과 분리했습니다. | `current change`, 집중 Operator 테스트 153개, 집중 Console 테스트 74개, 실제 Dashboard 브라우저 시나리오 10개, 엄격한 타입 검사 및 프로덕션 빌드 | 스트림 동작을 `validated`로 분류하기 전에 로컬에서 커밋된 표식부터 화면 반영까지의 시간 증적 하나를 보존합니다. |
