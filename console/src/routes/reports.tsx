@@ -1,141 +1,39 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import { triggerBlobDownload } from "../blob-download";
 import { AsyncBoundary, PageHeader, type AsyncState } from "../components/ui";
-import { usePublishViewContext } from "../deck/context";
-import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { currentRoute, routeHref } from "../router";
-import { isRfc3339Timestamp } from "../time-format";
-import { ProcessWidget, SUPPORTED_REPORT_WIDGET_TYPES } from "./process-view-renderer";
-import type {
-  RenderedReportView,
-  ReportingRegistry,
-  ReportList,
-  ReportSummary,
-} from "./reporting.model";
+import type { RenderedReportView } from "./reporting.model";
+import {
+  defaultReport,
+  reportDownloadCanComplete,
+  reportVariableErrors,
+  reportsLoadFailure,
+  updateReportVariable,
+  type ReportsData,
+} from "./reports.model";
+import { ReportsBody } from "./reports.presentation";
+import "./reports.css";
 
 interface Props {
   readonly client: OperatorApiClient;
 }
 
-interface ReportsData {
-  readonly catalog: ReportList;
-  readonly registry: ReportingRegistry;
-  readonly selected: ReportSummary | null;
-  readonly rendered: RenderedReportView | null;
-  readonly variables: Readonly<Record<string, string>>;
-  readonly operationError: string | null;
-}
-
-export type ReportHeadlineState =
-  | { readonly kind: "empty" }
-  | { readonly kind: "unavailable"; readonly name: string }
-  | { readonly kind: "rendered"; readonly name: string; readonly count: number };
-
-export function reportsLoadFailure(error: unknown):
-  | { readonly status: "unavailable"; readonly message: string }
-  | { readonly status: "error"; readonly message: string } {
-  return {
-    status: isOptionalOperatorApiUnavailable(error) ? "unavailable" : "error",
-    message: error instanceof Error ? error.message : String(error),
-  };
-}
-
-export function reportHeadlineState(
-  selected: Pick<ReportSummary, "name"> | null,
-  rendered: Pick<RenderedReportView, "widgets"> | null,
-): ReportHeadlineState {
-  if (selected === null) return { kind: "empty" };
-  if (rendered === null) return { kind: "unavailable", name: selected.name };
-  return { kind: "rendered", name: selected.name, count: rendered.widgets.length };
-}
-
-export function updateReportVariable(
-  data: ReportsData,
-  name: string,
-  value: string,
-): ReportsData {
-  return {
-    ...data,
-    variables: { ...data.variables, [name]: value },
-    rendered: null,
-    operationError: null,
-  };
-}
-
-export function reportVariableErrors(
-  report: Pick<ReportSummary, "variables"> | null,
-  values: Readonly<Record<string, string>>,
-): readonly string[] {
-  return (report?.variables ?? []).flatMap((variable) => {
-    const value = (values[variable.name] ?? "").trim();
-    if (!value) return [`${variable.name} is required`];
-    if (variable.values.length > 0 && !variable.values.includes(value)) {
-      return [`${variable.name} has an unsupported value: ${value}`];
-    }
-    return [];
-  });
-}
-
-export function shouldShowReportVariableErrors(
-  values: Readonly<Record<string, string>>,
-  errors: readonly string[],
-): boolean {
-  return errors.length > 0 && Object.values(values).some((value) => value.trim().length > 0);
-}
-
-export function aggregateEvidenceAsOf(
-  sources: readonly { readonly as_of: string | null }[],
-): string | null {
-  if (sources.length === 0 || sources.some((source) => source.as_of === null)) return null;
-  if (sources.some((source) => !isRfc3339Timestamp(source.as_of!))) return null;
-  const timestamps = sources.map((source) => ({
-    value: source.as_of!,
-    epoch: Date.parse(source.as_of!),
-  }));
-  if (timestamps.some(({ epoch }) => !Number.isFinite(epoch))) return null;
-  timestamps.sort((left, right) => left.epoch - right.epoch);
-  return timestamps[0]?.value ?? null;
-}
-
-export function reportDownloadCanComplete(
-  mounted: boolean,
-  currentGeneration: number,
-  candidateGeneration: number,
-): boolean {
-  return mounted && currentGeneration === candidateGeneration;
-}
-
-export function pdfDownloadAvailable(
-  catalogFormats: readonly string[],
-  registryFormats: readonly string[],
-): boolean {
-  return catalogFormats.includes("pdf") && registryFormats.includes("pdf");
-}
-
 export { triggerBlobDownload } from "../blob-download";
-
-export function defaultReport(
-  items: readonly ReportSummary[],
-  registry?: ReportingRegistry,
-): ReportSummary | null {
-  const unavailable = new Set(
-    registry?.datasource_provenance
-      .filter((source) => source.availability === "unavailable")
-      .map((source) => source.datasource) ?? [],
-  );
-  const candidates = items.filter((report) =>
-    report.datasources.every((datasource) => !unavailable.has(datasource)),
-  );
-  const available = candidates.length > 0 ? candidates : items;
-  return available.find((report) => report.variables.length > 0 && report.variables.every((variable) =>
-      (variable.default ?? variable.values[0] ?? "").trim().length > 0,
-    )) ??
-    available.find((report) => report.variables.length === 0) ??
-    available[0] ??
-    null;
-}
+export {
+  aggregateEvidenceAsOf,
+  defaultReport,
+  pdfDownloadAvailable,
+  registrySourceReadiness,
+  reportDownloadCanComplete,
+  reportHeadlineState,
+  reportSourceAvailability,
+  reportsLoadFailure,
+  reportVariableErrors,
+  shouldShowReportVariableErrors,
+  updateReportVariable,
+} from "./reports.model";
 
 export function ReportsRoute({ client }: Props) {
   const requestedId = currentRoute().segments[0] ?? null;
@@ -289,9 +187,23 @@ export function ReportsRoute({ client }: Props) {
     }
   };
 
+  const headerActions = state.status === "ready" ? (
+    <div class="reports-page-meta">
+      <span>{t("reports.headerCatalog")}</span>
+      <strong>{t("reports.headerSummary", {
+        templates: state.data.catalog.items.length,
+        widgets: state.data.catalog.items.reduce((total, report) => total + report.widget_count, 0),
+      })}</strong>
+    </div>
+  ) : undefined;
+
   return (
     <div class="stack reports-route">
-      <PageHeader title={t("route.reports")} subtitle={t("reports.subtitle")} />
+      <PageHeader
+        title={t("route.reports")}
+        subtitle={t("reports.subtitle")}
+        actions={headerActions}
+      />
       <AsyncBoundary state={state} resourceLabel={t("route.reports")}>
         {(data) => (
           <ReportsBody
@@ -304,185 +216,6 @@ export function ReportsRoute({ client }: Props) {
           />
         )}
       </AsyncBoundary>
-    </div>
-  );
-}
-
-function ReportsBody({
-  data,
-  refreshing,
-  downloading,
-  onVariableChange,
-  onRender,
-  onDownload,
-}: {
-  readonly data: ReportsData;
-  readonly refreshing: boolean;
-  readonly downloading: boolean;
-  readonly onVariableChange: (name: string, value: string) => void;
-  readonly onRender: () => Promise<void>;
-  readonly onDownload: () => Promise<void>;
-}) {
-  const variableErrors = reportVariableErrors(data.selected, data.variables);
-  const showVariableErrors = shouldShowReportVariableErrors(data.variables, variableErrors);
-  const variablesComplete = data.selected !== null && variableErrors.length === 0;
-  const evidenceAsOf = aggregateEvidenceAsOf(data.rendered?.provenance.sources ?? []);
-  const headline = reportHeadlineState(data.selected, data.rendered);
-  usePublishViewContext(
-    () => ({
-      routeId: "reports",
-      routeLabel: t("route.reports"),
-      purpose: t("reports.viewPurpose"),
-      glossary: composeGlossary([TERMS.report, TERMS.widget]),
-      headline: headline.kind === "rendered"
-        ? t("reports.viewHeadline", { name: headline.name, count: headline.count })
-        : headline.kind === "unavailable"
-          ? t("reports.viewHeadlineUnavailable", { name: headline.name })
-          : t("reports.empty"),
-      capturedAt: evidenceAsOf ?? data.rendered?.generated_at ?? new Date().toISOString(),
-      facts: [
-        { key: "report_count", value: data.catalog.items.length, group: "reports" },
-        { key: "selected_report", value: data.selected?.id ?? null, group: "selection" },
-        { key: "registered_widget_types", value: data.registry.widgets.length, group: "registry" },
-        { key: "evidence_availability", value: data.rendered?.provenance.availability ?? null, group: "evidence" },
-        { key: "evidence_synthetic", value: data.rendered?.provenance.synthetic ?? null, group: "evidence" },
-        { key: "evidence_as_of", value: evidenceAsOf, group: "evidence" },
-      ],
-      records: {
-        reports: data.catalog.items.map((report) => ({
-          id: report.id,
-          name: report.name,
-          description: report.description,
-          widget_count: report.widget_count,
-          tags: report.tags,
-        })),
-      },
-    }),
-    [data, evidenceAsOf, headline],
-  );
-
-  return (
-    <div class="reports-workspace">
-      <nav class="reports-list" aria-label={t("reports.listLabel")}>
-        {data.catalog.items.map((report) => (
-          <a
-            key={report.id}
-            href={routeHref("reports", { segments: [report.id] })}
-            class={data.selected?.id === report.id ? "active" : undefined}
-            aria-current={data.selected?.id === report.id ? "page" : undefined}
-          >
-            <strong>{report.name}</strong>
-            <span>{t("reports.widgetCount", { count: report.widget_count })}</span>
-          </a>
-        ))}
-        {data.catalog.items.length === 0 ? <p class="muted">{t("reports.empty")}</p> : null}
-      </nav>
-
-      <section class="reports-detail" aria-live="polite">
-        {data.operationError ? (
-          <div class="state-block state-error" role="alert">{data.operationError}</div>
-        ) : null}
-        {data.selected ? (
-          <>
-            <header class="reports-header">
-              <div>
-                <span class="mono small">{data.selected.id} v{data.selected.version}</span>
-                <h2>{data.selected.name}</h2>
-                <p>{data.selected.description}</p>
-              </div>
-              {data.rendered ? (
-                <span class="muted small">{t("reports.renderedAt", { time: data.rendered.generated_at })}</span>
-              ) : null}
-            </header>
-
-            {data.rendered ? (
-              <div class="analytics-evidence reports-evidence">
-                <strong>
-                  {data.rendered.provenance.synthetic === true
-                    ? t("reports.simulated")
-                    : data.rendered.provenance.synthetic === false
-                      ? t("reports.measured")
-                      : t("reports.provenanceUnknown")}
-                </strong>
-                <span>{t("reports.availability", {
-                  status: data.rendered.provenance.availability,
-                })}</span>
-                {data.rendered.provenance.sources.map((source) => (
-                  <span key={source.datasource}>
-                    {source.datasource}: {source.source}
-                    {source.as_of ? ` - ${t("reports.asOf", { time: source.as_of })}` : ""}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-            {data.rendered?.provenance.availability === "unavailable" ? (
-              <div class="state-block state-unavailable" role="status">
-                {t("reports.datasourceUnavailable")}
-              </div>
-            ) : null}
-
-            {data.selected.variables.length > 0 ? (
-              <div class="reports-variables" aria-label={t("reports.variables")}>
-                {showVariableErrors ? (
-                  <div class="state-block state-unavailable" role="alert">
-                    {variableErrors.join("; ")}
-                  </div>
-                ) : null}
-                {data.selected.variables.map((variable) => (
-                  <label key={variable.name}>
-                    <span>{variable.name}</span>
-                    {variable.values.length > 0 ? (
-                      <select
-                        value={data.variables[variable.name] ?? ""}
-                        onChange={(event) => onVariableChange(variable.name, event.currentTarget.value)}
-                      >
-                        {variable.values.map((value) => <option key={value} value={value}>{value}</option>)}
-                      </select>
-                    ) : (
-                      <input
-                        value={data.variables[variable.name] ?? ""}
-                        onInput={(event) => onVariableChange(variable.name, event.currentTarget.value)}
-                        placeholder={variable.description}
-                      />
-                    )}
-                  </label>
-                ))}
-                <button type="button" class="primary" disabled={refreshing || !variablesComplete} onClick={() => void onRender()}>
-                  {refreshing ? t("reports.refreshing") : t("reports.refresh")}
-                </button>
-              </div>
-            ) : null}
-
-            {pdfDownloadAvailable(data.catalog.formats, data.registry.formats) ? (
-              <div class="reports-actions">
-                <button
-                  type="button"
-                  disabled={downloading || !variablesComplete || data.rendered === null}
-                  onClick={() => void onDownload()}
-                >
-                  {downloading ? t("reports.downloadingPdf") : t("reports.downloadPdf")}
-                </button>
-              </div>
-            ) : null}
-
-            <div class="reports-registry muted small">
-              {t("reports.registry", {
-                supported: data.registry.widgets.filter((type) => SUPPORTED_REPORT_WIDGET_TYPES.has(type)).length,
-                total: data.registry.widgets.length,
-              })}
-            </div>
-            {data.rendered ? (
-              <div class="process-widget-grid reports-widget-grid">
-                {data.rendered.widgets.map((widget) => <ProcessWidget key={widget.id} widget={widget} />)}
-              </div>
-            ) : (
-              <div class="state-block state-unavailable" role="status">{t("reports.readyHint")}</div>
-            )}
-          </>
-        ) : (
-          <div class="state-block state-unavailable" role="status">{t("reports.notFound")}</div>
-        )}
-      </section>
     </div>
   );
 }
