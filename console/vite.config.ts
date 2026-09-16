@@ -1,8 +1,11 @@
 /// <reference types="vitest/config" />
 
+import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv, type UserConfig } from "vite";
 import preact from "@preact/preset-vite";
 import { cssHotUpdateGuard } from "./src/vite-css-hmr-guard";
+
+export const CONSOLE_VITE_FS_ALLOW = [fileURLToPath(new URL("..", import.meta.url))];
 
 export function resolveViteCacheDir(env: Readonly<Record<string, string>>): string {
   return env.VITE_CACHE_DIR || "node_modules/.vite";
@@ -53,6 +56,9 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5273,
       strictPort: true,
+      fs: {
+        allow: CONSOLE_VITE_FS_ALLOW,
+      },
     },
     test: {
       // Backend stream tests normally take 3-4 seconds; retain a bounded
