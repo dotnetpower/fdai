@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 9600a6b045154966be80c803224fe3790c6c6435
+translation_source_sha: c63a51d24b77d2815abad62e212f6634e2f3e0ab
 translation_revised: 2026-09-16
 ---
 # 프로젝트 구조
@@ -434,8 +434,9 @@ checkpoint부터 재개합니다.
   HIL resume은 현재 active map에서만 rule을 resolve하며 catalog retirement 또는
   reload 뒤에는 serialized parked rule body를 신뢰하지 않습니다.
 - **독립 효과 관측**: 영속 kinetic artifact 저장소가 exact-plan source입니다.
-  `StateStoreExecutedActionObservationStore`는 서명된 맥락이 쓰기와 replay에서 구성된 검증기를
-  통과한 Heimdall 귀속 관측만 받습니다. 근거가 없으면 held 상태를 유지합니다.
+  `StateStoreExecutedActionObservationStore`는 검증기가 승인한 Heimdall 관측만 받습니다. 연결되지
+  않은 `StateStoreShadowReversionWriter`는 현재 승인 검증기를 요구하며 ActionType 하나만 복귀시킵니다.
+  관측이 이 작성기를 호출하지 않습니다.
 - **Azure operational 근거**: `bind_azure_operational_evidence`는 strict promoted-inventory 스냅샷 읽기 담당, 현재 안전성 평가기, 구성된 Azure 메트릭, 범위가 제한된 가지 estimator, effect-model 읽기 담당을 조립합니다. Temporal 어댑터는 근거 hashing 전에 non-finite 메트릭 값을 거부합니다. 부분 연결은 컨테이너 construction에서 실패합니다.
 - **대시보드 가용성 변환**: `shared/telemetry/dashboard_status.py`는 프로바이더와 도메인
   리듀서가 생성한 뒤의 정규화된 메트릭 관측을 사용합니다. 프로바이더 I/O를 수행하지 않으며

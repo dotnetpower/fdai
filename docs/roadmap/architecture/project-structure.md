@@ -439,8 +439,9 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   HIL resume resolves rules only from that current active map; serialized parked
   rule bodies are never trusted after a catalog retirement or reload.
 - **Independent effect observation**: the durable kinetic artifact store is the exact-plan source.
-  `StateStoreExecutedActionObservationStore` accepts only Heimdall-attributed observations whose
-  signed context passes the configured verifier on write and replay. Missing evidence remains held.
+  `StateStoreExecutedActionObservationStore` accepts only verifier-approved Heimdall observations.
+  `StateStoreShadowReversionWriter` requires an injected current-approval verifier and can only
+  persist a one-ActionType return to shadow; observation never invokes it.
 - **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch estimator, and effect-model reader. Temporal adapters reject non-finite metric values before evidence hashing. Partial binding fails at container construction.
 - **Dashboard availability projection**: `shared/telemetry/dashboard_status.py` consumes normalized
   metric observations after provider and domain reducers have produced them. It performs no provider
