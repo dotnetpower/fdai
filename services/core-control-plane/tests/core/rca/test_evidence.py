@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fdai.core.rca import (
     Citation,
     CitationKind,
@@ -76,7 +77,10 @@ async def test_no_providers_yields_no_evidence() -> None:
 
 async def test_only_error_logs_become_citations_and_ref_hides_body() -> None:
     provider = StaticLogQueryProvider(
-        [_log("secret-token=abc123 failed", "error"), _log("started ok", "info")]
+        [
+            _log("secret-token=abc123 timed out after connection refused", "error"),
+            _log("started ok", "info"),
+        ]
     )
     citations = await _gather(TelemetryEvidenceGatherer(log_provider=provider))
     assert len(citations) == 1
@@ -84,12 +88,41 @@ async def test_only_error_logs_become_citations_and_ref_hides_body() -> None:
     assert citations[0].ref.startswith("log:")
     # The raw body (which may carry secrets) never leaks into the ref.
     assert "secret-token" not in citations[0].ref
+    assert citations[0].facts == (
+        "marker:connection",
+        "marker:timeout",
+        "severity:error",
+        "signal:log_error",
+    )
+    assert all("secret" not in fact for fact in citations[0].facts)
 
 
 async def test_only_error_spans_become_citations() -> None:
     provider = StaticTraceQueryProvider([_span("s1", "error"), _span("s2", "ok")])
     citations = await _gather(TelemetryEvidenceGatherer(trace_provider=provider))
     assert [c.ref for c in citations] == ["trace:trace-abc:s1"]
+    assert citations[0].facts == (
+        "duration:100ms_to_1s",
+        "protocol:http_post",
+        "signal:trace_error",
+        "status:error",
+    )
+
+
+@pytest.mark.parametrize(
+    "facts",
+    (
+        ("raw log body",),
+        ("secret:token=value",),
+        tuple(f"marker:value-{index}" for index in range(17)),
+        ("marker:timeout", "marker:timeout"),
+    ),
+)
+def test_citation_facts_reject_raw_unbounded_or_duplicate_context(
+    facts: tuple[str, ...],
+) -> None:
+    with pytest.raises(ValueError):
+        Citation(kind=CitationKind.TELEMETRY, ref="log:opaque", facts=facts)
 
 
 async def test_logs_then_traces_with_dedupe() -> None:

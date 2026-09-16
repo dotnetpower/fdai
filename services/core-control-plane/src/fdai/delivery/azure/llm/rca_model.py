@@ -188,6 +188,11 @@ def _build_user_prompt(incident_summary: str, candidate_citations: Sequence[Cita
             "incident": incident_summary,
             "available_citations": [f"{c.kind.value}:{c.ref}" for c in candidate_citations],
             "citation_refs": [c.ref for c in candidate_citations],
+            "evidence_facts": [
+                {"ref": citation.ref, "facts": list(citation.facts)}
+                for citation in candidate_citations
+                if citation.facts
+            ],
             "instructions": (
                 "Identify the most likely root cause. Respond with a JSON object "
                 '{"cause": string, "cause_domain": one of infrastructure, application, '
