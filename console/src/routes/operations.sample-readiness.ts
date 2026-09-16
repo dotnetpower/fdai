@@ -17,10 +17,13 @@ export function sampleOnboarding() {
     probe_mode: "configured",
     ready: false,
     blocked: true,
-    missing_resources: ["sample-private-endpoint"],
-    missing_role_assignments: [["sample-reader", "Reader", "sample-scope"]],
-    present_resource_count: 18,
-    present_role_count: 7,
+    missing_resources: ["state_store", "event_bus", "executor_identity"],
+    missing_role_assignments: [
+      ["executor", "event_bus_data_owner", "event_bus"],
+      ["executor", "secret_reader", "secret_store"],
+    ],
+    present_resource_count: 5,
+    present_role_count: 0,
     error: null,
   };
 }
