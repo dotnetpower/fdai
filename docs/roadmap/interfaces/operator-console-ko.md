@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 98af56241e30a14d52abe6aa7f2c60f0d22e19bc
+translation_source_sha: 3ab5afd5834e5421679f25c27e56df0dcb93f228
 translation_revised: 2026-09-16
 ---
 # FDAI Console 대화
@@ -591,13 +591,7 @@ FDAI Console은 `console/src/generated/service-contracts.ts`의 생성 TypeScrip
 컴파일합니다. 체크섬으로 고정한 저장소 생성기는 백엔드 서비스 5개가 사용하는 것과 같은
 N/N-1 JSON Schema에서 이 변환 결과를 만듭니다. 생성 인터페이스는 컴파일 시점의 정렬만
 개선합니다. Operator 서비스는 계속 기준 스키마로 와이어 페이로드를 검증하며 Console에는
-승인, 변경 또는 실행 권한이 없습니다.
-
-감사 작업 영역은 추가적인 `summary=true` 묶음을 요청합니다. 현재 Operator는 보존 중인 조회
-범위 수치, 기록 맥락 및 무결성 관측을 반환합니다. 이전 Operator는 페이지 전용 묶음을
-유지하며 Console은 이를 요약 근거를 사용할 수 없는 상태로 명시합니다. Incident, Agent
-Activity 및 Trace 읽기는 이 활성화 설정을 보내지 않고 기존의 범위가 제한된 페이지 비용을
-유지합니다.
+승인, 변경 또는 실행 권한이 없습니다. 감사 작업 영역은 추가적인 `summary=true` 묶음을 요청합니다. 현재 Operator는 보존 중인 조회 범위 수치, 기록 맥락 및 무결성 관측을 반환하고 이전 Operator는 Console이 요약 근거를 사용할 수 없는 상태로 처리하는 페이지 전용 묶음을 유지합니다. Incident, Agent Activity 및 Trace 읽기는 이 활성화 설정을 보내지 않고 범위가 제한된 페이지 비용을 유지합니다.
 
 focused 소유자 문서로 분리했습니다:
 
