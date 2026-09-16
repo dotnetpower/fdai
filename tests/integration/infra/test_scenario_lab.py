@@ -229,6 +229,15 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
         "KUBELOGIN_LINUX_AMD64_SHA256: "
         "ebaeff02aa899c5cae6a2b954b64fc02738185319df2570f7dc053451efa4b2f" in workflow
     )
+    assert "Install checksum-pinned kubectl" in workflow
+    assert "KUBECTL_VERSION: v1.31.14" in workflow
+    assert (
+        "KUBECTL_LINUX_AMD64_SHA256: "
+        "8791ec7c8966b61420d55103a5fb948de9f0ca3d7306d789734975ad9704bdb0" in workflow
+    )
+    assert '"https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"' in workflow
+    assert "required kubectl installer command is unavailable" in workflow
+    assert '"$tool_dir/kubectl" version --client=true' in workflow
     assert "Install checksum-pinned Helm" in workflow
     assert "HELM_VERSION: v3.18.6" in workflow
     assert (
