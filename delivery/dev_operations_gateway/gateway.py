@@ -30,7 +30,16 @@ else:
 _ARM_AUDIENCE = "https://management.azure.com"
 _NETWORK_API_VERSION = "2025-05-01"
 _COMPUTE_API_VERSION = "2025-04-01"
+_TAGS_API_VERSION = "2021-04-01"
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{0,127}$")
+_TAG_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
+_TAG_VALUE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:@ -]{0,255}$")
+_LOGICAL_RESOURCE_REF = re.compile(
+    r"^scope-[a-f0-9]{16,64}/resource-group/"
+    r"(?P<resource_group>[A-Za-z0-9][A-Za-z0-9_.()-]{0,127})"
+    r"(?P<provider_path>/providers(?:/[A-Za-z0-9][A-Za-z0-9_.()-]{0,127}){3,15})?$",
+    re.IGNORECASE,
+)
 _MUTATION_OPERATIONS = frozenset(
     {
         "azure.network.nsg.rule.upsert",
@@ -38,6 +47,7 @@ _MUTATION_OPERATIONS = frozenset(
         "azure.compute.vm.start",
         "azure.compute.vm.deallocate",
         "azure.compute.vmss.scale",
+        "azure.resource.tags.merge",
     }
 )
 _EXECUTOR_VERTICAL_ORDER = ("change", "resilience", "finops")
@@ -47,6 +57,7 @@ _OPERATION_VERTICALS = {
     "azure.compute.vm.start": "resilience",
     "azure.compute.vm.deallocate": "finops",
     "azure.compute.vmss.scale": "finops",
+    "azure.resource.tags.merge": "change",
 }
 
 
@@ -286,6 +297,8 @@ class OperationsGateway:
             "azure.compute.vm.start": self._start_vm,
             "azure.compute.vm.deallocate": self._deallocate_vm,
             "azure.compute.vmss.scale": self._scale_vmss,
+            "azure.resource.tags.read": self._read_resource_tag,
+            "azure.resource.tags.merge": self._merge_resource_tag,
         }
         handler = handlers.get(operation_id)
         if handler is None:
@@ -549,13 +562,17 @@ class OperationsGateway:
         operation_id: str,
         payload: Mapping[str, object],
     ) -> str:
-        subscription, group = self._scope(payload)
+        if operation_id == "azure.resource.tags.merge":
+            subscription, group, target_path = self._tag_target(payload)
+            target = f"tags/{target_path.lstrip('/')}"
+        else:
+            subscription, group = self._scope(payload)
         if operation_id == "azure.compute.vmss.scale":
             _, _, vmss_name = self._vmss_target(payload)
             target = f"vmss/{vmss_name}"
         elif operation_id.startswith("azure.compute.vm."):
             target = f"vm/{_identifier(payload, 'vm_name')}"
-        else:
+        elif operation_id != "azure.resource.tags.merge":
             target = (
                 f"nsg/{_identifier(payload, 'nsg_name')}/rule/{_identifier(payload, 'rule_name')}"
             )
@@ -569,6 +586,9 @@ class OperationsGateway:
         self._mutation_resource_key(operation_id, payload)
         if operation_id == "azure.network.nsg.rule.upsert":
             _nsg_rule_body(payload)
+        elif operation_id == "azure.resource.tags.merge":
+            _tag_argument(payload, "tag_name", _TAG_NAME)
+            _tag_argument(payload, "tag_value", _TAG_VALUE)
         elif operation_id == "azure.compute.vmss.scale":
             _integer(payload, "replica_count", minimum=1, maximum=1000)
             _scale_reason(payload)
@@ -578,6 +598,9 @@ class OperationsGateway:
         operation_id: str,
         payload: Mapping[str, object],
     ) -> None:
+        if operation_id == "azure.resource.tags.merge":
+            await self._read_tag_document(payload)
+            return
         subscription, group = self._scope(payload)
         if operation_id == "azure.compute.vmss.scale":
             _, group, vmss_name = self._vmss_target(payload)
@@ -783,6 +806,128 @@ class OperationsGateway:
             json_body=body,
             executor=True,
         )
+
+    async def _read_resource_tag(self, payload: Mapping[str, object]) -> object:
+        tag_name = _tag_argument(payload, "tag_name", _TAG_NAME)
+        expected = _tag_argument(payload, "tag_value", _TAG_VALUE)
+        tags = await self._read_tag_document(payload)
+        return {
+            "matches": tags.get(tag_name) == expected,
+            "present": tag_name in tags,
+        }
+
+    async def _merge_resource_tag(self, payload: Mapping[str, object]) -> object:
+        tag_name = _tag_argument(payload, "tag_name", _TAG_NAME)
+        tag_value = _tag_argument(payload, "tag_value", _TAG_VALUE)
+        prior = await self._read_tag_document(payload)
+        target_path = self._tag_extension_path(payload)
+        mutation = await self._arm(
+            "PATCH",
+            target_path,
+            api_version=_TAGS_API_VERSION,
+            json_body={
+                "operation": "Merge",
+                "properties": {"tags": {tag_name: tag_value}},
+            },
+            executor=True,
+        )
+        if isinstance(mutation, _ArmSubmission):
+            raise GatewayError(
+                502,
+                "azure_response_invalid",
+                "Azure tag merge unexpectedly returned an asynchronous operation",
+            )
+        observed = await self._read_tag_document(payload)
+        if observed.get(tag_name) == tag_value:
+            return {"verified": True}
+        await self._restore_tag_snapshot(payload, prior)
+        raise GatewayError(
+            502,
+            "effect_verification_failed",
+            "Azure tag readback mismatched and the prior tag snapshot was restored",
+        )
+
+    async def _restore_tag_snapshot(
+        self,
+        payload: Mapping[str, object],
+        prior: Mapping[str, str],
+    ) -> None:
+        target_path = self._tag_extension_path(payload)
+        restored = await self._arm(
+            "PATCH",
+            target_path,
+            api_version=_TAGS_API_VERSION,
+            json_body={
+                "operation": "Replace",
+                "properties": {"tags": dict(prior)},
+            },
+            executor=True,
+        )
+        if isinstance(restored, _ArmSubmission):
+            raise GatewayError(
+                502,
+                "tag_rollback_failed",
+                "Azure tag rollback unexpectedly returned an asynchronous operation",
+            )
+        if await self._read_tag_document(payload) != dict(prior):
+            raise GatewayError(
+                500,
+                "tag_rollback_failed",
+                "Azure tag rollback could not restore the prior snapshot",
+            )
+
+    async def _read_tag_document(self, payload: Mapping[str, object]) -> dict[str, str]:
+        raw = await self._arm(
+            "GET",
+            self._tag_extension_path(payload),
+            api_version=_TAGS_API_VERSION,
+        )
+        if not isinstance(raw, Mapping):
+            raise GatewayError(
+                502,
+                "azure_response_invalid",
+                "Azure tag response was not an object",
+            )
+        properties = raw.get("properties")
+        tags = properties.get("tags") if isinstance(properties, Mapping) else None
+        if not isinstance(tags, Mapping) or any(
+            not isinstance(key, str) or not isinstance(value, str) for key, value in tags.items()
+        ):
+            raise GatewayError(
+                502,
+                "azure_response_invalid",
+                "Azure tag response did not contain a string map",
+            )
+        return dict(tags)
+
+    def _tag_extension_path(self, payload: Mapping[str, object]) -> str:
+        subscription, _group, target_path = self._tag_target(payload)
+        return (
+            f"/subscriptions/{subscription}{target_path}/providers/Microsoft.Resources/tags/default"
+        )
+
+    def _tag_target(self, payload: Mapping[str, object]) -> tuple[str, str, str]:
+        target_ref = _bounded(payload, "target_resource_ref", maximum=2048)
+        match = _LOGICAL_RESOURCE_REF.fullmatch(target_ref)
+        if match is None:
+            raise GatewayError(
+                400,
+                "argument_invalid",
+                "target_resource_ref MUST identify one bounded logical Azure resource",
+            )
+        group = match.group("resource_group")
+        provider_path = match.group("provider_path") or ""
+        segments = provider_path.split("/")[2:] if provider_path else []
+        if segments and len(segments) % 2 == 0:
+            raise GatewayError(
+                400,
+                "argument_invalid",
+                "target_resource_ref provider path is incomplete",
+            )
+        if group.casefold() not in {value.casefold() for value in self._config.resource_groups}:
+            raise GatewayError(403, "scope_denied", "resource group is outside dev scope")
+        target_path = f"/resourceGroups/{group}{provider_path}"
+        return self._config.subscription_id, group, target_path
 
     async def _delete_nsg_rule(self, payload: Mapping[str, object]) -> object:
         subscription, group = self._scope(payload)
@@ -1037,6 +1182,17 @@ def _identifier(payload: Mapping[str, object], name: str) -> str:
     value = payload.get(name)
     if not isinstance(value, str) or _IDENTIFIER.fullmatch(value) is None:
         raise GatewayError(400, "argument_invalid", f"{name} MUST be a bounded identifier")
+    return value
+
+
+def _tag_argument(
+    payload: Mapping[str, object],
+    name: str,
+    pattern: re.Pattern[str],
+) -> str:
+    value = payload.get(name)
+    if not isinstance(value, str) or pattern.fullmatch(value) is None:
+        raise GatewayError(400, "argument_invalid", f"{name} is invalid")
     return value
 
 

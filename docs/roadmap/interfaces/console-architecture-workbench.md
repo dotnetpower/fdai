@@ -95,6 +95,12 @@ understating impact.
 
 ## Information hierarchy and interaction
 
+The `/architecture` route remains available through explicit direct URLs and contextual Resource
+drill-downs. The Governance Explorer and every other Console screen intentionally omit dedicated
+actions labeled Architecture, including Live, Onboarding, Rules, and Impact scope. Hiding those
+actions does not remove contextual Resource links, the panel registration, or its read-only
+authority.
+
 One toolbar owns registered scope, bounded Resource search, `Topology | Network`, and read-only
 source state. The coverage disclosure is collapsed by default and leads with complete or partial
 state, freshness, returned and displayed Resource counts, and any page limit. Snapshot and

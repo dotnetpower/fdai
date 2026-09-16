@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import runpy
 import shutil
 import subprocess
 import sys
@@ -15,6 +16,10 @@ COMMERCE_PREPARE_SCRIPT = (
 )
 SWEEP_SCRIPT = REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "run-reference-sweep.sh"
 CLEANUP_SCRIPT = REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "cleanup-runner.sh"
+STORE_RENDERER = REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "render_aks_store_demo.py"
+STORE_DOMAIN_VERIFIER = (
+    REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "verify_store_front_domain.py"
+)
 BASH = shutil.which("bash")
 assert BASH is not None
 
@@ -130,6 +135,88 @@ def test_commerce_profile_exposes_only_https_storefront() -> None:
     )
 
 
+def test_scenario_lab_renders_the_pinned_aks_store_demo_domain() -> None:
+    renderer = runpy.run_path(str(STORE_RENDERER))
+    render_manifest = renderer["render_manifest"]
+    replacements = renderer["IMAGE_REPLACEMENTS"]
+    order_source = renderer["ORDER_SERVICE_REPLICA_SOURCE"]
+    store_front_source = renderer["STORE_FRONT_METADATA_SOURCE"]
+    store_admin_source = renderer["STORE_ADMIN_SERVICE_SOURCE"]
+
+    source = (
+        order_source
+        + "\n"
+        + "\n".join(f"image: {image}" for image in replacements)
+        + "\n"
+        + store_front_source
+        + "  type: LoadBalancer\n"
+        + store_admin_source
+    )
+    rendered = render_manifest(source, "fdai-store-lab-krc-abc123")
+
+    assert "replicas: 3" in rendered
+    assert "replicas: 1" not in rendered
+    assert rendered.count("type: LoadBalancer") == 1
+    assert rendered.count("type: ClusterIP") == 1
+    assert (
+        'service.beta.kubernetes.io/azure-dns-label-name: "fdai-store-lab-krc-abc123"' in rendered
+    )
+    for tagged_image, digest_image in replacements.items():
+        assert tagged_image not in rendered
+        assert f"image: {digest_image}" in rendered
+
+
+def test_scenario_lab_store_domain_verifier_checks_dns_and_health(monkeypatch) -> None:
+    verifier = runpy.run_path(str(STORE_DOMAIN_VERIFIER))
+    verify = verifier["verify"]
+    monkeypatch.setitem(
+        verify.__globals__,
+        "_resolved_addresses",
+        lambda hostname: {"203.0.113.10"},
+    )
+    monkeypatch.setitem(verify.__globals__, "_healthy", lambda hostname: True)
+
+    assert verify("fdai-store-lab-krc-abc123.koreacentral.cloudapp.azure.com", "203.0.113.10")
+
+
+def test_scenario_lab_prepares_store_demo_as_the_fault_target() -> None:
+    prepare = PREPARE_SCRIPT.read_text(encoding="utf-8")
+    outputs = (LAB_ROOT / "outputs.tf").read_text(encoding="utf-8")
+    main = (LAB_ROOT / "main.tf").read_text(encoding="utf-8")
+    renderer = STORE_RENDERER.read_text(encoding="utf-8")
+
+    assert 'SOURCE_COMMIT = "61b033448904a930f01d497ce7139aca87a1b12d"' in renderer
+    assert (
+        'SOURCE_SHA256 = "c290390edb7e26396a498dd5cbcf7ace94115fe4be813cd80f4fda69d6cbcfee"'
+        in renderer
+    )
+    assert len(re.findall(r"@sha256:[0-9a-f]{64}", renderer)) == 10
+    assert (
+        'render_aks_store_demo.py" \\\n  "$store_manifest" \\\n  "$store_front_dns_label"'
+        in prepare
+    )
+    assert "verify_store_front_domain.py" in prepare
+    assert "service/store-front" in prepare
+    assert "store-front-url" in prepare
+    assert "FDAI_STORE_FRONT_URL" in prepare
+    assert "create deployment api-backend" not in prepare
+    assert "rollout status statefulset/documentdb" in prepare
+    assert "rollout status statefulset/rabbitmq" in prepare
+    assert "wait --for=condition=available deployment" in prepare
+    assert "FDAI_ENFORCE_BACKEND_CONTAINER" in prepare
+    assert "FDAI_ENFORCE_BACKEND_REPLICAS" in prepare
+    assert "FDAI_ENFORCE_BACKEND_IMAGE" in prepare
+    assert 'backend_deployment    = "order-service"' in outputs
+    assert 'backend_service       = "order-service"' in outputs
+    assert 'backend_label         = "app=order-service"' in outputs
+    assert 'backend_container     = "order-service"' in outputs
+    assert "backend_replicas      = 3" in outputs
+    assert 'store_front_dns_label    = "fdai-store-${var.environment}-${var.region_short}-' in main
+    assert 'store_front_dns_hostname = "${local.store_front_dns_label}.${var.region}' in main
+    assert "store_front_dns_label = local.store_front_dns_label" in outputs
+    assert "store_front_hostname  = local.store_front_dns_hostname" in outputs
+
+
 def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     ci_workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
@@ -161,6 +248,10 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
         "TF_VAR_stress_vm_size: "
         "${{ vars.SCENARIO_LAB_STRESS_VM_SIZE || 'Standard_B2s' }}" in workflow
     )
+    assert "SCENARIO_LAB_BACKEND_IMAGE" not in workflow
+    assert "Configure AKS test substrate" in workflow
+    assert "printf 'store_front_url=%s\\n' \"$store_front_url\"" in workflow
+    assert "AKS Store Demo: %s" in workflow
     assert "DEV_ACCESS_VNET_ID" in workflow
     assert "Grant bounded scenario-lab deployment authority" in workflow
     assert "Revoke bounded scenario-lab deployment authority" in workflow
@@ -386,17 +477,25 @@ def test_live_runner_records_current_approval_reference() -> None:
     runner = (REPO_ROOT / "scripts" / "catalog" / "run-enforce-scenarios.py").read_text(
         encoding="utf-8"
     )
+    latency_runner = (REPO_ROOT / "scripts" / "catalog" / "measure-detection-latency.py").read_text(
+        encoding="utf-8"
+    )
     sweep = SWEEP_SCRIPT.read_text(encoding="utf-8")
 
     assert 'APPROVAL_REF = _env("FDAI_ENFORCE_APPROVAL_REF")' in runner
     assert 'd["approval_ref"] = APPROVAL_REF' in runner
+    for source in (runner, latency_runner):
+        assert 'BACKEND_CONTAINER = _env("FDAI_ENFORCE_BACKEND_CONTAINER")' in source
+        assert 'BACKEND_IMAGE = _env("FDAI_ENFORCE_BACKEND_IMAGE")' in source
+        assert "container=BACKEND_CONTAINER" in source
+        assert 'bad_image=f"{BACKEND_IMAGE}:does-not-exist-' in source
     assert 'export FDAI_ENFORCE_APPROVAL_REF="$approval_ref"' in sweep
     assert 'SCENARIO_LAB_CONFIRM_ENFORCE:-}" != "true"' in sweep
     assert 'os.environ.get("FDAI_ENFORCE_REPORT_ROOT")' in runner
     assert "must be an absolute non-root path" in runner
     prepare = PREPARE_SCRIPT.read_text(encoding="utf-8")
     assert "helm show chart chaos-mesh/chaos-mesh" in prepare
-    assert "az helm jq kubectl kubelogin terraform" in prepare
+    assert "az helm jq kubectl kubelogin python3 terraform" in prepare
     assert "--public-fqdn" in prepare
     assert "--admin" not in prepare
     assert 'kubelogin convert-kubeconfig --kubeconfig "$kubeconfig" -l msi' in prepare

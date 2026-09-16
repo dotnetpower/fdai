@@ -235,6 +235,7 @@ async def run_runtime_tasks(
             name="canary-consumer",
         )
     hil_decision_task: asyncio.Task[None] | None = None
+    hil_expiry_task: asyncio.Task[None] | None = None
     hil_reminder_task: asyncio.Task[None] | None = None
     hil_escalation_task: asyncio.Task[None] | None = None
     semantic_turn_task = hooks.schedule_semantic_turn_consumer(
@@ -323,6 +324,15 @@ async def run_runtime_tasks(
         from fdai.delivery.chatops.hil_decision import DEFAULT_HIL_DECISION_TOPIC
 
         hil_coordinator = config.control_loop._hil_resume_coordinator
+        expiry_reconciler = hil_coordinator.expiry_reconciler
+        if expiry_reconciler is not None:
+            hil_expiry_task = asyncio.create_task(
+                config.readiness.run_when_ready(
+                    config.stop,
+                    lambda: expiry_reconciler.run(config.stop),
+                ),
+                name="hil-approval-expiry-reconciliation",
+            )
         hil_decision_task = asyncio.create_task(
             config.readiness.run_when_ready(
                 config.stop,
@@ -605,6 +615,7 @@ async def run_runtime_tasks(
             resource_change_task,
             canary_task,
             hil_decision_task,
+            hil_expiry_task,
             hil_reminder_task,
             hil_escalation_task,
             case_history_retention_task,

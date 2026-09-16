@@ -89,6 +89,29 @@ def _scale_out_request(*, mode: Mode) -> DirectApiRequest:
     )
 
 
+def _tag_request(*, mode: Mode) -> DirectApiRequest:
+    target = (
+        "scope-0123456789abcdef/resource-group/rg-example/"
+        "providers/microsoft.storage/storageaccounts/storage-app"
+    )
+    return DirectApiRequest(
+        action_id=UUID("00000000-0000-0000-0000-000000000003"),
+        idempotency_key="operation:tag-one",
+        action_type_name="remediate.tag-add",
+        rule_ids=("object-storage.owner-tag.required",),
+        resource_ref=target,
+        arguments={"tag_name": "environment", "tag_value": "dev"},
+        labels=(("enforce",) if mode is Mode.ENFORCE else ("shadow",)),
+        mode=mode,
+        metadata={
+            "audit_ref": "action:audit-tag-one",
+            "stop_condition": "provider_api_error_streak",
+            "rollback_ref": "snapshot_restore",
+            "max_resources": "1",
+        },
+    )
+
+
 def _config() -> AzureGatewayDirectApiConfig:
     return AzureGatewayDirectApiConfig(
         base_url="https://gateway.example.com",
@@ -162,6 +185,33 @@ async def test_shadow_plans_without_mutating() -> None:
     assert receipt.outcome is DirectApiOutcome.SUCCEEDED
     assert len(requests) == 1
     assert requests[0].url.path.endswith("/azure.operation.plan")
+
+
+async def test_tag_shadow_plan_uses_exact_logical_target() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "operation_id": "azure.operation.plan",
+                "status": "succeeded",
+                "result": {"status": "planned", "dry_run_receipt": "server-receipt"},
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        receipt = await AzureGatewayDirectApiExecutor(
+            config=_config(), identity=_Identity(), http_client=client
+        ).execute(_tag_request(mode=Mode.SHADOW))
+
+    assert receipt.outcome is DirectApiOutcome.SUCCEEDED
+    body = requests[0].read().decode()
+    assert '"operation_id":"azure.resource.tags.merge"' in body
+    assert '"target_resource_ref":"scope-0123456789abcdef/resource-group/rg-example/' in body
+    assert '"tag_name":"environment"' in body
+    assert '"tag_value":"dev"' in body
 
 
 async def test_scale_out_maps_exact_vmss_target_to_registered_operation() -> None:

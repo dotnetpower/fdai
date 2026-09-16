@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: c95dcd6e5996507dfb924656d17e7452d15b3b39
-translation_revised: 2026-09-16
+translation_source_sha: a5232bd4ff0434f1c04973410dd3f085f56b7505
+translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
 
@@ -213,12 +213,12 @@ CronJob을 렌더링합니다. 이력 작업은 읽기 전용 inventory 신원, 
 archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle은 별도의 보호된 전환과
 정확히 저장된 인증 증적을 요구하며 런타임 선택은 어느 권한도 부여하지 않습니다.
 
-인벤토리 명령은 두 플랫폼과 로컬에서 읽기 전용 실패 경계를 유지합니다. Activity Log 복구 실패는
-변경분 커서를 진행하거나 전체 조정을 중단하지 않고 사용 불가로 보고합니다. 수동적인 모델 서비스
-응답 근거는 모델 자격 증명이나 추론 없이 인벤토리 신원과 Azure Monitor를 재사용합니다. 제한된
-실패는 해당 출처의 범위만 낮추고 잘못된 응답은 정제합니다. 재조정 범위가 조회 구간, 최신성, 데이터
-지점 및 제한 시간을 결정하며, 추가 방식 메타데이터는 업데이트 순서와 관계없이 기본 인벤토리를
-계속 사용할 수 있게 합니다.
+인벤토리 명령은 읽기 전용 실패 경계를 유지하며 Activity Log 복구 실패는 변경분 커서를 진행하거나
+재조정을 중단할 수 없습니다. 수동 모델 서비스 근거는 추론 없이 인벤토리 신원과 Azure Monitor를
+재사용하며 실패하면 해당 범위만 낮춥니다. 재조정 범위가 조회 구간, 최신성, 데이터 지점 및 제한
+시간을 결정합니다. 독립 실행형 기반 대상 집합에는 기존 구독, 작업 영역, 정확한 클러스터, 비용 및
+파이프라인 단계 역할이 포함됩니다. 이러한 할당이 없는 인벤토리 신원은 공급자 범위, 메트릭, 로그,
+비용 또는 게시 준비 상태를 입증할 수 없습니다.
 
 관리 호스트는 선택한 Deployment 이름, 이미지 참조, 복제본 수 범위를 기록합니다. 상태 재조회는
 해당 목록 전체, 현재 관측 세대, 준비된 복제본, 같은 소스 버전에서 실행 중인 Pod 이미지 digest를
@@ -237,7 +237,7 @@ Executor 실행 권한 전환을 활성화하지 않습니다.
 
 각 FDAI 워크로드는 현재 user-assigned Managed Identity를 유지합니다. AKS에서는 namespace에 속한
 Kubernetes ServiceAccount가 federated identity credential을 받습니다. 권한이 높은 Executor 신원은
-Console, Operator Service, 작업 또는 다른 워크로드와 공유하지 않습니다.
+Console, Operator Service, 작업 또는 다른 워크로드와 공유하지 않습니다. 선택적 dev operations gateway는 reader와 executor identity를 분리합니다. 태그 canary는 FDAI 애플리케이션 리소스 그룹의 `Tag Contributor`만 사용하며 reader 접근은 사전 점검, 쓰기 후 확인 및 rollback 확인을 담당합니다. ActionType 버전을 변경하면 두 convergence 테스트의 기대값을 포함한 정확한 ontology 및 Cost Governance 프로파일 pin을 다시 생성하지만 package를 활성화하지는 않습니다. 이 역할은 `remediate.tag-add`를 승격하지 않으며 배포와 ActionType 승격에는 각각 별도 승인이 필요합니다.
 
 다섯 기본 서비스는 `AZURE_FEDERATED_TOKEN_FILE`이 선언되면 Azure Identity SDK의 워크로드
 자격 증명을 선택합니다. 투영된 토큰 경로는 절대 경로여야 하고 tenant와 client 식별자는

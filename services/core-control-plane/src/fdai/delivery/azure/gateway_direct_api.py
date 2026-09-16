@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from urllib.parse import urlparse
 
 import httpx
+from fdai_service_contracts.executor_targets import resolve_azure_operation_target
 
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.direct_api import (
@@ -30,6 +31,7 @@ _ACTION_OPERATIONS = {
     "ops.scale-out": "azure.compute.vmss.scale",
     "ops.upsert-network-rule": "azure.network.nsg.rule.upsert",
     "ops.delete-network-rule": "azure.network.nsg.rule.delete",
+    "remediate.tag-add": "azure.resource.tags.merge",
 }
 
 
@@ -237,6 +239,8 @@ def _arguments(
     required: tuple[str, ...]
     if operation_id == "azure.compute.vmss.scale":
         return _vmss_scale_arguments(raw, resource_ref=resource_ref)
+    if operation_id == "azure.resource.tags.merge":
+        return _tag_arguments(raw, resource_ref=resource_ref)
     if operation_id.startswith("azure.compute.vm."):
         required = ("resource_group", "vm_name")
     elif operation_id == "azure.network.nsg.rule.delete":
@@ -249,6 +253,22 @@ def _arguments(
             raise DirectApiPreconditionError(f"gateway argument {key} is required")
         arguments[key] = raw[key]
     return arguments
+
+
+def _tag_arguments(
+    raw: Mapping[str, object],
+    *,
+    resource_ref: str,
+) -> dict[str, object]:
+    arguments = dict(raw)
+    arguments.setdefault("target_resource_ref", resource_ref)
+    try:
+        target = resolve_azure_operation_target("remediate.tag-add", arguments)
+    except ValueError as exc:
+        raise DirectApiPreconditionError(str(exc)) from exc
+    if target.resource_ref != resource_ref:
+        raise DirectApiPreconditionError("tag target_resource_ref must match the action resource")
+    return target.arguments
 
 
 def _vmss_scale_arguments(

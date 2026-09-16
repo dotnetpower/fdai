@@ -89,7 +89,10 @@ def target_binding_refusal(action: Action) -> str | None:
         return None
 
     try:
-        target = resolve_azure_operation_target(action.action_type, action.params)
+        arguments = dict(action.params)
+        if action.action_type == "remediate.tag-add":
+            arguments.setdefault("target_resource_ref", action.target_resource_ref)
+        target = resolve_azure_operation_target(action.action_type, arguments)
     except ValueError:
         return "action operation arguments do not identify a canonical Azure target"
     if action.target_resource_ref != target.resource_ref:

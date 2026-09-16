@@ -1,8 +1,8 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 43fe2a2f128080f4ea61ece94a8b0301d5923c35
-translation_revised: 2026-09-13
+translation_source_sha: 5218c30d14a2af3d6b5cf471bd42df2ab12c6be3
+translation_revised: 2026-09-17
 ---
 # 운영 배포 강화
 
@@ -33,12 +33,15 @@ translation_revised: 2026-09-13
 | Bot 소유 보호 Core service apply | implemented | `request-protected-operation.yml`, `service-deploy.yml`, Core apply 요청 검증기 및 집중 workflow 검사 | 제출기는 개발 또는 스테이징의 Core에 대해 유효 기간이 남은 model-binding plan만 받습니다. Service workflow는 필수 사람 Environment 승인을 유지하고 변경 전에 정책을 다시 검사합니다. |
 | Scenario-lab 실행기 도구 준비 | implemented | `sre-demo-lab.yml`, `test_scenario_lab.py`, CI 계약 검사, actionlint, 다운로드한 checksum 검증 | 보호된 workflow는 요청 선행 조건을 확인하기 전에 checksum으로 고정된 Helm과 kubelogin을 실행기 임시 저장소에 설치합니다. 후보 실행기에 Helm이 미리 설치됐다고 가정하지 않으며 설치는 Azure 리소스나 실행기 이미지를 변경하지 않습니다. |
 | Scenario-lab 구독 호환 VM 크기 | implemented | `sre-demo-lab.yml`, scenario-lab Terraform 변수, 집중 scenario-lab 계약 테스트 | 구독이 기본값을 제한하면 보호된 저장소 변수로 AKS 노드와 부하 VM 크기를 재정의할 수 있습니다. 재정의 값이 없으면 `Standard_D2s_v5`와 `Standard_B2s`를 유지하며 정확한 Terraform 계획이 계속 승인 경계가 됩니다. |
+| Scenario-lab AKS Store Demo 워크로드 | implemented | `render_aks_store_demo.py`, `verify_store_front_domain.py`, `prepare-runner.sh`, `infra/scenario-lab/outputs.tf`, 집중 scenario-lab 테스트 | 승인된 apply는 커밋과 SHA-256으로 고정된 upstream manifest 하나를 내려받고, 모든 워크로드 이미지를 digest로 고정하고, `store-front`만 결정론적인 Azure 도메인으로 공개하고, `store-admin`은 비공개로 유지하며, `order-service` replica 3개를 기존 장애 대상에 사용합니다. 보호된 apply 및 도메인 준비 증적은 아직 필요합니다. |
 | exact-revision 보호 운영 적용 근거 | in-progress | [배포와 온보딩](deploy-and-onboard-ko.md#구현-상태) | 코드와 계획 gate는 있지만 이 소유 문서는 모든 제어를 함께 입증하는 현재 운영 적용을 하나로 보존하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-17 | implemented | 결정론적인 Azure 제공 `cloudapp.azure.com` hostname을 통해 일회용 Store Demo에 브라우저로 직접 접속할 수 있게 했습니다. Renderer는 `store-front`만 공개합니다. 준비 단계는 Load Balancer 주소를 기다리고 정확한 DNS 해석 및 HTTP 상태를 검증한 다음 보호된 workflow 요약에 검증된 URL을 게시합니다. | `current change`, `.github/workflows/sre-demo-lab.yml`, `infra/scenario-lab/`, `scripts/deployment/scenario-lab/`, `tests/integration/infra/test_scenario_lab.py`, 집중 scenario-lab, Terraform, workflow 및 문서 검사 | exact protected apply를 실행하여 DNS, Load Balancer 및 HTTP 상태 관찰을 보존하고 승인된 데모 기간 후 endpoint를 제거합니다. |
+| 2026-09-17 | implemented | 생성된 NGINX 장애 대상을 공식 AKS Store Demo로 교체했습니다. 준비 단계는 변경할 수 없는 upstream manifest 하나를 검증하고, image 참조 10개를 검토된 multi-platform digest로 바꾸고, 공개 Service를 `ClusterIP`로 변경하며, 기존 10개 시나리오 모음을 `order-service` replica 3개에 연결합니다. | `current change`, `.github/workflows/sre-demo-lab.yml`, `infra/scenario-lab/`, `scripts/deployment/scenario-lab/`, `tests/integration/infra/test_scenario_lab.py`, 집중 scenario-lab, formatting, Terraform, workflow 및 문서 검사 | 실제 검증을 주장하기 전에 exact protected apply를 실행하여 Store Demo 준비 상태와 image readback을 보존하고, 별도로 승인된 참조 시나리오 모음을 실행합니다. |
 | 2026-09-13 | implemented | 실제 fail-closed apply에서 자체 `az version` 검사가 금지된 root Azure CLI 프로파일을 다시 생성한 사실을 확인한 뒤 Genesis runner-image 검증기를 수정했습니다. 이제 검증기는 전용 임시 Azure CLI 구성을 사용하고 제거한 다음 captured image에 자격 증명 아티팩트가 없는지 확인합니다. | 이슈 #94에 보존된 실패한 승인 runner-image apply, `current change`, `infra/genesis-runner-image/main.tf`, Terraform runner-image 계약 테스트 | 새 서명 키트를 게시하고 별도로 검토한 exact plan을 만든 뒤 실패한 apply claim을 재사용하지 않고 captured image를 검증합니다. |
 | 2026-09-13 | implemented | 기존 기본값을 유지하면서 scenario-lab AKS 노드와 부하 VM 크기를 보호된 저장소 변수로 재정의할 수 있게 했습니다. 이 변경은 계획 우선 승인 경계를 약화하거나 참조 시나리오 모음을 활성화하지 않으면서 구독 호환 SKU를 정확한 계획에서 선택할 수 있게 합니다. | `current change`, `.github/workflows/sre-demo-lab.yml`, `infra/scenario-lab/README.md`, `tests/integration/infra/test_scenario_lab.py`, 집중 scenario-lab 테스트 8개 통과, 설계 경로 및 diff 검사 통과 | 보호된 CI를 통해 병합하고 검증된 지역 SKU만 구성한 뒤 apply 전에 삭제가 없는 계획을 보존합니다. |
 | 2026-09-12 | implemented | 운영 대상 환경 실행을 standalone 수동 Managed Host로 제한하고 배포 CLI에서 공개 workflow dispatch를 제거했습니다. | `current change`, 배포 CLI 계약 및 집중 패키지 테스트 | 검증 상태를 높이기 전에 수동 호스트의 운영 계획 및 적용 증적을 보존합니다. |
@@ -95,6 +98,10 @@ translation_revised: 2026-09-13
   exact apply, platform 출력 및 split Core 소비 증적을 보존합니다.
 - [ ] Reader 역할 배정과 두 패키지 Job만 변경하는 삭제 없는 Cost Governance 계획과 exact apply를
   보존한 뒤 배포된 image digest를 독립적으로 검증합니다.
+- [ ] 장애 시나리오 모음을 실행하기 전에 모든 AKS Store Demo 워크로드가 Ready이고, 실행
+  image가 검토된 digest에 결속되며, 공개 Store Front 도메인이 관찰된 Load Balancer로
+  해석되고 Store Admin은 비공개로 유지됨을 보여 주는 exact protected scenario-lab apply를
+  보존합니다.
 
 ## 범위가 제한된 split-service 선행 조건 bootstrap
 

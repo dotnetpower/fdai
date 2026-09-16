@@ -1,8 +1,8 @@
 ---
 title: Console 아키텍처 작업 영역
 translation_of: console-architecture-workbench.md
-translation_source_sha: b8f53705e085b04e8353c302b9f74ce85f23ba26
-translation_revised: 2026-09-15
+translation_source_sha: ac07702bd5c635fd3a37657fd365575e706103fa
+translation_revised: 2026-09-17
 ---
 # Console 아키텍처 작업 영역
 
@@ -88,6 +88,11 @@ Subnet을 round-robin 배분합니다. connector Resource가 개요 상한 밖�
 수 없는 상태로 표시합니다.
 
 ## 정보 계층 및 상호 작용
+
+`/architecture` 경로는 명시적인 직접 URL과 문맥형 Resource 상세 이동에서 계속 사용할 수
+있습니다. 거버넌스 탐색기와 다른 모든 Console 화면에서는 Live, 온보딩, 규칙 및 영향 범위에
+표시되던 아키텍처 전용 작업을 표시하지 않습니다. 이러한 작업을 숨겨도 문맥형 Resource 링크,
+패널 등록 또는 읽기 전용 권한 경계는 변경되지 않습니다.
 
 하나의 툴바가 등록된 범위, 범위가 제한된 Resource 검색, `Topology | Network` 및 읽기 전용 출처
 상태를 소유합니다. 표현 범위 disclosure는 기본적으로 접혀 있으며 완전 또는 부분 상태, 최신성,
