@@ -107,6 +107,14 @@ file digest alone does not establish cross-format equivalence.
   resource and finding counts. Current observations are not reused through a TTL cache because a
   cached snapshot cannot satisfy a current-state question. The receipt rejects stage latencies that
   exceed total elapsed time beyond floating-point timer tolerance.
+- The configured Core runtime persists each completed check to the existing
+  `runtime:configuration-baseline:` projection before returning its report. One revision-fenced,
+  audited row per scope retains the latest observation, including failed or blocked verdicts;
+  older completions cannot replace newer evidence. Operator reads stored metadata and measured
+  latency only, without invoking Azure on a Console GET. Missing baseline bindings still require
+  deployment-owned configuration. A recorded check does not fabricate baseline version history,
+  indexed Knowledge, a review campaign, or schedule approval.
+  Console preserves blocked and unconfigured citation states instead of rendering a measured zero.
 - A pure review reducer accepts three idempotent run receipts for one pinned baseline. Only three
   verified runs can produce an inert weekly schedule proposal. Any blocked or unsafe run pauses the
   campaign, and the reducer never creates a scheduler task directly. A revisioned StateStore adapter

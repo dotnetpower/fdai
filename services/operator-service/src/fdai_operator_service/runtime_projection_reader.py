@@ -714,7 +714,7 @@ class RuntimeProjectionReader:
         rows = await self._fetch_all(
             "SELECT value, updated_at FROM state_kv "
             "WHERE key LIKE 'runtime:configuration-baseline:%%' "
-            "ORDER BY updated_at DESC, key LIMIT 1"
+            "ORDER BY value ->> 'observed_at' DESC NULLS LAST, updated_at DESC, key LIMIT 1"
         )
         if rows:
             return _json_mapping(rows[0]["value"])
