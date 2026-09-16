@@ -1377,6 +1377,8 @@
       "authorityNotice": "This request grants no execution authority. Core validates role, state, exact target, idempotency, and lifecycle legality.",
       "queuedTitle": "Intervention durably queued",
       "queuedBody": "The Operator service accepted this request for Core processing. Acceptance does not claim that the Incident changed.",
+      "appliedTitle": "Intervention applied",
+      "appliedBody": "Core recorded the intervention. The refreshed Incident timeline now shows the authoritative audit evidence.",
       "cancel": "Cancel",
       "review": "Review request",
       "back": "Back",
