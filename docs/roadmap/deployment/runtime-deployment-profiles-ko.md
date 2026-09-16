@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 8f36086242c9d5f97213e6b4afdd41986874ceff
+translation_source_sha: 7f416ab19c84778c8ad8241ed4bd01b5fff706e3
 translation_revised: 2026-09-16
 ---
 # 런타임 배포 프로파일
@@ -136,6 +136,8 @@ DB, 네트워크, 레지스트리, 저장소, 모니터링, 메시지, 모델, �
 공유 플랫폼은 Event Hubs, Key Vault, Azure Container Registry, 모니터링, 워크로드 신원,
 `postgres-flex`를 계속 소유합니다. AKS 기반 상태는 클러스터, 노드 풀, 클러스터 신원, 네트워크
 연결, 클러스터 범위 Azure 역할 할당만 소유합니다.
+AKS는 공유 루트의 Key Vault 출력을 사용합니다. 이름이 너무 긴 후보는 별도의 런타임 명명 규칙을
+만들지 않고 결정론적 `kv-aip-<8hex>` 대체 이름을 사용합니다.
 AKS를 선택하면 상세 비공개 네트워킹이 꺼져 있어도 애플리케이션 VNet, 노드 서브넷 및 API 서버
 서브넷을 만듭니다. 별도의 비공개 네트워킹 입력은 AKS 서브넷 선행 조건이 아니라 서비스 비공개
 엔드포인트, 허브 피어링 및 비공개 DNS를 제어합니다.
