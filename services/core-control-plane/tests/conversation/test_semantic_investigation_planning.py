@@ -95,6 +95,7 @@ from fdai_service_contracts.ontology_query import (
     QueryNodeKind,
     TaskStatus,
 )
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 NOW = datetime(2026, 8, 20, 4, 0, tzinfo=UTC)
 DIGEST = "sha256:" + ("a" * 64)
@@ -1626,6 +1627,54 @@ def test_compiler_requires_entity_type_clarification_before_plan() -> None:
             windows=_windows(),
             purpose="operations-review",
         )
+
+
+def test_exact_semantic_service_target_narrows_investigation_type() -> None:
+    verified = _verified_intent(target_types=("BusinessService", "Resource"))
+    proposal = InvestigationIntentProposal.model_validate(
+        verified.model_dump(
+            mode="json",
+            exclude={
+                "schema_version",
+                "input_digest",
+                "intent_digest",
+                "authority",
+                "execution_authority",
+            },
+        )
+    )
+    utterance = "A서비스가 갑자기 왜 느려졌어?"
+    target = "A서비스"
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "targets": [
+                {
+                    "kind": "business_service",
+                    "value": target,
+                    "canonical_value": "BusinessService",
+                    "source_start": utterance.index(target),
+                    "source_end": utterance.index(target) + len(target),
+                }
+            ],
+            "requested_facets": ["cause", "service_latency"],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+        }
+    )
+
+    normalized = normalize_investigation_target(
+        proposal,
+        subject_constraints=("BusinessService", "Resource"),
+        utterance=utterance,
+        descriptors=_manifest().descriptors,
+        semantic_judgment=judgment,
+    )
+
+    affected = next(item for item in normalized.entities if item.role == "affected_target")
+    assert affected.object_type_candidates == ("BusinessService",)
 
 
 def test_compiler_requires_affected_target_clarification_before_plan() -> None:

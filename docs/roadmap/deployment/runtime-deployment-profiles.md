@@ -93,7 +93,9 @@ Marketplace Ubuntu version and install the checksum-pinned toolchain during Foun
 not build or require a dedicated managed-host image. Artifact-offline deployments can still select
 a separately verified prebuilt host image when bootstrap downloads are unavailable.
 
-Tenant provisioning consumes prebuilt service and dependency images only. It verifies signatures,
+Tenant provisioning consumes prebuilt service and dependency images only. A complete release's
+closed dependency-image set includes both ClamAV and pgvector; neither can be omitted from the
+signed kit when one deployment profile does not use it. The provisioner verifies signatures,
 provenance, source revision, platform and digest before making the images available to AKS. It does
 not invoke Docker, Buildx, ACR Tasks, a remote builder or VM image capture. Release construction is
 an upstream supply-chain activity and is never recovered by rebuilding inside a tenant run.
@@ -182,6 +184,12 @@ AKS renderer maps it to typed Kubernetes `Deployment`, `Service`, `ServiceAccoun
 first AKS implementation keeps two replicas for each long-running service and does not require
 Knative or KEDA.
 
+Both renderers bind Core to the `fdai.operating-model` logical topic through
+`FDAI_OPERATING_MODEL_TOPIC`. The topic shares the existing semantic physical Event Hub and its
+managed-identity transport; it is not another Event Hub entity or authority channel. The AKS
+standalone renderer obtains the value from the exact substrate output, while the independent and
+legacy Container Apps renderers receive the same typed deployment input.
+
 Operator assignment and human-approval (HIL) transport imports share the existing `iam_composition`
 facade within the same Operator Service package and runtime; original adapter and factory objects
 are re-exported without wrappers. This grouping changes no topology, workload identity, readiness
@@ -206,10 +214,12 @@ lifecycle CronJobs. The history job uses the read-only inventory identity, the s
 DSN, and the private archive URL in fixed `shadow` mode. A non-shadow lifecycle requires a separate
 protected transition and an exact persisted certification receipt; runtime selection grants neither.
 
-The inventory command and its CLI support module preserve read-only failure boundaries on both
-platforms and in the local managed stack. Activity Log recovery is independent of full reconciliation:
-failures before or after generation promotion are reported as unavailable, without advancing failed
-delta cursors or terminating the complete inventory loop.
+The inventory command preserves read-only failure boundaries on both platforms and locally. Activity
+Log recovery fails unavailable without advancing delta cursors or stopping full reconciliation.
+Passive model-serving evidence reuses inventory identity and Azure Monitor without model credentials
+or inference; bounded failures reduce only its coverage and malformed responses stay redacted.
+Reconciliation bounds determine lookback, freshness, points, and timeout, while additive metadata
+keeps baseline inventory available during Core-first or Operator-first updates.
 
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and

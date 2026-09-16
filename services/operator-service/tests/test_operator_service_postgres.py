@@ -2262,8 +2262,18 @@ async def test_incident_page_and_attention_replay_use_durable_sequence() -> None
     initial = await model.incident_attention(IncidentAttentionQuery(after_seq=None, limit=50))
     replayed = await model.incident_attention(IncidentAttentionQuery(after_seq=7, limit=50))
 
-    assert page.items[0]["title"] == "Resource example-app"
+    assert page.items[0]["title"] == "example-app requires attention"
     assert page.items[0]["title_source"] == "correlation_subject"
+    assert page.items[0]["title_presentation"] == {
+        "kind": "resource_attention",
+        "subject": "example-app",
+        "subject_kind": "resource",
+        "signal": None,
+        "signal_label": None,
+        "reason": None,
+        "reason_label": None,
+        "technical_ref": "example-app",
+    }
     assert page.items[0]["source"] == {
         "platform": "Azure Monitor",
         "incident_id": "alert-example",
@@ -2292,19 +2302,30 @@ async def test_incident_page_and_attention_replay_use_durable_sequence() -> None
 
 
 @pytest.mark.parametrize(
-    ("entry", "expected_title", "expected_source"),
+    ("entry", "expected_title", "expected_source", "expected_presentation"),
     [
         (
             {"title": "Database connection saturation"},
             "Database connection saturation",
             "recorded_title",
+            None,
         ),
         (
             {"summary": "Checkout latency increased"},
             "Checkout latency increased",
             "recorded_summary",
+            None,
         ),
-        ({"rule_id": "slo.burn-rate"}, "Rule Slo burn rate", "rule_id"),
+        (
+            {"rule_id": "slo.burn-rate"},
+            "Rule requires attention: SLO burn rate",
+            "rule_id",
+            {
+                "kind": "rule_attention",
+                "subject": "SLO burn rate",
+                "technical_ref": "slo.burn-rate",
+            },
+        ),
         (
             {
                 "correlation_keys": [
@@ -2313,16 +2334,30 @@ async def test_incident_page_and_attention_replay_use_durable_sequence() -> None
                     "Microsoft.Storage/storageAccounts/storage-example",
                 ]
             },
-            "Resource inventory change - Storage accounts storage-example",
+            "storage-example: Resource inventory changed",
             "correlation_subject",
+            {
+                "kind": "signal_on_subject",
+                "subject": "storage-example",
+                "subject_kind": "cloud_resource",
+                "signal": "resource_inventory_change",
+                "signal_label": "Resource inventory changed",
+                "technical_ref": "Storage Accounts storage-example",
+            },
         ),
         (
             {
                 "resource_type": "compute.vm.novel",
                 "reason": "no_rule_matches_resource_and_signal_type",
             },
-            "Compute vm novel - No rule matches resource and signal type",
+            "Compute VM novel: No response rule matches this resource and signal",
             "recorded_subject",
+            {
+                "kind": "subject_reason",
+                "subject": "Compute VM novel",
+                "subject_kind": "resource",
+                "reason": "no_rule_matches_resource_and_signal_type",
+            },
         ),
         (
             {
@@ -2332,21 +2367,33 @@ async def test_incident_page_and_attention_replay_use_durable_sequence() -> None
                     "reason": "no_rule_match",
                 }
             },
-            "Flexibleservers psql-example - No rule match",
+            "psql-example: No response rule matches",
             "recorded_subject",
+            {
+                "kind": "subject_reason",
+                "subject": "psql-example",
+                "subject_kind": "cloud_resource",
+                "reason": "no_rule_match",
+            },
         ),
         (
             {"reason": "control_loop_unhandled_error"},
-            "Control loop unhandled error",
+            "Control loop error",
             "recorded_subject",
+            {
+                "kind": "reason",
+                "reason": "control_loop_unhandled_error",
+                "reason_label": "Control loop error",
+            },
         ),
-        ({}, "Incident INC-1", "identifier_fallback"),
+        ({}, "Incident INC-1", "identifier_fallback", None),
     ],
 )
 def test_incident_title_precedence_and_provenance(
     entry: dict[str, object],
     expected_title: str,
     expected_source: str,
+    expected_presentation: dict[str, object] | None,
 ) -> None:
     row = _audit_row(
         1,
@@ -2368,7 +2415,93 @@ def test_incident_title_precedence_and_provenance(
 
     assert summary["title"] == expected_title
     assert summary["title_source"] == expected_source
+    if expected_presentation is None:
+        assert summary["title_presentation"] is None
+    else:
+        assert (
+            summary["title_presentation"] | expected_presentation == summary["title_presentation"]
+        )
     assert summary["incident_number"] == "INC-202608-0000"
+
+
+@pytest.mark.parametrize(
+    ("correlation_keys", "expected_title", "expected_presentation"),
+    [
+        (
+            ["resource:integration-aa53cf400b094fd19bbe0a0b54f51858-second"],
+            "Integration resource requires attention",
+            {
+                "kind": "resource_attention",
+                "subject": None,
+                "subject_kind": "integration_resource",
+                "technical_ref": "integration-aa53cf400b094fd19bbe0a0b54f51858-second",
+            },
+        ),
+        (
+            [
+                "signal:trace_continuity_discontinuity",
+                "resource:trace-topology/payments-checkout",
+            ],
+            "payments-checkout: Trace continuity interrupted",
+            {
+                "kind": "signal_on_subject",
+                "subject": "payments-checkout",
+                "subject_kind": "trace_target",
+                "signal": "trace_continuity_discontinuity",
+            },
+        ),
+        (
+            [
+                "signal:trace_propagation_gap",
+                "resource:kubernetes://example/namespace/fdai-observe-lab/workload/shallow-app",
+            ],
+            "shallow-app: Trace propagation gap",
+            {
+                "kind": "signal_on_subject",
+                "subject": "shallow-app",
+                "subject_kind": "kubernetes_workload",
+                "signal": "trace_propagation_gap",
+            },
+        ),
+        (
+            [
+                "signal:kubernetes_pod_restart_detected",
+                "resource:kubernetes://fdai-observe-lab/sub-agent-1",
+            ],
+            "sub-agent-1: Kubernetes pod restart detected",
+            {
+                "kind": "signal_on_subject",
+                "subject": "sub-agent-1",
+                "subject_kind": "kubernetes_pod",
+                "signal": "kubernetes_pod_restart_detected",
+            },
+        ),
+    ],
+)
+def test_incident_title_summarizes_operator_visible_correlation_subjects(
+    correlation_keys: list[str],
+    expected_title: str,
+    expected_presentation: dict[str, object],
+) -> None:
+    row = _audit_row(
+        1,
+        entry={
+            "incident_id": "INC-1",
+            "correlation_keys": correlation_keys,
+        },
+    )
+    row.update(
+        {
+            "normalized_correlation_id": "corr-1",
+            "group_last_seq": 1,
+            "group_history_count": 1,
+        }
+    )
+
+    summary = incident_summary([row])
+
+    assert summary["title"] == expected_title
+    assert summary["title_presentation"] | expected_presentation == summary["title_presentation"]
 
 
 @pytest.mark.parametrize(
@@ -2461,6 +2594,33 @@ def test_incident_title_bound_and_partial_response_plan() -> None:
         "reinvestigation_cooldown_seconds": None,
         "deduplication_key": None,
     }
+
+
+def test_incident_title_presentation_bounds_components_and_technical_reference() -> None:
+    resource = "resource-" + ("x" * 300)
+    row = _audit_row(
+        1,
+        entry={
+            "incident_id": "INC-1",
+            "correlation_keys": [f"resource:{resource}"],
+        },
+    )
+    row.update(
+        {
+            "normalized_correlation_id": "corr-1",
+            "group_last_seq": 1,
+            "group_history_count": 1,
+        }
+    )
+
+    summary = incident_summary([row])
+    presentation = summary["title_presentation"]
+
+    assert isinstance(presentation, dict)
+    assert len(presentation["subject"]) == 72
+    assert len(presentation["technical_ref"]) == 160
+    assert presentation["subject"].endswith("...")
+    assert presentation["technical_ref"].endswith("...")
 
 
 def test_incident_projection_reader_rejects_null_string_correlation_sentinels() -> None:

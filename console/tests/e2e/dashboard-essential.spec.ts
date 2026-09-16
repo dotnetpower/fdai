@@ -227,6 +227,21 @@ test("sample operating outcomes distinguish fixture values from Live evidence", 
   }
 });
 
+test("sample operating outcomes render a trend for every metric", async ({ page }) => {
+  await mockApi(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  for (const metric of [
+    "auto-resolution",
+    "human-touchpoints",
+    "mttr",
+    "change-lead-time",
+    "cost-per-resolved-event",
+  ]) {
+    await page.goto(`/operating-outcomes/${metric}?data=sample&locale=en`);
+    await expect(page.locator(".outcome-analysis-grid .analytics-trend")).toBeVisible();
+  }
+});
+
 test("partial measurements and explicit empty distributions remain distinct", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await mockApi(page, 200, false, { kpi: { by_tier: { t0: 8, t1: 2 } } });

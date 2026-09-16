@@ -66,7 +66,8 @@ A person can participate in several axes, but evidence from one axis cannot sati
 
 Report-line extraction begins only after an operator selects the explicit
 `report_line_bootstrap` purpose. FDAI never infers this purpose from a filename, attachment text,
-or an ordinary knowledge upload.
+or an ordinary knowledge upload. The generated System Knowledge catalog may index this design
+document, but it is not organization evidence and grants no report-line or approval-routing authority.
 
 The existing document pipeline owns upload authentication, byte limits, malware and protection
 checks, format validation, optical character recognition (OCR), immutable versions, access
@@ -278,7 +279,10 @@ control lives in `runtime/hil_escalation.py`; neither separation changes the aut
 
 The Operator Service authenticates people, renders projections, and publishes typed commands. It
 does not activate graph edges, decide approval eligibility, or execute an action. The document
-worker extracts candidates but cannot approve them.
+worker extracts candidates but cannot approve them. Its shared PostgreSQL store may read a
+generation-bound inventory invalidation cursor, but that cursor cannot enter report-line state,
+approval evidence, routing, or authority. The Core wheel inventory may include the dedicated
+inventory-manifest helper without making it a report-line dependency.
 
 ## Privacy and retention
 
@@ -324,7 +328,7 @@ path evidence, current role and scope policy, and approval by a later eligible r
 non-response advancement.
 Repository integration also pins report-line routes, service tests, runtime wheel members,
 transport `1.3.0`, source-derived question-bank artifacts, and their semantic coverage digest in
-their canonical inventories.
+their canonical inventories; catalog source changes regenerate both artifacts in dependency order.
 The linked implementation ledger records the completed 22-round critique campaign and the local
 validation evidence separately from deployment evidence. After integrating a newer protected base,
 the same focused gates must pass before publication; a successful rebase or merge is not evidence

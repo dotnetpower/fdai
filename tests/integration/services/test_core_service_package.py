@@ -98,6 +98,7 @@ EXPECTED_RUNTIME_MODULES = {
     "human_access_recovery.py",
     "human_assignment_reconciliation.py",
     "inventory_ontology.py",
+    "inventory_ontology_manifest.py",
     "inventory_ontology_state.py",
     "isolated_executor_client.py",
     "isolated_executor_receipt_journal.py",

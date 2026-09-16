@@ -112,16 +112,16 @@ The contract lists these as residuals, and they stay listed until each one is ge
 
 - no pinned revision has been selected;
 - no protected deployment has been performed;
-- independent observation is not yet wired into the dispatch lifecycle, so a campaign cannot yet
-  emit observation receipts automatically;
-- no bridge maps an observation outcome onto the A3-E `EffectEvidenceDisposition` used for
-  authority reduction. The two vocabularies are deliberately unconnected today. Whoever builds
-  that bridge must map every unknown outcome - `missing`, `stale`, `conflicting`, `censored`,
-  and `unavailable` - onto a disposition that reduces authority, because mapping one of them
-  onto `pending` would silently turn a hold into a capability that keeps its autonomy;
-- `pr_manual` has no reachable runtime trigger;
-- the `tool_call` enforce binding has no Terraform variable;
+- the eight eligible-cell receipts and all exercised denial-class receipts have not been retained;
 - no independent review has been performed.
+
+The source prerequisites are now explicit. Terminal `ops.start-vm` ActionRuns route through the
+Heimdall executed-action observation handler, and the A3-E effect-evidence bridge maps every
+unknown observation outcome to a shadow-reverting disposition. `pr_manual` remains an intentional
+structural-denial class rather than a missing runtime trigger. Protected service configuration can
+set `workflow_tools_enforce` only when stewardship GitOps is enabled; the default remains disabled.
+None of these source facts is operational evidence, selects a campaign revision, or authorizes a
+deployment, provider effect, promotion, reversion, or cleanup.
 
 FDAI-CONST-007 stays `partial` until every one of these is closed and an independent review has no
 unresolved Medium-or-higher detected issue.

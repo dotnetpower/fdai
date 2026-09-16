@@ -374,6 +374,45 @@ def test_resource_health_availability_metadata_reaches_ontology_instance() -> No
     )
 
 
+def test_model_serving_metadata_reaches_ontology_instance() -> None:
+    serving_metadata = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.TELEMETRY,
+        source_identity="azure-monitor-model-serving",
+        source_revision="azure-monitor-model-serving:sha256:" + "1" * 64,
+        effective_at=OBSERVED_AT,
+        recorded_at=OBSERVED_AT,
+        evidence_cutoff=OBSERVED_AT,
+        freshness_ceiling_seconds=600,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=("azure-monitor-model-serving:sha256:" + "1" * 64,),
+    )
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="model-1",
+                type="llm-model-deployment",
+                props={
+                    "servingState": "Serving",
+                    "state_fact_metadata": {
+                        "servingState": serving_metadata.to_mapping(),
+                    },
+                },
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider = projection.objects[0].properties["properties"]
+    assert provider["servingState"] == "Serving"
+    assert (
+        StateFactMetadata.from_mapping(provider["state_fact_metadata"]["servingState"])
+        == serving_metadata
+    )
+
+
 def test_static_web_app_environment_metadata_reaches_ontology_instance() -> None:
     source_revision = "azure-static-web-app-environment:sha256:" + "1" * 64
     environment_metadata = StateFactMetadata(

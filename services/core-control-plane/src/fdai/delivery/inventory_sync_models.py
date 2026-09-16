@@ -47,6 +47,7 @@ class InventoryProjectionSourceState:
     reason: str | None
     scope_digest: str | None = None
     coverage: Mapping[str, int] = field(default_factory=dict)
+    additive: bool = False
 
     def __post_init__(self) -> None:
         if not self.source.strip() or len(self.source) > 128:
@@ -69,6 +70,8 @@ class InventoryProjectionSourceState:
             for key, value in self.coverage.items()
         ):
             raise ValueError("inventory projection source coverage MUST contain counts")
+        if not isinstance(self.additive, bool):
+            raise ValueError("inventory projection source additive flag MUST be boolean")
 
     def to_metadata(self) -> dict[str, object]:
         """Return a sanitized generation metadata record."""

@@ -7,6 +7,7 @@ import type {
 } from "../api-operations-client";
 import type { IncidentSummary } from "../types";
 import { t } from "./i18n/evidence";
+import { incidentDisplayTitle } from "./incidents.title";
 
 type Duration = NonNullable<IncidentInterventionBody["duration"]>;
 type Step = "edit" | "review" | "queued" | "applied";
@@ -153,8 +154,8 @@ export function IncidentIntervention({ client, incident, onAccepted }: Props) {
             <button type="button" class="icon-button" aria-label={t("incidents.intervention.close")} onClick={close}>×</button>
           </header>
           <div class="incident-intervention-target">
-            <strong>{incident.incident_number ?? incident.incident_id}</strong>
-            <span>{incident.lifecycle_state}</span>
+            <strong>{incidentDisplayTitle(incident, t("incidents.titleUnavailable"))}</strong>
+            <span>{incident.incident_number ?? incident.incident_id} / {incident.lifecycle_state}</span>
           </div>
           {step === "edit" ? (
             <div class="incident-intervention-form">

@@ -25,10 +25,11 @@
 .incident-source-context dt { color: var(--fg-muted); font-size: 9.5px; text-transform: uppercase; }
 .incident-source-context dd { margin: 3px 0 0; overflow-wrap: anywhere; font-size: 12px; font-weight: 650; }
 .incident-source-context a { width: fit-content; color: var(--cs-steel); font-size: 12px; font-weight: 700; }
+.incident-roster-context,
 .incident-roster-identifier { overflow-wrap: anywhere; color: var(--fg-muted); font-size: 10px; }
 .incident-detail-primary-identity {
   display: grid;
-  gap: 3px;
+  gap: 5px;
 }
 .incident-detail-primary-identity > span {
   color: var(--fg-muted);
@@ -38,19 +39,32 @@
 .incident-detail-primary-identity h2 {
   margin: 0;
   overflow-wrap: anywhere;
-  color: var(--cs-steel);
+  color: var(--fg);
   font-size: var(--cs-type-page-title-size);
+  font-weight: 700;
   line-height: var(--cs-type-page-title-line-height);
 }
-.incident-detail-subject {
-  flex: 1 1 320px;
-  min-width: 0;
+.incident-detail-technical-ref {
+  overflow-wrap: anywhere;
+  color: var(--fg-muted);
+  font-size: 10px;
+}
+.incident-detail-secondary-identity {
+  display: grid;
+  flex: 1 1 240px;
+  gap: 3px;
+  min-width: 180px;
+}
+.incident-detail-secondary-identity span {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+  font-weight: 700;
+}
+.incident-detail-secondary-identity strong {
   margin: 0;
   overflow-wrap: anywhere;
-  color: var(--fg);
-  font-size: var(--cs-type-section-title-size);
-  font-weight: 650;
-  line-height: var(--cs-type-section-title-line-height);
+  color: var(--cs-steel);
+  font-size: 13px;
 }
 .incident-roster-item:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: -2px; }
 .incident-command-strip {

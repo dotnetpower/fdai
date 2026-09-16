@@ -146,6 +146,9 @@ locals {
       FDAI_SEMANTIC_TURN_PROJECTION_TOPIC = var.semantic_turn_projection_topic
       FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC   = var.semantic_turn_physical_topic
     },
+    var.operating_model_topic == "" ? {} : {
+      FDAI_OPERATING_MODEL_TOPIC = var.operating_model_topic
+    },
     var.read_investigation_request_topic == "" ? {} : {
       FDAI_READ_INVESTIGATION_REQUEST_TOPIC = var.read_investigation_request_topic
     },

@@ -211,6 +211,16 @@ describe("Operator API response decoders", () => {
       ticket_id: null,
       title: "Rule example.rule",
       title_source: "rule_id",
+      title_presentation: {
+        kind: "rule_attention",
+        subject: "Example rule",
+        subject_kind: null,
+        signal: null,
+        signal_label: null,
+        reason: null,
+        reason_label: null,
+        technical_ref: "example.rule",
+      },
       source: {
         platform: "Azure Monitor",
         incident_id: "alert-example",
@@ -257,6 +267,13 @@ describe("Operator API response decoders", () => {
       .toBe("in_progress");
     expect(decodeIncidentPage({ items: [item], next_cursor: null, metrics }).items[0]?.response_plan)
       .toMatchObject({ revision: "rev-2", historical_match_count: 3 });
+    expect(decodeIncidentPage({ items: [item], next_cursor: null, metrics }).items[0]?.title_presentation)
+      .toMatchObject({ kind: "rule_attention", technical_ref: "example.rule" });
+    expect(decodeIncidentPage({
+      items: [{ ...item, title_presentation: undefined }],
+      next_cursor: null,
+      metrics,
+    }).items[0]?.title_presentation).toBeNull();
     expect(decodeIncidentPage({ items: [item], next_cursor: null, metrics }).metrics)
       .toMatchObject({ median_time_to_mitigate_seconds: 120.5, time_to_mitigate_sample_size: 1 });
     expect(() => decodeIncidentPage({
@@ -269,6 +286,25 @@ describe("Operator API response decoders", () => {
       next_cursor: null,
       metrics,
     })).toThrow(/title_source MUST/);
+    expect(() => decodeIncidentPage({
+      items: [{
+        ...item,
+        title_presentation: { ...item.title_presentation, kind: "browser_guess" },
+      }],
+      next_cursor: null,
+      metrics,
+    })).toThrow(/title_presentation.kind MUST/);
+    expect(() => decodeIncidentPage({
+      items: [{
+        ...item,
+        title_presentation: {
+          ...item.title_presentation,
+          technical_ref: "x".repeat(161),
+        },
+      }],
+      next_cursor: null,
+      metrics,
+    })).toThrow(/title_presentation.technical_ref MUST be 160 characters or fewer/);
     expect(() => decodeIncidentPage({
       items: [{ ...item, source: { ...item.source, url: "javascript:alert(1)" } }],
       next_cursor: null,

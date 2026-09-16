@@ -24,6 +24,18 @@ from fdai.delivery.azure.arg_projection import (
     truncate_props,
 )
 from fdai.delivery.azure.arg_relationships import project_provider_relationships
+from fdai.delivery.azure.arm_inventory_vm_state import (
+    ArmInventoryError,
+)
+from fdai.delivery.azure.arm_inventory_vm_state import (
+    project_vmss_instance_state as _project_vmss_instance_state,
+)
+from fdai.delivery.azure.arm_inventory_vm_state import (
+    validate_child_identity as _validate_child_identity,
+)
+from fdai.delivery.azure.arm_inventory_vm_state import (
+    with_vm_run_command_state as _with_vm_run_command_state,
+)
 from fdai.delivery.azure.inventory import ResourceQueryFn, ResourceQueryResult
 from fdai.delivery.azure.model_deployment import (
     MODEL_DEPLOYMENT_RESOURCE_TYPE,
@@ -53,6 +65,8 @@ _VM_SCALE_SET_RESOURCE_TYPE: Final[str] = "compute.vm-scale-set"
 _VM_SCALE_SET_ARM_TYPE: Final[str] = "Microsoft.Compute/virtualMachineScaleSets"
 _VM_SCALE_SET_VM_RESOURCE_TYPE: Final[str] = "compute.vm"
 _VM_SCALE_SET_NIC_RESOURCE_TYPE: Final[str] = "network.interface"
+_VM_RUN_COMMAND_RESOURCE_TYPE: Final[str] = "compute.vm-run-command"
+_VM_RUN_COMMAND_ARM_TYPE: Final[str] = "Microsoft.Compute/virtualMachines/runCommands"
 _ARM_NETWORK_SOURCE_IDENTITY: Final[str] = "azure-resource-manager-network"
 _ARM_NETWORK_SOURCE_SCHEMA_DIGEST: Final[str] = (
     "sha256:85f648ec3f355e57c946e3e7fafad89e5b06ac8b8804eaa6ebba779a6aa939fb"
@@ -72,10 +86,6 @@ _ARM_COGNITIVE_SERVICES_SOURCE_SCHEMA_DIGEST: Final[str] = (
 _DEFAULT_RELATIONSHIP_MAPPING_ROOT: Final[Path] = Path(
     "rule-catalog/vocabulary/provider-relationship-mappings"
 )
-
-
-class ArmInventoryError(RuntimeError):
-    """A direct ARM inventory shard could not complete safely."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -230,7 +240,14 @@ class AzureArmInventoryFactory:
         ) -> ResourceQueryResult | tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
             if resource_type == _VM_SCALE_SET_RESOURCE_TYPE:
                 primary = _as_query_result(await primary_query(resource_type))
-                children = await self._fetch_vm_scale_set_children()
+                children = await self._fetch_vm_scale_set_children(
+                    allowed_scale_set_ids=frozenset(
+                        resource.provider_ref.casefold()
+                        for resource in primary.resources
+                        if resource.type == _VM_SCALE_SET_RESOURCE_TYPE
+                        and resource.provider_ref is not None
+                    )
+                )
                 return ResourceQueryResult(
                     resources=(*primary.resources, *children.resources),
                     links=(*primary.links, *children.links),
@@ -239,6 +256,9 @@ class AzureArmInventoryFactory:
                         *children.relationship_drops,
                     ),
                 )
+            if resource_type == _VM_RUN_COMMAND_RESOURCE_TYPE:
+                primary = _as_query_result(await primary_query(resource_type))
+                return await self._hydrate_vm_run_command_states(primary)
             if resource_type in {
                 _AKS_AGENT_POOL_RESOURCE_TYPE,
                 MODEL_DEPLOYMENT_RESOURCE_TYPE,
@@ -249,7 +269,11 @@ class AzureArmInventoryFactory:
 
         return _fetch
 
-    async def _fetch_vm_scale_set_children(self) -> ResourceQueryResult:
+    async def _fetch_vm_scale_set_children(
+        self,
+        *,
+        allowed_scale_set_ids: frozenset[str],
+    ) -> ResourceQueryResult:
         """Collect VMSS VM and NIC children under one bounded ARM compute observation."""
 
         token = await self._identity.get_token(self._config.audience)
@@ -267,15 +291,23 @@ class AzureArmInventoryFactory:
                 resource_type=_VM_SCALE_SET_RESOURCE_TYPE,
             )
             for scale_set in scale_sets:
+                scale_set_id = str(scale_set["id"])
+                if scale_set_id.casefold() not in allowed_scale_set_ids:
+                    continue
                 collection_count += 1
                 self._validate_child_collection_count(collection_count)
-                scale_set_id = str(scale_set["id"])
                 virtual_machines = await self._fetch_pages(
-                    self._child_url(scale_set_id, "virtualMachines"),
+                    self._child_url(scale_set_id, "virtualMachines", expand="instanceView"),
                     headers=headers,
                     resource_type=_VM_SCALE_SET_VM_RESOURCE_TYPE,
                 )
                 for virtual_machine in virtual_machines:
+                    _validate_child_identity(
+                        str(virtual_machine["id"]),
+                        parent_id=scale_set_id,
+                        collection="virtualMachines",
+                    )
+                    virtual_machine = _project_vmss_instance_state(virtual_machine)
                     virtual_machine_id = str(virtual_machine["id"])
                     typed_rows.append(
                         (virtual_machine, _VM_SCALE_SET_VM_RESOURCE_TYPE, scale_set_id)
@@ -287,6 +319,12 @@ class AzureArmInventoryFactory:
                         headers=headers,
                         resource_type=_VM_SCALE_SET_NIC_RESOURCE_TYPE,
                     )
+                    for network_interface in network_interfaces:
+                        _validate_child_identity(
+                            str(network_interface["id"]),
+                            parent_id=virtual_machine_id,
+                            collection="networkInterfaces",
+                        )
                     typed_rows.extend(
                         (network_interface, _VM_SCALE_SET_NIC_RESOURCE_TYPE, virtual_machine_id)
                         for network_interface in network_interfaces
@@ -331,12 +369,59 @@ class AzureArmInventoryFactory:
             relationship_drops=tuple(drops),
         )
 
-    def _child_url(self, parent_id: str, collection: str) -> str:
+    async def _hydrate_vm_run_command_states(
+        self,
+        primary: ResourceQueryResult,
+    ) -> ResourceQueryResult:
+        """Retain only exact execution state from each Run Command instance view."""
+
+        commands = tuple(
+            resource
+            for resource in primary.resources
+            if resource.type == _VM_RUN_COMMAND_RESOURCE_TYPE
+        )
+        self._validate_child_collection_count(len(commands))
+        if not commands:
+            return primary
+        token = await self._identity.get_token(self._config.audience)
+        headers = {"Authorization": f"Bearer {token.token}", "Accept": "application/json"}
+        hydrated: dict[str, ResourceRecord] = {}
+        for command in commands:
+            provider_ref = command.provider_ref
+            if provider_ref is None:
+                raise ArmInventoryError("ARM VM Run Command has no provider identity")
+            row = await self._fetch_exact(
+                provider_ref,
+                headers=headers,
+                resource_type=_VM_RUN_COMMAND_RESOURCE_TYPE,
+                expand="instanceView",
+            )
+            if str(row["id"]).casefold() != provider_ref.casefold():
+                raise ArmInventoryError("ARM VM Run Command response changed resource identity")
+            try:
+                provider_type = arm_provider_type(str(row["id"]), row.get("type"))
+            except ArmIdentityError as exc:
+                raise ArmInventoryError(
+                    "ARM VM Run Command response has invalid resource identity"
+                ) from exc
+            if provider_type.casefold() != _VM_RUN_COMMAND_ARM_TYPE.casefold():
+                raise ArmInventoryError("ARM VM Run Command response changed resource type")
+            hydrated[command.resource_id] = _with_vm_run_command_state(command, row)
+        return ResourceQueryResult(
+            resources=tuple(
+                hydrated.get(resource.resource_id, resource) for resource in primary.resources
+            ),
+            links=primary.links,
+            relationship_drops=primary.relationship_drops,
+        )
+
+    def _child_url(self, parent_id: str, collection: str, *, expand: str | None = None) -> str:
         encoded_parent_id = quote(parent_id, safe="/")
-        return (
+        url = (
             f"{self._config.arm_endpoint.rstrip('/')}{encoded_parent_id}/{collection}"
             f"?api-version={self._config.compute_api_version}"
         )
+        return f"{url}&$expand={quote(expand, safe='')}" if expand is not None else url
 
     def _validate_child_collection_count(self, count: int) -> None:
         if count > self._config.max_child_collections:
@@ -539,6 +624,43 @@ class AzureArmInventoryFactory:
                 f"ARM pagination cap ({self._config.max_pages}) exceeded for {resource_type!r}"
             )
         return tuple(collected)
+
+    async def _fetch_exact(
+        self,
+        resource_id: str,
+        *,
+        headers: Mapping[str, str],
+        resource_type: str,
+        expand: str | None = None,
+    ) -> Mapping[str, Any]:
+        encoded_id = quote(resource_id, safe="/")
+        url = (
+            f"{self._config.arm_endpoint.rstrip('/')}{encoded_id}"
+            f"?api-version={self._config.compute_api_version}"
+        )
+        if expand is not None:
+            url += f"&$expand={quote(expand, safe='')}"
+        try:
+            response = await self._http.get(
+                url,
+                headers=headers,
+                timeout=self._config.timeout_seconds,
+            )
+        except httpx.HTTPError as exc:
+            raise ArmInventoryError(
+                f"ARM exact request failed for {resource_type!r}: {type(exc).__name__}"
+            ) from exc
+        if response.status_code >= 400:
+            raise ArmInventoryError(
+                f"ARM returned HTTP {response.status_code} for exact {resource_type!r}"
+            )
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise ArmInventoryError(f"ARM returned non-JSON for exact {resource_type!r}") from exc
+        if not isinstance(payload, Mapping) or not isinstance(payload.get("id"), str):
+            raise ArmInventoryError(f"ARM exact response is malformed for {resource_type!r}")
+        return payload
 
     def _validate_next_link(self, url: str) -> None:
         parsed = urlparse(url)

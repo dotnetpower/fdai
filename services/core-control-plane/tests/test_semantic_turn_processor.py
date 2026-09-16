@@ -310,6 +310,162 @@ def test_resource_state_answer_lists_verified_names_and_observed_states() -> Non
     assert "`execution_authority=false`" in answer
 
 
+@pytest.mark.parametrize(
+    ("locale", "heading", "state_heading"),
+    (
+        ("en", "## Logical service runtime state", "### Observed component state"),
+        ("ko", "## 논리 서비스 런타임 상태", "### 관측된 구성요소 상태"),
+    ),
+)
+def test_logical_service_answer_lists_cross_runtime_mapping_and_state(
+    locale: str,
+    heading: str,
+    state_heading: str,
+) -> None:
+    request = _request(locale=locale)
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    def object_output(
+        node_id: str,
+        object_type: str,
+        rows: tuple[tuple[str, str, str | None], ...],
+    ) -> dict[str, object]:
+        return {
+            "node_id": node_id,
+            "rows": [
+                {
+                    "row_id": object_id,
+                    "values": {
+                        "id": object_id,
+                        "object_type": object_type,
+                        "properties": {
+                            "id": object_id,
+                            "name": name,
+                            **({"type": runtime_type} if runtime_type is not None else {}),
+                        },
+                    },
+                }
+                for object_id, name, runtime_type in rows
+            ],
+            "source_complete": True,
+            "source_truncation_reason": None,
+        }
+
+    runtime_rows = (
+        ("resource:web", "web front", "compute.web-app"),
+        ("resource:container", "container api", "compute.container-app"),
+        ("resource:deployment", "catalog deployment", "kubernetes.deployment"),
+        ("resource:service", "catalog service", "kubernetes.service"),
+        ("resource:pod", "catalog pod", "kubernetes.pod"),
+    )
+    outputs = [
+        object_output(
+            "logical-service-target",
+            "BusinessService",
+            (("service:catalog", "Catalog backend", None),),
+        ),
+        object_output(
+            "logical-service-workloads",
+            "Workload",
+            (("workload:catalog", "Catalog workload", None),),
+        ),
+        object_output("logical-service-resources", "Resource", runtime_rows),
+        {
+            "node_id": "logical-service-resource-states",
+            "rows": [
+                {
+                    "row_id": f"state-{index}",
+                    "values": {
+                        "name": name,
+                        "type": runtime_type,
+                        "observed_state": "Running",
+                        "source_observed_at": "2026-09-17T00:00:00+00:00",
+                        "execution_authority": False,
+                    },
+                }
+                for index, (_resource_id, name, runtime_type) in enumerate(runtime_rows, start=1)
+            ],
+            "source_complete": True,
+            "source_truncation_reason": None,
+        },
+    ]
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        outputs,
+        output_shape="logical_service_current_state",
+    )
+
+    assert answer.startswith(heading)
+    assert state_heading in answer
+    for runtime_type in (
+        "compute.web-app",
+        "compute.container-app",
+        "kubernetes.deployment",
+        "kubernetes.service",
+        "kubernetes.pod",
+    ):
+        assert f"`{runtime_type}`" in answer
+    assert "`5` resource(s)" in answer or "리소스 `5`개" in answer
+    assert "aggregate service health" in answer or "전체 서비스 건강도" in answer
+    assert "`execution_authority=false`" in answer
+
+
+def test_logical_workload_answer_preserves_missing_business_service_mapping() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    outputs = [
+        {
+            "node_id": "logical-business-services",
+            "rows": [],
+            "source_complete": True,
+            "source_truncation_reason": None,
+        },
+        {
+            "node_id": "logical-service-target",
+            "rows": [
+                {
+                    "row_id": "workload:catalog",
+                    "values": {
+                        "id": "workload:catalog",
+                        "object_type": "Workload",
+                        "properties": {
+                            "id": "workload:catalog",
+                            "name": "Catalog workload",
+                        },
+                    },
+                }
+            ],
+            "source_complete": True,
+            "source_truncation_reason": None,
+        },
+        {
+            "node_id": "logical-service-resources",
+            "rows": [],
+            "source_complete": True,
+            "source_truncation_reason": None,
+        },
+        {
+            "node_id": "logical-service-resource-states",
+            "rows": [],
+            "source_complete": True,
+            "source_truncation_reason": None,
+        },
+    ]
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        outputs,
+        output_shape="logical_service_current_state",
+    )
+
+    assert answer.startswith("## Logical service runtime state")
+    assert "No mapped business service is present in the verified scope." in answer
+    assert "No mapped runtime resource is present in the verified scope." in answer
+    assert "No fresh verified component state is available." in answer
+    assert "`execution_authority=false`" in answer
+
+
 def test_governed_document_answer_renders_exact_citation_and_escapes_text() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])
