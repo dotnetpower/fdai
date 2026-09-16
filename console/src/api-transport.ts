@@ -68,9 +68,8 @@ export class OperatorApiTransport {
     return this.#config.operatorApiBaseUrl;
   }
 
-  readonly authorizationHeader = async (): Promise<string | null> => {
-    return this.#authorizationHeader();
-  };
+  readonly authorizationHeader = (): Promise<string | null> =>
+    this.#authorizationHeader();
 
   async #authorizationHeader(): Promise<string | null> {
     let authHeader: string | null;

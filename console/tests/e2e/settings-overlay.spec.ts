@@ -63,6 +63,44 @@ test("Settings remains contained and closable on mobile", async ({ page }) => {
   await expect(page).toHaveURL(/\/labs$/);
 });
 
+test("mobile Settings keeps every active destination visible", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const routes = [
+    "/settings/general",
+    "/settings/models",
+    "/settings/runtime-policies",
+    "/settings/memory",
+    "/settings/iam",
+    "/settings/integrations",
+    "/settings/diagnostics",
+  ];
+  for (const route of routes) {
+    await page.goto(route);
+    const dialog = page.getByRole("dialog", { name: "Settings" });
+    const active = dialog.locator('.settings-overlay-navigation [aria-current="page"]');
+    await expect(dialog).toBeVisible();
+    await expect(active).toBeVisible();
+    await expect.poll(() => active.evaluate((element) => {
+      const item = element.getBoundingClientRect();
+      const navigation = element.closest("nav")!.getBoundingClientRect();
+      return item.left >= navigation.left && item.right <= navigation.right;
+    })).toBe(true);
+    expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  }
+});
+
+test("IAM tabs expose a visible keyboard focus indicator", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/settings/iam/users");
+  const dialog = page.getByRole("dialog", { name: "Settings" });
+  const usersTab = dialog.getByRole("tab", { name: "Users", exact: true });
+  await expect(usersTab).toBeVisible();
+  await dialog.getByRole("button", { name: "Close settings" }).focus();
+  for (let index = 0; index < 8; index += 1) await page.keyboard.press("Tab");
+  await expect(usersTab).toBeFocused();
+  await expect(usersTab).toHaveCSS("outline-width", "2px");
+});
+
 test("a direct Settings URL closes to the default workspace", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/settings/iam");
@@ -70,8 +108,8 @@ test("a direct Settings URL closes to the default workspace", async ({ page }) =
 
   await page.keyboard.press("Escape");
 
-  await expect(page.getByRole("dialog", { name: "Settings" })).toHaveCount(0);
   await expect(page).toHaveURL(/\/overview$/);
+  await expect(page.getByRole("dialog", { name: "Settings" })).toHaveCount(0);
 });
 
 test("a direct Settings URL does not load the hidden Dashboard", async ({ page }) => {

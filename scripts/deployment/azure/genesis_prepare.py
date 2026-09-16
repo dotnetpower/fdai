@@ -159,6 +159,7 @@ def prepare_genesis(
                 ssh_public_key=read_private_bytes(ssh_public, max_bytes=16_384)
                 .decode("ascii")
                 .strip(),
+                create_runner_image=True,
             )
             write_plan_input(variables_path, values)
             try:
@@ -261,6 +262,7 @@ def prepare_standalone_genesis(
             run_binding=run_binding,
             ssh_public_key=read_private_bytes(ssh_public, max_bytes=16_384).decode("ascii").strip(),
             execution_transport="manual",
+            create_runner_image=create_runner_image,
         )
         write_plan_input(variables_path, values)
     check = root / ".foundation-variables-check.json"

@@ -72,7 +72,7 @@ def coordinator(tmp_path, monkeypatch):
     modules = {
         "genesis_prepare": SimpleNamespace(prepare_standalone_genesis=prepare),
         "genesis_supervisor": SimpleNamespace(_configure_entra=identity),
-        "genesis_entra": SimpleNamespace(plan_entra=lambda: {}),
+        "genesis_entra": SimpleNamespace(plan_entra=dict),
         "genesis_approval_prompt": SimpleNamespace(current_actor_digest=lambda _binding: "a" * 64),
         "genesis_runner_image_contract": SimpleNamespace(
             materialize_foundation_image_input=lambda **kwargs: (
@@ -114,11 +114,11 @@ def coordinator(tmp_path, monkeypatch):
     monkeypatch.setattr(standalone_deploy, "deploy_standalone_application", application)
     monkeypatch.setattr(standalone_deploy, "_current_operator_object_id", lambda: "synthetic")
 
-    def invoke(*, runner_receipt=None):
+    def invoke(*, runner_receipt=None, online=True):
         return standalone_deploy.deploy_azure_foundation(
             work_dir=root,
-            online=True,
-            offline_kit=None,
+            online=online,
+            offline_kit=None if online else tmp_path / "kit",
             online_url=None,
             region="koreacentral",
             monthly_cost_ceiling=1000,
@@ -169,9 +169,25 @@ def test_verified_runner_receipt_skips_image_build(coordinator, tmp_path):
     assert variables.endswith("foundation-with-runner-image.json")
 
 
-def test_fresh_runner_image_uses_image_build_context(coordinator):
+def test_connected_deployment_uses_marketplace_bootstrap_without_image_build(coordinator):
     invoke, options, _clock = coordinator
     with pytest.raises(RuntimeError, match="stop-after-prompt"):
         invoke()
 
+    command = options["foundation_command"]
+    assert options["create_runner_image"] is False
+    assert "--create-runner-image" not in command
+    assert "--runner-image-terraform" not in command
+    variables = command[command.index("--foundation-variables-file") + 1]
+    assert variables.endswith("vars.json")
+
+
+def test_offline_deployment_retains_image_build_context(coordinator):
+    invoke, options, _clock = coordinator
+    with pytest.raises(RuntimeError, match="stop-after-prompt"):
+        invoke(online=False)
+
+    command = options["foundation_command"]
     assert options["create_runner_image"] is True
+    assert "--create-runner-image" in command
+    assert "--runner-image-terraform" in command

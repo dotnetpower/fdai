@@ -238,6 +238,35 @@ run "foundation_contracts_with_bootstrap_outputs" {
   }
 }
 
+run "online_foundation_uses_exact_marketplace_bootstrap" {
+  command = plan
+
+  variables {
+    runner_bootstrap_mode               = "online"
+    runner_marketplace_image_version    = "24.04.202509010"
+    runner_source_image_id              = ""
+    runner_image_source_commit          = ""
+    runner_image_verified_source_commit = ""
+    runner_image_run_digest             = ""
+    runner_image_receipt_digest         = ""
+  }
+
+  assert {
+    condition = (
+      local.runner_bootstrap_mode == "online" &&
+      local.runner_bootstrap_script != "" &&
+      output.private_handoff.runner.bootstrap_mode == "online" &&
+      output.private_handoff.runner.source_image_id == "" &&
+      output.private_handoff.runner.marketplace_image_version == "24.04.202509010" &&
+      output.private_handoff.runner.image_source_commit == "" &&
+      output.private_handoff.runner.image_verified_source_commit == "" &&
+      output.private_handoff.runner.image_run_digest == "" &&
+      output.private_handoff.runner.image_receipt_digest == ""
+    )
+    error_message = "Connected Foundation must use the exact Marketplace version and checksum-pinned bootstrap without a managed image."
+  }
+}
+
 run "custom_retention" {
   command = plan
 

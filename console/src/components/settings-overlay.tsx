@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useLayoutEffect, useRef } from "preact/hooks";
 import { t } from "../i18n";
 import { panelsInGroup } from "../panels";
 import { panelPath } from "../router";
@@ -25,11 +25,12 @@ export function SettingsOverlay({
   children,
 }: SettingsOverlayProps) {
   const dialogRef = useRef<HTMLElement | null>(null);
+  const navigationRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const returnFocus = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
@@ -37,7 +38,7 @@ export function SettingsOverlay({
     document.body.classList.add("scroll-locked");
     closeRef.current?.focus();
 
-    const onKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
         onCloseRef.current();
@@ -62,13 +63,19 @@ export function SettingsOverlay({
         first.focus();
       }
     };
-    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("keydown", handleKeyDown, true);
     return () => {
-      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("keydown", handleKeyDown, true);
       if (!bodyWasLocked) document.body.classList.remove("scroll-locked");
       returnFocus?.focus();
     };
   }, []);
+
+  useLayoutEffect(() => {
+    navigationRef.current
+      ?.querySelector<HTMLElement>('[aria-current="page"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activePanelId]);
 
   return (
     <div
@@ -112,7 +119,11 @@ export function SettingsOverlay({
           </button>
         </header>
         <div class="settings-overlay-workspace">
-          <nav class="settings-overlay-navigation" aria-label={t("settings.menuLabel")}>
+          <nav
+            ref={navigationRef}
+            class="settings-overlay-navigation"
+            aria-label={t("settings.menuLabel")}
+          >
             <ul>
               {panelsInGroup("settings").map((panel) => (
                 <li key={panel.id}>

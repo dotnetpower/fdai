@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to Azure from one local command or a digest-pinned disconnected deployment appliance.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 0cdab6f39adbe068065f69ae8e50469722d46e74 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 47b46d9c3c296bfdf972b1db35bbe84a57e3a58c }]
 ---
 
 # Deploy Quickstart
@@ -24,6 +24,9 @@ and verifies the resulting application before it reports deployment readiness.
 
 GitHub Actions can build, test, sign, and publish a release. It is not part of either tenant
 deployment path.
+
+Connected deployment boots the managed host from an exact Marketplace Ubuntu version and installs
+the pinned toolchain during Foundation. You don't need to build a dedicated host image first.
 
 ## Deploy from a clone
 

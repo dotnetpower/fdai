@@ -209,16 +209,18 @@ resource "azurerm_linux_virtual_machine" "runner" {
       publisher = "Canonical"
       offer     = "ubuntu-24_04-lts"
       sku       = "server"
-      version   = "latest"
+      version   = var.runner_marketplace_image_version
     }
   }
 
-  custom_data = var.runner_bootstrap_mode == "offline" ? null : base64encode(templatefile("${path.module}/runner-cloud-init.yaml.tftpl", {
-    runner_parallelism = var.runner_parallelism
-    runner_url         = var.github_runner_url
-    runner_token       = var.github_runner_token
-    runner_user        = var.runner_admin_username
-  }))
+  custom_data = var.runner_bootstrap_mode == "offline" ? null : base64encode(
+    var.runner_bootstrap_script != "" ? var.runner_bootstrap_script : templatefile("${path.module}/runner-cloud-init.yaml.tftpl", {
+      runner_parallelism = var.runner_parallelism
+      runner_url         = var.github_runner_url
+      runner_token       = var.github_runner_token
+      runner_user        = var.runner_admin_username
+    })
+  )
 
   # Do not replace the runner when an adopted image reference or cloud-init
   # differs: replacement destroys the registered GitHub runner and any

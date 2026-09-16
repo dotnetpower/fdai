@@ -247,7 +247,12 @@ test.describe("Native Dashboard v2", () => {
     const gate = new Promise<void>((resolve) => { release = resolve; });
     await page.route("**/ontology/instances/states*", async (route) => {
       await gate;
-      await json(route, { detail: "projection unavailable" }, 503);
+      await json(route, {
+        error: {
+          status: 503,
+          message: "authoritative Operator projection is unavailable",
+        },
+      }, 503);
     });
     await page.goto("/dashboard-v2");
     await expect(page.locator(".dashboard-v2-page .loading-skeleton")).toBeVisible();

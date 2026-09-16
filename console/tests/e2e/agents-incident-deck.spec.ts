@@ -414,7 +414,10 @@ test("keeps English workspace starter cards inside their bounds", async ({ page 
     await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
     await page.locator(".deck-invoke").click();
     const workspace = page.getByRole("dialog", { name: "Command deck" });
-    const introCardOverflow = await workspace.locator(".deck-intro-card").evaluateAll((cards) =>
+    await expect(workspace).toBeVisible();
+    const introCards = workspace.locator(".deck-intro-card");
+    await expect(introCards).toHaveCount(5);
+    const introCardOverflow = await introCards.evaluateAll((cards) =>
       cards.map((card) => ({
         horizontal: card.scrollWidth - card.clientWidth,
         vertical: card.scrollHeight - card.clientHeight,
@@ -512,6 +515,7 @@ test("renders accessible v2 presentation at desktop constrained and mobile viewp
     await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
     await page.locator(".deck-invoke").click();
     const workspace = page.getByRole("dialog", { name: "Command deck" });
+    await expect(workspace).toBeVisible();
     const newConversation = workspace.getByRole("button", { name: "New conversation" });
     if (await newConversation.count()) await newConversation.click();
     await workspace.getByPlaceholder(/Ask anything/i).fill("Show request trend");
@@ -1011,6 +1015,7 @@ test("keeps completed observed work compact across supported viewports", async (
     await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
     await page.locator(".deck-invoke").click();
     const workspace = page.getByRole("dialog", { name: "Command deck" });
+    await expect(workspace).toBeVisible();
     const newConversation = workspace.getByRole("button", { name: "New conversation" });
     if (await newConversation.count()) await newConversation.click();
     await workspace.getByPlaceholder(/Ask anything/i).fill("List resource groups");

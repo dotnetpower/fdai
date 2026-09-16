@@ -1,8 +1,5 @@
 import { OperatorApiError, type OperatorApiTransport } from "./api-transport";
 import {
-  decodeRenderedReport,
-  decodeReportingRegistry,
-  decodeReportList,
   type RenderedReportView,
   type ReportingRegistry,
   type ReportList,
@@ -16,26 +13,29 @@ export class ReportingApiClient {
   }
 
   async reports(): Promise<ReportList> {
-    return decodeReporting(decodeReportList, await this.#transport.getJson<unknown>("/reports"));
+    const payload = await this.#transport.getJson<unknown>("/reports");
+    const { decodeReportList } = await import("./routes/reporting.model");
+    return decodeReporting(decodeReportList, payload);
   }
 
   async registry(): Promise<ReportingRegistry> {
-    return decodeReporting(
-      decodeReportingRegistry,
-      await this.#transport.getJson<unknown>("/reports/registry"),
-    );
+    const payload = await this.#transport.getJson<unknown>("/reports/registry");
+    const { decodeReportingRegistry } = await import("./routes/reporting.model");
+    return decodeReporting(decodeReportingRegistry, payload);
   }
 
   async render(
     reportId: string,
     variables: Readonly<Record<string, string>> = {},
   ): Promise<RenderedReportView> {
+    const payload = await this.#transport.getJson<unknown>(
+      `/reports/${encodeURIComponent(reportId)}/render`,
+      new URLSearchParams(variables),
+    );
+    const { decodeRenderedReport } = await import("./routes/reporting.model");
     return decodeReporting(
       decodeRenderedReport,
-      await this.#transport.getJson<unknown>(
-        `/reports/${encodeURIComponent(reportId)}/render`,
-        new URLSearchParams(variables),
-      ),
+      payload,
     );
   }
 

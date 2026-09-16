@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 8037b3ef446e6a6bbfe8ed6db14e458c9f2e481a
+translation_source_sha: 54af32fad3ae0c9bec2aa22080a0046b772d486f
 translation_revised: 2026-09-15
 ---
 
@@ -623,8 +623,8 @@ unavailable-source 비율이 악화되지 않을 때만 진행합니다.
 
 ## 설정 및 컴포넌트 표현 경계
 
-[Console 설정 및 컴포넌트 표현 참조](../../reference/console-settings-presentation-ko.md)에서
-공유 컨트롤, IAM 단계, 컴포넌트 문서화 및 권한 경계를 정의합니다.
+[Console 설정 및 컴포넌트 표현 참조](../../reference/console-settings-presentation-ko.md)에서 공유 컨트롤, IAM 단계, 컴포넌트 문서화 및 권한 경계를 정의합니다.
+운영 Settings는 공통 서체, 데스크톱 34px 및 터치 44px 대상, 동작 강조, 가시적 포커스, 현재 모바일 탐색을 사용하며 영속성, RBAC, 근거, 승인 또는 실행 권한을 변경하지 않습니다.
 
 ## 채택하지 않은 대안
 

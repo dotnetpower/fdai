@@ -30,6 +30,22 @@ const models = readFileSync(
   fileURLToPath(new URL("../routes/settings-models.tsx", import.meta.url)),
   "utf8",
 );
+const memory = readFileSync(
+  fileURLToPath(new URL("../routes/operator-memory.tsx", import.meta.url)),
+  "utf8",
+);
+const iamUsers = readFileSync(
+  fileURLToPath(new URL("../routes/settings-iam-users.tsx", import.meta.url)),
+  "utf8",
+);
+const iamRequests = readFileSync(
+  fileURLToPath(new URL("../routes/settings-iam-requests.tsx", import.meta.url)),
+  "utf8",
+);
+const diagnostics = readFileSync(
+  fileURLToPath(new URL("../routes/settings-system.tsx", import.meta.url)),
+  "utf8",
+);
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
 
 describe("Settings controls", () => {
@@ -68,5 +84,18 @@ describe("Settings controls", () => {
     expect(models).toContain('class="settings-domain-list cs-control-policy-list"');
     expect(models).toContain('class="settings-domain-add"');
     expect(styles.indexOf("/* Console settings")).toBeGreaterThan(styles.length * 0.7);
+  });
+
+  test("uses shared controls across production Settings workspaces", () => {
+    expect(memory.match(/class="form-input"/g)).toHaveLength(2);
+    expect(models).toMatch(/class="settings-domain-add"[\s\S]*?class="secondary"/);
+    expect(iamUsers).toContain('<button type="submit" class="secondary" disabled={searching}>');
+    expect(iamUsers).toContain('class="btn primary"');
+    expect(iamRequests).toContain('class="btn primary"');
+    expect(diagnostics).toMatch(/settings-diagnostic-action[\s\S]*?class="secondary"/);
+    expect(styles).toContain(".settings-route .btn.primary:not(:disabled)");
+    expect(styles).toMatch(
+      /\.settings-tabs button:focus-visible,[\s\S]*?outline: 2px solid var\(--accent\);/,
+    );
   });
 });

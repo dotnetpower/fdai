@@ -241,9 +241,12 @@ export function decodeRcaView(value: unknown): RcaView {
           throw contractError("RCA response.recorded_at MUST be an RFC 3339 timestamp or null");
         }
         return {
+          hypothesis_seq: apiPositiveInteger(item, "hypothesis_seq", "RCA response"),
+          source_seq: apiPositiveInteger(item, "source_seq", "RCA response"),
           verdict: apiString(item, "verdict", "RCA response"),
           decision: apiNullableString(item, "decision", "RCA response"),
           action_kind: apiNullableString(item, "action_kind", "RCA response"),
+          action_type_id: apiNullableString(item, "action_type_id", "RCA response"),
           mode: item["mode"] === null ? null : apiMode(item["mode"]),
           rollback_reference: apiNullableString(item, "rollback_reference", "RCA response"),
           recorded_at: recordedAt,
