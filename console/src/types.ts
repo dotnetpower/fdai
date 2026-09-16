@@ -338,6 +338,14 @@ export interface AutonomyPayload {
     readonly change_lead_time_seconds: MetricVsBaseline;
     readonly cost_per_resolved_event_usd: MetricVsBaseline;
   };
+  readonly metric_samples: {
+    readonly auto_resolution_rate: number;
+    readonly human_touchpoints_per_100: number;
+    readonly mttr_seconds: number;
+    readonly change_lead_time_seconds: number;
+    readonly cost_per_resolved_event_usd: number;
+  };
+  readonly measurement_gaps: readonly string[];
   readonly leading: {
     readonly mixed_model_disagreement_rate: MetricVsBaseline;
     readonly verifier_failure_rate: MetricVsBaseline;
