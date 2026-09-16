@@ -103,6 +103,18 @@ class PostgresOperationalHistoryLifecycleRepository:
         self._dsn = dsn
         self._statement_timeout_ms = statement_timeout_ms
 
+    async def certification_authorizes(self, receipt_digest: str) -> bool:
+        """Require the exact append-only certification receipt to authorize mutation."""
+
+        row = await self._optional_one(
+            "SELECT complete, record->>'operationally_validated' AS validated "
+            "FROM operational_history_certification_receipt WHERE receipt_digest=%s",
+            (receipt_digest,),
+        )
+        if row is None:
+            return False
+        return row["complete"] is True and row["validated"] == "true"
+
     async def assess_pressure(self, policy: StoragePressurePolicy) -> StoragePressureAssessment:
         row = await self._one(
             "SELECT pg_database_size(current_database()) AS database_bytes, "
