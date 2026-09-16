@@ -94,6 +94,11 @@ remain production composition work rather than deployed behavior.
 
 ## HTTP surfaces
 
+The Console `/skills` diagnostics retain the last successful source refresh timestamp.
+An enabled registration without a recorded refresh is `not-measured`, never `ready`.
+Disabled and failed sources keep their distinct states, and an older successful timestamp
+does not clear a current failure. This read does not fetch content or enable a skill.
+
 The Operator Service workflow family registers these routes and uses the authenticated principal
 resolved by the server.
 

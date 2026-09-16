@@ -574,7 +574,11 @@ class RuntimeProjectionReader:
         compactions = await self._fetch_all(
             "SELECT candidate_id, scope_kind, scope_ref, category, body, source_refs, "
             "proposed_by_agent, state, reviewed_by, review_reason "
-            "FROM memory_compaction_candidate ORDER BY updated_at DESC, candidate_id LIMIT 100"
+            "FROM memory_compaction_candidate "
+            "WHERE (%s::text IS NULL OR scope_kind = %s) "
+            "AND (%s::text IS NULL OR scope_ref = %s) "
+            "ORDER BY updated_at DESC, candidate_id LIMIT 100",
+            (scope_kind, scope_kind, scope_ref, scope_ref),
         )
         now = datetime.now(UTC)
         items = []
@@ -651,9 +655,23 @@ class RuntimeProjectionReader:
                         if not bool(row["enabled"])
                         else "error"
                         if int(row["error_count"] or 0) > 0
+                        else "not-measured"
+                        if row["last_refresh_at"] is None
                         else "ready"
                     ),
-                    "reason": str(row["last_error_kind"] or "source_registered"),
+                    "reason": str(
+                        row["last_error_kind"]
+                        or (
+                            "source_refresh_not_recorded"
+                            if row["last_refresh_at"] is None
+                            else "source_refreshed"
+                        )
+                    ),
+                    "observed_at": (
+                        _required_timestamp(row["last_refresh_at"]).isoformat()
+                        if row["last_refresh_at"] is not None
+                        else None
+                    ),
                     "digests": {},
                 }
                 for row in sources
