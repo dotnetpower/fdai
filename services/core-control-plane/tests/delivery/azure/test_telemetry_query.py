@@ -15,6 +15,7 @@ from fdai.delivery.azure.telemetry_query import (
     AzureLogAnalyticsRcaLogProvider,
     AzureLogAnalyticsTraceProvider,
 )
+from fdai.delivery.azure.telemetry_workspace import AzureTelemetryWorkspaceResolution
 from fdai.shared.providers.log_query import LogQuery, LogQueryProviderError
 from fdai.shared.providers.trace_query import TraceQuery, TraceQueryProviderError
 from fdai.shared.providers.workload_identity import IdentityToken
@@ -26,6 +27,46 @@ class _Identity:
     async def get_token(self, audience: str) -> IdentityToken:
         return IdentityToken(
             token="test-token", expires_at=_NOW + timedelta(hours=1), audience=audience
+        )
+
+
+class _WorkspaceResolver:
+    async def resolve(
+        self,
+        resource_ref: str,
+        *,
+        at: datetime,
+    ) -> AzureTelemetryWorkspaceResolution:
+        assert resource_ref == "resource-neutral"
+        assert at == _NOW
+        return AzureTelemetryWorkspaceResolution(
+            provider_resource_id=(
+                "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                "resourceGroups/rg-example/providers/Microsoft.Web/sites/app-example"
+            ),
+            inventory_generation="inventory-generation",
+            workspace_ids=("00000000-0000-0000-0000-000000000000",),
+        )
+
+
+class _StaticWorkspaceResolver:
+    def __init__(self, workspace_ids: tuple[str, ...]) -> None:
+        self._workspace_ids = workspace_ids
+
+    async def resolve(
+        self,
+        resource_ref: str,
+        *,
+        at: datetime,
+    ) -> AzureTelemetryWorkspaceResolution:
+        del resource_ref, at
+        return AzureTelemetryWorkspaceResolution(
+            provider_resource_id=(
+                "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                "resourceGroups/rg-example/providers/Microsoft.Web/sites/app-example"
+            ),
+            inventory_generation="inventory-generation",
+            workspace_ids=self._workspace_ids,
         )
 
 
@@ -132,6 +173,48 @@ async def test_log_provider_filters_exact_pod_uid_across_app_and_container_logs(
 
 
 @pytest.mark.asyncio
+async def test_log_provider_routes_neutral_resource_to_discovered_workspace_first() -> None:
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if "/workspaces/00000000-0000-0000-0000-000000000000/" in request.url.path:
+            return httpx.Response(
+                200,
+                json=_table(
+                    ["at", "body", "severity", "service", "resource_id", "source"],
+                    [["2026-07-20T11:59:00Z", "failed", "error", "api", "", "AppTraces"]],
+                ),
+            )
+        return httpx.Response(200, json=_table(["at"], []))
+
+    provider = AzureLogAnalyticsRcaLogProvider(
+        _provider(handler),
+        workspace_resolver=_WorkspaceResolver(),
+    )
+    records = [
+        record
+        async for record in provider.query(
+            LogQuery(
+                expression="",
+                labels={"resource_id": "resource-neutral"},
+                since=_NOW - timedelta(hours=1),
+                until=_NOW,
+                limit=20,
+            )
+        )
+    ]
+
+    assert len(records) == 1
+    assert "/workspaces/00000000-0000-0000-0000-000000000000/query" in str(requests[0].url)
+    assert "/workspaces/workspace-test/query" in str(requests[1].url)
+    query = json.loads(requests[0].content)["query"]
+    assert "Properties['cloud.resource_id']" in query
+    assert "Microsoft.Web/sites/app-example" in query
+    assert "resource-neutral" not in query
+
+
+@pytest.mark.asyncio
 async def test_trace_provider_maps_requests_and_dependencies() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -216,5 +299,116 @@ async def test_trace_provider_normalizes_backend_failure() -> None:
             span
             async for span in provider.query(
                 TraceQuery(since=_NOW - timedelta(hours=1), until=_NOW)
+            )
+        ]
+
+
+@pytest.mark.asyncio
+async def test_multi_workspace_results_are_globally_ordered_and_limited() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        workspace = request.url.path.split("/workspaces/", 1)[1].split("/", 1)[0]
+        timestamps = {
+            "a-workspace": "2026-07-20T11:59:30Z",
+            "b-workspace": "2026-07-20T11:58:30Z",
+            "workspace-test": "2026-07-20T11:57:30Z",
+        }
+        return httpx.Response(
+            200,
+            json=_table(
+                ["at", "body", "severity", "service", "resource_id", "source"],
+                [[timestamps[workspace], workspace, "error", "api", "", "AppTraces"]],
+            ),
+        )
+
+    provider = AzureLogAnalyticsRcaLogProvider(
+        _provider(handler),
+        workspace_resolver=_StaticWorkspaceResolver(("a-workspace", "b-workspace")),
+    )
+    records = [
+        record
+        async for record in provider.query(
+            LogQuery(
+                expression="",
+                labels={"resource_id": "resource-neutral"},
+                since=_NOW - timedelta(hours=1),
+                until=_NOW,
+                limit=2,
+            )
+        )
+    ]
+    assert [record.body for record in records] == ["workspace-test", "b-workspace"]
+
+
+@pytest.mark.asyncio
+async def test_case_equivalent_fallback_workspace_is_queried_once() -> None:
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=_table(["at"], []))
+
+    provider = AzureLogAnalyticsRcaLogProvider(
+        _provider(handler),
+        workspace_resolver=_StaticWorkspaceResolver(("WORKSPACE-TEST",)),
+    )
+    assert [
+        record
+        async for record in provider.query(
+            LogQuery(
+                expression="",
+                labels={"resource_id": "resource-neutral"},
+                since=_NOW - timedelta(hours=1),
+                until=_NOW,
+            )
+        )
+    ] == []
+    assert len(requests) == 1
+
+
+@pytest.mark.asyncio
+async def test_one_workspace_failure_discards_partial_multi_workspace_rows() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if "/workspaces/b-workspace/" in request.url.path:
+            return httpx.Response(503)
+        return httpx.Response(
+            200,
+            json=_table(
+                ["at", "body", "severity", "service", "resource_id", "source"],
+                [["2026-07-20T11:59:00Z", "failed", "error", "api", "", "AppTraces"]],
+            ),
+        )
+
+    provider = AzureLogAnalyticsRcaLogProvider(
+        _provider(handler),
+        workspace_resolver=_StaticWorkspaceResolver(("a-workspace", "b-workspace")),
+    )
+    with pytest.raises(LogQueryProviderError, match="RCA log query failed"):
+        _ = [
+            record
+            async for record in provider.query(
+                LogQuery(
+                    expression="",
+                    labels={"resource_id": "resource-neutral"},
+                    since=_NOW - timedelta(hours=1),
+                    until=_NOW,
+                )
+            )
+        ]
+
+
+@pytest.mark.asyncio
+async def test_kql_filter_limit_applies_after_quote_escaping() -> None:
+    provider = AzureLogAnalyticsRcaLogProvider(
+        _provider(lambda _request: pytest.fail("unexpected query"))
+    )
+    with pytest.raises(LogQueryProviderError, match="RCA log query failed"):
+        _ = [
+            record
+            async for record in provider.query(
+                LogQuery(
+                    expression="'" * 1_001,
+                    since=_NOW - timedelta(hours=1),
+                    until=_NOW,
+                )
             )
         ]

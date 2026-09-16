@@ -14,8 +14,12 @@ and abstains (routes to HIL) - see
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass
 from enum import StrEnum
+
+_CITATION_FACT = re.compile(r"^[a-z][a-z0-9_.-]{0,31}:[a-z0-9][a-z0-9_.-]{0,63}$")
+_MAX_CITATION_FACTS = 16
 
 
 class RcaTier(StrEnum):
@@ -75,11 +79,24 @@ class Citation:
     """One grounded evidence reference backing a hypothesis.
 
     ``ref`` is an opaque id (a rule id, event id, metric name, or
-    incident id) - never a raw payload or secret.
+    incident id) - never a raw payload or secret. ``facts`` contains only
+    bounded machine tokens that the model may use as semantic context. Audit
+    projections retain only ``kind`` and ``ref``.
     """
 
     kind: CitationKind
     ref: str
+    facts: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if len(self.facts) > _MAX_CITATION_FACTS:
+            raise ValueError("citation facts exceed the bounded count")
+        canonical = tuple(sorted(set(self.facts)))
+        if len(canonical) != len(self.facts):
+            raise ValueError("citation facts MUST be unique")
+        if any(_CITATION_FACT.fullmatch(fact) is None for fact in canonical):
+            raise ValueError("citation facts MUST use bounded machine tokens")
+        object.__setattr__(self, "facts", canonical)
 
 
 @dataclass(frozen=True, slots=True)
