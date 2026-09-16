@@ -1,31 +1,49 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import appServicePlans from "../../../tools/architecture-diagrams/assets/azure/app-service-plans.svg?url";
-import apiManagementServices from "../../../tools/architecture-diagrams/assets/azure/api-management-services.svg?url";
-import disks from "../../../tools/architecture-diagrams/assets/azure/disks.svg?url";
-import diskSnapshots from "../../../tools/architecture-diagrams/assets/azure/disk-snapshots.svg?url";
-import containerRegistry from "../../../tools/architecture-diagrams/assets/azure/container-registry.svg?url";
-import dnsPrivateResolver from "../../../tools/architecture-diagrams/assets/azure/dns-private-resolver.svg?url";
-import dnsZones from "../../../tools/architecture-diagrams/assets/azure/dns-zones.svg?url";
-import logicApps from "../../../tools/architecture-diagrams/assets/azure/logic-apps.svg?url";
-import monitor from "../../../tools/architecture-diagrams/assets/azure/monitor.svg?url";
-import nat from "../../../tools/architecture-diagrams/assets/azure/nat.svg?url";
-import postgresqlIcon from "../../../tools/architecture-diagrams/assets/azure/postgresql.svg?url";
-import privateEndpointIcon from "../../../tools/architecture-diagrams/assets/azure/private-endpoint.svg?url";
-import resourceGraph from "../../../tools/architecture-diagrams/assets/azure/resource-graph.svg?url";
-import resourceGroups from "../../../tools/architecture-diagrams/assets/azure/resource-groups.svg?url";
-import staticWebApp from "../../../tools/architecture-diagrams/assets/azure/static-web-app.svg?url";
-import sqlDatabase from "../../../tools/architecture-diagrams/assets/azure/sql-database.svg?url";
-import sqlServer from "../../../tools/architecture-diagrams/assets/azure/sql-server.svg?url";
-import subscriptions from "../../../tools/architecture-diagrams/assets/azure/subscriptions.svg?url";
-import vmScaleSets from "../../../tools/architecture-diagrams/assets/azure/vm-scale-sets.svg?url";
-import kubernetesEndpoints from "../../../tools/architecture-diagrams/assets/kubernetes/ep.svg?url";
-import kubernetesIngress from "../../../tools/architecture-diagrams/assets/kubernetes/ing.svg?url";
-import kubernetesNode from "../../../tools/architecture-diagrams/assets/kubernetes/node.svg?url";
-import kubernetesPod from "../../../tools/architecture-diagrams/assets/kubernetes/pod.svg?url";
-import kubernetesService from "../../../tools/architecture-diagrams/assets/kubernetes/svc.svg?url";
 import { ontologyInstanceIconForResourceType } from "./ontology-instance-resource-icons";
 
+const iconSource = readFileSync(
+  fileURLToPath(new URL("./ontology-instance-resource-icons.ts", import.meta.url)),
+  "utf8",
+);
+const azureIcon = (name: string): string =>
+  new URL(`../../../tools/architecture-diagrams/assets/azure/${name}.svg`, import.meta.url).href;
+const kubernetesIcon = (name: string): string =>
+  new URL(`../../../tools/architecture-diagrams/assets/kubernetes/${name}.svg`, import.meta.url).href;
+
+const appServicePlans = azureIcon("app-service-plans");
+const apiManagementServices = azureIcon("api-management-services");
+const disks = azureIcon("disks");
+const diskSnapshots = azureIcon("disk-snapshots");
+const containerRegistry = azureIcon("container-registry");
+const dnsPrivateResolver = azureIcon("dns-private-resolver");
+const dnsZones = azureIcon("dns-zones");
+const logicApps = azureIcon("logic-apps");
+const monitor = azureIcon("monitor");
+const nat = azureIcon("nat");
+const postgresqlIcon = azureIcon("postgresql");
+const privateEndpointIcon = azureIcon("private-endpoint");
+const resourceGraph = azureIcon("resource-graph");
+const resourceGroups = azureIcon("resource-groups");
+const staticWebApp = azureIcon("static-web-app");
+const sqlDatabase = azureIcon("sql-database");
+const sqlServer = azureIcon("sql-server");
+const subscriptions = azureIcon("subscriptions");
+const vmScaleSets = azureIcon("vm-scale-sets");
+const kubernetesEndpoints = kubernetesIcon("ep");
+const kubernetesIngress = kubernetesIcon("ing");
+const kubernetesNode = kubernetesIcon("node");
+const kubernetesPod = kubernetesIcon("pod");
+const kubernetesService = kubernetesIcon("svc");
+
 describe("ontologyInstanceIconForResourceType", () => {
+  it("does not request every icon through eager Vite URL modules", () => {
+    expect(iconSource).not.toContain(".svg?url");
+    expect(iconSource).not.toContain('from "../components/architecture-network-icons"');
+    expect(iconSource).toContain('from "../components/architecture-network-icon-urls"');
+  });
+
   it("maps neutral inventory aliases to distinct official Azure icons", () => {
     const resourceGroup = ontologyInstanceIconForResourceType("resource-group");
     const postgresql = ontologyInstanceIconForResourceType("postgresql-server");

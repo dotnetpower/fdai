@@ -1,7 +1,7 @@
 ---
 title: Console 아키텍처 작업 영역
 translation_of: console-architecture-workbench.md
-translation_source_sha: ac07702bd5c635fd3a37657fd365575e706103fa
+translation_source_sha: 676b8fde15d48fd12c9e5e35b390026097832d03
 translation_revised: 2026-09-17
 ---
 # Console 아키텍처 작업 영역
@@ -109,6 +109,10 @@ canvas 안에서 크기만 바뀌면 운영자가 선택한 확대 상태를 그
 상세 패널은 개요, 관계, 경로 및 출처를 소유합니다. 데스크톱에서는 그래프 옆에 있고 제한된
 너비에서는 선택 또는 경로 상태를 버리지 않고 그래프 아래로 이동합니다. 모바일 컨트롤과 노드
 선택 영역은 최소 44 CSS pixel입니다. 동작 줄이기 및 강제 색상 설정에서도 의미를 유지합니다.
+
+검토된 Resource 아이콘은 대화형 그래프에서 URL 전용 해석기를 사용합니다. 원시 SVG 출처는
+독립 실행형 내보내기를 만들 때만 사용하므로, 인스턴스 또는 토폴로지 보기에 들어갈 때 선택한
+그래프를 렌더링하기 전에 검토된 모든 아이콘과 내보내기 출처를 불러오지 않습니다.
 
 ## 검증
 
