@@ -398,7 +398,10 @@ whose consumers are live and whose health probe isn't in error. Interactive loca
 profile changes the PostgreSQL binding, not agent activation or stream semantics. The browser also retains the newest 100 observed SSE
 frames for the lifetime of the tab and renders them as a separate live journal. Runtime heartbeats prove connectivity but don't count as
 work; collecting, analyzing, deciding, executing, approving, auditing, Incident, and handoff frames do. This journal is bounded and
-non-durable, resets on reload, preserves each frame's recorded source, and never substitutes for the append-only audit log.
+non-durable, resets on reload, preserves each frame's recorded source, and never substitutes for the append-only audit log. In both
+venues, a newly appended non-replay row receives the same three-second neutral background fade; initial and replayed history never receives
+that cue. Reduced-motion mode preserves a static bounded tint, and shared typography keeps every log label and annotation at or above the
+caption-size floor.
 
 Completed conversation review follows the same split. Interactive local transport can publish the
 bounded Bragi `object.turn` envelope, but it does not fabricate a reviewer or durable proposal

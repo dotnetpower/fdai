@@ -44,12 +44,12 @@ subscription-onboarding product:
 
 | Area | Current evidence | Gap this design closes |
 |------|------------------|------------------------|
-| Operator entry point | `fdai-up.sh` supervises private Foundation, tenant-local Entra and repository configuration, protected application plan/apply, and a second plan in one process. | Blob-to-Operator projection and one complete ready receipt remain open. |
-| Genesis progress | `genesis-up.sh` retains the 15-stage lower-level route. `fdai-up.sh` creates only the current exact TTY approval, resumes claimed effects through verification, and continues through application convergence. | The terminal receipt remains `subscription_ready=false` until complete manifest, model-capacity, and active-inventory evidence closes independently. |
+| Operator entry point | `fdai-up.sh` supervises the private Foundation, tenant-local Entra configuration, managed-host application plan/apply, explicit initial inventory, and second plan in one process. Count-only inventory records replay from PostgreSQL through the Operator API. | Exact-revision live Azure evidence for the complete ready receipt remains open. |
+| Genesis progress | `genesis-up.sh` retains the 15-stage lower-level route. `fdai-up.sh` creates only the current exact TTY approval, resumes claimed effects through verification, and continues through independent inventory closure. | Source emits `inventory_ready=true` after inventory closure while preserving `subscription_ready=false` until the remaining non-inventory evidence families and a live tenant receipt close. |
 | Database bootstrap | Integrated and service-owned migrations plus a fail-closed database/semantic readback contract exist | Pre-runtime marker production and runtime-principal evidence are not unified into a complete zero-to-ready receipt. |
 | Ontology and rules | Catalogs are versioned in the repository and can be materialized as immutable Operator projections | Catalog projection is conditional on the Operator API path and is not a required subscription readiness gate. |
 | Model deployment | The live resolver, capability assessment, Terraform modules, and keyless roles exist | Requested capacity has no explicit minimum, utilization headroom, workload profile, or end-to-end throughput acceptance gate. |
-| Initial resource scan | The continuous inventory Job promotes only a complete generation; the Console separates estimated scan counters from verified closure | The protected run does not yet publish durable provider progress or retain the governed full-subscription receipt. |
+| Initial resource scan | The managed host invokes a full-scope ARG/ARM reconciliation immediately, writes a hash-chained count-only ledger to PostgreSQL and private versioned Blob storage, and runs a distinct read-only closure process. The Console renders the PostgreSQL projection. | Exact-revision live Azure collection and UI replay evidence remain open. |
 
 The inventory CLI delegates source construction, Kubernetes lifecycle collection, and sanitized
 collection-health assembly to focused support helpers before it persists results through the
@@ -58,7 +58,7 @@ acceleration remain in a separate composition module with per-scope locks and cu
 cannot replace complete reconciliation or raise readiness. A one-shot scheduled run still fails
 when every inventory source is exhausted so the genesis orchestrator can observe the failure. The
 Activity Log recovery accelerator has one canonical composition entry in
-`inventory_change_acceleration.py`; the CLI imports it rather than duplicating recovery behavior in
+`inventory_change_acceleration.py`; the CLI imports it rather than duplicating recovery behavior, with short imports compacted and aliases separately sorted below the structural size ceiling, in
 its source-construction helpers. That entry declares sparse property completeness explicitly and
 advances each scope cursor only after its final fence. The
 local long-running profile records that exact failure and retries only after its configured loop
@@ -464,6 +464,13 @@ The pre-scan count is labeled as an estimate because resources can change during
 `fraction=1` is emitted only after the final fence, provider coverage reconciliation, atomic graph
 promotion, and independent active-generation readback. If the count changes, the display can show
 more observed resources than the original estimate without claiming more than 100 percent.
+
+PostgreSQL is the authoritative current progress projection and the only source read by the
+Operator API. Private versioned Blob records are immutable bootstrap and resume evidence for the
+managed host; the Console has no Blob credential or direct Blob path. Neither store grants scan,
+promotion, retry, approval, or execution authority. The tenant deployment transport remains
+`fdai-up.sh` to the Bastion-reachable managed host; GitHub Actions never transports tenant
+plan/apply or initial-scan execution.
 
 The same inventory attempt can enrich reviewed Resource types with exact provider state before
 promotion. The active snapshot generation is captured before enrichment and compared again inside

@@ -501,14 +501,15 @@ function OntologyInstanceWorkspace({
     <div class={`ontology-instance-workbench${inspectorOpen ? "" : " is-inspector-collapsed"}`}>
       <div class="ontology-instance-map-pane">
         {aksLanes ? (
-          <section
+          <details
             class="ontology-instance-aks-lanes"
             aria-label={t("ontology.instances.aksCoverageTitle")}
           >
-            <header>
+            <summary>
               <strong>{t("ontology.instances.aksCoverageTitle")}</strong>
               <span>{t("ontology.instances.aksCoverageHint")}</span>
-            </header>
+              <i aria-hidden="true" />
+            </summary>
             <div>
               {aksLanes.map((lane) => (
                 <ol key={lane.id} aria-label={t(`ontology.instances.aksLane.${lane.id}`)}>
@@ -524,7 +525,7 @@ function OntologyInstanceWorkspace({
                 </ol>
               ))}
             </div>
-          </section>
+          </details>
         ) : null}
         <div class="ontology-instance-map-shell">
           {!inspectorOpen ? (

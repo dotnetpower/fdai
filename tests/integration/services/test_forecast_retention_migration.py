@@ -21,6 +21,8 @@ def test_forecast_retention_view_exposes_only_aggregate_read() -> None:
         migration["upgrade"]()
     sql = " ".join(statements)
     assert migration["migration_owner"] == "operator-service"
+    assert migration["down_revision"] == "operator_inventory_progress_read_20260916"
+    assert migration["rollback"]["restores"] == migration["down_revision"]
     assert migration["owned_tables"] == ()
     assert "WITH (security_barrier = true)" in sql
     assert "AS pending" in sql and "AS overdue" in sql

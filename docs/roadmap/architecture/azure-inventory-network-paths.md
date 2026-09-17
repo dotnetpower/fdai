@@ -58,6 +58,7 @@ account for these paths:
 | Workload token | Runtime-provided managed identity or workload identity endpoint | Allow the runtime platform identity path, including `AzurePlatformIMDS` where IMDS is used; use federated workload identity from an approved runner when the app subnet cannot mint a token | Do not add broad Internet egress or a client secret merely to make discovery work. |
 | DNS | Azure-provided DNS or an approved custom resolver | Permit the runtime's platform DNS path, including `AzurePlatformDNS` where applicable; forward the required public or Private Link zones through the hub resolver | Resolve and TLS-probe the endpoint before starting a scan. DNS success alone is not reachability. |
 | Snapshot publication | Private PostgreSQL and Event Hubs paths | Private endpoints, VNet peering, or hub routing from the discovery runner | The collector never sends inventory through a public console endpoint. |
+| Genesis progress evidence | Private Foundation Blob service and PostgreSQL | The Bastion-reachable managed host uses its existing state-account data role and private endpoint; Operator reads only PostgreSQL | Blob objects contain count-only hash-chained records, never inventory rows or execution authority. Recurring inventory does not require this bootstrap Blob path. |
 
 Gateway transit uses two directional peerings. Create the gateway-VNet direction with
 `allow_gateway_transit` before the workload-VNet direction enables `use_remote_gateways`, express

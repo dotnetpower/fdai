@@ -9,9 +9,12 @@ import {
 } from "../ingestion-api";
 import { cloudKnowledgeText } from "./cloud-knowledge.i18n";
 import {
-  canImportCloudKnowledgePackage, cloudKnowledgeDateRange, cloudKnowledgeFreshness,
-  cloudKnowledgeFreshnessText, cloudKnowledgeOutcomeText, cloudKnowledgePermissions,
-  formatCloudKnowledgeDate, isCloudKnowledgePackageFile, requireCloudKnowledgeOverview,
+  canImportCloudKnowledgePackage, cloudKnowledgeDateRange,
+  cloudKnowledgeFailureRequiresReload, cloudKnowledgeFreshness,
+  cloudKnowledgeFreshnessText, cloudKnowledgeIntakeReadiness, cloudKnowledgeOutcomeText,
+  cloudKnowledgePermissions, cloudKnowledgeUnavailableReason, formatCloudKnowledgeDate,
+  formatCloudKnowledgePackageSize, isCloudKnowledgePackageFile,
+  nextCloudKnowledgeWorkspaceView, requireCloudKnowledgeOverview,
   requireCloudKnowledgeRelease, weakestCloudKnowledgeFreshness,
   type InspectedCloudKnowledgePackage,
 } from "./cloud-knowledge.model";
@@ -181,13 +184,47 @@ describe("cloud knowledge action permissions", () => {
     expect(isCloudKnowledgePackageFile({ ...FILE, size: 0 })).toBe(false);
     expect(isCloudKnowledgePackageFile({ ...FILE, size: 16 * 1024 * 1024 + 1 })).toBe(false);
   });
+
+  it("separates package preparation readiness from setup, access, and uncertain writes", () => {
+    expect(cloudKnowledgeIntakeReadiness(null, false, false)).toBe("setup-required");
+    expect(cloudKnowledgeIntakeReadiness({ ...OVERVIEW, available: false }, false, false))
+      .toBe("setup-required");
+    expect(cloudKnowledgeIntakeReadiness({ ...OVERVIEW, can_import: false }, false, false))
+      .toBe("access-required");
+    expect(cloudKnowledgeIntakeReadiness(OVERVIEW, false, true)).toBe("reload-required");
+    expect(cloudKnowledgeIntakeReadiness(OVERVIEW, true, false)).toBe("busy");
+    expect(cloudKnowledgeIntakeReadiness(OVERVIEW, false, false)).toBe("ready");
+  });
+
+  it("requires reload only after requests that may have changed durable state", () => {
+    expect(cloudKnowledgeFailureRequiresReload("refresh")).toBe(true);
+    expect(cloudKnowledgeFailureRequiresReload("stage")).toBe(true);
+    expect(cloudKnowledgeFailureRequiresReload("import")).toBe(true);
+    expect(cloudKnowledgeFailureRequiresReload("inspect")).toBe(false);
+    expect(cloudKnowledgeFailureRequiresReload("export")).toBe(false);
+  });
+
+  it("formats local package size and cycles the two workspace tabs", () => {
+    expect(formatCloudKnowledgePackageSize(512)).toBe("512 B");
+    expect(formatCloudKnowledgePackageSize(1536)).toBe("1.5 KiB");
+    expect(formatCloudKnowledgePackageSize(2 * 1024 * 1024)).toBe("2.0 MiB");
+    expect(nextCloudKnowledgeWorkspaceView("sources", "ArrowLeft")).toBe("package");
+    expect(nextCloudKnowledgeWorkspaceView("package", "ArrowRight")).toBe("sources");
+    expect(nextCloudKnowledgeWorkspaceView("package", "Home")).toBe("sources");
+    expect(nextCloudKnowledgeWorkspaceView("sources", "End")).toBe("package");
+  });
 });
 
 describe("cloud knowledge projection and localization", () => {
   it("keeps an explicitly unavailable service unavailable without inventing authority", () => {
-    const value = { available: false, sources: [], collections: [] };
+    const value = {
+      available: false, reason: "source_and_trust_policy_required",
+      can_refresh: false, can_import: false, sources: [], collections: [],
+    };
     expect(requireCloudKnowledgeOverview(value)).toBe(value);
     expect(cloudKnowledgePermissions(value)).toEqual(DENIED);
+    expect(cloudKnowledgeUnavailableReason(value.reason))
+      .toBe("An approved source registry and signing trust policy must be mounted before collection or package inspection can run.");
   });
 
   it("accepts the bounded server projection without changing source timestamps", () => {
@@ -200,6 +237,12 @@ describe("cloud knowledge projection and localization", () => {
   it("rejects ambiguous authority, duplicate identities, unsafe collection IDs, and oversized lists", () => {
     expect(() => requireCloudKnowledgeOverview({ ...OVERVIEW, can_refresh: "true" } as unknown as CloudKnowledgeOverview)).toThrow(IngestionApiError);
     expect(() => requireCloudKnowledgeOverview({ ...OVERVIEW, sources: [SOURCE, SOURCE] })).toThrow(IngestionApiError);
+    expect(() => requireCloudKnowledgeOverview({
+      available: false, can_import: true, sources: [], collections: [],
+    })).toThrow(IngestionApiError);
+    expect(() => requireCloudKnowledgeOverview({
+      available: false, sources: [SOURCE], collections: [],
+    })).toThrow(IngestionApiError);
     expect(() => requireCloudKnowledgeOverview({ ...OVERVIEW, collections: [{ collection_id: "..", versions: [] }] })).toThrow(IngestionApiError);
     expect(() => requireCloudKnowledgeOverview({ ...OVERVIEW, sources: Array.from({ length: 257 }, (_, index) => ({ ...SOURCE, source_id: `source-${index}` })) })).toThrow(IngestionApiError);
     expect(() => requireCloudKnowledgeRelease({ ...RELEASE, sources: [] })).toThrow(IngestionApiError);

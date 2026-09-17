@@ -371,6 +371,21 @@ def deploy_standalone_application(
             application_approval.unlink(missing_ok=True)
             tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
         _require_receipt(application_receipt, "application")
+        begin_stage("initial-inventory")
+        progress_detail("Collecting and independently reading back the initial inventory")
+        initial_inventory = _remote_json(
+            tunnel,
+            remote_root,
+            app_work,
+            ("initial-inventory",),
+            timeout=4200,
+        )
+        if (
+            initial_inventory.get("state") != "inventory-verified"
+            or initial_inventory.get("active_generation_readback_verified") is not True
+            or initial_inventory.get("progress_persisted") is not True
+        ):
+            raise ValueError("standalone initial inventory is incomplete")
         begin_stage("verification")
         progress_detail("Checking service health and a second zero-change Terraform plan")
         verification = _remote_json(
@@ -398,6 +413,7 @@ def deploy_standalone_application(
         "source_commit": prepared.source_commit,
         "target_binding": prepared.target_binding,
         "substrate_receipt_digest": substrate_receipt["receipt_digest"],
+        "initial_inventory_receipt_digest": initial_inventory["receipt_digest"],
         "runtime_receipt_digest": (
             runtime_receipt["receipt_digest"]
             if selected_runtime.runtime_platform.value == "aks"
@@ -420,6 +436,7 @@ def deploy_standalone_application(
         "application_state_adoption_descriptor_digest": adoption_descriptor_digest,
         "application_converged": True,
         "deployment_ready": True,
+        "inventory_ready": True,
         "license_mode": license_mode,
         "mutation_performed": True,
         "subscription_ready": False,
