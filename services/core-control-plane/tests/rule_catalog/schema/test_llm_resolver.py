@@ -20,7 +20,6 @@ from fdai.rule_catalog.schema.llm_resolver import (
     QuotaQuery,
     ResolvedCapability,
     ResolvedModels,
-    ResolverError,
     resolve,
 )
 from fdai.rule_catalog.schema.model_binding_policy import load_model_binding_policy_from_mapping
@@ -372,6 +371,7 @@ def test_resolve_maps_ontology_council_slots_without_weakening_reasoner_invarian
             ("OpenAI", "gpt-5.4-mini", "GlobalStandard"): 200_000,
             ("OpenAI", "gpt-4.1-nano", "GlobalStandard"): 100_000,
             ("OpenAI", "gpt-4o", "GlobalStandard"): 100_000,
+            ("OpenAI", "gpt-5.2", "GlobalStandard"): 100_000,
             ("Anthropic", "claude-opus-4", "Standard"): 100_000,
             ("OpenAI", "gpt-5.6-sol", "GlobalStandard"): 50_000,
             ("OpenAI", "gpt-5.5", "GlobalStandard"): 50_000,
@@ -390,6 +390,7 @@ def test_resolve_maps_ontology_council_slots_without_weakening_reasoner_invarian
                 "gpt-5.4-mini",
                 "gpt-4.1-nano",
                 "gpt-4o",
+                "gpt-5.2",
                 "claude-opus-4",
             }
             | council_families
@@ -406,7 +407,8 @@ def test_resolve_maps_ontology_council_slots_without_weakening_reasoner_invarian
     ):
         assert by_name[name].status is CapabilityStatus.RESOLVED
     assert by_name["t2.reasoner.primary"].publisher == "OpenAI"
-    assert by_name["t2.reasoner.secondary"].publisher == "Anthropic"
+    assert by_name["t2.reasoner.secondary"].publisher == "OpenAI"
+    assert by_name["t2.reasoner.secondary"].family == "gpt-5.2"
 
 
 # ---------------------------------------------------------------------------
@@ -434,10 +436,8 @@ def test_missing_role_degrades_every_capability_to_hil_only() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_missing_family_marks_only_that_capability_hil() -> None:
-    """A region drop that forces the resolver to fall through preferences
-    into a same-publisher family for the secondary reasoner MUST raise -
-    the invariant is enforced *after* resolve, not just at load time."""
+def test_secondary_can_resolve_to_same_publisher_distinct_family() -> None:
+    """A fallback may share a publisher when its model family stays distinct."""
     reg = _registry(
         {
             "models": {
@@ -467,8 +467,8 @@ def test_missing_family_marks_only_that_capability_hil() -> None:
             }
         }
     )
-    # Region lacks claude-opus-4 but has gpt-4-turbo → secondary resolves to OpenAI
-    # → mixed-model invariant violated after resolve.
+    # Region lacks claude-opus-4 but has gpt-4-turbo, so the secondary falls
+    # back to OpenAI while retaining a distinct model family from the primary.
     catalog_families = {
         "text-embedding-3-small",
         "gpt-4o-mini",
@@ -483,16 +483,19 @@ def test_missing_family_marks_only_that_capability_hil() -> None:
             ("OpenAI", "gpt-4-turbo"): 10_000,
         }
     )
-    with pytest.raises(ResolverError, match="mixed_model_invariant"):
-        resolve(
-            registry=reg,
-            region=_REGION,
-            subscription_id=_SUB,
-            deployer_object_id=_OID,
-            catalog=_StaticCatalog(catalog_families),
-            permission=_AlwaysPermissionQuery(True),
-            quota=quota,
-        )
+    result = resolve(
+        registry=reg,
+        region=_REGION,
+        subscription_id=_SUB,
+        deployer_object_id=_OID,
+        catalog=_StaticCatalog(catalog_families),
+        permission=_AlwaysPermissionQuery(True),
+        quota=quota,
+    )
+
+    secondary = next(item for item in result.capabilities if item.name == "t2.reasoner.secondary")
+    assert secondary.publisher == "OpenAI"
+    assert secondary.family == "gpt-4-turbo"
 
 
 def test_missing_family_hil_only_when_registry_stays_valid() -> None:

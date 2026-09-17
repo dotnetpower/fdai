@@ -20,7 +20,7 @@ tests for the N >= 3 quorum arithmetic:
   the gate does not compute quorum "off by one").
 
 Also cross-checks the composition-level invariant that the resolver
-loader rejects a same-publisher primary/secondary pair, so a fork
+loader rejects a same-family primary/secondary pair, so a fork
 cannot silently regress to the "two endpoints of one base model"
 anti-pattern the design doc calls out.
 """
@@ -165,12 +165,12 @@ async def test_cross_check_quorum_arithmetic(
 
 
 # ---------------------------------------------------------------------------
-# Resolver invariant - same-publisher primary/secondary is a resolve-time deny
+# Resolver invariant - same-family primary/secondary is a resolve-time deny
 # ---------------------------------------------------------------------------
 
 
-def test_resolver_denies_same_publisher_primary_and_secondary() -> None:
-    """Resolve MUST refuse a same-publisher (correlated-error) pair.
+def test_resolver_denies_same_family_primary_and_secondary() -> None:
+    """Resolve MUST refuse a same-family (correlated-error) pair.
 
     The design doc calls this out explicitly:
 
@@ -179,7 +179,7 @@ def test_resolver_denies_same_publisher_primary_and_secondary() -> None:
         the check)."
 
     The invariant is enforced at :func:`resolve` time. A fork that
-    accidentally lists only one publisher in its ``llm-registry.yaml``
+    accidentally lists the same base-model family in its ``llm-registry.yaml``
     preferences gets a hard failure instead of silently forming a
     correlated pair.
     """
@@ -203,8 +203,8 @@ def test_resolver_denies_same_publisher_primary_and_secondary() -> None:
         ResolvedCapability(
             name="t2.reasoner.secondary",
             status=CapabilityStatus.RESOLVED,
-            publisher="OpenAI",  # same publisher - the anti-pattern.
-            family="gpt-4o-mini",
+            publisher="ExampleAI",
+            family="gpt-4o",
             sku=None,
             capacity_tpm=100_000,
             invocation=Invocation.ALWAYS.value,
@@ -214,8 +214,8 @@ def test_resolver_denies_same_publisher_primary_and_secondary() -> None:
         _enforce_mixed_model_invariant(entries)
 
 
-def test_resolver_accepts_distinct_publisher_pair() -> None:
-    """Two distinct publishers pass the invariant."""
+def test_resolver_accepts_same_publisher_distinct_family_pair() -> None:
+    """Two distinct model families from one publisher pass the invariant."""
     from fdai.rule_catalog.schema.llm_resolver import (
         CapabilityStatus,
         ResolvedCapability,
@@ -235,8 +235,8 @@ def test_resolver_accepts_distinct_publisher_pair() -> None:
         ResolvedCapability(
             name="t2.reasoner.secondary",
             status=CapabilityStatus.RESOLVED,
-            publisher="Anthropic",
-            family="claude-sonnet",
+            publisher="OpenAI",
+            family="gpt-5.2",
             sku=None,
             capacity_tpm=100_000,
             invocation=Invocation.ALWAYS.value,

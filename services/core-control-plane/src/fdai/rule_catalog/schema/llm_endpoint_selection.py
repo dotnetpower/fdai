@@ -340,6 +340,7 @@ def collect_primary_candidates(
     api_version: str = "2024-06-01",
     capability_name: str = "t2.reasoner.primary",
     model_versions: Any = None,
+    excluded_families: frozenset[str] = frozenset(),
 ) -> tuple[Any | None, tuple[Any, ...]]:
     from fdai.rule_catalog.schema.llm_resolver import NarratorCandidate
 
@@ -350,6 +351,7 @@ def collect_primary_candidates(
         quota=quota,
         capability_name=capability_name,
         model_versions=model_versions,
+        excluded_families=excluded_families,
     )
     if not prefs:
         return None, ()
@@ -372,6 +374,7 @@ def collect_primary_deployments(
     quota: Any,
     model_versions: Any = None,
     capability_name: str = "t2.reasoner.primary",
+    excluded_families: frozenset[str] = frozenset(),
 ) -> tuple[Any, ...]:
     from fdai.rule_catalog.schema.llm_resolver import CapabilityStatus, ResolvedCapability
 
@@ -382,6 +385,7 @@ def collect_primary_deployments(
         quota=quota,
         capability_name=capability_name,
         model_versions=model_versions,
+        excluded_families=excluded_families,
     )
     spec = registry.models.get(capability_name)
     if spec is None or not prefs:
@@ -425,6 +429,7 @@ def _viable_primary_prefs(
     quota: Any,
     capability_name: str,
     model_versions: Any = None,
+    excluded_families: frozenset[str] = frozenset(),
 ) -> list[Any]:
     from fdai.rule_catalog.schema.llm_resolver import ResolverError
 
@@ -436,14 +441,14 @@ def _viable_primary_prefs(
         capability_name=capability_name,
         model_versions=model_versions,
     )
+    prefs = [pref for pref in prefs if pref.family not in excluded_families]
     publishers = {pref.publisher for pref in prefs}
     if len(publishers) > 1:
         raise ResolverError(
             "t2_primary_pool_cross_publisher: "
             f"{capability_name} viable candidates span publishers "
             f"{sorted(publishers)!r}. A latency-routed primary pool MUST be "
-            "single-publisher so the mixed-model invariant "
-            "(primary.publisher != secondary.publisher) still holds. Adjust "
+            "single-publisher so latency observations remain comparable. Adjust "
             "llm-registry.yaml so this capability's preferences share one "
             "publisher, or leave the pool single-entry."
         )

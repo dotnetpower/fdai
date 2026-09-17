@@ -19,9 +19,8 @@ or a second source of provider truth.
 > directions, and historical ontology releases remain valid. New structural surfaces are additive
 > and start as read-only capabilities.
 >
-> Model capability selection may qualify a catalog family by publisher. That pair is deployment
-> metadata, not ontology identity, and cannot grant model invocation or execution authority.
-> Provider kind and API style remain endpoint metadata under the same boundary.
+> Model selection may share a publisher only across distinct families; same-family pairs fail before invocation.
+> Publisher, family, provider, API style, and synthesized routes remain deployment metadata, not ontology identity or authority.
 
 ## Design at a glance
 
@@ -511,6 +510,7 @@ major version or explicit graph migration. No rollout rewrites historical contex
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-17 | implemented | Defined mixed-model independence on exact model family metadata rather than publisher identity. Same-family resolved pairs and primary-pool reuse fail before invocation, and the metadata grants no ontology or execution authority. | `current change`; focused registry, resolver, artifact, and runtime composition checks. | Deploy and independently read back the selected secondary family through the protected model workflow. |
 | 2026-09-17 | implemented | Centered short instance graphs in the available viewport and made AKS end-to-end evidence collapsed by default without changing graph or evidence semantics. | `current change`; focused Vitest (`73 passed`); Console typecheck; focused Playwright at 1440x900, 993x641, 390x844, and 320x844 (`1 passed`); icon requests returned HTTP 200. | Retain post-merge authenticated 5273 visual evidence before changing this transition to `validated`. |
 | 2026-09-17 | implemented | Preserved reviewed ResourceType glyph semantics while removing eager SVG URL-module and raw-export imports from Ontology Instances startup. | `current change`; focused Vitest (`125 passed`); Console typecheck; production build; Vite transform inspection reduced eager SVG proxy requests from `72` to `0`. | Retain post-merge authenticated 5273 timing evidence before changing this transition to `validated`. |
 | 2026-09-16 | implemented | Added an authority-free telemetry recipe query node to the verified query algebra for adaptive RCA. The node rejects raw query fields and preserves exact need, receipt, source disposition, budget, and evidence-authority lineage. | `current change`; focused ontology-query contract, adaptive gateway, telemetry tool, strict mypy, and structural checks. | Retain governed live source receipts separately; this structural contract does not claim provider availability or operational cause accuracy. |
