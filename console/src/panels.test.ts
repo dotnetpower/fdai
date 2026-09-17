@@ -15,8 +15,6 @@ describe("panel navigation placement", () => {
       "live",
       "incidents",
       "hil-queue",
-      "provision",
-      "onboarding",
       "detection-readiness",
       "alert-quality",
       "configuration-baselines",
@@ -49,8 +47,14 @@ describe("panel navigation placement", () => {
     ]);
     expect(panelsInGroup("labs").map((panel) => panel.id)).toEqual(["labs"]);
     expect(panelsInGroup("settings").map((panel) => panel.id)).toEqual([
-      "settings-general", "settings-models", "settings-runtime", "settings-memory", "settings-iam", "settings-integrations", "settings-diagnostics",
+      "settings-general", "settings-environment", "settings-models", "settings-runtime", "settings-memory", "settings-iam", "settings-integrations", "settings-diagnostics",
     ]);
+  });
+
+  test("preserves legacy environment routes without showing duplicate menu items", () => {
+    expect(panelForId("provision").hiddenFromNavigation).toBe(true);
+    expect(panelForId("onboarding").hiddenFromNavigation).toBe(true);
+    expect(resolvePanels().map((panel) => panel.id)).toContain("settings-environment");
   });
 
   test("reuses the stable pantheon route as the roles view", () => {
