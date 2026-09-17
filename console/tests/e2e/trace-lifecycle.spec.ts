@@ -618,6 +618,53 @@ test("preserves the two-column trace workbench at constrained desktop width", as
   });
 });
 
+test("scrolls the correlation toolbar away without covering Trace evidence", async ({
+  page,
+}, testInfo) => {
+  if (testInfo.project.name === "desktop-chromium") {
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+  await installFixture(page);
+  await page.goto(`/trace?correlation=${correlationId}`);
+  await assertTraceWorkbench(page);
+
+  const initial = await page.locator(".trace-toolbar").evaluate((toolbar) => ({
+    position: getComputedStyle(toolbar).position,
+    top: toolbar.getBoundingClientRect().top,
+  }));
+  const main = page.locator("main");
+  const evidenceHeading = page.getByRole("heading", { name: "Recorded evidence" });
+  await evidenceHeading.evaluate((element) => {
+    element.scrollIntoView({ block: "start", behavior: "instant" });
+  });
+  const scrolled = await page.locator(".trace-toolbar").evaluate((toolbar) => {
+    const main = document.querySelector("main");
+    const evidence = [...document.querySelectorAll("h4")].find(
+      (heading) => heading.textContent?.trim() === "Recorded evidence",
+    );
+    if (!(main instanceof HTMLElement) || !(evidence instanceof HTMLElement)) {
+      throw new Error("Trace scroll geometry is incomplete");
+    }
+    const toolbarRect = toolbar.getBoundingClientRect();
+    const evidenceRect = evidence.getBoundingClientRect();
+    return {
+      overlap: Math.max(
+        0,
+        Math.min(toolbarRect.bottom, evidenceRect.bottom) -
+          Math.max(toolbarRect.top, evidenceRect.top),
+      ),
+      scrollTop: main.scrollTop,
+      documentOverflow:
+        document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+
+  expect(initial.position).not.toBe("sticky");
+  expect(scrolled.scrollTop).toBeGreaterThan(0);
+  expect(scrolled.overlap).toBe(0);
+  expect(scrolled.documentOverflow).toBeLessThanOrEqual(0);
+});
+
 test("keeps lookup context when trace evidence is unavailable", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
   await page.setViewportSize({ width: 1440, height: 900 });
