@@ -79,6 +79,9 @@ authority invalidate the journey even when the page displays a success dialog. O
 timeout bounds browser launch, navigation, and submission; each result records completion time
 rather than launch time. These checks do not authenticate an arbitrary authorization reference
 or prove deployment isolation; those prerequisites remain part of worker activation.
+Successful journeys also require a 2xx response to the exact submitted order POST. A success
+dialog with an absent or failed HTTP response remains unsuccessful. Only the HTTP status is
+retained, never the order payload; transport acceptance still does not prove fulfillment.
 
 ## Deterministic assessment
 
@@ -128,6 +131,32 @@ including the probe authorization reference. Missing verification, incomplete or
 evidence, expired intent, UID mismatch, stale observations, or insufficient probes withholds the
 finding. No permissive verifier is supplied by the package. Deployment must bind the actual
 receipt-verification and read-only observation adapters before registration.
+
+The retained-receipt adapter uses deployment-pinned Ed25519 public keys and an exact, closed
+`aks-commerce.acceptance-receipt` version `1.0.0` record. The signature binds the evidence digest,
+policy, target, issuer, collector, probe authorization references, and validity window. A fresh
+trust-state read must explicitly confirm that the key is not revoked. The verifier has no signing
+key or executor credential. Collector, receipt issuer, and executor identities remain distinct;
+receipt authenticity never substitutes for trustworthy collection or provider effect verification.
+Deployment owns receipt issuance, trust-state updates, and disjoint database grants.
+
+The concrete Kubernetes reader uses GET only, verifies Deployment and Service UIDs, controller
+generation, selectors, EndpointSlice ownership, and the Pod-to-ReplicaSet-to-Deployment chain
+for ready endpoints. It re-reads target versions, rejects truncated lists and raced observations,
+and bounds each response to 256 KiB and the complete snapshot to five seconds. The observer's
+read grants remain separate from Thor's scale grants. Immutable observations and receipts use
+the existing state store with per-record atomic audit; ingestion verifies signatures before
+retention and the Analyzer verifies them again at use time.
+
+The package entry point `fdai-aks-commerce-analyze` runs one bounded deployed observation tick.
+`FDAI_AKS_ACCEPTANCE_JSON` contains exactly `intent`, `trust`, `executor_identity`, `severity`,
+and `publication_window_seconds`. Trust entries contain only issuer, source identity, and public
+key bytes. Existing `FDAI_STATE_STORE_DSN`, `FDAI_MI_CLIENT_ID`, `KAFKA_BOOTSTRAP_SERVERS`, and
+`KAFKA_TOPIC_EVENTS` bind the service-owned store and observer-only event bus. The job uses the
+shared publication ledger and finding receipt store, never an in-memory production fallback.
+Missing configuration or evidence fails readiness. Deployment must still provide the independent
+receipt issuer, authenticated probe collection, trust lifecycle, least-privilege database grants,
+and job scheduling; an installed command alone does not establish a live observation loop.
 
 Repeated failed acceptance with zero desired and ready replicas and no ready service endpoints
 produces `aks_commerce.order_acceptance_unavailable`. A separate inert `ops.scale-out` candidate

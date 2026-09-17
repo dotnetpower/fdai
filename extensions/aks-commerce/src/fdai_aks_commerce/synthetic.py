@@ -70,6 +70,7 @@ class StorefrontJourneyResult:
     authorization_ref: str
     synthetic: bool = True
     execution_authority: bool = False
+    order_http_status: int | None = None
 
 
 class StorefrontJourneyDriver(Protocol):
@@ -102,6 +103,7 @@ class AsyncPlaywrightStorefrontDriver:
             raise RuntimeError("Playwright is unavailable in the synthetic journey worker") from exc
         order_posts = 0
         request_denied = False
+        order_http_status: int | None = None
         try:
             async with (
                 asyncio.timeout(config.timeout_seconds),
@@ -119,6 +121,18 @@ class AsyncPlaywrightStorefrontDriver:
                         viewport={"width": 1280, "height": 720},
                     )
                     page = await context.new_page()
+
+                    async def capture_order_response(response: Any) -> None:
+                        nonlocal order_http_status
+                        request = response.request
+                        if (
+                            str(request.method).upper() == "POST"
+                            and str(request.url) == f"{origin}/api/orders"
+                            and order_posts == 1
+                        ):
+                            order_http_status = int(response.status)
+
+                    page.on("response", capture_order_response)
 
                     async def authorize(route: Any, request: Any) -> None:
                         nonlocal order_posts, request_denied
@@ -198,6 +212,9 @@ class AsyncPlaywrightStorefrontDriver:
                     if request_denied or order_posts != 1:
                         step = "request_policy"
                         raise RuntimeError("storefront journey did not satisfy its request policy")
+                    if order_http_status is None or not 200 <= order_http_status < 300:
+                        step = "order_response"
+                        raise RuntimeError("storefront order did not receive a successful response")
                     completed_at = self._clock()
                     if not observed_at <= completed_at < config.authorization_expires_at:
                         step = "authorization"
@@ -210,6 +227,7 @@ class AsyncPlaywrightStorefrontDriver:
                         authorization_ref=config.authorization_ref,
                         success=True,
                         failed_step=None,
+                        order_http_status=order_http_status,
                     )
                 finally:
                     await browser.close()
@@ -220,6 +238,7 @@ class AsyncPlaywrightStorefrontDriver:
                 authorization_ref=config.authorization_ref,
                 success=False,
                 failed_step=step,
+                order_http_status=order_http_status,
             )
 
 
@@ -230,11 +249,12 @@ def _result(
     authorization_ref: str,
     success: bool,
     failed_step: str | None,
+    order_http_status: int | None = None,
 ) -> StorefrontJourneyResult:
     duration_ms = max(0, int((time.monotonic() - started) * 1000))
     canonical = (
         f"{observed_at.isoformat()}:{authorization_ref}:"
-        f"{success}:{failed_step or 'complete'}:{duration_ms}"
+        f"{success}:{failed_step or 'complete'}:{duration_ms}:{order_http_status}"
     )
     digest = hashlib.sha256(canonical.encode("ascii")).hexdigest()
     return StorefrontJourneyResult(
@@ -244,6 +264,7 @@ def _result(
         duration_ms=duration_ms,
         evidence_ref=f"synthetic-journey:sha256:{digest}",
         authorization_ref=authorization_ref,
+        order_http_status=order_http_status,
     )
 
 
