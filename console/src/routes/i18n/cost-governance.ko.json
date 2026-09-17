@@ -113,6 +113,7 @@
       "analytics_run_failed": "최신 분석 실행이 실패했습니다.",
       "analytics_run_partial": "최신 분석 실행이 일부만 완료되었습니다.",
       "analytics_disabled": "분석 수집기가 비활성 상태입니다.",
+      "analytics_snapshot_missing": "현재 분석 스냅샷을 사용할 수 없습니다.",
       "analytics_stale": "최신 분석 스냅샷이 오래되었습니다.",
       "disclosure_insufficient": "적용 중인 공개 정책이 이 보기를 허용하지 않습니다.",
       "resource_candidates_missing": "완전한 리소스 후보가 제공되지 않았습니다.",
@@ -120,7 +121,8 @@
       "decision_cases_missing": "에이전트가 소유한 결정 사례가 제공되지 않았습니다.",
       "decision_case_incomplete": "결정 사례 계보가 불완전합니다.",
       "settlements_missing": "독립적으로 소유한 정산 결과가 제공되지 않았습니다.",
-      "settlement_incomplete": "독립적인 효과 정산이 불완전합니다."
+      "settlement_incomplete": "독립적인 효과 정산이 불완전합니다.",
+      "projection_truncated": "변환 결과가 레코드 수 제한에 도달했습니다."
     }
   },
   "metrics": {

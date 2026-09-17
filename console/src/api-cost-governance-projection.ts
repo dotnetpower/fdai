@@ -27,22 +27,26 @@ export type CostReadinessSurface =
   | "resource-candidates"
   | "decision-cases"
   | "settlements";
-export type CostReadinessReason =
-  | "no_observations"
-  | "observations_partial"
-  | "observations_stale"
-  | "analytics_run_missing"
-  | "analytics_run_failed"
-  | "analytics_run_partial"
-  | "analytics_disabled"
-  | "analytics_stale"
-  | "disclosure_insufficient"
-  | "resource_candidates_missing"
-  | "candidate_evidence_incomplete"
-  | "decision_cases_missing"
-  | "decision_case_incomplete"
-  | "settlements_missing"
-  | "settlement_incomplete";
+const COST_READINESS_REASONS = [
+  "no_observations",
+  "observations_partial",
+  "observations_stale",
+  "analytics_run_missing",
+  "analytics_run_failed",
+  "analytics_run_partial",
+  "analytics_disabled",
+  "analytics_snapshot_missing",
+  "analytics_stale",
+  "disclosure_insufficient",
+  "resource_candidates_missing",
+  "candidate_evidence_incomplete",
+  "decision_cases_missing",
+  "decision_case_incomplete",
+  "settlements_missing",
+  "settlement_incomplete",
+  "projection_truncated",
+] as const;
+export type CostReadinessReason = (typeof COST_READINESS_REASONS)[number];
 
 export interface CostDisclosurePolicy {
   readonly granularity: "none" | "summary" | "group" | "resource";
@@ -556,23 +560,7 @@ function decodeReadiness(value: unknown, label: string): CostSurfaceReadiness {
       record,
       "reason",
       label,
-      [
-        "no_observations",
-        "observations_partial",
-        "observations_stale",
-        "analytics_run_missing",
-        "analytics_run_failed",
-        "analytics_run_partial",
-        "analytics_disabled",
-        "analytics_stale",
-        "disclosure_insufficient",
-        "resource_candidates_missing",
-        "candidate_evidence_incomplete",
-        "decision_cases_missing",
-        "decision_case_incomplete",
-        "settlements_missing",
-        "settlement_incomplete",
-      ] as const,
+      COST_READINESS_REASONS,
     ),
     record_count: panelNonNegativeInteger(record, "record_count", label),
     latest_evidence_at: optionalString(record, "latest_evidence_at", label),
