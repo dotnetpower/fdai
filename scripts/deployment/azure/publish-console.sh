@@ -65,10 +65,12 @@ resolve_service_fqdn() {
 
 resolve_service_url() {
   local gateway_output="$1"
-  local service_output="$2"
-  local service="$3"
+  local gateway_environment="$2"
+  local service_output="$3"
+  local service="$4"
   local gateway_url service_fqdn
   gateway_url="$(terraform -chdir="$terraform_dir" output -raw "$gateway_output" 2>/dev/null || true)"
+  gateway_url="${gateway_url:-${!gateway_environment:-}}"
   if [[ -n "$gateway_url" ]]; then
     if [[ ! "$gateway_url" =~ ^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(/[a-z0-9/-]*)?$ ]]; then
       echo "$gateway_output is not a valid HTTPS base URL" >&2
@@ -87,8 +89,11 @@ resolve_service_url() {
   printf 'https://%s\n' "$service_fqdn"
 }
 
-operator_api_url="$(resolve_service_url browser_gateway_operator_url operator_api_fqdn operator-service)"
-ingestion_api_url="$(resolve_service_url browser_gateway_ingestion_url ingestion_gateway_fqdn document-ingestion-api)"
+operator_api_url="$(resolve_service_url \
+  browser_gateway_operator_url BROWSER_GATEWAY_OPERATOR_URL operator_api_fqdn operator-service)"
+ingestion_api_url="$(resolve_service_url \
+  browser_gateway_ingestion_url BROWSER_GATEWAY_INGESTION_URL \
+  ingestion_gateway_fqdn document-ingestion-api)"
 
 deployment_token="$(az rest --method post \
   --url "https://management.azure.com${resource_id}/listSecrets?api-version=2023-12-01" \
@@ -108,16 +113,35 @@ export VITE_MSAL_API_SCOPE="$ENTRA_CONSOLE_API_SCOPE"
 export VITE_MANUAL_STUDIO_URL="https://$hostname/manuals"
 trap 'unset SWA_CLI_DEPLOYMENT_TOKEN deployment_token' EXIT
 
-npm --prefix "$repo_root/console" ci --no-audit --no-fund
-npm --prefix "$repo_root/console" run build
-python3 "$repo_root/scripts/deployment/azure/build_manual_studio_artifact.py" \
-  "$repo_root/console/dist/manuals" \
-  --base-url "$VITE_MANUAL_STUDIO_URL"
+console_directory="${CONSOLE_PREBUILT_DIRECTORY:-}"
+prebuilt_console=0
+if [[ -n "$console_directory" ]]; then
+  if [[ "$console_directory" != /* || ! -d "$console_directory" || -L "$console_directory" ]]; then
+    echo "CONSOLE_PREBUILT_DIRECTORY must be an absolute regular directory" >&2
+    exit 2
+  fi
+  if [[ ! -f "$console_directory/index.html" || ! -f "$console_directory/fdai-config.js" ]]; then
+    echo "prebuilt Console is incomplete" >&2
+    exit 2
+  fi
+  if grep -Fq 'globalThis.__FDAI_CONSOLE_CONFIG__ = null' "$console_directory/fdai-config.js"; then
+    echo "prebuilt Console runtime configuration is still a placeholder" >&2
+    exit 2
+  fi
+  prebuilt_console=1
+else
+  npm --prefix "$repo_root/console" ci --no-audit --no-fund
+  npm --prefix "$repo_root/console" run build
+  python3 "$repo_root/scripts/deployment/azure/build_manual_studio_artifact.py" \
+    "$repo_root/console/dist/manuals" \
+    --base-url "$VITE_MANUAL_STUDIO_URL"
+  console_directory="$repo_root/console/dist"
+fi
 npx --yes @azure/static-web-apps-cli@2.0.10 deploy \
-  "$repo_root/console/dist" --env production
+  "$console_directory" --env production
 
 entry_asset="$(
-  DIST_INDEX="$repo_root/console/dist/index.html" python3 - <<'PY'
+  DIST_INDEX="$console_directory/index.html" python3 - <<'PY'
 import os
 import re
 from pathlib import Path
@@ -130,22 +154,100 @@ print(match.group(1))
 PY
 )"
 remote_asset="$(mktemp)"
-trap 'rm -f -- "$remote_asset"; unset SWA_CLI_DEPLOYMENT_TOKEN deployment_token' EXIT
-curl --fail --silent --show-error --retry 12 --retry-delay 5 \
-  --retry-all-errors --retry-max-time 120 --connect-timeout 5 --max-time 20 \
-  "https://$hostname$entry_asset" --output "$remote_asset"
-echo "$(sha256sum "$repo_root/console/dist${entry_asset}" | cut -d' ' -f1)  $remote_asset" \
-  | sha256sum --check --status
-for manual_file in catalog.json library.html target-architecture.html; do
+response_headers="${remote_asset}.headers"
+response_body="${remote_asset}.body"
+trap 'rm -f -- "$remote_asset" "$response_headers" "$response_body"; unset SWA_CLI_DEPLOYMENT_TOKEN deployment_token' EXIT
+for published_file in index.html fdai-config.js staticwebapp.config.json "${entry_asset#/}"; do
   curl --fail --silent --show-error --retry 12 --retry-delay 5 \
     --retry-all-errors --retry-max-time 120 --connect-timeout 5 --max-time 20 \
-    "https://$hostname/manuals/$manual_file" --output "$remote_asset"
-  echo "$(sha256sum "$repo_root/console/dist/manuals/$manual_file" | cut -d' ' -f1)  $remote_asset" \
+    "https://$hostname/$published_file" --output "$remote_asset"
+  echo "$(sha256sum "$console_directory/$published_file" | cut -d' ' -f1)  $remote_asset" \
     | sha256sum --check --status
 done
 curl --fail --silent --show-error --retry 6 --retry-delay 5 \
   --retry-all-errors --retry-max-time 60 --connect-timeout 5 --max-time 20 \
-  "https://$hostname/ontology" --output /dev/null
+  "https://$hostname/ontology" --output "$remote_asset"
+echo "$(sha256sum "$console_directory/index.html" | cut -d' ' -f1)  $remote_asset" \
+  | sha256sum --check --status
+if [[ "$prebuilt_console" == 0 ]]; then
+  for manual_file in catalog.json library.html target-architecture.html; do
+    curl --fail --silent --show-error --retry 12 --retry-delay 5 \
+      --retry-all-errors --retry-max-time 120 --connect-timeout 5 --max-time 20 \
+      "https://$hostname/manuals/$manual_file" --output "$remote_asset"
+    echo "$(sha256sum "$console_directory/manuals/$manual_file" | cut -d' ' -f1)  $remote_asset" \
+      | sha256sum --check --status
+  done
+fi
+
+for health_url in "$operator_api_url/healthz" "$ingestion_api_url/healthz"; do
+  curl --fail --silent --show-error --retry 6 --retry-delay 5 \
+    --retry-all-errors --retry-max-time 60 --connect-timeout 5 --max-time 20 \
+    "$health_url" --output /dev/null
+done
+
+preflight_status="$(curl --silent --show-error --connect-timeout 5 --max-time 20 \
+  --request OPTIONS "$operator_api_url/audit" \
+  --header "Origin: https://$hostname" \
+  --header 'Access-Control-Request-Method: GET' \
+  --header 'Access-Control-Request-Headers: authorization' \
+  --dump-header "$response_headers" --output "$response_body" --write-out '%{http_code}')"
+if [[ ! "$preflight_status" =~ ^2[0-9][0-9]$ ]]; then
+  echo "Operator API browser authorization preflight failed" >&2
+  exit 1
+fi
+if ! awk -v expected="https://$hostname" '
+  BEGIN { IGNORECASE = 1 }
+  {
+    sub(/\r$/, "")
+    if (tolower($1) == "access-control-allow-origin:" && $2 == expected) found = 1
+  }
+  END { exit(found ? 0 : 1) }
+' "$response_headers"; then
+  echo "Operator API preflight did not return the exact Console origin" >&2
+  exit 1
+fi
+
+unauthenticated_status="$(curl --silent --show-error --connect-timeout 5 --max-time 20 \
+  "$operator_api_url/audit" --output "$response_body" --write-out '%{http_code}')"
+if [[ "$unauthenticated_status" != 401 ]]; then
+  echo "Operator API did not deny an unauthenticated protected request" >&2
+  exit 1
+fi
+
+entra_authorize_url="$(EXPECTED_AZURE_TENANT_ID="$EXPECTED_AZURE_TENANT_ID" \
+  ENTRA_CONSOLE_SPA_CLIENT_ID="$ENTRA_CONSOLE_SPA_CLIENT_ID" \
+  ENTRA_CONSOLE_API_SCOPE="$ENTRA_CONSOLE_API_SCOPE" \
+  CONSOLE_ORIGIN="https://$hostname" python3 - <<'PY'
+import os
+from urllib.parse import urlencode
+
+query = urlencode(
+    {
+        "client_id": os.environ["ENTRA_CONSOLE_SPA_CLIENT_ID"],
+        "response_type": "code",
+        "redirect_uri": os.environ["CONSOLE_ORIGIN"],
+        "response_mode": "query",
+        "scope": f"openid profile {os.environ['ENTRA_CONSOLE_API_SCOPE']}",
+        "prompt": "none",
+    }
+)
+print(f"https://login.microsoftonline.com/{os.environ['EXPECTED_AZURE_TENANT_ID']}/oauth2/v2.0/authorize?{query}")
+PY
+)"
+entra_status="$(curl --silent --show-error --connect-timeout 5 --max-time 20 \
+  "$entra_authorize_url" --dump-header "$response_headers" \
+  --output "$response_body" --write-out '%{http_code}')"
+if [[ "$entra_status" != 302 ]] || ! awk -v expected="https://$hostname" '
+  BEGIN { IGNORECASE = 1 }
+  {
+    sub(/\r$/, "")
+    if (tolower($1) == "location:" && index($2, expected) == 1) found = 1
+  }
+  END { exit(found ? 0 : 1) }
+' "$response_headers"; then
+  echo "Entra did not return to the configured Console redirect origin" >&2
+  exit 1
+fi
 
 {
   echo "Console: https://$hostname"

@@ -73,6 +73,7 @@ def test_setup_script_covers_local_development_prerequisites() -> None:
         "build-essential",
         "docker.io",
         "docker-compose-v2",
+        "shellcheck",
         "tesseract-ocr-eng",
         "tesseract-ocr-kor",
     ):
@@ -89,6 +90,7 @@ def test_setup_script_covers_local_development_prerequisites() -> None:
         '--install-folder "$USER_BIN"',
         'run_with_docker_access bash "$REPO_ROOT/scripts/deployment/local/dev-up.sh"',
         'check "Local data stack" local_data_stack_healthy',
+        'check "ShellCheck" shellcheck --version',
     ):
         assert command in script
     assert "sudo usermod -aG docker" in script
