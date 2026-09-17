@@ -1,0 +1,257 @@
+{
+  "id": "fdai-roadmap-operations-aks-commerce-business-scenario-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Public storefront journey, BusinessService, Workload dependency path, Exact AKS resources, Azure Service Bus queue, Bounded evidence frame, T0 business-impact assessment, Incident and recovery proposal, Human approval, Thor action, Independent business-effect observation."
+    },
+    "ko": {
+      "title": "설계 개요",
+      "description": "설계 개요에 대한 FDAI 흐름입니다.",
+      "alt": "설계 개요. 주요 단계는 공개 스토어프런트 여정, BusinessService, Workload 의존성 경로, 정확한 AKS 리소스, Azure Service Bus 큐, 범위가 제한된 근거 프레임, T0 비즈니스 영향 평가, 인시던트 및 복구 제안, 사람 승인, Thor 작업, 독립 비즈니스 효과 관측입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-operations-aks-commerce-business-scenario-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-operations-aks-commerce-business-scenario-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "browser",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Public storefront journey",
+        "ko": "공개 스토어프런트 여정"
+      },
+      "description": {
+        "en": "Public storefront journey",
+        "ko": "공개 스토어프런트 여정"
+      }
+    },
+    {
+      "id": "service",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "BusinessService",
+        "ko": "BusinessService"
+      },
+      "description": {
+        "en": "BusinessService",
+        "ko": "BusinessService"
+      }
+    },
+    {
+      "id": "workloads",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Workload dependency path",
+        "ko": "Workload 의존성 경로"
+      },
+      "description": {
+        "en": "Workload dependency path",
+        "ko": "Workload 의존성 경로"
+      }
+    },
+    {
+      "id": "aks",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Exact AKS resources",
+        "ko": "정확한 AKS 리소스"
+      },
+      "description": {
+        "en": "Exact AKS resources",
+        "ko": "정확한 AKS 리소스"
+      }
+    },
+    {
+      "id": "queue",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Azure Service Bus queue",
+        "ko": "Azure Service Bus 큐"
+      },
+      "description": {
+        "en": "Azure Service Bus queue",
+        "ko": "Azure Service Bus 큐"
+      }
+    },
+    {
+      "id": "evidence",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Bounded evidence frame",
+        "ko": "범위가 제한된 근거 프레임"
+      },
+      "description": {
+        "en": "Bounded evidence frame",
+        "ko": "범위가 제한된 근거 프레임"
+      }
+    },
+    {
+      "id": "decision",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "T0 business-impact assessment",
+        "ko": "T0 비즈니스 영향 평가"
+      },
+      "description": {
+        "en": "T0 business-impact assessment",
+        "ko": "T0 비즈니스 영향 평가"
+      }
+    },
+    {
+      "id": "incident",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Incident and recovery proposal",
+        "ko": "인시던트 및 복구 제안"
+      },
+      "description": {
+        "en": "Incident and recovery proposal",
+        "ko": "인시던트 및 복구 제안"
+      }
+    },
+    {
+      "id": "approval",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Human approval",
+        "ko": "사람 승인"
+      },
+      "description": {
+        "en": "Human approval",
+        "ko": "사람 승인"
+      }
+    },
+    {
+      "id": "action",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Thor action",
+        "ko": "Thor 작업"
+      },
+      "description": {
+        "en": "Thor action",
+        "ko": "Thor 작업"
+      }
+    },
+    {
+      "id": "verify",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Independent business-effect observation",
+        "ko": "독립 비즈니스 효과 관측"
+      },
+      "description": {
+        "en": "Independent business-effect observation",
+        "ko": "독립 비즈니스 효과 관측"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "browser",
+      "to": "service",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "service",
+      "to": "workloads",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "workloads",
+      "to": "aks",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "workloads",
+      "to": "queue",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "aks",
+      "to": "evidence",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "queue",
+      "to": "evidence",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "browser",
+      "to": "evidence",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "evidence",
+      "to": "decision",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "decision",
+      "to": "incident",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "incident",
+      "to": "approval",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "approval",
+      "to": "action",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-12",
+      "from": "action",
+      "to": "verify",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

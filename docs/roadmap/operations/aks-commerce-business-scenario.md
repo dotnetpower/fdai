@@ -23,21 +23,7 @@ browser observations. A T0 deterministic reducer then records one business-impac
 explicit evidence gaps. The same assessment can open an incident and propose a recovery, but it
 never grants execution authority.
 
-```mermaid
-flowchart LR
-    Browser[Public storefront journey] --> Service[BusinessService]
-    Service --> Workloads[Workload dependency path]
-    Workloads --> AKS[Exact AKS resources]
-    Workloads --> Queue[Azure Service Bus queue]
-    AKS --> Evidence[Bounded evidence frame]
-    Queue --> Evidence
-    Browser --> Evidence
-    Evidence --> Decision[T0 business-impact assessment]
-    Decision --> Incident[Incident and recovery proposal]
-    Incident --> Approval[Human approval]
-    Approval --> Action[Thor action]
-    Action --> Verify[Independent business-effect observation]
-```
+![Design at a glance. The main stages are Public storefront journey, BusinessService, Workload dependency path, Exact AKS resources, Azure Service Bus queue, Bounded evidence frame, T0 business-impact assessment, Incident and recovery proposal, Human approval, Thor action, Independent business-effect observation.](../../diagrams/generated/fdai-roadmap-operations-aks-commerce-business-scenario-01.en.svg)
 
 ## Business topology
 

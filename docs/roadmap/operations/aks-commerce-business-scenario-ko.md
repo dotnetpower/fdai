@@ -1,7 +1,7 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: 69b15a4a81c26bf1ad14e3c1a51bab39481b411c
-translation_revised: 2026-09-17
+translation_source_sha: 01dfceaa14dcbd9bdc3c903ff5cbe2334b9b4df0
+translation_revised: 2026-09-18
 ---
 # AKS 상거래 비즈니스 시나리오
 
@@ -25,21 +25,7 @@ translation_revised: 2026-09-17
 영향 평가를 기록합니다. 동일한 평가는 인시던트를 열고 복구를 제안할 수 있지만 실행
 권한을 부여하지 않습니다.
 
-```mermaid
-flowchart LR
-    Browser[공개 스토어프런트 여정] --> Service[BusinessService]
-    Service --> Workloads[Workload 의존성 경로]
-    Workloads --> AKS[정확한 AKS 리소스]
-    Workloads --> Queue[Azure Service Bus 큐]
-    AKS --> Evidence[범위가 제한된 근거 프레임]
-    Queue --> Evidence
-    Browser --> Evidence
-    Evidence --> Decision[T0 비즈니스 영향 평가]
-    Decision --> Incident[인시던트 및 복구 제안]
-    Incident --> Approval[사람 승인]
-    Approval --> Action[Thor 작업]
-    Action --> Verify[독립 비즈니스 효과 관측]
-```
+![설계 개요. 주요 단계는 공개 스토어프런트 여정, BusinessService, Workload 의존성 경로, 정확한 AKS 리소스, Azure Service Bus 큐, 범위가 제한된 근거 프레임, T0 비즈니스 영향 평가, 인시던트 및 복구 제안, 사람 승인, Thor 작업, 독립 비즈니스 효과 관측입니다.](../../diagrams/generated/fdai-roadmap-operations-aks-commerce-business-scenario-01.ko.svg)
 
 ## 비즈니스 토폴로지
 
