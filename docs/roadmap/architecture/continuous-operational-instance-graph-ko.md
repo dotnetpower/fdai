@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 26cada2cecb90cbc340387d65ddcfd073ae09b0e
-translation_revised: 2026-09-17
+translation_source_sha: e4c2b1710f00e6b537a98d72ec8a5c3fd2152b5e
+translation_revised: 2026-09-18
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -409,7 +409,11 @@ stale replica는 safe-to-retry migration 또는 commit이 상태를 닫을 때�
 보존된 manifest를 기록된 릴리스 digest로 먼저 검증한 뒤 완전한 활성 인벤토리를 새 릴리스로
 다시 projection합니다. 보존된 identity는 원자적 교체를 위한 소유권 근거로 유지하지만 이전
 manifest digest는 새 릴리스의 같은 generation content를 인증할 수 없습니다. 별도의
-릴리스 독립적 content digest가 전환 중에도 같은 generation의 변조 감지를 유지합니다.
+릴리스 독립적 content digest가 전환 중에도 같은 generation의 변조 감지를 유지합니다. 정확한
+source replay 명령은 snapshot loader가 활성 pointer는 전진했지만 이전 manifest는 전진하지
+않았음을 입증한 경우에만 pending 활성 generation 하나를 사용할 수 있습니다. 이 명시적 경로는
+원자적인 활성 generation 및 content 검사를 재사용합니다. 일반 replay는 계속 generation 변경을
+거부하며 프로바이더 읽기나 관리 리소스 변경은 발생하지 않습니다.
 
 PostgreSQL projector는 lock을 획득하고 활성 인벤토리 세대를 다시 확인한 뒤 그래프 교체와
 매니페스트 및 상태 마커를 하나의 트랜잭션으로 커밋합니다. 엔드포인트 외래 키는 동시 리소스
