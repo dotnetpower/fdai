@@ -191,9 +191,13 @@ export function AgentActivityRoute({ client }: Props) {
   const [lastEventAt, setLastEventAt] = useState<string | null>(null);
   const [runtime, dispatch] = useReducer(reducer, undefined, makeInitialState);
   const requestGeneration = useRef(0);
+  const refreshButtonRef = useRef<HTMLButtonElement>(null);
   const stream = useMemo(agentStreamDescriptor, []);
 
-  async function loadAudit(showLoading: boolean): Promise<void> {
+  async function loadAudit(
+    showLoading: boolean,
+    restoreRefreshFocus = false,
+  ): Promise<void> {
     const generation = requestGeneration.current + 1;
     requestGeneration.current = generation;
     if (showLoading) setState({ status: "loading" });
@@ -223,7 +227,12 @@ export function AgentActivityRoute({ client }: Props) {
         });
       }
     } finally {
-      if (requestGeneration.current === generation) setRefreshing(false);
+      if (requestGeneration.current === generation) {
+        setRefreshing(false);
+        if (restoreRefreshFocus) {
+          window.requestAnimationFrame(() => refreshButtonRef.current?.focus());
+        }
+      }
     }
   }
 
@@ -255,11 +264,12 @@ export function AgentActivityRoute({ client }: Props) {
         subtitle={t("nav.panelSub.agentActivity")}
         actions={(
           <button
+            ref={refreshButtonRef}
             type="button"
             class="cs-control-button"
             disabled={refreshing}
             aria-busy={refreshing}
-            onClick={() => { void loadAudit(false); }}
+            onClick={() => { void loadAudit(false, true); }}
           >
             {t(
               refreshing

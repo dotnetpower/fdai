@@ -11,6 +11,21 @@ import { cloudKnowledgeText, type CloudKnowledgeMessageKey } from "./cloud-knowl
 type SourceDates = Pick<CloudKnowledgeSource, "collected_at" | "checked_at" | "freshness">;
 type PackageFile = Pick<File, "name" | "size" | "lastModified">;
 
+export type CloudKnowledgeWorkspaceView = "sources" | "package";
+export type CloudKnowledgeRequestKind =
+  | "load"
+  | "refresh"
+  | "export"
+  | "stage"
+  | "inspect"
+  | "import";
+export type CloudKnowledgeIntakeReadiness =
+  | "ready"
+  | "setup-required"
+  | "access-required"
+  | "reload-required"
+  | "busy";
+
 /** Bind inspection to the selected object and the immutable bytes reused by import, not file metadata. */
 export interface InspectedCloudKnowledgePackage {
   readonly file: PackageFile;
@@ -27,6 +42,53 @@ const OUTCOME_KEYS: Readonly<Record<string, CloudKnowledgeMessageKey>> = {
   withdrawal_pending: "withdrawalPending", complete: "complete", partial: "partial",
   registry_expired: "registryExpired", deadline_exceeded: "deadlineExceeded",
 };
+
+const WORKSPACE_VIEWS: readonly CloudKnowledgeWorkspaceView[] = ["sources", "package"];
+
+/** Resolve keyboard movement across the source-status and offline-package views. */
+export function nextCloudKnowledgeWorkspaceView(
+  current: CloudKnowledgeWorkspaceView,
+  key: string,
+): CloudKnowledgeWorkspaceView {
+  if (key === "Home") return WORKSPACE_VIEWS[0]!;
+  if (key === "End") return WORKSPACE_VIEWS[WORKSPACE_VIEWS.length - 1]!;
+  if (key !== "ArrowLeft" && key !== "ArrowRight") return current;
+  const direction = key === "ArrowRight" ? 1 : -1;
+  const index = WORKSPACE_VIEWS.indexOf(current);
+  return WORKSPACE_VIEWS[(index + direction + WORKSPACE_VIEWS.length) % WORKSPACE_VIEWS.length]!;
+}
+
+/** Distinguish local package preparation from server setup, access, and uncertain writes. */
+export function cloudKnowledgeIntakeReadiness(
+  overview: CloudKnowledgeOverview | null,
+  busy: boolean,
+  requiresReload: boolean,
+): CloudKnowledgeIntakeReadiness {
+  if (busy) return "busy";
+  if (requiresReload) return "reload-required";
+  if (overview?.available !== true) return "setup-required";
+  return overview.can_import === true ? "ready" : "access-required";
+}
+
+/** Only an action that may have changed durable server state requires authoritative reload. */
+export function cloudKnowledgeFailureRequiresReload(kind: CloudKnowledgeRequestKind): boolean {
+  return kind === "refresh" || kind === "stage" || kind === "import";
+}
+
+/** Render package size without exposing a browser-local path or inventing server evidence. */
+export function formatCloudKnowledgePackageSize(size: number): string {
+  if (!Number.isSafeInteger(size) || size < 0) return cloudKnowledgeText("unknown");
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KiB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MiB`;
+}
+
+/** Localize known setup outcomes while preserving the raw code for a technical disclosure. */
+export function cloudKnowledgeUnavailableReason(reason: string | undefined): string {
+  return reason === "source_and_trust_policy_required"
+    ? cloudKnowledgeText("sourceTrustRequired")
+    : cloudKnowledgeText("setupUnavailable");
+}
 
 function timestamp(value: string | null | undefined): number | null {
   if (typeof value !== "string" || !isRfc3339Timestamp(value)) return null;
@@ -125,7 +187,13 @@ export function requireCloudKnowledgeOverview(value: CloudKnowledgeOverview): Cl
   const invalid = () => new IngestionApiError(502, "The cloud knowledge projection is malformed.");
   if (!value || typeof value.available !== "boolean" || !Array.isArray(value.sources)
     || !Array.isArray(value.collections)) throw invalid();
-  if (!value.available) return value;
+  if (!value.available) {
+    if ((value.reason !== undefined && typeof value.reason !== "string")
+      || (value.can_refresh !== undefined && value.can_refresh !== false)
+      || (value.can_import !== undefined && value.can_import !== false)
+      || value.sources.length > 0 || value.collections.length > 0) throw invalid();
+    return value;
+  }
   if (value.automatic_activation !== false || value.approval_required !== true
     || (value.can_refresh !== undefined && typeof value.can_refresh !== "boolean")
     || (value.can_import !== undefined && typeof value.can_import !== "boolean")

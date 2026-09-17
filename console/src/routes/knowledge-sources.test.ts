@@ -32,8 +32,10 @@ describe("Knowledge sources", () => {
   });
 
   test("renders the route catalog in English and Korean", () => {
+    expect(knowledgeText("overviewTitle")).toBe("Knowledge overview");
     expect(knowledgeText("sourcesTitle")).toBe("Knowledge sources");
     setLocale("ko");
+    expect(knowledgeText("overviewTitle")).toBe("지식 전체 현황");
     expect(knowledgeText("sourcesTitle")).toBe("지식 원본");
   });
 });

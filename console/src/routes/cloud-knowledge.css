@@ -1,0 +1,251 @@
+.cloud-knowledge-workspace,
+.cloud-knowledge-panel,
+.cloud-knowledge-recorded-state,
+.cloud-knowledge-step-body {
+  min-width: 0;
+}
+
+.cloud-knowledge-tabs {
+  margin-bottom: 0;
+}
+
+.cloud-knowledge-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.cloud-knowledge-boundary,
+.cloud-knowledge-guidance {
+  max-width: 82ch;
+  margin: 0;
+  line-height: 1.55;
+}
+
+.cloud-knowledge-setup {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+}
+
+.cloud-knowledge-setup > header,
+.cloud-knowledge-intake-header,
+.cloud-knowledge-inspection > div:first-child,
+.cloud-knowledge-selected-file {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cloud-knowledge-setup h4,
+.cloud-knowledge-setup p,
+.cloud-knowledge-intake h4,
+.cloud-knowledge-intake h5,
+.cloud-knowledge-intake p,
+.cloud-knowledge-inspection h5 {
+  margin: 0;
+}
+
+.cloud-knowledge-setup > header p,
+.cloud-knowledge-setup > p,
+.cloud-knowledge-intake-header p,
+.cloud-knowledge-step-body > p,
+.cloud-knowledge-inspection > p {
+  color: var(--fg-muted);
+  line-height: 1.5;
+}
+
+.cloud-knowledge-setup > header p,
+.cloud-knowledge-intake-header p {
+  margin-top: 5px;
+}
+
+.cloud-knowledge-setup-steps,
+.cloud-knowledge-intake-steps {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cloud-knowledge-setup-steps {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cloud-knowledge-setup-steps li,
+.cloud-knowledge-intake-steps > li {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+}
+
+.cloud-knowledge-setup-steps li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  padding: 14px;
+}
+
+.cloud-knowledge-setup-steps li > span,
+.cloud-knowledge-step-number {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+  font-weight: 750;
+}
+
+.cloud-knowledge-setup-steps strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.cloud-knowledge-setup-steps p {
+  font-size: var(--cs-type-label-size);
+}
+
+.cloud-knowledge-setup-steps code {
+  display: block;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  font-size: var(--cs-type-caption-size);
+}
+
+.cloud-knowledge-setup details,
+.cloud-knowledge-intake-technical {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.cloud-knowledge-setup summary,
+.cloud-knowledge-intake-technical summary {
+  min-height: 44px;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.cloud-knowledge-setup code,
+.cloud-knowledge-intake-technical code {
+  overflow-wrap: anywhere;
+}
+
+.cloud-knowledge-intake {
+  display: grid;
+  gap: 16px;
+}
+
+.cloud-knowledge-intake-readiness {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-subtle);
+  color: var(--fg-muted);
+  line-height: 1.5;
+}
+
+.cloud-knowledge-intake-steps > li {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 14px;
+  padding: 16px;
+}
+
+.cloud-knowledge-intake-steps > li[data-state="complete"] {
+  background: color-mix(in oklab, var(--success) 4%, var(--bg-elevated));
+}
+
+.cloud-knowledge-intake-steps > li[data-state="pending"] {
+  background: var(--bg-subtle);
+}
+
+.cloud-knowledge-step-body {
+  display: grid;
+  gap: 12px;
+}
+
+.cloud-knowledge-step-body h5,
+.cloud-knowledge-inspection h5 {
+  color: var(--fg);
+  font-size: var(--cs-type-panel-title-size);
+  line-height: var(--cs-type-panel-title-line-height);
+}
+
+.cloud-knowledge-step-body .cs-control-field {
+  max-width: none;
+}
+
+.cloud-knowledge-step-body input[type="file"] {
+  width: 100%;
+  min-height: var(--cs-control-height-touch);
+  padding: 8px;
+}
+
+.cloud-knowledge-selected-file {
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--bg-subtle);
+}
+
+.cloud-knowledge-selected-file > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cloud-knowledge-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-height: 44px;
+}
+
+.cloud-knowledge-confirm input {
+  margin-top: 3px;
+}
+
+.cloud-knowledge-inspection {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+}
+
+@media (max-width: 900px) {
+  .cloud-knowledge-setup-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .cloud-knowledge-tabs button {
+    min-height: var(--cs-control-height-touch);
+  }
+
+  .cloud-knowledge-setup,
+  .cloud-knowledge-intake-steps > li {
+    padding: 14px;
+  }
+
+  .cloud-knowledge-setup > header,
+  .cloud-knowledge-intake-header,
+  .cloud-knowledge-selected-file {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cloud-knowledge-selected-file .cs-control-button {
+    width: fit-content;
+  }
+}

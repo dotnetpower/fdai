@@ -1259,6 +1259,30 @@ async def test_one_shot_propagates_all_inventory_sources_failure(
         await _main([])
 
 
+async def test_initial_inventory_bypasses_recurring_due_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+        }
+    )
+    run_once = AsyncMock()
+    due_once = AsyncMock()
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli._load_job_config",
+        AsyncMock(return_value=config),
+    )
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run", run_once)
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli._run_due_once", due_once)
+
+    await _main(["--initial"])
+
+    run_once.assert_awaited_once_with(config)
+    due_once.assert_not_awaited()
+
+
 async def test_collection_health_persists_only_sanitized_aggregate_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -292,11 +292,11 @@ identity selected by `FDAI_MI_CLIENT_ID`. The workspace is server-configured and
 by the browser. If the workspace, identity, permission, or telemetry is unavailable, the query
 holds as unavailable without a fixture or model fallback. Deployed runtime-call evidence uses that provider only under an explicit deployed inventory flag: Operator records broker acceptance, Core records consumer admission, Azure Monitor binds both exact replicas, and the inventory writer joins only the matching no-authority pair. Repository Variable `ENABLE_RUNTIME_CALL_EVIDENCE` preserves that Inventory Job flag independently of the legacy Operator module, and platform `plan-runtime-*` or `apply-runtime-*` requests target only that Job while rejecting dependency drift outside it. Service plans use their separate transition to add or remove both exact Resource ID bindings; headless and local profiles keep `runtime_call_graph` unavailable. Both service roots require two distinct canonical, unpadded Container App ARM IDs. When migrated platform output is absent, Core reads the exact Operator name from independent peer state into a mode-0600 transient file, resolves both IDs through Azure, and removes the file without adding the name to the sanitized manifest.
 Local preparation reads the workspace customer GUID from the applied Terraform `log_workspace_customer_id` output. If an older or targeted state does not expose that output, it lists workspaces only inside the applied resource group and accepts the fallback only when exactly one workspace exists. Zero workspaces leave the provider unavailable, and multiple workspaces stop preparation instead of choosing one implicitly. Regeneration removes any stale local workspace id.
-Remote Kubernetes lifecycle collection is an explicit local live-data opt-in; the runtime environment generator removes inherited `FDAI_KUBERNETES_*` bindings by default.
-Set `FDAI_LOCAL_KUBERNETES_LIFECYCLE=1` during preparation only when the API server, audience, authentication mode, CA path, and cluster resource binding are all present in `console/.env.local`.
-A partial binding stops preparation. Without the opt-in, lifecycle coverage stays unavailable instead of repeatedly probing a stopped cluster whose private DNS record no longer exists.
-The local runtime environment generator also supplies the applied subscription and resource group to the bounded Azure read-investigation adapter. When Terraform emits both the optional development
-operations gateway URL and its Easy Auth audience, NSG and VNet peering questions use the local Azure CLI identity to call only the gateway's registered read operations. A missing pair disables
+Remote Kubernetes lifecycle collection is an explicit local live-data opt-in; preparation removes inherited `FDAI_KUBERNETES_*` bindings by default.
+Set `FDAI_LOCAL_KUBERNETES_LIFECYCLE=1` only with complete legacy values in `console/.env.local` or an owner-only fleet JSON file, defaulting to `.fdai/local-kubernetes-bindings.json`; an absolute `FDAI_LOCAL_KUBERNETES_BINDINGS_PATH` selects another private file.
+The cache binds the selected path and bytes, while partial, group-readable, malformed, relative, or mixed inputs stop before provider access.
+The file carries endpoint, CA, identity, and token-path metadata but no token value; local collection neither discovers clusters nor implicitly replaces the read identity, and disabled collection never probes a stopped cluster.
+The local runtime environment generator also supplies the applied subscription and resource group to the bounded Azure read-investigation adapter. When Terraform emits both the optional development operations gateway URL and its Easy Auth audience, NSG and VNet peering questions use the local Azure CLI identity to call only the gateway's registered read operations. A missing pair disables
 the wrapper, while a configured gateway failure reports unavailable without a direct-ARM fallback. The gateway uses separate reader and executor managed identities and does not give the local read
 API an execution identity. Upstream Terraform enables the development-only mutation operations for
 the configured executor principal and passes the gateway URL and audience only to the headless core
@@ -398,7 +398,10 @@ whose consumers are live and whose health probe isn't in error. Interactive loca
 profile changes the PostgreSQL binding, not agent activation or stream semantics. The browser also retains the newest 100 observed SSE
 frames for the lifetime of the tab and renders them as a separate live journal. Runtime heartbeats prove connectivity but don't count as
 work; collecting, analyzing, deciding, executing, approving, auditing, Incident, and handoff frames do. This journal is bounded and
-non-durable, resets on reload, preserves each frame's recorded source, and never substitutes for the append-only audit log.
+non-durable, resets on reload, preserves each frame's recorded source, and never substitutes for the append-only audit log. In both
+venues, a newly appended non-replay row receives the same three-second neutral background fade; initial and replayed history never receives
+that cue. Reduced-motion mode preserves a static bounded tint, and shared typography keeps every log label and annotation at or above the
+caption-size floor.
 
 Completed conversation review follows the same split. Interactive local transport can publish the
 bounded Bragi `object.turn` envelope, but it does not fabricate a reviewer or durable proposal

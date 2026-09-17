@@ -26,6 +26,15 @@ from fdai_service_contracts.background_task_projection import (
     build_background_task_progress,
     build_background_task_snapshot,
 )
+from fdai_service_contracts.aks_commerce import (
+    AksCommerceAction,
+    AksCommerceEvidenceState,
+    AksCommerceMetric,
+    AksCommerceProjection,
+    AksCommerceSlo,
+    AksCommerceStatus,
+    AksCommerceWorkload,
+)
 from fdai_service_contracts.baseline_cohort import (
     MINIMUM_COHORT_SAMPLE_SIZE,
     BaselineTreatmentCohortReceipt,
@@ -292,6 +301,15 @@ from fdai_service_contracts.handover import (
     StewardshipSubject,
     handover_governance_idempotency_key,
 )
+from fdai_service_contracts.inventory_progress import (
+    InventoryClosureReceipt as InventoryClosureReceipt,
+    InventoryProgressFractionBasis as InventoryProgressFractionBasis,
+    InventoryProgressRecord as InventoryProgressRecord,
+    InventoryProgressStage as InventoryProgressStage,
+    InventoryProgressState as InventoryProgressState,
+    inventory_closure_receipt_digest as inventory_closure_receipt_digest,
+    inventory_progress_record_digest as inventory_progress_record_digest,
+)
 from fdai_service_contracts.reporting_lines import (
     ReportingLineCandidate,
     ReportingLineDirectory,
@@ -540,6 +558,13 @@ __all__ = [
     "AccessDescriptor",
     "Action",
     "ActionStopCondition",
+    "AksCommerceAction",
+    "AksCommerceEvidenceState",
+    "AksCommerceMetric",
+    "AksCommerceProjection",
+    "AksCommerceSlo",
+    "AksCommerceStatus",
+    "AksCommerceWorkload",
     "AdapterLiveReadinessProvider",
     "AdapterReadiness",
     "AdapterReadinessProvider",
@@ -731,6 +756,11 @@ __all__ = [
     "IntentGoal",
     "IntentGraph",
     "IntentGraphEvidence",
+    "InventoryClosureReceipt",
+    "InventoryProgressFractionBasis",
+    "InventoryProgressRecord",
+    "InventoryProgressStage",
+    "InventoryProgressState",
     "JsonObject",
     "JsonProjection",
     "JsonScalar",
@@ -923,6 +953,8 @@ __all__ = [
     "expected_verification_subjects",
     "generate_upgrade_receipts",
     "handover_governance_idempotency_key",
+    "inventory_closure_receipt_digest",
+    "inventory_progress_record_digest",
     "live_readiness",
     "live_unavailable_readiness",
     "load_json_object",

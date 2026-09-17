@@ -748,6 +748,34 @@ def test_aks_job_rejects_missing_core_image() -> None:
         )
 
 
+def test_aks_inventory_binding_uses_projected_service_account_identity() -> None:
+    cluster_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/"
+        "Microsoft.ContainerService/managedClusters/aks-example"
+    )
+
+    environment = standalone_host._aks_inventory_binding_environment(f" {cluster_id} ")
+
+    assert environment == {
+        "FDAI_KUBERNETES_API_SERVER": "https://kubernetes.default.svc",
+        "FDAI_KUBERNETES_CLUSTER_REF": cluster_id,
+        "FDAI_KUBERNETES_AUTH_MODE": "service-account",
+        "FDAI_KUBERNETES_CA_PATH": ("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"),
+        "FDAI_KUBERNETES_TOKEN_PATH": ("/var/run/secrets/kubernetes.io/serviceaccount/token"),
+    }
+    assert all("SECRET" not in name for name in environment)
+
+
+@pytest.mark.parametrize(
+    "cluster_id",
+    ["", "/subscriptions/example/resourceGroups/example", "https://example.com/cluster"],
+)
+def test_aks_inventory_binding_rejects_non_cluster_identity(cluster_id: str) -> None:
+    with pytest.raises(ValueError, match="cluster id is invalid"):
+        standalone_host._aks_inventory_binding_environment(cluster_id)
+
+
 def test_postgres_aks_substrate_excludes_flexible_server() -> None:
     context = {
         "runtime_profile": {
@@ -1364,6 +1392,60 @@ def test_standalone_migration_uses_interpreter_for_private_bundle_script(
         )
     ]
     assert result["state"] == "migrated"
+
+
+def test_initial_inventory_runs_full_scope_with_private_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle = tmp_path / "bundle"
+    infra = bundle / "infra"
+    infra.mkdir(parents=True)
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    for name in ("migration-receipt.json", "application-receipt.json"):
+        (work_dir / name).write_text("{}", encoding="utf-8")
+    context = {
+        "infra": str(infra),
+        "source_commit": "c" * 40,
+        "subscription_id": "00000000-0000-0000-0000-000000000001",
+        "client_id": "00000000-0000-0000-0000-000000000002",
+        "inventory_progress_container_url": (
+            "https://storage.blob.core.windows.net/provisioning-events"
+        ),
+    }
+    observed_environment: dict[str, str] = {}
+
+    monkeypatch.setattr(standalone_host, "_private_json", lambda *_: context)
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(standalone_host, "_terraform_output", lambda *_: "unused")
+    monkeypatch.setattr(standalone_host, "_vault_name", lambda *_: "vault")
+    monkeypatch.setattr(standalone_host, "_capture", lambda *_args, **_kwargs: "dsn")
+    monkeypatch.setattr(
+        standalone_host,
+        "_capture_env",
+        lambda *_args, **_kwargs: json.dumps(
+            {
+                "observer_distinct": True,
+                "active_generation_matches": True,
+                "provider_coverage_complete": True,
+                "receipt_digest": "sha256:" + "a" * 64,
+            }
+        ),
+    )
+
+    def run_env(_command: tuple[str, ...], **kwargs: object) -> None:
+        observed_environment.update(kwargs["env"])  # type: ignore[arg-type]
+
+    monkeypatch.setattr(standalone_host, "_run_env", run_env)
+    monkeypatch.setattr(standalone_host, "_replace_private_json", lambda *_: None)
+
+    result = standalone_host._initial_inventory(SimpleNamespace(), work_dir)
+
+    assert observed_environment["FDAI_INVENTORY_SCOPES"] == context["subscription_id"]
+    assert observed_environment["FDAI_INVENTORY_SOURCES"] == "arg,arm"
+    assert observed_environment["FDAI_INVENTORY_PROGRESS_CONTAINER_URL"].startswith("https://")
+    assert result["active_generation_readback_verified"] is True
+    assert result["subscription_ready"] is False
 
 
 def test_private_service_migration_launcher_runs_through_fixed_interpreter(

@@ -14,11 +14,12 @@ unrelated resources in that group.
 
 | Area | Resources |
 |------|-----------|
-| Compute | One-node private AKS cluster, Chaos Mesh installed after apply, AKS Store Demo with a three-replica order service, private Linux stress VM |
+| Compute | Dedicated `aks-store-demo` one-node private cluster, Chaos Mesh installed after apply, AKS Store Demo with a three-replica order service, private Linux stress VM |
 | Data and AI | Private MySQL Flexible Server, private Azure OpenAI account and one deployment |
 | Security | Generated MySQL password in encrypted private state and a mode-0600 runner file, managed-identity role assignments, no VM public IP |
-| Network | Isolated VNet, delegated and private-endpoint subnets, egress-only NAT gateway, bidirectional peering to the VNet-integrated deploy runner |
+| Network | Isolated VNet, delegated and private-endpoint subnets, egress-only NAT gateway, bidirectional peering to the VNet-integrated deploy runner, deployment-owned private-endpoint NSG association, and policy-owned NSGs on the AKS, MySQL, and stress subnets |
 | Evidence | Log Analytics, Application Insights, AKS monitoring, MySQL and Azure OpenAI metrics |
+| Optional commerce | Private Service Bus and Cosmos DB, workload identity, public HTTPS storefront, private administration and backend services |
 
 This root does not deploy the full C1-C4 path through Application Gateway and API Management. It
 also does not deploy FDAI itself. S13 uses the existing configuration-baseline and scheduling
@@ -83,6 +84,8 @@ Every approved apply prepares the official
 namespace. The renderer fixes the upstream source at commit
 `61b033448904a930f01d497ce7139aca87a1b12d`, verifies the complete manifest SHA-256, and replaces
 each version tag with its reviewed multi-platform image digest before `kubectl apply`.
+The Terraform root creates the exact dedicated cluster name `aks-store-demo`; it never deploys the
+commerce workload to another FDAI, shared, or pre-existing cluster.
 
 The lab applies only these safety overlays:
 
@@ -101,6 +104,32 @@ destroy operation after the demo.
 After an approved apply, the workflow waits for the Load Balancer address, verifies that the Azure
 hostname resolves to that exact address, checks `http://<hostname>/health`, and prints the browser
 URL in the workflow summary. No VPN or port forwarding is required to open the store front.
+
+Azure Policy may attach one deployment-external NSG to each workload subnet. Terraform preserves
+those effective AKS, MySQL, and stress-subnet associations instead of replacing them with the
+lab's shared NSG. The lab still owns the private-endpoint subnet association, and the stress VM
+NIC retains its separate deployment-owned NSG. Deployment preflight must observe the default
+inbound deny rule on every effective subnet NSG.
+
+## Deploy the optional commerce scenario
+
+Set `commerce_enabled=true` in the reviewed Terraform plan to provision private Service Bus and
+Cosmos DB dependencies plus one workload identity. After apply, create or bind the reviewed TLS
+secret for the public hostname, then run:
+
+```bash
+export SCENARIO_LAB_STOREFRONT_HOSTNAME="<public-hostname>"
+export SCENARIO_LAB_STOREFRONT_TLS_SECRET_NAME="<tls-secret-name>"
+export SCENARIO_LAB_SYNTHETIC_AUTHORIZATION_REF="<standing-authorization-reference>"
+export SCENARIO_LAB_SYNTHETIC_AUTHORIZATION_EXPIRES_AT="<yyyy-mm-ddThh:mm:ssZ>"
+bash scripts/deployment/scenario-lab/prepare-commerce.sh "$runtime_dir"
+```
+
+The script installs the exact pinned AKS Store Demo commit with prebuilt images, exposes only
+`store-front` through HTTPS, keeps `store-admin` and the APIs on `ClusterIP`, applies an ingress
+policy for the administration workload, verifies the public health path, and writes a mode-0600
+`commerce.env`. It never creates a certificate or chooses a DNS zone. Those values remain part of
+the approved deployment plan.
 
 ## Test from the operator PC
 

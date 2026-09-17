@@ -11,6 +11,9 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 LAB_ROOT = REPO_ROOT / "infra" / "scenario-lab"
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "sre-demo-lab.yml"
 PREPARE_SCRIPT = REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "prepare-runner.sh"
+COMMERCE_PREPARE_SCRIPT = (
+    REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "prepare-commerce.sh"
+)
 SWEEP_SCRIPT = REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "run-reference-sweep.sh"
 CLEANUP_SCRIPT = REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "cleanup-runner.sh"
 STORE_RENDERER = REPO_ROOT / "scripts" / "deployment" / "scenario-lab" / "render_aks_store_demo.py"
@@ -28,6 +31,7 @@ def test_scenario_lab_is_an_independent_private_terraform_root() -> None:
     data_services = (LAB_ROOT / "data-services.tf").read_text(encoding="utf-8")
     main = (LAB_ROOT / "main.tf").read_text(encoding="utf-8")
     variables = (LAB_ROOT / "variables.tf").read_text(encoding="utf-8")
+    commerce = (LAB_ROOT / "commerce.tf").read_text(encoding="utf-8")
 
     assert 'required_version = ">= 1.9"' in versions
     assert 'version = "~> 4.14"' in versions
@@ -38,12 +42,37 @@ def test_scenario_lab_is_an_independent_private_terraform_root() -> None:
     assert "10.42." not in variables
     assert 'private_endpoint_network_policies = "Disabled"' in network
     assert 'resource "azurerm_nat_gateway" "egress"' in network
+    assert 'resource "azurerm_servicebus_namespace" "commerce"' in commerce
+    assert "local_auth_enabled            = false" in commerce
+    assert "public_network_access_enabled = false" in commerce
+    assert 'role_definition_name = "Azure Service Bus Data Sender"' in commerce
+    assert 'role_definition_name = "Azure Service Bus Data Receiver"' in commerce
+    assert 'resource "azurerm_cosmosdb_account" "commerce"' in commerce
+    assert "local_authentication_enabled  = false" in commerce
+    assert "public_network_access_enabled = false" in commerce
+    assert 'resource "azurerm_private_endpoint" "commerce_cosmos"' in commerce
+    assert 'resource "azurerm_private_endpoint" "commerce_servicebus"' in commerce
+    assert (
+        'subject             = "system:serviceaccount:'
+        '${var.commerce_namespace}:aks-store-demo"' in commerce
+    )
+    assert 'variable "commerce_enabled"' in variables
     assert 'resource "azurerm_network_security_group" "scenario_lab"' in network
     assert 'resource "azurerm_subnet_network_security_group_association" "scenario_lab"' in network
+    assert "private_endpoints = azurerm_subnet.private_endpoints.id" in network
+    assert "aks               = azurerm_subnet.aks.id" not in network
+    assert "mysql             = azurerm_subnet.mysql.id" not in network
+    assert "stress_vm         = azurerm_subnet.stress_vm.id" not in network
+    assert network.count("checkov:skip=CKV2_AZURE_31:Azure Policy attaches") == 3
     assert "private_cluster_enabled" in aks
+    assert 'name                                = "aks-store-demo"' in aks
+    assert 'dns_prefix                          = "aks-store-demo"' in aks
+    assert '"aks-${local.suffix}"' not in aks
     assert "local_account_disabled" in aks
     assert "azure_active_directory_role_based_access_control" in aks
     assert "azure_rbac_enabled = true" in aks
+    assert 'dynamic "monitor_metrics"' in aks
+    assert 'dynamic "web_app_routing"' in aks
     assert 'outbound_type       = "userAssignedNATGateway"' in aks
     assert "node_count                   = 1" in aks
     assert 'upgrade_settings {\n      max_surge = "10%"\n    }' in aks
@@ -68,6 +97,7 @@ def test_scenario_lab_keeps_secrets_inside_the_sensitive_runner_output() -> None
     outputs = (LAB_ROOT / "outputs.tf").read_text(encoding="utf-8")
     variables = (LAB_ROOT / "variables.tf").read_text(encoding="utf-8")
     prepare = PREPARE_SCRIPT.read_text(encoding="utf-8")
+    commerce_prepare = COMMERCE_PREPARE_SCRIPT.read_text(encoding="utf-8")
 
     assert 'resource "random_password" "mysql_admin"' in data_services
     assert "key_vault" not in data_services
@@ -77,11 +107,39 @@ def test_scenario_lab_keeps_secrets_inside_the_sensitive_runner_output() -> None
     assert 'output "mysql_password"' not in outputs
     assert "jq -er '.mysql_password'" in prepare
     assert "az keyvault" not in prepare
+    assert "queuePassword" not in commerce_prepare
+    assert "ORDER_DB_PASSWORD" not in commerce_prepare
+    assert "useAzureAd=true" in commerce_prepare
     assert "expires_at_utc" in variables
     assert 'name                = "require_secure_transport"' in data_services
     assert 'name                = "tls_version"' in data_services
     assert '"fdai:expires-at" = var.expires_at_utc' in (LAB_ROOT / "main.tf").read_text(
         encoding="utf-8"
+    )
+
+
+def test_commerce_profile_exposes_only_https_storefront() -> None:
+    prepare = COMMERCE_PREPARE_SCRIPT.read_text(encoding="utf-8")
+
+    assert "61b033448904a930f01d497ce7139aca87a1b12d" in prepare
+    assert "--set storeFront.serviceType=ClusterIP" in prepare
+    assert "--set storeAdmin.serviceType=ClusterIP" in prepare
+    assert 'ingressClassName: "webapprouting.kubernetes.azure.com"' in prepare
+    assert '"https://$storefront_hostname"' in prepare
+    assert "--proto '=https'" in prepare
+    assert "protect-store-admin" in prepare
+    assert "product-service-monitor.yaml" in prepare
+    assert "crd/servicemonitors.azmonitoring.coreos.com" in prepare
+    assert "SCENARIO_LAB_SYNTHETIC_AUTHORIZATION_REF" in prepare
+    assert "SCENARIO_LAB_SYNTHETIC_AUTHORIZATION_EXPIRES_AT" in prepare
+    assert (
+        subprocess.run(  # noqa: S603 - fixed repository script and resolved Bash.
+            [BASH, "-n", str(COMMERCE_PREPARE_SCRIPT)],
+            check=False,
+            capture_output=True,
+            text=True,
+        ).returncode
+        == 0
     )
 
 
@@ -254,6 +312,20 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert 'trap \'rm -rf -- "$archive" "$extract_dir"\' EXIT' in workflow
     assert "for command_name in az helm jq kubectl kubelogin terraform timeout" in workflow
     assert "Adopt succeeded partial-apply network resources" in workflow
+    assert "Recover healthy partial workspace state" in workflow
+    assert 'terraform state pull >"$state_snapshot"' in workflow
+    assert 'select(.status == "tainted")' in workflow
+    assert "Scenario workspace recovery requires exactly one tainted state instance." in workflow
+    assert "Tainted workspace state does not match the exact scenario-lab resource." in workflow
+    assert "az monitor log-analytics workspace show" in workflow
+    assert '.provisioningState == "Succeeded"' in workflow
+    assert '.sku.name == "PerGB2018"' in workflow
+    assert ".retentionInDays == 30" in workflow
+    assert ".workspaceCapping.dailyQuotaGb == 1" in workflow
+    assert '.tags["fdai:managed"] == "true"' in workflow
+    assert '.tags["fdai:layer"] == "scenario-lab"' in workflow
+    assert 'terraform untaint -lock-timeout=5m "$workspace_address"' in workflow
+    assert "sre-demo-lab-recovery-state.json" in workflow
     assert "scenario-lab partial-resource adoption rejected an invalid resource id" in workflow
     assert (
         "scenario-lab partial-resource adoption failed; raw output remains runner-local" in workflow
@@ -282,6 +354,8 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert 'cat "$plan_log"' not in workflow
     assert "apply refuses delete or replacement actions" in workflow
     assert '"field\\t\\($address)\\t\\($path | map(tostring) | join("."))"' in workflow
+    assert '"replace-path\\t\\($address)\\t\\(map(tostring) | join("."))"' in workflow
+    assert "(.change.replace_paths // [])[]?" in workflow
     assert '"before_value"' not in workflow
     assert '"after_value"' not in workflow
     assert 'environment_file="$output_dir/enforce.env"' in workflow

@@ -1,4 +1,4 @@
-import { PageHeader, UnavailableState } from "../components/ui";
+import { PageHeader, StatusPill, UnavailableState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
 import { t } from "../i18n";
@@ -70,7 +70,7 @@ export function KnowledgeOverviewRoute(props: PanelProps) {
 
   return (
     <div class="stack knowledge-route">
-      <PageHeader title={t("nav.group.overview")} subtitle={knowledgeText("subtitle")} />
+      <PageHeader title={knowledgeText("overviewTitle")} subtitle={knowledgeText("subtitle")} />
       <section aria-labelledby="knowledge-sources-title">
         <div class="knowledge-section-heading">
           <div>
@@ -86,9 +86,10 @@ export function KnowledgeOverviewRoute(props: PanelProps) {
             <a class="knowledge-source-card" href={routeHref(source.panelId)} key={source.id}>
               <div>
                 <h3>{knowledgeSourceTitle(source.id)}</h3>
-                <span class="knowledge-source-kind">
-                  {knowledgeText(source.connector ? "connectedSource" : "managedUpload")}
-                </span>
+                <StatusPill
+                  kind={source.connector ? "neutral" : "info"}
+                  label={knowledgeText(source.connector ? "setupRequired" : "managedUpload")}
+                />
               </div>
               <p>{knowledgeText(source.summaryKey)}</p>
               <span class="knowledge-source-open">{knowledgeText("openSource")}</span>

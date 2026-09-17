@@ -106,7 +106,7 @@ export function OnboardingBody({
       ) : null}
       <section class="onboarding-summary" aria-label={t("onboardingView.summaryLabel")}>
         <OnboardingSummaryItem
-          href={routeHref("provision")}
+          href={routeHref("settings-environment", { segments: ["deployment"] })}
           label={t("onboardingView.readiness")}
           value={observed
             ? (
@@ -149,7 +149,7 @@ export function OnboardingBody({
           evidenceState={summaryEvidenceState(dataMode, observed)}
         />
         <OnboardingSummaryItem
-          href={routeHref("provision")}
+          href={routeHref("settings-environment", { segments: ["deployment"] })}
           label={t("onboardingView.lastChecked")}
           value={!observed
             ? kpiEvidenceLabel("not-connected")
@@ -163,7 +163,10 @@ export function OnboardingBody({
       <nav class="onboarding-actions" aria-label={t("onboardingView.drilldowns")}>
         <strong>{t("onboardingView.resolveInOwningSurface")}</strong>
         <div class="onboarding-action-links">
-          <a class="btn secondary" href={routeHref("provision")}>
+          <a
+            class="btn secondary"
+            href={routeHref("settings-environment", { segments: ["deployment"] })}
+          >
             {t("onboardingView.openProvisioning")}
           </a>
           <a

@@ -2,8 +2,8 @@
 title: 인시던트 완화와 Rollback Runbook
 description: Governed mitigation을 적용하고 rollback 또는 recovery를 검증하는 템플릿입니다.
 translation_of: incident-mitigation-and-rollback.md
-translation_source_sha: 1ce15a9c3a674d674b13b578c760222423f924d8
-translation_revised: 2026-09-15
+translation_source_sha: 8772603075777655a74082ba938887c076e09b51
+translation_revised: 2026-09-17
 fdai_runbook:
   schema_version: 1.0.0
   action_type_patterns:
@@ -17,6 +17,7 @@ fdai_runbook:
     - ops.flush-cache
     - ops.publish-change-summary
     - ops.restart-service
+    - ops.rollback-kubernetes-rollout
     - ops.rotate-cert
     - ops.scale-in
     - ops.scale-out

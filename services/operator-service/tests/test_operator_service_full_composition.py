@@ -183,12 +183,13 @@ async def test_alert_and_context_bridges_keep_independent_lifecycle_and_readines
 def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() -> None:
     manifest = aggregate_route_manifest(
         REFERENCE_PANEL_ROUTES,
+        include_aks_commerce=True,
         include_cost_governance=True,
     )
     identities = {(item.method, item.path) for item in manifest}
     owner_counts = Counter(item.owner for item in manifest)
 
-    assert len(manifest) == len(identities) == 225
+    assert len(manifest) == len(identities) == 226
     assert ("GET", "/handover/readiness") in identities
     assert owner_counts == {
         "minimal": 17,
@@ -197,13 +198,14 @@ def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() 
         "workflow": 43,
         "operations": 42,
         "operations-panel": 8,
+        "aks-commerce": 1,
         "cost-governance": 8,
         "alert-quality": 7,
     }
     assert tuple(manifest[:17]) == MINIMAL_ROUTE_MANIFEST
     app = cast(Starlette, _client().app)
     assert _registered_identities(app) == identities
-    assert len(app.router.routes) == 225
+    assert len(app.router.routes) == 226
     assert {
         ("POST", "/test-context/proposals"),
         ("POST", "/test-context/reviews"),

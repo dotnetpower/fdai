@@ -3,10 +3,8 @@ title: Runtime Deployment Profiles
 ---
 # Runtime Deployment Profiles
 
-This document defines Azure Kubernetes Service (AKS) as the default runtime for new FDAI
-installations without changing application behavior or deployment authority. Azure Container Apps
-remains a supported compatibility profile for existing installations. The selection is part of the
-signed `fdaictl` provisioning profile and every exact Terraform plan.
+This document defines Azure Kubernetes Service (AKS) as the default runtime for new FDAI installations without changing application behavior or deployment
+authority. Azure Container Apps remains a supported compatibility profile for existing installations. The selection is part of the signed `fdaictl` provisioning profile and every exact Terraform plan.
 
 > **Scope:** This contract covers new installations. Moving an existing installation between
 > runtime platforms requires a separate migration design and is not an implicit profile update.
@@ -60,8 +58,10 @@ fdaictl provision azure \
   --user-nodes 4
 ```
 
-The command remains interactive at each mutating plan boundary. A runtime or database choice never
-grants action authority, changes the selected environment, or enables enforcement mode.
+The command remains interactive at each mutating plan boundary. A runtime or database choice never grants action authority, changes the selected environment,
+or enables enforcement mode. After installation, the Console groups environment readiness and read-only deployment-run evidence under Settings > Environment
+and deployment. The readiness view is the default; deployment evidence is a separate tab. Neither view starts or retries `fdaictl`, runs Terraform, or acquires
+deployment authority. The original `/onboarding` and `/provisioning` routes remain compatibility entry points.
 
 ### Defaults and validation
 
@@ -90,8 +90,8 @@ planning. The error reports the requested and allocatable quantities without exp
 
 Connected deployments for both runtime profiles boot the managed host from an exact Azure
 Marketplace Ubuntu version and install the checksum-pinned toolchain during Foundation. They do
-not build or require a dedicated managed-host image. Artifact-offline deployments can still select
-a separately verified prebuilt host image when bootstrap downloads are unavailable.
+not build or require a dedicated managed-host image. Artifact-offline deployments can still select a separately verified prebuilt host image when bootstrap downloads are unavailable.
+After application convergence, the managed host invokes the Core inventory entry point in explicit `--initial` mode, bypassing only the recurring due-time gate. It uses the already authenticated deploy identity for full-subscription ARG/ARM reads and immutable progress writes, then starts a separate read-only closure process. The recurring runtime schedule and its workload identity remain unchanged; the bootstrap path grants no ongoing deployment authority to the inventory workload. Presentation and integration contracts account for this as the sixteenth phase and for `provisioning-events` as the third private Foundation container; older additive receipt doubles may omit `inventory_ready` without being interpreted as ready.
 
 Tenant provisioning consumes prebuilt service and dependency images only. A complete release's
 closed dependency-image set includes both ClamAV and pgvector; neither can be omitted from the
@@ -206,20 +206,20 @@ the shared ADLS account and the `fdai.pipeline.stages` entity. The Worker Pod in
 digest-pinned ClamAV image as a replica-local TCP sidecar. Its root remains read-only and only the
 declared database, run and temporary paths receive size-limited `emptyDir` volumes.
 
-Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active
-deadline, a retry limit, and bounded history. Manual jobs are created only by a separately approved
-request and are not perpetual desired-state resources.
-The AKS baseline renders analyzer, canary, inventory, observation campaign, and operational-history
-lifecycle CronJobs. The history job uses the read-only inventory identity, the service-owned state
-DSN, and the private archive URL in fixed `shadow` mode. A non-shadow lifecycle requires a separate
-protected transition and an exact persisted certification receipt; runtime selection grants neither.
+Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active deadline,
+a retry limit, and bounded history. Manual jobs require a separate approval and are not perpetual desired-state resources.
+The AKS baseline renders analyzer, canary, inventory, observation campaign, and operational-history lifecycle
+CronJobs. The history job uses the read-only inventory identity, service-owned state DSN, and private archive URL
+in fixed `shadow` mode. A non-shadow lifecycle requires a separate protected transition and exact persisted certification receipt.
+Application preparation binds the inventory CronJob to its exact AKS cluster through the in-cluster
+ServiceAccount endpoint, CA, and token paths. A dedicated ClusterRole grants only the collector's reviewed
+reads, and its ClusterRoleBinding names only `inventory-job`; self-observation never discovers another cluster.
 
-The inventory command preserves read-only failure boundaries; Activity Log recovery cannot advance
-delta cursors or stop reconciliation. Passive model-serving evidence reuses inventory identity and
-Azure Monitor without inference; failures lower only its coverage. Reconciliation bounds determine
-lookback, freshness, points, and timeout. The standalone substrate target set includes the existing
-subscription, workspace, exact-cluster, cost, and pipeline-stage roles. An inventory identity without
-these assignments cannot establish provider scope, metrics, logs, cost, or publication readiness.
+The inventory command preserves read-only failure boundaries; Activity Log recovery cannot advance delta cursors
+or stop reconciliation. Passive model-serving evidence reuses inventory identity and Azure Monitor without inference;
+failures lower only its coverage. Reconciliation bounds determine lookback, freshness, points, and timeout. The
+standalone substrate target set includes the existing subscription, workspace, exact-cluster, cost, and pipeline-stage
+roles. An inventory identity without these assignments cannot establish provider scope, metrics, logs, cost, or publication readiness.
 
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and
@@ -332,8 +332,8 @@ The exact plan orders changes to avoid losing access:
 5. Retain rollback and an independently observed terminal receipt. An ambiguous effect is
   verification-only and never triggers the same apply again.
 
-The operator's current VM may be the execution host when exact target, identity, route, DNS, TLS and
-backend checks pass. Peering that VM's VNet is a planned network effect, not evidence by itself.
+For a same-subscription operator VNet, `operator_access_vnets` creates direct non-transitive peering, `operator_private_dns_zones` limits DNS links, and `operator_inventory_principal_ids` grants selected Managed Identities only subscription `Reader`, never data-plane roles.
+Deployment-specific values stay outside source control; exact target, identity, route, DNS, TLS, backend, plan, approval and effect-readback checks remain required, so peering alone is not access evidence.
 
 ## PostgreSQL profiles
 

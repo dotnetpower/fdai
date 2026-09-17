@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: e29fddbc32b060a7aeef004b8c6fb0844e6e351b
-translation_revised: 2026-09-16
+translation_source_sha: 45798ee7b8d5776f5301d61bf24f35d9da0a1337
+translation_revised: 2026-09-17
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 **목표**: 자동화 테스트는 결정론적이고 비밀 없는 상태를 유지하며, 대화형 로컬 Console은 권위 있는 Azure 상태를 표시합니다. Azure 배포는 **배포자 권한과 리전 카탈로그로 프로비저닝할 리소스를 선택**합니다. 별도 `docs site: serve (4321)` 작업은 루프백에서 공개 문서만 미리 보여 줍니다. 백엔드나 채널 경계를 시작하지 않으며 런타임 권한을 부여하지 않습니다. 세 명제가 동시에 참입니다:
@@ -287,11 +287,11 @@ Azure CLI 맥락에서 데이터 평면 토큰을 얻고 배포는 `FDAI_MI_CLIE
 Workspace, 신원, 권한 또는 텔레메트리를 사용할 수 없으면 고정본나 모델 대체 경로 없이 사용 불가로 보류합니다. 배포된 런타임 호출 근거는 명시적인 배포 인벤토리 플래그가 있을 때만 같은 프로바이더를 사용합니다. Operator는 브로커 수락을 기록하고 Core는 소비자 수신을 기록하며, Azure Monitor는 두 정확한 replica를 결속하고 인벤토리 기록기는 권한이 없는 일치 쌍만 결합합니다. 저장소 변수 `ENABLE_RUNTIME_CALL_EVIDENCE`는 기존 Operator 모듈과 독립적으로 Inventory Job 플래그를 보존하고 플랫폼 `plan-runtime-*` 또는 `apply-runtime-*` 요청은 해당 작업만 대상으로 하며 작업 밖의 의존성 드리프트를 거부합니다. 서비스 계획은 별도 전환으로 두 정확한 Resource ID 바인딩을 추가하거나 제거하며, 헤드리스 및 로컬 프로필은 `runtime_call_graph`를 사용 불가로 유지합니다. 두 서비스 루트는 서로 다른 두 정식 비공백 Container App ARM ID를 요구합니다. 이행된 플랫폼 출력이 없으면 Core는 독립 peer state의 정확한 Operator 이름을 권한 모드 0600의 임시 파일로 읽고 Azure에서 두 ID를 해석한 뒤 정제된 매니페스트에 이름을 남기지 않고 파일을 제거합니다.
 로컬 준비는 applied Terraform의 `log_workspace_customer_id` 출력에서 workspace customer GUID를 읽습니다. 이전 상태 또는 targeted 상태가 해당 출력을 노출하지 않으면 applied 리소스 그룹 안의 workspace만 나열하고 정확히 하나가 있을 때만 대체 경로를 수락합니다.
 Workspace가 0개이면 프로바이더를 사용 불가로 유지하고 여러 개이면 암시적으로 하나를 선택하지 않고 준비를 중지합니다. 재생성할 때 stale 로컬 workspace id는 제거합니다.
-원격 Kubernetes 수명 주기 수집은 명시적으로 로컬 실시간 데이터를 사용하도록 설정해야 합니다. 런타임 환경 생성기는 기본적으로 상속된 `FDAI_KUBERNETES_*` 바인딩을 제거합니다.
-API 서버, 대상, 인증 모드, CA 경로 및 클러스터 리소스 바인딩이 모두 `console/.env.local`에 있을 때만 준비 프로세스에서 `FDAI_LOCAL_KUBERNETES_LIFECYCLE=1`을 설정하세요.
-바인딩이 일부만 있으면 준비가 중지됩니다. 이 설정이 없으면 중지된 클러스터에서 사설 DNS 레코드가 제거되더라도 반복해서 연결을 시도하지 않고 수명 주기 범위를 사용 불가로 유지합니다.
-로컬 런타임 환경 generator는 applied 구독 및 리소스 그룹도 범위가
-제한된 Azure read-investigation 어댑터에 제공합니다. Terraform이 선택적 개발 operations 게이트웨이 URL과 Easy Auth 대상을 모두 출력하면 NSG 및 VNet 피어링 질문은 로컬 Azure CLI 신원으로
+원격 Kubernetes 수명 주기 수집은 명시적인 로컬 실시간 데이터 선택 사항이며, 준비 과정은 기본적으로 상속된 `FDAI_KUBERNETES_*` 바인딩을 제거합니다.
+기존 값이 `console/.env.local`에 모두 있거나 소유자 전용 fleet JSON 파일을 사용할 때만 `FDAI_LOCAL_KUBERNETES_LIFECYCLE=1`을 설정하세요. 기본 파일은 `.fdai/local-kubernetes-bindings.json`이며 다른 파일은 절대 경로인 `FDAI_LOCAL_KUBERNETES_BINDINGS_PATH`로 선택합니다.
+캐시는 선택한 경로와 바이트를 결합하며, 일부 구성, 그룹 읽기 가능, 잘못된 형식, 상대 경로 또는 혼합 입력은 프로바이더 접근 전에 중단됩니다.
+파일에는 엔드포인트, CA, 신원 및 token 경로 메타데이터만 있고 token 값은 없습니다. 로컬 수집은 클러스터를 검색하거나 읽기 신원을 암묵적으로 바꾸지 않으며, 비활성 상태에서는 중지된 클러스터를 조회하지 않습니다.
+로컬 런타임 환경 generator는 applied 구독 및 리소스 그룹도 범위가 제한된 Azure read-investigation 어댑터에 제공합니다. Terraform이 선택적 개발 operations 게이트웨이 URL과 Easy Auth 대상을 모두 출력하면 NSG 및 VNet 피어링 질문은 로컬 Azure CLI 신원으로
 게이트웨이의 등록된 읽기 연산만 호출합니다. 쌍이 없으면 래퍼를 비활성화하고 구성된 게이트웨이가 실패하면 direct ARM 대체 경로 없이 사용 불가를 보고합니다. 게이트웨이는 읽기 담당/실행기 managed 신원을 분리하며 로컬 Operator
 API에 실행 신원을 제공하지 않습니다. 변경은 target-scoped Blob 임차 기간과 영속 멱등성 점유를 사용하며 업스트림 Terraform은 구성된 실행기 principal에 development-only 변경 연산을 활성화하고 게이트웨이
 URL과 대상은 headless 코어 Container App에만 전달합니다. 해당 런타임은 `AzureGatewayDirectApiExecutor`를 연결하며 Operator API는 읽기 전용 게이트웨이 전송 계층을 유지하고 강제 적용 기능을 받지
@@ -396,7 +396,10 @@ Headless Pantheon은 control-loop 진행 상황을 전달하는 동일한 `fdai.
 표시합니다. 런타임 하트비트는 연결을 증명하지만 작업으로 계산하지 않습니다. Collecting,
 analyzing, deciding, executing, approving, auditing, 인시던트 및 인계 프레임은 작업으로 계산합니다.
 이 저널은 범위가 제한된 및 non-durable이며 reload 시 초기화되고 각 프레임에 기록된 출처를
-보존합니다. 추가 전용 감사 로그를 대체하지 않습니다.
+보존합니다. 추가 전용 감사 로그를 대체하지 않습니다. 두 실행 장소 모두 새로 추가된 재생 이외의
+행에 동일한 3초 중립 배경 페이드를 적용하며 최초 이력과 재생 이력에는 이 표시를 적용하지
+않습니다. 모션 감소 모드에서는 제한된 시간 동안 정적 배경색을 유지하고, 공유 타이포그래피로
+모든 로그 레이블과 주석을 캡션 크기 하한 이상으로 표시합니다.
 
 완료된 대화 검토도 같은 분리를 따릅니다. Interactive 로컬 전송 계층은 범위가 제한된 Bragi
 `object.turn` 묶음을 발행할 수 있지만 검토자나 영속 제안 저장소를 만들어 내지
