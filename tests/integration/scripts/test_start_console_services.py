@@ -431,6 +431,7 @@ def test_preparation_reuses_an_unchanged_healthy_stack(
     (repo / "console/package-lock.json").write_text("{}\n", encoding="utf-8")
     _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
     _write_ready_dependency_script(repo)
+    (repo / "resolved-models.json").write_text("prepared\n", encoding="utf-8")
     _write_executable(repo / "console/node_modules/.bin/opa", "#!/usr/bin/env bash\nexit 0\n")
     mode_digest = hashlib.sha256(
         f"{digest}\nauth-mode={auth_mode}\nresolved-models-override=\n".encode()
@@ -571,6 +572,9 @@ case "$1" in
   */local-service-input-digest.py) printf '%s\\n' {digest!r} ;;
   */developer-workflow.py) exit 0 ;;
   */sync-entra-spa-redirect.py) exit 0 ;;
+        */ensure-local-models.py)
+            if [[ "${{FAIL_MODEL_SETTINGS:-0}}" == "1" ]]; then exit 42; fi
+            printf 'prepared\\n' > resolved-models.json; exit 0 ;;
     */service-migrations/migrate.py) exit 0 ;;
   *) printf 'unexpected python call: %s\\n' "$1" >&2; exit 99 ;;
 esac
@@ -682,6 +686,23 @@ def test_preparation_reruns_only_the_invalidated_stage(tmp_path: Path) -> None:
     assert result.returncode == 0
     assert result.stdout.count("event=reused") == 7
     assert result.stdout.count("stage=entra-redirects event=completed") == 1
+
+
+def test_preparation_stops_when_model_settings_cannot_be_generated(tmp_path: Path) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path, stale_stage="runtime-environment")
+    environment["FAIL_MODEL_SETTINGS"] = "1"
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+    assert result.returncode == 42
+    assert "stage=runtime-environment event=completed" not in result.stdout
+    assert "service=console-preparation event=completed" not in result.stdout
 
 
 def test_preparation_reports_a_missing_console_environment(tmp_path: Path) -> None:
