@@ -17,6 +17,7 @@ from typing import Any
 from uuid import uuid4
 
 _ROOT = Path(__file__).resolve().parents[2]
+_OPERATOR_HTTP_TIMEOUT_SECONDS = 100
 sys.path.insert(0, str(_ROOT))
 for _source in ("services/core-control-plane/src", "packages/service-contracts/src"):
     sys.path.insert(0, str(_ROOT / _source))
@@ -166,7 +167,10 @@ class OperatorHttpEvaluator:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=180) as response:  # noqa: S310
+            with _open_operator_request(
+                request,
+                timeout=_OPERATOR_HTTP_TIMEOUT_SECONDS,
+            ) as response:  # noqa: S310
                 raw = response.read(_MAX_RESPONSE_BYTES + 1)
         except urllib.error.HTTPError as error:
             reason = (
@@ -177,25 +181,53 @@ class OperatorHttpEvaluator:
             raise CampaignHoldError(reason) from error
         except TimeoutError as error:
             raise CampaignHoldError("operator_timeout") from error
+        except (urllib.error.URLError, OSError) as error:
+            raise CampaignHoldError("operator_transport_unavailable") from error
         if len(raw) > _MAX_RESPONSE_BYTES:
             raise CampaignHoldError("operator_response_too_large")
-        return _terminal_payload(raw.decode("utf-8"))
+        try:
+            decoded = raw.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise CampaignHoldError("operator_response_invalid") from error
+        return _terminal_payload(decoded)
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *_args: Any, **_kwargs: Any) -> None:
+        return None
+
+
+def _open_operator_request(request: urllib.request.Request, *, timeout: int) -> Any:
+    return urllib.request.build_opener(_NoRedirectHandler()).open(request, timeout=timeout)
 
 
 def _terminal_payload(raw: str) -> dict[str, Any]:
     terminal: dict[str, Any] | None = None
-    for frame in raw.strip().split("\n\n"):
+    terminal_seen = False
+    for frame in re.split(r"\r?\n\r?\n", raw.strip()):
         event = "message"
         data: list[str] = []
         for line in frame.splitlines():
+            if line.startswith(":"):
+                continue
             if line.startswith("event:"):
                 event = line.removeprefix("event:").strip()
             elif line.startswith("data:"):
                 data.append(line.removeprefix("data:").strip())
-        if event == "done" and data:
+        if not data:
+            continue
+        if terminal_seen or event == "error":
+            raise CampaignHoldError("terminal_response_invalid")
+        if event != "done":
+            continue
+        try:
             decoded = json.loads("\n".join(data))
-            if isinstance(decoded, Mapping):
-                terminal = {str(key): value for key, value in decoded.items()}
+        except json.JSONDecodeError as error:
+            raise CampaignHoldError("terminal_response_invalid") from error
+        if not isinstance(decoded, Mapping):
+            raise CampaignHoldError("terminal_response_invalid")
+        terminal = {str(key): value for key, value in decoded.items()}
+        terminal_seen = True
     if terminal is None:
         raise CampaignHoldError("terminal_response_missing")
     return terminal

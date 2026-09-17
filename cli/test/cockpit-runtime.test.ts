@@ -21,7 +21,7 @@ describe("consumeSse", () => {
         controller.enqueue(encoder.encode('event: stage\ndata: {"event_id":"event-1",'));
         controller.enqueue(
           encoder.encode(
-            '"correlation_id":"corr-1","stage":"route","phase":"done","ts":"now"}\n\n' +
+            '"correlation_id":"corr-1","stage":"route","phase":"done","ts":"2026-09-17T13:00:00Z"}\n\n' +
               "event: stage\ndata: not-json\n\n",
           ),
         );
@@ -54,6 +54,74 @@ describe("consumeSse", () => {
       headers: { accept: "text/event-stream", authorization: "Bearer opaque-session" },
       redirect: "error",
     });
+  });
+
+  it("preserves multiline data fields and CRLF frame boundaries", async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'event: stage\r\ndata: {"event_id":"event-1","correlation_id":"corr-1",\r\n' +
+              'data: "stage":"route","phase":"done","ts":"2026-09-17T13:00:00+00:00"}\r\n\r\n',
+          ),
+        );
+        controller.close();
+      },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(body, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+      ),
+    );
+    const frames: string[] = [];
+
+    await consumeSse(
+      "https://example.com/live/stream",
+      (frame) => frames.push(frame.event_id),
+      vi.fn(),
+      new AbortController().signal,
+    );
+
+    expect(frames).toEqual(["event-1"]);
+  });
+
+  it("ignores stage frames with malformed timestamps", async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'event: stage\ndata: {"event_id":"event-1","correlation_id":"corr-1",' +
+              '"stage":"route","phase":"done","ts":"not-a-timestamp"}\n\n',
+          ),
+        );
+        controller.close();
+      },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(body, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+      ),
+    );
+    const frames = vi.fn();
+
+    await consumeSse(
+      "https://example.com/live/stream",
+      frames,
+      vi.fn(),
+      new AbortController().signal,
+    );
+
+    expect(frames).not.toHaveBeenCalled();
   });
 
   it("rejects a successful non-SSE response before parsing", async () => {
@@ -124,6 +192,41 @@ describe("consumeSse", () => {
     );
 
     expect(frames).not.toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(statuses).toEqual(["live", "stream error: SSE frame exceeds the size limit"]);
+  });
+
+  it("counts multibyte SSE frames by UTF-8 bytes", async () => {
+    const cancel = vi.fn();
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            `event: stage\ndata: ${"한".repeat(Math.ceil(MAX_COCKPIT_SSE_FRAME_CHARS / 3))}\n\n`,
+          ),
+        );
+      },
+      cancel,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(body, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+      ),
+    );
+    const statuses: string[] = [];
+
+    await consumeSse(
+      "https://example.com/live/stream",
+      vi.fn(),
+      (status) => statuses.push(status),
+      new AbortController().signal,
+    );
+
     expect(cancel).toHaveBeenCalledOnce();
     expect(statuses).toEqual(["live", "stream error: SSE frame exceeds the size limit"]);
   });

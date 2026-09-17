@@ -169,7 +169,7 @@ export async function askChat(
   if (!res.ok) {
     throw await responseError(res, url);
   }
-  const contentType = res.headers.get("content-type") ?? "";
+  const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
   if (!contentType.startsWith("text/event-stream")) {
     throw new Error(`Operator API ${url} returned an invalid chat stream`);
   }
@@ -181,6 +181,7 @@ export async function askChat(
 
 function chatStreamTerminal(raw: string, url: string): unknown {
   let terminal: unknown;
+  let terminalSeen = false;
   for (const frame of raw.split(/\r?\n\r?\n/)) {
     let event = "message";
     const data: string[] = [];
@@ -188,12 +189,17 @@ function chatStreamTerminal(raw: string, url: string): unknown {
       if (line.startsWith("event:")) event = line.slice(6).trim();
       if (line.startsWith("data:")) data.push(line.slice(5).trimStart());
     }
-    if (event !== "done" || data.length === 0) continue;
+    if (data.length === 0) continue;
+    if (terminalSeen || event === "error") {
+      throw new Error(`Operator API ${url} returned invalid chat stream ordering`);
+    }
+    if (event !== "done") continue;
     try {
       terminal = JSON.parse(data.join("\n")) as unknown;
     } catch {
       throw new Error(`Operator API ${url} returned invalid chat stream JSON`);
     }
+    terminalSeen = true;
   }
   if (terminal === undefined) {
     throw new Error(`Operator API ${url} returned a chat stream without a terminal response`);
@@ -251,7 +257,7 @@ async function boundedResponseText(response: Response, maximum: number): Promise
   }
   if (!response.body) return "";
   const reader = response.body.getReader();
-  const decoder = new TextDecoder();
+  const decoder = new TextDecoder("utf-8", { fatal: true });
   let bytes = 0;
   let raw = "";
   try {
@@ -267,6 +273,9 @@ async function boundedResponseText(response: Response, maximum: number): Promise
     }
     raw += decoder.decode();
     return raw;
+  } catch (error) {
+    await reader.cancel(error).catch(() => {});
+    throw error;
   } finally {
     reader.releaseLock();
   }

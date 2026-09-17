@@ -2447,6 +2447,95 @@ async def test_outbox_logs_exact_runtime_call_only_after_broker_acceptance() -> 
     assert records[0]["observation_id"].startswith("sha256:")
 
 
+async def test_runtime_call_observation_failure_does_not_hold_accepted_delivery(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    store = _MemorySemanticStore()
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-runtime-call-failure",
+        request_digest="digest",
+        envelope=envelope,
+    )
+
+    class Publisher:
+        async def publish(self, *_args: object) -> object:
+            return object()
+
+    class Observer:
+        def record(self, _request: Mapping[str, object]) -> str:
+            raise RuntimeError("observation unavailable")
+
+        def emit_record(self, _record: str) -> None:
+            raise AssertionError("unreachable")
+
+    drainer = SemanticTurnOutboxDrainer(
+        store,
+        Publisher(),
+        "replica-a",
+        runtime_call_observer=cast(Any, Observer()),
+    )
+
+    with caplog.at_level(logging.WARNING):
+        assert await drainer.run_once() is True
+
+    assert store.published == 1
+    assert store.releases == 0
+    assert any(
+        record.message == "semantic_runtime_call_observation_failed"
+        and record.failure_type == "RuntimeError"
+        for record in caplog.records
+    )
+
+
+async def test_outbox_closure_failure_releases_accepted_claim_for_retry(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class Store(_MemorySemanticStore):
+        close_attempts = 0
+
+        async def mark_semantic_turn_published(self, *, key: str, claim_id: str) -> bool:
+            self.close_attempts += 1
+            if self.close_attempts == 1:
+                raise OSError("store unavailable")
+            return await super().mark_semantic_turn_published(key=key, claim_id=claim_id)
+
+    class Publisher:
+        calls = 0
+
+        async def publish(self, *_args: object) -> object:
+            self.calls += 1
+            return object()
+
+    store = Store()
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-close-failure",
+        request_digest="digest",
+        envelope=envelope,
+    )
+    publisher = Publisher()
+    drainer = SemanticTurnOutboxDrainer(store, publisher, "replica-a")
+
+    with caplog.at_level(logging.WARNING):
+        assert await drainer.run_once() is False
+    assert store.releases == 1
+    assert await drainer.run_once() is True
+
+    assert publisher.calls == 2
+    assert store.published == 1
+    assert any(
+        record.message == "semantic_outbox_close_failed" and record.failure_type == "OSError"
+        for record in caplog.records
+    )
+
+
 def test_runtime_call_observer_requires_complete_deployed_resource_binding() -> None:
     caller = (
         "/subscriptions/00000000-0000-0000-0000-000000000000/"

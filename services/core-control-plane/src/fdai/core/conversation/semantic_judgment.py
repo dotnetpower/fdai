@@ -22,6 +22,7 @@ from pydantic import ValidationError
 
 from . import semantic_judgment_capabilities as capability_normalization
 from . import semantic_judgment_grounding as grounding
+from . import semantic_judgment_review as review_policy
 from . import semantic_judgment_schema_repair as schema_repair_policy
 from .conversation_preflight import (
     ConversationPreflightBoundary,
@@ -113,6 +114,7 @@ class SemanticJudgmentBoundary:
             raise ValueError("schema-repair semantic judgment binding MUST use T1")
         if escalation is not None and escalation.tier is not SemanticJudgmentTier.T2:
             raise ValueError("escalation semantic judgment binding MUST use T2")
+        review_policy.validate_independent_bindings(primary, escalation)
         if not 0.0 < confidence_threshold <= 1.0:
             raise ValueError("semantic judgment confidence threshold MUST be in (0, 1]")
         self.profile_id = profile_id
@@ -228,27 +230,46 @@ class SemanticJudgmentBoundary:
         final_proposal: SemanticJudgmentProposal | None = None
         schema_fallback_binding: SemanticJudgmentBinding | None = None
         schema_fallback_proposal: SemanticJudgmentProposal | None = None
+        review_primary_binding: SemanticJudgmentBinding | None = None
+        review_primary_proposal: SemanticJudgmentProposal | None = None
         observations: list[SemanticJudgmentObservation] = []
         bindings = tuple(
             item
             for item in (self._primary, self._schema_repair, self._escalation)
-            if item is not None and (allow_escalation or item is not self._escalation)
+            if item is not None
         )
         for binding in bindings:
+            if (
+                binding is self._escalation
+                and not allow_escalation
+                and review_primary_proposal is None
+            ):
+                continue
+            if review_primary_proposal is not None and binding is self._schema_repair:
+                continue
             strict_grounding = self._strict_intent_grounding or binding is self._schema_repair
             schema_repair: tuple[dict[str, str], ...] = ()
             for attempt in range(_MAX_SCHEMA_ATTEMPTS_PER_BINDING):
-                model_response = binding.model.judge(
-                    utterance=utterance,
-                    context=bounded_context,
-                    capabilities=bounded_capabilities,
-                    locale=response_locale,
-                    direct_response_profile=bounded_response_profile,
-                    direct_response_profile_digest=response_profile_digest,
-                    profile_id=self.profile_id,
-                    profile_version=self.profile_version,
-                    schema_repair=schema_repair,
-                )
+                try:
+                    model_response = binding.model.judge(
+                        utterance=utterance,
+                        context=bounded_context,
+                        capabilities=bounded_capabilities,
+                        locale=response_locale,
+                        direct_response_profile=bounded_response_profile,
+                        direct_response_profile_digest=response_profile_digest,
+                        profile_id=self.profile_id,
+                        profile_version=self.profile_version,
+                        schema_repair=schema_repair,
+                    )
+                except Exception as exc:  # noqa: BLE001 - provider detail stays content-free
+                    _LOGGER.warning(
+                        "semantic_judgment_model_failed",
+                        extra={"tier": binding.tier.value, "failure_type": type(exc).__name__},
+                    )
+                    final_disposition = SemanticJudgmentDisposition.UNAVAILABLE
+                    final_reason = "model_provider_error"
+                    break
                 if model_response is None:
                     break
                 if isinstance(model_response, SemanticJudgmentModelResponse):
@@ -388,6 +409,32 @@ class SemanticJudgmentBoundary:
                         )
                         continue
                     break
+                if review_primary_proposal is not None and binding is self._escalation:
+                    if not review_policy.proposals_match(
+                        review_primary_proposal,
+                        proposal,
+                        confidence_threshold=self._confidence_threshold,
+                    ):
+                        return self._result(
+                            started=started,
+                            input_digest=input_digest,
+                            context_digest=context_digest,
+                            capability_digest=capability_digest,
+                            disposition=SemanticJudgmentDisposition.UNAVAILABLE,
+                            reason_code="semantic_judgment_review_conflict",
+                            observations=tuple(observations),
+                        )
+                    return self._result(
+                        started=started,
+                        input_digest=input_digest,
+                        context_digest=context_digest,
+                        capability_digest=capability_digest,
+                        disposition=SemanticJudgmentDisposition.ACCEPTED,
+                        reason_code="accepted_independent_review",
+                        binding=review_primary_binding,
+                        proposal=review_primary_proposal,
+                        observations=tuple(observations),
+                    )
                 if (
                     binding is self._primary
                     and self._schema_repair is not None
@@ -441,6 +488,20 @@ class SemanticJudgmentBoundary:
                     final_binding = binding
                     final_proposal = proposal
                     break
+                if binding is self._primary and review_policy.requires_independent_review(proposal):
+                    if self._escalation is None:
+                        return self._result(
+                            started=started,
+                            input_digest=input_digest,
+                            context_digest=context_digest,
+                            capability_digest=capability_digest,
+                            disposition=SemanticJudgmentDisposition.UNAVAILABLE,
+                            reason_code="semantic_judgment_review_unavailable",
+                            observations=tuple(observations),
+                        )
+                    review_primary_binding = binding
+                    review_primary_proposal = proposal
+                    break
                 return self._result(
                     started=started,
                     input_digest=input_digest,
@@ -452,6 +513,16 @@ class SemanticJudgmentBoundary:
                     proposal=proposal,
                     observations=tuple(observations),
                 )
+        if review_primary_proposal is not None:
+            return self._result(
+                started=started,
+                input_digest=input_digest,
+                context_digest=context_digest,
+                capability_digest=capability_digest,
+                disposition=SemanticJudgmentDisposition.UNAVAILABLE,
+                reason_code="semantic_judgment_review_unavailable",
+                observations=tuple(observations),
+            )
         if schema_fallback_binding is not None and schema_fallback_proposal is not None:
             return self._result(
                 started=started,

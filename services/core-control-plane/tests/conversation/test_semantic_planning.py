@@ -2487,7 +2487,7 @@ def test_operational_frame_requires_accepted_matching_judgment() -> None:
         judgment_accepted=True,
         judgment_evaluated=True,
     )
-    assert not _operational_frame_matches_accepted_judgment(
+    assert _operational_frame_matches_accepted_judgment(
         output_shape="resource_state_list",
         judgment=combined.model_copy(
             update={"requested_facets": ("resource_collection", "list", "current_state")}

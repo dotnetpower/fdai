@@ -298,10 +298,23 @@ class SemanticPlanningService:
                         proposal=judgment_result.proposal,
                         disposition=judgment_result.receipt.disposition,
                         tier=judgment_result.receipt.tier,
+                        reason_code=getattr(judgment_result.receipt, "reason_code", None),
                         observations=judgment_result.observations,
                         accepted=judgment_result.accepted,
                     )
                 model_observations.extend(judgment_decision.observations)
+                if judgment_decision.reason_code in {
+                    "semantic_judgment_review_conflict",
+                    "semantic_judgment_review_unavailable",
+                }:
+                    return preflight_router.finish(
+                        _outcome(
+                            SemanticPlanningDisposition.UNAVAILABLE,
+                            judgment_decision.reason_code,
+                            manifest_digest=manifest.manifest_digest,
+                            model_observations=tuple(model_observations),
+                        )
+                    )
                 judgment_posture = (
                     judgment_decision.proposal.action_posture
                     if judgment_decision.proposal is not None
