@@ -28,6 +28,7 @@ variables {
   workloads = {
     operator-service = {
       component            = "operator"
+      source_commit        = "0000000000000000000000000000000000000000"
       image                = "example.com/fdai/operator@sha256:0000000000000000000000000000000000000000000000000000000000000000"
       identity_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/operator"
       identity_client_id   = "00000000-0000-0000-0000-000000000001"
@@ -45,6 +46,7 @@ variables {
     }
     document-ingestion-api = {
       component            = "ingestion"
+      source_commit        = "0000000000000000000000000000000000000000"
       image                = "example.com/fdai/ingestion@sha256:0000000000000000000000000000000000000000000000000000000000000000"
       identity_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ingestion"
       identity_client_id   = "00000000-0000-0000-0000-000000000002"

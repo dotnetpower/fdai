@@ -16,14 +16,16 @@ def verify_workload_health(
     deployments: str,
     pods: str,
     expected: dict[str, Any],
-    source_commit: str,
+    source_commit: str | None = None,
 ) -> bool:
     """Require complete exact-source workloads, available replicas and running image digests.
 
     Empty, duplicate, stale, malformed or partially healthy observations return false.
     This proves only workload health, not transport, migrations, jobs or application readiness.
     """
-    if not _REQUIRED.issubset(expected) or re.fullmatch(r"[0-9a-f]{40}", source_commit) is None:
+    if not expected or (
+        source_commit is not None and re.fullmatch(r"[0-9a-f]{40}", source_commit) is None
+    ):
         return False
     try:
         deployment_items = _items(deployments, "DeploymentList")
@@ -35,7 +37,13 @@ def verify_workload_health(
             name = item["metadata"]["name"]
             contract = expected[name]
             image = contract["image"]
+            expected_source = contract.get("source_commit", source_commit)
             if not isinstance(image, str) or _IMAGE.fullmatch(image) is None:
+                return False
+            if (
+                not isinstance(expected_source, str)
+                or re.fullmatch(r"[0-9a-f]{40}", expected_source) is None
+            ):
                 return False
             replicas = item["spec"]["replicas"]
             minimum, maximum = contract["replicas"], contract["max_replicas"]
@@ -60,7 +68,7 @@ def verify_workload_health(
             if status.get("unavailableReplicas", 0) != 0:
                 return False
             template = item["spec"]["template"]
-            if template["metadata"]["labels"].get("fdai.io/source-commit") != source_commit:
+            if template["metadata"]["labels"].get("fdai.io/source-commit") != expected_source:
                 return False
             if not any(
                 container.get("name") == name and container.get("image") == image
@@ -74,7 +82,7 @@ def verify_workload_health(
             ]
             active = [pod for pod in selected if not pod["metadata"].get("deletionTimestamp")]
             if len(active) != replicas or not all(
-                _healthy_pod(pod, name, image, source_commit) for pod in active
+                _healthy_pod(pod, name, image, expected_source) for pod in active
             ):
                 return False
         return True

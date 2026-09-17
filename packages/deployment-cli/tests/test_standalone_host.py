@@ -1599,6 +1599,136 @@ def test_aks_application_readback_requires_complete_baseline(
         assert health_checks == []
 
 
+def test_aks_service_update_prepares_and_targets_only_selected_deployment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tmp_path.chmod(0o700)
+    service_names = (
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+    )
+    old_source = "a" * 40
+    new_source = "b" * 40
+    old_images = {
+        name: f"example.com/fdai/{name}@sha256:{index:064x}"
+        for index, name in enumerate(service_names, start=1)
+    }
+    new_image = f"example.com/fdai/core-control-plane@sha256:{'f' * 64}"
+    workloads = {
+        name: {
+            "component": name,
+            "image": image,
+            "replicas": 2,
+            "max_replicas": 3,
+        }
+        for name, image in old_images.items()
+    }
+    expected = {
+        name: {"image": image, "replicas": 2, "max_replicas": 3}
+        for name, image in old_images.items()
+    }
+    context = {
+        "runtime_profile": {"runtime_platform": "aks", "database_placement": "postgres-flex"},
+        "runtime_profile_digest": "c" * 64,
+        "target_binding": "d" * 64,
+        "source_commit": old_source,
+        "expected_workloads": expected,
+        "workloads_infra": str(tmp_path),
+        "workloads_terraform_data": str(tmp_path / "terraform-data-workloads"),
+    }
+
+    def write_private(name: str, value: object) -> None:
+        path = tmp_path / name
+        path.write_text(json.dumps(value), encoding="utf-8")
+        path.chmod(0o600)
+
+    write_private("context.json", context)
+    write_private("workloads.auto.tfvars.json", {"workloads": workloads})
+    write_private("application-receipt.json", {"state": "applied"})
+    for prerequisite in (
+        "substrate-receipt.json",
+        "image-import-receipt.json",
+        "migration-receipt.json",
+        "runtime-receipt.json",
+    ):
+        write_private(prerequisite, {"state": "applied"})
+    deployment_items = [
+        {
+            "metadata": {"name": name, "uid": f"uid-{name}", "generation": 1},
+            "spec": {
+                "template": {
+                    "metadata": {"labels": {"fdai.io/source-commit": old_source}},
+                    "spec": {"containers": [{"name": name, "image": old_images[name]}]},
+                }
+            },
+        }
+        for name in service_names
+    ]
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(
+        standalone_host,
+        "_capture_aks_deployments",
+        lambda _context: json.dumps({"kind": "DeploymentList", "items": deployment_items}),
+    )
+
+    prepared = standalone_host._prepare_aks_service_update(
+        SimpleNamespace(service="core-control-plane", image=new_image, source_commit=new_source),
+        tmp_path,
+    )
+
+    values = json.loads((tmp_path / "workloads.auto.tfvars.json").read_text(encoding="utf-8"))
+    assert values["workloads"]["core-control-plane"]["image"] == new_image
+    assert values["workloads"]["core-control-plane"]["source_commit"] == new_source
+    assert all(
+        values["workloads"][name]["image"] == old_images[name]
+        and values["workloads"][name]["source_commit"] == old_source
+        for name in service_names
+        if name != "core-control-plane"
+    )
+    plan_commands: list[tuple[str, ...]] = []
+
+    def run(command: tuple[str, ...] | list[str], **_kwargs: object) -> None:
+        normalized = tuple(command)
+        plan_commands.append(normalized)
+        output = next(value for value in normalized if value.startswith("-out="))
+        plan_path = Path(output.removeprefix("-out="))
+        plan_path.write_bytes(b"plan")
+        plan_path.chmod(0o600)
+
+    monkeypatch.setattr(standalone_host, "_run", run)
+    monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
+    monkeypatch.setattr(
+        standalone_host,
+        "_capture",
+        lambda *_args, **_kwargs: json.dumps(
+            {
+                "resource_changes": [
+                    {
+                        "address": ('kubernetes_deployment_v1.workload["core-control-plane"]'),
+                        "type": "kubernetes_deployment_v1",
+                        "change": {"actions": ["update"]},
+                    }
+                ]
+            }
+        ),
+    )
+
+    review = standalone_host._plan(
+        SimpleNamespace(stage="application", service="core-control-plane"), tmp_path
+    )
+
+    assert review["service_update"] == {
+        "service": "core-control-plane",
+        "image": new_image,
+        "source_commit": new_source,
+        "update_digest": prepared["update_digest"],
+    }
+    assert '-target=kubernetes_deployment_v1.workload["core-control-plane"]' in plan_commands[0]
+
+
 def test_database_plan_requires_cluster_and_image_receipts(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="database plan prerequisites"):
         standalone_host._plan(SimpleNamespace(stage="database"), tmp_path)

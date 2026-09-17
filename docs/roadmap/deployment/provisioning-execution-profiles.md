@@ -146,6 +146,14 @@ Tenant provisioning never builds or captures an image. The basic path keeps auth
 restricted public management access unless tenant policy requires private access from the first
 effect.
 
+The complete baseline image set is an installation input, not the release unit for every later
+change. After baseline health is established, an operator can build and publish one selected service
+candidate upstream, then deploy only that digest-pinned service without rebuilding, resigning, or
+redeploying unchanged services. The update plans only the selected service-owned state, preserves
+peer service state, and reads back the selected image and health. Select multiple services only when
+a changed wire contract, schema or migration, sidecar, or shared runtime dependency requires a
+coordinated compatibility update.
+
 Selected private application backends, private registry paths and private service endpoints are a
 later detailed provisioning plan. An eligible current VM can serve as `existing-host`, with
 coordinator and execution on the same machine. When policy requires private access during basic
