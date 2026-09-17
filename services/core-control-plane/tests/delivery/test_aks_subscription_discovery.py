@@ -50,6 +50,7 @@ def _credential(cluster_ref: str, *, static_token: bool = False) -> dict[str, An
             "apiVersion": "client.authentication.k8s.io/v1beta1",
             "args": ["get-token", "--server-id", "aks-audience"],
             "command": "kubelogin",
+            "env": [],
             "interactiveMode": "Never",
         }
     }

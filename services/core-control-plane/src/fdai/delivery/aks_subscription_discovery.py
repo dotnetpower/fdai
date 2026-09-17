@@ -276,6 +276,7 @@ def _minimize_exec_kubeconfig(
         "apiVersion",
         "args",
         "command",
+        "env",
         "installHint",
         "interactiveMode",
         "provideClusterInfo",
