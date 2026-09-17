@@ -71,7 +71,7 @@ existing catalog under `rule-catalog/action-types/` and the object types
 under `rule-catalog/vocabulary/object-types/`. A workflow that needs new
 types is a signal to open an upstream doc PR first.
 
-## 1. Cost-aware fix
+## 1. Cost-aware remediation
 
 **Purpose.** Every SRE remediation carries an attached cost impact so the
 verdict reflects both reliability and finance. Prevents automation from
