@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: cff3f6cf47285c668b2cac4a17ec3c36dfdc4fe2
-translation_revised: 2026-09-13
+translation_source_sha: 9e98c28a8c7ee836a88f78e93df1c4e84e4590fb
+translation_revised: 2026-09-18
 ---
 # FDAI 운영 온톨로지 메타모델
 
@@ -96,7 +96,7 @@ account로 별도로 해석합니다. 같은 엔드포인트 pair라도 출처�
 배포 mapping을 추가하면 내용 주소 기반 공급자 스키마 관계 검토를 다시 생성하고 카탈로그
 다이제스트와 겹침 수를 전진시키지만 의미 승격이나 그래프 변경 권한은 부여하지 않습니다. 최상위
 검토는 완전한 mapping 카탈로그를 고정하므로 Kubernetes 전용 mapping 변경도 Azure 후보 수나
-권한을 바꾸지 않고 다이제스트를 다시 생성합니다.
+권한을 바꾸지 않고 다이제스트를 다시 생성합니다. `routes_to`를 다대다로 바꾸는 경우에도 같은 replay 전용 갱신을 적용합니다. mapping과 검토 다이제스트는 바뀌지만 후보 수와 권한은 그대로 유지됩니다.
 리소스와 잘못된 프로바이더 경로는 provider parent 또는 provider root 후보를 만들지 않습니다.
 이 exact mapping과 wildcard 포함 관계 mapping이 같은 하위를 점유하면 exact mapping이 wildcard
 후보를 shadow합니다. 이 규칙은 `contains` one-to-many cardinality를 보존하고 저장된 간선을

@@ -253,6 +253,7 @@ mappings:
     source_property_path: properties.actions.actionGroups[]
     target_provider_types: [Microsoft.Insights/actionGroups]
     link_type: routes_to
+    cardinality: many_to_many
     endpoint_orientation: owner_to_referenced
     source_schema: *arg_schema
     evidence_method: deterministic-cross-check
@@ -587,6 +588,7 @@ mappings:
     source_property_path: properties.networkProfile.loadBalancerProfile.effectiveOutboundIPs[].id
     target_provider_types: [Microsoft.Network/publicIPAddresses]
     link_type: routes_to
+    cardinality: many_to_many
     endpoint_orientation: owner_to_referenced
     source_schema: *arg_schema
     evidence_method: deterministic-cross-check
@@ -613,6 +615,7 @@ mappings:
     source_property_path: properties.destinations.logAnalytics[].workspaceResourceId
     target_provider_types: [Microsoft.OperationalInsights/workspaces]
     link_type: routes_to
+    cardinality: many_to_many
     endpoint_orientation: owner_to_referenced
     source_schema: *arg_schema
     evidence_method: deterministic-cross-check
@@ -626,6 +629,7 @@ mappings:
     source_property_path: properties.destinations.monitoringAccounts[].accountResourceId
     target_provider_types: [Microsoft.Monitor/accounts]
     link_type: routes_to
+    cardinality: many_to_many
     endpoint_orientation: owner_to_referenced
     source_schema: *arg_schema
     evidence_method: deterministic-cross-check
@@ -683,6 +687,7 @@ mappings:
       - Microsoft.Web/staticSites
     reference_format: resolved_name
     link_type: routes_to
+    cardinality: many_to_many
     endpoint_orientation: owner_to_referenced
     source_schema: *arg_schema
     evidence_method: deterministic-cross-check
@@ -701,6 +706,7 @@ mappings:
       - Microsoft.Web/staticSites
     reference_format: resolved_name
     link_type: routes_to
+    cardinality: many_to_many
     endpoint_orientation: owner_to_referenced
     source_schema: *arg_schema
     evidence_method: deterministic-cross-check
@@ -1219,6 +1225,7 @@ mappings:
       - Microsoft.Network/networkInterfaces
       - Microsoft.Network/virtualNetworkGateways
     link_type: routes_to
+    cardinality: many_to_many
     endpoint_orientation: owner_to_referenced
     source_schema: *arg_schema
     evidence_method: deterministic-cross-check
@@ -1553,6 +1560,7 @@ mappings:
     target_provider_types: [kubernetes.pod]
     reference_format: resolved_uid
     link_type: routes_to
+    cardinality: many_to_many
     endpoint_orientation: owner_to_referenced
     source_schema: *kubernetes_inventory_schema
     evidence_method: deterministic-cross-check
@@ -1567,6 +1575,7 @@ mappings:
     target_provider_types: [kubernetes.service]
     reference_format: resolved_names
     link_type: routes_to
+    cardinality: many_to_many
     endpoint_orientation: owner_to_referenced
     source_schema: *kubernetes_inventory_schema
     evidence_method: deterministic-cross-check
@@ -1591,4 +1600,4 @@ review:
   reviewer_identity: fdai-provider-relationship-review
   reviewed_at: 2026-09-13T00:00:00Z
   immutable_receipt_ref: catalog-receipt:provider-relationships:azure-arg-v1
-  content_hash: sha256:c944097ac33171f5c6341da6a031031ea1ce348a3803d671f706d4c2fe15fef3
+  content_hash: sha256:f794c4c95576e31dd6caaecb5593cbfdb1d6f7e8000bf7a0d5ee5aae45ab7b32
