@@ -76,6 +76,16 @@ output "application_insights_connection_string_secret_name" {
   value       = azurerm_key_vault_secret.application_insights_connection_string.name
 }
 
+output "cost_pseudonym_key_secret_name" {
+  description = "Key Vault secret name containing the persistent Cost Governance pseudonym key."
+  value       = try(azurerm_key_vault_secret.cost_pseudonym_key[0].name, "")
+}
+
+output "cost_pseudonym_key_secret_id" {
+  description = "Versioned Key Vault secret id containing the Cost Governance pseudonym key."
+  value       = try(azurerm_key_vault_secret.cost_pseudonym_key[0].id, "")
+}
+
 output "resolved_models_sha256" {
   description = "Resolved-model artifact digest applied to the current runtime revision."
   value       = var.resolved_models_sha256

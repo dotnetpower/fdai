@@ -130,11 +130,12 @@ Each assessment stores bounded metadata, content digests, model identities, crit
 evidence references, cost, and lifecycle state. It does not duplicate unrestricted conversation
 bodies, hidden reasoning, or tool output.
 
-Terminal intake also preserves the exact verification reason, route id, evidence-manifest
-completeness, ontology release, and graph revision when present. Deterministic assessment includes
-that exact reason in its failure signature instead of collapsing every unverified answer into one
-generic class. This keeps provider, context, routing, rendering, policy, rule, ontology, and Dynamic
-failures from satisfying one another's recurrence floor.
+Terminal intake also preserves the exact verification reason, route id, evidence-manifest completeness,
+ontology release, and graph revision when present. Deterministic assessment includes that exact reason
+in its failure signature so unrelated failure classes cannot satisfy one another's recurrence floor.
+
+Semantic evaluators select model-family completion fields; GPT-5-family requests use `max_completion_tokens` and omit sampling temperature. Connection, HTTP status, and invalid-response failures become bounded ASCII reason codes such as `provider_connection`, `provider_http_429`, and `provider_response_invalid`.
+The reducer preserves these codes through a held assessment without retaining provider response content; unknown exceptions fall back to a bounded type name instead of copying exception text into the ledger.
 
 An ontology-owned failure can open a separate `OntologyAdequacyReview`. The first runtime slice is
 hold-first: it records an idempotent shadow review in StateStore but does not claim replay success or

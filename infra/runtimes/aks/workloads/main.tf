@@ -229,6 +229,64 @@ resource "kubernetes_role_binding_v1" "executor_kubernetes_effect" {
   }
 }
 
+resource "kubernetes_role_v1" "executor_external_scale" {
+  for_each = var.executor_external_scale_targets
+
+  metadata {
+    name      = "${var.namespace}-executor-scale"
+    namespace = each.key
+  }
+
+  rule {
+    api_groups     = ["apps"]
+    resources      = ["deployments"]
+    resource_names = sort(tolist(each.value))
+    verbs          = ["get"]
+  }
+
+  rule {
+    api_groups     = ["apps"]
+    resources      = ["deployments/scale"]
+    resource_names = sort(tolist(each.value))
+    verbs          = ["get", "update"]
+  }
+
+  lifecycle {
+    precondition {
+      condition = local.executor_kubernetes_effect_enabled && try(
+        var.workloads["isolated-executor"].environment["FDAI_EXECUTION_VENUE"] == "deployed" &&
+        contains(
+          jsondecode(var.workloads["isolated-executor"].environment["FDAI_KUBERNETES_DIRECT_API_JSON"]).allowed_namespaces,
+          each.key,
+        ),
+        false,
+      )
+      error_message = "External scale RBAC requires a deployed isolated Executor and an explicit matching Kubernetes namespace allowlist."
+    }
+  }
+}
+
+resource "kubernetes_role_binding_v1" "executor_external_scale" {
+  for_each = var.executor_external_scale_targets
+
+  metadata {
+    name      = "${var.namespace}-executor-scale"
+    namespace = each.key
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "Role"
+    name      = kubernetes_role_v1.executor_external_scale[each.key].metadata[0].name
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account_v1.identity["workload-isolated-executor"].metadata[0].name
+    namespace = kubernetes_namespace_v1.runtime.metadata[0].name
+  }
+}
+
 resource "azurerm_federated_identity_credential" "identity" {
   for_each = local.identities
 
@@ -627,6 +685,8 @@ resource "kubernetes_network_policy_v1" "workload" {
 resource "kubernetes_service_v1" "workload" {
   for_each = var.workloads
 
+  wait_for_load_balancer = each.value.external
+
   metadata {
     name      = each.key
     namespace = kubernetes_namespace_v1.runtime.metadata[0].name
@@ -637,7 +697,7 @@ resource "kubernetes_service_v1" "workload" {
     selector = { "app.kubernetes.io/name" = each.key }
     type     = each.value.external ? "LoadBalancer" : "ClusterIP"
     port {
-      port        = each.value.port
+      port        = coalesce(each.value.service_port, each.value.port)
       target_port = each.value.port
     }
   }

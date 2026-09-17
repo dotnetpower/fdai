@@ -21,8 +21,8 @@ Rules the resolver enforces (MUST):
 - **Insufficient quota**: reduce to the largest available capacity that
   is at least 20% of the requested ``capacity_tpm``; below that floor,
   refuse and mark ``hil-only``.
-- **Mixed-model invariant** (`t2.reasoner.primary.publisher !=
-  t2.reasoner.secondary.publisher`) after resolution: raise
+- **Mixed-model invariant** (`t2.reasoner.primary.family !=
+    t2.reasoner.secondary.family`) after resolution: raise
   :class:`ResolverError` - do NOT partially deploy a T2 tier that would
   fail the quality gate.
 
@@ -264,9 +264,8 @@ class ResolvedModels:
     >= 2 entries AND ``llm.t2_primary_latency_routing`` is enabled,
     composition wraps the primary ``CrossCheckModel`` in a
     :class:`LatencyRoutedCrossCheckModel`; otherwise the single primary
-    binds unchanged. Every candidate shares one publisher by the
-    :func:`collect_primary_candidates` guard, so the mixed-model
-    invariant (primary.publisher != secondary.publisher) is preserved -
+    binds unchanged. Every candidate shares one publisher and excludes the
+    selected secondary model family, so the mixed-model family invariant is preserved -
     see docs/roadmap/architecture/llm-strategy.md § T2 Primary Latency Pool.
     """
 
@@ -331,6 +330,23 @@ class ResolvedModels:
                 raise ValueError(
                     "resolved vision candidates MUST exactly reuse narrator candidate routes"
                 )
+        capability_map = {capability.name: capability for capability in self.capabilities}
+        primary = capability_map.get("t2.reasoner.primary")
+        secondary = capability_map.get("t2.reasoner.secondary")
+        if (
+            primary is not None
+            and secondary is not None
+            and primary.family is not None
+            and primary.family == secondary.family
+        ):
+            raise ValueError("resolved T2 primary and secondary MUST use distinct model families")
+        if secondary is not None and secondary.family is not None:
+            for candidate in self.reasoner_primary_candidates:
+                companion = capability_map.get(candidate.deployment, primary)
+                if companion is not None and companion.family == secondary.family:
+                    raise ValueError(
+                        "resolved T2 primary pool MUST exclude the secondary model family"
+                    )
 
     def to_json(self) -> str:
         """JSON with sorted keys - same input yields the same bytes.
@@ -658,29 +674,10 @@ def resolve(
 
 
 def _enforce_mixed_model_invariant(entries: list[ResolvedCapability]) -> None:
-    """Raise :class:`ResolverError` when a mixed-model pair shares a publisher.
-
-    Two pairs MUST stay cross-publisher so the quality gate's independence
-    assumption holds:
-
-    - ``t2.reasoner.primary`` vs ``t2.reasoner.secondary`` (the cross-check
-      pair - correlated errors defeat the check);
-    - ``t2.rubric.judge`` vs ``t2.reasoner.primary`` (a model must not grade
-      its own answer; see docs/roadmap/decisioning/hallucination-rubric-gate.md).
-
-    The rubric judge is intentionally NOT forced distinct from
-    ``t2.reasoner.secondary``. The self-grading hazard is specifically the
-    judge sharing weights with the PROPOSER (primary). The secondary is a
-    cross-check peer playing a different role (structured action agreement,
-    not reasoning assessment), so a shared publisher there does not
-    reintroduce the self-grading failure - and requiring three distinct
-    publishers would make the shipped registry (secondary + judge both
-    prefer Anthropic) unresolvable for no safety gain.
-    """
     by_name: Mapping[str, ResolvedCapability] = {e.name: e for e in entries}
     primary = by_name.get("t2.reasoner.primary")
     secondary = by_name.get("t2.reasoner.secondary")
-    _enforce_distinct_publisher(
+    _enforce_distinct_family(
         primary,
         secondary,
         pair="t2.reasoner.primary/t2.reasoner.secondary",
@@ -690,6 +687,29 @@ def _enforce_mixed_model_invariant(entries: list[ResolvedCapability]) -> None:
         primary,
         pair="t2.rubric.judge/t2.reasoner.primary",
     )
+
+
+def _enforce_distinct_family(
+    left: ResolvedCapability | None,
+    right: ResolvedCapability | None,
+    *,
+    pair: str,
+) -> None:
+    """Raise when both capabilities resolve to the same model family."""
+    if left is None or right is None:
+        return
+    if (
+        left.status in (CapabilityStatus.RESOLVED, CapabilityStatus.CAPACITY_REDUCED)
+        and right.status in (CapabilityStatus.RESOLVED, CapabilityStatus.CAPACITY_REDUCED)
+        and left.family is not None
+        and left.family == right.family
+    ):
+        raise ResolverError(
+            "mixed_model_invariant_violated_after_resolve: "
+            f"{pair} both resolved to family={left.family!r}. Expand "
+            "llm-registry.yaml preferences so a distinct model family can be "
+            "picked in this region, or set mixed_model_mode='hil-only'."
+        )
 
 
 def _enforce_distinct_publisher(

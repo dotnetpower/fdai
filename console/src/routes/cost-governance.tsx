@@ -108,7 +108,11 @@ export function CostGovernanceRoute({
         <p><a href={routeHref("settings-runtime")}>{t("costGovernance.configure")}</a></p>
       ) : null}
       <AsyncBoundary state={state} resourceLabel={t("costGovernance.loading")}>
-        {(projection) => projection.items.length === 0 && projection.analytics == null ? (
+        {(projection) => (
+          projection.items.length === 0
+          && projection.analytics == null
+          && projection.evidence == null
+        ) ? (
           <EmptyState title={t("costGovernance.empty")} body={t("costGovernance.emptyHint")} />
         ) : (
           <CostGovernanceWorkspace projection={projection} />

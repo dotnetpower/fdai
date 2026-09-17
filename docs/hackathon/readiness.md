@@ -91,17 +91,26 @@ order fails. Do not damage RabbitMQ data or delete the Deployment.
 
 ### kubectl fault-injection commands
 
-Run these Bash examples only after the lab target and fault injection are approved. Use an
-already authenticated `kubectl` context, replace both placeholders, and keep the same terminal
-for the following blocks. Every API request has a 10-second timeout and an explicit target;
-these commands do not change the global current context.
+These Bash blocks are ready to paste into the same terminal on the deployment workstation.
+They use the existing dedicated kubeconfig at `$HOME/.kube/aks-store-hackathon.config`, read its
+selected context locally, and target `pets/order-service`. No placeholder replacement is needed.
+Run them only after the lab target and fault injection are approved. The explicit `--kubeconfig`
+ignores other `KUBECONFIG` files and does not change the global current context. Each API request
+has a 10-second timeout; keep credentials and actual cluster identifiers outside the repository.
+
+Run this setup and read-only preflight block first. If the file is missing or its context cannot
+be resolved, stop; the command array remains disabled instead of falling back to another cluster.
 
 ```bash
-DEMO_CONTEXT='<approved-demo-context>'
-DEMO_NAMESPACE='<approved-demo-namespace>'
-demo_kubectl=(kubectl --context="$DEMO_CONTEXT" --namespace="$DEMO_NAMESPACE" --request-timeout=10s)
-"${demo_kubectl[@]}" get deployment store-front product-service order-service
-"${demo_kubectl[@]}" get hpa
+demo_kubectl=(false)
+DEMO_KUBECONFIG="$HOME/.kube/aks-store-hackathon.config"
+DEMO_NAMESPACE='pets'
+[[ -r "$DEMO_KUBECONFIG" ]] &&
+DEMO_CONTEXT="$(kubectl --kubeconfig="$DEMO_KUBECONFIG" config current-context)" &&
+[[ -n "$DEMO_CONTEXT" ]] &&
+demo_kubectl=(kubectl --kubeconfig="$DEMO_KUBECONFIG" --context="$DEMO_CONTEXT" --namespace="$DEMO_NAMESPACE" --request-timeout=10s) &&
+"${demo_kubectl[@]}" get deployment store-front product-service order-service &&
+"${demo_kubectl[@]}" get hpa &&
 "${demo_kubectl[@]}" get deployment order-service -o jsonpath='{.metadata.uid}{"\n"}'
 ```
 
@@ -117,13 +126,14 @@ First validate the change without persisting it:
 	--current-replicas=1 --replicas=0 --dry-run=server --timeout=10s
 ```
 
-After the dry run succeeds and authorization is still current, inject the fault:
+After the dry run succeeds and authorization is still current, paste the next block to stop only
+`pets/order-service`. This is the fault-injection step, not another preview:
 
 ```bash
 "${demo_kubectl[@]}" scale deployment/order-service \
-	--current-replicas=1 --replicas=0 --timeout=10s
-"${demo_kubectl[@]}" get deployment order-service
-"${demo_kubectl[@]}" get pods -l app=order-service
+	--current-replicas=1 --replicas=0 --timeout=10s &&
+"${demo_kubectl[@]}" get deployment order-service &&
+"${demo_kubectl[@]}" get pods -l app=order-service &&
 "${demo_kubectl[@]}" get endpointslices -l kubernetes.io/service-name=order-service
 ```
 
@@ -137,15 +147,16 @@ path. These terminal commands alone do not create an FDAI incident.
 
 Normally, leave restoration to FDAI's approved recovery flow. Use the following only under
 separate current manual-restoration authority after that flow is stopped and its target lock is
-released. Recheck that the target UID matches the retained baseline and that the current replica
-count is 0. Run the actual change only if the dry run succeeds:
+released. Use the same terminal with the setup above; a new terminal needs that setup again.
+Recheck that the target UID matches the retained baseline and that the current replica count is 0.
+This block restores only `pets/order-service` to 1 replica, and only if the dry run succeeds:
 
 ```bash
-"${demo_kubectl[@]}" get deployment order-service -o jsonpath='{.metadata.uid}{"\n"}'
+"${demo_kubectl[@]}" get deployment order-service -o jsonpath='{.metadata.uid}{"\n"}' &&
 "${demo_kubectl[@]}" scale deployment/order-service \
 	--current-replicas=0 --replicas=1 --dry-run=server --timeout=10s &&
 "${demo_kubectl[@]}" scale deployment/order-service \
-	--current-replicas=0 --replicas=1 --timeout=10s
+	--current-replicas=0 --replicas=1 --timeout=10s &&
 "${demo_kubectl[@]}" get deployment store-front product-service order-service
 ```
 

@@ -20,7 +20,7 @@ module "container_app" {
     identity            = var.identity.transport_resource_id
     key_vault_secret_id = var.database.dsn_secret_id
   }]
-  environment = [
+  environment = concat([
     { name = "FDAI_STATE_STORE_DSN", secret_name = "database-dsn" },
     { name = "POSTGRES_HOST", value = var.database.host },
     { name = "FDAI_DATABASE_ROLE", value = var.database.role },
@@ -42,7 +42,9 @@ module "container_app" {
     { name = "FDAI_DEV_OPERATIONS_GATEWAY_URL", value = var.authority.dev_operations_gateway_url },
     { name = "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", value = var.authority.dev_operations_gateway_audience },
     { name = "FDAI_ISOLATED_EXECUTOR_HEALTH_PORT", value = tostring(var.health.port) },
-  ]
+    ], var.kubernetes_direct_api == null ? [] : [
+    { name = "FDAI_KUBERNETES_DIRECT_API_JSON", value = jsonencode(var.kubernetes_direct_api) },
+  ])
   health            = var.health
   scaling           = var.scaling
   component         = "isolated-executor"

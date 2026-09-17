@@ -119,7 +119,10 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "executor_receipt_outbox",
         "conversation_channel_message_claim",
         "cost_collection_cursor",
+        "cost_observation_current",
+        "cost_governance_analytics_run_receipt",
         "cost_governance_analytics_snapshot",
+        "cost_governance_case_projection",
         "cost_governance_campaign_episode",
         "cost_governance_effect_settlement",
         "cost_governance_episode",
@@ -1686,6 +1689,10 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
     inventory_progress_migration = inventory_module.load_revision_metadata(
         MIGRATION_ROOT / "branches/core-control-plane/versions/20260916_core_inventory_progress.py"
     )
+    cost_governance_live_migration = inventory_module.load_revision_metadata(
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260917_core_cost_governance_live_projection.py"
+    )
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1723,6 +1730,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(assignment_receipt_migration.owned_tables)
         | set(handover_semantic_migration.owned_tables)
         | set(inventory_progress_migration.owned_tables)
+        | set(cost_governance_live_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")

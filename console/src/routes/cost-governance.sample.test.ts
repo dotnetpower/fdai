@@ -1,14 +1,18 @@
 import { describe, expect, test } from "vitest";
-import { sampleOutcomeSavings } from "./cost-governance-format";
 import { sampleCostGovernance } from "./cost-governance.sample";
-import { summarizeCostGovernance } from "./cost-governance.view-model";
+import {
+  costDecisionCases,
+  costSettlementOutcomes,
+  resourceEfficiencyView,
+  summarizeSettlements,
+} from "./cost-governance.view-model";
 
 describe("Cost Governance Sample projection", () => {
   test.each([
     ["overview", "service-cost"],
-    ["resource-efficiency", "service-cost"],
-    ["optimization-cases", "optimization_case"],
-    ["outcomes", "outcome"],
+    ["resource-efficiency", "resource_candidate"],
+    ["optimization-cases", "decision_case"],
+    ["outcomes", "settlement_outcome"],
   ] as const)("builds the %s surface with bounded %s records", (surface, expectedKind) => {
     const projection = sampleCostGovernance(surface);
 
@@ -16,43 +20,37 @@ describe("Cost Governance Sample projection", () => {
     expect(projection.source_authority).toBe("synthetic-preview");
     expect(projection.items).not.toHaveLength(0);
     expect(projection.items.every((item) => item["kind"] === expectedKind)).toBe(true);
-    expect(projection.items.every(
-      (item) => item["resource"] === undefined || item["resource"] === null,
-    )).toBe(true);
+    if (surface === "resource-efficiency") {
+      expect(projection.items.every(
+        (item) => typeof item["resource"] === "string",
+      )).toBe(true);
+    }
     expect(projection.analytics?.recommendations.every(
       (recommendation) => recommendation.resource_ref === null,
     )).toBe(true);
   });
 
-  test("keeps Sample outcome records synthetic and effect-verified", () => {
+  test("keeps Sample candidates, cases, and outcomes explicitly typed", () => {
+    const resources = sampleCostGovernance("resource-efficiency");
+    const cases = sampleCostGovernance("optimization-cases");
     const projection = sampleCostGovernance("outcomes");
 
-    expect(projection.items).toHaveLength(2);
-    expect(projection.items.every((item) => (
-      item["status"] === "effect_verified"
-      && item["source_authority"] === "synthetic-preview"
-    ))).toBe(true);
+    expect(resourceEfficiencyView(resources).mode).toBe("resource_candidate");
+    expect(resourceEfficiencyView(resources).candidates).toHaveLength(2);
+    expect(costDecisionCases(cases)).toHaveLength(2);
+    const outcomes = costSettlementOutcomes(projection);
+    expect(outcomes).toHaveLength(2);
+    expect(outcomes.every((item) => item.action_ref && item.action_revision === 1)).toBe(true);
   });
 
   test("derives presentation-only Sample savings without changing Live evidence", () => {
     const projection = sampleCostGovernance("outcomes");
-    const summary = summarizeCostGovernance(projection);
-    const sample = sampleOutcomeSavings(
-      projection.source_authority,
-      summary.rows,
-      projection.analytics!.recommendations,
-    );
+    const sample = summarizeSettlements(costSettlementOutcomes(projection));
 
-    expect(sample).toEqual({
+    expect(sample).toMatchObject({
       verifiedSavings: 41400,
-      projectedSavings: 68200,
-      realization: 41400 / 68200,
       currency: "USD",
+      verifiedCount: 2,
     });
-    expect(sampleOutcomeSavings(
-      "authoritative-live-source",
-      summary.rows,
-      projection.analytics!.recommendations,
-    )).toBeNull();
   });
 });

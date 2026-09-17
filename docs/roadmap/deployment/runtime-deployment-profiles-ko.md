@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 0cb0f728ba88ede44510b1299c798d3d02657ed9
+translation_source_sha: ada87ce9676e261eb361f48bf0629fb5a3e730b8
 translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
@@ -10,7 +10,6 @@ Azure Container Apps는 기존 설치를 위한 호환 프로파일로 계속 �
 
 > **범위:** 이 계약은 신규 설치를 다룹니다. 기존 설치를 다른 런타임 플랫폼으로 옮기려면
 > 별도의 마이그레이션 설계가 필요하며, 프로파일 업데이트만으로 자동 전환되지 않습니다.
->
 > **Azure 범위:** 지원되는 두 런타임 플랫폼은 같은 Azure 공급자 어댑터, 서명된 OCI 이미지,
 > Event Hubs Kafka 엔드포인트, Key Vault, 워크로드 신원, PostgreSQL 스키마를 사용합니다.
 
@@ -64,6 +63,33 @@ fdaictl provision azure \
 바꾸거나 적용 모드를 활성화하지 않습니다. 설치 후 Console은 환경 준비 상태와 읽기 전용 배포 실행 근거를 설정 > 환경 및 배포에서 함께
 제공합니다. 준비 상태 보기가 기본이며 배포 근거는 별도 탭에서 확인합니다. 두 보기 모두 `fdaictl`을 시작하거나 재시도하지 않고 Terraform을
 실행하거나 배포 권한을 획득하지 않습니다. 기존 `/onboarding`과 `/provisioning` 경로는 호환 진입점으로 유지합니다.
+
+### AKS 브라우저 접근
+
+기본 AKS 프로파일은 다음 브라우저 경로를 사용합니다.
+
+```text
+브라우저 -> Static Web Apps -> API Management -> AKS LoadBalancer Service -> Pod
+```
+
+Static Web Apps는 미리 빌드된 Console을 호스팅합니다. API Management(APIM)는 공용 HTTPS API
+경계를 제공합니다. Operator API는 APIM origin root에서 라우팅하고 Document Ingestion은
+`/ingestion`에서 라우팅합니다. Kubernetes Service는 포트 80에서 요청을 받고 기존 컨테이너
+포트로 전달합니다. 워크로드 상태는 Service backend 주소를 사용하므로 APIM도 소유합니다. 공유
+기반은 이 경로에 Azure Front Door를 만들지 않습니다.
+
+APIM은 Microsoft Entra 인증을 대체하지 않습니다. API는 token issuer, audience, lifetime 및
+App Role을 계속 검증합니다. CORS(Cross-Origin Resource Sharing)는 정확한 Static Web Apps
+origin만 허용합니다. Azure Policy가 AKS 서브넷에 네트워크 보안 그룹을 연결하면 워크로드 플랜은
+정확한 공용 Service frontend 주소에 대해서만 TCP 포트 80을 허용합니다. APIM Consumption은
+source 규칙에 사용할 수 있는 고정 outbound 주소를 제공하지 않습니다.
+
+승인된 애플리케이션 플랜이 수렴하면 `fdaictl provision azure`는 각 Terraform 상태에서 SWA와
+APIM 연결을 읽고, 기존 Entra SPA 등록에 정확한 SWA redirect를 추가한 뒤, 서명된 키트의 미리
+빌드된 Console을 게시합니다. 테넌트 프로비저닝에서는 npm build를 실행하지 않습니다. 완료로
+판단하려면 원격 산출물 hash, SPA route fallback, 두 API 상태 확인, 정확한 origin의 authorization
+preflight, `/audit`의 인증되지 않은 요청에 대한 `401`, 구성한 Console origin으로 돌아오는 Entra
+redirect를 모두 확인해야 합니다.
 
 ### 기본값 및 검증
 
@@ -161,7 +187,9 @@ Integration이 활성화되어 있으며 검토한 관리 경로로 접근할 �
 소유자 전용 kubeconfig를 사용합니다.
 이 공개 기본 구성에 대한 Terraform 스캐너 예외들은 해당 리소스에만 적용하며, 명시적 CIDR 허용
 목록, Microsoft Entra RBAC, 비활성화된 로컬 계정 및 VNet Integration 통제를 함께 명시합니다.
-다른 AKS 발견 사항을 숨기거나 이후 비공개 전환을 인증하지 않습니다.
+다른 AKS 발견 사항을 숨기거나 이후 비공개 전환을 인증하지 않습니다. APIM Consumption 예외는
+VNet 통합 미지원, 독립적인 API 인증과 정확한 origin CORS, 포트 80 규칙의 정확한 LoadBalancer
+대상 주소 2개도 함께 명시합니다.
 DB 및 애플리케이션 준비는 모두 소유자 전용 kubeconfig를 [`kubelogin` 관리 ID 인증](https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication)으로 변환하며
 `--login msi`와 정확한 관리 호스트 client ID를 지정합니다. 자격 증명 조회는 구독을 고정하고
 관리자 자격 증명을 요청하지 않습니다. 로컬 `kubectl config view --minify` 재조회는 exec만
@@ -240,8 +268,9 @@ archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle�
 요구합니다. 비어 있거나 중복되거나 오래되거나 형식이 잘못됐거나 일부만 정상인 응답은 성공이
 아니라 사용 불가로 처리합니다. 기대 목록에는 다섯 기본 서비스가 모두 있어야 하며, 생성기가
 하나를 누락했다고 해서 부분 롤아웃을 완료된 것으로 판단해서는 안 됩니다.
-이 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는
-전체 배포 준비가 검증되지는 않습니다. 워크로드 생성기는 Operator, 격리된 Executor, 문서 API,
+이 워크로드 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는 전체 배포 준비가
+검증되지는 않습니다. 별도의 브라우저 게시 게이트가 워크로드 수렴 뒤 Console과 API 경계를
+검증합니다. 워크로드 생성기는 Operator, 격리된 Executor, 문서 API,
 문서 Worker에 각각 `fdai_operator`, `fdai_executor`, `fdai_ingestion_api`,
 `fdai_ingestion_worker` 역할을 `FDAI_DATABASE_ROLE`과 일치하는 `PGOPTIONS`로 설정합니다.
 호출자의 환경은 변경하지 않습니다. 생성되는 모든 서비스는 배포된 실행 위치를 명시적으로
@@ -253,6 +282,61 @@ Executor 실행 권한 전환을 활성화하지 않습니다.
 각 FDAI 워크로드는 현재 user-assigned Managed Identity를 유지합니다. AKS에서는 namespace에 속한
 Kubernetes ServiceAccount가 federated identity credential을 받습니다. 권한이 높은 Executor 신원은
 Console, Operator Service, 작업 또는 다른 워크로드와 공유하지 않습니다. 선택적 dev operations gateway는 reader와 executor identity를 분리합니다. 태그 canary는 FDAI 애플리케이션 리소스 그룹의 `Tag Contributor`만 사용하며 reader 접근은 사전 점검, 쓰기 후 확인 및 rollback 확인을 담당합니다. ActionType 버전을 변경하면 두 convergence 테스트의 기대값을 포함한 정확한 ontology 및 Cost Governance 프로파일 pin을 다시 생성하지만 package를 활성화하지는 않습니다. 이 역할은 `remediate.tag-add`를 승격하지 않으며 배포와 ActionType 승격에는 각각 별도 승인이 필요합니다. Kubernetes 효과 경로를 구성하면 namespace Role 하나를 격리된 실행기 ServiceAccount에만 연결하고 Pod `get` 및 `delete`, Deployment `get` 및 `patch`, Deployment scale `get` 및 `update`만 허용합니다. 클러스터 전체 변경, 리소스 생성, secret 접근 또는 읽기 전용 인벤토리 작업 권한은 부여하지 않습니다. 런타임 구성은 자격 증명을 포함하지 않고 클러스터 내부 API 원점, 투영된 자격 증명 경로, 정확한 AKS 리소스 ID 및 `fdai-runtime` namespace 허용 목록을 연결합니다.
+
+### 외부 Deployment의 정확한 확장 대상
+
+워크로드 루트는 기존 네임스페이스와 비어 있지 않은 정확한 Deployment 이름 집합을 연결하는
+선택적 `executor_external_scale_targets` 입력을 받습니다. 기본값은 빈 목록입니다. 각 항목은
+해당 네임스페이스에 Role과 RoleBinding을 하나씩 생성하며, FDAI 런타임 네임스페이스의 기존
+격리 실행기 ServiceAccount에만 연결합니다. 이는 다른 에이전트가 아니라 Thor의 실행
+런타임입니다. Role은 이름이 지정된 Deployment의 `get`과 `deployments/scale`의 `get`,
+`update`만 허용합니다. Pod, Secret, ConfigMap, 생성, 삭제, 와일드카드 또는 클러스터 전체
+권한은 추가하지 않습니다.
+
+계획 단계에서는 시스템, 기본 및 런타임 네임스페이스, 비어 있거나 너무 큰 대상 집합,
+배포된 실행기의 명시적인 Direct API 허용 목록에 없는 네임스페이스를 거부합니다. 대상
+네임스페이스와 워크로드는 이미 존재해야 하며, 이 입력으로 생성하거나 관리 대상으로
+가져오지 않습니다. RBAC 권한은 합산되므로 최소 권한이라고 주장하기 전에 적용 가능한
+다른 권한 연결도 모두 확인해야 합니다. 현재 대상 UID와 리소스 버전, 승인된 복제본 수,
+대상 잠금, 승격, 사람 승인, 롤백 및 독립적인 효과 관찰은 계속 런타임 요구 사항입니다.
+
+이 입력은 정확히 검토된 워크로드 계획에 속합니다. 로컬 런타임 권한을 바꾸거나 실행기 허용
+목록을 자동으로 넓히거나 클러스터를 선택하거나 자격 증명을 제공하거나 스스로 권한을 적용하지
+않습니다. 소스 실행 호출부 연결과 대상이 확정된 통제된 적용은 별도의 배포 작업입니다. 권한
+부여에는 검토된 수명 주기와 회수 절차가 필요합니다. Kubernetes RBAC에는 기본 만료 기능이
+없으므로 이 모듈만으로 시간 제한이 있는 권한 부여를 증명하지는 않습니다.
+
+### 연결된 신원으로 Kubernetes 인증
+
+**초기 설계:** Thor에 이미 연결된 Managed Identity를 재사용하여 Container Apps 실행기에서
+Kubernetes 요청을 인증합니다. 사람의 kubeconfig를 복사하거나 실행 권한의 소유자를 바꾸지 않습니다.
+
+**검토:** 토큰 파일만 읽는 어댑터는 이 신원을 사용할 수 없습니다. 주변 환경의 자격 증명으로
+대체하면 다른 주체를 선택할 수 있고, ServiceAccount RoleBinding만으로 Entra 권한을 증명할 수 없습니다.
+
+**수정 설계:** 격리된 실행기는 `FDAI_KUBERNETES_DIRECT_API_JSON`에서 자격 증명 원본을
+하나만 받습니다. 기존 `token_path` 또는 토큰 경로 없는 명시적 `audience`입니다. 두 방식 모두
+정확한 HTTPS `api_server`, `cluster_ref`, `allowed_namespaces`와 절대 경로 `ca_path`
+또는 공개 `ca_pem` 중 정확히 하나가
+필요합니다. 대상이 지정된 방식은 명령의 `executor_identity_ref`를 기존에 등록된 Thor 영역별
+신원에서만 찾습니다. 각 요청은 서비스가 소유한 신원 어댑터를 통해 시간과 크기가 제한되고,
+만료되지 않았으며, 대상이 일치하는 토큰을 얻습니다. CLI, 사람, 기본 신원 또는 다른 자격 증명으로
+대체하지 않습니다. 동시 명령이 변경 가능한 신원 선택 상태를 공유해서는 안 됩니다. TLS 검증과
+리디렉션 거부는 계속 필수입니다.
+
+Container Apps 실행기 루트는 `api_server`, `cluster_ref`, `audience`, `ca_pem`,
+`allowed_namespaces`를 담은 선택적 `kubernetes_direct_api` 객체를 받습니다. 기본값은
+`null`입니다. 이 명시적 연결만 `FDAI_KUBERNETES_DIRECT_API_JSON`으로 직렬화하고 기존에
+연결된 신원을 재사용합니다. 실행 권한 전환을 켜거나 역할을 부여하지는 않습니다. 런타임은
+구성을 받기 전에 공개 CA를 파싱하고 개인 키, 잘못된 PEM 및 중복 CA 원본을 거부합니다.
+파일을 쓰지 않고도 인증서와 호스트 이름 검증을 유지합니다. 정확한 배포 계획에서 공급자를
+통해 확인한 CA를 제공하고 경로, 신원 권한 및 롤백을 별도로 구성해야 합니다. 이 모듈이
+클러스터를 선택하거나 검색하지는 않습니다.
+
+이 변경은 인증 기능만 추가하며 권한 부여, 승격 또는 배포된 연결을 의미하지 않습니다. 정확한
+계획에서 사설 네트워크 연결, CA 출처, 선택한 신원의 실제 Kubernetes 권한, 대상 밖 작업 거부,
+권한 회수 및 모든 런타임 안전장치를 별도로 증명해야 합니다. Azure RBAC와 기본 Kubernetes
+RBAC에는 각각 실제 접근 근거가 필요하며, 토큰 획득 성공만으로 이를 추론하지 않습니다.
 
 다섯 기본 서비스는 `AZURE_FEDERATED_TOKEN_FILE`이 선언되면 Azure Identity SDK의 워크로드
 자격 증명을 선택합니다. 투영된 토큰 경로는 절대 경로여야 하고 tenant와 client 식별자는
@@ -281,10 +365,8 @@ Container Apps 프로필에서 보호된 플랫폼과 Core 사이의 인계는 �
 Resilience 실행 자격 증명 계보를 기록합니다. 어떤 신원 선택도 실행 권한을 부여하지 않으며
 로컬 interactive는 이 결속을 받지 않습니다.
 
-AKS managed Key Vault CSI 공급자는 각 워크로드의 federated identity를 사용해 고정된 Key Vault
-참조를 namespace의 Kubernetes Secrets로 동기화합니다. 애플리케이션은 계속 환경 변수를 읽으며
-Key Vault를 직접 호출하지 않습니다. Terraform 플랜에는 secret 값이 아니라 secret 이름과 버전 없는
-참조가 포함됩니다.
+AKS managed Key Vault CSI 공급자는 각 워크로드의 federated identity를 사용해 고정된 Key Vault 참조를 namespace의 Kubernetes Secrets로 동기화합니다. 애플리케이션은 계속 환경 변수를 읽으며 Key Vault를 직접 호출하지 않습니다. Terraform 플랜에는 secret 값이 아니라 secret 이름과 버전 없는 참조가 포함됩니다.
+Operator Cost Governance 가명 키도 같은 서비스 소유 비밀 경계를 따릅니다. Container Apps와 AKS 프로필은 Key Vault에 엔트로피가 높은 값 하나를 보존하고 `FDAI_COST_PSEUDONYM_KEY`로만 주입합니다. root는 비밀 참조를 Operator에만 전달하며 격리된 Executor에는 전달하지 않습니다. 플랜, 출력, 로그, 계약 및 브라우저 응답에는 키가 포함되지 않습니다. 로컬 준비는 gitignored 기존 값을 보존하거나 같은 최소 강도의 값을 생성합니다. 이 키는 신원 공개 방식만 바꾸며 비용 데이터 접근 권한이나 작업 권한을 부여하지 않습니다.
 
 managed CSI 공급자는 클러스터와 함께 활성화되며 FDAI 워크로드 롤아웃과 분리됩니다. 배포 키트에는
 Kubernetes 공급자와 서명된 `kubectl`, `kubelogin` 바이너리가 포함됩니다. 배포는 키트 검증 이후

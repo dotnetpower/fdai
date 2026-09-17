@@ -7,12 +7,12 @@
     "en": {
       "title": "Bootstrap Provisioner",
       "description": "FDAI flow for Bootstrap Provisioner.",
-      "alt": "Bootstrap Provisioner. The main stages are Terraform / Bicep: azd up, Azure OpenAI or Foundry resource, resolver, llm-registry.yaml, query catalog: / available families + versions in region, for each capability: / first preference available, mark capability hil-only / report completeness impact, create deployment / with TPM or PTU capacity, verify mixed-model invariant: / primary.publisher ≠ secondary.publisher, FAIL, write resolved-models.json to Key Vault / + audit entry."
+      "alt": "Bootstrap Provisioner. The main stages are Terraform / Bicep: azd up, Azure OpenAI or Foundry resource, resolver, llm-registry.yaml, query catalog: / available families + versions in region, for each capability: / first preference available, mark capability hil-only / report completeness impact, create deployment / with TPM or PTU capacity, verify mixed-model invariant: / primary.family != secondary.family, FAIL, write resolved-models.json to Key Vault / + audit entry."
     },
     "ko": {
       "title": "부트스트랩 Provisioner",
       "description": "부트스트랩 Provisioner에 대한 FDAI 흐름입니다.",
-      "alt": "부트스트랩 Provisioner. 주요 단계는 Terraform / Bicep: azd up, Azure OpenAI or Foundry resource, resolver, llm-registry.yaml, query catalog: / available families + versions in region, for each capability: / first preference available, capability를 hil-only로 표시 / completeness impact 보고, create deployment / with TPM or PTU capacity, verify mixed-model invariant: / primary.publisher ≠ secondary.publisher, FAIL, write resolved-models.json to Key Vault / + audit entry입니다."
+      "alt": "부트스트랩 Provisioner. 주요 단계는 Terraform / Bicep: azd up, Azure OpenAI or Foundry resource, resolver, llm-registry.yaml, query catalog: / available families + versions in region, for each capability: / first preference available, capability를 hil-only로 표시 / completeness impact 보고, create deployment / with TPM or PTU capacity, verify mixed-model invariant: / primary.family != secondary.family, FAIL, write resolved-models.json to Key Vault / + audit entry입니다."
     }
   },
   "assets": {
@@ -133,12 +133,12 @@
       "kind": "process",
       "shape": "card",
       "label": {
-        "en": "verify mixed-model invariant: / primary.publisher ≠ secondary.publisher",
-        "ko": "verify mixed-model invariant: / primary.publisher ≠ secondary.publisher"
+        "en": "verify mixed-model invariant: / primary.family != secondary.family",
+        "ko": "verify mixed-model invariant: / primary.family != secondary.family"
       },
       "description": {
-        "en": "verify mixed-model invariant: / primary.publisher ≠ secondary.publisher",
-        "ko": "verify mixed-model invariant: / primary.publisher ≠ secondary.publisher"
+        "en": "verify mixed-model invariant: / primary.family != secondary.family",
+        "ko": "verify mixed-model invariant: / primary.family != secondary.family"
       }
     },
     {

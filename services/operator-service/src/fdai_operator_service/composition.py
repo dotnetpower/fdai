@@ -77,7 +77,10 @@ from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     T1ModelHealthReader,
     runtime_call_endpoint_observer_from_config,
 )
-from fdai_operator_service.families.cost_governance import CostGovernanceFamilyDependencies
+from fdai_operator_service.families.cost_governance import (
+    CostGovernanceFamilyDependencies,
+    decode_cost_pseudonym_key,
+)
 from fdai_operator_service.families.operations import PanelRoute
 from fdai_operator_service.families.operations.contracts import ProjectionReader
 from fdai_operator_service.family_adapters import (
@@ -768,7 +771,7 @@ def _build_route_families(
             projections=cost_reader,
             analytics=cost_reader,
             disclosure_audit=cost_reader,
-            pseudonym_key=(environment.values.get(COST_PSEUDONYM_KEY_ENV, "").encode() or None),
+            pseudonym_key=decode_cost_pseudonym_key(environment.values.get(COST_PSEUDONYM_KEY_ENV)),
             authenticated_review_access=(
                 environment.values.get(
                     "FDAI_COST_GOVERNANCE_AUTHENTICATED_REVIEW_ACCESS",

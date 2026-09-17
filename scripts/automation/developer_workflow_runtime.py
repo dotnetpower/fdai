@@ -32,6 +32,10 @@ LOCAL_SERVICE_ENDPOINTS = (
 )
 LOCAL_LOOP_SERVICES = (
     ("local-analyzer", "fdai.delivery.analyzer_tick_cli"),
+    (
+        "cost-governance-analytics",
+        "scripts/deployment/local/collect-cost-governance-analytics.py",
+    ),
     ("inventory-reconciliation", "fdai.delivery.inventory_sync_cli"),
     ("observation-campaign", "fdai.delivery.observation_campaign_cli"),
 )
@@ -177,7 +181,13 @@ def _module_owners(records: list[tuple[Path, list[str]]], module: str) -> set[Pa
     for cwd, arguments in records:
         if "pytest" in arguments:
             continue
-        if any(arguments[index : index + 2] == ["-m", module] for index in range(len(arguments))):
+        module_match = any(
+            arguments[index : index + 2] == ["-m", module] for index in range(len(arguments))
+        )
+        script_match = "/" in module and any(
+            argument.replace("\\", "/").endswith(module) for argument in arguments
+        )
+        if module_match or script_match:
             owners.add(cwd)
     return owners
 
@@ -271,6 +281,24 @@ def _analyzer_tick_ready(root: Path) -> bool:
     return ready
 
 
+def _cost_analytics_ready(root: Path) -> bool:
+    """Require a successful or disabled tick after the latest managed start."""
+
+    ready = False
+    for line in _service_log_lines(root, "cost-governance-analytics"):
+        if "service=cost-governance-analytics event=starting" in line:
+            ready = False
+        elif "service=cost-governance-analytics event=ready" in line:
+            ready = True
+        elif (
+            "service=cost-governance-analytics event=failed" in line
+            or "service=cost-governance-analytics event=waiting" in line
+            or "service=cost-governance-analytics event=stopped" in line
+        ):
+            ready = False
+    return ready
+
+
 def _log_timestamp(line: str) -> datetime | None:
     try:
         observed = datetime.fromisoformat(line.split(" ", 1)[0])
@@ -285,6 +313,7 @@ def local_services_diagnostic(
     probe: Callable[[str], bool] = _http_ready,
     core_probe: Callable[[Path], bool] = _core_heartbeat_ready,
     analyzer_probe: Callable[[Path], bool] = _analyzer_tick_ready,
+    cost_analytics_probe: Callable[[Path], bool] = _cost_analytics_ready,
     inventory_probe: Callable[[Path], bool] = _inventory_coverage_ready,
     process_records: list[tuple[Path, list[str]]] | None = None,
     resolved: RepositoryLocation | None = None,
@@ -312,6 +341,8 @@ def local_services_diagnostic(
         ready = repo_root in _module_owners(records, module)
         if name == "local-analyzer":
             ready = ready and analyzer_probe(repo_root)
+        elif name == "cost-governance-analytics":
+            ready = ready and cost_analytics_probe(repo_root)
         services.append({"name": name, "ready": ready})
     services.append({"name": "inventory-coverage", "ready": inventory_probe(repo_root)})
     unavailable = [str(service["name"]) for service in services if not service["ready"]]

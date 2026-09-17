@@ -1,21 +1,28 @@
+import asyncio
 from collections.abc import Mapping
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
+import httpx
 import pytest
 from fdai_executor_service.adapters.kubernetes_direct_api import (
+    HttpxKubernetesApiTransport,
     KubernetesApiResponse,
     KubernetesDirectApiConfig,
     KubernetesDirectApiExecutor,
     KubernetesDirectApiRouter,
 )
 from fdai_service_contracts.executor import (
+    DirectApiAuthenticationError,
     DirectApiOutcome,
     DirectApiPreconditionError,
     DirectApiPromotionError,
     DirectApiReceipt,
     DirectApiRequest,
+    IdentityToken,
     Mode,
 )
 
@@ -171,3 +178,167 @@ async def test_router_uses_fallback_only_for_non_kubernetes_actions() -> None:
     assert receipt.receipt_ref == "fallback:one"
     assert fallback.calls == [request]
     assert transport.calls == []
+
+
+class _Identity:
+    def __init__(self, token: IdentityToken) -> None:
+        self.token = token
+        self.audiences: list[str] = []
+
+    async def get_token(self, audience: str) -> IdentityToken:
+        self.audiences.append(audience)
+        return self.token
+
+
+def _identity_config() -> KubernetesDirectApiConfig:
+    return KubernetesDirectApiConfig(
+        api_server="https://kubernetes.example.com",
+        cluster_ref="cluster:one",
+        token_path=None,
+        ca_path=Path("/var/run/certificates/ca.crt"),
+        allowed_namespaces=frozenset({"fdai-runtime"}),
+        audience="api://kubernetes-test",
+    )
+
+
+@pytest.mark.parametrize("defect", ["expired", "naive", "audience", "empty", "oversized", "header"])
+async def test_identity_token_rejected_before_http(
+    defect: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = datetime(2026, 9, 17, tzinfo=UTC)
+    token = IdentityToken(
+        token="test-token",
+        expires_at=now + timedelta(minutes=5),
+        audience="api://kubernetes-test",
+    )
+    if defect == "expired":
+        token = replace(token, expires_at=now + timedelta(seconds=30))
+    elif defect == "naive":
+        token = replace(token, expires_at=now.replace(tzinfo=None))
+    elif defect == "audience":
+        token = replace(token, audience="api://other")
+    elif defect == "empty":
+        token = replace(token, token="")
+    elif defect == "oversized":
+        token = replace(token, token="x" * 16_385)
+    else:
+        token = replace(token, token="invalid\r\nheader")
+    identity = _Identity(token)
+
+    def forbidden_http(**kwargs: object) -> None:
+        pytest.fail("invalid identity token reached HTTP")
+
+    monkeypatch.setattr(
+        "fdai_executor_service.adapters.kubernetes_direct_api.httpx.AsyncClient", forbidden_http
+    )
+    transport = HttpxKubernetesApiTransport(
+        _identity_config(), identity=identity, clock=lambda: now
+    )
+
+    with pytest.raises(DirectApiAuthenticationError):
+        await transport.request(method="PUT", path="/scale", body={}, dry_run=True)
+    assert identity.audiences == ["api://kubernetes-test"]
+
+
+@pytest.mark.parametrize("identity_ref", [None, "identity/reader", "identity/change"])
+async def test_identity_selection_rejects_missing_or_unbound_reference(
+    identity_ref: str | None,
+) -> None:
+    transport = _Transport()
+    identity = _Identity(IdentityToken("test-token", datetime(2026, 9, 17, tzinfo=UTC), "test"))
+    executor = KubernetesDirectApiExecutor(
+        config=_identity_config(), transport=transport, identities={"identity/resilience": identity}
+    )
+    metadata = {} if identity_ref is None else {"executor_identity_ref": identity_ref}
+
+    with pytest.raises(DirectApiPreconditionError, match="executor_identity_ref"):
+        await executor.execute(replace(_request(), metadata=metadata))
+    assert transport.calls == []
+    assert identity.audiences == []
+
+
+async def test_identity_transport_preserves_per_command_identity_and_dry_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = datetime(2026, 9, 17, tzinfo=UTC)
+    calls: list[tuple[str, bool]] = []
+    config = _identity_config()
+    identities = {
+        reference: _Identity(
+            IdentityToken(reference, now + timedelta(minutes=5), "api://kubernetes-test")
+        )
+        for reference in ("identity/resilience", "identity/finops")
+    }
+
+    class Client:
+        def __init__(self, **settings: Any) -> None:
+            assert settings["base_url"] == config.api_server
+            assert settings["verify"] == str(config.ca_path)
+            assert settings["follow_redirects"] is False
+
+        async def __aenter__(self) -> "Client":
+            return self
+
+        async def __aexit__(self, *args: Any) -> None:
+            return None
+
+        async def request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+            await asyncio.sleep(0)
+            assert method == "PUT"
+            assert path.endswith("/namespaces/fdai-runtime/deployments/operator-service/scale")
+            assert kwargs["json"]["metadata"]["uid"] == "uid-1"
+            calls.append((kwargs["headers"]["authorization"], kwargs["params"] is not None))
+            return httpx.Response(
+                200, json={"metadata": {"uid": "uid-1", "resourceVersion": "rv-2"}}
+            )
+
+    original_transport = HttpxKubernetesApiTransport
+    monkeypatch.setattr(
+        "fdai_executor_service.adapters.kubernetes_direct_api.httpx.AsyncClient", Client
+    )
+    monkeypatch.setattr(
+        "fdai_executor_service.adapters.kubernetes_direct_api.HttpxKubernetesApiTransport",
+        lambda config, identity: original_transport(config, identity=identity, clock=lambda: now),
+    )
+    executor = KubernetesDirectApiExecutor(config=config, identities=identities)
+
+    receipts = await asyncio.gather(
+        *(
+            executor.execute(replace(_request(), metadata={"executor_identity_ref": reference}))
+            for reference in identities
+        )
+    )
+
+    assert all(receipt.outcome is DirectApiOutcome.SUCCEEDED for receipt in receipts)
+    for reference, identity in identities.items():
+        assert identity.audiences == ["api://kubernetes-test"] * 2
+        assert [dry_run for bearer, dry_run in calls if bearer == f"Bearer {reference}"] == [
+            True,
+            False,
+        ]
+
+
+@pytest.mark.parametrize("failure", ["error", "timeout"])
+async def test_identity_acquisition_failure_has_no_fallback(failure: str) -> None:
+    class FailingIdentity:
+        async def get_token(self, audience: str) -> IdentityToken:
+            if failure == "timeout":
+                await asyncio.Future()
+            raise RuntimeError("provider-private-diagnostic")
+
+    transport = HttpxKubernetesApiTransport(
+        replace(_identity_config(), timeout_seconds=0.1), identity=FailingIdentity()
+    )
+    with pytest.raises(DirectApiAuthenticationError, match="acquisition failed") as caught:
+        await transport.request(method="PUT", path="/scale", body={}, dry_run=True)
+    assert caught.value.__cause__ is None
+    assert caught.value.__suppress_context__ is True
+    assert "provider-private-diagnostic" not in str(caught.value)
+
+
+async def test_file_token_source_stays_compatible(tmp_path: Path) -> None:
+    token_path = tmp_path / "token"
+    token_path.write_text("test-service-account\n", encoding="utf-8")
+    config = replace(_identity_config(), audience=None, token_path=token_path)
+
+    assert await HttpxKubernetesApiTransport(config)._token() == "test-service-account"

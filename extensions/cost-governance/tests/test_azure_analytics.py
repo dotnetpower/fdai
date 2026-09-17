@@ -86,6 +86,44 @@ def test_builds_safe_trend_budget_and_candidate_recommendation() -> None:
     assert evidence_digest == snapshot_id.replace("analytics:", "sha256:")
 
 
+def test_normalizes_advisor_rest_properties_without_retaining_resource_id() -> None:
+    projection = build_azure_cost_analytics(
+        usage_items=(),
+        budget_items=(),
+        advisor_items=(
+            {
+                "id": "/recommendations/one",
+                "properties": {
+                    "impact": "High",
+                    "impactedField": "Microsoft.ContainerService/managedClusters",
+                    "impactedValue": "/subscriptions/private/managedClusters/one",
+                    "shortDescription": {
+                        "problem": "Oversized cluster",
+                        "solution": "Use a smaller compatible node SKU",
+                    },
+                    "extendedProperties": {
+                        "annualSavingsAmount": "240",
+                        "savingsCurrency": "USD",
+                        "skuName": "Standard_D4s_v5",
+                        "displaySKU": "Standard_D2s_v5",
+                    },
+                },
+            },
+        ),
+        utilization_by_resource={
+            "/subscriptions/private/managedclusters/one": Decimal("17.5"),
+        },
+        observed_at=NOW,
+        complete=True,
+    )
+
+    recommendation = projection.recommendations[0]
+    assert recommendation.current_sku == "Standard_D4s_v5"
+    assert recommendation.target_sku == "Standard_D2s_v5"
+    assert recommendation.utilization_percent == Decimal("17.5")
+    assert "subscriptions/private" not in repr(recommendation)
+
+
 def test_percentile_95_ignores_invalid_values() -> None:
     assert percentile_95([1, 2, 3, float("nan"), -1]) == Decimal("3.00")
     assert percentile_95([]) is None

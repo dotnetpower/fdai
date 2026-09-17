@@ -379,8 +379,14 @@ that Cost Governance is merely unconfigured.
 The client coalesces concurrent manifest reads and reuses a successful result for at most 15
 seconds. The next source-gated read revalidates expired provenance, so an Operator Service restart
 or configuration recovery cannot pin Cost Governance to an earlier unavailable state.
-Route-owned decoders load only after their owning read begins, so unrelated Audit, agent-activity,
-Insights, and Reporting decoders do not enter the initial Cost Governance Console path.
+Route-owned decoders load only after their owning read begins, so unrelated Audit, agent-activity, Insights, and Reporting decoders do not enter the initial Cost Governance Console path.
+The Cost Governance decoder accepts the complete versioned `CostReadinessReason` vocabulary,
+renders each known reason through the English and Korean catalogs, and keeps an unknown reason as a
+visible contract error instead of hiding degraded evidence.
+Aggregate disclosure can retain a nonzero resource-candidate evidence count while the candidate
+surface remains unavailable. The Console must show service-summary mode and the typed reason
+without rendering candidate rows or provider identities.
+The package exposes one bounded analytics command to the local coordinator and deployed scheduled job. It reuses the validated Cost Management Query path instead of the slow Usage Details list API. Its durable run receipt and read projection report freshness and per-source readiness. A current partial run, or a failed refresh with a retained current snapshot, emits a degraded-ready loop event while unavailable facets and the failed attempt remain explicit; a missing or stale snapshot remains unready. Operator HTTP surface selection compares exact canonical enum values and never interprets natural language. Neither path enables the package, creates a case, or grants approval, execution, or promotion authority.
 The explicit Sample path selects separate `synthetic-preview` records for cost, `optimization_case`, and `outcome` screens. These records exercise presentation only; they do not prove effect settlement or change package activation, cost-data access, or Live source state. The Console may sum complete `effect_verified` Sample amounts and compare them with Sample recommendation savings, but it keeps intermediate settlement, SLO regression, and unit-economics values unavailable. A Live projection containing only retained cost observations may expose its disclosed cost basis and record count on later-stage screens; those values remain observation evidence and cannot become a case, recommendation, saving, or settlement.
 Entry-bundle measurements bind to the exact Console and upstream revisions. A rebase or integration
 that changes those inputs requires a fresh measurement before the size evidence is reused.

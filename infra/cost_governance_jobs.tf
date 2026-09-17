@@ -96,10 +96,14 @@ resource "azurerm_container_app_job" "cost_governance_collector" {
       image   = var.cost_governance_image
       cpu     = 0.25
       memory  = "0.5Gi"
-      command = ["fdai-cost-collector"]
+      command = ["fdai-cost-analytics"]
 
       dynamic "env" {
-        for_each = local.cost_governance_job_env
+        for_each = merge(local.cost_governance_job_env, {
+          FDAI_EXECUTION_VENUE      = "deployed"
+          KAFKA_BOOTSTRAP_SERVERS   = module.event_bus.kafka_bootstrap
+          FDAI_COST_RAW_EVENT_TOPIC = local.event_topics[0]
+        })
         content {
           name  = env.key
           value = env.value

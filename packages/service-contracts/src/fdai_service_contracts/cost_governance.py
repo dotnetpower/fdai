@@ -57,6 +57,53 @@ class CostAmountPrecision(StrEnum):
     EXACT = "exact"
 
 
+class CostEvidenceFreshness(StrEnum):
+    """Freshness state computed against the server-owned collection policy."""
+
+    FRESH = "fresh"
+    STALE = "stale"
+    UNKNOWN = "unknown"
+
+
+class CostEvidenceState(StrEnum):
+    """Completeness state for one authoritative source or read surface."""
+
+    COMPLETE = "complete"
+    PARTIAL = "partial"
+    UNAVAILABLE = "unavailable"
+
+
+class CostReadinessReason(StrEnum):
+    """Stable reason that one Cost Governance evidence facet is not ready."""
+
+    NO_OBSERVATIONS = "no_observations"
+    OBSERVATIONS_PARTIAL = "observations_partial"
+    OBSERVATIONS_STALE = "observations_stale"
+    ANALYTICS_RUN_MISSING = "analytics_run_missing"
+    ANALYTICS_RUN_FAILED = "analytics_run_failed"
+    ANALYTICS_RUN_PARTIAL = "analytics_run_partial"
+    ANALYTICS_DISABLED = "analytics_disabled"
+    ANALYTICS_SNAPSHOT_MISSING = "analytics_snapshot_missing"
+    ANALYTICS_STALE = "analytics_stale"
+    DISCLOSURE_INSUFFICIENT = "disclosure_insufficient"
+    RESOURCE_CANDIDATES_MISSING = "resource_candidates_missing"
+    CANDIDATE_EVIDENCE_INCOMPLETE = "candidate_evidence_incomplete"
+    DECISION_CASES_MISSING = "decision_cases_missing"
+    DECISION_CASE_INCOMPLETE = "decision_case_incomplete"
+    SETTLEMENTS_MISSING = "settlements_missing"
+    SETTLEMENT_INCOMPLETE = "settlement_incomplete"
+    PROJECTION_TRUNCATED = "projection_truncated"
+
+
+class CostAnalyticsRunStatus(StrEnum):
+    """Terminal state of one scheduled Cost Analytics attempt."""
+
+    COMPLETE = "complete"
+    PARTIAL = "partial"
+    FAILED = "failed"
+    DISABLED = "disabled"
+
+
 _GRANULARITY_ORDER = tuple(CostGranularity)
 _IDENTITY_ORDER = tuple(CostIdentityVisibility)
 _AMOUNT_ORDER = tuple(CostAmountPrecision)
@@ -85,7 +132,6 @@ class CostDisclosurePolicy(ContractBase):
 
     def meet(self, other: CostDisclosurePolicy) -> CostDisclosurePolicy:
         """Return a policy no more disclosive than either input."""
-
         return CostDisclosurePolicy(
             granularity=_minimum(self.granularity, other.granularity, _GRANULARITY_ORDER),
             identity_visibility=_minimum(
@@ -101,6 +147,157 @@ class CostDisclosurePolicy(ContractBase):
             small_cell_minimum=max(self.small_cell_minimum, other.small_cell_minimum),
             rounding_increment=max(self.rounding_increment, other.rounding_increment),
         )
+
+
+class CostEvidenceSourceFacet(ContractBase):
+    """Bounded source-level window and completeness evidence."""
+
+    source_authority: Annotated[str, Field(min_length=1, max_length=256)]
+    state: CostEvidenceState
+    window_start_at: datetime | None = None
+    window_end_at: datetime | None = None
+    latest_source_at: datetime | None = None
+    complete_count: Annotated[int, Field(strict=True, ge=0)] = 0
+    partial_count: Annotated[int, Field(strict=True, ge=0)] = 0
+    reason: Annotated[str | None, Field(pattern=r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")] = None
+
+    @model_validator(mode="after")
+    def validate_source_facet(self) -> CostEvidenceSourceFacet:
+        times = (self.window_start_at, self.window_end_at, self.latest_source_at)
+        if any(value is not None and value.tzinfo is None for value in times):
+            raise ValueError("Cost Governance evidence times must be timezone-aware")
+        if (
+            self.window_start_at is not None
+            and self.window_end_at is not None
+            and self.window_end_at < self.window_start_at
+        ):
+            raise ValueError("Cost Governance evidence window must be ordered")
+        if self.state is CostEvidenceState.COMPLETE and self.reason is not None:
+            raise ValueError("complete Cost Governance source cannot have a reason")
+        if self.state is not CostEvidenceState.COMPLETE and self.reason is None:
+            raise ValueError("non-complete Cost Governance source requires a reason")
+        return self
+
+
+class CostAnalyticsRunReceipt(ContractBase):
+    """Content-free durable receipt for one scheduled analytics attempt."""
+
+    type: Literal["cost-governance.analytics-run"] = "cost-governance.analytics-run"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    run_id: Annotated[str, Field(pattern=r"^costrun:[0-9a-f]{64}$")]
+    receipt_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    scope_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    venue: Literal["local", "deployed"]
+    window_start_at: datetime
+    window_end_at: datetime
+    started_at: datetime
+    finished_at: datetime
+    status: CostAnalyticsRunStatus
+    sources: Annotated[tuple[CostEvidenceSourceFacet, ...], Field(max_length=8)] = ()
+    observation_count: Annotated[int, Field(strict=True, ge=0)] = 0
+    trend_point_count: Annotated[int, Field(strict=True, ge=0)] = 0
+    budget_count: Annotated[int, Field(strict=True, ge=0)] = 0
+    recommendation_count: Annotated[int, Field(strict=True, ge=0)] = 0
+    utilization_count: Annotated[int, Field(strict=True, ge=0)] = 0
+    limitations: Annotated[tuple[str, ...], Field(max_length=32)] = ()
+    failure_reason: Annotated[
+        str | None,
+        Field(pattern=r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$"),
+    ] = None
+    snapshot_id: Annotated[str | None, Field(pattern=r"^analytics:[0-9a-f]{64}$")] = None
+
+    @model_validator(mode="after")
+    def validate_run_receipt(self) -> CostAnalyticsRunReceipt:
+        times = (
+            self.window_start_at,
+            self.window_end_at,
+            self.started_at,
+            self.finished_at,
+        )
+        if any(value.tzinfo is None for value in times):
+            raise ValueError("Cost Analytics run times must be timezone-aware")
+        if self.window_end_at <= self.window_start_at or self.finished_at < self.started_at:
+            raise ValueError("Cost Analytics run windows must be ordered")
+        if len({item.source_authority for item in self.sources}) != len(self.sources):
+            raise ValueError("Cost Analytics run sources must be unique")
+        if len(set(self.limitations)) != len(self.limitations):
+            raise ValueError("Cost Analytics run limitations must be unique")
+        if self.run_id.removeprefix("costrun:") != self.receipt_digest.removeprefix("sha256:"):
+            raise ValueError("Cost Analytics run id must bind the receipt digest")
+        if (self.status is CostAnalyticsRunStatus.FAILED) != (self.failure_reason is not None):
+            raise ValueError("only failed Cost Analytics runs require a failure reason")
+        if self.snapshot_id is not None and self.status not in {
+            CostAnalyticsRunStatus.COMPLETE,
+            CostAnalyticsRunStatus.PARTIAL,
+        }:
+            raise ValueError("only stored Cost Analytics runs can cite a snapshot")
+        return self
+
+
+class CostSurfaceReadiness(ContractBase):
+    """Independent readiness for one Cost Governance projection facet."""
+
+    surface: Literal[
+        "observations",
+        "analytics",
+        "resource-candidates",
+        "decision-cases",
+        "settlements",
+    ]
+    state: CostEvidenceState
+    reason: CostReadinessReason | None = None
+    record_count: Annotated[int, Field(strict=True, ge=0)] = 0
+    returned_count: Annotated[int, Field(strict=True, ge=0)] = 0
+    truncated: bool = False
+    latest_evidence_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_readiness(self) -> CostSurfaceReadiness:
+        if self.latest_evidence_at is not None and self.latest_evidence_at.tzinfo is None:
+            raise ValueError("Cost Governance readiness time must be timezone-aware")
+        if self.state is CostEvidenceState.COMPLETE and self.reason is not None:
+            raise ValueError("ready Cost Governance surface cannot have a reason")
+        if self.state is not CostEvidenceState.COMPLETE and self.reason is None:
+            raise ValueError("non-ready Cost Governance surface requires a reason")
+        if self.truncated and (
+            self.state is CostEvidenceState.COMPLETE
+            or self.reason is not CostReadinessReason.PROJECTION_TRUNCATED
+        ):
+            raise ValueError("truncated Cost Governance surface must be explicitly partial")
+        if self.returned_count > self.record_count:
+            raise ValueError("Cost Governance returned count cannot exceed the full record count")
+        return self
+
+
+class CostProjectionEvidence(ContractBase):
+    """Server-authored evidence, disclosure, and per-surface readiness summary."""
+
+    window_start_at: datetime | None = None
+    window_end_at: datetime | None = None
+    latest_source_at: datetime | None = None
+    freshness: CostEvidenceFreshness
+    freshness_threshold_seconds: Annotated[int, Field(strict=True, ge=1, le=2_592_000)]
+    complete_count: Annotated[int, Field(strict=True, ge=0)] = 0
+    partial_count: Annotated[int, Field(strict=True, ge=0)] = 0
+    sources: Annotated[tuple[CostEvidenceSourceFacet, ...], Field(max_length=32)] = ()
+    disclosure: CostDisclosurePolicy
+    readiness: Annotated[tuple[CostSurfaceReadiness, ...], Field(min_length=5, max_length=5)]
+    latest_analytics_run: CostAnalyticsRunReceipt | None = None
+
+    @model_validator(mode="after")
+    def validate_projection_evidence(self) -> CostProjectionEvidence:
+        expected = {
+            "observations",
+            "analytics",
+            "resource-candidates",
+            "decision-cases",
+            "settlements",
+        }
+        if {item.surface for item in self.readiness} != expected:
+            raise ValueError("Cost Governance readiness must cover every evidence surface")
+        if len({item.source_authority for item in self.sources}) != len(self.sources):
+            raise ValueError("Cost Governance evidence sources must be unique")
+        return self
 
 
 DISCLOSURE_PRESETS: Mapping[str, CostDisclosurePolicy] = {
@@ -234,6 +431,9 @@ class CostProjectionRecord(ContractBase):
     previous_amount: Annotated[Decimal | None, Field(ge=0)] = None
     currency: Annotated[str, Field(pattern=r"^[A-Z]{3}$")]
     observed_at: datetime
+    window_start_at: datetime | None = None
+    window_end_at: datetime | None = None
+    recorded_at: datetime | None = None
     completeness: Annotated[Decimal, Field(ge=0, le=1)]
     source_authority: Annotated[str, Field(min_length=1, max_length=256)]
     provenance_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
@@ -256,6 +456,7 @@ class _CostDetailedProjection(ContractBase):
     amount_rounded: Decimal | None = None
     amount_exact: Decimal | None = None
     relative_change: Decimal | None = None
+    positive_below_rounding_increment: bool = False
 
 
 class CostSummaryProjection(ContractBase):
@@ -269,6 +470,7 @@ class CostSummaryProjection(ContractBase):
     amount_band: str | None = None
     amount_rounded: Decimal | None = None
     amount_exact: Decimal | None = None
+    positive_below_rounding_increment: bool = False
 
 
 class CostTrendProjection(_CostDetailedProjection):
@@ -283,6 +485,23 @@ class CostResourceEfficiencyProjection(_CostDetailedProjection):
     kind: Literal["resource"] = "resource"
 
 
+class CostResourceCandidateProjection(ContractBase):
+    """Pseudonymous provider candidate with complete sizing evidence."""
+
+    kind: Literal["resource_candidate"] = "resource_candidate"
+    recommendation_ref: Annotated[str, Field(pattern=r"^recommendation:[0-9a-f]{16}$")]
+    resource: Annotated[str, Field(pattern=r"^resource:[0-9a-f]{16,64}$")]
+    resource_type: Annotated[str, Field(min_length=1, max_length=256)]
+    current_configuration: Annotated[str, Field(min_length=1, max_length=128)]
+    proposed_configuration: Annotated[str, Field(min_length=1, max_length=128)]
+    utilization_metric: Annotated[str, Field(min_length=1, max_length=128)]
+    utilization_percent: Annotated[Decimal, Field(ge=0, le=100)]
+    projected_monthly_savings: Annotated[Decimal | None, Field(ge=0)] = None
+    currency: Annotated[str | None, Field(pattern=r"^[A-Z]{3}$")] = None
+    observed_at: datetime
+    source_authority: Annotated[str, Field(min_length=1, max_length=256)]
+
+
 class CostOptimizationCaseProjection(_CostDetailedProjection):
     """Read-only optimization case projection without execution authority."""
 
@@ -293,6 +512,93 @@ class CostOutcomeProjection(_CostDetailedProjection):
     """Read-only outcome projection without verification or promotion authority."""
 
     kind: Literal["outcome"] = "outcome"
+
+
+class CostDecisionCaseProjection(ContractBase):
+    """Complete observation-mode case read from explicit decision lineage."""
+
+    kind: Literal["decision_case"] = "decision_case"
+    case_ref: Annotated[str, Field(pattern=r"^case:[0-9a-f]{24}$")]
+    revision: Annotated[int, Field(strict=True, ge=1)]
+    target_refs: Annotated[
+        tuple[Annotated[str, Field(pattern=r"^resource:[0-9a-f]{24}$")], ...],
+        Field(min_length=1, max_length=256),
+    ]
+    evidence_cutoff: datetime
+    decision_frame_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    option_ids: Annotated[tuple[str, ...], Field(min_length=1, max_length=256)]
+    selected_option_id: Annotated[str | None, Field(max_length=256)] = None
+    verdict: Literal["hold"]
+    reason: Annotated[str, Field(min_length=1, max_length=256)]
+    evidence_refs: Annotated[tuple[str, ...], Field(min_length=1, max_length=64)]
+    evidence_sources: Annotated[tuple[str, ...], Field(min_length=1, max_length=64)]
+    recovery_steps: Annotated[tuple[str, ...], Field(max_length=7)] = ()
+    recorded_at: datetime
+    source_authority: Annotated[str, Field(min_length=1, max_length=256)]
+
+
+class CostSettlementEffectProjection(ContractBase):
+    """One independently settled effect in an outcome projection."""
+
+    effect_id: Annotated[str, Field(min_length=1, max_length=256)]
+    kind: Literal["cost", "capacity", "service", "recovery"]
+    status: Literal["verified", "failed", "censored", "unscorable"]
+    reason: Annotated[str, Field(min_length=1, max_length=256)]
+    terminal: bool
+    observation_digest: Annotated[
+        str | None,
+        Field(pattern=r"^sha256:[0-9a-f]{64}$"),
+    ] = None
+    completeness_digest: Annotated[
+        str | None,
+        Field(pattern=r"^sha256:[0-9a-f]{64}$"),
+    ] = None
+
+    @model_validator(mode="after")
+    def validate_independent_evidence(self) -> CostSettlementEffectProjection:
+        if self.status in {"verified", "failed"} and (
+            self.observation_digest is None or self.completeness_digest is None
+        ):
+            raise ValueError("scored settlement requires observation and completeness evidence")
+        return self
+
+
+class CostSettlementOutcomeProjection(ContractBase):
+    """Read-only settlement whose savings are independently verified or absent."""
+
+    kind: Literal["settlement_outcome"] = "settlement_outcome"
+    case_ref: Annotated[str, Field(pattern=r"^case:[0-9a-f]{24}$")]
+    revision: Annotated[int, Field(strict=True, ge=1)]
+    action_ref: Annotated[str, Field(min_length=1, max_length=512)]
+    action_revision: Annotated[int, Field(strict=True, ge=1)]
+    decision_frame_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    terminal: bool
+    verified_savings: Annotated[Decimal | None, Field(ge=0)] = None
+    currency: Annotated[str | None, Field(pattern=r"^[A-Z]{3}$")] = None
+    rollback_requested: bool
+    recovery_observed: bool
+    effects: Annotated[
+        tuple[CostSettlementEffectProjection, ...],
+        Field(min_length=1, max_length=64),
+    ]
+    settled_at: datetime
+
+    @model_validator(mode="after")
+    def validate_verified_savings(self) -> CostSettlementOutcomeProjection:
+        independently_verified = (
+            self.terminal
+            and not self.rollback_requested
+            and all(item.terminal and item.status == "verified" for item in self.effects)
+        )
+        if self.verified_savings is not None and (
+            not independently_verified or self.currency is None
+        ):
+            raise ValueError(
+                "verified savings require complete independent settlement and currency"
+            )
+        if self.currency is not None and self.verified_savings is None:
+            raise ValueError("settlement currency requires verified savings")
+        return self
 
 
 class CostAnalyticsTrendPoint(ContractBase):
@@ -342,6 +648,9 @@ class CostAnalyticsProjection(ContractBase):
     source_authority: Annotated[str, Field(min_length=1, max_length=256)]
     observed_at: datetime
     complete: bool
+    window_start_at: datetime | None = None
+    window_end_at: datetime | None = None
+    sources: Annotated[tuple[CostEvidenceSourceFacet, ...], Field(max_length=8)] = ()
     trend: Annotated[tuple[CostAnalyticsTrendPoint, ...], Field(max_length=400)] = ()
     budgets: Annotated[tuple[CostAnalyticsBudget, ...], Field(max_length=32)] = ()
     recommendations: Annotated[
@@ -354,6 +663,12 @@ class CostAnalyticsProjection(ContractBase):
     def validate_analytics(self) -> CostAnalyticsProjection:
         if self.observed_at.tzinfo is None:
             raise ValueError("Cost Governance analytics observed_at must be timezone-aware")
+        if (
+            self.window_start_at is not None
+            and self.window_end_at is not None
+            and self.window_end_at <= self.window_start_at
+        ):
+            raise ValueError("Cost Governance analytics window must be positive")
         if len(set(self.limitations)) != len(self.limitations):
             raise ValueError("Cost Governance analytics limitations must be unique")
         return self
@@ -363,8 +678,11 @@ CostGovernanceItem: TypeAlias = Annotated[
     CostSummaryProjection
     | CostTrendProjection
     | CostResourceEfficiencyProjection
+    | CostResourceCandidateProjection
     | CostOptimizationCaseProjection
-    | CostOutcomeProjection,
+    | CostDecisionCaseProjection
+    | CostOutcomeProjection
+    | CostSettlementOutcomeProjection,
     Field(discriminator="kind"),
 ]
 
@@ -382,6 +700,8 @@ class CostGovernanceProjection(ContractBase):
     items: tuple[CostGovernanceItem, ...] = ()
     suppressed_count: Annotated[int, Field(strict=True, ge=0)] = 0
     analytics: CostAnalyticsProjection | None = None
+    evidence: CostProjectionEvidence | None = None
+    resource_efficiency_mode: Literal["service_summary", "resource_candidate"] | None = None
 
 
 def disclose_cost_records(
@@ -474,7 +794,11 @@ def _amount_projection(
             Decimal("1"),
             rounding=ROUND_HALF_UP,
         ) * policy.rounding_increment
-        return {"amount_rounded": str(rounded)}
+        below_increment = amount > 0 and rounded == 0
+        return {
+            "amount_rounded": str(policy.rounding_increment if below_increment else rounded),
+            **({"positive_below_rounding_increment": True} if below_increment else {}),
+        }
     return {
         "amount_exact": str(amount),
         **({"relative_change": relative} if relative is not None else {}),
@@ -484,19 +808,31 @@ def _amount_projection(
 __all__ = [
     "CostAccessGrant",
     "CostAmountPrecision",
-    "CostDisclosurePolicy",
+    "CostAnalyticsRunReceipt",
+    "CostAnalyticsRunStatus",
+    "CostDecisionCaseProjection",
     "CostDisclosureCeiling",
+    "CostDisclosurePolicy",
+    "CostEvidenceFreshness",
+    "CostEvidenceSourceFacet",
+    "CostEvidenceState",
     "CostGovernanceAvailability",
     "CostGovernanceItem",
     "CostGovernanceProjection",
     "CostGovernanceUnavailableReason",
     "CostGranularity",
     "CostIdentityVisibility",
-    "CostProjectionRecord",
     "CostOptimizationCaseProjection",
     "CostOutcomeProjection",
+    "CostProjectionEvidence",
+    "CostProjectionRecord",
+    "CostReadinessReason",
+    "CostResourceCandidateProjection",
     "CostResourceEfficiencyProjection",
+    "CostSettlementEffectProjection",
+    "CostSettlementOutcomeProjection",
     "CostSummaryProjection",
+    "CostSurfaceReadiness",
     "CostTrendProjection",
     "DISCLOSURE_PRESETS",
     "disclose_cost_records",

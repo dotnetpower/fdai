@@ -6,8 +6,10 @@ import asyncio
 import hashlib
 import json
 import re
-from collections.abc import Mapping
+import ssl
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 from urllib.parse import quote, urlparse
@@ -24,6 +26,7 @@ from fdai_service_contracts.executor import (
     DirectApiReceipt,
     DirectApiRequest,
     Mode,
+    WorkloadIdentity,
 )
 
 KUBERNETES_ACTION_TYPES = frozenset(
@@ -48,10 +51,12 @@ class KubernetesDirectApiConfig:
 
     api_server: str
     cluster_ref: str
-    token_path: Path
-    ca_path: Path
+    token_path: Path | None
+    ca_path: Path | None
     allowed_namespaces: frozenset[str]
     timeout_seconds: float = 30
+    audience: str | None = None
+    ca_pem: str | None = None
 
     def __post_init__(self) -> None:
         parsed = urlparse(self.api_server)
@@ -73,6 +78,38 @@ class KubernetesDirectApiConfig:
             raise ValueError("Kubernetes namespace allowlist contains an invalid name")
         if not 0.1 <= self.timeout_seconds <= 120:
             raise ValueError("Kubernetes API timeout MUST be in [0.1, 120]")
+        if (self.token_path is None) == (self.audience is None):
+            raise ValueError("Kubernetes authentication requires exactly one token source")
+        if (self.ca_path is None) == (self.ca_pem is None):
+            raise ValueError("Kubernetes TLS requires exactly one CA source")
+        if (self.ca_path is not None and not self.ca_path.is_absolute()) or (
+            self.token_path is not None and not self.token_path.is_absolute()
+        ):
+            raise ValueError("Kubernetes credential references MUST be absolute paths")
+        if self.audience is not None and (
+            not self.audience
+            or len(self.audience) > 512
+            or not self.audience.isascii()
+            or any(character.isspace() or ord(character) < 32 for character in self.audience)
+        ):
+            raise ValueError("Kubernetes identity audience MUST be bounded non-empty ASCII text")
+        if self.ca_pem is not None:
+            if not 1 <= len(self.ca_pem) <= 65_536 or "PRIVATE KEY" in self.ca_pem:
+                raise ValueError("Kubernetes CA PEM must contain bounded public certificates only")
+            try:
+                self.tls_verification()
+            except (ssl.SSLError, ValueError):
+                raise ValueError("Kubernetes CA PEM is invalid") from None
+
+    def tls_verification(self) -> str | ssl.SSLContext:
+        """Retain certificate and hostname verification with either mounted or inline public CA."""
+        if self.ca_pem is not None:
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            context.load_verify_locations(cadata=self.ca_pem)
+            return context
+        if self.ca_path is None:
+            raise ValueError("Kubernetes CA source is unavailable")
+        return str(self.ca_path)
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,10 +135,60 @@ class KubernetesApiTransport(Protocol):
 
 
 class HttpxKubernetesApiTransport:
-    """Read the projected ServiceAccount token and call one exact API origin."""
+    """Authenticate one exact API origin with a projected token or an injected identity."""
 
-    def __init__(self, config: KubernetesDirectApiConfig) -> None:
+    def __init__(
+        self,
+        config: KubernetesDirectApiConfig,
+        *,
+        identity: WorkloadIdentity | None = None,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
         self._config = config
+        self._identity = identity
+        self._clock = clock or (lambda: datetime.now(UTC))
+
+    async def _token(self) -> str:
+        if self._config.audience is not None:
+            if self._identity is None:
+                raise DirectApiAuthenticationError("Kubernetes workload identity is unavailable")
+            try:
+                async with asyncio.timeout(self._config.timeout_seconds):
+                    issued = await self._identity.get_token(self._config.audience)
+            except Exception:
+                raise DirectApiAuthenticationError(
+                    "Kubernetes identity token acquisition failed"
+                ) from None
+            now = self._clock()
+            if (
+                now.tzinfo is None
+                or now.utcoffset() is None
+                or issued.expires_at.tzinfo is None
+                or issued.expires_at.utcoffset() is None
+                or issued.audience != self._config.audience
+                or issued.expires_at <= now + timedelta(seconds=self._config.timeout_seconds)
+            ):
+                raise DirectApiAuthenticationError(
+                    "Kubernetes identity token is not current or scoped"
+                )
+            token = issued.token
+        else:
+            if self._config.token_path is None:
+                raise DirectApiAuthenticationError("Kubernetes token file is unavailable")
+            try:
+                token = (
+                    await asyncio.to_thread(self._config.token_path.read_text, encoding="utf-8")
+                ).strip()
+            except OSError as exc:
+                raise DirectApiAuthenticationError("Kubernetes token file is unavailable") from exc
+        if (
+            not token
+            or len(token) > 16_384
+            or not token.isascii()
+            or any(character.isspace() or ord(character) < 32 for character in token)
+        ):
+            raise DirectApiAuthenticationError("Kubernetes token is empty or invalid")
+        return token
 
     async def request(
         self,
@@ -111,18 +198,11 @@ class HttpxKubernetesApiTransport:
         body: Mapping[str, object],
         dry_run: bool,
     ) -> KubernetesApiResponse:
-        try:
-            token = (
-                await asyncio.to_thread(self._config.token_path.read_text, encoding="utf-8")
-            ).strip()
-        except OSError as exc:
-            raise DirectApiAuthenticationError("Kubernetes token file is unavailable") from exc
-        if not token or len(token) > 16_384:
-            raise DirectApiAuthenticationError("Kubernetes token file is empty or invalid")
+        token = await self._token()
         try:
             async with httpx.AsyncClient(
                 base_url=self._config.api_server,
-                verify=str(self._config.ca_path),
+                verify=self._config.tls_verification(),
                 timeout=self._config.timeout_seconds,
                 follow_redirects=False,
             ) as client:
@@ -191,9 +271,18 @@ class KubernetesDirectApiExecutor:
         *,
         config: KubernetesDirectApiConfig,
         transport: KubernetesApiTransport | None = None,
+        identities: Mapping[str, WorkloadIdentity] | None = None,
     ) -> None:
         self._config = config
-        self._transport = transport or HttpxKubernetesApiTransport(config)
+        self._transport = transport
+        self._identities = dict(identities or {})
+        if config.audience is not None and (
+            not self._identities
+            or set(self._identities) - {"identity/change", "identity/resilience", "identity/finops"}
+        ):
+            raise ValueError(
+                "Kubernetes workload authentication requires registered Thor identities"
+            )
 
     async def execute(self, request: DirectApiRequest) -> DirectApiReceipt:
         if request.action_type_name not in KUBERNETES_ACTION_TYPES:
@@ -203,7 +292,15 @@ class KubernetesDirectApiExecutor:
                 "enforce-mode Kubernetes call requires an explicit enforce label"
             )
         operation = _operation(request, self._config)
-        dry_run = await self._transport.request(
+        identity = None
+        if self._config.audience is not None:
+            identity = self._identities.get(request.metadata.get("executor_identity_ref", ""))
+            if identity is None:
+                raise DirectApiPreconditionError(
+                    "Kubernetes request requires a registered executor_identity_ref"
+                )
+        transport = self._transport or HttpxKubernetesApiTransport(self._config, identity=identity)
+        dry_run = await transport.request(
             method=operation.method,
             path=operation.path,
             body=operation.body,
@@ -216,7 +313,7 @@ class KubernetesDirectApiExecutor:
                 receipt_ref=f"kubernetes-dry-run:{dry_run_ref}",
                 detail="Kubernetes server-side dry-run succeeded; no mutation submitted",
             )
-        applied = await self._transport.request(
+        applied = await transport.request(
             method=operation.method,
             path=operation.path,
             body=operation.body,

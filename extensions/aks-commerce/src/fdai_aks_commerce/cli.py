@@ -86,6 +86,7 @@ async def _journey(
                 "authorization_ref": result.authorization_ref,
                 "synthetic": result.synthetic,
                 "execution_authority": result.execution_authority,
+                "order_http_status": result.order_http_status,
             },
             ensure_ascii=True,
             separators=(",", ":"),

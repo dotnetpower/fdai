@@ -13,15 +13,26 @@ from fdai_service_contracts import (
     CostAnalyticsBudget,
     CostAnalyticsProjection,
     CostAnalyticsRecommendation,
+    CostAnalyticsRunReceipt,
+    CostAnalyticsRunStatus,
     CostAnalyticsTrendPoint,
+    CostDecisionCaseProjection,
     CostAmountPrecision,
     CostDisclosureCeiling,
     CostDisclosurePolicy,
+    CostEvidenceFreshness,
+    CostEvidenceSourceFacet,
+    CostEvidenceState,
     CostGovernanceAvailability,
     CostGovernanceProjection,
     CostGranularity,
     CostIdentityVisibility,
+    CostProjectionEvidence,
     CostProjectionRecord,
+    CostReadinessReason,
+    CostSettlementEffectProjection,
+    CostSettlementOutcomeProjection,
+    CostSurfaceReadiness,
     JsonSchemaContractValidator,
     PackageResourceSchemaRegistry,
     disclose_cost_records,
@@ -138,6 +149,17 @@ def test_small_aggregate_cells_are_suppressed() -> None:
     payload = disclose_cost_records((_record(),), DISCLOSURE_PRESETS["aggregate"])
     assert payload[0]["suppressed"] is True
     assert all("amount" not in key for key in payload[0])
+
+
+def test_positive_rounded_amount_never_becomes_measured_zero() -> None:
+    records = tuple(
+        _record(record_id=f"costobs:{index}", amount=Decimal("10")) for index in range(3)
+    )
+
+    payload = disclose_cost_records(records, DISCLOSURE_PRESETS["aggregate"])
+
+    assert payload[0]["amount_rounded"] == "100"
+    assert payload[0]["positive_below_rounding_increment"] is True
 
 
 def test_masked_disclosure_fails_closed_without_server_key() -> None:
@@ -259,9 +281,172 @@ def test_all_cost_governance_boundaries_have_versioned_schemas() -> None:
         "CostSummaryProjection",
         "CostTrendProjection",
         "CostResourceEfficiencyProjection",
+        "CostResourceCandidateProjection",
         "CostOptimizationCaseProjection",
         "CostOutcomeProjection",
+        "CostDecisionCaseProjection",
+        "CostSettlementOutcomeProjection",
     } <= definitions.keys()
+
+
+def test_projection_evidence_and_analytics_receipt_preserve_readiness_facets() -> None:
+    source = CostEvidenceSourceFacet(
+        source_authority="azure-consumption-usage-details",
+        state=CostEvidenceState.COMPLETE,
+        window_start_at=datetime(2026, 8, 27, tzinfo=UTC),
+        window_end_at=datetime(2026, 8, 28, tzinfo=UTC),
+        latest_source_at=datetime(2026, 8, 28, tzinfo=UTC),
+        complete_count=4,
+    )
+    receipt = CostAnalyticsRunReceipt(
+        run_id=f"costrun:{'1' * 64}",
+        receipt_digest=f"sha256:{'1' * 64}",
+        scope_digest=f"sha256:{'2' * 64}",
+        venue="local",
+        window_start_at=datetime(2026, 8, 27, tzinfo=UTC),
+        window_end_at=datetime(2026, 8, 28, tzinfo=UTC),
+        started_at=datetime(2026, 8, 28, tzinfo=UTC),
+        finished_at=datetime(2026, 8, 28, 0, 1, tzinfo=UTC),
+        status=CostAnalyticsRunStatus.COMPLETE,
+        sources=(source,),
+        observation_count=4,
+        snapshot_id=f"analytics:{'3' * 64}",
+    )
+    readiness = tuple(
+        CostSurfaceReadiness(surface=surface, state=CostEvidenceState.COMPLETE)
+        for surface in (
+            "observations",
+            "analytics",
+            "resource-candidates",
+            "decision-cases",
+            "settlements",
+        )
+    )
+    evidence = CostProjectionEvidence(
+        window_start_at=source.window_start_at,
+        window_end_at=source.window_end_at,
+        latest_source_at=source.latest_source_at,
+        freshness=CostEvidenceFreshness.FRESH,
+        freshness_threshold_seconds=172_800,
+        complete_count=4,
+        sources=(source,),
+        disclosure=DISCLOSURE_PRESETS["masked"],
+        readiness=readiness,
+        latest_analytics_run=receipt,
+    )
+    payload = evidence.model_dump(mode="json")
+
+    assert payload["latest_analytics_run"]["venue"] == "local"
+    assert payload["readiness"][0]["reason"] is None
+    JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate(
+        "cost-governance-analytics-run",
+        receipt.model_dump(mode="json"),
+        version="1.0.0",
+    )
+
+
+def test_projection_truncation_cannot_report_complete() -> None:
+    readiness = CostSurfaceReadiness(
+        surface="decision-cases",
+        state=CostEvidenceState.PARTIAL,
+        reason=CostReadinessReason.PROJECTION_TRUNCATED,
+        record_count=2,
+        returned_count=1,
+        truncated=True,
+    )
+
+    assert readiness.truncated is True
+    with pytest.raises(ValueError, match="explicitly partial"):
+        readiness.model_copy(
+            update={"state": CostEvidenceState.COMPLETE, "reason": None}
+        ).validate_readiness()
+
+
+def test_settlement_savings_require_every_independent_effect_to_verify() -> None:
+    effects = (
+        CostSettlementEffectProjection(
+            effect_id="effect-cost",
+            kind="cost",
+            status="verified",
+            reason="expected_effect_observed",
+            terminal=True,
+            observation_digest=f"sha256:{'4' * 64}",
+            completeness_digest=f"sha256:{'5' * 64}",
+        ),
+        CostSettlementEffectProjection(
+            effect_id="effect-service",
+            kind="service",
+            status="verified",
+            reason="expected_effect_observed",
+            terminal=True,
+            observation_digest=f"sha256:{'6' * 64}",
+            completeness_digest=f"sha256:{'7' * 64}",
+        ),
+    )
+    outcome = CostSettlementOutcomeProjection(
+        case_ref=f"case:{'8' * 24}",
+        revision=2,
+        action_ref="action-run:one",
+        action_revision=3,
+        decision_frame_digest=f"sha256:{'9' * 64}",
+        terminal=True,
+        verified_savings=Decimal("12.50"),
+        currency="USD",
+        rollback_requested=False,
+        recovery_observed=False,
+        effects=effects,
+        settled_at=datetime(2026, 8, 28, tzinfo=UTC),
+    )
+    assert outcome.verified_savings == Decimal("12.50")
+
+    with pytest.raises(ValueError, match="complete independent"):
+        outcome.model_copy(
+            update={
+                "effects": (
+                    effects[0],
+                    effects[1].model_copy(update={"status": "censored"}),
+                )
+            }
+        ).validate_verified_savings()
+
+
+def test_decision_case_projection_is_observation_only_and_pseudonymous() -> None:
+    case = CostDecisionCaseProjection(
+        case_ref=f"case:{'a' * 24}",
+        revision=1,
+        target_refs=(f"resource:{'b' * 24}",),
+        evidence_cutoff=datetime(2026, 8, 28, tzinfo=UTC),
+        decision_frame_digest=f"sha256:{'c' * 64}",
+        option_ids=("option.no-action",),
+        selected_option_id="option.no-action",
+        verdict="hold",
+        reason="hard_dependency_observation_mode",
+        evidence_refs=("observation:1",),
+        evidence_sources=("heimdall",),
+        recorded_at=datetime(2026, 8, 28, tzinfo=UTC),
+        source_authority="forseti-observation-mode",
+    )
+
+    payload = case.model_dump(mode="json")
+    assert payload["verdict"] == "hold"
+    assert not {"approval", "execution", "promotion", "authority"} & set(payload)
+
+
+@pytest.mark.parametrize(
+    ("name", "model"),
+    [
+        ("cost-governance-projection", CostGovernanceProjection),
+        ("cost-governance-analytics-run", CostAnalyticsRunReceipt),
+    ],
+)
+def test_generated_cost_schemas_match_their_models(
+    name: str,
+    model: type[CostGovernanceProjection] | type[CostAnalyticsRunReceipt],
+) -> None:
+    stored = dict(PackageResourceSchemaRegistry().get(name, "1.0.0"))
+    stored.pop("$id")
+
+    assert stored == model.model_json_schema(mode="serialization")
 
 
 def test_availability_does_not_imply_enablement_or_other_authority() -> None:

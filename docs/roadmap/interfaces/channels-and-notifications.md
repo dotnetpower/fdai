@@ -329,8 +329,8 @@ A2/A4 routes remain separate channel-as-audience bindings.
   used by the CI secret scanner) before dispatching, as a last-line defense.
 - **Adapters MUST implement idempotent `send`**: a re-issued send with the same
   `correlation_id + audit_id + category` MUST NOT create a duplicate post.
-- **A2/A4 capability-state, pre-render presentation, and shadow delivery** are owned in detail by
-  [Multi-channel notification delivery § 8](multi-channel-notification-delivery.md#8-capability-state-presentation-and-shadow-delivery-contracts).
+- **A2/A4 capability-state, pre-render presentation, shadow delivery, and provider-native rich
+  card payloads** are owned in detail by [Multi-channel notification delivery § 8](multi-channel-notification-delivery.md#8-capability-state-presentation-and-shadow-delivery-contracts).
 
 - **A1 decision return:** The exact Teams and Slack transport, actor, context, workflow-routing,
   audit, and durable-delivery contract is owned by [Operator approval callbacks](operator-console-wire-contracts.md#133-operator-api-approval-callback-week-1).

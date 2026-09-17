@@ -1,10 +1,22 @@
 """Public facade for the FDAI AKS commerce scenario package."""
 
 from fdai_aks_commerce.__about__ import __version__
+from fdai_aks_commerce.acceptance import (
+    OrderAcceptanceAnalyzer,
+    OrderAcceptanceAssessment,
+    OrderAcceptanceEvidence,
+    OrderAcceptanceIntent,
+    OrderAcceptanceProbe,
+    OrderAcceptanceReceiptVerifier,
+    OrderAcceptanceScaleProposal,
+    OrderAcceptanceSource,
+    evaluate_order_acceptance,
+)
 from fdai_aks_commerce.assessment import assess_aks_commerce
 from fdai_aks_commerce.browser_policy import storefront_browser_policy
 from fdai_aks_commerce.coordinator import (
     PROJECTION_KEY_PREFIX,
+    AksCommerceAnalyzer,
     AksCommerceCoordinator,
     AksCommerceObservationSource,
 )
@@ -37,6 +49,7 @@ from fdai_aks_commerce.synthetic import (
 
 __all__ = [
     "PROJECTION_KEY_PREFIX",
+    "AksCommerceAnalyzer",
     "AksCommerceAssessmentPolicy",
     "AksCommerceCoordinator",
     "AksCommerceEvidenceFrame",
@@ -48,8 +61,17 @@ __all__ = [
     "CommerceSloEvidenceReader",
     "CommerceWorkloadEvidenceReader",
     "MetricCommerceObservationSource",
+    "OrderAcceptanceAnalyzer",
+    "OrderAcceptanceAssessment",
+    "OrderAcceptanceEvidence",
+    "OrderAcceptanceIntent",
+    "OrderAcceptanceProbe",
+    "OrderAcceptanceReceiptVerifier",
+    "OrderAcceptanceScaleProposal",
+    "OrderAcceptanceSource",
     "__version__",
     "assess_aks_commerce",
+    "evaluate_order_acceptance",
     "load_resource_manifest",
     "load_resources",
     "load_scenario_profile",

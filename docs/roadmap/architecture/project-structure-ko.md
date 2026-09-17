@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: cb7d6cd1c00fc2bf8c615c7ad970ace6ec86c081
+translation_source_sha: 8abb622a990d2c503a4ddc782f29d7a7aa9b46f0
 translation_revised: 2026-09-17
 ---
 # 프로젝트 구조
@@ -45,8 +45,8 @@ checkpoint부터 재개합니다.
 [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)가 타입 지정 근거, Process와 조건부 수동 PR을 소유합니다. 전용 Operator 조립은 요청 의존성과 감독되는 브리지 하나를 연결하며 공통 루트는 수명 주기만 소유합니다. 역할별 framework mixin은 에이전트 API와 인스턴스 격리를 보존합니다. 공유 수락 목록이 결정 검증을 고정합니다. 기존 검증 절차를 갖춘 생성기는 운영 증적을 재작성하지 않고 release 기반 소스 참조를 재평가하며, 소스 테스트와 생성 지식은 권한을 부여하지 않습니다. 공유 SDK는 기존 타입 모델에서 생성한 `test-context-draft`, `test-context-command`, `test-context-application` 버전 `1.0.0` 스키마를 제공합니다. 검증기는 모델의 필드 간 조건도 검사하며, 스키마에 맞는 레코드가 인증된 근거나 현재 권한이 되는 것은 아닙니다. 이 개별 등록만으로 브로커의 N/N-1 배포 전환이 검증되지는 않습니다. 통합 후 System Knowledge를 다시 생성하면 이 경계를 release 메타데이터로만 기록하며 전송 호환성이나 운영 검증 상태를 승격하지 않습니다. 예측 평가 제외 사유는 모델 facade가 공개하는 문자열 열거형이며 JSON 값과 기존 결과 전송 형식은 바뀌지 않습니다. 컨텍스트 변환 모듈은 Core wheel에 포함되고, Operator 컨텍스트 명령 테스트는 명시적인 서비스 검사 소유자를 가지며, DB 전용 테스트는 통합 검사에서 실행됩니다. 타입 검증 뒤에 근거 허용 여부를 평가하고, 상태를 바꾸지 않는 정확한 재생과 새로 허용된 쓰기를 구분합니다. 레코드 내용이 그대로여도 소유 문서의 줄 배치가 바뀌면 카탈로그 원본 해시를 갱신합니다.
 인시던트 생성 회귀 테스트는 Core 또는 Operator 서비스 테스트 묶음 하나에만 속합니다. 생성된 question-bank 및 의미 기반 의도 커버리지 산출물은 결정적인 파생 산출물이며 카탈로그 문구가 바뀌면 의존 순서대로 다시 생성하므로, 다시 생성된 출처 해시가 중복 소유 문서 갱신을 요구하지 않고 검토된 원본 변경이 설계 영향을 가집니다.
 의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다. [AKS 토큰 교환](../deployment/runtime-deployment-profiles-ko.md#신원-및-secret)과 명시적으로 선언한 SDK/비동기 전송 의존성은 서비스가 소유하며 Core 도메인이나 공유 계약에 넣지 않습니다. Operator 자격 증명 테스트는 하나의 서비스 테스트 묶음에 명시적으로 속하며, 생성 함수는 기존 adapters 공개 모듈을 통해 조립 의존 경로 수를 유지합니다. `core/licensing/trial.py`의 비활성 Trial 기록은 기능을 허용하지 않습니다. 배포/영속 계층이 원자적 활성화를 소유하고 런타임은 보존 상태의 출처를 인증해야 합니다. 소스 출처는 CLI가 소유하며 사용 권한이나 release 서명이 아닙니다. Core 배포 단위는 Python Azure Monitor OpenTelemetry Distro 의존성을 소유합니다. 공유 원격 분석은 배포가 Key Vault 기반 `APPLICATIONINSIGHTS_CONNECTION_STRING`을 주입할 때만 이 내보내기를 선택하고, 명시적인 OTLP 엔드포인트를 동시에 설정하면 시작을 차단하며, 그 외에는 로컬 또는 벤더 중립 OTLP 프로바이더를 유지합니다. 이 시작 선택은 Core 도메인 모듈이나 공유 계약에 프로바이더 SDK를 추가하지 않으며, 연결 문자열은 소스, 로그 또는 일반 Terraform 출력에 들어가지 않습니다.
+Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다. 공유 계약은 가명 참조와 공개 메타데이터만 전달하며 키를 받거나 데이터 접근 권한 또는 작업 권한을 높이지 않습니다.
 클라우드 참조 수집은 수집 API, 파싱/색인 활성화는 작업자, 날짜를 명시한 근거는 Core가 담당합니다. [수명 주기 설계](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)는 공유 계약과 실행 권한이 없는 경계를 정의합니다. Core는 적용 조건을 제한된 단일 값 선택자로 노출하며 근거 객체는 의존 조회 결과로만 받습니다. 정확한 문서 맥락은 순위 계산 전에 이 선택 조건과 함께 적용하며 더 넓은 컬렉션 조회로 대체할 수 없습니다. 새 수집 테스트마다 서비스 테스트 소유자가 하나이며, 이미 선언된 API의 `aiohttp` 의존성은 간접이 아닌 직접 사용으로 분류합니다. 새 패키지는 정규화 텍스트 전용 v2가 기본값입니다. 구현된 [구조화된 v3 확장](../interfaces/cloud-resource-knowledge-structured-rag-ko.md)은 정규화기 `2.0.0`을 기본으로 유지하며 명시적 `2.1.0` 준비에는 판독기 `3.1.0`이 필요합니다. 수집 서비스 소유의 검토 계약, 경로 제한 입출력, 실행 조정 및 자원이 제한된 파싱·측정은 별도 모듈입니다. 새 전송에는 원본을 넣지 않으며 기존 식별자, 출처 시각 및 승인 조건을 유지합니다.
-
 클라우드 변경 비교는 원문과 처리 식별자를 검증하며 Core는 출처와 기존 인용문 예산을 재검증합니다. 문서 검색 스키마 업그레이드는 기능 존재만이 아니라 정확한 카탈로그 소유 프롬프트 계층도 요구합니다. 프레임 모델 스키마는 수락된 판단에서만 연결하는 검색어 상태를 제외하되 내부 검증은 이를 보존하며 복구 예산은 늘리지 않습니다. 병합 후 System Knowledge 메타데이터는 도달 가능한 보호 기준 개정에 연결하며 레코드 내용이나 클라우드 원본 확인 시각을 바꾸지 않습니다.
 - **코어는 이식 가능**: 어떤 클라우드 SDK도 직접 가져오기 하지 **않습니다**. 클라우드 특이성은
   `shared/providers/` 의 CSP-중립 인터페이스로만 진입하며, 구현은 `delivery/` 와 `infra/` 에 있고
@@ -116,8 +116,8 @@ checkpoint부터 재개합니다.
   provider/hostname 불일치를 차단합니다. Platform Terraform이 이 map을 소유하며 보호된 서비스
   구체화는 같은 origin을 독립 Core root에 전달합니다. 의미 계획과 턴 후 검토는 이 map을 통해
   기능 binding을 해석합니다. Staging ChatOps 검증 모드는 결과를 계획 metadata에 봉인하고 계획과
-  적용 전에 다시 검증합니다. SKU 한정 quota 조회는 다른 배포 tier가 검토된 secondary 프로필을
-  충족하지 못하게 합니다. 의미 사전 프레임 선택은 요약, 추적, 담당 프레임의 타입을 분리하며
+  적용 전에 다시 검증합니다. SKU 한정 quota 조회는 다른 배포 tier가 검토된 secondary 프로필을 충족하지 못하게 합니다.
+  Resolver와 composition은 primary 및 secondary 계열을 다르게 요구하고 binding 전에 primary 지연 시간 풀의 secondary 계열 재사용을 거부합니다. 의미 사전 프레임 선택은 요약, 추적, 담당 프레임의 타입을 분리하며
   호환성 facade는 안정적인 import를 유지합니다.
 - **자격 검증 축약에는 권한이 없음**:
   `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만
@@ -152,7 +152,7 @@ checkpoint부터 재개합니다.
   요청된 사례를 서버의 고정 census와 대조해 검증하고, Bragi는 단일 최종 답변을 만들며, 응답 경로
   밖의 서로 다른 모델 계열 검토자는 상관관계가 연결된 30점 진단을 추가합니다. 일반
   `operations-review` 턴은 등록된 함수 권한의 변경할 수 없는 스냅샷을 준비 상태 소비자에게 노출하는 기존 의미 런타임을 계속 사용합니다. 스키마로 검증된 판단은 활성 매니페스트와 정본 주체 및 항목이 일치하는 일반 타입 프레임만 복구할 수 있습니다. Golden 인증은 정확한 예상 최종 처리 결과에 바인딩되고, Operator 묶음은 Core 계획 전에 요청된 로케일을 보존합니다.
-  과거 `context_locale_scorecard.py`는 호환 전용으로 다시 내보냅니다.
+  Azure 평가자 어댑터는 모델 계열과 호환되는 완료 필드를 선택하고 연결, HTTP 상태 및 잘못된 응답 실패를 범위가 제한된 콘텐츠 없는 사유 코드로 축약합니다. Core는 프로바이더 응답 내용을 검사하거나 프로바이더 권한을 부여하지 않고 이 코드를 검증하여 의미 평가 축약과 평가 보류 결합까지 보존합니다. 과거 `context_locale_scorecard.py`는 호환 전용으로 다시 내보냅니다.
   표본을 구문 분석하며 추적 약속값을 완전한 추적 주장으로 변환하지 않습니다. 인접한
   `quality_trace.py` 축약기는 레코드 약속값만 받고 순서가 정확한 세션부터 감사까지의 연결에서
   완전성을 증명하며 권한을 부여하지 않습니다. `quality_timing.py`는 설치된 계약, 출처 리비전,
@@ -334,8 +334,8 @@ checkpoint부터 재개합니다.
 ## 리포지토리 스크립트 레이아웃
 
 리포지토리 자동화는 책임에 따라 `scripts/` 아래에 그룹화합니다. 루트 파일로는 레이아웃 README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이트, 무결성 도구, 거버넌스 검사,
-카탈로그 유틸리티, 배포 도우미, 일반 자동화는 각각 전용 디렉터리를 사용합니다.
-소유권 맵과 배치 규칙은 [scripts/README.md](../../../scripts/README.md)를 참조하세요.
+카탈로그 유틸리티, 배포 도우미, 일반 자동화는 각각 전용 디렉터리를 사용합니다. `tests/integration/scripts/`의 교차 배포 workflow 테스트는 이러한 도우미를 전송 계약으로 검증하며 온톨로지나 런타임 소유권을 옮기지 않습니다.
+배치 규칙은 [scripts/README.md](../../../scripts/README.md)를 참조하세요.
 
 `infra/scenario-lab/`은 선택형 배포 검증 루트이며 여섯 번째 런타임 서비스가 아닙니다. 실행기
 스크립트는 `scripts/deployment/scenario-lab/` 아래에 있고, 루트 `scenario-lab` Python extra에는

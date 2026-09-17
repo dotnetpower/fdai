@@ -1,7 +1,7 @@
 """EscalationLadder - decide when a T2 disagreement escalates to a stronger model.
 
 The default T2 path runs a two-model cross-check quorum (primary +
-secondary, distinct publishers). When they disagree, the gate today has
+secondary, distinct model families). When they disagree, the gate today has
 two moves: run the Critic + Judge debate (same-tier reasoners, see
 :mod:`fdai.core.quality_gate.debate_router`) or route to HIL. Neither
 climbs to a **stronger model class** - the ``t2.reasoner.escalated``

@@ -27,7 +27,7 @@ fully disconnected install.
 | Runtime release staging and local preparation | implemented | `runtime_release.py`, `runtime_stage.py`, `offline_prepare.py`; 251 focused tests; issue #461 | Local archives, source and bundle binding, private snapshots, and a non-ready preparation record pass focused checks. Azure installation remains open. |
 | Complete runtime image validation | implemented | Runtime inventory v2 and bounded OCI validators; 355 focused tests; cold-installed CPython 3.12 review wheel | Staging and preparation validate five service images plus ClamAV. Legacy v1 remains inspectable but cannot qualify for complete preparation. Synthetic signed images prove packaging and content checks, not provenance or Azure readiness. |
 | Complete runtime release assembly | implemented | `runtime_build.py`, `build-runtime-release.py`, and focused assembly tests | A private digest-bound descriptor assembles all six OCI images, Console, and deployment support into runtime v2 without network access or artifact execution. It consumes prebuilt evidence and deliberately reports production eligibility as unverified. |
-| OCI deployment appliance | implemented | `build-deployment-appliance.sh`; `run-deployment-appliance.sh`; focused script tests | One verified complete kit is embedded in a digest-pinned no-network OCI build and its entry point starts manual artifact-offline deployment. A production image build and governed Azure receipt remain open. |
+| Prebuilt OCI deployment appliance consumption | in-progress | `run-deployment-appliance.sh`; focused script tests | A release-published, digest-pinned appliance can start manual artifact-offline deployment from its verified embedded kit. A governed Azure receipt remains open; tenant deployment does not construct the image. |
 | Dependency image publication adapter | implemented | `publish_dependency_oci_archive`; 80 focused ACR tests | Shares service publication's validation-before-credentials, deadlines, no-retry transport, and manifest GET readback. Dependency receipts make no FDAI revision claim. Protected caller wiring remains open; tests use a recording transport, not Azure. |
 | Offline VM bootstrap | implemented | `infra/bootstrap/`; 16 mocked Terraform plans | Explicit offline mode selects a prebuilt image without network cloud-init. Image production, attestation, access, and state handoff remain external prerequisites. |
 | Installation-time Console bindings | implemented | `console/src/runtime-config.ts`; `console_config.py`; focused configuration tests and generic build | A generic build accepts public API/Entra bindings without rebuilding and disables authentication bypasses. Publication and authenticated access remain separate checks. |
@@ -41,6 +41,7 @@ fully disconnected install.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-16 | in-progress | Removed private-host runtime image build and tenant appliance construction from the current disconnected deployment contract. The tenant now verifies and mirrors or imports release-built digests without changing bytes. | `current change`; documentation and deployment-skill contracts only; implementation remains unchanged. | Remove builder entry points from tenant orchestration and retain one no-public-egress deployment receipt using only prebuilt artifacts. |
 | 2026-09-14 | validated | Reconciled the existing r4 artifact and cold-install acceptance into Issue #461 instead of rebuilding unchanged bytes or repeating the historical drill. Re-read the public asset and exact CI, and rehashed the retained archive. | [Release and 11-check receipt](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906); source CI `34755232779` and protected merge CI `34755464071` succeeded; archive SHA-256 `c7e8b3e99fd77534ad7e2b2321d2e677fb3fe316a946e4c58ef797d5682bbab5`, size 866720653 bytes. | Current production trust, an eligible selected release, exact Foundation/application approval, private-host convergence, authenticated Console/inventory verification, and appliance-entry-point evidence remain open. No new build, installation, provider call, or deployment was performed. |
 | 2026-09-12 | implemented | Replaced the two-artifact operator handoff with one OCI deployment appliance that embeds a verified complete kit and starts manual standalone deployment. | `current change`; appliance builder, entry point, CLI contracts, and focused tests | Build the production appliance and retain one no-public-egress Azure deployment receipt. |
 | 2026-09-10 | implemented | Added the System Knowledge Service Terraform root to locked offline provider mirroring without changing runtime release eligibility. | `current change`; root lock, mirror helper, and focused fake-Terraform checks. | Retain a complete signed offline drill before claiming disconnected deployment support for the service. |
@@ -63,7 +64,9 @@ fully disconnected install.
 - [ ] Establish and package the offline trust root through the governed ceremony, then prove inspection distinguishes verified, review, and rejected kits without a network call.
 - [ ] Stage actual runtime archives from a clean eligible release revision and pass `airgap-drill.sh --runtime-release <directory> --require-runtime` with no package cache, route, or DNS.
 - [ ] Prove the manual exact-plan approval and apply path from a private deploy host, including rollback, teardown, and post-provision verification receipts.
-- [ ] Build a deployment appliance from an approved digest-pinned base and retain one image-entry-point Azure deployment receipt with no public artifact access.
+- [ ] Accept a release-published digest-pinned deployment appliance, verify its provenance, SBOM
+  and embedded kit, and retain one image-entry-point Azure deployment receipt with no public
+  artifact access or tenant-side image construction.
 
 ## Design at a glance
 
@@ -76,9 +79,9 @@ applies, and a tenant can sit anywhere in the resulting grid.
 | **Public artifact egress** | allow-listed, mirrored, or none | whether the public package index, the Terraform registry, and public container registries are reachable |
 
 Most regulated tenants land on **private Azure reachability with no public artifact egress**: the
-control plane works normally over private endpoints, while every build and install input must come
-from an internal mirror or signed media. A true air gap - no Azure reachability either - is a
-narrower profile covered under [Full air gap](#full-air-gap).
+control plane works normally over private endpoints, while every runtime artifact and install input
+must come from an internal mirror or signed media. A true air gap - no Azure reachability either -
+is a narrower profile covered under [Full air gap](#full-air-gap).
 
 ## Private Azure, no public egress
 
@@ -261,19 +264,22 @@ network sets `enable_public_egress = false`: no public address is created at all
 jumpbox rather than a registered runner, and the tenant supplies its own approved route to the
 management and identity planes.
 
-Build and push the runtime image from the same host once the registry is private.
+Mirror or import the prebuilt signed runtime images from the same host once the registry is private.
+The operation verifies the source manifest and reads back the identical destination digests. It
+never builds, retags to a mutable reference, or changes image bytes.
 
-### 3. Point every build input at an internal mirror
+### 3. Point every artifact input at an internal mirror
 
 | Input | Mechanism |
 |-------|-----------|
-| Base container images | `--build-arg BASE_IMAGE_REGISTRY=<mirror>`. The sha256 digests stay pinned in the `Dockerfile`, so a mirror changes where bytes come from, never which bytes are accepted |
+| Runtime and dependency images | The signed runtime manifest names every accepted sha256 digest. The internal mirror changes only the registry location and must return the same manifest digest. |
 | Python packages | `infra/modules/preflight-toggles/python_index_url` emits the package-index configuration for an internal feed |
 | Registry pulls at deploy time | `infra/modules/preflight-toggles/registry_source` switches from the public default to an internal registry mirror |
 | Terraform providers | the offline kit ships a pinned provider mirror, and offline mode blocks fallback to the public registry |
 
-`scripts/quality/ci/check-ci-contracts.py` fails the build when a base image loses its digest pin or
-hardcodes a registry host, so the mirror seam cannot decay into an unpinned pull.
+The upstream release gate rejects a base image that loses its digest pin or hardcodes a registry
+host, so the mirror seam cannot decay into an unpinned pull. Tenant provisioning consumes that
+release evidence and does not rerun the build.
 
 ### 4. Deliver the CLI and bundle as a signed offline kit
 

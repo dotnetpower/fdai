@@ -73,6 +73,16 @@ It requires a current bounded standing-authorization reference, permits one same
 `POST /api/orders`, and has no cloud management identity, file access, clipboard access, or action
 authority.
 
+The worker rechecks authorization immediately before every intercepted request and counts the
+single permitted order POST before dispatch. Duplicate POSTs, cross-origin requests, or expired
+authority invalidate the journey even when the page displays a success dialog. One overall
+timeout bounds browser launch, navigation, and submission; each result records completion time
+rather than launch time. These checks do not authenticate an arbitrary authorization reference
+or prove deployment isolation; those prerequisites remain part of worker activation.
+Successful journeys also require a 2xx response to the exact submitted order POST. A success
+dialog with an absent or failed HTTP response remains unsuccessful. Only the HTTP status is
+retained, never the order payload; transport acceptance still does not prove fulfillment.
+
 ## Deterministic assessment
 
 The reducer returns exactly one primary state and zero or more supporting signals:
@@ -92,7 +102,98 @@ The assessment identifies an affected business service and dependency path. It r
 when the source proves a complete window. It does not infer revenue, affected users, or root cause
 from Kubernetes health alone.
 
+Healthy and recovered results additionally require a successful service-specific synthetic
+availability observation, every workload explicitly ready, and every SLO explicitly unbreached.
+If no known degraded classification matches but any of those positive proofs is absent, retain
+`held` with `health_not_proven`. Failed order acceptance with an idle queue must not fall through
+to healthy or recovered. This guard does not itself implement an order-acceptance detector,
+create an incident, grant a permission, or approve a recovery.
+
 ## Agent responsibilities
+
+### Order-acceptance-only detector
+
+**Initial design:** Reuse the fulfillment projection with fewer required queue metrics for the
+RabbitMQ-backed demo. **Critique:** That would describe unobserved processing and delivery as
+healthy and mix authorized test traffic with fabricated evidence.
+
+**Revised design:** Keep the existing fulfillment contract unchanged. A separate
+`OrderAcceptanceAnalyzer` emits only canonical Analyzer findings for one explicitly bound
+Deployment. A time-bounded operating intent names its cluster, namespace, name, immutable UID,
+Resource reference, minimum replica count, and distinct failed-probe threshold. Current Kubernetes
+observations and ordered, unique order-acceptance attempts must share the configured freshness
+window. A sample or unknown result never establishes failure or recovery. Synthetic customer
+traffic remains marked as synthetic traffic; it is not relabeled as production traffic.
+
+The source normalizes evidence without granting trust. Before incident publication, a separately
+injected verifier must authenticate a retained receipt for the exact intent-and-observation digest,
+including the probe authorization reference. Missing verification, incomplete or conflicting
+evidence, expired intent, UID mismatch, stale observations, or insufficient probes withholds the
+finding. No permissive verifier is supplied by the package. Deployment must bind the actual
+receipt-verification and read-only observation adapters before registration.
+
+The retained-receipt adapter uses deployment-pinned Ed25519 public keys and an exact, closed
+`aks-commerce.acceptance-receipt` version `1.0.0` record. The signature binds the evidence digest,
+policy, target, issuer, collector, probe authorization references, and validity window. A fresh
+trust-state read must explicitly confirm that the key is not revoked. The verifier has no signing
+key or executor credential. Collector, receipt issuer, and executor identities remain distinct;
+receipt authenticity never substitutes for trustworthy collection or provider effect verification.
+Deployment owns receipt issuance, trust-state updates, and disjoint database grants.
+
+The concrete Kubernetes reader uses GET only, verifies Deployment and Service UIDs, controller
+generation, selectors, EndpointSlice ownership, and the Pod-to-ReplicaSet-to-Deployment chain
+for ready endpoints. It re-reads target versions, rejects truncated lists and raced observations,
+and bounds each response to 256 KiB and the complete snapshot to five seconds. The observer's
+read grants remain separate from Thor's scale grants. Immutable observations and receipts use
+the existing state store with per-record atomic audit; ingestion verifies signatures before
+retention and the Analyzer verifies them again at use time.
+
+The package entry point `fdai-aks-commerce-analyze` runs one bounded deployed observation tick.
+`FDAI_AKS_ACCEPTANCE_JSON` contains exactly `intent`, `trust`, `executor_identity`, `severity`,
+and `publication_window_seconds`. Trust entries contain only issuer, source identity, and public
+key bytes. Existing `FDAI_STATE_STORE_DSN`, `FDAI_MI_CLIENT_ID`, `KAFKA_BOOTSTRAP_SERVERS`, and
+`KAFKA_TOPIC_EVENTS` bind the service-owned store and observer-only event bus. The job uses the
+shared publication ledger and finding receipt store, never an in-memory production fallback.
+Missing configuration or evidence fails readiness. Deployment must still provide the independent
+receipt issuer, authenticated probe collection, trust lifecycle, least-privilege database grants,
+and job scheduling; an installed command alone does not establish a live observation loop.
+The entry point uses the shared venue and bus-security resolver. Startup or provider failures
+return a nonzero status with a fixed unavailable reason, never raw provider diagnostic text.
+
+Repeated failed acceptance with zero desired and ready replicas and no ready service endpoints
+produces `aks_commerce.order_acceptance_unavailable`. A separate inert `ops.scale-out` candidate
+may restore zero to the reviewed minimum only when maintenance, HPA ownership, and competing
+writers are all explicitly absent. It retains the observed UID and resource version and grants no
+approval, promotion, or execution authority. Acceptance success requires positive ready-replica,
+endpoint, and order evidence and never closes an Incident by itself. The shared publisher and
+Heimdall retain event deduplication and Incident ownership; Thor alone executes an independently
+admitted action. Fulfillment, payment, delivery, and revenue remain outside this detector's scope.
+
+### Incident ingress and Thor-owned execution
+
+The composition root may register `AksCommerceAnalyzer` with the shared `InvestigationCoordinator`
+and `AnalyzerTickRunner`. The commerce coordinator retains each assessment before the analyzer
+returns a complete, current degraded finding. The shared runner owns event publication, durable
+duplicate suppression, and uncertain-send reconciliation. It does not call an agent or write an
+Incident directly. Huginn normalizes the event; Heimdall applies its existing repeated-evidence and
+severity policy before the canonical Incident lifecycle opens a case. Replaying an assessment
+preserves the event identity. Observations in distinct configured publication buckets provide
+distinct evidence in one target's correlation. A failed or uncertain publisher cannot be reported
+as successful delivery. A server-owned binding supplies the exact target, canonical resource kind,
+severity, publication interval, and evidence freshness ceiling.
+
+The publisher remains disabled without an explicit event-bus binding and exact service-to-target
+configuration. Held, healthy, recovered, stale, and synthetic assessment frames are not incident
+triggers through this bridge. A retained projection or broker receipt grants no action authority.
+The order-acceptance-only detector uses the separate evidence profile above, not this projection.
+Runtime registration and the live workload, SLO, and metric sources still require deployment
+integration; the exported adapter alone does not start an observation loop or create live records.
+
+Thor is the only execution agent. The isolated Executor is Thor's execution runtime, not a second
+agent or an independent recovery decision maker. It may call the Kubernetes API only for a
+Thor-owned, safeguard-bound command admitted through the existing approval and promotion path.
+Heimdall verifies effects independently; Console and the commerce coordinator never hold mutation
+credentials. This integration does not merge processes or enable local execution authority.
 
 No agent names or role bindings change:
 
@@ -125,6 +226,15 @@ Each action starts in observation mode and requires a stop condition, tested rol
 scope, successful server-side dry run, logical-target lock, stable idempotency key, and two-phase
 audit. Success requires a distinct Heimdall observation of both resource recovery and the expected
 business effect. Kubernetes API acceptance is not success.
+
+Acceptance-only effect verification consumes a trusted action-owner expectation with the exact
+ActionRun, provider receipt, target UID, replica count, application time, and pre-action references.
+Every recovery probe and resource observation must follow that application time and use distinct
+evidence. The verifier authenticates the new receipt, rechecks freshness after verification, and
+requires the exact expected desired count plus positive ready-endpoint and order-acceptance proof.
+It returns `verified`, `not_recovered`, or `held` evidence without closing an Incident, retrying
+an action, or changing promotion. The action-owner handoff and Heimdall lifecycle binding remain
+required before this read-only result can close a real run.
 
 ## Public storefront deployment
 

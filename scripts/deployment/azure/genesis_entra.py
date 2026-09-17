@@ -27,6 +27,9 @@ _ROLE_MEMBER_TYPES = {
     _CHANNEL_ATTACHMENT_ROLE: ("Application",),
 }
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+_SWA_ORIGIN = re.compile(
+    r"https://[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:[.][0-9]+)?[.]azurestaticapps[.]net"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,6 +128,41 @@ def read_entra_bindings() -> dict[str, str]:
         "OPERATOR_API_AUDIENCE": f"api://{api_app['appId']}",
         **{variable: str(value["id"]) for variable, value in groups.items() if value is not None},
     }
+
+
+def ensure_console_spa_redirect(spa_client_id: str, console_origin: str) -> bool:
+    """Register one exact deployed SWA origin while preserving existing SPA redirects."""
+
+    if _GUID.fullmatch(spa_client_id) is None or _SWA_ORIGIN.fullmatch(console_origin) is None:
+        raise ValueError("Console SPA redirect binding is invalid")
+    app = _app(spa_client_id)
+    _validate_app("fdai-console-spa", app)
+    if str(app.get("appId", "")).casefold() != spa_client_id.casefold():
+        raise ValueError("Console SPA application readback differs")
+    object_id = str(app.get("id", ""))
+    spa = app.get("spa")
+    redirects = spa.get("redirectUris") if isinstance(spa, dict) else None
+    if (
+        _GUID.fullmatch(object_id) is None
+        or not isinstance(redirects, list)
+        or any(not isinstance(item, str) for item in redirects)
+    ):
+        raise ValueError("Console SPA redirect readback is invalid")
+    if console_origin in redirects:
+        return False
+    _graph(
+        "PATCH",
+        f"applications/{object_id}",
+        {"spa": {"redirectUris": [*redirects, console_origin]}},
+    )
+    observed = _app(spa_client_id)
+    observed_spa = observed.get("spa")
+    observed_redirects = (
+        observed_spa.get("redirectUris") if isinstance(observed_spa, dict) else None
+    )
+    if observed_redirects != [*redirects, console_origin]:
+        raise ValueError("Console SPA redirect effect readback is incomplete")
+    return True
 
 
 def _directory_inventory() -> tuple[

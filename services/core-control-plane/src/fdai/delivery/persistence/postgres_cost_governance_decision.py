@@ -12,7 +12,9 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from fdai.shared.providers.cost_governance_decision import (
+    CostDecisionFrame,
     CostDecisionOutcome,
+    CostDecisionRecord,
     CostEpisodePersistenceRecord,
     CostEpisodeSettlement,
     CostEvidenceRecord,
@@ -128,6 +130,70 @@ class PostgresCostGovernanceDecisionStore:
                     )
                 return True
 
+    async def append_observation_mode_case(
+        self,
+        *,
+        scope_id: str,
+        frame: CostDecisionFrame,
+        decision: CostDecisionRecord,
+        episode_revision: int,
+        source_authority: str,
+    ) -> bool:
+        """Persist a complete observation-mode frame for the read projection."""
+
+        if not scope_id or len(scope_id) > 1024:
+            raise ValueError("Cost Governance case scope MUST be bounded")
+        if not source_authority or len(source_authority) > 256:
+            raise ValueError("Cost Governance case source authority MUST be bounded")
+        if (
+            episode_revision < 1
+            or decision.episode_id != frame.episode_id
+            or decision.decision_frame_digest != frame.digest
+        ):
+            raise ValueError("Cost Governance case identity MUST match its decision frame")
+        if (
+            not decision.observation_mode
+            or decision.outcome is not CostDecisionOutcome.HOLD
+            or decision.terminal
+        ):
+            raise ValueError("Cost Governance read cases MUST remain observation-mode holds")
+        async with await self._connect() as conn:
+            await self._timeout(conn)
+            inserted = await conn.execute(
+                """
+                INSERT INTO cost_governance_case_projection (
+                    episode_id, episode_revision, scope_id, evidence_cutoff,
+                    decision_frame_digest, target_refs, options, selected_option_id,
+                    verdict, reason, source_authority, recorded_at
+                )
+                SELECT %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, episode.recorded_at
+                  FROM cost_governance_episode AS episode
+                 WHERE episode.episode_id = %s
+                   AND episode.revision = %s
+                   AND episode.decision_frame_digest = %s
+                   AND episode.observation_mode
+                   AND episode.outcome = 'hold'
+                ON CONFLICT DO NOTHING
+                """,
+                (
+                    frame.episode_id,
+                    episode_revision,
+                    scope_id,
+                    frame.evidence_cutoff,
+                    frame.digest,
+                    Jsonb(list(frame.scope.target_refs)),
+                    Jsonb([option.to_mapping() for option in frame.options]),
+                    frame.selected_option_id,
+                    decision.outcome.value,
+                    decision.reason,
+                    source_authority,
+                    frame.episode_id,
+                    episode_revision,
+                    frame.digest,
+                ),
+            )
+        return inserted.rowcount == 1
+
     async def append_cost_recovery_attempt(
         self,
         episode_id: str,
@@ -200,10 +266,34 @@ class PostgresCostGovernanceDecisionStore:
                 )
                 return inserted.rowcount == 1
 
-    async def append_cost_settlement(self, settlement: CostEpisodeSettlement) -> bool:
+    async def append_cost_settlement(
+        self,
+        settlement: CostEpisodeSettlement,
+        *,
+        action_ref: str | None = None,
+        action_revision: int | None = None,
+        currency: str | None = None,
+    ) -> bool:
         """Append one settlement and all effect rows atomically."""
 
-        payload = _settlement_payload(settlement)
+        if (action_ref is None) != (action_revision is None):
+            raise ValueError("settlement action reference and revision MUST be supplied together")
+        if action_ref is not None and (
+            not action_ref.strip() or len(action_ref) > 512 or action_revision is None
+        ):
+            raise ValueError("settlement action reference MUST be bounded")
+        if action_revision is not None and action_revision < 1:
+            raise ValueError("settlement action revision MUST be positive")
+        if currency is not None and (
+            len(currency) != 3 or not currency.isascii() or not currency.isupper()
+        ):
+            raise ValueError("settlement currency MUST be a three-letter uppercase code")
+        payload = _settlement_payload(
+            settlement,
+            action_ref=action_ref,
+            action_revision=action_revision,
+            currency=currency,
+        )
         digest = f"sha256:{hashlib.sha256(payload).hexdigest()}"
         async with await self._connect() as conn:
             async with conn.transaction():
@@ -215,9 +305,10 @@ class PostgresCostGovernanceDecisionStore:
                     """
                     INSERT INTO cost_governance_settlement (
                         episode_id, episode_revision, settlement_digest, terminal,
-                        realized_savings, rollback_request_id, recovery_observed, settled_at
+                        realized_savings, currency, action_ref, action_revision,
+                        rollback_request_id, recovery_observed, settled_at
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT DO NOTHING
                     """,
                     (
@@ -226,6 +317,9 @@ class PostgresCostGovernanceDecisionStore:
                         digest,
                         settlement.terminal,
                         settlement.realized_savings,
+                        currency,
+                        action_ref,
+                        action_revision,
                         (
                             settlement.rollback_request.request_id
                             if settlement.rollback_request is not None
@@ -481,7 +575,13 @@ def _ceiling(name: str) -> str:
     return name.lower().replace("_", "-")
 
 
-def _settlement_payload(settlement: CostEpisodeSettlement) -> bytes:
+def _settlement_payload(
+    settlement: CostEpisodeSettlement,
+    *,
+    action_ref: str | None = None,
+    action_revision: int | None = None,
+    currency: str | None = None,
+) -> bytes:
     value = {
         "decision_frame_digest": settlement.decision_frame_digest,
         "effects": [
@@ -510,6 +610,11 @@ def _settlement_payload(settlement: CostEpisodeSettlement) -> bytes:
         "settled_at": settlement.settled_at.isoformat(),
         "terminal": settlement.terminal,
     }
+    if action_ref is not None:
+        value["action_ref"] = action_ref
+        value["action_revision"] = action_revision
+    if currency is not None:
+        value["currency"] = currency
     return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
 
 

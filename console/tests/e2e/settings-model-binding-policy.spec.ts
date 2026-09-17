@@ -101,7 +101,7 @@ function capability(
   };
 }
 
-async function installFixture(page: Page): Promise<void> {
+async function installFixture(page: Page, onRead?: () => void): Promise<void> {
   const handle = async (route: Route): Promise<void> => {
     if (route.request().resourceType() === "document") {
       await route.continue();
@@ -109,6 +109,7 @@ async function installFixture(page: Page): Promise<void> {
     }
     const path = new URL(route.request().url()).pathname.replace(/^\/api(?=\/)/, "");
     if (path === "/models/settings") {
+      onRead?.();
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -180,4 +181,22 @@ test("retries the same catalog refresh after a transient failure", async ({ page
 
   await expect(page.getByText("HTTP 503", { exact: true })).toHaveCount(0);
   await expect.poll(() => refreshAttempts).toBe(2);
+});
+
+test("prefetches and reuses Models settings within the authenticated client", async ({ page }) => {
+  let modelReads = 0;
+  await installFixture(page, () => { modelReads += 1; });
+  await page.goto("/settings/general");
+
+  const dialog = page.getByRole("dialog", { name: "Settings" });
+  const modelsLink = dialog.getByRole("link", { name: /Models/ });
+  await modelsLink.hover();
+  await expect.poll(() => modelReads).toBe(1);
+  await modelsLink.click();
+  await expect(page.getByRole("heading", { name: "Model lifecycle" })).toBeVisible();
+
+  await dialog.getByRole("link", { name: /General/ }).click();
+  await dialog.getByRole("link", { name: /Models/ }).click();
+  await expect(page.getByRole("heading", { name: "Model lifecycle" })).toBeVisible();
+  expect(modelReads).toBe(1);
 });

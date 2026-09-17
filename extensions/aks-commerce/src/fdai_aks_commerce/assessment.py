@@ -45,6 +45,8 @@ def assess_aks_commerce(
         status = AksCommerceStatus.HELD
     else:
         status = _qualified_status(frame, selected)
+        if status is AksCommerceStatus.HELD:
+            gaps.append("health_not_proven")
     affected = (
         tuple(workload.workload_id for workload in frame.workloads if workload.ready is False)
         if status is not AksCommerceStatus.HEALTHY
@@ -122,11 +124,19 @@ def _qualified_status(
         return AksCommerceStatus.DEPENDENCY_PRESSURE
     if frame.deployment_changed and frame.rollout_stalled and any_slo_breached:
         return AksCommerceStatus.DEPLOYMENT_REGRESSION
+    availability = (
+        catalog
+        if frame.service_id == "catalog-browse"
+        else frame.metric("synthetic.order.availability")
+    )
     if (
-        frame.prior_degraded
-        and not any_slo_breached
-        and all(workload.ready is True for workload in frame.workloads)
+        availability is None
+        or availability.current != 1
+        or any(slo.breached is not False for slo in frame.slos)
+        or any(workload.ready is not True for workload in frame.workloads)
     ):
+        return AksCommerceStatus.HELD
+    if frame.prior_degraded:
         return AksCommerceStatus.RECOVERED
     return AksCommerceStatus.HEALTHY
 

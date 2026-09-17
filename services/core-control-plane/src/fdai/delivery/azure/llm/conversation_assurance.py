@@ -26,6 +26,7 @@ from fdai.core.prompts import (
     PromptRequestBudgetExceededError,
     estimate_serialized_request_tokens,
 )
+from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.model_trace import prepare_model_messages
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
@@ -36,6 +37,26 @@ from fdai.rule_catalog.schema.model_endpoint import ModelApiStyle, ModelRouteKin
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _MAX_FORWARD_CHARS = 16_384
+
+
+class ConversationAssuranceProviderConnectionError(RuntimeError):
+    """The evaluator could not reach its configured provider."""
+
+    assurance_reason_code = "provider_connection"
+
+
+class ConversationAssuranceProviderHTTPError(RuntimeError):
+    """The evaluator provider returned a non-success HTTP status."""
+
+    def __init__(self, status_code: int) -> None:
+        self.assurance_reason_code = f"provider_http_{status_code}"
+        super().__init__(f"conversation assurance provider returned HTTP {status_code}")
+
+
+class ConversationAssuranceInvalidResponseError(RuntimeError):
+    """The evaluator provider returned an invalid assurance response."""
+
+    assurance_reason_code = "provider_response_invalid"
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,9 +160,12 @@ class AzureConversationAssuranceEvaluator:
                 {"role": "system", "content": self._config.system_prompt},
                 {"role": "user", "content": _evaluation_prompt(turn, debate=debate)},
             ],
-            "temperature": 0.0,
-            "max_tokens": self._config.max_tokens,
             "response_format": {"type": "json_object"},
+            **completion_body_params(
+                self.model_family,
+                temperature=0.0,
+                max_tokens=self._config.max_tokens,
+            ),
         }
         body["messages"] = list(prepare_model_messages(body["messages"]).messages)
         if request.model_body_field is not None:
@@ -165,22 +189,35 @@ class AzureConversationAssuranceEvaluator:
         token = await self._identity.get_token(self._target.auth_audience)
         usage: TokenUsage | None = None
         try:
-            response = await self._http.post(
-                request.url,
-                params=request.params,
-                headers={
-                    "Authorization": f"Bearer {token.token}",
-                    "Content-Type": "application/json",
-                },
-                json=body,
-                timeout=self._config.timeout_seconds,
-            )
-            response.raise_for_status()
-            envelope = response.json()
-            extracted = extract_usage(envelope)
-            if extracted is not None:
-                usage = extracted
-            confidence, scores = _parse_evaluation(_message_content(envelope))
+            try:
+                response = await self._http.post(
+                    request.url,
+                    params=request.params,
+                    headers={
+                        "Authorization": f"Bearer {token.token}",
+                        "Content-Type": "application/json",
+                    },
+                    json=body,
+                    timeout=self._config.timeout_seconds,
+                )
+            except httpx.HTTPError as exc:
+                raise ConversationAssuranceProviderConnectionError(
+                    "conversation assurance provider connection failed"
+                ) from exc
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise ConversationAssuranceProviderHTTPError(response.status_code) from exc
+            try:
+                envelope = response.json()
+                extracted = extract_usage(envelope)
+                if extracted is not None:
+                    usage = extracted
+                confidence, scores = _parse_evaluation(_message_content(envelope))
+            except (KeyError, TypeError, ValueError, RuntimeError) as exc:
+                raise ConversationAssuranceInvalidResponseError(
+                    "conversation assurance provider response is invalid"
+                ) from exc
             measured_usage = usage or TokenUsage.zero()
             return EvaluatorOutput(
                 model_identity=self.model_identity,

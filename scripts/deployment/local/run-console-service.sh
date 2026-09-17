@@ -16,7 +16,8 @@ if [[ $# -eq 2 ]]; then
   if [[ "$2" != "--wait-ready" \
     || ( "$service" != "core-runtime" \
       && "$service" != "operator-api" \
-      && "$service" != "local-analyzer" ) ]]; then
+      && "$service" != "local-analyzer" \
+      && "$service" != "cost-governance-analytics" ) ]]; then
     usage
   fi
   wait_ready=1
@@ -52,6 +53,11 @@ case "$service" in
     env_file=".fdai/local-runtime.env"
     source_root="services/core-control-plane/src"
     project_file="services/core-control-plane/pyproject.toml"
+    ;;
+  cost-governance-analytics)
+    env_file=".fdai/local-runtime.env"
+    source_root="extensions/cost-governance/src"
+    project_file="extensions/cost-governance/pyproject.toml"
     ;;
   operator-api)
     env_file=".fdai/local-operator-service.env"
@@ -136,6 +142,11 @@ else
   )
   if [[ "$service" == "core-runtime" ]]; then
     digest_inputs+=(rule-catalog)
+  elif [[ "$service" == "cost-governance-analytics" ]]; then
+    digest_inputs+=(
+      services/core-control-plane/src
+      scripts/deployment/local/collect-cost-governance-analytics.py
+    )
   fi
 fi
 input_digest="$(
@@ -227,6 +238,18 @@ case "$service" in
       FDAI_INVENTORY_DSN="${FDAI_INVENTORY_DSN:-$FDAI_STATE_STORE_DSN}"
       PYTHONPATH="$service_pythonpath"
       "$repo_root/.venv/bin/python" -m fdai.delivery.analyzer_tick_cli --loop
+    )
+    ;;
+  cost-governance-analytics)
+    service_command=(
+      env -u AZURE_CONFIG_DIR
+      FDAI_EXECUTION_VENUE=local
+      FDAI_COST_STORE_DSN="$FDAI_STATE_STORE_DSN"
+      FDAI_COST_SCOPE_ID="subscriptions/$AZURE_SUBSCRIPTION_ID"
+      PYTHONPATH="$service_pythonpath:$repo_root/services/core-control-plane/src"
+      "$repo_root/.venv/bin/python"
+      "$repo_root/scripts/deployment/local/collect-cost-governance-analytics.py"
+      --loop
     )
     ;;
   document-ingestion-api)

@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 789b6e6c19c7a9c114311533b48170888a6c3817
-translation_revised: 2026-09-14
+translation_source_sha: 7c8776e44268db523bf906b71ca41ac2ee50ebcc
+translation_revised: 2026-09-17
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -330,7 +330,7 @@ channel-as-audience 바인딩으로 유지합니다.
   쓰는 것과 같은 정규식 세트) 발송 전에 마지막 방어선으로.
 - **어댑터는 멱등 `send`를 구현** 해야 함: 같은 `correlation_id + audit_id + category`로
   재발행된 전송은 중복 포스트를 생성해선 안 됨.
-- **A2/A4 capability-state, pre-render presentation, shadow delivery**는
+- **A2/A4 기능 상태, 사전 렌더링 표현, shadow 전달 및 공급자 고유 rich 카드 payload**는
   [다중 채널 알림 전달 § 8](multi-channel-notification-delivery-ko.md#8-capability-state-presentation-shadow-delivery-계약)이
   상세히 소유합니다.
 

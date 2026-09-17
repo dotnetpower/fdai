@@ -130,7 +130,7 @@ def build_direct_api_effect_executor(
             identities=identities,
             http_client=http_client,
         )
-    kubernetes = _build_kubernetes_direct_api()
+    kubernetes = _build_kubernetes_direct_api(identities=identities)
     executor: DirectApiExecutor | None = gateway
     if kubernetes is not None:
         from fdai_executor_service.adapters.kubernetes_direct_api import (
@@ -173,7 +173,10 @@ def build_direct_api_effect_executor(
     )
 
 
-def _build_kubernetes_direct_api() -> DirectApiExecutor | None:
+def _build_kubernetes_direct_api(
+    *,
+    identities: Mapping[str, WorkloadIdentity] | None = None,
+) -> DirectApiExecutor | None:
     raw = os.environ.get("FDAI_KUBERNETES_DIRECT_API_JSON", "").strip()
     if not raw:
         return None
@@ -181,11 +184,17 @@ def _build_kubernetes_direct_api() -> DirectApiExecutor | None:
         value = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise RuntimeError("FDAI_KUBERNETES_DIRECT_API_JSON MUST be valid JSON") from exc
-    required = {"api_server", "cluster_ref", "token_path", "ca_path", "allowed_namespaces"}
-    if not isinstance(value, dict) or set(value) != required:
+    common = {"api_server", "cluster_ref", "allowed_namespaces"}
+    accepted = [
+        common | {credential, certificate}
+        for credential in ("token_path", "audience")
+        for certificate in ("ca_path", "ca_pem")
+    ]
+    if not isinstance(value, dict) or set(value) not in accepted:
         raise RuntimeError(
-            "FDAI_KUBERNETES_DIRECT_API_JSON MUST contain exactly api_server, cluster_ref, "
-            "token_path, ca_path, and allowed_namespaces"
+            "FDAI_KUBERNETES_DIRECT_API_JSON MUST contain api_server, cluster_ref, "
+            "allowed_namespaces, exactly one of token_path or audience, "
+            "and exactly one of ca_path or ca_pem"
         )
     namespaces = value["allowed_namespaces"]
     if (
@@ -194,9 +203,12 @@ def _build_kubernetes_direct_api() -> DirectApiExecutor | None:
         or any(not isinstance(item, str) for item in namespaces)
     ):
         raise RuntimeError("Kubernetes allowed_namespaces MUST be a non-empty string array")
-    text_fields = {name: value[name] for name in required - {"allowed_namespaces"}}
-    if any(not isinstance(item, str) for item in text_fields.values()):
-        raise RuntimeError("Kubernetes direct-API text settings MUST be strings")
+    text_fields = {name: value[name] for name in set(value) - {"allowed_namespaces"}}
+    if any(
+        not isinstance(item, str) or not item or (name != "ca_pem" and item != item.strip())
+        for name, item in text_fields.items()
+    ):
+        raise RuntimeError("Kubernetes direct-API text settings MUST be non-empty strings")
     from fdai_executor_service.adapters.kubernetes_direct_api import (
         KubernetesDirectApiConfig,
         KubernetesDirectApiExecutor,
@@ -207,10 +219,13 @@ def _build_kubernetes_direct_api() -> DirectApiExecutor | None:
             config=KubernetesDirectApiConfig(
                 api_server=str(value["api_server"]),
                 cluster_ref=str(value["cluster_ref"]),
-                token_path=Path(str(value["token_path"])),
-                ca_path=Path(str(value["ca_path"])),
+                token_path=Path(str(value["token_path"])) if "token_path" in value else None,
+                ca_path=Path(str(value["ca_path"])) if "ca_path" in value else None,
                 allowed_namespaces=frozenset(namespaces),
-            )
+                audience=str(value["audience"]) if "audience" in value else None,
+                ca_pem=str(value["ca_pem"]) if "ca_pem" in value else None,
+            ),
+            identities=identities,
         )
     except ValueError as exc:
         raise RuntimeError("Kubernetes direct API configuration is invalid") from exc

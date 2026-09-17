@@ -70,6 +70,7 @@ class StorefrontJourneyResult:
     authorization_ref: str
     synthetic: bool = True
     execution_authority: bool = False
+    order_http_status: int | None = None
 
 
 class StorefrontJourneyDriver(Protocol):
@@ -100,8 +101,14 @@ class AsyncPlaywrightStorefrontDriver:
             module = importlib.import_module("playwright.async_api")
         except ImportError as exc:
             raise RuntimeError("Playwright is unavailable in the synthetic journey worker") from exc
+        order_posts = 0
+        request_denied = False
+        order_http_status: int | None = None
         try:
-            async with module.async_playwright() as playwright:
+            async with (
+                asyncio.timeout(config.timeout_seconds),
+                module.async_playwright() as playwright,
+            ):
                 browser = await playwright.chromium.launch(
                     headless=True,
                     env={"LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"},
@@ -115,17 +122,51 @@ class AsyncPlaywrightStorefrontDriver:
                     )
                     page = await context.new_page()
 
+                    async def capture_order_response(response: Any) -> None:
+                        nonlocal order_http_status
+                        request = response.request
+                        if (
+                            str(request.method).upper() == "POST"
+                            and str(request.url) == f"{origin}/api/orders"
+                            and order_posts == 1
+                        ):
+                            order_http_status = int(response.status)
+
+                    page.on("response", capture_order_response)
+
                     async def authorize(route: Any, request: Any) -> None:
+                        nonlocal order_posts, request_denied
                         target = urlparse(str(request.url))
                         target_origin = f"{target.scheme}://{target.netloc}"
                         method = str(request.method).upper()
-                        allowed = target_origin == origin and (
-                            method in {"GET", "HEAD"}
-                            or (method == "POST" and target.path == "/api/orders")
+                        current = self._clock()
+                        current_authority = (
+                            current.tzinfo is not None
+                            and current.utcoffset() is not None
+                            and observed_at <= current < config.authorization_expires_at
                         )
-                        if allowed:
+                        allowed_origin = (
+                            target_origin == origin
+                            and target.username is None
+                            and target.password is None
+                            and not target.fragment
+                        )
+                        allowed_order = (
+                            method == "POST"
+                            and target.path == "/api/orders"
+                            and not target.query
+                            and order_posts == 0
+                        )
+                        if (
+                            current_authority
+                            and allowed_origin
+                            and (method in {"GET", "HEAD"} or allowed_order)
+                        ):
+                            if method == "POST":
+                                order_posts += 1
                             await route.continue_()
                         else:
+                            request_denied = True
                             await route.abort("blockedbyclient")
 
                     await page.route("**/*", authorize)
@@ -140,7 +181,7 @@ class AsyncPlaywrightStorefrontDriver:
                         raise RuntimeError(
                             "storefront navigation did not return a successful response"
                         )
-                    product = page.locator(config.product_selector).first()
+                    product = page.locator(config.product_selector).first
                     await product.wait_for(state="visible", timeout=timeout_ms)
                     step = "add_to_cart"
                     await product.get_by_role("button", name=config.add_to_cart_name).click(
@@ -168,22 +209,36 @@ class AsyncPlaywrightStorefrontDriver:
                     )
                     if dialog_text != config.success_dialog_text:
                         raise RuntimeError("storefront checkout returned an unexpected result")
+                    if request_denied or order_posts != 1:
+                        step = "request_policy"
+                        raise RuntimeError("storefront journey did not satisfy its request policy")
+                    if order_http_status is None or not 200 <= order_http_status < 300:
+                        step = "order_response"
+                        raise RuntimeError("storefront order did not receive a successful response")
+                    completed_at = self._clock()
+                    if not observed_at <= completed_at < config.authorization_expires_at:
+                        step = "authorization"
+                        raise RuntimeError(
+                            "storefront journey authorization expired before completion"
+                        )
                     return _result(
-                        observed_at,
+                        completed_at,
                         started,
                         authorization_ref=config.authorization_ref,
                         success=True,
                         failed_step=None,
+                        order_http_status=order_http_status,
                     )
                 finally:
                     await browser.close()
         except Exception:
             return _result(
-                observed_at,
+                self._clock(),
                 started,
                 authorization_ref=config.authorization_ref,
                 success=False,
                 failed_step=step,
+                order_http_status=order_http_status,
             )
 
 
@@ -194,11 +249,12 @@ def _result(
     authorization_ref: str,
     success: bool,
     failed_step: str | None,
+    order_http_status: int | None = None,
 ) -> StorefrontJourneyResult:
     duration_ms = max(0, int((time.monotonic() - started) * 1000))
     canonical = (
         f"{observed_at.isoformat()}:{authorization_ref}:"
-        f"{success}:{failed_step or 'complete'}:{duration_ms}"
+        f"{success}:{failed_step or 'complete'}:{duration_ms}:{order_http_status}"
     )
     digest = hashlib.sha256(canonical.encode("ascii")).hexdigest()
     return StorefrontJourneyResult(
@@ -208,6 +264,7 @@ def _result(
         duration_ms=duration_ms,
         evidence_ref=f"synthetic-journey:sha256:{digest}",
         authorization_ref=authorization_ref,
+        order_http_status=order_http_status,
     )
 
 

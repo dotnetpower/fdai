@@ -124,14 +124,14 @@ def test_policy_rejects_unknown_capability() -> None:
         validate_policy_against_registry(registry=_registry(), policy=policy)
 
 
-def test_policy_rejects_same_publisher_t2_pair() -> None:
+def test_policy_rejects_same_family_t2_pair() -> None:
     policy = load_model_binding_policy_from_mapping(
         _policy(
             {
                 "t2.reasoner.secondary": {
                     "selection_mode": "pinned",
-                    "publisher": "OpenAI",
-                    "family": "gpt-4.1",
+                    "publisher": "ExampleAI",
+                    "family": "gpt-4o",
                     "version_policy": "latest-compatible",
                     "sku": "Standard",
                     "capacity": {"unit": "tpm", "value": 20_000},
@@ -139,8 +139,27 @@ def test_policy_rejects_same_publisher_t2_pair() -> None:
             }
         )
     )
-    with pytest.raises(ValueError, match="distinct publishers"):
+    with pytest.raises(ValueError, match="distinct families"):
         validate_policy_against_registry(registry=_registry(), policy=policy)
+
+
+def test_policy_allows_same_publisher_distinct_family_t2_pair() -> None:
+    policy = load_model_binding_policy_from_mapping(
+        _policy(
+            {
+                "t2.reasoner.secondary": {
+                    "selection_mode": "pinned",
+                    "publisher": "OpenAI",
+                    "family": "gpt-5.2",
+                    "version_policy": "latest-compatible",
+                    "sku": "Standard",
+                    "capacity": {"unit": "tpm", "value": 20_000},
+                }
+            }
+        )
+    )
+
+    validate_policy_against_registry(registry=_registry(), policy=policy)
 
 
 def test_yaml_loader_rejects_non_mapping(tmp_path: Path) -> None:
