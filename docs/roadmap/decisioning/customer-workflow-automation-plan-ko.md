@@ -1,8 +1,8 @@
 ---
 title: 고객 워크플로 자동화 제공 계획
 translation_of: customer-workflow-automation-plan.md
-translation_source_sha: 492d9eab89aecd4738cb2868662ed2a50b6aaa31
-translation_revised: 2026-09-09
+translation_source_sha: 9ddba5bff1bbf222ef60b59de1044d1a570d7191
+translation_revised: 2026-09-17
 ---
 
 # 고객 워크플로 자동화 제공 계획
@@ -96,6 +96,7 @@ translation_revised: 2026-09-09
 | 기능 | 현재 상태 | 제공 시 의미 |
 |------|-----------|-------------|
 | 정의 검증 및 비공개 초안 | 구현됨 | 지금 작업, 대기, 승인, 결정, 병렬 및 게이트 단계를 모델링하고, 순서 변경과 탭 복구 중 필수 필드를 보존하며, 프로세스를 검토할 수 있습니다. 초안은 실행할 수 없습니다. |
+| 게시 정의 검토 | 구현됨 | 운영자는 권위 있는 카탈로그를 텍스트, 워크플로 범주 및 단계 종류로 좁힌 뒤 선택한 ActionType 또는 제어 단계 계약을 검사할 수 있습니다. 필터는 표시만 바꾸며 빈 결과에서 복구 경로를 명확히 유지합니다. |
 | 신호 및 예약 트리거 | 구현됨 | 정규화된 이벤트나 일정에서 관찰 실행을 시작할 수 있습니다. |
 | 프로세스 스냅샷 및 추가 전용 저널 | 구현됨 | 실행을 검사하고 결정론적으로 식별할 수 있습니다. |
 | 검증된 액션 진행 상황 및 보상 | Core 런타임에 구현됨 | 제안 전달, 권위 있는 결과 검증, reverse 보상, recovery-incomplete 종결을 별도 저널 상태로 기록합니다. Headless 및 운영 Operator API 조립은 shared StateStore recorder와 검증기를 연결하며 독립적인 효과 근거가 없으면 프로세스를 waiting 상태로 유지합니다. Held 대상은 일치하는 프로세스 보상만 사람 승인을 통해 허용하며 모든 검증된 증적과 CAS 보류 release가 끝나야 `compensated`가 됩니다. |

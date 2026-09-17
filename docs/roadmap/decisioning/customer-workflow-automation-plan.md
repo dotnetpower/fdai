@@ -94,6 +94,7 @@ The baseline separates implemented platform capability from adoption work.
 | Capability | Current state | Delivery implication |
 |------------|---------------|----------------------|
 | Definition validation and private drafts | Implemented | Teams can model action, wait, approval, decision, parallel, and gate steps, preserve required fields through reorder and tab recovery, and review a process now. Drafts remain non-runnable. |
+| Published-definition review | Implemented | Operators can narrow the authoritative catalog by text, workflow category, and step kind, then inspect the selected ActionType or control-step contract. Filters change presentation only and keep empty-result recovery explicit. |
 | Signal and schedule triggers | Implemented | Observation runs can start from normalized events or schedules. |
 | Process snapshot and append-only journal | Implemented | Runs can be inspected and deterministically identified. |
 | Verified action progress and compensation | Implemented in the core runtime | Proposal dispatch, authoritative outcome verification, reverse compensation, and recovery-incomplete closure are separate journal states. Headless and production Operator API composition bind the shared StateStore recorder and verifier; missing independent effect evidence keeps the Process waiting. A held target admits only matching Process compensation through human approval, and all verified receipts plus a CAS hold release are required before `compensated`. |
