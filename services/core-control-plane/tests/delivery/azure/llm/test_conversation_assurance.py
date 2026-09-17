@@ -15,6 +15,8 @@ from fdai.core.prompts import PromptReplayManifest
 from fdai.delivery.azure.llm.conversation_assurance import (
     AzureConversationAssuranceEvaluator,
     AzureConversationAssuranceEvaluatorConfig,
+    ConversationAssuranceInvalidResponseError,
+    ConversationAssuranceProviderHTTPError,
 )
 from fdai.shared.providers.workload_identity import IdentityToken, WorkloadIdentity
 
@@ -148,6 +150,23 @@ async def test_evaluator_parses_scores_and_usage() -> None:
     assert prompt["allowed_evidence_refs"] == ["evidence:1"]
 
 
+async def test_evaluator_uses_gpt5_completion_fields() -> None:
+    captured: list[httpx.Request] = []
+    async with httpx.AsyncClient(transport=_transport(_response_payload(), captured)) as client:
+        evaluator = AzureConversationAssuranceEvaluator(
+            identity=_Identity(),
+            http_client=client,
+            config=replace(_config(), model_family="gpt-5.4"),
+        )
+
+        await evaluator.evaluate(_turn())
+
+    sent = json.loads(captured[0].content)
+    assert sent["max_completion_tokens"] == 1_024
+    assert "max_tokens" not in sent
+    assert "temperature" not in sent
+
+
 @pytest.mark.parametrize(
     ("content", "message"),
     [
@@ -165,8 +184,28 @@ async def test_evaluator_rejects_malformed_output(content: str, message: str) ->
             config=_config(),
         )
 
-        with pytest.raises(RuntimeError, match=message):
+        with pytest.raises(ConversationAssuranceInvalidResponseError) as error:
             await evaluator.evaluate(_turn())
+
+    assert isinstance(error.value.__cause__, RuntimeError)
+    assert error.value.assurance_reason_code == "provider_response_invalid"
+    assert message in str(error.value.__cause__)
+
+
+async def test_evaluator_classifies_provider_http_failure() -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: httpx.Response(400))
+    ) as client:
+        evaluator = AzureConversationAssuranceEvaluator(
+            identity=_Identity(),
+            http_client=client,
+            config=_config(),
+        )
+
+        with pytest.raises(ConversationAssuranceProviderHTTPError, match="HTTP 400") as error:
+            await evaluator.evaluate(_turn())
+
+    assert error.value.assurance_reason_code == "provider_http_400"
 
 
 async def test_profile_budget_blocks_before_identity_or_provider_io() -> None:
