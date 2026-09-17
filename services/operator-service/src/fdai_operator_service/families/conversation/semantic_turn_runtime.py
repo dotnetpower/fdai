@@ -88,6 +88,7 @@ _MAX_EXECUTION_OUTPUT_CHARS = 64 * 1024
 _MAX_ANSWER_CHUNK_CHARS = 64
 _MAX_TRACKED_PROGRESS_REQUESTS = 256
 _MAX_PROGRESS_UPDATES_PER_REQUEST = MAX_INTENT_GRAPH_GOALS * 2
+_MAX_CONSUMER_RETRY_MULTIPLIER = 16.0
 _RUNTIME_CALL_LOG_SCHEMA = "fdai.runtime-call-endpoint-log@1.0.0"
 _LOGGER = logging.getLogger(__name__)
 _RELATIONSHIP_REASON = TypeAdapter(AdaptiveRelationshipUnknownReason)
@@ -199,6 +200,10 @@ class _SemanticProgressRelay:
         self._terminals.move_to_end(request_id)
         if len(self._terminals) > _MAX_TRACKED_PROGRESS_REQUESTS:
             self._terminals.popitem(last=False)
+            _LOGGER.warning(
+                "semantic_progress_capacity_evicted",
+                extra={"kind": "terminal", "capacity": _MAX_TRACKED_PROGRESS_REQUESTS},
+            )
         signal = self._signals.get(request_id)
         if signal is not None:
             signal.set()
@@ -211,6 +216,10 @@ class _SemanticProgressRelay:
             if len(self._updates) >= _MAX_TRACKED_PROGRESS_REQUESTS:
                 expired_request_id, _expired = self._updates.popitem(last=False)
                 self._signals.pop(expired_request_id, None)
+                _LOGGER.warning(
+                    "semantic_progress_capacity_evicted",
+                    extra={"kind": "progress", "capacity": _MAX_TRACKED_PROGRESS_REQUESTS},
+                )
             updates = deque(maxlen=_MAX_PROGRESS_UPDATES_PER_REQUEST)
             self._updates[progress.request_id] = updates
         elif updates and progress.progress_sequence <= updates[-1].progress_sequence:
@@ -441,6 +450,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                         _held_projection(
                             self._stored.envelope,
                             recorded_at=datetime.now(UTC),
+                            reason_code="semantic_deadline_exceeded",
                         )
                     )
                 except SemanticTurnTerminalClosedError:
@@ -773,6 +783,7 @@ class SemanticTurnOutboxDrainer:
     request_topic: str = SEMANTIC_REQUEST_TOPIC
     lease_seconds: int = 120
     runtime_call_observer: RuntimeCallEndpointObserver | None = None
+    worker_observer: Callable[[str, bool], None] | None = None
 
     async def run_once(self) -> bool:
         """Publish at most one leased request and release transport failures for retry."""
@@ -793,7 +804,13 @@ class SemanticTurnOutboxDrainer:
                 partition_key,
                 claim.envelope,
             )
-        except Exception:  # noqa: BLE001 - durable row remains retryable
+        except Exception as exc:  # noqa: BLE001 - durable row remains retryable
+            _LOGGER.warning(
+                "semantic_outbox_publish_failed",
+                extra={"failure_type": type(exc).__name__},
+            )
+            if self.worker_observer is not None:
+                self.worker_observer("outbox", False)
             await self.store.release_semantic_turn_claim(
                 key=claim.key,
                 claim_id=claim.claim_id,
@@ -808,6 +825,8 @@ class SemanticTurnOutboxDrainer:
         )
         if not closed:
             return False
+        if self.worker_observer is not None:
+            self.worker_observer("outbox", True)
         return True
 
 
@@ -847,6 +866,7 @@ class SemanticTurnBridge:
         self._acceptance_started = False
         self._consumer = SemanticTurnProjectionConsumer(store)
         self._progress_relay = _SemanticProgressRelay()
+        self._degraded_workers: set[str] = set()
         self._drainer = (
             SemanticTurnOutboxDrainer(
                 store,
@@ -854,6 +874,7 @@ class SemanticTurnBridge:
                 worker_id,
                 request_topic,
                 runtime_call_observer=runtime_call_observer,
+                worker_observer=self._observe_worker,
             )
             if publisher is not None
             else None
@@ -864,6 +885,7 @@ class SemanticTurnBridge:
         self._progress_topic = progress_topic
         self._progress_group = progress_group
         self._retry_seconds = retry_seconds
+        self._outbox_wakeup = asyncio.Event()
         self._tasks: tuple[asyncio.Task[None], ...] = ()
 
     def bind_relationship_resolver(self, resolver: DialogueRelationshipResolver) -> None:
@@ -915,6 +937,7 @@ class SemanticTurnBridge:
             envelope=envelope,
             source_request_id=source_request_id,
         )
+        self._outbox_wakeup.set()
         dispatch_status = "pending"
         if self._publisher is None:
             try:
@@ -978,19 +1001,31 @@ class SemanticTurnBridge:
     def health(self) -> JsonObject:
         """Return a credential-free projection of semantic transport readiness."""
         configured = self._publisher is not None and self._result_source is not None
-        available = configured and self.workers_ready()
-        return {
-            "available": available,
-            "configured": configured,
-            "mode": "event-bridge" if available else ("starting" if configured else "held"),
-            "request_topic": self._request_topic,
-            "result_topic": self._result_topic,
-            "progress_topic": self._progress_topic,
-        }
+        available = configured and self.workers_ready() and not self._degraded_workers
+        return cast(
+            JsonObject,
+            {
+                "available": available,
+                "configured": configured,
+                "mode": "event-bridge" if available else ("starting" if configured else "held"),
+                "request_topic": self._request_topic,
+                "result_topic": self._result_topic,
+                "progress_topic": self._progress_topic,
+                "degraded_workers": sorted(self._degraded_workers),
+            },
+        )
 
     def workers_ready(self) -> bool:
         """Return whether both configured background workers remain active."""
         return len(self._tasks) == 2 and all(not task.done() for task in self._tasks)
+
+    def _observe_worker(self, worker: str, succeeded: bool) -> None:
+        """Retain content-free worker degradation until that worker succeeds."""
+
+        if succeeded:
+            self._degraded_workers.discard(worker)
+        else:
+            self._degraded_workers.add(worker)
 
     async def start(self) -> None:
         """Start one publisher drainer and one result consumer when transport is injected."""
@@ -1053,28 +1088,43 @@ class SemanticTurnBridge:
             return resolution
         except asyncio.CancelledError:
             raise
+        except TimeoutError:
+            reason = "resolver_timeout"
+        except (TypeError, ValueError, ValidationError):
+            reason = "resolver_invalid"
         except Exception:  # noqa: BLE001 - failed optional context cannot assert a relationship
-            _LOGGER.info(
-                "semantic_relationship_unknown",
-                extra={"target_agent": request.target_agent, "reason": "resolver_unavailable"},
-            )
-            return AdaptiveRelationshipResolution(
-                request.target_agent,
-                "unknown",
-                "resolver_unavailable",
-                None,
-            )
+            reason = "resolver_unavailable"
+        _LOGGER.info(
+            "semantic_relationship_unknown",
+            extra={"target_agent": request.target_agent, "reason": reason},
+        )
+        return AdaptiveRelationshipResolution(
+            request.target_agent,
+            "unknown",
+            reason,
+            None,
+        )
 
     async def _run_drainer(self) -> None:
         if self._drainer is None:
             return
         while True:
+            self._outbox_wakeup.clear()
             try:
                 published = await self._drainer.run_once()
             except Exception:  # noqa: BLE001 - transient store failures retry in-process
                 _LOGGER.warning("semantic_outbox_drainer_retrying", exc_info=True)
+                self._observe_worker("outbox", False)
                 published = False
-            await asyncio.sleep(0 if published else self._retry_seconds)
+            if published:
+                continue
+            try:
+                await asyncio.wait_for(
+                    self._outbox_wakeup.wait(),
+                    timeout=self._retry_seconds,
+                )
+            except TimeoutError:
+                pass
 
     async def _run_consumer(self) -> None:
         async with asyncio.TaskGroup() as group:
@@ -1084,13 +1134,15 @@ class SemanticTurnBridge:
     async def _run_result_consumer(self) -> None:
         if self._result_source is None or self._publisher is None:
             return
-        conflicts: dict[str, int] = {}
+        conflicts: OrderedDict[str, int] = OrderedDict()
+        retry_delay = self._retry_seconds
         while True:
             try:
                 async for payload in self._result_source.subscribe(
                     self._result_topic,
                     self._result_group,
                 ):
+                    retry_delay = self._retry_seconds
                     quarantine_key = _projection_quarantine_key(payload)
                     try:
                         committed = await self._consumer.consume(payload)
@@ -1100,13 +1152,11 @@ class SemanticTurnBridge:
                         # A projection can arrive before its durable request commits, so
                         # retry that race a bounded number of times. Retrying forever
                         # instead stalls every later projection behind one poison record.
-                        attempts = conflicts.get(quarantine_key, 0) + 1
+                        attempts = _next_projection_conflict_attempt(
+                            conflicts,
+                            quarantine_key,
+                        )
                         if attempts < _MAX_PROJECTION_CONFLICT_ATTEMPTS:
-                            # Losing a counter only costs extra retries, so keep the map
-                            # bounded rather than growing it per untrusted identity.
-                            if len(conflicts) >= _MAX_TRACKED_PROJECTION_CONFLICTS:
-                                conflicts.clear()
-                            conflicts[quarantine_key] = attempts
                             raise
                         conflicts.pop(quarantine_key, None)
                         _LOGGER.warning(
@@ -1127,32 +1177,40 @@ class SemanticTurnBridge:
                     else:
                         conflicts.pop(quarantine_key, None)
                         self._progress_relay.terminal_committed(committed.request_id)
+                        self._observe_worker("result", True)
             except SemanticTurnRequestAbsentError:
                 _LOGGER.info(
                     "semantic_projection_conflict_retrying",
                     extra={"failure_type": "durable_request_absent"},
                 )
             except Exception:  # noqa: BLE001 - preserve offset and resubscribe after backoff
+                self._observe_worker("result", False)
                 _LOGGER.warning("semantic_projection_consumer_retrying", exc_info=True)
-            await asyncio.sleep(self._retry_seconds)
+            await asyncio.sleep(retry_delay)
+            retry_delay = _next_consumer_retry_delay(retry_delay, self._retry_seconds)
 
     async def _run_progress_consumer(self) -> None:
         if self._result_source is None or self._publisher is None:
             return
+        retry_delay = self._retry_seconds
         while True:
             try:
                 async for payload in self._result_source.subscribe(
                     self._progress_topic,
                     self._progress_group,
                 ):
+                    retry_delay = self._retry_seconds
                     try:
                         if self._progress_relay.consume(payload):
                             _LOGGER.info("semantic_query_progress_received")
+                            self._observe_worker("progress", True)
                     except (ValidationError, ValueError):
                         await self._quarantine_progress(payload)
             except Exception:  # noqa: BLE001 - preserve offset and resubscribe after backoff
+                self._observe_worker("progress", False)
                 _LOGGER.warning("semantic_progress_consumer_retrying", exc_info=True)
-            await asyncio.sleep(self._retry_seconds)
+            await asyncio.sleep(retry_delay)
+            retry_delay = _next_consumer_retry_delay(retry_delay, self._retry_seconds)
 
     async def _quarantine(self, quarantine_key: str) -> None:
         if self._publisher is None:  # pragma: no cover - bound with the result source
@@ -1184,6 +1242,28 @@ class SemanticTurnBridge:
                 "reason": "semantic_query_progress_rejected",
             },
         )
+
+
+def _next_projection_conflict_attempt(
+    conflicts: OrderedDict[str, int],
+    quarantine_key: str,
+) -> int:
+    """Advance one bounded conflict counter while preserving unrelated retry histories."""
+
+    attempts = conflicts.get(quarantine_key, 0) + 1
+    if quarantine_key not in conflicts and len(conflicts) >= _MAX_TRACKED_PROJECTION_CONFLICTS:
+        conflicts.popitem(last=False)
+        _LOGGER.warning(
+            "semantic_projection_conflict_capacity_evicted",
+            extra={"capacity": _MAX_TRACKED_PROJECTION_CONFLICTS},
+        )
+    conflicts[quarantine_key] = attempts
+    conflicts.move_to_end(quarantine_key)
+    return attempts
+
+
+def _next_consumer_retry_delay(current: float, base: float) -> float:
+    return min(current * 2, base * _MAX_CONSUMER_RETRY_MULTIPLIER)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1298,6 +1378,7 @@ def _held_projection(
     envelope: Mapping[str, object],
     *,
     recorded_at: datetime | None = None,
+    reason_code: str = "semantic_transport_unavailable",
 ) -> dict[str, object]:
     request_id = _mapping_text(envelope, "request_id")
     semantic = envelope.get("semantic_turn")
@@ -1305,17 +1386,27 @@ def _held_projection(
         raise ValueError("semantic request payload is missing")
     result = SemanticTurnResult(
         disposition=SemanticTurnDisposition.HELD,
-        reason_code="semantic_transport_unavailable",
+        reason_code=reason_code,
         unavailable_reason="semantic_planner_unavailable",
         session_id=_mapping_text(semantic, "session_id"),
         turn_id=_mapping_text(semantic, "turn_id"),
         turn_sequence=_mapping_int(semantic, "turn_sequence"),
         answer=(
-            "검증된 semantic transport를 사용할 수 없어 요청을 보류했습니다. "
-            "(semantic_transport_unavailable)"
+            (
+                "의미 조회 기한 안에 검증된 결과를 받지 못해 요청을 보류했습니다. "
+                "(semantic_deadline_exceeded)"
+                if reason_code == "semantic_deadline_exceeded"
+                else "검증된 semantic transport를 사용할 수 없어 요청을 보류했습니다. "
+                "(semantic_transport_unavailable)"
+            )
             if _mapping_text(semantic, "locale").casefold().startswith("ko")
-            else "The request was held because verified semantic transport is unavailable. "
-            "(semantic_transport_unavailable)"
+            else (
+                "The request was held because no verified result arrived before the semantic "
+                "deadline. (semantic_deadline_exceeded)"
+                if reason_code == "semantic_deadline_exceeded"
+                else "The request was held because verified semantic transport is unavailable. "
+                "(semantic_transport_unavailable)"
+            )
         ),
     )
     result_payload = result.model_dump(mode="json", exclude_none=True)
@@ -1333,7 +1424,7 @@ def _held_projection(
             if recorded_at is not None
             else _mapping_text(envelope, "requested_at")
         ),
-        "payload": {"reason_code": "semantic_transport_unavailable"},
+        "payload": {"reason_code": reason_code},
         "semantic_result": result_payload,
     }
 

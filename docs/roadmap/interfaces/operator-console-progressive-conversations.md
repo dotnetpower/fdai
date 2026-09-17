@@ -21,6 +21,9 @@ legacy conversation rows. A cached transcript ending with an unanswered operator
 incomplete and must not suppress that read. Recovery renders the stored terminal through the
 same validated presenter; it never resends the question, creates a model call, or rewrites history.
 New input or a session switch invalidates an in-flight restoration before it can replace the view.
+The local CLI uses the same bounded `POST /chat/stream` SSE contract and accepts only one validated
+`done` terminal. An oversized stream, malformed terminal, missing terminal, or mismatched content
+type fails closed instead of interpreting the proposal-only `POST /chat` response as an answer.
 
 Typed test-context drafts retain exact targets, expected bounds, aware intervals, and source receipts
 through HTTP, streaming, and replay. Strict decoding rejects extra authority fields and invalid dates;

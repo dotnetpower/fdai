@@ -97,6 +97,25 @@ def stated_value_filters(
     return matched
 
 
+def resource_type_filters_are_bound(
+    resource_type_filters: Sequence[str],
+    descriptors: Sequence[Mapping[str, Any]],
+) -> bool:
+    """Require every typed Resource filter to bind from its exact source value."""
+
+    return all(
+        bool(
+            stated_value_filters(
+                value,
+                descriptors,
+                allowed_properties=frozenset({"type"}),
+                preferred_terms=(value,),
+            ).get(("Resource", "type"), ())
+        )
+        for value in resource_type_filters
+    )
+
+
 def _term_stated(term: str, lowered_utterance: str) -> bool:
     """Report whether ``term`` stands on its own inside the utterance.
 

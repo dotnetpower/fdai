@@ -558,6 +558,10 @@ def preflight_operational_judgment(
             "family_absent",
         ),
         (
+            proposal.operational_family is not OperationalPreflightFamily.RESOURCE_COLLECTION,
+            "capability_aware_judgment_required",
+        ),
+        (
             proposal.operational_signal is OperationalSignal.EXPLICIT,
             "signal_not_explicit",
         ),

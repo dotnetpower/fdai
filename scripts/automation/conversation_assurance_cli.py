@@ -565,7 +565,16 @@ def _report_markdown(report: Mapping[str, object]) -> str:
                 f"- Hard-zero count: {metric_values.get('hard_zero_count', '')}",
             )
         )
-    lines.extend(("", "| Case | Agent | Locale | Score | Verdict |", "|---|---|---|---:|---|"))
+    fixed_questions = {
+        case.case_id: case.question for case in build_pantheon_census(PANTHEON_SPECS).cases
+    }
+    lines.extend(
+        (
+            "",
+            "| Case | Question | Answer | Agent | Locale | Score | Verdict |",
+            "|---|---|---|---|---|---:|---|",
+        )
+    )
     for value in rows:
         if not isinstance(value, Mapping):
             continue
@@ -574,6 +583,8 @@ def _report_markdown(report: Mapping[str, object]) -> str:
             + " | ".join(
                 (
                     str(value.get("case_id", "")),
+                    fixed_questions.get(str(value.get("case_id", "")), "not retained"),
+                    "not retained (content-free ledger)",
                     str(value.get("agent", "")),
                     str(value.get("locale", "")),
                     str(value.get("score", "")),
@@ -583,7 +594,7 @@ def _report_markdown(report: Mapping[str, object]) -> str:
             + " |"
         )
     if not rows:
-        lines.append("| - | - | - | - | not measured |")
+        lines.append("| - | - | - | - | - | - | not measured |")
     return "\n".join(lines)
 
 

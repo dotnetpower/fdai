@@ -335,9 +335,36 @@ def test_report_renders_latest_evaluations_without_starting_campaign(
 
     assert result == 0
     assert "# Conversation Assurance Report" in output
-    assert "| Case | Agent | Locale | Score | Verdict |" in output
+    assert "| Case | Question | Answer | Agent | Locale | Score | Verdict |" in output
+    assert "content-free ledger" not in output
     assert "not measured" in output
     assert not (tmp_path / ".fdai/conversation-assurance/campaigns.jsonl").exists()
+
+
+def test_report_reconstructs_fixed_question_without_retaining_answer(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _load_module()
+    evaluations = module.PrivateJsonlLedger(
+        tmp_path / ".fdai/conversation-assurance/evaluations.jsonl"
+    )
+    evaluations.append(
+        {
+            "case_id": "agent-odin-role-en",
+            "agent": "Odin",
+            "locale": "en",
+            "score": 30,
+            "verdict": "passed",
+        }
+    )
+
+    result = module.main(["--project", str(tmp_path), "report", "--top", "20"])
+    output = capsys.readouterr().out
+
+    assert result == 0
+    assert "Odin, explain your role, reporting line, mandate, and limitations." in output
+    assert "not retained (content-free ledger)" in output
 
 
 def test_qualification_replay_failure_is_retained_as_a_hold(tmp_path: Path) -> None:
