@@ -74,14 +74,17 @@ _EXECUTOR_RESOURCE_ID = (
     ],
 )
 @pytest.mark.parametrize("semantic_outputs_present", [True, False])
-@pytest.mark.parametrize("local_kubernetes_lifecycle", [False, True])
+@pytest.mark.parametrize(
+    "local_kubernetes_binding_mode",
+    ["disabled", "legacy", "fleet"],
+)
 def test_prepares_deployed_transport_without_copying_stale_transport(
     tmp_path: Path,
     web_search_candidates: list[dict[str, str]],
     expected_web_search_enabled: str,
     local_vision_state: str,
     semantic_outputs_present: bool,
-    local_kubernetes_lifecycle: bool,
+    local_kubernetes_binding_mode: str,
 ) -> None:
     repo = tmp_path / "repo"
     (repo / "console").mkdir(parents=True)
@@ -140,6 +143,17 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
             '{"vision_candidates": [{"deployment": "not-a-narrator"}]}\n',
             encoding="utf-8",
         )
+    legacy_kubernetes = (
+        ""
+        if local_kubernetes_binding_mode == "fleet"
+        else (
+            "FDAI_KUBERNETES_API_SERVER=https://aks.example.com:443\n"
+            "FDAI_KUBERNETES_AUDIENCE=example-audience\n"
+            "FDAI_KUBERNETES_AUTH_MODE=workload-identity\n"
+            "FDAI_KUBERNETES_CA_PATH=/tmp/example-ca.pem\n"
+            "FDAI_KUBERNETES_CLUSTER_REF=/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/providers/Microsoft.ContainerService/managedClusters/aks-example\n"
+        )
+    )
     (repo / "console/.env.local").write_text(
         "VITE_MSAL_CLIENT_ID=client\n"
         "LLM_MODE=local-fake\n"
@@ -162,17 +176,33 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_DEV_OPERATIONS_GATEWAY_URL=https://stale.example.com\n"
         "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=stale-audience\n"
         "FDAI_WEB_SEARCH_ENABLED=1\n"
-        "FDAI_DIRECT_API_FAKE=1\n"
-        "FDAI_KUBERNETES_API_SERVER=https://aks.example.com:443\n"
-        "FDAI_KUBERNETES_AUDIENCE=example-audience\n"
-        "FDAI_KUBERNETES_AUTH_MODE=azure-cli\n"
-        "FDAI_KUBERNETES_CA_PATH=/tmp/example-ca.pem\n"
-        "FDAI_KUBERNETES_CLUSTER_REF=/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/providers/Microsoft.ContainerService/managedClusters/aks-example\n"
-        "FDAI_TEAMS_NOTIFICATION_ACTIVATION=0\n"
+        "FDAI_DIRECT_API_FAKE=1\n" + legacy_kubernetes + "FDAI_TEAMS_NOTIFICATION_ACTIVATION=0\n"
         "FDAI_TEAMS_OPS_ENDPOINT=https://flow.example.com/trigger/local\n"
         "FDAI_SLACK_OPS_WEBHOOK_URL=https://hooks.slack.example/services/local\n",
         encoding="utf-8",
     )
+    if local_kubernetes_binding_mode == "fleet":
+        (repo / ".fdai").mkdir(exist_ok=True)
+        bindings_path = repo / ".fdai/local-kubernetes-bindings.json"
+        bindings_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "api_server": "https://aks.example.com:443",
+                        "audience": "example-audience",
+                        "auth_mode": "workload-identity",
+                        "ca_pem": "example-ca",
+                        "cluster_ref": (
+                            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+                            "resourceGroups/rg-example/providers/"
+                            "Microsoft.ContainerService/managedClusters/aks-example"
+                        ),
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+        bindings_path.chmod(0o600)
     semantic_outputs = (
         'elif [[ "$*" == *"output -json event_bus_semantic_topics"* ]]; then\n'
         f'  printf \'["{SEMANTIC_REQUEST_TOPIC}",'
@@ -242,7 +272,9 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
             "FDAI_TERRAFORM_BIN": str(terraform),
             "FDAI_AZ_BIN": str(az),
             "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-a",
-            "FDAI_LOCAL_KUBERNETES_LIFECYCLE": ("1" if local_kubernetes_lifecycle else "0"),
+            "FDAI_LOCAL_KUBERNETES_LIFECYCLE": (
+                "0" if local_kubernetes_binding_mode == "disabled" else "1"
+            ),
             "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION": "1",
         },
         capture_output=True,
@@ -265,15 +297,25 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_TEAMS_OPS_ENDPOINT=https://flow.example.com/trigger/local",
         "FDAI_SLACK_OPS_WEBHOOK_URL=https://hooks.slack.example/services/local",
     ]
-    if local_kubernetes_lifecycle:
+    if local_kubernetes_binding_mode == "legacy":
         expected_prefix.extend(
             [
                 "FDAI_KUBERNETES_API_SERVER=https://aks.example.com:443",
                 "FDAI_KUBERNETES_AUDIENCE=example-audience",
-                "FDAI_KUBERNETES_AUTH_MODE=azure-cli",
+                "FDAI_KUBERNETES_AUTH_MODE=workload-identity",
                 "FDAI_KUBERNETES_CA_PATH=/tmp/example-ca.pem",
                 "FDAI_KUBERNETES_CLUSTER_REF=/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/providers/Microsoft.ContainerService/managedClusters/aks-example",
             ]
+        )
+    elif local_kubernetes_binding_mode == "fleet":
+        expected_prefix.append(
+            "FDAI_KUBERNETES_CLUSTER_BINDINGS_JSON="
+            '[{"api_server":"https://aks.example.com:443",'
+            '"audience":"example-audience","auth_mode":"workload-identity",'
+            '"ca_pem":"example-ca","cluster_ref":'
+            '"/subscriptions/00000000-0000-0000-0000-000000000001/'
+            "resourceGroups/rg-example/providers/"
+            'Microsoft.ContainerService/managedClusters/aks-example"}]'
         )
     assert values == [
         *expected_prefix,
@@ -350,6 +392,9 @@ def test_full_stack_cache_binds_local_activation_inputs() -> None:
     assert "configuration_digest" in runtime_stage
     assert "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION" in runtime_stage
     assert "FDAI_LOCAL_KUBERNETES_LIFECYCLE" in runtime_stage
+    assert "FDAI_LOCAL_KUBERNETES_BINDINGS_PATH" in source
+    assert "kubernetes-bindings-path=" in runtime_stage
+    assert "FDAI_LOCAL_KUBERNETES_BINDINGS_PATH|" in _SCRIPT.read_text(encoding="utf-8")
     assert "FDAI_LOCAL_NO_AZURE_DEPLOYMENT" in runtime_stage
     assert "FDAI_LOCAL_RESOURCE_GROUP" in runtime_stage
 
@@ -414,6 +459,112 @@ def test_rejects_partial_local_kubernetes_lifecycle_binding_before_provider_acce
 
     assert completed.returncode != 0
     assert "requires one non-empty FDAI_KUBERNETES_AUDIENCE binding" in completed.stderr
+    assert "provider-access-must-not-run" not in completed.stderr
+    assert not output.exists()
+
+
+def test_rejects_relative_local_kubernetes_binding_path_before_provider_access(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "console").mkdir(parents=True)
+    (repo / "console/.env.local").write_text("", encoding="utf-8")
+    output = repo / ".fdai/local-runtime.env"
+
+    completed = subprocess.run(  # noqa: S603 - test-controlled environment
+        [_BASH, str(_SCRIPT), str(output)],
+        check=False,
+        cwd=_REPO_ROOT,
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
+            "FDAI_AZ_BIN": "/provider-access-must-not-run",
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-kubernetes",
+            "FDAI_LOCAL_KUBERNETES_LIFECYCLE": "1",
+            "FDAI_LOCAL_KUBERNETES_BINDINGS_PATH": "bindings.json",
+        },
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "MUST be an absolute path" in completed.stderr
+    assert "provider-access-must-not-run" not in completed.stderr
+    assert not output.exists()
+
+
+def test_rejects_group_readable_local_kubernetes_binding_before_provider_access(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "console").mkdir(parents=True)
+    (repo / "console/.env.local").write_text("", encoding="utf-8")
+    (repo / ".venv/bin").mkdir(parents=True)
+    (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
+    bindings = repo / "bindings.json"
+    bindings.write_text("[]", encoding="utf-8")
+    bindings.chmod(0o640)
+    output = repo / ".fdai/local-runtime.env"
+
+    completed = subprocess.run(  # noqa: S603 - test-controlled environment
+        [_BASH, str(_SCRIPT), str(output)],
+        check=False,
+        cwd=_REPO_ROOT,
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
+            "FDAI_AZ_BIN": "/provider-access-must-not-run",
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-kubernetes",
+            "FDAI_LOCAL_KUBERNETES_LIFECYCLE": "1",
+            "FDAI_LOCAL_KUBERNETES_BINDINGS_PATH": str(bindings),
+        },
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "file must be owner-only" in completed.stderr
+    assert "provider-access-must-not-run" not in completed.stderr
+    assert not output.exists()
+
+
+def test_rejects_mixed_local_kubernetes_bindings_before_provider_access(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "console").mkdir(parents=True)
+    (repo / "console/.env.local").write_text(
+        "FDAI_KUBERNETES_API_SERVER=https://aks.example.com\n",
+        encoding="utf-8",
+    )
+    (repo / ".venv/bin").mkdir(parents=True)
+    (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
+    bindings = repo / "bindings.json"
+    bindings.write_text("[]", encoding="utf-8")
+    bindings.chmod(0o600)
+    output = repo / ".fdai/local-runtime.env"
+
+    completed = subprocess.run(  # noqa: S603 - test-controlled environment
+        [_BASH, str(_SCRIPT), str(output)],
+        check=False,
+        cwd=_REPO_ROOT,
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
+            "FDAI_AZ_BIN": "/provider-access-must-not-run",
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-kubernetes",
+            "FDAI_LOCAL_KUBERNETES_LIFECYCLE": "1",
+            "FDAI_LOCAL_KUBERNETES_BINDINGS_PATH": str(bindings),
+        },
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "MUST NOT be combined with legacy FDAI_KUBERNETES_API_SERVER" in completed.stderr
     assert "provider-access-must-not-run" not in completed.stderr
     assert not output.exists()
 
