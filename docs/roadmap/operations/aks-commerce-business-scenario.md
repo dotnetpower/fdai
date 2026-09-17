@@ -334,6 +334,9 @@ The scenario-lab profile deploys the commerce workload with these boundaries:
 
 - The profile creates the dedicated `aks-store-demo` cluster and never selects another existing
   FDAI or shared cluster.
+- The disposable lab exposes the AKS management API publicly for local subscription inventory
+  without private-network routing. Microsoft Entra authentication, Azure RBAC, and disabled local
+  accounts remain mandatory; the endpoint grants no anonymous or application access.
 - The storefront is the only public application surface.
 - Public access uses HTTPS, a deployment-supplied DNS name, and a trusted certificate reference.
 - The administration UI, APIs, queue, database, and executor remain private.
@@ -344,6 +347,9 @@ The scenario-lab profile deploys the commerce workload with these boundaries:
   VM NIC retain their explicit Terraform-owned associations.
 - The deployment emits the storefront URL and opaque resource references as outputs. It does not
   commit tenant values.
+- Ordinary apply continues to reject every replacement. A one-time `recreate-aks` operation accepts
+  only the reviewed private-to-public cluster replacement and its cluster-scoped role assignments,
+  requires exact human confirmation, and rejects any other destructive address.
 
 Gateway API is the preferred long-term ingress contract. An ingress compatibility profile may be
 used only for a time-bounded lab where its support window and migration path are recorded.
