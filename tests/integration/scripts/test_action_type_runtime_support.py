@@ -90,7 +90,7 @@ def test_alert_actions_have_conditional_manual_pr_support_without_operational_cl
         assert catalog[reference].default_mode == "shadow"
 
 
-def test_scale_out_has_core_azure_and_kubernetes_support_not_isolated(
+def test_scale_out_has_core_azure_and_isolated_kubernetes_support(
     manifest: dict[str, Any],
 ) -> None:
     claim = manifest["actions"]["ops.scale-out@1.0.0"]
@@ -98,8 +98,18 @@ def test_scale_out_has_core_azure_and_kubernetes_support_not_isolated(
     assert set(claim["bindings"]) == {
         "core-azure-gateway",
         "core-kubernetes-direct-api",
+        "isolated-kubernetes-direct-api",
     }
     assert "isolated-azure-gateway" not in claim["bindings"]
+    binding = manifest["bindings"]["isolated-kubernetes-direct-api"]
+    profile = manifest["support_profiles"]["isolated-kubernetes"]
+    assert binding["runtime_surface"] == "isolated_executor"
+    assert binding["mode_support"] == {
+        "shadow": "unsupported",
+        "enforce": "conditional",
+    }
+    assert profile["effect_observation"]["status"] == "conditional"
+    assert profile["evidence"]["level"] == "focused_tests"
 
 
 def test_missing_catalog_action_fails_closed(

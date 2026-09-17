@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: d4528ec02154612d2af72ce181e78a646b4ce90a
+translation_source_sha: 6cc0dafdf7497a3444383d7cae584af4ad02244d
 translation_revised: 2026-09-17
 ---
 
@@ -46,6 +46,13 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
   상관관계 키, 사유, member-event 근거를 다시 확인한 뒤에만 인시던트가 열립니다.
 - Repeated-event burst는 anomaly이며 자동 인시던트 권한이 아닙니다. 후보 인계에는 `incident_correlation=correlate`, 비어 있지 않은 상관관계 및 근거 키, 설정된 최소 심각도가 필요하며 `none`은 인시던트를 열지 않습니다. Huginn은 신뢰하는 UTC 수집 시각을 기록하고 그보다 늦지 않은 출처 시각만 수락하므로 재생이나 미래 시각이 Heimdall의 범위가 제한된 에피소드를 조작할 수 없습니다. 서로 다른 근거 키는 한 번씩만 계산하고 burst 심각도는 단조 증가하며, 수락된 에피소드는 중복 후보를 억제하되 더 심각한 갱신을 허용합니다. 조용한 구간 뒤에는 새 불투명 에피소드를 만들고, 재시작 뒤에는 에피소드 외 상관관계 키가 정확히 일치하는 활성 Incident만 재사용합니다. 게시 또는 인계 실패는 matching Event에서만 재시도하며 `accepted`와 `held`를 구분합니다. 후보 텍스트, 근거 수 및 수명 주기 notice는 범위가 제한되고 추가 전용입니다.
 - Analyzer finding은 범위가 제한된 detector 출력입니다. 배포와 로컬 loop는 같은 고정 간격을 사용하고 논리 Resource, 신호 및 1분 `occurred_at` 버킷마다 재시도에 안정적인 Event 하나를 게시하며, 5분 분석 구간은 이 신원과 분리합니다. UUID5 키, 서로 다른 근거 및 에피소드와 심각도별 anomaly 키는 polling, 재생 및 인계 재시도가 판단을 중복시키지 못하게 합니다. 미래 또는 표준 시간대 없는 finding, 잘못된 근거, 일부 대상 coverage, 게시 및 증적 실패는 정상 결과 전에 fail-closed 합니다. 인벤토리 기반 분석은 온톨로지 `Resource.id`를 보존하고, 활성 스냅샷의 정확한 공급자 참조는 메트릭 조회에만 사용하며 Finding, 증적, Incident 또는 직렬화된 오류에 포함하지 않습니다. 구성된 공급자 신원과 기존 공급자 신원은 한 인벤토리 세대 안에서 조정되지 않으면 실패하고, 인벤토리 없는 메트릭 대상은 두 신원이 모두 필요합니다. Prometheus는 조립된 조회와 응답이 요청한 정확한 신원을 보존할 때만 사용하며 그렇지 않으면 Azure Monitor Logs 경로를 유지합니다.
+- 완전한 인벤토리 승격은 구성 규칙 평가도 시작합니다. 온톨로지 변환 결과가 완전하고 사용
+  가능한 세대를 보고한 뒤 Inventory Job은 Resource마다 재시도에 안전한
+  `inventory.resource_observed` Event를 하나씩 게시합니다. SignalType 디스패치는 이 Event를
+  `resource.configuration.observed`로 해석하므로 T0가 관측 속성에 적용되는 활성 Rego 규칙을
+  평가합니다. 세대와 Resource 내용이 Event 신원을 결정합니다. 같은 세대의 재시도는 중복을
+  제거하고 이후 세대는 다시 평가합니다. 불완전한 변환 결과나 게시 실패는 대기 상태로 남으며
+  정상 관측으로 보고하지 않습니다.
 - Heimdall은 retained repeated-event 에피소드를 global 및 리소스별로 제한합니다. 한 리소스의
   상관관계 flood는 다른 리소스의 partially accumulated 근거보다 해당 리소스의 가장 오래된
   에피소드를 먼저 축출합니다.

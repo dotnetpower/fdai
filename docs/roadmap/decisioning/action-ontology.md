@@ -316,7 +316,7 @@ where the API mutation is a single idempotent call.
 
 Operator-requested runtime actions. Shipped Day 1:
 
-- `ops.restart-service` - AKS pod restart, App Service restart, Container App revision restart; `ops.rollback-kubernetes-rollout` restores one exact Deployment to reviewed digest-pinned images after human approval and server-side dry-run.
+- `ops.restart-service` - AKS pod restart, App Service restart, Container App revision restart; `ops.rollback-kubernetes-rollout` restores one exact Deployment to reviewed digest-pinned images after human approval and server-side dry-run. On AKS, the isolated Executor binds these actions plus `ops.scale-in` and `ops.scale-out` to exact cluster, namespace, kind, UID, and resource-version checks. It applies only safeguard-bound `enforce` commands after server dry-run, and its namespaced identity cannot create resources, read secrets, or mutate another namespace.
 - `ops.scale-out` - increase replica count / instance count. MUST declare `cost_impact_monthly`
   (spend-increasing) so the risk-classification cost gate applies ([execution-model.md § 2.8](execution-model.md#28-cost-increasing-ops-actions)).
 - `ops.scale-in` - decrease replica count (Approver + live probe).

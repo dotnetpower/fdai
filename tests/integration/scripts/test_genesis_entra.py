@@ -151,3 +151,57 @@ def test_read_entra_bindings_rejects_missing_attachment_role(monkeypatch) -> Non
 
     with pytest.raises(ValueError, match="App Role readback"):
         genesis_entra.read_entra_bindings()
+
+
+def test_console_spa_redirect_preserves_existing_values_and_verifies(monkeypatch) -> None:
+    client_id = "00000000-0000-0000-0000-000000000001"
+    object_id = "00000000-0000-0000-0000-000000000002"
+    origin = "https://calm-field-012345678.3.azurestaticapps.net"
+    app = {
+        "id": object_id,
+        "appId": client_id,
+        "displayName": "fdai-console-spa",
+        "signInAudience": "AzureADMyOrg",
+        "spa": {"redirectUris": ["http://localhost:5273"]},
+    }
+    writes = []
+
+    monkeypatch.setattr(genesis_entra, "_app", lambda _client_id: app)
+
+    def graph(method, path, body):
+        writes.append((method, path, body))
+        app.update(body)
+        return {}
+
+    monkeypatch.setattr(genesis_entra, "_graph", graph)
+
+    assert genesis_entra.ensure_console_spa_redirect(client_id, origin) is True
+    assert writes == [
+        (
+            "PATCH",
+            f"applications/{object_id}",
+            {"spa": {"redirectUris": ["http://localhost:5273", origin]}},
+        )
+    ]
+    assert genesis_entra.ensure_console_spa_redirect(client_id, origin) is False
+    assert len(writes) == 1
+
+
+@pytest.mark.parametrize(
+    ("client_id", "origin"),
+    [
+        ("not-a-guid", "https://calm-field.azurestaticapps.net"),
+        ("00000000-0000-0000-0000-000000000001", "https://console.example.com"),
+    ],
+)
+def test_console_spa_redirect_rejects_unbound_values(
+    monkeypatch, client_id: str, origin: str
+) -> None:
+    monkeypatch.setattr(
+        genesis_entra,
+        "_app",
+        lambda *_args: pytest.fail("invalid binding must fail before Graph readback"),
+    )
+
+    with pytest.raises(ValueError, match="redirect binding"):
+        genesis_entra.ensure_console_spa_redirect(client_id, origin)

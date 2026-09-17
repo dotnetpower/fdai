@@ -138,6 +138,26 @@ async def test_preview_checks_both_authorizers_before_reading_artifact() -> None
     assert envelope.units[0].locator == "page:1"
 
 
+async def test_preview_allows_an_available_inactive_history_version() -> None:
+    artifacts = Artifacts(_envelope())
+    preview = GovernedDocumentPreview(
+        access=Access(),  # type: ignore[arg-type]
+        metadata=Metadata(_version(active=False)),  # type: ignore[arg-type]
+        artifacts=artifacts,
+        protection=Protection(),  # type: ignore[arg-type]
+    )
+
+    envelope = await preview.preview(
+        actor_id="reader",
+        actor_groups=frozenset({"group"}),
+        document_id=UUID(int=1),
+        version_id=UUID(int=2),
+    )
+
+    assert artifacts.read is True
+    assert envelope.version_id == UUID(int=2)
+
+
 async def test_denied_or_revoked_preview_never_reads_artifact() -> None:
     artifacts = Artifacts(_envelope())
     denied = GovernedDocumentPreview(

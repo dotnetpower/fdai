@@ -4,168 +4,306 @@ title: Hackathon Demo Readiness
 
 # Hackathon demo readiness
 
-This document defines one simple story for the FDAI hackathon demo. The story starts when an
-operator notices that one of three checkout service virtual machines did not restart after
-maintenance.
+This document defines the FDAI hackathon demo using
+[AKS Store Demo](https://github.com/Azure-Samples/aks-store-demo). Customers can browse products,
+but cannot submit orders because the order service was scaled to zero replicas. FDAI should detect
+the business impact, propose a bounded recovery, and verify the result after human approval.
 
-> **Scope:** All values and resources in this document are synthetic Sample data. They do not
-> represent a customer environment or a live Azure action.
+> **Readiness:** This is the selected scenario and preparation checklist, not a completed live
+> demonstration. Repository references below do not prove deployment or end-to-end recovery.
+>
+> **Scope:** Use an isolated Azure Kubernetes Service (AKS) lab and synthetic orders only. This
+> document selects no tenant, subscription, cluster instance, or deployment plan and authorizes no
+> deployment, fault injection, model call, or recovery action.
 
-## Demo story in one sentence
+## Scenario at a glance
 
-FDAI finds that only two of three checkout servers are running, explains that the third server
-remained deallocated after maintenance, asks a different human to approve one VM start, and closes
-the case only after an independent observer confirms that the VM is running.
+The story is a missed restart after maintenance: the order service remains scaled to zero even
+though the reviewed operating requirement is at least one running instance during service hours.
+Use that maintenance explanation only when the retained change records support it.
 
-## 1. Discover the problem on the Dashboard
+| Item | Demo target |
+|------|-------------|
+| Application | Public AKS Store Demo with synthetic products and orders |
+| Healthy baseline | Product browsing and order submission succeed; `order-service` has 1 ready replica |
+| Injected fault | Change only the `order-service` Deployment replica count from 1 to 0 |
+| Customer impact | Products remain visible, but order submission fails |
+| Detection | Repeated test-order failures plus a violation of the reviewed minimum replica count |
+| Recovery proposal | `ops.scale-out`, restoring the same Deployment to `replica_count: 1` |
+| Completion | Independent resource observations and successful test-order acceptance |
+| Presentation length | Aim for 3-5 minutes; rehearse and measure before claiming timing |
 
-The demo should start on the Dashboard. The operator should understand the problem without opening
-another page.
+This demonstrates order acceptance, not payment, order fulfillment, or delivery. A successful
+submission does not prove that a downstream worker completed the order.
 
-### What the operator sees
+## Why this fault
 
-| Field | Sample value |
-|-------|--------------|
-| Title | One checkout server is not running |
-| Service state | 2 of 3 servers running |
-| Affected service | Online store checkout |
-| Resource state | One VM is deallocated |
-| Recent change | Maintenance completed, but no later VM start was recorded |
-| Impact | Processing capacity is reduced; an outage is not confirmed |
-| Observed | One minute ago |
-| Next step | Open the incident or ask why |
+Kubernetes reconciles workloads to their configured replica count. Zero replicas can therefore be
+a valid Kubernetes state while violating the business operating requirement. Pod health alone is
+not enough to detect this scenario.
 
-The card should link to `sample-correlation-001`.
+- **Pod deletion:** Kubernetes normally replaces a deleted controller-owned Pod itself. That is
+	not evidence of FDAI recovery.
+- **Invalid image:** A failed rolling update can leave old healthy Pods serving traffic. An image
+	pull failure does not necessarily produce a customer-visible outage.
+- **Load spike:** Resource pressure and autoscaling make timing less predictable. Keep this as a
+	later scenario, after the single-service recovery works reliably.
 
-### What is missing today
+## Preparation boundaries
 
-The focused VM journey exists on the Sample Live page, but this problem card is not shown on the
-Dashboard. A reviewer therefore sees the solution before understanding the problem. The Dashboard
-card is the first implementation task.
+Use the upstream quickstart's `store-front`, `product-service`, `order-service`, and RabbitMQ as the
+minimal application candidate. Pin the reviewed manifest revision and image digests for rehearsal.
+The optional AI service and full order-fulfillment stack are outside this first demonstration.
 
-## 2. Ask why one server is not running
+- **Isolation:** Follow the dedicated scenario-lab cluster boundary and use a demo-only namespace.
+	Do not inject faults into FDAI services, shared workloads, nodes, or system namespaces.
+- **Exposure:** Expose only the storefront over HTTPS. Keep APIs, administration, and RabbitMQ
+	private; do not reuse published sample credentials for an exposed service.
+- **Operating intent:** Record the service-to-Deployment mapping, minimum replica count of 1,
+	applicable service hours, and maintenance-end evidence before the run. Active authorized
+	maintenance is not an invitation to scale the service up.
+- **Single writer:** Review the Horizontal Pod Autoscaler (HPA) and GitOps reconciliation, which
+	synchronizes desired configuration from Git. They should not compete with the approved action
+	over the same replica count. Do not disable safety controls to make the demo work.
+- **Synthetic traffic:** Test orders change application state. Use a separately authorized,
+	bounded synthetic worker with a fixed cadence, request limit, timeout, and cleanup plan. It has
+	no cloud management identity. Read-only browser capture does not authorize order submission.
+- **Detection contract:** Fix the observation window, failure threshold, recovery threshold, and
+	evidence freshness before rehearsal. Record failed order steps, not only page availability or
+	HTTP status. Missing observations remain unknown rather than successful.
+- **Time limits:** Set total and per-stage deadlines before the run. Stop on a deadline, missing
+	authority, conflicting state, or unexpected target change; retain evidence and hand off for review.
 
-The operator opens the incident or the conversation panel and asks:
+## 1. Show the healthy store
 
-> Why is one checkout server not running?
+Browse a product, add it to the cart, and submit a synthetic order. Retain the bounded baseline
+observations: successful order acceptance, one ready order-service replica, a ready service
+endpoint, and the exact target identity. Do not retain customer or order payloads in the repository.
 
-The answer should be short:
+## 2. Inject one configuration fault
 
-> Three checkout VMs are expected, but only two are running. `sample-checkout-vm-01` is
-> deallocated. The latest related record is a completed maintenance change, and no later start
-> record was found. This change may explain the reduced capacity, but the records alone do not
-> prove causation.
+An authorized operator changes the demo order Deployment from 1 replica to 0. Record the actor,
+time, exact target, previous value, and new value as change evidence. The fault injection is
+separate from FDAI's diagnosis and does not grant recovery authority.
 
-The answer should show:
+Keep the storefront and product service running. Show that browsing still works while a test
+order fails. Do not damage RabbitMQ data or delete the Deployment.
 
-- the affected VM
-- the current VM state
-- when the state was observed
-- the related maintenance record
-- the evidence sources
-- the difference between a related change and a proven cause
+### kubectl fault-injection commands
 
-## 3. Show that FDAI can wait
+These Bash blocks are ready to paste into the same terminal on the deployment workstation.
+They use the existing dedicated kubeconfig at `$HOME/.kube/aks-store-hackathon.config`, read its
+selected context locally, and target `pets/order-service`. No placeholder replacement is needed.
+Run them only after the lab target and fault injection are approved. The explicit `--kubeconfig`
+ignores other `KUBECONFIG` files and does not change the global current context. Each API request
+has a 10-second timeout; keep credentials and actual cluster identifiers outside the repository.
 
-Use a separate Sample case when the VM state is old, two sources disagree, or the VM is still
-starting. FDAI should say what must be checked again and keep the case waiting for review.
+Run this setup and read-only preflight block first. If the file is missing or its context cannot
+be resolved, stop; the command array remains disabled instead of falling back to another cluster.
 
-Do not show a successful diagnosis or an executable action for this case.
+```bash
+demo_kubectl=(false)
+DEMO_KUBECONFIG="$HOME/.kube/aks-store-hackathon.config"
+DEMO_NAMESPACE='pets'
+[[ -r "$DEMO_KUBECONFIG" ]] &&
+DEMO_CONTEXT="$(kubectl --kubeconfig="$DEMO_KUBECONFIG" config current-context)" &&
+[[ -n "$DEMO_CONTEXT" ]] &&
+demo_kubectl=(kubectl --kubeconfig="$DEMO_KUBECONFIG" --context="$DEMO_CONTEXT" --namespace="$DEMO_NAMESPACE" --request-timeout=10s) &&
+"${demo_kubectl[@]}" get deployment store-front product-service order-service &&
+"${demo_kubectl[@]}" get hpa &&
+"${demo_kubectl[@]}" get deployment order-service -o jsonpath='{.metadata.uid}{"\n"}'
+```
 
-## 4. Review the VM start approval
+Confirm the approved cluster and namespace, retain the Deployment UID, and check that each demo
+Deployment has its expected ready replicas. Continue only when `order-service` has 1 configured
+and 1 ready replica, the baseline order succeeds, and no HPA or GitOps writer competes for it.
+If any check fails, stop. A context name or an empty HPA list alone does not prove isolation.
 
-Open `/approvals?data=sample`.
+First validate the change without persisting it:
 
-The approval card should show:
+```bash
+"${demo_kubectl[@]}" scale deployment/order-service \
+	--current-replicas=1 --replicas=0 --dry-run=server --timeout=10s
+```
 
-- action: `ops.start-vm`
-- target: one Sample VM
-- reason: restore the expected three-server capacity
-- impact scope: one VM
-- stop condition
-- rollback action: `ops.deallocate-vm`
-- approval state: waiting for a different human
+After the dry run succeeds and authorization is still current, paste the next block to stop only
+`pets/order-service`. This is the fault-injection step, not another preview:
 
-This pending example uses `sample-correlation-002`. It is separate from the completed story so the
-two screens do not contradict each other.
+```bash
+"${demo_kubectl[@]}" scale deployment/order-service \
+	--current-replicas=1 --replicas=0 --timeout=10s &&
+"${demo_kubectl[@]}" get deployment order-service &&
+"${demo_kubectl[@]}" get pods -l app=order-service &&
+"${demo_kubectl[@]}" get endpointslices -l kubernetes.io/service-name=order-service
+```
 
-## 5. Follow the completed journey
+The `--current-replicas=1` precondition rejects an unexpected configured replica count; it is not
+a target lock. Stop on any error or target change instead of removing the precondition. Pod
+termination and endpoint removal are asynchronous: confirm no ready serving endpoint and a failed
+test order before claiming the outage. Record the actual change time through the approved audit
+path. These terminal commands alone do not create an FDAI incident.
 
-Open `/live?data=sample`.
+### Manual restoration if the demo stops
 
-The focused panel should show these steps in order:
+Normally, leave restoration to FDAI's approved recovery flow. Use the following only under
+separate current manual-restoration authority after that flow is stopped and its target lock is
+released. Use the same terminal with the setup above; a new terminal needs that setup again.
+Recheck that the target UID matches the retained baseline and that the current replica count is 0.
+This block restores only `pets/order-service` to 1 replica, and only if the dry run succeeds:
 
-1. The operator reported reduced checkout capacity.
-2. FDAI found one deallocated VM and a related maintenance record.
-3. A different human approved one VM start.
-4. Azure accepted the start request.
-5. A separate observer read the VM as running.
-6. FDAI marked the expected effect as verified.
+```bash
+"${demo_kubectl[@]}" get deployment order-service -o jsonpath='{.metadata.uid}{"\n"}' &&
+"${demo_kubectl[@]}" scale deployment/order-service \
+	--current-replicas=0 --replicas=1 --dry-run=server --timeout=10s &&
+"${demo_kubectl[@]}" scale deployment/order-service \
+	--current-replicas=0 --replicas=1 --timeout=10s &&
+"${demo_kubectl[@]}" get deployment store-front product-service order-service
+```
 
-Azure request acceptance is not the final success condition. The case closes only after the
-independent running-state observation.
+Verify readiness, the service endpoint, browsing, and a newly accepted test order afterward.
+Record this as operator recovery, not FDAI recovery. If the count is already 1, verify the result
+instead of scaling again. A failed or incomplete check leaves the incident unresolved.
 
-## 6. Open the complete correlation
+## 3. Let FDAI discover the impact
 
-Select **Inspect complete correlation** and confirm:
+The synthetic worker continues without an operator question triggering diagnosis. FDAI should
+combine failed order observations with the current Deployment and service endpoint state, then
+compare them with the reviewed operating requirement.
 
-| Check | Expected value |
-|-------|----------------|
-| Decision | Human approval |
-| Authority | `A3-H` |
-| Execution | Completed |
-| Azure request | Accepted |
-| Independent observation | VM running |
-| Final result | Effect independently verified |
-| Recovery | Ready, not required |
-| Correlation | `sample-correlation-001` |
+| Dashboard field | Expected evidence-backed content |
+|-----------------|----------------------------------|
+| Title | Products are available, but orders cannot be submitted |
+| Affected service | Order acceptance |
+| Resource state | `order-service`: configured replicas 0, ready replicas 0 |
+| Operating requirement | At least 1 running instance during the applicable service window |
+| Impact | Test-order submission fails; product browsing still succeeds |
+| Recent change | Exact replica-count change, if collected |
+| Freshness | Actual observation times and source references |
+| Next step | Open the matching incident or ask why |
 
-The Sample warning must remain visible. The detail is a walkthrough, not evidence of a live Azure
-effect.
+Use deterministic rules for this repeatable condition. A missing maintenance record should remain
+a visible evidence gap, not an invented explanation. Keep Dashboard, Incident, approval, execution,
+and audit records on the actual run's correlation identifier.
 
-## Current screen status
+## 4. Ask why orders fail
 
-| Screen | Status | Next work |
-|--------|--------|-----------|
-| Dashboard problem card | Missing | Add the 2-of-3 checkout server problem and link it to the Incident. |
-| Incident detail | Partly ready | Confirm the same target, maintenance record, and completed correlation. |
-| Conversation answer | Missing | Add the exact question and evidence-backed answer. |
-| Waiting-for-review case | Missing | Add one stale, conflicting, or starting-state example. |
-| Pending approval | Ready | Keep it on `sample-correlation-002`. |
-| Sample Live journey | Ready | Recheck it after the Dashboard data is connected. |
-| Complete correlation detail | Ready | Recheck English, Korean, and small screens. |
-| Trace and Audit | Not confirmed | Include them only if matching Sample records are available. |
+The operator asks:
+
+> Products are visible. Why can't customers place an order?
+
+When the required observations exist, the answer should explain:
+
+> Product browsing is succeeding, but test orders are failing. The order service is configured
+> for zero replicas and has no ready endpoint. Its reviewed operating requirement is at least one
+> running instance. The recorded change reduced the replica count from one to zero. Restoring one
+> replica is the proposed recovery, subject to current approval and safety checks.
+
+Show the target, timestamps, dependency path, and evidence sources. Describe maintenance as a
+related recorded change only when supported; temporal proximity alone does not prove root cause.
+
+## 5. Review the bounded recovery
+
+The approval should identify `ops.scale-out`, the exact Deployment identity and observed version,
+the current count of 0, and the requested count of 1. A different human from the requester approves;
+the executor identity remains separate. New capabilities start in observation mode and require
+the authoritative promotion process before execution is enabled.
+
+Confirm all seven existing safeguards before a live action:
+
+| Safeguard | Demo requirement |
+|-----------|------------------|
+| Stop condition | Stop on stale evidence, changed target or configuration, lost authority, or deadline |
+| Tested rollback | Retain and test the pre-action replica-count restoration under current recovery authority |
+| Impact scope | Change one exact Deployment in the demo namespace |
+| Successful dry run | Verify the proposed scale operation with the server before execution |
+| Logical-target lock | Exclude concurrent changes to the same target |
+| Stable idempotency key | Duplicate delivery does not cause repeated changes |
+| Two-phase audit | Record intent before the effect and retain the terminal outcome |
+
+Restoring the pre-action value of 0 undoes the recovery attempt but leaves order acceptance
+unavailable. Do not label that rollback as business recovery. Keep the incident open and use the
+reviewed recovery or manual-restoration procedure with its own current authority; a reset for the
+next rehearsal is a separate operation.
+
+## 6. Verify the customer-visible result
+
+Keep these stages distinct in the activity view:
+
+1. FDAI detected the order-acceptance failure and proposed a one-Deployment recovery.
+2. A different human approved the current proposal.
+3. The Kubernetes API accepted the scale request.
+4. An independent observer confirmed the intended replica count, one ready replica, and a ready
+	 endpoint for the same target after the action.
+5. Independent synthetic observations confirmed order acceptance and continued product browsing
+	 across the predefined recovery window.
+6. FDAI marked the expected effect verified and retained the linked audit evidence.
+
+An API success, a running Pod, or the injector's own success message is not business recovery.
+Check the expected order-confirmation result, not only HTTP 200. Failed, stale, or incomplete
+verification keeps the incident unresolved.
+
+## 7. Show a held-for-review case
+
+Use a separate rehearsal or clearly labeled Sample case with stale Kubernetes observations,
+conflicting operating requirements, or an unavailable test-order worker. FDAI should explain what
+evidence is missing and hold the action for review without changing the target.
+
+Never combine this case with a completed run or present Sample data as live observations.
+
+## Current readiness and remaining work
+
+The repository review on 2026-09-17 establishes the following starting points. It does not certify
+the current environment or a completed live run.
+
+| Area | Available basis | Required before recording |
+|------|-----------------|---------------------------|
+| Application | Upstream AKS Store Demo quickstart | Approved isolated deployment, pinned inputs, and a successful baseline order |
+| Commerce evidence | Existing commerce extension and broader business-scenario design | Confirm the quickstart's RabbitMQ and order-acceptance mapping; the broader design expects Azure Service Bus and fulfillment evidence |
+| Automatic detection | Deterministic assessment design | Validate the zero-replica operating-intent violation and failed-order path without a manual question |
+| Kubernetes scale | Runtime inventory registers a conditional Core binding with focused-test evidence | Verify the selected runtime binding, authorization, promotion, safeguards, and independent observations in the lab |
+| Console journey | Existing incident, approval, and activity surfaces | Confirm real AKS records, one run identity, evidence links, and localized explanations across the flow |
+| Business recovery | Resource and business-effect verification design | Confirm the bounded worker validates order acceptance independently of the executor |
+| Existing VM Sample | Earlier VM-start walkthrough on `/live?data=sample` | Keep it explicitly labeled as a separate fallback; it is not AKS evidence |
+
+The quickstart is a narrower candidate than the existing fulfillment design. Resolve that scope
+and its required evidence in the owning design before runtime changes. Do not mark missing queue
+or completion evidence as healthy to fit this demo, or imply an unverified detector already works.
 
 ## Work order
 
-Complete and review one item at a time:
-
-1. Add the missing Dashboard problem card.
-2. Connect the card to the matching Incident.
-3. Add the operator question and short evidence-backed answer.
-4. Add one clear waiting-for-review example.
-5. Confirm the pending Approval and completed Live journey do not share the same correlation.
-6. Confirm Trace and Audit data, or remove those screens from the recording plan.
-7. Verify English, Korean, keyboard use, and 1440x900, 993x641, and 390x844 layouts.
-8. Rehearse the complete route before recording.
+1. Confirm the order-acceptance scope and reconcile it with the owning commerce design.
+2. Review the deployment target, identity boundaries, exact plan, and synthetic-traffic authority
+	 through the existing deployment workflow. This document is not deployment approval.
+3. Establish the healthy baseline and reviewed operating requirement.
+4. Connect current Kubernetes, synthetic-order, and change observations to deterministic detection.
+5. Verify the proposal and all safeguards in observation mode before authorizing live recovery.
+6. Connect the same incident to Dashboard, conversation, approval, activity, and audit views.
+7. Rehearse the complete live route and separate held-for-review case; record actual timings and gaps.
+8. Verify English, Korean, keyboard use, and 1440x900, 993x641, and 390x844 layouts before recording.
 
 ## Recording checklist
 
-- [ ] The problem is visible on the Dashboard before the solution.
-- [ ] A reviewer can understand that one of three checkout servers is not running.
-- [ ] The answer names the VM state and related maintenance record.
-- [ ] One uncertain case visibly waits for more evidence.
-- [ ] The approval changes only one VM and shows a rollback.
-- [ ] Azure acceptance and independent effect verification are shown as different steps.
-- [ ] The Sample boundary remains visible.
-- [ ] No tenant, subscription, full resource ID, email, token, or endpoint appears.
-- [ ] No live Azure effect or formal performance improvement is claimed.
+- [ ] The store browses products and accepts a baseline synthetic order.
+- [ ] The authorized fault changes only the demo order-service replica count from 1 to 0.
+- [ ] Products remain visible while test-order submission fails.
+- [ ] FDAI detects the issue before the operator asks a question.
+- [ ] The explanation distinguishes Kubernetes desired state from the reviewed operating requirement.
+- [ ] All claimed changes and causes have matching current evidence; missing records remain explicit.
+- [ ] A different human approves the exact recovery, with all seven safeguards satisfied.
+- [ ] API acceptance and independent resource and order-acceptance verification are separate steps.
+- [ ] An uncertain case holds for review, and a failed recovery has a tested recovery procedure.
+- [ ] Live observations, synthetic traffic, and Sample fallback data are clearly distinguished.
+- [ ] No private identity, resource ID, credential, payload, or infrastructure endpoint is exposed.
+- [ ] No payment, fulfillment, revenue, or formal performance improvement is inferred from this run.
 
 ## Related docs
 
 | To learn about | Read |
 |----------------|------|
-| Console Sample behavior | [FDAI Console Conversations](../roadmap/interfaces/operator-console.md) |
+| Public application | [AKS Store Demo](https://github.com/Azure-Samples/aks-store-demo) |
+| Owning business scenario | [AKS Commerce Business Scenario](../roadmap/operations/aks-commerce-business-scenario.md) |
+| Registered action support | [config/action-type-runtime-support.json](../../config/action-type-runtime-support.json) |
+| Existing commerce package | [extensions/aks-commerce/README.md](../../extensions/aks-commerce/README.md) |
 | Evidence presentation | [Console Evidence and Resilience](../roadmap/interfaces/console-evidence-and-resilience.md) |
 | Operational authority | [Console Operations](../roadmap/interfaces/console-operations.md) |
 | UI and UX review | [UI/UX quality rubric](../reference/ui-ux-quality-rubric.md) |

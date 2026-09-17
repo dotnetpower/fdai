@@ -1,4 +1,11 @@
-import type { CostGovernanceProjection } from "../api-cost-governance";
+import type {
+  CostDecisionCase,
+  CostGovernanceProjection,
+  CostReadinessSurface,
+  CostResourceCandidate,
+  CostSettlementOutcome,
+  CostSurfaceReadiness,
+} from "../api-cost-governance";
 
 export interface CostGovernanceRow {
   readonly id: string;
@@ -15,6 +22,7 @@ export interface CostGovernanceRow {
   readonly relativeChange: number | null;
   readonly sourceAuthority: string | null;
   readonly provenanceDigest: string | null;
+  readonly positiveBelowRoundingIncrement: boolean;
 }
 
 export interface CostGovernanceSummary {
@@ -26,6 +34,28 @@ export interface CostGovernanceSummary {
   readonly largestShare: number | null;
   readonly largestLabel: string | null;
 }
+
+export interface CostResourceEfficiencyView {
+  readonly mode: "service_summary" | "resource_candidate";
+  readonly serviceRows: readonly CostGovernanceRow[];
+  readonly candidates: readonly CostResourceCandidate[];
+}
+
+export interface CostSettlementSummary {
+  readonly verifiedSavings: number | null;
+  readonly currency: string;
+  readonly verifiedCount: number;
+  readonly failedCount: number;
+  readonly censoredCount: number;
+  readonly unscorableCount: number;
+  readonly rollbackCount: number;
+  readonly pendingCount: number;
+}
+
+export type CompleteCostSettlementOutcome = CostSettlementOutcome & {
+  readonly action_ref: string;
+  readonly action_revision: number;
+};
 
 export function summarizeCostGovernance(
   projection: CostGovernanceProjection,
@@ -72,6 +102,142 @@ export function summarizeCostGovernance(
   };
 }
 
+export function resourceEfficiencyView(
+  projection: CostGovernanceProjection,
+): CostResourceEfficiencyView {
+  const summary = summarizeCostGovernance(projection);
+  const itemCandidates = projection.items
+    .filter((item) => item["kind"] === "resource_candidate")
+    .map((item) => item as unknown as CostResourceCandidate);
+  const legacyCandidates = projection.resource_efficiency_mode === undefined
+    || projection.resource_efficiency_mode === null
+    ? (projection.analytics?.recommendations ?? []).flatMap((item) => (
+      item.resource_ref
+      && item.current_sku
+      && item.target_sku
+      && item.utilization_percent !== null
+      && item.utilization_metric
+        ? [{
+          kind: "resource_candidate" as const,
+          recommendation_ref: item.recommendation_ref,
+          resource: item.resource_ref,
+          resource_type: item.resource_type,
+          current_configuration: item.current_sku,
+          proposed_configuration: item.target_sku,
+          utilization_metric: item.utilization_metric,
+          utilization_percent: item.utilization_percent,
+          projected_monthly_savings: item.monthly_savings,
+          currency: item.currency,
+          observed_at: item.observed_at,
+          source_authority: item.source_authority,
+        }]
+        : []
+    ))
+    : [];
+  const candidates = itemCandidates.length > 0 ? itemCandidates : legacyCandidates;
+  const mode = projection.resource_efficiency_mode
+    ?? (candidates.length > 0 ? "resource_candidate" : "service_summary");
+  return {
+    mode,
+    serviceRows: summary.rows.filter((row) =>
+      ["summary", "service-cost"].includes(row.kind)
+    ),
+    candidates,
+  };
+}
+
+export function canPlotResourceCandidates(
+  candidates: readonly CostResourceCandidate[],
+): boolean {
+  return candidates.length > 0
+    && candidates.every((item) =>
+      item.currency !== null && item.projected_monthly_savings !== null
+    )
+    && new Set(candidates.map((item) => item.currency)).size === 1;
+}
+
+export function costDecisionCases(
+  projection: CostGovernanceProjection,
+): readonly CostDecisionCase[] {
+  return projection.items
+    .filter((item) => item["kind"] === "decision_case")
+    .map((item) => item as unknown as CostDecisionCase);
+}
+
+export function costSettlementOutcomes(
+  projection: CostGovernanceProjection,
+): readonly CompleteCostSettlementOutcome[] {
+  return projection.items
+    .filter((item) => item["kind"] === "settlement_outcome")
+    .map((item) => item as unknown as CostSettlementOutcome)
+    .filter(hasCompleteActionLineage);
+}
+
+export function incompleteSettlementLineageCount(
+  projection: CostGovernanceProjection,
+): number {
+  return projection.items.filter((item) =>
+    item["kind"] === "settlement_outcome"
+    && !hasCompleteActionLineage(item as unknown as CostSettlementOutcome)
+  ).length;
+}
+
+export function costReadiness(
+  projection: CostGovernanceProjection,
+  surface: CostReadinessSurface,
+): CostSurfaceReadiness | null {
+  return projection.evidence?.readiness.find((item) => item.surface === surface) ?? null;
+}
+
+export function summarizeSettlements(
+  outcomes: readonly CompleteCostSettlementOutcome[],
+): CostSettlementSummary {
+  const verified = outcomes.filter((outcome) => settlementState(outcome) === "verified");
+  const currencies = new Set(
+    verified.map((outcome) => outcome.currency).filter((value): value is string => Boolean(value)),
+  );
+  const canSum = verified.length > 0
+    && verified.every((outcome) => outcome.verified_savings !== null && outcome.currency)
+    && currencies.size === 1;
+  const states = outcomes.map(settlementState);
+  return {
+    verifiedSavings: canSum
+      ? verified.reduce((total, outcome) => total + (outcome.verified_savings ?? 0), 0)
+      : null,
+    currency: canSum ? verified[0]?.currency ?? "" : "",
+    verifiedCount: states.filter((state) => state === "verified").length,
+    failedCount: states.filter((state) => state === "failed").length,
+    censoredCount: states.filter((state) => state === "censored").length,
+    unscorableCount: states.filter((state) => state === "unscorable").length,
+    rollbackCount: states.filter((state) => state === "rollback").length,
+    pendingCount: states.filter((state) => state === "pending").length,
+  };
+}
+
+export function settlementState(
+  outcome: CompleteCostSettlementOutcome,
+): "verified" | "failed" | "censored" | "unscorable" | "rollback" | "pending" {
+  if (outcome.rollback_requested) return "rollback";
+  if (!outcome.terminal || outcome.effects.some((effect) => !effect.terminal)) return "pending";
+  if (outcome.effects.some((effect) => effect.status === "failed")) return "failed";
+  if (outcome.effects.some((effect) => effect.status === "censored")) return "censored";
+  if (outcome.effects.some((effect) => effect.status === "unscorable")) return "unscorable";
+  return outcome.verified_savings !== null
+    && outcome.effects.every((effect) => effect.status === "verified")
+    ? "verified"
+    : "pending";
+}
+
+function hasCompleteActionLineage(
+  outcome: CostSettlementOutcome,
+): outcome is CompleteCostSettlementOutcome {
+  return typeof outcome.action_ref === "string"
+    && outcome.action_ref.trim().length > 0
+    && typeof outcome.action_revision === "number"
+    && Number.isInteger(outcome.action_revision)
+    && outcome.action_revision > 0;
+}
+
 export function costShare(
   row: CostGovernanceRow,
   totalsByCurrency: Readonly<Record<string, number>>,
@@ -85,9 +251,13 @@ function decodeRow(
   item: Readonly<Record<string, unknown>>,
   index: number,
 ): CostGovernanceRow {
+  const positiveBelowRoundingIncrement =
+    item["positive_below_rounding_increment"] === true;
   const amountValue = item["amount_exact"] ?? item["amount_rounded"];
-  const amount = numericAmount(amountValue);
-  const amountLabel = amountValue === undefined
+  const amount = positiveBelowRoundingIncrement ? null : numericAmount(amountValue);
+  const amountLabel = positiveBelowRoundingIncrement
+    ? "positive_below_rounding_increment"
+    : amountValue === undefined
     ? stringValue(item["amount_band"]) ?? (item["suppressed"] ? "suppressed" : "-")
     : String(amountValue);
   const label = stringValue(item["resource"])
@@ -109,6 +279,7 @@ function decodeRow(
     relativeChange: numericAmount(item["relative_change"]),
     sourceAuthority: stringValue(item["source_authority"]),
     provenanceDigest: stringValue(item["provenance_digest"]),
+    positiveBelowRoundingIncrement,
   };
 }
 

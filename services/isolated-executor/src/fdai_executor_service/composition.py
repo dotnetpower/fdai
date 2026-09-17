@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Mapping
+from pathlib import Path
 
 import httpx
 from fdai_service_contracts.executor import (
@@ -114,14 +116,31 @@ def build_direct_api_effect_executor(
 ) -> ServiceDirectApiEffectExecutor:
     """Bind the provider adapter behind the service-owned safety executor."""
 
-    gateway = AzureGatewayDirectApiExecutor(
-        config=AzureGatewayDirectApiConfig(
-            base_url=_required("FDAI_DEV_OPERATIONS_GATEWAY_URL"),
-            audience=_required("FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE"),
-        ),
-        identities=identities,
-        http_client=http_client,
-    )
+    gateway_url = os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip()
+    gateway_audience = os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", "").strip()
+    if bool(gateway_url) != bool(gateway_audience):
+        raise RuntimeError("isolated Executor gateway URL and audience MUST be configured together")
+    gateway: DirectApiExecutor | None = None
+    if gateway_url:
+        gateway = AzureGatewayDirectApiExecutor(
+            config=AzureGatewayDirectApiConfig(
+                base_url=gateway_url,
+                audience=gateway_audience,
+            ),
+            identities=identities,
+            http_client=http_client,
+        )
+    kubernetes = _build_kubernetes_direct_api(identities=identities)
+    executor: DirectApiExecutor | None = gateway
+    if kubernetes is not None:
+        from fdai_executor_service.adapters.kubernetes_direct_api import (
+            KubernetesDirectApiRouter,
+        )
+
+        executor = KubernetesDirectApiRouter(kubernetes, gateway)
+    if executor is None:
+        raise RuntimeError("isolated Executor authority cutover requires a direct-API adapter")
+
     from fdai_executor_service.adapters.entra_membership import EntraMembershipClient
     from fdai_executor_service.adapters.postgres_human_access import PostgresHumanAccessSource
     from fdai_executor_service.human_access import IsolatedHumanAccessExecutor
@@ -131,7 +150,6 @@ def build_direct_api_effect_executor(
         require_human_access_identity,
     )
 
-    executor: DirectApiExecutor = gateway
     role_groups = human_access_role_groups(os.environ)
     if role_groups is not None:
         require_human_access_identity(os.environ)
@@ -145,7 +163,7 @@ def build_direct_api_effect_executor(
             ),
             store=audit_store,
         )
-        executor = HumanAccessDirectApiRouter(human, gateway)
+        executor = HumanAccessDirectApiRouter(human, executor)
     return ServiceDirectApiEffectExecutor(
         executor=executor,
         audit_store=audit_store,
@@ -153,6 +171,60 @@ def build_direct_api_effect_executor(
         idempotency=idempotency,
         allow_enforce=True,
     )
+
+
+def _build_kubernetes_direct_api(
+    *,
+    identities: Mapping[str, WorkloadIdentity] | None = None,
+) -> DirectApiExecutor | None:
+    raw = os.environ.get("FDAI_KUBERNETES_DIRECT_API_JSON", "").strip()
+    if not raw:
+        return None
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("FDAI_KUBERNETES_DIRECT_API_JSON MUST be valid JSON") from exc
+    common = {"api_server", "cluster_ref", "ca_path", "allowed_namespaces"}
+    if not isinstance(value, dict) or set(value) not in (
+        common | {"token_path"},
+        common | {"audience"},
+    ):
+        raise RuntimeError(
+            "FDAI_KUBERNETES_DIRECT_API_JSON MUST contain api_server, cluster_ref, "
+            "ca_path, allowed_namespaces, and exactly one of token_path or audience"
+        )
+    namespaces = value["allowed_namespaces"]
+    if (
+        not isinstance(namespaces, list)
+        or not namespaces
+        or any(not isinstance(item, str) for item in namespaces)
+    ):
+        raise RuntimeError("Kubernetes allowed_namespaces MUST be a non-empty string array")
+    text_fields = {name: value[name] for name in set(value) - {"allowed_namespaces"}}
+    if any(
+        not isinstance(item, str) or not item or item != item.strip()
+        for item in text_fields.values()
+    ):
+        raise RuntimeError("Kubernetes direct-API text settings MUST be non-empty strings")
+    from fdai_executor_service.adapters.kubernetes_direct_api import (
+        KubernetesDirectApiConfig,
+        KubernetesDirectApiExecutor,
+    )
+
+    try:
+        return KubernetesDirectApiExecutor(
+            config=KubernetesDirectApiConfig(
+                api_server=str(value["api_server"]),
+                cluster_ref=str(value["cluster_ref"]),
+                token_path=Path(str(value["token_path"])) if "token_path" in value else None,
+                ca_path=Path(str(value["ca_path"])),
+                allowed_namespaces=frozenset(namespaces),
+                audience=str(value["audience"]) if "audience" in value else None,
+            ),
+            identities=identities,
+        )
+    except ValueError as exc:
+        raise RuntimeError("Kubernetes direct API configuration is invalid") from exc
 
 
 def _required(name: str) -> str:

@@ -55,6 +55,14 @@ locals {
       }
     },
   )
+  inventory_job_enabled = contains(keys(var.scheduled_jobs), "inventory")
+  executor_kubernetes_effect_enabled = try(
+    contains(
+      keys(var.workloads["isolated-executor"].environment),
+      "FDAI_KUBERNETES_DIRECT_API_JSON",
+    ),
+    false,
+  )
 }
 
 resource "kubernetes_namespace_v1" "runtime" {
@@ -78,6 +86,204 @@ resource "kubernetes_service_account_v1" "identity" {
       "azure.workload.identity/client-id" = each.value.client_id
       "azure.workload.identity/tenant-id" = var.tenant_id
     }
+  }
+}
+
+resource "kubernetes_cluster_role_v1" "inventory_reader" {
+  count = local.inventory_job_enabled ? 1 : 0
+
+  metadata {
+    name = "${var.namespace}-inventory-reader"
+  }
+
+  rule {
+    api_groups = [""]
+    resources = [
+      "endpoints",
+      "limitranges",
+      "namespaces",
+      "nodes",
+      "persistentvolumeclaims",
+      "persistentvolumes",
+      "pods",
+      "resourcequotas",
+      "services",
+    ]
+    verbs = ["get", "list"]
+  }
+
+  rule {
+    api_groups = [""]
+    resources  = ["events"]
+    verbs      = ["get", "list", "watch"]
+  }
+
+  rule {
+    api_groups = ["apps"]
+    resources  = ["daemonsets", "deployments", "replicasets", "statefulsets"]
+    verbs      = ["get", "list"]
+  }
+
+  rule {
+    api_groups = ["autoscaling"]
+    resources  = ["horizontalpodautoscalers"]
+    verbs      = ["get", "list"]
+  }
+
+  rule {
+    api_groups = ["batch"]
+    resources  = ["cronjobs", "jobs"]
+    verbs      = ["get", "list"]
+  }
+
+  rule {
+    api_groups = ["discovery.k8s.io"]
+    resources  = ["endpointslices"]
+    verbs      = ["get", "list"]
+  }
+
+  rule {
+    api_groups = ["networking.k8s.io"]
+    resources  = ["ingressclasses", "ingresses", "networkpolicies"]
+    verbs      = ["get", "list"]
+  }
+
+  rule {
+    api_groups = ["policy"]
+    resources  = ["poddisruptionbudgets"]
+    verbs      = ["get", "list"]
+  }
+
+  rule {
+    api_groups = ["storage.k8s.io"]
+    resources  = ["storageclasses"]
+    verbs      = ["get", "list"]
+  }
+}
+
+resource "kubernetes_cluster_role_binding_v1" "inventory_reader" {
+  count = local.inventory_job_enabled ? 1 : 0
+
+  metadata {
+    name = "${var.namespace}-inventory-reader"
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = kubernetes_cluster_role_v1.inventory_reader[0].metadata[0].name
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account_v1.identity["job-inventory"].metadata[0].name
+    namespace = kubernetes_namespace_v1.runtime.metadata[0].name
+  }
+}
+
+resource "kubernetes_role_v1" "executor_kubernetes_effect" {
+  count = local.executor_kubernetes_effect_enabled ? 1 : 0
+
+  metadata {
+    name      = "isolated-executor-kubernetes-effect"
+    namespace = kubernetes_namespace_v1.runtime.metadata[0].name
+  }
+
+  rule {
+    api_groups = [""]
+    resources  = ["pods"]
+    verbs      = ["get", "delete"]
+  }
+
+  rule {
+    api_groups = ["apps"]
+    resources  = ["deployments"]
+    verbs      = ["get", "patch"]
+  }
+
+  rule {
+    api_groups = ["apps"]
+    resources  = ["deployments/scale"]
+    verbs      = ["get", "update"]
+  }
+}
+
+resource "kubernetes_role_binding_v1" "executor_kubernetes_effect" {
+  count = local.executor_kubernetes_effect_enabled ? 1 : 0
+
+  metadata {
+    name      = "isolated-executor-kubernetes-effect"
+    namespace = kubernetes_namespace_v1.runtime.metadata[0].name
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "Role"
+    name      = kubernetes_role_v1.executor_kubernetes_effect[0].metadata[0].name
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account_v1.identity["workload-isolated-executor"].metadata[0].name
+    namespace = kubernetes_namespace_v1.runtime.metadata[0].name
+  }
+}
+
+resource "kubernetes_role_v1" "executor_external_scale" {
+  for_each = var.executor_external_scale_targets
+
+  metadata {
+    name      = "${var.namespace}-executor-scale"
+    namespace = each.key
+  }
+
+  rule {
+    api_groups     = ["apps"]
+    resources      = ["deployments"]
+    resource_names = sort(tolist(each.value))
+    verbs          = ["get"]
+  }
+
+  rule {
+    api_groups     = ["apps"]
+    resources      = ["deployments/scale"]
+    resource_names = sort(tolist(each.value))
+    verbs          = ["get", "update"]
+  }
+
+  lifecycle {
+    precondition {
+      condition = local.executor_kubernetes_effect_enabled && try(
+        var.workloads["isolated-executor"].environment["FDAI_EXECUTION_VENUE"] == "deployed" &&
+        contains(
+          jsondecode(var.workloads["isolated-executor"].environment["FDAI_KUBERNETES_DIRECT_API_JSON"]).allowed_namespaces,
+          each.key,
+        ),
+        false,
+      )
+      error_message = "External scale RBAC requires a deployed isolated Executor and an explicit matching Kubernetes namespace allowlist."
+    }
+  }
+}
+
+resource "kubernetes_role_binding_v1" "executor_external_scale" {
+  for_each = var.executor_external_scale_targets
+
+  metadata {
+    name      = "${var.namespace}-executor-scale"
+    namespace = each.key
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "Role"
+    name      = kubernetes_role_v1.executor_external_scale[each.key].metadata[0].name
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account_v1.identity["workload-isolated-executor"].metadata[0].name
+    namespace = kubernetes_namespace_v1.runtime.metadata[0].name
   }
 }
 
@@ -479,6 +685,8 @@ resource "kubernetes_network_policy_v1" "workload" {
 resource "kubernetes_service_v1" "workload" {
   for_each = var.workloads
 
+  wait_for_load_balancer = each.value.external
+
   metadata {
     name      = each.key
     namespace = kubernetes_namespace_v1.runtime.metadata[0].name
@@ -489,7 +697,7 @@ resource "kubernetes_service_v1" "workload" {
     selector = { "app.kubernetes.io/name" = each.key }
     type     = each.value.external ? "LoadBalancer" : "ClusterIP"
     port {
-      port        = each.value.port
+      port        = coalesce(each.value.service_port, each.value.port)
       target_port = each.value.port
     }
   }

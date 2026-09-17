@@ -2659,7 +2659,7 @@
         "docs/roadmap/fork-and-sequencing/finops-package-delivery-plan.md",
         "docs/roadmap/architecture/capability-bundle-lifecycle.md",
         "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md",
-        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/interfaces/operator-console-runtime-model.md",
         "docs/roadmap/interfaces/channels-and-notifications.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/decisioning/action-ontology.md",
@@ -2760,7 +2760,6 @@
         "docs/roadmap/deployment/installable-deployment-cli.md",
         "docs/roadmap/deployment/provisioning-execution-profiles.md",
         "docs/roadmap/architecture/security-and-identity.md",
-        "docs/roadmap/architecture/llm-strategy.md",
         "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "docs_update_routes": [
@@ -2783,6 +2782,26 @@
         "uv build --project packages/deployment-cli",
         "python3 scripts/quality/architecture/check-design-routes.py",
         "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
+      "id": "subscription-genesis-model-resolution",
+      "paths": [
+        "services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver*.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/architecture/llm-strategy.md",
+        "docs/roadmap/deployment/subscription-genesis-provisioning.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/llm-strategy.md",
+        "docs/roadmap/deployment/subscription-genesis-provisioning.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/rule_catalog/schema/test_llm_resolver.py services/core-control-plane/tests/rule_catalog/schema/test_llm_resolver_cli.py",
+        "python3 scripts/quality/architecture/check-design-routes.py"
       ]
     },
     {

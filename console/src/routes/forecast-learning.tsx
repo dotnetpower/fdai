@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, OperatorApiError } from "../api";
 import type { OperatorApiClient } from "../api";
+import { EvidenceRefresh } from "../components/evidence-refresh";
 import {
   AsyncBoundary,
   DataTable,
@@ -17,6 +18,7 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { routeHref } from "../router";
 import { t } from "./i18n/evidence";
 import { panelArray, panelRecord } from "./panel-decode";
+import { ForecastActivity } from "./forecast-activity";
 
 interface EpisodeSummary {
   readonly total: number;
@@ -105,11 +107,13 @@ export function buildForecastLearningViewSnapshot(
 }
 
 export function ForecastLearningRoute({ client }: { readonly client: OperatorApiClient }) {
+  const [refreshRevision, setRefreshRevision] = useState(0);
   const [state, setState] = useState<AsyncState<ForecastLearningResponse>>({
     status: "loading",
   });
   useEffect(() => {
     let cancelled = false;
+    setState({ status: "loading" });
     (async () => {
       try {
         const data = decodeForecastLearning(
@@ -134,12 +138,16 @@ export function ForecastLearningRoute({ client }: { readonly client: OperatorApi
     return () => {
       cancelled = true;
     };
-  }, [client]);
+  }, [client, refreshRevision]);
   return (
     <div class="stack governance-route">
       <PageHeader
         title={t("evidence.forecastLearning.title")}
         subtitle={t("evidence.forecastLearning.subtitle")}
+        actions={<EvidenceRefresh loading={state.status === "loading"} onRefresh={() => {
+          setState({ status: "loading" });
+          setRefreshRevision((revision) => revision + 1);
+        }} />}
       />
       <AsyncBoundary
         state={state}
@@ -265,6 +273,7 @@ function ForecastLearningBody({ data }: { readonly data: ForecastLearningRespons
         <StatusPill kind={data.durable ? "success" : "warning"} label={data.source} />
       </div>
       <div id="forecast-outcomes">
+        <ForecastActivity data={data} />
         <DataTable
           columns={columns}
           rows={data.outcomes}

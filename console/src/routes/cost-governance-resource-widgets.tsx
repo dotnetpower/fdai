@@ -1,95 +1,70 @@
-import type { CostGovernanceRecommendation } from "../api-cost-governance";
+import type {
+  CostGovernanceProjection,
+  CostResourceCandidate,
+} from "../api-cost-governance";
 import {
   costLocale,
+  formatCostAmount,
   formatCurrency,
   formatNullablePercent,
 } from "./cost-governance-format";
 import {
-  costShare,
+  costReadiness,
   type CostGovernanceRow,
 } from "./cost-governance.view-model";
 import { t } from "./i18n/cost-governance";
 
-export function ResourceTable({
+export function ServiceSummaryTable({
   rows,
-  selectedId,
-  totals,
-  complete,
-  onSelect,
+  projection,
 }: {
   readonly rows: readonly CostGovernanceRow[];
-  readonly selectedId: string;
-  readonly totals: Readonly<Record<string, number>>;
-  readonly complete: boolean;
-  readonly onSelect: (id: string) => void;
+  readonly projection: CostGovernanceProjection;
 }) {
   if (rows.length === 0) {
-    return <div class="cost-empty">{t("costGovernance.resource.noMatches")}</div>;
+    return <div class="cost-empty">{t("costGovernance.resource.noServiceSummaries")}</div>;
   }
+  const observationReadiness = costReadiness(projection, "observations");
+  const latestSourceAt = projection.evidence?.latest_source_at
+    ?? projection.analytics?.observed_at
+    ?? null;
+  const disclosure = projection.evidence?.disclosure ?? projection.disclosure;
   return (
     <div class="cost-resource-table-wrap">
-      <table class="cost-resource-table">
+      <table class="cost-resource-table cost-service-summary-table">
         <thead><tr>
-          <th>{t("costGovernance.columns.identity")}</th>
-          <th>{t("costGovernance.resource.currentSku")}</th>
-          <th>{t("costGovernance.resource.utilization")}</th>
-          <th>{t("costGovernance.resource.decision")}</th>
-          <th>{t("costGovernance.columns.amount")}</th>
-          <th>{t("costGovernance.resource.projectedChange")}</th>
-          <th>{t("costGovernance.columns.evidence")}</th>
+          <th>{t("costGovernance.columns.service")}</th>
+          <th>{t("costGovernance.resource.disclosedCost")}</th>
+          <th>{t("costGovernance.resource.observations")}</th>
+          <th>{t("costGovernance.evidence.completeness")}</th>
+          <th>{t("costGovernance.resource.latestEvidence")}</th>
         </tr></thead>
-        <tbody>{rows.map((row) => {
-          const rowComplete = row.completeness === null ? complete : row.completeness >= 1;
-          return (
-            <tr class={row.id === selectedId ? "selected" : ""} key={row.id}>
-              <td><button type="button" onClick={() => onSelect(row.id)}><strong>{row.label}</strong><small>{row.service}</small></button></td>
-              <td><strong>-</strong><small>{t("costGovernance.resource.skuUnavailable")}</small></td>
-              <td><strong>-</strong><small>{t("costGovernance.resource.utilizationUnavailable")}</small></td>
-              <td><span class="cost-status review">{t("costGovernance.resource.reviewRequired")}</span></td>
-              <td class="number">{formatCurrency(row.amount, row.currency, row.amountLabel)}<small>{formatNullablePercent(costShare(row, totals))}</small></td>
-              <td class="number">-<small>{t("costGovernance.resource.noRecommendation")}</small></td>
-              <td><span class={rowComplete ? "cost-evidence ready" : "cost-evidence limited"}>{rowComplete ? t("costGovernance.summary.complete") : t("costGovernance.summary.incomplete")}</span></td>
-            </tr>
-          );
-        })}</tbody>
-      </table>
-    </div>
-  );
-}
-
-export function RecommendationTable({
-  recommendations,
-  selectedId,
-  onSelect,
-}: {
-  readonly recommendations: readonly CostGovernanceRecommendation[];
-  readonly selectedId: string;
-  readonly onSelect: (id: string) => void;
-}) {
-  if (recommendations.length === 0) {
-    return <div class="cost-empty">{t("costGovernance.resource.noMatches")}</div>;
-  }
-  return (
-    <div class="cost-resource-table-wrap">
-      <table class="cost-resource-table">
-        <thead><tr>
-          <th>{t("costGovernance.columns.identity")}</th>
-          <th>{t("costGovernance.resource.currentSku")}</th>
-          <th>{t("costGovernance.resource.utilization")}</th>
-          <th>{t("costGovernance.resource.decision")}</th>
-          <th>{t("costGovernance.resource.projectedChange")}</th>
-          <th>{t("costGovernance.resource.impact")}</th>
-          <th>{t("costGovernance.columns.evidence")}</th>
-        </tr></thead>
-        <tbody>{recommendations.map((item) => (
-          <tr class={item.recommendation_ref === selectedId ? "selected" : ""} key={item.recommendation_ref}>
-            <td><button type="button" onClick={() => onSelect(item.recommendation_ref)}><strong>{item.resource_ref ?? t("costGovernance.resource.subscriptionScope")}</strong><small>{item.resource_type}</small></button></td>
-            <td><strong>{item.current_sku ?? "-"}</strong><small>{item.target_sku ? t("costGovernance.resource.targetSku", { sku: item.target_sku }) : t("costGovernance.resource.targetUnavailable")}</small></td>
-            <td><strong>{item.utilization_percent === null ? "-" : formatNullablePercent(item.utilization_percent / 100)}</strong><small>{item.utilization_metric ?? t("costGovernance.resource.utilizationUnavailable")}</small></td>
-            <td><span class="cost-status review">{t("costGovernance.resource.candidateOnly")}</span></td>
-            <td class="number">{formatCurrency(item.monthly_savings, item.currency ?? "")}<small>{t("costGovernance.resource.monthlyAdvisorEstimate")}</small></td>
-            <td>{item.impact}</td>
-            <td><span class="cost-evidence ready">{t("costGovernance.resource.advisorEvidence")}</span></td>
+        <tbody>{rows.map((row) => (
+          <tr key={row.id}>
+            <th scope="row"><strong>{row.label}</strong></th>
+            <td class="number">
+              <strong>{formatCostAmount(row, disclosure)}</strong>
+              {row.positiveBelowRoundingIncrement ? (
+                <small>{t("costGovernance.metrics.belowRoundingExplanation")}</small>
+              ) : null}
+            </td>
+            <td class="number">{row.recordCount.toLocaleString(costLocale())}</td>
+            <td>
+              <span class={`cost-evidence ${
+                observationReadiness?.state === "complete" || (
+                  observationReadiness === null && projection.complete
+                )
+                  ? "ready"
+                  : "limited"
+              }`}>
+                {observationReadiness
+                  ? t(`costGovernance.evidence.states.${observationReadiness.state}`)
+                  : projection.complete
+                  ? t("costGovernance.summary.complete")
+                  : t("costGovernance.summary.incomplete")}
+              </span>
+            </td>
+            <td>{formatTimestamp(latestSourceAt)}</td>
           </tr>
         ))}</tbody>
       </table>
@@ -97,77 +72,135 @@ export function RecommendationTable({
   );
 }
 
-export function ResourceInspector({
-  row,
-  complete,
+export function ResourceCandidateTable({
+  candidates,
+  selectedId,
+  onSelect,
 }: {
-  readonly row: CostGovernanceRow | null;
-  readonly complete: boolean;
+  readonly candidates: readonly CostResourceCandidate[];
+  readonly selectedId: string;
+  readonly onSelect: (id: string) => void;
 }) {
-  const evidenceComplete = row?.completeness === null || row?.completeness === undefined
-    ? complete
-    : row.completeness >= 1;
+  if (candidates.length === 0) {
+    return <div class="cost-empty">{t("costGovernance.resource.noCandidates")}</div>;
+  }
   return (
-    <aside class="cost-inspector" aria-live="polite" aria-label={t("costGovernance.resource.inspectorLabel")}>
-      <header><div><span>{t("costGovernance.resource.selectedEvidence")}</span><h2>{row?.label ?? "-"}</h2><p>{row?.service ?? t("costGovernance.resource.noSelection")}</p></div><span class="cost-case-mode">{t("costGovernance.resource.observationMode")}</span></header>
+    <div class="cost-resource-table-wrap">
+      <table class="cost-resource-table cost-candidate-table">
+        <thead><tr>
+          <th>{t("costGovernance.columns.identity")}</th>
+          <th>{t("costGovernance.resource.currentConfiguration")}</th>
+          <th>{t("costGovernance.resource.proposedConfiguration")}</th>
+          <th>{t("costGovernance.resource.utilization")}</th>
+          <th>{t("costGovernance.resource.projectedChange")}</th>
+          <th>{t("costGovernance.columns.evidence")}</th>
+        </tr></thead>
+        <tbody>{candidates.map((candidate) => (
+          <tr
+            class={candidate.recommendation_ref === selectedId ? "selected" : ""}
+            key={candidate.recommendation_ref}
+          >
+            <td>
+              <button type="button" onClick={() => onSelect(candidate.recommendation_ref)}>
+                <strong>{candidate.resource}</strong>
+                <small>{candidate.resource_type}</small>
+              </button>
+            </td>
+            <td><strong>{candidate.current_configuration}</strong></td>
+            <td><strong>{candidate.proposed_configuration}</strong></td>
+            <td>
+              <strong>{formatNullablePercent(candidate.utilization_percent / 100)}</strong>
+              <small>{candidate.utilization_metric}</small>
+            </td>
+            <td class="number">
+              {formatCurrency(
+                candidate.projected_monthly_savings,
+                candidate.currency ?? "",
+              )}
+              <small>{t("costGovernance.resource.monthlyCandidateEstimate")}</small>
+            </td>
+            <td>
+              <span class="cost-evidence ready">{t("costGovernance.resource.candidateEvidence")}</span>
+            </td>
+          </tr>
+        ))}</tbody>
+      </table>
+    </div>
+  );
+}
+
+export function ResourceCandidateInspector({
+  candidate,
+}: {
+  readonly candidate: CostResourceCandidate;
+}) {
+  return (
+    <aside
+      class="cost-inspector"
+      aria-live="polite"
+      aria-label={t("costGovernance.resource.inspectorLabel")}
+    >
+      <header>
+        <div>
+          <span>{t("costGovernance.resource.selectedCandidate")}</span>
+          <h2>{candidate.resource}</h2>
+          <p>{candidate.resource_type}</p>
+        </div>
+        <span class="cost-case-mode">{t("costGovernance.resource.candidateOnly")}</span>
+      </header>
       <section class="cost-recommendation">
-        <span>{t("costGovernance.resource.recommendedOption")}</span>
-        <div><strong>-</strong><span aria-hidden="true">-&gt;</span><strong>-</strong></div>
-        <p>{t("costGovernance.resource.recommendationUnavailable")}</p>
+        <span>{t("costGovernance.resource.providerRecommendation")}</span>
+        <div>
+          <strong>{candidate.current_configuration}</strong>
+          <span aria-hidden="true">-&gt;</span>
+          <strong>{candidate.proposed_configuration}</strong>
+        </div>
+        <p>{t("costGovernance.resource.candidateAuthorityBoundary")}</p>
       </section>
-      <section class="cost-agent-evidence">
-        <h3>{t("costGovernance.resource.agentEvidence")}</h3>
-        <div><span>Njord</span><p>{row ? t("costGovernance.resource.njordEvidence", { amount: formatCurrency(row.amount, row.currency, row.amountLabel) }) : "-"}</p><strong>{t("costGovernance.resource.cost")}</strong></div>
-        <div><span>Freyr</span><p>{t("costGovernance.resource.freyrUnavailable")}</p><strong>{t("costGovernance.resource.capacity")}</strong></div>
-        <div><span>Forseti</span><p>{t("costGovernance.resource.forsetiUnavailable")}</p><strong>{t("costGovernance.resource.judgment")}</strong></div>
-      </section>
-      <section class="cost-gates">
-        <h3>{t("costGovernance.resource.eligibility")}</h3>
-        <ul>
-          <li><span>{t("costGovernance.resource.gates.mapping")}</span><strong>{t("costGovernance.resource.unknown")}</strong></li>
-          <li><span>{t("costGovernance.resource.gates.slo")}</span><strong>{t("costGovernance.resource.unknown")}</strong></li>
-          <li><span>{t("costGovernance.resource.gates.coverage")}</span><strong>{evidenceComplete ? t("costGovernance.summary.complete") : t("costGovernance.summary.incomplete")}</strong></li>
-          <li><span>{t("costGovernance.resource.gates.rollback")}</span><strong>{t("costGovernance.resource.notEvaluated")}</strong></li>
-        </ul>
+      <section class="cost-candidate-evidence">
+        <h3>{t("costGovernance.resource.candidateEvidenceTitle")}</h3>
+        <dl>
+          <div>
+            <dt>{t("costGovernance.resource.utilization")}</dt>
+            <dd>{formatNullablePercent(candidate.utilization_percent / 100)}</dd>
+          </div>
+          <div>
+            <dt>{t("costGovernance.resource.utilizationMetric")}</dt>
+            <dd>{candidate.utilization_metric}</dd>
+          </div>
+          <div>
+            <dt>{t("costGovernance.resource.projectedChange")}</dt>
+            <dd>{formatCurrency(
+              candidate.projected_monthly_savings,
+              candidate.currency ?? "",
+            )}</dd>
+          </div>
+          <div>
+            <dt>{t("costGovernance.evidence.source")}</dt>
+            <dd>{candidate.source_authority}</dd>
+          </div>
+          <div>
+            <dt>{t("costGovernance.columns.observed")}</dt>
+            <dd>{formatTimestamp(candidate.observed_at)}</dd>
+          </div>
+        </dl>
       </section>
       <footer><span>{t("costGovernance.resource.noChangesApplied")}</span></footer>
     </aside>
   );
 }
 
-export function RecommendationInspector({
-  recommendation,
-}: {
-  readonly recommendation: CostGovernanceRecommendation;
-}) {
-  return (
-    <aside class="cost-inspector" aria-live="polite" aria-label={t("costGovernance.resource.inspectorLabel")}>
-      <header>
-        <div><span>{t("costGovernance.resource.selectedCandidate")}</span><h2>{recommendation.resource_ref ?? t("costGovernance.resource.subscriptionScope")}</h2><p>{recommendation.resource_type}</p></div>
-        <span class="cost-case-mode">{t("costGovernance.resource.candidateOnly")}</span>
-      </header>
-      <section class="cost-recommendation">
-        <span>{t("costGovernance.resource.providerRecommendation")}</span>
-        <div><strong>{recommendation.current_sku ?? "-"}</strong><span aria-hidden="true">-&gt;</span><strong>{recommendation.target_sku ?? "-"}</strong></div>
-        <p>{recommendation.solution}</p>
-      </section>
-      <section class="cost-agent-evidence">
-        <h3>{t("costGovernance.resource.agentEvidence")}</h3>
-        <div><span>Azure Advisor</span><p>{recommendation.problem}</p><strong>{recommendation.impact}</strong></div>
-        <div><span>Njord</span><p>{recommendation.monthly_savings === null ? t("costGovernance.resource.savingsUnavailable") : t("costGovernance.resource.projectedMonthlySavings", { amount: formatCurrency(recommendation.monthly_savings, recommendation.currency ?? "") })}</p><strong>{t("costGovernance.resource.cost")}</strong></div>
-        <div><span>Freyr</span><p>{recommendation.utilization_percent === null ? t("costGovernance.resource.freyrUnavailable") : t("costGovernance.resource.utilizationEvidence", { value: formatNullablePercent(recommendation.utilization_percent / 100) })}</p><strong>{t("costGovernance.resource.capacity")}</strong></div>
-        <div><span>Forseti</span><p>{t("costGovernance.resource.forsetiUnavailable")}</p><strong>{t("costGovernance.resource.judgment")}</strong></div>
-      </section>
-      <section class="cost-gates">
-        <h3>{t("costGovernance.resource.eligibility")}</h3>
-        <ul>
-          <li><span>{t("costGovernance.resource.gates.mapping")}</span><strong>{t("costGovernance.resource.unknown")}</strong></li>
-          <li><span>{t("costGovernance.resource.gates.slo")}</span><strong>{t("costGovernance.resource.unknown")}</strong></li>
-          <li><span>{t("costGovernance.resource.gates.coverage")}</span><strong>{t("costGovernance.resource.advisorEvidence")}</strong></li>
-          <li><span>{t("costGovernance.resource.gates.rollback")}</span><strong>{t("costGovernance.resource.notEvaluated")}</strong></li>
-        </ul>
-      </section>
-      <footer><span>{t("costGovernance.resource.noChangesApplied")}</span></footer>
-    </aside>
-  );
+function formatTimestamp(value: string | null): string {
+  if (!value) return t("costGovernance.evidence.notReported");
+  const instant = new Date(value);
+  return Number.isNaN(instant.valueOf())
+    ? t("costGovernance.evidence.notReported")
+    : new Intl.DateTimeFormat(costLocale(), {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).format(instant);
 }

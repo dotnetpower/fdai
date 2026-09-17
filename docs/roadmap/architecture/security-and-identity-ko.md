@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: a941d9964d4788b8c8025ec268d47cd12c1f9dc8
-translation_revised: 2026-09-15
+translation_source_sha: 99da5a708e8d1a9f45424d0adc9cc9466b869f4c
+translation_revised: 2026-09-17
 ---
 
 # 보안과 아이덴티티
@@ -21,6 +21,7 @@ translation_revised: 2026-09-15
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 워크로드 신원과 승인 및 실행 분리 | validated | `config/independent-service-live-evidence-manifest.json`; `infra/services/`; `shared/providers/workload_identity.py`; SD-08 및 IS-09 근거 | 5개 서비스 배포 근거는 서로 다른 신원을 입증하고 전환 후 Isolated 실행기만 효과를 보유할 수 있게 합니다. |
+| Kubernetes 복구 작업 효과 신원 | implemented | `services/isolated-executor/src/fdai_executor_service/adapters/kubernetes_direct_api.py`; `infra/runtimes/aks/workloads/main.tf`; 실행기, 배포 렌더러 및 RBAC 집중 테스트 | 격리된 실행기 ServiceAccount만 등록된 네 Kubernetes ActionType에 필요한 namespace 범위의 Pod 및 Deployment 변경 권한을 받습니다. 인벤토리와 Core 신원에는 Kubernetes 쓰기 권한이 없습니다. 검토된 적용과 독립 효과 확인은 아직 필요합니다. |
 | 운영 활동 신원 분리 | implemented | `packages/service-contracts/src/fdai_service_contracts/control_loop_measurement.py`; Core 측정, RCA, 관측 캠페인, 시작 probe 및 Saga 감사 adapter; Operator 활동 투영과 집중 테스트 | 감사 행은 기계적인 `actor`를 보존하고 `owner_agent`에는 책임지는 Pantheon 역할을 기록하며, 인증된 이벤트 버스 게시자에만 `producer_principal`을 사용합니다. 투영 계층은 선언된 소유자 또는 범위가 제한된 기존 매핑을 검증하고, 소유자를 알 수 없는 사용자 정의 source를 감사 근거에서 삭제하지 않은 채 Agent Activity에서는 제외합니다. 이 필드는 어떤 권한도 부여하지 않습니다. |
 | 권한을 부여하지 않는 인시던트 지침 | validated | `fdai_service_contracts.incident_intervention`; Core 개입 소비자 및 Pantheon 바인딩; Saga 및 Forseti 지침 처리; `docs/baselines/incident-intervention-assurance-2026-09-15.json` | 적용된 지침은 인시던트 상관관계나 실행 권한 없이 Huginn을 통해서만 다시 유입됩니다. Saga는 정규화 이벤트를 감사하고 Forseti는 판단하지 않으며, 보존된 로컬 근거에는 일치하는 ActionRun이 없습니다. |
 | 실행기 안전조건과 독립 효과 종결 | in-progress | 운영 안전조건 coordinator와 경로 adapter, Isolated 실행기 묶음 resolver와 validator, 집중 생성기, Workflow, 서비스 경계, 영속성 및 이행 테스트 | Core의 네 실행 경로와 Workflow action이 하나의 운영 coordinator로 공유 묶음을 생성하고 보존하며, Isolated 실행기가 효과 전에 묶음을 독립적으로 다시 검증합니다. #633의 통제된 교차 경로 효과 근거는 남아 있습니다. |
@@ -32,6 +33,7 @@ translation_revised: 2026-09-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-17 | implemented | 정확한 Pod 재시작, Deployment 크기 조정 및 다이제스트 고정 롤아웃 복구를 위해 격리된 실행기에 namespace 범위의 Kubernetes 효과 신원을 추가했습니다. | `current change`; 격리된 실행기 어댑터와 테스트, AKS 렌더러, namespace Role 및 RoleBinding 테스트, 런타임 지원 매니페스트. | 클러스터 사용 가능 후 정확한 AKS 계획을 검토하고 적용한 뒤, 런타임 검증을 주장하기 전에 독립 효과 확인을 보존합니다. |
 | 2026-09-14 | implemented | 컨트롤 루프 측정, RCA, 관측, 시작, 감사 미러 및 Operator 투영 경계 전반에서 운영 활동 소유권을 기계 실행과 인증된 게시 신원으로부터 분리했습니다. | `current change`; 집중 서비스 계약, Core, 파이프라인 및 Operator 투영 테스트 통과. | 정확히 병합된 개정 번호의 배포 근거를 수집합니다. 귀속 정보는 설명용이며 런타임 권한을 부여하지 않습니다. |
 | 2026-09-15 | validated | 권한을 부여하지 않는 인시던트 지침 경계를 추가했습니다. Core는 영속 적용 뒤에만 게시하고 Huginn이 정규화하며 Saga가 감사하고 Forseti는 판단을 명시적으로 보류합니다. | `current change`; `docs/baselines/incident-intervention-assurance-2026-09-15.json`; 집중 계약, Core, Pantheon 및 Console 테스트. | 인시던트 지침 권한 경계의 로컬 구현 작업은 남지 않았습니다. |
 | 2026-09-13 | in-progress | 비활성 A3-E shadow 복귀 명령 계약, 작성기 Protocol, 안전한 방향으로 실패하는 조율 이음새와 함께 엄격히 로컬 전용 집단 CLI 및 닫힌 자료 집합 해석기를 추가했습니다. 명령은 정확한 개정 번호, 되돌릴 ActionType, 실패하거나 알 수 없는 관측 근거, 이유, 중지·롤백·킬 스위치 결속, 기대하는 상시 권한 fence와 상태, 서로 다른 사람 제안자와 검토자, 안정적인 idempotency 키, 2단계 의도·종결 감사를 결속합니다. CLI는 로컬이 아닌 venue나 근거 등급을 거부하고 문서 크기·케이스·검토·경과 시간 입력을 제한하며 단조 시계 마감을 적용하고 심볼릭 링크 자료 집합이나 출력 경로를 거부합니다. 둘 다 실행 또는 승격 권한을 부여하지 않고 레지스트리를 변경하지 않으며 네트워크, Azure, 프로바이더, 데이터베이스 경로에 접근하지 않습니다. | `current change`; `core/standing_authority/{shadow_reversion_command,shadow_cohort_cli,shadow_cohort_corpus}.py`; `tests/core/standing_authority/{test_shadow_reversion_command,test_shadow_cohort_cli}.py`; 집중 상시 권한 테스트 323개 통과(신규 99개); Ruff, 포맷, strict mypy 통과. 절대, 상대, 패키지 재노출, 별칭, 동적 import 형태를 모두 해석하는 전체 트리 검사기가 패키지 밖의 어떤 배포 모듈도 두 모듈에 도달하지 않고 어떤 배포 모듈도 작성기 Protocol이나 조율기를 이름으로 부르지 않음을 증명합니다. 독립 비평이 중첩된 레코드 오류의 잘못된 종료 코드와 하드코딩된 불완전한 가드 검사 경로 집합을 찾아 수정했습니다. | 복귀 작성기 어댑터가 없으므로 실패한 효과 검증은 여전히 shadow 모드로 돌아갈 실행 가능한 경로가 없습니다. #632의 영속 프로바이더 경계, 통제된 런타임 집단, 독립 검토, 명시적 현재 사람 승인, 보존된 독립 효과 관측은 계속 열려 있습니다. |
@@ -134,6 +136,10 @@ ChatOps에 로그인하는 사람, 존재하는 Entra 그룹, 콘솔이 GitHub A
   에는 없습니다.
 - Azure 에서는 인터페이스가 **User-assigned Managed Identity** 로 뒷받침되며, 명시적
   **액션 화이트리스트** 로 범위 지정. 광범위 상주 권한 없음.
+- Kubernetes에서는 격리된 실행기 ServiceAccount만 쓰기 권한을 받을 수 있습니다.
+  Namespace Role은 등록된 네 Kubernetes ActionType에 필요한 Pod `get` 및 `delete`,
+  Deployment `get` 및 `patch`, Deployment scale `get` 및 `update`로 제한됩니다.
+  Core와 인벤토리 ServiceAccount에는 Kubernetes 쓰기 권한이 없습니다.
 - `DefaultAzureCredential()` (또는 유사 이름의 SDK 진입점) 은 **`core/` 에서 금지** ;
   인터페이스 뒤의 Azure 프로바이더 어댑터 내부에서만 등장.
 - **버티컬별 신원은 집계 라우터 신원과 함께 프로비저닝됩니다.** Terraform은
@@ -215,8 +221,9 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
 - **앱은 환경변수 (또는 K8s 시크릿 마운트) 만 읽습니다.** CSP 시크릿 SDK (`SecretClient`,
   `SecretsManagerClient`, `SecretManagerServiceClient` 등) 를 호출해서는 안 됩니다; 이것이
   [시크릿 계약](csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) 의 구현입니다.
-  Azure 에서 주입 레이어는 **Container Apps native 시크릿 + Key Vault 참조** ; Kubernetes
-  에서는 `SecretStore` CRD 를 가진 **외부 Secrets Operator** .
+  AKS 기본 구성의 주입 계층은 **관리형 Key Vault CSI 공급자 + 워크로드 신원**이며, 고정된 참조를
+  namespace별 Kubernetes Secret으로 동기화합니다. 기존 Container Apps 설치는 호환 경로로만
+  native Key Vault 참조를 유지합니다.
 - 시크릿은 `shared/providers/` 의 주입된 `SecretProvider` 로 접근하며, 가져오기 시점 전역 읽기는
   절대 금지.
 - **라이프사이클**: 모든 시크릿은 소유자, 정의된 로테이션 간격, 자동 로테이션을 가짐; 손상되거나

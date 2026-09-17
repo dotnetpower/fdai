@@ -63,6 +63,33 @@ or enables enforcement mode. After installation, the Console groups environment 
 and deployment. The readiness view is the default; deployment evidence is a separate tab. Neither view starts or retries `fdaictl`, runs Terraform, or acquires
 deployment authority. The original `/onboarding` and `/provisioning` routes remain compatibility entry points.
 
+### AKS browser access
+
+The default AKS profile uses this browser path:
+
+```text
+Browser -> Static Web Apps -> API Management -> AKS LoadBalancer Service -> Pod
+```
+
+Static Web Apps hosts the prebuilt Console. API Management (APIM) provides the public HTTPS API
+edge: the Operator API is routed at the APIM origin root, and Document Ingestion is routed at
+`/ingestion`. The Kubernetes Services listen on port 80 and forward to the existing container port.
+The workload state owns APIM because its backend addresses come from those Services. The shared
+substrate does not create Azure Front Door for this path.
+
+APIM does not replace Microsoft Entra authentication. The APIs continue to validate token issuer,
+audience, lifetime, and App Roles. Cross-origin resource sharing (CORS) accepts only the exact
+Static Web Apps origin. When Azure Policy attaches a network security group to the AKS subnet, the
+workload plan permits TCP port 80 only for the exact public Service frontend addresses. APIM
+Consumption has no fixed outbound address that can be used as the source rule.
+
+After the approved application plan converges, `fdaictl provision azure` reads the SWA and APIM
+bindings from their owning Terraform states, adds the exact SWA redirect to the existing Entra SPA
+registration, and publishes the signed kit's prebuilt Console. Tenant provisioning does not run an
+npm build. Completion requires remote artifact hashes, SPA route fallback, both API health checks,
+the exact-origin authorization preflight, an unauthenticated `401` from `/audit`, and an Entra
+redirect to the configured Console origin.
+
 ### Defaults and validation
 
 | Setting | Validation | Recommended value |
@@ -91,7 +118,7 @@ planning. The error reports the requested and allocatable quantities without exp
 Connected deployments for both runtime profiles boot the managed host from an exact Azure
 Marketplace Ubuntu version and install the checksum-pinned toolchain during Foundation. They do
 not build or require a dedicated managed-host image. Artifact-offline deployments can still select a separately verified prebuilt host image when bootstrap downloads are unavailable.
-After application convergence, the managed host invokes the Core inventory entry point in explicit `--initial` mode, bypassing only the recurring due-time gate. It uses the already authenticated deploy identity for full-subscription ARG/ARM reads and immutable progress writes, then starts a separate read-only closure process. The recurring runtime schedule and its workload identity remain unchanged; the bootstrap path grants no ongoing deployment authority to the inventory workload. Presentation and integration contracts account for this as the sixteenth phase and for `provisioning-events` as the third private Foundation container; older additive receipt doubles may omit `inventory_ready` without being interpreted as ready.
+After application convergence, the managed host invokes the Core inventory entry point in explicit `--initial` mode, bypassing only the recurring due-time gate. It uses the already authenticated deploy identity for full-subscription ARG/ARM reads and immutable progress writes, then starts a separate read-only closure process. The recurring runtime schedule and its workload identity remain unchanged; the bootstrap path grants no ongoing deployment authority to the inventory workload. Presentation and integration contracts account for this as the sixteenth phase and for `provisioning-events` as the third private Foundation container; older additive receipt doubles may omit `inventory_ready` without being interpreted as ready. After an initial or recurring scan projects a complete promoted generation, the focused `inventory_ontology_observer.py` delivery module publishes one retry-stable Resource observation Event per Resource to the existing control-loop topic while the CLI remains composition-only. Forseti remains the rule judge, Saga remains the audit owner, and an incomplete projection or publication failure cannot satisfy inventory closure or create execution authority.
 
 Tenant provisioning consumes prebuilt service and dependency images only. A complete release's
 closed dependency-image set includes both ClamAV and pgvector; neither can be omitted from the
@@ -156,7 +183,9 @@ coordinator can complete the baseline. The workload state then reads the approve
 issuer and uses an owner-only kubeconfig on the deployment host.
 The Terraform scanner exceptions for this public baseline are resource-local and name the explicit
 CIDR allowlist, Microsoft Entra RBAC, disabled local accounts and VNet Integration controls. It
-does not suppress other AKS findings or certify the later private transition.
+does not suppress other AKS findings or certify the later private transition. The APIM Consumption
+exceptions additionally name its lack of VNet integration, independent API authentication and
+exact-origin CORS, and the port 80 rule's two exact LoadBalancer destination addresses.
 Database and application preparation both convert that owner-only kubeconfig with
 [`kubelogin` managed identity authentication](https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication)
 using `--login msi` and the exact managed-host client ID. Credential acquisition pins the
@@ -206,28 +235,29 @@ the shared ADLS account and the `fdai.pipeline.stages` entity. The Worker Pod in
 digest-pinned ClamAV image as a replica-local TCP sidecar. Its root remains read-only and only the
 declared database, run and temporary paths receive size-limited `emptyDir` volumes.
 
-Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active
-deadline, a retry limit, and bounded history. Manual jobs are created only by a separately approved
-request and are not perpetual desired-state resources.
-The AKS baseline renders analyzer, canary, inventory, observation campaign, and operational-history
-lifecycle CronJobs. The history job uses the read-only inventory identity, the service-owned state
-DSN, and the private archive URL in fixed `shadow` mode. A non-shadow lifecycle requires a separate
-protected transition and an exact persisted certification receipt; runtime selection grants neither.
+Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active deadline,
+a retry limit, and bounded history. Manual jobs require a separate approval and are not perpetual desired-state resources.
+The AKS baseline renders analyzer, canary, inventory, observation campaign, and operational-history lifecycle
+CronJobs. The history job uses the read-only inventory identity, service-owned state DSN, and private archive URL
+in fixed `shadow` mode. A non-shadow lifecycle requires a separate protected transition and exact persisted certification receipt.
+Application preparation binds the inventory CronJob to its exact AKS cluster through the in-cluster
+ServiceAccount endpoint, CA, and token paths. A dedicated ClusterRole grants only the collector's reviewed
+reads, and its ClusterRoleBinding names only `inventory-job`; self-observation never discovers another cluster.
 
-The inventory command preserves read-only failure boundaries; Activity Log recovery cannot advance
-delta cursors or stop reconciliation. Passive model-serving evidence reuses inventory identity and
-Azure Monitor without inference; failures lower only its coverage. Reconciliation bounds determine
-lookback, freshness, points, and timeout. The standalone substrate target set includes the existing
-subscription, workspace, exact-cluster, cost, and pipeline-stage roles. An inventory identity without
-these assignments cannot establish provider scope, metrics, logs, cost, or publication readiness.
+The inventory command preserves read-only failure boundaries; Activity Log recovery cannot advance delta cursors
+or stop reconciliation. Passive model-serving evidence reuses inventory identity and Azure Monitor without inference;
+failures lower only its coverage. Reconciliation bounds determine lookback, freshness, points, and timeout. The
+standalone substrate target set includes the existing subscription, workspace, exact-cluster, cost, and pipeline-stage
+roles. An inventory identity without these assignments cannot establish provider scope, metrics, logs, cost, or publication readiness.
 
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and
 running Pod image digests from the same source revision. Empty, duplicate, stale, malformed, or
 partially healthy responses are unavailable, not success. The expected set must contain all five
 baseline services; a renderer that omits one cannot redefine a partial rollout as complete.
-This readback does not establish Kafka
-round trips, scheduled-job success, Console authentication, or full deployment readiness.
+This workload readback does not establish Kafka round trips, scheduled-job success, Console
+authentication, or full deployment readiness. The separate browser publication gate verifies the
+Console and API edge after workload convergence.
 The workload factory binds Operator, isolated Executor, Document API and Document Worker to
 `fdai_operator`, `fdai_executor`, `fdai_ingestion_api` and `fdai_ingestion_worker`, respectively,
 through `FDAI_DATABASE_ROLE` and matching `PGOPTIONS`. It leaves the caller's environment unchanged.
@@ -238,7 +268,52 @@ database membership nor supplies service-owned DSNs, and never enables Executor 
 
 Each FDAI workload keeps its current user-assigned Managed Identity. On AKS, one namespaced
 Kubernetes ServiceAccount receives one federated identity credential. The privileged Executor
-identity is never shared with the console, Operator Service, jobs, or other workloads. The optional dev operations gateway keeps reader and executor identities separate: tag canaries grant only `Tag Contributor` on the FDAI application resource group, while reader access covers preflight, post-write verification, and rollback confirmation. Versioning the ActionType refreshes exact ontology and Cost Governance profile pins, including both convergence-test expectations, without activating the package. This role does not promote `remediate.tag-add`; deployment and ActionType promotion remain separate approvals.
+identity is never shared with the console, Operator Service, jobs, or other workloads. The optional dev operations gateway keeps reader and executor identities separate: tag canaries grant only `Tag Contributor` on the FDAI application resource group, while reader access covers preflight, post-write verification, and rollback confirmation. Versioning the ActionType refreshes exact ontology and Cost Governance profile pins, including both convergence-test expectations, without activating the package. This role does not promote `remediate.tag-add`; deployment and ActionType promotion remain separate approvals. When Kubernetes effect routing is configured, one namespace Role binds only to the isolated Executor ServiceAccount and permits Pod `get` and `delete`, Deployment `get` and `patch`, and Deployment scale `get` and `update`. It grants no cluster-wide mutation, resource creation, secret access, or inventory-job permission. The runtime binds the in-cluster API origin, projected credential paths, exact AKS resource ID, and `fdai-runtime` namespace allowlist without embedding a credential.
+
+### Exact external Deployment scaling
+
+The workload root accepts `executor_external_scale_targets`, an opt-in map from an existing
+namespace to a non-empty set of exact Deployment names. Its default is empty. Each entry creates
+one Role and RoleBinding in that namespace, bound only to the existing isolated Executor
+ServiceAccount in the FDAI runtime namespace. This is Thor's execution runtime, not another agent.
+The Role permits only named Deployment `get` and named `deployments/scale` `get` and `update`.
+It adds no Pod, Secret, ConfigMap, creation, deletion, wildcard, or cluster-wide permission.
+
+Planning rejects system, default, and runtime namespaces, empty or oversized target sets, and
+namespaces absent from the deployed Executor's explicit direct-API allowlist. The target namespace
+and workloads must already exist; this input does not create or adopt them. RBAC is additive, so
+effective access still requires readback of all other applicable bindings before a least-privilege
+claim. Current target UID and resource version, approved replica count, target lock, promotion,
+human approval, rollback, and independent effect observation remain runtime requirements.
+
+The input belongs to the exact reviewed workload plan. It never changes local runtime authority,
+automatically widens the Executor allowlist, selects a cluster, supplies credentials, or applies
+permissions by itself. Source-mode caller wiring and a governed target-bound apply remain separate
+deployment work. Grants require the reviewed lifecycle and revocation procedure; Kubernetes RBAC
+has no native expiry, so this module alone does not prove a time-bound grant.
+
+### Attached-identity Kubernetes authentication
+
+**Initial design:** Reuse Thor's existing attached Managed Identity to authenticate Kubernetes
+requests from the Container Apps Executor, without copying a human kubeconfig or moving authority.
+
+**Critique:** A token-file-only adapter cannot use that identity. An ambient credential fallback
+could select another principal, and a ServiceAccount RoleBinding does not prove Entra authorization.
+
+**Revised design:** The isolated Executor accepts exactly one credential source in
+`FDAI_KUBERNETES_DIRECT_API_JSON`: the existing `token_path`, or an explicit `audience` with no
+token path. Both forms require the exact HTTPS `api_server`, `cluster_ref`, absolute `ca_path`,
+and `allowed_namespaces`. The audience form resolves the command's `executor_identity_ref` only
+from the existing registered Thor vertical identities. Each request obtains a bounded, unexpired,
+audience-matching token through the service-owned identity adapter; no CLI, human, default, or
+alternate credential fallback is permitted. Concurrent commands must not share mutable identity
+selection. TLS verification and redirect rejection remain mandatory.
+
+This adds authentication capability, not permission, promotion, or a deployed binding. The exact
+plan must separately prove private network reachability, CA provenance, the selected identity's
+effective Kubernetes authorization, denied off-target operations, grant removal, and all runtime
+safeguards. Azure RBAC and native Kubernetes RBAC require their own effective-access evidence;
+neither is inferred from a successfully acquired token.
 
 The five baseline services select the Azure Identity SDK's workload credential when
 `AZURE_FEDERATED_TOKEN_FILE` is declared. The projected token path must be absolute, tenant and
@@ -269,10 +344,8 @@ credential lineage, while VM-start evidence names the Resilience executor creden
 Neither identity choice grants execution authority, and local interactive never receives this
 binding.
 
-The AKS managed Key Vault CSI provider synchronizes fixed Key Vault references into namespaced
-Kubernetes Secrets by using each workload's federated identity. Applications continue to read
-environment variables and never call Key Vault directly. Terraform plans contain secret names and
-versionless references, not secret values.
+The AKS managed Key Vault CSI provider synchronizes fixed Key Vault references into namespaced Kubernetes Secrets by using each workload's federated identity. Applications continue to read environment variables and never call Key Vault directly. Terraform plans contain secret names and versionless references, not secret values.
+The Operator Cost Governance pseudonym key follows the same service-owned secret boundary. Container Apps and AKS retain one high-entropy Key Vault value and inject it only as `FDAI_COST_PSEUDONYM_KEY`; the root passes its secret reference only to Operator, never isolated Executor. Plans, outputs, logs, contracts, and browser responses contain no key. Local preparation preserves an existing gitignored value or generates one with the same minimum strength. The key changes identity disclosure only and grants no cost-data or action authority.
 
 The managed CSI provider is enabled with the cluster and is separate from FDAI workload rollout.
 The deployment kit includes the Kubernetes provider plus signed `kubectl` and `kubelogin`

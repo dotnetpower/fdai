@@ -52,6 +52,12 @@ resource "azurerm_container_app" "operator_api" {
     key_vault_secret_id = var.state_store_dsn_secret_id
   }
 
+  secret {
+    name                = "cost-pseudonym-key"
+    identity            = var.operator_api_identity_id
+    key_vault_secret_id = var.cost_pseudonym_key_secret_id
+  }
+
   dynamic "secret" {
     for_each = nonsensitive(var.chatops_webhook_secret_id) == "" ? toset([]) : toset(["1"])
     content {
@@ -106,6 +112,10 @@ resource "azurerm_container_app" "operator_api" {
       env {
         name        = "FDAI_DATABASE_URL"
         secret_name = "dsn"
+      }
+      env {
+        name        = "FDAI_COST_PSEUDONYM_KEY"
+        secret_name = "cost-pseudonym-key"
       }
       dynamic "env" {
         for_each = nonsensitive(var.chatops_webhook_secret_id) == "" ? toset([]) : toset(["1"])

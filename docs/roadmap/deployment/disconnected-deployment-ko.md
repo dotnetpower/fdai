@@ -1,8 +1,8 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: e6bdee1e0ede39c8cb33200e2c7a8ffb8d21e7ec
-translation_revised: 2026-09-14
+translation_source_sha: 6db8a7e856470ef40a93fa81d8055941cdcf3b7d
+translation_revised: 2026-09-16
 ---
 # 폐쇄망 배포
 
@@ -30,7 +30,7 @@ translation_revised: 2026-09-14
 | 런타임 배포판 구성 및 로컬 준비 | implemented | `runtime_release.py`, `runtime_stage.py`, `offline_prepare.py`; 집중 테스트 251개; 이슈 #461 | 로컬 아카이브, 소스 및 번들 연결, 비공개 스냅샷, 미완료 준비 기록이 집중 검증을 통과했습니다. Azure 설치는 아직 완료되지 않았습니다. |
 | 전체 런타임 이미지 검증 | implemented | 런타임 목록 v2와 범위가 제한된 OCI 검증기; 집중 테스트 355개; 빈 환경에 설치한 CPython 3.12 검토용 휠 | 구성과 준비 과정에서 서비스 이미지 5개와 ClamAV를 검증합니다. 기존 v1은 점검할 수 있지만 전체 준비에는 사용할 수 없습니다. 합성 서명 이미지는 패키징과 내용 검사를 입증하며 출처나 Azure 준비 완료를 뜻하지 않습니다. |
 | 전체 런타임 release 조립 | implemented | `runtime_build.py`, `build-runtime-release.py`, 집중 조립 테스트 | 비공개 다이제스트 고정 서술자를 사용해 네트워크 접근이나 산출물 실행 없이 OCI 이미지 6개, Console, 배포 지원 자료를 런타임 v2로 조립합니다. 사전 빌드된 근거를 소비하며 운영 release 적격성은 검증되지 않은 상태로 명시합니다. |
-| OCI 배포 어플라이언스 | implemented | `build-deployment-appliance.sh`, `run-deployment-appliance.sh`, 집중 스크립트 테스트 | 검증된 완전한 키트 하나를 digest로 고정되고 네트워크를 사용하지 않는 OCI 빌드에 포함하고 이미지 진입점에서 수동 아티팩트 오프라인 배포를 시작합니다. 운영 이미지 빌드와 통제된 Azure 증적은 남아 있습니다. |
+| 사전 빌드 OCI 배포 어플라이언스 사용 | in-progress | `run-deployment-appliance.sh`, 집중 스크립트 테스트 | release에서 게시하고 digest로 고정한 어플라이언스는 검증된 내장 키트로 수동 아티팩트 오프라인 배포를 시작할 수 있습니다. 통제된 Azure 증적은 남아 있으며 테넌트 배포는 이미지를 만들지 않습니다. |
 | 의존성 이미지 게시 어댑터 | implemented | `publish_dependency_oci_archive`; 집중 ACR 테스트 80개 | 서비스 게시와 동일하게 자격 증명 획득 전 검증, 시간 제한, 재시도 없는 전송, 매니페스트 GET 재확인을 적용합니다. 의존성 증적은 FDAI 소스 버전을 주장하지 않습니다. 보호된 호출자 연결은 아직 필요하며 테스트는 Azure 대신 기록용 전송기를 사용합니다. |
 | 오프라인 VM 초기 구성 | implemented | `infra/bootstrap/`; 모의 공급자를 사용한 Terraform 계획 16개 | 명시적 오프라인 모드는 네트워크 초기화 스크립트 없이 사전 준비된 이미지를 선택합니다. 이미지 제작·검증, 접근 경로, 상태 이전은 별도 사전 조건입니다. |
 | 설치 시 Console 설정 | implemented | `console/src/runtime-config.ts`; `console_config.py`; 집중 설정 테스트 및 범용 빌드 | 범용 빌드에 재빌드 없이 공개 API·Entra 설정을 넣고 인증 우회를 차단합니다. 게시와 인증된 접근은 별도 검사입니다. |
@@ -44,6 +44,7 @@ translation_revised: 2026-09-14
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-16 | in-progress | 현재 폐쇄망 배포 계약에서 비공개 호스트의 런타임 이미지 빌드와 테넌트 어플라이언스 생성을 제거했습니다. 테넌트는 release에서 빌드한 digest를 검증하고 바이트 변경 없이 미러링하거나 반입합니다. | `current change`, 문서 및 배포 스킬 계약만 변경했으며 구현은 그대로입니다. | 테넌트 조정기에서 builder 진입점을 제거하고 사전 빌드 산출물만 사용한 공개 송신 없는 배포 증적을 보존합니다. |
 | 2026-09-14 | validated | 바뀌지 않은 바이트를 다시 빌드하거나 과거 훈련을 반복하지 않고 기존 r4 산출물과 빈 환경 설치 증적을 이슈 #461에 연결했습니다. 공개 산출물과 정확한 CI를 다시 확인하고 보존된 아카이브의 해시를 계산했습니다. | [배포판 및 11개 검사 증적](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906), 소스 CI `34755232779`와 보호된 병합 CI `34755464071` 성공, 아카이브 SHA-256 `c7e8b3e99fd77534ad7e2b2321d2e677fb3fe316a946e4c58ef797d5682bbab5`, 크기 866720653바이트 | 현재 운영 신뢰, 선택한 적격 배포판, 정확한 Foundation 및 애플리케이션 승인, 비공개 호스트의 상태 수렴, 인증된 Console 및 인벤토리 확인, 어플라이언스 진입점 증적은 남아 있습니다. 새 빌드, 설치, 공급자 호출 또는 배포를 수행하지 않았습니다. |
 | 2026-09-12 | implemented | 운영자의 두 산출물 인계를 검증된 완전한 키트를 포함하고 수동 standalone 배포를 시작하는 OCI 배포 어플라이언스 하나로 교체했습니다. | `current change`, 어플라이언스 빌더, 진입점, CLI 계약 및 집중 테스트 | 운영 어플라이언스를 빌드하고 공개 송신 없는 Azure 배포 증적 하나를 보존합니다. |
 | 2026-09-10 | implemented | 런타임 release 적격성을 바꾸지 않고 시스템 지식 서비스 Terraform root를 고정 오프라인 provider mirror에 추가했습니다. | `current change`, root lock, mirror helper 및 집중 가짜 Terraform 검사입니다. | 서비스의 폐쇄망 배포 지원을 주장하기 전에 전체 서명 오프라인 훈련을 보존합니다. |
@@ -66,7 +67,9 @@ translation_revised: 2026-09-14
 - [ ] 통제된 의식을 통해 offline trust 루트를 확립하고 패키지한 뒤, 네트워크 호출 없이 점검이 verified, review, rejected 키트를 구분함을 입증합니다.
 - [ ] 배포 가능한 정확한 버전의 깨끗한 체크아웃에서 실제 런타임 아카이브를 구성하고, 패키지 캐시·경로·DNS 없이 `airgap-drill.sh --runtime-release <directory> --require-runtime`을 통과합니다.
 - [ ] 비공개 배포 호스트의 수동 exact-plan 승인 및 적용 경로를 입증하고 롤백, 정리 및 배포 후 검증 증적을 보존합니다.
-- [ ] 승인되고 digest로 고정된 기본 이미지에서 배포 어플라이언스를 빌드하고 공개 산출물 접근 없이 이미지 진입점의 Azure 배포 증적을 보존합니다.
+- [ ] release에서 게시하고 digest로 고정한 배포 어플라이언스를 수락하고 출처, SBOM 및 내장
+  키트를 검증한 뒤 공개 산출물 접근이나 테넌트 측 이미지 생성 없이 이미지 진입점의 Azure 배포
+  증적을 보존합니다.
 
 ## 한눈에 보는 설계
 
@@ -79,8 +82,8 @@ translation_revised: 2026-09-14
 | **공용 산출물 egress** | allow-list, mirror, 또는 없음 | 공용 패키지 인덱스, Terraform 레지스트리, 공용 컨테이너 레지스트리에 도달할 수 있는지 |
 
 대부분의 규제 테난트는 **비공개 Azure 도달성 + 공용 산출물 egress 없음**에 위치합니다.
-컨트롤 플레인은 비공개 엔드포인트 위에서 정상 동작하고, 모든 빌드/install 입력은 내부 mirror나
-서명된 매체에서 와야 합니다. 진짜 air 공백 - Azure 도달성도 없음 - 은
+컨트롤 플레인은 비공개 엔드포인트 위에서 정상 동작하고, 모든 런타임 산출물과 설치 입력은 내부
+mirror나 서명된 매체에서 와야 합니다. 진짜 air 공백 - Azure 도달성도 없음 - 은
 [완전 air 공백](#완전-air-gap)에서 다루는 더 좁은 프로파일입니다.
 
 ## 비공개 Azure, 공용 egress 없음
@@ -264,20 +267,22 @@ GitHub에 등록된 실행기는 GitHub, 관리 평면, 신원 평면에 도달�
 등록된 실행기가 아니라 점프박스가 되며, 테난트가 관리 및 신원 평면으로 가는 자체
 승인 경로를 공급합니다.
 
-레지스트리가 비공개가 되면 런타임 이미지 빌드와 push도 같은 호스트에서 합니다.
+레지스트리가 비공개가 되면 같은 호스트에서 사전 빌드 서명 런타임 이미지를 미러링하거나
+반입합니다. 작업은 소스 매니페스트를 검증하고 대상의 동일한 digest를 다시 확인합니다. 이미지를
+빌드하거나 변경 가능한 참조로 태그하거나 이미지 바이트를 바꾸지 않습니다.
 
-### 3. 모든 빌드 입력을 내부 mirror로
+### 3. 모든 산출물 입력을 내부 mirror로
 
 | 입력 | 메커니즘 |
 |------|----------|
-| Base 컨테이너 이미지 | `--build-arg BASE_IMAGE_REGISTRY=<mirror>`. sha256 다이제스트는 `Dockerfile`에 pin된 채 남으므로 mirror는 바이트의 출처만 바꾸고 어떤 바이트가 수락되는지는 바꾸지 못합니다 |
+| 런타임 및 의존성 이미지 | 서명된 런타임 매니페스트가 수락할 모든 sha256 digest를 지정합니다. 내부 mirror는 레지스트리 위치만 바꾸며 같은 매니페스트 digest를 반환해야 합니다. |
 | Python 패키지 | `infra/modules/preflight-toggles/python_index_url`이 내부 피드용 package-index 설정을 발행합니다 |
 | 배포 시점 레지스트리 pull | `infra/modules/preflight-toggles/registry_source`가 공개 기본값에서 내부 레지스트리 mirror로 전환합니다 |
 | Terraform 프로바이더 | offline 키트가 pinned 프로바이더 mirror를 담고, offline 모드는 공개 레지스트리 대체 경로를 차단합니다 |
 
-Base 이미지가 다이제스트 pin을 잃거나 레지스트리 호스트를 하드코딩하면
-`scripts/quality/ci/check-ci-contracts.py`가 빌드를 실패시킵니다. Mirror 경계가 pin 없는 pull로
-퇴화할 수 없습니다.
+업스트림 release gate는 base 이미지가 digest 고정을 잃거나 레지스트리 호스트를 하드코딩하면
+차단합니다. 따라서 mirror 경계가 고정되지 않은 pull로 바뀔 수 없습니다. 테넌트 프로비저닝은
+해당 release 근거를 사용하며 빌드를 다시 실행하지 않습니다.
 
 ### 4. CLI와 번들을 서명된 offline 키트로 전달
 

@@ -20,6 +20,7 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Prebuilt-only tenant image supply | in-progress | Signed-kit, OCI verification, ACR import and digest readback exist; source and Genesis image builders remain | Production tenant provisioning must consume release-built signed images and must not build or capture images. Existing builder paths require removal and focused regressions. |
 | Production plan gates and environment knobs | implemented | `infra/production-gates.tf`; `infra/envs/{staging,prod}.tfvars.example`; Terraform configuration tests | Missing signed image, private network, durability, monitoring, or cost inputs block a production plan. Standard profiles permanently delete globally named resources and leave management locks disabled. |
 | Manual production execution boundary | implemented | deployment CLI manual profile; standalone managed-host modules; focused package tests | Public workflow dispatch is removed. Operational production evidence remains open. |
 | Credential-free infrastructure and drift guards | implemented | `.github/workflows/ci.yml`; `.github/workflows/infra-drift.yml`; stable deploy identity helper; runner posture script; CI contract tests | Required CI validates every Terraform root without credentials. Protected workflows select one bootstrap-owned UAMI and verify its token `oid`. Subscription role delegation is conditioned to three read roles for service principals. Drift checks cover every state root and reject missing state, unexpected runner storage, or non-local placement. |
@@ -37,10 +38,14 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-17 | implemented | Bound scenario-lab Terraform provider and backend authentication explicitly to the verified deploy runner Managed Identity. A candidate slot had completed the identity fence but Terraform interpreted its Azure CLI Managed Identity session as unsupported CLI user authentication. `ARM_USE_MSI=true` and the exact deployment client ID now remove that runner-local ambiguity without changing Azure authority. | Failed plan `35176312572`; `current change`; `.github/workflows/sre-demo-lab.yml`; focused workflow and scenario-lab checks | Publish the binding and resume the exact `aks-store-demo` recovery plan. |
+| 2026-09-17 | implemented | Bound the commerce scenario-lab to the exact dedicated cluster name `aks-store-demo` after operator review found the prior generic SRE lab name ambiguous. The workload preparation still consumes only the Terraform output for that new cluster and cannot select an existing FDAI or shared AKS target. | `current change`; `infra/scenario-lab/aks.tf`; focused Terraform and scenario-lab contracts | Destroy the partial old-name lab state, publish this naming boundary, then create and verify the new dedicated cluster. |
+| 2026-09-17 | implemented | Preserved Azure Policy-owned NSG associations on the scenario AKS, MySQL, and stress subnets after three protected applies showed the policy replacing the Terraform-owned shared association. Provider readback found every policy NSG `Succeeded` with the default inbound deny rule. Terraform continues to own the private-endpoint subnet association and the stress VM NIC association, so the change removes a conflicting owner without weakening inbound denial. | Failed apply `35169623286`; exact subnet and NSG readback; `current change`; scenario-lab Terraform and focused contract checks | Publish the ownership correction, require a zero-delete plan, apply it, and retain Store Demo workload and domain health evidence. |
 | 2026-09-17 | implemented | Added apply-only recovery for one tainted but provider-observed healthy scenario Log Analytics workspace after replacement diagnostics returned no force-replacement path. Recovery reads one owner-only state snapshot, requires the exact state and Azure resource IDs to match, verifies `Succeeded`, SKU, retention, daily quota, and ownership tags, and only then untaints that one state address before replanning. Every mismatched, missing, multiple, or unhealthy observation fails closed, and plan-only runs never mutate state. | Blocked plan `35164743247`; exact Azure workspace readback; `current change`; focused scenario-lab, workflow, and state-recovery contract checks | Publish the recovery, run a new exact apply that produces a zero-delete plan, and retain workload, DNS, and HTTP health evidence. |
 | 2026-09-17 | implemented | Added value-free Terraform replacement-path diagnostics after recovery planning proposed replacing a provider-observed healthy Log Analytics workspace. The protected plan still blocks every delete or replacement and now reports only the resource address and force-replacement field path, never before or after values. | Blocked protected plan `35160189503`; provider readback reported `Succeeded`, `PerGB2018`, and 30-day retention; `current change`; focused scenario-lab and workflow checks | Publish the diagnostic, run a new exact plan, and reconcile the identified field without deleting the workspace. |
 | 2026-09-17 | implemented | Added checksum-pinned `kubectl` bootstrap to the scenario-lab workflow after a candidate runner reached request validation without that required command. The workflow reuses the `1.31.14` binary and SHA-256 already owned by the offline deployment kit, installs it only in runner-temporary storage, and verifies the client before any Azure authentication or plan. | Failed protected recovery plan `35130727585`; `current change`; `.github/workflows/sre-demo-lab.yml`; `stage-offline-kit.sh`; focused scenario-lab and workflow checks | Publish the corrected workflow and generate a new exact recovery plan against the existing partial scenario state. |
 | 2026-09-17 | implemented | Limited scenario-lab create apply concurrency to two Terraform operations after an approved live apply received HTTP 429 on an Azure network-interface write. The failed attempt stopped before workload preparation, bounded readback found a partial state, and recovery planning retained zero update or delete actions. | Failed protected apply `35123919441`; Azure Activity Log `Microsoft.Network/networkInterfaces/write` status `429`; `current change`; `.github/workflows/sre-demo-lab.yml`; focused scenario-lab and workflow checks | Publish the corrected workflow, create a new exact recovery plan against the partial state, and retain a successful apply plus DNS and workload-readiness evidence. |
+| 2026-09-16 | in-progress | Replaced tenant-side runtime and Genesis image construction guidance with prebuilt signed release image verification and unchanged-digest mirroring. | `current change`; documentation and deployment-skill contracts only; implementation remains unchanged. | Remove the tenant image builders and recovery paths, then prove production deployment performs only verified mirror/import and deployed-digest readback. |
 | 2026-09-17 | implemented | Added direct browser access to the disposable Store Demo through a deterministic Azure-provided `cloudapp.azure.com` hostname. The renderer exposes only `store-front`; preparation waits for its Load Balancer address, verifies exact DNS resolution and HTTP health, and publishes the verified URL in the protected workflow summary. | `current change`; `.github/workflows/sre-demo-lab.yml`; `infra/scenario-lab/`; `scripts/deployment/scenario-lab/`; `tests/integration/infra/test_scenario_lab.py`; focused scenario-lab, Terraform, workflow, and documentation checks | Run an exact protected apply, retain the DNS, Load Balancer, and HTTP health observations, and destroy the endpoint after the approved demo window. |
 | 2026-09-17 | implemented | Replaced the generated NGINX fault target with the official AKS Store Demo. Preparation verifies one immutable upstream manifest, rewrites all ten image references to reviewed multi-platform digests, changes public services to `ClusterIP`, and binds the existing ten-scenario sweep to three `order-service` replicas. | `current change`; `.github/workflows/sre-demo-lab.yml`; `infra/scenario-lab/`; `scripts/deployment/scenario-lab/`; `tests/integration/infra/test_scenario_lab.py`; focused scenario-lab, formatting, Terraform, workflow, and documentation checks | Run an exact protected apply, retain Store Demo readiness and image readback, then run a separately approved reference sweep before making a live validation claim. |
 | 2026-09-13 | implemented | Corrected the Genesis runner-image verifier after a live fail-closed apply showed that its own `az version` check recreated the forbidden root Azure CLI profile. The verifier now uses and removes a dedicated temporary Azure CLI configuration before asserting that the captured image contains no credential artifacts. | Failed approved runner-image apply retained under issue #94; `current change`; `infra/genesis-runner-image/main.tf`; Terraform runner-image contract test. | Publish a new signed kit, create a separately reviewed exact plan, and verify the captured image without reusing the failed apply claim. |
@@ -90,6 +95,8 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 - [ ] Retain an exact-revision protected production plan and apply receipt proving the unlocked
     teardown profile, private networking, PostgreSQL durability, trusted image digest, notifications,
     monitoring, and the cost budget together, including one blocked negative plan.
+- [ ] Remove tenant-side service and deployment-host image builders, require the prebuilt signed
+    release manifest, and prove production deployment invokes no image build or capture tool.
 - [ ] Retain a protected non-production destroy and exact-name recreation receipt for Key Vault,
     Cognitive Services, Log Analytics, and the resource group.
 - [ ] After green required CI, retain zero-unrelated-destroy UAMI role-migration plans and one
@@ -172,22 +179,21 @@ permanent-delete operation before their names are released.
 
 ## Trusted image source
 
-A tenant without public registry egress builds the runtime image with
-`--build-arg BASE_IMAGE_REGISTRY=<internal-mirror>`. Only the registry host moves; the base image
-digests stay pinned in the `Dockerfile`, so a mirror can change where the bytes come from but never
-which bytes are accepted. `scripts/quality/ci/check-ci-contracts.py` fails the build when a base
-image loses either property. The same contract pins security-upgraded runtime libraries that are
-newer than vulnerable versions retained in the accepted base image.
+A tenant without public registry egress mirrors the prebuilt release image through an approved
+internal registry. The release manifest pins the complete image digest, provenance, SBOM and source
+revision. A mirror can change where the bytes come from but never which bytes are accepted. Tenant
+provisioning does not invoke Docker, Buildx, ACR Tasks, a remote builder or VM image capture. It
+verifies the mirrored digest before planning and reads the running Pod digest back after rollout.
 
 Signed deployment bundles keep regular source files non-executable after extraction. Bootstrap,
 policy, migration, and public-path callers launch those authenticated sources only through fixed
 trusted interpreters. They never restore execute bits broadly or select an interpreter from an
 untrusted ambient path.
 
-The Genesis image builder treats only tenant-policy-appended `ip_tags` on its two Firewall public
-IPs as externally owned. It accepts only matching absence or
-`FirstPartyUsage=/Unprivileged`, rejects every other value through independent ARM readback, and
-requires a refreshed zero-change Terraform plan before publishing the image receipt.
+The legacy Genesis image-builder and residual recovery paths are being retired. Connected
+deployment uses an exact Marketplace host plus a checksum-pinned bootstrap, while artifact-offline
+deployment may consume a separately published prebuilt host image. Neither path creates or captures
+a host image in the tenant deployment run.
 
 ## Private data services
 

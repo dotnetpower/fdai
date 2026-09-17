@@ -278,7 +278,7 @@ export function DocumentIngestionRoute({ client }: Props) {
           const digest = await sha256(row.file);
           if (!mounted.current) return;
           updateRow(row.key, { state: "uploading" });
-          const created = await api.createUpload({
+          const uploadInput = {
             source_name: row.file.name,
             collection_id: batch.collection,
             media_type_hint: row.file.type || "application/octet-stream",
@@ -291,7 +291,22 @@ export function DocumentIngestionRoute({ client }: Props) {
             disposition,
             scope_kind: disposition === "workspace_draft" ? "workspace" : "collection",
             scope_ref: batch.collection,
-          });
+          } as const;
+          const created = !handover
+            && disposition === "governed_knowledge"
+            && ["knowledge_base", "manual_distillation"].includes(batch.purpose)
+            ? await api.createOrReuseUpload(uploadInput)
+            : await api.createUpload(uploadInput);
+          if (created.outcome === "unchanged") {
+            if (!mounted.current) return;
+            updateRow(row.key, {
+              state: "ready",
+              uploadId: created.session.upload_id,
+              notice: knowledgeText("unchangedUpload"),
+            });
+            setDocumentsRevision((current) => current + 1);
+            continue;
+          }
           if (!mounted.current) {
             await api.cancel(created.session.upload_id).catch(() => undefined);
             return;

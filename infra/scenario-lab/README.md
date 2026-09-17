@@ -14,10 +14,10 @@ unrelated resources in that group.
 
 | Area | Resources |
 |------|-----------|
-| Compute | One-node private AKS cluster, Chaos Mesh installed after apply, AKS Store Demo with a three-replica order service, private Linux stress VM |
+| Compute | Dedicated `aks-store-demo` one-node private cluster, Chaos Mesh installed after apply, AKS Store Demo with a three-replica order service, private Linux stress VM |
 | Data and AI | Private MySQL Flexible Server, private Azure OpenAI account and one deployment |
 | Security | Generated MySQL password in encrypted private state and a mode-0600 runner file, managed-identity role assignments, no VM public IP |
-| Network | Isolated VNet, delegated and private-endpoint subnets, egress-only NAT gateway, bidirectional peering to the VNet-integrated deploy runner |
+| Network | Isolated VNet, delegated and private-endpoint subnets, egress-only NAT gateway, bidirectional peering to the VNet-integrated deploy runner, deployment-owned private-endpoint NSG association, and policy-owned NSGs on the AKS, MySQL, and stress subnets |
 | Evidence | Log Analytics, Application Insights, AKS monitoring, MySQL and Azure OpenAI metrics |
 | Optional commerce | Private Service Bus and Cosmos DB, workload identity, public HTTPS storefront, private administration and backend services |
 
@@ -35,7 +35,9 @@ Its managed identity needs Network Contributor on the operations resource group 
 VNet peering, Storage Blob Data Contributor on the private state account, and RBAC Administrator
 for the bounded role assignments. Protected apply and destroy grant Contributor only on the
 configured holding resource group for the run, then remove that assignment when the workflow
-created it.
+created it. The workflow binds Terraform provider and backend authentication explicitly to this
+identity with `ARM_USE_MSI=true` and its exact client ID; an Azure CLI Managed Identity login is
+not treated as a user login or an implicit Terraform credential.
 
 Configure these repository variables before running the workflow:
 
@@ -84,6 +86,8 @@ Every approved apply prepares the official
 namespace. The renderer fixes the upstream source at commit
 `61b033448904a930f01d497ce7139aca87a1b12d`, verifies the complete manifest SHA-256, and replaces
 each version tag with its reviewed multi-platform image digest before `kubectl apply`.
+The Terraform root creates the exact dedicated cluster name `aks-store-demo`; it never deploys the
+commerce workload to another FDAI, shared, or pre-existing cluster.
 
 The lab applies only these safety overlays:
 
@@ -102,6 +106,12 @@ destroy operation after the demo.
 After an approved apply, the workflow waits for the Load Balancer address, verifies that the Azure
 hostname resolves to that exact address, checks `http://<hostname>/health`, and prints the browser
 URL in the workflow summary. No VPN or port forwarding is required to open the store front.
+
+Azure Policy may attach one deployment-external NSG to each workload subnet. Terraform preserves
+those effective AKS, MySQL, and stress-subnet associations instead of replacing them with the
+lab's shared NSG. The lab still owns the private-endpoint subnet association, and the stress VM
+NIC retains its separate deployment-owned NSG. Deployment preflight must observe the default
+inbound deny rule on every effective subnet NSG.
 
 ## Deploy the optional commerce scenario
 

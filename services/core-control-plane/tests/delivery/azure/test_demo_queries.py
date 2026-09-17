@@ -190,7 +190,7 @@ def test_analyzer_catalog_covers_the_reference_analyzers() -> None:
         ANALYZER_KIND_BY_RESOURCE_TYPE,
         default_analyzers,
     )
-    from fdai.delivery.analyzer_tick_cli import ANALYZER_METRICS_BY_RESOURCE_TYPE
+    from fdai.delivery.analyzer_telemetry_admission import ANALYZER_METRICS_BY_RESOURCE_TYPE
 
     class _NullProvider:
         async def query(self, *args: object, **kwargs: object) -> None:

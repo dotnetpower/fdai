@@ -374,11 +374,15 @@ def test_supervisor_waits_for_the_analyzer_first_clean_tick() -> None:
     source = _START_SCRIPT.read_text(encoding="utf-8")
     service_source = _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
 
-    assert 'if [[ "$service" == "local-analyzer" ]]' in source
+    assert '"$service" == "local-analyzer"' in source
+    assert '"$service" == "cost-governance-analytics"' in source
     assert "service_args+=(--wait-ready)" in source
     assert 'FDAI_CONSOLE_START_READINESS_SECONDS="$readiness_seconds"' in source
     assert "FDAI_ANALYZER_RUN_ID:-local-analyzer-$(date -u +%s)-$$" in service_source
     assert 'FDAI_ANALYZER_RUN_ID="$local_analyzer_run_id"' in service_source
+    assert "cost-governance-analytics" in source
+    assert 'FDAI_COST_STORE_DSN="$FDAI_STATE_STORE_DSN"' in service_source
+    assert "collect-cost-governance-analytics.py" in service_source
 
 
 def test_inventory_stage_reuse_requires_current_checkpoint() -> None:
@@ -525,6 +529,7 @@ printf 'FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=%s\n' "$flag" \
         "#!/usr/bin/env bash\nexit 0\n",
     )
     digest = "c" * 64
+    kubernetes_bindings_path = repo / ".fdai/local-kubernetes-bindings.json"
     marker_dir = repo / ".fdai/console-preparation"
     marker_dir.mkdir(parents=True)
     stages = (
@@ -542,7 +547,12 @@ printf 'FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=%s\n' "$flag" \
             stage_digest = digest
             if stage == "runtime-environment":
                 stage_digest = hashlib.sha256(
-                    f"{digest}\nkubernetes=0\nteams-notifications=0\nno-azure-deployment=0\nlocal-resource-group=\nresolved-models-override=\n".encode()
+                    (
+                        f"{digest}\nkubernetes=0\n"
+                        f"kubernetes-bindings-path={kubernetes_bindings_path}\n"
+                        "teams-notifications=0\nno-azure-deployment=0\n"
+                        "local-resource-group=\nresolved-models-override=\n"
+                    ).encode()
                 ).hexdigest()
             if stage == "service-environments":
                 stage_digest = hashlib.sha256(

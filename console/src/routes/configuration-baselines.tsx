@@ -2,6 +2,7 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import { EvidenceRefresh } from "../components/evidence-refresh";
 import {
   AsyncBoundary,
   EmptyState,
@@ -32,6 +33,7 @@ const CONFIGURATION_BASELINE_VIEWS = [
 ] as const;
 
 export function ConfigurationBaselinesRoute({ client }: { readonly client: OperatorApiClient }) {
+  const [refreshRevision, setRefreshRevision] = useState(0);
   const [state, setState] = useState<AsyncState<ConfigurationBaselinesView>>({ status: "loading" });
   const view = activeConfigurationBaselineView();
   useEffect(() => {
@@ -39,12 +41,16 @@ export function ConfigurationBaselinesRoute({ client }: { readonly client: Opera
     setState({ status: "loading" });
     void loadConfigurationBaselines(client).then((next) => { if (active) setState(next); });
     return () => { active = false; };
-  }, [client]);
+  }, [client, refreshRevision]);
   return (
     <div class="stack configuration-baselines-route">
       <PageHeader
         title={configurationBaselinesText("title")}
         subtitle={configurationBaselinesText("subtitle")}
+        actions={<EvidenceRefresh loading={state.status === "loading"} onRefresh={() => {
+          setState({ status: "loading" });
+          setRefreshRevision((revision) => revision + 1);
+        }} />}
       />
       <ConfigurationBaselineTabs activeView={view} />
       {CONFIGURATION_BASELINE_VIEWS.map((item) => (

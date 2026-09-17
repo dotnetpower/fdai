@@ -59,7 +59,15 @@ def test_scenario_lab_is_an_independent_private_terraform_root() -> None:
     assert 'variable "commerce_enabled"' in variables
     assert 'resource "azurerm_network_security_group" "scenario_lab"' in network
     assert 'resource "azurerm_subnet_network_security_group_association" "scenario_lab"' in network
+    assert "private_endpoints = azurerm_subnet.private_endpoints.id" in network
+    assert "aks               = azurerm_subnet.aks.id" not in network
+    assert "mysql             = azurerm_subnet.mysql.id" not in network
+    assert "stress_vm         = azurerm_subnet.stress_vm.id" not in network
+    assert network.count("checkov:skip=CKV2_AZURE_31:Azure Policy attaches") == 3
     assert "private_cluster_enabled" in aks
+    assert 'name                                = "aks-store-demo"' in aks
+    assert 'dns_prefix                          = "aks-store-demo"' in aks
+    assert '"aks-${local.suffix}"' not in aks
     assert "local_account_disabled" in aks
     assert "azure_active_directory_role_based_access_control" in aks
     assert "azure_rbac_enabled = true" in aks
@@ -236,6 +244,8 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert "SCENARIO_LAB_OPENAI_PRIVATE_DNS_RESOURCE_GROUP_NAME" in workflow
     assert "scenario-lab requires the existing central OpenAI Private DNS zone" in workflow
     assert "DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}" in workflow
+    assert 'ARM_USE_MSI: "true"' in workflow
+    assert "ARM_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}" in workflow
     assert (
         "SCENARIO_LAB_RUNNER_PRINCIPAL_ID: ${{ vars.SCENARIO_LAB_RUNNER_PRINCIPAL_ID }}" in workflow
     )

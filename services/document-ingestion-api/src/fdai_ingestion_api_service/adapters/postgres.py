@@ -366,15 +366,28 @@ class PostgresDocumentMetadataStore:
         """Return each document's latest non-deleted version in one collection."""
         rows = await self._many(
             "SELECT payload FROM ("
-            "SELECT DISTINCT ON (document_id) document_id, version_id, payload, updated_at "
+            "SELECT DISTINCT ON (document_id) document_id, version_id, payload, created_at "
             "FROM document_version "
             "WHERE payload->'access'->>'collection_id' = %s AND state <> 'deleted' "
-            "ORDER BY document_id, updated_at DESC, version_id DESC"
+            "ORDER BY document_id, created_at DESC, version_id DESC"
             ") AS latest "
-            "ORDER BY updated_at DESC, document_id ASC, version_id ASC LIMIT %s",
+            "ORDER BY created_at DESC, document_id ASC, version_id ASC LIMIT %s",
             (collection_id, limit),
         )
         return tuple(DocumentVersion.model_validate(_payload(row["payload"])) for row in rows)
+
+    async def latest_collection_version_by_source_name(
+        self, collection_id: str, source_name: str
+    ) -> DocumentVersion | None:
+        """Return the latest non-deleted exact-name version for replacement resolution."""
+        row = await self._one(
+            "SELECT payload FROM document_version "
+            "WHERE payload->'access'->>'collection_id' = %s "
+            "AND payload->>'source_name' = %s AND state <> 'deleted' "
+            "ORDER BY created_at DESC, version_id DESC LIMIT 1",
+            (collection_id, source_name),
+        )
+        return None if row is None else DocumentVersion.model_validate(_payload(row["payload"]))
 
     async def list_uploads_by_state(self, state: str, *, limit: int) -> tuple[UploadSession, ...]:
         if limit < 1 or limit > 1000:

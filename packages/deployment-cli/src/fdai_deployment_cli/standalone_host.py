@@ -30,6 +30,13 @@ from fdai_deployment_cli.trust_roots import license_public_key_pem
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _SOURCE_COMMIT = re.compile(r"[0-9a-f]{40}")
+_AKS_RESOURCE_ID = re.compile(
+    r"/subscriptions/[^/]+/resourcegroups/[^/]+/providers/"
+    r"microsoft\.containerservice/managedclusters/[^/]+",
+    re.IGNORECASE,
+)
+_KUBERNETES_SERVICE_ACCOUNT_ROOT = "/var/run/secrets/kubernetes.io/serviceaccount"
+_AKS_RUNTIME_NAMESPACE = "fdai-runtime"
 _STAGES: Final = ("substrate", "runtime", "database", "application")
 _SUBSTRATE_TARGETS: Final = (
     "module.resource_group",
@@ -632,6 +639,8 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     substrate_outputs = {
         "resource_group": _terraform_output(substrate, "resource_group_name"),
         "identities": _terraform_json_output(substrate, "runtime_identity_bindings"),
+        "aks_subnet_id": _terraform_output(substrate, "aks_subnet_id"),
+        "console_hostname": _terraform_output(substrate, "console_default_hostname"),
         "topics": _terraform_json_output(substrate, "event_bus_topics"),
         "semantic_topics": _terraform_json_output(substrate, "event_bus_semantic_topics"),
         "operating_model_topic": _terraform_output(substrate, "event_bus_operating_model_topic"),
@@ -645,6 +654,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "key_vault_uri": _terraform_output(substrate, "key_vault_uri"),
         "application_insights_secret_name": _terraform_output(
             substrate, "application_insights_connection_string_secret_name"
+        ),
+        "cost_pseudonym_key_secret_name": _terraform_output(
+            substrate, "cost_pseudonym_key_secret_name"
         ),
         "operational_history_container_url": _terraform_output(
             substrate, "operational_history_container_url"
@@ -666,6 +678,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         )
     resource_group = str(substrate_outputs["resource_group"])
     _activate_terraform_stage("runtime", context, work_dir)
+    cluster_id = _terraform_output(runtime_infra, "cluster_id")
     cluster_name = _terraform_output(runtime_infra, "cluster_name")
     oidc_issuer_url = _terraform_output(runtime_infra, "oidc_issuer_url")
     kubeconfig = _prepare_aks_kubeconfig(
@@ -673,6 +686,12 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     )
     application_values = _private_json(
         work_dir / "application.auto.tfvars.json", "application variables"
+    )
+    console_origin = _console_origin(str(substrate_outputs["console_hostname"]))
+    backend_nsg_id = _subnet_network_security_group(
+        str(substrate_outputs["aks_subnet_id"]),
+        context=context,
+        cwd=work_dir,
     )
     identities = substrate_outputs["identities"]
     topics = substrate_outputs["topics"]
@@ -708,6 +727,8 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "AUTONOMY_MODE_DEFAULT": "shadow",
         "FDAI_MONITOR_WORKSPACE_ID": substrate_outputs["workspace"],
         "FDAI_OPERATING_MODEL_TOPIC": substrate_outputs["operating_model_topic"],
+        "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["operational_kafka"],
+        "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
     }
     core_environment.update(
         _aks_core_conversation_environment(
@@ -734,6 +755,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": str(semantic_topics[1]),
         "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": substrate_outputs["semantic_physical"],
         "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": str(semantic_topics[2]),
+        "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS": console_origin,
     }
     operator_environment.update(
         {
@@ -760,10 +782,14 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             refs,
             operator_identity,
             operator_environment,
-            {"FDAI_DATABASE_URL": "fdai-state-store-dsn"},
+            {
+                "FDAI_DATABASE_URL": "fdai-state-store-dsn",
+                "FDAI_COST_PSEUDONYM_KEY": str(substrate_outputs["cost_pseudonym_key_secret_name"]),
+            },
             "/healthz",
             "/healthz",
             external=True,
+            service_port=80,
             additional_identities={"command": command_identity},
         ),
         "isolated-executor": _aks_workload(
@@ -774,9 +800,14 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
                 "AZURE_CLIENT_ID": executor_identity["client_id"],
                 "RUNTIME_ENV": application_values["env"],
                 "FDAI_ISOLATED_EXECUTOR_DEPLOYED": "1",
+                "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
                 "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID": executor_identity["client_id"],
-                "KAFKA_BOOTSTRAP_SERVERS": core_environment["KAFKA_BOOTSTRAP_SERVERS"],
+                "KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["operational_kafka"],
                 "FDAI_ISOLATED_EXECUTOR_HEALTH_PORT": "8000",
+                **_aks_kubernetes_direct_api_environment(
+                    cluster_id,
+                    namespace=_AKS_RUNTIME_NAMESPACE,
+                ),
             },
             {
                 "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
@@ -798,6 +829,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
                 substrate_outputs["document_store"], "document storage binding"
             ),
             document_topics=_mapping(substrate_outputs["document_topics"], "document event topics"),
+            console_origin=console_origin,
         )
     )
     inventory_environment = {
@@ -846,6 +878,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             "* * * * *",
             {
                 **inventory_environment,
+                **_aks_inventory_binding_environment(cluster_id),
                 "FDAI_INVENTORY_SCOPES": context["subscription_id"],
                 "FDAI_INVENTORY_SOURCES": "arg,arm",
                 "FDAI_MONITOR_WORKSPACE_ID": substrate_outputs["workspace"],
@@ -889,11 +922,21 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     workloads_infra = substrate / "runtimes/aks/workloads"
     values = {
         "kubeconfig_path": str(kubeconfig),
+        "namespace": _AKS_RUNTIME_NAMESPACE,
         "tenant_id": context["tenant_id"],
         "oidc_issuer_url": oidc_issuer_url,
         "key_vault_name": _vault_name(str(substrate_outputs["key_vault_uri"])),
         "workloads": workloads,
         "scheduled_jobs": scheduled_jobs,
+        "browser_gateway": {
+            "resource_group_name": resource_group,
+            "location": application_values["region"],
+            "workload": application_values["workload"],
+            "environment": application_values["env"],
+            "region_short": application_values["region_short"],
+            "resource_name_suffix": application_values["resource_name_suffix"],
+            "backend_nsg_id": backend_nsg_id,
+        },
         "tags": {"fdai.io/source-commit": context["source_commit"]},
     }
     context.update(
@@ -1627,6 +1670,9 @@ def _verify(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     health = _readback_stage("application", context)
     if not health:
         raise ValueError("standalone application runtime health is incomplete")
+    browser_console = (
+        _browser_console_binding(context, work_dir) if _runtime_platform(context) == "aks" else None
+    )
     receipt: dict[str, object] = {
         "schema_version": "fdai.standalone-application-verification.v1",
         "state": "verified",
@@ -1637,9 +1683,50 @@ def _verify(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "mutation_performed": False,
         "subscription_ready": False,
     }
+    if browser_console is not None:
+        receipt["browser_console"] = browser_console
     receipt["receipt_digest"] = canonical_digest(receipt)
     _replace_private_json(work_dir / "application-verification-receipt.json", receipt)
     return receipt
+
+
+def _browser_console_binding(context: dict[str, object], work_dir: Path) -> dict[str, str]:
+    """Read and validate the public SWA and APIM bindings across their owning states."""
+
+    _activate_terraform_stage("substrate", context, work_dir)
+    substrate = Path(str(context["infra"]))
+    hostname = _terraform_output(substrate, "console_default_hostname")
+    resource_id = _terraform_output(substrate, "console_static_web_app_id")
+    static_site_match = re.fullmatch(
+        r"/subscriptions/([^/]+)/resourceGroups/[^/]+/providers/"
+        r"Microsoft[.]Web/staticSites/[^/]+",
+        resource_id,
+        flags=re.IGNORECASE,
+    )
+    if static_site_match is None:
+        raise ValueError("Console Static Web App resource ID is invalid")
+    if static_site_match.group(1).casefold() != str(context["subscription_id"]).casefold():
+        raise ValueError("Console Static Web App belongs to a different subscription")
+
+    _activate_terraform_stage("application", context, work_dir)
+    workloads = Path(str(context["workloads_infra"]))
+    operator_url = _terraform_output(workloads, "browser_gateway_operator_url").rstrip("/")
+    ingestion_url = _terraform_output(workloads, "browser_gateway_ingestion_url").rstrip("/")
+    operator_match = re.fullmatch(
+        r"https://([a-z0-9](?:[a-z0-9-]*[a-z0-9])?[.]azure-api[.]net)",
+        operator_url,
+    )
+    if operator_match is None:
+        raise ValueError("browser gateway Operator URL is invalid")
+    if ingestion_url != f"{operator_url}/ingestion":
+        raise ValueError("browser gateway ingestion URL is not bound to the Operator gateway")
+    return {
+        "console_hostname": hostname,
+        "console_origin": _console_origin(hostname),
+        "console_static_web_app_id": resource_id,
+        "operator_api_base_url": operator_url,
+        "ingestion_api_base_url": ingestion_url,
+    }
 
 
 def _terraform_init(work_dir: Path, context: dict[str, object]) -> None:
@@ -1875,6 +1962,7 @@ def _aks_workload(
     liveness_path: str,
     *,
     external: bool = False,
+    service_port: int | None = None,
     additional_identities: dict[str, dict[str, Any]] | None = None,
     sidecars: dict[str, dict[str, object]] | None = None,
 ) -> dict[str, object]:
@@ -1919,6 +2007,7 @@ def _aks_workload(
         "cpu": cpu,
         "memory": memory,
         "port": 8000,
+        "service_port": service_port,
         "external": external,
         "readiness_path": readiness_path,
         "liveness_path": liveness_path,
@@ -1938,6 +2027,7 @@ def _aks_document_workloads(
     postgres_fqdn: str,
     document_store: dict[str, Any],
     document_topics: dict[str, Any],
+    console_origin: str,
 ) -> dict[str, dict[str, object]]:
     common = {
         "RUNTIME_ENV": application_values["env"],
@@ -1961,7 +2051,7 @@ def _aks_document_workloads(
         "FDAI_RBAC_APPROVERS_GROUP_ID": application_values["rbac_approvers_group_id"],
         "FDAI_RBAC_OWNERS_GROUP_ID": application_values["rbac_owners_group_id"],
         "FDAI_RBAC_BREAK_GLASS_GROUP_ID": application_values["rbac_break_glass_group_id"],
-        "FDAI_INGESTION_CORS_ALLOW_ORIGINS": application_values["ingestion_cors_allow_origins"],
+        "FDAI_INGESTION_CORS_ALLOW_ORIGINS": console_origin,
     }
     worker_environment = {
         **common,
@@ -1984,6 +2074,7 @@ def _aks_document_workloads(
             "/healthz",
             "/healthz",
             external=True,
+            service_port=80,
         ),
         "document-processing-worker": _aks_workload(
             "worker",
@@ -2039,6 +2130,48 @@ def _aks_job(
         "memory": "1Gi",
         "environment": {name: str(value) for name, value in environment.items()},
         "secret_environment": secret_environment,
+    }
+
+
+def _aks_inventory_binding_environment(cluster_id: str) -> dict[str, str]:
+    """Bind the AKS inventory job to its own in-cluster read-only API identity."""
+
+    normalized_cluster_id = cluster_id.strip()
+    if _AKS_RESOURCE_ID.fullmatch(normalized_cluster_id) is None:
+        raise ValueError("AKS runtime cluster id is invalid")
+    return {
+        "FDAI_KUBERNETES_API_SERVER": "https://kubernetes.default.svc",
+        "FDAI_KUBERNETES_CLUSTER_REF": normalized_cluster_id,
+        "FDAI_KUBERNETES_AUTH_MODE": "service-account",
+        "FDAI_KUBERNETES_CA_PATH": f"{_KUBERNETES_SERVICE_ACCOUNT_ROOT}/ca.crt",
+        "FDAI_KUBERNETES_TOKEN_PATH": f"{_KUBERNETES_SERVICE_ACCOUNT_ROOT}/token",
+    }
+
+
+def _aks_kubernetes_direct_api_environment(
+    cluster_id: str,
+    *,
+    namespace: str,
+) -> dict[str, str]:
+    """Bind exact namespace-limited Kubernetes effects to the isolated Executor."""
+
+    normalized_cluster_id = cluster_id.strip()
+    if _AKS_RESOURCE_ID.fullmatch(normalized_cluster_id) is None:
+        raise ValueError("AKS runtime cluster id is invalid")
+    if not re.fullmatch(r"[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?", namespace):
+        raise ValueError("AKS runtime namespace is invalid")
+    return {
+        "FDAI_KUBERNETES_DIRECT_API_JSON": json.dumps(
+            {
+                "allowed_namespaces": [namespace],
+                "api_server": "https://kubernetes.default.svc",
+                "ca_path": f"{_KUBERNETES_SERVICE_ACCOUNT_ROOT}/ca.crt",
+                "cluster_ref": normalized_cluster_id,
+                "token_path": f"{_KUBERNETES_SERVICE_ACCOUNT_ROOT}/token",
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
     }
 
 
@@ -2809,6 +2942,74 @@ def _vault_name(uri: str) -> str:
     if match is None:
         raise ValueError("Terraform Key Vault URI is invalid")
     return match.group(1)
+
+
+def _console_origin(hostname: str) -> str:
+    """Return the HTTPS origin for one deployed Static Web App hostname."""
+
+    if (
+        re.fullmatch(
+            r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:[.][0-9]+)?[.]azurestaticapps[.]net",
+            hostname,
+        )
+        is None
+    ):
+        raise ValueError("Console Static Web App hostname is invalid")
+    return f"https://{hostname}"
+
+
+def _subnet_network_security_group(
+    subnet_id: str,
+    *,
+    context: dict[str, object],
+    cwd: Path,
+) -> str:
+    """Read the optional policy-attached NSG ID for one exact AKS subnet."""
+
+    subnet_match = re.fullmatch(
+        r"/subscriptions/([^/]+)/resourceGroups/[^/]+/providers/"
+        r"Microsoft[.]Network/virtualNetworks/[^/]+/subnets/[^/]+",
+        subnet_id,
+        flags=re.IGNORECASE,
+    )
+    if subnet_match is None:
+        raise ValueError("AKS subnet resource ID is invalid")
+    subscription_id = str(context["subscription_id"])
+    if subnet_match.group(1).casefold() != subscription_id.casefold():
+        raise ValueError("AKS subnet belongs to a different subscription")
+    value = _capture(
+        (
+            "az",
+            "network",
+            "vnet",
+            "subnet",
+            "show",
+            "--ids",
+            subnet_id,
+            "--subscription",
+            subscription_id,
+            "--query",
+            "networkSecurityGroup.id",
+            "--output",
+            "tsv",
+            "--only-show-errors",
+        ),
+        cwd=cwd,
+        timeout=60,
+        reason="AKS subnet network security group readback failed",
+    ).strip()
+    if value:
+        nsg_match = re.fullmatch(
+            r"/subscriptions/([^/]+)/resourceGroups/[^/]+/providers/"
+            r"Microsoft[.]Network/networkSecurityGroups/[^/]+",
+            value,
+            flags=re.IGNORECASE,
+        )
+        if nsg_match is None:
+            raise ValueError("AKS subnet network security group ID is invalid")
+        if nsg_match.group(1).casefold() != subscription_id.casefold():
+            raise ValueError("AKS subnet network security group belongs to another subscription")
+    return value
 
 
 def _terraform_output(infra: Path, name: str) -> str:

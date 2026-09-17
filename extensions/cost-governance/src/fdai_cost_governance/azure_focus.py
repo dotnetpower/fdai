@@ -106,27 +106,10 @@ class AzureFocusObservationAdapter(CostObservationProvider):
             document = json.loads(response.body)
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise ValueError("Azure Cost Management returned invalid JSON") from exc
-        properties = document.get("properties", {})
-        columns = properties.get("columns", [])
-        rows = properties.get("rows", [])
-        if not isinstance(rows, list) or len(rows) > request.page_size:
-            raise ValueError("Azure Cost Management page exceeded row budget")
-        if not isinstance(columns, list):
-            raise ValueError("Azure Cost Management columns are invalid")
-        names = [
-            str(column.get("name"))
-            for column in columns
-            if isinstance(column, dict) and column.get("name")
-        ]
-        if len(names) != len(columns):
-            raise ValueError("Azure Cost Management columns are invalid")
-        if any(not isinstance(row, list) or len(row) != len(names) for row in rows):
-            raise ValueError("Azure Cost Management rows are invalid")
+        rows = decode_cost_query_rows(document, page_size=request.page_size)
         collected_at = self._clock()
-        observations = tuple(
-            self._observation(request, dict(zip(names, row, strict=True)), collected_at)
-            for row in rows
-        )
+        observations = tuple(self._observation(request, row, collected_at) for row in rows)
+        properties = document.get("properties", {})
         next_link = properties.get("nextLink")
         next_token = str(next_link) if next_link else None
         if next_token is not None:
@@ -181,19 +164,7 @@ class AzureFocusObservationAdapter(CostObservationProvider):
 
     @staticmethod
     def _query_body(request: CostCollectionRequest) -> dict[str, object]:
-        return {
-            "type": "ActualCost",
-            "timeframe": "Custom",
-            "timePeriod": {
-                "from": request.start_at.isoformat(),
-                "to": request.end_at.isoformat(),
-            },
-            "dataset": {
-                "granularity": "Daily",
-                "aggregation": {"totalCost": {"name": "Cost", "function": "Sum"}},
-                "grouping": [{"type": "Dimension", "name": "ServiceName"}],
-            },
-        }
+        return cost_query_body(request)
 
     @staticmethod
     def _require_management_url(url: str) -> None:
@@ -257,9 +228,59 @@ class AzureFocusObservationAdapter(CostObservationProvider):
         )
 
 
+def cost_query_body(request: CostCollectionRequest) -> dict[str, object]:
+    """Build the canonical daily service-cost query shared by Cost collectors."""
+
+    return {
+        "type": "ActualCost",
+        "timeframe": "Custom",
+        "timePeriod": {
+            "from": request.start_at.isoformat(),
+            "to": request.end_at.isoformat(),
+        },
+        "dataset": {
+            "granularity": "Daily",
+            "aggregation": {"totalCost": {"name": "Cost", "function": "Sum"}},
+            "grouping": [{"type": "Dimension", "name": "ServiceName"}],
+        },
+    }
+
+
+def decode_cost_query_rows(
+    document: object,
+    *,
+    page_size: int,
+) -> tuple[dict[str, object], ...]:
+    """Validate one Cost Management Query page and return named rows."""
+
+    if not isinstance(document, dict):
+        raise ValueError("Azure Cost Management response is invalid")
+    properties = document.get("properties", {})
+    if not isinstance(properties, dict):
+        raise ValueError("Azure Cost Management properties are invalid")
+    columns = properties.get("columns", [])
+    rows = properties.get("rows", [])
+    if not isinstance(rows, list) or len(rows) > page_size:
+        raise ValueError("Azure Cost Management page exceeded row budget")
+    if not isinstance(columns, list):
+        raise ValueError("Azure Cost Management columns are invalid")
+    names = [
+        str(column.get("name"))
+        for column in columns
+        if isinstance(column, dict) and column.get("name")
+    ]
+    if len(names) != len(columns):
+        raise ValueError("Azure Cost Management columns are invalid")
+    if any(not isinstance(row, list) or len(row) != len(names) for row in rows):
+        raise ValueError("Azure Cost Management rows are invalid")
+    return tuple(dict(zip(names, row, strict=True)) for row in rows)
+
+
 __all__ = [
     "AzureFocusObservationAdapter",
     "CostHttpResponse",
     "CostHttpTransport",
     "CostReadCredential",
+    "cost_query_body",
+    "decode_cost_query_rows",
 ]

@@ -267,6 +267,15 @@ variable "notification_receipt_secret_id" {
   sensitive   = true
   default     = ""
 }
+variable "cost_pseudonym_key_secret_id" {
+  description = "Platform-owned Key Vault secret id for the persistent Cost Governance pseudonym key."
+  type        = string
+  sensitive   = true
+  validation {
+    condition     = trimspace(nonsensitive(var.cost_pseudonym_key_secret_id)) != ""
+    error_message = "cost_pseudonym_key_secret_id must reference the platform-owned key."
+  }
+}
 variable "database" {
   description = "Role-scoped Operator database secret reference."
   type        = object({ dsn_secret_id = string, host = string, role = string })

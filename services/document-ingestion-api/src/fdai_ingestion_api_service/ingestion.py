@@ -6,7 +6,7 @@ import hashlib
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from fdai_service_contracts import (
@@ -26,14 +26,19 @@ from fdai_service_contracts import (
     DocumentVersion,
     IngestionCapabilities,
     RetentionPolicy,
-    SourceStorageMode,
     StreamingUploadStore,
     UploadGrant,
     UploadSession,
     classify_document_intake,
 )
-from fdai_service_contracts.cloud_knowledge_release import KnowledgeReleaseBinding
 
+from fdai_ingestion_api_service.document_replacement import (
+    CreateUploadRequest as CreateUploadRequest,
+)
+from fdai_ingestion_api_service.document_replacement import (
+    DocumentCatalogMetadataStore,
+    resolve_document_replacement,
+)
 from fdai_ingestion_api_service.state_machine import transition
 
 _COMPLETED_UPLOAD_STATES = frozenset(
@@ -60,29 +65,12 @@ _MAX_TEMPORARY_RETENTION = timedelta(days=365)
 
 
 @dataclass(frozen=True, slots=True)
-class CreateUploadRequest:
-    """Validated application command for creating one upload session."""
+class UploadCreationResult:
+    """Created upload grant or an unchanged completed version reused without a write."""
 
-    source_name: str
-    collection_id: str
-    media_type_hint: str
-    expected_size: int
-    expected_sha256: str
-    storage_mode: SourceStorageMode
-    purposes: tuple[DocumentPurpose, ...]
-    access_descriptor_ref: str
-    reader_groups: tuple[str, ...]
-    retention_policy_version: str
-    document_id: UUID | None = None
-    supersedes_version_id: UUID | None = None
-    upload_id: UUID | None = None
-    version_id: UUID | None = None
-    connector_idempotency_key: str | None = None
-    disposition: DocumentDisposition = DocumentDisposition.GOVERNED_KNOWLEDGE
-    scope_kind: DocumentScopeKind | None = None
-    scope_ref: str | None = None
-    promoted_from_version_id: UUID | None = None
-    cloud_knowledge: KnowledgeReleaseBinding | None = None
+    outcome: Literal["created", "unchanged"]
+    session: UploadSession
+    grant: UploadGrant | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,15 +141,6 @@ class TemporaryDocumentQuotaExceededError(ValueError):
 
 
 @runtime_checkable
-class DocumentCatalogMetadataStore(DocumentUploadMetadataStore, Protocol):
-    """Read a bounded collection projection in addition to upload lifecycle records."""
-
-    async def list_collection_versions(
-        self, collection_id: str, *, limit: int
-    ) -> tuple[DocumentVersion, ...]: ...
-
-
-@runtime_checkable
 class TemporaryDocumentMetadataStore(DocumentUploadMetadataStore, Protocol):
     """Count active temporary versions for principal-scoped admission control."""
 
@@ -209,6 +188,44 @@ class DocumentIngestionService:
     def capabilities(self) -> IngestionCapabilities:
         return self._capabilities
 
+    async def create_or_reuse_upload(
+        self,
+        *,
+        actor_id: str,
+        request: CreateUploadRequest,
+        actor_groups: frozenset[str] = frozenset(),
+    ) -> UploadCreationResult:
+        """Reuse unchanged ready content or create the next immutable same-name version."""
+        if not request.replace_existing:
+            session, grant = await self.create_upload(
+                actor_id=actor_id,
+                actor_groups=actor_groups,
+                request=request,
+            )
+            return UploadCreationResult(outcome="created", session=session, grant=grant)
+        if not isinstance(self._metadata, DocumentCatalogMetadataStore):
+            raise RuntimeError("document catalog metadata is unavailable")
+        resolution = await resolve_document_replacement(
+            metadata=self._metadata,
+            access=self._access,
+            actor_id=actor_id,
+            actor_groups=actor_groups,
+            request=request,
+            id_factory=self._id_factory,
+        )
+        if resolution.unchanged_session is not None:
+            return UploadCreationResult(
+                outcome="unchanged",
+                session=resolution.unchanged_session,
+                grant=None,
+            )
+        session, grant = await self.create_upload(
+            actor_id=actor_id,
+            actor_groups=actor_groups,
+            request=resolution.request,
+        )
+        return UploadCreationResult(outcome="created", session=session, grant=grant)
+
     async def create_upload(
         self,
         *,
@@ -216,6 +233,8 @@ class DocumentIngestionService:
         request: CreateUploadRequest,
         actor_groups: frozenset[str] = frozenset(),
     ) -> tuple[UploadSession, UploadGrant]:
+        if request.replace_existing:
+            raise ValueError("automatic replacement requires create_or_reuse_upload")
         await self._access.authorize_create(
             actor_id=actor_id,
             actor_groups=actor_groups,

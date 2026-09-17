@@ -12,6 +12,10 @@ module "container_app" {
     name                = "database-dsn"
     identity            = var.identity.runtime_resource_id
     key_vault_secret_id = var.database.dsn_secret_id
+    }, {
+    name                = "cost-pseudonym-key"
+    identity            = var.identity.runtime_resource_id
+    key_vault_secret_id = var.cost_pseudonym_key_secret_id
     }], var.notification_receipt_secret_id == "" ? [] : [{
     name                = "notification-receipt-secret"
     identity            = var.identity.runtime_resource_id
@@ -31,6 +35,7 @@ module "container_app" {
   }] : []) : [])
   environment = concat([
     { name = "FDAI_DATABASE_URL", secret_name = "database-dsn" },
+    { name = "FDAI_COST_PSEUDONYM_KEY", secret_name = "cost-pseudonym-key" },
     { name = "POSTGRES_HOST", value = var.database.host },
     { name = "FDAI_DATABASE_ROLE", value = var.database.role },
     { name = "PGOPTIONS", value = "-c role=${var.database.role}" },

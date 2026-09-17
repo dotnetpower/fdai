@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import { EvidenceRefresh } from "../components/evidence-refresh";
 import {
   AsyncBoundary,
   KpiCard,
@@ -41,9 +42,11 @@ export interface ConversationDeliveryResponse {
 }
 
 export function ConversationDeliveryRoute({ client }: { readonly client: OperatorApiClient }) {
+  const [refreshRevision, setRefreshRevision] = useState(0);
   const [state, setState] = useState<AsyncState<ConversationDeliveryResponse>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
+    setState({ status: "loading" });
     client.panel<unknown>("/conversation-delivery")
       .then((value) => {
         if (!cancelled) setState({ status: "ready", data: decodeConversationDelivery(value) });
@@ -55,8 +58,13 @@ export function ConversationDeliveryRoute({ client }: { readonly client: Operato
         });
       });
     return () => { cancelled = true; };
-  }, [client]);
-  return <div class="stack"><PageHeader title={t("route.conversationDelivery")} subtitle={t("nav.panelSub.conversationDelivery")} /><AsyncBoundary state={state} resourceLabel={t("evidence.delivery.resource")}>{(data) => <DeliveryBody data={data} />}</AsyncBoundary></div>;
+  }, [client, refreshRevision]);
+  return <div class="stack"><PageHeader title={t("route.conversationDelivery")} subtitle={t("nav.panelSub.conversationDelivery")} actions={
+    <EvidenceRefresh loading={state.status === "loading"} onRefresh={() => {
+      setState({ status: "loading" });
+      setRefreshRevision((revision) => revision + 1);
+    }} />
+  } /><AsyncBoundary state={state} resourceLabel={t("evidence.delivery.resource")}>{(data) => <DeliveryBody data={data} />}</AsyncBoundary></div>;
 }
 
 export function decodeConversationDelivery(value: unknown): ConversationDeliveryResponse {

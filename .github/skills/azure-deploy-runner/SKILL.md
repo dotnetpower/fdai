@@ -193,6 +193,23 @@ image, repository, documentation or logs.
 
 ## Validation Gates
 
+### Preserve AKS and Container Apps Compatibility
+
+- Fix shared Console, authentication, service, and wire-contract defects in their common owner.
+  Do not add AKS-only recovery, hostname detection, or a Container Apps bypass for shared behavior.
+- Verify the affected contract with both supported binding shapes: the HTTPS browser gateway and
+  the direct Container Apps HTTPS API base. Reuse runtime configuration; never embed target values.
+- For Console access recovery, exercise initial access-check failure, explicit retry, authenticated
+  dependent reads, and continued denial on invalid identity. Use
+  `console/tests/e2e/access-recovery.spec.ts` for isolated gateway/direct-binding regressions.
+  Preserve server RBAC, global 401 handling, exact CORS origins, and credential redaction.
+- Distinguish the SPA artifact from backend images. A Console-only repair requires publishing the
+  corrected Console to its selected static host; restarting AKS or Container Apps with unchanged
+  frontend bytes cannot deliver it. Preserve backend digests when their inputs did not change.
+- Record exact source/artifact, selected runtime, approved effects, and independent browser/API
+  results. Synthetic compatibility tests and AKS health do not prove a live Container Apps rollout.
+  Deploy or probe an additional runtime only when that target and operation are authorized.
+
 Before reporting implementation completion, run the focused package, integration, shell, roadmap,
 and translation checks. Before reporting operational validation, retain both of these receipts:
 
