@@ -169,6 +169,9 @@ Implementation proceeds in these dependency-ordered slices:
 
 Live deployment uses the ordinary FDAI exact-plan workflow. This design does not select a tenant,
 subscription, resource group, domain, certificate, or Terraform plan.
+The protected scenario workflow binds Terraform provider and backend access to the exact verified
+deploy runner Managed Identity. An Azure CLI session never selects an ambient user, service
+principal, or node identity for cluster planning.
 
 ## Related docs
 

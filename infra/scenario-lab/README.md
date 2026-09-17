@@ -35,7 +35,9 @@ Its managed identity needs Network Contributor on the operations resource group 
 VNet peering, Storage Blob Data Contributor on the private state account, and RBAC Administrator
 for the bounded role assignments. Protected apply and destroy grant Contributor only on the
 configured holding resource group for the run, then remove that assignment when the workflow
-created it.
+created it. The workflow binds Terraform provider and backend authentication explicitly to this
+identity with `ARM_USE_MSI=true` and its exact client ID; an Azure CLI Managed Identity login is
+not treated as a user login or an implicit Terraform credential.
 
 Configure these repository variables before running the workflow:
 
