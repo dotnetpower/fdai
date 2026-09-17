@@ -603,6 +603,8 @@ receives the complete heartbeat set. A consumer that gives up or halts leaves he
 heartbeats while siblings continue; Saga or Vidar failure still forces sticky shadow. These records
 are operational activity, not duplicated action-audit evidence. The Activity journal omits Saga audit-chain mirrors, startup audit probes, and raw observation-transition rows. Waterfall retains that audit evidence and attributes it only from an explicit Pantheon principal, `owner_agent`, known actor, or fixed legacy action owner; an unknown mechanical producer is never assigned by guess. Agent Activity owns per-agent audit and handoff order. Its route-backed Roles and ownership dialog contains only the fixed reporting tree, role ownership, authority boundaries, and supporting current state, preserves underlying filters when closed, and shares the same role-only component as `/pantheon`; neither surface duplicates Incident chronology or conversation evidence.
 
+The Agent Activity route buffers accepted stream frames for at most 100 ms or 1024 pending messages before one reducer dispatch, drops exact replay duplicates without hiding later observations, and retains at most 100 conversation turns per Incident. Offscreen log rows preserve their 44 CSS pixel intrinsic geometry while skipping layout and paint until needed; DOM rows, filters, and accessible table semantics remain unchanged.
+
 The Command Deck rejects a complete or pending SSE frame above 256 KiB before accumulating `data:`
 lines or parsing JSON, then uses the deterministic interrupted-stream fallback. Correlation-filtered
 action progress treats a terminal audit frame as completion, reports the 120-second deadline as a
