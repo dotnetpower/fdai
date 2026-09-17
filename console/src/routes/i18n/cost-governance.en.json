@@ -113,6 +113,7 @@
       "analytics_run_failed": "The latest analytics run failed.",
       "analytics_run_partial": "The latest analytics run is partial.",
       "analytics_disabled": "The analytics collector is disabled.",
+      "analytics_snapshot_missing": "No current analytics snapshot is available.",
       "analytics_stale": "The latest analytics snapshot is stale.",
       "disclosure_insufficient": "The effective disclosure policy does not permit this view.",
       "resource_candidates_missing": "No complete resource candidates are projected.",
@@ -120,7 +121,8 @@
       "decision_cases_missing": "No agent-owned decision cases are projected.",
       "decision_case_incomplete": "Decision-case lineage is incomplete.",
       "settlements_missing": "No independently owned settlements are projected.",
-      "settlement_incomplete": "Independent effect settlement is incomplete."
+      "settlement_incomplete": "Independent effect settlement is incomplete.",
+      "projection_truncated": "The projection reached its bounded record limit."
     }
   },
   "metrics": {

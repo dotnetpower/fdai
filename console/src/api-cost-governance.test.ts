@@ -202,6 +202,78 @@ describe("Cost Governance analytics decoder", () => {
     expect(decoded.items[0]?.["utilization_percent"]).toBe(18.5);
   });
 
+  it.each([
+    ["analytics", "analytics_snapshot_missing"],
+    ["observations", "projection_truncated"],
+  ] as const)("accepts the %s readiness reason %s", (surface, reason) => {
+    const decoded = decodeCostGovernanceProjection({
+      surface: "overview",
+      complete: false,
+      source_authority: "azure-cost-management",
+      items: [],
+      suppressed_count: 0,
+      evidence: {
+        window_start_at: null,
+        window_end_at: null,
+        latest_source_at: null,
+        freshness: "unknown",
+        freshness_threshold_seconds: 172800,
+        complete_count: 0,
+        partial_count: 0,
+        sources: [],
+        disclosure: {
+          granularity: "group",
+          identity_visibility: "none",
+          amount_precision: "rounded",
+          small_cell_minimum: 3,
+          rounding_increment: 100,
+        },
+        readiness: [
+          {
+            surface: "observations",
+            state: surface === "observations" ? "unavailable" : "complete",
+            reason: surface === "observations" ? reason : null,
+            record_count: 0,
+            latest_evidence_at: null,
+          },
+          {
+            surface: "analytics",
+            state: surface === "analytics" ? "unavailable" : "complete",
+            reason: surface === "analytics" ? reason : null,
+            record_count: 0,
+            latest_evidence_at: null,
+          },
+          {
+            surface: "resource-candidates",
+            state: "complete",
+            reason: null,
+            record_count: 0,
+            latest_evidence_at: null,
+          },
+          {
+            surface: "decision-cases",
+            state: "complete",
+            reason: null,
+            record_count: 0,
+            latest_evidence_at: null,
+          },
+          {
+            surface: "settlements",
+            state: "complete",
+            reason: null,
+            record_count: 0,
+            latest_evidence_at: null,
+          },
+        ],
+        latest_analytics_run: null,
+      },
+    });
+
+    expect(
+      decoded.evidence?.readiness.find((item) => item.surface === surface)?.reason,
+    ).toBe(reason);
+  });
+
   it("keeps legacy projections valid when additive evidence is absent", () => {
     const decoded = decodeCostGovernanceProjection({
       surface: "resource-efficiency",

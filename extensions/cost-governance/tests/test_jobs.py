@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fdai_cost_governance.job_cli import _cost_retry_after_seconds
+from fdai_cost_governance.job_cli import _analytics_event, _cost_retry_after_seconds
 
 _ROOT = Path(__file__).resolve().parents[3]
 
@@ -18,6 +18,14 @@ def test_cost_retry_after_uses_longest_provider_delay_case_insensitively() -> No
     )
 
     assert delay == 11
+
+
+def test_partial_analytics_is_ready_for_available_facets_but_failure_waits() -> None:
+    assert _analytics_event("complete") == "ready"
+    assert _analytics_event("partial") == "ready"
+    assert _analytics_event("disabled") == "ready"
+    assert _analytics_event("failed") == "waiting"
+    assert _analytics_event("failed", retained_snapshot_current=True) == "ready"
 
 
 def test_package_declares_shared_and_legacy_job_entrypoints() -> None:

@@ -29,4 +29,18 @@ variable "rollback" { type = object({ strategy = string, previous_image = string
 variable "runtime_env" { type = string }
 variable "authority" { type = object({ cutover = bool, legacy_unbound_transition = optional(bool, false), dev_operations_gateway_url = string, dev_operations_gateway_audience = string }) }
 variable "scaling" { type = object({ min_replicas = number, max_replicas = number, cpu = number, memory = string }) }
+variable "kubernetes_direct_api" {
+  type = object({
+    api_server         = string
+    cluster_ref        = string
+    audience           = string
+    ca_pem             = string
+    allowed_namespaces = set(string)
+  })
+  default = null
+  validation {
+    condition     = var.kubernetes_direct_api == null ? true : var.authority.cutover
+    error_message = "Kubernetes binding cannot enable authority cutover."
+  }
+}
 variable "tags" { type = map(string) }

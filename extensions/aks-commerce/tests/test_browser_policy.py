@@ -83,6 +83,7 @@ class _Page:
         self.button = ""
         self.handler: Any = None
         self.dialog_handler: Any = None
+        self.response_handler: Any = None
 
     async def route(self, pattern: str, handler: Any) -> None:
         self.handler = handler
@@ -120,6 +121,13 @@ class _Page:
                 else "https://store.example.com/api/orders"
             )
             await self.handler(route, SimpleNamespace(url=url, method="POST"))
+            if route.continued and self.behavior != "missing_response":
+                await self.response_handler(
+                    SimpleNamespace(
+                        request=SimpleNamespace(url=url, method="POST"),
+                        status=503 if self.behavior == "failed_response" else 201,
+                    )
+                )
         self.now[0] += timedelta(seconds=1)
 
         async def dismiss() -> None:
@@ -132,6 +140,10 @@ class _Page:
     def once(self, event: str, handler: Any) -> None:
         assert event == "dialog"
         self.dialog_handler = handler
+
+    def on(self, event: str, handler: Any) -> None:
+        assert event == "response"
+        self.response_handler = handler
 
     async def new_context(self, **kwargs: Any) -> _Page:
         return self
@@ -152,7 +164,18 @@ class _Page:
         pass
 
 
-@pytest.mark.parametrize("behavior", ["normal", "duplicate", "expired", "cross_origin", "timeout"])
+@pytest.mark.parametrize(
+    "behavior",
+    [
+        "normal",
+        "duplicate",
+        "expired",
+        "cross_origin",
+        "timeout",
+        "failed_response",
+        "missing_response",
+    ],
+)
 async def test_journey_request_limits_and_completion_time(
     monkeypatch: pytest.MonkeyPatch, behavior: str
 ) -> None:
@@ -184,6 +207,9 @@ async def test_journey_request_limits_and_completion_time(
         assert sum(request.aborted for request in page.requests) == 1
     elif behavior in {"expired", "cross_origin"}:
         assert sum(request.continued for request in page.requests) == 0
+    elif behavior in {"failed_response", "missing_response"}:
+        assert result.failed_step == "order_response"
+        assert result.order_http_status == (503 if behavior == "failed_response" else None)
     else:
         assert result.failed_step == "browse"
         assert result.duration_ms < 3000
