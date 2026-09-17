@@ -13,6 +13,10 @@ from fdai.delivery.inventory_sync import (
     PromotedInventoryObservation,
 )
 from fdai.delivery.kubernetes_api_inventory import KubernetesApiInventorySnapshot
+from fdai.delivery.kubernetes_api_status import (
+    KubernetesApiFailureReason,
+    KubernetesApiInventoryError,
+)
 from fdai.delivery.kubernetes_inventory import (
     KubernetesInventoryEnricher,
     SequentialInventoryPromotionEnricher,
@@ -35,6 +39,14 @@ class _Source:
 
     async def collect(self) -> KubernetesApiInventorySnapshot:
         return self._snapshot
+
+
+class _UnavailableSource:
+    async def collect(self) -> KubernetesApiInventorySnapshot:
+        raise KubernetesApiInventoryError(
+            "sanitized failure",
+            reason=KubernetesApiFailureReason.DNS_UNAVAILABLE,
+        )
 
 
 def _resource(resource_id: str, type_id: str, props: dict[str, object]) -> ResourceRecord:
@@ -240,6 +252,20 @@ async def test_cluster_identity_mismatch_preserves_provider_generation() -> None
     assert result.links == original.links
     assert result.source_states[-1].status is InventoryProjectionSourceStatus.UNAVAILABLE
     assert result.source_states[-1].reason == "cluster_identity_mismatch"
+
+
+async def test_preserves_sanitized_private_api_failure_reason() -> None:
+    scope_digest = "sha256:" + "a" * 64
+    result = await KubernetesInventoryEnricher(
+        source=_UnavailableSource(),
+        relationship_mapping_catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
+        scope_digest=scope_digest,
+    ).enrich(_observation())
+
+    assert result.source_states[-1].status is InventoryProjectionSourceStatus.UNAVAILABLE
+    assert result.source_states[-1].reason == "kubernetes_dns_unavailable"
+    assert result.source_states[-1].scope_digest == scope_digest
+    assert CLUSTER_ID not in str(result.source_states[-1].to_metadata())
 
 
 async def test_unconfigured_source_reports_the_clusters_it_leaves_unobserved(
