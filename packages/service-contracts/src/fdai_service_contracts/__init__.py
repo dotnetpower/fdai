@@ -26,6 +26,15 @@ from fdai_service_contracts.background_task_projection import (
     build_background_task_progress,
     build_background_task_snapshot,
 )
+from fdai_service_contracts.aks_commerce import (
+    AksCommerceAction,
+    AksCommerceEvidenceState,
+    AksCommerceMetric,
+    AksCommerceProjection,
+    AksCommerceSlo,
+    AksCommerceStatus,
+    AksCommerceWorkload,
+)
 from fdai_service_contracts.baseline_cohort import (
     MINIMUM_COHORT_SAMPLE_SIZE,
     BaselineTreatmentCohortReceipt,
@@ -549,6 +558,13 @@ __all__ = [
     "AccessDescriptor",
     "Action",
     "ActionStopCondition",
+    "AksCommerceAction",
+    "AksCommerceEvidenceState",
+    "AksCommerceMetric",
+    "AksCommerceProjection",
+    "AksCommerceSlo",
+    "AksCommerceStatus",
+    "AksCommerceWorkload",
     "AdapterLiveReadinessProvider",
     "AdapterReadiness",
     "AdapterReadinessProvider",

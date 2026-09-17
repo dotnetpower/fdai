@@ -224,3 +224,20 @@ variable "additional_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "commerce_enabled" {
+  description = "Whether to provision the optional AKS commerce scenario dependencies."
+  type        = bool
+  default     = false
+}
+
+variable "commerce_namespace" {
+  description = "Kubernetes namespace used by the optional AKS commerce scenario."
+  type        = string
+  default     = "pets"
+
+  validation {
+    condition     = can(regex("^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$", var.commerce_namespace))
+    error_message = "commerce_namespace must be a valid bounded Kubernetes namespace."
+  }
+}
