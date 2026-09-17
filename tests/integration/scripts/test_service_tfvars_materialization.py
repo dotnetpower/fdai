@@ -202,6 +202,38 @@ def test_binds_exact_runtime_call_resource_ids_for_operator(tfvars: ModuleType) 
     assert "runtime_call_evidence" not in without_platform_binding
 
 
+def test_binds_platform_owned_cost_pseudonym_key_for_operator(tfvars: ModuleType) -> None:
+    payload = {
+        "environments": {
+            "dev": {"operator-service": {"name": "ca-example-operator-api", "platform": {}}}
+        }
+    }
+    secret_id = "https://kv-example.vault.azure.net/secrets/fdai-cost-pseudonym-key"
+
+    selected = tfvars.select_tfvars(
+        payload,
+        service="operator-service",
+        environment="dev",
+        cost_pseudonym_key_secret_id=secret_id,
+    )
+
+    assert selected["cost_pseudonym_key_secret_id"] == secret_id
+
+
+def test_rejects_cost_pseudonym_key_binding_for_another_service(tfvars: ModuleType) -> None:
+    payload = {"environments": {"dev": {"core-control-plane": {"name": "example"}}}}
+
+    with pytest.raises(tfvars.TfvarsError, match="valid only for operator-service"):
+        tfvars.select_tfvars(
+            payload,
+            service="core-control-plane",
+            environment="dev",
+            cost_pseudonym_key_secret_id=(
+                "https://kv-example.vault.azure.net/secrets/fdai-cost-pseudonym-key"
+            ),
+        )
+
+
 def test_binds_the_same_exact_runtime_call_resource_ids_for_core(tfvars: ModuleType) -> None:
     payload = {
         "environments": {
@@ -1118,6 +1150,12 @@ def test_workflow_materializes_platform_owned_runtime_call_resource_ids() -> Non
     assert "invalid runtime-call evidence binding" in _WORKFLOW
     assert "output -json ohl_observation_context_binding" in _WORKFLOW
     assert "hydrate_observation_context.py" in _WORKFLOW
+
+
+def test_workflow_materializes_platform_owned_cost_pseudonym_key() -> None:
+    assert "output -raw cost_pseudonym_key_secret_id" in _WORKFLOW
+    assert 'COST_PSEUDONYM_KEY_SECRET_ID="$cost_pseudonym_key_secret_id"' in _WORKFLOW
+    assert "Platform state returned an invalid Cost pseudonym key binding." in _WORKFLOW
 
 
 def test_workflow_binds_channel_edge_provider_through_github_secrets() -> None:
