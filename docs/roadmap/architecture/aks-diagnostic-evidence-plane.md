@@ -55,6 +55,15 @@ The runtime accepts a bounded collection of cluster bindings. Each binding conta
 Bindings are unique by cluster ARM id and API origin. A duplicate, partial, malformed, or
 credential-bearing endpoint fails configuration before network I/O. Legacy single-cluster
 variables adapt to one binding and cannot be combined with the fleet binding record.
+For an FDAI-managed AKS runtime, application preparation automatically creates one self-cluster
+binding from the exact runtime Terraform output. The inventory CronJob uses
+`https://kubernetes.default.svc`, the projected ServiceAccount token, and the mounted cluster CA.
+Only that CronJob ServiceAccount receives the reviewed cluster-wide `get`, `list`, and Event
+`watch` permissions required by the bounded collector. It receives no Secret, ConfigMap, or write
+permission.
+External clusters remain explicit fleet bindings. Local development accepts an owner-only fleet
+binding file only when Kubernetes collection is explicitly enabled. It does not discover every AKS
+cluster, copy credentials into the repository, or reuse an interactive human identity implicitly.
 Deployment assigns `Azure Kubernetes Service RBAC Reader` only at each exact managed-cluster ARM
 id. Subscription, resource-group, and managed-cluster child scopes are not accepted.
 The isolated public-development Terraform caller may be the verified Azure CLI human, but that
@@ -310,6 +319,15 @@ The evidence plane itself never starts or stops a cluster. In this delivery camp
 maintainer's explicit session authorization permits the coding-session operator to start the exact
 cluster after focused checks pass and restore its original power and local-binding state after
 evidence capture. This test operation does not grant runtime execution authority.
+
+Runtime-profile completion follows this order:
+
+1. Render the exact self-cluster binding into the inventory CronJob.
+2. Bind the minimum Kubernetes read role to only the inventory ServiceAccount.
+3. Accept explicit owner-only fleet bindings for eligible local or external collectors.
+4. Fail before provider access when a binding is absent, mixed, malformed, or overly exposed.
+5. Validate stopped, unavailable, ready Node, and Pod status paths without treating startup as
+   evidence of workload health.
 
 ## Related docs
 

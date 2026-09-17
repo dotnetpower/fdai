@@ -55,6 +55,7 @@ locals {
       }
     },
   )
+  inventory_job_enabled = contains(keys(var.scheduled_jobs), "inventory")
 }
 
 resource "kubernetes_namespace_v1" "runtime" {
@@ -78,6 +79,98 @@ resource "kubernetes_service_account_v1" "identity" {
       "azure.workload.identity/client-id" = each.value.client_id
       "azure.workload.identity/tenant-id" = var.tenant_id
     }
+  }
+}
+
+resource "kubernetes_cluster_role_v1" "inventory_reader" {
+  count = local.inventory_job_enabled ? 1 : 0
+
+  metadata {
+    name = "${var.namespace}-inventory-reader"
+  }
+
+  rule {
+    api_groups = [""]
+    resources = [
+      "endpoints",
+      "limitranges",
+      "namespaces",
+      "nodes",
+      "persistentvolumeclaims",
+      "persistentvolumes",
+      "pods",
+      "resourcequotas",
+      "services",
+    ]
+    verbs = ["get", "list"]
+  }
+
+  rule {
+    api_groups = [""]
+    resources  = ["events"]
+    verbs      = ["get", "list", "watch"]
+  }
+
+  rule {
+    api_groups = ["apps"]
+    resources  = ["daemonsets", "deployments", "replicasets", "statefulsets"]
+    verbs      = ["get", "list"]
+  }
+
+  rule {
+    api_groups = ["autoscaling"]
+    resources  = ["horizontalpodautoscalers"]
+    verbs      = ["get", "list"]
+  }
+
+  rule {
+    api_groups = ["batch"]
+    resources  = ["cronjobs", "jobs"]
+    verbs      = ["get", "list"]
+  }
+
+  rule {
+    api_groups = ["discovery.k8s.io"]
+    resources  = ["endpointslices"]
+    verbs      = ["get", "list"]
+  }
+
+  rule {
+    api_groups = ["networking.k8s.io"]
+    resources  = ["ingressclasses", "ingresses", "networkpolicies"]
+    verbs      = ["get", "list"]
+  }
+
+  rule {
+    api_groups = ["policy"]
+    resources  = ["poddisruptionbudgets"]
+    verbs      = ["get", "list"]
+  }
+
+  rule {
+    api_groups = ["storage.k8s.io"]
+    resources  = ["storageclasses"]
+    verbs      = ["get", "list"]
+  }
+}
+
+resource "kubernetes_cluster_role_binding_v1" "inventory_reader" {
+  count = local.inventory_job_enabled ? 1 : 0
+
+  metadata {
+    name = "${var.namespace}-inventory-reader"
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = kubernetes_cluster_role_v1.inventory_reader[0].metadata[0].name
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account_v1.identity["job-inventory"].metadata[0].name
+    namespace = kubernetes_namespace_v1.runtime.metadata[0].name
   }
 }
 

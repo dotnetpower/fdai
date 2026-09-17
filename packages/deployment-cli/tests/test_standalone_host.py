@@ -975,6 +975,34 @@ def test_aks_job_rejects_missing_core_image() -> None:
         )
 
 
+def test_aks_inventory_binding_uses_projected_service_account_identity() -> None:
+    cluster_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/"
+        "Microsoft.ContainerService/managedClusters/aks-example"
+    )
+
+    environment = standalone_host._aks_inventory_binding_environment(f" {cluster_id} ")
+
+    assert environment == {
+        "FDAI_KUBERNETES_API_SERVER": "https://kubernetes.default.svc",
+        "FDAI_KUBERNETES_CLUSTER_REF": cluster_id,
+        "FDAI_KUBERNETES_AUTH_MODE": "service-account",
+        "FDAI_KUBERNETES_CA_PATH": ("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"),
+        "FDAI_KUBERNETES_TOKEN_PATH": ("/var/run/secrets/kubernetes.io/serviceaccount/token"),
+    }
+    assert all("SECRET" not in name for name in environment)
+
+
+@pytest.mark.parametrize(
+    "cluster_id",
+    ["", "/subscriptions/example/resourceGroups/example", "https://example.com/cluster"],
+)
+def test_aks_inventory_binding_rejects_non_cluster_identity(cluster_id: str) -> None:
+    with pytest.raises(ValueError, match="cluster id is invalid"):
+        standalone_host._aks_inventory_binding_environment(cluster_id)
+
+
 def test_postgres_aks_substrate_excludes_flexible_server() -> None:
     context = {
         "runtime_profile": {
