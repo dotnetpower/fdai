@@ -25,11 +25,8 @@ or a second source of provider truth.
 
 ![Design at a glance. The main stages are Resource, ResourceType, ResourceClass, Query, Exploratory traversal, Ordered typed path, LinkType, Forward and reverse roles, Semantic traits.](../../diagrams/generated/fdai-roadmap-architecture-ontology-structural-model-01.en.svg)
 
-The model separates exact identity, aggregation, behavior, language, topology hints, query
-execution, and presentation. Each concern has one canonical representation and one bounded
-consumer contract.
-Projection-source availability is qualified by `(source, scope_digest)`. This tuple is evidence
-metadata for one collection scope and does not replace Resource or link identity.
+The model separates exact identity, aggregation, behavior, language, topology hints, query execution, and presentation. Each concern has one canonical representation and one bounded consumer contract.
+Projection-source availability is qualified by `(source, scope_digest)`. This tuple is evidence metadata for one collection scope and does not replace Resource or link identity.
 An optional recorded `serving` fact is presentation evidence for one exact data-plane target. It
 does not add an ontology type, relationship, or authority edge and never replaces operational,
 provisioning, or availability facts. Its source identity, telemetry authority, effective time, and
@@ -283,6 +280,8 @@ Graph consumers preserve four independent limitation families:
 | Access redaction | The principal cannot read an endpoint, property, or evidence field. |
 | Presentation omission | The Console focus view intentionally hides bounded response items. |
 
+An ObjectType detail preserves every property declared by its exact catalog version. Server-owned role and purpose filtering may remove properties and report that redaction, but no projection or Console view may discard a declared property or present an omitted property set as complete. Shipped ObjectTypes keep the normalized ontology key `id` even when a runtime store uses a domain-specific identifier name. Adding required semantic fields uses a new major declaration version and preserves the earlier release for replay.
+
 ### Relationship coverage accounting
 
 Relationship coverage uses five independent measures. A single percentage cannot combine provider
@@ -513,6 +512,7 @@ major version or explicit graph migration. No rollout rewrites historical contex
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-17 | implemented | Required ObjectType details to preserve every property in the exact catalog declaration after server-owned filtering. Expanded `AccessGrantRequest` from six to eleven review-relevant semantic fields as version `2.0.0` while preserving the normalized `id` key. | `current change`; `AccessGrantRequest.yaml`; `test_ontology_declaration_projection.py`; focused declaration-detail regression passed. | No runtime, provider, approval, or execution authority changed. Retained releases continue to own historical interpretation. |
 | 2026-09-17 | implemented | Defined mixed-model independence on exact model family metadata rather than publisher identity. Same-family resolved pairs and primary-pool reuse fail before invocation, and the metadata grants no ontology or execution authority. | `current change`; focused registry, resolver, artifact, and runtime composition checks. | Deploy and independently read back the selected secondary family through the protected model workflow. |
 | 2026-09-17 | implemented | Centered short instance graphs in the available viewport and made AKS end-to-end evidence collapsed by default without changing graph or evidence semantics. | `current change`; focused Vitest (`73 passed`); Console typecheck; focused Playwright at 1440x900, 993x641, 390x844, and 320x844 (`1 passed`); icon requests returned HTTP 200. | Retain post-merge authenticated 5273 visual evidence before changing this transition to `validated`. |
 | 2026-09-17 | implemented | Preserved reviewed ResourceType glyph semantics while removing eager SVG URL-module and raw-export imports from Ontology Instances startup. | `current change`; focused Vitest (`125 passed`); Console typecheck; production build; Vite transform inspection reduced eager SVG proxy requests from `72` to `0`. | Retain post-merge authenticated 5273 timing evidence before changing this transition to `validated`. |

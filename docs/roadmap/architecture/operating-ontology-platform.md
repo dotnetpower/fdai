@@ -21,7 +21,7 @@ directional relationships, actions, dependents, evidence health, impact, and rel
 `/ontology` registry search and Catalog topology remain the broad exploration surfaces. It excludes
 visual schema editing, arbitrary release upload, raw instance tables, personalization, and kernel
 icon metadata. Changes remain catalog-as-code pull requests; the Console never calculates
-redaction, compatibility, completeness, or authority.
+redaction, compatibility, completeness, or authority. The server projects the exact versioned ObjectType declaration after role and purpose filtering; the workbench renders that complete catalog-declared property set and redaction accounting without substituting a smaller display schema or omitting unrelated properties because another declaration facet is incomplete.
 
 ## Operational competency gates
 
