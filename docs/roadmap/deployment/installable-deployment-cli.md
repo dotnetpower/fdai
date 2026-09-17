@@ -485,7 +485,7 @@ known-good ancestor.
 
 The `plan` command reads a mode-`0600` target manifest supplied outside source control. The manifest
 contains the existing Static Web App resource ID and hostname, API origins, and public Entra
-bindings. Planning requires the active Azure tenant and subscription to match, reads the Static Web
+SPA client and separately registered API scope bindings. Planning requires the active Azure tenant and subscription to match, reads the Static Web
 App hostname from Azure, verifies both artifact manifests, and creates a private plan that expires
 within 20 minutes. Planning does not request a deployment token or publish content.
 

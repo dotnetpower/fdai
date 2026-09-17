@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 47a833c9d2cdedb30b96938f067dc7b13d6c1eff
+translation_source_sha: 0a830e72fb0d00daaca4beb04010f31f27156818
 translation_revised: 2026-09-17
 ---
 
@@ -484,8 +484,8 @@ dispatch하지 않습니다.
 빌드합니다.
 
 `plan` 명령은 소스 제어 밖에서 제공한 mode-`0600` 대상 매니페스트를 읽습니다. 매니페스트에는
-기존 Static Web App 리소스 ID와 호스트 이름, API 원본 및 공개 Entra 바인딩이 포함됩니다.
-계획할 때 활성 Azure tenant와 subscription의 일치를 요구하고, Azure에서 Static Web App 호스트
+기존 Static Web App 리소스 ID와 호스트 이름, API 원본, 공개 Entra SPA client 및 별도로
+등록된 API scope 바인딩이 포함됩니다. 계획할 때 활성 Azure tenant와 subscription의 일치를 요구하고, Azure에서 Static Web App 호스트
 이름을 읽고, 두 산출물 매니페스트를 검증한 뒤 20분 안에 만료되는 비공개 계획을 만듭니다.
 계획은 배포 토큰을 요청하거나 콘텐츠를 게시하지 않습니다.
 

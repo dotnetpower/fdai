@@ -26,6 +26,7 @@ from fdai_deployment_cli.standalone_application import publish_verified_console
 from fdai_deployment_cli.target import compute_target_binding
 
 _GUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+_API_SCOPE = re.compile(rf"api://{_GUID.pattern}/[A-Za-z0-9._-]+")
 _COMMIT = re.compile(r"[0-9a-f]{40}")
 _HOSTNAME = re.compile(r"[a-z0-9-]+(?:[.][0-9]+)?[.]azurestaticapps[.]net")
 _RESOURCE_ID = re.compile(
@@ -140,9 +141,8 @@ class ConsoleUpdateTarget:
                 or parsed.fragment
             ):
                 raise ValueError(f"Console update {label} URL is invalid")
-        expected_scope_prefix = f"api://{self.entra_console_spa_client_id}/"
-        if not self.entra_console_api_scope.startswith(expected_scope_prefix):
-            raise ValueError("Console update API scope does not match the SPA client")
+        if _API_SCOPE.fullmatch(self.entra_console_api_scope) is None:
+            raise ValueError("Console update API scope is invalid")
 
     @property
     def target_binding(self) -> str:

@@ -12,6 +12,7 @@ from fdai_deployment_cli import console_update
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000001"
 TENANT = "00000000-0000-0000-0000-000000000002"
 CLIENT = "00000000-0000-0000-0000-000000000003"
+API_CLIENT = "00000000-0000-0000-0000-000000000004"
 
 
 def _private_json(path: Path, value: object) -> None:
@@ -33,7 +34,7 @@ def _target() -> dict[str, str]:
         "operator_api_base_url": "https://operator.example.com",
         "ingestion_api_base_url": "https://ingestion.example.com",
         "entra_console_spa_client_id": CLIENT,
-        "entra_console_api_scope": f"api://{CLIENT}/access",
+        "entra_console_api_scope": f"api://{API_CLIENT}/access",
     }
 
 
