@@ -46,6 +46,17 @@ Workflow requests preserve bounded `workflow_action` lineage, including a positi
 A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan. Forseti resolves it through an injected source and preserves the same Verdict-to-ActionRun path after strict validation. Lineage and proposals provide attribution and evidence only, never change quorum, mode, judgment, approval, or execution authority. Norns proposes to Mimir; Odin arbitrates conflicts before judgment.
 Var approval, Vidar recovery, Saga handoff, and Norns learning also preserve durable idempotency and restart state through the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#durable-authority-and-replay).
 
+Registered `AnomalyActionSource` bindings resolve exact Heimdall signals into current, inert
+action candidates for Forseti. Incoming action arguments and human-initiator claims are replaced,
+not trusted. Missing, expired, conflicting, or failed lookups yield empty-action shadow decisions
+with no rule fallback. The decision retains the evidence reference and requires human approval;
+registration grants no package activation, risk exemption, promotion, or execution authority.
+Before publishing a registered action decision, Forseti invokes its source's optional
+`AnomalyActionPreparer` to retain the original Action. Missing or failed preparation lowers the
+decision to shadow; successful preparation supplies the original Action ID and can only lower
+mode or increase quorum. A read-only durable approval reader checks Var's exact ActionRun-bound
+record and current independent human eligibility without calling Var or creating a decision.
+
 Var's pending ticket data lives beside its durable decision records in private `var_decisions`.
 The public `PendingHilTicket` and `PendingShadowReview` imports remain available from Var with
 unchanged fields, defaults, and mutability; no approval policy or publishing owner moves.

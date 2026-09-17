@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 7e532a0af1234cf4527cf9b0fbef2d22e69c23f1
-translation_revised: 2026-09-16
+translation_source_sha: dca9c0d734f08e628ac2cd0b08ce54437177dc45
+translation_revised: 2026-09-17
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -47,6 +47,17 @@ Var와 Saga는 문서 HIL의 안정적인 멱등성을 보존하며 Saga는 게�
 워크플로 요청은 양의 시도 번호를 포함한 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐 보존합니다. Thor는 Verdict가 제공한 작업 식별자만 보존하고 상관관계에서 만들어 내지 않으며 권한이 없는 `_framework` 도우미로 범위가 제한된 ActionRun 계보를 검증합니다.
 전달 계층의 생성기는 하나의 완전한 운영 계획에 대한 선택적인 인자 결속 실행 제안을 저장합니다. Forseti는 주입된 원본으로 이를 해석하고 엄격한 검증 뒤 같은 Verdict-to-ActionRun 경로를 유지합니다. 계보와 제안은 귀속 및 근거만 제공하며 정족수, 모드, 판단, 승인, 실행 권한을 바꾸지 않습니다. Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 Var 승인, Vidar 복구, Saga 인계, Norns 학습도 [에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#영속-권한과-재생)에 따라 영속 멱등성과 재시작 상태를 보존합니다.
+
+등록된 `AnomalyActionSource`는 정확한 Heimdall 신호를 조회해 Forseti에 최신의 비활성 작업
+후보를 제공합니다. 입력된 작업 인자와 사람 요청자 주장은 신뢰하지 않고 교체합니다.
+조회가 없거나 만료, 충돌, 실패한 경우 다른 규칙으로 대체하지 않고 작업이 비어 있는 shadow
+결정을 만듭니다. 결정은 근거 참조를 보존하고 사람 승인을 요구합니다. 등록만으로 패키지
+활성화, 위험 검사 면제, 승격 또는 실행 권한을 얻지는 않습니다.
+Forseti는 등록된 작업 결정을 게시하기 전에 원본의 선택적 `AnomalyActionPreparer`를 호출해
+원래 Action을 보존합니다. 준비가 없거나 실패하면 결정을 shadow로 낮춥니다. 준비가 성공하면
+원래 Action ID를 제공하며 모드를 낮추거나 정족수를 늘릴 수만 있습니다. 읽기 전용 영속 승인
+조회기는 Var를 호출하거나 결정을 만들지 않고, 정확한 ActionRun에 연결된 Var 기록과 현재
+독립된 사람의 승인 자격을 확인합니다.
 
 Var의 승인 대기 데이터는 비공개 `var_decisions`에서 영속 결정 레코드와 함께 관리합니다.
 공개 `PendingHilTicket`과 `PendingShadowReview`는 Var에서 계속 가져올 수 있으며 필드,

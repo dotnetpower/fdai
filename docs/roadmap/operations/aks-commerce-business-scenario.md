@@ -171,6 +171,46 @@ admitted action. Fulfillment, payment, delivery, and revenue remain outside this
 
 ### Incident ingress and Thor-owned execution
 
+**Initial integration design:** Forward detector action arguments in the event, or route an
+automatic finding as an operator request. **Critique:** Either choice trusts producer-controlled
+action data or invents a human initiator. An approval also cannot make old observations current.
+**Revised design:** Register the exact canonical event
+`analyzer.aks_commerce.order_acceptance_unavailable.observed` with Forseti through
+`AnomalyActionSource`. The commerce source reuses the same retained-source and signature admission
+as detection. Forseti resolves a current exact-target candidate, forces separate human approval,
+and keeps the existing risk and context ceilings. Source failure cannot fall through to a rule.
+
+`AcceptanceGuardedExecutor` adds a fresh signed-evidence read immediately before delegating to
+Thor's existing executor. Missing proof or changed arguments withhold dispatch rather than edit
+an approved ActionRun. It does not implement or replace the seven safeguards, promotion, current
+human authorization, or isolated transport. Local tests connect actual Huginn, Heimdall, Forseti,
+Var, and Thor handlers and prove no effect before approval, single execution after approval,
+replay suppression, and denial under revoked evidence, changed approval identity, shadow mode,
+or missing audit dependency. Tests use synthetic authority and external effects, not live approvals.
+Production startup and independent effect closure still need their own connection and evidence
+before this path can restore a live workload.
+
+The material store preserves the original canonical scale Action separately from the anomaly
+correlation and ActionRun idempotency key. The isolated dispatch adapter reads that immutable
+material and repeats signed-evidence and current-authority admission at the existing safeguard
+client's final publication boundary. Missing, replaced, expired, or corrupted material withholds
+dispatch. An ambiguous or quarantined result remains unknown, never recovered or automatically
+retried. These adapters cannot manufacture original approval, promotion, or preparation inputs.
+
+`PreparedAcceptanceSource` now runs under Forseti before the approval-facing decision is published.
+It revalidates the signed observation and exact arguments, checks the automatic trigger and
+catalog schema, and uses the shared ActionBuilder and RiskGate. It retains the original Action
+and reviewed Rule digest with atomic audit. Exact replay reuses that material; changed arguments,
+policy or mode cannot replace it. Missing preparation remains shadow. The shipped scale ActionType
+requires two independent people; preparation cannot reduce its quorum or raise an existing ceiling.
+
+`AcceptanceCurrentAuthority` refreshes policy, matches original Rule and ActionType contents,
+applies the shared risk table and promotion state, and reads Var's durable final approval. It
+rechecks each distinct human's current eligibility, the original approval expiry, and safety state.
+The dispatch adapter repeats this check at the shared isolated client's publication boundary.
+These local bindings still require a reviewed acceptance Rule, production composition, real source
+and authorization readers, independently eligible promotion, and deployed observer/executor scope.
+
 The composition root may register `AksCommerceAnalyzer` with the shared `InvestigationCoordinator`
 and `AnalyzerTickRunner`. The commerce coordinator retains each assessment before the analyzer
 returns a complete, current degraded finding. The shared runner owns event publication, durable

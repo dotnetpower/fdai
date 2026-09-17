@@ -20,6 +20,7 @@ from fdai.agents._framework.action_semantics import (
     rollback_contract_for,
 )
 from fdai.agents._framework.alert_noise_callbacks import ForsetiAlertNoiseMixin
+from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.assignment_workflow import AssignmentJudgmentMixin
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict
@@ -177,6 +178,7 @@ class Forseti(
         architecture_review_loop: OntologyArchitectureReviewLoop | None = None,
         agent_availability: Callable[[], Iterable[str]] | None = None,
         cross_vertical_timeout_seconds: float = 30.0,
+        anomaly_action_sources: Mapping[str, AnomalyActionSource] | None = None,
     ) -> None:
         if cross_vertical_timeout_seconds <= 0.0 or cross_vertical_timeout_seconds > 300.0:
             raise ValueError("cross_vertical_timeout_seconds MUST be in (0, 300]")
@@ -194,6 +196,11 @@ class Forseti(
         self._kinetic_proposal_source = kinetic_proposal_source
         self._prospective_lineage_finalizer = prospective_lineage_finalizer
         self._change_assessor = change_assessor
+        self._anomaly_action_sources = dict(anomaly_action_sources or {})
+        if len(self._anomaly_action_sources) > 32 or any(
+            not key or key != key.strip() or len(key) > 128 for key in self._anomaly_action_sources
+        ):
+            raise ValueError("anomaly action bindings must contain bounded exact signal names")
         self._architecture_review_loop = architecture_review_loop
         # Optional runtime probe; an absent probe never invents agent unavailability.
         self._agent_availability = agent_availability

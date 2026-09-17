@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
+from fdai.agents import PantheonRuntime
 from fdai.agents._framework.action_run_identity import action_run_identity_digest
+from fdai.agents._framework.anomaly_action import AnomalyActionCandidate
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.forseti import Forseti
@@ -19,6 +23,7 @@ from fdai.agents.thor import ActionRun, ActionRunState, Thor
 from fdai.agents.var import Var
 from fdai.agents.vidar import RollbackClaimInProgressError, Vidar
 from fdai.shared.contracts.models import IncidentSeverity
+from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 
 def _approval_for_run(run, *, state: str = "approved") -> dict[str, object]:  # noqa: ANN001
@@ -59,6 +64,145 @@ def _rollback_for_run(
 # ---------------------------------------------------------------------------
 # Huginn
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "defect", [None, "missing", "expired", "wrong_target", "wrong_producer", "error"]
+)
+async def test_forseti_resolves_anomaly_candidate_without_trusting_event_parameters(
+    defect: str | None,
+) -> None:
+    now = datetime(2026, 9, 17, tzinfo=UTC)
+    candidate = AnomalyActionCandidate(
+        event_type="example.unavailable",
+        resource_ref="resource:example",
+        action_type="ops.scale-out",
+        arguments_json=json.dumps(
+            {"target_resource_ref": "resource:example", "replica_count": 1},
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+        evidence_ref="evidence:example",
+        observed_at=now,
+        expires_at=now + timedelta(seconds=30),
+    )
+
+    class Source:
+        async def resolve(
+            self, *, event_type: str, resource_ref: str
+        ) -> AnomalyActionCandidate | None:
+            if defect == "error":
+                raise RuntimeError("source unavailable")
+            if defect == "missing":
+                return None
+            if defect == "expired":
+                return replace(candidate, observed_at=now - timedelta(seconds=30), expires_at=now)
+            if defect == "wrong_target":
+                return replace(
+                    candidate,
+                    resource_ref="resource:other",
+                    arguments_json='{"target_resource_ref":"resource:other"}',
+                )
+            return candidate
+
+    judge = Forseti(
+        anomaly_action_sources={"example.unavailable": Source()}, test_context_clock=lambda: now
+    )
+    verdict = await judge.judge(
+        {
+            "producer_principal": "Huginn" if defect == "wrong_producer" else "Heimdall",
+            "event_type": "example.unavailable",
+            "resource_id": "resource:example",
+            "correlation_id": "corr:example",
+            "action_type": "remediate.delete-storage",
+            "params": {"replica_count": 99},
+            "operator_initiated": True,
+            "initiator_principal": "forged-human",
+        }
+    )
+    assert verdict is not None
+    if defect is None:
+        assert verdict["action_type"] == "ops.scale-out"
+        assert verdict["params"]["replica_count"] == 1
+        assert verdict["risk_verdict"] == "hil"
+        assert verdict["initiator_principal"] == "Heimdall"
+    else:
+        assert verdict["action_type"] == ""
+        assert verdict["resolved_autonomy_ceiling"] == "shadow_only"
+
+
+async def test_runtime_binds_anomaly_source_without_promoting_or_restoring_rule_fallback() -> None:
+    class MissingSource:
+        calls = 0
+
+        async def resolve(
+            self, *, event_type: str, resource_ref: str
+        ) -> AnomalyActionCandidate | None:
+            self.calls += 1
+            return None
+
+    source = MissingSource()
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic="fdai.events",
+        anomaly_action_sources={"restart_needed": source},
+    )
+    assert runtime.enforce is False
+    assert len(runtime.agents) == 15
+    judge = runtime.agents["Forseti"]
+    assert isinstance(judge, Forseti)
+    verdict = await judge.judge(
+        {
+            "producer_principal": "Heimdall",
+            "event_type": "restart_needed",
+            "resource_id": "resource:example",
+            "correlation_id": "corr:example",
+        }
+    )
+    assert source.calls == 1
+    assert verdict is not None
+    assert verdict["action_type"] == ""
+    assert verdict["resolved_autonomy_ceiling"] == "shadow_only"
+    assert verdict["reason"] == "anomaly_action_unavailable"
+    unregistered = await Forseti().judge(
+        {
+            "event_type": "restart_needed",
+            "resource_id": "resource:example",
+            "correlation_id": "corr:other",
+            "anomaly_action_evidence": {"evidence_ref": "forged"},
+        }
+    )
+    assert unregistered is not None
+    assert "anomaly_action_evidence" not in unregistered
+
+
+@pytest.mark.parametrize(
+    "defect", ["blank", "naive", "long_window", "target", "noncanonical", "oversized"]
+)
+def test_anomaly_candidate_rejects_invalid_bounds(defect: str) -> None:
+    now = datetime(2026, 9, 17, tzinfo=UTC)
+    candidate = AnomalyActionCandidate(
+        event_type="example.unavailable",
+        resource_ref="resource:example",
+        action_type="ops.scale-out",
+        arguments_json='{"target_resource_ref":"resource:example"}',
+        evidence_ref="evidence:example",
+        observed_at=now,
+        expires_at=now + timedelta(seconds=30),
+    )
+    with pytest.raises(ValueError):
+        if defect == "blank":
+            replace(candidate, event_type=" ")
+        elif defect == "naive":
+            replace(candidate, observed_at=now.replace(tzinfo=None))
+        elif defect == "long_window":
+            replace(candidate, expires_at=now + timedelta(seconds=301))
+        elif defect == "target":
+            replace(candidate, arguments_json='{"target_resource_ref":"resource:other"}')
+        elif defect == "oversized":
+            replace(candidate, arguments_json=" " * 16_385)
+        else:
+            replace(candidate, arguments_json='{ "target_resource_ref": "resource:example" }')
 
 
 def test_huginn_normalizes_and_dedups() -> None:

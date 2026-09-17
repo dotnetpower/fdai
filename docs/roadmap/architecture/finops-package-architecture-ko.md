@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: d972103f7279f5f4f4475743a3a46bcdc623825c
+translation_source_sha: e5e7e972f9b0aee5ac5bfdb5a234331e56afdcb8
 translation_revised: 2026-09-17
 ---
 
@@ -40,6 +40,9 @@ translation_revised: 2026-09-17
 > 또는 작업 권한을 바꾸지 않습니다.
 > 공유 Pantheon 조립은 검토된 테스트 맥락 조회와 파생 사례 보존도 연결합니다. 이 연결은
 > Cost Governance를 활성화하거나 Njord 기록을 발행하거나 패키지 권한을 높일 수 없습니다.
+> 공유 Forseti 팩터리의 정확한 신호별 이상 관측 조회와 원래 Action 준비도 패키지 권한을
+> 부여하지 않습니다. 등록과 영속 사람 승인 재조회로 Cost Governance를 활성화하거나
+> Njord의 게시 소유권을 바꾸거나 패키지 데이터 접근 권한을 얻을 수 없습니다.
 > 전역 Terraform 루트는 관련 없는 AKS 관측 연결을 전달할 수 있습니다. 해당 값과 Reader 역할
 > 할당은 Cost Governance 패키지 입력이 아니며 패키지 런타임을 활성화할 수 없습니다. 같은
 > 경계는 독립 런타임 호출 근거 원본 플래그, 공유 공급자 엔드포인트 가용성 및 시작 프로브 RBAC

@@ -19,6 +19,21 @@ from fdai.agents._framework.adapters import (
     InMemoryAuditChain,
     IssueTrackerAdapter,
 )
+from fdai.agents._framework.anomaly_action import (
+    AnomalyActionCandidate as AnomalyActionCandidate,
+)
+from fdai.agents._framework.anomaly_action import (
+    AnomalyActionPreparation as AnomalyActionPreparation,
+)
+from fdai.agents._framework.anomaly_action import (
+    AnomalyActionPreparer as AnomalyActionPreparer,
+)
+from fdai.agents._framework.anomaly_action import (
+    AnomalyActionSource as AnomalyActionSource,
+)
+from fdai.agents._framework.approval_readback import (
+    read_current_action_approval as read_current_action_approval,
+)
 from fdai.agents._framework.assignment_wiring import AssignmentWorkflowBindings
 from fdai.agents._framework.base import (
     Agent,

@@ -99,6 +99,29 @@ class AcceptanceRuntimeConfig:
         return cls(intent, trust, executor_identity, Severity(value["severity"]), window)
 
 
+def build_acceptance_analyzer(
+    *,
+    config: AcceptanceRuntimeConfig,
+    store: StateStore,
+    clock: Callable[[], datetime] | None = None,
+) -> OrderAcceptanceAnalyzer:
+    """Share the exact read-only receipt admission between detection and recovery proposals."""
+    return OrderAcceptanceAnalyzer(
+        intent=config.intent,
+        source=StoredOrderAcceptanceSource(store),
+        verifier=StoredOrderAcceptanceReceiptVerifier(
+            store=store,
+            intent=config.intent,
+            trust=config.trust,
+            executor_identity=config.executor_identity,
+            clock=clock,
+        ),
+        resource_kind="kubernetes.deployment",
+        severity=config.severity,
+        clock=clock,
+    )
+
+
 def build_acceptance_runner(
     *,
     config: AcceptanceRuntimeConfig,
@@ -110,21 +133,7 @@ def build_acceptance_runner(
 ) -> AnalyzerTickRunner:
     """Bind the real stored source and signature verifier to canonical durable publication."""
     now = clock or (lambda: datetime.now(UTC))
-    verifier = StoredOrderAcceptanceReceiptVerifier(
-        store=store,
-        intent=config.intent,
-        trust=config.trust,
-        executor_identity=config.executor_identity,
-        clock=now,
-    )
-    analyzer = OrderAcceptanceAnalyzer(
-        intent=config.intent,
-        source=StoredOrderAcceptanceSource(store),
-        verifier=verifier,
-        resource_kind="kubernetes.deployment",
-        severity=config.severity,
-        clock=now,
-    )
+    analyzer = build_acceptance_analyzer(config=config, store=store, clock=now)
     return AnalyzerTickRunner(
         coordinator=InvestigationCoordinator(analyzers=(analyzer,), wall_clock=now),
         event_bus=event_bus,
