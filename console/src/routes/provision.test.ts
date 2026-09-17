@@ -127,6 +127,36 @@ function readySnapshot(runId = "run.ready", sequence = 1): ProvisionEvent {
 }
 
 describe("reducer", () => {
+  test("a new inventory run cannot reset overall provision progress", () => {
+    const previous = { ...INITIAL, observed: true, runId: "inventory.old", fraction: 1 };
+    const next = reducer(previous, {
+      type: "provision.progress",
+      phase: "progress",
+      run_id: "inventory.new",
+      attempt_id: "attempt.one",
+      sequence: 1,
+      state: "running",
+      current_stage: "count",
+      fraction: 0.05,
+      inventory: {
+        resources_observed: 0,
+        resources_expected: null,
+        pages_completed: 0,
+        pages_expected: 4,
+        provider_types_completed: 0,
+        provider_types_total: 4,
+        links_observed: 0,
+        unmapped_objects: 0,
+        coverage_gaps: 0,
+      },
+    });
+
+    expect(next.runId).toBe("inventory.old");
+    expect(next.inventoryRunId).toBe("inventory.new");
+    expect(next.inventorySequence).toBe(1);
+    expect(next.fraction).toBe(1);
+  });
+
   test("does not claim progress before the first observed provision event", () => {
     expect(INITIAL.observed).toBe(false);
     expect(reducer(INITIAL, ev({ phase: "progress", fraction: 0 })).observed).toBe(true);
@@ -238,6 +268,11 @@ describe("reducer", () => {
         resources_expected: 200,
         pages_completed: 6,
         pages_expected: 10,
+        provider_types_completed: 8,
+        provider_types_total: 12,
+        links_observed: 31,
+        unmapped_objects: 2,
+        coverage_gaps: 0,
       },
     }));
 

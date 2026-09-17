@@ -64,6 +64,11 @@ export interface ProvisionInventoryProgress {
   readonly resources_expected: number | null;
   readonly pages_completed: number | null;
   readonly pages_expected: number | null;
+  readonly provider_types_completed: number;
+  readonly provider_types_total: number;
+  readonly links_observed: number;
+  readonly unmapped_objects: number;
+  readonly coverage_gaps: number;
 }
 
 /** One decoded `provision.*` frame from the SSE wire. */
@@ -83,6 +88,7 @@ export interface ProvisionEvent {
   /** ISO-8601 timestamp. */
   readonly ts?: string;
   readonly run_id?: string;
+  readonly attempt_id?: string;
   readonly sequence?: number;
   readonly attempt?: number;
   readonly state?: string;
@@ -188,6 +194,7 @@ export function decodeProvisionEvent(data: string): ProvisionEvent | null {
     console_url?: string;
     ts?: string;
     run_id?: string;
+    attempt_id?: string;
     sequence?: number;
     attempt?: number;
     state?: string;
@@ -213,6 +220,29 @@ export function decodeProvisionEvent(data: string): ProvisionEvent | null {
   if (typeof raw.reason === "string") event.reason = raw.reason;
   if (typeof raw.console_url === "string") event.console_url = raw.console_url;
   if (typeof raw.ts === "string") event.ts = raw.ts;
+  if (phase === "progress" && (raw.run_id !== undefined || raw.inventory !== undefined)) {
+    const runId = boundedText(raw.run_id);
+    const attemptId = boundedText(raw.attempt_id);
+    const sequence = positiveInteger(raw.sequence);
+    const state = boundedText(raw.state);
+    const currentStage = boundedText(raw.current_stage);
+    const inventory = decodeInventory(raw.inventory);
+    if (
+      runId === null || attemptId === null || sequence === null || state === null ||
+      currentStage === null || inventory === null
+    ) return null;
+    event.run_id = runId;
+    event.attempt_id = attemptId;
+    event.sequence = sequence;
+    event.state = state;
+    event.current_stage = currentStage;
+    event.inventory = inventory;
+    if (raw.reason_code === null || typeof raw.reason_code === "string") {
+      event.reason_code = raw.reason_code;
+    } else if (raw.reason_code !== undefined) {
+      return null;
+    }
+  }
   if (phase === "snapshot") {
     const snapshot = decodeProvisionSnapshot(raw);
     if (snapshot === null) return null;
@@ -379,19 +409,31 @@ function decodeInventory(value: unknown): ProvisionInventoryProgress | null {
   const resourcesExpected = nullableNonNegativeInteger(raw.resources_expected);
   const pagesCompleted = nullableNonNegativeInteger(raw.pages_completed);
   const pagesExpected = nullableNonNegativeInteger(raw.pages_expected);
+  const providerTypesCompleted = nonNegativeInteger(raw.provider_types_completed);
+  const providerTypesTotal = nonNegativeInteger(raw.provider_types_total);
+  const linksObserved = nonNegativeInteger(raw.links_observed);
+  const unmappedObjects = nonNegativeInteger(raw.unmapped_objects);
+  const coverageGaps = nonNegativeInteger(raw.coverage_gaps);
   if (
     resourcesObserved === false ||
     resourcesExpected === false ||
     pagesCompleted === false ||
     pagesExpected === false ||
-    (resourcesObserved === null) !== (resourcesExpected === null) ||
-    (pagesCompleted === null) !== (pagesExpected === null)
+    (pagesCompleted === null) !== (pagesExpected === null) ||
+    providerTypesCompleted === null || providerTypesTotal === null ||
+    providerTypesCompleted > providerTypesTotal || linksObserved === null ||
+    unmappedObjects === null || coverageGaps === null
   ) return null;
   return {
     resources_observed: resourcesObserved,
     resources_expected: resourcesExpected,
     pages_completed: pagesCompleted,
     pages_expected: pagesExpected,
+    provider_types_completed: providerTypesCompleted,
+    provider_types_total: providerTypesTotal,
+    links_observed: linksObserved,
+    unmapped_objects: unmappedObjects,
+    coverage_gaps: coverageGaps,
   };
 }
 
