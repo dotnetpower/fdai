@@ -39,6 +39,7 @@ class _AtomicStateStore:
     def __init__(self) -> None:
         self.records: dict[str, Mapping[str, Any]] = {}
         self.audit_entries: list[Mapping[str, Any]] = []
+        self.write_attempts = 0
 
     async def write_state_with_audit_if_absent(
         self,
@@ -46,6 +47,7 @@ class _AtomicStateStore:
         value: Mapping[str, Any],
         audit_entry: Mapping[str, Any],
     ) -> bool:
+        self.write_attempts += 1
         if key in self.records:
             return False
         self.records[key] = value
@@ -103,6 +105,7 @@ async def test_application_service_atomically_persists_an_idempotent_typed_recei
     assert first == second
     assert len(state.records) == 1
     assert len(state.audit_entries) == 1
+    assert state.write_attempts == 1
     key, record = next(iter(state.records.items()))
     assert key.startswith(AKS_DIAGNOSTIC_RECEIPT_PREFIX)
     assert len(key) < 256

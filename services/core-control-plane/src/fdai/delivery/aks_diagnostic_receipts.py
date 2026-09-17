@@ -54,6 +54,13 @@ class StateStoreAksDiagnosticReceiptWriter:
             "record_digest": record_digest,
             "receipt": receipt_value,
         }
+        existing = await self.store.read_state(key)
+        if existing is not None:
+            if existing != value:
+                raise AksDiagnosticReceiptCollisionError(
+                    "AKS diagnostic receipt identity is bound to different immutable content"
+                )
+            return receipt
         created = await self.store.write_state_with_audit_if_absent(
             key,
             value,
