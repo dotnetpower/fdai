@@ -163,6 +163,10 @@ class PantheonCampaignController:
                 state = CampaignState.HELD
                 reason = str(error)[:128] or "measurement_held"
                 break
+            except Exception as error:  # noqa: BLE001 - evaluator failures terminate fail-closed
+                state = CampaignState.HELD
+                reason = f"measurement_error:{type(error).__name__}"
+                break
             self._evaluations.append(
                 {
                     "schema_version": "1.0.0",

@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 227b099f008d983a1d64529a6b0999ca112d8f55
+translation_source_sha: 76f9585ae8234334616cb48c89994cc28633258f
 translation_revised: 2026-09-17
 ---
 # 대화 품질 보증
@@ -64,6 +64,10 @@ Core는 영속 큐와 Pantheon 품질 보증 단계 전체를 schema-v2 timing�
 선택적인 Unix socket supervisor는 명시적 명령을 기다립니다. 다시 시작해도 캠페인을
 재개하거나 시작하지 않습니다. 공급자 사용 제한, 사용 불가, 시간 초과 또는 누락된 측정
 계약은 판단 보류로 기록하며 라이브 질문을 재시도하지 않습니다.
+인증된 Operator 요청은 private bearer가 다른 origin으로 넘어가기 전에 redirect를 거부하고,
+의미 기한에 범위가 제한된 전송 여유를 더한 제한 시간을 사용합니다. 엄격한 UTF-8과 마지막 `done`
+event 하나를 요구하며 전송 또는 평가기 예외를 내용이 없는 판단 보류 사유로 줄입니다. 잘못된 byte,
+중복 최종 결과, 최종 결과 뒤 오류는 통과 case를 만들 수 없습니다.
 Supervisor와 직접 CLI는 하나의 소유자 전용 실행기 잠금을 공유합니다. `report` 명령은 캠페인을
 시작하지 않고 최근의 콘텐츠가 없는 평가를 렌더링합니다. 전체 census에서는 230개 추적 및 진단
 증적이 다이제스트로 연결되고 하나의 정리된 리비전을 공유한 뒤에만 출처가 연결된 집계를

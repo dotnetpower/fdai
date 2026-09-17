@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 508e0c5c5713ed4b8fe1e736614f29d61d38fa2e
+translation_source_sha: 4aecda5e56d8e2f8734214a43a8a30cfdad4a20f
 translation_revised: 2026-09-17
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -22,9 +22,12 @@ Command Deck의 화면 대화는 경로 범위 `ViewSnapshot`을 받습니다. �
 캐시가 답변 없는 사용자 질문으로 끝나면 불완전하므로 서버 조회를 생략하지 않습니다.
 저장된 최종 결과는 같은 검증된 표현 경로로 표시하며 질문을 다시 보내거나 모델을 호출하거나
 이력을 다시 쓰지 않습니다. 복원 중 새 입력이나 세션 전환이 발생하면 화면을 덮어쓰지 않습니다.
-로컬 CLI는 동일하게 범위가 제한된 `POST /chat/stream` SSE 계약을 사용하며 검증된 `done`
-최종 결과 하나만 수락합니다. 스트림이 너무 크거나, 최종 결과가 잘못되거나 누락되거나, 콘텐츠
-유형이 일치하지 않으면 제안 전용 `POST /chat` 응답을 답변으로 해석하지 않고 닫힌 상태로 실패합니다.
+로컬 CLI는 동일하게 범위가 제한된 `POST /chat/stream` SSE 계약을 사용하며 검증된 마지막
+`done` 최종 결과 하나만 수락합니다. 여러 `data:` 행을 보존하고 CRLF frame을 정규화하며 UTF-8,
+timestamp, byte 한도를 검증하고 잘못된 스트림을 취소합니다. 오류, 두 번째 최종 결과, 과도한 크기,
+누락된 최종 결과, 일치하지 않는 content type은 제안 전용 `POST /chat` 응답을 답변으로 해석하지
+않고 안전하게 중단합니다. Live hub는 하나의 lock 안에서 sequence를 부여하고 각 nonblocking
+delivery를 전달하므로 동시 publisher가 cursor 순서를 뒤집을 수 없습니다.
 
 타입이 지정된 테스트 맥락 초안은 정확한 대상, 예상 상하한, 시간대가 있는 기간, 출처 증적을
 HTTP, 스트리밍, 재생 과정에서 보존합니다. 엄격한 해석으로 추가 권한 필드와 잘못된 날짜를

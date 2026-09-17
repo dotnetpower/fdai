@@ -22,7 +22,7 @@ from fdai_operator_service.streaming.shutdown import shutting_down
 _CHANNEL: Final = "fdai.pipeline.stages"
 _KEEPALIVE: Final = b": keepalive\n\n"
 _MAX_FIELD_CHARS: Final = 8_192
-_MAX_DATA_CHARS: Final = 256 * 1_024
+_MAX_DATA_BYTES: Final = 256 * 1_024
 _CURSOR: Final = re.compile(r"^(?P<epoch>[a-f0-9]{16}):(?P<sequence>[1-9][0-9]{0,18})$")
 
 
@@ -108,6 +108,7 @@ class LiveStreamHub:
 
     async def publish(self, event: LiveStreamEvent) -> None:
         """Offer one cursor-bearing delta without blocking its producer."""
+        _json(event.payload)
         async with self._lock:
             delivery = LiveStreamDelivery(event=event, sequence=self._next_sequence)
             self._next_sequence += 1
@@ -119,9 +120,8 @@ class LiveStreamHub:
                 published_at = self._clock()
                 self._recent_events.append((published_at, delivery))
                 self._prune_recent_events(published_at)
-            subscribers = tuple(self._subscribers)
-        for subscriber in subscribers:
-            _offer_delivery(subscriber, delivery)
+            for subscriber in self._subscribers:
+                _offer_delivery(subscriber, delivery)
 
     async def seed_latest(self, events: tuple[LiveStreamEvent, ...]) -> None:
         """Seed unsequenced snapshots without manufacturing replayable deltas."""
@@ -147,12 +147,12 @@ class LiveStreamHub:
         """Publish and retain one validated source-readiness observation."""
         if event.event_type != "source":
             raise ValueError("source readiness event MUST use event_type=source")
+        _json(event.payload)
         async with self._lock:
             self._source_event = event
-            subscribers = tuple(self._subscribers)
-        delivery = LiveStreamDelivery(event=event, sequence=None, snapshot=True)
-        for subscriber in subscribers:
-            _offer_delivery(subscriber, delivery)
+            delivery = LiveStreamDelivery(event=event, sequence=None, snapshot=True)
+            for subscriber in self._subscribers:
+                _offer_delivery(subscriber, delivery)
 
     def subscribe(self) -> AsyncGenerator[LiveStreamEvent]:
         """Yield compatibility events and detach on cancellation."""
@@ -470,7 +470,7 @@ def _json(payload: Mapping[str, object]) -> str:
         separators=(",", ":"),
         sort_keys=True,
     )
-    if len(encoded) > _MAX_DATA_CHARS:
+    if len(encoded.encode("utf-8")) > _MAX_DATA_BYTES:
         raise ValueError("Live SSE payload exceeds the data size limit")
     return encoded.replace("\r", "\\r").replace("\n", "\\n")
 

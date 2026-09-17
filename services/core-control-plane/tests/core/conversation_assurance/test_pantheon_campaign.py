@@ -58,9 +58,15 @@ def _diagnostic(case: PantheonCensusCase) -> PantheonTurnDiagnostic:
 
 
 class _Evaluator:
-    def __init__(self, *, hold_at: int | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        hold_at: int | None = None,
+        error_at: int | None = None,
+    ) -> None:
         self.calls = 0
         self.hold_at = hold_at
+        self.error_at = error_at
 
     async def evaluate(
         self,
@@ -72,6 +78,8 @@ class _Evaluator:
         self.calls += 1
         if self.calls == self.hold_at:
             raise CampaignHoldError("provider_unavailable")
+        if self.calls == self.error_at:
+            raise RuntimeError("private provider detail")
         return _diagnostic(case)
 
 
@@ -116,6 +124,23 @@ async def test_series_stops_after_first_held_child(tmp_path: Path) -> None:
     assert series_rows[0]["corpus_digest"] == series_rows[1]["corpus_digest"]
     assert series_rows[1]["state"] == "held"
     assert series_rows[1]["evaluated"] == 21
+
+
+async def test_unexpected_evaluator_failure_records_content_free_hold(tmp_path: Path) -> None:
+    controller = PantheonCampaignController(
+        state_root=tmp_path,
+        evaluator=_Evaluator(error_at=1),
+    )
+
+    result = await controller.run_child((_case(1),))
+
+    assert result.state is CampaignState.HELD
+    assert result.evaluated == 0
+    assert result.reason == "measurement_error:RuntimeError"
+    rows = PrivateJsonlLedger(tmp_path / "campaigns.jsonl").read()
+    assert rows[-1]["event"] == "campaign_completed"
+    assert rows[-1]["reason"] == "measurement_error:RuntimeError"
+    assert "private provider detail" not in str(rows[-1])
 
 
 def test_thousand_question_series_plans_fifty_bounded_children() -> None:

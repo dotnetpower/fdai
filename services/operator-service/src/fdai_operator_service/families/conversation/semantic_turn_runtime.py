@@ -817,12 +817,31 @@ class SemanticTurnOutboxDrainer:
             )
             return False
         if self.runtime_call_observer is not None:
-            runtime_call_record = self.runtime_call_observer.record(claim.envelope)
-            self.runtime_call_observer.emit_record(runtime_call_record)
-        closed = await self.store.mark_semantic_turn_published(
-            key=claim.key,
-            claim_id=claim.claim_id,
-        )
+            try:
+                runtime_call_record = self.runtime_call_observer.record(claim.envelope)
+                self.runtime_call_observer.emit_record(runtime_call_record)
+            except Exception as exc:  # noqa: BLE001 - optional evidence cannot block delivery
+                _LOGGER.warning(
+                    "semantic_runtime_call_observation_failed",
+                    extra={"failure_type": type(exc).__name__},
+                )
+        try:
+            closed = await self.store.mark_semantic_turn_published(
+                key=claim.key,
+                claim_id=claim.claim_id,
+            )
+        except Exception as exc:  # noqa: BLE001 - release the lease for at-least-once retry
+            _LOGGER.warning(
+                "semantic_outbox_close_failed",
+                extra={"failure_type": type(exc).__name__},
+            )
+            if self.worker_observer is not None:
+                self.worker_observer("outbox", False)
+            await self.store.release_semantic_turn_claim(
+                key=claim.key,
+                claim_id=claim.claim_id,
+            )
+            return False
         if not closed:
             return False
         if self.worker_observer is not None:

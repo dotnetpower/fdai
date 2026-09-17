@@ -11023,7 +11023,7 @@ def test_resource_classification_holds_before_generic_type_exists_plan() -> None
         plan=_plan(definition),
     )
     judgment_model = _OperatingSubjectJudgmentModel()
-    judgment_model.judge = lambda **_kwargs: {
+    judgment_payload = {
         "primary_intent": "query.resource_state_inventory",
         "targets": [],
         "requested_facets": [
@@ -11038,6 +11038,9 @@ def test_resource_classification_holds_before_generic_type_exists_plan() -> None
         "action_subject": "none",
         "execution_authority": False,
     }
+    judgment_model.judge = lambda **_kwargs: judgment_payload
+    review_model = _OperatingSubjectJudgmentModel()
+    review_model.judge = lambda **_kwargs: judgment_payload
     judgment = SemanticJudgmentBoundary(
         profile_id="semantic-planning.test",
         profile_version="1.0.0",
@@ -11045,6 +11048,12 @@ def test_resource_classification_holds_before_generic_type_exists_plan() -> None
             tier=SemanticJudgmentTier.T1,
             model=judgment_model,
             model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+        escalation=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T2,
+            model=review_model,
+            model_config_digest="sha256:" + ("b" * 64),
             prompt_digest=DIGEST,
         ),
     )
@@ -11064,6 +11073,49 @@ def test_resource_classification_holds_before_generic_type_exists_plan() -> None
     assert outcome.frame.subject_constraints == ("Resource",)
     assert outcome.frame.temporal_scope == {"kind": "current"}
     assert outcome.execution_authority is False
+    assert outcome.plan is None
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+def test_resource_state_review_unavailable_cannot_fall_through_to_model_plan() -> None:
+    manifest, definition = _fixture(include_resource_type=True)
+    model = _Model(
+        frame=_frame(output_shape="property_filtered_resources"),
+        plan=_plan(definition),
+    )
+    judgment_model = _OperatingSubjectJudgmentModel()
+    judgment_model.judge = lambda **_kwargs: {
+        "primary_intent": "query.resource_state_inventory",
+        "targets": [],
+        "requested_facets": ["resource_collection", "list", "current_state"],
+        "confidence": 0.95,
+        "ambiguous": False,
+        "action_posture": "advise_only",
+        "action_subject": "none",
+        "execution_authority": False,
+    }
+    service = SemanticPlanningService(
+        model=model,
+        semantic_judgment=SemanticJudgmentBoundary(
+            profile_id="semantic-planning.test",
+            profile_version="1.0.0",
+            primary=SemanticJudgmentBinding(
+                tier=SemanticJudgmentTier.T1,
+                model=judgment_model,
+                model_config_digest=DIGEST,
+                prompt_digest=DIGEST,
+            ),
+        ),
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Show current resource state.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_judgment_review_unavailable"
     assert outcome.plan is None
     assert model.frame_calls == 0
     assert model.plan_calls == 0

@@ -57,8 +57,7 @@ evidence path.
 
 ## Federated question-bank inventory
 
-The repository can join reviewed Golden wording, manual browser prompts, Console starters, and
-operator candidates into one generated review inventory. Each owning source remains authoritative.
+The repository can join reviewed Golden wording, manual browser prompts, Console starters, and operator candidates into one generated review inventory. Each owning source remains authoritative.
 The inventory preserves stable ids, bilingual wording, source digests, explicit duplicate
 relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
 and validation states.
@@ -173,6 +172,7 @@ controlled evidence exists.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-17 | implemented | Regenerated the federated question bank and dependent CQAS provenance after base integration changed the Console catalog source digests. All 400 question identities, 93 metric definitions, denominators, and authority fields remain unchanged. | `current change`; official question-bank and semantic-intent generators; 12 focused artifact checks passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-17 | implemented | Regenerated CQAS provenance after integration changed the Pantheon source digest. All 93 metrics, 400-question denominators, coverage counts, and authority fields remain unchanged. | `current change`; official semantic-intent generator; focused artifact equality check. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-16 | implemented | Regenerated dependent CQAS provenance after the question-bank source digest changed during upstream integration. All 93 metrics, 400-question denominators, and authority fields remain unchanged. | `current change`; official semantic-intent generator; four focused artifact checks passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-16 | implemented | Regenerated the federated question-bank inventory after upstream Console catalog integration changed only the recorded English and Korean source digests. All 400 question identities, wording, readiness states, and authority fields remain unchanged. | `current change`; official question-bank generator; focused generated-artifact equality checks passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |

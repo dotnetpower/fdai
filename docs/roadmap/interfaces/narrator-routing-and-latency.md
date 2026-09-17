@@ -139,6 +139,12 @@ descriptors and a 544-token operational frame prompt; their schema-inclusive req
 64 KiB. Direct-response candidates still require the independent preflight before any social answer
 is rendered.
 
+Resource-state inventory meaning has one mandatory independent T2 review after T1 judgment. It
+adds one bounded model call only for that read family and requires a distinct model instance and
+configuration digest. It is not aggressive recovery: disagreement or reviewer unavailability holds
+the request instead of producing a new plan, and the T1 proposal remains the accepted identity when
+both judgments match.
+
 The standard local stack multiplexes logical semantic and agent topics over one physical Kafka
 topic. Its PLAINTEXT consumer applies the same bounded record-count and elapsed-time commit policy
 as the cloud SASL consumer. It never pays one broker commit for every unrelated physical event, and

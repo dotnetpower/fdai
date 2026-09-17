@@ -11,6 +11,11 @@ export interface StageFrame {
 }
 
 export const MAX_COCKPIT_SSE_FRAME_CHARS = 256 * 1024;
+const RFC3339_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
+
+function utf8Size(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}
 
 export async function consumeSse(
   url: string,
@@ -39,27 +44,28 @@ export async function consumeSse(
     }
     onStatus("live");
     const reader = response.body.getReader();
-    const decoder = new TextDecoder();
+    const decoder = new TextDecoder("utf-8", { fatal: true });
     let buffer = "";
     try {
       for (;;) {
         const { value, done } = await reader.read();
         if (done) break;
         const decoded = decoder.decode(value, { stream: true });
-        buffer += decoded;
+        buffer = (buffer + decoded).replaceAll("\r\n", "\n");
         let boundary: number;
         while ((boundary = buffer.indexOf("\n\n")) >= 0) {
           const block = buffer.slice(0, boundary);
           buffer = buffer.slice(boundary + 2);
-          if (block.length > MAX_COCKPIT_SSE_FRAME_CHARS) {
+          if (utf8Size(block) > MAX_COCKPIT_SSE_FRAME_CHARS) {
             throw new Error("SSE frame exceeds the size limit");
           }
           let event = "message";
-          let data = "";
+          const dataLines: string[] = [];
           for (const line of block.split("\n")) {
             if (line.startsWith("event:")) event = line.slice(6).trim();
-            else if (line.startsWith("data:")) data += line.slice(5).trim();
+            else if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
           }
+          const data = dataLines.join("\n");
           if (event === "stage" && data) {
             try {
               const frame = decodeStageFrame(JSON.parse(data) as unknown);
@@ -69,7 +75,7 @@ export async function consumeSse(
             }
           }
         }
-        if (buffer.length > MAX_COCKPIT_SSE_FRAME_CHARS) {
+        if (utf8Size(buffer) > MAX_COCKPIT_SSE_FRAME_CHARS) {
           throw new Error("SSE frame exceeds the size limit");
         }
       }
@@ -95,7 +101,15 @@ function decodeStageFrame(value: unknown): StageFrame | null {
   const stage = boundedLine(frame.stage, 64);
   const phase = boundedLine(frame.phase, 64);
   const ts = boundedLine(frame.ts, 128);
-  if (!eventId || !correlationId || !stage || !phase || !ts) return null;
+  if (
+    !eventId ||
+    !correlationId ||
+    !stage ||
+    !phase ||
+    !ts ||
+    !RFC3339_TIMESTAMP.test(ts) ||
+    Number.isNaN(Date.parse(ts))
+  ) return null;
   if (frame.detail !== undefined && !isRecord(frame.detail)) return null;
   if (frame.error !== undefined && typeof frame.error !== "string") return null;
   return {
