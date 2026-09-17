@@ -8,7 +8,7 @@ This plan closes the implementation gap between FDAI's bounded conversation and 
 Governed cloud-reference queries use source-spanned scalar applicability and preserve source dates;
 the [lifecycle owner](cloud-resource-knowledge-lifecycle.md) defines as-of and live-current behavior.
 The [structured retrieval owner](cloud-resource-knowledge-structured-rag.md) defines v1.2 query/utterance binding, unavailable outcomes and legacy compatibility; terms never expand applicability or access. Frame-model schemas omit the server-bound query field.
-Coverage-inventory regeneration follows question-bank source changes and refreshes source digests, not measured coverage.
+Coverage-inventory regeneration follows question-bank source changes, including navigation catalogs, and refreshes source digests, not measured coverage.
 
 > **Coverage boundary:** 100% means every readable declaration in one active ontology release has a principal-scoped query descriptor or a typed unavailable reason. It does not promise a complete or correct answer when identity, provider data, history, or evidence is missing.
 >
