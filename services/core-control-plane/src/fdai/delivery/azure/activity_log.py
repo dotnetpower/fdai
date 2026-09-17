@@ -98,6 +98,16 @@ _CURSOR_SEP: Final[str] = "\x1f"  # ASCII unit separator - never in a URL or RFC
 _PROVIDER_TYPE_ALIASES: Final = {
     "microsoft.resources/subscriptions/resourcegroups": "Microsoft.Resources/resourceGroups",
 }
+_RECONCILIATION_ONLY_RESOURCE_GROUP_DELETE_TYPES: Final = frozenset(
+    {
+        "microsoft.authorization/roleassignments",
+        "microsoft.compute/virtualmachinescalesets",
+        "microsoft.keyvault/vaults",
+        "microsoft.managedidentity/userassignedidentities",
+        "microsoft.network/networksecuritygroups",
+        "microsoft.storage/storageaccounts",
+    }
+)
 
 
 class ActivityLogError(RuntimeError):
@@ -369,8 +379,7 @@ class AzureActivityLogFactory:
             return at, None, succeeded
         if (
             succeeded
-            and derived_arm_type.casefold()
-            in {"microsoft.keyvault/vaults", "microsoft.storage/storageaccounts"}
+            and derived_arm_type.casefold() in _RECONCILIATION_ONLY_RESOURCE_GROUP_DELETE_TYPES
             and arm_type.casefold() == "microsoft.resources/resourcegroups"
             and operation is not None
             and operation.casefold() == f"{derived_arm_type.casefold()}/delete"

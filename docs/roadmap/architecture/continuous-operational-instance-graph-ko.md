@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 4c04b9f1f6933e0fe0e1c7f66eaa7c3836016fff
+translation_source_sha: 26cada2cecb90cbc340387d65ddcfd073ae09b0e
 translation_revised: 2026-09-17
 ---
 # 지속형 운영 인스턴스 그래프
@@ -108,7 +108,7 @@ Activity Log의 컨트롤 플레인 결과는 `operationStatus`와 정규화된 
 reconciliation 사이에 Resource Group 부모로 되돌아가지 않습니다.
 Resource Changes의 커서, 재시도, 수집 경계 및 게시 의미는 하나의 지원 경계가 소유합니다. 공급자
 feed 모듈은 두 번째 루프를 유지하지 않고 이 동작을 다시 내보냅니다.
-잘못된 다음 페이지 정보는 Activity Log 스트림을 완료하거나 영속 커서를 진행할 수 없습니다. 부모 계정만 가리키는 Azure Cognitive Services 배포 쓰기/삭제는 `Succeeded`일 때 계속 전체 조정만 요청합니다. 정규화된 Resource Group 묶음에서는 정확한 ARM ID로부터 도출한 유형이 `Microsoft.KeyVault/vaults` 또는 `Microsoft.Storage/storageAccounts`이고, 해당 유형의 정확한 `<derived-type>/delete` 작업 및 `Succeeded` 상태가 함께 있을 때만 같은 처리를 적용합니다. 이 두 유형으로 제한된 신호는 신호만 있는 페이지에서도 시간대가 포함된 검증된 이벤트 시간을 보존하며, Resource/관계를 추가하거나 갱신하지 않고 없는 자식을 만들거나 삭제를 단정하거나 유효한 다른 행을 막지 않습니다. 커서 저장에는 완전한 스트림 종료 경계와 조정 마커 저장이 필요하며, 그 밖의 상태, 타임스탬프 및 검토된 신원 검증은 바꾸지 않습니다. 정확한 별칭과 집중 검증 근거는 [구현 원장](../../roadmap-implementation/architecture/continuous-operational-instance-graph.md)에 기록되어 있습니다.
+잘못된 다음 페이지 정보는 Activity Log 스트림을 완료하거나 영속 커서를 진행할 수 없습니다. 부모 계정만 가리키는 Azure Cognitive Services 배포 쓰기/삭제는 `Succeeded`일 때 계속 전체 조정만 요청합니다. 정규화된 Resource Group 묶음에서는 정확한 ARM ID로부터 도출한 유형을 `Microsoft.Authorization/roleAssignments`, `Microsoft.Compute/virtualMachineScaleSets`, `Microsoft.KeyVault/vaults`, `Microsoft.ManagedIdentity/userAssignedIdentities`, `Microsoft.Network/networkSecurityGroups`, `Microsoft.Storage/storageAccounts`의 정확한 6개 유형으로 제한합니다. 각 유형에는 정확한 `<derived-type>/delete` 작업과 `Succeeded` 상태가 있어야 합니다. 이 신호는 신호만 있는 페이지에서도 시간대가 포함된 검증된 이벤트 시간을 보존하며, Resource/관계를 추가하거나 갱신하지 않고 없는 자식을 만들거나 삭제를 단정하거나 유효한 다른 행을 막지 않습니다. 커서 저장에는 완전한 스트림 종료 경계와 조정 마커 저장이 필요하며, 그 밖의 상태, 타임스탬프 및 검토된 신원 검증은 바꾸지 않습니다. 정확한 별칭과 집중 검증 근거는 [구현 원장](../../roadmap-implementation/architecture/continuous-operational-instance-graph.md)에 기록되어 있습니다.
 
 수집된 속성은 검토된 프로바이더 mapping을 거쳐야만 관계가 됩니다. Mapping이 관측된 연결
 대상을 빠뜨리면 없는 그래프 edge가 경로 부재를 입증하지 않습니다. 따라서 도달 가능한 모든
