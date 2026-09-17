@@ -96,8 +96,9 @@ than the API has.
 - **It doesn't diagnose.** An investigation returns facts. Turning facts into a cause is
   [root-cause analysis](../sre/root-cause-analysis.md), which reasons over this evidence and stays a
   cited hypothesis rather than an instruction.
-- **It doesn't expand on its own.** Broader resource discovery, provider profiles, and generated
-  command explanations are design work rather than something you can use today.
+- **It doesn't expand on its own.** The reviewed `ResourceContainers` and `Resources` provider
+  profiles and generated command explanations are available, but the service rejects unreviewed
+  tables, columns, joins, and broader provider universes instead of inventing a query.
 
 ## Next steps
 

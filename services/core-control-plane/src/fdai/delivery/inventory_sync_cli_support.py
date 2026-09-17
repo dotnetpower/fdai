@@ -37,6 +37,7 @@ from fdai.delivery.azure.static_web_app_inventory import (
     AzureStaticWebAppInventoryEnricher,
 )
 from fdai.delivery.inventory_job_config import InventoryJobConfig, verify_declarative_sha256
+from fdai.delivery.inventory_progress import InventoryProgressRecorder
 from fdai.delivery.inventory_sync import InventoryPromotionEnricher
 from fdai.delivery.kubernetes_api_inventory import (
     KubernetesApiAuth,
@@ -104,6 +105,25 @@ def resolve_resource_types(
     return resource_types
 
 
+def _progress_source_observer(
+    recorder: InventoryProgressRecorder | None,
+    *,
+    provider_types: int,
+    initial_pages: int,
+) -> Callable[[], Awaitable[object]] | None:
+    if recorder is None:
+        return None
+
+    async def _observe() -> object:
+        await recorder.begin_source(
+            provider_types=provider_types,
+            initial_pages=initial_pages,
+        )
+        return None
+
+    return _observe
+
+
 def build_sources(
     *,
     config: InventoryJobConfig,
@@ -112,6 +132,7 @@ def build_sources(
     identity: WorkloadIdentity,
     http_client: httpx.AsyncClient,
     started_at: datetime,
+    progress_recorder: InventoryProgressRecorder | None = None,
 ) -> tuple[InventorySource, ...]:
     """Build ordered provider sources without granting promotion authority."""
 
@@ -137,6 +158,11 @@ def build_sources(
                     arg_endpoint=config.management_endpoint,
                     audience=config.management_audience,
                     requests_per_second=config.arg_requests_per_second,
+                ),
+                page_observer=(
+                    None
+                    if progress_recorder is None
+                    else lambda _rows, has_more: progress_recorder.page_collected(has_more=has_more)
                 ),
             )
             query = AzureArmInventoryFactory(
@@ -164,6 +190,23 @@ def build_sources(
                     else None
                 ),
                 generation_relationships=query_factory.build_generation_relationship_fn(),
+                shard_observer=(
+                    None
+                    if progress_recorder is None
+                    else lambda resources, links, unmapped, gaps: (
+                        progress_recorder.provider_type_completed(
+                            resources=resources,
+                            links=links,
+                            unmapped_objects=unmapped,
+                            coverage_gaps=gaps,
+                        )
+                    )
+                ),
+                source_observer=_progress_source_observer(
+                    progress_recorder,
+                    provider_types=len(resource_types) + (1 if full_provider_scope else 0),
+                    initial_pages=len(resource_types) + (2 if full_provider_scope else 0),
+                ),
             )
         elif source_name == "arm":
             link_types = ("contains",)
@@ -183,6 +226,23 @@ def build_sources(
                     subscription_scopes=config.scopes,
                 ),
                 query=query,
+                shard_observer=(
+                    None
+                    if progress_recorder is None
+                    else lambda resources, links, unmapped, gaps: (
+                        progress_recorder.provider_type_completed(
+                            resources=resources,
+                            links=links,
+                            unmapped_objects=unmapped,
+                            coverage_gaps=gaps,
+                        )
+                    )
+                ),
+                source_observer=_progress_source_observer(
+                    progress_recorder,
+                    provider_types=len(resource_types),
+                    initial_pages=0,
+                ),
             )
         else:
             if config.declarative_path is None or config.declarative_sha256 is None:

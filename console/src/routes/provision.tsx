@@ -53,6 +53,8 @@ export interface ProvisionState {
   readonly consoleUrl: string | null;
   readonly runId: string | null;
   readonly sequence: number;
+  readonly inventoryRunId: string | null;
+  readonly inventorySequence: number;
   readonly attempt: number | null;
   readonly runState: string | null;
   readonly currentStage: string | null;
@@ -80,6 +82,8 @@ export const INITIAL: ProvisionState = {
   consoleUrl: null,
   runId: null,
   sequence: 0,
+  inventoryRunId: null,
+  inventorySequence: 0,
   attempt: null,
   runState: null,
   currentStage: null,
@@ -183,6 +187,20 @@ export function reducer(state: ProvisionState, ev: ProvisionEvent): ProvisionSta
         cancelled: ev.state === "cancelled",
       };
     case "progress": {
+      if (ev.inventory && ev.run_id && ev.sequence !== undefined) {
+        if (state.inventoryRunId === ev.run_id && ev.sequence <= state.inventorySequence) {
+          return state;
+        }
+        return {
+          ...observedState,
+          inventoryRunId: ev.run_id,
+          inventorySequence: ev.sequence,
+          inventory: ev.inventory,
+          lastProgressAt: ev.ts ?? state.lastProgressAt,
+          failed: ev.state === "failed" ? "initial-inventory" : state.failed,
+          failedReason: ev.state === "failed" ? ev.reason_code ?? null : state.failedReason,
+        };
+      }
       // Newest-first, unique: a repeat completion (reconnect replay / retry)
       // must not create a duplicate `key` in the recent list.
       const recent = ev.node
@@ -194,7 +212,9 @@ export function reducer(state: ProvisionState, ev: ProvisionEvent): ProvisionSta
         // reconnect replays an earlier (lower) fraction.
         fraction: Math.max(
           state.fraction,
-          Number.isFinite(ev.fraction) ? Math.max(0, Math.min(1, ev.fraction!)) : state.fraction,
+          Number.isFinite(ev.fraction)
+            ? Math.max(0, Math.min(1, ev.fraction!))
+            : state.fraction,
         ),
         // Do NOT clear `waiting` here: progress for an unrelated resource must
         // not hide the "waiting on X" banner. The bridge emits `resumed` when

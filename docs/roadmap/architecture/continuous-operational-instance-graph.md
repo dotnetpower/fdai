@@ -218,7 +218,7 @@ resource-group segment, provider path, and terminal app segment. Partial, traili
 whitespace-padded, or same-endpoint pairs fail validation. A failed or ambiguous state or provider
 read blocks the plan and never falls back to a constructed identity.
 
-Continuous means collection always has a durable next action, not one never-ending process. Event consumers can remain active while safe-to-retry cursor and reconciliation tasks persist progress.
+Continuous means collection always has a durable next action, not one never-ending process. Event consumers can remain active while safe-to-retry cursor and reconciliation tasks persist progress. Full reconciliation also emits a separate count-only progress chain: page and provider-type callbacks serialize absolute counters without provider identifiers, PostgreSQL owns the current projection, and an optional private Blob copy is immutable bootstrap evidence only. The chain does not change snapshot authority; a distinct read-only closer validates every digest link and the exact active generation before it can append the 100 percent terminal record. Progress publisher composition and principal-safe value hashing stay in focused delivery siblings so the orchestration entry point remains below the structural size ceiling without moving authority. Merged question-source changes regenerate the complete deterministic bank and review catalog without changing runtime or execution authority.
 An explicitly requested one-shot Inventory execution can set
 `FDAI_INVENTORY_OPERATOR_REQUESTED=1` to activate the adaptive scheduler's existing operator
 priority. The request collects immediately only when the source is healthy and no collection is
@@ -241,7 +241,7 @@ splits do not change cursor progress, completeness, or writer authority.
 ### Private-safe change acceleration
 
 The private deployment profile polls Azure Resource Graph `resourcechanges` with a durable cursor
-and tracks every enabled accelerator heartbeat even when positions are unchanged. Each bounded page is
+and tracks every enabled accelerator heartbeat even when positions are unchanged. The ARG query entry point remains structurally bounded, and each page is
 ordered oldest first, boundary duplicates are idempotent, and the cursor advances only after every
 accepted change enters observation ingress. Create and update rows trigger exact Resource Graph hydration for the
 changed Resource ids. Delete rows become unconfirmed tombstones and wait for complete reconciliation
