@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
-import { DataTable, ErrorState, PageHeader, StatusPill } from "../components/ui";
+import { DataTable, ErrorState, LoadingState, PageHeader, StatusPill } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
@@ -86,15 +86,14 @@ export function SettingsModelsRoute({ client, auth }: Props) {
     }
   };
 
-  const load = async (background = false, refreshCatalog = false) => {
+  const load = async (background = false, refreshCatalog = false, force = false) => {
     const generation = ++loadGeneration.current;
     setFailedLoad(null);
     if (background) setRefreshingCatalog(true);
     else setLoading(true);
     setError(null);
     try {
-      const path = refreshCatalog ? "/models/settings?refresh_catalog=1" : "/models/settings";
-      const next = decodeModelSettings(await client.panel<unknown>(path));
+      const next = decodeModelSettings(await client.modelSettings({ refreshCatalog, force }));
       if (!projectionGenerationIsCurrent(loadGeneration.current, generation)) return;
       applyProjection(next);
       setWebSearchError(null);
@@ -179,6 +178,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
         view?.narrator.revision ?? 0,
       );
       if (projectionGenerationIsCurrent(loadGeneration.current, generation)) {
+        client.invalidateModelSettings();
         applyProjection(next, submittedRevisions);
       }
     } catch (reason) {
@@ -238,12 +238,13 @@ export function SettingsModelsRoute({ client, auth }: Props) {
         expectedRevision: view.webSearch.revision,
       });
       if (projectionGenerationIsCurrent(loadGeneration.current, generation)) {
+        client.invalidateModelSettings();
         applyProjection(next, submittedRevisions);
       }
     } catch (reason) {
       if (reason instanceof ModelSettingsCommandError && reason.status === 409) {
         try {
-          const latest = decodeModelSettings(await client.panel<unknown>("/models/settings"));
+          const latest = decodeModelSettings(await client.modelSettings({ force: true }));
           if (projectionGenerationIsCurrent(loadGeneration.current, generation)) {
             applyProjection(latest, {
               narrator: submittedRevisions.narrator,
@@ -338,7 +339,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
   return (
     <div class="stack settings-route settings-models-route">
       <PageHeader title={t("route.settingsModels")} subtitle={t("settings.models.subtitle")} />
-      {loading ? <p class="muted" role="status">{t("settings.models.loading")}</p> : null}
+      {loading ? <LoadingState label={t("settings.models.loading")} /> : null}
       {error ? (
         <ErrorState
           message={error}
@@ -392,7 +393,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
             auth={auth}
             operatorApiBaseUrl={client.operatorApiBaseUrl}
             view={view}
-            reload={() => load(true)}
+            reload={() => load(true, false, true)}
           />
 
           <section class="settings-iam-panel" aria-labelledby="model-catalog-heading">

@@ -13,8 +13,12 @@ import type {
   ReportingLineProjection,
 } from "./routes/report-lines.model";
 
+const IAM_ROSTER_CACHE_MS = 30_000;
+
 export class IamApiClient {
   readonly #transport: OperatorApiTransport;
+  #rosterPromise: Promise<readonly IdentityRosterItem[]> | null = null;
+  #rosterCacheExpiresAt = 0;
 
   constructor(transport: OperatorApiTransport) {
     this.#transport = transport;
@@ -38,11 +42,32 @@ export class IamApiClient {
     );
   }
 
-  async roster(): Promise<readonly IdentityRosterItem[]> {
-    const { decodeIdentityRoster } = await import("./routes/settings-iam.model");
-    return decodeIdentityRoster(
-      await this.#transport.getJson<unknown>("/iam/directory/roster"),
-    );
+  /** Reuse one successful roster read for 30 seconds within this authenticated API client. */
+  roster(): Promise<readonly IdentityRosterItem[]> {
+    if (
+      this.#rosterPromise === null
+      || (
+        this.#rosterCacheExpiresAt !== 0
+        && Date.now() >= this.#rosterCacheExpiresAt
+      )
+    ) {
+      this.#rosterCacheExpiresAt = 0;
+      this.#rosterPromise = import("./routes/settings-iam.model")
+        .then(({ decodeIdentityRoster }) => this.#transport
+          .getJson<unknown>("/iam/directory/roster")
+          .then(decodeIdentityRoster))
+        .then(
+          (roster) => {
+            this.#rosterCacheExpiresAt = Date.now() + IAM_ROSTER_CACHE_MS;
+            return roster;
+          },
+          (error: unknown) => {
+            this.#rosterPromise = null;
+            throw error;
+          },
+        );
+    }
+    return this.#rosterPromise;
   }
 
   async listAccessRequests(limit = 50, cursor = 0): Promise<IamAccessRequestPage> {

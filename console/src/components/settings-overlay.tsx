@@ -7,6 +7,7 @@ import { panelPath } from "../router";
 interface SettingsOverlayProps {
   readonly activePanelId: string;
   readonly onClose: () => void;
+  readonly onPrefetchPanel?: (panelId: string) => void;
   readonly children: ComponentChildren;
 }
 
@@ -22,6 +23,7 @@ const FOCUSABLE_SELECTOR = [
 export function SettingsOverlay({
   activePanelId,
   onClose,
+  onPrefetchPanel,
   children,
 }: SettingsOverlayProps) {
   const dialogRef = useRef<HTMLElement | null>(null);
@@ -131,6 +133,8 @@ export function SettingsOverlay({
                     href={panelPath(panel.id)}
                     class={panel.id === activePanelId ? "active" : ""}
                     aria-current={panel.id === activePanelId ? "page" : undefined}
+                    onPointerEnter={() => onPrefetchPanel?.(panel.id)}
+                    onFocus={() => onPrefetchPanel?.(panel.id)}
                   >
                     <strong>{panel.label}</strong>
                     {panel.subtitle ? <small>{panel.subtitle}</small> : null}

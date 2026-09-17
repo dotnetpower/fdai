@@ -110,3 +110,40 @@ test("explains Owner authority and preserves IAM data on narrow screens", async 
   }));
   expect(mobile.scrollWidth).toBeLessThanOrEqual(mobile.clientWidth);
 });
+
+test("renders current access before Owner-only supplemental reads finish", async ({ page }) => {
+  let releaseSupplementaryReads: (() => void) | undefined;
+  const supplementaryReads = new Promise<void>((resolve) => {
+    releaseSupplementaryReads = resolve;
+  });
+  await page.route("**/iam**", async (route) => {
+    const path = new URL(route.request().url()).pathname.replace(/^\/api(?=\/)/, "");
+    if (path === "/iam") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(overview),
+      });
+      return;
+    }
+    if (path === "/iam/access-requests" || path === "/iam/directory/roster") {
+      await supplementaryReads;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(path === "/iam/access-requests"
+          ? { items: [], total: 0, next_cursor: null }
+          : { items: [] }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto("/settings/iam");
+
+  await expect(page.getByText("FDAI Owner access is verified")).toBeVisible();
+  releaseSupplementaryReads?.();
+  await page.getByRole("tab", { name: "Users" }).click();
+  await expect(page.getByText("Find a user by email or name")).toBeVisible();
+});
