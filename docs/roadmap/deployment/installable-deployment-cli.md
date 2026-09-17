@@ -490,9 +490,7 @@ App hostname from Azure, verifies both artifact manifests, and creates a private
 within 20 minutes. Planning does not request a deployment token or publish content.
 Invoking `apply` is explicit coding-session authorization for this bounded non-destructive dev update; it does not request another confirmation or machine-digest transcription. The command rechecks protected
 `origin/main`, the Azure target, both artifacts, and plan expiry, then writes approval and claim
-records that bind the validated plan digest internally before publication. A retained claim permits candidate readback only and never repeats the
-candidate publication. A failed publication or claimed-content mismatch republishes the verified
-rollback artifact and writes a terminal failure receipt. Success requires exact remote hashes, SPA
+records that bind the validated plan digest internally before publication. A retained claim permits candidate readback only and never repeats the candidate publication, including after plan expiry. Recovery uses the current reviewed publisher, verifies rollback content before any restore, and publishes rollback only when neither artifact is present. A failed publication or claimed-content mismatch writes a terminal failure receipt. Success requires exact remote hashes, SPA
 fallback, both API health checks, exact-origin CORS, unauthenticated denial, and the Entra redirect.
 The resulting Console receipt does not set whole-application or subscription readiness.
 

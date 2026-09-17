@@ -795,6 +795,7 @@ def publish_verified_console(
         console_directory = extraction / "dist"
     else:
         console_directory = extract_bundle_archive(console_archive, extraction)
+    console_directory.chmod(0o700)
     settings = {
         "schema_version": "fdai.console-runtime.v1",
         "operator_api_base_url": str(browser_console["operator_api_base_url"]),

@@ -376,7 +376,9 @@ def _provision_console_update_apply(args: argparse.Namespace) -> int:
     """Apply one explicitly invoked Console update plan without redundant input."""
 
     work_dir = _absolute_work_dir(args.work_dir)
-    plan = load_console_update_plan(work_dir / "plan.json")
+    plan = load_console_update_plan(
+        work_dir / "plan.json", allow_expired_claim=(work_dir / "claim.json").is_file()
+    )
     if args.output == "text":
         print(
             "Console update exact plan\n"
@@ -393,7 +395,7 @@ def _provision_console_update_apply(args: argparse.Namespace) -> int:
         source_root=source_root,
         work_dir=work_dir,
         approved_plan_digest=str(plan["plan_digest"]),
-        scripts=source_root / "scripts/deployment/azure",
+        scripts=_console_update_scripts(source_root),
         timeout_seconds=args.timeout_seconds,
     )
     _print_mapping(
@@ -402,6 +404,15 @@ def _provision_console_update_apply(args: argparse.Namespace) -> int:
         text=f"Console update applied and read back: {result['receipt_digest']}",
     )
     return 0
+
+
+def _console_update_scripts(source_root: Path) -> Path:
+    """Prefer the current reviewed source-checkout controls over artifact-source scripts."""
+
+    checkout_scripts = Path(__file__).resolve().parents[4] / "scripts/deployment/azure"
+    if (checkout_scripts / "publish-console.sh").is_file():
+        return checkout_scripts
+    return source_root / "scripts/deployment/azure"
 
 
 def _offline_prepare(args: argparse.Namespace) -> int:

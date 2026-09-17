@@ -259,7 +259,8 @@ def apply_console_update_plan(
 ) -> dict[str, object]:
     """Apply one exact Console plan, or recover an existing claim by readback."""
 
-    plan = _load_plan(work_dir / "plan.json")
+    claim_path = work_dir / "claim.json"
+    plan = _load_plan(work_dir / "plan.json", allow_expired_claim=claim_path.is_file())
     if approved_plan_digest != plan["plan_digest"]:
         raise ValueError("Console update approval does not match the exact plan digest")
     source_commit = _verified_source_commit(source_root, timeout_seconds=min(timeout_seconds, 60))
@@ -295,9 +296,9 @@ def apply_console_update_plan(
             raise ValueError(
                 "Console update previously failed and the verified rollback was restored"
             )
-        claim_path = work_dir / "claim.json"
         actor_digest = _active_actor_digest(target, timeout_seconds=min(timeout_seconds, 60))
         if claim_path.exists():
+            _load_claim(claim_path, plan)
             try:
                 candidate = _publish(
                     source_root=source_root,
@@ -313,24 +314,38 @@ def apply_console_update_plan(
                 try:
                     rollback = _publish(
                         source_root=source_root,
-                        work_dir=work_dir / "rollback-recovery",
+                        work_dir=work_dir / "rollback-verify",
                         archive=work_dir / "rollback.tar.gz",
                         archive_digest=str(plan["rollback_archive_sha256"]),
                         target=target,
                         scripts=scripts,
                         timeout_seconds=timeout_seconds,
-                        verify_only=False,
+                        verify_only=True,
                     )
-                except (OSError, subprocess.SubprocessError, ValueError) as rollback_error:
-                    raise ValueError(
-                        "Console update readback and rollback both failed; retain the claim for review"
-                    ) from rollback_error
+                    reason = "claimed_candidate_readback_failed_rollback_already_present"
+                except (OSError, subprocess.SubprocessError, ValueError):
+                    try:
+                        rollback = _publish(
+                            source_root=source_root,
+                            work_dir=work_dir / "rollback-recovery",
+                            archive=work_dir / "rollback.tar.gz",
+                            archive_digest=str(plan["rollback_archive_sha256"]),
+                            target=target,
+                            scripts=scripts,
+                            timeout_seconds=timeout_seconds,
+                            verify_only=False,
+                        )
+                        reason = "claimed_candidate_readback_failed_rollback_restored"
+                    except (OSError, subprocess.SubprocessError, ValueError) as rollback_error:
+                        raise ValueError(
+                            "Console update readback and rollback both failed; retain the claim for review"
+                        ) from rollback_error
                 _write_failure_receipt(
                     failure_path,
                     plan=plan,
                     actor_digest=actor_digest,
                     rollback=rollback,
-                    reason="claimed_candidate_readback_failed",
+                    reason=reason,
                 )
                 raise ValueError(
                     "Console update readback failed and the verified rollback was restored"
@@ -499,20 +514,20 @@ def _write_failure_receipt(
         "rollback_publication_receipt_digest": rollback["receipt_digest"],
         "rollback_readback_verified": True,
         "completed_at": datetime.now(UTC).isoformat(),
-        "mutation_performed": True,
+        "mutation_performed": rollback.get("mutation_performed") is True,
     }
     receipt["receipt_digest"] = canonical_digest(receipt)
     write_private_output(path, json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n")
     return receipt
 
 
-def load_console_update_plan(path: Path) -> dict[str, object]:
-    """Load and validate one unexpired private Console update plan."""
+def load_console_update_plan(path: Path, *, allow_expired_claim: bool = False) -> dict[str, object]:
+    """Load one private plan, allowing expiry only for claimed verification recovery."""
 
-    return _load_plan(path)
+    return _load_plan(path, allow_expired_claim=allow_expired_claim)
 
 
-def _load_plan(path: Path) -> dict[str, object]:
+def _load_plan(path: Path, *, allow_expired_claim: bool = False) -> dict[str, object]:
     try:
         value = json.loads(read_private_bytes(path, max_bytes=32_768))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -533,9 +548,38 @@ def _load_plan(path: Path) -> dict[str, object]:
         expires_at = datetime.fromisoformat(str(expiry))
     except ValueError as exc:
         raise ValueError("Console update plan expiry is invalid") from exc
-    if expires_at.tzinfo is None or expires_at <= datetime.now(UTC):
+    if expires_at.tzinfo is None or (expires_at <= datetime.now(UTC) and not allow_expired_claim):
         raise ValueError("Console update plan is expired")
     return plan
+
+
+def _load_claim(path: Path, plan: dict[str, object]) -> dict[str, object]:
+    try:
+        value = json.loads(read_private_bytes(path, max_bytes=16_384))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Console update claim is invalid") from exc
+    required = {
+        "schema_version",
+        "plan_digest",
+        "approval_digest",
+        "idempotency_key",
+        "claimed_at",
+        "claim_digest",
+    }
+    if (
+        not isinstance(value, dict)
+        or set(value) != required
+        or value.get("schema_version") != "fdai.console-update-claim.v1"
+        or value.get("plan_digest") != plan["plan_digest"]
+        or value.get("idempotency_key") != plan["idempotency_key"]
+    ):
+        raise ValueError("Console update claim does not match the plan")
+    digest = value.get("claim_digest")
+    if digest != canonical_digest(
+        {key: item for key, item in value.items() if key != "claim_digest"}
+    ):
+        raise ValueError("Console update claim digest is invalid")
+    return cast(dict[str, object], value)
 
 
 def _load_receipt(path: Path, plan: dict[str, object]) -> dict[str, object]:

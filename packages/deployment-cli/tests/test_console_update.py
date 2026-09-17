@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from fdai_deployment_cli import cli, console_update
+from fdai_deployment_cli.contracts import canonical_digest
 
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000001"
 TENANT = "00000000-0000-0000-0000-000000000002"
@@ -168,7 +169,20 @@ def test_apply_console_update_plan_resumes_claim_by_readback_only(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     source, work, plan = _prepared_plan(tmp_path, monkeypatch)
-    _private_json(work / "claim.json", {"retained": True})
+    plan["expires_at"] = "2000-01-01T00:00:00+00:00"
+    plan["plan_digest"] = canonical_digest(
+        {key: value for key, value in plan.items() if key != "plan_digest"}
+    )
+    _private_json(work / "plan.json", plan)
+    claim = {
+        "schema_version": "fdai.console-update-claim.v1",
+        "plan_digest": plan["plan_digest"],
+        "approval_digest": "f" * 64,
+        "idempotency_key": plan["idempotency_key"],
+        "claimed_at": "2026-09-17T00:00:00+00:00",
+    }
+    claim["claim_digest"] = canonical_digest(claim)
+    _private_json(work / "claim.json", claim)
     calls: list[bool] = []
 
     def publish(**arguments: object) -> dict[str, object]:
@@ -217,6 +231,51 @@ def test_apply_console_update_plan_rolls_back_failed_publication_once(
     assert calls == [False, False]
 
 
+def test_claim_recovery_does_not_republish_an_existing_rollback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source, work, plan = _prepared_plan(tmp_path, monkeypatch)
+    claim = {
+        "schema_version": "fdai.console-update-claim.v1",
+        "plan_digest": plan["plan_digest"],
+        "approval_digest": "f" * 64,
+        "idempotency_key": plan["idempotency_key"],
+        "claimed_at": "2026-09-17T00:00:00+00:00",
+    }
+    claim["claim_digest"] = canonical_digest(claim)
+    _private_json(work / "claim.json", claim)
+    calls: list[bool] = []
+
+    def publish(**arguments: object) -> dict[str, object]:
+        verify_only = bool(arguments["verify_only"])
+        calls.append(verify_only)
+        if len(calls) == 1:
+            raise ValueError("candidate differs")
+        return _publication_receipt(verify_only=verify_only)
+
+    monkeypatch.setattr(console_update, "publish_verified_console", publish)
+    with pytest.raises(ValueError, match="rollback was restored"):
+        console_update.apply_console_update_plan(
+            source_root=source,
+            work_dir=work,
+            approved_plan_digest=str(plan["plan_digest"]),
+            scripts=source / "scripts/deployment/azure",
+        )
+
+    assert calls == [True, True]
+    failure = json.loads((work / "failure.json").read_text(encoding="utf-8"))
+    assert failure["reason"] == "claimed_candidate_readback_failed_rollback_already_present"
+    assert failure["mutation_performed"] is False
+    with pytest.raises(ValueError, match="previously failed"):
+        console_update.apply_console_update_plan(
+            source_root=source,
+            work_dir=work,
+            approved_plan_digest=str(plan["plan_digest"]),
+            scripts=source / "scripts/deployment/azure",
+        )
+    assert calls == [True, True]
+
+
 def test_shared_publisher_supports_readback_without_republication() -> None:
     root = Path(__file__).resolve().parents[3]
     publisher = (root / "scripts/deployment/azure/publish-console.sh").read_text(encoding="utf-8")
@@ -239,7 +298,7 @@ def test_cli_apply_keeps_internal_exact_plan_binding_without_prompt(
     monkeypatch.setattr(
         cli,
         "load_console_update_plan",
-        lambda _path: {
+        lambda _path, **_kwargs: {
             "source_commit": "b" * 40,
             "target_binding": "c" * 64,
             "candidate_archive_sha256": "d" * 64,
@@ -259,6 +318,9 @@ def test_cli_apply_keeps_internal_exact_plan_binding_without_prompt(
 
     assert result == 0
     assert captured["approved_plan_digest"] == plan_digest
+    assert (
+        captured["scripts"] == Path(cli.__file__).resolve().parents[4] / "scripts/deployment/azure"
+    )
 
 
 def _prepared_plan(

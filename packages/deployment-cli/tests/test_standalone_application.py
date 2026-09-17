@@ -96,6 +96,7 @@ def test_publish_verified_console_uses_verified_prebuilt_artifact(tmp_path, monk
         return console_directory
 
     def configure(directory, settings):
+        assert directory.stat().st_mode & 0o777 == 0o700
         calls.append(("configure", directory, settings))
         return {"runtime_config_digest": "b" * 64}
 

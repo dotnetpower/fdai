@@ -89,7 +89,7 @@ registration, and publishes the signed kit's prebuilt Console. Tenant provisioni
 npm build. Completion requires remote artifact hashes, SPA route fallback, both API health checks,
 the exact-origin authorization preflight, an unauthenticated `401` from `/audit`, and an Entra
 redirect to the configured Console origin.
-An existing development Container Apps installation can update only its static Console through `fdaictl provision console-update`; separate protected-source construction and a 20-minute plan bind the candidate, distinct rollback artifact, and existing Static Web App target. Invoking apply is explicit coding-session authorization without a second prompt, binds the exact plan digest internally, writes a claim before publication, resumes retained claims by readback only, restores verified rollback on failure, and changes no runtime selection, service image, Terraform or database state, product authority, or deployment readiness.
+An existing development Container Apps installation can update only its static Console through `fdaictl provision console-update`; separate protected-source construction and a 20-minute plan bind the candidate, distinct rollback artifact, and existing Static Web App target. Invoking apply is explicit coding-session authorization without a second prompt, binds the exact plan digest internally, writes a claim before publication, and changes no runtime selection, service image, Terraform or database state, product authority, or deployment readiness. Claimed recovery survives plan expiry, uses current reviewed publisher controls, checks candidate and rollback content before any restore, and publishes rollback only when neither artifact is present.
 
 ### Defaults and validation
 
