@@ -4,8 +4,7 @@ title: Continuous Question Space
 # Continuous Question Space
 
 This document owns the bounded pipeline that derives finite question cases from an exact ontology
-release, turns them into English and Korean wording, runs them through the verified semantic path,
-and joins conversation assurance with epistemic coverage. The pipeline is read-only and stays in
+release, turns them into English and Korean wording, runs them through the verified semantic path, and joins conversation assurance with epistemic coverage. The pipeline is read-only and stays in
 shadow mode. It never grants action, approval, mutation, or execution authority.
 
 > **Coverage boundary:** A finite universe measures whether every readable declaration has an
@@ -174,6 +173,7 @@ controlled evidence exists.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-17 | implemented | Regenerated CQAS provenance after integration changed the Pantheon source digest. All 93 metrics, 400-question denominators, coverage counts, and authority fields remain unchanged. | `current change`; official semantic-intent generator; focused artifact equality check. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-16 | implemented | Regenerated dependent CQAS provenance after the question-bank source digest changed during upstream integration. All 93 metrics, 400-question denominators, and authority fields remain unchanged. | `current change`; official semantic-intent generator; four focused artifact checks passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-16 | implemented | Regenerated the federated question-bank inventory after upstream Console catalog integration changed only the recorded English and Korean source digests. All 400 question identities, wording, readiness states, and authority fields remain unchanged. | `current change`; official question-bank generator; focused generated-artifact equality checks passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-16 | implemented | Regenerated the federated question-bank artifacts after protected-main integration changed one candidate source while preserving the 400-question inventory. | `current change`; official question-bank generator; focused artifact equality checks passed 8 cases. | No semantic, runtime-binding, evidence, or authority behavior changed. |

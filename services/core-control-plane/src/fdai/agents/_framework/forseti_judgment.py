@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Callable, Mapping
 from dataclasses import asdict
 from datetime import datetime
@@ -13,6 +14,7 @@ from fdai.agents._framework.action_semantics import (
     quorum_for,
     rollback_contract_for,
 )
+from fdai.agents._framework.anomaly_action import AnomalyActionPreparer, AnomalyActionSource
 from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.forseti_decision_helpers import copy_change_assessment, source_freshness
@@ -58,6 +60,7 @@ class ForsetiJudgmentMixin:
     _test_context_clock: Callable[[], datetime]
     _rbac: dict[str, frozenset[str]]
     _unresolved_arbitrations: BoundedLruDict[str, dict[str, Any]]
+    _anomaly_action_sources: Mapping[str, AnomalyActionSource]
 
     def record_behavior(self, name: str, amount: int = 1) -> None:
         raise NotImplementedError
@@ -153,8 +156,9 @@ class ForsetiJudgmentMixin:
 
     async def judge(self, event: dict[str, Any]) -> dict[str, Any] | None:
         """Emit a Verdict on the bus. Returns the verdict payload."""
-        action_type = event.get("action_type")
-        if action_type is None:
+        event, candidate_held = await self._resolve_anomaly_action(event)
+        action_type = None if candidate_held else event.get("action_type")
+        if action_type is None and not candidate_held:
             action_type = RULE_MATCH.get(str(event.get("event_type", "")))
         if action_type is None:
             self.record_behavior("no_rule_match")
@@ -171,7 +175,7 @@ class ForsetiJudgmentMixin:
                 "action_type": "",
                 "risk_verdict": "hil",
                 "resolved_autonomy_ceiling": Autonomy.SHADOW_ONLY.value,
-                "reason": "no_rule_match",
+                "reason": "anomaly_action_unavailable" if candidate_held else "no_rule_match",
                 "quorum_required": 1,
                 "initiator_principal": event.get("initiator_principal"),
             }
@@ -285,17 +289,99 @@ class ForsetiJudgmentMixin:
             "initiator_principal": event.get("initiator_principal"),
         }
         workflow_action = event.get("workflow_action")
+        if (
+            event.get("event_type") in self._anomaly_action_sources
+            and event.get("anomaly_action_evidence") is not None
+        ):
+            verdict["anomaly_action_evidence"] = event["anomaly_action_evidence"]
         if isinstance(workflow_action, Mapping):
             verdict["workflow_action"] = dict(workflow_action)
         copy_change_assessment(event, verdict)
         await self._attach_operational_context(event, verdict)
         await self._attach_test_context(event, verdict)
+        if event.get("event_type") in self._anomaly_action_sources:
+            await self._prepare_anomaly_action(event, verdict)
         self.record_behavior(f"verdict:{verdict['risk_verdict']}")
         if rbac_denied:
             self.record_behavior("rbac_denied")
         if self.bus is not None:
             await self.bus.publish("Forseti", "object.verdict", verdict)
         return verdict
+
+    async def _prepare_anomaly_action(self, event: dict[str, Any], verdict: dict[str, Any]) -> None:
+        """Retain an original Action before publication, or lower this path to shadow."""
+        source = self._anomaly_action_sources[str(event["event_type"])]
+        if verdict["risk_verdict"] == "deny":
+            return
+        if not isinstance(source, AnomalyActionPreparer):
+            verdict["resolved_autonomy_ceiling"] = Autonomy.SHADOW_ONLY.value
+            verdict["reason"] = "anomaly_action_preparation_unavailable"
+            return
+        try:
+            async with asyncio.timeout(5):
+                prepared = await source.prepare(json.loads(json.dumps(verdict, allow_nan=False)))
+            verdict["action_id"] = prepared.action_id
+            verdict["quorum_required"] = max(verdict["quorum_required"], prepared.quorum_required)
+            if prepared.shadow_only:
+                verdict["resolved_autonomy_ceiling"] = Autonomy.SHADOW_ONLY.value
+            self.record_behavior("anomaly_action:prepared")
+        except Exception:
+            verdict["resolved_autonomy_ceiling"] = Autonomy.SHADOW_ONLY.value
+            verdict["reason"] = "anomaly_action_preparation_failed"
+            self.record_behavior("anomaly_action:preparation_held")
+
+    async def _resolve_anomaly_action(self, event: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+        """Replace action-like anomaly input only with a current server-resolved candidate."""
+        event_type = str(event.get("event_type") or "")
+        source = self._anomaly_action_sources.get(event_type)
+        if source is None:
+            return event, False
+        bounded = {
+            key: value
+            for key, value in event.items()
+            if key
+            not in {
+                "action_type",
+                "params",
+                "workflow_action",
+                "operator_initiated",
+                "initiator_principal",
+                "anomaly_action_evidence",
+            }
+        }
+        try:
+            if event.get("producer_principal") != "Heimdall":
+                raise ValueError("anomaly candidate requires the observer-owned signal")
+            async with asyncio.timeout(5):
+                candidate = await source.resolve(
+                    event_type=event_type,
+                    resource_ref=str(event.get("resource_id") or ""),
+                )
+            now = self._test_context_clock()
+            if (
+                candidate is None
+                or candidate.event_type != event_type
+                or candidate.resource_ref != event.get("resource_id")
+                or not candidate.observed_at <= now < candidate.expires_at
+            ):
+                raise ValueError("anomaly action candidate is unavailable or no longer current")
+            bounded.update(
+                action_type=candidate.action_type,
+                params=candidate.arguments(),
+                human_approval_required=True,
+                initiator_principal="Heimdall",
+                detected_at=candidate.observed_at.isoformat(),
+                anomaly_action_evidence={
+                    "evidence_ref": candidate.evidence_ref,
+                    "observed_at": candidate.observed_at.isoformat(),
+                    "expires_at": candidate.expires_at.isoformat(),
+                },
+            )
+            self.record_behavior("anomaly_action:resolved")
+            return bounded, False
+        except Exception:
+            self.record_behavior("anomaly_action:held")
+            return bounded, True
 
     async def _attach_test_context(self, event: dict[str, Any], verdict: dict[str, Any]) -> None:
         if self._test_context_source is None:

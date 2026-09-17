@@ -107,7 +107,12 @@ _THOR = AgentSpec(
     ),
     executes=(),  # dispatches; specific action executors bind per ActionType
     initiates=(),
-    subscribes=("object.verdict", "object.approval", "object.rollback"),
+    subscribes=(
+        "object.verdict",
+        "object.approval",
+        "object.rollback",
+        "object.recovery-effect-observation",
+    ),
     question_domains=("action_status", "execution_history_recent"),
     owns_code_paths=("services/core-control-plane/src/fdai/agents/thor.py",),
 )

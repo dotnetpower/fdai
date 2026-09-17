@@ -30,7 +30,7 @@ The pantheon is a thin re-framing of the existing FDAI control loop into named o
 - **Single-writer, multi-reader topics.** Each object type has exactly one publishing owner agent; anyone may subscribe (§6.1).
 - **Judge is not the executor.** Forseti judges and Var carries authorized non-expired approval. Thor rechecks the authority ceiling, Saga receipt, stable idempotency reservation, and owner-fenced distributed resource claim before execution; restart ambiguity stays `execution_unknown`.
 - **Pantheon fixed upstream.** The 15-agent set, org chart, and role assignments are locked. Forks customize configured seams (§10), never add, remove, or rename agents.
-- **Repository layout preserves the boundary.** Named agents live in [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents); shared runtime machinery stays in private `_framework`. External callers import only `fdai.agents`, as the layout test enforces.
+- **Repository layout preserves the boundary.** Named agents live in [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents); shared runtime machinery stays in private `_framework`. External callers import only `fdai.agents`, as the layout test enforces. Runtime composition uses explicitly exported callback types from the owning agent module; exporting a type grants no topic, observation, approval, or execution authority. Heimdall's action-observation relay and Thor's `ActionRun` state and effect-closure mechanics use focused private helpers; these helpers own no `AgentSpec`, topic, approval, or execution authority.
 ## 2. Organization chart
 
 Thor (operations) and Forseti (judgment) report to Odin. Four governance staff have independent dotted reporting lines to Odin.
@@ -45,6 +45,17 @@ Var and Saga preserve stable document HIL idempotency, and Saga persists gated a
 Workflow requests preserve bounded `workflow_action` lineage, including a positive attempt number, through Huginn, Forseti, and Thor. Thor preserves an action identifier only when the Verdict supplies one, never invents it from correlation, and uses an authority-free `_framework` helper for bounded ActionRun lineage validation.
 A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan. Forseti resolves it through an injected source and preserves the same Verdict-to-ActionRun path after strict validation. Lineage and proposals provide attribution and evidence only, never change quorum, mode, judgment, approval, or execution authority. Norns proposes to Mimir; Odin arbitrates conflicts before judgment.
 Var approval, Vidar recovery, Saga handoff, and Norns learning also preserve durable idempotency and restart state through the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#durable-authority-and-replay).
+
+Registered `AnomalyActionSource` bindings resolve exact Heimdall signals into current, inert
+action candidates for Forseti. Incoming action arguments and human-initiator claims are replaced,
+not trusted. Missing, expired, conflicting, or failed lookups yield empty-action shadow decisions
+with no rule fallback. The decision retains the evidence reference and requires human approval;
+registration grants no package activation, risk exemption, promotion, or execution authority.
+Before publishing a registered action decision, Forseti invokes its source's optional
+`AnomalyActionPreparer` to retain the original Action. Missing or failed preparation lowers the
+decision to shadow; successful preparation supplies the original Action ID and can only lower
+mode or increase quorum. A read-only durable approval reader checks Var's exact ActionRun-bound
+record and current independent human eligibility without calling Var or creating a decision.
 
 Var's pending ticket data lives beside its durable decision records in private `var_decisions`.
 The public `PendingHilTicket` and `PendingShadowReview` imports remain available from Var with
@@ -318,7 +329,7 @@ Each consumer closes its subscription inside its own task, so the broker adapter
 | object.capacity-forecast | Freyr | Forseti |
 | object.capacity-graduation-recommendation | Freyr | Forseti |
 | object.evidence-conflict | Heimdall | Muninn, Saga |
-| object.recovery-effect-observation | Heimdall | `recovery-effect-observer` (independent recovery post-effect observation intake) |
+| object.recovery-effect-observation | Heimdall | `recovery-effect-observer` (independent recovery post-effect observation intake), Thor (exact verified ActionRun terminalization) |
 | object.prospective-lineage | Forseti | Muninn, Saga |
 | object.chaos-experiment | Loki | Heimdall |
 Partitioning:

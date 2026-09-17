@@ -9,7 +9,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fdai.agents._framework.action_run_identity import action_run_identity_digest
+from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.provider_adapters import StateStoreActionRunStore
+from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.thor import ActionRun, ActionRunState, Thor
 from fdai.shared.contracts.models import Autonomy
@@ -97,6 +99,61 @@ class _FailTerminalSaveStore(_FakeActionRunStore):
         if run.state is ActionRunState.SUCCEEDED:
             raise RuntimeError("injected terminal save failure")
         await super().save(run)
+
+
+async def test_thor_terminalizes_only_exact_independently_verified_action_run() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    thor = Thor(bus=bus)
+    run = ActionRun(
+        correlation_id="correlation-verified",
+        action_type="ops.scale-out",
+        resource_id="resource-1",
+        state=ActionRunState.EXECUTION_UNKNOWN,
+        verdict="hil",
+        action_id="action-1",
+        idempotency_key="action-attempt-1",
+        params={"replica_count": 1},
+    )
+    thor.action_runs[run.correlation_id] = run
+    observation = {
+        "schema_version": "1.0.0",
+        "event_type": "action.execution.effect_verified.v1",
+        "producer_principal": "Heimdall",
+        "correlation_id": run.correlation_id,
+        "idempotency_key": "effect-1",
+        "resource_id": run.resource_id,
+        "action_id": run.action_id,
+        "action_type": run.action_type,
+        "action_idempotency_key": run.idempotency_key,
+        "params": run.params,
+        "effect_verification_ref": "sha256:" + "a" * 64,
+        "execution_closure_ref": "sha256:" + "b" * 64,
+        "observed_at": "2026-09-17T00:00:00+00:00",
+    }
+
+    with pytest.raises(ValueError, match="exact ActionRun"):
+        await thor.on_typed_message(
+            "object.recovery-effect-observation",
+            {**observation, "action_id": "action-other"},
+        )
+    assert run.state is ActionRunState.EXECUTION_UNKNOWN
+
+    await thor.on_typed_message("object.recovery-effect-observation", observation)
+
+    assert run.state is ActionRunState.SUCCEEDED
+    assert run.outcome == "independent_effect_verified"
+    assert run.effect_verification_ref == observation["effect_verification_ref"]
+    assert run.execution_closure_ref == observation["execution_closure_ref"]
+    terminal = bus.messages_on("object.action-run")[-1].payload
+    assert terminal["state"] == "succeeded"
+    assert terminal["operational_success"] is True
+    assert terminal["effect_verification_status"] == "verified"
+    assert (
+        ActionRun.from_dict(run.to_dict()).effect_verification_ref
+        == observation["effect_verification_ref"]
+    )
+    await thor.on_typed_message("object.recovery-effect-observation", observation)
+    assert len(bus.messages_on("object.action-run")) == 1
 
 
 def test_action_run_dict_round_trip() -> None:

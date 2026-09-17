@@ -19,6 +19,10 @@ browser = ["playwright>=1.51,<2"]
 fdai-aks-commerce-assess = "fdai_aks_commerce.cli:main"
 fdai-aks-commerce-analyze = "fdai_aks_commerce.acceptance_runtime:main"
 
+[project.entry-points."fdai.acceptance_recovery"]
+aks-commerce = "fdai_aks_commerce.acceptance_runtime:build_recovery_bindings"
+aks-commerce-closure = "fdai_aks_commerce.acceptance_runtime:build_closure_store"
+
 [build-system]
 requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"

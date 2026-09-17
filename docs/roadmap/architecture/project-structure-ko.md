@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 8abb622a990d2c503a4ddc782f29d7a7aa9b46f0
+translation_source_sha: 9196c0b2f6b898fec81703d2080c7db29c6d135b
 translation_revised: 2026-09-17
 ---
 # 프로젝트 구조
@@ -11,7 +11,7 @@ translation_revised: 2026-09-17
 물리적인 서비스 workspace는 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md)이 소유합니다. 이 문서는 의존성 방향, 구조 게이트, 확장 seam, 컨트롤 루프 배선, 구성 및 저장소
 규칙을 소유합니다. 비공개 composition 타입 모듈은 강제 크기 상한 아래로 유지합니다. 따라서 새 바인딩은 검토 가능한 상태를 유지하고, 공유 컨테이너가 두 번째 루트가 되기 전에 목적별 wire 모듈로 이동합니다. 사례 이력 검토는 비활성
 학습 후보를 제안하기 전에 실패 근거와 일치하는 컨트롤 근거를 모두 요구합니다. Workflow 승인 단계는 no-self-approval invariant를 낮출 수 없습니다. 컨트랙트가 카탈로그 로드 시점에 비활성화된 값을 거부합니다.
-에이전트 동작 강화는 다시 생성된 원본 약속값을 통해서만 System Knowledge에 유입되며, 카탈로그 변환 결과는 판단, 복구, 게시 또는 실행 권한을 얻지 않습니다.
+에이전트 동작 강화는 다시 생성된 원본 약속값을 통해서만 System Knowledge에 유입되며, 카탈로그 변환 결과는 판단, 복구, 게시 또는 실행 권한을 얻지 않습니다. 원본 약속값을 다시 생성해도 레코드 payload나 운영 근거의 시각은 바뀌지 않습니다.
 Saga는 변경 전에 각 인계를 런타임 `StateStore`에서 점유하고 작업 인식 이슈 어댑터를 요구하므로,
 배포되는 `StateStoreIssueTrackerAdapter`가 이슈 및 작업 결과를 재시작 후에도 영속화합니다.
 따라서 재시도나 재시작은 외부 댓글을 중복 생성하거나 materialize한 이슈를 잃지 않고 검증된

@@ -7,6 +7,7 @@ from typing import cast
 
 from fdai.agents._framework import factory
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
+from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
 from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn
@@ -107,6 +108,7 @@ def bind_operational_agents(
     capacity_graduation_controller: CapacityGraduationController | None,
     test_context_source: TestContextSource | None = None,
     test_context_admission: DecisionEvidenceAdmissionProvider | None = None,
+    anomaly_action_sources: dict[str, AnomalyActionSource] | None = None,
 ) -> None:
     """Replace baseline instances only when runtime bindings are available."""
 
@@ -157,6 +159,7 @@ def bind_operational_agents(
         operational_context=operational_context_materializer,
         test_context_source=test_context_source,
         test_context_admission=test_context_admission,
+        anomaly_action_sources=anomaly_action_sources,
         operational_planner=operational_planner,
         kinetic_proposal_source=kinetic_proposal_source,
         prospective_lineage_finalizer=prospective_lineage_finalizer,
