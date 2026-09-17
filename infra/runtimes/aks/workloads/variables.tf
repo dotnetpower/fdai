@@ -9,6 +9,25 @@ variable "namespace" {
   default     = "fdai-runtime"
 }
 
+variable "executor_external_scale_targets" {
+  description = "Explicit existing namespaces and exact Deployment names eligible for Thor-owned scale-only RBAC. Empty by default; requires separate plan approval and revocation."
+  type        = map(set(string))
+  default     = {}
+  nullable    = false
+
+  validation {
+    condition = length(var.executor_external_scale_targets) <= 16 && alltrue([
+      for namespace, names in var.executor_external_scale_targets :
+      can(regex("^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$", namespace)) &&
+      namespace != var.namespace && namespace != "default" && !startswith(namespace, "kube-") &&
+      length(names) >= 1 && length(names) <= 16 && alltrue([
+        for name in names : can(regex("^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$", name))
+      ])
+    ])
+    error_message = "External scale targets require up to 16 non-system, non-runtime namespaces with 1 to 16 exact DNS-label Deployment names each."
+  }
+}
+
 variable "tenant_id" {
   description = "Microsoft Entra tenant used for workload identity."
   type        = string

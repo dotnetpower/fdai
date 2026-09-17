@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 9e6a58789e0690a43a3ec18ab11771a2859b7375
+translation_source_sha: 5bcaeda1f720cb26971f42a82ead7b58cca3ad6b
 translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
@@ -253,6 +253,29 @@ Executor 실행 권한 전환을 활성화하지 않습니다.
 각 FDAI 워크로드는 현재 user-assigned Managed Identity를 유지합니다. AKS에서는 namespace에 속한
 Kubernetes ServiceAccount가 federated identity credential을 받습니다. 권한이 높은 Executor 신원은
 Console, Operator Service, 작업 또는 다른 워크로드와 공유하지 않습니다. 선택적 dev operations gateway는 reader와 executor identity를 분리합니다. 태그 canary는 FDAI 애플리케이션 리소스 그룹의 `Tag Contributor`만 사용하며 reader 접근은 사전 점검, 쓰기 후 확인 및 rollback 확인을 담당합니다. ActionType 버전을 변경하면 두 convergence 테스트의 기대값을 포함한 정확한 ontology 및 Cost Governance 프로파일 pin을 다시 생성하지만 package를 활성화하지는 않습니다. 이 역할은 `remediate.tag-add`를 승격하지 않으며 배포와 ActionType 승격에는 각각 별도 승인이 필요합니다. Kubernetes 효과 경로를 구성하면 namespace Role 하나를 격리된 실행기 ServiceAccount에만 연결하고 Pod `get` 및 `delete`, Deployment `get` 및 `patch`, Deployment scale `get` 및 `update`만 허용합니다. 클러스터 전체 변경, 리소스 생성, secret 접근 또는 읽기 전용 인벤토리 작업 권한은 부여하지 않습니다. 런타임 구성은 자격 증명을 포함하지 않고 클러스터 내부 API 원점, 투영된 자격 증명 경로, 정확한 AKS 리소스 ID 및 `fdai-runtime` namespace 허용 목록을 연결합니다.
+
+### 외부 Deployment의 정확한 확장 대상
+
+워크로드 루트는 기존 네임스페이스와 비어 있지 않은 정확한 Deployment 이름 집합을 연결하는
+선택적 `executor_external_scale_targets` 입력을 받습니다. 기본값은 빈 목록입니다. 각 항목은
+해당 네임스페이스에 Role과 RoleBinding을 하나씩 생성하며, FDAI 런타임 네임스페이스의 기존
+격리 실행기 ServiceAccount에만 연결합니다. 이는 다른 에이전트가 아니라 Thor의 실행
+런타임입니다. Role은 이름이 지정된 Deployment의 `get`과 `deployments/scale`의 `get`,
+`update`만 허용합니다. Pod, Secret, ConfigMap, 생성, 삭제, 와일드카드 또는 클러스터 전체
+권한은 추가하지 않습니다.
+
+계획 단계에서는 시스템, 기본 및 런타임 네임스페이스, 비어 있거나 너무 큰 대상 집합,
+배포된 실행기의 명시적인 Direct API 허용 목록에 없는 네임스페이스를 거부합니다. 대상
+네임스페이스와 워크로드는 이미 존재해야 하며, 이 입력으로 생성하거나 관리 대상으로
+가져오지 않습니다. RBAC 권한은 합산되므로 최소 권한이라고 주장하기 전에 적용 가능한
+다른 권한 연결도 모두 확인해야 합니다. 현재 대상 UID와 리소스 버전, 승인된 복제본 수,
+대상 잠금, 승격, 사람 승인, 롤백 및 독립적인 효과 관찰은 계속 런타임 요구 사항입니다.
+
+이 입력은 정확히 검토된 워크로드 계획에 속합니다. 로컬 런타임 권한을 바꾸거나 실행기 허용
+목록을 자동으로 넓히거나 클러스터를 선택하거나 자격 증명을 제공하거나 스스로 권한을 적용하지
+않습니다. 소스 실행 호출부 연결과 대상이 확정된 통제된 적용은 별도의 배포 작업입니다. 권한
+부여에는 검토된 수명 주기와 회수 절차가 필요합니다. Kubernetes RBAC에는 기본 만료 기능이
+없으므로 이 모듈만으로 시간 제한이 있는 권한 부여를 증명하지는 않습니다.
 
 다섯 기본 서비스는 `AZURE_FEDERATED_TOKEN_FILE`이 선언되면 Azure Identity SDK의 워크로드
 자격 증명을 선택합니다. 투영된 토큰 경로는 절대 경로여야 하고 tenant와 client 식별자는

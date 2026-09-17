@@ -41,6 +41,14 @@ run "workload_security_baseline" {
 
   assert {
     condition = (
+      length(kubernetes_role_v1.executor_external_scale) == 0 &&
+      length(kubernetes_role_binding_v1.executor_external_scale) == 0
+    )
+    error_message = "External scale permissions must remain absent without explicit target selection."
+  }
+
+  assert {
+    condition = (
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].image == var.workloads.example.image &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].image_pull_policy == "Always" &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].security_context[0].read_only_root_filesystem &&
@@ -95,4 +103,135 @@ run "reject_malformed_digest" {
   }
 
   expect_failures = [var.workloads]
+}
+
+run "external_scale_exact_name_and_thor_subject" {
+  command = plan
+
+  variables {
+    executor_external_scale_targets = { "example-shop" = ["order-service"] }
+    workloads = {
+      isolated-executor = merge(var.workloads.example, {
+        component = "isolated-executor"
+        environment = {
+          FDAI_EXECUTION_VENUE = "deployed"
+          FDAI_KUBERNETES_DIRECT_API_JSON = jsonencode({
+            allowed_namespaces = ["example-shop"]
+          })
+        }
+      })
+    }
+  }
+
+  assert {
+    condition = (
+      length(kubernetes_role_v1.executor_external_scale) == 1 &&
+      kubernetes_role_v1.executor_external_scale["example-shop"].metadata[0].namespace == "example-shop" &&
+      length(kubernetes_role_v1.executor_external_scale["example-shop"].rule) == 2 &&
+      alltrue([
+        for rule in kubernetes_role_v1.executor_external_scale["example-shop"].rule :
+        toset(rule.api_groups) == toset(["apps"]) &&
+        toset(rule.resource_names) == toset(["order-service"]) &&
+        (
+          (toset(rule.resources) == toset(["deployments"]) && toset(rule.verbs) == toset(["get"])) ||
+          (toset(rule.resources) == toset(["deployments/scale"]) && toset(rule.verbs) == toset(["get", "update"]))
+        )
+      ])
+    )
+    error_message = "Only named Deployment reads and scale updates may be granted in the selected namespace."
+  }
+
+  assert {
+    condition = (
+      kubernetes_role_binding_v1.executor_external_scale["example-shop"].metadata[0].namespace == "example-shop" &&
+      kubernetes_role_binding_v1.executor_external_scale["example-shop"].role_ref[0].kind == "Role" &&
+      length(kubernetes_role_binding_v1.executor_external_scale["example-shop"].subject) == 1 &&
+      kubernetes_role_binding_v1.executor_external_scale["example-shop"].subject[0].name == "isolated-executor" &&
+      kubernetes_role_binding_v1.executor_external_scale["example-shop"].subject[0].namespace == var.namespace
+    )
+    error_message = "Only Thor's existing runtime ServiceAccount may receive the external Role."
+  }
+}
+
+run "reject_external_scale_without_allowlist" {
+  command = plan
+
+  variables {
+    executor_external_scale_targets = { "example-shop" = ["order-service"] }
+    workloads = {
+      isolated-executor = merge(var.workloads.example, {
+        component = "isolated-executor"
+        environment = {
+          FDAI_EXECUTION_VENUE = "deployed"
+          FDAI_KUBERNETES_DIRECT_API_JSON = jsonencode({
+            allowed_namespaces = ["other-shop"]
+          })
+        }
+      })
+    }
+  }
+
+  expect_failures = [kubernetes_role_v1.executor_external_scale]
+}
+
+run "reject_external_scale_for_local_runtime" {
+  command = plan
+
+  variables {
+    executor_external_scale_targets = { "example-shop" = ["order-service"] }
+    workloads = {
+      isolated-executor = merge(var.workloads.example, {
+        component = "isolated-executor"
+        environment = {
+          FDAI_EXECUTION_VENUE = "local"
+          FDAI_KUBERNETES_DIRECT_API_JSON = jsonencode({
+            allowed_namespaces = ["example-shop"]
+          })
+        }
+      })
+    }
+  }
+
+  expect_failures = [kubernetes_role_v1.executor_external_scale]
+}
+
+run "reject_empty_external_scale_names" {
+  command = plan
+  variables {
+    executor_external_scale_targets = { "example-shop" = [] }
+  }
+  expect_failures = [var.executor_external_scale_targets]
+}
+
+run "reject_wildcard_external_scale_name" {
+  command = plan
+  variables {
+    executor_external_scale_targets = { "example-shop" = ["*"] }
+  }
+  expect_failures = [var.executor_external_scale_targets]
+}
+
+run "reject_system_external_scale_namespace" {
+  command = plan
+  variables {
+    executor_external_scale_targets = { "kube-system" = ["order-service"] }
+  }
+  expect_failures = [var.executor_external_scale_targets]
+}
+
+run "reject_implicit_default_scale_namespace" {
+  command = plan
+  variables {
+    executor_external_scale_targets = { "default" = ["order-service"] }
+  }
+  expect_failures = [var.executor_external_scale_targets]
+}
+
+run "reject_runtime_as_external_scale_namespace" {
+  command = plan
+  variables {
+    namespace                       = "example-runtime"
+    executor_external_scale_targets = { "example-runtime" = ["order-service"] }
+  }
+  expect_failures = [var.executor_external_scale_targets]
 }

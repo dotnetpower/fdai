@@ -240,6 +240,28 @@ Each FDAI workload keeps its current user-assigned Managed Identity. On AKS, one
 Kubernetes ServiceAccount receives one federated identity credential. The privileged Executor
 identity is never shared with the console, Operator Service, jobs, or other workloads. The optional dev operations gateway keeps reader and executor identities separate: tag canaries grant only `Tag Contributor` on the FDAI application resource group, while reader access covers preflight, post-write verification, and rollback confirmation. Versioning the ActionType refreshes exact ontology and Cost Governance profile pins, including both convergence-test expectations, without activating the package. This role does not promote `remediate.tag-add`; deployment and ActionType promotion remain separate approvals. When Kubernetes effect routing is configured, one namespace Role binds only to the isolated Executor ServiceAccount and permits Pod `get` and `delete`, Deployment `get` and `patch`, and Deployment scale `get` and `update`. It grants no cluster-wide mutation, resource creation, secret access, or inventory-job permission. The runtime binds the in-cluster API origin, projected credential paths, exact AKS resource ID, and `fdai-runtime` namespace allowlist without embedding a credential.
 
+### Exact external Deployment scaling
+
+The workload root accepts `executor_external_scale_targets`, an opt-in map from an existing
+namespace to a non-empty set of exact Deployment names. Its default is empty. Each entry creates
+one Role and RoleBinding in that namespace, bound only to the existing isolated Executor
+ServiceAccount in the FDAI runtime namespace. This is Thor's execution runtime, not another agent.
+The Role permits only named Deployment `get` and named `deployments/scale` `get` and `update`.
+It adds no Pod, Secret, ConfigMap, creation, deletion, wildcard, or cluster-wide permission.
+
+Planning rejects system, default, and runtime namespaces, empty or oversized target sets, and
+namespaces absent from the deployed Executor's explicit direct-API allowlist. The target namespace
+and workloads must already exist; this input does not create or adopt them. RBAC is additive, so
+effective access still requires readback of all other applicable bindings before a least-privilege
+claim. Current target UID and resource version, approved replica count, target lock, promotion,
+human approval, rollback, and independent effect observation remain runtime requirements.
+
+The input belongs to the exact reviewed workload plan. It never changes local runtime authority,
+automatically widens the Executor allowlist, selects a cluster, supplies credentials, or applies
+permissions by itself. Source-mode caller wiring and a governed target-bound apply remain separate
+deployment work. Grants require the reviewed lifecycle and revocation procedure; Kubernetes RBAC
+has no native expiry, so this module alone does not prove a time-bound grant.
+
 The five baseline services select the Azure Identity SDK's workload credential when
 `AZURE_FEDERATED_TOKEN_FILE` is declared. The projected token path must be absolute, tenant and
 client identifiers must be valid, and the federated client must match the service's explicitly
