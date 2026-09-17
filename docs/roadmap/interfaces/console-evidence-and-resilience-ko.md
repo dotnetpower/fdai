@@ -1,11 +1,11 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 69ccd0db2b3776e13024b776dff0aa13a06df525
+translation_source_sha: f0a73f5917fc247aa0ad767609e490d0abf8afc8
 translation_revised: 2026-09-17
 ---
 # 콘솔 근거 및 복원력
-이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다. 지식 전체 현황은 [클라우드 참조 수명 주기](cloud-resource-knowledge-lifecycle-ko.md)의 날짜, 가장 제한적인 출처 최신성, 정확한 바이트의 패키지 검토와 확인된 롤백 요청을 표시합니다. 반입이나 색인 검증 대기를 검색 활성화로 표시하지 않으며 원본 URL은 표시용으로 유지합니다. 만료된 정책은 이력을 숨기지 않고 쓰기 작업을 차단합니다. 대소문자를 구분하지 않는 JSON 파일명 검사는 파일 형식만 검증하며 대화 의도를 해석하지 않습니다.
+이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다. 지식 전체 현황은 [클라우드 참조 수명 주기](cloud-resource-knowledge-lifecycle-ko.md)의 날짜, 가장 제한적인 출처 최신성, 정확한 바이트의 패키지 검토와 확인된 롤백 요청을 표시합니다. 원본 상태와 오프라인 패키지 접수를 분리하고, 신뢰 자료를 받지 않으면서 배포에서 관리하는 설정을 안내하며, 거부된 읽기 전용 검사는 다시 시도할 수 있게 유지하되 불확실한 쓰기는 권위 있는 상태를 다시 불러오게 합니다. 반입이나 색인 검증 대기를 검색 활성화로 표시하지 않으며 원본 URL은 표시용으로 유지합니다. 만료된 정책은 이력을 숨기지 않고 쓰기 작업을 차단합니다. 대소문자를 구분하지 않는 JSON 파일명 검사는 파일 형식만 검증하며 대화 의도를 해석하지 않습니다.
 ## 탐색 컨텍스트
 활동 Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째 visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며, full-workspace Deck은 경로가 변경되기 전에 닫힙니다. 현재 화면 Command Deck을 여는 브라우저 근거는 `Overview`와 같은 일반 패널에서 시작합니다. `Settings`는 모달 오버레이를 소유하므로 뒤쪽의 실행 버튼을 누르는 컨텍스트로 사용하지 않습니다.
 좌측 메뉴의 대화 버튼은 경로나 탐색 패널을 바꾸지 않고 일반 대화를 열거나 이어갑니다. `aria-pressed` 상태는 일반 대화만 나타냅니다. 하단 버튼과 `Ctrl+K` 또는 `/`는 현재 화면의 별도 대화를 엽니다. 일반 대화는 전체 작업 영역, 화면 대화는 우측 패널이 기본값입니다. 마우스를 올리거나 키보드 포커스를 주면 좌측 툴팁은 오른쪽에, 하단 툴팁은 위쪽에 표시하며 참고 맥락과 실제 열기 또는 닫기 동작을 안내합니다. 초안 보존과 명시적 화면 추가는 [대화 수명 주기](operator-console-progressive-conversations-ko.md#command-deck-작업-영역-수명-주기)에서 정의합니다.
