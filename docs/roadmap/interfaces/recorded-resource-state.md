@@ -143,6 +143,37 @@ that cursor, so it receives every newer marker without rereading the generation 
 A legacy response without a cursor receives the current marker and may reread once rather than
 silently missing a generation.
 
+## Bounded automatic recovery
+
+The read API preserves the legacy `ontology_generation_changed` conflict and adds a bounded
+reason: `ontology_projection_missing`, `ontology_generation_pending`, or
+`ontology_release_mismatch`. No diagnostic contains resource identities or grants authority.
+Missing and pending projections may recover; a release mismatch requires deployment review,
+not automatic version changes. Unknown failures and authentication or authorization denials
+never become a recovery signal.
+
+The existing inventory coordinator invokes its shared ontology observer's recovery before a new collection under its normal
+single-writer lock. It replays only the retained active generation through the existing history,
+journal, and atomic projection fences, with a 60-second deadline. Failure blocks further promotion;
+it cannot advance a manifest alone, reset a cursor, or create provider observations. Recovery
+completion requires the committed manifest to match the active generation and selected release.
+An incomplete source remains explicitly degraded and permits the existing fresh-collection path,
+not a recovery-success claim. Contradictory completion fences require review instead of replay.
+The API and browser never start a job, write state, restart a workload, or change access grants.
+
+Dashboard initial recovery uses a three-minute total budget, bounded retry delays, and one
+in-flight traversal. It presents synchronization status rather than raw conflict text. A prior
+complete snapshot may remain only for the same client identity, with its original evidence time
+and an explicit delayed-refresh state. Release mismatch or budget exhaustion ends automatic
+recovery and presents an actionable unavailable state; authentication and unexpected failures
+retain their existing error boundary. Recovery success replaces the entire snapshot only after
+all pages pass their generation and authority checks. These contracts apply equally to local,
+AKS, and Container Apps execution.
+
+Design review rejected browser-triggered writes, unlimited retries, cross-generation page reuse,
+and treating a successful collection as proof of ontology publication. The revised design reuses
+the current projection owner and requires independent readback before reporting recovery.
+
 ## Unified state ingestion and readers
 
 Resource discovery establishes identity and configuration. A separate reviewed state enricher may

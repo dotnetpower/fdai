@@ -435,5 +435,6 @@ export interface ApiError {
   readonly error: {
     readonly status: number;
     readonly message: string;
+    readonly reason?: unknown;
   };
 }
