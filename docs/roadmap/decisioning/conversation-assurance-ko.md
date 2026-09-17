@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: cfce17f126e6c19a2810b09673dd28262f5db5c3
-translation_revised: 2026-09-15
+translation_source_sha: 227b099f008d983a1d64529a6b0999ca112d8f55
+translation_revised: 2026-09-17
 ---
 # 대화 품질 보증
 
@@ -133,11 +133,12 @@ $$
 생명주기 상태를 저장합니다. 제한 없는 대화 본문, 숨은 reasoning 또는 도구 출력을 복제하지
 않습니다.
 
-최종 intake는 exact 검증 사유, 경로 id, evidence-manifest 완전성, 온톨로지
-release 및 그래프 개정 번호가 있으면 함께 보존합니다. 결정론적 평가는 모든 검증되지 않은
-답변을 하나의 범용 등급으로 축약하지 않고 실패 서명에 exact 사유를 포함합니다. 따라서
-프로바이더, 맥락, 라우팅, 렌더링, 정책, 룰, 온톨로지, Dynamic 실패가 서로의 recurrence
-하한을 충족하지 않습니다.
+최종 intake는 exact 검증 사유, 경로 id, evidence-manifest 완전성, 온톨로지 release 및 그래프
+개정 번호가 있으면 함께 보존합니다. 결정론적 평가는 실패 서명에 exact 사유를 포함하여 관련
+없는 실패 등급이 서로의 recurrence 하한을 충족하지 못하게 합니다.
+
+의미 평가자는 모델 계열에 맞는 완료 필드를 선택합니다. GPT-5 계열 요청은 `max_completion_tokens`를 사용하고 샘플링 temperature를 생략합니다. 연결, HTTP 상태 및 잘못된 응답 실패는 `provider_connection`, `provider_http_429`, `provider_response_invalid`와 같이 범위가 제한된 ASCII 사유 코드로 변환됩니다.
+집약기는 프로바이더 응답 내용을 보존하지 않고 이 코드를 평가 보류까지 유지합니다. 알 수 없는 예외는 예외 텍스트를 원장에 복사하지 않고 범위가 제한된 타입 이름으로 대체합니다.
 
 Ontology-owned 실패는 별도 `OntologyAdequacyReview`를 열 수 있습니다. 첫 런타임 구획은
 hold-first입니다. StateStore에 멱등적 shadow 검토를 기록하지만 재생 성공을 주장하거나

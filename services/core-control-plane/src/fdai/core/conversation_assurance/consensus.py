@@ -108,7 +108,7 @@ class MixedFamilyAssuranceReviewer:
             completed = tuple(result for result in results if isinstance(result, EvaluatorOutput))
             return (
                 _inconclusive(
-                    f"evaluator_error:{type(exc).__name__}",
+                    _evaluator_error_reason(exc),
                     outputs=completed,
                     failure_profile_evidence=_failure_profile_evidence(results),
                 ),
@@ -146,7 +146,7 @@ class MixedFamilyAssuranceReviewer:
         except Exception as exc:  # noqa: BLE001 - bounded tie-break fails closed
             return (
                 _inconclusive(
-                    f"tie_breaker_error:{type(exc).__name__}",
+                    _evaluator_error_reason(exc, prefix="tie_breaker_error"),
                     outputs=primary_outputs,
                     failure_profile_evidence=_failure_profile_evidence((exc,)),
                 ),
@@ -296,6 +296,22 @@ def _failure_profile_evidence(
         for result in results
         if isinstance(result, PromptRequestBudgetExceededError)
     )
+
+
+def _evaluator_error_reason(exc: Exception, *, prefix: str = "evaluator_error") -> str:
+    reason_code = getattr(exc, "assurance_reason_code", None)
+    if (
+        isinstance(reason_code, str)
+        and 1 <= len(reason_code) <= 64
+        and reason_code.isascii()
+        and reason_code[0].isalpha()
+        and all(
+            character.islower() or character.isdigit() or character == "_"
+            for character in reason_code
+        )
+    ):
+        return f"{prefix}:{reason_code}"
+    return f"{prefix}:{type(exc).__name__}"
 
 
 __all__ = ["MixedFamilyAssuranceReviewer"]

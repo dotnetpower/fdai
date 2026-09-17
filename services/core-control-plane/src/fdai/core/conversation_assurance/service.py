@@ -164,10 +164,12 @@ class ConversationAssuranceCoordinator:
             )
         if deterministic.verdict is not None:
             reasons = deterministic.reasons
-            semantic_holds = tuple(
-                reason for reason in decision.reasons if _is_deferred_reason(reason)
+            semantic_reasons = (
+                decision.reasons
+                if not semantic_review_valid
+                else tuple(reason for reason in decision.reasons if _is_deferred_reason(reason))
             )
-            reasons = (*reasons, *semantic_holds)
+            reasons = (*reasons, *semantic_reasons)
             decision = replace(
                 decision,
                 verdict=deterministic.verdict,

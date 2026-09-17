@@ -154,7 +154,7 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   Core validates the requested case against the fixed server census, Bragi produces the single
   terminal answer, and the off-path distinct-family reviewers append the correlated 30-point
   diagnostic. Ordinary `operations-review` turns continue through the existing semantic runtime, which exposes an immutable snapshot of registered function authorities to readiness consumers. Schema-validated judgment can recover only generic typed frames whose canonical subjects and facets match the active manifest. Golden certification binds the exact expected terminal posture, and the Operator envelope preserves the requested locale before Core planning.
-  Historical `context_locale_scorecard.py` remains a compatibility-only re-export.
+  The Azure evaluator adapter selects family-compatible completion fields and reduces connection, HTTP status, and invalid-response failures to bounded content-free reason codes. Core validates and preserves those codes through semantic reduction and held assessment merging without inspecting provider response content or granting provider authority. Historical `context_locale_scorecard.py` remains a compatibility-only re-export.
   The repository CLI parses content-free samples and never converts a trace commitment into a
   complete-trace claim. The adjacent `quality_trace.py` reducer accepts only record commitments and
   proves completeness from the exact ordered session-to-audit chain; it performs no provider read
