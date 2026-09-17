@@ -25,6 +25,11 @@ from fdai.delivery.persistence.postgres_idempotency import PostgresIdempotencySt
 from fdai.shared.contracts.models import Severity
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
+from fdai_service_contracts.venue import (
+    ExecutionVenue,
+    bus_security_protocol,
+    resolve_execution_venue,
+)
 from pydantic import TypeAdapter
 
 from fdai_aks_commerce.acceptance import OrderAcceptanceAnalyzer, OrderAcceptanceIntent
@@ -136,7 +141,8 @@ async def run_acceptance_tick(environment: Mapping[str, str] | None = None) -> A
     """Run a deployed read-only job; missing identity, storage or bus configuration fails closed."""
     env = environment if environment is not None else os.environ
     config = AcceptanceRuntimeConfig.from_json(env.get("FDAI_AKS_ACCEPTANCE_JSON", ""))
-    if env.get("FDAI_EXECUTION_VENUE") != "deployed":
+    venue = resolve_execution_venue(env)
+    if venue is not ExecutionVenue.DEPLOYED:
         raise RuntimeError("acceptance publication requires the deployed observer venue")
     for name in (
         "FDAI_STATE_STORE_DSN",
@@ -155,7 +161,7 @@ async def run_acceptance_tick(environment: Mapping[str, str] | None = None) -> A
             identity=identity,
             config=EventHubsKafkaBusConfig(
                 bootstrap_servers=env["KAFKA_BOOTSTRAP_SERVERS"],
-                security_protocol="SASL_SSL",
+                security_protocol=bus_security_protocol(venue),
             ),
         )
         try:
@@ -180,7 +186,21 @@ async def run_acceptance_tick(environment: Mapping[str, str] | None = None) -> A
 
 def main() -> int:
     """Expose count-only tick status; raw observations and credentials never reach stdout."""
-    report = asyncio.run(run_acceptance_tick())
+    try:
+        report = asyncio.run(run_acceptance_tick())
+    except Exception:
+        print(
+            json.dumps(
+                {
+                    "event": "aks_commerce.acceptance_tick_failed",
+                    "reason": "tick_unavailable",
+                    "failed": True,
+                    "execution_authority": False,
+                },
+                sort_keys=True,
+            )
+        )
+        return 1
     result: dict[str, Any] = {
         "targets": report.targets,
         "findings": report.findings,

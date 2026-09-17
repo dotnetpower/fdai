@@ -157,6 +157,8 @@ shared publication ledger and finding receipt store, never an in-memory producti
 Missing configuration or evidence fails readiness. Deployment must still provide the independent
 receipt issuer, authenticated probe collection, trust lifecycle, least-privilege database grants,
 and job scheduling; an installed command alone does not establish a live observation loop.
+The entry point uses the shared venue and bus-security resolver. Startup or provider failures
+return a nonzero status with a fixed unavailable reason, never raw provider diagnostic text.
 
 Repeated failed acceptance with zero desired and ready replicas and no ready service endpoints
 produces `aks_commerce.order_acceptance_unavailable`. A separate inert `ops.scale-out` candidate

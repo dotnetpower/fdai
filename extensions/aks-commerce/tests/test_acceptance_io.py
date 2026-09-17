@@ -418,6 +418,22 @@ def test_runtime_rejects_missing_or_unknown_config(raw: str) -> None:
         AcceptanceRuntimeConfig.from_json(raw)
 
 
+def test_cli_failure_does_not_disclose_provider_diagnostics(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from fdai_aks_commerce.acceptance_runtime import main
+
+    async def failed_tick() -> None:
+        raise RuntimeError("provider-private-diagnostic")
+
+    monkeypatch.setattr("fdai_aks_commerce.acceptance_runtime.run_acceptance_tick", failed_tick)
+    assert main() == 1
+    captured = capsys.readouterr()
+    assert "provider-private-diagnostic" not in captured.out + captured.err
+    assert '"failed": true' in captured.out
+
+
 @pytest.mark.parametrize("revoked", [True, None, "false"])
 async def test_revocation_unknown_or_true_denies(revoked: object) -> None:
     store, verifier, _ = await _receipt()
