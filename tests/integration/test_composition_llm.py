@@ -154,14 +154,23 @@ def test_local_fake_container_never_imports_delivery_azure_llm() -> None:
     """The local-fake path MUST not pull the AOAI adapters into memory."""
     import sys
 
-    # Purge cached modules first (safe: we re-import as needed).
-    for mod in list(sys.modules):
-        if mod.startswith("fdai.delivery.azure.llm"):
-            sys.modules.pop(mod, None)
-    default_container(_config(mode=LlmMode.LOCAL_FAKE))
-    assert "fdai.delivery.azure.llm" not in sys.modules
-    assert "fdai.delivery.azure.llm.embeddings" not in sys.modules
-    assert "fdai.delivery.azure.llm.cross_check" not in sys.modules
+    cached_modules = {
+        name: module
+        for name, module in sys.modules.items()
+        if name.startswith("fdai.delivery.azure.llm")
+    }
+    try:
+        for name in cached_modules:
+            sys.modules.pop(name, None)
+        default_container(_config(mode=LlmMode.LOCAL_FAKE))
+        assert "fdai.delivery.azure.llm" not in sys.modules
+        assert "fdai.delivery.azure.llm.embeddings" not in sys.modules
+        assert "fdai.delivery.azure.llm.cross_check" not in sys.modules
+    finally:
+        for name in tuple(sys.modules):
+            if name.startswith("fdai.delivery.azure.llm"):
+                sys.modules.pop(name, None)
+        sys.modules.update(cached_modules)
 
 
 # ---------------------------------------------------------------------------

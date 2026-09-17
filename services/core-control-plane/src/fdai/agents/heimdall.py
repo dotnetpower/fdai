@@ -824,6 +824,7 @@ class Heimdall(
 
 __all__ = [
     "Heimdall",
+    "ActionObservationHook",
     "AlerterHook",
     "IncidentCandidateHook",
     "ReadInvestigationHook",

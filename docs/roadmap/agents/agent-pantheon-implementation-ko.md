@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: befd82de061854873f9a003c004b481b5d06e48c
-translation_revised: 2026-09-16
+translation_source_sha: b7cc46ef240d3972018b686f64aa22dff6c0ad78
+translation_revised: 2026-09-17
 ---
 
 # 에이전트 판테온 구현 계획
@@ -37,6 +37,7 @@ translation_revised: 2026-09-16
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-17 | implemented | 통합 과정에서 strict typing 불일치가 드러난 기존 `ActionObservationHook`을 Heimdall의 명시적 공개 export에 복원했습니다. 역할, 토픽, 관측 동작 및 권한은 바뀌지 않았습니다. | `current change`; `heimdall.py`; 프레임워크 레이아웃 검사; 대상 strict mypy. | 운영 검증을 추론하지 않으며 기존 실제 효과 종료 작업을 유지합니다. |
 | 2026-09-16 | implemented | 주기적 런타임 스냅샷이 활성 handler 상태를 보존하고 서로 독립적인 에이전트 레코드 15개를 동시에 게시하도록 했습니다. 느린 Event Hubs 왕복 하나가 모든 새로 고침을 직렬로 지연하지 않습니다. 역할, topic, 판단 및 권한은 바뀌지 않았습니다. | `current change`; `delivery/agent_activity.py`; `runtime/bootstrap_pantheon.py`; 에이전트 활동, 런타임 종료, 인벤토리, 분석기 및 관측 집중 검사 260개 통과, strict mypy와 Ruff 통과. | 배포된 활동 근거를 보존합니다. 초기 전체 인벤토리 Rule 평가와 현재 점검 결과 요약은 [이슈 #1199](https://github.com/dotnetpower/fdai/issues/1199)에서 추적합니다. |
 | 2026-09-15 | implemented | 예측 기반 구현의 CI 등록 누락을 보완하고 Mimir 컨텍스트 처리, Muninn Pattern 읽기, Heimdall 이력 수신, Forseti 준비 상태 기록을 전용 framework 보조 모듈로 옮겼습니다. 역할, 소유 토픽, 제한된 대기 시간, 권한은 바뀌지 않았습니다. | `current change`; [PR #1029](https://github.com/dotnetpower/fdai/pull/1029); 분리 경로 집중 검사 234개, 근거 허용 경로 검사 316개, 구조 회귀 검사 55개, 실제 루프백 PostgreSQL 검사 3개, strict mypy와 Ruff 통과. | 보호된 CI와 병합은 대기 중이며 예측 후속 작업은 이슈 #1021부터 #1026에 남아 있습니다. |
 | 2026-09-15 | implemented | Rebase 뒤 Var의 공개 대기 티켓 유형을 보호된 main과 일치시키고 기존 배정 검토 바인딩을 집중 배정 작업 흐름 helper로 이동했습니다. | `current change`; 레이아웃, 배정 및 Wave 3 집중 검사 125개 통과, strict mypy, Ruff 및 enforced LOC 통과. | 승인, 배정, 역할 또는 권한 동작은 바뀌지 않았으며 기록된 Low 심각도 잔여 문제를 해결합니다. |
