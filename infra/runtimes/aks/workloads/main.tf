@@ -685,6 +685,8 @@ resource "kubernetes_network_policy_v1" "workload" {
 resource "kubernetes_service_v1" "workload" {
   for_each = var.workloads
 
+  wait_for_load_balancer = each.value.external
+
   metadata {
     name      = each.key
     namespace = kubernetes_namespace_v1.runtime.metadata[0].name
@@ -695,7 +697,7 @@ resource "kubernetes_service_v1" "workload" {
     selector = { "app.kubernetes.io/name" = each.key }
     type     = each.value.external ? "LoadBalancer" : "ClusterIP"
     port {
-      port        = each.value.port
+      port        = coalesce(each.value.service_port, each.value.port)
       target_port = each.value.port
     }
   }

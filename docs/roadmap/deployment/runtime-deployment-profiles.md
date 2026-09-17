@@ -63,6 +63,33 @@ or enables enforcement mode. After installation, the Console groups environment 
 and deployment. The readiness view is the default; deployment evidence is a separate tab. Neither view starts or retries `fdaictl`, runs Terraform, or acquires
 deployment authority. The original `/onboarding` and `/provisioning` routes remain compatibility entry points.
 
+### AKS browser access
+
+The default AKS profile uses this browser path:
+
+```text
+Browser -> Static Web Apps -> API Management -> AKS LoadBalancer Service -> Pod
+```
+
+Static Web Apps hosts the prebuilt Console. API Management (APIM) provides the public HTTPS API
+edge: the Operator API is routed at the APIM origin root, and Document Ingestion is routed at
+`/ingestion`. The Kubernetes Services listen on port 80 and forward to the existing container port.
+The workload state owns APIM because its backend addresses come from those Services. The shared
+substrate does not create Azure Front Door for this path.
+
+APIM does not replace Microsoft Entra authentication. The APIs continue to validate token issuer,
+audience, lifetime, and App Roles. Cross-origin resource sharing (CORS) accepts only the exact
+Static Web Apps origin. When Azure Policy attaches a network security group to the AKS subnet, the
+workload plan permits TCP port 80 only for the exact public Service frontend addresses. APIM
+Consumption has no fixed outbound address that can be used as the source rule.
+
+After the approved application plan converges, `fdaictl provision azure` reads the SWA and APIM
+bindings from their owning Terraform states, adds the exact SWA redirect to the existing Entra SPA
+registration, and publishes the signed kit's prebuilt Console. Tenant provisioning does not run an
+npm build. Completion requires remote artifact hashes, SPA route fallback, both API health checks,
+the exact-origin authorization preflight, an unauthenticated `401` from `/audit`, and an Entra
+redirect to the configured Console origin.
+
 ### Defaults and validation
 
 | Setting | Validation | Recommended value |
@@ -91,7 +118,7 @@ planning. The error reports the requested and allocatable quantities without exp
 Connected deployments for both runtime profiles boot the managed host from an exact Azure
 Marketplace Ubuntu version and install the checksum-pinned toolchain during Foundation. They do
 not build or require a dedicated managed-host image. Artifact-offline deployments can still select a separately verified prebuilt host image when bootstrap downloads are unavailable.
-After application convergence, the managed host invokes the Core inventory entry point in explicit `--initial` mode, bypassing only the recurring due-time gate. It uses the already authenticated deploy identity for full-subscription ARG/ARM reads and immutable progress writes, then starts a separate read-only closure process. The recurring runtime schedule and its workload identity remain unchanged; the bootstrap path grants no ongoing deployment authority to the inventory workload. Presentation and integration contracts account for this as the sixteenth phase and for `provisioning-events` as the third private Foundation container; older additive receipt doubles may omit `inventory_ready` without being interpreted as ready.
+After application convergence, the managed host invokes the Core inventory entry point in explicit `--initial` mode, bypassing only the recurring due-time gate. It uses the already authenticated deploy identity for full-subscription ARG/ARM reads and immutable progress writes, then starts a separate read-only closure process. The recurring runtime schedule and its workload identity remain unchanged; the bootstrap path grants no ongoing deployment authority to the inventory workload. Presentation and integration contracts account for this as the sixteenth phase and for `provisioning-events` as the third private Foundation container; older additive receipt doubles may omit `inventory_ready` without being interpreted as ready. After an initial or recurring scan projects a complete promoted generation, the focused `inventory_ontology_observer.py` delivery module publishes one retry-stable Resource observation Event per Resource to the existing control-loop topic while the CLI remains composition-only. Forseti remains the rule judge, Saga remains the audit owner, and an incomplete projection or publication failure cannot satisfy inventory closure or create execution authority.
 
 Tenant provisioning consumes prebuilt service and dependency images only. A complete release's
 closed dependency-image set includes both ClamAV and pgvector; neither can be omitted from the
@@ -156,7 +183,9 @@ coordinator can complete the baseline. The workload state then reads the approve
 issuer and uses an owner-only kubeconfig on the deployment host.
 The Terraform scanner exceptions for this public baseline are resource-local and name the explicit
 CIDR allowlist, Microsoft Entra RBAC, disabled local accounts and VNet Integration controls. It
-does not suppress other AKS findings or certify the later private transition.
+does not suppress other AKS findings or certify the later private transition. The APIM Consumption
+exceptions additionally name its lack of VNet integration, independent API authentication and
+exact-origin CORS, and the port 80 rule's two exact LoadBalancer destination addresses.
 Database and application preparation both convert that owner-only kubeconfig with
 [`kubelogin` managed identity authentication](https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication)
 using `--login msi` and the exact managed-host client ID. Credential acquisition pins the
@@ -226,8 +255,9 @@ Health readback requires that complete set, current observed generations, ready 
 running Pod image digests from the same source revision. Empty, duplicate, stale, malformed, or
 partially healthy responses are unavailable, not success. The expected set must contain all five
 baseline services; a renderer that omits one cannot redefine a partial rollout as complete.
-This readback does not establish Kafka
-round trips, scheduled-job success, Console authentication, or full deployment readiness.
+This workload readback does not establish Kafka round trips, scheduled-job success, Console
+authentication, or full deployment readiness. The separate browser publication gate verifies the
+Console and API edge after workload convergence.
 The workload factory binds Operator, isolated Executor, Document API and Document Worker to
 `fdai_operator`, `fdai_executor`, `fdai_ingestion_api` and `fdai_ingestion_worker`, respectively,
 through `FDAI_DATABASE_ROLE` and matching `PGOPTIONS`. It leaves the caller's environment unchanged.

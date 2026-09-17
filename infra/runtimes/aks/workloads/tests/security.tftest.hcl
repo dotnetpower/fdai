@@ -18,6 +18,7 @@ variables {
       cpu                  = "500m"
       memory               = "1Gi"
       port                 = 8010
+      service_port         = 80
       readiness_path       = "/ready"
       liveness_path        = "/health"
       environment          = {}
@@ -78,6 +79,14 @@ run "workload_security_baseline" {
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].volume[1].empty_dir[0].size_limit == "1Gi"
     )
     error_message = "Sidecars must stay digest-pinned, health-checked, read-only, and limited to declared writable volumes."
+  }
+
+  assert {
+    condition = (
+      kubernetes_service_v1.workload["example"].spec[0].port[0].port == 80 &&
+      kubernetes_service_v1.workload["example"].spec[0].port[0].target_port == "8010"
+    )
+    error_message = "A public Service port may differ from its immutable container target port."
   }
 }
 

@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: d043c217a8dc309afd4ab089adf2b607ddee7ccb
+translation_source_sha: 8825bc7d0f274990e065010e9ea7a15035b62524
 translation_revised: 2026-09-17
 ---
 # 운영 배포 강화
@@ -23,6 +23,7 @@ translation_revised: 2026-09-17
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 사전 빌드 전용 테넌트 이미지 공급 | in-progress | 서명 키트, OCI 검증, ACR 반입 및 digest 재확인은 존재하며 소스 및 Genesis 이미지 builder는 남아 있음 | 운영 테넌트 프로비저닝은 release에서 빌드하고 서명한 이미지를 사용해야 하며 이미지를 빌드하거나 캡처하지 않습니다. 기존 builder 경로 제거와 집중 회귀 검사가 필요합니다. |
 | 운영 계획 gate 및 환경 knob | implemented | `infra/production-gates.tf`, `infra/envs/{staging,prod}.tfvars.example`, Terraform 구성 테스트 | 서명된 이미지, 비공개 네트워크, 내구성, 모니터링 또는 비용 입력이 없으면 운영 계획을 차단합니다. 표준 프로파일은 전역 이름을 사용하는 리소스를 영구 삭제하고 관리 잠금을 비활성화합니다. |
 | 수동 운영 실행 경계 | implemented | 배포 CLI manual 프로필, standalone Managed Host 모듈, 집중 패키지 테스트 | 공개 workflow dispatch를 제거했습니다. 실제 운영 근거는 남아 있습니다. |
 | 자격 증명 없는 인프라 및 drift gate | implemented | `.github/workflows/ci.yml`, `.github/workflows/infra-drift.yml`, 안정적인 배포 신원 도우미, 실행기 상태 스크립트, CI 계약 테스트 | 필수 CI는 자격 증명 없이 모든 Terraform 루트를 검증합니다. 보호된 workflow는 bootstrap이 소유한 UAMI 하나를 선택하고 token `oid`를 검증합니다. 구독 역할 위임은 서비스 주체용 읽기 역할 3개로 제한됩니다. Drift 검사는 모든 상태 root를 다루며 상태 누락, 예상하지 않은 실행기 저장소 또는 로컬이 아닌 배치를 거부합니다. |
@@ -47,6 +48,7 @@ translation_revised: 2026-09-17
 | 2026-09-17 | implemented | recovery plan이 provider에서 정상으로 관찰된 Log Analytics workspace 교체를 제안한 뒤 값이 없는 Terraform replacement path 진단을 추가했습니다. 보호된 plan은 모든 delete 또는 replacement를 계속 차단하며 이제 before 또는 after 값 없이 resource 주소와 강제 교체 field path만 보고합니다. | 차단된 protected plan `35160189503`, provider readback의 `Succeeded`, `PerGB2018` 및 30일 retention, `current change`, 집중 scenario-lab 및 workflow 검사 | 진단을 게시하고 새로운 exact plan을 실행한 뒤 workspace를 삭제하지 않고 식별된 field를 조정합니다. |
 | 2026-09-17 | implemented | candidate runner가 필수 명령인 `kubectl` 없이 요청 검증 단계에 도달한 뒤 scenario-lab workflow에 checksum으로 고정된 `kubectl` bootstrap을 추가했습니다. Workflow는 offline deployment kit가 이미 소유한 `1.31.14` binary와 SHA-256을 재사용하고 runner 임시 저장소에만 설치하며 Azure 인증 또는 plan 전에 client를 검증합니다. | 실패한 protected recovery plan `35130727585`, `current change`, `.github/workflows/sre-demo-lab.yml`, `stage-offline-kit.sh`, 집중 scenario-lab 및 workflow 검사 | 수정한 workflow를 게시하고 기존 partial scenario state에 대해 새로운 exact recovery plan을 생성합니다. |
 | 2026-09-17 | implemented | 승인된 실제 apply에서 Azure network interface 쓰기에 HTTP 429가 발생한 뒤 scenario-lab 생성 apply의 동시 실행을 Terraform 작업 2개로 제한했습니다. 실패한 시도는 워크로드 준비 전에 중단됐고, 범위가 제한된 readback에서 partial state를 확인했으며, recovery plan은 update 또는 delete 작업 0개를 유지했습니다. | 실패한 protected apply `35123919441`, Azure Activity Log의 `Microsoft.Network/networkInterfaces/write` 상태 `429`, `current change`, `.github/workflows/sre-demo-lab.yml`, 집중 scenario-lab 및 workflow 검사 | 수정한 workflow를 게시하고 partial state에 대해 새로운 exact recovery plan을 생성한 뒤 성공한 apply와 DNS 및 워크로드 준비 근거를 보존합니다. |
+| 2026-09-16 | in-progress | 테넌트 측 런타임 및 Genesis 이미지 생성 지침을 사전 빌드 서명 release 이미지 검증과 변경 없는 digest 미러링으로 교체했습니다. | `current change`, 문서 및 배포 스킬 계약만 변경했으며 구현은 그대로입니다. | 테넌트 이미지 builder와 복구 경로를 제거하고 운영 배포가 검증된 미러 또는 반입과 배포 digest 재확인만 수행함을 입증합니다. |
 | 2026-09-17 | implemented | 결정론적인 Azure 제공 `cloudapp.azure.com` hostname을 통해 일회용 Store Demo에 브라우저로 직접 접속할 수 있게 했습니다. Renderer는 `store-front`만 공개합니다. 준비 단계는 Load Balancer 주소를 기다리고 정확한 DNS 해석 및 HTTP 상태를 검증한 다음 보호된 workflow 요약에 검증된 URL을 게시합니다. | `current change`, `.github/workflows/sre-demo-lab.yml`, `infra/scenario-lab/`, `scripts/deployment/scenario-lab/`, `tests/integration/infra/test_scenario_lab.py`, 집중 scenario-lab, Terraform, workflow 및 문서 검사 | exact protected apply를 실행하여 DNS, Load Balancer 및 HTTP 상태 관찰을 보존하고 승인된 데모 기간 후 endpoint를 제거합니다. |
 | 2026-09-17 | implemented | 생성된 NGINX 장애 대상을 공식 AKS Store Demo로 교체했습니다. 준비 단계는 변경할 수 없는 upstream manifest 하나를 검증하고, image 참조 10개를 검토된 multi-platform digest로 바꾸고, 공개 Service를 `ClusterIP`로 변경하며, 기존 10개 시나리오 모음을 `order-service` replica 3개에 연결합니다. | `current change`, `.github/workflows/sre-demo-lab.yml`, `infra/scenario-lab/`, `scripts/deployment/scenario-lab/`, `tests/integration/infra/test_scenario_lab.py`, 집중 scenario-lab, formatting, Terraform, workflow 및 문서 검사 | 실제 검증을 주장하기 전에 exact protected apply를 실행하여 Store Demo 준비 상태와 image readback을 보존하고, 별도로 승인된 참조 시나리오 모음을 실행합니다. |
 | 2026-09-13 | implemented | 실제 fail-closed apply에서 자체 `az version` 검사가 금지된 root Azure CLI 프로파일을 다시 생성한 사실을 확인한 뒤 Genesis runner-image 검증기를 수정했습니다. 이제 검증기는 전용 임시 Azure CLI 구성을 사용하고 제거한 다음 captured image에 자격 증명 아티팩트가 없는지 확인합니다. | 이슈 #94에 보존된 실패한 승인 runner-image apply, `current change`, `infra/genesis-runner-image/main.tf`, Terraform runner-image 계약 테스트 | 새 서명 키트를 게시하고 별도로 검토한 exact plan을 만든 뒤 실패한 apply claim을 재사용하지 않고 captured image를 검증합니다. |
@@ -96,6 +98,8 @@ translation_revised: 2026-09-17
 - [ ] 잠금이 해제된 해체 프로파일, 비공개 네트워킹, PostgreSQL 내구성, 신뢰할 수 있는 이미지
   다이제스트, 알림, 모니터링 및 비용 예산을 함께 입증하고 차단된 부정 계획 하나를 포함하는
   exact-revision 보호 운영 계획 및 적용 증적을 보존합니다.
+- [ ] 테넌트 측 서비스 및 배포 호스트 이미지 builder를 제거하고 사전 빌드 서명 release
+  매니페스트를 요구하며, 운영 배포가 이미지 빌드 또는 캡처 도구를 호출하지 않음을 입증합니다.
 - [ ] Key Vault, Cognitive Services, Log Analytics 및 리소스 그룹에 대해 보호된 비운영 destroy와
   동일 이름 재생성 증적을 보존합니다.
 - [ ] 필수 CI가 green이면 관련 없는 destroy가 0인 UAMI 역할 이행 계획과 검토된 VM 크기,
@@ -178,22 +182,21 @@ soft-delete 상태의 리소스는 이름이 해제되기 전에 명시적인 �
 
 ## 신뢰할 수 있는 이미지 출처
 
-공개 레지스트리 egress가 없는 테넌트는
-`--build-arg BASE_IMAGE_REGISTRY=<internal-mirror>`로 런타임 이미지를 빌드합니다. 움직이는 것은
-레지스트리 호스트뿐이고 base 이미지 다이제스트는 `Dockerfile`에 pin된 채로 남습니다. 따라서
-미러는 바이트의 출처를 바꿀 수 있어도 어떤 바이트가 수락되는지는 바꿀 수 없습니다. Base
-이미지가 둘 중 하나라도 잃으면 `scripts/quality/ci/check-ci-contracts.py`가 빌드를 실패시킵니다.
-같은 계약은 허용된 base 이미지에 남은 취약 버전보다 최신인 보안 갱신 런타임 라이브러리도 고정합니다.
+공개 레지스트리 송신 경로가 없는 테넌트는 사전 빌드 release 이미지를 승인된 내부 레지스트리로
+미러링합니다. release 매니페스트는 전체 이미지 digest, 출처, SBOM 및 소스 버전을 고정합니다.
+미러는 바이트의 위치를 바꿀 수 있지만 수락할 바이트를 바꿀 수 없습니다. 테넌트 프로비저닝은
+Docker, Buildx, ACR Tasks, 원격 builder 또는 VM 이미지 캡처를 실행하지 않습니다. 계획 전에
+미러 digest를 검증하고 rollout 뒤 실행 중인 Pod digest를 다시 확인합니다.
 
 서명된 배포 번들은 추출 후에도 일반 소스 파일을 실행 불가능 상태로 유지합니다. 초기화,
 정책, 마이그레이션 및 공개 경로 호출자는 인증된 소스를 고정된 신뢰할 수 있는 인터프리터로만
 시작합니다. 실행 비트를 광범위하게 복원하거나 신뢰할 수 없는 주변 경로에서 인터프리터를
 선택하지 않습니다.
 
-Genesis 이미지 빌더는 두 Firewall 공개 IP의 테넌트 정책 추가 `ip_tags`만 외부 소유로
-처리합니다. 두 IP 모두에서 태그가 없거나 `FirstPartyUsage=/Unprivileged`인 동일 상태만
-허용하고, 독립 ARM 재확인으로 그 밖의 모든 값을 거부하며, 이미지 증적을 게시하기 전에
-새로 실행한 변경 없음 Terraform 계획을 요구합니다.
+기존 Genesis 이미지 builder와 잔여 복구 경로는 제거 대상입니다. 연결된 배포는 정확한
+Marketplace 호스트와 checksum 고정 bootstrap을 사용하고, 아티팩트 오프라인 배포는 별도로
+게시한 사전 빌드 호스트 이미지를 사용할 수 있습니다. 두 경로 모두 테넌트 배포 실행에서 호스트
+이미지를 만들거나 캡처하지 않습니다.
 
 ## 비공개 데이터 서비스
 

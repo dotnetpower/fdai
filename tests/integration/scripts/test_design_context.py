@@ -55,6 +55,24 @@ def test_required_context_composes_every_matching_route() -> None:
     assert "docs/roadmap/interfaces/operator-console.md" in required
 
 
+def test_subscription_genesis_model_context_stays_path_focused() -> None:
+    module = _load_module()
+    llm_strategy = "docs/roadmap/architecture/llm-strategy.md"
+    genesis_design = "docs/roadmap/deployment/subscription-genesis-provisioning.md"
+
+    standalone_context = module.required_context(
+        ("packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py",)
+    )
+    resolver_context = module.required_context(
+        ("services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver.py",)
+    )
+
+    assert genesis_design in standalone_context
+    assert genesis_design in resolver_context
+    assert llm_strategy not in standalone_context
+    assert llm_strategy in resolver_context
+
+
 def test_required_validation_composes_and_deduplicates_matching_routes() -> None:
     module = _load_module()
 

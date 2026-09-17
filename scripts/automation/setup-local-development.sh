@@ -137,7 +137,7 @@ opa_version_from_core_image() {
 install_system_packages() {
   sudo apt-get update
   sudo apt-get install -y \
-    build-essential ca-certificates curl git gnupg ripgrep \
+    build-essential ca-certificates curl git gnupg ripgrep shellcheck \
     tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor \
     docker.io docker-compose-v2
   sudo systemctl enable --now docker
@@ -282,6 +282,7 @@ run_checks() {
 
   check "build tools" bash -c 'command -v make >/dev/null && command -v gcc >/dev/null && command -v g++ >/dev/null'
   check "ripgrep" rg --version
+  check "ShellCheck" shellcheck --version
   check "Tesseract English" bash -c 'tesseract --list-langs 2>/dev/null | grep -Fxq eng'
   check "Tesseract Korean" bash -c 'tesseract --list-langs 2>/dev/null | grep -Fxq kor'
   check "Docker CLI" docker --version

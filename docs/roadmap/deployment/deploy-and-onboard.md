@@ -20,23 +20,18 @@ The production deployer permission boundary is owned by
 ### Azure Prerequisites
 
 - Region with confirmed availability of every service in the inventory below.
-- Confirmed quota headroom (Container Apps cores, Event Hubs throughput units, PostgreSQL
-  vCores, Key Vault operations).
+- Confirmed quota headroom (AKS node-family and regional vCPUs, Event Hubs throughput units,
+  PostgreSQL vCores, Key Vault operations).
 - Diagnostic Settings destination (Log Analytics workspace) - new or existing; ownership TBD.
-- **Private networking (policy-locked tenants).** Tenants that enforce private data services set
-  `enable_private_networking = true`: the deploy provisions a VNet, private endpoints, and linked
-  private DNS for Key Vault, both Event Hubs namespace shards, and public-mode PostgreSQL. Event
-  Hubs public access is disabled. The public-mode PostgreSQL endpoint is additive and preserves the
-  existing server; `enable_private_postgres = true` remains the separate delegated-subnet mode.
-  The deploy also binds the Container App Environment to a delegated infrastructure subnet and
-  locks Key Vault to private access. Because a private-only vault is unreachable from an operator laptop,
-  `terraform apply` MUST then run from the manual managed deployment host with VNet line-of-sight
-  to the endpoint (the executor writes the DSN secrets from there).
-  ACR is locked the same way when `acr_sku = "Premium"`: the registry loses public network
-  access and receives a `privatelink.azurecr.io` endpoint whose zone group registers the
-  login-server and data-endpoint records. Private link is Premium-only, so a Basic or Standard
-  registry deliberately stays public - closing it without a private path would break every
-  image pull. Prod already requires Premium. Reviewed configuration baselines follow the same private runner boundary: the protected Core service plan carries only an exact content-addressed Blob binding, Core reads it through Managed Identity, and post-apply verification independently compares that immutable Blob with a fresh Azure Resource Graph observation.
+- **Staged private networking.** Basic deployment creates AKS Standard with API Server VNet
+  Integration, dedicated workload and API-server subnets, and authenticated restricted public
+  management access. It does not require VNet peering, private endpoints, private DNS or
+  private-cluster mode unless subscription policy requires them from the first effect. After
+  baseline Console health passes, `/provisioning` can request those changes through a separate
+  exact plan. The protected executor establishes and verifies peering, routes, DNS, TLS, identity,
+  private endpoints and registry access before disabling a public path. The browser never runs
+  Terraform or receives deployment credentials. A policy-locked tenant instead uses an eligible
+  internal host and the exact private plan during basic deployment; policy is never weakened.
 
 #### What Terraform does not create
 
@@ -266,22 +261,22 @@ today's realization of each contract. Concrete tier values, exact names, region,
 replica caps are still **deployment-specific** and tuned per environment; the shape is stable.
 | # | Resource | Tier | Purpose | Notes |
 |---|----------|------|---------|-------|
-| 1 | **Container Apps environment** | Consumption | shared serverless compute host | one environment shared by the core app and scheduled jobs; realizes the [Runtime contract](../architecture/csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest) |
-| 2 | **Container Apps** (five independent services) | Core remains at `minReplicas: 1`; Operator, Ingestion API, Processing Worker, and Isolated Executor scale by their service contracts | the completed topology separates Core, Operator, ingestion, processing, and execution ownership | Isolated Executor is the only effect-capable service; see the [compute shape](#compute-shape-current-core-and-five-service-target) |
-| 3 | **Container Apps Job** | Consumption | scheduled probes, exact-scope WARA shadow assessment, and out-of-band change detection | replaces Azure Functions; shares the environment |
+| 1 | **AKS Standard cluster** | System and user node pools sized by the approved profile | default compute host for new installations | API Server VNet Integration, workload identity, Azure Policy, managed Key Vault CSI, and dedicated workload/API-server subnets are part of the basic profile. |
+| 2 | **Kubernetes workloads** (five independent services) | Two replicas per long-running baseline service until measured scaling changes the profile | separates Core, Operator, ingestion, processing, and execution ownership | Typed `Deployment`, `Service`, `ServiceAccount`, HPA, PDB and `NetworkPolicy` resources use prebuilt signed image digests. Isolated Executor is the only effect-capable service. |
+| 3 | **Kubernetes CronJobs** | Profile-bounded schedules and concurrency | scheduled probes, exact-scope WARA shadow assessment, and out-of-band change detection | Each job uses a dedicated workload identity and bounded history, retry and active deadline. |
 | 4 | **Event Hubs namespace shards** | 2 x Standard (1 TU, auto-inflate off) | Kafka-wire event bus (endpoints on `:9093`) | Primary owns governed ingress, DLQs, HIL, and stages. Operational owns canary + DLQ, the dedicated synthetic startup round-trip, raw inventory, Executor command + DLQ, and Executor receipt entities. Core receives the operational bootstrap endpoint and startup topic through deployment configuration. |
 | 5 | **Event Grid inventory system topic + subscription + Diagnostic Settings** | global subscription event delivery / Log Analytics | send resource writes/deletes to `fdai.inventory.raw` and platform diagnostics to the workspace | Terraform adopts one tracked topic with Azure's canonical lowercase type, assigns the send-only inventory UAMI, and uses the dedicated system-topic subscription API; ambiguous discovery blocks the plan |
 | 6 | **PostgreSQL Flexible Server** | Dev: Burstable **B1ms**, HA disabled, 7-day backup; prod: zone-redundant HA, 35-day geo backup | audit + KPI + pattern library + **pgvector** T1 embeddings, single store | Terraform allowlists `vector` and `pg_trgm`; production requires `ZoneRedundant` HA; local Compose uses the same Alembic-owned `vector` extension without a separate bind-mounted initializer |
-| 7 | **Key Vault** | Standard | secret backend consumed via **Container Apps native secret + Key Vault reference** - realizes the [Secret contract](../architecture/csp-neutrality.md#3-secret-contract--environment--k8s-secret) | Premium (HSM) not required; app never calls a secret SDK |
+| 7 | **Key Vault** | Standard | secret backend synchronized through the **managed Key Vault CSI provider + workload identity** - realizes the [Secret contract](../architecture/csp-neutrality.md#3-secret-contract--environment--k8s-secret) | Premium (HSM) not required; app never calls a secret SDK |
 | 8 | **User-assigned Managed Identity** | - | executor and separately scoped read identities; realizes the [Workload Identity contract](../architecture/csp-neutrality.md#4-workload-identity-contract--oidc-token) | The executor stays action-whitelisted; inventory and RCA use distinct read-only identities. Split-service hydration preserves the disabled default when the optional platform output is absent and otherwise accepts only the platform-exported RCA reader. |
 | 9 | **Log Analytics workspace + Application Insights** | Pay-as-you-go, **30-day default retention** | traces / metrics / logs / audit-forward | an `appi-*` resource binds to the workspace; retention is **UI-configurable** post-deploy |
-| 10 | **Container Registry (ACR)** | Basic (Standard if geo-replication needed later) | signed images + build attestations | pin by digest, never a mutable tag |
+| 10 | **Container Registry (ACR)** | Basic for the public baseline; Premium when private link or network isolation is selected | prebuilt signed images + provenance | tenant deployment mirrors or imports unchanged digests and never builds an image |
 | 11 | **Azure OpenAI accounts + Foundry account/project** (**opt-in**, `var.enable_llm`) | Standard | T1 embedding + T2 mixed-model deployments, plus a dedicated GPT-4.1-nano web-search prompt agent at 100K TPM | Provisioning requires deployer permission and regional family capacity; otherwise the affected capability degrades to **`hil-only`** (see [dev-and-deploy-parity.md § Deployer-Scoped LLM Provisioning](dev-and-deploy-parity.md#deployer-scoped-llm-provisioning)). Terraform creates an Azure OpenAI account only when at least one OpenAI capability resolves; partner-only resolution keeps Foundry without requesting unavailable OpenAI account quota. Foundry project callers receive `Azure AI Developer`. The protected web-search stage keeps its exact domain allowlist and real-tool readiness probe. Private mode adds `privatelink.services.ai.azure.com`; tenant policy owns deny ACL details, which Terraform preserves. |
 | 12 | **ADLS Gen2 document account** (**opt-in**, `enable_document_ingestion`) | StorageV2 Standard ZRS, HNS | private quarantine, immutable governed versions, derived envelopes | Shared Key and public access disabled in private mode; soft delete + lifecycle; `blob` and `dfs` private endpoints |
 | 13 | **Case-history Blob account** (`enable_case_history`) | StorageV2 Standard ZRS | content-addressed prediction/incident case revisions for replay and governed Norns analysis | Shared Key disabled; private container, versioning, change feed, soft delete, bounded old-version lifecycle, Defender scanner private-link access, dedicated case-history UAMI data role, and `blob` private endpoint; the executor MI receives no Blob role |
-| 14 | **Document ingestion Container Apps** (**opt-in**) | Consumption, public API + internal worker with ClamAV | authenticated bounded upload relay plus independently scaled safety scan, extraction, pgvector indexing, and lifecycle events | API, worker, and migration UAMIs are distinct; only the worker receives Event Hubs receive and OCR; neither runtime identity receives executor permissions |
-| 15 | **Operational-history archive + lifecycle Job** (**opt-in**) | Private versioned Blob storage + Consumption scheduled Job | checkpoint, archive, verify, restore-sample, hold, pressure, and database-gated purge coordination | Scheduled execution is shadow-only under the inventory identity; enforce and certify require external receipts, and only certify can reach the database purge gate |
-| 16 | **Control-loop canary Job** | Consumption, every 5 minutes | publishes one idempotent event to `fdai.control.canary` | dedicated UAMI has only ACR pull and Event Hubs send; the core records a no-op audit through a separate consumer path |
+| 14 | **Document ingestion Deployments** (**opt-in**) | Public API + internal worker with ClamAV on AKS | authenticated bounded upload relay plus independently scaled safety scan, extraction, pgvector indexing, and lifecycle events | API, worker, and migration identities are distinct; only the worker receives Event Hubs and OCR access; neither runtime identity receives executor permissions. |
+| 15 | **Operational-history archive + lifecycle CronJob** (**opt-in**) | Private versioned Blob storage + scheduled AKS job | checkpoint, archive, verify, restore-sample, hold, pressure, and database-gated purge coordination | Scheduled execution is shadow-only under the inventory identity; enforce and certify require external receipts, and only certify can reach the database purge gate. |
+| 16 | **Control-loop canary CronJob** | Every 5 minutes | publishes one idempotent event to `fdai.control.canary` | Dedicated workload identity has only ACR pull and Event Hubs send; the Core records a no-op audit through a separate consumer path. |
 | 17 | **Development operations Function App** (**opt-in**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | relays registered read, write, and execute operations from local development to private resources | dev and private-networking only, enforced by a lifecycle precondition and covered by `infra/tests/dev_operations_gateway.tftest.hcl`; terminates a **public** inbound endpoint behind Easy Auth - a developer has to reach it - so it stays off on a closed network; dedicated `/27` subnet, private AAD-only deployment and idempotency storage, Easy Auth, separate reader/executor UAMIs, one-time server-issued mutation plan receipts, and no arbitrary URL, ARM path, command, or query surface |
 | 18 | **OHL scale-out evidence VM Scale Set + proposal Job** (**opt-in**, `enable_ohl_scale_out_evidence_target`) | Uniform `Standard_B1s`, capacity `1`; manual Consumption Job | bounded non-production target and normal-ingress shadow proposal for governed `ops.scale-out` evidence | dev, private networking, and the operations gateway are required; the deployment supplies an exact region-available image version and rejects mutable `latest`; a dedicated `/27` subnet has no public IP; the proposal UAMI has only ACR pull and primary Event Hub send; protected provider staging may increase capacity only to `2` before verified rollback |
 The protected `history-` request mode targets only the operational-history and decision-evidence storage,
@@ -421,11 +416,11 @@ Provisioning is IaC-driven, but the **logical bootstrap order** to a first live 
 honored. Any earlier stage failing halts and unwinds; the deployment does not proceed to a
 later stage with a broken earlier one.
 
-![Bootstrap Sequence. The main stages are Prerequisites resolved, IaC provision core resources, Create executor MI plus scoped role assignments, Deploy signed image to Container Apps in shadow-only, Run alembic upgrade head against the provisioned Postgres, Attach Diagnostic Settings and Kafka topic forwarders, Seed rule catalog with day-zero rule set, Register HIL approvers and ChatOps channel, Run post-deploy smoke tests, System is warm; first real event may arrive.](../../diagrams/generated/fdai-deploy-and-onboard-01.en.svg)
+![Bootstrap Sequence. The main stages are Prerequisites resolved, IaC provision core resources, Create executor MI plus scoped role assignments, Deploy prebuilt signed images to AKS in shadow-only, Run alembic upgrade head against the provisioned Postgres, Attach Diagnostic Settings and Kafka topic forwarders, Seed rule catalog with day-zero rule set, Register HIL approvers and ChatOps channel, Run post-deploy smoke tests, System is warm; first real event may arrive.](../../diagrams/generated/fdai-deploy-and-onboard-01.en.svg)
 
 - **Shadow-only on first deploy**: no rule / action starts in enforce mode, ever. Promotion is
   a separate act ([rule-governance.md](../rules-and-detection/rule-governance.md)).
-- **Migrations MUST run before the first control-loop tick**. The Container App itself does not migrate
+- **Migrations MUST run before the first control-loop tick**. Workload containers do not migrate
   on start (to keep replicas identical + prevent races). CI runs root rollback checks before it
   applies service-owned migrations to an isolated service database, then runs service-dependent
   checks at that service head. Every tracked migration under `alembic/versions/` defines

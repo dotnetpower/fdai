@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: e65979e34846288e4f26ff8c3316aed81192618c
+translation_source_sha: a677bcb6bc023e5ea1f6a9647499dcaf7e54060f
 translation_revised: 2026-09-16
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -23,23 +23,17 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 ### Azure 전제조건
 
 - 아래 인벤토리의 모든 서비스 가용성이 확인된 리전.
-- 확인된 쿼터 헤드룸 (Container Apps 코어, Event Hubs 처리량 단위, PostgreSQL vCore,
-  Key Vault 작업).
+- 확인된 쿼터 헤드룸 (AKS 노드 제품군 및 리전 vCPU, Event Hubs 처리량 단위, PostgreSQL
+  vCore, Key Vault 작업).
 - Diagnostic Settings 목적지 (Log Analytics workspace) - 신규 또는 기존; 소유권 TBD.
-- **비공개 networking (정책 잠금 테난트).** 비공개 데이터 서비스를 강제하는 테난트는
-  `enable_private_networking = true`로 설정합니다. 배포는 Key Vault, 두 Event Hubs 이름 공간
-  샤드 및 public-mode PostgreSQL에 VNet, 비공개 엔드포인트, linked 비공개 DNS를 provision합니다.
-  Event Hubs 공개 접근은 비활성화됩니다. Public-mode PostgreSQL 엔드포인트는 가산이므로 기존
-  서버를 유지하며, `enable_private_postgres = true`는 별도 delegated-subnet 모드로 남습니다.
-  배포는 Container App 환경도 위임 infra 서브넷에 연결하고 금고를 비공개 접근으로
-  잠급니다. Private-only 금고는
-  운영자 laptop에서 도달 불가능하므로, `terraform apply`는 엔드포인트에 VNet 시야가
-  확보된 수동 Managed Host에서 실행해야 합니다. 실행기는 해당 호스트에서 DSN 시크릿을
-  기록합니다. `acr_sku = "Premium"`이면 ACR도 같은 방식으로 잠깁니다. 레지스트리는 공개
-  네트워크 접근을 잃고 `privatelink.azurecr.io` 엔드포인트를 받으며, 영역 그룹이 login-server와
-  data-endpoint 기록을 등록합니다. 비공개 링크는 Premium 전용이므로 Basic 또는 Standard
-  레지스트리는 의도적으로 공개로 남습니다. 비공개 경로 없이 닫으면 모든 이미지 pull이
-  깨지기 때문입니다. Prod는 이미 Premium을 요구합니다. 검토된 구성 기준선도 같은 private 러너 경계를 따릅니다. 보호된 Core 서비스 계획에는 정확한 콘텐츠 주소 기반 Blob 바인딩만 포함하고, Core는 Managed Identity로 읽으며, 적용 후 검증은 변경 불가능한 Blob과 새 Azure Resource Graph 관측값을 독립적으로 비교합니다.
+- **단계별 비공개 네트워크 구성.** 기본 배포는 API Server VNet Integration, 워크로드 및 API
+  서버 전용 서브넷, 인증되고 제한된 공개 관리 접근을 포함한 AKS Standard를 만듭니다. 구독
+  정책이 첫 효과부터 요구하지 않는 한 VNet 피어링, 비공개 엔드포인트, 비공개 DNS 또는 비공개
+  클러스터 모드는 요구하지 않습니다. 기본 Console 상태 검사가 통과하면 `/provisioning`에서
+  이러한 변경의 별도 정확한 계획을 요청할 수 있습니다. 보호된 실행기는 공개 경로를 비활성화하기
+  전에 피어링, 경로, DNS, TLS, 신원, 비공개 엔드포인트와 레지스트리 접근을 구성하고 검증합니다.
+  브라우저는 Terraform을 실행하거나 배포 자격 증명을 받지 않습니다. 정책으로 잠긴 테넌트는 기본
+  배포 중 적합한 내부 호스트와 정확한 비공개 계획을 사용하며 정책을 약화하지 않습니다.
 
 #### Terraform이 만들지 않는 것
 
@@ -267,22 +261,22 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 상한은 여전히 **배포별** 이며 환경마다 튜닝하고 형상은 안정적으로 유지합니다.
 | # | 리소스 | 티어 | 목적 | 노트 |
 |---|--------|------|------|------|
-| 1 | **Container Apps 환경** | Consumption | 공유 서버리스 컴퓨트 호스트 | 코어 앱과 예약 작업이 하나의 환경을 공유하며 [런타임 계약](../architecture/csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트)을 구현합니다. |
-| 2 | **Container Apps** (5개 독립 서비스) | Core는 `minReplicas: 1`을 유지하고 Operator, Ingestion API, Processing Worker, Isolated Executor는 각 서비스 계약에 따라 확장됩니다. | 완료된 토폴로지는 Core, Operator, 수집, 처리, 실행 소유권을 분리합니다. | Isolated Executor만 효과 권한을 보유합니다. [Compute 형태](#compute-형태-현재-core와-5개-서비스-목표)를 참조하세요. |
-| 3 | **Container Apps 작업** | Consumption | 예약 probe, 정확한 범위의 WARA shadow 평가 및 out-of-band 변경 감지 | Azure Functions 대체; 환경 공유 |
+| 1 | **AKS Standard 클러스터** | 승인된 프로파일에 따라 크기를 정한 시스템 및 사용자 노드 풀 | 신규 설치의 기본 컴퓨팅 호스트 | API Server VNet Integration, 워크로드 신원, Azure Policy, 관리형 Key Vault CSI, 워크로드 및 API 서버 전용 서브넷이 기본 프로파일에 포함됩니다. |
+| 2 | **Kubernetes 워크로드** (5개 독립 서비스) | 측정 결과로 확장 구성을 바꾸기 전까지 장기 실행 기본 서비스마다 replica 2개 | Core, Operator, 수집, 처리, 실행 소유권 분리 | typed `Deployment`, `Service`, `ServiceAccount`, HPA, PDB 및 `NetworkPolicy` 리소스가 미리 빌드하고 서명한 이미지 digest를 사용합니다. Isolated Executor만 효과 권한을 보유합니다. |
+| 3 | **Kubernetes CronJob** | 프로파일로 제한한 일정과 동시 실행 | 예약 probe, 정확한 범위의 WARA shadow 평가 및 out-of-band 변경 감지 | 각 작업은 전용 워크로드 신원과 제한된 이력, 재시도 및 active deadline을 사용합니다. |
 | 4 | **Event Hubs 이름 공간 샤드** | Standard 2개 (각 1 TU, auto-inflate off) | Kafka-와이어 이벤트 버스 (`:9093` 엔드포인트) | 기본은 통제된 유입, DLQ, HIL 및 단계를 소유합니다. Operational은 canary + DLQ, 전용 synthetic 시작 round-trip, raw 인벤토리, 실행기 명령 + DLQ 및 실행기 증적 개체를 소유합니다. Core는 배포 구성을 통해 operational 초기화 엔드포인트와 시작 토픽을 받습니다. |
 | 5 | **Event Grid 인벤토리 system 토픽 + 구독 + Diagnostic Settings** | global 구독 이벤트 전달 / Log Analytics | Resource 쓰기/삭제를 `fdai.inventory.raw`로 보내고 플랫폼 진단을 workspace로 보냄 | Terraform은 Azure 정본 lowercase 타입으로 tracked 토픽 하나를 adopt하고 send-only 인벤토리 UAMI를 할당하며 dedicated system-topic 구독 API를 사용합니다. 발견이 모호하면 계획을 차단합니다. |
 | 6 | **PostgreSQL Flexible Server** | Dev: Burstable **B1ms**, HA 비활성, 7일 백업; prod: zone-redundant HA, 35일 geo 백업 | 감사 + KPI + 패턴 라이브러리 + **pgvector** T1 임베딩, 단일 저장 | Terraform은 `vector`와 `pg_trgm`을 허용 목록하고 운영은 `ZoneRedundant` HA를 요구하며, 로컬 Compose는 별도 bind-mounted initializer 없이 같은 Alembic-owned `vector` 확장을 사용합니다. |
-| 7 | **Key Vault** | Standard | **Container Apps native 시크릿 + Key Vault 참조**로 소비되는 시크릿 백엔드 - [시크릿 계약](../architecture/csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) 구현 | Premium (HSM) 불필요; 앱은 시크릿 SDK 호출 안 함 |
+| 7 | **Key Vault** | Standard | **관리형 Key Vault CSI 공급자 + 워크로드 신원**으로 동기화하는 시크릿 백엔드 - [시크릿 계약](../architecture/csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) 구현 | Premium(HSM)은 필요하지 않으며 앱은 시크릿 SDK를 호출하지 않습니다. |
 | 8 | **User-assigned Managed Identity** | - | 실행기와 별도 범위의 읽기 신원, [워크로드 아이덴티티 계약](../architecture/csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰) 구현 | 실행기는 작업 허용 목록을 유지합니다. 인벤토리와 RCA는 서로 다른 읽기 전용 신원을 사용합니다. Split 서비스 hydration은 선택적 platform 출력이 없으면 비활성 기본값을 유지하고, 값이 있으면 platform이 내보낸 RCA reader만 허용합니다. |
 | 9 | **Log Analytics workspace + Application Insights** | Pay-as-you-go, **기본 30일 보존** | traces / metrics / logs / audit-forward | `appi-*` 리소스가 workspace에 바인딩되며 보존은 배포 후 **UI에서 설정 가능** |
-| 10 | **Container Registry (ACR)** | Basic (나중에 geo-replication 필요 시 Standard) | 서명된 이미지 + 빌드 증명 | 다이제스트로 고정, 변경 가능한 태그 절대 아님 |
+| 10 | **Container Registry (ACR)** | 공개 기본 구성은 Basic, Private Link 또는 네트워크 격리 선택 시 Premium | 미리 빌드하고 서명한 이미지 + 출처 | 테넌트 배포는 변경 없는 digest를 미러링하거나 반입하며 이미지를 빌드하지 않습니다. |
 | 11 | **Azure OpenAI 계정 + Foundry 계정/project** (**명시적 선택**, `var.enable_llm`) | Standard | T1 임베딩 + T2 mixed-model 배포 및 100K TPM의 전용 GPT-4.1-nano 웹 검색 프롬프트 에이전트 | 프로비저닝에는 deployer 권한과 리전 계열 용량이 필요하며, 그렇지 않으면 해당 기능이 **`hil-only`**로 강등됩니다. [dev-and-deploy-parity-ko.md § 배포자-스코프 LLM 프로비저닝](dev-and-deploy-parity-ko.md#배포자-스코프-llm-프로비저닝)을 참조하세요. Terraform은 OpenAI 기능이 하나 이상 해석될 때만 Azure OpenAI 계정을 만들며 파트너 전용 해석은 사용할 수 없는 OpenAI 계정 할당량을 요청하지 않고 Foundry를 유지합니다. Foundry project 호출자에는 `Azure AI Developer`를 부여합니다. 보호된 웹 검색 단계는 정확한 도메인 허용 목록과 실제 도구 준비 상태 확인을 유지합니다. 비공개 모드는 `privatelink.services.ai.azure.com`을 추가하며 테넌트 정책이 소유하는 거부 ACL 세부 정보는 Terraform이 보존합니다. |
 | 12 | **ADLS Gen2 문서 계정** (**명시적 선택**, `enable_document_ingestion`) | StorageV2 Standard ZRS, HNS | 비공개 격리 구역, 변경할 수 없는 통제된 버전, derived 묶음 | 비공개 모드에서 Shared Key와 공개 접근 비활성화; soft 삭제 + 수명 주기; `blob`과 `dfs` 비공개 엔드포인트 |
 | 13 | **Case-history Blob 계정** (`enable_case_history`) | StorageV2 Standard ZRS | 재생 및 통제된 Norns 분석용 내용 기반 주소를 가진 prediction/인시던트 사례 개정 번호 | Shared Key 비활성화, 비공개 컨테이너, versioning, 변경 피드, soft 삭제, 범위가 제한된 old-version 수명 주기, Defender scanner private-link 접근, 전용 case-history UAMI 데이터 역할, `blob` 비공개 엔드포인트. 실행기 MI에는 Blob 역할을 부여하지 않습니다. |
-| 14 | **문서 인제스트 Container Apps** (**명시적 선택**) | Consumption, 공개 API + ClamAV를 포함한 내부 워커 | 인증된 범위가 제한된 업로드 중계와 독립적으로 규모되는 안전성 검사, 추출, pgvector 인덱싱, 수명 주기 이벤트 | API, 워커, 이행 UAMI를 분리합니다. 워커만 Event Hubs 수신과 OCR 권한을 받으며 런타임 신원에는 실행기 권한이 없습니다. |
-| 15 | **운영 이력 archive + lifecycle Job** (**명시적 선택**) | 비공개 versioned Blob 저장소 + Consumption 예약 Job | checkpoint, archive, 검증, restore sample, hold, 저장소 압력 및 database gate 기반 purge 조정 | 예약 실행은 inventory identity를 사용하는 shadow-only입니다. Enforce와 certify는 외부 증적을 요구하며 certify만 database purge gate에 도달할 수 있습니다. |
-| 16 | **Control-loop canary 작업** | Consumption, 5분마다 실행 | `fdai.control.canary`에 멱등 이벤트 하나를 게시합니다. | 전용 UAMI에는 ACR pull과 Event Hubs 전송만 있으며, 코어는 별도 소비자 경로에서 no-op 감사를 기록합니다. |
+| 14 | **문서 수집 Deployment** (**명시적 선택**) | AKS의 공개 API + ClamAV를 포함한 내부 워커 | 인증된 범위가 제한된 업로드 중계와 독립적으로 확장하는 안전성 검사, 추출, pgvector 인덱싱 및 수명 주기 이벤트 | API, 워커 및 마이그레이션 신원을 분리합니다. 워커만 Event Hubs와 OCR에 접근하며 런타임 신원에는 실행기 권한이 없습니다. |
+| 15 | **운영 이력 archive + lifecycle CronJob** (**명시적 선택**) | 비공개 versioned Blob 저장소 + 예약 AKS 작업 | checkpoint, archive, 검증, restore sample, hold, 저장소 압력 및 database gate 기반 purge 조정 | 예약 실행은 인벤토리 신원을 사용하는 shadow-only입니다. enforce와 certify는 외부 증적을 요구하며 certify만 database purge gate에 도달할 수 있습니다. |
+| 16 | **Control-loop canary CronJob** | 5분마다 실행 | `fdai.control.canary`에 멱등 이벤트 하나를 게시합니다. | 전용 워크로드 신원에는 ACR pull과 Event Hubs 전송만 있으며 Core는 별도 소비자 경로에서 no-op 감사를 기록합니다. |
 | 17 | **개발 operations Function App** (**명시적 선택**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | 로컬 개발에서 비공개 리소스로 등록된 읽기, 쓰기, execute 연산을 중계합니다. | dev 및 private-networking 전용이며 수명 주기 precondition으로 강제되고 `infra/tests/dev_operations_gateway.tftest.hcl`이 이를 검증합니다. Easy Auth 뒤에서 **공개** 인바운드 엔드포인트를 종단합니다. 개발자가 도달해야 하기 때문이며, 따라서 폐쇄망에서는 꺼둔 채로 둡니다. 전용 `/27` 서브넷, 비공개 AAD-only 배포 및 멱등성 저장소, Easy Auth, 분리된 읽기 담당/실행기 UAMI, 일회용 server-issued 변경 계획 증적을 사용합니다. 임의 URL, ARM 경로, 명령, 조회 표면은 제공하지 않습니다. |
 | 18 | **OHL scale-out evidence VM Scale Set + proposal Job** (**명시적 선택**, `enable_ohl_scale_out_evidence_target`) | Uniform `Standard_B1s`, 용량 `1`, manual Consumption Job | 통제된 `ops.scale-out` 근거용으로 범위가 제한된 non-production target 및 normal-ingress shadow proposal | dev, 비공개 networking 및 operations gateway가 필요합니다. 배포는 region에서 사용할 수 있는 exact image version을 공급하고 변경 가능한 `latest`를 거부합니다. 전용 `/27` subnet에는 public IP가 없습니다. Proposal UAMI에는 ACR pull과 primary Event Hub send만 있습니다. Protected provider staging은 검증된 rollback 전에 capacity를 `2`까지만 늘릴 수 있습니다. |
 보호된 `history-` 요청 모드는 운영 이력 및 의사 결정 근거 저장소, 해당 비공개 endpoint,
@@ -420,11 +414,11 @@ Workflow는 OCR desired-state 축약을 집중 script에 위임하여 승인 또
 프로비저닝은 IaC 주도이지만 첫 라이브 이벤트까지의 **논리적 부트스트랩 순서**는 지켜야 함.
 앞의 단계가 실패하면 halt하고 unwind; 배포는 깨진 앞 단계로 뒤 단계에 진행하지 않음.
 
-![부트스트랩 순서. 주요 단계는 전제조건 해결됨, IaC로 핵심 리소스 프로비저닝, 실행기 관리 ID 생성 및 범위 지정 역할 할당, 서명된 이미지를 Container Apps에 shadow-only로 배포, 프로비저닝된 Postgres에 alembic upgrade head 실행, Diagnostic Settings 및 Kafka 토픽 전달기 연결, day-zero 규칙 세트로 규칙 카탈로그 시드, HIL 승인자 및 ChatOps 채널 등록, 배포 후 스모크 테스트 실행, 시스템이 준비됨; 첫 실제 이벤트 도착 가능입니다.](../../diagrams/generated/fdai-deploy-and-onboard-01.ko.svg)
+![부트스트랩 순서. 주요 단계는 전제조건 해결됨, IaC로 핵심 리소스 프로비저닝, 실행기 관리 ID 생성 및 범위 지정 역할 할당, 미리 빌드하고 서명한 이미지를 AKS에 shadow-only로 배포, 프로비저닝된 Postgres에 alembic upgrade head 실행, Diagnostic Settings 및 Kafka 토픽 전달기 연결, day-zero 규칙 세트로 규칙 카탈로그 시드, HIL 승인자 및 ChatOps 채널 등록, 배포 후 스모크 테스트 실행, 시스템이 준비됨; 첫 실제 이벤트 도착 가능입니다.](../../diagrams/generated/fdai-deploy-and-onboard-01.ko.svg)
 
 - **첫 배포에서 shadow-only**: 어떤 규칙/액션도 절대 강제 적용 모드로 시작하지 않음. 승격은
   별개의 행위 ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md)).
-- **첫 컨트롤 루프 틱 전에 마이그레이션이 반드시 실행되어야 함**. Container App은 시작 시 마이그레이션을 실행하지 않습니다(복제본 간 일관성 유지 + race 방지).
+- **첫 컨트롤 루프 틱 전에 마이그레이션이 반드시 실행되어야 함**. 워크로드 컨테이너는 시작 시 마이그레이션을 실행하지 않습니다(복제본 간 일관성 유지 + race 방지).
   CI는 격리된 서비스 데이터베이스에 서비스 소유 마이그레이션을 적용하기 전에 root rollback
   검사를 실행하고, 이어서 해당 서비스 헤드에서 서비스 의존 검사를 실행합니다.
   `alembic/versions/`의 모든 tracked 이행은 `downgrade()`를 정의하지만 스키마와 데이터 rollback은

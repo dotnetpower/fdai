@@ -2,8 +2,8 @@
 title: 로컬 개발 빠른 시작
 description: Linux 또는 WSL 워크스테이션에서 Docker, 로컬 상태, 인증 및 전체 FDAI Console 스택을 구성합니다.
 translation_of: local-development-quickstart.md
-translation_source_sha: d82a6729c02b2d82da15b7f9962ff4136cbb876b
-translation_revised: 2026-09-14
+translation_source_sha: 7ecea1256c5cf40ce8d12351ad3fc0c5bc231e21
+translation_revised: 2026-09-16
 ---
 
 # 로컬 개발 빠른 시작
@@ -87,15 +87,17 @@ docker info
   리포지토리 루트에서 `opa version`과 `opa check policies`를 실행하세요. VS Code 작업의
   `PATH`에서 OPA를 찾을 수 있어야 합니다. 워크스페이스는 사용자 설치 도구를 위해
   `~/.local/bin`을 포함합니다.
+- 커밋과 푸시 전에 리포지토리 shell script를 검증하기 위한 ShellCheck.
 - `git`, `bash`, `make`, `curl` 및 표준 Linux 명령줄 도구.
 - 영어와 한국어 언어 데이터가 포함된 Tesseract. Document Processing Worker는 호스트에서
   실행되고 ClamAV는 Docker에서 실행됩니다.
 
-Ubuntu 또는 WSL에서는 다음과 같이 Tesseract를 설치합니다.
+Ubuntu 또는 WSL에서는 다음과 같이 ShellCheck와 Tesseract를 설치합니다.
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor
+sudo apt-get install -y shellcheck tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor
+shellcheck --version
 tesseract --list-langs
 ```
 

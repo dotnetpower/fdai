@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: c50dd5c1afa7315a2791a2e5ceac03861ee333d5
+translation_source_sha: 2f49cefe79d98bf5b6212251bec62d66e71cef6f
 translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
@@ -10,7 +10,6 @@ Azure Container Apps는 기존 설치를 위한 호환 프로파일로 계속 �
 
 > **범위:** 이 계약은 신규 설치를 다룹니다. 기존 설치를 다른 런타임 플랫폼으로 옮기려면
 > 별도의 마이그레이션 설계가 필요하며, 프로파일 업데이트만으로 자동 전환되지 않습니다.
->
 > **Azure 범위:** 지원되는 두 런타임 플랫폼은 같은 Azure 공급자 어댑터, 서명된 OCI 이미지,
 > Event Hubs Kafka 엔드포인트, Key Vault, 워크로드 신원, PostgreSQL 스키마를 사용합니다.
 
@@ -65,6 +64,33 @@ fdaictl provision azure \
 제공합니다. 준비 상태 보기가 기본이며 배포 근거는 별도 탭에서 확인합니다. 두 보기 모두 `fdaictl`을 시작하거나 재시도하지 않고 Terraform을
 실행하거나 배포 권한을 획득하지 않습니다. 기존 `/onboarding`과 `/provisioning` 경로는 호환 진입점으로 유지합니다.
 
+### AKS 브라우저 접근
+
+기본 AKS 프로파일은 다음 브라우저 경로를 사용합니다.
+
+```text
+브라우저 -> Static Web Apps -> API Management -> AKS LoadBalancer Service -> Pod
+```
+
+Static Web Apps는 미리 빌드된 Console을 호스팅합니다. API Management(APIM)는 공용 HTTPS API
+경계를 제공합니다. Operator API는 APIM origin root에서 라우팅하고 Document Ingestion은
+`/ingestion`에서 라우팅합니다. Kubernetes Service는 포트 80에서 요청을 받고 기존 컨테이너
+포트로 전달합니다. 워크로드 상태는 Service backend 주소를 사용하므로 APIM도 소유합니다. 공유
+기반은 이 경로에 Azure Front Door를 만들지 않습니다.
+
+APIM은 Microsoft Entra 인증을 대체하지 않습니다. API는 token issuer, audience, lifetime 및
+App Role을 계속 검증합니다. CORS(Cross-Origin Resource Sharing)는 정확한 Static Web Apps
+origin만 허용합니다. Azure Policy가 AKS 서브넷에 네트워크 보안 그룹을 연결하면 워크로드 플랜은
+정확한 공용 Service frontend 주소에 대해서만 TCP 포트 80을 허용합니다. APIM Consumption은
+source 규칙에 사용할 수 있는 고정 outbound 주소를 제공하지 않습니다.
+
+승인된 애플리케이션 플랜이 수렴하면 `fdaictl provision azure`는 각 Terraform 상태에서 SWA와
+APIM 연결을 읽고, 기존 Entra SPA 등록에 정확한 SWA redirect를 추가한 뒤, 서명된 키트의 미리
+빌드된 Console을 게시합니다. 테넌트 프로비저닝에서는 npm build를 실행하지 않습니다. 완료로
+판단하려면 원격 산출물 hash, SPA route fallback, 두 API 상태 확인, 정확한 origin의 authorization
+preflight, `/audit`의 인증되지 않은 요청에 대한 `401`, 구성한 Console origin으로 돌아오는 Entra
+redirect를 모두 확인해야 합니다.
+
 ### 기본값 및 검증
 
 | 설정 | 검증 | 권장 값 |
@@ -98,7 +124,7 @@ $$
 일정과 워크로드 신원은 바뀌지 않으며 부트스트랩 경로는 인벤토리 워크로드에 지속적인 배포
 권한을 부여하지 않습니다. 표현 및 통합 계약은 이 단계를 16번째 단계로, `provisioning-events`를
 세 번째 비공개 Foundation 컨테이너로 반영합니다. 이전 추가 필드 방식의 증적 테스트 대역에
-`inventory_ready`가 없어도 준비 상태로 해석하지 않습니다.
+`inventory_ready`가 없어도 준비 상태로 해석하지 않습니다. 초기 또는 반복 검사가 완전한 승격 세대를 온톨로지에 반영하면 범위가 제한된 delivery 모듈 `inventory_ontology_observer.py`가 Resource마다 재시도에 안정적인 관측 Event 하나를 기존 컨트롤 루프 토픽에 게시하고 CLI는 조립만 담당합니다. 규칙 판단은 계속 Forseti가 소유하고 감사는 Saga가 소유합니다. 불완전한 변환 결과나 게시 실패로는 인벤토리 종결 조건을 충족하거나 실행 권한을 만들 수 없습니다.
 
 테넌트 프로비저닝은 미리 빌드된 서비스 및 의존성 이미지만 사용합니다. 완전한 release의 닫힌
 의존성 이미지 집합에는 ClamAV와 pgvector가 모두 포함됩니다. 배포 프로파일 하나가 특정 이미지를
@@ -161,7 +187,9 @@ Integration이 활성화되어 있으며 검토한 관리 경로로 접근할 �
 소유자 전용 kubeconfig를 사용합니다.
 이 공개 기본 구성에 대한 Terraform 스캐너 예외들은 해당 리소스에만 적용하며, 명시적 CIDR 허용
 목록, Microsoft Entra RBAC, 비활성화된 로컬 계정 및 VNet Integration 통제를 함께 명시합니다.
-다른 AKS 발견 사항을 숨기거나 이후 비공개 전환을 인증하지 않습니다.
+다른 AKS 발견 사항을 숨기거나 이후 비공개 전환을 인증하지 않습니다. APIM Consumption 예외는
+VNet 통합 미지원, 독립적인 API 인증과 정확한 origin CORS, 포트 80 규칙의 정확한 LoadBalancer
+대상 주소 2개도 함께 명시합니다.
 DB 및 애플리케이션 준비는 모두 소유자 전용 kubeconfig를 [`kubelogin` 관리 ID 인증](https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication)으로 변환하며
 `--login msi`와 정확한 관리 호스트 client ID를 지정합니다. 자격 증명 조회는 구독을 고정하고
 관리자 자격 증명을 요청하지 않습니다. 로컬 `kubectl config view --minify` 재조회는 exec만
@@ -240,8 +268,9 @@ archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle�
 요구합니다. 비어 있거나 중복되거나 오래되거나 형식이 잘못됐거나 일부만 정상인 응답은 성공이
 아니라 사용 불가로 처리합니다. 기대 목록에는 다섯 기본 서비스가 모두 있어야 하며, 생성기가
 하나를 누락했다고 해서 부분 롤아웃을 완료된 것으로 판단해서는 안 됩니다.
-이 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는
-전체 배포 준비가 검증되지는 않습니다. 워크로드 생성기는 Operator, 격리된 Executor, 문서 API,
+이 워크로드 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는 전체 배포 준비가
+검증되지는 않습니다. 별도의 브라우저 게시 게이트가 워크로드 수렴 뒤 Console과 API 경계를
+검증합니다. 워크로드 생성기는 Operator, 격리된 Executor, 문서 API,
 문서 Worker에 각각 `fdai_operator`, `fdai_executor`, `fdai_ingestion_api`,
 `fdai_ingestion_worker` 역할을 `FDAI_DATABASE_ROLE`과 일치하는 `PGOPTIONS`로 설정합니다.
 호출자의 환경은 변경하지 않습니다. 생성되는 모든 서비스는 배포된 실행 위치를 명시적으로

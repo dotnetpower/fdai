@@ -8,6 +8,7 @@ import json
 import os
 import re
 import select
+import stat
 import subprocess
 import sys
 import time
@@ -16,6 +17,8 @@ from pathlib import Path
 from typing import Any
 
 from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
+from fdai_deployment_cli.bundle import extract_bundle_archive
+from fdai_deployment_cli.console_config import configure_console
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.deadline_transport import DeadlineTransport
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
@@ -400,6 +403,28 @@ def deploy_standalone_application(
             or verification.get("runtime_health_verified") is not True
         ):
             raise ValueError("standalone application convergence is incomplete")
+        console_receipt: dict[str, object] | None = None
+        if selected_runtime.runtime_platform.value == "aks":
+            browser_console = _mapping(
+                verification.get("browser_console"), "browser Console verification"
+            )
+            progress_detail("Registering the Console redirect and publishing verified static files")
+            entra = _import_entra(scripts)
+            redirect_changed = entra.ensure_console_spa_redirect(
+                str(entra_bindings["ENTRA_CONSOLE_SPA_CLIENT_ID"]),
+                str(browser_console["console_origin"]),
+            )
+            console_receipt = _publish_aks_console(
+                kit=kit,
+                prepared_root=prepared.root,
+                entra_bindings=entra_bindings,
+                browser_console=browser_console,
+                scripts=scripts,
+                subscription_id=str(handoff["subscription_id"]),
+                tenant_id=str(handoff["tenant_id"]),
+                timeout_seconds=deadline.remaining(),
+                redirect_changed=redirect_changed,
+            )
         begin_stage("cleanup")
         progress_detail("Removing transient transfers and verifying their absence")
         cleanup = tunnel.ssh(("rm", "-f", "--", remote_archive, remote_approval), timeout=300)
@@ -428,6 +453,9 @@ def deploy_standalone_application(
         "migration_receipt_digest": migration_receipt["receipt_digest"],
         "application_receipt_digest": application_receipt["receipt_digest"],
         "verification_receipt_digest": verification["receipt_digest"],
+        "console_publication_receipt_digest": (
+            console_receipt["receipt_digest"] if console_receipt is not None else ""
+        ),
         "runtime_profile_digest": selected_runtime.digest,
         "runtime_platform": selected_runtime.runtime_platform.value,
         "database_placement": selected_runtime.database_placement.value,
@@ -435,6 +463,7 @@ def deploy_standalone_application(
         "application_state_adopted": application_state_adoption is not None,
         "application_state_adoption_descriptor_digest": adoption_descriptor_digest,
         "application_converged": True,
+        "browser_access_verified": console_receipt is not None,
         "deployment_ready": True,
         "inventory_ready": True,
         "license_mode": license_mode,
@@ -729,6 +758,133 @@ def _import_bastion(scripts: Path) -> Any:
         return importlib.import_module("genesis_bastion")
     finally:
         sys.path.remove(str(scripts))
+
+
+def _import_entra(scripts: Path) -> Any:
+    sys.path.insert(0, str(scripts))
+    try:
+        return importlib.import_module("genesis_entra")
+    finally:
+        sys.path.remove(str(scripts))
+
+
+def _publish_aks_console(
+    *,
+    kit: DeploymentKit,
+    prepared_root: Path,
+    entra_bindings: dict[str, str],
+    browser_console: dict[str, Any],
+    scripts: Path,
+    subscription_id: str,
+    tenant_id: str,
+    timeout_seconds: int,
+    redirect_changed: bool,
+) -> dict[str, object]:
+    """Configure, publish, and independently verify the signed prebuilt Console."""
+
+    runtime = kit.runtime.to_mapping()
+    console = _mapping(runtime.get("console"), "runtime Console artifact")
+    archive = kit.materialized_root / str(console["archive"])
+    _require_archive_digest(archive, str(console["archive_sha256"]))
+    extraction = prepared_root / "console-publish"
+    if extraction.exists():
+        console_directory = extraction / "dist"
+    else:
+        console_directory = extract_bundle_archive(archive, extraction)
+    settings = {
+        "schema_version": "fdai.console-runtime.v1",
+        "operator_api_base_url": str(browser_console["operator_api_base_url"]),
+        "ingestion_api_base_url": str(browser_console["ingestion_api_base_url"]),
+        "tenant_id": tenant_id,
+        "spa_client_id": str(entra_bindings["ENTRA_CONSOLE_SPA_CLIENT_ID"]),
+        "api_scope": str(entra_bindings["ENTRA_CONSOLE_API_SCOPE"]),
+    }
+    settings_path = prepared_root / "console-runtime-settings.json"
+    _replace_private_json(settings_path, settings)
+    configured = configure_console(console_directory, settings_path)
+    summary = prepared_root / "console-publish-summary.txt"
+    if not summary.exists():
+        write_private_output(summary, "")
+    environment = {
+        **os.environ,
+        "EXPECTED_AZURE_TENANT_ID": settings["tenant_id"],
+        "ENTRA_CONSOLE_SPA_CLIENT_ID": settings["spa_client_id"],
+        "ENTRA_CONSOLE_API_SCOPE": settings["api_scope"],
+        "ARM_SUBSCRIPTION_ID": subscription_id,
+        "CONSOLE_DEFAULT_HOSTNAME": str(browser_console["console_hostname"]),
+        "CONSOLE_STATIC_WEB_APP_ID": str(browser_console["console_static_web_app_id"]),
+        "BROWSER_GATEWAY_OPERATOR_URL": settings["operator_api_base_url"],
+        "BROWSER_GATEWAY_INGESTION_URL": settings["ingestion_api_base_url"],
+        "CONSOLE_PREBUILT_DIRECTORY": str(console_directory),
+        "GITHUB_STEP_SUMMARY": str(summary),
+    }
+    completed = subprocess.run(
+        (
+            "/bin/bash",
+            str(scripts / "publish-console.sh"),
+            str(kit.bundle_root / "infra/runtimes/aks/workloads"),
+        ),
+        cwd=kit.bundle_root,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=timeout_seconds,
+    )
+    if completed.returncode != 0:
+        raise ValueError("prebuilt Console publication or browser verification failed")
+    receipt: dict[str, object] = {
+        "schema_version": "fdai.standalone-console-publication.v1",
+        "state": "published",
+        "console_origin": browser_console["console_origin"],
+        "console_archive_sha256": console["archive_sha256"],
+        "runtime_config_digest": configured["runtime_config_digest"],
+        "entra_redirect_changed": redirect_changed,
+        "artifact_hash_verified": True,
+        "spa_fallback_verified": True,
+        "api_health_verified": True,
+        "authorization_preflight_verified": True,
+        "unauthenticated_denial_verified": True,
+        "entra_redirect_verified": True,
+        "mutation_performed": True,
+        "subscription_ready": False,
+    }
+    receipt["receipt_digest"] = canonical_digest(receipt)
+    _replace_private_json(prepared_root / "console-publication-receipt.json", receipt)
+    return receipt
+
+
+def _require_archive_digest(path: Path, expected_digest: str) -> None:
+    """Recheck one no-follow regular archive immediately before it is consumed."""
+
+    if _DIGEST.fullmatch(expected_digest) is None:
+        raise ValueError("Console archive digest is invalid")
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode):
+            raise ValueError("Console archive is not a regular file")
+        with os.fdopen(descriptor, "rb", closefd=False) as stream:
+            observed = hashlib.file_digest(stream, "sha256").hexdigest()
+        after = os.fstat(descriptor)
+        if (
+            before.st_dev,
+            before.st_ino,
+            before.st_size,
+            before.st_mtime_ns,
+            before.st_ctime_ns,
+        ) != (
+            after.st_dev,
+            after.st_ino,
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        ):
+            raise ValueError("Console archive changed while it was read")
+        if observed != expected_digest:
+            raise ValueError("Console archive digest does not match the signed release")
+    finally:
+        os.close(descriptor)
 
 
 def _azure_actor_digest(target_binding: str, *, timeout_seconds: int = 60) -> str:

@@ -8,9 +8,10 @@ configured Azure subscription. It composes the existing Terraform, protected run
 catalog, model, and inventory paths behind one resumable `fdaictl` operation without weakening
 exact-plan approval or private-network boundaries.
 
-> **Scope:** Azure is the implemented target. The operator can connect through a VPN, but every
-> deployment data-plane operation runs on an approved host inside Azure. The laptop is a control
-> surface, not a private-endpoint bypass.
+> **Scope:** Azure is the implemented target. Basic deployment can start from an ordinary PC and
+> creates AKS with API Server VNet Integration plus authenticated restricted public management
+> access. A policy-required or later selected private data-plane operation runs on a verified
+> internal host. The PC is a control surface, not a private-endpoint bypass.
 >
 > **Safety:** "One operation" means one durable run that can pause, resume, and report progress.
 > It does not mean one unreviewed mutation. A fresh private route requires separate exact approvals
@@ -247,6 +248,12 @@ the Operator projection and Console health checks pass, the operator can open `/
   readiness receipt.
 - Approval waits and blockers are read-only. The page shows the run reference and exact `fdaictl`
   next action instead of adding a browser-side execution path.
+- Detailed provisioning may create a typed request for VNet peering, private endpoints, private
+  DNS, AKS private-cluster mode and public-access removal. The protected executor owns assessment,
+  exact planning, apply, rollback and independent readback; Console never receives its identity or
+  Terraform state.
+- The current subscription VM may be selected as the execution host only after target, identity,
+  route, DNS, TLS and backend checks pass. Peering its VNet is a separately approved effect.
 - After completion, the route remains available as the sanitized run history and links into the
   relevant database, ontology, model, inventory, and audit evidence views.
 
@@ -354,15 +361,20 @@ Stages are dependency ordered and persist a terminal receipt before the next sta
 |---|-------|------------------------|
 | 0 | Inspect context | Signed-in user, target match, required role-assignment ability, provider registration state, policy blockers, quotas, network paths, and toolchain are reported without mutation. |
 | 1 | Reconcile current state | Every intended object is classified, conflicts are blocked, and proposed imports are explicit. |
-| 2 | Plan and apply foundation | Resource groups, private backend, ops network, stable deploy identity, and execution host exist; remote state reconstruction, effective roles, provider registrations, and private storage access are read back. |
-| 3 | Attest execution host | Exact source revision, bundle digests, Azure context, runner principal, tool versions, DNS, and private endpoint reachability match the plan. |
-| 4 | Plan and apply data substrate | Application network, Key Vault, PostgreSQL, Event Hubs, registries, identities, and migration Jobs converge without unrelated destroy. Runtime consumers remain closed. |
+| 2 | Plan and apply basic foundation | Resource groups, protected state, AKS workload and delegated API-server subnets, stable deploy identity, API Server VNet Integration, and the policy-selected execution path exist; effective roles and provider registrations are read back. |
+| 3 | Attest execution path | Exact source revision, bundle digests, Azure context, executor principal, tool versions, and the selected public or private management path match the plan. |
+| 4 | Plan and apply basic data substrate | Key Vault, PostgreSQL, Event Hubs, registry, identities, and migration Jobs converge without unrelated destroy. Policy-mandated private access is applied here; optional private endpoints and peering remain detailed provisioning. Runtime consumers remain closed. |
 | 5 | Bootstrap database | Legacy baseline and every service migration reach their declared heads; extensions, roles, grants, statement deadlines, and rollback references pass verification. |
 | 6 | Materialize semantic defaults | The exact ontology release, rules, workflows, ResourceTypes, settings defaults, and shadow-only promotion state are written or projected with source digests. |
 | 7 | Resolve and deploy models | Region, family, version, publisher, SKU, endpoint, role, and capacity satisfy the approved model plan and readback. |
 | 8 | Deploy runtime services | Digest-pinned revisions start only after database and semantic readiness markers exist. Health and guarded-processing readiness pass. |
 | 9 | Run initial inventory | A complete provider generation is counted, collected, verified, projected, atomically promoted, and independently read back. |
 | 10 | Verify system readiness | Canary, event flow, database reads, catalog digests, model probes, inventory freshness, audit closure, and Console read projections pass. |
+
+After stage 10 establishes baseline health, a detailed private-network run uses its own finite
+manifest and checkpoints. It establishes peering, routes and DNS, verifies every private path, and
+only then enables private-cluster mode or removes public access. It never relabels a basic receipt
+as private-network readiness.
 
 Failure stops dependent stages. Completed safe-to-retry stages are not repeated unless their
 evidence expired or their inputs changed.

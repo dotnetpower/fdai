@@ -300,8 +300,11 @@ fdaictl offline configure-console --directory /private/console \
 
 The command replaces only the shipped placeholder and refuses a silent tenant change.
 Runtime bindings always require Entra authentication; no bypass flag is accepted. Preserve the
-generated hosting configuration so `fdai-config.js` is not cached. Entra registration, matching
-API verifier/CORS settings, site publication, and authenticated readback remain separate steps.
+generated hosting configuration so `fdai-config.js` is not cached. This command remains a local
+configuration-only tool. For the AKS profile, `fdaictl provision azure` performs the same binding
+from the signed kit after application convergence, registers the exact Static Web Apps redirect,
+publishes the prebuilt files, and verifies artifact hashes, SPA fallback, APIM health, CORS,
+unauthenticated denial, and the Entra redirect. It does not rebuild the Console in the tenant.
 
 Terminal journal events use schema v3 and bind completed stages to receipt digests. The aggregate
 genesis readiness receipt requires every foundation, application, migration, semantic, model,

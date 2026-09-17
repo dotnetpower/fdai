@@ -43,6 +43,55 @@ variable "key_vault_name" {
   type        = string
 }
 
+variable "browser_gateway" {
+  description = "Optional APIM Consumption gateway for browser-facing AKS services."
+  type = object({
+    enabled              = optional(bool, true)
+    resource_group_name  = string
+    location             = string
+    workload             = string
+    environment          = string
+    region_short         = string
+    resource_name_suffix = string
+    backend_nsg_id       = optional(string, "")
+    publisher_name       = optional(string, "FDAI")
+    publisher_email      = optional(string, "operator@example.com")
+  })
+  default  = null
+  nullable = true
+
+  validation {
+    condition = var.browser_gateway == null ? true : (
+      can(regex("^[a-z][a-z0-9-]{1,30}$", var.browser_gateway.workload)) &&
+      can(regex("^[a-z][a-z0-9-]{1,15}$", var.browser_gateway.environment)) &&
+      can(regex("^[a-z0-9]{2,12}$", var.browser_gateway.region_short)) &&
+      can(regex("^[a-z0-9]{6}$", var.browser_gateway.resource_name_suffix)) &&
+      can(regex("^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?$", var.browser_gateway.resource_group_name)) &&
+      can(regex("^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?$", var.browser_gateway.location)) &&
+      can(regex("^[^@[:space:]]+@[^@[:space:]]+[.][^@[:space:]]+$", var.browser_gateway.publisher_email)) &&
+      length("apim-${var.browser_gateway.workload}-${var.browser_gateway.environment}-${var.browser_gateway.region_short}-${var.browser_gateway.resource_name_suffix}") <= 50 &&
+      (
+        var.browser_gateway.backend_nsg_id == "" ||
+        can(regex("^/subscriptions/[0-9a-fA-F-]+/resourceGroups/[^/]+/providers/Microsoft[.]Network/networkSecurityGroups/[^/]+$", var.browser_gateway.backend_nsg_id))
+      )
+    )
+    error_message = "browser_gateway requires portable CAF naming tokens, a publisher email, and an optional Azure NSG resource ID."
+  }
+
+  validation {
+    condition = var.browser_gateway == null ? true : (
+      !var.browser_gateway.enabled ? true : try(
+        var.workloads["operator-service"].external &&
+        var.workloads["document-ingestion-api"].external &&
+        coalesce(var.workloads["operator-service"].service_port, var.workloads["operator-service"].port) == 80 &&
+        coalesce(var.workloads["document-ingestion-api"].service_port, var.workloads["document-ingestion-api"].port) == 80,
+        false,
+      )
+    )
+    error_message = "browser_gateway requires external operator-service and document-ingestion-api workloads on Service port 80."
+  }
+}
+
 variable "workloads" {
   description = "Runtime-neutral FDAI service specifications."
   type = map(object({
@@ -61,6 +110,7 @@ variable "workloads" {
     cpu                = string
     memory             = string
     port               = number
+    service_port       = optional(number)
     external           = optional(bool, false)
     readiness_path     = string
     liveness_path      = string
@@ -85,7 +135,9 @@ variable "workloads" {
       for workload in values(var.workloads) :
       workload.replicas >= 1 && workload.max_replicas >= workload.replicas &&
       can(regex("^[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$", workload.image)) &&
-      workload.port >= 1 && alltrue([
+      workload.port >= 1 && workload.port <= 65535 &&
+      coalesce(workload.service_port, workload.port) >= 1 &&
+      coalesce(workload.service_port, workload.port) <= 65535 && alltrue([
         for sidecar_name, sidecar in workload.sidecars :
         can(regex("^[a-z][a-z0-9-]{0,62}$", sidecar_name)) &&
         can(regex("^[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$", sidecar.image)) &&
