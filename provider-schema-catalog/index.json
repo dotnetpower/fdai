@@ -16,7 +16,7 @@
   "snapshot_digest": "sha256:7a54ebeccbafc0aabc5ec7ed01580d6688f9b745c1aab26c3344497fafe047f2",
   "coverage_digest": "sha256:c3e53e8fa136ba5dbc73b5b78b97b8f0aeddf5b042384caef12d6b96be451109",
   "relationship_evidence_digest": "sha256:ec37e62f5f15b31ced04b731ab4857f0d8724fcd205bd5a1b3d9972736961a11",
-  "relationship_review_digest": "sha256:ed216016ce9338f7544a7ebb649eaff7edf24a382c202225ba8e0b8fa4a4ab4c",
+  "relationship_review_digest": "sha256:df0d3e1d4ae6a240ffbdc453f191038e0b50295de2d493a674fe7911fee47f84",
   "snapshot_artifact_encoding": "gzip",
   "relationship_artifact_encoding": "gzip",
   "relationship_review_artifact_encoding": "gzip",
