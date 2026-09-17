@@ -346,8 +346,11 @@
       "emptyTitle": "일치하는 상관관계 그룹 없음",
       "emptyBody": "아직 이 에이전트와 관련된 활동이 없습니다. 전체 워터폴을 보려면 필터를 지우세요.",
       "label": "에이전트 활동 워터폴",
-      "expand": "상관관계 그룹 펼치기",
-      "collapse": "상관관계 그룹 접기",
+      "expand": "{correlation} 상관관계 그룹 펼치기",
+      "collapse": "{correlation} 상관관계 그룹 접기",
+      "openTrace": "추적 보기",
+      "openTraceLabel": "{correlation} 추적 보기",
+      "uncorrelatedEvent": "상관관계 없는 이벤트 #{sequence}",
       "selectTitle": "단계 선택",
       "selectBody": "왼쪽에서 에이전트 단계를 선택하면 이벤트 송수신 시각, 대기 및 작업 시간, 입력과 출력, 기록된 결정을 포함한 전체 수명 주기를 볼 수 있습니다."
     },
