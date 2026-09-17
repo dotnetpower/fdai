@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 396e65343410890f75446eecec837f10afc21e3e
+translation_source_sha: 9e8dc717412ee2828ffbd27486d99f1f53c8b588
 translation_revised: 2026-09-17
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -35,6 +35,8 @@ ActionType에 report-line 승인이 필요하면 FDAI는 요청자에게 해당 
 대상을 추론해 만들지 않습니다. 원래 Action 준비와 읽기 전용 Var 승인 검사는 사람 추천,
 연락 동의, 보고 관계 변경 또는 승인 자격을 부여할 수 없습니다. 현재 독립된 사람의 권한은
 계속 필요합니다.
+선택적 주문 접수 복구 로더를 Core wheel에 포함해도 보고 그래프 의존성이 추가되거나
+현재 사람 승인 정책 및 연락 동의 경로가 바뀌지는 않습니다.
 
 구현은 다음 레코드를 분리합니다.
 

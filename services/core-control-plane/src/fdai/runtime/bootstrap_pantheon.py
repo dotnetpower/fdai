@@ -65,6 +65,7 @@ from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.rule_catalog.schema.capacity_graduation_policy import (
     load_capacity_graduation_policy,
 )
+from fdai.runtime.aks_commerce import build_acceptance_runtime_bindings
 from fdai.runtime.approval_policy import approver_authorizer_from_environment
 from fdai.runtime.bootstrap_bindings import RuleGenerationRuntimeBinding
 from fdai.runtime.case_history import (
@@ -380,6 +381,12 @@ async def initialize_pantheon(
             ontology_store=config.control_loop.ontology_instance_store,
         )
     thor_mutation_bound = pantheon_enforce and t2_route_selector_bound
+    acceptance_bindings = build_acceptance_runtime_bindings(
+        environment=config.environment,
+        loop=config.control_loop,
+        store=config.incident_audit_store,
+        fallback=t2_route_registry.execute if thor_mutation_bound else None,
+    )
     rollback_executors: dict[str, RollbackExecutor] | None = (
         {"state_forward_only": t2_route_registry.rollback} if thor_mutation_bound else None
     )
@@ -461,7 +468,16 @@ async def initialize_pantheon(
             "fdai-pantheon",
         ).strip(),
         enforce=pantheon_enforce,
-        thor_executor=(t2_route_registry.execute if thor_mutation_bound else None),
+        thor_executor=(
+            acceptance_bindings.execute
+            if acceptance_bindings is not None
+            else t2_route_registry.execute
+            if thor_mutation_bound
+            else None
+        ),
+        anomaly_action_sources=acceptance_bindings.sources
+        if acceptance_bindings is not None
+        else None,
         thor_state_store=StateStoreActionRunStore(config.incident_audit_store),
         rollback_executors=rollback_executors,
         vidar_state_store=config.incident_audit_store,

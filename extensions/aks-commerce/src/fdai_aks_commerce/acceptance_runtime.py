@@ -5,13 +5,14 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, fields
 from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from fdai.core.control_loop import ControlLoop
 from fdai.core.investigation import InvestigationCoordinator
 from fdai.delivery.analyzer_receipt_store import StateStoreAnalyzerReceiptStore
 from fdai.delivery.analyzer_tick import AnalyzerTarget, AnalyzerTickReport, AnalyzerTickRunner
@@ -22,7 +23,11 @@ from fdai.delivery.persistence.postgres_analyzer_publication import (
     PostgresAnalyzerPublicationLedger,
 )
 from fdai.delivery.persistence.postgres_idempotency import PostgresIdempotencyStoreConfig
-from fdai.shared.contracts.models import Severity
+from fdai.delivery.persistence.state_store_action_promotion import StateStoreActionPromotionRegistry
+from fdai.runtime.aks_commerce import AcceptanceRuntimeBindings
+from fdai.runtime.approval_policy import approver_authorizer_from_environment
+from fdai.runtime.safeguard_isolated_executor import SafeguardBoundEventBusDirectApiExecutionClient
+from fdai.shared.contracts.models import CeilingRole, Severity
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
 from fdai_service_contracts.venue import (
@@ -33,6 +38,15 @@ from fdai_service_contracts.venue import (
 from pydantic import TypeAdapter
 
 from fdai_aks_commerce.acceptance import OrderAcceptanceAnalyzer, OrderAcceptanceIntent
+from fdai_aks_commerce.acceptance_action import (
+    ACCEPTANCE_SIGNAL,
+    AcceptanceAnomalyActionSource,
+    AcceptanceGuardedExecutor,
+)
+from fdai_aks_commerce.acceptance_authority import AcceptanceCurrentAuthority
+from fdai_aks_commerce.acceptance_dispatch import AcceptanceIsolatedDispatch
+from fdai_aks_commerce.acceptance_material import StoredAcceptanceDispatchMaterials
+from fdai_aks_commerce.acceptance_preparation import PreparedAcceptanceSource
 from fdai_aks_commerce.acceptance_receipts import (
     AcceptanceTrustBinding,
     StoredOrderAcceptanceReceiptVerifier,
@@ -191,6 +205,98 @@ async def run_acceptance_tick(environment: Mapping[str, str] | None = None) -> A
             )
         finally:
             await bus.close()
+
+
+def build_recovery_bindings(
+    *,
+    environment: Mapping[str, str],
+    loop: ControlLoop,
+    store: StateStore,
+    fallback: Callable[[dict[str, Any]], Awaitable[bool]] | None,
+) -> AcceptanceRuntimeBindings:
+    """Compose real storage, preparation and current authority over the existing isolated client."""
+    config = AcceptanceRuntimeConfig.from_json(environment.get("FDAI_AKS_ACCEPTANCE_JSON", ""))
+    rule_id = environment.get("FDAI_AKS_ACCEPTANCE_RULE_ID", "").strip()
+    rule = loop._rules_by_id.get(rule_id)
+    gate, table, port = loop._risk_gate, loop._risk_table, loop._direct_api_executor
+    if rule is None or rule.remediates != "ops.scale-out":
+        raise ValueError("acceptance recovery requires an exact reviewed scale Rule id")
+    if (
+        gate is None
+        or table is None
+        or not isinstance(port, SafeguardBoundEventBusDirectApiExecutionClient)
+    ):
+        raise RuntimeError(
+            "acceptance recovery requires the shared risk and isolated safeguard bindings"
+        )
+    registry = gate._registry
+    if not isinstance(registry, StateStoreActionPromotionRegistry):
+        raise RuntimeError("acceptance recovery requires the durable promotion registry")
+    approvers = approver_authorizer_from_environment(environment)
+    if approvers is None:
+        raise RuntimeError("acceptance recovery requires explicit current human approval policy")
+
+    def clock() -> datetime:
+        return datetime.now(UTC)
+
+    source = AcceptanceAnomalyActionSource(
+        intent=config.intent,
+        analyzer=build_acceptance_analyzer(config=config, store=store, clock=clock),
+    )
+    materials = StoredAcceptanceDispatchMaterials(store)
+
+    async def refresh() -> None:
+        await registry.refresh("ops.scale-out")
+        if loop._kill_switch_refresher is not None:
+            await loop._kill_switch_refresher()
+
+    def held() -> bool:
+        return (
+            loop._kill_switch is None
+            or loop._degradation is None
+            or loop._kill_switch.is_engaged()
+            or not loop._degradation.autonomy_permitted()
+        )
+
+    async def unbound(_context: dict[str, Any]) -> bool:
+        raise RuntimeError("acceptance recovery cannot use an unbound executor fallback")
+
+    prepared = PreparedAcceptanceSource(
+        source=source,
+        builder=loop._action_builder,
+        rule=rule,
+        risk_gate=gate,
+        materials=materials,
+        refresh_policy=refresh,
+        clock=clock,
+    )
+    authority = AcceptanceCurrentAuthority(
+        store=store,
+        builder=loop._action_builder,
+        rule=rule,
+        risk_gate=gate,
+        risk_table=table,
+        principal_role=CeilingRole.APPROVER,
+        can_approve=approvers,
+        refresh_policy=refresh,
+        safety_held=held,
+        clock=clock,
+    )
+    dispatch = AcceptanceIsolatedDispatch(
+        guard=AcceptanceGuardedExecutor(source=source, execute=unbound, clock=clock),
+        read_material=materials.read,
+        check_authority=authority,
+        client=port,
+        clock=clock,
+    )
+
+    async def execute(context: dict[str, Any]) -> bool:
+        run = context.get("run")
+        if run is not None and run.resource_id == config.intent.resource_ref:
+            return await dispatch(context)
+        return await (fallback or unbound)(context)
+
+    return AcceptanceRuntimeBindings(sources={ACCEPTANCE_SIGNAL: prepared}, execute=execute)
 
 
 def main() -> int:

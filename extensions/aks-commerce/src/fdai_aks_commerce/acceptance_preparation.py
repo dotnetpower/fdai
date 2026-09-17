@@ -42,7 +42,11 @@ class PreparedAcceptanceSource:
         refresh_policy: Callable[[], Awaitable[None]],
         clock: Callable[[], datetime] | None = None,
     ) -> None:
-        if rule.remediates != "ops.scale-out":
+        if (
+            rule.remediates != "ops.scale-out"
+            or rule.resource_type != "kubernetes.deployment"
+            or rule.check_logic.reference != "fdai.aks_commerce.order_acceptance.v1"
+        ):
             raise ValueError("acceptance preparation requires a reviewed scale recovery Rule")
         self._source = source
         self._builder = builder

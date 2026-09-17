@@ -187,7 +187,7 @@ human authorization, or isolated transport. Local tests connect actual Huginn, H
 Var, and Thor handlers and prove no effect before approval, single execution after approval,
 replay suppression, and denial under revoked evidence, changed approval identity, shadow mode,
 or missing audit dependency. Tests use synthetic authority and external effects, not live approvals.
-Production startup and independent effect closure still need their own connection and evidence
+Production activation and independent effect closure still need their own inputs and evidence
 before this path can restore a live workload.
 
 The material store preserves the original canonical scale Action separately from the anomaly
@@ -208,8 +208,17 @@ requires two independent people; preparation cannot reduce its quorum or raise a
 applies the shared risk table and promotion state, and reads Var's durable final approval. It
 rechecks each distinct human's current eligibility, the original approval expiry, and safety state.
 The dispatch adapter repeats this check at the shared isolated client's publication boundary.
-These local bindings still require a reviewed acceptance Rule, production composition, real source
-and authorization readers, independently eligible promotion, and deployed observer/executor scope.
+Core startup now loads exactly one installed `fdai.acceptance_recovery` entry point named
+`aks-commerce` only when `FDAI_AKS_ACCEPTANCE_JSON` is present. `FDAI_AKS_ACCEPTANCE_RULE_ID`
+selects an already reviewed Rule from the loaded catalog: it must reference
+`fdai.aks_commerce.order_acceptance.v1`, `kubernetes.deployment`, and `ops.scale-out`.
+Missing or unrelated Rules, absent durable promotion or isolated safeguard bindings, and an absent
+`FDAI_PANTHEON_APPROVER_ACTIONS_JSON` policy reject composition. Startup creates no observation,
+approval, promotion, or provider effect. Unrelated targets retain their existing Thor dispatcher.
+The package uses the same StateStore, ActionBuilder, RiskGate, risk table, promotion refresh,
+approval policy and safety state already owned by the runtime. Unbound safety stays held.
+Live source issuance, independent effect closure, eligible promotion and exact deployed
+observer/executor scope remain required; successful package loading does not satisfy them.
 
 The composition root may register `AksCommerceAnalyzer` with the shared `InvestigationCoordinator`
 and `AnalyzerTickRunner`. The commerce coordinator retains each assessment before the analyzer

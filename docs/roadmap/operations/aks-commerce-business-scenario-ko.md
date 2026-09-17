@@ -1,6 +1,6 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: fab41c9b7091c10ae40f300695cebe91400b7e9a
+translation_source_sha: d8ebf347446d9702d22616f8b48aa75bf57f202f
 translation_revised: 2026-09-17
 ---
 # AKS 상거래 비즈니스 시나리오
@@ -186,7 +186,7 @@ Forseti는 최신의 정확한 대상 후보를 조회하고 별도 사람 승�
 않습니다. 로컬 테스트는 실제 Huginn, Heimdall, Forseti, Var, Thor 처리기를 연결해 승인 전
 실행 없음, 승인 후 단일 실행, 중복 억제, 근거 철회, 승인 신원 변경, shadow 모드 및 감사
 의존성 부재에 따른 거부를 확인합니다. 테스트의 권한과 외부 효과는 합성 입력이며 실제 승인이
-아닙니다. 실제 워크로드를 복구하려면 운영 시작과 독립된 효과 종결을 추가로 연결하고 검증해야
+아닙니다. 실제 워크로드를 복구하려면 운영 활성화와 독립된 효과 종결에 필요한 입력을 연결하고 검증해야
 합니다.
 
 자료 저장소는 원래 정규 scale Action을 이상 신호의 상관관계 및 ActionRun 멱등성 키와
@@ -206,9 +206,18 @@ ActionBuilder와 RiskGate를 사용합니다. 원래 Action과 검토한 Rule �
 `AcceptanceCurrentAuthority`는 정책을 갱신하고 원래 Rule 및 ActionType 내용을 대조하며
 공유 위험 표와 승격 상태를 적용한 뒤 Var의 영속 최종 승인을 읽습니다. 서로 다른 승인자의
 현재 자격, 원래 승인 만료 시각 및 안전 상태를 다시 확인합니다. 발행 어댑터는 공유 격리
-클라이언트의 발행 경계에서 이 검사를 반복합니다. 이 로컬 연결에는 검토된 주문 접수 Rule,
-운영 조립, 실제 원본 및 권한 조회기, 독립적으로 적격한 승격, 배포된 관측자와 실행기 범위가
-여전히 필요합니다.
+클라이언트의 발행 경계에서 이 검사를 반복합니다.
+Core는 시작할 때 `FDAI_AKS_ACCEPTANCE_JSON`이 있는 경우에만 설치된 `fdai.acceptance_recovery`
+진입점 중 `aks-commerce` 하나를 로드합니다. `FDAI_AKS_ACCEPTANCE_RULE_ID`는 로드된
+카탈로그의 검토 완료 Rule을 선택합니다. 해당 Rule은 `fdai.aks_commerce.order_acceptance.v1`,
+`kubernetes.deployment`, `ops.scale-out`을 참조해야 합니다. Rule이 없거나 다른 감지기를
+가리키거나, 영속 승격 또는 격리 안전장치 연결이 없거나,
+`FDAI_PANTHEON_APPROVER_ACTIONS_JSON` 정책이 없으면 조립을 거부합니다. 시작 과정은 관측,
+승인, 승격 또는 공급자 효과를 만들지 않습니다. 다른 대상은 기존 Thor 전달기를 유지합니다.
+패키지는 런타임이 이미 소유한 StateStore, ActionBuilder, RiskGate, 위험 표, 승격 갱신,
+승인 정책 및 안전 상태를 사용합니다. 안전 상태가 연결되지 않으면 보류합니다.
+실제 원본 발급, 독립된 효과 종결, 적격한 승격 및 배포된 관측자와 실행기의 정확한 범위는
+계속 필요합니다. 패키지를 로드했다는 사실만으로 이 요건을 충족하지는 않습니다.
 
 구성 진입점은 `AksCommerceAnalyzer`를 공용 `InvestigationCoordinator` 및
 `AnalyzerTickRunner`에 등록할 수 있습니다. 상거래 조정기는 평가를 먼저 보관하고, 분석기는

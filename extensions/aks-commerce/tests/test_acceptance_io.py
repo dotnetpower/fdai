@@ -1,9 +1,11 @@
 import copy
 import json
 import ssl
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import UTC, datetime, timedelta
+from importlib.metadata import EntryPoint
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import httpx
@@ -21,6 +23,7 @@ from fdai.agents import (
 )
 from fdai.agents.thor import ActionRun, ActionRunState, Thor
 from fdai.agents.var import Var
+from fdai.core.control_loop import ControlLoop
 from fdai.core.executor.action_builder import ActionBuilder
 from fdai.core.risk_gate.gate import ActionModeRecord, ActionPromotionRegistry, RiskGate
 from fdai.core.risk_gate.risk_table import load_risk_table
@@ -28,6 +31,8 @@ from fdai.delivery.analyzer_tick import AnalyzerTarget
 from fdai.delivery.persistence.postgres_analyzer_publication import (
     PostgresAnalyzerPublicationLedger,
 )
+from fdai.delivery.persistence.state_store_action_promotion import StateStoreActionPromotionRegistry
+from fdai.runtime.aks_commerce import build_acceptance_runtime_bindings
 from fdai.runtime.isolated_executor_client import EventBusDirectApiExecutionClient
 from fdai.runtime.safeguard_isolated_executor import SafeguardBoundEventBusDirectApiExecutionClient
 from fdai.shared.contracts.models import (
@@ -77,6 +82,7 @@ from fdai_aks_commerce.acceptance_runtime import (
     AcceptanceRuntimeConfig,
     build_acceptance_analyzer,
     build_acceptance_runner,
+    build_recovery_bindings,
 )
 from fdai_aks_commerce.acceptance_store import StoredOrderAcceptanceSource, retain_order_acceptance
 
@@ -96,6 +102,19 @@ def _intent() -> OrderAcceptanceIntent:
         deployment_uid="uid-order",
         valid_from=NOW - timedelta(minutes=1),
         valid_until=NOW + timedelta(minutes=1),
+    )
+
+
+def _acceptance_rule():
+    rule = _rule()
+    return rule.model_copy(
+        update={
+            "remediates": "ops.scale-out",
+            "resource_type": "kubernetes.deployment",
+            "check_logic": rule.check_logic.model_copy(
+                update={"reference": "fdai.aks_commerce.order_acceptance.v1"}
+            ),
+        }
     )
 
 
@@ -428,7 +447,7 @@ async def test_signed_observation_survives_store_reconstruction_and_replay(
         return None
 
     builder = ActionBuilder({action_type.name: action_type})
-    rule = _rule().model_copy(update={"remediates": "ops.scale-out"})
+    rule = _acceptance_rule()
     risk_gate = RiskGate(registry=promotions)
     prepared_source = PreparedAcceptanceSource(
         source=source,
@@ -711,6 +730,109 @@ async def test_ready_endpoint_with_wrong_ownership_never_proves_recovery(defect:
 def test_runtime_rejects_missing_or_unknown_config(raw: str) -> None:
     with pytest.raises(ValueError):
         AcceptanceRuntimeConfig.from_json(raw)
+
+
+@pytest.mark.parametrize("defect", [None, "rule", "port", "registry", "approvers", "entrypoint"])
+async def test_runtime_composes_real_acceptance_bindings_without_io(
+    defect: str | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = InMemoryStateStore()
+    key = Ed25519PrivateKey.generate()
+    raw = {
+        "intent": asdict(_intent()),
+        "trust": {
+            "example-key": {
+                "issuer": "observer:verifier",
+                "source_identity": "observer:collector",
+                "public_key_hex": key.public_key().public_bytes_raw().hex(),
+            }
+        },
+        "executor_identity": "identity:executor",
+        "severity": "high",
+        "publication_window_seconds": 5,
+    }
+    rule = _acceptance_rule()
+    registry = StateStoreActionPromotionRegistry(store=store)
+    action_type = OntologyActionType.model_validate(
+        yaml.safe_load(
+            (
+                Path(__file__).resolve().parents[3] / "rule-catalog/action-types/ops.scale-out.yaml"
+            ).read_text()
+        )
+    )
+    coordinator, _lock = _coordinator(store)
+    port = SafeguardBoundEventBusDirectApiExecutionClient(
+        client=EventBusDirectApiExecutionClient(
+            event_bus=InMemoryEventBus(), audit_store=store, instance_id="test"
+        ),
+        coordinator=coordinator,
+    )
+    loop = SimpleNamespace(
+        _rules_by_id={rule.id: rule},
+        _action_builder=ActionBuilder({action_type.name: action_type}),
+        _risk_gate=RiskGate(registry=registry),
+        _risk_table=load_risk_table(
+            Path(__file__).resolve().parents[3] / "rule-catalog/risk-classification.yaml"
+        ),
+        _direct_api_executor=port,
+        _kill_switch_refresher=None,
+        _kill_switch=None,
+        _degradation=None,
+    )
+    env = {
+        "FDAI_AKS_ACCEPTANCE_JSON": json.dumps(raw, default=lambda value: value.isoformat()),
+        "FDAI_AKS_ACCEPTANCE_RULE_ID": rule.id,
+        "FDAI_PANTHEON_APPROVER_ACTIONS_JSON": '{"reviewer@example.com":["ops.scale-out"]}',
+    }
+    if defect == "rule":
+        env["FDAI_AKS_ACCEPTANCE_RULE_ID"] = "missing"
+    elif defect == "port":
+        loop._direct_api_executor = None
+    elif defect == "registry":
+        loop._risk_gate = RiskGate(registry=ActionPromotionRegistry())
+    elif defect == "approvers":
+        env.pop("FDAI_PANTHEON_APPROVER_ACTIONS_JSON")
+    entry = EntryPoint(
+        name="aks-commerce",
+        value="fdai_aks_commerce.acceptance_runtime:build_recovery_bindings",
+        group="fdai.acceptance_recovery",
+    )
+    monkeypatch.setattr(
+        "fdai.runtime.aks_commerce.entry_points",
+        lambda **_kwargs: () if defect == "entrypoint" else (entry,),
+    )
+    calls: list[object] = []
+
+    async def fallback(context: dict[str, Any]) -> bool:
+        calls.append(context)
+        return False
+
+    assert (
+        build_acceptance_runtime_bindings(
+            environment={}, loop=cast(ControlLoop, loop), store=store, fallback=fallback
+        )
+        is None
+    )
+    if defect is not None:
+        with pytest.raises((ValueError, RuntimeError)):
+            build_acceptance_runtime_bindings(
+                environment=env, loop=cast(ControlLoop, loop), store=store, fallback=fallback
+            )
+        assert not calls
+        return
+    bindings = build_acceptance_runtime_bindings(
+        environment=env, loop=cast(ControlLoop, loop), store=store, fallback=fallback
+    )
+    assert bindings is not None
+    assert isinstance(bindings.sources[ACCEPTANCE_SIGNAL], PreparedAcceptanceSource)
+    assert registry.mode_of("ops.scale-out") is Mode.SHADOW
+    assert not calls
+    assert not await bindings.execute({"run": SimpleNamespace(resource_id="resource:other")})
+    assert len(calls) == 1
+    assert not await bindings.sources[ACCEPTANCE_SIGNAL].resolve(
+        event_type=ACCEPTANCE_SIGNAL, resource_ref="resource:other"
+    )
+    assert build_recovery_bindings is not None
 
 
 def test_cli_failure_does_not_disclose_provider_diagnostics(
