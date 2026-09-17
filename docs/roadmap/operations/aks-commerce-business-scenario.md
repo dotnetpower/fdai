@@ -116,6 +116,11 @@ The first action set is deliberately narrow:
 | Scale workload | One Deployment UID and observed generation | Restore the prior replica count if verification fails. |
 | Roll back rollout | One Deployment UID and current revision | Restore the pre-action revision if the selected rollback does not recover. |
 
+The generic AKS runtime routes these registered actions through the isolated Executor. Its
+ServiceAccount can mutate only Pods and Deployments in the configured runtime namespace. The
+commerce effect verifier remains a scenario-specific conditional observer and does not grant the
+generic runtime authority or prove a live recovery.
+
 Each action starts in observation mode and requires a stop condition, tested rollback, impact
 scope, successful server-side dry run, logical-target lock, stable idempotency key, and two-phase
 audit. Success requires a distinct Heimdall observation of both resource recovery and the expected
@@ -169,6 +174,9 @@ Implementation proceeds in these dependency-ordered slices:
 
 Live deployment uses the ordinary FDAI exact-plan workflow. This design does not select a tenant,
 subscription, resource group, domain, certificate, or Terraform plan.
+The protected scenario workflow binds Terraform provider and backend access to the exact verified
+deploy runner Managed Identity. An Azure CLI session never selects an ambient user, service
+principal, or node identity for cluster planning.
 
 ## Related docs
 

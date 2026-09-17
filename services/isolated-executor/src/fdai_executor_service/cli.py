@@ -136,10 +136,20 @@ class IsolatedExecutorRuntimeConfig:
         if execution_venue is ExecutionVenue.DEPLOYED:
             _required(values, _SHADOW_IDENTITY_ENV)
         if authority_cutover:
-            _required(values, "FDAI_DEV_OPERATIONS_GATEWAY_URL")
-            _required(values, "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE")
-            for identity_env in _EXECUTOR_IDENTITY_ENVS.values():
-                _required(values, identity_env)
+            gateway_url = values.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip()
+            gateway_audience = values.get("FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", "").strip()
+            if bool(gateway_url) != bool(gateway_audience):
+                raise RuntimeError(
+                    "isolated Executor gateway URL and audience MUST be configured together"
+                )
+            kubernetes_enabled = bool(values.get("FDAI_KUBERNETES_DIRECT_API_JSON", "").strip())
+            if not gateway_url and not kubernetes_enabled:
+                raise RuntimeError(
+                    "isolated Executor authority cutover requires a direct-API adapter"
+                )
+            if gateway_url:
+                for identity_env in _EXECUTOR_IDENTITY_ENVS.values():
+                    _required(values, identity_env)
         command_topic = values.get(
             "FDAI_EXECUTOR_COMMAND_TOPIC",
             EXECUTOR_COMMAND_TOPIC,
@@ -210,14 +220,22 @@ def build_isolated_executor_supervisor(
     resource_lock = _build_resource_lock()
     service: ExecutorCommandHandler | ExecutorShadowCommandHandler
     if config.authority_cutover:
-        executor_identities = {
-            identity_ref: build_runtime_workload_identity(
-                http_client,
-                client_id_env=identity_env,
-                require_client_id=True,
-            )
-            for identity_ref, identity_env in _EXECUTOR_IDENTITY_ENVS.items()
-        }
+        gateway_enabled = bool(
+            os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip()
+            or os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", "").strip()
+        )
+        executor_identities = (
+            {
+                identity_ref: build_runtime_workload_identity(
+                    http_client,
+                    client_id_env=identity_env,
+                    require_client_id=True,
+                )
+                for identity_ref, identity_env in _EXECUTOR_IDENTITY_ENVS.items()
+            }
+            if gateway_enabled
+            else {}
+        )
         direct_api_executor = _build_direct_api_executor(
             audit_store=audit_store,
             resource_lock=resource_lock,

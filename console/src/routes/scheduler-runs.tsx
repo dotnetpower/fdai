@@ -49,7 +49,7 @@ export function SchedulerRunsRoute({
     : routeQuery;
   const [taskInput, setTaskInput] = useState(initial.taskId);
   const [statusInput, setStatusInput] = useState<Query["status"]>(initial.status);
-  const [activeQuery, setActiveQuery] = useState<Query | null>(initial.taskId ? initial : null);
+  const [activeQuery] = useState<Query | null>(initial.taskId ? initial : null);
   const [state, setState] = useState<AsyncState<SchedulerRunPage>>(
     initial.taskId ? { status: "loading" } : { status: "idle" },
   );
@@ -104,6 +104,10 @@ export function SchedulerRunsRoute({
     event.preventDefault();
     const taskId = taskInput.trim();
     if (!taskId) return;
+    if (activeQuery?.taskId === taskId && activeQuery.status === statusInput) {
+      if (state.status !== "loading") void load(activeQuery, null, false);
+      return;
+    }
     navigate(routeHref("scheduler-runs", {
       params: { task_id: taskId, status: statusInput || null },
     }), true);

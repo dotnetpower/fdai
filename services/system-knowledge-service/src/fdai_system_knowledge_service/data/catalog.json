@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:648babcfb97906c45cd114b0d438236060e0da731a514e5f9023763c577316cc",
+  "catalog_digest": "sha256:00289aab2bb4147a82cef8926013c4befac01497e3889ed5957dc8d7f80363fa",
   "execution_authority": false,
-  "generated_at": "2026-09-16T16:50:25.515955Z",
+  "generated_at": "2026-09-17T02:58:25.254723Z",
   "records": [
     {
       "designed_behavior": [
@@ -21,8 +21,17 @@
         "How does FDAI keep actions safe?",
         "FDAI는 작업을 어떻게 안전하게 실행하나요?"
       ],
-      "record_digest": "sha256:3b82c8807e78d5a136b29144f311e91d1b9da32f386c87229926a843e6aeaba8",
+      "record_digest": "sha256:8f8010fd984b2d1f0755b2da287ba8532e2ee1e3062d6cc37093d1d68d5a4d0e",
       "sources": [
+        {
+          "authority_role": "design",
+          "blob_sha": "9852c3620969f45f21d7e61c59f947cc6b1f985f",
+          "line_end": 24,
+          "line_start": 24,
+          "path": "docs/roadmap/decisioning/action-ontology.md",
+          "source_kind": "doc",
+          "symbol": "One ontology, two triggers"
+        },
         {
           "authority_role": "design",
           "blob_sha": "d1464ccab1866fdd17ce2a57ea10a76e904f1daf",
@@ -31,15 +40,6 @@
           "path": "docs/roadmap/architecture/fdai-constitution.md",
           "source_kind": "doc",
           "symbol": "Article 3: Agent-driven authority"
-        },
-        {
-          "authority_role": "design",
-          "blob_sha": "f4a1a6b8fbfab8527efd5dfe13d32e301b076759",
-          "line_end": 24,
-          "line_start": 24,
-          "path": "docs/roadmap/decisioning/action-ontology.md",
-          "source_kind": "doc",
-          "symbol": "One ontology, two triggers"
         }
       ],
       "status": "implemented",
@@ -149,22 +149,22 @@
         "How does FDAI ingest documents?",
         "FDAI는 문서를 어떻게 수집하나요?"
       ],
-      "record_digest": "sha256:06f36bc884f542aa8d7183ffc47db95f43e4b5c2d3d5dc2fd950cbfc43f4147f",
+      "record_digest": "sha256:2c3fce629e9e057e505341f4baab5199a73503b6d1376e0e3706896889f24d38",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "bcd02fda25ca4f51cd6708b7647a8bc74c4f173e",
-          "line_end": 104,
-          "line_start": 104,
+          "blob_sha": "b1572955da779c594ba6e6268c0975cd75942f90",
+          "line_end": 103,
+          "line_start": 103,
           "path": "docs/roadmap/interfaces/document-ingestion.md",
           "source_kind": "doc",
           "symbol": "Authorization and shared visibility"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "bcd02fda25ca4f51cd6708b7647a8bc74c4f173e",
-          "line_end": 573,
-          "line_start": 573,
+          "blob_sha": "b1572955da779c594ba6e6268c0975cd75942f90",
+          "line_end": 572,
+          "line_start": 572,
           "path": "docs/roadmap/interfaces/document-ingestion.md",
           "source_kind": "doc",
           "symbol": "Implementation boundaries and rollout"
@@ -192,11 +192,11 @@
         "How does FDAI prevent duplicate chat replies?",
         "FDAI는 중복 채팅 응답을 어떻게 방지하나요?"
       ],
-      "record_digest": "sha256:aae363a28b5d3419db6f82916e5508619ebf892d254989ad116f0c8fd36403ae",
+      "record_digest": "sha256:ba6475ce752c37cdf4e330844dd1aae38548633de25cb966e4fcb77c0678245c",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "093e0c81580c01f470a0d95895f642fe3494de4d",
+          "blob_sha": "8bc9e5887c09a3279464bc297b050c8b3b9a5274",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
@@ -205,7 +205,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "093e0c81580c01f470a0d95895f642fe3494de4d",
+          "blob_sha": "8bc9e5887c09a3279464bc297b050c8b3b9a5274",
           "line_end": 66,
           "line_start": 66,
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
@@ -448,17 +448,8 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:80180e5781e82ec7c0d068a386b8cc7f9d7cd4a6e1a705302ae1afb6477695f9",
+      "record_digest": "sha256:1dbe66075512d17c3acdaa4c88af95e034e12025b34d059237da953e9488daac",
       "sources": [
-        {
-          "authority_role": "design",
-          "blob_sha": "34178883c97cea48650b290de3502de27ffd5ad0",
-          "line_end": 86,
-          "line_start": 86,
-          "path": "docs/roadmap/interfaces/system-knowledge-service.md",
-          "source_kind": "doc",
-          "symbol": "Revised design"
-        },
         {
           "authority_role": "design",
           "blob_sha": "4ba6aae475fafacabbd7bf1e98e38847415dc4ae",
@@ -467,6 +458,15 @@
           "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
           "source_kind": "doc",
           "symbol": "Graduation scorecard"
+        },
+        {
+          "authority_role": "design",
+          "blob_sha": "9d7d3a0736ee6943ba6f3d103ecf0d46952595f2",
+          "line_end": 86,
+          "line_start": 86,
+          "path": "docs/roadmap/interfaces/system-knowledge-service.md",
+          "source_kind": "doc",
+          "symbol": "Revised design"
         }
       ],
       "status": "in_progress",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:388f4d8e9f64a02b69b33fe25e0ca3d397e1c99299746a3301ac1268b2782e26",
+      "record_digest": "sha256:ff4db094480e460472cc27210e1f76f0c20e1b0fd3a96ff230fcdc5b22672962",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "34178883c97cea48650b290de3502de27ffd5ad0",
+          "blob_sha": "9d7d3a0736ee6943ba6f3d103ecf0d46952595f2",
           "line_end": 86,
           "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "2f6bc6eabda8b6c3041153dddcd672ae37e82ddd"
+  "source_revision": "3f99c29d1102e967c7b6894c2a89b4cec664164d"
 }

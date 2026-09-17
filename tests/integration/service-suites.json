@@ -297,7 +297,8 @@
           "services/isolated-executor/tests/test_automation_hold_fence.py",
           "services/isolated-executor/tests/test_effect_safety.py",
           "services/isolated-executor/tests/test_human_access.py",
-          "services/isolated-executor/tests/test_executor_terraform_identity.py"
+          "services/isolated-executor/tests/test_executor_terraform_identity.py",
+          "services/isolated-executor/tests/test_kubernetes_direct_api.py"
         ],
         "contract": [
           "services/isolated-executor/tests/test_isolated_executor_service_boundary.py",
@@ -307,7 +308,8 @@
           "services/isolated-executor/tests/test_executor_event_bus_adapter.py",
           "services/isolated-executor/tests/test_executor_http_adapters.py",
           "services/isolated-executor/tests/test_executor_postgres_adapters.py",
-          "services/isolated-executor/tests/test_postgres_safeguard_bundle.py"
+          "services/isolated-executor/tests/test_postgres_safeguard_bundle.py",
+          "services/isolated-executor/tests/test_composition.py"
         ],
         "smoke": [
           "services/isolated-executor/tests/test_health.py"

@@ -1,6 +1,6 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: bdef3c27391dcc8b6ad507f4af0eb58c2a2beadf
+translation_source_sha: 3cc48fb07912dddaa5fbaca82da2c26918c68618
 translation_revised: 2026-09-17
 ---
 # AKS 상거래 비즈니스 시나리오
@@ -118,6 +118,11 @@ Browser Evidence는 계속 `GET`과 `HEAD`만 허용합니다. 상태를 변경�
 | 워크로드 확장 | 하나의 Deployment UID와 관측된 세대 | 검증 실패 시 이전 replica 수를 복원합니다. |
 | 롤아웃 되돌리기 | 하나의 Deployment UID와 현재 리비전 | 선택한 롤백으로 복구되지 않으면 작업 전 리비전을 복원합니다. |
 
+일반 AKS 런타임은 등록된 작업을 격리된 실행기로 전달합니다. 해당 ServiceAccount는
+구성된 런타임 namespace의 Pod와 Deployment만 변경할 수 있습니다. 상거래 효과 검증기는
+시나리오에 한정된 조건부 관측기로 남으며, 일반 런타임에 권한을 부여하거나 실제 복구를
+증명하지 않습니다.
+
 각 작업은 관찰 모드로 시작하며 중지 조건, 검증된 롤백, 영향 범위, 성공한 서버 측
 dry run, 논리적 대상 잠금, 안정적인 멱등성 키, 2단계 감사를 요구합니다. 성공하려면
 별도의 Heimdall 관측이 리소스 복구와 예상 비즈니스 효과를 모두 확인해야 합니다.
@@ -171,6 +176,9 @@ Console 경로는 하나의 서비스 중심 인시던트 보기를 제공합니
 
 실제 배포는 일반 FDAI 정확한 계획 작업 흐름을 사용합니다. 이 설계는 테넌트, 구독,
 리소스 그룹, 도메인, 인증서, Terraform 계획을 선택하지 않습니다.
+보호된 scenario workflow는 Terraform provider와 backend 접근을 정확하게 검증된 deploy
+runner Managed Identity에 결속합니다. Azure CLI session이 클러스터 plan에 사용할 주변
+user, service principal 또는 node identity를 선택하지 않습니다.
 
 ## 관련 문서
 

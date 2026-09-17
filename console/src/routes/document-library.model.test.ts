@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DocumentVersionSummary } from "../ingestion-api";
-import { groupDocuments } from "./document-library.model";
+import { groupDocuments, mergeDocumentVersions } from "./document-library.model";
 
 const BASE = {
   document_id: "document-1",
@@ -35,15 +35,14 @@ const BASE = {
 } as const satisfies DocumentVersionSummary;
 
 describe("groupDocuments", () => {
-  it("keeps independent documents separate even when source names match", () => {
+  it("groups same-name uploads as one logical file even when older records used another id", () => {
     const older = { ...BASE, document_id: "document-2", version_id: "version-2" };
     const other = { ...BASE, document_id: "document-3", source_name: "runbook.pdf" };
 
     const groups = groupDocuments([BASE, older, other], "", "all");
 
     expect(groups.map((group) => group.documents.map((item) => item.document_id))).toEqual([
-      ["document-1"],
-      ["document-2"],
+      ["document-2", "document-1"],
       ["document-3"],
     ]);
   });
@@ -57,6 +56,49 @@ describe("groupDocuments", () => {
     } as const satisfies DocumentVersionSummary;
 
     expect(groupDocuments([BASE, pending], "runbook", "attention"))
-      .toEqual([{ key: "document-2", documents: [pending] }]);
+      .toEqual([{ key: "pending-runbook.pdf", documents: [pending] }]);
+  });
+
+  it("merges lazy histories without duplicating their latest summary", () => {
+    const newer = {
+      ...BASE,
+      version_id: "version-2",
+      created_at: "2026-09-06T03:00:00Z",
+      updated_at: "2026-09-06T03:01:00Z",
+    };
+    const otherDocument = {
+      ...BASE,
+      document_id: "document-2",
+      version_id: "version-3",
+      created_at: "2026-09-07T03:00:00Z",
+      updated_at: "2026-09-07T03:01:00Z",
+    };
+
+    expect(mergeDocumentVersions([[newer], [BASE, newer], [otherDocument]]).map(
+      (item) => `${item.document_id}:${item.version_id}`,
+    )).toEqual([
+      "document-2:version-3",
+      "document-1:version-2",
+      "document-1:version-1",
+    ]);
+  });
+
+  it("keeps creation order when an older version receives a later lifecycle update", () => {
+    const newer = {
+      ...BASE,
+      version_id: "version-2",
+      created_at: "2026-09-06T03:00:00Z",
+      updated_at: "2026-09-06T03:01:00Z",
+    };
+    const deactivatedOlder = {
+      ...BASE,
+      version_id: "version-1",
+      created_at: "2026-09-05T03:00:00Z",
+      updated_at: "2026-09-07T03:01:00Z",
+      active: false,
+    };
+
+    expect(mergeDocumentVersions([[deactivatedOlder, newer]])[0]?.version_id)
+      .toBe("version-2");
   });
 });

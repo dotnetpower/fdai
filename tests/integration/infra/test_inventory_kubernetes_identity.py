@@ -73,3 +73,27 @@ def test_aks_inventory_job_gets_only_reviewed_in_cluster_read_permissions() -> N
     assert '"update"' not in role
     assert '"patch"' not in role
     assert '"delete"' not in role
+
+
+def test_aks_isolated_executor_gets_only_registered_namespace_effect_permissions() -> None:
+    workloads = _AKS_WORKLOADS.read_text(encoding="utf-8")
+    role = workloads.split(
+        'resource "kubernetes_role_v1" "executor_kubernetes_effect"', maxsplit=1
+    )[1].split('resource "kubernetes_role_binding_v1" "executor_kubernetes_effect"', maxsplit=1)[0]
+
+    assert '"pods"' in role
+    assert 'verbs      = ["get", "delete"]' in role
+    assert '"deployments"' in role
+    assert 'verbs      = ["get", "patch"]' in role
+    assert '"deployments/scale"' in role
+    assert 'verbs      = ["get", "update"]' in role
+    assert '"secrets"' not in role
+    assert '"configmaps"' not in role
+    assert '"create"' not in role
+    assert '"list"' not in role
+    assert '"watch"' not in role
+    assert (
+        'name      = kubernetes_service_account_v1.identity["workload-isolated-executor"]'
+        in workloads
+    )
+    assert 'kind      = "Role"' in workloads

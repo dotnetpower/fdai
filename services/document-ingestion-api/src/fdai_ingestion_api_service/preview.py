@@ -9,6 +9,7 @@ from fdai_service_contracts import (
     DocumentAccessDeniedError,
     DocumentAccessProvider,
     DocumentEnvelope,
+    DocumentState,
     DocumentUploadMetadataStore,
     DocumentVersion,
     ProtectionState,
@@ -83,7 +84,10 @@ class GovernedDocumentPreview:
         await self._access.authorize_read(
             actor_id=actor_id, actor_groups=actor_groups, version=version
         )
-        if not version.available or not version.active:
+        if not version.available or version.state not in {
+            DocumentState.READY,
+            DocumentState.READY_WITH_WARNINGS,
+        }:
             raise DocumentAccessDeniedError("document version is not available for preview")
         await self._protection.authorize(
             actor_id=actor_id, actor_groups=actor_groups, version=version

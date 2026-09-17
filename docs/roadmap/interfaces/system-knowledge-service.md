@@ -141,14 +141,17 @@ blob pins and the catalog digest only, without changing retrieval authority or m
 behavior.
 Attachment-boundary documentation follows the same source-driven refresh rule: its catalog update
 does not claim that protected channel ingestion is enabled or runtime-validated.
-Console resilience source revisions follow the same rule. Retry and loading-presentation changes
-update source blob pins and the catalog digest only; they do not widen catalog content, retrieval,
-message delivery, or authority.
+Console resilience and document-version presentation source revisions follow the same rule. Retry,
+loading, and responsibility-split changes update source blob pins and the catalog digest only; they
+do not widen catalog content, retrieval, message delivery, or authority.
 A3-E ledger table repairs likewise update source pins only; they do not bind an approval verifier,
 invoke reversion, or establish operational evidence.
 Threshold-parity source revisions follow the same rule: the catalog records the reviewed hard-bound and configuration separation but does not select an active threshold, promote a policy, or grant runtime authority.
 Question-bank source integration and owner-doc compaction follow the same rule: refreshing the
 generated digest preserves 400 questions without certifying semantic coverage or live evidence.
+Action Ontology source-pin refreshes for isolated AKS support likewise record only conditional
+runtime support and grant no approval, deployment, or execution authority. Assigning the adapter
+tests to the isolated Executor service suite changes collection metadata only.
 Adaptive Azure Monitor investigation sources follow it as well: the catalog describes reviewed
 recipe selection, fixed-KQL execution, and no-data limits without exposing raw KQL or granting
 query authority.

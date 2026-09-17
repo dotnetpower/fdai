@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: ed6384fd343f039d96e3962deb1fd7ea798960d0
+translation_source_sha: 186a0ee6797616bbc497ef2d0aa6a9c9384e99c3
 translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
@@ -281,7 +281,7 @@ Executor 실행 권한 전환을 활성화하지 않습니다.
 
 각 FDAI 워크로드는 현재 user-assigned Managed Identity를 유지합니다. AKS에서는 namespace에 속한
 Kubernetes ServiceAccount가 federated identity credential을 받습니다. 권한이 높은 Executor 신원은
-Console, Operator Service, 작업 또는 다른 워크로드와 공유하지 않습니다. 선택적 dev operations gateway는 reader와 executor identity를 분리합니다. 태그 canary는 FDAI 애플리케이션 리소스 그룹의 `Tag Contributor`만 사용하며 reader 접근은 사전 점검, 쓰기 후 확인 및 rollback 확인을 담당합니다. ActionType 버전을 변경하면 두 convergence 테스트의 기대값을 포함한 정확한 ontology 및 Cost Governance 프로파일 pin을 다시 생성하지만 package를 활성화하지는 않습니다. 이 역할은 `remediate.tag-add`를 승격하지 않으며 배포와 ActionType 승격에는 각각 별도 승인이 필요합니다.
+Console, Operator Service, 작업 또는 다른 워크로드와 공유하지 않습니다. 선택적 dev operations gateway는 reader와 executor identity를 분리합니다. 태그 canary는 FDAI 애플리케이션 리소스 그룹의 `Tag Contributor`만 사용하며 reader 접근은 사전 점검, 쓰기 후 확인 및 rollback 확인을 담당합니다. ActionType 버전을 변경하면 두 convergence 테스트의 기대값을 포함한 정확한 ontology 및 Cost Governance 프로파일 pin을 다시 생성하지만 package를 활성화하지는 않습니다. 이 역할은 `remediate.tag-add`를 승격하지 않으며 배포와 ActionType 승격에는 각각 별도 승인이 필요합니다. Kubernetes 효과 경로를 구성하면 namespace Role 하나를 격리된 실행기 ServiceAccount에만 연결하고 Pod `get` 및 `delete`, Deployment `get` 및 `patch`, Deployment scale `get` 및 `update`만 허용합니다. 클러스터 전체 변경, 리소스 생성, secret 접근 또는 읽기 전용 인벤토리 작업 권한은 부여하지 않습니다. 런타임 구성은 자격 증명을 포함하지 않고 클러스터 내부 API 원점, 투영된 자격 증명 경로, 정확한 AKS 리소스 ID 및 `fdai-runtime` namespace 허용 목록을 연결합니다.
 
 다섯 기본 서비스는 `AZURE_FEDERATED_TOKEN_FILE`이 선언되면 Azure Identity SDK의 워크로드
 자격 증명을 선택합니다. 투영된 토큰 경로는 절대 경로여야 하고 tenant와 client 식별자는
