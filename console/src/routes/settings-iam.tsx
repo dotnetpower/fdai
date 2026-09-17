@@ -60,18 +60,22 @@ export function SettingsIamRoute({ client, auth }: Props) {
   const [rosterAvailable, setRosterAvailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [supplementaryLoading, setSupplementaryLoading] = useState(false);
   const loadGeneration = useRef(0);
 
   const load = async () => {
     const generation = ++loadGeneration.current;
     setLoading(true);
+    setSupplementaryLoading(false);
     setError(null);
     try {
       const nextOverview = await client.iamOverview();
       if (generation !== loadGeneration.current) return;
       setOverview(nextOverview);
+      setLoading(false);
       const manager = nextOverview.principal.capabilities.includes("manage-group-membership");
       if (manager) {
+        setSupplementaryLoading(true);
         const [requestResult, rosterResult] = await Promise.allSettled([
           client.listIamAccessRequests(),
           client.iamRoster(),
@@ -112,7 +116,10 @@ export function SettingsIamRoute({ client, auth }: Props) {
       if (generation !== loadGeneration.current) return;
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
-      if (generation === loadGeneration.current) setLoading(false);
+      if (generation === loadGeneration.current) {
+        setLoading(false);
+        setSupplementaryLoading(false);
+      }
     }
   };
 
@@ -241,6 +248,7 @@ export function SettingsIamRoute({ client, auth }: Props) {
         requestTotal,
         hasMoreRequests: nextRequestCursor !== null,
         loadMoreRequests,
+        supplementaryLoading,
         roster,
         rosterAvailable,
         rosterError,
@@ -275,6 +283,7 @@ function renderTab(props: {
   readonly requestTotal: number;
   readonly hasMoreRequests: boolean;
   readonly loadMoreRequests: () => Promise<void>;
+  readonly supplementaryLoading: boolean;
   readonly roster: readonly IdentityRosterItem[];
   readonly rosterAvailable: boolean;
   readonly rosterError: string | null;
@@ -294,6 +303,9 @@ function renderTab(props: {
     case "my-access":
       return <MyAccess overview={props.overview} username={props.username} auth={props.auth} />;
     case "users":
+      if (props.supplementaryLoading) {
+        return <LoadingState label={t("settings.iam.loading")} />;
+      }
       return (
         <UsersView
           overview={props.overview}
@@ -310,6 +322,9 @@ function renderTab(props: {
     case "roles":
       return <RolesView roles={props.overview.roles} />;
     case "requests":
+      if (props.supplementaryLoading) {
+        return <LoadingState label={t("settings.iam.loading")} />;
+      }
       return (
         <AccessRequestsView
           requests={props.requests}

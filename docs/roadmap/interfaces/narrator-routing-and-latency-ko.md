@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: d626a4970f64f1c00ea43859a8779fcdd816eea6
-translation_revised: 2026-09-15
+translation_source_sha: a067196e9e9751e9d1b1b01abd0dc76191dcef63
+translation_revised: 2026-09-17
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -180,6 +180,8 @@ Console 시작 질문에는 계약으로 검증된 함수 기반 질문만 표�
 시간 근거를 보여줍니다. 인증된 principal은 `Auto` 라우팅을 쓰거나 현재 서술기 허용 목록에 있는
 배포 하나를 고를 수 있습니다. 제거됐거나 쓸 수 없게 된 선호 설정은 `Auto`로 되돌리며, 서버는
 임의의 모델 식별자를 차단합니다.
+
+Settings 탐색의 Models 링크에 포인터를 올리거나 키보드 포커스를 두면 이 변환 결과를 미리 조회합니다. 인증된 API 클라이언트 하나는 겹치는 조회를 하나로 합치고 성공한 변환 결과만 메모리에 60초 동안 보관합니다. 명시적인 카탈로그 새로고침, 충돌 복구, 설정 변경 뒤 조회는 캐시를 우회하거나 무효화합니다. 브라우저 저장소와 공유 HTTP 캐시는 사용하지 않으며, 각 서버 요청은 현재 principal을 계속 인증하고 인가합니다.
 
 대상 선호 설정은 명시적인 개정 번호를 씁니다. 생성 시에는 개정 번호 `0`을 보내고 이후 쓰기는 현재
 개정 번호와 일치해야 합니다. 상태와 감사 기록은 하나의 트랜잭션에서 커밋되므로, 동시에 진행된
@@ -378,6 +380,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-17 | implemented | 전체 Models 변환 결과에 포인터 및 키보드 선조회와 인증 클라이언트별 60초 메모리 캐시를 추가했습니다. 겹치는 조회는 하나로 합치고 실패는 폐기하며, 명시적인 카탈로그 새로고침, 충돌 복구, 변경 뒤 재조회는 최신 결과를 가져옵니다. | `current change`; `console/src/api.ts`; `console/src/components/settings-overlay.tsx`; `console/src/routes/settings-models.tsx`; 집중 캐시 및 Playwright 검사. | 측정된 지연 시간 개선을 주장하기 전에 인증된 cold 및 warm 로드의 시간 분포를 보존합니다. |
 | 2026-09-14 | implemented | Qualification timing이 하드 상한을 해제하기 전에 콘텐츠 주소 기반 latency 및 trace-cohort 연결을 요구하고 생성된 축약 결과의 불변식을 다시 검증하도록 했습니다. | `current change`; 집중 scorecard, timing 및 CLI 검사(`69 passed`), Ruff 통과 | 권위 있는 단계 소유자를 연결하고 일치하는 500개 이상 추적 통제 집합 하나를 보존합니다. |
 | 2026-09-08 | implemented | Core mini 탐색에 비어 있지 않은 실제 첫 토큰 TTFT 측정을 추가하고, Operator와 Console을 통해 TTFT 및 전체 처리 시간 구간을 별도로 변환했으며, TPM을 변경하거나 압력 실패를 재시도할 수 없는 범위가 제한된 동일 요청 용량 벤치마크를 추가했습니다. | `current change`, 집중 Core/Operator TTFT 및 벤치마크 검사 41개, Console 라우팅 및 툴팁 검사 66개, Ruff 및 strict mypy 통과 | 실제 벤치마크는 일관된 깨끗한 커밋 스냅샷에서만 실행합니다. 런타임 검증 상태를 높이기 전에 인증된 화면 표시 브라우저 처리 시간 근거를 보존합니다. |
 | 2026-09-07 | validated | 선택된 T2 일반 지식 턴이 분류와 범위가 제한된 답변 작성을 하나의 T2 preflight에서 함께 수행하도록 연결했습니다. GPT-5 preflight 요청은 낮은 추론 수준을 사용하며 이 조언 경로에서는 adaptive 계획/검토/개선/확인을 실행하지 않습니다. | `current change`; 집중 preflight/조립 검사 162개, Ruff, strict mypy, 서비스 경계 검사와 로컬 라이브 진단 1회가 4.286초 만에 `model=gpt-5.6-sol`의 `advisory_response`로 완료됐습니다. | 지연 시간 목표를 주장하기 전에 인증된 화면 표시 브라우저 스트리밍 근거와 측정 분포를 보존합니다. |

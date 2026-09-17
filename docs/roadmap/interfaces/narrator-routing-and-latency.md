@@ -184,6 +184,8 @@ runtime latency evidence without endpoints or credentials. Each authenticated pr
 `Auto` routing or pin one deployment from the current narrator allowlist. Removed or unavailable
 preferences fall back to `Auto`; the server rejects arbitrary model ids.
 
+The Settings navigation prefetches this projection when the Models link receives pointer or keyboard focus. One authenticated API client coalesces overlapping reads and keeps only a successful projection in memory for 60 seconds. Explicit catalog refresh, conflict recovery, and reads after a settings mutation bypass or invalidate that cache. Browser storage and shared HTTP caches remain unused, and every server request still authenticates and authorizes the current principal.
+
 Target preferences use explicit revisions. Creation sends revision `0`; later writes match the current
 revision. State and audit commit in one transaction, so concurrent sessions receive `409` instead
 of overwriting each other.
@@ -384,6 +386,7 @@ The implementation session reported the following bounded evidence for the curre
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-17 | implemented | Added pointer and keyboard prefetch plus a 60-second authenticated-client memory cache for the complete Models projection. Overlapping reads coalesce; failures are evicted; explicit catalog refresh, conflict recovery, and post-mutation reloads remain fresh. | `current change`; `console/src/api.ts`; `console/src/components/settings-overlay.tsx`; `console/src/routes/settings-models.tsx`; focused cache and Playwright checks. | Retain an authenticated cold- and warm-load timing distribution before claiming a measured latency improvement. |
 | 2026-09-14 | implemented | Required content-addressed latency and trace-cohort bindings before qualification timing can clear its hard cap and revalidated reduced result invariants at construction. | `current change`; focused scorecard, timing, and CLI checks (`69 passed`); Ruff passed. | Bind authoritative stage owners and retain one matching controlled cohort of at least 500 traces. |
 | 2026-09-08 | implemented | Added true first-nonempty-token TTFT measurement to the Core mini probe, projected separate TTFT and total windows through Operator and Console, and added a bounded exact-request capacity benchmark that cannot change TPM or retry pressure failures. | `current change`; focused Core/Operator TTFT and benchmark checks passed 41 cases, Console routing and tooltip checks passed 66 cases, Ruff and strict mypy passed. | Run the live benchmark only from a clean coherent committed snapshot. Retain authenticated visible-browser timing before raising runtime validation. |
 | 2026-09-07 | validated | Routed a selected T2 general-knowledge turn through one T2 preflight that classifies and authors the bounded answer together. GPT-5 preflight requests use low reasoning effort; adaptive plan/review/refine/verify remain absent from this advisory path. | `current change`; 162 focused preflight/composition checks, Ruff, strict mypy, service-boundary checks, and one local live diagnostic completed as `advisory_response` with `model=gpt-5.6-sol` in 4.286 seconds. | Retain authenticated visible-browser streaming evidence and a measured distribution before making a latency target claim. |
