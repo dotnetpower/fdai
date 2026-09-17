@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: bc7bade036a0ee0029829443cf5a2911c5d62a46
+translation_source_sha: 9852c3620969f45f21d7e61c59f947cc6b1f985f
 translation_revised: 2026-09-17
 ---
 
@@ -303,7 +303,7 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 
 오퍼레이터 요청 런타임 액션. Day 1 shipping:
 
-- `ops.restart-service` - AKS Pod, App Service, Container App 리비전을 다시 시작합니다. `ops.rollback-kubernetes-rollout`은 사람 승인과 서버 측 dry run 뒤 정확한 Deployment 하나를 검토된 digest 고정 이미지로 복원합니다.
+- `ops.restart-service` - AKS Pod, App Service, Container App 리비전을 다시 시작합니다. `ops.rollback-kubernetes-rollout`은 사람 승인과 서버 측 dry run 뒤 정확한 Deployment 하나를 검토된 digest 고정 이미지로 복원합니다. AKS에서 격리된 실행기는 이 작업들과 `ops.scale-in`, `ops.scale-out`을 정확한 클러스터, namespace, 리소스 종류, UID 및 리소스 버전 확인에 연결합니다. 서버 측 dry run 뒤 안전장치에 결속된 `enforce` 명령만 적용하며, namespace 범위의 신원은 리소스를 생성하거나 secret을 읽거나 다른 namespace를 변경할 수 없습니다.
 - `ops.scale-out` - 복제본 / 인스턴스 개수 증가. 지출-증가이므로 `cost_impact_monthly` 를 선언 MUST ->
   risk-classification 비용 게이트 적용 ([execution-model.md § 2.8](execution-model-ko.md#28-비용-증가-ops-액션)).
 - `ops.scale-in` - 복제본 개수 감소 (Approver + 실제 운영 탐색).
@@ -330,12 +330,6 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 - `ops.set-alert-notification-window` - 기존 비활성 규칙 하나에 유한한 억제 구간을 설정합니다.
 - `ops.tune-alert-evaluation` - 지원되는 임계값, 평가 구간 또는 주기 중 한 축의 변경을 제안합니다.
 - `ops.restore-alert-configuration` - 별도 복구 권한으로 정확히 보존된 기준선을 복원합니다.
-
-AKS에서 격리된 실행기는 `ops.restart-service`, `ops.scale-in`, `ops.scale-out`,
-`ops.rollback-kubernetes-rollout`만 Kubernetes API에 연결합니다. 정확한 클러스터, namespace,
-리소스 종류, UID 및 리소스 버전을 확인하고 먼저 서버 측 dry run을 실행합니다. 그런 다음
-안전장치 경계를 이미 통과한 `enforce` 명령만 적용합니다. Namespace 범위의 런타임 신원은
-리소스를 생성하거나 secret을 읽거나 다른 namespace를 변경할 수 없습니다.
 
 네 [알림 과다 수신 관리 작업](../operations/alert-noise-governance-ko.md)은 `pr_manual`, shadow 기본값,
 Owner 수준의 사람 승인과 독립 효과/복구 근거를 유지합니다. [과거 R7 제안](../fork-and-sequencing/implementation-plan-ko.md)은

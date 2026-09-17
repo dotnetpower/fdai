@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:05eb19a778e95127034548ad82bf5e925a4587242f2f230a40aa5af79039ac96",
+  "catalog_digest": "sha256:47bac3b59ab333a264d94046ccc608daa50bb8a4efe64a976ef32013b845c31f",
   "execution_authority": false,
-  "generated_at": "2026-09-17T02:34:35.400121Z",
+  "generated_at": "2026-09-17T02:37:37.296624Z",
   "records": [
     {
       "designed_behavior": [
@@ -21,11 +21,11 @@
         "How does FDAI keep actions safe?",
         "FDAI는 작업을 어떻게 안전하게 실행하나요?"
       ],
-      "record_digest": "sha256:a0d979f9c96db9a20e0bb39110f3806f09498bd23dcddd49c01fb0b9f7ca7abd",
+      "record_digest": "sha256:8f8010fd984b2d1f0755b2da287ba8532e2ee1e3062d6cc37093d1d68d5a4d0e",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "bc7bade036a0ee0029829443cf5a2911c5d62a46",
+          "blob_sha": "9852c3620969f45f21d7e61c59f947cc6b1f985f",
           "line_end": 24,
           "line_start": 24,
           "path": "docs/roadmap/decisioning/action-ontology.md",
@@ -448,17 +448,8 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:80180e5781e82ec7c0d068a386b8cc7f9d7cd4a6e1a705302ae1afb6477695f9",
+      "record_digest": "sha256:f358f61081b1d6e2c5757c068e7e39d4caf71b77ccb41b2a54b90410db39f2e9",
       "sources": [
-        {
-          "authority_role": "design",
-          "blob_sha": "34178883c97cea48650b290de3502de27ffd5ad0",
-          "line_end": 86,
-          "line_start": 86,
-          "path": "docs/roadmap/interfaces/system-knowledge-service.md",
-          "source_kind": "doc",
-          "symbol": "Revised design"
-        },
         {
           "authority_role": "design",
           "blob_sha": "4ba6aae475fafacabbd7bf1e98e38847415dc4ae",
@@ -467,6 +458,15 @@
           "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
           "source_kind": "doc",
           "symbol": "Graduation scorecard"
+        },
+        {
+          "authority_role": "design",
+          "blob_sha": "61553a43aecf787371fc67f2a079f9db36e1e66b",
+          "line_end": 86,
+          "line_start": 86,
+          "path": "docs/roadmap/interfaces/system-knowledge-service.md",
+          "source_kind": "doc",
+          "symbol": "Revised design"
         }
       ],
       "status": "in_progress",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:388f4d8e9f64a02b69b33fe25e0ca3d397e1c99299746a3301ac1268b2782e26",
+      "record_digest": "sha256:f60788d27d479ba3aac5baacf14c679a03676abf5bd682bc51a9402035281ef3",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "34178883c97cea48650b290de3502de27ffd5ad0",
+          "blob_sha": "61553a43aecf787371fc67f2a079f9db36e1e66b",
           "line_end": 86,
           "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "f0f19fd536cff73221d998aa5c6d0926bf7c75dd"
+  "source_revision": "5cd2e9b23a43913ec6016d296ae74828ccfd1ad9"
 }
