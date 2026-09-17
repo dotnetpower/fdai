@@ -16622,8 +16622,9 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
   padding-bottom: 8px;
 }
 .waterfall-group-head {
-  display: flex;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
   gap: 8px;
   margin-bottom: 6px;
 }
@@ -16632,15 +16633,26 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
 }
 .waterfall-toggle {
   appearance: none;
-  border: none;
+  width: 32px;
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   background: transparent;
   padding: 0;
   display: inline-flex;
+  justify-content: center;
   align-items: center;
-  gap: 7px;
   cursor: pointer;
   color: inherit;
-  min-width: 0;
+}
+.waterfall-toggle:hover {
+  border-color: var(--border);
+  background: var(--bg);
+}
+.waterfall-toggle:focus-visible,
+.waterfall-trace-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .waterfall-chevron {
   font-size: 8px;
@@ -16651,19 +16663,42 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
 .waterfall-chevron-open {
   transform: rotate(90deg);
 }
-.waterfall-corr {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--accent);
-  text-decoration: none;
+.waterfall-group-identity {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
 }
-.waterfall-corr:hover {
-  text-decoration: underline;
+.waterfall-corr {
+  color: var(--fg);
+  font-size: var(--cs-type-compact-size);
+  font-weight: 600;
+  line-height: var(--cs-type-compact-line-height);
+  overflow-wrap: anywhere;
+  user-select: text;
 }
 .waterfall-span {
-  font-size: 11px;
-  flex: 0 0 auto;
-  margin-left: auto;
+  font-size: var(--cs-type-caption-size);
+  line-height: var(--cs-type-caption-line-height);
+}
+.waterfall-trace-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--accent-strong);
+  font-size: var(--cs-type-label-size);
+  font-weight: 650;
+  line-height: var(--cs-type-label-line-height);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.waterfall-trace-link:hover {
+  border-color: color-mix(in oklab, var(--accent) 45%, var(--border));
+  background: color-mix(in oklab, var(--accent) 7%, transparent);
 }
 .waterfall-lanes {
   list-style: none;
@@ -21626,6 +21661,8 @@ body.agent-organization-dialog-open {
   .settings-assignment-workspace select {
     min-height: 44px;
   }
+  .waterfall-toggle,
+  .waterfall-trace-link { min-height: var(--cs-control-height-touch); }
   .agent-oversight-source-grid { grid-template-columns: 1fr; }
   .ownership-readiness,
   .ownership-filters { grid-template-columns: 1fr; }
