@@ -102,6 +102,36 @@ variable "authority" {
     error_message = "Authority cutover requires the governed gateway, and legacy transition requires cutover."
   }
 }
+variable "kubernetes_direct_api" {
+  description = "Optional exact Kubernetes API binding using an attached Thor identity and public CA only."
+  type = object({
+    api_server         = string
+    cluster_ref        = string
+    audience           = string
+    ca_pem             = string
+    allowed_namespaces = set(string)
+  })
+  default = null
+  validation {
+    condition = var.kubernetes_direct_api == null ? true : (
+      var.authority.cutover &&
+      can(regex("^https://[A-Za-z0-9.-]+(:[0-9]+)?/?$", var.kubernetes_direct_api.api_server)) &&
+      length(trimspace(var.kubernetes_direct_api.cluster_ref)) > 0 &&
+      length(var.kubernetes_direct_api.cluster_ref) <= 1024 &&
+      length(trimspace(var.kubernetes_direct_api.audience)) > 0 &&
+      length(var.kubernetes_direct_api.audience) <= 512 &&
+      length(var.kubernetes_direct_api.ca_pem) <= 65536 &&
+      startswith(trimspace(var.kubernetes_direct_api.ca_pem), "-----BEGIN CERTIFICATE-----") &&
+      endswith(trimspace(var.kubernetes_direct_api.ca_pem), "-----END CERTIFICATE-----") &&
+      !strcontains(var.kubernetes_direct_api.ca_pem, "PRIVATE KEY") &&
+      length(var.kubernetes_direct_api.allowed_namespaces) > 0 &&
+      length(var.kubernetes_direct_api.allowed_namespaces) <= 32 &&
+      alltrue([for namespace in var.kubernetes_direct_api.allowed_namespaces : can(regex("^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$", namespace))])
+    )
+    error_message = "Kubernetes binding requires existing authority cutover, exact HTTPS origin, public CA, and bounded explicit namespaces."
+  }
+}
+
 variable "scaling" {
   description = "Executor replica and resource limits."
   type        = object({ min_replicas = number, max_replicas = number, cpu = number, memory = string })

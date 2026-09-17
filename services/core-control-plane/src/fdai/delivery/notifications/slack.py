@@ -39,6 +39,12 @@ _MAX_SECTION_CHARS: Final[int] = 3000
 _MAX_FIELDS_PER_SECTION: Final[int] = 10
 _MAX_PAYLOAD_BYTES: Final[int] = 40 * 1024
 _CONTENT_TYPE: Final[str] = "application/json"
+_SEVERITY_COLORS: Final[dict[Severity, str]] = {
+    Severity.INFO: "#36C5F0",
+    Severity.WARN: "#ECB22E",
+    Severity.ERROR: "#E01E5A",
+    Severity.CRITICAL: "#E01E5A",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,7 +210,12 @@ def _block_kit(message: NotificationPresentationEnvelope) -> dict[str, object]:
         )
     return {
         "text": header_text,
-        "blocks": blocks,
+        "attachments": [
+            {
+                "color": _SEVERITY_COLORS[message.severity],
+                "blocks": blocks,
+            }
+        ],
     }
 
 

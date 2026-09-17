@@ -40,6 +40,12 @@ _MAX_PAYLOAD_BYTES: Final[int] = 28 * 1024
 _MAX_TITLE_CHARS: Final[int] = 250
 _MAX_BODY_CHARS: Final[int] = 3000
 _CONTENT_TYPE: Final[str] = "application/json"
+_SEVERITY_PRESENTATION: Final[dict[Severity, tuple[str, str]]] = {
+    Severity.INFO: ("INFORMATION", "Accent"),
+    Severity.WARN: ("ATTENTION", "Warning"),
+    Severity.ERROR: ("CRITICAL", "Attention"),
+    Severity.CRITICAL: ("CRITICAL", "Attention"),
+}
 
 
 class TeamsWorkflowAuthMode(StrEnum):
@@ -177,29 +183,44 @@ def render_teams_payload(
 
 
 def _adaptive_card(message: NotificationPresentationEnvelope) -> dict[str, object]:
-    """Wrap ``message`` in a minimal Adaptive Card envelope.
+    """Wrap ``message`` in an accessible Adaptive Card envelope.
 
-    Kept intentionally small - Teams accepts the ``TextBlock`` +
-    ``FactSet`` + ``ActionSet`` primitives universally, so a fork can
-    override this without changing the adapter.
+    The card uses only the conservative ``TextBlock``, ``FactSet``, and
+    ``Action.OpenUrl`` primitives supported by Teams Workflows.
     """
     title, title_truncated = truncate_with_marker(message.title, limit=_MAX_TITLE_CHARS)
     body_text, body_truncated = truncate_with_marker(
         message.body_markdown,
         limit=_MAX_BODY_CHARS,
     )
+    severity_label, severity_color = _SEVERITY_PRESENTATION[message.severity]
     body: list[dict[str, object]] = [
         {
             "type": "TextBlock",
-            "size": "Medium",
+            "text": severity_label,
             "weight": "Bolder",
+            "size": "Small",
+            "color": severity_color,
+            "horizontalAlignment": "Center",
+            "spacing": "None",
+        },
+        {
+            "type": "TextBlock",
             "text": title,
-            "color": _severity_color(message.severity),
+            "weight": "Bolder",
+            "size": "ExtraLarge",
+            "wrap": True,
+            "horizontalAlignment": "Center",
+            "spacing": "Small",
         },
         {
             "type": "TextBlock",
             "wrap": True,
             "text": body_text,
+            "isSubtle": True,
+            "size": "Medium",
+            "horizontalAlignment": "Center",
+            "spacing": "Medium",
         },
     ]
     facts: list[dict[str, str]] = [
@@ -222,6 +243,8 @@ def _adaptive_card(message: NotificationPresentationEnvelope) -> dict[str, objec
         body.append(
             {
                 "type": "FactSet",
+                "separator": True,
+                "spacing": "Medium",
                 "facts": facts,
             }
         )
@@ -232,6 +255,8 @@ def _adaptive_card(message: NotificationPresentationEnvelope) -> dict[str, objec
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.4",
+        "fallbackText": f"{title}: {body_text}",
+        "speak": f"{title}: {body_text}",
         "body": body,
     }
     if actions:
@@ -246,15 +271,6 @@ def _adaptive_card(message: NotificationPresentationEnvelope) -> dict[str, objec
             }
         ],
     }
-
-
-def _severity_color(severity: Severity) -> str:
-    return {
-        Severity.INFO: "Default",
-        Severity.WARN: "Warning",
-        Severity.ERROR: "Attention",
-        Severity.CRITICAL: "Attention",
-    }[severity]
 
 
 __all__ = [
