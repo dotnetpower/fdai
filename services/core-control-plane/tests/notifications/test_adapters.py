@@ -349,10 +349,11 @@ class TestSlackAdapter:
         import json as _json
 
         body = _json.loads(captured[0].content.decode("utf-8"))
-        assert "blocks" in body
-        assert body["blocks"][0]["type"] == "header"
-        assert all(b["type"] != "actions" for b in body["blocks"])
-        assert "https://example.com/rb/1" in _json.dumps(body["blocks"])
+        attachment = body["attachments"][0]
+        assert attachment["color"] == "#E01E5A"
+        assert attachment["blocks"][0]["type"] == "header"
+        assert all(block["type"] != "actions" for block in attachment["blocks"])
+        assert "https://example.com/rb/1" in _json.dumps(attachment["blocks"])
 
     async def test_all_severities_render(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:

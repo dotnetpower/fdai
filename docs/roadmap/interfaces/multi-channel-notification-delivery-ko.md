@@ -1,8 +1,8 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: a271b899c361a6d24fe218bbbd4691136ea6dcf0
-translation_revised: 2026-09-09
+translation_source_sha: ad262e29a2fbf5bdada701cb47b09bf803abc793
+translation_revised: 2026-09-17
 ---
 # 다중 채널 알림 전달
 
@@ -391,9 +391,10 @@ Teams와 Slack은 두 모드에서 동일한 순수 공급자 렌더러를 사�
 
 | 공급자 | 공급자 payload 계약 |
 |--------|---------------------|
-| Teams | Adaptive Card 묶음, 제목 250자, 본문 3000자, 전체 payload 28 KB, 공급자별 텍스트 축약이 발생하면 `rendering: truncated` 사실 항목 |
-| Slack | Block Kit 묶음, 머리글 150자, 섹션 3000자, 섹션당 사실 항목 최대 10개, 전체 페이로드 40 KB, 이스케이프 처리한 사실 값, 대화형 작업 블록 대신 읽기 전용 Markdown 링크 |
+| Teams | `fallbackText`와 `speak`, 의미 기반 심각도 라벨, 가운데 정렬된 `ExtraLarge` 제목을 포함하는 Adaptive Card 1.4 묶음, 제목 250자, 본문 3000자, 전체 payload 28 KB, 공급자별 텍스트 축약이 발생하면 `rendering: truncated` 사실 항목 |
+| Slack | Block Kit 머리글과 섹션을 포함하는 심각도 색상 attachment, 머리글 150자, 섹션 3000자, 섹션당 사실 항목 최대 10개, 전체 페이로드 40 KB, 이스케이프 처리한 사실 값, 대화형 작업 블록 대신 읽기 전용 Markdown 링크 |
 
+이 계층 구조는 공급자 고유 카드 패턴을 따르면서 동일한 정본 의미를 보존합니다.
 두 렌더러는 `correlation_id`, `audit_id`, 정렬된 범위 제한 메타데이터를 보존합니다. 따라서 호출자는
 `NotificationMessage`에 공급자별 필드를 추가하지 않고도 표준 인시던트 id와
 `Huginn -> Forseti -> Thor -> Vidar` 책임 순서를 전달할 수 있습니다. 안정적인 shadow 기록은
