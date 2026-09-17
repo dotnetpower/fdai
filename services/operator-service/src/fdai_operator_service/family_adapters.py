@@ -19,6 +19,11 @@ from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.context_selection_projection import (
     project_context_selection_comparisons,
 )
+from fdai_operator_service.families.aks_commerce import (
+    AksCommerceFamilyDependencies,
+    StateStoreAksCommerceProjectionReader,
+    UnavailableAksCommerceProjectionReader,
+)
 from fdai_operator_service.families.conversation.background_tasks import (
     materialize_background_task,
     open_background_task_stream,
@@ -1200,9 +1205,12 @@ def _mapping(value: object) -> Mapping[str, object]:
 
 
 __all__ = [
+    "AksCommerceFamilyDependencies",
     "PostgresConversationAdapters",
     "PostgresOperationsAdapters",
     "PostgresWorkflowAdapters",
+    "StateStoreAksCommerceProjectionReader",
+    "UnavailableAksCommerceProjectionReader",
     "UnavailableConversationAdapters",
     "UnavailableOperationsAdapters",
     "UnavailableWorkflowAdapters",

@@ -10,6 +10,7 @@ const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
   "trust-routing": ["/kpi/autonomy"],
   "llm-cost": ["/kpi/llm-cost"],
   "cost-governance": ["/cost-governance/availability"],
+  "aks-commerce": ["/aks-commerce/overview"],
   live: ["/live/stream"],
   incidents: ["/incidents"],
   "hil-queue": ["/hil-queue"],

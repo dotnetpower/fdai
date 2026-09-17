@@ -116,6 +116,7 @@ package = false
 fdai-evaluation-sdk = { workspace = true }
 fdai-benchmark-cybergym = { workspace = true }
 fdai-benchmark-sregym = { workspace = true }
+fdai-aks-commerce = { workspace = true }
 fdai-cost-governance = { workspace = true }
 fdai-github-app-auth = { workspace = true }
 fdai-service-contracts = { workspace = true }
@@ -132,6 +133,7 @@ members = [
     "benchmarks/sregym",
     "benchmarks/cybergym",
     "extensions/code-assurance",
+    "extensions/aks-commerce",
     "extensions/cost-governance",
     "packages/github-app-auth",
     "packages/service-contracts",
@@ -156,6 +158,7 @@ src = [
     "packages",
     "tests",
     "extensions/code-assurance/src",
+    "extensions/aks-commerce/src",
     "extensions/cost-governance/src",
 ]
 # Mock/design assets and design experiments are not part of the shipped
@@ -207,6 +210,7 @@ files = [
     "services/system-knowledge-service/src",
     "packages/service-contracts/src",
     "extensions/code-assurance/src/fdai_code_assurance",
+    "extensions/aks-commerce/src/fdai_aks_commerce",
     "extensions/cost-governance/src/fdai_cost_governance",
 ]
 mypy_path = [
@@ -218,6 +222,7 @@ mypy_path = [
     "services/isolated-executor/src",
     "services/system-knowledge-service/src",
     "extensions/cost-governance/src",
+    "extensions/aks-commerce/src",
 ]
 
 # aiokafka, the async Azure identity surface, and the Azure Monitor distro ship
@@ -245,12 +250,14 @@ testpaths = [
     "services",
     "packages",
     "extensions/code-assurance/tests",
+    "extensions/aks-commerce/tests",
     "extensions/cost-governance/tests",
 ]
 addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
 pythonpath = [
     ".",
     "extensions/code-assurance/src",
+    "extensions/aks-commerce/src",
     "extensions/cost-governance/src",
     "packages/deployment-cli/src",
     "packages/service-contracts/src",
