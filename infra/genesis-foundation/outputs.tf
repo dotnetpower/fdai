@@ -34,11 +34,19 @@ output "private_handoff" {
       vnet_name           = module.bootstrap.ops_vnet_name
     }
     state = {
-      account_id       = azapi_resource.state.id
-      account_name     = azapi_resource.state.name
-      blob_service_id  = azapi_update_resource.state_blob_service.id
-      container_name   = azapi_resource.state_container[module.bootstrap.state_container_name].name
-      plan_container   = azapi_resource.state_container["deployment-plans"].name
+      account_id      = azapi_resource.state.id
+      account_name    = azapi_resource.state.name
+      blob_service_id = azapi_update_resource.state_blob_service.id
+      container_name  = azapi_resource.state_container[module.bootstrap.state_container_name].name
+      plan_container  = azapi_resource.state_container["deployment-plans"].name
+      progress_container = azapi_resource.state_container[
+        "provisioning-events"
+      ].name
+      progress_container_url = format(
+        "https://%s.blob.core.windows.net/%s",
+        azapi_resource.state.name,
+        azapi_resource.state_container["provisioning-events"].name,
+      )
       foundation_key   = "ops/genesis-foundation/${var.env}.tfstate"
       use_azuread_auth = true
     }

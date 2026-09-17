@@ -143,6 +143,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "operator_read_investigation_completion",
         "operator_incident_projection",
         "inventory_observation_checkpoint",
+        "inventory_progress_event",
         "inventory_observation_correction_receipt",
         "inventory_observation_journal",
         "inventory_change_event_receipt",
@@ -1682,6 +1683,9 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
     handover_semantic_migration = inventory_module.load_revision_metadata(
         MIGRATION_ROOT / "branches/core-control-plane/versions/20260914_core_handover_semantics.py"
     )
+    inventory_progress_migration = inventory_module.load_revision_metadata(
+        MIGRATION_ROOT / "branches/core-control-plane/versions/20260916_core_inventory_progress.py"
+    )
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1718,6 +1722,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(certification_support_migration.owned_tables)
         | set(assignment_receipt_migration.owned_tables)
         | set(handover_semantic_migration.owned_tables)
+        | set(inventory_progress_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")

@@ -1065,7 +1065,7 @@ async def test_postgres_operations_selects_role_scoped_exact_declaration(
         await adapter.read(replace(query, path={"kind": "object-types", "name": "Unknown"}))
 
 
-async def test_postgres_operations_replay_scopes_sql_to_authenticated_principal(
+async def test_postgres_operations_replay_uses_sanitized_inventory_progress_ledger(
     monkeypatch: Any,
 ) -> None:
     captured: list[tuple[str, Mapping[str, object]]] = []
@@ -1081,7 +1081,7 @@ async def test_postgres_operations_replay_scopes_sql_to_authenticated_principal(
             {
                 "seq": 8,
                 "action_kind": "provision.progress",
-                "entry": {"principal_id": "principal-a", "status": "running"},
+                "entry": {"type": "provision.progress", "state": "running"},
             }
         ]
 
@@ -1094,11 +1094,11 @@ async def test_postgres_operations_replay_scopes_sql_to_authenticated_principal(
 
     assert batch.events[0].sequence == 8
     statement, parameters = captured[0]
-    assert "entry ->> 'principal_id' = %(principal_id)s" in statement
+    assert "FROM inventory_progress_event" in statement
+    assert "execution_authority" not in statement
+    assert "principal_id" not in statement
     assert parameters == {
         "after_sequence": 7,
-        "stream": "provision",
-        "principal_id": "principal-a",
         "limit": 100,
     }
 

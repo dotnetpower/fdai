@@ -1,0 +1,37 @@
+[project]
+name = "fdai-aks-commerce"
+dynamic = ["version"]
+description = "AKS commerce business-impact scenario package for FDAI"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fdai-core-control-plane==0.1.3",
+    "fdai-service-contracts==0.1.0",
+]
+
+[project.optional-dependencies]
+browser = ["playwright>=1.51,<2"]
+
+[project.scripts]
+fdai-aks-commerce-assess = "fdai_aks_commerce.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+fdai-core-control-plane = { workspace = true }
+fdai-service-contracts = { workspace = true }
+
+[tool.hatch.version]
+path = "src/fdai_aks_commerce/__about__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fdai_aks_commerce"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/fdai_aks_commerce",
+    "README.md",
+    "pyproject.toml",
+]

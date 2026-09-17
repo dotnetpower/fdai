@@ -13,6 +13,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Final
@@ -152,6 +153,9 @@ def main(argv: list[str] | None = None) -> int:
 
     migrate = subcommands.add_parser("migrate")
     migrate.set_defaults(handler=_migrate)
+
+    initial_inventory = subcommands.add_parser("initial-inventory")
+    initial_inventory.set_defaults(handler=_initial_inventory)
 
     license_command = subcommands.add_parser("install-license")
     license_command.add_argument("--image-digest", required=True)
@@ -401,6 +405,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "state_resource_group": str(ops["resource_group_name"]),
         "state_account": str(state["account_name"]),
         "state_container": str(state["container_name"]),
+        "inventory_progress_container_url": str(state["progress_container_url"]),
         "state_key": f"fdai-{values['env']}.tfstate",
         "kit_manifest_digest": kit.verification.manifest_digest,
         "runtime_release_digest": kit.runtime.digest,
@@ -541,6 +546,75 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
     }
 
 
+def _aks_core_conversation_environment(
+    *,
+    application_values: dict[str, Any],
+    substrate_outputs: dict[str, object],
+    semantic_topics: list[object],
+) -> dict[str, str]:
+    """Build a complete Core semantic binding or reject incomplete model outputs."""
+
+    if len(semantic_topics) < 3:
+        raise ValueError("AKS semantic topic output contract is incomplete")
+
+    def required_text(value: object, label: str) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"AKS {label} output is unavailable")
+        return value.strip()
+
+    environment = {
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": required_text(
+            semantic_topics[0], "semantic request topic"
+        ),
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": required_text(
+            semantic_topics[1], "semantic projection topic"
+        ),
+        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": required_text(
+            semantic_topics[2], "read investigation topic"
+        ),
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": required_text(
+            substrate_outputs.get("semantic_physical"), "semantic physical topic"
+        ),
+    }
+    enable_llm = application_values.get("enable_llm")
+    if not isinstance(enable_llm, bool):
+        raise TypeError("AKS enable_llm setting MUST be a boolean")
+    if not enable_llm:
+        return environment
+
+    endpoint = required_text(substrate_outputs.get("llm_endpoint"), "LLM endpoint")
+    digest = required_text(substrate_outputs.get("resolved_models_sha256"), "resolved-model digest")
+    if re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        raise ValueError("AKS resolved-model digest MUST be a lowercase SHA-256 digest")
+    model_endpoints = substrate_outputs.get("llm_model_endpoints")
+    if (
+        not isinstance(model_endpoints, dict)
+        or not model_endpoints
+        or any(
+            not isinstance(reference, str)
+            or not reference.strip()
+            or not isinstance(model_endpoint, str)
+            or not model_endpoint.strip()
+            for reference, model_endpoint in model_endpoints.items()
+        )
+    ):
+        raise ValueError("AKS LLM model endpoint outputs are incomplete")
+    environment.update(
+        {
+            "LLM_MODE": "azure",
+            "LLM_RESOLVED_MODELS_PATH": "/app/resolved-models.json",
+            "LLM_RESOLVED_MODELS_SHA256": digest,
+            "FDAI_LLM_ENDPOINT": endpoint,
+            "FDAI_MODEL_ENDPOINTS_JSON": json.dumps(
+                model_endpoints,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        }
+    )
+    return environment
+
+
 def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     context = _private_json(work_dir / "context.json", "standalone host context")
     if _runtime_platform(context) != "aks":
@@ -565,6 +639,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "operational_kafka": _terraform_output(substrate, "event_bus_operational_kafka_bootstrap"),
         "workspace": _terraform_output(substrate, "log_workspace_customer_id"),
         "semantic_physical": _terraform_output(substrate, "event_bus_semantic_physical_topic"),
+        "llm_endpoint": _terraform_output(substrate, "llm_endpoint"),
+        "llm_model_endpoints": _terraform_json_output(substrate, "llm_model_endpoints"),
+        "resolved_models_sha256": _terraform_output(substrate, "resolved_models_sha256"),
         "key_vault_uri": _terraform_output(substrate, "key_vault_uri"),
         "application_insights_secret_name": _terraform_output(
             substrate, "application_insights_connection_string_secret_name"
@@ -632,6 +709,13 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "FDAI_MONITOR_WORKSPACE_ID": substrate_outputs["workspace"],
         "FDAI_OPERATING_MODEL_TOPIC": substrate_outputs["operating_model_topic"],
     }
+    core_environment.update(
+        _aks_core_conversation_environment(
+            application_values=application_values,
+            substrate_outputs=substrate_outputs,
+            semantic_topics=semantic_topics,
+        )
+    )
     operator_environment = {
         "AZURE_CLIENT_ID": operator_identity["client_id"],
         "FDAI_COMMAND_MI_CLIENT_ID": command_identity["client_id"],
@@ -1295,6 +1379,112 @@ def _migrate(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "state": "migrated",
         "service_count": len(order),
         "catalogs_materialized": True,
+        "effect_verified": True,
+        "mutation_performed": True,
+        "subscription_ready": False,
+    }
+    receipt["receipt_digest"] = canonical_digest(receipt)
+    _replace_private_json(receipt_path, receipt)
+    return receipt
+
+
+def _initial_inventory(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
+    """Run and independently process-check one explicit full-subscription inventory."""
+
+    receipt_path = work_dir / "initial-inventory-receipt.json"
+    if receipt_path.exists():
+        return _private_json(receipt_path, "standalone initial inventory receipt")
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    _managed_identity_login_from_context(context, work_dir)
+    for prerequisite in ("migration-receipt.json", "application-receipt.json"):
+        if not (work_dir / prerequisite).exists():
+            raise ValueError("initial inventory prerequisites are incomplete")
+    infra = Path(str(context["infra"]))
+    bundle = infra.parent
+    vault_name = _vault_name(_terraform_output(infra, "key_vault_uri"))
+    dsn = _capture(
+        (
+            "az",
+            "keyvault",
+            "secret",
+            "show",
+            "--vault-name",
+            vault_name,
+            "--name",
+            "fdai-state-store-dsn",
+            "--query",
+            "value",
+            "--output",
+            "tsv",
+            "--only-show-errors",
+        ),
+        cwd=work_dir,
+        timeout=120,
+        reason="initial inventory database reference is unavailable",
+    ).strip()
+    if not dsn or any(character in dsn for character in "\r\n"):
+        raise ValueError("initial inventory database reference is invalid")
+    progress_url = str(context["inventory_progress_container_url"])
+    if not progress_url.startswith("https://"):
+        raise ValueError("initial inventory progress endpoint is invalid")
+    runtime_python = work_dir / "runtime-venv/bin/python"
+    attempt_id = f"attempt.{uuid.uuid4().hex}"
+    environment = {
+        **os.environ,
+        "AZURE_CLIENT_ID": str(context["client_id"]),
+        "FDAI_MI_CLIENT_ID": str(context["client_id"]),
+        "FDAI_EXECUTION_VENUE": "deployed",
+        "FDAI_INVENTORY_DSN": dsn,
+        "FDAI_INVENTORY_SCOPES": str(context["subscription_id"]),
+        "FDAI_INVENTORY_SOURCES": "arg,arm",
+        "FDAI_INVENTORY_PROGRESS_CONTAINER_URL": progress_url,
+        "FDAI_INVENTORY_PROGRESS_RUN_ID": f"genesis.{context['source_commit']}",
+        "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": attempt_id,
+        "KAFKA_BOOTSTRAP_SERVERS": _terraform_output(infra, "operational_kafka"),
+        "PYTHONPATH": os.pathsep.join(
+            (
+                str(bundle / "services/core-control-plane/src"),
+                str(bundle / "packages/service-contracts/src"),
+            )
+        ),
+    }
+    _run_env(
+        (str(runtime_python), "-m", "fdai.delivery.inventory_sync_cli", "--initial"),
+        cwd=bundle,
+        env=environment,
+        timeout=3600,
+        reason="initial inventory reconciliation failed",
+    )
+    closure_raw = _capture_env(
+        (str(runtime_python), "-m", "fdai.delivery.inventory_closure_cli"),
+        cwd=bundle,
+        env=environment,
+        timeout=300,
+        reason="initial inventory independent closure failed",
+    )
+    try:
+        closure = json.loads(closure_raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError("initial inventory closure receipt is invalid") from exc
+    if (
+        not isinstance(closure, dict)
+        or closure.get("observer_distinct") is not True
+        or closure.get("active_generation_matches") is not True
+        or closure.get("provider_coverage_complete") is not True
+        or closure.get("receipt_digest") is None
+    ):
+        raise ValueError("initial inventory closure receipt is incomplete")
+    dsn = ""
+    receipt: dict[str, object] = {
+        "schema_version": "fdai.standalone-initial-inventory-receipt.v1",
+        "state": "inventory-verified",
+        "run_id": f"genesis.{context['source_commit']}",
+        "attempt_id": attempt_id,
+        "full_subscription": True,
+        "resource_type_filter": False,
+        "progress_persisted": True,
+        "active_generation_readback_verified": True,
+        "closure_receipt_digest": closure["receipt_digest"],
         "effect_verified": True,
         "mutation_performed": True,
         "subscription_ready": False,

@@ -1,0 +1,29 @@
+schema_version: "1.0.0"
+name: aks-commerce-order-backlog-recovery
+version: "1.0.0"
+description: >-
+  Propose one exact workload scale or restart after a complete order backlog
+  assessment and require independent business-effect verification.
+trigger:
+  kind: signal
+  signal_type: object.anomaly
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 14
+  min_samples: 30
+  min_accuracy: 0.98
+  max_policy_escapes: 0
+steps:
+  - id: scale_order_processor
+    action_type_ref: ops.scale-out
+    guard_rule_ref: null
+    compensated_by: ops.scale-in
+    on_failure: restart_order_processor
+  - id: restart_order_processor
+    action_type_ref: ops.restart-service
+    guard_rule_ref: null
+    compensated_by: null
+    on_failure: null
+anti_scope: >-
+  Not an automatic queue drain or data repair path. Missing business-effect
+  evidence holds the workflow without another mutation.

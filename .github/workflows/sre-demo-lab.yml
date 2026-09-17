@@ -444,6 +444,73 @@ jobs:
             -backend-config="key=scenario-lab/fdai-sre-lab.tfstate" \
             -backend-config="use_azuread_auth=true"
 
+      - name: Recover healthy partial workspace state
+        if: inputs.action == 'apply'
+        run: |
+          set -euo pipefail
+          state_snapshot="$RUNNER_TEMP/sre-demo-lab-recovery-state.json"
+          workspace_address="module.log_analytics.azurerm_log_analytics_workspace.primary"
+          workspace_name="log-fdai-sre-lab-${TF_VAR_region_short}"
+          umask 077
+          terraform state pull >"$state_snapshot"
+          chmod 600 "$state_snapshot"
+          tainted_count="$(jq --arg address "$workspace_address" '
+            [
+              .resources[]? |
+              select(
+                ((.module // "") + "." + .type + "." + .name) == $address
+              ) |
+              .instances[]? |
+              select(.status == "tainted")
+            ] | length
+          ' "$state_snapshot")"
+          if [[ "$tainted_count" == "0" ]]; then
+            echo "No tainted scenario workspace state requires recovery."
+            exit 0
+          fi
+          [[ "$tainted_count" == "1" ]] || {
+            echo "Scenario workspace recovery requires exactly one tainted state instance." >&2
+            exit 1
+          }
+          state_workspace_id="$(jq -er --arg address "$workspace_address" '
+            .resources[]? |
+            select(
+              ((.module // "") + "." + .type + "." + .name) == $address
+            ) |
+            .instances[]? |
+            select(.status == "tainted") |
+            .attributes.id
+          ' "$state_snapshot")"
+          expected_prefix="/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${SCENARIO_LAB_RESOURCE_GROUP_NAME}/providers/Microsoft.OperationalInsights/workspaces/"
+          [[ "${state_workspace_id,,}" == "${expected_prefix,,}${workspace_name}" ]] || {
+            echo "Tainted workspace state does not match the exact scenario-lab resource." >&2
+            exit 1
+          }
+          workspace="$(timeout --foreground 60s az monitor log-analytics workspace show \
+            --resource-group "$SCENARIO_LAB_RESOURCE_GROUP_NAME" \
+            --workspace-name "$workspace_name" \
+            --output json \
+            --only-show-errors)"
+          jq -e \
+            --arg state_workspace_id "$state_workspace_id" \
+            --arg workspace_name "$workspace_name" '
+            (.id | ascii_downcase) == ($state_workspace_id | ascii_downcase) and
+            .name == $workspace_name and
+            .provisioningState == "Succeeded" and
+            .sku.name == "PerGB2018" and
+            .retentionInDays == 30 and
+            .workspaceCapping.dailyQuotaGb == 1 and
+            .tags["fdai:managed"] == "true" and
+            .tags["fdai:layer"] == "scenario-lab"
+          ' <<<"$workspace" >/dev/null || {
+            echo "Tainted workspace state cannot be recovered from the authoritative Azure observation." >&2
+            exit 1
+          }
+          workspace=""
+          state_workspace_id=""
+          terraform untaint -lock-timeout=5m "$workspace_address" >/dev/null
+          echo "Recovered one healthy partial scenario workspace state instance."
+
       - name: Validate Terraform
         run: |
           set -euo pipefail
@@ -662,6 +729,13 @@ jobs:
             (($before_paths + $after_paths) | unique[]) as $path |
             select((.change.before | getpath($path)) != (.change.after | getpath($path))) |
             "field\t\($address)\t\($path | map(tostring) | join("."))"
+          ' "$RUNNER_TEMP/sre-demo-lab-plan.json"
+          jq -r '
+            .resource_changes[]? |
+            select(.change.actions | index("delete")) |
+            .address as $address |
+            (.change.replace_paths // [])[]? |
+            "replace-path\t\($address)\t\(map(tostring) | join("."))"
           ' "$RUNNER_TEMP/sre-demo-lab-plan.json"
           if [[ "$REQUESTED_ACTION" == "apply" && "$delete_count" -ne 0 ]]; then
             echo "apply refuses delete or replacement actions; use plan for review, then explicit destroy." >&2
@@ -951,6 +1025,7 @@ jobs:
             "$RUNNER_TEMP/sre-demo-lab-dns-links-state.tsv" \
             "$RUNNER_TEMP/sre-demo-lab-dns-link-ids.txt" \
             "$RUNNER_TEMP/sre-demo-lab-import.log" \
+            "$RUNNER_TEMP/sre-demo-lab-recovery-state.json" \
             "$RUNNER_TEMP/sre-demo-lab-state-list.txt" \
             "$RUNNER_TEMP/sre-demo-lab.tfplan" \
             "$RUNNER_TEMP/sre-demo-lab-plan.json" \

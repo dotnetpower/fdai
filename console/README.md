@@ -165,12 +165,15 @@ non-asset application paths to `index.html` so direct links and browser refresh
 work on Azure Static Web Apps. Legacy `#/...` bookmarks migrate once to their
 clean equivalent.
 
-The Provisioning panel consumes `GET /provision/stream` with fetch-based SSE.
-It acquires the same MSAL bearer header as other read calls, aborts the stream
-when the route unmounts or the tab is hidden, and reconnects transient failures
-with capped exponential backoff when visible. Permanent `401` / `403` responses
-stop reconnecting. The token stays in the Authorization header and never enters
-the URL.
+The Settings > Environment and deployment surface opens on onboarding
+readiness and keeps read-only deployment-run evidence on a separate tab.
+`/onboarding` and `/provisioning` remain stable compatibility routes, but they
+are no longer duplicate primary-navigation entries. The deployment tab consumes
+`GET /provision/stream` with fetch-based SSE. It acquires the same MSAL bearer
+header as other read calls, aborts the stream when the route unmounts or the tab
+is hidden, and reconnects transient failures with capped exponential backoff
+when visible. Permanent `401` / `403` responses stop reconnecting. The token
+stays in the Authorization header and never enters the URL.
 
 Core and high-risk optional payloads are decoded before routes enter their
 ready state. Version-skewed or malformed `200` responses become a uniform

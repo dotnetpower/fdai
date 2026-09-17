@@ -316,7 +316,7 @@ where the API mutation is a single idempotent call.
 
 Operator-requested runtime actions. Shipped Day 1:
 
-- `ops.restart-service` - AKS pod restart, App Service restart, Container App revision restart.
+- `ops.restart-service` - AKS pod restart, App Service restart, Container App revision restart; `ops.rollback-kubernetes-rollout` restores one exact Deployment to reviewed digest-pinned images after human approval and server-side dry-run.
 - `ops.scale-out` - increase replica count / instance count. MUST declare `cost_impact_monthly`
   (spend-increasing) so the risk-classification cost gate applies ([execution-model.md § 2.8](execution-model.md#28-cost-increasing-ops-actions)).
 - `ops.scale-in` - decrease replica count (Approver + live probe).
@@ -352,7 +352,7 @@ was not adopted; there is no ActionType `require_manual_merge` field or implicit
 Resource provisioning is not an operator-request ActionType. FDAI targets environments where infrastructure as code owns resource creation, so a conversation asking to deploy a model or create a cloud resource is unsupported and submits nothing. The same conversation surface can query authorized inventory for resources that already exist.
 
 **Vertical mapping:** [Verticals](../../../services/core-control-plane/src/fdai/core/verticals) claim tagged actions and reference them through `remediates:`.
-`ops.failover-primary` / `ops.restart-service` belong to Resilience; `ops.scale-in` / `ops.scale-out` to Cost Governance; `ops.drain-connection` / `ops.rotate-cert` to Change Safety.
+`ops.failover-primary` / `ops.restart-service` / `ops.rollback-kubernetes-rollout` belong to Resilience; `ops.scale-in` / `ops.scale-out` to Cost Governance; `ops.drain-connection` / `ops.rotate-cert` to Change Safety.
 `ops.flush-cache` / `ops.publish-change-summary` are cross-vertical operator actions. Azure VM/network gateway bindings do not change ownership.
 
 Ops normally use `execution_path: direct_api` for latency-sensitive work. A fork MAY force `pr_manual`
