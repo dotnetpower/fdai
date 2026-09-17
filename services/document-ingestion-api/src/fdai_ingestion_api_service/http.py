@@ -129,16 +129,37 @@ def build_app(
             default_reader_groups=resolved.default_reader_groups,
             allowed_collections=resolved.allowed_collections,
         )
-        session, grant = await service.create_upload(
+        result = await service.create_or_reuse_upload(
             actor_id=principal.oid,
             actor_groups=_access_principals(principal),
             request=upload_request,
         )
+        session = result.session
+        if result.outcome == "unchanged":
+            return JSONResponse(
+                {
+                    "outcome": "unchanged",
+                    "session": {
+                        "upload_id": str(session.upload_id),
+                        "document_id": str(session.document_id),
+                        "version_id": str(session.version_id),
+                        "source_name": session.source_name,
+                        "state": session.state.value,
+                        "collection_id": session.collection_id,
+                        "failure_code": session.failure_code,
+                    },
+                    "upload": None,
+                }
+            )
+        grant = result.grant
+        if grant is None:
+            raise RuntimeError("created document upload is missing its grant")
         target = grant.target
         if (resolved.dev_mode and resolved.direct_upload) or resolved.proxy_upload:
             target = f"/ingestion/uploads/{session.upload_id}/content"
         return JSONResponse(
             {
+                "outcome": "created",
                 "session": session.model_dump(mode="json"),
                 "upload": {
                     "target": target,
@@ -261,12 +282,28 @@ def build_app(
 
     async def versions(request: Request) -> Response:
         principal = authorize(request, _READER_ROLES)
+        actor_groups = _access_principals(principal)
         items = await service.list_versions(
             actor_id=principal.oid,
-            actor_groups=_access_principals(principal),
+            actor_groups=actor_groups,
             document_id=_uuid(request.path_params["document_id"], "document_id"),
         )
-        return JSONResponse({"items": [item.model_dump(mode="json") for item in items]})
+        return JSONResponse(
+            {
+                "items": [
+                    {
+                        **_document_summary(
+                            item,
+                            actor_id=principal.oid,
+                            actor_groups=actor_groups,
+                        ),
+                        "source_sha256": item.source_sha256,
+                    }
+                    for item in items
+                    if item.state is not DocumentState.DELETED
+                ]
+            }
+        )
 
     async def documents(request: Request) -> Response:
         principal = authorize(request, _READER_ROLES)
@@ -683,6 +720,7 @@ def _create_request(
         "reader_groups",
         "document_id",
         "supersedes_version_id",
+        "replace_existing",
         "disposition",
         "scope_kind",
         "scope_ref",
@@ -690,6 +728,9 @@ def _create_request(
     unknown = sorted(body.keys() - allowed)
     if unknown:
         raise ValueError(f"unknown fields: {', '.join(unknown)}")
+    replace_existing = body.get("replace_existing", False)
+    if not isinstance(replace_existing, bool):
+        raise ValueError("replace_existing MUST be a boolean")
     return CreateUploadRequest(
         source_name=str(body["source_name"]),
         collection_id=collection_id,
@@ -716,6 +757,7 @@ def _create_request(
             None if body.get("scope_kind") is None else DocumentScopeKind(str(body["scope_kind"]))
         ),
         scope_ref=None if body.get("scope_ref") is None else str(body["scope_ref"]),
+        replace_existing=replace_existing,
     )
 
 
@@ -725,7 +767,7 @@ def _document_summary(
     actor_id: str,
     actor_groups: frozenset[str],
 ) -> dict[str, object]:
-    """Return list metadata without source hashes, uploader ids, or access memberships."""
+    """Return authorized list metadata without uploader ids or access memberships."""
     return {
         "document_id": str(version.document_id),
         "version_id": str(version.version_id),
@@ -761,13 +803,11 @@ def _document_summary(
         "failure_code": version.failure_code,
         "index_status": _index_status(version),
         "preview_available": (
-            version.active
-            and version.available
+            version.available
             and version.state in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
         ),
         "download_available": (
-            version.active
-            and version.available
+            version.available
             and version.state in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
             and version.protection_state
             in {ProtectionState.NONE, ProtectionState.LABELED_UNENCRYPTED}

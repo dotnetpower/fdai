@@ -250,7 +250,8 @@ export interface CloudKnowledgeIntakeResult {
   readonly release: CloudKnowledgeRelease;
 }
 
-interface CreateUploadResponse {
+interface CreatedUploadResponse {
+  readonly outcome: "created";
   readonly session: UploadSession;
   readonly upload: {
     readonly target: string;
@@ -258,6 +259,14 @@ interface CreateUploadResponse {
     readonly completed_parts: readonly string[];
   };
 }
+
+interface UnchangedUploadResponse {
+  readonly outcome: "unchanged";
+  readonly session: UploadSession;
+  readonly upload: null;
+}
+
+type CreateUploadResponse = CreatedUploadResponse | UnchangedUploadResponse;
 
 export interface CreateUploadInput {
   readonly source_name: string;
@@ -364,11 +373,19 @@ export class IngestionApiClient {
     });
   }
 
-  async createUpload(input: CreateUploadInput): Promise<CreateUploadResponse> {
-    return this.#json<CreateUploadResponse>("/ingestion/uploads", {
+  async createUpload(input: CreateUploadInput): Promise<CreatedUploadResponse> {
+    return this.#json<CreatedUploadResponse>("/ingestion/uploads", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),
+    });
+  }
+
+  async createOrReuseUpload(input: CreateUploadInput): Promise<CreateUploadResponse> {
+    return this.#json<CreateUploadResponse>("/ingestion/uploads", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...input, replace_existing: true }),
     });
   }
 
@@ -402,6 +419,15 @@ export class IngestionApiClient {
       `/documents?${params.toString()}`,
       { method: "GET" },
     );
+    return response.items;
+  }
+
+  async listDocumentVersions(
+    documentId: string,
+  ): Promise<readonly DocumentVersionSummary[]> {
+    const response = await this.#json<{
+      readonly items: readonly DocumentVersionSummary[];
+    }>(`/documents/${encodeURIComponent(documentId)}/versions`, { method: "GET" });
     return response.items;
   }
 

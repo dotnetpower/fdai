@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:f20eedd28f9fc57954671a49e35fb4a6680d2470a5e7ba6ca7ce19392f658b3f",
+  "catalog_digest": "sha256:e971f24da5ce30ccf8ad571ff46fb71400912ba1477c592162dcb1251cfb801e",
   "execution_authority": false,
-  "generated_at": "2026-09-17T01:14:10.689661Z",
+  "generated_at": "2026-09-17T02:30:53.623748Z",
   "records": [
     {
       "designed_behavior": [
@@ -149,22 +149,22 @@
         "How does FDAI ingest documents?",
         "FDAI는 문서를 어떻게 수집하나요?"
       ],
-      "record_digest": "sha256:06f36bc884f542aa8d7183ffc47db95f43e4b5c2d3d5dc2fd950cbfc43f4147f",
+      "record_digest": "sha256:2c3fce629e9e057e505341f4baab5199a73503b6d1376e0e3706896889f24d38",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "bcd02fda25ca4f51cd6708b7647a8bc74c4f173e",
-          "line_end": 104,
-          "line_start": 104,
+          "blob_sha": "b1572955da779c594ba6e6268c0975cd75942f90",
+          "line_end": 103,
+          "line_start": 103,
           "path": "docs/roadmap/interfaces/document-ingestion.md",
           "source_kind": "doc",
           "symbol": "Authorization and shared visibility"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "bcd02fda25ca4f51cd6708b7647a8bc74c4f173e",
-          "line_end": 573,
-          "line_start": 573,
+          "blob_sha": "b1572955da779c594ba6e6268c0975cd75942f90",
+          "line_end": 572,
+          "line_start": 572,
           "path": "docs/roadmap/interfaces/document-ingestion.md",
           "source_kind": "doc",
           "symbol": "Implementation boundaries and rollout"
@@ -448,17 +448,8 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:80180e5781e82ec7c0d068a386b8cc7f9d7cd4a6e1a705302ae1afb6477695f9",
+      "record_digest": "sha256:f331991f2cb5efd82ff20bbc13b502dc7561c57667fb11cd1b71af6c3c3f64f7",
       "sources": [
-        {
-          "authority_role": "design",
-          "blob_sha": "34178883c97cea48650b290de3502de27ffd5ad0",
-          "line_end": 86,
-          "line_start": 86,
-          "path": "docs/roadmap/interfaces/system-knowledge-service.md",
-          "source_kind": "doc",
-          "symbol": "Revised design"
-        },
         {
           "authority_role": "design",
           "blob_sha": "4ba6aae475fafacabbd7bf1e98e38847415dc4ae",
@@ -467,6 +458,15 @@
           "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
           "source_kind": "doc",
           "symbol": "Graduation scorecard"
+        },
+        {
+          "authority_role": "design",
+          "blob_sha": "9993a50754eb06d73e5e1be6d6047e35f2d7f86e",
+          "line_end": 86,
+          "line_start": 86,
+          "path": "docs/roadmap/interfaces/system-knowledge-service.md",
+          "source_kind": "doc",
+          "symbol": "Revised design"
         }
       ],
       "status": "in_progress",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:388f4d8e9f64a02b69b33fe25e0ca3d397e1c99299746a3301ac1268b2782e26",
+      "record_digest": "sha256:f29f9029164c55335675324b66a8a173ca1a59f8f822270c8edddcf2a481cc55",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "34178883c97cea48650b290de3502de27ffd5ad0",
+          "blob_sha": "9993a50754eb06d73e5e1be6d6047e35f2d7f86e",
           "line_end": 86,
           "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "4e6997000052f978b2e6c21463949a75e0e5dc07"
+  "source_revision": "3812fe1f76f1e2fe9ec1758001288a409a22d191"
 }
