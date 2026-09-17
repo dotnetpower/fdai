@@ -7,12 +7,12 @@
     "en": {
       "title": "Bootstrap Sequence",
       "description": "FDAI flow for Bootstrap Sequence.",
-      "alt": "Bootstrap Sequence. The main stages are Prerequisites resolved, IaC provision core resources, Create executor MI plus scoped role assignments, Deploy signed image to Container Apps in shadow-only, Run alembic upgrade head against the provisioned Postgres, Attach Diagnostic Settings and Kafka topic forwarders, Seed rule catalog with day-zero rule set, Register HIL approvers and ChatOps channel, Run post-deploy smoke tests, System is warm; first real event may arrive."
+      "alt": "Bootstrap Sequence. The main stages are Prerequisites resolved, IaC provision core resources, Create executor MI plus scoped role assignments, Deploy prebuilt signed images to AKS in shadow-only, Run alembic upgrade head against the provisioned Postgres, Attach Diagnostic Settings and Kafka topic forwarders, Seed rule catalog with day-zero rule set, Register HIL approvers and ChatOps channel, Run post-deploy smoke tests, System is warm; first real event may arrive."
     },
     "ko": {
       "title": "부트스트랩 순서",
       "description": "부트스트랩 순서에 대한 FDAI 흐름입니다.",
-      "alt": "부트스트랩 순서. 주요 단계는 전제조건 해결됨, IaC로 핵심 리소스 프로비저닝, 실행기 관리 ID 생성 및 범위 지정 역할 할당, 서명된 이미지를 Container Apps에 shadow-only로 배포, 프로비저닝된 Postgres에 alembic upgrade head 실행, Diagnostic Settings 및 Kafka 토픽 전달기 연결, day-zero 규칙 세트로 규칙 카탈로그 시드, HIL 승인자 및 ChatOps 채널 등록, 배포 후 스모크 테스트 실행, 시스템이 준비됨; 첫 실제 이벤트 도착 가능입니다."
+      "alt": "부트스트랩 순서. 주요 단계는 전제조건 해결됨, IaC로 핵심 리소스 프로비저닝, 실행기 관리 ID 생성 및 범위 지정 역할 할당, 미리 빌드하고 서명한 이미지를 AKS에 shadow-only로 배포, 프로비저닝된 Postgres에 alembic upgrade head 실행, Diagnostic Settings 및 Kafka 토픽 전달기 연결, day-zero 규칙 세트로 규칙 카탈로그 시드, HIL 승인자 및 ChatOps 채널 등록, 배포 후 스모크 테스트 실행, 시스템이 준비됨; 첫 실제 이벤트 도착 가능입니다."
     }
   },
   "assets": {
@@ -68,12 +68,12 @@
       "kind": "process",
       "shape": "card",
       "label": {
-        "en": "Deploy signed image to Container Apps in shadow-only",
-        "ko": "서명된 이미지를 Container Apps에 shadow-only로 배포"
+        "en": "Deploy prebuilt signed images to AKS in shadow-only",
+        "ko": "미리 빌드하고 서명한 이미지를 AKS에 shadow-only로 배포"
       },
       "description": {
-        "en": "Deploy signed image to Container Apps in shadow-only",
-        "ko": "서명된 이미지를 Container Apps에 shadow-only로 배포"
+        "en": "Deploy prebuilt signed images to AKS in shadow-only",
+        "ko": "미리 빌드하고 서명한 이미지를 AKS에 shadow-only로 배포"
       }
     },
     {
