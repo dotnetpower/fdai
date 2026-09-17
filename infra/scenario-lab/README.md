@@ -91,6 +91,9 @@ namespace. The renderer fixes the upstream source at commit
 each version tag with its reviewed multi-platform image digest before `kubectl apply`.
 The Terraform root creates the exact dedicated cluster name `aks-store-demo`; it never deploys the
 commerce workload to another FDAI, shared, or pre-existing cluster.
+The AKS management API is reachable from public networks. Entra RBAC remains enabled and local
+Kubernetes accounts remain disabled, so management operations still require an authenticated
+authorized principal.
 
 The lab applies only these safety overlays:
 

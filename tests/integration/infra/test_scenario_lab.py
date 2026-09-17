@@ -24,7 +24,7 @@ BASH = shutil.which("bash")
 assert BASH is not None
 
 
-def test_scenario_lab_is_an_independent_private_terraform_root() -> None:
+def test_scenario_lab_is_an_independent_public_api_terraform_root() -> None:
     versions = (LAB_ROOT / "versions.tf").read_text(encoding="utf-8")
     network = (LAB_ROOT / "network.tf").read_text(encoding="utf-8")
     aks = (LAB_ROOT / "aks.tf").read_text(encoding="utf-8")
@@ -68,11 +68,13 @@ def test_scenario_lab_is_an_independent_private_terraform_root() -> None:
     assert aks.count("#trivy:ignore:AVD-AZU-0065") == 1
     assert aks.count("checkov:skip=CKV_AZURE_6:") == 1
     assert aks.count("checkov:skip=CKV_AZURE_115:") == 1
-    assert "private_cluster_enabled           = false" in aks
+    assert re.search(r"^\s*private_cluster_enabled\s*=\s*false$", aks, re.MULTILINE)
     assert "private_cluster_public_fqdn_enabled" not in aks
     assert "private_dns_zone_id" not in aks
-    assert 'name                              = "aks-store-demo"' in aks
-    assert 'dns_prefix                        = "aks-store-demo"' in aks
+    assert "api_server_access_profile" not in aks
+    assert "api_server_authorized_ip_ranges" not in variables
+    assert re.search(r'^\s*name\s*=\s*"aks-store-demo"$', aks, re.MULTILINE)
+    assert re.search(r'^\s*dns_prefix\s*=\s*"aks-store-demo"$', aks, re.MULTILINE)
     assert '"aks-${local.suffix}"' not in aks
     assert "local_account_disabled            = true" in aks
     assert "azure_active_directory_role_based_access_control" in aks
@@ -256,6 +258,7 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
         "SCENARIO_LAB_RUNNER_PRINCIPAL_ID: ${{ vars.SCENARIO_LAB_RUNNER_PRINCIPAL_ID }}" in workflow
     )
     assert "TF_VAR_resource_group_name" in workflow
+    assert "SCENARIO_LAB_AKS_API_AUTHORIZED_IP_RANGES" not in workflow
     assert (
         "TF_VAR_aks_node_vm_size: "
         "${{ vars.SCENARIO_LAB_AKS_NODE_VM_SIZE || 'Standard_D2s_v5' }}" in workflow
