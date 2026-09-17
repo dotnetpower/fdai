@@ -108,6 +108,36 @@ create an incident, grant a permission, or approve a recovery.
 
 ## Agent responsibilities
 
+### Order-acceptance-only detector
+
+**Initial design:** Reuse the fulfillment projection with fewer required queue metrics for the
+RabbitMQ-backed demo. **Critique:** That would describe unobserved processing and delivery as
+healthy and mix authorized test traffic with fabricated evidence.
+
+**Revised design:** Keep the existing fulfillment contract unchanged. A separate
+`OrderAcceptanceAnalyzer` emits only canonical Analyzer findings for one explicitly bound
+Deployment. A time-bounded operating intent names its cluster, namespace, name, immutable UID,
+Resource reference, minimum replica count, and distinct failed-probe threshold. Current Kubernetes
+observations and ordered, unique order-acceptance attempts must share the configured freshness
+window. A sample or unknown result never establishes failure or recovery. Synthetic customer
+traffic remains marked as synthetic traffic; it is not relabeled as production traffic.
+
+The source normalizes evidence without granting trust. Before incident publication, a separately
+injected verifier must authenticate a retained receipt for the exact intent-and-observation digest,
+including the probe authorization reference. Missing verification, incomplete or conflicting
+evidence, expired intent, UID mismatch, stale observations, or insufficient probes withholds the
+finding. No permissive verifier is supplied by the package. Deployment must bind the actual
+receipt-verification and read-only observation adapters before registration.
+
+Repeated failed acceptance with zero desired and ready replicas and no ready service endpoints
+produces `aks_commerce.order_acceptance_unavailable`. A separate inert `ops.scale-out` candidate
+may restore zero to the reviewed minimum only when maintenance, HPA ownership, and competing
+writers are all explicitly absent. It retains the observed UID and resource version and grants no
+approval, promotion, or execution authority. Acceptance success requires positive ready-replica,
+endpoint, and order evidence and never closes an Incident by itself. The shared publisher and
+Heimdall retain event deduplication and Incident ownership; Thor alone executes an independently
+admitted action. Fulfillment, payment, delivery, and revenue remain outside this detector's scope.
+
 ### Incident ingress and Thor-owned execution
 
 The composition root may register `AksCommerceAnalyzer` with the shared `InvestigationCoordinator`
@@ -124,7 +154,7 @@ severity, publication interval, and evidence freshness ceiling.
 The publisher remains disabled without an explicit event-bus binding and exact service-to-target
 configuration. Held, healthy, recovered, stale, and synthetic assessment frames are not incident
 triggers through this bridge. A retained projection or broker receipt grants no action authority.
-The order-acceptance-only detector remains separate work until its evidence profile is supported.
+The order-acceptance-only detector uses the separate evidence profile above, not this projection.
 Runtime registration and the live workload, SLO, and metric sources still require deployment
 integration; the exported adapter alone does not start an observation loop or create live records.
 
