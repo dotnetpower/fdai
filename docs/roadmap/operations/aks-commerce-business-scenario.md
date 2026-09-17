@@ -138,7 +138,14 @@ policy, target, issuer, collector, probe authorization references, and validity 
 trust-state read must explicitly confirm that the key is not revoked. The verifier has no signing
 key or executor credential. Collector, receipt issuer, and executor identities remain distinct;
 receipt authenticity never substitutes for trustworthy collection or provider effect verification.
-Deployment owns receipt issuance, trust-state updates, and disjoint database grants.
+The package supplies a no-I/O `AcceptanceReceiptIssuer` that requires distinct issuer, collector,
+and executor identities, derives the verification reference from the exact evidence, and signs the
+closed receipt with an injected Ed25519 key. `AcceptanceTrustLifecycle` activates one key id once
+and records revocation as a separate immutable audited marker; exact revocation replay is a no-op,
+and the public-key verifier checks the marker on every use. Neither component loads a private key,
+authenticates the collector, grants a database role, or starts a job. Deployment still owns key
+mounts, authenticated source collection, trust-owner identity, disjoint database grants, and job
+scheduling.
 
 The concrete Kubernetes reader uses GET only, verifies Deployment and Service UIDs, controller
 generation, selectors, EndpointSlice ownership, and the Pod-to-ReplicaSet-to-Deployment chain
@@ -155,8 +162,9 @@ key bytes. Existing `FDAI_STATE_STORE_DSN`, `FDAI_MI_CLIENT_ID`, `KAFKA_BOOTSTRA
 `KAFKA_TOPIC_EVENTS` bind the service-owned store and observer-only event bus. The job uses the
 shared publication ledger and finding receipt store, never an in-memory production fallback.
 Missing configuration or evidence fails readiness. Deployment must still provide the independent
-receipt issuer, authenticated probe collection, trust lifecycle, least-privilege database grants,
-and job scheduling; an installed command alone does not establish a live observation loop.
+issuer key binding, authenticated probe collection, trust-owner runtime binding, least-privilege
+database grants, and job scheduling; installed library components alone do not establish a live
+observation loop.
 The entry point uses the shared venue and bus-security resolver. Startup or provider failures
 return a nonzero status with a fixed unavailable reason, never raw provider diagnostic text.
 

@@ -69,6 +69,10 @@ from fdai_aks_commerce.acceptance_action import (
 from fdai_aks_commerce.acceptance_authority import AcceptanceCurrentAuthority
 from fdai_aks_commerce.acceptance_closure import AcceptanceClosureStore
 from fdai_aks_commerce.acceptance_dispatch import AcceptanceIsolatedDispatch
+from fdai_aks_commerce.acceptance_issuance import (
+    AcceptanceReceiptIssuer,
+    AcceptanceTrustLifecycle,
+)
 from fdai_aks_commerce.acceptance_kubernetes import KubernetesOrderAcceptanceReader
 from fdai_aks_commerce.acceptance_material import (
     AcceptanceDispatchMaterial,
@@ -273,6 +277,101 @@ async def test_exact_zero_replica_snapshot_reads_without_mutating() -> None:
     assert snapshot.resource_version == "1"
     assert snapshot.evidence_ref().startswith("sha256:")
     assert len(calls) == 6
+
+
+async def test_independent_issuer_and_append_only_revocation_gate_retention() -> None:
+    intent = _intent()
+    evidence = OrderAcceptanceEvidence(
+        resource_ref=intent.resource_ref,
+        service_resource_ref=intent.service_resource_ref,
+        cluster_ref=intent.cluster_ref,
+        namespace=intent.namespace,
+        deployment_name=intent.deployment_name,
+        deployment_uid=intent.deployment_uid,
+        resource_version="1",
+        observed_at=NOW,
+        desired_replicas=0,
+        ready_replicas=0,
+        ready_endpoints=0,
+        probes=tuple(
+            OrderAcceptanceProbe(
+                evidence_ref=f"probe:issuer-{index}",
+                observed_at=NOW - timedelta(seconds=2 - index),
+                accepted=False,
+                authorization_ref="authorization:example",
+            )
+            for index in range(2)
+        ),
+        kubernetes_evidence_ref="observation:issuer",
+        verification_ref="pending",
+        complete=True,
+        sample=False,
+        maintenance_active=False,
+        hpa_managed=False,
+        competing_writer=False,
+    )
+    key = Ed25519PrivateKey.generate()
+    store = InMemoryStateStore()
+    lifecycle = AcceptanceTrustLifecycle(
+        store=store,
+        key_id="issuer-key",
+        trust_owner_identity="trust:owner",
+        issuer_identity="issuer:example",
+        source_identity="observer:collector",
+        executor_identity="identity:executor",
+        clock=lambda: NOW,
+    )
+    await lifecycle.activate(valid_until=NOW + timedelta(seconds=30))
+    issuer = AcceptanceReceiptIssuer(
+        private_key=key,
+        key_id="issuer-key",
+        issuer_identity="issuer:example",
+        source_identity="observer:collector",
+        executor_identity="identity:executor",
+        intent=intent,
+        clock=lambda: NOW,
+    )
+    with pytest.raises(ValueError, match="must be distinct"):
+        AcceptanceReceiptIssuer(
+            private_key=key,
+            key_id="issuer-key",
+            issuer_identity="observer:collector",
+            source_identity="observer:collector",
+            executor_identity="identity:executor",
+            intent=intent,
+            clock=lambda: NOW,
+        )
+    with pytest.raises(ValueError, match="unqualified evidence"):
+        issuer.issue(replace(evidence, complete=False))
+    issued = issuer.issue(evidence)
+    verifier = StoredOrderAcceptanceReceiptVerifier(
+        store=store,
+        intent=intent,
+        trust={
+            "issuer-key": AcceptanceTrustBinding(
+                "issuer:example", "observer:collector", key.public_key()
+            )
+        },
+        executor_identity="identity:executor",
+        clock=lambda: NOW,
+    )
+
+    digest = await retain_order_acceptance(
+        store=store,
+        verifier=verifier,
+        intent=intent,
+        evidence=issued.evidence,
+        receipt=issued.receipt,
+        now=NOW,
+    )
+    assert digest.startswith("sha256:")
+
+    await lifecycle.revoke(reason_code="rotation_completed")
+    await lifecycle.revoke(reason_code="rotation_completed")
+    assert not await verifier.verify(
+        verification_ref=issued.evidence.verification_ref,
+        evidence_digest=digest,
+    )
 
 
 @pytest.mark.parametrize(

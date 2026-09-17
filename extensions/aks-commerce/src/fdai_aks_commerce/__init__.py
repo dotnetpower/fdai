@@ -12,6 +12,11 @@ from fdai_aks_commerce.acceptance import (
     OrderAcceptanceSource,
     evaluate_order_acceptance,
 )
+from fdai_aks_commerce.acceptance_issuance import (
+    AcceptanceReceiptIssuer,
+    AcceptanceTrustLifecycle,
+    IssuedAcceptanceEvidence,
+)
 from fdai_aks_commerce.assessment import assess_aks_commerce
 from fdai_aks_commerce.browser_policy import storefront_browser_policy
 from fdai_aks_commerce.coordinator import (
@@ -56,6 +61,8 @@ __all__ = [
     "AksCommerceObservationSource",
     "AksCommerceProfileError",
     "AksCommerceResource",
+    "AcceptanceReceiptIssuer",
+    "AcceptanceTrustLifecycle",
     "AsyncPlaywrightStorefrontDriver",
     "CommerceMetricBinding",
     "CommerceSloEvidenceReader",
@@ -69,6 +76,7 @@ __all__ = [
     "OrderAcceptanceReceiptVerifier",
     "OrderAcceptanceScaleProposal",
     "OrderAcceptanceSource",
+    "IssuedAcceptanceEvidence",
     "__version__",
     "assess_aks_commerce",
     "evaluate_order_acceptance",
