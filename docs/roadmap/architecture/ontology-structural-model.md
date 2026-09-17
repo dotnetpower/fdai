@@ -121,8 +121,7 @@ target.
 
 ### Direct links
 
-A direct link represents one binary semantic fact whose stable identity is
-`(from_id, link_type, to_id)`. It is appropriate when the relationship has no independent domain
+A direct link represents one binary semantic fact whose stable identity is `(from_id, link_type, to_id)`. It is appropriate when the relationship has no independent domain
 identity or lifecycle.
 
 Direct link properties are limited to an empty mapping or the standardized evidence envelope.
