@@ -681,6 +681,9 @@ async def test_remaining_console_evidence_projects_durable_tables(
         del self
         if "GROUP BY state" in statement:
             return [{"state": "delivered", "count": 1}]
+        if "FROM conversation_adapter_breaker" in statement:
+            assert "GROUP BY mode ORDER BY mode" in statement
+            return [{"mode": "open", "count": 2}, {"mode": "closed", "count": 1}]
         if "COUNT(*) AS delivery_count" in statement:
             return [
                 {
@@ -781,6 +784,7 @@ async def test_remaining_console_evidence_projects_durable_tables(
     baselines = await reader.read(_query("configuration-baselines"))
 
     assert delivery["delivery_count"] == 1
+    assert delivery["breaker_states"] == {"open": 2, "closed": 1}
     assert delivery["retry_count"] == 1
     assert delivery["acknowledgement_count"] == 1
     assert forecast["episodes"]["total"] == 0
@@ -925,6 +929,27 @@ async def test_forecast_summary_rejects_unlabeled_outcome_records(
     )
     with pytest.raises(ProjectionUnavailableError, match="outcome label"):
         await reader.read(_query("forecast-learning"))
+
+
+@pytest.mark.parametrize("mode", ("", "unexpected", None))
+async def test_delivery_rejects_malformed_recorded_breaker_modes(
+    monkeypatch: pytest.MonkeyPatch, mode: str | None
+) -> None:
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        if "FROM conversation_adapter_breaker" in statement:
+            return [{"mode": mode, "count": 1}]
+        return []
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"), RecordingFallback()
+    )
+    with pytest.raises(ProjectionUnavailableError, match="breaker mode"):
+        await reader.read(_query("conversation-delivery"))
 
 
 @pytest.mark.parametrize(
