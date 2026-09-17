@@ -1,6 +1,6 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: 7237bbef67c957b25b52add134cce2dde0365e9c
+translation_source_sha: 155ccac2db5ffd84098b63279ec29499d7a4369a
 translation_revised: 2026-09-17
 ---
 # AKS 상거래 비즈니스 시나리오
@@ -329,7 +329,11 @@ Kubernetes API 수락은 성공이 아닙니다.
 
 - 프로필은 전용 `aks-store-demo` 클러스터를 생성하며 다른 기존 FDAI 또는 공유
   클러스터를 선택하지 않습니다.
-- 스토어프런트만 공개 애플리케이션 표면으로 둡니다.
+- AKS 관리 API는 IP 허용 목록 없이 공용 네트워크에서 접근할 수 있습니다. 로컬
+  Kubernetes 계정은 계속 비활성화하고 Entra RBAC는 계속 활성화하므로, 관리 작업에는
+  인증되고 권한이 있는 principal이 필요합니다.
+- 스토어프런트만 공개 애플리케이션 표면으로 둡니다. 공개 관리 API는 애플리케이션
+  엔드포인트가 아닙니다.
 - 공개 접근은 HTTPS, 배포에서 제공한 DNS 이름, 신뢰할 수 있는 인증서 참조를 사용합니다.
 - 관리 UI, API, 큐, 데이터베이스, 실행기는 비공개로 유지합니다.
 - 시나리오가 준비되었다고 보고하기 전에 AKS 모니터링, Container Insights, Managed

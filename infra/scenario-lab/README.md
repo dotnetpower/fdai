@@ -14,7 +14,7 @@ unrelated resources in that group.
 
 | Area | Resources |
 |------|-----------|
-| Compute | Dedicated `aks-store-demo` one-node private cluster, Chaos Mesh installed after apply, AKS Store Demo with a three-replica order service, private Linux stress VM |
+| Compute | Dedicated `aks-store-demo` one-node cluster with a public management API, Chaos Mesh installed after apply, AKS Store Demo with a three-replica order service, private Linux stress VM |
 | Data and AI | Private MySQL Flexible Server, private Azure OpenAI account and one deployment |
 | Security | Generated MySQL password in encrypted private state and a mode-0600 runner file, managed-identity role assignments, no VM public IP |
 | Network | Isolated VNet, delegated and private-endpoint subnets, egress-only NAT gateway, bidirectional peering to the VNet-integrated deploy runner, deployment-owned private-endpoint NSG association, and policy-owned NSGs on the AKS, MySQL, and stress subnets |
@@ -88,6 +88,9 @@ namespace. The renderer fixes the upstream source at commit
 each version tag with its reviewed multi-platform image digest before `kubectl apply`.
 The Terraform root creates the exact dedicated cluster name `aks-store-demo`; it never deploys the
 commerce workload to another FDAI, shared, or pre-existing cluster.
+The AKS management API is reachable from public networks. Entra RBAC remains enabled and local
+Kubernetes accounts remain disabled, so management operations still require an authenticated
+authorized principal.
 
 The lab applies only these safety overlays:
 
@@ -136,8 +139,8 @@ the approved deployment plan.
 ## Test from the operator PC
 
 Set `enable_vpn_operator_access=true` on the plan and apply runs to add direct peering, gateway
-transit, private DNS links, and minimum operator roles. Public access for AKS, MySQL, and Azure
-OpenAI remains disabled.
+transit, private DNS links, and minimum operator roles. The AKS management API remains public,
+while public access for MySQL and Azure OpenAI remains disabled.
 
 After apply, regenerate the P2S profile so the client receives the lab route and private service
 suffixes. First initialize the workstation root against the same private state key used by the

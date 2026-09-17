@@ -24,7 +24,7 @@ BASH = shutil.which("bash")
 assert BASH is not None
 
 
-def test_scenario_lab_is_an_independent_private_terraform_root() -> None:
+def test_scenario_lab_is_an_independent_public_api_terraform_root() -> None:
     versions = (LAB_ROOT / "versions.tf").read_text(encoding="utf-8")
     network = (LAB_ROOT / "network.tf").read_text(encoding="utf-8")
     aks = (LAB_ROOT / "aks.tf").read_text(encoding="utf-8")
@@ -64,9 +64,13 @@ def test_scenario_lab_is_an_independent_private_terraform_root() -> None:
     assert "mysql             = azurerm_subnet.mysql.id" not in network
     assert "stress_vm         = azurerm_subnet.stress_vm.id" not in network
     assert network.count("checkov:skip=CKV2_AZURE_31:Azure Policy attaches") == 3
-    assert "private_cluster_enabled" in aks
-    assert 'name                                = "aks-store-demo"' in aks
-    assert 'dns_prefix                          = "aks-store-demo"' in aks
+    assert re.search(r"^\s*private_cluster_enabled\s*=\s*false$", aks, re.MULTILINE)
+    assert "private_cluster_public_fqdn_enabled" not in aks
+    assert "private_dns_zone_id" not in aks
+    assert "api_server_access_profile" not in aks
+    assert "api_server_authorized_ip_ranges" not in variables
+    assert re.search(r'^\s*name\s*=\s*"aks-store-demo"$', aks, re.MULTILINE)
+    assert re.search(r'^\s*dns_prefix\s*=\s*"aks-store-demo"$', aks, re.MULTILINE)
     assert '"aks-${local.suffix}"' not in aks
     assert "local_account_disabled" in aks
     assert "azure_active_directory_role_based_access_control" in aks

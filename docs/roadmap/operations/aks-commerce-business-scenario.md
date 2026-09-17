@@ -334,7 +334,11 @@ The scenario-lab profile deploys the commerce workload with these boundaries:
 
 - The profile creates the dedicated `aks-store-demo` cluster and never selects another existing
   FDAI or shared cluster.
-- The storefront is the only public application surface.
+- The AKS management API is reachable from public networks without an IP allowlist. Local
+  Kubernetes accounts remain disabled and Entra RBAC remains enabled, so management operations
+  still require an authenticated authorized principal.
+- The storefront is the only public application surface; the public management API is not an
+  application endpoint.
 - Public access uses HTTPS, a deployment-supplied DNS name, and a trusted certificate reference.
 - The administration UI, APIs, queue, database, and executor remain private.
 - AKS monitoring, Container Insights, managed Prometheus, and required application telemetry are
