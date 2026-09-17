@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import math
+import re
 import ssl
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
@@ -38,7 +41,8 @@ from fdai.delivery.azure.static_web_app_inventory import (
 )
 from fdai.delivery.inventory_job_config import InventoryJobConfig, verify_declarative_sha256
 from fdai.delivery.inventory_progress import InventoryProgressRecorder
-from fdai.delivery.inventory_sync import InventoryPromotionEnricher
+from fdai.delivery.inventory_sync import InventoryPromotionEnricher, PromotedInventoryObservation
+from fdai.delivery.inventory_sync_cli_models import InventoryOntologyProjectionIncompleteError
 from fdai.delivery.kubernetes_api_inventory import (
     KubernetesApiAuth,
     ServiceAccountTokenAuth,
@@ -65,10 +69,66 @@ from fdai.shared.providers.inventory_snapshot import (
     InventorySource,
 )
 from fdai.shared.providers.resource_lock import ResourceLock
+from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _ResourceChangeForwarder = Callable[..., Awaitable[int]]
 _WorkloadIdentityFactory = Callable[..., WorkloadIdentity]
+
+
+async def recover_ontology_projection(
+    *,
+    load_pending: Callable[[], Awaitable[PromotedInventoryObservation | None]],
+    observe: Callable[[PromotedInventoryObservation], Awaitable[None]],
+    status_store: StateStore | None,
+    release_digest: str,
+    timeout_seconds: float = 60,
+) -> None:
+    """Replay one pending generation under the caller's lock and verify durable completion.
+
+    Incomplete source evidence permits a fresh collection without claiming recovery. Other
+    failures and deadline expiry propagate before the coordinator starts another generation.
+    """
+    if not math.isfinite(timeout_seconds) or not 0 < timeout_seconds <= 180:
+        raise ValueError("inventory recovery deadline must be finite and at most 180 seconds")
+    logger = logging.getLogger(__name__)
+    async with asyncio.timeout(timeout_seconds):
+        pending = await load_pending()
+        if pending is None:
+            return
+        logger.info("inventory_projection_recovery_started")
+        try:
+            if status_store is not None:
+                previous = await status_store.read_state("inventory-ontology:manifest")
+                if (
+                    previous is not None
+                    and previous.get("ontology_release_digest") != release_digest
+                ):
+                    raise RuntimeError(
+                        "inventory projection recovery requires deployment alignment"
+                    )
+            await observe(pending)
+            if status_store is None:
+                logger.info("inventory_projection_recovery_projection_disabled")
+                return
+            manifest = await status_store.read_state("inventory-ontology:manifest")
+            if (
+                manifest is None
+                or manifest.get("complete") is not True
+                or manifest.get("generation") != pending.generation
+                or manifest.get("ontology_release_digest") != release_digest
+                or re.fullmatch(r"sha256:[a-f0-9]{64}", str(manifest.get("manifest_digest", "")))
+                is None
+                or await load_pending() is not None
+            ):
+                raise RuntimeError("inventory projection recovery readback did not converge")
+        except InventoryOntologyProjectionIncompleteError:
+            logger.warning("inventory_projection_recovery_source_incomplete")
+            return
+        except (Exception, asyncio.CancelledError):
+            logger.warning("inventory_projection_recovery_failed")
+            raise
+        logger.info("inventory_projection_recovery_verified")
 
 
 async def try_recovery_delta_operation(

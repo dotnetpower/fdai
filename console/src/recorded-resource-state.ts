@@ -25,10 +25,20 @@ export interface RecordedResourceStates {
 export function isRecordedStateGenerationTransition(error: unknown): boolean {
   return error instanceof OperatorApiError
     && error.status === 409
+    && (error.reason === undefined || (
+      error.message === "ontology_generation_changed"
+      && ["ontology_projection_missing", "ontology_generation_pending"].includes(error.reason)
+    ))
     && [
       "inventory_generation_changed",
       "ontology_generation_changed",
     ].includes(error.message);
+}
+
+export function isRecordedStateReleaseMismatch(error: unknown): boolean {
+  return error instanceof OperatorApiError && error.status === 409
+    && error.message === "ontology_generation_changed"
+    && error.reason === "ontology_release_mismatch";
 }
 
 export function stateRecord(value: unknown, label: string): Record<string, unknown> {

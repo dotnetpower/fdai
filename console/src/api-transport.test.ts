@@ -41,6 +41,19 @@ afterEach(() => {
 });
 
 describe("Operator API authentication boundary", () => {
+  test.each([
+    ["ontology_projection_missing", "ontology_projection_missing"],
+    ["ontology_release_mismatch", "ontology_release_mismatch"],
+    [null, "invalid_recovery_reason"],
+    [{ detail: "invalid" }, "invalid_recovery_reason"],
+  ])("preserves only bounded error reasons: %j", async (reason, expected) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      error: { status: 409, message: "ontology_generation_changed", reason },
+    }), { status: 409 })));
+    await expect(new OperatorApiTransport(config, auth()).getJson("/ontology/instances/states"))
+      .rejects.toMatchObject({ status: 409, message: "ontology_generation_changed", reason: expected });
+  });
+
   test("fails closed when a signed-in Entra account has no bearer token", async () => {
     const fetchMock = vi.fn();
     const onUnauthorized = vi.fn();

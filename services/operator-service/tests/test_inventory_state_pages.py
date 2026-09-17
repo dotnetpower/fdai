@@ -321,20 +321,33 @@ async def test_active_generation_is_rechecked_after_each_page(
 
 
 @pytest.mark.parametrize(
-    "ontology_context",
+    ("ontology_context", "reason"),
     [
-        None,
-        replace(ONTOLOGY_CONTEXT, generation="generation-2"),
-        replace(ONTOLOGY_CONTEXT, ontology_release_digest=f"sha256:{'b' * 64}"),
+        (None, "ontology_projection_missing"),
+        (replace(ONTOLOGY_CONTEXT, generation="generation-2"), "ontology_generation_pending"),
+        (
+            replace(ONTOLOGY_CONTEXT, ontology_release_digest=f"sha256:{'b' * 64}"),
+            "ontology_release_mismatch",
+        ),
+        (
+            replace(
+                ONTOLOGY_CONTEXT,
+                generation="generation-2",
+                ontology_release_digest=f"sha256:{'b' * 64}",
+            ),
+            "ontology_release_mismatch",
+        ),
     ],
 )
 async def test_inventory_and_ontology_generation_must_match_before_read(
     ontology_context: InventoryOntologyContext | None,
+    reason: str,
 ) -> None:
     reader = _Reader()
     reader.ontology_context = ontology_context
-    with pytest.raises(OntologyGenerationChangedError):
+    with pytest.raises(OntologyGenerationChangedError) as caught:
         await _read(reader)
+    assert caught.value.reason == reason
     assert reader.calls == []
 
 
