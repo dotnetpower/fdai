@@ -65,6 +65,12 @@ load_optional_console_setting() {
       FDAI_LOCAL_RESOURCE_GROUP)
         export FDAI_LOCAL_RESOURCE_GROUP="$value"
         ;;
+      FDAI_LOCAL_KUBERNETES_LIFECYCLE)
+        export FDAI_LOCAL_KUBERNETES_LIFECYCLE="$value"
+        ;;
+      FDAI_LOCAL_KUBERNETES_BINDINGS_PATH)
+        export FDAI_LOCAL_KUBERNETES_BINDINGS_PATH="$value"
+        ;;
       *)
         echo "unsupported local Console setting: $key" >&2
         return 1
@@ -75,6 +81,18 @@ load_optional_console_setting() {
 
 load_optional_console_setting FDAI_LOCAL_NO_AZURE_DEPLOYMENT
 load_optional_console_setting FDAI_LOCAL_RESOURCE_GROUP
+load_optional_console_setting FDAI_LOCAL_KUBERNETES_LIFECYCLE
+load_optional_console_setting FDAI_LOCAL_KUBERNETES_BINDINGS_PATH
+local_kubernetes_bindings_path="${FDAI_LOCAL_KUBERNETES_BINDINGS_PATH:-$repo_root/.fdai/local-kubernetes-bindings.json}"
+if [[ -v FDAI_LOCAL_KUBERNETES_BINDINGS_PATH ]] && {
+  [[ "$local_kubernetes_bindings_path" != /* ]] ||
+    [[ ${#local_kubernetes_bindings_path} -gt 4096 ]] ||
+    [[ "$local_kubernetes_bindings_path" == *$'\n'* ]] ||
+    [[ "$local_kubernetes_bindings_path" == *$'\r'* ]]
+}; then
+  echo "FDAI_LOCAL_KUBERNETES_BINDINGS_PATH MUST be an absolute path" >&2
+  exit 1
+fi
 
 if ! command -v npm >/dev/null 2>&1; then
   echo "missing npm: install Node.js and npm before starting the Console" >&2
@@ -127,6 +145,9 @@ for optional_input in \
 done
 if [[ -n "$resolved_models_override" && -f "$resolved_models_override" ]]; then
   legacy_preparation_inputs+=("$resolved_models_override")
+fi
+if [[ -f "$local_kubernetes_bindings_path" ]]; then
+  legacy_preparation_inputs+=("$local_kubernetes_bindings_path")
 fi
 
 run_bounded() {
@@ -471,6 +492,9 @@ done
 if [[ -n "$resolved_models_override" && -f "$resolved_models_override" ]]; then
   runtime_environment_inputs+=("$resolved_models_override")
 fi
+if [[ -f "$local_kubernetes_bindings_path" ]]; then
+  runtime_environment_inputs+=("$local_kubernetes_bindings_path")
+fi
 inventory_inputs=(
   .fdai/local-runtime.env
   rule-catalog
@@ -511,6 +535,7 @@ run_stage \
   "$(configuration_digest \
     "$(path_digest "${runtime_environment_inputs[@]}")" \
     "kubernetes=${FDAI_LOCAL_KUBERNETES_LIFECYCLE:-0}" \
+    "kubernetes-bindings-path=$local_kubernetes_bindings_path" \
     "teams-notifications=${FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION:-0}" \
     "no-azure-deployment=${FDAI_LOCAL_NO_AZURE_DEPLOYMENT:-0}" \
     "local-resource-group=${FDAI_LOCAL_RESOURCE_GROUP:-}" \

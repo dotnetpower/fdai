@@ -525,6 +525,7 @@ printf 'FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=%s\n' "$flag" \
         "#!/usr/bin/env bash\nexit 0\n",
     )
     digest = "c" * 64
+    kubernetes_bindings_path = repo / ".fdai/local-kubernetes-bindings.json"
     marker_dir = repo / ".fdai/console-preparation"
     marker_dir.mkdir(parents=True)
     stages = (
@@ -542,7 +543,12 @@ printf 'FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=%s\n' "$flag" \
             stage_digest = digest
             if stage == "runtime-environment":
                 stage_digest = hashlib.sha256(
-                    f"{digest}\nkubernetes=0\nteams-notifications=0\nno-azure-deployment=0\nlocal-resource-group=\nresolved-models-override=\n".encode()
+                    (
+                        f"{digest}\nkubernetes=0\n"
+                        f"kubernetes-bindings-path={kubernetes_bindings_path}\n"
+                        "teams-notifications=0\nno-azure-deployment=0\n"
+                        "local-resource-group=\nresolved-models-override=\n"
+                    ).encode()
                 ).hexdigest()
             if stage == "service-environments":
                 stage_digest = hashlib.sha256(
