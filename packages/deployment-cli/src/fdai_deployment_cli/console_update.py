@@ -321,6 +321,7 @@ def apply_console_update_plan(
                         scripts=scripts,
                         timeout_seconds=timeout_seconds,
                         verify_only=True,
+                        verify_service_contracts=False,
                     )
                     reason = "claimed_candidate_readback_failed_rollback_already_present"
                 except (OSError, subprocess.SubprocessError, ValueError):
@@ -334,6 +335,7 @@ def apply_console_update_plan(
                             scripts=scripts,
                             timeout_seconds=timeout_seconds,
                             verify_only=False,
+                            verify_service_contracts=False,
                         )
                         reason = "claimed_candidate_readback_failed_rollback_restored"
                     except (OSError, subprocess.SubprocessError, ValueError) as rollback_error:
@@ -403,6 +405,7 @@ def apply_console_update_plan(
                     scripts=scripts,
                     timeout_seconds=timeout_seconds,
                     verify_only=False,
+                    verify_service_contracts=False,
                 )
             except (OSError, subprocess.SubprocessError, ValueError) as rollback_error:
                 raise ValueError(
@@ -439,8 +442,12 @@ def _publish(
     scripts: Path,
     timeout_seconds: int,
     verify_only: bool,
+    verify_service_contracts: bool = True,
 ) -> dict[str, object]:
-    work_dir.mkdir(mode=0o700)
+    work_dir.mkdir(mode=0o700, exist_ok=True)
+    if work_dir.is_symlink() or not work_dir.is_dir():
+        raise ValueError("Console publication work directory is invalid")
+    work_dir.chmod(0o700)
     return publish_verified_console(
         console_archive=archive,
         console_archive_sha256=archive_digest,
@@ -463,6 +470,7 @@ def _publish(
         timeout_seconds=timeout_seconds,
         redirect_changed=False,
         verify_only=verify_only,
+        verify_service_contracts=verify_service_contracts,
     )
 
 
@@ -513,6 +521,9 @@ def _write_failure_receipt(
         "actor_digest": actor_digest,
         "rollback_publication_receipt_digest": rollback["receipt_digest"],
         "rollback_readback_verified": True,
+        "api_health_verified": rollback["api_health_verified"],
+        "authorization_preflight_verified": rollback["authorization_preflight_verified"],
+        "entra_redirect_verified": rollback["entra_redirect_verified"],
         "completed_at": datetime.now(UTC).isoformat(),
         "mutation_performed": rollback.get("mutation_performed") is True,
     }

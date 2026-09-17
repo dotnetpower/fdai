@@ -786,6 +786,7 @@ def publish_verified_console(
     timeout_seconds: int,
     redirect_changed: bool,
     verify_only: bool = False,
+    verify_service_contracts: bool = True,
 ) -> dict[str, object]:
     """Configure a verified prebuilt Console, publish it, and read back exact bytes."""
 
@@ -822,6 +823,7 @@ def publish_verified_console(
         "BROWSER_GATEWAY_INGESTION_URL": settings["ingestion_api_base_url"],
         "CONSOLE_PREBUILT_DIRECTORY": str(console_directory),
         "FDAI_CONSOLE_VERIFY_ONLY": "1" if verify_only else "0",
+        "FDAI_CONSOLE_VERIFY_SERVICE_CONTRACTS": "1" if verify_service_contracts else "0",
         "GITHUB_STEP_SUMMARY": str(summary),
     }
     completed = subprocess.run(
@@ -848,10 +850,10 @@ def publish_verified_console(
         "entra_redirect_changed": redirect_changed,
         "artifact_hash_verified": True,
         "spa_fallback_verified": True,
-        "api_health_verified": True,
-        "authorization_preflight_verified": True,
-        "unauthenticated_denial_verified": True,
-        "entra_redirect_verified": True,
+        "api_health_verified": verify_service_contracts,
+        "authorization_preflight_verified": verify_service_contracts,
+        "unauthenticated_denial_verified": verify_service_contracts,
+        "entra_redirect_verified": verify_service_contracts,
         "mutation_performed": not verify_only,
         "subscription_ready": False,
     }

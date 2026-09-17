@@ -100,6 +100,11 @@ if [[ "$verify_only" != 0 && "$verify_only" != 1 ]]; then
   echo "FDAI_CONSOLE_VERIFY_ONLY must be 0 or 1" >&2
   exit 2
 fi
+verify_service_contracts="${FDAI_CONSOLE_VERIFY_SERVICE_CONTRACTS:-1}"
+if [[ "$verify_service_contracts" != 0 && "$verify_service_contracts" != 1 ]]; then
+  echo "FDAI_CONSOLE_VERIFY_SERVICE_CONTRACTS must be 0 or 1" >&2
+  exit 2
+fi
 deployment_token=""
 if [[ "$verify_only" == 0 ]]; then
   deployment_token="$(az rest --method post \
@@ -170,7 +175,7 @@ remote_asset="$(mktemp)"
 response_headers="${remote_asset}.headers"
 response_body="${remote_asset}.body"
 trap 'rm -f -- "$remote_asset" "$response_headers" "$response_body"; unset SWA_CLI_DEPLOYMENT_TOKEN deployment_token' EXIT
-for published_file in index.html fdai-config.js staticwebapp.config.json "${entry_asset#/}"; do
+for published_file in index.html fdai-config.js "${entry_asset#/}"; do
   curl --fail --silent --show-error --retry 12 --retry-delay 5 \
     --retry-all-errors --retry-max-time 120 --connect-timeout 5 --max-time 20 \
     "https://$hostname/$published_file" --output "$remote_asset"
@@ -190,6 +195,10 @@ if [[ "$prebuilt_console" == 0 ]]; then
     echo "$(sha256sum "$console_directory/manuals/$manual_file" | cut -d' ' -f1)  $remote_asset" \
       | sha256sum --check --status
   done
+fi
+
+if [[ "$verify_service_contracts" == 0 ]]; then
+  exit 0
 fi
 
 for health_url in "$operator_api_url/healthz" "$ingestion_api_url/healthz"; do

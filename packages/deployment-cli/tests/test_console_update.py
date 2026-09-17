@@ -244,14 +244,21 @@ def test_claim_recovery_does_not_republish_an_existing_rollback(
     }
     claim["claim_digest"] = canonical_digest(claim)
     _private_json(work / "claim.json", claim)
-    calls: list[bool] = []
+    (work / "candidate-verify").mkdir()
+    (work / "rollback-verify").mkdir()
+    (work / "rollback-recovery").mkdir()
+    calls: list[tuple[bool, bool]] = []
 
     def publish(**arguments: object) -> dict[str, object]:
         verify_only = bool(arguments["verify_only"])
-        calls.append(verify_only)
+        verify_service_contracts = bool(arguments["verify_service_contracts"])
+        calls.append((verify_only, verify_service_contracts))
         if len(calls) == 1:
             raise ValueError("candidate differs")
-        return _publication_receipt(verify_only=verify_only)
+        return _publication_receipt(
+            verify_only=verify_only,
+            verify_service_contracts=verify_service_contracts,
+        )
 
     monkeypatch.setattr(console_update, "publish_verified_console", publish)
     with pytest.raises(ValueError, match="rollback was restored"):
@@ -262,10 +269,13 @@ def test_claim_recovery_does_not_republish_an_existing_rollback(
             scripts=source / "scripts/deployment/azure",
         )
 
-    assert calls == [True, True]
+    assert calls == [(True, True), (True, False)]
     failure = json.loads((work / "failure.json").read_text(encoding="utf-8"))
     assert failure["reason"] == "claimed_candidate_readback_failed_rollback_already_present"
     assert failure["mutation_performed"] is False
+    assert failure["api_health_verified"] is False
+    assert failure["authorization_preflight_verified"] is False
+    assert failure["entra_redirect_verified"] is False
     with pytest.raises(ValueError, match="previously failed"):
         console_update.apply_console_update_plan(
             source_root=source,
@@ -273,7 +283,7 @@ def test_claim_recovery_does_not_republish_an_existing_rollback(
             approved_plan_digest=str(plan["plan_digest"]),
             scripts=source / "scripts/deployment/azure",
         )
-    assert calls == [True, True]
+    assert calls == [(True, True), (True, False)]
 
 
 def test_shared_publisher_supports_readback_without_republication() -> None:
@@ -283,6 +293,9 @@ def test_shared_publisher_supports_readback_without_republication() -> None:
     assert 'verify_only="${FDAI_CONSOLE_VERIFY_ONLY:-0}"' in publisher
     assert 'if [[ "$verify_only" == 0 ]]; then' in publisher
     assert "verify-only Console readback requires CONSOLE_PREBUILT_DIRECTORY" in publisher
+    assert 'verify_service_contracts="${FDAI_CONSOLE_VERIFY_SERVICE_CONTRACTS:-1}"' in publisher
+    assert 'index.html fdai-config.js "${entry_asset#/}"' in publisher
+    assert "index.html fdai-config.js staticwebapp.config.json" not in publisher
 
 
 def test_cli_apply_keeps_internal_exact_plan_binding_without_prompt(
@@ -371,12 +384,14 @@ def _prepared_plan(
     return source, work, plan
 
 
-def _publication_receipt(*, verify_only: bool) -> dict[str, object]:
+def _publication_receipt(
+    *, verify_only: bool, verify_service_contracts: bool = True
+) -> dict[str, object]:
     return {
         "receipt_digest": "b" * 64,
-        "api_health_verified": True,
-        "authorization_preflight_verified": True,
-        "entra_redirect_verified": True,
+        "api_health_verified": verify_service_contracts,
+        "authorization_preflight_verified": verify_service_contracts,
+        "entra_redirect_verified": verify_service_contracts,
         "mutation_performed": not verify_only,
     }
 
