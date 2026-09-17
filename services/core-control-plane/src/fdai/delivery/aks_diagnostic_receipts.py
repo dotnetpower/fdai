@@ -54,6 +54,13 @@ class StateStoreAksDiagnosticReceiptWriter:
             "record_digest": record_digest,
             "receipt": receipt_value,
         }
+        existing = await self.store.read_state(key)
+        if existing is not None:
+            if existing != value:
+                raise AksDiagnosticReceiptCollisionError(
+                    "AKS diagnostic receipt identity is bound to different immutable content"
+                )
+            return receipt
         created = await self.store.write_state_with_audit_if_absent(
             key,
             value,
@@ -173,19 +180,10 @@ def aks_diagnostic_receipt_key(receipt: AksDiagnosticEvidenceReceipt) -> str:
     """Return the bounded sortable identity key for one immutable receipt."""
 
     receipt_value = receipt.model_dump(mode="json")
-    identity = {
-        "target_resource_id": receipt.target_resource_id,
-        "target_uid": receipt.target_uid,
-        "target_resource_version": receipt.target_resource_version,
-        "ontology_release": receipt.ontology_release,
-        "cutoff": receipt_value["cutoff"],
-        "source_cutoffs": receipt_value["source_cutoffs"],
-        "source_revisions": dict(sorted(receipt.source_revisions.items())),
-    }
     cutoff = receipt.cutoff.astimezone(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     return (
         f"{AKS_DIAGNOSTIC_RECEIPT_PREFIX}{_sha256(receipt.target_resource_id)}:"
-        f"{cutoff}:{content_digest(identity)[7:]}"
+        f"{cutoff}:{content_digest(receipt_value)[7:]}"
     )
 
 

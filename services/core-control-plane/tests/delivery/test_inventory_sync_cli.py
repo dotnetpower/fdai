@@ -387,7 +387,7 @@ async def test_ontology_observer_persists_diagnostics_on_inventory_promotion(
 ) -> None:
     state_store = SimpleNamespace(
         write_state_with_audit_if_absent=AsyncMock(return_value=True),
-        read_state=AsyncMock(),
+        read_state=AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
         "fdai.delivery.inventory_ontology_observer.PostgresStateStore",
@@ -424,7 +424,7 @@ async def test_recovery_persists_diagnostics_without_ontology_projection(
 ) -> None:
     state_store = SimpleNamespace(
         write_state_with_audit_if_absent=AsyncMock(return_value=True),
-        read_state=AsyncMock(),
+        read_state=AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
         "fdai.delivery.inventory_ontology_observer.PostgresStateStore",
