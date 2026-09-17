@@ -15,11 +15,7 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 ## Design at a glance
 
 Shared Operator outbox composition preserves the same test-context worker on both platforms.
-Its facade grouping creates no AKS observation, Cost Governance activation, or deployment authority.
-
-Both runtimes use the same [bounded projection recovery](../interfaces/recorded-resource-state.md#bounded-automatic-recovery)
-inside the existing inventory coordinator. Recovery changes neither provider scope nor infrastructure,
-and a release mismatch requires deployment review rather than an automatic rollout or access override.
+Its facade grouping creates no AKS observation, Cost Governance activation, or deployment authority. Both runtimes use the same [bounded projection recovery](../interfaces/recorded-resource-state.md#bounded-automatic-recovery) inside the existing inventory coordinator. Recovery changes neither provider scope nor infrastructure, and a release mismatch requires deployment review rather than an automatic rollout or access override.
 
 The host's read-only `verify-source-runtime` command checks pinned source/runtime content, not
 runtime or database placement, node sizing, cost, host identity or exact-plan authority. Its evidence

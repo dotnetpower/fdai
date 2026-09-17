@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 44fbf0b6a41dbba4c701ae741a9131a58136e4bf
+translation_source_sha: b58080cec62cb522e183bf6325b2cdfb8f8ba5ae
 translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
@@ -17,11 +17,7 @@ Azure Container Apps는 기존 설치를 위한 호환 프로파일로 계속 �
 ## 설계 개요
 
 공유 Operator 발신함 구성은 두 플랫폼에서 같은 테스트 맥락 작업을 사용합니다.
-facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권한은 생기지 않습니다.
-
-두 런타임 모두 기존 인벤토리 조정기에서 같은 [제한된 변환 복구](../interfaces/recorded-resource-state-ko.md#제한된-자동-복구)를
-사용합니다. 복구는 공급자 범위나 인프라를 바꾸지 않으며, 릴리스 불일치는 자동 배포나 접근 제한
-우회가 아니라 배포 검토로 처리합니다.
+facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권한은 생기지 않습니다. 두 런타임 모두 기존 인벤토리 조정기에서 같은 [제한된 변환 복구](../interfaces/recorded-resource-state-ko.md#제한된-자동-복구)를 사용합니다. 복구는 공급자 범위나 인프라를 바꾸지 않으며, 릴리스 불일치는 자동 배포나 접근 제한 우회가 아니라 배포 검토로 처리합니다.
 
 호스트의 읽기 전용 `verify-source-runtime`은 고정된 소스·런타임 내용만 확인하며 런타임·DB 배치,
 노드 크기·비용·호스트 신원·정확한 계획 승인은 검증하지 않습니다. 이 근거는 프로파일에 연결된
