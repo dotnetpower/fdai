@@ -9,6 +9,7 @@ variables {
   workloads = {
     example = {
       component            = "core"
+      source_commit        = "0000000000000000000000000000000000000000"
       image                = "example.com/fdai/core@sha256:0000000000000000000000000000000000000000000000000000000000000000"
       identity_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/example"
       identity_client_id   = "00000000-0000-0000-0000-000000000001"
@@ -50,6 +51,7 @@ run "workload_security_baseline" {
 
   assert {
     condition = (
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].metadata[0].labels["fdai.io/source-commit"] == var.workloads.example.source_commit &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].image == var.workloads.example.image &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].image_pull_policy == "Always" &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].security_context[0].read_only_root_filesystem &&

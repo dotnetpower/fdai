@@ -71,6 +71,26 @@ def test_complete_current_workloads_are_healthy() -> None:
     assert _verify(*_observations())
 
 
+def test_selected_workload_can_use_its_own_source_revision() -> None:
+    deployments, pods = _observations()
+    deployments["items"] = deployments["items"][:1]
+    pods["items"] = pods["items"][:1]
+    selected = deployments["items"][0]["metadata"]["name"]
+
+    assert verify_workload_health(
+        deployments=json.dumps(deployments),
+        pods=json.dumps(pods),
+        expected={
+            selected: {
+                "image": IMAGE,
+                "replicas": 1,
+                "max_replicas": 3,
+                "source_commit": SOURCE,
+            }
+        },
+    )
+
+
 @pytest.mark.parametrize(
     "defect",
     [

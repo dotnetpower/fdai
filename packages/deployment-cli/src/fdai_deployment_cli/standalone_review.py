@@ -22,6 +22,7 @@ _FIELDS = frozenset(
         "subscription_ready",
     }
 )
+_SERVICE_UPDATE_FIELDS = frozenset({"service", "image", "source_commit", "update_digest"})
 _ACTIONS = frozenset({"create", "update", "delete", "replace", "read", "no-op"})
 _ERROR = "standalone plan review is invalid or expired; request a current exact plan"
 
@@ -32,7 +33,7 @@ def validate_plan_review(review: dict[str, Any]) -> tuple[str, int]:
     stage = review.get("stage")
     summary = review.get("summary")
     if (
-        set(review) != _FIELDS
+        set(review) not in (_FIELDS, _FIELDS | {"service_update"})
         or review.get("schema_version") != "fdai.standalone-application-plan.v1"
         or not isinstance(stage, str)
         or stage not in {"substrate", "runtime", "database", "application"}
@@ -40,6 +41,31 @@ def validate_plan_review(review: dict[str, Any]) -> tuple[str, int]:
         or review.get("subscription_ready") is not False
         or not isinstance(summary, dict)
         or not set(summary).issubset({"action_counts", "resource_type_counts", "resource_changes"})
+    ):
+        raise ValueError(_ERROR)
+    service_update = review.get("service_update")
+    if service_update is not None and (
+        stage != "application"
+        or not isinstance(service_update, dict)
+        or set(service_update) != _SERVICE_UPDATE_FIELDS
+        or service_update.get("service")
+        not in {
+            "core-control-plane",
+            "document-ingestion-api",
+            "document-processing-worker",
+            "isolated-executor",
+            "operator-service",
+        }
+        or not isinstance(service_update.get("image"), str)
+        or re.fullmatch(
+            r"[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}",
+            service_update["image"],
+        )
+        is None
+        or not isinstance(service_update.get("source_commit"), str)
+        or re.fullmatch(r"[0-9a-f]{40}", service_update["source_commit"]) is None
+        or not isinstance(service_update.get("update_digest"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", service_update["update_digest"]) is None
     ):
         raise ValueError(_ERROR)
     for key, length in (

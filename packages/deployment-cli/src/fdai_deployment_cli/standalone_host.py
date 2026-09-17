@@ -19,6 +19,13 @@ from pathlib import Path
 from typing import Any, Final
 
 from fdai_deployment_cli.aks_readiness import verify_workload_health
+from fdai_deployment_cli.aks_service_update import (
+    SERVICES as AKS_SERVICES,
+    deployment_snapshot,
+    peers_unchanged,
+    validate_plan_scope,
+    validate_update_request,
+)
 from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
 from fdai_deployment_cli.license import inspect_license
@@ -139,17 +146,26 @@ def main(argv: list[str] | None = None) -> int:
     prepare_application = subcommands.add_parser("prepare-application")
     prepare_application.set_defaults(handler=_prepare_aks_application)
 
+    prepare_service_update = subcommands.add_parser("prepare-service-update")
+    prepare_service_update.add_argument("--service", choices=sorted(AKS_SERVICES), required=True)
+    prepare_service_update.add_argument("--image", required=True)
+    prepare_service_update.add_argument("--source-commit", required=True)
+    prepare_service_update.set_defaults(handler=_prepare_aks_service_update)
+
     plan = subcommands.add_parser("plan")
     plan.add_argument("--stage", choices=_STAGES, required=True)
+    plan.add_argument("--service", choices=sorted(AKS_SERVICES))
     plan.set_defaults(handler=_plan)
 
     apply = subcommands.add_parser("apply")
     apply.add_argument("--stage", choices=_STAGES, required=True)
+    apply.add_argument("--service", choices=sorted(AKS_SERVICES))
     apply.add_argument("--approval", type=Path, required=True)
     apply.set_defaults(handler=_apply)
 
     recover = subcommands.add_parser("recover-apply")
     recover.add_argument("--stage", choices=_STAGES, required=True)
+    recover.add_argument("--service", choices=sorted(AKS_SERVICES))
     recover.set_defaults(handler=_recover_apply)
 
     images = subcommands.add_parser("import-images")
@@ -832,6 +848,8 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             console_origin=console_origin,
         )
     )
+    for workload in workloads.values():
+        workload["source_commit"] = context["source_commit"]
     inventory_environment = {
         **core_environment,
         "AZURE_CLIENT_ID": inventory_identity["client_id"],
@@ -945,7 +963,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         workloads_terraform_data=str(work_dir / "terraform-data-workloads"),
         kubeconfig=str(kubeconfig),
         expected_workloads={
-            name: {key: workload[key] for key in ("image", "replicas", "max_replicas")}
+            name: {
+                key: workload[key] for key in ("image", "replicas", "max_replicas", "source_commit")
+            }
             for name, workload in workloads.items()
         },
     )
@@ -964,8 +984,265 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     }
 
 
+def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
+    """Seal one service image update against the current complete AKS workload baseline."""
+
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    if _runtime_platform(context) != "aks":
+        raise ValueError("AKS service update requires an AKS installation")
+    if not (work_dir / "application-receipt.json").is_file():
+        raise ValueError("AKS service update requires an applied application baseline")
+    _managed_identity_login_from_context(context, work_dir)
+    service = str(args.service)
+    values = _private_json(work_dir / "workloads.auto.tfvars.json", "AKS workload variables")
+    workloads = _mapping(values.get("workloads"), "AKS workloads")
+    expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
+    if set(workloads) != set(expected) or service not in workloads:
+        raise ValueError("AKS service update workload inventory is incomplete")
+    active = context.get("active_service_update")
+    if isinstance(active, dict):
+        operation = active.get("operation")
+        if not isinstance(operation, str) or not (work_dir / f"{operation}-receipt.json").is_file():
+            raise ValueError("AKS service update already has an incomplete active operation")
+    default_source = str(context.get("source_commit", ""))
+    for name, workload_value in workloads.items():
+        workload = _mapping(workload_value, f"AKS workload {name}")
+        contract = _mapping(expected.get(name), f"expected AKS workload {name}")
+        source_commit = workload.get("source_commit", contract.get("source_commit", default_source))
+        if not isinstance(source_commit, str) or _SOURCE_COMMIT.fullmatch(source_commit) is None:
+            raise ValueError("AKS workload source revision is invalid")
+        workload["source_commit"] = source_commit
+        contract["source_commit"] = source_commit
+        workloads[name] = workload
+        expected[name] = contract
+    selected = _mapping(workloads[service], f"AKS workload {service}")
+    current_image = selected.get("image")
+    if not isinstance(current_image, str):
+        raise ValueError("AKS service update current image is invalid")
+    validate_update_request(
+        service=service,
+        image=str(args.image),
+        source_commit=str(args.source_commit),
+        current_image=current_image,
+    )
+    baseline = deployment_snapshot(
+        _capture_aks_deployments(context), expected_services=set(workloads)
+    )
+    for name, contract_value in expected.items():
+        contract = _mapping(contract_value, f"expected AKS workload {name}")
+        if baseline[name]["image"] != contract.get("image") or baseline[name][
+            "source_commit"
+        ] != contract.get("source_commit"):
+            raise ValueError("AKS service update baseline differs from retained desired state")
+    selected["image"] = str(args.image)
+    selected["source_commit"] = str(args.source_commit)
+    workloads[service] = selected
+    selected_expected = _mapping(expected[service], f"expected AKS workload {service}")
+    selected_expected["image"] = str(args.image)
+    selected_expected["source_commit"] = str(args.source_commit)
+    expected[service] = selected_expected
+    values["workloads"] = workloads
+    update_identity = {
+        "service": service,
+        "image": str(args.image),
+        "source_commit": str(args.source_commit),
+        "target_binding": context["target_binding"],
+        "runtime_profile_digest": _runtime_profile_digest(context),
+    }
+    operation = f"service-update-{service}-{canonical_digest(update_identity)[:12]}"
+    record: dict[str, object] = {
+        "schema_version": "fdai.aks-service-update.v1",
+        "operation": operation,
+        **update_identity,
+        "previous_image": current_image,
+        "baseline": baseline,
+        "prepared_at": _moment(datetime.now(UTC)),
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
+    record["update_digest"] = canonical_digest(record)
+    _replace_private_json(work_dir / f"{operation}.json", record)
+    context["expected_workloads"] = expected
+    context["active_service_update"] = {
+        "operation": operation,
+        "service": service,
+        "update_digest": record["update_digest"],
+    }
+    _replace_private_json(work_dir / "workloads.auto.tfvars.json", values)
+    _replace_private_json(work_dir / "context.json", context)
+    return {
+        "schema_version": "fdai.aks-service-update-prepare.v1",
+        "state": "prepared",
+        "operation": operation,
+        "service": service,
+        "image": str(args.image),
+        "source_commit": str(args.source_commit),
+        "update_digest": record["update_digest"],
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
+
+
+def _service_update_record(
+    context: dict[str, object],
+    work_dir: Path,
+    *,
+    stage: str,
+    service: str | None,
+) -> dict[str, Any] | None:
+    if service is None:
+        return None
+    if stage != "application" or _runtime_platform(context) != "aks":
+        raise ValueError("--service is supported only for an AKS application stage")
+    active = _mapping(context.get("active_service_update"), "active AKS service update")
+    operation = active.get("operation")
+    if (
+        active.get("service") != service
+        or not isinstance(operation, str)
+        or re.fullmatch(rf"service-update-{re.escape(service)}-[0-9a-f]{{12}}", operation) is None
+    ):
+        raise ValueError("active AKS service update does not match the selected service")
+    record = _private_json(work_dir / f"{operation}.json", "AKS service update")
+    update_digest = record.get("update_digest")
+    document = {key: value for key, value in record.items() if key != "update_digest"}
+    if (
+        record.get("schema_version") != "fdai.aks-service-update.v1"
+        or record.get("operation") != operation
+        or record.get("service") != service
+        or active.get("update_digest") != update_digest
+        or update_digest != canonical_digest(document)
+        or record.get("target_binding") != context.get("target_binding")
+        or record.get("runtime_profile_digest") != _runtime_profile_digest(context)
+        or not isinstance(record.get("baseline"), dict)
+    ):
+        raise ValueError("active AKS service update record is invalid")
+    image = record.get("image")
+    source_commit = record.get("source_commit")
+    previous_image = record.get("previous_image")
+    if not all(isinstance(value, str) for value in (image, source_commit, previous_image)):
+        raise ValueError("active AKS service update binding is invalid")
+    validate_update_request(
+        service=service,
+        image=str(image),
+        source_commit=str(source_commit),
+        current_image=str(previous_image),
+    )
+    return record
+
+
+def _service_update_review(update: dict[str, Any]) -> dict[str, str]:
+    return {
+        "service": str(update["service"]),
+        "image": str(update["image"]),
+        "source_commit": str(update["source_commit"]),
+        "update_digest": str(update["update_digest"]),
+    }
+
+
+def _service_update_target(service: str) -> str:
+    if service not in AKS_SERVICES:
+        raise ValueError("AKS service update target is unsupported")
+    return f'kubernetes_deployment_v1.workload["{service}"]'
+
+
+def _capture_aks_deployments(context: dict[str, object], *, service: str | None = None) -> str:
+    kubeconfig = Path(str(context.get("kubeconfig", "")))
+    if not kubeconfig.is_file():
+        raise ValueError("AKS kubeconfig is unavailable for service update readback")
+    command = [
+        "kubectl",
+        "get",
+        "deployments",
+        "--namespace",
+        _AKS_RUNTIME_NAMESPACE,
+        "--output",
+        "json",
+        "--request-timeout=60s",
+        f"--kubeconfig={kubeconfig}",
+    ]
+    if service is not None:
+        command.append(f"--selector=app.kubernetes.io/name={service}")
+    return _capture(
+        tuple(command),
+        cwd=kubeconfig.parent,
+        timeout=90,
+        reason="AKS Deployment observation failed",
+    )
+
+
+def _capture_aks_pods(context: dict[str, object], *, service: str) -> str:
+    kubeconfig = Path(str(context.get("kubeconfig", "")))
+    if not kubeconfig.is_file():
+        raise ValueError("AKS kubeconfig is unavailable for service update readback")
+    return _capture(
+        (
+            "kubectl",
+            "get",
+            "pods",
+            "--namespace",
+            _AKS_RUNTIME_NAMESPACE,
+            "--output",
+            "json",
+            "--request-timeout=60s",
+            f"--selector=app.kubernetes.io/name={service}",
+            f"--kubeconfig={kubeconfig}",
+        ),
+        cwd=kubeconfig.parent,
+        timeout=90,
+        reason="AKS Pod observation failed",
+    )
+
+
+def _readback_aks_service_update(context: dict[str, object], update: dict[str, Any]) -> bool:
+    service = str(update["service"])
+    expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
+    contract = _mapping(expected.get(service), f"expected AKS workload {service}")
+    if contract.get("image") != update.get("image") or contract.get("source_commit") != update.get(
+        "source_commit"
+    ):
+        return False
+    try:
+        before = _mapping(update.get("baseline"), "AKS service update baseline")
+        after = deployment_snapshot(
+            _capture_aks_deployments(context), expected_services=set(expected)
+        )
+    except ValueError:
+        return False
+    if not peers_unchanged(before=before, after=after, service=service):
+        return False
+    return verify_workload_health(
+        deployments=_capture_aks_deployments(context, service=service),
+        pods=_capture_aks_pods(context, service=service),
+        expected={service: contract},
+    )
+
+
+def _service_update_zero_change(
+    context: dict[str, object], work_dir: Path, update: dict[str, Any]
+) -> bool:
+    infra, variables = _stage_paths("application", context, work_dir)
+    _activate_terraform_stage("application", context, work_dir)
+    completed = subprocess.run(
+        (
+            "terraform",
+            "plan",
+            "-detailed-exitcode",
+            "-input=false",
+            "-no-color",
+            f"-var-file={variables}",
+            f"-target={_service_update_target(str(update['service']))}",
+        ),
+        cwd=infra,
+        check=False,
+        capture_output=True,
+        timeout=1800,
+    )
+    return completed.returncode == 0
+
+
 def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     stage = str(args.stage)
+    service = getattr(args, "service", None)
     if stage == "runtime" and not (work_dir / "substrate-receipt.json").is_file():
         raise ValueError("runtime plan prerequisites are incomplete")
     if stage == "database":
@@ -992,10 +1269,12 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         ):
             raise ValueError("AKS application plan requires the applied database plan")
     context = _private_json(work_dir / "context.json", "standalone host context")
+    update = _service_update_record(context, work_dir, stage=stage, service=service)
+    operation = str(update["operation"]) if update is not None else stage
     _managed_identity_login_from_context(context, work_dir)
     infra, variables = _stage_paths(stage, context, work_dir)
     _activate_terraform_stage(stage, context, work_dir)
-    plan_path = work_dir / f"{stage}.tfplan"
+    plan_path = work_dir / f"{operation}.tfplan"
     plan_path.unlink(missing_ok=True)
     command = [
         "terraform",
@@ -1007,6 +1286,8 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     ]
     if stage == "substrate":
         command.extend(f"-target={target}" for target in _substrate_targets(context))
+    if update is not None:
+        command.append(f"-target={_service_update_target(str(update['service']))}")
     _run(command, cwd=infra, timeout=3600, reason=f"{stage} Terraform plan failed")
     show = _capture(
         ("terraform", "show", "-json", str(plan_path)),
@@ -1016,6 +1297,8 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     )
     value = json.loads(show)
     summary = _plan_summary(value)
+    if update is not None:
+        validate_plan_scope(summary, service=str(update["service"]))
     digest = _file_digest(plan_path)
     review: dict[str, object] = {
         "schema_version": "fdai.standalone-application-plan.v1",
@@ -1032,25 +1315,32 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "mutation_performed": False,
         "subscription_ready": False,
     }
+    if update is not None:
+        review["service_update"] = _service_update_review(update)
     review["review_digest"] = canonical_digest(review)
-    _replace_private_json(work_dir / f"{stage}-review.json", review)
+    _replace_private_json(work_dir / f"{operation}-review.json", review)
     return review
 
 
 def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     stage = str(args.stage)
     context = _private_json(work_dir / "context.json", "standalone host context")
-    review = _private_json(work_dir / f"{stage}-review.json", "standalone plan review")
+    service = getattr(args, "service", None)
+    update = _service_update_record(context, work_dir, stage=stage, service=service)
+    operation = str(update["operation"]) if update is not None else stage
+    review = _private_json(work_dir / f"{operation}-review.json", "standalone plan review")
+    if update is not None and review.get("service_update") != _service_update_review(update):
+        raise ValueError("AKS service update review differs from the prepared operation")
     approval = _private_json(_absolute(args.approval), "standalone plan approval")
     _validate_approval(review, approval, context=context)
     _managed_identity_login_from_context(context, work_dir)
     infra, _variables = _stage_paths(stage, context, work_dir)
     _activate_terraform_stage(stage, context, work_dir)
-    plan_path = work_dir / f"{stage}.tfplan"
+    plan_path = work_dir / f"{operation}.tfplan"
     if _file_digest(plan_path) != review["plan_digest"]:
         raise ValueError("standalone application plan changed before apply")
-    claim_path = work_dir / f"{stage}-claim.json"
-    receipt_path = work_dir / f"{stage}-receipt.json"
+    claim_path = work_dir / f"{operation}-claim.json"
+    receipt_path = work_dir / f"{operation}-receipt.json"
     if receipt_path.exists():
         return _private_json(receipt_path, "standalone apply receipt")
     claim = {
@@ -1079,9 +1369,15 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         timeout=7200,
         reason=f"{stage} exact apply failed; verification-only recovery is required",
     )
-    effect_verified = _readback_stage(stage, context)
+    effect_verified = (
+        _readback_aks_service_update(context, update)
+        if update is not None
+        else _readback_stage(stage, context)
+    )
     if not effect_verified:
         raise ValueError(f"{stage} apply effect readback is incomplete")
+    if update is not None and not _service_update_zero_change(context, work_dir, update):
+        raise ValueError("AKS service update did not converge to a zero-change targeted plan")
     receipt: dict[str, object] = {
         "schema_version": "fdai.standalone-application-apply-receipt.v1",
         "state": "applied",
@@ -1093,6 +1389,10 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "mutation_performed": True,
         "subscription_ready": False,
     }
+    if update is not None:
+        receipt["service_update"] = _service_update_review(update)
+        receipt["peer_state_unchanged_verified"] = True
+        receipt["terraform_zero_change_verified"] = True
     receipt["receipt_digest"] = canonical_digest(receipt)
     _replace_private_json(receipt_path, receipt)
     return receipt
@@ -1102,10 +1402,14 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
     """Verify an ambiguous prior apply without repeating its mutation."""
 
     stage = str(args.stage)
-    receipt_path = work_dir / f"{stage}-receipt.json"
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    service = getattr(args, "service", None)
+    update = _service_update_record(context, work_dir, stage=stage, service=service)
+    operation = str(update["operation"]) if update is not None else stage
+    receipt_path = work_dir / f"{operation}-receipt.json"
     if receipt_path.exists():
         return _private_json(receipt_path, "standalone apply receipt")
-    claim_path = work_dir / f"{stage}-claim.json"
+    claim_path = work_dir / f"{operation}-claim.json"
     if not claim_path.exists():
         return {
             "schema_version": "fdai.standalone-application-recovery.v1",
@@ -1114,8 +1418,7 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
             "mutation_performed": False,
             "subscription_ready": False,
         }
-    context = _private_json(work_dir / "context.json", "standalone host context")
-    review = _private_json(work_dir / f"{stage}-review.json", "standalone plan review")
+    review = _private_json(work_dir / f"{operation}-review.json", "standalone plan review")
     claim = _private_json(claim_path, "standalone apply claim")
     if (
         claim.get("schema_version") != "fdai.standalone-application-claim.v1"
@@ -1143,10 +1446,16 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
     ]
     if stage == "substrate":
         command.extend(f"-target={target}" for target in _substrate_targets(context))
+    if update is not None:
+        command.append(f"-target={_service_update_target(str(update['service']))}")
     completed = subprocess.run(command, cwd=infra, check=False, capture_output=True, timeout=1800)
     if completed.returncode != 0:
         raise ValueError("standalone apply effect is not recoverably converged")
-    effect_verified = _readback_stage(stage, context)
+    effect_verified = (
+        _readback_aks_service_update(context, update)
+        if update is not None
+        else _readback_stage(stage, context)
+    )
     if not effect_verified:
         raise ValueError("standalone apply effect readback is incomplete")
     receipt: dict[str, object] = {
@@ -1161,6 +1470,10 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
         "mutation_performed": True,
         "subscription_ready": False,
     }
+    if update is not None:
+        receipt["service_update"] = _service_update_review(update)
+        receipt["peer_state_unchanged_verified"] = True
+        receipt["terraform_zero_change_verified"] = True
     receipt["receipt_digest"] = canonical_digest(receipt)
     _replace_private_json(receipt_path, receipt)
     return receipt

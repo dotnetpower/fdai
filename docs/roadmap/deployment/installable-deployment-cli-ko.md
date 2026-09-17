@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: d09c6e755f15daea583a2801b7fffd888004d3ae
+translation_source_sha: aeb731849323974b883cffada1ea4383ee8c43b5
 translation_revised: 2026-09-17
 ---
 
@@ -263,6 +263,34 @@ digest로 식별합니다. 조정기는 레지스트리 자격 증명을 얻기 
 소스 버전 및 정확한 파일 제한을 검증합니다. 캐시된 산출물도 같은 검증을 통과해야 합니다. 누락,
 부분 구성, 변경 가능한 태그 또는 버전 불일치는 `runtime_artifacts_required`로 중단하며 설치기가
 빌드로 복구하지 않습니다.
+
+기본 서비스 다섯 개를 모두 요구하는 매니페스트 규칙은 새 소스 설치와 전체 설치 복구에 적용합니다.
+설치 상태가 정상이면 일상적인 서비스 유지관리에서 `provision azure`를 다시 실행하지 않고 독립
+서비스 배포 경로를 사용합니다. Core만 선택하고 서비스 후보 하나를 상위 공급망에서 빌드하고
+게시한 뒤 해당 서비스의 digest와 상태만 업데이트하고 선택한 서비스의 롤아웃과 상태를 확인할 수
+있습니다. 완전한 새 키트나 변경하지 않은 서비스의 새 이미지는 필요하지 않습니다. 공유 wire
+contract, migration 또는 schema 호환성, sidecar, 다른 공유 런타임 의존성이 바뀌는 경우에만 관련
+서비스를 함께 선택합니다.
+
+보존된 배포 호스트에서 기존 애플리케이션 작업 디렉터리로 서비스 업데이트 하나를 준비하고
+계획합니다. 정확한 계획은 적용 전에 사람 조정기에서 승인을 받습니다.
+
+```bash
+python -m fdai_deployment_cli.standalone_host --work-dir <application-work-dir> \
+  prepare-service-update --service core-control-plane \
+  --image <registry>/fdai-core-control-plane@sha256:<digest> \
+  --source-commit <40-character-source-revision>
+python -m fdai_deployment_cli.standalone_host --work-dir <application-work-dir> \
+  plan --stage application --service core-control-plane
+python -m fdai_deployment_cli.standalone_host --work-dir <application-work-dir> \
+  apply --stage application --service core-control-plane --approval <approval-file>
+```
+
+후보 생성은 계속 상위 공급망에서 수행합니다. 기존 컨테이너 공급망 선택기는
+`core-control-plane` 또는 다른 명시적 서비스를 받아 변경하지 않은 이미지를 다시 빌드하지
+않습니다. 업데이트는 같은 저장소의 새 digest를 요구하고 Terraform Deployment 주소 하나만
+대상으로 삼으며, 기존 롤링 전략을 유지하고 선택한 Pod 상태, 다른 Deployment 신원, 대상 범위의
+변경 없음 계획을 확인합니다.
 
 선택한 경우 비공개 레지스트리 미러 또는 반입은 실행 호스트 작업으로 유지합니다. 산출물 위치만
 바꾸고 같은 digest를 독립적으로 다시 확인하며 이미지 바이트를 변경할 수 없습니다. 게시 결과가
