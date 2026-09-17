@@ -5,6 +5,7 @@ locals {
       "app.kubernetes.io/component"  = workload.component
       "app.kubernetes.io/managed-by" = "terraform"
       "fdai.io/runtime"              = "aks"
+      "fdai.io/source-commit"        = workload.source_commit
     })
   }
   job_labels = {

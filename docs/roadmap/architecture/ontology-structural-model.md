@@ -121,9 +121,7 @@ target.
 
 ### Direct links
 
-A direct link represents one binary semantic fact whose stable identity is
-`(from_id, link_type, to_id)`. It is appropriate when the relationship has no independent domain
-identity or lifecycle.
+A direct link represents one binary semantic fact whose stable identity is `(from_id, link_type, to_id)`. It is appropriate when the relationship has no independent domain identity or lifecycle.
 
 Direct link properties are limited to an empty mapping or the standardized evidence envelope.
 Observation time, mapping identity, verification receipts, completeness, conflicts, and evidence
@@ -513,6 +511,7 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-09-18 | implemented | Revised `routes_to` from many-to-one version 1.1.0 to many-to-many version 2.0.0 so one forwarding Resource can retain every observed backend without changing direct-link identity or direction. | `current change`; focused catalog and multi-route projection suites passed 85 cases. | Reproject one complete local generation and verify the Operator read model no longer reports a release mismatch. |
+| 2026-09-18 | implemented | Revised `routes_to` from many-to-one version 1.1.0 to many-to-many version 2.0.0 so one forwarding Resource can retain every observed backend without changing direct-link identity or direction. | `current change`; `routes_to.yaml`; provider mapping cardinality; focused catalog and multi-route projection regressions passed 3 cases. | Reproject one complete local generation under the new ontology release and verify the Operator read model no longer reports a release mismatch. |
 | 2026-09-17 | implemented | Required ObjectType details to preserve every property in the exact catalog declaration after server-owned filtering. Expanded `AccessGrantRequest` from six to eleven review-relevant semantic fields as version `2.0.0` while preserving the normalized `id` key. | `current change`; `AccessGrantRequest.yaml`; `test_ontology_declaration_projection.py`; focused declaration-detail regression passed. | No runtime, provider, approval, or execution authority changed. Retained releases continue to own historical interpretation. |
 | 2026-09-17 | implemented | Defined mixed-model independence on exact model family metadata rather than publisher identity. Same-family resolved pairs and primary-pool reuse fail before invocation, and the metadata grants no ontology or execution authority. | `current change`; focused registry, resolver, artifact, and runtime composition checks. | Deploy and independently read back the selected secondary family through the protected model workflow. |
 | 2026-09-17 | implemented | Centered short instance graphs in the available viewport and made AKS end-to-end evidence collapsed by default without changing graph or evidence semantics. | `current change`; focused Vitest (`73 passed`); Console typecheck; focused Playwright at 1440x900, 993x641, 390x844, and 320x844 (`1 passed`); icon requests returned HTTP 200. | Retain post-merge authenticated 5273 visual evidence before changing this transition to `validated`. |

@@ -387,8 +387,7 @@ within the same release and written as 1.3.0; they cannot carry unverified owner
 release transition. When the ontology release changes, the projector first verifies the retained
 manifest against its recorded release digest, then reprojects the complete active inventory under
 the new release. The retained identities remain ownership evidence for atomic replacement, while
-the old manifest digest cannot certify same-generation content under the new release. A separate
-release-independent content digest keeps same-generation tamper detection active during that
+the old manifest digest cannot certify same-generation content under the new release. A separate release-independent content digest keeps same-generation tamper detection active during that
 transition. The exact-source replay command may consume one pending active generation only when the snapshot loader proves that the active pointer advanced but the prior manifest did not. This explicit path reuses the atomic active-generation and content checks; ordinary replay still rejects a generation change, and no provider read or managed-resource mutation occurs.
 If retained relationship classifications cannot satisfy that replay under a new release, automatic recovery remains blocked. An explicitly operator-requested full reconciliation may preserve the pending evidence and proceed to fresh provider collection under the current release; this exception cannot activate from the recurring loop.
 

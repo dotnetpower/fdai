@@ -96,6 +96,7 @@ variable "workloads" {
   description = "Runtime-neutral FDAI service specifications."
   type = map(object({
     component            = string
+    source_commit        = string
     image                = string
     identity_resource_id = string
     identity_client_id   = string
@@ -134,6 +135,7 @@ variable "workloads" {
     condition = alltrue([
       for workload in values(var.workloads) :
       workload.replicas >= 1 && workload.max_replicas >= workload.replicas &&
+      can(regex("^[0-9a-f]{40}$", workload.source_commit)) &&
       can(regex("^[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$", workload.image)) &&
       workload.port >= 1 && workload.port <= 65535 &&
       coalesce(workload.service_port, workload.port) >= 1 &&
@@ -144,7 +146,7 @@ variable "workloads" {
         sidecar.port >= 1 && sidecar.port <= 65535
       ])
     ])
-    error_message = "Every workload and sidecar requires a digest-pinned image, valid scaling bounds, and a valid port."
+    error_message = "Every workload requires an exact source commit, digest-pinned images, valid scaling bounds, and a valid port."
   }
 }
 

@@ -70,6 +70,17 @@ A returned kubeconfig that embeds a token, client certificate, client key, passw
 static credential is rejected. A newly created cluster therefore enters the next bounded discovery
 run without a Terraform change, while a deleted cluster disappears only after complete subscription
 reconciliation proves its absence.
+Management-plane discovery and Kubernetes API reads place the validated short-lived token only in
+the transient `Authorization: Bearer` request header. The header does not enter configuration,
+inventory records, logs, errors, or source-state metadata. A redaction marker is presentation data
+and is never sent as an authentication credential.
+
+Private-cluster connection failures retain one sanitized source-state reason without an endpoint,
+cluster name, token, response body, or provider-controlled message. The reviewed reasons distinguish
+DNS resolution, TLS verification, network connection, request timeout, HTTP 401 authentication,
+HTTP 403 authorization, API unavailability, request rejection, and invalid response evidence. These
+reasons identify the failed boundary; they do not claim that a route, firewall, identity assignment,
+or AKS component is the root cause.
 
 This broader read scope was reviewed against the earlier exact-cluster design. Per-cluster role
 assignments required an infrastructure change for every new cluster and left the subscription graph
@@ -285,10 +296,10 @@ resource identity. It does not construct Resources, relationships, metric values
 authorization in the browser.
 Receipt identity includes the cutoff for ordering and a canonical digest of the complete immutable
 receipt. Identical replay remains idempotent, while a different assessment for the same target,
-UID, resourceVersion, release, and cutoff appends a distinct receipt instead of colliding. The
-writer skips another atomic insert and audit attempt only when the complete stored value is
-byte-identical; absent-key races still use conditional creation and collision readback. Recovery
-replays pending promotions even when ontology projection is disabled. Operator exposes a receipt only when its
+UID, resourceVersion, release, and cutoff appends a distinct receipt instead of colliding.
+The writer reads an existing key first and skips another atomic insert and audit attempt only when
+the complete stored value is byte-identical; absent-key races still use conditional creation and
+collision readback. Recovery replays pending promotions even when ontology projection is disabled. Operator exposes a receipt only when its
 target identity, inventory generation digest, ontology release, source cutoff, and fleet scope
 digest match the selected current Resource; any mismatch renders the diagnosis unavailable.
 

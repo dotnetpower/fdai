@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import socket
+import ssl
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -14,6 +16,7 @@ from urllib.parse import urlencode, urlparse
 import httpx
 
 from fdai.delivery.kubernetes_api_status import (
+    KubernetesApiFailureReason,
     KubernetesApiInventoryError,
     deployment_status_properties,
     node_status_properties,
@@ -274,10 +277,14 @@ class KubernetesApiInventorySource:
                     timeout=self._config.timeout_seconds,
                 )
             except httpx.HTTPError as exc:
-                raise KubernetesApiInventoryError("Kubernetes inventory request failed") from exc
+                raise KubernetesApiInventoryError(
+                    "Kubernetes inventory request failed",
+                    reason=_transport_failure_reason(exc),
+                ) from exc
             if response.status_code >= 400:
                 raise KubernetesApiInventoryError(
-                    f"Kubernetes inventory returned HTTP {response.status_code}"
+                    f"Kubernetes inventory returned HTTP {response.status_code}",
+                    reason=_http_failure_reason(response.status_code),
                 )
             if len(response.content) > self._config.max_response_bytes:
                 raise KubernetesApiInventoryError("Kubernetes inventory response byte cap exceeded")
@@ -308,6 +315,35 @@ class KubernetesApiInventorySource:
         parsed = urlparse(url)
         if parsed.scheme != "https" or parsed.netloc.casefold() != self._endpoint.netloc.casefold():
             raise KubernetesApiInventoryError("Kubernetes inventory URL changed scheme or host")
+
+
+def _transport_failure_reason(error: httpx.HTTPError) -> KubernetesApiFailureReason:
+    if isinstance(error, httpx.TimeoutException):
+        return KubernetesApiFailureReason.REQUEST_TIMEOUT
+    causes: list[BaseException] = []
+    current: BaseException | None = error
+    for _ in range(8):
+        if current is None or current in causes:
+            break
+        causes.append(current)
+        current = current.__cause__ or current.__context__
+    if any(isinstance(cause, ssl.SSLError) for cause in causes):
+        return KubernetesApiFailureReason.TLS_UNAVAILABLE
+    if any(isinstance(cause, socket.gaierror) for cause in causes):
+        return KubernetesApiFailureReason.DNS_UNAVAILABLE
+    return KubernetesApiFailureReason.NETWORK_UNAVAILABLE
+
+
+def _http_failure_reason(status_code: int) -> KubernetesApiFailureReason:
+    if status_code == 401:
+        return KubernetesApiFailureReason.AUTHENTICATION_FAILED
+    if status_code == 403:
+        return KubernetesApiFailureReason.AUTHORIZATION_FAILED
+    if status_code == 408:
+        return KubernetesApiFailureReason.REQUEST_TIMEOUT
+    if status_code == 429 or status_code >= 500:
+        return KubernetesApiFailureReason.API_UNAVAILABLE
+    return KubernetesApiFailureReason.REQUEST_REJECTED
 
 
 def _resource_record(

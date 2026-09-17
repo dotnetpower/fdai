@@ -260,7 +260,7 @@ The managed host records the selected Deployment names, image references, and re
 Health readback requires that complete set, current observed generations, ready replicas, and
 running Pod image digests from the same source revision. Empty, duplicate, stale, malformed, or
 partially healthy responses are unavailable, not success. The expected set must contain all five
-baseline services; a renderer that omits one cannot redefine a partial rollout as complete.
+baseline services; a renderer that omits one cannot redefine a partial rollout as complete. This complete-set rule applies only to initial installation and whole-profile convergence. A routine update can select Core alone or another explicit service; each workload carries its own source revision, and the plan admits only that Deployment's in-place update. Readback verifies its generation, replicas, digest, and health, proves peer UID, generation, image, and revision stayed unchanged, then requires a targeted zero-change plan. Unselected images need no rebuild or redeploy.
 This workload readback does not establish Kafka round trips, scheduled-job success, Console
 authentication, or full deployment readiness. The separate browser publication gate verifies the
 Console and API edge after workload convergence.
