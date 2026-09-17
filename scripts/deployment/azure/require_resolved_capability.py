@@ -116,11 +116,11 @@ def main() -> int:
         require_resolved_capability(
             resolved,
             capability="t2.reasoner.secondary",
-            publisher="MistralAI",
-            family="Mistral-Large-3",
+            publisher="Cohere",
+            family="cohere-command-a",
             version="1",
             sku="GlobalStandard",
-            minimum_capacity_tpm=1_000,
+            minimum_capacity_tpm=10_000,
             provider_kind=ModelProviderKind.AZURE_FOUNDRY,
             endpoint_ref=args.endpoint_ref,
         )

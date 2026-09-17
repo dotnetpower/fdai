@@ -271,7 +271,7 @@ class AzureCliQuotaQuery(QuotaQuery):
         if by_family is None:
             by_family = self._load_region(region)
             self._cache[region] = by_family
-        aliases = _family_aliases(family)
+        aliases = {alias.casefold() for alias in _family_aliases(family)}
         return max(
             (
                 capacity
@@ -295,7 +295,7 @@ class AzureCliQuotaQuery(QuotaQuery):
             by_family = self._load_region(region)
             self._cache[region] = by_family
         return max(
-            (by_family.get((sku, alias), 0) for alias in _family_aliases(family)),
+            (by_family.get((sku, alias.casefold()), 0) for alias in _family_aliases(family)),
             default=0,
         )
 
@@ -345,7 +345,7 @@ class AzureCliQuotaQuery(QuotaQuery):
             # last dot-segment AND the suffix after any known tier
             # marker.
             for key in _family_keys(name_value):
-                quota_key = (sku, key)
+                quota_key = (sku, key.casefold())
                 if available > out.get(quota_key, 0):
                     out[quota_key] = available
         return out
@@ -603,6 +603,7 @@ def _catalog_publisher(item: dict[str, object]) -> str | None:
         return None
     return {
         "Anthropic": "Anthropic",
+        "Cohere": "Cohere",
         "Mistral AI": "MistralAI",
     }.get(model_format)
 

@@ -38,7 +38,7 @@ variable "deployments" {
   validation {
     condition = alltrue([
       for deployment in var.deployments :
-      contains(["Anthropic", "MistralAI"], deployment.publisher) &&
+      contains(["Anthropic", "Cohere", "MistralAI"], deployment.publisher) &&
       length(trimspace(deployment.name)) > 0 &&
       length(trimspace(deployment.family)) > 0 &&
       length(trimspace(deployment.version)) > 0 &&

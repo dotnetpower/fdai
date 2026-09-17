@@ -7,11 +7,11 @@ variables {
   resource_group_name = "rg-fdai-dev-krc"
   deployments = [{
     name         = "t2.reasoner.secondary"
-    publisher    = "MistralAI"
-    family       = "Mistral-Large-3"
+    publisher    = "Cohere"
+    family       = "cohere-command-a"
     version      = "1"
     sku          = "GlobalStandard"
-    capacity_tpm = 1000
+    capacity_tpm = 10000
   }]
   user_principal_ids = {
     executor = "00000000-0000-0000-0000-000000000001"
@@ -32,8 +32,8 @@ run "plans_private_partner_model" {
   }
 
   assert {
-    condition     = azurerm_cognitive_deployment.capability["t2.reasoner.secondary"].model[0].format == "Mistral AI"
-    error_message = "MistralAI must map to the Azure Mistral AI model format."
+    condition     = azurerm_cognitive_deployment.capability["t2.reasoner.secondary"].model[0].format == "Cohere"
+    error_message = "Cohere must map to the Azure Cohere model format."
   }
 
   assert {

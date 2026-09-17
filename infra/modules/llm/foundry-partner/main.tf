@@ -3,6 +3,7 @@ locals {
     for deployment in var.deployments : deployment.name => merge(deployment, {
       model_format = {
         Anthropic = "Anthropic"
+        Cohere    = "Cohere"
         MistralAI = "Mistral AI"
       }[deployment.publisher]
       capacity_units = max(1, floor(deployment.capacity_tpm / 1000))

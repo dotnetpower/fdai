@@ -423,11 +423,11 @@ run "partner_models_use_separate_foundry_account" {
       },
       {
         name         = "t2.reasoner.secondary"
-        publisher    = "MistralAI"
-        family       = "Mistral-Large-3"
+        publisher    = "Cohere"
+        family       = "cohere-command-a"
         version      = "1"
         sku          = "GlobalStandard"
-        capacity_tpm = 1000
+        capacity_tpm = 10000
       }
     ]
   }
@@ -466,11 +466,11 @@ run "partner_only_models_do_not_create_openai_account" {
     enable_document_ingestion = false
     resolved_capabilities = [{
       name         = "t2.reasoner.secondary"
-      publisher    = "MistralAI"
-      family       = "Mistral-Large-3"
+      publisher    = "Cohere"
+      family       = "cohere-command-a"
       version      = "1"
       sku          = "GlobalStandard"
-      capacity_tpm = 1000
+      capacity_tpm = 10000
     }]
   }
 

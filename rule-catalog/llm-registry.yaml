@@ -97,12 +97,11 @@ models:
 
   t2.reasoner.secondary:
     preferences:
-      - {publisher: OpenAI, family: gpt-5.2}
-      - {publisher: OpenAI, family: gpt-5}
-      - {publisher: OpenAI, family: gpt-4.1}
-      - {publisher: OpenAI, family: gpt-4o}
+      - {publisher: Anthropic, family: claude-opus-4}
+      - {publisher: Cohere, family: cohere-command-a}
+      - {publisher: MistralAI, family: Mistral-Large-3}
     sku: GlobalStandard
-    capacity_tpm: 100000
+    capacity_tpm: 10000
 
   t2.reasoner.escalated:
     preferences:
