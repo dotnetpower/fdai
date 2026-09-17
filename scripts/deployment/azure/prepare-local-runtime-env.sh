@@ -28,6 +28,25 @@ kubernetes_lifecycle_keys=(
 kubernetes_lifecycle_lines=()
 kubernetes_bindings_json=""
 
+detect_monitor_workspace_customer_id() {
+  local subscription_id="$1"
+  local resource_group="$2"
+  local workspace_count
+  local workspace_customer_ids
+
+  workspace_customer_ids="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" monitor log-analytics workspace list \
+    --subscription "$subscription_id" --resource-group "$resource_group" \
+    --query "[].customerId" -o tsv 2>/dev/null || true)"
+  workspace_count="$(printf '%s\n' "$workspace_customer_ids" | awk 'NF {count += 1} END {print count + 0}')"
+  if [[ "$workspace_count" == "1" ]]; then
+    printf '%s\n' "$workspace_customer_ids" | awk 'NF {print; exit}'
+    echo "Log Analytics workspace detected via Azure CLI; Terraform state does not surface its customer id" >&2
+  elif [[ "$workspace_count" -gt 1 ]]; then
+    echo "multiple Log Analytics workspaces exist in the selected resource group" >&2
+    return 1
+  fi
+}
+
 if [[ ! -f "$SOURCE_ENV" ]]; then
   printf 'missing local console environment: %s\n' "$SOURCE_ENV" >&2
   exit 1
@@ -282,7 +301,9 @@ if [[ "$no_azure_deployment" == "1" ]]; then
   semantic_physical_topic=""
   operational_topics_json="[]"
   resource_group="$local_resource_group"
-  monitor_workspace_customer_id=""
+  monitor_workspace_customer_id="$(
+    detect_monitor_workspace_customer_id "$subscription_id" "$resource_group"
+  )"
   dev_operations_gateway_url=""
   dev_operations_gateway_audience=""
   semantic_fallback_required=0
@@ -372,16 +393,9 @@ PY
   region="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" group show --name "$resource_group" --query location -o tsv)"
 
   if [[ -z "$monitor_workspace_customer_id" ]]; then
-    workspace_customer_ids="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" monitor log-analytics workspace list \
-      --resource-group "$resource_group" --query "[].customerId" -o tsv 2>/dev/null || true)"
-    workspace_count="$(printf '%s\n' "$workspace_customer_ids" | awk 'NF {count += 1} END {print count + 0}')"
-    if [[ "$workspace_count" == "1" ]]; then
-      monitor_workspace_customer_id="$(printf '%s\n' "$workspace_customer_ids" | awk 'NF {print; exit}')"
-      echo "Log Analytics workspace detected via Azure CLI; Terraform state does not surface its customer id" >&2
-    elif [[ "$workspace_count" -gt 1 ]]; then
-      echo "multiple Log Analytics workspaces exist in the applied resource group" >&2
-      exit 1
-    fi
+    monitor_workspace_customer_id="$(
+      detect_monitor_workspace_customer_id "$subscription_id" "$resource_group"
+    )"
   fi
   if [[ -n "$monitor_workspace_customer_id" &&
     ! "$monitor_workspace_customer_id" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]; then

@@ -112,7 +112,13 @@ capabilities:
 """,
         encoding="utf-8",
     )
-    argv = [*_base_argv(tmp_path, "permission.granted.json"), "--binding-policy", str(policy)]
+    argv = [
+        *_base_argv(tmp_path, "permission.granted.json"),
+        "--binding-policy",
+        str(policy),
+        "--narrator-endpoint",
+        "https://example-openai.openai.azure.com/",
+    ]
     argv[argv.index("--environment") + 1] = "staging"
 
     assert main(argv) == 0

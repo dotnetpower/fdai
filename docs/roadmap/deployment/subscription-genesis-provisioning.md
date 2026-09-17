@@ -429,6 +429,7 @@ concurrency, request rate, success ratio, maximum throttled ratio, and maximum p
 The resolver ranks regions deterministically by required-capability coverage, SKU-qualified
 available quota after reserve, policy compatibility, private-network support, and declared region
 preference. Application and model regions can differ when the approved profile permits it.
+Narrator and primary-pool enrichment preserves the selected binding policy and seal instead of rebuilding a partial resolved map.
 
 For a required capability, capacity below the minimum blocks the plan. Capacity between minimum and
 target requires explicit degraded acceptance. Optional capabilities can become human approval only

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 01620899ae70a59fdcb355a672f0843f750e51bf
+translation_source_sha: 2a1c693a8569ed2756fbc7b36e79cd2b89d55a5a
 translation_revised: 2026-09-17
 ---
 # 온톨로지 구조 모델
@@ -23,6 +23,9 @@ translation_revised: 2026-09-17
 >
 > 모델 선택은 서로 다른 계열일 때만 발행기를 공유할 수 있으며 같은 계열 쌍은 호출 전에 실패합니다.
 > 발행기, 계열, 프로바이더, API style 및 합성 경로는 배포 메타데이터이며 온톨로지 아이덴티티나 권한이 아닙니다.
+> 모델 기능 선택은 카탈로그 계열을 발행기로 한정할 수 있습니다. Resolver enrichment는 binding
+> policy와 seal을 포함한 완전한 배포 record를 보존할 때만 narrator 또는 primary-pool 후보를 추가할 수 있습니다.
+> 이 필드는 배포 메타데이터이며 온톨로지 신원이 아니고 모델 호출 또는 실행 권한을 부여할 수 없습니다. Provider kind와 API style도 같은 경계의 endpoint 메타데이터로 유지합니다.
 
 ## 설계 요약
 
