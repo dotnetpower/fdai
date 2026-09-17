@@ -5,16 +5,19 @@ import type { ApiError } from "./types";
 export class OperatorApiError extends Error {
   readonly status: number;
   readonly kind: "http" | "projection-unavailable";
+  readonly reason: string | undefined;
 
   constructor(
     status: number,
     message: string,
     kind: "http" | "projection-unavailable" = "http",
+    reason?: string,
   ) {
     super(message);
     this.name = "OperatorApiError";
     this.status = status;
     this.kind = kind;
+    this.reason = reason;
   }
 }
 
@@ -29,13 +32,16 @@ export function isOptionalOperatorApiUnavailable(error: unknown): error is Opera
 
 const PROJECTION_UNAVAILABLE_MESSAGE = "authoritative Operator projection is unavailable";
 
-function responseError(status: number, message: string): OperatorApiError {
+function responseError(status: number, message: string, reason?: unknown): OperatorApiError {
   return new OperatorApiError(
     status,
     message,
     status === 503 && message === PROJECTION_UNAVAILABLE_MESSAGE
       ? "projection-unavailable"
       : "http",
+    reason === undefined ? undefined
+      : typeof reason === "string" && /^[a-z_]{1,64}$/.test(reason)
+        ? reason : "invalid_recovery_reason",
   );
 }
 
@@ -218,13 +224,15 @@ export class OperatorApiTransport {
     }
     if (!response.ok) {
       let message = `HTTP ${response.status}`;
+      let reason: unknown;
       try {
         const body = (await response.json()) as ApiError;
         message = body.error?.message ?? message;
+        reason = body.error?.reason;
       } catch {
         /* body was not JSON - fall through */
       }
-      const error = responseError(response.status, message);
+      const error = responseError(response.status, message, reason);
       throw error;
     }
     return response;

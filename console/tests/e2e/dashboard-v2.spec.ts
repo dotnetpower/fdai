@@ -110,6 +110,82 @@ test.describe("Native Dashboard v2", () => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Desktop gate precedes constrained and touch scenarios.");
   });
 
+  test("automatically recovers an initially missing ontology projection", async ({ page }, testInfo) => {
+    const requests = await installApi(page, () => inventory(6));
+    let available = false;
+    await page.route("**/ontology/instances/states*", route => available
+      ? json(route, recordedPage(inventory(6)))
+      : json(route, { error: { status: 409, message: "ontology_generation_changed", reason: "ontology_projection_missing" } }, 409));
+    await page.goto("/dashboard-v2?locale=en");
+    await expect(page.getByText("Waiting for a consistent inventory and ontology snapshot.")).toBeVisible();
+    await expect(page.locator(".loading-skeleton")).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Refresh snapshot", exact: true })).toBeDisabled();
+    await page.screenshot({ path: testInfo.outputPath("dashboard-recovery-waiting.png") });
+    available = true;
+    await expect(page.locator(".dv2-summary strong").first()).toHaveText("6");
+    await expect(page.getByText("Waiting for a consistent inventory and ontology snapshot.")).toHaveCount(0);
+    expect(requests.every(request => request.startsWith("GET "))).toBe(true);
+  });
+
+  test("stops recovery on a release mismatch without hiding the deployment boundary", async ({ page }, testInfo) => {
+    await page.clock.install();
+    await installApi(page);
+    let reads = 0;
+    await page.route("**/ontology/instances/states*", route => {
+      reads += 1;
+      return json(route, { error: { status: 409, message: "ontology_generation_changed", reason: "ontology_release_mismatch" } }, 409);
+    });
+    await page.goto("/dashboard-v2?locale=ko");
+    await expect(page.getByText("인벤토리와 API의 온톨로지 릴리스가 달라 자동 재시도를 중단했습니다. 배포 버전을 맞춰야 합니다.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "진단 보기", exact: true })).toBeVisible();
+    await page.clock.fastForward(360_000);
+    expect(reads).toBe(1);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.locator("main").evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("dashboard-recovery-release-mobile.png") });
+  });
+
+  test("stops exhausted initial recovery until an explicit retry", async ({ page }) => {
+    await page.clock.install();
+    await installApi(page);
+    let available = false;
+    let reads = 0;
+    await page.route("**/ontology/instances/states*", route => {
+      reads += 1;
+      return available ? json(route, recordedPage(inventory(6)))
+        : json(route, { error: { status: 409, message: "ontology_generation_changed", reason: "ontology_generation_pending" } }, 409);
+    });
+    await page.goto("/dashboard-v2?locale=en");
+    await expect(page.getByText("Waiting for a consistent inventory and ontology snapshot.")).toBeVisible();
+    await page.clock.fastForward(180_000);
+    await expect(page.getByText("Resource synchronization has not converged. Automatic retries have stopped; check the inventory projection in Diagnostics.")).toBeVisible();
+    const stoppedCount = reads;
+    await page.evaluate(() => window.dispatchEvent(new Event("fdai:ontology-invalidated")));
+    await page.clock.fastForward(360_000);
+    expect(reads).toBe(stoppedCount);
+    available = true;
+    await page.getByRole("button", { name: "Refresh snapshot", exact: true }).click();
+    await expect(page.locator(".dv2-summary strong").first()).toHaveText("6");
+  });
+
+  test("retains only the last complete snapshot while a new generation recovers", async ({ page }) => {
+    await installApi(page, () => inventory(6));
+    await openV2(page);
+    let available = false;
+    await page.route("**/ontology/instances/states*", route => available
+      ? json(route, recordedPage({ ...inventory(8), snapshot_id: "example-snapshot-2" }))
+      : json(route, { error: { status: 409, message: "ontology_generation_changed", reason: "ontology_generation_pending" } }, 409));
+    await page.getByRole("button", { name: "Refresh snapshot", exact: true }).click();
+    await expect(page.getByText("A newer inventory generation is still being projected. Showing the last complete snapshot.")).toBeVisible();
+    await expect(page.locator(".dv2-summary strong").first()).toHaveText("6");
+    await expect(page.locator(".dv2-coverage")).toContainText("example-snapshot-1");
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    available = true;
+    await expect(page.locator(".dv2-summary strong").first()).toHaveText("8");
+    await expect(page.locator(".dv2-coverage")).toContainText("example-snapshot-2");
+  });
+
   test("retains the original Dashboard and navigates to an independent resource route", async ({ page }, testInfo) => {
     const requests = await installApi(page);
     await openV2(page);
