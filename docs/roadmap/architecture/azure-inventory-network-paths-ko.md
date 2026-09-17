@@ -1,8 +1,8 @@
 ---
 title: 제한된 네트워크의 Azure 인벤토리
 translation_of: azure-inventory-network-paths.md
-translation_source_sha: e1f24f62e2343924f4bd58ad2d1e9503a9a371a1
-translation_revised: 2026-09-16
+translation_source_sha: 835cb0e06df8caf6b31bb3ca5bb94db8c758fdad
+translation_revised: 2026-09-17
 ---
 # 제한된 네트워크의 Azure 인벤토리
 
@@ -31,12 +31,13 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 | 제한된 네트워크 발견 및 순서가 지정된 출처 대체 경로 | in-progress | `delivery/azure/` 아래 Azure 인벤토리 어댑터, 배포 preflight 및 연결 계약 | 범위가 제한된 어댑터와 실패 분류가 있습니다. 이 문서는 모든 대체 단계를 입증하는 exact-revision 보호 배포를 하나로 보존하지 않습니다. |
 | 스냅샷 권위 및 stale 상태 처리 | implemented | [CSP-중립성 계약](csp-neutrality-ko.md#구현-상태)이 인용하는 인벤토리 동기화, 프로젝션 및 재조정 테스트 | 부분 수집은 마지막 완전 승격 세대를 교체하거나 부재 주장을 승인할 수 없습니다. |
 | 서브넷별 네트워크 제어 | implemented | `infra/modules/network/main.tf`, `infra/bootstrap/main.tf`, 집중 네트워크 강화 테스트 | VM이 있는 서브넷은 명시적인 NSG로 Internet inbound를 거부합니다. Azure 관리형 delegated 및 private-endpoint 서브넷은 서비스 소유 네트워크 정책 계약을 유지합니다. |
-| AKS fleet 관측 연결 | implemented | `infra/main.tf`, Container Apps Inventory Job, 집중 AKS 신원 검사 | 민감한 JSON 값 하나가 정확한 workload-identity 연결 1-32개를 제공합니다. Terraform은 정확한 클러스터별 AKS RBAC Reader만 부여하고 bearer token을 전달하지 않습니다. |
+| AKS fleet 관측 연결 | implemented | `infra/main.tf`, `infra/scenario-lab/aks.tf`, Container Apps Inventory Job, 집중 AKS 신원 및 시나리오 검사 | 정확한 workload-identity 연결은 읽기 전용으로 유지됩니다. 폐기 가능한 시나리오는 Microsoft Entra와 Azure RBAC로 보호되고 로컬 계정이 비활성화된 공개 API 하나를 사용할 수 있으며, 두 공개 접근 Trivy 예외는 해당 리소스에만 적용됩니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-17 | implemented | 폐기 가능한 시나리오에 인증된 공개 AKS API 경로를 추가하고 두 공개 접근 스캐너 예외를 해당 리소스 하나로 제한했습니다. | `current change`, `infra/scenario-lab/aks.tf`, 집중 Trivy 스캔 및 시나리오 랩 검사. | 보호된 재생성과 FDAI Pod 인벤토리 조회 결과를 보존합니다. |
 | 2026-09-10 | implemented | 기존 및 fleet AKS 관측 연결을 상호 배타적으로 추가하고 정확한 클러스터별 Reader를 부여했습니다. | `current change`, Terraform 형식 검사 및 집중 신원 검사 | 보호된 배포 근거는 별도로 보존합니다. |
 | 2026-08-21 | in-progress | 런타임 동작이나 권한을 변경하지 않고 기존 제한 네트워크 인벤토리 설계를 집중 소유 문서로 옮겼습니다. | `current change`; 문서 크기, 번역, 경로 및 링크 검사입니다. | 실제 네트워크 경로와 하나 이상의 대체 및 복구 전환에 대한 exact-revision 보호 근거를 보존합니다. |
 | 2026-08-25 | implemented | OHL 근거 VM 서브넷에 명시적인 NSG 보호를 추가하고 기존 배포 runner 서브넷 연결을 검증하면서 Azure 관리형 delegated 서브넷 제약을 유지했습니다. | `current change`; `tests/integration/infra/test_network_hardening.py`, `tests/integration/infra/test_bootstrap_network_hardening.py`, Checkov와 Trivy의 Low 초과 활성 점검 결과 0건. | 실제 NSG와 route 정책이 필수 관리 경로를 계속 허용한다는 배포 근거를 보존합니다. |
@@ -58,6 +59,7 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 | 목적 | 기본 경로 | 제한된 네트워크 옵션 | 참고 |
 |---|---|---|---|
 | ARG 및 ARM 관리 읽기 | Azure Resource Manager 엔드포인트로 HTTPS `:443` | `AzureResourceManager` 서비스 태그로 NSG egress 허용; 좁은 관리 엔드포인트 허용 목록이 있는 Azure Firewall 또는 승인된 프록시를 통한 UDR; 대상 클라우드, 리전, 필수 ARG 작업이 지원하는 경우 Resource 관리 Private Link | 데이터 서비스용 비공개 엔드포인트는 ARM 또는 ARG 연결을 제공하지 않습니다. Azure 서비스 엔드포인트는 ARM 관리 경로를 대체하지 않습니다. |
+| AKS 개체 인벤토리 | 정확한 클러스터 API로 HTTPS `:443` | 비공개 경로를 권장하지만 폐기 가능한 시나리오는 변하는 로컬 egress를 위해 고정 IP 허용 목록 없는 인증된 공개 API를 허용합니다. | 공개 도달성은 자격 증명, Kubernetes 권한 또는 실행 권한을 부여하지 않습니다. Microsoft Entra, Azure RBAC 및 로컬 계정 비활성화는 계속 필수입니다. |
 | 워크로드 토큰 | 런타임 제공 managed 신원 또는 워크로드 신원 엔드포인트 | IMDS를 사용하는 경우 `AzurePlatformIMDS`를 포함한 런타임 플랫폼 아이덴티티 경로 허용; 앱 서브넷에서 토큰을 발급할 수 없으면 승인된 러너의 federated 워크로드 신원 사용 | 디스커버리만을 위해 광범위한 인터넷 egress나 클라이언트 시크릿을 추가하지 않습니다. |
 | DNS | Azure 제공 DNS 또는 승인된 custom 해석기 | 해당되는 경우 `AzurePlatformDNS`를 포함한 런타임 플랫폼 DNS 경로 허용; 허브 해석기를 통해 필요한 공개 또는 Private Link 영역 전달 | 스캔을 시작하기 전에 엔드포인트 해석 및 TLS 프로브를 실행합니다. DNS 성공만으로 도달성이 증명되지는 않습니다. |
 | 스냅샷 게시 | 비공개 PostgreSQL 및 Event Hubs 경로 | 디스커버리 러너에서 비공개 엔드포인트, VNet 피어링 또는 허브 라우팅 사용 | 수집기는 공개 콘솔 엔드포인트를 통해 인벤토리를 보내지 않습니다. |

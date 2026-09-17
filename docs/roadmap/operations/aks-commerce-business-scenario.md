@@ -337,6 +337,9 @@ The scenario-lab profile deploys the commerce workload with these boundaries:
 - The disposable lab exposes the AKS management API publicly for local subscription inventory
   without private-network routing. Microsoft Entra authentication, Azure RBAC, and disabled local
   accounts remain mandatory; the endpoint grants no anonymous or application access.
+- Trivy suppressions for public API access and absent authorized IP ranges stay adjacent to this
+  one disposable cluster resource. They do not suppress another AKS finding or weaken the
+  authentication and authorization controls above.
 - The storefront is the only public application surface.
 - Public access uses HTTPS, a deployment-supplied DNS name, and a trusted certificate reference.
 - The administration UI, APIs, queue, database, and executor remain private.
