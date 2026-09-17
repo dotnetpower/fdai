@@ -18,6 +18,7 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { routeHref } from "../router";
 import { t } from "./i18n/evidence";
 import { panelArray, panelRecord } from "./panel-decode";
+import { ForecastActivity } from "./forecast-activity";
 
 interface EpisodeSummary {
   readonly total: number;
@@ -272,6 +273,7 @@ function ForecastLearningBody({ data }: { readonly data: ForecastLearningRespons
         <StatusPill kind={data.durable ? "success" : "warning"} label={data.source} />
       </div>
       <div id="forecast-outcomes">
+        <ForecastActivity data={data} />
         <DataTable
           columns={columns}
           rows={data.outcomes}
