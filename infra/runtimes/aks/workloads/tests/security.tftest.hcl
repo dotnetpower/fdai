@@ -51,6 +51,7 @@ run "workload_security_baseline" {
 
   assert {
     condition = (
+      kubernetes_deployment_v1.workload["example"].metadata[0].labels["fdai.io/source-commit"] == var.workloads.example.source_commit &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].metadata[0].labels["fdai.io/source-commit"] == var.workloads.example.source_commit &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].image == var.workloads.example.image &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].image_pull_policy == "Always" &&
@@ -58,6 +59,16 @@ run "workload_security_baseline" {
       !kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].security_context[0].allow_privilege_escalation
     )
     error_message = "Workloads must preserve the approved digest and run without a writable root or privilege escalation."
+  }
+
+  assert {
+    condition = (
+      !contains(keys(kubernetes_horizontal_pod_autoscaler_v2.workload["example"].metadata[0].labels), "fdai.io/source-commit") &&
+      !contains(keys(kubernetes_pod_disruption_budget_v1.workload["example"].metadata[0].labels), "fdai.io/source-commit") &&
+      !contains(keys(kubernetes_network_policy_v1.workload["example"].metadata[0].labels), "fdai.io/source-commit") &&
+      !contains(keys(kubernetes_service_v1.workload["example"].metadata[0].labels), "fdai.io/source-commit")
+    )
+    error_message = "A service revision must change only its Deployment and Pod template labels."
   }
 
   assert {

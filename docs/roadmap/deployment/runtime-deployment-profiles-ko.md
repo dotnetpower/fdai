@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: e7d196feff0288706912309e5c990f4882bf970a
+translation_source_sha: d9c79c66f75ea3c0a5428606ae2d9cbc3e9756c2
 translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
@@ -285,8 +285,11 @@ archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle�
 하나를 누락했다고 해서 부분 롤아웃을 완료된 것으로 판단해서는 안 됩니다.
 이 완전한 집합 규칙은 초기 설치와 전체 프로파일 수렴에만 적용합니다. 일상적인 업데이트는 Core
 하나 또는 다른 명시적 서비스를 선택할 수 있습니다. 각 워크로드는 자체 소스 버전을 보유하며
-계획은 해당 Deployment의 제자리 업데이트만 허용합니다. 상태 재조회는 선택한 세대, 복제본,
-digest 및 상태를 확인하고 다른 서비스의 UID, 세대, 이미지 및 버전이 바뀌지 않았음을 입증한 뒤
+계획은 해당 Deployment의 제자리 업데이트만 허용합니다.
+소스 버전 label은 Deployment metadata와 Pod template에만 둡니다. Service, HPA, PDB,
+NetworkPolicy의 안정적인 워크로드 label은 버전 변경으로 해당 리소스가 선택 서비스 계획에
+포함되는 것을 방지합니다. 상태 재조회는 선택한 세대, 복제본, digest 및 상태를 확인하고 다른
+서비스의 UID, 세대, 이미지 및 버전이 바뀌지 않았음을 입증한 뒤
 대상 범위의 변경 없음 계획을 요구합니다. 선택하지 않은 이미지는 다시 빌드하거나 배포하지 않습니다.
 이 워크로드 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는 전체 배포 준비가
 검증되지는 않습니다. 별도의 브라우저 게시 게이트가 워크로드 수렴 뒤 Console과 API 경계를
