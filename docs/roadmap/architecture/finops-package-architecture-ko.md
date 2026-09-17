@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: fce74e8ad1e4b2b88342986e20085a03316f9e03
+translation_source_sha: 520b9025428169ae1989ed3fb30887e3b8190706
 translation_revised: 2026-09-17
 ---
 
@@ -379,6 +379,9 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 않습니다.
 경로가 소유한 디코더는 해당 읽기가 시작된 뒤에만 로드되므로 관련 없는 감사, 에이전트 활동,
 분석 및 보고 디코더가 초기 Cost Governance Console 경로에 포함되지 않습니다.
+패키지는 로컬 coordinator와 배포된 예약 작업에 범위가 제한된 분석 명령 하나를 제공합니다.
+영속 실행 증적과 읽기 변환 결과는 최신성과 원본 준비 상태를 보고하지만 패키지를 활성화하거나
+사례를 만들거나 승인, 실행 또는 승격 권한을 부여하지 않습니다.
 명시적인 Sample 경로는 비용, `optimization_case`, `outcome` 화면마다 서로 다른
 `synthetic-preview` 레코드를 선택합니다. 이 레코드는 화면 표현만 검증하며 효과 정산을
 입증하거나 패키지 활성화, 비용 데이터 접근 또는 Live 출처 상태를 변경하지 않습니다. Console은

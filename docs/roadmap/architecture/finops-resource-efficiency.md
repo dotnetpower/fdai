@@ -246,6 +246,33 @@ one immutable snapshot. It stores only pseudonymous resource and recommendation 
 source timestamps, completeness, and typed limitations. Advisor records remain provider candidates;
 they do not become `DecisionCase`, approval, execution, or verified savings records.
 
+Local and deployed profiles run that collector through one scheduled contract. Each attempt writes
+a durable content-free receipt with start and finish time, source status, bounded counts,
+limitations, and one stable failure reason. Package enablement does not imply source readiness.
+A missing, failed, partial, or stale attempt lowers only the affected evidence facet and never
+silently reuses an older snapshot as current.
+
+Every Console projection carries one server-authored evidence summary:
+
+- the exact observation window, latest source time, freshness, and complete/partial counts;
+- source authorities, disclosure granularity, identity visibility, amount precision, and rounding
+  increment;
+- independent readiness for observations, analytics, resource candidates, decision cases, and
+  settlements, each with one typed unavailable reason; and
+- a distinction between generated time and evidence time.
+
+Resource Efficiency has two mutually exclusive presentations. A service-summary projection shows
+service, disclosed cost, observation count, coverage, and freshness; it does not render SKU,
+utilization, or decision columns. A resource-candidate projection requires pseudonymous identity,
+provider recommendation, compatible utilization evidence, and typed current/proposed
+configuration. Aggregate rounding must preserve positive-below-increment state, so a positive
+amount cannot appear as measured zero.
+
+The authenticated development fallback remains aggregate-only. Pseudonymous candidate identity
+requires a purpose- and scope-bound grant, deployment ceiling, short expiry, and a server-held
+pseudonym key. The browser cannot raise disclosure, and raw provider identity never enters the
+candidate projection.
+
 | Workspace page | Primary projection |
 |----------------|--------------------|
 | Overview | Total cost, analysis coverage, projected opportunity, verified savings, objective risk, and unavailable evidence |
@@ -257,6 +284,14 @@ The Optimization cases page never mutates `DecisionCase`. Its live status comes 
 projections over Saga audit, Thor action, Var approval, Vidar rollback, and Heimdall outcome records.
 Every aggregate links to the narrowest filtered evidence route. Missing evidence renders
 unavailable with its reason instead of being inferred in the browser.
+
+Observation-mode cases are persisted and projected before any mutating mode is considered. Cost
+observations and Advisor recommendations cannot become cases by themselves. A case projection
+requires an exact target, evidence cutoff, decision-frame digest, option set, verdict, and owned
+evidence references. An outcome projection requires the exact case and action revision plus
+independently settled effects. Verified savings are the sum of closed cost effects only when every
+required operational effect is `verified`; `failed`, `censored`, `unscorable`, and rollback results
+remain explicit and cannot be netted into success.
 
 ## Delivery and promotion gates
 

@@ -95,6 +95,14 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
     ) in rendered
     assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0\n" in rendered
     assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=0\n" in rendered
+    key_file = repo / ".fdai/local-cost-pseudonym-key"
+    pseudonym_key = key_file.read_text(encoding="ascii").strip()
+    assert len(pseudonym_key) == 64
+    assert set(pseudonym_key) <= set("0123456789abcdef")
+    assert key_file.stat().st_mode & 0o777 == 0o600
+    assert f"FDAI_COST_PSEUDONYM_KEY={pseudonym_key}\n" in rendered
+    assert pseudonym_key not in completed.stdout
+    assert pseudonym_key not in completed.stderr
     assert "FDAI_STATE_STORE_DSN=" not in rendered
     if semantic == "complete":
         expected_namespace = "local-" + hashlib.sha256(str(repo).encode()).hexdigest()[:16]
@@ -116,6 +124,30 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
         assert "FDAI_READ_INVESTIGATION_REQUEST_TOPIC=" not in rendered
         assert "FDAI_HIL_DECISION_TOPIC=" not in rendered
         assert "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR=1" in rendered
+
+
+def test_reuses_persistent_local_pseudonym_key(tmp_path: Path) -> None:
+    repo = _repo(tmp_path, semantic="absent")
+
+    subprocess.run(  # noqa: S603 - test-controlled script and environment
+        [_BASH, str(repo / "scripts/deployment/local/prepare-operator-service-env.sh")],
+        cwd=repo,
+        env=_isolated_environment(),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    first = (repo / ".fdai/local-cost-pseudonym-key").read_text(encoding="ascii")
+    subprocess.run(  # noqa: S603 - test-controlled script and environment
+        [_BASH, str(repo / "scripts/deployment/local/prepare-operator-service-env.sh")],
+        cwd=repo,
+        env=_isolated_environment(),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert (repo / ".fdai/local-cost-pseudonym-key").read_text(encoding="ascii") == first
 
 
 def test_ignores_stale_console_local_azure_cli_opt_in_by_default(tmp_path: Path) -> None:

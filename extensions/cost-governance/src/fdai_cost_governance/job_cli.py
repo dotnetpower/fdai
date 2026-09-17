@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import math
@@ -9,8 +10,10 @@ import os
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
+from typing import Literal, cast
 
 import httpx
+from azure.identity.aio import AzureCliCredential
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.cost_sample_publisher import EventBusCostSamplePublisher
@@ -22,6 +25,12 @@ from fdai.delivery.persistence.postgres_cost_governance import (
 from .azure_focus import (
     AzureFocusObservationAdapter,
     CostHttpResponse,
+    CostReadCredential,
+)
+from .scheduled_analytics import (
+    AzureScheduledAnalyticsSource,
+    ScheduledAnalyticsResult,
+    run_scheduled_analytics,
 )
 from .service import CostAnalyzerService, CostCollectorService, CostJobConfig
 
@@ -43,6 +52,16 @@ class _ManagedIdentityCostCredential:
         if datetime.now(UTC) >= deadline_at:
             raise TimeoutError("Cost Management credential deadline expired")
         return (await self._identity.get_token(_ARM_AUDIENCE)).token
+
+
+class _AzureCliCostCredential:
+    def __init__(self, credential: AzureCliCredential) -> None:
+        self._credential = credential
+
+    async def access_token(self, *, deadline_at: datetime) -> str:
+        if datetime.now(UTC) >= deadline_at:
+            raise TimeoutError("Cost Management credential deadline expired")
+        return cast(str, (await self._credential.get_token(_ARM_AUDIENCE)).token)
 
 
 class _HttpxCostTransport:
@@ -113,6 +132,141 @@ def analyzer_main() -> None:
     """Run one bounded analyzer/publisher pass from environment config."""
 
     raise SystemExit(asyncio.run(_run_analyzer(os.environ)))
+
+
+def analytics_main() -> None:
+    """Run the shared bounded analytics command once or on a local schedule."""
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--loop", action="store_true")
+    parser.add_argument(
+        "--interval-seconds",
+        type=int,
+        default=_positive_int(os.environ, "FDAI_COST_ANALYTICS_INTERVAL_SECONDS", 3600),
+    )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=_positive_int(os.environ, "FDAI_COST_ANALYTICS_DAYS", 7),
+    )
+    args = parser.parse_args()
+    if args.interval_seconds < 1 or not 1 <= args.days <= 31:
+        parser.error("analytics interval must be positive and days must be in [1, 31]")
+    raise SystemExit(
+        asyncio.run(
+            _run_analytics_loop(
+                os.environ,
+                days=args.days,
+                interval_seconds=args.interval_seconds,
+                loop=args.loop,
+            )
+        )
+    )
+
+
+async def _run_analytics_loop(
+    env: Mapping[str, str],
+    *,
+    days: int,
+    interval_seconds: int,
+    loop: bool,
+) -> int:
+    while True:
+        result = await run_analytics_from_environment(env, days=days)
+        receipt = result.receipt
+        event = "ready" if receipt.status.value in {"complete", "disabled"} else "waiting"
+        print(
+            " ".join(
+                (
+                    datetime.now(UTC).isoformat(),
+                    "service=cost-governance-analytics",
+                    f"event={event}",
+                    f"status={receipt.status.value}",
+                    f"run_id={receipt.run_id}",
+                )
+            ),
+            flush=True,
+        )
+        if not loop:
+            return 0 if receipt.status.value in {"complete", "disabled"} else 1
+        await asyncio.sleep(interval_seconds)
+
+
+async def run_analytics_from_environment(
+    env: Mapping[str, str],
+    *,
+    days: int,
+) -> ScheduledAnalyticsResult:
+    scope_id = _required(env, "FDAI_COST_SCOPE_ID")
+    store = PostgresCostGovernanceStore(
+        config=PostgresCostGovernanceConfig(
+            dsn=_required(env, "FDAI_COST_STORE_DSN"),
+        )
+    )
+    activation = await store.read_cost_activation("cost-governance")
+    release_id = env.get("FDAI_COST_ONTOLOGY_RELEASE_ID", "").strip()
+    release_digest = env.get("FDAI_COST_ONTOLOGY_RELEASE_DIGEST", "").strip()
+    if activation is not None:
+        release_id = release_id or activation.ontology_release_id
+        release_digest = release_digest or activation.ontology_release_digest
+    config = CostJobConfig(
+        package_id="cost-governance",
+        ontology_release_id=release_id or "unavailable",
+        ontology_release_digest=release_digest or f"sha256:{'0' * 64}",
+        known_service_ids=frozenset({"scheduled-analytics"}),
+        attempt_timeout=timedelta(
+            seconds=_positive_int(env, "FDAI_COST_ATTEMPT_TIMEOUT_SECONDS", 120)
+        ),
+    )
+    venue_value = env.get("FDAI_EXECUTION_VENUE", "deployed").strip()
+    if venue_value not in {"local", "deployed"}:
+        raise ValueError("FDAI_EXECUTION_VENUE MUST be local or deployed")
+    venue: Literal["local", "deployed"] = "local" if venue_value == "local" else "deployed"
+    bus = None
+    cli_credential = None
+    async with httpx.AsyncClient(headers={"Accept": "application/json"}) as client:
+        if venue == "local":
+            cli_credential = AzureCliCredential()
+            credential: CostReadCredential = _AzureCliCostCredential(cli_credential)
+            workload_identity = None
+        else:
+            workload_identity = ManagedIdentityWorkloadIdentity.from_env(
+                http_client=client,
+                env=env,
+                client_id_env="FDAI_COST_COLLECTION_MI_CLIENT_ID",
+            )
+            credential = _ManagedIdentityCostCredential(workload_identity)
+        publisher = None
+        bootstrap = env.get("KAFKA_BOOTSTRAP_SERVERS", "").strip()
+        topic = (
+            env.get("FDAI_COST_RAW_EVENT_TOPIC", "").strip()
+            or env.get("KAFKA_TOPIC_EVENTS", "").strip()
+        )
+        if bootstrap and topic:
+            bus = EventHubsKafkaBus(
+                config=EventHubsKafkaBusConfig(
+                    bootstrap_servers=bootstrap,
+                    security_protocol="PLAINTEXT" if venue == "local" else "SASL_SSL",
+                    client_id=f"fdai-{venue}-cost-analytics",
+                ),
+                identity=workload_identity,
+            )
+            publisher = EventBusCostSamplePublisher(bus=bus, topic=topic)
+        try:
+            return await run_scheduled_analytics(
+                config=config,
+                scope_id=scope_id,
+                venue=venue,
+                days=days,
+                source=AzureScheduledAnalyticsSource(client=client, credential=credential),
+                store=store,
+                publisher=publisher,
+            )
+        finally:
+            if bus is not None:
+                await bus.close()
+            if cli_credential is not None:
+                await cli_credential.close()
 
 
 async def _run_collector(env: Mapping[str, str]) -> int:
@@ -233,4 +387,13 @@ def _positive_int(env: Mapping[str, str], key: str, default: int) -> int:
     return value
 
 
-__all__ = ["analyzer_main", "collector_main"]
+__all__ = [
+    "analytics_main",
+    "analyzer_main",
+    "collector_main",
+    "run_analytics_from_environment",
+]
+
+
+if __name__ == "__main__":
+    analytics_main()

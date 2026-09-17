@@ -655,6 +655,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "application_insights_secret_name": _terraform_output(
             substrate, "application_insights_connection_string_secret_name"
         ),
+        "cost_pseudonym_key_secret_name": _terraform_output(
+            substrate, "cost_pseudonym_key_secret_name"
+        ),
         "operational_history_container_url": _terraform_output(
             substrate, "operational_history_container_url"
         ),
@@ -779,7 +782,10 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             refs,
             operator_identity,
             operator_environment,
-            {"FDAI_DATABASE_URL": "fdai-state-store-dsn"},
+            {
+                "FDAI_DATABASE_URL": "fdai-state-store-dsn",
+                "FDAI_COST_PSEUDONYM_KEY": str(substrate_outputs["cost_pseudonym_key_secret_name"]),
+            },
             "/healthz",
             "/healthz",
             external=True,

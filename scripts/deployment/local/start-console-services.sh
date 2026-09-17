@@ -21,6 +21,7 @@ services=(
   document-processing-worker
   isolated-executor
   local-analyzer
+  cost-governance-analytics
   inventory-reconciliation
   observation-campaign
   console-frontend
@@ -113,7 +114,7 @@ trap handle_signal INT TERM
 printf '%s service=console-stack event=starting\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
 for service in "${services[@]}"; do
   service_args=("$service")
-  if [[ "$service" == "local-analyzer" ]]; then
+  if [[ "$service" == "local-analyzer" || "$service" == "cost-governance-analytics" ]]; then
     service_args+=(--wait-ready)
   fi
   FDAI_CONSOLE_START_READINESS_SECONDS="$readiness_seconds" \

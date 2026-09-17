@@ -84,6 +84,10 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
         "cost-governance-disclosure-policy",
         "1.0.0",
     ): "schemas/cost-governance-disclosure-policy/1.0.0.json",
+    (
+        "cost-governance-analytics-run",
+        "1.0.0",
+    ): "schemas/cost-governance-analytics-run/1.0.0.json",
     ("cost-governance-projection", "1.0.0"): "schemas/cost-governance-projection/1.0.0.json",
     (
         "decision-critical-evidence",

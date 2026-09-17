@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, cast
 
 import psycopg
+from fdai_service_contracts import CostAnalyticsRunReceipt
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
@@ -186,6 +188,74 @@ class PostgresCostGovernanceStore:
             )
         return inserted.rowcount == 1
 
+    async def append_cost_analytics_run_receipt(
+        self,
+        receipt: CostAnalyticsRunReceipt,
+        *,
+        scope_id: str,
+    ) -> bool:
+        """Append one content-free terminal analytics receipt idempotently."""
+
+        if not scope_id:
+            raise ValueError("Cost Analytics receipt scope MUST be non-empty")
+        scope_digest = f"sha256:{hashlib.sha256(scope_id.encode()).hexdigest()}"
+        if receipt.scope_digest != scope_digest:
+            raise ValueError("Cost Analytics receipt scope digest does not match")
+        async with await self._connect() as conn:
+            await self._timeout(conn)
+            inserted = await conn.execute(
+                """
+                INSERT INTO cost_governance_analytics_run_receipt (
+                    run_id, receipt_digest, package_id, scope_id, scope_digest,
+                    venue, window_start_at, window_end_at, started_at, finished_at,
+                    status, sources, observation_count, trend_point_count,
+                    budget_count, recommendation_count, utilization_count,
+                    limitations, failure_reason, snapshot_id
+                )
+                VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                )
+                ON CONFLICT (run_id) DO NOTHING
+                """,
+                (
+                    receipt.run_id,
+                    receipt.receipt_digest,
+                    "cost-governance",
+                    scope_id,
+                    receipt.scope_digest,
+                    receipt.venue,
+                    receipt.window_start_at,
+                    receipt.window_end_at,
+                    receipt.started_at,
+                    receipt.finished_at,
+                    receipt.status.value,
+                    Jsonb([item.model_dump(mode="json") for item in receipt.sources]),
+                    receipt.observation_count,
+                    receipt.trend_point_count,
+                    receipt.budget_count,
+                    receipt.recommendation_count,
+                    receipt.utilization_count,
+                    Jsonb(list(receipt.limitations)),
+                    receipt.failure_reason,
+                    receipt.snapshot_id,
+                ),
+            )
+            if inserted.rowcount == 1:
+                return True
+            existing = await conn.execute(
+                """
+                SELECT receipt_digest
+                  FROM cost_governance_analytics_run_receipt
+                 WHERE run_id = %s
+                """,
+                (receipt.run_id,),
+            )
+            row = await existing.fetchone()
+            if row is None or str(row["receipt_digest"]) != receipt.receipt_digest:
+                raise RuntimeError("Cost Analytics run identity conflicts with retained evidence")
+        return False
+
     async def cost_budget_data_available(self) -> bool:
         """Return whether the latest analytics snapshot contains a budget."""
 
@@ -222,18 +292,25 @@ class PostgresCostGovernanceStore:
                 """
                 SELECT *
                   FROM (
-                    SELECT observation_id, package_id, scope_id, service_id, amount,
-                           currency, event_start_at, event_end_at, observed_at,
-                           recorded_at, source_authority, source_uri, completeness,
-                           ontology_release_id, ontology_release_digest, evidence_digest,
-                           retention_until
-                      FROM cost_observation
-                     WHERE package_id = %s
-                       AND ontology_release_digest = %s
-                       AND completeness = 1
-                       AND currency = 'USD'
-                       AND retention_until > CURRENT_TIMESTAMP
-                     ORDER BY observed_at DESC, observation_id DESC
+                    SELECT observation.observation_id, observation.package_id,
+                           observation.scope_id, observation.service_id,
+                           observation.amount, observation.currency,
+                           observation.event_start_at, observation.event_end_at,
+                           observation.observed_at, observation.recorded_at,
+                           observation.source_authority, observation.source_uri,
+                           observation.completeness, observation.ontology_release_id,
+                           observation.ontology_release_digest,
+                           observation.evidence_digest, observation.retention_until
+                      FROM cost_observation AS observation
+                      JOIN cost_observation_current AS current
+                        ON current.observation_id = observation.observation_id
+                     WHERE observation.package_id = %s
+                       AND observation.ontology_release_digest = %s
+                       AND observation.completeness = 1
+                       AND observation.currency = 'USD'
+                       AND observation.retention_until > CURRENT_TIMESTAMP
+                     ORDER BY observation.observed_at DESC,
+                              observation.observation_id DESC
                      LIMIT %s
                   ) AS recent
                  ORDER BY observed_at, observation_id
@@ -330,6 +407,27 @@ class PostgresCostGovernanceStore:
                         """,
                         tuple(_observation_values(item) for item in page.observations),
                     )
+                    await sql_cursor.executemany(
+                        """
+                        INSERT INTO cost_observation_current (
+                            package_id, scope_id, service_id, currency, event_day,
+                            observation_id, recorded_at
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (
+                            package_id, scope_id, service_id, currency, event_day
+                        ) DO UPDATE
+                           SET observation_id = EXCLUDED.observation_id,
+                               recorded_at = EXCLUDED.recorded_at
+                         WHERE (
+                             EXCLUDED.recorded_at, EXCLUDED.observation_id
+                         ) > (
+                             cost_observation_current.recorded_at,
+                             cost_observation_current.observation_id
+                         )
+                        """,
+                        tuple(_current_observation_values(item) for item in page.observations),
+                    )
                 updated = await conn.execute(
                     """
                     UPDATE cost_collection_cursor
@@ -368,14 +466,22 @@ class PostgresCostGovernanceStore:
             await self._timeout(conn)
             cursor = await conn.execute(
                 """
-                SELECT observation_id, package_id, scope_id, service_id, amount,
-                       currency, event_start_at, event_end_at, observed_at,
-                       recorded_at, source_authority, source_uri, completeness,
-                       ontology_release_id, ontology_release_digest, evidence_digest,
-                       retention_until
-                  FROM cost_observation
-                 WHERE package_id = %s AND scope_id = %s AND observed_at >= %s
-                 ORDER BY observed_at, observation_id
+                SELECT observation.observation_id, observation.package_id,
+                       observation.scope_id, observation.service_id,
+                       observation.amount, observation.currency,
+                       observation.event_start_at, observation.event_end_at,
+                       observation.observed_at, observation.recorded_at,
+                       observation.source_authority, observation.source_uri,
+                       observation.completeness, observation.ontology_release_id,
+                       observation.ontology_release_digest,
+                       observation.evidence_digest, observation.retention_until
+                  FROM cost_observation AS observation
+                  JOIN cost_observation_current AS current
+                    ON current.observation_id = observation.observation_id
+                 WHERE observation.package_id = %s
+                   AND observation.scope_id = %s
+                   AND observation.observed_at >= %s
+                 ORDER BY observation.observed_at, observation.observation_id
                  LIMIT %s
                 """,
                 (package_id, scope_id, since, limit),
@@ -497,6 +603,18 @@ def _observation_values(item: CostObservation) -> tuple[object, ...]:
         item.ontology_release_digest,
         item.evidence_digest,
         item.retention_until,
+    )
+
+
+def _current_observation_values(item: CostObservation) -> tuple[object, ...]:
+    return (
+        item.package_id,
+        item.scope_id,
+        item.service_id,
+        item.currency,
+        item.event_start_at.astimezone(UTC).date(),
+        item.observation_id,
+        item.recorded_at,
     )
 
 

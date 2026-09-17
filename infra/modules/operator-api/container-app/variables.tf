@@ -228,6 +228,16 @@ variable "state_store_dsn_secret_id" {
   type        = string
 }
 
+variable "cost_pseudonym_key_secret_id" {
+  description = "Key Vault secret id holding the persistent 256-bit Cost Governance pseudonym key."
+  type        = string
+
+  validation {
+    condition     = can(regex("^https://[^/]+\\.vault\\.azure\\.net/secrets/[^/]+(?:/[^/]+)?$", var.cost_pseudonym_key_secret_id))
+    error_message = "cost_pseudonym_key_secret_id MUST be an Azure Key Vault secret id."
+  }
+}
+
 variable "entra_tenant_id" {
   description = "Entra tenant id for JWT issuer/JWKS (FDAI_ENTRA_TENANT_ID)."
   type        = string

@@ -46,6 +46,13 @@ from fdai_cost_governance.review_targets import (
     CostReadinessTarget,
     load_cost_readiness_targets,
 )
+from fdai_cost_governance.scheduled_analytics import (
+    AnalyticsSourceError,
+    AzureAnalyticsBatch,
+    AzureScheduledAnalyticsSource,
+    ScheduledAnalyticsResult,
+    run_scheduled_analytics,
+)
 from fdai_cost_governance.service import (
     CostAnalyzerService,
     CostCollectorService,
@@ -65,6 +72,9 @@ from fdai_cost_governance.validation import (
 
 __all__ = [
     "ApprovedParityDifference",
+    "AnalyticsSourceError",
+    "AzureAnalyticsBatch",
+    "AzureScheduledAnalyticsSource",
     "CostGovernanceParityHarness",
     "CostGovernanceResourceError",
     "CostCoordinationError",
@@ -100,6 +110,7 @@ __all__ = [
     "PackageResource",
     "ResourceContext",
     "RollingCostAdvisoryProvider",
+    "ScheduledAnalyticsResult",
     "__version__",
     "build_lifecycle_receipt",
     "build_cost_governance_bundle",
@@ -109,5 +120,6 @@ __all__ = [
     "load_resource_manifest",
     "materialize_cost_governance_catalog",
     "resource_manifest_sha256",
+    "run_scheduled_analytics",
     "value_digest",
 ]

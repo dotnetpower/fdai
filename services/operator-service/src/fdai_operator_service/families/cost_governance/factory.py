@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import re
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
@@ -32,6 +33,18 @@ from fdai_operator_service.families.cost_governance.manifest import (
     COST_GOVERNANCE_ROUTE_MANIFEST,
     CostGovernanceRoute,
 )
+from fdai_operator_service.families.cost_governance.projection import (
+    projection_evidence as _projection_evidence,
+)
+from fdai_operator_service.families.cost_governance.projection import (
+    projection_items as _projection_items,
+)
+from fdai_operator_service.families.cost_governance.projection import (
+    resource_candidates as _resource_candidates,
+)
+from fdai_operator_service.families.cost_governance.projection import (
+    surface_complete as _surface_complete,
+)
 from fdai_service_contracts import (
     DISCLOSURE_PRESETS,
     CostAccessGrant,
@@ -40,19 +53,17 @@ from fdai_service_contracts import (
     CostAnalyticsProjection,
     CostAnalyticsRecommendation,
     CostAnalyticsTrendPoint,
+    CostDecisionCaseProjection,
     CostDisclosureCeiling,
     CostDisclosurePolicy,
     CostGovernanceAvailability,
-    CostGovernanceItem,
     CostGovernanceProjection,
     CostGovernanceUnavailableReason,
     CostGranularity,
     CostIdentityVisibility,
-    CostResourceEfficiencyProjection,
+    CostSettlementOutcomeProjection,
     CostSummaryProjection,
-    CostTrendProjection,
     OperatorRole,
-    disclose_cost_records,
 )
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -79,6 +90,10 @@ class CostGovernanceFamilyDependencies:
     pseudonym_key: bytes | None = None
     authenticated_review_access: bool = False
     clock: Clock = lambda: datetime.now(UTC)
+
+    def __post_init__(self) -> None:
+        if self.pseudonym_key is not None and len(self.pseudonym_key) != 32:
+            raise ValueError("Cost Governance pseudonym key MUST contain exactly 32 bytes")
 
 
 def build_cost_governance_routes(
@@ -217,54 +232,132 @@ def _build_route(
             and disclosure.identity_visibility is CostIdentityVisibility.NONE
             and disclosure.amount_precision is CostAmountPrecision.NONE
         )
-        records = (
-            ()
-            if hidden
-            else await dependencies.projections.read_records(
-                surface=surface,
-                scope=scope,
-                limit=_limit(request),
-            )
-        )
-        try:
-            items = disclose_cost_records(
-                records,
-                disclosure,
-                pseudonym_key=dependencies.pseudonym_key,
-            )
-        except ValueError:
-            return _error(503, "disclosure_unavailable", "Cost disclosure cannot be completed")
-        raw_analytics = (
+        limit = _limit(request)
+        analytics_snapshot = (
             await dependencies.analytics.read_analytics(scope=scope)
             if dependencies.analytics is not None
             else None
         )
-        analytics = _disclose_analytics(raw_analytics, disclosure)
+        if analytics_snapshot is not None and scope != "*" and analytics_snapshot.scope_id != scope:
+            return _error(
+                503,
+                "analytics_scope_mismatch",
+                "Cost Analytics snapshot does not match the requested scope",
+            )
+        effective_scope = (
+            analytics_snapshot.scope_id
+            if scope == "*" and analytics_snapshot is not None
+            else scope
+        )
+        raw_analytics = analytics_snapshot.projection if analytics_snapshot is not None else None
+        records = (
+            ()
+            if hidden or surface in {"optimization-cases", "outcomes"}
+            else await dependencies.projections.read_records(
+                surface=surface,
+                scope=effective_scope,
+                limit=limit,
+            )
+        )
+        analytics = _disclose_analytics(
+            raw_analytics,
+            disclosure,
+            pseudonym_key=dependencies.pseudonym_key,
+        )
+        evidence_snapshot = await dependencies.projections.read_projection_evidence(
+            scope=effective_scope,
+            analytics_snapshot_id=(
+                analytics_snapshot.snapshot_id if analytics_snapshot is not None else None
+            ),
+        )
+        pseudonym_key = dependencies.pseudonym_key
+        candidates = _resource_candidates(
+            analytics,
+            disclosure,
+            pseudonym_key=pseudonym_key,
+        )
+        can_disclose_lineage = (
+            disclosure.granularity is CostGranularity.RESOURCE
+            and disclosure.identity_visibility is not CostIdentityVisibility.NONE
+            and pseudonym_key is not None
+        )
+        cases: tuple[CostDecisionCaseProjection, ...] = ()
+        outcomes: tuple[CostSettlementOutcomeProjection, ...] = ()
+        if surface == "optimization-cases" and pseudonym_key is not None and can_disclose_lineage:
+            cases = await dependencies.projections.read_decision_cases(
+                scope=effective_scope,
+                limit=limit,
+                pseudonym_key=pseudonym_key,
+            )
+        elif surface == "outcomes" and pseudonym_key is not None and can_disclose_lineage:
+            outcomes = await dependencies.projections.read_settlement_outcomes(
+                scope=effective_scope,
+                limit=limit,
+                pseudonym_key=pseudonym_key,
+            )
+        try:
+            items, resource_mode = _projection_items(
+                surface=surface,
+                records=records,
+                disclosure=disclosure,
+                candidates=candidates,
+                cases=cases,
+                outcomes=outcomes,
+                pseudonym_key=pseudonym_key,
+            )
+        except ValueError:
+            return _error(503, "disclosure_unavailable", "Cost disclosure cannot be completed")
+        evidence = _projection_evidence(
+            snapshot=evidence_snapshot,
+            disclosure=disclosure,
+            analytics=raw_analytics,
+            analytics_snapshot_id=(
+                analytics_snapshot.snapshot_id if analytics_snapshot is not None else None
+            ),
+            candidates=candidates,
+            can_disclose_lineage=can_disclose_lineage,
+            requested_surface=surface,
+            observation_returned_count=(
+                None if hidden or surface in {"optimization-cases", "outcomes"} else len(records)
+            ),
+            candidate_returned_count=len(candidates),
+            case_returned_count=len(cases),
+            settlement_returned_count=len(outcomes),
+            now=now,
+        )
         projection_payload = CostGovernanceProjection(
             surface=surface,
             disclosure=disclosure,
             generated_at=now,
-            source_authority="cost-observation",
-            complete=(
-                all(item.completeness == 1 for item in records)
-                and (raw_analytics is None or raw_analytics.complete)
+            source_authority={
+                "optimization-cases": "cost-governance-decision-store",
+                "outcomes": "cost-governance-settlement-store",
+            }.get(surface, "cost-observation"),
+            complete=_surface_complete(
+                surface,
+                evidence,
+                resource_efficiency_mode=resource_mode,
             ),
-            items=_typed_projection_items(surface, items),
-            suppressed_count=sum(1 for item in items if item.get("suppressed") is True),
+            items=items,
+            suppressed_count=sum(
+                1 for item in items if isinstance(item, CostSummaryProjection) and item.suppressed
+            ),
             analytics=analytics,
+            evidence=evidence,
+            resource_efficiency_mode=resource_mode,
         )
         if dependencies.disclosure_audit is not None:
             try:
                 await dependencies.disclosure_audit.append_disclosure_audit(
                     _disclosure_audit_record(
                         principal_id=principal.subject_id,
-                        scope=scope,
+                        scope=effective_scope,
                         surface=surface,
                         grant_revision=access.grant.revision,
                         ceiling_revision=access.ceiling.revision,
                         activation_revision=activation.revision,
                         disclosure=disclosure,
-                        record_count=len(items),
+                        record_count=len(projection_payload.items),
                         suppressed_count=projection_payload.suppressed_count,
                         occurred_at=now,
                     )
@@ -352,19 +445,33 @@ def _digest(value: object) -> str:
 def _disclose_analytics(
     analytics: CostAnalyticsProjection | None,
     disclosure: CostDisclosurePolicy,
+    *,
+    pseudonym_key: bytes | None,
 ) -> CostAnalyticsProjection | None:
     if analytics is None or disclosure.granularity is CostGranularity.NONE:
         return None
-    identity_visible = disclosure.identity_visibility is not CostIdentityVisibility.NONE
-    recommendations = tuple(
-        CostAnalyticsRecommendation(
-            **{
-                **item.model_dump(),
-                "resource_ref": item.resource_ref if identity_visible else None,
-                "monthly_savings": _disclosed_amount(item.monthly_savings, disclosure),
-            }
+    recommendations_allowed = (
+        disclosure.granularity is CostGranularity.RESOURCE
+        and disclosure.identity_visibility is not CostIdentityVisibility.NONE
+        and pseudonym_key is not None
+    )
+    recommendations = (
+        tuple(
+            CostAnalyticsRecommendation(
+                **{
+                    **item.model_dump(),
+                    "resource_ref": (
+                        _resource_pseudonym(item.resource_ref, pseudonym_key)
+                        if item.resource_ref is not None
+                        else None
+                    ),
+                    "monthly_savings": _disclosed_amount(item.monthly_savings, disclosure),
+                }
+            )
+            for item in analytics.recommendations
         )
-        for item in analytics.recommendations
+        if recommendations_allowed
+        else ()
     )
     if disclosure.amount_precision in {
         CostAmountPrecision.NONE,
@@ -374,57 +481,100 @@ def _disclose_analytics(
             source_authority=analytics.source_authority,
             observed_at=analytics.observed_at,
             complete=analytics.complete,
+            window_start_at=analytics.window_start_at,
+            window_end_at=analytics.window_end_at,
+            sources=analytics.sources,
             recommendations=recommendations,
-            limitations=tuple(sorted({*analytics.limitations, "analytics_amount_suppressed"})),
+            limitations=tuple(
+                sorted(
+                    {
+                        *analytics.limitations,
+                        "analytics_amount_suppressed",
+                        *(
+                            ("analytics_recommendations_suppressed",)
+                            if analytics.recommendations and not recommendations_allowed
+                            else ()
+                        ),
+                    }
+                )
+            ),
         )
+    trend = tuple(
+        projected
+        for item in analytics.trend
+        if (projected := _disclosed_trend(item, disclosure)) is not None
+    )
+    budgets = tuple(
+        budget
+        for item in analytics.budgets
+        if (budget := _disclosed_budget(item, disclosure)) is not None
+    )
+    amount_suppressed = (
+        len(trend) != len(analytics.trend)
+        or len(budgets) != len(analytics.budgets)
+        or any(
+            source.monthly_savings is not None
+            and source.monthly_savings > 0
+            and disclosed.monthly_savings is None
+            for source, disclosed in zip(
+                analytics.recommendations,
+                recommendations,
+                strict=True,
+            )
+        )
+    )
+    recommendation_details_suppressed = bool(
+        analytics.recommendations and not recommendations_allowed
+    )
     return CostAnalyticsProjection(
         source_authority=analytics.source_authority,
         observed_at=analytics.observed_at,
         complete=analytics.complete,
-        trend=tuple(
-            CostAnalyticsTrendPoint(
-                **{
-                    **item.model_dump(),
-                    "amount": _disclosed_required_amount(item.amount, disclosure),
+        window_start_at=analytics.window_start_at,
+        window_end_at=analytics.window_end_at,
+        sources=analytics.sources,
+        trend=trend,
+        budgets=budgets,
+        recommendations=recommendations,
+        limitations=tuple(
+            sorted(
+                {
+                    *analytics.limitations,
+                    *(("analytics_amount_suppressed",) if amount_suppressed else ()),
+                    *(
+                        ("analytics_recommendations_suppressed",)
+                        if recommendation_details_suppressed
+                        else ()
+                    ),
                 }
             )
-            for item in analytics.trend
         ),
-        budgets=tuple(
-            budget
-            for item in analytics.budgets
-            if (budget := _disclosed_budget(item, disclosure)) is not None
-        ),
-        recommendations=recommendations,
-        limitations=analytics.limitations,
     )
 
 
-def _disclosed_required_amount(
-    value: Decimal,
+def _disclosed_trend(
+    item: CostAnalyticsTrendPoint,
     disclosure: CostDisclosurePolicy,
-) -> Decimal:
-    disclosed = _disclosed_amount(value, disclosure)
-    if disclosed is None:
-        raise ValueError("required analytics amount was suppressed")
-    return disclosed
+) -> CostAnalyticsTrendPoint | None:
+    amount = _disclosed_amount(item.amount, disclosure)
+    if amount is None:
+        return None
+    return CostAnalyticsTrendPoint(**{**item.model_dump(), "amount": amount})
 
 
 def _disclosed_budget(
     item: CostAnalyticsBudget,
     disclosure: CostDisclosurePolicy,
 ) -> CostAnalyticsBudget | None:
-    amount = _disclosed_required_amount(item.amount, disclosure)
-    if amount <= 0:
+    amount = _disclosed_amount(item.amount, disclosure)
+    current_spend = _disclosed_amount(item.current_spend, disclosure)
+    if amount is None or current_spend is None or amount <= 0:
         return None
     return CostAnalyticsBudget(
         **{
             **item.model_dump(),
             "amount": amount,
-            "current_spend": _disclosed_required_amount(
-                item.current_spend,
-                disclosure,
-            ),
+            "current_spend": current_spend,
             "forecast_spend": _disclosed_amount(item.forecast_spend, disclosure),
         }
     )
@@ -441,7 +591,15 @@ def _disclosed_amount(
     if disclosure.amount_precision is not CostAmountPrecision.ROUNDED:
         return None
     increment = disclosure.rounding_increment
-    return (value / increment).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * increment
+    rounded = (value / increment).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * increment
+    return None if value > 0 and rounded == 0 else rounded
+
+
+def _resource_pseudonym(value: str, key: bytes | None) -> str:
+    if key is None:
+        raise ValueError("resource pseudonym requires a server-held key")
+    digest = hmac.new(key, f"cost-candidate:{value}".encode(), hashlib.sha256).hexdigest()[:16]
+    return f"resource:{digest}"
 
 
 def _settings_endpoint(
@@ -577,23 +735,6 @@ def _limit(request: Request) -> int:
     except ValueError:
         return 200
     return max(1, min(value, 500))
-
-
-def _typed_projection_items(
-    surface: str,
-    items: Sequence[Mapping[str, object]],
-) -> tuple[CostGovernanceItem, ...]:
-    projected: list[CostGovernanceItem] = []
-    for item in items:
-        if "record_count" in item:
-            projected.append(CostSummaryProjection.model_validate(item))
-        elif surface == "overview":
-            projected.append(CostTrendProjection.model_validate(item))
-        elif surface == "resource-efficiency":
-            projected.append(CostResourceEfficiencyProjection.model_validate(item))
-        elif surface in {"optimization-cases", "outcomes"}:
-            continue
-    return tuple(projected)
 
 
 def _error(status: int, code: str, message: str) -> JSONResponse:

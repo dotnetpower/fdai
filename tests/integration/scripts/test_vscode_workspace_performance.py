@@ -322,6 +322,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "document-ingestion-api",
         "document-processing-worker",
         "isolated-executor",
+        "cost-governance-analytics",
         "inventory-reconciliation",
         "observation-campaign",
         "console-frontend",

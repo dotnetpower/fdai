@@ -10,12 +10,12 @@ is implemented.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Subscription and resource analysis projection | in-progress | `scripts/deployment/local/collect-cost-governance-analytics.py`; `fdai_cost_governance/azure_analytics.py`; `cost_governance_analytics_snapshot`; focused analytics, migration, and Operator tests | Bounded Usage Details, Budget, Advisor, and supported Monitor evidence now produce a pseudonymous immutable snapshot. Complete resource relationships and utilization coverage remain open. |
+| Subscription and resource analysis projection | implemented | `fdai_cost_governance/scheduled_analytics.py`; `cost_governance_analytics_snapshot`; `cost_governance_analytics_run`; additive projection evidence contract; focused contract, analytics, migration, runtime, and Operator tests | One scheduled local/deployed command records bounded run receipts, source windows, freshness, completeness, disclosure, and readiness facets. Complete resource relationships and live utilization coverage remain operational inputs. |
 | Ontology profile and service-family sizing profiles | not-started | [Owner design](../../roadmap/architecture/finops-resource-efficiency.md#ontology-profile) | Existing shared declarations and metrics do not form the complete reviewed profile described by this design. |
 | Resource and coupled-set decision composition | not-started | [Owner design](../../roadmap/architecture/finops-resource-efficiency.md#eligibility-and-agent-choreography) | No focused implementation proves the ordered target-set contract, fail-closed service mapping, or Njord and Freyr composition. |
 | Generic right-size safety baseline | implemented | `services/core-control-plane/src/fdai/core/verticals/cost_governance/finops.py`; `services/core-control-plane/tests/core/verticals/test_finops.py`; `rule-catalog/action-types/remediate.right-size.yaml` | Generic guards and a shadow-first action contract exist, but they do not prove this end-to-end capability. |
-| Savings attribution and multi-effect settlement | not-started | [Owner design](../../roadmap/architecture/finops-resource-efficiency.md#savings-attribution-and-effect-settlement) | Shared outcome primitives exist, but no resource-efficiency flow closes cost, capacity, SLO, dependency, and recovery effects together. |
-| Cost Governance Console workspace | in-progress | `console/src/routes/cost-governance*.tsx`; focused Vitest, typecheck, build, and four-tab Playwright visual checks | All four workspace layouts consume authoritative analytics or render explicit unavailable states. Governed DecisionCase and settled-outcome sources remain unconnected. |
+| Savings attribution and multi-effect settlement | in-progress | additive settlement contract and PostgreSQL read projection; focused contract, persistence, Operator, and Console tests | The read path requires exact case/action revisions and independent effect statuses before publishing verified savings. No retained live settled resource-efficiency episode proves operational closure. |
+| Cost Governance Console workspace | implemented | `console/src/routes/cost-governance*.tsx`; focused Vitest, typecheck, production build, and desktop/mobile Playwright state matrix | The four pages distinguish service summaries, resource candidates, cases, settlements, stale/partial sources, and below-rounding positive amounts. Live content remains limited by authoritative producer state. |
 | Targeted human clarification | not-started | [Owner design](../../roadmap/architecture/finops-resource-efficiency.md#evidence-recovery-and-targeted-human-clarification) | No bounded flow proves automatic evidence recovery, scoped attestation, deterministic reevaluation, expiry, conflict, and approval separation. |
 
 ### Implementation history
@@ -25,6 +25,7 @@ is implemented.
 | 2026-08-28 | not-started | Defined the focused resource-efficiency, SKU-decision, savings-attribution, and Console workspace design without claiming runtime delivery. | `current change`; owner document, Korean translation, design route, and focused documentation checks. | Implement and validate each bounded scope row below. |
 | 2026-08-31 | in-progress | Added pseudonymous retained cost analytics from Usage Details, Budget, Advisor, and optional Monitor metrics, then wired the four-tab Console workspace to those projections. | `current change`; analytics contract, persistence migration, local collector, Operator projection, Console route; focused Python and Console tests, strict mypy, typecheck, build, and Playwright visual checks. | Complete Monitor utilization coverage and connect governed DecisionCase and independently settled outcome projections. |
 | 2026-08-31 | in-progress | Bound enabled persisted Cost Governance activation into standard Pantheon bootstrap and published complete service-day observations through the canonical broker path. | `current change`; cost runtime composition, Njord resource-series correction, local collector publisher; focused Pantheon, Njord, package, composition, and live broker lag evidence. | Retain a live anomaly-to-verdict cohort and independently settled outcome before claiming operational validation. |
+| 2026-09-17 | implemented | Added the shared scheduled analytics runtime, durable run receipts, source/readiness projection, safe below-increment disclosure, explicit observation-mode case and independent-settlement read models, and truthful four-page Console states. | `current change`; #1280; 225 focused Python tests, 22 focused Console tests, strict typecheck, production build, and eight desktop/mobile browser scenarios passed. | Apply the additive migrations, retain a current authoritative analytics run and live case/settlement evidence, then complete authenticated standard-port validation. |
 
 ### Remaining work
 
@@ -40,7 +41,10 @@ is implemented.
   question, records an expiring attestation, and keeps approval and execution authority separate.
 - [ ] Close cost, capacity, SLO, dependency, and recovery effects as verified, failed, censored, or
   unscorable on one pinned action and evidence revision.
-- [ ] Connect governed DecisionCase, approval, execution, rollback, and independently settled outcome
-  projections to the implemented four-page workspace and exercise each state in focused browser tests.
+- [x] Connect explicit stored DecisionCase, recovery, action-lineage, and independently settled
+  outcome projections to the four-page workspace and exercise positive and negative states in
+  focused browser tests.
+- [ ] Retain live DecisionCase, approval, execution, rollback, and independently settled outcome
+  records from the agent-owned runtime path on one exact evidence revision.
 - [ ] Retain an observation-mode cohort with measured accuracy, zero policy escapes, zero objective
   regressions, complete terminal audit, and independently reviewed promotion evidence.

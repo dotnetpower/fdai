@@ -69,6 +69,7 @@ LOCAL_SERVICE_NAMES = (
     "document-processing-worker",
     "isolated-executor",
     "local-analyzer",
+    "cost-governance-analytics",
     "inventory-reconciliation",
     "observation-campaign",
     "inventory-coverage",

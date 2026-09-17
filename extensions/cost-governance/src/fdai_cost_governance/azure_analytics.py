@@ -17,6 +17,7 @@ from fdai_service_contracts import (
     CostAnalyticsProjection,
     CostAnalyticsRecommendation,
     CostAnalyticsTrendPoint,
+    CostEvidenceSourceFacet,
 )
 
 SOURCE_AUTHORITY = "azure-cost-management-budget-advisor"
@@ -31,6 +32,9 @@ def build_azure_cost_analytics(
     observed_at: datetime,
     complete: bool,
     limitations: Sequence[str] = (),
+    window_start_at: datetime | None = None,
+    window_end_at: datetime | None = None,
+    sources: Sequence[CostEvidenceSourceFacet] = (),
 ) -> CostAnalyticsProjection:
     """Normalize bounded Azure responses without retaining resource identities."""
 
@@ -78,6 +82,9 @@ def build_azure_cost_analytics(
         source_authority=SOURCE_AUTHORITY,
         observed_at=observed_at,
         complete=complete and not bounded_limitations,
+        window_start_at=window_start_at,
+        window_end_at=window_end_at,
+        sources=tuple(sources),
         trend=trend,
         budgets=tuple(normalized_budgets),
         recommendations=tuple(normalized_recommendations),
@@ -216,16 +223,18 @@ def _recommendation(
     utilization_by_resource: Mapping[str, Decimal],
     observed_at: datetime,
 ) -> CostAnalyticsRecommendation | None:
-    resource = _mapping(item.get("resourceMetadata"))
-    resource_id = str(resource.get("resourceId") or "")
+    properties = _mapping(item.get("properties"))
+    details = properties or item
+    resource = _mapping(details.get("resourceMetadata"))
+    resource_id = str(resource.get("resourceId") or details.get("impactedValue") or "")
     recommendation_id = str(item.get("id") or item.get("name") or "")
-    description = _mapping(item.get("shortDescription"))
+    description = _mapping(details.get("shortDescription"))
     problem = str(description.get("problem") or "").strip()
     solution = str(description.get("solution") or "").strip()
-    resource_type = str(item.get("impactedField") or "unknown").strip().casefold()
+    resource_type = str(details.get("impactedField") or "unknown").strip().casefold()
     if not recommendation_id or not problem or not solution:
         return None
-    extended = _mapping(item.get("extendedProperties"))
+    extended = _mapping(details.get("extendedProperties"))
     annual_savings = _decimal(extended.get("annualSavingsAmount"))
     monthly_savings = (
         (annual_savings / Decimal(12)).quantize(Decimal("0.01"))
@@ -235,7 +244,7 @@ def _recommendation(
     currency = str(extended.get("savingsCurrency") or "").strip().upper() or None
     if currency is not None and len(currency) != 3:
         currency = None
-    raw_impact = str(item.get("impact") or "Unknown").title()
+    raw_impact = str(details.get("impact") or "Unknown").title()
     impact: Literal["High", "Medium", "Low", "Unknown"]
     if raw_impact == "High":
         impact = "High"

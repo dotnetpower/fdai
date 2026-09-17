@@ -2234,6 +2234,30 @@ resource "azurerm_key_vault_secret" "application_insights_connection_string" {
   depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
 }
 
+resource "random_id" "cost_pseudonym_key" {
+  count       = var.enable_operator_api ? 1 : 0
+  byte_length = 32
+}
+
+resource "azurerm_key_vault_secret" "cost_pseudonym_key" {
+  # checkov:skip=CKV_AZURE_41:Pseudonyms must remain stable across restarts; rotation requires a coordinated projection revision.
+  count        = var.enable_operator_api ? 1 : 0
+  name         = "fdai-cost-pseudonym-key"
+  value        = sensitive(random_id.cost_pseudonym_key[0].hex)
+  key_vault_id = module.key_vault.id
+  content_type = "cost-pseudonym-key-hex"
+  tags         = local.tags
+
+  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
+}
+
+resource "azurerm_role_assignment" "operator_cost_pseudonym_secret_reader" {
+  count                = var.enable_operator_api ? 1 : 0
+  scope                = azurerm_key_vault_secret.cost_pseudonym_key[0].resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.operator_api_identity[0].principal_id
+}
+
 resource "azurerm_role_assignment" "core_application_insights_secret_reader" {
   scope                = azurerm_key_vault_secret.application_insights_connection_string.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
@@ -3003,12 +3027,15 @@ module "isolated_executor" {
     var.enable_isolated_executor_authority_cutover ? var.operator_api_audience : ""
   )
   state_store_dsn_secret_id = azurerm_key_vault_secret.state_store_dsn.id
-  kafka_bootstrap_servers   = module.event_bus_auxiliary.kafka_bootstrap
-  command_topic             = local.executor_command_topic
-  receipt_topic             = local.executor_receipt_topic
-  runtime_env               = local.env_label
-  acr_login_server          = module.container_registry.login_server
-  tags                      = merge(local.tags, { "fdai:component" = "isolated-executor-shadow" })
+  cost_pseudonym_key_secret_id = (
+    azurerm_key_vault_secret.cost_pseudonym_key[0].id
+  )
+  kafka_bootstrap_servers = module.event_bus_auxiliary.kafka_bootstrap
+  command_topic           = local.executor_command_topic
+  receipt_topic           = local.executor_receipt_topic
+  runtime_env             = local.env_label
+  acr_login_server        = module.container_registry.login_server
+  tags                    = merge(local.tags, { "fdai:component" = "isolated-executor-shadow" })
 
   depends_on = [
     azurerm_role_assignment.isolated_executor_acr_pull,
@@ -3212,6 +3239,7 @@ module "operator_api" {
     azurerm_key_vault_secret.state_store_dsn,
     azurerm_role_assignment.operator_api_acr_pull,
     azurerm_role_assignment.operator_api_kv_secrets_user,
+    azurerm_role_assignment.operator_cost_pseudonym_secret_reader,
     azurerm_role_assignment.command_api_eventhubs_receiver,
     azurerm_role_assignment.command_api_eventhubs_sender,
     azurerm_role_assignment.operator_api_reader,
