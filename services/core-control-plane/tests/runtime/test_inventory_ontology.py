@@ -451,6 +451,43 @@ async def test_first_generation_writes_owned_objects_and_manifest() -> None:
     assert status_record["manifest_digest"] == manifest["manifest_digest"]
 
 
+async def test_projection_preserves_multiple_routes_from_one_resource() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    projector = _projector(store, status)
+
+    result = await projector.apply(
+        _observation(
+            generation="snapshot-multiple-routes",
+            resource_ids=("endpoint-slice-1", "pod-1", "pod-2"),
+            links=(
+                LinkRecord(
+                    from_id="endpoint-slice-1",
+                    from_type="compute.vm",
+                    link_type="routes_to",
+                    to_id="pod-1",
+                    to_type="compute.vm",
+                ),
+                LinkRecord(
+                    from_id="endpoint-slice-1",
+                    from_type="compute.vm",
+                    link_type="routes_to",
+                    to_id="pod-2",
+                    to_type="compute.vm",
+                ),
+            ),
+        )
+    )
+
+    assert result.link_count == 2
+    manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    assert manifest is not None
+    assert manifest["link_keys"] == [
+        ["endpoint-slice-1", "routes_to", "pod-1"],
+        ["endpoint-slice-1", "routes_to", "pod-2"],
+    ]
+
+
 async def test_projector_serializes_the_complete_commit_under_injected_lock() -> None:
     store = _store()
     status = InMemoryStateStore()

@@ -360,7 +360,7 @@ relationship claims: it prevents a query from using the graph as complete relati
 while a snapshot whose object set admits no intra-set edge states nothing about relationships and
 therefore keeps its own object coverage. An unclassified drop, invalid verification metadata,
 partial source generation, conflict, or cardinality violation remains blocking and preserves the
-previous graph.
+previous graph. Kubernetes EndpointSlice and Ingress array mappings materialize every exactly resolved backend as a separate `routes_to` edge under the many-to-many LinkType; projection retains the complete observed destination set because selecting one backend would discard provider truth rather than recover a cardinality mismatch.
 
 Open container environment values that resolve to the owning Resource are identity references,
 not dependency candidates. This applies to exact ARM IDs and uniquely resolved endpoint aliases;

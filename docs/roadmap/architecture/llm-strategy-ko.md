@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: ed321211caa925e7f01584ae8578aad5711295a8
-translation_revised: 2026-09-17
+translation_source_sha: 27acc97519713641146e79bc9a276027c31df0cd
+translation_revised: 2026-09-18
 ---
 # LLM 전략(LLM Strategy)
 이 설계는 LLM을 **덜 사용**합니다. 모델은 **T2** 대체 경로이며 T0와 T1이 사례를 해결하지 못했을 때만 사용합니다. 결정론적 검증이 승인하기 전에는 모델 출력을 실행에 사용하지 않습니다. 실행 자격은 검증이 부여하며 **모델은 부여하지 않습니다**. 이 문서는 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)의 tier 및 quality-gate 규칙과 [security-and-identity-ko.md](security-and-identity-ko.md)의 위협 모델을 확장합니다.
@@ -468,7 +468,7 @@ O(인덱스 조회). 각 선언은 `is_transitive`, `is_causal`, `temporal_order
 | `attached_to` | Resource → Resource (M:1) | - | 수명 결합 첨부: NIC→VM, disk→VM, private-endpoint→대상. 부모 삭제 시 자식이 깨짐. |
 | `depends_on` | Resource → Resource (M:M) | - | 정상 동작에 필요한 논리적 참조: ContainerApp→Key-Vault / ACR / Postgres, managed-identity→앱. 끊긴 엣지는 대상 이 아니라 dependent 를 degrade. |
 | `peered_with` | Resource ↔ Resource (M:M, symmetric) | - | Independently supported directed 기록 두 개로 표현하는 네트워크 peer이며 기록 하나는 reverse를 imply하지 않습니다. |
-| `routes_to` | Resource → Resource (M:1) | - | UDR next 홉 같은 directed 트래픽 경로 또는 참조이며 absence는 unreachable을 입증하지 않습니다. |
+| `routes_to` | Resource → Resource (M:M) | - | UDR next hop 또는 Kubernetes backend 같은 방향이 있는 트래픽 참조입니다. 하나의 출발점에 관측된 목적지가 여러 개일 수 있으며, 관계가 없다는 사실만으로 도달 불가능함을 입증하지 않습니다. |
 
 탐색은 방향적이고 캐시됨; 타입 `R` 의 `Resource` 에 대한 타입 `T` 의 `Signal` 은 두 인덱스
 교집합을 통해 `triggered_by ∋ T` 및 `applies_to ∋ R` 인 정확한 규칙 세트로 해결 - 텍스트 검색

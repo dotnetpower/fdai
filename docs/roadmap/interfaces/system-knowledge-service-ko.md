@@ -1,8 +1,8 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 9d7d3a0736ee6943ba6f3d103ecf0d46952595f2
-translation_revised: 2026-09-17
+translation_source_sha: 7d4d2fec61640c00fe82930a48bc54ed94c89c58
+translation_revised: 2026-09-18
 ---
 # 시스템 지식 서비스
 
@@ -74,7 +74,9 @@ Muninn은 release context index의 최종 책임을 유지합니다. Bragi는 �
   수정하면 검색 또는 권한을 바꾸지 않고 해당 레코드 다이제스트를 갱신합니다. 비공개 프레임워크와
   delivery 보조 로직 분리로 인용한 소유자 문구가 바뀌거나 인용한 Console 근거의 표현만 수정되는
   경우에도 같은 방식을 적용합니다. 패키지의 `source_revision`은 해당 컴파일에 사용한 도달 가능한
-  보호 main 커밋으로 항상 전진하며, 인용한 아키텍처 표현을 교체한 경우도 포함합니다.
+  보호 main 커밋으로 항상 전진하며, 인용한 아키텍처 표현을 교체한 경우도 포함합니다. 인용한 소유자
+  문서를 수정하면 전달 전에 표준 컴파일러로 패키지 카탈로그를 다시 생성해야 하며 다이제스트 고정값을
+  직접 수정하는 방식은 허용하지 않습니다.
 - **채널 의도:** 전용 봇에서는 수락한 모든 멘션이 시스템 지식 조회입니다. 키워드 라우팅이
   필요하지 않고 일반 A3 봇은 운영 요청 해석을 계속 담당합니다.
 - **롤백:** 지식 봇을 비활성화해도 Core, Operator Service 또는 기존 채널 전달을 롤백하면 안

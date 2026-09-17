@@ -105,6 +105,14 @@ def test_shipped_catalog_declares_kubernetes_telemetry_relationship_direction() 
     assert endpoints.endpoint_orientation is EndpointOrientation.OWNER_TO_REFERENCED
     assert endpoints.reference_format is ProviderReferenceFormat.RESOLVED_NAME
 
+    for mapping_id in (
+        "kubernetes.endpoint-slice-routes-to-pod",
+        "kubernetes.ingress-routes-to-service",
+    ):
+        route = mappings[mapping_id]
+        assert route.link_type == "routes_to"
+        assert route.cardinality == "many_to_many"
+
 
 def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
     loaded = load_provider_relationship_mapping_catalog(CATALOG_ROOT)

@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: cf31e890549de6bf4166d97ebd209ab838b5d4f5
+translation_source_sha: 6ec3b9cf7871d061f55e58e5ab0f39d9a3679d9a
 translation_revised: 2026-09-18
 ---
 # 지속형 운영 인스턴스 그래프
@@ -378,7 +378,7 @@ Ontology projection은 같은 세대를 `relationship_complete=false`로 전진�
 근거로 사용하지 못하게 하되, 객체 집합이 집합 내부 edge를 만들 수 없는 스냅샷은 관계에 대해
 아무것도 진술하지 않으므로 자신의 객체 커버리지를 그대로 유지합니다. 분류되지 않은 drop,
 잘못된 검증 metadata, 부분 source 세대, conflict 또는 cardinality 위반은 계속 차단되며 이전
-그래프를 보존합니다.
+그래프를 보존합니다. Kubernetes EndpointSlice와 Ingress 배열 mapping은 정확히 해석된 모든 backend를 다대다 LinkType의 개별 `routes_to` 연결로 구체화합니다. 변환 결과는 관측된 전체 목적지 집합을 보존하며 backend 하나를 선택하는 방식은 프로바이더 사실을 버리므로 cardinality 불일치를 해결할 수 없습니다.
 
 컨테이너 환경 변수 값이 소유 Resource 자신을 가리키면 의존 관계 후보가 아니라 자기 식별
 참조로 처리합니다. 정확한 ARM ID와 대상으로 유일하게 해석되는 엔드포인트 별칭에 모두

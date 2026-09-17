@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 531f26d8a5c1ec08f96633364a6f44ef4fb4d01a
-translation_revised: 2026-09-16
+translation_source_sha: 1eba9ba927c19e40019eb3194af7a716a639f6ec
+translation_revised: 2026-09-18
 ---
 # FDAI 운영 온톨로지
 
@@ -222,7 +222,7 @@ Saga, 재생 소비자가 같은 사실을 참조하게 하는 변경할 수 없
 | `resource_classified_as` | Resource -> ResourceType | 관찰된 리소스에서 검토된 형식 하나로 향하는 검증된 의미 분류입니다. |
 | `contains` | Resource -> Resource | 포함 상위에서 포함된 하위로 향하며 탐색은 stored 소유권을 뒤집지 않습니다. |
 | `attached_to` | Resource -> Resource | 연결된 리소스에서 기준점으로 향하며 조회는 저장소를 다시 쓰지 않고 inverse를 traverse할 수 있습니다. |
-| `routes_to` | Resource -> Resource | 관측된 forwarding 또는 next-hop의 directed 참조이며 absence는 도달 가능성을 입증하지 않습니다. |
+| `routes_to` | Resource -> Resource | 다대다 구조로 관측된 방향이 있는 전달 참조입니다. 하나의 출발점이 여러 목적지를 보존할 수 있으며 관계가 없다는 사실만으로 도달 가능성을 입증하지 않습니다. |
 | `peered_with` | Resource -> Resource | Independently supported directed 기록 두 개로 표현하는 symmetric peer입니다. |
 | `governed_by` | 서비스/워크로드 -> 목표/제약 | 대상에 적용하는 의도입니다. |
 | `owned_by` | 서비스/워크로드/목표 -> 소유권 | 책임 운영 소유자입니다. |
