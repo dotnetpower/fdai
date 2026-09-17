@@ -1,6 +1,6 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: 7237bbef67c957b25b52add134cce2dde0365e9c
+translation_source_sha: 84e4dc0a5737e45c859404c6bedeb6569b24251c
 translation_revised: 2026-09-17
 ---
 # AKS 상거래 비즈니스 시나리오
@@ -329,6 +329,13 @@ Kubernetes API 수락은 성공이 아닙니다.
 
 - 프로필은 전용 `aks-store-demo` 클러스터를 생성하며 다른 기존 FDAI 또는 공유
   클러스터를 선택하지 않습니다.
+- 폐기 가능한 랩은 로컬 구독 인벤토리가 비공개 네트워크 경로 없이 클러스터를 관측할
+  수 있도록 AKS 관리 API를 공개합니다. Microsoft Entra 인증, Azure RBAC, 로컬 계정
+  비활성화는 계속 필수이며 이 엔드포인트는 익명 접근이나 애플리케이션 접근 권한을
+  부여하지 않습니다.
+- 공개 API 접근과 승인된 IP 범위 부재에 대한 Trivy 및 Checkov 예외는 이 폐기 가능한
+  클러스터 리소스 바로 옆에만 둡니다. 다른 AKS 점검을 억제하거나 위 인증 및 권한 부여
+  제어를 약화하지 않습니다.
 - 스토어프런트만 공개 애플리케이션 표면으로 둡니다.
 - 공개 접근은 HTTPS, 배포에서 제공한 DNS 이름, 신뢰할 수 있는 인증서 참조를 사용합니다.
 - 관리 UI, API, 큐, 데이터베이스, 실행기는 비공개로 유지합니다.
@@ -339,6 +346,9 @@ Kubernetes API 수락은 성공이 아닙니다.
   stress VM NIC는 명시적인 Terraform 소유 association을 유지합니다.
 - 배포는 스토어프런트 URL과 불투명한 리소스 참조를 출력합니다. 테넌트 값을
   커밋하지 않습니다.
+- 일반 apply는 모든 교체를 계속 거부합니다. 일회성 `recreate-aks` 작업은 검토된
+  비공개-공개 클러스터 교체와 해당 클러스터 범위 역할 할당만 허용하고 정확한 사람
+  확인을 요구하며, 그 밖의 모든 파괴적 주소를 거부합니다.
 
 Gateway API를 장기 수신 계약으로 권장합니다. Ingress 호환 프로필은 지원 기간과 이행
 경로를 기록한 기간 제한 랩에서만 사용할 수 있습니다.
