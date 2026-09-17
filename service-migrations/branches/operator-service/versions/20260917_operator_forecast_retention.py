@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "operator_forecast_retention_20260917"
-down_revision: str | Sequence[str] | None = "operator_browser_evidence_workspace_20260915"
+down_revision: str | Sequence[str] | None = "operator_inventory_progress_read_20260916"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -15,7 +15,7 @@ migration_owner = "operator-service"
 owned_tables: tuple[str, ...] = ()
 rollback = {
     "strategy": "drop-aggregate-forecast-retention-view",
-    "restores": "operator_browser_evidence_workspace_20260915",
+    "restores": "operator_inventory_progress_read_20260916",
     "requires": "operator-runtime-stopped",
 }
 

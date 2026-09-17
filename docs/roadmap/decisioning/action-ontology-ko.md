@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: ba4da66df9512eb4253aa1f0405ff7e86882c30c
-translation_revised: 2026-09-15
+translation_source_sha: f4a1a6b8fbfab8527efd5dfe13d32e301b076759
+translation_revised: 2026-09-17
 ---
 
 # 액션 온톨로지
@@ -303,7 +303,7 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 
 오퍼레이터 요청 런타임 액션. Day 1 shipping:
 
-- `ops.restart-service` - AKS pod 재시작, App Service 재시작, Container App 개정 번호 재시작.
+- `ops.restart-service` - AKS Pod, App Service, Container App 리비전을 다시 시작합니다. `ops.rollback-kubernetes-rollout`은 사람 승인과 서버 측 dry run 뒤 정확한 Deployment 하나를 검토된 digest 고정 이미지로 복원합니다.
 - `ops.scale-out` - 복제본 / 인스턴스 개수 증가. 지출-증가이므로 `cost_impact_monthly` 를 선언 MUST ->
   risk-classification 비용 게이트 적용 ([execution-model.md § 2.8](execution-model-ko.md#28-비용-증가-ops-액션)).
 - `ops.scale-in` - 복제본 개수 감소 (Approver + 실제 운영 탐색).
@@ -338,8 +338,7 @@ Owner 수준의 사람 승인과 독립 효과/복구 근거를 유지합니다.
 리소스 프로비저닝은 운영자 요청 ActionType이 아닙니다. FDAI는 코드형 인프라가 리소스 생성을 소유하는 환경을 대상으로 하므로 모델 배포나 클라우드 리소스 생성을 요청하는 대화는 지원되지 않으며 아무것도 제출하지 않습니다. 같은 대화 화면에서 권한이 있는 인벤토리를 조회하여 이미 존재하는 리소스를 확인할 수 있습니다.
 
 **버티컬 매핑:** [버티컬](../../../services/core-control-plane/src/fdai/core/verticals)은 태깅된 작업을 소유하며 `remediates:`로 참조합니다.
-`ops.failover-primary` / `ops.restart-service`는 복원력, `ops.scale-in` / `ops.scale-out`은 비용 거버넌스,
-`ops.drain-connection` / `ops.rotate-cert`는 변경 안전성에 속합니다.
+`ops.failover-primary` / `ops.restart-service` / `ops.rollback-kubernetes-rollout`은 복원력, `ops.scale-in` / `ops.scale-out`은 비용 거버넌스, `ops.drain-connection` / `ops.rotate-cert`는 변경 안전성에 속합니다.
 `ops.flush-cache` / `ops.publish-change-summary`는 여러 버티컬에 걸친 운영자 작업입니다. Azure VM/네트워크 게이트웨이 연결은 소유권을 바꾸지 않습니다.
 
 지연에 민감한 운영 작업은 보통 `execution_path: direct_api`를 사용합니다. 규정상 모든 변경을 검토 가능한 차이로 남겨야 한다면

@@ -35,9 +35,11 @@ export async function loadOnboardingState(
 export function OnboardingRoute({
   client,
   dataMode,
+  embedded = false,
 }: {
   readonly client: OperatorApiClient;
   readonly dataMode: ConsoleDataMode;
+  readonly embedded?: boolean;
 }) {
   const [state, setState] = useState<AsyncState<OnboardingResponse>>({ status: "loading" });
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
@@ -60,23 +62,34 @@ export function OnboardingRoute({
     void load(true);
     return () => { generation.current += 1; };
   }, [client]);
+  const refreshAction = (
+    <button
+      type="button"
+      class="btn secondary"
+      disabled={state.status === "loading" || refreshing}
+      aria-busy={refreshing}
+      onClick={() => { void load(false); }}
+    >
+      {refreshing ? t("onboardingView.refreshing") : t("onboardingView.refresh")}
+    </button>
+  );
   return (
     <div class="stack onboarding-route">
-      <PageHeader
-        title={t("onboardingView.title")}
-        subtitle={t("onboardingView.viewPurpose")}
-        actions={
-          <button
-            type="button"
-            class="btn secondary"
-            disabled={state.status === "loading" || refreshing}
-            aria-busy={refreshing}
-            onClick={() => { void load(false); }}
-          >
-            {refreshing ? t("onboardingView.refreshing") : t("onboardingView.refresh")}
-          </button>
-        }
-      />
+      {embedded ? (
+        <header class="environment-deployment-section-header">
+          <div>
+            <h2>{t("onboardingView.title")}</h2>
+            <p>{t("onboardingView.viewPurpose")}</p>
+          </div>
+          {refreshAction}
+        </header>
+      ) : (
+        <PageHeader
+          title={t("onboardingView.title")}
+          subtitle={t("onboardingView.viewPurpose")}
+          actions={refreshAction}
+        />
+      )}
       {state.status === "error" ? (
         <ErrorState
           message={t("shared.loadFailed", {

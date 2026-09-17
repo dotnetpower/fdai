@@ -12,20 +12,25 @@ import type { PanelProps } from "../panels";
 import { routeHref } from "../router";
 import { cloudKnowledgeText as text, type CloudKnowledgeMessageKey } from "./cloud-knowledge.i18n";
 import {
-  canImportCloudKnowledgePackage, cloudKnowledgeOutcomeText, cloudKnowledgePermissions,
-  formatCloudKnowledgeDate, isCloudKnowledgePackageFile, requireCloudKnowledgeOverview,
-  requireCloudKnowledgeRelease,
+  canImportCloudKnowledgePackage, cloudKnowledgeFailureRequiresReload,
+  cloudKnowledgeIntakeReadiness, cloudKnowledgeOutcomeText, cloudKnowledgePermissions,
+  formatCloudKnowledgeDate, isCloudKnowledgePackageFile,
+  nextCloudKnowledgeWorkspaceView, requireCloudKnowledgeOverview, requireCloudKnowledgeRelease,
+  type CloudKnowledgeRequestKind, type CloudKnowledgeWorkspaceView,
   type InspectedCloudKnowledgePackage,
 } from "./cloud-knowledge.model";
+import { PackageIntake } from "./cloud-knowledge-package";
 import {
-  ActionButton, CollectionList, CONTROL_STYLE, Metadata, PackageIntake, SourceList,
+  ActionButton, CloudKnowledgeSetupState, CollectionList, CONTROL_STYLE, Metadata,
+  SourceList,
 } from "./cloud-knowledge.views";
+import "./cloud-knowledge.css";
 
-type RequestKind = "load" | "refresh" | "export" | "stage" | "inspect" | "import";
-const BUSY_KEYS: Readonly<Record<RequestKind, CloudKnowledgeMessageKey>> = {
+const BUSY_KEYS: Readonly<Record<CloudKnowledgeRequestKind, CloudKnowledgeMessageKey>> = {
   load: "loading", refresh: "checking", export: "exporting", stage: "staging",
   inspect: "inspecting", import: "importing",
 };
+const WORKSPACE_VIEWS: readonly CloudKnowledgeWorkspaceView[] = ["sources", "package"];
 
 /** A bounded tool inside Knowledge overview; all authority and lifecycle transitions remain server-owned. */
 export function CloudKnowledgePanel({ client, dataMode }: PanelProps) {
@@ -36,7 +41,8 @@ export function CloudKnowledgePanel({ client, dataMode }: PanelProps) {
   const [view, setView] = useState<{ api: IngestionApiClient; state: AsyncState<CloudKnowledgeOverview> }>({
     api, state: { status: "loading" },
   });
-  const [busy, setBusy] = useState<RequestKind | null>("load");
+  const [activeView, setActiveView] = useState<CloudKnowledgeWorkspaceView>("sources");
+  const [busy, setBusy] = useState<CloudKnowledgeRequestKind | null>("load");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [requiresReload, setRequiresReload] = useState(false);
@@ -50,6 +56,11 @@ export function CloudKnowledgePanel({ client, dataMode }: PanelProps) {
   const state: AsyncState<CloudKnowledgeOverview> = view.api === api ? view.state : { status: "loading" };
   const overview = state.status === "ready" && dataMode === "live" ? state.data : null;
   const permissions = cloudKnowledgePermissions(overview, busy !== null || requiresReload);
+  const intakeReadiness = cloudKnowledgeIntakeReadiness(
+    overview,
+    busy !== null,
+    requiresReload,
+  );
 
   const clearInspection = () => {
     confirmedFile.current = null;
@@ -73,7 +84,7 @@ export function CloudKnowledgePanel({ client, dataMode }: PanelProps) {
 
   // The ref closes the same-frame duplicate-submit window. No POST is retried or polled.
   const run = async (
-    kind: RequestKind,
+    kind: CloudKnowledgeRequestKind,
     operation?: (signal: AbortSignal) => Promise<string>,
   ) => {
     if (request.current !== null || dataMode !== "live") return;
@@ -99,11 +110,7 @@ export function CloudKnowledgePanel({ client, dataMode }: PanelProps) {
         setView({ api, state: { status: "loading" } });
         const data = requireCloudKnowledgeOverview(await api.cloudKnowledge(controller.signal));
         controller.signal.throwIfAborted();
-        setView({ api, state: data.available ? { status: "ready", data } : {
-          status: "unavailable",
-          message: `${text("unavailable")}${typeof data.reason === "string"
-            ? ` ${text("reason")}: ${data.reason}` : ""}`,
-        } });
+        setView({ api, state: { status: "ready", data } });
         setRequiresReload(false);
       }
     } catch (failure) {
@@ -118,7 +125,7 @@ export function CloudKnowledgePanel({ client, dataMode }: PanelProps) {
           : { status: "error", message } });
       } else {
         setError(text("actionFailed", { message }));
-        setRequiresReload(true);
+        setRequiresReload(cloudKnowledgeFailureRequiresReload(kind));
       }
       clearInspection();
     } finally {
@@ -224,7 +231,10 @@ export function CloudKnowledgePanel({ client, dataMode }: PanelProps) {
   };
 
   return (
-    <section class="stack" aria-labelledby="cloud-knowledge-title" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+    <section
+      class="stack cloud-knowledge-workspace"
+      aria-labelledby="cloud-knowledge-title"
+    >
       <div class="knowledge-section-heading">
         <div>
           <h3 id="cloud-knowledge-title" class="cs-type-section-title">{text("title")}</h3>
@@ -232,13 +242,36 @@ export function CloudKnowledgePanel({ client, dataMode }: PanelProps) {
         </div>
         <a class="cs-control-button" style={CONTROL_STYLE} href={routeHref("hil-queue")}>{text("approvals")}</a>
       </div>
-      <p class="muted" style={{ margin: 0 }}>{text("boundary")}</p>
-      <div class="knowledge-connector-actions">
-        <ActionButton disabled={busy !== null || dataMode !== "live"} onClick={() => void run("load")}>{text("reload")}</ActionButton>
-        <ActionButton disabled={!permissions.refresh} busy={busy === "refresh"} onClick={refresh}>{text("checkDue")}</ActionButton>
+      <div
+        class="settings-tabs cloud-knowledge-tabs"
+        role="tablist"
+        aria-label={text("viewsLabel")}
+        onKeyDown={(event) => {
+          const next = nextCloudKnowledgeWorkspaceView(activeView, event.key);
+          if (next === activeView) return;
+          event.preventDefault();
+          setActiveView(next);
+          requestAnimationFrame(() => {
+            document.getElementById(`cloud-knowledge-tab-${next}`)?.focus();
+          });
+        }}
+      >
+        {WORKSPACE_VIEWS.map((workspaceView) => (
+          <button
+            key={workspaceView}
+            id={`cloud-knowledge-tab-${workspaceView}`}
+            type="button"
+            role="tab"
+            class={activeView === workspaceView ? "is-active" : undefined}
+            aria-selected={activeView === workspaceView}
+            aria-controls={`cloud-knowledge-panel-${workspaceView}`}
+            tabIndex={activeView === workspaceView ? 0 : -1}
+            onClick={() => setActiveView(workspaceView)}
+          >
+            {text(workspaceView === "sources" ? "sourcesTab" : "packageTab")}
+          </button>
+        ))}
       </div>
-      <p class="muted" style={{ margin: 0 }}>{text("checkHint")}</p>
-      <p class="muted" style={{ margin: 0 }}>{text("permissions")}</p>
       {busy && busy !== "load" ? (
         <div class="stack-section" role="status" aria-live="polite" aria-busy="true">
           <span>{text(BUSY_KEYS[busy])}</span>
@@ -248,22 +281,78 @@ export function CloudKnowledgePanel({ client, dataMode }: PanelProps) {
       {notice ? <p role="status" aria-live="polite">{notice}</p> : null}
       {error ? <ErrorState message={error} /> : null}
       {requiresReload ? <p class="muted">{text("reloadBeforeRetry")}</p> : null}
-      <AsyncBoundary state={state} resourceLabel={text("title")}>
-        {(data) => (
-          <div class="stack" style={{ minWidth: 0 }}>
-            <Metadata items={[
-              ["registry", data.registry_revision ?? text("unknown")],
-              ["registryValidUntil", formatCloudKnowledgeDate(data.registry_valid_until)],
-            ]} />
-            <SourceList sources={data.sources} />
-            <CollectionList collections={data.collections} permissions={permissions}
-              onExport={exportCollection} onStage={stageCollection} onRollback={rollbackRevision} />
+      {activeView === "sources" ? (
+        <section
+          id="cloud-knowledge-panel-sources"
+          class="stack cloud-knowledge-panel"
+          role="tabpanel"
+          aria-labelledby="cloud-knowledge-tab-sources"
+        >
+          <p class="muted cloud-knowledge-boundary">{text("boundary")}</p>
+          <div class="knowledge-connector-actions">
+            <ActionButton
+              disabled={busy !== null || dataMode !== "live"}
+              busy={busy === "load"}
+              onClick={() => void run("load")}
+            >
+              {text("reload")}
+            </ActionButton>
+            <ActionButton
+              disabled={!permissions.refresh}
+              busy={busy === "refresh"}
+              onClick={refresh}
+            >
+              {text("checkDue")}
+            </ActionButton>
           </div>
-        )}
-      </AsyncBoundary>
-      <PackageIntake input={input} file={file} inspection={overview ? inspection : null}
-        confirmed={confirmed} permissions={permissions} onFile={chooseFile}
-        onConfirm={confirmPackage} onInspect={inspectPackage} onImport={importPackage} />
+          <p class="muted cloud-knowledge-guidance">{text("checkHint")}</p>
+          <p class="muted cloud-knowledge-guidance">{text("permissions")}</p>
+          <AsyncBoundary state={state} resourceLabel={text("title")}>
+            {(data) => data.available ? (
+              <div class="stack cloud-knowledge-recorded-state">
+                <Metadata items={[
+                  ["registry", data.registry_revision ?? text("unknown")],
+                  ["registryValidUntil", formatCloudKnowledgeDate(data.registry_valid_until)],
+                ]} />
+                <SourceList sources={data.sources} />
+                <CollectionList
+                  collections={data.collections}
+                  permissions={permissions}
+                  onExport={exportCollection}
+                  onStage={stageCollection}
+                  onRollback={rollbackRevision}
+                />
+              </div>
+            ) : <CloudKnowledgeSetupState reason={data.reason} />}
+          </AsyncBoundary>
+        </section>
+      ) : (
+        <section
+          id="cloud-knowledge-panel-package"
+          class="cloud-knowledge-panel"
+          role="tabpanel"
+          aria-labelledby="cloud-knowledge-tab-package"
+        >
+          <AsyncBoundary state={state} resourceLabel={text("packageTitle")}>
+            {(data) => (
+              <PackageIntake
+                input={input}
+                file={file}
+                inspection={data.available ? inspection : null}
+                confirmed={confirmed}
+                permissions={permissions}
+                readiness={intakeReadiness}
+                busy={busy}
+                setupReason={data.reason}
+                onFile={chooseFile}
+                onConfirm={confirmPackage}
+                onInspect={inspectPackage}
+                onImport={importPackage}
+              />
+            )}
+          </AsyncBoundary>
+        </section>
+      )}
     </section>
   );
 }

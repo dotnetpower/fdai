@@ -27,6 +27,7 @@ const SAMPLE_PANEL_IDS = new Set([
   "trust-routing",
   "llm-cost",
   "cost-governance",
+  "aks-commerce",
 ]);
 
 export function supportsSampleData(panelId: string): boolean {

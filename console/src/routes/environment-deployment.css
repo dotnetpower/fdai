@@ -1,0 +1,62 @@
+.environment-deployment-route,
+.environment-deployment-panel {
+  min-width: 0;
+}
+
+.environment-deployment-tabs {
+  margin-bottom: 0;
+}
+
+.environment-deployment-panel {
+  padding-top: 4px;
+}
+
+.environment-deployment-section-header {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.environment-deployment-section-header > div {
+  min-width: 0;
+}
+
+.environment-deployment-section-header h2,
+.environment-deployment-section-header p {
+  margin: 0;
+}
+
+.environment-deployment-section-header h2 {
+  color: var(--fg);
+  font-size: var(--cs-type-section-title-size);
+  line-height: var(--cs-type-section-title-line-height);
+}
+
+.environment-deployment-section-header p {
+  margin-top: 5px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+.environment-deployment-section-header > .status-pill,
+.environment-deployment-section-header > button {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 700px) {
+  .environment-deployment-section-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .environment-deployment-section-header > button {
+    width: fit-content;
+    min-height: 44px;
+  }
+}

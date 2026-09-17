@@ -74,9 +74,15 @@ test("cloud knowledge dates and reviewed intake stay distinct across desktop and
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/knowledge");
   const panel = page.getByRole("region", { name: "Cloud reference knowledge" });
+  await expect(page.getByRole("heading", { name: "Knowledge overview" })).toBeVisible();
   await expect(panel.getByRole("heading", { name: "Cloud reference knowledge" })).toBeVisible();
   await expect(panel.getByText("Stale reference", { exact: true }).first()).toBeVisible();
   await expect(panel.getByText(/2026-08-01/).first()).toBeVisible();
+  const sourcesTab = panel.getByRole("tab", { name: "Source status" });
+  const packageTab = panel.getByRole("tab", { name: "Offline package" });
+  await sourcesTab.focus();
+  await sourcesTab.press("ArrowRight");
+  await expect(packageTab).toHaveAttribute("aria-selected", "true");
   await expect(panel.getByRole("button", { name: "Import inspected package for review" })).toBeDisabled();
   await panel.getByLabel("Signed knowledge package", { exact: true }).setInputFiles({
     name: "knowledge.json", mimeType: "application/json", buffer: Buffer.from('{"fixture":"data"}'),
@@ -92,6 +98,7 @@ test("cloud knowledge dates and reviewed intake stay distinct across desktop and
   expect(bytes[0]).toBe(bytes[1]);
   await expect(panel.getByRole("button", { name: "Import inspected package for review" })).toBeDisabled();
   expect(await panel.locator('a[href^="https://"]').count()).toBe(0);
+  await sourcesTab.click();
   await panel.locator("summary").filter({ hasText: /^cloud-reference$/ }).click();
   await panel.locator("summary").filter({ hasText: /^cloud-prior - / }).click();
   const rollback = panel.getByRole("button", { name: "Submit this revision for rollback review" });
@@ -107,19 +114,113 @@ test("cloud knowledge dates and reviewed intake stay distinct across desktop and
     await page.setViewportSize(viewport);
     await expect(panel.getByRole("heading", { name: "Registered sources" })).toBeVisible();
     await noOverflow(page);
+    await packageTab.click();
+    await expect(panel.getByRole("heading", { name: "Select a package" })).toBeVisible();
+    await noOverflow(page);
+    await sourcesTab.click();
   }
+  await expect(panel.getByRole("tab", { name: "Source status" }))
+    .toHaveCSS("min-height", "44px");
 });
 
 test("missing cloud policies show unavailable without enabling actions", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("fdai:console:locale", "ko");
+  });
   await page.route("http://127.0.0.1:8011/ingestion/cloud-knowledge", async (route) => {
     await route.fulfill({ status: 200, headers: { "Access-Control-Allow-Origin": "*" },
       contentType: "application/json", body: JSON.stringify({ available: false,
         reason: "source_and_trust_policy_required", can_refresh: false, can_import: false,
         sources: [], collections: [] }) });
   });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/knowledge");
+  const panel = page.getByRole("region", { name: "클라우드 참조 지식" });
+  await expect(panel.getByRole("heading", { name: "배포에서 관리하는 설정 완료" })).toBeVisible();
+  await expect(panel.getByText(/승인된 원본 레지스트리와 서명 신뢰 정책/)).toBeVisible();
+  await expect(panel.getByRole("button", { name: "확인 주기가 된 원본 확인" })).toBeDisabled();
+  await panel.getByRole("tab", { name: "오프라인 패키지" }).click();
+  await expect(panel.getByLabel("서명된 지식 패키지", { exact: true })).toBeEnabled();
+  await expect(panel.getByRole("button", { name: "선택한 패키지 검사" })).toBeDisabled();
+  await noOverflow(page);
+});
+
+test("a rejected inspection keeps the local package available for correction or retry", async ({
+  page,
+}) => {
+  let inspections = 0;
+  await page.context().route("http://127.0.0.1:8011/ingestion/cloud-knowledge**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    const headers = {
+      "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization,content-type",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    };
+    if (request.method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers });
+      return;
+    }
+    if (path.endsWith("/inspect")) {
+      inspections += 1;
+      if (inspections === 1) {
+        await route.fulfill({
+          status: 422,
+          headers,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: "invalid_package",
+            message: "Signature verification failed.",
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        headers,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "verified_candidate",
+          approval_required: true,
+          release,
+          document_count: 1,
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      headers,
+      contentType: "application/json",
+      body: JSON.stringify({
+        available: true,
+        registry_revision: 1,
+        registry_valid_until: "2026-10-01T00:00:00Z",
+        can_refresh: true,
+        can_import: true,
+        sources: [source],
+        collections: [],
+        automatic_activation: false,
+        approval_required: true,
+      }),
+    });
+  });
+
   await page.goto("/knowledge");
   const panel = page.getByRole("region", { name: "Cloud reference knowledge" });
-  await expect(panel.getByText(/Cloud reference knowledge is unavailable/)).toBeVisible();
-  await expect(panel.getByRole("button", { name: "Check due sources" })).toBeDisabled();
-  await expect(panel.getByRole("button", { name: "Inspect selected package" })).toBeDisabled();
+  await panel.getByRole("tab", { name: "Offline package" }).click();
+  await panel.getByLabel("Signed knowledge package", { exact: true }).setInputFiles({
+    name: "knowledge.json",
+    mimeType: "application/json",
+    buffer: Buffer.from('{"fixture":"data"}'),
+  });
+  const inspect = panel.getByRole("button", { name: "Inspect selected package" });
+  await inspect.click();
+  await expect(panel.getByRole("alert")).toContainText("Signature verification failed.");
+  await expect(inspect).toBeEnabled();
+  await expect(panel.getByText("Reload recorded status before another request.")).toHaveCount(0);
+
+  await inspect.click();
+
+  await expect(panel.getByText("Verified candidate", { exact: true })).toBeVisible();
+  expect(inspections).toBe(2);
 });
