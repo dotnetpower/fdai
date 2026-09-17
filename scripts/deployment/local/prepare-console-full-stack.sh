@@ -226,6 +226,7 @@ auth_mode_outputs_match() {
 can_reuse_legacy_preparation() {
   local current_digest="$1"
   local output
+  [[ -s "${resolved_models_override:-$repo_root/resolved-models.json}" || -s "$repo_root/.fdai/resolved-models-vision.json" ]] || return 1
   [[ -f "$legacy_preparation_marker" ]] || return 1
   [[ "$(<"$legacy_preparation_marker")" == "$current_digest" ]] || return 1
   for output in "${required_outputs[@]}"; do
@@ -460,6 +461,14 @@ run_stage \
   "$repo_root/.venv/bin/fdai-document-processing-worker" \
   "$repo_root/.venv/bin/fdai-isolated-executor-service"
 
+require_cloud_tools
+run_bounded local-model-settings \
+  env -u AZURE_CONFIG_DIR \
+  "$repo_root/.venv/bin/python" \
+  "$repo_root/scripts/deployment/local/ensure-local-models.py" \
+  --repo-root "$repo_root" \
+  --resource-group "${FDAI_LOCAL_RESOURCE_GROUP:-}"
+
 write_database_identity
 database_identity="$stage_marker_dir/database-volumes.sha256"
 
@@ -480,6 +489,7 @@ runtime_environment_inputs=(
   uv.lock
   packages/service-contracts/src/fdai_service_contracts/semantic_turn.py
   scripts/deployment/azure/prepare-local-runtime-env.sh
+  scripts/deployment/local/ensure-local-models.py
 )
 for optional_input in \
   resolved-models.json \
