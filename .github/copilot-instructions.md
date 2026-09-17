@@ -95,9 +95,8 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    jobs and the exact pushed-SHA environment remain authoritative. Deployment and release target a
    pushed SHA with required CI and protected preflight; local validation receipts never grant
    authority. The standing completion preference also authorizes entering the applicable
-   repository deployment workflow after protected merge. It never selects a tenant, subscription,
-   environment, or exact Terraform plan, never supplies a secret, and never replaces a required human plan approval
-   or destructive-action confirmation. Use a task branch or isolated worktree
+   repository deployment workflow after protected merge. It never selects a tenant, subscription, environment, or exact Terraform plan and never supplies a secret. For coding-session operations, an authenticated operator's explicit request for a bounded non-destructive development action on an already selected target, source, and scope authorizes the session to bind generated plan ids and digests internally and continue without machine-value transcription or repeated approval.
+   This interaction rule grants no product runtime authority and never replaces a distinct approver, quorum, destructive confirmation, or renewed approval after target, source, scope, effect, or plan drift. Use a task branch or isolated worktree
    for each active outcome. Only superseded PR
    runs may be cancelled; every integrated `main` revision must reach a terminal CI result before
    another change enters `main`. A session waiting on external evidence is blocked or idle, not

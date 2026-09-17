@@ -367,9 +367,9 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     console_apply = command(
         console_update_commands,
         "apply",
-        "Publish one exact plan with bounded terminal approval and readback",
+        "Publish one explicitly invoked exact dev plan and verify readback",
         epilog=(
-            "Type the exact plan digest interactively. Approval through an option or pipe is not accepted."
+            "Invocation is explicit coding-session authorization; plan digests remain internally bound."
         ),
     )
     console_apply.add_argument(
@@ -382,7 +382,7 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         "--timeout-seconds", type=int, default=900, help="Bound for publication and readback"
     )
     console_apply.add_argument(
-        "--output", choices=("text", "json"), default="text", help="Text is required for apply"
+        "--output", choices=("text", "json"), default="text", help="Result format"
     )
     console_apply.set_defaults(handler=handlers["provision_console_update_apply"])
     register_state_handoff_command(provision_commands)

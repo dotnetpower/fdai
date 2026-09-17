@@ -488,10 +488,9 @@ contains the existing Static Web App resource ID and hostname, API origins, and 
 SPA client and separately registered API scope bindings. Planning requires the active Azure tenant and subscription to match, reads the Static Web
 App hostname from Azure, verifies both artifact manifests, and creates a private plan that expires
 within 20 minutes. Planning does not request a deployment token or publish content.
-
-The `apply` command requires a real terminal and the exact plan digest. It rechecks protected
+Invoking `apply` is explicit coding-session authorization for this bounded non-destructive dev update; it does not request another confirmation or machine-digest transcription. The command rechecks protected
 `origin/main`, the Azure target, both artifacts, and plan expiry, then writes approval and claim
-records before publication. A retained claim permits candidate readback only and never repeats the
+records that bind the validated plan digest internally before publication. A retained claim permits candidate readback only and never repeats the
 candidate publication. A failed publication or claimed-content mismatch republishes the verified
 rollback artifact and writes a terminal failure receipt. Success requires exact remote hashes, SPA
 fallback, both API health checks, exact-origin CORS, unauthenticated denial, and the Entra redirect.

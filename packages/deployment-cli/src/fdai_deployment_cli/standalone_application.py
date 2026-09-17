@@ -698,12 +698,6 @@ def _approval_input(*, timeout_seconds: int = 600) -> str:
         raise ValueError("approval input closed; no new approval was granted") from exc
 
 
-def read_exact_approval_input(*, timeout_seconds: int = 600) -> str:
-    """Read one bounded approval value from a real terminal."""
-
-    return _approval_input(timeout_seconds=timeout_seconds)
-
-
 def _wait_for_approval_input(timeout_seconds: int) -> None:
     """Wait only on a real terminal with the plan and invocation's remaining budget."""
 

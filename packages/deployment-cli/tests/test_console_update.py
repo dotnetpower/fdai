@@ -4,10 +4,11 @@ import hashlib
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from fdai_deployment_cli import console_update
+from fdai_deployment_cli import cli, console_update
 
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000001"
 TENANT = "00000000-0000-0000-0000-000000000002"
@@ -223,6 +224,41 @@ def test_shared_publisher_supports_readback_without_republication() -> None:
     assert 'verify_only="${FDAI_CONSOLE_VERIFY_ONLY:-0}"' in publisher
     assert 'if [[ "$verify_only" == 0 ]]; then' in publisher
     assert "verify-only Console readback requires CONSOLE_PREBUILT_DIRECTORY" in publisher
+
+
+def test_cli_apply_keeps_internal_exact_plan_binding_without_prompt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    work = tmp_path / "work"
+    work.mkdir()
+    plan_digest = "a" * 64
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        cli,
+        "load_console_update_plan",
+        lambda _path: {
+            "source_commit": "b" * 40,
+            "target_binding": "c" * 64,
+            "candidate_archive_sha256": "d" * 64,
+            "rollback_archive_sha256": "e" * 64,
+            "plan_digest": plan_digest,
+        },
+    )
+
+    def apply(**arguments: object) -> dict[str, object]:
+        captured.update(arguments)
+        return {"receipt_digest": "f" * 64}
+
+    monkeypatch.setattr(cli, "apply_console_update_plan", apply)
+    result = cli._provision_console_update_apply(
+        SimpleNamespace(source=source, work_dir=work, timeout_seconds=900, output="text")
+    )
+
+    assert result == 0
+    assert captured["approved_plan_digest"] == plan_digest
 
 
 def _prepared_plan(

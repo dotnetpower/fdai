@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 0a830e72fb0d00daaca4beb04010f31f27156818
+translation_source_sha: b92b5900bb2768ae6abac98f34a60d8340639771
 translation_revised: 2026-09-17
 ---
 
@@ -488,9 +488,8 @@ dispatch하지 않습니다.
 등록된 API scope 바인딩이 포함됩니다. 계획할 때 활성 Azure tenant와 subscription의 일치를 요구하고, Azure에서 Static Web App 호스트
 이름을 읽고, 두 산출물 매니페스트를 검증한 뒤 20분 안에 만료되는 비공개 계획을 만듭니다.
 계획은 배포 토큰을 요청하거나 콘텐츠를 게시하지 않습니다.
-
-`apply` 명령에는 실제 터미널과 정확한 계획 digest가 필요합니다. 보호된 `origin/main`, Azure
-대상, 두 산출물과 계획 만료를 다시 확인하고 게시 전에 승인 및 실행 전 기록을 씁니다. 실행 전
+`apply` 실행 자체가 범위가 제한된 비파괴 dev 갱신에 대한 명시적 코딩 세션 승인이며 확인 문구나 기계 digest를 다시 요구하지 않습니다.
+보호된 `origin/main`, Azure 대상, 두 산출물과 계획 만료를 다시 확인하고 검증한 계획 digest에 내부적으로 결속된 승인 및 실행 전 기록을 게시 전에 씁니다. 실행 전
 기록이 있으면 후보를 다시 게시하지 않고 결과만 확인합니다. 게시 실패나 기록된 후보 콘텐츠
 불일치가 발생하면 검증된 롤백 산출물을 다시 게시하고 종료 실패 증적을 기록합니다. 성공하려면
 정확한 원격 해시, SPA 대체 경로, 두 API 상태 검사, 정확한 원본 CORS, 미인증 요청 거부 및 Entra

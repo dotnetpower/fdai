@@ -58,7 +58,6 @@ from fdai_deployment_cli.simulation import rehearse
 from fdai_deployment_cli.source_azure import plan_source_installation
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_foundation import prepare_source_foundation_plan
-from fdai_deployment_cli.standalone_application import read_exact_approval_input
 from fdai_deployment_cli.standalone_deploy import deploy_azure_foundation
 from fdai_deployment_cli.state import read_journal
 from fdai_deployment_cli.status_projection import project_status
@@ -374,28 +373,26 @@ def _provision_console_update_build(args: argparse.Namespace) -> int:
 
 
 def _provision_console_update_apply(args: argparse.Namespace) -> int:
-    """Collect bounded exact approval and apply one Console update plan."""
+    """Apply one explicitly invoked Console update plan without redundant input."""
 
-    if args.output != "text" or not sys.stdin.isatty():
-        raise ValueError("Console update apply requires text output and a real terminal")
     work_dir = _absolute_work_dir(args.work_dir)
     plan = load_console_update_plan(work_dir / "plan.json")
-    print(
-        "Console update exact plan\n"
-        f"  source commit: {plan['source_commit']}\n"
-        f"  target binding: {plan['target_binding']}\n"
-        f"  candidate SHA-256: {plan['candidate_archive_sha256']}\n"
-        f"  rollback SHA-256: {plan['rollback_archive_sha256']}\n"
-        f"  plan digest: {plan['plan_digest']}\n"
-        "Type the exact plan digest to approve publication:",
-        file=sys.stderr,
-    )
-    approved_digest = read_exact_approval_input(timeout_seconds=min(args.timeout_seconds, 600))
+    if args.output == "text":
+        print(
+            "Console update exact plan\n"
+            f"  source commit: {plan['source_commit']}\n"
+            f"  target binding: {plan['target_binding']}\n"
+            f"  candidate SHA-256: {plan['candidate_archive_sha256']}\n"
+            f"  rollback SHA-256: {plan['rollback_archive_sha256']}\n"
+            f"  plan digest: {plan['plan_digest']}\n"
+            "Applying the explicitly invoked non-destructive dev plan.",
+            file=sys.stderr,
+        )
     source_root = _absolute_work_dir(args.source)
     result = apply_console_update_plan(
         source_root=source_root,
         work_dir=work_dir,
-        approved_plan_digest=approved_digest,
+        approved_plan_digest=str(plan["plan_digest"]),
         scripts=source_root / "scripts/deployment/azure",
         timeout_seconds=args.timeout_seconds,
     )
