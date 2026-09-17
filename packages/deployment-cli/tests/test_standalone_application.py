@@ -95,9 +95,9 @@ def test_publish_verified_console_uses_verified_prebuilt_artifact(tmp_path, monk
         console_directory.mkdir(parents=True)
         return console_directory
 
-    def configure(directory, settings):
+    def configure(directory, settings, *, manual_studio_url):
         assert directory.stat().st_mode & 0o777 == 0o700
-        calls.append(("configure", directory, settings))
+        calls.append(("configure", directory, settings, manual_studio_url))
         return {"runtime_config_digest": "b" * 64}
 
     def run(command, **kwargs):
@@ -149,7 +149,12 @@ def test_publish_verified_console_uses_verified_prebuilt_artifact(tmp_path, monk
     }
     assert calls[:2] == [
         ("extract", archive, tmp_path / "console-publish"),
-        ("configure", console_directory, tmp_path / "console-runtime-settings.json"),
+        (
+            "configure",
+            console_directory,
+            tmp_path / "console-runtime-settings.json",
+            f"{browser_console['console_origin']}/manuals",
+        ),
     ]
     command_call = calls[2]
     assert command_call[0] == "run"

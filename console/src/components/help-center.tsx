@@ -120,9 +120,13 @@ export function manualOpenUrl(baseUrl: string, manualId?: string): string {
 export function resolveManualStudioUrl(
   configuredValue: unknown,
   development: boolean,
+  productionOrigin?: string,
 ): string | null {
   const raw = typeof configuredValue === "string" ? configuredValue.trim() : "";
-  const value = raw || (development ? LOCAL_MANUAL_STUDIO_URL : "");
+  const productionDefault = typeof productionOrigin === "string" && URL.canParse(productionOrigin)
+    ? new URL("/manuals", productionOrigin).toString()
+    : "";
+  const value = raw || (development ? LOCAL_MANUAL_STUDIO_URL : productionDefault);
   if (value === "") return null;
   if (!URL.canParse(value)) {
     throw new Error("VITE_MANUAL_STUDIO_URL must be a valid external web URL.");
@@ -310,6 +314,7 @@ export function HelpCenter() {
     manualStudioUrl = resolveManualStudioUrl(
       import.meta.env.VITE_MANUAL_STUDIO_URL,
       import.meta.env.DEV,
+      globalThis.location.origin,
     );
   } catch {
     invalidConfiguration = true;

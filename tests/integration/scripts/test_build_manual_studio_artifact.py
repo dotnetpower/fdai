@@ -189,6 +189,9 @@ def test_console_publisher_binds_and_verifies_same_origin_manuals() -> None:
     assert 'export VITE_OPERATOR_API_BASE_URL="$operator_api_url"' in publisher
     assert 'export VITE_INGESTION_API_BASE_URL="$ingestion_api_url"' in publisher
     assert 'console_directory="${CONSOLE_PREBUILT_DIRECTORY:-}"' in publisher
+    assert "manual_studio_present=0" in publisher
+    assert '[[ -d "$console_directory/manuals" ]]' in publisher
+    assert 'if [[ "$manual_studio_present" == 1 ]]; then' in publisher
     assert '"$console_directory/fdai-config.js"' in publisher
     assert '"https://$hostname/ontology"' in publisher
     assert '"$operator_api_url/audit"' in publisher
