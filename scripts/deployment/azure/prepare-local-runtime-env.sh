@@ -13,6 +13,8 @@ resolved_models_override="${FDAI_LOCAL_RESOLVED_MODELS_PATH:-}"
 local_vision_models_path="$REPO_ROOT/.fdai/resolved-models-vision.json"
 resolved_models_path="${resolved_models_override:-$REPO_ROOT/resolved-models.json}"
 local_kubernetes_lifecycle="${FDAI_LOCAL_KUBERNETES_LIFECYCLE:-0}"
+local_kubernetes_bindings_override="${FDAI_LOCAL_KUBERNETES_BINDINGS_PATH:-}"
+local_kubernetes_bindings_path="${local_kubernetes_bindings_override:-$REPO_ROOT/.fdai/local-kubernetes-bindings.json}"
 local_teams_notification_activation="${FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION:-0}"
 no_azure_deployment="${FDAI_LOCAL_NO_AZURE_DEPLOYMENT:-0}"
 local_resource_group="${FDAI_LOCAL_RESOURCE_GROUP:-}"
@@ -24,6 +26,7 @@ kubernetes_lifecycle_keys=(
   FDAI_KUBERNETES_CLUSTER_REF
 )
 kubernetes_lifecycle_lines=()
+kubernetes_bindings_json=""
 
 if [[ ! -f "$SOURCE_ENV" ]]; then
   printf 'missing local console environment: %s\n' "$SOURCE_ENV" >&2
@@ -31,6 +34,19 @@ if [[ ! -f "$SOURCE_ENV" ]]; then
 fi
 if [[ "$local_kubernetes_lifecycle" != "0" && "$local_kubernetes_lifecycle" != "1" ]]; then
   echo "FDAI_LOCAL_KUBERNETES_LIFECYCLE MUST be 0 or 1" >&2
+  exit 1
+fi
+if [[ -n "$local_kubernetes_bindings_override" && "$local_kubernetes_lifecycle" != "1" ]]; then
+  echo "FDAI_LOCAL_KUBERNETES_BINDINGS_PATH requires FDAI_LOCAL_KUBERNETES_LIFECYCLE=1" >&2
+  exit 1
+fi
+if [[ -n "$local_kubernetes_bindings_override" ]] && {
+  [[ "$local_kubernetes_bindings_path" != /* ]] ||
+    [[ ${#local_kubernetes_bindings_path} -gt 4096 ]] ||
+    [[ "$local_kubernetes_bindings_path" == *$'\n'* ]] ||
+    [[ "$local_kubernetes_bindings_path" == *$'\r'* ]]
+}; then
+  echo "FDAI_LOCAL_KUBERNETES_BINDINGS_PATH MUST be an absolute path" >&2
   exit 1
 fi
 if [[ "$local_teams_notification_activation" != "0" && "$local_teams_notification_activation" != "1" ]]; then
@@ -46,14 +62,60 @@ if [[ "$no_azure_deployment" == "1" && ! "$local_resource_group" =~ ^[A-Za-z0-9.
   exit 1
 fi
 if [[ "$local_kubernetes_lifecycle" == "1" ]]; then
-  for key in "${kubernetes_lifecycle_keys[@]}"; do
-    mapfile -t matches < <(grep -E "^${key}=" "$SOURCE_ENV" || true)
-    if (( ${#matches[@]} != 1 )) || [[ -z "${matches[0]#*=}" ]]; then
-      echo "FDAI_LOCAL_KUBERNETES_LIFECYCLE requires one non-empty ${key} binding" >&2
+  if [[ -f "$local_kubernetes_bindings_path" || -n "$local_kubernetes_bindings_override" ]]; then
+    for key in "${kubernetes_lifecycle_keys[@]}"; do
+      if grep -Eq "^${key}=" "$SOURCE_ENV"; then
+        echo "fleet Kubernetes bindings MUST NOT be combined with legacy ${key}" >&2
+        exit 1
+      fi
+    done
+    if [[ ! -f "$local_kubernetes_bindings_path" ]]; then
+      echo "FDAI_LOCAL_KUBERNETES_BINDINGS_PATH MUST name an existing file" >&2
       exit 1
     fi
-    kubernetes_lifecycle_lines+=("${matches[0]}")
-  done
+    kubernetes_bindings_json="$(
+      PYTHONPATH="$SCRIPT_REPO_ROOT/services/core-control-plane/src" \
+        "$REPO_ROOT/.venv/bin/python" - "$local_kubernetes_bindings_path" <<'PY'
+import json
+import os
+import stat
+import sys
+from pathlib import Path
+
+from fdai.delivery.kubernetes_cluster_binding import parse_kubernetes_cluster_bindings
+
+path = Path(sys.argv[1])
+try:
+    metadata = path.stat()
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("path must be a regular file")
+    if metadata.st_uid != os.getuid():
+        raise ValueError("file must be owned by the current user")
+    if metadata.st_size > 128 * 1024:
+        raise ValueError("file exceeds 128 KiB")
+    if stat.S_IMODE(metadata.st_mode) & 0o077:
+        raise ValueError("file must be owner-only")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+    parse_kubernetes_cluster_bindings(canonical)
+except (OSError, ValueError, json.JSONDecodeError) as exc:
+    raise SystemExit(f"invalid local Kubernetes bindings file: {exc}") from exc
+print(canonical)
+PY
+    )"
+    kubernetes_lifecycle_lines+=(
+      "FDAI_KUBERNETES_CLUSTER_BINDINGS_JSON=$kubernetes_bindings_json"
+    )
+  else
+    for key in "${kubernetes_lifecycle_keys[@]}"; do
+      mapfile -t matches < <(grep -E "^${key}=" "$SOURCE_ENV" || true)
+      if (( ${#matches[@]} != 1 )) || [[ -z "${matches[0]#*=}" ]]; then
+        echo "FDAI_LOCAL_KUBERNETES_LIFECYCLE requires one non-empty ${key} binding" >&2
+        exit 1
+      fi
+      kubernetes_lifecycle_lines+=("${matches[0]}")
+    done
+  fi
 fi
 if [[ -z "$local_consumer_instance" ]]; then
   local_consumer_instance="$(printf '%s' "${USER:-unknown}@$(hostname)" | sha256sum | cut -c1-12)"
@@ -392,7 +454,7 @@ umask 077
 temp_env="$(mktemp "${OUTPUT_ENV}.XXXXXX")"
 trap 'rm -f "$temp_env"' EXIT
 
-grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_SECURITY_PROTOCOL|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|FDAI_EXECUTION_VENUE|AUTONOMY_MODE_DEFAULT|LLM_MODE|LLM_RESOLVED_MODELS_PATH|LLM_RESOLVED_MODELS_SHA256|FDAI_LLM_ENDPOINT|FDAI_WEB_SEARCH_ENABLED|FDAI_DATABASE_URL|FDAI_VALIDATION_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_METERING_DSN|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS|FDAI_SEMANTIC_TURN_REQUEST_TOPIC|FDAI_SEMANTIC_TURN_PROJECTION_TOPIC|FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC|FDAI_OPERATING_MODEL_TOPIC|FDAI_READ_INVESTIGATION_REQUEST_TOPIC|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_OPERATOR_API_CONSUMER_INSTANCE|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_MONITOR_WORKSPACE_ID|FDAI_DEV_OPERATIONS_GATEWAY_URL|FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE|FDAI_DIRECT_API_FAKE|FDAI_LOCAL_KUBERNETES_LIFECYCLE|FDAI_TEAMS_NOTIFICATION_ACTIVATION|FDAI_KUBERNETES_[A-Z0-9_]+)=' "$SOURCE_ENV" > "$temp_env" || true
+grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_SECURITY_PROTOCOL|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|FDAI_EXECUTION_VENUE|AUTONOMY_MODE_DEFAULT|LLM_MODE|LLM_RESOLVED_MODELS_PATH|LLM_RESOLVED_MODELS_SHA256|FDAI_LLM_ENDPOINT|FDAI_WEB_SEARCH_ENABLED|FDAI_DATABASE_URL|FDAI_VALIDATION_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_METERING_DSN|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS|FDAI_SEMANTIC_TURN_REQUEST_TOPIC|FDAI_SEMANTIC_TURN_PROJECTION_TOPIC|FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC|FDAI_OPERATING_MODEL_TOPIC|FDAI_READ_INVESTIGATION_REQUEST_TOPIC|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_OPERATOR_API_CONSUMER_INSTANCE|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_MONITOR_WORKSPACE_ID|FDAI_DEV_OPERATIONS_GATEWAY_URL|FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE|FDAI_DIRECT_API_FAKE|FDAI_LOCAL_KUBERNETES_LIFECYCLE|FDAI_LOCAL_KUBERNETES_BINDINGS_PATH|FDAI_TEAMS_NOTIFICATION_ACTIVATION|FDAI_KUBERNETES_[A-Z0-9_]+)=' "$SOURCE_ENV" > "$temp_env" || true
 if [[ "$local_kubernetes_lifecycle" == "1" ]]; then
   printf '%s\n' "${kubernetes_lifecycle_lines[@]}" >> "$temp_env"
 fi
