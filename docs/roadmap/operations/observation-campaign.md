@@ -238,6 +238,10 @@ completion times. `result_state` distinguishes a measured zero from a result tha
 or could not be obtained. An empty reason-code list remains the correct successful state and is not
 rendered as missing evidence. Raw log lines, cloud identifiers, query text, identities, and
 provider errors remain outside the shared activity stream.
+Resource-aware handler lifecycle rows use the separate `agent.state` stream contract. They may
+retain one bounded logical Resource reference and display name for the exact event being processed,
+but they do not add target identity to this campaign's aggregate `agent.operational-activity`
+records or reinterpret a source coverage count as resource evidence.
 The durable source state and transition audit keep
 `actor: fdai.delivery.observation_campaign` as mechanical provenance and copy the source catalog's
 accountable Pantheon member into `owner_agent`. This ownership metadata grants no publishing,

@@ -28,7 +28,10 @@ function auditItem(seq: number, recordedAt: string) {
   };
 }
 
-async function installActivityLogFixture(page: Page): Promise<void> {
+async function installActivityLogFixture(
+  page: Page,
+  streamBody = "",
+): Promise<void> {
   let auditReads = 0;
   await page.route("**/system/data-sources*", (route) => json(route, {
     surface: "read-data-sources",
@@ -64,8 +67,30 @@ async function installActivityLogFixture(page: Page): Promise<void> {
   await page.route("**/agents/stream*", (route) => route.fulfill({
     status: 200,
     contentType: "text/event-stream",
-    body: "",
+    body: streamBody,
   }));
+}
+
+function handlerActivityStream(): string {
+  const base = {
+    type: "agent.state",
+    agent: "Huginn",
+    ts: "2026-09-17T00:01:00Z",
+    activity_id: "handler:example",
+    activity_correlation_id: "correlation-1",
+    topic: "fdai.change.events",
+    event_id: "event-1",
+    event_type: "inventory.resource_changed",
+    resource_ref: "scope:example/resource-group/example/providers/compute/vm-example",
+    resource_name: "vm-example",
+    resource_type: "compute-vm",
+    started_at: "2026-09-17T00:00:59.958Z",
+    source: "runtime-observed",
+  };
+  return [
+    { ...base, state: "collecting", correlation_id: "correlation-1", phase: "started", detail: "Processing fdai.change.events" },
+    { ...base, state: "watching", correlation_id: null, phase: "completed", detail: "Processed fdai.change.events", completed_at: "2026-09-17T00:01:00Z", duration_ms: 42 },
+  ].map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join("");
 }
 
 test("highlights only newly appended activity and keeps log text readable", async ({ page }) => {
@@ -172,4 +197,31 @@ test("uses a static bounded cue when reduced motion is requested", async ({ page
     backgroundColor: expect.not.stringMatching(/rgba?\\([^)]*, 0\\)$/),
   });
   await expect(highlighted).toHaveCount(0, { timeout: 4_000 });
+});
+
+test("shows one resource-first row for a completed handler activity", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installActivityLogFixture(page, handlerActivityStream());
+  await page.goto("/agent-activity");
+
+  const resource = page.locator(".aa-log-detail code", { hasText: "vm-example" });
+  await expect(resource).toHaveCount(1);
+  const row = resource.locator("xpath=ancestor::*[contains(@class, 'aa-log-row')]");
+  await expect(row).toContainText("inventory.resource_changed");
+  await expect(row).toContainText("compute-vm - completed - 42 ms - fdai.change.events");
+  await resource.hover();
+  await expect(page.getByRole("tooltip")).toContainText(
+    "scope:example/resource-group/example/providers/compute/vm-example",
+  );
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 993, height: 641 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    expect(await page.evaluate(() =>
+      document.documentElement.scrollWidth - document.documentElement.clientWidth
+    )).toBeLessThanOrEqual(0);
+  }
 });

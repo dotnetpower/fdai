@@ -47,6 +47,8 @@ export interface AgentLogRow {
   readonly correlationId: string | null;
   readonly eventId: string | null;
   readonly activityId: string | null;
+  readonly resourceLabel: string | null;
+  readonly resourceRef: string | null;
   readonly source: AgentLogSource;
   readonly operationalKind: OperationalActivityKind | null;
   readonly observationDomain: ObservationDomain | null;
@@ -78,11 +80,13 @@ export function buildAgentLogRows(
       timestampValid: timestamp(event.ts) !== null,
       route: event.agents.length > 0 ? event.agents : [event.agent],
       kind: liveKind(event),
-      detail: event.detail || event.summary,
-      context: event.detail && event.detail !== event.summary ? event.summary : null,
+      detail: handlerDetail(event),
+      context: handlerContext(event),
       correlationId: event.correlationId,
-      eventId: null,
+      eventId: event.eventId ?? null,
       activityId: event.activityId,
+      resourceLabel: event.resourceName ?? event.resourceRef ?? null,
+      resourceRef: event.resourceRef ?? null,
       source: event.source,
       operationalKind: event.operationalKind,
       observationDomain: event.observationDomain,
@@ -106,6 +110,8 @@ export function buildAgentLogRows(
       correlationId: item.correlation_id,
       eventId: item.event_id,
       activityId: null,
+      resourceLabel: null,
+      resourceRef: target,
       source: provenance === "sample" ? "audit-sample" : "audit-operational",
       operationalKind: null,
       observationDomain: null,
@@ -123,6 +129,8 @@ export function buildAgentLogRows(
         correlationId: item.correlation_id,
         eventId: item.event_id,
         activityId: null,
+        resourceLabel: null,
+        resourceRef: null,
         source: provenance === "sample" ? "audit-sample" : "audit-operational",
         operationalKind: null,
         observationDomain: null,
@@ -156,6 +164,8 @@ export function filterAgentLogRows(
       row.correlationId,
       row.eventId,
       row.activityId,
+      row.resourceLabel,
+      row.resourceRef,
       row.source,
       row.operationalKind,
       row.observationDomain,
@@ -207,9 +217,33 @@ export function fallbackAfterFullscreenFailure(action: AgentLogFullscreenAction)
 
 function liveKind(event: LiveAgentActivityEvent): AgentLogRow["kind"] {
   if (event.operationalKind !== null) return "activity";
+  if (event.activityId !== null && event.activityPhase !== undefined) return "activity";
   if (event.kind === "incident.ticket") return "incident";
   if (event.kind === "conversation.turn") return "handoff";
   return "state";
+}
+
+function handlerDetail(event: LiveAgentActivityEvent): string {
+  if (event.activityId === null || event.activityPhase === undefined) {
+    return event.detail || event.summary;
+  }
+  return event.eventType ?? event.topic ?? event.detail ?? event.summary;
+}
+
+function handlerContext(event: LiveAgentActivityEvent): string | null {
+  if (event.activityId === null || event.activityPhase === undefined) {
+    return event.detail && event.detail !== event.summary ? event.summary : null;
+  }
+  return [
+    event.resourceType,
+    event.activityPhase,
+    event.durationMs === undefined ? null : `${event.durationMs} ms`,
+    event.topic,
+  ].filter((value): value is string => value !== null && value !== undefined).join(" - ");
+}
+
+function shortResourceId(value: string): string {
+  return value.split("/").filter(Boolean).at(-1) ?? value;
 }
 
 function isRepeatedPassiveSnapshot(
@@ -219,6 +253,7 @@ function isRepeatedPassiveSnapshot(
   if (
     previous === undefined ||
     candidate.kind !== "agent.state" ||
+    candidate.activityId !== null ||
     (candidate.state !== "idle" && candidate.state !== "watching")
   ) return false;
   return previous.kind === candidate.kind &&

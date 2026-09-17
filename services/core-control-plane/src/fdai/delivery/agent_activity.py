@@ -1,7 +1,8 @@
 """Neutral agent-activity records and runtime publication services.
 
 Responsibility: project observed Pantheon health and handler transitions into
-bounded agent-state records and publish them to the configured event bus.
+bounded agent-state records with privacy-limited work context and publish them
+to the configured event bus.
 Authority: observations only; records cannot judge, approve, or execute.
 State: one process-local stop event for the periodic publisher. Dependencies:
 Pantheon handler phases, the provider-neutral event bus, and shared SSE values.
@@ -16,11 +17,16 @@ import json
 import logging
 import math
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Protocol
 
+from fdai.delivery.agent_handler_activity import (
+    HandlerActivityContext,
+    bounded_identifier,
+    handler_activity_context,
+)
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.sse import SseEvent
 from fdai.shared.providers.stage_publisher import ObservationSource
@@ -31,7 +37,6 @@ DEFAULT_RUNTIME_STATE_STARTUP_RETRY_SECONDS = 0.25
 
 _LOGGER = logging.getLogger(__name__)
 _MAX_DETAIL_CHARS = 512
-_MAX_IDENTIFIER_CHARS = 1024
 _MAX_FUTURE_SKEW = timedelta(minutes=5)
 _ACTIVE_STATE: dict[str, AgentState] = {}
 _SENSING_AGENTS = frozenset({"Huginn", "Heimdall"})
@@ -81,7 +86,7 @@ _PANTHEON_NAMES = frozenset(_ACTIVE_STATE)
 
 @dataclass(frozen=True, slots=True)
 class AgentStateEvent:
-    """One content-free agent-state observation."""
+    """One agent-state observation with optional bounded handler context."""
 
     agent: str
     state: AgentState
@@ -89,10 +94,11 @@ class AgentStateEvent:
     correlation_id: str | None = None
     detail: str | None = None
     source: ObservationSource = ObservationSource.UNKNOWN
+    activity: HandlerActivityContext | None = None
 
     def to_payload(self) -> dict[str, object]:
         """Return the stable agent-state wire payload."""
-        return {
+        payload: dict[str, object] = {
             "type": "agent.state",
             "agent": self.agent,
             "state": self.state.value,
@@ -101,6 +107,9 @@ class AgentStateEvent:
             "detail": self.detail,
             "source": self.source.value,
         }
+        if self.activity is not None:
+            payload.update(self.activity.to_payload())
+        return payload
 
     def to_sse_event(self) -> SseEvent:
         """Encode the record as the existing message SSE value."""
@@ -134,20 +143,14 @@ def runtime_agent_state_snapshot(
     timestamp = _iso_ts_utc()
     active = active_states or {}
     return tuple(
-        AgentStateEvent(
+        replace(active[str(agent)], ts=timestamp)
+        if str(agent) in active
+        else AgentStateEvent(
             agent=str(agent),
-            state=(
-                active[str(agent)].state
-                if str(agent) in active
-                else AgentState.WATCHING
-                if agent in _SENSING_AGENTS
-                else AgentState.IDLE
-            ),
+            state=AgentState.WATCHING if agent in _SENSING_AGENTS else AgentState.IDLE,
             ts=timestamp,
-            correlation_id=(active[str(agent)].correlation_id if str(agent) in active else None),
-            detail=(
-                active[str(agent)].detail if str(agent) in active else "Runtime agent initialized"
-            ),
+            correlation_id=None,
+            detail="Runtime agent initialized",
             source=ObservationSource.RUNTIME_OBSERVED,
         )
         for agent, snapshot in agent_health.items()
@@ -187,15 +190,22 @@ class EventBusPantheonActivityObserver:
         payload: Mapping[str, object],
         error_type: str | None = None,
     ) -> None:
-        """Publish one content-free observed handler transition."""
+        """Publish one observed transition with bounded non-authority context."""
+        key = (agent, topic)
+        active = self._active.get(key)
         event = project_agent_handler_state(
             agent=agent,
             topic=topic,
             phase=phase,
             payload=payload,
             error_type=error_type,
+            transition_at=_iso_ts_utc(),
+            started_at=(
+                active.activity.started_at
+                if active is not None and active.activity is not None
+                else None
+            ),
         )
-        key = (agent, topic)
         if phase.value == "started":
             self._active[key] = event
         else:
@@ -210,12 +220,23 @@ def project_agent_handler_state(
     phase: AgentHandlerPhaseValue,
     payload: Mapping[str, object],
     error_type: str | None = None,
+    transition_at: str | None = None,
+    started_at: str | None = None,
 ) -> AgentStateEvent:
     """Project one observed handler transition into a bounded state record."""
     if agent not in _PANTHEON_NAMES:
         raise ValueError(f"unknown Pantheon agent: {agent}")
-    correlation_id = _bounded_identifier(payload.get("correlation_id"))
+    correlation_id = bounded_identifier(payload.get("correlation_id"))
     bounded_topic = topic[:_MAX_DETAIL_CHARS]
+    observed_transition = transition_at or _iso_ts_utc()
+    activity = handler_activity_context(
+        agent=agent,
+        topic=bounded_topic,
+        phase=phase.value,
+        payload=payload,
+        transition_at=observed_transition,
+        started_at=started_at,
+    )
     if phase.value == "started":
         state = _ACTIVE_STATE.get(agent, AgentState.ANALYZING)
         detail = f"Processing {bounded_topic}"
@@ -230,17 +251,12 @@ def project_agent_handler_state(
     return AgentStateEvent(
         agent=agent,
         state=state,
-        ts=_event_timestamp(payload),
+        ts=observed_transition if activity is not None else _event_timestamp(payload),
         correlation_id=correlation_id,
         detail=detail[:_MAX_DETAIL_CHARS],
         source=ObservationSource.RUNTIME_OBSERVED,
+        activity=activity,
     )
-
-
-def _bounded_identifier(value: object) -> str | None:
-    if not isinstance(value, str) or not value or len(value) > _MAX_IDENTIFIER_CHARS:
-        return None
-    return value
 
 
 def _event_timestamp(payload: Mapping[str, object]) -> str:
