@@ -128,6 +128,7 @@
     "documents": "Documents",
     "settings": "Settings",
     "settingsGeneral": "General",
+    "settingsEnvironment": "Environment and deployment",
     "settingsModels": "Models",
     "settingsRuntime": "Runtime policies",
     "settingsIam": "Identity and access",
@@ -232,6 +233,7 @@
       "documents": "Documents",
       "settings": "Settings",
       "settingsGeneral": "General",
+      "settingsEnvironment": "Environment and deployment",
       "settingsModels": "Models",
       "settingsRuntime": "Runtime policies",
       "settingsIam": "Identity and access",
@@ -288,6 +290,7 @@
       "documents": "Upload, scan, protect, and index governed documents",
       "settings": "Display, accessibility, and local console preferences",
       "settingsGeneral": "Display, accessibility, and browser-local preferences",
+      "settingsEnvironment": "Operating prerequisites and read-only deployment run evidence",
       "settingsModels": "T1 and T2 models, provisioning, latency, and personal routing",
       "settingsRuntime": "Audited runtime behavior, budgets, freshness, retention, and logging",
       "settingsIam": "Human roles, capabilities, and governed access requests",
@@ -1084,6 +1087,13 @@
     "viewPurpose": "Read-only catalog reports rendered by the reporting subsystem. Widgets display server-owned evidence and never execute actions.",
     "viewHeadline": "{name}: {count} rendered widgets",
     "viewHeadlineUnavailable": "{name}: render unavailable"
+  },
+  "environmentDeployment": {
+    "subtitle": "Verify operating prerequisites and review read-only deployment runs.",
+    "tabsLabel": "Environment and deployment views",
+    "readinessTab": "Readiness",
+    "deploymentTab": "Deployment run",
+    "invalidTab": "The requested environment and deployment view does not exist."
   },
   "provision": {
     "subtitle": "Read-only progress from the active provisioning stream",

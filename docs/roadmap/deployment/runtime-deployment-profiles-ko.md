@@ -1,14 +1,12 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: f0c09b3ff87ce304922f49f2f2fae769ad76bc52
+translation_source_sha: c16b316854f8c5a90a66d1527f18e070a611eb43
 translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
 
-이 문서는 애플리케이션 동작이나 배포 권한을 바꾸지 않으면서 신규 FDAI 설치의 기본 런타임을
-Azure Kubernetes Service(AKS)로 정의합니다. Azure Container Apps는 기존 설치를 위한 호환
-프로파일로 계속 지원합니다. 이 선택은 서명된 `fdaictl` 프로비저닝 프로파일과 모든 정확한
-Terraform 플랜에 포함됩니다.
+이 문서는 애플리케이션 동작이나 배포 권한을 바꾸지 않으면서 신규 FDAI 설치의 기본 런타임을 Azure Kubernetes Service(AKS)로 정의합니다.
+Azure Container Apps는 기존 설치를 위한 호환 프로파일로 계속 지원합니다. 이 선택은 서명된 `fdaictl` 프로비저닝 프로파일과 모든 정확한 Terraform 플랜에 포함됩니다.
 
 > **범위:** 이 계약은 신규 설치를 다룹니다. 기존 설치를 다른 런타임 플랫폼으로 옮기려면
 > 별도의 마이그레이션 설계가 필요하며, 프로파일 업데이트만으로 자동 전환되지 않습니다.
@@ -62,8 +60,10 @@ fdaictl provision azure \
   --user-nodes 4
 ```
 
-명령은 변경을 일으키는 각 플랜 경계에서 대화형 승인을 유지합니다. 런타임 또는 데이터베이스
-선택은 작업 권한을 부여하거나, 선택된 환경을 바꾸거나, 적용 모드를 활성화하지 않습니다.
+명령은 변경을 일으키는 각 플랜 경계에서 대화형 승인을 유지합니다. 런타임 또는 데이터베이스 선택은 작업 권한을 부여하거나 선택된 환경을
+바꾸거나 적용 모드를 활성화하지 않습니다. 설치 후 Console은 환경 준비 상태와 읽기 전용 배포 실행 근거를 설정 > 환경 및 배포에서 함께
+제공합니다. 준비 상태 보기가 기본이며 배포 근거는 별도 탭에서 확인합니다. 두 보기 모두 `fdaictl`을 시작하거나 재시도하지 않고 Terraform을
+실행하거나 배포 권한을 획득하지 않습니다. 기존 `/onboarding`과 `/provisioning` 경로는 호환 진입점으로 유지합니다.
 
 ### 기본값 및 검증
 
