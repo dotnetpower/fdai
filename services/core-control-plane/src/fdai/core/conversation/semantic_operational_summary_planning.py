@@ -28,7 +28,10 @@ from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLang
 from .conversation_preflight import named_subscription_requested
 from .semantic_planning_frame import build_semantic_frame
 from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
-from .semantic_planning_value_filters import stated_value_filters
+from .semantic_planning_value_filters import (
+    resource_type_filters_are_bound,
+    stated_value_filters,
+)
 from .semantic_resource_state_planning import (
     normalize_resource_state_proposal,
     resolve_state_exclusion_concepts,
@@ -165,16 +168,19 @@ def build_function_backed_summary_frame(
         )
         if function_name in requested_functions
     )
+    resource_type_filters = _resource_type_filters(
+        judgment,
+        utterance=utterance,
+        descriptors=descriptors,
+    )
+    if resource_type_filters is None:
+        return None
     proposal = normalize_resource_state_proposal(
         _proposal(
             judgment,
             output_shape=output_shape,
             evidence_requirements=requirements,
-            resource_type_filters=_resource_type_filters(
-                judgment,
-                utterance=utterance,
-                descriptors=descriptors,
-            ),
+            resource_type_filters=resource_type_filters,
         ),
         utterance=utterance,
         descriptors=descriptors,
@@ -227,12 +233,12 @@ def _resource_type_filters(
     *,
     utterance: str,
     descriptors: tuple[dict[str, Any], ...],
-) -> tuple[str, ...]:
+) -> tuple[str, ...] | None:
     typed = tuple(
         target.value for target in judgment.targets if target.kind == "resource_type_filter"
     )
     if typed:
-        return typed
+        return typed if resource_type_filters_are_bound(typed, descriptors) else None
     excluded_values = frozenset(facet.replace("_", "-") for facet in judgment.requested_facets)
     return stated_value_filters(
         utterance,

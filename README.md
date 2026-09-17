@@ -79,6 +79,13 @@ tightened threshold and a fresh regression suite.
 
 ## How it works
 
+FDAI runs as a headless control plane next to your cloud. Operational signals
+arrive on an event bus, a fixed organization of accountable agents carries each
+one through ingest, routing, gating, and action, and the result leaves as a fix
+pull request, an approval card, or an audit entry.
+
+![FDAI architecture. Azure resource changes, telemetry, Git and IaC changes, and operator requests enter a headless event-driven control plane owned by fifteen accountable agents. The plane ingests, routes across T0 rules, T1 reuse, and T2 reasoning, gates the decision on quality and risk, then acts and records the outcome. Outcomes leave as fix pull requests, ChatOps approvals, the FDAI Console, and audit evidence, over an event bus, rule catalog, operating ontology, and Azure platform foundation.](docs/assets/fdai-architecture-overview.svg)
+
 1. **Ingest**: events land on the bus. `event-ingest` normalizes and
    deduplicates them and correlates related events into one incident.
 2. **Route**: the trust router (picks the tier that decides the event) picks
@@ -91,6 +98,12 @@ tightened threshold and a fresh regression suite.
    human approval (`hil`), hold for review (`abstain`), or denial (`deny`).
    Automatically eligible and approved actions become fix pull requests. Every
    terminal path, including rejection, timeout, and review holds, writes an audit entry.
+
+Traced across a single event, the same three steps look like this. The
+deterministic tiers carry the repeatable majority, the quality gate applies to
+T2 output only, and the risk gate is the one place where autonomy is decided.
+
+![FDAI workflow. An event is normalized and correlated, then routed to T0 rules, T1 reuse, or T2 reasoning. Only T2 output passes the quality gate, while T0 and T1 reach the risk gate directly. The risk gate selects automatic execution, human approval, or hold and deny. Eligible work is executed as a fix pull request or bounded action, its effect is confirmed by independent observation, and every path ends in an append-only audit entry.](docs/assets/fdai-workflow-overview.svg)
 
 ```text
 event -> event-ingest -> trust-router -> T0 | T1 | (T2 -> quality-gate)

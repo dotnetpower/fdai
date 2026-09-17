@@ -82,6 +82,7 @@ from .semantic_planning_models import (
     SemanticPlanningOutcome,
 )
 from .semantic_planning_support import _clarification, _outcome
+from .semantic_planning_value_filters import resource_type_filters_are_bound
 from .semantic_target_candidate_planning import (
     normalize_decision_outcome_relationship,
     normalize_operating_relationship_temporal_scope,
@@ -380,10 +381,17 @@ def normalize_and_gate_frame(
                 )
             ),
         )
+    resource_type_filters = tuple(
+        target.value
+        for target in (() if judgment is None else judgment.targets)
+        if target.kind == "resource_type_filter"
+    )
+    resource_types_bound = resource_type_filters_are_bound(resource_type_filters, descriptors)
     typed_resource_state_collection = (
         judgment_accepted
         and judgment is not None
         and judgment.primary_intent == "query.resource_state_inventory"
+        and resource_types_bound
         and all(
             target.kind
             in {

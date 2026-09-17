@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 1226f8feb50855ad785fbedb76cc21ee30fad2e0
+translation_source_sha: b2f0b55fa2639c8943b3e0d54e6abdff7aef7159
 translation_revised: 2026-09-17
 ---
 # 프로젝트 구조
@@ -191,10 +191,10 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   snapshot 및 progress의 트랜잭션형 outbox를 배출해 Operator 소유 변환 결과 테이블로
   전달합니다. Operator는 이 테이블만 읽고, 결정론적인 변환 결과 신원으로 중복과 오래된
   reorder를 제거하며, Core `background_task_*` 테이블을 직접 읽지 않습니다.
-  검증된 의미 조회 노드 전이는 Core에서 Operator로 향하는 별도의 범위가 제한된 best-effort
-  topic을 사용합니다. Operator는 활성 SSE 스트림에서만 이 진행 상황을 일시적으로 유지합니다.
-  영속 최종 변환 결과와 근거 증적은 재연결 및 완료의 권위로 유지되며, 진행 상황 발행 실패는
-  조회 실행을 바꾸거나 실행 권한을 부여할 수 없습니다.
+  검증된 의미 조회 노드 전이는 Core에서 Operator로 향하는 별도의 범위가 제한된 best-effort topic을 사용합니다.
+  영속 최종 결과와 근거 증적은 계속 권위가 있으며, 소비자는 내용이 없는 성능 저하 상태, 복구 시
+  초기화되는 지수형 대기, 서로 다른 실패 진단을 유지합니다. 전송 관찰은 실행을 바꾸거나 권한을
+  부여하거나 부분 답변, 첨부 파일, 인시던트 작업을 승격할 수 없습니다.
   저장소 Best Practice 정의는 조립 루트에서 한 번 로드하고 GET 전용 목록 및 상세
   경로로 노출합니다. 이 정의는 카탈로그 참조 데이터로 유지되며 런타임 근거 프로바이더를
   명시적으로 연결하기 전까지 변환 결과는 `Unknown` 및 `not-connected`를 보고합니다.

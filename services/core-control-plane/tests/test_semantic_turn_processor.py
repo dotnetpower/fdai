@@ -67,6 +67,7 @@ from fdai_core_service.semantic_turn_processor import (
     _answer_row_values,
     _bounded_document_text,
     _decode_request,
+    _execution_output_incomplete,
     _incident_next_step_text,
     _project_investigation_continuation,
     _render_general_query_answer,
@@ -245,11 +246,28 @@ def test_resource_state_empty_answer_leads_with_the_requested_result() -> None:
         output_shape="resource_state_list",
     )
 
-    assert answer.startswith("## 확인 범위에서 실행 중이 아닌 리소스 없음")
-    assert "현재 확인 가능한 범위에서는 실행 중이 아닌 리소스를 찾지 못했습니다." in answer
+    assert answer.startswith("## 확인 범위에서 일치하는 리소스 상태 없음")
+    assert "요청한 상태와 일치하는 리소스를 찾지 못했습니다." in answer
+    assert "실행 중이 아닌 리소스" not in answer
     assert "전체에 없다고 단정할 수 없습니다." in answer
     assert "`resource_scope_incomplete`" in answer
     assert "`execution_authority=false`" in answer
+
+
+def test_incomplete_output_table_downgrades_answer_verification() -> None:
+    execution = QueryPlanExecution(
+        plan_digest="sha256:" + "a" * 64,
+        status="completed",
+        results={
+            "output": QueryNodeResult(
+                QueryTable(rows=(), complete=False, truncation_reason="source_incomplete")
+            )
+        },
+        receipts=(),
+        output_node_ids=("output",),
+    )
+
+    assert _execution_output_incomplete(execution) is True
 
 
 def test_resource_state_answer_lists_verified_names_and_observed_states() -> None:
@@ -4052,6 +4070,29 @@ async def test_malformed_semantic_request_goes_to_dlq() -> None:
     dlq = [item async for item in bus.subscribe("operator.request.dlq", "assert")]
     assert len(dlq) == 1
     assert dlq[0].payload["reason"] == "semantic_turn_rejected"
+
+
+async def test_policy_rejected_semantic_request_publishes_immediate_hold() -> None:
+    bus = InMemoryEventBus()
+    request = _request(purpose="execution")
+    await bus.publish("operator.request", "policy-rejected", request)
+
+    await consume_semantic_turns(
+        bus=bus,
+        request_topic="operator.request",
+        projection_topic="operator.projection",
+        group_id="core-semantic",
+        processor=_processor(_Runtime()),
+        stop=asyncio.Event(),
+    )
+
+    projections = [item async for item in bus.subscribe("operator.projection", "assert")]
+    assert len(projections) == 1
+    semantic = projections[0].payload["semantic_result"]
+    assert semantic["disposition"] == "held"
+    assert semantic["reason_code"] == "semantic_purpose_not_allowed"
+    assert semantic["execution_authority"] is False
+    assert [item async for item in bus.subscribe("operator.request.dlq", "assert")] == []
 
 
 @pytest.mark.parametrize(

@@ -292,6 +292,29 @@ class _JudgmentBoundary:
         )
 
 
+def _resource_collection_judgment(
+    proposal: ConversationPreflightProposal,
+) -> _JudgmentBoundary:
+    facets = tuple(dict.fromkeys(("resource_collection", "list", *proposal.operational_facets)))
+    return _JudgmentBoundary(
+        SemanticJudgmentProposal(
+            primary_intent=(
+                "query.resource_state_inventory"
+                if "current_state" in facets
+                else "query.contextual_resources"
+            ),
+            targets=proposal.operational_targets,
+            requested_facets=facets,
+            confidence=proposal.confidence,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            authority="candidate_only",
+            execution_authority=False,
+        )
+    )
+
+
 def test_whole_turn_model_proposal_becomes_verified_server_owned_plan() -> None:
     manifest, definition = _fixture()
     model = _Model(frame=_frame(), plan=_plan(definition))
@@ -1838,7 +1861,7 @@ def test_verified_recent_state_change_preflight_skips_full_semantic_judgment() -
     assert model.frame_calls == model.plan_calls == 0
 
 
-def test_verified_resource_collection_preflight_skips_full_semantic_judgment() -> None:
+def test_verified_resource_collection_requires_full_semantic_judgment() -> None:
     manifest, _definition = _typed_fixture(
         groups=(_SQL_SERVER_GROUP,),
         include_resource_state=True,
@@ -1847,10 +1870,6 @@ def test_verified_resource_collection_preflight_skips_full_semantic_judgment() -
     utterance = "실행 중인 mssql 서버 목록"
     type_value = "mssql 서버"
     state_value = "실행 중"
-
-    class _NoFullJudgment:
-        def judge(self, **_kwargs: Any) -> Any:
-            raise AssertionError("full semantic judgment must be skipped")
 
     proposal = ConversationPreflightProposal(
         social_act=SocialAct.NONE,
@@ -1887,7 +1906,7 @@ def test_verified_resource_collection_preflight_skips_full_semantic_judgment() -
         model,
         manifest,
         inventory_query_language=_inventory_query_language(),
-        semantic_judgment=_NoFullJudgment(),
+        semantic_judgment=_resource_collection_judgment(proposal),
     ).plan(
         utterance=utterance,
         prior_turns=(),
@@ -1916,15 +1935,11 @@ def test_verified_resource_collection_preflight_skips_full_semantic_judgment() -
     assert model.frame_calls == model.plan_calls == 0
 
 
-def test_verified_type_collection_preflight_skips_full_semantic_judgment() -> None:
+def test_verified_type_collection_requires_full_semantic_judgment() -> None:
     manifest, _definition = _typed_fixture(groups=(_AKS_GROUP,))
     model = _Model(frame=None, plan=None)
     utterance = "aks 목록"
     target_value = "aks"
-
-    class _NoFullJudgment:
-        def judge(self, **_kwargs: Any) -> Any:
-            raise AssertionError("full semantic judgment must be skipped")
 
     proposal = ConversationPreflightProposal(
         social_act=SocialAct.NONE,
@@ -1954,7 +1969,7 @@ def test_verified_type_collection_preflight_skips_full_semantic_judgment() -> No
     outcome = _service(
         model,
         manifest,
-        semantic_judgment=_NoFullJudgment(),
+        semantic_judgment=_resource_collection_judgment(proposal),
     ).plan(
         utterance=utterance,
         prior_turns=(),
@@ -1984,10 +1999,6 @@ def test_unbound_collection_filter_clarifies_without_broad_resource_query() -> N
     utterance = "fdai 관련 리소스 목록은"
     target_value = "fdai"
 
-    class _NoFullJudgment:
-        def judge(self, **_kwargs: Any) -> Any:
-            raise AssertionError("verified preflight should reach deterministic clarification")
-
     proposal = ConversationPreflightProposal(
         social_act=SocialAct.NONE,
         operational_signal=OperationalSignal.EXPLICIT,
@@ -2016,7 +2027,7 @@ def test_unbound_collection_filter_clarifies_without_broad_resource_query() -> N
     outcome = _service(
         model,
         manifest,
-        semantic_judgment=_NoFullJudgment(),
+        semantic_judgment=_resource_collection_judgment(proposal),
     ).plan(
         utterance=utterance,
         prior_turns=(),
@@ -2041,10 +2052,6 @@ def test_unbound_collection_state_filter_clarifies_without_broadening() -> None:
     utterance = "실행 중인 fdai 목록"
     type_value = "fdai"
     state_value = "실행 중"
-
-    class _NoFullJudgment:
-        def judge(self, **_kwargs: Any) -> Any:
-            raise AssertionError("verified preflight should clarify before full judgment")
 
     proposal = ConversationPreflightProposal(
         social_act=SocialAct.NONE,
@@ -2081,7 +2088,7 @@ def test_unbound_collection_state_filter_clarifies_without_broadening() -> None:
         model,
         manifest,
         inventory_query_language=_inventory_query_language(),
-        semantic_judgment=_NoFullJudgment(),
+        semantic_judgment=_resource_collection_judgment(proposal),
     ).plan(
         utterance=utterance,
         prior_turns=(),
@@ -2097,15 +2104,11 @@ def test_unbound_collection_state_filter_clarifies_without_broadening() -> None:
     assert model.frame_calls == model.plan_calls == 0
 
 
-def test_verified_deployed_llm_preflight_skips_full_semantic_judgment() -> None:
+def test_verified_deployed_llm_preflight_requires_full_semantic_judgment() -> None:
     manifest, _definition = _typed_fixture(groups=(_LLM_DEPLOYMENT_GROUP,))
     model = _Model(frame=None, plan=None)
     utterance = "배포된 llm 모델이 뭐야"
     target_value = "배포된 llm 모델"
-
-    class _NoFullJudgment:
-        def judge(self, **_kwargs: Any) -> Any:
-            raise AssertionError("full semantic judgment must be skipped")
 
     proposal = ConversationPreflightProposal(
         social_act=SocialAct.NONE,
@@ -2135,7 +2138,7 @@ def test_verified_deployed_llm_preflight_skips_full_semantic_judgment() -> None:
     outcome = _service(
         model,
         manifest,
-        semantic_judgment=_NoFullJudgment(),
+        semantic_judgment=_resource_collection_judgment(proposal),
     ).plan(
         utterance=utterance,
         prior_turns=(),
@@ -2467,6 +2470,31 @@ def test_operational_frame_requires_accepted_matching_judgment() -> None:
         judgment=combined,
         judgment_accepted=False,
         judgment_evaluated=True,
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="resource_state_list",
+        judgment=combined.model_copy(
+            update={
+                "requested_facets": (
+                    "resource_collection",
+                    "list",
+                    "current_state",
+                    "count",
+                    "rbac_authorization",
+                )
+            }
+        ),
+        judgment_accepted=True,
+        judgment_evaluated=True,
+    )
+    assert not _operational_frame_matches_accepted_judgment(
+        output_shape="resource_state_list",
+        judgment=combined.model_copy(
+            update={"requested_facets": ("resource_collection", "list", "current_state")}
+        ),
+        judgment_accepted=True,
+        judgment_evaluated=True,
+        utterance="How many Key Vaults exist, and which use RBAC?",
     )
     assert not _operational_frame_matches_accepted_judgment(
         output_shape="resource_condition_sections",

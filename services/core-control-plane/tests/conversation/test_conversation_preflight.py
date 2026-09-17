@@ -633,12 +633,13 @@ def test_promotes_source_grounded_operational_family_to_candidate_judgment() -> 
         ),
     ),
 )
-def test_promotes_resource_collection_without_a_second_judgment(
+def test_resource_collection_requires_capability_aware_judgment(
     utterance: str,
     targets: tuple[tuple[str, str], ...],
     facets: tuple[str, ...],
     expected_intent: str,
 ) -> None:
+    del expected_intent
     operational_targets = tuple(
         SemanticTarget(
             kind=kind,
@@ -668,13 +669,10 @@ def test_promotes_resource_collection_without_a_second_judgment(
 
     judgment = preflight_operational_judgment(result, utterance=utterance)
 
-    assert judgment is not None
-    assert judgment.primary_intent == expected_intent
-    assert judgment.targets == operational_targets
-    assert judgment.execution_authority is False
+    assert judgment is None
 
 
-def test_resource_collection_derives_name_filter_facet_from_typed_target() -> None:
+def test_resource_collection_name_filter_requires_capability_aware_judgment() -> None:
     utterance = "지금 fdai 가 포함된 리소스 그룹은?"
     targets = tuple(
         SemanticTarget(
@@ -708,13 +706,10 @@ def test_resource_collection_derives_name_filter_facet_from_typed_target() -> No
 
     judgment = preflight_operational_judgment(result, utterance=utterance)
 
-    assert judgment is not None
-    assert judgment.primary_intent == "query.contextual_resources"
-    assert judgment.targets == targets
-    assert judgment.requested_facets == ("resource_collection", "list", "name_filter")
+    assert judgment is None
 
 
-def test_resource_collection_derives_collection_facet_from_typed_family() -> None:
+def test_resource_collection_state_filter_requires_capability_aware_judgment() -> None:
     utterance = "Ready가 아닌 PostgreSQL 서버 목록"
     targets = tuple(
         SemanticTarget(
@@ -748,13 +743,10 @@ def test_resource_collection_derives_collection_facet_from_typed_family() -> Non
 
     judgment = preflight_operational_judgment(result, utterance=utterance)
 
-    assert judgment is not None
-    assert judgment.primary_intent == "query.resource_state_inventory"
-    assert judgment.targets == targets
-    assert judgment.requested_facets == ("resource_collection", "list", "current_state")
+    assert judgment is None
 
 
-def test_resource_collection_preserves_state_exclusion_and_history_requirement() -> None:
+def test_resource_collection_history_requires_capability_aware_judgment() -> None:
     utterance = (
         "현재 구독의 PostgreSQL 서버 중 Ready가 아닌 서버만 이름, 리소스 그룹, 현재 상태, "
         "마지막 상태 변경 시각과 함께 보여줘."
@@ -791,18 +783,10 @@ def test_resource_collection_preserves_state_exclusion_and_history_requirement()
 
     judgment = preflight_operational_judgment(result, utterance=utterance)
 
-    assert judgment is not None
-    assert judgment.primary_intent == "query.resource_state_inventory"
-    assert judgment.targets == targets
-    assert judgment.requested_facets == (
-        "resource_collection",
-        "list",
-        "current_state",
-        "state_change_history",
-    )
+    assert judgment is None
 
 
-def test_resource_collection_preserves_type_for_subscription_state_output() -> None:
+def test_subscription_state_collection_requires_capability_aware_judgment() -> None:
     utterance = (
         "현재 구독의 Azure Database for PostgreSQL 서버 목록을 이름, 리소스 그룹, 지역, "
         "현재 상태와 함께 보여줘."
@@ -850,10 +834,7 @@ def test_resource_collection_preserves_type_for_subscription_state_output() -> N
 
     judgment = preflight_operational_judgment(result, utterance=utterance)
 
-    assert judgment is not None
-    assert judgment.primary_intent == "query.resource_state_inventory"
-    assert judgment.targets == (target,)
-    assert judgment.requested_facets == ("resource_collection", "list", "current_state")
+    assert judgment is None
 
 
 @pytest.mark.parametrize(
@@ -875,13 +856,14 @@ def test_resource_collection_preserves_type_for_subscription_state_output() -> N
         ),
     ),
 )
-def test_resource_collection_canonicalizes_typed_filter_facet_aliases(
+def test_resource_collection_filter_aliases_require_capability_aware_judgment(
     utterance: str,
     kind: str,
     value: str,
     alias: str,
     canonical: str,
 ) -> None:
+    del canonical
     targets = (
         SemanticTarget(
             kind="resource_type_filter",
@@ -921,9 +903,7 @@ def test_resource_collection_canonicalizes_typed_filter_facet_aliases(
 
     judgment = preflight_operational_judgment(result, utterance=utterance)
 
-    assert judgment is not None
-    assert canonical in judgment.requested_facets
-    assert alias not in judgment.requested_facets
+    assert judgment is None
 
 
 def test_promotes_exact_resource_current_state_without_collection_substitution() -> None:

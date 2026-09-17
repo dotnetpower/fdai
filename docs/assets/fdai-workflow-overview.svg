@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 560" width="1180" height="560" role="img" aria-label="FDAI workflow. An event is normalized and correlated, then routed to T0 rules, T1 reuse, or T2 reasoning. Only T2 output passes the quality gate, while T0 and T1 reach the risk gate directly. The risk gate selects automatic execution, human approval, or hold and deny. Eligible work is executed as a fix pull request or bounded action, its effect is confirmed by independent observation, and every path ends in an append-only audit entry.">
+  <title>FDAI workflow</title>
+  <defs>
+    <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0F6CBD"/>
+    </marker>
+    <marker id="arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8A8886"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: "Segoe UI", "Segoe UI Variable", Arial, sans-serif; }
+    .t1 { font-size: 22px; font-weight: 600; fill: #242424; }
+    .t2 { font-size: 13px; fill: #616161; }
+    .ct { font-size: 16px; font-weight: 600; fill: #242424; }
+    .cw { font-size: 16px; font-weight: 600; fill: #FFFFFF; }
+    .s  { font-size: 12px; fill: #616161; }
+    .sw { font-size: 12px; fill: #D6E8F8; }
+    .tag { font-size: 11px; font-weight: 600; fill: #0B4F8A; }
+    .tagg { font-size: 11px; font-weight: 600; fill: #616161; }
+    .ln { stroke: #0F6CBD; stroke-width: 1.8; fill: none; marker-end: url(#arw); }
+    .pl { stroke: #0F6CBD; stroke-width: 1.8; fill: none; }
+    .lg { stroke: #8A8886; stroke-width: 1.8; fill: none; marker-end: url(#arg); }
+    .pg { stroke: #8A8886; stroke-width: 1.8; fill: none; }
+  </style>
+
+  <rect width="1180" height="560" fill="#FFFFFF"/>
+  <text class="t1" x="40" y="40">FDAI workflow</text>
+  <text class="t2" x="40" y="64">One event, one governed decision path. The tier decides how the answer is produced, the gate decides who may act, and every outcome is recorded.</text>
+
+  <rect x="40" y="100" width="250" height="96" rx="8" fill="#EFF6FC" stroke="#0F6CBD"/>
+  <text class="ct" x="165" y="132" text-anchor="middle">EVENT</text>
+  <text class="s" x="165" y="156" text-anchor="middle">Resource change, telemetry,</text>
+  <text class="s" x="165" y="174" text-anchor="middle">operator request, scheduled probe</text>
+
+  <rect x="320" y="100" width="250" height="96" rx="8" fill="#EFF6FC" stroke="#0F6CBD"/>
+  <text class="ct" x="445" y="132" text-anchor="middle">NORMALIZE</text>
+  <text class="s" x="445" y="156" text-anchor="middle">Deduplicate on a stable key</text>
+  <text class="s" x="445" y="174" text-anchor="middle">Correlate into one incident</text>
+
+  <rect x="600" y="100" width="250" height="96" rx="8" fill="#EFF6FC" stroke="#0F6CBD"/>
+  <text class="ct" x="725" y="132" text-anchor="middle">ROUTE</text>
+  <text class="s" x="725" y="156" text-anchor="middle">Confidence picks the lowest tier</text>
+  <text class="s" x="725" y="174" text-anchor="middle">T0 rules, T1 reuse, T2 reasoning</text>
+
+  <rect x="880" y="100" width="250" height="96" rx="8" fill="#EFF6FC" stroke="#0F6CBD"/>
+  <text class="ct" x="1005" y="132" text-anchor="middle">QUALITY GATE</text>
+  <text class="s" x="1005" y="156" text-anchor="middle">Mixed-model cross-check</text>
+  <text class="s" x="1005" y="174" text-anchor="middle">Verifier and cited evidence</text>
+
+  <line class="ln" x1="290" y1="148" x2="318" y2="148"/>
+  <line class="ln" x1="570" y1="148" x2="598" y2="148"/>
+  <line class="ln" x1="850" y1="148" x2="878" y2="148"/>
+  <text class="tag" x="864" y="92" text-anchor="middle">T2 only</text>
+
+  <polyline class="pl" points="725,196 725,224"/>
+  <polyline class="pl" points="1005,196 1005,224"/>
+  <line class="pl" x1="590" y1="224" x2="1005" y2="224"/>
+  <line class="ln" x1="590" y1="224" x2="590" y2="247"/>
+  <text class="tag" x="865" y="216" text-anchor="middle">T0 and T1 go straight to the gate</text>
+
+  <rect x="340" y="250" width="500" height="80" rx="8" fill="#0F6CBD" stroke="#0B4F8A"/>
+  <text class="cw" x="590" y="282" text-anchor="middle">RISK GATE</text>
+  <text class="sw" x="590" y="304" text-anchor="middle">Risk class and action ceiling select the path</text>
+  <text class="sw" x="590" y="321" text-anchor="middle">Neither one can raise autonomy above the other</text>
+
+  <polyline class="pl" points="590,330 590,346"/>
+  <line class="pl" x1="210" y1="346" x2="590" y2="346"/>
+  <line class="pg" x1="590" y1="346" x2="970" y2="346"/>
+  <line class="ln" x1="210" y1="346" x2="210" y2="358"/>
+  <line class="ln" x1="590" y1="346" x2="590" y2="358"/>
+  <line class="lg" x1="970" y1="346" x2="970" y2="358"/>
+
+  <rect x="40" y="360" width="340" height="80" rx="8" fill="#EFF6FC" stroke="#0F6CBD"/>
+  <text class="ct" x="210" y="390" text-anchor="middle">AUTO</text>
+  <text class="s" x="210" y="412" text-anchor="middle">Low risk and already promoted</text>
+  <text class="s" x="210" y="430" text-anchor="middle">Runs without a person in the loop</text>
+
+  <rect x="420" y="360" width="340" height="80" rx="8" fill="#DCEBFA" stroke="#0B4F8A" stroke-width="1.5"/>
+  <text class="ct" x="590" y="390" text-anchor="middle">HUMAN APPROVAL</text>
+  <text class="s" x="590" y="412" text-anchor="middle">Approver and executor stay separate</text>
+  <text class="s" x="590" y="430" text-anchor="middle">Silence never grants authority</text>
+
+  <rect x="800" y="360" width="340" height="80" rx="8" fill="#F5F5F5" stroke="#B3B3B3"/>
+  <text class="ct" x="970" y="390" text-anchor="middle">HOLD OR DENY</text>
+  <text class="s" x="970" y="412" text-anchor="middle">Evidence is thin or policy blocks it</text>
+  <text class="s" x="970" y="430" text-anchor="middle">No change, and still recorded</text>
+
+  <polyline class="pl" points="210,440 210,452 590,452 590,440"/>
+  <line class="ln" x1="380" y1="452" x2="380" y2="464"/>
+  <polyline class="pg" points="970,440 970,452 1025,452"/>
+  <line class="lg" x1="1025" y1="452" x2="1025" y2="464"/>
+
+  <rect x="230" y="466" width="300" height="80" rx="8" fill="#EFF6FC" stroke="#0F6CBD"/>
+  <text class="ct" x="380" y="496" text-anchor="middle">EXECUTE</text>
+  <text class="s" x="380" y="518" text-anchor="middle">Fix pull request or bounded action</text>
+  <text class="s" x="380" y="536" text-anchor="middle">Stop condition and rollback ready</text>
+
+  <rect x="570" y="466" width="300" height="80" rx="8" fill="#EFF6FC" stroke="#0F6CBD"/>
+  <text class="ct" x="720" y="496" text-anchor="middle">VERIFY EFFECT</text>
+  <text class="s" x="720" y="518" text-anchor="middle">Independent observation confirms it</text>
+  <text class="s" x="720" y="536" text-anchor="middle">An API success is not proof</text>
+
+  <rect x="910" y="466" width="230" height="80" rx="8" fill="#F0F7F0" stroke="#0E700E"/>
+  <text class="ct" x="1025" y="496" text-anchor="middle">AUDIT</text>
+  <text class="s" x="1025" y="518" text-anchor="middle">Append-only and replayable</text>
+  <text class="s" x="1025" y="536" text-anchor="middle">Every path ends here</text>
+
+  <line class="ln" x1="530" y1="506" x2="568" y2="506"/>
+  <line class="ln" x1="870" y1="506" x2="908" y2="506"/>
+</svg>

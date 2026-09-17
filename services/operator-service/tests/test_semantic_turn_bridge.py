@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import logging
+from collections import OrderedDict
 from collections.abc import AsyncIterator, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -41,11 +42,15 @@ from fdai_operator_service.families.conversation.contracts import (
     ConversationStreamRequest,
     JsonObject,
     PrincipalScope,
+    StreamEvent,
 )
 from fdai_operator_service.families.conversation.document_export import (
     ConversationDocumentExporter,
 )
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
+from fdai_operator_service.families.conversation.semantic_turn_presentation import (
+    semantic_done_event_data,
+)
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     RuntimeCallEndpointObserver,
     SemanticTurnBridge,
@@ -53,8 +58,11 @@ from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SemanticTurnOutboxDrainer,
     SemanticTurnProjectionConsumer,
     _held_projection,
+    _next_projection_conflict_attempt,
+    _SemanticProgressRelay,
     runtime_call_endpoint_observer_from_config,
 )
+from fdai_operator_service.families.conversation.transport import sse_frame
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
@@ -929,6 +937,35 @@ async def test_bridge_persists_explicit_unknown_when_relationship_resolver_is_un
     assert "relationship_proof" not in semantic
     assert semantic["target_agent"] == "Bragi"
     assert semantic["execution_authority"] is False
+
+
+@pytest.mark.parametrize(
+    ("failure", "reason"),
+    [
+        (TimeoutError(), "resolver_timeout"),
+        (ValueError("invalid proof"), "resolver_invalid"),
+    ],
+)
+async def test_bridge_preserves_relationship_resolver_failure_class(
+    failure: Exception,
+    reason: str,
+) -> None:
+    class FailedResolver:
+        async def resolve(self, **kwargs: Any) -> Any:
+            del kwargs
+            raise failure
+
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(store=store, relationship_resolver=FailedResolver())
+
+    receipt = await bridge.append(_proposal(body={"prompt": "Explain SLOs."}))
+
+    semantic = cast(
+        Mapping[str, object],
+        store.turns[receipt.proposal_id].envelope["semantic_turn"],
+    )
+    assert semantic["relationship_unknown_reason"] == reason
+    assert "relationship_proof" not in semantic
 
 
 @pytest.mark.parametrize("state", ["matched", "unmapped", "stale_directory", "stale_source"])
@@ -2258,7 +2295,9 @@ async def test_semantic_replay_rejects_another_principal() -> None:
     assert raised.value.status_code == 404
 
 
-async def test_outbox_publish_failure_releases_claim_for_retry() -> None:
+async def test_outbox_publish_failure_releases_claim_for_retry(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     store = _MemorySemanticStore()
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
         _proposal()
@@ -2272,11 +2311,62 @@ async def test_outbox_publish_failure_releases_claim_for_retry() -> None:
     publisher = _FailOncePublisher()
     drainer = SemanticTurnOutboxDrainer(store, publisher, "replica-a")
 
-    assert await drainer.run_once() is False
+    with caplog.at_level(logging.WARNING):
+        assert await drainer.run_once() is False
     assert store.releases == 1
+    assert any(
+        record.message == "semantic_outbox_publish_failed" and record.failure_type == "RuntimeError"
+        for record in caplog.records
+    )
     assert await drainer.run_once() is True
     assert publisher.calls == 2
     assert store.published == 1
+
+
+async def test_bridge_append_wakes_outbox_without_polling_delay() -> None:
+    store = _MemorySemanticStore()
+    published = asyncio.Event()
+
+    class Publisher:
+        async def publish(
+            self,
+            topic: str,
+            key: str,
+            payload: Mapping[str, object],
+        ) -> object:
+            del topic, key, payload
+            published.set()
+            return object()
+
+    class ResultSource:
+        def subscribe(
+            self,
+            topic: str,
+            group_id: str,
+        ) -> AsyncIterator[Mapping[str, object]]:
+            del topic, group_id
+
+            async def idle() -> AsyncIterator[Mapping[str, object]]:
+                await asyncio.Event().wait()
+                if False:
+                    yield {}
+
+            return idle()
+
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=Publisher(),
+        result_source=ResultSource(),
+        retry_seconds=1.0,
+    )
+    await bridge.start()
+    await asyncio.sleep(0)
+
+    await bridge.append(_proposal())
+    await asyncio.wait_for(published.wait(), timeout=0.1)
+
+    assert store.published == 1
+    await bridge.aclose()
 
 
 async def test_outbox_logs_exact_runtime_call_only_after_broker_acceptance() -> None:
@@ -4611,7 +4701,7 @@ async def test_semantic_bridge_deadline_projects_typed_hold() -> None:
     assert [event.data["phase"] for event in events[:-1]] == ["accepted", "planning"]
     semantic_result = cast(dict[str, object], events[-1].data["semantic_result"])
     assert semantic_result["disposition"] == "held"
-    assert semantic_result["reason_code"] == "semantic_transport_unavailable"
+    assert semantic_result["reason_code"] == "semantic_deadline_exceeded"
 
 
 async def test_semantic_bridge_deadline_precedes_pending_progress() -> None:
@@ -4663,7 +4753,117 @@ async def test_semantic_bridge_deadline_precedes_pending_progress() -> None:
 
     assert [event.event for event in events] == ["status", "status", "done"]
     semantic_result = cast(dict[str, object], events[-1].data["semantic_result"])
-    assert semantic_result["reason_code"] == "semantic_transport_unavailable"
+    assert semantic_result["reason_code"] == "semantic_deadline_exceeded"
+
+
+def test_semantic_progress_capacity_eviction_is_bounded_and_observable(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    relay = _SemanticProgressRelay()
+    now = datetime.now(UTC)
+
+    with caplog.at_level(logging.WARNING):
+        for index in range(257):
+            relay.consume(
+                SemanticQueryProgress(
+                    request_id=f"request-{index}",
+                    session_id=f"session-{index}",
+                    turn_id=f"turn-{index}",
+                    turn_sequence=0,
+                    progress_sequence=1,
+                    node_id="resource-read",
+                    node_kind=QueryNodeKind.FUNCTION,
+                    capability="query.resource.read",
+                    status="running",
+                    step_index=1,
+                    step_total=1,
+                    started_at=now,
+                ).model_dump(mode="json")
+            )
+
+    assert len(relay._updates) == 256  # noqa: SLF001 - verify the memory bound
+    assert "semantic_progress_capacity_evicted" in caplog.messages
+
+
+def test_projection_conflict_capacity_evicts_one_oldest_counter(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    conflicts: OrderedDict[str, int] = OrderedDict()
+    conflicts["retained"] = 2
+
+    with caplog.at_level(logging.WARNING):
+        for index in range(256):
+            _next_projection_conflict_attempt(conflicts, f"projection-{index}")
+
+    assert len(conflicts) == 256
+    assert "retained" not in conflicts
+    assert conflicts["projection-0"] == 1
+    assert conflicts["projection-255"] == 1
+    assert "semantic_projection_conflict_capacity_evicted" in caplog.messages
+
+
+async def test_semantic_health_stays_degraded_until_failed_worker_succeeds() -> None:
+    class Publisher:
+        async def publish(
+            self,
+            topic: str,
+            key: str,
+            payload: Mapping[str, object],
+        ) -> object:
+            del topic, key, payload
+            return object()
+
+    class ResultSource:
+        def subscribe(
+            self,
+            topic: str,
+            group_id: str,
+        ) -> AsyncIterator[Mapping[str, object]]:
+            del topic, group_id
+
+            async def idle() -> AsyncIterator[Mapping[str, object]]:
+                await asyncio.Event().wait()
+                if False:
+                    yield {}
+
+            return idle()
+
+    bridge = SemanticTurnBridge(
+        store=_MemorySemanticStore(),
+        publisher=Publisher(),
+        result_source=ResultSource(),
+    )
+    await bridge.start()
+    assert bridge.health()["available"] is True
+
+    bridge._observe_worker("result", False)  # noqa: SLF001 - exercise health state
+    assert bridge.health()["available"] is False
+    assert bridge.health()["degraded_workers"] == ["result"]
+
+    bridge._observe_worker("result", True)  # noqa: SLF001 - exercise recovery state
+    assert bridge.health()["available"] is True
+    assert bridge.health()["degraded_workers"] == []
+    await bridge.aclose()
+
+
+def test_conversation_sse_encoder_rejects_oversized_frame() -> None:
+    with pytest.raises(ValueError, match="SSE frame exceeds the size limit"):
+        sse_frame(StreamEvent(event="done", data={"answer": "x" * ((256 * 1024) - 24)}))
+
+
+def test_partial_semantic_answer_is_consistent_not_fully_verified() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    semantic = cast(dict[str, object], projection["semantic_result"])
+    semantic["reason_code"] = "semantic_answer_partial"
+
+    done = semantic_done_event_data(projection)
+
+    verification = cast(dict[str, object], done["verification"])
+    assert verification["status"] == "consistent"
+    assert verification["reason_code"] == "semantic_answer_partial"
 
 
 async def test_semantic_adapter_delegates_reads_and_exposes_bridge_health() -> None:
@@ -4727,6 +4927,7 @@ async def test_semantic_adapter_delegates_reads_and_exposes_bridge_health() -> N
         "semantic_bridge": {
             "available": False,
             "configured": True,
+            "degraded_workers": [],
             "mode": "starting",
             "progress_topic": "core.semantic-turn.progress",
             "request_topic": "operator.semantic-turn.requests",
@@ -4754,6 +4955,14 @@ async def test_injected_result_consumer_starts_and_stops_with_bridge() -> None:
             topic: str,
             group_id: str,
         ) -> AsyncIterator[Mapping[str, object]]:
+            if topic == "core.semantic-turn.progress":
+
+                async def idle() -> AsyncIterator[Mapping[str, object]]:
+                    await asyncio.Event().wait()
+                    if False:
+                        yield {}
+
+                return idle()
             assert topic == "core.semantic-turn.projections"
             assert group_id == "operator-semantic-turn-v1"
 
@@ -4789,6 +4998,16 @@ async def test_injected_result_consumer_starts_and_stops_with_bridge() -> None:
 
     assert len(store.results) == 1
     assert bridge.workers_ready() is False
+
+
+def test_consumer_retry_delay_grows_exponentially_with_a_bounded_cap() -> None:
+    delay = semantic_turn_runtime_module._next_consumer_retry_delay(1.0, 1.0)
+    assert delay == 2.0
+
+    for _ in range(8):
+        delay = semantic_turn_runtime_module._next_consumer_retry_delay(delay, 1.0)
+
+    assert delay == 16.0
 
 
 async def test_result_consumer_quarantines_poison_projection_and_continues() -> None:
@@ -5234,6 +5453,7 @@ async def test_production_composition_auto_binds_one_kafka_bus_and_owns_lifecycl
     assert semantic.bridge.health() == {
         "available": False,
         "configured": True,
+        "degraded_workers": [],
         "mode": "starting",
         "progress_topic": "core.semantic-turn.progress",
         "request_topic": "semantic.requests",

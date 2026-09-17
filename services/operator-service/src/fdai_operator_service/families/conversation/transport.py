@@ -18,6 +18,8 @@ from fdai_operator_service.redaction import redact_mapping
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+_MAX_SSE_FRAME_BYTES = 256 * 1024
+
 MAX_QUERY_BYTES = 8_192
 MAX_QUERY_VALUES = 64
 MAX_PATH_VALUE_CHARS = 256
@@ -170,7 +172,10 @@ def sse_frame(event: StreamEvent) -> bytes:
         lines.append(f"retry: {event.retry_ms}")
     payload = json.dumps(redact_mapping(event.data), separators=(",", ":"), sort_keys=True)
     lines.append(f"data: {payload}")
-    return ("\n".join(lines) + "\n\n").encode()
+    encoded = ("\n".join(lines) + "\n\n").encode()
+    if len(encoded) > _MAX_SSE_FRAME_BYTES:
+        raise ValueError("conversation SSE frame exceeds the size limit")
+    return encoded
 
 
 def _json_value(value: object) -> JsonValue:
