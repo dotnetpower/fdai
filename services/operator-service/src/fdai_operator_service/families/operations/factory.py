@@ -210,8 +210,17 @@ async def _projection(
         )
     except InventoryGenerationChangedError:
         return _error(409, "inventory_generation_changed")
-    except OntologyGenerationChangedError:
-        return _error(409, "ontology_generation_changed")
+    except OntologyGenerationChangedError as exc:
+        return JSONResponse(
+            {
+                "error": {
+                    "status": 409,
+                    "message": "ontology_generation_changed",
+                    "reason": exc.reason,
+                }
+            },
+            status_code=409,
+        )
     except ProjectionNotFoundError:
         if entry.operation in {"blast_radius.simulate", "ontology.instance.explore"}:
             return _error(404, "target resource is not available in the active inventory")

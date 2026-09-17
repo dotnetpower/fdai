@@ -14,13 +14,13 @@ import {
   type DashboardFilters, type DashboardLens, type DashboardResource, type DashboardSnapshot, type DashboardState, type DashboardView,
 } from "./dashboard-v2.model";
 import { date, number, t } from "./i18n/dashboard-v2";
-import { loadDashboardRecordedStates } from "./dashboard-v2.loading";
+import { DashboardRecoveryTimeoutError, loadDashboardRecordedStates } from "./dashboard-v2.loading";
 import {
   installOntologyInstanceRefresh,
   type OntologyInstanceRefreshTrigger,
 } from "./ontology-instance-refresh";
 import { useOntologyInvalidationStream } from "./use-ontology-invalidation-stream";
-import { isRecordedStateGenerationTransition } from "../recorded-resource-state";
+import { isRecordedStateReleaseMismatch } from "../recorded-resource-state";
 import "./dashboard-v2.css";
 
 export const DASHBOARD_V2_REFRESH_INTERVAL_MS = 300_000;
@@ -30,9 +30,12 @@ export default function DashboardV2Route({ client }: { readonly client: Operator
   const [state, setState] = useState<AsyncState<DashboardSnapshot>>({ status: "loading" });
   const [refreshDelayed, setRefreshDelayed] = useState(false);
   const [refreshInFlight, setRefreshInFlight] = useState(false);
+  const [recoveryState, setRecoveryState] = useState<"synchronizing" | "exhausted" | "deployment-required" | null>(null);
   const readyClientRef = useRef<OperatorApiClient | null>(null);
   const [revision, setRevision] = useState(0);
-  const streamSnapshot = state.status === "ready" ? state.data : null;
+  const visibleState: AsyncState<DashboardSnapshot> = state.status === "ready" && readyClientRef.current !== client
+    ? { status: "loading" } : state;
+  const streamSnapshot = visibleState.status === "ready" ? visibleState.data : null;
   useOntologyInvalidationStream({
     url: `${client.operatorApiBaseUrl.replace(/\/$/, "")}/ontology/instances/stream`,
     enabled: streamSnapshot !== null,
@@ -44,25 +47,41 @@ export default function DashboardV2Route({ client }: { readonly client: Operator
   });
   useEffect(() => {
     let cancelled = false;
+    let automaticRecoveryStopped = false;
     const refresh = async (trigger: OntologyInstanceRefreshTrigger) => {
+      if (automaticRecoveryStopped && trigger !== "initial") return;
       const canRetain = readyClientRef.current === client;
-      const retainingForManualRefresh = trigger === "initial" && canRetain;
+      const retainingForManualRefresh = canRetain;
       if (retainingForManualRefresh) setRefreshInFlight(true);
+      setRecoveryState(null);
       if (trigger === "initial" && !canRetain) setState({ status: "loading" });
       try {
-        const snapshot = await loadDashboardRecordedStates(client, () => cancelled);
+        const snapshot = await loadDashboardRecordedStates(client, () => cancelled, undefined, {
+          recover: true,
+          onRecovery: () => {
+            if (cancelled) return;
+            setRecoveryState("synchronizing");
+            if (canRetain) setRefreshDelayed(true);
+          },
+        });
         if (!cancelled && snapshot) {
           readyClientRef.current = client;
           setRefreshDelayed(false);
+          setRecoveryState(null);
           setState({ status: "ready", data: snapshot });
         }
       } catch (error: unknown) {
         if (cancelled) return;
-        if (canRetain && isRecordedStateGenerationTransition(error)) {
-          setRefreshDelayed(true);
+        if (error instanceof DashboardRecoveryTimeoutError || isRecordedStateReleaseMismatch(error)) {
+          automaticRecoveryStopped = true;
+          const releaseMismatch = isRecordedStateReleaseMismatch(error);
+          setRecoveryState(releaseMismatch ? "deployment-required" : "exhausted");
+          setRefreshDelayed(canRetain);
+          if (!canRetain) setState({ status: "unavailable", message: t(releaseMismatch ? "releaseMismatch" : "recoveryExhausted") });
           return;
         }
         readyClientRef.current = null;
+        setRecoveryState(null);
         setRefreshDelayed(false);
         setState(isOptionalOperatorApiUnavailable(error)
           ? { status: "unavailable", message: t("unavailable") }
@@ -82,9 +101,14 @@ export default function DashboardV2Route({ client }: { readonly client: Operator
       <button type="button" class="cs-control-button" onClick={() => setRevision((value) => value + 1)} disabled={state.status === "loading" || refreshInFlight}>{t("refresh")}</button>
     </>} />
     {refreshInFlight && !refreshDelayed && <p class="dv2-notice" role="status">{t("refreshing")}</p>}
-    {refreshDelayed && <p class="dv2-notice" role="status">{t("refreshDelayed")}</p>}
-    {state.status !== "ready" && <DashboardPendingContext status={state.status} />}
-    <AsyncBoundary state={state} resourceLabel={t("title")}>
+    {refreshDelayed && visibleState.status === "ready" && <p class="dv2-notice" role="status">{t("refreshDelayed")}</p>}
+    {(recoveryState === "exhausted" || recoveryState === "deployment-required") && <p class="dv2-notice" role="status">
+      {visibleState.status === "ready" && t(recoveryState === "deployment-required" ? "releaseMismatch" : "recoveryExhausted")}
+      {" "}<a href="/settings/diagnostics">{t("diagnostics")}</a>
+    </p>}
+    {visibleState.status !== "ready" && <DashboardPendingContext status={recoveryState ?? visibleState.status} />}
+    {visibleState.status === "loading" && recoveryState === "synchronizing" && <p class="dv2-notice">{t("synchronizingDetail")}</p>}
+    <AsyncBoundary state={visibleState} resourceLabel={t(recoveryState === "synchronizing" ? "synchronizing" : "title")}>
       {(snapshot) => <DashboardBody snapshot={snapshot} />}
     </AsyncBoundary>
   </div>;
@@ -93,7 +117,7 @@ export default function DashboardV2Route({ client }: { readonly client: Operator
 function DashboardPendingContext({ status }: { readonly status: string }) {
   usePublishViewContext(() => ({
     routeId: "dashboard-v2", routeLabel: t("title"), purpose: t("subtitle"),
-    headline: t(status === "loading" ? "loading" : "unavailable"),
+    headline: t(status === "loading" ? "loading" : status === "synchronizing" ? "synchronizing" : "unavailable"),
     capturedAt: new Date().toISOString(), glossary: composeGlossary([TERMS.resource]),
     facts: [{ key: "inventory_state", value: status }, { key: "execution_authority", value: false }],
     records: {},

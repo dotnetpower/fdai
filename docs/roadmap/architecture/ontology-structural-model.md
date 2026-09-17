@@ -61,6 +61,9 @@ from that cursor. Clients without a page-bound cursor receive the current marker
 a missed generation. Bulk Dashboard traversal uses markers as its primary signal and a five-minute
 visible-tab fallback, while selected-instance revalidation retains its separate 15-second cadence.
 
+[Bounded projection recovery](../interfaces/recorded-resource-state.md#bounded-automatic-recovery) distinguishes missing, pending, and release-mismatched generations without changing graph identity.
+The existing inventory owner verifies replay through its atomic manifest and journal; diagnostic receipts remain on their existing path and neither read route gains a writer or restart authority.
+
 An ObjectSet with a predicate that cannot run in the store first evaluates a 1,000-object,
 relationship-free candidate window. If that window is truncated and does not prove the requested
 result limit, the store can provide one relationship-free candidate snapshot bounded at 50,000

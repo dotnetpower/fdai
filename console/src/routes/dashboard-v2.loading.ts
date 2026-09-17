@@ -12,6 +12,18 @@ import type { DashboardResource, DashboardSnapshot } from "./dashboard-v2.model"
 const LIMIT = 500;
 const MAX_RECORDS = 20000;
 const MAX_READ_MS = 45_000;
+const MAX_RECOVERY_MS = 180_000;
+export class DashboardRecoveryTimeoutError extends Error {
+  constructor() {
+    super("Recorded state recovery exceeded its bounded retry budget");
+    this.name = "DashboardRecoveryTimeoutError";
+  }
+}
+
+interface DashboardRecoveryOptions {
+  readonly recover?: boolean;
+  readonly onRecovery?: () => void;
+}
 const GENERATION_RETRY_DELAYS_MS = [
   250,
   500,
@@ -50,6 +62,7 @@ async function loadDashboardRecordedStateGeneration(
   client: RecordedStateClient,
   cancelled: () => boolean,
   started: number,
+  maximumMs: number,
 ): Promise<DashboardSnapshot | null> {
   let generation: string | null = null;
   let ontologyGeneration: string | null = null;
@@ -64,11 +77,11 @@ async function loadDashboardRecordedStateGeneration(
   const cursors = new Set<string>();
   for (let page = 0; page < MAX_RECORDS / LIMIT; page += 1) {
     if (cancelled()) return null;
-    if (Date.now() - started >= MAX_READ_MS) throw new Error("Recorded resource query exceeded its total deadline");
+    if (Date.now() - started >= maximumMs) throw new Error("Recorded resource query exceeded its total deadline");
     const params = { limit: String(LIMIT), ...(cursor ? { cursor } : {}) };
-    const raw = await readWithinDeadline(() => client.panel("/ontology/instances/states", params), MAX_READ_MS - (Date.now() - started));
+    const raw = await readWithinDeadline(() => client.panel("/ontology/instances/states", params), Math.min(MAX_READ_MS, maximumMs - (Date.now() - started)));
     if (cancelled()) return null;
-    if (Date.now() - started >= MAX_READ_MS) throw new Error("Recorded resource query exceeded its total deadline");
+    if (Date.now() - started >= maximumMs) throw new Error("Recorded resource query exceeded its total deadline");
     const payload = stateRecord(raw, "resource page");
     if (payload.schema_version !== "1.0.0" || payload.execution_authority !== false || payload.mutation_authority !== false) throw new Error("Invalid recorded resource page authority/version");
     const nextGeneration = stateText(payload.source_generation, "generation");
@@ -163,21 +176,26 @@ export async function loadDashboardRecordedStates(
   client: RecordedStateClient,
   cancelled: () => boolean = () => false,
   waitForRetry: (delayMs: number) => Promise<void> = wait,
+  options: DashboardRecoveryOptions = {},
 ): Promise<DashboardSnapshot | null> {
   const started = Date.now();
+  const maximumMs = options.recover ? MAX_RECOVERY_MS : MAX_READ_MS;
+  const maxRetries = options.recover ? 20 : GENERATION_RETRY_DELAYS_MS.length;
   for (let attempt = 0; ; attempt += 1) {
     try {
-      return await loadDashboardRecordedStateGeneration(client, cancelled, started);
+      return await loadDashboardRecordedStateGeneration(client, cancelled, started, maximumMs);
     } catch (error) {
-      if (
-        !isRecordedStateGenerationTransition(error)
-        || attempt >= GENERATION_RETRY_DELAYS_MS.length
-      ) throw error;
+      if (!isRecordedStateGenerationTransition(error)) throw error;
       if (cancelled()) return null;
-      const delay = GENERATION_RETRY_DELAYS_MS[attempt]!;
-      const remaining = MAX_READ_MS - (Date.now() - started);
-      if (remaining <= delay) throw error;
+      const delay = GENERATION_RETRY_DELAYS_MS[Math.min(attempt, GENERATION_RETRY_DELAYS_MS.length - 1)]!;
+      const remaining = maximumMs - (Date.now() - started);
+      if (attempt >= maxRetries || remaining <= delay) {
+        if (options.recover) throw new DashboardRecoveryTimeoutError();
+        throw error;
+      }
+      options.onRecovery?.();
       await readWithinDeadline(() => waitForRetry(delay), remaining);
+      if (options.recover && Date.now() - started >= maximumMs) throw new DashboardRecoveryTimeoutError();
     }
   }
 }

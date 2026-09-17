@@ -35,6 +35,60 @@ function page(ids: string[], next_cursor: string | null = null, total_count = id
 }
 
 describe("shared recorded state consumption", () => {
+  test.each([401, 403, 503])("never retries status %i as automatic recovery", async (status) => {
+    const error = new OperatorApiError(status, "ontology_generation_changed", "http", "ontology_projection_missing");
+    const panel = vi.fn().mockRejectedValue(error);
+    const onRecovery = vi.fn();
+    await expect(loadDashboardRecordedStates({ panel }, () => false, undefined, { recover: true, onRecovery })).rejects.toBe(error);
+    expect(panel).toHaveBeenCalledTimes(1);
+    expect(onRecovery).not.toHaveBeenCalled();
+  });
+
+  test("recovers the first snapshot after the legacy 45-second budget without mixed pages", async () => {
+    vi.useFakeTimers();
+    try {
+      let available = false;
+      const panel = vi.fn().mockImplementation(async () => {
+        if (!available) throw new OperatorApiError(409, "ontology_generation_changed", "http", "ontology_projection_missing");
+        return page(["recovered"]);
+      });
+      const onRecovery = vi.fn();
+      const result = loadDashboardRecordedStates({ panel }, () => false, undefined, { recover: true, onRecovery });
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(onRecovery).toHaveBeenCalled();
+      available = true;
+      await vi.advanceTimersByTimeAsync(12_000);
+      expect((await result)?.resources.map(item => item.id)).toEqual(["recovered"]);
+      expect(panel.mock.calls.every(call => call[1].cursor === undefined)).toBe(true);
+    } finally { vi.useRealTimers(); }
+  });
+
+  test("stops initial recovery within three minutes without an unbounded retry loop", async () => {
+    vi.useFakeTimers();
+    try {
+      const panel = vi.fn().mockRejectedValue(new OperatorApiError(409, "ontology_generation_changed"));
+      const result = expect(loadDashboardRecordedStates({ panel }, () => false, undefined, { recover: true }))
+        .rejects.toThrow("retry budget");
+      await vi.advanceTimersByTimeAsync(180_000);
+      await result;
+      const count = panel.mock.calls.length;
+      expect(count).toBeLessThanOrEqual(21);
+      await vi.advanceTimersByTimeAsync(180_000);
+      expect(panel).toHaveBeenCalledTimes(count);
+    } finally { vi.useRealTimers(); }
+  });
+
+  test.each(["ontology_release_mismatch", "unknown_reason", "invalid_recovery_reason"])(
+    "does not retry terminal or unknown recovery reason %s", async (reason) => {
+      const error = new OperatorApiError(409, "ontology_generation_changed", "http", reason);
+      const panel = vi.fn().mockRejectedValue(error);
+      const wait = vi.fn();
+      await expect(loadDashboardRecordedStates({ panel }, () => false, wait)).rejects.toBe(error);
+      expect(panel).toHaveBeenCalledTimes(1);
+      expect(wait).not.toHaveBeenCalled();
+    },
+  );
+
   test("loads pages by cursor, preserving state axes without per-resource queries", async () => {
     const panel = vi.fn<OperatorApiClient["panel"]>()
       .mockResolvedValueOnce(page(["one"], "next", 2))

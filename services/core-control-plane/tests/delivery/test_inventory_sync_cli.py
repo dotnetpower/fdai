@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import inspect
 import json
@@ -1524,6 +1525,11 @@ async def test_ontology_observer_retains_history_before_projection_failure(
 async def test_ontology_recovery_replays_pending_history_before_new_projection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    status_store = SimpleNamespace(read_state=AsyncMock())
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.PostgresStateStore",
+        lambda **_: status_store,
+    )
     (
         observer,
         recovery,
@@ -1540,10 +1546,22 @@ async def test_ontology_recovery_replays_pending_history_before_new_projection(
     with pytest.raises(RuntimeError, match="history unavailable"):
         await observer(observation)
 
-    observation_journal.load_pending_promoted_snapshot.return_value = observation
+    observation_journal.load_pending_promoted_snapshot.side_effect = [observation, None]
+    status_store = projector.construction_kwargs["status_store"]
+    status_store.read_state.return_value = {
+        "generation": observation.generation,
+        "ontology_release_digest": _release_digest,
+        "complete": True,
+        "manifest_digest": "sha256:" + "c" * 64,
+    }
     await recovery()
 
-    observation_journal.load_pending_promoted_snapshot.assert_awaited_once()
+    assert observation_journal.load_pending_promoted_snapshot.await_count == 2
+    assert status_store.read_state.await_count == 2
+    assert all(
+        call.args == ("inventory-ontology:manifest",)
+        for call in status_store.read_state.await_args_list
+    )
     assert history_store.append.await_count == 2
     projector.apply.assert_awaited_once()
 
@@ -1576,9 +1594,95 @@ async def test_ontology_observer_keeps_incomplete_projection_pending(
     assert activity.status.value == "degraded"
 
 
+@pytest.mark.parametrize(
+    "defect", ["missing", "generation", "release", "incomplete", "digest", "pending"]
+)
+async def test_recovery_rejects_unverified_completion(defect: str) -> None:
+    from fdai.delivery.inventory_sync_cli_support import recover_ontology_projection
+
+    observation = _promoted_observation("snapshot-recovery")
+    manifest: dict[str, object] = {
+        "generation": observation.generation,
+        "ontology_release_digest": "sha256:" + "a" * 64,
+        "complete": True,
+        "manifest_digest": "sha256:" + "c" * 64,
+    }
+    changes = {
+        "generation": "generation",
+        "release": "ontology_release_digest",
+        "incomplete": "complete",
+        "digest": "manifest_digest",
+    }
+    if defect in changes:
+        manifest[changes[defect]] = False if defect == "incomplete" else "invalid"
+    load_pending = AsyncMock(
+        side_effect=[observation, observation if defect == "pending" else None]
+    )
+    observe = AsyncMock()
+    store = SimpleNamespace(
+        read_state=AsyncMock(return_value=None if defect == "missing" else manifest)
+    )
+    with pytest.raises(
+        RuntimeError,
+        match="deployment alignment" if defect == "release" else "readback did not converge",
+    ):
+        await recover_ontology_projection(
+            load_pending=load_pending,
+            observe=observe,
+            status_store=store,
+            release_digest="sha256:" + "a" * 64,
+        )
+    if defect == "release":
+        observe.assert_not_awaited()
+    else:
+        observe.assert_awaited_once_with(observation)
+
+
+async def test_recovery_deadline_cancels_before_new_collection() -> None:
+    from fdai.delivery.inventory_sync_cli_support import recover_ontology_projection
+
+    load_pending = AsyncMock(side_effect=[_promoted_observation("snapshot-recovery")])
+    stopped = asyncio.Event()
+
+    async def observe(_observation: PromotedInventoryObservation) -> None:
+        try:
+            await asyncio.Event().wait()
+        finally:
+            stopped.set()
+
+    with pytest.raises(TimeoutError):
+        await recover_ontology_projection(
+            load_pending=load_pending,
+            observe=observe,
+            status_store=None,
+            release_digest="sha256:" + "a" * 64,
+            timeout_seconds=0.01,
+        )
+    assert stopped.is_set()
+
+
+async def test_recovery_no_pending_generation_performs_no_writes() -> None:
+    from fdai.delivery.inventory_sync_cli_support import recover_ontology_projection
+
+    observe = AsyncMock()
+    store = SimpleNamespace(read_state=AsyncMock())
+    await recover_ontology_projection(
+        load_pending=AsyncMock(return_value=None),
+        observe=observe,
+        status_store=store,
+        release_digest="sha256:" + "a" * 64,
+    )
+    observe.assert_not_awaited()
+    store.read_state.assert_not_awaited()
+
+
 async def test_ontology_recovery_allows_fresh_collection_after_degraded_projection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.PostgresStateStore",
+        lambda **_: SimpleNamespace(read_state=AsyncMock(return_value=None)),
+    )
     (
         _observer,
         recovery,

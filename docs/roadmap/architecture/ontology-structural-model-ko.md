@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 1f71a5806aae20474b97cd089a8ceccf7f5c4953
+translation_source_sha: c186c805747bb8edadbe46a78579920a5112f5b4
 translation_revised: 2026-09-17
 ---
 # 온톨로지 구조 모델
@@ -60,6 +60,11 @@ LinkType을 만들지 않으며 내용 신원은 Resource UID나 관계 신원�
 결속된 커서가 없는 클라이언트는 세대를 놓칠 위험을 피하도록 현재 표식을 받습니다. 대량 Dashboard
 탐색은 표식을 기본 신호로 사용하고 표시 중인 탭에서 5분 fallback을 사용하지만, 선택한 인스턴스의
 재검증은 별도의 15초 간격을 유지합니다.
+
+[제한된 변환 복구](../interfaces/recorded-resource-state-ko.md#제한된-자동-복구)는 그래프 신원을
+바꾸지 않고 누락, 지연, 릴리스 불일치를 구분합니다. 기존 인벤토리 주체가 원자적 매니페스트와
+저널로 재생을 검증합니다. 진단 증적은 기존 경로를 유지하며 조회 경로에 쓰기나 재시작 권한을
+부여하지 않습니다.
 
 저장소에서 실행할 수 없는 조건식이 있는 ObjectSet은 먼저 관계를 제외한 객체 1,000개 후보 구간을
 평가합니다. 이 구간이 잘렸고 요청한 결과 제한을 증명하지 못하면 저장소는 객체 50,000개로 제한된
