@@ -2729,7 +2729,7 @@ locals {
   ]
   partner_resolved_capabilities = [
     for capability in var.resolved_capabilities : capability
-    if contains(["Anthropic", "MistralAI"], capability.publisher)
+    if contains(["Anthropic", "Cohere", "MistralAI"], capability.publisher)
   ]
   openai_enabled = var.enable_llm && length(local.openai_resolved_capabilities) > 0
 }

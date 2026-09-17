@@ -152,6 +152,13 @@ class TestCatalogQuery:
                             "version": "2",
                             "lifecycleStatus": "GenerallyAvailable",
                         },
+                        {
+                            "kind": "AIServices",
+                            "name": "cohere-command-a",
+                            "format": "Cohere",
+                            "version": "1",
+                            "lifecycleStatus": "GenerallyAvailable",
+                        },
                     ]
                 ),
             )
@@ -161,6 +168,7 @@ class TestCatalogQuery:
         assert catalog.publisher_families_in_region("koreacentral") == {
             ("MistralAI", "Mistral-Large-3"),
             ("Anthropic", "claude-opus-4-8"),
+            ("Cohere", "cohere-command-a"),
         }
         assert (
             catalog.latest_stable_version(
@@ -238,6 +246,34 @@ class TestPermissionQuery:
 
 
 class TestQuotaQuery:
+    def test_partner_quota_family_matching_is_case_insensitive(
+        self, fake_subprocess: _FakeSubprocess
+    ) -> None:
+        fake_subprocess._responses = [
+            _CompletedProc(
+                returncode=0,
+                stdout=json.dumps(
+                    [
+                        {
+                            "currentValue": 0,
+                            "limit": 100,
+                            "name": {"value": "AIServices.GlobalStandard.Cohere-Command-A"},
+                        }
+                    ]
+                ),
+            )
+        ]
+
+        assert (
+            AzureCliQuotaQuery().available_capacity_tpm_for_sku(
+                region="westus2",
+                publisher="Cohere",
+                family="cohere-command-a",
+                sku="GlobalStandard",
+            )
+            == 100_000
+        )
+
     def test_parses_partner_global_standard_quota(self, fake_subprocess: _FakeSubprocess) -> None:
         fake_subprocess._responses = [
             _CompletedProc(

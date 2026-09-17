@@ -23,7 +23,7 @@ from fdai.rule_catalog.schema.model_endpoint import (
     ModelRouteKind,
 )
 
-_PARTNER_PUBLISHERS = frozenset({"Anthropic", "MistralAI"})
+_PARTNER_PUBLISHERS = frozenset({"Anthropic", "Cohere", "MistralAI"})
 
 
 def seal_partner_bindings(

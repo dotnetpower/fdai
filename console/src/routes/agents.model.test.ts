@@ -93,6 +93,99 @@ function operationalActivity(
 }
 
 describe("agents.model", () => {
+  it("coalesces structured handler transitions into one terminal activity", () => {
+    const started: Extract<AgentActivityMessage, { type: "agent.state" }> = {
+      ...stateMsg("Huginn", "collecting", "correlation-1"),
+      activity_id: "handler:example",
+      activity_correlation_id: "correlation-1",
+      phase: "started",
+      topic: "fdai.change.events",
+      event_id: "event-1",
+      event_type: "inventory.resource_changed",
+      resource_ref: "scope:example/resource-group/example/providers/compute/vm-example",
+      resource_type: "compute-vm",
+      started_at: "2026-07-12T00:00:00Z",
+    };
+    const completed: Extract<AgentActivityMessage, { type: "agent.state" }> = {
+      ...started,
+      state: "watching",
+      correlation_id: null,
+      phase: "completed",
+      completed_at: "2026-07-12T00:00:00.042Z",
+      duration_ms: 42,
+    };
+    let state = reducer(makeInitialState(), { kind: "message", msg: started });
+    state = reducer(state, { kind: "message", msg: completed });
+
+    expect(state.liveActivity).toHaveLength(1);
+    expect(state.liveActivity[0]).toMatchObject({
+      activityId: "handler:example",
+      activityPhase: "completed",
+      correlationId: "correlation-1",
+      resourceType: "compute-vm",
+      durationMs: 42,
+    });
+    expect(state.agents.Huginn?.state).toBe("watching");
+    expect(state.agents.Huginn?.correlationId).toBeNull();
+  });
+
+  it("does not append repeated snapshots of the same structured active work", () => {
+    const started: Extract<AgentActivityMessage, { type: "agent.state" }> = {
+      ...stateMsg("Huginn", "collecting", "correlation-1"),
+      activity_id: "handler:example",
+      activity_correlation_id: "correlation-1",
+      phase: "started",
+      topic: "fdai.change.events",
+      event_id: "event-1",
+      event_type: "inventory.resource_changed",
+      resource_ref: "resource-1",
+      resource_type: "compute-vm",
+      started_at: "2026-07-12T00:00:00Z",
+    };
+    let state = reducer(makeInitialState(), { kind: "message", msg: started });
+    state = reducer(state, {
+      kind: "message",
+      msg: { ...started, ts: "2026-07-12T00:00:15Z" },
+    });
+
+    expect(state.liveActivity).toHaveLength(1);
+    expect(state.liveActivity[0]?.activityPhase).toBe("started");
+  });
+
+  it("retains distinct structured completions with the same passive detail", () => {
+    const completion = (
+      activityId: string,
+      resourceRef: string,
+    ): Extract<AgentActivityMessage, { type: "agent.state" }> => ({
+      ...stateMsg("Huginn", "watching"),
+      detail: "Processed fdai.change.events",
+      activity_id: activityId,
+      phase: "completed",
+      topic: "fdai.change.events",
+      event_id: activityId,
+      event_type: "inventory.resource_changed",
+      resource_ref: resourceRef,
+      resource_type: "compute-vm",
+      started_at: "2026-07-12T00:00:00Z",
+      completed_at: "2026-07-12T00:00:00.001Z",
+      duration_ms: 1,
+    });
+    let state = reducer(makeInitialState(), {
+      kind: "message",
+      msg: completion("handler:first", "resource-first"),
+    });
+    state = reducer(state, {
+      kind: "message",
+      msg: completion("handler:second", "resource-second"),
+    });
+
+    expect(state.liveActivity).toHaveLength(2);
+    expect(state.liveActivity.map((event) => event.resourceRef)).toEqual([
+      "resource-second",
+      "resource-first",
+    ]);
+  });
+
   it("retains all 500 hydrated rows across live-first and later deltas", () => {
     const activities = Array.from(
       { length: 500 },

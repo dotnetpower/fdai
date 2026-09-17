@@ -39,6 +39,49 @@ describe("agent activity stream boundary", () => {
     }))?.source).toBe("synthetic-dev");
   });
 
+  test("decodes bounded handler activity context", () => {
+    const event = decodeAgentActivityMessage(JSON.stringify({
+      type: "agent.state",
+      agent: "Huginn",
+      state: "watching",
+      ts: "2026-07-16T06:00:00Z",
+      correlation_id: null,
+      detail: "Processed fdai.change.events",
+      activity_id: "handler:example",
+      activity_correlation_id: "correlation-1",
+      phase: "completed",
+      topic: "fdai.change.events",
+      event_id: "event-1",
+      event_type: "inventory.resource_changed",
+      resource_ref: "scope:example/resource-group/example/providers/compute/vm-example",
+      resource_name: "vm-example",
+      resource_type: "compute-vm",
+      started_at: "2026-07-16T05:59:59.958Z",
+      completed_at: "2026-07-16T06:00:00Z",
+      duration_ms: 42,
+    }));
+
+    expect(event).toMatchObject({
+      type: "agent.state",
+      activity_id: "handler:example",
+      resource_name: "vm-example",
+      resource_type: "compute-vm",
+      duration_ms: 42,
+    });
+    expect(decodeAgentActivityMessage(JSON.stringify({
+      ...(event as object),
+      duration_ms: -1,
+    }))).toBeNull();
+    expect(decodeAgentActivityMessage(JSON.stringify({
+      ...(event as object),
+      started_at: "2026-07-16T06:00:01Z",
+    }))).toBeNull();
+    expect(decodeAgentActivityMessage(JSON.stringify({
+      ...(event as object),
+      duration_ms: 41,
+    }))).toBeNull();
+  });
+
   test("rejects malformed and unknown semantic frames", () => {
     expect(decodeAgentActivityMessage("not json")).toBeNull();
     expect(decodeAgentActivityMessage(JSON.stringify({ type: "agent.state", agent: "Huginn" })))

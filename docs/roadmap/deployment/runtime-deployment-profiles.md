@@ -218,6 +218,10 @@ legacy Container Apps renderers receive the same typed deployment input.
 The AKS standalone renderer always binds Core semantic request, projection, physical and read-investigation topics,
 so a disabled model returns a typed hold instead of leaving a request pending. With model support,
 Azure mode, resolved-model path, digest, primary endpoint and endpoint map form one fail-fast contract; `enable_llm` must be a JSON boolean, and other types stop application preparation. This validation is structural and never classifies natural-language intent.
+The shared Terraform model boundary routes OpenAI capabilities to the Azure OpenAI account and
+Anthropic, Cohere, or MistralAI capabilities to the deployment-owned Foundry partner account. Both
+runtime profiles consume the same sealed endpoint map, so selecting AKS or Container Apps cannot
+change the secondary publisher, model, or capacity.
 
 Operator assignment and human-approval (HIL) transport imports share the existing `iam_composition`
 facade within the same Operator Service package and runtime; original adapter and factory objects

@@ -49,7 +49,7 @@ def gate() -> ModuleType:
 def _resolved(
     *,
     status: CapabilityStatus = CapabilityStatus.RESOLVED,
-    family: str = "Mistral-Large-3",
+    family: str = "cohere-command-a",
     endpoint_ref: str = "azure-foundry:aif-fdai-models-staging-krc",
 ) -> ResolvedModels:
     return ResolvedModels(
@@ -62,11 +62,11 @@ def _resolved(
             ResolvedCapability(
                 name="t2.reasoner.secondary",
                 status=status,
-                publisher="MistralAI",
+                publisher="Cohere",
                 family=family,
                 version="1",
                 sku="GlobalStandard",
-                capacity_tpm=1_000,
+                capacity_tpm=10_000,
                 invocation="always",
             ),
         ),
@@ -81,10 +81,10 @@ def _resolved(
                 deployment="t2.reasoner.secondary",
                 auth_kind=ModelAuthKind.ENTRA,
                 auth_audience="https://cognitiveservices.azure.com/.default",
-                publisher="MistralAI",
+                publisher="Cohere",
                 family=family,
                 version="1",
-                capacity=ModelEndpointCapacity(unit=ModelCapacityUnit.TPM, value=1_000),
+                capacity=ModelEndpointCapacity(unit=ModelCapacityUnit.TPM, value=10_000),
                 features=ModelEndpointFeatures(streaming=True, structured_output=True),
                 discovery=ModelEndpointDiscovery(
                     source=ModelDiscoverySource.AZURE_MANAGEMENT,
@@ -100,11 +100,11 @@ def _require(gate: ModuleType, resolved: ResolvedModels) -> None:
     gate.require_resolved_capability(
         resolved,
         capability="t2.reasoner.secondary",
-        publisher="MistralAI",
-        family="Mistral-Large-3",
+        publisher="Cohere",
+        family="cohere-command-a",
         version="1",
         sku="GlobalStandard",
-        minimum_capacity_tpm=1_000,
+        minimum_capacity_tpm=10_000,
         provider_kind=ModelProviderKind.AZURE_FOUNDRY,
         endpoint_ref="azure-foundry:aif-fdai-models-staging-krc",
     )

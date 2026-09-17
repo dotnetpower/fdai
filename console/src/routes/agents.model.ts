@@ -16,6 +16,7 @@ import type {
   AgentActivityMessage,
   AgentStatus,
   ConversationTurnMessage,
+  HandlerActivityPhase,
   TicketStatus,
 } from "../hooks/use-agent-stream";
 import type {
@@ -136,6 +137,16 @@ export interface LiveAgentActivityEvent {
   readonly ts: string;
   readonly source: FrameSource;
   readonly activityId: string | null;
+  readonly activityPhase?: HandlerActivityPhase;
+  readonly topic?: string;
+  readonly eventId?: string;
+  readonly eventType?: string;
+  readonly resourceRef?: string;
+  readonly resourceName?: string;
+  readonly resourceType?: string;
+  readonly startedAt?: string;
+  readonly completedAt?: string;
+  readonly durationMs?: number;
   readonly operationalKind: OperationalActivityKind | null;
   readonly observationDomain: ObservationDomain | null;
   readonly retained?: boolean;
@@ -184,10 +195,20 @@ function projectLiveActivity(
       state: msg.state,
       summary: msg.detail ?? msg.state,
       detail: msg.detail,
-      correlationId: msg.correlation_id,
+      correlationId: msg.activity_correlation_id ?? msg.correlation_id,
       ts: msg.ts,
       source: msg.source ?? "unknown",
-      activityId: null,
+      activityId: msg.activity_id ?? null,
+      ...(msg.phase === undefined ? {} : { activityPhase: msg.phase }),
+      ...(msg.topic === undefined ? {} : { topic: msg.topic }),
+      ...(msg.event_id === undefined ? {} : { eventId: msg.event_id }),
+      ...(msg.event_type === undefined ? {} : { eventType: msg.event_type }),
+      ...(msg.resource_ref === undefined ? {} : { resourceRef: msg.resource_ref }),
+      ...(msg.resource_name === undefined ? {} : { resourceName: msg.resource_name }),
+      ...(msg.resource_type === undefined ? {} : { resourceType: msg.resource_type }),
+      ...(msg.started_at === undefined ? {} : { startedAt: msg.started_at }),
+      ...(msg.completed_at === undefined ? {} : { completedAt: msg.completed_at }),
+      ...(msg.duration_ms === undefined ? {} : { durationMs: msg.duration_ms }),
       operationalKind: null,
       observationDomain: null,
       retained: false,
@@ -291,6 +312,21 @@ function recordLiveActivity(
   if (duplicateIndex >= 0) {
     const duplicate = state.liveActivity[duplicateIndex];
     if (
+      projected.kind === "agent.state" &&
+      duplicate?.kind === "agent.state" &&
+      projected.activityPhase !== undefined &&
+      duplicate.activityPhase !== projected.activityPhase
+    ) {
+      return {
+        ...state,
+        liveActivity: boundLiveActivity([
+          projected,
+          ...state.liveActivity.filter((_, index) => index !== duplicateIndex),
+        ]),
+        nextLiveActivitySequence: state.nextLiveActivitySequence + 1,
+      };
+    }
+    if (
       sourceOverride === "replay" &&
       duplicate !== undefined &&
       duplicate.retained !== true
@@ -360,6 +396,7 @@ function isRepeatedPassiveState(
 ): boolean {
   if (
     candidate.kind !== "agent.state" ||
+    candidate.activityId !== null ||
     (candidate.state !== "idle" && candidate.state !== "watching")
   ) return false;
   const previous = events.find((event) => event.agent === candidate.agent);
