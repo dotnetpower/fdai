@@ -81,9 +81,12 @@ from fdai_operator_service.families.cost_governance import CostGovernanceFamilyD
 from fdai_operator_service.families.operations import PanelRoute
 from fdai_operator_service.families.operations.contracts import ProjectionReader
 from fdai_operator_service.family_adapters import (
+    AksCommerceFamilyDependencies,
     PostgresConversationAdapters,
     PostgresOperationsAdapters,
     PostgresWorkflowAdapters,
+    StateStoreAksCommerceProjectionReader,
+    UnavailableAksCommerceProjectionReader,
     UnavailableConversationAdapters,
     UnavailableOperationsAdapters,
     UnavailableWorkflowAdapters,
@@ -642,6 +645,10 @@ def _build_route_families(
             operations_webhook_verifier=unavailable_operations,
             report_pdf_encoder=report_pdf_encoder,
             operation_panels=REFERENCE_PANEL_ROUTES,
+            aks_commerce=AksCommerceFamilyDependencies(
+                authenticator=authenticator,
+                projections=UnavailableAksCommerceProjectionReader(),
+            ),
             cost_governance=CostGovernanceFamilyDependencies(
                 authenticator=authenticator,
                 access=unavailable_cost,
@@ -749,6 +756,10 @@ def _build_route_families(
         ),
         report_pdf_encoder=report_pdf_encoder,
         operation_panels=REFERENCE_PANEL_ROUTES,
+        aks_commerce=AksCommerceFamilyDependencies(
+            authenticator=authenticator,
+            projections=StateStoreAksCommerceProjectionReader(store),
+        ),
         cost_governance=CostGovernanceFamilyDependencies(
             authenticator=authenticator,
             access=cost_reader,
@@ -1093,6 +1104,17 @@ def _build_data_sources(
                 "/assurance-twin/reviews",
                 "/assurance-twin/review",
             ),
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
+            reachable=None,
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=reason,
+        ),
+        ReadDataSource(
+            key="aks-commerce",
+            source="core-tracked-state" if configured else "not-configured",
+            routes=("/aks-commerce/overview",),
             availability="unknown" if configured else "unavailable",
             configured=configured,
             reachable=None,

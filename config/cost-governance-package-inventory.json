@@ -20,7 +20,7 @@
     "active_owner": "package-owned",
     "package_version": "0.1.1",
     "package_manifest_path": "extensions/cost-governance/src/fdai_cost_governance/resources/manifest.json",
-    "package_manifest_sha256": "d48d9a72818c3fe848e82d5bc833012a79872b54341c8b652c8352837ca470e6",
+    "package_manifest_sha256": "0f8f9f1b7848562d61a7f3273507ff42c9fbf1444e00bb2a9b0fd94b674ddfda",
     "active_asset_counts": {
       "rules": 12,
       "policies": 12,

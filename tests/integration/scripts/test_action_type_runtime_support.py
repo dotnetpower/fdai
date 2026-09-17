@@ -49,13 +49,13 @@ def test_shipped_manifest_covers_the_catalog(checker: ModuleType) -> None:
     assert checker.main(["--root", str(REPO_ROOT)]) == 0
 
 
-def test_current_catalog_baseline_has_53_explicit_rows(
+def test_current_catalog_baseline_has_54_explicit_rows(
     checker: ModuleType,
     manifest: dict[str, Any],
 ) -> None:
     catalog = checker._load_catalog(REPO_ROOT, manifest["catalog_root"])
 
-    assert len(catalog) == 53
+    assert len(catalog) == 54
     assert set(manifest["actions"]) == set(catalog)
 
 
@@ -90,10 +90,15 @@ def test_alert_actions_have_conditional_manual_pr_support_without_operational_cl
         assert catalog[reference].default_mode == "shadow"
 
 
-def test_scale_out_is_core_only_not_isolated(manifest: dict[str, Any]) -> None:
+def test_scale_out_has_core_azure_and_kubernetes_support_not_isolated(
+    manifest: dict[str, Any],
+) -> None:
     claim = manifest["actions"]["ops.scale-out@1.0.0"]
 
-    assert set(claim["bindings"]) == {"core-azure-gateway"}
+    assert set(claim["bindings"]) == {
+        "core-azure-gateway",
+        "core-kubernetes-direct-api",
+    }
     assert "isolated-azure-gateway" not in claim["bindings"]
 
 

@@ -60,12 +60,45 @@ argument_schema:
       x-fdai-audit-safe: true
       minLength: 10
       maxLength: 200
+    target_platform:
+      type: string
+      enum: [kubernetes]
+      x-fdai-audit-safe: true
+    cluster_ref:
+      type: string
+      minLength: 1
+      maxLength: 1024
+      x-fdai-audit-safe: true
+    target_kind:
+      type: string
+      enum: [Deployment]
+      x-fdai-audit-safe: true
+    namespace:
+      type: string
+      minLength: 1
+      maxLength: 253
+      x-fdai-audit-safe: true
+    resource_name:
+      type: string
+      minLength: 1
+      maxLength: 253
+      x-fdai-audit-safe: true
+    target_uid:
+      type: string
+      minLength: 1
+      maxLength: 128
+      x-fdai-audit-safe: true
+    resource_version:
+      type: string
+      minLength: 1
+      maxLength: 256
+      x-fdai-audit-safe: true
 prod_downgrade:
   mode: enforce_hil
   detection_ref: risk-classification/env-detector
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: action-type:ops.scale-out@1.0.0
-  content_hash: sha256:36b7bec20ae967c48d266085ffbc0adefaa144a627fe400de7d187b7c9495046
+  content_hash: sha256:2bdff6875835af46ba9ee3341efcea0eb217b91fb0698476377ea98a6226f8b5
   license: MIT
   retrieved_at: "2026-07-29T00:00:00Z"
