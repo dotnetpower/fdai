@@ -511,7 +511,10 @@ class RuntimeProjectionReader:
             "WHERE published_at IS NULL AND dead_lettered_at IS NULL"
             ") AS oldest_pending_at FROM forecast_publication_outbox"
         )
-        if len(episode_rows) != 1 or len(publication_rows) != 1:
+        retention_rows = await self._fetch_all(
+            "SELECT pending, overdue FROM operator_forecast_retention"
+        )
+        if len(episode_rows) != 1 or len(publication_rows) != 1 or len(retention_rows) != 1:
             raise ProjectionUnavailableError("forecast learning summary is unavailable")
         episodes = episode_rows[0]
         publication = publication_rows[0]
@@ -556,7 +559,10 @@ class RuntimeProjectionReader:
                     else None
                 ),
             },
-            "retention": {"pending": 0, "overdue": 0},
+            "retention": {
+                "pending": _integer(retention_rows[0]["pending"], "forecast retention pending"),
+                "overdue": _integer(retention_rows[0]["overdue"], "forecast retention overdue"),
+            },
         }
 
     async def _operator_memory(self, query: ProjectionQuery) -> Mapping[str, object]:
