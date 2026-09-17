@@ -165,14 +165,9 @@ Coverage-inventory regeneration follows question-bank source changes, including 
 > question uses deterministic fixture evidence. A caller that claims production completion must
 > set `require_production_ready=True` and supply externally produced `cross_service_e2e` or
 > `live_assurance` receipts. This keeps the ordinary fast gate runnable in local CI without turning
-> a hand-authored fixture into cross-service or live proof. When catalog structure changes, every
-> answered fixture must pin the newly computed release and principal-manifest digests before the
-> gate can pass; stale deterministic receipts are never accepted by compatibility.
-> Resource-state collection frames also compare the original utterance with the accepted judgment.
-> Unsupported count, IAM, or RBAC requests fail closed even when a model omits those facets, and
-> every typed Resource filter must bind from its exact source value before a verified plan exists.
-> This deterministic completeness guard does not turn fixture receipts into answer-quality or live
-> production evidence.
+> a hand-authored fixture into cross-service or live proof. Resource-state frames reject omitted count,
+> IAM, or RBAC facets and require exact source-value type binding. Catalog changes require pinned release
+> and principal-manifest digests; stale deterministic receipts are never accepted by compatibility.
 > The `resource_classified_as` and `Forecast`/`Pattern` catalog revisions each refreshed those
 > deterministic fixture digests in the same release change.
 > Every structural release refresh, including the current validation repair, pins the four answered

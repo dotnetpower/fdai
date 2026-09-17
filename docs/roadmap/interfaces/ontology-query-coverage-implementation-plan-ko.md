@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 3290f3eff9d272ec7711175e0aa81414b3c0bb02
+translation_source_sha: b0707bb0fe2178632821ff187814936bf0e68603
 translation_revised: 2026-09-17
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -179,13 +179,9 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 > 사용하면 `production_ready=false`로 보고합니다. 운영 완료를 주장하는 호출자는
 > `require_production_ready=True`를 설정하고 외부에서 생성된 `cross_service_e2e` 또는
 > `live_assurance` 증적을 제공해야 합니다. 따라서 일반 fast 게이트는 로컬 CI에서 계속 실행할 수
-> 있으며 hand-authored 고정본을 서비스 간 또는 실제 운영 증명으로 취급하지 않습니다. Catalog
-> 구조가 변경되면 모든 answered fixture는 새로 계산한 release 및 principal-manifest digest를
-> 고정해야 게이트를 통과하며 stale 결정론적 receipt는 compatibility로 수락하지 않습니다.
-> 리소스 상태 컬렉션 프레임은 원문 발화와 수락된 판정도 비교합니다. 모델이 해당 facet을
-> 누락하더라도 지원하지 않는 개수, IAM 또는 RBAC 요청은 닫힌 상태로 실패하며, 검증된 계획을
-> 만들기 전에 타입이 지정된 모든 리소스 필터를 정확한 원문 값에 결속해야 합니다. 이 결정론적
-> 완전성 검사는 고정본 증적을 답변 품질이나 실제 운영 근거로 바꾸지 않습니다.
+> 있으며 고정본을 서비스 간 또는 실제 운영 증명으로 취급하지 않습니다. 리소스 상태 프레임은 모델이
+> 누락한 개수, IAM, RBAC facet도 원문과 비교하고 정확한 원문 값에 타입 필터를 결속합니다. Catalog 변경은
+> 고정된 release 및 principal-manifest digest를 요구하며 stale 결정론적 receipt는 수락하지 않습니다.
 > `resource_classified_as` 카탈로그 개정과 `Forecast`/`Pattern` 카탈로그 개정은 각각 같은 release
 > 변경에서 해당 결정론적 고정본 다이제스트를 갱신했습니다.
 > 현재 검증 수정을 포함한 모든 구조 release 갱신은 같은 변경에서 답변이 있는 결정론적 고정본
