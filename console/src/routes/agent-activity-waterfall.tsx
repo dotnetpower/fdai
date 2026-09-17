@@ -174,6 +174,11 @@ export function ActivityWaterfall({ items, selected }: ActivityWaterfallProps) {
       <div class="waterfall" aria-label={t("agentActivity.waterfall.label")}>
         {shown.map((g) => {
           const isCollapsed = collapsed.has(g.correlation);
+          const correlationLabel = g.correlation.startsWith("uncorrelated:")
+            ? t("agentActivity.waterfall.uncorrelatedEvent", {
+                sequence: g.bars[0]!.item.seq,
+              })
+            : g.correlation;
           return (
             <section
               class={`waterfall-group ${isCollapsed ? "waterfall-group-collapsed" : ""}`}
@@ -185,31 +190,45 @@ export function ActivityWaterfall({ items, selected }: ActivityWaterfallProps) {
                   class="waterfall-toggle"
                   aria-expanded={!isCollapsed}
                   aria-label={isCollapsed
-                    ? t("agentActivity.waterfall.expand")
-                    : t("agentActivity.waterfall.collapse")}
+                    ? t("agentActivity.waterfall.expand", { correlation: correlationLabel })
+                    : t("agentActivity.waterfall.collapse", { correlation: correlationLabel })}
                   onClick={() => toggle(g.correlation)}
                 >
                   <span class={`waterfall-chevron ${isCollapsed ? "" : "waterfall-chevron-open"}`} aria-hidden="true">
                     ▶
                   </span>
                 </button>
-                {g.correlation.startsWith("uncorrelated:") ? (
-                  <span class="waterfall-corr mono muted">uncorrelated event #{g.bars[0]!.item.seq}</span>
-                ) : (
-                  <Tooltip content={t("tooltip.openTrace")}>
-                    <a
-                      class="waterfall-corr mono"
-                      href={routeHref("trace", { params: { correlation: g.correlation } })}
+                <div class="waterfall-group-identity">
+                  <span class="waterfall-corr mono">{correlationLabel}</span>
+                  <Tooltip content={t("tooltip.activitySpan", { count: g.bars.length, duration: fmtDur(g.spanMs) })}>
+                    <span
+                      class="waterfall-span mono muted"
+                      tabIndex={-1}
+                      aria-label={t("tooltip.activitySpan", {
+                        count: g.bars.length,
+                        duration: fmtDur(g.spanMs),
+                      })}
                     >
-                      {g.correlation}
+                      {startClockOf(g.bars[0]!.item)} · {g.bars.length}
+                    </span>
+                  </Tooltip>
+                </div>
+                {g.correlation.startsWith("uncorrelated:") ? null : (
+                  <Tooltip content={t("agentActivity.waterfall.openTraceLabel", {
+                    correlation: g.correlation,
+                  })}>
+                    <a
+                      class="waterfall-trace-link"
+                      href={routeHref("trace", { params: { correlation: g.correlation } })}
+                      aria-label={t("agentActivity.waterfall.openTraceLabel", {
+                        correlation: g.correlation,
+                      })}
+                    >
+                      <span>{t("agentActivity.waterfall.openTrace")}</span>
+                      <span aria-hidden="true">-&gt;</span>
                     </a>
                   </Tooltip>
                 )}
-                <Tooltip content={t("tooltip.activitySpan", { count: g.bars.length, duration: fmtDur(g.spanMs) })}>
-                  <span class="waterfall-span mono muted">
-                    {startClockOf(g.bars[0]!.item)} · {g.bars.length}
-                  </span>
-                </Tooltip>
               </div>
               {isCollapsed ? null : (
                 <ol class="waterfall-lanes">
