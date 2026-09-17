@@ -50,11 +50,11 @@ function instanceDirectory() {
     source_cutoff: "2026-09-14T00:00:00Z",
     search: null,
     resources: [
-      resource("root", "Example application", "compute.container-app", false),
+      resource("root", "Example AKS cluster", "kubernetes-cluster", false),
       resource(
         "environment",
-        "Example environment",
-        "compute.container-app-environment",
+        "Example node pool",
+        "kubernetes-node-pool",
         false,
       ),
     ],
@@ -75,11 +75,11 @@ function instanceExploration() {
     depth: 8,
     link_types: ["depends_on"],
     resources: [
-      resource("root", "Example application", "compute.container-app", true),
+      resource("root", "Example AKS cluster", "kubernetes-cluster", true),
       resource(
         "environment",
-        "Example environment",
-        "compute.container-app-environment",
+        "Example node pool",
+        "kubernetes-node-pool",
         false,
       ),
     ],
@@ -188,9 +188,10 @@ async function installOntologyFixture(page: Page): Promise<string[]> {
 async function graphSurfaceGeometry(page: Page) {
   return page.locator(".ontology-instance-graph-scroll").evaluate((scroll) => {
     const direction = scroll.querySelector<HTMLElement>(".ontology-instance-direction-surface");
+    const stage = scroll.querySelector<HTMLElement>(".ontology-instance-graph-stage");
     const canvas = scroll.querySelector<SVGElement>(".ontology-instance-graph-canvas");
-    if (direction === null || canvas === null) {
-      throw new Error("direction background and graph canvas MUST render");
+    if (direction === null || stage === null || canvas === null) {
+      throw new Error("direction background, graph stage, and graph canvas MUST render");
     }
     const selectedDirection = direction.querySelector<HTMLElement>(".is-selected");
     if (selectedDirection === null) {
@@ -198,10 +199,12 @@ async function graphSurfaceGeometry(page: Page) {
     }
     const scrollRect = scroll.getBoundingClientRect();
     const directionRect = direction.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
     const canvasRect = canvas.getBoundingClientRect();
     return {
       canvasHeight: canvasRect.height,
       canvasLeft: canvasRect.left,
+      canvasOffsetTop: canvasRect.top - stageRect.top,
       canvasWidth: canvasRect.width,
       directionBottom: directionRect.bottom,
       directionHeight: directionRect.height,
@@ -209,6 +212,7 @@ async function graphSurfaceGeometry(page: Page) {
       directionWidth: directionRect.width,
       scrollBottom: scrollRect.bottom,
       scrollHeight: scroll.clientHeight,
+      stageHeight: stageRect.height,
       selectedBackground: getComputedStyle(selectedDirection).backgroundColor,
     };
   });
@@ -220,6 +224,13 @@ function expectDirectionSurfaceCoverage(
   expect(geometry.directionHeight).toBeGreaterThanOrEqual(geometry.scrollHeight);
   expect(geometry.directionBottom).toBeGreaterThanOrEqual(geometry.scrollBottom - 1);
   expect(geometry.directionHeight).toBeGreaterThanOrEqual(geometry.canvasHeight);
+  expect(geometry.stageHeight).toBeGreaterThanOrEqual(geometry.scrollHeight);
+  if (geometry.canvasHeight < geometry.scrollHeight) {
+    expect(geometry.canvasOffsetTop).toBeCloseTo(
+      (geometry.scrollHeight - geometry.canvasHeight) / 2,
+      0,
+    );
+  }
   expect(geometry.directionLeft).toBeCloseTo(geometry.canvasLeft, 0);
   expect(geometry.directionWidth).toBeCloseTo(geometry.canvasWidth, 0);
   expect(geometry.selectedBackground).not.toBe("rgba(0, 0, 0, 0)");
@@ -248,6 +259,12 @@ test("fills the selected graph viewport with continuous direction regions", asyn
   await expect.poll(() =>
     requests.filter((path) => path === "/ontology/instances/explore").length).toBe(1);
   await expect(page.locator(".ontology-instance-graph-scroll")).toBeVisible();
+  const iconHrefs = await page.locator(".ontology-instance-node image").evaluateAll((images) =>
+    images.map((image) => image.getAttribute("href")).filter((href): href is string => href !== null));
+  for (const href of new Set(iconHrefs)) {
+    const response = await page.request.get(new URL(href, page.url()).href);
+    expect(response.status(), `icon request failed: ${href}`).toBe(200);
+  }
   expect(requests).not.toContain("/ontology/graph");
   const toolbar = page.locator(".ontology-instance-toolbar");
   await expect(toolbar).toContainText(
@@ -264,6 +281,14 @@ test("fills the selected graph viewport with continuous direction regions", asyn
   expect(contrastRatio(toolbarStatusColors.text, toolbarStatusColors.background))
     .toBeGreaterThanOrEqual(4.5);
   await expect(page.locator(".ontology-instance-bound-notice")).toHaveCount(0);
+  const aksEvidence = page.locator(".ontology-instance-aks-lanes");
+  await expect(aksEvidence).not.toHaveAttribute("open", "");
+  await expect(aksEvidence.locator(":scope > div")).not.toBeVisible();
+  await aksEvidence.locator("summary").click();
+  await expect(aksEvidence).toHaveAttribute("open", "");
+  await expect(aksEvidence.locator(":scope > div")).toBeVisible();
+  await expectNoDocumentOverflow(page);
+  await aksEvidence.locator("summary").click();
   const refreshStatus = toolbar.locator(".ontology-instance-refresh-status");
   await expect(refreshStatus).toBeVisible();
   await refreshStatus.focus();
@@ -361,8 +386,12 @@ test("fills the selected graph viewport with continuous direction regions", asyn
   const mobileLegendTarget = await page
     .locator(".ontology-instance-legend-dock > summary")
     .evaluate((element) => element.getBoundingClientRect().height);
+  const mobileAksEvidenceTarget = await page
+    .locator(".ontology-instance-aks-lanes > summary")
+    .evaluate((element) => element.getBoundingClientRect().height);
   expect(mobileCoverageTarget).toBeGreaterThanOrEqual(44);
   expect(mobileLegendTarget).toBeGreaterThanOrEqual(44);
+  expect(mobileAksEvidenceTarget).toBeGreaterThanOrEqual(44);
   expectDirectionSurfaceCoverage(await graphSurfaceGeometry(page));
   await expectNoDocumentOverflow(page);
   await page.screenshot({
