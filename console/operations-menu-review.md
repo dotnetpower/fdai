@@ -11,10 +11,13 @@ with the operator-console and app-shape designs.
 
 ## Design at a glance
 
-The designed Operations domain now exposes seven first-class read-only views in
-this order: Live, Incidents, Approvals, Provisioning, Onboarding, Processes, and
-Scheduler runs. Scheduler runs uses `/scheduler-runs` as its canonical path;
-the former `/processes/scheduler-runs` path remains a compatibility alias.
+At review time, the Operations domain exposed seven first-class read-only views
+in this order: Live, Incidents, Approvals, Provisioning, Onboarding, Processes,
+and Scheduler runs. Provisioning and onboarding now share the Settings >
+Environment and deployment surface; their original routes remain available for
+compatibility without appearing as duplicate Operations menu entries. Scheduler
+runs uses `/scheduler-runs` as its canonical path; the former
+`/processes/scheduler-runs` path remains a compatibility alias.
 
 The audit accepted a finding only when source code, a design statement, or an
 executable contract test could demonstrate it. Every finding below is marked
