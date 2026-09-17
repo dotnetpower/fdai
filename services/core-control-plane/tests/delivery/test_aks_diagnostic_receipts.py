@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -108,22 +109,10 @@ async def test_application_service_atomically_persists_an_idempotent_typed_recei
     assert record["record_digest"].startswith("sha256:")
     receipt = cast(dict[str, object], record["receipt"])
     assert str(receipt["cutoff"]).endswith("Z")
-    identity = {
-        key: receipt[key]
-        for key in (
-            "target_resource_id",
-            "target_uid",
-            "target_resource_version",
-            "ontology_release",
-            "cutoff",
-            "source_cutoffs",
-            "source_revisions",
-        )
-    }
     expected_key = (
         f"{AKS_DIAGNOSTIC_RECEIPT_PREFIX}"
         f"{hashlib.sha256(first.target_resource_id.encode()).hexdigest()}:"
-        f"20260910T000500000000Z:{content_digest(identity)[7:]}"
+        f"20260910T000500000000Z:{content_digest(receipt)[7:]}"
     )
     assert key == expected_key
     assert "must never be persisted" not in str(record)
@@ -142,6 +131,27 @@ async def test_receipt_writer_rejects_a_deterministic_identity_collision() -> No
 
     with pytest.raises(AksDiagnosticReceiptCollisionError):
         await service.assess_and_persist(_context())
+
+
+async def test_receipt_identity_includes_complete_assessment_content() -> None:
+    state = _AtomicStateStore()
+    service = AksDiagnosticReceiptService(
+        StateStoreAksDiagnosticReceiptWriter(cast(StateStore, state))
+    )
+    first = await service.assess_and_persist(_context())
+    second = await service.assess_and_persist(
+        replace(
+            _context(),
+            target=_target(
+                container_waiting_reasons=(),
+                diagnostic_conditions=({"type": "PodScheduled", "status": "False"},),
+            ),
+        )
+    )
+
+    assert first.status != second.status
+    assert len(state.records) == 2
+    assert len(state.audit_entries) == 2
 
 
 async def test_inventory_promotion_observer_records_source_identity_and_explicit_gaps() -> None:

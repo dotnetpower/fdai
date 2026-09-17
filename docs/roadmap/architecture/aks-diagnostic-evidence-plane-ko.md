@@ -1,8 +1,8 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: f5bbaa7bb922b6e2f47833c16969bd000fb55468
-translation_revised: 2026-09-17
+translation_source_sha: 66ec556fcba5228099322733e1b8933e686f948f
+translation_revised: 2026-09-18
 ---
 # AKS 진단 근거 플레인
 
@@ -278,9 +278,10 @@ Operator API는 일반 Reader 역할과 `operations-review` 목적을 요구하�
 허용 목록에 포함된 신원, 상태, 근거 건전성 및 진단 증적을 노출합니다. Console은 공유 스키마를
 검증하고 출처, 기준 시점, 공백 및 정확한 리소스 신원을 렌더링합니다. 브라우저에서 Resource,
 관계, 메트릭 값, 진단 또는 권한을 만들지 않습니다.
-증적 신원은 정확한 대상, UID, resourceVersion, 온톨로지 release, 표준 JSON 시각, 출처 기준 시점
-및 출처 revision으로 내용 주소화됩니다. 온톨로지 변환이 비활성화돼도 복구는 대기 중인 승격을
-재현합니다. Operator는 증적의 대상 신원, 인벤토리 세대 다이제스트, 온톨로지 release, 출처 기준
+증적 신원은 정렬을 위한 기준 시점과 변경할 수 없는 전체 증적의 표준 다이제스트를 포함합니다.
+같은 증적을 재현하면 멱등성을 유지하지만 같은 대상, UID, resourceVersion, release 및 기준 시점의
+평가 내용이 다르면 충돌하는 대신 별도 증적으로 추가합니다. 온톨로지 변환이 비활성화돼도 복구는
+대기 중인 승격을 재현합니다. Operator는 증적의 대상 신원, 인벤토리 세대 다이제스트, 온톨로지 release, 출처 기준
 시점 및 fleet 범위 다이제스트가 선택한 현재 Resource와 일치할 때만 증적을 노출합니다. 불일치는
 진단을 사용 불가로 표시합니다.
 
