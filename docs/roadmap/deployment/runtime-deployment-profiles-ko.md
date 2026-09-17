@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: ab72e0374160bd136d4c6d24831942242ec611ec
+translation_source_sha: 8625c6cb8dde9e2b3c36f85127c045408d799cd9
 translation_revised: 2026-09-18
 ---
 # 런타임 배포 프로파일
@@ -391,7 +391,7 @@ Resilience 실행 자격 증명 계보를 기록합니다. 어떤 신원 선택�
 로컬 interactive는 이 결속을 받지 않습니다.
 
 AKS managed Key Vault CSI 공급자는 각 워크로드의 federated identity를 사용해 고정된 Key Vault 참조를 namespace의 Kubernetes Secrets로 동기화합니다. 애플리케이션은 계속 환경 변수를 읽으며 Key Vault를 직접 호출하지 않습니다. Terraform 플랜에는 secret 값이 아니라 secret 이름과 버전 없는 참조가 포함됩니다.
-Operator Cost Governance 가명 키도 같은 서비스 소유 비밀 경계를 따릅니다. Container Apps와 AKS 프로필은 Key Vault에 엔트로피가 높은 값 하나를 보존하고 `FDAI_COST_PSEUDONYM_KEY`로만 주입합니다. root는 비밀 참조를 Operator에만 전달하며 격리된 Executor에는 전달하지 않습니다. 플랜, 출력, 로그, 계약 및 브라우저 응답에는 키가 포함되지 않습니다. 로컬 준비는 gitignored 기존 값을 보존하거나 같은 최소 강도의 값을 생성합니다. 이 키는 신원 공개 방식만 바꾸며 비용 데이터 접근 권한이나 작업 권한을 부여하지 않습니다.
+Operator Cost Governance 가명 키도 같은 서비스 소유 비밀 경계를 따릅니다. Container Apps와 AKS 프로필은 Key Vault에 엔트로피가 높은 값 하나를 보존하고 `FDAI_COST_PSEUDONYM_KEY`로만 주입합니다. root는 비밀 참조를 Operator에만 전달하며 격리된 Executor에는 전달하지 않습니다. 보호된 독립 서비스 플랜은 보관된 서비스 입력 스냅샷에 의존하지 않고 현재 플랫폼 Terraform 출력에서 해당 참조를 주입합니다. 플랜, 출력, 로그, 계약 및 브라우저 응답에는 키가 포함되지 않습니다. 로컬 준비는 gitignored 기존 값을 보존하거나 같은 최소 강도의 값을 생성합니다. 이 키는 신원 공개 방식만 바꾸며 비용 데이터 접근 권한이나 작업 권한을 부여하지 않습니다.
 
 managed CSI 공급자는 클러스터와 함께 활성화되며 FDAI 워크로드 롤아웃과 분리됩니다. 배포 키트에는
 Kubernetes 공급자와 서명된 `kubectl`, `kubelogin` 바이너리가 포함됩니다. 배포는 키트 검증 이후
