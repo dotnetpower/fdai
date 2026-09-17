@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: f437b9213c0d99b291bd4d63050553abce3d007a
+translation_source_sha: 0776b2e1ba532c9c4dae642de3075a99b00ffe43
 translation_revised: 2026-09-17
 ---
 # 온톨로지 구조 모델
@@ -175,7 +175,8 @@ writer가 리소스와 독립적으로 검증된 링크를 원자적으로 승�
 백엔드 및 scheduling 근거를 추가합니다. Kubernetes Node는 `spec.providerID`가 관찰된 VM
 인스턴스의 정확한 프로바이더 참조로 해석될 때만 하나의 VMSS VM을 향하는
 `kubernetes_backed_by` 링크를 얻습니다. 이름과 식별자 접두사는 이 아이덴티티 연결을
-대체하지 않습니다.
+대체하지 않습니다. 공유 인벤토리 보강 builder는 이 변환 전에 예약 배포와 명시적으로 활성화한
+로컬 새로 고침 모두에서 구독 검색으로 찾은 클러스터 연결을 해석합니다.
 
 이 생산자들은 이름만으로 토폴로지를 추론하지 않습니다. Kubernetes source는 하나의 정확한
 클러스터 Resource 아이덴티티에 결속하고 네임스페이스와 클러스터 범위 검사를 유지합니다.

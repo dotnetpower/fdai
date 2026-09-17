@@ -251,6 +251,11 @@ async def build_inventory_promotion_enricher(
 ) -> InventoryPromotionEnricher:
     """Build the shared ordered enrichment pipeline for every full inventory refresh."""
 
+    config = await _discover_subscription_kubernetes_bindings(
+        config,
+        identity=identity,
+        http_client=http_client,
+    )
     kubernetes_enricher = await _build_kubernetes_enricher(
         config=config,
         relationship_catalog=relationship_catalog,
@@ -502,30 +507,47 @@ async def _resolve_subscription_kubernetes_bindings(
 
     if not config.kubernetes_subscription_discovery:
         return config
-    subscription_id = config.scopes[0]
     async with httpx.AsyncClient() as client:
         identity = _workload_identity(http_client=client)
-        discovery = AzureAksSubscriptionBindingDiscovery(
+        return await _discover_subscription_kubernetes_bindings(
+            config,
             identity=identity,
             http_client=client,
-            config=AksSubscriptionDiscoveryConfig(
-                management_endpoint=config.management_endpoint,
-                management_audience=config.management_audience,
+        )
+
+
+async def _discover_subscription_kubernetes_bindings(
+    config: InventoryJobConfig,
+    *,
+    identity: WorkloadIdentity,
+    http_client: httpx.AsyncClient,
+) -> InventoryJobConfig:
+    """Resolve subscription bindings with an already selected read identity."""
+
+    if not config.kubernetes_subscription_discovery or config.kubernetes_bindings:
+        return config
+    subscription_id = config.scopes[0]
+    discovery = AzureAksSubscriptionBindingDiscovery(
+        identity=identity,
+        http_client=http_client,
+        config=AksSubscriptionDiscoveryConfig(
+            management_endpoint=config.management_endpoint,
+            management_audience=config.management_audience,
+        ),
+    )
+    try:
+        result = await discovery.discover(subscription_id)
+    except AksSubscriptionDiscoveryError:
+        return replace(
+            config,
+            kubernetes_bindings=(),
+            kubernetes_unavailable_scopes=(
+                AksUnavailableScope(
+                    scope_digest=subscription_scope_digest(subscription_id),
+                    reason="kubernetes_subscription_discovery_unavailable",
+                ),
             ),
         )
-        try:
-            result = await discovery.discover(subscription_id)
-        except AksSubscriptionDiscoveryError:
-            return replace(
-                config,
-                kubernetes_bindings=(),
-                kubernetes_unavailable_scopes=(
-                    AksUnavailableScope(
-                        scope_digest=subscription_scope_digest(subscription_id),
-                        reason="kubernetes_subscription_discovery_unavailable",
-                    ),
-                ),
-            )
     return replace(
         config,
         kubernetes_bindings=result.bindings,

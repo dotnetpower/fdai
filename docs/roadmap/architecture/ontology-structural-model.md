@@ -170,7 +170,7 @@ ownership, selector, backend, and scheduling evidence before the same single wri
 resources and independently verified links atomically. A Kubernetes Node gains a
 `kubernetes_backed_by` link to one VMSS VM only when `spec.providerID` resolves to the exact
 provider reference of an observed VM instance. Names and identifier prefixes never substitute for
-that identity bridge.
+that identity bridge. The shared inventory enrichment builder resolves subscription-discovered cluster bindings for both scheduled deployment and opted-in local refreshes before this projection.
 
 These producers do not infer topology from names alone. The Kubernetes source binds one exact
 cluster Resource identity, keeps namespace and cluster scope checks, and records explicit
