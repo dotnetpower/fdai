@@ -61,8 +61,8 @@ domain code and assets. It does not create another control plane or move authori
 > `shadow`. This validates live dev rollback and collection recovery, not the 30-day campaign or
 > independent promotion reviews. The package and its actions remain unpromoted.
 > The packaged semantic profile and parity corpus always pin the active ontology release; an
-> additive kernel declaration refreshes their profile, manifest, fixture identities, and exact
-> digest regression baselines together while retaining held-out cohorts and positive and lowered outcomes.
+> additive kernel declaration, including `AccessGrantRequest@2.0.0`, refreshes their profile,
+> manifest, fixture identities, and exact digest regression baselines together while retaining held-out cohorts and positive and lowered outcomes.
 > Container publication verifies the protected workflow source before any manual-dispatch
 > validation code runs and restricts root dispatch jobs to protected `main`, so unverified
 > workflow text cannot execute ahead of the provenance gate. The verifier also rejects a

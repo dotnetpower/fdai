@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: b2873d761848cda2d744205017c81fca2af5acef
-translation_revised: 2026-09-16
+translation_source_sha: f7574b796d07a0074e9550b390c1ad9c79f679ec
+translation_revised: 2026-09-17
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -26,7 +26,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 영향 범위 및 release 호환성과 연결합니다. `/ontology` 레지스트리 검색과 카탈로그 토폴로지는
 넓은 탐색 화면으로 유지합니다. 시각적 스키마 편집, 임의 release 업로드, 원시 인스턴스 table,
 개인화 및 kernel icon metadata는 제외합니다. 변경은 catalog-as-code pull request로 유지하며
-Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습니다.
+Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습니다. 서버는 역할 및 용도 필터를 적용한 정확한 버전의 ObjectType 선언을 변환하며, 워크벤치는 카탈로그에 선언된 전체 속성 집합과 가림 회계를 표시합니다. 더 작은 표시 스키마로 대체하거나 다른 선언 요소가 불완전하다는 이유로 관련 없는 속성을 생략하지 않습니다.
 
 ## 운영 역량 게이트
 
