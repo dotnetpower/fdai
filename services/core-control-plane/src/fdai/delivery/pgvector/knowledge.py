@@ -224,7 +224,7 @@ class PgvectorKnowledgeSource:
                 await self._set_session_knobs(conn)
                 if table == "knowledge_chunk":
                     cur = await conn.execute(
-                        "SELECT * FROM fdai_search_core_knowledge(%s::vector, %s)",
+                        "SELECT * FROM fdai_search_core_knowledge(%s::vector, %s::INTEGER)",
                         (literal, int(k)),
                     )
                 else:

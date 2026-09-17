@@ -181,7 +181,9 @@ async def test_default_search_uses_bounded_core_function(
 
     assert await source.search("disk pressure", k=3) == ()
     search_statements = [statement for statement, _ in statements if statement.startswith("SELECT")]
-    assert search_statements == ["SELECT * FROM fdai_search_core_knowledge(%s::vector, %s)"]
+    assert search_statements == [
+        "SELECT * FROM fdai_search_core_knowledge(%s::vector, %s::INTEGER)"
+    ]
     assert "knowledge_chunk" not in search_statements[0]
 
 
