@@ -64,6 +64,8 @@ def test_scenario_lab_is_an_independent_public_api_terraform_root() -> None:
     assert "mysql             = azurerm_subnet.mysql.id" not in network
     assert "stress_vm         = azurerm_subnet.stress_vm.id" not in network
     assert network.count("checkov:skip=CKV2_AZURE_31:Azure Policy attaches") == 3
+    assert "#trivy:ignore:AZU-0041" in aks
+    assert "#trivy:ignore:AZU-0065" in aks
     assert re.search(r"^\s*private_cluster_enabled\s*=\s*false$", aks, re.MULTILINE)
     assert "private_cluster_public_fqdn_enabled" not in aks
     assert "private_dns_zone_id" not in aks

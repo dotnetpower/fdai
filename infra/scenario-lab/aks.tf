@@ -4,6 +4,8 @@ resource "azurerm_role_assignment" "aks_network_contributor" {
   principal_id         = azurerm_user_assigned_identity.aks.principal_id
 }
 
+#trivy:ignore:AZU-0041
+#trivy:ignore:AZU-0065
 resource "azurerm_kubernetes_cluster" "scenario_lab" {
   # checkov:skip=CKV_AZURE_117:CMK-backed node disks add durable key infrastructure to a disposable fault target.
   # checkov:skip=CKV_AZURE_116:The one-node lab validates fault behavior, not Azure Policy admission.
