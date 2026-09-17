@@ -111,6 +111,10 @@ const CapabilitiesRoute = lazyRoute(
 );
 const SkillsRoute = lazyRoute(() => import("./routes/skills"), "SkillsRoute");
 const OnboardingRoute = lazyRoute(() => import("./routes/onboarding"), "OnboardingRoute");
+const EnvironmentDeploymentRoute = lazyRoute(
+  () => import("./routes/environment-deployment"),
+  "EnvironmentDeploymentRoute",
+);
 const DetectionReadinessRoute = lazyRoute(
   () => import("./routes/detection-readiness"),
   "DetectionReadinessRoute",
@@ -250,6 +254,8 @@ export interface ConsolePanel {
   readonly group: PanelGroup;
   /** Optional standalone Activity Bar placement. Omit to render in the Explorer. */
   readonly placement?: PanelPlacement;
+  /** Preserve a stable route without showing it as a primary navigation destination. */
+  readonly hiddenFromNavigation?: boolean;
   /** The view component, rendered with {@link PanelProps}. */
   readonly component: ComponentType<PanelProps>;
 }
@@ -302,6 +308,7 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     label: t("nav.panel.provision"),
     subtitle: t("nav.panelSub.provision"),
     group: "operations",
+    hiddenFromNavigation: true,
     component: ProvisionRoute,
   },
   {
@@ -309,6 +316,7 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     label: t("nav.panel.onboarding"),
     subtitle: t("nav.panelSub.onboarding"),
     group: "operations",
+    hiddenFromNavigation: true,
     component: OnboardingRoute,
   },
   {
@@ -621,6 +629,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     component: SettingsGeneralRoute,
   },
   {
+    id: "settings-environment",
+    label: t("nav.panel.settingsEnvironment"),
+    subtitle: t("nav.panelSub.settingsEnvironment"),
+    group: "settings",
+    component: EnvironmentDeploymentRoute,
+  },
+  {
     id: "settings-models",
     label: t("nav.panel.settingsModels"),
     subtitle: t("nav.panelSub.settingsModels"),
@@ -700,12 +715,19 @@ export function validatePanelRegistry(panels: readonly ConsolePanel[]): readonly
 
 /** Panels filtered to a single group, in registration order. */
 export function panelsInGroup(group: PanelGroup): readonly ConsolePanel[] {
-  return resolvePanels().filter((p) => p.group === group && p.placement === undefined);
+  return resolvePanels().filter(
+    (panel) =>
+      panel.group === group &&
+      panel.placement === undefined &&
+      panel.hiddenFromNavigation !== true,
+  );
 }
 
 /** Standalone global utilities pinned to the bottom of the left rail. */
 export function bottomRailPanels(): readonly ConsolePanel[] {
-  return resolvePanels().filter((p) => p.placement === "bottom");
+  return resolvePanels().filter(
+    (panel) => panel.placement === "bottom" && panel.hiddenFromNavigation !== true,
+  );
 }
 
 /** The default panel id: Overview - the approver's landing (health /

@@ -3,10 +3,8 @@ title: Runtime Deployment Profiles
 ---
 # Runtime Deployment Profiles
 
-This document defines Azure Kubernetes Service (AKS) as the default runtime for new FDAI
-installations without changing application behavior or deployment authority. Azure Container Apps
-remains a supported compatibility profile for existing installations. The selection is part of the
-signed `fdaictl` provisioning profile and every exact Terraform plan.
+This document defines Azure Kubernetes Service (AKS) as the default runtime for new FDAI installations without changing application behavior or deployment
+authority. Azure Container Apps remains a supported compatibility profile for existing installations. The selection is part of the signed `fdaictl` provisioning profile and every exact Terraform plan.
 
 > **Scope:** This contract covers new installations. Moving an existing installation between
 > runtime platforms requires a separate migration design and is not an implicit profile update.
@@ -60,8 +58,10 @@ fdaictl provision azure \
   --user-nodes 4
 ```
 
-The command remains interactive at each mutating plan boundary. A runtime or database choice never
-grants action authority, changes the selected environment, or enables enforcement mode.
+The command remains interactive at each mutating plan boundary. A runtime or database choice never grants action authority, changes the selected environment,
+or enables enforcement mode. After installation, the Console groups environment readiness and read-only deployment-run evidence under Settings > Environment
+and deployment. The readiness view is the default; deployment evidence is a separate tab. Neither view starts or retries `fdaictl`, runs Terraform, or acquires
+deployment authority. The original `/onboarding` and `/provisioning` routes remain compatibility entry points.
 
 ### Defaults and validation
 

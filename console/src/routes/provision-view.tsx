@@ -13,6 +13,7 @@ type ProvisionViewId = "stages" | "readiness" | "resources";
 interface Props {
   readonly consoleUrl: string | null;
   readonly dataMode: ConsoleDataMode;
+  readonly embedded?: boolean;
   readonly lastError: string | null;
   readonly percent: number;
   readonly source: ProvisionSourceState;
@@ -39,6 +40,7 @@ export function nextProvisionView(
 export function ProvisionView({
   consoleUrl,
   dataMode,
+  embedded = false,
   lastError,
   percent,
   source,
@@ -51,11 +53,21 @@ export function ProvisionView({
 
   return (
     <div class="provision">
-      <PageHeader
-        title={t("nav.panel.provision")}
-        subtitle={t("provision.subtitle")}
-        actions={<StatusPill kind={connection.kind} label={connection.label} />}
-      />
+      {embedded ? (
+        <header class="environment-deployment-section-header">
+          <div>
+            <h2>{t("nav.panel.provision")}</h2>
+            <p>{t("provision.subtitle")}</p>
+          </div>
+          <StatusPill kind={connection.kind} label={connection.label} />
+        </header>
+      ) : (
+        <PageHeader
+          title={t("nav.panel.provision")}
+          subtitle={t("provision.subtitle")}
+          actions={<StatusPill kind={connection.kind} label={connection.label} />}
+        />
+      )}
 
       <div class="provision-boundary">
         <strong>{t("provision.readOnlyLabel")}</strong>

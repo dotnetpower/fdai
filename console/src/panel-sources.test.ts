@@ -50,6 +50,7 @@ describe("panel source availability", () => {
     expect(panelSourceClassification("documents")).toBe("separate-client");
     expect(panelSourceClassification("github")).toBe("independent");
     expect(panelSourceClassification("settings-diagnostics")).toBe("operator-api");
+    expect(panelSourceClassification("settings-environment")).toBe("operator-api");
   });
 
   test("keeps Alert quality unknown without its own source and unavailable when that source is held", () => {
