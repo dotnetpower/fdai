@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: bce488edbd4e3058c185b77cf1df515505f0b4f0
+translation_source_sha: 0bd782f7809954dd4be279b103428879573c0f97
 translation_revised: 2026-09-17
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -18,7 +18,7 @@ Cost Governance 공개 전달도 같은 동등성 규칙을 따릅니다. 두 �
 ## 전수조사 - 로컬 동작 vs Azure 필요
 테스트 맥락 명령은 로컬과 배포 프로필에서 같은 영속 발신함 facade와 준비 상태 의존성을 사용합니다. import를 모아도 테스트 고정본을 활성화하거나 실행 권한을 부여하지 않습니다.
 로컬 준비는 의존성이나 공급자 작업 전에 OPA를 확인하며, VS Code 작업 터미널은 사용자 설치 도구를 찾도록 `~/.local/bin`을 포함합니다. 모델 파일을 선택하면 해당 파일의 정확한 `LLM_RESOLVED_MODELS_SHA256`을 Operator 환경에 전달하고, 시작 시 확인값이 없거나 파일이 변경되었으면 차단합니다. `FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1`에서는 활성 구독에서 명시적인 `FDAI_LOCAL_RESOURCE_GROUP`을 확인한 뒤에만 Terraform 검색을 생략합니다. 프로세스 환경에서 값을 정의하지 않은 경우 준비 작업은 Git에서 무시되는 `console/.env.local`에서 서버가 소유하는 이 두 설정만 읽을 수 있습니다. 키가 중복되면 안전하게 차단하며 모드와 범위는 모두 환경 캐시 다이제스트에 포함됩니다. PostgreSQL과 Redpanda는 로컬로 유지하고, 없는 소스는 사용 불가로 남으며, 가짜 실행기나 실행 게이트웨이는 선택하지 않습니다. HTTP 생존 확인과 `pantheon_ready`만으로 소비자 준비 상태나 대화 추론 성공을 입증할 수는 없습니다.
-2026-07-21 기준. "자동화 테스트"는 테스트 실행기가 실행하는 pytest 또는 committed mock을 뜻합니다. "Full-stack 로컬"은 운영자에 브라우저 Entra를 사용하고 서버 측 Azure 어댑터에 현재 Azure CLI 맥락을 사용하는 VS 코드 compound launch입니다. 테스트 고정본은 이 launch 프로파일에서 활성화되지 않습니다. [배포된 AKS 자격 증명](runtime-deployment-profiles-ko.md#신원-및-secret)은 명시적 연합 인증을 사용하고 Container Apps는 기존 MI를 유지합니다. 로컬 실행 위치 정책과 이벤트/역할/승인 경계는 바뀌지 않으며 모의 토큰 테스트는 실제 연합 인증이나 권한의 근거가 아닙니다.
+2026-07-21 기준. "자동화 테스트"는 테스트 실행기가 실행하는 pytest 또는 committed mock을 뜻합니다. "Full-stack 로컬"은 운영자에 브라우저 Entra를 사용하고 서버 측 Azure 어댑터에 현재 Azure CLI 맥락을 사용하는 VS 코드 compound launch입니다. 테스트 고정본은 이 launch 프로파일에서 활성화되지 않습니다. [배포된 AKS 자격 증명](runtime-deployment-profiles-ko.md#신원-및-secret)은 명시적 연합 인증을 사용하고 Container Apps는 기존 MI를 유지합니다. Thor의 격리된 실행기는 [런타임 배포 프로파일](runtime-deployment-profiles-ko.md#연결된-신원으로-kubernetes-인증)이 소유하는 기본 비활성 상태의 정확한 Kubernetes API 및 공개 CA 계약으로만 연결할 수 있습니다. 이 연결은 역할을 부여하거나 로컬 권한을 바꿀 수 없습니다. 로컬 실행 위치 정책과 이벤트/역할/승인 경계는 바뀌지 않으며 모의 토큰 테스트는 실제 연합 인증이나 권한의 근거가 아닙니다.
 ### 자동화 테스트에서 완전 동작 (Azure 불필요)
 | 서브시스템 | 로컬 백엔드 | 비고 |
 |-----------|-------------|------|
