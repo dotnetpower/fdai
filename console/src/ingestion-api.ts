@@ -56,10 +56,6 @@ export interface DocumentVersionSummary {
   readonly promotable: boolean;
 }
 
-export interface DocumentVersionHistoryItem extends DocumentVersionSummary {
-  readonly source_sha256: string;
-}
-
 export interface DocumentPreview {
   readonly document_id: string;
   readonly version_id: string;
@@ -428,9 +424,9 @@ export class IngestionApiClient {
 
   async listDocumentVersions(
     documentId: string,
-  ): Promise<readonly DocumentVersionHistoryItem[]> {
+  ): Promise<readonly DocumentVersionSummary[]> {
     const response = await this.#json<{
-      readonly items: readonly DocumentVersionHistoryItem[];
+      readonly items: readonly DocumentVersionSummary[];
     }>(`/documents/${encodeURIComponent(documentId)}/versions`, { method: "GET" });
     return response.items;
   }

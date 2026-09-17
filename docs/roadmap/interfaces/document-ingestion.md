@@ -92,7 +92,7 @@ For regular governed Console uploads, the exact source name inside one collectio
 **Critique.** That creates a hierarchy outside collection policy, retention, version lineage, and
 source protection. One badge also blurs upload, safety, extraction, and index readiness.
 
-**Revised design.** Server-owned collections act as top-level folders and can't be moved or renamed in Console. Exact same-name records collapse into one file row after search and index filtering. Opening version history loads every authorized non-deleted immutable version, including legacy same-name records that predate server-owned replacement. Rows separate lifecycle from retrieval-index state: `ready` and `ready_with_warnings` display **Indexed**; earlier states display **Pending** or **Indexing**; terminal holds and failures display **Not indexed**.
+**Revised design.** Server-owned collections act as top-level folders and can't be moved or renamed in Console. Exact same-name records collapse into one file row after search and index filtering. Opening version history loads every authorized non-deleted immutable version, including legacy same-name records that predate server-owned replacement; the projection excludes uploader and access-membership details. Rows separate lifecycle from retrieval-index state: `ready` and `ready_with_warnings` display **Indexed**; earlier states display **Pending** or **Indexing**; terminal holds and failures display **Not indexed**.
 
 Each content action rechecks current metadata and authorization:
 

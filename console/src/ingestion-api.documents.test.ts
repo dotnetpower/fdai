@@ -82,7 +82,6 @@ describe("IngestionApiClient document catalog", () => {
       document_id: "document-1",
       version_id: "version-1",
       source_name: "guide.txt",
-      source_sha256: "a".repeat(64),
     }];
     const fetch = vi.fn().mockResolvedValue(Response.json({ items }));
     vi.stubGlobal("fetch", fetch);

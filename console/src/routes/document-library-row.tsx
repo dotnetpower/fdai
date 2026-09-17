@@ -9,7 +9,7 @@ interface Props {
   readonly deleting: boolean;
   readonly promoting: boolean;
   readonly previous: boolean;
-  readonly current: boolean;
+  readonly latest: boolean;
   readonly versionNumber?: number;
   readonly onPreview: () => void;
   readonly onDownload: () => void;
@@ -28,7 +28,7 @@ export function DocumentLibraryRow({
   deleting,
   promoting,
   previous,
-  current,
+  latest,
   versionNumber,
   onPreview,
   onDownload,
@@ -47,7 +47,7 @@ export function DocumentLibraryRow({
           <span class={`document-version-label${document.active ? " is-current" : ""}`}>
             {document.active
               ? knowledgeText("activeVersion")
-              : current
+              : latest
                 ? knowledgeText("latestUpload")
                 : knowledgeText("versionNumber", { version: versionNumber ?? 1 })}
           </span>

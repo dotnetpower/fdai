@@ -441,13 +441,28 @@ test("uploads a document without overriding collection reader policy", async ({ 
     "grid-template-columns",
     /.+ .+/,
   );
+  const mobileHistoryToggle = refreshedPersistedGroup.getByRole("button", {
+    name: "Show version history",
+  });
+  await mobileHistoryToggle.focus();
+  await mobileHistoryToggle.press("Enter");
+  await expect(refreshedPersistedGroup.locator(".document-library-row")).toHaveCount(2);
+  const mobileHistoryClose = refreshedPersistedGroup.getByRole("button", {
+    name: /Hide version history/,
+  });
+  expect(await mobileHistoryClose.evaluate(
+    (element) => element.getBoundingClientRect().height,
+  )).toBeGreaterThanOrEqual(44);
   await expectNoHorizontalOverflow(page);
 
-  await page.getByRole("button", { name: "Delete" }).first().click();
+  const activeRow = refreshedPersistedGroup.locator(".document-library-row").filter({
+    hasText: "Active version",
+  });
+  await activeRow.getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText("Delete this version and its indexed content?")).toBeVisible();
-  await page.getByRole("button", { name: "Cancel" }).click();
-  await page.getByRole("button", { name: "Delete" }).first().click();
-  await page.getByRole("button", { name: "Delete document" }).click();
+  await activeRow.getByRole("button", { name: "Cancel" }).click();
+  await activeRow.getByRole("button", { name: "Delete" }).click();
+  await activeRow.getByRole("button", { name: "Delete document" }).click();
   await expect(page.getByText("persisted-guide.txt")).toHaveCount(1);
   await expect(page.getByText("3 files from 3 latest records")).toBeVisible();
 });
