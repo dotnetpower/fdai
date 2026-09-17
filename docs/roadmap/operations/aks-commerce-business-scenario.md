@@ -225,6 +225,15 @@ scope, successful server-side dry run, logical-target lock, stable idempotency k
 audit. Success requires a distinct Heimdall observation of both resource recovery and the expected
 business effect. Kubernetes API acceptance is not success.
 
+Acceptance-only effect verification consumes a trusted action-owner expectation with the exact
+ActionRun, provider receipt, target UID, replica count, application time, and pre-action references.
+Every recovery probe and resource observation must follow that application time and use distinct
+evidence. The verifier authenticates the new receipt, rechecks freshness after verification, and
+requires the exact expected desired count plus positive ready-endpoint and order-acceptance proof.
+It returns `verified`, `not_recovered`, or `held` evidence without closing an Incident, retrying
+an action, or changing promotion. The action-owner handoff and Heimdall lifecycle binding remain
+required before this read-only result can close a real run.
+
 ## Public storefront deployment
 
 The scenario-lab profile deploys the commerce workload with these boundaries:

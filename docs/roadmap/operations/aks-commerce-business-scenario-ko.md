@@ -1,6 +1,6 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: a0bb0d23005c7a6dcec84d456f4ab0120f3254a3
+translation_source_sha: 2609672b8bcf0a127293256bf4403b133c28e284
 translation_revised: 2026-09-17
 ---
 # AKS 상거래 비즈니스 시나리오
@@ -224,6 +224,14 @@ Thor 소유 명령에 대해서만 Kubernetes API를 호출합니다. Heimdall�
 dry run, 논리적 대상 잠금, 안정적인 멱등성 키, 2단계 감사를 요구합니다. 성공하려면
 별도의 Heimdall 관측이 리소스 복구와 예상 비즈니스 효과를 모두 확인해야 합니다.
 Kubernetes API 수락은 성공이 아닙니다.
+
+주문 접수 전용 효과 검증은 작업 소유자가 신뢰할 수 있는 경로로 제공한 정확한 ActionRun,
+공급자 확인 기록, 대상 UID, 복제본 수, 적용 시각 및 작업 전 근거 참조를 사용합니다.
+모든 복구 시험 주문과 리소스 관측은 적용 시각 이후의 새 근거여야 합니다. 검증기는 새 확인
+기록을 인증하고 검증 후에도 최신성을 다시 확인하며, 정확한 목표 복제본 수와 준비된
+엔드포인트 및 주문 접수 성공의 긍정적 근거를 요구합니다. `verified`, `not_recovered`,
+`held` 근거만 반환하며 Incident를 닫거나 작업을 재시도하거나 승격을 변경하지 않습니다.
+실제 실행을 종료하려면 작업 소유자의 인계와 Heimdall 수명 주기 연결이 추가로 필요합니다.
 
 ## 공개 스토어프런트 배포
 
