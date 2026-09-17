@@ -87,18 +87,16 @@ Process journal. Its strict decoder rejects contradictory phase counts, duplicat
 invalid selections, and non-finite effect ranges. Ordinary Processes keep the existing view with
 `planning: null`. The Planning Room is read-only and exposes no action, approval, or retry control.
 
-Activity combines at most 200 chronological durable audit and browser-session runtime rows, preserving each source label. Recorded and live agent-to-agent turns remain individual `from -> to` rows with their full bounded message text.
-Live tail starts enabled, pauses on upward scroll, and supports agent and keyword filters. Time, route, type, detail, and correlation columns are configurable; type starts hidden. Fullscreen changes presentation only.
+Activity combines at most 200 chronological durable audit and browser-session runtime rows while preserving source labels. A structured handler start and terminal transition share one identity and render as one resource-first row. The server projects a display name from the exact logical Resource reference while retaining that reference for inspection. The row also shows resource and event types, terminal phase, measured duration, topic, and correlation when recorded; it never derives identity from topic text or provider payload. Legacy state frames remain separate.
+Recorded and live agent-to-agent turns remain individual `from -> to` rows with their full bounded text. Live tail starts enabled, pauses on upward scroll, and supports agent and keyword filters. Time, route, type, detail, and correlation columns are configurable and visible by default. Fullscreen changes presentation only.
 Time shows clock time in the browser's IANA timezone (`KST` for `Asia/Seoul`); machine rows retain complete timestamps. Waterfall remains the durable audit master-detail surface for lifecycle, inputs, outputs, recorded conversations, and hashes.
 
 Audit follows the approved record-review mock: query controls, a newest-first record rail, selected evidence, raw JSON, and provenance. Selection is local; exact-record links retain server-side sequence bounds and current filters.
 Text search covers loaded records only. Decision, window, and correlation filters query the existing Operator API. Pagination preserves selection and surfaces failures without discarding earlier evidence.
 Ledger-wide aggregates remain unavailable without a server projection. Only a selected record's explicit stage marks its evidence phase; neither dispatch nor observation alone proves an effect. Stored hashes never become a browser integrity verification.
 Ledger guarantees remain unverified, unsupported replay/export actions are omitted, and English/Korean layouts reflow without clipping identifiers. Current-screen context preserves causal fields and the exact selected record.
-Periodic idle and watching health snapshots update current agent state and observation time without
-reloading the unchanged durable audit page. Active work, completed handler transitions, Incidents,
-and handoffs continue to refresh audit evidence. The Activity header shows the latest observed
-heartbeat time without adding repeated passive snapshots as work rows.
+Periodic idle and watching health snapshots update current agent state and observation time without reloading the unchanged durable audit page. Active work, completed handler transitions, Incidents, and handoffs continue to refresh audit evidence.
+The Activity header shows the latest observed heartbeat time without adding repeated passive snapshots as work rows.
 Principal-scoped Command Deck turns and answer planning stay in conversation history, never shared
 Agent Activity. Conversation Assurance is a separate principal-scoped Evidence route whose list
 contains bounded metadata and digests, not answer bodies. Detail reads the original answer only

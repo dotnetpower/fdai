@@ -35,6 +35,53 @@ def test_runtime_state_projects_to_agent_state() -> None:
     }
 
 
+def test_runtime_state_preserves_valid_handler_activity_context() -> None:
+    started_at = datetime.now(UTC)
+    completed_at = started_at + timedelta(milliseconds=42)
+    events = AgentActivityProjector().project(
+        {
+            "type": "agent.runtime-state",
+            "agent": "Huginn",
+            "state": "watching",
+            "ts": completed_at.isoformat(),
+            "correlation_id": None,
+            "detail": "Processed fdai.change.events",
+            "source": "runtime-observed",
+            "activity_id": "handler:example",
+            "activity_correlation_id": "correlation-1",
+            "phase": "completed",
+            "topic": "fdai.change.events",
+            "event_id": "event-1",
+            "event_type": "inventory.resource_changed",
+            "resource_ref": "scope:example/resource-group/example/providers/compute/vm-example",
+            "resource_name": "vm-example",
+            "resource_type": "compute-vm",
+            "started_at": started_at.isoformat(),
+            "completed_at": completed_at.isoformat(),
+            "duration_ms": 42,
+        }
+    )
+
+    assert len(events) == 1
+    assert events[0].event_id == "handler:example:completed"
+    assert events[0].payload["resource_ref"].endswith("/vm-example")
+    assert events[0].payload["resource_name"] == "vm-example"
+    assert events[0].payload["event_type"] == "inventory.resource_changed"
+    assert events[0].payload["duration_ms"] == 42
+    assert (
+        AgentActivityProjector().project(
+            {**events[0].payload, "type": "agent.runtime-state", "duration_ms": True}
+        )
+        == ()
+    )
+    assert (
+        AgentActivityProjector().project(
+            {**events[0].payload, "type": "agent.runtime-state", "duration_ms": 41}
+        )
+        == ()
+    )
+
+
 def test_stage_projection_emits_real_agent_handoff_without_fabricated_ticket() -> None:
     projector = AgentActivityProjector()
     timestamp = datetime.now(UTC).isoformat()

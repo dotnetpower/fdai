@@ -55,6 +55,7 @@ export type TicketStatus = "open" | "investigating" | "resolved";
 
 /** Conversation-turn role - mirrors `TurnKind`. */
 export type TurnKind = "question" | "answer" | "handoff";
+export type HandlerActivityPhase = "started" | "completed" | "failed";
 
 export interface AgentStateMessage {
   readonly type: "agent.state";
@@ -64,6 +65,18 @@ export interface AgentStateMessage {
   readonly correlation_id: string | null;
   readonly detail: string | null;
   readonly source?: FrameSource;
+  readonly activity_id?: string;
+  readonly activity_correlation_id?: string;
+  readonly phase?: HandlerActivityPhase;
+  readonly topic?: string;
+  readonly event_id?: string;
+  readonly event_type?: string;
+  readonly resource_ref?: string;
+  readonly resource_name?: string;
+  readonly resource_type?: string;
+  readonly started_at?: string;
+  readonly completed_at?: string;
+  readonly duration_ms?: number;
 }
 
 export interface IncidentTicketMessage {
@@ -133,6 +146,54 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
 }
 
+const HANDLER_ACTIVITY_FIELDS = [
+  "activity_id", "activity_correlation_id", "phase", "topic", "event_id",
+  "event_type", "resource_ref", "resource_name", "resource_type", "started_at",
+  "completed_at", "duration_ms",
+] as const;
+const HANDLER_ACTIVITY_PHASES = new Set<string>(["started", "completed", "failed"]);
+
+function hasValidHandlerActivity(value: Record<string, unknown>): boolean {
+  if (!HANDLER_ACTIVITY_FIELDS.some((field) => field in value)) return true;
+  const terminal = value.phase === "completed" || value.phase === "failed";
+  const startedAt = timestamp(value.started_at);
+  const completedAt = timestamp(value.completed_at);
+  const measuredDuration = startedAt !== null && completedAt !== null
+    ? Math.max(0, completedAt - startedAt)
+    : null;
+  return boundedString(value.activity_id, 512) &&
+    typeof value.phase === "string" && HANDLER_ACTIVITY_PHASES.has(value.phase) &&
+    boundedString(value.topic, 512) &&
+    optionalBoundedString(value.activity_correlation_id, 1_024) &&
+    optionalBoundedString(value.event_id, 1_024) &&
+    optionalBoundedString(value.event_type, 256) &&
+    optionalBoundedString(value.resource_ref, 1_024) &&
+    optionalBoundedString(value.resource_name, 256) &&
+    optionalBoundedString(value.resource_type, 256) &&
+    startedAt !== null &&
+    (terminal === (completedAt !== null)) &&
+    (completedAt === null || completedAt >= startedAt) &&
+    (terminal === Number.isInteger(value.duration_ms)) &&
+    (!Number.isInteger(value.duration_ms) || (
+      Number(value.duration_ms) >= 0 && Number(value.duration_ms) <= 86_400_000 &&
+      Number(value.duration_ms) === measuredDuration
+    ));
+}
+
+function boundedString(value: unknown, maximum: number): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= maximum;
+}
+
+function optionalBoundedString(value: unknown, maximum: number): boolean {
+  return value === undefined || boundedString(value, maximum);
+}
+
+function timestamp(value: unknown): number | null {
+  if (typeof value !== "string") return null;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
 export function decodeAgentActivityMessage(data: string): AgentActivityMessage | null {
   let value: unknown;
   try {
@@ -148,7 +209,7 @@ export function decodeAgentActivityMessage(data: string): AgentActivityMessage |
     typeof value.agent === "string" &&
     typeof value.state === "string" && AGENT_STATES.has(value.state) &&
     typeof value.ts === "string" && isNullableString(value.correlation_id) &&
-    isNullableString(value.detail)
+    isNullableString(value.detail) && hasValidHandlerActivity(value)
   ) return { ...value, source: normalizeObservationSource(value.source) } as unknown as AgentStateMessage;
   if (
     value.type === "incident.ticket" &&

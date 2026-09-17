@@ -10,6 +10,7 @@ from typing import Final
 from fdai_service_contracts import AgentOperationalActivity
 from pydantic import ValidationError
 
+from .agent_handler_context import handler_activity_context, identifier
 from .live_stream import LiveStreamEvent
 from .stage_frames import parse_stage_frame
 
@@ -69,7 +70,6 @@ _HANDOFF: Final = {
     "audit": "recording the audit entry",
 }
 _SENSING_AGENTS: Final = frozenset({"Huginn", "Heimdall"})
-_MAX_IDENTIFIER_CHARS: Final = 1_024
 _MAX_DETAIL_CHARS: Final = 512
 _MAX_INCIDENTS: Final = 256
 _MAX_FUTURE_SKEW: Final = timedelta(minutes=5)
@@ -245,13 +245,15 @@ def _runtime_state_event(payload: Mapping[str, object]) -> LiveStreamEvent | Non
     correlation_id = payload.get("correlation_id")
     detail = payload.get("detail")
     source = payload.get("source", "unknown")
+    activity = handler_activity_context(payload)
     if (
         agent not in _PANTHEON
         or state not in _AGENT_STATES
         or source not in _SOURCES
         or not isinstance(timestamp, str)
-        or (correlation_id is not None and _identifier(correlation_id) is None)
+        or (correlation_id is not None and identifier(correlation_id) is None)
         or (detail is not None and (not isinstance(detail, str) or len(detail) > _MAX_DETAIL_CHARS))
+        or activity is None
     ):
         return None
     try:
@@ -260,14 +262,21 @@ def _runtime_state_event(payload: Mapping[str, object]) -> LiveStreamEvent | Non
         return None
     if observed_at.tzinfo is None or observed_at > datetime.now(UTC) + _MAX_FUTURE_SKEW:
         return None
+    activity_id = activity.get("activity_id")
+    phase = activity.get("phase")
     return _agent_state(
-        event_id=f"{agent}:{timestamp}",
+        event_id=(
+            f"{activity_id}:{phase}"
+            if isinstance(activity_id, str) and isinstance(phase, str)
+            else f"{agent}:{timestamp}"
+        ),
         agent=str(agent),
         state=str(state),
         timestamp=timestamp,
         correlation_id=str(correlation_id) if correlation_id is not None else None,
         detail=detail if isinstance(detail, str) else None,
         source=str(source),
+        activity=activity,
     )
 
 
@@ -292,19 +301,20 @@ def _agent_state(
     correlation_id: str | None,
     detail: str | None,
     source: str,
+    activity: Mapping[str, object] | None = None,
 ) -> LiveStreamEvent:
-    return _event(
-        event_id,
-        {
-            "type": "agent.state",
-            "agent": agent,
-            "state": state,
-            "ts": timestamp,
-            "correlation_id": correlation_id,
-            "detail": detail,
-            "source": source,
-        },
-    )
+    payload: dict[str, object] = {
+        "type": "agent.state",
+        "agent": agent,
+        "state": state,
+        "ts": timestamp,
+        "correlation_id": correlation_id,
+        "detail": detail,
+        "source": source,
+    }
+    if activity:
+        payload.update(activity)
+    return _event(event_id, payload)
 
 
 def _event(event_id: str, payload: Mapping[str, object]) -> LiveStreamEvent:
@@ -331,12 +341,6 @@ def _next_status(current: str, stage: str, phase: str, detail: Mapping[str, obje
     if stage in {"verify", "gate", "execute"}:
         return "investigating"
     return current
-
-
-def _identifier(value: object) -> str | None:
-    if not isinstance(value, str) or not value or len(value) > _MAX_IDENTIFIER_CHARS:
-        return None
-    return value
 
 
 def _nonempty(value: object) -> str | None:
