@@ -511,10 +511,13 @@ def _disclose_analytics(
         for item in analytics.budgets
         if (budget := _disclosed_budget(item, disclosure)) is not None
     )
-    amount_suppressed = (
-        len(trend) != len(analytics.trend)
-        or len(budgets) != len(analytics.budgets)
-        or any(
+    recommendation_amount_suppressed = (
+        any(
+            item.monthly_savings is not None and item.monthly_savings > 0
+            for item in analytics.recommendations
+        )
+        if not recommendations_allowed
+        else any(
             source.monthly_savings is not None
             and source.monthly_savings > 0
             and disclosed.monthly_savings is None
@@ -524,6 +527,11 @@ def _disclose_analytics(
                 strict=True,
             )
         )
+    )
+    amount_suppressed = (
+        len(trend) != len(analytics.trend)
+        or len(budgets) != len(analytics.budgets)
+        or recommendation_amount_suppressed
     )
     recommendation_details_suppressed = bool(
         analytics.recommendations and not recommendations_allowed
