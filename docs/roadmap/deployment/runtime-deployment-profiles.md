@@ -302,12 +302,21 @@ could select another principal, and a ServiceAccount RoleBinding does not prove 
 
 **Revised design:** The isolated Executor accepts exactly one credential source in
 `FDAI_KUBERNETES_DIRECT_API_JSON`: the existing `token_path`, or an explicit `audience` with no
-token path. Both forms require the exact HTTPS `api_server`, `cluster_ref`, absolute `ca_path`,
-and `allowed_namespaces`. The audience form resolves the command's `executor_identity_ref` only
+token path. Both forms require the exact HTTPS `api_server`, `cluster_ref`, `allowed_namespaces`,
+and exactly one absolute `ca_path` or public `ca_pem`. The audience form resolves the command's `executor_identity_ref` only
 from the existing registered Thor vertical identities. Each request obtains a bounded, unexpired,
 audience-matching token through the service-owned identity adapter; no CLI, human, default, or
 alternate credential fallback is permitted. Concurrent commands must not share mutable identity
 selection. TLS verification and redirect rejection remain mandatory.
+
+The Container Apps Executor root accepts an optional `kubernetes_direct_api` object with
+`api_server`, `cluster_ref`, `audience`, `ca_pem`, and `allowed_namespaces`. Its default is `null`.
+It serializes only this explicit binding into `FDAI_KUBERNETES_DIRECT_API_JSON` and reuses the
+existing attached identities; it cannot enable authority cutover or grant roles. The runtime
+parses the public CA before accepting configuration, rejects private keys, malformed PEM and
+multiple CA sources, and retains certificate and hostname verification without writing a file.
+The exact deployment plan must supply the provider-verified CA and configure routing, identity
+permissions, and rollback separately; the module does not select or discover a cluster.
 
 This adds authentication capability, not permission, promotion, or a deployed binding. The exact
 plan must separately prove private network reachability, CA provenance, the selected identity's

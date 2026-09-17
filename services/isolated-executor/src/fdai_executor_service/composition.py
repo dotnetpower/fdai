@@ -184,14 +184,17 @@ def _build_kubernetes_direct_api(
         value = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise RuntimeError("FDAI_KUBERNETES_DIRECT_API_JSON MUST be valid JSON") from exc
-    common = {"api_server", "cluster_ref", "ca_path", "allowed_namespaces"}
-    if not isinstance(value, dict) or set(value) not in (
-        common | {"token_path"},
-        common | {"audience"},
-    ):
+    common = {"api_server", "cluster_ref", "allowed_namespaces"}
+    accepted = [
+        common | {credential, certificate}
+        for credential in ("token_path", "audience")
+        for certificate in ("ca_path", "ca_pem")
+    ]
+    if not isinstance(value, dict) or set(value) not in accepted:
         raise RuntimeError(
             "FDAI_KUBERNETES_DIRECT_API_JSON MUST contain api_server, cluster_ref, "
-            "ca_path, allowed_namespaces, and exactly one of token_path or audience"
+            "allowed_namespaces, exactly one of token_path or audience, "
+            "and exactly one of ca_path or ca_pem"
         )
     namespaces = value["allowed_namespaces"]
     if (
@@ -202,8 +205,8 @@ def _build_kubernetes_direct_api(
         raise RuntimeError("Kubernetes allowed_namespaces MUST be a non-empty string array")
     text_fields = {name: value[name] for name in set(value) - {"allowed_namespaces"}}
     if any(
-        not isinstance(item, str) or not item or item != item.strip()
-        for item in text_fields.values()
+        not isinstance(item, str) or not item or (name != "ca_pem" and item != item.strip())
+        for name, item in text_fields.items()
     ):
         raise RuntimeError("Kubernetes direct-API text settings MUST be non-empty strings")
     from fdai_executor_service.adapters.kubernetes_direct_api import (
@@ -217,9 +220,10 @@ def _build_kubernetes_direct_api(
                 api_server=str(value["api_server"]),
                 cluster_ref=str(value["cluster_ref"]),
                 token_path=Path(str(value["token_path"])) if "token_path" in value else None,
-                ca_path=Path(str(value["ca_path"])),
+                ca_path=Path(str(value["ca_path"])) if "ca_path" in value else None,
                 allowed_namespaces=frozenset(namespaces),
                 audience=str(value["audience"]) if "audience" in value else None,
+                ca_pem=str(value["ca_pem"]) if "ca_pem" in value else None,
             ),
             identities=identities,
         )

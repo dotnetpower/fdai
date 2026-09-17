@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import re
+import ssl
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -51,10 +52,11 @@ class KubernetesDirectApiConfig:
     api_server: str
     cluster_ref: str
     token_path: Path | None
-    ca_path: Path
+    ca_path: Path | None
     allowed_namespaces: frozenset[str]
     timeout_seconds: float = 30
     audience: str | None = None
+    ca_pem: str | None = None
 
     def __post_init__(self) -> None:
         parsed = urlparse(self.api_server)
@@ -78,7 +80,9 @@ class KubernetesDirectApiConfig:
             raise ValueError("Kubernetes API timeout MUST be in [0.1, 120]")
         if (self.token_path is None) == (self.audience is None):
             raise ValueError("Kubernetes authentication requires exactly one token source")
-        if not self.ca_path.is_absolute() or (
+        if (self.ca_path is None) == (self.ca_pem is None):
+            raise ValueError("Kubernetes TLS requires exactly one CA source")
+        if (self.ca_path is not None and not self.ca_path.is_absolute()) or (
             self.token_path is not None and not self.token_path.is_absolute()
         ):
             raise ValueError("Kubernetes credential references MUST be absolute paths")
@@ -89,6 +93,23 @@ class KubernetesDirectApiConfig:
             or any(character.isspace() or ord(character) < 32 for character in self.audience)
         ):
             raise ValueError("Kubernetes identity audience MUST be bounded non-empty ASCII text")
+        if self.ca_pem is not None:
+            if not 1 <= len(self.ca_pem) <= 65_536 or "PRIVATE KEY" in self.ca_pem:
+                raise ValueError("Kubernetes CA PEM must contain bounded public certificates only")
+            try:
+                self.tls_verification()
+            except (ssl.SSLError, ValueError):
+                raise ValueError("Kubernetes CA PEM is invalid") from None
+
+    def tls_verification(self) -> str | ssl.SSLContext:
+        """Retain certificate and hostname verification with either mounted or inline public CA."""
+        if self.ca_pem is not None:
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            context.load_verify_locations(cadata=self.ca_pem)
+            return context
+        if self.ca_path is None:
+            raise ValueError("Kubernetes CA source is unavailable")
+        return str(self.ca_path)
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,7 +202,7 @@ class HttpxKubernetesApiTransport:
         try:
             async with httpx.AsyncClient(
                 base_url=self._config.api_server,
-                verify=str(self._config.ca_path),
+                verify=self._config.tls_verification(),
                 timeout=self._config.timeout_seconds,
                 follow_redirects=False,
             ) as client:
