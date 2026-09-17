@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: e8240e49d965d55f7e2550aac04e134ae7a75925
+translation_source_sha: 3b840e8f4b2aaa7dbc0ff0d7693b42cca7e8de31
 translation_revised: 2026-09-17
 ---
 # 지속형 운영 인스턴스 그래프
@@ -233,6 +233,12 @@ UUID, 리소스 그룹 세그먼트, 프로바이더 경로 및 마지막 앱 �
 100% 최종 레코드를 추가할 수 있습니다. 진행률 게시자 조립과 주체 안전 값 해시는 delivery의
 단일 책임 인접 모듈에 유지하므로 권한을 옮기지 않고 오케스트레이션 진입점을 구조 크기 한도 아래로 유지합니다.
 병합된 질문 원본 변경은 런타임 또는 실행 권한을 바꾸지 않고 결정적인 질문 은행 전체와 검토 카탈로그를 다시 생성합니다.
+완전한 승격 세대가 온톨로지 변환 결과에 도달하면 Inventory Job은 각 Resource에 대해 내용 주소가
+지정된 `inventory.resource_observed` Event 하나를 정식 컨트롤 루프 토픽에 게시합니다. 이 인계로
+SignalType 디스패치가 기록된 Resource 속성에 적용되는 활성 구성 규칙을 호출할 수 있습니다.
+수집기가 판단을 소유하는 것은 아닙니다. 기존 Forseti T0 경로가 결정을 만들고 Event는 실행 권한이
+없는 shadow 모드를 유지합니다. 같은 세대를 재생하면 같은 신원을 유지하며, 변환 결과가
+불완전하거나 브로커 게시에 실패하면 평가 범위를 주장하지 않고 복구 대기 상태를 유지합니다.
 명시적으로 요청한 one-shot Inventory 실행은 `FDAI_INVENTORY_OPERATOR_REQUESTED=1`을 설정해
 adaptive scheduler의 기존 operator 우선순위를 활성화할 수 있습니다. 원본이 정상이고 활성
 수집이 없을 때만 즉시 수집하며 provider pressure, backoff, throttling, circuit 상태 및 모든

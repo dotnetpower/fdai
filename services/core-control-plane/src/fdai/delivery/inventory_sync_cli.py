@@ -7,8 +7,10 @@ import logging
 import os
 import ssl
 import sys
+from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
+from functools import partial
 
 import httpx
 from fdai_service_contracts import (
@@ -54,6 +56,7 @@ from fdai.delivery.inventory_change_acceleration import (
     run_resource_change_feed,
 )
 from fdai.delivery.inventory_change_acceleration import workload_identity as _workload_identity
+from fdai.delivery.inventory_configuration_events import publish_promoted_resource_events
 from fdai.delivery.inventory_job_config import (
     InventoryJobConfig,
     read_bool_env,
@@ -302,6 +305,7 @@ def _build_ontology_observer(
     *,
     vocabulary: ResourceTypeRegistry,
     publisher: EventBusOperationalActivityPublisher,
+    configuration_event_publisher: Callable[[PromotedInventoryObservation], Awaitable[int]],
     evidence_counts: dict[str, int],
 ) -> tuple[InventoryPromotionObserver, InventoryPromotionRecovery]:
     observation_journal = build_observation_journal(config.dsn, os.environ)
@@ -410,11 +414,27 @@ def _build_ontology_observer(
         if result is None:  # pragma: no cover - guarded by the failure branch
             raise RuntimeError("inventory ontology projection produced no result")
         available = (
-            history_available and result.status is InventoryOntologyProjectionStatus.AVAILABLE
+            history_available
+            and result.status is InventoryOntologyProjectionStatus.AVAILABLE
+            and result.complete
         )
         reason_codes = result.dropped_reasons + (
             () if history_available else ("topology_history_unavailable",)
         )
+        if available:
+            try:
+                await configuration_event_publisher(observation)
+            except Exception:  # noqa: BLE001 - promotion recovery retries the exact generation
+                await publisher.publish(
+                    ontology_projection_activity(
+                        generation=observation.generation,
+                        status=OperationalActivityStatus.FAILED,
+                        freshness=OperationalFreshness.UNAVAILABLE,
+                        evidence_count=evidence_counts[observation.generation],
+                        reason_codes=("configuration_event_publish_failed",),
+                    )
+                )
+                raise
         await publisher.publish(
             ontology_projection_activity(
                 generation=observation.generation,
@@ -489,6 +509,12 @@ async def run(
             config,
             vocabulary=vocabulary,
             publisher=activity_publisher,
+            configuration_event_publisher=partial(
+                publish_promoted_resource_events,
+                event_bus=event_bus,
+                topic=event_topic,
+                scope_ref=_scope_ref(config.scopes),
+            ),
             evidence_counts=evidence_counts,
         )
         try:

@@ -80,6 +80,7 @@ from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.inventory_snapshot import InventorySourcesExhaustedError
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
+from fdai_service_contracts import OperationalActivityStatus
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _CLUSTER_REF = (
@@ -167,11 +168,16 @@ def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ..
         "fdai.delivery.inventory_sync_cli.build_observation_journal",
         lambda *_args, **_kwargs: observation_journal,
     )
-    activity_publisher = SimpleNamespace(publish=AsyncMock())
+    configuration_event_publisher = AsyncMock(return_value=1)
+    activity_publisher = SimpleNamespace(
+        publish=AsyncMock(),
+        configuration_event_publisher=configuration_event_publisher,
+    )
     observer, recovery = _build_ontology_observer(
         config,
         vocabulary=_vocabulary(),
         publisher=cast(EventBusOperationalActivityPublisher, activity_publisher),
+        configuration_event_publisher=configuration_event_publisher,
         evidence_counts={},
     )
     return (
@@ -1472,6 +1478,34 @@ async def test_ontology_observer_publishes_durable_topology_history(
     projector.apply.assert_awaited_once()
     assert projector.apply.await_args.kwargs["active_scope_projection_watermark"] == 7
     assert projector.apply.await_args.kwargs["active_scope_refs"] == ("scope-1",)
+    _activity_publisher.configuration_event_publisher.assert_awaited_once_with(
+        _promoted_observation("snapshot-1")
+    )
+
+
+async def test_ontology_observer_retries_configuration_event_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (
+        observer,
+        _recovery,
+        _observation_journal,
+        _ontology_store,
+        _history_store,
+        _projector,
+        activity_publisher,
+        _release_digest,
+    ) = _ontology_observer_harness(monkeypatch)
+    activity_publisher.configuration_event_publisher.side_effect = RuntimeError(
+        "broker unavailable"
+    )
+
+    with pytest.raises(RuntimeError, match="broker unavailable"):
+        await observer(_promoted_observation("snapshot-event-failure"))
+
+    activity = activity_publisher.publish.await_args.args[0]
+    assert activity.status is OperationalActivityStatus.FAILED
+    assert activity.reason_codes == ("configuration_event_publish_failed",)
 
 
 async def test_ontology_observer_does_not_advance_projection_after_history_failure(
@@ -1572,6 +1606,7 @@ async def test_ontology_observer_keeps_incomplete_projection_pending(
     with pytest.raises(RuntimeError, match="projection is incomplete"):
         await observer(_promoted_observation("snapshot-incomplete"))
 
+    activity_publisher.configuration_event_publisher.assert_not_awaited()
     activity = activity_publisher.publish.await_args.args[0]
     assert activity.status.value == "degraded"
 
