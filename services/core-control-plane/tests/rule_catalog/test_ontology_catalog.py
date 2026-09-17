@@ -230,7 +230,7 @@ def test_shipped_resource_relationship_declarations_match_canonical_roles() -> N
         "contains": ("2.1.0", LinkCardinality.ONE_TO_MANY, True),
         "depends_on": ("1.1.0", LinkCardinality.MANY_TO_MANY, False),
         "peered_with": ("1.1.0", LinkCardinality.MANY_TO_MANY, False),
-        "routes_to": ("1.1.0", LinkCardinality.MANY_TO_ONE, False),
+        "routes_to": ("2.0.0", LinkCardinality.MANY_TO_MANY, False),
     }
     assert {
         name: (

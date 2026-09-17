@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:52e7e44522fc138490bed359ee5c8addc28b602cb5fd575961b07635a1da89c9",
+  "catalog_digest": "sha256:26543e6dcf6364a42f90d8605b01df0af3d84be0cee123cee06aae73381384da",
   "execution_authority": false,
-  "generated_at": "2026-09-17T13:42:32.891246Z",
+  "generated_at": "2026-09-17T16:49:50.540280Z",
   "records": [
     {
       "designed_behavior": [
@@ -302,11 +302,11 @@
         "What does the FDAI ontology do?",
         "FDAI 온톨로지는 어떤 역할을 하나요?"
       ],
-      "record_digest": "sha256:86d94d5890eb336cb892fe8d78b6eb16cddd74daf47bbfcffaf907e244c6a017",
+      "record_digest": "sha256:311db653aeaffb26626bf3a686a84b9a261b31f4951b34eb8553f90dad305710",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "531f26d8a5c1ec08f96633364a6f44ef4fb4d01a",
+          "blob_sha": "1eba9ba927c19e40019eb3194af7a716a639f6ec",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/architecture/operating-ontology.md",
@@ -448,7 +448,7 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:1dbe66075512d17c3acdaa4c88af95e034e12025b34d059237da953e9488daac",
+      "record_digest": "sha256:b8478aeb732874e66d0bcf8fa2912245d3be49b2b86179f9cb681e58896d1a01",
       "sources": [
         {
           "authority_role": "design",
@@ -461,9 +461,9 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "9d7d3a0736ee6943ba6f3d103ecf0d46952595f2",
-          "line_end": 86,
-          "line_start": 86,
+          "blob_sha": "7d4d2fec61640c00fe82930a48bc54ed94c89c58",
+          "line_end": 87,
+          "line_start": 87,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
           "source_kind": "doc",
           "symbol": "Revised design"
@@ -491,13 +491,13 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:ff4db094480e460472cc27210e1f76f0c20e1b0fd3a96ff230fcdc5b22672962",
+      "record_digest": "sha256:7b537b51beb6c8f64cc00092f780552268cc5b15db327522fa55efeb9132c0ae",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "9d7d3a0736ee6943ba6f3d103ecf0d46952595f2",
-          "line_end": 86,
-          "line_start": 86,
+          "blob_sha": "7d4d2fec61640c00fe82930a48bc54ed94c89c58",
+          "line_end": 87,
+          "line_start": 87,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
           "source_kind": "doc",
           "symbol": "Revised design"
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "788f172c123e4ac0a6becb234dae1c1abfa4c3ea"
+  "source_revision": "2c324674eebf11ad5578532aae7b904a9ba4be40"
 }

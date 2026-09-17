@@ -497,7 +497,7 @@ invariants, not visualization hints.
 | `attached_to` | Resource → Resource (M:1) | - | lifetime-bound attachment: NIC→VM, disk→VM, private-endpoint→target. Removing the parent breaks the child. |
 | `depends_on` | Resource → Resource (M:M) | - | logical reference required for correct operation: ContainerApp→Key-Vault / ACR / Postgres, managed-identity→app. Broken edges degrade the dependent, not the target. |
 | `peered_with` | Resource ↔ Resource (M:M, symmetric) | - | network peer represented by two independently supported directed records; one record never implies its reverse. |
-| `routes_to` | Resource → Resource (M:1) | - | directed traffic path or reference such as a UDR next hop; absence never proves unreachable. |
+| `routes_to` | Resource → Resource (M:M) | - | directed traffic references such as a UDR next hop or Kubernetes backends; one source may have multiple observed destinations, and absence never proves unreachable. |
 
 Traversal is directional and cached; a `Signal` of type `T` on a `Resource` of type `R`
 resolves to exactly the set of rules where `triggered_by ∋ T` and `applies_to ∋ R` via

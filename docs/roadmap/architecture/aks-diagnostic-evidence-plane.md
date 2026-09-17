@@ -283,9 +283,12 @@ server-owned redaction, and exposes allowlisted identity, status, evidence healt
 receipts. The Console validates the shared schema and renders source, cutoff, gaps, and exact
 resource identity. It does not construct Resources, relationships, metric values, diagnoses, or
 authorization in the browser.
-Receipt identity is content-addressed from the exact target, UID, resourceVersion, ontology
-release, canonical JSON timestamps, source cutoffs, and source revisions. Recovery replays pending
-promotions even when ontology projection is disabled. Operator exposes a receipt only when its
+Receipt identity includes the cutoff for ordering and a canonical digest of the complete immutable
+receipt. Identical replay remains idempotent, while a different assessment for the same target,
+UID, resourceVersion, release, and cutoff appends a distinct receipt instead of colliding. The
+writer skips another atomic insert and audit attempt only when the complete stored value is
+byte-identical; absent-key races still use conditional creation and collision readback. Recovery
+replays pending promotions even when ontology projection is disabled. Operator exposes a receipt only when its
 target identity, inventory generation digest, ontology release, source cutoff, and fleet scope
 digest match the selected current Resource; any mismatch renders the diagnosis unavailable.
 

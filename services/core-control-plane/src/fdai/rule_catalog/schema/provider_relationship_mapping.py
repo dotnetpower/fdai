@@ -22,7 +22,7 @@ _LINK_TYPE_CARDINALITIES = {
     "contains": "one_to_many",
     "attached_to": "many_to_many",
     "depends_on": "many_to_many",
-    "routes_to": "many_to_one",
+    "routes_to": "many_to_many",
     "peered_with": "many_to_many",
 }
 
