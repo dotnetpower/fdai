@@ -41,6 +41,31 @@ def test_inventory_identity_gets_only_aks_rbac_reader_for_configured_cluster() -
     )
 
 
+def test_inventory_identity_defaults_to_subscription_wide_aks_read_roles() -> None:
+    main = _MAIN.read_text(encoding="utf-8")
+    variables = (_ROOT / "infra/variables.tf").read_text(encoding="utf-8")
+    job = _JOB.read_text(encoding="utf-8")
+
+    discovery_variable = variables.split(
+        'variable "inventory_kubernetes_subscription_discovery_enabled"', maxsplit=1
+    )[1].split('variable "inventory_kubernetes_cluster_bindings_json"', maxsplit=1)[0]
+    assert "default     = true" in discovery_variable
+    assert (
+        'resource "azurerm_role_assignment" "inventory_kubernetes_cluster_user_subscription"'
+        in main
+    )
+    assert 'resource "azurerm_role_assignment" "inventory_kubernetes_reader_subscription"' in main
+    assert 'role_definition_name = "Azure Kubernetes Service Cluster User Role"' in main
+    assert main.count('role_definition_name = "Azure Kubernetes Service RBAC Reader"') >= 2
+    subscription_scope = (
+        'scope                = "/subscriptions/'
+        '${data.azurerm_client_config.current.subscription_id}"'
+    )
+    assert subscription_scope in main
+    assert 'name  = "FDAI_KUBERNETES_SUBSCRIPTION_DISCOVERY"' in job
+    assert "subscription discovery, fleet JSON, and legacy bindings are mutually exclusive" in job
+
+
 def test_inventory_job_accepts_fleet_json_without_bearer_tokens() -> None:
     main = _MAIN.read_text(encoding="utf-8")
     job = _JOB.read_text(encoding="utf-8")
@@ -48,7 +73,7 @@ def test_inventory_job_accepts_fleet_json_without_bearer_tokens() -> None:
 
     assert 'variable "inventory_kubernetes_cluster_bindings_json"' in variables
     assert '"FDAI_KUBERNETES_CLUSTER_BINDINGS_JSON"' in job
-    assert "fleet JSON and legacy bindings are mutually exclusive" in job
+    assert "subscription discovery, fleet JSON, and legacy bindings are mutually exclusive" in job
     assert "inventory_kubernetes_cluster_bindings_json" in main
     assert "KUBERNETES_TOKEN" not in job
 

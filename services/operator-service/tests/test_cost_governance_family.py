@@ -632,7 +632,9 @@ def test_small_positive_budget_is_suppressed_instead_of_rounded_to_zero() -> Non
 
     assert response.status_code == 200
     assert response.json()["analytics"]["budgets"] == []
+    assert response.json()["analytics"]["recommendations"] == []
     assert "analytics_amount_suppressed" in response.json()["analytics"]["limitations"]
+    assert "analytics_recommendations_suppressed" in response.json()["analytics"]["limitations"]
 
 
 def test_hidden_partial_analytics_still_lowers_projection_completeness() -> None:

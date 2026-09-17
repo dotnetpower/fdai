@@ -303,6 +303,88 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         help="Resolved model manifest paired with the recovered state",
     )
     azure.set_defaults(handler=handlers["provision_azure"])
+    console_update = command(
+        provision_commands,
+        "console-update",
+        "Plan or apply an exact existing-development Console update",
+        epilog="Create a private plan first. Apply requires its exact digest in a real terminal.",
+    )
+    console_update_commands = command_group(console_update)
+    console_build = command(
+        console_update_commands,
+        "build",
+        "Build a deterministic artifact from protected Git source without Azure access",
+    )
+    console_build.add_argument(
+        "--source", type=Path, required=True, help="Git checkout containing protected origin/main"
+    )
+    console_build.add_argument(
+        "--revision", default="HEAD", help="Protected origin/main revision or ancestor"
+    )
+    console_build.add_argument(
+        "--output-dir", type=Path, required=True, help="New private artifact directory"
+    )
+    console_build.add_argument(
+        "--timeout-seconds", type=int, default=900, help="Bound for the offline Console build"
+    )
+    console_build.add_argument(
+        "--output", choices=("text", "json"), default="text", help="Result format"
+    )
+    console_build.set_defaults(handler=handlers["provision_console_update_build"])
+    console_plan = command(
+        console_update_commands,
+        "plan",
+        "Seal candidate, rollback, source, and Azure target without publishing",
+    )
+    console_plan.add_argument(
+        "--source", type=Path, required=True, help="Clean checkout at protected origin/main"
+    )
+    console_plan.add_argument(
+        "--candidate-archive", type=Path, required=True, help="Candidate Console archive"
+    )
+    console_plan.add_argument(
+        "--candidate-manifest", type=Path, required=True, help="Candidate source manifest"
+    )
+    console_plan.add_argument(
+        "--rollback-archive", type=Path, required=True, help="Known-good rollback archive"
+    )
+    console_plan.add_argument(
+        "--rollback-manifest", type=Path, required=True, help="Rollback source manifest"
+    )
+    console_plan.add_argument(
+        "--target", type=Path, required=True, help="Mode-0600 existing Console target manifest"
+    )
+    console_plan.add_argument(
+        "--work-dir", type=Path, required=True, help="New private plan directory"
+    )
+    console_plan.add_argument(
+        "--ttl-seconds", type=int, default=1200, help="Plan validity in seconds, at most 1200"
+    )
+    console_plan.add_argument(
+        "--output", choices=("text", "json"), default="text", help="Result format"
+    )
+    console_plan.set_defaults(handler=handlers["provision_console_update_plan"])
+    console_apply = command(
+        console_update_commands,
+        "apply",
+        "Publish one explicitly invoked exact dev plan and verify readback",
+        epilog=(
+            "Invocation is explicit coding-session authorization; plan digests remain internally bound."
+        ),
+    )
+    console_apply.add_argument(
+        "--source", type=Path, required=True, help="Clean checkout at the planned source revision"
+    )
+    console_apply.add_argument(
+        "--work-dir", type=Path, required=True, help="Private directory containing the exact plan"
+    )
+    console_apply.add_argument(
+        "--timeout-seconds", type=int, default=900, help="Bound for publication and readback"
+    )
+    console_apply.add_argument(
+        "--output", choices=("text", "json"), default="text", help="Result format"
+    )
+    console_apply.set_defaults(handler=handlers["provision_console_update_apply"])
     register_state_handoff_command(provision_commands)
     register_foundation_plan_command(provision_commands)
     initialize = command(provision_commands, "init", "Create a private manual deployment profile")

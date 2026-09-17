@@ -684,6 +684,12 @@ variable "inventory_kubernetes_audience" {
   default     = ""
 }
 
+variable "inventory_kubernetes_subscription_discovery_enabled" {
+  description = "Discover current and future AKS clusters across the selected subscription for read-only inventory. Explicit static bindings take precedence."
+  type        = bool
+  default     = true
+}
+
 variable "inventory_kubernetes_cluster_bindings_json" {
   description = "Sensitive deployment JSON for at most 32 exact AKS workload-identity observation bindings. Mutually exclusive with legacy single-cluster values."
   type        = string

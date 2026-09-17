@@ -60,6 +60,15 @@ class SequentialInventoryPromotionEnricher:
 class UnavailableKubernetesInventoryEnricher:
     """Record explicit unavailability when no Kubernetes source is configured."""
 
+    def __init__(
+        self,
+        *,
+        reason: str = "kubernetes_source_unconfigured",
+        scope_digest: str | None = None,
+    ) -> None:
+        self._reason = reason
+        self._scope_digest = scope_digest
+
     async def enrich(
         self,
         observation: PromotedInventoryObservation,
@@ -76,7 +85,11 @@ class UnavailableKubernetesInventoryEnricher:
                     "observed_cluster_count": clusters,
                 },
             )
-        return _unavailable(observation, reason="kubernetes_source_unconfigured")
+        return _unavailable(
+            observation,
+            reason=self._reason,
+            scope_digest=self._scope_digest,
+        )
 
 
 class KubernetesInventoryEnricher:

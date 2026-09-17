@@ -331,6 +331,33 @@ cleanup_launch_marker() {
 trap cleanup_launch_marker EXIT
 
 readiness_started_at="$(date --utc '+%Y-%m-%dT%H:%M:%S.%6N+00:00')"
+runner_pid=""
+readiness_pid=""
+
+forward_wait_ready_signal() {
+  local signal="$1"
+  local exit_code=143
+  trap - INT TERM
+  if [[ "$signal" == "INT" ]]; then
+    exit_code=130
+  fi
+  if [[ -n "${readiness_pid:-}" ]] && kill -0 "$readiness_pid" 2>/dev/null; then
+    kill -"$signal" "$readiness_pid" 2>/dev/null || true
+  fi
+  if [[ -n "$runner_pid" ]] && kill -0 "$runner_pid" 2>/dev/null; then
+    kill -"$signal" "$runner_pid" 2>/dev/null || true
+  fi
+  if [[ -n "${readiness_pid:-}" ]]; then
+    wait "$readiness_pid" 2>/dev/null || true
+  fi
+  if [[ -n "$runner_pid" ]]; then
+    wait "$runner_pid" 2>/dev/null || true
+  fi
+  exit "$exit_code"
+}
+
+trap 'forward_wait_ready_signal INT' INT
+trap 'forward_wait_ready_signal TERM' TERM
 FDAI_LOCAL_SERVICE_LAUNCH_MARKER="$launch_marker" "${runner[@]}" &
 runner_pid="$!"
 launch_deadline=$((SECONDS + readiness_budget_seconds))

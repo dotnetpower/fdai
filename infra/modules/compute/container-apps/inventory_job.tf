@@ -112,6 +112,13 @@ resource "azurerm_container_app_job" "inventory" {
         value = var.inventory_identity_client_id
       }
       dynamic "env" {
+        for_each = var.inventory_kubernetes_subscription_discovery_enabled ? toset(["1"]) : toset([])
+        content {
+          name  = "FDAI_KUBERNETES_SUBSCRIPTION_DISCOVERY"
+          value = "1"
+        }
+      }
+      dynamic "env" {
         for_each = var.inventory_kubernetes_api_server == "" ? toset([]) : toset(["1"])
         content {
           name  = "FDAI_KUBERNETES_API_SERVER"
@@ -161,7 +168,14 @@ resource "azurerm_container_app_job" "inventory" {
   lifecycle {
     precondition {
       condition = (
-        var.inventory_kubernetes_cluster_bindings_json != "" ?
+        var.inventory_kubernetes_subscription_discovery_enabled ?
+        alltrue([
+          var.inventory_kubernetes_cluster_bindings_json == "",
+          var.inventory_kubernetes_api_server == "",
+          var.inventory_kubernetes_cluster_ref == "",
+          var.inventory_kubernetes_ca_pem == "",
+          var.inventory_kubernetes_audience == "",
+        ]) : var.inventory_kubernetes_cluster_bindings_json != "" ?
         alltrue([
           var.inventory_kubernetes_api_server == "",
           var.inventory_kubernetes_cluster_ref == "",
@@ -182,7 +196,7 @@ resource "azurerm_container_app_job" "inventory" {
           ])
         )
       )
-      error_message = "AKS fleet JSON and legacy bindings are mutually exclusive; legacy API server, cluster ref, CA PEM, and audience must be configured together."
+      error_message = "AKS subscription discovery, fleet JSON, and legacy bindings are mutually exclusive; legacy API server, cluster ref, CA PEM, and audience must be configured together."
     }
   }
 }

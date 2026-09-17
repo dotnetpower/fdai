@@ -64,6 +64,13 @@ export function consoleDataModeHref(
   return query ? `${pathname}?${query}` : pathname;
 }
 
+export function shouldRestoreConsoleDataMode(
+  preferred: ConsoleDataMode,
+  hash: string,
+): boolean {
+  return preferred === "sample" && hash === "";
+}
+
 export function readConsoleDataMode(): ConsoleDataMode {
   if (typeof sessionStorage === "undefined") return "live";
   return sessionStorage.getItem(SAMPLE_STORAGE_KEY) === "sample" ? "sample" : "live";

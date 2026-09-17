@@ -1,8 +1,8 @@
 ---
 title: 근본원인 분석
 translation_of: root-cause-analysis.md
-translation_source_sha: 6ceb6a5aa767251db3bd86d3e74a39efa7992924
-translation_revised: 2026-09-16
+translation_source_sha: 5db45bfa5492370b1106c37af4b170fbe088432d
+translation_revised: 2026-09-17
 ---
 # 근본원인 분석
 
@@ -19,7 +19,7 @@ translation_revised: 2026-09-16
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | T0, T1, T2 가설 계약 및 grounding | implemented | `services/core-control-plane/src/fdai/core/rca/`, 집중 RCA 테스트 | T0 규칙 원인, stale-safe T1 재사용, 결정론적 인과사슬, 형식화된 원인 영역 및 grounded T2 parsing을 구현했습니다. |
-| Knowledge 근거 및 프로바이더 연결 | implemented | `core/rca/knowledge_evidence.py`, `shared/providers/knowledge.py`, `delivery/pgvector/knowledge.py`, `delivery/azure/llm/rca_model.py`, `runtime/bootstrap.py`, 집중 프로바이더, 어댑터 및 런타임 테스트 | 런타임은 Azure LLM 초기화 이후와 원격 측정 전용 모드 모두에서 구성된 pgvector 소스를 연결합니다. 다시 수집하면 문서 조각을 원자적으로 교체하고 빈 교체는 삭제하므로 오래된 개정이 검색 결과에 남지 않습니다. 연결이 없을 때는 근거를 만들어 내지 않습니다. |
+| Knowledge 근거 및 프로바이더 연결 | implemented | `core/rca/knowledge_evidence.py`, `shared/providers/knowledge.py`, `delivery/pgvector/knowledge.py`, `service-migrations/branches/core-control-plane/versions/20260917_core_knowledge_read.py`, `delivery/azure/llm/rca_model.py`, `runtime/bootstrap.py`, 집중 프로바이더, 이행, 어댑터 및 런타임 테스트 | 런타임은 Azure LLM 초기화 이후와 원격 측정 전용 모드 모두에서 구성된 pgvector 소스를 연결합니다. Core는 관리되는 문서를 제외하는 범위가 제한된 `SECURITY DEFINER` 함수로만 기본 테이블을 검색합니다. `fdai_core`에는 함수 실행 권한만 부여하고 원시 `knowledge_chunk` 테이블 읽기 권한은 부여하지 않습니다. 다시 수집하면 문서 조각을 원자적으로 교체하고 빈 교체는 삭제하므로 오래된 개정이 검색 결과에 남지 않습니다. 연결이 없을 때는 근거를 만들어 내지 않습니다. |
 | 관리되는 자동 Incident RCA 맥락 | implemented | `delivery/persistence/postgres_governed_document_read.py`, `delivery/governed_rca_context.py`, `runtime/governed_rca.py`, 자동 T2 및 맥락 테스트 | 완전한 배포 바인딩이 별도 읽기 전용 DSN, 컬렉션, 접근 참조, 읽기 그룹을 제공합니다. 자동 Incident T2는 고정된 Forseti 주체와 `incident-review` 목적을 사용하고 인시던트, 리소스, 기준 시각, 온톨로지, 카탈로그 신원을 결속하며 권한 있는 문서 근거가 없으면 판단을 보류합니다. |
 | Azure 배포 이력 및 의존성 맥락 | implemented | `delivery/azure/deployment_history.py`, `delivery/persistence/postgres_provider_identity.py`, `runtime/rca_bindings.py`, topology history, 프로바이더, 런타임 및 control-loop 테스트 | 전용 Monitoring Reader가 이벤트 기준 시각의 인벤토리 세대에서 프로바이더 신원을 해석합니다. 런타임은 같은 기준 시각의 bitemporal topology를 구성하고 세대가 일치하는 성공한 정확한 범위 변경만 허용하며, 재개 lifecycle을 지원하고 맥락, 분석 및 감사를 하나의 side-path deadline으로 제한합니다. |
 | Azure Monitor 원격 측정 경로 및 모델 안전 fact | implemented | `delivery/azure/telemetry_workspace.py`, `delivery/azure/telemetry_query.py`, `core/rca/evidence.py`, `delivery/azure/llm/rca_model.py`, 집중 작업 영역, KQL, RCA, control-loop 및 런타임 테스트 | 이벤트 시각 인벤토리 신원으로 전용 판독기 아래의 정확한 Diagnostic Settings 및 작업 영역 기반 Application Insights 경로를 선택합니다. 발견한 작업 영역은 최대 3개이고 명시적 대체 경로 하나를 추가할 수 있습니다. T2는 범위가 제한된 fact token과 불투명한 인용만 받으며 이 원격 측정 경로의 원시 로그 본문은 받지 않습니다. |

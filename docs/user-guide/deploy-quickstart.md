@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to Azure from one local command or a digest-pinned disconnected deployment appliance.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: a677bcb6bc023e5ea1f6a9647499dcaf7e54060f }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 46c7e8af9867d9416b8e8cb78f15376e2cd1f14e }]
 ---
 
 # Deploy Quickstart
@@ -14,6 +14,11 @@ runner.
 Terraform remains the infrastructure source of truth. The deployment command verifies a signed
 release, shows each exact plan for approval, moves private data-plane work into the virtual network,
 and verifies the resulting application before it reports deployment readiness.
+
+By default, the plan gives the dedicated inventory Managed Identity subscription-scoped AKS
+Cluster User and RBAC Reader roles. The inventory Job can then discover current and future AKS
+clusters and read their Kubernetes objects without giving Core, Operator, or Thor those roles.
+Review this read scope in the exact plan before approval.
 
 ## Choose a deployment path
 

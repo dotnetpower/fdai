@@ -76,7 +76,7 @@ _EXECUTOR_RESOURCE_ID = (
 @pytest.mark.parametrize("semantic_outputs_present", [True, False])
 @pytest.mark.parametrize(
     "local_kubernetes_binding_mode",
-    ["disabled", "legacy", "fleet"],
+    ["disabled", "legacy", "fleet", "subscription"],
 )
 def test_prepares_deployed_transport_without_copying_stale_transport(
     tmp_path: Path,
@@ -144,15 +144,15 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
             encoding="utf-8",
         )
     legacy_kubernetes = (
-        ""
-        if local_kubernetes_binding_mode == "fleet"
-        else (
+        (
             "FDAI_KUBERNETES_API_SERVER=https://aks.example.com:443\n"
             "FDAI_KUBERNETES_AUDIENCE=example-audience\n"
             "FDAI_KUBERNETES_AUTH_MODE=workload-identity\n"
             "FDAI_KUBERNETES_CA_PATH=/tmp/example-ca.pem\n"
             "FDAI_KUBERNETES_CLUSTER_REF=/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/providers/Microsoft.ContainerService/managedClusters/aks-example\n"
         )
+        if local_kubernetes_binding_mode in {"disabled", "legacy"}
+        else ""
     )
     (repo / "console/.env.local").write_text(
         "VITE_MSAL_CLIENT_ID=client\n"
@@ -317,6 +317,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
             "resourceGroups/rg-example/providers/"
             'Microsoft.ContainerService/managedClusters/aks-example"}]'
         )
+    elif local_kubernetes_binding_mode == "subscription":
+        expected_prefix.append("FDAI_KUBERNETES_SUBSCRIPTION_DISCOVERY=1")
     assert values == [
         *expected_prefix,
         "AZURE_TENANT_ID=00000000-0000-0000-0000-000000000002",

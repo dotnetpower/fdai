@@ -246,6 +246,12 @@ variable "inventory_kubernetes_audience" {
   default     = ""
 }
 
+variable "inventory_kubernetes_subscription_discovery_enabled" {
+  description = "Whether the Inventory Job discovers all AKS clusters in the selected subscription."
+  type        = bool
+  default     = false
+}
+
 variable "inventory_kubernetes_cluster_bindings_json" {
   description = "Sensitive JSON array of exact AKS workload-identity observation bindings."
   type        = string

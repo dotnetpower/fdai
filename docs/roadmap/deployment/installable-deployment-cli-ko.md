@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: d09c6e755f15daea583a2801b7fffd888004d3ae
+translation_source_sha: dd36ce0596ef258380df5c55086854f551c82616
 translation_revised: 2026-09-17
 ---
 
@@ -454,6 +454,9 @@ Rich를 사용하며, 잠긴 의존성은 기존 오프라인 wheel 모음 내�
 | `fdaictl provision init` | 비공개 수동 실행 프로필 생성 | 아니요 |
 | `fdaictl provision bootstrap-reconcile` | 대상과 Foundation 상태를 만료되는 계획으로 읽기 | 아니요 |
 | `fdaictl provision plan` | 검증된 offline-kit Terraform 루트 계획 | 아니요 |
+| `fdaictl provision console-update build` | 보호된 Git 소스에서 소스에 결속된 Console 산출물 하나 빌드 | 아니요 |
+| `fdaictl provision console-update plan` | 기존 개발 환경 대상과 후보 및 롤백 산출물 봉인 | 아니요 |
+| `fdaictl provision console-update apply` | 정확한 Console 계획을 게시하고 원격 콘텐츠와 접속 검증 | 정확한 터미널 승인 후 예 |
 | `fdaictl provision azure --online` | 서명 키트를 획득하고 standalone Azure 배포 실행 | 정확한 승인 후 예 |
 | `fdaictl provision azure --offline-kit <path>` | 공개 산출물 획득 없이 동일한 배포 실행 | 정확한 승인 후 예 |
 | `fdaictl onboard guided --simulate` | 유한한 단계 그래프 예행연습 | 아니요 |
@@ -466,6 +469,31 @@ Rich를 사용하며, 잠긴 의존성은 기존 오프라인 wheel 모음 내�
 공개 CLI는 `deploy plan`, `deploy apply` 또는 `deploy status`를 등록하지 않습니다. 이 명령들은
 이전에 GitHub workflow를 dispatch했으며 standalone 배포 계약에 포함되지 않습니다. 실제
 온보딩은 `provision azure`를 사용하고 `onboard guided`는 예행연습 전용입니다.
+
+### 기존 개발 환경 Console 갱신
+
+`provision console-update`는 기존 `dev` Container Apps 설치의 정적 Console을 갱신할 때만
+사용합니다. Terraform 리소스, 서비스 이미지, 데이터베이스 상태, 런타임 권한 또는 프로덕션
+설치를 계획하거나 변경하지 않습니다. 이 호환성 경로는 로컬 조정기를 사용하며 GitHub workflow를
+dispatch하지 않습니다.
+
+`build` 명령은 보호된 `origin/main` 또는 그 조상 중 하나를 받습니다. 변경 없는 Git archive를
+만들고 환경이 격리된 오프라인 Console 빌드를 실행한 뒤, 결정론적 archive와 mode-`0600` 소스
+매니페스트를 기록합니다. `console/.env.local` 같은 무시된 파일은 해당 스냅샷에 들어갈 수
+없습니다. 현재 보호된 `origin/main`에서 후보를 빌드하고, 별도의 검증된 조상에서 롤백 산출물을
+빌드합니다.
+
+`plan` 명령은 소스 제어 밖에서 제공한 mode-`0600` 대상 매니페스트를 읽습니다. 매니페스트에는
+기존 Static Web App 리소스 ID와 호스트 이름, API 원본, 공개 Entra SPA client 및 별도로
+등록된 API scope 바인딩이 포함됩니다. 계획할 때 활성 Azure tenant와 subscription의 일치를 요구하고, Azure에서 Static Web App 호스트
+이름을 읽고, 두 산출물 매니페스트를 검증한 뒤 20분 안에 만료되는 비공개 계획을 만듭니다.
+계획은 배포 토큰을 요청하거나 콘텐츠를 게시하지 않습니다.
+`apply` 실행 자체가 범위가 제한된 비파괴 dev 갱신에 대한 명시적 코딩 세션 승인이며 확인 문구나 기계 digest를 다시 요구하지 않습니다.
+보호된 `origin/main`, Azure 대상, 두 산출물과 계획 만료를 다시 확인하고 검증한 계획 digest에 내부적으로 결속된 승인 및 실행 전 기록을 게시 전에 씁니다. 실행 전
+기록이 있으면 계획 만료 후에도 권한을 강화한 기존 비공개 시도 디렉터리를 재사용하고 현재 검증된 게시기로 후보를 다시 게시하지 않은 채 결과만 확인합니다. 롤백 콘텐츠를 먼저 확인하고 두 산출물 모두 없을 때만 롤백을 게시합니다. 원격 해시는 공개되는 `index.html`, 런타임 구성 및 해시가 지정된 진입 산출물을 확인하고, 호스트가 소비하지만 공개하지 않는 `staticwebapp.config.json`은 로컬에서 검증합니다. 롤백 종료는 이 정적 효과를 Operator 및 Ingestion 상태와 독립적으로 검증하므로 무관한 서비스 중단 때문에 게시를 반복하지 않으며, 실패 증적에는 해당 서비스 검사를 확인하지 못한 것으로 기록합니다. 게시 실패나 기록된 후보 콘텐츠 불일치가 발생하면 종료 실패 증적을 기록합니다. 성공하려면
+정확한 원격 해시, SPA 대체 경로, 두 API 상태 검사, 정확한 원본 CORS, 미인증 요청 거부 및 Entra
+리디렉션을 검증해야 합니다. 생성된 Console 증적은 전체 애플리케이션이나 구독의 준비 상태를
+설정하지 않습니다.
 
 ## 서명 산출물과 실행 안전성
 

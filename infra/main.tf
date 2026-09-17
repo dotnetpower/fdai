@@ -955,6 +955,17 @@ resource "azurerm_role_assignment" "inventory_eventhubs_raw_sender" {
 }
 
 locals {
+  inventory_kubernetes_static_binding_configured = (
+    var.inventory_kubernetes_cluster_bindings_json != "" ||
+    var.inventory_kubernetes_api_server != "" ||
+    var.inventory_kubernetes_cluster_ref != "" ||
+    var.inventory_kubernetes_ca_pem != "" ||
+    var.inventory_kubernetes_audience != ""
+  )
+  inventory_kubernetes_subscription_discovery_enabled = (
+    var.inventory_kubernetes_subscription_discovery_enabled &&
+    !local.inventory_kubernetes_static_binding_configured
+  )
   inventory_kubernetes_cluster_refs = toset(concat(
     var.inventory_kubernetes_cluster_ref == "" ? [] : [var.inventory_kubernetes_cluster_ref],
     var.inventory_kubernetes_cluster_bindings_json == "" ? [] : [
@@ -962,6 +973,20 @@ locals {
       binding.cluster_ref
     ],
   ))
+}
+
+resource "azurerm_role_assignment" "inventory_kubernetes_cluster_user_subscription" {
+  count                = local.inventory_kubernetes_subscription_discovery_enabled ? 1 : 0
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_name = "Azure Kubernetes Service Cluster User Role"
+  principal_id         = module.inventory_identity.principal_id
+}
+
+resource "azurerm_role_assignment" "inventory_kubernetes_reader_subscription" {
+  count                = local.inventory_kubernetes_subscription_discovery_enabled ? 1 : 0
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_name = "Azure Kubernetes Service RBAC Reader"
+  principal_id         = module.inventory_identity.principal_id
 }
 
 resource "azurerm_role_assignment" "inventory_kubernetes_reader" {
@@ -2612,6 +2637,9 @@ module "compute" {
   inventory_kubernetes_cluster_ref = var.inventory_kubernetes_cluster_ref
   inventory_kubernetes_ca_pem      = var.inventory_kubernetes_ca_pem
   inventory_kubernetes_audience    = var.inventory_kubernetes_audience
+  inventory_kubernetes_subscription_discovery_enabled = (
+    local.inventory_kubernetes_subscription_discovery_enabled
+  )
   inventory_kubernetes_cluster_bindings_json = (
     var.inventory_kubernetes_cluster_bindings_json
   )

@@ -301,6 +301,16 @@ def _key_vault_delete_event(
     }
 
 
+_KNOWN_RESOURCE_GROUP_DELETE_TYPES = (
+    "Microsoft.Authorization/roleAssignments",
+    "Microsoft.Compute/virtualMachineScaleSets",
+    "Microsoft.KeyVault/vaults",
+    "Microsoft.ManagedIdentity/userAssignedIdentities",
+    "Microsoft.Network/networkSecurityGroups",
+    "Microsoft.Storage/storageAccounts",
+)
+
+
 @pytest.mark.parametrize(
     "supplied_type",
     [
@@ -310,9 +320,7 @@ def _key_vault_delete_event(
     ],
 )
 @pytest.mark.parametrize("include_valid_row", [False, True])
-@pytest.mark.parametrize(
-    "provider_type", ["Microsoft.KeyVault/vaults", "Microsoft.Storage/storageAccounts"]
-)
+@pytest.mark.parametrize("provider_type", _KNOWN_RESOURCE_GROUP_DELETE_TYPES)
 async def test_known_delete_envelope_requests_reconciliation_without_upsert(
     supplied_type: str, include_valid_row: bool, provider_type: str
 ) -> None:
@@ -390,9 +398,7 @@ async def test_key_vault_delete_envelope_rejects_other_reviewed_conflicts(
 
 @pytest.mark.parametrize("status", ["Failed", "Started", "succeeded", None])
 @pytest.mark.parametrize("only_succeeded", [False, True])
-@pytest.mark.parametrize(
-    "provider_type", ["Microsoft.KeyVault/vaults", "Microsoft.Storage/storageAccounts"]
-)
+@pytest.mark.parametrize("provider_type", _KNOWN_RESOURCE_GROUP_DELETE_TYPES)
 async def test_known_delete_envelope_requires_succeeded(
     status: str | None, only_succeeded: bool, provider_type: str
 ) -> None:
@@ -417,9 +423,7 @@ async def test_known_delete_envelope_requires_succeeded(
 
 
 @pytest.mark.parametrize("timestamp", [None, "", "invalid", "2026-07-10T06:15:00"])
-@pytest.mark.parametrize(
-    "provider_type", ["Microsoft.KeyVault/vaults", "Microsoft.Storage/storageAccounts"]
-)
+@pytest.mark.parametrize("provider_type", _KNOWN_RESOURCE_GROUP_DELETE_TYPES)
 async def test_known_delete_envelope_requires_ordering_timestamp(
     timestamp: str | None, provider_type: str
 ) -> None:
@@ -440,9 +444,7 @@ async def test_known_delete_envelope_requires_ordering_timestamp(
 @pytest.mark.parametrize(
     "failure", [None, "http", "conflict", "timestamp", "continuation", "marker"]
 )
-@pytest.mark.parametrize(
-    "provider_type", ["Microsoft.KeyVault/vaults", "Microsoft.Storage/storageAccounts"]
-)
+@pytest.mark.parametrize("provider_type", _KNOWN_RESOURCE_GROUP_DELETE_TYPES)
 async def test_known_delete_envelope_persists_marker_and_cursor_only_after_complete_stream(
     failure: str | None, monkeypatch: pytest.MonkeyPatch, provider_type: str
 ) -> None:

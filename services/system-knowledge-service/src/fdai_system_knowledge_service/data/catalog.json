@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:4e2b9c034d4bf1b3589945776a65396a46aa864baa045250f36c652fce0f54d8",
+  "catalog_digest": "sha256:52e7e44522fc138490bed359ee5c8addc28b602cb5fd575961b07635a1da89c9",
   "execution_authority": false,
-  "generated_at": "2026-09-17T09:57:59.386666Z",
+  "generated_at": "2026-09-17T13:42:32.891246Z",
   "records": [
     {
       "designed_behavior": [
@@ -268,13 +268,13 @@
         "How does FDAI authenticate and authorize people?",
         "FDAI는 사용자를 어떻게 인증하고 권한을 확인하나요?"
       ],
-      "record_digest": "sha256:be1c38ea19fe8890ff871ce9377cf2becf6a3a10fd080c500825a354e47160fe",
+      "record_digest": "sha256:eb6e8cb754cb6d73029de3e3ade472f35725ac528fca7c962ce335b43f6c362d",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "6956a2d6fcacd20bbe5ead8fb0169bb1119cdc9a",
-          "line_end": 21,
-          "line_start": 21,
+          "blob_sha": "aaf3863bf6e46972fc5a46ba49a6224574f22622",
+          "line_end": 20,
+          "line_start": 20,
           "path": "docs/roadmap/interfaces/user-rbac-and-identity.md",
           "source_kind": "doc",
           "symbol": "Implementation status"
@@ -379,11 +379,11 @@
         "How does FDAI perform root cause analysis?",
         "FDAI는 근본 원인 분석을 어떻게 수행하나요?"
       ],
-      "record_digest": "sha256:f71510c9898d8a9d02fb379917c6737dfdf48b0a75eb70c99fd781a3152fde46",
+      "record_digest": "sha256:000656aea59775db22c81e2ce4b8a6acdd69e3df0d29f24a7d0a95f4a486e0df",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "6ceb6a5aa767251db3bd86d3e74a39efa7992924",
+          "blob_sha": "5db45bfa5492370b1106c37af4b170fbe088432d",
           "line_end": 12,
           "line_start": 12,
           "path": "docs/roadmap/rules-and-detection/root-cause-analysis.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "f18d62bdda9eaebc0dd45b67211953eb3e043e1f"
+  "source_revision": "788f172c123e4ac0a6becb234dae1c1abfa4c3ea"
 }

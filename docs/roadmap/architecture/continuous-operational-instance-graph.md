@@ -99,7 +99,7 @@ their incomplete relationship set. Nested subnet records retain the observed VNe
 an exact child cannot fall back to a Resource Group parent between reconciliations.
 One support boundary owns Resource Changes cursor, retry, ingestion-fence, and publication
 semantics; the provider feed module re-exports that behavior instead of maintaining a second loop.
-Malformed continuation metadata cannot complete an Activity Log stream or advance its durable cursor. Parent-only Azure Cognitive Services deployment writes/deletes remain reconciliation-only when `Succeeded`. For normalized Resource Group envelopes, this treatment is limited to two exact ARM identity-derived types, `Microsoft.KeyVault/vaults` and `Microsoft.Storage/storageAccounts`, each paired with its exact `<derived-type>/delete` operation and `Succeeded` status. These signals retain validated timezone-aware event time, including signal-only pages, without Resource/relationship upserts, invented children, deletion claims, or blocking unrelated valid rows. Cursor persistence requires the complete stream fence and marker write; other status, timestamp, and reviewed-identity checks remain unchanged. [The ledger](../../roadmap-implementation/architecture/continuous-operational-instance-graph.md) records the exact aliases and focused evidence.
+Malformed continuation metadata cannot complete an Activity Log stream or advance its durable cursor. Parent-only Azure Cognitive Services deployment writes/deletes remain reconciliation-only when `Succeeded`. For normalized Resource Group envelopes, this treatment is limited to six exact ARM identity-derived types: `Microsoft.Authorization/roleAssignments`, `Microsoft.Compute/virtualMachineScaleSets`, `Microsoft.KeyVault/vaults`, `Microsoft.ManagedIdentity/userAssignedIdentities`, `Microsoft.Network/networkSecurityGroups`, and `Microsoft.Storage/storageAccounts`. Each must carry its exact `<derived-type>/delete` operation and `Succeeded` status. These signals retain validated timezone-aware event time, including signal-only pages, without Resource/relationship upserts, invented children, deletion claims, or blocking unrelated valid rows. Cursor persistence requires the complete stream fence and marker write; other status, timestamp, and reviewed-identity checks remain unchanged. [The ledger](../../roadmap-implementation/architecture/continuous-operational-instance-graph.md) records the exact aliases and focused evidence.
 
 A collected property becomes a relationship only through a reviewed provider mapping. If that
 mapping omits an observed connection target, an absent graph edge never proves an absent path.
@@ -119,11 +119,11 @@ Disabled resource-change and recovery accelerators need no policy entries and ad
 The CLI support module owns Activity Log recovery's independent failure boundary before reconciliation and after generation promotion.
 A rejected delta stays unavailable without advancing its cursor, stopping full inventory, or invalidating a verified generation.
 
-Kubernetes fleet collection retains one source-state record per exact cluster binding. The record
-uses a customer-safe scope digest, so one unavailable cluster lowers fleet completeness without
-erasing another cluster's verified positive evidence or exposing its ARM identity.
-The deployed Inventory Job accepts either the legacy binding or one bounded fleet JSON record,
-never both, and the same read identity receives only AKS RBAC Reader on each exact cluster scope.
+Kubernetes fleet collection retains one source-state record per discovered or explicitly bound cluster. The record uses a customer-safe scope digest, so one unavailable cluster lowers fleet completeness without erasing another cluster's verified positive evidence or exposing its ARM identity.
+The deployed Inventory Job defaults to bounded subscription discovery under its dedicated read identity. Subscription `Reader`, `Azure Kubernetes Service Cluster User Role`, and `Azure Kubernetes Service RBAC Reader` assignments let the same identity discover future clusters.
+The job extracts only exec-format endpoint, CA, and audience material in memory before reading Kubernetes objects.
+Static credentials, admin profiles, incomplete pagination, and unreachable API origins remain unavailable.
+An explicit fleet JSON record narrows the deployment scope and is mutually exclusive with subscription discovery and the legacy binding.
 Lifecycle collection acquires an independent lease and resourceVersion cursor for each binding. One cluster failure keeps fleet evidence incomplete but does not stop or erase another cluster's accepted Event observations.
 Each binding retains its exact AKS ARM ID for authorization scope and source attribution. Before Kubernetes resources or relationships enter the graph, the Azure composition converts that ARM ID with the same provider-neutral identity mapping used by the promoted Azure inventory.
 The durable delta cursor also retains the newest relationship-reconciliation event time, so an inclusive provider replay cannot give a covered marker a new ingestion age.

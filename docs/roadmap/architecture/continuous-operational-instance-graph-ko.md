@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 742f4428f379f9e387332ec929586bc7d685cc8b
+translation_source_sha: 26cada2cecb90cbc340387d65ddcfd073ae09b0e
 translation_revised: 2026-09-17
 ---
 # 지속형 운영 인스턴스 그래프
@@ -108,7 +108,7 @@ Activity Log의 컨트롤 플레인 결과는 `operationStatus`와 정규화된 
 reconciliation 사이에 Resource Group 부모로 되돌아가지 않습니다.
 Resource Changes의 커서, 재시도, 수집 경계 및 게시 의미는 하나의 지원 경계가 소유합니다. 공급자
 feed 모듈은 두 번째 루프를 유지하지 않고 이 동작을 다시 내보냅니다.
-잘못된 다음 페이지 정보는 Activity Log 스트림을 완료하거나 영속 커서를 진행할 수 없습니다. 부모 계정만 가리키는 Azure Cognitive Services 배포 쓰기/삭제는 `Succeeded`일 때 계속 전체 조정만 요청합니다. 정규화된 Resource Group 묶음에서는 정확한 ARM ID로부터 도출한 유형이 `Microsoft.KeyVault/vaults` 또는 `Microsoft.Storage/storageAccounts`이고, 해당 유형의 정확한 `<derived-type>/delete` 작업 및 `Succeeded` 상태가 함께 있을 때만 같은 처리를 적용합니다. 이 두 유형으로 제한된 신호는 신호만 있는 페이지에서도 시간대가 포함된 검증된 이벤트 시간을 보존하며, Resource/관계를 추가하거나 갱신하지 않고 없는 자식을 만들거나 삭제를 단정하거나 유효한 다른 행을 막지 않습니다. 커서 저장에는 완전한 스트림 종료 경계와 조정 마커 저장이 필요하며, 그 밖의 상태, 타임스탬프 및 검토된 신원 검증은 바꾸지 않습니다. 정확한 별칭과 집중 검증 근거는 [구현 원장](../../roadmap-implementation/architecture/continuous-operational-instance-graph.md)에 기록되어 있습니다.
+잘못된 다음 페이지 정보는 Activity Log 스트림을 완료하거나 영속 커서를 진행할 수 없습니다. 부모 계정만 가리키는 Azure Cognitive Services 배포 쓰기/삭제는 `Succeeded`일 때 계속 전체 조정만 요청합니다. 정규화된 Resource Group 묶음에서는 정확한 ARM ID로부터 도출한 유형을 `Microsoft.Authorization/roleAssignments`, `Microsoft.Compute/virtualMachineScaleSets`, `Microsoft.KeyVault/vaults`, `Microsoft.ManagedIdentity/userAssignedIdentities`, `Microsoft.Network/networkSecurityGroups`, `Microsoft.Storage/storageAccounts`의 정확한 6개 유형으로 제한합니다. 각 유형에는 정확한 `<derived-type>/delete` 작업과 `Succeeded` 상태가 있어야 합니다. 이 신호는 신호만 있는 페이지에서도 시간대가 포함된 검증된 이벤트 시간을 보존하며, Resource/관계를 추가하거나 갱신하지 않고 없는 자식을 만들거나 삭제를 단정하거나 유효한 다른 행을 막지 않습니다. 커서 저장에는 완전한 스트림 종료 경계와 조정 마커 저장이 필요하며, 그 밖의 상태, 타임스탬프 및 검토된 신원 검증은 바꾸지 않습니다. 정확한 별칭과 집중 검증 근거는 [구현 원장](../../roadmap-implementation/architecture/continuous-operational-instance-graph.md)에 기록되어 있습니다.
 
 수집된 속성은 검토된 프로바이더 mapping을 거쳐야만 관계가 됩니다. Mapping이 관측된 연결
 대상을 빠뜨리면 없는 그래프 edge가 경로 부재를 입증하지 않습니다. 따라서 도달 가능한 모든
@@ -128,11 +128,11 @@ ARM ID와 대소문자 구분 없이 일치해야 합니다. 모순이 있으면
 CLI 지원 모듈은 전체 조정 전과 세대 승격 후에 적용하는 Activity Log 복구의 독립 실패 경계를 소유합니다.
 거부된 변경분은 커서를 진행하거나 전체 인벤토리를 중단하거나 검증된 세대를 무효화하지 않고 사용 불가 상태로 남습니다.
 
-Kubernetes fleet 수집은 정확한 클러스터 연결마다 출처 상태 레코드 하나를 보존합니다. 레코드는
-고객에게 안전한 범위 다이제스트를 사용하므로, 사용할 수 없는 클러스터 하나가 다른 클러스터의
-검증된 양성 근거를 지우거나 ARM 신원을 노출하지 않고 fleet 완전성을 낮춥니다.
-배포된 Inventory Job은 기존 연결 또는 범위가 제한된 fleet JSON 레코드 중 하나만 허용하며 같은
-읽기 신원에는 정확한 각 클러스터 범위에서 AKS RBAC Reader만 부여합니다.
+Kubernetes fleet 수집은 검색되었거나 명시적으로 연결된 각 클러스터마다 고객에게 안전한 범위 다이제스트를 사용하는 출처 상태 레코드 하나를 보존합니다.
+사용할 수 없는 클러스터 하나는 다른 클러스터의 검증된 양성 근거를 지우거나 ARM 신원을 노출하지 않고 fleet 완전성을 낮춥니다. 배포된 Inventory Job은 전용 읽기 신원으로 범위가 제한된 구독 검색을 기본 사용합니다.
+구독 범위의 `Reader`, `Azure Kubernetes Service Cluster User Role` 및 `Azure Kubernetes Service RBAC Reader`를 받은 같은 신원이 이후 생성된 클러스터를 찾고, 실행 형식의 엔드포인트, CA 및 audience 자료만 메모리에서 추출한 뒤 Kubernetes 객체를 읽습니다.
+정적 자격 증명, 관리자 프로필, 불완전한 페이지 처리 및 연결할 수 없는 API 원본은 사용 불가 상태로 남습니다.
+명시적 fleet JSON 레코드는 배포 범위를 좁히며 구독 검색 및 기존 연결과 함께 사용할 수 없습니다.
 수명 주기 수집은 각 연결마다 독립 lease와 resourceVersion 커서를 획득합니다. 한 클러스터 실패는
 fleet 근거를 불완전하게 유지하지만 다른 클러스터에서 수락된 Event 관측을 중지하거나 지우지
 않습니다.
