@@ -155,7 +155,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    void client.panel<unknown>("/models/settings").then(
+    void client.modelSettings().then(
       (value) => {
         if (!cancelled) {
           setConversationModelAvailability(decodeConversationModelAvailability(value));

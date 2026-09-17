@@ -210,13 +210,16 @@ async def test_diagnostic_verification_failure_preserves_evaluator_error_hold() 
     first = _Evaluator("publisher-a:model-a", "family-a", 4)
     second = _Evaluator("publisher-b:model-b", "family-b", 4)
 
+    class ClassifiedEvaluatorError(RuntimeError):
+        assurance_reason_code = "provider_http_400"
+
     async def fail(
         _turn: TurnAssessmentInput,
         *,
         debate: DebateContext | None = None,
     ) -> EvaluatorOutput:
         del debate
-        raise RuntimeError("provider unavailable")
+        raise ClassifiedEvaluatorError("provider unavailable")
 
     first.evaluate = fail  # type: ignore[method-assign]
     coordinator = ConversationAssuranceCoordinator(
@@ -235,7 +238,7 @@ async def test_diagnostic_verification_failure_preserves_evaluator_error_hold() 
     assert review.decision.verdict is AssuranceVerdict.FAIL
     assert review.decision.reasons == (
         "verification_failed:provider_evidence_unavailable",
-        "evaluator_error:RuntimeError",
+        "evaluator_error:provider_http_400",
     )
     assert record.state is AssessmentState.DEFERRED
 
@@ -415,6 +418,31 @@ async def test_invalid_semantic_outputs_are_not_marked_valid() -> None:
     )
     assert not review.semantic_review_valid
     assert len(review.evaluator_outputs) == 2
+    assert record.state is AssessmentState.DEFERRED
+
+
+async def test_invalid_semantic_reason_survives_deterministic_failure() -> None:
+    first = _Evaluator("publisher-a:model-a", "family-a", 4, confidence=0.84)
+    second = _Evaluator("publisher-b:model-b", "family-b", 4)
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=InMemoryConversationAssuranceLedger(),
+        reviewer=MixedFamilyAssuranceReviewer(first=first, second=second),
+        rubric_version="1.0.0",
+    )
+
+    turn = _turn(
+        verification_status="unverified",
+        verification_reason_code="provider_evidence_unavailable",
+    )
+    review = await coordinator.review_semantically(turn)
+    record = await coordinator.persist(turn, review)
+
+    assert review.decision.verdict is AssuranceVerdict.FAIL
+    assert review.decision.reasons == (
+        "verification_failed:provider_evidence_unavailable",
+        "evaluator_confidence_below_threshold",
+        "semantic_review_invalid",
+    )
     assert record.state is AssessmentState.DEFERRED
 
 

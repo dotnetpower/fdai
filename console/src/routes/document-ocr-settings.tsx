@@ -28,11 +28,11 @@ export function DocumentOcrSettingsPanel({ client, auth }: Props) {
   const [error, setError] = useState<string | null>(null);
   const generation = useRef(0);
 
-  const load = async () => {
+  const load = async (force = false) => {
     const current = ++generation.current;
     setError(null);
     try {
-      const next = decodeModelSettings(await client.panel<unknown>("/models/settings"));
+      const next = decodeModelSettings(await client.modelSettings({ force }));
       if (generation.current !== current) return;
       setView(next);
       setProvider(next.documentOcr.desiredProvider);
@@ -94,9 +94,9 @@ export function DocumentOcrSettingsPanel({ client, auth }: Props) {
         },
       );
       setNotice(text("ocrPlanRequested"));
-      await load();
+      await load(true);
     } catch (reason) {
-      await load();
+      await load(true);
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
       setSaving(false);
