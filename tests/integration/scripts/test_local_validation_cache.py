@@ -313,3 +313,23 @@ def test_controlled_environment_drops_caller_python_and_queue_inputs(
     assert inputs.execution_environment(tmp_path)[1] != before
     executable.write_bytes(b"changed tool")
     assert inputs.execution_environment(tmp_path)[1] != before
+
+
+def test_main_reports_validation_failure_detail(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(
+        cache,
+        "run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ValueError("validation inputs changed during execution")
+        ),
+    )
+    monkeypatch.setattr("sys.argv", ["local_validation_cache.py", "structural"])
+
+    assert cache.main() == 1
+    assert capsys.readouterr().err == (
+        "local-validation: BLOCKED - ValueError: "
+        "validation inputs changed during execution; no success recorded\n"
+    )
