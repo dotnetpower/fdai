@@ -1,6 +1,6 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: 3cc48fb07912dddaa5fbaca82da2c26918c68618
+translation_source_sha: 38d30dfc73c7d2031f8dc437238c3f1411b04aa0
 translation_revised: 2026-09-17
 ---
 # AKS 상거래 비즈니스 시나리오
@@ -93,6 +93,12 @@ Browser Evidence는 계속 `GET`과 `HEAD`만 허용합니다. 상태를 변경�
 평가는 영향받는 비즈니스 서비스와 의존성 경로를 식별합니다. 출처가 완전한 구간을
 증명할 때만 수치를 보고합니다. Kubernetes 상태만으로 매출, 영향받은 사용자, 근본
 원인을 추론하지 않습니다.
+
+정상 및 복구 결과에는 서비스별 합성 가용성 관찰의 성공, 모든 워크로드의 명확한 준비 상태,
+모든 SLO의 명확한 미위반 상태가 추가로 필요합니다. 알려진 저하 분류에 해당하지 않으면서
+이러한 정상 근거 중 하나라도 없으면 `health_not_proven`을 기록하고 `held`를 유지합니다.
+큐에 적체가 없더라도 주문 접수 실패를 정상이나 복구로 처리하지 않습니다. 이 검사는 주문
+접수 탐지기를 구현하거나 인시던트를 생성하거나 권한을 부여하거나 복구를 승인하지 않습니다.
 
 ## 에이전트 책임
 

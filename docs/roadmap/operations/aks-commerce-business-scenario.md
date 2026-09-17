@@ -92,6 +92,13 @@ The assessment identifies an affected business service and dependency path. It r
 when the source proves a complete window. It does not infer revenue, affected users, or root cause
 from Kubernetes health alone.
 
+Healthy and recovered results additionally require a successful service-specific synthetic
+availability observation, every workload explicitly ready, and every SLO explicitly unbreached.
+If no known degraded classification matches but any of those positive proofs is absent, retain
+`held` with `health_not_proven`. Failed order acceptance with an idle queue must not fall through
+to healthy or recovered. This guard does not itself implement an order-acceptance detector,
+create an incident, grant a permission, or approve a recovery.
+
 ## Agent responsibilities
 
 No agent names or role bindings change:
