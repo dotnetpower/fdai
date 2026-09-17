@@ -58,7 +58,7 @@ Conversation follows the same boundary in the other direction:
 
 ```text
 CLI input + screen snapshot
-  -> POST /chat
+  -> POST /chat/stream
   -> shared Python coordinator, tools, grounding, and verifier
   -> answer
   -> CLI renderer
@@ -169,7 +169,7 @@ format to stdout from the same block IR.
 
 ## Narrator (natural language)
 
-Questions typed at the prompt go to `POST /chat` through
+Questions typed at the prompt go to `POST /chat/stream` through
 [src/data/operator-api.ts](src/data/operator-api.ts). The Python Operator API owns intent
 routing, role-aware tool evidence, model selection, evidence check, semantic shadow
 verification, response verification, and refusal behavior. The CLI contributes

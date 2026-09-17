@@ -1052,6 +1052,29 @@ class SemanticTurnProcessor:
             request_digest=request_digest,
         )
 
+    def rejection_projection(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        reason_code: str,
+    ) -> bytes:
+        """Project a valid policy-rejected request as an immediate no-authority hold.
+
+        Malformed envelopes still raise during decoding so the consumer can quarantine them.
+        """
+
+        envelope, request, _requested_at = _decode_request(payload)
+        processing_started_at = _aware_utc(self._now(), field="semantic processor clock")
+        timed_envelope = dict(envelope)
+        timed_envelope[_PROCESSING_STARTED_AT_FIELD] = processing_started_at.isoformat()
+        return self._projection(
+            timed_envelope,
+            request,
+            _terminal_result(request, "held", reason_code),
+            extensions=None,
+            request_digest=_request_digest(envelope, request),
+        )
+
     def _with_answer_continuity(
         self,
         request: SemanticTurnRequest,
@@ -1521,6 +1544,7 @@ def _project_runtime_result(
         reason_code=(
             "semantic_answer_partial"
             if optional_document_evidence_degraded(planning, execution)
+            or _execution_output_incomplete(execution)
             else "semantic_answer_verified"
         ),
         semantic_route="verified_query_plan",
@@ -1548,6 +1572,16 @@ def _project_runtime_result(
             technical_details=technical_details,
             investigation_continuation=investigation_continuation,
         ),
+    )
+
+
+def _execution_output_incomplete(execution: QueryPlanExecution) -> bool:
+    """Return whether a terminal output table explicitly reports incomplete source coverage."""
+
+    return any(
+        isinstance(result.value, QueryTable) and not result.value.complete
+        for node_id in execution.output_node_ids
+        if (result := execution.results.get(node_id)) is not None
     )
 
 
@@ -4932,16 +4966,17 @@ def _render_generic_empty_query_answer(
         if output_shape == "resource_state_list":
             lines = [
                 (
-                    "## 실행 중이 아닌 리소스 없음"
+                    "## 일치하는 리소스 상태 근거 없음"
                     if complete
-                    else "## 확인 범위에서 실행 중이 아닌 리소스 없음"
+                    else "## 확인 범위에서 일치하는 리소스 상태 없음"
                 ),
                 "",
                 (
-                    "- 검증된 전체 조회 범위에서 실행 중이 아닌 리소스가 없습니다."
+                    "- 검증된 조회 범위에서 요청한 상태와 일치하는 리소스가 없습니다."
                     if complete
                     else (
-                        "- 현재 확인 가능한 범위에서는 실행 중이 아닌 리소스를 찾지 못했습니다. "
+                        "- 현재 확인 가능한 범위에서는 요청한 상태와 일치하는 리소스를 찾지 "
+                        "못했습니다. "
                         "인벤토리 범위가 완전하지 않아 전체에 없다고 단정할 수 없습니다."
                     )
                 ),
@@ -4974,13 +5009,18 @@ def _render_generic_empty_query_answer(
         return "\n".join(lines)
     if output_shape == "resource_state_list":
         lines = [
-            "## No non-running resources" if complete else "## No non-running resources in scope",
+            (
+                "## No matching resource-state evidence"
+                if complete
+                else "## No matching resource state in the verified scope"
+            ),
             "",
             (
-                "- The complete verified scope contains no non-running resources."
+                "- No resource in the verified scope matches the requested state."
                 if complete
                 else (
-                    "- No non-running resources were found in the currently verified scope. "
+                    "- No resource matching the requested state was found in the currently "
+                    "verified scope. "
                     "The inventory scope is incomplete, so this does not establish global absence."
                 )
             ),

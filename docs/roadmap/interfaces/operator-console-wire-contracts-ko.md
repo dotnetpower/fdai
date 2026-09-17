@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 8f68c6d284d0728445876dd42142407b1a1560c6
-translation_revised: 2026-09-16
+translation_source_sha: 667e516fdb8402d21613253c207459177b4622f8
+translation_revised: 2026-09-17
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -90,6 +90,9 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도�
 동시 의미 기반 요청은 하나의 영속 처리 claim을 공유합니다. 대기자는 lease가 만료되면 claim을
 다시 시도하므로 실패한 소유자가 요청을 외부 기한까지 멈추게 할 수 없습니다. 대기 중 결과
 저장소가 실패하면 명시적인 보류 변환 결과를 반환합니다.
+스키마가 유효하지만 정책에서 거부한 요청도 실행 권한이 없는 타입 지정 보류 최종 결과를 즉시
+반환합니다. 잘못된 묶음만 의미 기반 배달 못 한 편지 경로로 들어가며, 보류 최종 결과나 그 사유는
+인시던트 생성 요청을 게시하거나 작업 초안을 확인할 수 없습니다.
 
 - **인시던트 초안**: 검증된 `incident_create` 판정은 범위가 제한된 심각도와 대상,
   대화 `session_id`, 요청 범위 멱등성 키를 포함한 권한 없는 `incident.create`

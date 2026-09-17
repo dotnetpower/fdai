@@ -168,6 +168,11 @@ Coverage-inventory regeneration follows question-bank source changes, including 
 > a hand-authored fixture into cross-service or live proof. When catalog structure changes, every
 > answered fixture must pin the newly computed release and principal-manifest digests before the
 > gate can pass; stale deterministic receipts are never accepted by compatibility.
+> Resource-state collection frames also compare the original utterance with the accepted judgment.
+> Unsupported count, IAM, or RBAC requests fail closed even when a model omits those facets, and
+> every typed Resource filter must bind from its exact source value before a verified plan exists.
+> This deterministic completeness guard does not turn fixture receipts into answer-quality or live
+> production evidence.
 > The `resource_classified_as` and `Forecast`/`Pattern` catalog revisions each refreshed those
 > deterministic fixture digests in the same release change.
 > Every structural release refresh, including the current validation repair, pins the four answered

@@ -371,14 +371,22 @@ async def consume_semantic_turns(
                     projection = _projection_mapping(encoded)
                 finally:
                     await _close_progress_publisher(progress_queue, progress_publisher)
-            except SemanticTurnRejectedError:
-                await bus.dead_letter(
-                    envelope.topic,
-                    envelope.key,
-                    envelope.payload,
-                    "semantic_turn_rejected",
-                )
-                continue
+            except SemanticTurnRejectedError as exc:
+                try:
+                    projection = _projection_mapping(
+                        processor.rejection_projection(
+                            envelope.payload,
+                            reason_code=str(exc),
+                        )
+                    )
+                except (SemanticTurnRejectedError, TypeError, ValueError):
+                    await bus.dead_letter(
+                        envelope.topic,
+                        envelope.key,
+                        envelope.payload,
+                        "semantic_turn_rejected",
+                    )
+                    continue
             except Exception:  # noqa: BLE001 - process bugs are isolated at the broker boundary
                 await bus.dead_letter(
                     envelope.topic,

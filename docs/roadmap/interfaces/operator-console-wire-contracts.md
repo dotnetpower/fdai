@@ -88,6 +88,9 @@ and does not send natural language directly to a write endpoint.
 Concurrent semantic requests share one durable processing claim. A waiter retries the claim after
 its lease expires, so a failed owner cannot strand the request until its outer deadline. A result
 store failure while waiting returns an explicit held projection.
+Schema-valid requests that policy rejects also return an immediate typed held terminal with no
+execution authority. Only malformed envelopes enter the semantic dead-letter path, and neither a
+held terminal nor its reason can publish an Incident creation request or confirm an action draft.
 
 - **Incident draft**: A verified `incident_create` judgment returns an
   authority-free `incident.create` draft with bounded severity and target,

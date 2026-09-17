@@ -111,6 +111,13 @@ def semantic_done_event_data(
         technical_details=technical_details,
     )
     verified = disposition == "answered" and not missing_answer and authority_reason is None
+    verification_status = (
+        "consistent"
+        if verified and semantic.get("reason_code") == "semantic_answer_partial"
+        else "verified"
+        if verified
+        else "unverified"
+    )
     model = payload.get("model") if isinstance(payload, Mapping) else None
     latency_ms = payload.get("latency_ms") if isinstance(payload, Mapping) else None
     usage = payload.get("usage") if isinstance(payload, Mapping) else None
@@ -228,7 +235,7 @@ def semantic_done_event_data(
                             if authority == "multiple_authoritative_sources"
                             else {}
                         ),
-                        "status": "verified" if verified else "unverified",
+                        "status": verification_status,
                         "authority": authority,
                         "checks_completed": verification_checks_completed,
                         "checks_total": verification_checks_total,

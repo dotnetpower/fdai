@@ -7,14 +7,19 @@ import {
   fetchAuditItems,
 } from "../src/data/operator-api.js";
 
+function chatStream(payload: Record<string, unknown>): Response {
+  return new Response(`event: done\ndata: ${JSON.stringify(payload)}\n\n`, {
+    status: 200,
+    headers: { "content-type": "text/event-stream; charset=utf-8" },
+  });
+}
+
 describe("askChat", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("posts the shared chat wire contract and returns its grounded answer", async () => {
     const fetchMock = vi.fn(async () =>
-      new Response(JSON.stringify({ answer: "9 events.", model: "shared-narrator" }), {
-        status: 200,
-      }),
+      chatStream({ answer: "9 events.", model: "shared-narrator" }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -28,11 +33,11 @@ describe("askChat", () => {
     expect(reply.answer).toBe("9 events.");
     expect(fetchMock).toHaveBeenCalledOnce();
     const [url, init] = fetchMock.mock.calls[0]!;
-    expect(url).toBe("http://127.0.0.1:8010/chat");
+    expect(url).toBe("http://127.0.0.1:8010/chat/stream");
     expect((init as RequestInit).signal).toBeInstanceOf(AbortSignal);
     expect((init as RequestInit).redirect).toBe("error");
     expect((init as RequestInit).headers).toMatchObject({
-      accept: "application/json",
+      accept: "text/event-stream",
       authorization: "Bearer opaque-session",
       "content-type": "application/json",
     });
@@ -47,7 +52,7 @@ describe("askChat", () => {
   it("rejects malformed backend responses instead of inventing an answer", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response(JSON.stringify({ model: "shared-narrator" }), { status: 200 })),
+      vi.fn(async () => chatStream({ model: "shared-narrator" })),
     );
 
     await expect(askChat("http://127.0.0.1:8010", "status")).rejects.toThrow(
@@ -59,10 +64,7 @@ describe("askChat", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
-        new Response(
-          JSON.stringify({ answer: "ok", model: "shared-narrator", latency_ms: "1" }),
-          { status: 200 },
-        ),
+        chatStream({ answer: "ok", model: "shared-narrator", latency_ms: "1" }),
       ),
     );
 
@@ -75,9 +77,7 @@ describe("askChat", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
-        new Response(JSON.stringify({ answer: "\u001b\u0007", model: "model" }), {
-          status: 200,
-        }),
+        chatStream({ answer: "\u001b\u0007", model: "model" }),
       ),
     );
 
@@ -90,10 +90,7 @@ describe("askChat", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
-        new Response(
-          JSON.stringify({ answer: "safe\u001b[2J answer", model: "model\u0007name" }),
-          { status: 200 },
-        ),
+        chatStream({ answer: "safe\u001b[2J answer", model: "model\u0007name" }),
       ),
     );
 
@@ -157,9 +154,7 @@ describe("askChat", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
-        new Response(JSON.stringify({ answer: "ok", model: "shared-narrator" }), {
-          status: 200,
-        }),
+        chatStream({ answer: "ok", model: "shared-narrator" }),
       ),
     );
 

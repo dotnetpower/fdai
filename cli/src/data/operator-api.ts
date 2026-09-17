@@ -147,12 +147,12 @@ export async function askChat(
     signal?: AbortSignal;
   } = {},
 ): Promise<ChatReply> {
-  const url = `${norm(baseUrl)}/chat`;
+  const url = `${norm(baseUrl)}/chat/stream`;
   const timeoutSignal = AbortSignal.timeout(options.timeoutMs ?? DEFAULT_CHAT_TIMEOUT_MS);
   const res = await fetch(url, {
     method: "POST",
     headers: {
-      ...requestHeaders("application/json", options.authorization),
+      ...requestHeaders("text/event-stream", options.authorization),
       "content-type": "application/json",
     },
     signal: options.signal
@@ -169,7 +169,36 @@ export async function askChat(
   if (!res.ok) {
     throw await responseError(res, url);
   }
-  return decodeChatReply(await responseJson(res, url), url);
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.startsWith("text/event-stream")) {
+    throw new Error(`Operator API ${url} returned an invalid chat stream`);
+  }
+  return decodeChatReply(chatStreamTerminal(await boundedResponseText(
+    res,
+    MAX_API_RESPONSE_CHARS,
+  ), url), url);
+}
+
+function chatStreamTerminal(raw: string, url: string): unknown {
+  let terminal: unknown;
+  for (const frame of raw.split(/\r?\n\r?\n/)) {
+    let event = "message";
+    const data: string[] = [];
+    for (const line of frame.split(/\r?\n/)) {
+      if (line.startsWith("event:")) event = line.slice(6).trim();
+      if (line.startsWith("data:")) data.push(line.slice(5).trimStart());
+    }
+    if (event !== "done" || data.length === 0) continue;
+    try {
+      terminal = JSON.parse(data.join("\n")) as unknown;
+    } catch {
+      throw new Error(`Operator API ${url} returned invalid chat stream JSON`);
+    }
+  }
+  if (terminal === undefined) {
+    throw new Error(`Operator API ${url} returned a chat stream without a terminal response`);
+  }
+  return terminal;
 }
 
 export async function fetchKpi(
@@ -365,7 +394,8 @@ function decodeAuditItem(value: unknown): AuditItemPayload {
 
 function decodeChatReply(value: unknown, url: string): ChatReply {
   const payload = record(value, "chat response");
-  if (typeof payload.answer !== "string" || typeof payload.model !== "string") {
+  const modelValue = typeof payload.model === "string" ? payload.model : payload.source;
+  if (typeof payload.answer !== "string" || typeof modelValue !== "string") {
     throw new Error(`Operator API ${url} returned an invalid chat response`);
   }
   if (
@@ -381,12 +411,12 @@ function decodeChatReply(value: unknown, url: string): ChatReply {
   }
   if (
     [...payload.answer].length > MAX_CHAT_ANSWER_CODE_POINTS ||
-    [...payload.model].length > 256
+    [...modelValue].length > 256
   ) {
     throw new Error(`Operator API ${url} returned an invalid chat response`);
   }
   const answer = safeDisplayText(payload.answer);
-  const model = safeDisplayLine(payload.model, 256);
+  const model = safeDisplayLine(modelValue, 256);
   if (answer.trim().length === 0 || model.length === 0) {
     throw new Error(`Operator API ${url} returned an invalid chat response`);
   }

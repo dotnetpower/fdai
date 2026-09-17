@@ -37,7 +37,11 @@ from .semantic_planning_models import (
     SemanticFrameProposal,
     SemanticOutputShape,
 )
-from .semantic_planning_value_filters import stated_subject_fragment, stated_value_filters
+from .semantic_planning_value_filters import (
+    resource_type_filters_are_bound,
+    stated_subject_fragment,
+    stated_value_filters,
+)
 from .semantic_resource_state_planning import resource_collection_definition
 from .semantic_target_candidate_constants import (
     CANDIDATE_RESOLVABLE_REQUIREMENTS,
@@ -85,11 +89,9 @@ def build_stated_resource_filter_frame(
         for target in typed_targets
         if target.get("kind") == "resource_type_filter" and isinstance(target.get("value"), str)
     )
-    filters = stated_value_filters(
-        utterance,
-        descriptors,
-        preferred_terms=resource_type_filters,
-    )
+    filters = stated_value_filters(utterance, descriptors, preferred_terms=resource_type_filters)
+    if not resource_type_filters_are_bound(resource_type_filters, descriptors):
+        filters.pop(("Resource", "type"), None)
     typed_collection = primary_intent in {
         "query.contextual_resources",
         "query.resource_current_state",

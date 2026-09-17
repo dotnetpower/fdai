@@ -103,6 +103,26 @@ _PRIMARY_ONLY_SUMMARY_OUTPUTS = frozenset(
 _RESOURCE_COLLECTION_SUMMARY_OUTPUTS = frozenset(
     {"resource_condition_sections", "resource_health_list", "resource_state_list"}
 )
+_RESOURCE_STATE_LIST_FACETS = frozenset(
+    {
+        "complete_content",
+        "current_state",
+        "details",
+        "list",
+        "name",
+        "region",
+        "resource_collection",
+        "resource_group",
+        "resource_inventory",
+        "resource_name",
+        "state_change_history",
+        "subscription",
+    }
+)
+_UNSUPPORTED_RESOURCE_STATE_REQUEST_PATTERN = re.compile(
+    r"(?i)(?:\b(?:count|how\s+many|rbac|iam|role[- ]based\s+access\s+control|"
+    r"access\s+control)\b|개수|몇\s*개|역할\s*기반\s*액세스\s*제어|접근\s*제어|액세스\s*제어)"
+)
 _SERVICE_HEALTH_SOURCE_PATTERN = re.compile(r"(?i)(?:\bservice\s+health\b|서비스\s*(?:상태|헬스))")
 _COMBINED_SUBSCRIPTION_REQUEST_PATTERN = re.compile(
     r"(?is)(?:\bservice\s+health\b|서비스\s*(?:상태|헬스)).*"
@@ -298,6 +318,15 @@ def _operational_frame_matches_accepted_judgment(
             and _SERVICE_HEALTH_SOURCE_PATTERN.search(utterance) is not None
         )
     if not judgment_accepted or judgment is None:
+        return False
+    if (
+        output_shape == "resource_state_list"
+        and _UNSUPPORTED_RESOURCE_STATE_REQUEST_PATTERN.search(utterance) is not None
+    ):
+        return False
+    if output_shape == "resource_state_list" and not set(judgment.requested_facets).issubset(
+        _RESOURCE_STATE_LIST_FACETS
+    ):
         return False
     if required_primary_intent is not None:
         return bool(judgment.primary_intent == required_primary_intent)
