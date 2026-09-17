@@ -5,8 +5,7 @@ title: Ontology Query Coverage Implementation Plan
 
 This plan closes the implementation gap between FDAI's bounded conversation and ontology foundations and the target non-keyword path for operator questions. It records the verified current baseline, service and agent ownership, dependency-ordered work packages, cutover gates, and rollback units for 100% structural query coverage.
 
-Governed cloud-reference queries use source-spanned scalar applicability and preserve source dates;
-the [lifecycle owner](cloud-resource-knowledge-lifecycle.md) defines as-of and live-current behavior.
+Governed cloud-reference queries use source-spanned scalar applicability and preserve source dates; the [lifecycle owner](cloud-resource-knowledge-lifecycle.md) defines as-of and live-current behavior.
 The [structured retrieval owner](cloud-resource-knowledge-structured-rag.md) defines v1.2 query/utterance binding, unavailable outcomes and legacy compatibility; terms never expand applicability or access. Frame-model schemas omit the server-bound query field.
 Coverage-inventory regeneration refreshes source digests, not measured coverage. A merged Console catalog change requires rebuilding the question bank before its dependent semantic inventory; source-only repairs preserve the 400-question cohort and its existing validation gaps.
 
