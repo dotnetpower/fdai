@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 6e5402b7d5503e8b626979ea2a1bccb6343fc880
+translation_source_sha: 0a9b8a8b76f600c3deb5348482aeeaeff1833c88
 translation_revised: 2026-09-17
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -233,6 +233,7 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-17 | implemented | 이후 Agent Activity Console 카탈로그 갱신이 권위 있는 소스 digest를 다시 변경한 뒤 질문 bank와 이에 의존하는 semantic-intent coverage를 함께 다시 생성했습니다. 질문 identity, coverage, readiness 및 실행 권한은 바뀌지 않습니다. | `current change`, 공식 generator 2개, 집중 아티팩트 parity 테스트 | 실제 또는 승격 주장을 추가하지 않습니다. |
 | 2026-09-17 | implemented | Console 카탈로그 소스 digest가 변경된 뒤 생성된 질문 bank를 갱신하고 이어서 이에 의존하는 semantic-intent coverage 아티팩트를 갱신했습니다. 질문 identity, coverage 분류 및 실행 권한은 바뀌지 않습니다. | `current change`, `build_question_bank.py`, `build_semantic_intent_coverage.py`, 집중 질문 bank 및 semantic coverage parity 테스트 | 이 출처 이력 전용 갱신은 런타임 검증 또는 권한 주장을 추가하지 않습니다. |
 | 2026-09-16 | implemented | 승인된 배포 alias를 통한 정확한 논리 서비스 및 워크로드 대상 확인, 서버 소유 cross-runtime 탐색과 검증된 현재 상태 읽기를 추가했습니다. AKS, Container Apps 및 로컬 Redpanda에서 연속 운영 모델 업데이트를 하나의 논리 토픽에 연결하고, 전체 건강도나 원인을 추론하지 않는 이중 언어 구성요소 상태 표현을 추가했습니다. | `current change`, 13회 비평에서 모호한 판단의 진행, 서버 컴파일러의 모델 fallback, alias 제어 문자, 부분 매핑 표현을 수정했습니다. 논리 서비스 플래너, 조회 검증기, 프로바이더 검증, 런타임 변환, 전체 DAG 실행, 배포/로컬 토픽 및 이중 언어 표현 검사가 집중 실행에서 통과했고 Ruff 및 strict mypy도 통과했습니다. Medium 이상 발견은 남지 않았습니다. | 이 범위가 제한된 기능을 implemented에서 validated로 높이려면 통제된 실제 서비스 간 증적이 필요합니다. |
 | 2026-09-14 | implemented | 실행 범위 자식 명령에서 API와 Vite 인증 플래그 쌍을 모두 해제하여 Browser Entra 온톨로지 보증 서비스가 주변 Azure CLI principal 준비와 격리되도록 했습니다. | `current change`; `run_ontology_assurance.py`; 집중 보증 프로세스 사양 회귀 테스트. | 조회 권한 또는 보증 결과는 변경되지 않았습니다. |

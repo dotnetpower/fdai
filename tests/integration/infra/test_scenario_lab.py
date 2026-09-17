@@ -254,6 +254,20 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert 'trap \'rm -rf -- "$archive" "$extract_dir"\' EXIT' in workflow
     assert "for command_name in az helm jq kubectl kubelogin terraform timeout" in workflow
     assert "Adopt succeeded partial-apply network resources" in workflow
+    assert "Recover healthy partial workspace state" in workflow
+    assert 'terraform state pull >"$state_snapshot"' in workflow
+    assert 'select(.status == "tainted")' in workflow
+    assert "Scenario workspace recovery requires exactly one tainted state instance." in workflow
+    assert "Tainted workspace state does not match the exact scenario-lab resource." in workflow
+    assert "az monitor log-analytics workspace show" in workflow
+    assert '.provisioningState == "Succeeded"' in workflow
+    assert '.sku.name == "PerGB2018"' in workflow
+    assert ".retentionInDays == 30" in workflow
+    assert ".workspaceCapping.dailyQuotaGb == 1" in workflow
+    assert '.tags["fdai:managed"] == "true"' in workflow
+    assert '.tags["fdai:layer"] == "scenario-lab"' in workflow
+    assert 'terraform untaint -lock-timeout=5m "$workspace_address"' in workflow
+    assert "sre-demo-lab-recovery-state.json" in workflow
     assert "scenario-lab partial-resource adoption rejected an invalid resource id" in workflow
     assert (
         "scenario-lab partial-resource adoption failed; raw output remains runner-local" in workflow
