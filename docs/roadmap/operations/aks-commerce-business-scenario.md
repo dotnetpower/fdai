@@ -340,7 +340,8 @@ The scenario-lab profile deploys the commerce workload with these boundaries:
 - Trivy and Checkov suppressions for public API access and absent authorized IP ranges stay
   adjacent to this one disposable cluster resource. They do not suppress another AKS finding or
   weaken the authentication and authorization controls above.
-- The storefront is the only public application surface.
+- The storefront is the only public application surface; the public management API is not an
+  application endpoint.
 - Public access uses HTTPS, a deployment-supplied DNS name, and a trusted certificate reference.
 - The administration UI, APIs, queue, database, and executor remain private.
 - AKS monitoring, Container Insights, managed Prometheus, and required application telemetry are
