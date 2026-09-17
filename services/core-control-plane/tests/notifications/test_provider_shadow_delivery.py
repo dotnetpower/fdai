@@ -84,10 +84,24 @@ def test_teams_renderer_is_bounded_and_preserves_canonical_metadata() -> None:
     text_blocks = [item for item in body if item["type"] == "TextBlock"]
     facts = next(item["facts"] for item in body if item["type"] == "FactSet")
 
-    assert len(text_blocks[0]["text"]) == 250
-    assert len(text_blocks[1]["text"]) == 3000
-    assert text_blocks[0]["text"].endswith(" [truncated]")
+    assert card["fallbackText"].startswith("T" * 20)
+    assert card["speak"] == card["fallbackText"]
+    assert body[0] == {
+        "type": "TextBlock",
+        "text": "CRITICAL",
+        "weight": "Bolder",
+        "size": "Small",
+        "color": "Attention",
+        "horizontalAlignment": "Center",
+        "spacing": "None",
+    }
+    assert text_blocks[1]["size"] == "ExtraLarge"
+    assert text_blocks[1]["horizontalAlignment"] == "Center"
+    assert len(text_blocks[1]["text"]) == 250
+    assert len(text_blocks[2]["text"]) == 3000
     assert text_blocks[1]["text"].endswith(" [truncated]")
+    assert text_blocks[2]["text"].endswith(" [truncated]")
+    assert next(item for item in body if item["type"] == "FactSet")["separator"] is True
     assert {"title": "incident_id", "value": "inc-example-latency"} in facts
     assert {
         "title": "responsibility_order",
@@ -110,8 +124,11 @@ def test_slack_renderer_uses_read_only_links_and_escapes_facts() -> None:
     )
 
     payload = _payload_json(render_slack_payload(envelope).body)
-    blocks = payload["blocks"]
+    attachment = payload["attachments"][0]
+    blocks = attachment["blocks"]
 
+    assert attachment["color"] == "#E01E5A"
+    assert "blocks" not in payload
     assert isinstance(blocks, list)
     assert all(block["type"] != "actions" for block in blocks)
     rendered = json.dumps(blocks)
@@ -128,7 +145,9 @@ def test_slack_renderer_chunks_fields_to_provider_limit() -> None:
     )
 
     payload = _payload_json(render_slack_payload(envelope).body)
-    field_sections = [block["fields"] for block in payload["blocks"] if "fields" in block]
+    field_sections = [
+        block["fields"] for block in payload["attachments"][0]["blocks"] if "fields" in block
+    ]
 
     assert [len(fields) for fields in field_sections] == [10, 8]
     assert sum(len(fields) for fields in field_sections) == 18
@@ -202,7 +221,7 @@ async def test_shadow_binding_composes_without_endpoint_or_http_client(
         if entry.rendered_payload is not None
     }
     assert payloads["teams-shadow"]["type"] == "message"
-    assert "blocks" in payloads["slack-shadow"]
+    assert "attachments" in payloads["slack-shadow"]
 
 
 def test_shadow_bindings_are_visible_in_shared_readiness_projection() -> None:
