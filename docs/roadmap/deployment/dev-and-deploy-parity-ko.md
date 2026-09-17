@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 8fc7e23b941bc27ebfefefe13a9c4b1de0d98fab
+translation_source_sha: bce488edbd4e3058c185b77cf1df515505f0b4f0
 translation_revised: 2026-09-17
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -16,13 +16,6 @@ WAF 및 CAF 평가 소비자도 같은 동등성 규칙을 따릅니다. 로컬�
 AKS fleet 인벤토리는 두 프로필에서 같은 정확한 managed cluster ARM 신원과 Core 소유 수명 주기 범위 마이그레이션을 사용하며, 배포는 해당 managed cluster 리소스에만 읽기 신원 권한을 부여합니다. 검토 목록은 각 영속 키를 본문의 정확하고 불투명한 검토 신원과 대조합니다. 통제된 코호트 반입도 같은 동등성 규칙을 따릅니다. 테스트는 정규화한 합성 고정본을 사용하고 배포 환경은 묶음당 관측값을 1,000개로 제한하며 각 관측 다이제스트를 묶음과 exporter workflow에 연결한 뒤 private PostgreSQL에서 멱등 재생을 검증합니다. 산출물은 군, 리비전, 프로토콜, 출처, 승인 또는 권한을 선택할 수 없고, 빈 군별 allowlist는 exporter workflow와 정책 항목이 함께 추가될 때까지 어떤 출처도 신뢰하지 않습니다.
 Cost Governance 공개 전달도 같은 동등성 규칙을 따릅니다. 두 프로필은 비용 데이터를 반환하기 전에 내용이 없는 승인 증적을 하나 영속화하고 감사 영속화가 실패하면 응답을 차단하며, 변경할 수 없는 증적에 같은 400일 보존, 30일 삭제 유예, 법적 보존 및 tombstone 계약을 적용합니다. 비용 분석도 하나의 예약 실행 계약을 사용합니다. 로컬 실행은 원본을 명시적으로 활성화한 뒤 운영자의 기존 Azure CLI 읽기 신원만 사용하고 배포는 전용 읽기 전용 관리 ID를 사용합니다. 두 프로필은 동일한 범위가 제한된 실행 증적과 분석 스냅샷을 영속하고 활성화된 경우 전체 스택 준비 상태에 참여하며, 오래되거나 실패한 수집을 Sample 데이터 선택 없이 보고합니다. 예약 작업은 `DecisionCase`, 승인 또는 실행 요청을 만들지 않습니다. 로컬 고정본은 실제 W7 근거가 되지 않습니다.
 ## 전수조사 - 로컬 동작 vs Azure 필요
-선택적 Container Apps Kubernetes 연결은 배포된 Thor 런타임의 정확한 API, 공개 CA,
-대상 및 네임스페이스 입력만 변경합니다. 마운트된 CA와 인라인 공개 CA는 같은 검증된 TLS
-전송을 사용합니다. 기본값은 연결되지 않은 상태이며 이 설정으로 실행 권한 전환을 켜거나
-사람의 자격 증명을 선택하거나 역할을 부여할 수 없습니다. 로컬 관측 모드 실행, 서비스별
-저장소, Core와 Operator 신원 및 채널 승인 전송은 바뀌지 않습니다.
-[런타임 배포 프로파일](runtime-deployment-profiles-ko.md#연결된-신원으로-kubernetes-인증)을 참고합니다.
-
 테스트 맥락 명령은 로컬과 배포 프로필에서 같은 영속 발신함 facade와 준비 상태 의존성을 사용합니다. import를 모아도 테스트 고정본을 활성화하거나 실행 권한을 부여하지 않습니다.
 로컬 준비는 의존성이나 공급자 작업 전에 OPA를 확인하며, VS Code 작업 터미널은 사용자 설치 도구를 찾도록 `~/.local/bin`을 포함합니다. 모델 파일을 선택하면 해당 파일의 정확한 `LLM_RESOLVED_MODELS_SHA256`을 Operator 환경에 전달하고, 시작 시 확인값이 없거나 파일이 변경되었으면 차단합니다. `FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1`에서는 활성 구독에서 명시적인 `FDAI_LOCAL_RESOURCE_GROUP`을 확인한 뒤에만 Terraform 검색을 생략합니다. 프로세스 환경에서 값을 정의하지 않은 경우 준비 작업은 Git에서 무시되는 `console/.env.local`에서 서버가 소유하는 이 두 설정만 읽을 수 있습니다. 키가 중복되면 안전하게 차단하며 모드와 범위는 모두 환경 캐시 다이제스트에 포함됩니다. PostgreSQL과 Redpanda는 로컬로 유지하고, 없는 소스는 사용 불가로 남으며, 가짜 실행기나 실행 게이트웨이는 선택하지 않습니다. HTTP 생존 확인과 `pantheon_ready`만으로 소비자 준비 상태나 대화 추론 성공을 입증할 수는 없습니다.
 2026-07-21 기준. "자동화 테스트"는 테스트 실행기가 실행하는 pytest 또는 committed mock을 뜻합니다. "Full-stack 로컬"은 운영자에 브라우저 Entra를 사용하고 서버 측 Azure 어댑터에 현재 Azure CLI 맥락을 사용하는 VS 코드 compound launch입니다. 테스트 고정본은 이 launch 프로파일에서 활성화되지 않습니다. [배포된 AKS 자격 증명](runtime-deployment-profiles-ko.md#신원-및-secret)은 명시적 연합 인증을 사용하고 Container Apps는 기존 MI를 유지합니다. 로컬 실행 위치 정책과 이벤트/역할/승인 경계는 바뀌지 않으며 모의 토큰 테스트는 실제 연합 인증이나 권한의 근거가 아닙니다.
