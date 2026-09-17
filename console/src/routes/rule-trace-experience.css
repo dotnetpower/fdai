@@ -245,11 +245,7 @@
 }
 
 .trace-toolbar {
-  position: sticky;
-  z-index: 6;
-  top: 0;
   grid-template-columns: minmax(280px, 1fr) auto minmax(320px, auto) auto;
-  box-shadow: 0 8px 18px color-mix(in oklab, var(--bg) 88%, transparent);
 }
 
 .trace-toolbar > .copy-btn {
