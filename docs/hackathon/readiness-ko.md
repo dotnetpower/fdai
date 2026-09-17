@@ -1,7 +1,7 @@
 ---
 title: 해커톤 데모 준비 상태
 translation_of: readiness.md
-translation_source_sha: b1af5ecad7c88c6d8c941d9b3c4d2383d274dc70
+translation_source_sha: 0d1a2f6e573fbd1a8c8d5b59d3fdf3815d9ddac7
 translation_revised: 2026-09-17
 ---
 
@@ -94,16 +94,26 @@ Kubernetes 입장에서는 유효한 상태이지만, 사업 운영 기준에는
 
 ### kubectl 장애 주입 명령
 
-실습 대상과 장애 주입이 승인된 뒤에만 다음 Bash 예제를 실행합니다. 이미 인증된 `kubectl`
-context를 사용하고 두 자리 표시자를 바꾼 뒤, 이어지는 명령도 같은 터미널에서 실행합니다.
-모든 API 요청은 대상을 명시하고 10초 제한을 사용합니다. 전역 현재 context는 변경하지 않습니다.
+다음 Bash 블록은 배포에 사용한 PC의 같은 터미널에 그대로 붙여 넣어 실행할 수 있습니다.
+기존 전용 kubeconfig인 `$HOME/.kube/aks-store-hackathon.config`에서 선택된 context를
+로컬로 읽고 `pets/order-service`를 대상으로 사용합니다. 자리 표시자를 바꿀 필요는 없습니다.
+실습 대상과 장애 주입이 승인된 뒤에만 실행합니다. 명시한 `--kubeconfig`는 다른 `KUBECONFIG`
+파일을 사용하지 않으며 전역 현재 context도 변경하지 않습니다. 각 API 요청은 10초 제한을
+사용합니다. 자격 증명과 실제 클러스터 식별자는 저장소 밖에 유지합니다.
+
+먼저 다음 설정 및 읽기 전용 사전 확인 블록을 실행합니다. 파일이 없거나 context를 확인할 수
+없으면 중지합니다. 이 경우 명령 배열은 비활성 상태로 남으며 다른 클러스터로 전환하지 않습니다.
 
 ```bash
-DEMO_CONTEXT='<approved-demo-context>'
-DEMO_NAMESPACE='<approved-demo-namespace>'
-demo_kubectl=(kubectl --context="$DEMO_CONTEXT" --namespace="$DEMO_NAMESPACE" --request-timeout=10s)
-"${demo_kubectl[@]}" get deployment store-front product-service order-service
-"${demo_kubectl[@]}" get hpa
+demo_kubectl=(false)
+DEMO_KUBECONFIG="$HOME/.kube/aks-store-hackathon.config"
+DEMO_NAMESPACE='pets'
+[[ -r "$DEMO_KUBECONFIG" ]] &&
+DEMO_CONTEXT="$(kubectl --kubeconfig="$DEMO_KUBECONFIG" config current-context)" &&
+[[ -n "$DEMO_CONTEXT" ]] &&
+demo_kubectl=(kubectl --kubeconfig="$DEMO_KUBECONFIG" --context="$DEMO_CONTEXT" --namespace="$DEMO_NAMESPACE" --request-timeout=10s) &&
+"${demo_kubectl[@]}" get deployment store-front product-service order-service &&
+"${demo_kubectl[@]}" get hpa &&
 "${demo_kubectl[@]}" get deployment order-service -o jsonpath='{.metadata.uid}{"\n"}'
 ```
 
@@ -120,13 +130,14 @@ demo_kubectl=(kubectl --context="$DEMO_CONTEXT" --namespace="$DEMO_NAMESPACE" --
 	--current-replicas=1 --replicas=0 --dry-run=server --timeout=10s
 ```
 
-모의 실행이 성공하고 현재 권한이 유지되는 것을 확인한 뒤 장애를 주입합니다.
+모의 실행이 성공하고 현재 권한이 유지되는 것을 확인한 뒤, 다음 블록을 붙여 넣어
+`pets/order-service`만 중지합니다. 이 단계는 미리 보기가 아니라 실제 장애 주입입니다.
 
 ```bash
 "${demo_kubectl[@]}" scale deployment/order-service \
-	--current-replicas=1 --replicas=0 --timeout=10s
-"${demo_kubectl[@]}" get deployment order-service
-"${demo_kubectl[@]}" get pods -l app=order-service
+	--current-replicas=1 --replicas=0 --timeout=10s &&
+"${demo_kubectl[@]}" get deployment order-service &&
+"${demo_kubectl[@]}" get pods -l app=order-service &&
 "${demo_kubectl[@]}" get endpointslices -l kubernetes.io/service-name=order-service
 ```
 
@@ -139,16 +150,17 @@ Pod 종료와 엔드포인트 제거는 비동기로 진행됩니다. 요청을 
 ### 데모 중단 시 수동 복원
 
 정상 진행에서는 FDAI의 승인된 복구 흐름에 복원을 맡깁니다. 다음 명령은 해당 흐름이 중지되고
-대상 잠금이 해제된 뒤, 별도의 현재 수동 복원 권한이 있을 때만 사용합니다. 대상 UID가
-보관한 정상 기준과 일치하고 현재 복제본 수가 0개인지 다시 확인합니다. 모의 실행이 성공한
-경우에만 실제 변경을 실행합니다.
+대상 잠금이 해제된 뒤, 별도의 현재 수동 복원 권한이 있을 때만 사용합니다. 위 설정을 실행한
+같은 터미널을 사용하며, 새 터미널이라면 설정부터 다시 실행합니다. 대상 UID가 보관한 정상
+기준과 일치하고 현재 복제본 수가 0개인지 다시 확인합니다. 다음 블록은 모의 실행이 성공한
+경우에만 `pets/order-service`를 복제본 1개로 복원합니다.
 
 ```bash
-"${demo_kubectl[@]}" get deployment order-service -o jsonpath='{.metadata.uid}{"\n"}'
+"${demo_kubectl[@]}" get deployment order-service -o jsonpath='{.metadata.uid}{"\n"}' &&
 "${demo_kubectl[@]}" scale deployment/order-service \
 	--current-replicas=0 --replicas=1 --dry-run=server --timeout=10s &&
 "${demo_kubectl[@]}" scale deployment/order-service \
-	--current-replicas=0 --replicas=1 --timeout=10s
+	--current-replicas=0 --replicas=1 --timeout=10s &&
 "${demo_kubectl[@]}" get deployment store-front product-service order-service
 ```
 

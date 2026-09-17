@@ -1,5 +1,7 @@
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fdai_service_contracts import (
     AksCommerceEvidenceState,
     AksCommerceMetric,
@@ -137,3 +139,45 @@ def test_prior_degradation_closes_only_on_complete_healthy_evidence() -> None:
     projection = assess_aks_commerce(_frame(metrics=_required_metrics(), prior_degraded=True))
 
     assert projection.status is AksCommerceStatus.RECOVERED
+
+
+@pytest.mark.parametrize("prior_degraded", [False, True])
+@pytest.mark.parametrize(
+    ("availability", "ready", "breached"),
+    [
+        (0, False, True),
+        (0, True, False),
+        (1, False, False),
+        (1, True, True),
+    ],
+)
+def test_unproven_health_with_idle_queue_never_closes_incident(
+    availability: float,
+    ready: bool,
+    breached: bool,
+    prior_degraded: bool,
+) -> None:
+    frame = _frame(
+        metrics=_required_metrics(incoming=0, completed=0), prior_degraded=prior_degraded
+    )
+    frame = replace(
+        frame,
+        metrics=(frame.metrics[0].model_copy(update={"current": availability}), *frame.metrics[1:]),
+        workloads=(frame.workloads[0].model_copy(update={"ready": ready}),),
+        slos=(frame.slos[0].model_copy(update={"breached": breached}),),
+    )
+
+    projection = assess_aks_commerce(frame)
+
+    assert projection.status is AksCommerceStatus.HELD
+    assert projection.complete is False
+    assert projection.evidence_gaps == ("health_not_proven",)
+    assert projection.proposed_action is None
+
+
+def test_complete_healthy_evidence_remains_healthy() -> None:
+    projection = assess_aks_commerce(_frame(metrics=_required_metrics()))
+
+    assert projection.status is AksCommerceStatus.HEALTHY
+    assert projection.complete is True
+    assert projection.evidence_gaps == ()
