@@ -287,7 +287,12 @@ the exact ResourceTypes whose ARM type is supported:
   authority.
 - The Ontology Instances graph reserves its reviewed viewport height even when a result contains
   only a few nodes, so recorded-state details do not collapse the inspection surface. Direction
-  backgrounds cover that complete surface even when the bounded SVG layout is shorter.
+  backgrounds cover that complete surface even when the bounded SVG layout is shorter. Short
+  graph geometry is vertically centered without changing node coordinates or relationship
+  meaning.
+- AKS end-to-end evidence remains derived only from stored relationships and starts collapsed in a
+  native disclosure. Expanding it changes presentation only and does not create state, absence, or
+  execution authority.
 - A bounded directory states its visible limit compactly in the search toolbar and confirms that
   search reaches the full generation. It does not use a separate warning-shaped row.
 - Selected-instance refresh state shares that toolbar and exposes exact timing or failure detail

@@ -3,18 +3,19 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import logging
 import os
 import ssl
 import sys
 from contextlib import AsyncExitStack
-from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import httpx
-from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
+from fdai_service_contracts import (
+    InventoryProgressStage,
+    OperationalActivityStatus,
+    OperationalFreshness,
+)
 
 from fdai.core.ontology_platform.aks_diagnostic_receipt_service import (
     AksDiagnosticReceiptService,
@@ -57,6 +58,8 @@ from fdai.delivery.inventory_job_config import (
     InventoryJobConfig,
     read_bool_env,
 )
+from fdai.delivery.inventory_progress import InventoryProgressUnavailableError
+from fdai.delivery.inventory_progress_wiring import build_inventory_progress_recorder
 from fdai.delivery.inventory_scheduler import CollectionScheduleDecision
 from fdai.delivery.inventory_sync import (
     InventoryPromotionEnricher,
@@ -65,6 +68,15 @@ from fdai.delivery.inventory_sync import (
     InventoryPromotionRecovery,
     InventorySyncCoordinator,
     PromotedInventoryObservation,
+)
+from fdai.delivery.inventory_sync_cli_models import (
+    ChangeStreamDrainResult,
+    InventoryJobResult,
+    InventoryOntologyProjectionIncompleteError,
+    generation_digest,
+)
+from fdai.delivery.inventory_sync_cli_models import (
+    scope_ref as _scope_ref,
 )
 from fdai.delivery.inventory_topology_history import InventoryTopologyHistoryPublisher
 from fdai.delivery.kubernetes_api_inventory import (
@@ -139,32 +151,6 @@ _LOGGER = logging.getLogger(__name__)
 _COLLECTION_HEALTH_STATE_KEY = "inventory-collection-health"
 
 
-class InventoryOntologyProjectionIncompleteError(RuntimeError):
-    """A promoted snapshot remains pending after a degraded projection."""
-
-
-@dataclass(frozen=True, slots=True)
-class InventoryJobResult:
-    """Report one promoted attempt after rereading the durable active pointer."""
-
-    attempt_id: str
-    source: str
-    active: bool
-
-
-@dataclass(frozen=True, slots=True)
-class ChangeStreamDrainResult:
-    """Sanitized per-source outcome for one bounded accelerator drain."""
-
-    published: int
-    unavailable_sources: tuple[str, ...] = ()
-
-    @property
-    def degraded(self) -> bool:
-        """Return whether any enabled accelerator was unavailable."""
-        return bool(self.unavailable_sources)
-
-
 def _load_relationship_mapping_catalog() -> ProviderRelationshipMappingCatalog:
     return load_provider_relationship_mapping_catalog(
         _REPO_ROOT / "rule-catalog" / "vocabulary" / "provider-relationship-mappings"
@@ -220,11 +206,6 @@ def _build_runtime_call_enricher(
         endpoint_verifier_identity="inventory.runtime-call-endpoint-verifier",
         endpoint_verifier_revision="1.0.0",
     )
-
-
-def _scope_ref(scopes: tuple[str, ...]) -> str:
-    encoded = json.dumps(sorted(set(scopes)), separators=(",", ":")).encode("utf-8")
-    return "scope-set:sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 async def _build_kubernetes_enricher(
@@ -483,6 +464,11 @@ async def run(
     async with AsyncExitStack() as stack:
         client = await stack.enter_async_context(httpx.AsyncClient())
         identity = _workload_identity(http_client=client)
+        progress_recorder = await build_inventory_progress_recorder(
+            config=config,
+            identity=identity,
+            http_client=client,
+        )
         effective_enricher = await build_inventory_promotion_enricher(
             config=config,
             identity=identity,
@@ -528,12 +514,19 @@ async def run(
                     identity=identity,
                     http_client=client,
                     started_at=datetime.now(tz=UTC),
+                    progress_recorder=progress_recorder,
                 )
+            )
+            await progress_recorder.advance(
+                InventoryProgressStage.VERIFY,
+                generation_digest=generation_digest(result.attempt_id),
             )
             active_snapshot_id = await durable_store.active_snapshot_id()
             if active_snapshot_id is None:
                 raise RuntimeError("inventory promotion completed without a durable active pointer")
             active = active_snapshot_id == result.attempt_id
+            if not active:
+                raise RuntimeError("inventory active generation readback did not match promotion")
             await observed_store.publish_terminal(
                 attempt_id=result.attempt_id,
                 source=result.source,
@@ -558,6 +551,14 @@ async def run(
                     ),
                     logger=_LOGGER,
                 )
+        except Exception:
+            try:
+                await progress_recorder.fail("inventory_reconciliation_failed")
+            except (ValueError, InventoryProgressUnavailableError) as progress_error:
+                if "terminal inventory progress" not in str(progress_error):
+                    if not isinstance(progress_error, InventoryProgressUnavailableError):
+                        raise
+            raise
         finally:
             await event_bus.close()
     return InventoryJobResult(
@@ -735,10 +736,14 @@ async def _try_recovery_delta(config: InventoryJobConfig) -> int | None:
 
 async def _main(argv: list[str]) -> None:
     loop = argv == ["--loop"]
-    if argv and not loop:
-        raise ValueError("inventory reconciliation accepts only --loop")
+    initial = argv == ["--initial"]
+    if argv and not loop and not initial:
+        raise ValueError("inventory reconciliation accepts only --initial or --loop")
     while True:
         config = await _load_job_config()
+        if initial:
+            await run(config)
+            return
         try:
             await _run_due_once(config)
         except (InventorySourcesExhaustedError, InventoryPromotionObserverError) as exc:

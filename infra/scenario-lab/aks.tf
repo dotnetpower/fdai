@@ -74,6 +74,18 @@ resource "azurerm_kubernetes_cluster" "scenario_lab" {
     msi_auth_for_monitoring_enabled = true
   }
 
+  dynamic "web_app_routing" {
+    for_each = var.commerce_enabled ? [1] : []
+    content {
+      dns_zone_ids = []
+    }
+  }
+
+  dynamic "monitor_metrics" {
+    for_each = var.commerce_enabled ? [1] : []
+    content {}
+  }
+
   depends_on = [
     azurerm_role_assignment.aks_network_contributor,
     azurerm_subnet_nat_gateway_association.aks,

@@ -1,0 +1,126 @@
+{
+  "schema_version": "1.0.0",
+  "profile_id": "aks-commerce",
+  "services": [
+    {
+      "id": "catalog-browse",
+      "name": "Catalog browse",
+      "criticality": "high"
+    },
+    {
+      "id": "order-fulfillment",
+      "name": "Order fulfillment",
+      "criticality": "critical"
+    }
+  ],
+  "workloads": [
+    {
+      "id": "order-api",
+      "name": "Order API",
+      "workload_kind": "kubernetes-deployment"
+    },
+    {
+      "id": "order-processor",
+      "name": "Order processor",
+      "workload_kind": "kubernetes-deployment"
+    },
+    {
+      "id": "order-queue",
+      "name": "Order queue",
+      "workload_kind": "azure-service-bus-queue"
+    },
+    {
+      "id": "order-store",
+      "name": "Order store",
+      "workload_kind": "database"
+    },
+    {
+      "id": "product-api",
+      "name": "Product API",
+      "workload_kind": "kubernetes-deployment"
+    },
+    {
+      "id": "storefront",
+      "name": "Storefront",
+      "workload_kind": "kubernetes-deployment"
+    }
+  ],
+  "links": [
+    {
+      "from_id": "catalog-browse",
+      "link_type": "implemented_by",
+      "to_id": "storefront"
+    },
+    {
+      "from_id": "catalog-browse",
+      "link_type": "implemented_by",
+      "to_id": "product-api"
+    },
+    {
+      "from_id": "catalog-browse",
+      "link_type": "service_has_service_objective",
+      "to_id": "catalog-browse.availability"
+    },
+    {
+      "from_id": "order-fulfillment",
+      "link_type": "implemented_by",
+      "to_id": "storefront"
+    },
+    {
+      "from_id": "order-fulfillment",
+      "link_type": "implemented_by",
+      "to_id": "order-api"
+    },
+    {
+      "from_id": "order-fulfillment",
+      "link_type": "implemented_by",
+      "to_id": "order-processor"
+    },
+    {
+      "from_id": "order-fulfillment",
+      "link_type": "service_has_service_objective",
+      "to_id": "order-fulfillment.availability"
+    },
+    {
+      "from_id": "order-fulfillment",
+      "link_type": "service_has_service_objective",
+      "to_id": "order-fulfillment.freshness"
+    },
+    {
+      "from_id": "storefront",
+      "link_type": "workload_depends_on",
+      "to_id": "product-api"
+    },
+    {
+      "from_id": "storefront",
+      "link_type": "workload_depends_on",
+      "to_id": "order-api"
+    },
+    {
+      "from_id": "order-api",
+      "link_type": "workload_depends_on",
+      "to_id": "order-queue"
+    },
+    {
+      "from_id": "order-queue",
+      "link_type": "workload_depends_on",
+      "to_id": "order-processor"
+    },
+    {
+      "from_id": "order-processor",
+      "link_type": "workload_depends_on",
+      "to_id": "order-store"
+    }
+  ],
+  "slos": [
+    {
+      "id": "catalog-browse.availability"
+    },
+    {
+      "id": "order-fulfillment.availability"
+    },
+    {
+      "id": "order-fulfillment.freshness"
+    }
+  ]
+}

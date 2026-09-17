@@ -275,6 +275,7 @@ async def _finalize_llm_bindings(
             metering_sink=_build_metering_store(),
             model_health_sink=_build_model_health_sink(),
             monitor_workspace_id=monitor_workspace_id,
+            metrics_api_queries=_runtime_metrics_api_queries(),
             prometheus_base_url=prometheus_base_url,
             prometheus_audience=prometheus_audience,
             answer_continuity_enabled=answer_continuity_enabled,
@@ -301,7 +302,7 @@ def _attach_runtime_metric_provider(
         http_client=http_client,
         monitor_workspace_id=monitor_workspace_id,
         monitor_queries=None,
-        metrics_api_queries=None,
+        metrics_api_queries=_runtime_metrics_api_queries(),
         prometheus_base_url=prometheus_base_url,
         prometheus_queries=None,
         prometheus_audience=prometheus_audience,
@@ -312,6 +313,25 @@ def _attach_runtime_metric_provider(
         identity=identity,
         http_client=http_client,
     )
+
+
+def _runtime_metrics_api_queries() -> Mapping[str, Any] | None:
+    """Add deployment-bound commerce metrics without replacing shipped defaults."""
+
+    queue_name = os.environ.get("FDAI_AKS_COMMERCE_QUEUE_NAME", "").strip()
+    if not queue_name:
+        return None
+    from fdai.delivery.azure.aks_commerce_metrics import aks_commerce_metrics_queries
+    from fdai.delivery.azure.metrics_api_queries import azure_metrics_api_queries
+
+    base = dict(azure_metrics_api_queries())
+    commerce = aks_commerce_metrics_queries(queue_name)
+    collisions = base.keys() & commerce.keys()
+    if collisions:
+        raise RuntimeError(
+            f"AKS commerce metric mappings collide with shipped mappings: {sorted(collisions)}"
+        )
+    return {**base, **commerce}
 
 
 def _attach_runtime_knowledge_source(container: Container) -> Container:

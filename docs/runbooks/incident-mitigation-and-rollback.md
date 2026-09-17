@@ -14,6 +14,7 @@ fdai_runbook:
     - ops.flush-cache
     - ops.publish-change-summary
     - ops.restart-service
+    - ops.rollback-kubernetes-rollout
     - ops.rotate-cert
     - ops.scale-in
     - ops.scale-out

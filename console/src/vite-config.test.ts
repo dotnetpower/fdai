@@ -1,6 +1,12 @@
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { offlineBuildOptions, PREACT_PLUGIN_OPTIONS, resolveViteCacheDir } from "../vite.config";
+import {
+  CONSOLE_VITE_FS_ALLOW,
+  offlineBuildOptions,
+  PREACT_PLUGIN_OPTIONS,
+  resolveViteCacheDir,
+} from "../vite.config";
 
 describe("Vite dependency cache", () => {
   it("keeps the default cache for ordinary Console starts", () => {
@@ -26,6 +32,12 @@ describe("Vite dependency cache", () => {
   it("uses the runner-owned cache when configured", () => {
     expect(resolveViteCacheDir({ VITE_CACHE_DIR: "/tmp/assurance-vite-cache" }))
       .toBe("/tmp/assurance-vite-cache");
+  });
+
+  it("allows reviewed repository assets in local development", () => {
+    expect(CONSOLE_VITE_FS_ALLOW).toEqual([
+      fileURLToPath(new URL("../..", import.meta.url)),
+    ]);
   });
 
   it("uses full reloads instead of duplicating lazy route subtrees during Fast Refresh", () => {

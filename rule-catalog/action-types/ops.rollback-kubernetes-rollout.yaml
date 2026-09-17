@@ -1,0 +1,117 @@
+schema_version: 1.0.0
+name: ops.rollback-kubernetes-rollout
+version: 1.0.0
+operation: revert
+interfaces:
+- ControlPlane
+rollback_contract: scripted
+irreversible: false
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 14
+  min_samples: 30
+  min_accuracy: 0.98
+  max_policy_escapes: 0
+preconditions:
+- kind: graph_fresh_within_seconds
+  value: 300
+stop_conditions:
+- kind: provider_api_error_streak
+  count: 3
+- kind: time_box_exceeded_seconds
+  seconds: 300
+blast_radius:
+  computation: static_enum
+  static_bucket: resource
+description: Restore one exact Kubernetes Deployment to reviewed digest-pinned container images.
+  The action requires current human approval in production and independent business-effect
+  verification after the Kubernetes API accepts the patch.
+category: ops
+trigger_kind:
+  kind: both
+execution_path: direct_api
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: approver
+  t1:
+    max_autonomy: shadow_only
+    min_role: approver
+  t2:
+    max_autonomy: shadow_only
+    min_role: owner
+argument_schema:
+  type: object
+  additionalProperties: false
+  required:
+  - target_resource_ref
+  - reason
+  - target_platform
+  - cluster_ref
+  - target_kind
+  - namespace
+  - resource_name
+  - target_uid
+  - resource_version
+  - container_images
+  properties:
+    target_resource_ref:
+      type: string
+      minLength: 1
+      x-fdai-audit-safe: true
+    reason:
+      type: string
+      minLength: 10
+      maxLength: 200
+      x-fdai-audit-safe: true
+    target_platform:
+      type: string
+      const: kubernetes
+      x-fdai-audit-safe: true
+    cluster_ref:
+      type: string
+      minLength: 1
+      maxLength: 1024
+      x-fdai-audit-safe: true
+    target_kind:
+      type: string
+      const: Deployment
+      x-fdai-audit-safe: true
+    namespace:
+      type: string
+      minLength: 1
+      maxLength: 253
+      x-fdai-audit-safe: true
+    resource_name:
+      type: string
+      minLength: 1
+      maxLength: 253
+      x-fdai-audit-safe: true
+    target_uid:
+      type: string
+      minLength: 1
+      maxLength: 128
+      x-fdai-audit-safe: true
+    resource_version:
+      type: string
+      minLength: 1
+      maxLength: 256
+      x-fdai-audit-safe: true
+    container_images:
+      type: object
+      minProperties: 1
+      maxProperties: 32
+      additionalProperties:
+        type: string
+        minLength: 1
+        maxLength: 512
+      x-fdai-audit-safe: true
+prod_downgrade:
+  mode: enforce_hil
+  detection_ref: risk-classification/env-detector
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:ops.rollback-kubernetes-rollout@1.0.0
+  content_hash: sha256:9a5672d53fa72e5adcbd5ffceff2703453cf14c9e1b578693b0b4311381ce9ad
+  license: MIT
+  retrieved_at: "2026-09-17T00:00:00Z"
