@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: a067196e9e9751e9d1b1b01abd0dc76191dcef63
+translation_source_sha: 2b9e678460f95b0fef4d693e8f5826aab680634c
 translation_revised: 2026-09-17
 ---
 # 서술기 라우팅과 지연 시간
@@ -136,6 +136,11 @@ Compact preflight는 첫 번째 턴의 Adaptive 계획 전에 실행됩니다. �
 의도는 검토된 서술자를 최대 5개만 사용하고 544토큰 운영 frame 프롬프트를 선택하며, 스키마를
 포함한 요청은 64KiB를 넘을 수 없습니다. 직접 응답 후보는 social 답변을 표현하기 전에 독립
 preflight를 계속 요구합니다.
+
+Resource-state inventory 의미는 T1 판단 뒤에 필수 독립 T2 검토를 한 번 수행합니다. 이 읽기
+유형에만 범위가 제한된 모델 호출 하나를 추가하며 서로 다른 모델 인스턴스와 구성 다이제스트를
+요구합니다. 이는 적극적 복구가 아닙니다. 불일치하거나 검토기를 사용할 수 없으면 새 계획을 만들지
+않고 요청을 보류하며, 두 판단이 일치할 때 T1 제안을 수락된 신원으로 유지합니다.
 
 표준 로컬 스택은 논리 semantic 및 agent 토픽을 하나의 물리 Kafka 토픽으로 multiplex합니다. 로컬
 PLAINTEXT consumer는 클라우드 SASL consumer와 같은 범위가 제한된 레코드 수 및 경과 시간 commit

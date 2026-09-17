@@ -135,7 +135,7 @@ def _binding(tier: SemanticJudgmentTier, model: _Model) -> SemanticJudgmentBindi
     return SemanticJudgmentBinding(
         tier=tier,
         model=model,  # type: ignore[arg-type]
-        model_config_digest=DIGEST,
+        model_config_digest=(DIGEST if tier is SemanticJudgmentTier.T1 else "sha256:" + ("b" * 64)),
         prompt_digest=DIGEST,
     )
 
@@ -173,6 +173,157 @@ def test_accepts_grounded_t1_proposal_with_content_free_receipt() -> None:
     assert result.receipt.input_digest == content_digest({"utterance": utterance})
     assert utterance not in result.receipt.model_dump_json()
     assert result.receipt.execution_authority is False
+
+
+def test_independent_reviewer_rejects_the_primary_model_binding() -> None:
+    model = _Model(_proposal())
+    primary = _binding(SemanticJudgmentTier.T1, model)
+
+    with pytest.raises(ValueError, match="distinct model bindings"):
+        SemanticJudgmentBoundary(
+            profile_id="conversation.routing",
+            profile_version="1.0.0",
+            primary=primary,
+            escalation=SemanticJudgmentBinding(
+                tier=SemanticJudgmentTier.T2,
+                model=model,  # type: ignore[arg-type]
+                model_config_digest=primary.model_config_digest,
+                prompt_digest=DIGEST,
+            ),
+        )
+
+
+def test_resource_state_judgment_requires_matching_independent_review() -> None:
+    proposal = _proposal(
+        primary_intent="query.resource_state_inventory",
+        targets=[],
+        requested_facets=["resource_collection", "list", "current_state"],
+    )
+    primary = _Model(proposal)
+    reviewer = _Model(proposal)
+
+    result = _boundary(primary, reviewer).judge(
+        utterance="Show current resource state.",
+        context=(),
+        capabilities=({"intent": "query.resource_state_inventory"},),
+    )
+
+    assert result.accepted is True
+    assert result.receipt.reason_code == "accepted_independent_review"
+    assert result.receipt.tier is SemanticJudgmentTier.T1
+    assert primary.calls == reviewer.calls == 1
+
+
+def test_resource_state_judgment_holds_when_review_finds_an_omitted_facet() -> None:
+    primary = _Model(
+        _proposal(
+            primary_intent="query.resource_state_inventory",
+            targets=[],
+            requested_facets=["resource_collection", "list", "current_state"],
+        )
+    )
+    reviewer = _Model(
+        _proposal(
+            primary_intent="query.resource_state_inventory",
+            targets=[],
+            requested_facets=["resource_collection", "list", "current_state", "count"],
+        )
+    )
+
+    result = _boundary(primary, reviewer).judge(
+        utterance="Show how many resources exist and their current state.",
+        context=(),
+        capabilities=({"intent": "query.resource_state_inventory"},),
+    )
+
+    assert result.accepted is False
+    assert result.receipt.disposition is SemanticJudgmentDisposition.UNAVAILABLE
+    assert result.receipt.reason_code == "semantic_judgment_review_conflict"
+
+
+def test_resource_state_judgment_review_preserves_forbidden_actions() -> None:
+    primary = _Model(
+        _proposal(
+            schema_version="1.1.0",
+            primary_intent="query.resource_state_inventory",
+            targets=[],
+            requested_facets=["resource_collection", "list", "current_state"],
+            forbidden_actions=[],
+        )
+    )
+    reviewer = _Model(
+        _proposal(
+            schema_version="1.1.0",
+            primary_intent="query.resource_state_inventory",
+            targets=[],
+            requested_facets=["resource_collection", "list", "current_state"],
+            forbidden_actions=[
+                {
+                    "kind": "action",
+                    "value": "restart",
+                    "source_start": 39,
+                    "source_end": 46,
+                }
+            ],
+        )
+    )
+
+    result = _boundary(primary, reviewer).judge(
+        utterance="Show current resource state and do not restart anything.",
+        context=(),
+        capabilities=(
+            {"intent": "query.resource_state_inventory"},
+            {"kind": "action_type", "name": "restart"},
+        ),
+    )
+
+    assert result.accepted is False
+    assert result.receipt.reason_code == "semantic_judgment_review_conflict"
+
+
+def test_resource_state_judgment_holds_when_independent_reviewer_fails() -> None:
+    primary = _Model(
+        _proposal(
+            primary_intent="query.resource_state_inventory",
+            targets=[],
+            requested_facets=["resource_collection", "list", "current_state"],
+        )
+    )
+
+    class FailedReviewer(_Model):
+        def judge(self, **_kwargs: object) -> object:
+            raise OSError("private provider detail")
+
+    result = _boundary(primary, FailedReviewer(None)).judge(
+        utterance="Show current resource state.",
+        context=(),
+        capabilities=({"intent": "query.resource_state_inventory"},),
+    )
+
+    assert result.accepted is False
+    assert result.receipt.disposition is SemanticJudgmentDisposition.UNAVAILABLE
+    assert result.receipt.reason_code == "semantic_judgment_review_unavailable"
+    assert "private provider detail" not in result.receipt.model_dump_json()
+
+
+def test_resource_state_judgment_holds_without_an_independent_reviewer() -> None:
+    primary = _Model(
+        _proposal(
+            primary_intent="query.resource_state_inventory",
+            targets=[],
+            requested_facets=["resource_collection", "list", "current_state"],
+        )
+    )
+
+    result = _boundary(primary).judge(
+        utterance="Show current resource state.",
+        context=(),
+        capabilities=({"intent": "query.resource_state_inventory"},),
+    )
+
+    assert result.accepted is False
+    assert result.receipt.disposition is SemanticJudgmentDisposition.UNAVAILABLE
+    assert result.receipt.reason_code == "semantic_judgment_review_unavailable"
 
 
 def test_schema_repair_runs_once_after_incomplete_typed_schema_family() -> None:
@@ -1576,24 +1727,23 @@ def test_ambiguous_final_proposal_returns_typed_clarification() -> None:
 
 
 def test_collection_function_discards_only_redundant_resource_identity_ambiguity() -> None:
-    model = _Model(
-        _proposal(
-            primary_intent="query.resource_state_inventory",
-            targets=[],
-            requested_facets=["current_state", "resource_identity"],
-            confidence=0.82,
-            ambiguous=True,
-            alternatives=[],
-            unresolved_terms=["resource_identity"],
-            clarification="Which exact resource should I inspect?",
-        )
+    proposal = _proposal(
+        primary_intent="query.resource_state_inventory",
+        targets=[],
+        requested_facets=["current_state", "resource_identity"],
+        confidence=0.82,
+        ambiguous=True,
+        alternatives=[],
+        unresolved_terms=["resource_identity"],
+        clarification="Which exact resource should I inspect?",
     )
+    model = _Model(proposal)
+    reviewer = _Model(proposal)
 
-    result = _boundary(model).judge(
+    result = _boundary(model, reviewer).judge(
         utterance="Show resources that are currently not running.",
         context=(),
         capabilities=({"kind": "function_type", "name": "query.resource_state_inventory"},),
-        allow_escalation=False,
     )
 
     assert result.accepted is True
