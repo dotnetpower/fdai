@@ -97,7 +97,7 @@ def test_force_color_does_not_turn_redirected_logs_into_live_output(monkeypatch)
         begin_stage("azure")
         begin_stage("kit")
     assert "\x1b" not in output.getvalue()
-    assert "[02/15] RUN" in output.getvalue()
+    assert "[02/16] RUN" in output.getvalue()
     assert not _screen(output.getvalue(), 80, 14).cursor.hidden
 
 

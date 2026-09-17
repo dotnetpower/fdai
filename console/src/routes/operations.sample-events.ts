@@ -303,6 +303,11 @@ export const OPERATIONS_SAMPLE_PROVISION_EVENTS: readonly ProvisionEvent[] = [
       resources_expected: 260,
       pages_completed: 12,
       pages_expected: 18,
+      provider_types_completed: 27,
+      provider_types_total: 39,
+      links_observed: 236,
+      unmapped_objects: 4,
+      coverage_gaps: 8,
     },
   },
 ];

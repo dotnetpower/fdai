@@ -67,6 +67,7 @@ test("mobile Settings keeps every active destination visible", async ({ page }) 
   await page.setViewportSize({ width: 390, height: 844 });
   const routes = [
     "/settings/general",
+    "/settings/environment-and-deployment",
     "/settings/models",
     "/settings/runtime-policies",
     "/settings/memory",
@@ -89,6 +90,26 @@ test("mobile Settings keeps every active destination visible", async ({ page }) 
   }
 });
 
+test("Environment and deployment combines readiness and deployment evidence", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/settings/environment-and-deployment");
+
+  const dialog = page.getByRole("dialog", { name: "Settings" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("link", { name: /Environment and deployment/ }))
+    .toHaveAttribute("aria-current", "page");
+  await expect(dialog.getByRole("tab", { name: "Readiness" }))
+    .toHaveAttribute("aria-selected", "true");
+  await expect(dialog.getByRole("heading", { name: "Onboarding readiness" })).toBeVisible();
+
+  await dialog.getByRole("tab", { name: "Deployment run" }).click();
+
+  await expect(page).toHaveURL(/\/settings\/environment-and-deployment\/deployment$/);
+  await expect(dialog.getByRole("tab", { name: "Deployment run" }))
+    .toHaveAttribute("aria-selected", "true");
+  await expect(dialog.getByRole("heading", { name: "Provisioning" })).toBeVisible();
+});
+
 test("IAM tabs expose a visible keyboard focus indicator", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/settings/iam/users");
@@ -96,7 +117,7 @@ test("IAM tabs expose a visible keyboard focus indicator", async ({ page }) => {
   const usersTab = dialog.getByRole("tab", { name: "Users", exact: true });
   await expect(usersTab).toBeVisible();
   await dialog.getByRole("button", { name: "Close settings" }).focus();
-  for (let index = 0; index < 8; index += 1) await page.keyboard.press("Tab");
+  for (let index = 0; index < 9; index += 1) await page.keyboard.press("Tab");
   await expect(usersTab).toBeFocused();
   await expect(usersTab).toHaveCSS("outline-width", "2px");
 });

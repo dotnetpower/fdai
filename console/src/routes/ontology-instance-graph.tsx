@@ -403,34 +403,39 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
           }}
         >
           <div
-            class="ontology-instance-direction-surface"
-            aria-hidden="true"
+            class="ontology-instance-graph-stage"
             style={{
               width: `${graphCanvasWidth}px`,
-              height: `${graphCanvasHeight}px`,
+              minWidth: `${graphCanvasWidth}px`,
               minHeight: "100%",
-              gridTemplateColumns: `${incomingSurfaceWidth}px ${selectedSurfaceWidth}px ${outgoingSurfaceWidth}px`,
             }}
           >
-            <span class="is-incoming" />
-            <span class="is-selected" />
-            <span class="is-outgoing" />
-          </div>
-        <svg
-          class={`ontology-instance-graph-canvas${focusedResourceId === null ? "" : " has-focus-path"}`}
-          data-layout-direction={layout.direction}
-          data-graph-scale={graphScale.toFixed(2)}
-          viewBox={`0 0 ${layout.width} ${layout.height}`}
-          role="group"
-          aria-label={t("ontology.instances.graphTitle")}
-          aria-describedby="ontology-instance-map-description"
-          style={{
-            width: `${graphCanvasWidth}px`,
-            minWidth: `${graphCanvasWidth}px`,
-            height: `${graphCanvasHeight}px`,
-            minHeight: `${graphCanvasHeight}px`,
-          }}
-        >
+            <div
+              class="ontology-instance-direction-surface"
+              aria-hidden="true"
+              style={{
+                gridTemplateColumns: `${incomingSurfaceWidth}px ${selectedSurfaceWidth}px ${outgoingSurfaceWidth}px`,
+              }}
+            >
+              <span class="is-incoming" />
+              <span class="is-selected" />
+              <span class="is-outgoing" />
+            </div>
+            <svg
+              class={`ontology-instance-graph-canvas${focusedResourceId === null ? "" : " has-focus-path"}`}
+              data-layout-direction={layout.direction}
+              data-graph-scale={graphScale.toFixed(2)}
+              viewBox={`0 0 ${layout.width} ${layout.height}`}
+              role="group"
+              aria-label={t("ontology.instances.graphTitle")}
+              aria-describedby="ontology-instance-map-description"
+              style={{
+                width: `${graphCanvasWidth}px`,
+                minWidth: `${graphCanvasWidth}px`,
+                height: `${graphCanvasHeight}px`,
+                minHeight: `${graphCanvasHeight}px`,
+              }}
+            >
           <defs>
             <marker id="ontology-instance-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
               <path d="M0 0L10 5L0 10z" />
@@ -683,7 +688,8 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
               </g>
             );
           })}
-        </svg>
+            </svg>
+          </div>
         </div>
       </div>
       <InstanceGraphTooltip state={graphTooltip} />

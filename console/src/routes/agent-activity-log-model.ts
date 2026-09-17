@@ -16,6 +16,7 @@ export const AGENT_AUDIT_CONVERSATION_LIMIT = 200;
 export const AGENT_AUDIT_LOG_LIMIT =
   AGENT_AUDIT_PARENT_LIMIT + AGENT_AUDIT_CONVERSATION_LIMIT;
 export const AGENT_LOG_LIMIT = AGENT_LIVE_LOG_LIMIT + AGENT_AUDIT_LOG_LIMIT;
+export const AGENT_LOG_ROW_HIGHLIGHT_MS = 3_000;
 export type AgentLogColumn = "time" | "route" | "type" | "detail" | "correlation";
 export const DEFAULT_AGENT_LOG_COLUMNS: readonly AgentLogColumn[] = [
   "time",
@@ -160,6 +161,16 @@ export function filterAgentLogRows(
       row.observationDomain,
     ].filter(Boolean).join(" ")).includes(needle);
   });
+}
+
+export function appendedAgentLogRowIds(
+  previousIds: ReadonlySet<string> | null,
+  rows: readonly Pick<AgentLogRow, "id" | "source">[],
+): readonly string[] {
+  if (previousIds === null) return [];
+  return rows.flatMap((row) =>
+    row.source !== "replay" && !previousIds.has(row.id) ? [row.id] : []
+  );
 }
 
 export function toggleAgentLogColumn(

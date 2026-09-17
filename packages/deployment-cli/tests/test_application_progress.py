@@ -20,6 +20,7 @@ from fdai_deployment_cli.deployment_progress import DeploymentProgress
         ("capability", "Capability mode"),
         ("migration", "Database and catalogs"),
         ("application", "Application deployment"),
+        ("initial-inventory", "Initial resource inventory"),
         ("verification", "Health and zero-change plan"),
         ("cleanup", "Cleanup and final receipt"),
         (None, None),
@@ -99,6 +100,13 @@ def test_managed_host_failure_stays_on_current_phase(tmp_path, monkeypatch, fail
             }
         if stage == "migration":
             return {"state": "migrated", "catalogs_materialized": True, "receipt_digest": "a" * 64}
+        if stage == "initial-inventory":
+            return {
+                "state": "inventory-verified",
+                "active_generation_readback_verified": True,
+                "progress_persisted": True,
+                "receipt_digest": "a" * 64,
+            }
         assert stage == "verification"
         return {
             "terraform_zero_change_verified": True,

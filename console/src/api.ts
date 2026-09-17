@@ -17,6 +17,10 @@ import {
 import type { ConsoleConfig } from "./config";
 import type { AgentOperationalActivityPage } from "./agent-operational-activity";
 import {
+  decodeAksCommerceProjection,
+  type AksCommerceProjection,
+} from "./api-aks-commerce";
+import {
   decodeCostGovernanceAvailability,
   decodeCostGovernanceSettings,
   type CostGovernanceAvailability,
@@ -165,6 +169,17 @@ export class OperatorApiClient {
     await this.#requireAuthoritativeSource("/cost-governance/availability");
     return decodeCostGovernanceAvailability(
       await this.#insights.panel<unknown>("/cost-governance/availability"),
+    );
+  }
+
+  async aksCommerce(
+    serviceId: "catalog-browse" | "order-fulfillment",
+  ): Promise<AksCommerceProjection> {
+    await this.#requireAuthoritativeSource("/aks-commerce/overview");
+    return decodeAksCommerceProjection(
+      await this.#insights.panel<unknown>(
+        `/aks-commerce/overview?service_id=${encodeURIComponent(serviceId)}`,
+      ),
     );
   }
 

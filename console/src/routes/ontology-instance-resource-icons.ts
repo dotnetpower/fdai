@@ -1,59 +1,205 @@
-import appServicePlans from "../../../tools/architecture-diagrams/assets/azure/app-service-plans.svg?url";
-import apiManagementServices from "../../../tools/architecture-diagrams/assets/azure/api-management-services.svg?url";
-import alerts from "../../../tools/architecture-diagrams/assets/azure/alerts.svg?url";
-import azureOpenAi from "../../../tools/architecture-diagrams/assets/azure/azure-openai.svg?url";
-import cacheRedis from "../../../tools/architecture-diagrams/assets/azure/cache-redis.svg?url";
-import containerApps from "../../../tools/architecture-diagrams/assets/azure/container-apps.svg?url";
-import containerRegistry from "../../../tools/architecture-diagrams/assets/azure/container-registry.svg?url";
-import communicationServices from "../../../tools/architecture-diagrams/assets/azure/communication-services.svg?url";
-import cosmosDb from "../../../tools/architecture-diagrams/assets/azure/cosmos-db.svg?url";
-import dataCollectionRules from "../../../tools/architecture-diagrams/assets/azure/data-collection-rules.svg?url";
-import disks from "../../../tools/architecture-diagrams/assets/azure/disks.svg?url";
-import diskSnapshots from "../../../tools/architecture-diagrams/assets/azure/disk-snapshots.svg?url";
-import dnsPrivateResolver from "../../../tools/architecture-diagrams/assets/azure/dns-private-resolver.svg?url";
-import dnsZones from "../../../tools/architecture-diagrams/assets/azure/dns-zones.svg?url";
-import eventHubs from "../../../tools/architecture-diagrams/assets/azure/event-hubs.svg?url";
-import eventGridTopics from "../../../tools/architecture-diagrams/assets/azure/event-grid-topics.svg?url";
-import functionApps from "../../../tools/architecture-diagrams/assets/azure/function-apps.svg?url";
-import keyVault from "../../../tools/architecture-diagrams/assets/azure/key-vault.svg?url";
-import kubernetesServices from "../../../tools/architecture-diagrams/assets/azure/kubernetes-services.svg?url";
-import kubernetesCronJob from "../../../tools/architecture-diagrams/assets/kubernetes/cronjob.svg?url";
-import kubernetesDaemonSet from "../../../tools/architecture-diagrams/assets/kubernetes/ds.svg?url";
-import kubernetesDeployment from "../../../tools/architecture-diagrams/assets/kubernetes/deploy.svg?url";
-import kubernetesEndpoints from "../../../tools/architecture-diagrams/assets/kubernetes/ep.svg?url";
-import kubernetesIngress from "../../../tools/architecture-diagrams/assets/kubernetes/ing.svg?url";
-import kubernetesJob from "../../../tools/architecture-diagrams/assets/kubernetes/job.svg?url";
-import kubernetesNamespace from "../../../tools/architecture-diagrams/assets/kubernetes/ns.svg?url";
-import kubernetesNode from "../../../tools/architecture-diagrams/assets/kubernetes/node.svg?url";
-import kubernetesPod from "../../../tools/architecture-diagrams/assets/kubernetes/pod.svg?url";
-import kubernetesReplicaSet from "../../../tools/architecture-diagrams/assets/kubernetes/rs.svg?url";
-import kubernetesService from "../../../tools/architecture-diagrams/assets/kubernetes/svc.svg?url";
-import kubernetesStatefulSet from "../../../tools/architecture-diagrams/assets/kubernetes/sts.svg?url";
-import logicApps from "../../../tools/architecture-diagrams/assets/azure/logic-apps.svg?url";
-import managedIdentity from "../../../tools/architecture-diagrams/assets/azure/managed-identity.svg?url";
-import monitor from "../../../tools/architecture-diagrams/assets/azure/monitor.svg?url";
-import mysqlServer from "../../../tools/architecture-diagrams/assets/azure/mysql-server.svg?url";
-import nat from "../../../tools/architecture-diagrams/assets/azure/nat.svg?url";
-import postgresql from "../../../tools/architecture-diagrams/assets/azure/postgresql.svg?url";
-import privateEndpoint from "../../../tools/architecture-diagrams/assets/azure/private-endpoint.svg?url";
-import resourceGraph from "../../../tools/architecture-diagrams/assets/azure/resource-graph.svg?url";
-import resourceGroups from "../../../tools/architecture-diagrams/assets/azure/resource-groups.svg?url";
-import serviceBus from "../../../tools/architecture-diagrams/assets/azure/service-bus.svg?url";
-import sqlDatabase from "../../../tools/architecture-diagrams/assets/azure/sql-database.svg?url";
-import sqlServer from "../../../tools/architecture-diagrams/assets/azure/sql-server.svg?url";
-import staticWebApp from "../../../tools/architecture-diagrams/assets/azure/static-web-app.svg?url";
-import storageAccount from "../../../tools/architecture-diagrams/assets/azure/storage-account.svg?url";
-import subscriptions from "../../../tools/architecture-diagrams/assets/azure/subscriptions.svg?url";
-import virtualNetwork from "../../../tools/architecture-diagrams/assets/azure/virtual-network.svg?url";
-import vmScaleSets from "../../../tools/architecture-diagrams/assets/azure/vm-scale-sets.svg?url";
-import { architectureNetworkIconForResourceType } from "../components/architecture-network-icons";
+import { architectureNetworkIconUrlForResourceType } from "../components/architecture-network-icon-urls";
+
+const appServicePlans = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/app-service-plans.svg",
+  import.meta.url,
+).href;
+const apiManagementServices = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/api-management-services.svg",
+  import.meta.url,
+).href;
+const alerts = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/alerts.svg",
+  import.meta.url,
+).href;
+const azureOpenAi = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/azure-openai.svg",
+  import.meta.url,
+).href;
+const cacheRedis = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/cache-redis.svg",
+  import.meta.url,
+).href;
+const containerApps = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/container-apps.svg",
+  import.meta.url,
+).href;
+const containerRegistry = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/container-registry.svg",
+  import.meta.url,
+).href;
+const communicationServices = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/communication-services.svg",
+  import.meta.url,
+).href;
+const cosmosDb = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/cosmos-db.svg",
+  import.meta.url,
+).href;
+const dataCollectionRules = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/data-collection-rules.svg",
+  import.meta.url,
+).href;
+const disks = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/disks.svg",
+  import.meta.url,
+).href;
+const diskSnapshots = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/disk-snapshots.svg",
+  import.meta.url,
+).href;
+const dnsPrivateResolver = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/dns-private-resolver.svg",
+  import.meta.url,
+).href;
+const dnsZones = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/dns-zones.svg",
+  import.meta.url,
+).href;
+const eventHubs = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/event-hubs.svg",
+  import.meta.url,
+).href;
+const eventGridTopics = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/event-grid-topics.svg",
+  import.meta.url,
+).href;
+const functionApps = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/function-apps.svg",
+  import.meta.url,
+).href;
+const keyVault = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/key-vault.svg",
+  import.meta.url,
+).href;
+const kubernetesServices = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/kubernetes-services.svg",
+  import.meta.url,
+).href;
+const logicApps = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/logic-apps.svg",
+  import.meta.url,
+).href;
+const managedIdentity = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/managed-identity.svg",
+  import.meta.url,
+).href;
+const monitor = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/monitor.svg",
+  import.meta.url,
+).href;
+const mysqlServer = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/mysql-server.svg",
+  import.meta.url,
+).href;
+const nat = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/nat.svg",
+  import.meta.url,
+).href;
+const postgresql = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/postgresql.svg",
+  import.meta.url,
+).href;
+const privateEndpoint = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/private-endpoint.svg",
+  import.meta.url,
+).href;
+const resourceGraph = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/resource-graph.svg",
+  import.meta.url,
+).href;
+const resourceGroups = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/resource-groups.svg",
+  import.meta.url,
+).href;
+const serviceBus = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/service-bus.svg",
+  import.meta.url,
+).href;
+const sqlDatabase = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/sql-database.svg",
+  import.meta.url,
+).href;
+const sqlServer = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/sql-server.svg",
+  import.meta.url,
+).href;
+const staticWebApp = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/static-web-app.svg",
+  import.meta.url,
+).href;
+const storageAccount = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/storage-account.svg",
+  import.meta.url,
+).href;
+const subscriptions = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/subscriptions.svg",
+  import.meta.url,
+).href;
+const virtualNetwork = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/virtual-network.svg",
+  import.meta.url,
+).href;
+const vmScaleSets = new URL(
+  "../../../tools/architecture-diagrams/assets/azure/vm-scale-sets.svg",
+  import.meta.url,
+).href;
+const kubernetesCronJob = new URL(
+  "../../../tools/architecture-diagrams/assets/kubernetes/cronjob.svg",
+  import.meta.url,
+).href;
+const kubernetesDaemonSet = new URL(
+  "../../../tools/architecture-diagrams/assets/kubernetes/ds.svg",
+  import.meta.url,
+).href;
+const kubernetesDeployment = new URL(
+  "../../../tools/architecture-diagrams/assets/kubernetes/deploy.svg",
+  import.meta.url,
+).href;
+const kubernetesEndpoints = new URL(
+  "../../../tools/architecture-diagrams/assets/kubernetes/ep.svg",
+  import.meta.url,
+).href;
+const kubernetesIngress = new URL(
+  "../../../tools/architecture-diagrams/assets/kubernetes/ing.svg",
+  import.meta.url,
+).href;
+const kubernetesJob = new URL(
+  "../../../tools/architecture-diagrams/assets/kubernetes/job.svg",
+  import.meta.url,
+).href;
+const kubernetesNamespace = new URL(
+  "../../../tools/architecture-diagrams/assets/kubernetes/ns.svg",
+  import.meta.url,
+).href;
+const kubernetesNode = new URL(
+  "../../../tools/architecture-diagrams/assets/kubernetes/node.svg",
+  import.meta.url,
+).href;
+const kubernetesPod = new URL(
+  "../../../tools/architecture-diagrams/assets/kubernetes/pod.svg",
+  import.meta.url,
+).href;
+const kubernetesReplicaSet = new URL(
+  "../../../tools/architecture-diagrams/assets/kubernetes/rs.svg",
+  import.meta.url,
+).href;
+const kubernetesService = new URL(
+  "../../../tools/architecture-diagrams/assets/kubernetes/svc.svg",
+  import.meta.url,
+).href;
+const kubernetesStatefulSet = new URL(
+  "../../../tools/architecture-diagrams/assets/kubernetes/sts.svg",
+  import.meta.url,
+).href;
 
 const ICON_BY_RESOURCE_TYPE: Readonly<Record<string, string>> = Object.freeze({
   "compute.container-app": containerApps,
   "compute.container-app-environment": containerApps,
   "compute.container-app-job": containerApps,
   "compute.vm-scale-set": vmScaleSets,
-  "compute.vm-shutdown-schedule": architectureNetworkIconForResourceType("compute.vm") ?? resourceGraph,
+  "compute.vm-shutdown-schedule":
+    architectureNetworkIconUrlForResourceType("compute.vm") ?? resourceGraph,
   "action-group": monitor,
   "alert-rule": alerts,
   "application-insights": monitor,
@@ -140,6 +286,6 @@ const ICON_BY_RESOURCE_TYPE: Readonly<Record<string, string>> = Object.freeze({
 export function ontologyInstanceIconForResourceType(type: string): string {
   const normalized = type.trim().toLowerCase();
   return ICON_BY_RESOURCE_TYPE[normalized]
-    ?? architectureNetworkIconForResourceType(normalized)
+    ?? architectureNetworkIconUrlForResourceType(normalized)
     ?? resourceGraph;
 }

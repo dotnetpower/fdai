@@ -2,8 +2,8 @@
 title: Azure 리소스 조사하기(Investigate an Azure resource)
 description: Azure 리소스에 대해 범위가 제한된 읽기 전용 질문을 FDAI에 던지는 방법과, 돌아온 근거를 읽는 방법을 설명합니다.
 translation_of: investigate-azure-resources.md
-translation_source_sha: 2d90fb0da0abee3147c7192dced00f0c46b15889
-translation_revised: 2026-08-11
+translation_source_sha: f4867fc7625c1f4b768a5abd0492a9fed521c8c5
+translation_revised: 2026-09-16
 ---
 
 # Azure 리소스 조사하기(Investigate an Azure 리소스)
@@ -96,8 +96,9 @@ POST /read-investigations
 - **진단하지 않습니다.** 조사는 사실을 돌려줍니다. 사실을 원인으로 바꾸는 일은
   [근본 원인 분석](../sre/root-cause-analysis-ko.md)이며, 이 근거를 바탕으로 추론하되 지시가
   아니라 인용된 가설로 남습니다.
-- **스스로 범위를 넓히지 않습니다.** 더 넓은 리소스 탐색, 프로바이더 프로파일, 생성된 명령 설명은
-  아직 사용할 수 있는 기능이 아니라 설계 단계의 작업입니다.
+- **스스로 범위를 넓히지 않습니다.** 검토된 `ResourceContainers` 및 `Resources` 프로바이더
+  프로파일과 생성된 명령 설명은 사용할 수 있습니다. 그러나 검토되지 않은 테이블, 열, 조인,
+  더 넓은 프로바이더 범위는 쿼리를 만들어 내지 않고 거부합니다.
 
 ## 다음 단계
 
