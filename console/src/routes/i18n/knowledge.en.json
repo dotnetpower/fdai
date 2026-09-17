@@ -1,4 +1,5 @@
 {
+  "overviewTitle": "Knowledge overview",
   "subtitle": "Manage governed documents and repository sources used for FDAI knowledge.",
   "sourcesTitle": "Knowledge sources",
   "sourcesHint": "Open a source to upload content or review its connection boundary. Credentials and repository authorization remain in Integration settings.",

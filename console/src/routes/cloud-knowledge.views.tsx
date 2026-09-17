@@ -1,5 +1,5 @@
 /** Cloud-knowledge presentation; API requests and authority remain with the panel and server. */
-import type { ComponentChildren, RefObject } from "preact";
+import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 import { DataTable, StatusPill } from "../components/ui";
 import type {
@@ -8,10 +8,10 @@ import type {
 } from "../ingestion-api";
 import { cloudKnowledgeText as text, type CloudKnowledgeMessageKey } from "./cloud-knowledge.i18n";
 import {
-  canImportCloudKnowledgePackage, cloudKnowledgeDateRange, cloudKnowledgeFreshness,
-  cloudKnowledgeFreshnessText, cloudKnowledgeOutcomeText, type cloudKnowledgePermissions,
-  formatCloudKnowledgeDate, isCloudKnowledgePackageFile, weakestCloudKnowledgeFreshness,
-  type InspectedCloudKnowledgePackage,
+  cloudKnowledgeDateRange, cloudKnowledgeFreshness, cloudKnowledgeFreshnessText,
+  cloudKnowledgeOutcomeText, type cloudKnowledgePermissions,
+  cloudKnowledgeUnavailableReason, formatCloudKnowledgeDate,
+  weakestCloudKnowledgeFreshness,
 } from "./cloud-knowledge.model";
 
 type Permissions = ReturnType<typeof cloudKnowledgePermissions>;
@@ -47,6 +47,52 @@ export function Metadata({ items, compact = false }: {
         </div>
       ))}
     </dl>
+  );
+}
+
+/** Explain deployment-owned prerequisites without turning the browser into a trust authority. */
+export function CloudKnowledgeSetupState({ reason }: { readonly reason: string | undefined }) {
+  return (
+    <section class="cloud-knowledge-setup" aria-labelledby="cloud-knowledge-setup-title">
+      <header>
+        <div>
+          <h4 id="cloud-knowledge-setup-title">{text("setupTitle")}</h4>
+          <p>{cloudKnowledgeUnavailableReason(reason)}</p>
+        </div>
+        <StatusPill kind="neutral" label={text("setupRequired")} />
+      </header>
+      <p class="muted">{text("setupDescription")}</p>
+      <ol class="cloud-knowledge-setup-steps">
+        {([
+          [
+            "setupRegistryTitle",
+            "setupRegistryBody",
+            "FDAI_CLOUD_KNOWLEDGE_REGISTRY_PATH",
+          ],
+          [
+            "setupTrustTitle",
+            "setupTrustBody",
+            "FDAI_CLOUD_KNOWLEDGE_TRUST_PATH",
+          ],
+          ["setupRestartTitle", "setupRestartBody", null],
+        ] as const).map(([title, body, setting], index) => (
+          <li key={title}>
+            <span aria-hidden="true">{index + 1}</span>
+            <div>
+              <strong>{text(title)}</strong>
+              <p>{text(body)}</p>
+              {setting ? <code>{setting}</code> : null}
+            </div>
+          </li>
+        ))}
+      </ol>
+      {reason ? (
+        <details>
+          <summary>{text("technicalDetails")}</summary>
+          <code>{reason}</code>
+        </details>
+      ) : null}
+    </section>
   );
 }
 
@@ -160,7 +206,10 @@ function RollbackRequest({ allowed, onRequest }: { readonly allowed: boolean; re
   </div>;
 }
 
-function ReleaseDetails({ release, imported }: { readonly release: CloudKnowledgeRelease; readonly imported: boolean }) {
+export function ReleaseDetails({ release, imported }: {
+  readonly release: CloudKnowledgeRelease;
+  readonly imported: boolean;
+}) {
   return (
     <div class="stack-section" style={{ minWidth: 0 }}>
       <Metadata items={[
@@ -178,53 +227,5 @@ function ReleaseDetails({ release, imported }: { readonly release: CloudKnowledg
           { key: "checked", header: text("checkedAt"), render: (source) => formatCloudKnowledgeDate(source.check.checked_at) },
         ]} />
     </div>
-  );
-}
-
-/** Render controlled package selection, inspection, and confirmation using panel-owned state. */
-export function PackageIntake({ input, file, inspection, confirmed, permissions, onFile, onConfirm, onInspect, onImport }: {
-  readonly input: RefObject<HTMLInputElement>;
-  readonly file: File | null;
-  readonly inspection: InspectedCloudKnowledgePackage | null;
-  readonly confirmed: boolean;
-  readonly permissions: Permissions;
-  readonly onFile: (file: File | null) => void;
-  readonly onConfirm: (confirmed: boolean) => void;
-  readonly onInspect: () => void;
-  readonly onImport: () => void;
-}) {
-  const invalidFile = file !== null && !isCloudKnowledgePackageFile(file);
-  const inspected = file !== null && inspection?.file === file;
-  return (
-    <section class="stack-section" aria-labelledby="cloud-knowledge-package">
-      <h4 id="cloud-knowledge-package" class="cs-type-panel-title">{text("packageTitle")}</h4>
-      <p id="cloud-knowledge-package-help" class="muted" style={{ margin: 0 }}>{text("packageHint")}</p>
-      <label class="cs-control-field">
-        <span class="cs-control-label">{text("file")}</span>
-        <input ref={input} class="cs-control-input" style={CONTROL_STYLE} type="file" accept="application/json,.json"
-          disabled={!permissions.inspect} aria-invalid={invalidFile}
-          aria-describedby={`cloud-knowledge-package-help${invalidFile ? " cloud-knowledge-file-error" : ""}`}
-          onChange={(event) => onFile(event.currentTarget.files?.[0] ?? null)} />
-      </label>
-      {file ? <p class="muted" style={{ margin: 0 }}>{text("selectedFile", { name: file.name })}</p> : null}
-      {invalidFile ? <p id="cloud-knowledge-file-error" class="cs-control-error" role="alert">{text("invalidFile")}</p> : null}
-      <div class="knowledge-connector-actions">
-        <ActionButton disabled={!permissions.inspect || file === null || invalidFile} onClick={onInspect}>{text("inspect")}</ActionButton>
-      </div>
-      {inspected && inspection ? (
-        <details>
-          <summary style={{ minHeight: "44px", cursor: "pointer" }}>{text("inspectionDetails")}</summary>
-          <ReleaseDetails release={inspection.result.release} imported={false} />
-        </details>
-      ) : null}
-      <label style={{ display: "flex", alignItems: "flex-start", gap: "8px", minHeight: "44px" }}>
-        <input type="checkbox" checked={confirmed} disabled={!permissions.import || !inspected}
-          onChange={(event) => onConfirm(event.currentTarget.checked)} />
-        <span>{text("confirmImport")}</span>
-      </label>
-      <div class="knowledge-connector-actions">
-        <ActionButton disabled={!canImportCloudKnowledgePackage(file, inspection, confirmed, permissions.import)} onClick={onImport}>{text("import")}</ActionButton>
-      </div>
-    </section>
   );
 }
