@@ -2571,7 +2571,7 @@
     "devBypassFailed": "이 API에서는 로컬 dev 액세스를 사용할 수 없습니다({error}). Microsoft Entra ID로 로그인하세요.",
     "localFoot": "Dev bypass는 현재 세션에만 유지되며 production에서는 사용할 수 없습니다.",
     "startupFoot": "서비스가 준비되면 자동으로 계속합니다.",
-    "foot": "읽기 전용 운영자 콘솔입니다. 변경은 통제되며 고위험 작업은 사람 승인이 필요합니다.",
+    "foot": "통제된 운영자 콘솔입니다. 변경은 정책에 따라 처리되며 고위험 작업은 사람 승인이 필요합니다.",
     "signOut": "로그아웃",
     "exitLocalSession": "로컬 세션 종료"
   },
