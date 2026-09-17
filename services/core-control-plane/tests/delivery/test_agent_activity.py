@@ -54,7 +54,11 @@ def _health(agent: str) -> dict[str, object]:
 
 async def test_periodic_snapshot_preserves_active_handler_state() -> None:
     observer = EventBusPantheonActivityObserver(event_bus=RecordingEventBus())
-    payload = {"correlation_id": "correlation-1"}
+    payload = {
+        "event_id": "event-1",
+        "correlation_id": "correlation-1",
+        "resource_id": "resource-1",
+    }
 
     await observer.observe(
         agent="Huginn",
@@ -72,6 +76,9 @@ async def test_periodic_snapshot_preserves_active_handler_state() -> None:
     assert snapshot[0].state is AgentState.COLLECTING
     assert snapshot[0].correlation_id == "correlation-1"
     assert snapshot[0].detail == "Processing object.event"
+    assert snapshot[0].activity is not None
+    assert snapshot[0].activity.activity_id
+    assert snapshot[0].activity.resource_ref == "resource-1"
 
 
 async def test_completing_one_topic_preserves_other_active_handler() -> None:
@@ -103,6 +110,68 @@ async def test_completing_one_topic_preserves_other_active_handler() -> None:
     assert active["Heimdall"].state is AgentState.ANALYZING
     assert active["Heimdall"].correlation_id == "correlation-1"
     assert active["Heimdall"].detail == "Processing object.event"
+
+
+async def test_handler_transitions_preserve_bounded_resource_context() -> None:
+    event_bus = RecordingEventBus()
+    observer = EventBusPantheonActivityObserver(event_bus=event_bus)
+    payload = {
+        "event_id": "event-1",
+        "idempotency_key": "event-key-1",
+        "correlation_id": "correlation-1",
+        "event_type": "inventory.resource_changed",
+        "resource_id": "scope:example/resource-group/example/providers/compute/vm-example",
+        "resource_type": "compute-vm",
+    }
+
+    await observer.observe(
+        agent="Huginn",
+        topic="fdai.change.events",
+        phase=SimpleNamespace(value="started"),
+        payload=payload,
+    )
+    await observer.observe(
+        agent="Huginn",
+        topic="fdai.change.events",
+        phase=SimpleNamespace(value="completed"),
+        payload=payload,
+    )
+
+    started = event_bus.published[0][2]
+    completed = event_bus.published[1][2]
+    assert started["activity_id"] == completed["activity_id"]
+    assert completed["correlation_id"] is None
+    assert completed["activity_correlation_id"] == "correlation-1"
+    assert started["phase"] == "started"
+    assert completed["phase"] == "completed"
+    assert completed["resource_ref"] == payload["resource_id"]
+    assert completed["resource_name"] == "vm-example"
+    assert completed["resource_type"] == "compute-vm"
+    assert completed["event_type"] == "inventory.resource_changed"
+    assert completed["event_id"] == "event-1"
+    assert completed["started_at"] == started["started_at"]
+    assert started["ts"] == started["started_at"]
+    assert completed["ts"] == completed["completed_at"]
+    assert completed["completed_at"] >= completed["started_at"]
+    assert isinstance(completed["duration_ms"], int)
+
+
+async def test_handler_transition_without_identity_remains_legacy_state() -> None:
+    event_bus = RecordingEventBus()
+    observer = EventBusPantheonActivityObserver(event_bus=event_bus)
+
+    await observer.observe(
+        agent="Huginn",
+        topic="fdai.change.events",
+        phase=SimpleNamespace(value="started"),
+        payload={"resource_id": "resource-1"},
+    )
+
+    published = event_bus.published[0][2]
+    assert published["detail"] == "Processing fdai.change.events"
+    assert "activity_id" not in published
+    assert "phase" not in published
+    assert "resource_ref" not in published
 
 
 async def test_periodic_snapshot_publishes_agent_states_concurrently() -> None:

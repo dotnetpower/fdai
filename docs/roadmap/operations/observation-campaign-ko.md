@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 701c3aa75533d98284bf32ea29cda83aab1ff6c6
-translation_revised: 2026-09-16
+translation_source_sha: 4235caef4357efed7b675c261631bc9bf3bb1c18
+translation_revised: 2026-09-17
 ---
 
 # 권한 인식 관측 캠페인
@@ -239,6 +239,10 @@ scheduler, 실행기, 어댑터, 영속 저장소 및 Operator 변환 결과는 
 없는 결과와 구분합니다. 빈 사유 코드 목록은 올바른 성공 상태이며 누락된 근거로 표시하지
 않습니다. 원시 로그 줄, 클라우드 식별자, 조회 텍스트, 신원 및 프로바이더 오류는 공유 활동
 스트림 밖에 둡니다.
+리소스 정보를 포함하는 처리기 수명 주기 행은 별도의 `agent.state` 스트림 계약을 사용합니다.
+처리 중인 정확한 이벤트에 대해 범위가 제한된 논리 Resource 참조와 표시 이름 하나를 유지할 수
+있지만, 이 캠페인의 집계 `agent.operational-activity` 기록에 대상 식별자를 추가하거나 출처
+커버리지 개수를 리소스 근거로 재해석하지 않습니다.
 Agent Activity는 도메인, 소유자, 출처 레이블, 종료 상태, 최신성, 근거 개수, 기간 및 사유
 코드를 표시합니다. 원시 로그 줄, 클라우드 식별자, 조회 텍스트, 신원 및 프로바이더 오류는 공유
 활동 스트림 밖에 둡니다.
