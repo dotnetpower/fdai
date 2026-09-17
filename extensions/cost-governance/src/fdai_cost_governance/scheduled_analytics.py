@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 import httpx
 from fdai.shared.providers.cost_governance import (
+    CostCollectionRequest,
     CostObservationPage,
     CostObservationStore,
     CostPackageActivationReader,
@@ -34,7 +35,7 @@ from .azure_analytics import (
     percentile_95,
     usage_has_negative_costs,
 )
-from .azure_focus import CostReadCredential
+from .azure_focus import CostReadCredential, cost_query_body, decode_cost_query_rows
 from .service import CostAnalyzerService, CostJobConfig
 
 _MANAGEMENT = "https://management.azure.com"
@@ -135,24 +136,16 @@ class AzureScheduledAnalyticsSource:
             raise AnalyticsSourceError("credential", "deadline_exceeded") from exc
         except Exception as exc:
             raise AnalyticsSourceError("credential", "credential_unavailable") from exc
-        usage, usage_complete, usage_bytes = await self._paged_list(
-            source="usage-details",
-            url=(
-                f"{_MANAGEMENT}/subscriptions/{subscription_id}"
-                "/providers/Microsoft.Consumption/usageDetails"
-            ),
-            params={
-                "api-version": "2023-05-01",
-                "startDate": start_at.date().isoformat(),
-                "endDate": end_at.date().isoformat(),
-            },
+        usage, usage_complete, usage_bytes = await self._cost_query_usage(
+            scope_id=scope_id,
+            start_at=start_at,
+            end_at=end_at,
             token=token,
             deadline_at=deadline_at,
-            required=True,
         )
         sources = [
             _source_facet(
-                "azure-consumption-usage-details",
+                "azure-cost-management-query",
                 complete=usage_complete,
                 count=len(usage),
                 start_at=start_at,
@@ -242,6 +235,50 @@ class AzureScheduledAnalyticsSource:
             limitations=tuple(sorted(set(limitations))),
             collected_at=datetime.now(UTC),
         )
+
+    async def _cost_query_usage(
+        self,
+        *,
+        scope_id: str,
+        start_at: datetime,
+        end_at: datetime,
+        token: str,
+        deadline_at: datetime,
+    ) -> tuple[list[Mapping[str, Any]], bool, int]:
+        request = CostCollectionRequest(
+            package_id="cost-governance",
+            scope_id=scope_id,
+            start_at=start_at,
+            end_at=end_at,
+            page_size=1000,
+            deadline_at=deadline_at,
+        )
+        url = (
+            f"{_MANAGEMENT}/{scope_id.removeprefix('/')}"
+            "/providers/Microsoft.CostManagement/query?api-version=2023-11-01"
+        )
+        items: list[Mapping[str, Any]] = []
+        pages = bytes_read = 0
+        while url and pages < _MAX_PAGES and bytes_read < _MAX_BYTES:
+            document, size = await self._post_json(
+                source="cost-management-query",
+                url=url,
+                payload=cost_query_body(request),
+                token=token,
+                deadline_at=deadline_at,
+            )
+            rows = decode_cost_query_rows(document, page_size=request.page_size)
+            items.extend(_usage_item(row) for row in rows)
+            pages += 1
+            bytes_read += size
+            if bytes_read > _MAX_BYTES:
+                raise AnalyticsSourceError("cost-management-query", "response_too_large")
+            properties = _mapping(document.get("properties"))
+            next_link = properties.get("nextLink")
+            url = str(next_link) if next_link else ""
+            if url:
+                _require_management_url(url)
+        return items, not bool(url), bytes_read
 
     async def _paged_list(
         self,
@@ -385,6 +422,49 @@ class AzureScheduledAnalyticsSource:
             raise AnalyticsSourceError(source, "invalid_source_payload")
         return document, len(body)
 
+    async def _post_json(
+        self,
+        *,
+        source: str,
+        url: str,
+        payload: Mapping[str, object],
+        token: str,
+        deadline_at: datetime,
+    ) -> tuple[dict[str, Any], int]:
+        remaining = (deadline_at - datetime.now(UTC)).total_seconds()
+        if remaining <= 0:
+            raise AnalyticsSourceError(source, "deadline_exceeded")
+        _require_management_url(url)
+        try:
+            response = await self._client.post(
+                url,
+                json=dict(payload),
+                headers={
+                    "Authorization": " ".join(("Bearer", token)),
+                    "Accept": "application/json",
+                },
+                timeout=remaining,
+                follow_redirects=False,
+            )
+        except httpx.HTTPError as exc:
+            raise AnalyticsSourceError(source, "transport_error") from exc
+        body = await response.aread()
+        if response.status_code == 429:
+            raise AnalyticsSourceError(source, "provider_rate_limited")
+        if response.status_code == 503:
+            raise AnalyticsSourceError(source, "provider_unavailable")
+        if response.status_code != 200:
+            raise AnalyticsSourceError(source, "source_unavailable")
+        if len(body) > _MAX_BYTES:
+            raise AnalyticsSourceError(source, "response_too_large")
+        try:
+            document = json.loads(body)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise AnalyticsSourceError(source, "invalid_source_payload") from exc
+        if not isinstance(document, dict):
+            raise AnalyticsSourceError(source, "invalid_source_payload")
+        return document, len(body)
+
 
 async def run_scheduled_analytics(
     *,
@@ -444,7 +524,8 @@ async def run_scheduled_analytics(
                             "reason": "negative_cost_unsupported",
                         }
                     )
-                    if item.source_authority == "azure-consumption-usage-details"
+                    if item.source_authority
+                    in {"azure-consumption-usage-details", "azure-cost-management-query"}
                     else item
                     for item in sources
                 )
@@ -457,6 +538,18 @@ async def run_scheduled_analytics(
                 ontology_release_id=activation.ontology_release_id,
                 ontology_release_digest=activation.ontology_release_digest,
                 complete=observations_complete,
+                source_authority=next(
+                    (
+                        item.source_authority
+                        for item in sources
+                        if item.source_authority
+                        in {
+                            "azure-consumption-usage-details",
+                            "azure-cost-management-query",
+                        }
+                    ),
+                    "azure-consumption-usage-details",
+                ),
             )
             cursor = await store.read_cost_cursor(config.package_id, scope_id)
             expected_revision = int(getattr(cursor, "revision", 0))
@@ -664,6 +757,36 @@ def _require_management_url(value: str) -> None:
     parsed = urlparse(value)
     if parsed.scheme != "https" or parsed.hostname != "management.azure.com":
         raise AnalyticsSourceError("pagination", "invalid_next_link")
+
+
+def _usage_item(row: Mapping[str, object]) -> Mapping[str, object]:
+    raw_day = str(row.get("UsageDate") or "")
+    day = (
+        f"{raw_day[:4]}-{raw_day[4:6]}-{raw_day[6:8]}"
+        if re.fullmatch(r"\d{8}", raw_day)
+        else raw_day[:10]
+    )
+    service = str(row.get("ServiceName") or "").strip()
+    currency = str(row.get("Currency") or "").strip().upper()
+    try:
+        amount = Decimal(str(row["Cost"]))
+    except (KeyError, ArithmeticError, ValueError) as exc:
+        raise AnalyticsSourceError("cost-management-query", "invalid_source_payload") from exc
+    if (
+        re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) is None
+        or not service
+        or len(currency) != 3
+        or not amount.is_finite()
+    ):
+        raise AnalyticsSourceError("cost-management-query", "invalid_source_payload")
+    return {
+        "properties": {
+            "date": day,
+            "serviceFamily": service,
+            "billingCurrencyCode": currency,
+            "costInBillingCurrency": str(amount),
+        }
+    }
 
 
 def _mapping(value: object) -> Mapping[str, Any]:

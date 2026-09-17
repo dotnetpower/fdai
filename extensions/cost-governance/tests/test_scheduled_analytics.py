@@ -280,21 +280,23 @@ async def test_disabled_package_records_no_source_reads_or_snapshot() -> None:
 
 @pytest.mark.asyncio
 async def test_azure_source_reports_each_authoritative_source_without_raw_identity() -> None:
+    requests: list[httpx.Request] = []
+
     def handler(request: httpx.Request) -> httpx.Response:
-        if "usageDetails" in str(request.url):
+        requests.append(request)
+        if "Microsoft.CostManagement/query" in str(request.url):
             return httpx.Response(
                 200,
                 json={
-                    "value": [
-                        {
-                            "properties": {
-                                "date": "2026-09-16T00:00:00Z",
-                                "serviceFamily": "Compute",
-                                "billingCurrencyCode": "USD",
-                                "costInBillingCurrency": 2,
-                            }
-                        }
-                    ]
+                    "properties": {
+                        "columns": [
+                            {"name": "ServiceName"},
+                            {"name": "Cost"},
+                            {"name": "UsageDate"},
+                            {"name": "Currency"},
+                        ],
+                        "rows": [["Compute", 2, 20260916, "USD"]],
+                    }
                 },
             )
         return httpx.Response(200, json={"value": []})
@@ -309,20 +311,39 @@ async def test_azure_source_reports_each_authoritative_source_without_raw_identi
         )
 
     assert {item.source_authority for item in batch.sources} == {
-        "azure-consumption-usage-details",
+        "azure-cost-management-query",
         "azure-consumption-budgets",
         "azure-advisor",
         "azure-monitor",
     }
     assert all(item.state is CostEvidenceState.COMPLETE for item in batch.sources)
     assert "subscriptions/example" not in repr(batch.sources)
+    query_request = next(
+        item for item in requests if "Microsoft.CostManagement/query" in str(item.url)
+    )
+    assert query_request.method == "POST"
+    assert "startDate" not in str(query_request.url)
+    assert batch.usage_items[0]["properties"]["date"] == "2026-09-16"
 
 
 @pytest.mark.asyncio
 async def test_azure_source_stops_on_optional_source_rate_limit() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        if "usageDetails" in str(request.url):
-            return httpx.Response(200, json={"value": []})
+        if "Microsoft.CostManagement/query" in str(request.url):
+            return httpx.Response(
+                200,
+                json={
+                    "properties": {
+                        "columns": [
+                            {"name": "ServiceName"},
+                            {"name": "Cost"},
+                            {"name": "UsageDate"},
+                            {"name": "Currency"},
+                        ],
+                        "rows": [],
+                    }
+                },
+            )
         return httpx.Response(429, json={})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:

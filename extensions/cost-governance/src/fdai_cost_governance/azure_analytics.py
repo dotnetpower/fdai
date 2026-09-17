@@ -101,6 +101,7 @@ def build_usage_observations(
     ontology_release_id: str,
     ontology_release_digest: str,
     complete: bool,
+    source_authority: str = "azure-consumption-usage-details",
 ) -> tuple[CostObservation, ...]:
     """Build complete service-day facts for the existing typed agent ingress."""
 
@@ -121,6 +122,7 @@ def build_usage_observations(
                 "service": service,
                 "currency": currency,
                 "amount": str(amount),
+                "source_authority": source_authority,
             },
             sort_keys=True,
             separators=(",", ":"),
@@ -138,7 +140,7 @@ def build_usage_observations(
                 event_end_at=end,
                 observed_at=end,
                 recorded_at=collected_at,
-                source_authority="azure-consumption-usage-details",
+                source_authority=source_authority,
                 source_uri=f"cost-service:{_short_digest(f'{scope_id}:{service}')}",
                 completeness=completeness,
                 ontology_release_id=ontology_release_id,

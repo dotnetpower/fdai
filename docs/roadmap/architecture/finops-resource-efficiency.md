@@ -240,7 +240,7 @@ An explicit authenticated-review policy can provide aggregate-only access for a 
 deployment. It preserves browser Entra identity and does not grant package activation or action
 authority.
 
-The local authoritative analytics collector combines bounded Azure Consumption Usage Details,
+The local authoritative analytics collector combines bounded Azure Cost Management Query results,
 subscription budgets, Azure Advisor Cost recommendations, and supported Azure Monitor metrics into
 one immutable snapshot. It stores only pseudonymous resource and recommendation references, exact
 source timestamps, completeness, and typed limitations. Advisor records remain provider candidates;

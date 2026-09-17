@@ -1,7 +1,7 @@
 ---
 title: FinOps 리소스 효율 및 SKU 결정
 translation_of: finops-resource-efficiency.md
-translation_source_sha: ce4518893365fa4672213f8d0e828a49d3dc1b1e
+translation_source_sha: 974c5869c2dfe475bfd9ee5d7309f8036c6bcd39
 translation_revised: 2026-09-17
 ---
 
@@ -234,7 +234,7 @@ Console은 다섯 개의 안정적인 탐색 도메인을 유지합니다. FinOp
 명시적인 인증 사용자 검토 정책을 사용하면 개발 배포에서 집계 수준으로만 접근할 수 있습니다.
 브라우저 Entra 신원은 그대로 유지하며 패키지 활성화 또는 작업 권한을 부여하지 않습니다.
 
-로컬의 신뢰할 수 있는 분석 수집기는 범위가 제한된 Azure Consumption Usage Details, 구독 예산,
+로컬의 신뢰할 수 있는 분석 수집기는 범위가 제한된 Azure Cost Management Query 결과, 구독 예산,
 Azure Advisor 비용 권고 및 지원되는 Azure Monitor 메트릭을 변경할 수 없는 하나의 스냅샷으로
 결합합니다. 가명 처리된 리소스 및 권고 참조, 정확한 원본 시각, 완전성 및 타입이 지정된 제약만
 저장합니다. Advisor 레코드는 프로바이더 후보로 유지하며 `DecisionCase`, 승인, 실행 또는 검증된
