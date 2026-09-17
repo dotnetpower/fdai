@@ -12,10 +12,12 @@ import psycopg
 from fdai_service_contracts import (
     CostAccessGrant,
     CostAnalyticsProjection,
+    CostDecisionCaseProjection,
     CostDisclosureCeiling,
     CostDisclosurePolicy,
     CostGovernanceUnavailableReason,
     CostProjectionRecord,
+    CostSettlementOutcomeProjection,
 )
 from psycopg.rows import dict_row
 
@@ -25,7 +27,14 @@ from fdai_operator_service.families.cost_governance import (
 )
 from fdai_operator_service.families.cost_governance.contracts import (
     COST_DISCLOSURE_PURGE_GRACE_DAYS,
+    CostAnalyticsSnapshot,
     CostDisclosureAuditRecord,
+    CostProjectionEvidenceSnapshot,
+)
+from fdai_operator_service.families.cost_governance.postgres_projection import (
+    read_decision_cases,
+    read_projection_evidence,
+    read_settlement_outcomes,
 )
 
 
@@ -72,7 +81,7 @@ class PostgresCostGovernanceReader:
             ) AS ceiling ON TRUE
             WHERE access_grant.principal_id = %(principal_id)s
               AND access_grant.purpose = %(purpose)s
-              AND access_grant.scopes ? %(scope)s
+              AND (access_grant.scopes ? %(scope)s OR access_grant.scopes ? '*')
             ORDER BY access_grant.revision DESC
             LIMIT 1
             """,
@@ -151,43 +160,30 @@ class PostgresCostGovernanceReader:
             revision=int(row["revision"]),
         )
 
-    async def read_analytics(self, *, scope: str) -> CostAnalyticsProjection | None:
+    async def read_analytics(self, *, scope: str) -> CostAnalyticsSnapshot | None:
         """Read the latest immutable analytics snapshot without raw identifiers."""
 
         query = (
             """
-            SELECT payload
+            WITH candidate_scope AS (
+                SELECT DISTINCT analytics.scope_id
+                  FROM cost_governance_analytics_snapshot AS analytics
+                  JOIN cost_observation_current AS current
+                    ON current.scope_id = analytics.scope_id
+            )
+            SELECT scope_id, snapshot_id, payload
               FROM cost_governance_analytics_snapshot
              WHERE scope_id = (
-                SELECT MIN(candidate.scope_id)
-                  FROM (
-                    SELECT analytics_scope.scope_id
-                      FROM (
-                        SELECT DISTINCT scope_id
-                          FROM cost_governance_analytics_snapshot
-                      ) AS analytics_scope
-                      JOIN (
-                        SELECT DISTINCT scope_id
-                          FROM cost_observation
-                      ) AS observation_scope
-                        ON observation_scope.scope_id = analytics_scope.scope_id
-                  ) AS candidate
-                HAVING COUNT(DISTINCT candidate.scope_id) = 1
-                   AND (
-                        SELECT COUNT(DISTINCT scope_id)
-                          FROM cost_governance_analytics_snapshot
-                   ) = 1
-                   AND (
-                        SELECT COUNT(DISTINCT scope_id)
-                          FROM cost_observation
-                   ) = 1
+                SELECT MIN(candidate_scope.scope_id)
+                  FROM candidate_scope
+                HAVING COUNT(*) = 1
             )
             ORDER BY observed_at DESC, snapshot_id DESC
             LIMIT 1
             """
             if scope == "*"
             else """
-            SELECT payload
+            SELECT scope_id, snapshot_id, payload
              FROM cost_governance_analytics_snapshot
             WHERE scope_id = %(scope)s
             ORDER BY observed_at DESC, snapshot_id DESC
@@ -200,7 +196,58 @@ class PostgresCostGovernanceReader:
         )
         if not rows:
             return None
-        return CostAnalyticsProjection.model_validate(rows[0]["payload"])
+        row = rows[0]
+        return CostAnalyticsSnapshot(
+            snapshot_id=str(row["snapshot_id"]),
+            scope_id=str(row["scope_id"]),
+            projection=CostAnalyticsProjection.model_validate(row["payload"]),
+        )
+
+    async def read_projection_evidence(
+        self,
+        *,
+        scope: str,
+        analytics_snapshot_id: str | None,
+    ) -> CostProjectionEvidenceSnapshot:
+        """Read source windows, run health, and independent surface counts."""
+
+        return await read_projection_evidence(
+            self._fetch,
+            scope=scope,
+            analytics_snapshot_id=analytics_snapshot_id,
+        )
+
+    async def read_decision_cases(
+        self,
+        *,
+        scope: str,
+        limit: int,
+        pseudonym_key: bytes,
+    ) -> tuple[CostDecisionCaseProjection, ...]:
+        """Read complete observation-mode cases from their owned stores."""
+
+        return await read_decision_cases(
+            self._fetch,
+            scope=scope,
+            limit=limit,
+            pseudonym_key=pseudonym_key,
+        )
+
+    async def read_settlement_outcomes(
+        self,
+        *,
+        scope: str,
+        limit: int,
+        pseudonym_key: bytes,
+    ) -> tuple[CostSettlementOutcomeProjection, ...]:
+        """Read explicit independently settled outcomes from retained lineage."""
+
+        return await read_settlement_outcomes(
+            self._fetch,
+            scope=scope,
+            limit=limit,
+            pseudonym_key=pseudonym_key,
+        )
 
     async def set_enabled(
         self,
@@ -514,11 +561,17 @@ class PostgresCostGovernanceReader:
     ) -> tuple[CostProjectionRecord, ...]:
         rows = await self._fetch(
             """
-            SELECT observation_id, scope_id, service_id, amount, currency,
-                   observed_at, completeness, source_authority, evidence_digest
-            FROM cost_observation
-            WHERE (%(scope)s = '*' OR scope_id = %(scope)s)
-            ORDER BY observed_at DESC, observation_id
+            SELECT observation.observation_id, observation.scope_id,
+                   observation.service_id, observation.amount, observation.currency,
+                   observation.event_start_at, observation.event_end_at,
+                   observation.observed_at, observation.recorded_at,
+                   observation.completeness, observation.source_authority,
+                   observation.evidence_digest
+              FROM cost_observation_current AS current
+              JOIN cost_observation AS observation
+                ON observation.observation_id = current.observation_id
+             WHERE (%(scope)s = '*' OR current.scope_id = %(scope)s)
+            ORDER BY observation.observed_at DESC, observation.observation_id
             LIMIT %(limit)s
             """,
             {"scope": scope, "limit": limit},
@@ -532,6 +585,9 @@ class PostgresCostGovernanceReader:
                 amount=Decimal(str(row["amount"])),
                 currency=str(row["currency"]),
                 observed_at=row["observed_at"],
+                window_start_at=row["event_start_at"],
+                window_end_at=row["event_end_at"],
+                recorded_at=row["recorded_at"],
                 completeness=Decimal(str(row["completeness"])),
                 source_authority=str(row["source_authority"]),
                 provenance_digest=str(row["evidence_digest"]),
@@ -592,6 +648,49 @@ class UnavailableCostGovernanceReader:
         limit: int,
     ) -> tuple[CostProjectionRecord, ...]:
         del surface, scope, limit
+        return ()
+
+    async def read_projection_evidence(
+        self,
+        *,
+        scope: str,
+        analytics_snapshot_id: str | None,
+    ) -> CostProjectionEvidenceSnapshot:
+        del scope, analytics_snapshot_id
+        return CostProjectionEvidenceSnapshot(
+            window_start_at=None,
+            window_end_at=None,
+            latest_source_at=None,
+            complete_count=0,
+            partial_count=0,
+            sources=(),
+            latest_analytics_run=None,
+            resource_candidate_count=0,
+            incomplete_candidate_count=0,
+            decision_case_count=0,
+            incomplete_decision_case_count=0,
+            settlement_count=0,
+            incomplete_settlement_count=0,
+        )
+
+    async def read_decision_cases(
+        self,
+        *,
+        scope: str,
+        limit: int,
+        pseudonym_key: bytes,
+    ) -> tuple[CostDecisionCaseProjection, ...]:
+        del scope, limit, pseudonym_key
+        return ()
+
+    async def read_settlement_outcomes(
+        self,
+        *,
+        scope: str,
+        limit: int,
+        pseudonym_key: bytes,
+    ) -> tuple[CostSettlementOutcomeProjection, ...]:
+        del scope, limit, pseudonym_key
         return ()
 
 

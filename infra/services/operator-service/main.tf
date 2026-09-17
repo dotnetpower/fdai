@@ -15,6 +15,7 @@ module "operator_service" {
   rbac                           = var.rbac
   cors_allow_origins             = var.cors_allow_origins
   notification_receipt_secret_id = var.notification_receipt_secret_id
+  cost_pseudonym_key_secret_id   = var.cost_pseudonym_key_secret_id
   scaling                        = var.scaling
   channel_edge                   = var.channel_edge
   hil_callback                   = var.hil_callback

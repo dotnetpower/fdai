@@ -90,11 +90,33 @@ fi
 
 mkdir -p "$(dirname "$output_env")"
 umask 077
+pseudonym_key_file="$repo_root/.fdai/local-cost-pseudonym-key"
+if [[ ! -e "$pseudonym_key_file" ]]; then
+  python3 - "$pseudonym_key_file" <<'PY'
+import os
+import secrets
+import sys
+
+path = sys.argv[1]
+descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+with os.fdopen(descriptor, "w", encoding="ascii") as handle:
+    handle.write(secrets.token_hex(32) + "\n")
+PY
+fi
+if [[ "$(stat -c '%a' "$pseudonym_key_file")" != "600" ]]; then
+  echo "local Cost Governance pseudonym key MUST have mode 600" >&2
+  exit 1
+fi
+pseudonym_key="$(<"$pseudonym_key_file")"
+if [[ ! "$pseudonym_key" =~ ^[0-9a-f]{64}$ ]]; then
+  echo "local Cost Governance pseudonym key MUST be 64 lowercase hexadecimal characters" >&2
+  exit 1
+fi
 temp_env="$(mktemp "${output_env}.XXXXXX")"
 temp_auth_mode="$(mktemp "${auth_mode_file}.XXXXXX")"
 trap 'rm -f "$temp_env" "$temp_auth_mode"' EXIT
 
-grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_STATE_STORE_DSN|FDAI_ENTRA_TENANT_ID|FDAI_API_AUDIENCE|FDAI_COST_GOVERNANCE_(AUTHENTICATED|OWNER)_REVIEW_ACCESS|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_SEMANTIC_TURN_(OUTBOX_NAMESPACE|(REQUEST|PROJECTION|PHYSICAL)_TOPIC)|FDAI_HIL_DECISION_TOPIC|FDAI_RBAC_(READERS|CONTRIBUTORS|APPROVERS|OWNERS|BREAK_GLASS)_GROUP_ID|FDAI_OPERATOR_SERVICE_(HOST|PORT|LOCAL_AZURE_NARRATOR)|FDAI_OPERATOR_API_(LOCAL_AZURE_CLI|LOCAL_AZURE_CLI_CONFIRM|CORS_ALLOW_ORIGINS))=' \
+grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_STATE_STORE_DSN|FDAI_ENTRA_TENANT_ID|FDAI_API_AUDIENCE|FDAI_COST_GOVERNANCE_(AUTHENTICATED|OWNER)_REVIEW_ACCESS|FDAI_COST_PSEUDONYM_KEY|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_SEMANTIC_TURN_(OUTBOX_NAMESPACE|(REQUEST|PROJECTION|PHYSICAL)_TOPIC)|FDAI_HIL_DECISION_TOPIC|FDAI_RBAC_(READERS|CONTRIBUTORS|APPROVERS|OWNERS|BREAK_GLASS)_GROUP_ID|FDAI_OPERATOR_SERVICE_(HOST|PORT|LOCAL_AZURE_NARRATOR)|FDAI_OPERATOR_API_(LOCAL_AZURE_CLI|LOCAL_AZURE_CLI_CONFIRM|CORS_ALLOW_ORIGINS))=' \
   "$runtime_env" > "$temp_env" || true
 {
   printf 'FDAI_DATABASE_URL=%s\n' "$operator_database_url"
@@ -113,6 +135,7 @@ grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_STATE_STORE_DSN|FDAI_ENTRA
   printf 'FDAI_OPERATOR_API_LOCAL_AZURE_CLI=%s\n' "$local_azure_cli_auth"
   printf 'FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=%s\n' "$local_azure_cli_auth"
   printf 'FDAI_COST_GOVERNANCE_AUTHENTICATED_REVIEW_ACCESS=1\n'
+  printf 'FDAI_COST_PSEUDONYM_KEY=%s\n' "$pseudonym_key"
   if [[ -n "$semantic_request_topic" && -n "$semantic_projection_topic" ]]; then
     printf 'FDAI_KAFKA_BOOTSTRAP_SERVERS=%s\n' "$semantic_bootstrap"
     printf 'FDAI_SEMANTIC_TURN_REQUEST_TOPIC=%s\n' "$semantic_request_topic"

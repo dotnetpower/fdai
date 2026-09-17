@@ -37,6 +37,10 @@ variable "notification_receipt_secret_id" {
   sensitive = true
   default   = ""
 }
+variable "cost_pseudonym_key_secret_id" {
+  type      = string
+  sensitive = true
+}
 variable "scaling" { type = object({ min_replicas = number, max_replicas = number, cpu = number, memory = string }) }
 variable "channel_edge" {
   type = object({

@@ -3,33 +3,48 @@ import { useMemo, useState } from "preact/hooks";
 import type {
   CostGovernanceAnalytics,
   CostGovernanceProjection,
-  CostGovernanceRecommendation,
+  CostResourceCandidate,
   CostGovernanceTrendPoint,
 } from "../api-cost-governance";
 import { routeHref } from "../router";
 import {
   costLocale,
-  formatCompact,
+  formatCostAmount,
   formatCurrency,
   formatKnownTotal,
   formatNullablePercent,
   formatSignedPercent,
-  recommendationSavings,
-  sampleOutcomeSavings,
   totalHint,
-  type SampleCostOutcomeSavings,
 } from "./cost-governance-format";
 import {
+  CostEvidenceSummary,
+  readinessUnavailableText,
+} from "./cost-governance-evidence";
+import {
+  canPlotResourceCandidates,
+  costDecisionCases,
+  costReadiness,
   costShare,
+  costSettlementOutcomes,
+  incompleteSettlementLineageCount,
+  resourceEfficiencyView,
   summarizeCostGovernance,
+  summarizeSettlements,
   type CostGovernanceRow,
   type CostGovernanceSummary,
 } from "./cost-governance.view-model";
 import {
-  RecommendationInspector,
-  RecommendationTable,
-  ResourceInspector,
-  ResourceTable,
+  CaseReadiness,
+  DecisionCaseRows,
+  DecisionFunnel,
+  SettlementGrid,
+  SettlementStatus,
+  UnavailableUnitChart,
+} from "./cost-governance-lifecycle-widgets";
+import {
+  ResourceCandidateInspector,
+  ResourceCandidateTable,
+  ServiceSummaryTable,
 } from "./cost-governance-resource-widgets";
 import { t } from "./i18n/cost-governance";
 
@@ -41,54 +56,17 @@ export function CostGovernanceWorkspace({
   const summary = summarizeCostGovernance(projection);
   return (
     <section class="cost-governance-workspace" aria-live="polite">
-      <EvidenceToolbar projection={projection} summary={summary} />
+      <CostEvidenceSummary projection={projection} summary={summary} />
       {projection.surface === "overview" ? (
         <Overview projection={projection} summary={summary} analytics={projection.analytics ?? null} />
       ) : projection.surface === "resource-efficiency" ? (
-        <ResourceEfficiency projection={projection} summary={summary} analytics={projection.analytics ?? null} />
+        <ResourceEfficiency projection={projection} summary={summary} />
       ) : projection.surface === "optimization-cases" ? (
-        <OptimizationCases summary={summary} analytics={projection.analytics ?? null} />
+        <OptimizationCases projection={projection} summary={summary} />
       ) : (
-        <Outcomes
-          projection={projection}
-          summary={summary}
-          analytics={projection.analytics ?? null}
-        />
+        <Outcomes projection={projection} />
       )}
     </section>
-  );
-}
-
-function EvidenceToolbar({
-  projection,
-  summary,
-}: {
-  readonly projection: CostGovernanceProjection;
-  readonly summary: CostGovernanceSummary;
-}) {
-  return (
-    <div class="cost-evidence-toolbar">
-      <div>
-        <span>{t("costGovernance.evidence.scope")}</span>
-        <strong>{t("costGovernance.evidence.currentScope")}</strong>
-      </div>
-      <div>
-        <span>{t("costGovernance.evidence.source")}</span>
-        <strong>{projection.source_authority}</strong>
-      </div>
-      <div>
-        <span>{t("costGovernance.evidence.period")}</span>
-        <strong>{t("costGovernance.evidence.retainedWindow")}</strong>
-      </div>
-      <div class="cost-evidence-state">
-        <span>{t("costGovernance.evidence.coverage")}</span>
-        <strong>{projection.complete
-          ? t("costGovernance.summary.complete")
-          : t("costGovernance.summary.incomplete")}</strong>
-        <i class={projection.complete ? "complete" : "partial"} aria-hidden="true" />
-        <small>{t("costGovernance.evidence.records", { count: summary.sourceRecordCount })}</small>
-      </div>
-    </div>
   );
 }
 
@@ -147,7 +125,10 @@ function Overview({
             value={formatKnownTotal(summary)}
             valueLabel={t("costGovernance.metrics.observedCost")}
           />
-          <SpendFlow summary={summary} />
+          <SpendFlow
+            summary={summary}
+            disclosure={projection.evidence?.disclosure ?? projection.disclosure}
+          />
           <div class="cost-flow-summary">
             <span><strong>{summary.rows.length}</strong>{t("costGovernance.metrics.serviceGroups")}</span>
             <span><strong>{summary.sourceRecordCount}</strong>{t("costGovernance.metrics.retainedObservations")}</span>
@@ -183,71 +164,148 @@ function Overview({
 function ResourceEfficiency({
   projection,
   summary,
-  analytics,
 }: {
   readonly projection: CostGovernanceProjection;
   readonly summary: CostGovernanceSummary;
-  readonly analytics: CostGovernanceAnalytics | null;
 }) {
-  const recommendations = analytics?.recommendations ?? [];
-  const savings = recommendationSavings(recommendations);
-  const utilizationComplete = recommendations.length > 0
-    && recommendations.every((item) => item.utilization_percent !== null);
+  const view = resourceEfficiencyView(projection);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(
-    recommendations[0]?.recommendation_ref ?? summary.rows[0]?.id ?? "",
+    view.candidates[0]?.recommendation_ref ?? "",
   );
-  const filtered = useMemo(() => {
+  const filteredServices = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase(costLocale());
     return normalized
-      ? summary.rows.filter((row) =>
+      ? view.serviceRows.filter((row) =>
         `${row.label} ${row.service}`.toLocaleLowerCase(costLocale()).includes(normalized)
       )
-      : summary.rows;
-  }, [query, summary.rows]);
-  const filteredRecommendations = useMemo(() => {
+      : view.serviceRows;
+  }, [query, view.serviceRows]);
+  const filteredCandidates = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase(costLocale());
     return normalized
-      ? recommendations.filter((item) =>
-        `${item.problem} ${item.solution} ${item.resource_type}`.toLocaleLowerCase(costLocale())
+      ? view.candidates.filter((item) =>
+        `${item.resource} ${item.resource_type} ${item.current_configuration} ${item.proposed_configuration}`
+          .toLocaleLowerCase(costLocale())
           .includes(normalized)
       )
-      : recommendations;
-  }, [query, recommendations]);
-  const selected = summary.rows.find((row) => row.id === selectedId) ?? filtered[0] ?? null;
-  const selectedRecommendation = recommendations.find(
+      : view.candidates;
+  }, [query, view.candidates]);
+  const selectedCandidate = filteredCandidates.find(
     (item) => item.recommendation_ref === selectedId,
-  ) ?? filteredRecommendations[0] ?? null;
+  ) ?? filteredCandidates[0] ?? null;
+  const candidateSavings = summarizeCandidateSavings(view.candidates);
+  const canPlotCandidates = canPlotResourceCandidates(view.candidates);
+  const candidateReadiness = costReadiness(projection, "resource-candidates");
+  const observationReadiness = costReadiness(projection, "observations");
+
+  if (view.mode === "service_summary") {
+    return (
+      <>
+        <ResourceModeNotice
+          mode="service_summary"
+          state={observationReadiness?.state ?? (projection.complete ? "complete" : "partial")}
+          reason={readinessUnavailableText(projection, "resource-candidates")}
+        />
+        <div class="cost-kpi-grid">
+          <Metric
+            label={t("costGovernance.resource.runRate")}
+            value={formatKnownTotal(summary)}
+            hint={totalHint(summary)}
+          />
+          <Metric
+            label={t("costGovernance.metrics.services")}
+            value={view.serviceRows.length.toLocaleString(costLocale())}
+            hint={t("costGovernance.resource.serviceSummaryMode")}
+          />
+          <Metric
+            label={t("costGovernance.metrics.sourceRecords")}
+            value={summary.sourceRecordCount.toLocaleString(costLocale())}
+            hint={t("costGovernance.metrics.retainedObservations")}
+          />
+          <Metric
+            label={t("costGovernance.resource.resourceCandidates")}
+            value={candidateReadiness?.record_count
+              ? candidateReadiness.record_count.toLocaleString(costLocale())
+              : "-"}
+            hint={readinessUnavailableText(projection, "resource-candidates")}
+          />
+        </div>
+        <section class="cost-resource-region">
+          <header class="cost-section-head">
+            <div>
+              <h2>{t("costGovernance.resource.serviceTableTitle")}</h2>
+              <p>{t("costGovernance.resource.serviceTableDescription")}</p>
+            </div>
+            <label class="cost-search">
+              <span class="sr-only">{t("costGovernance.resource.searchService")}</span>
+              <input
+                type="search"
+                value={query}
+                placeholder={t("costGovernance.resource.searchService")}
+                onInput={(event) => setQuery(event.currentTarget.value)}
+              />
+            </label>
+          </header>
+          <ServiceSummaryTable rows={filteredServices} projection={projection} />
+          <footer class="cost-table-foot">
+            <span>{t("costGovernance.resource.visibleServices", {
+              count: filteredServices.length,
+              total: view.serviceRows.length,
+            })}</span>
+          </footer>
+        </section>
+      </>
+    );
+  }
+
   return (
     <>
+      <ResourceModeNotice
+        mode="resource_candidate"
+        state={candidateReadiness?.state ?? (view.candidates.length ? "complete" : "unavailable")}
+        reason={candidateReadiness?.reason
+          ? readinessUnavailableText(projection, "resource-candidates")
+          : null}
+      />
       <div class="cost-kpi-grid">
-        <Metric label={t("costGovernance.resource.runRate")} value={formatKnownTotal(summary)} hint={totalHint(summary)} />
-        <Metric label={t("costGovernance.resource.opportunity")} value={savings.total === null ? "-" : formatCurrency(savings.total, savings.currency)} hint={recommendations.length ? t("costGovernance.resource.candidateCount", { count: recommendations.length }) : t("costGovernance.resource.opportunityUnavailable")} />
-        <Metric label={t("costGovernance.resource.capacityRisk")} value={utilizationComplete ? String(recommendations.filter((item) => item.utilization_percent! >= 80).length) : "-"} hint={utilizationComplete ? t("costGovernance.resource.hourlyP95") : t("costGovernance.resource.utilizationUnavailable")} />
+        <Metric label={t("costGovernance.resource.resourceCandidates")} value={String(view.candidates.length)} hint={t("costGovernance.resource.candidateCount", { count: view.candidates.length })} />
+        <Metric label={t("costGovernance.resource.opportunity")} value={candidateSavings.total === null ? "-" : formatCurrency(candidateSavings.total, candidateSavings.currency)} hint={candidateSavings.total === null ? t("costGovernance.resource.opportunityUnavailable") : t("costGovernance.resource.candidateOnly")} />
+        <Metric label={t("costGovernance.resource.utilizationCoverage")} value={String(view.candidates.length)} hint={t("costGovernance.resource.candidateMetrics")} />
         <Metric label={t("costGovernance.metrics.verifiedSavings")} value="-" hint={t("costGovernance.metrics.savingsUnavailable")} />
       </div>
       <article class="cost-visual-card cost-efficiency-map">
         <CardHeader
           eyebrow={t("costGovernance.resource.mapEyebrow")}
-          title={recommendations.length ? t("costGovernance.resource.recommendationMapTitle") : t("costGovernance.resource.mapTitle")}
-          description={recommendations.length ? t("costGovernance.resource.recommendationMapDescription") : t("costGovernance.resource.mapDescription")}
-          value={String(recommendations.length || summary.rows.length)}
-          valueLabel={recommendations.length ? t("costGovernance.resource.candidateRecommendations") : t("costGovernance.resource.analyzedGroups")}
+          title={t("costGovernance.resource.recommendationMapTitle")}
+          description={t("costGovernance.resource.recommendationMapDescription")}
+          value={String(view.candidates.length)}
+          valueLabel={t("costGovernance.resource.candidateRecommendations")}
         />
-        {recommendations.length > 0 ? (
-          <RecommendationMap recommendations={recommendations} onSelect={setSelectedId} selectedId={selectedRecommendation?.recommendation_ref ?? ""} />
+        {canPlotCandidates ? (
+          <CandidateMap
+            candidates={view.candidates}
+            onSelect={setSelectedId}
+            selectedId={selectedCandidate?.recommendation_ref ?? ""}
+          />
         ) : (
-          <CostUtilizationMap rows={summary.rows} totals={summary.totalsByCurrency} onSelect={setSelectedId} selectedId={selected?.id ?? ""} />
+          <UnavailablePanel
+            title={view.candidates.length
+              ? t("costGovernance.resource.mapUnavailableTitle")
+              : t("costGovernance.resource.candidatesUnavailableTitle")}
+            body={view.candidates.length
+              ? t("costGovernance.resource.mapUnavailableBody")
+              : readinessUnavailableText(projection, "resource-candidates")}
+          />
         )}
         <a class="cost-text-action" href="#cost-resource-table">{t("costGovernance.resource.openMapDetail")} <span aria-hidden="true">{"->"}</span></a>
       </article>
-      <DecisionStrip count={recommendations.length || summary.rows.length} />
       <div class="cost-resource-workspace">
         <section class="cost-resource-region" id="cost-resource-table">
           <header class="cost-section-head">
             <div>
-              <h2>{t("costGovernance.resource.tableTitle")}</h2>
-              <p>{t("costGovernance.resource.tableDescription")}</p>
+              <h2>{t("costGovernance.resource.candidateTableTitle")}</h2>
+              <p>{t("costGovernance.resource.candidateTableDescription")}</p>
             </div>
             <label class="cost-search">
               <span class="sr-only">{t("costGovernance.resource.search")}</span>
@@ -259,68 +317,65 @@ function ResourceEfficiency({
               />
             </label>
           </header>
-          {recommendations.length > 0 ? (
-            <RecommendationTable
-              recommendations={filteredRecommendations}
-              selectedId={selectedRecommendation?.recommendation_ref ?? ""}
-              onSelect={setSelectedId}
-            />
-          ) : (
-            <ResourceTable rows={filtered} selectedId={selected?.id ?? ""} totals={summary.totalsByCurrency} complete={projection.complete} onSelect={setSelectedId} />
-          )}
+          <ResourceCandidateTable
+            candidates={filteredCandidates}
+            selectedId={selectedCandidate?.recommendation_ref ?? ""}
+            onSelect={setSelectedId}
+          />
           <footer class="cost-table-foot">
-            <span>{t("costGovernance.resource.visibleRows", { count: recommendations.length ? filteredRecommendations.length : filtered.length, total: recommendations.length || summary.rows.length })}</span>
+            <span>{t("costGovernance.resource.visibleCandidates", {
+              count: filteredCandidates.length,
+              total: view.candidates.length,
+            })}</span>
           </footer>
         </section>
-        {selectedRecommendation ? (
-          <RecommendationInspector recommendation={selectedRecommendation} />
-        ) : (
-          <ResourceInspector row={selected} complete={projection.complete} />
-        )}
+        {selectedCandidate
+          ? <ResourceCandidateInspector candidate={selectedCandidate} />
+          : null}
       </div>
     </>
   );
 }
 
 function OptimizationCases({
+  projection,
   summary,
-  analytics,
 }: {
+  readonly projection: CostGovernanceProjection;
   readonly summary: CostGovernanceSummary;
-  readonly analytics: CostGovernanceAnalytics | null;
 }) {
-  const cases = summary.rows.filter((row) => row.kind === "optimization_case");
-  const recommendations = analytics?.recommendations ?? [];
-  const savings = recommendationSavings(recommendations);
-  const liveCostBasis = cases.length === 0 && recommendations.length === 0 && summary.sourceRecordCount > 0;
+  const cases = costDecisionCases(projection);
+  const readiness = costReadiness(projection, "decision-cases");
+  const observationCount = costReadiness(projection, "observations")?.record_count
+    ?? summary.sourceRecordCount;
   return (
     <>
       <div class="cost-kpi-grid">
-        <Metric label={t(liveCostBasis ? "costGovernance.outcomes.costBasis" : "costGovernance.cases.openCases")} value={liveCostBasis ? formatKnownTotal(summary) : cases.length ? String(cases.length) : "-"} hint={liveCostBasis ? totalHint(summary) : cases.length ? t("costGovernance.cases.projectedCases") : t("costGovernance.cases.noCases")} />
-        <Metric label={t("costGovernance.resource.opportunity")} value={savings.total === null ? "-" : formatCurrency(savings.total, savings.currency)} hint={recommendations.length ? t("costGovernance.cases.candidateOnly", { count: recommendations.length }) : t("costGovernance.resource.opportunityUnavailable")} />
-        <Metric label={t("costGovernance.cases.pendingApproval")} value="-" hint={t("costGovernance.cases.approvalUnavailable")} />
-        <Metric label={t("costGovernance.cases.capacityProtection")} value="-" hint={t("costGovernance.resource.utilizationUnavailable")} />
+        <Metric label={t("costGovernance.cases.openCases")} value={cases.length ? String(cases.length) : "-"} hint={cases.length ? t("costGovernance.cases.ownedCases") : readinessUnavailableText(projection, "decision-cases")} />
+        <Metric label={t("costGovernance.cases.heldCases")} value={cases.length ? String(cases.filter((item) => item.verdict === "hold").length) : "-"} hint={t("costGovernance.cases.observationOnly")} />
+        <Metric label={t("costGovernance.cases.options")} value={cases.length ? String(cases.reduce((count, item) => count + item.option_ids.length, 0)) : "-"} hint={t("costGovernance.cases.ownedOptions")} />
+        <Metric label={t("costGovernance.cases.observations")} value={observationCount ? observationCount.toLocaleString(costLocale()) : "-"} hint={t("costGovernance.cases.retainedEvidence")} />
       </div>
       <div class="cost-case-grid">
         <article class="cost-visual-card">
-          <CardHeader eyebrow={t("costGovernance.cases.mixEyebrow")} title={t("costGovernance.cases.mixTitle")} description={t("costGovernance.cases.mixDescription")} />
-          <OpportunityBars recommendations={recommendations} />
-          <CardFooterText label={t("costGovernance.cases.netEffect")} value="-" />
-          <a class="cost-text-action" href="#cost-case-list">{t("costGovernance.cases.openMixDetail")} <span aria-hidden="true">{"->"}</span></a>
+          <CardHeader eyebrow={t("costGovernance.cases.readinessEyebrow")} title={t("costGovernance.cases.readinessTitle")} description={t("costGovernance.cases.readinessDescription")} />
+          <CaseReadiness projection={projection} readiness={readiness} />
+          <a class="cost-text-action" href="#cost-case-list">{t("costGovernance.cases.openFlowDetail")} <span aria-hidden="true">{"->"}</span></a>
         </article>
         <article class="cost-visual-card">
           <CardHeader eyebrow={t("costGovernance.cases.flowEyebrow")} title={t("costGovernance.cases.flowTitle")} description={t("costGovernance.cases.flowDescription")} />
-          <DecisionFunnel summary={summary} cases={cases} recommendations={recommendations} />
+          <DecisionFunnel projection={projection} observationCount={observationCount} cases={cases} />
           <a class="cost-text-action" href="#cost-case-list">{t("costGovernance.cases.openFlowDetail")} <span aria-hidden="true">{"->"}</span></a>
         </article>
       </div>
       <article class="cost-visual-card cost-case-list" id="cost-case-list">
         <CardHeader eyebrow={t("costGovernance.cases.listEyebrow")} title={t("costGovernance.cases.listTitle")} description={t("costGovernance.cases.listDescription")} />
-        {cases.length > 0 ? <CaseRows rows={cases} /> : recommendations.length > 0 ? (
-          <CandidateRows recommendations={recommendations} />
-        ) : (
-          <UnavailablePanel title={t("costGovernance.cases.unavailableTitle")} body={t("costGovernance.cases.unavailableBody")} />
-        )}
+        {cases.length > 0
+          ? <DecisionCaseRows cases={cases} />
+          : <UnavailablePanel
+            title={t("costGovernance.cases.unavailableTitle")}
+            body={readinessUnavailableText(projection, "decision-cases")}
+          />}
         <a class="cost-text-action" href={routeHref("cost-governance", { segments: ["resource-efficiency"] })}>{t("costGovernance.cases.openListDetail")} <span aria-hidden="true">{"->"}</span></a>
       </article>
     </>
@@ -329,34 +384,41 @@ function OptimizationCases({
 
 function Outcomes({
   projection,
-  summary,
-  analytics,
 }: {
   readonly projection: CostGovernanceProjection;
-  readonly summary: CostGovernanceSummary;
-  readonly analytics: CostGovernanceAnalytics | null;
 }) {
-  const outcomes = summary.rows.filter((row) => row.kind === "outcome");
-  const sampleSavings = sampleOutcomeSavings(
-    projection.source_authority,
-    outcomes,
-    analytics?.recommendations ?? [],
+  const outcomes = costSettlementOutcomes(projection);
+  const incompleteLineageCount = incompleteSettlementLineageCount(projection);
+  const unavailableReason = incompleteLineageCount
+    ? t("costGovernance.outcomes.actionLineageUnavailable", {
+      count: incompleteLineageCount,
+    })
+    : readinessUnavailableText(projection, "settlements");
+  const settlements = summarizeSettlements(outcomes);
+  const readiness = costReadiness(projection, "settlements");
+  const affectedServiceFailures = outcomes.reduce(
+    (count, outcome) => count + outcome.effects.filter(
+      (effect) => effect.kind === "service" && effect.status === "failed",
+    ).length,
+    0,
   );
-  const liveCostBasis = sampleSavings === null && outcomes.length === 0 && summary.sourceRecordCount > 0;
   return (
     <>
       <div class="cost-kpi-grid">
-        <Metric label={t(liveCostBasis ? "costGovernance.outcomes.costBasis" : "costGovernance.outcomes.verifiedSavings")} value={liveCostBasis ? formatKnownTotal(summary) : sampleSavings ? formatCurrency(sampleSavings.verifiedSavings, sampleSavings.currency) : "-"} hint={liveCostBasis ? totalHint(summary) : t(sampleSavings ? "costGovernance.outcomes.sampleEvidence" : "costGovernance.outcomes.noSettlement")} />
-        <Metric label={t(liveCostBasis ? "costGovernance.outcomes.observations" : "costGovernance.outcomes.realization")} value={liveCostBasis ? summary.sourceRecordCount.toLocaleString(costLocale()) : sampleSavings ? formatNullablePercent(sampleSavings.realization) : "-"} hint={liveCostBasis ? t("costGovernance.outcomes.observationOnly") : t(sampleSavings ? "costGovernance.outcomes.sampleEvidence" : "costGovernance.outcomes.noSettlement")} />
-        <Metric label={t("costGovernance.outcomes.sloRegression")} value="-" hint={t("costGovernance.outcomes.effectUnavailable")} />
-        <Metric label={t("costGovernance.outcomes.pendingSettlement")} value="-" hint={t("costGovernance.outcomes.noSettlement")} />
+        <Metric label={t("costGovernance.outcomes.verifiedSavings")} value={settlements.verifiedSavings === null ? "-" : formatCurrency(settlements.verifiedSavings, settlements.currency)} hint={settlements.verifiedSavings === null ? unavailableReason : t("costGovernance.outcomes.independentlySettled")} />
+        <Metric label={t("costGovernance.outcomes.verifiedOutcomes")} value={outcomes.length ? String(settlements.verifiedCount) : "-"} hint={t("costGovernance.outcomes.ownedOutcomes")} />
+        <Metric label={t("costGovernance.outcomes.sloRegression")} value={outcomes.length ? String(affectedServiceFailures) : "-"} hint={outcomes.length ? t("costGovernance.outcomes.failedServiceEffects") : t("costGovernance.outcomes.effectUnavailable")} />
+        <Metric label={t("costGovernance.outcomes.unresolved")} value={outcomes.length ? String(settlements.pendingCount + settlements.censoredCount + settlements.unscorableCount + settlements.rollbackCount) : "-"} hint={t("costGovernance.outcomes.unresolvedHint")} />
       </div>
       <div class="cost-outcome-grid">
         <article class="cost-visual-card">
-          <CardHeader eyebrow={t("costGovernance.outcomes.waterfallEyebrow")} title={t("costGovernance.outcomes.waterfallTitle")} description={t("costGovernance.outcomes.waterfallDescription")} />
-          {sampleSavings
-            ? <SampleWaterfall savings={sampleSavings} />
-            : <UnavailableWaterfall />}
+          <CardHeader eyebrow={t("costGovernance.outcomes.statusEyebrow")} title={t("costGovernance.outcomes.statusTitle")} description={t("costGovernance.outcomes.statusDescription")} />
+          {outcomes.length
+            ? <SettlementStatus summary={settlements} />
+            : <UnavailablePanel
+              title={t("costGovernance.outcomes.unavailableTitle")}
+              body={unavailableReason}
+            />}
           <a class="cost-text-action" href="#cost-effect-list">{t("costGovernance.outcomes.openWaterfallDetail")} <span aria-hidden="true">{"->"}</span></a>
         </article>
         <article class="cost-visual-card">
@@ -367,9 +429,18 @@ function Outcomes({
       </div>
       <article class="cost-visual-card" id="cost-effect-list">
         <CardHeader eyebrow={t("costGovernance.outcomes.effectEyebrow")} title={t("costGovernance.outcomes.effectTitle")} description={t("costGovernance.outcomes.effectDescription")} />
-        {outcomes.length > 0 ? <SettlementGrid rows={outcomes} /> : (
-          <UnavailablePanel title={t("costGovernance.outcomes.unavailableTitle")} body={t("costGovernance.outcomes.unavailableBody")} />
-        )}
+        {incompleteLineageCount ? (
+          <p class="cost-inline-warning">{t(
+            "costGovernance.outcomes.actionLineageUnavailable",
+            { count: incompleteLineageCount },
+          )}</p>
+        ) : null}
+        {outcomes.length > 0
+          ? <SettlementGrid outcomes={outcomes} />
+          : <UnavailablePanel
+            title={t("costGovernance.outcomes.unavailableTitle")}
+            body={unavailableReason}
+          />}
         <a class="cost-text-action" href={routeHref("cost-governance", { segments: ["optimization-cases"] })}>{t("costGovernance.outcomes.openEffectDetail")} <span aria-hidden="true">{"->"}</span></a>
       </article>
     </>
@@ -426,7 +497,13 @@ function UnavailableContribution() {
   );
 }
 
-function SpendFlow({ summary }: { readonly summary: CostGovernanceSummary }) {
+function SpendFlow({
+  summary,
+  disclosure,
+}: {
+  readonly summary: CostGovernanceSummary;
+  readonly disclosure: CostGovernanceProjection["disclosure"];
+}) {
   const rows = summary.rows.slice(0, 6);
   return (
     <div class="cost-flow" role="group" aria-label={t("costGovernance.overview.flowTitle")}>
@@ -442,7 +519,7 @@ function SpendFlow({ summary }: { readonly summary: CostGovernanceSummary }) {
           <li key={row.id}>
             <i style={{ width: `${Math.max((share ?? 0) * 100, share === null ? 0 : 3)}%` }} />
             <span>{row.label}</span>
-            <strong>{formatCurrency(row.amount, row.currency, row.amountLabel)}</strong>
+            <strong>{formatCostAmount(row, disclosure)}</strong>
           </li>
         );
       })}</ol>
@@ -490,83 +567,39 @@ function AttentionPanel({
   );
 }
 
-function CostUtilizationMap({
-  rows,
-  totals,
+function CandidateMap({
+  candidates,
   onSelect,
   selectedId,
 }: {
-  readonly rows: readonly CostGovernanceRow[];
-  readonly totals: Readonly<Record<string, number>>;
+  readonly candidates: readonly CostResourceCandidate[];
   readonly onSelect: (id: string) => void;
   readonly selectedId: string;
 }) {
-  const currencies = new Set(rows.map((row) => row.currency).filter(Boolean));
-  if (currencies.size !== 1 || rows.some((row) => row.amount === null)) {
-    return (
-      <UnavailablePanel
-        title={t("costGovernance.resource.mapUnavailableTitle")}
-        body={t("costGovernance.resource.mapUnavailableBody")}
-      />
-    );
-  }
-
-  const maximum = Math.max(...rows.map((row) => row.amount ?? 0), 1);
-  return (
-    <div class="cost-scatter-shell">
-      <div class="cost-scatter-y"><span>{formatCompact(maximum)}</span><span>{formatCompact(maximum / 2)}</span><span>0</span></div>
-      <div class="cost-scatter">
-        <span class="cost-scatter-banner">{t("costGovernance.resource.utilizationAxisUnavailable")}</span>
-        {rows.slice(0, 8).map((row, index) => {
-          const y = 88 - ((row.amount ?? 0) / maximum) * 72;
-          const x = 13 + (index % 4) * 24;
-          return (
-            <button
-              key={row.id}
-              type="button"
-              class={row.id === selectedId ? "selected" : ""}
-              style={{ "--x": `${x}%`, "--y": `${y}%`, "--size": `${18 + Math.max((costShare(row, totals) ?? 0) * 24, 0)}px` }}
-              onClick={() => onSelect(row.id)}
-              aria-label={`${row.label}, ${formatCurrency(row.amount, row.currency, row.amountLabel)}`}
-            ><span>{row.label}</span></button>
-          );
-        })}
-      </div>
-      <div class="cost-scatter-x"><span>{t("costGovernance.resource.utilizationUnavailable")}</span></div>
-    </div>
+  const maximum = Math.max(
+    ...candidates.map((item) => item.projected_monthly_savings ?? 0),
+    1,
   );
-}
-
-function RecommendationMap({
-  recommendations,
-  onSelect,
-  selectedId,
-}: {
-  readonly recommendations: readonly CostGovernanceRecommendation[];
-  readonly onSelect: (id: string) => void;
-  readonly selectedId: string;
-}) {
-  const maximum = Math.max(...recommendations.map((item) => item.monthly_savings ?? 0), 1);
   return (
     <div class="cost-scatter-shell">
       <div class="cost-scatter-y">
-        <span>{formatCompact(maximum)}</span><span>{formatCompact(maximum / 2)}</span><span>0</span>
+        <span>{formatCurrency(maximum, candidates[0]?.currency ?? "")}</span>
+        <span>{formatCurrency(maximum / 2, candidates[0]?.currency ?? "")}</span>
+        <span>{formatCurrency(0, candidates[0]?.currency ?? "")}</span>
       </div>
       <div class="cost-scatter recommendations">
-        <span class="cost-scatter-banner">{t("costGovernance.resource.recommendationMapBanner")}</span>
-        {recommendations.slice(0, 12).map((item, index) => {
-          const y = 88 - ((item.monthly_savings ?? 0) / maximum) * 72;
-          const knownUtilization = item.utilization_percent !== null;
-          const x = knownUtilization ? item.utilization_percent! : 8 + (index % 4) * 9;
+        {candidates.slice(0, 12).map((item) => {
+          const y = 88 - ((item.projected_monthly_savings ?? 0) / maximum) * 72;
+          const x = 10 + (Math.max(0, Math.min(100, item.utilization_percent)) * .8);
           return (
             <button
               key={item.recommendation_ref}
               type="button"
-              class={`${item.recommendation_ref === selectedId ? "selected " : ""}${knownUtilization ? "" : "unknown"}`}
-              style={{ "--x": `${x}%`, "--y": `${y}%`, "--size": `${18 + Math.min((item.monthly_savings ?? 0) / maximum * 22, 22)}px` }}
+              class={item.recommendation_ref === selectedId ? "selected" : ""}
+              style={{ "--x": `${x}%`, "--y": `${y}%`, "--size": `${18 + Math.min((item.projected_monthly_savings ?? 0) / maximum * 22, 22)}px` }}
               onClick={() => onSelect(item.recommendation_ref)}
-              aria-label={`${item.problem}, ${formatCurrency(item.monthly_savings, item.currency ?? "")}, ${knownUtilization ? formatNullablePercent(item.utilization_percent! / 100) : t("costGovernance.resource.utilizationUnavailable")}`}
-            ><span>{item.resource_ref ?? item.resource_type}</span></button>
+              aria-label={`${item.resource}, ${formatCurrency(item.projected_monthly_savings, item.currency ?? "")}, ${formatNullablePercent(item.utilization_percent / 100)}`}
+            ><span>{item.resource}</span></button>
           );
         })}
       </div>
@@ -575,162 +608,52 @@ function RecommendationMap({
   );
 }
 
-function DecisionStrip({ count }: { readonly count: number }) {
-  const items = [
-    ["all", count, false],
-    ["downsize", 0, true],
-    ["keep", 0, true],
-    ["upsize", 0, true],
-    ["schedule", 0, true],
-    ["retire", 0, true],
-    ["review", count, false],
-  ] as const;
+function ResourceModeNotice({
+  mode,
+  state,
+  reason,
+}: {
+  readonly mode: "service_summary" | "resource_candidate";
+  readonly state: "complete" | "partial" | "unavailable";
+  readonly reason: string | null;
+}) {
   return (
-    <div class="cost-decision-strip" aria-label={t("costGovernance.resource.decisionClasses")}>
-      {items.map(([key, value, disabled], index) => (
-        <button type="button" class={index === 0 ? "active" : ""} disabled={disabled} key={key}>
-          <span>{t(`costGovernance.resource.decisions.${key}`)}</span><strong>{value}</strong>
-        </button>
-      ))}
-    </div>
+    <section class="cost-resource-mode" aria-label={t("costGovernance.resource.modeLabel")}>
+      <div>
+        <span>{t("costGovernance.resource.modeLabel")}</span>
+        <h2>{t(`costGovernance.resource.modes.${mode}.title`)}</h2>
+        <p>{t(`costGovernance.resource.modes.${mode}.description`)}</p>
+      </div>
+      <span class={`cost-evidence ${state === "complete" ? "ready" : "limited"}`}>
+        {t(`costGovernance.evidence.states.${state}`)}
+      </span>
+      {reason ? <small>{reason}</small> : null}
+    </section>
   );
 }
 
-function OpportunityBars({
-  recommendations,
-}: {
-  readonly recommendations: readonly CostGovernanceRecommendation[];
-}) {
-  const known = recommendations.filter(
-    (item): item is CostGovernanceRecommendation & { readonly monthly_savings: number } =>
-      item.monthly_savings !== null,
+function summarizeCandidateSavings(
+  candidates: readonly CostResourceCandidate[],
+): { readonly total: number | null; readonly currency: string } {
+  const currencies = new Set(
+    candidates.map((item) => item.currency).filter((value): value is string => Boolean(value)),
   );
-  if (known.length === 0) {
-    return <UnavailablePanel title={t("costGovernance.cases.effectsUnavailableTitle")} body={t("costGovernance.cases.effectsUnavailableBody")} />;
+  if (
+    candidates.length === 0
+    || currencies.size !== 1
+    || candidates.some((item) =>
+      item.projected_monthly_savings === null || item.currency === null
+    )
+  ) {
+    return { total: null, currency: "" };
   }
-  const maximum = Math.max(...known.map((item) => item.monthly_savings), 1);
-  return (
-    <div class="cost-opportunity-bars">{known.slice(0, 4).map((item) => (
-      <div key={item.recommendation_ref}><span>{item.problem}</span><i><b style={{ width: `${item.monthly_savings / maximum * 100}%` }} /></i><strong>{formatCurrency(item.monthly_savings, item.currency ?? "")}</strong></div>
-    ))}</div>
-  );
-}
-
-function DecisionFunnel({
-  summary,
-  cases,
-  recommendations,
-}: {
-  readonly summary: CostGovernanceSummary;
-  readonly cases: readonly CostGovernanceRow[];
-  readonly recommendations: readonly CostGovernanceRecommendation[];
-}) {
-  return (
-    <ol class="cost-decision-funnel">
-      <li style={{ "--width": "100%", "--tone": "9%" }}><span>{t("costGovernance.cases.observations")}</span><strong>{summary.sourceRecordCount}</strong><small>{t("costGovernance.cases.retainedEvidence")}</small></li>
-      <li style={{ "--width": "82%", "--tone": "12%" }}><span>{t("costGovernance.cases.candidates")}</span><strong>{recommendations.length}</strong><small>{t("costGovernance.cases.advisorCandidates")}</small></li>
-      <li class={cases.length ? "" : "unavailable"} style={{ "--width": "64%", "--tone": "6%" }}><span>{t("costGovernance.cases.decisionCases")}</span><strong>{cases.length || "-"}</strong><small>{cases.length ? t("costGovernance.cases.projectedCases") : t("costGovernance.cases.noCases")}</small></li>
-      <li class="unavailable" style={{ "--width": "48%", "--tone": "6%" }}><span>{t("costGovernance.cases.pendingApproval")}</span><strong>-</strong><small>{t("costGovernance.cases.approvalUnavailable")}</small></li>
-      <li class="unavailable" style={{ "--width": "36%", "--tone": "6%" }}><span>{t("costGovernance.outcomes.state")}</span><strong>-</strong><small>{t("costGovernance.outcomes.noSettlement")}</small></li>
-    </ol>
-  );
-}
-
-function CaseRows({ rows }: { readonly rows: readonly CostGovernanceRow[] }) {
-  return (
-    <div class="cost-case-rows">{rows.map((row) => (
-      <div key={row.id}>
-        <span class="cost-status review">{t("costGovernance.resource.reviewRequired")}</span>
-        <strong>{row.label}</strong>
-        <span>{row.status}</span>
-        <b>{formatCurrency(row.amount, row.currency, row.amountLabel)}</b>
-        <small>{row.observedAt ? new Date(row.observedAt).toLocaleString(costLocale()) : "-"}</small>
-      </div>
-    ))}</div>
-  );
-}
-
-function CandidateRows({
-  recommendations,
-}: {
-  readonly recommendations: readonly CostGovernanceRecommendation[];
-}) {
-  return (
-    <div class="cost-case-rows">{recommendations.slice(0, 12).map((item) => (
-      <div key={item.recommendation_ref}>
-        <span class="cost-status review">{t("costGovernance.resource.candidateOnly")}</span>
-        <strong>{item.resource_ref ?? t("costGovernance.resource.subscriptionScope")}</strong>
-        <span>{item.problem}</span>
-        <b>{formatCurrency(item.monthly_savings, item.currency ?? "")}</b>
-        <small>{t("costGovernance.cases.notDecisionCase")}</small>
-      </div>
-    ))}</div>
-  );
-}
-
-function UnavailableWaterfall() {
-  return (
-    <div class="cost-waterfall unavailable" role="img" aria-label={t("costGovernance.outcomes.waterfallUnavailable")}>
-      {["projected", "deduplicated", "protected", "pending", "unrealized", "verified"].map((key) => (
-        <div key={key}><strong>-</strong><i /><span>{t(`costGovernance.outcomes.waterfall.${key}`)}</span></div>
-      ))}
-    </div>
-  );
-}
-
-function SampleWaterfall({ savings }: { readonly savings: SampleCostOutcomeSavings }) {
-  const stages = [
-    { key: "projected", amount: savings.projectedSavings, height: 1 },
-    { key: "deduplicated", amount: null, height: null },
-    { key: "protected", amount: null, height: null },
-    { key: "pending", amount: null, height: null },
-    { key: "unrealized", amount: null, height: null },
-    { key: "verified", amount: savings.verifiedSavings, height: savings.realization },
-  ] as const;
-  return (
-    <div class="cost-waterfall" role="img" aria-label={t("costGovernance.outcomes.waterfallTitle")}>
-      {stages.map((stage) => (
-        <div key={stage.key}>
-          <strong>{stage.amount === null
-            ? "-"
-            : formatCurrency(stage.amount, savings.currency)}</strong>
-          <i style={stage.height === null ? undefined : {
-            height: `${Math.max(8, Math.min(100, stage.height * 100))}%`,
-          }} />
-          <span>{t(`costGovernance.outcomes.waterfall.${stage.key}`)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function UnavailableUnitChart() {
-  return (
-    <div class="cost-unit-chart unavailable" role="img" aria-label={t("costGovernance.outcomes.unitUnavailable")}>
-      <div aria-hidden="true" />
-      <strong>{t("costGovernance.outcomes.unitUnavailable")}</strong>
-      <small>{t("costGovernance.outcomes.unitUnavailableBody")}</small>
-    </div>
-  );
-}
-
-function SettlementGrid({ rows }: { readonly rows: readonly CostGovernanceRow[] }) {
-  return (
-    <div class="cost-settlement-grid">{rows.map((row) => {
-      const observedAt = row.observedAt
-        ? new Date(row.observedAt).toLocaleString(costLocale())
-        : "-";
-      return (
-        <div key={row.id}>
-          <span>{row.status}</span>
-          <strong>{row.label}</strong>
-          <small>{row.amount === null
-            ? observedAt
-            : `${formatCurrency(row.amount, row.currency)} - ${observedAt}`}</small>
-        </div>
-      );
-    })}</div>
-  );
+  return {
+    total: candidates.reduce(
+      (total, item) => total + (item.projected_monthly_savings ?? 0),
+      0,
+    ),
+    currency: candidates[0]?.currency ?? "",
+  };
 }
 
 function CardHeader({

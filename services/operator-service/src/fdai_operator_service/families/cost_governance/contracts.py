@@ -9,13 +9,32 @@ from typing import Protocol
 from fdai_service_contracts import (
     CostAccessGrant,
     CostAnalyticsProjection,
+    CostAnalyticsRunReceipt,
+    CostDecisionCaseProjection,
     CostDisclosureCeiling,
+    CostEvidenceSourceFacet,
     CostGovernanceUnavailableReason,
     CostProjectionRecord,
+    CostSettlementOutcomeProjection,
 )
 
 COST_DISCLOSURE_RETENTION_DAYS = 400
 COST_DISCLOSURE_PURGE_GRACE_DAYS = 30
+
+
+def decode_cost_pseudonym_key(value: str | None) -> bytes | None:
+    """Decode one persisted 256-bit hexadecimal key or fail closed."""
+
+    if value is None or not value.strip():
+        return None
+    normalized = value.strip()
+    if (
+        len(normalized) != 64
+        or normalized != normalized.casefold()
+        or any(character not in "0123456789abcdef" for character in normalized)
+    ):
+        raise ValueError("FDAI_COST_PSEUDONYM_KEY MUST be 64 lowercase hexadecimal characters")
+    return bytes.fromhex(normalized)
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +135,44 @@ class CostDisclosureAuditRecord:
             raise ValueError("Cost disclosure legal hold reference MUST be bounded ASCII")
 
 
+@dataclass(frozen=True, slots=True)
+class CostProjectionEvidenceSnapshot:
+    """Authoritative persisted inputs used to compute public readiness."""
+
+    window_start_at: datetime | None
+    window_end_at: datetime | None
+    latest_source_at: datetime | None
+    complete_count: int
+    partial_count: int
+    sources: tuple[CostEvidenceSourceFacet, ...]
+    latest_analytics_run: CostAnalyticsRunReceipt | None
+    resource_candidate_count: int
+    incomplete_candidate_count: int
+    decision_case_count: int
+    incomplete_decision_case_count: int
+    settlement_count: int
+    incomplete_settlement_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class CostAnalyticsSnapshot:
+    """One immutable analytics payload bound to its exact persisted scope."""
+
+    snapshot_id: str
+    scope_id: str
+    projection: CostAnalyticsProjection
+
+    def __post_init__(self) -> None:
+        if (
+            len(self.snapshot_id) != 74
+            or not self.snapshot_id.startswith("analytics:")
+            or any(character not in "0123456789abcdef" for character in self.snapshot_id[10:])
+        ):
+            raise ValueError("Cost Analytics snapshot id MUST use analytics:<sha256>")
+        if not self.scope_id or self.scope_id == "*" or len(self.scope_id) > 1024:
+            raise ValueError("Cost Analytics snapshot scope MUST be exact and bounded")
+
+
 class CostAccessReader(Protocol):
     """Read one user-specific grant before any activation or cost-table query."""
 
@@ -150,7 +207,7 @@ class CostActivationWriter(Protocol):
 
 
 class CostProjectionReader(Protocol):
-    """Read retained immutable observations only after access and activation pass."""
+    """Read retained observations and explicit authority-free lineage projections."""
 
     async def read_records(
         self,
@@ -160,11 +217,34 @@ class CostProjectionReader(Protocol):
         limit: int,
     ) -> tuple[CostProjectionRecord, ...]: ...
 
+    async def read_projection_evidence(
+        self,
+        *,
+        scope: str,
+        analytics_snapshot_id: str | None,
+    ) -> CostProjectionEvidenceSnapshot: ...
+
+    async def read_decision_cases(
+        self,
+        *,
+        scope: str,
+        limit: int,
+        pseudonym_key: bytes,
+    ) -> tuple[CostDecisionCaseProjection, ...]: ...
+
+    async def read_settlement_outcomes(
+        self,
+        *,
+        scope: str,
+        limit: int,
+        pseudonym_key: bytes,
+    ) -> tuple[CostSettlementOutcomeProjection, ...]: ...
+
 
 class CostAnalyticsReader(Protocol):
     """Read the latest disclosure-safe analytics snapshot for one scope."""
 
-    async def read_analytics(self, *, scope: str) -> CostAnalyticsProjection | None: ...
+    async def read_analytics(self, *, scope: str) -> CostAnalyticsSnapshot | None: ...
 
 
 class CostDisclosureAuditWriter(Protocol):
@@ -178,6 +258,7 @@ __all__ = [
     "COST_DISCLOSURE_RETENTION_DAYS",
     "CostAccessDecision",
     "CostAccessReader",
+    "CostAnalyticsSnapshot",
     "CostAnalyticsReader",
     "CostActivationReader",
     "CostActivationSnapshot",
@@ -185,4 +266,6 @@ __all__ = [
     "CostDisclosureAuditRecord",
     "CostDisclosureAuditWriter",
     "CostProjectionReader",
+    "CostProjectionEvidenceSnapshot",
+    "decode_cost_pseudonym_key",
 ]

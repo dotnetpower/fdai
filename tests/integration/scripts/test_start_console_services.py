@@ -374,11 +374,15 @@ def test_supervisor_waits_for_the_analyzer_first_clean_tick() -> None:
     source = _START_SCRIPT.read_text(encoding="utf-8")
     service_source = _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
 
-    assert 'if [[ "$service" == "local-analyzer" ]]' in source
+    assert '"$service" == "local-analyzer"' in source
+    assert '"$service" == "cost-governance-analytics"' in source
     assert "service_args+=(--wait-ready)" in source
     assert 'FDAI_CONSOLE_START_READINESS_SECONDS="$readiness_seconds"' in source
     assert "FDAI_ANALYZER_RUN_ID:-local-analyzer-$(date -u +%s)-$$" in service_source
     assert 'FDAI_ANALYZER_RUN_ID="$local_analyzer_run_id"' in service_source
+    assert "cost-governance-analytics" in source
+    assert 'FDAI_COST_STORE_DSN="$FDAI_STATE_STORE_DSN"' in service_source
+    assert "collect-cost-governance-analytics.py" in service_source
 
 
 def test_inventory_stage_reuse_requires_current_checkpoint() -> None:

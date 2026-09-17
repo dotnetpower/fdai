@@ -20,12 +20,33 @@ def test_cost_retry_after_uses_longest_provider_delay_case_insensitively() -> No
     assert delay == 11
 
 
-def test_package_declares_both_job_entrypoints() -> None:
+def test_package_declares_shared_and_legacy_job_entrypoints() -> None:
     pyproject = (_ROOT / "extensions/cost-governance/pyproject.toml").read_text(encoding="utf-8")
+    assert 'fdai-cost-analytics = "fdai_cost_governance.job_cli:analytics_main"' in pyproject
     assert 'fdai-cost-collector = "fdai_cost_governance.job_cli:collector_main"' in pyproject
     assert 'fdai-cost-analyzer = "fdai_cost_governance.job_cli:analyzer_main"' in pyproject
     assert 'fdai-cost-lifecycle = "fdai_cost_governance.lifecycle_cli:main"' in pyproject
     assert 'fdai-cost-validation = "fdai_cost_governance.validation_cli:main"' in pyproject
+
+
+def test_shared_analytics_command_selects_only_existing_read_identities() -> None:
+    source = (_ROOT / "extensions/cost-governance/src/fdai_cost_governance/job_cli.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'venue_value not in {"local", "deployed"}' in source
+    assert "AzureCliCredential()" in source
+    assert "ManagedIdentityWorkloadIdentity.from_env" in source
+    assert 'client_id_env="FDAI_COST_COLLECTION_MI_CLIENT_ID"' in source
+    assert "fdai_cost_governance.scheduled_analytics" not in source
+    assert (
+        "execution"
+        not in (
+            _ROOT / "extensions/cost-governance/src/fdai_cost_governance/scheduled_analytics.py"
+        )
+        .read_text(encoding="utf-8")
+        .casefold()
+    )
 
 
 def test_optional_jobs_are_serial_and_use_non_executor_collection_identity() -> None:
@@ -41,7 +62,9 @@ def test_optional_jobs_are_serial_and_use_non_executor_collection_identity() -> 
         == 2
     )
     assert "var.finops_identity" not in terraform
-    assert "fdai-cost-collector" in terraform
+    assert 'command = ["fdai-cost-analytics"]' in terraform
+    assert 'command = ["fdai-cost-collector"]' not in terraform
+    assert 'FDAI_EXECUTION_VENUE      = "deployed"' in terraform
     assert "fdai-cost-analyzer" in terraform
     assert "FDAI_COST_COLLECTION_MI_CLIENT_ID" in terraform
     assert 'data "azurerm_container_app_environment" "cost_governance"' in terraform

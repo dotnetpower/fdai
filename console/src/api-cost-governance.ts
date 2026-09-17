@@ -7,12 +7,26 @@ import {
 } from "./routes/panel-decode";
 
 export type {
+  CostAnalyticsRunReceipt,
+  CostDecisionCase,
+  CostDisclosurePolicy,
+  CostEvidenceFreshness,
+  CostEvidenceSourceFacet,
+  CostEvidenceState,
   CostGovernanceAnalytics,
   CostGovernanceBudget,
   CostGovernanceProjection,
   CostGovernanceRecommendation,
+  CostGovernanceResourceEfficiencyMode,
   CostGovernanceSurface,
   CostGovernanceTrendPoint,
+  CostProjectionEvidence,
+  CostReadinessReason,
+  CostReadinessSurface,
+  CostResourceCandidate,
+  CostSettlementEffect,
+  CostSettlementOutcome,
+  CostSurfaceReadiness,
 } from "./api-cost-governance-projection";
 
 export interface CostGovernanceAvailability {
