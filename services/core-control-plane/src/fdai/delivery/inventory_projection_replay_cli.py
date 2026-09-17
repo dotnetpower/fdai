@@ -78,14 +78,23 @@ async def run_once(
     projector: ProjectionReplayProjector,
     state: ProjectionManifestReader,
     source_revision: str,
+    allow_pending_generation: bool = False,
 ) -> dict[str, object]:
     """Replay one immutable active generation and verify the committed release."""
 
     if _SHA40.fullmatch(source_revision) is None:
         raise ValueError("inventory projection replay source revision must be a git SHA")
     before = await state.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
-    before_objects, before_links, prior_release, legacy_identity_migration = _comparable_manifest(
-        before, replay
+    (
+        before_objects,
+        before_links,
+        prior_release,
+        prior_generation,
+        legacy_identity_migration,
+    ) = _comparable_manifest(
+        before,
+        replay,
+        allow_pending_generation=allow_pending_generation,
     )
     result = await projector.apply(
         replay.observation,
@@ -96,21 +105,32 @@ async def run_once(
     )
     if result.status is not InventoryOntologyProjectionStatus.AVAILABLE or not result.complete:
         raise ValueError("inventory projection replay did not produce complete evidence")
-    if result.object_count != before_objects or result.link_count != before_links:
+    generation_changed = prior_generation != replay.observation.generation
+    if not generation_changed and (
+        result.object_count != before_objects or result.link_count != before_links
+    ):
         raise ValueError("inventory projection replay content counts changed")
     manifest = await state.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
     if not isinstance(manifest, Mapping):
         raise ValueError("inventory projection replay manifest is unavailable")
+    object_content = manifest.get("object_content")
+    link_content = manifest.get("link_content")
     if (
         manifest.get("generation") != replay.observation.generation
         or manifest.get("ontology_release_digest") != result.ontology_release_digest
         or manifest.get("complete") is not True
+        or not isinstance(object_content, list)
+        or not isinstance(link_content, list)
+        or len(object_content) != result.object_count
+        or len(link_content) != result.link_count
     ):
         raise ValueError("inventory projection replay manifest verification failed")
     return {
         "schema_version": "1.0.0",
         "source_revision_digest": _text_digest(source_revision),
+        "prior_generation_digest": _text_digest(prior_generation),
         "generation_digest": _text_digest(replay.observation.generation),
+        "generation_changed": generation_changed,
         "prior_ontology_release_digest": prior_release,
         "ontology_release_digest": result.ontology_release_digest,
         "ontology_release_changed": prior_release != result.ontology_release_digest,
@@ -146,8 +166,17 @@ async def _run_from_env(source_revision: str, environ: Mapping[str, str]) -> dic
         config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
     )
     current_manifest = await state.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
-    replay_watermarks = _manifest_replay_watermarks(current_manifest)
-    if replay_watermarks is None:
+    pending = await journal.load_pending_promoted_snapshot()
+    allow_pending_generation = pending is not None
+    if pending is not None:
+        append = await journal.append_promoted_snapshot(pending)
+        replay = InventoryProjectionReplayInput(
+            observation=pending,
+            journal_high_watermark=append.journal_high_watermark,
+            projection_high_watermark=append.projection_high_watermark,
+            freshness_ceiling_seconds=DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
+        )
+    elif (replay_watermarks := _manifest_replay_watermarks(current_manifest)) is None:
         active_snapshot = await PostgresInventorySnapshotReplayLoader(
             config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
         ).load()
@@ -184,6 +213,7 @@ async def _run_from_env(source_revision: str, environ: Mapping[str, str]) -> dic
         projector=projector,
         state=state,
         source_revision=source_revision,
+        allow_pending_generation=allow_pending_generation,
     )
 
 
@@ -208,27 +238,32 @@ def _text_digest(value: str) -> str:
 def _comparable_manifest(
     value: object,
     replay: InventoryProjectionReplayInput,
-) -> tuple[int, int, str, bool]:
+    *,
+    allow_pending_generation: bool = False,
+) -> tuple[int, int, str, str, bool]:
     if not isinstance(value, Mapping):
         raise ValueError("inventory projection replay pre-manifest is unavailable")
+    prior_generation = value.get("generation")
+    if not isinstance(prior_generation, str) or not prior_generation:
+        raise ValueError("inventory projection replay pre-manifest is not comparable")
     if value.get("schema_version") == "1.1.0":
         object_count, link_count = _legacy_identity_counts(value)
         prior_release = value.get("ontology_release_digest")
         if (
-            value.get("generation") != replay.observation.generation
+            prior_generation != replay.observation.generation
             or not isinstance(prior_release, str)
             or _DIGEST.fullmatch(prior_release) is None
             or value.get("complete") is not True
             or value.get("dropped_reasons") != []
         ):
             raise ValueError("inventory projection replay legacy manifest is not comparable")
-        return object_count, link_count, prior_release, True
+        return object_count, link_count, prior_release, prior_generation, True
     object_content = value.get("object_content")
     link_content = value.get("link_content")
     prior_release = value.get("ontology_release_digest")
     prior_journal_watermark, prior_projection_watermark = _prior_manifest_watermarks(value)
     if (
-        value.get("generation") != replay.observation.generation
+        (prior_generation != replay.observation.generation and not allow_pending_generation)
         or _DIGEST.fullmatch(str(value.get("manifest_digest", ""))) is None
         or not isinstance(prior_release, str)
         or _DIGEST.fullmatch(prior_release) is None
@@ -239,7 +274,7 @@ def _comparable_manifest(
         or prior_projection_watermark > replay.projection_high_watermark
     ):
         raise ValueError("inventory projection replay pre-manifest is not comparable")
-    return len(object_content), len(link_content), prior_release, False
+    return len(object_content), len(link_content), prior_release, prior_generation, False
 
 
 def _legacy_identity_counts(value: Mapping[str, object]) -> tuple[int, int]:
