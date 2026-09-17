@@ -73,6 +73,9 @@ export class OperatorApiClient {
   readonly #reporting: ReportingApiClient;
   #dataSourcesPromise: Promise<ReadDataSourcesPayload> | null = null;
   #dataSourcesCacheExpiresAt = 0;
+  #modelSettingsPromise: Promise<unknown> | null = null;
+  #modelSettingsCacheExpiresAt = 0;
+  #modelSettingsGeneration = 0;
 
   constructor(
     config: ConsoleConfig,
@@ -239,6 +242,50 @@ export class OperatorApiClient {
         );
     }
     return this.#dataSourcesPromise;
+  }
+
+  /** Reuse one successful Models projection for 60 seconds within this authenticated client. */
+  modelSettings(options: {
+    readonly force?: boolean;
+    readonly refreshCatalog?: boolean;
+  } = {}): Promise<unknown> {
+    if (
+      options.force === true
+      || options.refreshCatalog === true
+      || this.#modelSettingsPromise === null
+      || (
+        this.#modelSettingsCacheExpiresAt !== 0
+        && Date.now() >= this.#modelSettingsCacheExpiresAt
+      )
+    ) {
+      const generation = ++this.#modelSettingsGeneration;
+      this.#modelSettingsCacheExpiresAt = 0;
+      const path = options.refreshCatalog === true
+        ? "/models/settings?refresh_catalog=1"
+        : "/models/settings";
+      this.#modelSettingsPromise = this.panel<unknown>(path).then(
+        (payload) => {
+          if (generation === this.#modelSettingsGeneration) {
+            this.#modelSettingsCacheExpiresAt = Date.now() + 60_000;
+          }
+          return payload;
+        },
+        (error: unknown) => {
+          if (generation === this.#modelSettingsGeneration) {
+            this.#modelSettingsPromise = null;
+          }
+          throw error;
+        },
+      );
+    }
+    return this.#modelSettingsPromise;
+  }
+
+  /** Drop the browser-memory Models projection after a successful settings mutation. */
+  invalidateModelSettings(): void {
+    this.#modelSettingsGeneration += 1;
+    this.#modelSettingsPromise = null;
+    this.#modelSettingsCacheExpiresAt = 0;
   }
 
   async iamOverview(): Promise<IamOverview> {

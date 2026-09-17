@@ -504,7 +504,15 @@ export function App() {
       </Shell>
       {settingsOpen ? (
         <Suspense fallback={<i class="settings-overlay-scrim" />}>
-          <SettingsOverlay activePanelId={panel.id} onClose={closeSettings}>
+          <SettingsOverlay
+            activePanelId={panel.id}
+            onClose={closeSettings}
+            onPrefetchPanel={(panelId) => {
+              if (panelId === "settings-models") {
+                void client.modelSettings().catch(() => undefined);
+              }
+            }}
+          >
             <PanelErrorBoundary key={routeKey}>
               <Suspense fallback={<PanelLoading title={panel.label} subtitle={panel.subtitle} />}>
                 <PanelComponent client={client} auth={auth} dataMode={dataMode} />

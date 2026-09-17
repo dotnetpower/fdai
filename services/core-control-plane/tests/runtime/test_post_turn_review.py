@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
+import pytest
 from fdai.composition.semantic_query_model_targets import model_target_for_capability
 from fdai.core.learning import (
     NoImprovement,
@@ -172,19 +173,14 @@ def _resolved_models(
 
 
 async def test_azure_models_require_two_distinct_resolved_families() -> None:
+    with pytest.raises(ValueError, match="distinct model families"):
+        _resolved_models(secondary_family="family-a")
+
     identity = StaticWorkloadIdentity(audience=COGNITIVE_SERVICES_SCOPE)
     async with httpx.AsyncClient() as client:
         models = build_azure_post_turn_models(
             repo_root=Path(__file__).resolve().parents[4],
             resolved_models_path=_resolved_models(secondary_family="family-b").to_json(),
-            endpoint="https://example.com",
-            endpoint_resolver=lambda _: "https://example.com",
-            identity=identity,
-            http_client=client,
-        )
-        unavailable = build_azure_post_turn_models(
-            repo_root=Path(__file__).resolve().parents[4],
-            resolved_models_path=_resolved_models(secondary_family="family-a").to_json(),
             endpoint="https://example.com",
             endpoint_resolver=lambda _: "https://example.com",
             identity=identity,
@@ -201,7 +197,6 @@ async def test_azure_models_require_two_distinct_resolved_families() -> None:
         )
 
     assert tuple(model.model_family for model in models) == ("family-a", "family-b")
-    assert unavailable == ()
     assert held == ()
 
 

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a76f92e2d282acc3240fcf080ca32026e6f6e4d6
+translation_source_sha: 8abb622a990d2c503a4ddc782f29d7a7aa9b46f0
 translation_revised: 2026-09-17
 ---
 # 프로젝트 구조
@@ -116,8 +116,8 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   provider/hostname 불일치를 차단합니다. Platform Terraform이 이 map을 소유하며 보호된 서비스
   구체화는 같은 origin을 독립 Core root에 전달합니다. 의미 계획과 턴 후 검토는 이 map을 통해
   기능 binding을 해석합니다. Staging ChatOps 검증 모드는 결과를 계획 metadata에 봉인하고 계획과
-  적용 전에 다시 검증합니다. SKU 한정 quota 조회는 다른 배포 tier가 검토된 secondary 프로필을
-  충족하지 못하게 합니다. 의미 사전 프레임 선택은 요약, 추적, 담당 프레임의 타입을 분리하며
+  적용 전에 다시 검증합니다. SKU 한정 quota 조회는 다른 배포 tier가 검토된 secondary 프로필을 충족하지 못하게 합니다.
+  Resolver와 composition은 primary 및 secondary 계열을 다르게 요구하고 binding 전에 primary 지연 시간 풀의 secondary 계열 재사용을 거부합니다. 의미 사전 프레임 선택은 요약, 추적, 담당 프레임의 타입을 분리하며
   호환성 facade는 안정적인 import를 유지합니다.
 - **자격 검증 축약에는 권한이 없음**:
   `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만
@@ -152,7 +152,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   요청된 사례를 서버의 고정 census와 대조해 검증하고, Bragi는 단일 최종 답변을 만들며, 응답 경로
   밖의 서로 다른 모델 계열 검토자는 상관관계가 연결된 30점 진단을 추가합니다. 일반
   `operations-review` 턴은 등록된 함수 권한의 변경할 수 없는 스냅샷을 준비 상태 소비자에게 노출하는 기존 의미 런타임을 계속 사용합니다. 스키마로 검증된 판단은 활성 매니페스트와 정본 주체 및 항목이 일치하는 일반 타입 프레임만 복구할 수 있습니다. Golden 인증은 정확한 예상 최종 처리 결과에 바인딩되고, Operator 묶음은 Core 계획 전에 요청된 로케일을 보존합니다.
-  과거 `context_locale_scorecard.py`는 호환 전용으로 다시 내보냅니다.
+  Azure 평가자 어댑터는 모델 계열과 호환되는 완료 필드를 선택하고 연결, HTTP 상태 및 잘못된 응답 실패를 범위가 제한된 콘텐츠 없는 사유 코드로 축약합니다. Core는 프로바이더 응답 내용을 검사하거나 프로바이더 권한을 부여하지 않고 이 코드를 검증하여 의미 평가 축약과 평가 보류 결합까지 보존합니다. 과거 `context_locale_scorecard.py`는 호환 전용으로 다시 내보냅니다.
   표본을 구문 분석하며 추적 약속값을 완전한 추적 주장으로 변환하지 않습니다. 인접한
   `quality_trace.py` 축약기는 레코드 약속값만 받고 순서가 정확한 세션부터 감사까지의 연결에서
   완전성을 증명하며 권한을 부여하지 않습니다. `quality_timing.py`는 설치된 계약, 출처 리비전,

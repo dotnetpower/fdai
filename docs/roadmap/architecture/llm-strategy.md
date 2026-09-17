@@ -146,7 +146,7 @@ builder. Legacy files without `endpoint_bindings` keep the direct Azure OpenAI p
 
 APIM is a route and governance boundary, not a model publisher. The mixed-model quality gate still
 compares the publishers and families behind the gateway. Primary and secondary capabilities remain
-separate bindings even when they share an APIM hostname, and a same-publisher pair is still invalid.
+separate bindings even when they share an APIM hostname, and a same-family pair is still invalid.
 
 Self-hosted endpoints are never discovered by scanning a virtual network or trusting `/v1/models`
 alone. They enter the candidate set through a publisher-keyed, domain-separated Ed25519 registration
@@ -220,7 +220,7 @@ capacity: { unit: ptu, value: 30 }
 - **Candidate completeness:** `auto` evaluates complete publisher-family-version-SKU-capacity
   candidates. Missing TPM or PTU capacity advances to the next preference.
 - **Capacity units:** Standard SKUs use TPM. Provisioned SKUs use PTU without conversion.
-- **T2 pair atomicity:** Primary and secondary need distinct publishers unless a digest-bound policy
+- **T2 pair atomicity:** Primary and secondary need distinct model families unless a digest-bound policy
   holds either at `hil-only`. That hold forces Human approval; its deterministic disagreement
   sentinel is not a startup model candidate and emits no model invocation or metering record.
 - **No Console authority:** Draft, assessment, and plan requests perform no provider mutation. A protected model plan identifies the exact Operator proposal and policy digest in one request id; the runner reads PostgreSQL without writes and rejects stale or authority-bearing state. The protected model Settings producer refreshes the digest-bound model projection, creates the runtime Settings baseline only when missing, preserves existing runtime evidence, and verifies both rows against the deployment environment before reporting success.
@@ -242,7 +242,7 @@ authored in
 [dev-and-deploy-parity.md § Deployer-Scoped LLM Provisioning](../deployment/dev-and-deploy-parity.md#deployer-scoped-llm-provisioning);
 this section shows the happy-path shape.
 
-![Bootstrap Provisioner. The main stages are Terraform / Bicep: azd up, Azure OpenAI or Foundry resource, resolver, llm-registry.yaml, query catalog: / available families + versions in region, for each capability: / first preference available, mark capability hil-only / report completeness impact, create deployment / with TPM or PTU capacity, verify mixed-model invariant: / primary.publisher ≠ secondary.publisher, FAIL, write resolved-models.json to Key Vault / + audit entry.](../../diagrams/generated/fdai-roadmap-architecture-llm-strategy-02.en.svg)
+![Bootstrap Provisioner. The main stages are Terraform / Bicep: azd up, Azure OpenAI or Foundry resource, resolver, llm-registry.yaml, query catalog: / available families + versions in region, for each capability: / first preference available, mark capability hil-only / report completeness impact, create deployment / with TPM or PTU capacity, verify mixed-model invariant: / primary.family != secondary.family, FAIL, write resolved-models.json to Key Vault / + audit entry.](../../diagrams/generated/fdai-roadmap-architecture-llm-strategy-02.en.svg)
 
 **Bootstrap invariants (MUST)**
 - Environmental failures such as a missing role, unavailable preferred family, or zero
@@ -250,8 +250,8 @@ this section shows the happy-path shape.
   makes that degradation visible and a deployment can choose `--assess-fail-on critical`
   to block it.
 - When both T2 reasoners resolve outside explicit `hil-only` mode,
-  `t2.reasoner.primary.publisher` and `t2.reasoner.secondary.publisher` MUST differ.
-  A same-publisher pair is a hard resolver error.
+  `t2.reasoner.primary.family` and `t2.reasoner.secondary.family` MUST differ.
+  A same-family pair is a hard resolver error.
 - The resolved mapping records `{deployment, family, version, publisher}` per capability
   so the audit log can name the exact model that decided any case.
 
@@ -272,7 +272,7 @@ against `resolved-models.json` (actual) and returns a deterministic
   `hil-only` / `missing`, tagged `core` / `quorum` / `optional`, with the runtime
   impact of its absence;
 - `quorum_ok` reports whether the mixed-model T2 cross-check can form (both
-  reasoners available, distinct publishers) - not expected in `hil-only` mode;
+  reasoners available, distinct model families) - not expected in `hil-only` mode;
 - a `ProvisioningSeverity` rolls up to `ok` (all resolved), `degraded` (only
   optional capabilities missing - debate / RCA / escalation / rubric off is
   tolerable), or `critical` (a core capability missing or the quorum cannot form,
@@ -379,8 +379,8 @@ the `t2.reasoner.primary` slot. Cross-request proposer recovery changes which re
 route is preferred only through the governed action pipeline. Neither scope grants model output
 authority or weakens the mixed-model quality gate.
 
-- **Same-publisher latency pool:** Every primary-pool deployment shares one publisher, and that
-  publisher remains distinct from `t2.reasoner.secondary`. Only the primary slot is latency-routed;
+- **Same-publisher latency pool:** Every primary-pool deployment shares one publisher and excludes
+  the selected `t2.reasoner.secondary` family. Only the primary slot is latency-routed;
   the secondary cross-check, Critic, Judge, and escalation ladder keep fixed roles. The resolver
   rejects a cross-publisher pool. `llm.t2_primary_latency_routing` defaults to `true`, activates
   only for at least two emitted candidates, and leaves a single primary unchanged.
@@ -423,7 +423,7 @@ a bootstrap-time choice:
 
 | Mode | Where the secondary lives | When to pick |
 |------|---------------------------|--------------|
-| `azure-foundry` (default) | Anthropic / Mistral / Cohere models served through Azure AI Foundry model catalog | region and compliance allow non-OpenAI Foundry models; single billing surface |
+| `azure-foundry` (default) | a distinct non-mini GPT family served through Azure OpenAI | the region provides two independent GPT weight families with sufficient quota |
 | `external` | secondary via a direct third-party endpoint (Anthropic API, etc.) | required family unavailable in Foundry for the region |
 | `hil-only` | no secondary provisioned; every T2 case routes to HIL | fork cannot obtain a second family (temporarily); explicit opt-in |
 

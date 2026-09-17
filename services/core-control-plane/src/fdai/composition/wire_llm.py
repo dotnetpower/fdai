@@ -470,9 +470,9 @@ def bind_azure_llm_bindings(
     # T2 Primary Latency Pool (invariant-safe, opt-in). When the flag is on AND
     # the resolver emitted >= 2 same-publisher candidates, wrap the primary
     # proposer so each cross-check call routes to the fastest deployment. The
-    # publisher never changes (``collect_primary_candidates`` guarantees a
-    # single publisher), so the mixed-model invariant
-    # (primary.publisher != secondary.publisher) is preserved. Off by default,
+    # publisher never changes and the selected secondary family is excluded by
+    # ``collect_primary_candidates``, so the mixed-model family invariant is
+    # preserved. Off by default,
     # shadow-first - see docs/roadmap/architecture/llm-strategy.md
     # (T2 Primary Latency Pool).
     primary_pool = resolved.reasoner_primary_candidates
