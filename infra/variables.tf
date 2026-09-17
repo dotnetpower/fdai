@@ -366,7 +366,7 @@ variable "resolved_capabilities" {
   validation {
     condition = alltrue([
       for capability in var.resolved_capabilities :
-      contains(["OpenAI", "Anthropic", "MistralAI"], capability.publisher)
+      contains(["OpenAI", "Anthropic", "Cohere", "MistralAI"], capability.publisher)
     ])
     error_message = "resolved capabilities MUST use an allowlisted publisher."
   }

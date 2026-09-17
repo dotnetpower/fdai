@@ -56,8 +56,8 @@ def test_seals_only_partner_capabilities_with_deterministic_account_ref() -> Non
         ),
         _capability(
             name="t2.reasoner.secondary",
-            publisher="MistralAI",
-            family="Mistral-Large-3",
+            publisher="Cohere",
+            family="cohere-command-a",
         ),
     )
 

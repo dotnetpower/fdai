@@ -98,9 +98,10 @@ models:
   t2.reasoner.secondary:
     preferences:
       - {publisher: Anthropic, family: claude-opus-4}
+      - {publisher: Cohere, family: cohere-command-a}
       - {publisher: MistralAI, family: Mistral-Large-3}
     sku: GlobalStandard
-    capacity_tpm: 1000
+    capacity_tpm: 10000
 
   t2.reasoner.escalated:
     preferences:

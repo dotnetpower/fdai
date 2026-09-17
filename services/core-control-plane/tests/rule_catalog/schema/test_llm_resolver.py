@@ -310,6 +310,41 @@ def test_upstream_secondary_resolves_reviewed_mistral_profile() -> None:
     assert secondary.capacity_tpm == 1_000
 
 
+def test_upstream_secondary_prefers_cohere_before_mistral() -> None:
+    result = resolve(
+        registry=load_llm_registry_from_yaml(_UPSTREAM_REGISTRY),
+        region=_REGION,
+        subscription_id=_SUB,
+        deployer_object_id=_OID,
+        catalog=_PublisherStaticCatalog(
+            {"cohere-command-a", "Mistral-Large-3"},
+            {
+                ("Cohere", "cohere-command-a"),
+                ("MistralAI", "Mistral-Large-3"),
+            },
+        ),
+        permission=_AlwaysPermissionQuery(True),
+        quota=_SkuDictQuota(
+            {
+                ("Cohere", "cohere-command-a", "GlobalStandard"): 100_000,
+                ("MistralAI", "Mistral-Large-3", "GlobalStandard"): 100_000,
+            }
+        ),
+        model_versions=_StaticVersions(
+            {
+                ("Cohere", "cohere-command-a"): "1",
+                ("MistralAI", "Mistral-Large-3"): "1",
+            }
+        ),
+    )
+
+    secondary = next(item for item in result.capabilities if item.name == "t2.reasoner.secondary")
+    assert secondary.status is CapabilityStatus.RESOLVED
+    assert secondary.publisher == "Cohere"
+    assert secondary.family == "cohere-command-a"
+    assert secondary.capacity_tpm == 10_000
+
+
 def test_legacy_quota_adapter_cannot_resolve_nonstandard_mistral_sku() -> None:
     policy = load_model_binding_policy_from_mapping(
         {

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 3391574cee58f13e0eca57d7bacff321fd458608
+translation_source_sha: ce7eeff3afb65d2e1657969bcfa5d95ca26f20d9
 translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
@@ -226,6 +226,10 @@ AKS standalone 렌더러는 Core semantic 요청, 변환 결과, physical, 읽�
 연결하므로 모델이 비활성화되어도 요청을 대기시키지 않고 typed hold를 반환합니다. 모델 지원이
 활성화되면 Azure 모드, 이미지의 resolved-model 경로, 정확한 산출물 digest, 기본 endpoint,
 endpoint map이 하나의 계약을 이루며 잘못된 출력은 준비를 중단합니다. `enable_llm`은 JSON boolean이어야 하며 다른 타입도 애플리케이션 준비를 중단합니다. 이 검증은 구조만 확인하고 자연어 의도를 분류하지 않습니다.
+공유 Terraform 모델 경계는 OpenAI 기능을 Azure OpenAI 계정으로 보내고 Anthropic, Cohere 또는
+MistralAI 기능을 배포가 소유하는 Foundry partner 계정으로 보냅니다. 두 런타임 프로파일은 같은
+봉인된 endpoint map을 사용하므로 AKS 또는 Container Apps 선택으로 secondary 발행기, 모델 또는
+용량이 바뀌지 않습니다.
 
 Operator의 배정 알림과 사람 승인(HIL) 전송에 필요한 가져오기는 같은 Operator Service
 패키지와 런타임 안의 기존 `iam_composition` 모듈에 모읍니다. 원래 어댑터와 팩터리 객체를

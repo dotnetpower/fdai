@@ -62,6 +62,8 @@ def test_upstream_registry_file_loads_clean() -> None:
     assert registry.models["t1.web_search"].sku is Sku.GLOBAL_STANDARD
     assert registry.models["t2.reasoner.primary"].sku is Sku.GLOBAL_STANDARD
     secondary = registry.models["t2.reasoner.secondary"]
+    assert secondary.preferences[1].publisher == "Cohere"
+    assert secondary.preferences[1].family == "cohere-command-a"
     assert secondary.preferences[-1].publisher == "MistralAI"
     assert secondary.preferences[-1].family == "Mistral-Large-3"
     assert secondary.sku is Sku.GLOBAL_STANDARD
@@ -130,7 +132,7 @@ def test_upstream_registry_file_loads_clean() -> None:
         "t1.judge": 200_000,
         "t1.web_search": 100_000,
         "t2.reasoner.primary": 100_000,
-        "t2.reasoner.secondary": 1_000,
+        "t2.reasoner.secondary": 10_000,
         "t2.reasoner.escalated": 50_000,
         "t2.critic": 50_000,
         "t2.rca": 50_000,
