@@ -28,6 +28,29 @@ function auditItem(seq: number, recordedAt: string) {
   };
 }
 
+function operationalActivity(index: number) {
+  const identity = `inventory.scan:load-${index}:completed`;
+  return {
+    type: "agent.operational-activity",
+    schema_version: "1.0.0",
+    activity_id: identity,
+    idempotency_key: identity,
+    kind: "inventory.scan",
+    status: "completed",
+    owner_agent: "Huginn",
+    producer: "inventory-sync-job",
+    observation_domain: null,
+    observed_at: new Date(Date.UTC(2026, 8, 17, 0, 0, index)).toISOString(),
+    source: "inventory",
+    freshness: "fresh",
+    evidence_count: 1,
+    duration_ms: 1,
+    correlation_id: `load-${index}`,
+    reason_codes: [],
+    execution_authority: false,
+  };
+}
+
 async function installActivityLogFixture(
   page: Page,
   streamBody = "",
@@ -91,6 +114,45 @@ function handlerActivityStream(): string {
     { ...base, state: "collecting", correlation_id: "correlation-1", phase: "started", detail: "Processing fdai.change.events" },
     { ...base, state: "watching", correlation_id: null, phase: "completed", detail: "Processed fdai.change.events", completed_at: "2026-09-17T00:01:00Z", duration_ms: 42 },
   ].map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join("");
+}
+
+async function installBusyActivityLogFixture(page: Page): Promise<void> {
+  const retained = Array.from({ length: 500 }, (_, index) => operationalActivity(index));
+  const live = Array.from({ length: 120 }, (_, index) => operationalActivity(index + 500));
+  const streamBody = live.map((event) =>
+    `id: ${event.activity_id}\nevent: message\ndata: ${JSON.stringify(event)}\n\n`
+  ).join("");
+
+  await page.route("**/system/data-sources*", (route) => json(route, {
+    surface: "read-data-sources",
+    sources: [{
+      key: "agent-activity-load-test",
+      source: "deterministic browser fixture",
+      routes: ["/audit", "/agents/activity", "/agents/stream"],
+      availability: "available",
+      configured: true,
+      reachable: true,
+      authoritative: true,
+      durable: true,
+      synthetic: true,
+      reason: null,
+      last_observed_at: "2026-09-17T00:10:19Z",
+    }],
+  }));
+  await page.route("**/audit*", (route) => json(route, {
+    items: [auditItem(1, "2026-09-17T00:00:00Z")],
+    next_cursor: null,
+  }));
+  await page.route("**/agents/activity*", (route) => json(route, {
+    items: retained,
+    snapshot_at: "2026-09-17T00:08:19Z",
+    source: "durable-operational-projection",
+  }));
+  await page.route("**/agents/stream*", (route) => route.fulfill({
+    status: 200,
+    contentType: "text/event-stream",
+    body: streamBody,
+  }));
 }
 
 test("highlights only newly appended activity and keeps log text readable", async ({ page }) => {
@@ -224,4 +286,37 @@ test("shows one resource-first row for a completed handler activity", async ({ p
       document.documentElement.scrollWidth - document.documentElement.clientWidth
     )).toBeLessThanOrEqual(0);
   }
+});
+
+test("keeps pointer and search controls responsive during a bounded activity burst", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installBusyActivityLogFixture(page);
+  await page.goto("/agent-activity");
+
+  const rows = page.locator(".aa-log-row");
+  await expect(rows).toHaveCount(601);
+  await expect(rows.first()).toHaveCSS("content-visibility", "auto");
+
+  const columns = page.getByRole("button", { name: "Columns" });
+  const menu = page.getByRole("menu");
+  const clickStarted = await page.evaluate(() => performance.now());
+  await columns.click();
+  await expect(menu).toBeVisible();
+  const clickDuration = await page.evaluate((started) => performance.now() - started, clickStarted);
+  expect(clickDuration).toBeLessThan(1_000);
+
+  const inventoryLane = page.locator(".aa-log-lanes button").nth(1);
+  await inventoryLane.click();
+  await expect(inventoryLane).toHaveAttribute("aria-pressed", "true");
+  await expect(rows).toHaveCount(600);
+
+  const search = page.getByRole("searchbox", { name: "Find" });
+  const searchStarted = await page.evaluate(() => performance.now());
+  await search.fill("load-619");
+  await expect(rows).toHaveCount(1);
+  const searchDuration = await page.evaluate((started) => performance.now() - started, searchStarted);
+  expect(searchDuration).toBeLessThan(1_000);
+  await expect(rows.first()).toContainText("load-619");
 });

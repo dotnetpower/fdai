@@ -35,6 +35,7 @@ import {
   agentActivityTimestamp,
   agentStreamDescriptor,
   useAgentStream,
+  type AgentActivityMessage,
   type AgentStreamStatus,
 } from "../hooks/use-agent-stream";
 import {
@@ -113,6 +114,8 @@ interface Props {
 /** Number of audit rows pulled to build the timeline (newest first). */
 const TIMELINE_LIMIT = 200;
 export const OPERATIONAL_ACTIVITY_LIMIT = 500;
+const STREAM_RENDER_INTERVAL_MS = 100;
+const STREAM_PENDING_LIMIT = 1_024;
 
 interface Data {
   readonly items: readonly AuditItem[];
@@ -192,7 +195,35 @@ export function AgentActivityRoute({ client }: Props) {
   const [runtime, dispatch] = useReducer(reducer, undefined, makeInitialState);
   const requestGeneration = useRef(0);
   const refreshButtonRef = useRef<HTMLButtonElement>(null);
+  const pendingStreamMessagesRef = useRef<AgentActivityMessage[]>([]);
+  const streamFlushTimerRef = useRef<number | null>(null);
   const stream = useMemo(agentStreamDescriptor, []);
+
+  const flushStreamMessages = (): void => {
+    if (streamFlushTimerRef.current !== null) {
+      window.clearTimeout(streamFlushTimerRef.current);
+      streamFlushTimerRef.current = null;
+    }
+    const messages = pendingStreamMessagesRef.current;
+    if (messages.length === 0) return;
+    pendingStreamMessagesRef.current = [];
+    dispatch({ kind: "messages", messages });
+    setLastEventAt(agentActivityTimestamp(messages[messages.length - 1]!));
+  };
+
+  const enqueueStreamMessage = (message: AgentActivityMessage): void => {
+    pendingStreamMessagesRef.current.push(message);
+    if (pendingStreamMessagesRef.current.length >= STREAM_PENDING_LIMIT) {
+      flushStreamMessages();
+      return;
+    }
+    if (streamFlushTimerRef.current === null) {
+      streamFlushTimerRef.current = window.setTimeout(
+        flushStreamMessages,
+        STREAM_RENDER_INTERVAL_MS,
+      );
+    }
+  };
 
   async function loadAudit(
     showLoading: boolean,
@@ -243,14 +274,19 @@ export function AgentActivityRoute({ client }: Props) {
     };
   }, [client]);
 
+  useEffect(() => () => {
+    if (streamFlushTimerRef.current !== null) {
+      window.clearTimeout(streamFlushTimerRef.current);
+    }
+    streamFlushTimerRef.current = null;
+    pendingStreamMessagesRef.current = [];
+  }, []);
+
   const { status: streamStatus, source: streamSource } = useAgentStream({
     url: stream.url,
     enabled: state.status === "ready",
     getAuthorizationHeader: client.authorizationHeader,
-    onEvent: (message) => {
-      dispatch({ kind: "message", msg: message });
-      setLastEventAt(agentActivityTimestamp(message));
-    },
+    onEvent: enqueueStreamMessage,
     onGap: () => {
       void loadAudit(false);
     },

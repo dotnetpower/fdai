@@ -55,7 +55,9 @@ function ticketMsg(
   };
 }
 
-function turnMsg(correlation_id: string): AgentActivityMessage {
+function turnMsg(
+  correlation_id: string,
+): Extract<AgentActivityMessage, { type: "conversation.turn" }> {
   return {
     type: "conversation.turn",
     correlation_id,
@@ -324,6 +326,9 @@ describe("agents.model", () => {
     expect(state.liveActivity).toHaveLength(1);
     expect(state.liveActivity[0]?.source).toBe("runtime-observed");
     expect(state.agents.Heimdall?.state).toBe("watching");
+    const afterLive = state;
+    state = reducer(state, { kind: "message", msg: activity });
+    expect(state).toBe(afterLive);
   });
 
   it("retains observed state transitions as newest-first live activity", () => {
@@ -343,6 +348,27 @@ describe("agents.model", () => {
     expect(liveActivityForAgent(s.liveActivity, "Forseti")).toHaveLength(0);
     expect(s.liveActivity.filter(isLiveWorkActivity).map((event) => event.state))
       .toEqual(["collecting"]);
+  });
+
+  it("reduces a stream burst in one action without losing distinct transitions", () => {
+    const message = stateMsg("Huginn", "collecting", "inc-1");
+    const state = reducer(makeInitialState(), {
+      kind: "messages",
+      messages: [
+        stateMsg("Huginn", "watching"),
+        message,
+        message,
+        { ...message, state: "watching", correlation_id: null },
+      ],
+    });
+
+    expect(state.liveActivity.map((event) => event.state)).toEqual([
+      "watching",
+      "collecting",
+      "watching",
+    ]);
+    expect(state.nextLiveActivitySequence).toBe(4);
+    expect(state.agents.Huginn?.state).toBe("watching");
   });
 
   it("keeps runtime initialization snapshots out of activity while refreshing state", () => {
@@ -388,11 +414,19 @@ describe("agents.model", () => {
     expect(state.agents.Huginn?.since).toBe("2026-07-12T00:00:15+00:00");
   });
 
-  it("retains repeated active work frames even when their details match", () => {
+  it("ignores an exact duplicate active frame but retains a later observation", () => {
     let state = makeInitialState();
     const message = stateMsg("Forseti", "analyzing", "inc-1");
     state = reducer(state, { kind: "message", msg: message });
+    const afterFirst = state;
     state = reducer(state, { kind: "message", msg: message });
+
+    expect(state).toBe(afterFirst);
+
+    state = reducer(state, {
+      kind: "message",
+      msg: { ...message, ts: "2026-07-12T00:00:15+00:00" },
+    });
 
     expect(state.liveActivity).toHaveLength(2);
     expect(state.liveActivity.map((event) => event.sequence)).toEqual([2, 1]);
@@ -412,7 +446,11 @@ describe("agents.model", () => {
 
   it("opens then resolves an incident, preserving the rca", () => {
     let s = makeInitialState();
-    s = reducer(s, { kind: "message", msg: ticketMsg("inc-1", "open") });
+    const openedMessage = ticketMsg("inc-1", "open");
+    s = reducer(s, { kind: "message", msg: openedMessage });
+    const openedState = s;
+    s = reducer(s, { kind: "message", msg: openedMessage });
+    expect(s).toBe(openedState);
     expect(s.incidentOrder).toEqual(["inc-1"]);
     expect(s.incidents["inc-1"]?.status).toBe("open");
     s = reducer(s, { kind: "message", msg: ticketMsg("inc-1", "investigating", "root cause X") });
@@ -427,8 +465,46 @@ describe("agents.model", () => {
     let s = makeInitialState();
     s = reducer(s, { kind: "message", msg: ticketMsg("inc-1", "open") });
     s = reducer(s, { kind: "message", msg: turnMsg("inc-1") });
-    s = reducer(s, { kind: "message", msg: turnMsg("inc-1") });
+    s = reducer(s, {
+      kind: "message",
+      msg: { ...turnMsg("inc-1"), ts: "2026-07-12T00:00:01+00:00" },
+    });
     expect(s.incidents["inc-1"]?.turns).toHaveLength(2);
+  });
+
+  it("deduplicates and bounds retained incident conversation turns", () => {
+    let state = makeInitialState();
+    state = reducer(state, { kind: "message", msg: ticketMsg("inc-1", "open") });
+
+    const duplicate = turnMsg("inc-1");
+    state = reducer(state, { kind: "message", msg: duplicate });
+    const afterFirst = state;
+    state = reducer(state, { kind: "message", msg: duplicate });
+    expect(state).toBe(afterFirst);
+
+    state = reducer(state, {
+      kind: "message",
+      msg: { ...duplicate, text: "intervening turn", ts: "2026-07-12T00:00:01+00:00" },
+    });
+    const afterIntervening = state;
+    state = reducer(state, { kind: "message", msg: duplicate });
+    expect(state).toBe(afterIntervening);
+
+    for (let index = 1; index <= 110; index += 1) {
+      state = reducer(state, {
+        kind: "message",
+        msg: {
+          ...turnMsg("inc-1"),
+          text: `turn-${index}`,
+          ts: new Date(Date.UTC(2026, 6, 12, 0, 0, index)).toISOString(),
+        },
+      });
+    }
+
+    const turns = state.incidents["inc-1"]?.turns ?? [];
+    expect(turns).toHaveLength(100);
+    expect(turns[0]?.text).toBe("turn-11");
+    expect(turns.at(-1)?.text).toBe("turn-110");
   });
 
   it("seeds a stub incident when a turn arrives before its ticket", () => {

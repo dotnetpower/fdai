@@ -16594,6 +16594,8 @@ main { padding-bottom: 60px !important; }
 .aa-log-row {
   position: relative;
   isolation: isolate;
+  content-visibility: auto;
+  contain-intrinsic-block-size: 44px;
   min-height: 44px;
   padding: 7px 14px;
   border-top: 1px solid var(--border);

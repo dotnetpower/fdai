@@ -154,6 +154,7 @@ export interface LiveAgentActivityEvent {
 
 /** Cap retained incidents so a long-lived tab cannot grow without bound. */
 const MAX_INCIDENTS = 30;
+const MAX_INCIDENT_TURNS = 100;
 /** Cap live frames so a long-lived tab has stable memory use. */
 const MAX_OPERATIONAL_ACTIVITY = 600;
 const MAX_OTHER_LIVE_ACTIVITY = 100;
@@ -304,6 +305,12 @@ function recordLiveActivity(
     sourceOverride,
   );
   if (projected === null) return state;
+  const latestComparable = state.liveActivity.find(
+    (event) => event.kind === projected.kind && event.agent === projected.agent,
+  );
+  if (latestComparable && sameLiveActivity(latestComparable, projected)) {
+    return state;
+  }
   const duplicateIndex = projected.activityId === null
     ? -1
     : state.liveActivity.findIndex(
@@ -362,6 +369,25 @@ function recordLiveActivity(
   };
 }
 
+function sameLiveActivity(
+  left: LiveAgentActivityEvent,
+  right: LiveAgentActivityEvent,
+): boolean {
+  return left.kind === right.kind &&
+    left.agent === right.agent &&
+    left.agents.length === right.agents.length &&
+    left.agents.every((agent, index) => agent === right.agents[index]) &&
+    left.state === right.state &&
+    left.summary === right.summary &&
+    left.detail === right.detail &&
+    left.correlationId === right.correlationId &&
+    left.ts === right.ts &&
+    left.source === right.source &&
+    left.activityId === right.activityId &&
+    left.operationalKind === right.operationalKind &&
+    left.observationDomain === right.observationDomain;
+}
+
 function boundLiveActivity(
   events: readonly LiveAgentActivityEvent[],
 ): readonly LiveAgentActivityEvent[] {
@@ -418,6 +444,7 @@ function applyAgentState(
     prev.state === msg.state &&
     prev.correlationId === msg.correlation_id &&
     prev.detail === msg.detail;
+  if (stateUnchanged) return state;
   const node: AgentNode = {
     name: msg.agent,
     layer: prev.layer,
@@ -435,6 +462,18 @@ function applyTicket(
   msg: Extract<AgentActivityMessage, { type: "incident.ticket" }>,
 ): AgentsState {
   const existing = state.incidents[msg.correlation_id];
+  const rca = msg.rca ?? existing?.rca ?? null;
+  if (
+    existing !== undefined &&
+    existing.ticketId === msg.ticket_id &&
+    existing.title === msg.title &&
+    existing.severity === msg.severity &&
+    existing.status === msg.status &&
+    existing.involved.length === msg.involved_agents.length &&
+    existing.involved.every((agent, index) => agent === msg.involved_agents[index]) &&
+    existing.rca === rca &&
+    existing.updatedAt === msg.ts
+  ) return state;
   const incident: Incident = {
     correlationId: msg.correlation_id,
     ticketId: msg.ticket_id,
@@ -442,7 +481,7 @@ function applyTicket(
     severity: msg.severity,
     status: msg.status,
     involved: msg.involved_agents,
-    rca: msg.rca ?? existing?.rca ?? null,
+    rca,
     turns: existing?.turns ?? [],
     updatedAt: msg.ts,
   };
@@ -491,23 +530,48 @@ function applyTurn(
       incidentOrder,
     };
   }
+  if (existing.turns.some((turn) => sameConversationTurn(turn, msg))) {
+    return state;
+  }
   const incident: Incident = {
     ...existing,
     involved: [...existing.involved, ...participants].filter(
       (name, index, names) => names.indexOf(name) === index,
     ),
-    turns: [...existing.turns, msg],
+    turns: [...existing.turns, msg].slice(-MAX_INCIDENT_TURNS),
     updatedAt: msg.ts,
   };
   return { ...state, incidents: { ...state.incidents, [msg.correlation_id]: incident } };
+}
+
+function sameConversationTurn(
+  left: ConversationTurnMessage,
+  right: ConversationTurnMessage,
+): boolean {
+  return left.correlation_id === right.correlation_id &&
+    left.from_agent === right.from_agent &&
+    left.to_agent === right.to_agent &&
+    left.kind === right.kind &&
+    left.text === right.text &&
+    left.ts === right.ts &&
+    left.source === right.source;
 }
 
 function applyOperationalActivity(
   state: AgentsState,
   msg: Extract<AgentActivityMessage, { type: "agent.operational-activity" }>,
 ): AgentsState {
-  const next = operationalAgentNode(state.agents[msg.owner_agent], msg);
+  const previous = state.agents[msg.owner_agent];
+  const next = operationalAgentNode(previous, msg);
   if (next === null) return state;
+  if (
+    previous !== undefined &&
+    previous.state === next.state &&
+    previous.observed === next.observed &&
+    previous.correlationId === next.correlationId &&
+    previous.since === next.since &&
+    previous.detail === next.detail
+  ) return state;
   return {
     ...state,
     agents: {
@@ -538,6 +602,7 @@ function operationalAgentNode(
 
 export type AgentsAction =
   | { readonly kind: "message"; readonly msg: AgentActivityMessage }
+  | { readonly kind: "messages"; readonly messages: readonly AgentActivityMessage[] }
   | { readonly kind: "hydrate"; readonly incidents: readonly IncidentSummary[] }
   | {
     readonly kind: "hydrate-activity";
@@ -657,7 +722,25 @@ export function reducer(state: AgentsState, action: AgentsAction): AgentsState {
   if (action.kind === "hydrate-activity") {
     return hydrateOperationalActivity(state, action.activities);
   }
-  const { msg } = action;
+  if (action.kind === "messages") {
+    return action.messages.reduce(
+      (current, msg) => reduceAgentMessage(current, msg),
+      state,
+    );
+  }
+  return reduceAgentMessage(state, action.msg);
+}
+
+function reduceAgentMessage(
+  state: AgentsState,
+  msg: AgentActivityMessage,
+): AgentsState {
+  if (
+    msg.type === "conversation.turn" &&
+    state.incidents[msg.correlation_id]?.turns.some(
+      (turn) => sameConversationTurn(turn, msg),
+    )
+  ) return state;
   const next = recordLiveActivity(state, msg);
   switch (msg.type) {
     case "agent.state":
