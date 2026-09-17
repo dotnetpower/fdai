@@ -39,6 +39,7 @@ StageName = Literal[
     "capability",
     "migration",
     "application",
+    "initial-inventory",
     "verification",
     "cleanup",
 ]
@@ -56,6 +57,7 @@ _STAGES: tuple[tuple[StageName, str], ...] = (
     ("capability", "Capability mode"),
     ("migration", "Database and catalogs"),
     ("application", "Application deployment"),
+    ("initial-inventory", "Initial resource inventory"),
     ("verification", "Health and zero-change plan"),
     ("cleanup", "Cleanup and final receipt"),
 )

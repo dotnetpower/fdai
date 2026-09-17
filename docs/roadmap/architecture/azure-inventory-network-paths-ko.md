@@ -1,8 +1,8 @@
 ---
 title: 제한된 네트워크의 Azure 인벤토리
 translation_of: azure-inventory-network-paths.md
-translation_source_sha: 26cff99a131cb49ab5f20b755cf3ccc7c143a528
-translation_revised: 2026-09-10
+translation_source_sha: e1f24f62e2343924f4bd58ad2d1e9503a9a371a1
+translation_revised: 2026-09-16
 ---
 # 제한된 네트워크의 Azure 인벤토리
 
@@ -61,6 +61,7 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 | 워크로드 토큰 | 런타임 제공 managed 신원 또는 워크로드 신원 엔드포인트 | IMDS를 사용하는 경우 `AzurePlatformIMDS`를 포함한 런타임 플랫폼 아이덴티티 경로 허용; 앱 서브넷에서 토큰을 발급할 수 없으면 승인된 러너의 federated 워크로드 신원 사용 | 디스커버리만을 위해 광범위한 인터넷 egress나 클라이언트 시크릿을 추가하지 않습니다. |
 | DNS | Azure 제공 DNS 또는 승인된 custom 해석기 | 해당되는 경우 `AzurePlatformDNS`를 포함한 런타임 플랫폼 DNS 경로 허용; 허브 해석기를 통해 필요한 공개 또는 Private Link 영역 전달 | 스캔을 시작하기 전에 엔드포인트 해석 및 TLS 프로브를 실행합니다. DNS 성공만으로 도달성이 증명되지는 않습니다. |
 | 스냅샷 게시 | 비공개 PostgreSQL 및 Event Hubs 경로 | 디스커버리 러너에서 비공개 엔드포인트, VNet 피어링 또는 허브 라우팅 사용 | 수집기는 공개 콘솔 엔드포인트를 통해 인벤토리를 보내지 않습니다. |
+| 초기 구성 진행률 근거 | 비공개 Foundation Blob 서비스 및 PostgreSQL | Bastion으로 접근 가능한 Managed Host는 기존 상태 계정 데이터 역할과 비공개 엔드포인트를 사용하고 Operator는 PostgreSQL만 읽습니다. | Blob 개체에는 개수 전용 해시 체인 레코드만 있으며 인벤토리 행이나 실행 권한은 없습니다. 반복 인벤토리는 이 부트스트랩 Blob 경로를 요구하지 않습니다. |
 
 게이트웨이 전송에는 양방향 피어링이 필요합니다. 게이트웨이 VNet 방향에
 `allow_gateway_transit`를 먼저 설정한 후 워크로드 VNet 방향에서 `use_remote_gateways`를
