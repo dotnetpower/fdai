@@ -10,6 +10,7 @@ resource "azurerm_kubernetes_cluster" "scenario_lab" {
   # checkov:skip=CKV_AZURE_117:CMK-backed node disks add durable key infrastructure to a disposable fault target.
   # checkov:skip=CKV_AZURE_116:The one-node lab validates fault behavior, not Azure Policy admission.
   # checkov:skip=CKV_AZURE_115:The disposable non-production lab intentionally uses a public API with Entra RBAC and disabled local accounts.
+  # checkov:skip=CKV_AZURE_6:The disposable non-production lab intentionally omits an API IP allowlist while retaining Entra RBAC.
   # checkov:skip=CKV_AZURE_232:A separate tainted system pool would double the minimum node cost.
   # checkov:skip=CKV_AZURE_168:Thirty pods bound the one-node lab and cover the three-replica workload.
   # checkov:skip=CKV_AZURE_170:Paid AKS SLA is not required for an approved disposable test window.
