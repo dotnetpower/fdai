@@ -8,6 +8,8 @@ resource "azurerm_role_assignment" "aks_network_contributor" {
 #trivy:ignore:AVD-AZU-0041
 #trivy:ignore:AVD-AZU-0065
 resource "azurerm_kubernetes_cluster" "scenario_lab" {
+  # checkov:skip=CKV_AZURE_6:Changing local egress requires an authenticated public API without a fixed IP allowlist.
+  # checkov:skip=CKV_AZURE_115:The disposable demo uses Entra, Azure RBAC, and disabled local accounts on its public API.
   # checkov:skip=CKV_AZURE_117:CMK-backed node disks add durable key infrastructure to a disposable fault target.
   # checkov:skip=CKV_AZURE_116:The one-node lab validates fault behavior, not Azure Policy admission.
   # checkov:skip=CKV_AZURE_232:A separate tainted system pool would double the minimum node cost.

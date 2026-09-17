@@ -66,6 +66,8 @@ def test_scenario_lab_is_an_independent_private_terraform_root() -> None:
     assert network.count("checkov:skip=CKV2_AZURE_31:Azure Policy attaches") == 3
     assert aks.count("#trivy:ignore:AVD-AZU-0041") == 1
     assert aks.count("#trivy:ignore:AVD-AZU-0065") == 1
+    assert aks.count("checkov:skip=CKV_AZURE_6:") == 1
+    assert aks.count("checkov:skip=CKV_AZURE_115:") == 1
     assert "private_cluster_enabled           = false" in aks
     assert "private_cluster_public_fqdn_enabled" not in aks
     assert "private_dns_zone_id" not in aks

@@ -1,7 +1,7 @@
 ---
 title: 제한된 네트워크의 Azure 인벤토리
 translation_of: azure-inventory-network-paths.md
-translation_source_sha: 835cb0e06df8caf6b31bb3ca5bb94db8c758fdad
+translation_source_sha: e436fbb965ed340767f8abe422c087ad30b85204
 translation_revised: 2026-09-17
 ---
 # 제한된 네트워크의 Azure 인벤토리
@@ -31,12 +31,13 @@ FDAI는 네트워크 도달성, 아이덴티티, 수집, 프로젝션을 별도 
 | 제한된 네트워크 발견 및 순서가 지정된 출처 대체 경로 | in-progress | `delivery/azure/` 아래 Azure 인벤토리 어댑터, 배포 preflight 및 연결 계약 | 범위가 제한된 어댑터와 실패 분류가 있습니다. 이 문서는 모든 대체 단계를 입증하는 exact-revision 보호 배포를 하나로 보존하지 않습니다. |
 | 스냅샷 권위 및 stale 상태 처리 | implemented | [CSP-중립성 계약](csp-neutrality-ko.md#구현-상태)이 인용하는 인벤토리 동기화, 프로젝션 및 재조정 테스트 | 부분 수집은 마지막 완전 승격 세대를 교체하거나 부재 주장을 승인할 수 없습니다. |
 | 서브넷별 네트워크 제어 | implemented | `infra/modules/network/main.tf`, `infra/bootstrap/main.tf`, 집중 네트워크 강화 테스트 | VM이 있는 서브넷은 명시적인 NSG로 Internet inbound를 거부합니다. Azure 관리형 delegated 및 private-endpoint 서브넷은 서비스 소유 네트워크 정책 계약을 유지합니다. |
-| AKS fleet 관측 연결 | implemented | `infra/main.tf`, `infra/scenario-lab/aks.tf`, Container Apps Inventory Job, 집중 AKS 신원 및 시나리오 검사 | 정확한 workload-identity 연결은 읽기 전용으로 유지됩니다. 폐기 가능한 시나리오는 Microsoft Entra와 Azure RBAC로 보호되고 로컬 계정이 비활성화된 공개 API 하나를 사용할 수 있으며, 두 공개 접근 Trivy 예외는 해당 리소스에만 적용됩니다. |
+| AKS fleet 관측 연결 | implemented | `infra/main.tf`, `infra/scenario-lab/aks.tf`, Container Apps Inventory Job, 집중 AKS 신원 및 시나리오 검사 | 정확한 workload-identity 연결은 읽기 전용으로 유지됩니다. 폐기 가능한 시나리오는 Microsoft Entra와 Azure RBAC로 보호되고 로컬 계정이 비활성화된 공개 API 하나를 사용할 수 있으며, Trivy 및 Checkov 공개 접근 예외는 해당 리소스에만 적용됩니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-17 | implemented | API, 신원 또는 권한 부여 경계를 넓히지 않고 폐기 가능한 시나리오의 리소스 한정 공개 접근 예외를 Checkov까지 확장했습니다. | `current change`, `infra/scenario-lab/aks.tf`, 집중 Trivy 및 Checkov 스캔과 시나리오 랩 검사. | 보호된 재생성과 FDAI Pod 인벤토리 조회 결과를 보존합니다. |
 | 2026-09-17 | implemented | 폐기 가능한 시나리오에 인증된 공개 AKS API 경로를 추가하고 두 공개 접근 스캐너 예외를 해당 리소스 하나로 제한했습니다. | `current change`, `infra/scenario-lab/aks.tf`, 집중 Trivy 스캔 및 시나리오 랩 검사. | 보호된 재생성과 FDAI Pod 인벤토리 조회 결과를 보존합니다. |
 | 2026-09-10 | implemented | 기존 및 fleet AKS 관측 연결을 상호 배타적으로 추가하고 정확한 클러스터별 Reader를 부여했습니다. | `current change`, Terraform 형식 검사 및 집중 신원 검사 | 보호된 배포 근거는 별도로 보존합니다. |
 | 2026-08-21 | in-progress | 런타임 동작이나 권한을 변경하지 않고 기존 제한 네트워크 인벤토리 설계를 집중 소유 문서로 옮겼습니다. | `current change`; 문서 크기, 번역, 경로 및 링크 검사입니다. | 실제 네트워크 경로와 하나 이상의 대체 및 복구 전환에 대한 exact-revision 보호 근거를 보존합니다. |
