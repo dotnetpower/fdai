@@ -135,6 +135,9 @@ Operating Outcomes publishes its metric, value, baseline, window, sample size, c
 provenance as a bounded Command Deck snapshot. Only Auto-resolution includes vertical breakdowns.
 Narration receives rendered facts, never invented unavailable values or replacement sources.
 Headlines and cards share formatting, preserving ratios and the displayed percentage precision.
+Within each Dashboard routing distribution, displayed whole-number percentages are allocated from
+the exact shares as one group and sum to 100 percent. Segment widths continue to use exact shares,
+so the sum correction does not distort the underlying ratio.
 Dashboard routing retains its own canonical sample, independent of general audit noise.
 Mode, tier, action, outcome, window and sequence filters reach the server-owned audit query.
 Admitted cohort comparisons remain separate from rolling Live values, expire, and grant no authority. Their captured view context retains both arms and the expiry rather than substituting the rolling baseline. Expiry republishes the view, and every submission withdraws expired cohort groups from pinned snapshots as well.
