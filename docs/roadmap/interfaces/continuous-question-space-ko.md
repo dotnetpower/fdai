@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 24408155d8c72b99ee006749be1740974349c64a
+translation_source_sha: 9bd893310ed8e1b046c9ce5d5e87ff39d35408b9
 translation_revised: 2026-09-17
 ---
 # 지속형 질문 공간
