@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 from fdai.core.incident import IncidentLifecycleNotice
 from fdai.runtime.bootstrap_incidents import build_incident_runtime
-from fdai.shared.contracts.models import Mode
+from fdai.shared.contracts.models import IncidentState, Mode
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai.shared.providers.tool import (
     ToolCallOutcome,
@@ -150,6 +151,72 @@ async def test_incident_runtime_respects_disabled_auto_open_policy() -> None:
     )
 
     assert opened is False
+
+
+async def test_incident_runtime_resolves_only_the_bound_detector_episode() -> None:
+    store = InMemoryStateStore()
+    runtime = await build_incident_runtime(
+        state_store=store,
+        runtime_values=_runtime_values(),
+        http_client=None,
+        notifier_builder=lambda *_args, **_kwargs: _RecordingNotifier(),
+    )
+    observed_at = datetime(2026, 9, 17, 1, 2, tzinfo=UTC)
+    candidate = {
+        "incident_correlation": "correlate",
+        "correlation_id": "correlation-1",
+        "idempotency_key": "episode-action-1",
+        "incident_episode_id": "episode-1",
+        "evidence_keys": ["evidence-1"],
+        "resource_id": "resource-1",
+        "event_type": "resource.health",
+        "severity": "sev1",
+    }
+
+    assert await runtime.open_incident_candidate(candidate) is True
+    incident = next(iter(runtime.registry.snapshot().values()))
+    assert incident.state is IncidentState.OPEN
+
+    resolved_id = await runtime.resolve_verified_incident(
+        action_idempotency_key="episode-action-1",
+        correlation_id="correlation-1",
+        resource_id="resource-1",
+        event_type="resource.health",
+        verified_at=observed_at,
+    )
+
+    resolved = runtime.registry.get(UUID(resolved_id))
+    assert resolved is not None
+    assert resolved.state is IncidentState.RESOLVED
+    assert await runtime.resolve_verified_incident(
+        action_idempotency_key="episode-action-1",
+        correlation_id="correlation-1",
+        resource_id="resource-1",
+        event_type="resource.health",
+        verified_at=observed_at,
+    ) == str(incident.incident_id)
+
+    later = {
+        **candidate,
+        "idempotency_key": "episode-action-2",
+        "incident_episode_id": "episode-2",
+        "evidence_keys": ["evidence-2"],
+    }
+    assert await runtime.open_incident_candidate(later) is True
+    open_incidents = [
+        item for item in runtime.registry.snapshot().values() if item.state is IncidentState.OPEN
+    ]
+    assert len(open_incidents) == 1
+    assert open_incidents[0].incident_id != incident.incident_id
+
+    assert await runtime.resolve_verified_incident(
+        action_idempotency_key="episode-action-1",
+        correlation_id="correlation-1",
+        resource_id="resource-1",
+        event_type="resource.health",
+        verified_at=observed_at,
+    ) == str(incident.incident_id)
+    assert runtime.registry.get(open_incidents[0].incident_id).state is IncidentState.OPEN
 
 
 async def test_incident_runtime_ignores_unrelated_tool_receipt() -> None:

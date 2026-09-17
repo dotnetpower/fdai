@@ -18,6 +18,10 @@ from fdai.agents._framework.action_semantics import ActionSemanticsCatalog, is_i
 from fdai.agents._framework.alert_noise_callbacks import HeimdallAlertNoiseMixin
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.heimdall_action_observation import (
+    ActionObservationHook,
+    HeimdallActionObservationMixin,
+)
 from fdai.agents._framework.heimdall_alert_window import (
     MAX_EPISODES_PER_RESOURCE as _MAX_EPISODES_PER_RESOURCE,
 )
@@ -94,9 +98,6 @@ ReadInvestigationHook = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]
 OperationalEvidenceHook = Callable[[dict[str, Any]], Awaitable[Mapping[str, Any]]]
 """Composition-provided bounded evidence collector for one operational Event."""
 
-ActionObservationHook = Callable[[dict[str, Any]], Awaitable[bool]]
-"""Composition-provided terminal ActionRun observation handler."""
-
 _LOG = logging.getLogger(__name__)
 
 _INCIDENT_CORRELATION_DISABLED = frozenset({"none", "disabled"})
@@ -108,6 +109,7 @@ _DETECTION_READINESS_EVENT = "detection.readiness.observed"
 
 class Heimdall(
     HeimdallAlertNoiseMixin,
+    HeimdallActionObservationMixin,
     HeimdallAlertWindowMixin,
     HeimdallProviderSchemaMixin,
     HeimdallForecastMixin,
@@ -210,15 +212,7 @@ class Heimdall(
         if await self._alert_noise_message(topic, payload):
             return
         if topic == "object.action-run":
-            if self._action_observation_hook is None:
-                self.record_behavior("action_effect_observation:unavailable")
-                return
-            recorded = await self._action_observation_hook(payload)
-            self.record_behavior(
-                "action_effect_observation:recorded"
-                if recorded
-                else "action_effect_observation:held"
-            )
+            await self._observe_action_run(payload)
         elif topic == RULE_GENERATION_BUILD_RESULT_TOPIC:
             await self._validate_rule_generation(payload)
         elif topic == "object.event" and not await self._forecast_context_message(payload):
@@ -830,6 +824,7 @@ class Heimdall(
 
 __all__ = [
     "Heimdall",
+    "ActionObservationHook",
     "AlerterHook",
     "IncidentCandidateHook",
     "ReadInvestigationHook",

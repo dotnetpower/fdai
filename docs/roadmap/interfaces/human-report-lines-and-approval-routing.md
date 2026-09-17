@@ -32,6 +32,13 @@ held or no-op outcome.
 
 ## Independent authority axes
 
+Registered machine-anomaly proposals retain Heimdall as machine initiator, never an inferred
+human requester or reporting-graph subject. Their original Action preparation and read-only
+Var approval checks cannot nominate a human, supply contact consent, change a reporting edge,
+or grant approval eligibility. Current independent human authorization remains required.
+Shipping the optional acceptance-recovery loader in the Core wheel adds no reporting-graph
+dependency and does not change the current human approval policy or contact-consent path.
+
 The implementation keeps these records separate:
 
 | Axis | Question it answers | Authority it does not grant |

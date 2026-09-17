@@ -15,6 +15,7 @@ from fdai.agents._framework import architecture_review_runtime as arb_runtime
 from fdai.agents._framework import assignment_wiring as assignment_runtime
 from fdai.agents._framework import execution_safety, factory, runtime_health, runtime_subscriptions
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
+from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, EventBusBridge
 from fdai.agents._framework.catalog_review_wiring import CatalogReviewBindings, bind_catalog_review
@@ -164,6 +165,7 @@ class PantheonRuntime:
         test_context_admission: factory.DecisionEvidenceAdmissionProvider | None = None,
         operational_planner: factory.PlanningCoordinator | None = None,
         kinetic_proposal_source: factory.KineticProposalSource | None = None,
+        anomaly_action_sources: dict[str, AnomalyActionSource] | None = None,
         prospective_lineage_finalizer: ProspectiveLineageFinalizer | None = None,
         prospective_lineage_materializer: ProspectiveLineageMaterializer | None = None,
         change_assessor: ChangeAssessmentService | None = None,
@@ -278,6 +280,7 @@ class PantheonRuntime:
             test_context_admission=test_context_admission,
             operational_planner=operational_planner,
             kinetic_proposal_source=kinetic_proposal_source,
+            anomaly_action_sources=anomaly_action_sources,
             prospective_lineage_finalizer=prospective_lineage_finalizer,
             change_assessor=change_assessor,
             cost_runtime=cost_runtime,

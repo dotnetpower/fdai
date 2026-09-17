@@ -138,7 +138,14 @@ policy, target, issuer, collector, probe authorization references, and validity 
 trust-state read must explicitly confirm that the key is not revoked. The verifier has no signing
 key or executor credential. Collector, receipt issuer, and executor identities remain distinct;
 receipt authenticity never substitutes for trustworthy collection or provider effect verification.
-Deployment owns receipt issuance, trust-state updates, and disjoint database grants.
+The package supplies a no-I/O `AcceptanceReceiptIssuer` that requires distinct issuer, collector,
+and executor identities, derives the verification reference from the exact evidence, and signs the
+closed receipt with an injected Ed25519 key. `AcceptanceTrustLifecycle` activates one key id once
+and records revocation as a separate immutable audited marker; exact revocation replay is a no-op,
+and the public-key verifier checks the marker on every use. Neither component loads a private key,
+authenticates the collector, grants a database role, or starts a job. Deployment still owns key
+mounts, authenticated source collection, trust-owner identity, disjoint database grants, and job
+scheduling.
 
 The concrete Kubernetes reader uses GET only, verifies Deployment and Service UIDs, controller
 generation, selectors, EndpointSlice ownership, and the Pod-to-ReplicaSet-to-Deployment chain
@@ -155,8 +162,9 @@ key bytes. Existing `FDAI_STATE_STORE_DSN`, `FDAI_MI_CLIENT_ID`, `KAFKA_BOOTSTRA
 `KAFKA_TOPIC_EVENTS` bind the service-owned store and observer-only event bus. The job uses the
 shared publication ledger and finding receipt store, never an in-memory production fallback.
 Missing configuration or evidence fails readiness. Deployment must still provide the independent
-receipt issuer, authenticated probe collection, trust lifecycle, least-privilege database grants,
-and job scheduling; an installed command alone does not establish a live observation loop.
+issuer key binding, authenticated probe collection, trust-owner runtime binding, least-privilege
+database grants, and job scheduling; installed library components alone do not establish a live
+observation loop.
 The entry point uses the shared venue and bus-security resolver. Startup or provider failures
 return a nonzero status with a fixed unavailable reason, never raw provider diagnostic text.
 
@@ -170,6 +178,90 @@ Heimdall retain event deduplication and Incident ownership; Thor alone executes 
 admitted action. Fulfillment, payment, delivery, and revenue remain outside this detector's scope.
 
 ### Incident ingress and Thor-owned execution
+
+**Initial integration design:** Forward detector action arguments in the event, or route an
+automatic finding as an operator request. **Critique:** Either choice trusts producer-controlled
+action data or invents a human initiator. An approval also cannot make old observations current.
+**Revised design:** Register the exact canonical event
+`analyzer.aks_commerce.order_acceptance_unavailable.observed` with Forseti through
+`AnomalyActionSource`. The commerce source reuses the same retained-source and signature admission
+as detection. Forseti resolves a current exact-target candidate, forces separate human approval,
+and keeps the existing risk and context ceilings. Source failure cannot fall through to a rule.
+
+`AcceptanceGuardedExecutor` adds a fresh signed-evidence read immediately before delegating to
+Thor's existing executor. Missing proof or changed arguments withhold dispatch rather than edit
+an approved ActionRun. It does not implement or replace the seven safeguards, promotion, current
+human authorization, or isolated transport. Local tests connect actual Huginn, Heimdall, Forseti,
+Var, and Thor handlers and prove no effect before approval, single execution after approval,
+replay suppression, and denial under revoked evidence, changed approval identity, shadow mode,
+or missing audit dependency. Tests use synthetic authority and external effects, not live approvals.
+Production activation and independent effect closure still need their own inputs and evidence
+before this path can restore a live workload.
+
+The material store preserves the original canonical scale Action separately from the anomaly
+correlation and ActionRun idempotency key. The isolated dispatch adapter reads that immutable
+material and repeats signed-evidence and current-authority admission at the existing safeguard
+client's final publication boundary. Missing, replaced, expired, or corrupted material withholds
+dispatch. An ambiguous or quarantined result remains unknown, never recovered or automatically
+retried. These adapters cannot manufacture original approval, promotion, or preparation inputs.
+
+**Closure design:** A broker or provider receipt cannot release an uncertain execution. Reusing
+the ordinary successful-ActionRun observer would miss quarantined attempts and could confuse
+dispatch with recovery. Preserve the initial closure plan only for the configured target and its
+retained acceptance Action. This optional decorator delegates the original closure unchanged.
+Independent signed post-release evidence must match the original Action, released lock, target
+generation and closure predecessor before the existing atomic closure store may reconcile it.
+Other targets and human-access closure retain their existing behavior. Missing original context
+remains held; no component may invent a release receipt or retrospectively approve an action.
+
+The installed `aks-commerce-closure` provider now wraps the existing closure store only when
+acceptance configuration is present. It retains exact initial context for a prepared Action at
+the configured target and delegates the original decision unchanged. The Action includes its
+original observation references; older material remains readable but cannot prove effect closure
+without those references. Thor links only command IDs read back from the original command journal.
+
+Heimdall's existing ActionRun hook now observes non-shadow acceptance attempts, including
+`execution_unknown`. The reconciler reads the original command, matching provider receipt,
+full Action digest, released-lock evidence, target generation and quarantine predecessor. It
+requires a new signed resource-and-order observation after both provider completion and initial
+closure, retains independent audit evidence, then uses the existing atomic reconciliation builder.
+Incorrect identity, stale or revoked evidence, failed orders or missing release context leave
+quarantine unresolved. Exact historical replay returns its retained closure without asserting
+current health or adding another audit transition. Other targets and shadow runs stay unchanged.
+Missing command or effect evidence raises a retryable handler failure. Existing at-least-once
+delivery can therefore reprocess the original ActionRun after delayed evidence arrives; historical
+closure replay never dispatches the mutation again. After exact closure, Heimdall publishes one
+verified-effect record on its existing recovery-observation topic. Thor rechecks the original
+Action, target, parameters and idempotency generation, then alone changes `execution_unknown` to
+`succeeded`, persists the closure and effect references, and emits `operational_success=true` with
+`effect_verification_status=verified`. A separate internal consumer resolves only the Incident id
+atomically bound when that detector episode opened, using the minimum legal lifecycle path. This
+prevents a later episode on the same resource from being resolved accidentally. Console reuses the
+authoritative terminal ActionRun and Incident projections; it does not infer success from broker or
+provider acceptance.
+
+`PreparedAcceptanceSource` now runs under Forseti before the approval-facing decision is published.
+It revalidates the signed observation and exact arguments, checks the automatic trigger and
+catalog schema, and uses the shared ActionBuilder and RiskGate. It retains the original Action
+and reviewed Rule digest with atomic audit. Exact replay reuses that material; changed arguments,
+policy or mode cannot replace it. Missing preparation remains shadow. The shipped scale ActionType
+requires two independent people; preparation cannot reduce its quorum or raise an existing ceiling.
+
+`AcceptanceCurrentAuthority` refreshes policy, matches original Rule and ActionType contents,
+applies the shared risk table and promotion state, and reads Var's durable final approval. It
+rechecks each distinct human's current eligibility, the original approval expiry, and safety state.
+The dispatch adapter repeats this check at the shared isolated client's publication boundary.
+Core startup now loads exactly one installed `fdai.acceptance_recovery` entry point named
+`aks-commerce` only when `FDAI_AKS_ACCEPTANCE_JSON` is present. `FDAI_AKS_ACCEPTANCE_RULE_ID`
+selects an already reviewed Rule from the loaded catalog: it must reference
+`fdai.aks_commerce.order_acceptance.v1`, `kubernetes.deployment`, and `ops.scale-out`.
+Missing or unrelated Rules, absent durable promotion or isolated safeguard bindings, and an absent
+`FDAI_PANTHEON_APPROVER_ACTIONS_JSON` policy reject composition. Startup creates no observation,
+approval, promotion, or provider effect. Unrelated targets retain their existing Thor dispatcher.
+The package uses the same StateStore, ActionBuilder, RiskGate, risk table, promotion refresh,
+approval policy and safety state already owned by the runtime. Unbound safety stays held.
+Live source issuance, independent effect closure, eligible promotion and exact deployed
+observer/executor scope remain required; successful package loading does not satisfy them.
 
 The composition root may register `AksCommerceAnalyzer` with the shared `InvestigationCoordinator`
 and `AnalyzerTickRunner`. The commerce coordinator retains each assessment before the analyzer

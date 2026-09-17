@@ -703,6 +703,7 @@ async def build_core_runtime(
             rule_generation_reconciliation=semantic.rule_generation_reconciliation,
             rule_generation_binding=semantic.rule_generation_binding,
             open_incident_candidate=incident_runtime.open_incident_candidate,
+            resolve_verified_incident=incident_runtime.resolve_verified_incident,
             read_investigation_hook=semantic.read_investigation_hook,
             runtime_symptom_index=symptom_index,
             stage_topic=plan.stage_topic,

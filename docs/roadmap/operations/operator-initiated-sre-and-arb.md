@@ -50,6 +50,7 @@ converging to audited no-op outcomes, and expiry reconciliation cannot create an
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Incident trace identity and correlation opt-out | implemented | `fdai/shared/contracts/models/event.py`; `fdai/core/event_ingest/correlator.py`; routine producers in `fdai/core/scheduler/service.py` and `fdai/delivery/inventory_delta.py`; `tests/core/event_ingest/test_correlator.py` | `correlation_id` remains available when `incident_correlation=none` suppresses Incident creation. |
+| Detector episode to verified recovery linkage | implemented | `fdai/runtime/bootstrap_incidents.py`; `tests/runtime/test_bootstrap_incidents.py` | After the lifecycle returns the actual Incident, runtime atomically binds the detector episode's action idempotency key to that exact id. Independent effect resolution verifies the resource, signal and correlation, follows legal Incident transitions, and cannot resolve a later episode on the same resource. |
 | Operator-confirmed Incident lifecycle and investigation primitives | implemented | `fdai/core/incident/workflow.py`; `fdai/core/investigation/coordinator.py`; `tests/core/incident/test_incident_workflow.py`; `tests/core/investigation/test_coordinator.py` | The bounded primitives exist and pass focused checks. |
 | Operator-confirmed Incident creation transport | implemented | `fdai_service_contracts.incident_creation`; Core semantic draft projection and Incident creation consumer; Operator confirmation route, source resolver, and outbox bridge; focused cross-service tests | The browser submits four public draft fields. Operator reloads the exact principal-owned source and publishes a no-authority request on the dedicated Incident topic. Core opens or reuses one audited Incident. |
 | Runtime task isolation | implemented | `fdai/runtime/bootstrap_tasks.py`; focused HIL load-control, runtime composition, and bootstrap tests | Incident creation and channel-independent approval expiry run as separate supervised tasks. Neither task grants approval or execution authority to the other. |
@@ -62,6 +63,7 @@ converging to audited no-op outcomes, and expiry reconciliation cannot create an
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-17 | implemented | Bound each detector episode's action idempotency key to the Incident actually returned by the registry, then allowed independent effect verification to apply only its legal terminal path. | `current change`; `bootstrap_incidents.py`; focused same-resource recurrence and replay test | Retain deployed authenticated episode and effect evidence before claiming live recovery. |
 | 2026-09-17 | implemented | Kept the Incident creation consumer independent from the always-composed approval-expiry reconciler in shared runtime task supervision. | `current change`; `bootstrap_tasks.py`; focused HIL and bootstrap tests | No remaining work for this task-isolation boundary. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger, corrected the ARB surface and Operator workflow authority boundary, and did not reconstruct earlier provenance. | Current change; focused Incident, investigation, ARB, event-correlation, and Operator workflow tests listed in the scope table. | Complete the integrated SRE command/progress path and record governed evidence for authority-bearing Workflow enforce and parity. |
 | 2026-08-16 | in-progress | Added the operator SRE request coordinator, the proposal dispatcher seam, and Incident-ID metadata at operator-request normalization, with an end-to-end test that drives one confirmed request through the control loop to a parked HIL approval. | Current change; `176 passed` from `uv run pytest -q --no-cov services/core-control-plane/tests/core/incident/ services/core-control-plane/tests/core/event_ingest/ services/core-control-plane/tests/core/test_control_loop_operator_request.py`. | Bind the dispatcher at the runtime composition root and record governed evidence for authority-bearing Workflow enforce and parity. |
@@ -103,6 +105,13 @@ The normalized Event declares an incident correlation policy:
 The default remains `correlate` for backward compatibility. Producers for discovery, monitoring,
 inventory, scheduler, and workflow-control events set `none`. Read models continue to group their
 audit rows by `correlation_id`; they do not infer an Incident from that value.
+
+For an evidence-backed detector episode, the runtime retains the lifecycle's actual Incident id
+under the episode-derived action idempotency key after the open write succeeds. This matters because
+the registry can reuse an active Incident for a later signal in the same correlation family. A
+verified recovery must read that immutable binding and recheck resource, signal and correlation
+before applying the minimum legal transition path. It never searches by resource name, resolves a
+newer episode, or treats dispatch acceptance as recovery.
 
 ## Operator-initiated SRE flow
 

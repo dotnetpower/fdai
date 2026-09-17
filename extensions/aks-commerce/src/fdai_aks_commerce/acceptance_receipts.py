@@ -16,6 +16,7 @@ from fdai_aks_commerce.acceptance import OrderAcceptanceIntent
 
 RECEIPT_PREFIX = "aks-commerce:acceptance-receipt:v1:"
 REVOCATION_PREFIX = "aks-commerce:acceptance-trust:v1:"
+TRUST_REVOCATION_PREFIX = "aks-commerce:acceptance-trust-revocation:v1:"
 _DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 _FIELDS = frozenset(
     {
@@ -170,6 +171,9 @@ class StoredOrderAcceptanceReceiptVerifier:
             return False
         state = await self._store.read_state(REVOCATION_PREFIX + str(key_id))
         if state is None or set(state) != {"key_id", "revoked", "valid_until"}:
+            return False
+        revocation = await self._store.read_state(TRUST_REVOCATION_PREFIX + str(key_id))
+        if revocation is not None:
             return False
         try:
             return (

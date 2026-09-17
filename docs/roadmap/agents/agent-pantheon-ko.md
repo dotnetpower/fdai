@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 7e532a0af1234cf4527cf9b0fbef2d22e69c23f1
-translation_revised: 2026-09-16
+translation_source_sha: 28ee19be37dfe684a1b5b35c79c32d2cfbfac1f0
+translation_revised: 2026-09-17
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -32,7 +32,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 - **단일 게시자, 여러 구독자.** 각 객체 타입은 정확히 하나의 소유 에이전트만 게시하며 누구나 구독할 수 있습니다 (§6.1).
 - **판단자는 실행기가 아님.** Forseti가 판단하고 Var가 권한이 있으며 만료되지 않은 승인을 전달합니다. Thor는 권한 상한, Saga 증적, 안정적인 멱등성 예약, 소유자 경계가 적용된 분산 리소스 점유를 다시 확인한 뒤 실행하며 재시작 모호성은 `execution_unknown`으로 유지합니다.
 - **판테온은 업스트림에서 고정.** 15개 에이전트, 조직도, 역할 배정은 고정됩니다. 포크는 설정 가능한 경계 (§10)만 변경하며 에이전트를 추가, 제거하거나 이름을 바꾸지 않습니다.
-- **저장소 구조가 경계를 보존.** 이름이 있는 에이전트는 [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents)에, 공통 런타임은 비공개 `_framework`에 둡니다. 외부 호출자는 `fdai.agents`만 가져오며 구조 테스트가 이 경계를 강제합니다.
+- **저장소 구조가 경계를 보존.** 이름이 있는 에이전트는 [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents)에, 공통 런타임은 비공개 `_framework`에 둡니다. 외부 호출자는 `fdai.agents`만 가져오며 구조 테스트가 이 경계를 강제합니다. 런타임 조립은 소유 에이전트 모듈이 명시적으로 공개한 콜백 타입을 사용하며 타입 공개는 토픽, 관측, 승인 또는 실행 권한을 부여하지 않습니다. Heimdall의 작업 관측 중계와 Thor의 `ActionRun` 상태 및 효과 종결 로직은 용도별 비공개 도우미에 둡니다. 이 도우미는 `AgentSpec`, 토픽, 승인 또는 실행 권한을 소유하지 않습니다.
 ## 2. 조직도
 
 Thor(운영)와 Forseti(판단)가 Odin에게 보고합니다. 거버넌스 담당 4명은 독립적인 점선 보고 체계를 가집니다.
@@ -47,6 +47,17 @@ Var와 Saga는 문서 HIL의 안정적인 멱등성을 보존하며 Saga는 게�
 워크플로 요청은 양의 시도 번호를 포함한 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐 보존합니다. Thor는 Verdict가 제공한 작업 식별자만 보존하고 상관관계에서 만들어 내지 않으며 권한이 없는 `_framework` 도우미로 범위가 제한된 ActionRun 계보를 검증합니다.
 전달 계층의 생성기는 하나의 완전한 운영 계획에 대한 선택적인 인자 결속 실행 제안을 저장합니다. Forseti는 주입된 원본으로 이를 해석하고 엄격한 검증 뒤 같은 Verdict-to-ActionRun 경로를 유지합니다. 계보와 제안은 귀속 및 근거만 제공하며 정족수, 모드, 판단, 승인, 실행 권한을 바꾸지 않습니다. Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 Var 승인, Vidar 복구, Saga 인계, Norns 학습도 [에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#영속-권한과-재생)에 따라 영속 멱등성과 재시작 상태를 보존합니다.
+
+등록된 `AnomalyActionSource`는 정확한 Heimdall 신호를 조회해 Forseti에 최신의 비활성 작업
+후보를 제공합니다. 입력된 작업 인자와 사람 요청자 주장은 신뢰하지 않고 교체합니다.
+조회가 없거나 만료, 충돌, 실패한 경우 다른 규칙으로 대체하지 않고 작업이 비어 있는 shadow
+결정을 만듭니다. 결정은 근거 참조를 보존하고 사람 승인을 요구합니다. 등록만으로 패키지
+활성화, 위험 검사 면제, 승격 또는 실행 권한을 얻지는 않습니다.
+Forseti는 등록된 작업 결정을 게시하기 전에 원본의 선택적 `AnomalyActionPreparer`를 호출해
+원래 Action을 보존합니다. 준비가 없거나 실패하면 결정을 shadow로 낮춥니다. 준비가 성공하면
+원래 Action ID를 제공하며 모드를 낮추거나 정족수를 늘릴 수만 있습니다. 읽기 전용 영속 승인
+조회기는 Var를 호출하거나 결정을 만들지 않고, 정확한 ActionRun에 연결된 Var 기록과 현재
+독립된 사람의 승인 자격을 확인합니다.
 
 Var의 승인 대기 데이터는 비공개 `var_decisions`에서 영속 결정 레코드와 함께 관리합니다.
 공개 `PendingHilTicket`과 `PendingShadowReview`는 Var에서 계속 가져올 수 있으며 필드,
@@ -316,7 +327,7 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 | object.capacity-forecast | Freyr | Forseti |
 | object.capacity-graduation-recommendation | Freyr | Forseti |
 | object.evidence-conflict | Heimdall | Muninn, Saga |
-| object.recovery-effect-observation | Heimdall | `recovery-effect-observer`(독립적인 복구 사후 효과 관측 수신구) |
+| object.recovery-effect-observation | Heimdall | `recovery-effect-observer`(독립적인 복구 사후 효과 관측 수신구), Thor(정확히 검증된 ActionRun 종결) |
 | object.prospective-lineage | Forseti | Muninn, Saga |
 | object.chaos-experiment | Loki | Heimdall |
 Partitioning:

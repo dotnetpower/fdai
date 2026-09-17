@@ -18,7 +18,6 @@ from collections.abc import Awaitable, Callable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from enum import StrEnum
 from typing import Any, Literal, Protocol, runtime_checkable
 from weakref import WeakValueDictionary
 
@@ -35,6 +34,10 @@ from fdai.agents._framework.action_run_lineage import (
     bounded_operational_context as _bounded_operational_context,
 )
 from fdai.agents._framework.action_run_lineage import optional_datetime as _optional_datetime
+from fdai.agents._framework.action_run_state import (
+    TERMINAL_ACTION_RUN_STATES as _TERMINAL_STATES,
+)
+from fdai.agents._framework.action_run_state import ActionRunState
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
@@ -46,6 +49,13 @@ from fdai.agents._framework.introspection import (
 from fdai.agents._framework.pantheon import _THOR
 from fdai.agents._framework.role_answers import thor_role_answer
 from fdai.agents._framework.thor_correlation import resolve_correlation_claim
+from fdai.agents._framework.thor_effect_verification import (
+    ThorEffectVerificationMixin,
+    durable_effect_verification,
+    effect_publication_fields,
+    effect_verification_mapping,
+    validate_effect_verification,
+)
 from fdai.core.executor.safeguards import resource_lock_key
 from fdai.core.operational_context.test_context_dispatch import (
     TestContextDispatchBinding,
@@ -55,35 +65,6 @@ from fdai.core.operational_planning import KineticActionProposal
 from fdai.core.operational_planning.prospective_lineage import ProspectiveLineage
 from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.resource_lock import ResourceLock
-
-
-class ActionRunState(StrEnum):
-    PROPOSED = "proposed"
-    VERDICTED = "verdicted"
-    HIL_PENDING = "hil_pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-    DENY_DROPPED = "deny_dropped"
-    EXECUTING = "executing"
-    EXECUTION_UNKNOWN = "execution_unknown"
-    SUCCEEDED = "succeeded"
-    FAILED = "failed"
-    ROLLED_BACK = "rolled_back"
-    ROLLBACK_FAILED = "rollback_failed"
-
-
-# Terminal states: an ActionRun in one of these is finished, so a durable
-# store drops it (only in-flight runs are rehydrated on restart).
-_TERMINAL_STATES: frozenset[ActionRunState] = frozenset(
-    {
-        ActionRunState.SUCCEEDED,
-        ActionRunState.REJECTED,
-        ActionRunState.DENY_DROPPED,
-        ActionRunState.ROLLED_BACK,
-        ActionRunState.ROLLBACK_FAILED,
-    }
-)
-
 
 ActionExecutor = Callable[[dict[str, Any]], Awaitable[bool]]
 """Callable that mutates the target and returns True on success."""
@@ -146,6 +127,9 @@ class ActionRun:
     kinetic_proposal: dict[str, Any] | None = None
     prospective_lineage: dict[str, Any] | None = None
     execution_audit_receipt: str | None = None
+    effect_verification_ref: str | None = None
+    execution_closure_ref: str | None = None
+    effect_verified_at: datetime | None = None
     approval_expires_at: datetime | None = None
     terminal_published: bool = False
     resource_claimed: bool = False
@@ -155,6 +139,11 @@ class ActionRun:
         action_run_lineage.validate_action_run_lineage(self.action_id, self.workflow_action)
         if not self.idempotency_key:
             self.idempotency_key = self.correlation_id
+        validate_effect_verification(
+            self.effect_verification_ref,
+            self.execution_closure_ref,
+            self.effect_verified_at,
+        )
 
     def transition(self, new_state: ActionRunState) -> None:
         self.history.append(self.state)
@@ -189,6 +178,7 @@ class ActionRun:
             "kinetic_proposal": deepcopy(self.kinetic_proposal),
             "prospective_lineage": deepcopy(self.prospective_lineage),
             "execution_audit_receipt": self.execution_audit_receipt,
+            **effect_verification_mapping(self),
             "approval_expires_at": (
                 self.approval_expires_at.isoformat()
                 if self.approval_expires_at is not None
@@ -240,6 +230,7 @@ class ActionRun:
                 data.get("execution_audit_receipt"),
                 field_name="execution_audit_receipt",
             ),
+            **durable_effect_verification(data),
             approval_expires_at=_optional_datetime(
                 data.get("approval_expires_at"),
                 field_name="approval_expires_at",
@@ -280,7 +271,7 @@ class ActionRunStore(Protocol):
     async def validate_resource_claim(self, run: ActionRun) -> bool: ...
 
 
-class Thor(Agent):
+class Thor(ThorEffectVerificationMixin, Agent):
     """Wave-3 Thor: dispatcher + per-resource mutex + lifecycle owner."""
 
     def __init__(
@@ -534,6 +525,8 @@ class Thor(Agent):
             await self._handle_approval(payload)
         elif topic == "object.rollback":
             await self._handle_rollback(payload)
+        elif topic == "object.recovery-effect-observation":
+            await self._handle_effect_observation(payload)
 
     # ---- lifecycle -----------------------------------------------------
 
@@ -1207,12 +1200,7 @@ class Thor(Agent):
             "shadow_mode": run.shadow_mode,
             "resolved_autonomy_ceiling": run.resolved_autonomy_ceiling.value,
             "outcome": run.outcome,
-            "operational_success": False,
-            "effect_verification_status": (
-                "pending"
-                if run.outcome == "command_accepted_verification_pending"
-                else "not_applicable"
-            ),
+            **effect_publication_fields(run),
             "verdict": run.verdict,
             "params": deepcopy(run.params),
             "quorum_required": run.quorum_required,

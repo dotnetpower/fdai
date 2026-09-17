@@ -10,6 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
+from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents.bragi import Bragi
@@ -109,6 +110,7 @@ def configured_forseti(
     architecture_review_loop: OntologyArchitectureReviewLoop | None = None,
     test_context_source: TestContextSource | None = None,
     test_context_admission: DecisionEvidenceAdmissionProvider | None = None,
+    anomaly_action_sources: dict[str, AnomalyActionSource] | None = None,
 ) -> Forseti | None:
     """Build Forseti only when composition supplies an optional binding."""
     if all(
@@ -124,6 +126,7 @@ def configured_forseti(
             architecture_review_loop,
             test_context_source,
             test_context_admission,
+            anomaly_action_sources,
         )
     ):
         return None
@@ -138,6 +141,7 @@ def configured_forseti(
         architecture_review_loop=architecture_review_loop,
         test_context_source=test_context_source,
         test_context_admission=test_context_admission,
+        anomaly_action_sources=anomaly_action_sources,
     )
 
 

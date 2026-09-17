@@ -37,6 +37,9 @@ domain code and assets. It does not create another control plane or move authori
 > not change Njord ownership, package activation, or action authority.
 > Shared Pantheon composition also binds reviewed test-context reads and case-derived retention.
 > These bindings cannot activate Cost Governance, publish Njord records, or raise package authority.
+> Exact-signal anomaly sources and original Action preparation in the shared Forseti factory
+> likewise supply no package authority. Registration and durable human approval readback cannot
+> enable Cost Governance, change Njord's publisher ownership, or grant package data access.
 > Global Terraform roots can carry unrelated AKS observation bindings. Those values and Reader
 > assignments are not Cost Governance package inputs and cannot activate its runtime. The same
 > boundary excludes the independent runtime-call evidence source flag, shared provider endpoint

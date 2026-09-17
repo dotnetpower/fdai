@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: 07b8b2f8a908be6ee931a04ec1c7d10226d8e39a
+translation_source_sha: d832670ed798e26777a6724f0405b5062e418ca8
 translation_revised: 2026-09-17
 ---
 
@@ -54,6 +54,7 @@ ActionType 승격 모드에 의존하지 않습니다. 프로세스 내부
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 인시던트 추적 신원 및 상관관계 제외 | implemented | `fdai/shared/contracts/models/event.py`, `fdai/core/event_ingest/correlator.py`, `fdai/core/scheduler/service.py`와 `fdai/delivery/inventory_delta.py`의 정기 생산자, `tests/core/event_ingest/test_correlator.py` | `incident_correlation=none`이 인시던트 생성을 억제해도 `correlation_id`는 유지됩니다. |
+| 감지 에피소드와 검증된 복구 연결 | implemented | `fdai/runtime/bootstrap_incidents.py`, `tests/runtime/test_bootstrap_incidents.py` | 수명 주기가 실제 Incident를 반환한 뒤 런타임은 감지 에피소드의 Action 멱등성 키를 해당 ID에 원자적으로 연결합니다. 독립 효과 종결은 리소스, 신호 및 상관관계를 검증하고 합법적인 Incident 전이만 따르며 같은 리소스의 이후 에피소드를 종결할 수 없습니다. |
 | 오퍼레이터 확인 인시던트 수명 주기 및 조사 기본 기능 | implemented | `fdai/core/incident/workflow.py`, `fdai/core/investigation/coordinator.py`, `tests/core/incident/test_incident_workflow.py`, `tests/core/investigation/test_coordinator.py` | 범위가 제한된 기본 기능이 존재하고 집중 검사를 통과합니다. |
 | 오퍼레이터 확인 인시던트 생성 전송 | implemented | `fdai_service_contracts.incident_creation`, Core 의미 기반 초안 변환 결과 및 인시던트 생성 소비자, Operator 확인 경로, 원본 확인기 및 보낼 편지함 브리지, 집중 교차 서비스 테스트 | 브라우저는 공개 초안 필드 네 개를 제출합니다. Operator는 principal 소유 원본을 다시 읽고 권한 없는 요청을 전용 인시던트 토픽에 게시합니다. Core는 감사되는 인시던트 하나를 생성하거나 재사용합니다. |
 | 런타임 작업 격리 | implemented | `fdai/runtime/bootstrap_tasks.py`, 집중 HIL 부하 제어, 런타임 구성 및 부트스트랩 검사 | 인시던트 생성과 채널 독립 승인 만료 처리는 별도의 감독 작업으로 실행됩니다. 어느 작업도 다른 작업에 승인 또는 실행 권한을 부여하지 않습니다. |
@@ -66,6 +67,7 @@ ActionType 승격 모드에 의존하지 않습니다. 프로세스 내부
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-17 | implemented | 각 감지 에피소드의 Action 멱등성 키를 레지스트리가 실제로 반환한 Incident에 연결하고, 독립 효과 검증이 해당 Incident의 합법적인 최종 경로만 적용하도록 했습니다. | `current change`, `bootstrap_incidents.py`, 같은 리소스 재발 및 재생 집중 검사 | 실제 복구를 주장하기 전에 배포된 인증 에피소드 및 효과 근거를 보존해야 합니다. |
 | 2026-09-17 | implemented | 공용 런타임 작업 감독에서 인시던트 생성 소비자와 항상 구성되는 승인 만료 수렴기를 독립적으로 유지했습니다. | 현재 변경, `bootstrap_tasks.py`, 집중 HIL 및 부트스트랩 검사 | 이 작업 격리 경계에 남은 작업이 없습니다. |
 | 2026-08-13 | in-progress | 구현 원장을 도입하고 ARB 표면과 Operator 작업 흐름 권한 경계를 바로잡았습니다. 이전 출처는 재구성하지 않았습니다. | 현재 변경, 범위 표에 나열된 인시던트, 조사, ARB, 이벤트 상관관계 및 Operator 작업 흐름 집중 검사 | 통합 SRE 명령/진행 상황 경로를 완료하고 권한을 수반하는 작업 흐름 강제 적용 및 동등성에 대한 거버넌스 증거를 기록합니다. |
 | 2026-08-16 | in-progress | 오퍼레이터 SRE 요청 조정기, 제안 전달자 연결부, operator-request 정규화 시점의 인시던트 ID 메타데이터를 추가하고, 확인된 요청 하나를 컨트롤 루프를 거쳐 대기 중인 HIL 승인까지 구동하는 end-to-end 검사를 추가했습니다. | 현재 변경, `uv run pytest -q --no-cov services/core-control-plane/tests/core/incident/ services/core-control-plane/tests/core/event_ingest/ services/core-control-plane/tests/core/test_control_loop_operator_request.py` 의 `176 passed` 결과 | 런타임 composition root에 전달자를 바인딩하고 권한을 수반하는 작업 흐름 강제 적용 및 동등성에 대한 거버넌스 증거를 기록합니다. |
@@ -108,6 +110,13 @@ ActionType 승격 모드에 의존하지 않습니다. 프로세스 내부
 이전 버전과의 호환성을 위해 기본값은 `correlate`입니다. 발견, 모니터링, 인벤토리,
 스케줄러, workflow-control 이벤트 생산자는 `none`을 설정합니다. 읽기 모델은 계속
 `correlation_id`로 감사 행을 그룹화하며, 이 값에서 인시던트를 추론하지 않습니다.
+
+근거가 있는 감지 에피소드의 경우 런타임은 열기 쓰기가 성공한 뒤 수명 주기가 실제로 반환한
+Incident ID를 에피소드에서 파생한 Action 멱등성 키 아래 보존합니다. 레지스트리가 같은 상관관계
+계열의 이후 신호에 활성 Incident를 재사용할 수 있기 때문에 이 연결이 필요합니다. 검증된 복구는
+해당 변경 불가능한 연결을 읽고 리소스, 신호 및 상관관계를 다시 확인한 뒤 최소 합법 전이 경로만
+적용해야 합니다. 리소스 이름으로 검색하거나 새 에피소드를 종결하거나 전달 접수를 복구로 취급하지
+않습니다.
 
 ## 오퍼레이터 시작 SRE 흐름
 

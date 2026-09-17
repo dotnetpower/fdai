@@ -65,6 +65,13 @@ from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.rule_catalog.schema.capacity_graduation_policy import (
     load_capacity_graduation_policy,
 )
+from fdai.runtime.aks_commerce import (
+    ActionObservation,
+    VerifiedIncidentResolver,
+    bind_acceptance_effect_resolution,
+    build_acceptance_runtime_bindings,
+    chain_acceptance_observer,
+)
 from fdai.runtime.approval_policy import approver_authorizer_from_environment
 from fdai.runtime.bootstrap_bindings import RuleGenerationRuntimeBinding
 from fdai.runtime.case_history import (
@@ -135,6 +142,7 @@ class PantheonInitialization:
     rule_generation_reconciliation: RuleGenerationReconciliation | None
     rule_generation_binding: RuleGenerationRuntimeBinding
     open_incident_candidate: Callable[[dict[str, Any]], Awaitable[bool]]
+    resolve_verified_incident: VerifiedIncidentResolver
     read_investigation_hook: Any
     runtime_symptom_index: Any
     stage_topic: str
@@ -380,6 +388,13 @@ async def initialize_pantheon(
             ontology_store=config.control_loop.ontology_instance_store,
         )
     thor_mutation_bound = pantheon_enforce and t2_route_selector_bound
+    acceptance_bindings = build_acceptance_runtime_bindings(
+        environment=config.environment,
+        loop=config.control_loop,
+        store=config.incident_audit_store,
+        fallback=t2_route_registry.execute if thor_mutation_bound else None,
+        resolve_verified_incident=config.resolve_verified_incident,
+    )
     rollback_executors: dict[str, RollbackExecutor] | None = (
         {"state_forward_only": t2_route_registry.rollback} if thor_mutation_bound else None
     )
@@ -409,7 +424,7 @@ async def initialize_pantheon(
             "vidar_recovery_contracts": sorted(thor_safety_readiness.vidar_recovery_contracts),
         },
     )
-    heimdall_action_observation_hook = None
+    heimdall_action_observation_hook: ActionObservation | None = None
     observation_collector = config.container.executed_action_observation_collector
     if observation_collector is not None:
         observation_verifier = config.container.reconciliation_observation_verifier
@@ -434,6 +449,10 @@ async def initialize_pantheon(
             ),
             reconciliation_requests=config.effect_request_sink,
         ).handle
+    heimdall_action_observation_hook = chain_acceptance_observer(
+        acceptance_bindings.observe if acceptance_bindings is not None else None,
+        heimdall_action_observation_hook,
+    )
     from fdai.agents._framework import runtime_subscriptions
     from fdai.delivery.workflow_recovery_observation_handler import (
         RecoveryEffectObservationHandler,
@@ -461,7 +480,16 @@ async def initialize_pantheon(
             "fdai-pantheon",
         ).strip(),
         enforce=pantheon_enforce,
-        thor_executor=(t2_route_registry.execute if thor_mutation_bound else None),
+        thor_executor=(
+            acceptance_bindings.execute
+            if acceptance_bindings is not None
+            else t2_route_registry.execute
+            if thor_mutation_bound
+            else None
+        ),
+        anomaly_action_sources=acceptance_bindings.sources
+        if acceptance_bindings is not None
+        else None,
         thor_state_store=StateStoreActionRunStore(config.incident_audit_store),
         rollback_executors=rollback_executors,
         vidar_state_store=config.incident_audit_store,
@@ -626,6 +654,10 @@ async def initialize_pantheon(
     pantheon_runtime.subscription_count += runtime_subscriptions.bind_recovery_effect_observation(
         pantheon_runtime.bridge,
         recovery_effect_observation_handler,
+    )
+    pantheon_runtime.subscription_count += bind_acceptance_effect_resolution(
+        bridge=pantheon_runtime.bridge,
+        resolver=acceptance_bindings.resolve if acceptance_bindings is not None else None,
     )
     from fdai.runtime.alert_noise import bind_alert_noise
 

@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 
 from fdai.core.decision_case import (
     DomainDecisionProjection,
     DomainOptionEvidence,
     ObjectiveEffect,
 )
+from fdai.core.impact_analysis import ChangeAssessment, ChangeGraphEvidenceReceipt
 from fdai.core.operational_context import SourceFreshness
 from fdai.core.operational_planning import SpecialistPlanningProjection
 
@@ -26,6 +27,16 @@ MAX_EVIDENCE_REF_LENGTH = 512
 # It identifies who spoke, never what the runtime observed, so it may
 # accompany canonical lineage but never stand in for it.
 _SPECIALIST_MARKER_PREFIX = "specialist:"
+
+
+class ChangeAssessor(Protocol):
+    async def assess(
+        self,
+        change: Mapping[str, Any],
+        *,
+        graph_evidence: ChangeGraphEvidenceReceipt,
+        unresolved_conflicts: tuple[str, ...] = (),
+    ) -> ChangeAssessment: ...
 
 
 def copy_change_assessment(event: Mapping[str, Any], verdict: dict[str, Any]) -> None:

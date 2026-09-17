@@ -1,19 +1,59 @@
 import copy
+import json
 import ssl
+from dataclasses import asdict, replace
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from importlib.metadata import EntryPoint
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any, cast
 
 import httpx
 import pytest
+import yaml
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fdai.agents import (
+    AnomalyActionCandidate,
+    Forseti,
+    Heimdall,
+    Huginn,
+    InMemoryBus,
+    load_pantheon,
+    read_current_action_approval,
+)
+from fdai.agents.thor import ActionRun, ActionRunState, Thor
+from fdai.agents.var import Var
+from fdai.core.control_loop import ControlLoop
+from fdai.core.executor.action_builder import ActionBuilder
+from fdai.core.risk_gate.gate import ActionModeRecord, ActionPromotionRegistry, RiskGate
+from fdai.core.risk_gate.risk_table import load_risk_table
 from fdai.delivery.analyzer_tick import AnalyzerTarget
 from fdai.delivery.persistence.postgres_analyzer_publication import (
     PostgresAnalyzerPublicationLedger,
 )
-from fdai.shared.contracts.models import Severity
+from fdai.delivery.persistence.state_store_action_promotion import StateStoreActionPromotionRegistry
+from fdai.runtime.aks_commerce import (
+    build_acceptance_runtime_bindings,
+    wrap_acceptance_closure_store,
+)
+from fdai.runtime.isolated_executor_client import EventBusDirectApiExecutionClient
+from fdai.runtime.safeguard_isolated_executor import SafeguardBoundEventBusDirectApiExecutionClient
+from fdai.shared.contracts.models import (
+    Action,
+    Autonomy,
+    CeilingRole,
+    Mode,
+    OntologyActionType,
+    Operation,
+    Severity,
+)
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from tests.core.executor.test_direct_api_executor import _action as _direct_action
+from tests.core.executor.test_executor import _rule
+from tests.core.executor.test_safeguard_lifecycle_coordinator import _NOW, _coordinator
 from tests.delivery.publication_store import ConditionalStore
+from tests.runtime.test_safeguard_lifecycle_wiring import _published_command
 
 from fdai_aks_commerce.acceptance import (
     OrderAcceptanceEvidence,
@@ -21,7 +61,24 @@ from fdai_aks_commerce.acceptance import (
     OrderAcceptanceProbe,
     evaluate_order_acceptance,
 )
+from fdai_aks_commerce.acceptance_action import (
+    ACCEPTANCE_SIGNAL,
+    AcceptanceAnomalyActionSource,
+    AcceptanceGuardedExecutor,
+)
+from fdai_aks_commerce.acceptance_authority import AcceptanceCurrentAuthority
+from fdai_aks_commerce.acceptance_closure import AcceptanceClosureStore
+from fdai_aks_commerce.acceptance_dispatch import AcceptanceIsolatedDispatch
+from fdai_aks_commerce.acceptance_issuance import (
+    AcceptanceReceiptIssuer,
+    AcceptanceTrustLifecycle,
+)
 from fdai_aks_commerce.acceptance_kubernetes import KubernetesOrderAcceptanceReader
+from fdai_aks_commerce.acceptance_material import (
+    AcceptanceDispatchMaterial,
+    StoredAcceptanceDispatchMaterials,
+)
+from fdai_aks_commerce.acceptance_preparation import PreparedAcceptanceSource
 from fdai_aks_commerce.acceptance_receipts import (
     RECEIPT_PREFIX,
     REVOCATION_PREFIX,
@@ -29,7 +86,12 @@ from fdai_aks_commerce.acceptance_receipts import (
     StoredOrderAcceptanceReceiptVerifier,
     acceptance_receipt_payload,
 )
-from fdai_aks_commerce.acceptance_runtime import AcceptanceRuntimeConfig, build_acceptance_runner
+from fdai_aks_commerce.acceptance_runtime import (
+    AcceptanceRuntimeConfig,
+    build_acceptance_analyzer,
+    build_acceptance_runner,
+    build_recovery_bindings,
+)
 from fdai_aks_commerce.acceptance_store import StoredOrderAcceptanceSource, retain_order_acceptance
 
 NOW = datetime(2026, 9, 17, tzinfo=UTC)
@@ -48,6 +110,19 @@ def _intent() -> OrderAcceptanceIntent:
         deployment_uid="uid-order",
         valid_from=NOW - timedelta(minutes=1),
         valid_until=NOW + timedelta(minutes=1),
+    )
+
+
+def _acceptance_rule():
+    rule = _rule()
+    return rule.model_copy(
+        update={
+            "remediates": "ops.scale-out",
+            "resource_type": "kubernetes.deployment",
+            "check_logic": rule.check_logic.model_copy(
+                update={"reference": "fdai.aks_commerce.order_acceptance.v1"}
+            ),
+        }
     )
 
 
@@ -204,7 +279,121 @@ async def test_exact_zero_replica_snapshot_reads_without_mutating() -> None:
     assert len(calls) == 6
 
 
-async def test_signed_observation_survives_store_reconstruction_and_replay() -> None:
+async def test_independent_issuer_and_append_only_revocation_gate_retention() -> None:
+    intent = _intent()
+    evidence = OrderAcceptanceEvidence(
+        resource_ref=intent.resource_ref,
+        service_resource_ref=intent.service_resource_ref,
+        cluster_ref=intent.cluster_ref,
+        namespace=intent.namespace,
+        deployment_name=intent.deployment_name,
+        deployment_uid=intent.deployment_uid,
+        resource_version="1",
+        observed_at=NOW,
+        desired_replicas=0,
+        ready_replicas=0,
+        ready_endpoints=0,
+        probes=tuple(
+            OrderAcceptanceProbe(
+                evidence_ref=f"probe:issuer-{index}",
+                observed_at=NOW - timedelta(seconds=2 - index),
+                accepted=False,
+                authorization_ref="authorization:example",
+            )
+            for index in range(2)
+        ),
+        kubernetes_evidence_ref="observation:issuer",
+        verification_ref="pending",
+        complete=True,
+        sample=False,
+        maintenance_active=False,
+        hpa_managed=False,
+        competing_writer=False,
+    )
+    key = Ed25519PrivateKey.generate()
+    store = InMemoryStateStore()
+    lifecycle = AcceptanceTrustLifecycle(
+        store=store,
+        key_id="issuer-key",
+        trust_owner_identity="trust:owner",
+        issuer_identity="issuer:example",
+        source_identity="observer:collector",
+        executor_identity="identity:executor",
+        clock=lambda: NOW,
+    )
+    await lifecycle.activate(valid_until=NOW + timedelta(seconds=30))
+    issuer = AcceptanceReceiptIssuer(
+        private_key=key,
+        key_id="issuer-key",
+        issuer_identity="issuer:example",
+        source_identity="observer:collector",
+        executor_identity="identity:executor",
+        intent=intent,
+        clock=lambda: NOW,
+    )
+    with pytest.raises(ValueError, match="must be distinct"):
+        AcceptanceReceiptIssuer(
+            private_key=key,
+            key_id="issuer-key",
+            issuer_identity="observer:collector",
+            source_identity="observer:collector",
+            executor_identity="identity:executor",
+            intent=intent,
+            clock=lambda: NOW,
+        )
+    with pytest.raises(ValueError, match="unqualified evidence"):
+        issuer.issue(replace(evidence, complete=False))
+    issued = issuer.issue(evidence)
+    verifier = StoredOrderAcceptanceReceiptVerifier(
+        store=store,
+        intent=intent,
+        trust={
+            "issuer-key": AcceptanceTrustBinding(
+                "issuer:example", "observer:collector", key.public_key()
+            )
+        },
+        executor_identity="identity:executor",
+        clock=lambda: NOW,
+    )
+
+    digest = await retain_order_acceptance(
+        store=store,
+        verifier=verifier,
+        intent=intent,
+        evidence=issued.evidence,
+        receipt=issued.receipt,
+        now=NOW,
+    )
+    assert digest.startswith("sha256:")
+
+    await lifecycle.revoke(reason_code="rotation_completed")
+    await lifecycle.revoke(reason_code="rotation_completed")
+    assert not await verifier.verify(
+        verification_ref=issued.evidence.verification_ref,
+        evidence_digest=digest,
+    )
+
+
+@pytest.mark.parametrize(
+    "dispatch_state",
+    [
+        "current",
+        "revoked",
+        "changed",
+        "shadow",
+        "audit_down",
+        "expired",
+        "source_drift",
+        "demoted",
+        "safety_held",
+        "unpromoted",
+        "policy_unavailable",
+        "policy_expired",
+    ],
+)
+async def test_signed_observation_survives_store_reconstruction_and_replay(
+    dispatch_state: str,
+) -> None:
     store, _, template = await _receipt()
     evidence = OrderAcceptanceEvidence(
         resource_ref="resource:deployment",
@@ -231,6 +420,9 @@ async def test_signed_observation_survives_store_reconstruction_and_replay() -> 
         verification_ref=REFERENCE,
         complete=True,
         sample=False,
+        maintenance_active=False,
+        hpa_managed=False,
+        competing_writer=False,
     )
     assessment = evaluate_order_acceptance(_intent(), evidence, now=NOW, window_seconds=30)
     key = Ed25519PrivateKey.generate()
@@ -286,10 +478,12 @@ async def test_signed_observation_survives_store_reconstruction_and_replay() -> 
         Severity.HIGH,
         5,
     )
+    provider = InMemoryEventBus()
+    current_time = [NOW]
     runner = build_acceptance_runner(
         config=config,
         store=store,
-        event_bus=InMemoryEventBus(),
+        event_bus=provider,
         publication_ledger=PostgresAnalyzerPublicationLedger(store=ConditionalStore()),
         topic="fdai.events",
         clock=lambda: NOW,
@@ -301,9 +495,232 @@ async def test_signed_observation_survives_store_reconstruction_and_replay() -> 
     assert report.published == 1
     assert not report.failed
     assert (await runner.run_once(targets)).duplicates_suppressed == 1
+    source = AcceptanceAnomalyActionSource(
+        intent=config.intent,
+        analyzer=build_acceptance_analyzer(
+            config=config, store=store, clock=lambda: current_time[0]
+        ),
+    )
+    calls: list[dict[str, Any]] = []
+
+    async def external_effect(context: dict[str, Any]) -> bool:
+        original = await materials.read(context["run"].action_id)
+        assert original is not None
+        await current_authority(original.action(), context)
+        people = await read_current_action_approval(
+            store=store,
+            action_run=context["run"].to_dict(),
+            can_approve=lambda person, action: (
+                person in {"reviewer@example.com", "reviewer2@example.com"}
+                and action == "ops.scale-out"
+            ),
+            clock=lambda: current_time[0],
+        )
+        assert len(people) == 2
+        calls.append(dict(context["run"].params))
+        return True
+
+    agent_bus = InMemoryBus(registry=load_pantheon())
+    thor = Thor(
+        bus=agent_bus,
+        executor=AcceptanceGuardedExecutor(
+            source=source, execute=external_effect, clock=lambda: current_time[0]
+        ),
+        saga_available=dispatch_state != "audit_down",
+    )
+    thor.set_shadow(dispatch_state == "shadow")
+    var = Var(bus=agent_bus, state_store=store)
+    action_type = OntologyActionType.model_validate(
+        yaml.safe_load(
+            (
+                Path(__file__).resolve().parents[3] / "rule-catalog/action-types/ops.scale-out.yaml"
+            ).read_text()
+        )
+    )
+    promotions = ActionPromotionRegistry()
+    if dispatch_state != "unpromoted":
+        promotions.restore("ops.scale-out", ActionModeRecord("ops.scale-out", Mode.ENFORCE))
+    materials = StoredAcceptanceDispatchMaterials(store)
+
+    async def refresh_policy() -> None:
+        if dispatch_state == "policy_unavailable":
+            raise RuntimeError("synthetic policy read is unavailable")
+        if dispatch_state == "policy_expired":
+            current_time[0] = NOW + timedelta(seconds=31)
+        return None
+
+    builder = ActionBuilder({action_type.name: action_type})
+    rule = _acceptance_rule()
+    risk_gate = RiskGate(registry=promotions)
+    prepared_source = PreparedAcceptanceSource(
+        source=source,
+        builder=builder,
+        rule=rule,
+        risk_gate=risk_gate,
+        materials=materials,
+        refresh_policy=refresh_policy,
+        clock=lambda: current_time[0],
+    )
+    current_authority = AcceptanceCurrentAuthority(
+        store=store,
+        builder=builder,
+        rule=rule,
+        risk_gate=risk_gate,
+        risk_table=load_risk_table(
+            Path(__file__).resolve().parents[3] / "rule-catalog/risk-classification.yaml"
+        ),
+        principal_role=CeilingRole.APPROVER,
+        can_approve=lambda person, action: (
+            person in {"reviewer@example.com", "reviewer2@example.com"}
+            and action == "ops.scale-out"
+        ),
+        refresh_policy=refresh_policy,
+        safety_held=lambda: dispatch_state == "safety_held",
+        clock=lambda: current_time[0],
+    )
+    forseti = Forseti(
+        bus=agent_bus,
+        anomaly_action_sources={ACCEPTANCE_SIGNAL: prepared_source},
+        test_context_clock=lambda: NOW,
+    )
+    heimdall = Heimdall(bus=agent_bus, rate_threshold=1)
+    huginn = Huginn(bus=agent_bus)
+    agent_bus.subscribe("object.event", "Heimdall", heimdall.on_typed_message)
+    agent_bus.subscribe("object.anomaly", "Forseti", forseti.on_typed_message)
+    agent_bus.subscribe("object.verdict", "Thor", thor.on_typed_message)
+    agent_bus.subscribe("object.action-run", "Var", var.on_typed_message)
+    agent_bus.subscribe("object.approval", "Thor", thor.on_typed_message)
+    async for envelope in provider.subscribe("fdai.events", "acceptance-integration"):
+        await huginn.ingest(dict(envelope.payload))
+    assert len(thor.action_runs) == 1
+    run = next(iter(thor.action_runs.values()))
+    assert run.state.value == "hil_pending"
+    if dispatch_state in {"policy_unavailable", "policy_expired"}:
+        assert run.action_id is None
+        assert run.shadow_mode
+        assert not calls
+        return
+    assert run.action_id is not None
+    material = await materials.read(run.action_id)
+    assert material is not None
+    assert material.action().params == run.params
+    assert material.correlation_id == run.correlation_id
+    assert run.quorum_required == 2
+    original_verdict = agent_bus.messages_on("object.verdict")[-1].payload
+    repeated = await prepared_source.prepare(original_verdict)
+    assert repeated.action_id == run.action_id
+    assert await materials.read(run.action_id) == material
+    with pytest.raises(ValueError, match="evidence changed"):
+        await prepared_source.prepare(
+            {**original_verdict, "params": {**run.params, "replica_count": 10}}
+        )
+    if dispatch_state == "unpromoted":
+        assert material.action().mode is Mode.SHADOW
+        assert run.shadow_mode
+    if dispatch_state == "demoted":
+        promotions.restore("ops.scale-out", None)
+    assert not calls
+    assert assessment.proposal is not None
+    assert run.params == dict(assessment.proposal.arguments)
+    if dispatch_state == "revoked":
+        await store.write_state(
+            REVOCATION_PREFIX + "example-key",
+            {
+                "key_id": "example-key",
+                "revoked": True,
+                "valid_until": (NOW + timedelta(seconds=20)).isoformat(),
+            },
+        )
+    elif dispatch_state == "changed":
+        run.params["replica_count"] = 2
+    elif dispatch_state == "expired":
+        current_time[0] = NOW + timedelta(seconds=31)
+    elif dispatch_state == "source_drift":
+        current_time[0] = NOW + timedelta(seconds=1)
+        changed_evidence = replace(
+            evidence,
+            resource_version="2",
+            observed_at=current_time[0],
+            verification_ref="sha256:" + "c" * 64,
+        )
+        changed_assessment = evaluate_order_acceptance(
+            _intent(),
+            changed_evidence,
+            now=current_time[0],
+            window_seconds=30,
+        )
+        changed_receipt = {
+            **receipt,
+            "evidence_digest": changed_assessment.evidence_digest,
+            "verification_ref": changed_evidence.verification_ref,
+        }
+        changed_receipt["signature"] = key.sign(acceptance_receipt_payload(changed_receipt)).hex()
+        await retain_order_acceptance(
+            store=store,
+            verifier=verifier,
+            intent=_intent(),
+            evidence=changed_evidence,
+            receipt=changed_receipt,
+            now=current_time[0],
+        )
+    with pytest.raises(ValueError, match="no self-approval"):
+        await var.decide(run.correlation_id, approver="Heimdall", decision="approve")
+    approval = await var.decide(
+        run.correlation_id, approver="reviewer@example.com", decision="approve"
+    )
+    assert not calls
+    approval = await var.decide(
+        run.correlation_id, approver="reviewer2@example.com", decision="approve"
+    )
+    assert approval is not None
+    if dispatch_state == "changed":
+        with pytest.raises(ValueError, match="approval identity"):
+            await thor.on_typed_message("object.approval", approval)
+    else:
+        await thor.on_typed_message("object.approval", approval)
+    assert len(calls) == (1 if dispatch_state == "current" else 0)
+    if calls:
+        assert calls[0] == dict(assessment.proposal.arguments)
+        assert run.outcome == "command_accepted_verification_pending"
+        with pytest.raises(PermissionError, match="no longer eligible"):
+            await read_current_action_approval(
+                store=store,
+                action_run=run.to_dict(),
+                can_approve=lambda _person, _action: False,
+                clock=lambda: NOW,
+            )
+        assert approval is not None
+        from fdai.agents._framework.var_ticket_identity import approval_state_key
+
+        approval_key = approval_state_key(
+            run.correlation_id, "final", approval["action_run_identity"]
+        )
+        saved = dict(await store.read_state(approval_key) or {})
+        for updates in (
+            {"state": "rejected"},
+            {"approvers": ["reviewer@example.com"]},
+            {"approvers": ["reviewer@example.com", "reviewer@example.com"]},
+            {"approvers": ["heimdall", "reviewer@example.com"]},
+            {"params": {"replica_count": 99}},
+            {"producer_principal": "Thor"},
+        ):
+            await store.write_state(
+                approval_key, {**saved, "approval": {**saved["approval"], **updates}}
+            )
+            with pytest.raises(ValueError):
+                await read_current_action_approval(
+                    store=store,
+                    action_run=run.to_dict(),
+                    can_approve=lambda _person, _action: True,
+                    clock=lambda: NOW,
+                )
+        await store.write_state(approval_key, saved)
+    if dispatch_state in {"expired", "revoked", "source_drift", "demoted", "safety_held"}:
+        assert run.state.value == "failed"
     await store.write_state(RECEIPT_PREFIX + REFERENCE, {**receipt, "signature": "0" * 128})
     assert not await verifier.verify(verification_ref=REFERENCE, evidence_digest=first)
-    assert (await runner.run_once(targets)).failed
+    if dispatch_state != "source_drift":
+        assert (await runner.run_once(targets)).failed
 
 
 @pytest.mark.parametrize("defect", ["uid", "generation", "selector", "truncated", "race", "status"])
@@ -418,6 +835,145 @@ def test_runtime_rejects_missing_or_unknown_config(raw: str) -> None:
         AcceptanceRuntimeConfig.from_json(raw)
 
 
+@pytest.mark.parametrize("defect", [None, "rule", "port", "registry", "approvers", "entrypoint"])
+async def test_runtime_composes_real_acceptance_bindings_without_io(
+    defect: str | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = InMemoryStateStore()
+    key = Ed25519PrivateKey.generate()
+    raw = {
+        "intent": asdict(_intent()),
+        "trust": {
+            "example-key": {
+                "issuer": "observer:verifier",
+                "source_identity": "observer:collector",
+                "public_key_hex": key.public_key().public_bytes_raw().hex(),
+            }
+        },
+        "executor_identity": "identity:executor",
+        "severity": "high",
+        "publication_window_seconds": 5,
+    }
+    rule = _acceptance_rule()
+    registry = StateStoreActionPromotionRegistry(store=store)
+    action_type = OntologyActionType.model_validate(
+        yaml.safe_load(
+            (
+                Path(__file__).resolve().parents[3] / "rule-catalog/action-types/ops.scale-out.yaml"
+            ).read_text()
+        )
+    )
+    coordinator, _lock = _coordinator(store)
+    port = SafeguardBoundEventBusDirectApiExecutionClient(
+        client=EventBusDirectApiExecutionClient(
+            event_bus=InMemoryEventBus(), audit_store=store, instance_id="test"
+        ),
+        coordinator=coordinator,
+    )
+    loop = SimpleNamespace(
+        _rules_by_id={rule.id: rule},
+        _action_builder=ActionBuilder({action_type.name: action_type}),
+        _risk_gate=RiskGate(registry=registry),
+        _risk_table=load_risk_table(
+            Path(__file__).resolve().parents[3] / "rule-catalog/risk-classification.yaml"
+        ),
+        _direct_api_executor=port,
+        _kill_switch_refresher=None,
+        _kill_switch=None,
+        _degradation=None,
+    )
+    env = {
+        "FDAI_AKS_ACCEPTANCE_JSON": json.dumps(raw, default=lambda value: value.isoformat()),
+        "FDAI_AKS_ACCEPTANCE_RULE_ID": rule.id,
+        "FDAI_PANTHEON_APPROVER_ACTIONS_JSON": '{"reviewer@example.com":["ops.scale-out"]}',
+    }
+    if defect == "rule":
+        env["FDAI_AKS_ACCEPTANCE_RULE_ID"] = "missing"
+    elif defect == "port":
+        loop._direct_api_executor = None
+    elif defect == "registry":
+        loop._risk_gate = RiskGate(registry=ActionPromotionRegistry())
+    elif defect == "approvers":
+        env.pop("FDAI_PANTHEON_APPROVER_ACTIONS_JSON")
+    entry = EntryPoint(
+        name="aks-commerce",
+        value="fdai_aks_commerce.acceptance_runtime:build_recovery_bindings",
+        group="fdai.acceptance_recovery",
+    )
+    closure_entry = EntryPoint(
+        name="aks-commerce-closure",
+        value="fdai_aks_commerce.acceptance_runtime:build_closure_store",
+        group="fdai.acceptance_recovery",
+    )
+    monkeypatch.setattr(
+        "fdai.runtime.aks_commerce.entry_points",
+        lambda **_kwargs: () if defect == "entrypoint" else (entry, closure_entry),
+    )
+    calls: list[object] = []
+
+    async def fallback(context: dict[str, Any]) -> bool:
+        calls.append(context)
+        return False
+
+    async def resolve_verified_incident(**_values: object) -> str:
+        return "incident:example"
+
+    assert (
+        build_acceptance_runtime_bindings(
+            environment={},
+            loop=cast(ControlLoop, loop),
+            store=store,
+            fallback=fallback,
+            resolve_verified_incident=resolve_verified_incident,
+        )
+        is None
+    )
+    if defect is not None:
+        with pytest.raises((ValueError, RuntimeError)):
+            build_acceptance_runtime_bindings(
+                environment=env,
+                loop=cast(ControlLoop, loop),
+                store=store,
+                fallback=fallback,
+                resolve_verified_incident=resolve_verified_incident,
+            )
+        assert not calls
+        return
+    bindings = build_acceptance_runtime_bindings(
+        environment=env,
+        loop=cast(ControlLoop, loop),
+        store=store,
+        fallback=fallback,
+        resolve_verified_incident=resolve_verified_incident,
+    )
+    assert bindings is not None
+    assert bindings.observe is not None
+    assert bindings.resolve is not None
+    assert not await bindings.observe({"resource_id": "resource:other"})
+    assert (
+        wrap_acceptance_closure_store(
+            environment={}, delegate=coordinator.closure_store, store=store
+        )
+        is coordinator.closure_store
+    )
+    wrapped = wrap_acceptance_closure_store(
+        environment=env, delegate=coordinator.closure_store, store=store
+    )
+    assert isinstance(wrapped, AcceptanceClosureStore)
+    assert wrapped.delegate is coordinator.closure_store
+    assert wrapped.intent.resource_ref == _intent().resource_ref
+    assert wrapped.production_eligible is False
+    assert isinstance(bindings.sources[ACCEPTANCE_SIGNAL], PreparedAcceptanceSource)
+    assert registry.mode_of("ops.scale-out") is Mode.SHADOW
+    assert not calls
+    assert not await bindings.execute({"run": SimpleNamespace(resource_id="resource:other")})
+    assert len(calls) == 1
+    assert not await bindings.sources[ACCEPTANCE_SIGNAL].resolve(
+        event_type=ACCEPTANCE_SIGNAL, resource_ref="resource:other"
+    )
+    assert build_recovery_bindings is not None
+
+
 def test_cli_failure_does_not_disclose_provider_diagnostics(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -432,6 +988,197 @@ def test_cli_failure_does_not_disclose_provider_diagnostics(
     captured = capsys.readouterr()
     assert "provider-private-diagnostic" not in captured.out + captured.err
     assert '"failed": true' in captured.out
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        None,
+        "missing",
+        "shadow",
+        "changed",
+        "audit",
+        "expired",
+        "authority",
+        "late_revoked",
+        "authority_mutation",
+        "transport_error",
+    ],
+)
+async def test_acceptance_isolated_dispatch_rechecks_at_real_safeguard_boundary(
+    defect: str | None,
+) -> None:
+    intent = replace(
+        _intent(), valid_from=_NOW - timedelta(seconds=30), valid_until=_NOW + timedelta(seconds=30)
+    )
+    params = {
+        "target_resource_ref": intent.resource_ref,
+        "target_platform": "kubernetes",
+        "target_kind": "Deployment",
+        "cluster_ref": intent.cluster_ref,
+        "namespace": intent.namespace,
+        "resource_name": intent.deployment_name,
+        "target_uid": intent.deployment_uid,
+        "resource_version": "1",
+        "replica_count": 1,
+        "reason": "Restore the reviewed order-acceptance replica floor.",
+    }
+    candidate = AnomalyActionCandidate(
+        event_type=ACCEPTANCE_SIGNAL,
+        resource_ref=intent.resource_ref,
+        action_type="ops.scale-out",
+        arguments_json=json.dumps(params, sort_keys=True, separators=(",", ":")),
+        evidence_ref=REFERENCE,
+        observed_at=_NOW,
+        expires_at=_NOW + timedelta(seconds=30),
+    )
+
+    class Source:
+        available = True
+        reads = 0
+
+        def __init__(self) -> None:
+            self.intent = intent
+
+        async def resolve(
+            self, *, event_type: str, resource_ref: str
+        ) -> AnomalyActionCandidate | None:
+            self.reads += 1
+            return candidate if self.available else None
+
+    source = Source()
+    action_payload = _direct_action(
+        target=intent.resource_ref, mode=Mode.ENFORCE, params=params
+    ).model_dump(mode="json")
+    action_payload.update(
+        action_type="ops.scale-out", operation="scale", executor_identity_ref="identity/resilience"
+    )
+    action = Action.model_validate(action_payload)
+    material = AcceptanceDispatchMaterial(
+        action_json=action.model_dump_json(),
+        correlation_id="analyzer:example",
+        action_run_idempotency_key="anomaly:example",
+    )
+    material_store = StoredAcceptanceDispatchMaterials(InMemoryStateStore())
+    await material_store.retain(material)
+    await material_store.retain(material)
+    with pytest.raises(ValueError, match="different content"):
+        await material_store.retain(replace(material, correlation_id="analyzer:other"))
+    run = ActionRun(
+        correlation_id=material.correlation_id,
+        action_type=action.action_type,
+        resource_id=action.target_resource_ref,
+        state=ActionRunState.EXECUTING,
+        verdict="hil",
+        action_id=str(action.action_id),
+        idempotency_key=material.action_run_idempotency_key,
+        params=dict(params),
+        resolved_autonomy_ceiling=Autonomy.ENFORCE_HIL,
+        rollback_contract=action.rollback_ref.kind.value,
+        execution_audit_receipt="audit:example",
+        approval_expires_at=_NOW + timedelta(seconds=30),
+    )
+    calls: list[str] = []
+    authority_checks: list[str] = []
+    material_reads = 0
+
+    async def read_material(action_id: str) -> AcceptanceDispatchMaterial | None:
+        nonlocal material_reads
+        material_reads += 1
+        if defect == "missing":
+            return None
+        if defect == "changed" and material_reads > 1:
+            return replace(
+                material,
+                action_json=action.model_copy(
+                    update={"executor_identity_ref": "identity/other"}
+                ).model_dump_json(),
+            )
+        return await material_store.read(action_id)
+
+    async def authority(original: Action, context: dict[str, Any]) -> None:
+        assert original == action
+        assert context["run"] is run
+        authority_checks.append(str(original.action_id))
+        if defect == "authority":
+            raise PermissionError("current authorization unavailable")
+        if defect == "authority_mutation":
+            run.quorum_required += 1
+
+    async def unused(_context: dict[str, Any]) -> bool:
+        pytest.fail("isolated dispatch must not fall back to the unbound executor")
+
+    class Client:
+        async def publish_bound(self, **kwargs: Any) -> Any:
+            if defect == "late_revoked":
+                source.available = False
+            await kwargs["pre_publish_guard"]()
+            calls.append(str(kwargs["action"].action_id))
+            if defect == "transport_error":
+                raise OSError("synthetic transport result is unknown")
+            return _published_command(kwargs)
+
+    if defect == "shadow":
+        run.shadow_mode = True
+    elif defect == "audit":
+        run.execution_audit_receipt = None
+    elif defect == "expired":
+        run.approval_expires_at = _NOW
+    coordinator, _lock = _coordinator(InMemoryStateStore())
+    dispatch = AcceptanceIsolatedDispatch(
+        guard=AcceptanceGuardedExecutor(
+            source=cast(AcceptanceAnomalyActionSource, source), execute=unused, clock=lambda: _NOW
+        ),
+        read_material=read_material,
+        check_authority=authority,
+        client=SafeguardBoundEventBusDirectApiExecutionClient(
+            client=cast(EventBusDirectApiExecutionClient, Client()),
+            coordinator=coordinator,
+        ),
+        clock=lambda: _NOW,
+    )
+    expected_error = (
+        TimeoutError
+        if defect in {None, "late_revoked", "transport_error"}
+        else PermissionError
+        if defect == "authority"
+        else ValueError
+    )
+    with pytest.raises(expected_error):
+        await dispatch({"run": run})
+    assert len(calls) == (1 if defect in {None, "transport_error"} else 0)
+    if defect is None:
+        assert len(authority_checks) == 2
+        assert source.reads == 2
+
+
+@pytest.mark.parametrize("defect", ["digest", "correlation", "extra", "action"])
+async def test_acceptance_material_readback_rejects_corruption(defect: str) -> None:
+    action = _direct_action().model_copy(
+        update={"action_type": "ops.scale-out", "operation": Operation.SCALE}
+    )
+    material = AcceptanceDispatchMaterial(
+        action.model_dump_json(), "analyzer:example", "anomaly:example"
+    )
+    store = InMemoryStateStore()
+    materials = StoredAcceptanceDispatchMaterials(store)
+    action_id = str(action.action_id)
+    assert await materials.read(action_id) is None
+    await materials.retain(material)
+    assert await StoredAcceptanceDispatchMaterials(store).read(action_id) == material
+    key = "aks-commerce:acceptance-action:v1:" + action_id
+    record = dict(await store.read_state(key) or {})
+    if defect == "digest":
+        record["digest"] = "sha256:" + "0" * 64
+    elif defect == "correlation":
+        record["material"]["correlation_id"] = "analyzer:other"
+    elif defect == "extra":
+        record["execution_authority"] = True
+    else:
+        record["material"]["action_json"] = "{}"
+    await store.write_state(key, record)
+    with pytest.raises(ValueError):
+        await materials.read(action_id)
 
 
 @pytest.mark.parametrize("revoked", [True, None, "false"])
