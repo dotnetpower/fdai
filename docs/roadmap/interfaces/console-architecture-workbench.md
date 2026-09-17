@@ -119,6 +119,9 @@ and node hit regions are at least 44 CSS pixels. Reduced motion and forced color
 Reviewed Resource icons use a URL-only resolver on interactive graphs. Raw SVG source remains
 isolated to self-contained export generation, so entering an instance or topology view does not
 load every reviewed icon or its export source before the selected graph can render.
+The loopback Vite server permits reads only within the repository root so those reviewed shared
+assets remain available during local development without widening the browser or deployment
+boundary.
 
 ## Verification
 
