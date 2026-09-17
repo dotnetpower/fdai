@@ -114,13 +114,18 @@ def test_inventory_scopes_prefer_authoritative_multi_scope_setting() -> None:
     assert inventory_scopes_from_env({"AZURE_SUBSCRIPTION_ID": "legacy-scope"}) == ("legacy-scope",)
 
 
-def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ...]:
-    config = InventoryJobConfig.from_env(
-        {
-            "FDAI_INVENTORY_DSN": "postgresql://example",
-            "AZURE_SUBSCRIPTION_ID": "sub-1",
-        }
-    )
+def _ontology_observer_harness(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    operator_requested: bool = False,
+) -> tuple[Any, ...]:
+    config_values = {
+        "FDAI_INVENTORY_DSN": "postgresql://example",
+        "AZURE_SUBSCRIPTION_ID": "sub-1",
+    }
+    if operator_requested:
+        config_values["FDAI_INVENTORY_OPERATOR_REQUESTED"] = "1"
+    config = InventoryJobConfig.from_env(config_values)
     ontology_store = SimpleNamespace(
         sync_catalog=AsyncMock(),
         read_inventory_state_base=AsyncMock(return_value=()),
@@ -1783,6 +1788,39 @@ async def test_recovery_rejects_unverified_completion(defect: str) -> None:
         observe.assert_not_awaited()
     else:
         observe.assert_awaited_once_with(observation)
+
+
+async def test_operator_requested_recovery_skips_release_mismatched_pending() -> None:
+    from fdai.delivery.inventory_sync_cli_support import recover_ontology_projection
+
+    observation = _promoted_observation("snapshot-recovery")
+    observe = AsyncMock()
+    await recover_ontology_projection(
+        load_pending=AsyncMock(return_value=observation),
+        observe=observe,
+        status_store=SimpleNamespace(
+            read_state=AsyncMock(return_value={"ontology_release_digest": "sha256:" + "b" * 64})
+        ),
+        release_digest="sha256:" + "a" * 64,
+        allow_release_mismatch_collection=True,
+    )
+
+    observe.assert_not_awaited()
+
+
+async def test_ontology_observer_forwards_operator_requested_recovery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recover = AsyncMock()
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_ontology_observer.inventory_sync_cli_support.recover_ontology_projection",
+        recover,
+    )
+    recovery = _ontology_observer_harness(monkeypatch, operator_requested=True)[1]
+
+    await recovery()
+
+    assert recover.await_args.kwargs["allow_release_mismatch_collection"] is True
 
 
 async def test_recovery_deadline_cancels_before_new_collection() -> None:

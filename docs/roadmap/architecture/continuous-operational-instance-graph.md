@@ -390,6 +390,7 @@ the new release. The retained identities remain ownership evidence for atomic re
 the old manifest digest cannot certify same-generation content under the new release. A separate
 release-independent content digest keeps same-generation tamper detection active during that
 transition. The exact-source replay command may consume one pending active generation only when the snapshot loader proves that the active pointer advanced but the prior manifest did not. This explicit path reuses the atomic active-generation and content checks; ordinary replay still rejects a generation change, and no provider read or managed-resource mutation occurs.
+If retained relationship classifications cannot satisfy that replay under a new release, automatic recovery remains blocked. An explicitly operator-requested full reconciliation may preserve the pending evidence and proceed to fresh provider collection under the current release; this exception cannot activate from the recurring loop.
 
 The PostgreSQL projector commits graph replacement and the manifest and status markers in one
 transaction after locking and rechecking the active inventory generation. Endpoint foreign keys
