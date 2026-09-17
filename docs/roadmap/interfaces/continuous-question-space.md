@@ -57,8 +57,7 @@ evidence path.
 
 ## Federated question-bank inventory
 
-The repository can join reviewed Golden wording, manual browser prompts, Console starters, and
-operator candidates into one generated review inventory. Each owning source remains authoritative.
+The repository can join reviewed Golden wording, manual browser prompts, Console starters, and operator candidates into one generated review inventory. Each owning source remains authoritative.
 The inventory preserves stable ids, bilingual wording, source digests, explicit duplicate
 relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
 and validation states.
