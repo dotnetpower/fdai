@@ -20,9 +20,7 @@ domain code and assets. It does not create another control plane or move authori
 > **Current status:** FDAI now has an independent `fdai-cost-governance` wheel, source
 > distribution, image profile, exact ontology profile, atomic disabled-first package lifecycle,
 > package-owned catalog assets, gated Operator and Console projections, and local W0-W7 validation
-> mechanics. Operator disclosure can omit resource recommendations when the effective granularity
-> or identity policy disallows them. The restricted projection records amount and recommendation
-> suppression without requiring its recommendation count to match the source count. The shared Console catalog-source scanner resolves the imported `t` binding rather than unrelated formatting imports. It and the panel-registry scanner are repository validation only; a non-FinOps component or label change does not
+> mechanics. Operator disclosure can omit resource recommendations when the effective granularity or identity policy disallows them. The restricted projection records amount and recommendation suppression without requiring its recommendation count to match the source count. The shared Console catalog-source scanner resolves the imported `t` binding rather than unrelated formatting imports. It and the panel-registry scanner are repository validation only; a non-FinOps component or label change does not
 > enter the Cost Governance package, activation state, or authority. Shared Operator composition may supervise unrelated event-bus workers, but they cannot
 > activate, configure, publish, or change Cost Governance through conversation fallback streams.
 > The outbox lifecycle facade also exposes the unrelated Incident intervention worker. Its
@@ -42,8 +40,7 @@ domain code and assets. It does not create another control plane or move authori
 > Exact-signal anomaly sources and original Action preparation in the shared Forseti factory
 > likewise supply no package authority. Registration and durable human approval readback cannot
 > enable Cost Governance, change Njord's publisher ownership, or grant package data access.
-> Global Terraform roots can grant the dedicated inventory identity subscription-scoped AKS Cluster User and RBAC Reader roles for automatic read-only discovery.
-> Those assignments and ephemeral cluster bindings are not Cost Governance package inputs and cannot activate its runtime, authorize a cost decision, or grant execution.
+> Global Terraform roots can grant the dedicated inventory identity subscription-scoped AKS Cluster User and RBAC Reader roles for automatic read-only discovery. Those assignments and ephemeral cluster bindings are not Cost Governance package inputs and cannot activate its runtime, authorize a cost decision, or grant execution.
 > The same
 > boundary excludes the independent runtime-call evidence source flag, shared provider endpoint
 > availability, and startup-probe RBAC state addresses from FinOps package inputs and authority.
