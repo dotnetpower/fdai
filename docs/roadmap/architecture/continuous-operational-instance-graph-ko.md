@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 742f4428f379f9e387332ec929586bc7d685cc8b
+translation_source_sha: 4c04b9f1f6933e0fe0e1c7f66eaa7c3836016fff
 translation_revised: 2026-09-17
 ---
 # 지속형 운영 인스턴스 그래프
@@ -128,11 +128,11 @@ ARM ID와 대소문자 구분 없이 일치해야 합니다. 모순이 있으면
 CLI 지원 모듈은 전체 조정 전과 세대 승격 후에 적용하는 Activity Log 복구의 독립 실패 경계를 소유합니다.
 거부된 변경분은 커서를 진행하거나 전체 인벤토리를 중단하거나 검증된 세대를 무효화하지 않고 사용 불가 상태로 남습니다.
 
-Kubernetes fleet 수집은 정확한 클러스터 연결마다 출처 상태 레코드 하나를 보존합니다. 레코드는
-고객에게 안전한 범위 다이제스트를 사용하므로, 사용할 수 없는 클러스터 하나가 다른 클러스터의
-검증된 양성 근거를 지우거나 ARM 신원을 노출하지 않고 fleet 완전성을 낮춥니다.
-배포된 Inventory Job은 기존 연결 또는 범위가 제한된 fleet JSON 레코드 중 하나만 허용하며 같은
-읽기 신원에는 정확한 각 클러스터 범위에서 AKS RBAC Reader만 부여합니다.
+Kubernetes fleet 수집은 검색되었거나 명시적으로 연결된 각 클러스터마다 고객에게 안전한 범위 다이제스트를 사용하는 출처 상태 레코드 하나를 보존합니다.
+사용할 수 없는 클러스터 하나는 다른 클러스터의 검증된 양성 근거를 지우거나 ARM 신원을 노출하지 않고 fleet 완전성을 낮춥니다. 배포된 Inventory Job은 전용 읽기 신원으로 범위가 제한된 구독 검색을 기본 사용합니다.
+구독 범위의 `Reader`, `Azure Kubernetes Service Cluster User Role` 및 `Azure Kubernetes Service RBAC Reader`를 받은 같은 신원이 이후 생성된 클러스터를 찾고, 실행 형식의 엔드포인트, CA 및 audience 자료만 메모리에서 추출한 뒤 Kubernetes 객체를 읽습니다.
+정적 자격 증명, 관리자 프로필, 불완전한 페이지 처리 및 연결할 수 없는 API 원본은 사용 불가 상태로 남습니다.
+명시적 fleet JSON 레코드는 배포 범위를 좁히며 구독 검색 및 기존 연결과 함께 사용할 수 없습니다.
 수명 주기 수집은 각 연결마다 독립 lease와 resourceVersion 커서를 획득합니다. 한 클러스터 실패는
 fleet 근거를 불완전하게 유지하지만 다른 클러스터에서 수락된 Event 관측을 중지하거나 지우지
 않습니다.

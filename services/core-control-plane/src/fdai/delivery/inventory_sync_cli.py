@@ -8,6 +8,7 @@ import os
 import ssl
 import sys
 from contextlib import AsyncExitStack
+from dataclasses import replace
 from datetime import UTC, datetime
 from functools import partial
 
@@ -16,6 +17,13 @@ from fdai_service_contracts import InventoryProgressStage
 
 from fdai.core.ontology_platform.runtime_call_telemetry import RuntimeCallTelemetryProducer
 from fdai.delivery import inventory_collection_health_reporting, inventory_sync_cli_support
+from fdai.delivery.aks_subscription_discovery import (
+    AksSubscriptionDiscoveryConfig,
+    AksSubscriptionDiscoveryError,
+    AksUnavailableScope,
+    AzureAksSubscriptionBindingDiscovery,
+    subscription_scope_digest,
+)
 from fdai.delivery.azure.arg_projection import to_neutral_id
 from fdai.delivery.azure.log_query import (
     AzureLogAnalyticsQueryConfig,
@@ -181,9 +189,16 @@ async def _build_kubernetes_enricher(
     stack: AsyncExitStack,
     identity: WorkloadIdentity | None = None,
 ) -> InventoryPromotionEnricher:
-    if not config.kubernetes_bindings:
+    if not config.kubernetes_bindings and not config.kubernetes_unavailable_scopes:
         return UnavailableKubernetesInventoryEnricher()
     enrichers: list[InventoryPromotionEnricher] = []
+    enrichers.extend(
+        UnavailableKubernetesInventoryEnricher(
+            reason=item.reason,
+            scope_digest=item.scope_digest,
+        )
+        for item in config.kubernetes_unavailable_scopes
+    )
     for binding in config.kubernetes_bindings:
         try:
             kubernetes_ssl = ssl.create_default_context(
@@ -405,6 +420,7 @@ async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJo
 
     if config is None:
         config = await _load_job_config()
+    config = await _resolve_subscription_kubernetes_bindings(config)
     await _collect_kubernetes_lifecycle(config)
     snapshot_config = PostgresInventorySnapshotStoreConfig(
         dsn=config.dsn,
@@ -477,6 +493,44 @@ async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJo
             flush=True,
         )
     return config
+
+
+async def _resolve_subscription_kubernetes_bindings(
+    config: InventoryJobConfig,
+) -> InventoryJobConfig:
+    """Resolve one subscription binding snapshot with the inventory read identity."""
+
+    if not config.kubernetes_subscription_discovery:
+        return config
+    subscription_id = config.scopes[0]
+    async with httpx.AsyncClient() as client:
+        identity = _workload_identity(http_client=client)
+        discovery = AzureAksSubscriptionBindingDiscovery(
+            identity=identity,
+            http_client=client,
+            config=AksSubscriptionDiscoveryConfig(
+                management_endpoint=config.management_endpoint,
+                management_audience=config.management_audience,
+            ),
+        )
+        try:
+            result = await discovery.discover(subscription_id)
+        except AksSubscriptionDiscoveryError:
+            return replace(
+                config,
+                kubernetes_bindings=(),
+                kubernetes_unavailable_scopes=(
+                    AksUnavailableScope(
+                        scope_digest=subscription_scope_digest(subscription_id),
+                        reason="kubernetes_subscription_discovery_unavailable",
+                    ),
+                ),
+            )
+    return replace(
+        config,
+        kubernetes_bindings=result.bindings,
+        kubernetes_unavailable_scopes=result.unavailable_scopes,
+    )
 
 
 async def _collect_kubernetes_lifecycle(config: InventoryJobConfig) -> int | None:

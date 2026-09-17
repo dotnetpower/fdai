@@ -61,15 +61,32 @@ binding from the exact runtime Terraform output. The inventory CronJob uses
 Only that CronJob ServiceAccount receives the reviewed cluster-wide `get`, `list`, and Event
 `watch` permissions required by the bounded collector. It receives no Secret, ConfigMap, or write
 permission.
-External clusters remain explicit fleet bindings. Local development accepts an owner-only fleet
-binding file only when Kubernetes collection is explicitly enabled. It does not discover every AKS
-cluster, copy credentials into the repository, or reuse an interactive human identity implicitly.
-Deployment assigns `Azure Kubernetes Service RBAC Reader` only at each exact managed-cluster ARM
-id. Subscription, resource-group, and managed-cluster child scopes are not accepted.
+Deployed Azure inventory uses the selected subscription as its AKS observation scope. The dedicated
+inventory Managed Identity receives subscription-scoped `Reader`, `Azure Kubernetes Service Cluster
+User Role`, and `Azure Kubernetes Service RBAC Reader` assignments. Each reconciliation lists the
+subscription's current managed clusters, requests exec-format user credentials only to extract the
+selected API origin, public CA material, and token audience in memory, and then discards the response.
+A returned kubeconfig that embeds a token, client certificate, client key, password, or another
+static credential is rejected. A newly created cluster therefore enters the next bounded discovery
+run without a Terraform change, while a deleted cluster disappears only after complete subscription
+reconciliation proves its absence.
+
+This broader read scope was reviewed against the earlier exact-cluster design. Per-cluster role
+assignments required an infrastructure change for every new cluster and left the subscription graph
+incomplete by default. Subscription scope removes that onboarding gap, but it does not make every
+cluster reachable. Private DNS, routing, API authorized ranges, disabled Microsoft Entra integration,
+unsupported credential shape, provider throttling, or a discovery limit keeps that cluster's source
+state unavailable and fleet completeness false. The collector never falls back to a human kubeconfig,
+an admin credential, local accounts, or Thor's execution identity.
+
+Explicit fleet bindings remain available for a deliberately narrower deployment and for eligible
+local development. Local development accepts an owner-only fleet binding file only when Kubernetes
+collection is explicitly enabled. It does not inherit subscription discovery, copy credentials into
+the repository, or reuse an interactive human identity implicitly.
 The isolated public-development Terraform caller may be the verified Azure CLI human, but that
 management identity never becomes an AKS evidence reader or runtime executor. Protected deployment
-continues to use its stable deploy UAMI, and per-cluster read roles remain bound to the dedicated
-runtime identity.
+continues to use its stable deploy UAMI, and all Kubernetes reads remain bound to the dedicated
+inventory identity.
 
 Collection isolates failures by cluster. One unavailable cluster does not erase verified positive
 evidence from another cluster, but fleet completeness remains false until every required binding

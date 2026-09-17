@@ -40,8 +40,9 @@ domain code and assets. It does not create another control plane or move authori
 > Exact-signal anomaly sources and original Action preparation in the shared Forseti factory
 > likewise supply no package authority. Registration and durable human approval readback cannot
 > enable Cost Governance, change Njord's publisher ownership, or grant package data access.
-> Global Terraform roots can carry unrelated AKS observation bindings. Those values and Reader
-> assignments are not Cost Governance package inputs and cannot activate its runtime. The same
+> Global Terraform roots can grant the dedicated inventory identity subscription-scoped AKS Cluster User and RBAC Reader roles for automatic read-only discovery.
+> Those assignments and ephemeral cluster bindings are not Cost Governance package inputs and cannot activate its runtime, authorize a cost decision, or grant execution.
+> The same
 > boundary excludes the independent runtime-call evidence source flag, shared provider endpoint
 > availability, and startup-probe RBAC state addresses from FinOps package inputs and authority.
 > Protected Terraform deployer roles use the configured stable runner UAMI principal, and planning

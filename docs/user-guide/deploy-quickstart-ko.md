@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 23f4eaa90bd81ad5a890d41bcd892d901d4d2a50
-translation_revised: 2026-09-16
+translation_source_sha: 85796b62c889d9183596602ae62c7f335d723e45
+translation_revised: 2026-09-17
 ---
 
 # 배포 빠른 시작
@@ -15,6 +15,11 @@ Actions, 저장소 변수, 저장소 비밀 또는 GitHub runner를 사용하지
 Terraform은 인프라 단일 기준으로 유지됩니다. 배포 명령은 서명된 release를 검증하고, 승인할
 정확한 계획을 표시하고, 비공개 데이터 플레인 작업을 Virtual Network 내부로 옮기고, 배포
 준비 상태를 보고하기 전에 애플리케이션 결과를 검증합니다.
+
+기본적으로 계획은 전용 인벤토리 Managed Identity에 구독 범위 AKS Cluster User 및 RBAC
+Reader 역할을 부여합니다. 그러면 인벤토리 작업은 현재 및 이후 생성된 AKS 클러스터를 찾고
+Kubernetes 객체를 읽을 수 있으며 Core, Operator 또는 Thor에는 이 역할을 부여하지 않습니다.
+승인하기 전에 정확한 계획에서 이 읽기 범위를 검토하세요.
 
 ## 배포 경로 선택
 

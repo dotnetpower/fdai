@@ -161,7 +161,7 @@ Scheduler and analyzer Jobs set `FDAI_MI_CLIENT_ID` to the client id of the user
 attached to that Job, so Azure Monitor and Event Hubs token acquisition never relies on implicit
 identity selection. The legacy generic OOB Job is a bounded, inert compatibility resource until a
 probe entry point owns it; the public contributor bootstrap omits it until a deployment-owned image
-exists, and implemented recurring work stays in the dedicated Jobs.
+exists, and implemented recurring work stays in the dedicated Jobs. The deployed inventory Job enables subscription-wide AKS discovery by default under its dedicated Managed Identity's subscription-scoped `Reader`, `Azure Kubernetes Service Cluster User Role`, and `Azure Kubernetes Service RBAC Reader`; each tick discovers current and future clusters, minimizes exec-format access profiles in memory, retains no kubeconfig, lets explicit fleet or legacy bindings narrow the scope, and never attaches these read-only roles to Core, Operator, or Thor.
 On a public-network profile, Terraform also adopts the deterministic realtime-inventory Event Grid
 subscription when an operator restores it out of band, then converges its Event Hub destination,
 delivery identity, event filter, and retry policy on the next protected apply. Private-networking

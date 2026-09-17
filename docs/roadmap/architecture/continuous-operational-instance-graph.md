@@ -119,11 +119,11 @@ Disabled resource-change and recovery accelerators need no policy entries and ad
 The CLI support module owns Activity Log recovery's independent failure boundary before reconciliation and after generation promotion.
 A rejected delta stays unavailable without advancing its cursor, stopping full inventory, or invalidating a verified generation.
 
-Kubernetes fleet collection retains one source-state record per exact cluster binding. The record
-uses a customer-safe scope digest, so one unavailable cluster lowers fleet completeness without
-erasing another cluster's verified positive evidence or exposing its ARM identity.
-The deployed Inventory Job accepts either the legacy binding or one bounded fleet JSON record,
-never both, and the same read identity receives only AKS RBAC Reader on each exact cluster scope.
+Kubernetes fleet collection retains one source-state record per discovered or explicitly bound cluster. The record uses a customer-safe scope digest, so one unavailable cluster lowers fleet completeness without erasing another cluster's verified positive evidence or exposing its ARM identity.
+The deployed Inventory Job defaults to bounded subscription discovery under its dedicated read identity. Subscription `Reader`, `Azure Kubernetes Service Cluster User Role`, and `Azure Kubernetes Service RBAC Reader` assignments let the same identity discover future clusters.
+The job extracts only exec-format endpoint, CA, and audience material in memory before reading Kubernetes objects.
+Static credentials, admin profiles, incomplete pagination, and unreachable API origins remain unavailable.
+An explicit fleet JSON record narrows the deployment scope and is mutually exclusive with subscription discovery and the legacy binding.
 Lifecycle collection acquires an independent lease and resourceVersion cursor for each binding. One cluster failure keeps fleet evidence incomplete but does not stop or erase another cluster's accepted Event observations.
 Each binding retains its exact AKS ARM ID for authorization scope and source attribution. Before Kubernetes resources or relationships enter the graph, the Azure composition converts that ARM ID with the same provider-neutral identity mapping used by the promoted Azure inventory.
 The durable delta cursor also retains the newest relationship-reconciliation event time, so an inclusive provider replay cannot give a covered marker a new ingestion age.

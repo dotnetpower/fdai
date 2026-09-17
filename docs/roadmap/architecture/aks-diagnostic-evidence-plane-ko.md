@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: aa936b23448ec8fe28ffa01ef38bb48a01e7dbf2
+translation_source_sha: f5bbaa7bb922b6e2f47833c16969bd000fb55468
 translation_revised: 2026-09-17
 ---
 # AKS 진단 근거 플레인
@@ -62,14 +62,30 @@ FDAI가 관리하는 AKS 런타임에서는 애플리케이션 준비가 정확�
 사용합니다. 범위가 제한된 수집기에 필요한 검토된 클러스터 범위 `get`, `list` 및 Event
 `watch` 권한은 해당 CronJob ServiceAccount에만 부여합니다. Secret, ConfigMap 또는 쓰기 권한은
 부여하지 않습니다.
-외부 클러스터는 명시적인 fleet 연결로 유지합니다. 로컬 개발에서는 Kubernetes 수집을 명시적으로
-활성화하고 소유자 전용 fleet 연결 파일을 제공한 경우에만 연결합니다. 모든 AKS 클러스터를
-검색하거나 자격 증명을 저장소에 복사하거나 대화형 사람 신원을 암묵적으로 재사용하지 않습니다.
-배포는 각 managed cluster의 정확한 ARM ID 범위에서만 `Azure Kubernetes Service RBAC Reader`를
-할당합니다. 구독, 리소스 그룹 및 managed cluster 하위 리소스 범위는 허용되지 않습니다.
+배포된 Azure 인벤토리는 선택한 구독을 AKS 관찰 범위로 사용합니다. 전용 인벤토리 Managed
+Identity에는 구독 범위의 `Reader`, `Azure Kubernetes Service Cluster User Role` 및 `Azure
+Kubernetes Service RBAC Reader`를 할당합니다. 각 조정 작업은 구독의 현재 managed cluster를
+나열하고, 실행 형식 사용자 자격 증명을 요청해 선택된 API 원본, 공개 CA 자료 및 token audience만
+메모리에서 추출한 뒤 응답을 폐기합니다. 반환된 kubeconfig에 token, 클라이언트 인증서,
+클라이언트 키, 암호 또는 다른 정적 자격 증명이 포함되어 있으면 거부합니다. 따라서 새 클러스터는
+Terraform 변경 없이 다음 범위가 제한된 검색 실행에 포함되며, 삭제된 클러스터는 완전한 구독
+조정이 부재를 입증한 뒤에만 사라집니다.
+
+이 넓어진 읽기 범위는 이전의 정확한 클러스터 설계와 비교해 검토했습니다. 클러스터별 역할 할당은
+새 클러스터마다 인프라 변경이 필요했고 기본적으로 구독 그래프를 불완전하게 남겼습니다. 구독
+범위는 이 온보딩 누락을 없애지만 모든 클러스터의 연결 가능성을 보장하지는 않습니다. private
+DNS, 라우팅, API 허용 범위, 비활성 Microsoft Entra 통합, 지원하지 않는 자격 증명 형태, 공급자
+제한 또는 검색 한도 문제가 있으면 해당 클러스터의 출처 상태는 사용 불가로 남고 fleet 완전성은
+거짓입니다. 수집기는 사람 kubeconfig, 관리자 자격 증명, 로컬 계정 또는 Thor 실행 신원으로
+대체하지 않습니다.
+
+명시적 fleet 연결은 의도적으로 범위를 좁힌 배포와 적격 로컬 개발에서 계속 사용할 수 있습니다.
+로컬 개발에서는 Kubernetes 수집을 명시적으로 활성화하고 소유자 전용 fleet 연결 파일을 제공한
+경우에만 연결합니다. 구독 검색을 상속하거나 자격 증명을 저장소에 복사하거나 대화형 사람 신원을
+암묵적으로 재사용하지 않습니다.
 격리된 공개 개발 Terraform 호출자는 검증된 Azure CLI 사람일 수 있지만, 이 관리 신원은 AKS
 근거 reader 또는 runtime executor가 되지 않습니다. 보호된 배포는 안정 deploy UAMI를 계속
-사용하며 cluster별 읽기 역할은 전용 runtime 신원에 결합됩니다.
+사용하며 모든 Kubernetes 읽기는 전용 인벤토리 신원에 결합됩니다.
 
 수집 실패는 클러스터별로 격리합니다. 사용할 수 없는 클러스터 하나가 다른 클러스터에서 검증된
 양성 근거를 지우지는 않지만, 필요한 모든 연결이 최신이고 완전하기 전까지 fleet 완전성은

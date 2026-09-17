@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: e5e7e972f9b0aee5ac5bfdb5a234331e56afdcb8
+translation_source_sha: cfa85423775466071715d1fef825356aba67a982
 translation_revised: 2026-09-17
 ---
 
@@ -43,8 +43,10 @@ translation_revised: 2026-09-17
 > 공유 Forseti 팩터리의 정확한 신호별 이상 관측 조회와 원래 Action 준비도 패키지 권한을
 > 부여하지 않습니다. 등록과 영속 사람 승인 재조회로 Cost Governance를 활성화하거나
 > Njord의 게시 소유권을 바꾸거나 패키지 데이터 접근 권한을 얻을 수 없습니다.
-> 전역 Terraform 루트는 관련 없는 AKS 관측 연결을 전달할 수 있습니다. 해당 값과 Reader 역할
-> 할당은 Cost Governance 패키지 입력이 아니며 패키지 런타임을 활성화할 수 없습니다. 같은
+> 전역 Terraform 루트는 자동 읽기 전용 검색을 위해 전용 인벤토리 신원에 구독 범위 AKS
+> Cluster User 및 RBAC Reader 역할을 부여할 수 있습니다. 이 역할 할당과 일시적 클러스터
+> 연결은 Cost Governance 패키지 입력이 아니며 패키지 런타임을 활성화하거나 비용 결정을
+> 승인하거나 실행 권한을 부여할 수 없습니다. 같은
 > 경계는 독립 런타임 호출 근거 원본 플래그, 공유 공급자 엔드포인트 가용성 및 시작 프로브 RBAC
 > 상태 주소도 FinOps 패키지 입력과 권한에서 제외합니다.
 > 보호된 Terraform deployer 역할은 구성된 안정 실행기 UAMI principal을 사용하며 인증된

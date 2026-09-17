@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: a677bcb6bc023e5ea1f6a9647499dcaf7e54060f
-translation_revised: 2026-09-16
+translation_source_sha: 6fef3781c63cea8bc3201fa5658b9f68c4e6ee15
+translation_revised: 2026-09-17
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -161,7 +161,7 @@ recovery-delta forwarding이 부분 구성 없이 타입이 지정된 Event 버�
 `FDAI_MI_CLIENT_ID`로 설정하므로 Azure Monitor 및 Event Hubs 토큰 획득에서 암묵적 신원
 선택을 사용하지 않습니다. 이전 방식 범용 OOB 작업은 탐색 항목 지점이 소유할 때까지 범위가 제한된
 inert 호환성 리소스입니다. 공개 기여자 bootstrap은 배포 소유 image가 생길 때까지 이를 생략하며,
-구현된 recurring 작업은 dedicated 작업이 담당합니다.
+구현된 recurring 작업은 dedicated 작업이 담당합니다. 배포된 인벤토리 작업은 전용 Managed Identity의 구독 범위 `Reader`, `Azure Kubernetes Service Cluster User Role` 및 `Azure Kubernetes Service RBAC Reader`로 구독 전체 AKS 검색을 기본 활성화합니다. 각 틱은 현재 및 이후 생성된 클러스터를 찾고 실행 형식 접근 프로필을 메모리에서 최소화하며 kubeconfig를 보관하지 않습니다. 명시적 fleet 또는 기존 연결은 범위를 좁히며 이 읽기 전용 역할은 Core, Operator 또는 Thor에 연결하지 않습니다.
 Public-network 프로파일에서 운영자가 realtime-inventory Event Grid 구독을 out-of-band로
 복구한 경우 Terraform은 결정론적 구독을 가져오고 다음 protected 적용에서 Event 허브
 대상, 전달 신원, 이벤트 필터 및 재시도 정책을 수렴시킵니다. Private-networking
