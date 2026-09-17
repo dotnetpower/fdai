@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: e8f9717d6709b2c1a5c96ac71b1fe3dbf52a649b
+translation_source_sha: be1135ea8333b4d471857d6a5ed1a0bb3feb6c1e
 translation_revised: 2026-09-18
 ---
 # AKS 진단 근거 플레인
@@ -70,6 +70,16 @@ Kubernetes Service RBAC Reader`를 할당합니다. 각 조정 작업은 구독�
 클라이언트 키, 암호 또는 다른 정적 자격 증명이 포함되어 있으면 거부합니다. 따라서 새 클러스터는
 Terraform 변경 없이 다음 범위가 제한된 검색 실행에 포함되며, 삭제된 클러스터는 완전한 구독
 조정이 부재를 입증한 뒤에만 사라집니다.
+관리 플레인 검색과 Kubernetes API 읽기는 검증된 단기 token을 일시적인
+`Authorization: Bearer` 요청 헤더에만 넣습니다. 이 헤더는 구성, 인벤토리 레코드, 로그, 오류
+또는 출처 상태 메타데이터에 들어가지 않습니다. 교정 표시는 표현용 데이터이며 인증 자격
+증명으로 전송하지 않습니다.
+
+private cluster 연결 실패는 엔드포인트, 클러스터 이름, token, 응답 본문 또는 프로바이더가
+제어하는 메시지 없이 정제된 출처 상태 사유 하나를 보존합니다. 검토된 사유는 DNS 확인, TLS
+검증, 네트워크 연결, 요청 시간 초과, HTTP 401 인증, HTTP 403 권한 부여, API 사용 불가, 요청
+거절 및 잘못된 응답 근거를 구분합니다. 이 사유는 실패한 경계를 식별하지만 route, 방화벽, 신원
+할당 또는 AKS 구성 요소를 근본 원인으로 단정하지 않습니다.
 
 이 넓어진 읽기 범위는 이전의 정확한 클러스터 설계와 비교해 검토했습니다. 클러스터별 역할 할당은
 새 클러스터마다 인프라 변경이 필요했고 기본적으로 구독 그래프를 불완전하게 남겼습니다. 구독

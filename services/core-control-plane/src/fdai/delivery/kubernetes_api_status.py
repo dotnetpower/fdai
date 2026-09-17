@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any, Final
 
 _MAX_CONTAINER_STATUSES: Final[int] = 128
@@ -11,8 +12,31 @@ _MAX_CONDITIONS: Final[int] = 64
 _MAX_STATUS_TEXT: Final[int] = 128
 
 
+class KubernetesApiFailureReason(StrEnum):
+    """Sanitized boundary that prevented one complete Kubernetes generation."""
+
+    AUTHENTICATION_FAILED = "kubernetes_authentication_failed"
+    AUTHORIZATION_FAILED = "kubernetes_authorization_failed"
+    API_UNAVAILABLE = "kubernetes_api_unavailable"
+    DNS_UNAVAILABLE = "kubernetes_dns_unavailable"
+    NETWORK_UNAVAILABLE = "kubernetes_network_unavailable"
+    REQUEST_REJECTED = "kubernetes_request_rejected"
+    REQUEST_TIMEOUT = "kubernetes_request_timeout"
+    RESPONSE_INVALID = "kubernetes_response_invalid"
+    TLS_UNAVAILABLE = "kubernetes_tls_unavailable"
+
+
 class KubernetesApiInventoryError(RuntimeError):
     """One Kubernetes inventory generation could not complete safely."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        reason: KubernetesApiFailureReason = KubernetesApiFailureReason.RESPONSE_INVALID,
+    ) -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 def node_status_properties(status: Mapping[str, Any]) -> dict[str, object]:
@@ -258,6 +282,7 @@ def _non_negative_int(value: object, key: str) -> int:
 
 
 __all__ = [
+    "KubernetesApiFailureReason",
     "KubernetesApiInventoryError",
     "deployment_status_properties",
     "node_status_properties",
