@@ -115,8 +115,7 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
   and successful metrics/log source reads.
 - [ ] Roll out the signed Core image with the Key Vault-backed Application Insights binding and
   retain fresh application traces, metrics, and correlated logs from the deployed replicas.
-- [x] Implement a selected-service AKS update that changes one digest and source revision, admits
-  only that Deployment update, preserves peer rollout identity, and verifies targeted convergence.
+- [x] Implement a selected-service AKS update that changes one digest and source revision, admits only that Deployment update, preserves peer rollout identity, and verifies targeted convergence.
 - [ ] Implement the Console network-intent draft, assessment, exact-plan request, approval, apply,
   rollback, and independent readback states without giving the browser or Operator API Azure
   mutation credentials.
