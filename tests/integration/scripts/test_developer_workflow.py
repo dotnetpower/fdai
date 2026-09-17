@@ -802,7 +802,12 @@ def test_cost_analytics_readiness_requires_latest_successful_tick(tmp_path: Path
     assert developer_workflow_runtime._cost_analytics_ready(tmp_path)
 
     with log_file.open("a", encoding="utf-8") as handle:
-        handle.write("service=cost-governance-analytics event=waiting status=partial\n")
+        handle.write("service=cost-governance-analytics event=ready status=partial\n")
+
+    assert developer_workflow_runtime._cost_analytics_ready(tmp_path)
+
+    with log_file.open("a", encoding="utf-8") as handle:
+        handle.write("service=cost-governance-analytics event=waiting status=failed\n")
 
     assert not developer_workflow_runtime._cost_analytics_ready(tmp_path)
 

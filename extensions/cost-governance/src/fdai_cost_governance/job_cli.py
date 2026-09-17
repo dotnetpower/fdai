@@ -174,7 +174,7 @@ async def _run_analytics_loop(
     while True:
         result = await run_analytics_from_environment(env, days=days)
         receipt = result.receipt
-        event = "ready" if receipt.status.value in {"complete", "disabled"} else "waiting"
+        event = _analytics_event(receipt.status.value)
         print(
             " ".join(
                 (
@@ -190,6 +190,10 @@ async def _run_analytics_loop(
         if not loop:
             return 0 if receipt.status.value in {"complete", "disabled"} else 1
         await asyncio.sleep(interval_seconds)
+
+
+def _analytics_event(status: str) -> str:
+    return "ready" if status in {"complete", "partial", "disabled"} else "waiting"
 
 
 async def run_analytics_from_environment(
