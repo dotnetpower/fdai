@@ -64,11 +64,17 @@ def test_scenario_lab_is_an_independent_private_terraform_root() -> None:
     assert "mysql             = azurerm_subnet.mysql.id" not in network
     assert "stress_vm         = azurerm_subnet.stress_vm.id" not in network
     assert network.count("checkov:skip=CKV2_AZURE_31:Azure Policy attaches") == 3
-    assert "private_cluster_enabled" in aks
-    assert 'name                                = "aks-store-demo"' in aks
-    assert 'dns_prefix                          = "aks-store-demo"' in aks
+    assert aks.count("#trivy:ignore:AVD-AZU-0041") == 1
+    assert aks.count("#trivy:ignore:AVD-AZU-0065") == 1
+    assert aks.count("checkov:skip=CKV_AZURE_6:") == 1
+    assert aks.count("checkov:skip=CKV_AZURE_115:") == 1
+    assert "private_cluster_enabled           = false" in aks
+    assert "private_cluster_public_fqdn_enabled" not in aks
+    assert "private_dns_zone_id" not in aks
+    assert 'name                              = "aks-store-demo"' in aks
+    assert 'dns_prefix                        = "aks-store-demo"' in aks
     assert '"aks-${local.suffix}"' not in aks
-    assert "local_account_disabled" in aks
+    assert "local_account_disabled            = true" in aks
     assert "azure_active_directory_role_based_access_control" in aks
     assert "azure_rbac_enabled = true" in aks
     assert 'dynamic "monitor_metrics"' in aks
@@ -229,7 +235,7 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     ci_workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
-    assert "options: [plan, apply, destroy]" in workflow
+    assert "options: [plan, apply, recreate-aks, destroy]" in workflow
     assert "default: plan" in workflow
     assert "Checkout protected workflow verifier" in workflow
     assert "workflow-path: .github/workflows/sre-demo-lab.yml" in workflow
@@ -355,6 +361,14 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
     assert 'cat "$RUNNER_TEMP/sre-demo-lab-apply.log"' not in workflow
     assert 'cat "$plan_log"' not in workflow
     assert "apply refuses delete or replacement actions" in workflow
+    assert 'CONFIRM_AKS_RECREATION" != "recreate-aks-store-demo"' in workflow
+    assert "recreate-aks requires replacement of the exact scenario-lab cluster" in workflow
+    assert "recreate-aks replacement is not limited to the reviewed private API fields" in workflow
+    assert "recreate-aks plan contains a destructive address outside the allowlist" in workflow
+    assert 'azurerm_kubernetes_cluster.scenario_lab" and' in workflow
+    assert '($paths | index("private_dns_zone_id")) != null' in workflow
+    assert "azurerm_role_assignment.runner_aks_credentials" in workflow
+    assert "azurerm_role_assignment.runner_aks_admin" in workflow
     assert '"field\\t\\($address)\\t\\($path | map(tostring) | join("."))"' in workflow
     assert '"replace-path\\t\\($address)\\t\\(map(tostring) | join("."))"' in workflow
     assert "(.change.replace_paths // [])[]?" in workflow

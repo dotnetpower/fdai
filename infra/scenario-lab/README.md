@@ -14,9 +14,9 @@ unrelated resources in that group.
 
 | Area | Resources |
 |------|-----------|
-| Compute | Dedicated `aks-store-demo` one-node private cluster, Chaos Mesh installed after apply, AKS Store Demo with a three-replica order service, private Linux stress VM |
+| Compute | Dedicated `aks-store-demo` one-node cluster with an authenticated public API endpoint, Chaos Mesh installed after apply, AKS Store Demo with a three-replica order service, private Linux stress VM |
 | Data and AI | Private MySQL Flexible Server, private Azure OpenAI account and one deployment |
-| Security | Generated MySQL password in encrypted private state and a mode-0600 runner file, managed-identity role assignments, no VM public IP |
+| Security | Microsoft Entra and Azure RBAC for AKS with local accounts disabled, generated MySQL password in encrypted private state and a mode-0600 runner file, managed-identity role assignments, no VM public IP |
 | Network | Isolated VNet, delegated and private-endpoint subnets, egress-only NAT gateway, bidirectional peering to the VNet-integrated deploy runner, deployment-owned private-endpoint NSG association, and policy-owned NSGs on the AKS, MySQL, and stress subnets |
 | Evidence | Log Analytics, Application Insights, AKS monitoring, MySQL and Azure OpenAI metrics |
 | Optional commerce | Private Service Bus and Cosmos DB, workload identity, public HTTPS storefront, private administration and backend services |
@@ -72,9 +72,12 @@ commit already present on protected `main`:
    reports only allowlisted diagnostic categories, Terraform addresses, and Azure error codes. The
    raw provider log stays runner-local and is shredded during cleanup.
 2. Run `action=apply` with an RFC 3339 `expires_at_utc`. The protected environment approval gates
-   the apply, and the workflow refuses delete or replacement actions.
+   the apply, and ordinary apply refuses delete or replacement actions. For the one-time transition
+   from the earlier private cluster, first review `action=plan`, then run `action=recreate-aks` with
+   `confirm_aks_recreation=recreate-aks-store-demo`. That action accepts only replacement of the
+   exact scenario cluster and its cluster-scoped role assignments, and rejects any other delete.
 3. Set `run_reference_sweep=true` only with a current `approval_ref`. The workflow prepares the
-   private AKS context, retrieves the MySQL password into a mode-0600 temporary file, and runs the
+   authenticated AKS context, retrieves the MySQL password into a mode-0600 temporary file, and runs
    reference sweep sequentially.
 4. Run `action=destroy` with `confirm_destroy=destroy-sre-demo-lab` after evidence review. Destroy
    applies an exact destroy plan from the same job.
@@ -136,8 +139,10 @@ the approved deployment plan.
 ## Test from the operator PC
 
 Set `enable_vpn_operator_access=true` on the plan and apply runs to add direct peering, gateway
-transit, private DNS links, and minimum operator roles. Public access for AKS, MySQL, and Azure
-OpenAI remains disabled.
+transit, private DNS links, and minimum operator roles for the private data services. The AKS API
+endpoint is public so the local FDAI inventory can reach it from changing operator egress, but it
+still requires Microsoft Entra authentication and Azure RBAC, and local accounts remain disabled.
+Public access for MySQL and Azure OpenAI remains disabled.
 
 After apply, regenerate the P2S profile so the client receives the lab route and private service
 suffixes. First initialize the workstation root against the same private state key used by the

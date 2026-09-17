@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "Plan, apply, or destroy the disposable scenario lab."
+        description: "Plan, apply, recreate AKS, or destroy the disposable scenario lab."
         type: choice
-        options: [plan, apply, destroy]
+        options: [plan, apply, recreate-aks, destroy]
         default: plan
       commit_sha:
         description: "Exact protected main commit to deploy."
@@ -35,6 +35,10 @@ on:
         required: false
       confirm_destroy:
         description: "Enter destroy-sre-demo-lab when action is destroy."
+        type: string
+        required: false
+      confirm_aks_recreation:
+        description: "Enter recreate-aks-store-demo when action is recreate-aks."
         type: string
         required: false
 
@@ -202,6 +206,7 @@ jobs:
           RUN_REFERENCE_SWEEP: ${{ inputs.run_reference_sweep }}
           ENABLE_VPN_OPERATOR_ACCESS: ${{ inputs.enable_vpn_operator_access }}
           CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
+          CONFIRM_AKS_RECREATION: ${{ inputs.confirm_aks_recreation }}
         run: |
           set -euo pipefail
           for required_name in \
@@ -251,6 +256,10 @@ jobs:
           fi
           if [[ "$REQUESTED_ACTION" == "destroy" && "$CONFIRM_DESTROY" != "destroy-sre-demo-lab" ]]; then
             echo "destroy requires the exact confirm_destroy value." >&2
+            exit 1
+          fi
+          if [[ "$REQUESTED_ACTION" == "recreate-aks" && "$CONFIRM_AKS_RECREATION" != "recreate-aks-store-demo" ]]; then
+            echo "recreate-aks requires the exact confirm_aks_recreation value." >&2
             exit 1
           fi
           for command_name in az helm jq kubectl kubelogin terraform timeout; do
@@ -447,7 +456,7 @@ jobs:
             -backend-config="use_azuread_auth=true"
 
       - name: Recover healthy partial workspace state
-        if: inputs.action == 'apply'
+        if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
         run: |
           set -euo pipefail
           state_snapshot="$RUNNER_TEMP/sre-demo-lab-recovery-state.json"
@@ -622,6 +631,7 @@ jobs:
       - name: Build bounded plan
         env:
           REQUESTED_ACTION: ${{ inputs.action }}
+          CONFIRM_AKS_RECREATION: ${{ inputs.confirm_aks_recreation }}
         run: |
           set -euo pipefail
           print_plan_diagnostic() {
@@ -743,9 +753,66 @@ jobs:
             echo "apply refuses delete or replacement actions; use plan for review, then explicit destroy." >&2
             exit 1
           fi
+          if [[ "$REQUESTED_ACTION" == "recreate-aks" ]]; then
+            [[ "$CONFIRM_AKS_RECREATION" == "recreate-aks-store-demo" ]] || {
+              echo "recreate-aks confirmation changed after request validation." >&2
+              exit 1
+            }
+            [[ "$delete_count" -gt 0 ]] || {
+              echo "recreate-aks requires an AKS replacement in the exact plan." >&2
+              exit 1
+            }
+            jq -e '
+              any(.resource_changes[]?;
+                .address == "azurerm_kubernetes_cluster.scenario_lab" and
+                (.change.actions | index("delete")) and
+                (.change.actions | index("create"))
+              )
+            ' "$RUNNER_TEMP/sre-demo-lab-plan.json" >/dev/null || {
+              echo "recreate-aks requires replacement of the exact scenario-lab cluster." >&2
+              exit 1
+            }
+            jq -e '
+              [
+                .resource_changes[]? |
+                select(.address == "azurerm_kubernetes_cluster.scenario_lab") |
+                (.change.replace_paths // [])[]? |
+                map(tostring) | join(".")
+              ] as $paths |
+              ($paths | index("private_dns_zone_id")) != null and
+              all($paths[];
+                . == "private_cluster_enabled" or
+                . == "private_cluster_public_fqdn_enabled" or
+                . == "private_dns_zone_id"
+              )
+            ' "$RUNNER_TEMP/sre-demo-lab-plan.json" >/dev/null || {
+              echo "recreate-aks replacement is not limited to the reviewed private API fields." >&2
+              exit 1
+            }
+            while IFS= read -r destructive_address; do
+              case "$destructive_address" in
+                azurerm_kubernetes_cluster.scenario_lab | \
+                azurerm_role_assignment.runner_aks_credentials | \
+                azurerm_role_assignment.runner_aks_admin | \
+                'azurerm_role_assignment.operator_aks_credentials[0]' | \
+                'azurerm_role_assignment.operator_aks_admin[0]')
+                  ;;
+                *)
+                  echo "recreate-aks plan contains a destructive address outside the allowlist: $destructive_address" >&2
+                  exit 1
+                  ;;
+              esac
+            done < <(
+              jq -r '
+                .resource_changes[]? |
+                select(.change.actions | index("delete")) |
+                .address
+              ' "$RUNNER_TEMP/sre-demo-lab-plan.json"
+            )
+          fi
 
       - name: Apply exact plan
-        if: inputs.action == 'apply'
+        if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
         run: |
           set -euo pipefail
           print_apply_diagnostic() {
@@ -801,7 +868,7 @@ jobs:
           echo "scenario-lab Terraform apply completed."
 
       - name: Configure AKS test substrate
-        if: inputs.action == 'apply'
+        if: inputs.action == 'apply' || inputs.action == 'recreate-aks'
         id: prepare
         working-directory: ${{ github.workspace }}
         run: |
