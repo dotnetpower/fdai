@@ -44,6 +44,7 @@ import {
   consoleDataModeHref,
   explicitConsoleDataMode,
   readConsoleDataMode,
+  shouldRestoreConsoleDataMode,
   supportsSampleData,
   writeConsoleDataMode,
 } from "./console-data-mode";
@@ -170,7 +171,10 @@ export function App() {
           preferredDataModeRef.current = "live";
           writeConsoleDataMode("live");
           setPreferredDataMode("live");
-        } else if (preferredDataModeRef.current === "sample") {
+        } else if (shouldRestoreConsoleDataMode(
+          preferredDataModeRef.current,
+          window.location.hash,
+        )) {
           window.history.replaceState(
             window.history.state,
             "",

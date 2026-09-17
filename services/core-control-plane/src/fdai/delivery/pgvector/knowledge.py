@@ -222,21 +222,27 @@ class PgvectorKnowledgeSource:
         ) as conn:
             async with conn.transaction():
                 await self._set_session_knobs(conn)
-                cur = await conn.execute(
-                    f"""
-                    SELECT doc_id,
-                           chunk_id,
-                           text,
-                           source_ref,
-                           metadata,
-                           1.0 - (embedding <=> %s::vector) AS score
-                      FROM {table}
-                     WHERE COALESCE(metadata->>'governed_document', 'false') <> 'true'
-                     ORDER BY embedding <=> %s::vector ASC
-                     LIMIT %s
-                    """,  # noqa: S608 - table is a validated identifier, values are parametrized
-                    (literal, literal, int(k)),
-                )
+                if table == "knowledge_chunk":
+                    cur = await conn.execute(
+                        "SELECT * FROM fdai_search_core_knowledge(%s::vector, %s::INTEGER)",
+                        (literal, int(k)),
+                    )
+                else:
+                    cur = await conn.execute(
+                        f"""
+                        SELECT doc_id,
+                               chunk_id,
+                               text,
+                               source_ref,
+                               metadata,
+                               1.0 - (embedding <=> %s::vector) AS score
+                          FROM {table}
+                         WHERE COALESCE(metadata->>'governed_document', 'false') <> 'true'
+                         ORDER BY embedding <=> %s::vector ASC
+                         LIMIT %s
+                        """,  # noqa: S608 - table is validated; values are parametrized
+                        (literal, literal, int(k)),
+                    )
                 fetched = await cur.fetchall()
 
         chunks = [

@@ -800,6 +800,7 @@ jobs:
           services/core-control-plane/tests/persistence/test_postgres_kubernetes_lifecycle.py::test_lease_reacquire_duplicate_and_reorder_are_safe
           services/core-control-plane/tests/persistence/test_postgres_inventory_snapshot.py
           services/core-control-plane/tests/persistence/test_postgres_ontology_instance.py::test_postgres_inventory_coverage_scopes_reconciliation_markers
+          services/core-control-plane/tests/delivery/pgvector/test_knowledge.py::test_topk_rank_parity_with_reference
 
       - name: Start loopback provider stack
         if: matrix.shard == 2

@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
-from types import SimpleNamespace
 
 import pytest
 
@@ -78,7 +77,7 @@ def test_approval_actor_rejects_changed_azure_target(monkeypatch) -> None:
         standalone_application._azure_actor_digest("a" * 64)
 
 
-def test_publish_aks_console_uses_verified_prebuilt_artifact(tmp_path, monkeypatch) -> None:
+def test_publish_verified_console_uses_verified_prebuilt_artifact(tmp_path, monkeypatch) -> None:
     materialized = tmp_path / "verified"
     bundle = tmp_path / "bundle"
     scripts = bundle / "scripts/deployment/azure"
@@ -97,6 +96,7 @@ def test_publish_aks_console_uses_verified_prebuilt_artifact(tmp_path, monkeypat
         return console_directory
 
     def configure(directory, settings):
+        assert directory.stat().st_mode & 0o777 == 0o700
         calls.append(("configure", directory, settings))
         return {"runtime_config_digest": "b" * 64}
 
@@ -107,18 +107,6 @@ def test_publish_aks_console_uses_verified_prebuilt_artifact(tmp_path, monkeypat
     monkeypatch.setattr(standalone_application, "extract_bundle_archive", extract)
     monkeypatch.setattr(standalone_application, "configure_console", configure)
     monkeypatch.setattr(standalone_application.subprocess, "run", run)
-    kit = SimpleNamespace(
-        materialized_root=materialized,
-        bundle_root=bundle,
-        runtime=SimpleNamespace(
-            to_mapping=lambda: {
-                "console": {
-                    "archive": "runtime/console.tar.gz",
-                    "archive_sha256": archive_digest,
-                }
-            }
-        ),
-    )
     tenant_id = "00000000-0000-0000-0000-000000000001"
     subscription_id = "00000000-0000-0000-0000-000000000002"
     spa_client_id = "00000000-0000-0000-0000-000000000003"
@@ -133,8 +121,10 @@ def test_publish_aks_console_uses_verified_prebuilt_artifact(tmp_path, monkeypat
         "ingestion_api_base_url": "https://apim-fdai.azure-api.net/ingestion",
     }
 
-    receipt = standalone_application._publish_aks_console(
-        kit=kit,
+    receipt = standalone_application.publish_verified_console(
+        console_archive=archive,
+        console_archive_sha256=archive_digest,
+        bundle_root=bundle,
         prepared_root=tmp_path,
         entra_bindings={
             "ENTRA_CONSOLE_SPA_CLIENT_ID": spa_client_id,
@@ -172,6 +162,7 @@ def test_publish_aks_console_uses_verified_prebuilt_artifact(tmp_path, monkeypat
     assert environment["CONSOLE_PREBUILT_DIRECTORY"] == str(console_directory)
     assert environment["BROWSER_GATEWAY_OPERATOR_URL"] == browser_console["operator_api_base_url"]
     assert environment["ARM_SUBSCRIPTION_ID"] == subscription_id
+    assert environment["FDAI_CONSOLE_VERIFY_ONLY"] == "0"
     assert receipt["state"] == "published"
     assert receipt["entra_redirect_verified"] is True
     assert len(str(receipt["receipt_digest"])) == 64

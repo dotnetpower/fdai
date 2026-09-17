@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
+from fdai.delivery.aks_subscription_discovery import AksUnavailableScope
 from fdai.delivery.azure.arg_transport import DEFAULT_ARG_REQUESTS_PER_SECOND
 from fdai.delivery.inventory_source_policy import (
     InventoryCollectionPolicy,
@@ -66,6 +67,8 @@ class InventoryJobConfig:
     kubernetes_auth_mode: str | None = None
     kubernetes_audience: str | None = None
     kubernetes_bindings: tuple[KubernetesClusterBinding, ...] = ()
+    kubernetes_subscription_discovery: bool = False
+    kubernetes_unavailable_scopes: tuple[AksUnavailableScope, ...] = ()
     monitor_workspace_id: str | None = None
     runtime_call_evidence_enabled: bool = False
     collection_policy: InventoryCollectionPolicy | None = None
@@ -158,6 +161,11 @@ class InventoryJobConfig:
             "FDAI_KUBERNETES_CLUSTER_BINDINGS_JSON",
             "",
         ).strip()
+        kubernetes_subscription_discovery = read_bool_env(
+            source,
+            "FDAI_KUBERNETES_SUBSCRIPTION_DISCOVERY",
+            False,
+        )
         monitor_workspace_id = source.get("FDAI_MONITOR_WORKSPACE_ID", "").strip() or None
         runtime_call_evidence_enabled = read_bool_env(
             source,
@@ -222,6 +230,15 @@ class InventoryJobConfig:
             raise ValueError(
                 "Kubernetes fleet bindings MUST NOT be combined with legacy single-cluster values"
             )
+        if kubernetes_subscription_discovery and (
+            kubernetes_bindings_json
+            or any((*kubernetes_values, kubernetes_token_value, kubernetes_audience))
+        ):
+            raise ValueError(
+                "Kubernetes subscription discovery MUST NOT be combined with static bindings"
+            )
+        if kubernetes_subscription_discovery and len(scopes) != 1:
+            raise ValueError("Kubernetes subscription discovery requires exactly one scope")
         if any(kubernetes_values) and not all(kubernetes_values):
             raise ValueError(
                 "Kubernetes inventory requires API server, cluster ref, auth mode, and CA"
@@ -326,6 +343,7 @@ class InventoryJobConfig:
                 kubernetes_audience if kubernetes_auth_mode == "workload-identity" else None
             ),
             kubernetes_bindings=kubernetes_bindings,
+            kubernetes_subscription_discovery=kubernetes_subscription_discovery,
             monitor_workspace_id=monitor_workspace_id,
             runtime_call_evidence_enabled=runtime_call_evidence_enabled,
             collection_policy=collection_policy,

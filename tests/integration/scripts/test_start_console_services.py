@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -255,6 +256,93 @@ def test_operator_restart_rejects_prepared_auth_mode_mismatch(tmp_path: Path) ->
     assert result.returncode == 1
     assert "prepared Console and Operator API auth modes do not match" in result.stderr
     assert not (repo / "order.txt").exists()
+
+
+def test_wait_ready_wrapper_forwards_term_and_reaps_runner(tmp_path: Path) -> None:
+    repo = _operator_restart_repo(tmp_path)
+    runner_pid_file = repo / "runner.pid"
+    stopped_file = repo / "runner.stopped"
+    _write_executable(
+        repo / "scripts/automation/run-local-service.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+    setsid sleep 60 &
+    child_pid=$!
+stop_child() {
+    kill -TERM -- "-$child_pid" 2>/dev/null || true
+    wait "$child_pid" 2>/dev/null || true
+    printf stopped > "$FDAI_TEST_STOPPED_FILE"
+    exit 143
+}
+trap stop_child TERM
+    printf '%s %s\n' "$$" "$child_pid" > "$FDAI_TEST_RUNNER_PID_FILE"
+    mkdir -p "$(dirname "$FDAI_LOCAL_SERVICE_LAUNCH_MARKER")"
+printf '%s\n' starting > "$FDAI_LOCAL_SERVICE_LAUNCH_MARKER"
+    wait "$child_pid"
+""",
+    )
+    _write_executable(
+        repo / ".venv/bin/python",
+        """#!/usr/bin/env bash
+set -euo pipefail
+case "$1" in
+  */local-service-input-digest.py) printf '%064d\n' 0 ;;
+  */run-bounded-command.py) exec sleep 60 ;;
+  *) printf 'unexpected python call: %s\n' "$1" >&2; exit 99 ;;
+esac
+""",
+    )
+    process = subprocess.Popen(  # noqa: S603 - fixed test-owned launcher.
+        [
+            _BASH,
+            str(repo / "scripts/deployment/local/run-console-service.sh"),
+            "operator-api",
+            "--wait-ready",
+        ],
+        cwd=repo,
+        env={
+            **os.environ,
+            "FDAI_CONSOLE_EXPECTED_AUTH_MODE": "browser-entra",
+            "FDAI_TEST_RUNNER_PID_FILE": str(runner_pid_file),
+            "FDAI_TEST_STOPPED_FILE": str(stopped_file),
+        },
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    runner_pid = 0
+    child_pid = 0
+    try:
+        deadline = time.monotonic() + 3
+        while not runner_pid_file.exists():
+            assert process.poll() is None
+            assert time.monotonic() < deadline
+            time.sleep(0.02)
+        runner_pid, child_pid = (
+            int(value) for value in runner_pid_file.read_text(encoding="utf-8").split()
+        )
+
+        process.terminate()
+        assert process.wait(timeout=5) == 143
+
+        assert stopped_file.read_text(encoding="utf-8") == "stopped"
+        with pytest.raises(ProcessLookupError):
+            os.kill(runner_pid, 0)
+        with pytest.raises(ProcessLookupError):
+            os.kill(child_pid, 0)
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=5)
+        if runner_pid:
+            try:
+                os.kill(runner_pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        if child_pid:
+            try:
+                os.killpg(child_pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
 
 
 def test_supervisor_reports_a_service_that_exits_before_readiness(tmp_path: Path) -> None:

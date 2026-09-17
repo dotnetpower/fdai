@@ -414,8 +414,12 @@ def deploy_standalone_application(
                 str(entra_bindings["ENTRA_CONSOLE_SPA_CLIENT_ID"]),
                 str(browser_console["console_origin"]),
             )
-            console_receipt = _publish_aks_console(
-                kit=kit,
+            runtime = kit.runtime.to_mapping()
+            console_artifact = _mapping(runtime.get("console"), "runtime Console artifact")
+            console_receipt = publish_verified_console(
+                console_archive=kit.materialized_root / str(console_artifact["archive"]),
+                console_archive_sha256=str(console_artifact["archive_sha256"]),
+                bundle_root=kit.bundle_root,
                 prepared_root=prepared.root,
                 entra_bindings=entra_bindings,
                 browser_console=browser_console,
@@ -768,9 +772,11 @@ def _import_entra(scripts: Path) -> Any:
         sys.path.remove(str(scripts))
 
 
-def _publish_aks_console(
+def publish_verified_console(
     *,
-    kit: DeploymentKit,
+    console_archive: Path,
+    console_archive_sha256: str,
+    bundle_root: Path,
     prepared_root: Path,
     entra_bindings: dict[str, str],
     browser_console: dict[str, Any],
@@ -779,18 +785,18 @@ def _publish_aks_console(
     tenant_id: str,
     timeout_seconds: int,
     redirect_changed: bool,
+    verify_only: bool = False,
+    verify_service_contracts: bool = True,
 ) -> dict[str, object]:
-    """Configure, publish, and independently verify the signed prebuilt Console."""
+    """Configure a verified prebuilt Console, publish it, and read back exact bytes."""
 
-    runtime = kit.runtime.to_mapping()
-    console = _mapping(runtime.get("console"), "runtime Console artifact")
-    archive = kit.materialized_root / str(console["archive"])
-    _require_archive_digest(archive, str(console["archive_sha256"]))
+    _require_archive_digest(console_archive, console_archive_sha256)
     extraction = prepared_root / "console-publish"
     if extraction.exists():
         console_directory = extraction / "dist"
     else:
-        console_directory = extract_bundle_archive(archive, extraction)
+        console_directory = extract_bundle_archive(console_archive, extraction)
+    console_directory.chmod(0o700)
     settings = {
         "schema_version": "fdai.console-runtime.v1",
         "operator_api_base_url": str(browser_console["operator_api_base_url"]),
@@ -816,15 +822,17 @@ def _publish_aks_console(
         "BROWSER_GATEWAY_OPERATOR_URL": settings["operator_api_base_url"],
         "BROWSER_GATEWAY_INGESTION_URL": settings["ingestion_api_base_url"],
         "CONSOLE_PREBUILT_DIRECTORY": str(console_directory),
+        "FDAI_CONSOLE_VERIFY_ONLY": "1" if verify_only else "0",
+        "FDAI_CONSOLE_VERIFY_SERVICE_CONTRACTS": "1" if verify_service_contracts else "0",
         "GITHUB_STEP_SUMMARY": str(summary),
     }
     completed = subprocess.run(
         (
             "/bin/bash",
             str(scripts / "publish-console.sh"),
-            str(kit.bundle_root / "infra/runtimes/aks/workloads"),
+            str(bundle_root / "infra/runtimes/aks/workloads"),
         ),
-        cwd=kit.bundle_root,
+        cwd=bundle_root,
         env=environment,
         check=False,
         capture_output=True,
@@ -835,18 +843,18 @@ def _publish_aks_console(
         raise ValueError("prebuilt Console publication or browser verification failed")
     receipt: dict[str, object] = {
         "schema_version": "fdai.standalone-console-publication.v1",
-        "state": "published",
+        "state": "verified" if verify_only else "published",
         "console_origin": browser_console["console_origin"],
-        "console_archive_sha256": console["archive_sha256"],
+        "console_archive_sha256": console_archive_sha256,
         "runtime_config_digest": configured["runtime_config_digest"],
         "entra_redirect_changed": redirect_changed,
         "artifact_hash_verified": True,
         "spa_fallback_verified": True,
-        "api_health_verified": True,
-        "authorization_preflight_verified": True,
-        "unauthenticated_denial_verified": True,
-        "entra_redirect_verified": True,
-        "mutation_performed": True,
+        "api_health_verified": verify_service_contracts,
+        "authorization_preflight_verified": verify_service_contracts,
+        "unauthenticated_denial_verified": verify_service_contracts,
+        "entra_redirect_verified": verify_service_contracts,
+        "mutation_performed": not verify_only,
         "subscription_ready": False,
     }
     receipt["receipt_digest"] = canonical_digest(receipt)

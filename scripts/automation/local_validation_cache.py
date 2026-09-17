@@ -313,8 +313,9 @@ def main() -> int:
     try:
         return run(Path.cwd().resolve(), arguments, structural=options.mode == "structural")
     except (OSError, ValueError, subprocess.SubprocessError) as error:
+        detail = str(error).strip() or "no details"
         print(
-            f"local-validation: BLOCKED - {type(error).__name__}; no success recorded",
+            f"local-validation: BLOCKED - {type(error).__name__}: {detail}; no success recorded",
             file=sys.stderr,
         )
         return 1

@@ -3,6 +3,7 @@ import {
   consoleDataMode,
   consoleDataModeHref,
   explicitConsoleDataMode,
+  shouldRestoreConsoleDataMode,
   supportsSampleData,
 } from "./console-data-mode";
 
@@ -29,5 +30,12 @@ describe("Dashboard data mode", () => {
       .toBe("/overview?window=30d&data=sample");
     expect(consoleDataModeHref("live", "/overview", "?window=30d&data=sample"))
       .toBe("/overview?window=30d");
+  });
+
+  test("does not restore Sample mode over an authentication callback hash", () => {
+    expect(shouldRestoreConsoleDataMode("sample", "")).toBe(true);
+    expect(shouldRestoreConsoleDataMode("live", "")).toBe(false);
+    expect(shouldRestoreConsoleDataMode("sample", "#code=value&state=value")).toBe(false);
+    expect(shouldRestoreConsoleDataMode("sample", "#error=access_denied&state=value")).toBe(false);
   });
 });

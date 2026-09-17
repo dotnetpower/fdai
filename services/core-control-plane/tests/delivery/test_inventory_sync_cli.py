@@ -19,6 +19,10 @@ import httpx
 import pytest
 import yaml
 from fdai.delivery import inventory_sync_cli_support
+from fdai.delivery.aks_subscription_discovery import (
+    AksSubscriptionDiscoveryError,
+    AksSubscriptionDiscoveryResult,
+)
 from fdai.delivery.azure.arg_projection import to_neutral_id
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.inventory import AzureResourceGraphInventory
@@ -55,6 +59,7 @@ from fdai.delivery.inventory_sync_cli import (
     _main,
     _publish_collection_health,
     _resolve_resource_types,
+    _resolve_subscription_kubernetes_bindings,
     _run_due_once,
     _workload_identity,
     container_argv,
@@ -382,7 +387,7 @@ async def test_ontology_observer_persists_diagnostics_on_inventory_promotion(
 ) -> None:
     state_store = SimpleNamespace(
         write_state_with_audit_if_absent=AsyncMock(return_value=True),
-        read_state=AsyncMock(),
+        read_state=AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
         "fdai.delivery.inventory_ontology_observer.PostgresStateStore",
@@ -419,7 +424,7 @@ async def test_recovery_persists_diagnostics_without_ontology_projection(
 ) -> None:
     state_store = SimpleNamespace(
         write_state_with_audit_if_absent=AsyncMock(return_value=True),
-        read_state=AsyncMock(),
+        read_state=AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
         "fdai.delivery.inventory_ontology_observer.PostgresStateStore",
@@ -603,6 +608,111 @@ def test_job_config_requires_complete_kubernetes_binding() -> None:
     assert config.kubernetes_token_path == Path("/var/run/secrets/kubernetes/token")
     assert config.kubernetes_ca_path == Path("/var/run/secrets/kubernetes/ca.crt")
     assert config.kubernetes_auth_mode == "service-account"
+
+
+def test_job_config_accepts_only_exclusive_subscription_discovery() -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "00000000-0000-0000-0000-000000000001",
+            "FDAI_KUBERNETES_SUBSCRIPTION_DISCOVERY": "1",
+        }
+    )
+
+    assert config.kubernetes_subscription_discovery is True
+    assert config.kubernetes_bindings == ()
+
+    with pytest.raises(ValueError, match="MUST NOT be combined"):
+        InventoryJobConfig.from_env(
+            {
+                "FDAI_INVENTORY_DSN": "postgresql://example",
+                "AZURE_SUBSCRIPTION_ID": "00000000-0000-0000-0000-000000000001",
+                "FDAI_KUBERNETES_SUBSCRIPTION_DISCOVERY": "1",
+                "FDAI_KUBERNETES_CLUSTER_BINDINGS_JSON": json.dumps(
+                    [
+                        {
+                            "api_server": "https://one.example",
+                            "cluster_ref": _CLUSTER_REF,
+                            "auth_mode": "service-account",
+                            "ca_path": "/var/run/fdai/ca.crt",
+                            "token_path": "/var/run/fdai/token",
+                        }
+                    ]
+                ),
+            }
+        )
+
+
+async def test_subscription_discovery_result_is_applied_to_the_inventory_tick(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "00000000-0000-0000-0000-000000000001",
+            "FDAI_KUBERNETES_SUBSCRIPTION_DISCOVERY": "1",
+        }
+    )
+    binding = KubernetesClusterBinding(
+        api_server="https://aks.example",
+        cluster_ref=_CLUSTER_REF,
+        auth_mode="workload-identity",
+        ca_pem="-----BEGIN CERTIFICATE-----\nexample\n-----END CERTIFICATE-----\n",
+        audience="aks-audience",
+    )
+    discovery = Mock()
+    discovery.discover = AsyncMock(
+        return_value=AksSubscriptionDiscoveryResult(
+            bindings=(binding,),
+            unavailable_scopes=(),
+        )
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.AzureAksSubscriptionBindingDiscovery",
+        lambda **_kwargs: discovery,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli._workload_identity",
+        lambda **_kwargs: Mock(),
+    )
+
+    resolved = await _resolve_subscription_kubernetes_bindings(config)
+
+    assert resolved.kubernetes_bindings == (binding,)
+    assert resolved.kubernetes_unavailable_scopes == ()
+
+
+async def test_subscription_discovery_failure_is_explicitly_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "00000000-0000-0000-0000-000000000001",
+            "FDAI_KUBERNETES_SUBSCRIPTION_DISCOVERY": "1",
+        }
+    )
+    discovery = Mock()
+    discovery.discover = AsyncMock(
+        side_effect=AksSubscriptionDiscoveryError("provider unavailable")
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.AzureAksSubscriptionBindingDiscovery",
+        lambda **_kwargs: discovery,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli._workload_identity",
+        lambda **_kwargs: Mock(),
+    )
+
+    resolved = await _resolve_subscription_kubernetes_bindings(config)
+
+    assert resolved.kubernetes_bindings == ()
+    assert len(resolved.kubernetes_unavailable_scopes) == 1
+    assert (
+        resolved.kubernetes_unavailable_scopes[0].reason
+        == "kubernetes_subscription_discovery_unavailable"
+    )
 
 
 async def test_unconfigured_kubernetes_composition_records_explicit_unavailability() -> None:

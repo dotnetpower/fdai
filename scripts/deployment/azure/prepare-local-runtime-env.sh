@@ -126,14 +126,27 @@ PY
       "FDAI_KUBERNETES_CLUSTER_BINDINGS_JSON=$kubernetes_bindings_json"
     )
   else
+    configured_kubernetes_values=0
+    missing_kubernetes_key=""
     for key in "${kubernetes_lifecycle_keys[@]}"; do
       mapfile -t matches < <(grep -E "^${key}=" "$SOURCE_ENV" || true)
-      if (( ${#matches[@]} != 1 )) || [[ -z "${matches[0]#*=}" ]]; then
-        echo "FDAI_LOCAL_KUBERNETES_LIFECYCLE requires one non-empty ${key} binding" >&2
+      if (( ${#matches[@]} > 1 )); then
+        echo "FDAI_LOCAL_KUBERNETES_LIFECYCLE requires at most one ${key} binding" >&2
         exit 1
       fi
-      kubernetes_lifecycle_lines+=("${matches[0]}")
+      if (( ${#matches[@]} == 1 )) && [[ -n "${matches[0]#*=}" ]]; then
+        configured_kubernetes_values=$((configured_kubernetes_values + 1))
+        kubernetes_lifecycle_lines+=("${matches[0]}")
+      elif [[ -z "$missing_kubernetes_key" ]]; then
+        missing_kubernetes_key="$key"
+      fi
     done
+    if (( configured_kubernetes_values == 0 )); then
+      kubernetes_lifecycle_lines=("FDAI_KUBERNETES_SUBSCRIPTION_DISCOVERY=1")
+    elif (( configured_kubernetes_values != ${#kubernetes_lifecycle_keys[@]} )); then
+      echo "FDAI_LOCAL_KUBERNETES_LIFECYCLE requires one non-empty ${missing_kubernetes_key} binding" >&2
+      exit 1
+    fi
   fi
 fi
 if [[ -z "$local_consumer_instance" ]]; then

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: b0b876b0660bcea330e4b3ae7319aabdf8dd6245
+translation_source_sha: 5c9b1351f7f7ca49d8a32f1d92eb5e26a6b600e6
 translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
@@ -90,6 +90,17 @@ APIM 연결을 읽고, 기존 Entra SPA 등록에 정확한 SWA redirect를 추�
 판단하려면 원격 산출물 hash, SPA route fallback, 두 API 상태 확인, 정확한 origin의 authorization
 preflight, `/audit`의 인증되지 않은 요청에 대한 `401`, 구성한 Console origin으로 돌아오는 Entra
 redirect를 모두 확인해야 합니다.
+기존 개발 Container Apps 설치는 `fdaictl provision console-update`를 통해 정적 Console만
+갱신할 수 있습니다. 산출물 생성은 보호된 소스를 사용하는 별도 단계로 유지합니다. 갱신 계획은
+후보 하나, 별도의 롤백 산출물 하나, 기존 Static Web App 대상 및 20분 만료를 함께 결속합니다.
+apply 실행 자체가 명시적 코딩 세션 승인이고 두 번째 질문 없이 정확한 계획 digest를 내부적으로 결속한 뒤 게시 전에 실행 전 기록을 씁니다. 기록된 실행은 만료 후에도 현재 검증된 게시기로 결과와 롤백을 먼저 확인하고 필요한 경우에만 롤백을 게시합니다.
+기존 실행 전 기록이 있으면 결과만 확인하고, 게시 또는 결과 확인이 실패하면 검증된 롤백을
+복원합니다. 이 호환성 경로는 런타임 선택, 서비스 이미지, Terraform 상태, 데이터베이스 상태 또는
+배포 준비 상태를 변경하지 않습니다.
+정적 readback은 Static Web Apps가 공개하는 파일만 hash로 확인하며, 호스트가 소비하는 구성은
+필수 로컬 입력으로 유지합니다. 롤백 종료는 해당 정적 byte를 API 상태와 독립적으로 검증하고,
+생략한 서비스 검사를 확인하지 못한 것으로 기록하며, 검증된 비공개 시도 디렉터리만 재사용합니다.
+후보 성공은 위의 전체 산출물, API, 권한 부여 및 Entra 검사를 계속 요구합니다.
 
 ### 기본값 및 검증
 

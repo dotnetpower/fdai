@@ -130,6 +130,34 @@ async def test_replay_verifies_exact_release_and_watermark_fence() -> None:
     assert summary["complete"] is True
 
 
+async def test_replay_allows_only_an_explicit_pending_generation_transition() -> None:
+    replay = _replay()
+    projector = _Projector(_result())
+    prior = _manifest("sha256:" + "c" * 64)
+    prior["generation"] = "snapshot-prior"
+
+    with pytest.raises(ValueError, match="not comparable"):
+        await run_once(
+            replay,
+            projector=projector,
+            state=_State(prior, _manifest()),
+            source_revision=REVISION,
+        )
+
+    summary = await run_once(
+        replay,
+        projector=projector,
+        state=_State(prior, _manifest()),
+        source_revision=REVISION,
+        allow_pending_generation=True,
+    )
+
+    assert summary["prior_generation_digest"] != summary["generation_digest"]
+    assert summary["generation_changed"] is True
+    assert summary["ontology_release_changed"] is True
+    assert summary["complete"] is True
+
+
 async def test_replay_refuses_unverified_manifest_or_source() -> None:
     replay = _replay()
     projector = _Projector(_result())
