@@ -5,7 +5,11 @@ locals {
       "app.kubernetes.io/component"  = workload.component
       "app.kubernetes.io/managed-by" = "terraform"
       "fdai.io/runtime"              = "aks"
-      "fdai.io/source-commit"        = workload.source_commit
+    })
+  }
+  deployment_labels = {
+    for name, workload in var.workloads : name => merge(local.workload_labels[name], {
+      "fdai.io/source-commit" = workload.source_commit
     })
   }
   job_labels = {
@@ -393,7 +397,7 @@ resource "kubernetes_deployment_v1" "workload" {
   metadata {
     name      = each.key
     namespace = kubernetes_namespace_v1.runtime.metadata[0].name
-    labels    = local.workload_labels[each.key]
+    labels    = local.deployment_labels[each.key]
   }
 
   spec {
@@ -413,7 +417,7 @@ resource "kubernetes_deployment_v1" "workload" {
 
     template {
       metadata {
-        labels = merge(local.workload_labels[each.key], {
+        labels = merge(local.deployment_labels[each.key], {
           "azure.workload.identity/use" = "true"
         })
       }
