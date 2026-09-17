@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 3b840e8f4b2aaa7dbc0ff0d7693b42cca7e8de31
+translation_source_sha: 742f4428f379f9e387332ec929586bc7d685cc8b
 translation_revised: 2026-09-17
 ---
 # 지속형 운영 인스턴스 그래프
@@ -235,7 +235,9 @@ UUID, 리소스 그룹 세그먼트, 프로바이더 경로 및 마지막 앱 �
 병합된 질문 원본 변경은 런타임 또는 실행 권한을 바꾸지 않고 결정적인 질문 은행 전체와 검토 카탈로그를 다시 생성합니다.
 완전한 승격 세대가 온톨로지 변환 결과에 도달하면 Inventory Job은 각 Resource에 대해 내용 주소가
 지정된 `inventory.resource_observed` Event 하나를 정식 컨트롤 루프 토픽에 게시합니다. 이 인계로
-SignalType 디스패치가 기록된 Resource 속성에 적용되는 활성 구성 규칙을 호출할 수 있습니다.
+범위가 제한된 delivery 모듈 `inventory_ontology_observer.py`가 변환 결과, 토폴로지 이력 게시,
+이 인계를 소유하고 CLI는 이를 조립만 합니다. SignalType 디스패치는 기록된 Resource 속성에
+적용되는 활성 구성 규칙을 호출할 수 있습니다.
 수집기가 판단을 소유하는 것은 아닙니다. 기존 Forseti T0 경로가 결정을 만들고 Event는 실행 권한이
 없는 shadow 모드를 유지합니다. 같은 세대를 재생하면 같은 신원을 유지하며, 변환 결과가
 불완전하거나 브로커 게시에 실패하면 평가 범위를 주장하지 않고 복구 대기 상태를 유지합니다.
