@@ -239,16 +239,18 @@ def test_cli_emits_primary_pool_when_requested(tmp_path: Path) -> None:
     assert main(argv) == 0
     payload = json.loads((tmp_path / "resolved-models.json").read_text(encoding="utf-8"))
 
-    # Fixture catalog exposes gpt-4o (viable); gpt-4-turbo is absent, so the
-    # same-publisher pool is single-entry. The router only engages at >= 2,
-    # but the candidate + its Terraform deployment are still emitted.
+    # Fixture catalog exposes gpt-4o and gpt-5.2; gpt-4-turbo is absent.
     pool = payload["reasoner_primary_candidates"]
-    assert [c["deployment"] for c in pool] == ["t2primary-gpt-4o"]
+    assert [c["deployment"] for c in pool] == [
+        "t2primary-gpt-4o",
+        "t2primary-gpt-5-2",
+    ]
     for c in pool:
         assert c["endpoint"] == endpoint
         assert c["api_version"] == "2024-06-01"
     cap_names = {c["name"] for c in payload["capabilities"]}
     assert "t2primary-gpt-4o" in cap_names
+    assert "t2primary-gpt-5-2" in cap_names
 
 
 def test_cli_emit_primary_pool_requires_endpoint(tmp_path: Path) -> None:
