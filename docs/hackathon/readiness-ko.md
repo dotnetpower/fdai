@@ -1,7 +1,7 @@
 ---
 title: 해커톤 데모 준비 상태
 translation_of: readiness.md
-translation_source_sha: f2a0d79cc2f7308e8f15ab0b0bbacbc6a4a149e7
+translation_source_sha: b1af5ecad7c88c6d8c941d9b3c4d2383d274dc70
 translation_revised: 2026-09-17
 ---
 
@@ -91,6 +91,70 @@ Kubernetes 입장에서는 유효한 상태이지만, 사업 운영 기준에는
 
 쇼핑몰 화면과 상품 서비스는 계속 실행합니다. 상품 조회는 성공하지만 테스트 주문은 실패하는
 모습을 보여 줍니다. RabbitMQ 데이터를 손상시키거나 Deployment를 삭제하지 않습니다.
+
+### kubectl 장애 주입 명령
+
+실습 대상과 장애 주입이 승인된 뒤에만 다음 Bash 예제를 실행합니다. 이미 인증된 `kubectl`
+context를 사용하고 두 자리 표시자를 바꾼 뒤, 이어지는 명령도 같은 터미널에서 실행합니다.
+모든 API 요청은 대상을 명시하고 10초 제한을 사용합니다. 전역 현재 context는 변경하지 않습니다.
+
+```bash
+DEMO_CONTEXT='<approved-demo-context>'
+DEMO_NAMESPACE='<approved-demo-namespace>'
+demo_kubectl=(kubectl --context="$DEMO_CONTEXT" --namespace="$DEMO_NAMESPACE" --request-timeout=10s)
+"${demo_kubectl[@]}" get deployment store-front product-service order-service
+"${demo_kubectl[@]}" get hpa
+"${demo_kubectl[@]}" get deployment order-service -o jsonpath='{.metadata.uid}{"\n"}'
+```
+
+승인된 클러스터와 네임스페이스를 확인하고 Deployment UID를 보관하며, 각 데모 Deployment에
+예상한 수의 준비된 복제본이 있는지 확인합니다. `order-service`의 설정된 복제본과 준비된
+복제본이 각각 1개이고, 정상 기준 주문이 성공하며, 같은 값을 변경하는 HPA나 GitOps가 없을
+때만 진행합니다. 하나라도 확인에 실패하면 중지합니다. context 이름이나 비어 있는 HPA
+목록만으로 격리된 환경이라고 판단하지 않습니다.
+
+먼저 변경을 저장하지 않는 모의 실행으로 검증합니다.
+
+```bash
+"${demo_kubectl[@]}" scale deployment/order-service \
+	--current-replicas=1 --replicas=0 --dry-run=server --timeout=10s
+```
+
+모의 실행이 성공하고 현재 권한이 유지되는 것을 확인한 뒤 장애를 주입합니다.
+
+```bash
+"${demo_kubectl[@]}" scale deployment/order-service \
+	--current-replicas=1 --replicas=0 --timeout=10s
+"${demo_kubectl[@]}" get deployment order-service
+"${demo_kubectl[@]}" get pods -l app=order-service
+"${demo_kubectl[@]}" get endpointslices -l kubernetes.io/service-name=order-service
+```
+
+`--current-replicas=1` 사전조건은 설정된 복제본 수가 예상과 다르면 변경을 차단하지만, 대상
+잠금을 대신하지는 않습니다. 오류나 대상 변경이 발생하면 사전조건을 제거하지 말고 중지합니다.
+Pod 종료와 엔드포인트 제거는 비동기로 진행됩니다. 요청을 받을 수 있는 준비된 엔드포인트가
+없고 테스트 주문이 실패하는지 확인한 뒤 장애로 설명합니다. 실제 변경 시각은 승인된 감사
+경로로 기록합니다. 이 터미널 명령만으로 FDAI 인시던트가 생성되지는 않습니다.
+
+### 데모 중단 시 수동 복원
+
+정상 진행에서는 FDAI의 승인된 복구 흐름에 복원을 맡깁니다. 다음 명령은 해당 흐름이 중지되고
+대상 잠금이 해제된 뒤, 별도의 현재 수동 복원 권한이 있을 때만 사용합니다. 대상 UID가
+보관한 정상 기준과 일치하고 현재 복제본 수가 0개인지 다시 확인합니다. 모의 실행이 성공한
+경우에만 실제 변경을 실행합니다.
+
+```bash
+"${demo_kubectl[@]}" get deployment order-service -o jsonpath='{.metadata.uid}{"\n"}'
+"${demo_kubectl[@]}" scale deployment/order-service \
+	--current-replicas=0 --replicas=1 --dry-run=server --timeout=10s &&
+"${demo_kubectl[@]}" scale deployment/order-service \
+	--current-replicas=0 --replicas=1 --timeout=10s
+"${demo_kubectl[@]}" get deployment store-front product-service order-service
+```
+
+이후 준비 상태, 서비스 엔드포인트, 상품 조회 및 새 테스트 주문의 접수 성공을 검증합니다.
+FDAI 복구가 아니라 운영자의 복구로 기록합니다. 복제본 수가 이미 1개라면 다시 확장하지 말고
+결과를 확인합니다. 확인에 실패하거나 결과가 불완전하면 인시던트를 해결되지 않은 상태로 유지합니다.
 
 ## 3. FDAI가 고객 영향 발견
 

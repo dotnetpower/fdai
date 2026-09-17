@@ -89,6 +89,70 @@ separate from FDAI's diagnosis and does not grant recovery authority.
 Keep the storefront and product service running. Show that browsing still works while a test
 order fails. Do not damage RabbitMQ data or delete the Deployment.
 
+### kubectl fault-injection commands
+
+Run these Bash examples only after the lab target and fault injection are approved. Use an
+already authenticated `kubectl` context, replace both placeholders, and keep the same terminal
+for the following blocks. Every API request has a 10-second timeout and an explicit target;
+these commands do not change the global current context.
+
+```bash
+DEMO_CONTEXT='<approved-demo-context>'
+DEMO_NAMESPACE='<approved-demo-namespace>'
+demo_kubectl=(kubectl --context="$DEMO_CONTEXT" --namespace="$DEMO_NAMESPACE" --request-timeout=10s)
+"${demo_kubectl[@]}" get deployment store-front product-service order-service
+"${demo_kubectl[@]}" get hpa
+"${demo_kubectl[@]}" get deployment order-service -o jsonpath='{.metadata.uid}{"\n"}'
+```
+
+Confirm the approved cluster and namespace, retain the Deployment UID, and check that each demo
+Deployment has its expected ready replicas. Continue only when `order-service` has 1 configured
+and 1 ready replica, the baseline order succeeds, and no HPA or GitOps writer competes for it.
+If any check fails, stop. A context name or an empty HPA list alone does not prove isolation.
+
+First validate the change without persisting it:
+
+```bash
+"${demo_kubectl[@]}" scale deployment/order-service \
+	--current-replicas=1 --replicas=0 --dry-run=server --timeout=10s
+```
+
+After the dry run succeeds and authorization is still current, inject the fault:
+
+```bash
+"${demo_kubectl[@]}" scale deployment/order-service \
+	--current-replicas=1 --replicas=0 --timeout=10s
+"${demo_kubectl[@]}" get deployment order-service
+"${demo_kubectl[@]}" get pods -l app=order-service
+"${demo_kubectl[@]}" get endpointslices -l kubernetes.io/service-name=order-service
+```
+
+The `--current-replicas=1` precondition rejects an unexpected configured replica count; it is not
+a target lock. Stop on any error or target change instead of removing the precondition. Pod
+termination and endpoint removal are asynchronous: confirm no ready serving endpoint and a failed
+test order before claiming the outage. Record the actual change time through the approved audit
+path. These terminal commands alone do not create an FDAI incident.
+
+### Manual restoration if the demo stops
+
+Normally, leave restoration to FDAI's approved recovery flow. Use the following only under
+separate current manual-restoration authority after that flow is stopped and its target lock is
+released. Recheck that the target UID matches the retained baseline and that the current replica
+count is 0. Run the actual change only if the dry run succeeds:
+
+```bash
+"${demo_kubectl[@]}" get deployment order-service -o jsonpath='{.metadata.uid}{"\n"}'
+"${demo_kubectl[@]}" scale deployment/order-service \
+	--current-replicas=0 --replicas=1 --dry-run=server --timeout=10s &&
+"${demo_kubectl[@]}" scale deployment/order-service \
+	--current-replicas=0 --replicas=1 --timeout=10s
+"${demo_kubectl[@]}" get deployment store-front product-service order-service
+```
+
+Verify readiness, the service endpoint, browsing, and a newly accepted test order afterward.
+Record this as operator recovery, not FDAI recovery. If the count is already 1, verify the result
+instead of scaling again. A failed or incomplete check leaves the incident unresolved.
+
 ## 3. Let FDAI discover the impact
 
 The synthetic worker continues without an operator question triggering diagnosis. FDAI should
