@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: f4a1a6b8fbfab8527efd5dfe13d32e301b076759
+translation_source_sha: 9852c3620969f45f21d7e61c59f947cc6b1f985f
 translation_revised: 2026-09-17
 ---
 
@@ -303,7 +303,7 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 
 오퍼레이터 요청 런타임 액션. Day 1 shipping:
 
-- `ops.restart-service` - AKS Pod, App Service, Container App 리비전을 다시 시작합니다. `ops.rollback-kubernetes-rollout`은 사람 승인과 서버 측 dry run 뒤 정확한 Deployment 하나를 검토된 digest 고정 이미지로 복원합니다.
+- `ops.restart-service` - AKS Pod, App Service, Container App 리비전을 다시 시작합니다. `ops.rollback-kubernetes-rollout`은 사람 승인과 서버 측 dry run 뒤 정확한 Deployment 하나를 검토된 digest 고정 이미지로 복원합니다. AKS에서 격리된 실행기는 이 작업들과 `ops.scale-in`, `ops.scale-out`을 정확한 클러스터, namespace, 리소스 종류, UID 및 리소스 버전 확인에 연결합니다. 서버 측 dry run 뒤 안전장치에 결속된 `enforce` 명령만 적용하며, namespace 범위의 신원은 리소스를 생성하거나 secret을 읽거나 다른 namespace를 변경할 수 없습니다.
 - `ops.scale-out` - 복제본 / 인스턴스 개수 증가. 지출-증가이므로 `cost_impact_monthly` 를 선언 MUST ->
   risk-classification 비용 게이트 적용 ([execution-model.md § 2.8](execution-model-ko.md#28-비용-증가-ops-액션)).
 - `ops.scale-in` - 복제본 개수 감소 (Approver + 실제 운영 탐색).

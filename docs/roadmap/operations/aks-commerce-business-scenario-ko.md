@@ -1,6 +1,6 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: bdef3c27391dcc8b6ad507f4af0eb58c2a2beadf
+translation_source_sha: eacf23bff50a2b2a199772b0972888dcbf43f4a4
 translation_revised: 2026-09-17
 ---
 # AKS 상거래 비즈니스 시나리오
@@ -117,6 +117,11 @@ Browser Evidence는 계속 `GET`과 `HEAD`만 허용합니다. 상태를 변경�
 | 워크로드 다시 시작 | 컨트롤러가 소유한 하나의 Pod UID | 대체 Pod가 준비됩니다. 되돌릴 수 없는 다시 시작임을 명시합니다. |
 | 워크로드 확장 | 하나의 Deployment UID와 관측된 세대 | 검증 실패 시 이전 replica 수를 복원합니다. |
 | 롤아웃 되돌리기 | 하나의 Deployment UID와 현재 리비전 | 선택한 롤백으로 복구되지 않으면 작업 전 리비전을 복원합니다. |
+
+일반 AKS 런타임은 등록된 작업을 격리된 실행기로 전달합니다. 해당 ServiceAccount는
+구성된 런타임 namespace의 Pod와 Deployment만 변경할 수 있습니다. 상거래 효과 검증기는
+시나리오에 한정된 조건부 관측기로 남으며, 일반 런타임에 권한을 부여하거나 실제 복구를
+증명하지 않습니다.
 
 각 작업은 관찰 모드로 시작하며 중지 조건, 검증된 롤백, 영향 범위, 성공한 서버 측
 dry run, 논리적 대상 잠금, 안정적인 멱등성 키, 2단계 감사를 요구합니다. 성공하려면
