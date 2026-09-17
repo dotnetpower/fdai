@@ -119,9 +119,12 @@ describe("Manual Studio catalog boundary", () => {
       .toBe("https://manuals.example.com/fdai");
     expect(resolveManualStudioUrl(undefined, true)).toBe("http://127.0.0.1:5474");
     expect(resolveManualStudioUrl(undefined, false)).toBeNull();
+    expect(resolveManualStudioUrl(undefined, false, "https://console.example.com"))
+      .toBe("https://console.example.com/manuals");
     expect(() => resolveManualStudioUrl("http://manuals.example.com", false))
       .toThrow("must be HTTPS");
     expect(() => resolveManualStudioUrl("https://manuals.example.com?tenant=example", false))
       .toThrow("must be HTTPS");
   });
+
 });

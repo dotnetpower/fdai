@@ -5,9 +5,11 @@ import stat
 from pathlib import Path
 
 import pytest
+
 from fdai_deployment_cli.console_config import (
     CONFIG_FILENAME,
     CONFIG_PLACEHOLDER,
+    MANUAL_STUDIO_PLACEHOLDER_URL,
     configure_console,
     render_console_config,
 )
@@ -64,7 +66,8 @@ def test_console_configuration_is_atomic_private_and_repeatable(tmp_path: Path) 
     settings.chmod(0o600)
     target = tmp_path / CONFIG_FILENAME
     target.write_bytes(CONFIG_PLACEHOLDER)
-    result = configure_console(tmp_path, settings)
+    manual_studio_url = "https://console.example.com/manuals"
+    result = configure_console(tmp_path, settings, manual_studio_url=manual_studio_url)
     assert result["changed"] is True
     assert result["cloud_mutation_performed"] is False
     assert result["console_access_verified"] is False
@@ -90,3 +93,34 @@ def test_console_configuration_does_not_follow_links(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         configure_console(tmp_path, settings)
     assert victim.read_bytes() == CONFIG_PLACEHOLDER
+
+
+def test_console_configuration_binds_prebuilt_manual_share_pages(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    settings = tmp_path / "settings.json"
+    settings.write_text(json.dumps(SETTINGS), encoding="utf-8")
+    settings.chmod(0o600)
+    (tmp_path / CONFIG_FILENAME).write_bytes(CONFIG_PLACEHOLDER)
+    manuals = tmp_path / "manuals"
+    manuals.mkdir()
+    for name in ("library.html", "target-architecture.html"):
+        (manuals / name).write_text(
+            f'<link rel="canonical" href="{MANUAL_STUDIO_PLACEHOLDER_URL}/{name}">',
+            encoding="utf-8",
+        )
+    (manuals / "catalog.json").write_text("{}", encoding="utf-8")
+
+    manual_studio_url = "https://console.example.com/manuals"
+    result = configure_console(tmp_path, settings, manual_studio_url=manual_studio_url)
+
+    assert result["manual_studio_pages_configured"] == 2
+    assert manual_studio_url in (manuals / "library.html").read_text()
+    assert MANUAL_STUDIO_PLACEHOLDER_URL not in (manuals / "library.html").read_text()
+    assert (
+        configure_console(
+            tmp_path,
+            settings,
+            manual_studio_url=manual_studio_url,
+        )["manual_studio_pages_configured"]
+        == 2
+    )
