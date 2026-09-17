@@ -5,8 +5,7 @@ title: Ontology Query Coverage Implementation Plan
 
 This plan closes the implementation gap between FDAI's bounded conversation and ontology foundations and the target non-keyword path for operator questions. It records the verified current baseline, service and agent ownership, dependency-ordered work packages, cutover gates, and rollback units for 100% structural query coverage.
 
-Governed cloud-reference queries use source-spanned scalar applicability and preserve source dates;
-the [lifecycle owner](cloud-resource-knowledge-lifecycle.md) defines as-of and live-current behavior.
+Governed cloud-reference queries use source-spanned scalar applicability and preserve source dates; the [lifecycle owner](cloud-resource-knowledge-lifecycle.md) defines as-of and live-current behavior.
 The [structured retrieval owner](cloud-resource-knowledge-structured-rag.md) defines v1.2 query/utterance binding, unavailable outcomes and legacy compatibility; terms never expand applicability or access. Frame-model schemas omit the server-bound query field.
 Coverage-inventory regeneration refreshes source digests, not measured coverage.
 
@@ -223,6 +222,7 @@ Coverage-inventory regeneration refreshes source digests, not measured coverage.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-17 | implemented | Regenerated the question bank and dependent semantic-intent coverage together after a later Agent Activity Console catalog update changed their authoritative source digest again. Question identity, coverage, readiness, and execution authority remain unchanged. | `current change`; both official generators; focused artifact parity tests | No live or promotion claim is added. |
 | 2026-09-17 | implemented | Refreshed the generated question bank and then the dependent semantic-intent coverage artifact after Console catalog source digests changed. Question identity, coverage classification, and execution authority remain unchanged. | `current change`; `build_question_bank.py`; `build_semantic_intent_coverage.py`; focused question-bank and semantic-coverage parity tests | No runtime validation or authority claim is added by this provenance-only refresh. |
 | 2026-09-16 | implemented | Added exact logical-service and workload target resolution through approved deployment aliases, server-owned cross-runtime traversal and verified current-state reads. Bound continuous operating-model updates to one logical topic across AKS, Container Apps, and local Redpanda, and added bilingual component-state presentation without aggregate-health or cause inference. | `current change`; 13 critique rounds fixed ambiguous-judgment progression, server-compiler model fallback, alias control characters, and partial-mapping presentation; logical-service planner, query verifier, provider validation, runtime projection, full DAG execution, deployment/local topic, and bilingual presentation tests passed in focused runs; Ruff and strict mypy passed. No Medium-or-higher finding remained. | Governed live cross-service evidence remains required before raising this bounded capability from implemented to validated. |
 | 2026-09-14 | implemented | Isolated the Browser Entra ontology-assurance services from ambient Azure CLI-principal preparation by clearing both API and Vite authentication flag pairs in the run-scoped child commands. | `current change`; `run_ontology_assurance.py`; focused assurance process-spec regression. | No query authority or assurance result changed. |
