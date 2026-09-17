@@ -10,6 +10,7 @@ from fdai_service_contracts import OperationalActivityStatus, OperationalFreshne
 from fdai.core.ontology_platform.aks_diagnostic_receipt_service import (
     AksDiagnosticReceiptService,
 )
+from fdai.delivery import inventory_sync_cli_support
 from fdai.delivery.aks_diagnostic_receipts import (
     InventoryPromotionAksDiagnosticObserver,
     StateStoreAksDiagnosticReceiptWriter,
@@ -77,11 +78,10 @@ def build_ontology_observer(
         probes_root=catalog_root / "probes",
     )
     ontology_release_digest = catalog.build_release().digest
+    status_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
     diagnostic_observer = InventoryPromotionAksDiagnosticObserver(
         service=AksDiagnosticReceiptService(
-            writer=StateStoreAksDiagnosticReceiptWriter(
-                store=PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
-            )
+            writer=StateStoreAksDiagnosticReceiptWriter(store=status_store)
         ),
         ontology_release=ontology_release_digest,
         scope_by_cluster_ref={
@@ -99,7 +99,7 @@ def build_ontology_observer(
         )
         projector = InventoryOntologyProjector(
             store=ontology_store,
-            status_store=PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn)),
+            status_store=status_store,
             ontology_release_digest=ontology_release_digest,
             resource_type_mappings=resource_type_mapping_digests(vocabulary),
             freshness_ceiling_seconds=config.reconciliation_interval_seconds,
@@ -217,12 +217,12 @@ def build_ontology_observer(
             )
 
     async def _recover() -> None:
-        pending = await observation_journal.load_pending_promoted_snapshot()
-        if pending is not None:
-            try:
-                await _observe(pending)
-            except InventoryOntologyProjectionIncompleteError:
-                return
+        await inventory_sync_cli_support.recover_ontology_projection(
+            load_pending=observation_journal.load_pending_promoted_snapshot,
+            observe=_observe,
+            status_store=status_store if projector is not None else None,
+            release_digest=ontology_release_digest,
+        )
 
     return _observe, _recover
 
