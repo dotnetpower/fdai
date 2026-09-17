@@ -262,6 +262,29 @@ permissions by itself. Source-mode caller wiring and a governed target-bound app
 deployment work. Grants require the reviewed lifecycle and revocation procedure; Kubernetes RBAC
 has no native expiry, so this module alone does not prove a time-bound grant.
 
+### Attached-identity Kubernetes authentication
+
+**Initial design:** Reuse Thor's existing attached Managed Identity to authenticate Kubernetes
+requests from the Container Apps Executor, without copying a human kubeconfig or moving authority.
+
+**Critique:** A token-file-only adapter cannot use that identity. An ambient credential fallback
+could select another principal, and a ServiceAccount RoleBinding does not prove Entra authorization.
+
+**Revised design:** The isolated Executor accepts exactly one credential source in
+`FDAI_KUBERNETES_DIRECT_API_JSON`: the existing `token_path`, or an explicit `audience` with no
+token path. Both forms require the exact HTTPS `api_server`, `cluster_ref`, absolute `ca_path`,
+and `allowed_namespaces`. The audience form resolves the command's `executor_identity_ref` only
+from the existing registered Thor vertical identities. Each request obtains a bounded, unexpired,
+audience-matching token through the service-owned identity adapter; no CLI, human, default, or
+alternate credential fallback is permitted. Concurrent commands must not share mutable identity
+selection. TLS verification and redirect rejection remain mandatory.
+
+This adds authentication capability, not permission, promotion, or a deployed binding. The exact
+plan must separately prove private network reachability, CA provenance, the selected identity's
+effective Kubernetes authorization, denied off-target operations, grant removal, and all runtime
+safeguards. Azure RBAC and native Kubernetes RBAC require their own effective-access evidence;
+neither is inferred from a successfully acquired token.
+
 The five baseline services select the Azure Identity SDK's workload credential when
 `AZURE_FEDERATED_TOKEN_FILE` is declared. The projected token path must be absolute, tenant and
 client identifiers must be valid, and the federated client must match the service's explicitly

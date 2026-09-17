@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 5bcaeda1f720cb26971f42a82ead7b58cca3ad6b
+translation_source_sha: c50dd5c1afa7315a2791a2e5ceac03861ee333d5
 translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
@@ -276,6 +276,28 @@ Console, Operator Service, 작업 또는 다른 워크로드와 공유하지 않
 않습니다. 소스 실행 호출부 연결과 대상이 확정된 통제된 적용은 별도의 배포 작업입니다. 권한
 부여에는 검토된 수명 주기와 회수 절차가 필요합니다. Kubernetes RBAC에는 기본 만료 기능이
 없으므로 이 모듈만으로 시간 제한이 있는 권한 부여를 증명하지는 않습니다.
+
+### 연결된 신원으로 Kubernetes 인증
+
+**초기 설계:** Thor에 이미 연결된 Managed Identity를 재사용하여 Container Apps 실행기에서
+Kubernetes 요청을 인증합니다. 사람의 kubeconfig를 복사하거나 실행 권한의 소유자를 바꾸지 않습니다.
+
+**검토:** 토큰 파일만 읽는 어댑터는 이 신원을 사용할 수 없습니다. 주변 환경의 자격 증명으로
+대체하면 다른 주체를 선택할 수 있고, ServiceAccount RoleBinding만으로 Entra 권한을 증명할 수 없습니다.
+
+**수정 설계:** 격리된 실행기는 `FDAI_KUBERNETES_DIRECT_API_JSON`에서 자격 증명 원본을
+하나만 받습니다. 기존 `token_path` 또는 토큰 경로 없는 명시적 `audience`입니다. 두 방식 모두
+정확한 HTTPS `api_server`, `cluster_ref`, 절대 경로 `ca_path`, `allowed_namespaces`가
+필요합니다. 대상이 지정된 방식은 명령의 `executor_identity_ref`를 기존에 등록된 Thor 영역별
+신원에서만 찾습니다. 각 요청은 서비스가 소유한 신원 어댑터를 통해 시간과 크기가 제한되고,
+만료되지 않았으며, 대상이 일치하는 토큰을 얻습니다. CLI, 사람, 기본 신원 또는 다른 자격 증명으로
+대체하지 않습니다. 동시 명령이 변경 가능한 신원 선택 상태를 공유해서는 안 됩니다. TLS 검증과
+리디렉션 거부는 계속 필수입니다.
+
+이 변경은 인증 기능만 추가하며 권한 부여, 승격 또는 배포된 연결을 의미하지 않습니다. 정확한
+계획에서 사설 네트워크 연결, CA 출처, 선택한 신원의 실제 Kubernetes 권한, 대상 밖 작업 거부,
+권한 회수 및 모든 런타임 안전장치를 별도로 증명해야 합니다. Azure RBAC와 기본 Kubernetes
+RBAC에는 각각 실제 접근 근거가 필요하며, 토큰 획득 성공만으로 이를 추론하지 않습니다.
 
 다섯 기본 서비스는 `AZURE_FEDERATED_TOKEN_FILE`이 선언되면 Azure Identity SDK의 워크로드
 자격 증명을 선택합니다. 투영된 토큰 경로는 절대 경로여야 하고 tenant와 client 식별자는
