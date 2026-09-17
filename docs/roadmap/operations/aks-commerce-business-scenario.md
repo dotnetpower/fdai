@@ -101,6 +101,32 @@ create an incident, grant a permission, or approve a recovery.
 
 ## Agent responsibilities
 
+### Incident ingress and Thor-owned execution
+
+The composition root may register `AksCommerceAnalyzer` with the shared `InvestigationCoordinator`
+and `AnalyzerTickRunner`. The commerce coordinator retains each assessment before the analyzer
+returns a complete, current degraded finding. The shared runner owns event publication, durable
+duplicate suppression, and uncertain-send reconciliation. It does not call an agent or write an
+Incident directly. Huginn normalizes the event; Heimdall applies its existing repeated-evidence and
+severity policy before the canonical Incident lifecycle opens a case. Replaying an assessment
+preserves the event identity. Observations in distinct configured publication buckets provide
+distinct evidence in one target's correlation. A failed or uncertain publisher cannot be reported
+as successful delivery. A server-owned binding supplies the exact target, canonical resource kind,
+severity, publication interval, and evidence freshness ceiling.
+
+The publisher remains disabled without an explicit event-bus binding and exact service-to-target
+configuration. Held, healthy, recovered, stale, and synthetic assessment frames are not incident
+triggers through this bridge. A retained projection or broker receipt grants no action authority.
+The order-acceptance-only detector remains separate work until its evidence profile is supported.
+Runtime registration and the live workload, SLO, and metric sources still require deployment
+integration; the exported adapter alone does not start an observation loop or create live records.
+
+Thor is the only execution agent. The isolated Executor is Thor's execution runtime, not a second
+agent or an independent recovery decision maker. It may call the Kubernetes API only for a
+Thor-owned, safeguard-bound command admitted through the existing approval and promotion path.
+Heimdall verifies effects independently; Console and the commerce coordinator never hold mutation
+credentials. This integration does not merge processes or enable local execution authority.
+
 No agent names or role bindings change:
 
 - **Huginn** owns normalized journey, messaging, Kubernetes, and change ingress.

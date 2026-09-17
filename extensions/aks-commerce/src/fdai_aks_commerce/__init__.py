@@ -5,6 +5,7 @@ from fdai_aks_commerce.assessment import assess_aks_commerce
 from fdai_aks_commerce.browser_policy import storefront_browser_policy
 from fdai_aks_commerce.coordinator import (
     PROJECTION_KEY_PREFIX,
+    AksCommerceAnalyzer,
     AksCommerceCoordinator,
     AksCommerceObservationSource,
 )
@@ -37,6 +38,7 @@ from fdai_aks_commerce.synthetic import (
 
 __all__ = [
     "PROJECTION_KEY_PREFIX",
+    "AksCommerceAnalyzer",
     "AksCommerceAssessmentPolicy",
     "AksCommerceCoordinator",
     "AksCommerceEvidenceFrame",
