@@ -94,7 +94,7 @@ ReadInvestigationHook = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]
 OperationalEvidenceHook = Callable[[dict[str, Any]], Awaitable[Mapping[str, Any]]]
 """Composition-provided bounded evidence collector for one operational Event."""
 
-ActionObservationHook = Callable[[dict[str, Any]], Awaitable[bool]]
+ActionObservationHook = Callable[[dict[str, Any]], Awaitable[bool | Mapping[str, Any]]]
 """Composition-provided terminal ActionRun observation handler."""
 
 _LOG = logging.getLogger(__name__)
@@ -213,7 +213,21 @@ class Heimdall(
             if self._action_observation_hook is None:
                 self.record_behavior("action_effect_observation:unavailable")
                 return
-            recorded = await self._action_observation_hook(payload)
+            observation = await self._action_observation_hook(payload)
+            recorded = bool(observation)
+            if isinstance(observation, Mapping):
+                if (
+                    observation.get("event_type") != "action.execution.effect_verified.v1"
+                    or observation.get("producer_principal") != "Heimdall"
+                ):
+                    raise ValueError("action effect observation returned an unsupported event")
+                if self.bus is None:
+                    raise RuntimeError("action effect observation requires the Heimdall event bus")
+                await self.bus.publish(
+                    "Heimdall",
+                    "object.recovery-effect-observation",
+                    dict(observation),
+                )
             self.record_behavior(
                 "action_effect_observation:recorded"
                 if recorded

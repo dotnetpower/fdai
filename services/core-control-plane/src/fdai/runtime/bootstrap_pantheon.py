@@ -65,7 +65,7 @@ from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.rule_catalog.schema.capacity_graduation_policy import (
     load_capacity_graduation_policy,
 )
-from fdai.runtime.aks_commerce import build_acceptance_runtime_bindings
+from fdai.runtime.aks_commerce import VerifiedIncidentResolver, build_acceptance_runtime_bindings
 from fdai.runtime.approval_policy import approver_authorizer_from_environment
 from fdai.runtime.bootstrap_bindings import RuleGenerationRuntimeBinding
 from fdai.runtime.case_history import (
@@ -136,6 +136,7 @@ class PantheonInitialization:
     rule_generation_reconciliation: RuleGenerationReconciliation | None
     rule_generation_binding: RuleGenerationRuntimeBinding
     open_incident_candidate: Callable[[dict[str, Any]], Awaitable[bool]]
+    resolve_verified_incident: VerifiedIncidentResolver
     read_investigation_hook: Any
     runtime_symptom_index: Any
     stage_topic: str
@@ -386,6 +387,7 @@ async def initialize_pantheon(
         loop=config.control_loop,
         store=config.incident_audit_store,
         fallback=t2_route_registry.execute if thor_mutation_bound else None,
+        resolve_verified_incident=config.resolve_verified_incident,
     )
     rollback_executors: dict[str, RollbackExecutor] | None = (
         {"state_forward_only": t2_route_registry.rollback} if thor_mutation_bound else None
@@ -416,7 +418,9 @@ async def initialize_pantheon(
             "vidar_recovery_contracts": sorted(thor_safety_readiness.vidar_recovery_contracts),
         },
     )
-    heimdall_action_observation_hook = None
+    heimdall_action_observation_hook: (
+        Callable[[Mapping[str, Any]], Awaitable[bool | Mapping[str, Any]]] | None
+    ) = None
     observation_collector = config.container.executed_action_observation_collector
     if observation_collector is not None:
         observation_verifier = config.container.reconciliation_observation_verifier
@@ -445,9 +449,12 @@ async def initialize_pantheon(
         acceptance_observe = acceptance_bindings.observe
         fallback_observe = heimdall_action_observation_hook
 
-        async def observe_acceptance_then_existing(payload: Mapping[str, Any]) -> bool:
-            if await acceptance_observe(payload):
-                return True
+        async def observe_acceptance_then_existing(
+            payload: Mapping[str, Any],
+        ) -> bool | Mapping[str, Any]:
+            acceptance_result = await acceptance_observe(payload)
+            if acceptance_result:
+                return acceptance_result
             return await fallback_observe(payload) if fallback_observe is not None else False
 
         heimdall_action_observation_hook = observe_acceptance_then_existing
@@ -653,6 +660,18 @@ async def initialize_pantheon(
         pantheon_runtime.bridge,
         recovery_effect_observation_handler,
     )
+    if acceptance_bindings is not None and acceptance_bindings.resolve is not None:
+        acceptance_resolve = acceptance_bindings.resolve
+
+        async def resolve_acceptance_effect(_topic: str, payload: Mapping[str, Any]) -> None:
+            await acceptance_resolve(payload)
+
+        pantheon_runtime.bridge.subscribe(
+            "object.recovery-effect-observation",
+            "aks-commerce-incident-reconciler",
+            resolve_acceptance_effect,
+        )
+        pantheon_runtime.subscription_count += 1
     from fdai.runtime.alert_noise import bind_alert_noise
 
     alert_noise_handler = bind_alert_noise(

@@ -816,24 +816,40 @@ async def test_runtime_composes_real_acceptance_bindings_without_io(
         calls.append(context)
         return False
 
+    async def resolve_verified_incident(**_values: object) -> str:
+        return "incident:example"
+
     assert (
         build_acceptance_runtime_bindings(
-            environment={}, loop=cast(ControlLoop, loop), store=store, fallback=fallback
+            environment={},
+            loop=cast(ControlLoop, loop),
+            store=store,
+            fallback=fallback,
+            resolve_verified_incident=resolve_verified_incident,
         )
         is None
     )
     if defect is not None:
         with pytest.raises((ValueError, RuntimeError)):
             build_acceptance_runtime_bindings(
-                environment=env, loop=cast(ControlLoop, loop), store=store, fallback=fallback
+                environment=env,
+                loop=cast(ControlLoop, loop),
+                store=store,
+                fallback=fallback,
+                resolve_verified_incident=resolve_verified_incident,
             )
         assert not calls
         return
     bindings = build_acceptance_runtime_bindings(
-        environment=env, loop=cast(ControlLoop, loop), store=store, fallback=fallback
+        environment=env,
+        loop=cast(ControlLoop, loop),
+        store=store,
+        fallback=fallback,
+        resolve_verified_incident=resolve_verified_incident,
     )
     assert bindings is not None
     assert bindings.observe is not None
+    assert bindings.resolve is not None
     assert not await bindings.observe({"resource_id": "resource:other"})
     assert (
         wrap_acceptance_closure_store(

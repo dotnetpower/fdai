@@ -220,8 +220,17 @@ closure, retains independent audit evidence, then uses the existing atomic recon
 Incorrect identity, stale or revoked evidence, failed orders or missing release context leave
 quarantine unresolved. Exact historical replay returns its retained closure without asserting
 current health or adding another audit transition. Other targets and shadow runs stay unchanged.
-This closes execution quarantine only: delayed-evidence redrive and ActionRun, Incident and
-Console terminal-state propagation remain separate integration work, not implicit success.
+Missing command or effect evidence raises a retryable handler failure. Existing at-least-once
+delivery can therefore reprocess the original ActionRun after delayed evidence arrives; historical
+closure replay never dispatches the mutation again. After exact closure, Heimdall publishes one
+verified-effect record on its existing recovery-observation topic. Thor rechecks the original
+Action, target, parameters and idempotency generation, then alone changes `execution_unknown` to
+`succeeded`, persists the closure and effect references, and emits `operational_success=true` with
+`effect_verification_status=verified`. A separate internal consumer resolves only the Incident id
+atomically bound when that detector episode opened, using the minimum legal lifecycle path. This
+prevents a later episode on the same resource from being resolved accidentally. Console reuses the
+authoritative terminal ActionRun and Incident projections; it does not infer success from broker or
+provider acceptance.
 
 `PreparedAcceptanceSource` now runs under Forseti before the approval-facing decision is published.
 It revalidates the signed observation and exact arguments, checks the automatic trigger and

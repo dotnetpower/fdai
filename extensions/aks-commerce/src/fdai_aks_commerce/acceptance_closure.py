@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -40,6 +40,7 @@ from fdai_aks_commerce.acceptance import (
     OrderAcceptanceIntent,
     evaluate_order_acceptance,
 )
+from fdai_aks_commerce.acceptance_action import ACCEPTANCE_SIGNAL
 from fdai_aks_commerce.acceptance_material import StoredAcceptanceDispatchMaterials
 from fdai_aks_commerce.acceptance_receipts import (
     RECEIPT_PREFIX,
@@ -50,6 +51,18 @@ from fdai_aks_commerce.effect import AcceptanceEffectExpectation, verify_order_a
 
 _PLAN = TypeAdapter(PostReleaseClosurePlan)
 CLOSURE_PREFIX = "aks-commerce:acceptance-closure:v1:"
+
+
+@dataclass(frozen=True, slots=True)
+class AcceptanceClosureResult:
+    """Exact independently verified closure evidence for downstream lifecycle owners."""
+
+    record_digest: str
+    evidence_ref: str
+    observed_at: datetime
+
+
+ResolveVerifiedIncident = Callable[..., Awaitable[str]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,14 +154,14 @@ class AcceptanceClosureReconciler:
     verifier: StoredOrderAcceptanceReceiptVerifier
     clock: Callable[[], datetime]
 
-    async def reconcile(self, command_id: str) -> str:
+    async def reconcile(self, command_id: str) -> AcceptanceClosureResult:
         """Read original durable command/receipt and new signed evidence within a bounded budget."""
         if str(UUID(command_id)) != command_id:
             raise ValueError("acceptance effect requires a canonical command id")
         async with asyncio.timeout(10):
             return await self._reconcile(command_id)
 
-    async def _reconcile(self, command_id: str) -> str:
+    async def _reconcile(self, command_id: str) -> AcceptanceClosureResult:
         prefix = "runtime:isolated-executor:"
         raw_command = await self.store.read_state(prefix + "command:" + command_id)
         raw_receipt = await self.store.read_state(prefix + "terminal-receipt:" + command_id)
@@ -241,7 +254,11 @@ class AcceptanceClosureReconciler:
                 or current.release_receipt_digest != original.record.release_receipt_digest
             ):
                 raise ValueError("acceptance resolved closure evidence was substituted")
-            return current.record_digest
+            return AcceptanceClosureResult(
+                record_digest=current.record_digest,
+                evidence_ref=prior.evidence_digest,
+                observed_at=prior.observed_at,
+            )
         observation = await StoredOrderAcceptanceSource(self.store).observe(self.intent)
         if observation is None:
             raise ValueError("acceptance independent post-release observation is unavailable")
@@ -348,7 +365,11 @@ class AcceptanceClosureReconciler:
             or receipt_result.record.outcome is not PostReleaseClosureOutcome.RESOLVED
         ):
             raise ValueError("acceptance atomic closure did not confirm the exact reconciliation")
-        return receipt_result.record.record_digest
+        return AcceptanceClosureResult(
+            record_digest=receipt_result.record.record_digest,
+            evidence_ref=verified.evidence_ref,
+            observed_at=observation.observed_at,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -356,8 +377,9 @@ class AcceptanceEffectObserver:
     """Heimdall-owned hook using original journal records, never event effect claims."""
 
     reconciler: AcceptanceClosureReconciler
+    resolve_verified_incident: ResolveVerifiedIncident | None = None
 
-    async def handle(self, payload: Mapping[str, Any]) -> bool:
+    async def handle(self, payload: Mapping[str, Any]) -> bool | Mapping[str, Any]:
         """Reconcile an exact non-shadow attempt, leaving missing evidence retryable and held."""
         if payload.get("resource_id") != self.reconciler.intent.resource_ref:
             return False
@@ -384,5 +406,72 @@ class AcceptanceEffectObserver:
         )
         if link is None or not isinstance(link.get("command_id"), str):
             raise RuntimeError("acceptance original command linkage is not yet available")
-        await self.reconciler.reconcile(link["command_id"])
+        result = await self.reconciler.reconcile(link["command_id"])
+        return {
+            "schema_version": "1.0.0",
+            "event_type": "action.execution.effect_verified.v1",
+            "producer_principal": "Heimdall",
+            "correlation_id": material.correlation_id,
+            "idempotency_key": "sha256:"
+            + hashlib.sha256(f"{action_id}\0{result.record_digest}".encode()).hexdigest(),
+            "resource_id": self.reconciler.intent.resource_ref,
+            "action_id": action_id,
+            "action_type": "ops.scale-out",
+            "action_idempotency_key": material.action_run_idempotency_key,
+            "params": material.action().params,
+            "effect_verification_ref": result.evidence_ref,
+            "execution_closure_ref": result.record_digest,
+            "observed_at": result.observed_at.isoformat(),
+            "execution_authority": False,
+        }
+
+    async def resolve_incident(self, payload: Mapping[str, Any]) -> bool:
+        """Resolve the exact bound Incident only from the retained verified closure event."""
+        if payload.get("event_type") != "action.execution.effect_verified.v1":
+            return False
+        if (
+            payload.get("producer_principal") != "Heimdall"
+            or payload.get("schema_version") != "1.0.0"
+            or payload.get("action_type") != "ops.scale-out"
+            or payload.get("execution_authority") is not False
+        ):
+            raise ValueError("acceptance Incident resolution requires Heimdall evidence")
+        action_id = payload.get("action_id")
+        if not isinstance(action_id, str):
+            raise ValueError("acceptance Incident resolution requires an Action id")
+        material = await StoredAcceptanceDispatchMaterials(self.reconciler.store).read(action_id)
+        link = await self.reconciler.store.read_state(
+            "aks-commerce:acceptance-command:v1:" + action_id
+        )
+        closure_key = link.get("closure_key") if link is not None else None
+        closure = (
+            await self.reconciler.closures.read(str(closure_key))
+            if isinstance(closure_key, str)
+            else None
+        )
+        evidence = closure.reconciliation_evidence if closure is not None else None
+        observed_at = datetime.fromisoformat(str(payload.get("observed_at") or ""))
+        if (
+            material is None
+            or closure is None
+            or closure.outcome is not PostReleaseClosureOutcome.RESOLVED
+            or evidence is None
+            or payload.get("correlation_id") != material.correlation_id
+            or payload.get("action_idempotency_key") != material.action_run_idempotency_key
+            or payload.get("resource_id") != self.reconciler.intent.resource_ref
+            or payload.get("params") != material.action().params
+            or payload.get("effect_verification_ref") != evidence.evidence_digest
+            or payload.get("execution_closure_ref") != closure.record_digest
+            or observed_at != evidence.observed_at
+        ):
+            raise ValueError("acceptance Incident resolution evidence changed")
+        if self.resolve_verified_incident is None:
+            raise RuntimeError("acceptance Incident episode resolver is unavailable")
+        await self.resolve_verified_incident(
+            action_idempotency_key=material.action_run_idempotency_key,
+            correlation_id=material.correlation_id,
+            resource_id=self.reconciler.intent.resource_ref,
+            event_type=ACCEPTANCE_SIGNAL,
+            verified_at=observed_at,
+        )
         return True

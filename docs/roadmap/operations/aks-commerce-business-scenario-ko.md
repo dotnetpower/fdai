@@ -1,6 +1,6 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: b97165f14048257bc63e3f69f302db8be0f63fe8
+translation_source_sha: f971e40017fff844be2e54fa66c3bf3daf22aec4
 translation_revised: 2026-09-17
 ---
 # AKS 상거래 비즈니스 시나리오
@@ -217,8 +217,16 @@ Heimdall의 기존 ActionRun 훅은 `execution_unknown`을 포함한 비-shadow 
 사용합니다. 신원 불일치, 오래되거나 철회된 근거, 주문 실패 또는 잠금 해제 맥락 누락은
 격리를 해제하지 않습니다. 정확한 과거 재전달은 현재 건강 상태를 주장하거나 감사 전이를
 추가하지 않고 보존된 종결만 반환합니다. 다른 대상과 shadow 실행은 기존 동작을 유지합니다.
-이 단계는 실행 격리만 종결합니다. 지연 근거 재처리와 ActionRun, Incident 및 Console의
-최종 상태 전달은 별도의 남은 통합 작업이며 자동으로 성공 처리하지 않습니다.
+명령이나 효과 근거가 없으면 다시 처리할 수 있는 핸들러 실패를 반환합니다. 따라서 기존
+at-least-once 전달은 지연된 근거가 도착한 뒤 원래 ActionRun을 다시 처리할 수 있으며, 과거
+종결 재생은 변경 작업을 다시 전달하지 않습니다. 정확한 종결 뒤 Heimdall은 기존 복구 관측
+토픽에 검증된 효과 기록 하나를 게시합니다. Thor는 원래 Action, 대상, 매개 변수 및 멱등성
+세대를 다시 확인한 뒤 단독으로 `execution_unknown`을 `succeeded`로 바꾸고 종결 및 효과
+참조를 보존하며 `operational_success=true`와 `effect_verification_status=verified`를
+게시합니다. 별도의 내부 소비자는 해당 감지 에피소드가 열릴 때 원자적으로 연결된 Incident
+ID만 최소 합법 수명 주기 경로로 종결합니다. 이 방식은 같은 리소스에서 나중에 발생한
+에피소드를 잘못 종결하지 않습니다. Console은 권위 있는 최종 ActionRun 및 Incident 변환
+결과를 재사용하며 브로커 또는 공급자 접수로 성공을 추론하지 않습니다.
 
 `PreparedAcceptanceSource`는 승인용 결정 게시 전에 Forseti 아래에서 실행됩니다. 서명된
 관측과 정확한 인자를 다시 검증하고 자동 트리거 및 카탈로그 스키마를 확인한 뒤 공유

@@ -329,7 +329,7 @@ Each consumer closes its subscription inside its own task, so the broker adapter
 | object.capacity-forecast | Freyr | Forseti |
 | object.capacity-graduation-recommendation | Freyr | Forseti |
 | object.evidence-conflict | Heimdall | Muninn, Saga |
-| object.recovery-effect-observation | Heimdall | `recovery-effect-observer` (independent recovery post-effect observation intake) |
+| object.recovery-effect-observation | Heimdall | `recovery-effect-observer` (independent recovery post-effect observation intake), Thor (exact verified ActionRun terminalization) |
 | object.prospective-lineage | Forseti | Muninn, Saga |
 | object.chaos-experiment | Loki | Heimdall |
 Partitioning:

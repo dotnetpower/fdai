@@ -66,6 +66,34 @@ def _rollback_for_run(
 # ---------------------------------------------------------------------------
 
 
+async def test_heimdall_publishes_only_verified_action_effect_observations() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    observation = {
+        "schema_version": "1.0.0",
+        "event_type": "action.execution.effect_verified.v1",
+        "producer_principal": "Heimdall",
+        "correlation_id": "correlation-1",
+        "idempotency_key": "effect-1",
+        "resource_id": "resource-1",
+    }
+
+    async def observe(_payload: dict[str, object]) -> dict[str, object]:
+        return observation
+
+    heimdall = Heimdall(bus=bus, action_observation_hook=observe)
+
+    await heimdall.on_typed_message(
+        "object.action-run",
+        {"producer_principal": "Thor", "correlation_id": "correlation-1"},
+    )
+
+    published = bus.messages_on("object.recovery-effect-observation")
+    assert len(published) == 1
+    assert published[0].principal == "Heimdall"
+    assert published[0].payload["envelope_schema_version"] == 1
+    assert all(published[0].payload[key] == value for key, value in observation.items())
+
+
 @pytest.mark.parametrize(
     "defect", [None, "missing", "expired", "wrong_target", "wrong_producer", "error"]
 )

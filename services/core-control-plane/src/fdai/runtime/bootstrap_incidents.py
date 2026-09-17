@@ -8,7 +8,9 @@ import os
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from dataclasses import replace as dataclass_replace
+from datetime import datetime
 from typing import Any, Protocol
+from uuid import UUID
 
 import httpx
 from fdai_core_service.incident_creation_consumer import IncidentCreationConsumerBinding
@@ -33,6 +35,7 @@ from fdai.core.incident import (
     IncidentNotificationPendingError,
     IncidentOntologyProjector,
     IncidentRegistry,
+    detected_incident_correlation_keys,
     incident_severity,
     link_ticket_receipt,
     open_detected_incident_candidate,
@@ -43,8 +46,10 @@ from fdai.core.incident.intervention import (
 )
 from fdai.delivery.notifications import NotificationDeliveryReceiptApplier
 from fdai.delivery.notifications.local_binding import resolve_local_notification_endpoints
+from fdai.runtime.aks_commerce import VerifiedIncidentResolver
 from fdai.runtime.delivery import _build_incident_notifier
 from fdai.runtime.notification_registry import build_notification_delivery_store
+from fdai.shared.contracts.models import IncidentState
 from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.tool import ToolCallReceipt, ToolCallRequest
@@ -62,6 +67,7 @@ IncidentNotifierBuilder = Callable[..., ReplayIncidentNotifier]
 OpenIncidentCandidate = Callable[[dict[str, Any]], Awaitable[bool]]
 ObserveToolReceipt = Callable[[ToolCallRequest, ToolCallReceipt], Awaitable[None]]
 _LOGGER = logging.getLogger("fdai.startup")
+_INCIDENT_EPISODE_BINDING_PREFIX = "incident:episode-binding:v1:"
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +130,7 @@ class IncidentRuntime:
     intervention_binding: IncidentInterventionConsumerBinding
     creation_binding: IncidentCreationConsumerBinding
     open_incident_candidate: OpenIncidentCandidate
+    resolve_verified_incident: VerifiedIncidentResolver
     observe_tool_receipt: ObserveToolReceipt
     notification_receipt_applier: NotificationDeliveryReceiptApplier
     """Applies authenticated publication observations to the same delivery store
@@ -210,7 +217,109 @@ async def build_incident_runtime(
             candidate=candidate,
             policy=policy,
         )
-        return result is not None
+        if result is None:
+            return False
+        episode_id = candidate.get("incident_episode_id")
+        idempotency_key = candidate.get("idempotency_key")
+        if episode_id is not None:
+            if (
+                not isinstance(episode_id, str)
+                or not episode_id
+                or episode_id != episode_id.strip()
+                or len(episode_id) > 512
+                or not isinstance(idempotency_key, str)
+                or not idempotency_key
+                or idempotency_key != idempotency_key.strip()
+                or len(idempotency_key) > 512
+            ):
+                raise ValueError("incident episode binding requires exact bounded lineage")
+            binding = {
+                "schema_version": "1.0.0",
+                "incident_id": str(result.incident.incident_id),
+                "incident_episode_id": episode_id,
+                "correlation_id": str(candidate["correlation_id"]),
+                "resource_id": str(candidate["resource_id"]),
+                "event_type": str(candidate["event_type"]),
+            }
+            key = _INCIDENT_EPISODE_BINDING_PREFIX + idempotency_key
+            created = await state_store.write_state_with_audit_if_absent(
+                key,
+                binding,
+                {
+                    "actor": "Heimdall",
+                    "action_kind": "incident.episode-bound",
+                    "incident_id": str(result.incident.incident_id),
+                    "incident_episode_id": episode_id,
+                    "execution_authority": False,
+                },
+            )
+            if not created and await state_store.read_state(key) != binding:
+                raise ValueError("incident episode already binds a different Incident")
+        return True
+
+    async def resolve_verified_incident(
+        *,
+        action_idempotency_key: str,
+        correlation_id: str,
+        resource_id: str,
+        event_type: str,
+        verified_at: datetime,
+    ) -> str:
+        """Resolve only the exact bound episode after independent effect verification."""
+        if (
+            not action_idempotency_key
+            or action_idempotency_key != action_idempotency_key.strip()
+            or len(action_idempotency_key) > 512
+            or verified_at.tzinfo is None
+            or verified_at.utcoffset() is None
+        ):
+            raise ValueError("verified Incident resolution requires exact bounded lineage")
+        raw = await state_store.read_state(
+            _INCIDENT_EPISODE_BINDING_PREFIX + action_idempotency_key
+        )
+        if (
+            raw is None
+            or set(raw)
+            != {
+                "schema_version",
+                "incident_id",
+                "incident_episode_id",
+                "correlation_id",
+                "resource_id",
+                "event_type",
+            }
+            or raw.get("schema_version") != "1.0.0"
+            or raw.get("correlation_id") != correlation_id
+            or raw.get("resource_id") != resource_id
+            or raw.get("event_type") != event_type
+        ):
+            raise ValueError("verified effect does not match an exact Incident episode binding")
+        incident_id = UUID(str(raw["incident_id"]))
+        incident = registry.get(incident_id)
+        required_keys = set(
+            detected_incident_correlation_keys(
+                resource_id=resource_id,
+                event_type=event_type,
+                correlation_id=correlation_id,
+            )
+        )
+        if incident is None or not required_keys.issubset(incident.correlation_keys):
+            raise ValueError("verified Incident episode is unavailable or changed")
+        while incident.state not in {IncidentState.RESOLVED, IncidentState.CLOSED}:
+            target = (
+                IncidentState.MITIGATED
+                if incident.state is IncidentState.OPEN
+                else IncidentState.RESOLVED
+            )
+            result = await workflow.transition_from_agent(
+                incident_id=incident.incident_id,
+                to_state=target,
+                producer_principal="Heimdall",
+                reason="independent acceptance effect verified",
+                now=verified_at,
+            )
+            incident = result.incident
+        return str(incident.incident_id)
 
     async def observe_tool_receipt(
         request: ToolCallRequest,
@@ -236,6 +345,7 @@ async def build_incident_runtime(
         intervention_binding=intervention_binding,
         creation_binding=creation_binding,
         open_incident_candidate=open_incident_candidate,
+        resolve_verified_incident=resolve_verified_incident,
         observe_tool_receipt=observe_tool_receipt,
         notification_receipt_applier=NotificationDeliveryReceiptApplier(
             delivery_store=notification_delivery_store,

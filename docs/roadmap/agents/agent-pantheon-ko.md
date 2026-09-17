@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: dca9c0d734f08e628ac2cd0b08ce54437177dc45
+translation_source_sha: db973f5d341df854ce9e6b2a7ae66991ce167fc0
 translation_revised: 2026-09-17
 ---
 # 에이전트 판테온
@@ -327,7 +327,7 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 | object.capacity-forecast | Freyr | Forseti |
 | object.capacity-graduation-recommendation | Freyr | Forseti |
 | object.evidence-conflict | Heimdall | Muninn, Saga |
-| object.recovery-effect-observation | Heimdall | `recovery-effect-observer`(독립적인 복구 사후 효과 관측 수신구) |
+| object.recovery-effect-observation | Heimdall | `recovery-effect-observer`(독립적인 복구 사후 효과 관측 수신구), Thor(정확히 검증된 ActionRun 종결) |
 | object.prospective-lineage | Forseti | Muninn, Saga |
 | object.chaos-experiment | Loki | Heimdall |
 Partitioning:

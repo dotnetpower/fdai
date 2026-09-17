@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -5,7 +6,6 @@ from uuid import UUID
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from fdai.agents import Heimdall
 from fdai.core.executor.post_release_closure_store import (
     PostReleaseClosureStoreReceipt,
     PostReleaseClosureWriteDecision,
@@ -517,8 +517,13 @@ async def test_independent_acceptance_effect_reconciles_exact_atomic_closure(
         assert (await atomic.read(correlation.closure_key)).outcome.value == "quarantined"
         assert len(atomic.audit_entries) == 1
         return
-    observer = AcceptanceEffectObserver(reconciler)
-    heimdall = Heimdall(action_observation_hook=observer.handle)
+    resolved_incidents: list[dict[str, object]] = []
+
+    async def resolve_verified_incident(**values: object) -> str:
+        resolved_incidents.append(values)
+        return "incident:example"
+
+    observer = AcceptanceEffectObserver(reconciler, resolve_verified_incident)
     trigger = {
         "producer_principal": "Thor",
         "state": "execution_unknown",
@@ -536,16 +541,36 @@ async def test_independent_acceptance_effect_reconciles_exact_atomic_closure(
         await observer.handle({**trigger, "producer_principal": "Var"})
     with pytest.raises(ValueError):
         await observer.handle({**trigger, "correlation_id": "analyzer:other"})
-    await heimdall.on_typed_message("object.action-run", trigger)
+    verified_event = await observer.handle(trigger)
+    assert isinstance(verified_event, Mapping)
+    assert await observer.resolve_incident(verified_event)
     digest = (await atomic.read(correlation.closure_key)).record_digest
     assert (await atomic.read(correlation.closure_key)).outcome.value == "resolved"
     assert len(atomic.audit_entries) == 2
-    assert await reconciler.reconcile(str(command.command_id)) == digest
-    await heimdall.on_typed_message("object.action-run", trigger)
+    assert (await reconciler.reconcile(str(command.command_id))).record_digest == digest
+    replay_event = await observer.handle(trigger)
+    assert isinstance(replay_event, Mapping)
+    assert await observer.resolve_incident(replay_event)
     assert len(atomic.audit_entries) == 2
     historical = replace(reconciler, clock=lambda: NOW + timedelta(minutes=3))
-    assert await historical.reconcile(str(command.command_id)) == digest
+    assert (await historical.reconcile(str(command.command_id))).record_digest == digest
     assert len(atomic.audit_entries) == 2
+    assert resolved_incidents == [
+        {
+            "action_idempotency_key": material.action_run_idempotency_key,
+            "correlation_id": material.correlation_id,
+            "resource_id": intent.resource_ref,
+            "event_type": "analyzer.aks_commerce.order_acceptance_unavailable.observed",
+            "verified_at": observation.observed_at,
+        },
+        {
+            "action_idempotency_key": material.action_run_idempotency_key,
+            "correlation_id": material.correlation_id,
+            "resource_id": intent.resource_ref,
+            "event_type": "analyzer.aks_commerce.order_acceptance_unavailable.observed",
+            "verified_at": observation.observed_at,
+        },
+    ]
 
 
 @pytest.mark.parametrize(

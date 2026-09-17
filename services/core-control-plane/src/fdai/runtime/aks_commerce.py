@@ -4,13 +4,28 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from importlib.metadata import entry_points
-from typing import Any
+from typing import Any, Protocol
 
 from fdai.agents import AnomalyActionSource
 from fdai.core.control_loop import ControlLoop
 from fdai.core.executor.post_release_closure_store import PostReleaseClosureStore
 from fdai.shared.providers.state_store import StateStore
+
+
+class VerifiedIncidentResolver(Protocol):
+    """Resolve one exact Incident after independent acceptance-effect verification."""
+
+    async def __call__(
+        self,
+        *,
+        action_idempotency_key: str,
+        correlation_id: str,
+        resource_id: str,
+        event_type: str,
+        verified_at: datetime,
+    ) -> str: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,7 +34,8 @@ class AcceptanceRuntimeBindings:
 
     sources: dict[str, AnomalyActionSource]
     execute: Callable[[dict[str, Any]], Awaitable[bool]]
-    observe: Callable[[Mapping[str, Any]], Awaitable[bool]] | None = None
+    observe: Callable[[Mapping[str, Any]], Awaitable[bool | Mapping[str, Any]]] | None = None
+    resolve: Callable[[Mapping[str, Any]], Awaitable[bool]] | None = None
 
 
 def build_acceptance_runtime_bindings(
@@ -28,6 +44,7 @@ def build_acceptance_runtime_bindings(
     loop: ControlLoop,
     store: StateStore,
     fallback: Callable[[dict[str, Any]], Awaitable[bool]] | None,
+    resolve_verified_incident: VerifiedIncidentResolver | None = None,
 ) -> AcceptanceRuntimeBindings | None:
     """Load exactly one installed provider only when its reviewed observation config is present."""
     if not environment.get("FDAI_AKS_ACCEPTANCE_JSON", "").strip():
@@ -42,7 +59,13 @@ def build_acceptance_runtime_bindings(
     factory = matches[0].load()
     if not callable(factory):
         raise RuntimeError("acceptance recovery provider is not callable")
-    bindings = factory(environment=environment, loop=loop, store=store, fallback=fallback)
+    bindings = factory(
+        environment=environment,
+        loop=loop,
+        store=store,
+        fallback=fallback,
+        resolve_verified_incident=resolve_verified_incident,
+    )
     if (
         not isinstance(bindings, AcceptanceRuntimeBindings)
         or not bindings.sources

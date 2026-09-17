@@ -25,7 +25,7 @@ from fdai.delivery.persistence.postgres_analyzer_publication import (
 )
 from fdai.delivery.persistence.postgres_idempotency import PostgresIdempotencyStoreConfig
 from fdai.delivery.persistence.state_store_action_promotion import StateStoreActionPromotionRegistry
-from fdai.runtime.aks_commerce import AcceptanceRuntimeBindings
+from fdai.runtime.aks_commerce import AcceptanceRuntimeBindings, VerifiedIncidentResolver
 from fdai.runtime.approval_policy import approver_authorizer_from_environment
 from fdai.runtime.safeguard_isolated_executor import SafeguardBoundEventBusDirectApiExecutionClient
 from fdai.shared.contracts.models import CeilingRole, Severity
@@ -219,6 +219,7 @@ def build_recovery_bindings(
     loop: ControlLoop,
     store: StateStore,
     fallback: Callable[[dict[str, Any]], Awaitable[bool]] | None,
+    resolve_verified_incident: VerifiedIncidentResolver | None = None,
 ) -> AcceptanceRuntimeBindings:
     """Compose real storage, preparation and current authority over the existing isolated client."""
     config = AcceptanceRuntimeConfig.from_json(environment.get("FDAI_AKS_ACCEPTANCE_JSON", ""))
@@ -241,6 +242,8 @@ def build_recovery_bindings(
     approvers = approver_authorizer_from_environment(environment)
     if approvers is None:
         raise RuntimeError("acceptance recovery requires explicit current human approval policy")
+    if resolve_verified_incident is None:
+        raise RuntimeError("acceptance recovery requires exact Incident episode resolution")
 
     def clock() -> datetime:
         return datetime.now(UTC)
@@ -316,10 +319,14 @@ def build_recovery_bindings(
                 clock=clock,
             ),
             clock=clock,
-        )
+        ),
+        resolve_verified_incident=resolve_verified_incident,
     )
     return AcceptanceRuntimeBindings(
-        sources={ACCEPTANCE_SIGNAL: prepared}, execute=execute, observe=observer.handle
+        sources={ACCEPTANCE_SIGNAL: prepared},
+        execute=execute,
+        observe=observer.handle,
+        resolve=observer.resolve_incident,
     )
 
 

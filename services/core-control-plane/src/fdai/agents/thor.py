@@ -122,6 +122,15 @@ class _ExecutionResourceUnavailableError(RuntimeError):
     """The cross-replica mutation lock could not be acquired."""
 
 
+def _is_sha256_ref(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and value.startswith("sha256:")
+        and len(value) == 71
+        and all(character in "0123456789abcdef" for character in value[7:])
+    )
+
+
 @dataclass
 class ActionRun:
     correlation_id: str
@@ -146,6 +155,9 @@ class ActionRun:
     kinetic_proposal: dict[str, Any] | None = None
     prospective_lineage: dict[str, Any] | None = None
     execution_audit_receipt: str | None = None
+    effect_verification_ref: str | None = None
+    execution_closure_ref: str | None = None
+    effect_verified_at: datetime | None = None
     approval_expires_at: datetime | None = None
     terminal_published: bool = False
     resource_claimed: bool = False
@@ -155,6 +167,20 @@ class ActionRun:
         action_run_lineage.validate_action_run_lineage(self.action_id, self.workflow_action)
         if not self.idempotency_key:
             self.idempotency_key = self.correlation_id
+        verification = (
+            self.effect_verification_ref,
+            self.execution_closure_ref,
+            self.effect_verified_at,
+        )
+        if any(value is not None for value in verification) and (
+            not all(value is not None for value in verification)
+            or not _is_sha256_ref(self.effect_verification_ref)
+            or not _is_sha256_ref(self.execution_closure_ref)
+            or self.effect_verified_at is None
+            or self.effect_verified_at.tzinfo is None
+            or self.effect_verified_at.utcoffset() is None
+        ):
+            raise ValueError("ActionRun effect verification must be complete and canonical")
 
     def transition(self, new_state: ActionRunState) -> None:
         self.history.append(self.state)
@@ -189,6 +215,11 @@ class ActionRun:
             "kinetic_proposal": deepcopy(self.kinetic_proposal),
             "prospective_lineage": deepcopy(self.prospective_lineage),
             "execution_audit_receipt": self.execution_audit_receipt,
+            "effect_verification_ref": self.effect_verification_ref,
+            "execution_closure_ref": self.execution_closure_ref,
+            "effect_verified_at": (
+                self.effect_verified_at.isoformat() if self.effect_verified_at is not None else None
+            ),
             "approval_expires_at": (
                 self.approval_expires_at.isoformat()
                 if self.approval_expires_at is not None
@@ -239,6 +270,18 @@ class ActionRun:
             execution_audit_receipt=action_run_lineage.optional_bounded_text(
                 data.get("execution_audit_receipt"),
                 field_name="execution_audit_receipt",
+            ),
+            effect_verification_ref=action_run_lineage.optional_bounded_text(
+                data.get("effect_verification_ref"),
+                field_name="effect_verification_ref",
+            ),
+            execution_closure_ref=action_run_lineage.optional_bounded_text(
+                data.get("execution_closure_ref"),
+                field_name="execution_closure_ref",
+            ),
+            effect_verified_at=_optional_datetime(
+                data.get("effect_verified_at"),
+                field_name="effect_verified_at",
             ),
             approval_expires_at=_optional_datetime(
                 data.get("approval_expires_at"),
@@ -534,8 +577,71 @@ class Thor(Agent):
             await self._handle_approval(payload)
         elif topic == "object.rollback":
             await self._handle_rollback(payload)
+        elif topic == "object.recovery-effect-observation":
+            await self._handle_effect_observation(payload)
 
     # ---- lifecycle -----------------------------------------------------
+
+    async def _handle_effect_observation(self, observation: dict[str, Any]) -> None:
+        """Terminalize only the exact ActionRun named by a Heimdall verified-effect event."""
+        if observation.get("event_type") != "action.execution.effect_verified.v1":
+            return
+        if (
+            observation.get("producer_principal") != "Heimdall"
+            or observation.get("schema_version") != "1.0.0"
+        ):
+            raise ValueError("ActionRun effect verification requires Heimdall evidence")
+        correlation = str(observation.get("correlation_id") or "")
+        run = self.action_runs.get(correlation)
+        if run is None:
+            return
+        if (
+            observation.get("action_id") != run.action_id
+            or observation.get("action_type") != run.action_type
+            or observation.get("resource_id") != run.resource_id
+            or observation.get("action_idempotency_key") != run.idempotency_key
+            or observation.get("params") != run.params
+            or run.shadow_mode
+            or run.state not in {ActionRunState.EXECUTION_UNKNOWN, ActionRunState.SUCCEEDED}
+        ):
+            raise ValueError("verified effect does not match the exact ActionRun")
+        effect_ref = action_run_lineage.optional_bounded_text(
+            observation.get("effect_verification_ref"),
+            field_name="effect_verification_ref",
+        )
+        closure_ref = action_run_lineage.optional_bounded_text(
+            observation.get("execution_closure_ref"),
+            field_name="execution_closure_ref",
+        )
+        verified_at = _optional_datetime(
+            observation.get("observed_at"),
+            field_name="effect_verified_at",
+        )
+        if (
+            effect_ref is None
+            or closure_ref is None
+            or not effect_ref.startswith("sha256:")
+            or not closure_ref.startswith("sha256:")
+            or verified_at is None
+        ):
+            raise ValueError("ActionRun effect verification references are invalid")
+        if run.effect_verification_ref is not None and (
+            run.effect_verification_ref != effect_ref
+            or run.execution_closure_ref != closure_ref
+            or run.effect_verified_at != verified_at
+        ):
+            raise ValueError("ActionRun already binds different effect verification")
+        if run.state is ActionRunState.SUCCEEDED:
+            return
+        run.effect_verification_ref = effect_ref
+        run.execution_closure_ref = closure_ref
+        run.effect_verified_at = verified_at
+        run.outcome = "independent_effect_verified"
+        if run.state is ActionRunState.EXECUTION_UNKNOWN:
+            run.transition(ActionRunState.SUCCEEDED)
+        await self._emit_action_run(run)
+        await self._finalize_terminal_replay(run)
+        self.record_behavior("execution:independent_effect_verified")
 
     async def dispatch_verdict(self, verdict: dict[str, Any]) -> ActionRun:
         """Serialize duplicate delivery for one correlation before dispatch."""
@@ -1207,11 +1313,18 @@ class Thor(Agent):
             "shadow_mode": run.shadow_mode,
             "resolved_autonomy_ceiling": run.resolved_autonomy_ceiling.value,
             "outcome": run.outcome,
-            "operational_success": False,
+            "operational_success": run.outcome == "independent_effect_verified",
             "effect_verification_status": (
-                "pending"
+                "verified"
+                if run.outcome == "independent_effect_verified"
+                else "pending"
                 if run.outcome == "command_accepted_verification_pending"
                 else "not_applicable"
+            ),
+            "effect_verification_ref": run.effect_verification_ref,
+            "execution_closure_ref": run.execution_closure_ref,
+            "effect_verified_at": (
+                run.effect_verified_at.isoformat() if run.effect_verified_at is not None else None
             ),
             "verdict": run.verdict,
             "params": deepcopy(run.params),
