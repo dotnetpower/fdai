@@ -59,6 +59,11 @@ def test_scenario_lab_is_an_independent_private_terraform_root() -> None:
     assert 'variable "commerce_enabled"' in variables
     assert 'resource "azurerm_network_security_group" "scenario_lab"' in network
     assert 'resource "azurerm_subnet_network_security_group_association" "scenario_lab"' in network
+    assert "private_endpoints = azurerm_subnet.private_endpoints.id" in network
+    assert "aks               = azurerm_subnet.aks.id" not in network
+    assert "mysql             = azurerm_subnet.mysql.id" not in network
+    assert "stress_vm         = azurerm_subnet.stress_vm.id" not in network
+    assert network.count("checkov:skip=CKV2_AZURE_31:Azure Policy attaches") == 3
     assert "private_cluster_enabled" in aks
     assert "local_account_disabled" in aks
     assert "azure_active_directory_role_based_access_control" in aks

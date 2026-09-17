@@ -17,7 +17,7 @@ unrelated resources in that group.
 | Compute | One-node private AKS cluster, Chaos Mesh installed after apply, AKS Store Demo with a three-replica order service, private Linux stress VM |
 | Data and AI | Private MySQL Flexible Server, private Azure OpenAI account and one deployment |
 | Security | Generated MySQL password in encrypted private state and a mode-0600 runner file, managed-identity role assignments, no VM public IP |
-| Network | Isolated VNet, delegated and private-endpoint subnets, egress-only NAT gateway, bidirectional peering to the VNet-integrated deploy runner |
+| Network | Isolated VNet, delegated and private-endpoint subnets, egress-only NAT gateway, bidirectional peering to the VNet-integrated deploy runner, deployment-owned private-endpoint NSG association, and policy-owned NSGs on the AKS, MySQL, and stress subnets |
 | Evidence | Log Analytics, Application Insights, AKS monitoring, MySQL and Azure OpenAI metrics |
 | Optional commerce | Private Service Bus and Cosmos DB, workload identity, public HTTPS storefront, private administration and backend services |
 
@@ -102,6 +102,12 @@ destroy operation after the demo.
 After an approved apply, the workflow waits for the Load Balancer address, verifies that the Azure
 hostname resolves to that exact address, checks `http://<hostname>/health`, and prints the browser
 URL in the workflow summary. No VPN or port forwarding is required to open the store front.
+
+Azure Policy may attach one deployment-external NSG to each workload subnet. Terraform preserves
+those effective AKS, MySQL, and stress-subnet associations instead of replacing them with the
+lab's shared NSG. The lab still owns the private-endpoint subnet association, and the stress VM
+NIC retains its separate deployment-owned NSG. Deployment preflight must observe the default
+inbound deny rule on every effective subnet NSG.
 
 ## Deploy the optional commerce scenario
 

@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 7a3b57abec18f9657997627d9260efd048eea869
+translation_source_sha: bd69ffb6665853e03fd8b94c2e6c48fd5381f6fd
 translation_revised: 2026-09-17
 ---
 # 운영 배포 강화
@@ -40,6 +40,7 @@ translation_revised: 2026-09-17
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-17 | implemented | 보호된 apply 3개에서 policy가 Terraform 소유 공유 association을 교체한 사실을 확인한 뒤 scenario AKS, MySQL 및 stress subnet에서 Azure Policy 소유 NSG association을 보존했습니다. Provider readback에서 모든 policy NSG가 `Succeeded`이고 기본 inbound deny rule을 가진 것을 확인했습니다. Terraform은 private-endpoint subnet association과 stress VM NIC association을 계속 소유하므로 inbound denial을 약화하지 않고 충돌하는 owner를 제거합니다. | 실패한 apply `35169623286`, exact subnet 및 NSG readback, `current change`, scenario-lab Terraform 및 집중 계약 검사 | ownership 수정을 게시하고 delete가 없는 plan을 요구하여 적용한 뒤 Store Demo workload 및 domain 상태 근거를 보존합니다. |
 | 2026-09-17 | implemented | replacement 진단에서 강제 교체 path가 나오지 않은 뒤 tainted 상태지만 provider에서 정상으로 관찰된 scenario Log Analytics workspace 하나를 위한 apply 전용 recovery를 추가했습니다. Recovery는 owner 전용 state snapshot 하나를 읽고 exact state 및 Azure resource ID 일치를 요구하며 `Succeeded`, SKU, retention, daily quota 및 ownership tag를 검증한 후에만 다시 plan하기 전에 해당 state 주소 하나를 untaint합니다. 일치하지 않거나, 누락되거나, 여러 개이거나, 비정상인 관찰은 fail-closed하며 plan 전용 실행은 state를 변경하지 않습니다. | 차단된 plan `35164743247`, exact Azure workspace readback, `current change`, 집중 scenario-lab, workflow 및 state recovery 계약 검사 | recovery를 게시하고 delete가 없는 plan을 생성하는 새로운 exact apply를 실행한 뒤 workload, DNS 및 HTTP 상태 근거를 보존합니다. |
 | 2026-09-17 | implemented | recovery plan이 provider에서 정상으로 관찰된 Log Analytics workspace 교체를 제안한 뒤 값이 없는 Terraform replacement path 진단을 추가했습니다. 보호된 plan은 모든 delete 또는 replacement를 계속 차단하며 이제 before 또는 after 값 없이 resource 주소와 강제 교체 field path만 보고합니다. | 차단된 protected plan `35160189503`, provider readback의 `Succeeded`, `PerGB2018` 및 30일 retention, `current change`, 집중 scenario-lab 및 workflow 검사 | 진단을 게시하고 새로운 exact plan을 실행한 뒤 workspace를 삭제하지 않고 식별된 field를 조정합니다. |
 | 2026-09-17 | implemented | candidate runner가 필수 명령인 `kubectl` 없이 요청 검증 단계에 도달한 뒤 scenario-lab workflow에 checksum으로 고정된 `kubectl` bootstrap을 추가했습니다. Workflow는 offline deployment kit가 이미 소유한 `1.31.14` binary와 SHA-256을 재사용하고 runner 임시 저장소에만 설치하며 Azure 인증 또는 plan 전에 client를 검증합니다. | 실패한 protected recovery plan `35130727585`, `current change`, `.github/workflows/sre-demo-lab.yml`, `stage-offline-kit.sh`, 집중 scenario-lab 및 workflow 검사 | 수정한 workflow를 게시하고 기존 partial scenario state에 대해 새로운 exact recovery plan을 생성합니다. |

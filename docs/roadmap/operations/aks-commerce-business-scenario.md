@@ -130,6 +130,9 @@ The scenario-lab profile deploys the commerce workload with these boundaries:
 - The administration UI, APIs, queue, database, and executor remain private.
 - AKS monitoring, Container Insights, managed Prometheus, and required application telemetry are
   enabled before the scenario reports ready.
+- Deployment-owned associations do not replace an Azure Policy-owned effective subnet NSG.
+  Preflight verifies its default inbound deny rule, while the private-endpoint subnet and stress
+  VM NIC retain their explicit Terraform-owned associations.
 - The deployment emits the storefront URL and opaque resource references as outputs. It does not
   commit tenant values.
 
