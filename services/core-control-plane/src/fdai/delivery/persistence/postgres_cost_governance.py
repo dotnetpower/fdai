@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any, cast
 
@@ -271,6 +271,34 @@ class PostgresCostGovernanceStore:
                  ORDER BY observed_at DESC, snapshot_id DESC
                  LIMIT 1
                 """
+            )
+            row = await cursor.fetchone()
+        return bool(row and row["available"])
+
+    async def current_cost_analytics_snapshot_available(
+        self,
+        *,
+        scope_id: str,
+        now: datetime,
+        freshness: timedelta,
+    ) -> bool:
+        """Return whether one retained snapshot is current for the exact scope."""
+
+        if now.tzinfo is None or freshness <= timedelta(0):
+            raise ValueError("Cost Analytics freshness inputs are invalid")
+        async with await self._connect() as conn:
+            await self._timeout(conn)
+            cursor = await conn.execute(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                      FROM cost_governance_analytics_snapshot
+                     WHERE scope_id = %s
+                       AND observed_at >= %s
+                       AND retention_until > %s
+                ) AS available
+                """,
+                (scope_id, now - freshness, now),
             )
             row = await cursor.fetchone()
         return bool(row and row["available"])

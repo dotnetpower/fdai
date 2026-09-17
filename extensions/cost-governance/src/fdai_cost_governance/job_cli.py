@@ -8,6 +8,7 @@ import json
 import math
 import os
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from typing import Literal, cast
@@ -174,7 +175,10 @@ async def _run_analytics_loop(
     while True:
         result = await run_analytics_from_environment(env, days=days)
         receipt = result.receipt
-        event = "ready" if receipt.status.value in {"complete", "disabled"} else "waiting"
+        event = _analytics_event(
+            receipt.status.value,
+            retained_snapshot_current=result.retained_snapshot_current,
+        )
         print(
             " ".join(
                 (
@@ -182,6 +186,11 @@ async def _run_analytics_loop(
                     "service=cost-governance-analytics",
                     f"event={event}",
                     f"status={receipt.status.value}",
+                    (
+                        "retained_snapshot=current"
+                        if result.retained_snapshot_current
+                        else "retained_snapshot=none"
+                    ),
                     f"run_id={receipt.run_id}",
                 )
             ),
@@ -190,6 +199,14 @@ async def _run_analytics_loop(
         if not loop:
             return 0 if receipt.status.value in {"complete", "disabled"} else 1
         await asyncio.sleep(interval_seconds)
+
+
+def _analytics_event(status: str, *, retained_snapshot_current: bool = False) -> str:
+    return (
+        "ready"
+        if status in {"complete", "partial", "disabled"} or retained_snapshot_current
+        else "waiting"
+    )
 
 
 async def run_analytics_from_environment(
@@ -253,7 +270,7 @@ async def run_analytics_from_environment(
             )
             publisher = EventBusCostSamplePublisher(bus=bus, topic=topic)
         try:
-            return await run_scheduled_analytics(
+            result = await run_scheduled_analytics(
                 config=config,
                 scope_id=scope_id,
                 venue=venue,
@@ -262,6 +279,18 @@ async def run_analytics_from_environment(
                 store=store,
                 publisher=publisher,
             )
+            if result.receipt.status.value == "failed":
+                return replace(
+                    result,
+                    retained_snapshot_current=(
+                        await store.current_cost_analytics_snapshot_available(
+                            scope_id=scope_id,
+                            now=datetime.now(UTC),
+                            freshness=timedelta(days=2),
+                        )
+                    ),
+                )
+            return result
         finally:
             if bus is not None:
                 await bus.close()

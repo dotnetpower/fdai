@@ -92,6 +92,7 @@ class ScheduledAnalyticsResult:
     receipt: CostAnalyticsRunReceipt
     snapshot_stored: bool = False
     published: int = 0
+    retained_snapshot_current: bool = False
 
 
 class AnalyticsSourceError(RuntimeError):
