@@ -1,6 +1,6 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: d4221f05a0c42f0f9e3cddeb923532559e28b9b8
+translation_source_sha: 265af6efbfaabbb100894cf23d85fba5d0ed54c4
 translation_revised: 2026-09-17
 ---
 # AKS 상거래 비즈니스 시나리오
@@ -74,6 +74,13 @@ Browser Evidence는 계속 `GET`과 `HEAD`만 허용합니다. 상태를 변경�
 작업자는 현재 유효하고 범위가 제한된 standing authorization 참조를 요구하며 같은
 출처의 `POST /api/orders` 하나만 허용합니다. 클라우드 관리 신원, 파일 접근, 클립보드
 접근, 작업 권한은 갖지 않습니다.
+
+작업자는 가로챈 각 요청을 보내기 직전에 권한을 다시 확인하고, 허용된 주문 POST 한 번을
+전송 전에 집계합니다. 중복 POST, 다른 출처 요청 또는 만료된 권한은 화면에 성공 대화상자가
+표시되더라도 여정을 무효로 만듭니다. 브라우저 시작, 탐색, 주문 제출에 하나의 전체 시간
+제한을 적용하며, 결과에는 시작 시각이 아니라 완료 시각을 기록합니다. 이러한 검사는 임의의
+권한 참조를 인증하거나 배포 격리를 증명하지 않습니다. 해당 전제 조건은 작업자 활성화 시
+별도로 충족해야 합니다.
 
 ## 결정론적 평가
 

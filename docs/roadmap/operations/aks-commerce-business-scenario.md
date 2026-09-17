@@ -73,6 +73,13 @@ It requires a current bounded standing-authorization reference, permits one same
 `POST /api/orders`, and has no cloud management identity, file access, clipboard access, or action
 authority.
 
+The worker rechecks authorization immediately before every intercepted request and counts the
+single permitted order POST before dispatch. Duplicate POSTs, cross-origin requests, or expired
+authority invalidate the journey even when the page displays a success dialog. One overall
+timeout bounds browser launch, navigation, and submission; each result records completion time
+rather than launch time. These checks do not authenticate an arbitrary authorization reference
+or prove deployment isolation; those prerequisites remain part of worker activation.
+
 ## Deterministic assessment
 
 The reducer returns exactly one primary state and zero or more supporting signals:
