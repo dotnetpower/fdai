@@ -45,6 +45,7 @@ from fdai.delivery.analyzer_targets import (
     AnalyzerTargetResolutionError,
     resolve_analyzer_targets,
 )
+from fdai.delivery.analyzer_telemetry_admission import discovered_telemetry_holds
 from fdai.delivery.analyzer_tick import (
     DEFAULT_PUBLICATION_WINDOW_SECONDS,
     AnalyzerPublicationStatus,
@@ -450,6 +451,9 @@ async def run_once() -> AnalyzerJobReport:
         max_discovered=max_discovered,
         decision_evidence=build_decision_evidence_admission_provider(),
         provider_references=(inventory.provider_references if inventory is not None else None),
+        discovered_hold_reasons=discovered_telemetry_holds(
+            monitor_workspace_id=_optional("FDAI_MONITOR_WORKSPACE_ID")
+        ),
     )
     _LOGGER.info("analyzer_tick_targets_resolved", extra=resolution.to_dict())
     targets = resolution.targets

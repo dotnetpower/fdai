@@ -67,6 +67,7 @@ SKIP_MALFORMED_RESOURCE = "malformed_resource"
 SKIP_UNUSABLE_STATE_FACT = "unusable_state_fact"
 SKIP_STALE_STATE_FACT = "stale_state_fact"
 SKIP_UNVERIFIED_STATE_FACT = "unverified_state_fact"
+SKIP_TELEMETRY_SOURCE_UNAVAILABLE = "telemetry_source_unavailable"
 HOLD_DUPLICATE_CANDIDATE = "duplicate_candidate"
 HOLD_NOT_SELECTED = "not_selected"
 HOLD_SELECTION_LIMIT = "selection_limit"
@@ -167,6 +168,7 @@ async def resolve_analyzer_targets(
     max_discovered: int = DEFAULT_MAX_DISCOVERED,
     decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
     provider_references: AnalyzerProviderReferenceReader | None = None,
+    discovered_hold_reasons: Mapping[str, str] | None = None,
 ) -> AnalyzerTargetResolution:
     """Return the configured targets plus every eligible inventory-backed one.
 
@@ -184,6 +186,8 @@ async def resolve_analyzer_targets(
             discovered targets that carry state facts.
         provider_references: Active inventory reader that binds a discovered
             logical Resource id to the provider-native metric query identity.
+        discovered_hold_reasons: Resource type to deterministic reason for
+            withholding inventory-discovered targets before provider queries.
 
     Raises:
         ValueError: ``now`` is naive or ``max_discovered`` is out of bounds.
@@ -194,6 +198,12 @@ async def resolve_analyzer_targets(
         raise ValueError("resolve_analyzer_targets requires a timezone-aware now")
     if not 1 <= max_discovered <= MAX_DISCOVERED_CEILING:
         raise ValueError(f"max_discovered MUST be in [1, {MAX_DISCOVERED_CEILING}]")
+    hold_reasons = discovered_hold_reasons or {}
+    if any(
+        resource_type not in analyzer_kinds or not reason or len(reason) > 128
+        for resource_type, reason in hold_reasons.items()
+    ):
+        raise ValueError("discovered analyzer hold reasons MUST be mapped and bounded")
 
     if store is None:
         unbound_targets = tuple(
@@ -281,6 +291,7 @@ async def resolve_analyzer_targets(
             analyzer_kinds=analyzer_kinds,
             skipped=skipped,
             decision_evidence=decision_evidence,
+            discovered_hold_reasons=hold_reasons,
         )
         candidate_hold_reasons.append(
             None if candidate is not None else _new_skip_reason(before_skipped, skipped)
@@ -604,6 +615,7 @@ async def _eligible_target(
     analyzer_kinds: Mapping[str, str],
     skipped: Counter[str],
     decision_evidence: DecisionEvidenceAdmissionProvider | None,
+    discovered_hold_reasons: Mapping[str, str],
 ) -> AnalyzerTarget | None:
     """Return one analyzable target, or ``None`` with a recorded skip reason."""
     resource_id = record.properties.get("id")
@@ -615,9 +627,14 @@ async def _eligible_target(
     if not resource_id:
         skipped[SKIP_MALFORMED_RESOURCE] += 1
         return None
-    analyzer_kind = analyzer_kinds.get(resource_type.strip())
+    normalized_resource_type = resource_type.strip()
+    analyzer_kind = analyzer_kinds.get(normalized_resource_type)
     if analyzer_kind is None:
         skipped[SKIP_UNMAPPED_RESOURCE_TYPE] += 1
+        return None
+    hold_reason = discovered_hold_reasons.get(normalized_resource_type)
+    if hold_reason is not None:
+        skipped[hold_reason] += 1
         return None
     provider_properties = record.properties.get("properties")
     raw = (
@@ -749,6 +766,7 @@ __all__ = [
     "HOLD_SELECTION_LIMIT",
     "SKIP_MALFORMED_RESOURCE",
     "SKIP_STALE_STATE_FACT",
+    "SKIP_TELEMETRY_SOURCE_UNAVAILABLE",
     "SKIP_UNMAPPED_RESOURCE_TYPE",
     "SKIP_UNUSABLE_STATE_FACT",
     "SKIP_UNVERIFIED_STATE_FACT",
