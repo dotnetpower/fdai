@@ -867,12 +867,12 @@ npm run build
 ```
 
 The protected Azure publisher uploads the `dist/` output to Azure Static Web
-Apps and adds the allowlisted Manual Studio files under `/manuals`. It builds
-the Console with `VITE_MANUAL_STUDIO_URL` bound to that same-origin path, then
-verifies the deployed Console entry asset, manual catalog, and manual library
-against the local files. Custom domain, CSP headers, and MSAL app-registration
-values are supplied by the fork; the upstream repo ships schema and empty
-defaults only.
+Apps and adds the allowlisted Manual Studio files under `/manuals`. A production
+Console defaults to that same-origin path, while `VITE_MANUAL_STUDIO_URL` can
+select a separately hosted Manual Studio. The publisher verifies the deployed
+Console entry asset, manual catalog, and manual library against the local files.
+Custom domain, CSP headers, and MSAL app-registration values are supplied by the
+fork; the upstream repo ships schema and empty defaults only.
 
 ## Fork configuration
 
@@ -891,6 +891,6 @@ CI env):
 | `VITE_LOCAL_AZURE_CLI_AUTH` | Launcher-owned CLI-debug enablement. Don't persist it in `.env.local`; use `--auth-mode azure-cli`. |
 | `VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM` | Launcher-owned confirmation paired exactly with `VITE_LOCAL_AZURE_CLI_AUTH`. A mismatch stops Console startup. |
 | `VITE_CONSOLE_BASE_PATH` | Optional subpath if not served at origin root. |
-| `VITE_MANUAL_STUDIO_URL` | Optional HTTPS origin or path for the published manual catalog. Local development defaults to `http://127.0.0.1:5474`; the protected Azure publisher uses the Console's same-origin `/manuals` path. |
+| `VITE_MANUAL_STUDIO_URL` | Optional HTTPS base URL for a separately hosted manual catalog. Local development defaults to `http://127.0.0.1:5474`; production defaults to the Console's same-origin `/manuals` path. |
 | `VITE_WORKFLOW_CATALOG_REPO` | Optional `owner/repo` of the catalog repo. When set, a validated workflow draft shows a one-click "Open a PR on GitHub" (new-file link); the console still never commits. |
 | `VITE_WORKFLOW_CATALOG_BRANCH` | Branch the new-file PR link targets (default `main`). |
