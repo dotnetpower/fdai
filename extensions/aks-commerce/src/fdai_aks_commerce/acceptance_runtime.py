@@ -13,6 +13,7 @@ from typing import Any
 import httpx
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fdai.core.control_loop import ControlLoop
+from fdai.core.executor.post_release_closure_store import PostReleaseClosureStore
 from fdai.core.investigation import InvestigationCoordinator
 from fdai.delivery.analyzer_receipt_store import StateStoreAnalyzerReceiptStore
 from fdai.delivery.analyzer_tick import AnalyzerTarget, AnalyzerTickReport, AnalyzerTickRunner
@@ -44,6 +45,11 @@ from fdai_aks_commerce.acceptance_action import (
     AcceptanceGuardedExecutor,
 )
 from fdai_aks_commerce.acceptance_authority import AcceptanceCurrentAuthority
+from fdai_aks_commerce.acceptance_closure import (
+    AcceptanceClosureReconciler,
+    AcceptanceClosureStore,
+    AcceptanceEffectObserver,
+)
 from fdai_aks_commerce.acceptance_dispatch import AcceptanceIsolatedDispatch
 from fdai_aks_commerce.acceptance_material import StoredAcceptanceDispatchMaterials
 from fdai_aks_commerce.acceptance_preparation import PreparedAcceptanceSource
@@ -288,6 +294,7 @@ def build_recovery_bindings(
         check_authority=authority,
         client=port,
         clock=clock,
+        record_command=materials.link_command,
     )
 
     async def execute(context: dict[str, Any]) -> bool:
@@ -296,7 +303,35 @@ def build_recovery_bindings(
             return await dispatch(context)
         return await (fallback or unbound)(context)
 
-    return AcceptanceRuntimeBindings(sources={ACCEPTANCE_SIGNAL: prepared}, execute=execute)
+    observer = AcceptanceEffectObserver(
+        AcceptanceClosureReconciler(
+            closures=port.coordinator.closure_store,
+            store=store,
+            intent=config.intent,
+            verifier=StoredOrderAcceptanceReceiptVerifier(
+                store=store,
+                intent=config.intent,
+                trust=config.trust,
+                executor_identity=config.executor_identity,
+                clock=clock,
+            ),
+            clock=clock,
+        )
+    )
+    return AcceptanceRuntimeBindings(
+        sources={ACCEPTANCE_SIGNAL: prepared}, execute=execute, observe=observer.handle
+    )
+
+
+def build_closure_store(
+    *,
+    environment: Mapping[str, str],
+    delegate: PostReleaseClosureStore,
+    store: StateStore,
+) -> PostReleaseClosureStore:
+    """Retain only configured acceptance context around the existing atomic closure store."""
+    config = AcceptanceRuntimeConfig.from_json(environment.get("FDAI_AKS_ACCEPTANCE_JSON", ""))
+    return AcceptanceClosureStore(delegate, store, config.intent)
 
 
 def main() -> int:

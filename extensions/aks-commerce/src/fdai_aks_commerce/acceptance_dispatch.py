@@ -33,12 +33,14 @@ class AcceptanceIsolatedDispatch:
         check_authority: Callable[[Action, dict[str, Any]], Awaitable[None]],
         client: SafeguardBoundEventBusDirectApiExecutionClient,
         clock: Callable[[], datetime] | None = None,
+        record_command: Callable[[Action, str], Awaitable[None]] | None = None,
     ) -> None:
         self._guard = guard
         self._read_material = read_material
         self._check_authority = check_authority
         self._client = client
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._record_command = record_command
 
     async def __call__(self, context: dict[str, Any]) -> bool:
         """Use the original Action and repeat all current source checks at publication time."""
@@ -94,6 +96,9 @@ class AcceptanceIsolatedDispatch:
         await current()
         try:
             result = await self._client.execute(action=action, source_guard=current)
+            command_id = result.audit_context.get("command_id")
+            if self._record_command is not None and isinstance(command_id, str):
+                await self._record_command(action, command_id)
         except Exception as exc:
             raise TimeoutError(
                 "acceptance transport result requires independent reconciliation"

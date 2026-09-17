@@ -441,6 +441,16 @@ async def initialize_pantheon(
             ),
             reconciliation_requests=config.effect_request_sink,
         ).handle
+    if acceptance_bindings is not None and acceptance_bindings.observe is not None:
+        acceptance_observe = acceptance_bindings.observe
+        fallback_observe = heimdall_action_observation_hook
+
+        async def observe_acceptance_then_existing(payload: Mapping[str, Any]) -> bool:
+            if await acceptance_observe(payload):
+                return True
+            return await fallback_observe(payload) if fallback_observe is not None else False
+
+        heimdall_action_observation_hook = observe_acceptance_then_existing
     from fdai.agents._framework import runtime_subscriptions
     from fdai.delivery.workflow_recovery_observation_handler import (
         RecoveryEffectObservationHandler,

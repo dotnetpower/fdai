@@ -197,6 +197,32 @@ client's final publication boundary. Missing, replaced, expired, or corrupted ma
 dispatch. An ambiguous or quarantined result remains unknown, never recovered or automatically
 retried. These adapters cannot manufacture original approval, promotion, or preparation inputs.
 
+**Closure design:** A broker or provider receipt cannot release an uncertain execution. Reusing
+the ordinary successful-ActionRun observer would miss quarantined attempts and could confuse
+dispatch with recovery. Preserve the initial closure plan only for the configured target and its
+retained acceptance Action. This optional decorator delegates the original closure unchanged.
+Independent signed post-release evidence must match the original Action, released lock, target
+generation and closure predecessor before the existing atomic closure store may reconcile it.
+Other targets and human-access closure retain their existing behavior. Missing original context
+remains held; no component may invent a release receipt or retrospectively approve an action.
+
+The installed `aks-commerce-closure` provider now wraps the existing closure store only when
+acceptance configuration is present. It retains exact initial context for a prepared Action at
+the configured target and delegates the original decision unchanged. The Action includes its
+original observation references; older material remains readable but cannot prove effect closure
+without those references. Thor links only command IDs read back from the original command journal.
+
+Heimdall's existing ActionRun hook now observes non-shadow acceptance attempts, including
+`execution_unknown`. The reconciler reads the original command, matching provider receipt,
+full Action digest, released-lock evidence, target generation and quarantine predecessor. It
+requires a new signed resource-and-order observation after both provider completion and initial
+closure, retains independent audit evidence, then uses the existing atomic reconciliation builder.
+Incorrect identity, stale or revoked evidence, failed orders or missing release context leave
+quarantine unresolved. Exact historical replay returns its retained closure without asserting
+current health or adding another audit transition. Other targets and shadow runs stay unchanged.
+This closes execution quarantine only: delayed-evidence redrive and ActionRun, Incident and
+Console terminal-state propagation remain separate integration work, not implicit success.
+
 `PreparedAcceptanceSource` now runs under Forseti before the approval-facing decision is published.
 It revalidates the signed observation and exact arguments, checks the automatic trigger and
 catalog schema, and uses the shared ActionBuilder and RiskGate. It retains the original Action

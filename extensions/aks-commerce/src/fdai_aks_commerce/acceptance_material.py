@@ -7,6 +7,7 @@ import json
 from dataclasses import asdict, dataclass
 from uuid import UUID
 
+from fdai.runtime.isolated_executor_receipt_journal import BoundCommandCorrelation
 from fdai.shared.contracts.models import Action, Operation
 from fdai.shared.providers.state_store import StateStore
 
@@ -21,8 +22,18 @@ class AcceptanceDispatchMaterial:
     correlation_id: str
     action_run_idempotency_key: str
     rule_digest: str | None = None
+    evidence_refs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        if (
+            len(self.evidence_refs) > 12
+            or len(set(self.evidence_refs)) != len(self.evidence_refs)
+            or any(
+                not isinstance(value, str) or not value or len(value) > 512
+                for value in self.evidence_refs
+            )
+        ):
+            raise ValueError("acceptance material requires bounded distinct observation references")
         if self.rule_digest is not None and (
             not self.rule_digest.startswith("sha256:")
             or len(self.rule_digest) != 71
@@ -97,17 +108,66 @@ class StoredAcceptanceDispatchMaterials:
             or record["schema_version"] != "1.0.0"
             or not isinstance(raw, dict)
             or set(raw)
-            != {"action_json", "correlation_id", "action_run_idempotency_key", "rule_digest"}
+            not in (
+                {"action_json", "correlation_id", "action_run_idempotency_key", "rule_digest"},
+                {
+                    "action_json",
+                    "correlation_id",
+                    "action_run_idempotency_key",
+                    "rule_digest",
+                    "evidence_refs",
+                },
+            )
         ):
             raise ValueError("acceptance original Action material is malformed")
-        material = AcceptanceDispatchMaterial(**raw)
+        values = dict(raw)
+        if "evidence_refs" in values:
+            if not isinstance(values["evidence_refs"], list):
+                raise ValueError("acceptance observation references must be a JSON array")
+            values["evidence_refs"] = tuple(values["evidence_refs"])
+        material = AcceptanceDispatchMaterial(**values)
         if str(material.action().action_id) != canonical_id or record != _record(material):
             raise ValueError("acceptance original Action material integrity mismatch")
         return material
 
+    async def link_command(self, action: Action, command_id: str) -> None:
+        """Retain only the command independently read back from Core's original command journal."""
+        if str(UUID(command_id)) != command_id:
+            raise ValueError("acceptance command id must be canonical")
+        material = await self.read(str(action.action_id))
+        raw = await self._store.read_state("runtime:isolated-executor:command:" + command_id)
+        if material is None or material.action_json != action.model_dump_json() or raw is None:
+            raise ValueError("acceptance original command readback is unavailable")
+        correlation = BoundCommandCorrelation.model_validate(raw)
+        if str(
+            correlation.command.command_id
+        ) != command_id or correlation.command.action_payload != action.model_dump(
+            mode="json", exclude_none=True
+        ):
+            raise ValueError("acceptance command changed the original Action")
+        key = "aks-commerce:acceptance-command:v1:" + str(action.action_id)
+        record = {"command_id": command_id, "closure_key": correlation.closure_key}
+        created = await self._store.write_state_with_audit_if_absent(
+            key,
+            record,
+            {
+                "actor": "Thor",
+                "action_kind": "aks_commerce.command.linked",
+                "action_id": str(action.action_id),
+                "command_id": command_id,
+                "execution_authority": False,
+            },
+        )
+        if not created and await self._store.read_state(key) != record:
+            raise ValueError("acceptance original Action already has a different command")
+
 
 def _record(material: AcceptanceDispatchMaterial) -> dict[str, object]:
     payload = asdict(material)
+    if material.evidence_refs:
+        payload["evidence_refs"] = list(material.evidence_refs)
+    else:
+        payload.pop("evidence_refs")
     digest = hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
     ).hexdigest()

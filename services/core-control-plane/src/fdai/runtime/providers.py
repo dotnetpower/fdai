@@ -262,8 +262,12 @@ def _build_safeguard_lifecycle_coordinator(
         trust_anchor_id = "fdai:local-test-only"
 
     from fdai.delivery.human_access_closure import HumanAccessClosureStore
+    from fdai.runtime.aks_commerce import wrap_acceptance_closure_store
 
     closures = HumanAccessClosureStore(closures, audit_store)
+    closures = wrap_acceptance_closure_store(
+        environment=values, delegate=closures, store=audit_store
+    )
     coordinator = SafeguardLifecycleCoordinator(
         resource_lock=resource_lock,
         reservation_store=reservations,

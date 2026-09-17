@@ -9,6 +9,7 @@ from typing import Any
 
 from fdai.agents import AnomalyActionSource
 from fdai.core.control_loop import ControlLoop
+from fdai.core.executor.post_release_closure_store import PostReleaseClosureStore
 from fdai.shared.providers.state_store import StateStore
 
 
@@ -18,6 +19,7 @@ class AcceptanceRuntimeBindings:
 
     sources: dict[str, AnomalyActionSource]
     execute: Callable[[dict[str, Any]], Awaitable[bool]]
+    observe: Callable[[Mapping[str, Any]], Awaitable[bool]] | None = None
 
 
 def build_acceptance_runtime_bindings(
@@ -48,3 +50,28 @@ def build_acceptance_runtime_bindings(
     ):
         raise RuntimeError("acceptance recovery provider returned invalid bindings")
     return bindings
+
+
+def wrap_acceptance_closure_store(
+    *,
+    environment: Mapping[str, str],
+    delegate: PostReleaseClosureStore,
+    store: StateStore,
+) -> PostReleaseClosureStore:
+    """Bind optional exact-target context retention without changing the atomic closure owner."""
+    if not environment.get("FDAI_AKS_ACCEPTANCE_JSON", "").strip():
+        return delegate
+    matches = tuple(
+        item
+        for item in entry_points(group="fdai.acceptance_recovery")
+        if item.name == "aks-commerce-closure"
+    )
+    if len(matches) != 1:
+        raise RuntimeError("configured acceptance closure requires exactly one installed provider")
+    factory = matches[0].load()
+    if not callable(factory):
+        raise RuntimeError("acceptance closure provider is not callable")
+    result = factory(environment=environment, delegate=delegate, store=store)
+    if not isinstance(result, PostReleaseClosureStore):
+        raise RuntimeError("acceptance closure provider does not implement the closure contract")
+    return result

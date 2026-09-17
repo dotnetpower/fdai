@@ -138,11 +138,15 @@ class PreparedAcceptanceSource:
             else Mode.SHADOW
         )
         action = Action.model_validate({**built.model_dump(mode="json"), "mode": mode.value})
+        assessment = await self._source.assess()
+        if assessment.evidence_digest != candidate.evidence_ref:
+            raise ValueError("acceptance observation changed before original material retention")
         material = AcceptanceDispatchMaterial(
             action.model_dump_json(),
             correlation,
             idempotency,
             "sha256:" + hashlib.sha256(self._rule.model_dump_json().encode()).hexdigest(),
+            assessment.evidence_refs,
         )
         existing = await self._materials.read(str(action.action_id))
         if existing is not None:

@@ -9,7 +9,11 @@ from typing import Any
 
 from fdai.agents import AnomalyActionCandidate
 
-from fdai_aks_commerce.acceptance import OrderAcceptanceAnalyzer, OrderAcceptanceIntent
+from fdai_aks_commerce.acceptance import (
+    OrderAcceptanceAnalyzer,
+    OrderAcceptanceAssessment,
+    OrderAcceptanceIntent,
+)
 
 ACCEPTANCE_SIGNAL = "analyzer.aks_commerce.order_acceptance_unavailable.observed"
 
@@ -25,10 +29,7 @@ class AcceptanceAnomalyActionSource:
         """Return one bounded candidate; missing proof or competing writers withhold action."""
         if event_type != ACCEPTANCE_SIGNAL or resource_ref != self.intent.resource_ref:
             return None
-        assessment = await self._analyzer.assess(
-            resource_ref=resource_ref,
-            window_seconds=self.intent.max_age_seconds,
-        )
+        assessment = await self.assess()
         proposal = assessment.proposal
         if assessment.status != "unavailable" or proposal is None:
             return None
@@ -45,6 +46,13 @@ class AcceptanceAnomalyActionSource:
                 self.intent.valid_until,
                 assessment.observed_at + timedelta(seconds=self.intent.max_age_seconds),
             ),
+        )
+
+    async def assess(self) -> OrderAcceptanceAssessment:
+        """Read authenticated exact-target assessment references for immutable preparation."""
+        return await self._analyzer.assess(
+            resource_ref=self.intent.resource_ref,
+            window_seconds=self.intent.max_age_seconds,
         )
 
 

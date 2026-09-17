@@ -32,7 +32,10 @@ from fdai.delivery.persistence.postgres_analyzer_publication import (
     PostgresAnalyzerPublicationLedger,
 )
 from fdai.delivery.persistence.state_store_action_promotion import StateStoreActionPromotionRegistry
-from fdai.runtime.aks_commerce import build_acceptance_runtime_bindings
+from fdai.runtime.aks_commerce import (
+    build_acceptance_runtime_bindings,
+    wrap_acceptance_closure_store,
+)
 from fdai.runtime.isolated_executor_client import EventBusDirectApiExecutionClient
 from fdai.runtime.safeguard_isolated_executor import SafeguardBoundEventBusDirectApiExecutionClient
 from fdai.shared.contracts.models import (
@@ -64,6 +67,7 @@ from fdai_aks_commerce.acceptance_action import (
     AcceptanceGuardedExecutor,
 )
 from fdai_aks_commerce.acceptance_authority import AcceptanceCurrentAuthority
+from fdai_aks_commerce.acceptance_closure import AcceptanceClosureStore
 from fdai_aks_commerce.acceptance_dispatch import AcceptanceIsolatedDispatch
 from fdai_aks_commerce.acceptance_kubernetes import KubernetesOrderAcceptanceReader
 from fdai_aks_commerce.acceptance_material import (
@@ -797,9 +801,14 @@ async def test_runtime_composes_real_acceptance_bindings_without_io(
         value="fdai_aks_commerce.acceptance_runtime:build_recovery_bindings",
         group="fdai.acceptance_recovery",
     )
+    closure_entry = EntryPoint(
+        name="aks-commerce-closure",
+        value="fdai_aks_commerce.acceptance_runtime:build_closure_store",
+        group="fdai.acceptance_recovery",
+    )
     monkeypatch.setattr(
         "fdai.runtime.aks_commerce.entry_points",
-        lambda **_kwargs: () if defect == "entrypoint" else (entry,),
+        lambda **_kwargs: () if defect == "entrypoint" else (entry, closure_entry),
     )
     calls: list[object] = []
 
@@ -824,6 +833,21 @@ async def test_runtime_composes_real_acceptance_bindings_without_io(
         environment=env, loop=cast(ControlLoop, loop), store=store, fallback=fallback
     )
     assert bindings is not None
+    assert bindings.observe is not None
+    assert not await bindings.observe({"resource_id": "resource:other"})
+    assert (
+        wrap_acceptance_closure_store(
+            environment={}, delegate=coordinator.closure_store, store=store
+        )
+        is coordinator.closure_store
+    )
+    wrapped = wrap_acceptance_closure_store(
+        environment=env, delegate=coordinator.closure_store, store=store
+    )
+    assert isinstance(wrapped, AcceptanceClosureStore)
+    assert wrapped.delegate is coordinator.closure_store
+    assert wrapped.intent.resource_ref == _intent().resource_ref
+    assert wrapped.production_eligible is False
     assert isinstance(bindings.sources[ACCEPTANCE_SIGNAL], PreparedAcceptanceSource)
     assert registry.mode_of("ops.scale-out") is Mode.SHADOW
     assert not calls
