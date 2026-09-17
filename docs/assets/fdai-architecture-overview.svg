@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 490" width="1180" height="490" role="img" aria-label="FDAI architecture. Azure resource changes, telemetry, Git and IaC changes, operator requests and schedules enter a headless event-driven control plane owned by fifteen accountable agents. The plane ingests, routes across T0 rules, T1 reuse, and T2 reasoning, gates the decision on quality and risk, then acts and records the outcome. Outcomes leave as fix pull requests, ChatOps approvals, the FDAI Console, and audit evidence. The foundation is an event bus on Event Hubs, a rule catalog with policy as code, an operating ontology, and the Azure platform.">
+  <title>FDAI architecture</title>
+  <defs>
+    <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0F6CBD"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: "Segoe UI", "Segoe UI Variable", Arial, sans-serif; }
+    .t1 { font-size: 22px; font-weight: 600; fill: #242424; }
+    .t2 { font-size: 13px; fill: #616161; }
+    .hd { font-size: 12px; font-weight: 700; fill: #0F6CBD; letter-spacing: 1.2px; }
+    .ct { font-size: 14px; font-weight: 600; fill: #242424; }
+    .k  { font-size: 13px; font-weight: 600; fill: #242424; }
+    .s  { font-size: 11.5px; fill: #616161; }
+    .pw { font-size: 12px; font-weight: 600; fill: #FFFFFF; }
+    .pd { font-size: 12px; font-weight: 600; fill: #0B4F8A; }
+    .ln { stroke: #0F6CBD; stroke-width: 1.8; fill: none; marker-end: url(#arw); }
+  </style>
+
+  <rect width="1180" height="490" fill="#FFFFFF"/>
+  <text class="t1" x="40" y="40">FDAI architecture</text>
+  <text class="t2" x="40" y="64">Operational signals in, governed action out. Repeatable decisions stay deterministic, and only the ambiguous remainder reaches a model or a person.</text>
+
+  <text class="hd" x="40" y="118">SIGNALS</text>
+  <rect x="40" y="130" width="230" height="56" rx="6" fill="#FAFAFA" stroke="#D1D1D1"/>
+  <text class="k" x="155" y="154" text-anchor="middle">Azure resource changes</text>
+  <text class="s" x="155" y="172" text-anchor="middle">Activity Log and resource events</text>
+  <rect x="40" y="192" width="230" height="56" rx="6" fill="#FAFAFA" stroke="#D1D1D1"/>
+  <text class="k" x="155" y="216" text-anchor="middle">Metrics, logs, traces</text>
+  <text class="s" x="155" y="234" text-anchor="middle">Azure Monitor telemetry</text>
+  <rect x="40" y="254" width="230" height="56" rx="6" fill="#FAFAFA" stroke="#D1D1D1"/>
+  <text class="k" x="155" y="278" text-anchor="middle">Git and IaC changes</text>
+  <text class="s" x="155" y="296" text-anchor="middle">Proposed infrastructure edits</text>
+  <rect x="40" y="316" width="230" height="56" rx="6" fill="#FAFAFA" stroke="#D1D1D1"/>
+  <text class="k" x="155" y="340" text-anchor="middle">Requests and schedules</text>
+  <text class="s" x="155" y="358" text-anchor="middle">Operator intent, drills, probes</text>
+
+  <line class="ln" x1="274" y1="234" x2="306" y2="234"/>
+
+  <rect x="310" y="96" width="560" height="276" rx="10" fill="#FFFFFF" stroke="#0F6CBD" stroke-width="2"/>
+  <text class="hd" x="330" y="124">FDAI CONTROL PLANE</text>
+  <text class="s" x="330" y="146">Headless and event-driven. Fifteen accountable agents, typed events only.</text>
+
+  <rect x="330" y="162" width="118" height="190" rx="8" fill="#EFF6FC" stroke="#0F6CBD"/>
+  <text class="ct" x="389" y="194" text-anchor="middle">INGEST</text>
+  <text class="s" x="389" y="228" text-anchor="middle">Normalize</text>
+  <text class="s" x="389" y="254" text-anchor="middle">Deduplicate</text>
+  <text class="s" x="389" y="280" text-anchor="middle">Correlate</text>
+  <text class="s" x="389" y="306" text-anchor="middle">One incident</text>
+
+  <rect x="464" y="162" width="118" height="190" rx="8" fill="#EFF6FC" stroke="#0F6CBD"/>
+  <text class="ct" x="523" y="194" text-anchor="middle">ROUTE</text>
+  <rect x="474" y="214" width="98" height="34" rx="6" fill="#0F6CBD"/>
+  <text class="pw" x="523" y="236" text-anchor="middle">T0 Rules</text>
+  <rect x="474" y="256" width="98" height="34" rx="6" fill="#CFE4FA"/>
+  <text class="pd" x="523" y="278" text-anchor="middle">T1 Reuse</text>
+  <rect x="474" y="298" width="98" height="34" rx="6" fill="#FFFFFF" stroke="#9BC4E8"/>
+  <text class="pd" x="523" y="320" text-anchor="middle">T2 Reasoning</text>
+
+  <rect x="598" y="162" width="118" height="190" rx="8" fill="#EFF6FC" stroke="#0F6CBD"/>
+  <text class="ct" x="657" y="194" text-anchor="middle">GATE</text>
+  <text class="s" x="657" y="228" text-anchor="middle">Quality gate</text>
+  <text class="s" x="657" y="254" text-anchor="middle">Risk class</text>
+  <text class="s" x="657" y="280" text-anchor="middle">Auto or human</text>
+  <text class="s" x="657" y="306" text-anchor="middle">Hold or deny</text>
+
+  <rect x="732" y="162" width="118" height="190" rx="8" fill="#EFF6FC" stroke="#0F6CBD"/>
+  <text class="ct" x="791" y="194" text-anchor="middle">ACT</text>
+  <text class="s" x="791" y="228" text-anchor="middle">Execute</text>
+  <text class="s" x="791" y="254" text-anchor="middle">Verify effect</text>
+  <text class="s" x="791" y="280" text-anchor="middle">Roll back</text>
+  <text class="s" x="791" y="306" text-anchor="middle">Audit</text>
+
+  <path d="M450,251 L458,257 L450,263 z" fill="#0F6CBD"/>
+  <path d="M584,251 L592,257 L584,263 z" fill="#0F6CBD"/>
+  <path d="M718,251 L726,257 L718,263 z" fill="#0F6CBD"/>
+
+  <line class="ln" x1="874" y1="234" x2="906" y2="234"/>
+
+  <text class="hd" x="910" y="118">OUTCOMES</text>
+  <rect x="910" y="130" width="230" height="56" rx="6" fill="#FAFAFA" stroke="#D1D1D1"/>
+  <text class="k" x="1025" y="154" text-anchor="middle">Fix pull requests</text>
+  <text class="s" x="1025" y="172" text-anchor="middle">GitHub App or Azure DevOps</text>
+  <rect x="910" y="192" width="230" height="56" rx="6" fill="#FAFAFA" stroke="#D1D1D1"/>
+  <text class="k" x="1025" y="216" text-anchor="middle">ChatOps approvals</text>
+  <text class="s" x="1025" y="234" text-anchor="middle">Teams Adaptive Cards</text>
+  <rect x="910" y="254" width="230" height="56" rx="6" fill="#FAFAFA" stroke="#D1D1D1"/>
+  <text class="k" x="1025" y="278" text-anchor="middle">FDAI Console</text>
+  <text class="s" x="1025" y="296" text-anchor="middle">Projections, scoped requests</text>
+  <rect x="910" y="316" width="230" height="56" rx="6" fill="#FAFAFA" stroke="#D1D1D1"/>
+  <text class="k" x="1025" y="340" text-anchor="middle">Audit evidence</text>
+  <text class="s" x="1025" y="358" text-anchor="middle">Append-only and replayable</text>
+
+  <rect x="40" y="396" width="1100" height="76" rx="10" fill="#FAFAFA" stroke="#D1D1D1"/>
+  <text class="hd" x="60" y="440">FOUNDATION</text>
+  <rect x="180" y="408" width="230" height="52" rx="6" fill="#FFFFFF" stroke="#D1D1D1"/>
+  <text class="k" x="295" y="430" text-anchor="middle">Event bus</text>
+  <text class="s" x="295" y="448" text-anchor="middle">Kafka protocol on Event Hubs</text>
+  <rect x="420" y="408" width="230" height="52" rx="6" fill="#FFFFFF" stroke="#D1D1D1"/>
+  <text class="k" x="535" y="430" text-anchor="middle">Rule catalog</text>
+  <text class="s" x="535" y="448" text-anchor="middle">Rules and policy as code</text>
+  <rect x="660" y="408" width="230" height="52" rx="6" fill="#FFFFFF" stroke="#D1D1D1"/>
+  <text class="k" x="775" y="430" text-anchor="middle">Operating ontology</text>
+  <text class="s" x="775" y="448" text-anchor="middle">Grounded entities and evidence</text>
+  <rect x="900" y="408" width="230" height="52" rx="6" fill="#FFFFFF" stroke="#D1D1D1"/>
+  <text class="k" x="1015" y="430" text-anchor="middle">Azure platform</text>
+  <text class="s" x="1015" y="448" text-anchor="middle">Entra ID, Key Vault, Monitor</text>
+</svg>
