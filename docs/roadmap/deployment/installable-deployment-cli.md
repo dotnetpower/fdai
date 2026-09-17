@@ -261,34 +261,6 @@ platform, source revision and exact file bounds before registry credentials are 
 hit is accepted only after the same verification. Missing, partial, mutable-tagged or mismatched
 artifacts stop with `runtime_artifacts_required`; the installer never repairs them by building.
 
-That all-five manifest rule applies to a new source installation and whole-installation recovery.
-After an installation is healthy, routine service maintenance uses the independent-service deploy
-path rather than rerunning `provision azure`. It can select Core alone, build and publish one service
-candidate upstream, update only that service's digest and state, and verify the selected service's
-rollout and health. It does not require a new complete kit or rebuilt images for unchanged services.
-Select related services together only when the change alters a shared wire contract, migration or
-schema compatibility, a sidecar, or another shared runtime dependency.
-
-On the retained deployment host, prepare and plan one service update with the existing application
-work directory. The exact plan returns to the human coordinator for approval before apply:
-
-```bash
-python -m fdai_deployment_cli.standalone_host --work-dir <application-work-dir> \
-  prepare-service-update --service core-control-plane \
-  --image <registry>/fdai-core-control-plane@sha256:<digest> \
-  --source-commit <40-character-source-revision>
-python -m fdai_deployment_cli.standalone_host --work-dir <application-work-dir> \
-  plan --stage application --service core-control-plane
-python -m fdai_deployment_cli.standalone_host --work-dir <application-work-dir> \
-  apply --stage application --service core-control-plane --approval <approval-file>
-```
-
-Candidate construction remains upstream. The existing container supply-chain selector accepts
-`core-control-plane` or another explicit service so unchanged images are not rebuilt. The update
-requires the same repository and a new digest, targets one Terraform Deployment address, preserves
-the rolling strategy, and verifies selected Pod health, peer Deployment identity, and a targeted
-zero-change plan.
-
 Private registry mirror or import remains execution-host work when selected. It changes only the
 artifact location, independently reads back the same digest and cannot alter image bytes. An
 ambiguous publication claim resumes verification only and never rebuilds or republishes the image.
