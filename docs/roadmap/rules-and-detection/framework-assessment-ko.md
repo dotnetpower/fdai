@@ -1,8 +1,8 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 3bfa4e083faf5e3c83990cdb9501a851e865e8ff
-translation_revised: 2026-09-15
+translation_source_sha: d446ca506270edb70d138ed721061721249c6fb2
+translation_revised: 2026-09-17
 ---
 # WAF 및 CAF 근거 기반 평가
 
@@ -198,7 +198,9 @@ Operator API는 최신 변경 불가능한 변환 결과를 제공하며 평가�
 - 준수 레이블이 없는 사용할 수 없음 및 알 수 없음 상태
 
 WAF는 기존 Controls 보기에 유지합니다. CAF는 동일하게 차분한 읽기 전용 상호 작용 방식을
-사용하는 인접 탭을 추가합니다. 브라우저는 근거나 승인을 쓰지 않습니다.
+사용하는 인접 탭을 추가합니다. 규칙 카탈로그 레일은 표시 탐색으로만 이 Controls 보기에
+연결되며, 규칙 개수를 WAF 또는 CAF 적용 가능성, 평가, 충족 상태와 결합하지 않습니다.
+브라우저는 근거나 승인을 쓰지 않습니다.
 
 ## 원본 변경 거버넌스
 

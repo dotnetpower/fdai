@@ -54,6 +54,9 @@ not create another ObjectType or LinkType, and its content identity cannot repla
 or relationship identity.
 Every canonical ResourceType also has one explicit recorded-state disposition. Missing state is
 never converted into a generic healthy value. The shared Operator workflow adapter may expose an optional `rule.findings-summary` projection with server-recorded counts or explicit `evaluated: false`; that operational summary is not an ontology declaration, relationship, evidence admission, or authority source.
+The per-rule findings read validates the requested identity against the same revisioned Rule catalog.
+Without a connected findings provider it returns `evaluated: false` and no findings for a known
+rule; it never derives Resource identities or finding details from summary counts.
 Committed inventory invalidation markers coordinate browser rereads without becoming graph state.
 Bulk state pages carry the marker watermark bound to their committed generation, and SSE resumes
 from that cursor. Clients without a page-bound cursor receive the current marker instead of risking

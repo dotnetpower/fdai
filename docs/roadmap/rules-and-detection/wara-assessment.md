@@ -204,6 +204,9 @@ revision, digest, retrieval time, license, optional Microsoft Learn link, query 
 evaluator reference, and structured manual-evidence requirement. The Console renders 50 controls
 per page while preserving all 456 lifecycle records through explicit previous and next navigation;
 it never hides the remaining catalog behind a client-only row limit.
+The Rules catalog rail reaches this Controls destination without interpreting WARA state. Its
+labels and counts remain catalog navigation; only the server-owned WARA projection can report
+applicability, evaluation, satisfaction, or evidence limitations.
 
 ## Review-only source updates
 

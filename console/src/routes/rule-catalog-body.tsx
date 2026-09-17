@@ -11,7 +11,7 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { routeHref } from "../router";
 import { displayValue, t } from "./i18n/governance";
-import { FacetChips, FacetSelect } from "./rule-catalog-components";
+import { FacetSelect } from "./rule-catalog-components";
 import { ruleCatalogHref, type RuleFilters as Filters, type RuleSelection as Selection } from "./rule-catalog-state";
 import {
   SEVERITY_PILL,
@@ -170,7 +170,7 @@ export function RuleCatalogBody({
         key: "id",
         header: t("governance.rules.column.rule"),
         render: (rule) => (
-          <span class="rule-table-identity">
+          <span class="rule-table-identity" data-rule-key={`${rule.origin}:${rule.id}`}>
             <code>{rule.id}</code>
             <small>{t("governance.rules.column.provenance")}: {rule.provenance.source_url || rule.source}</small>
           </span>
@@ -194,6 +194,8 @@ export function RuleCatalogBody({
         key: "category",
         header: t("governance.rules.column.category"),
         render: (rule) => <span class={`rule-category-pill is-${rule.category}`}>{displayValue("category", rule.category)}</span>,
+        cellClass: "rule-column-secondary",
+        headerClass: "rule-column-secondary",
       },
       {
         key: "resource_type",
@@ -201,8 +203,20 @@ export function RuleCatalogBody({
         render: (rule) => rule.resource_type,
         cellClass: "mono",
       },
-      { key: "source", header: t("governance.rules.column.source"), render: (rule) => rule.source },
-      { key: "version", header: t("governance.common.version"), render: (rule) => rule.version, cellClass: "mono" },
+      {
+        key: "source",
+        header: t("governance.rules.column.source"),
+        render: (rule) => rule.source,
+        cellClass: "rule-column-secondary",
+        headerClass: "rule-column-secondary",
+      },
+      {
+        key: "version",
+        header: t("governance.common.version"),
+        render: (rule) => rule.version,
+        cellClass: "mono rule-column-secondary",
+        headerClass: "rule-column-secondary",
+      },
       {
         key: "affected",
         header: t("governance.rules.column.affected"),
@@ -249,12 +263,8 @@ export function RuleCatalogBody({
 
       <section class="stack-section">
         <div class="rule-facet-toolbar">
-          <FacetChips label={t("governance.rules.filter.origin")} value={filters.origin} counts={data.facets.by_origin} displayGroup="origin" onChange={(value) => onFilter({ origin: value })} />
-          <FacetChips label={t("governance.rules.filter.category")} value={filters.category} counts={data.facets.by_category} displayGroup="category" onChange={(value) => onFilter({ category: value })} />
-          <FacetChips label={t("governance.rules.filter.severity")} value={filters.severity} counts={data.facets.by_severity} displayGroup="severity" onChange={(value) => onFilter({ severity: value })} />
-          <FacetSelect label={t("governance.rules.filter.source")} value={filters.source} counts={data.facets.by_source} onChange={(value) => onFilter({ source: value })} />
           <label class="rule-facet-search">
-            <span class="sr-only">{t("governance.rules.filter.searchAria")}</span>
+            <span>{t("governance.rules.filter.searchAria")}</span>
             <input
               type="search"
               value={searchInput}
@@ -262,39 +272,81 @@ export function RuleCatalogBody({
               onInput={(event) => onSearch((event.target as HTMLInputElement).value)}
             />
           </label>
+          <FacetSelect label={t("governance.rules.filter.origin")} value={filters.origin} counts={data.facets.by_origin} displayGroup="origin" onChange={(value) => onFilter({ origin: value })} />
+          <FacetSelect label={t("governance.rules.filter.category")} value={filters.category} counts={data.facets.by_category} displayGroup="category" onChange={(value) => onFilter({ category: value })} />
+          <FacetSelect label={t("governance.rules.filter.severity")} value={filters.severity} counts={data.facets.by_severity} displayGroup="severity" onChange={(value) => onFilter({ severity: value })} />
+          <FacetSelect label={t("governance.rules.filter.source")} value={filters.source} counts={data.facets.by_source} onChange={(value) => onFilter({ source: value })} />
         </div>
 
-        <div class="table-toolbar">
-          <p class="muted">
-            {data.filtered_total === 0
-              ? t("governance.rules.result.empty")
-              : t("governance.rules.result.showing", {
-                  start: pageStart,
-                  end: pageEnd,
-                  filtered: data.filtered_total,
-                  total: data.total,
-                })}
-            {loading ? <span class="muted">{t("governance.rules.result.updating")}</span> : null}
-          </p>
-          <div class="pager">
-            <button type="button" class="btn" disabled={loading || !hasPrev} onClick={() => onPage(Math.max(0, data.offset - data.limit))}>
-              {t("governance.rules.result.previous")}
-            </button>
-            <button type="button" class="btn" disabled={loading || !hasNext} onClick={() => onPage(data.offset + data.limit)}>
-              {t("governance.rules.result.next")}
-            </button>
-          </div>
-        </div>
-
-        <div id="rule-catalog-table" class={loading ? "is-refreshing" : undefined} aria-busy={loading}>
-          <DataTable<RuleDto>
-            columns={columns}
-            rows={data.rules}
-            keyOf={(rule) => `${rule.origin}:${rule.id}`}
-            empty={t("governance.rules.result.empty")}
-            onRowClick={(rule) => onSelect({ id: rule.id, origin: rule.origin })}
-            isRowActive={(rule) => selected !== null && selected.id === rule.id && selected.origin === rule.origin}
-          />
+        <div class="rules-catalog-workbench">
+          <aside class="rules-catalog-rail">
+            <header>
+              <h2>{t("governance.rules.workspace.title")}</h2>
+              <p>{t("governance.rules.workspace.description")}</p>
+              <span>{Object.keys(data.facets.by_origin).length + 2}</span>
+            </header>
+            <nav aria-label={t("governance.rules.view.aria")}>
+              <a class={filters.origin === "" ? "is-active" : undefined} aria-current={filters.origin === "" ? "page" : undefined} href={ruleCatalogHref({ ...filters, origin: "" }, 0, null)}>
+                <strong>{t("governance.rules.kpi.total")}</strong>
+                <small>{data.total} {t("governance.rules.view.rules")}</small>
+              </a>
+              <a class={filters.origin === "active" ? "is-active" : undefined} aria-current={filters.origin === "active" ? "page" : undefined} href={ruleCatalogHref({ ...filters, origin: "active" }, 0, null)}>
+                <strong>{t("governance.rules.kpi.active")}</strong>
+                <small>{active} - {t("governance.rules.kpi.activeHint")}</small>
+              </a>
+              <a class={filters.origin === "collected" ? "is-active" : undefined} aria-current={filters.origin === "collected" ? "page" : undefined} href={ruleCatalogHref({ ...filters, origin: "collected" }, 0, null)}>
+                <strong>{t("governance.rules.kpi.collected")}</strong>
+                <small>{collected} - {t("governance.rules.kpi.collectedHint")}</small>
+              </a>
+              <a href={routeHref("rules", { params: { view: "controls" } })}>
+                <strong>{t("governance.rules.view.controls")}</strong>
+                <small>{t("governance.rules.controls.context.purpose")}</small>
+              </a>
+            </nav>
+          </aside>
+          <section class="rules-catalog-detail">
+            <header class="rules-catalog-detail-head">
+              <div>
+                <span>{filters.origin ? displayValue("origin", filters.origin) : t("governance.rules.workspace.catalogKicker")}</span>
+                <h2>{t("governance.rules.workspace.catalogTitle")}</h2>
+                <p>{t("governance.rules.workspace.catalogDescription")}</p>
+              </div>
+              <StatusPill kind={filters.origin === "active" ? "enforce" : "neutral"} label={filters.origin ? displayValue("origin", filters.origin) : t("governance.common.all")} />
+            </header>
+            <div class="table-toolbar">
+              <p class="muted">
+                {data.filtered_total === 0
+                  ? t("governance.rules.result.empty")
+                  : t("governance.rules.result.showing", {
+                      start: pageStart,
+                      end: pageEnd,
+                      filtered: data.filtered_total,
+                      total: data.total,
+                    })}
+                {loading ? <span class="muted">{t("governance.rules.result.updating")}</span> : null}
+              </p>
+              <div class="pager">
+                <button type="button" class="btn" disabled={loading || !hasPrev} onClick={() => onPage(Math.max(0, data.offset - data.limit))}>
+                  {t("governance.rules.result.previous")}
+                </button>
+                <button type="button" class="btn" disabled={loading || !hasNext} onClick={() => onPage(data.offset + data.limit)}>
+                  {t("governance.rules.result.next")}
+                </button>
+              </div>
+            </div>
+            <div id="rule-catalog-table" class={loading ? "is-refreshing" : undefined} aria-busy={loading}>
+              <DataTable<RuleDto>
+                columns={columns}
+                rows={data.rules}
+                keyOf={(rule) => `${rule.origin}:${rule.id}`}
+                empty={t("governance.rules.result.empty")}
+                onRowClick={(rule) => onSelect({ id: rule.id, origin: rule.origin })}
+                isRowActive={(rule) => selected !== null && selected.id === rule.id && selected.origin === rule.origin}
+                rowActionLabel={(rule) => `${t("governance.rules.detail.aria")}: ${rule.id}`}
+                rowActionControls="rule-detail-drawer"
+              />
+            </div>
+          </section>
         </div>
       </section>
     </div>

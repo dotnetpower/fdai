@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 97648bbac16f4e9e28da1ecf909794e28640124a
+translation_source_sha: 01620899ae70a59fdcb355a672f0843f750e51bf
 translation_revised: 2026-09-17
 ---
 # 온톨로지 구조 모델
@@ -54,6 +54,9 @@ AKS 진단 증적은 선택한 Resource 조회 응답에 연결된 형식화된 
 LinkType을 만들지 않으며 내용 신원은 Resource UID나 관계 신원을 대체할 수 없습니다.
 모든 정본 ResourceType에는 명시적인 기록 상태 처리 결과가 하나씩 있습니다. 누락된 상태를 일반
 정상 값으로 바꾸지 않습니다. 공유 Operator 워크플로 어댑터는 서버에 기록된 개수 또는 명시적인 `evaluated: false`를 포함하는 선택적 `rule.findings-summary` 변환 결과를 노출할 수 있습니다. 이 운영 요약은 온톨로지 선언, 관계, 근거 승인 또는 권한 출처가 아닙니다.
+규칙별 결과 조회는 같은 리비전의 규칙 카탈로그에서 요청한 식별자를 검증합니다. 결과 프로바이더가
+연결되지 않았으면 카탈로그에 있는 규칙에 대해 `evaluated: false`와 빈 결과 목록을 반환합니다.
+요약 개수에서 Resource 식별자나 결과 세부 정보를 도출하지 않습니다.
 커밋된 인벤토리 무효화 표식은 그래프 상태가 되지 않고 브라우저 다시 읽기를 조정합니다. 대량 상태
 페이지는 커밋된 세대에 결속된 표식 워터마크를 전달하고 SSE는 이 커서에서 재개합니다. 페이지에
 결속된 커서가 없는 클라이언트는 세대를 놓칠 위험을 피하도록 현재 표식을 받습니다. 대량 Dashboard

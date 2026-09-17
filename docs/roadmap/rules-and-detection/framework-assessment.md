@@ -198,7 +198,9 @@ assessment exists. The Console shows:
 - unavailable and unknown states without a compliance label.
 
 WAF remains in the existing Controls view. CAF adds a sibling tab that uses the same quiet,
-read-only interaction pattern. The browser never writes evidence or approval.
+read-only interaction pattern. The Rules catalog rail links to that Controls view as presentation
+navigation only; it does not merge Rule counts with WAF or CAF applicability, evaluation, or
+satisfaction. The browser never writes evidence or approval.
 
 ## Source-change governance
 

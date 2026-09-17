@@ -1,8 +1,8 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 9bb302382ea4fbd30c7b7abefc56f7099787e4e0
-translation_revised: 2026-09-15
+translation_source_sha: a8e27c4e50dc30b9733425e7d16174bdcb4f87f1
+translation_revised: 2026-09-17
 ---
 # WARA 근거 기반 평가
 
@@ -203,6 +203,9 @@ crosswalk, shadow consumer, 변환 결과 소유권 및 권한 없음 계약은 
 수동 근거 요구 사항도 제공합니다. Console은 페이지당 컨트롤 50개를 표시하고 명시적인 이전 및
 다음 탐색으로 수명 주기 레코드 456개 전체를 보존합니다. 클라이언트 전용 행 제한 뒤에 나머지
 카탈로그를 숨기지 않습니다.
+규칙 카탈로그 레일은 WARA 상태를 해석하지 않고 이 Controls 목적지로 이동합니다. 레일의 레이블과
+개수는 카탈로그 탐색 정보이며, 적용 가능성, 평가, 충족 상태 또는 근거 제한 사항은 서버 소유
+WARA 변환 결과만 보고할 수 있습니다.
 
 ## 검토 전용 원본 갱신
 
