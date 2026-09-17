@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: e29fddbc32b060a7aeef004b8c6fb0844e6e351b
-translation_revised: 2026-09-16
+translation_source_sha: c077d5a0477d794d30a6c73d868fa327de7d946e
+translation_revised: 2026-09-17
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 **목표**: 자동화 테스트는 결정론적이고 비밀 없는 상태를 유지하며, 대화형 로컬 Console은 권위 있는 Azure 상태를 표시합니다. Azure 배포는 **배포자 권한과 리전 카탈로그로 프로비저닝할 리소스를 선택**합니다. 별도 `docs site: serve (4321)` 작업은 루프백에서 공개 문서만 미리 보여 줍니다. 백엔드나 채널 경계를 시작하지 않으며 런타임 권한을 부여하지 않습니다. 세 명제가 동시에 참입니다:
@@ -396,7 +396,10 @@ Headless Pantheon은 control-loop 진행 상황을 전달하는 동일한 `fdai.
 표시합니다. 런타임 하트비트는 연결을 증명하지만 작업으로 계산하지 않습니다. Collecting,
 analyzing, deciding, executing, approving, auditing, 인시던트 및 인계 프레임은 작업으로 계산합니다.
 이 저널은 범위가 제한된 및 non-durable이며 reload 시 초기화되고 각 프레임에 기록된 출처를
-보존합니다. 추가 전용 감사 로그를 대체하지 않습니다.
+보존합니다. 추가 전용 감사 로그를 대체하지 않습니다. 두 실행 장소 모두 새로 추가된 재생 이외의
+행에 동일한 3초 중립 배경 페이드를 적용하며 최초 이력과 재생 이력에는 이 표시를 적용하지
+않습니다. 모션 감소 모드에서는 제한된 시간 동안 정적 배경색을 유지하고, 공유 타이포그래피로
+모든 로그 레이블과 주석을 캡션 크기 하한 이상으로 표시합니다.
 
 완료된 대화 검토도 같은 분리를 따릅니다. Interactive 로컬 전송 계층은 범위가 제한된 Bragi
 `object.turn` 묶음을 발행할 수 있지만 검토자나 영속 제안 저장소를 만들어 내지
