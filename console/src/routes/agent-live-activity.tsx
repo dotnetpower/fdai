@@ -436,7 +436,16 @@ function AgentLogRowView({
       ) : null}
       {visibleColumns.includes("detail") ? (
         <span role="cell" data-column="detail" class="aa-log-detail">
-          <strong>{row.detail}</strong>
+          <strong>
+            {row.resourceLabel ? (
+              <>
+                <Tooltip content={row.resourceRef ?? undefined}>
+                  <code>{row.resourceLabel}</code>
+                </Tooltip>
+                {` - ${row.detail}`}
+              </>
+            ) : row.detail}
+          </strong>
           <small>
             {row.observationDomain
               ? `${t(`agentActivity.observationDomain.${row.observationDomain}`)} - `

@@ -57,6 +57,46 @@ function liveConversation(sequence = 1): LiveAgentActivityEvent {
 }
 
 describe("agent live log projection", () => {
+  it("renders structured handler completion as one resource-first activity", () => {
+    const rows = buildAgentLogRows([{
+      sequence: 1,
+      kind: "agent.state",
+      agent: "Huginn",
+      agents: ["Huginn"],
+      state: "watching",
+      summary: "Processed fdai.change.events",
+      detail: "Processed fdai.change.events",
+      correlationId: "correlation-1",
+      ts: "2026-07-24T10:01:00Z",
+      source: "runtime-observed",
+      activityId: "handler:example",
+      activityPhase: "completed",
+      topic: "fdai.change.events",
+      eventId: "event-1",
+      eventType: "inventory.resource_changed",
+      resourceRef: "scope:example/resource-group/example/providers/compute/vm-example",
+      resourceName: "vm-example",
+      resourceType: "compute-vm",
+      startedAt: "2026-07-24T10:00:59.958Z",
+      completedAt: "2026-07-24T10:01:00Z",
+      durationMs: 42,
+      operationalKind: null,
+      observationDomain: null,
+    }], []);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      kind: "activity",
+      detail: "inventory.resource_changed",
+      context: "compute-vm - completed - 42 ms - fdai.change.events",
+      correlationId: "correlation-1",
+      eventId: "event-1",
+      resourceLabel: "vm-example",
+    });
+    expect(filterAgentLogRows(rows, null, "vm example")).toHaveLength(1);
+    expect(filterAgentLogRows(rows, null, "scope example")).toHaveLength(1);
+  });
+
   it("highlights only appended non-replay rows for three seconds", () => {
     const initialRows = buildAgentLogRows([], [auditItem(1)]);
     const liveRows = buildAgentLogRows([liveConversation()], [auditItem(1)]);
