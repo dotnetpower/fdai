@@ -25,6 +25,7 @@ def test_partial_analytics_is_ready_for_available_facets_but_failure_waits() -> 
     assert _analytics_event("partial") == "ready"
     assert _analytics_event("disabled") == "ready"
     assert _analytics_event("failed") == "waiting"
+    assert _analytics_event("failed", retained_snapshot_current=True) == "ready"
 
 
 def test_package_declares_shared_and_legacy_job_entrypoints() -> None:

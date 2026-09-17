@@ -60,6 +60,18 @@ class _Connection:
         return _Cursor()
 
 
+class _SnapshotCursor:
+    async def fetchone(self) -> dict[str, object]:
+        return {"available": True}
+
+
+class _SnapshotConnection(_Connection):
+    async def execute(self, query: str, params: object = None) -> _SnapshotCursor:
+        self.statements.append(query)
+        self.parameters.append(params)
+        return _SnapshotCursor()
+
+
 def _receipt(scope_id: str) -> CostAnalyticsRunReceipt:
     digest = hashlib.sha256(scope_id.encode()).hexdigest()
     return CostAnalyticsRunReceipt(
@@ -104,6 +116,43 @@ async def test_analytics_run_receipt_is_scope_bound_and_append_only(
         await store.append_cost_analytics_run_receipt(
             _receipt("subscriptions/other"),
             scope_id="subscriptions/example",
+        )
+
+
+@pytest.mark.asyncio
+async def test_current_analytics_snapshot_requires_exact_scope_and_freshness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = _SnapshotConnection()
+    store = PostgresCostGovernanceStore(
+        config=PostgresCostGovernanceConfig(dsn="postgresql://example.invalid/fdai")
+    )
+
+    async def connect() -> _SnapshotConnection:
+        return connection
+
+    async def timeout(_connection: object) -> None:
+        return None
+
+    monkeypatch.setattr(store, "_connect", connect)
+    monkeypatch.setattr(store, "_timeout", timeout)
+
+    assert await store.current_cost_analytics_snapshot_available(
+        scope_id="subscriptions/example",
+        now=NOW,
+        freshness=timedelta(days=2),
+    )
+    assert "scope_id = %s" in connection.statements[-1]
+    assert connection.parameters[-1] == (
+        "subscriptions/example",
+        NOW - timedelta(days=2),
+        NOW,
+    )
+    with pytest.raises(ValueError, match="freshness inputs"):
+        await store.current_cost_analytics_snapshot_available(
+            scope_id="subscriptions/example",
+            now=NOW,
+            freshness=timedelta(0),
         )
 
 

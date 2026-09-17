@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 7342eb889bd4ba7a6217894550cbda1ad06dc703
+translation_source_sha: 9ce6bffe378ae3d7fe82e3543518d5cf4bbc6a40
 translation_revised: 2026-09-17
 ---
 
@@ -382,9 +382,10 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 패키지는 로컬 coordinator와 배포된 예약 작업에 범위가 제한된 분석 명령 하나를 제공합니다.
 느린 Usage Details 목록 API 대신 검증된 Cost Management Query 경로를 재사용합니다.
 영속 실행 증적과 읽기 변환 결과는 최신성과 원본별 준비 상태를 보고하므로 일부 실행은 전체 정상
-상태를 주장하지 않고 사용 가능한 facet만 표시할 수 있습니다. 현재 partial 실행은 준비된 loop
-이벤트를 내보내되 사용할 수 없는 facet은 partial로 유지하고, 실패하거나 오래된 실행은 준비되지
-않은 상태로 남깁니다. Operator HTTP surface 선택은 정확한 canonical enum 값만 비교하며 자연어를
+상태를 주장하지 않고 사용 가능한 facet만 표시할 수 있습니다. 현재 partial 실행 또는 현재
+snapshot을 보존한 refresh 실패는 degraded-ready loop 이벤트를 내보내되 사용할 수 없는 facet과
+실패 시도를 명시적으로 유지합니다. snapshot이 없거나 오래되면 준비되지 않은 상태로 남깁니다.
+Operator HTTP surface 선택은 정확한 canonical enum 값만 비교하며 자연어를
 해석하지 않습니다. 두 경로 모두 패키지를 활성화하거나
 사례를 만들거나 승인, 실행 또는 승격 권한을 부여하지 않습니다.
 명시적인 Sample 경로는 비용, `optimization_case`, `outcome` 화면마다 서로 다른
