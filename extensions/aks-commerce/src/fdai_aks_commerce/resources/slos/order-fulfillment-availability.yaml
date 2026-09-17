@@ -1,0 +1,17 @@
+schema_version: "1.0.0"
+id: order-fulfillment.availability
+description: Successful public order submission journeys.
+objective_ratio: 0.99
+window_days: 7
+sli:
+  kind: availability
+  good_query: synthetic.order.good
+  total_query: synthetic.order.total
+  labels:
+    service_id: order-fulfillment
+burn_rate_alerts:
+  - name: order-fulfillment-fast-burn
+    short_window_minutes: 5
+    long_window_minutes: 60
+    burn_rate_threshold: 14.4
+    severity: sev2

@@ -55,6 +55,11 @@ from fdai_operator_service.browser_evidence_filters import (
     parse_browser_evidence_workspace_query,
 )
 from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
+from fdai_operator_service.families.aks_commerce import (
+    AKS_COMMERCE_ROUTE_MANIFEST,
+    AksCommerceFamilyDependencies,
+    build_aks_commerce_routes,
+)
 from fdai_operator_service.families.conversation import (
     CONVERSATION_ROUTE_MANIFEST,
     ConversationFamilyDependencies,
@@ -138,6 +143,7 @@ class OperatorRouteFamilies:
     operations_webhook_verifier: WebhookVerifier
     report_pdf_encoder: ReportPdfEncoder | None = None
     operation_panels: tuple[PanelRoute, ...] = ()
+    aks_commerce: AksCommerceFamilyDependencies | None = None
     cost_governance: CostGovernanceFamilyDependencies | None = None
     alert_quality: AlertQualityDependencies | None = None
 
@@ -224,6 +230,7 @@ def build_operator_app(
     _validate_data_sources(data_sources)
     ownership = aggregate_route_manifest(
         route_families.operation_panels,
+        include_aks_commerce=route_families.aks_commerce is not None,
         include_cost_governance=route_families.cost_governance is not None,
         include_local_auth=local_cli_profile is not None,
     )
@@ -534,6 +541,11 @@ def build_operator_app(
             panels=route_families.operation_panels,
         ),
         *(
+            build_aks_commerce_routes(route_families.aks_commerce)
+            if route_families.aks_commerce is not None
+            else ()
+        ),
+        *(
             build_cost_governance_routes(route_families.cost_governance)
             if route_families.cost_governance is not None
             else ()
@@ -824,6 +836,7 @@ def _validate_data_sources(sources: Sequence[ReadDataSource]) -> None:
 def aggregate_route_manifest(
     operation_panels: Sequence[PanelRoute] = (),
     *,
+    include_aks_commerce: bool = False,
     include_cost_governance: bool = False,
     include_local_auth: bool = False,
 ) -> tuple[RouteOwnership, ...]:
@@ -849,6 +862,14 @@ def aggregate_route_manifest(
             for item in OPERATIONS_ROUTE_MANIFEST
         ),
         *(RouteOwnership("GET", panel.path, "operations-panel") for panel in operation_panels),
+        *(
+            (
+                RouteOwnership(item.method, item.path, "aks-commerce")
+                for item in AKS_COMMERCE_ROUTE_MANIFEST
+            )
+            if include_aks_commerce
+            else ()
+        ),
         *(
             (
                 RouteOwnership(item.method, item.path, "cost-governance")

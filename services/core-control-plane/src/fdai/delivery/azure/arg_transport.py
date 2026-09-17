@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from math import isfinite
 from typing import Any
 
@@ -26,6 +26,7 @@ _DEFAULT_MAX_TOTAL_RESPONSE_BYTES = 64_000_000
 DEFAULT_ARG_REQUESTS_PER_SECOND = 3.0
 DEFAULT_ARG_REQUEST_BURST = 15
 DEFAULT_ARG_THROTTLE_MAX_DEFER_SECONDS = 60.0
+ArgPageObserver = Callable[[int, bool], Awaitable[object]]
 
 
 class ArgRateLimiter:
@@ -124,6 +125,7 @@ async def fetch_arg_pages(
     max_attempts: int = _DEFAULT_MAX_ATTEMPTS,
     initial_retry_delay_seconds: float = _DEFAULT_INITIAL_RETRY_DELAY_SECONDS,
     max_retry_delay_seconds: float = _DEFAULT_MAX_RETRY_DELAY_SECONDS,
+    page_observer: ArgPageObserver | None = None,
 ) -> ResourceQueryResult:
     """Fetch all pages for one shard without silently accepting a partial result."""
     rows = await fetch_arg_row_pages(
@@ -144,6 +146,7 @@ async def fetch_arg_pages(
         max_attempts=max_attempts,
         initial_retry_delay_seconds=initial_retry_delay_seconds,
         max_retry_delay_seconds=max_retry_delay_seconds,
+        page_observer=page_observer,
     )
     collected: list[ResourceRecord] = []
     collected_links: list[LinkRecord] = []
@@ -188,6 +191,7 @@ async def fetch_arg_row_pages(
     truncation_observer: Callable[[bool], None] | None = None,
     max_response_bytes: int | None = _DEFAULT_MAX_RESPONSE_BYTES,
     max_total_response_bytes: int | None = _DEFAULT_MAX_TOTAL_RESPONSE_BYTES,
+    page_observer: ArgPageObserver | None = None,
 ) -> tuple[Mapping[str, Any], ...]:
     """Fetch a complete, bounded ARG row set with quota-aware retries."""
     if max_attempts < 1:
@@ -294,6 +298,8 @@ async def fetch_arg_row_pages(
                 )
             if truncation_observer is not None:
                 truncation_observer(tokenless_truncated)
+            if page_observer is not None:
+                await page_observer(len(data), False)
             break
         if next_token in seen_skip_tokens:
             raise error_type(
@@ -301,6 +307,8 @@ async def fetch_arg_row_pages(
             )
         seen_skip_tokens.add(next_token)
         skip_token = next_token
+        if page_observer is not None:
+            await page_observer(len(data), True)
     else:
         if not allow_page_cap_truncation:
             raise error_type(

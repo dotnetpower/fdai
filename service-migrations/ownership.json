@@ -7,6 +7,14 @@
   },
   "migration_dependencies": [
     {
+      "consumer_service": "operator-service",
+      "consumer_revision": "operator_forecast_retention_20260917",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_runtime_role_20260809",
+      "schema_prerequisites": ["case_history"],
+      "provider_rollback": "blocked-until-operator-forecast-retention-rollback"
+    },
+    {
       "consumer_service": "core-control-plane",
       "consumer_revision": "core_handover_review_read_20260914",
       "provider_service": "document-processing-worker",
@@ -174,6 +182,16 @@
         "document_version"
       ],
       "provider_rollback": "blocked-until-operator-conversation-document-ref-rollback"
+    },
+    {
+      "consumer_service": "operator-service",
+      "consumer_revision": "operator_inventory_progress_read_20260916",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_inventory_progress_20260916",
+      "schema_prerequisites": [
+        "inventory_progress_event"
+      ],
+      "provider_rollback": "blocked-until-operator-inventory-progress-read-rollback"
     }
   ],
   "legacy_inventory": {
@@ -229,6 +247,7 @@
       "inventory_observation_partition",
       "inventory_observation_partition_event",
       "inventory_observation_partition_pin_event",
+      "inventory_progress_event",
       "inventory_realtime_link",
       "inventory_realtime_resource",
       "inventory_snapshot",
@@ -439,6 +458,7 @@
       "inventory_observation_partition",
       "inventory_observation_partition_event",
       "inventory_observation_partition_pin_event",
+      "inventory_progress_event",
       "inventory_realtime_link",
       "inventory_realtime_resource",
       "inventory_snapshot",

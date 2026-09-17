@@ -7,6 +7,8 @@ import {
   AGENT_AUDIT_LOG_LIMIT,
   AGENT_AUDIT_CONVERSATION_LIMIT,
   AGENT_AUDIT_PARENT_LIMIT,
+  AGENT_LOG_ROW_HIGHLIGHT_MS,
+  appendedAgentLogRowIds,
   agentLogFullscreenAction,
   buildAgentLogRows,
   DEFAULT_AGENT_LOG_COLUMNS,
@@ -55,6 +57,26 @@ function liveConversation(sequence = 1): LiveAgentActivityEvent {
 }
 
 describe("agent live log projection", () => {
+  it("highlights only appended non-replay rows for three seconds", () => {
+    const initialRows = buildAgentLogRows([], [auditItem(1)]);
+    const liveRows = buildAgentLogRows([liveConversation()], [auditItem(1)]);
+    const replayed: LiveAgentActivityEvent = {
+      ...liveConversation(2),
+      source: "replay",
+    };
+
+    expect(appendedAgentLogRowIds(null, initialRows)).toEqual([]);
+    expect(appendedAgentLogRowIds(
+      new Set(initialRows.map((row) => row.id)),
+      liveRows,
+    )).toEqual(["live:1"]);
+    expect(appendedAgentLogRowIds(
+      new Set(liveRows.map((row) => row.id)),
+      buildAgentLogRows([replayed, liveConversation()], [auditItem(1)]),
+    )).toEqual([]);
+    expect(AGENT_LOG_ROW_HIGHLIGHT_MS).toBe(3_000);
+  });
+
   it("combines durable audit, recorded conversations, and runtime turns chronologically", () => {
     const audit = auditItem(1, {
       summary: "Plan reviewed",
@@ -394,5 +416,33 @@ describe("agent live log controls", () => {
     expect(logBlock).toContain("overscroll-behavior-x: contain");
     expect(logBlock).toContain("overscroll-behavior-y: auto");
     expect(logBlock).not.toMatch(/overscroll-behavior:\s*contain/);
+  });
+
+  it("uses shared readable type roles and reduced-motion-safe row highlighting", () => {
+    const styles = readFileSync(
+      fileURLToPath(new URL("../styles.css", import.meta.url)),
+      "utf8",
+    );
+    const source = readFileSync(
+      fileURLToPath(new URL("./agent-live-activity.tsx", import.meta.url)),
+      "utf8",
+    );
+    const logStart = styles.indexOf(".aa-agent-log {");
+    const logEnd = styles.indexOf(".aa-filter-set", logStart);
+    const logStyles = styles.slice(logStart, logEnd);
+
+    expect(logStyles).toContain("animation: aa-log-row-highlight 3s");
+    expect(logStyles).toContain("@keyframes aa-log-row-highlight");
+    expect(logStyles).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(logStyles).toContain("animation: none");
+    expect(logStyles).toContain(".aa-agent-log .aa-log-count");
+    expect(source).toContain("event.animationName === \"aa-log-row-highlight\"");
+    expect(styles).toContain(".aa-log-lanes button { min-height: var(--cs-control-height-touch); }");
+    expect(logStyles).toContain("font-size: var(--cs-type-compact-size)");
+    expect(logStyles).toContain("font-size: var(--cs-type-label-size)");
+    expect(logStyles).toContain("font-size: var(--cs-type-caption-size)");
+    expect(logStyles).not.toMatch(
+      /font-size:\s*(?:10(?:\.\d+)?|[0-9](?:\.\d+)?)px/,
+    );
   });
 });

@@ -12,6 +12,8 @@ import { routeHref } from "../router";
 import { formatConsoleTime } from "../time-format";
 import {
   AGENT_LOG_LIMIT,
+  AGENT_LOG_ROW_HIGHLIGHT_MS,
+  appendedAgentLogRowIds,
   agentLogFullscreenAction,
   buildAgentLogRows,
   DEFAULT_AGENT_LOG_COLUMNS,
@@ -88,6 +90,9 @@ export function LiveActivityJournal({
   const fullscreenButtonRef = useRef<HTMLButtonElement>(null);
   const fallbackFullscreenRef = useRef(false);
   const nativeFullscreenRef = useRef(false);
+  const knownRowIdsRef = useRef<ReadonlySet<string> | null>(null);
+  const highlightTimersRef = useRef<Set<number>>(new Set());
+  const [highlightedRowIds, setHighlightedRowIds] = useState<ReadonlySet<string>>(new Set());
   const rows = useMemo(() => buildAgentLogRows(events, auditItems), [events, auditItems]);
   const visibleRows = useMemo(
     () => filterAgentLogRows(rows, selectedAgent, query, operationalLane),
@@ -107,6 +112,32 @@ export function LiveActivityJournal({
   }, [rows, selectedAgent]);
   const latestRowId = visibleRows.at(-1)?.id ?? null;
   const fullscreen = nativeFullscreen || fallbackFullscreen;
+  const clearHighlightedRows = (rowIds: readonly string[]): void => {
+    setHighlightedRowIds((current) => {
+      if (!rowIds.some((id) => current.has(id))) return current;
+      const next = new Set(current);
+      rowIds.forEach((id) => next.delete(id));
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const appendedIds = appendedAgentLogRowIds(knownRowIdsRef.current, rows);
+    knownRowIdsRef.current = new Set(rows.map((row) => row.id));
+    if (appendedIds.length === 0) return;
+
+    setHighlightedRowIds((current) => new Set([...current, ...appendedIds]));
+    const timer = window.setTimeout(() => {
+      highlightTimersRef.current.delete(timer);
+      clearHighlightedRows(appendedIds);
+    }, AGENT_LOG_ROW_HIGHLIGHT_MS);
+    highlightTimersRef.current.add(timer);
+  }, [rows]);
+
+  useEffect(() => () => {
+    highlightTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    highlightTimersRef.current.clear();
+  }, []);
 
   useLayoutEffect(() => {
     if (!tailing || logRef.current === null) return;
@@ -342,7 +373,13 @@ export function LiveActivityJournal({
               <span role="cell">{t("agentActivity.log.noRows")}</span>
             </div>
           ) : visibleRows.map((row) => (
-            <AgentLogRowView key={row.id} row={row} visibleColumns={visibleColumns} />
+            <AgentLogRowView
+              key={row.id}
+              row={row}
+              visibleColumns={visibleColumns}
+              highlighted={highlightedRowIds.has(row.id)}
+              onHighlightEnd={() => clearHighlightedRows([row.id])}
+            />
           ))}
         </div>
       </div>
@@ -357,16 +394,23 @@ export function LiveActivityJournal({
 function AgentLogRowView({
   row,
   visibleColumns,
+  highlighted,
+  onHighlightEnd,
 }: {
   readonly row: AgentLogRow;
   readonly visibleColumns: readonly AgentLogColumn[];
+  readonly highlighted: boolean;
+  readonly onHighlightEnd: () => void;
 }) {
   return (
     <div
-      class={`aa-log-row kind-${row.kind}`}
+      class={`aa-log-row kind-${row.kind}${highlighted ? " is-new-activity" : ""}`}
       data-operational-kind={row.operationalKind ?? undefined}
       data-activity-id={row.activityId ?? undefined}
       role="row"
+      onAnimationEnd={(event) => {
+        if (event.animationName === "aa-log-row-highlight") onHighlightEnd();
+      }}
     >
       {visibleColumns.includes("time") ? (
         <Tooltip content={row.timestampValid ? undefined : row.timestamp}>

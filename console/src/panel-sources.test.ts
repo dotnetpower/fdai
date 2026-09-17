@@ -44,12 +44,13 @@ describe("panel source availability", () => {
 
   test("classifies every registered console panel by source ownership", () => {
     const panels = resolvePanels();
-    expect(panels).toHaveLength(59);
+    expect(panels).toHaveLength(61);
     expect(panels.filter((panel) => panelSourceClassification(panel.id) === null))
       .toEqual([]);
     expect(panelSourceClassification("documents")).toBe("separate-client");
     expect(panelSourceClassification("github")).toBe("independent");
     expect(panelSourceClassification("settings-diagnostics")).toBe("operator-api");
+    expect(panelSourceClassification("settings-environment")).toBe("operator-api");
   });
 
   test("keeps Alert quality unknown without its own source and unavailable when that source is held", () => {

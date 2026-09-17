@@ -57,6 +57,9 @@ describe("clean console routes", () => {
     expect(panelPath("documents")).toBe("/documents");
     expect(panelPath("labs")).toBe("/labs");
     expect(panelPath("settings-general")).toBe("/settings/general");
+    expect(panelPath("settings-environment")).toBe("/settings/environment-and-deployment");
+    expect(routeHref("settings-environment", { segments: ["deployment"] }))
+      .toBe("/settings/environment-and-deployment/deployment");
     expect(panelPath("settings-models")).toBe("/settings/models");
     expect(panelPath("settings-runtime")).toBe("/settings/runtime-policies");
     expect(panelPath("not-registered")).toBe("/overview");

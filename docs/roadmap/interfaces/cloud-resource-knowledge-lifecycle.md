@@ -352,6 +352,14 @@ role-based access control (RBAC).
 Track overdue/stale fractions, changed/unchanged/failed counts, review latency, verification failures,
 storage/embedding cost, retrieval quality, and held answers. Notifications are bounded and deduplicated.
 
+The Console separates recorded source status from offline package intake with accessible tabs.
+When the service is present but source and trust policies are not configured, it explains the
+deployment-owned registry, signing-trust, and service-binding prerequisites instead of showing a raw
+reason as the primary message. Selecting a local package does not upload it. Inspection and import
+remain disabled until the server reports intake capability. A failed read-only inspection or export
+can be corrected and retried without reloading recorded state; a failed refresh, stage, rollback, or
+import still requires reload because durable server state may have changed.
+
 ## Dependency-ordered delivery plan
 
 ### Implemented v1 boundary

@@ -646,11 +646,11 @@ def test_global_name_suffix_is_opt_in_and_applied_to_shared_names() -> None:
     assert main.count("local.global_name_suffix") >= 12
 
 
-def test_private_foundation_creates_both_state_containers_through_arm() -> None:
+def test_private_foundation_creates_all_state_containers_through_arm() -> None:
     foundation = (_ROOT / "infra/genesis-foundation/main.tf").read_text(encoding="utf-8")
     helper = (_ROOT / "infra/bootstrap/create-state-account.sh").read_text(encoding="utf-8")
 
-    assert 'for_each = toset(["deployment-plans", "tfstate"])' in foundation
+    assert 'for_each = toset(["deployment-plans", "provisioning-events", "tfstate"])' in foundation
     assert (
         'type      = "Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01"'
     ) in foundation
