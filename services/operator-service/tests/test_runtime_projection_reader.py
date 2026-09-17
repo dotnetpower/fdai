@@ -710,6 +710,8 @@ async def test_remaining_console_evidence_projects_durable_tables(
         if "payload->>'label' AS label" in statement:
             return []
         if "FROM forecast_publication_outbox" in statement:
+            assert statement.count("available_at <= now()") == 2
+            assert "MIN(created_at)" in statement
             return [{"pending": 0, "dead_lettered": 0, "oldest_pending_at": None}]
         if "FROM operator_forecast_retention" in statement:
             return [{"pending": 2, "overdue": 3}]
