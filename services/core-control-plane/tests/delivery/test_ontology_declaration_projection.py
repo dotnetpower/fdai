@@ -93,6 +93,35 @@ def test_decision_detail_preserves_exact_identity_and_relationship_direction() -
     assert ("resolved_by", "incoming") in directions
 
 
+def test_access_grant_request_detail_preserves_pending_review_facets() -> None:
+    catalog = _shipped_catalog()
+
+    detail = build_object_type_detail_projection(
+        ontology=catalog,
+        name="AccessGrantRequest",
+        role=CeilingRole.OWNER,
+        purpose="operations-review",
+    )
+
+    declaration = detail["declaration"]
+    assert isinstance(declaration, dict)
+    assert declaration["version"] == "2.0.0"
+    assert declaration["key"] == "id"
+    assert set(declaration["properties"]) == {
+        "capability_id",
+        "decision_digest",
+        "expires_at",
+        "grant_mode",
+        "id",
+        "plan_digest",
+        "quorum",
+        "requested_at",
+        "revision",
+        "scope_ref",
+        "status",
+    }
+
+
 def test_property_redaction_and_self_direction_are_server_owned() -> None:
     object_type = OntologyObjectType(
         schema_version="1.0.0",

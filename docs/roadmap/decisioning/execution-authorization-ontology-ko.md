@@ -1,7 +1,7 @@
 ---
 translation_of: execution-authorization-ontology.md
-translation_source_sha: f5d143c191a78882982eefc724701eb57339d3d0
-translation_revised: 2026-09-09
+translation_source_sha: 912e9ada164e9db81e83ce8169118da55b9c3554
+translation_revised: 2026-09-17
 ---
 # 실행 권한 부여 온톨로지
 
@@ -49,6 +49,7 @@ translation_revised: 2026-09-09
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-17 | implemented | `AccessGrantRequest` ObjectType을 6개 속성에서 검토에 필요한 의미 필드 11개를 갖는 버전 `2.0.0`으로 확장했습니다. 제공되는 정규화된 `id` 키와 기존 역할 필터 범위를 보존하면서 기능, 권한 부여 모드, 요청 시각, 정족수 및 개정 번호를 추가했습니다. | `current change`, `AccessGrantRequest.yaml`, `test_ontology_declaration_projection.py`, 집중 선언 상세 회귀 검사 통과 | 선언 메타데이터만 바로잡았습니다. 권한 부여, 승인, 적용, 검증 및 철회 권한은 변경하지 않았습니다. |
 | 2026-08-13 | implemented | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스 경계와 집중 검사입니다. | 이 문서의 범위가 제한된 업스트림 구현에는 남은 작업이 없습니다. |
 | 2026-08-16 | implemented | 문서가 밝히지 않았던, 제공되는 강제 기본값을 기록했습니다. 컨트롤 루프 통합은 실재하지만 `execution_authorization_evaluator` 의 기본값은 `None`, `execution_authorization_required` 의 기본값은 `False` 이고 이를 설정하는 것은 `bind_execution_authorization` 뿐이므로, 기본 배포는 이 게이트가 작동하지 않는 상태로 동작합니다. 구현 범위 행은 바뀌지 않습니다. 배포 소유 연결은 이미 이 문서의 범위 밖으로 선언되어 있고, 누락된 것은 기본값 자체였기 때문입니다. | `current change`; 두 필드를 정의하는 `composition/_helpers.py`; `execution_authorization_evaluator=` 및 `execution_authorization_required=`를 각각 검색하면 `wire_execution_authorization.py`와 `control_loop.py`의 두 읽기만 일치합니다. | 배포 경로에서 이 경계를 연결하거나, 연결을 배포 소유로 유지한다는 결정을 기록합니다. |
 | 2026-08-17 | implemented | 역할로 거르는 보류 권한 부여 브라우저 변환 결과가 구현되었다는 2026-07-31 진술을 바로잡았습니다. Operator는 이 리포지토리의 어떤 코드도 쓴 적 없는 `operator-projection:iam:access-grants.snapshot` 키를 읽었고, 그 결과 `GET /access-grants/stream`은 모든 장소에서 재연결할 때마다 HTTP 503으로 fail-closed 되었습니다. 또한 어댑터가 `reviewer_ref`와 `reviewer_roles`를 무시했기 때문에, 그 키를 작성된 대로 만들었다면 모든 검토자에게 자신의 요청까지 노출되어 자기 승인 금지 경계가 깨졌을 것입니다. 이제 Operator는 범위가 제한된 접두사 스캔으로 권위 있는 권한 부여 요청 레코드를 읽고 보류, 만료, 요청자 및 승인자 역할 필터를 자신의 경계에서 적용합니다. | `current change`, `postgres_family_store.py`, `postgres_iam.py`, `test_operator_service_postgres.py`, focused Operator suite 374건 통과 및 1건 건너뜀, 변경된 소스에 대해 Ruff와 strict mypy 통과, 인증된 로컬 세션이 `GET /access-grants/stream`의 200 응답과 재연결 루프 없음을 관측 | 배포 환경에 실제 권한 부여 요청이 생기면 같은 스트림을 배포된 개정 번호로 관측해 기록합니다. |
@@ -297,6 +298,12 @@ Azure 어댑터가 해당 값을 소유합니다.
 프로바이더 대응 버전, 권한 부여 모드, 만료, 원래 액션 id, combined 권한 확인 결정 다이제스트 및
 멱등성 키에 바인딩됩니다. 여러 누락된 쌍은 서로 다른 요청 id를 생성합니다. 일부 제안
 제출이 실패하면 제안별로 감사하고 원래 액션을 계속 보류합니다.
+
+`AccessGrantRequest@2.0.0`은 정규화된 ObjectType 키 `id`를 유지하고 기존 상태, 범위,
+만료, 결정 및 계획 필드에 `capability_id`, `grant_mode`, `requested_at`, `quorum`,
+`revision`을 추가합니다. 런타임 저장소는 도메인별 `request_id`와 추가 비공개 수명 주기 필드를
+계속 보존합니다. 선언 가시성은 서버가 소유하는 역할 필터를 따르며 카탈로그 형태 자체는 요청 값에
+대한 접근 권한을 부여하지 않습니다.
 
 ![권한 부여 수명 주기. 주요 단계는 AuthorizationDecision(GRANT_REQUIRED), AccessGrantRequest, independently approved exact request, exact-plan governance change, apply receipt and expiry, fresh-token effective-access observation, re-evaluate original action from the beginning, authorized verdict only after all gates pass입니다.](../../diagrams/generated/fdai-roadmap-decisioning-execution-authorization-ontology-02.ko.svg)
 

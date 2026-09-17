@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 7612a6d66a7cc3f3e1088493039c93f398d9e8cd
+translation_source_sha: 5be64283289d8225ffb1b1cef5b0f9dd5bcf58ad
 translation_revised: 2026-09-17
 ---
 
@@ -66,9 +66,9 @@ translation_revised: 2026-09-17
 > 유지했고 package Workflow는 계속 `shadow`입니다. 이는 live dev 롤백과 수집 복구를 검증하지만
 > 30일 campaign 또는 독립 promotion 검토를 검증하지는 않습니다. 패키지와 액션은 승격되지
 > 않았습니다.
-> 패키지 semantic profile과 parity corpus는 항상 active ontology release를 고정합니다. 가산
-> kernel 선언이 바뀌면 보류 평가 집단, 긍정 결과, 낮춘 결과를 유지하면서 profile, manifest,
-> fixture identity 및 정확한 digest 회귀 기준을 함께 갱신합니다.
+> 패키지 semantic profile과 parity corpus는 항상 active ontology release를 고정합니다.
+> `AccessGrantRequest@2.0.0`을 포함한 가산 kernel 선언이 바뀌면 보류 평가 집단, 긍정 결과,
+> 낮춘 결과를 유지하면서 profile, manifest, fixture identity 및 정확한 digest 회귀 기준을 함께 갱신합니다.
 > 컨테이너 게시는 수동 디스패치 검증 코드를 실행하기 전에 보호된 워크플로 원본을 검증하고,
 > 루트 디스패치 작업을 보호된 `main`으로 제한합니다. 따라서 검증되지 않은 워크플로 텍스트가
 > 출처 확인 게이트보다 먼저 실행될 수 없습니다. 검증기는 실행 중인 워크플로 원본 참조가
