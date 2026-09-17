@@ -1,6 +1,6 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: a80d6ed091c562c4699bf7d043d728354267d2b0
+translation_source_sha: bdef3c27391dcc8b6ad507f4af0eb58c2a2beadf
 translation_revised: 2026-09-17
 ---
 # AKS 상거래 비즈니스 시나리오
@@ -127,6 +127,8 @@ Kubernetes API 수락은 성공이 아닙니다.
 
 시나리오 랩 프로필은 다음 경계를 사용해 상거래 워크로드를 배포합니다.
 
+- 프로필은 전용 `aks-store-demo` 클러스터를 생성하며 다른 기존 FDAI 또는 공유
+  클러스터를 선택하지 않습니다.
 - 스토어프런트만 공개 애플리케이션 표면으로 둡니다.
 - 공개 접근은 HTTPS, 배포에서 제공한 DNS 이름, 신뢰할 수 있는 인증서 참조를 사용합니다.
 - 관리 UI, API, 큐, 데이터베이스, 실행기는 비공개로 유지합니다.

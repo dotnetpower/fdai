@@ -65,6 +65,9 @@ def test_scenario_lab_is_an_independent_private_terraform_root() -> None:
     assert "stress_vm         = azurerm_subnet.stress_vm.id" not in network
     assert network.count("checkov:skip=CKV2_AZURE_31:Azure Policy attaches") == 3
     assert "private_cluster_enabled" in aks
+    assert 'name                                = "aks-store-demo"' in aks
+    assert 'dns_prefix                          = "aks-store-demo"' in aks
+    assert '"aks-${local.suffix}"' not in aks
     assert "local_account_disabled" in aks
     assert "azure_active_directory_role_based_access_control" in aks
     assert "azure_rbac_enabled = true" in aks

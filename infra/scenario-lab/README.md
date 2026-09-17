@@ -14,7 +14,7 @@ unrelated resources in that group.
 
 | Area | Resources |
 |------|-----------|
-| Compute | One-node private AKS cluster, Chaos Mesh installed after apply, AKS Store Demo with a three-replica order service, private Linux stress VM |
+| Compute | Dedicated `aks-store-demo` one-node private cluster, Chaos Mesh installed after apply, AKS Store Demo with a three-replica order service, private Linux stress VM |
 | Data and AI | Private MySQL Flexible Server, private Azure OpenAI account and one deployment |
 | Security | Generated MySQL password in encrypted private state and a mode-0600 runner file, managed-identity role assignments, no VM public IP |
 | Network | Isolated VNet, delegated and private-endpoint subnets, egress-only NAT gateway, bidirectional peering to the VNet-integrated deploy runner, deployment-owned private-endpoint NSG association, and policy-owned NSGs on the AKS, MySQL, and stress subnets |
@@ -84,6 +84,8 @@ Every approved apply prepares the official
 namespace. The renderer fixes the upstream source at commit
 `61b033448904a930f01d497ce7139aca87a1b12d`, verifies the complete manifest SHA-256, and replaces
 each version tag with its reviewed multi-platform image digest before `kubectl apply`.
+The Terraform root creates the exact dedicated cluster name `aks-store-demo`; it never deploys the
+commerce workload to another FDAI, shared, or pre-existing cluster.
 
 The lab applies only these safety overlays:
 

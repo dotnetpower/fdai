@@ -125,6 +125,8 @@ business effect. Kubernetes API acceptance is not success.
 
 The scenario-lab profile deploys the commerce workload with these boundaries:
 
+- The profile creates the dedicated `aks-store-demo` cluster and never selects another existing
+  FDAI or shared cluster.
 - The storefront is the only public application surface.
 - Public access uses HTTPS, a deployment-supplied DNS name, and a trusted certificate reference.
 - The administration UI, APIs, queue, database, and executor remain private.
