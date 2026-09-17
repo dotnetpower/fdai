@@ -43,6 +43,7 @@ from fdai_operator_service.dashboard_source import (
 from fdai_operator_service.detection_lifecycle_projection import (
     detection_lifecycle_projection,
 )
+from fdai_operator_service.families.conversation.channel_delivery_models import ChannelBreakerMode
 from fdai_operator_service.families.operations import (
     ProjectionNotFoundError,
     ProjectionQuery,
@@ -426,6 +427,14 @@ class RuntimeProjectionReader:
             "SELECT state, COUNT(*) AS count FROM conversation_outbound_delivery "
             "GROUP BY state ORDER BY state"
         )
+        breaker_rows = await self._fetch_all(
+            "SELECT mode, COUNT(*) AS count FROM conversation_adapter_breaker "
+            "GROUP BY mode ORDER BY mode"
+        )
+        if any(
+            row["mode"] not in {mode.value for mode in ChannelBreakerMode} for row in breaker_rows
+        ):
+            raise ProjectionUnavailableError("conversation delivery breaker mode is malformed")
         summary_rows = await self._fetch_all(
             "SELECT COUNT(*) AS delivery_count, "
             "COUNT(*) FILTER (WHERE duplicate_risk) AS duplicate_risk_count, "
@@ -472,7 +481,10 @@ class RuntimeProjectionReader:
                 summary["abandonment_count"],
                 "conversation delivery abandonment count",
             ),
-            "breaker_states": {},
+            "breaker_states": {
+                str(row["mode"]): _integer(row["count"], "conversation delivery breaker count")
+                for row in breaker_rows
+            },
             "attempt_count": _integer(
                 summary["attempt_count"], "conversation delivery attempt count"
             ),
@@ -504,14 +516,17 @@ class RuntimeProjectionReader:
         )
         publication_rows = await self._fetch_all(
             "SELECT COUNT(*) FILTER ("
-            "WHERE published_at IS NULL AND dead_lettered_at IS NULL"
+            "WHERE published_at IS NULL AND dead_lettered_at IS NULL AND available_at <= now()"
             ") AS pending, "
             "COUNT(*) FILTER (WHERE dead_lettered_at IS NOT NULL) AS dead_lettered, "
-            "MIN(available_at) FILTER ("
-            "WHERE published_at IS NULL AND dead_lettered_at IS NULL"
+            "MIN(created_at) FILTER ("
+            "WHERE published_at IS NULL AND dead_lettered_at IS NULL AND available_at <= now()"
             ") AS oldest_pending_at FROM forecast_publication_outbox"
         )
-        if len(episode_rows) != 1 or len(publication_rows) != 1:
+        retention_rows = await self._fetch_all(
+            "SELECT pending, overdue FROM operator_forecast_retention"
+        )
+        if len(episode_rows) != 1 or len(publication_rows) != 1 or len(retention_rows) != 1:
             raise ProjectionUnavailableError("forecast learning summary is unavailable")
         episodes = episode_rows[0]
         publication = publication_rows[0]
@@ -556,7 +571,10 @@ class RuntimeProjectionReader:
                     else None
                 ),
             },
-            "retention": {"pending": 0, "overdue": 0},
+            "retention": {
+                "pending": _integer(retention_rows[0]["pending"], "forecast retention pending"),
+                "overdue": _integer(retention_rows[0]["overdue"], "forecast retention overdue"),
+            },
         }
 
     async def _operator_memory(self, query: ProjectionQuery) -> Mapping[str, object]:

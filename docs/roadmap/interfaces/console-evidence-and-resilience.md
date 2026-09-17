@@ -11,7 +11,7 @@ Direct Settings URLs keep a static background shell until the overlay closes ins
 hidden Dashboard projection. The Settings shell and other top-level lazy surfaces show a loading
 state and a reload action if their module fails. Models, Runtime policies, Identity and access, and
 document capability reads also let the operator retry a failed initial request without reloading the
-whole console.
+whole console. Baselines, Skills, Conversation Delivery, and Forecast Learning also expose a shared bilingual Refresh evidence button. It re-reads only the existing projection, renders a skeleton and suppresses duplicate activation while loading, and preserves the active view without installing skills, invoking providers, or raising authority.
 The lightweight current-screen launcher remains available without loading the full Command Deck.
 The console loads the Deck after the first pointer, `Ctrl+K`, `/`, general-conversation, or
 incident-conversation request and replays that bounded request after the listener is ready.
