@@ -221,7 +221,7 @@ The initial relationship set should stay small and query-driven.
 | `resource_classified_as` | Resource -> ResourceType | Verified semantic classification from an observed resource to one reviewed type. |
 | `contains` | Resource -> Resource | Containing parent to contained child; traversal never reverses stored ownership. |
 | `attached_to` | Resource -> Resource | Attached resource to its anchor; a query may traverse the inverse without rewriting storage. |
-| `routes_to` | Resource -> Resource | Directed observed forwarding or next-hop reference; absence proves nothing about reachability. |
+| `routes_to` | Resource -> Resource | Many-to-many directed observed forwarding references; one source may retain multiple destinations, and absence proves nothing about reachability. |
 | `peered_with` | Resource -> Resource | Symmetric peer represented by two independently supported directed records. |
 | `governed_by` | Service/Workload -> Objective/Constraint | Intent that applies to the target. |
 | `owned_by` | Service/Workload/Objective -> Ownership | Accountable operating owner. |

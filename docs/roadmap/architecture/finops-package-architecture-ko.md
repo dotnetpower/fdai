@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 3603c58743a8bdfaf378f684f6f682fca8a08e19
+translation_source_sha: 0a88a3284ff2d8b3da179e142175baa7421dcea8
 translation_revised: 2026-09-18
 ---
 
@@ -159,7 +159,7 @@ SHA-256, 자산 매니페스트 참조, W6 소스 목록의 `package_manifest_sh
 16개의 참조와 함께 갱신합니다. 양성 8개와 음성 8개의 예상 결과는 바꾸지 않고 다시 평가하며, F6의 release 혼합
 음성 사례에는 의도적으로 다른 release를 유지합니다. 이 소스 전용 갱신은 W7 실제 근거의
 적격성을 입증하지 않으며 활성화, 데이터 접근, 모드 또는 승격을 변경하지 않습니다.
-이전 실제 증적은 원래 release에 계속 연결됩니다. 알림 ActionType 추가도 같은 소스 전용 갱신 절차를 따르며 Cost Governance를 활성화할 수 없습니다.
+이전 실제 증적은 원래 release에 계속 연결됩니다. 알림 ActionType 추가도 같은 소스 전용 갱신 절차를 따르며 Cost Governance를 활성화할 수 없습니다. `routes_to@2.0.0` LinkType 카디널리티 변경도 같은 절차를 따르며 패키지 권한을 부여하지 않습니다.
 
 ### 에이전트를 활성 상태로 유지하고 소유권 고정
 

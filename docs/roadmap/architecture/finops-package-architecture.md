@@ -151,7 +151,7 @@ engine, approval record, or execution surface.
 
 For a reviewed ontology release change, use the [release-derived pin generator](../../../scripts/catalog/refresh-release-derived-pins.py) under the [check-by-default, review-gated write workflow](../rules-and-detection/rule-semantic-retrieval.md#source-only-release-refresh).
 Preserve the reviewed declaration set while rebinding every semantic-profile declaration to its exact active ref. Refresh the exact release and canonical profile digest, packaged profile-byte SHA-256, asset manifest reference, and W6 source inventory's `package_manifest_sha256` together with all 16 F1-F8 fixture references. Re-evaluate the unchanged expected outcomes for eight positive and eight negative cases; retain the deliberately foreign release in the F6 mixed-release negative case.
-This source-only refresh does not qualify W7 live evidence or change enablement, data access, mode, or promotion. Earlier live receipts remain bound to their original release. Adding alert ActionTypes follows this same source-only refresh and cannot activate Cost Governance.
+This source-only refresh does not qualify W7 live evidence or change enablement, data access, mode, or promotion. Earlier live receipts remain bound to their original release. Adding alert ActionTypes follows this same source-only refresh and cannot activate Cost Governance. A `routes_to@2.0.0` LinkType cardinality change follows it too and grants no package authority.
 
 ### Keep agents active and ownership fixed
 
