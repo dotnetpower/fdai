@@ -345,7 +345,7 @@ Neither identity choice grants execution authority, and local interactive never 
 binding.
 
 The AKS managed Key Vault CSI provider synchronizes fixed Key Vault references into namespaced Kubernetes Secrets by using each workload's federated identity. Applications continue to read environment variables and never call Key Vault directly. Terraform plans contain secret names and versionless references, not secret values.
-The Operator Cost Governance pseudonym key follows the same service-owned secret boundary. Container Apps and AKS retain one high-entropy Key Vault value and inject it only as `FDAI_COST_PSEUDONYM_KEY`; plans, outputs, logs, contracts, and browser responses contain no key. Local preparation preserves an existing gitignored value or generates one with the same minimum strength. The key changes identity disclosure only and grants no cost-data or action authority.
+The Operator Cost Governance pseudonym key follows the same service-owned secret boundary. Container Apps and AKS retain one high-entropy Key Vault value and inject it only as `FDAI_COST_PSEUDONYM_KEY`; the root passes its secret reference only to Operator, never isolated Executor. Plans, outputs, logs, contracts, and browser responses contain no key. Local preparation preserves an existing gitignored value or generates one with the same minimum strength. The key changes identity disclosure only and grants no cost-data or action authority.
 
 The managed CSI provider is enabled with the cluster and is separate from FDAI workload rollout.
 The deployment kit includes the Kubernetes provider plus signed `kubectl` and `kubelogin`

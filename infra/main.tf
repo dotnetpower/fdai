@@ -3027,15 +3027,12 @@ module "isolated_executor" {
     var.enable_isolated_executor_authority_cutover ? var.operator_api_audience : ""
   )
   state_store_dsn_secret_id = azurerm_key_vault_secret.state_store_dsn.id
-  cost_pseudonym_key_secret_id = (
-    azurerm_key_vault_secret.cost_pseudonym_key[0].id
-  )
-  kafka_bootstrap_servers = module.event_bus_auxiliary.kafka_bootstrap
-  command_topic           = local.executor_command_topic
-  receipt_topic           = local.executor_receipt_topic
-  runtime_env             = local.env_label
-  acr_login_server        = module.container_registry.login_server
-  tags                    = merge(local.tags, { "fdai:component" = "isolated-executor-shadow" })
+  kafka_bootstrap_servers   = module.event_bus_auxiliary.kafka_bootstrap
+  command_topic             = local.executor_command_topic
+  receipt_topic             = local.executor_receipt_topic
+  runtime_env               = local.env_label
+  acr_login_server          = module.container_registry.login_server
+  tags                      = merge(local.tags, { "fdai:component" = "isolated-executor-shadow" })
 
   depends_on = [
     azurerm_role_assignment.isolated_executor_acr_pull,
@@ -3190,6 +3187,9 @@ module "operator_api" {
   )
   acr_login_server          = module.container_registry.login_server
   state_store_dsn_secret_id = azurerm_key_vault_secret.state_store_dsn.id
+  cost_pseudonym_key_secret_id = (
+    azurerm_key_vault_secret.cost_pseudonym_key[0].id
+  )
   chatops_webhook_secret_id = (
     var.enable_chatops_hil ? azurerm_key_vault_secret.chatops_webhook_secret[0].id : ""
   )
