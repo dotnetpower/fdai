@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 45a2bed217279dedbe835471e678a323ceeb4ef2
+translation_source_sha: 262d3a53550ff150ee621a4bdc2c2c7356341359
 translation_revised: 2026-09-17
 ---
 # FDAI Console 대화
@@ -587,7 +587,7 @@ pull 어댑터 추가. 콘솔은 이제:
 ## 13. 데이터 + wire 계약
 
 FDAI Console은 `console/src/generated/service-contracts.ts`의 생성 TypeScript 변환 결과를 컴파일합니다.
-체크섬으로 고정한 저장소 생성기는 백엔드 서비스 5개가 사용하는 것과 같은 N/N-1 JSON Schema에서 이를 만들며, 생성 인터페이스는 컴파일 시점의 정렬만 개선합니다. 배포된 AKS에서는 배포 조정기가 수렴 뒤 정확한 Static Web Apps redirect를 등록하고 런타임 API 연결을 게시합니다.
+체크섬으로 고정한 저장소 생성기는 백엔드 서비스 5개가 사용하는 것과 같은 N/N-1 JSON Schema에서 이를 만들며, 생성 인터페이스는 컴파일 시점의 정렬만 개선합니다. 배포된 AKS에서는 배포 조정기가 수렴 뒤 정확한 Static Web Apps redirect를 등록하고 런타임 API 연결을 게시합니다. 브라우저 경로와 Sample 모드를 복원할 때는 `handleRedirectPromise`가 처리할 때까지 MSAL 응답 해시를 보존합니다.
 Operator 서비스는 계속 기준 스키마로 와이어 페이로드를 검증하며 Console에는 배포, 승인, 변경 또는 실행 권한이 없습니다.
 감사 작업 영역은 추가적인 `summary=true` 묶음을 요청합니다. 현재 Operator는 보존 중인 조회 범위 수치, 기록 맥락 및 무결성 관측을 반환하고 이전 Operator는 Console이 요약 근거를 사용할 수 없는 상태로 처리하는 페이지 전용 묶음을 유지합니다.
 Incident, Agent Activity 및 Trace 읽기는 이 활성화 설정을 보내지 않고 범위가 제한된 페이지 비용을 유지합니다.
