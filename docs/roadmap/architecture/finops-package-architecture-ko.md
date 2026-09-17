@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 59542a4c2601f137c8e229336cfb118671f279c2
+translation_source_sha: d972103f7279f5f4f4475743a3a46bcdc623825c
 translation_revised: 2026-09-17
 ---
 
@@ -382,6 +382,9 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 Cost Governance 디코더는 버전이 지정된 `CostReadinessReason` 전체 어휘를 수락하고 알려진
 각 사유를 영어와 한국어 카탈로그로 표시합니다. 알 수 없는 사유는 저하된 근거를 숨기지 않고
 확인할 수 있는 계약 오류로 유지합니다.
+집계 공개 정책에서는 리소스 후보 근거 수가 0보다 커도 후보 화면을 사용할 수 없는 상태로
+유지할 수 있습니다. Console은 후보 행이나 프로바이더 식별자를 표시하지 않고 서비스 요약
+모드와 형식화된 사유를 보여 줘야 합니다.
 패키지는 로컬 coordinator와 배포된 예약 작업에 범위가 제한된 분석 명령 하나를 제공합니다.
 느린 Usage Details 목록 API 대신 검증된 Cost Management Query 경로를 재사용합니다.
 영속 실행 증적과 읽기 변환 결과는 최신성과 원본별 준비 상태를 보고하므로 일부 실행은 전체 정상
