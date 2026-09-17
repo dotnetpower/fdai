@@ -24,6 +24,7 @@ from fdai.delivery.analyzer_tick import (
     AnalyzerTarget,
     AnalyzerTickRunner,
 )
+from fdai.delivery.analyzer_tick_cli import _discovered_telemetry_holds
 from fdai.delivery.persistence.postgres_analyzer_publication import (
     PostgresAnalyzerPublicationLedger,
 )
@@ -155,6 +156,17 @@ def _runner(provider: MetricProvider, bus: RecordingBus) -> AnalyzerTickRunner:
         window_seconds=300,
         clock=lambda: NOW,
     )
+
+
+def test_native_metrics_hold_analyzers_that_require_unbound_sources() -> None:
+    holds = _discovered_telemetry_holds(monitor_workspace_id=None)
+
+    assert holds == {
+        "api-gateway": "telemetry_source_unavailable",
+        "kubernetes-cluster": "telemetry_source_unavailable",
+        "llm-endpoint": "telemetry_source_unavailable",
+    }
+    assert _discovered_telemetry_holds(monitor_workspace_id="workspace-id") == {}
 
 
 @pytest.mark.asyncio

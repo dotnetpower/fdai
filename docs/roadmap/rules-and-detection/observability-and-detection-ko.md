@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 2021da0e3d376debfe024c158a0a593aa33eee15
+translation_source_sha: d4528ec02154612d2af72ce181e78a646b4ce90a
 translation_revised: 2026-09-17
 ---
 
@@ -520,7 +520,11 @@ kind 집계만 반환합니다. Incident ID, member ID, payload 또는 database 
 `state` 사실이 없는 metadata collection은 신원 및 유형 전용 열거 경로를 따릅니다. 이 읽기 전용
 선택은 상태를 주장하거나 권한을 부여하지 않습니다. 존재하는 generic `state`에는 admission이 계속
 필요하며 형식이 잘못되면 사용할 수 없습니다. 상태 사실 없이 투영된 리소스도 같은 열거 경로를
-따릅니다. 발견된 대상 수는 상한이 있고 순서는 결정론적입니다. 해석기는 검토된 분석기 Resource
+따릅니다. 발견된 대상 수는 상한이 있고 순서는 결정론적입니다. 공급자 I/O 전에 현재 연결된
+텔레메트리 카탈로그가 참조 분석기에 필요한 모든 메트릭을 제공하지 못하면 해석기는 발견된 대상을
+`telemetry_source_unavailable`로 보류합니다. 후보는 보류 coverage에 남고 공급자 쿼리는 전송되지
+않습니다. 명시적으로 구성한 대상은 선언된 실패 동작을 유지하고, 연결된 공급자에서 발생한 오류도
+계속 틱을 실패 처리합니다. 해석기는 검토된 분석기 Resource
 유형을 저장소 쿼리 필터로 적용하고, 구성된 분석 가능 대상 상한을 적용하기 전에 관계를 제외한
 지원 Resource를 최대 1,000개 읽습니다. 관련 없는 인벤토리 레코드는 조회 구간이나 대상 슬롯을
 차지할 수 없고 관계 coverage 공백은 신원 전용 대상 선택을 무효화하지 않습니다. 지원 Resource

@@ -29,6 +29,7 @@ from collections import Counter, defaultdict
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from types import MappingProxyType
 from typing import Any
 
 import httpx
@@ -40,6 +41,7 @@ from fdai.delivery.analyzer_run_receipt import (
     record_analyzer_run_receipt,
 )
 from fdai.delivery.analyzer_targets import (
+    SKIP_TELEMETRY_SOURCE_UNAVAILABLE,
     AnalyzerResourceTypeResolution,
     AnalyzerTargetResolution,
     AnalyzerTargetResolutionError,
@@ -98,6 +100,7 @@ from fdai.delivery.azure.log_query import (
     AzureLogAnalyticsQueryConfig,
     AzureLogAnalyticsQueryProvider,
 )
+from fdai.delivery.azure.metrics_api_queries import azure_metrics_api_queries
 from fdai.delivery.azure.trace_continuity import (
     AzureTraceContinuitySource,
 )
@@ -116,6 +119,20 @@ from fdai.runtime.venue import (
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.analyzer_tick")
+
+ANALYZER_METRICS_BY_RESOURCE_TYPE: Mapping[str, frozenset[str]] = MappingProxyType(
+    {
+        "api-gateway": frozenset({"backend_latency_ms", "http_5xx_rate"}),
+        "kubernetes-cluster": frozenset(
+            {"node_cpu_percent", "pod_restart_count", "rollout_stall_duration_seconds"}
+        ),
+        "llm-endpoint": frozenset({"http_429_rate", "request_surge_ratio"}),
+        "mysql-server": frozenset({"active_connections", "cpu_percent"}),
+        "network.application-gateway": frozenset(
+            {"backend_first_byte_response_time_ms", "healthy_host_count"}
+        ),
+    }
+)
 
 _PUBLICATION_STATES = tuple(item.value for item in AnalyzerPublicationStatus)
 
@@ -450,6 +467,9 @@ async def run_once() -> AnalyzerJobReport:
         max_discovered=max_discovered,
         decision_evidence=build_decision_evidence_admission_provider(),
         provider_references=(inventory.provider_references if inventory is not None else None),
+        discovered_hold_reasons=_discovered_telemetry_holds(
+            monitor_workspace_id=_optional("FDAI_MONITOR_WORKSPACE_ID")
+        ),
     )
     _LOGGER.info("analyzer_tick_targets_resolved", extra=resolution.to_dict())
     targets = resolution.targets
@@ -541,6 +561,19 @@ async def run_once() -> AnalyzerJobReport:
             return report
         finally:
             await bus.close()
+
+
+def _discovered_telemetry_holds(*, monitor_workspace_id: str | None) -> dict[str, str]:
+    """Hold discovered targets whose analyzer metrics have no bound source."""
+
+    supported_metrics = set(azure_metrics_api_queries())
+    if monitor_workspace_id is not None:
+        supported_metrics.update(default_metric_queries())
+    return {
+        resource_type: SKIP_TELEMETRY_SOURCE_UNAVAILABLE
+        for resource_type, required_metrics in ANALYZER_METRICS_BY_RESOURCE_TYPE.items()
+        if not required_metrics.issubset(supported_metrics)
+    }
 
 
 async def _record_run_receipt(

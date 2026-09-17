@@ -186,24 +186,36 @@ def test_analyzer_catalog_covers_the_reference_analyzers() -> None:
     test until the KQL template ships too - which is exactly the
     contract we want to enforce."""
     from fdai.core.investigation.analyzer import Threshold, ThresholdAnalyzer
-    from fdai.core.investigation.analyzers import default_analyzers
+    from fdai.core.investigation.analyzers import (
+        ANALYZER_KIND_BY_RESOURCE_TYPE,
+        default_analyzers,
+    )
+    from fdai.delivery.analyzer_tick_cli import ANALYZER_METRICS_BY_RESOURCE_TYPE
 
     class _NullProvider:
         async def query(self, *args: object, **kwargs: object) -> None:
             return None
 
     seen: set[str] = set()
+    seen_by_kind: dict[str, frozenset[str]] = {}
     for analyzer in default_analyzers(_NullProvider()):  # type: ignore[arg-type]
         assert isinstance(analyzer, ThresholdAnalyzer)
+        kind_metrics: set[str] = set()
         for threshold in analyzer._thresholds:  # type: ignore[attr-defined]
             assert isinstance(threshold, Threshold)
             seen.add(threshold.metric)
+            kind_metrics.add(threshold.metric)
+        seen_by_kind[analyzer.resource_kind] = frozenset(kind_metrics)
     catalog = set(sre_demo_analyzer_queries().keys())
     missing = seen - catalog
     assert not missing, (
         f"analyzer metrics without a KQL template: {sorted(missing)} - "
         "add each one to sre_demo_analyzer_queries() before shipping"
     )
+    assert ANALYZER_METRICS_BY_RESOURCE_TYPE == {
+        resource_type: seen_by_kind[resource_kind]
+        for resource_type, resource_kind in ANALYZER_KIND_BY_RESOURCE_TYPE.items()
+    }
 
 
 def test_analyzer_templates_are_metric_kql_templates() -> None:

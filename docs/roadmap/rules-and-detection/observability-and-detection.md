@@ -549,7 +549,11 @@ resource whose metadata collection has no generic `state` fact follows the ident
 enumeration path; this read-only selection makes no state claim and grants no authority. A present
 generic `state` remains admission-gated and a malformed value remains unusable. A resource projected
 without any state fact follows the same enumeration path. Discovered targets are bounded and
-deterministically ordered. The resolver applies the reviewed analyzer Resource types as a
+deterministically ordered. Before provider I/O, the resolver holds a discovered target as
+`telemetry_source_unavailable` when the currently bound telemetry catalogs do not cover every
+metric its reference analyzer requires. The candidate remains visible in held coverage and no
+provider query is sent. Explicitly configured targets retain their declared failure behavior, and
+an error from a bound provider still fails the tick. The resolver applies the reviewed analyzer Resource types as a
 store-side filter, then reads a relationship-free bounded window of up to 1,000 supported Resources
 before applying the configured analyzable-target cap. Unrelated inventory records cannot consume
 the query window or target slots, and a relationship coverage gap cannot invalidate identity-only

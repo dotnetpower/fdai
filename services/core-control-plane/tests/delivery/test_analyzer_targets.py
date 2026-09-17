@@ -14,6 +14,7 @@ from fdai.delivery.analyzer_targets import (
     INVENTORY_SCAN_LIMIT,
     SKIP_MALFORMED_RESOURCE,
     SKIP_STALE_STATE_FACT,
+    SKIP_TELEMETRY_SOURCE_UNAVAILABLE,
     SKIP_UNMAPPED_RESOURCE_TYPE,
     SKIP_UNUSABLE_STATE_FACT,
     SKIP_UNVERIFIED_STATE_FACT,
@@ -215,6 +216,7 @@ async def _resolve(
     decision_evidence: bool = True,
     provider_references: StubProviderReferenceReader | None = None,
     bind_provider_references: bool = True,
+    discovered_hold_reasons: Mapping[str, str] | None = None,
 ):
     reader = provider_references
     if reader is None and store is not None and bind_provider_references:
@@ -228,6 +230,7 @@ async def _resolve(
             StubDecisionEvidenceAdmissionProvider(lambda: now) if decision_evidence else None
         ),
         provider_references=reader,
+        discovered_hold_reasons=discovered_hold_reasons,
     )
 
 
@@ -284,6 +287,29 @@ async def test_supported_inventory_resources_join_the_tick() -> None:
             "held_reason_counts": {},
         },
     ]
+
+
+@pytest.mark.asyncio
+async def test_unavailable_telemetry_holds_discovered_target_before_provider_binding() -> None:
+    store = StubStore((_resource("res-apim", "api-gateway"),))
+
+    resolution = await _resolve(
+        store,
+        discovered_hold_reasons={
+            "api-gateway": SKIP_TELEMETRY_SOURCE_UNAVAILABLE,
+        },
+    )
+
+    assert resolution.targets == ()
+    assert resolution.discovered == 0
+    assert resolution.skipped_reasons == (SKIP_TELEMETRY_SOURCE_UNAVAILABLE,)
+    assert resolution.resource_types[0].to_dict() == {
+        "resource_type": "api-gateway",
+        "candidate_count": 1,
+        "selected_count": 0,
+        "held_count": 1,
+        "held_reason_counts": {SKIP_TELEMETRY_SOURCE_UNAVAILABLE: 1},
+    }
 
 
 @pytest.mark.parametrize(
