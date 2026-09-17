@@ -251,6 +251,8 @@ a durable content-free receipt with start and finish time, source status, bounde
 limitations, and one stable failure reason. Package enablement does not imply source readiness.
 A missing, failed, partial, or stale attempt lowers only the affected evidence facet and never
 silently reuses an older snapshot as current.
+A partial current run exposes its available cost, trend, budget, and recommendation facets while
+keeping missing utilization unavailable; it cannot label the complete projection healthy.
 
 Every Console projection carries one server-authored evidence summary:
 

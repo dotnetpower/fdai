@@ -1,7 +1,7 @@
 ---
 title: FinOps 리소스 효율 및 SKU 결정
 translation_of: finops-resource-efficiency.md
-translation_source_sha: 974c5869c2dfe475bfd9ee5d7309f8036c6bcd39
+translation_source_sha: d0246093b072d58eb8728419fd7bbbdfba57dae8
 translation_revised: 2026-09-17
 ---
 
@@ -245,6 +245,8 @@ Azure Advisor 비용 권고 및 지원되는 Azure Monitor 메트릭을 변경�
 영속 증적을 기록합니다. 패키지 활성화가 원본 준비 상태를 뜻하지는 않습니다. 시도가 누락되거나
 실패하거나 일부만 완료되거나 오래되면 해당 근거 facet만 낮추며 이전 스냅샷을 현재 값으로
 조용히 재사용하지 않습니다.
+일부만 완료된 현재 실행은 사용 가능한 비용, 추세, 예산 및 권고 facet을 표시하되 누락된 사용률은
+사용 불가로 유지하며 전체 변환 결과를 정상으로 표시할 수 없습니다.
 
 모든 Console 변환 결과는 서버가 작성한 다음 근거 요약을 포함합니다.
 
