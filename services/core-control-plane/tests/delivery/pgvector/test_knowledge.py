@@ -143,6 +143,49 @@ async def test_search_zero_k_returns_empty_without_db() -> None:
 
 
 @pytest.mark.asyncio
+async def test_default_search_uses_bounded_core_function(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    statements: list[tuple[str, object]] = []
+
+    class Cursor:
+        async def fetchall(self) -> list[object]:
+            return []
+
+    class Connection:
+        async def __aenter__(self) -> Connection:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        def transaction(self) -> Connection:
+            return self
+
+        async def execute(self, statement: str, parameters: object = None) -> Cursor:
+            statements.append((statement, parameters))
+            return Cursor()
+
+    class AsyncConnection:
+        @staticmethod
+        async def connect(*args: object, **kwargs: object) -> Connection:
+            del args, kwargs
+            return Connection()
+
+    monkeypatch.setattr(knowledge_module.psycopg, "AsyncConnection", AsyncConnection)
+    source = PgvectorKnowledgeSource(
+        config=PgvectorKnowledgeConfig(dsn_secret="db/dsn"),
+        embedder=_Hash384Embedder(),
+        secrets=_StaticSecrets({"db/dsn": "postgresql://placeholder"}),
+    )
+
+    assert await source.search("disk pressure", k=3) == ()
+    search_statements = [statement for statement, _ in statements if statement.startswith("SELECT")]
+    assert search_statements == ["SELECT * FROM fdai_search_core_knowledge(%s::vector, %s)"]
+    assert "knowledge_chunk" not in search_statements[0]
+
+
+@pytest.mark.asyncio
 async def test_ingest_replaces_stale_chunks_and_empty_document_deletes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
