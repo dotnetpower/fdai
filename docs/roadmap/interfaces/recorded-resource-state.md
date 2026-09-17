@@ -152,7 +152,7 @@ Missing and pending projections may recover; a release mismatch requires deploym
 not automatic version changes. Unknown failures and authentication or authorization denials
 never become a recovery signal.
 
-The existing inventory coordinator owns recovery before a new collection under its normal
+The existing inventory coordinator invokes its shared ontology observer's recovery before a new collection under its normal
 single-writer lock. It replays only the retained active generation through the existing history,
 journal, and atomic projection fences, with a 60-second deadline. Failure blocks further promotion;
 it cannot advance a manifest alone, reset a cursor, or create provider observations. Recovery

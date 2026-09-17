@@ -9,23 +9,13 @@ import ssl
 import sys
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
+from functools import partial
 
 import httpx
-from fdai_service_contracts import (
-    InventoryProgressStage,
-    OperationalActivityStatus,
-    OperationalFreshness,
-)
+from fdai_service_contracts import InventoryProgressStage
 
-from fdai.core.ontology_platform.aks_diagnostic_receipt_service import (
-    AksDiagnosticReceiptService,
-)
 from fdai.core.ontology_platform.runtime_call_telemetry import RuntimeCallTelemetryProducer
 from fdai.delivery import inventory_collection_health_reporting, inventory_sync_cli_support
-from fdai.delivery.aks_diagnostic_receipts import (
-    InventoryPromotionAksDiagnosticObserver,
-    StateStoreAksDiagnosticReceiptWriter,
-)
 from fdai.delivery.azure.arg_projection import to_neutral_id
 from fdai.delivery.azure.log_query import (
     AzureLogAnalyticsQueryConfig,
@@ -54,31 +44,27 @@ from fdai.delivery.inventory_change_acceleration import (
     run_resource_change_feed,
 )
 from fdai.delivery.inventory_change_acceleration import workload_identity as _workload_identity
-from fdai.delivery.inventory_job_config import (
-    InventoryJobConfig,
-    read_bool_env,
+from fdai.delivery.inventory_configuration_events import publish_promoted_resource_events
+from fdai.delivery.inventory_job_config import InventoryJobConfig
+from fdai.delivery.inventory_ontology_observer import (
+    build_ontology_observer as _build_ontology_observer,
 )
 from fdai.delivery.inventory_progress import InventoryProgressUnavailableError
 from fdai.delivery.inventory_progress_wiring import build_inventory_progress_recorder
 from fdai.delivery.inventory_scheduler import CollectionScheduleDecision
 from fdai.delivery.inventory_sync import (
     InventoryPromotionEnricher,
-    InventoryPromotionObserver,
     InventoryPromotionObserverError,
-    InventoryPromotionRecovery,
     InventorySyncCoordinator,
-    PromotedInventoryObservation,
 )
 from fdai.delivery.inventory_sync_cli_models import (
     ChangeStreamDrainResult,
     InventoryJobResult,
-    InventoryOntologyProjectionIncompleteError,
     generation_digest,
 )
 from fdai.delivery.inventory_sync_cli_models import (
     scope_ref as _scope_ref,
 )
-from fdai.delivery.inventory_topology_history import InventoryTopologyHistoryPublisher
 from fdai.delivery.kubernetes_api_inventory import (
     KubernetesApiAuth,
     KubernetesApiInventoryConfig,
@@ -94,12 +80,8 @@ from fdai.delivery.kubernetes_inventory import (
 from fdai.delivery.operational_activity import (
     EventBusOperationalActivityPublisher,
     ObservedInventorySnapshotStore,
-    ontology_projection_activity,
 )
-from fdai.delivery.operational_history_policy import build_observation_journal
 from fdai.delivery.persistence import (
-    PostgresOntologyInstanceStore,
-    PostgresOntologyInstanceStoreConfig,
     PostgresStateStore,
     PostgresStateStoreConfig,
 )
@@ -115,14 +97,6 @@ from fdai.delivery.persistence.postgres_resource_lock import (
     PostgresAdvisoryResourceLock,
     PostgresAdvisoryResourceLockConfig,
 )
-from fdai.delivery.persistence.postgres_state_transitions import (
-    PostgresStateTransitionStore,
-    PostgresStateTransitionStoreConfig,
-)
-from fdai.delivery.persistence.postgres_topology_history import (
-    PostgresTopologyHistoryStore,
-    PostgresTopologyHistoryStoreConfig,
-)
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.runtime_call_inventory import (
     RuntimeCallInventoryEnricher,
@@ -132,14 +106,6 @@ from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     ProviderRelationshipMappingCatalog,
     load_provider_relationship_mapping_catalog,
-)
-from fdai.rule_catalog.schema.resource_type import (
-    ResourceTypeRegistry,
-    resource_type_mapping_digests,
-)
-from fdai.runtime.inventory_ontology import (
-    InventoryOntologyProjectionStatus,
-    InventoryOntologyProjector,
 )
 from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
@@ -297,154 +263,6 @@ _resolve_resource_types = inventory_sync_cli_support.resolve_resource_types
 _build_sources = inventory_sync_cli_support.build_sources
 
 
-def _build_ontology_observer(
-    config: InventoryJobConfig,
-    *,
-    vocabulary: ResourceTypeRegistry,
-    publisher: EventBusOperationalActivityPublisher,
-    evidence_counts: dict[str, int],
-) -> tuple[InventoryPromotionObserver, InventoryPromotionRecovery]:
-    observation_journal = build_observation_journal(config.dsn, os.environ)
-    catalog_root = _REPO_ROOT / "rule-catalog"
-    catalog = load_ontology_catalog(
-        catalog_root,
-        schema_registry=PackageResourceSchemaRegistry(),
-        probes_root=catalog_root / "probes",
-    )
-    ontology_release_digest = catalog.build_release().digest
-    status_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
-    diagnostic_observer = InventoryPromotionAksDiagnosticObserver(
-        service=AksDiagnosticReceiptService(
-            writer=StateStoreAksDiagnosticReceiptWriter(store=status_store)
-        ),
-        ontology_release=ontology_release_digest,
-        scope_by_cluster_ref={
-            binding.cluster_ref: binding.scope_digest for binding in config.kubernetes_bindings
-        },
-    )
-    projector: InventoryOntologyProjector | None = None
-    ontology_store: PostgresOntologyInstanceStore | None = None
-    topology_publisher: InventoryTopologyHistoryPublisher | None = None
-    if read_bool_env(os.environ, "FDAI_INVENTORY_ONTOLOGY_PROJECTION", True):
-        ontology_store = PostgresOntologyInstanceStore(
-            config=PostgresOntologyInstanceStoreConfig(dsn=config.dsn),
-            object_types=catalog.object_types,
-            link_types=catalog.link_types,
-        )
-        projector = InventoryOntologyProjector(
-            store=ontology_store,
-            status_store=status_store,
-            ontology_release_digest=ontology_release_digest,
-            resource_type_mappings=resource_type_mapping_digests(vocabulary),
-            freshness_ceiling_seconds=config.reconciliation_interval_seconds,
-            projection_lock=PostgresAdvisoryResourceLock(
-                config=PostgresAdvisoryResourceLockConfig(
-                    dsn=config.dsn,
-                    lock_timeout_ms=30_000,
-                )
-            ),
-            observation_journal=observation_journal,
-        )
-        topology_store = PostgresTopologyHistoryStore(
-            config=PostgresTopologyHistoryStoreConfig(dsn=config.dsn)
-        )
-        topology_publisher = InventoryTopologyHistoryPublisher(
-            writer=topology_store,
-            ontology_release_digest=ontology_release_digest,
-            history_reader=topology_store,
-            transition_writer=PostgresStateTransitionStore(
-                config=PostgresStateTransitionStoreConfig(dsn=config.dsn)
-            ),
-            current_state_reader=ontology_store,
-        )
-
-    async def _observe(observation: PromotedInventoryObservation) -> None:
-        evidence_counts[observation.generation] = len(observation.resources) + len(
-            observation.links
-        )
-        journal_append = await observation_journal.append_promoted_snapshot(observation)
-        await diagnostic_observer.observe(observation)
-        if projector is None or ontology_store is None or topology_publisher is None:
-            return
-        failures: list[tuple[str, Exception]] = []
-        history_available = False
-        catalog_available = True
-        try:
-            await ontology_store.sync_catalog()
-        except Exception as exc:  # noqa: BLE001 - independent derived read model
-            failures.append(("catalog_sync_failed", exc))
-            catalog_available = False
-        result = None
-        if catalog_available:
-            history_succeeded = False
-            try:
-                history_available = await topology_publisher.publish(observation) is not None
-                history_succeeded = True
-            except Exception as exc:  # noqa: BLE001 - independent derived read model
-                failures.append(("topology_history_failed", exc))
-            if history_succeeded:
-                try:
-                    result = await projector.apply(
-                        observation,
-                        journal_high_watermark=journal_append.journal_high_watermark,
-                        projection_high_watermark=journal_append.projection_high_watermark,
-                        active_scope_projection_watermark=(
-                            journal_append.active_scope_projection_watermark
-                        ),
-                        active_scope_refs=journal_append.active_scope_refs,
-                    )
-                except Exception as exc:  # noqa: BLE001 - independent derived read model
-                    failures.append(("projection_failed", exc))
-        if failures:
-            await publisher.publish(
-                ontology_projection_activity(
-                    generation=observation.generation,
-                    status=OperationalActivityStatus.FAILED,
-                    freshness=OperationalFreshness.UNAVAILABLE,
-                    evidence_count=evidence_counts[observation.generation],
-                    reason_codes=tuple(reason for reason, _ in failures),
-                )
-            )
-            raise failures[0][1]
-        if result is None:  # pragma: no cover - guarded by the failure branch
-            raise RuntimeError("inventory ontology projection produced no result")
-        available = (
-            history_available and result.status is InventoryOntologyProjectionStatus.AVAILABLE
-        )
-        reason_codes = result.dropped_reasons + (
-            () if history_available else ("topology_history_unavailable",)
-        )
-        await publisher.publish(
-            ontology_projection_activity(
-                generation=observation.generation,
-                status=(
-                    OperationalActivityStatus.COMPLETED
-                    if available
-                    else OperationalActivityStatus.DEGRADED
-                ),
-                freshness=(
-                    OperationalFreshness.FRESH if available else OperationalFreshness.UNAVAILABLE
-                ),
-                evidence_count=result.object_count + result.link_count,
-                reason_codes=reason_codes,
-            )
-        )
-        if result.status is not InventoryOntologyProjectionStatus.AVAILABLE or not result.complete:
-            raise InventoryOntologyProjectionIncompleteError(
-                "inventory ontology projection is incomplete"
-            )
-
-    async def _recover() -> None:
-        await inventory_sync_cli_support.recover_ontology_projection(
-            load_pending=observation_journal.load_pending_promoted_snapshot,
-            observe=_observe,
-            status_store=status_store if projector is not None else None,
-            release_digest=ontology_release_digest,
-        )
-
-    return _observe, _recover
-
-
 async def run(
     config: InventoryJobConfig,
     *,
@@ -488,6 +306,12 @@ async def run(
             config,
             vocabulary=vocabulary,
             publisher=activity_publisher,
+            configuration_event_publisher=partial(
+                publish_promoted_resource_events,
+                event_bus=event_bus,
+                topic=event_topic,
+                scope_ref=_scope_ref(config.scopes),
+            ),
             evidence_counts=evidence_counts,
         )
         try:

@@ -32,6 +32,9 @@ from fdai.delivery.inventory_job_config import (
     inventory_scopes_from_env,
     verify_declarative_sha256,
 )
+from fdai.delivery.inventory_ontology_observer import (
+    build_ontology_observer as _build_ontology_observer,
+)
 from fdai.delivery.inventory_scheduler import (
     CollectionScheduleAction,
     CollectionScheduleDecision,
@@ -44,7 +47,6 @@ from fdai.delivery.inventory_sync import (
 from fdai.delivery.inventory_sync_cli import (
     ChangeStreamDrainResult,
     _build_kubernetes_enricher,
-    _build_ontology_observer,
     _build_runtime_call_enricher,
     _build_sources,
     _collect_kubernetes_lifecycle,
@@ -81,6 +83,7 @@ from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.inventory_snapshot import InventorySourcesExhaustedError
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
+from fdai_service_contracts import OperationalActivityStatus
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _CLUSTER_REF = (
@@ -137,19 +140,19 @@ def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ..
         build_release=lambda: SimpleNamespace(digest=release_digest),
     )
     monkeypatch.setattr(
-        "fdai.delivery.inventory_sync_cli.load_ontology_catalog",
+        "fdai.delivery.inventory_ontology_observer.load_ontology_catalog",
         lambda *a, **k: catalog,
     )
     monkeypatch.setattr(
-        "fdai.delivery.inventory_sync_cli.PostgresOntologyInstanceStore",
+        "fdai.delivery.inventory_ontology_observer.PostgresOntologyInstanceStore",
         lambda **_: ontology_store,
     )
     monkeypatch.setattr(
-        "fdai.delivery.inventory_sync_cli.PostgresTopologyHistoryStore",
+        "fdai.delivery.inventory_ontology_observer.PostgresTopologyHistoryStore",
         lambda **_: history_store,
     )
     monkeypatch.setattr(
-        "fdai.delivery.inventory_sync_cli.InventoryOntologyProjector",
+        "fdai.delivery.inventory_ontology_observer.InventoryOntologyProjector",
         lambda **kwargs: projector.construction_kwargs.update(kwargs) or projector,
     )
     observation_journal = SimpleNamespace(
@@ -165,14 +168,19 @@ def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ..
         load_pending_promoted_snapshot=AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
-        "fdai.delivery.inventory_sync_cli.build_observation_journal",
+        "fdai.delivery.inventory_ontology_observer.build_observation_journal",
         lambda *_args, **_kwargs: observation_journal,
     )
-    activity_publisher = SimpleNamespace(publish=AsyncMock())
+    configuration_event_publisher = AsyncMock(return_value=1)
+    activity_publisher = SimpleNamespace(
+        publish=AsyncMock(),
+        configuration_event_publisher=configuration_event_publisher,
+    )
     observer, recovery = _build_ontology_observer(
         config,
         vocabulary=_vocabulary(),
         publisher=cast(EventBusOperationalActivityPublisher, activity_publisher),
+        configuration_event_publisher=configuration_event_publisher,
         evidence_counts={},
     )
     return (
@@ -377,7 +385,7 @@ async def test_ontology_observer_persists_diagnostics_on_inventory_promotion(
         read_state=AsyncMock(),
     )
     monkeypatch.setattr(
-        "fdai.delivery.inventory_sync_cli.PostgresStateStore",
+        "fdai.delivery.inventory_ontology_observer.PostgresStateStore",
         lambda **_: state_store,
     )
     observer = _ontology_observer_harness(monkeypatch)[0]
@@ -414,11 +422,11 @@ async def test_recovery_persists_diagnostics_without_ontology_projection(
         read_state=AsyncMock(),
     )
     monkeypatch.setattr(
-        "fdai.delivery.inventory_sync_cli.PostgresStateStore",
+        "fdai.delivery.inventory_ontology_observer.PostgresStateStore",
         lambda **_: state_store,
     )
     monkeypatch.setattr(
-        "fdai.delivery.inventory_sync_cli.read_bool_env",
+        "fdai.delivery.inventory_ontology_observer.read_bool_env",
         lambda *_args, **_kwargs: False,
     )
     _, recovery, observation_journal, *_ = _ontology_observer_harness(monkeypatch)
@@ -1473,6 +1481,34 @@ async def test_ontology_observer_publishes_durable_topology_history(
     projector.apply.assert_awaited_once()
     assert projector.apply.await_args.kwargs["active_scope_projection_watermark"] == 7
     assert projector.apply.await_args.kwargs["active_scope_refs"] == ("scope-1",)
+    _activity_publisher.configuration_event_publisher.assert_awaited_once_with(
+        _promoted_observation("snapshot-1")
+    )
+
+
+async def test_ontology_observer_retries_configuration_event_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (
+        observer,
+        _recovery,
+        _observation_journal,
+        _ontology_store,
+        _history_store,
+        _projector,
+        activity_publisher,
+        _release_digest,
+    ) = _ontology_observer_harness(monkeypatch)
+    activity_publisher.configuration_event_publisher.side_effect = RuntimeError(
+        "broker unavailable"
+    )
+
+    with pytest.raises(RuntimeError, match="broker unavailable"):
+        await observer(_promoted_observation("snapshot-event-failure"))
+
+    activity = activity_publisher.publish.await_args.args[0]
+    assert activity.status is OperationalActivityStatus.FAILED
+    assert activity.reason_codes == ("configuration_event_publish_failed",)
 
 
 async def test_ontology_observer_does_not_advance_projection_after_history_failure(
@@ -1527,7 +1563,7 @@ async def test_ontology_recovery_replays_pending_history_before_new_projection(
 ) -> None:
     status_store = SimpleNamespace(read_state=AsyncMock())
     monkeypatch.setattr(
-        "fdai.delivery.inventory_sync_cli.PostgresStateStore",
+        "fdai.delivery.inventory_ontology_observer.PostgresStateStore",
         lambda **_: status_store,
     )
     (
@@ -1590,6 +1626,7 @@ async def test_ontology_observer_keeps_incomplete_projection_pending(
     with pytest.raises(RuntimeError, match="projection is incomplete"):
         await observer(_promoted_observation("snapshot-incomplete"))
 
+    activity_publisher.configuration_event_publisher.assert_not_awaited()
     activity = activity_publisher.publish.await_args.args[0]
     assert activity.status.value == "degraded"
 
@@ -1680,7 +1717,7 @@ async def test_ontology_recovery_allows_fresh_collection_after_degraded_projecti
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "fdai.delivery.inventory_sync_cli.PostgresStateStore",
+        "fdai.delivery.inventory_ontology_observer.PostgresStateStore",
         lambda **_: SimpleNamespace(read_state=AsyncMock(return_value=None)),
     )
     (

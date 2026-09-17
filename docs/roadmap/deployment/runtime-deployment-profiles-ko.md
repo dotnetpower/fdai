@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: b58080cec62cb522e183bf6325b2cdfb8f8ba5ae
+translation_source_sha: 0cb0f728ba88ede44510b1299c798d3d02657ed9
 translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
@@ -98,7 +98,7 @@ $$
 일정과 워크로드 신원은 바뀌지 않으며 부트스트랩 경로는 인벤토리 워크로드에 지속적인 배포
 권한을 부여하지 않습니다. 표현 및 통합 계약은 이 단계를 16번째 단계로, `provisioning-events`를
 세 번째 비공개 Foundation 컨테이너로 반영합니다. 이전 추가 필드 방식의 증적 테스트 대역에
-`inventory_ready`가 없어도 준비 상태로 해석하지 않습니다.
+`inventory_ready`가 없어도 준비 상태로 해석하지 않습니다. 초기 또는 반복 검사가 완전한 승격 세대를 온톨로지에 반영하면 범위가 제한된 delivery 모듈 `inventory_ontology_observer.py`가 Resource마다 재시도에 안정적인 관측 Event 하나를 기존 컨트롤 루프 토픽에 게시하고 CLI는 조립만 담당합니다. 규칙 판단은 계속 Forseti가 소유하고 감사는 Saga가 소유합니다. 불완전한 변환 결과나 게시 실패로는 인벤토리 종결 조건을 충족하거나 실행 권한을 만들 수 없습니다.
 
 테넌트 프로비저닝은 미리 빌드된 서비스 및 의존성 이미지만 사용합니다. 완전한 release의 닫힌
 의존성 이미지 집합에는 ClamAV와 pgvector가 모두 포함됩니다. 배포 프로파일 하나가 특정 이미지를
