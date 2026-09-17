@@ -61,6 +61,10 @@ fails the diagnostic instead of silently defaulting to English.
 The optional Unix-socket supervisor waits for explicit commands. Restarting it does not resume or
 start a campaign. Provider throttling, unavailability, timeout, or a missing measurement contract
 records a hold and does not retry the live question.
+The authenticated Operator request rejects redirects before a private bearer can cross origins,
+uses the semantic deadline plus a bounded transport margin, requires strict UTF-8 and exactly one
+final `done` event, and reduces transport or evaluator exceptions to content-free held reasons.
+Malformed bytes, duplicate terminals, and an error after a terminal cannot produce a passing case.
 The supervisor and direct CLI share one owner-only runner lock. The `report` command renders recent
 content-free evaluations without starting a campaign. For a complete census, it also reports one
 source-bound aggregate only after all 230 trace and diagnostic receipts join by digest and share a

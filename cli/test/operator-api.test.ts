@@ -49,6 +49,22 @@ describe("askChat", () => {
     });
   });
 
+  it("accepts a case-insensitive SSE media type", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response('event: done\ndata: {"answer":"ok","model":"shared-narrator"}\n\n', {
+          status: 200,
+          headers: { "content-type": "Text/Event-Stream; Charset=UTF-8" },
+        }),
+      ),
+    );
+
+    await expect(askChat("http://127.0.0.1:8010", "status")).resolves.toMatchObject({
+      answer: "ok",
+    });
+  });
+
   it("rejects malformed backend responses instead of inventing an answer", async () => {
     vi.stubGlobal(
       "fetch",
@@ -70,6 +86,55 @@ describe("askChat", () => {
 
     await expect(askChat("http://127.0.0.1:8010", "status")).rejects.toThrow(
       /invalid chat response/,
+    );
+  });
+
+  it("rejects malformed UTF-8 instead of replacing answer bytes", async () => {
+    const prefix = new TextEncoder().encode('event: done\ndata: {"answer":"');
+    const suffix = new TextEncoder().encode('","model":"shared-narrator"}\n\n');
+    const body = new Uint8Array(prefix.length + 1 + suffix.length);
+    body.set(prefix);
+    body[prefix.length] = 0xff;
+    body.set(suffix, prefix.length + 1);
+    const cancel = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(body);
+            },
+            cancel,
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "text/event-stream" },
+          },
+        ),
+      ),
+    );
+
+    await expect(askChat("http://127.0.0.1:8010", "status")).rejects.toThrow();
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    'event: done\ndata: {"answer":"first"}\n\nevent: done\ndata: {"answer":"second"}\n\n',
+    'event: done\ndata: {"answer":"first"}\n\nevent: error\ndata: {"reason":"failed"}\n\n',
+  ])("rejects conflicting stream events after the terminal", async (stream) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(stream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+      ),
+    );
+
+    await expect(askChat("http://127.0.0.1:8010", "status")).rejects.toThrow(
+      /invalid chat stream ordering/,
     );
   });
 

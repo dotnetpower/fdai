@@ -96,6 +96,52 @@ async def test_queue_loss_is_stamped_on_next_surviving_delta() -> None:
     await subscription.aclose()
 
 
+async def test_concurrent_publish_preserves_assigned_sequence_order() -> None:
+    first_exit_waiting = asyncio.Event()
+    second_exit_complete = asyncio.Event()
+
+    class InterleavingLock:
+        entries = 0
+
+        async def __aenter__(self) -> None:
+            self.entries += 1
+
+        async def __aexit__(self, *_args: object) -> None:
+            if self.entries == 1:
+                first_exit_waiting.set()
+                await second_exit_complete.wait()
+            else:
+                second_exit_complete.set()
+
+    hub = LiveStreamHub()
+    hub._lock = InterleavingLock()  # type: ignore[assignment]  # noqa: SLF001
+    subscription = hub.subscribe_deliveries()
+    waiting = asyncio.create_task(anext(subscription))
+    await asyncio.sleep(0)
+    first = asyncio.create_task(hub.publish(LiveStreamEvent(event_id="event-1", payload={})))
+    await first_exit_waiting.wait()
+    second = asyncio.create_task(hub.publish(LiveStreamEvent(event_id="event-2", payload={})))
+
+    await asyncio.gather(first, second)
+    deliveries = (await waiting, await anext(subscription))
+
+    assert tuple(delivery.sequence for delivery in deliveries) == (1, 2)
+    await subscription.aclose()
+
+
+async def test_live_publish_rejects_multibyte_payload_before_assigning_sequence() -> None:
+    hub = LiveStreamHub()
+    event = LiveStreamEvent(
+        event_id="event-1",
+        payload={"detail": "한" * 90_000},
+    )
+
+    with pytest.raises(ValueError, match="data size limit"):
+        await hub.publish(event)
+
+    assert hub.next_sequence == 1
+
+
 async def test_fully_expired_resume_gap_is_stamped_on_next_delta() -> None:
     now = [0.0]
     hub = LiveStreamHub(

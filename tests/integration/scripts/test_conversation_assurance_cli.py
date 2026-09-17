@@ -6,6 +6,7 @@ import json
 import os
 import stat
 import sys
+import urllib.error
 from pathlib import Path
 from types import ModuleType
 
@@ -269,6 +270,143 @@ def test_terminal_parser_requires_done_event() -> None:
 
     with pytest.raises(module.CampaignHoldError, match="terminal_response_missing"):
         module._terminal_payload('event: progress\ndata: {"status":"running"}\n\n')
+
+
+@pytest.mark.parametrize(
+    "suffix",
+    (
+        'event: error\ndata: {"reason":"failed"}\n\n',
+        'event: done\ndata: {"status":"held"}\n\n',
+    ),
+)
+def test_terminal_parser_rejects_frames_after_done(suffix: str) -> None:
+    module = _load_module()
+
+    with pytest.raises(module.CampaignHoldError, match="terminal_response_invalid"):
+        module._terminal_payload('event: done\ndata: {"status":"answered"}\n\n' + suffix)
+
+
+def test_terminal_parser_accepts_one_crlf_done_after_comments() -> None:
+    module = _load_module()
+
+    assert module._terminal_payload(
+        ': keepalive\r\n\r\nevent: done\r\ndata: {"status":"answered"}\r\n\r\n'
+    ) == {"status": "answered"}
+
+
+def test_operator_request_timeout_is_bounded_to_semantic_deadline_margin(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    observed_timeout: list[int] = []
+
+    class Response:
+        def __enter__(self) -> Response:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self, _limit: int) -> bytes:
+            return b'event: done\ndata: {"status":"answered"}\n\n'
+
+    def urlopen(_request: object, *, timeout: int) -> Response:
+        observed_timeout.append(timeout)
+        return Response()
+
+    monkeypatch.setattr(module, "_open_operator_request", urlopen)
+    evaluator = module.OperatorHttpEvaluator(
+        base_url="http://127.0.0.1:8010",
+        bearer_token="test-token",
+        turn_ledger=module.PrivateJsonlLedger(tmp_path / "turns.jsonl"),
+    )
+
+    evaluator._request(  # noqa: SLF001
+        module.build_pantheon_census(module.PANTHEON_SPECS).cases[0],
+        "campaign-one",
+    )
+
+    assert observed_timeout == [100]
+
+
+@pytest.mark.parametrize(
+    ("failure", "reason"),
+    (
+        (urllib.error.URLError("connection refused"), "operator_transport_unavailable"),
+        (OSError("read failed"), "operator_transport_unavailable"),
+    ),
+)
+def test_operator_request_converts_transport_failures_to_holds(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: Exception,
+    reason: str,
+) -> None:
+    module = _load_module()
+
+    def urlopen(_request: object, *, timeout: int) -> object:
+        del timeout
+        raise failure
+
+    monkeypatch.setattr(module, "_open_operator_request", urlopen)
+    evaluator = module.OperatorHttpEvaluator(
+        base_url="http://127.0.0.1:8010",
+        bearer_token="test-token",
+        turn_ledger=module.PrivateJsonlLedger(tmp_path / "turns.jsonl"),
+    )
+
+    with pytest.raises(module.CampaignHoldError, match=f"^{reason}$"):
+        evaluator._request(  # noqa: SLF001
+            module.build_pantheon_census(module.PANTHEON_SPECS).cases[0],
+            "campaign-one",
+        )
+
+
+def test_operator_request_rejects_non_utf8_terminal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+
+    class Response:
+        def __enter__(self) -> Response:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self, _limit: int) -> bytes:
+            return b"\xff"
+
+    monkeypatch.setattr(module, "_open_operator_request", lambda *_args, **_kwargs: Response())
+    evaluator = module.OperatorHttpEvaluator(
+        base_url="http://127.0.0.1:8010",
+        bearer_token="test-token",
+        turn_ledger=module.PrivateJsonlLedger(tmp_path / "turns.jsonl"),
+    )
+
+    with pytest.raises(module.CampaignHoldError, match="^operator_response_invalid$"):
+        evaluator._request(  # noqa: SLF001
+            module.build_pantheon_census(module.PANTHEON_SPECS).cases[0],
+            "campaign-one",
+        )
+
+
+def test_operator_request_redirects_are_disabled() -> None:
+    module = _load_module()
+
+    assert (
+        module._NoRedirectHandler().redirect_request(  # noqa: SLF001
+            object(),
+            object(),
+            302,
+            "Found",
+            {},
+            "https://example.com/collect",
+        )
+        is None
+    )
 
 
 def test_operator_evaluator_holds_deferred_assessment(tmp_path: Path) -> None:

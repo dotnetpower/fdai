@@ -190,8 +190,8 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   identity, and never reads Core `background_task_*` tables directly.
   Verified semantic query-node transitions use a separate bounded best-effort topic from Core to Operator.
   Durable terminals and evidence receipts remain authoritative; consumers retain content-free degraded
-  health, resettable exponential backoff, and distinct failure diagnostics. Transport observations cannot
-  change execution, grant authority, or promote partial answers, attachments, or Incident actions.
+  health, resettable backoff, atomic Live cursor order, and retryable outbox closure. Transport or optional
+  observation failures cannot grant authority or promote partial answers, attachments, or Incident actions.
   Repository Best Practice definitions are loaded once at the composition root and exposed through
   GET-only list and detail routes. They remain catalog reference data; the projection reports
   `Unknown` and `not-connected` until a runtime evidence provider is explicitly bound.
