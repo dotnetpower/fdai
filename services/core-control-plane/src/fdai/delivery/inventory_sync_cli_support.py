@@ -83,11 +83,13 @@ async def recover_ontology_projection(
     status_store: StateStore | None,
     release_digest: str,
     timeout_seconds: float = 60,
+    allow_release_mismatch_collection: bool = False,
 ) -> None:
     """Replay one pending generation under the caller's lock and verify durable completion.
 
-    Incomplete source evidence permits a fresh collection without claiming recovery. Other
-    failures and deadline expiry propagate before the coordinator starts another generation.
+    Incomplete source evidence permits a fresh collection without claiming recovery. A release
+    mismatch does the same only for an explicit operator-requested reconciliation; automatic
+    recovery remains blocked. Other failures and deadline expiry propagate before collection.
     """
     if not math.isfinite(timeout_seconds) or not 0 < timeout_seconds <= 180:
         raise ValueError("inventory recovery deadline must be finite and at most 180 seconds")
@@ -104,6 +106,9 @@ async def recover_ontology_projection(
                     previous is not None
                     and previous.get("ontology_release_digest") != release_digest
                 ):
+                    if allow_release_mismatch_collection:
+                        logger.warning("inventory_projection_recovery_requires_fresh_collection")
+                        return
                     raise RuntimeError(
                         "inventory projection recovery requires deployment alignment"
                     )

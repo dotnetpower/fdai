@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 380d0917470de3e94ba4f916bef9177033114e98
+translation_source_sha: 525af4c33ee9c7f17f62869e08fb986852b5b158
 translation_revised: 2026-09-18
 ---
 # 온톨로지 구조 모델
@@ -509,6 +509,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-18 | implemented | 직접 링크의 아이덴티티나 방향을 바꾸지 않고 하나의 전달 Resource가 관측된 모든 backend를 보존할 수 있도록 `routes_to`를 다대일 버전 1.1.0에서 다대다 버전 2.0.0으로 수정했습니다. | `current change`, 집중 카탈로그 및 다중 경로 변환 결과 검사 85건 통과 | 완전한 로컬 generation 하나를 다시 변환하고 Operator 읽기 모델이 더 이상 release 불일치를 보고하지 않는지 확인합니다. |
 | 2026-09-18 | implemented | 직접 링크의 아이덴티티나 방향을 바꾸지 않고 하나의 전달 Resource가 관측된 모든 backend를 보존할 수 있도록 `routes_to`를 다대일 버전 1.1.0에서 다대다 버전 2.0.0으로 수정했습니다. | `current change`, `routes_to.yaml`, 프로바이더 mapping cardinality, 집중 카탈로그 및 다중 경로 변환 결과 회귀 검사 3건 통과 | 새 온톨로지 release에서 완전한 로컬 세대 하나를 다시 변환하고 Operator 읽기 모델이 더 이상 release 불일치를 보고하지 않는지 확인합니다. |
 | 2026-09-17 | implemented | 서버가 소유하는 필터를 적용한 뒤에도 ObjectType 상세가 정확한 카탈로그 선언의 모든 속성을 보존하도록 했습니다. `AccessGrantRequest`를 6개 속성에서 검토에 필요한 의미 필드 11개를 갖는 버전 `2.0.0`으로 확장하면서 정규화된 `id` 키를 보존했습니다. | `current change`, `AccessGrantRequest.yaml`, `test_ontology_declaration_projection.py`, 집중 선언 상세 회귀 검사 통과 | 런타임, 프로바이더, 승인 또는 실행 권한은 변경하지 않았습니다. 보존된 release가 이전 해석을 계속 소유합니다. |
 | 2026-09-17 | implemented | Mixed-model 독립성을 발행기 신원이 아니라 정확한 모델 계열 메타데이터로 정의했습니다. 같은 계열의 해석된 쌍과 primary 풀 재사용은 호출 전에 실패하며 이 메타데이터는 온톨로지 또는 실행 권한을 부여하지 않습니다. | `current change`, 집중 레지스트리, 해석기, 산출물 및 런타임 조립 검사 | 보호된 모델 워크플로를 통해 선택한 보조 계열을 배포하고 독립적으로 다시 읽습니다. |

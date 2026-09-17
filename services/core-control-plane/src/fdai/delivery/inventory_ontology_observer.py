@@ -222,6 +222,7 @@ def build_ontology_observer(
             observe=_observe,
             status_store=status_store if projector is not None else None,
             release_digest=ontology_release_digest,
+            allow_release_mismatch_collection=config.operator_requested,
         )
 
     return _observe, _recover
