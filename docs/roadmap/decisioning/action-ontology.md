@@ -345,6 +345,12 @@ Operator-requested runtime actions. Shipped Day 1:
 - `ops.tune-alert-evaluation` - propose one supported threshold, window, or frequency change.
 - `ops.restore-alert-configuration` - restore the exact retained baseline under separate recovery authority.
 
+On AKS, the isolated Executor binds only `ops.restart-service`, `ops.scale-in`, `ops.scale-out`,
+and `ops.rollback-kubernetes-rollout` to the Kubernetes API. It verifies the exact cluster,
+namespace, resource kind, UID, and resource version, runs a server-side dry-run first, and applies
+only an `enforce` command that has already crossed the safeguard boundary. The namespaced runtime
+identity cannot create resources, read secrets, or mutate other namespaces.
+
 The four [alert-noise actions](../operations/alert-noise-governance.md) retain `pr_manual`, shadow defaults,
 Owner-level human approval and independent effect/recovery evidence. [Historical R7](../fork-and-sequencing/implementation-plan.md#26-r7---manual-merge-as-a-flag)
 was not adopted; there is no ActionType `require_manual_merge` field or implicit PR-native substitution.

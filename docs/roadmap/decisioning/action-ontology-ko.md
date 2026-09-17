@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: f4a1a6b8fbfab8527efd5dfe13d32e301b076759
+translation_source_sha: bc7bade036a0ee0029829443cf5a2911c5d62a46
 translation_revised: 2026-09-17
 ---
 
@@ -330,6 +330,12 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 - `ops.set-alert-notification-window` - 기존 비활성 규칙 하나에 유한한 억제 구간을 설정합니다.
 - `ops.tune-alert-evaluation` - 지원되는 임계값, 평가 구간 또는 주기 중 한 축의 변경을 제안합니다.
 - `ops.restore-alert-configuration` - 별도 복구 권한으로 정확히 보존된 기준선을 복원합니다.
+
+AKS에서 격리된 실행기는 `ops.restart-service`, `ops.scale-in`, `ops.scale-out`,
+`ops.rollback-kubernetes-rollout`만 Kubernetes API에 연결합니다. 정확한 클러스터, namespace,
+리소스 종류, UID 및 리소스 버전을 확인하고 먼저 서버 측 dry run을 실행합니다. 그런 다음
+안전장치 경계를 이미 통과한 `enforce` 명령만 적용합니다. Namespace 범위의 런타임 신원은
+리소스를 생성하거나 secret을 읽거나 다른 namespace를 변경할 수 없습니다.
 
 네 [알림 과다 수신 관리 작업](../operations/alert-noise-governance-ko.md)은 `pr_manual`, shadow 기본값,
 Owner 수준의 사람 승인과 독립 효과/복구 근거를 유지합니다. [과거 R7 제안](../fork-and-sequencing/implementation-plan-ko.md)은

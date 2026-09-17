@@ -776,6 +776,42 @@ def test_aks_inventory_binding_rejects_non_cluster_identity(cluster_id: str) -> 
         standalone_host._aks_inventory_binding_environment(cluster_id)
 
 
+def test_aks_kubernetes_effect_binding_is_namespace_limited() -> None:
+    cluster_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/"
+        "Microsoft.ContainerService/managedClusters/aks-example"
+    )
+
+    environment = standalone_host._aks_kubernetes_direct_api_environment(
+        cluster_id,
+        namespace="fdai-runtime",
+    )
+
+    assert json.loads(environment["FDAI_KUBERNETES_DIRECT_API_JSON"]) == {
+        "allowed_namespaces": ["fdai-runtime"],
+        "api_server": "https://kubernetes.default.svc",
+        "ca_path": "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+        "cluster_ref": cluster_id,
+        "token_path": "/var/run/secrets/kubernetes.io/serviceaccount/token",
+    }
+
+
+@pytest.mark.parametrize("namespace", ["", "UPPER", "invalid/name"])
+def test_aks_kubernetes_effect_binding_rejects_invalid_namespace(namespace: str) -> None:
+    cluster_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/"
+        "Microsoft.ContainerService/managedClusters/aks-example"
+    )
+
+    with pytest.raises(ValueError, match="namespace is invalid"):
+        standalone_host._aks_kubernetes_direct_api_environment(
+            cluster_id,
+            namespace=namespace,
+        )
+
+
 def test_postgres_aks_substrate_excludes_flexible_server() -> None:
     context = {
         "runtime_profile": {

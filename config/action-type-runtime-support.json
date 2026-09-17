@@ -71,6 +71,24 @@
         "symbol": "KUBERNETES_ACTION_TYPES"
       }
     },
+    "isolated-kubernetes-direct-api": {
+      "runtime_surface": "isolated_executor",
+      "route_status": "conditional",
+      "mode_support": {
+        "shadow": "unsupported",
+        "enforce": "conditional"
+      },
+      "activation_conditions": [
+        "The isolated Executor authority cutover, exact in-cluster API server, projected token and CA paths, and namespace allowlist must all be configured.",
+        "Only safeguard-bound enforce commands for the four registered Kubernetes ActionTypes are accepted.",
+        "Current target UID and resourceVersion, promotion, human approval where required, target lock, idempotency, audit, and independent effect observation remain mandatory."
+      ],
+      "source_assertion": {
+        "kind": "set_values",
+        "path": "services/isolated-executor/src/fdai_executor_service/adapters/kubernetes_direct_api.py",
+        "symbol": "KUBERNETES_ACTION_TYPES"
+      }
+    },
     "isolated-azure-gateway": {
       "runtime_surface": "isolated_executor",
       "route_status": "conditional",
@@ -283,6 +301,37 @@
         "refs": [
           {
             "path": "services/core-control-plane/tests/delivery/test_kubernetes_direct_api.py"
+          },
+          {
+            "path": "extensions/aks-commerce/tests/test_effect.py"
+          }
+        ]
+      }
+    },
+    "isolated-kubernetes": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "conditional",
+        "refs": [
+          {
+            "path": "extensions/aks-commerce/src/fdai_aks_commerce/effect.py",
+            "symbol": "verify_business_effect"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "conditional",
+        "refs": [
+          {
+            "path": "rule-catalog/action-types/ops.rollback-kubernetes-rollout.yaml"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/isolated-executor/tests/test_kubernetes_direct_api.py"
           },
           {
             "path": "extensions/aks-commerce/tests/test_effect.py"
@@ -763,9 +812,10 @@
     },
     "ops.restart-service@1.0.0": {
       "bindings": {
-        "core-kubernetes-direct-api": "core-kubernetes"
+        "core-kubernetes-direct-api": "core-kubernetes",
+        "isolated-kubernetes-direct-api": "isolated-kubernetes"
       },
-      "note": "The conditional Core binding supports exact Kubernetes Pod replacement; other restart substrates remain unsupported."
+      "note": "Core supports conditional dry-run compatibility; the isolated Executor owns safeguard-bound exact Kubernetes Pod replacement."
     },
     "ops.restore-alert-configuration@1.0.0": {
       "bindings": {
@@ -775,9 +825,10 @@
     },
     "ops.rollback-kubernetes-rollout@1.0.0": {
       "bindings": {
-        "core-kubernetes-direct-api": "core-kubernetes"
+        "core-kubernetes-direct-api": "core-kubernetes",
+        "isolated-kubernetes-direct-api": "isolated-kubernetes"
       },
-      "note": "The conditional Core binding restores reviewed digest-pinned images; no isolated Executor or live receipt is registered."
+      "note": "The isolated Executor restores reviewed digest-pinned images after safeguard-bound approval; effect evidence remains conditional."
     },
     "ops.revoke-human-access@1.0.0": {
       "bindings": {
@@ -792,16 +843,18 @@
     },
     "ops.scale-in@1.0.0": {
       "bindings": {
-        "core-kubernetes-direct-api": "core-kubernetes"
+        "core-kubernetes-direct-api": "core-kubernetes",
+        "isolated-kubernetes-direct-api": "isolated-kubernetes"
       },
-      "note": "The conditional Core binding supports exact Kubernetes Deployment replica changes; other scale-in substrates remain unsupported."
+      "note": "The isolated Executor supports exact Kubernetes Deployment replica reduction within its namespace allowlist; other scale-in substrates remain unsupported."
     },
     "ops.scale-out@1.0.0": {
       "bindings": {
         "core-azure-gateway": "core-scale-out",
-        "core-kubernetes-direct-api": "core-kubernetes"
+        "core-kubernetes-direct-api": "core-kubernetes",
+        "isolated-kubernetes-direct-api": "isolated-kubernetes"
       },
-      "note": "Core conditionally supports both Azure VM Scale Set and exact Kubernetes Deployment scale-out; isolated Executor Kubernetes routing is not registered."
+      "note": "Azure VM Scale Set scale-out remains gateway-routed; exact Kubernetes Deployment scale-out is also registered on the isolated Executor."
     },
     "ops.set-alert-notification-window@1.0.0": {
       "bindings": {

@@ -135,6 +135,40 @@ def test_legacy_unbound_transition_requires_authority_cutover() -> None:
         executor_cli.IsolatedExecutorRuntimeConfig.from_env(environment)
 
 
+def test_deployed_kubernetes_cutover_does_not_require_azure_effect_identities() -> None:
+    environment = {
+        "RUNTIME_ENV": "prod",
+        "FDAI_EXECUTION_VENUE": "deployed",
+        "KAFKA_BOOTSTRAP_SERVERS": "events.example.invalid:9093",
+        "FDAI_STATE_STORE_DSN": "postgresql://example.invalid/fdai",
+        "FDAI_DATABASE_ROLE": "fdai_executor",
+        "FDAI_ISOLATED_EXECUTOR_DEPLOYED": "1",
+        "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID": ("00000000-0000-0000-0000-000000000001"),
+        "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
+        "FDAI_KUBERNETES_DIRECT_API_JSON": "{}",
+    }
+
+    config = executor_cli.IsolatedExecutorRuntimeConfig.from_env(environment)
+
+    assert config.authority_cutover is True
+
+
+def test_deployed_cutover_rejects_missing_effect_adapter() -> None:
+    environment = {
+        "RUNTIME_ENV": "prod",
+        "FDAI_EXECUTION_VENUE": "deployed",
+        "KAFKA_BOOTSTRAP_SERVERS": "events.example.invalid:9093",
+        "FDAI_STATE_STORE_DSN": "postgresql://example.invalid/fdai",
+        "FDAI_DATABASE_ROLE": "fdai_executor",
+        "FDAI_ISOLATED_EXECUTOR_DEPLOYED": "1",
+        "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID": ("00000000-0000-0000-0000-000000000001"),
+        "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
+    }
+
+    with pytest.raises(RuntimeError, match="requires a direct-API adapter"):
+        executor_cli.IsolatedExecutorRuntimeConfig.from_env(environment)
+
+
 def test_executor_cli_composes_the_service_owned_kafka_config() -> None:
     assert executor_cli.EventHubsKafkaBusConfig is EventHubsKafkaBusConfig
 

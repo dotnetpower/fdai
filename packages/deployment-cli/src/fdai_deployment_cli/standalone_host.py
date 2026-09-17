@@ -36,6 +36,7 @@ _AKS_RESOURCE_ID = re.compile(
     re.IGNORECASE,
 )
 _KUBERNETES_SERVICE_ACCOUNT_ROOT = "/var/run/secrets/kubernetes.io/serviceaccount"
+_AKS_RUNTIME_NAMESPACE = "fdai-runtime"
 _STAGES: Final = ("substrate", "runtime", "database", "application")
 _SUBSTRATE_TARGETS: Final = (
     "module.resource_group",
@@ -715,6 +716,8 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "AUTONOMY_MODE_DEFAULT": "shadow",
         "FDAI_MONITOR_WORKSPACE_ID": substrate_outputs["workspace"],
         "FDAI_OPERATING_MODEL_TOPIC": substrate_outputs["operating_model_topic"],
+        "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["operational_kafka"],
+        "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
     }
     core_environment.update(
         _aks_core_conversation_environment(
@@ -781,9 +784,14 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
                 "AZURE_CLIENT_ID": executor_identity["client_id"],
                 "RUNTIME_ENV": application_values["env"],
                 "FDAI_ISOLATED_EXECUTOR_DEPLOYED": "1",
+                "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
                 "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID": executor_identity["client_id"],
-                "KAFKA_BOOTSTRAP_SERVERS": core_environment["KAFKA_BOOTSTRAP_SERVERS"],
+                "KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["operational_kafka"],
                 "FDAI_ISOLATED_EXECUTOR_HEALTH_PORT": "8000",
+                **_aks_kubernetes_direct_api_environment(
+                    cluster_id,
+                    namespace=_AKS_RUNTIME_NAMESPACE,
+                ),
             },
             {
                 "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
@@ -897,6 +905,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     workloads_infra = substrate / "runtimes/aks/workloads"
     values = {
         "kubeconfig_path": str(kubeconfig),
+        "namespace": _AKS_RUNTIME_NAMESPACE,
         "tenant_id": context["tenant_id"],
         "oidc_issuer_url": oidc_issuer_url,
         "key_vault_name": _vault_name(str(substrate_outputs["key_vault_uri"])),
@@ -2062,6 +2071,33 @@ def _aks_inventory_binding_environment(cluster_id: str) -> dict[str, str]:
         "FDAI_KUBERNETES_AUTH_MODE": "service-account",
         "FDAI_KUBERNETES_CA_PATH": f"{_KUBERNETES_SERVICE_ACCOUNT_ROOT}/ca.crt",
         "FDAI_KUBERNETES_TOKEN_PATH": f"{_KUBERNETES_SERVICE_ACCOUNT_ROOT}/token",
+    }
+
+
+def _aks_kubernetes_direct_api_environment(
+    cluster_id: str,
+    *,
+    namespace: str,
+) -> dict[str, str]:
+    """Bind exact namespace-limited Kubernetes effects to the isolated Executor."""
+
+    normalized_cluster_id = cluster_id.strip()
+    if _AKS_RESOURCE_ID.fullmatch(normalized_cluster_id) is None:
+        raise ValueError("AKS runtime cluster id is invalid")
+    if not re.fullmatch(r"[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?", namespace):
+        raise ValueError("AKS runtime namespace is invalid")
+    return {
+        "FDAI_KUBERNETES_DIRECT_API_JSON": json.dumps(
+            {
+                "allowed_namespaces": [namespace],
+                "api_server": "https://kubernetes.default.svc",
+                "ca_path": f"{_KUBERNETES_SERVICE_ACCOUNT_ROOT}/ca.crt",
+                "cluster_ref": normalized_cluster_id,
+                "token_path": f"{_KUBERNETES_SERVICE_ACCOUNT_ROOT}/token",
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
     }
 
 

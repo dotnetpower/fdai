@@ -56,6 +56,13 @@ locals {
     },
   )
   inventory_job_enabled = contains(keys(var.scheduled_jobs), "inventory")
+  executor_kubernetes_effect_enabled = try(
+    contains(
+      keys(var.workloads["isolated-executor"].environment),
+      "FDAI_KUBERNETES_DIRECT_API_JSON",
+    ),
+    false,
+  )
 }
 
 resource "kubernetes_namespace_v1" "runtime" {
@@ -170,6 +177,54 @@ resource "kubernetes_cluster_role_binding_v1" "inventory_reader" {
   subject {
     kind      = "ServiceAccount"
     name      = kubernetes_service_account_v1.identity["job-inventory"].metadata[0].name
+    namespace = kubernetes_namespace_v1.runtime.metadata[0].name
+  }
+}
+
+resource "kubernetes_role_v1" "executor_kubernetes_effect" {
+  count = local.executor_kubernetes_effect_enabled ? 1 : 0
+
+  metadata {
+    name      = "isolated-executor-kubernetes-effect"
+    namespace = kubernetes_namespace_v1.runtime.metadata[0].name
+  }
+
+  rule {
+    api_groups = [""]
+    resources  = ["pods"]
+    verbs      = ["get", "delete"]
+  }
+
+  rule {
+    api_groups = ["apps"]
+    resources  = ["deployments"]
+    verbs      = ["get", "patch"]
+  }
+
+  rule {
+    api_groups = ["apps"]
+    resources  = ["deployments/scale"]
+    verbs      = ["get", "update"]
+  }
+}
+
+resource "kubernetes_role_binding_v1" "executor_kubernetes_effect" {
+  count = local.executor_kubernetes_effect_enabled ? 1 : 0
+
+  metadata {
+    name      = "isolated-executor-kubernetes-effect"
+    namespace = kubernetes_namespace_v1.runtime.metadata[0].name
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "Role"
+    name      = kubernetes_role_v1.executor_kubernetes_effect[0].metadata[0].name
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account_v1.identity["workload-isolated-executor"].metadata[0].name
     namespace = kubernetes_namespace_v1.runtime.metadata[0].name
   }
 }
