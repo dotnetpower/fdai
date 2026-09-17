@@ -134,7 +134,7 @@ or explicit detail control, and blocks structural card names. Detection coverage
 Operating Outcomes publishes its metric, value, baseline, window, sample size, confidence and
 provenance as a bounded Command Deck snapshot. Only Auto-resolution includes vertical breakdowns.
 Narration receives rendered facts, never invented unavailable values or replacement sources.
-Headlines and cards share formatting, preserving ratios and the displayed percentage precision.
+Headlines and cards share formatting and ratio precision. Each Dashboard routing distribution allocates displayed whole-number percentages from exact shares as one group totaling 100 percent, while segment widths retain the exact shares.
 Dashboard routing retains its own canonical sample, independent of general audit noise.
 Mode, tier, action, outcome, window and sequence filters reach the server-owned audit query.
 Admitted cohort comparisons remain separate from rolling Live values, expire, and grant no authority. Their captured view context retains both arms and the expiry rather than substituting the rolling baseline. Expiry republishes the view, and every submission withdraws expired cohort groups from pinned snapshots as well.

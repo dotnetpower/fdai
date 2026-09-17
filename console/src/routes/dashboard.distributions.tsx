@@ -239,7 +239,7 @@ function DistributionBlock({
           <a
             key={row.key}
             href={hrefFor(row)}
-            aria-label={`${labelFor(row)} ${Math.round(row.share * 100)}%`}
+            aria-label={`${labelFor(row)} ${row.percentage}%`}
             class={`overview-distribution-segment tone-${toneFor(row)}`}
             style={{ width: `${row.share * 100}%` }}
           />
@@ -249,7 +249,7 @@ function DistributionBlock({
         {rows.map((row) => (
           <a key={row.key} href={hrefFor(row)}>
             <span class={`overview-distribution-dot tone-${toneFor(row)}`} aria-hidden="true" />
-            <strong>{Math.round(row.share * 100)}%</strong>
+            <strong>{row.percentage}%</strong>
             <span>{labelFor(row)}</span>
             <small>{row.count}</small>
           </a>

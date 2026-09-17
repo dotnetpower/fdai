@@ -59,7 +59,7 @@ describe("distribution evidence", () => {
 
   test("keeps a measured distribution when another category is zero", () => {
     expect(distributionEvidence({ t0: 0, t1: 2 }, 10)).toEqual({
-      rows: [{ key: "t1", count: 2, share: 1 }],
+      rows: [{ key: "t1", count: 2, percentage: 100, share: 1 }],
       state: "available",
     });
   });
@@ -191,13 +191,20 @@ describe("control gap summary", () => {
 });
 
 describe("overview distributions", () => {
-  test("sorts observed rows and preserves measured shares", () => {
+  test("sorts observed rows and preserves measured shares and percentages", () => {
     expect(distributionRows({ t0: 7, t1: 2, t2: 1 })).toEqual([
-      { key: "t0", count: 7, share: 0.7 },
-      { key: "t1", count: 2, share: 0.2 },
-      { key: "t2", count: 1, share: 0.1 },
+      { key: "t0", count: 7, percentage: 70, share: 0.7 },
+      { key: "t1", count: 2, percentage: 20, share: 0.2 },
+      { key: "t2", count: 1, percentage: 10, share: 0.1 },
     ]);
     expect(distributionRows({})).toEqual([]);
+  });
+
+  test("allocates rounded percentages that sum to 100 within each distribution", () => {
+    const rows = distributionRows({ approval: 1, held: 1, other: 1 });
+
+    expect(rows.map((row) => row.percentage)).toEqual([34, 33, 33]);
+    expect(rows.reduce((sum, row) => sum + row.percentage, 0)).toBe(100);
   });
 
   test("groups machine outcomes into operator-facing control paths", () => {
