@@ -1,6 +1,6 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: eacf23bff50a2b2a199772b0972888dcbf43f4a4
+translation_source_sha: 3cc48fb07912dddaa5fbaca82da2c26918c68618
 translation_revised: 2026-09-17
 ---
 # AKS 상거래 비즈니스 시나리오
@@ -176,6 +176,9 @@ Console 경로는 하나의 서비스 중심 인시던트 보기를 제공합니
 
 실제 배포는 일반 FDAI 정확한 계획 작업 흐름을 사용합니다. 이 설계는 테넌트, 구독,
 리소스 그룹, 도메인, 인증서, Terraform 계획을 선택하지 않습니다.
+보호된 scenario workflow는 Terraform provider와 backend 접근을 정확하게 검증된 deploy
+runner Managed Identity에 결속합니다. Azure CLI session이 클러스터 plan에 사용할 주변
+user, service principal 또는 node identity를 선택하지 않습니다.
 
 ## 관련 문서
 
