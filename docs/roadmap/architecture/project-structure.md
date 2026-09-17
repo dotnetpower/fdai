@@ -121,13 +121,10 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   both plan and apply. SKU-qualified quota lookup prevents another deployment tier from satisfying the reviewed secondary profile.
   Resolver and composition require distinct primary and secondary families and reject secondary-family reuse in a primary latency pool before binding. Semantic pre-frame selection keeps summaries, traces, and
   ownership frames typed separately; compatibility facades retain stable imports.
-- **qualification reduction is authority-free**:
-  `core/conversation_assurance/quality_qualification.py` accepts only premeasured normalized
+- **qualification reduction is authority-free**: `core/conversation_assurance/quality_qualification.py` accepts only premeasured normalized
   observations and reduces them against the installed contract. It derives hard caps and preserves
   raw threshold decisions. Schema v1 records `locale_statistical_evidence_missing` and cannot qualify. It cannot call a model, read a provider, promote a policy, approve a request, or execute an action.
-  Operator migrations retain schema ownership of the Conversation Assurance assessment and dispute
-  tables. The Core service migration grants `fdai_core` only `SELECT` and `INSERT`; it grants no
-  update, delete, schema, approval, promotion, or execution authority.
+  Operator migrations retain schema ownership of the Conversation Assurance assessment and dispute tables. The Core service migration grants `fdai_core` only `SELECT` and `INSERT`; it grants no update, delete, schema, approval, promotion, or execution authority.
   JSON parsing and artifact writing remain in the repository-owned
   `scripts/evaluation/chatops-quality-qualification.py` boundary, with duplicate-key rejection and atomic output replacement. Completed-turn observation
   adapters use the shared content-free contracts, hash runtime and evidence references, and keep
@@ -151,10 +148,7 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   `channel_assurance.py` applies common content, limitation, evidence, and authority checks plus capability-declared progress, rich, thread, and edit checks without owning transport. `copilot_review.py` exports and imports owner-only digest-bound review packets whose results grant neither qualification nor execution authority. Operator, channel, verification, and delivery owners retain timestamp and measurement authority.
   Stage owners provide monotonic start and completion values through a typed receipt; Core derives
   duration only after the receipt environment matches the installed stage contract.
-  Conversation Assurance emits the deterministic-verification receipt only when composition injects
-  both the PR benchmark environment and a sink. Ordinary Azure composition may expose the shared
-  metering sink and pricing table for measured conversation usage, but it does not activate benchmark
-  receipts.
+  Conversation Assurance emits the deterministic-verification receipt only when composition injects both the PR benchmark environment and a sink. Ordinary Azure composition may expose the shared metering sink and pricing table for measured conversation usage, but it does not activate benchmark receipts.
   Explicit Pantheon campaigns use a separate one-time runtime binding after Pantheon initialization.
   Core validates the requested case against the fixed server census, Bragi produces the single
   terminal answer, and the off-path distinct-family reviewers append the correlated 30-point

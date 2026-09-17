@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a74141c0133bb0bcaadb11dd0c47a888697d99c6
+translation_source_sha: 8ef832eb9e4dade1a875739505825e2245ce77e3
 translation_revised: 2026-09-17
 ---
 # 프로젝트 구조
@@ -123,9 +123,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만
   받아 설치된 계약에 따라 축약합니다. 원시 근거 상태에서 하드 상한을 계산하고 반올림 전 임계값 판정을 보존합니다.
   v1은 `locale_statistical_evidence_missing`을 기록하며 자격을 충족할 수 없습니다. 모델 호출, 프로바이더 읽기, 정책 승격, 요청 승인 또는 작업 실행도 할 수 없습니다.
-  Conversation Assurance 평가 및 분쟁 테이블의 스키마 소유권은 Operator 마이그레이션에
-  남습니다. Core 서비스 마이그레이션은 `fdai_core`에 `SELECT`와 `INSERT`만 부여하며,
-  갱신, 삭제, 스키마, 승인, 승격 또는 실행 권한은 부여하지 않습니다.
+  Conversation Assurance 평가 및 분쟁 테이블의 스키마 소유권은 Operator 마이그레이션에 남습니다. Core 서비스 마이그레이션은 `fdai_core`에 `SELECT`와 `INSERT`만 부여하며, 갱신, 삭제, 스키마, 승인, 승격 또는 실행 권한은 부여하지 않습니다.
   중복 키 차단을 포함한 JSON 구문 분석과 원자적 산출물 교체는 리포지토리가 소유하는
   `scripts/evaluation/chatops-quality-qualification.py` 경계에 남습니다. 완료된 턴 관측 adapter는
   콘텐츠가 없는 공용 계약을 사용하고 런타임 및 근거 참조를 해시하며, 지원하지 않는 모든 차원을
@@ -149,9 +147,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   `channel_assurance.py`는 전송을 소유하지 않고 공통 내용, 제한, 근거 및 권한 검사와 기능 선언 기반 진행 상황, rich, thread 및 edit 검사를 적용합니다. `copilot_review.py`는 자격 검증 또는 실행 권한을 부여하지 않는 소유자 전용 digest 결속 검토 packet을 내보내고 가져옵니다. Operator, 채널, 검증 및 전달 소유자는 타임스탬프와 측정 권한을 유지합니다.
   단계 소유자는 타입이 지정된 증적을 통해 monotonic 시작 및 완료 값을 제공합니다. Core는 증적
   환경이 설치된 단계 계약과 일치한 후에만 기간을 파생합니다. 저장소 CLI는 콘텐츠가 없는
-  Conversation Assurance는 composition이 PR benchmark 환경과 sink를 모두 주입한 경우에만
-  결정론 검증 증적을 생성합니다. 일반 Azure 조립은 측정된 대화 사용량을 위해 공유 계량
-  sink와 가격표를 노출할 수 있지만 benchmark 증적을 활성화하지 않습니다.
+  Conversation Assurance는 composition이 PR benchmark 환경과 sink를 모두 주입한 경우에만 결정론 검증 증적을 생성합니다. 일반 Azure 조립은 측정된 대화 사용량을 위해 공유 계량 sink와 가격표를 노출할 수 있지만 benchmark 증적을 활성화하지 않습니다.
   명시적 Pantheon 캠페인은 Pantheon 초기화 후 별도의 일회성 런타임 연결을 사용합니다. Core는
   요청된 사례를 서버의 고정 census와 대조해 검증하고, Bragi는 단일 최종 답변을 만들며, 응답 경로
   밖의 서로 다른 모델 계열 검토자는 상관관계가 연결된 30점 진단을 추가합니다. 일반
