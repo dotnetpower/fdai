@@ -106,7 +106,11 @@ repair.
 Chat defaults to **Use in this conversation only**. Operators can choose **Keep as workspace draft**
 or **Add to governed knowledge**, but the latter requires collection and audience confirmation.
 Document views expose disposition, expiry, index receipt, derivative storage, promotion, tombstone,
-cleanup progress, and any hold that delays physical purge.
+cleanup progress, and any hold that delays physical purge. The library groups exact same-name
+records, loads authorized immutable history on demand, and binds preview, download, and deletion to
+the selected version. An unchanged governed re-upload reuses the existing ready version; changed
+content creates a successor and does not mutate history. Deleting an active version does not grant
+authority to reactivate a prior version.
 
 ## Release gates
 
