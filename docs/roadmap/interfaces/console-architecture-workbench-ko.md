@@ -1,7 +1,7 @@
 ---
 title: Console 아키텍처 작업 영역
 translation_of: console-architecture-workbench.md
-translation_source_sha: 676b8fde15d48fd12c9e5e35b390026097832d03
+translation_source_sha: 98bc4a4152fd64352fea48048b12c8c797fff1ff
 translation_revised: 2026-09-17
 ---
 # Console 아키텍처 작업 영역
@@ -113,6 +113,8 @@ canvas 안에서 크기만 바뀌면 운영자가 선택한 확대 상태를 그
 검토된 Resource 아이콘은 대화형 그래프에서 URL 전용 해석기를 사용합니다. 원시 SVG 출처는
 독립 실행형 내보내기를 만들 때만 사용하므로, 인스턴스 또는 토폴로지 보기에 들어갈 때 선택한
 그래프를 렌더링하기 전에 검토된 모든 아이콘과 내보내기 출처를 불러오지 않습니다.
+Loopback Vite 서버는 저장소 루트 안의 파일만 읽을 수 있으므로, 브라우저 또는 배포 경계를
+넓히지 않고도 로컬 개발에서 검토된 공유 자산을 사용할 수 있습니다.
 
 ## 검증
 
