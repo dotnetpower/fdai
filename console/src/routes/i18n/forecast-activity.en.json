@@ -1,0 +1,10 @@
+{
+  "title": "Recorded forecast activity",
+  "description": "Episodes can be recorded before their outcomes are due. These counts do not establish prediction quality.",
+  "total": "Total episodes",
+  "open": "Open episodes",
+  "closed": "Closed episodes",
+  "abstained": "Abstained episodes",
+  "pendingRetention": "Deletion in progress",
+  "oldestPending": "Oldest due publication"
+}
