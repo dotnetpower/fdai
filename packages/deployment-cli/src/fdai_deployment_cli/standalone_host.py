@@ -30,6 +30,12 @@ from fdai_deployment_cli.trust_roots import license_public_key_pem
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _SOURCE_COMMIT = re.compile(r"[0-9a-f]{40}")
+_AKS_RESOURCE_ID = re.compile(
+    r"/subscriptions/[^/]+/resourcegroups/[^/]+/providers/"
+    r"microsoft\.containerservice/managedclusters/[^/]+",
+    re.IGNORECASE,
+)
+_KUBERNETES_SERVICE_ACCOUNT_ROOT = "/var/run/secrets/kubernetes.io/serviceaccount"
 _STAGES: Final = ("substrate", "runtime", "database", "application")
 _SUBSTRATE_TARGETS: Final = (
     "module.resource_group",
@@ -666,6 +672,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         )
     resource_group = str(substrate_outputs["resource_group"])
     _activate_terraform_stage("runtime", context, work_dir)
+    cluster_id = _terraform_output(runtime_infra, "cluster_id")
     cluster_name = _terraform_output(runtime_infra, "cluster_name")
     oidc_issuer_url = _terraform_output(runtime_infra, "oidc_issuer_url")
     kubeconfig = _prepare_aks_kubeconfig(
@@ -846,6 +853,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             "* * * * *",
             {
                 **inventory_environment,
+                **_aks_inventory_binding_environment(cluster_id),
                 "FDAI_INVENTORY_SCOPES": context["subscription_id"],
                 "FDAI_INVENTORY_SOURCES": "arg,arm",
                 "FDAI_MONITOR_WORKSPACE_ID": substrate_outputs["workspace"],
@@ -2039,6 +2047,21 @@ def _aks_job(
         "memory": "1Gi",
         "environment": {name: str(value) for name, value in environment.items()},
         "secret_environment": secret_environment,
+    }
+
+
+def _aks_inventory_binding_environment(cluster_id: str) -> dict[str, str]:
+    """Bind the AKS inventory job to its own in-cluster read-only API identity."""
+
+    normalized_cluster_id = cluster_id.strip()
+    if _AKS_RESOURCE_ID.fullmatch(normalized_cluster_id) is None:
+        raise ValueError("AKS runtime cluster id is invalid")
+    return {
+        "FDAI_KUBERNETES_API_SERVER": "https://kubernetes.default.svc",
+        "FDAI_KUBERNETES_CLUSTER_REF": normalized_cluster_id,
+        "FDAI_KUBERNETES_AUTH_MODE": "service-account",
+        "FDAI_KUBERNETES_CA_PATH": f"{_KUBERNETES_SERVICE_ACCOUNT_ROOT}/ca.crt",
+        "FDAI_KUBERNETES_TOKEN_PATH": f"{_KUBERNETES_SERVICE_ACCOUNT_ROOT}/token",
     }
 
 

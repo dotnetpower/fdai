@@ -125,11 +125,16 @@ business effect. Kubernetes API acceptance is not success.
 
 The scenario-lab profile deploys the commerce workload with these boundaries:
 
+- The profile creates the dedicated `aks-store-demo` cluster and never selects another existing
+  FDAI or shared cluster.
 - The storefront is the only public application surface.
 - Public access uses HTTPS, a deployment-supplied DNS name, and a trusted certificate reference.
 - The administration UI, APIs, queue, database, and executor remain private.
 - AKS monitoring, Container Insights, managed Prometheus, and required application telemetry are
   enabled before the scenario reports ready.
+- Deployment-owned associations do not replace an Azure Policy-owned effective subnet NSG.
+  Preflight verifies its default inbound deny rule, while the private-endpoint subnet and stress
+  VM NIC retain their explicit Terraform-owned associations.
 - The deployment emits the storefront URL and opaque resource references as outputs. It does not
   commit tenant values.
 

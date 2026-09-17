@@ -14,6 +14,7 @@ resource "azurerm_network_security_group" "scenario_lab" {
 }
 
 resource "azurerm_subnet" "aks" {
+  # checkov:skip=CKV2_AZURE_31:Azure Policy attaches the effective subnet NSG; protected preflight verifies its default inbound deny rule.
   name                 = "snet-aks"
   resource_group_name  = data.azurerm_resource_group.scenario_lab.name
   virtual_network_name = azurerm_virtual_network.scenario_lab.name
@@ -21,6 +22,7 @@ resource "azurerm_subnet" "aks" {
 }
 
 resource "azurerm_subnet" "stress_vm" {
+  # checkov:skip=CKV2_AZURE_31:Azure Policy attaches the subnet NSG, and Terraform also binds the lab NSG directly to the VM NIC.
   name                 = "snet-stress-vm"
   resource_group_name  = data.azurerm_resource_group.scenario_lab.name
   virtual_network_name = azurerm_virtual_network.scenario_lab.name
@@ -28,6 +30,7 @@ resource "azurerm_subnet" "stress_vm" {
 }
 
 resource "azurerm_subnet" "mysql" {
+  # checkov:skip=CKV2_AZURE_31:Azure Policy attaches the effective subnet NSG; protected preflight verifies its default inbound deny rule.
   name                 = "snet-mysql"
   resource_group_name  = data.azurerm_resource_group.scenario_lab.name
   virtual_network_name = azurerm_virtual_network.scenario_lab.name
@@ -53,10 +56,7 @@ resource "azurerm_subnet" "private_endpoints" {
 
 resource "azurerm_subnet_network_security_group_association" "scenario_lab" {
   for_each = {
-    aks               = azurerm_subnet.aks.id
-    mysql             = azurerm_subnet.mysql.id
     private_endpoints = azurerm_subnet.private_endpoints.id
-    stress_vm         = azurerm_subnet.stress_vm.id
   }
 
   subnet_id                 = each.value

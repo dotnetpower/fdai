@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: c16b316854f8c5a90a66d1527f18e070a611eb43
+translation_source_sha: eff134dd7a71ca7f89e19238c69aff004e2a02aa
 translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
@@ -222,6 +222,11 @@ AKS 기본 구성은 analyzer, canary, inventory, observation campaign, operatio
 CronJob을 렌더링합니다. 이력 작업은 읽기 전용 inventory 신원, 서비스 소유 상태 DSN, 비공개
 archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle은 별도의 보호된 전환과
 정확히 저장된 인증 증적을 요구하며 런타임 선택은 어느 권한도 부여하지 않습니다.
+애플리케이션 준비는 인벤토리 CronJob을 클러스터 내부 ServiceAccount 엔드포인트, CA 및 token
+경로를 통해 정확한 자체 AKS 클러스터에도 연결합니다. 전용 ClusterRole은 범위가 제한된 인벤토리
+및 Event 수집기가 사용하는 읽기 동작과 리소스 종류만 허용하며, ClusterRoleBinding은
+`inventory-job`만 지정합니다. 이 자동 자체 관측은 다른 클러스터를 검색하거나 권한을 부여하지
+않습니다.
 
 인벤토리 명령은 읽기 전용 실패 경계를 유지하며 Activity Log 복구 실패는 변경분 커서를 진행하거나
 재조정을 중단할 수 없습니다. 수동 모델 서비스 근거는 추론 없이 인벤토리 신원과 Azure Monitor를
@@ -337,9 +342,11 @@ quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로�
 5. rollback과 독립적으로 관측한 최종 증적을 보존합니다. 효과가 불명확하면 검증만 수행하며 같은
   적용을 다시 실행하지 않습니다.
 
-운영자의 현재 VM은 정확한 대상, 신원, 경로, DNS, TLS 및 백엔드 검사를 통과하면 실행 호스트로
-사용할 수 있습니다. 해당 VM의 VNet 피어링은 계획된 네트워크 효과이며 그 자체가 접근 근거는
-아닙니다.
+동일 구독 운영자 VNet에는 `operator_access_vnets`로 직접 비전이 피어링을 구성하고,
+`operator_private_dns_zones`로 DNS 연결을 제한하며, `operator_inventory_principal_ids`로 선택한
+Managed Identity에 구독 `Reader`만 부여합니다. 데이터 플레인 역할은 부여하지 않습니다.
+배포별 값은 소스 제어 외부에 유지합니다. 정확한 대상, 신원, 경로, DNS, TLS, 백엔드, 플랜, 승인 및
+효과 확인은 계속 필요하므로 피어링 자체는 접근 근거가 아닙니다.
 
 ## PostgreSQL 프로파일
 

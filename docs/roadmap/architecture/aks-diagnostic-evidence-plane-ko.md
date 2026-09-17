@@ -1,8 +1,8 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: ddf9f0581fb2ece493d2779c1ad9587144fdbc0f
-translation_revised: 2026-09-15
+translation_source_sha: aa936b23448ec8fe28ffa01ef38bb48a01e7dbf2
+translation_revised: 2026-09-17
 ---
 # AKS 진단 근거 플레인
 
@@ -56,6 +56,15 @@ Azure 관측은 정확한 대상을 검증한 뒤에만 결합됩니다. 결정�
 클러스터 ARM ID와 API origin은 각각 고유해야 합니다. 중복, 일부 구성, 잘못된 형식 또는 자격
 증명이 포함된 엔드포인트는 네트워크 I/O 전에 구성을 실패시킵니다. 기존 단일 클러스터 변수는 연결
 하나로 변환되며 fleet 연결 레코드와 함께 사용할 수 없습니다.
+FDAI가 관리하는 AKS 런타임에서는 애플리케이션 준비가 정확한 런타임 Terraform 출력으로 자체
+클러스터 연결 하나를 자동 생성합니다. 인벤토리 CronJob은
+`https://kubernetes.default.svc`, 변환된 ServiceAccount token 및 마운트된 클러스터 CA를
+사용합니다. 범위가 제한된 수집기에 필요한 검토된 클러스터 범위 `get`, `list` 및 Event
+`watch` 권한은 해당 CronJob ServiceAccount에만 부여합니다. Secret, ConfigMap 또는 쓰기 권한은
+부여하지 않습니다.
+외부 클러스터는 명시적인 fleet 연결로 유지합니다. 로컬 개발에서는 Kubernetes 수집을 명시적으로
+활성화하고 소유자 전용 fleet 연결 파일을 제공한 경우에만 연결합니다. 모든 AKS 클러스터를
+검색하거나 자격 증명을 저장소에 복사하거나 대화형 사람 신원을 암묵적으로 재사용하지 않습니다.
 배포는 각 managed cluster의 정확한 ARM ID 범위에서만 `Azure Kubernetes Service RBAC Reader`를
 할당합니다. 구독, 리소스 그룹 및 managed cluster 하위 리소스 범위는 허용되지 않습니다.
 격리된 공개 개발 Terraform 호출자는 검증된 Azure CLI 사람일 수 있지만, 이 관리 신원은 AKS
@@ -306,6 +315,15 @@ token을 전달하지 않습니다. 별도 Terraform deployer 역할은 구성�
 현재 세션 명시적 승인을 통해 코딩 세션 운영자가 집중 검사를 통과한 뒤 정확한 클러스터를 시작할
 수 있습니다. 근거를 수집한 뒤 초기 전원 및 로컬 연결 상태를 복구합니다. 이 테스트 작업은
 런타임 실행 권한을 부여하지 않습니다.
+
+런타임 프로파일 완성은 다음 순서를 따릅니다.
+
+1. 정확한 자체 클러스터 연결을 인벤토리 CronJob에 렌더링합니다.
+2. 최소 Kubernetes 읽기 역할을 인벤토리 ServiceAccount에만 연결합니다.
+3. 적합한 로컬 또는 외부 수집기에는 명시적인 소유자 전용 fleet 연결을 허용합니다.
+4. 연결이 없거나 혼합되거나 잘못됐거나 과도하게 노출된 경우 프로바이더 접근 전에 중단합니다.
+5. 시작 동작을 워크로드 정상 근거로 취급하지 않으면서 중지, 사용 불가, 준비된 Node 및 Pod 상태
+   경로를 검증합니다.
 
 ## 관련 문서
 
