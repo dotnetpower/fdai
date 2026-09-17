@@ -118,8 +118,8 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   protected service materialization supplies the same origins to the independent Core root, and
   semantic planning plus post-turn review resolve their capability bindings through it. The
   staging ChatOps validation mode seals that result into plan metadata and revalidates it before
-  both plan and apply. SKU-qualified quota lookup prevents another deployment tier from satisfying
-  the reviewed secondary profile. Semantic pre-frame selection keeps summaries, traces, and
+  both plan and apply. SKU-qualified quota lookup prevents another deployment tier from satisfying the reviewed secondary profile.
+  Resolver and composition require distinct primary and secondary families and reject secondary-family reuse in a primary latency pool before binding. Semantic pre-frame selection keeps summaries, traces, and
   ownership frames typed separately; compatibility facades retain stable imports.
 - **qualification reduction is authority-free**:
   `core/conversation_assurance/quality_qualification.py` accepts only premeasured normalized

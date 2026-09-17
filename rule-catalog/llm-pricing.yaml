@@ -67,7 +67,7 @@ models:
     output_per_1k: "2.00"
     currency: USD
 
-  # Cross-check peers (distinct publishers)
+  # Optional third-party cross-check peers
   claude-opus-4:
     input_per_1k: "15.00"
     output_per_1k: "75.00"

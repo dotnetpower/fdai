@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 94005715e469323e6a5a762719c4f44c0b6bf18a
+translation_source_sha: 8abb622a990d2c503a4ddc782f29d7a7aa9b46f0
 translation_revised: 2026-09-17
 ---
 # 프로젝트 구조
@@ -116,8 +116,8 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   provider/hostname 불일치를 차단합니다. Platform Terraform이 이 map을 소유하며 보호된 서비스
   구체화는 같은 origin을 독립 Core root에 전달합니다. 의미 계획과 턴 후 검토는 이 map을 통해
   기능 binding을 해석합니다. Staging ChatOps 검증 모드는 결과를 계획 metadata에 봉인하고 계획과
-  적용 전에 다시 검증합니다. SKU 한정 quota 조회는 다른 배포 tier가 검토된 secondary 프로필을
-  충족하지 못하게 합니다. 의미 사전 프레임 선택은 요약, 추적, 담당 프레임의 타입을 분리하며
+  적용 전에 다시 검증합니다. SKU 한정 quota 조회는 다른 배포 tier가 검토된 secondary 프로필을 충족하지 못하게 합니다.
+  Resolver와 composition은 primary 및 secondary 계열을 다르게 요구하고 binding 전에 primary 지연 시간 풀의 secondary 계열 재사용을 거부합니다. 의미 사전 프레임 선택은 요약, 추적, 담당 프레임의 타입을 분리하며
   호환성 facade는 안정적인 import를 유지합니다.
 - **자격 검증 축약에는 권한이 없음**:
   `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만

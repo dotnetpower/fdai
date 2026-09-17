@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 638737ed66ae98557274c2dc6d5f6aa9f8836d3b
+translation_source_sha: 0a4bb5deaab1f2d53f2f39297d7718ca59ed2830
 translation_revised: 2026-09-17
 ---
 # 구독 초기 프로비저닝
@@ -406,7 +406,7 @@ ancestor, 이미지, 인증 검사는 그대로 유지됩니다.
 
 "충분한 TPM"은 고정된 큰 숫자가 아니라 측정된 배포 속성입니다. 초기 구성은 비어 있지 않은
 핵심 집합 `t1.embedding`, `t1.judge`, `t2.reasoner.primary`와 혼합 모델 모드에서
-`t2.reasoner.secondary`를 요구합니다. `hil-only`는 모델 준비도를 충족하지 않습니다. 모델
+서로 다른 모델 계열의 `t2.reasoner.secondary`를 요구합니다. `hil-only`는 모델 준비도를 충족하지 않습니다. 모델
 계획은 기능별로 다음 입력을 사용합니다.
 
 - 최소 사용 가능 TPM 또는 프로비저닝된 처리량 단위

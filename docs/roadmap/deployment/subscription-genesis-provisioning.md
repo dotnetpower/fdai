@@ -408,7 +408,7 @@ racing its own schema.
 
 "Enough TPM" is a measured deployment property rather than a fixed large number. Genesis requires
 the nonempty core set `t1.embedding`, `t1.judge`, and `t2.reasoner.primary`, plus
-`t2.reasoner.secondary` when mixed-model mode is active. `hil-only` cannot satisfy model readiness.
+`t2.reasoner.secondary` with a distinct model family when mixed-model mode is active. `hil-only` cannot satisfy model readiness.
 The model plan uses these inputs for each capability:
 
 - minimum usable TPM or provisioned throughput units;

@@ -272,7 +272,13 @@ def test_recorded_state_route_reports_ontology_generation_change_explicitly() ->
 
     response = _client(ChangedDependencies()).get("/ontology/instances/states", headers=HEADERS)
     assert response.status_code == 409
-    assert response.json() == {"error": {"status": 409, "message": "ontology_generation_changed"}}
+    assert response.json() == {
+        "error": {
+            "status": 409,
+            "message": "ontology_generation_changed",
+            "reason": "ontology_generation_pending",
+        }
+    }
 
 
 def test_automation_blueprints_projection_is_reader_gated_and_read_only() -> None:

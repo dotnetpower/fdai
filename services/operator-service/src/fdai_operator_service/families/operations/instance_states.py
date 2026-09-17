@@ -9,7 +9,7 @@ import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Literal, Protocol
 
 from fdai_operator_service.families.operations.contracts import (
     InventoryImpactContext,
@@ -39,6 +39,17 @@ class InventoryGenerationChangedError(RuntimeError):
 
 class OntologyGenerationChangedError(RuntimeError):
     """The active inventory is not the generation currently committed to ontology."""
+
+    def __init__(
+        self,
+        reason: Literal[
+            "ontology_projection_missing",
+            "ontology_generation_pending",
+            "ontology_release_mismatch",
+        ] = "ontology_generation_pending",
+    ) -> None:
+        super().__init__("ontology_generation_changed")
+        self.reason = reason
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,11 +157,12 @@ async def project_inventory_states(
         is None
     ):
         raise ProjectionUnavailableError("inventory ontology manifest identity is malformed")
-    if ontology_context is None or (
-        ontology_context.generation != context.snapshot_id
-        or ontology_context.ontology_release_digest != release_digest
-    ):
-        raise OntologyGenerationChangedError
+    if ontology_context is None:
+        raise OntologyGenerationChangedError("ontology_projection_missing")
+    if ontology_context.ontology_release_digest != release_digest:
+        raise OntologyGenerationChangedError("ontology_release_mismatch")
+    if ontology_context.generation != context.snapshot_id:
+        raise OntologyGenerationChangedError("ontology_generation_pending")
     binding = {
         "schema_version": "1.0.0",
         "generation": content_digest({"source_generation": context.snapshot_id}),

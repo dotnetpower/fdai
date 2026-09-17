@@ -9,7 +9,7 @@
 #   - schema_version is semver.
 #   - Every capability declares >= 1 preference of (publisher, family).
 #   - capacity_tpm >= 1000.
-#   - t2.reasoner.primary[0].publisher != t2.reasoner.secondary[0].publisher
+#   - t2.reasoner.primary[0].family != t2.reasoner.secondary[0].family
 #     UNLESS mixed_model_mode = "hil-only".
 #
 # Forks override this file (mode = azure-foundry | external | hil-only) with
