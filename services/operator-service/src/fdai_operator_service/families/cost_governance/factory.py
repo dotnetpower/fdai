@@ -252,7 +252,7 @@ def _build_route(
         raw_analytics = analytics_snapshot.projection if analytics_snapshot is not None else None
         records = (
             ()
-            if hidden or surface in {"optimization-cases", "outcomes"}
+            if hidden or surface == "optimization-cases" or surface == "outcomes"
             else await dependencies.projections.read_records(
                 surface=surface,
                 scope=effective_scope,
@@ -318,7 +318,9 @@ def _build_route(
             can_disclose_lineage=can_disclose_lineage,
             requested_surface=surface,
             observation_returned_count=(
-                None if hidden or surface in {"optimization-cases", "outcomes"} else len(records)
+                None
+                if hidden or surface == "optimization-cases" or surface == "outcomes"
+                else len(records)
             ),
             candidate_returned_count=len(candidates),
             case_returned_count=len(cases),
