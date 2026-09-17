@@ -1960,7 +1960,16 @@ module "document_dfs_private_endpoint" {
 # private-networking deploy that supplied the ops VNet coordinates.
 # -----------------------------------------------------------------------
 locals {
-  peer_hub = var.enable_private_networking && var.runner_vnet_id != "" && var.runner_vnet_name != "" && var.ops_resource_group_name != ""
+  peer_hub              = var.enable_private_networking && var.runner_vnet_id != "" && var.runner_vnet_name != "" && var.ops_resource_group_name != ""
+  operator_access_vnets = var.enable_private_networking ? var.operator_access_vnets : {}
+  operator_private_dns_links = merge({}, [
+    for vnet_key, vnet in local.operator_access_vnets : {
+      for zone_key, zone in var.operator_private_dns_zones : "${vnet_key}-${zone_key}" => {
+        vnet = vnet
+        zone = zone
+      }
+    }
+  ]...)
 }
 
 resource "azurerm_virtual_network_peering" "spoke_to_hub" {
@@ -1981,6 +1990,52 @@ resource "azurerm_virtual_network_peering" "hub_to_spoke" {
   remote_virtual_network_id    = module.network[0].vnet_id
   allow_virtual_network_access = true
   allow_forwarded_traffic      = true
+}
+
+resource "azurerm_virtual_network_peering" "spoke_to_operator" {
+  for_each                     = local.operator_access_vnets
+  name                         = "peer-to-operator-${each.key}"
+  resource_group_name          = module.resource_group.name
+  virtual_network_name         = module.network[0].vnet_name
+  remote_virtual_network_id    = each.value.id
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = false
+}
+
+resource "azurerm_virtual_network_peering" "operator_to_spoke" {
+  for_each                     = local.operator_access_vnets
+  name                         = "peer-${each.key}-to-${var.workload}${local.full_suffix}"
+  resource_group_name          = each.value.resource_group_name
+  virtual_network_name         = each.value.name
+  remote_virtual_network_id    = module.network[0].vnet_id
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = false
+
+  depends_on = [azurerm_virtual_network_peering.spoke_to_operator]
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "operator_access" {
+  for_each = local.operator_private_dns_links
+
+  name                  = "link-operator-${each.key}"
+  resource_group_name   = each.value.zone.resource_group_name
+  private_dns_zone_name = each.value.zone.name
+  virtual_network_id    = each.value.vnet.id
+  registration_enabled  = false
+  tags                  = local.tags
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
+}
+
+resource "azurerm_role_assignment" "operator_inventory_reader" {
+  for_each = var.operator_inventory_principal_ids
+
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_name = "Reader"
+  principal_id         = each.value
+  principal_type       = "ServicePrincipal"
 }
 
 # PostgreSQL Flexible Server uses delegated-subnet private access rather than

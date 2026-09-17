@@ -1001,6 +1001,61 @@ variable "ops_resource_group_name" {
   default     = ""
 }
 
+variable "operator_access_vnets" {
+  description = "Existing same-subscription operator-host VNets that require direct workload peering and private DNS resolution. Deployment-specific values stay outside source control."
+  type = map(object({
+    id                  = string
+    name                = string
+    resource_group_name = string
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for key, vnet in var.operator_access_vnets :
+      can(regex("^[a-z0-9-]{1,32}$", key)) &&
+      startswith(lower(vnet.id), "/subscriptions/") &&
+      trimspace(vnet.name) != "" &&
+      trimspace(vnet.resource_group_name) != ""
+    ])
+    error_message = "operator_access_vnets keys must be lowercase tokens and each VNet must provide a full Azure resource ID, name, and resource group."
+  }
+}
+
+variable "operator_private_dns_zones" {
+  description = "Existing workload Private DNS zones linked to each operator-access VNet. Select one authoritative zone per DNS namespace."
+  type = map(object({
+    name                = string
+    resource_group_name = string
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for key, zone in var.operator_private_dns_zones :
+      can(regex("^[a-z0-9-]{1,20}$", key)) &&
+      trimspace(zone.name) != "" &&
+      trimspace(zone.resource_group_name) != ""
+    ])
+    error_message = "operator_private_dns_zones keys must be lowercase tokens and each zone must provide a name and resource group."
+  }
+}
+
+variable "operator_inventory_principal_ids" {
+  description = "Managed Identity principal IDs that receive subscription Reader for read-only Azure inventory from operator hosts."
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition = alltrue([
+      for key, principal_id in var.operator_inventory_principal_ids :
+      can(regex("^[a-z0-9-]{1,20}$", key)) &&
+      can(regex("^[0-9a-fA-F-]{36}$", principal_id))
+    ])
+    error_message = "operator_inventory_principal_ids keys must be lowercase tokens and values must be Managed Identity principal GUIDs."
+  }
+}
+
 # ---------------------------------------------------------------------------
 # Monitoring (opt-in). When enabled, provision an action group + metric alerts
 # + diagnostic settings for the control-plane resources. Alerts are a human
