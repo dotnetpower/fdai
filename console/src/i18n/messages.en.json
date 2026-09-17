@@ -2571,7 +2571,7 @@
     "devBypassFailed": "Local dev access is unavailable for this API ({error}). Sign in with Microsoft Entra ID.",
     "localFoot": "The dev bypass is session-scoped and never available in production.",
     "startupFoot": "This page will continue automatically when the service is ready.",
-    "foot": "Read-only operator console. Changes are governed and high-risk actions require human approval.",
+    "foot": "Governed operator console. Changes follow policy, and high-risk actions require human approval.",
     "signOut": "Sign out",
     "exitLocalSession": "Exit local session"
   },
