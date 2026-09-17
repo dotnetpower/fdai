@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 29492ad2988f2ce7affe3b7d4dd6c3849f54193d
+translation_source_sha: ce161b978b942fcf74ddb8315a2bdf074d1f66ad
 translation_revised: 2026-09-17
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -14,7 +14,7 @@ translation_revised: 2026-09-17
 실시간 최신 요청의 동작을 정의합니다. [구조화 검색 설계](cloud-resource-knowledge-structured-rag-ko.md)는
 v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성을 정의하며, 검색어는 적용 조건이나
 접근 범위를 넓히지 않습니다. 프레임 모델 스키마는 서버가 결속하는 검색어 필드를 제외합니다. 커버리지 목록 재생성은 출처 다이제스트만 갱신하며 측정된
-커버리지를 바꾸지 않습니다.
+커버리지를 바꾸지 않습니다. Console 카탈로그 변경이 병합되면 질문 은행을 먼저 재생성한 뒤 이에 의존하는 의미 목록을 다시 만듭니다. 원본 검증값만 수정할 때는 400개 질문 집단과 기존 검증 공백을 그대로 유지합니다.
 
 > **커버리지 경계:** 100%는 하나의 활성 온톨로지 release에서 읽을 수 있는 모든 선언이
 > principal 범위로 한정된 조회 서술자 또는 타입이 지정된 사용 불가 사유를 갖는다는 뜻입니다. 신원,
