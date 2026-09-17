@@ -10,7 +10,7 @@ composition type module stays below its enforced size ceiling so new bindings re
 shared container becomes a second root. Case-history review requires both failure and matched control evidence before it can propose an
 inert learning candidate. A Workflow approval step cannot lower the no-self-approval invariant; the contract rejects a disabled value at
 catalog load. Agent behavior hardening enters System Knowledge only through regenerated source commitments; catalog projection never gains
-judgment, recovery, publication, or execution authority. Saga claims each handoff in the runtime `StateStore` before mutation and requires
+judgment, recovery, publication, or execution authority. Regenerating a source commitment changes neither record payloads nor operational evidence timestamps. Saga claims each handoff in the runtime `StateStore` before mutation and requires
 an operation-aware issue adapter. The shipped `StateStoreIssueTrackerAdapter` persists issue and operation results across restart, so
 validated checkpoints resume without duplicating or losing the materialized issue. The
 `verticals.resilience` package exposes deterministic recovery-plan compilation without adding execution authority. DR objective evidence reports a nearest-rank p90, so a small cohort keeps its slowest measured run instead of reporting an

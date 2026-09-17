@@ -30,7 +30,7 @@ The pantheon is a thin re-framing of the existing FDAI control loop into named o
 - **Single-writer, multi-reader topics.** Each object type has exactly one publishing owner agent; anyone may subscribe (§6.1).
 - **Judge is not the executor.** Forseti judges and Var carries authorized non-expired approval. Thor rechecks the authority ceiling, Saga receipt, stable idempotency reservation, and owner-fenced distributed resource claim before execution; restart ambiguity stays `execution_unknown`.
 - **Pantheon fixed upstream.** The 15-agent set, org chart, and role assignments are locked. Forks customize configured seams (§10), never add, remove, or rename agents.
-- **Repository layout preserves the boundary.** Named agents live in [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents); shared runtime machinery stays in private `_framework`. External callers import only `fdai.agents`, as the layout test enforces.
+- **Repository layout preserves the boundary.** Named agents live in [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents); shared runtime machinery stays in private `_framework`. External callers import only `fdai.agents`, as the layout test enforces. Heimdall's action-observation relay and Thor's `ActionRun` state and effect-closure mechanics use focused private helpers; these helpers own no `AgentSpec`, topic, approval, or execution authority.
 ## 2. Organization chart
 
 Thor (operations) and Forseti (judgment) report to Odin. Four governance staff have independent dotted reporting lines to Odin.

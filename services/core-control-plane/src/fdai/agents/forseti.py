@@ -10,7 +10,7 @@ import logging
 from collections.abc import Callable, Iterable, Mapping
 from datetime import UTC, datetime
 from functools import lru_cache
-from typing import Any, Protocol
+from typing import Any
 
 from fdai_service_contracts.incident_intervention import INCIDENT_INTERVENTION_EVENT_TYPE
 
@@ -31,6 +31,9 @@ from fdai.agents._framework.cross_vertical_candidates import (
     CandidateIntakeState,
     CrossVerticalCandidateAccumulator,
     is_cross_vertical_candidate,
+)
+from fdai.agents._framework.forseti_decision_helpers import (
+    ChangeAssessor,
 )
 from fdai.agents._framework.forseti_decision_helpers import (
     change_assessment_mapping as _change_assessment_mapping,
@@ -86,7 +89,6 @@ from fdai.core.decision_case import (
     conflicting_objective_effects,
 )
 from fdai.core.impact_analysis import (
-    ChangeAssessment,
     ChangeGraphEvidenceReceipt,
     change_graph_evidence_from_snapshot,
 )
@@ -141,16 +143,6 @@ def _arbitration_owner() -> str | None:
     return load_pantheon().owner_of_topic(_ARBITRATION_DECISION_TOPIC)
 
 
-class _ChangeAssessor(Protocol):
-    async def assess(
-        self,
-        change: Mapping[str, Any],
-        *,
-        graph_evidence: ChangeGraphEvidenceReceipt,
-        unresolved_conflicts: tuple[str, ...] = (),
-    ) -> ChangeAssessment: ...
-
-
 class Forseti(
     Agent,
     ForsetiJudgmentMixin,
@@ -174,7 +166,7 @@ class Forseti(
         operational_planner: SpecialistPlanningCoordinator | None = None,
         kinetic_proposal_source: KineticActionProposalSource | None = None,
         prospective_lineage_finalizer: ProspectiveLineageFinalizer | None = None,
-        change_assessor: _ChangeAssessor | None = None,
+        change_assessor: ChangeAssessor | None = None,
         architecture_review_loop: OntologyArchitectureReviewLoop | None = None,
         agent_availability: Callable[[], Iterable[str]] | None = None,
         cross_vertical_timeout_seconds: float = 30.0,

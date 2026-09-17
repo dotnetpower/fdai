@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: db973f5d341df854ce9e6b2a7ae66991ce167fc0
+translation_source_sha: 7427a00d2588498164b155190aaeedc019ae8552
 translation_revised: 2026-09-17
 ---
 # 에이전트 판테온
@@ -32,7 +32,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 - **단일 게시자, 여러 구독자.** 각 객체 타입은 정확히 하나의 소유 에이전트만 게시하며 누구나 구독할 수 있습니다 (§6.1).
 - **판단자는 실행기가 아님.** Forseti가 판단하고 Var가 권한이 있으며 만료되지 않은 승인을 전달합니다. Thor는 권한 상한, Saga 증적, 안정적인 멱등성 예약, 소유자 경계가 적용된 분산 리소스 점유를 다시 확인한 뒤 실행하며 재시작 모호성은 `execution_unknown`으로 유지합니다.
 - **판테온은 업스트림에서 고정.** 15개 에이전트, 조직도, 역할 배정은 고정됩니다. 포크는 설정 가능한 경계 (§10)만 변경하며 에이전트를 추가, 제거하거나 이름을 바꾸지 않습니다.
-- **저장소 구조가 경계를 보존.** 이름이 있는 에이전트는 [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents)에, 공통 런타임은 비공개 `_framework`에 둡니다. 외부 호출자는 `fdai.agents`만 가져오며 구조 테스트가 이 경계를 강제합니다.
+- **저장소 구조가 경계를 보존.** 이름이 있는 에이전트는 [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents)에, 공통 런타임은 비공개 `_framework`에 둡니다. 외부 호출자는 `fdai.agents`만 가져오며 구조 테스트가 이 경계를 강제합니다. Heimdall의 작업 관측 중계와 Thor의 `ActionRun` 상태 및 효과 종결 로직은 용도별 비공개 도우미에 둡니다. 이 도우미는 `AgentSpec`, 토픽, 승인 또는 실행 권한을 소유하지 않습니다.
 ## 2. 조직도
 
 Thor(운영)와 Forseti(판단)가 Odin에게 보고합니다. 거버넌스 담당 4명은 독립적인 점선 보고 체계를 가집니다.

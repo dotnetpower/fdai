@@ -8,10 +8,12 @@ from datetime import datetime
 from importlib.metadata import entry_points
 from typing import Any, Protocol
 
-from fdai.agents import AnomalyActionSource
+from fdai.agents import AnomalyActionSource, EventBusBridge
 from fdai.core.control_loop import ControlLoop
 from fdai.core.executor.post_release_closure_store import PostReleaseClosureStore
 from fdai.shared.providers.state_store import StateStore
+
+ActionObservation = Callable[[Mapping[str, Any]], Awaitable[bool | Mapping[str, Any]]]
 
 
 class VerifiedIncidentResolver(Protocol):
@@ -34,8 +36,45 @@ class AcceptanceRuntimeBindings:
 
     sources: dict[str, AnomalyActionSource]
     execute: Callable[[dict[str, Any]], Awaitable[bool]]
-    observe: Callable[[Mapping[str, Any]], Awaitable[bool | Mapping[str, Any]]] | None = None
+    observe: ActionObservation | None = None
     resolve: Callable[[Mapping[str, Any]], Awaitable[bool]] | None = None
+
+
+def chain_acceptance_observer(
+    primary: ActionObservation | None,
+    fallback: ActionObservation | None,
+) -> ActionObservation | None:
+    """Return an acceptance-first observer while preserving the existing fallback."""
+    if primary is None:
+        return fallback
+
+    async def observe(payload: Mapping[str, Any]) -> bool | Mapping[str, Any]:
+        result = await primary(payload)
+        if result:
+            return result
+        return await fallback(payload) if fallback is not None else False
+
+    return observe
+
+
+def bind_acceptance_effect_resolution(
+    *,
+    bridge: EventBusBridge,
+    resolver: Callable[[Mapping[str, Any]], Awaitable[bool]] | None,
+) -> int:
+    """Bind exact verified-effect Incident resolution without changing topic ownership."""
+    if resolver is None:
+        return 0
+
+    async def resolve_effect(_topic: str, payload: Mapping[str, Any]) -> None:
+        await resolver(payload)
+
+    bridge.subscribe(
+        "object.recovery-effect-observation",
+        "aks-commerce-incident-reconciler",
+        resolve_effect,
+    )
+    return 1
 
 
 def build_acceptance_runtime_bindings(
