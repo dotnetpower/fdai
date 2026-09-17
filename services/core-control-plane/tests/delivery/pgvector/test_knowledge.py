@@ -248,6 +248,8 @@ async def test_ingest_replaces_stale_chunks_and_empty_document_deletes(
 
 
 def _requires_live_db() -> str:
+    if os.environ.get("FDAI_SERVICE_MIGRATIONS_READY") != "1":
+        pytest.skip("service-owned migrations are unavailable")
     url = os.environ.get("FDAI_DATABASE_URL")
     if not url:
         pytest.skip("FDAI_DATABASE_URL is unset")
