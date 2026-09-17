@@ -1,7 +1,7 @@
 ---
 translation_of: README.md
-translation_source_sha: 584128fb9b6c5b3ae336a90fe4ccc516985bbc51
-translation_revised: 2026-09-09
+translation_source_sha: e787e2230a9ed3e22a44a7f5eb02192b0d2605d4
+translation_revised: 2026-09-17
 ---
 
 # FDAI
@@ -82,6 +82,12 @@ CIS, Advisor, OPA/Gatekeeper, Checkov, tfsec, KICS, Trivy, kube-bench)와 운영
 
 ## 어떻게 작동하나요?
 
+FDAI는 클라우드 옆에서 동작하는 헤드리스 컨트롤 플레인입니다. 운영 신호가 이벤트
+버스로 들어오면, 책임이 고정된 에이전트 조직이 수집, 라우팅, 게이트, 실행 순서로
+각 신호를 처리하고, 결과는 수정 pull request, 승인 카드, 감사 항목으로 나갑니다.
+
+![FDAI 아키텍처. Azure 리소스 변경, 관측 데이터, Git 및 IaC 변경, 운영자 요청이 15개 책임 에이전트가 소유한 헤드리스 이벤트 구동 컨트롤 플레인으로 들어옵니다. 컨트롤 플레인은 수집하고, T0 규칙, T1 재사용, T2 추론으로 라우팅하며, 품질과 위험으로 판정한 뒤 실행하고 결과를 기록합니다. 결과는 수정 pull request, ChatOps 승인, FDAI Console, 감사 근거로 나가며, 이벤트 버스, 규칙 카탈로그, 운영 온톨로지, Azure 플랫폼이 기반을 이룹니다.](docs/assets/fdai-architecture-overview.svg)
+
 1. **Ingest**: 이벤트가 버스에 들어오면 `event-ingest`가 정규화·중복 제거하고 관련
    이벤트를 하나의 인시던트로 상관합니다.
 2. **Route**: trust router(이벤트를 처리할 티어를 선택)가 문제를 해결할 수 있는 가장
@@ -93,6 +99,12 @@ CIS, Advisor, OPA/Gatekeeper, Checkov, tfsec, KICS, Trivy, kube-bench)와 운영
   (`abstain`), 거부(`deny`)를 결정합니다. 자동 실행 자격이 있거나 승인된 액션은 수정
   pull request가 됩니다. 거절, 시간 초과, 판단 보류를 포함하여 모든 종료 경로는 감사
   항목을 기록합니다.
+
+이벤트 하나를 따라가면 같은 세 단계가 다음과 같이 보입니다. 결정론 티어가 반복
+가능한 다수를 처리하고, quality gate는 T2 출력에만 적용되며, 위험 게이트는 자율성을
+결정하는 유일한 지점입니다.
+
+![FDAI 워크플로. 이벤트가 정규화와 상관을 거쳐 T0 규칙, T1 재사용, T2 추론 중 하나로 라우팅됩니다. T2 출력만 quality gate를 통과하고 T0과 T1은 위험 게이트로 바로 갑니다. 위험 게이트는 자동 실행, 사람 승인, 보류 또는 거부를 선택합니다. 자격을 갖춘 작업은 수정 pull request나 제한된 액션으로 실행되고, 효과는 독립 관측으로 확인되며, 모든 경로는 추가 전용 감사 항목으로 종결됩니다.](docs/assets/fdai-workflow-overview.svg)
 
 ```text
 event -> event-ingest -> trust-router -> T0 | T1 | (T2 -> quality-gate)
