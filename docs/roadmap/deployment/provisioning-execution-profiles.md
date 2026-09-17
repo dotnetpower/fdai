@@ -76,18 +76,12 @@ that applies before Terraform changes infrastructure or role assignments.
 - [x] Build and reverify one complete signed kit from a clean snapshot, then cold-install its CLI and acquire the same kit through both online and local artifact paths. Evidence: `deployment-v0.1.0-r2` and the 2026-09-13 artifact checkpoint above.
 - [x] Publish a replacement complete kit containing the subsequent CLI hardening and repeat exact installed-artifact acceptance. Evidence: `deployment-v0.1.0-r3` includes H01-H14, all 59 default-installed payload files match its signed wheel, and the prior installation was backed up.
 - [x] Publish and verify a replacement signed kit containing the stable Network API correction, then confirm Foundation discovery from that exact artifact without treating discovery as deployment readiness. Evidence: `deployment-v0.1.0-r4` and the linked issue #803 read-only checkpoint; the existing installed CLI already matches all 59 signed wheel files and was not replaced.
-- [ ] Retain target-bound Foundation and application convergence receipts from the local coordinator
-	and appliance entry point using the same exact locally supplied signed kit, without requiring
-	public release publication or claiming whole-subscription readiness.
+- [ ] Retain target-bound Foundation and application convergence receipts from the local coordinator and appliance entry point using the same exact locally supplied signed kit, without requiring public release publication or claiming whole-subscription readiness.
 - [ ] Demonstrate current-VM `existing-host` execution without creating a redundant host or relocating an already correct protected backend, retaining identity, exact-plan, no-repeat and readback checks.
 - [ ] Demonstrate ordinary-PC basic deployment without preconfigured private access, with later detailed provisioning that preserves installation identity, existing state and Trial start time; keep optional missing capabilities separate from baseline health.
-- [ ] Create the AKS basic profile with API Server VNet Integration and dedicated workload and
-	API-server subnets, then prove authenticated restricted public management access from the
-	initiating coordinator.
-- [ ] Implement `/provisioning` network intent, assessment, exact-plan request, approval, apply,
-	rollback and independent readback for peering, private endpoints, DNS and private-cluster mode.
-- [ ] Remove tenant-run Docker, Buildx, ACR Tasks and VM image-capture paths; require a prebuilt
-	signed image manifest and deployed-digest readback instead.
+- [ ] Create the AKS basic profile with API Server VNet Integration and dedicated workload and API-server subnets, then prove authenticated restricted public management access from the initiating coordinator.
+- [ ] Implement `/provisioning` network intent, assessment, exact-plan request, approval, apply, rollback and independent readback for peering, private endpoints, DNS and private-cluster mode.
+- [ ] Remove tenant-run Docker, Buildx, ACR Tasks and VM image-capture paths; require a prebuilt signed image manifest and deployed-digest readback instead.
 - [ ] Build one deployment appliance from an approved digest-pinned base, verify its SBOM and provenance, and retain an artifact-offline Azure deployment receipt from the image entry point.
 
 ## Design at a glance

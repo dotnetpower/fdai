@@ -236,7 +236,8 @@
         "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
@@ -301,7 +302,8 @@
         "docs/roadmap/architecture/operating-ontology-platform.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/architecture/aks-diagnostic-evidence-plane.md",
@@ -315,6 +317,78 @@
         "uv run ruff check services/core-control-plane/src/fdai/delivery/kubernetes_api_inventory.py services/core-control-plane/src/fdai/delivery/kubernetes_api_status.py services/core-control-plane/src/fdai/delivery/kubernetes_inventory.py services/core-control-plane/src/fdai/core/ontology_platform/kubernetes_pod_diagnosis_evidence.py",
         "uv run mypy --strict services/core-control-plane/src/fdai/delivery/kubernetes_api_inventory.py services/core-control-plane/src/fdai/delivery/kubernetes_api_status.py services/core-control-plane/src/fdai/delivery/kubernetes_inventory.py services/core-control-plane/src/fdai/core/ontology_platform/kubernetes_pod_diagnosis_evidence.py",
         "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
+    },
+    {
+      "id": "aks-commerce-business-scenario",
+      "paths": [
+        "docs/roadmap/operations/aks-commerce-business-scenario*.md",
+        "docs/roadmap-implementation/operations/aks-commerce-business-scenario.md",
+        "extensions/aks-commerce/**",
+        "config/action-type-runtime-support.json",
+        "pyproject.toml",
+        "uv.lock",
+        "packages/service-contracts/src/fdai_service_contracts/__init__.py",
+        "packages/service-contracts/src/fdai_service_contracts/aks_commerce*.py",
+        "packages/service-contracts/tests/test_aks_commerce*.py",
+        "services/core-control-plane/src/fdai/delivery/azure/aks_commerce*.py",
+        "services/core-control-plane/src/fdai/delivery/kubernetes_direct_api.py",
+        "services/core-control-plane/src/fdai/runtime/configuration.py",
+        "services/core-control-plane/src/fdai/runtime/delivery.py",
+        "rule-catalog/action-types/ops.restart-service.yaml",
+        "rule-catalog/action-types/ops.scale-in.yaml",
+        "rule-catalog/action-types/ops.scale-out.yaml",
+        "rule-catalog/action-types/ops.rollback-kubernetes-rollout.yaml",
+        "services/core-control-plane/tests/**/*aks_commerce*.py",
+        "services/core-control-plane/tests/delivery/test_kubernetes_direct_api.py",
+        "services/operator-service/src/fdai_operator_service/families/aks_commerce/**",
+        "services/operator-service/src/fdai_operator_service/composition.py",
+        "services/operator-service/src/fdai_operator_service/family_adapters.py",
+        "services/operator-service/src/fdai_operator_service/routes.py",
+        "services/operator-service/tests/test_aks_commerce*.py",
+        "services/operator-service/tests/test_operator_service_full_composition.py",
+        "services/system-knowledge-service/src/fdai_system_knowledge_service/data/catalog.json",
+        "console/src/api.ts",
+        "console/src/console-data-mode.ts",
+        "console/src/i18n/messages.*.json",
+        "console/src/i18n/catalog-usage.test.ts",
+        "console/src/panel-sources*",
+        "console/src/panels*",
+        "console/src/router.ts",
+        "console/src/routes/aks-commerce*",
+        "console/src/routes/i18n/aks-commerce*",
+        "console/src/api-aks-commerce*",
+        "console/tests/e2e/aks-commerce.spec.ts",
+        "infra/scenario-lab/**",
+        "tests/integration/infra/test_scenario_lab.py",
+        "scripts/deployment/scenario-lab/prepare-commerce.sh"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        ".github/instructions/generic-scope.instructions.md",
+        "docs/roadmap/operations/aks-commerce-business-scenario.md",
+        "docs/roadmap/architecture/aks-diagnostic-evidence-plane.md",
+        "docs/roadmap/interfaces/browser-evidence.md",
+        "docs/roadmap/fork-and-sequencing/scope-expansion.md",
+        "docs/roadmap/decisioning/execution-model.md",
+        "docs/roadmap/architecture/security-and-identity.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/operations/aks-commerce-business-scenario.md",
+        "docs/roadmap-implementation/operations/aks-commerce-business-scenario.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov extensions/aks-commerce/tests packages/service-contracts/tests/test_aks_commerce.py services/core-control-plane/tests/delivery/test_kubernetes_direct_api.py services/operator-service/tests/test_aks_commerce_family.py",
+        "npm --prefix console test -- --run src/routes/aks-commerce.model.test.ts src/routes/aks-commerce.test.ts",
+        "npm --prefix console run typecheck",
+        "terraform -chdir=infra/scenario-lab fmt -check -recursive",
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
       ]
     },
     {
@@ -347,7 +421,8 @@
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/architecture/ontology-structural-model.md",
@@ -593,7 +668,8 @@
       ],
       "docs_update_routes": [
         "conversation-attachments",
-        "human-report-lines"
+        "human-report-lines",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/architecture/project-structure.md",
@@ -620,7 +696,8 @@
         "docs/roadmap/architecture/service-graduation-and-ownership.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/architecture/multi-service-repository-layout.md",
@@ -1703,7 +1780,8 @@
         "docs/roadmap/interfaces/operator-console.md"
       ],
       "docs_update_routes": [
-        "human-report-lines"
+        "human-report-lines",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/conversation-attachments.md",
@@ -1816,6 +1894,9 @@
         "docs/roadmap/decisioning/escalation-and-standing-authority.md",
         "docs/roadmap/interfaces/conversation-attachments.md",
         "docs/roadmap/interfaces/document-ingestion-agent-ownership.md"
+      ],
+      "docs_update_routes": [
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/human-report-lines-and-approval-routing.md",
@@ -1983,7 +2064,8 @@
       ],
       "docs_update_routes": [
         "conversation-attachments",
-        "human-report-lines"
+        "human-report-lines",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/architecture/service-graduation-and-ownership.md",
@@ -2233,7 +2315,8 @@
       ],
       "docs_update_routes": [
         "conversation-attachments",
-        "human-report-lines"
+        "human-report-lines",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -2294,7 +2377,8 @@
         "docs/roadmap/decisioning/execution-model.md"
       ],
       "docs_update_routes": [
-        "human-report-lines"
+        "human-report-lines",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/decisioning/process-automation.md",
@@ -2394,7 +2478,8 @@
         "docs/roadmap/interfaces/operator-console-incident-roster.md"
       ],
       "docs_update_routes": [
-        "human-report-lines"
+        "human-report-lines",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/operations/operator-initiated-sre-and-arb.md",
@@ -2432,7 +2517,8 @@
       ],
       "docs_update_routes": [
         "conversation-attachments",
-        "human-report-lines"
+        "human-report-lines",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/deployment/console-read-boundary.md",
@@ -2581,7 +2667,8 @@
       ],
       "docs_update_routes": [
         "conversation-attachments",
-        "human-report-lines"
+        "human-report-lines",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/architecture/finops-package-architecture.md",
@@ -2677,7 +2764,8 @@
         "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/deployment/subscription-genesis-provisioning.md",
@@ -2811,7 +2899,8 @@
         "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/deployment/deploy-and-onboard.md",
@@ -2993,7 +3082,8 @@
       "docs_update_routes": [
         "conversation-attachments",
         "human-report-lines",
-        "operator-incident-creation"
+        "operator-incident-creation",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/framework-assessment.md",
@@ -3047,7 +3137,8 @@
       "docs_update_routes": [
         "conversation-attachments",
         "human-report-lines",
-        "operator-incident-creation"
+        "operator-incident-creation",
+        "aks-commerce-business-scenario"
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/wara-assessment.md",

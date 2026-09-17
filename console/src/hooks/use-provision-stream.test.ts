@@ -57,6 +57,57 @@ describe("decodeProvisionEvent", () => {
     ).toBe(0);
   });
 
+  test("decodes count-only inventory progress", () => {
+    const event = decodeProvisionEvent(JSON.stringify({
+      type: "provision.progress",
+      fraction: 0.64,
+      ts: "2026-09-16T00:00:00+00:00",
+      run_id: "inventory.run",
+      attempt_id: "attempt.one",
+      sequence: 4,
+      state: "running",
+      current_stage: "collect",
+      reason_code: null,
+      inventory: {
+        resources_observed: 120,
+        resources_expected: null,
+        pages_completed: 4,
+        pages_expected: 7,
+        provider_types_completed: 3,
+        provider_types_total: 5,
+        links_observed: 8,
+        unmapped_objects: 2,
+        coverage_gaps: 0,
+      },
+    }));
+
+    expect(event?.run_id).toBe("inventory.run");
+    expect(event?.inventory?.unmapped_objects).toBe(2);
+    expect(event?.inventory?.provider_types_total).toBe(5);
+  });
+
+  test("rejects inconsistent detailed inventory progress", () => {
+    expect(decodeProvisionEvent(JSON.stringify({
+      type: "provision.progress",
+      run_id: "inventory.run",
+      attempt_id: "attempt.one",
+      sequence: 4,
+      state: "running",
+      current_stage: "collect",
+      inventory: {
+        resources_observed: 1,
+        resources_expected: null,
+        pages_completed: 1,
+        pages_expected: 1,
+        provider_types_completed: 6,
+        provider_types_total: 5,
+        links_observed: 0,
+        unmapped_objects: 0,
+        coverage_gaps: 0,
+      },
+    }))).toBeNull();
+  });
+
   test("decodes a bounded durable status snapshot", () => {
     const event = decodeProvisionEvent(JSON.stringify({
       type: "provision.snapshot",
@@ -90,6 +141,11 @@ describe("decodeProvisionEvent", () => {
         resources_expected: 20,
         pages_completed: 2,
         pages_expected: 4,
+        provider_types_completed: 6,
+        provider_types_total: 10,
+        links_observed: 8,
+        unmapped_objects: 1,
+        coverage_gaps: 0,
       },
     }));
 

@@ -63,6 +63,7 @@ const ROUTES = [
   "/trust-routing",
   "/llm-cost",
   "/settings/general",
+  "/settings/environment-and-deployment",
   "/settings/models",
   "/settings/runtime-policies",
   "/settings/memory",

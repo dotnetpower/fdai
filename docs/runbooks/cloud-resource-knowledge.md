@@ -78,8 +78,10 @@ capabilities retain their own connectivity requirements.
 
 ## Connected collection and review
 
-1. Open **Knowledge > Overview > Cloud reference knowledge** and inspect the source policy and
-   recorded state. Sources start disabled and require explicit approved storage rights.
+1. Open **Knowledge > Overview > Cloud reference knowledge > Source status** and inspect the
+   source policy and recorded state. Sources start disabled and require explicit approved storage
+   rights. If setup is incomplete, the Console lists the deployment-owned registry, trust, and
+   service-binding prerequisites without accepting policy files in the browser.
 2. An Owner can select **Check due sources**. The daily/startup sweep uses the same operation;
    it checks only enabled online sources whose policy is due, not every document on every tick.
 3. Review each source's collection date, last successful check, latest attempt, gaps, and pending
@@ -200,7 +202,9 @@ Do not carry keys, credentials, deployment configuration, or an approval overrid
 
 ## Inspect and import inside the restricted network
 
-1. Open the knowledge panel and select the signed JSON package. Use **Inspect selected package**.
+1. Open **Knowledge > Overview > Cloud reference knowledge > Offline package** and select the
+   signed JSON package. File selection remains local to the browser. Use **Inspect selected
+   package** only after the server reports intake capability.
 2. Check source dates and the manifest digest. **Verified candidate** proves package verification
    only. The preview arrival time is not an import receipt.
 3. Confirm submission of the exact inspected bytes and select **Import inspected package for
@@ -214,6 +218,10 @@ Do not carry keys, credentials, deployment configuration, or an approval overrid
 Identical requester/package replay reuses its recorded upload. A reused sequence with different
 bytes, a lower sequence, or a different requester cannot overwrite that record. A lost HTTP response
 does not prove cancellation; reload status before another request.
+A rejected read-only inspection leaves the selected local package available for correction or
+retry. Inspection and unsigned-manifest export do not require a recorded-state reload because they
+cannot commit an intake transition. Refresh, stage, rollback, and import failures still require
+reload before another request because the server may have committed durable state.
 
 ## Recovery and date interpretation
 

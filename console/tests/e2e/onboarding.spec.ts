@@ -175,13 +175,13 @@ test("loads the onboarding workspace with mock-aligned hierarchy and responsive 
   expect(contrast.length).toBeGreaterThan(20);
   expect(contrast.filter((item) => item.ratio < item.minimum)).toEqual([]);
   const routeLinks = page.locator(".onboarding-content a[href]");
-  await expect(routeLinks).toHaveCount(7);
+  await expect(routeLinks).toHaveCount(6);
   await routeLinks.first().focus();
-  for (let index = 0; index < 7; index += 1) {
+  for (let index = 0; index < 6; index += 1) {
     await expect(routeLinks.nth(index)).toBeFocused();
-    if (index < 6) await page.keyboard.press("Tab");
+    if (index < 5) await page.keyboard.press("Tab");
   }
-  const focusedOutline = await routeLinks.nth(6).evaluate((element) => {
+  const focusedOutline = await routeLinks.nth(5).evaluate((element) => {
     const style = getComputedStyle(element);
     return { style: style.outlineStyle, width: Number.parseFloat(style.outlineWidth) };
   });

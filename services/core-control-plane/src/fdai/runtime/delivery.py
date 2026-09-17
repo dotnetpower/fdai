@@ -293,6 +293,17 @@ def _build_direct_api_executor(
         _LOGGER.info("direct_api_backend", extra={"backend": "recording"})
         fallback = RecordingDirectApiExecutor()
 
+    kubernetes = _build_kubernetes_direct_api(
+        audit_store=audit_store,
+        fallback=fallback,
+    )
+    if kubernetes is not None:
+        from fdai.delivery.kubernetes_direct_api import KUBERNETES_ACTION_TYPES
+
+        _LOGGER.info("direct_api_backend", extra={"backend": "kubernetes"})
+        routes.update({action_type: kubernetes for action_type in KUBERNETES_ACTION_TYPES})
+        allow_enforce = True
+
     if promotion_registry is not None and action_types_by_name:
         from fdai.delivery.persistence import (
             StateStoreActionPromotionRegistry,
@@ -356,6 +367,51 @@ def _build_direct_api_executor(
         idempotency=idempotency,
         allow_enforce=allow_enforce,
         safeguard_coordinator=safeguard_coordinator,
+    )
+
+
+def _build_kubernetes_direct_api(
+    *,
+    audit_store: Any,
+    fallback: DirectApiExecutor | None,
+) -> DirectApiExecutor | None:
+    """Bind an exact-cluster Kubernetes adapter from credential references."""
+
+    raw = os.environ.get("FDAI_KUBERNETES_DIRECT_API_JSON", "").strip()
+    if not raw:
+        return None
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("FDAI_KUBERNETES_DIRECT_API_JSON must be valid JSON") from exc
+    required = {"api_server", "cluster_ref", "token_path", "ca_path", "allowed_namespaces"}
+    if not isinstance(value, dict) or set(value) != required:
+        raise RuntimeError(
+            "FDAI_KUBERNETES_DIRECT_API_JSON must contain exactly api_server, cluster_ref, "
+            "token_path, ca_path, and allowed_namespaces"
+        )
+    namespaces = value["allowed_namespaces"]
+    if not isinstance(namespaces, list) or any(not isinstance(item, str) for item in namespaces):
+        raise RuntimeError("Kubernetes allowed_namespaces must be an array of strings")
+    text_fields = {name: value[name] for name in required - {"allowed_namespaces"}}
+    if any(not isinstance(item, str) for item in text_fields.values()):
+        raise RuntimeError("Kubernetes direct-API text settings must be strings")
+    from fdai.delivery.kubernetes_direct_api import (
+        KubernetesDirectApiConfig,
+        KubernetesDirectApiExecutor,
+        StateStoreKubernetesMutationLedger,
+    )
+
+    return KubernetesDirectApiExecutor(
+        config=KubernetesDirectApiConfig(
+            api_server=str(value["api_server"]),
+            cluster_ref=str(value["cluster_ref"]),
+            token_path=Path(str(value["token_path"])),
+            ca_path=Path(str(value["ca_path"])),
+            allowed_namespaces=frozenset(namespaces),
+        ),
+        ledger=StateStoreKubernetesMutationLedger(audit_store),
+        fallback=fallback,
     )
 
 

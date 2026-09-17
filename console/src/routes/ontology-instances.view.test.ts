@@ -61,9 +61,11 @@ describe("Ontology Instances view controls", () => {
     expect(styles).toMatch(/\.ontology-instance-presentation-coverage > summary\s*\{[^}]*min-height:\s*44px/s);
     expect(graphSource).toContain('class="ontology-instance-legend-dock"');
     expect(graphSource).toContain('class="ontology-instance-direction-surface"');
+    expect(graphSource).toContain('class="ontology-instance-graph-stage"');
     expect(graphSource).not.toContain('<rect class="is-selected"');
     expect(styles).toMatch(/\.ontology-instance-graph-scroll\s*\{[^}]*position:\s*relative/s);
-    expect(styles).toMatch(/\.ontology-instance-direction-surface\s*\{[^}]*position:\s*absolute[^}]*top:\s*0[^}]*right:\s*0[^}]*left:\s*0[^}]*display:\s*grid[^}]*margin:\s*0 auto/s);
+    expect(styles).toMatch(/\.ontology-instance-graph-stage\s*\{[^}]*display:\s*grid[^}]*align-items:\s*center[^}]*margin:\s*0 auto/s);
+    expect(styles).toMatch(/\.ontology-instance-direction-surface\s*\{[^}]*position:\s*absolute[^}]*inset:\s*0[^}]*display:\s*grid/s);
     expect(graphSource).toContain("defaultInstanceLegendLinkTypes(linkTypeCounts)");
     expect(graphSource).toContain('aria-expanded={showAllRelationshipTypes}');
     expect(ontologySource).toContain('class={`stack governance-ontology is-${view}`}');
@@ -118,6 +120,10 @@ describe("Ontology Instances view controls", () => {
     expect(styles).toMatch(/\.ontology-instance-graph-tools\s*\{[^}]*position:\s*absolute[^}]*top:\s*12px[^}]*right:\s*12px\s*;/s);
     expect(styles).not.toMatch(/\.ontology-instance-graph-tools\s*\{[^}]*border:/s);
     expect(styles).toMatch(/\.ontology-instance-graph-tools button\s*\{[^}]*width:\s*36px[^}]*height:\s*36px/s);
+    expect(instancesSource).toContain('<details');
+    expect(instancesSource).toContain('class="ontology-instance-aks-lanes"');
+    expect(instancesSource).not.toMatch(/class="ontology-instance-aks-lanes"[^>]*open/);
+    expect(styles).toMatch(/\.ontology-instance-aks-lanes > summary\s*\{[^}]*min-height:\s*44px[^}]*cursor:\s*pointer/s);
   });
 
   it("renders persisted AKS diagnostics as bounded evidence fields", () => {

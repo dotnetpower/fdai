@@ -15,8 +15,6 @@ describe("panel navigation placement", () => {
       "live",
       "incidents",
       "hil-queue",
-      "provision",
-      "onboarding",
       "detection-readiness",
       "alert-quality",
       "configuration-baselines",
@@ -33,7 +31,7 @@ describe("panel navigation placement", () => {
 
   test("uses stable domain groups for every visible panel", () => {
     expect(panelsInGroup("overview").map((panel) => panel.id)).toEqual([
-      "dashboard", "dashboard-v2", "operating-outcomes", "control-assurance", "verticals", "trust-routing", "llm-cost", "cost-governance",
+      "dashboard", "dashboard-v2", "operating-outcomes", "control-assurance", "verticals", "trust-routing", "llm-cost", "aks-commerce", "cost-governance",
     ]);
     expect(panelsInGroup("agents").map((panel) => panel.id)).toEqual([
       "agents", "pantheon", "agent-activity",
@@ -49,8 +47,14 @@ describe("panel navigation placement", () => {
     ]);
     expect(panelsInGroup("labs").map((panel) => panel.id)).toEqual(["labs"]);
     expect(panelsInGroup("settings").map((panel) => panel.id)).toEqual([
-      "settings-general", "settings-models", "settings-runtime", "settings-memory", "settings-iam", "settings-integrations", "settings-diagnostics",
+      "settings-general", "settings-environment", "settings-models", "settings-runtime", "settings-memory", "settings-iam", "settings-integrations", "settings-diagnostics",
     ]);
+  });
+
+  test("preserves legacy environment routes without showing duplicate menu items", () => {
+    expect(panelForId("provision").hiddenFromNavigation).toBe(true);
+    expect(panelForId("onboarding").hiddenFromNavigation).toBe(true);
+    expect(resolvePanels().map((panel) => panel.id)).toContain("settings-environment");
   });
 
   test("reuses the stable pantheon route as the roles view", () => {

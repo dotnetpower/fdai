@@ -1,11 +1,13 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: a4121e42cafeef9957cbe7a634caf1b7deddd735
+translation_source_sha: 7cb580a69b12918760f77457f7cde8da2218e44f
 translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
 
-이 문서는 애플리케이션 동작이나 배포 권한을 바꾸지 않으면서 신규 FDAI 설치의 기본 런타임을
+이 문서는 애플리케이션 동작이나 배포 권한을 바꾸지 않으면서 신규 FDAI 설치의 기본 런타임을 Azure Kubernetes Service(AKS)로 정의합니다.
+Azure Container Apps는 기존 설치를 위한 호환 프로파일로 계속 지원합니다. 이 선택은 서명된 `fdaictl` 프로비저닝 프로파일과 모든 정확한 Terraform 플랜에 포함됩니다.
+
 > **범위:** 이 계약은 신규 설치를 다룹니다. 기존 설치를 다른 런타임 플랫폼으로 옮기려면
 > 별도의 마이그레이션 설계가 필요하며, 프로파일 업데이트만으로 자동 전환되지 않습니다.
 > **Azure 범위:** 지원되는 두 런타임 플랫폼은 같은 Azure 공급자 어댑터, 서명된 OCI 이미지,
@@ -57,8 +59,10 @@ fdaictl provision azure \
   --user-nodes 4
 ```
 
-명령은 변경을 일으키는 각 플랜 경계에서 대화형 승인을 유지합니다. 런타임 또는 데이터베이스
-선택은 작업 권한을 부여하거나, 선택된 환경을 바꾸거나, 적용 모드를 활성화하지 않습니다.
+명령은 변경을 일으키는 각 플랜 경계에서 대화형 승인을 유지합니다. 런타임 또는 데이터베이스 선택은 작업 권한을 부여하거나 선택된 환경을
+바꾸거나 적용 모드를 활성화하지 않습니다. 설치 후 Console은 환경 준비 상태와 읽기 전용 배포 실행 근거를 설정 > 환경 및 배포에서 함께
+제공합니다. 준비 상태 보기가 기본이며 배포 근거는 별도 탭에서 확인합니다. 두 보기 모두 `fdaictl`을 시작하거나 재시도하지 않고 Terraform을
+실행하거나 배포 권한을 획득하지 않습니다. 기존 `/onboarding`과 `/provisioning` 경로는 호환 진입점으로 유지합니다.
 
 ### AKS 브라우저 접근
 
@@ -113,8 +117,14 @@ $$
 
 두 런타임 프로파일의 연결된 배포는 정확한 Azure Marketplace Ubuntu 버전으로 Managed Host를
 부팅하고 Foundation 단계에서 체크섬으로 고정된 도구 체인을 설치합니다. 전용 Managed Host
-이미지를 만들거나 요구하지 않습니다. 초기 구성 산출물을 내려받을 수 없는 아티팩트 오프라인
-배포는 별도로 검증된 사전 준비 호스트 이미지를 선택할 수 있습니다.
+이미지를 만들거나 요구하지 않습니다. 초기 구성 산출물을 내려받을 수 없는 아티팩트 오프라인 배포는 별도로 검증된 사전 준비 호스트 이미지를 선택할 수 있습니다.
+애플리케이션 수렴 후 Managed Host는 명시적인 `--initial` 모드로 Core 인벤토리 진입점을 호출해
+반복 실행의 예정 시각 게이트만 우회합니다. 이미 인증된 배포 신원으로 전체 구독 ARG/ARM 읽기와
+변경 불가 진행률 기록을 수행한 뒤 별도의 읽기 전용 종결 프로세스를 시작합니다. 반복 런타임
+일정과 워크로드 신원은 바뀌지 않으며 부트스트랩 경로는 인벤토리 워크로드에 지속적인 배포
+권한을 부여하지 않습니다. 표현 및 통합 계약은 이 단계를 16번째 단계로, `provisioning-events`를
+세 번째 비공개 Foundation 컨테이너로 반영합니다. 이전 추가 필드 방식의 증적 테스트 대역에
+`inventory_ready`가 없어도 준비 상태로 해석하지 않습니다.
 
 테넌트 프로비저닝은 미리 빌드된 서비스 및 의존성 이미지만 사용합니다. 완전한 release의 닫힌
 의존성 이미지 집합에는 ClamAV와 pgvector가 모두 포함됩니다. 배포 프로파일 하나가 특정 이미지를
@@ -195,13 +205,9 @@ DB 및 애플리케이션 준비는 모두 소유자 전용 kubeconfig를 [`kube
 
 ## 런타임 렌더링
 
-FDAI 서비스는 다음 필드를 포함하는 하나의 런타임 중립 워크로드 명세를 유지합니다.
-
-- **이미지 및 실행:** digest로 고정된 이미지, 명령, 인자, 환경 변수 이름을 포함합니다.
-- **리소스:** 요청량과 제한량을 포함합니다.
-- **상태 확인:** 시작, 활성, 준비 프로브를 포함합니다.
-- **접근:** 수신 의도와 서비스 포트를 포함합니다.
-- **런타임 계약:** sidecar, secret 참조, 워크로드 신원, 확장 범위를 포함합니다.
+FDAI 서비스는 하나의 런타임 중립 워크로드 명세를 유지합니다. 이 명세에는 digest로 고정된 이미지,
+명령, 인자, 환경 변수 이름, 리소스 요청량과 제한량, 시작, 활성, 준비 프로브, 수신 의도, 서비스
+포트, sidecar, secret 참조, 워크로드 신원, 확장 범위가 포함됩니다.
 
 Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 변환합니다. AKS 렌더러는
 명세를 typed Kubernetes `Deployment`, `Service`, `ServiceAccount`, `HorizontalPodAutoscaler`,
@@ -215,6 +221,11 @@ HTTPS 기준 URL을 동일한 Console 빌드 계약에 전달합니다. 런타�
 연결합니다. 이 토픽은 기존 의미 physical Event Hub와 Managed Identity 전송을 공유하며 별도
 Event Hub 엔터티나 권한 채널이 아닙니다. AKS standalone 렌더러는 정확한 substrate 출력에서
 값을 가져오고 독립 및 legacy Container Apps 렌더러는 같은 typed 배포 입력을 받습니다.
+
+AKS standalone 렌더러는 Core semantic 요청, 변환 결과, physical, 읽기 전용 조사 토픽을 항상
+연결하므로 모델이 비활성화되어도 요청을 대기시키지 않고 typed hold를 반환합니다. 모델 지원이
+활성화되면 Azure 모드, 이미지의 resolved-model 경로, 정확한 산출물 digest, 기본 endpoint,
+endpoint map이 하나의 계약을 이루며 잘못된 출력은 준비를 중단합니다. `enable_llm`은 JSON boolean이어야 하며 다른 타입도 애플리케이션 준비를 중단합니다. 이 검증은 구조만 확인하고 자연어 의도를 분류하지 않습니다.
 
 Operator의 배정 알림과 사람 승인(HIL) 전송에 필요한 가져오기는 같은 Operator Service
 패키지와 런타임 안의 기존 `iam_composition` 모듈에 모읍니다. 원래 어댑터와 팩터리 객체를
@@ -355,9 +366,11 @@ quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로�
 5. rollback과 독립적으로 관측한 최종 증적을 보존합니다. 효과가 불명확하면 검증만 수행하며 같은
   적용을 다시 실행하지 않습니다.
 
-운영자의 현재 VM은 정확한 대상, 신원, 경로, DNS, TLS 및 백엔드 검사를 통과하면 실행 호스트로
-사용할 수 있습니다. 해당 VM의 VNet 피어링은 계획된 네트워크 효과이며 그 자체가 접근 근거는
-아닙니다.
+동일 구독 운영자 VNet에는 `operator_access_vnets`로 직접 비전이 피어링을 구성하고,
+`operator_private_dns_zones`로 DNS 연결을 제한하며, `operator_inventory_principal_ids`로 선택한
+Managed Identity에 구독 `Reader`만 부여합니다. 데이터 플레인 역할은 부여하지 않습니다.
+배포별 값은 소스 제어 외부에 유지합니다. 정확한 대상, 신원, 경로, DNS, TLS, 백엔드, 플랜, 승인 및
+효과 확인은 계속 필요하므로 피어링 자체는 접근 근거가 아닙니다.
 
 ## PostgreSQL 프로파일
 

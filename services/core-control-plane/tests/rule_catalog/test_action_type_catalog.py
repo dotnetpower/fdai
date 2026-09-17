@@ -558,6 +558,7 @@ def test_probes_root_broken_reports_probe_load_error(tmp_path: Path) -> None:
 _DOC_OPS_ACTION_TYPES: frozenset[str] = frozenset(
     {
         "ops.restart-service",
+        "ops.rollback-kubernetes-rollout",
         "ops.scale-out",
         "ops.scale-in",
         "ops.flush-cache",
