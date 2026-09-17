@@ -45,18 +45,17 @@ class GovernedDocumentDownload:
         document_id: UUID,
         version_id: UUID,
     ) -> DocumentDownload:
-        """Return a source stream only for a current indexed and unprotected version."""
+        """Return one retained available source version after authorization and audit."""
         version = await self._metadata.get_version(document_id, version_id)
         await self._access.authorize_read(
             actor_id=actor_id,
             actor_groups=actor_groups,
             version=version,
         )
-        if (
-            not version.active
-            or not version.available
-            or version.state not in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
-        ):
+        if not version.available or version.state not in {
+            DocumentState.READY,
+            DocumentState.READY_WITH_WARNINGS,
+        }:
             raise DocumentAccessDeniedError("document version is not available for download")
         if version.protection_state not in {
             ProtectionState.NONE,

@@ -9,6 +9,8 @@ interface Props {
   readonly deleting: boolean;
   readonly promoting: boolean;
   readonly previous: boolean;
+  readonly current: boolean;
+  readonly versionNumber?: number;
   readonly onPreview: () => void;
   readonly onDownload: () => void;
   readonly onRequestDelete: () => void;
@@ -26,6 +28,8 @@ export function DocumentLibraryRow({
   deleting,
   promoting,
   previous,
+  current,
+  versionNumber,
   onPreview,
   onDownload,
   onRequestDelete,
@@ -38,7 +42,16 @@ export function DocumentLibraryRow({
   return (
     <article class={`document-library-row${previous ? " is-previous" : ""}`}>
       <div class="document-library-name">
-        <strong>{document.source_name}</strong>
+        <div>
+          <strong>{document.source_name}</strong>
+          <span class={`document-version-label${document.active ? " is-current" : ""}`}>
+            {document.active
+              ? knowledgeText("activeVersion")
+              : current
+                ? knowledgeText("latestUpload")
+                : knowledgeText("versionNumber", { version: versionNumber ?? 1 })}
+          </span>
+        </div>
         <small>
           {document.observed_format ?? document.media_type}
           {" - "}

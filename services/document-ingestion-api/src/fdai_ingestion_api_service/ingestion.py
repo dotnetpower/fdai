@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import AsyncIterator, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from fdai_service_contracts import (
@@ -20,6 +20,7 @@ from fdai_service_contracts import (
     DocumentNotFoundError,
     DocumentObjectStore,
     DocumentPurpose,
+    DocumentRetentionState,
     DocumentScopeKind,
     DocumentState,
     DocumentUploadMetadataStore,
@@ -83,6 +84,48 @@ class CreateUploadRequest:
     scope_ref: str | None = None
     promoted_from_version_id: UUID | None = None
     cloud_knowledge: KnowledgeReleaseBinding | None = None
+    replace_existing: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class UploadCreationResult:
+    """Created upload grant or an unchanged completed version reused without a write."""
+
+    outcome: Literal["created", "unchanged"]
+    session: UploadSession
+    grant: UploadGrant | None
+
+
+def _is_unchanged_replacement(
+    previous: DocumentVersion,
+    previous_session: UploadSession,
+    request: CreateUploadRequest,
+) -> bool:
+    """Reuse only a complete visible version with identical bytes and governance inputs."""
+    request_scope_kind = request.scope_kind
+    request_scope_ref = request.scope_ref
+    if request.disposition is DocumentDisposition.GOVERNED_KNOWLEDGE:
+        request_scope_kind = request_scope_kind or DocumentScopeKind.COLLECTION
+        request_scope_ref = request_scope_ref or request.collection_id
+    return (
+        request.disposition is DocumentDisposition.GOVERNED_KNOWLEDGE
+        and previous.state in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
+        and previous_session.state in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
+        and previous.active
+        and previous.available
+        and previous.retention_state is DocumentRetentionState.LIVE
+        and previous.source_name == request.source_name
+        and previous.source_sha256 == request.expected_sha256
+        and previous.size_bytes == request.expected_size
+        and previous.purposes == request.purposes
+        and previous.access.reference == request.access_descriptor_ref
+        and frozenset(previous.access.reader_groups) == frozenset(request.reader_groups)
+        and previous.retention.policy_version == request.retention_policy_version
+        and previous.disposition is request.disposition
+        and previous.scope_kind is request_scope_kind
+        and previous.scope_ref == request_scope_ref
+        and previous_session.storage_mode is request.storage_mode
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +203,10 @@ class DocumentCatalogMetadataStore(DocumentUploadMetadataStore, Protocol):
         self, collection_id: str, *, limit: int
     ) -> tuple[DocumentVersion, ...]: ...
 
+    async def latest_collection_version_by_source_name(
+        self, collection_id: str, source_name: str
+    ) -> DocumentVersion | None: ...
+
 
 @runtime_checkable
 class TemporaryDocumentMetadataStore(DocumentUploadMetadataStore, Protocol):
@@ -209,6 +256,84 @@ class DocumentIngestionService:
     def capabilities(self) -> IngestionCapabilities:
         return self._capabilities
 
+    async def create_or_reuse_upload(
+        self,
+        *,
+        actor_id: str,
+        request: CreateUploadRequest,
+        actor_groups: frozenset[str] = frozenset(),
+    ) -> UploadCreationResult:
+        """Reuse unchanged ready content or create the next immutable same-name version."""
+        if not request.replace_existing:
+            session, grant = await self.create_upload(
+                actor_id=actor_id,
+                actor_groups=actor_groups,
+                request=request,
+            )
+            return UploadCreationResult(outcome="created", session=session, grant=grant)
+        if any(
+            value is not None
+            for value in (
+                request.document_id,
+                request.supersedes_version_id,
+                request.upload_id,
+                request.version_id,
+                request.connector_idempotency_key,
+                request.promoted_from_version_id,
+                request.cloud_knowledge,
+            )
+        ):
+            raise ValueError("automatic replacement cannot use explicit document identities")
+        if not isinstance(self._metadata, DocumentCatalogMetadataStore):
+            raise RuntimeError("document catalog metadata is unavailable")
+        await self._access.authorize_create(
+            actor_id=actor_id,
+            actor_groups=actor_groups,
+            collection_id=request.collection_id,
+        )
+        previous = await self._metadata.latest_collection_version_by_source_name(
+            request.collection_id,
+            request.source_name,
+        )
+        if previous is None:
+            session, grant = await self.create_upload(
+                actor_id=actor_id,
+                actor_groups=actor_groups,
+                request=replace(request, replace_existing=False),
+            )
+            return UploadCreationResult(outcome="created", session=session, grant=grant)
+        await self._access.authorize_read(
+            actor_id=actor_id,
+            actor_groups=actor_groups,
+            version=previous,
+        )
+        await self._access.authorize_delete(
+            actor_id=actor_id,
+            actor_groups=actor_groups,
+            version=previous,
+        )
+        previous_session = await self._metadata.get_upload(previous.upload_id)
+        if _is_unchanged_replacement(previous, previous_session, request):
+            return UploadCreationResult(
+                outcome="unchanged",
+                session=previous_session,
+                grant=None,
+            )
+        replacement = replace(
+            request,
+            document_id=previous.document_id,
+            supersedes_version_id=previous.version_id,
+            upload_id=self._id_factory(),
+            version_id=self._id_factory(),
+            replace_existing=False,
+        )
+        session, grant = await self.create_upload(
+            actor_id=actor_id,
+            actor_groups=actor_groups,
+            request=replacement,
+        )
+        return UploadCreationResult(outcome="created", session=session, grant=grant)
+
     async def create_upload(
         self,
         *,
@@ -216,6 +341,8 @@ class DocumentIngestionService:
         request: CreateUploadRequest,
         actor_groups: frozenset[str] = frozenset(),
     ) -> tuple[UploadSession, UploadGrant]:
+        if request.replace_existing:
+            raise ValueError("automatic replacement requires create_or_reuse_upload")
         await self._access.authorize_create(
             actor_id=actor_id,
             actor_groups=actor_groups,

@@ -76,4 +76,24 @@ describe("IngestionApiClient document catalog", () => {
       ["https://ingestion.example.com/documents/document-1/versions/version-1/promote", "POST"],
     ]);
   });
+
+  test("loads one authorized document version history", async () => {
+    const items = [{
+      document_id: "document-1",
+      version_id: "version-1",
+      source_name: "guide.txt",
+      source_sha256: "a".repeat(64),
+    }];
+    const fetch = vi.fn().mockResolvedValue(Response.json({ items }));
+    vi.stubGlobal("fetch", fetch);
+    const client = new IngestionApiClient(config, {
+      authorizationHeader: vi.fn().mockResolvedValue("******"),
+    } as unknown as OperatorApiClient);
+
+    await expect(client.listDocumentVersions("document/1")).resolves.toEqual(items);
+
+    expect(String(fetch.mock.calls[0]![0])).toBe(
+      "https://ingestion.example.com/documents/document%2F1/versions",
+    );
+  });
 });

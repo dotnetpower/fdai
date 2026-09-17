@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -273,17 +274,33 @@ class MemoryMetadata:
             ):
                 continue
             current = latest.get(version.document_id)
-            if current is None or (version.updated_at, version.version_id) > (
-                current.updated_at,
+            if current is None or (version.created_at, version.version_id) > (
+                current.created_at,
                 current.version_id,
             ):
                 latest[version.document_id] = version
         return tuple(
             sorted(
                 latest.values(),
-                key=lambda item: (item.updated_at, item.document_id, item.version_id),
+                key=lambda item: (item.created_at, item.document_id, item.version_id),
                 reverse=True,
             )[:limit]
+        )
+
+    async def latest_collection_version_by_source_name(
+        self, collection_id: str, source_name: str
+    ) -> DocumentVersion | None:
+        matches = [
+            version
+            for version in self.versions.values()
+            if version.access.collection_id == collection_id
+            and version.source_name == source_name
+            and version.state is not DocumentState.DELETED
+        ]
+        return max(
+            matches,
+            key=lambda item: (item.created_at, item.version_id),
+            default=None,
         )
 
     async def list_uploads_by_state(self, state: str, *, limit: int) -> tuple[UploadSession, ...]:
@@ -1895,6 +1912,116 @@ def _temporary_request(
     )
 
 
+def _governed_replacement_request(content: bytes = b"hello") -> CreateUploadRequest:
+    return CreateUploadRequest(
+        source_name="note.txt",
+        collection_id="shared",
+        media_type_hint="text/plain",
+        expected_size=len(content),
+        expected_sha256=hashlib.sha256(content).hexdigest(),
+        storage_mode=SourceStorageMode.MANAGED_COPY,
+        purposes=(DocumentPurpose.KNOWLEDGE_BASE,),
+        access_descriptor_ref="collection:shared",
+        reader_groups=(),
+        retention_policy_version="test",
+        disposition=DocumentDisposition.GOVERNED_KNOWLEDGE,
+        scope_kind=DocumentScopeKind.COLLECTION,
+        scope_ref="shared",
+        replace_existing=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_same_name_same_content_reuses_ready_version_without_upload() -> None:
+    now = datetime(2026, 9, 5, 5, tzinfo=UTC)
+    metadata = MemoryMetadata()
+    objects = MemoryObjects()
+    service = _lifecycle_service(metadata, objects, now=now)
+    first = await service.create_or_reuse_upload(
+        actor_id="operator",
+        actor_groups=frozenset({"role:Contributor"}),
+        request=_governed_replacement_request(),
+    )
+    assert first.outcome == "created" and first.grant is not None
+    key = (first.session.document_id, first.session.version_id)
+    metadata.uploads[first.session.upload_id] = first.session.model_copy(
+        update={"state": DocumentState.READY}
+    )
+    metadata.versions[key] = metadata.versions[key].model_copy(
+        update={
+            "state": DocumentState.READY,
+            "active": True,
+            "available": True,
+            "index_state": DocumentIndexState.ACTIVE,
+        }
+    )
+
+    replay = await service.create_or_reuse_upload(
+        actor_id="operator",
+        actor_groups=frozenset({"role:Contributor"}),
+        request=_governed_replacement_request(),
+    )
+
+    assert replay.outcome == "unchanged"
+    assert replay.grant is None
+    assert replay.session.upload_id == first.session.upload_id
+    assert len(metadata.versions) == 1
+
+
+@pytest.mark.asyncio
+async def test_same_name_changed_content_creates_next_immutable_version() -> None:
+    now = datetime(2026, 9, 5, 5, tzinfo=UTC)
+    metadata = MemoryMetadata()
+    objects = MemoryObjects()
+    service = _lifecycle_service(metadata, objects, now=now)
+    first = await service.create_or_reuse_upload(
+        actor_id="operator",
+        actor_groups=frozenset({"role:Contributor"}),
+        request=_governed_replacement_request(),
+    )
+    assert first.outcome == "created"
+    key = (first.session.document_id, first.session.version_id)
+    metadata.uploads[first.session.upload_id] = first.session.model_copy(
+        update={"state": DocumentState.READY}
+    )
+    metadata.versions[key] = metadata.versions[key].model_copy(
+        update={
+            "state": DocumentState.READY,
+            "active": True,
+            "available": True,
+            "index_state": DocumentIndexState.ACTIVE,
+        }
+    )
+
+    changed = await service.create_or_reuse_upload(
+        actor_id="operator",
+        actor_groups=frozenset({"role:Contributor"}),
+        request=_governed_replacement_request(b"updated"),
+    )
+
+    assert changed.outcome == "created" and changed.grant is not None
+    assert changed.session.document_id == first.session.document_id
+    assert changed.session.version_id != first.session.version_id
+    assert changed.session.supersedes_version_id == first.session.version_id
+    assert len(metadata.versions) == 2
+
+
+@pytest.mark.asyncio
+async def test_automatic_replacement_rejects_explicit_identity_mix() -> None:
+    service = _lifecycle_service(MemoryMetadata(), MemoryObjects(), now=datetime.now(UTC))
+
+    with pytest.raises(ValueError, match="cannot use explicit document identities"):
+        await service.create_or_reuse_upload(
+            actor_id="operator",
+            actor_groups=frozenset({"role:Contributor"}),
+            request=replace(
+                _governed_replacement_request(),
+                document_id=uuid4(),
+                supersedes_version_id=uuid4(),
+            ),
+        )
+
+
 @pytest.mark.asyncio
 async def test_temporary_scope_and_server_owned_retention_are_enforced() -> None:
     now = datetime(2026, 9, 5, 5, tzinfo=UTC)
@@ -2502,6 +2629,7 @@ def test_http_upload_content_and_complete_preserve_wire_contract(
     with TestClient(app) as client:
         created = client.post("/ingestion/uploads", json=body)
         assert created.status_code == 201
+        assert created.json()["outcome"] == "created"
         upload_id = created.json()["session"]["upload_id"]
         assert created.json()["upload"]["target"] == (f"/ingestion/uploads/{upload_id}/content")
         assert (
@@ -2553,6 +2681,22 @@ def test_http_upload_content_and_complete_preserve_wire_contract(
         metadata.uploads[version.upload_id] = metadata.uploads[version.upload_id].model_copy(
             update={"state": DocumentState.READY}
         )
+        unchanged = client.post(
+            "/ingestion/uploads",
+            json={**body, "replace_existing": True},
+        )
+        assert unchanged.status_code == 200
+        assert unchanged.json()["outcome"] == "unchanged"
+        assert unchanged.json()["upload"] is None
+        assert unchanged.json()["session"]["upload_id"] == upload_id
+        assert not {"actor_id", "object_key", "access"}.intersection(unchanged.json()["session"])
+        assert len(metadata.versions) == 1
+        metadata.versions[version_key] = version.model_copy(update={"active": False})
+        history = client.get(f"/documents/{version.document_id}/versions")
+        assert history.status_code == 200
+        assert history.json()["items"][0]["source_sha256"] == version.source_sha256
+        assert history.json()["items"][0]["preview_available"] is True
+        assert history.json()["items"][0]["download_available"] is True
         downloaded = client.get(
             f"/documents/{version.document_id}/versions/{version.version_id}/download"
         )

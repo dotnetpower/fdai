@@ -97,21 +97,38 @@ test("uploads a document without overriding collection reader policy", async ({ 
   let createPayload: Record<string, unknown> | null = null;
   let createAttempts = 0;
   let statusChecks = 0;
-  let deleted = false;
+  const deletedVersions = new Set<string>();
+  const previewVersions: string[] = [];
+  const downloadVersions: string[] = [];
   let promotions = 0;
   await page.context().route("http://127.0.0.1:8011/documents?**", async (route) => {
+    const persistedCurrent = documentSummary({
+      version_id: "version-library-2",
+      created_at: "2026-09-05T03:00:00Z",
+      updated_at: "2026-09-05T03:01:00Z",
+    });
+    const persistedLegacy = documentSummary({
+      document_id: "document-library-2",
+      version_id: "version-library-legacy",
+      created_at: "2026-09-04T03:00:00Z",
+      updated_at: "2026-09-04T03:01:00Z",
+    });
+    const persistedPrior = documentSummary({
+      version_id: "version-library-1",
+      created_at: "2026-09-03T03:00:00Z",
+      updated_at: "2026-09-03T03:01:00Z",
+      active: false,
+    });
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       headers: { "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
-        items: deleted ? [] : [
-          documentSummary(),
-          documentSummary({
-            document_id: "document-library-2",
-            version_id: "version-library-2",
-            updated_at: "2026-09-04T03:01:00Z",
-          }),
+        items: [
+          ...(!deletedVersions.has("version-library-2")
+            ? [persistedCurrent]
+            : !deletedVersions.has("version-library-1") ? [persistedPrior] : []),
+          ...(!deletedVersions.has("version-library-legacy") ? [persistedLegacy] : []),
           documentSummary({
             document_id: "document-library-3",
             version_id: "version-library-3",
@@ -138,8 +155,44 @@ test("uploads a document without overriding collection reader policy", async ({ 
   await page.context().route("http://127.0.0.1:8011/documents/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
+    const versionId = url.pathname.split("/")[4] ?? "";
     const headers = { "Access-Control-Allow-Origin": "*" };
+    if (url.pathname.endsWith("/versions") && request.method() === "GET") {
+      const documentId = url.pathname.split("/")[2];
+      const items = documentId === "document-library-1"
+        ? [
+            documentSummary({
+              version_id: "version-library-2",
+              created_at: "2026-09-05T03:00:00Z",
+              updated_at: "2026-09-05T03:01:00Z",
+              source_sha256: "b".repeat(64),
+            }),
+            documentSummary({
+              version_id: "version-library-1",
+              created_at: "2026-09-03T03:00:00Z",
+              updated_at: "2026-09-03T03:01:00Z",
+              active: false,
+              source_sha256: "a".repeat(64),
+            }),
+          ]
+        : [documentSummary({
+            document_id: "document-library-2",
+            version_id: "version-library-legacy",
+            created_at: "2026-09-04T03:00:00Z",
+            updated_at: "2026-09-04T03:01:00Z",
+            active: false,
+            source_sha256: "a".repeat(64),
+          })];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers,
+        body: JSON.stringify({ items }),
+      });
+      return;
+    }
     if (url.pathname.endsWith("/preview")) {
+      previewVersions.push(versionId);
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -159,6 +212,7 @@ test("uploads a document without overriding collection reader policy", async ({ 
       return;
     }
     if (url.pathname.endsWith("/download")) {
+      downloadVersions.push(versionId);
       await route.fulfill({
         status: 200,
         contentType: "application/octet-stream",
@@ -181,7 +235,7 @@ test("uploads a document without overriding collection reader policy", async ({ 
       return;
     }
     if (request.method() === "DELETE") {
-      deleted = true;
+      deletedVersions.add(versionId);
       await route.fulfill({
         status: 202,
         contentType: "application/json",
@@ -232,6 +286,7 @@ test("uploads a document without overriding collection reader policy", async ({ 
         contentType: "application/json",
         headers,
         body: JSON.stringify({
+          outcome: "created",
           session: uploadSession("created"),
           upload: {
             target: "/ingestion/uploads/upload-1/content",
@@ -272,8 +327,39 @@ test("uploads a document without overriding collection reader policy", async ({ 
   await expect(page.locator(".document-index-status").filter({ hasText: "Indexed" }).first())
     .toBeVisible();
   await expect(page.getByRole("button", { name: "runbooks" })).toBeVisible();
-  await expect(page.getByText("4 files from 4 uploads")).toBeVisible();
-  await expect(page.getByText("persisted-guide.txt")).toHaveCount(2);
+  await expect(page.getByText("3 files from 4 latest records")).toBeVisible();
+  await expect(page.getByText("persisted-guide.txt")).toHaveCount(1);
+  const persistedGroup = page.locator(".document-file-group").filter({
+    hasText: "persisted-guide.txt",
+  });
+  await persistedGroup.getByRole("button", { name: "Show version history" }).click();
+  await expect(page.getByText("persisted-guide.txt")).toHaveCount(3);
+  await expect(persistedGroup.getByText("Active version", { exact: true })).toHaveCount(1);
+  await expect(persistedGroup.getByText("Version 2", { exact: true })).toBeVisible();
+  await expect(persistedGroup.getByText("Version 1", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Hide version history.*3 versions/ }))
+    .toBeVisible();
+  const historicalRow = persistedGroup.locator(".document-library-row").filter({
+    hasText: "Version 2",
+  });
+  await historicalRow.getByRole("button", { name: "Preview" }).click();
+  await expect(page.getByText("Persistent governed preview")).toBeVisible();
+  await page.getByRole("button", { name: "Close" }).click();
+  const historicalDownload = page.waitForEvent("download");
+  await historicalRow.getByRole("button", { name: "Download" }).click();
+  await expect(historicalDownload).resolves.toBeTruthy();
+  await historicalRow.getByRole("button", { name: "Delete" }).click();
+  await historicalRow.getByRole("button", { name: "Delete document" }).click();
+  expect(deletedVersions).toContain("version-library-legacy");
+  expect(previewVersions).toContain("version-library-legacy");
+  expect(downloadVersions).toContain("version-library-legacy");
+  await expect(page.getByText("persisted-guide.txt")).toHaveCount(1);
+  const refreshedPersistedGroup = page.locator(".document-file-group").filter({
+    hasText: "persisted-guide.txt",
+  });
+  await refreshedPersistedGroup.getByRole("button", { name: "Show version history" }).click();
+  await expect(refreshedPersistedGroup.getByText("Version 1", { exact: true })).toBeVisible();
+  await refreshedPersistedGroup.getByRole("button", { name: /Hide version history/ }).click();
   await page.getByRole("searchbox", { name: "Search documents" }).fill("pending");
   await expect(page.getByText("pending-runbook.txt")).toBeVisible();
   await expect(page.getByText("persisted-guide.txt")).toHaveCount(0);
@@ -337,6 +423,7 @@ test("uploads a document without overriding collection reader policy", async ({ 
     disposition: "governed_knowledge",
     scope_kind: "collection",
     scope_ref: "shared-knowledge",
+    replace_existing: true,
   });
   await expectNoHorizontalOverflow(page);
 
@@ -361,7 +448,77 @@ test("uploads a document without overriding collection reader policy", async ({ 
   await page.getByRole("button", { name: "Cancel" }).click();
   await page.getByRole("button", { name: "Delete" }).first().click();
   await page.getByRole("button", { name: "Delete document" }).click();
-  await expect(page.getByText("No documents are visible in this collection.")).toBeVisible();
+  await expect(page.getByText("persisted-guide.txt")).toHaveCount(1);
+  await expect(page.getByText("3 files from 3 latest records")).toBeVisible();
+});
+
+test("keeps an unchanged upload on its existing version without sending content", async ({
+  page,
+}) => {
+  let contentWrites = 0;
+  await page.context().route("http://127.0.0.1:8011/documents?**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ items: [documentSummary()] }),
+    });
+  });
+  await page.context().route("http://127.0.0.1:8011/ingestion/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const headers = { "Access-Control-Allow-Origin": "*" };
+    if (url.pathname === "/ingestion/capabilities") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers,
+        body: JSON.stringify({
+          supported_formats: ["text"],
+          storage_modes: ["managed_copy"],
+          max_file_size: 1024,
+          max_batch_count: 1,
+          archives_enabled: false,
+          policy_versions: ["v1"],
+          direct_upload: true,
+          ocr_available: true,
+          collections: ["shared-knowledge"],
+        }),
+      });
+      return;
+    }
+    if (url.pathname === "/ingestion/uploads" && request.method() === "POST") {
+      expect(request.postDataJSON()).toMatchObject({ replace_existing: true });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers,
+        body: JSON.stringify({
+          outcome: "unchanged",
+          session: uploadSession("ready"),
+          upload: null,
+        }),
+      });
+      return;
+    }
+    if (url.pathname.endsWith("/content")) contentWrites += 1;
+    await route.fulfill({ status: 204, headers });
+  });
+
+  await page.goto("/documents");
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "guide.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("content"),
+  });
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Upload files" }).click();
+
+  await expect(page.getByText(
+    "No content or policy changes were detected. The existing version was kept.",
+  )).toBeVisible();
+  await expect(page.locator(".document-upload-row .status-ready")).toHaveText("Ready");
+  expect(contentWrites).toBe(0);
 });
 
 function uploadSession(state: string, failureCode: string | null = null) {

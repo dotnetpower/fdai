@@ -497,7 +497,7 @@ a:hover {
   background: color-mix(in oklab, var(--bg) 70%, transparent);
 }
 .document-group-toggle {
-  min-height: 32px;
+  min-height: 36px;
   margin: 0 0 4px;
   padding: 4px 0;
   border: 0;
@@ -511,10 +511,44 @@ a:hover {
 .document-library-name,
 .document-library-meta { min-width: 0; }
 .document-library-name { display: grid; gap: 2px; }
+.document-library-name > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .document-library-name strong {
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.document-version-label {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+  font-weight: 650;
+}
+.document-version-label.is-current { color: var(--fg); }
+.document-version-history-state {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--fg-muted);
+}
+.document-version-history-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  color: var(--danger);
 }
 .document-library-meta { display: flex; flex-direction: column; }
 .document-library-row .status {
@@ -623,6 +657,7 @@ a:hover {
     border-bottom: 1px solid var(--border);
   }
   .document-library-folders button { min-height: 44px; }
+  .document-group-toggle { min-height: 44px; }
   .document-library-tools { grid-template-columns: minmax(0, 1fr); }
   .document-library-tools > span { grid-column: 1; }
   .document-library-row { grid-template-columns: minmax(0, 1fr) auto; }

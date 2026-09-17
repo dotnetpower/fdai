@@ -129,6 +129,31 @@ async def test_download_audits_before_streaming_unprotected_source() -> None:
 
 
 @pytest.mark.asyncio
+async def test_download_allows_an_available_inactive_history_version() -> None:
+    current, session = _records()
+    version = current.model_copy(update={"active": False})
+    metadata = Metadata(version, session)
+    objects = Objects()
+    service = GovernedDocumentDownload(
+        access=Access(),  # type: ignore[arg-type]
+        metadata=metadata,  # type: ignore[arg-type]
+        objects=objects,  # type: ignore[arg-type]
+        clock=lambda: _NOW,
+        id_factory=lambda: UUID(int=4),
+    )
+
+    result = await service.download(
+        actor_id="operator",
+        actor_groups=frozenset({"role:Owner"}),
+        document_id=version.document_id,
+        version_id=version.version_id,
+    )
+
+    assert metadata.events[0].payload["version_id"] == str(version.version_id)
+    assert b"".join([chunk async for chunk in result.content]) == b"governed source"
+
+
+@pytest.mark.asyncio
 async def test_download_denies_protected_source_before_audit_or_read() -> None:
     version, session = _records(protection=ProtectionState.RIGHTS_MANAGED_ACCESSIBLE)
     metadata = Metadata(version, session)
