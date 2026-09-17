@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: b0be47d9854777e8335b656abfcd649223823a51
+translation_source_sha: 3391574cee58f13e0eca57d7bacff321fd458608
 translation_revised: 2026-09-17
 ---
 # 런타임 배포 프로파일
@@ -316,12 +316,22 @@ Kubernetes 요청을 인증합니다. 사람의 kubeconfig를 복사하거나 �
 
 **수정 설계:** 격리된 실행기는 `FDAI_KUBERNETES_DIRECT_API_JSON`에서 자격 증명 원본을
 하나만 받습니다. 기존 `token_path` 또는 토큰 경로 없는 명시적 `audience`입니다. 두 방식 모두
-정확한 HTTPS `api_server`, `cluster_ref`, 절대 경로 `ca_path`, `allowed_namespaces`가
+정확한 HTTPS `api_server`, `cluster_ref`, `allowed_namespaces`와 절대 경로 `ca_path`
+또는 공개 `ca_pem` 중 정확히 하나가
 필요합니다. 대상이 지정된 방식은 명령의 `executor_identity_ref`를 기존에 등록된 Thor 영역별
 신원에서만 찾습니다. 각 요청은 서비스가 소유한 신원 어댑터를 통해 시간과 크기가 제한되고,
 만료되지 않았으며, 대상이 일치하는 토큰을 얻습니다. CLI, 사람, 기본 신원 또는 다른 자격 증명으로
 대체하지 않습니다. 동시 명령이 변경 가능한 신원 선택 상태를 공유해서는 안 됩니다. TLS 검증과
 리디렉션 거부는 계속 필수입니다.
+
+Container Apps 실행기 루트는 `api_server`, `cluster_ref`, `audience`, `ca_pem`,
+`allowed_namespaces`를 담은 선택적 `kubernetes_direct_api` 객체를 받습니다. 기본값은
+`null`입니다. 이 명시적 연결만 `FDAI_KUBERNETES_DIRECT_API_JSON`으로 직렬화하고 기존에
+연결된 신원을 재사용합니다. 실행 권한 전환을 켜거나 역할을 부여하지는 않습니다. 런타임은
+구성을 받기 전에 공개 CA를 파싱하고 개인 키, 잘못된 PEM 및 중복 CA 원본을 거부합니다.
+파일을 쓰지 않고도 인증서와 호스트 이름 검증을 유지합니다. 정확한 배포 계획에서 공급자를
+통해 확인한 CA를 제공하고 경로, 신원 권한 및 롤백을 별도로 구성해야 합니다. 이 모듈이
+클러스터를 선택하거나 검색하지는 않습니다.
 
 이 변경은 인증 기능만 추가하며 권한 부여, 승격 또는 배포된 연결을 의미하지 않습니다. 정확한
 계획에서 사설 네트워크 연결, CA 출처, 선택한 신원의 실제 Kubernetes 권한, 대상 밖 작업 거부,
