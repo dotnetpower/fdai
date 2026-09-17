@@ -206,20 +206,20 @@ the shared ADLS account and the `fdai.pipeline.stages` entity. The Worker Pod in
 digest-pinned ClamAV image as a replica-local TCP sidecar. Its root remains read-only and only the
 declared database, run and temporary paths receive size-limited `emptyDir` volumes.
 
-Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active
-deadline, a retry limit, and bounded history. Manual jobs are created only by a separately approved
-request and are not perpetual desired-state resources.
-The AKS baseline renders analyzer, canary, inventory, observation campaign, and operational-history
-lifecycle CronJobs. The history job uses the read-only inventory identity, the service-owned state
-DSN, and the private archive URL in fixed `shadow` mode. A non-shadow lifecycle requires a separate
-protected transition and an exact persisted certification receipt; runtime selection grants neither.
+Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active deadline,
+a retry limit, and bounded history. Manual jobs require a separate approval and are not perpetual desired-state resources.
+The AKS baseline renders analyzer, canary, inventory, observation campaign, and operational-history lifecycle
+CronJobs. The history job uses the read-only inventory identity, service-owned state DSN, and private archive URL
+in fixed `shadow` mode. A non-shadow lifecycle requires a separate protected transition and exact persisted certification receipt.
+Application preparation binds the inventory CronJob to its exact AKS cluster through the in-cluster
+ServiceAccount endpoint, CA, and token paths. A dedicated ClusterRole grants only the collector's reviewed
+reads, and its ClusterRoleBinding names only `inventory-job`; self-observation never discovers another cluster.
 
-The inventory command preserves read-only failure boundaries; Activity Log recovery cannot advance
-delta cursors or stop reconciliation. Passive model-serving evidence reuses inventory identity and
-Azure Monitor without inference; failures lower only its coverage. Reconciliation bounds determine
-lookback, freshness, points, and timeout. The standalone substrate target set includes the existing
-subscription, workspace, exact-cluster, cost, and pipeline-stage roles. An inventory identity without
-these assignments cannot establish provider scope, metrics, logs, cost, or publication readiness.
+The inventory command preserves read-only failure boundaries; Activity Log recovery cannot advance delta cursors
+or stop reconciliation. Passive model-serving evidence reuses inventory identity and Azure Monitor without inference;
+failures lower only its coverage. Reconciliation bounds determine lookback, freshness, points, and timeout. The
+standalone substrate target set includes the existing subscription, workspace, exact-cluster, cost, and pipeline-stage
+roles. An inventory identity without these assignments cannot establish provider scope, metrics, logs, cost, or publication readiness.
 
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and
