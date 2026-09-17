@@ -150,7 +150,8 @@ Threshold-parity source revisions follow the same rule: the catalog records the 
 Question-bank source integration and owner-doc compaction follow the same rule: refreshing the
 generated digest preserves 400 questions without certifying semantic coverage or live evidence.
 Action Ontology source-pin refreshes for isolated AKS support likewise record only conditional
-runtime support and grant no approval, deployment, or execution authority.
+runtime support and grant no approval, deployment, or execution authority. Assigning the adapter
+tests to the isolated Executor service suite changes collection metadata only.
 Adaptive Azure Monitor investigation sources follow it as well: the catalog describes reviewed
 recipe selection, fixed-KQL execution, and no-data limits without exposing raw KQL or granting
 query authority.
