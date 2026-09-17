@@ -90,6 +90,8 @@ npm build. Completion requires remote artifact hashes, SPA route fallback, both 
 the exact-origin authorization preflight, an unauthenticated `401` from `/audit`, and an Entra
 redirect to the configured Console origin.
 
+An existing development Container Apps installation can update only its static Console through `fdaictl provision console-update`; separate protected-source construction and a 20-minute plan bind the candidate, distinct rollback artifact, and existing Static Web App target. Apply requires the exact digest in a real terminal, writes a claim before publication, resumes retained claims by readback only, restores verified rollback on failure, and changes no runtime selection, service image, Terraform or database state, authority, or deployment readiness.
+
 ### Defaults and validation
 
 | Setting | Validation | Recommended value |

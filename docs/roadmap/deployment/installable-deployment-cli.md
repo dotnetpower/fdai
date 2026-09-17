@@ -454,6 +454,9 @@ only after installing the reviewed CLI while idle; it does not change an already
 | `fdaictl provision init` | Create a private manual execution profile | No |
 | `fdaictl provision bootstrap-reconcile` | Read target and Foundation state into an expiring plan | No |
 | `fdaictl provision plan` | Plan a verified offline-kit Terraform root | No |
+| `fdaictl provision console-update build` | Build one source-bound Console artifact from protected Git source | No |
+| `fdaictl provision console-update plan` | Seal an existing-development target plus candidate and rollback artifacts | No |
+| `fdaictl provision console-update apply` | Publish one exact Console plan and verify remote content and access | Yes, after exact terminal approval |
 | `fdaictl provision azure --online` | Acquire a signed kit and run the standalone Azure deployment | Yes, after exact approvals |
 | `fdaictl provision azure --offline-kit <path>` | Run the same deployment without public artifact acquisition | Yes, after exact approvals |
 | `fdaictl onboard guided --simulate` | Rehearse the finite stage graph | No |
@@ -466,6 +469,33 @@ only after installing the reviewed CLI while idle; it does not change an already
 The public CLI does not register `deploy plan`, `deploy apply`, or `deploy status`. Those commands
 previously dispatched GitHub workflows and are not part of the standalone deployment contract.
 Live onboarding uses `provision azure`; `onboard guided` is simulation-only.
+
+### Existing development Console update
+
+Use `provision console-update` only to update the static Console on an existing `dev` Container
+Apps installation. It does not plan or change Terraform resources, service images, database state,
+runtime authority, or a production installation. This compatibility path uses the local
+coordinator and does not dispatch a GitHub workflow.
+
+The `build` command accepts protected `origin/main` or one of its ancestors. It creates a clean Git
+archive, runs the environment-isolated offline Console build, and writes a deterministic archive
+plus a mode-`0600` source manifest. Ignored files such as `console/.env.local` cannot enter that
+snapshot. Build the candidate from current protected `origin/main` and the rollback from a distinct
+known-good ancestor.
+
+The `plan` command reads a mode-`0600` target manifest supplied outside source control. The manifest
+contains the existing Static Web App resource ID and hostname, API origins, and public Entra
+bindings. Planning requires the active Azure tenant and subscription to match, reads the Static Web
+App hostname from Azure, verifies both artifact manifests, and creates a private plan that expires
+within 20 minutes. Planning does not request a deployment token or publish content.
+
+The `apply` command requires a real terminal and the exact plan digest. It rechecks protected
+`origin/main`, the Azure target, both artifacts, and plan expiry, then writes approval and claim
+records before publication. A retained claim permits candidate readback only and never repeats the
+candidate publication. A failed publication or claimed-content mismatch republishes the verified
+rollback artifact and writes a terminal failure receipt. Success requires exact remote hashes, SPA
+fallback, both API health checks, exact-origin CORS, unauthenticated denial, and the Entra redirect.
+The resulting Console receipt does not set whole-application or subscription readiness.
 
 ## Signed artifact and execution safety
 

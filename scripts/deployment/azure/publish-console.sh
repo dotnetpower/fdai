@@ -95,16 +95,23 @@ ingestion_api_url="$(resolve_service_url \
   browser_gateway_ingestion_url BROWSER_GATEWAY_INGESTION_URL \
   ingestion_gateway_fqdn document-ingestion-api)"
 
-deployment_token="$(az rest --method post \
-  --url "https://management.azure.com${resource_id}/listSecrets?api-version=2023-12-01" \
-  --query properties.apiKey -o tsv)"
-if [[ -z "$deployment_token" ]]; then
-  echo "console deployment token is unavailable" >&2
-  exit 1
+verify_only="${FDAI_CONSOLE_VERIFY_ONLY:-0}"
+if [[ "$verify_only" != 0 && "$verify_only" != 1 ]]; then
+  echo "FDAI_CONSOLE_VERIFY_ONLY must be 0 or 1" >&2
+  exit 2
 fi
-echo "::add-mask::$deployment_token"
-
-export SWA_CLI_DEPLOYMENT_TOKEN="$deployment_token"
+deployment_token=""
+if [[ "$verify_only" == 0 ]]; then
+  deployment_token="$(az rest --method post \
+    --url "https://management.azure.com${resource_id}/listSecrets?api-version=2023-12-01" \
+    --query properties.apiKey -o tsv)"
+  if [[ -z "$deployment_token" ]]; then
+    echo "console deployment token is unavailable" >&2
+    exit 1
+  fi
+  echo "::add-mask::$deployment_token"
+  export SWA_CLI_DEPLOYMENT_TOKEN="$deployment_token"
+fi
 export VITE_OPERATOR_API_BASE_URL="$operator_api_url"
 export VITE_INGESTION_API_BASE_URL="$ingestion_api_url"
 export VITE_MSAL_CLIENT_ID="$ENTRA_CONSOLE_SPA_CLIENT_ID"
@@ -130,6 +137,10 @@ if [[ -n "$console_directory" ]]; then
   fi
   prebuilt_console=1
 else
+  if [[ "$verify_only" == 1 ]]; then
+    echo "verify-only Console readback requires CONSOLE_PREBUILT_DIRECTORY" >&2
+    exit 2
+  fi
   npm --prefix "$repo_root/console" ci --no-audit --no-fund
   npm --prefix "$repo_root/console" run build
   python3 "$repo_root/scripts/deployment/azure/build_manual_studio_artifact.py" \
@@ -137,8 +148,10 @@ else
     --base-url "$VITE_MANUAL_STUDIO_URL"
   console_directory="$repo_root/console/dist"
 fi
-npx --yes @azure/static-web-apps-cli@2.0.10 deploy \
-  "$console_directory" --env production
+if [[ "$verify_only" == 0 ]]; then
+  npx --yes @azure/static-web-apps-cli@2.0.10 deploy \
+    "$console_directory" --env production
+fi
 
 entry_asset="$(
   DIST_INDEX="$console_directory/index.html" python3 - <<'PY'

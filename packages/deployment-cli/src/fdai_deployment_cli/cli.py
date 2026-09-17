@@ -26,7 +26,13 @@ from fdai_deployment_cli.bundle import (
 )
 from fdai_deployment_cli.cli_parser import build_parser
 from fdai_deployment_cli.compiler import compile_manifest
+from fdai_deployment_cli.console_artifact import build_console_update_artifact
 from fdai_deployment_cli.console_config import configure_console
+from fdai_deployment_cli.console_update import (
+    apply_console_update_plan,
+    load_console_update_plan,
+    prepare_console_update_plan,
+)
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
 from fdai_deployment_cli.deployment_progress import DeploymentProgress
 from fdai_deployment_cli.doctor import (
@@ -52,6 +58,7 @@ from fdai_deployment_cli.simulation import rehearse
 from fdai_deployment_cli.source_azure import plan_source_installation
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_foundation import prepare_source_foundation_plan
+from fdai_deployment_cli.standalone_application import read_exact_approval_input
 from fdai_deployment_cli.standalone_deploy import deploy_azure_foundation
 from fdai_deployment_cli.state import read_journal
 from fdai_deployment_cli.status_projection import project_status
@@ -92,6 +99,9 @@ def _parser() -> argparse.ArgumentParser:
             "offline_configure_console": _offline_configure_console,
             "offline_install_support": _offline_install_support,
             "provision_azure": _provision_azure,
+            "provision_console_update_build": _provision_console_update_build,
+            "provision_console_update_plan": _provision_console_update_plan,
+            "provision_console_update_apply": _provision_console_update_apply,
             "provision_init": _provision_init,
             "provision_inspect": _provision_inspect,
             "provision_plan": _provision_plan,
@@ -321,6 +331,78 @@ def _provision_azure(args: argparse.Namespace) -> int:
         text=(
             "standalone Azure deployment ready; subscription-wide assurance evidence remains open"
         ),
+    )
+    return 0
+
+
+def _provision_console_update_plan(args: argparse.Namespace) -> int:
+    """Create one private existing-development Console update plan."""
+
+    result = prepare_console_update_plan(
+        source_root=_absolute_work_dir(args.source),
+        candidate_archive=_absolute_work_dir(args.candidate_archive),
+        candidate_manifest=_absolute_work_dir(args.candidate_manifest),
+        rollback_archive=_absolute_work_dir(args.rollback_archive),
+        rollback_manifest=_absolute_work_dir(args.rollback_manifest),
+        target_file=_absolute_work_dir(args.target),
+        work_dir=_absolute_work_dir(args.work_dir),
+        ttl_seconds=args.ttl_seconds,
+    )
+    _print_mapping(
+        result,
+        output=args.output,
+        text=(f"Console update plan ready: {result['plan_digest']}; no Azure mutation performed"),
+    )
+    return 0
+
+
+def _provision_console_update_build(args: argparse.Namespace) -> int:
+    """Build a deterministic Console artifact from one protected source revision."""
+
+    result = build_console_update_artifact(
+        source_root=_absolute_work_dir(args.source),
+        revision=args.revision,
+        output_dir=_absolute_work_dir(args.output_dir),
+        timeout_seconds=args.timeout_seconds,
+    )
+    _print_mapping(
+        result,
+        output=args.output,
+        text=(f"Console artifact built: {result['archive_sha256']}; no Azure mutation performed"),
+    )
+    return 0
+
+
+def _provision_console_update_apply(args: argparse.Namespace) -> int:
+    """Collect bounded exact approval and apply one Console update plan."""
+
+    if args.output != "text" or not sys.stdin.isatty():
+        raise ValueError("Console update apply requires text output and a real terminal")
+    work_dir = _absolute_work_dir(args.work_dir)
+    plan = load_console_update_plan(work_dir / "plan.json")
+    print(
+        "Console update exact plan\n"
+        f"  source commit: {plan['source_commit']}\n"
+        f"  target binding: {plan['target_binding']}\n"
+        f"  candidate SHA-256: {plan['candidate_archive_sha256']}\n"
+        f"  rollback SHA-256: {plan['rollback_archive_sha256']}\n"
+        f"  plan digest: {plan['plan_digest']}\n"
+        "Type the exact plan digest to approve publication:",
+        file=sys.stderr,
+    )
+    approved_digest = read_exact_approval_input(timeout_seconds=min(args.timeout_seconds, 600))
+    source_root = _absolute_work_dir(args.source)
+    result = apply_console_update_plan(
+        source_root=source_root,
+        work_dir=work_dir,
+        approved_plan_digest=approved_digest,
+        scripts=source_root / "scripts/deployment/azure",
+        timeout_seconds=args.timeout_seconds,
+    )
+    _print_mapping(
+        result,
+        output=args.output,
+        text=f"Console update applied and read back: {result['receipt_digest']}",
     )
     return 0
 
