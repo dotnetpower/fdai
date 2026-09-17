@@ -17,6 +17,7 @@ from fdai.rule_catalog.schema.llm_resolver import (
     CatalogQuery,
     NarratorCandidate,
     QuotaQuery,
+    ResolvedCapability,
     ResolvedModels,
     ResolverError,
     collect_primary_candidates,
@@ -174,8 +175,39 @@ class TestCollectPrimaryCandidates:
         assert [c.deployment for c in cands] == ["t2primary-gpt-4o"]
         assert winner is not None
 
+    def test_secondary_family_is_excluded(self) -> None:
+        reg = _registry(
+            [
+                {"publisher": "OpenAI", "family": "gpt-4o"},
+                {"publisher": "OpenAI", "family": "gpt-5.2"},
+            ]
+        )
+        winner, cands = collect_primary_candidates(
+            registry=reg,
+            region=_REGION,
+            catalog=_Catalog({"gpt-4o", "gpt-5.2"}),
+            quota=_Quota({"gpt-4o": 20_000, "gpt-5.2": 20_000}),
+            endpoint=_ENDPOINT,
+            excluded_families=frozenset({"gpt-5.2"}),
+        )
+
+        assert [candidate.deployment for candidate in cands] == ["t2primary-gpt-4o"]
+        assert winner is not None
+
 
 class TestSerialization:
+    @staticmethod
+    def _capability(name: str, family: str) -> ResolvedCapability:
+        return ResolvedCapability(
+            name=name,
+            status=CapabilityStatus.RESOLVED,
+            publisher="OpenAI",
+            family=family,
+            sku="GlobalStandard",
+            capacity_tpm=100_000,
+            invocation="always",
+        )
+
     def test_roundtrip_preserves_primary_candidates(self) -> None:
         cands = (
             NarratorCandidate(
@@ -207,3 +239,38 @@ class TestSerialization:
             capabilities=(),
         )
         assert "reasoner_primary_candidates" not in rm.to_json()
+
+    def test_same_family_reasoner_pair_is_rejected(self) -> None:
+        with pytest.raises(ValueError, match="distinct model families"):
+            ResolvedModels(
+                schema_version="1.0.0",
+                region=_REGION,
+                subscription_id="sub",
+                deployer_object_id="dep",
+                mixed_model_mode="azure-foundry",
+                capabilities=(
+                    self._capability("t2.reasoner.primary", "gpt-5.2"),
+                    self._capability("t2.reasoner.secondary", "gpt-5.2"),
+                ),
+            )
+
+    def test_primary_pool_secondary_family_is_rejected(self) -> None:
+        candidate = NarratorCandidate(
+            endpoint=_ENDPOINT,
+            deployment="t2primary-gpt-5-2",
+            api_version="2024-06-01",
+        )
+        with pytest.raises(ValueError, match="primary pool MUST exclude"):
+            ResolvedModels(
+                schema_version="1.0.0",
+                region=_REGION,
+                subscription_id="sub",
+                deployer_object_id="dep",
+                mixed_model_mode="azure-foundry",
+                capabilities=(
+                    self._capability("t2.reasoner.primary", "gpt-4o"),
+                    self._capability("t2.reasoner.secondary", "gpt-5.2"),
+                    self._capability(candidate.deployment, "gpt-5.2"),
+                ),
+                reasoner_primary_candidates=(candidate,),
+            )

@@ -62,7 +62,7 @@ def _cap(name: str, status: CapabilityStatus = CapabilityStatus.RESOLVED) -> Res
         name=name,
         status=status,
         publisher="OpenAI",
-        family="fam",
+        family=("secondary-family" if name == "t2.reasoner.secondary" else "primary-family"),
         sku="Standard",
         capacity_tpm=1000,
         invocation="always",

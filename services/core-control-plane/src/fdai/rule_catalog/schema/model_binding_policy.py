@@ -88,7 +88,7 @@ def capability_policy(
 
 
 def validate_policy_against_registry(*, registry: LlmRegistry, policy: ModelBindingPolicy) -> None:
-    """Reject unknown capabilities and an explicitly same-publisher T2 pair."""
+    """Reject unknown capabilities and an explicitly same-family T2 pair."""
     unknown = sorted(set(policy.capabilities) - set(registry.models))
     if unknown:
         raise ValueError(f"model binding policy references unknown capabilities: {unknown}")
@@ -100,8 +100,8 @@ def validate_policy_against_registry(*, registry: LlmRegistry, policy: ModelBind
     )
     if ModelSelectionMode.HIL_ONLY in {primary_mode, secondary_mode}:
         return
-    if primary.preferences[0].publisher == secondary.preferences[0].publisher:
-        raise ValueError("T2 primary and secondary binding policies require distinct publishers")
+    if primary.preferences[0].family == secondary.preferences[0].family:
+        raise ValueError("T2 primary and secondary binding policies require distinct families")
 
 
 __all__ = [

@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 28430a355e20c21f2cad0cf012d16c9f3013afbc
-translation_revised: 2026-09-13
+translation_source_sha: ed321211caa925e7f01584ae8578aad5711295a8
+translation_revised: 2026-09-17
 ---
 # LLM 전략(LLM Strategy)
 이 설계는 LLM을 **덜 사용**합니다. 모델은 **T2** 대체 경로이며 T0와 T1이 사례를 해결하지 못했을 때만 사용합니다. 결정론적 검증이 승인하기 전에는 모델 출력을 실행에 사용하지 않습니다. 실행 자격은 검증이 부여하며 **모델은 부여하지 않습니다**. 이 문서는 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)의 tier 및 quality-gate 규칙과 [security-and-identity-ko.md](security-and-identity-ko.md)의 위협 모델을 확장합니다.
@@ -143,7 +143,7 @@ Azure API 관리(APIM)을 경유하는 Azure OpenAI, APIM을 경유하는 OpenAI
 
 APIM은 경로 및 거버넌스 경계이며 모델 발행기가 아닙니다. Mixed-model quality 게이트는
 게이트웨이 뒤의 발행기와 계열을 계속 비교합니다. 기본과 보조 기능은 같은 APIM
-hostname을 사용해도 별도 연결을 유지하며 same-publisher 쌍은 계속 잘못된입니다.
+hostname을 사용해도 별도 연결을 유지하며 동일 계열 쌍은 계속 잘못된 구성입니다.
 
 자체 호스팅 엔드포인트는 virtual 네트워크 검사 또는 `/v1/models`만 신뢰해 discover하지 않습니다.
 Publisher-keyed domain-separated Ed25519 등록
@@ -215,7 +215,7 @@ capacity: { unit: ptu, value: 30 }
   정책 다이제스트 및 활성 산출물 다이제스트를 적용까지 고정합니다.
 - **후보 완결성:** `auto`는 발행기-계열-버전-SKU-용량 후보를 완전하게 평가합니다.
 - **용량 단위:** Standard SKU는 TPM, 프로비저닝된 SKU는 변환 없는 PTU를 사용합니다.
-- **T2 쌍 원자성:** 다이제스트 결속 정책이 reasoner 중 하나를 `hil-only`로 보류하지 않는 한 primary와 secondary는 서로 다른 발행기여야 합니다. 명시적 보류는 모든 T2 결정을 사람 승인으로 보내며, 결정론적 불일치 대체 구현은 시작 모델 후보가 아니고 모델 호출이나 계측 레코드를 만들지 않습니다.
+- **T2 쌍 원자성:** 다이제스트 결속 정책이 reasoner 중 하나를 `hil-only`로 보류하지 않는 한 primary와 secondary는 서로 다른 모델 계열이어야 합니다. 명시적 보류는 모든 T2 결정을 사람 승인으로 보내며, 결정론적 불일치 대체 구현은 시작 모델 후보가 아니고 모델 호출이나 계측 레코드를 만들지 않습니다.
 - **Console 권한 없음:** 초안, 평가 및 계획 요청은 공급자를 변경하지 않습니다. 보호된 모델 계획은 하나의 요청 ID로 정확한 Operator 제안과 정책 다이제스트를 식별합니다. Runner는 PostgreSQL을 변경하지 않고 읽으며 오래되었거나 권한을 포함한 상태를 차단합니다. 보호된 모델 Settings producer는 다이제스트에 결속된 모델 projection을 새로 고치고 런타임 Settings 기준 행이 없을 때만 생성하며, 기존 런타임 근거를 보존하고 성공을 보고하기 전에 두 행의 배포 환경을 확인합니다.
 - **독립 도구:** 검색, RCA, rubric, escalation 및 tool calling은 별도 게이트를 유지합니다.
 - **로컬 구성:** Settings 생성에서는 모델 파일 경로가 설정되지 않은 상태를 허용합니다. 모델 기능은 비어 있고 활성 다이제스트는 null이며 프로비저닝은 저하 상태로 남습니다. 경로가 설정된 파일의 형식이 잘못되면 계속 실패합니다. 명시적인 `bind-existing-model.py --restore-account`는 최신 계정 및 배포 근거를 검증하고 기능 목록과 `hil-only` 보류를 유지하며, 기존 엔드포인트 바인딩이나 바인딩 정책이 있으면 거부합니다. 백업과 함께 Git에서 무시되는 로컬 파일만 갱신하며 클라우드 리소스나 보안 제어는 변경하지 않습니다. 구성을 복구했다고 해서 추론 접근이나 독립적인 T2 정족수가 입증되지는 않습니다.
@@ -234,15 +234,15 @@ OpenAI/AIServices format을 매핑하며 두 값을 안정된 버전 키로 사�
 [dev-and-deploy-parity-ko.md § 배포자-스코프 LLM 프로비저닝](../deployment/dev-and-deploy-parity-ko.md#배포자-스코프-llm-프로비저닝)
 에서 저술; 이 섹션은 happy-path 형태만 보여줌.
 
-![부트스트랩 Provisioner. 주요 단계는 Terraform / Bicep: azd up, Azure OpenAI or Foundry resource, resolver, llm-registry.yaml, query catalog: / available families + versions in region, for each capability: / first preference available, capability를 hil-only로 표시 / completeness impact 보고, create deployment / with TPM or PTU capacity, verify mixed-model invariant: / primary.publisher ≠ secondary.publisher, FAIL, write resolved-models.json to Key Vault / + audit entry입니다.](../../diagrams/generated/fdai-roadmap-architecture-llm-strategy-02.ko.svg)
+![부트스트랩 Provisioner. 주요 단계는 Terraform / Bicep: azd up, Azure OpenAI or Foundry resource, resolver, llm-registry.yaml, query catalog: / available families + versions in region, for each capability: / first preference available, capability를 hil-only로 표시 / completeness impact 보고, create deployment / with TPM or PTU capacity, verify mixed-model invariant: / primary.family != secondary.family, FAIL, write resolved-models.json to Key Vault / + audit entry입니다.](../../diagrams/generated/fdai-roadmap-architecture-llm-strategy-02.ko.svg)
 
 **부트스트랩 불변식 (MUST)**
 - 누락된 역할, 선호 계열 부재, zero 할당량 같은 환경 실패는 영향을 받은 기능을
   `hil-only`로 표시하고 계속합니다. 프로비저닝 평가가 이 성능 저하를 표시하며
   배포는 `--assess-fail-on critical`로 차단하도록 선택할 수 있습니다.
 - 두 T2 reasoner가 명시적 `hil-only` 모드 밖에서 모두 해석되면
-  `t2.reasoner.primary.publisher`와 `t2.reasoner.secondary.publisher`는 달라야 합니다.
-  Same-publisher 쌍은 hard 해석기 오류입니다.
+  `t2.reasoner.primary.family`와 `t2.reasoner.secondary.family`는 달라야 합니다.
+  동일 계열 쌍은 해석기의 hard 오류입니다.
 - Resolved 매핑은 기능당 `{deployment, family, version, publisher}` 를 기록하여 감사
   로그가 어떤 케이스를 결정한 정확한 모델을 이름 지을 수 있음.
 
@@ -257,8 +257,8 @@ OpenAI/AIServices format을 매핑하며 두 값을 안정된 버전 키로 사�
 
 - 선언된 각 기능을 `resolved` / `capacity-reduced` / `hil-only` / `missing`
   으로 분류하고 `core` / `quorum` / `optional`로 태깅하며, 부재 시 런타임 영향을 명시;
-- `quorum_ok`는 mixed-model T2 교차 검증이 형성 가능한지(두 reasoner 가용 + 다른
-  발행기) 보고 - `hil-only` 모드에서는 기대하지 않음;
+- `quorum_ok`는 mixed-model T2 교차 검증이 형성 가능한지(두 reasoner 가용 + 서로 다른
+  모델 계열) 보고 - `hil-only` 모드에서는 기대하지 않음;
 - `ProvisioningSeverity`가 `ok`(전부 resolved), `degraded`(선택적 기능만
   누락 - 토론 / RCA / 에스컬레이션 / 평가 기준 off는 허용), `critical`(코어 기능
   누락 또는 정족수 미형성 - T2가 사실상 off)로 롤업.
@@ -357,8 +357,8 @@ T2는 서로 다른 두 복구 범위를 사용합니다. 호출별 지연 시�
 파이프라인을 통해서만 선호하는 등록 제안자 경로를 바꿉니다. 어느 범위도 모델 출력에 권한을
 부여하거나 mixed-model quality 게이트를 약화하지 않습니다.
 
-- **동일 발행기 지연 시간 풀:** 모든 primary 풀 배포는 하나의 발행기를 공유하고, 그 발행기는
-  `t2.reasoner.secondary`와 달라야 합니다. 지연 시간 라우팅은 primary 슬롯에만 적용되고,
+- **동일 발행기 지연 시간 풀:** 모든 primary 풀 배포는 하나의 발행기를 공유하고 선택된
+  `t2.reasoner.secondary` 계열을 제외합니다. 지연 시간 라우팅은 primary 슬롯에만 적용되고,
   secondary 교차 검사, Critic, Judge 및 에스컬레이션 단계는 고정된 역할을 유지합니다. 리졸버는
   발행기가 섞인 풀을 거부합니다. `llm.t2_primary_latency_routing`은 기본값이 `true`이며 후보가
   두 개 이상일 때만 활성화되고, 후보가 하나이면 해당 primary를 그대로 사용합니다.
@@ -399,7 +399,7 @@ Quality 게이트는 두 독립 모델 계열 필요. 포크가 실제로 얻는
 
 | 모드 | 보조 위치 | 언제 선택 |
 |------|--------------|-----------|
-| `azure-foundry` (기본) | Azure AI Foundry 모델 카탈로그를 통해 서비스되는 Anthropic / Mistral / Cohere 모델 | 리전과 컴플라이언스가 비-OpenAI Foundry 모델 허용; 단일 청구 표면 |
+| `azure-foundry` (기본) | Azure OpenAI에서 제공하는 별도의 비-mini GPT 계열 | 리전에 충분한 할당량을 가진 독립적인 GPT 가중치 계열 두 개가 있음 |
 | `external` | 직접 서드파티 엔드포인트를 통한 보조(Anthropic API 등) | 필요 계열이 리전의 Foundry에서 이용 불가 |
 | `hil-only` | 보조 프로비저닝 안 됨; 모든 T2 케이스가 HIL로 라우팅 | 포크가 두 번째 계열을 얻을 수 없음(일시); 명시적 명시적 선택 |
 

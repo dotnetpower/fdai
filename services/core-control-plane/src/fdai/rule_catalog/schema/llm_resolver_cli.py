@@ -42,6 +42,7 @@ from typing import Any
 
 from fdai.rule_catalog.schema.llm_registry import load_llm_registry_from_yaml
 from fdai.rule_catalog.schema.llm_resolver import (
+    CapabilityStatus,
     CatalogQuery,
     ModelVersionQuery,
     PermissionQuery,
@@ -503,6 +504,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 2
         try:
+            secondary_family = next(
+                (
+                    capability.family
+                    for capability in resolved.capabilities
+                    if capability.name == "t2.reasoner.secondary"
+                    and capability.status
+                    in (CapabilityStatus.RESOLVED, CapabilityStatus.CAPACITY_REDUCED)
+                    and capability.family is not None
+                ),
+                None,
+            )
+            excluded_primary_families = (
+                frozenset({secondary_family}) if secondary_family is not None else frozenset()
+            )
             _primary_winner, primary_candidates = collect_primary_candidates(
                 registry=registry,
                 region=args.region,
@@ -511,6 +526,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 endpoint=args.narrator_endpoint,
                 api_version=args.primary_api_version,
                 model_versions=model_versions,
+                excluded_families=excluded_primary_families,
             )
             extra_deployments = extra_deployments + collect_primary_deployments(
                 registry=registry,
@@ -518,6 +534,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 catalog=catalog_query,
                 quota=quota_query,
                 model_versions=model_versions,
+                excluded_families=excluded_primary_families,
             )
         except (ResolverError, ValueError) as exc:
             print(f"error: {exc}", file=sys.stderr)

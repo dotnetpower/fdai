@@ -192,7 +192,7 @@ def assess_provisioning(
         return a is not None and a.is_available
 
     # Mixed-model quorum needs both reasoners available and, per the
-    # registry invariant, distinct publishers. In hil-only mode there is
+    # registry invariant, distinct model families. In hil-only mode there is
     # no secondary by design, so quorum is not expected.
     quorum_ok = (
         not hil_only_mode

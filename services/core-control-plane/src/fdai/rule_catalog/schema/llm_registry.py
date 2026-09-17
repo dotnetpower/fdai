@@ -2,9 +2,8 @@
 
 Mirror of ``rule-catalog/schema/llm-registry.schema.json`` - the JSON
 Schema is the source of truth for structural validation; this pydantic
-model layers on invariants the schema cannot express (mixed-model
-publisher distinctness across ``t2.reasoner.primary`` /
-``t2.reasoner.secondary``).
+model layers on invariants the schema cannot express (mixed-model family
+distinctness across ``t2.reasoner.primary`` / ``t2.reasoner.secondary``).
 
 The loader follows the aggregate-issue pattern used elsewhere in the
 schema package (see :mod:`.exemption`, :mod:`.resource_type`) so a
@@ -155,13 +154,13 @@ class LlmRegistry(BaseModel):
     models: dict[str, CapabilitySpec]
 
     @model_validator(mode="after")
-    def _require_mixed_model_publisher_distinct(self) -> LlmRegistry:
+    def _require_mixed_model_family_distinct(self) -> LlmRegistry:
         """Enforce the phase-2 mixed-model invariant declaratively.
 
         ``hil-only`` mode is a valid opt-out - the primary/secondary
-        publisher distinctness is not required (there is no secondary).
+        family distinctness is not required (there is no secondary).
         For every other mode, the union of first-preferences of the two
-        reasoner capabilities MUST NOT share a publisher.
+        reasoner capabilities MUST NOT share a model family.
         """
         if self.mixed_model_mode is MixedModelMode.HIL_ONLY:
             return self
@@ -174,13 +173,13 @@ class LlmRegistry(BaseModel):
             # every other issue; the risk-gate / resolver enforces at
             # deploy time.
             return self
-        primary_pub = primary.preferences[0].publisher
-        secondary_pub = secondary.preferences[0].publisher
-        if primary_pub == secondary_pub:
+        primary_family = primary.preferences[0].family
+        secondary_family = secondary.preferences[0].family
+        if primary_family == secondary_family:
             raise ValueError(
-                f"mixed-model invariant violated: {primary_name}[0].publisher"
-                f"={primary_pub!r} == {secondary_name}[0].publisher"
-                f"={secondary_pub!r}. Distinct publishers are required "
+                f"mixed-model invariant violated: {primary_name}[0].family"
+                f"={primary_family!r} == {secondary_name}[0].family"
+                f"={secondary_family!r}. Distinct model families are required "
                 "unless mixed_model_mode='hil-only'."
             )
         return self
