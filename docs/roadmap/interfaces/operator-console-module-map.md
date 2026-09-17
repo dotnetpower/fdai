@@ -491,12 +491,12 @@ projects only presentation fields, and always declares `read_only` with `mutatio
 An empty result is authoritative; a malformed durable record fails closed. Owning design:
 [Context Selection Policy](../decisioning/context-selection-policy.md).
 
-Workflow Builder keeps its editable step model, pure draft projection, defensive session decoder,
-structural validator, typed visualization, and Preact editor in sibling `workflow-builder.*`
-modules. Action choices come from the reviewed ActionType palette, and gate references come from the
-reviewed Workflow catalog. Control fields follow the server-owned Workflow contract and are accepted
-only after the existing validation route checks them. The browser neither publishes nor executes a
-saved private draft.
+Workflow Builder keeps its editable step model, pure draft projection, defensive session decoder, structural validator,
+typed visualization, and Preact editor in sibling `workflow-builder.*` modules. Action choices come from the reviewed
+ActionType palette, and gate references come from the reviewed Workflow catalog. Control fields follow the server-owned
+Workflow contract and are accepted only after the existing validation route checks them. The browser neither publishes
+nor executes a saved private draft. The catalog route owns text, category, and step-kind presentation filters plus
+selected-node ActionType and control-step inspection; these controls do not rewrite catalog data or grant action authority.
 
 The Operations projection reader owns principal-scoped Process list and journal reads. The Process
 transition, approval, and retry projection modules combine the exact Process revision, event journal,

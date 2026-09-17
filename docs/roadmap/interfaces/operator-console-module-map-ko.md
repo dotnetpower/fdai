@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 699862bc2fefc5c085c60d25c4f83752a7dfcffa
-translation_revised: 2026-09-16
+translation_source_sha: 4e51eb152a8e1114e15996949029876b27491a70
+translation_revised: 2026-09-17
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -489,11 +489,11 @@ Workflow route family는 Reader 역할로 제한된 `GET /context-selection-comp
 권위 있는 답이고, 손상된 영속 기록은 실패 시 차단됩니다. 소유 설계:
 [컨텍스트 선택 정책](../decisioning/context-selection-policy-ko.md).
 
-Workflow Builder는 편집 가능한 단계 모델, 순수 초안 변환, 방어적인 세션 디코더, 구조 검증기,
-유형별 시각화 및 Preact 편집기를 인접한 `workflow-builder.*` 모듈에 유지합니다. 작업 선택지는
-검토된 ActionType 팔레트에서 가져오고 게이트 참조는 검토된 Workflow 카탈로그에서 가져옵니다.
-제어 필드는 서버가 소유한 Workflow 계약을 따르며 기존 검증 경로가 확인한 뒤에만 수락됩니다.
-브라우저는 저장된 비공개 초안을 게시하거나 실행하지 않습니다.
+Workflow Builder는 편집 가능한 단계 모델, 순수 초안 변환, 방어적인 세션 디코더, 구조 검증기, 유형별 시각화 및
+Preact 편집기를 인접한 `workflow-builder.*` 모듈에 유지합니다. 작업 선택지는 검토된 ActionType 팔레트에서 가져오고
+게이트 참조는 검토된 Workflow 카탈로그에서 가져옵니다. 제어 필드는 서버 소유 Workflow 계약을 따르며 기존 검증 경로가
+확인한 뒤에만 수락됩니다. 브라우저는 저장된 비공개 초안을 게시하거나 실행하지 않습니다. 카탈로그 경로는 텍스트, 범주 및
+단계 종류 표시 필터와 선택한 노드의 ActionType 및 제어 단계 검사를 소유하며 카탈로그 데이터를 다시 쓰거나 작업 권한을 부여하지 않습니다.
 
 Operations 변환 결과 읽기 구성 요소는 principal 범위의 Process 목록과 저널 읽기를 소유합니다.
 Process 전환, 승인 및 재시도 변환 모듈은 정확한 Process 리비전, 이벤트 저널, 요청자, 역할,

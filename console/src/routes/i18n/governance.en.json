@@ -212,6 +212,13 @@
       "rules": "Rules",
       "controls": "Controls"
     },
+    "workspace": {
+      "title": "Catalog views",
+      "description": "Definitions and evidence",
+      "catalogKicker": "Accepted deterministic rules",
+      "catalogTitle": "Rule catalog",
+      "catalogDescription": "Definitions remain distinct from runtime evaluation and measured control status."
+    },
     "lifecycleInvalid": "The requested rule lifecycle status is not registered.",
     "lifecycleUnavailable": "Rule {status} lifecycle evidence is not exposed by this deployment.",
     "routeUnavailable": "The rule-catalog route is not wired on this deployment, so no reviewed rule is claimed here.",

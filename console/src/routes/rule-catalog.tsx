@@ -9,7 +9,7 @@ import {
   PageHeader,
   UnavailableState,
 } from "../components/ui";
-import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
+import { currentRoute, navigate, pushRouteState, replaceRouteState, routeHref } from "../router";
 import { t } from "./i18n/governance";
 import { RuleCatalogBody } from "./rule-catalog-body";
 import { RuleDetailDrawer } from "./rule-catalog-detail";
@@ -55,6 +55,7 @@ export {
 const PAGE_SIZE = 100;
 
 const EMPTY_FILTERS: Filters = { origin: "", category: "", severity: "", source: "", q: "" };
+let pendingRuleFocus: Selection | null = null;
 
 function ruleListStateFromRoute(): { readonly filters: Filters; readonly offset: number } {
   return ruleListStateFromSearch(currentRoute().search);
@@ -82,11 +83,29 @@ export function RuleCatalogRoute({ client }: Props) {
   return (
     <div class="stack governance-route rules-route">
       <PageHeader title={t("route.rules")} subtitle={t("governance.rules.subtitle")} />
-      <nav class="rules-view-tabs" aria-label={t("governance.rules.view.aria")}>
-        <a class={view === "rules" ? "is-active" : undefined} aria-current={view === "rules" ? "page" : undefined} href={routeHref("rules")}>{t("governance.rules.view.rules")}</a>
-        <a class={view === "controls" ? "is-active" : undefined} aria-current={view === "controls" ? "page" : undefined} href={bestPracticeHref({ pillar: "", status: "", q: "" }, null)}>{t("governance.rules.view.controls")}</a>
-      </nav>
-      {view === "controls" ? <ControlsCatalogRoute client={client} /> : <AtomicRuleCatalogRoute client={client} />}
+      {view === "controls" ? (
+        <div class="rules-catalog-workbench">
+          <aside class="rules-catalog-rail">
+            <header>
+              <h2>{t("governance.rules.workspace.title")}</h2>
+              <p>{t("governance.rules.workspace.description")}</p>
+            </header>
+            <nav aria-label={t("governance.rules.view.aria")}>
+              <a href={routeHref("rules")}>
+                <strong>{t("governance.rules.kpi.total")}</strong>
+                <small>{t("governance.rules.kpi.activeHint")}</small>
+              </a>
+              <a class="is-active" aria-current="page" href={bestPracticeHref({ pillar: "", status: "", q: "" }, null)}>
+                <strong>{t("governance.rules.view.controls")}</strong>
+                <small>{t("governance.rules.controls.context.purpose")}</small>
+              </a>
+            </nav>
+          </aside>
+          <section class="rules-catalog-detail">
+            <ControlsCatalogRoute client={client} />
+          </section>
+        </div>
+      ) : <AtomicRuleCatalogRoute client={client} />}
     </div>
   );
 }
@@ -200,7 +219,14 @@ function AtomicRuleCatalogRoute({ client }: Props) {
   // row origin so an id shared across tiers resolves unambiguously.
   // Selection is mirrored into the URL query (deep-link / shareable).
   function selectRule(sel: Selection | null): void {
-    navigate(ruleCatalogHref(filters, offset, sel));
+    if (sel !== null) pendingRuleFocus = sel;
+    setSelected(sel);
+    pushRouteState(ruleCatalogHref(filters, offset, sel));
+  }
+
+  function closeRuleDetail(): void {
+    pendingRuleFocus = selected;
+    selectRule(null);
   }
 
   // React to back/forward + external route edits (open or close the drawer).
@@ -284,7 +310,7 @@ function AtomicRuleCatalogRoute({ client }: Props) {
   useEffect(() => {
     if (selected === null) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") selectRule(null);
+      if (e.key === "Escape") closeRuleDetail();
     };
     window.addEventListener("keydown", onKey);
     document.body.classList.add("scroll-locked");
@@ -293,6 +319,33 @@ function AtomicRuleCatalogRoute({ client }: Props) {
       document.body.classList.remove("scroll-locked");
     };
   }, [selected]);
+
+  useEffect(() => {
+    if (data === null || selected !== null || pendingRuleFocus === null) return;
+    let frame = 0;
+    let attempts = 0;
+    const expectedKey = `${pendingRuleFocus.origin}:${pendingRuleFocus.id}`;
+    const restoreFocus = () => {
+      const marker = Array.from(document.querySelectorAll<HTMLElement>("[data-rule-key]"))
+        .find((element) => element.dataset.ruleKey === expectedKey);
+      const focusTarget = marker?.closest<HTMLButtonElement>("button")
+        ?? marker?.closest<HTMLTableRowElement>("tr");
+      if (focusTarget !== null && focusTarget !== undefined) {
+        pendingRuleFocus = null;
+        focusTarget.focus();
+        return;
+      }
+      attempts += 1;
+      if (attempts >= 60) {
+        pendingRuleFocus = null;
+        document.querySelector<HTMLInputElement>(".rule-facet-search input")?.focus();
+        return;
+      }
+      frame = window.requestAnimationFrame(restoreFocus);
+    };
+    frame = window.requestAnimationFrame(restoreFocus);
+    return () => window.cancelAnimationFrame(frame);
+  }, [data, selected]);
 
   // First load (no data yet): show a single state block.
   if (data === null) {
@@ -332,7 +385,7 @@ function AtomicRuleCatalogRoute({ client }: Props) {
         onPage={(nextOffset) => navigate(ruleCatalogHref(filters, nextOffset, selected))}
       />
       {selected !== null ? (
-        <RuleDetailDrawer detail={detail} findings={findings} onClose={() => selectRule(null)} />
+        <RuleDetailDrawer detail={detail} findings={findings} onClose={closeRuleDetail} />
       ) : null}
     </div>
   );

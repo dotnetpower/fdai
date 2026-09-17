@@ -67,7 +67,7 @@ Coverage-inventory regeneration follows question-bank source changes, including 
 > substitute the resource-group object itself or reinterpret the group noun as
 > `Resource.type=resource-group`. A `query.resource_current_state` judgment carrying a
 > `resource_group` target is rejected as an incompatible typed combination and retried before
-> planning.
+> planning. In contrast, a `resource_group` target with explicit collection, list, and name-filter facets selects Resource Group objects by grounded name and type with relationships disabled; it cannot become a child-resource membership query.
 >
 > **Implementation status (2026-08-10):** Exact ontology releases, semantic candidates, bounded
 > ObjectSets, secured query receipts, typed function registration, current inventory projection,

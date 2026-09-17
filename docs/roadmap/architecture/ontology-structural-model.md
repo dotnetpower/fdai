@@ -19,8 +19,7 @@ or a second source of provider truth.
 > directions, and historical ontology releases remain valid. New structural surfaces are additive
 > and start as read-only capabilities.
 >
-> Model selection may share a publisher only across distinct families; same-family pairs fail before invocation.
-> Publisher, family, provider, API style, and synthesized routes remain deployment metadata, not ontology identity or authority.
+> Model selection may share a publisher only across distinct families; same-family pairs fail before invocation. Publisher, family, provider, API style, and synthesized routes remain deployment metadata, not ontology identity or authority. Model capability selection may qualify a catalog family by publisher. Resolver enrichment can append narrator or primary-pool candidates only while preserving the complete deployment record, including its binding policy and seal. These fields remain deployment metadata, not ontology identity, and cannot grant model invocation or execution authority. Provider kind and API style remain endpoint metadata under the same boundary.
 
 ## Design at a glance
 
@@ -54,6 +53,7 @@ not create another ObjectType or LinkType, and its content identity cannot repla
 or relationship identity.
 Every canonical ResourceType also has one explicit recorded-state disposition. Missing state is
 never converted into a generic healthy value. The shared Operator workflow adapter may expose an optional `rule.findings-summary` projection with server-recorded counts or explicit `evaluated: false`; that operational summary is not an ontology declaration, relationship, evidence admission, or authority source.
+The per-rule findings read validates the requested identity against the same revisioned Rule catalog. Without a connected findings provider it returns `evaluated: false` and no findings for a known rule; it never derives Resource identities or finding details from summary counts.
 Committed inventory invalidation markers coordinate browser rereads without becoming graph state.
 Bulk state pages carry the marker watermark bound to their committed generation, and SSE resumes
 from that cursor. Clients without a page-bound cursor receive the current marker instead of risking

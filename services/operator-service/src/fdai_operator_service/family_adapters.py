@@ -335,6 +335,19 @@ class PostgresWorkflowAdapters:
                     stored = summary
                     projection_key = summary_key
                     payload = _rule_findings_summary_payload(summary)
+            elif request.operation is WorkflowOperation.RULE_FINDINGS:
+                stored = await self.store.read_projection(
+                    family="workflow",
+                    operation=WorkflowOperation.RULE_LIST.value,
+                )
+                projection_key = "operator-projection:workflow:rule.list"
+                detail = _rule_catalog_payload(stored, request)
+                payload = {
+                    "rule_id": detail["id"],
+                    "origin": detail["origin"],
+                    "evaluated": False,
+                    "findings": [],
+                }
             elif request.operation in {
                 WorkflowOperation.BEST_PRACTICE_LIST,
                 WorkflowOperation.BEST_PRACTICE_DETAIL,
@@ -525,7 +538,10 @@ def _rule_catalog_payload(
     if len(rules) != len(rules_value):
         raise HTTPException(status_code=503, detail="authoritative Rule catalog is malformed")
 
-    if request.operation is WorkflowOperation.RULE_DETAIL:
+    if request.operation in {
+        WorkflowOperation.RULE_DETAIL,
+        WorkflowOperation.RULE_FINDINGS,
+    }:
         rule_id = request.path_parameters.get("rule_id", "")
         origin = request.query.get("origin", "").strip().lower()
         detail = details_value.get(f"{origin}:{rule_id}") if origin else None

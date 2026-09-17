@@ -412,6 +412,40 @@ async def test_missing_rule_findings_projection_is_explicitly_not_evaluated() ->
     assert result.provenance.source_ref == ("state_kv:operator-projection:workflow:rule.list")
 
 
+async def test_rule_findings_without_provider_are_explicitly_not_evaluated() -> None:
+    class CatalogStore:
+        async def read_projection(self, *, family: str, operation: str) -> dict[str, object]:
+            assert (family, operation) == ("workflow", "rule.list")
+            return {
+                "_revision": "catalog-sha256",
+                "rules": [{"id": "rule.critical", "origin": "active"}],
+                "details": {
+                    "active:rule.critical": {
+                        "id": "rule.critical",
+                        "origin": "active",
+                    }
+                },
+            }
+
+    result = await PostgresWorkflowAdapters(cast(Any, CatalogStore())).read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.RULE_FINDINGS,
+            principal_id="operator-a",
+            query={"origin": "active"},
+            path_parameters={"rule_id": "rule.critical"},
+        )
+    )
+
+    assert result.payload == {
+        "rule_id": "rule.critical",
+        "origin": "active",
+        "evaluated": False,
+        "findings": [],
+    }
+    assert result.provenance.revision == "catalog-sha256"
+    assert result.provenance.source_ref == ("state_kv:operator-projection:workflow:rule.list")
+
+
 async def test_malformed_rule_findings_projection_remains_unavailable() -> None:
     class MalformedSummaryStore:
         async def read_state(self, key: str) -> dict[str, object] | None:

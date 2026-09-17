@@ -60,6 +60,7 @@ export function RuleDetailDrawer({ detail, findings, onClose }: RuleDetailDrawer
   return (
     <div class="drawer-overlay" onClick={onClose}>
       <aside
+        id="rule-detail-drawer"
         ref={panelRef}
         tabIndex={-1}
         class="rule-drawer"

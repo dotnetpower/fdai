@@ -628,12 +628,12 @@ async def test_general_answer_without_adaptive_profile_is_restricted_to_bragi() 
     assert result.reason == "semantic_planning_failed"
 
 
-async def test_low_confidence_general_knowledge_holds_without_adaptive_planning() -> None:
-    manifest, _definition = _fixture()
-    query_model = QueryModel(frame=_frame(), plan=None)
+async def test_unverified_general_candidate_rechecks_typed_operational_judgment() -> None:
+    manifest, definition = _fixture()
+    query_model = QueryModel(frame=_frame(), plan=query_plan(definition))
     adaptive_model = AnswerModel(answer=_draft())
 
-    class _LowConfidenceGeneralKnowledgePreflight:
+    class _MisclassifiedGeneralKnowledgePreflight:
         def preflight(self, **kwargs: object) -> ConversationPreflightResult:
             utterance = kwargs["utterance"]
             assert isinstance(utterance, str)
@@ -646,28 +646,45 @@ async def test_low_confidence_general_knowledge_holds_without_adaptive_planning(
             )
 
         def judge(self, **_kwargs: object) -> object:
-            raise AssertionError("uncertain general knowledge must not enter semantic judgment")
+            return SimpleNamespace(
+                accepted=True,
+                observations=(),
+                proposal=SemanticJudgmentProposal(
+                    primary_intent="read_state",
+                    targets=(),
+                    requested_facets=(),
+                    confidence=0.99,
+                    ambiguous=False,
+                    action_posture="advise_only",
+                    action_subject="none",
+                    authority="candidate_only",
+                    execution_authority=False,
+                ),
+                receipt=SimpleNamespace(
+                    disposition=SimpleNamespace(value="accepted"),
+                    tier=SimpleNamespace(value="t1"),
+                ),
+            )
 
     runtime = SemanticConversationRuntime(
         planner=query_service(
             query_model,
             manifest,
-            semantic_judgment=_LowConfidenceGeneralKnowledgePreflight(),
+            semantic_judgment=_MisclassifiedGeneralKnowledgePreflight(),
         ),
         executor=OntologyQueryPlanExecutor(handlers={}),
         adaptive_service=answer_service(adaptive_model),
     )
 
     result = await runtime.handle(
-        utterance="Compare blue-green and canary.",
+        utterance="List current resources.",
         prior_turns=(),
         principal=Principal(id="operator", role=Role.READER),
     )
 
-    assert result.disposition == "held"
-    assert result.reason == "general_answer_route_unverified"
+    assert result.reason != "general_answer_route_unverified"
     assert adaptive_model.calls == []
-    assert (query_model.frame_calls, query_model.plan_calls) == (0, 0)
+    assert (query_model.frame_calls, query_model.plan_calls) == (1, 1)
 
 
 async def test_no_t2_campaign_keeps_general_knowledge_on_verified_path() -> None:

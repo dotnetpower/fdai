@@ -37,6 +37,7 @@ import argparse
 import json
 import sys
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -48,7 +49,6 @@ from fdai.rule_catalog.schema.llm_resolver import (
     PermissionQuery,
     ProvisionedCapacityQuery,
     QuotaQuery,
-    ResolvedModels,
     ResolverError,
     collect_narrator,
     collect_narrator_deployments,
@@ -541,12 +541,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 2
 
     if args.narrator_endpoint or args.emit_primary_pool:
-        resolved = ResolvedModels(
-            schema_version=resolved.schema_version,
-            region=resolved.region,
-            subscription_id=resolved.subscription_id,
-            deployer_object_id=resolved.deployer_object_id,
-            mixed_model_mode=resolved.mixed_model_mode,
+        resolved = replace(
+            resolved,
             capabilities=resolved.capabilities + extra_deployments,
             narrator=narrator_winner,
             narrator_candidates=narrator_candidates,

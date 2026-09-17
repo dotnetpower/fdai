@@ -211,6 +211,13 @@
       "rules": "규칙",
       "controls": "컨트롤"
     },
+    "workspace": {
+      "title": "카탈로그 보기",
+      "description": "정의 및 근거",
+      "catalogKicker": "승인된 결정적 규칙",
+      "catalogTitle": "규칙 카탈로그",
+      "catalogDescription": "규칙 정의는 런타임 평가 및 측정된 컨트롤 상태와 구분됩니다."
+    },
     "lifecycleInvalid": "요청한 규칙 수명 주기 상태가 등록되지 않았습니다.",
     "lifecycleUnavailable": "이 배포에서는 규칙 {status} 수명 주기 증거를 제공하지 않습니다.",
     "routeUnavailable": "이 배포에는 규칙 카탈로그 경로가 연결되지 않아, 여기에서 주장하는 검토된 규칙이 없습니다.",

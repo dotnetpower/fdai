@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 0a4bb5deaab1f2d53f2f39297d7718ca59ed2830
+translation_source_sha: 5410860d73f8d1483378f849d81e97f8523d2fc9
 translation_revised: 2026-09-17
 ---
 # 구독 초기 프로비저닝
@@ -427,6 +427,7 @@ ancestor, 이미지, 인증 검사는 그대로 유지됩니다.
 해석기는 필수 기능 커버리지, 예비분을 제외한 SKU별 가용 할당량, 정책 호환성, 비공개
 네트워크 지원, 선언된 지역 선호를 기준으로 지역 순위를 결정론적으로 계산합니다. 승인된
 프로필이 허용하면 애플리케이션과 모델 지역을 다르게 선택할 수 있습니다.
+Narrator 및 primary-pool enrichment는 일부만 포함한 resolved map을 다시 만들지 않고 선택된 binding policy와 seal을 보존합니다.
 
 필수 기능이 최소 용량에 미달하면 계획을 차단합니다. 최소와 목표 사이의 용량은 성능 저하를
 명시적으로 수락해야 합니다. 선택적 기능은 계획에 기능 영향을 표시한 경우에만 사람 승인

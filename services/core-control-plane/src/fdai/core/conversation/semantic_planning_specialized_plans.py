@@ -239,6 +239,7 @@ def build_stated_value_filter_plan(
                         "as_of": evaluation_time.astimezone(UTC).isoformat(),
                         "purpose": purpose,
                         "limit": 1000,
+                        "include_relationships": False,
                     }
                 },
                 output_kind="query.table",
