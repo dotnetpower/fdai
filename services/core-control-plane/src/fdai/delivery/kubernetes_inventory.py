@@ -14,6 +14,7 @@ from fdai.delivery.inventory_sync import (
     PromotedInventoryObservation,
 )
 from fdai.delivery.kubernetes_api_inventory import KubernetesApiInventorySnapshot
+from fdai.delivery.kubernetes_api_status import KubernetesApiInventoryError
 from fdai.delivery.kubernetes_relationships import project_kubernetes_relationships
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     ProviderRelationshipMappingCatalog,
@@ -129,6 +130,12 @@ class KubernetesInventoryEnricher:
             )
         try:
             snapshot = await self._source.collect()
+        except KubernetesApiInventoryError as exc:
+            return _unavailable(
+                observation,
+                reason=exc.reason.value,
+                scope_digest=self._scope_digest,
+            )
         except Exception:  # noqa: BLE001 - source details never enter generation metadata
             return _unavailable(
                 observation,

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import socket
+import ssl
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 
@@ -13,6 +15,7 @@ from fdai.delivery.kubernetes_api_inventory import (
     KubernetesApiInventorySource,
     WorkloadIdentityKubernetesAuth,
 )
+from fdai.delivery.kubernetes_api_status import KubernetesApiFailureReason
 from fdai.shared.providers.workload_identity import IdentityToken
 
 CLUSTER_REF = "scope-example/resource-group/rg-example/providers/containerservice/cluster-example"
@@ -350,8 +353,89 @@ async def test_rejects_partial_resource_family_without_returning_snapshot() -> N
             auth=_Auth(),
             http_client=client,
         )
-        with pytest.raises(KubernetesApiInventoryError, match="HTTP 403"):
+        with pytest.raises(KubernetesApiInventoryError, match="HTTP 403") as exc_info:
             await source.collect()
+
+    assert exc_info.value.reason is KubernetesApiFailureReason.AUTHORIZATION_FAILED
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected_reason"),
+    (
+        (401, KubernetesApiFailureReason.AUTHENTICATION_FAILED),
+        (408, KubernetesApiFailureReason.REQUEST_TIMEOUT),
+        (429, KubernetesApiFailureReason.API_UNAVAILABLE),
+        (503, KubernetesApiFailureReason.API_UNAVAILABLE),
+        (422, KubernetesApiFailureReason.REQUEST_REJECTED),
+    ),
+)
+async def test_classifies_http_failure_without_retaining_response_details(
+    status_code: int,
+    expected_reason: KubernetesApiFailureReason,
+) -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            status_code,
+            json={"message": "provider-controlled private detail"},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = KubernetesApiInventorySource(
+            config=KubernetesApiInventoryConfig(
+                api_server="https://kubernetes.example",
+                cluster_ref=CLUSTER_REF,
+            ),
+            auth=_Auth(),
+            http_client=client,
+        )
+        with pytest.raises(KubernetesApiInventoryError) as exc_info:
+            await source.collect()
+
+    assert exc_info.value.reason is expected_reason
+    assert "provider-controlled private detail" not in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    ("failure_kind", "expected_reason"),
+    (
+        ("dns", KubernetesApiFailureReason.DNS_UNAVAILABLE),
+        ("tls", KubernetesApiFailureReason.TLS_UNAVAILABLE),
+        ("network", KubernetesApiFailureReason.NETWORK_UNAVAILABLE),
+        ("timeout", KubernetesApiFailureReason.REQUEST_TIMEOUT),
+    ),
+)
+async def test_classifies_private_api_transport_failure(
+    failure_kind: str,
+    expected_reason: KubernetesApiFailureReason,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if failure_kind == "timeout":
+            raise httpx.ReadTimeout("timed out", request=request)
+        if failure_kind == "network":
+            raise httpx.ConnectError("connection failed", request=request)
+        cause: BaseException = (
+            socket.gaierror("name resolution failed")
+            if failure_kind == "dns"
+            else ssl.SSLError("certificate verification failed")
+        )
+        try:
+            raise cause
+        except BaseException as exc:
+            raise httpx.ConnectError("connection failed", request=request) from exc
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = KubernetesApiInventorySource(
+            config=KubernetesApiInventoryConfig(
+                api_server="https://kubernetes.example",
+                cluster_ref=CLUSTER_REF,
+            ),
+            auth=_Auth(),
+            http_client=client,
+        )
+        with pytest.raises(KubernetesApiInventoryError) as exc_info:
+            await source.collect()
+
+    assert exc_info.value.reason is expected_reason
 
 
 async def test_rejects_malformed_endpoint_slice_service_label() -> None:
