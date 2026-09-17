@@ -14,10 +14,10 @@ resource "azurerm_kubernetes_cluster" "scenario_lab" {
   # checkov:skip=CKV_AZURE_227:Host encryption is subscription-feature and SKU gated; storage encryption remains platform-managed.
   # checkov:skip=CKV_AZURE_172:The lab mounts no Key Vault secrets through the CSI driver.
   # checkov:skip=CKV_AZURE_171:AzureRM 4.x uses automatic_upgrade_channel; this check still reads the retired attribute name.
-  name                                = "aks-${local.suffix}"
+  name                                = "aks-store-demo"
   location                            = data.azurerm_resource_group.scenario_lab.location
   resource_group_name                 = data.azurerm_resource_group.scenario_lab.name
-  dns_prefix                          = "aks-${local.suffix}"
+  dns_prefix                          = "aks-store-demo"
   private_cluster_enabled             = true
   private_cluster_public_fqdn_enabled = true
   private_dns_zone_id                 = "System"

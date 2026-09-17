@@ -1,6 +1,6 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: 1ebdb9fb82dd45a55161d1f26405fd39df2b1459
+translation_source_sha: bdef3c27391dcc8b6ad507f4af0eb58c2a2beadf
 translation_revised: 2026-09-17
 ---
 # AKS 상거래 비즈니스 시나리오
@@ -127,11 +127,16 @@ Kubernetes API 수락은 성공이 아닙니다.
 
 시나리오 랩 프로필은 다음 경계를 사용해 상거래 워크로드를 배포합니다.
 
+- 프로필은 전용 `aks-store-demo` 클러스터를 생성하며 다른 기존 FDAI 또는 공유
+  클러스터를 선택하지 않습니다.
 - 스토어프런트만 공개 애플리케이션 표면으로 둡니다.
 - 공개 접근은 HTTPS, 배포에서 제공한 DNS 이름, 신뢰할 수 있는 인증서 참조를 사용합니다.
 - 관리 UI, API, 큐, 데이터베이스, 실행기는 비공개로 유지합니다.
 - 시나리오가 준비되었다고 보고하기 전에 AKS 모니터링, Container Insights, Managed
   Prometheus, 필수 애플리케이션 원격 분석을 사용하도록 설정합니다.
+- 배포가 소유하는 association은 Azure Policy가 소유한 유효 subnet NSG를 교체하지
+  않습니다. Preflight는 기본 inbound deny rule을 검증하고 private-endpoint subnet과
+  stress VM NIC는 명시적인 Terraform 소유 association을 유지합니다.
 - 배포는 스토어프런트 URL과 불투명한 리소스 참조를 출력합니다. 테넌트 값을
   커밋하지 않습니다.
 
