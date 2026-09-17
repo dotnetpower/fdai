@@ -343,17 +343,7 @@ class SemanticConversationRuntime:
             locale=locale,
         )
         if general_candidate and not general_one_shot:
-            return SemanticTurnResult(
-                disposition="held",
-                reason="general_answer_route_unverified",
-                planning=SemanticPlanningOutcome(
-                    disposition=SemanticPlanningDisposition.UNAVAILABLE,
-                    reason="general_answer_route_unverified",
-                    model_observations=(
-                        preflight_result.observations if preflight_result is not None else ()
-                    ),
-                ),
-            )
+            return await verified(utterance)
         if general_one_shot:
             if proposal is None or proposal.general_answer is None:
                 raise RuntimeError("general answer promotion invariant violated")

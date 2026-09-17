@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 80ecc7af156197f067931c53e8083340a7270261
+translation_source_sha: 3e73e99c122b7acd405095ed7be02b9748592a83
 translation_revised: 2026-09-17
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -84,6 +84,9 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 > 객체 자체를 대신 반환하거나 그룹 명사를 `Resource.type=resource-group`으로 재해석하지 않습니다.
 > `resource_group` 대상을 포함한 `query.resource_current_state` 판단은 호환되지 않는 타입 조합으로
 > 차단하고 계획 전에 다시 판단합니다.
+> 반면 명시적인 모음, 목록 및 이름 필터 특성이 있는 `resource_group` 대상은 관계를 읽지 않고
+> 근거가 있는 이름과 타입으로 Resource Group 객체를 선택합니다. 이 대상은 하위 리소스 구성원
+> 조회로 바뀔 수 없습니다.
 >
 > **구현 상태(2026-08-10):** Exact 온톨로지 release, 의미 후보, 범위가 제한된 ObjectSet, secured 조회
 > 증적, 타입이 지정된 함수 등록, 현재 인벤토리 변환 결과, 메트릭 프로바이더 및 causal-analysis

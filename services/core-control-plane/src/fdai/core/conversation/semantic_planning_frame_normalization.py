@@ -352,6 +352,7 @@ def build_named_resource_group_membership_frame(
         judgment is None
         or judgment.primary_intent != "query.contextual_resources"
         or judgment.action_posture != "advise_only"
+        or {"resource_collection", "list"} <= set(judgment.requested_facets)
         or judgment.ambiguous
         or judgment.unresolved_terms
         or len(judgment.targets) != 1

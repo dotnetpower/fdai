@@ -1323,6 +1323,7 @@ def _grounded_predicates(
     utterance: str,
     *,
     semantic_judgment: Any = None,
+    require_object_only: bool = False,
 ) -> list[dict[str, Any]]:
     outcome = _service(model, manifest, semantic_judgment=semantic_judgment).plan(
         utterance=utterance,
@@ -1332,7 +1333,10 @@ def _grounded_predicates(
     )
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert outcome.plan is not None
-    predicates = outcome.plan.nodes[0].arguments["definition"]["predicates"]
+    definition = outcome.plan.nodes[0].arguments["definition"]
+    if require_object_only:
+        assert definition["include_relationships"] is False
+    predicates = definition["predicates"]
     assert isinstance(predicates, list)
     return predicates
 
@@ -1387,6 +1391,7 @@ def test_resource_group_type_target_is_not_treated_as_named_group_membership(
         manifest,
         utterance,
         semantic_judgment=_JudgmentBoundary(judgment),
+        require_object_only=True,
     )
 
     assert predicates == [{"property": "type", "operator": "equals", "equals": "resource-group"}]
@@ -1425,6 +1430,49 @@ def test_resource_group_name_fragment_filters_group_objects_not_members() -> Non
         manifest,
         utterance,
         semantic_judgment=_JudgmentBoundary(judgment),
+        require_object_only=True,
+    )
+
+    assert predicates == [
+        {"property": "name", "operator": "contains", "equals": "fdai"},
+        {"property": "type", "operator": "equals", "equals": "resource-group"},
+    ]
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+def test_resource_group_target_with_collection_facets_filters_group_objects() -> None:
+    utterance = "fdai 관련 리소스 그룹은?"
+    manifest, _definition = _typed_fixture(
+        groups=(_RESOURCE_GROUP_GROUP,),
+        include_parent_id=True,
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.contextual_resources",
+        targets=(
+            SemanticTarget(
+                kind="resource_group",
+                value="fdai",
+                source_start=0,
+                source_end=len("fdai"),
+            ),
+        ),
+        requested_facets=("resource_collection", "list", "name_filter"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(frame=None, plan=None)
+
+    predicates = _grounded_predicates(
+        model,
+        manifest,
+        utterance,
+        semantic_judgment=_JudgmentBoundary(judgment),
+        require_object_only=True,
     )
 
     assert predicates == [

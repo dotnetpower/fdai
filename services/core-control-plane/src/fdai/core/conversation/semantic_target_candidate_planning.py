@@ -151,6 +151,10 @@ def build_stated_resource_filter_frame(
         and (
             target["kind"] == "affected_target"
             or (
+                target["kind"] == "resource_group"
+                and {"resource_collection", "list", "name_filter"} <= set(raw_facets)
+            )
+            or (
                 target["kind"].endswith("_filter")
                 and target["kind"]
                 not in {
