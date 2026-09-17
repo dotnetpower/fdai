@@ -346,8 +346,11 @@
       "emptyTitle": "No matching correlation groups",
       "emptyBody": "No correlated activity for this agent yet. Clear the filter to see the full waterfall.",
       "label": "Agent activity waterfall",
-      "expand": "Expand correlation group",
-      "collapse": "Collapse correlation group",
+      "expand": "Expand correlation group {correlation}",
+      "collapse": "Collapse correlation group {correlation}",
+      "openTrace": "View trace",
+      "openTraceLabel": "View trace for {correlation}",
+      "uncorrelatedEvent": "Uncorrelated event #{sequence}",
       "selectTitle": "Select a step",
       "selectBody": "Pick any agent step on the left to see its full lifecycle - when the event was sent and received, how long it queued and worked, what it consumed and produced, and the recorded decision."
     },
