@@ -222,7 +222,7 @@ async function installFixture(page: Page): Promise<() => readonly Record<string,
   return () => validations;
 }
 
-test("authors and restores governed workflow control steps accessibly", async ({
+test("reviews, authors, and restores governed workflow control steps accessibly", async ({
   page,
 }, testInfo) => {
   const viewport = process.env["FDAI_WORKFLOW_VIEWPORT"] === "constrained"
@@ -234,6 +234,44 @@ test("authors and restores governed workflow control steps accessibly", async ({
   const validations = await installFixture(page);
 
   await page.goto("/workflow-builder");
+  await expect(page.getByText("Live catalog", { exact: true })).toBeVisible();
+  const summary = page.getByRole("region", { name: "Selected workflow summary" });
+  await expect(summary).toContainText("Steps");
+  await expect(summary).toContainText("Validation");
+  await expect(summary).toContainText("Passed");
+  const workspace = page.locator(".workflow-catalog-workspace");
+  await expect(workspace).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Published workflows" })).toBeVisible();
+  const workflowButton = page.getByRole("button", { name: /release-review/ });
+  await workflowButton.focus();
+  await workflowButton.press("Enter");
+  await expect(workflowButton).toHaveAttribute("aria-pressed", "true");
+  const filter = page.getByRole("searchbox", { name: "Filter workflows" });
+  await filter.fill("not-in-catalog");
+  await expect(page.getByText("No workflows match this filter.")).toBeVisible();
+  await filter.fill("");
+  const summaryBox = await summary.boundingBox();
+  const controlsBox = await page.getByRole("region", {
+    name: "Workflow review controls",
+  }).boundingBox();
+  const workspaceBox = await workspace.boundingBox();
+  expect(summaryBox?.y).toBeLessThan(controlsBox?.y ?? 0);
+  expect(controlsBox?.y).toBeLessThan(workspaceBox?.y ?? 0);
+  if (viewport.width > 1080) {
+    const desktopGeometry = await workspace.evaluate((element) => ({
+      columns: getComputedStyle(element).gridTemplateColumns,
+      width: element.getBoundingClientRect().width,
+    }));
+    expect(desktopGeometry.width).toBeLessThanOrEqual(1074);
+    expect(desktopGeometry.columns).toMatch(/^220px .* 310px$/);
+  }
+  for (const selector of ["html", ".workflow-builder-route", ".workflow-catalog-workspace"]) {
+    const dimensions = await page.locator(selector).evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+  }
   await page.getByRole("button", { name: "Design a new workflow" }).click();
 
   await expect(page.getByText("Recovered this tab's workflow draft.")).toBeVisible();
@@ -299,7 +337,18 @@ test("authors and restores governed workflow control steps accessibly", async ({
     const dimensions = await page.locator(selector).evaluate((element) => ({
       clientWidth: element.clientWidth,
       scrollWidth: element.scrollWidth,
+      overflowers: Array.from(element.querySelectorAll("*"))
+        .filter((child) => child.scrollWidth > child.clientWidth)
+        .map((child) => ({
+          className: child.className,
+          clientWidth: child.clientWidth,
+          scrollWidth: child.scrollWidth,
+          tagName: child.tagName,
+        })),
     }));
-    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+    expect(
+      dimensions.scrollWidth,
+      `${selector} overflowers: ${JSON.stringify(dimensions.overflowers)}`,
+    ).toBeLessThanOrEqual(dimensions.clientWidth);
   }
 });

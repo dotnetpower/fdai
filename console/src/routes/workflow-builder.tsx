@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { isOptionalOperatorApiUnavailable } from "../api";
+import { isOptionalOperatorApiUnavailable, OperatorApiError } from "../api";
 import type { OperatorApiClient } from "../api";
 import { AsyncBoundary, PageHeader, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
@@ -57,13 +57,18 @@ const EMPTY_WORKFLOW_DEFINITIONS: WorkflowDefinitionCatalogResponse = {
   counts: { built_in: 0, shared: 0, mine: 0 },
 };
 
+function isOptionalWorkflowCapabilityUnavailable(error: unknown): boolean {
+  return isOptionalOperatorApiUnavailable(error)
+    || (error instanceof OperatorApiError && error.status === 503);
+}
+
 export async function loadWorkflowDefinitions(
   client: Pick<OperatorApiClient, "panel">,
 ): Promise<WorkflowDefinitionCatalogResponse> {
   try {
     return await client.panel<WorkflowDefinitionCatalogResponse>("/workflows/definitions");
   } catch (error) {
-    if (isOptionalOperatorApiUnavailable(error)) return EMPTY_WORKFLOW_DEFINITIONS;
+    if (isOptionalWorkflowCapabilityUnavailable(error)) return EMPTY_WORKFLOW_DEFINITIONS;
     throw error;
   }
 }
@@ -75,13 +80,14 @@ export async function loadPythonTaskAvailability(
     const payload = await client.panel<unknown>("/python-tasks/capabilities");
     return decodePythonTaskAvailability(payload);
   } catch (error) {
-    if (isOptionalOperatorApiUnavailable(error)) return null;
+    if (isOptionalWorkflowCapabilityUnavailable(error)) return null;
     throw error;
   }
 }
 
 export function WorkflowBuilderRoute({ client }: Props) {
   const [state, setState] = useState<AsyncState<CombinedData>>({ status: "loading" });
+  const [catalogRevision, setCatalogRevision] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,9 +132,24 @@ export function WorkflowBuilderRoute({ client }: Props) {
 
   return (
     <div class="stack governance-route workflow-builder-route">
-      <PageHeader title={t("route.workflowBuilder")} subtitle={t("workflowBuilder.subtitle")} />
+      <PageHeader
+        title={t("route.workflowBuilder")}
+        subtitle={t("workflowBuilder.subtitle")}
+        actions={catalogRevision ? (
+          <div class="workflow-header-meta">
+            <span>{t("workflow.catalog.catalogRevision")}</span>
+            <strong>{catalogRevision}</strong>
+          </div>
+        ) : null}
+      />
       <AsyncBoundary state={state} resourceLabel={t("workflow.builder.resourceLabel")}>
-        {(data) => <WorkflowShell client={client} data={data} />}
+        {(data) => (
+          <WorkflowShell
+            client={client}
+            data={data}
+            onCatalogRevision={setCatalogRevision}
+          />
+        )}
       </AsyncBoundary>
     </div>
   );
@@ -139,9 +160,11 @@ export function WorkflowBuilderRoute({ client }: Props) {
 function WorkflowShell({
   client,
   data,
+  onCatalogRevision,
 }: {
   readonly client: OperatorApiClient;
   readonly data: CombinedData;
+  readonly onCatalogRevision: (revision: string | null) => void;
 }) {
   const [mode, setMode] = useState<"list" | "new" | "python">("list");
   const gateRefs = useMemo(() => workflowGateRefs([
@@ -244,6 +267,7 @@ function WorkflowShell({
       pythonTasks={data.pythonTasks}
       onNew={() => setMode("new")}
       onPython={() => setMode("python")}
+      onCatalogRevision={onCatalogRevision}
     />
   );
 }

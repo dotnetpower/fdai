@@ -142,9 +142,27 @@ describe("workflow catalog wire tolerance", () => {
     });
   });
 
+  test("keeps built-in browsing available when principal definitions are unavailable", async () => {
+    const definitions = await loadWorkflowDefinitions({
+      panel: async () => { throw new OperatorApiError(503, "Service Unavailable"); },
+    } as never);
+    expect(definitions).toEqual({
+      groups: { built_in: [], shared: [], mine: [] },
+      bindings: [],
+      counts: { built_in: 0, shared: 0, mine: 0 },
+    });
+  });
+
   test("keeps workflow browsing available when Python tasks are unwired", async () => {
     const availability = await loadPythonTaskAvailability({
       panel: async () => { throw new OperatorApiError(404, "Not Found"); },
+    } as never);
+    expect(availability).toBeNull();
+  });
+
+  test("keeps workflow browsing available when Python tasks are unavailable", async () => {
+    const availability = await loadPythonTaskAvailability({
+      panel: async () => { throw new OperatorApiError(503, "Service Unavailable"); },
     } as never);
     expect(availability).toBeNull();
   });

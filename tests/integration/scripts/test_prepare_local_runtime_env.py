@@ -967,6 +967,8 @@ def test_no_azure_deployment_mode_skips_terraform_and_verifies_explicit_scope(
         'elif [[ "$*" == *"group show --subscription '
         '00000000-0000-0000-0000-000000000001 --name rg-example --query location"* ]]; then\n'
         "  printf 'example-region'\n"
+        'elif [[ "$*" == *"monitor log-analytics workspace list"* ]]; then\n'
+        "  printf '00000000-0000-0000-0000-000000000003'\n"
         "else\n"
         "  exit 2\n"
         "fi\n",
@@ -1002,6 +1004,7 @@ def test_no_azure_deployment_mode_skips_terraform_and_verifies_explicit_scope(
     assert "FDAI_KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:19092" in rendered
     assert "FDAI_DIRECT_API_FAKE=" not in rendered
     assert "FDAI_DEV_OPERATIONS_GATEWAY_URL=" not in rendered
+    assert "FDAI_MONITOR_WORKSPACE_ID=00000000-0000-0000-0000-000000000003" in rendered
     assert "LLM_RESOLVED_MODELS_PATH=" not in rendered
     # A local Redpanda broker joins in milliseconds; the Event Hubs-tuned slow-join
     # timeouts would otherwise make every readiness probe wait up to 90-180s.

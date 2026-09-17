@@ -12,7 +12,7 @@ import {
   requestedActionType,
   type WorkflowGroup,
 } from "./workflow-builder.model";
-import { formatNumber, statusLabel, t } from "./i18n/workflow";
+import { formatNumber, statusLabel, t, triggerLabel } from "./i18n/workflow";
 
 export function workflowStepHref(
   group: WorkflowGroup,
@@ -24,12 +24,16 @@ export function workflowStepHref(
 
 export function WorkflowDetail({
   workflow,
+  workflows,
   palette,
   group,
+  onSelectWorkflow,
 }: {
   readonly workflow: WorkflowCatalogEntry;
+  readonly workflows: readonly WorkflowCatalogEntry[];
   readonly palette: readonly ActionTypePaletteEntry[];
   readonly group: WorkflowGroup;
+  readonly onSelectWorkflow: (workflow: WorkflowCatalogEntry) => void;
 }) {
   const gate = workflow.promotion_gate;
   const requestedStep = currentRoute().search.get("step");
@@ -77,19 +81,46 @@ export function WorkflowDetail({
   const actionType = selected
     ? palette.find((entry) => entry.name === selected.action_type_ref) ?? null
     : requestedPaletteAction;
+  const inspectorName = selected?.action_type_ref || selected?.id || actionType?.name || null;
+  const inspectorDescription = actionType?.description
+    ?? (selected ? t("workflow.detail.controlStepDescription") : null);
+  const inspectorMode = actionType?.default_mode ?? workflow.default_mode;
+  const showInspectorSummary = !invalidRequestedStep
+    && !invalidRequestedAction
+    && inspectorName !== null;
   return (
     <section class="workflow-catalog-workspace">
-      <aside class="workflow-palette-panel">
-        <h3>{t("workflow.detail.palette")} <span>{t("workflow.detail.actionTypeCount", { count: formatNumber(palette.length) })}</span></h3>
-        <p>{t("workflow.detail.catalogReadOnly")}</p>
-        <ul>
-          {palette.map((entry) => (
-            <li key={entry.name} class={entry.name === actionType?.name ? "is-selected" : undefined}>
-              <code>{entry.name}</code>
-              <span class={`is-${entry.category ?? "other"}`}>{entry.category ?? "other"}</span>
-            </li>
-          ))}
-        </ul>
+      <aside class="workflow-catalog-panel">
+        <header>
+          <div>
+            <h3>{t("workflow.catalog.libraryHeading")}</h3>
+            <p>{t("workflow.catalog.libraryDescription")}</p>
+          </div>
+          <span>{formatNumber(workflows.length)}</span>
+        </header>
+        <div class="workflow-catalog-list">
+          {workflows.length === 0 ? <p>{t("workflow.catalog.filterEmpty")}</p> : null}
+          {workflows.map((entry) => {
+            const selectedWorkflow = entry.name === workflow.name;
+            return (
+              <button
+                type="button"
+                key={entry.name}
+                class={selectedWorkflow ? "is-selected" : undefined}
+                aria-pressed={selectedWorkflow}
+                onClick={() => onSelectWorkflow(entry)}
+              >
+                <span>
+                  <strong>{entry.name}</strong>
+                  <small>
+                    {triggerLabel(entry.trigger.kind)} / {t("workflow.catalog.stepCount", { count: formatNumber(entry.step_count) })}
+                  </small>
+                </span>
+                <span>{t(selectedWorkflow ? "workflow.catalog.currentDetail" : "workflow.catalog.catalogOnly")}</span>
+              </button>
+            );
+          })}
+        </div>
       </aside>
 
       <section class="workflow-canvas-panel">
@@ -130,14 +161,27 @@ export function WorkflowDetail({
       </section>
 
       <aside class="workflow-inspector-panel">
-        <h3>{t("workflow.detail.inspect")} <span>{t("workflow.detail.selectedStep")}</span></h3>
+        <h3>
+          {t(actionType ? "workflow.detail.selectedActionType" : "workflow.detail.selectedStep")}
+        </h3>
+        {showInspectorSummary ? (
+          <div class="workflow-inspector-summary">
+            <div>
+              <code class="workflow-inspector-name">{inspectorName}</code>
+              <span class={inspectorMode === "enforce" ? "badge enforce" : "badge shadow"}>
+                {statusLabel(inspectorMode)}
+              </span>
+            </div>
+            {inspectorDescription ? <p>{inspectorDescription}</p> : null}
+          </div>
+        ) : null}
         {invalidRequestedStep ? (
           <UnavailableState message={t("workflow.detail.stepNotFound", { step: requestedStep ?? "", workflow: workflow.name })} />
         ) : invalidRequestedAction ? (
           <UnavailableState message={t("workflow.detail.actionNotFound", { action: requestedAction ?? "" })} />
         ) : selected === null && actionType !== null ? (
           <>
-            <code class="workflow-inspector-name">{actionType.name}</code>
+            <h4 class="workflow-inspector-section-title">{t("workflow.detail.safetyContract")}</h4>
             <dl>
               <div><dt>{t("workflow.detail.field.category")}</dt><dd>{actionType.category ?? t("workflow.detail.notRecorded")}</dd></div>
               <div><dt>{t("workflow.detail.field.operation")}</dt><dd>{actionType.operation}</dd></div>
@@ -151,7 +195,9 @@ export function WorkflowDetail({
           </>
         ) : selected ? (
           <>
-            <code class="workflow-inspector-name">{selected.action_type_ref || selected.id}</code>
+            <h4 class="workflow-inspector-section-title">
+              {t(actionType ? "workflow.detail.safetyContract" : "workflow.detail.contractDetails")}
+            </h4>
             <dl>
               <div><dt>{t("workflow.detail.field.stepId")}</dt><dd>{selected.id}</dd></div>
               <div><dt>{t("workflow.detail.field.stepKind")}</dt><dd>{t(`workflow.stepKind.${selected.kind ?? "action"}`)}</dd></div>

@@ -414,12 +414,12 @@ Step editors and other authoring groups are structural panels, not data cards. T
 section semantics because they have no drill-down destination; data cards remain reserved for
 summaries that link to an owned detail or evidence view.
 
-The view has two modes. The default is a **launchpad plus a read-only list of
-the built-in workflows**: a `read-only browse table` lists every shipped
-process with its trigger, step count, and mode, and a per-row detail panel
-(property table, steps table, anti-scope, and the raw catalog YAML) lets an
-operator study a working example first. A single **"Design a new workflow"**
-entry opens the conversational designer.
+The view has two modes. The default is a **read-only published-definition
+workspace**: authoritative source and revision lead into four selected-workflow
+facts, ownership and filter controls, a catalog rail, an ordered contract path,
+a safety inspector, and the raw catalog YAML disclosure. Optional principal
+definitions and Python-task capabilities degrade independently, so they never
+hide an available built-in catalog. A single **"Design a new workflow"** entry opens the conversational designer.
 
 ### 8.1 Conversational designer
 
