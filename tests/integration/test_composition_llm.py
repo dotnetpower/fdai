@@ -258,20 +258,31 @@ def test_azure_mode_container_is_unbound_until_finalized(tmp_path: Path) -> None
 
 
 def test_bind_azure_llm_bindings_attaches_adapters(tmp_path: Path) -> None:
+    from fdai.core.metering.pricing import PricingTable
+    from fdai.core.metering.sink import InMemoryMeteringSink
+
     resolved = tmp_path / "resolved-models.json"
     resolved.write_text(_resolved_models_json(), encoding="utf-8")
     container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
     http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+    metering = InMemoryMeteringSink()
+    pricing = PricingTable.from_mapping(
+        {"gpt-4o": {"input_per_1k": "1.00", "output_per_1k": "2.00", "currency": "USD"}}
+    )
     finalized = bind_azure_llm_bindings(
         container,
         identity=_StaticIdentity(),
         http_client=http,
         endpoint="https://oai-test.openai.azure.com",
         system_prompt=_TEST_SYSTEM_PROMPT,
+        metering_sink=metering,
+        pricing=pricing,
     )
     bindings = finalized.require_llm_bindings()
     assert bindings.embedding_model is not None
     assert len(bindings.cross_check_models) == 2
+    assert bindings.conversation_metering is metering
+    assert bindings.conversation_pricing is pricing
 
 
 def test_bind_azure_llm_bindings_enables_bounded_proposer_failover(tmp_path: Path) -> None:

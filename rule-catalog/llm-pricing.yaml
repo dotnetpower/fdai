@@ -25,64 +25,64 @@ schema_version: "1.0.0"
 models:
   # OpenAI reasoners (T2)
   gpt-4o:
-    input_per_1k: "2.50"
-    output_per_1k: "10.00"
+    input_per_1k: "0.00250"
+    output_per_1k: "0.01000"
     currency: USD
   gpt-4-turbo:
-    input_per_1k: "10.00"
-    output_per_1k: "30.00"
+    input_per_1k: "0.01000"
+    output_per_1k: "0.03000"
     currency: USD
   o1:
-    input_per_1k: "15.00"
-    output_per_1k: "60.00"
+    input_per_1k: "0.01500"
+    output_per_1k: "0.06000"
     currency: USD
   gpt-4.1:
-    input_per_1k: "2.00"
-    output_per_1k: "8.00"
+    input_per_1k: "0.00200"
+    output_per_1k: "0.00800"
     currency: USD
   gpt-5:
-    input_per_1k: "1.25"
-    output_per_1k: "10.00"
+    input_per_1k: "0.00125"
+    output_per_1k: "0.01000"
     currency: USD
   gpt-5.4:
-    input_per_1k: "1.25"
-    output_per_1k: "10.00"
+    input_per_1k: "0.00125"
+    output_per_1k: "0.01000"
     currency: USD
 
   # OpenAI mini judges (T1)
   gpt-4o-mini:
-    input_per_1k: "0.15"
-    output_per_1k: "0.60"
+    input_per_1k: "0.00015"
+    output_per_1k: "0.00060"
     currency: USD
   gpt-4.1-mini:
-    input_per_1k: "0.40"
-    output_per_1k: "1.60"
+    input_per_1k: "0.00040"
+    output_per_1k: "0.00160"
     currency: USD
   gpt-5-mini:
-    input_per_1k: "0.25"
-    output_per_1k: "2.00"
+    input_per_1k: "0.00025"
+    output_per_1k: "0.00200"
     currency: USD
   gpt-5.4-mini:
-    input_per_1k: "0.25"
-    output_per_1k: "2.00"
+    input_per_1k: "0.00025"
+    output_per_1k: "0.00200"
     currency: USD
 
   # Optional third-party cross-check peers
   claude-opus-4:
-    input_per_1k: "15.00"
-    output_per_1k: "75.00"
+    input_per_1k: "0.01500"
+    output_per_1k: "0.07500"
     currency: USD
   mistral-large-2:
-    input_per_1k: "2.00"
-    output_per_1k: "6.00"
+    input_per_1k: "0.00200"
+    output_per_1k: "0.00600"
     currency: USD
 
   # Embedding families (T1) - no completion tokens
   text-embedding-3-small:
-    input_per_1k: "0.02"
+    input_per_1k: "0.00002"
     output_per_1k: "0"
     currency: USD
   text-embedding-3-large:
-    input_per_1k: "0.13"
+    input_per_1k: "0.00013"
     output_per_1k: "0"
     currency: USD

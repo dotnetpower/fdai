@@ -422,6 +422,8 @@ def bind_azure_llm_bindings(
                 ),
                 rca_reasoner=rca_reasoner,
                 t2_proposer=proposer,
+                conversation_metering=metering_sink,
+                conversation_pricing=pricing,
                 conversation_semantic_judgment_factory=semantic_judgment_factory,
             )
             return replace(container, llm_bindings=bindings)
@@ -613,6 +615,8 @@ def bind_azure_llm_bindings(
         debate_orchestrator=debate_orchestrator,
         rca_reasoner=rca_reasoner,
         t2_proposer=proposer,
+        conversation_metering=metering_sink,
+        conversation_pricing=pricing,
         conversation_semantic_judgment_factory=semantic_judgment_factory,
     )
     return replace(container, llm_bindings=bindings)
