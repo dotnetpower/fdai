@@ -112,9 +112,11 @@ class AzureScheduledAnalyticsSource:
         *,
         client: httpx.AsyncClient,
         credential: CostReadCredential,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self._client = client
         self._credential = credential
+        self._clock = clock
 
     async def collect(
         self,
@@ -127,7 +129,7 @@ class AzureScheduledAnalyticsSource:
         """Collect source material under one deadline and explicit source status."""
 
         subscription_id = _subscription_id(scope_id)
-        remaining = (deadline_at - datetime.now(UTC)).total_seconds()
+        remaining = (deadline_at - self._clock()).total_seconds()
         if remaining <= 0:
             raise AnalyticsSourceError("credential", "deadline_exceeded")
         try:
@@ -234,7 +236,7 @@ class AzureScheduledAnalyticsSource:
             usage_bytes=usage_bytes,
             sources=tuple(sources),
             limitations=tuple(sorted(set(limitations))),
-            collected_at=datetime.now(UTC),
+            collected_at=self._clock(),
         )
 
     async def _cost_query_usage(
@@ -389,7 +391,7 @@ class AzureScheduledAnalyticsSource:
         token: str,
         deadline_at: datetime,
     ) -> tuple[dict[str, Any], int]:
-        remaining = (deadline_at - datetime.now(UTC)).total_seconds()
+        remaining = (deadline_at - self._clock()).total_seconds()
         if remaining <= 0:
             raise AnalyticsSourceError(source, "deadline_exceeded")
         _require_management_url(url)
@@ -432,7 +434,7 @@ class AzureScheduledAnalyticsSource:
         token: str,
         deadline_at: datetime,
     ) -> tuple[dict[str, Any], int]:
-        remaining = (deadline_at - datetime.now(UTC)).total_seconds()
+        remaining = (deadline_at - self._clock()).total_seconds()
         if remaining <= 0:
             raise AnalyticsSourceError(source, "deadline_exceeded")
         _require_management_url(url)
