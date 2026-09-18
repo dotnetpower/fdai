@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: cf5cb122f2845fce88a0f08d46971a1ccf737f7a
-translation_revised: 2026-09-17
+translation_source_sha: 97a973823a85d8647bda9271198556baf8e115b9
+translation_revised: 2026-09-18
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -129,8 +129,12 @@ shadow의 무결성 문제는 관찰에 그치고 실제 승인을 종결하지 
 응답 화면을 하나 더 제공하지만 에스컬레이션 타이머, 상시 권한 규칙 또는 Thor의 실행
 경계를 바꾸지 않습니다.
 
-- `hil` 판정은 TTL이 있는 승인 요청을 생성합니다. 알림 채널이 구성되지 않아도 TTL 만료는
-  항상 **종단 무작업 + 감사** 상태로 수렴합니다. 사용할 수 있는 채널은
+- 등록된 ActionType이 있는 실행 가능한 `hil` 판정은 TTL이 있는 승인 요청을 생성합니다.
+  알림 채널이 구성되지 않아도 TTL 만료는 항상 **종단 무작업 + 감사** 상태로 수렴합니다.
+  정확한 이유가 `no_rule_match` 또는 `anomaly_action_unavailable`인 작업 없는 shadow 사람
+  검토 판정은 Odin과 Saga가 처리할 수 있도록 Verdict 스트림에 남지만, Thor는 `ActionRun`이나
+  리소스 클레임을 만들지 않습니다. 따라서 새로 실행 가능한 제안을 판단하기 전까지 승인 TTL이
+  없으며 이 감독자에 들어가지 않습니다. 사용할 수 있는 채널은
   [channels-and-notifications-ko.md의 on-call, 에스컬레이션 및 타임아웃](../interfaces/channels-and-notifications-ko.md)에
   설명된 A2 경보를 추가할 수 있지만, 전달 가능 여부가 만료 처리를 제어하지는 않습니다.
   이 동작은 실패 시 안전하게 차단하며 올바르지만 거기서 멈춥니다.

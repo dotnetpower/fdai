@@ -22,7 +22,7 @@ from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionRun, ActionRunState, Thor
 from fdai.agents.var import Var
 from fdai.agents.vidar import RollbackClaimInProgressError, Vidar
-from fdai.shared.contracts.models import IncidentSeverity
+from fdai.shared.contracts.models import Autonomy, IncidentSeverity
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 
@@ -248,6 +248,22 @@ def test_huginn_normalizes_and_dedups() -> None:
     assert first is not None
     assert first["event_type"] == "restart_needed"
     assert second is None  # dedup
+
+
+def test_huginn_uses_idempotency_when_correlation_is_null() -> None:
+    event = asyncio.run(
+        Huginn().ingest(
+            {
+                "idempotency_key": "inventory-delta:stable",
+                "correlation_id": None,
+                "resource_id": "resource-1",
+                "event_type": "inventory.resource_changed",
+            }
+        )
+    )
+
+    assert event is not None
+    assert event["correlation_id"] == "inventory-delta:stable"
 
 
 def test_huginn_preserves_a_valid_source_event_time() -> None:
@@ -969,6 +985,32 @@ def test_forseti_abstains_on_no_rule_match() -> None:
     assert bus.messages_on("object.verdict") == []
 
 
+def test_forseti_uses_stable_idempotency_when_correlation_is_null() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    f = Forseti(bus=bus)
+
+    verdict = asyncio.run(
+        f.judge(
+            {
+                "event_type": "inventory.resource_changed",
+                "correlation_id": None,
+                "idempotency_key": "inventory-delta:stable",
+                "resource_id": "resource-1",
+            }
+        )
+    )
+
+    assert verdict is not None
+    assert verdict["correlation_id"] == "inventory-delta:stable"
+    assert verdict["idempotency_key"] == "inventory-delta:stable"
+    assert verdict["risk_verdict"] == "hil"
+    assert verdict["resolved_autonomy_ceiling"] == Autonomy.SHADOW_ONLY.value
+    published = bus.messages_on("object.verdict")
+    assert len(published) == 1
+    assert published[0].payload["correlation_id"] == "inventory-delta:stable"
+
+
 def test_forseti_routes_no_rule_match_with_resource_to_hil() -> None:
     # Rule 4.7 (fail toward safety): an identifiable incident with a concrete
     # resource target but no matching rule MUST NOT vanish - it routes to HIL
@@ -988,6 +1030,30 @@ def test_forseti_routes_no_rule_match_with_resource_to_hil() -> None:
     published = bus.messages_on("object.verdict")
     assert len(published) == 1
     assert published[0].payload["risk_verdict"] == "hil"
+
+
+def test_thor_ignores_repeated_actionless_triage_verdicts() -> None:
+    thor = Thor(bus=None)
+
+    async def deliver() -> None:
+        for correlation_id in ("inventory-delta:first", "inventory-delta:second"):
+            await thor.on_typed_message(
+                "object.verdict",
+                {
+                    "correlation_id": correlation_id,
+                    "idempotency_key": correlation_id,
+                    "resource_id": "resource-1",
+                    "action_type": "",
+                    "risk_verdict": "hil",
+                    "resolved_autonomy_ceiling": Autonomy.SHADOW_ONLY.value,
+                    "reason": "no_rule_match",
+                },
+            )
+
+    asyncio.run(deliver())
+
+    assert thor.action_runs == {}
+    assert thor.behavior_snapshot()["non_action_verdict_ignored"] == 2
 
 
 def test_forseti_cost_spike_has_no_placeholder_remediation() -> None:

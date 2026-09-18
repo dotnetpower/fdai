@@ -303,7 +303,7 @@ class Huginn(Agent):
 
         event_type = str(raw.get("event_type", "generic"))[:_MAX_FIELD_CHARS]
         attributes = _bound_attributes(raw.get("attributes", {}))
-        correlation_id = str(raw.get("correlation_id", key))[:_MAX_FIELD_CHARS]
+        correlation_id = str(raw.get("correlation_id") or key)[:_MAX_FIELD_CHARS]
         if event_type == "case_history.operational_case.v1":
             raw_attributes = raw.get("attributes")
             if isinstance(raw_attributes, Mapping):
