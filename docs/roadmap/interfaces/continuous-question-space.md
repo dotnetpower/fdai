@@ -58,8 +58,7 @@ evidence path.
 ## Federated question-bank inventory
 
 The repository can join reviewed Golden wording, manual browser prompts, Console starters, and operator candidates into one generated review inventory. Each owning source remains authoritative.
-The inventory preserves stable ids, bilingual wording, source digests, explicit duplicate
-relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
+The inventory preserves stable ids, bilingual wording, source digests, explicit duplicate relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
 and validation states.
 Any change to a joined source, including a non-question Console label in a starter catalog, regenerates both the machine inventory and human review catalog; the generated-artifact test rejects any stale source digest. Moving Browser evidence copy from the global catalogs into a route-local catalog is such a digest-only source change; regeneration preserves all 400 question identities and wording. When only source digests change, regeneration preserves every logical question identity, review state, and denominator. Regeneration runs after upstream integration, including a merge commit that changes joined source digests, so derived commitments bind the final merged source set without treating that digest refresh as new semantic coverage.
 Run `uv run python scripts/automation/build_question_bank.py`, then regenerate the dependent CQAS
