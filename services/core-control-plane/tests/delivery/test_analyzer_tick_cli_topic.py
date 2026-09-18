@@ -261,18 +261,7 @@ def test_job_report_builds_strict_cross_resource_coverage() -> None:
     } == {"evaluated_no_finding"}
 
 
-@pytest.mark.parametrize(
-    ("truncated", "source_complete", "unavailable_reason"),
-    (
-        (True, True, "resource_discovery_truncated"),
-        (False, False, "inventory_source_incomplete"),
-    ),
-)
-def test_job_report_withholds_coverage_when_inventory_discovery_is_incomplete(
-    truncated: bool,
-    source_complete: bool,
-    unavailable_reason: str,
-) -> None:
+def test_job_report_withholds_coverage_when_inventory_discovery_is_truncated() -> None:
     report = AnalyzerJobReport(
         analyzer=AnalyzerTickReport(targets=1, findings=0, published=0),
         trace_continuity=TraceContinuityTickReport(
@@ -295,8 +284,8 @@ def test_job_report_withholds_coverage_when_inventory_discovery_is_incomplete(
             discovered=1,
             inventory_consulted=True,
             candidate_count=2,
-            truncated=truncated,
-            source_complete=source_complete,
+            truncated=True,
+            source_complete=True,
             resource_types=(
                 AnalyzerResourceTypeResolution(
                     resource_type="api-gateway",
@@ -314,10 +303,55 @@ def test_job_report_withholds_coverage_when_inventory_discovery_is_incomplete(
     assert report.coverage() == {
         "schema_version": "1.1.0",
         "status": "unavailable",
-        "unavailable_reason": unavailable_reason,
+        "unavailable_reason": "resource_discovery_truncated",
         "cause_claim_supported": False,
         "execution_authority": False,
     }
+
+
+def test_job_report_preserves_verified_targets_from_incomplete_inventory() -> None:
+    report = AnalyzerJobReport(
+        analyzer=AnalyzerTickReport(targets=1, findings=0, published=0),
+        trace_continuity=TraceContinuityTickReport(
+            targets=0,
+            scenarios=0,
+            continuous=0,
+            unknown=0,
+            findings=0,
+            published=0,
+        ),
+        target_resolution=AnalyzerTargetResolution(
+            targets=(
+                AnalyzerTarget(
+                    resource_ref="resource-api",
+                    resource_kind="api_management",
+                    resource_type="api-gateway",
+                ),
+            ),
+            configured=0,
+            discovered=1,
+            inventory_consulted=True,
+            candidate_count=2,
+            source_complete=False,
+            skipped_reasons=("unverified_state_fact",),
+            skipped_reason_counts=(("unverified_state_fact", 1),),
+            resource_types=(
+                AnalyzerResourceTypeResolution(
+                    resource_type="api-gateway",
+                    candidate_count=2,
+                    selected_count=1,
+                    held_count=1,
+                    held_reason_counts=(("unverified_state_fact", 1),),
+                ),
+            ),
+        ),
+    )
+
+    assert report.failed is False
+    assert report.readiness(scheduling="local_loop")["target_discovery"] == "available"
+    assert report.coverage()["status"] == "available"
+    assert report.coverage()["selected_count"] == 1
+    assert report.coverage()["held_count"] == 1
 
 
 def test_job_report_degrades_duplicate_target_identity_without_crashing() -> None:

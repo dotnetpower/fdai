@@ -135,7 +135,7 @@ Operating Outcomes publishes its metric, value, baseline, window, sample size, c
 provenance as a bounded Command Deck snapshot. Only Auto-resolution includes vertical breakdowns.
 Narration receives rendered facts, never invented unavailable values or replacement sources.
 Headlines and cards share formatting and ratio precision. Each Dashboard routing distribution allocates displayed whole-number percentages from exact shares as one group totaling 100 percent, while segment widths retain the exact shares.
-Dashboard routing retains its own canonical sample, independent of general audit noise.
+Dashboard routing retains its own canonical sample, independent of general audit noise. Trust Routing derives each tier's displayed event count from the same autonomy measurement cutoff, sample size, and exact share used for its percentage. An absent canonical tier key is a measured zero for that tier; events without a recorded tier remain in the sample and are never reassigned to T2.
 Mode, tier, action, outcome, window and sequence filters reach the server-owned audit query.
 Admitted cohort comparisons remain separate from rolling Live values, expire, and grant no authority. Their captured view context retains both arms and the expiry rather than substituting the rolling baseline. Expiry republishes the view, and every submission withdraws expired cohort groups from pinned snapshots as well.
 The audit-backed projection captures one UTC window and append-only head sequence, then reads

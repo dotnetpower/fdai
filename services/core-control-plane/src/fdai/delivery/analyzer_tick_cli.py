@@ -132,10 +132,11 @@ class AnalyzerJobReport:
     @property
     def failed(self) -> bool:
         """Return true when either publisher needs a Job retry."""
-        incomplete_targets = self.target_resolution.inventory_consulted and (
-            self.target_resolution.truncated or not self.target_resolution.source_complete
+        unusable_targets = self.target_resolution.inventory_consulted and (
+            self.target_resolution.truncated
+            or (not self.target_resolution.source_complete and not self.target_resolution.targets)
         )
-        return self.analyzer.failed or self.trace_continuity.failed or incomplete_targets
+        return self.analyzer.failed or self.trace_continuity.failed or unusable_targets
 
     def to_dict(
         self,
@@ -160,8 +161,6 @@ class AnalyzerJobReport:
         if self.target_resolution.inventory_consulted:
             if self.target_resolution.truncated:
                 return _unavailable_coverage("resource_discovery_truncated")
-            if not self.target_resolution.source_complete:
-                return _unavailable_coverage("inventory_source_incomplete")
         targets = {target.resource_ref: target for target in self.target_resolution.targets}
         if len(targets) != len(self.target_resolution.targets):
             return _unavailable_coverage("selected_resource_identity_duplicate")
@@ -309,7 +308,13 @@ class AnalyzerJobReport:
         target_discovery = (
             "unavailable"
             if self.target_resolution.inventory_consulted
-            and (self.target_resolution.truncated or not self.target_resolution.source_complete)
+            and (
+                self.target_resolution.truncated
+                or (
+                    not self.target_resolution.source_complete
+                    and not self.target_resolution.targets
+                )
+            )
             else "available"
             if self.target_resolution.inventory_consulted or self.target_resolution.configured > 0
             else "unbound"

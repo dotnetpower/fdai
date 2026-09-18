@@ -42,6 +42,10 @@ export function measuredTierValue(
   return Object.prototype.hasOwnProperty.call(values, tier) ? values[tier] ?? null : null;
 }
 
+export function measuredTierCount(autonomy: AutonomyPayload, tier: string): number {
+  return Math.round((measuredTierValue(autonomy.tier.mix, tier) ?? 0) * autonomy.sample_size);
+}
+
 export function searchParamsRecord(search: URLSearchParams): Readonly<Record<string, string>> {
   return Object.fromEntries(search.entries());
 }
@@ -273,9 +277,10 @@ function TierMap({ data, active }: { readonly data: AnalyticsData; readonly acti
   return (
     <section class="routing-tier-map" aria-label={t("analytics.routing.distributionLabel")}>
       {TIER_KEYS.map((key) => {
-        const share = measuredTierValue(data.autonomy!.tier.mix, key);
+        const autonomy = data.autonomy!;
+        const share = measuredTierValue(autonomy.tier.mix, key) ?? 0;
         const band = data.autonomy!.tier.bands[key];
-        const count = measuredTierValue(data.kpi.by_tier, key);
+        const count = measuredTierCount(autonomy, key);
         return (
           <a
             key={key}
@@ -287,10 +292,10 @@ function TierMap({ data, active }: { readonly data: AnalyticsData; readonly acti
             aria-current={active === key ? "page" : undefined}
           >
             <span class="routing-tier-code">{key.toUpperCase()}</span>
-            <strong class="routing-tier-share">{share === null ? t("analytics.unavailable") : formatShare(share)}</strong>
+            <strong class="routing-tier-share">{formatShare(share)}</strong>
             <span class="routing-tier-description">{t(`analytics.routing.description.${key}`)}</span>
             <dl class="routing-tier-facts">
-              <div><dt>{t("analytics.events")}</dt><dd>{count === null ? t("analytics.unavailable") : count.toLocaleString(locale)}</dd></div>
+              <div><dt>{t("analytics.events")}</dt><dd>{count.toLocaleString(locale)}</dd></div>
               <div><dt>{t("analytics.routing.targetBand")}</dt><dd>{band ? `${Math.round(band[0] * 100)}-${Math.round(band[1] * 100)}%` : t("analytics.notConfigured")}</dd></div>
             </dl>
           </a>

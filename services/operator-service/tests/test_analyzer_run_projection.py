@@ -190,7 +190,9 @@ def test_projects_current_cross_resource_coverage() -> None:
         coverage=coverage,
         source_complete=False,
     )
-    assert project_analyzer_run([failed_row]) is None
+    partial_projection = project_analyzer_run([failed_row])
+    assert partial_projection is not None
+    assert partial_projection["source_complete"] is False
     assert project_latest_analyzer_coverage([failed_row])["status"] == "available"
 
 
