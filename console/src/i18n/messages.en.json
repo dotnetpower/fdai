@@ -1994,14 +1994,27 @@
       "conflict": "Runtime policies changed in another session. The latest values were loaded; review them before saving again.",
       "conflictReloadFailed": "Runtime policies changed in another session, and the latest values could not be loaded.",
       "groups": {
+        "identity": "Human access",
         "investigation": "Incident investigation",
         "inventory": "Inventory freshness",
+        "discovery": "Rule discovery",
         "analysis": "Analyzer bounds",
+        "incident": "Incident auto-open",
         "conversation": "Conversation continuity",
         "retention": "Case history retention",
         "diagnostics": "Diagnostics"
       },
       "fields": {
+        "human_access": {
+          "enabled": {
+            "label": "Human access reconciliation",
+            "hint": "Enable the Core worker that reconciles governed human access assignments. This setting does not grant a role."
+          },
+          "reconciliation_interval_seconds": {
+            "label": "Human access reconciliation interval",
+            "hint": "Seconds between bounded human access reconciliation passes."
+          }
+        },
         "irp": {
           "enabled": {
             "label": "Incident response investigation",
@@ -2018,6 +2031,20 @@
             "hint": "Maximum active snapshot age before graph-dependent autonomy moves to human review."
           }
         },
+        "discovery": {
+          "enabled": {
+            "label": "Rule discovery",
+            "hint": "Enable shadow rule discovery from operational signals. This setting does not promote a rule."
+          },
+          "shadow_decision_threshold": {
+            "label": "Discovery shadow decision threshold",
+            "hint": "Minimum shadow decisions required before discovery can propose a reviewed candidate."
+          },
+          "collector_freshness_seconds": {
+            "label": "Discovery collector freshness limit",
+            "hint": "Maximum age in seconds for evidence accepted by the discovery collector."
+          }
+        },
         "analyzer": {
           "window_seconds": {
             "label": "Analyzer observation window",
@@ -2026,6 +2053,38 @@
           "budget_seconds": {
             "label": "Analyzer time budget",
             "hint": "Maximum seconds available to one scheduled analyzer investigation."
+          }
+        },
+        "incident": {
+          "auto_open": {
+            "enabled": {
+              "label": "Automatic incident opening",
+              "hint": "Open canonical Incidents from evidence-backed Heimdall candidates that meet this policy."
+            },
+            "min_severity": {
+              "label": "Minimum incident severity",
+              "hint": "Lowest candidate severity eligible for automatic Incident opening."
+            }
+          },
+          "repeat_threshold": {
+            "label": "Repeated event threshold",
+            "hint": "Matching events required within the repeat window before Heimdall proposes an Incident."
+          },
+          "repeat_window_seconds": {
+            "label": "Repeated event window",
+            "hint": "Seconds in which matching evidence must reach the repeated event threshold."
+          },
+          "security_high_threshold": {
+            "label": "High-severity security threshold",
+            "hint": "High-severity security events required in the bounded security window."
+          },
+          "security_window_events": {
+            "label": "Security evaluation window",
+            "hint": "Number of recent security events retained for threshold evaluation."
+          },
+          "alert_rate_per_hour": {
+            "label": "Alert rate threshold",
+            "hint": "Alerts per hour that establish a rate-based Incident candidate."
           }
         },
         "case_history": {

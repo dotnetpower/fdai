@@ -432,7 +432,7 @@ later stage with a broken earlier one.
   materialization Job applies a five-minute PostgreSQL statement deadline for large immutable
   projections. A management-plane prebind or prestart is accepted only when readback proves the
   digest-pinned image and latest successful execution; the VNet runner then compares every expected
-  repository projection with PostgreSQL before reporting success. The protected model Settings workflow refreshes the model projection, creates a missing runtime Settings row without replacing existing runtime evidence, and verifies both environment-bound rows in a read-only transaction so a fresh Console can render setup controls.
+  repository projection with PostgreSQL before reporting success. The protected model Settings workflow refreshes the model projection, creates a missing runtime Settings row without replacing existing runtime evidence, and verifies both environment-bound rows in a read-only transaction so a fresh Console can render setup controls. Runtime Settings materialization enumerates every shared `RUNTIME_SETTING_SPECS` entry, preserving each validated environment value and availability field rather than filtering the projection to one settings group.
 - **Cost Governance profile and post-deploy checks**: `plan-cost-*` and `apply-cost-*` request identities bind one exact digest-pinned Cost Governance image to Core plus its two Jobs without changing package enablement or action mode. Post-deploy smoke tests and the synthetic canary remain defined in [operating-and-verification.md](../operations/operating-and-verification.md).
 
 ## Distribution and Deployment Responsibility Matrix

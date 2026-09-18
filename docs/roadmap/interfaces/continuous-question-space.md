@@ -58,8 +58,7 @@ evidence path.
 ## Federated question-bank inventory
 
 The repository can join reviewed Golden wording, manual browser prompts, Console starters, and operator candidates into one generated review inventory. Each owning source remains authoritative.
-The inventory preserves stable ids, bilingual wording, source digests, explicit duplicate
-relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
+The inventory preserves stable ids, bilingual wording, source digests, explicit duplicate relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
 and validation states.
 Any change to a joined source, including a non-question Console label in a starter catalog, regenerates both the machine inventory and human review catalog; the generated-artifact test rejects any stale source digest. Moving Browser evidence copy from the global catalogs into a route-local catalog is such a digest-only source change; regeneration preserves all 400 question identities and wording. When only source digests change, regeneration preserves every logical question identity, review state, and denominator. Regeneration runs after upstream integration, including a merge commit that changes joined source digests, so derived commitments bind the final merged source set without treating that digest refresh as new semantic coverage.
 Run `uv run python scripts/automation/build_question_bank.py`, then regenerate the dependent CQAS
@@ -172,6 +171,7 @@ controlled evidence exists.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-18 | implemented | Regenerated the federated question bank and dependent CQAS provenance after the complete runtime-settings catalogs changed the joined English and Korean source digests. All 400 question identities, 93 metric definitions, denominators, coverage counts, and authority fields remain unchanged. | `current change`; official question-bank and semantic-intent generators; 8 question-bank and 4 semantic-coverage tests passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-17 | implemented | Regenerated the federated question bank and dependent CQAS provenance after base integration changed the Console catalog source digests. All 400 question identities, 93 metric definitions, denominators, and authority fields remain unchanged. | `current change`; official question-bank and semantic-intent generators; 12 focused artifact checks passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-17 | implemented | Regenerated CQAS provenance after integration changed the Pantheon source digest. All 93 metrics, 400-question denominators, coverage counts, and authority fields remain unchanged. | `current change`; official semantic-intent generator; focused artifact equality check. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-16 | implemented | Regenerated dependent CQAS provenance after the question-bank source digest changed during upstream integration. All 93 metrics, 400-question denominators, and authority fields remain unchanged. | `current change`; official semantic-intent generator; four focused artifact checks passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |

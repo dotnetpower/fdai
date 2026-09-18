@@ -107,7 +107,7 @@ test("Environment and deployment combines readiness and deployment evidence", as
   await expect(page).toHaveURL(/\/settings\/environment-and-deployment\/deployment$/);
   await expect(dialog.getByRole("tab", { name: "Deployment run" }))
     .toHaveAttribute("aria-selected", "true");
-  await expect(dialog.getByRole("heading", { name: "Provisioning" })).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "Provisioning", exact: true })).toBeVisible();
 });
 
 test("IAM tabs expose a visible keyboard focus indicator", async ({ page }) => {

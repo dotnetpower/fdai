@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 0a88a3284ff2d8b3da179e142175baa7421dcea8
+translation_source_sha: 6e576b31213541da033ada603b8a7781e893c9e0
 translation_revised: 2026-09-18
 ---
 
@@ -394,6 +394,9 @@ Cost Governance 디코더는 버전이 지정된 `CostReadinessReason` 전체 �
 모드와 형식화된 사유를 보여 줘야 합니다.
 패키지는 로컬 coordinator와 배포된 예약 작업에 범위가 제한된 분석 명령 하나를 제공합니다.
 느린 Usage Details 목록 API 대신 검증된 Cost Management Query 경로를 재사용합니다.
+하나의 UTC clock이 자격 증명 수락, 모든 프로바이더 요청 기한, 기록된 수집 시각을 함께
+제어합니다. 프로덕션은 현재 UTC를 사용하며 결정적인 테스트와 재생은 기한을 바꾸지 않고
+고정 clock을 주입할 수 있습니다.
 영속 실행 증적과 읽기 변환 결과는 최신성과 원본별 준비 상태를 보고하므로 일부 실행은 전체 정상
 상태를 주장하지 않고 사용 가능한 facet만 표시할 수 있습니다. 현재 partial 실행 또는 현재
 snapshot을 보존한 refresh 실패는 degraded-ready loop 이벤트를 내보내되 사용할 수 없는 facet과

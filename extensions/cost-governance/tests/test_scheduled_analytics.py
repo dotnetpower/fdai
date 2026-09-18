@@ -302,7 +302,11 @@ async def test_azure_source_reports_each_authoritative_source_without_raw_identi
         return httpx.Response(200, json={"value": []})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        source = AzureScheduledAnalyticsSource(client=client, credential=_Credential())
+        source = AzureScheduledAnalyticsSource(
+            client=client,
+            credential=_Credential(),
+            clock=lambda: NOW,
+        )
         batch = await source.collect(
             scope_id="subscriptions/example",
             start_at=NOW - timedelta(days=1),
@@ -347,7 +351,11 @@ async def test_azure_source_stops_on_optional_source_rate_limit() -> None:
         return httpx.Response(429, json={})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        source = AzureScheduledAnalyticsSource(client=client, credential=_Credential())
+        source = AzureScheduledAnalyticsSource(
+            client=client,
+            credential=_Credential(),
+            clock=lambda: NOW,
+        )
         with pytest.raises(AnalyticsSourceError, match="provider_rate_limited"):
             await source.collect(
                 scope_id="subscriptions/example",
