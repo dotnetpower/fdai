@@ -106,9 +106,13 @@ current role, expiry, and separation of duty, then atomically retain the decisio
 outbox. This adds another safe response surface; it does not change the escalation timer,
 standing-authority rules, or Thor's execution boundary.
 
-- A `hil` verdict fires an approval request with a TTL. TTL expiry always converges to a
-  **terminal no-op + audit**, even when no notification channel is configured. An available
-  channel may add the A2 alert described in
+- An actionable `hil` verdict with a registered ActionType fires an approval request with a TTL.
+  TTL expiry always converges to a **terminal no-op + audit**, even when no notification channel
+  is configured. An actionless shadow Human-review Verdict whose exact reason is
+  `no_rule_match` or `anomaly_action_unavailable` remains on the Verdict stream for Odin and Saga,
+  but Thor creates no `ActionRun` or resource claim. It therefore has no approval TTL and does not
+  enter this supervisor unless a new actionable proposal is judged. An available channel may add
+  the A2 alert described in
   [channels-and-notifications.md § on-call, escalation, timeouts](../interfaces/channels-and-notifications.md),
   but delivery availability never controls expiry. This is fail-closed and correct, but it stops
   there.

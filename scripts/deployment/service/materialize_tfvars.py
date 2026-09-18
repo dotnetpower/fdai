@@ -32,6 +32,7 @@ _AZURE_GUID = re.compile(
     r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
 _SLACK_TEAM_ID = re.compile(r"^[A-Z0-9]{2,64}$")
+_KEY_VAULT_SECRET_PATH = re.compile(r"^/secrets/[A-Za-z0-9-]{1,127}(?:/[A-Za-z0-9-]{1,64})?$")
 _CONTAINER_ATTACHMENT_SCRATCH_DIR = "/tmp"  # noqa: S108
 
 
@@ -62,6 +63,30 @@ def _https_origin(value: object) -> str:
     ):
         raise TfvarsError("resolved models narrator endpoint must be an HTTPS origin")
     return endpoint
+
+
+def _key_vault_secret_id(value: object, *, label: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise TfvarsError(f"{label} is missing")
+    secret_id = value.strip().rstrip("/")
+    try:
+        parsed = urlsplit(secret_id)
+        parsed.port  # noqa: B018
+    except ValueError as exc:
+        raise TfvarsError(f"{label} must be an Azure Key Vault secret id") from exc
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname is None
+        or re.fullmatch(r"[a-z0-9-]{3,24}[.]vault[.]azure[.]net", parsed.hostname) is None
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.port is not None
+        or parsed.query
+        or parsed.fragment
+        or _KEY_VAULT_SECRET_PATH.fullmatch(parsed.path) is None
+    ):
+        raise TfvarsError(f"{label} must be an Azure Key Vault secret id")
+    return secret_id
 
 
 def _https_container_url(value: object) -> str:
@@ -562,6 +587,7 @@ def select_tfvars(
     stewardship_gitops: dict[str, Any] | None = None,
     decision_evidence_container_url: str = "",
     runtime_call_evidence: dict[str, Any] | None = None,
+    cost_pseudonym_key_secret_id: str | None = None,
     source_revision: str | None = None,
 ) -> dict[str, Any]:
     """Select exactly one environment/service object and reserve image for the workflow."""
@@ -672,6 +698,13 @@ def select_tfvars(
         )
     elif runtime_call_evidence is not None:
         raise TfvarsError("runtime call evidence binding is valid only for operator-service")
+    if cost_pseudonym_key_secret_id is not None:
+        if service != "operator-service":
+            raise TfvarsError("Cost pseudonym key binding is valid only for operator-service")
+        materialized["cost_pseudonym_key_secret_id"] = _key_vault_secret_id(
+            cost_pseudonym_key_secret_id,
+            label="Cost pseudonym key binding",
+        )
     return materialized
 
 
@@ -785,6 +818,7 @@ def main() -> int:
                 "",
             ),
             runtime_call_evidence=_optional_object_environment("RUNTIME_CALL_EVIDENCE_JSON"),
+            cost_pseudonym_key_secret_id=os.environ.get("COST_PSEUDONYM_KEY_SECRET_ID"),
             source_revision=os.environ.get("SOURCE_REVISION"),
         )
         write_tfvars(args.output, selected)

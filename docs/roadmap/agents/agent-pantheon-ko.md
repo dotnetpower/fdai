@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 28ee19be37dfe684a1b5b35c79c32d2cfbfac1f0
-translation_revised: 2026-09-17
+translation_source_sha: 38ed54da59ebf621ec5d333b9d9e15f5cac77f7c
+translation_revised: 2026-09-18
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -42,7 +42,7 @@ Thor(운영)와 Forseti(판단)가 Odin에게 보고합니다. 거버넌스 담�
 
 ## 3. 런타임 관계도
 
-조직도는 보고 체계를, 이 관계도는 데이터 흐름을 나타냅니다. 관측과 전문가 근거는 Forseti로, 작업 판정은 Var, Vidar 또는 실행 처리를 위해 Thor로 전달합니다. Thor는 문서 수집, 배정 검토, 관찰 전용 아키텍처 검토 판정을 실행하지 않습니다. Odin은 이를 작업 포트폴리오에서 제외하고 Saga는 감사 근거를 보존합니다.
+조직도는 보고 체계를, 이 관계도는 데이터 흐름을 나타냅니다. 관측과 전문가 근거는 Forseti로, 작업 판정은 Var, Vidar 또는 실행 처리를 위해 Thor로 전달합니다. Thor는 문서 수집, 배정 검토, 관찰 전용 아키텍처 검토 판정을 실행하지 않습니다. Odin은 이를 작업 포트폴리오에서 제외하고 Saga는 감사 근거를 보존합니다. 규칙 불일치 또는 이상 작업 후보 부재를 나타내는 작업 없는 shadow 사람 검토 판정은 Odin과 Saga가 처리할 수 있도록 Verdict 스트림에 남지만 Thor는 이를 무시합니다. 따라서 `ActionRun`이나 리소스 클레임을 만들지 않습니다.
 Var와 Saga는 문서 HIL의 안정적인 멱등성을 보존하며 Saga는 게이트 및 최종 감사를 영속화합니다. 클라우드 참조 패키지도 유효한 서명과 별개로 독립 Var 승인을 요구합니다. [클라우드 리소스 지식](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)을 참조하세요.
 워크플로 요청은 양의 시도 번호를 포함한 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐 보존합니다. Thor는 Verdict가 제공한 작업 식별자만 보존하고 상관관계에서 만들어 내지 않으며 권한이 없는 `_framework` 도우미로 범위가 제한된 ActionRun 계보를 검증합니다.
 전달 계층의 생성기는 하나의 완전한 운영 계획에 대한 선택적인 인자 결속 실행 제안을 저장합니다. Forseti는 주입된 원본으로 이를 해석하고 엄격한 검증 뒤 같은 Verdict-to-ActionRun 경로를 유지합니다. 계보와 제안은 귀속 및 근거만 제공하며 정족수, 모드, 판단, 승인, 실행 권한을 바꾸지 않습니다. Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.

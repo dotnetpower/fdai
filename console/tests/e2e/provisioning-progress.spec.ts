@@ -43,6 +43,11 @@ const snapshot = {
     resources_expected: 260,
     pages_completed: 12,
     pages_expected: 18,
+    provider_types_completed: 7,
+    provider_types_total: 10,
+    links_observed: 312,
+    unmapped_objects: 2,
+    coverage_gaps: 3,
   },
 };
 

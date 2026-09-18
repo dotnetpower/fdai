@@ -6,9 +6,11 @@ import json
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from fdai_deployment_cli.console_config import MANUAL_STUDIO_PLACEHOLDER_URL
 from fdai_deployment_cli.console_update import _regular_digest
 from fdai_deployment_cli.private_output import _open_private_parent, write_private_output
 
@@ -80,8 +82,25 @@ def build_console_update_artifact(
             timeout_seconds=timeout_seconds,
         )
         offline = snapshot / "console/dist/offline"
+        _run(
+            (
+                sys.executable,
+                str(snapshot / "scripts/deployment/azure/build_manual_studio_artifact.py"),
+                str(offline / "manuals"),
+                "--base-url",
+                MANUAL_STUDIO_PLACEHOLDER_URL,
+                "--repo-root",
+                str(snapshot),
+            ),
+            timeout_seconds=timeout_seconds,
+        )
         if not (offline / "index.html").is_file() or not (offline / "fdai-config.js").is_file():
             raise ValueError("Console artifact build output is incomplete")
+        if not all(
+            (offline / "manuals" / name).is_file()
+            for name in ("catalog.json", "library.html", "target-architecture.html")
+        ):
+            raise ValueError("Console Manual Studio artifact build output is incomplete")
         staging = temporary_root / "artifact"
         staging.mkdir(mode=0o700)
         archive = staging / "console.tar.gz"

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: ba68c4e9447ab605acc891f554e6782598ae17e1
+translation_source_sha: 8625c6cb8dde9e2b3c36f85127c045408d799cd9
 translation_revised: 2026-09-18
 ---
 # 런타임 배포 프로파일
@@ -98,7 +98,9 @@ apply 실행 자체가 명시적 코딩 세션 승인이고 두 번째 질문 �
 복원합니다. 이 호환성 경로는 런타임 선택, 서비스 이미지, Terraform 상태, 데이터베이스 상태 또는
 배포 준비 상태를 변경하지 않습니다.
 정적 readback은 Static Web Apps가 공개하는 파일만 hash로 확인하며, 호스트가 소비하는 구성은
-필수 로컬 입력으로 유지합니다. 롤백 종료는 해당 정적 byte를 API 상태와 독립적으로 검증하고,
+필수 로컬 입력으로 유지합니다. 새로 미리 빌드한 후보는 허용 목록에 있는 Manual Studio 콘텐츠를
+포함하고 공유 메타데이터를 Console과 같은 출처의 정확한 `/manuals` 경로에 결속합니다. Manual
+Studio를 포함하지 않은 기존 롤백 산출물도 계속 읽을 수 있습니다. 롤백 종료는 해당 정적 byte를 API 상태와 독립적으로 검증하고,
 생략한 서비스 검사를 확인하지 못한 것으로 기록하며, 검증된 비공개 시도 디렉터리만 재사용합니다.
 후보 성공은 위의 전체 산출물, API, 권한 부여 및 Entra 검사를 계속 요구합니다.
 
@@ -389,7 +391,7 @@ Resilience 실행 자격 증명 계보를 기록합니다. 어떤 신원 선택�
 로컬 interactive는 이 결속을 받지 않습니다.
 
 AKS managed Key Vault CSI 공급자는 각 워크로드의 federated identity를 사용해 고정된 Key Vault 참조를 namespace의 Kubernetes Secrets로 동기화합니다. 애플리케이션은 계속 환경 변수를 읽으며 Key Vault를 직접 호출하지 않습니다. Terraform 플랜에는 secret 값이 아니라 secret 이름과 버전 없는 참조가 포함됩니다.
-Operator Cost Governance 가명 키도 같은 서비스 소유 비밀 경계를 따릅니다. Container Apps와 AKS 프로필은 Key Vault에 엔트로피가 높은 값 하나를 보존하고 `FDAI_COST_PSEUDONYM_KEY`로만 주입합니다. root는 비밀 참조를 Operator에만 전달하며 격리된 Executor에는 전달하지 않습니다. 플랜, 출력, 로그, 계약 및 브라우저 응답에는 키가 포함되지 않습니다. 로컬 준비는 gitignored 기존 값을 보존하거나 같은 최소 강도의 값을 생성합니다. 이 키는 신원 공개 방식만 바꾸며 비용 데이터 접근 권한이나 작업 권한을 부여하지 않습니다.
+Operator Cost Governance 가명 키도 같은 서비스 소유 비밀 경계를 따릅니다. Container Apps와 AKS 프로필은 Key Vault에 엔트로피가 높은 값 하나를 보존하고 `FDAI_COST_PSEUDONYM_KEY`로만 주입합니다. root는 비밀 참조를 Operator에만 전달하며 격리된 Executor에는 전달하지 않습니다. 보호된 독립 서비스 플랜은 보관된 서비스 입력 스냅샷에 의존하지 않고 현재 플랫폼 Terraform 출력에서 해당 참조를 주입합니다. 플랜, 출력, 로그, 계약 및 브라우저 응답에는 키가 포함되지 않습니다. 로컬 준비는 gitignored 기존 값을 보존하거나 같은 최소 강도의 값을 생성합니다. 이 키는 신원 공개 방식만 바꾸며 비용 데이터 접근 권한이나 작업 권한을 부여하지 않습니다.
 
 managed CSI 공급자는 클러스터와 함께 활성화되며 FDAI 워크로드 롤아웃과 분리됩니다. 배포 키트에는
 Kubernetes 공급자와 서명된 `kubectl`, `kubelogin` 바이너리가 포함됩니다. 배포는 키트 검증 이후

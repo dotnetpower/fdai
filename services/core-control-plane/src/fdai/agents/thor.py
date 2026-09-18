@@ -511,6 +511,12 @@ class Thor(ThorEffectVerificationMixin, Agent):
             if payload.get("kind") == "capacity_graduation":
                 self.record_behavior("capacity_graduation_verdict_ignored")
                 return
+            if not payload.get("action_type") and payload.get("reason") in {
+                "anomaly_action_unavailable",
+                "no_rule_match",
+            }:
+                self.record_behavior("non_action_verdict_ignored")
+                return
             await self.dispatch_verdict(payload)
         elif topic == "object.approval":
             if payload.get("kind") == "test_context_review":

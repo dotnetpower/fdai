@@ -31,6 +31,7 @@ const routes = [
   ["agents", "pantheon", "agents-constellation.html"],
   ["agents", "agent-activity", "agent-activity.html"],
 ] as const;
+const productionOnlyPanels = new Set(["aks-commerce"]);
 const recordPages = new Set([
   "detection-coverage.html",
   "configuration-baselines.html",
@@ -418,7 +419,7 @@ test("desktop interactions: activity operational lanes never invent audit traces
   await expect(frame.locator("#activityJournal")).toBeHidden();
 });
 
-test("desktop inventory includes every current Overview Operations and Agents panel", async ({ page }) => {
+test("desktop inventory includes every current panel with a static design mock", async ({ page }) => {
   const source = ts.createSourceFile("panels.tsx", readFileSync(new URL("../../src/panels.tsx", import.meta.url), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const registered: string[] = [];
   function visit(node: ts.Node) {
@@ -429,7 +430,12 @@ test("desktop inventory includes every current Overview Operations and Agents pa
           fields.set(property.name.text, property.initializer.text);
         }
       }
-      if (["overview", "operations", "agents"].includes(fields.get("group") || "") && fields.has("id")) registered.push(fields.get("id")!);
+      const panelId = fields.get("id");
+      if (
+        ["overview", "operations", "agents"].includes(fields.get("group") || "") &&
+        panelId !== undefined &&
+        !productionOnlyPanels.has(panelId)
+      ) registered.push(panelId);
     }
     ts.forEachChild(node, visit);
   }

@@ -1,4 +1,4 @@
-"""Durable analyzer publication suppression on the shared idempotency store.
+"""Durable analyzer publication suppression on Core-owned tracked state.
 
 The ledger records four states for one publication key. ``pending`` means a
 tick owns the key and has attempted no send, so an expired lease is safely
@@ -11,19 +11,20 @@ carries the durable broker receipt that suppresses every later attempt.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import uuid4
 
+import psycopg
+from psycopg.rows import dict_row
+
 from fdai.delivery.analyzer_tick import (
     AnalyzerPublicationClaim,
     AnalyzerPublicationClaimStatus,
 )
-from fdai.delivery.persistence.postgres_idempotency import (
-    PostgresIdempotencyStore,
-    PostgresIdempotencyStoreConfig,
-)
+from fdai.delivery.persistence.postgres_idempotency import PostgresIdempotencyStoreConfig
 from fdai.shared.providers.event_bus import PublishReceipt
 
 _PREFIX = "analyzer-publication:"
@@ -31,6 +32,17 @@ _DEFAULT_LEASE_SECONDS = 600
 _MAX_REASON_CHARS = 512
 _LEASE_EXPIRED_AFTER_SEND = "lease_expired_after_send_attempt"
 _OWNED_STATES = frozenset({"pending", "sending", "uncertain"})
+
+_SELECT_SQL = "SELECT value FROM state_kv WHERE key = %s"
+_INSERT_SQL = (
+    "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) ON CONFLICT (key) DO NOTHING"
+)
+_DELETE_IF_SQL = "DELETE FROM state_kv WHERE key = %s AND value = %s::jsonb"
+_INSERT_OR_REPLACE_IF_SQL = (
+    "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
+    "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now() "
+    "WHERE state_kv.value = %s::jsonb OR state_kv.value = EXCLUDED.value"
+)
 
 
 class _ConditionalIdempotencyStore(Protocol):
@@ -46,6 +58,70 @@ class _ConditionalIdempotencyStore(Protocol):
         expected: Mapping[str, Any],
         result: Mapping[str, Any],
     ) -> bool: ...
+
+
+class _PostgresAnalyzerPublicationStore:
+    """Persist analyzer claims in the Core-owned ``state_kv`` namespace."""
+
+    def __init__(self, config: PostgresIdempotencyStoreConfig) -> None:
+        if not config.dsn:
+            raise ValueError("PostgresIdempotencyStoreConfig.dsn MUST NOT be empty")
+        if config.statement_timeout_ms < 1:
+            raise ValueError("statement_timeout_ms MUST be >= 1")
+        if config.connect_timeout_s < 1:
+            raise ValueError("connect_timeout_s MUST be >= 1")
+        self._config = config
+
+    async def seen(self, key: str) -> Mapping[str, Any] | None:
+        async with await self._connect(row_factory=dict_row) as conn:
+            cursor = await conn.execute(_SELECT_SQL, (key,))
+            row = await cursor.fetchone()
+        if row is None:
+            return None
+        value = row["value"]
+        if not isinstance(value, dict):
+            raise RuntimeError("analyzer publication state is not a JSON object")
+        return dict(value)
+
+    async def record(self, key: str, result: Mapping[str, Any]) -> bool:
+        async with await self._connect() as conn:
+            cursor = await conn.execute(_INSERT_SQL, (key, json.dumps(dict(result))))
+            return cursor.rowcount == 1
+
+    async def remove_if(self, key: str, expected: Mapping[str, Any]) -> bool:
+        async with await self._connect() as conn:
+            cursor = await conn.execute(
+                _DELETE_IF_SQL,
+                (key, json.dumps(dict(expected))),
+            )
+            return cursor.rowcount == 1
+
+    async def insert_or_replace_if(
+        self,
+        key: str,
+        expected: Mapping[str, Any],
+        result: Mapping[str, Any],
+    ) -> bool:
+        async with await self._connect() as conn:
+            encoded_result = json.dumps(dict(result))
+            cursor = await conn.execute(
+                _INSERT_OR_REPLACE_IF_SQL,
+                (key, encoded_result, json.dumps(dict(expected))),
+            )
+            return cursor.rowcount == 1
+
+    async def _connect(self, **kwargs: Any) -> psycopg.AsyncConnection[Any]:
+        conn = await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            autocommit=True,
+            connect_timeout=self._config.connect_timeout_s,
+            **kwargs,
+        )
+        await conn.execute(
+            "SELECT set_config('statement_timeout', %s, false)",
+            (str(self._config.statement_timeout_ms),),
+        )
+        return conn
 
 
 class PostgresAnalyzerPublicationLedger:
@@ -68,7 +144,7 @@ class PostgresAnalyzerPublicationLedger:
             return
         if config is None:
             raise ValueError("analyzer publication store config is required")
-        self._store = PostgresIdempotencyStore(config=config)
+        self._store = _PostgresAnalyzerPublicationStore(config)
 
     async def claim(self, idempotency_key: str) -> AnalyzerPublicationClaim:
         now = datetime.now(tz=UTC)

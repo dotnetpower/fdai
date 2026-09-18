@@ -18,6 +18,7 @@ export interface GatesSummary {
 export interface DistributionRow {
   readonly key: string;
   readonly count: number;
+  readonly percentage: number;
   readonly share: number;
 }
 
@@ -90,10 +91,20 @@ export function overviewT0Share(byTier: Readonly<Record<string, number>>): strin
 export function distributionRows(values: Readonly<Record<string, number>>): readonly DistributionRow[] {
   const total = Object.values(values).reduce((sum, count) => sum + count, 0);
   if (total <= 0) return [];
-  return Object.entries(values)
+  const rows = Object.entries(values)
     .filter(([, count]) => count > 0)
     .sort(([, left], [, right]) => right - left)
     .map(([key, count]) => ({ key, count, share: count / total }));
+  const percentages = rows.map((row) => Math.floor(row.share * 100));
+  const remaining = 100 - percentages.reduce((sum, percentage) => sum + percentage, 0);
+  const remainderOrder = rows
+    .map((row, index) => ({ index, remainder: row.share * 100 - percentages[index]! }))
+    .sort((left, right) => right.remainder - left.remainder || left.index - right.index);
+  for (let index = 0; index < remaining; index += 1) {
+    const percentageIndex = remainderOrder[index]!.index;
+    percentages[percentageIndex] = percentages[percentageIndex]! + 1;
+  }
+  return rows.map((row, index) => ({ ...row, percentage: percentages[index]! }));
 }
 
 /** Empty source dictionaries are not measured zero unless the audit sample is empty. */

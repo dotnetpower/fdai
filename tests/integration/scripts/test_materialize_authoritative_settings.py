@@ -181,14 +181,17 @@ def test_runtime_projection_reports_configuration_without_inventing_readiness() 
     assert integrations["email"]["configured"] is False
     assert "chatops" not in integrations
     settings = {item["key"]: item for item in projection["settings"]}
+    assert set(settings) == {spec.key for spec in module.RUNTIME_SETTING_SPECS}
     assert settings["conversation.answer_continuity.enabled"]["effective_value"] is False
+    assert settings["conversation.answer_continuity.enabled"]["restart_required"] is True
     assert settings["conversation.t2_escalation.aggressive_enabled"]["restart_required"] is False
     assert settings["conversation.prompt_ablation.profile"]["effective_value"] == "NONE"
-    assert all(
-        item["restart_required"] is True
-        for key, item in settings.items()
-        if key != "conversation.t2_escalation.aggressive_enabled"
-    )
+    assert settings["conversation.prompt_ablation.profile"]["restart_required"] is True
+    assert settings["incident.auto_open.enabled"]["effective_value"] is True
+    assert settings["incident.auto_open.enabled"]["restart_required"] is True
+    assert settings["incident.auto_open.min_severity"]["effective_value"] == "HIGH"
+    assert settings["incident.repeat_threshold"]["effective_value"] == 5
+    assert settings["incident.repeat_window_seconds"]["effective_value"] == 300
 
 
 def test_runtime_projection_honors_disabled_workflow_observation() -> None:

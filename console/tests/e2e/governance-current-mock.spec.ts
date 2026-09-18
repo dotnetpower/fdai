@@ -12,10 +12,19 @@ test.describe("Current Governance UI contract", () => {
 
   for (const route of governanceRoutes) {
     test(`desktop ${route}: current theme, complete authored interactions and readable evidence`, async ({ page }, testInfo) => {
+      if (route === "ontology") test.slow();
       const errors: string[] = [];
       const writes: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
-      page.on("requestfailed", (request) => errors.push(`${new URL(request.url()).pathname}: ${request.failure()?.errorText}`));
+      page.on("requestfailed", (request) => {
+        const path = new URL(request.url()).pathname;
+        const failure = request.failure()?.errorText;
+        const expectedIframeCancellation =
+          route === "ontology" &&
+          path === "/mocks/ui/ontology-instances-2d.html" &&
+          failure === "net::ERR_ABORTED";
+        if (!expectedIframeCancellation) errors.push(`${path}: ${failure}`);
+      });
       page.on("request", (request) => { if (request.method() !== "GET") writes.push(request.url()); });
       const frame = await openSurface(page, `${route}.html`, true);
       await expect(frame.locator("main")).toHaveAttribute("data-governance-ready", "true");

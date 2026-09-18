@@ -126,7 +126,7 @@ export VITE_MANUAL_STUDIO_URL="https://$hostname/manuals"
 trap 'unset SWA_CLI_DEPLOYMENT_TOKEN deployment_token' EXIT
 
 console_directory="${CONSOLE_PREBUILT_DIRECTORY:-}"
-prebuilt_console=0
+manual_studio_present=0
 if [[ -n "$console_directory" ]]; then
   if [[ "$console_directory" != /* || ! -d "$console_directory" || -L "$console_directory" ]]; then
     echo "CONSOLE_PREBUILT_DIRECTORY must be an absolute regular directory" >&2
@@ -140,7 +140,15 @@ if [[ -n "$console_directory" ]]; then
     echo "prebuilt Console runtime configuration is still a placeholder" >&2
     exit 2
   fi
-  prebuilt_console=1
+  if [[ -d "$console_directory/manuals" ]]; then
+    for required_manual in catalog.json library.html target-architecture.html; do
+      [[ -f "$console_directory/manuals/$required_manual" ]] || {
+        echo "prebuilt Console Manual Studio is incomplete" >&2
+        exit 2
+      }
+    done
+    manual_studio_present=1
+  fi
 else
   if [[ "$verify_only" == 1 ]]; then
     echo "verify-only Console readback requires CONSOLE_PREBUILT_DIRECTORY" >&2
@@ -151,6 +159,7 @@ else
   python3 "$repo_root/scripts/deployment/azure/build_manual_studio_artifact.py" \
     "$repo_root/console/dist/manuals" \
     --base-url "$VITE_MANUAL_STUDIO_URL"
+  manual_studio_present=1
   console_directory="$repo_root/console/dist"
 fi
 if [[ "$verify_only" == 0 ]]; then
@@ -187,7 +196,7 @@ curl --fail --silent --show-error --retry 6 --retry-delay 5 \
   "https://$hostname/ontology" --output "$remote_asset"
 echo "$(sha256sum "$console_directory/index.html" | cut -d' ' -f1)  $remote_asset" \
   | sha256sum --check --status
-if [[ "$prebuilt_console" == 0 ]]; then
+if [[ "$manual_studio_present" == 1 ]]; then
   for manual_file in catalog.json library.html target-architecture.html; do
     curl --fail --silent --show-error --retry 12 --retry-delay 5 \
       --retry-all-errors --retry-max-time 120 --connect-timeout 5 --max-time 20 \

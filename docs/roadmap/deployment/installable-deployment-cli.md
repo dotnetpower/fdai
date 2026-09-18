@@ -478,10 +478,10 @@ runtime authority, or a production installation. This compatibility path uses th
 coordinator and does not dispatch a GitHub workflow.
 
 The `build` command accepts protected `origin/main` or one of its ancestors. It creates a clean Git
-archive, runs the environment-isolated offline Console build, and writes a deterministic archive
-plus a mode-`0600` source manifest. Ignored files such as `console/.env.local` cannot enter that
-snapshot. Build the candidate from current protected `origin/main` and the rollback from a distinct
-known-good ancestor.
+archive, runs the environment-isolated offline Console build, packages the allowlisted Manual Studio
+content under `/manuals`, and writes a deterministic archive plus a mode-`0600` source manifest.
+Ignored files such as `console/.env.local` cannot enter that snapshot. Build the candidate from
+current protected `origin/main` and the rollback from a distinct known-good ancestor.
 
 The `plan` command reads a mode-`0600` target manifest supplied outside source control. The manifest
 contains the existing Static Web App resource ID and hostname, API origins, and public Entra
@@ -490,7 +490,7 @@ App hostname from Azure, verifies both artifact manifests, and creates a private
 within 20 minutes. Planning does not request a deployment token or publish content.
 Invoking `apply` is explicit coding-session authorization for this bounded non-destructive dev update; it does not request another confirmation or machine-digest transcription. The command rechecks protected
 `origin/main`, the Azure target, both artifacts, and plan expiry, then writes approval and claim
-records that bind the validated plan digest internally before publication. A retained claim permits candidate readback only and never repeats the candidate publication, including after plan expiry. Recovery reuses tightened private attempt directories, uses the current reviewed publisher, verifies rollback content before any restore, and publishes rollback only when neither artifact is present. Remote hashes cover served `index.html`, runtime config, and the hashed entry asset; `staticwebapp.config.json` is validated locally because the host consumes rather than serves it. Rollback closure verifies this static effect independently from Operator and Ingestion health so an unrelated service outage cannot trigger repeat publication; the failure receipt records those service checks as unverified. A failed publication or claimed-content mismatch writes a terminal failure receipt. Success requires exact remote hashes, SPA
+records that bind the validated plan digest internally before publication. A retained claim permits candidate readback only and never repeats the candidate publication, including after plan expiry. Recovery reuses tightened private attempt directories, uses the current reviewed publisher, verifies rollback content before any restore, and publishes rollback only when neither artifact is present. Remote hashes cover served `index.html`, runtime config, the hashed entry asset, and bundled Manual Studio files when present; `staticwebapp.config.json` is validated locally because the host consumes rather than serves it. The installer replaces only the reserved Manual Studio share-page origin with the exact same-origin `/manuals` URL. Rollback closure verifies this static effect independently from Operator and Ingestion health so an unrelated service outage cannot trigger repeat publication; the failure receipt records those service checks as unverified. A failed publication or claimed-content mismatch writes a terminal failure receipt. Success requires exact remote hashes, SPA
 fallback, both API health checks, exact-origin CORS, unauthenticated denial, and the Entra redirect.
 The resulting Console receipt does not set whole-application or subscription readiness.
 

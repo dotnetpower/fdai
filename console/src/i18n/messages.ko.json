@@ -1994,14 +1994,27 @@
       "conflict": "다른 세션에서 런타임 정책이 변경되었습니다. 최신 값을 불러왔으니 다시 저장하기 전에 검토하세요.",
       "conflictReloadFailed": "다른 세션에서 런타임 정책이 변경되었으며 최신 값을 불러오지 못했습니다.",
       "groups": {
+        "identity": "사람 액세스",
         "investigation": "인시던트 조사",
         "inventory": "인벤토리 최신성",
+        "discovery": "규칙 탐색",
         "analysis": "Analyzer 제한",
+        "incident": "인시던트 자동 생성",
         "conversation": "대화 연속성",
         "retention": "Case history 보존",
         "diagnostics": "진단"
       },
       "fields": {
+        "human_access": {
+          "enabled": {
+            "label": "사람 액세스 조정",
+            "hint": "관리되는 사람 액세스 할당을 조정하는 Core 작업자를 활성화합니다. 이 설정은 역할을 부여하지 않습니다."
+          },
+          "reconciliation_interval_seconds": {
+            "label": "사람 액세스 조정 주기",
+            "hint": "범위가 제한된 사람 액세스 조정 작업 사이의 초입니다."
+          }
+        },
         "irp": {
           "enabled": {
             "label": "인시던트 대응 조사",
@@ -2018,6 +2031,20 @@
             "hint": "Graph 기반 autonomy를 사람 검토로 전환하기 전까지 허용하는 active snapshot의 최대 age입니다."
           }
         },
+        "discovery": {
+          "enabled": {
+            "label": "규칙 탐색",
+            "hint": "운영 신호에서 shadow 규칙 탐색을 활성화합니다. 이 설정은 규칙을 승격하지 않습니다."
+          },
+          "shadow_decision_threshold": {
+            "label": "탐색 shadow 결정 임계값",
+            "hint": "탐색이 검토 대상 후보를 제안하기 전에 필요한 최소 shadow 결정 수입니다."
+          },
+          "collector_freshness_seconds": {
+            "label": "탐색 수집기 최신성 제한",
+            "hint": "탐색 수집기가 수락하는 근거의 최대 경과 시간(초)입니다."
+          }
+        },
         "analyzer": {
           "window_seconds": {
             "label": "Analyzer 관찰 window",
@@ -2026,6 +2053,38 @@
           "budget_seconds": {
             "label": "Analyzer 시간 예산",
             "hint": "예약된 analyzer 조사 한 건에 사용할 수 있는 최대 초입니다."
+          }
+        },
+        "incident": {
+          "auto_open": {
+            "enabled": {
+              "label": "인시던트 자동 생성",
+              "hint": "이 정책을 충족하는 근거 기반 Heimdall 후보에서 정식 인시던트를 생성합니다."
+            },
+            "min_severity": {
+              "label": "최소 인시던트 심각도",
+              "hint": "인시던트 자동 생성 대상이 될 수 있는 가장 낮은 후보 심각도입니다."
+            }
+          },
+          "repeat_threshold": {
+            "label": "반복 이벤트 임계값",
+            "hint": "Heimdall이 인시던트를 제안하기 전에 반복 구간 안에서 필요한 일치 이벤트 수입니다."
+          },
+          "repeat_window_seconds": {
+            "label": "반복 이벤트 구간",
+            "hint": "일치하는 근거가 반복 이벤트 임계값에 도달해야 하는 시간(초)입니다."
+          },
+          "security_high_threshold": {
+            "label": "높은 심각도 보안 임계값",
+            "hint": "범위가 제한된 보안 구간 안에서 필요한 높은 심각도 보안 이벤트 수입니다."
+          },
+          "security_window_events": {
+            "label": "보안 평가 구간",
+            "hint": "임계값 평가를 위해 보존하는 최근 보안 이벤트 수입니다."
+          },
+          "alert_rate_per_hour": {
+            "label": "경고 발생률 임계값",
+            "hint": "발생률 기반 인시던트 후보를 만드는 시간당 경고 수입니다."
           }
         },
         "case_history": {

@@ -807,7 +807,11 @@ def publish_verified_console(
     }
     settings_path = prepared_root / "console-runtime-settings.json"
     _replace_private_json(settings_path, settings)
-    configured = configure_console(console_directory, settings_path)
+    configured = configure_console(
+        console_directory,
+        settings_path,
+        manual_studio_url=f"{browser_console['console_origin']}/manuals",
+    )
     summary = prepared_root / "console-publish-summary.txt"
     if not summary.exists():
         write_private_output(summary, "")

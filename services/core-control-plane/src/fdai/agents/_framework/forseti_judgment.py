@@ -163,7 +163,7 @@ class ForsetiJudgmentMixin:
         if action_type is None:
             self.record_behavior("no_rule_match")
             resource_id = event.get("resource_id")
-            correlation_id = str(event.get("correlation_id", ""))
+            correlation_id = str(event.get("correlation_id") or event.get("idempotency_key") or "")
             if not resource_id or not correlation_id:
                 return None
             self.record_behavior("verdict:hil")
