@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import shutil
 import signal
 import stat
@@ -48,7 +49,18 @@ def test_core_runtime_digest_includes_prompt_catalog() -> None:
 
     assert 'if [[ "$service" == "core-runtime" ]]' in script
     assert "digest_inputs+=(rule-catalog)" in script
+    assert '--timing-label "$service"' in script
     assert '--core-ready-after "$readiness_started_at"' in script
+
+
+def test_preparation_reports_named_digest_and_stage_durations() -> None:
+    script = _PREPARE_SCRIPT.read_text(encoding="utf-8")
+
+    assert "service=local-input-digest stage=%s event=completed duration_ms=%s" in script
+    assert "path_digest authoritative-inventory" in script
+    assert "path_digest authoritative-catalogs" in script
+    assert "event=reused duration_ms=%s" in script
+    assert "event=completed duration_ms=%s" in script
 
 
 def test_console_launcher_uses_prepared_local_auth_mode() -> None:
@@ -417,6 +429,82 @@ def test_supervisor_propagates_an_immediate_readiness_failure(tmp_path: Path) ->
     assert "stage=readiness exit_code=7" in result.stderr
 
 
+def test_duplicate_supervisor_reuses_the_active_analyzer_run_identity(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    start_script = repo / "scripts/deployment/local/start-console-services.sh"
+    start_script.parent.mkdir(parents=True)
+    shutil.copy2(_START_SCRIPT, start_script)
+    (repo / ".fdai/logs").mkdir(parents=True)
+    (repo / ".fdai/local-console-auth-mode").write_text(
+        "browser-entra\n",
+        encoding="utf-8",
+    )
+    _write_executable(
+        repo / "scripts/deployment/local/run-console-service.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == "local-analyzer" ]]; then
+  printf '%s\n' "$FDAI_ANALYZER_RUN_ID" >> "$FDAI_TEST_ANALYZER_IDS"
+fi
+exec {service_lock_fd}>> ".fdai/logs/$1.log.lock"
+if ! flock -n "$service_lock_fd"; then
+  exit 0
+fi
+exec sleep 30
+""",
+    )
+    _write_executable(
+        repo / ".venv/bin/python",
+        "#!/usr/bin/env bash\nsleep 0.3\nexit 0\n",
+    )
+    analyzer_ids = repo / "analyzer-ids.txt"
+    environment = {
+        **os.environ,
+        "FDAI_TEST_ANALYZER_IDS": str(analyzer_ids),
+    }
+    command = [_BASH, str(start_script), "--auth-mode", "browser-entra"]
+    first = subprocess.Popen(  # noqa: S603 - fixed test-owned supervisor
+        command,
+        cwd=repo,
+        env=environment,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    second_result: subprocess.CompletedProcess[str] | None = None
+    try:
+        deadline = time.monotonic() + 3
+        while not analyzer_ids.exists():
+            assert first.poll() is None
+            assert time.monotonic() < deadline
+            time.sleep(0.02)
+        second_result = subprocess.run(  # noqa: S603 - fixed test-owned supervisor
+            command,
+            cwd=repo,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=3,
+        )
+        while len(analyzer_ids.read_text(encoding="utf-8").splitlines()) < 2:
+            assert time.monotonic() < deadline
+            time.sleep(0.02)
+
+        run_ids = analyzer_ids.read_text(encoding="utf-8").splitlines()
+        assert second_result.returncode == 0
+        assert "service=console-stack event=ready" in second_result.stdout
+        assert len(run_ids) == 2
+        assert run_ids[0] == run_ids[1]
+        assert re.fullmatch(r"local-analyzer-\d+-\d+", run_ids[0])
+    finally:
+        for process in (first,):
+            if process is not None and process.poll() is None:
+                process.terminate()
+                process.wait(timeout=5)
+
+
 @pytest.mark.parametrize("prepared_mode", [None, "unexpected", "azure-cli"])
 def test_supervisor_rejects_unprepared_auth_mode(
     tmp_path: Path,
@@ -554,7 +642,13 @@ esac
 
     assert result.returncode == 0
     assert "service=console-preparation event=reused" in result.stdout
-    assert result.stderr == ""
+    assert re.fullmatch(
+        (
+            "service=local-input-digest stage=legacy-preparation "
+            r"event=completed duration_ms=\d+\n"
+        ),
+        result.stderr,
+    )
 
 
 def _staged_preparation_repo(

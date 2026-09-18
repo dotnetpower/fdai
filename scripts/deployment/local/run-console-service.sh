@@ -152,6 +152,7 @@ fi
 input_digest="$(
   "$repo_root/.venv/bin/python" \
     "$repo_root/scripts/automation/local-service-input-digest.py" \
+    --timing-label "$service" \
     "${digest_inputs[@]}"
 )"
 

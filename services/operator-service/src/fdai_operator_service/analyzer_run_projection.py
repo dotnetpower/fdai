@@ -25,10 +25,11 @@ def project_analyzer_run(
 
     for row in rows:
         try:
-            projection = _project_analyzer_run(row, include_coverage=False)
+            projection = _project_analyzer_run(row)
         except ProjectionUnavailableError:
             return None
         if _is_successful(projection):
+            projection.pop("coverage", None)
             return projection
     return None
 
@@ -206,8 +207,14 @@ def _project_analyzer_run(
 def _is_successful(projection: Mapping[str, object]) -> bool:
     """Return whether a projected receipt represents a successful analyzer tick."""
 
+    coverage = projection.get("coverage")
+    usable_targets = projection["source_complete"] is True or (
+        isinstance(coverage, Mapping)
+        and coverage.get("status") == "available"
+        and projection["targets"] != 0
+    )
     return (
-        projection["source_complete"] is True
+        usable_targets
         and projection["truncated"] is False
         and projection["unsupported_target_count"] == 0
         and projection["analyzer_error_count"] == 0

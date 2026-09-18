@@ -38,6 +38,7 @@ if [[ ! "$readiness_seconds" =~ ^[1-9][0-9]*$ ]]; then
 fi
 readiness_budget_seconds=$((readiness_seconds + 5))
 auth_mode_file="$repo_root/.fdai/local-console-auth-mode"
+analyzer_run_id_file="$repo_root/.fdai/logs/local-analyzer-run-id.lock"
 if [[ ! -f "$auth_mode_file" ]]; then
   echo "missing prepared Console auth mode: $auth_mode_file" >&2
   exit 1
@@ -45,6 +46,30 @@ fi
 if [[ "$(<"$auth_mode_file")" != "$auth_mode" ]]; then
   echo "prepared Console auth mode does not match requested mode: $auth_mode" >&2
   exit 1
+fi
+
+mkdir -p "$(dirname "$analyzer_run_id_file")"
+exec {analyzer_run_id_fd}>> "$analyzer_run_id_file"
+chmod 600 "$analyzer_run_id_file"
+owns_analyzer_run_id=0
+if flock -n "$analyzer_run_id_fd"; then
+  owns_analyzer_run_id=1
+  analyzer_run_id="local-analyzer-$(date -u +%s)-$$"
+  : > "$analyzer_run_id_file"
+  printf '%s\n' "$analyzer_run_id" > "$analyzer_run_id_file"
+else
+  analyzer_run_id=""
+  for _ in {1..40}; do
+    read -r analyzer_run_id < "$analyzer_run_id_file" || true
+    if [[ "$analyzer_run_id" =~ ^local-analyzer-[0-9]+-[0-9]+$ ]]; then
+      break
+    fi
+    sleep 0.05
+  done
+  if [[ ! "$analyzer_run_id" =~ ^local-analyzer-[0-9]+-[0-9]+$ ]]; then
+    echo "managed local analyzer run identity is unavailable" >&2
+    exit 75
+  fi
 fi
 
 emit_failed() {
@@ -119,6 +144,7 @@ for service in "${services[@]}"; do
   fi
   FDAI_CONSOLE_START_READINESS_SECONDS="$readiness_seconds" \
   FDAI_CONSOLE_EXPECTED_AUTH_MODE="$auth_mode" \
+  FDAI_ANALYZER_RUN_ID="$analyzer_run_id" \
     bash "$repo_root/scripts/deployment/local/run-console-service.sh" "${service_args[@]}" &
   child_pids+=("$!")
 done
@@ -180,6 +206,9 @@ else
 fi
 terminal_event="ready"
 printf '%s service=console-stack event=ready\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
+if [[ "$owns_analyzer_run_id" == "0" ]]; then
+  exit 0
+fi
 
 for pid in "${child_pids[@]}"; do
   if kill -0 "$pid" 2>/dev/null; then

@@ -3,6 +3,7 @@ import type { AutonomyPayload } from "../types";
 import {
   formatMeasuredSavings,
   indicatorMeterPercent,
+  measuredTierCount,
   measuredTierValue,
   routingParamsForTier,
   searchParamsRecord,
@@ -183,6 +184,8 @@ describe("trust-routing measurements", () => {
   it("distinguishes an observed zero from a missing tier", () => {
     expect(measuredTierValue({ t0: 0 }, "t0")).toBe(0);
     expect(measuredTierValue({ t0: 0 }, "t1")).toBeNull();
+    expect(measuredTierCount({ ...AUTONOMY, sample_size: 34, tier: { ...AUTONOMY.tier, mix: { t0: 0.5 } } }, "t0")).toBe(17);
+    expect(measuredTierCount(AUTONOMY, "t2")).toBe(0);
   });
 
   it("scales leading indicators against their measured baseline", () => {

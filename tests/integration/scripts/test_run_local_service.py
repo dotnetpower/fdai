@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 _BASH = "/usr/bin/bash"
+_GIT = "/usr/bin/git"
 _RUNNER = Path(__file__).parents[3] / "scripts" / "automation" / "run-local-service.sh"
 _INPUT_DIGEST = (
     Path(__file__).parents[3] / "scripts" / "automation" / "local-service-input-digest.py"
@@ -792,6 +793,103 @@ def test_input_digest_accepts_paths_only_mode(tmp_path: Path) -> None:
     )
 
     assert re.fullmatch(r"[a-f0-9]{64}", result.stdout.strip())
+
+
+def test_input_digest_tracks_git_worktree_content(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    source = repo / "src"
+    source.mkdir(parents=True)
+    tracked = source / "tracked.py"
+    tracked.write_text("VALUE = 1\n", encoding="utf-8")
+    subprocess.run(  # noqa: S603 - fixed Git executable and test-owned repository
+        [_GIT, "init", "-q", str(repo)],
+        check=True,
+    )
+    subprocess.run(  # noqa: S603 - fixed Git executable and test-owned repository
+        [_GIT, "-C", str(repo), "add", "src/tracked.py"],
+        check=True,
+    )
+
+    def digest() -> str:
+        result = subprocess.run(  # noqa: S603 - fixed repository script
+            [
+                sys.executable,
+                str(_INPUT_DIGEST),
+                "--paths-only",
+                str(source),
+            ],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+
+    indexed = digest()
+    tracked.write_text("VALUE = 2\n", encoding="utf-8")
+    modified = digest()
+    untracked = source / "new.py"
+    untracked.write_text("NEW = True\n", encoding="utf-8")
+    with_untracked = digest()
+    (repo / ".gitignore").write_text("*.generated\n", encoding="utf-8")
+    ignored = source / "runtime.generated"
+    ignored.write_text("first\n", encoding="utf-8")
+    ignored_directory_digest = digest()
+
+    def digest_with_explicit_ignored_file() -> str:
+        result = subprocess.run(  # noqa: S603 - fixed repository script
+            [
+                sys.executable,
+                str(_INPUT_DIGEST),
+                "--paths-only",
+                str(source),
+                str(ignored),
+            ],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+
+    explicit_ignored = digest_with_explicit_ignored_file()
+    ignored.write_text("second\n", encoding="utf-8")
+
+    assert len({indexed, modified, with_untracked}) == 3
+    assert ignored_directory_digest == with_untracked
+    assert digest() == with_untracked
+    assert digest_with_explicit_ignored_file() != explicit_ignored
+
+
+def test_input_digest_emits_content_free_structured_timing(tmp_path: Path) -> None:
+    source = tmp_path / "source.txt"
+    source.write_text("must-not-render\n", encoding="utf-8")
+
+    result = subprocess.run(  # noqa: S603 - fixed repository script
+        [
+            sys.executable,
+            str(_INPUT_DIGEST),
+            "--paths-only",
+            "--timing-label",
+            "console-dependencies",
+            str(source),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert re.fullmatch(r"[a-f0-9]{64}", result.stdout.strip())
+    assert re.fullmatch(
+        (
+            "service=local-input-digest stage=console-dependencies "
+            r"event=completed duration_ms=\d+\n"
+        ),
+        result.stderr,
+    )
+    assert "must-not-render" not in result.stderr
 
 
 def test_runner_refuses_a_runtime_lock_owned_by_another_checkout(tmp_path: Path) -> None:

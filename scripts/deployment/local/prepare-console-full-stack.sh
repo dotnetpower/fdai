@@ -180,11 +180,23 @@ run_dependency_install() {
 }
 
 path_digest() {
-  run_bounded input-digest \
-    "$repo_root/.venv/bin/python" \
-    "$repo_root/scripts/automation/local-service-input-digest.py" \
-    --paths-only \
-    "$@"
+  local label="$1"
+  shift
+  local digest
+  local duration_ms
+  local started_at_ns
+  started_at_ns="$(date +%s%N)"
+  digest="$(
+    run_bounded "input-digest-$label" \
+      "$repo_root/.venv/bin/python" \
+      "$repo_root/scripts/automation/local-service-input-digest.py" \
+      --paths-only \
+      "$@"
+  )"
+  duration_ms=$((($(date +%s%N) - started_at_ns) / 1000000))
+  printf 'service=local-input-digest stage=%s event=completed duration_ms=%s\n' \
+    "$label" "$duration_ms" >&2
+  printf '%s\n' "$digest"
 }
 
 configuration_digest() {
@@ -197,10 +209,20 @@ configuration_digest() {
 }
 
 legacy_digest() {
-  run_bounded input-digest \
-    "$repo_root/.venv/bin/python" \
-    "$repo_root/scripts/automation/local-service-input-digest.py" \
-    "$@"
+  local digest
+  local duration_ms
+  local started_at_ns
+  started_at_ns="$(date +%s%N)"
+  digest="$(
+    run_bounded input-digest-legacy-preparation \
+      "$repo_root/.venv/bin/python" \
+      "$repo_root/scripts/automation/local-service-input-digest.py" \
+      "$@"
+  )"
+  duration_ms=$((($(date +%s%N) - started_at_ns) / 1000000))
+  printf 'service=local-input-digest stage=legacy-preparation event=completed duration_ms=%s\n' \
+    "$duration_ms" >&2
+  printf '%s\n' "$digest"
 }
 
 auth_mode_outputs_match() {
@@ -280,10 +302,14 @@ run_stage() {
   local digest="$2"
   local callback="$3"
   shift 3
+  local duration_ms
   local marker="$stage_marker_dir/$name.sha256"
+  local started_at_ns
+  started_at_ns="$(date +%s%N)"
   if stage_reusable "$name" "$digest" "$@"; then
-    printf '%s service=console-preparation stage=%s event=reused\n' \
-      "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')" "$name"
+    duration_ms=$((($(date +%s%N) - started_at_ns) / 1000000))
+    printf '%s service=console-preparation stage=%s event=reused duration_ms=%s\n' \
+      "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')" "$name" "$duration_ms"
     return
   fi
   rm -f "$marker"
@@ -295,8 +321,9 @@ run_stage() {
     fi
   done
   write_marker "$marker" "$digest"
-  printf '%s service=console-preparation stage=%s event=completed\n' \
-    "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')" "$name"
+  duration_ms=$((($(date +%s%N) - started_at_ns) / 1000000))
+  printf '%s service=console-preparation stage=%s event=completed duration_ms=%s\n' \
+    "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')" "$name" "$duration_ms"
 }
 
 write_database_identity() {
@@ -455,7 +482,7 @@ console_dependency_inputs=(
 )
 run_stage \
   console-dependencies \
-  "$(path_digest "${console_dependency_inputs[@]}")" \
+  "$(path_digest console-dependencies "${console_dependency_inputs[@]}")" \
   run_dependency_install \
   "$repo_root/console/node_modules/.bin/vite" \
   "$repo_root/.venv/bin/fdai-document-processing-worker" \
@@ -538,12 +565,12 @@ entra_inputs=(
 
 run_stage \
   local-state \
-  "$(path_digest "${local_state_inputs[@]}")" \
+  "$(path_digest local-state "${local_state_inputs[@]}")" \
   prepare_local_state
 run_stage \
   runtime-environment \
   "$(configuration_digest \
-    "$(path_digest "${runtime_environment_inputs[@]}")" \
+    "$(path_digest runtime-environment "${runtime_environment_inputs[@]}")" \
     "kubernetes=${FDAI_LOCAL_KUBERNETES_LIFECYCLE:-0}" \
     "kubernetes-bindings-path=$local_kubernetes_bindings_path" \
     "teams-notifications=${FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION:-0}" \
@@ -554,20 +581,20 @@ run_stage \
   "$repo_root/.fdai/local-runtime.env"
 run_stage \
   authoritative-inventory \
-  "$(path_digest "${inventory_inputs[@]}")" \
+  "$(path_digest authoritative-inventory "${inventory_inputs[@]}")" \
   refresh_inventory
 run_stage \
   authoritative-settings \
-  "$(path_digest "${settings_inputs[@]}")" \
+  "$(path_digest authoritative-settings "${settings_inputs[@]}")" \
   materialize_settings
 run_stage \
   authoritative-catalogs \
-  "$(path_digest "${catalog_inputs[@]}")" \
+  "$(path_digest authoritative-catalogs "${catalog_inputs[@]}")" \
   materialize_catalogs
 run_stage \
   service-environments \
   "$(configuration_digest \
-    "$(path_digest "${service_environment_inputs[@]}")" \
+    "$(path_digest service-environments "${service_environment_inputs[@]}")" \
     "auth-mode=$auth_mode")" \
   prepare_service_environments \
   "$repo_root/.fdai/local-operator-service.env" \
@@ -576,7 +603,7 @@ run_stage \
   "$repo_root/.fdai/local-isolated-executor.env"
 run_stage \
   entra-redirects \
-  "$(path_digest "${entra_inputs[@]}")" \
+  "$(path_digest entra-redirects "${entra_inputs[@]}")" \
   prepare_entra_redirects
 
 printf '%s service=console-preparation event=completed\n' \
