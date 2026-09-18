@@ -280,7 +280,7 @@ for (const locale of ["en", "ko"] as const) {
 test("runtime notification audit destination ignores the Sample preference", async ({ page }) => {
   await installFixture(page, { missingIncident: true });
   await page.addInitScript(() => sessionStorage.setItem("fdai:console:data-mode", "sample"));
-  await page.goto(`/audit?correlation=${correlationId}`);
+  await page.goto(`/audit?correlation=${correlationId}&data=live`);
   await expect(page.locator(".audit-record")).toHaveCount(1);
   await expect(page.locator("#audit-selected-title")).toHaveText("risk_gate.unified");
   await expect(page).not.toHaveURL(/data=sample/);
