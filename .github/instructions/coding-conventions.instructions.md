@@ -11,13 +11,16 @@ See sibling docs for [architecture](architecture.instructions.md), [generic scop
 
 ## Documentation Workflow
 
-The design docs are the single source of truth; code and docs MUST stay in sync.
+Design documents govern published architecture and behavior, not contract-preserving implementation details.
 
-- **Docs-first (MUST)**: before writing or changing code, read the applicable `*.instructions.md` files and [roadmap documents](../../docs/roadmap/README.md) for the area. Code that contradicts the documented design is a defect. If the design is wrong, change the doc first or in the same PR with justification.
-- **Docs-after (MUST)**: update affected documentation in the **same PR** for any behavior, structure, public interface, DI seam, config key, or schema change. Reviewers block a merge that leaves docs stale.
+- **Design context**: before changing architecture, public behavior, authority, or a cross-subsystem
+  contract, read route-selected design context. Local contract-preserving work may use owning tests.
+- **Documentation updates**: update documentation when changing documented behavior, public interfaces,
+  supported DI seams, operator config, or schemas; internal repairs do not require roadmap edits.
 - **Bilingual docs (MUST)**: user-facing docs (root `README.md` and everything under
   `docs/**/*.md`) ship as canonical `foo.md` plus Korean `foo-ko.md`; editing either MUST update both in the same PR. New docs add both files. `check-translations.sh` requires the pair and matching `translation_source_sha`; `.github/**` stays English canonical. See the [full rules](language.instructions.md#user-facing-doc-translations-ko).
-- Reflect new modules, interfaces, injectable seams, config keys, and rule/schema changes in the [roadmap](../../docs/roadmap/README.md) and relevant instructions.
+- Reflect architecture and public contracts in relevant design documents. Private helpers and internal
+  module moves do not require roadmap updates.
 
 ## General
 
@@ -26,11 +29,8 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
   branch names stay ASCII, and machine records (audit / events / log keys /
   config keys) SHOULD stay English for replay and correlation - see
   [language.instructions.md](language.instructions.md).
-- **Single Responsibility Principle (MUST)**: every module, class, and function MUST have
-  exactly one reason to change - one clearly stated responsibility. A unit that mixes
-  unrelated concerns (e.g. routing + policy evaluation + I/O, or decision + execution +
-  audit) MUST be split. A PR that introduces or worsens a multi-responsibility unit is not
-  mergeable; extract the extra concerns behind their own interfaces or modules.
+- Keep units cohesive. Split unrelated concerns when it improves ownership, testing, or safety;
+  do not block a focused repair solely because an existing unit has multiple responsibilities.
 - Keep modules small and single-purpose; the core engine MUST stay UI-agnostic and portable.
   Prefer files under ~400 lines and functions with a single clear responsibility. Three
   CI-enforced structural gates back this rule:
@@ -47,8 +47,8 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
   target** (see [Implementation Focus](../copilot-instructions.md#implementation-focus-must));
   the interface is preserved so a future non-Azure adapter is additive, but no other adapter
   is built until it is scoped in a future phase.
-- Make behavior configuration-driven; do not bury environment specifics in code. Configuration
-  MUST be validated against a schema at startup and the process MUST fail fast on invalid config.
+- Keep environment-specific behavior configurable. Validate external deployment/runtime configuration
+  before unsafe effects; internal option objects need no standalone schema or startup-wide failure.
 - **Capability flags MUST separate `available`, `enabled`, and authority / `mode`.** Availability covers
   prerequisites and terms; enabled is preference; authority controls observe / simulate / execute.
 - A complete user-facing capability SHOULD start enabled once available and MUST expose Settings
@@ -71,18 +71,17 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
 
 ## Docstrings and API Documentation
 
-- New or materially changed public modules, classes, functions, methods, Protocols, and interfaces
-  **MUST** include a concise language-native docstring or API documentation comment. Document the
-  unit's responsibility and the externally relevant behavioral contract, including non-obvious
-  preconditions, side effects, failure or abstention behavior, and safety invariants.
+- New or changed public contracts **SHOULD** document behavior not evident from names and types,
+  especially preconditions, side effects, failure behavior, and safety invariants.
 - Document arguments, return values, raised errors, and async or ordering guarantees when their
   meaning is not evident from names and types. Do not restate the signature, narrate the
   implementation line by line, or claim guarantees that code and focused tests do not prove.
 - Private helpers **SHOULD** have a docstring when they encode non-obvious domain logic, security
   boundaries, state transitions, retry or idempotency behavior, or assumptions needed for safe
   maintenance. Straightforward private helpers do not need one.
-- A behavior or contract change **MUST** update the affected docstring in the same change. A stale,
-  misleading, or copied docstring is a defect; remove obsolete claims rather than preserving them.
+- When an existing docstring describes changed behavior or a changed contract, update it in the same
+  change. A stale, misleading, or copied docstring is a defect; remove obsolete claims rather than
+  preserving them.
 - Trivial accessors, unchanged contract-preserving overrides, self-describing test functions and
   fixtures, generated code, and vendored code are exempt unless they carry behavior that a reader
   could not safely infer from the signature and surrounding context.
@@ -171,11 +170,10 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
 
 ## Testing
 
-- **External work ordering:** GitHub Actions troubleshooting, Azure mutation/deployment, remote
-  evaluation, and release image build/push/pull MUST wait for focused checks and a focused commit. Release
-  and deployment work MUST target a pushed SHA whose required CI checks and protected workflow
-  preflight pass. A local validation-queue receipt is optional diagnostic evidence and MUST NOT
-  block another session's work. Read-only preflight MAY run earlier; edits restart the loop.
+- **External work ordering:** read-only diagnostics MAY run when needed. Before mutation, deployment,
+  remote evaluation, or publication, run focused checks. Source-consuming remote workflows MUST use
+  an immutable pushed SHA with required CI and preflight; local commands need no artificial commit.
+  Local validation-queue receipts are optional and MUST NOT block another session.
 - **Edit loop**: run the smallest executable test that can falsify the current change. Do not run a
   package, subsystem, or repository suite when one test file or node id is sufficient.
 - **Parallel sessions**: prefer separate worktrees; never run bare `make test-changed` over another session's dirty or untracked paths.
@@ -233,8 +231,8 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
 - Small, focused commits with clear English messages describing intent. Use Conventional
   Commits (`type(scope): summary`, e.g. `feat(risk-gate): ...`, `fix(rule-catalog): ...`).
 - Actions taken by the control plane are delivered as remediation PRs, not out-of-band edits.
-- A PR MUST state the change intent, its safety mode (shadow vs enforce), and how the safety
-  invariants and tests are satisfied. PRs MUST NOT introduce customer-identifying values.
+- A PR MUST state intent and relevant verification. Require safety-mode evidence only for autonomous
+  action changes. PRs MUST NOT introduce customer-identifying values.
 
 ## Formatting
 
