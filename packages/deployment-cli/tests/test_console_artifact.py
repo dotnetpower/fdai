@@ -27,6 +27,11 @@ def test_build_console_update_artifact_uses_clean_git_snapshot(tmp_path, monkeyp
             offline.mkdir(parents=True)
             (offline / "index.html").write_text("index", encoding="utf-8")
             (offline / "fdai-config.js").write_text("config", encoding="utf-8")
+        if "build_manual_studio_artifact.py" in command[1]:
+            manuals = Path(command[2])
+            manuals.mkdir()
+            for name in ("catalog.json", "library.html", "target-architecture.html"):
+                (manuals / name).write_text(name, encoding="utf-8")
         if command[0] == "tar" and "-czf" in command:
             Path(command[command.index("-czf") + 1]).write_bytes(b"console-archive")
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
@@ -44,4 +49,5 @@ def test_build_console_update_artifact_uses_clean_git_snapshot(tmp_path, monkeyp
     assert manifest["archive_sha256"] == result["archive_sha256"]
     assert (output / "console.tar.gz").stat().st_mode & 0o777 == 0o600
     assert any(command[0] == "npm" and command[-1] == "build:offline" for command in calls)
+    assert any("build_manual_studio_artifact.py" in command[1] for command in calls)
     assert result["azure_mutation_performed"] is False

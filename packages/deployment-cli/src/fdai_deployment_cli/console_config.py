@@ -16,6 +16,7 @@ from fdai_deployment_cli.private_output import _open_private_parent
 
 CONFIG_FILENAME = "fdai-config.js"
 CONFIG_PLACEHOLDER = b"globalThis.__FDAI_CONSOLE_CONFIG__ = null;\n"
+MANUAL_STUDIO_PLACEHOLDER_URL = "https://manual-studio.invalid/manuals"
 _UUID = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 _FIELDS = {
     "schema_version",
@@ -76,7 +77,12 @@ def render_console_config(settings: bytes) -> bytes:
     return f"globalThis.__FDAI_CONSOLE_CONFIG__ = {document};\n".encode("ascii")
 
 
-def configure_console(directory: Path, settings: Path) -> dict[str, object]:
+def configure_console(
+    directory: Path,
+    settings: Path,
+    *,
+    manual_studio_url: str | None = None,
+) -> dict[str, object]:
     """Replace only the shipped placeholder in a private prebuilt Console directory.
 
     Repeating identical settings is a no-op. A different existing configuration
@@ -121,11 +127,88 @@ def configure_console(directory: Path, settings: Path) -> dict[str, object]:
         if created:
             os.unlink(temporary, dir_fd=parent)
         os.close(parent)
+    manual_pages_configured = _configure_manual_studio(directory, manual_studio_url)
     return {
         "schema_version": "fdai.console-configured.v1",
         "runtime_config_digest": hashlib.sha256(rendered).hexdigest(),
         "authentication": "entra",
         "changed": changed,
+        "manual_studio_pages_configured": manual_pages_configured,
         "cloud_mutation_performed": False,
         "console_access_verified": False,
     }
+
+
+def _configure_manual_studio(directory: Path, manual_studio_url: str | None) -> int:
+    """Replace only the reserved Manual Studio origin in prebuilt share pages."""
+
+    manual_root = directory / "manuals"
+    if not manual_root.exists():
+        return 0
+    if manual_studio_url is None:
+        raise ValueError("Console Manual Studio URL is required for bundled share pages")
+    parsed = urlsplit(manual_studio_url)
+    if (
+        not manual_studio_url.startswith("https://")
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+        or "\\" in manual_studio_url
+        or any(
+            character.isspace() or ord(character) < 32 or ord(character) > 126
+            for character in manual_studio_url
+        )
+    ):
+        raise ValueError("Console Manual Studio URL MUST be a safe HTTPS base URL")
+    manual_studio_url = manual_studio_url.rstrip("/")
+    if manual_studio_url == MANUAL_STUDIO_PLACEHOLDER_URL:
+        raise ValueError("Console Manual Studio URL MUST replace the build placeholder")
+    details = manual_root.lstat()
+    if (
+        not stat.S_ISDIR(details.st_mode)
+        or manual_root.is_symlink()
+        or details.st_uid != os.geteuid()
+    ):
+        raise ValueError("Console Manual Studio directory is invalid")
+    manual_root.chmod(0o700)
+    html_files = sorted(manual_root.glob("*.html"))
+    if not html_files:
+        raise ValueError("Console Manual Studio has no share pages")
+    placeholder = MANUAL_STUDIO_PLACEHOLDER_URL.encode("ascii")
+    replacement = manual_studio_url.encode("ascii")
+    parent = _open_private_parent(manual_root / "catalog.json")
+    pending: list[str] = []
+    try:
+        for path in html_files:
+            current = _read_regular(path, 4 * 1024 * 1024)
+            if placeholder in current:
+                configured = current.replace(placeholder, replacement)
+            elif replacement in current:
+                continue
+            else:
+                raise ValueError("Console Manual Studio share page is not configurable")
+            temporary = f".{path.name}.pending"
+            descriptor = os.open(
+                temporary,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o600,
+                dir_fd=parent,
+            )
+            pending.append(temporary)
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(configured)
+                stream.flush()
+                os.fsync(stream.fileno())
+        for path in html_files:
+            temporary = f".{path.name}.pending"
+            if temporary in pending:
+                os.replace(temporary, path.name, src_dir_fd=parent, dst_dir_fd=parent)
+                pending.remove(temporary)
+        os.fsync(parent)
+    finally:
+        for temporary in pending:
+            os.unlink(temporary, dir_fd=parent)
+        os.close(parent)
+    return len(html_files)

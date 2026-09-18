@@ -665,6 +665,17 @@ jobs:
             echo "Platform state returned an invalid database hostname." >&2
             exit 1
           }
+          cost_pseudonym_key_secret_id=""
+          if [[ "$SERVICE" == "operator-service" ]]; then
+            cost_pseudonym_key_secret_id="$(
+              terraform -chdir="$TRUSTED_CONTROLS/infra" \
+                output -raw cost_pseudonym_key_secret_id
+            )"
+            [[ "$cost_pseudonym_key_secret_id" =~ ^https://[a-z0-9-]{3,24}\.vault\.azure\.net/secrets/[A-Za-z0-9-]{1,127}(/[A-Za-z0-9-]{1,64})?$ ]] || {
+              echo "Platform state returned an invalid Cost pseudonym key binding." >&2
+              exit 1
+            }
+          fi
           console_hostname=""
           if [[ "$SERVICE" == "operator-service" ]]; then
             console_hostname="$CONSOLE_DEFAULT_HOSTNAME"
@@ -936,6 +947,7 @@ jobs:
               STEWARDSHIP_GITOPS_JSON="$stewardship_gitops_binding" \
               DECISION_EVIDENCE_CONTAINER_URL="$decision_evidence_container_url" \
               RUNTIME_CALL_EVIDENCE_JSON="$runtime_call_evidence_binding" \
+              COST_PSEUDONYM_KEY_SECRET_ID="$cost_pseudonym_key_secret_id" \
               SOURCE_REVISION="$source_revision_binding" \
               python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \
