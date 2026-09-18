@@ -37,19 +37,25 @@ def test_repository_constitution_is_consistent() -> None:
     assert module.validate() == []
 
 
-def test_agent_contract_requires_clean_snapshot_for_delegated_validation() -> None:
+def test_agent_contract_separates_delegated_feedback_from_delivery_evidence() -> None:
     instructions = (REPO_ROOT / ".github" / "copilot-instructions.md").read_text(encoding="utf-8")
     normalized = " ".join(instructions.split())
 
-    assert "MUST NOT delegate validation of a dirty worktree" in normalized
-    assert "clean committed snapshot in an isolated worktree" in normalized
+    assert (
+        "Delegated validation of task-owned dirty inputs MAY provide development feedback"
+        in normalized
+    )
+    assert (
+        "Evidence attached to a commit, release, or deployment still "
+        "requires a clean immutable snapshot" in normalized
+    )
 
 
 def test_agent_contract_requires_local_first_commits() -> None:
     instructions = (REPO_ROOT / ".github" / "copilot-instructions.md").read_text(encoding="utf-8")
     normalized = " ".join(instructions.split())
 
-    assert "every agent-authored commit MUST originate in the" in normalized
+    assert "Every agent-authored commit MUST originate in the" in normalized
     assert "create a remote-only commit" in normalized
     assert "create_or_update_file" in normalized
     assert "push_files" in normalized

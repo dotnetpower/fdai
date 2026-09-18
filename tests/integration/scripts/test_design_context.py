@@ -749,17 +749,18 @@ def test_resume_prompt_executes_by_default_and_keeps_status_read_only() -> None:
     assert "Commit only when the recovered user" in prompt
 
 
-def test_agent_workflow_uses_standing_delivery_and_keeps_live_validation_gated() -> None:
+def test_agent_workflow_requires_explicit_delivery_and_keeps_live_validation_gated() -> None:
     instructions = (REPO_ROOT / ".github" / "copilot-instructions.md").read_text(encoding="utf-8")
+    normalized = " ".join(instructions.split())
 
-    assert "standing delivery preference" in instructions
-    assert "An explicit request to stop" in instructions
-    assert "never selects a tenant, subscription" in instructions
-    assert "required human plan approval" in instructions
-    assert "MUST NOT interrupt unfinished implementation" in instructions
-    assert "do not authorize a coding session to invoke a" in instructions
-    assert "unexpected `T2` fallback" in instructions
-    assert "do not retry the same live" in instructions
+    assert "Complete validated repository changes with a task-owned local commit" in normalized
+    assert "Push, pull request, merge, and remote cleanup require explicit delivery" in normalized
+    assert "never selects a tenant, subscription" in normalized
+    assert "required human plan approval" in normalized
+    assert "MUST NOT interrupt unfinished implementation" in normalized
+    assert "do not authorize a coding session to invoke a" in normalized
+    assert "unexpected `T2` fallback" in normalized
+    assert "do not retry the same live" in normalized
 
 
 def test_specialized_workflows_do_not_force_broad_validation() -> None:
