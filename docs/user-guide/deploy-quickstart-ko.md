@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: b303035424ddcc10c2af60b3a637fe67f2633542
-translation_revised: 2026-09-17
+translation_source_sha: 3ef22d362127ab4ea808638fc2510ccca7cd3cdd
+translation_revised: 2026-09-18
 ---
 
 # 배포 빠른 시작

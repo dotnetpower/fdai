@@ -159,7 +159,7 @@ def runtime_settings_projection(environ: Mapping[str, str]) -> dict[str, object]
     """Build read-only runtime diagnostics from the validated prepared environment."""
     runtime_settings = RuntimeSettingsService(store=None, env=environ)
     environment_values = runtime_settings.environment_values()
-    conversation_settings = [
+    settings = [
         {
             "key": spec.key,
             "group": spec.group,
@@ -175,7 +175,6 @@ def runtime_settings_projection(environ: Mapping[str, str]) -> dict[str, object]
             "unavailable_reason": None,
         }
         for spec in RUNTIME_SETTING_SPECS
-        if spec.group == "conversation"
     ]
     state_store = bool(environ.get("FDAI_STATE_STORE_DSN", "").strip())
     primary_transport = bool(
@@ -194,7 +193,7 @@ def runtime_settings_projection(environ: Mapping[str, str]) -> dict[str, object]
         "can_manage": False,
         "updated_at": None,
         "updated_by": None,
-        "settings": conversation_settings,
+        "settings": settings,
         "integrations": integrations,
         "runtime": {
             "environment": runtime_environment,
