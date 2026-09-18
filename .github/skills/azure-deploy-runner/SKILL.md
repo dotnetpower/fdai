@@ -103,15 +103,18 @@ needed only for a separately selected remote host. This does not permit fallback
 ```bash
 az login
 scripts/deployment/azure/fdai-up.sh \
-  --offline-kit /private/fdai-deployment-kit.tar.gz \
+  --online \
   --region <azure-region>
 ```
+
+Use `--offline-kit /private/fdai-deployment-kit.tar.gz` instead when the operator selects a local
+kit or the environment has no public artifact access.
 
 The command:
 
 1. Reads the active Azure tenant and subscription from the signed-in human.
-2. Verifies one complete signed kit supplied locally. `--online` remains an optional distribution
-   path, not an operational-validation prerequisite.
+2. Resolves one complete signed kit from the selected `--online` source or local `--offline-kit`
+  and applies the same signature, manifest, provenance, and digest verification.
 3. Runs bounded read-only target, policy, provider, quota, and region checks.
 4. Shows each exact Terraform plan and waits for explicit terminal approval.
 5. Reuses an eligible existing host and verified Foundation resources, or plans only the missing
@@ -210,8 +213,11 @@ image, repository, documentation or logs.
   results. Synthetic compatibility tests and AKS health do not prove a live Container Apps rollout.
   Deploy or probe an additional runtime only when that target and operation are authorized.
 
-Before reporting implementation completion, run the focused package, integration, shell, roadmap,
-and translation checks. Before reporting operational validation, retain both of these receipts:
+Before reporting implementation completion, run the route-selected focused checks for the changed
+slice; unrelated package, integration, shell, roadmap, or translation checks are not prerequisites.
+For one selected deployment path, retain its exact-plan, approval, digest-readback, health, and
+effect-verification receipt. A release certification that claims connected and artifact-offline
+parity requires both of these receipts:
 
 1. A local-coordinator active-login deployment from an exact locally supplied signed kit.
 2. An appliance-entry-point deployment from the same exact kit with no public artifact access.
