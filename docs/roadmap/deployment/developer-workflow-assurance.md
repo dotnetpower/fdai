@@ -87,8 +87,9 @@ remain owned by this development workflow.
 Profiled full-stack startup completes the normal preparation stages before either diagnostic socket
 exists. Preparation therefore emits content-free stage durations for pre-process bottlenecks, while
 the sockets measure only the running Core and Operator processes. The local Core launcher uses its
-service-owned entry point, and the Operator ASGI factory binds its runtime-scope receipt even when
-Uvicorn loads the factory directly. Running `dev discuss: start or restart profiled services`
+service-owned entry point. The Operator ASGI factory binds its runtime-scope receipt even when
+Uvicorn loads the factory directly, then appends explicitly enabled diagnostics to the composed
+application lifecycle without expanding the production composition root. Running `dev discuss: start or restart profiled services`
 replaces a stale task instance. GitHub Copilot in the active coding session reviews exported
 packets; no FDAI runtime or Azure OpenAI deployment is selected or invoked by the diagnostic
 channel. Local readiness recognizes the service-owned Core executable as the process owner and
