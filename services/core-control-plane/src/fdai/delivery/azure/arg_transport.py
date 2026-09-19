@@ -17,7 +17,7 @@ from fdai.shared.providers.inventory import LinkRecord, RelationshipDrop, Resour
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 from .arg_relationships import RelationshipProjectionResult
-from .inventory import ResourceQueryResult
+from .inventory import ResourceQueryResult, _GenerationBudget
 
 _RETRYABLE_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
 _DEFAULT_MAX_ATTEMPTS = 3
@@ -134,16 +134,24 @@ async def fetch_arg_pages(
     collected: list[ResourceRecord] = []
     collected_links: list[LinkRecord] = []
     relationship_drops: list[RelationshipDrop] = []
+    budget = _GenerationBudget()
 
     async def consume_rows(rows: tuple[Mapping[str, Any], ...]) -> None:
+        resources: list[ResourceRecord] = []
+        links: list[LinkRecord] = []
+        drops: list[RelationshipDrop] = []
         for row in rows:
             record = map_row(row)
             if record is not None:
                 record = replace(record, last_seen=observation_started_at)
-                collected.append(record)
+                resources.append(record)
                 relationships = project_links(row, record)
-                collected_links.extend(relationships.links)
-                relationship_drops.extend(relationships.dropped)
+                links.extend(relationships.links)
+                drops.extend(relationships.dropped)
+        budget.consume(ResourceQueryResult(tuple(resources), tuple(links), tuple(drops)))
+        collected.extend(resources)
+        collected_links.extend(links)
+        relationship_drops.extend(drops)
 
     await fetch_arg_row_pages(
         identity=identity,

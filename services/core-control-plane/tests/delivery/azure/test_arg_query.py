@@ -51,7 +51,13 @@ from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     load_resource_type_registry_from_mapping,
 )
-from fdai.shared.providers.inventory import UNCLASSIFIED_RESOURCE_TYPE, ResourceRecord
+from fdai.shared.providers.inventory import (
+    UNCLASSIFIED_RESOURCE_TYPE,
+    LinkRecord,
+    RelationshipDrop,
+    RelationshipDropReason,
+    ResourceRecord,
+)
 from fdai.shared.providers.testing.workload_identity import (
     StaticWorkloadIdentity,
 )
@@ -59,6 +65,65 @@ from fdai.shared.providers.workload_identity import IdentityToken, WorkloadIdent
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 VOCABULARY_FILE = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
+
+
+@pytest.mark.parametrize("kind", ["resources", "links", "drops", "bytes"])
+async def test_normalized_capacity_stops_before_requesting_a_successor(
+    monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    bound = {
+        "resources": "MAX_GENERATION_RESOURCES",
+        "links": "MAX_GENERATION_LINKS",
+        "drops": "MAX_GENERATION_LINKS",
+        "bytes": "MAX_GENERATION_BYTES",
+    }[kind]
+    monkeypatch.setattr(f"fdai.delivery.azure.inventory.{bound}", 1)
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(
+            200, json={"data": [{"id": str(calls)}], "$skipToken": f"page-{calls}"}
+        )
+
+    def project_links(row, resource):
+        return arg_transport.RelationshipProjectionResult(
+            links=(
+                LinkRecord(
+                    from_id="first",
+                    from_type="compute.vm",
+                    link_type="depends_on",
+                    to_id="second",
+                    to_type="compute.vm",
+                ),
+            )
+            if kind == "links"
+            else (),
+            dropped=(RelationshipDrop(reason=RelationshipDropReason.UNVERIFIED_METADATA),)
+            if kind == "drops"
+            else (),
+        )
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        with pytest.raises(RuntimeError, match="capacity exceeded"):
+            await arg_transport.fetch_arg_pages(
+                identity=_identity(),
+                http_client=client,
+                audience=_config().audience,
+                endpoint="https://example.com",
+                api_version="synthetic",
+                subscriptions=("example",),
+                query="synthetic query",
+                resource_type="compute.vm",
+                page_size=1,
+                max_pages=4,
+                timeout_seconds=1,
+                error_type=ArgQueryError,
+                map_row=lambda row: ResourceRecord(row["id"], "compute.vm", {}),
+                project_links=project_links,
+            )
+    assert calls == (1 if kind == "bytes" else 2)
 
 
 async def test_inventory_normalizes_each_page_before_requesting_the_next(
