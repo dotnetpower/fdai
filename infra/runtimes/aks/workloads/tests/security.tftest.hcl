@@ -129,6 +129,51 @@ run "workload_security_baseline" {
   }
 }
 
+run "identity_bridge_compatibility" {
+  command = plan
+
+  variables {
+    identity_bridge = {
+      config_map_name = "fdai-identity-bridge"
+      script          = "print('bridge')\n"
+    }
+    workloads = {
+      example = merge(var.workloads.example, {
+        identity_bridge_enabled = true
+      })
+    }
+  }
+
+  assert {
+    condition = (
+      kubernetes_config_map_v1.identity_bridge[0].metadata[0].name == "fdai-identity-bridge" &&
+      kubernetes_config_map_v1.identity_bridge[0].data["identity_bridge.py"] == "print('bridge')\n" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].volume_mount[1].name == "identity-bridge" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].volume_mount[1].mount_path == "/opt/fdai-compat" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].volume_mount[1].read_only &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].volume_mount[2].name == "runtime-state" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].volume_mount[2].mount_path == "/app/.fdai" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].volume[1].config_map[0].name == "fdai-identity-bridge" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].volume[2].empty_dir[0].size_limit == "256Mi"
+    )
+    error_message = "Historical identity compatibility must retain the exact bridge and bounded runtime-state mounts."
+  }
+}
+
+run "reject_identity_bridge_without_config_map" {
+  command = plan
+
+  variables {
+    workloads = {
+      example = merge(var.workloads.example, {
+        identity_bridge_enabled = true
+      })
+    }
+  }
+
+  expect_failures = [kubernetes_deployment_v1.workload["example"]]
+}
+
 run "reject_mutable_image" {
   command = plan
 

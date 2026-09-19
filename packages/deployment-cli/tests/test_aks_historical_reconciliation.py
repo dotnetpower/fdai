@@ -146,6 +146,19 @@ def _state() -> dict[str, object]:
         "resources": [
             {
                 "mode": "managed",
+                "type": "kubernetes_config_map_v1",
+                "name": "identity_bridge",
+                "instances": [
+                    {
+                        "attributes": {
+                            "metadata": [{"name": "fdai-identity-bridge"}],
+                            "data": {"identity_bridge.py": "print('bridge')\n"},
+                        }
+                    }
+                ],
+            },
+            {
+                "mode": "managed",
                 "type": "azurerm_federated_identity_credential",
                 "name": "identity",
                 "instances": [
@@ -163,7 +176,7 @@ def _state() -> dict[str, object]:
                         },
                     }
                 ],
-            }
+            },
         ]
     }
 
@@ -177,8 +190,16 @@ def test_reconciled_variables_restore_only_command_identity_and_clamav() -> None
     command = result["workloads"]["operator-service"]["additional_identities"]["command"]
     assert command["client_id"] == "00000000-0000-0000-0000-000000000005"
     assert command["resource_id"].endswith("/userAssignedIdentities/command")
-    assert all(workload["command"] == [] for workload in result["workloads"].values())
-    assert all(workload["args"] == [] for workload in result["workloads"].values())
+    assert all(
+        workload["command"] == ["/app/.venv/bin/python"]
+        for workload in result["workloads"].values()
+    )
+    assert all(workload["identity_bridge_enabled"] for workload in result["workloads"].values())
+    assert result["identity_bridge"] == {
+        "config_map_name": "fdai-identity-bridge",
+        "script": "print('bridge')\n",
+        "runtime_state_size_limit": "256Mi",
+    }
     clamav = result["workloads"]["document-processing-worker"]["sidecars"]["clamav"]
     assert clamav == {
         "image": IMAGE.format(name="clamav"),
@@ -217,7 +238,12 @@ def test_reconciled_variables_reject_untrusted_live_safety_input(change: str) ->
     if change == "generic-list":
         live["kind"] = "List"
     elif change == "fic-subject":
-        state["resources"][0]["instances"][0]["attributes"]["subject"] += "-other"
+        credential = next(
+            resource
+            for resource in state["resources"]
+            if resource["type"] == "azurerm_federated_identity_credential"
+        )
+        credential["instances"][0]["attributes"]["subject"] += "-other"
     elif change == "command-client":
         operator = next(
             item for item in live["items"] if item["metadata"]["name"] == "operator-service"
@@ -240,7 +266,7 @@ def test_reconciled_variables_reject_untrusted_live_safety_input(change: str) ->
 
 
 def _terraform_workload(name: str, *, legacy: bool) -> dict[str, object]:
-    legacy_runtime = legacy and name in LEGACY_RUNTIME_ARGS
+    legacy_runtime = name in LEGACY_RUNTIME_ARGS
     containers = [
         {
             "name": name,
@@ -260,7 +286,7 @@ def _terraform_workload(name: str, *, legacy: bool) -> dict[str, object]:
                     {"name": "identity-bridge"},
                     {"name": "runtime-state"},
                 ]
-                if legacy
+                if legacy_runtime
                 else []
             ),
         }
@@ -298,7 +324,7 @@ def _terraform_workload(name: str, *, legacy: bool) -> dict[str, object]:
                                         {"name": "identity-bridge"},
                                         {"name": "runtime-state"},
                                     ]
-                                    if legacy
+                                    if legacy_runtime
                                     else []
                                 ),
                             }
@@ -354,10 +380,6 @@ def test_reconciliation_plan_accepts_only_legacy_normalization() -> None:
             )
         ],
         {
-            "address": "kubernetes_config_map_v1.identity_bridge",
-            "change": {"actions": ["delete"], "before": {"id": "legacy"}, "after": {}},
-        },
-        {
             "address": 'kubernetes_cron_job_v1.job["analyzer"]',
             "change": {
                 "actions": ["update"],
@@ -381,13 +403,23 @@ def test_reconciliation_plan_accepts_only_legacy_normalization() -> None:
 
     mutations = validate_reconciliation_plan(plan, variables=variables)
 
-    assert "kubernetes_config_map_v1.identity_bridge" in mutations
-    assert len(mutations) == 9
+    assert "kubernetes_config_map_v1.identity_bridge" not in mutations
+    assert len(mutations) == 8
 
     unsafe = copy.deepcopy(plan)
     unsafe["resource_changes"][0]["change"]["actions"] = ["delete"]
     with pytest.raises(ValueError, match="command identity"):
         validate_reconciliation_plan(unsafe, variables=variables)
+
+    unsafe_bridge = copy.deepcopy(plan)
+    unsafe_bridge["resource_changes"].append(
+        {
+            "address": "kubernetes_config_map_v1.identity_bridge",
+            "change": {"actions": ["delete"], "before": {"id": "legacy"}, "after": {}},
+        }
+    )
+    with pytest.raises(ValueError, match="out-of-scope mutation"):
+        validate_reconciliation_plan(unsafe_bridge, variables=variables)
 
     unsafe_command = copy.deepcopy(plan)
     deployment = next(

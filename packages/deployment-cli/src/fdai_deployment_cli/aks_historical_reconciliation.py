@@ -20,7 +20,6 @@ _INVENTORY_RESOURCES = {
     "kubernetes_cluster_role_v1.inventory_reader[0]",
     "kubernetes_cluster_role_binding_v1.inventory_reader[0]",
 }
-_LEGACY_CONFIG_MAP = "kubernetes_config_map_v1.identity_bridge"
 _JOBS = {"analyzer", "canary", "inventory", "observation-campaign"}
 _EXTERNAL_SERVICES = {"core-control-plane", "document-processing-worker", "isolated-executor"}
 _LEGACY_RUNTIME_COMMANDS = {
@@ -77,6 +76,8 @@ def reconciled_variables(
     if set(workloads) != set(SERVICES):
         raise ValueError("historical AKS workload inventory is incomplete")
     deployments = _live_deployments(live)
+    identity_bridge = _identity_bridge(state)
+    result["identity_bridge"] = identity_bridge
 
     for name, workload_value in workloads.items():
         workload = _mapping(workload_value, f"historical AKS {name} workload")
@@ -89,8 +90,9 @@ def reconciled_variables(
             or workload.get("args", arguments) != arguments
         ):
             raise ValueError(f"historical AKS {name} identity bridge command is invalid")
-        workload["command"] = []
-        workload["args"] = []
+        if workload.get("identity_bridge_enabled") not in (None, True):
+            raise ValueError(f"historical AKS {name} identity bridge binding differs")
+        workload["identity_bridge_enabled"] = True
 
     operator = _mapping(workloads.get("operator-service"), "operator workload")
     operator_live = deployments["operator-service"]
@@ -119,6 +121,44 @@ def reconciled_variables(
         raise ValueError("historical AKS document worker fs_group differs")
     worker["fs_group"] = fs_group
     return result
+
+
+def _identity_bridge(state: dict[str, Any]) -> dict[str, str]:
+    matches: list[dict[str, Any]] = []
+    for raw_resource in state.get("resources", []):
+        if not isinstance(raw_resource, dict):
+            continue
+        if (
+            raw_resource.get("mode") != "managed"
+            or raw_resource.get("type") != "kubernetes_config_map_v1"
+            or raw_resource.get("name") != "identity_bridge"
+        ):
+            continue
+        for raw_instance in raw_resource.get("instances", []):
+            if isinstance(raw_instance, dict):
+                matches.append(_mapping(raw_instance.get("attributes"), "identity bridge"))
+    if len(matches) != 1:
+        raise ValueError("historical AKS identity bridge state is invalid")
+    attributes = matches[0]
+    metadata = attributes.get("metadata")
+    data = _mapping(attributes.get("data"), "identity bridge data")
+    script = data.get("identity_bridge.py")
+    if (
+        not isinstance(metadata, list)
+        or len(metadata) != 1
+        or not isinstance(metadata[0], dict)
+        or metadata[0].get("name") != "fdai-identity-bridge"
+        or set(data) != {"identity_bridge.py"}
+        or not isinstance(script, str)
+        or not script
+        or len(script.encode()) > 65536
+    ):
+        raise ValueError("historical AKS identity bridge contract is invalid")
+    return {
+        "config_map_name": "fdai-identity-bridge",
+        "script": script,
+        "runtime_state_size_limit": "256Mi",
+    }
 
 
 def validate_reconciliation_plan(
@@ -171,10 +211,6 @@ def validate_reconciliation_plan(
         if address in _INVENTORY_RESOURCES and actions == ["create"]:
             if before:
                 raise ValueError("historical AKS inventory read role already has prior state")
-            continue
-        if address == _LEGACY_CONFIG_MAP and actions == ["delete"]:
-            if after:
-                raise ValueError("historical AKS legacy identity bridge deletion is invalid")
             continue
         workload = _indexed_name(address, "kubernetes_deployment_v1.workload")
         if workload is not None and workload in SERVICES and actions == ["update"]:
