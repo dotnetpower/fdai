@@ -85,7 +85,9 @@ describe("askBackendStream fallback typewriter", () => {
     // And the accumulated deltas MUST reconstruct the final reply text exactly.
     expect(deltas.join("")).toBe(reply.text);
     expect(reply.source).toBe("unavailable (offline)");
-    expect(reply.text).toBe("Semantic interpretation is unavailable for this turn.");
+    expect(reply.text).toBe(
+      "FDAI could not reach the conversation service. No answer was produced.",
+    );
     expect(reply.citations).toEqual([]);
   });
 
@@ -478,7 +480,9 @@ describe("askBackendStream fallback typewriter", () => {
     });
 
     expect(revisions).toContain("");
-    expect(reply.text).toBe("Semantic interpretation is unavailable for this turn.");
+    expect(reply.text).toBe(
+      "The conversation service became unavailable before a verified answer completed.",
+    );
     expect(reply.source).toBe("unavailable (stream error)");
   });
 
@@ -903,7 +907,9 @@ describe("askBackendStream fallback typewriter", () => {
     );
 
     expect(reply.source).toBe("unavailable (stream error)");
-    expect(reply.text).toBe("Semantic interpretation is unavailable for this turn.");
+    expect(reply.text).toBe(
+      "The conversation service became unavailable before a verified answer completed.",
+    );
     expect(reply.citations).toEqual([]);
     expect(deltas.join("")).toBe(reply.text);
   });
@@ -922,7 +928,7 @@ describe("askBackendStream fallback typewriter", () => {
 
     expect(first).toEqual(second);
     expect(first).toEqual({
-      text: "Semantic interpretation is unavailable for this turn.",
+      text: "FDAI could not reach the conversation service. No answer was produced.",
       citations: [],
       followUps: [],
       source: "unavailable (offline)",
@@ -1808,7 +1814,9 @@ describe("askBackendStream fallback typewriter", () => {
       onToken: (delta) => deltas.push(delta),
     });
 
-    expect(reply.text).toBe("Semantic interpretation is unavailable for this turn.");
+    expect(reply.text).toBe(
+      "FDAI rejected an inconsistent conversation response. No answer was accepted.",
+    );
     expect(reply.source).toBe("unavailable (malformed stream frame)");
     expect(deltas.join("")).toBe(reply.text);
     expect(deltas.join("")).not.toContain("Draft");

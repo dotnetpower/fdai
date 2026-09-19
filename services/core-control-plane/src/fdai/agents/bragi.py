@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable, Collection
+from collections.abc import Awaitable, Callable, Collection, Mapping
 from typing import Any
 
 from fdai_service_contracts.semantic_judgment import (
@@ -351,6 +351,7 @@ class Bragi(Agent):
         requester: str,
         correlation_id: str = "",
         reuse_semantic_route: bool = True,
+        fixed_assurance_facts: Mapping[str, Mapping[str, object]] | None = None,
     ) -> dict[str, Any]:
         """Delegate one bounded read-only discussion to the framework orchestrator."""
         if self._semantic_judgment is None:
@@ -393,6 +394,7 @@ class Bragi(Agent):
             requester=requester,
             correlation_id=correlation_id,
             routing_decision=(self.route(judgment) if reuse_semantic_route else None),
+            fixed_assurance_facts=fixed_assurance_facts,
         )
 
     # ---- routing -------------------------------------------------------
@@ -672,6 +674,11 @@ class Bragi(Agent):
                 "latency_ms": judgment_result.receipt.latency_ms,
                 "disposition": judgment_result.receipt.disposition.value,
                 "reason_code": judgment_result.receipt.reason_code,
+                **(
+                    {"model_identity": judgment_result.observations[-1].model}
+                    if judgment_result.observations
+                    else {}
+                ),
                 "execution_authority": False,
             }
         attach_pantheon_diagnostics(

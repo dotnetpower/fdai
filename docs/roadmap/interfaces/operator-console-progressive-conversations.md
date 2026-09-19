@@ -299,6 +299,13 @@ existing wire shape.
 Held answers lead with what cannot be determined, the supported scope, exact limitations, and the
 next safe read step. Internal query mechanics remain in technical details.
 
+When no canonical answer exists, the Console maps the bounded terminal reason to an exact
+operator-facing explanation. Offline transport, missing model configuration, authentication or
+role denial, provider throttling or outage, content-policy refusal, evidence hold, and response
+integrity failure remain distinct. The fallback never presents partial text as an answer, invents
+evidence, or exposes provider response content. Unknown reasons use one generic verified-answer
+unavailable statement while preserving the bounded machine reason in the source detail.
+
 ## Deterministic cross-channel presentation design
 
 The semantic presentation planner receives only a verified intent and a typed evidence-shape

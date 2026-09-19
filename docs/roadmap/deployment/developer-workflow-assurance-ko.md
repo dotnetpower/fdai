@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 60351baf157289b730537c468e9c6d5191f6036d
+translation_source_sha: 53708cb2b88c287fa0f34f62566bd1400057f287
 translation_revised: 2026-09-19
 ---
 
@@ -80,6 +80,9 @@ Event Bus 또는 관리 리소스 경로에서는 이 소켓에 접근할 수 �
 가비지 컬렉션, 스레드 및 파일 서술자 수, 이벤트 루프 지연, 캡처 오버헤드, 잘림 및 사용 불가
 이유를 보고합니다. 힙 객체, 요청이나 답변 본문, 환경 값, 공급자 payload, 자격 증명 또는 숨겨진
 추론은 영속화하지 않습니다.
+Operator semantic runtime은 제품 projection을 위해 assurance 답변 생성 귀속, evaluator model
+귀속 및 판단 보류 상태를 검증할 수 있습니다. 이러한 필드는 제품 대화 데이터로 유지되며 진단
+probe, packet, export 또는 Copilot 검토에 들어가지 않습니다.
 
 모든 패킷은 Git 리비전, 로컬 서비스 입력 digest, worktree patch digest, 프로세스 신원,
 runtime-scope receipt digest, 시간 구간 및 패킷 digest를 연결합니다. GitHub Copilot 검토는

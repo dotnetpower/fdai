@@ -42,8 +42,8 @@ domain code and assets. It does not create another control plane or move authori
 > enable Cost Governance, change Njord's publisher ownership, or grant package data access.
 > Global Terraform roots can grant the dedicated inventory identity subscription-scoped AKS Cluster User and RBAC Reader roles for automatic read-only discovery. Those assignments and ephemeral cluster bindings are not Cost Governance package inputs and cannot activate its runtime, authorize a cost decision, or grant execution.
 > The same
-> boundary excludes the independent runtime-call evidence source flag, shared provider endpoint
-> availability, and startup-probe RBAC state addresses from FinOps package inputs and authority.
+> boundary excludes the independent runtime-call evidence source flag, shared provider endpoint availability, and startup-probe RBAC state addresses from FinOps package inputs and authority.
+> Fixed Conversation Assurance scenario facts remain diagnostic-only inputs to the shared read-only Pantheon deliberation path; they cannot install, enable, configure, publish, or grant Cost Governance data access or action authority.
 > Protected Terraform deployer roles use the configured stable runner UAMI principal, and planning
 > stops when the authenticated principal differs. The isolated public-development path may instead
 > use its verified Azure CLI human only as the Terraform management principal. Neither identity is
