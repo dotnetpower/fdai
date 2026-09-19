@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: abe2d09b8842f1b4b6f1c705ee23bfc72eef5ea5
+translation_source_sha: adfccb8c2680bbd9cc6ae5ed7a2b055adbf95400
 translation_revised: 2026-09-19
 ---
 
@@ -95,7 +95,9 @@ Core 및 Operator 프로세스만 측정합니다. 로컬 Core 실행기는 서�
 Uvicorn이 Operator ASGI 애플리케이션 팩터리를 직접 불러도 팩터리가 runtime-scope receipt를 연결합니다.
 `dev discuss: start or restart profiled services`를 실행하면 오래된 작업 인스턴스를 교체합니다.
 내보낸 패킷은 현재 코딩 세션의 GitHub Copilot이 검토하며, 진단 채널은 FDAI 런타임 모델이나
-Azure OpenAI 배포를 선택하거나 호출하지 않습니다.
+Azure OpenAI 배포를 선택하거나 호출하지 않습니다. 로컬 준비 상태 검사는 서비스 소유 Core
+실행기를 프로세스 소유자로 인식하고 새로운 semantic consumer 진행 뒤의 새로운 heartbeat를
+허용합니다.
 
 ## 검증 단계와 결과 재사용
 

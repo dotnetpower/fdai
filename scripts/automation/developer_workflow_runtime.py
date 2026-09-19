@@ -193,7 +193,13 @@ def _module_owners(records: list[tuple[Path, list[str]]], module: str) -> set[Pa
 
 
 def _core_runtime_owners(records: list[tuple[Path, list[str]]]) -> set[Path]:
-    return _module_owners(records, "fdai")
+    owners = _module_owners(records, "fdai")
+    for cwd, arguments in records:
+        if "pytest" in arguments:
+            continue
+        if any(Path(argument).name == "fdai-core-control-plane" for argument in arguments):
+            owners.add(cwd)
+    return owners
 
 
 def _core_heartbeat_ready(

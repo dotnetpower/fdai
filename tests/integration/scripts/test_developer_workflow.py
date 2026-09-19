@@ -577,6 +577,14 @@ def test_local_services_require_continuous_local_jobs(tmp_path: Path) -> None:
     ]
 
 
+def test_core_runtime_owner_accepts_service_owned_entrypoint(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+
+    assert developer_workflow_runtime._core_runtime_owners(
+        [(repo, [str(repo / ".venv/bin/fdai-core-control-plane")])]
+    ) == {repo}
+
+
 def test_console_launch_and_readiness_use_canonical_localhost_origin() -> None:
     launch = json.loads((REPO_ROOT / ".vscode" / "launch.json").read_text(encoding="utf-8"))
     frontend = next(

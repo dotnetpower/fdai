@@ -91,7 +91,8 @@ service-owned entry point, and the Operator ASGI factory binds its runtime-scope
 Uvicorn loads the factory directly. Running `dev discuss: start or restart profiled services`
 replaces a stale task instance. GitHub Copilot in the active coding session reviews exported
 packets; no FDAI runtime or Azure OpenAI deployment is selected or invoked by the diagnostic
-channel.
+channel. Local readiness recognizes the service-owned Core executable as the process owner and
+accepts fresh semantic-consumer progress followed by a fresh heartbeat.
 
 ## Validation stages and reuse
 
