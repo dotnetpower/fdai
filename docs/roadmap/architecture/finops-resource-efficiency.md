@@ -106,8 +106,9 @@ Azure Advisor recommendations enter a derived evidence lane. They are not a `Ver
 Njord's cost advice also remain advisory inputs. Forseti alone turns complete evidence into an
 eligible option and final decision.
 
-For the first release, avoid a second durable `SizingRecommendation` object when `Forecast`,
-`Observation`, `Signal`, and `ActionOption` can preserve the required lineage. A future
+For the first release, the event path embeds sizing advice in `CapacityForecast` and creates no
+`object.sizing-recommendation` topic. The separate `SizingRecommendation` graph lifecycle is used
+only when reviewed materialization needs its own revision. A future
 `CostAllocation` relationship object is appropriate only when allocation percentage, method,
 effective interval, and policy revision need their own lifecycle.
 

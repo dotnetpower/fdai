@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: fcf62928550d7fd7c29e7d5879a113bed6895bab
+translation_source_sha: 41cda083bd756677b0c787d95e6f8dbde1a1b9ce
 translation_revised: 2026-09-20
 ---
 # 에이전트 판테온
@@ -126,8 +126,8 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | 이름 | 역할 | 계층 | 소유 객체 types | 주요 동작 | Hot-path LLM? |
 |------|------|-------|-------------------|-------------------|---------------|
 | Odin | Master 플래너 | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
-| Thor | 응답자 | 2 | ActionRun, ActionAttempt | (전달 만; 직접 소유 없음 - §7.1) | no |
-| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest, ProspectiveLineage | 판정과 정확한 실행 전 prospective lineage를 생성합니다. 선택적 planned-change graph 맥락은 자율성을 낮출 수만 있습니다. 실행기 역할은 없습니다. | yes (T2 abstain 시만) |
+| Thor | 응답자 | 2 | ActionRun | 전달하고 대상별 attempt 상태를 ActionRun에 포함해 기록합니다. ActionType을 직접 소유하지 않습니다 - §7.1 참조 | no |
+| Forseti | Judge | 2 | Verdict, SecurityEvent, ArbitrationRequest, ProspectiveLineage | 판정과 정확한 실행 전 prospective lineage를 생성합니다. 근거가 있는 RCA는 별도 bus topic이 아니라 core causal-hypothesis projection으로 유지됩니다. 실행기 역할은 없습니다. | yes (T2 abstain 시만) |
 | Huginn | Event Collector / 실시간 Resource 발견 | 2 | Event, Change | ingest_event, normalize_change | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict, RecoveryEffectObservation | detect_anomaly, detect_drift, 예측, close_forecast_outcome, publish_evidence_conflict_revision, observe_terminal_action_effect, relay_recovery_effect_observation, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
 | Vidar | 복구 | 2 | Rollback | perform_rollback, dr_failover | no |
@@ -137,8 +137,8 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | Mimir | Rule 담당자 | 3 | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
 | Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path 배치 만) |
-| Njord | 비용 | 1 | CostAnomaly, Budget | propose_cost_action | no |
-| Freyr | 용량 | 1 | CapacityForecast, SizingRecommendation, CapacityGraduationRecommendation | 용량 예측 및 shadow-only 전환 권고 | no |
+| Njord | 비용 | 1 | CostAnomaly | propose_cost_action을 수행하고 별도 `Budget` graph lifecycle을 유지합니다. | no |
+| Freyr | 용량 | 1 | CapacityForecast, CapacityGraduationRecommendation | 용량 예측과 shadow-only 전환을 권고하고 별도 `SizingRecommendation` graph lifecycle을 유지합니다. | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
 
 Heimdall은 결정론적 예측 에피소드 평가와 종결의 책임자이며 비공개 `heimdall_forecast.py`와 `heimdall_alert_window.py`가 계산과 범위가 제한된 에피소드/경고 구간 기록을 소유합니다.

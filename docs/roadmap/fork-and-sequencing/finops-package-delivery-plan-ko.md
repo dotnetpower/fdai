@@ -1,8 +1,8 @@
 ---
 title: FinOps 패키지 전달 계획
 translation_of: finops-package-delivery-plan.md
-translation_source_sha: 59ea2b06996980ba2b6b6471f7e237e615caa44a
-translation_revised: 2026-09-13
+translation_source_sha: bc122ba67ccafa6d9bebfc7f19b22d7eee517a26
+translation_revised: 2026-09-20
 ---
 
 # FinOps 패키지 전달 계획
@@ -132,8 +132,8 @@ release, 자산 inventory 및 안정적인 식별자 집합으로 수렴한 뒤�
 
 - 범위가 제한된 비용과 리소스 근거를 위한 Huginn ingress 어댑터
 - Heimdall 근거 상태, 이상, 예측 및 독립 효과 hook
-- Njord 소유 `object.cost-anomaly`와 `object.budget` 게시, 패키지 연결 `CostEstimator`, Freyr
-  용량 반대 목표 연결
+- Njord 소유 `object.cost-anomaly` 게시, 패키지 연결 `Budget` graph materialization과
+  `CostEstimator`, Freyr 용량 반대 목표 binding
 - 자동 실험 실행이 없는 조건부 Loki 실험 제안 연결
 - Forseti 컨텍스트 구체화, 대안 필터링, 판단 및 Odin 중재
 - 책임 모델에 설명된 Thor, Var, Vidar, Saga, Muninn, Norns, Mimir 및 Bragi 경로이며 각

@@ -962,9 +962,9 @@ export interface AgentContract {
 /** Fixed ownership and safety boundaries projected by the Fleet details view. */
 export const AGENT_CONTRACT: Readonly<Record<string, AgentContract>> = {
   Odin: { owns: ["ArbitrationDecision"] },
-  Thor: { owns: ["ActionRun", "ActionAttempt"] },
+  Thor: { owns: ["ActionRun"] },
   Forseti: {
-    owns: ["Verdict", "RCA", "SecurityEvent", "ArbitrationRequest"],
+    owns: ["Verdict", "SecurityEvent", "ArbitrationRequest"],
     hotPathLlm: true,
   },
   Huginn: { owns: ["Event"] },
@@ -976,8 +976,8 @@ export const AGENT_CONTRACT: Readonly<Record<string, AgentContract>> = {
   Mimir: { owns: ["Rule", "Policy"] },
   Muninn: { owns: ["StateSnapshot", "ContextIndex"] },
   Norns: { owns: ["RuleCandidate", "Pattern"], offPathLlm: true },
-  Njord: { owns: ["CostAnomaly", "Budget"] },
-  Freyr: { owns: ["CapacityForecast", "SizingRecommendation"] },
+  Njord: { owns: ["CostAnomaly"] },
+  Freyr: { owns: ["CapacityForecast"] },
   Loki: { owns: ["ChaosExperiment", "ResilienceScore"] },
 };
 

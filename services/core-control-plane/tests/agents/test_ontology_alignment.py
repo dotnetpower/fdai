@@ -93,6 +93,10 @@ def test_catalog_stewardship_is_separate_from_wire_single_writer() -> None:
     assert "ObservedOutcome" in steward_only
     assert stewarded["Pattern"] == "Norns"
     assert "Pattern" in owns["Norns"], "the unified learning record stays a Norns wire object"
+    assert stewarded["Budget"] == "Njord"
+    assert stewarded["SizingRecommendation"] == "Freyr"
+    assert "Budget" not in owns["Njord"]
+    assert "SizingRecommendation" not in owns["Freyr"]
 
 
 def test_every_agent_has_at_least_one_owned_type_or_is_governance_planner() -> None:
@@ -107,7 +111,7 @@ def test_action_roles_are_global_and_not_redeclared_by_action_types() -> None:
     owned_by_agent = {spec.name: set(spec.owns) for spec in PANTHEON_SPECS}
     assert "Verdict" in owned_by_agent["Forseti"]
     assert "Approval" in owned_by_agent["Var"]
-    assert {"ActionRun", "ActionAttempt"} <= owned_by_agent["Thor"]
+    assert owned_by_agent["Thor"] == {"ActionRun"}
     assert "AuditEntry" in owned_by_agent["Saga"]
     assert "Rollback" in owned_by_agent["Vidar"]
     assert "Change" in owned_by_agent["Huginn"]

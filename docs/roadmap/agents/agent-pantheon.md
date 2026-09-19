@@ -126,8 +126,8 @@ operations / interface), `3` = governance staff.
 | Name | Role | Layer | Owns object types | Primary behavior | LLM in hot-path? |
 |------|------|-------|-------------------|-----------------------|-------------------|
 | Odin | Master Planner | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
-| Thor | Responder | 2 | ActionRun, ActionAttempt | (dispatches; owns none directly - see §7.1) | no |
-| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest, ProspectiveLineage | produces verdicts and exact pre-execution prospective lineage; optional planned-change graph context can only lower autonomy; no executor role | yes (T2 abstain only) |
+| Thor | Responder | 2 | ActionRun | dispatches and records embedded per-target attempt state; owns no ActionType directly - see §7.1 | no |
+| Forseti | Judge | 2 | Verdict, SecurityEvent, ArbitrationRequest, ProspectiveLineage | produces verdicts and exact pre-execution prospective lineage; grounded RCA remains a core causal-hypothesis projection, not another bus topic; no executor role | yes (T2 abstain only) |
 | Huginn | Event Collector / Real-time Resource Discovery | 2 | Event, Change | ingest_event, normalize_change | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict, RecoveryEffectObservation | detect_anomaly, detect_drift, forecast, close_forecast_outcome, publish_evidence_conflict_revision, observe_terminal_action_effect, relay_recovery_effect_observation, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |
@@ -137,8 +137,8 @@ operations / interface), `3` = governance staff.
 | Mimir | Rule Steward | 3 | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
 | Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path batch only) |
-| Njord | Cost | 1 | CostAnomaly, Budget | propose_cost_action | no |
-| Freyr | Capacity | 1 | CapacityForecast, SizingRecommendation, CapacityGraduationRecommendation | forecast capacity and propose shadow-only graduation | no |
+| Njord | Cost | 1 | CostAnomaly | propose_cost_action; retains the separate `Budget` graph lifecycle | no |
+| Freyr | Capacity | 1 | CapacityForecast, CapacityGraduationRecommendation | forecast capacity and propose shadow-only graduation; retains the separate `SizingRecommendation` graph lifecycle | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
 
 Heimdall remains accountable for deterministic forecast episode evaluation and closure; private `heimdall_forecast.py` and `heimdall_alert_window.py` own calculation and bounded episode/alert-window bookkeeping.

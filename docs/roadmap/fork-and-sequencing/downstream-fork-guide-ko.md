@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 48a2699ec814b598a7739ad1612d408370b0c7b8
-translation_revised: 2026-09-14
+translation_source_sha: 068f59a7affb75a3def0b7fa3270c86b553244de
+translation_revised: 2026-09-20
 ---
 
 # 다운스트림 포크 가이드
@@ -95,6 +95,9 @@ repository-integrity 검사만 활성화하며 런타임 코드는 이 값을 �
 독립적인 결정으로 유지합니다. 비용 거버넌스를 숨기기 위한 목적으로 고객 포크를 만들지 말고,
 포크 감지를 데이터 수집, Console 탐색 또는 실행 자세를 선택하는 데 사용하지 않습니다. 기본
 전용 프로필은 패키지 자산을 제외하고 호환성 또는 패키지 테스트는 활성화된 패키지를 명시적으로 구성합니다.
+패키지의 그래프 구체화와 이벤트 게시는 별개입니다. 패키지는 버스 토픽을 등록하지 않고 검토된
+그래프 수명 주기 객체를 구체화할 수 있습니다. `AgentSpec.owns`는 업스트림만 변경할 수 있으며
+게시 가능한 단일 작성자 객체 타입만 나열합니다.
 
 ## 2. Day-1 체크리스트
 

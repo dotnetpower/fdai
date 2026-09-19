@@ -116,14 +116,14 @@ episode invokes every agent, but the vertical must provide a valid path for each
 |-------|-----------------------|---------------|
 | Huginn | Normalize bounded provider, billing, inventory, change, and schedule ingress into owned `Event` or `Change` records. StateStore-backed claims retain bounded deduplication across restart while any crash-window redelivery keeps the same idempotency key. | Required ingress. |
 | Heimdall | Produce anomaly, drift, forecast, and evidence-health records, then independently compare terminal observations with every expected effect. | Required sensing and changed-state closure. |
-| Njord | Own `CostAnomaly` and `Budget` advisory objects and cost-objective interpretation. An injected `CostEstimator` supplies provider-bound estimates without becoming an agent or publisher. | Required for cost judgment. |
+| Njord | Own `CostAnomaly` bus publication, the separate `Budget` graph lifecycle, and cost-objective interpretation. An injected `CostEstimator` supplies provider-bound estimates without becoming an agent or publisher. | Required for cost judgment. |
 | Freyr | Supply capacity forecasts and sizing advice so savings cannot hide saturation or headroom loss. | Required for capacity-affecting options. |
 | Loki | Propose bounded, always-reviewed resilience experiments when uncertainty requires an experiment rather than a production guess. Proposal target reservations survive restart and release only after an exact safe Thor ActionRun closure. | Conditional validation. |
 | Muninn | Retain immutable context indexes, state snapshots, prior cases, and exact change revisions for replay and T1 reuse. | Required for reuse and learning. |
 | Forseti | Materialize the decision context, remove constitutionally ineligible options, judge through T0/T1/T2, and publish `Verdict`. | Required judgment. |
 | Odin | Rank only eligible options when cost conflicts with reliability, capacity, recovery, or portfolio objectives. | Conditional arbitration. |
 | Var | Record distinct human approval and quorum when policy or residual risk requires it. | Residual path only. |
-| Thor | Solely dispatch an eligible ActionType and own `ActionRun` and `ActionAttempt`. | Required for mutation. |
+| Thor | Solely dispatch an eligible ActionType and own `ActionRun`; per-target attempt state remains embedded in that run. | Required for mutation. |
 | Vidar | Validate recovery readiness and own rollback when stop conditions, failed effects, or regressions require recovery. | Required recovery dependency. |
 | Saga | Append intent and terminal audit, preserve correlation, and open a governed issue when the episode cannot close safely. | Required hard dependency. |
 | Norns | Analyze audited cohorts and propose inert `RuleCandidate` or `Pattern` records without changing the catalog. | Off-path learning. |
