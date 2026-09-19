@@ -2376,6 +2376,47 @@ def test_unaccepted_event_history_can_only_narrow_model_descriptors() -> None:
     assert "query.resource_health_inventory" not in _SAFE_UNACCEPTED_DESCRIPTOR_INTENTS
 
 
+@pytest.mark.parametrize("output_shape", ("ontology_manifest", "ontology_declaration"))
+@pytest.mark.parametrize(
+    ("intent", "accepted", "expected"),
+    (
+        (None, False, False),
+        ("query.ontology_relationships", False, False),
+        ("query.ontology_relationships", True, True),
+        ("query.ontology_declaration", True, True),
+        ("query.manifest", True, True),
+        ("query.resource_current_state", True, False),
+    ),
+)
+def test_schema_frame_cannot_bypass_rejected_or_unrelated_judgment(
+    output_shape: str, intent: str | None, accepted: bool, expected: bool
+) -> None:
+    judgment = (
+        SemanticJudgmentProposal(
+            primary_intent=intent,
+            targets=(),
+            requested_facets=("read", "ontology_object_types"),
+            confidence=0.98,
+            ambiguous=False,
+            action_posture="advise_only",
+            action_subject="none",
+            execution_authority=False,
+        )
+        if intent is not None
+        else None
+    )
+
+    assert (
+        _operational_frame_matches_accepted_judgment(
+            output_shape=output_shape,
+            judgment=judgment,
+            judgment_accepted=accepted,
+            judgment_evaluated=True,
+        )
+        is expected
+    )
+
+
 def test_operational_frame_requires_accepted_matching_judgment() -> None:
     judgment = SemanticJudgmentProposal(
         primary_intent="query.resource_configuration_changes",

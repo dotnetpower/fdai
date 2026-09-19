@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 0d5cceffd1cf90ac4c5c1512689e81abeca1cb7d
+translation_source_sha: ca899b0e5d82233c9583f26535cc2e52032d71d8
 translation_revised: 2026-09-20
 ---
 # 프로젝트 구조
@@ -11,7 +11,7 @@ translation_revised: 2026-09-20
 의미 조회 조립은 principal 범위의 선언 후보 선택과 원본 인가 연결을 소유합니다. Core는 조건식,
 release, 최신성, 증적 및 조회 연산 검증을 유지하고, 전달 계층은 이중 언어 순위 계산과 PostgreSQL
 세대 캐시 검증을 소유합니다. 문서 조회와 운영 조회는 독립된 근거 권한과 정확한 원본 범위를
-유지합니다.
+유지합니다. Core 프레임 검사는 의미 판단을 수행한 경우 수락된 동일 스키마 의도도 요구합니다. 거절된 판단은 모델이 작성한 선언 목록이나 상세 프레임으로 다시 진행할 수 없습니다.
 
 물리적인 서비스 workspace는 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md)이 소유합니다. 이 문서는 의존성 방향, 구조 게이트, 확장 seam, 컨트롤 루프 배선, 구성 및 저장소
 규칙을 소유합니다. 비공개 composition 타입 모듈은 강제 크기 상한 아래로 유지합니다. 따라서 새 바인딩은 검토 가능한 상태를 유지하고, 공유 컨테이너가 두 번째 루트가 되기 전에 목적별 wire 모듈로 이동합니다. 사례 이력 검토는 비활성

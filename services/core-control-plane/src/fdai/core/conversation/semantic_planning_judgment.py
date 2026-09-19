@@ -308,6 +308,14 @@ def _operational_frame_matches_accepted_judgment(
 ) -> bool:
     """Require accepted typed intent for operational frame families."""
 
+    if output_shape in {"ontology_manifest", "ontology_declaration"} and judgment_evaluated:
+        return bool(
+            judgment_accepted
+            and judgment is not None
+            and not judgment.ambiguous
+            and judgment.primary_intent
+            in {"query.manifest", "query.ontology_declaration", "query.ontology_relationships"}
+        )
     required_primary_intent = _PRIMARY_OPERATIONAL_OUTPUT_INTENTS.get(output_shape)
     required_summary_intent = _SUMMARY_OPERATIONAL_OUTPUT_INTENTS.get(output_shape)
     required_derived_intents = _DERIVED_RESOURCE_OUTPUT_INTENTS.get(output_shape)
