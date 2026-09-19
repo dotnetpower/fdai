@@ -238,6 +238,10 @@ rollback, policy, objective, disclosure, and lifecycle threshold, followed by in
 - Missing Forseti produces no fallback judgment. Evidence continues to queue.
 - Missing Heimdall blocks changed-state success because effects cannot close independently.
 - Missing Njord, Freyr, or required ontology context lowers affected options to hold or approval.
+- When capacity samples, change-impact evidence, or tested rollback evidence are absent, Freyr's
+  advisory answer starts with hold and no action. It separates Freyr evidence, Heimdall
+  observation, Odin arbitration, independent human approval, all seven execution safeguards, and
+  the final no-op, denial, or human-review outcome when evidence cannot be completed.
 - Missing Odin sends unresolved cross-objective conflict to approval without local tie-breaking.
 - Missing Var preserves the approval queue; silence does not grant authority.
 - Missing Norns, Mimir, Muninn learning intake, or Bragi reduces learning or explanation but does

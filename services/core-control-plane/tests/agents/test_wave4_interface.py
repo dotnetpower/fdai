@@ -12,6 +12,8 @@ from fdai.agents.odin import Odin
 from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentBinding,
     SemanticJudgmentBoundary,
+    SemanticJudgmentModelResponse,
+    SemanticJudgmentObservation,
 )
 from fdai_service_contracts.semantic_judgment import (
     SemanticJudgmentProposal,
@@ -74,6 +76,18 @@ class _JudgmentModel:
         return body
 
 
+class _MalformedObservedJudgmentModel:
+    def judge(self, **_kwargs: object) -> SemanticJudgmentModelResponse:
+        return SemanticJudgmentModelResponse(
+            proposal={"unexpected": "shape"},
+            observation=SemanticJudgmentObservation(
+                model="narrator-gpt-5-4-mini",
+                usage=None,
+                trace_call={},
+            ),
+        )
+
+
 def _bragi() -> Bragi:
     return Bragi(
         semantic_judgment=SemanticJudgmentBoundary(
@@ -87,6 +101,32 @@ def _bragi() -> Bragi:
             ),
         )
     )
+
+
+def test_bragi_preserves_rejected_semantic_model_identity() -> None:
+    bragi = Bragi(
+        semantic_judgment=SemanticJudgmentBoundary(
+            profile_id="pantheon.routing",
+            profile_version="1.0.0",
+            primary=SemanticJudgmentBinding(
+                tier=SemanticJudgmentTier.T1,
+                model=_MalformedObservedJudgmentModel(),
+                model_config_digest=_DIGEST,
+                prompt_digest=_DIGEST,
+            ),
+        )
+    )
+
+    turn = asyncio.run(
+        bragi.ask(
+            session_id="rejected-semantic-model",
+            user_id="operator@example.com",
+            question="Explain current capacity evidence",
+        )
+    )
+
+    assert turn.answer["semantic_judgment"]["model_identity"] == ("narrator-gpt-5-4-mini")
+    assert turn.answer["semantic_judgment"]["execution_authority"] is False
 
 
 # ---------------------------------------------------------------------------

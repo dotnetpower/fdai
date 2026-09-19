@@ -164,7 +164,13 @@ class RuntimePantheonConversationAssurance:
             "schema_version": "1.0.0",
             "answer": answer,
             "answer_generation": {
-                "mode": "t2_model" if answer_model_identity is not None else "agent_projection",
+                "mode": (
+                    "t2_model"
+                    if answer_model_family is not None
+                    else "semantic_model"
+                    if answer_model_identity is not None
+                    else "agent_projection"
+                ),
                 "model_identity": answer_model_identity,
                 "model_family": answer_model_family,
             },
@@ -249,6 +255,8 @@ class RuntimePantheonConversationAssurance:
             "t2_attempted": False,
             "t2_status": "not_required",
             "t2_model_family": None,
+            "answer_model_identity": None,
+            "answer_model_family": None,
             "budget_reserved": False,
             "metering_receipt_digest": None,
             "hard_zero_violations": hard_zero,

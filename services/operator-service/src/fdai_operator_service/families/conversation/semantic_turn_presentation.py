@@ -515,7 +515,7 @@ def _pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
             latency_ms is not None
             and (not isinstance(latency_ms, int) or isinstance(latency_ms, bool) or latency_ms < 0)
         )
-        or assessment_state not in {"completed", "deferred", "unavailable"}
+        or assessment_state not in {"completed", "deferred", "held", "unavailable"}
         or not isinstance(assessment_reasons, list)
         or any(not isinstance(reason, str) or not reason for reason in assessment_reasons)
         or assurance.get("execution_authority") is not False
@@ -566,8 +566,14 @@ def _valid_answer_generation(value: object) -> bool:
     mode = value.get("mode")
     identity = value.get("model_identity")
     family = value.get("model_family")
-    return mode in {"agent_projection", "t2_model"} and (
+    return mode in {"agent_projection", "semantic_model", "t2_model"} and (
         (identity is None and family is None and mode == "agent_projection")
+        or (
+            isinstance(identity, str)
+            and bool(identity.strip())
+            and family is None
+            and mode == "semantic_model"
+        )
         or (
             isinstance(identity, str)
             and bool(identity.strip())

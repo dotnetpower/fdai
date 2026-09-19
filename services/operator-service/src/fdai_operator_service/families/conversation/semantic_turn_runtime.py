@@ -1472,7 +1472,10 @@ def _pantheon_assurance_payload(
         or not isinstance(assurance.get("pantheon_observations"), Mapping)
         or not isinstance(assurance.get("pantheon_semantic_reviews"), list)
         or not isinstance(assurance.get("pantheon_diagnostic"), Mapping)
-        or (assessment_state is not None and assessment_state not in {"completed", "deferred"})
+        or (
+            assessment_state is not None
+            and assessment_state not in {"completed", "deferred", "held"}
+        )
         or (
             assessment_reasons is not None
             and (
@@ -1498,8 +1501,14 @@ def _valid_answer_generation(value: object) -> bool:
     mode = value.get("mode")
     identity = value.get("model_identity")
     family = value.get("model_family")
-    return mode in {"agent_projection", "t2_model"} and (
+    return mode in {"agent_projection", "semantic_model", "t2_model"} and (
         (identity is None and family is None and mode == "agent_projection")
+        or (
+            isinstance(identity, str)
+            and bool(identity.strip())
+            and family is None
+            and mode == "semantic_model"
+        )
         or (
             isinstance(identity, str)
             and bool(identity.strip())

@@ -2790,6 +2790,9 @@ class _WaitFailureResultStore:
 
 
 class _PantheonAssurance:
+    def __init__(self, *, assessment_state: str = "completed") -> None:
+        self._assessment_state = assessment_state
+
     async def evaluate(
         self,
         request: SemanticTurnRequest,
@@ -2800,16 +2803,39 @@ class _PantheonAssurance:
         return {
             "schema_version": "1.0.0",
             "answer": "Bounded Pantheon answer.",
+            "answer_generation": {
+                "mode": "semantic_model",
+                "model_identity": "narrator-gpt-5-4-mini",
+                "model_family": None,
+            },
             "assessment_id": "conversation-assessment:test",
-            "assessment_state": "completed",
+            "assessment_state": self._assessment_state,
             "assessment_reasons": ["mixed_family_consensus"],
             "trace_receipt_id": "a" * 64,
             "pantheon_trace": {"receipt_digest": "a" * 64},
             "pantheon_observations": {"read_only": True},
             "pantheon_semantic_reviews": [],
+            "pantheon_evaluator_models": [
+                {
+                    "model_identity": "narrator-gpt-5-4-mini",
+                    "model_family": "family-a",
+                    "output_available": False,
+                }
+            ],
             "pantheon_diagnostic": {"score": 25},
             "execution_authority": False,
         }
+
+
+class _FailingPantheonAssurance:
+    async def evaluate(
+        self,
+        request: SemanticTurnRequest,
+        *,
+        case_id: str,
+    ) -> Mapping[str, object]:
+        del request, case_id
+        raise RuntimeError("private assurance failure")
 
 
 def _request(
@@ -3288,6 +3314,32 @@ async def test_pantheon_assurance_purpose_uses_bound_diagnostic_runtime() -> Non
     assert timing["duration_ms"] == sum(phase["duration_ms"] for phase in timing["phases"])
     assert timing["phases"][-1]["phase"] == "pantheon_assurance"
     assert timing["phases"][-1]["status"] == "completed"
+
+
+async def test_pantheon_assurance_preserves_held_assessment() -> None:
+    processor = _processor(_Runtime())
+    processor.bind_pantheon_assurance(_PantheonAssurance(assessment_state="held"))
+
+    projection = _projection(
+        await processor.process(_request(purpose="conversation-assurance:agent-odin-role-en"))
+    )
+
+    assurance = projection["payload"]["pantheon_assurance"]
+    assert assurance["answer"] == "Bounded Pantheon answer."
+    assert assurance["assessment_state"] == "held"
+
+
+async def test_pantheon_assurance_failure_is_not_mislabeled_as_store_failure() -> None:
+    processor = _processor(_Runtime())
+    processor.bind_pantheon_assurance(_FailingPantheonAssurance())
+
+    projection = _projection(
+        await processor.process(_request(purpose="conversation-assurance:agent-odin-role-en"))
+    )
+
+    assert projection["status"] == "held"
+    assert projection["semantic_result"]["reason_code"] == "semantic_runtime_failed"
+    assert "private" not in json.dumps(projection)
 
 
 def test_semantic_turn_timing_partitions_end_to_end_duration_without_gaps() -> None:

@@ -156,6 +156,12 @@ class _Store:
 async def test_projection_consumer_accepts_valid_pantheon_assurance_extension() -> None:
     store = _Store()
     consumer = SemanticTurnProjectionConsumer(store=cast(Any, store))
+    assurance = _assurance()
+    assurance["answer_generation"] = {
+        "mode": "semantic_model",
+        "model_identity": "narrator-gpt-5-4-mini",
+        "model_family": None,
+    }
     projection = {
         "schema_version": "1.4.0",
         "projection_id": "00000000-0000-0000-0000-000000000001",
@@ -167,7 +173,7 @@ async def test_projection_consumer_accepts_valid_pantheon_assurance_extension() 
         "payload": {
             "request_kind": "pantheon_conversation_assurance",
             "request_digest": "sha256:" + ("b" * 64),
-            "pantheon_assurance": _assurance(),
+            "pantheon_assurance": assurance,
         },
         "evidence_digest": "sha256:" + ("c" * 64),
         "semantic_result": _semantic_fallback(),

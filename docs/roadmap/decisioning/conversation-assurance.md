@@ -637,6 +637,11 @@ remains visible as unresolved without changing the quality label.
 - Missing model independence, malformed scores, unknown criteria, or unsupported evidence produce
   `inconclusive`.
 - Queue or budget exhaustion records `deferred` and retries within bounded policy.
+- Deterministic agent text records `agent_projection` with no model identity. A semantic or T2
+  model is named as the answer source only when that model produced the terminal answer; routing
+  identity alone never establishes authorship.
+- Invalid or low-confidence independent review preserves the terminal answer, records `held` with
+  bounded assessment reasons, and ends that case without retrying the live question.
 - Intake capacity rejection, delegate rejection, and terminal assessment failure emit structured
    warnings without changing the already persisted answer.
 - Store failure leaves the active policy unchanged.

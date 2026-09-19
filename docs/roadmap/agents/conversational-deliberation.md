@@ -466,6 +466,11 @@ to be unique, and requires participant prompt owners to exactly follow claim-own
 checks keep position, critique, effective prompt digest, and immutable baseline charter attributed
 to the same participant before a provider receives the request.
 
+A routing model observation remains diagnostic routing evidence, not answer authorship. When the
+terminal text is assembled from deterministic agent projections, its generation mode is
+`agent_projection` with no model identity. A rejected semantic-model proposal can retain its exact
+model identity for diagnosis without attributing the deterministic fallback answer to that model.
+
 ## Implementation status
 
 ### Implementation scope
@@ -474,6 +479,7 @@ to the same participant before a provider receives the request.
 |------|-------|----------|-------|
 | Immutable charters and situational prompt composition | implemented | `services/core-control-plane/src/fdai/agents/_framework/charters.py`, `services/core-control-plane/src/fdai/agents/_framework/conversation_prompt.py`, and the focused prompt composition tests | The server-owned baseline, selected layers, prompt digests, and untrusted-context boundary are deterministic and covered by focused checks. |
 | Bounded T1 deliberation and authority isolation | implemented | `services/core-control-plane/src/fdai/agents/_framework/deliberation.py`, `services/core-control-plane/src/fdai/agents/_framework/deliberation_evaluation.py`, `services/core-control-plane/src/fdai/agents/bragi.py`, `services/core-control-plane/src/fdai/agents/_framework/runtime.py`, and `services/core-control-plane/tests/agents/test_prompt_deliberation.py` | Position and critique rounds remain read-only, reject action intent, evaluate bounded high-signal facts, and return presentation-only outcomes. |
+| Answer authorship attribution | implemented | `services/core-control-plane/src/fdai/agents/bragi.py`; `services/core-control-plane/src/fdai/runtime/pantheon_conversation_assurance.py`; focused Wave 4 and assurance tests | Rejected semantic-model identity remains available as diagnostic routing evidence, while deterministic terminal text is attributed only to `agent_projection`. Actual semantic and T2 answer producers remain explicit. |
 | Function-backed collection judgment | implemented | `semantic-judgment.v7.yaml`; `semantic_operational_summary_planning.py`; focused semantic planning and prompt registry checks | Accepted unambiguous collection-level Resource state, Resource Health, and Service Health intents can skip a redundant frame-model call only when the exact principal-scoped function is bound. |
 | Optional T2 contract and guarded composition seam | implemented | `T2ConversationSynthesizer`, `LlmBindings`, runtime bootstrap wiring, and the focused deliberation and composition binding tests | T2 requests enforce participant identity, prompt provenance, bounded output, budget reservation, pricing, and metering prerequisites. |
 | Production invocation and governed runtime validation | in-progress | `services/core-control-plane/src/fdai/runtime/bootstrap.py` forwards an optional binding to `PantheonRuntime`, but no concrete upstream synthesizer, Operator API route, console route, or governed runtime receipt is present. | The tested core can run T1 and a supplied T2 implementation. Repository evidence does not prove a deployed T2 call, live cost charge, or operator-facing invocation. |
@@ -482,6 +488,7 @@ to the same participant before a provider receives the request.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-19 | implemented | Separated semantic routing identity from terminal answer authorship and retained rejected-model identity only for bounded diagnosis. | `current change`; focused Wave 4, Pantheon assurance, and presentation tests passed within the 468-test slice; Ruff and strict mypy passed. | Retain a future unique live case whose independent semantic reviews are valid before claiming assurance success. |
 | 2026-09-03 | implemented | Added explicit function-backed collection semantics to the versioned judgment prompt and deterministic typed-frame reuse. | `current change`; semantic judgment prompt registry and focused semantic planning checks. | Retain a bilingual authenticated runtime receipt for the five Console starter questions. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Classified the tested charter, prompt, T1, and guarded T2 seams as implemented without treating deterministic tests as operational validation. | Current change; source listed in the scope table and the focused command below (`6 passed in 0.11s`). | Bind and exercise a concrete metered T2 synthesizer, invoke the discussion path through an approved runtime boundary, and record governed runtime evidence. |
 | 2026-08-14 | implemented | Replaced unconditional optional T2 synthesis with deterministic evaluation of bounded T1 answer signals. | `current change`; `deliberation_evaluation.py` and 36 focused deliberation tests prove conflict-free and uncomparable T1 claims make zero T2 calls while a structured conflict makes one bounded call. | Retain governed runtime evidence for both the no-escalation and conflict-escalation branches. |

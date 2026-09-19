@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: e51bcf715703f4ac2753e9573929357c1de364d4
-translation_revised: 2026-09-18
+translation_source_sha: 1563fb486771ae0c05077b77d7c8091535c0a4f8
+translation_revised: 2026-09-19
 title: 대화 첨부파일
 ---
 # 대화 첨부파일
@@ -37,6 +37,7 @@ title: 대화 첨부파일
 | 보호된 채널 인제스트 조립 | implemented | `fdai_ingestion_api_service/channel_attachment*.py`, Operator `channel_edge/{composition,pipeline}.py`, 인제스트 집중 테스트 28개와 Operator 집중 테스트 236개 | 별도 내부 인제스트 워크로드가 허용, 정본 업로드, 영속 재생, 최종 상태 관측 및 인용 반환을 담당합니다. 프로바이더 바이트는 Kafka에 들어가지 않습니다. |
 | 채널 전달 호환성 승격 | in-progress | `compatibility-manifest.json`, 전이 인증 범위, 집중 및 독립 서비스 호환성 검사 | 현재 계약 9개는 모두 집중 호환성 검사를 통과합니다. 보존된 전이 근거는 이전에 배포한 edge 7개만 인증하며, 첨부 HTTP edge 2개는 새로운 보호된 N/N-1 근거가 생길 때까지 전이 인증에서 제외됩니다. |
 | Core 정확한 문서 조회 | implemented | `governed_document_reader.py`, `postgres_governed_document_read.py`, `semantic_turn_processor.py`, Core 및 담당 체계 집중 테스트 377개 | Core는 요청에 결속된 모든 버전을 다시 권한 확인하고 정확한 식별자 집합만 검색합니다. 최종 결과는 문서 맥락 다이제스트와 실제 반환된 정확한 인용 집합을 되돌려야 합니다. |
+| 공유 의미 최종 전달 | implemented | Core 의미 턴 처리기, Operator 의미 턴 런타임 및 presentation, 집중 Core 및 Operator 테스트 | 공유 묶음은 유효한 `held` assurance 평가를 수락하고 답변 생성 출처를 보존하며 assurance 런타임 실패와 결과 저장소 실패를 구분합니다. 첨부 인용과 권한은 바뀌지 않습니다. |
 | Web 채팅 문서 참조 | implemented | Operator `document_refs.py`, `postgres_document_refs.py`, `factory.py`, Operator 이행 `20260914_operator_conversation_document_refs.py`, 집중 Operator 및 이행 검사 | Operator는 영속 semantic 게시 전에 원시 참조를 서버 소유 `web_reference` 맥락으로 바꿉니다. 범위가 제한된 `SECURITY DEFINER` 함수는 원시 테이블 읽기 권한을 부여하지 않으면서 문서 테이블 소유권을 보존하고 업로더 또는 읽기 그룹 접근을 권한 확인합니다. |
 | Web 채팅 인라인 이미지 해석 경로 | in-progress | [`composer-attachments.view.tsx`](../../../console/src/deck/composer-attachments.view.tsx), [`backend-context.ts`](../../../console/src/deck/backend-context.ts), [`conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/conversation_images.py), [`postgres_conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_images.py) | Console 캡처, 요청 직렬화, 범위가 제한된 이미지 저장소, 이행 및 과거 이미지 렌더링은 존재합니다. 서버의 이미지 해석, 의미 요청 전달 및 운영 저장소 연결은 미완료입니다. 지원하지 않는 이미지는 거부해야 하며, 이미지를 버린 뒤 텍스트만으로 답해서는 안 됩니다. |
 | 문서 이미지 OCR | implemented | [`processing.py`](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/processing.py), [`production.py`](../../../services/document-processing-worker/src/fdai_document_worker_service/production.py), [`test_ingestion_adapter_readiness.py`](../../../services/document-processing-worker/tests/test_ingestion_adapter_readiness.py) | Document worker는 OCR endpoint가 설정되면 범위가 제한된 Document Intelligence `prebuilt-read`를 연결하고 그렇지 않으면 실패 시 차단합니다. 이 구현만으로 채널 또는 inline 채팅 인제스트가 완성되지는 않습니다. |
@@ -45,6 +46,7 @@ title: 대화 첨부파일
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-19 | implemented | 공유 Core-to-Operator 의미 최종 묶음에서 유효한 held assurance 상태와 정확한 답변 출처를 보존하고 런타임 실패와 결과 저장소 실패를 구분했습니다. | `current change`, 집중 의미 처리기 및 Operator presentation 테스트가 468개 테스트 묶음에서 통과했고 Ruff와 strict mypy가 통과했습니다. | 첨부 데이터, 인용, 인제스트 또는 권한 동작은 바뀌지 않았으며 inline 이미지와 보호된 배포 근거는 계속 열려 있습니다. |
 | 2026-09-18 | implemented | 전체 런타임 설정 카탈로그가 통합 질문은행의 원본 다이제스트를 바꾼 뒤 공유 CQAS 출처 이력을 갱신했습니다. 첨부 원본, 계약, 개수, 데이터 접근 및 권한은 바뀌지 않았습니다. | `current change`, 공식 질문은행 및 의미 의도 생성기, 질문은행 테스트 8개와 의미 범위 테스트 4개 통과 | 이 결정론적 다이제스트 갱신과 관련해 남은 대화 첨부 작업은 없습니다. |
 | 2026-09-17 | implemented | 통합으로 판테온 원본 다이제스트가 바뀐 뒤 공유 의미 의도 출처 이력을 다시 생성했습니다. 첨부 원본, 계약, 개수, 데이터 접근 및 권한은 바뀌지 않았습니다. | `current change`; 공식 의미 의도 생성기; 집중 산출물 동등성 검사. | 이 결정론적 다이제스트 갱신과 관련해 남은 대화 첨부 작업은 없습니다. |
 | 2026-09-16 | implemented | 브라우저 근거 지역화 문구를 Console 카탈로그 사이에서 옮긴 뒤 공유 의미 의도 원본 다이제스트를 갱신했습니다. 첨부 원본, 계약, 개수, 데이터 접근 또는 권한은 변경하지 않았습니다. | PR #1109 CI 실행 `34988599311`, 생성된 의미 의도 범위, 집중 산출물 동일성 검사 4개 통과 | 이 결정론적 다이제스트 갱신과 관련해 남은 대화 첨부 작업은 없습니다. |

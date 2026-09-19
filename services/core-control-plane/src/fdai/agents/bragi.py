@@ -674,6 +674,11 @@ class Bragi(Agent):
                 "latency_ms": judgment_result.receipt.latency_ms,
                 "disposition": judgment_result.receipt.disposition.value,
                 "reason_code": judgment_result.receipt.reason_code,
+                **(
+                    {"model_identity": judgment_result.observations[-1].model}
+                    if judgment_result.observations
+                    else {}
+                ),
                 "execution_authority": False,
             }
         attach_pantheon_diagnostics(
