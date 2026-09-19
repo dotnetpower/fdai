@@ -402,6 +402,7 @@ async def test_semantic_judgment_uses_model_authored_direct_response_prompt() ->
         "semantic-resource-name-filter",
         "semantic-sre-diagnostic",
         "semantic-recent-resource-changes",
+        "semantic-ontology-manifest-list",
     ]
     assert "author a fresh, concise direct_response.answer" in out.system_text
     assert "Do not reuse canned wording" in out.system_text
@@ -471,6 +472,29 @@ async def test_preflight_schema_scope_treatment_preserves_general_knowledge_boun
     assert "Include no approval, capability, evidence, or execution authority" in out.system_text
     assert out.system_token_budget is not None
     assert out.token_estimate <= out.system_token_budget
+
+
+@pytest.mark.asyncio
+async def test_manifest_list_treatment_preserves_other_schema_operations() -> None:
+    repo_root = Path(__file__).resolve().parents[5]
+    composer = DefaultPromptComposer(registry=FileSystemPromptRegistry(repo_root / "rule-catalog"))
+    active = await composer.compose(capability_id="semantic.judgment")
+    treatment = await composer.compose(
+        capability_id="semantic.judgment", profile_id="shadow.semantic-manifest-list"
+    )
+
+    assert active.system_text == treatment.system_text
+    assert treatment.layer_manifest[-1].id == "semantic-ontology-manifest-list"
+    assert (
+        "query.manifest with no targets and exactly two requested_facets" in treatment.system_text
+    )
+    assert "Preserve explicit counts" in treatment.system_text
+    assert (
+        "Requests for observed resources or graph instances are not declaration lists"
+        in treatment.system_text
+    )
+    assert treatment.system_token_budget is not None
+    assert treatment.token_estimate <= treatment.system_token_budget
 
 
 @pytest.mark.asyncio

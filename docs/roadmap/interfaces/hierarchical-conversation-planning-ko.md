@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 3d2fd65dab607c9064e5b388451674a2c4e61fc5
+translation_source_sha: 6b8cdc177949e6f70c1caf032fe79258a16e7224
 translation_revised: 2026-09-20
 ---
 
@@ -27,9 +27,8 @@ T1 모델 또는 프로바이더를 사용할 수 없고 활성화된 타입 기
 `golden_campaign_no_t2` 프로필을 선택하므로 프로바이더를 사용할 수 없어도 캠페인 fallback을
 호출하지 않습니다.
 
-Schema repair는 전역 prompt 교체나 T2 escalation이 아닌 별도의 bounded T1 binding입니다. Primary T1 제안이 제공된 온톨로지 스키마 intent를 선택했지만 결정론적 frame에 필요한 typed count 또는 고유 subject가 없을 때만 Core가 최대 한 번 호출합니다. Repair는 읽기 전용을 유지하고 스키마 family를 보존하며 같은 capability/span 검증을 통과하고 귀속 가능한 model observation 하나를
-추가해야 합니다. 유효하지 않거나 사용할 수 없는 repair는 primary의 fail-closed outcome을
-유지합니다. Utterance phrase나 keyword로 이 binding을 선택하지 않습니다.
+스키마 복구는 전역 프롬프트 교체나 T2 확장이 아닌 별도의 제한된 T1 연결입니다. Core는 불완전한 스키마 개수나 정확한 선언 대상에 대해 최대 한 번 호출합니다. 대상·모호성·보조 의도가 없고 `readable`과 `object_types`, `interface_types`, `link_types`, `action_types`, `function_types` 중 하나만 명시한 완전한 `query.manifest` 목록은 복구를 생략합니다. 목록 프롬프트 묶음이 두 언어에서 이 형태를 제안하며 개수, 상세, 인스턴스, 혼합 종류 또는 추가 요구를 목록으로 축소하지 않습니다.
+복구는 읽기 전용과 스키마 기능군을 유지하고 같은 기능·원문 구간 검증을 통과하며 귀속 가능한 모델 관측 하나를 추가합니다. 유효하지 않거나 사용할 수 없는 복구는 원래의 안전한 실패 결과를 유지합니다. 발화 구문이나 키워드로 이 연결을 선택하지 않습니다.
 
 Owner는 런타임 정책에서 적극적인 읽기 전용 T2 복구를 활성화할 수 있습니다. 로컬 시연을 위해 개발
 환경에서는 기본적으로 활성화하고, 측정된 보증 근거로 승격하기 전까지 스테이징과 운영 환경에서는
@@ -190,6 +189,7 @@ Operator의 초기 레이블은 모든 턴에 조사 계획이 필요하다고 �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-20 | implemented | 닫힌 정본 선언 목록 프롬프트를 추가하고 완전한 단일 종류 형태에만 불필요한 스키마 복구를 생략했습니다. 개수, 상세 및 추가 facet은 별도 경로를 유지합니다. | `current change`, 판단·매니페스트·프롬프트·레지스트리 집중 테스트 227개, strict mypy 및 Ruff 통과, 고정 기능 T1 수정본에서 정확한 EN/KO 목록 10건과 개수·상세 의도를 유지한 대조 사례 2건 확인 | 인증된 전체 매니페스트 조회 증적이 필요합니다. 작은 모델 집단은 영속 인덱스나 운영 관련성 인증이 아닙니다. |
 | 2026-09-20 | implemented | 인증된 객체 유형 질문이 정책을 요구하는 일반 안내로 잘못 반환된 뒤 정확한 스키마 범위 묶음을 추가했습니다. base v9를 보존하고 수정본을 평가한 뒤 기본 프로필 v4에 연결했습니다. | `current change`, 프롬프트·사전 판정 테스트 218개 및 운영 연결·매니페스트 테스트 71개 통과, 리소스 변경이나 T2 호출 없이 수정본 분류 6건 통과 | 이 소스를 반영한 뒤 수정된 EN/KO 인증 조회 증적을 보존해야 합니다. 영속 인스턴스 인덱스와 광범위한 관련성 평가는 별도 작업입니다. |
 | 2026-09-13 | implemented | 누락된 단일 catalog Resource 하위 타입을 출력 필드와 구분해 복구하고, 검증된 Resource 상태 행과 결정론적 표현에 클라우드 공급자 중립 리소스 그룹과 지역 변환을 추가했습니다. 범위 값이 없으면 명시적으로 유지하며 식별자에서 추론하지 않습니다. | `current change`, value filter, semantic plan, Azure 인벤토리, Resource 상태 FunctionType, Core 렌더러 및 Operator 표현 집중 회귀 검사 | 런타임 검증을 주장하기 전에 수정된 인증 PostgreSQL 인벤토리 답변 하나를 보존하고 새 Copilot 검토를 추가합니다. |
 | 2026-09-13 | implemented | 타입이 지정된 `resource_state_exclusion_filter`와 `state_change_history` preflight 계약을 추가했습니다. Core는 제외 대상을 선언된 상태 concept 하나에만 grounding하고 폐쇄형 complement를 `query.resource_state_inventory`로 컴파일합니다. 현재 상태 컬렉션이 마지막 전이 이력도 요구하면 provider I/O 전에 `unsupported`를 반환합니다. | `current change`, exact preflight, exclusion plan, history hold, 기존 collection plan, prompt registry, Ruff 및 strict mypy 검사 | runtime 검증을 주장하기 전에 active v9에서 인증된 exclusion-only 결과 하나와 결합 history hold 하나를 보존합니다. |

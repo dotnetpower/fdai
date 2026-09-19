@@ -70,7 +70,7 @@ profiles:
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/cloud-resource-knowledge-structured-rag.md}
   - id: active.semantic-judgment
-    version: 3
+    version: 4
     capability_id: semantic.judgment
     mode: active
     root: {id: semantic-judgment, version: 8, layer: base}
@@ -79,10 +79,27 @@ profiles:
       - {id: semantic-resource-name-filter, version: 1, layer: pack}
       - {id: semantic-sre-diagnostic, version: 1, layer: pack}
       - {id: semantic-recent-resource-changes, version: 1, layer: pack}
+      - {id: semantic-ontology-manifest-list, version: 1, layer: pack}
     system_token_budget: 32768
     request_token_budget: 65536
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md]
+    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+  - id: shadow.semantic-manifest-list
+    version: 1
+    capability_id: semantic.judgment
+    mode: shadow
+    root: {id: semantic-judgment, version: 8, layer: base}
+    packs:
+      - {id: semantic-incident-action-guidance, version: 1, layer: pack}
+      - {id: semantic-resource-name-filter, version: 1, layer: pack}
+      - {id: semantic-sre-diagnostic, version: 1, layer: pack}
+      - {id: semantic-recent-resource-changes, version: 1, layer: pack}
+      - {id: semantic-ontology-manifest-list, version: 1, layer: pack}
+    system_token_budget: 32768
+    request_token_budget: 65536
+    reserved_output_tokens: 2048
+    promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: shadow.semantic-judgment-v14
     version: 2

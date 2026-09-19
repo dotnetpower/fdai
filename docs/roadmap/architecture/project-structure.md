@@ -8,6 +8,7 @@ The system is a **headless control plane + thin console + ChatOps**, not one web
 Semantic query composition owns principal-scoped declaration candidate selection and source
 authorization bindings. Core retains predicate, release, freshness, receipt, and query-algebra
 verification; delivery owns bilingual ranking and PostgreSQL generation-cache validation.
+The existing schema-repair policy recognizes a complete canonical single-kind manifest list before repair; catalog-owned prompt profiles propose that shape without raw-language routing or new authority.
 Document and operational reads keep their independent evidence authorities and exact source scope. Core's frame gate also requires an accepted matching schema intent when judgment was evaluated; a rejected judgment cannot resume through a model-authored declaration list or detail frame.
 
 The physical service workspace is owned by [Multi-Service Repository Layout](multi-service-repository-layout.md). This document owns dependency direction, structural gates, extension seams, control-loop wiring, configuration, and repository conventions. The private
