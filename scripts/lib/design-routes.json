@@ -2840,6 +2840,37 @@
       ]
     },
     {
+      "id": "existing-container-apps-service-update",
+      "paths": [
+        "docs/roadmap/deployment/existing-container-apps-service-update*.md",
+        "docs/roadmap-implementation/deployment/existing-container-apps-service-update.md",
+        "infra/operator-platform-prerequisite/**",
+        "scripts/deployment/service/manual_operator_platform.py",
+        "scripts/deployment/service/manual_operator_update.py",
+        "scripts/deployment/service/manual_operator_update_contract.py",
+        "scripts/deployment/service/recover_operator_tfvars.py",
+        "tests/integration/scripts/test_manual_operator_platform.py",
+        "tests/integration/scripts/test_manual_operator_update.py",
+        "tests/integration/scripts/test_recover_operator_tfvars.py"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/deployment/existing-container-apps-service-update.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/deployment/existing-container-apps-service-update.md",
+        "docs/roadmap-implementation/deployment/existing-container-apps-service-update.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/integration/scripts/test_manual_operator_platform.py tests/integration/scripts/test_manual_operator_update.py tests/integration/scripts/test_recover_operator_tfvars.py",
+        "uv run ruff check scripts/deployment/service/manual_operator_platform.py scripts/deployment/service/manual_operator_update.py scripts/deployment/service/manual_operator_update_contract.py scripts/deployment/service/recover_operator_tfvars.py tests/integration/scripts/test_manual_operator_platform.py tests/integration/scripts/test_manual_operator_update.py tests/integration/scripts/test_recover_operator_tfvars.py",
+        "terraform -chdir=infra/operator-platform-prerequisite validate",
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
       "id": "deployment-cli",
       "paths": [
         "scripts/deployment/release/**",
@@ -2927,7 +2958,8 @@
         "docs/roadmap/architecture/azure-inventory-network-paths.md",
         "docs/roadmap/deployment/deployment-resource-conventions.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md",
-        "docs/roadmap/deployment/runtime-deployment-profiles.md"
+        "docs/roadmap/deployment/runtime-deployment-profiles.md",
+        "docs/roadmap/deployment/existing-container-apps-service-update.md"
       ],
       "validate": [
         "uv run pytest -q --no-cov tests/integration/scripts/test_genesis_orchestrator.py tests/integration/scripts/test_contributor_deployment.py tests/integration/scripts/test_verify_azure_context.py",
