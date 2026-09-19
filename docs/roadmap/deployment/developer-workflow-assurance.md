@@ -37,6 +37,8 @@ Operator URL and owner-only bearer-token file path, but never the bearer value, 
 and task restart preserve the authenticated local contract without relying on the editor's ambient
 environment.
 
+`console: restart full stack` explicitly replaces the same-checkout managed supervisor through `--replace-existing`, preserving Browser Entra and the standard service topology. It reuses prepared private environments rather than running preparation again. Run `console: prepare full stack` first if configuration, dependencies, migrations, or environment bindings changed. The task has its own terminal and readiness matcher; stale output from a completed start task is not evidence of a new process or readiness.
+
 ![Design at a glance. The main stages are Edit and focused check, Workflow diagnostics, Focused commit, Structural pre-push, SHA-addressed CI, Remote work, Bounded handover.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.en.svg)
 
 ## Measured controls

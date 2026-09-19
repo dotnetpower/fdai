@@ -75,7 +75,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
-    assert len(tasks_by_label) == len(tasks["tasks"]) == 31
+    assert len(tasks_by_label) == len(tasks["tasks"]) == 32
     allowed_instance_policies = {
         "terminateNewest",
         "terminateOldest",
@@ -181,6 +181,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "console: restart operator api",
         "console: start local services",
         "console: start full stack",
+        "console: restart full stack",
         "console: start full stack (Azure CLI debug, Contributor)",
         "console: keep full stack ready (10m)",
         "console: wait full stack ready",
@@ -281,6 +282,19 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "endsPattern": "service=console-stack event=(ready|failed)(?: |$)",
     }
     assert local_services["presentation"]["close"] is True
+
+    restart_stack = tasks_by_label["console: restart full stack"]
+    assert restart_stack["command"] == (
+        "bash scripts/deployment/local/start-console-services.sh "
+        "--auth-mode browser-entra --replace-existing"
+    )
+    assert restart_stack["dependsOn"] == ["console: require primary worktree"]
+    assert restart_stack["isBackground"] is True
+    assert restart_stack["runOptions"] == {"instanceLimit": 1}
+    assert (
+        restart_stack["problemMatcher"]["background"]
+        == local_services["problemMatcher"]["background"]
+    )
 
     cli_prepare = tasks_by_label["console: prepare full stack (Azure CLI debug, Contributor)"]
     assert cli_prepare["command"].endswith("--auth-mode azure-cli")

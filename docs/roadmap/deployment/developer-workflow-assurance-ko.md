@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 3ab1ebe1fe093475660bc4f1e519af8887cbfdc0
+translation_source_sha: fb70dd5768efeb92369ec8b057070847538ba9f6
 translation_revised: 2026-09-20
 ---
 
@@ -40,6 +40,8 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 경로를 받습니다. 대화 품질 보증 supervisor 작업은 표준 loopback Operator URL과 소유자 전용
 bearer-token 파일 경로를 전달하지만 bearer 값 자체는 전달하지 않습니다. 따라서 source를 다시
 불러오고 작업을 재시작해도 editor의 주변 환경에 의존하지 않고 인증된 로컬 계약을 유지합니다.
+
+`console: restart full stack`은 `--replace-existing`으로 같은 체크아웃의 관리 supervisor를 명시적으로 교체하며 Browser Entra와 표준 서비스 구성을 유지합니다. 준비를 반복하지 않고 준비된 비공개 환경을 재사용합니다. 구성, 의존성, 마이그레이션 또는 환경 연결이 바뀌었으면 먼저 `console: prepare full stack`을 실행합니다. 전용 터미널과 준비 상태 검사기를 사용하며, 완료된 시작 작업의 오래된 출력은 새 프로세스나 준비 완료의 근거가 아닙니다.
 
 ![설계 개요. 주요 단계는 편집과 집중 검사, 워크플로 진단, 집중 커밋, 구조 pre-push, SHA 기반 CI, 원격 작업, 제한된 인계입니다.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.ko.svg)
 
