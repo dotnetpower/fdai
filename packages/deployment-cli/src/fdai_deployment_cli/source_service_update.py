@@ -36,6 +36,11 @@ def deploy_source_service_update(
     work_dir: Path,
     service: str,
     timeout_seconds: int,
+    adopt_historical_binding: Path | None = None,
+    adopt_historical_state: Path | None = None,
+    adopt_historical_variables: Path | None = None,
+    adopt_historical_live: Path | None = None,
+    adopt_historical_plan: Path | None = None,
     approve_import: Callable[[Path, dict[str, Any], DeploymentDeadline], Path] | None = None,
     approve_plan: Callable[[Path, dict[str, Any]], Path] | None = None,
 ) -> dict[str, object]:
@@ -53,6 +58,51 @@ def deploy_source_service_update(
     _require_private_directory(work, create=True)
     lock = _lock(work)
     try:
+        adoption_inputs = (
+            adopt_historical_binding,
+            adopt_historical_state,
+            adopt_historical_variables,
+            adopt_historical_live,
+            adopt_historical_plan,
+        )
+        if any(value is not None for value in adoption_inputs) and not all(
+            isinstance(value, Path) for value in adoption_inputs
+        ):
+            raise ValueError("historical AKS adoption requires all five evidence inputs")
+        if all(isinstance(value, Path) for value in adoption_inputs):
+            binding, state, variables, live, plan = adoption_inputs
+            assert isinstance(binding, Path)
+            assert isinstance(state, Path)
+            assert isinstance(variables, Path)
+            assert isinstance(live, Path)
+            assert isinstance(plan, Path)
+            adopted = _host_json(
+                application,
+                (
+                    "adopt-historical-aks-application",
+                    "--binding",
+                    str(binding.absolute()),
+                    "--state",
+                    str(state.absolute()),
+                    "--variables",
+                    str(variables.absolute()),
+                    "--live",
+                    str(live.absolute()),
+                    "--plan",
+                    str(plan.absolute()),
+                ),
+                timeout=deadline.remaining(2400),
+            )
+            if (
+                adopted.get("schema_version") != "fdai.historical-aks-application-adoption.v1"
+                or adopted.get("state") != "adopted"
+                or adopted.get("managed_identity_verified") is not True
+                or adopted.get("remote_state_verified") is not True
+                or adopted.get("live_baseline_verified") is not True
+                or adopted.get("terraform_zero_change_verified") is not True
+                or adopted.get("azure_resource_mutation_performed") is not False
+            ):
+                raise ValueError("historical AKS application adoption is incomplete")
         context = _host_json(
             application,
             ("service-update-context", "--service", service),

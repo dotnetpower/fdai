@@ -153,6 +153,14 @@ def main(argv: list[str] | None = None) -> int:
     prepare_service_update.add_argument("--source-commit", required=True)
     prepare_service_update.set_defaults(handler=_prepare_aks_service_update)
 
+    adopt_historical = subcommands.add_parser("adopt-historical-aks-application")
+    adopt_historical.add_argument("--binding", type=Path, required=True)
+    adopt_historical.add_argument("--state", type=Path, required=True)
+    adopt_historical.add_argument("--variables", type=Path, required=True)
+    adopt_historical.add_argument("--live", type=Path, required=True)
+    adopt_historical.add_argument("--plan", type=Path, required=True)
+    adopt_historical.set_defaults(handler=_adopt_historical_aks_application)
+
     plan = subcommands.add_parser("plan")
     plan.add_argument("--stage", choices=_STAGES, required=True)
     plan.add_argument("--service", choices=sorted(AKS_SERVICES))
@@ -1004,8 +1012,7 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
     context = _private_json(work_dir / "context.json", "standalone host context")
     if _runtime_platform(context) != "aks":
         raise ValueError("AKS service update requires an AKS installation")
-    if not (work_dir / "application-receipt.json").is_file():
-        raise ValueError("AKS service update requires an applied application baseline")
+    _require_aks_application_baseline(work_dir, context)
     _managed_identity_login_from_context(context, work_dir)
     service = str(args.service)
     values = _private_json(work_dir / "workloads.auto.tfvars.json", "AKS workload variables")
@@ -1095,6 +1102,533 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
         "mutation_performed": False,
         "subscription_ready": False,
     }
+
+
+def _validate_historical_aks_baseline(
+    *,
+    state: dict[str, Any],
+    variables: dict[str, Any],
+    live: dict[str, Any],
+    plan: dict[str, Any],
+) -> dict[str, object]:
+    """Cross-check retained Terraform state, desired inputs, live AKS, and convergence."""
+
+    lineage = state.get("lineage")
+    serial = state.get("serial")
+    resources = state.get("resources")
+    if (
+        state.get("version") != 4
+        or not isinstance(lineage, str)
+        or not lineage
+        or type(serial) is not int
+        or serial < 0
+        or not isinstance(resources, list)
+    ):
+        raise ValueError("historical AKS Terraform state is invalid")
+    if variables.get("namespace") != _AKS_RUNTIME_NAMESPACE:
+        raise ValueError("historical AKS workload namespace is invalid")
+    workloads = _mapping(variables.get("workloads"), "historical AKS workloads")
+    if set(workloads) != set(AKS_SERVICES):
+        raise ValueError("historical AKS workload inventory is incomplete")
+
+    expected: dict[str, dict[str, object]] = {}
+    for name in sorted(AKS_SERVICES):
+        workload = _mapping(workloads.get(name), f"historical AKS workload {name}")
+        image = workload.get("image")
+        source_commit = workload.get("source_commit")
+        replicas = workload.get("replicas")
+        max_replicas = workload.get("max_replicas")
+        if (
+            not isinstance(image, str)
+            or re.fullmatch(r"[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}", image)
+            is None
+            or not isinstance(source_commit, str)
+            or _SOURCE_COMMIT.fullmatch(source_commit) is None
+            or type(replicas) is not int
+            or type(max_replicas) is not int
+            or replicas < 1
+            or max_replicas < replicas
+        ):
+            raise ValueError("historical AKS workload contract is invalid")
+        expected[name] = {
+            "image": image,
+            "replicas": replicas,
+            "max_replicas": max_replicas,
+            "source_commit": source_commit,
+        }
+
+    state_workloads = _historical_state_workloads(resources)
+    desired_identity = {
+        name: {
+            "image": workload["image"],
+            "source_commit": workload["source_commit"],
+        }
+        for name, workload in expected.items()
+    }
+    if state_workloads != desired_identity:
+        raise ValueError("historical AKS Terraform state differs from desired workloads")
+    observed = deployment_snapshot(json.dumps(live), expected_services=set(AKS_SERVICES))
+    live_identity = {
+        name: {
+            "image": workload["image"],
+            "source_commit": workload["source_commit"],
+        }
+        for name, workload in observed.items()
+    }
+    if live_identity != desired_identity:
+        raise ValueError("historical AKS live baseline differs from desired workloads")
+
+    changes = plan.get("resource_changes")
+    if plan.get("errored") is not False:
+        raise ValueError("historical AKS deployment plan is invalid")
+    if not isinstance(changes, list) or not changes:
+        raise ValueError("historical AKS deployment plan inventory is invalid")
+    deployment_seen = False
+    projected: list[dict[str, object]] = []
+    mutating_services: list[str] = []
+    out_of_scope_mutation = False
+    for value in changes:
+        change = _mapping(value, "historical AKS deployment change")
+        actions = _mapping(change.get("change"), "historical AKS deployment actions").get("actions")
+        address = change.get("address")
+        if (
+            not isinstance(address, str)
+            or not isinstance(actions, list)
+            or not all(isinstance(action, str) for action in actions)
+        ):
+            raise ValueError("historical AKS deployment plan change is invalid")
+        projected.append({"address": address, "actions": actions})
+        if not set(actions).issubset({"no-op", "read"}):
+            out_of_scope_mutation = True
+        if isinstance(address, str) and address.startswith("kubernetes_deployment_v1.workload["):
+            deployment_seen = True
+            if set(actions) == {"update"}:
+                match = re.fullmatch(r'kubernetes_deployment_v1[.]workload\["([^"\\]+)"\]', address)
+                if match is not None:
+                    mutating_services.append(match.group(1))
+    if not deployment_seen:
+        raise ValueError("historical AKS deployment plan omits workload state")
+    if mutating_services:
+        if (
+            plan.get("applyable") is not True
+            or len(mutating_services) != 1
+            or mutating_services[0] not in AKS_SERVICES
+        ):
+            raise ValueError("historical AKS deployment plan mutation is invalid")
+        validate_plan_scope(
+            {"resource_changes": projected},
+            service=mutating_services[0],
+        )
+    else:
+        if out_of_scope_mutation:
+            raise ValueError("historical AKS deployment plan contains an out-of-scope mutation")
+        if plan.get("complete") is not True:
+            raise ValueError("historical AKS zero-change plan is incomplete")
+    return {
+        "expected_workloads": expected,
+        "state_lineage": lineage,
+        "state_serial": serial,
+        "historical_plan_service": mutating_services[0] if mutating_services else None,
+    }
+
+
+def _adopt_historical_aks_application(
+    args: argparse.Namespace, work_dir: Path
+) -> dict[str, object]:
+    """Adopt one verified historical AKS workload baseline without changing Azure state."""
+
+    binding_path = _absolute(args.binding)
+    state_path = _absolute(args.state)
+    variables_path = _absolute(args.variables)
+    live_path = _absolute(args.live)
+    plan_path = _absolute(args.plan)
+    binding = _private_json(binding_path, "historical AKS adoption binding")
+    state = _private_json(state_path, "historical AKS Terraform state")
+    variables = _private_json(variables_path, "historical AKS workload variables")
+    live = _private_json(live_path, "historical AKS live baseline")
+    plan = _private_json(plan_path, "historical AKS deployment plan")
+    baseline = _validate_historical_aks_baseline(
+        state=state,
+        variables=variables,
+        live=live,
+        plan=plan,
+    )
+    expected_binding_fields = {
+        "schema_version",
+        "source_commit",
+        "subscription_id",
+        "tenant_id",
+        "client_id",
+        "principal_id",
+        "runtime_profile",
+        "source_root",
+        "terraform",
+        "terraform_sha256",
+        "provider_mirror",
+        "workloads_infra",
+        "terraform_data",
+        "kubeconfig",
+        "kit_bin",
+    }
+    if set(binding) != expected_binding_fields:
+        raise ValueError("historical AKS adoption binding fields are invalid")
+    if binding.get("schema_version") != "fdai.historical-aks-application-binding.v1":
+        raise ValueError("historical AKS adoption binding schema is invalid")
+    subscription_id = _required_guid(binding, "subscription_id")
+    tenant_id = _required_guid(binding, "tenant_id")
+    client_id = _required_guid(binding, "client_id")
+    principal_id = _required_guid(binding, "principal_id")
+    source_commit = str(binding.get("source_commit", ""))
+    if _SOURCE_COMMIT.fullmatch(source_commit) is None:
+        raise ValueError("historical AKS adoption source revision is invalid")
+    profile_value = _mapping(binding.get("runtime_profile"), "historical AKS runtime profile")
+    profile = RuntimeDeploymentProfile.create(
+        runtime_platform=str(profile_value.get("runtime_platform", "")),
+        database_placement=str(profile_value.get("database_placement", "")),
+        system_node_count=profile_value.get("system_node_count", 0),
+        system_node_sku=profile_value.get("system_node_sku"),
+        user_node_min_count=profile_value.get("user_node_min_count", 0),
+        user_node_max_count=profile_value.get("user_node_max_count", 0),
+        user_node_sku=str(profile_value.get("user_node_sku", "")),
+    )
+    if profile.runtime_platform.value != "aks" or profile.to_mapping() != profile_value:
+        raise ValueError("historical AKS adoption runtime profile differs")
+
+    evidence_root = binding_path.parent.resolve()
+    source_root = _adoption_work_path(evidence_root, binding, "source_root", directory=True)
+    terraform = _adoption_work_path(evidence_root, binding, "terraform", executable=True)
+    provider_mirror = _adoption_work_path(evidence_root, binding, "provider_mirror", directory=True)
+    workloads_infra = _adoption_work_path(evidence_root, binding, "workloads_infra", directory=True)
+    terraform_data = _adoption_work_path(evidence_root, binding, "terraform_data", directory=True)
+    kubeconfig = _adoption_work_path(evidence_root, binding, "kubeconfig")
+    kit_bin = _adoption_work_path(evidence_root, binding, "kit_bin", directory=True)
+    if _executable_digest(terraform) != binding.get("terraform_sha256"):
+        raise ValueError("historical AKS Terraform binary digest differs")
+    observed_source = _capture(
+        ("git", "rev-parse", "HEAD"),
+        cwd=source_root,
+        timeout=30,
+        reason="historical AKS source revision readback failed",
+    ).strip()
+    if observed_source != source_commit:
+        raise ValueError("historical AKS source revision differs")
+
+    baseline_workloads = _mapping(
+        baseline.get("expected_workloads"), "historical AKS expected workloads"
+    )
+    registry_hosts = {
+        str(workload["image"]).partition("/")[0]
+        for workload in baseline_workloads.values()
+        if isinstance(workload, dict)
+    }
+    if len(registry_hosts) != 1:
+        raise ValueError("historical AKS workload registries differ")
+    registry_login_server = registry_hosts.pop()
+    match = re.fullmatch(r"([a-z0-9]{5,50})[.]azurecr[.]io", registry_login_server)
+    if match is None:
+        raise ValueError("historical AKS registry is invalid")
+    target_binding = compute_target_binding(
+        tenant_id=tenant_id,
+        subscription_id=subscription_id,
+    )
+    terraform_config = work_dir / "historical-adoption-terraform.rc"
+    expected_config = _terraform_configuration(provider_mirror)
+    if terraform_config.exists():
+        if read_private_bytes(terraform_config, max_bytes=16_384).decode() != expected_config:
+            raise ValueError("historical AKS Terraform configuration differs")
+    else:
+        write_private_output(terraform_config, expected_config)
+    context: dict[str, object] = {
+        "source_commit": source_commit,
+        "target_binding": target_binding,
+        "subscription_id": subscription_id,
+        "tenant_id": tenant_id,
+        "client_id": client_id,
+        "principal_id": principal_id,
+        "runtime_profile": profile.to_mapping(),
+        "runtime_profile_digest": profile.digest,
+        "registry_name": match.group(1),
+        "registry_login_server": registry_login_server,
+        "infra": str(workloads_infra),
+        "terraform": str(terraform),
+        "provider_mirror": str(provider_mirror),
+        "terraform_config": str(terraform_config),
+        "terraform_data": str(terraform_data),
+        "kit_bin": str(kit_bin),
+        "workloads_infra": str(workloads_infra),
+        "workloads_terraform_data": str(terraform_data),
+        "kubeconfig": str(kubeconfig),
+        "expected_workloads": baseline["expected_workloads"],
+    }
+    _managed_identity_login_from_context(context, work_dir)
+    remote_state = json.loads(
+        _capture(
+            ("terraform", "state", "pull"),
+            cwd=workloads_infra,
+            timeout=300,
+            reason="historical AKS remote state readback failed",
+        )
+    )
+    if not isinstance(remote_state, dict):
+        raise ValueError("historical AKS remote state readback is invalid")
+    if (
+        remote_state.get("lineage") != baseline["state_lineage"]
+        or type(remote_state.get("serial")) is not int
+        or remote_state["serial"] < baseline["state_serial"]
+        or canonical_digest(remote_state.get("resources"))
+        != canonical_digest(state.get("resources"))
+    ):
+        raise ValueError("historical AKS remote state differs from retained evidence")
+    observed_live = json.loads(_capture_aks_deployments(context))
+    if not isinstance(observed_live, dict):
+        raise ValueError("historical AKS live readback is invalid")
+    _activate_terraform_stage("application", context, work_dir)
+    current_plan_path = work_dir / "historical-adoption-current.tfplan"
+    current_plan = subprocess.run(
+        (
+            "terraform",
+            "plan",
+            "-detailed-exitcode",
+            "-input=false",
+            "-no-color",
+            f"-var-file={variables_path}",
+            f"-out={current_plan_path}",
+        ),
+        cwd=workloads_infra,
+        check=False,
+        capture_output=True,
+        timeout=1800,
+    )
+    if current_plan.returncode != 0:
+        raise ValueError("historical AKS current plan is not zero-change")
+    current_plan_document = json.loads(
+        _capture(
+            ("terraform", "show", "-json", str(current_plan_path)),
+            cwd=workloads_infra,
+            timeout=300,
+            reason="historical AKS current plan projection failed",
+        )
+    )
+    if not isinstance(current_plan_document, dict):
+        raise ValueError("historical AKS current plan projection is invalid")
+    _validate_historical_aks_baseline(
+        state=remote_state,
+        variables=variables,
+        live=observed_live,
+        plan=current_plan_document,
+    )
+    current_plan_summary = _plan_summary(current_plan_document)
+
+    context_digest = canonical_digest(context)
+    receipt: dict[str, object] = {
+        "schema_version": "fdai.historical-aks-application-adoption.v1",
+        "state": "adopted",
+        "target_binding": target_binding,
+        "source_commit": source_commit,
+        "runtime_profile_digest": profile.digest,
+        "context_digest": context_digest,
+        "binding_sha256": _file_digest(binding_path),
+        "retained_state_sha256": _file_digest(state_path),
+        "retained_variables_sha256": _file_digest(variables_path),
+        "retained_live_sha256": _file_digest(live_path),
+        "retained_plan_sha256": _file_digest(plan_path),
+        "remote_state_lineage": remote_state["lineage"],
+        "remote_state_serial": remote_state["serial"],
+        "historical_plan_service": baseline["historical_plan_service"],
+        "current_plan_summary": current_plan_summary,
+        "managed_identity_verified": True,
+        "remote_state_verified": True,
+        "live_baseline_verified": True,
+        "terraform_zero_change_verified": True,
+        "azure_resource_mutation_performed": False,
+        "mutation_performed": True,
+        "subscription_ready": False,
+    }
+    receipt["receipt_digest"] = canonical_digest(receipt)
+    retained_receipt = work_dir / "historical-aks-application-adoption-receipt.json"
+    if retained_receipt.exists():
+        if _private_json(retained_receipt, "historical AKS adoption receipt") != receipt:
+            raise ValueError("retained historical AKS adoption receipt differs")
+    else:
+        _replace_private_json(work_dir / "context.json", context)
+        _replace_private_json(work_dir / "workloads.auto.tfvars.json", variables)
+        _replace_private_json(work_dir / "application.auto.tfvars.json", {"env": "dev"})
+        _replace_private_json(retained_receipt, receipt)
+    return receipt
+
+
+def _adoption_work_path(
+    evidence_root: Path,
+    binding: dict[str, Any],
+    name: str,
+    *,
+    directory: bool = False,
+    executable: bool = False,
+) -> Path:
+    value = binding.get(name)
+    if not isinstance(value, str) or not value or Path(value).is_absolute():
+        raise ValueError(f"historical AKS adoption {name} path is invalid")
+    selected = Path(value)
+    candidate = evidence_root
+    for part in selected.parts:
+        candidate /= part
+        if candidate.is_symlink():
+            raise ValueError(
+                f"historical AKS adoption {name} path is outside the evidence directory"
+            )
+    path = candidate.resolve()
+    if not path.is_relative_to(evidence_root):
+        raise ValueError(f"historical AKS adoption {name} path is outside the evidence directory")
+    details = path.stat()
+    if directory and not stat.S_ISDIR(details.st_mode):
+        raise ValueError(f"historical AKS adoption {name} directory is unavailable")
+    if not directory and not stat.S_ISREG(details.st_mode):
+        raise ValueError(f"historical AKS adoption {name} file is unavailable")
+    if executable and not details.st_mode & stat.S_IXUSR:
+        raise ValueError(f"historical AKS adoption {name} file is not executable")
+    return path
+
+
+def _require_aks_application_baseline(work_dir: Path, context: dict[str, object]) -> None:
+    if (work_dir / "application-receipt.json").is_file():
+        return
+    path = work_dir / "historical-aks-application-adoption-receipt.json"
+    if not path.is_file():
+        raise ValueError("AKS service update requires an applied or adopted application baseline")
+    receipt = _private_json(path, "historical AKS adoption receipt")
+    digest = receipt.get("receipt_digest")
+    document = {key: value for key, value in receipt.items() if key != "receipt_digest"}
+    summary = _mapping(receipt.get("current_plan_summary"), "historical AKS plan summary")
+    action_counts = _mapping(summary.get("action_counts"), "historical AKS plan action counts")
+    resource_types = _mapping(
+        summary.get("resource_type_counts"), "historical AKS plan resource types"
+    )
+    expected_fields = {
+        "schema_version",
+        "state",
+        "target_binding",
+        "source_commit",
+        "runtime_profile_digest",
+        "context_digest",
+        "binding_sha256",
+        "retained_state_sha256",
+        "retained_variables_sha256",
+        "retained_live_sha256",
+        "retained_plan_sha256",
+        "remote_state_lineage",
+        "remote_state_serial",
+        "historical_plan_service",
+        "current_plan_summary",
+        "managed_identity_verified",
+        "remote_state_verified",
+        "live_baseline_verified",
+        "terraform_zero_change_verified",
+        "azure_resource_mutation_performed",
+        "mutation_performed",
+        "subscription_ready",
+        "receipt_digest",
+    }
+    if (
+        set(receipt) != expected_fields
+        or receipt.get("schema_version") != "fdai.historical-aks-application-adoption.v1"
+        or receipt.get("state") != "adopted"
+        or receipt.get("target_binding") != context.get("target_binding")
+        or receipt.get("source_commit") != context.get("source_commit")
+        or receipt.get("runtime_profile_digest") != _runtime_profile_digest(context)
+        or receipt.get("context_digest") != canonical_digest(context)
+        or receipt.get("managed_identity_verified") is not True
+        or receipt.get("remote_state_verified") is not True
+        or receipt.get("live_baseline_verified") is not True
+        or receipt.get("terraform_zero_change_verified") is not True
+        or receipt.get("azure_resource_mutation_performed") is not False
+        or receipt.get("mutation_performed") is not True
+        or receipt.get("subscription_ready") is not False
+        or receipt.get("historical_plan_service") not in {*AKS_SERVICES, None}
+        or not isinstance(receipt.get("remote_state_lineage"), str)
+        or type(receipt.get("remote_state_serial")) is not int
+        or any(
+            not isinstance(receipt.get(field), str)
+            or _DIGEST.fullmatch(str(receipt[field])) is None
+            for field in (
+                "binding_sha256",
+                "retained_state_sha256",
+                "retained_variables_sha256",
+                "retained_live_sha256",
+                "retained_plan_sha256",
+            )
+        )
+        or set(action_counts) != {"create", "update", "delete", "replace", "read", "no-op"}
+        or any(type(value) is not int or value < 0 for value in action_counts.values())
+        or any(action_counts[action] != 0 for action in ("create", "update", "delete", "replace"))
+        or resource_types.get("kubernetes_deployment_v1") != len(AKS_SERVICES)
+        or not isinstance(summary.get("resource_changes"), list)
+        or digest != canonical_digest(document)
+    ):
+        raise ValueError("historical AKS adoption receipt is invalid")
+
+
+def _historical_state_workloads(resources: list[object]) -> dict[str, dict[str, str]]:
+    deployments = [
+        _mapping(value, "historical AKS Terraform resource")
+        for value in resources
+        if isinstance(value, dict)
+        and value.get("mode") == "managed"
+        and value.get("type") == "kubernetes_deployment_v1"
+        and value.get("name") == "workload"
+    ]
+    if len(deployments) != 1 or not isinstance(deployments[0].get("instances"), list):
+        raise ValueError("historical AKS Terraform workload resource is invalid")
+    result: dict[str, dict[str, str]] = {}
+    for value in deployments[0]["instances"]:
+        instance = _mapping(value, "historical AKS Terraform workload instance")
+        name = instance.get("index_key")
+        attributes = _mapping(
+            instance.get("attributes"), "historical AKS Terraform workload attributes"
+        )
+        try:
+            metadata = _mapping(
+                _single(attributes.get("metadata")), "historical AKS Terraform metadata"
+            )
+            template = _mapping(
+                _single(_single(attributes.get("spec")).get("template")),
+                "historical AKS Terraform Pod template",
+            )
+            labels = _mapping(
+                _single(template.get("metadata")).get("labels"),
+                "historical AKS Terraform Pod labels",
+            )
+            containers = _single(template.get("spec")).get("container")
+        except (AttributeError, TypeError) as exc:
+            raise ValueError("historical AKS Terraform workload structure is invalid") from exc
+        if (
+            not isinstance(name, str)
+            or name not in AKS_SERVICES
+            or name in result
+            or metadata.get("name") != name
+            or not isinstance(containers, list)
+        ):
+            raise ValueError("historical AKS Terraform workload identity is invalid")
+        selected = [
+            _mapping(container, "historical AKS Terraform container")
+            for container in containers
+            if isinstance(container, dict) and container.get("name") == name
+        ]
+        if len(selected) != 1:
+            raise ValueError("historical AKS Terraform workload container is invalid")
+        image = selected[0].get("image")
+        source_commit = labels.get("fdai.io/source-commit")
+        if not isinstance(image, str) or not isinstance(source_commit, str):
+            raise ValueError("historical AKS Terraform rollout identity is invalid")
+        result[name] = {"image": image, "source_commit": source_commit}
+    if set(result) != set(AKS_SERVICES):
+        raise ValueError("historical AKS Terraform workload inventory is incomplete")
+    return dict(sorted(result.items()))
+
+
+def _single(value: object) -> dict[str, Any]:
+    if not isinstance(value, list) or len(value) != 1 or not isinstance(value[0], dict):
+        raise ValueError("historical AKS Terraform nested block is invalid")
+    return dict(value[0])
 
 
 def _service_update_record(
@@ -1257,6 +1791,7 @@ def _service_update_zero_change(
 def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     stage = str(args.stage)
     service = getattr(args, "service", None)
+    historical_baseline = (work_dir / "historical-aks-application-adoption-receipt.json").is_file()
     if stage == "runtime" and not (work_dir / "substrate-receipt.json").is_file():
         raise ValueError("runtime plan prerequisites are incomplete")
     if stage == "database":
@@ -1264,24 +1799,27 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             if not (work_dir / prerequisite).is_file():
                 raise ValueError("database plan prerequisites are incomplete")
     if stage == "application":
-        for prerequisite in (
-            "substrate-receipt.json",
-            "image-import-receipt.json",
-            "migration-receipt.json",
-        ):
-            if not (work_dir / prerequisite).is_file():
-                raise ValueError("application plan prerequisites are incomplete")
         context = _private_json(work_dir / "context.json", "standalone host context")
-        if (
-            _runtime_platform(context) == "aks"
-            and not (work_dir / "runtime-receipt.json").is_file()
-        ):
-            raise ValueError("AKS application plan requires the applied runtime plan")
-        if (
-            _database_placement(context) == "postgres-aks"
-            and not (work_dir / "database-receipt.json").is_file()
-        ):
-            raise ValueError("AKS application plan requires the applied database plan")
+        if historical_baseline:
+            _require_aks_application_baseline(work_dir, context)
+        else:
+            for prerequisite in (
+                "substrate-receipt.json",
+                "image-import-receipt.json",
+                "migration-receipt.json",
+            ):
+                if not (work_dir / prerequisite).is_file():
+                    raise ValueError("application plan prerequisites are incomplete")
+            if (
+                _runtime_platform(context) == "aks"
+                and not (work_dir / "runtime-receipt.json").is_file()
+            ):
+                raise ValueError("AKS application plan requires the applied runtime plan")
+            if (
+                _database_placement(context) == "postgres-aks"
+                and not (work_dir / "database-receipt.json").is_file()
+            ):
+                raise ValueError("AKS application plan requires the applied database plan")
     context = _private_json(work_dir / "context.json", "standalone host context")
     update = _service_update_record(context, work_dir, stage=stage, service=service)
     operation = str(update["operation"]) if update is not None else stage
@@ -1629,7 +2167,7 @@ def _import_source_service_image(args: argparse.Namespace, work_dir: Path) -> di
         raise ValueError("source service image import requires an AKS installation")
     _require_source_service_update_dev_environment(work_dir)
     if not (work_dir / "substrate-receipt.json").is_file():
-        raise ValueError("source service image import requires the applied substrate plan")
+        _require_aks_application_baseline(work_dir, context)
     service = str(args.service)
     source_commit = str(args.source_commit)
     archive_digest = str(args.archive_sha256)
@@ -1863,8 +2401,9 @@ def _service_update_context(args: argparse.Namespace, work_dir: Path) -> dict[st
     """Return sanitized retained state needed to bind one source service update."""
 
     context = _private_json(work_dir / "context.json", "standalone host context")
-    if _runtime_platform(context) != "aks" or not (work_dir / "application-receipt.json").is_file():
+    if _runtime_platform(context) != "aks":
         raise ValueError("source service update requires an applied AKS application baseline")
+    _require_aks_application_baseline(work_dir, context)
     _require_source_service_update_dev_environment(work_dir)
     service = str(args.service)
     expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
@@ -3738,6 +4277,28 @@ def _required_guid(value: dict[str, Any], field: str) -> str:
 
 def _file_digest(path: Path) -> str:
     return hashlib.sha256(read_private_bytes(path, max_bytes=512 * 1024 * 1024)).hexdigest()
+
+
+def _executable_digest(path: Path) -> str:
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    try:
+        details = os.fstat(descriptor)
+        mode = stat.S_IMODE(details.st_mode)
+        if (
+            not stat.S_ISREG(details.st_mode)
+            or details.st_uid != os.geteuid()
+            or details.st_nlink != 1
+            or not mode & stat.S_IXUSR
+            or mode & 0o022
+            or details.st_size > 512 * 1024 * 1024
+        ):
+            raise PermissionError("verified executable permissions are invalid")
+        digest = hashlib.sha256()
+        while chunk := os.read(descriptor, 1024 * 1024):
+            digest.update(chunk)
+        return digest.hexdigest()
+    finally:
+        os.close(descriptor)
 
 
 def _private_directory(path: Path) -> None:

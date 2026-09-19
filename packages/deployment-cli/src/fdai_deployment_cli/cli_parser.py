@@ -313,6 +313,31 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     source_update.add_argument("--source", type=Path, required=True)
     source_update.add_argument("--service", choices=sorted(AKS_SERVICES), required=True)
     source_update.add_argument("--application-work-dir", type=Path, required=True)
+    source_update.add_argument(
+        "--adopt-historical-binding",
+        type=Path,
+        help="Private execution binding for a retained AKS application baseline",
+    )
+    source_update.add_argument(
+        "--adopt-historical-state",
+        type=Path,
+        help="Retained Terraform state for the AKS application baseline",
+    )
+    source_update.add_argument(
+        "--adopt-historical-variables",
+        type=Path,
+        help="Retained workload variables paired with the Terraform state",
+    )
+    source_update.add_argument(
+        "--adopt-historical-live",
+        type=Path,
+        help="Retained live Deployment snapshot paired with the Terraform state",
+    )
+    source_update.add_argument(
+        "--adopt-historical-plan",
+        type=Path,
+        help="Retained exact Terraform plan for the historical deployment change",
+    )
     source_update.add_argument("--work-dir", type=Path)
     source_update.add_argument("--timeout-seconds", type=int, default=14400)
     source_update.add_argument("--output", choices=("text", "json"), default="text")
