@@ -344,6 +344,47 @@ async def test_full_snapshot_materializes_all_unmapped_provider_identities() -> 
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("include_native", [True, False])
+async def test_arm_children_cannot_replace_native_provider_coverage(include_native: bool) -> None:
+    async def _query(resource_type: str) -> ResourceQueryResult:
+        records = [
+            ResourceRecord(
+                resource_id="child",
+                type="kubernetes-node-pool",
+                props={"providerType": "example.compute/pools"},
+            )
+        ]
+        if include_native:
+            records.append(
+                ResourceRecord(
+                    resource_id="native",
+                    type=resource_type,
+                    props={"providerType": "example.compute/vms"},
+                )
+            )
+        return ResourceQueryResult(resources=tuple(records))
+
+    async def _coverage() -> ProviderScopeCoverage:
+        return ProviderScopeCoverage(
+            capture_method="azure_resource_graph_type_aggregation",
+            provider_object_count=1,
+            mapped_provider_object_count=1,
+            provider_type_count=1,
+            mapped_provider_types=(
+                ProviderTypeCount(provider_type="example.compute/vms", count=1),
+            ),
+        )
+
+    adapter = _adapter(_query, types=("compute.vm",), scope_coverage=_coverage)
+    if include_native:
+        batches = [batch async for batch in adapter.full_snapshot()]
+        assert batches[-1].final
+    else:
+        with pytest.raises(RuntimeError, match="mapped resource identities do not reconcile"):
+            _batches = [batch async for batch in adapter.full_snapshot()]
+
+
+@pytest.mark.asyncio
 async def test_full_snapshot_emits_no_evidence_when_unmapped_identities_do_not_reconcile() -> None:
     async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
         return (_rr(f"{rt}/1", rtype=rt),), ()

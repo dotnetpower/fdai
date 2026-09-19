@@ -29,6 +29,12 @@ delivery binds execution receipts to the plan and reconciles coverage against th
 platform, and result count. Historical aggregate canaries do not certify a production service
 binding or collector promotion. See [discovery verification boundaries](../interfaces/azure-resource-discovery-commands.md#verification-boundaries).
 
+Inventory delivery verifies each configured subscription independently and reconciles provider-native
+type counts without allowing supplementary ARM children to replace missing native identities.
+The additive mapped-type accounting stays collection-local and preserves the existing persisted
+coverage shape. Scheduled health requires the active and ontology generations to match with complete
+object, relationship, and projection evidence; configured cadence remains within the source policy.
+
 ## Core domain navigation decision
 
 **Initial design.** Physically move every flat Core subsystem under `pipeline`, `incident`,

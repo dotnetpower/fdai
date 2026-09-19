@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, Final
 
@@ -118,7 +118,7 @@ class PostgresInventoryReconciliationGate:
                 (str(self._config.statement_timeout_ms),),
             )
             cursor = await connection.execute(
-                "WITH active AS (SELECT s.id, s.started_at, s.completed_at, s.scopes "
+                "WITH active AS (SELECT s.id, s.started_at, s.completed_at, s.scopes, s.metadata "
                 "FROM inventory_active a "
                 "JOIN inventory_snapshot s ON s.id=a.snapshot_id "
                 "WHERE a.singleton=TRUE AND s.status='active'), "
@@ -127,6 +127,7 @@ class PostgresInventoryReconciliationGate:
                 "(SELECT completed_at FROM active), '-infinity'::timestamptz)) "
                 "SELECT (SELECT EXTRACT(EPOCH FROM (NOW() - completed_at)) FROM active) "
                 "AS age_seconds, (SELECT id FROM active) AS active_generation, "
+                "(SELECT metadata FROM active) AS active_metadata, "
                 "(SELECT scopes FROM active) AS active_scopes, "
                 "(SELECT started_at FROM active) AS active_started_at, "
                 "EXISTS (SELECT 1 FROM inventory_snapshot WHERE status='collecting' "
@@ -173,6 +174,10 @@ class PostgresInventoryReconciliationGate:
                 (INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY,),
             )
             active_checkpoint_row = await active_checkpoint_cursor.fetchone()
+            manifest_cursor = await connection.execute(
+                "SELECT value FROM state_kv WHERE key=%s", ("inventory-ontology:manifest",)
+            )
+            manifest_row = await manifest_cursor.fetchone()
             if self._cursor_keys:
                 cursor_health_cursor = await connection.execute(
                     "SELECT count(*) AS cursor_count, "
@@ -230,13 +235,20 @@ class PostgresInventoryReconciliationGate:
             overlay_relationship_count=overlay_relationship_count,
             cursor_lag_seconds=float(cursor_lag) if cursor_lag is not None else None,
             cursor_complete=cursor_complete,
-            coverage_complete=row["active_started_at"] is not None,
+            coverage_complete=_snapshot_coverage_complete(
+                metadata=row["active_metadata"],
+                manifest=manifest_row["value"] if manifest_row is not None else None,
+                generation=row["active_generation"],
+                projection_pending=projection_pending,
+            ),
             provider_pressure=provider_pressure,
             newer_failure=failure_streak > 0,
         )
         if self._source_policy is not None:
             self._last_decision = adaptive_reconciliation_decision(
                 policy=self._source_policy,
+                routine_interval_seconds=interval_seconds,
+                change_min_interval_seconds=self._change_min_interval_seconds,
                 age_seconds=float(age) if age is not None else None,
                 in_progress=bool(row["in_progress"]),
                 failure_streak=failure_streak,
@@ -277,6 +289,24 @@ class PostgresInventoryReconciliationGate:
         return self._last_decision
 
 
+def _snapshot_coverage_complete(
+    *, metadata: object, manifest: object, generation: object, projection_pending: bool
+) -> bool:
+    if projection_pending or not isinstance(metadata, Mapping) or not isinstance(manifest, Mapping):
+        return False
+    provider = metadata.get("provider_scope_coverage")
+    return (
+        isinstance(generation, str)
+        and bool(generation)
+        and manifest.get("generation") == generation
+        and manifest.get("complete") is True
+        and metadata.get("projection_complete") is True
+        and metadata.get("relationship_complete") is True
+        and isinstance(provider, Mapping)
+        and provider.get("provider_identity_complete") is True
+    )
+
+
 def adaptive_reconciliation_decision(
     *,
     policy: SourceCollectionPolicy,
@@ -291,9 +321,35 @@ def adaptive_reconciliation_decision(
     projection_pending: bool = False,
     operator_requested: bool = False,
     cursor_lag_seconds: float = 0.0,
+    routine_interval_seconds: int | None = None,
+    change_min_interval_seconds: int | None = None,
 ) -> CollectionScheduleDecision:
     """Map durable reconciliation facts to the pure adaptive controller."""
 
+    if routine_interval_seconds is not None or change_min_interval_seconds is not None:
+        routine = (
+            routine_interval_seconds
+            if routine_interval_seconds is not None
+            else policy.max_poll_interval_seconds
+        )
+        change = (
+            change_min_interval_seconds
+            if change_min_interval_seconds is not None
+            else policy.min_poll_interval_seconds
+        )
+        if (
+            not policy.min_poll_interval_seconds
+            <= change
+            <= routine
+            <= policy.max_poll_interval_seconds
+        ):
+            raise ValueError("inventory cadence exceeds the registered source policy")
+        policy = replace(
+            policy,
+            min_poll_interval_seconds=change,
+            max_poll_interval_seconds=routine,
+            target_freshness_seconds=min(policy.target_freshness_seconds, routine),
+        )
     if in_progress:
         return CollectionScheduleDecision(
             action=CollectionScheduleAction.WAIT,

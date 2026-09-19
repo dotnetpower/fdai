@@ -217,6 +217,7 @@ class ProviderScopeCoverage:
     provider_type_count: int
     unmapped_provider_types: tuple[ProviderTypeCount, ...] = ()
     materialized_unmapped_provider_object_count: int = 0
+    mapped_provider_types: tuple[ProviderTypeCount, ...] | None = None
 
     def __post_init__(self) -> None:
         if not self.capture_method.strip():

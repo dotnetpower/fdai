@@ -15,6 +15,7 @@ omits its final fence and retains the previous promoted graph.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -317,25 +318,38 @@ class AzureArgQueryFactory:
         """Return a complete provider-native type aggregation for snapshot metadata."""
 
         async def _fetch() -> ProviderScopeCoverage:
-            rows = await fetch_arg_row_pages(
-                identity=self._identity,
-                http_client=self._http,
-                audience=self._config.audience,
-                endpoint=self._config.arg_endpoint,
-                api_version=self._config.arg_api_version,
-                subscriptions=self._config.subscription_scopes,
-                query=self._build_scope_coverage_query(),
-                result_name="provider-scope-coverage",
-                page_size=self._config.page_size,
-                max_pages=self._config.max_pages,
-                timeout_seconds=self._config.timeout_seconds,
-                error_type=ArgQueryError,
-                throttle_gate=self._throttle_gate,
-                rate_limiter=self._rate_limiter,
-                max_records=_MAX_PROVIDER_TYPES,
-                page_observer=self._page_observer,
+            counts: Counter[str] = Counter()
+            for subscription in self._config.subscription_scopes:
+                rows = await fetch_arg_row_pages(
+                    identity=self._identity,
+                    http_client=self._http,
+                    audience=self._config.audience,
+                    endpoint=self._config.arg_endpoint,
+                    api_version=self._config.arg_api_version,
+                    subscriptions=(subscription,),
+                    query=self._build_scope_coverage_query(),
+                    result_name="provider-scope-coverage",
+                    page_size=self._config.page_size,
+                    max_pages=self._config.max_pages,
+                    timeout_seconds=self._config.timeout_seconds,
+                    error_type=ArgQueryError,
+                    throttle_gate=self._throttle_gate,
+                    rate_limiter=self._rate_limiter,
+                    max_records=_MAX_PROVIDER_TYPES,
+                    page_observer=self._page_observer,
+                )
+                coverage = self._project_scope_coverage(rows)
+                for item in (
+                    *coverage.unmapped_provider_types,
+                    *(coverage.mapped_provider_types or ()),
+                ):
+                    counts[item.provider_type] += item.count
+            return self._project_scope_coverage(
+                tuple(
+                    {"provider_type": provider_type, "resource_count": count}
+                    for provider_type, count in sorted(counts.items())
+                )
             )
-            return self._project_scope_coverage(rows)
 
         return _fetch
 
@@ -517,6 +531,10 @@ class AzureArgQueryFactory:
             mapped_provider_object_count=mapped_provider_object_count,
             provider_type_count=len(counts),
             unmapped_provider_types=unmapped,
+            mapped_provider_types=tuple(
+                counts[provider_type]
+                for provider_type in sorted(counts.keys() & self._mapped_provider_types)
+            ),
         )
 
     def _map_unclassified_row(self, row: Mapping[str, Any]) -> ResourceRecord:

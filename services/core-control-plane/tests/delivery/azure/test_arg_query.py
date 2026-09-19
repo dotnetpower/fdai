@@ -557,6 +557,44 @@ async def test_scope_coverage_counts_unmapped_provider_types_without_materializi
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("deny_second_scope", [True, False])
+async def test_scope_coverage_requires_each_requested_subscription(deny_second_scope: bool) -> None:
+    scopes: list[list[str]] = []
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        scopes.append(json.loads(request.content)["subscriptions"])
+        if deny_second_scope and len(scopes) == 2:
+            return httpx.Response(403)
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    {
+                        "provider_type": "microsoft.compute/virtualmachines",
+                        "resource_count": 1,
+                    }
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        fetch = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=AzureArgQueryFactoryConfig(subscription_scopes=("sub-1", "sub-2")),
+        ).build_scope_coverage_fn()
+        if deny_second_scope:
+            with pytest.raises(ArgQueryError, match="HTTP 403"):
+                await fetch()
+        else:
+            coverage = await fetch()
+            assert coverage.provider_object_count == 2
+            assert coverage.mapped_provider_object_count == 2
+    assert scopes == [["sub-1"], ["sub-2"]]
+
+
+@pytest.mark.asyncio
 async def test_scope_coverage_rejects_empty_provider_result() -> None:
     async def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"data": []})

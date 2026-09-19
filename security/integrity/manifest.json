@@ -1501,7 +1501,7 @@
     "services/core-control-plane/src/fdai/shared/providers/iac_review.py": "c0774b2a510bd1d7ce1617810a1d540e5111328473a8dbd2a68f14ccc517a08f",
     "services/core-control-plane/src/fdai/shared/providers/idempotency.py": "66b21a614515dc2b0578779bf361bd07e812d8a99d44baf7bd392f2388740e1a",
     "services/core-control-plane/src/fdai/shared/providers/incident_platform.py": "048ccf4b187dc02aa7309a82c9d0465791696c0089b55233009379c0b6ae1920",
-    "services/core-control-plane/src/fdai/shared/providers/inventory.py": "1e9d8f46ffc0db408a71663c345a0e3e5e929a8491250483e3b7135699e9fec5",
+    "services/core-control-plane/src/fdai/shared/providers/inventory.py": "6945d70566ad2a1b4fa22dac0c91e9d3370323487f8be1895433a61c697b96cb",
     "services/core-control-plane/src/fdai/shared/providers/inventory_observation.py": "88364fb85389a0cc53a3c717bfebd79574851e201b25b4e5a8a855d7cf5fff46",
     "services/core-control-plane/src/fdai/shared/providers/inventory_snapshot.py": "d076bfc6c9d1492d80aa7880e5d4694cfabea80c26f62dfef978624457c23df0",
     "services/core-control-plane/src/fdai/shared/providers/knowledge.py": "a8660bd5b361eb6c8e3370332d97f1d6f8a33cd2993f0a80ecdd5da17ce32c02",

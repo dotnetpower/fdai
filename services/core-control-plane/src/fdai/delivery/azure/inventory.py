@@ -312,11 +312,32 @@ class AzureResourceGraphInventory:
             resource for batch in completed for resource in batch.resources
         )
         if provider_scope_coverage is not None:
-            mapped_count = sum(
-                resource.type not in {UNCLASSIFIED_RESOURCE_TYPE, "subscription", "network.subnet"}
-                for resource in resources
-            )
-            if mapped_count != provider_scope_coverage.mapped_provider_object_count:
+            expected_types = provider_scope_coverage.mapped_provider_types
+            if expected_types is None:
+                matched = (
+                    sum(
+                        resource.type
+                        not in {UNCLASSIFIED_RESOURCE_TYPE, "subscription", "network.subnet"}
+                        for resource in resources
+                    )
+                    == provider_scope_coverage.mapped_provider_object_count
+                )
+            else:
+                expected = Counter(
+                    {item.provider_type.casefold(): item.count for item in expected_types}
+                )
+                observed = Counter(
+                    provider_type.casefold()
+                    for resource in resources
+                    if resource.type != UNCLASSIFIED_RESOURCE_TYPE
+                    and isinstance(provider_type := resource.props.get("providerType"), str)
+                    and provider_type.casefold() in expected
+                )
+                matched = (
+                    sum(expected.values()) == provider_scope_coverage.mapped_provider_object_count
+                    and observed == expected
+                )
+            if not matched:
                 raise RuntimeError(
                     "mapped resource identities do not reconcile with provider coverage"
                 )
