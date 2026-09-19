@@ -266,6 +266,7 @@
         "packages/service-contracts/src/fdai_service_contracts/cluster_connector.py",
         "packages/service-contracts/src/fdai_service_contracts/observer_deployment.py",
         "packages/service-contracts/src/fdai_service_contracts/schemas/observer-deployment-*/**",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/observer-preflight-receipt/**",
         "packages/service-contracts/src/fdai_service_contracts/schemas/cluster-connector-*/**",
         "packages/service-contracts/tests/test_cluster_connector.py",
         "services/core-control-plane/src/fdai/delivery/kubernetes_connector*.py",

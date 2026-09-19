@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 57ab32252170f8da710c7116e2814641a686a4cd
+translation_source_sha: 24d38d67ec202b264167fca5207295e57da0c9a8
 translation_revised: 2026-09-19
 ---
 # AKS 진단 근거 플레인
@@ -54,6 +54,9 @@ Azure 관측은 정확한 대상을 검증한 뒤에만 결합됩니다. 결정�
 이 사실로 Core 소유의 [관측 배포 제안](aks-outbound-connector-ko.md#구현된-제안-범위)을 만들지만 새 소스 연결이나 승인을 만들지는 않습니다.
 사전 점검 근거가 없으면 알 수 없음으로 유지하고 반복 발견은 중복 제거합니다. 관측 워커 설치,
 진단 범위 확대, API 연결 실패를 근거로 한 private 판정은 하지 않습니다.
+구성된 제안 경로는 이제 서명된 대상별 사전 점검 증적을 읽고 검증 주체 철회를 다시 확인합니다.
+별도의 제한된 Kubernetes 수집기는 정확한 클러스터 식별 후 기존 읽기 신원의 목록 조회
+권한만 확인합니다. 진단, 설치 또는 준비 상태를 입증하지는 않습니다.
 
 런타임은 개수가 제한된 클러스터 연결 모음을 허용합니다. 각 연결은 다음을 포함합니다.
 

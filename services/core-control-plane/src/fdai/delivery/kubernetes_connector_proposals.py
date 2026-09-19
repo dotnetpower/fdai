@@ -29,7 +29,7 @@ class ObserverConstraintReader(Protocol):
 
 
 class StateStoreObserverConstraints:
-    """Read server-owned preflight context; a content digest is integrity, not authentication.
+    """Retain legacy owner pins, but never treat unsigned preflight facts as authenticated.
 
     No public write endpoint is exposed. The injected preflight owner must establish source
     provenance before retaining this context. Missing producers remain missing evidence.
@@ -54,7 +54,7 @@ class StateStoreObserverConstraints:
             raise ValueError("observer constraint record does not match its target or digest")
         if context.observed_at > connector_time(now):
             raise ValueError("observer constraints are from the future")
-        return context
+        return ObserverDeploymentContext.model_validate({**context.model_dump(), "facts": ()})
 
 
 def _context_digest(context: ObserverDeploymentContext) -> str:

@@ -117,6 +117,20 @@ observing and independently verified rather than inferring health from a Pod or 
 
 ### Implemented proposal boundary
 
+The preflight trust boundary admits only signed, bounded receipts from deployment-registered
+verifiers. A receipt binds the exact target, producer revision, fact set, installation owner,
+operator method pin and validity window. Server-owned grants bind each verifier key to its target
+and permitted fact names and sources; admission and readback recheck current grants and revocation.
+Signature validity proves attribution, not truth or permission. Collectors must retain actual
+provider/readback evidence, and unimplemented or unobservable checks remain unknown. A Kubernetes
+reader cannot attest Azure policy, artifact provenance or human installation approval by itself.
+
+Design critique rejected an unsigned context writer and a universal self-enrolling verifier.
+The revised path separates issuer configuration from receipt intake, uses existing cryptography
+and atomic state/audit providers, denies conflicting same-time evidence, and never grants installation
+authority. Existing owner pins survive missing or revoked facts. The runtime source must be wired
+before this boundary can be described as automatic preflight coverage.
+
 When subscription Kubernetes discovery is enabled, explicit private observations now create one
 Core-owned proposal per neutral cluster identity even if credential discovery fails. The job keeps
 its existing read identity and persists the context, recommendation and audit atomically. Repeated
@@ -126,9 +140,11 @@ constraint context retains its last known owner and method pin but cannot supply
 
 The initial schema pair is `observer-deployment-context` and `observer-deployment-proposal`.
 Absent server-owned preflight evidence produces `needs_evidence`, not a best-guess installation.
-The constraint reader is an injection boundary: an evidence digest proves content integrity, not
-source authentication. Automatic constraint collectors and a reviewed constraint writer are not
-implemented. Supplied-context evaluation is available without persistence or network calls:
+The signed preflight reader authenticates the registered verifier and retains up to 16 independent
+issuer contributions under one atomic target checkpoint. Conflicting facts, owners or discovery
+bindings block readback. Unsigned legacy context supplies owner pins only, never eligible facts.
+Supplied-context evaluation remains available without persistence or network calls; it does not
+authenticate that file's assertions:
 
 ```bash
 python -m fdai.delivery.kubernetes_connector_proposal_cli evaluate --context /private/context.json
@@ -139,6 +155,37 @@ The context file must be owner-only `0600`. The read command uses the existing C
 `FDAI_STATE_STORE_DSN`, permits only loopback PostgreSQL in a local venue, and fails on stale or
 changed evidence. Neither command approves, installs or sends a notification. Console/ChatOps
 projection, governed installation and operational readiness remain unimplemented boundaries.
+
+### Authenticated read preflight
+
+`FDAI_OBSERVER_PREFLIGHT_GRANTS_PATH` selects a private `0600` JSON array of verifier grants for
+both the Inventory Job and Core read/retention commands. Each grant binds `issuer_ref`, `key_ref`
+(SHA-256 of the raw Ed25519 public key), hex `public_key`, `target_ref`, `producer_revision`,
+`allowed_facts` (fact-to-source allowlists), `valid_from`, `expires_at`, `revoked`, and
+`can_select_owner`. No endpoint can enroll itself. The protected deployment owner supplies this
+registration; changing it is not an outcome of a recommendation.
+
+```bash
+python -m fdai.delivery.kubernetes_connector_proposal_cli collect-read-preflight --config /private/read-preflight.json
+python -m fdai.delivery.kubernetes_connector_proposal_cli retain-preflight --receipt /private/receipt.json
+```
+
+Collection runs only when explicitly invoked in the bound cluster venue. Its private configuration
+contains `target_ref`, `discovery_digest`, `issuer_ref`, `producer_revision`, `api_origin`,
+`namespace_uid` (previously verified `kube-system` UID), `api_ca_path`, `api_token_path`,
+`signing_key_path`, and `grants_path`. The existing projected reader identity performs only two
+Namespace identity reads and non-persistent `SelfSubjectAccessReview` requests for every resource
+listed by the snapshot collector. The signed output contains one `kubernetes_read` fact. It does
+not prove private mode, installation authority, admission, capacity, storage, artifacts or egress.
+The discovery binding remains independently supplied by authenticated management-plane discovery.
+
+The collector has a 30-second total network deadline and bounded uncompressed responses, uses
+verified TLS, and follows no redirects. Missing, conflicting, oversized or failed responses produce
+unknown rather than authorization. The signing key is read from an existing owner-only PEM file;
+only the signed receipt is output. Retention verifies current grants before atomic state/audit
+storage and current reads verify signatures, scope, expiry and revocation again. This is an
+executable Kubernetes read preflight, not an automatically scheduled complete deployment preflight.
+Azure policy, artifact, capacity, storage, network and installation-owner producers remain open.
 
 ## Snapshot runtime
 

@@ -16,9 +16,13 @@ from fdai_service_contracts.observer_deployment import (
 )
 
 from fdai.delivery.kubernetes_connector_planning import propose_observer_deployment
+from fdai.delivery.kubernetes_connector_preflight_runtime import (
+    build_observer_constraints,
+    collect_read_preflight,
+    retain_preflight_file,
+)
 from fdai.delivery.kubernetes_connector_proposals import (
     ObserverDeploymentProposalService,
-    StateStoreObserverConstraints,
 )
 from fdai.delivery.kubernetes_connector_runtime import (
     private_file,
@@ -32,10 +36,19 @@ async def _current(target_ref: str) -> ObserverDeploymentProposal | None:
     validate_connector_database_venue(dsn)
     store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
     service = ObserverDeploymentProposalService(
-        store, constraints=StateStoreObserverConstraints(store), now=lambda: datetime.now(UTC)
+        store,
+        constraints=build_observer_constraints(store, now=lambda: datetime.now(UTC)),
+        now=lambda: datetime.now(UTC),
     )
     async with asyncio.timeout(10):
         return await service.current(target_ref)
+
+
+async def _retain(path: Path) -> bool:
+    dsn = os.environ.get("FDAI_STATE_STORE_DSN", "")
+    validate_connector_database_venue(dsn)
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    return await retain_preflight_file(path, store=store, now=lambda: datetime.now(UTC))
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -45,9 +58,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     evaluate.add_argument("--context", type=Path, required=True)
     show = operations.add_parser("show")
     show.add_argument("--target-ref", required=True)
+    retain = operations.add_parser("retain-preflight")
+    retain.add_argument("--receipt", type=Path, required=True)
+    collect = operations.add_parser("collect-read-preflight")
+    collect.add_argument("--config", type=Path, required=True)
     args = parser.parse_args(argv)
     proposal: ObserverDeploymentProposal | None
     try:
+        if args.operation == "collect-read-preflight":
+            receipt = asyncio.run(
+                collect_read_preflight(args.config, now=lambda: datetime.now(UTC))
+            )
+            print(receipt.model_dump_json())
+            return 0
+        if args.operation == "retain-preflight":
+            changed = asyncio.run(_retain(args.receipt))
+            print(
+                json.dumps(
+                    {"status": "retained" if changed else "duplicate", "execution_authority": False}
+                )
+            )
+            return 0
         if args.operation == "evaluate":
             context = ObserverDeploymentContext.model_validate_json(private_file(args.context))
             proposal = propose_observer_deployment(context, now=datetime.now(UTC))

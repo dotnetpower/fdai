@@ -1,7 +1,7 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: ac9ebdec131d02475c4d3615ed3ae3be5d08c1f8
+translation_source_sha: fa967954b95305d9a710b77eef07e8cb382022cc
 translation_revised: 2026-09-19
 ---
 # AKS 역방향 커넥터
@@ -116,6 +116,20 @@ PVC 금지, 클러스터 전체 읽기 금지, 중간 TLS 종료 요구 시 미�
 
 ### 구현된 제안 범위
 
+사전 점검 신뢰 경계는 배포 구성에 등록된 검증 주체가 서명한, 범위가 제한된 증적만 받습니다.
+증적에는 정확한 대상, 생성기 버전, 사실 집합, 설치 관리 주체, 운영자가 지정한 방식,
+유효기간을 연결합니다. 서버 소유 등록은 각 검증 키의 대상과 허용된 사실 이름·출처를 제한하며
+수락과 조회 때 현재 등록 및 철회를 다시 확인합니다. 유효한 서명은 귀속을 입증할 뿐 진실이나
+권한을 보장하지 않습니다. 수집기는 실제 공급자·재확인 근거를 보존해야 하며 구현하지 않았거나
+관측할 수 없는 점검은 알 수 없음으로 남깁니다. Kubernetes 읽기 주체가 Azure 정책, 이미지
+출처 또는 사람의 설치 승인을 단독으로 입증할 수는 없습니다.
+
+설계 검토에서 서명 없는 입력 기록기와 스스로 등록하는 범용 검증 주체를 제외했습니다.
+수정한 경로는 발급 주체 구성과 증적 수신을 분리하고 기존 암호화 및 원자적 상태·감사 저장소를
+사용하며 같은 시각의 충돌 근거를 거부합니다. 설치 권한은 부여하지 않습니다. 사실이 없어지거나
+철회돼도 기존 관리 주체 고정은 유지합니다. 이 경계를 자동 사전 점검으로 설명하려면 실제
+런타임 소스를 먼저 연결해야 합니다.
+
 구독 Kubernetes 자동 발견을 활성화하면 명시적인 private 관측으로 중립 클러스터 식별자별
 Core 소유 제안을 하나 생성합니다. 자격 증명 조회에 실패해도 제안은 남습니다. 기존 읽기 신원을
 유지하며 입력 근거, 추천, 감사를 원자적으로 저장합니다. 같은 근거를 반복 발견하면 현재 제안을
@@ -125,9 +139,11 @@ Core 소유 제안을 하나 생성합니다. 자격 증명 조회에 실패해�
 
 초기 스키마는 `observer-deployment-context`와 `observer-deployment-proposal`입니다.
 서버 소유 사전 점검 근거가 없으면 설치 방식을 추측하지 않고 `needs_evidence`를 반환합니다.
-제약 읽기는 의존성 주입 경계입니다. 근거 해시는 내용 무결성을 확인할 뿐 출처를 인증하지
-않습니다. 자동 제약 수집기와 검토된 제약 기록기는 아직 구현하지 않았습니다. 다음 명령으로
-저장이나 네트워크 호출 없이 제공한 입력을 평가할 수 있습니다.
+서명된 사전 점검 읽기는 등록된 검증 주체를 인증하고, 대상별 원자적 checkpoint에 최대 16개
+발급 주체의 증적을 독립적으로 보존합니다. 사실, 관리 주체 또는 발견 연결이 충돌하면 조회를
+차단합니다. 서명 없는 기존 입력은 관리 주체 고정만 유지하고 적격 사실은 제공하지 않습니다.
+다음 명령은 저장이나 네트워크 호출 없이 제공한 입력을 평가하지만 해당 파일의 주장을
+인증하지는 않습니다.
 
 ```bash
 python -m fdai.delivery.kubernetes_connector_proposal_cli evaluate --context /private/context.json
@@ -138,6 +154,37 @@ python -m fdai.delivery.kubernetes_connector_proposal_cli show --target-ref <neu
 `FDAI_STATE_STORE_DSN`을 사용하고 로컬 실행에서는 loopback PostgreSQL만 허용합니다.
 근거가 만료되거나 바뀌면 조회가 실패합니다. 두 명령 모두 승인, 설치, 알림 전송을 하지 않습니다.
 Console/ChatOps 표시, 승인에 따른 설치, 운영 준비 상태 검증은 아직 구현하지 않았습니다.
+
+### 인증된 읽기 사전 점검
+
+`FDAI_OBSERVER_PREFLIGHT_GRANTS_PATH`는 Inventory Job과 Core 조회·저장 명령에서 사용할
+검증 주체 등록 파일을 지정합니다. 이 파일은 `0600` 권한의 JSON 배열입니다. 각 등록은
+`issuer_ref`, `key_ref`(원시 Ed25519 공개 키의 SHA-256), 16진수 `public_key`,
+`target_ref`, `producer_revision`, `allowed_facts`(사실별 허용 출처), `valid_from`,
+`expires_at`, `revoked`, `can_select_owner`를 고정합니다. 수신 측이 자신을 등록할 수는
+없습니다. 보호된 배포 관리 주체가 등록을 제공하며 추천으로 이를 변경하지 않습니다.
+
+```bash
+python -m fdai.delivery.kubernetes_connector_proposal_cli collect-read-preflight --config /private/read-preflight.json
+python -m fdai.delivery.kubernetes_connector_proposal_cli retain-preflight --receipt /private/receipt.json
+```
+
+수집은 연결된 클러스터 실행 환경에서 명시적으로 명령을 호출할 때만 수행합니다. 비공개 구성은
+`target_ref`, `discovery_digest`, `issuer_ref`, `producer_revision`, `api_origin`,
+`namespace_uid`(미리 검증한 `kube-system` UID), `api_ca_path`, `api_token_path`,
+`signing_key_path`, `grants_path`를 포함합니다. 기존 읽기 신원으로 Namespace 식별을 두 번
+확인하고 스냅샷 수집기의 모든 리소스에 대해 저장되지 않는 `SelfSubjectAccessReview`를
+수행합니다. 서명된 출력에는 `kubernetes_read` 사실 하나만 들어갑니다. private 모드,
+설치 권한, 수락 정책, 용량, 저장소, 이미지, 외부 통신을 입증하지는 않습니다. 발견 연결은
+인증된 관리 플레인 발견 결과로 별도 제공해야 합니다.
+
+수집기의 전체 네트워크 제한 시간은 30초이며 압축하지 않은 응답 크기도 제한합니다. TLS를
+검증하고 리디렉션은 따르지 않습니다. 누락, 충돌, 크기 초과 또는 요청 실패는 권한 허용이
+아니라 알 수 없음입니다. 서명 키는 기존 소유자 전용 PEM 파일에서 읽고 서명된 증적만
+출력합니다. 저장 전에 현재 등록을 검증하고 상태와 감사를 원자적으로 기록합니다. 현재 조회도
+서명, 범위, 만료, 철회를 다시 검증합니다. 실행 가능한 Kubernetes 읽기 사전 점검이지
+자동 예약된 전체 배포 점검은 아닙니다. Azure 정책, 이미지, 용량, 저장소, 네트워크와 설치
+관리 주체의 근거 생성기는 아직 남아 있습니다.
 
 ## 스냅샷 실행 구성
 

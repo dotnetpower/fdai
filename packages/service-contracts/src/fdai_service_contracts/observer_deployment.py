@@ -40,6 +40,9 @@ ConstraintBlocker = (
         "run_command_requires_explicit_selection",
     ]
 )
+ConstraintSource = Literal[
+    "azure_management", "kubernetes_api", "deployment_profile", "network_probe", "operator_review"
+]
 
 
 class ObserverDeploymentFact(ConnectorContract):
@@ -48,13 +51,7 @@ class ObserverDeploymentFact(ConnectorContract):
     target_ref: TargetRef
     name: ConstraintName
     state: Literal["allowed", "denied", "unknown"]
-    source: Literal[
-        "azure_management",
-        "kubernetes_api",
-        "deployment_profile",
-        "network_probe",
-        "operator_review",
-    ]
+    source: ConstraintSource
     evidence_digest: Digest | None = None
     observed_at: datetime
     expires_at: datetime
@@ -189,3 +186,43 @@ class ObserverDeploymentProposal(ConnectorContract):
         ):
             raise ValueError("observer proposal digest does not match its content")
         return self
+
+
+class ObserverPreflightReceipt(ConnectorContract):
+    """Verifier-attributed evidence; its signature never grants installation authority."""
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    issuer_ref: TargetRef
+    key_ref: Digest
+    producer_revision: Digest
+    context: ObserverDeploymentContext
+    issued_at: datetime
+    signature: Annotated[str, Field(pattern=r"^[0-9a-f]{128}$")]
+    execution_authority: Literal[False] = False
+
+    @field_validator("issued_at", mode="before")
+    @classmethod
+    def _clock(cls, value: object) -> datetime:
+        return connector_time(value)
+
+    @field_validator("execution_authority", mode="before")
+    @classmethod
+    def _authority(cls, value: object) -> object:
+        if value is not False:
+            raise ValueError("observer preflight cannot grant execution authority")
+        return value
+
+    @model_validator(mode="after")
+    def _timeline(self) -> Self:
+        if not self.context.observed_at <= self.issued_at < self.context.expires_at:
+            raise ValueError("observer preflight issuance is outside the observation window")
+        if any(fact.observed_at > self.issued_at for fact in self.context.facts):
+            raise ValueError("observer preflight contains future facts")
+        return self
+
+    def signing_bytes(self) -> bytes:
+        """Return the canonical domain-separated digest signed by the registered verifier."""
+        return (
+            "fdai.observer-preflight.v1:"
+            + canonical_digest(self.model_dump(mode="json", exclude={"signature"}))
+        ).encode("ascii")

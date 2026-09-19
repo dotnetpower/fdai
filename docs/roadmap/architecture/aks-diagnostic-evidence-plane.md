@@ -54,6 +54,9 @@ Subscription discovery also preserves an explicit boolean private-cluster fact i
 credential availability. It creates a Core-owned [observer deployment proposal](aks-outbound-connector.md#implemented-proposal-boundary), not a new source binding or approval.
 Missing preflight evidence remains unknown; repeated discovery is deduplicated and cannot install
 an observer, increase diagnostic coverage, or turn an unreachable API into a private-mode finding.
+When configured, the proposal path now reads signed, target-scoped preflight receipts and rechecks
+verifier revocation. The separate bounded Kubernetes collector proves only the existing reader's
+list permissions after exact cluster identity checks, not diagnosis, installation or readiness.
 
 The runtime accepts a bounded collection of cluster bindings. Each binding contains:
 

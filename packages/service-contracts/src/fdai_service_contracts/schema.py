@@ -25,6 +25,7 @@ from fdai_service_contracts.execution_safeguards import SafeguardProofBundle
 from fdai_service_contracts.observer_deployment import (
     ObserverDeploymentContext,
     ObserverDeploymentProposal,
+    ObserverPreflightReceipt,
 )
 from fdai_service_contracts.runtime_scope import RuntimeScopeReceipt
 from fdai_service_contracts.test_context import (
@@ -57,6 +58,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("cluster-connector-work", "1.0.0"): "schemas/cluster-connector-work/1.0.0.json",
     ("observer-deployment-context", "1.0.0"): "schemas/observer-deployment-context/1.0.0.json",
     ("observer-deployment-proposal", "1.0.0"): "schemas/observer-deployment-proposal/1.0.0.json",
+    ("observer-preflight-receipt", "1.0.0"): "schemas/observer-preflight-receipt/1.0.0.json",
     ("alert-noise-assessment", "1.0.0"): "schemas/alert-noise-assessment/1.0.0.json",
     ("alert-noise-evaluation", "1.0.0"): "schemas/alert-noise-evaluation/1.0.0.json",
     (
@@ -285,6 +287,8 @@ class JsonSchemaContractValidator:
             if schema_name == "observer-deployment-context"
             else ObserverDeploymentProposal
             if schema_name == "observer-deployment-proposal"
+            else ObserverPreflightReceipt
+            if schema_name == "observer-preflight-receipt"
             else None
         )
         if semantic_model is not None:

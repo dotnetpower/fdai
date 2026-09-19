@@ -15,6 +15,7 @@ from fdai_service_contracts.cluster_connector import (
 from fdai_service_contracts.observer_deployment import (
     ObserverDeploymentContext,
     ObserverDeploymentProposal,
+    ObserverPreflightReceipt,
 )
 from pydantic import BaseModel
 
@@ -26,6 +27,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "cluster-connector-work": ConnectorWork,
     "observer-deployment-context": ObserverDeploymentContext,
     "observer-deployment-proposal": ObserverDeploymentProposal,
+    "observer-preflight-receipt": ObserverPreflightReceipt,
 }
 
 
