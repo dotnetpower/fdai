@@ -43,7 +43,7 @@ DIGEST = "sha256:" + ("a" * 64)
 NOW = datetime(2026, 8, 10, tzinfo=UTC)
 
 
-def _manifest() -> QueryManifest:
+def _manifest(*, scope_digest: str = DIGEST) -> QueryManifest:
     resource = OntologyObjectType(
         schema_version="1.0.0",
         name="Resource",
@@ -73,7 +73,7 @@ def _manifest() -> QueryManifest:
         release=release,
         principal_role=CeilingRole.READER,
         purposes=("operations-review",),
-        principal_scope_digest=DIGEST,
+        principal_scope_digest=scope_digest,
         object_types=(resource,),
         link_types=(link,),
         interfaces=(interface,),
@@ -114,6 +114,32 @@ def test_full_generation_covers_every_manifest_descriptor_and_runtime_object() -
     assert build.reused_document_count == 0
 
 
+def test_generation_validation_rejects_another_principal_manifest() -> None:
+    with pytest.raises(ValueError, match="manifest"):
+        validate_ontology_semantic_generation(
+            build=_build(),
+            manifest=_manifest(scope_digest="sha256:" + "b" * 64),
+            validator_id="validator",
+        )
+
+
+def test_generation_validation_rejects_rehashed_document_tampering() -> None:
+    build = _build()
+    documents = (replace(build.documents[0], text="tampered"), *build.documents[1:])
+    tampered = replace(
+        build,
+        documents=documents,
+        document_digests=tuple(catalog_search_document_digest(item) for item in documents),
+    )
+
+    with pytest.raises(ValueError, match="manifest|declaration"):
+        validate_ontology_semantic_generation(
+            build=tampered,
+            manifest=_manifest(),
+            validator_id="validator",
+        )
+
+
 def test_incremental_generation_reuses_unchanged_document_objects() -> None:
     first = _build()
 
@@ -123,6 +149,48 @@ def test_incremental_generation_reuses_unchanged_document_objects() -> None:
     assert second.document_digests == first.document_digests
     assert second.reused_document_count == len(first.documents)
     assert all(left is right for left, right in zip(first.documents, second.documents, strict=True))
+
+
+def test_generation_identity_changes_with_principal_scope() -> None:
+    first = _build()
+    second = build_ontology_semantic_generation(
+        manifest=_manifest(scope_digest="sha256:" + "b" * 64),
+        embedding_space_id=first.metadata.embedding_space_id,
+        embedding_model_version=first.metadata.embedding_model_version,
+        embedding_dimension=first.metadata.embedding_dimension,
+    )
+
+    assert first.document_digests == second.document_digests
+    assert first.metadata.generation_digest != second.metadata.generation_digest
+    assert first.metadata.generation_id != second.metadata.generation_id
+
+
+def test_validator_reconstructs_declarations_even_with_rehashed_generation() -> None:
+    build = _build()
+    documents = (replace(build.documents[0], text="tampered"), *build.documents[1:])
+    digests = tuple(catalog_search_document_digest(item) for item in documents)
+    manifest = build_document_digest_manifest(digests)
+    metadata = replace(
+        build.metadata,
+        document_digest_manifest=manifest,
+        generation_digest=catalog_generation_digest(
+            corpus=build.metadata.corpus,
+            catalog_digest=build.metadata.catalog_digest,
+            semantic_schema_digest=build.metadata.semantic_schema_digest,
+            ontology_release_digest=build.metadata.ontology_release_digest,
+            embedding_space_id=build.metadata.embedding_space_id,
+            embedding_model_version=build.metadata.embedding_model_version,
+            embedding_dimension=build.metadata.embedding_dimension,
+            document_digest_manifest=manifest,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="declaration content"):
+        validate_ontology_semantic_generation(
+            build=replace(build, documents=documents, document_digests=digests, metadata=metadata),
+            manifest=_manifest(),
+            validator_id="validator",
+        )
 
 
 def test_generation_metadata_rejects_noncanonical_generation_digest() -> None:

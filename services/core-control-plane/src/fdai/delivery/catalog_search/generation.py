@@ -19,7 +19,7 @@ from fdai.shared.providers.catalog_search import (
 )
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord, normalize_json_value
 
-_SCHEMA_DIGEST = "sha256:" + hashlib.sha256(b"fdai-ontology-semantic-document-v1").hexdigest()
+_SCHEMA_DIGEST = "sha256:" + hashlib.sha256(b"fdai-ontology-semantic-document-v2").hexdigest()
 _MAX_DOCUMENTS = 20_000
 _MAX_DOCUMENT_BYTES = 65_536
 
@@ -94,6 +94,7 @@ def build_ontology_semantic_generation(
     catalog_digest = _digest(
         {
             "manifest_digest": manifest.manifest_digest,
+            "principal_scope_digest": manifest.coverage_receipt.principal_scope_digest,
             "runtime_object_digests": [
                 digest
                 for document, digest in zip(documents, ordered_digests, strict=True)
@@ -146,6 +147,32 @@ def validate_ontology_semantic_generation(
     recomputed = tuple(catalog_search_document_digest(item) for item in build.documents)
     if recomputed != build.document_digests:
         raise ValueError("semantic generation document digest mismatch")
+    build.metadata.document_digest_manifest.verify_document_digests(recomputed)
+    if build.metadata.semantic_schema_digest != _SCHEMA_DIGEST:
+        raise ValueError("semantic generation schema mismatch")
+    expected_catalog_digest = _digest(
+        {
+            "manifest_digest": manifest.manifest_digest,
+            "principal_scope_digest": manifest.coverage_receipt.principal_scope_digest,
+            "runtime_object_digests": [
+                digest
+                for document, digest in zip(build.documents, recomputed, strict=True)
+                if document.document_kind == "ontology_object"
+            ],
+        }
+    )
+    if build.metadata.catalog_digest != expected_catalog_digest:
+        raise ValueError("semantic generation principal manifest mismatch")
+    expected_documents = {
+        document.rule_id: catalog_search_document_digest(document)
+        for document in _declaration_documents(manifest)
+    }
+    for document, digest in zip(build.documents, recomputed, strict=True):
+        if document.document_kind == "ontology_declaration":
+            if expected_documents.get(document.rule_id) != digest:
+                raise ValueError("semantic generation declaration content mismatch")
+        elif document.document_kind != "ontology_object":
+            raise ValueError("semantic generation document kind mismatch")
     expected_declarations = {
         f"declaration:{item['kind']}:{item['name']}" for item in manifest.descriptors
     } | {f"unavailable:{item['declaration_id']}" for item in manifest.unavailable}
