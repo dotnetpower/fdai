@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 80d644315b0e8194e041e0c11649af683d213199
+translation_source_sha: 1b0bbbc33af80548d45e6d4f02db230c50efb437
 translation_revised: 2026-09-19
 ---
 # 런타임 배포 프로파일
@@ -305,6 +305,7 @@ NetworkPolicy의 안정적인 워크로드 label은 버전 변경으로 해당 �
 Deployment 관측은 typed Apps v1 collection endpoint를 직접 읽고, 선택 서비스에는 인코딩된
 `labelSelector`를 사용합니다. 따라서 엄격한 검증기는 클라이언트가 합성한 일반 `List`가 아니라
 서버가 작성한 `DeploymentList`를 받습니다.
+identity-bridge 호환성은 일반 `List` 허용을 다시 도입하지 않습니다.
 이 전체 계획에서 알려진 기존 identity-bridge 기준선이 발견되더라도 채택은 계속 중단됩니다. 별도
 조정 계약은 일치하는 Terraform 상태와 typed 실제 근거에서 Operator command identity와 Document
 Worker ClamAV 정의, 정확한 identity bridge를 복원할 수 있습니다. 이 계약은 inventory 읽기 역할 생성,

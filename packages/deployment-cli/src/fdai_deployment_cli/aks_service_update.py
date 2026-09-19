@@ -48,18 +48,7 @@ def deployment_snapshot(raw: str, *, expected_services: set[str]) -> dict[str, d
         raw.encode("utf-8"), label="AKS Deployment snapshot", max_bytes=16 * 1024 * 1024
     )
     items = document.get("items")
-    kind = document.get("kind")
-    if kind not in {"DeploymentList", "List"} or not isinstance(items, list):
-        raise ValueError("AKS Deployment snapshot is invalid")
-    if kind == "List" and (
-        document.get("apiVersion") != "v1"
-        or any(
-            not isinstance(item, dict)
-            or item.get("apiVersion") != "apps/v1"
-            or item.get("kind") != "Deployment"
-            for item in items
-        )
-    ):
+    if document.get("kind") != "DeploymentList" or not isinstance(items, list):
         raise ValueError("AKS Deployment snapshot is invalid")
     result: dict[str, dict[str, object]] = {}
     for item in items:

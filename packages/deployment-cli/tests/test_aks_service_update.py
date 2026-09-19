@@ -89,32 +89,6 @@ def test_deployment_snapshot_binds_each_service_rollout() -> None:
     }
 
 
-def test_deployment_snapshot_accepts_kubectl_generic_deployment_list() -> None:
-    deployments = _deployments()
-    deployments.update({"apiVersion": "v1", "kind": "List"})
-    for item in deployments["items"]:  # type: ignore[union-attr]
-        item.update({"apiVersion": "apps/v1", "kind": "Deployment"})
-
-    snapshot = deployment_snapshot(
-        json.dumps(deployments), expected_services={SERVICE, "operator-service"}
-    )
-
-    assert set(snapshot) == {SERVICE, "operator-service"}
-
-
-def test_deployment_snapshot_rejects_generic_list_with_non_deployment_item() -> None:
-    deployments = _deployments()
-    deployments.update({"apiVersion": "v1", "kind": "List"})
-    for item in deployments["items"]:  # type: ignore[union-attr]
-        item.update({"apiVersion": "apps/v1", "kind": "Deployment"})
-    deployments["items"][0]["kind"] = "StatefulSet"  # type: ignore[index]
-
-    with pytest.raises(ValueError, match="snapshot is invalid"):
-        deployment_snapshot(
-            json.dumps(deployments), expected_services={SERVICE, "operator-service"}
-        )
-
-
 def test_deployment_snapshot_rejects_missing_or_duplicate_services() -> None:
     deployments = _deployments()
     deployments["items"].pop()  # type: ignore[union-attr]
