@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: abed1b3dc382561efb9a4b36fc49f481ae8743fa
+translation_source_sha: b4104b51a1640baee343052c03a1c6cd5da6c35a
 translation_revised: 2026-09-20
 ---
 
@@ -35,6 +35,11 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 이 명령은 기존 Git common dir 상태와 프로세스 메타데이터를 읽습니다. 두 번째 감사 로그를
 추가하거나, 커밋 후 세션 소유권을 추론하거나, 사용할 수 없는 진단을 성공 결과로 바꾸지
 않습니다.
+
+장기 실행 workspace supervisor는 커밋된 VS Code 작업에서 필요한 모든 endpoint와 비공개 파일
+경로를 받습니다. 대화 품질 보증 supervisor 작업은 표준 loopback Operator URL과 소유자 전용
+bearer-token 파일 경로를 전달하지만 bearer 값 자체는 전달하지 않습니다. 따라서 source를 다시
+불러오고 작업을 재시작해도 editor의 주변 환경에 의존하지 않고 인증된 로컬 계약을 유지합니다.
 
 ![설계 개요. 주요 단계는 편집과 집중 검사, 워크플로 진단, 집중 커밋, 구조 pre-push, SHA 기반 CI, 원격 작업, 제한된 인계입니다.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.ko.svg)
 
@@ -86,6 +91,9 @@ Operator 워커 준비 검사에 참여하지만 GET 표시 경로로 진단 소
 가비지 컬렉션, 스레드 및 파일 서술자 수, 이벤트 루프 지연, 캡처 오버헤드, 잘림 및 사용 불가
 이유를 보고합니다. 힙 객체, 요청이나 답변 본문, 환경 값, 공급자 payload, 자격 증명 또는 숨겨진
 추론은 영속화하지 않습니다.
+Operator semantic runtime은 제품 projection을 위해 assurance 답변 생성 귀속, evaluator model
+귀속 및 판단 보류 상태를 검증할 수 있습니다. 이러한 필드는 제품 대화 데이터로 유지되며 진단
+probe, packet, export 또는 Copilot 검토에 들어가지 않습니다.
 
 모든 패킷은 Git 리비전, 로컬 서비스 입력 digest, worktree patch digest, 프로세스 신원,
 runtime-scope receipt digest, 시간 구간 및 패킷 digest를 연결합니다. 캡처 허용 여부는 정식

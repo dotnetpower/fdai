@@ -490,6 +490,8 @@ def _pantheon_assurance_payload(
 
 def _pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
     answer = assurance.get("answer")
+    answer_generation = assurance.get("answer_generation")
+    evaluator_models = assurance.get("pantheon_evaluator_models")
     trace = assurance.get("pantheon_trace")
     observations = assurance.get("pantheon_observations")
     reviews = assurance.get("pantheon_semantic_reviews")
@@ -502,6 +504,8 @@ def _pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
         assurance.get("schema_version") != "1.0.0"
         or not isinstance(answer, str)
         or not answer
+        or not _valid_answer_generation(answer_generation)
+        or not _valid_evaluator_models(evaluator_models)
         or not isinstance(trace, Mapping)
         or not isinstance(observations, Mapping)
         or not isinstance(reviews, list)
@@ -511,7 +515,7 @@ def _pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
             latency_ms is not None
             and (not isinstance(latency_ms, int) or isinstance(latency_ms, bool) or latency_ms < 0)
         )
-        or assessment_state not in {"completed", "deferred", "unavailable"}
+        or assessment_state not in {"completed", "deferred", "held", "unavailable"}
         or not isinstance(assessment_reasons, list)
         or any(not isinstance(reason, str) or not reason for reason in assessment_reasons)
         or assurance.get("execution_authority") is not False
@@ -522,8 +526,18 @@ def _pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
         {
             "seq": 1,
             "revision": 0,
-            "status": "answered",
+            "status": "answered" if assessment_state == "completed" else "held",
             "answer": answer,
+            "answer_generation": (
+                dict(cast(Mapping[str, object], answer_generation))
+                if isinstance(answer_generation, Mapping)
+                else {
+                    "mode": "legacy_unattributed",
+                    "model_identity": None,
+                    "model_family": None,
+                }
+            ),
+            "pantheon_evaluator_models": evaluator_models or [],
             "source": "pantheon-conversation-assurance",
             "assessment_id": assurance.get("assessment_id"),
             "assessment_state": assessment_state,
@@ -537,6 +551,54 @@ def _pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
             "pantheon_diagnostic": dict(diagnostic),
             "execution_authority": False,
         },
+    )
+
+
+def _valid_answer_generation(value: object) -> bool:
+    if value is None:
+        return True
+    if not isinstance(value, Mapping) or set(value) != {
+        "mode",
+        "model_identity",
+        "model_family",
+    }:
+        return False
+    mode = value.get("mode")
+    identity = value.get("model_identity")
+    family = value.get("model_family")
+    return mode in {"agent_projection", "semantic_model", "t2_model"} and (
+        (identity is None and family is None and mode == "agent_projection")
+        or (
+            isinstance(identity, str)
+            and bool(identity.strip())
+            and family is None
+            and mode == "semantic_model"
+        )
+        or (
+            isinstance(identity, str)
+            and bool(identity.strip())
+            and isinstance(family, str)
+            and bool(family.strip())
+            and mode == "t2_model"
+        )
+    )
+
+
+def _valid_evaluator_models(value: object) -> bool:
+    return (
+        value is None
+        or isinstance(value, list)
+        and len(value) <= 3
+        and all(
+            isinstance(item, Mapping)
+            and set(item) == {"model_identity", "model_family", "output_available"}
+            and isinstance(item.get("model_identity"), str)
+            and bool(str(item["model_identity"]).strip())
+            and isinstance(item.get("model_family"), str)
+            and bool(str(item["model_family"]).strip())
+            and type(item.get("output_available")) is bool
+            for item in value
+        )
     )
 
 

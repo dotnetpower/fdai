@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 4aecda5e56d8e2f8734214a43a8a30cfdad4a20f
-translation_revised: 2026-09-17
+translation_source_sha: 4c42d49a8e78f9d23f309056f5b9cf81c8d54eba
+translation_revised: 2026-09-19
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -295,6 +295,13 @@ Service Health 응답은 결정론적으로 계산한 `yes`, `no`, `partial`, `u
 
 판단 보류 응답은 확인할 수 없는 내용, 확인된 범위, 정확한 제한 사항, 다음 안전 읽기 단계를
 먼저 보여 줍니다. 내부 쿼리 실행 과정은 기술 세부 정보에 유지합니다.
+
+정본 답변이 없으면 Console은 범위가 제한된 최종 사유를 정확한 운영자용 설명으로 변환합니다.
+오프라인 전송, 누락된 모델 구성, 인증 또는 역할 거부, 프로바이더 사용 제한 또는 장애, 콘텐츠
+정책 거부, 근거 보류 및 응답 무결성 실패를 서로 구분합니다. 대체 응답은 부분 텍스트를 답변으로
+표시하거나 근거를 만들거나 프로바이더 응답 내용을 노출하지 않습니다. 알 수 없는 사유는 검증된
+답변을 사용할 수 없다는 일반 문구를 사용하고 범위가 제한된 machine 사유를 source 세부 정보에
+보존합니다.
 
 ## 결정론적 교차 채널 표현 설계
 

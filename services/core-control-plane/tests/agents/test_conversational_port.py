@@ -887,6 +887,44 @@ def test_freyr_role_answer_preserves_advisory_and_resource_boundaries(
     assert turn.answer["pantheon_trace_fragment"]["reported_verification_status"] == "verified"
 
 
+def test_freyr_no_evidence_answer_states_safe_capacity_decision() -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id="freyr-no-evidence-ko",
+            user_id="operator-one",
+            question=(
+                "중요 서비스의 용량 확대 요청이 들어왔지만 현재 부하 측정값, 변경 영향 검토, "
+                "롤백 시험 결과가 확보되지 않았습니다. FDAI가 지금 내려야 할 결정과 Freyr, "
+                "Heimdall, Odin의 역할을 구분하고, 필요한 승인과 일곱 가지 실행 안전 조건, "
+                "증거를 끝내 보완하지 못할 경우의 최종 처리를 설명하세요."
+            ),
+            locale="ko",
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Freyr"
+    assert all(
+        fragment in turn.answer["answer"]
+        for fragment in (
+            "현재 결론은 용량 확대 보류 및 실행 없음",
+            "사용률 표본이 없어",
+            "Freyr는 용량 근거와 권고를 제공",
+            "Heimdall은 관측 및 변경 영향 근거를 수집하고 검증",
+            "Odin은 모든 안전 제약을 통과한 선택지 사이의 충돌만 중재",
+            "독립적인 인간 승인",
+            "일곱 가지 안전장치",
+            "효과도 독립적으로 검증",
+            "no-op, deny 또는 human review",
+            "audit record",
+        )
+    )
+    assert turn.answer["facts"]["tracked_resources"] == []
+    assert turn.answer["facts"]["evidence_refs"][0] in turn.answer["answer"]
+
+
 @pytest.mark.parametrize(
     ("locale", "question", "expected"),
     (

@@ -281,7 +281,18 @@ class Freyr(Agent):
                     "추적합니다."
                 )
             else:
-                answer += " 이 런타임에는 사용률 표본이 없습니다."
+                answer += (
+                    " 현재 결론은 용량 확대 보류 및 실행 없음입니다. 이 런타임에는 사용률 "
+                    "표본이 없어 크기 조정을 권고할 근거가 없습니다. Freyr는 용량 근거와 "
+                    "권고를 제공하고, Heimdall은 관측 및 변경 영향 근거를 수집하고 검증하며, "
+                    "Odin은 모든 안전 제약을 통과한 선택지 사이의 충돌만 중재합니다. "
+                    "Forseti가 판정하고, 필요한 독립적인 인간 승인은 Var가 기록하며, Thor만 "
+                    "실행합니다. 실행에는 중지 조건, 시험된 롤백, blast-radius 제한, 성공한 "
+                    "dry-run, logical-target lock, 안정적인 idempotency key, append-only audit "
+                    "intent와 terminal closure의 일곱 가지 안전장치가 모두 필요하며 효과도 "
+                    "독립적으로 검증해야 합니다. 필요한 근거를 끝내 확보하지 못하면 실행하지 "
+                    "않고 no-op, deny 또는 human review로 종결한 뒤 audit record를 남깁니다."
+                )
             answer += f" 근거: {evidence_ref}."
         else:
             answer = (
@@ -301,7 +312,20 @@ class Freyr(Agent):
                     "listing unnamed resource identities."
                 )
             else:
-                answer += " No utilization samples are available in this runtime."
+                answer += (
+                    " The current decision is to hold the capacity increase and take no action. "
+                    "No utilization samples are available, so there is no evidence for a sizing "
+                    "recommendation. Freyr supplies capacity evidence and advice, Heimdall "
+                    "collects and verifies observation and change-impact evidence, and Odin "
+                    "arbitrates only among options that pass every safety constraint. Forseti "
+                    "judges, Var records any required independent human approval, and only Thor "
+                    "executes. Execution requires all seven safeguards: a stop condition, tested "
+                    "rollback, blast-radius limit, successful dry-run, logical-target lock, "
+                    "stable idempotency key, and append-only audit intent with terminal closure; "
+                    "effects also require independent verification. If the evidence cannot be "
+                    "completed, close without execution as no-op, deny, or human review and "
+                    "retain an audit record."
+                )
             answer += f" Evidence: {evidence_ref}."
         return IntrospectionResult(answer=answer, facts=facts)
 

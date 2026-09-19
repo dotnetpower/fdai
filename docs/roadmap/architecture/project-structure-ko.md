@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 72a8ddde96a3060ac4324411e288c5ab7bfe6928
+translation_source_sha: 70df46772e75277fa532aa742790988f2a5cf78d
 translation_revised: 2026-09-20
 ---
 # 프로젝트 구조
@@ -173,11 +173,9 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   단계 소유자는 타입이 지정된 증적을 통해 monotonic 시작 및 완료 값을 제공합니다. Core는 증적
   환경이 설치된 단계 계약과 일치한 후에만 기간을 파생합니다. 저장소 CLI는 콘텐츠가 없는
   Conversation Assurance는 composition이 PR benchmark 환경과 sink를 모두 주입한 경우에만 결정론 검증 증적을 생성합니다. 일반 Azure 조립은 측정된 대화 사용량을 위해 공유 계량 sink와 가격표를 노출할 수 있지만 benchmark 증적을 활성화하지 않습니다.
-  명시적 Pantheon 캠페인은 Pantheon 초기화 후 별도의 일회성 런타임 연결을 사용합니다. Core는
-  요청된 사례를 서버의 고정 census와 대조해 검증하고, Bragi는 단일 최종 답변을 만들며, 응답 경로
-  밖의 서로 다른 모델 계열 검토자는 상관관계가 연결된 30점 진단을 추가합니다. 일반
-  `operations-review` 턴은 등록된 함수 권한의 변경할 수 없는 스냅샷을 준비 상태 소비자에게 노출하는 기존 의미 런타임을 계속 사용합니다. 스키마로 검증된 판단은 활성 매니페스트와 정본 주체 및 항목이 일치하는 일반 타입 프레임만 복구할 수 있습니다. Golden 인증은 정확한 예상 최종 처리 결과에 바인딩되고, Operator 묶음은 Core 계획 전에 요청된 로케일을 보존합니다.
-  Azure 평가자 어댑터는 모델 계열과 호환되는 완료 필드를 선택하고 연결, HTTP 상태 및 잘못된 응답 실패를 범위가 제한된 콘텐츠 없는 사유 코드로 축약합니다. Core는 프로바이더 응답 내용을 검사하거나 프로바이더 권한을 부여하지 않고 이 코드를 검증하여 의미 평가 축약과 평가 보류 결합까지 보존합니다. 과거 `context_locale_scorecard.py`는 호환 전용으로 다시 내보냅니다.
+  명시적 Pantheon 캠페인은 초기화 후 별도의 일회성 런타임 연결을 사용합니다. Core는 고정 census 사례를 검증하고, Bragi는 최종 답변 하나를 만들며, 서로 다른 모델 계열 검토자는 상관관계가 연결된 진단을 추가합니다. 하위 캠페인 종료는 시도 및 판단 보류 사례 ID를 보존하고, 소유자 전용 CLI transcript는 민감한 본문을 생략한 범위 제한 내용과 모델 귀속을 보존할 수 있지만 qualification, 정책, 감사 또는 권한 근거가 되지 않습니다.
+  일반 `operations-review` 턴은 변경할 수 없는 함수 권한 snapshot을 노출하는 기존 의미 런타임을 사용합니다. 스키마로 검증된 판단은 활성 매니페스트와 일치하는 일반 타입 프레임만 복구하고, Golden 인증은 예상 최종 처리 결과에 바인딩되며, Operator 묶음은 Core 계획 전에 로케일을 보존합니다.
+  Azure 평가자 어댑터는 모델 계열과 호환되는 완료 필드를 선택하고 연결, HTTP 상태 및 잘못된 응답 실패를 범위가 제한된 콘텐츠 없는 사유 코드로 축약합니다. Core는 프로바이더 응답 내용을 검사하거나 프로바이더 권한을 부여하지 않고 이 코드를 검증하여 의미 평가 축약과 평가 보류 결합까지 보존합니다. Operator는 완료된 평가에만 `answered`를 내보내고 그 밖의 모든 assurance 상태에는 생성된 답변과 범위가 제한된 사유를 보존한 채 `held`를 내보냅니다. 과거 `context_locale_scorecard.py`는 호환 전용으로 다시 내보냅니다.
   표본을 구문 분석하며 추적 약속값을 완전한 추적 주장으로 변환하지 않습니다. 인접한
   `quality_trace.py` 축약기는 레코드 약속값만 받고 순서가 정확한 세션부터 감사까지의 연결에서
   완전성을 증명하며 권한을 부여하지 않습니다. `quality_timing.py`는 설치된 계약, 출처 리비전,
@@ -425,6 +423,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
 - **상류의 기본 구현**: 메인 저장소는 모든 경계에 대해 동작하는 범용 기본 구현을 제공하여
   독립 실행 가능합니다. 포크는 필요한 경계만 교체합니다.
 - **적응형 대화**: `build_semantic_query_runtime(adaptive_service=...)`에는 `AdaptiveModel`과 `AdaptivePolicy`를 주입한 `AdaptiveConversationService`를 전달할 수 있습니다. 고정 역할, 독립 검토, 프로바이더의 공통 사용량 제한 및 검증된 근거 조회기는 그대로 필요합니다. 검증된 의미 계획은 동기 planner thread와 비동기 Azure provider 작업 전체에 취소 전용 model-call scope를 연결합니다. 따라서 요청 취소는 일반 후보 fallback을 변경하지 않고 provider 작업을 중지하고 회수합니다. `semantic_runtime_cancellation.py`는 이 스레드 취소 브리지를 소유하고 `semantic_planning_preflight_router.py`는 하나의 `plan()` 호출에 대한 preflight 기반 direct-response 라우팅을 소유하며, 두 모듈 모두 공개 import나 읽기 전용 권한을 바꾸지 않고 강제된 LOC 제한 아래로 유지됩니다. 전체 의미 판단은 selector 순서를 유지하는 32 KiB 후보 전용 기능 변환 결과를 사용합니다. 대상 없는 선언 종류 목록을 위한 정확한 타입 지정 가시성 및 현재 범위 특성 조합은 명시적인 `visible`, `current_scope`, `list` 특성이 있는 단수 종류와 명시적인 `visible`, `current_scope` 특성이 있는 복수 종류를 포함하며 principal 매니페스트를 결정론적으로 컴파일합니다. 원시 발화 토큰으로 이 경로를 선택하지 않습니다. 검증된 preflight Resource 컬렉션 필터는 서술자 축소나 요약 계획보다 먼저 검토된 value group에 결속되므로 선택적 상태 필터가 있어도 알 수 없는 타입은 형식화된 명확화만 만들 수 있습니다. 수락되지 않은 Resource 이벤트 이력 제안은 다음 frame 모델의 context만 축소할 수 있으며 제안 수락, frame-plan 검증, 근거 허용, 읽기 전용 권한은 바뀌지 않습니다. 이 경계에서 운영 의도 map 비교는 명시적인 bool을 반환합니다. 컬렉션 Resource 상태 계획과 상태 사실 해석은 결정론적 Core 온톨로지 플랫폼이 계속 소유하며 표현 계층은 검증된 행만 사용합니다. 대상이 없는 최근 Resource 변경은 추가 전용 관측 journal을 사용하는 별도의 서버 범위 FunctionType으로 처리합니다. 조립 과정은 PostgreSQL 조회기와 정확한 이벤트 ID 수신 fence를 주입합니다. Snapshot에 포함된 이벤트는 현재 상태를 변경하지 않는 이력 전용 journal append를 사용하므로 동일한 범위 제한 journal이 최종 수신을 입증합니다. 검토된 ARG change-feed와 Event Grid Resource 변경 출처 ID만 프로바이더 변경 검증을 충족할 수 있습니다. Core는 프로바이더 변경을 운영 상태 전이와 구분합니다. 의미 조회기는 인벤토리 수집과 동일한 `FDAI_INVENTORY_SCOPES` parser로 서버 범위를 확인하며, `AZURE_SUBSCRIPTION_ID`는 기존 단일 범위 fallback으로만 유지합니다.
+- **엄격한 의미 스키마**: 프로바이더 호환 의미 제안 스키마는 지원되지 않는 길이 키워드를 제거할 때도 대안 및 미해결 용어 각각 최대 8개라는 한도와 필수 단일 명확화 질문에 대한 설명을 유지합니다. 결정론적 서버 검증이 계속 최종 권위를 가지며 잘못된 제안은 읽기 또는 실행 권한 없이 안전하게 차단됩니다.
 - **일반 후보 재검증**: 일반 지식과 비슷하지만 검증된 one-shot 경로에 적합하지 않은 preflight 후보는 완전한 타입 지정 운영 판단으로 다시 들어갑니다. preflight 레이블이 넓다는 이유만으로 판단을 보류하지 않으며 두 번째 판단도 일반 계획 및 근거 검사를 통과하기 전에는 읽기 또는 실행 권한을 부여하지 않습니다.
 - **논리 서비스 조회 소유권**: `semantic_logical_service_frame.py`는 정확한 frame 또는 명확화 frame을 소유하고 `semantic_logical_service_planning.py`만 승인된 BusinessService 또는 Workload의 id, 이름, alias를 typed 워크로드 및 Resource 경로로 컴파일합니다. 모델 계획, 프로바이더 이름, 태그 또는 레이블로 이 서버 소유 읽기를 대체할 수 없으며 표현 계층은 실행 권한이 없는 검증된 행만 사용합니다. 생성된 System Knowledge 카탈로그는 이 설계 문구를 색인할 수 있지만 런타임 인스턴스 또는 조회 권한을 부여하지 않습니다.
 - **현재 T1 reuse 근거**: `CurrentReuseVerifier`는 변경할 수 없는 operational 사례를 위해 fresh 리소스, 토폴로지, 그래프, 소유자, 정책, 예행 실행, 안전성 사실을 수집합니다. Azure 캐시 최신성은

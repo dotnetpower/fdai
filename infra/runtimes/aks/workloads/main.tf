@@ -430,7 +430,37 @@ resource "kubernetes_deployment_v1" "workload" {
 
         security_context {
           run_as_non_root = true
+          fs_group        = each.value.fs_group
           seccomp_profile { type = "RuntimeDefault" }
+        }
+
+        dynamic "init_container" {
+          for_each = {
+            for sidecar_name, sidecar in each.value.sidecars : sidecar_name => sidecar
+            if sidecar.init != null
+          }
+          iterator = sidecar
+          content {
+            name              = sidecar.value.init.name
+            image             = sidecar.value.image
+            image_pull_policy = sidecar.value.init.image_pull_policy
+            command           = sidecar.value.init.command
+            args              = sidecar.value.init.args
+
+            security_context {
+              allow_privilege_escalation = false
+              read_only_root_filesystem  = true
+              run_as_non_root            = true
+              run_as_user                = sidecar.value.init.run_as_user
+              run_as_group               = sidecar.value.init.run_as_group
+              capabilities { drop = ["ALL"] }
+            }
+
+            volume_mount {
+              name       = "${sidecar.key}-${sidecar.value.init.writable_path}"
+              mount_path = sidecar.value.init.mount_path
+            }
+          }
         }
 
         container {
@@ -443,6 +473,7 @@ resource "kubernetes_deployment_v1" "workload" {
           security_context {
             allow_privilege_escalation = false
             read_only_root_filesystem  = true
+            run_as_non_root            = true
             capabilities { drop = ["ALL"] }
           }
 
@@ -524,6 +555,9 @@ resource "kubernetes_deployment_v1" "workload" {
             security_context {
               allow_privilege_escalation = false
               read_only_root_filesystem  = true
+              run_as_non_root            = true
+              run_as_user                = sidecar.value.run_as_user
+              run_as_group               = sidecar.value.run_as_group
               capabilities { drop = ["ALL"] }
             }
 
@@ -757,6 +791,7 @@ resource "kubernetes_cron_job_v1" "job" {
 
               security_context {
                 allow_privilege_escalation = false
+                run_as_non_root            = true
                 capabilities { drop = ["ALL"] }
               }
 

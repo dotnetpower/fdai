@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -102,9 +103,37 @@ class _Pantheon:
         )
 
 
+class _SemanticallyHeldPantheon(_Pantheon):
+    async def ask(self, **values: object) -> object:
+        turn = await super().ask(**values)
+        turn.answer["answer"] = None
+        turn.answer["abstain_reason"] = "semantic_unavailable"
+        turn.answer["semantic_judgment"] = {
+            "disposition": "abstained",
+            "reason_code": "proposal_invalid",
+            "model_identity": "narrator-gpt-5-4-mini",
+        }
+        return turn
+
+
+class _AcceptedWithoutAnswerPantheon(_Pantheon):
+    async def ask(self, **values: object) -> object:
+        turn = await super().ask(**values)
+        turn.answer["answer"] = None
+        turn.answer["semantic_judgment"] = {
+            "disposition": "accepted",
+            "reason_code": "accepted",
+        }
+        return turn
+
+
 class _DeliberatingPantheon:
+    def __init__(self) -> None:
+        self.fixed_assurance_facts: object = None
+
     async def deliberate(self, **values: object) -> dict[str, object]:
         assert values["reuse_semantic_route"] is False
+        self.fixed_assurance_facts = values.get("fixed_assurance_facts")
         return {
             "status": "completed",
             "tier": "T1",
@@ -198,16 +227,109 @@ async def test_runtime_persists_one_server_assembled_pantheon_diagnostic() -> No
     assert diagnostic["verdict"] == "pass"
     assert result["assessment_state"] == "completed"
     assert result["assessment_reasons"] == ["mixed_family_consensus"]
+    assert result["answer_generation"] == {
+        "mode": "agent_projection",
+        "model_identity": None,
+        "model_family": None,
+    }
+    assert result["pantheon_evaluator_models"] == [
+        {
+            "model_identity": "reviewer-a",
+            "model_family": "family-a",
+            "output_available": True,
+        },
+        {
+            "model_identity": "reviewer-b",
+            "model_family": "family-b",
+            "output_available": True,
+        },
+    ]
     stored = await ledger.list_assessments(principal_scope="operator-one")
     assert len(stored) == 1
     assert stored[0].decision.pantheon_diagnostic is not None
 
 
-async def test_t2_diagnostic_uses_mixed_family_review_without_fixture_verification() -> None:
+async def test_runtime_preserves_semantic_hold_reason_without_answer_attribution() -> None:
+    evaluator = _Evaluator("narrator-gpt-5-4-mini", "family-a")
+    runtime = RuntimePantheonConversationAssurance(
+        pantheon=_SemanticallyHeldPantheon(),  # type: ignore[arg-type]
+        coordinator=ConversationAssuranceCoordinator(
+            ledger=InMemoryConversationAssuranceLedger(),
+            reviewer=MixedFamilyAssuranceReviewer(
+                first=evaluator,
+                second=_Evaluator("reviewer-b", "family-b"),
+            ),
+            rubric_version="1.0.0",
+        ),
+        source_revision="a" * 40,
+        source_content_digest="b" * 64,
+    )
+    case = build_pantheon_census(PANTHEON_SPECS).cases[0]
+    request = SemanticTurnRequest(
+        utterance=case.question,
+        principal=SemanticTurnPrincipal(
+            subject_id="operator-one",
+            roles=(OperatorRole.READER,),
+        ),
+        session_id="pantheon-assurance:campaign-one",
+        turn_id="turn-held",
+        turn_sequence=0,
+        locale=case.locale,
+        purpose=f"conversation-assurance:{case.case_id}",
+        deadline_at="2026-08-30T12:00:00Z",
+    )
+
+    result = await runtime.evaluate(request, case_id=case.case_id)
+
+    assert result["answer"] == "Pantheon abstained: proposal_invalid."
+    assert result["answer_generation"] == {
+        "mode": "agent_projection",
+        "model_identity": None,
+        "model_family": None,
+    }
+    assert len(evaluator.turns) == 1
+    assert result["assessment_reasons"] == ["mixed_family_consensus"]
+
+
+async def test_runtime_does_not_render_accepted_judgment_as_abstention() -> None:
+    runtime = RuntimePantheonConversationAssurance(
+        pantheon=_AcceptedWithoutAnswerPantheon(),  # type: ignore[arg-type]
+        coordinator=ConversationAssuranceCoordinator(
+            ledger=InMemoryConversationAssuranceLedger(),
+            reviewer=MixedFamilyAssuranceReviewer(
+                first=_Evaluator("reviewer-a", "family-a"),
+                second=_Evaluator("reviewer-b", "family-b"),
+            ),
+            rubric_version="1.0.0",
+        ),
+        source_revision="a" * 40,
+        source_content_digest="b" * 64,
+    )
+    case = build_pantheon_census(PANTHEON_SPECS).cases[0]
+    request = SemanticTurnRequest(
+        utterance=case.question,
+        principal=SemanticTurnPrincipal(
+            subject_id="operator-one",
+            roles=(OperatorRole.READER,),
+        ),
+        session_id="pantheon-assurance:campaign-one",
+        turn_id="turn-accepted",
+        turn_sequence=0,
+        locale=case.locale,
+        purpose=f"conversation-assurance:{case.case_id}",
+        deadline_at="2026-08-30T12:00:00Z",
+    )
+
+    with pytest.raises(RuntimeError, match="Pantheon answer is unavailable"):
+        await runtime.evaluate(request, case_id=case.case_id)
+
+
+async def test_t2_diagnostic_binds_trusted_fixed_scenario_before_review() -> None:
     first = _Evaluator("reviewer-a", "family-a")
     second = _Evaluator("reviewer-b", "family-b")
+    pantheon = _DeliberatingPantheon()
     runtime = RuntimePantheonConversationAssurance(
-        pantheon=_DeliberatingPantheon(),  # type: ignore[arg-type]
+        pantheon=pantheon,  # type: ignore[arg-type]
         coordinator=ConversationAssuranceCoordinator(
             ledger=InMemoryConversationAssuranceLedger(),
             reviewer=MixedFamilyAssuranceReviewer(first=first, second=second),
@@ -246,11 +368,71 @@ async def test_t2_diagnostic_uses_mixed_family_review_without_fixture_verificati
     assert trace["verification_status"] == "unverified"
     assert trace["verification_authority"] == "pantheon_owned_projection"
     assert len(trace["evidence_ref_digests"]) == 0
+    assert pantheon.fixed_assurance_facts == {
+        "Freyr": {
+            "scope_ref": "fixed-t2-scenario",
+            "status": "consistent",
+        },
+        "Njord": {
+            "scope_ref": "fixed-t2-scenario",
+            "status": "conflicting",
+        },
+        "Odin": {
+            "scope_ref": "fixed-t2-scenario",
+            "status": "conflicting",
+        },
+    }
     assert len(result["pantheon_semantic_reviews"]) == 2
     assert first.turns == second.turns
     assert first.turns[0].answer_model_identity == "publisher-c:synthesizer-a"
     assert first.turns[0].answer_model_family == "family-c"
     assert "expected_t2=required" in first.turns[0].reference_facts
+    assert result["answer_generation"] == {
+        "mode": "t2_model",
+        "model_identity": "publisher-c:synthesizer-a",
+        "model_family": "family-c",
+    }
+
+
+async def test_external_t2_case_does_not_receive_fixed_scenario_facts() -> None:
+    pantheon = _DeliberatingPantheon()
+    fixed_case = next(
+        item
+        for item in build_pantheon_census(PANTHEON_SPECS).cases
+        if item.case_id == "t2-conflict-en"
+    )
+    external_case = replace(fixed_case, case_id="external-t2")
+    runtime = RuntimePantheonConversationAssurance(
+        pantheon=pantheon,  # type: ignore[arg-type]
+        coordinator=ConversationAssuranceCoordinator(
+            ledger=InMemoryConversationAssuranceLedger(),
+            reviewer=MixedFamilyAssuranceReviewer(
+                first=_Evaluator("reviewer-a", "family-a"),
+                second=_Evaluator("reviewer-b", "family-b"),
+            ),
+            rubric_version="1.0.0",
+        ),
+        source_revision="a" * 40,
+        source_content_digest="b" * 64,
+        additional_cases=(external_case,),
+    )
+    request = SemanticTurnRequest(
+        utterance=external_case.question,
+        principal=SemanticTurnPrincipal(
+            subject_id="operator-one",
+            roles=(OperatorRole.READER,),
+        ),
+        session_id="pantheon-assurance:campaign-one",
+        turn_id="turn-external",
+        turn_sequence=0,
+        locale=external_case.locale,
+        purpose=f"conversation-assurance:{external_case.case_id}",
+        deadline_at="2026-08-30T12:00:00Z",
+    )
+
+    await runtime.evaluate(request, case_id=external_case.case_id)
+
+    assert pantheon.fixed_assurance_facts is None
 
 
 async def test_required_t2_failure_defers_campaign_assessment() -> None:

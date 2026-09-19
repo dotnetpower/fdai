@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -614,6 +614,7 @@ class PantheonRuntime:
         requester: str,
         correlation_id: str = "",
         reuse_semantic_route: bool = True,
+        fixed_assurance_facts: Mapping[str, Mapping[str, object]] | None = None,
     ) -> dict[str, Any]:
         """Run bounded read-only T1/T2 discussion through Bragi."""
         if self._bragi is None:
@@ -629,6 +630,7 @@ class PantheonRuntime:
             requester=requester,
             correlation_id=correlation_id,
             reuse_semantic_route=reuse_semantic_route,
+            fixed_assurance_facts=fixed_assurance_facts,
         )
 
     def plan_conversation_tools(

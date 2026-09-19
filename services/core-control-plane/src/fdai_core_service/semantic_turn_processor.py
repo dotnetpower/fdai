@@ -528,11 +528,16 @@ class SemanticTurnProcessor:
                         "failure_type": type(exc).__name__,
                     },
                 )
+                reason_code = (
+                    "semantic_result_store_unavailable"
+                    if failure_stage.startswith("result_store_")
+                    else "semantic_runtime_failed"
+                )
                 return self._held_projection(
                     envelope,
                     request,
                     request_digest=request_digest,
-                    reason_code="semantic_result_store_unavailable",
+                    reason_code=reason_code,
                 )
             if winner is None:
                 return self._held_projection(
@@ -6417,7 +6422,7 @@ def _validate_pantheon_assurance_result(result: Mapping[str, object]) -> None:
         or not isinstance(result.get("trace_receipt_id"), str)
         or any(not isinstance(result.get(key), Mapping) for key in required_mappings)
         or not isinstance(result.get("pantheon_semantic_reviews"), list)
-        or result.get("assessment_state") not in {"completed", "deferred"}
+        or result.get("assessment_state") not in {"completed", "deferred", "held"}
         or not isinstance(assessment_reasons, list)
         or any(not isinstance(reason, str) or not reason for reason in assessment_reasons)
         or result.get("execution_authority") is not False

@@ -124,6 +124,15 @@ async def test_series_stops_after_first_held_child(tmp_path: Path) -> None:
     assert series_rows[0]["corpus_digest"] == series_rows[1]["corpus_digest"]
     assert series_rows[1]["state"] == "held"
     assert series_rows[1]["evaluated"] == 21
+    child_rows = tuple(
+        row
+        for row in PrivateJsonlLedger(tmp_path / "campaigns.jsonl").read()
+        if row["event"] == "campaign_completed"
+    )
+    assert child_rows[0]["attempted_case_ids"] == [f"case-{index}" for index in range(20)]
+    assert child_rows[0]["held_case_id"] is None
+    assert child_rows[1]["attempted_case_ids"] == ["case-20", "case-21"]
+    assert child_rows[1]["held_case_id"] == "case-21"
 
 
 async def test_unexpected_evaluator_failure_records_content_free_hold(tmp_path: Path) -> None:
@@ -140,6 +149,8 @@ async def test_unexpected_evaluator_failure_records_content_free_hold(tmp_path: 
     rows = PrivateJsonlLedger(tmp_path / "campaigns.jsonl").read()
     assert rows[-1]["event"] == "campaign_completed"
     assert rows[-1]["reason"] == "measurement_error:RuntimeError"
+    assert rows[-1]["attempted_case_ids"] == ["case-1"]
+    assert rows[-1]["held_case_id"] == "case-1"
     assert "private provider detail" not in str(rows[-1])
 
 
