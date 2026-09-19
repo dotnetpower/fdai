@@ -23,6 +23,12 @@ as a changed resource type. Unified risk audit records serialize the risk gate's
 `shadow` or `enforce` mode separately from the authority ceiling. Operator projections use that
 explicit field and keep a legacy mode unavailable instead of inferring promotion. Recorded Resource state normalization, type-specific applicability, and allowlisted canonical unavailable reasons remain in the shared contract, Core, and Azure delivery; the Operator owns the read-only conversion, and the Console only localizes the resulting reason. Configuration-drift delivery likewise stays in `delivery/azure/` and protected Core service composition: reviewed snapshots move only through a content-addressed private Blob, runtime reads use Managed Identity, and the exact server-owned binding is verified independently after apply. Independent-service plan guards treat command and environment changes as part of the rollback boundary, and platform-owned secret references are refreshed from the current platform state before materialization instead of being trusted from retained service inputs. The isolated Executor may adopt the previously absent default-off legacy-unbound transition binding exactly once; enabling or replaying it, or combining it with unrelated runtime drift, remains ineligible.
 
+Discovery contracts remain authority-free shared records. Plan schema `1.2.0` retains result kind;
+Core enforces profile ceilings and the exact expected plan set before merging results. Azure
+delivery binds execution receipts to the plan and reconciles coverage against the expected scope,
+platform, and result count. Historical aggregate canaries do not certify a production service
+binding or collector promotion. See [discovery verification boundaries](../interfaces/azure-resource-discovery-commands.md#verification-boundaries).
+
 ## Core domain navigation decision
 
 **Initial design.** Physically move every flat Core subsystem under `pipeline`, `incident`,

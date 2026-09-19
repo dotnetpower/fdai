@@ -10,6 +10,7 @@ from fdai_service_contracts.discovery import (
     DiscoveryOperationProfile,
     DiscoveryPredicate,
     DiscoveryQueryPlan,
+    DiscoveryResultKind,
     DiscoveryScopeKind,
     DiscoveryUniverse,
 )
@@ -184,7 +185,7 @@ def _arg_command(
             "--graph-query",
             f"<registered-kql:{command_id}>",
             "--first",
-            str(plan.limits.max_results),
+            str(min(plan.limits.max_results, 1000)),
             "--output",
             "json",
         ),
@@ -201,14 +202,24 @@ def _render_kql(
     clauses = [table]
     if resource_groups:
         clauses.append("where type =~ 'microsoft.resources/subscriptions/resourcegroups'")
+    if plan.scope_kind is DiscoveryScopeKind.RESOURCE_GROUP:
+        scope_field = "name" if resource_groups else "resourceGroup"
+        clauses.append(f"where {scope_field} =~ '<resource-group>'")
     for index, predicate in enumerate(plan.predicates, start=1):
         clauses.append(_predicate_template(predicate, index=index))
-    clauses.extend(
-        (
-            "project id, type, name, subscriptionId, resourceGroup, location, tags",
-            "order by id asc",
+    if plan.result_kind is DiscoveryResultKind.COUNT:
+        clauses.append("summarize discovered_count=count()")
+    elif plan.result_kind is DiscoveryResultKind.TYPES:
+        clauses.extend(("summarize resource_count=count() by type", "order by type asc"))
+    elif plan.result_kind is DiscoveryResultKind.LIST:
+        clauses.extend(
+            (
+                "project id, type, name, subscriptionId, resourceGroup, location, tags",
+                "order by id asc",
+            )
         )
-    )
+    else:
+        raise ValueError("registered Azure command does not support this result kind")
     return " | ".join(clauses)
 
 

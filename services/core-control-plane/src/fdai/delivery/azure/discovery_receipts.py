@@ -43,6 +43,8 @@ def build_provider_execution_receipt(
         DiscoveryBackend.REGISTERED_CLI,
     }:
         raise ValueError("provider execution receipt requires an executed Azure read backend")
+    if plan.operation_id != operation.operation_id or plan.backend is not operation.backend:
+        raise ValueError("execution receipt operation MUST match the exact plan")
     rendered = render_registered_azure_command(plan=plan, operation=operation)
     preview = tuple(_preview(row) for row in preview_rows[:10])
     result = ProviderExecutionResult(
@@ -68,6 +70,7 @@ def build_provider_execution_receipt(
         ),
         "page_count": page_count,
         "commands": (command,),
+        "plan_digest": plan.plan_digest,
     }
     return ProviderExecutionReceipt.model_validate(
         {"receipt_digest": provider_execution_receipt_digest(**values), **values}
@@ -101,6 +104,7 @@ def build_provider_coverage_canary_receipt(
         "backend": "azure_resource_graph",
         "page_count": 1,
         "commands": (command,),
+        "plan_digest": plan.plan_digest,
     }
     return ProviderExecutionReceipt.model_validate(
         {"receipt_digest": provider_execution_receipt_digest(**values), **values}

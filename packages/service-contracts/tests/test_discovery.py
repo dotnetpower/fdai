@@ -202,6 +202,24 @@ def test_profile_rejects_executable_fields_and_accepts_registered_metadata() -> 
         DiscoveryProfile.model_validate(payload)
 
 
+@pytest.mark.parametrize("status", ["unauthorized", "unsupported", "partial", "unmapped"])
+def test_incomplete_status_cannot_claim_complete_results(status: str) -> None:
+    values = {
+        "plan_digest": DIGEST,
+        "universe": "arm_resources",
+        "backend": "resource_graph",
+        "status": status,
+        "truncated": False,
+        "observed_at": datetime(2026, 1, 1, tzinfo=UTC),
+        "reason_code": "source_unavailable",
+    }
+    with pytest.raises(ValidationError, match="MUST be incomplete"):
+        DiscoveryPlanResult.model_validate({**values, "complete": True})
+    result = DiscoveryPlanResult.model_validate({**values, "complete": False})
+    assert not result.complete
+    assert not result.truncated
+
+
 def test_merged_result_cannot_hide_incomplete_plan() -> None:
     observation = ProviderResourceObservation(
         provider_ref_digest=DIGEST,

@@ -302,6 +302,8 @@ def _evidence_payload(*, expected_subscription_id: str, observed_at: datetime) -
         receipts=tuple(coverage_receipts),
         evaluated_at=observed_at,
         max_age_seconds=3_600,
+        scope_digest=scope_digest,
+        platform_version=platform_version,
     )
     if not reconciliation.complete:
         raise CanaryError("Azure discovery coverage reconciliation is incomplete")
@@ -407,6 +409,11 @@ def validate_evidence_payload(payload: object) -> None:
         receipts=coverage,
         evaluated_at=generated_at,
         max_age_seconds=3_600,
+        scope_digest=coverage[0].scope_digest,
+        platform_version=(
+            f"arg@{_ARG_API_VERSION}+azure-cli@{_AZURE_CLI_VERSION}+"
+            f"resource-graph@{_RESOURCE_GRAPH_EXTENSION_VERSION}"
+        ),
     )
     expected_reconciliation = {
         "matched_receipt_digests": list(reconciliation.matched_receipt_digests),

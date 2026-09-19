@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fdai.core.discovery.router import BackendEligibility, compile_discovery_routes
 from fdai.delivery.azure.discovery_coverage import (
     build_discovery_coverage_receipt,
@@ -29,7 +30,7 @@ DIGEST = "sha256:" + ("a" * 64)
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
 
 
-def _coverage_receipt(profile_index: int, *, source: str = "live_canary"):
+def _coverage_receipt(profile_index: int, *, source: str = "live_canary", claimed_count: int = 1):
     profile = default_azure_discovery_profiles()[profile_index]
     operation = next(item for item in profile.operations if item.backend.value == "resource_graph")
     values: dict[str, object] = {
@@ -72,11 +73,38 @@ def _coverage_receipt(profile_index: int, *, source: str = "live_canary"):
         plan=plan,
         execution_receipt=execution,
         observed_provider_types=("Example.Provider/widgets",),
-        discovered_count=1,
+        discovered_count=claimed_count,
         platform_version="resource-graph-2022-10-01",
         source=source,
         observed_at=NOW,
     )
+
+
+def test_coverage_rejects_a_count_not_supported_by_execution() -> None:
+    with pytest.raises(ValueError, match="count MUST match the executed result"):
+        _coverage_receipt(1, claimed_count=999)
+
+
+@pytest.mark.parametrize(
+    ("scope_digest", "platform_version"),
+    [
+        ("sha256:" + "b" * 64, "resource-graph-2022-10-01"),
+        (DIGEST, "different-platform-version"),
+    ],
+)
+def test_coverage_is_bound_to_the_expected_scope_and_platform(
+    scope_digest: str, platform_version: str
+) -> None:
+    result = reconcile_discovery_coverage(
+        claims=discovery_coverage_claims(default_azure_discovery_profiles()),
+        receipts=(_coverage_receipt(0), _coverage_receipt(1)),
+        evaluated_at=NOW,
+        max_age_seconds=3600,
+        scope_digest=scope_digest,
+        platform_version=platform_version,
+    )
+    assert not result.complete
+    assert len(result.gaps) == 2
 
 
 def test_claims_cover_each_registered_arg_universe() -> None:
@@ -146,6 +174,8 @@ def test_reconciliation_requires_fresh_live_receipt_for_every_claim() -> None:
         receipts=receipts,
         evaluated_at=NOW,
         max_age_seconds=3600,
+        scope_digest=DIGEST,
+        platform_version="resource-graph-2022-10-01",
     )
 
     assert result.complete is True
@@ -163,6 +193,8 @@ def test_fixture_or_stale_receipt_cannot_validate_live_coverage() -> None:
         receipts=(fixture, stale),
         evaluated_at=NOW,
         max_age_seconds=3600,
+        scope_digest=DIGEST,
+        platform_version="resource-graph-2022-10-01",
     )
 
     assert result.complete is False
@@ -181,6 +213,8 @@ def test_wrong_profile_revision_remains_an_explicit_gap() -> None:
         receipts=(_coverage_receipt(1),),
         evaluated_at=NOW,
         max_age_seconds=3600,
+        scope_digest=DIGEST,
+        platform_version="resource-graph-2022-10-01",
     )
 
     assert result.complete is False

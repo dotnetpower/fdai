@@ -31,7 +31,12 @@ from pydantic import ValidationError
 DIGEST = "sha256:" + ("a" * 64)
 
 
-def _intent(profile_index: int = 1) -> DiscoveryIntent:
+def _intent(
+    profile_index: int = 1,
+    *,
+    result_kind: DiscoveryResultKind = DiscoveryResultKind.LIST,
+    scope_kind: DiscoveryScopeKind = DiscoveryScopeKind.SUBSCRIPTION,
+) -> DiscoveryIntent:
     universe = (
         DiscoveryUniverse.RESOURCE_CONTAINERS
         if profile_index == 0
@@ -39,9 +44,9 @@ def _intent(profile_index: int = 1) -> DiscoveryIntent:
     )
     predicate = DiscoveryPredicate(field="name", operator="contains", values=("example",))
     values: dict[str, object] = {
-        "result_kind": DiscoveryResultKind.LIST,
+        "result_kind": result_kind,
         "universes": (universe,),
-        "scope_kind": DiscoveryScopeKind.SUBSCRIPTION,
+        "scope_kind": scope_kind,
         "scope_digest": DIGEST,
         "predicates": (predicate,),
         "limits": DiscoveryLimits(max_results=100),
@@ -52,10 +57,10 @@ def _intent(profile_index: int = 1) -> DiscoveryIntent:
     return DiscoveryIntent(intent_digest=discovery_intent_digest(**values), **values)
 
 
-def _plan(profile_index: int = 1):
+def _plan(profile_index: int = 1, **intent_options):
     profile = default_azure_discovery_profiles()[profile_index]
     operation = profile.operations[1]
-    intent = _intent(profile_index)
+    intent = _intent(profile_index, **intent_options)
     eligibility = BackendEligibility(
         operation_id=operation.operation_id,
         available=True,
@@ -203,6 +208,29 @@ def test_command_explanation_matches_golden_and_is_equivalent_only() -> None:
     assert explanation.execution_authority is False
     assert "/subscriptions/hidden/resourceGroups/" not in encoded
     assert "00000000-0000-0000-0000-000000000000" not in encoded
+
+
+@pytest.mark.parametrize(
+    ("result_kind", "expected"),
+    [
+        (DiscoveryResultKind.COUNT, "summarize discovered_count=count()"),
+        (DiscoveryResultKind.TYPES, "summarize resource_count=count() by type"),
+    ],
+)
+def test_explanation_preserves_scope_and_result_kind(result_kind, expected) -> None:
+    _profile, operation, plan = _plan(
+        result_kind=result_kind, scope_kind=DiscoveryScopeKind.RESOURCE_GROUP
+    )
+    explanation = render_command_explanation(
+        plan=plan,
+        operation=operation,
+        validated_at=datetime(2026, 1, 1, tzinfo=UTC),
+        cli_version="2.87.0",
+    )
+    assert plan.result_kind is result_kind
+    assert "where resourceGroup =~ '<resource-group>'" in explanation.kql_template
+    assert expected in explanation.kql_template
+    assert "project id" not in explanation.kql_template
 
 
 def test_coverage_contract_exposes_documented_unmapped_state() -> None:

@@ -68,6 +68,27 @@ def build_discovery_coverage_receipt(
 
     if plan.profile_id != profile.profile_id or plan.profile_revision != profile.revision:
         raise ValueError("coverage plan MUST match the discovery profile revision")
+    if execution_receipt.plan_digest != plan.plan_digest:
+        raise ValueError("coverage execution receipt MUST bind the exact plan")
+    expected_backend = (
+        "azure_resource_graph"
+        if plan.backend is DiscoveryBackend.RESOURCE_GRAPH
+        else "azure_resource_manager"
+    )
+    if execution_receipt.backend != expected_backend:
+        raise ValueError("coverage execution backend MUST match the plan")
+    if execution_receipt.page_count > plan.limits.max_pages:
+        raise ValueError("coverage execution exceeds the plan page limit")
+    if (
+        any(command.result is None for command in execution_receipt.commands)
+        or sum(
+            command.result.count
+            for command in execution_receipt.commands
+            if command.result is not None
+        )
+        != discovered_count
+    ):
+        raise ValueError("coverage count MUST match the executed result")
     if len(plan.universes) != 1:
         raise ValueError("coverage receipt requires one plan universe")
     if state not in {DiscoveryCoverageStatus.COVERED, DiscoveryCoverageStatus.FALLBACK}:
@@ -144,6 +165,8 @@ def reconcile_discovery_coverage(
     receipts: tuple[DiscoveryCoverageReceipt, ...],
     evaluated_at: datetime,
     max_age_seconds: int,
+    scope_digest: str,
+    platform_version: str,
     require_live: bool = True,
 ) -> DiscoveryCoverageReconciliation:
     """Require one fresh complete receipt per claim without mutating any catalog state."""
@@ -152,10 +175,19 @@ def reconcile_discovery_coverage(
         raise ValueError("coverage reconciliation evaluated_at MUST include a timezone")
     if max_age_seconds < 1:
         raise ValueError("coverage reconciliation max_age_seconds MUST be positive")
+    if not claims or not scope_digest or not platform_version:
+        raise ValueError("coverage reconciliation requires claims, scope, and platform")
     matched: list[str] = []
     gaps: list[DiscoveryCoverageGap] = []
     for claim in claims:
-        candidates = tuple(receipt for receipt in receipts if _matches(claim, receipt))
+        candidates = tuple(
+            receipt
+            for receipt in receipts
+            if _matches(claim, receipt)
+            and receipt.scope_digest == scope_digest
+            and receipt.platform_version == platform_version
+            and receipt.cloud == "azure"
+        )
         if not candidates:
             gaps.append(DiscoveryCoverageGap(claim=claim, reason_code="receipt_missing"))
             continue

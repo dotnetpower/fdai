@@ -25,46 +25,6 @@ plan produces normalized evidence and a sanitized `CommandExplanation`, so the a
 how to reproduce the read without exposing the server's credentials or raw executed argv.
 
 ![Design at a glance. The main stages are Operator question, DiscoveryIntent, Ontology and provider profile, DiscoveryQueryPlan, Backend router, Promoted inventory, Resource Graph, ARM, registered CLI, or typed data plane, Normalized evidence, Sanitized command explanation, Grounded ChatOps answer.](../../diagrams/generated/fdai-roadmap-interfaces-azure-resource-discovery-commands-01.en.svg)
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Resource vocabulary and Azure type discrimination | implemented | [`resource-types.yaml`](../../../rule-catalog/vocabulary/resource-types.yaml), [`resource_type.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/resource_type.py), and focused catalog and ARG tests | Query terms, category terms, stable mapping digests, and reviewed Azure `kind` discrimination exist for cataloged types only. |
-| Inventory-language registry | implemented | [`inventory_query_language.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/inventory_query_language.py) and [`test_inventory_query_language.py`](../../../services/core-control-plane/tests/rule_catalog/test_inventory_query_language.py) | The validated registry and digest exist. This is not an `InventoryQuery` or `DiscoveryQueryPlan` compiler. |
-| Selective Azure inventory adapters | implemented | [`arg_query.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py), [`inventory.py`](../../../services/core-control-plane/src/fdai/delivery/azure/inventory.py), [`arm_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arm_inventory.py), and their focused tests | ARG and ARM adapters query catalog-resolved resource types with bounded pagination and fail-closed behavior. No central discovery-plan router is implied. |
-| Selective operator inventory filtering | implemented | [`_system_inventory_tool.py`](../../../services/core-control-plane/src/fdai/core/conversation/_system_inventory_tool.py) and [`test_system_tools.py`](../../../services/core-control-plane/tests/conversation/test_system_tools.py) | The tool filters a supplied snapshot by neutral type, id substring, and resource group. It does not compile general discovery intent. |
-| Conversational read-intent boundary | implemented | [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_judgment.py), [`routing.py`](../../../services/core-control-plane/src/fdai/core/read_investigation/routing.py), and focused semantic-judgment and read-investigation routing tests | Shared candidate-only semantic judgment proposes English, Korean, and mixed-language meaning and source-grounded targets. Deterministic code retains exact registered-intent, resource-identity, budget, and evidence-authority checks. This boundary is not the `DiscoveryIntent` compiler or discovery backend router. |
-| Console provider-execution parsing | implemented | [`inventory-execution-display.ts`](../../../console/src/deck/inventory-execution-display.ts) and its focused test | The Console displays only structurally valid, redacted, bounded `provider_execution` records and keeps them separate from IQL. |
-| Provider-execution receipt emission | implemented | [`discovery_receipts.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_receipts.py), [`discovery_evidence.py`](../../../packages/service-contracts/src/fdai_service_contracts/discovery_evidence.py), and focused Python and Console parser tests | The producer accepts an exact registered plan and bounded result summary, never raw argv, credentials, continuation tokens, resource ids, or provider errors. |
-| Comprehensive discovery contracts and profiles | implemented | [`discovery.py`](../../../packages/service-contracts/src/fdai_service_contracts/discovery.py), [`discovery_profiles.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_profiles.py), [`discovery_observations.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_observations.py), and focused contract and delivery tests (`44 passed`) | Frozen digest-bound intents, plans, profiles, and mapped or unmapped provider observations reject executable text and unresolved modifiers. Plans pin normalization, ARG or ARM API, Azure CLI, and extension versions. |
-| Central routing, command explanation, and coverage proof | validated | [`router.py`](../../../services/core-control-plane/src/fdai/core/discovery/router.py), [`discovery_explanation.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_explanation.py), [`discovery_coverage.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_coverage.py), [`azure-discovery-live-evidence.json`](../../../config/azure-discovery-live-evidence.json), and focused tests | Exact-equivalent fallback, canonical merge, sanitized explanation, and live-only reconciliation are implemented. Governed aggregate-only canaries validate the subscription-scoped `ResourceContainers` and `Resources` claims in profile revision `1.1.0`; broader universes remain outside this validated row. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-08-13 | in-progress | Adopted this implementation ledger and corrected the previous baseline summary; earlier provenance was not reconstructed. | Current change; focused checks: catalog registries `38 passed`, Azure adapters `116 passed`, system tools `19 passed`, and Console parser `2 passed`. | Implement the open contracts, receipt producer, routing, explanation, coverage, and governed runtime evidence below. |
-| 2026-08-14 | in-progress | Added immutable discovery contracts and Azure profiles, preserved unmapped provider observations, implemented exact-equivalent routing and canonical merge, and generated sanitized execution and command-explanation evidence with live-only coverage reconciliation. | `current change`; focused discovery tests `34 passed`, Console parser `6 passed`, task-scoped Ruff, strict mypy over eight production files, and Console typecheck passed. | Retain fresh governed read-only canary receipts for the claimed resource-container and ARM-resource universes. |
-| 2026-08-14 | in-progress | Added the documented `unmapped` coverage state and rejected environment assignments in server and Console command evidence. | `current change`; focused discovery tests `36 passed`, Console parser `7 passed`, task-scoped Ruff, strict contract mypy, and Console typecheck passed. | Retain fresh governed read-only canary receipts for the claimed resource-container and ARM-resource universes. |
-| 2026-08-14 | in-progress | Pinned normalization and observed ARG, ARM, Azure CLI, and Resource Graph extension versions in additive profile and plan revision `1.1.0`, and proved three reviewed English and Korean scenario pairs produce identical typed routing and authority checks. | `current change`; focused discovery tests `40 passed`, task-scoped Ruff, strict mypy, and the Core import boundary gate passed. | Retain fresh governed read-only canary receipts for the claimed resource-container and ARM-resource universes. |
-| 2026-08-14 | in-progress | Hardened command evidence after independent review so placeholders remain valid while redirects, control characters, and executable shell words are rejected by both server and Console boundaries. | `current change`; focused discovery tests `44 passed`, Console parser tests `11 passed`, strict mypy, Ruff, and Console typecheck passed. | Retain fresh governed read-only canary receipts for the claimed resource-container and ARM-resource universes. |
-| 2026-08-14 | validated | Recorded governed aggregate-only Azure CLI canaries for the subscription-scoped resource-container and ARM-resource claims, retained only counts and provider-type set digests, and reconciled both claims without gaps or execution authority. | `current change`; [`record-azure-discovery-canary.py`](../../../scripts/automation/record-azure-discovery-canary.py), [`azure-discovery-live-evidence.json`](../../../config/azure-discovery-live-evidence.json), focused recorder tests `4 passed`, offline evidence validation passed, and centralized validation receipts passed for the recorder commits. | No remaining work for the two declared discovery-profile claims; add separate claims and evidence before validating broader universes. |
-| 2026-08-29 | validated | Refreshed the governed aggregate-only Azure discovery canary over the private network with Azure CLI `2.89.1`. The two declared universes reconciled as complete with 46 resource containers, 554 ARM resources, 70 ARM provider types, no gaps, and no execution authority. | `current change`; [`record-azure-discovery-canary.py`](../../../scripts/automation/record-azure-discovery-canary.py), [`azure-discovery-live-evidence.json`](../../../config/azure-discovery-live-evidence.json), and focused recorder tests `4 passed`. | Add separate reviewed claims and governed receipts before validating broader discovery universes. |
-| 2026-08-18 | implemented | Recognized a Korean state request phrased without one of the four fixed noun pairs. A resource-kind noun before `상태`, or `상태` followed by a request verb, now classifies as a current-state read, and the peering, health, history, and attribution routes keep their precedence. | `current change`; `core/read_investigation/routing.py`, `tests/core/read_investigation/test_routing.py`; 1269 focused read-investigation and agent cases passed; task-scoped Ruff and format passed. | The deterministic route still informs agent selection only; the Console semantic turn does not consult it. |
-| 2026-08-21 | implemented | Superseded the preceding language-specific classifier with shared candidate-only semantic judgment. Read-investigation routing now performs only exact identifier parsing after an accepted judgment, while deterministic registered-intent, plan-ownership, evidence-budget, and provider-authority checks remain unchanged. | Commit `8fd040a7`; [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_judgment.py), [`routing.py`](../../../services/core-control-plane/src/fdai/core/read_investigation/routing.py), and [`check-chat-semantic-routing.py`](../../../scripts/quality/architecture/check-chat-semantic-routing.py); focused read-investigation checks passed 9 cases and the semantic-routing guard reported no migration paths. | Discovery-profile compilation and backend selection remain a separate deterministic boundary. |
-
-### Remaining work
-
-- [x] Add bounded `DiscoveryIntent` and immutable `DiscoveryQueryPlan` contracts plus profile-schema tests that reject executable text and unresolved modifiers.
-- [x] Preserve unknown Azure provider types as bounded `mapping_status=unmapped` observations, with focused tests proving they are not dropped or promoted into the neutral ontology.
-- [x] Implement a server-owned `provider_execution` receipt producer and prove that credentials, pagination tokens, raw resource ids, and provider errors cannot reach the Console record.
-- [x] Implement central backend eligibility, equivalent fallback, per-plan completeness, and canonical merge tests without weakening scope or predicates.
-- [x] Generate sanitized `CommandExplanation` records from registered plans and pass property and golden tests for shell controls, identifiers, redaction, and equivalent-command labeling.
-- [x] Record coverage reconciliation and governed read-only live canary receipts for each claimed universe before promoting any corresponding row to `validated`; the retained artifact validates both profile revision `1.1.0` claims with zero gaps and no execution authority.
-
 ## Current baseline and gaps
 
 The current implementation provides catalog-owned resource query terms and category terms, a
@@ -88,6 +48,24 @@ The baseline does not satisfy comprehensive discovery:
   plans, and cross-provider command explanations remain outside the validated profile set.
 - **ARG and ARM are partial:** Specialized ARG tables, provider-specific details, tenant directory
   objects, and data-plane objects require different typed plans and identities.
+
+## Verification boundaries
+
+Discovery plan schema `1.2.0` preserves the requested result kind. Compilation rejects limits above
+the registered profile, and merging requires every expected plan with matching intent, scope,
+authorization ceiling, universe, and backend. An unauthorized or otherwise incomplete result
+cannot become complete merely because no pagination truncation occurred.
+
+New execution receipts bind their exact plan digest. Coverage construction verifies that binding,
+backend, page limit, and observed result count. Reconciliation requires the expected scope digest
+and platform version. Historical receipts without a plan binding remain readable as historical
+records; they cannot be used to construct new plan-bound coverage.
+
+ARG reproduction templates retain Resource Group scope and list, count, or type-result semantics.
+The CLI page size never exceeds 1,000 even when a registered plan permits a larger overall result.
+These component checks do not establish a conversational runtime binding. Aggregate-only CLI
+canaries also do not qualify the workload identity, collector pagination, normalization, snapshot
+promotion, or restricted-network failover. Those claims require separate exact-revision evidence.
 
 ## Discovery universe
 
@@ -325,6 +303,7 @@ The first release is complete when:
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/azure-resource-discovery-commands.md) |
 | Read-investigation execution and evidence | [Azure Read Investigations](azure-read-investigations.md) |
 | ChatOps tools and narrator boundaries | [Operator Console](operator-console.md) |
 | Shared semantic resource meaning | [Operating Ontology](../architecture/operating-ontology.md) |

@@ -249,9 +249,10 @@ class DiscoveryProfile(QueryContract):
 class DiscoveryQueryPlan(QueryContract):
     """Immutable registered backend plan that cannot carry operator-authored execution text."""
 
-    schema_version: Literal["1.1.0"] = "1.1.0"
+    schema_version: Literal["1.2.0"] = "1.2.0"
     plan_id: Annotated[str, Field(pattern=_ID_PATTERN)]
     intent_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+    result_kind: DiscoveryResultKind = DiscoveryResultKind.LIST
     profile_id: Annotated[str, Field(pattern=_ID_PATTERN)]
     profile_revision: Annotated[str, Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")]
     universes: Annotated[tuple[DiscoveryUniverse, ...], Field(min_length=1, max_length=7)]
