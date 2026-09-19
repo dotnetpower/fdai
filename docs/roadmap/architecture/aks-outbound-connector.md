@@ -199,6 +199,27 @@ storage and current reads verify signatures, scope, expiry and revocation again.
 executable Kubernetes read preflight, not an automatically scheduled complete deployment preflight.
 Azure policy, artifact, capacity, storage, network and installation-owner producers remain open.
 
+### Gateway admission preflight
+
+Gateway inspection uses a bounded mTLS challenge without writing snapshot or inventory state.
+The actual client certificate selects a current server-owned observer registration. The request
+binds that registration scope and a fresh nonce; the response echoes both with server time and
+false execution authority. Client verification checks exact fields, TLS, scope, nonce and freshness.
+The registered preflight signer can emit only `mtls_gateway` from this exchange. An authenticated
+gateway response does not prove network-policy allowance, public/private route classification,
+future availability, graph promotion or installation authority. Missing or rejected responses stay
+unknown, without redirect following or retry. No credential value enters the receipt or audit.
+
+`collect-gateway-preflight --config /private/gateway-preflight.json` on the existing proposal CLI
+uses `target_ref`, `discovery_digest`, `issuer_ref`, `producer_revision`, `signing_key_path`,
+`grants_path` and `observer_config_path`. All configuration and private keys remain owner-only.
+The referenced observer configuration supplies the exact enrollment, gateway origin and client
+certificate. Current enrollment is rechecked after the challenge and bounds the signed fact's expiry.
+The server uses `POST /v1/connector/preflight`, a 1 KiB request cap, existing concurrency/deadline
+limits and a second enrollment read. Client responses are capped at 4 KiB and server clock skew
+at five seconds. A verifier grant must explicitly allow `mtls_gateway` from `network_probe`.
+Retain the signed result through `retain-preflight`; no automatic schedule or route allowance is implied.
+
 ### Operator delivery contract
 
 The Core producer publishes proposal snapshots on a dedicated logical event topic over the existing

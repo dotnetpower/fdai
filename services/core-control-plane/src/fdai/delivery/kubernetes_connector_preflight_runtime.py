@@ -9,12 +9,14 @@ import ssl
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from fdai_service_contracts.cluster_connector import ConnectorContract, Digest, connector_time
 from fdai_service_contracts.observer_deployment import (
     ObserverDeploymentContext,
+    ObserverDeploymentFact,
     ObserverDeploymentProposal,
     ObserverPreflightReceipt,
     TargetRef,
@@ -34,19 +36,28 @@ from fdai.shared.providers.state_store import StateStore
 PREFLIGHT_GRANTS_ENV = "FDAI_OBSERVER_PREFLIGHT_GRANTS_PATH"
 
 
-class ObserverReadPreflightConfig(ConnectorContract):
+class ObserverSigningConfig(ConnectorContract):
     """Private deployment binding; files contain references, never embedded credentials."""
 
     target_ref: TargetRef
     discovery_digest: Digest
     issuer_ref: TargetRef
     producer_revision: Digest
+    signing_key_path: Path
+    grants_path: Path
+
+
+class ObserverReadPreflightConfig(ObserverSigningConfig):
+    """Exact Kubernetes API identity binding for a signed preflight observation."""
+
     api_origin: str
     namespace_uid: TargetRef
     api_ca_path: Path
     api_token_path: Path
-    signing_key_path: Path
-    grants_path: Path
+
+
+class ObserverGatewayPreflightConfig(ObserverSigningConfig):
+    observer_config_path: Path
 
 
 class ObserverAdmissionPreflightConfig(ObserverReadPreflightConfig):
@@ -61,18 +72,25 @@ async def collect_read_preflight(
     path: Path, *, now: Callable[[], datetime]
 ) -> ObserverPreflightReceipt:
     """Perform only the exact reader's authorization probes and sign their observed fact."""
-    return await _collect_preflight(path, now=now, admission=False)
+    return await _collect_preflight(path, now=now, kind="read")
 
 
 async def collect_admission_preflight(
     path: Path, *, now: Callable[[], datetime]
 ) -> ObserverPreflightReceipt:
     """Inspect server admission using only dry-run creates; never install or grant approval."""
-    return await _collect_preflight(path, now=now, admission=True)
+    return await _collect_preflight(path, now=now, kind="admission")
+
+
+async def collect_gateway_preflight(
+    path: Path, *, now: Callable[[], datetime]
+) -> ObserverPreflightReceipt:
+    """Perform an exact enrolled mTLS challenge and sign only its gateway admission fact."""
+    return await _collect_preflight(path, now=now, kind="gateway")
 
 
 async def _collect_preflight(
-    path: Path, *, now: Callable[[], datetime], admission: bool
+    path: Path, *, now: Callable[[], datetime], kind: Literal["read", "admission", "gateway"]
 ) -> ObserverPreflightReceipt:
     import hashlib
 
@@ -82,7 +100,11 @@ async def _collect_preflight(
 
     content = await asyncio.to_thread(private_file, path)
     config = (
-        ObserverAdmissionPreflightConfig if admission else ObserverReadPreflightConfig
+        ObserverGatewayPreflightConfig
+        if kind == "gateway"
+        else ObserverAdmissionPreflightConfig
+        if kind == "admission"
+        else ObserverReadPreflightConfig
     ).model_validate(json.loads(content, object_pairs_hook=_unique))
     private = load_pem_private_key(
         await asyncio.to_thread(private_file, config.signing_key_path), password=None
@@ -98,19 +120,29 @@ async def _collect_preflight(
         or grant.revoked
         or not grant.valid_from <= cutoff < grant.expires_at
         or grant.producer_revision != config.producer_revision
-        or "kubernetes_api"
-        not in grant.allowed_facts.get("admission" if admission else "kubernetes_read", ())
+        or ("network_probe" if kind == "gateway" else "kubernetes_api")
+        not in grant.allowed_facts.get(
+            "mtls_gateway"
+            if kind == "gateway"
+            else "admission"
+            if kind == "admission"
+            else "kubernetes_read",
+            (),
+        )
     ):
         raise ValueError("observer preflight verifier is unavailable")
-    tls = ssl.create_default_context(cafile=str(config.api_ca_path))
-    probe = KubernetesObserverReadPreflight(
-        origin=config.api_origin,
-        target_ref=config.target_ref,
-        namespace_uid=config.namespace_uid,
-        auth=ServiceAccountTokenAuth(config.api_token_path),
-        tls=tls,
-        now=now,
-    )
+    if isinstance(config, ObserverGatewayPreflightConfig):
+        fact = await _collect_gateway_fact(config, now=now)
+    else:
+        tls = ssl.create_default_context(cafile=str(config.api_ca_path))
+        probe = KubernetesObserverReadPreflight(
+            origin=config.api_origin,
+            target_ref=config.target_ref,
+            namespace_uid=config.namespace_uid,
+            auth=ServiceAccountTokenAuth(config.api_token_path),
+            tls=tls,
+            now=now,
+        )
     if isinstance(config, ObserverAdmissionPreflightConfig):
         from fdai.delivery.kubernetes_connector_installation import ObserverInstallationInput
 
@@ -129,7 +161,7 @@ async def _collect_preflight(
         fact = await probe.collect_installation(
             inputs, proposal, material_directory=config.material_directory
         )
-    else:
+    elif isinstance(config, ObserverReadPreflightConfig):
         fact = await probe.collect()
     context = ObserverDeploymentContext(
         target_ref=config.target_ref,
@@ -152,6 +184,47 @@ async def _collect_preflight(
     )
     await verify_preflight(receipt, grants=grants, now=now(), clock=now)
     return receipt
+
+
+async def _collect_gateway_fact(
+    config: ObserverGatewayPreflightConfig, *, now: Callable[[], datetime]
+) -> ObserverDeploymentFact:
+    from fdai.delivery.kubernetes_connector_gateway_probe import GatewayObserverPreflight
+    from fdai.delivery.kubernetes_connector_runtime import (
+        FileConnectorRegistrations,
+        connector_tls,
+        load_connector_config,
+    )
+
+    observer = await asyncio.to_thread(load_connector_config, config.observer_config_path)
+    if observer.role != "observer":
+        raise ValueError("gateway preflight requires observer configuration")
+    registry = FileConnectorRegistrations(observer.registration_path)
+    principal = observer.observer_principal_ref or ""
+    registration = await registry.read(principal)
+    if registration is None or registration.scope.cluster_ref != config.target_ref:
+        raise ValueError("gateway preflight enrollment target mismatch")
+    registration.admit(
+        principal_ref=principal,
+        scope=registration.scope,
+        capability="inventory.snapshot",
+        now=now(),
+    )
+    tls = await asyncio.to_thread(connector_tls, observer)
+    fact = await GatewayObserverPreflight(
+        origin=observer.gateway_origin or "", scope=registration.scope, tls=tls, now=now
+    ).collect()
+    if await registry.read(principal) != registration:
+        raise ValueError("gateway preflight enrollment changed")
+    registration.admit(
+        principal_ref=principal,
+        scope=registration.scope,
+        capability="inventory.snapshot",
+        now=now(),
+    )
+    return ObserverDeploymentFact.model_validate(
+        {**fact.model_dump(), "expires_at": min(fact.expires_at, registration.expires_at)}
+    )
 
 
 def _unique(pairs: list[tuple[str, object]]) -> dict[str, object]:

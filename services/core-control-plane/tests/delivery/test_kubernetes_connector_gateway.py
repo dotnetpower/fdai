@@ -207,7 +207,8 @@ async def test_real_mtls_snapshot_roundtrip_and_revocation(tmp_path) -> None:
         await runner.cleanup()
 
 
-async def test_cleartext_and_forged_identity_headers_are_denied(tmp_path) -> None:
+@pytest.mark.parametrize("path", ["snapshots", "preflight"])
+async def test_cleartext_and_forged_identity_headers_are_denied(tmp_path, path) -> None:
     registrations = Registrations("sha256:" + "a" * 64)
     inbox = ConnectorSnapshotInbox(
         InMemoryStateStore(),
@@ -224,7 +225,7 @@ async def test_cleartext_and_forged_identity_headers_are_denied(tmp_path) -> Non
     try:
         async with httpx.AsyncClient(trust_env=False) as client:
             response = await client.post(
-                f"http://127.0.0.1:{runner.addresses[0][1]}/v1/connector/snapshots",
+                f"http://127.0.0.1:{runner.addresses[0][1]}/v1/connector/{path}",
                 headers={"X-Client-Cert": "forged", "Authorization": "Bearer forged"},
                 json={},
             )
@@ -241,3 +242,177 @@ def test_client_cannot_disable_tls_verification() -> None:
         ConnectorEvidenceTransport(
             ConnectorTransportConfig("https://example.com", "api://example"), tls_context=context
         )
+
+
+async def test_gateway_probe_real_mtls_scope_revocation_and_no_persistence(tmp_path) -> None:
+    from fdai.delivery.kubernetes_connector_gateway_probe import GatewayObserverPreflight
+
+    (server_tls, _), (client_tls, principal) = certificates(tmp_path)
+    registrations, store = Registrations(principal), InMemoryStateStore()
+    inbox = ConnectorSnapshotInbox(
+        store, registrations=registrations, allow_cluster_resources=False, now=lambda: NOW
+    )
+    runner = web.AppRunner(
+        create_connector_gateway(inbox=inbox, registrations=registrations, now=lambda: NOW),
+        access_log=None,
+    )
+    await runner.setup()
+    try:
+        await web.TCPSite(runner, "127.0.0.1", 0, ssl_context=server_tls).start()
+        origin = f"https://127.0.0.1:{runner.addresses[0][1]}"
+        probe = GatewayObserverPreflight(
+            origin=origin, scope=registrations.current.scope, tls=client_tls, now=lambda: NOW
+        )
+        first = await probe.collect()
+        assert first.name == "mtls_gateway" and first.state == "allowed"
+        assert (await probe.collect()).evidence_digest != first.evidence_digest
+        foreign = GatewayObserverPreflight(
+            origin=origin,
+            scope=registrations.current.scope.model_copy(update={"cluster_ref": "foreign-cluster"}),
+            tls=client_tls,
+            now=lambda: NOW,
+        )
+        assert (await foreign.collect()).state == "unknown"
+        async with httpx.AsyncClient(verify=client_tls, trust_env=False) as client:
+            oversized = await client.post(
+                origin + "/v1/connector/preflight",
+                content=b" " * 1025,
+                headers={"Content-Type": "application/json"},
+            )
+            assert oversized.status_code == 413
+            duplicated = await client.post(
+                origin + "/v1/connector/preflight",
+                content=b'{"nonce":"a","nonce":"b"}',
+                headers={"Content-Type": "application/json"},
+            )
+            assert duplicated.status_code == 422
+        registrations.current = registrations.current.model_copy(update={"revoked": True})
+        assert (await probe.collect()).state == "unknown"
+        assert list(store.audit_entries) == []
+        assert not await store.read_states("kubernetes-connector:", limit=10)
+    finally:
+        await runner.cleanup()
+
+
+@pytest.mark.parametrize(
+    "case", ["nonce", "scope", "clock", "authority", "oversize", "redirect", "duplicate"]
+)
+async def test_gateway_probe_rejects_bad_receipts_without_retry(case) -> None:
+    import json
+
+    from fdai.delivery.kubernetes_connector_gateway_probe import GatewayObserverPreflight
+
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        body = json.loads(request.content)
+        value = {**body, "observed_at": NOW.isoformat(), "execution_authority": False}
+        if case == "nonce":
+            value["nonce"] = "0" * 64
+        elif case == "scope":
+            value["scope_digest"] = "sha256:" + "f" * 64
+        elif case == "clock":
+            value["observed_at"] = (NOW - timedelta(minutes=1)).isoformat()
+        elif case == "authority":
+            value["execution_authority"] = True
+        elif case == "oversize":
+            return httpx.Response(200, content=b"a" * 4097)
+        elif case == "redirect":
+            return httpx.Response(307, headers={"Location": "https://other.example"})
+        elif case == "duplicate":
+            return httpx.Response(200, content=b'{"nonce":"a","nonce":"b"}')
+        return httpx.Response(200, json=value)
+
+    probe = GatewayObserverPreflight(
+        origin="https://gateway.example",
+        scope=registration().scope,
+        tls=ssl.create_default_context(),
+        now=lambda: NOW,
+        transport=httpx.MockTransport(handler),
+    )
+    assert (await probe.collect()).state == "unknown"
+    assert len(calls) == 1
+
+
+async def test_gateway_preflight_runtime_signs_real_challenge(tmp_path) -> None:
+    import json
+
+    from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
+    from fdai.delivery.kubernetes_connector_preflight import verify_preflight
+    from fdai.delivery.kubernetes_connector_preflight_runtime import (
+        FileObserverPreflightGrants,
+        collect_gateway_preflight,
+    )
+
+    from .test_kubernetes_connector_preflight import material
+
+    (server_tls, _), (_, principal) = certificates(tmp_path)
+    registrations, store = Registrations(principal), InMemoryStateStore()
+    inbox = ConnectorSnapshotInbox(
+        store, registrations=registrations, allow_cluster_resources=False, now=lambda: NOW
+    )
+    runner = web.AppRunner(
+        create_connector_gateway(inbox=inbox, registrations=registrations, now=lambda: NOW),
+        access_log=None,
+    )
+    await runner.setup()
+    try:
+        await web.TCPSite(runner, "127.0.0.1", 0, ssl_context=server_tls).start()
+        grant, _, private = material()
+        grant = grant.model_copy(
+            update={
+                "valid_from": NOW - timedelta(minutes=1),
+                "expires_at": NOW + timedelta(hours=1),
+                "allowed_facts": {"mtls_gateway": ("network_probe",)},
+            }
+        )
+        observer = {
+            "role": "observer",
+            "registration_path": str(tmp_path / "registrations.json"),
+            "tls_ca_path": str(tmp_path / "ca.pem"),
+            "tls_certificate_path": str(tmp_path / "client.pem"),
+            "tls_key_path": str(tmp_path / "client.key"),
+            "gateway_origin": f"https://127.0.0.1:{runner.addresses[0][1]}",
+            "observer_principal_ref": principal,
+            "stream_id": "example",
+            "producer_revision": REVISION,
+            "spool_directory": str(tmp_path / "spool"),
+            "api_server": "https://kubernetes.default.svc",
+            "api_ca_path": str(tmp_path / "unused-ca"),
+            "api_token_path": str(tmp_path / "unused-token"),
+        }
+        config = {
+            "target_ref": registrations.current.scope.cluster_ref,
+            "discovery_digest": REVISION,
+            "issuer_ref": grant.issuer_ref,
+            "producer_revision": grant.producer_revision,
+            "signing_key_path": str(tmp_path / "signing.pem"),
+            "grants_path": str(tmp_path / "grants.json"),
+            "observer_config_path": str(tmp_path / "observer.json"),
+        }
+        files = {
+            "registrations.json": json.dumps(
+                [registrations.current.model_dump(mode="json")]
+            ).encode(),
+            "observer.json": json.dumps(observer).encode(),
+            "grants.json": json.dumps([grant.model_dump(mode="json")]).encode(),
+            "probe.json": json.dumps(config).encode(),
+            "signing.pem": private.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()),
+        }
+        for name, contents in files.items():
+            (tmp_path / name).write_bytes(contents)
+            (tmp_path / name).chmod(0o600)
+        receipt = await collect_gateway_preflight(tmp_path / "probe.json", now=lambda: NOW)
+        assert [(fact.name, fact.state) for fact in receipt.context.facts] == [
+            ("mtls_gateway", "allowed")
+        ]
+        await verify_preflight(
+            receipt, grants=FileObserverPreflightGrants(tmp_path / "grants.json"), now=NOW
+        )
+        assert not list(store.audit_entries)
+        registrations.current = registrations.current.model_copy(update={"revoked": True})
+        denied = await collect_gateway_preflight(tmp_path / "probe.json", now=lambda: NOW)
+        assert denied.context.facts[0].state == "unknown"
+    finally:
+        await runner.cleanup()

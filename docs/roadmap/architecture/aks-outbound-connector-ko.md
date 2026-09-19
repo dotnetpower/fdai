@@ -1,7 +1,7 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: 0d9f1019af262c98565f219dbf7931176b1f3daf
+translation_source_sha: 9ae565abff7c83ac1f35aa13a4e23ccde78449c2
 translation_revised: 2026-09-20
 ---
 # AKS 역방향 커넥터
@@ -197,6 +197,26 @@ python -m fdai.delivery.kubernetes_connector_proposal_cli retain-preflight --rec
 서명, 범위, 만료, 철회를 다시 검증합니다. 실행 가능한 Kubernetes 읽기 사전 점검이지
 자동 예약된 전체 배포 점검은 아닙니다. Azure 정책, 이미지, 용량, 저장소, 네트워크와 설치
 관리 주체의 근거 생성기는 아직 남아 있습니다.
+
+### 게이트웨이 수락 사전 점검
+
+게이트웨이 점검은 스냅샷이나 인벤토리 상태를 쓰지 않는 제한된 mTLS 왕복을 사용합니다.
+실제 클라이언트 인증서로 현재 서버 소유 관측 등록을 선택합니다. 요청은 등록 범위와 새
+일회성 값을 고정하며 응답은 두 값, 서버 시각과 실행 권한 없음을 반환합니다. 클라이언트는
+정확한 필드, TLS, 범위, 일회성 값과 최신성을 검증합니다. 등록된 점검 서명자는 이 왕복으로
+`mtls_gateway`만 발행할 수 있습니다. 인증된 응답이 네트워크 정책 허용, public/private 경로
+분류, 미래 가용성, 그래프 반영이나 설치 권한을 입증하지는 않습니다. 응답 누락·거부는 알 수
+없음으로 유지하고 리다이렉트나 재시도를 하지 않습니다. 증적과 감사에 자격 증명 값은 넣지 않습니다.
+
+기존 제안 CLI의 `collect-gateway-preflight --config /private/gateway-preflight.json`은
+`target_ref`, `discovery_digest`, `issuer_ref`, `producer_revision`, `signing_key_path`,
+`grants_path`, `observer_config_path`를 사용합니다. 구성과 개인 키는 소유자만 접근합니다.
+관측 구성에서 정확한 등록, 게이트웨이 원본과 클라이언트 인증서를 읽습니다. 왕복 이후 현재
+등록을 다시 확인하고 서명된 사실의 만료도 등록 유효기간 안으로 제한합니다. 서버의
+`POST /v1/connector/preflight`는 요청을 1 KiB로 제한하고 기존 동시 요청·시간 제한을
+적용하며 등록을 다시 읽습니다. 클라이언트는 응답을 4 KiB, 서버 시각 차이를 5초로 제한합니다.
+검증기 등록은 `network_probe` 출처의 `mtls_gateway`를 명시적으로 허용해야 합니다.
+서명 결과는 `retain-preflight`로 보존하며 자동 예약 실행이나 경로 허용을 뜻하지 않습니다.
 
 ### Operator 전달 계약
 

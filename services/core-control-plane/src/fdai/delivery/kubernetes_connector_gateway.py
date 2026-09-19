@@ -11,7 +11,13 @@ from datetime import datetime
 
 from aiohttp import web
 from fdai_service_contracts.cluster_connector import ConnectorEvidence
+from fdai_service_contracts.compatibility import canonical_digest
 
+from fdai.delivery.kubernetes_connector_gateway_probe import (
+    GATEWAY_PROBE_PATH,
+    GatewayProbe,
+    GatewayProbeReceipt,
+)
 from fdai.delivery.kubernetes_connector_snapshot import (
     ConnectorRegistrationReader,
     ConnectorSnapshotInbox,
@@ -75,13 +81,34 @@ def create_connector_gateway(
                     ):
                         raise web.HTTPUnsupportedMediaType(text="uncompressed JSON required")
                     body = bytearray()
+                    limit = 1024 if request.path == GATEWAY_PROBE_PATH else MAX_TRANSFER_BYTES
                     async for chunk in request.content.iter_chunked(65_536):
-                        if len(body) + len(chunk) > MAX_TRANSFER_BYTES:
+                        if len(body) + len(chunk) > limit:
                             raise web.HTTPRequestEntityTooLarge(
-                                max_size=MAX_TRANSFER_BYTES, actual_size=len(body) + len(chunk)
+                                max_size=limit, actual_size=len(body) + len(chunk)
                             )
                         body.extend(chunk)
                     value = json.loads(body, object_pairs_hook=_unique_object)
+                    if request.path == GATEWAY_PROBE_PATH:
+                        probe = GatewayProbe.model_validate(value)
+                        if probe.scope_digest != canonical_digest(
+                            registration.scope.model_dump(mode="json")
+                        ):
+                            raise ValueError("gateway preflight scope mismatch")
+                        confirmed = await registrations.read(principal)
+                        if confirmed != registration:
+                            raise ValueError("gateway preflight enrollment changed")
+                        observed = now()
+                        registration.admit(
+                            principal_ref=principal,
+                            scope=registration.scope,
+                            capability="inventory.snapshot",
+                            now=observed,
+                        )
+                        probe_receipt = GatewayProbeReceipt(
+                            **probe.model_dump(), observed_at=observed
+                        )
+                        return web.json_response(probe_receipt.model_dump(mode="json"))
                     if (
                         not isinstance(value, dict)
                         or set(value) != {"evidence", "artifact"}
@@ -116,4 +143,5 @@ def create_connector_gateway(
         client_max_size=MAX_TRANSFER_BYTES, handler_args={"auto_decompress": False}
     )
     app.router.add_post("/v1/connector/snapshots", receive)
+    app.router.add_post(GATEWAY_PROBE_PATH, receive)
     return app
