@@ -17,6 +17,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Final
+from urllib.parse import urlencode
 
 from fdai_deployment_cli.aks_readiness import verify_workload_health
 from fdai_deployment_cli.aks_service_update import (
@@ -1697,19 +1698,16 @@ def _capture_aks_deployments(context: dict[str, object], *, service: str | None 
     kubeconfig = Path(str(context.get("kubeconfig", "")))
     if not kubeconfig.is_file():
         raise ValueError("AKS kubeconfig is unavailable for service update readback")
+    endpoint = f"/apis/apps/v1/namespaces/{_AKS_RUNTIME_NAMESPACE}/deployments"
+    if service is not None:
+        endpoint = f"{endpoint}?{urlencode({'labelSelector': f'app.kubernetes.io/name={service}'})}"
     command = [
         "kubectl",
         "get",
-        "deployments",
-        "--namespace",
-        _AKS_RUNTIME_NAMESPACE,
-        "--output",
-        "json",
+        f"--raw={endpoint}",
         "--request-timeout=60s",
         f"--kubeconfig={kubeconfig}",
     ]
-    if service is not None:
-        command.append(f"--selector=app.kubernetes.io/name={service}")
     return _capture(
         tuple(command),
         cwd=kubeconfig.parent,
@@ -3102,6 +3100,7 @@ def _aks_workload(
     *,
     external: bool = False,
     service_port: int | None = None,
+    fs_group: int | None = None,
     additional_identities: dict[str, dict[str, Any]] | None = None,
     sidecars: dict[str, dict[str, object]] | None = None,
 ) -> dict[str, object]:
@@ -3150,6 +3149,7 @@ def _aks_workload(
         "external": external,
         "readiness_path": readiness_path,
         "liveness_path": liveness_path,
+        "fs_group": fs_group,
         "environment": runtime_environment,
         "secret_environment": secret_environment,
         "sidecars": sidecars or {},
@@ -3223,12 +3223,25 @@ def _aks_document_workloads(
             database_secret,
             "/ready",
             "/live",
+            fs_group=101,
             sidecars={
                 "clamav": {
                     "image": refs["clamav"],
                     "cpu": "500m",
                     "memory": "1Gi",
                     "port": 3310,
+                    "run_as_user": 100,
+                    "run_as_group": 101,
+                    "init": {
+                        "name": "clamav-database",
+                        "command": ["/bin/sh", "-c"],
+                        "args": ["cp -a /var/lib/clamav/. /target/"],
+                        "image_pull_policy": "IfNotPresent",
+                        "run_as_user": 100,
+                        "run_as_group": 101,
+                        "writable_path": "database",
+                        "mount_path": "/target",
+                    },
                     "writable_paths": {
                         "database": {"mount_path": "/var/lib/clamav", "size_limit": "1Gi"},
                         "run": {"mount_path": "/run/clamav", "size_limit": "64Mi"},

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: ae276d5f2bc14f7c253826d2493b2dcfd19bb8cf
+translation_source_sha: 2174287a85946ce76105b645f06dd7d6841bc66a
 translation_revised: 2026-09-19
 ---
 # 런타임 배포 프로파일
@@ -260,7 +260,9 @@ Operator의 배정 알림과 사람 승인(HIL) 전송에 필요한 가져오기
 Document API와 Worker는 서로 다른 워크로드 신원, 역할 범위 데이터베이스 DSN, 공유 ADLS 계정 및
 `fdai.pipeline.stages` 엔터티를 사용합니다. Worker Pod는 기존 digest 고정 ClamAV 이미지를
 replica-local TCP sidecar로 포함합니다. 루트는 읽기 전용으로 유지하고 선언된 데이터베이스, 실행 및
-임시 경로에만 크기가 제한된 `emptyDir` 볼륨을 제공합니다.
+임시 경로에만 크기가 제한된 `emptyDir` 볼륨을 제공합니다. restricted namespace에서는 워크로드,
+init container, sidecar, 예약 작업의 Pod와 container 범위 모두에 `runAsNonRoot`가 필요합니다.
+Pod 범위 설정만으로는 admission을 통과하지 못합니다.
 
 예약 작업은 `concurrencyPolicy=Forbid`, 완료 수 1, 병렬 작업자 1, 제한된 active deadline, 재시도
 한도, 제한된 이력을 사용합니다. 수동 작업은 별도로 승인된 요청으로만 만들며 영구 desired-state
@@ -286,9 +288,7 @@ archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle�
 해당 목록 전체, 현재 관측 세대, 준비된 복제본, 같은 소스 버전에서 실행 중인 Pod 이미지 digest를
 요구합니다. 비어 있거나 중복되거나 오래되거나 형식이 잘못됐거나 일부만 정상인 응답은 성공이
 아니라 사용 불가로 처리합니다. 기대 목록에는 다섯 기본 서비스가 모두 있어야 하며, 생성기가
-하나를 누락했다고 해서 부분 롤아웃을 완료된 것으로 판단해서는 안 됩니다. 상태 재조회는 Kubernetes
-`DeploymentList` 또는 일반 `v1 List`를 허용하지만, 일반 목록은 모든 항목이 `apps/v1 Deployment`일
-때만 유효하며 다른 리소스 종류가 섞이면 거부합니다.
+하나를 누락했다고 해서 부분 롤아웃을 완료된 것으로 판단해서는 안 됩니다.
 이 완전한 집합 규칙은 초기 설치와 전체 프로파일 수렴에만 적용합니다. 일상적인 업데이트는 Core
 하나 또는 다른 명시적 서비스를 선택할 수 있습니다. 각 워크로드는 자체 소스 버전을 보유하며
 계획은 해당 Deployment의 제자리 업데이트만 허용합니다.
@@ -302,6 +302,20 @@ NetworkPolicy의 안정적인 워크로드 label은 버전 변경으로 해당 �
 변수, 과거 실제 스냅샷, 과거 exact plan을 서로 대조합니다. 그런 다음 Managed Identity로 원격 상태와
 현재 Deployment를 읽고 새롭고 완전한 전체 범위 변경 없음 계획을 요구합니다. 생성된 채택 증적은
 적용 권한을 부여하지 않으며 선택 서비스의 현재 exact-plan 승인을 대신할 수 없습니다.
+Deployment 관측은 typed Apps v1 collection endpoint를 직접 읽고, 선택 서비스에는 인코딩된
+`labelSelector`를 사용합니다. 따라서 엄격한 검증기는 클라이언트가 합성한 일반 `List`가 아니라
+서버가 작성한 `DeploymentList`를 받습니다.
+이 전체 계획에서 알려진 기존 identity-bridge 기준선이 발견되더라도 채택은 계속 중단됩니다. 별도
+조정 계약은 일치하는 Terraform 상태와 typed 실제 근거에서 Operator command identity와 Document
+Worker ClamAV 정의만 복원할 수 있습니다. 이 계약은 inventory 읽기 역할 생성, 기존 identity-bridge
+제거, 기존 Job, Deployment, Service의 공급자 정규화만 허용합니다. 계획은 모든 워크로드 이미지와
+소스 버전, command federated identity, ClamAV digest, 초기화, UID, GID, 쓰기 가능 volume, Pod group을
+보존해야 합니다. 다른 주소나 계약 차이는 모두 거부합니다. 조정에는 별도 exact approval, 효과
+재조회, 완전한 전체 범위 변경 없음 계획이 필요하며, 이 근거가 있어야 과거 상태 채택을 다시 시도할
+수 있습니다.
+기존 identity-bridge를 제거할 때는 정확히 일치하는 5개 서비스의 wrapper command와 argument만
+이미지 entrypoint 기본값으로 복원합니다. 실제 또는 보존된 command 형태가 다르면 조정을 차단하므로,
+bridge를 제거한 Pod가 mount되지 않은 script를 호출하거나 실행 파일을 조용히 바꿀 수 없습니다.
 이 워크로드 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는 전체 배포 준비가
 검증되지는 않습니다. 별도의 브라우저 게시 게이트가 워크로드 수렴 뒤 Console과 API 경계를
 검증합니다. 워크로드 생성기는 Operator, 격리된 Executor, 문서 API,

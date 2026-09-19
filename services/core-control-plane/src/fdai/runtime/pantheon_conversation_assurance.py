@@ -85,6 +85,7 @@ class RuntimePantheonConversationAssurance:
         if len({case.case_id for case in all_cases}) != len(all_cases):
             raise ValueError("conversation assurance runtime case ids MUST be unique")
         self._cases = {case.case_id: case for case in all_cases}
+        self._fixed_case_ids = frozenset(case.case_id for case in fixed_cases)
         self._specs = {spec.name: spec for spec in PANTHEON_SPECS}
 
     async def evaluate(
@@ -156,9 +157,23 @@ class RuntimePantheonConversationAssurance:
             review,
             pantheon_diagnostic=diagnostic,
         )
+        available_evaluator_models = {
+            (output.model_identity, output.model_family) for output in review.evaluator_outputs
+        }
         return {
             "schema_version": "1.0.0",
             "answer": answer,
+            "answer_generation": {
+                "mode": (
+                    "t2_model"
+                    if answer_model_family is not None
+                    else "semantic_model"
+                    if answer_model_identity is not None
+                    else "agent_projection"
+                ),
+                "model_identity": answer_model_identity,
+                "model_family": answer_model_family,
+            },
             "assessment_id": record.assessment_id,
             "assessment_state": record.state.value,
             "assessment_reasons": list(record.decision.reasons),
@@ -173,6 +188,15 @@ class RuntimePantheonConversationAssurance:
                     "results": {rubric.value: passed for rubric, passed in item.results},
                 }
                 for item in semantic_reviews
+            ],
+            "pantheon_evaluator_models": [
+                {
+                    "model_identity": model_identity,
+                    "model_family": model_family,
+                    "output_available": (model_identity, model_family)
+                    in available_evaluator_models,
+                }
+                for model_identity, model_family in self._coordinator.evaluator_models
             ],
             "pantheon_diagnostic": diagnostic.to_dict(),
             "execution_authority": False,
@@ -231,6 +255,8 @@ class RuntimePantheonConversationAssurance:
             "t2_attempted": False,
             "t2_status": "not_required",
             "t2_model_family": None,
+            "answer_model_identity": None,
+            "answer_model_family": None,
             "budget_reserved": False,
             "metering_receipt_digest": None,
             "hard_zero_violations": hard_zero,
@@ -247,6 +273,9 @@ class RuntimePantheonConversationAssurance:
             requester="Bragi",
             correlation_id=request.turn_id,
             reuse_semantic_route=False,
+            fixed_assurance_facts=(
+                _trusted_t2_scenario_facts(case) if case.case_id in self._fixed_case_ids else None
+            ),
         )
         answer = _deliberation_answer(result)
         participants, evidence_refs = _deliberation_participants(
@@ -311,6 +340,23 @@ class RuntimePantheonConversationAssurance:
             "hard_zero_violations": _hard_zero_violations(result, answer),
             "execution_authority": False,
         }
+
+
+def _trusted_t2_scenario_facts(
+    case: PantheonCensusCase,
+) -> dict[str, dict[str, object]] | None:
+    """Return typed conflict facts only for fixed cases that require T2."""
+
+    if case.suite != "t2" or case.t2_expectation is not T2Expectation.REQUIRED:
+        return None
+    participants = (case.expected_primary_agent, *case.allowed_contributors)
+    return {
+        agent: {
+            "scope_ref": "fixed-t2-scenario",
+            "status": "consistent" if index == len(participants) - 1 else "conflicting",
+        }
+        for index, agent in enumerate(participants)
+    }
 
 
 def assurance_case_id(purpose: str) -> str | None:

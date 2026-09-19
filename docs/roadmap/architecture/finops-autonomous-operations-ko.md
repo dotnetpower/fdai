@@ -1,8 +1,8 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: dbd067f9c143e8902cbe4e2d6c680a6ea89fb5c8
-translation_revised: 2026-09-13
+translation_source_sha: 4a87221fa557f639865f5c1d809c05fb99f45a6d
+translation_revised: 2026-09-19
 ---
 
 # FinOps 자율 운영
@@ -232,7 +232,7 @@ digest를 공유하면서 대상별 report digest, 검토자 신원, 결정, 근
 - Saga 또는 Vidar가 없으면 새 변경을 관찰 모드로 강제합니다.
 - Forseti가 없으면 대체 판단을 만들지 않습니다. 근거는 계속 대기열에 보존합니다.
 - Heimdall이 없으면 효과를 독립적으로 종료할 수 없으므로 변경 상태 성공을 차단합니다.
-- Njord, Freyr 또는 필수 온톨로지 컨텍스트가 없으면 영향을 받는 대안을 보류 또는 승인으로 낮춥니다.
+- Njord, Freyr, 필수 온톨로지 컨텍스트, 용량 표본, 변경 영향 근거 또는 시험된 롤백 근거가 없으면 영향을 받는 대안을 보류 또는 승인으로 낮춥니다. Freyr의 자문 답변은 보류 및 실행 없음으로 시작하며 Freyr 근거, Heimdall 관측, Odin 중재, 독립적인 사람 승인, 일곱 가지 실행 안전장치, 근거를 완성하지 못할 때의 최종 no-op, 거부 또는 사람 검토 결과를 구분합니다.
 - Odin이 없으면 해결되지 않은 교차 목표 충돌을 로컬 tie-breaking 없이 승인으로 보냅니다.
 - Var가 없으면 승인 대기열을 보존합니다. 침묵은 권한을 부여하지 않습니다.
 - Norns, Mimir, Muninn 학습 입력 또는 Bragi가 없으면 학습이나 설명 기능이 줄어들지만 활성 결정 및

@@ -37,6 +37,7 @@ from fdai.core.conversation_assurance import (  # noqa: E402
     PrivateJsonlLedger,
     build_copilot_review_packet,
     build_pantheon_census,
+    content_digest,
     evaluate_pantheon_turn,
     import_copilot_review,
     open_private_lock,
@@ -56,6 +57,7 @@ from fdai.core.conversation_assurance.local_supervisor import (  # noqa: E402
 from fdai.core.conversation_assurance.local_supervisor import (  # noqa: E402
     serve as serve_supervisor,
 )
+from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text  # noqa: E402
 from scripts.automation.conversation_assurance_qualification import (  # noqa: E402
     PantheonCaseMeasurement,
     qualify_pantheon_series,
@@ -65,6 +67,7 @@ _MAX_RESPONSE_BYTES = 512 * 1024
 _MAX_TOKEN_BYTES = 16 * 1024
 _MAX_CORPUS_BYTES = 16 * 1024 * 1024
 _MAX_COPILOT_REVIEW_BYTES = 4 * 1024 * 1024
+_MAX_TRANSCRIPT_TEXT_CHARS = 16_000
 _STATE_ROOT = Path(".fdai/conversation-assurance")
 _ASSESSMENT_REASON = re.compile(r"^[a-z][A-Za-z0-9_.:-]{0,127}$")
 
@@ -78,6 +81,7 @@ class OperatorHttpEvaluator:
         base_url: str,
         bearer_token: str,
         turn_ledger: PrivateJsonlLedger,
+        transcript_ledger: PrivateJsonlLedger | None = None,
     ) -> None:
         if not (
             base_url.startswith("https://")
@@ -88,6 +92,7 @@ class OperatorHttpEvaluator:
         self._base_url = base_url.rstrip("/")
         self._bearer_token = bearer_token
         self._turn_ledger = turn_ledger
+        self._transcript_ledger = transcript_ledger
 
     async def evaluate(
         self,
@@ -96,17 +101,19 @@ class OperatorHttpEvaluator:
         campaign_id: str,
     ) -> PantheonTurnDiagnostic:
         terminal = await asyncio.to_thread(self._request, case, campaign_id)
+        self._record_transcript(case, campaign_id=campaign_id, terminal=terminal)
+        assessment_state = terminal.get("assessment_state")
+        if assessment_state in {"deferred", "held", "unavailable"}:
+            assessment_reasons = _assessment_reasons(terminal.get("assessment_reasons"))
+            reason = ",".join(assessment_reasons) or "unspecified"
+            raise CampaignHoldError(f"assessment_{assessment_state}:{reason}")
         if terminal.get("status") == "held":
             receipt = terminal.get("semantic_receipt")
             reason = receipt.get("reason_code") if isinstance(receipt, Mapping) else None
             if not isinstance(reason, str) or _ASSESSMENT_REASON.fullmatch(reason) is None:
                 reason = "terminal_held"
             raise CampaignHoldError(reason)
-        assessment_state = terminal.get("assessment_state")
         assessment_reasons = _assessment_reasons(terminal.get("assessment_reasons"))
-        if assessment_state == "deferred":
-            reason = ",".join(assessment_reasons) or "unspecified"
-            raise CampaignHoldError(f"assessment_deferred:{reason}")
         if assessment_state != "completed":
             raise CampaignHoldError("assessment_state_unavailable")
         trace_raw = terminal.get("pantheon_trace")
@@ -142,6 +149,67 @@ class OperatorHttpEvaluator:
         )
         self._turn_ledger.append(trace.to_dict())
         return diagnostic
+
+    def _record_transcript(
+        self,
+        case: PantheonCensusCase,
+        *,
+        campaign_id: str,
+        terminal: Mapping[str, object],
+    ) -> None:
+        """Retain safe private turn content without changing qualification evidence."""
+
+        if self._transcript_ledger is None:
+            return
+        answer_raw = terminal.get("answer")
+        answer = answer_raw if isinstance(answer_raw, str) else None
+        question_sensitive = bool(scan_text(case.question))
+        answer_sensitive = answer is not None and bool(scan_text(answer))
+        question_retained = (
+            len(case.question) <= _MAX_TRANSCRIPT_TEXT_CHARS and not question_sensitive
+        )
+        answer_retained = (
+            answer is not None
+            and len(answer) <= _MAX_TRANSCRIPT_TEXT_CHARS
+            and not answer_sensitive
+        )
+        trace = terminal.get("pantheon_trace")
+        diagnostic = terminal.get("pantheon_diagnostic")
+        self._transcript_ledger.append(
+            {
+                "schema_version": "1.0.0",
+                "campaign_id": campaign_id,
+                "case_id": case.case_id,
+                "suite": case.suite,
+                "locale": case.locale,
+                "question": case.question if question_retained else None,
+                "question_digest": content_digest(case.question),
+                "answer": answer if answer_retained else None,
+                "answer_digest": content_digest(answer) if answer is not None else None,
+                "content_omissions": [
+                    label
+                    for label, omitted in (
+                        ("question_sensitive", question_sensitive),
+                        ("question_oversized", len(case.question) > _MAX_TRANSCRIPT_TEXT_CHARS),
+                        ("answer_sensitive", answer_sensitive),
+                        (
+                            "answer_oversized",
+                            answer is not None and len(answer) > _MAX_TRANSCRIPT_TEXT_CHARS,
+                        ),
+                    )
+                    if omitted
+                ],
+                "answer_generation": terminal.get("answer_generation"),
+                "evaluator_models": terminal.get("pantheon_evaluator_models", []),
+                "assessment_state": terminal.get("assessment_state", terminal.get("status")),
+                "assessment_reasons": terminal.get("assessment_reasons", []),
+                "score": diagnostic.get("score") if isinstance(diagnostic, Mapping) else None,
+                "verdict": diagnostic.get("verdict") if isinstance(diagnostic, Mapping) else None,
+                "source_revision": (
+                    trace.get("source_revision") if isinstance(trace, Mapping) else None
+                ),
+            }
+        )
 
     def _request(self, case: PantheonCensusCase, campaign_id: str) -> dict[str, Any]:
         body = json.dumps(
@@ -360,6 +428,7 @@ async def _start(project: Path, request: Mapping[str, object]) -> dict[str, obje
         base_url=base_url,
         bearer_token=_token_from_private_file(),
         turn_ledger=PrivateJsonlLedger(_state_root(project) / "turns.jsonl"),
+        transcript_ledger=PrivateJsonlLedger(_state_root(project) / "transcripts.jsonl"),
     )
     controller = PantheonCampaignController(
         state_root=_state_root(project),
@@ -541,6 +610,7 @@ def _status(project: Path) -> dict[str, object]:
     copilot_reviews = PrivateJsonlLedger(_state_root(project) / "copilot-reviews.jsonl").read(
         limit=10_000
     )
+    transcripts = PrivateJsonlLedger(_state_root(project) / "transcripts.jsonl").read(limit=10_000)
     completed = [item for item in campaigns if item.get("event") == "campaign_completed"]
     qualifications = [
         item
@@ -551,6 +621,7 @@ def _status(project: Path) -> dict[str, object]:
         "state": "idle",
         "campaigns": len(completed),
         "evaluations": len(evaluations),
+        "transcripts": len(transcripts),
         "copilot_reviews": len(copilot_reviews),
         "latest_copilot_review": copilot_reviews[-1] if copilot_reviews else None,
         "latest_campaign": completed[-1] if completed else None,
@@ -564,10 +635,17 @@ def _report(project: Path, *, top: int) -> dict[str, object]:
         raise ValueError("report top MUST be in [1, 100]")
     status = _status(project)
     evaluations = PrivateJsonlLedger(_state_root(project) / "evaluations.jsonl").read(limit=top)
-    return {**status, "latest_evaluations": list(reversed(evaluations))}
+    transcripts = PrivateJsonlLedger(_state_root(project) / "transcripts.jsonl").read(limit=top)
+    return {
+        **status,
+        "latest_evaluations": list(reversed(evaluations)),
+        "latest_transcripts": list(reversed(transcripts)),
+    }
 
 
 def _report_markdown(report: Mapping[str, object]) -> str:
+    transcript_values = report.get("latest_transcripts")
+    transcript_rows = transcript_values if isinstance(transcript_values, list) else []
     latest = report.get("latest_evaluations")
     rows = latest if isinstance(latest, list) else []
     qualification = report.get("latest_qualification")
@@ -576,6 +654,7 @@ def _report_markdown(report: Mapping[str, object]) -> str:
         "",
         f"- Campaigns: {report.get('campaigns', 0)}",
         f"- Evaluations: {report.get('evaluations', 0)}",
+        f"- Transcripts: {report.get('transcripts', 0)}",
         f"- Stop requested: {str(report.get('stop_requested', False)).lower()}",
     ]
     if isinstance(qualification, Mapping):
@@ -597,6 +676,48 @@ def _report_markdown(report: Mapping[str, object]) -> str:
                 f"- Hard-zero count: {metric_values.get('hard_zero_count', '')}",
             )
         )
+    if transcript_rows:
+        lines.extend(
+            (
+                "",
+                "| Case | Question | Answer | Generation | Evaluators | Score | Verdict | "
+                "Problems | Revision |",
+                "|---|---|---|---|---|---:|---|---|---|",
+            )
+        )
+        for value in transcript_rows:
+            if not isinstance(value, Mapping):
+                continue
+            generation = value.get("answer_generation")
+            generation_values = generation if isinstance(generation, Mapping) else {}
+            evaluator_values = value.get("evaluator_models")
+            evaluators = evaluator_values if isinstance(evaluator_values, list) else []
+            lines.append(
+                "| "
+                + " | ".join(
+                    _markdown_cell(item)
+                    for item in (
+                        value.get("case_id", ""),
+                        value.get("question") or "omitted",
+                        value.get("answer") or "no answer retained",
+                        generation_values.get("model_identity")
+                        or generation_values.get("mode", "unavailable"),
+                        ", ".join(
+                            str(item.get("model_identity", ""))
+                            for item in evaluators
+                            if isinstance(item, Mapping)
+                        )
+                        or "none",
+                        value.get("score", ""),
+                        value.get("verdict", ""),
+                        ", ".join(str(item) for item in value.get("assessment_reasons", []))
+                        or "none",
+                        value.get("source_revision", ""),
+                    )
+                )
+                + " |"
+            )
+        return "\n".join(lines)
     fixed_questions = {
         case.case_id: case.question for case in build_pantheon_census(PANTHEON_SPECS).cases
     }
@@ -628,6 +749,50 @@ def _report_markdown(report: Mapping[str, object]) -> str:
     if not rows:
         lines.append("| - | - | - | - | - | - | not measured |")
     return "\n".join(lines)
+
+
+def _markdown_cell(value: object) -> str:
+    return str(value).replace("|", "\\|").replace("\r", " ").replace("\n", " ")
+
+
+def _compare_transcripts(
+    project: Path,
+    *,
+    baseline_case: str,
+    candidate_case: str,
+) -> dict[str, object]:
+    rows = PrivateJsonlLedger(_state_root(project) / "transcripts.jsonl").read(limit=10_000)
+    baseline = next(
+        (row for row in reversed(rows) if row.get("case_id") == baseline_case),
+        None,
+    )
+    candidate = next(
+        (row for row in reversed(rows) if row.get("case_id") == candidate_case),
+        None,
+    )
+    if baseline is None or candidate is None:
+        raise CampaignHoldError("comparison_transcript_unavailable")
+    baseline_score = baseline.get("score")
+    candidate_score = candidate.get("score")
+    if (
+        not isinstance(baseline_score, int)
+        or isinstance(baseline_score, bool)
+        or not isinstance(candidate_score, int)
+        or isinstance(candidate_score, bool)
+    ):
+        outcome = "unscorable"
+        score_delta: int | None = None
+    else:
+        score_delta = candidate_score - baseline_score
+        outcome = "improved" if score_delta > 0 else "regressed" if score_delta < 0 else "unchanged"
+    return {
+        "outcome": outcome,
+        "score_delta": score_delta,
+        "baseline": baseline,
+        "candidate": candidate,
+        "qualification_authority": False,
+        "execution_authority": False,
+    }
 
 
 def _serve(project: Path) -> int:
@@ -732,6 +897,9 @@ def _parser() -> argparse.ArgumentParser:
     subparsers.add_parser("status")
     report = subparsers.add_parser("report")
     report.add_argument("--top", type=int, default=20)
+    compare = subparsers.add_parser("compare")
+    compare.add_argument("--baseline-case", required=True)
+    compare.add_argument("--candidate-case", required=True)
     subparsers.add_parser("stop")
     copilot_export = subparsers.add_parser("copilot-export")
     copilot_export.add_argument("--input", type=Path, required=True)
@@ -765,6 +933,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         except CampaignHoldError as error:
             copilot_response = {"state": "held", "reason": str(error)}
         print(json.dumps(copilot_response, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
+    if arguments.operation == "compare":
+        try:
+            comparison = _compare_transcripts(
+                project,
+                baseline_case=arguments.baseline_case,
+                candidate_case=arguments.candidate_case,
+            )
+        except CampaignHoldError as error:
+            comparison = {"state": "held", "reason": str(error)}
+        print(json.dumps(comparison, ensure_ascii=False, indent=2, sort_keys=True))
         return 0
     request = {
         "operation": arguments.operation,

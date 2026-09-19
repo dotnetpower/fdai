@@ -583,6 +583,13 @@
       "issue": 252
     },
     {
+      "path": "services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py",
+      "disposition": "retain",
+      "owner": "semantic-operator-runtime",
+      "reason": "Retains exact schema and machine-enum validation for structured assurance projections without classifying operator language, selecting semantic intent, or granting authority.",
+      "issue": 252
+    },
+    {
       "path": "services/operator-service/src/fdai_operator_service/families/iam/hil_callback_decision.py",
       "disposition": "retain",
       "owner": "operator-hil",

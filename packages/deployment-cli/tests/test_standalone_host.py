@@ -1497,7 +1497,20 @@ def test_aks_document_workloads_bind_complete_service_contracts() -> None:
     assert api["service_port"] == 80
     assert worker["environment"]["FDAI_DATABASE_ROLE"] == "fdai_ingestion_worker"
     assert worker["environment"]["FDAI_CLAMAV_HOST"] == "127.0.0.1"
+    assert worker["fs_group"] == 101
     assert worker["sidecars"]["clamav"]["image"] == refs["clamav"]
+    assert worker["sidecars"]["clamav"]["run_as_user"] == 100
+    assert worker["sidecars"]["clamav"]["run_as_group"] == 101
+    assert worker["sidecars"]["clamav"]["init"] == {
+        "name": "clamav-database",
+        "command": ["/bin/sh", "-c"],
+        "args": ["cp -a /var/lib/clamav/. /target/"],
+        "image_pull_policy": "IfNotPresent",
+        "run_as_user": 100,
+        "run_as_group": 101,
+        "writable_path": "database",
+        "mount_path": "/target",
+    }
     assert worker["sidecars"]["clamav"]["writable_paths"]["database"] == {
         "mount_path": "/var/lib/clamav",
         "size_limit": "1Gi",
@@ -1727,6 +1740,62 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
         "update_digest": prepared["update_digest"],
     }
     assert '-target=kubernetes_deployment_v1.workload["core-control-plane"]' in plan_commands[0]
+
+
+def test_aks_deployment_capture_uses_typed_apps_collection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kubeconfig = tmp_path / "kubeconfig"
+    kubeconfig.write_text("synthetic kubeconfig", encoding="utf-8")
+    calls: list[tuple[tuple[str, ...], dict[str, object]]] = []
+
+    def capture(command: tuple[str, ...], **kwargs: object) -> str:
+        calls.append((command, kwargs))
+        return '{"kind":"DeploymentList","items":[]}'
+
+    monkeypatch.setattr(standalone_host, "_capture", capture)
+    context = {"kubeconfig": str(kubeconfig)}
+
+    assert json.loads(standalone_host._capture_aks_deployments(context))["kind"] == (
+        "DeploymentList"
+    )
+    standalone_host._capture_aks_deployments(context, service="operator-service")
+
+    common_tail = (
+        "--request-timeout=60s",
+        f"--kubeconfig={kubeconfig}",
+    )
+    assert calls == [
+        (
+            (
+                "kubectl",
+                "get",
+                "--raw=/apis/apps/v1/namespaces/fdai-runtime/deployments",
+                *common_tail,
+            ),
+            {
+                "cwd": tmp_path,
+                "timeout": 90,
+                "reason": "AKS Deployment observation failed",
+            },
+        ),
+        (
+            (
+                "kubectl",
+                "get",
+                (
+                    "--raw=/apis/apps/v1/namespaces/fdai-runtime/deployments?"
+                    "labelSelector=app.kubernetes.io%2Fname%3Doperator-service"
+                ),
+                *common_tail,
+            ),
+            {
+                "cwd": tmp_path,
+                "timeout": 90,
+                "reason": "AKS Deployment observation failed",
+            },
+        ),
+    ]
 
 
 def test_historical_aks_baseline_requires_matching_state_live_and_bounded_plan() -> None:

@@ -411,20 +411,97 @@ def test_operator_request_redirects_are_disabled() -> None:
 
 def test_operator_evaluator_holds_deferred_assessment(tmp_path: Path) -> None:
     module = _load_module()
+    transcripts = module.PrivateJsonlLedger(tmp_path / "transcripts.jsonl")
     evaluator = module.OperatorHttpEvaluator(
         base_url="http://127.0.0.1:8010",
         bearer_token="test-token",
         turn_ledger=module.PrivateJsonlLedger(tmp_path / "turns.jsonl"),
+        transcript_ledger=transcripts,
     )
     evaluator._request = lambda *_args: {  # noqa: SLF001
+        "status": "held",
+        "answer": "Odin cannot verify the current state without owned evidence.",
+        "answer_generation": {
+            "mode": "agent_projection",
+            "model_identity": None,
+            "model_family": None,
+        },
         "assessment_state": "deferred",
         "assessment_reasons": ["evaluator_error:RuntimeError"],
+        "pantheon_evaluator_models": [
+            {
+                "model_identity": "publisher-a:reviewer-a",
+                "model_family": "family-a",
+                "output_available": False,
+            }
+        ],
+        "pantheon_trace": {"source_revision": "a" * 40},
     }
     case = module.build_pantheon_census(module.PANTHEON_SPECS).cases[0]
 
     with pytest.raises(
         module.CampaignHoldError,
         match="assessment_deferred:evaluator_error:RuntimeError",
+    ):
+        asyncio.run(evaluator.evaluate(case, campaign_id="campaign-one"))
+
+    assert not (tmp_path / "turns.jsonl").exists()
+    assert transcripts.read() == (
+        {
+            "answer": "Odin cannot verify the current state without owned evidence.",
+            "answer_digest": module.content_digest(
+                "Odin cannot verify the current state without owned evidence."
+            ),
+            "answer_generation": {
+                "mode": "agent_projection",
+                "model_identity": None,
+                "model_family": None,
+            },
+            "assessment_reasons": ["evaluator_error:RuntimeError"],
+            "assessment_state": "deferred",
+            "campaign_id": "campaign-one",
+            "case_id": case.case_id,
+            "content_omissions": [],
+            "evaluator_models": [
+                {
+                    "model_identity": "publisher-a:reviewer-a",
+                    "model_family": "family-a",
+                    "output_available": False,
+                }
+            ],
+            "locale": case.locale,
+            "question": case.question,
+            "question_digest": module.content_digest(case.question),
+            "schema_version": "1.0.0",
+            "score": None,
+            "source_revision": "a" * 40,
+            "suite": case.suite,
+            "verdict": None,
+        },
+    )
+
+
+@pytest.mark.parametrize("assessment_state", ("held", "unavailable"))
+def test_operator_evaluator_preserves_noncompleted_assessment_reason(
+    tmp_path: Path,
+    assessment_state: str,
+) -> None:
+    module = _load_module()
+    evaluator = module.OperatorHttpEvaluator(
+        base_url="http://127.0.0.1:8010",
+        bearer_token="test-token",
+        turn_ledger=module.PrivateJsonlLedger(tmp_path / "turns.jsonl"),
+    )
+    evaluator._request = lambda *_args: {  # noqa: SLF001
+        "status": "held",
+        "assessment_state": assessment_state,
+        "assessment_reasons": ["provider_response_invalid"],
+    }
+    case = module.build_pantheon_census(module.PANTHEON_SPECS).cases[0]
+
+    with pytest.raises(
+        module.CampaignHoldError,
+        match=rf"^assessment_{assessment_state}:provider_response_invalid$",
     ):
         asyncio.run(evaluator.evaluate(case, campaign_id="campaign-one"))
 
@@ -448,6 +525,33 @@ def test_operator_evaluator_preserves_terminal_hold_reason(tmp_path: Path) -> No
         asyncio.run(evaluator.evaluate(case, campaign_id="campaign-one"))
 
     assert not (tmp_path / "turns.jsonl").exists()
+
+
+def test_private_transcript_omits_sensitive_answer_body(tmp_path: Path) -> None:
+    module = _load_module()
+    transcripts = module.PrivateJsonlLedger(tmp_path / "transcripts.jsonl")
+    evaluator = module.OperatorHttpEvaluator(
+        base_url="http://127.0.0.1:8010",
+        bearer_token="test-token",
+        turn_ledger=module.PrivateJsonlLedger(tmp_path / "turns.jsonl"),
+        transcript_ledger=transcripts,
+    )
+    case = module.build_pantheon_census(module.PANTHEON_SPECS).cases[0]
+
+    evaluator._record_transcript(  # noqa: SLF001
+        case,
+        campaign_id="campaign-one",
+        terminal={
+            "answer": "password=supersecretvalue",
+            "assessment_state": "deferred",
+            "assessment_reasons": ["sensitive_output"],
+        },
+    )
+
+    row = transcripts.read()[0]
+    assert row["answer"] is None
+    assert row["answer_digest"] == module.content_digest("password=supersecretvalue")
+    assert row["content_omissions"] == ["answer_sensitive"]
 
 
 def test_supervisor_dispatch_is_idle_until_an_explicit_start(tmp_path: Path) -> None:
@@ -503,6 +607,62 @@ def test_report_reconstructs_fixed_question_without_retaining_answer(
     assert result == 0
     assert "Odin, explain your role, reporting line, mandate, and limitations." in output
     assert "not retained (content-free ledger)" in output
+
+
+def test_report_renders_private_transcript_with_model_attribution(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _load_module()
+    module.PrivateJsonlLedger(tmp_path / ".fdai/conversation-assurance/transcripts.jsonl").append(
+        {
+            "case_id": "candidate-one",
+            "question": "What changed?",
+            "answer": "The verified state changed.",
+            "answer_generation": {
+                "mode": "t2_model",
+                "model_identity": "publisher-c:model-c",
+                "model_family": "family-c",
+            },
+            "evaluator_models": [
+                {
+                    "model_identity": "publisher-a:reviewer-a",
+                    "model_family": "family-a",
+                    "output_available": True,
+                }
+            ],
+            "score": 29,
+            "verdict": "pass",
+            "assessment_reasons": ["mixed_family_consensus"],
+            "source_revision": "a" * 40,
+        }
+    )
+
+    result = module.main(["--project", str(tmp_path), "report", "--top", "20"])
+    output = capsys.readouterr().out
+
+    assert result == 0
+    assert "What changed?" in output
+    assert "The verified state changed." in output
+    assert "publisher-c:model-c" in output
+    assert "publisher-a:reviewer-a" in output
+
+
+def test_compare_reports_score_improvement_between_unique_cases(tmp_path: Path) -> None:
+    module = _load_module()
+    ledger = module.PrivateJsonlLedger(tmp_path / ".fdai/conversation-assurance/transcripts.jsonl")
+    ledger.append({"case_id": "baseline-one", "score": 21, "verdict": "fail"})
+    ledger.append({"case_id": "candidate-one", "score": 29, "verdict": "pass"})
+
+    result = module._compare_transcripts(  # noqa: SLF001
+        tmp_path,
+        baseline_case="baseline-one",
+        candidate_case="candidate-one",
+    )
+
+    assert result["outcome"] == "improved"
+    assert result["score_delta"] == 8
+    assert result["qualification_authority"] is False
 
 
 def test_qualification_replay_failure_is_retained_as_a_hold(tmp_path: Path) -> None:

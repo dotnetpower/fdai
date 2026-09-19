@@ -7,8 +7,8 @@ import hashlib
 import json
 import logging
 import re
-from collections.abc import Awaitable, Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
@@ -176,6 +176,7 @@ class ConversationDeliberator:
         requester: str,
         correlation_id: str = "",
         routing_decision: RoutingDecision | None = None,
+        fixed_assurance_facts: Mapping[str, Mapping[str, object]] | None = None,
     ) -> dict[str, Any]:
         """Return a bounded presentation outcome without typed authority."""
         if len(question) > _MAX_QUESTION_CHARS:
@@ -184,6 +185,10 @@ class ConversationDeliberator:
             raise ValueError(f"unknown requester agent: {requester!r}")
         if len(correlation_id) > 256:
             raise ValueError("correlation_id MUST be at most 256 characters")
+        scenario_signals = _trusted_scenario_signals(
+            fixed_assurance_facts,
+            known_agents=set(self._specs),
+        )
         base = {
             "requester": requester,
             "trace_ref": correlation_id,
@@ -277,6 +282,7 @@ class ConversationDeliberator:
                 "primary_agent": primary_agent,
                 "participants": list(participants),
             }
+        primary_claim = _with_scenario_signals(primary_claim, scenario_signals)
 
         critiques = await asyncio.gather(
             *(
@@ -291,7 +297,11 @@ class ConversationDeliberator:
                 for peer in participants[1:]
             )
         )
-        peer_claims = tuple(claim for claim in critiques if claim is not None)
+        peer_claims = tuple(
+            _with_scenario_signals(claim, scenario_signals)
+            for claim in critiques
+            if claim is not None
+        )
         if not peer_claims:
             return {
                 **base,
@@ -539,6 +549,34 @@ def _claim(agent_name: str, response: dict[str, Any] | None) -> DeliberationClai
         evidence_refs=evidence_refs,
         prompt_sha256=prompt_sha256,
         evaluation_signals=evaluation_signals(facts),
+    )
+
+
+def _trusted_scenario_signals(
+    facts_by_agent: Mapping[str, Mapping[str, object]] | None,
+    *,
+    known_agents: set[str],
+) -> dict[str, tuple[DeliberationSignal, ...]] | None:
+    """Validate server-owned diagnostic facts before deriving T1 signals."""
+
+    if facts_by_agent is None:
+        return None
+    if len(facts_by_agent) > len(known_agents) or any(
+        agent not in known_agents for agent in facts_by_agent
+    ):
+        raise ValueError("trusted scenario facts contain an unknown agent")
+    return {agent: evaluation_signals(facts) for agent, facts in facts_by_agent.items()}
+
+
+def _with_scenario_signals(
+    claim: DeliberationClaim,
+    scenario_signals: Mapping[str, tuple[DeliberationSignal, ...]] | None,
+) -> DeliberationClaim:
+    if scenario_signals is None:
+        return claim
+    return replace(
+        claim,
+        evaluation_signals=scenario_signals.get(claim.agent, ()),
     )
 
 

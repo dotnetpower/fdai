@@ -41,36 +41,22 @@ The fixed census contains 230 balanced cases:
 | Routing | 30 | One explicit and one implicit owner route for every agent. |
 | T2 | 20 | Required, forbidden, unavailable, budget, provider, and output-safety outcomes. |
 
-Every measured turn binds the exact prompt-profile digest, content-free route, evidence,
-verification, T1/T2, complete request budget, metering, timing, and terminal-state data in one trace
-receipt. Private question and answer bodies remain outside tracked evidence.
-Core also records schema-v2 timing across durable queue and Pantheon assurance phases. Operator
-returns the same phase list with trace latency, and a deferred assessment marks its phase degraded.
-A UUID-shaped deployment scope in an answer records `hidden_scope_leak` as a hard-zero violation;
-the existing sensitivity scan may independently record `sensitive_output` for the same answer.
+Every measured turn binds prompt-profile, route, evidence, verification, T1/T2, budget, metering, timing, and terminal-state data in one trace receipt; private question and answer bodies remain outside tracked evidence.
+An explicitly started local campaign also writes owner-only `.fdai/conversation-assurance/transcripts.jsonl` with bounded questions, accepted answers, source revision, answer-generation and evaluator attribution, output availability, assessment reasons, score, and verdict. A sensitivity finding replaces the affected body with its digest and omission reason. Transcript content grants no qualification, policy-promotion, audit, or execution authority.
+Core records schema-v2 timing across durable queue and Pantheon assurance phases, and Operator returns the same phases with trace latency while marking a deferred phase degraded. A UUID-shaped deployment scope records `hidden_scope_leak` as a hard-zero violation; the sensitivity scan may also record `sensitive_output`.
 
 ### Explicit campaign operation
 
-Use `scripts/automation/conversation-assurance.py` to preview or start a campaign, read status, or
-request a stop. One child evaluates at most 20 questions. Larger census runs use sequential child
-campaigns and stop after the first hold or incomplete child.
-Before measuring a fixed case, the runtime forwards its registered locale to the Pantheon
-conversation port. The trace `participants[].situation` must record that same locale; a mismatch
-fails the diagnostic instead of silently defaulting to English.
+Use `scripts/automation/conversation-assurance.py` to preview, start, inspect, or stop a campaign. Each child evaluates at most 20 questions; larger census runs use sequential children and stop after the first hold or incomplete child.
+Before measuring a fixed case, the runtime forwards its registered locale to the Pantheon conversation port. The trace `participants[].situation` must match or the diagnostic fails instead of silently defaulting to English.
 
-The optional Unix-socket supervisor waits for explicit commands. Restarting it does not resume or
-start a campaign. Provider throttling, unavailability, timeout, or a missing measurement contract
-records a hold and does not retry the live question.
-The authenticated Operator request rejects redirects before a private bearer can cross origins,
-uses the semantic deadline plus a bounded transport margin, requires strict UTF-8 and exactly one
-final `done` event, and reduces transport or evaluator exceptions to content-free held reasons.
-Malformed bytes, duplicate terminals, and an error after a terminal cannot produce a passing case.
-The supervisor and direct CLI share one owner-only runner lock. The `report` command renders recent
-content-free evaluations without starting a campaign. For a complete census, it also reports one
-source-bound aggregate only after all 230 trace and diagnostic receipts join by digest and share a
-clean revision. Incomplete, duplicate, or mixed-revision evidence cannot produce qualification
-evidence. A lost T1 conclusion or any hard-zero safety escape stops automatic hardening and
-requires human review.
+The optional Unix-socket supervisor waits for explicit commands and never resumes or starts a campaign on restart. Its VS Code task binds the standard loopback Operator URL and the path to an owner-only bearer-token file; it never embeds the bearer value. Provider throttling, unavailability, timeout, or a missing measurement contract records a hold without retrying the live question. The CLI preserves an assessment's exact non-completed state and bounded reasons before reducing a generic transport hold. An accepted semantic disposition is routing evidence, not an answer; missing answer and abstention text fails closed.
+The authenticated Operator request rejects redirects before a private bearer crosses origins, applies the semantic deadline plus bounded transport margin, requires strict UTF-8 and exactly one final `done` event, and reduces transport or evaluator exceptions to content-free held reasons. Malformed bytes, duplicate terminals, or an error after a terminal cannot pass.
+The supervisor and CLI share one owner-only runner lock. `report` renders private transcripts when available and otherwise content-free evaluations; `compare --baseline-case <id> --candidate-case <id>` returns two distinct retained records and their diagnostic score and verdict without establishing qualification or policy authority.
+A complete-census aggregate requires all 230 trace and diagnostic receipts to join by digest on one clean revision. Incomplete, duplicate, mixed-revision, lost-T1, or hard-zero evidence cannot qualify and requires human review.
+Each completed child records ordered attempted case ids and any held case id, allowing a later authorized campaign to exclude prior attempts without retaining question text or retrying a live request.
+
+Built-in T2 synthesis cases bind a bounded server-owned conflict fixture to the read-only deliberation evaluator. Registered case identity selects it without prose inference; it affects only deterministic T1 admission, grants no operational or authorization evidence, and is unavailable to external corpora and ordinary conversations.
 
 For larger diagnostic series, `start --corpus <path>` accepts an owner-only JSON corpus with
 explicit case ids, locales, expected agents, routing methods, handoff outcomes, and T2 outcomes.
@@ -619,6 +605,11 @@ remains visible as unresolved without changing the quality label.
 - Missing model independence, malformed scores, unknown criteria, or unsupported evidence produce
   `inconclusive`.
 - Queue or budget exhaustion records `deferred` and retries within bounded policy.
+- Deterministic agent text records `agent_projection` with no model identity. A semantic or T2
+  model is named as the answer source only when that model produced the terminal answer; routing
+  identity alone never establishes authorship.
+- Invalid or low-confidence independent review preserves the terminal answer, emits terminal
+  status `held` with bounded assessment reasons, and ends that case without retrying the live question.
 - Intake capacity rejection, delegate rejection, and terminal assessment failure emit structured
    warnings without changing the already persisted answer.
 - Store failure leaves the active policy unchanged.

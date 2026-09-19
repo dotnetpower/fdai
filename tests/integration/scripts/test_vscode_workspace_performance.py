@@ -191,6 +191,14 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "dev discuss: profile selected service (5s)",
     }
 
+    assurance_supervisor = tasks_by_label["conversation assurance: start supervisor"]
+    assert assurance_supervisor["options"]["env"] == {
+        "FDAI_CONVERSATION_ASSURANCE_OPERATOR_URL": "http://127.0.0.1:8010",
+        "FDAI_CONVERSATION_ASSURANCE_TOKEN_FILE": (
+            "${workspaceFolder}/.fdai/conversation-assurance/operator-token"
+        ),
+    }
+
     docs_preview = tasks_by_label["docs site: serve (4321)"]
     assert docs_preview["command"] == "npm --prefix site run dev -- --host 127.0.0.1 --port 4321"
     assert docs_preview["options"] == {"cwd": "${workspaceFolder}"}

@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 1e78fd0c4c8a28e790e4a7050bb61379546961f0
-translation_revised: 2026-09-17
+translation_source_sha: 36e5487fd216803690a34e4235d142e35c9af344
+translation_revised: 2026-09-19
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -44,6 +44,19 @@ translation_revised: 2026-09-17
   화면은 clean 유지).
 - Exit 코드: clean 세션 종료 시 `0`; 유효하지 않은 구성 시 `2`; 복구
   불가능한 채널 오류 시 `3`.
+
+#### Pantheon 품질 보증 귀속 확장
+
+Pantheon 품질 보증 terminal은 `answer_generation`과 `pantheon_evaluator_models`를 추가합니다.
+답변 생성은 모델 identity가 없는 `agent_projection` 또는 비어 있지 않은 모델 identity와 family를
+갖는 `t2_model`을 기록합니다. 평가기 목록은 구성된 검토자 identity와 family를 최대 3개까지
+포함하고 각 검토자가 해당 turn에 검증된 출력을 생성했는지를 함께 기록합니다. Operator는 terminal을
+전달하기 전에 이 필드를 검증합니다. 귀속 정보가 없는 과거 레코드는 `legacy_unattributed`로 읽으며,
+Operator는 digest, 배포 기본값 또는 현재 구성에서 모델을 추측하지 않습니다.
+
+로컬 캠페인 CLI는 이 귀속 정보와 범위가 제한된 질문 및 답변 내용을 소유자 전용 transcript에
+저장할 수 있습니다. 이 transcript는 진단 데이터이며 cross-service 계약, qualification 레코드,
+감사 항목 또는 권한 원본이 아닙니다.
 
 ### 13.3 Operator API 승인 콜백 (주 1)
 
@@ -347,6 +360,7 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 | Exact-release 온톨로지 레지스트리 및 워크벤치 | implemented | `ontology_declaration_projection.py`; `ontology_dependents_projection.py`; `ontology_evidence_health_projection.py`; `ontology_release_diff_projection.py`; Operator operations 경로; `console/src/routes/ontology-object-type-detail.tsx`; focused Python 및 Console 검사 | 정확한 선언 상세, 서버 측 redaction, 범위가 제한된 종속 항목, 정직한 근거 상태, 보존 release 비교, clean route, 권한 없는 렌더링이 구현됐습니다. 인증된 로컬 Browser에서 `Decision`과 `Resource` 경로에 overflow, 원시 resource id, execute control이 없음을 확인했지만 관리되는 Browser 산출물은 보존하지 않았습니다. |
 | 활성 인벤토리 런타임 영향 범위 | implemented | `inventory_impact.py`, `PostgresFamilyStore` 영향 범위 읽기, `operator_inventory_active_read_20260819`, 엄격한 Console decoder 및 경로 테스트 | 읽기 전용 경로는 정확한 Resource 하나에서 활성 스냅샷의 저장 방향 링크를 제한된 범위로 탐색하고 provider 속성이나 실행 권한 없이 exact release, 원본 기준 시각, 완전성 및 잘림 상태를 보고합니다. |
 | 논리 서비스 구성요소 상태 답변 | implemented | `semantic_logical_service_answer.py`, Core 의미 처리기, 영문 및 한국어의 완전한 매핑과 부분 매핑 집중 검사 | 정확한 서비스, 워크로드, 런타임 형식, 관측 구성요소 상태, 매핑 범위, 완전성 및 제한 사항을 전체 건강도, 원인, 변경 또는 실행 주장 없이 표시합니다. |
+| 대화 assurance 최종 묶음 | implemented | Core 의미 턴 처리기, Operator 의미 턴 런타임 및 presentation, 집중 assurance 전달 테스트 | 유효한 평가는 범위가 제한된 사유와 정확한 답변 생성 모드를 보존합니다. `completed`만 `answered`를 내보내고 `deferred`, `held`, 과거 `unavailable`은 `held`를 내보냅니다. Assurance 변환 결과 실패는 `semantic_runtime_failed`를 사용하고 `result_store_*` 단계 실패만 `semantic_result_store_unavailable`을 사용합니다. |
 | 증적 기반 런타임 Context snapshot | in-progress | 온톨로지 플랫폼의 보안 ObjectSet 및 Context 계약, 기존 Console 사용 불가 상태 | 워크벤치는 카탈로그 선언과 런타임 인스턴스를 병합하지 않습니다. principal 범위 Context 증적은 별도 전달 작업으로 남아 있습니다. |
 | HIL callback 계약 | implemented | Operator IAM family 경로; `services/operator-service/tests/test_operator_iam_family.py`; full-composition 테스트 | 서명, 재생 구간, 역할, 자기 승인 금지, 정확한 pending id 및 멱등적 결정 동작이 구현됐습니다. |
 | Python task workbench 및 근거 기반 code | implemented | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; Console Python task 테스트 | 정적 검증, inert 산출물, 기능 및 chat 실행 부재 경계에 focused 검사가 있습니다. |
@@ -359,6 +373,8 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-19 | implemented | 완료되지 않은 assurance 평가가 생성된 답변과 범위가 제한된 정확한 실패 사유를 보존하면서도 Operator wire에서 답변 완료 상태로 표시되지 않도록 했습니다. | `current change`, 집중 Operator 대화 테스트 57개 통과, Ruff 및 format 통과. | 배포 후 새로운 인증된 판단 보류 최종 증적을 보존합니다. 공급자 실패를 답변 완료로 보고해서는 안 됩니다. |
+| 2026-09-19 | implemented | Operator wire에서 held assurance 평가와 정확한 결정론적, 의미 모델 또는 T2 답변 출처를 보존하고 변환 결과 실패를 결과 저장소 중단으로 잘못 표시하지 않도록 했습니다. | `current change`, 집중 의미 처리기 및 assurance presentation 테스트가 468개 테스트 묶음에서 통과했고 Ruff와 strict mypy가 통과했습니다. | Assurance 성공을 주장하기 전에 유효한 독립 검토가 포함된 새로운 인증 최종 증적을 보존합니다. |
 | 2026-09-16 | implemented | 완전하거나 누락된 BusinessService, Workload 및 런타임 Resource 매핑을 보존하고 검증된 구성요소 관측만 보고하는 이중 언어 `logical_service_current_state` 답변을 추가했습니다. | [이슈 #1170](https://github.com/dotnetpower/fdai/issues/1170), `current change`, 집중 Core 표현 및 전체 논리 서비스 DAG 검사. | 검증된 운영 동작을 주장하기 전에 통제된 인증 서비스 간 근거를 보존해야 합니다. |
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 Operator, Core Python task, CLI, channel, Console 및 focused 테스트 근거입니다. | Semantic 확인, 채널 동등성 및 관리되는 계약 간 근거를 완료해야 합니다. |
 | 2026-08-14 | in-progress | 생성된 하나의 force graph를 운영 온톨로지로 표현하는 대신 의미 모델, 카탈로그 토폴로지 및 receipt 기반 컨텍스트 스냅샷 계약을 분리했습니다. | `current change`; 영문 및 한국어 Console 계약 문서와 focused 문서 게이트입니다. | 하나의 exact-release 생산자를 구현하고 focused 및 인증된 Console 근거를 보존해야 합니다. |
