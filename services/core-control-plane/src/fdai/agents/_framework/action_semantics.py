@@ -8,11 +8,10 @@ raise its approval quorum for the same action, the two would disagree on
 how dangerous a mutation is - the exact kind of drift this module
 prevents.
 
-The upstream heuristic (``delete`` / ``destroy`` in the ActionType id) is
-a **wave-3 placeholder**. The authoritative source is the ActionType
-schema's ``irreversible: true`` field (``rule-catalog/action-types/``);
-when Forseti loads the real ontology it MUST prefer that flag over this
-name heuristic. Until then, both agents share one conservative rule.
+The authoritative source is the ActionType schema's ``irreversible`` field
+(``rule-catalog/action-types/``). When that catalog projection is unavailable,
+the safe answer is unknown, so callers require the irreversible quorum rather
+than inferring safety from an ActionType name.
 """
 
 from __future__ import annotations
@@ -58,37 +57,14 @@ class ActionSemanticsCatalog:
         return self.rollback_by_id.get(action_type_id, "state_forward_only")
 
 
-#: Verb substrings that denote a one-way (irreversible) mutation. Chosen to
-#: err toward safety: including a verb over-flags at most a reversible action
-#: (extra approver, harmless friction), while MISSING one under-flags an
-#: irreversible action (single-approver HIL clearance - the real hazard).
-#: Deliberately excludes ambiguous verbs (``remove`` / ``drop``) that are
-#: often reversible (remove-tag, drop-privilege). Superseded by the
-#: ActionType schema's ``irreversible`` flag once the real ontology loads.
-_IRREVERSIBLE_VERBS: Final[tuple[str, ...]] = (
-    "delete",
-    "destroy",
-    "purge",
-    "terminate",
-    "decommission",
-    "wipe",
-)
-
-
 def is_irreversible(
     action_type_id: str,
     catalog: ActionSemanticsCatalog | None = None,
 ) -> bool:
-    """Return ``True`` when the ActionType id denotes a one-way mutation.
-
-    Wave-3 heuristic: an id containing any :data:`_IRREVERSIBLE_VERBS`
-    substring is treated as irreversible. Superseded by the ActionType
-    schema's ``irreversible`` flag once the real ontology is loaded.
-    """
+    """Return the catalog value, or fail closed when semantics are unavailable."""
     if catalog is not None:
         return catalog.irreversible(action_type_id)
-    lowered = action_type_id.lower()
-    return any(verb in lowered for verb in _IRREVERSIBLE_VERBS)
+    return True
 
 
 def quorum_for(

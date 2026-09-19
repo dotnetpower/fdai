@@ -36,29 +36,25 @@ def _bus() -> InMemoryBus:
 
 
 class TestActionSemantics:
-    def test_delete_is_irreversible(self) -> None:
+    def test_missing_catalog_fails_closed_for_action_names(self) -> None:
         assert is_irreversible("remediate.delete-storage")
         assert is_irreversible("ops.destroy-cluster")
-
-    def test_one_way_verbs_are_irreversible(self) -> None:
-        # Round 2 safety gap: these one-way verbs previously slipped through
-        # is_irreversible and would have cleared HIL on a single approver.
-        assert is_irreversible("ops.terminate-instance")
-        assert is_irreversible("remediate.purge-cache")
-        assert is_irreversible("ops.decommission-node")
-        assert is_irreversible("storage.wipe-volume")
-        assert quorum_for("ops.terminate-instance") == IRREVERSIBLE_QUORUM
-
-    def test_ordinary_action_is_reversible(self) -> None:
-        assert not is_irreversible("ops.restart-service")
-        assert not is_irreversible("remediate.enable-encryption")
-        # Ambiguous verbs stay reversible (avoid over-flagging tag ops).
-        assert not is_irreversible("config.remove-tag")
-        assert not is_irreversible("remediate.disable-public-access")
+        assert is_irreversible("ops.restart-service")
+        assert is_irreversible("config.remove-tag")
 
     def test_quorum_for(self) -> None:
         assert quorum_for("remediate.delete-storage") == IRREVERSIBLE_QUORUM == 2
-        assert quorum_for("ops.restart-service") == DEFAULT_QUORUM == 1
+        assert quorum_for("ops.restart-service") == IRREVERSIBLE_QUORUM
+
+    def test_catalog_can_prove_reversible_action(self) -> None:
+        action_types = load_action_type_catalog(
+            REPO_ROOT / "rule-catalog" / "action-types",
+            schema_registry=PackageResourceSchemaRegistry(),
+        )
+        semantics = ActionSemanticsCatalog.from_action_types(action_types)
+
+        assert not is_irreversible("ops.start-vm", semantics)
+        assert quorum_for("ops.start-vm", semantics) == DEFAULT_QUORUM == 1
 
     def test_outcome_result_maps_terminal_states(self) -> None:
         assert outcome_result("succeeded") == "success"
@@ -99,13 +95,13 @@ class TestForsetiStampsQuorum:
         assert verdict is not None
         assert verdict["quorum_required"] == 2
 
-    def test_reversible_action_gets_quorum_one(self) -> None:
+    def test_missing_catalog_requires_irreversible_quorum(self) -> None:
         f = Forseti(bus=None)
         verdict = asyncio.run(
             f.judge({"action_type": "ops.restart-service", "correlation_id": "c-2"})
         )
         assert verdict is not None
-        assert verdict["quorum_required"] == 1
+        assert verdict["quorum_required"] == 2
 
     def test_catalog_irreversible_flag_overrides_name_heuristic(self) -> None:
         action_types = load_action_type_catalog(
