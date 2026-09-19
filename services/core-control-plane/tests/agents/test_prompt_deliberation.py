@@ -623,6 +623,64 @@ def test_t1_answer_evaluation_keeps_identity_fields_in_separate_namespaces() -> 
     assert evaluation.reason == "no_structured_conflict"
 
 
+def test_fixed_assurance_facts_control_t2_admission_without_prose_inference() -> None:
+    synthesizer = _T2Synthesizer()
+    runtime = _bind_t1_recommendations(
+        _runtime(t2=synthesizer),
+        ("scale_down", "scale_down"),
+    )
+
+    result = asyncio.run(
+        runtime.deliberate(
+            question="Compare the fixed cost and capacity scenario.",
+            requester="Forseti",
+            correlation_id="corr-fixed-scenario",
+            fixed_assurance_facts={
+                "Njord": {
+                    "scope_ref": "fixed-t2-scenario",
+                    "status": "conflicting",
+                },
+                "Freyr": {
+                    "scope_ref": "fixed-t2-scenario",
+                    "status": "consistent",
+                },
+            },
+        )
+    )
+
+    assert result["t1_evaluation"] == {
+        "status": "escalation_required",
+        "reason": "structured_conflict",
+        "signal_count": 2,
+        "conflicts": [
+            {
+                "field": "status",
+                "left_agent": "Njord",
+                "right_agent": "Freyr",
+            }
+        ],
+    }
+    assert result["t2_status"] == "completed"
+    assert len(synthesizer.requests) == 1
+
+
+def test_fixed_assurance_facts_reject_unknown_agent() -> None:
+    with pytest.raises(ValueError, match="unknown agent"):
+        asyncio.run(
+            _runtime().deliberate(
+                question="Compare the fixed cost and capacity scenario.",
+                requester="Forseti",
+                correlation_id="corr-invalid-scenario",
+                fixed_assurance_facts={
+                    "Unknown": {
+                        "scope_ref": "fixed-t2-scenario",
+                        "status": "conflicting",
+                    }
+                },
+            )
+        )
+
+
 @pytest.mark.parametrize(
     ("outcome", "expected_status"),
     (

@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 48f20f828098ce5eabca0b2427294fe7244f2e4e
+translation_source_sha: 4ac0462cc8a681e06397df19aef799204e6a1d5b
 translation_revised: 2026-09-19
 ---
 # 대화 품질 보증
@@ -77,6 +77,11 @@ Supervisor와 직접 CLI는 하나의 소유자 전용 실행기 잠금을 공�
 완료된 각 하위 캠페인은 측정을 시작한 사례 ID의 순서와, 판단 보류가 있으면 그 정확한 사례
 ID도 기록합니다. 이 내용 없는 식별 정보를 사용하면 이후 명시적으로 승인된 캠페인이 질문
 텍스트를 보존하거나 라이브 요청을 재시도하지 않고 이미 시도한 질문을 제외할 수 있습니다.
+
+T2 종합이 필요한 기본 제공 사례는 범위가 제한되고 서버가 소유한 충돌 fixture를 읽기 전용
+숙의 평가기에 연결합니다. Fixture는 prose에서 추론하지 않고 등록된 사례 identity로 선택하며,
+결정론적 T1 admission에만 영향을 주고 운영 또는 authorization 근거가 되지 않습니다. 외부
+corpus와 일반 대화는 이 fixture를 받을 수 없습니다.
 
 더 큰 진단 series에는 `start --corpus <path>`로 소유자 전용 JSON 말뭉치를 사용할 수
 있습니다. 각 사례에는 사례 id, 로케일, 예상 에이전트, 라우팅 방법, 인계 결과 및 T2 결과를

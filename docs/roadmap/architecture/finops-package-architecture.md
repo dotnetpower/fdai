@@ -44,6 +44,9 @@ domain code and assets. It does not create another control plane or move authori
 > The same
 > boundary excludes the independent runtime-call evidence source flag, shared provider endpoint
 > availability, and startup-probe RBAC state addresses from FinOps package inputs and authority.
+> Fixed Conversation Assurance scenario facts also remain diagnostic-only inputs to the shared
+> read-only Pantheon deliberation path. They cannot install, enable, configure, publish, or grant
+> Cost Governance data access or action authority.
 > Protected Terraform deployer roles use the configured stable runner UAMI principal, and planning
 > stops when the authenticated principal differs. The isolated public-development path may instead
 > use its verified Azure CLI human only as the Terraform management principal. Neither identity is

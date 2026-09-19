@@ -33,6 +33,13 @@ metering receipt digest only after the injected metering sink accepts the measur
 These diagnostics remain presentation-only and grant no execution, approval, judgment, or
 promotion authority.
 
+Fixed T2 census cases can also supply bounded, server-owned `fixed_assurance_facts` to the
+deterministic T1 answer evaluator. This input makes the reviewed conflict scenario reproducible
+without inferring a conflict from question text. It is limited to the built-in assurance census,
+does not replace participant answers or evidence references, and is not operational evidence.
+Ordinary deliberation and private external corpora continue to derive T1 signals only from
+agent-owned facts.
+
 ## Situational prompt composition
 
 One static string cannot serve every turn. An operator asking in Korean, a read-only peer
@@ -243,6 +250,12 @@ No comparable signal means that T2 is not required. A prose difference, an avail
 or remaining budget never opens escalation by itself. Missing evidence references still cause T1
 abstention before evaluation, and the evaluator records bounded owner and field metadata rather
 than the compared values.
+
+For a built-in assurance scenario that explicitly requires T2, the runtime may replace only the
+comparison signals with bounded server-owned scenario facts. The participant answer, evidence
+references, prompt provenance, budget, synthesis, and output checks remain on the ordinary path.
+Unknown agent identities are rejected, and omission of the fixture preserves the normal
+agent-owned signal behavior.
 
 ## Escalation economy
 

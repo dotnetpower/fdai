@@ -75,6 +75,11 @@ Each completed child also records the ordered case ids whose measurements starte
 case id that held, when present. These content-free identities let a later explicitly authorized
 campaign exclude attempted questions without retaining question text or retrying a live request.
 
+Built-in T2 cases that require synthesis bind a bounded, server-owned conflict fixture to the
+read-only deliberation evaluator. The fixture is selected by the registered case identity rather
+than inferred from prose, affects only deterministic T1 admission, and is never operational or
+authorization evidence. External corpora and ordinary conversations cannot acquire this fixture.
+
 For larger diagnostic series, `start --corpus <path>` accepts an owner-only JSON corpus with
 explicit case ids, locales, expected agents, routing methods, handoff outcomes, and T2 outcomes.
 The parser accepts at most 10,000 unique cases and never derives expectations from question text.

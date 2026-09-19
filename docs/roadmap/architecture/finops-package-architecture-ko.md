@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 6e576b31213541da033ada603b8a7781e893c9e0
-translation_revised: 2026-09-18
+translation_source_sha: a229ad5267134504d83829dd0a4f80ae778897dd
+translation_revised: 2026-09-19
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -51,6 +51,9 @@ translation_revised: 2026-09-18
 > 승인하거나 실행 권한을 부여할 수 없습니다. 같은
 > 경계는 독립 런타임 호출 근거 원본 플래그, 공유 공급자 엔드포인트 가용성 및 시작 프로브 RBAC
 > 상태 주소도 FinOps 패키지 입력과 권한에서 제외합니다.
+> 고정 대화 품질 보증 시나리오 사실도 공유 읽기 전용 Pantheon 숙의 경로의 진단 전용 입력으로
+> 유지됩니다. 이 사실은 Cost Governance를 설치, 활성화, 구성 또는 게시할 수 없고 데이터 접근이나
+> 작업 권한도 부여할 수 없습니다.
 > 보호된 Terraform deployer 역할은 구성된 안정 실행기 UAMI principal을 사용하며 인증된
 > principal이 다르면 계획을 중단합니다. 격리된 공개 개발 경로는 검증된 Azure CLI 사람을
 > Terraform 관리 principal로만 사용할 수 있습니다. 어느 신원도 패키지 입력 또는 runtime

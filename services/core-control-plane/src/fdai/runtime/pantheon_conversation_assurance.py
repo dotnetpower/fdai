@@ -85,6 +85,7 @@ class RuntimePantheonConversationAssurance:
         if len({case.case_id for case in all_cases}) != len(all_cases):
             raise ValueError("conversation assurance runtime case ids MUST be unique")
         self._cases = {case.case_id: case for case in all_cases}
+        self._fixed_case_ids = frozenset(case.case_id for case in fixed_cases)
         self._specs = {spec.name: spec for spec in PANTHEON_SPECS}
 
     async def evaluate(
@@ -247,6 +248,9 @@ class RuntimePantheonConversationAssurance:
             requester="Bragi",
             correlation_id=request.turn_id,
             reuse_semantic_route=False,
+            fixed_assurance_facts=(
+                _trusted_t2_scenario_facts(case) if case.case_id in self._fixed_case_ids else None
+            ),
         )
         answer = _deliberation_answer(result)
         participants, evidence_refs = _deliberation_participants(
@@ -311,6 +315,23 @@ class RuntimePantheonConversationAssurance:
             "hard_zero_violations": _hard_zero_violations(result, answer),
             "execution_authority": False,
         }
+
+
+def _trusted_t2_scenario_facts(
+    case: PantheonCensusCase,
+) -> dict[str, dict[str, object]] | None:
+    """Return typed conflict facts only for fixed cases that require T2."""
+
+    if case.suite != "t2" or case.t2_expectation is not T2Expectation.REQUIRED:
+        return None
+    participants = (case.expected_primary_agent, *case.allowed_contributors)
+    return {
+        agent: {
+            "scope_ref": "fixed-t2-scenario",
+            "status": "consistent" if index == len(participants) - 1 else "conflicting",
+        }
+        for index, agent in enumerate(participants)
+    }
 
 
 def assurance_case_id(purpose: str) -> str | None:
