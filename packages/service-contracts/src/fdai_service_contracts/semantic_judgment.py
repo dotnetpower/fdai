@@ -129,12 +129,37 @@ class SemanticJudgmentProposal(QueryContract):
     requested_facets: Annotated[tuple[MachineToken, ...], Field(max_length=32)] = ()
     confidence: float = Field(ge=0.0, le=1.0)
     ambiguous: bool
-    alternatives: Annotated[tuple[MachineToken, ...], Field(max_length=8)] = ()
+    alternatives: Annotated[
+        tuple[MachineToken, ...],
+        Field(
+            max_length=8,
+            description=(
+                "At most 8 bounded alternatives. Use an empty array when ambiguous is false."
+            ),
+        ),
+    ] = ()
     unresolved_terms: Annotated[
         tuple[Annotated[str, Field(min_length=1, max_length=128)], ...],
-        Field(max_length=8),
+        Field(
+            max_length=8,
+            description=(
+                "At most 8 concise unresolved terms. Use an empty array when ambiguous is false."
+            ),
+        ),
     ] = ()
-    clarification: Annotated[str, Field(min_length=1, max_length=512)] | None = None
+    clarification: (
+        Annotated[
+            str,
+            Field(
+                min_length=1,
+                max_length=512,
+                description=(
+                    "Exactly one concise question ending in ? when ambiguous is true; otherwise null."
+                ),
+            ),
+        ]
+        | None
+    ) = None
     direct_response: SemanticDirectResponseDraft | None = None
     document_evidence_mode: SemanticDocumentEvidenceMode = Field(
         default=SemanticDocumentEvidenceMode.NONE,

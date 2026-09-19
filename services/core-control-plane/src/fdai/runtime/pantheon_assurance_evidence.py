@@ -177,6 +177,11 @@ def answer_text(answer: Mapping[str, object]) -> str:
     value = answer.get("answer")
     if isinstance(value, str) and value.strip():
         return value.strip()
+    semantic_judgment = answer.get("semantic_judgment")
+    if isinstance(semantic_judgment, Mapping):
+        reason_code = semantic_judgment.get("reason_code")
+        if isinstance(reason_code, str) and reason_code:
+            return f"Pantheon abstained: {reason_code}."
     reason = answer.get("abstain_reason")
     if isinstance(reason, str) and reason:
         return f"Pantheon abstained: {reason}."

@@ -43,7 +43,9 @@ test("rejects v1 frames with mismatched request ids or missing sequences", async
     });
 
     expect(reply.source).toBe(expectedSource);
-    expect(reply.text).toBe("Semantic interpretation is unavailable for this turn.");
+    expect(reply.text).toBe(
+      "FDAI rejected an inconsistent conversation response. No answer was accepted.",
+    );
     expect(tokens.join("")).toBe(reply.text);
     expect(tokens.join("")).not.toContain("must be discarded");
     expect(reply.verification).toBeUndefined();
@@ -147,6 +149,51 @@ test("accepts an evidence-bound ontology query done frame", async () => {
     principal_manifest_digest: digest,
     plan_digest: digest,
     execution_receipt_digest: digest,
+    execution_authority: false,
+  });
+});
+
+test("preserves an Operator runtime hold receipt", async () => {
+  let submittedRequestId = "";
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_input, init) => {
+      const request = JSON.parse(String(init?.body)) as { request_id: string };
+      submittedRequestId = request.request_id;
+      return new Response(
+        `event: done\ndata: ${JSON.stringify({
+          seq: 1,
+          revision: 0,
+          status: "held",
+          answer: "The request was held because verified semantic transport is unavailable. (semantic_transport_unavailable)",
+          source: "semantic-runtime",
+          semantic_receipt: {
+            schema_version: "1.0.0",
+            projection_id: request.request_id,
+            request_id: request.request_id,
+            disposition: "held",
+            reason_code: "semantic_transport_unavailable",
+            unavailable_reason: "semantic_planner_unavailable",
+            execution_authority: false,
+          },
+        })}\n\n`,
+      );
+    }),
+  );
+  const backend = await import("./backend");
+
+  const reply = await backend.askBackendStream("show resources", null, [], {
+    onToken: () => undefined,
+  });
+
+  expect(reply.source).toBe("semantic-runtime");
+  expect(reply.semanticReceipt).toEqual({
+    schema_version: "1.0.0",
+    projection_id: submittedRequestId,
+    request_id: submittedRequestId,
+    disposition: "held",
+    reason_code: "semantic_transport_unavailable",
+    unavailable_reason: "semantic_planner_unavailable",
     execution_authority: false,
   });
 });

@@ -63,6 +63,15 @@ class MixedFamilyAssuranceReviewer:
             identities += (self._tie_breaker.model_identity,)
         return hashlib.sha256("\0".join(identities).encode()).hexdigest()
 
+    @property
+    def evaluator_models(self) -> tuple[tuple[str, str], ...]:
+        """Return configured evaluator identity and family pairs in call order."""
+
+        evaluators = (self._first, self._second) + (
+            (self._tie_breaker,) if self._tie_breaker is not None else ()
+        )
+        return tuple((item.model_identity, item.model_family) for item in evaluators)
+
     async def review(self, turn: TurnAssessmentInput) -> AssuranceDecision:
         """Return the reduced decision while preserving the historical API."""
 

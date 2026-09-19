@@ -15,6 +15,23 @@ def _assurance() -> dict[str, object]:
     return {
         "schema_version": "1.0.0",
         "answer": "Bounded Pantheon answer.",
+        "answer_generation": {
+            "mode": "t2_model",
+            "model_identity": "publisher-c:model-c",
+            "model_family": "family-c",
+        },
+        "pantheon_evaluator_models": [
+            {
+                "model_identity": "publisher-a:reviewer-a",
+                "model_family": "family-a",
+                "output_available": True,
+            },
+            {
+                "model_identity": "publisher-b:reviewer-b",
+                "model_family": "family-b",
+                "output_available": True,
+            },
+        ],
         "assessment_id": "conversation-assessment:test",
         "assessment_state": "completed",
         "assessment_reasons": ["mixed_family_consensus"],
@@ -69,6 +86,23 @@ def test_pantheon_assurance_projection_becomes_one_bounded_terminal_answer() -> 
 
     assert done["status"] == "answered"
     assert done["answer"] == "Bounded Pantheon answer."
+    assert done["answer_generation"] == {
+        "mode": "t2_model",
+        "model_identity": "publisher-c:model-c",
+        "model_family": "family-c",
+    }
+    assert done["pantheon_evaluator_models"] == [
+        {
+            "model_identity": "publisher-a:reviewer-a",
+            "model_family": "family-a",
+            "output_available": True,
+        },
+        {
+            "model_identity": "publisher-b:reviewer-b",
+            "model_family": "family-b",
+            "output_available": True,
+        },
+    ]
     assert done["assessment_state"] == "completed"
     assert done["assessment_reasons"] == ["mixed_family_consensus"]
     assert done["source"] == "pantheon-conversation-assurance"
@@ -91,6 +125,21 @@ def test_legacy_pantheon_assurance_without_timing_remains_readable() -> None:
     assert "turn_timing" not in done
 
 
+def test_legacy_pantheon_assurance_without_model_attribution_is_explicit() -> None:
+    assurance = _assurance()
+    assurance.pop("answer_generation")
+    assurance.pop("pantheon_evaluator_models")
+
+    done = semantic_done_event_data({"payload": {"pantheon_assurance": assurance}})
+
+    assert done["answer_generation"] == {
+        "mode": "legacy_unattributed",
+        "model_identity": None,
+        "model_family": None,
+    }
+    assert done["pantheon_evaluator_models"] == []
+
+
 class _Store:
     def __init__(self) -> None:
         self.projection: dict[str, object] | None = None
@@ -107,6 +156,12 @@ class _Store:
 async def test_projection_consumer_accepts_valid_pantheon_assurance_extension() -> None:
     store = _Store()
     consumer = SemanticTurnProjectionConsumer(store=cast(Any, store))
+    assurance = _assurance()
+    assurance["answer_generation"] = {
+        "mode": "semantic_model",
+        "model_identity": "narrator-gpt-5-4-mini",
+        "model_family": None,
+    }
     projection = {
         "schema_version": "1.4.0",
         "projection_id": "00000000-0000-0000-0000-000000000001",
@@ -118,7 +173,7 @@ async def test_projection_consumer_accepts_valid_pantheon_assurance_extension() 
         "payload": {
             "request_kind": "pantheon_conversation_assurance",
             "request_digest": "sha256:" + ("b" * 64),
-            "pantheon_assurance": _assurance(),
+            "pantheon_assurance": assurance,
         },
         "evidence_digest": "sha256:" + ("c" * 64),
         "semantic_result": _semantic_fallback(),
