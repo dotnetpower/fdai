@@ -1,7 +1,7 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 6a9795c4478d426f288b54e4b520bbbeef9484e7
-translation_revised: 2026-09-19
+translation_source_sha: 311bdf6dbd2c82a1e7e3612d3b19299334d1db6e
+translation_revised: 2026-09-20
 ---
 # Rule 의미 검색
 
@@ -40,6 +40,8 @@ PostgreSQL은 후보를 반환하기 전에 활성 세대 식별자를 계속 �
 이는 검색 동작의 검증이며 실제 임베딩의 관련성, 언어 모델의 정확도, 승격 자격을 입증하지 않습니다.
 기존 승격 고정본의 7개 사례는 별도의 작은 근거 집합으로 유지합니다.
 
+평가기 자체가 빠진 필수 집단마다 이름이 포함된 실패 코드를 기록하고 `HOLD`를 발행합니다. 영어 사례 일부의 통과가 필수 한국어 근거를 대신할 수 없습니다. 기존 정책과 증적의 신원은 바뀌지 않으며, 이 검사는 충분한 표본 수나 실제 임베딩 품질을 입증하지 않습니다.
+
 ## 구현 상태
 
 ### 구현 범위
@@ -64,6 +66,8 @@ PostgreSQL은 후보를 반환하기 전에 활성 세대 식별자를 계속 �
 | Operator Rule 검색 변환 결과 | implemented | `packages/service-contracts/src/fdai_service_contracts/semantic_turn.py`; `services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py`; Operator Service workflow 어댑터 및 경로; current change 집중 검사 | `POST /rules/search`는 검증된 정확한 함수 호출 증적과 정규 다이제스트를 포함하는 개정 번호가 있는 구체화된 변환 결과를 읽습니다. 공유 계약은 내용, 다이제스트, 작업, 의도, 기능 및 최종 상태 차이를 거부합니다. 직접 Core 호출이나 정책, 승인, 변경 또는 실행 권한을 추가하지 않습니다. |
 
 ### 구현 이력
+
+2026-09-20 추가 근거: `rule_semantic_evaluation.py`에서 증적의 `PASS` 발행 전에 필수 집단 존재 여부를 검사하도록 수정했습니다. 한국어 집단 누락 회귀는 수정 전에 실패했고, 수정 후 평가기 테스트 14개와 Ruff 및 strict mypy가 통과했습니다. 충분한 평가 표본 기준과 실제 임베딩 관련성 근거는 남아 있으며 기존 집단별 1개 사례를 늘린 변경은 아닙니다.
 
 알림 ActionType 추가 이후의 소스 재평가를 포함한 최신 근거는
 [영문 정본 이력](rule-semantic-retrieval.md#implementation-history)을 확인하세요.

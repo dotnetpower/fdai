@@ -220,6 +220,38 @@ async def test_pass_from_previous_policy_is_held_by_current_review_policy() -> N
     assert assessment.execution_authority is False
 
 
+async def test_evaluator_holds_when_a_required_cohort_is_absent() -> None:
+    policy = replace(_policy(), required_cohorts=("en-negative", "en-positive", "ko-positive"))
+    receipt = await evaluate_semantic_surface(
+        _surface(),
+        (
+            RetrievalEvaluationCase(
+                "positive-en",
+                "Public storage policy?",
+                "en-positive",
+                ("rule:public-access@1",),
+                EvaluationQueryOrigin.USER,
+            ),
+            RetrievalEvaluationCase(
+                "negative-en",
+                "Database connections policy?",
+                "en-negative",
+                (),
+                EvaluationQueryOrigin.USER,
+            ),
+        ),
+        retriever=_Retriever(),
+        policy=policy,
+        evaluator_ref="heimdall:rule-retrieval@1",
+        generation_digest=_DIGEST,
+        catalog_digest=_DIGEST,
+    )
+
+    assert receipt.decision is ValidationDecision.HOLD
+    assert receipt.failure_codes == ("ko-positive-required-cohort-missing",)
+    assert receipt.evaluation_policy_digest == policy.digest
+
+
 async def test_review_assessment_revalidates_passing_receipt_metrics() -> None:
     policy = _policy()
     receipt = await evaluate_semantic_surface(

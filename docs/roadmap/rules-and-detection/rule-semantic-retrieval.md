@@ -40,6 +40,8 @@ queries, and four exact identifiers with an unavailable embedder. This tests ret
 not live embedding relevance, language-model accuracy, or promotion eligibility. The historical
 seven-case promotion fixture remains a separate, small evidence set.
 
+The evaluator itself emits `HOLD` with a named failure for every missing required cohort. A passing English-only subset cannot stand in for required Korean evidence. Existing policy and receipt identities are unchanged; this guard does not establish sufficient sample sizes or live embedding quality.
+
 ## Implementation status
 
 ### Implementation scope
@@ -67,6 +69,7 @@ seven-case promotion fixture remains a separate, small evidence set.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-20 | implemented | Enforced required cohort presence in the evaluator, before a receipt can claim `PASS`. | `current change`; `rule_semantic_evaluation.py`; absent Korean cohort failed before repair; 14 focused evaluator tests, Ruff, and strict mypy passed. | Define sufficient held-out sample requirements and retain real-embedder relevance evidence. Existing one-case cohorts are not broadened by this repair. |
 | 2026-09-16 | implemented | Re-evaluated source commitments after `BusinessService` and `Workload` gained optional approved aliases. The generator now rebinds the unchanged Cost Governance declaration set to exact active refs instead of updating only the release digest, preserves prior receipts, reruns the seven held-out cases and 16 F1-F8 fixtures, and writes one new validation-only Korean surface receipt. | [Issue #1170](https://github.com/dotnetpower/fdai/issues/1170); `current change`; receipt `7116098edcd3b8cc5ea95bc75fc51b8db5955334288e544943a806feebe243b4`; exact CI regressions and generator tests passed 24 cases; second generator check reported `changed=0`. | Exact-head protected CI remains authoritative. No deployed index, package activation, promotion registry, data access, or execution authority changed. |
 | 2026-09-12 | implemented | Reconciled current corpus evidence at 50 active and 8,487 discovery documents without rewriting historical 62-Rule inventory records. | `current change`; in-memory corpus checks (`12 passed`); local PostgreSQL full-corpus lifecycle (`1 passed`). | Retain governed live runtime evidence separately. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger and corrected the unsupported production-binding claim. Added optional exact-digest composition and typed planner unavailability for unbound Rule search. Earlier provenance was not reconstructed. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/pytest -q services/core-control-plane/tests/composition/test_wire_semantic_query.py services/core-control-plane/tests/core/ontology_platform/test_query_manifest.py` passes 19 focused tests. | Add a durable production index, production bootstrap binding, Core-to-Operator projection publication, and live receipts. |

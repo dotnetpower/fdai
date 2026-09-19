@@ -173,6 +173,11 @@ async def evaluate_semantic_surface(
 
     metrics: list[CohortMetric] = []
     failures = list(retrieval_failures)
+    failures.extend(
+        f"{cohort}-required-cohort-missing"
+        for cohort in policy.required_cohorts
+        if cohort not in retrieval_success
+    )
     for cohort in sorted(retrieval_success):
         rows = observed[cohort]
         positives = tuple(row for row in rows if row[2] is None)
