@@ -35,6 +35,12 @@ The additive mapped-type accounting stays collection-local and preserves the exi
 coverage shape. Scheduled health requires the active and ontology generations to match with complete
 object, relationship, and projection evidence; configured cadence remains within the source policy. Core observation adjudication owns the pure generation-clock check; inventory projection preserves independent property conflicts and canonical state provenance, without adding a provider dependency or writer.
 
+Snapshot policy admission rejects capacities above 50,000 Resources or 200,000 links. Source
+composition applies the declared page, record, and concurrency ceilings; ARM page collection also
+uses its declared byte ceiling. Scope-and-generation jitter is replay-stable and cannot exceed the
+maximum poll interval. These bounds do not yet establish a shared cross-source rolling byte budget
+or a disk-backed generation stream.
+
 ## Core domain navigation decision
 
 **Initial design.** Physically move every flat Core subsystem under `pipeline`, `incident`,

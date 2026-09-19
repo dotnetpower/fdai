@@ -119,6 +119,11 @@ class DiscoveryPredicate(QueryContract):
                 raise ValueError("exists predicate MUST NOT carry values")
         elif not self.values:
             raise ValueError("value predicate MUST carry at least one value")
+        if (
+            self.operator in {DiscoveryPredicateOperator.EQ, DiscoveryPredicateOperator.CONTAINS}
+            and len(self.values) != 1
+        ):
+            raise ValueError("scalar discovery predicate MUST carry exactly one value")
         if len(self.values) != len(set(self.values)):
             raise ValueError("predicate values MUST be unique")
         for value in self.values:

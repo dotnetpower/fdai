@@ -55,6 +55,9 @@ Discovery plan schema `1.2.0` preserves the requested result kind. Compilation r
 the registered profile, and merging requires every expected plan with matching intent, scope,
 authorization ceiling, universe, and backend. An unauthorized or otherwise incomplete result
 cannot become complete merely because no pagination truncation occurred.
+Scalar equality and containment predicates accept exactly one value. Per-plan and merged output
+stay inside the intent result limit, and ordinary execution receipts cannot exceed page or result
+ceilings. Command rendering rejects operation, backend, scope, result-kind, or version substitution.
 
 New execution receipts bind their exact plan digest. Coverage construction verifies that binding,
 backend, page limit, and observed result count. Reconciliation requires the expected scope digest

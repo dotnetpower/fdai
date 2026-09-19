@@ -116,6 +116,10 @@ class SourceCollectionPolicy:
             raise ValueError("minimum poll interval MUST NOT exceed maximum poll interval")
         if self.max_poll_interval_seconds > self.max_staleness_seconds:
             raise ValueError("maximum poll interval MUST NOT exceed maximum staleness")
+        if self.source_kind is CollectionSourceKind.SNAPSHOT and (
+            self.max_objects > 50_000 or self.max_relationships > 200_000
+        ):
+            raise ValueError("snapshot policy exceeds the supported graph projection capacity")
         concurrency_limits = (
             self.scope_concurrency_limit,
             self.resource_type_concurrency_limit,

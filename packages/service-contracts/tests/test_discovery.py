@@ -110,6 +110,12 @@ def test_intent_rejects_executable_predicate_text(value: str) -> None:
         DiscoveryPredicate(field="name", operator="contains", values=(value,))
 
 
+@pytest.mark.parametrize("operator", ["eq", "contains"])
+def test_scalar_predicates_cannot_hide_additional_values(operator: str) -> None:
+    with pytest.raises(ValidationError, match="exactly one value"):
+        DiscoveryPredicate(field="name", operator=operator, values=("first", "second"))
+
+
 def test_intent_rejects_unresolved_modifiers() -> None:
     with pytest.raises(ValidationError, match="unresolved modifiers"):
         _intent(unresolved_modifiers=("except inaccessible resources",))

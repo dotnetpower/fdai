@@ -108,9 +108,9 @@ def _eligibility(
     )
 
 
-def _merge_plan(operation_id: str = "azure.arg.resources.list"):
+def _merge_plan(operation_id: str = "azure.arg.resources.list", *, limits=None):
     return compile_discovery_routes(
-        intent=_intent(),
+        intent=_intent(limits=limits),
         profile=_profile(),
         authorization_ceiling_digest=DIGEST,
         eligibility=(_eligibility(operation_id, available=True, complete=True),),
@@ -260,6 +260,33 @@ def test_merge_rejects_conflicting_mapping_for_same_provider_ref() -> None:
     )
     with pytest.raises(ValueError, match="conflicting provider observations"):
         merge_discovery_results((first, second), plans=(first_plan, second_plan))
+
+
+def test_merge_enforces_the_registered_result_limit() -> None:
+    plan = _merge_plan(limits=DiscoveryLimits(max_results=1))
+    assert plan is not None
+    observations = tuple(
+        ProviderResourceObservation(
+            provider_ref_digest="sha256:" + digit * 64,
+            provider_type="Example.Provider/widgets",
+            scope_kind="subscription",
+            mapping_status="unmapped",
+            evidence_ref="discovery:example",
+        )
+        for digit in ("a", "b")
+    )
+    result = DiscoveryPlanResult(
+        plan_digest=plan.plan_digest,
+        universe="arm_resources",
+        backend="resource_graph",
+        status="covered",
+        complete=True,
+        truncated=False,
+        observations=observations,
+        observed_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    with pytest.raises(ValueError, match="plan result limit"):
+        merge_discovery_results((result,), plans=(plan,))
 
 
 def test_merge_cannot_omit_an_expected_plan() -> None:

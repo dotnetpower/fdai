@@ -45,6 +45,8 @@ def build_provider_execution_receipt(
         raise ValueError("provider execution receipt requires an executed Azure read backend")
     if plan.operation_id != operation.operation_id or plan.backend is not operation.backend:
         raise ValueError("execution receipt operation MUST match the exact plan")
+    if page_count > plan.limits.max_pages or count > plan.limits.max_results:
+        raise ValueError("execution receipt exceeds the exact plan limits")
     rendered = render_registered_azure_command(plan=plan, operation=operation)
     preview = tuple(_preview(row) for row in preview_rows[:10])
     result = ProviderExecutionResult(

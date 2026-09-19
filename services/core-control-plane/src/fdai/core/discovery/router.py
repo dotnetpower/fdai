@@ -217,6 +217,8 @@ def merge_discovery_results(
         plan = expected[result.plan_digest]
         if plan.universes != (result.universe,) or plan.backend is not result.backend:
             raise ValueError("discovery result MUST match its expected universe and backend")
+        if len(result.observations) > plan.limits.max_results:
+            raise ValueError("discovery result exceeds its expected plan result limit")
         if result.plan_digest in by_plan:
             raise ValueError("discovery merge MUST NOT repeat a plan result")
         by_plan.add(result.plan_digest)
@@ -226,6 +228,8 @@ def merge_discovery_results(
                 raise ValueError("conflicting provider observations MUST NOT be merged")
             by_ref[observation.provider_ref_digest] = observation
     observations = tuple(by_ref[key] for key in sorted(by_ref))
+    if len(observations) > min(plan.limits.max_results for plan in plans):
+        raise ValueError("merged discovery result exceeds the intent result limit")
     complete = all(result.complete and not result.truncated for result in results)
     values: dict[str, object] = {
         "observations": observations,

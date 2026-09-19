@@ -122,6 +122,28 @@ def test_unknown_azure_type_is_retained_as_unmapped_without_raw_id() -> None:
     assert raw_id not in encoded
 
 
+@pytest.mark.parametrize(("pages", "count"), [(11, 1), (1, 101)])
+def test_execution_receipt_cannot_exceed_plan_limits(pages: int, count: int) -> None:
+    _profile, operation, plan = _plan()
+    with pytest.raises(ValueError, match="exact plan limits"):
+        build_provider_execution_receipt(
+            plan=plan,
+            operation=operation,
+            page_count=pages,
+            count=count,
+            preview_rows=(),
+        )
+
+
+def test_explanation_cannot_substitute_an_operation_backend() -> None:
+    from fdai.delivery.azure.discovery_explanation import render_registered_azure_command
+
+    _profile, operation, plan = _plan()
+    operation = operation.model_copy(update={"backend": "generic_arm"})
+    with pytest.raises(ValueError, match="exact registered operation"):
+        render_registered_azure_command(plan=plan, operation=operation)
+
+
 def test_provider_execution_receipt_drops_raw_ids_tokens_and_errors() -> None:
     _profile, operation, plan = _plan()
     receipt = build_provider_execution_receipt(

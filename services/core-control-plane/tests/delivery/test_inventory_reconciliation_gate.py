@@ -13,6 +13,7 @@ from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     PostgresInventoryReconciliationGate,
     _pending_resource_count,
     _projection_pending,
+    _scope_jitter_fraction,
     _snapshot_coverage_complete,
     _uncovered_cursor_lag_seconds,
     adaptive_reconciliation_decision,
@@ -211,6 +212,13 @@ def test_health_requires_exact_complete_projection(
         )
         is expected
     )
+
+
+def test_scope_jitter_is_stable_bounded_and_scope_specific() -> None:
+    first = _scope_jitter_fraction(("cursor:scope-a", "cursor:scope-b"), "generation")
+    assert 0 <= first <= 1
+    assert first == _scope_jitter_fraction(("cursor:scope-b", "cursor:scope-a"), "generation")
+    assert first != _scope_jitter_fraction(("cursor:scope-c",), "generation")
 
 
 def _adaptive_policy() -> SourceCollectionPolicy:

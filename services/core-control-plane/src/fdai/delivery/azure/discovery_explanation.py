@@ -86,6 +86,15 @@ def render_registered_azure_command(
 ) -> RenderedAzureCommand:
     """Resolve one allowlisted template id; arbitrary command text is not accepted."""
 
+    if (
+        plan.operation_id != operation.operation_id
+        or plan.backend is not operation.backend
+        or plan.result_kind not in operation.result_kinds
+        or plan.scope_kind not in operation.scope_kinds
+        or any(universe not in operation.universes for universe in plan.universes)
+        or plan.validation_versions != operation.validation_versions
+    ):
+        raise ValueError("discovery command MUST match its exact registered operation")
     template_id = operation.command_template_id
     if template_id is None:
         raise ValueError("discovery operation has no registered command template")
@@ -105,7 +114,11 @@ def render_registered_azure_command(
                 "--subscription",
                 "<subscription-id>",
                 "--query",
-                "<registered-query:azure.resource-groups.list.v1>",
+                (
+                    "<registered-query:azure.resource-groups.resource-group.v1>"
+                    if plan.scope_kind is DiscoveryScopeKind.RESOURCE_GROUP
+                    else "<registered-query:azure.resource-groups.list.v1>"
+                ),
                 "--output",
                 "json",
             ),
@@ -120,6 +133,11 @@ def render_registered_azure_command(
                 "list",
                 "--subscription",
                 "<subscription-id>",
+                *(
+                    ("--resource-group", "<resource-group>")
+                    if plan.scope_kind is DiscoveryScopeKind.RESOURCE_GROUP
+                    else ()
+                ),
                 "--query",
                 "<registered-query:azure.arm-resources.list.v1>",
                 "--output",

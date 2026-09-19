@@ -516,7 +516,7 @@
     "services/core-control-plane/src/fdai/core/detection/signals.py": "26f8fc03cd7d4a240ac285bd0c8a092205bc4abb9b039ceee66e924994b5675e",
     "services/core-control-plane/src/fdai/core/detection/trace_continuity.py": "32d147b4adf358202bd98751f8a6d800ac15dbf9c3eeeafd2b540ac54cc1bcf2",
     "services/core-control-plane/src/fdai/core/discovery/__init__.py": "10f32ead1ce10704c5317c4a2c3add1fbd8f13e6b2008aad5cf0b44a27749a15",
-    "services/core-control-plane/src/fdai/core/discovery/router.py": "fe7a99c750dfd8aa3a796f3b25d66611dc9588ee1c38db64bd9983d908f1317c",
+    "services/core-control-plane/src/fdai/core/discovery/router.py": "f17d1ba7747832c51e4d69de8d5807b3b6cf2c71434b0d8943a355d899f1ff3f",
     "services/core-control-plane/src/fdai/core/document_ingestion/README.md": "c61c8daa7911d7642c3a5bcb53a8ed1071115dcc352c66379648ba19d0eca9c7",
     "services/core-control-plane/src/fdai/core/document_ingestion/__init__.py": "002f2be0e5a1a0f4e61b641f4ea5203c4232c250df3098c1f149ae11e139ac97",
     "services/core-control-plane/src/fdai/core/document_ingestion/service.py": "337dd8ba5a991429b38154f3b002238fa210e552ffc4612ce67637c9230d1d2f",

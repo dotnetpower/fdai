@@ -38,6 +38,46 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | 2026-09-19 | implemented | Unified current CLI pins under profile revision `1.2.0`, retained exact `1.1.0` reconstruction, rejected unvalidated explanation versions, and separated historical integrity from explicit current-catalog, plan-binding, and freshness qualification. Added a bounded support matrix without claiming new runtime bindings. | `current change`; recorder, delivery, and coverage cohort `35 passed`; retained historical canary validates offline unchanged. | Runtime discovery binding and exact collector/failover receipts remain open. |
 
+| 2026-09-19 | implemented | First hardening rounds rejected scalar predicate ambiguity, operation substitution, and execution or merge result-limit overruns. ARM transport now streams bounded bodies, caps accumulated rows and bytes, and respects bounded provider retries. Snapshot policies match the current graph capacity, apply source constructor limits, and drive replay-stable bounded jitter. | Commits `52ce9079d`, `b0e63c152`, `d42551f94`, `06f44f708`, `2e8c476f0`, `33abbd360`, `6855827fd`; focused ARG 155, ARM 31, inventory/scheduling 305, discovery contract 55, qualification 35, and policy 13 passing checks at their respective checkpoints. | This is partial campaign evidence, not closure of all 36 findings. See the review register below. |
+
+### Review register
+
+The numbered items refer to the 2026-09-19 review. `local-verified` does not mean deployed.
+
+| Findings | Local disposition | Remaining exit condition |
+|----------|-------------------|--------------------------|
+| 01, 03, 06, 23 | local-verified | Exact deployed collector qualification is separate. |
+| 02 | open | Give ARM fallback an equivalent admitted coverage universe before promotion; do not bypass the subset guard. |
+| 04 | partial | Independent subscription queries reject wholly inaccessible subscriptions; effective resource-level visibility and authorization drift still require qualification. |
+| 05 | local-verified | Per-native-type accounting prevents supplemental ARM children from masking missing native Resources. |
+| 07, 08, 09, 10, 24 | local-verified | Exercise these contracts through the eventual runtime binding. |
+| 11 | open | Connect the authenticated production discovery path with current scope and completeness evidence. |
+| 12 | open | Execute actual bounded recovery probes and carry concurrency decisions into each run. |
+| 13 | partial | Page, record and source concurrency bounds are composed; shared rolling request/byte budgets remain open. |
+| 14 | partial | ARM exceptions retain retry instants; persist and consume cooldown across scheduled attempts. |
+| 15, 18, 29 | local-verified | Retain scoped database execution and deployed measurements separately. |
+| 16 | partial | Concurrent coordinator hardening adds total deadline and cancellation closure; validate the whole CLI setup and post-run boundary. |
+| 17 | open | Bound aggregate generation memory before allocation and verify the deployed memory envelope. |
+| 19 | partial | Source page limits follow policy; adaptive partitioning of oversized shards remains open. |
+| 20 | open | Refresh coordinator no-progress state on actual page progress, not only shard completion. |
+| 21, 22 | local-verified | ARM bounded retry and streamed byte/row/cycle guards have focused regressions. |
+| 25, 26, 27 | partial | ARG scope, aggregation, and CLI page limits are verified; fully reproducible ARM query rendering remains open. |
+| 28, 30 | live-evidence-required | Exact-revision workload identity, collection, promotion, failover and recovery receipts require separately authorized live work. |
+| 31 | open | Share equivalent provider reads within one generation without caching across freshness boundaries. |
+| 32 | partial | Production jitter is bound; stable-cycle adaptation still needs measured state. |
+| 33, 34, 35, 36 | local-verified | Current pins, explicit freshness qualification, support matrix and one authoritative ledger are implemented. |
+
+### Hardening review rounds
+
+Round 1 reviewed scope admission, identity, paging, partial results, clocks, fallback equivalence,
+budgets, deadlines, cancellation, restart/replay, receipt binding, and deployment qualification.
+It found and fixed normal receipt-limit and operation-substitution gaps. The open register still
+contains High and Medium issues, so this round does not establish the requested Low-only endpoint.
+
+Round 2 repeated those 12 checks on the corrected discovery slice. It found and fixed ambiguous
+scalar predicates and result-limit overruns during merge. Shared-budget, runtime-binding, memory,
+and live-qualification gaps remain open; they are not downgraded to make the campaign appear done.
+
 ### Remaining work
 
 - [ ] Verify the production discovery binding from an authenticated typed intent through exact-plan execution and evidence projection; component tests alone do not close this item.

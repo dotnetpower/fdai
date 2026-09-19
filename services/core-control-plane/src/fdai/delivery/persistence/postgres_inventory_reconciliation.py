@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -249,6 +250,7 @@ class PostgresInventoryReconciliationGate:
                 policy=self._source_policy,
                 routine_interval_seconds=interval_seconds,
                 change_min_interval_seconds=self._change_min_interval_seconds,
+                jitter_fraction=_scope_jitter_fraction(self._cursor_keys, row["active_generation"]),
                 age_seconds=float(age) if age is not None else None,
                 in_progress=bool(row["in_progress"]),
                 failure_streak=failure_streak,
@@ -289,6 +291,11 @@ class PostgresInventoryReconciliationGate:
         return self._last_decision
 
 
+def _scope_jitter_fraction(scope_keys: tuple[str, ...], generation: object) -> float:
+    encoded = "\0".join((*sorted(scope_keys), str(generation or "initial"))).encode()
+    return int.from_bytes(hashlib.sha256(encoded).digest()[:8], "big") / ((1 << 64) - 1)
+
+
 def _snapshot_coverage_complete(
     *, metadata: object, manifest: object, generation: object, projection_pending: bool
 ) -> bool:
@@ -323,6 +330,7 @@ def adaptive_reconciliation_decision(
     cursor_lag_seconds: float = 0.0,
     routine_interval_seconds: int | None = None,
     change_min_interval_seconds: int | None = None,
+    jitter_fraction: float = 0.5,
 ) -> CollectionScheduleDecision:
     """Map durable reconciliation facts to the pure adaptive controller."""
 
@@ -379,6 +387,7 @@ def adaptive_reconciliation_decision(
             cursor_lag_seconds=cursor_lag_seconds,
             failure_streak=failure_streak,
             provider_pressure=pressure,
+            jitter_fraction=jitter_fraction,
         ),
     )
 
