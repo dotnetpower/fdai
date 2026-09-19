@@ -1,7 +1,7 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: bda2183454785885f04ac9cb35f4e2d6361f3cd2
+translation_source_sha: 0a99dee086be7a8dc936b55b383d093140ad64dd
 translation_revised: 2026-09-20
 ---
 # AKS 역방향 커넥터
@@ -101,7 +101,7 @@ private 모드를 입증합니다. 이름, 사설 주소처럼 보이는 엔드�
 누락되거나 오래되거나 관측할 수 없는 사실은 알 수 없음으로 유지합니다. 확인된 기존 관리
 주체를 보존합니다. 적격 기존 GitOps나 내부 호스트를 새 호스트보다 우선하며, Run Command는
 별도로 허용한 일회성 최초 설치 후보이지 런타임 전송 수단이 아닙니다. 선택 가능한 스냅샷 구성은
-동시 실행을 막은 CronJob, PVC, 전체 클러스터 읽기 범위, 직접 mTLS 수신을 요구합니다. 이 구성의 배포 렌더러는 아직 없습니다.
+동시 실행을 막은 CronJob, PVC, 전체 클러스터 읽기 범위, 직접 mTLS 수신을 요구합니다. 일시 중지된 설치 미리보기는 제공하지만 승인에 따른 적용은 아직 없습니다.
 PVC 금지, 클러스터 전체 읽기 금지, 중간 TLS 종료 요구 시 미구현 모드로 몰래 대체하지
 않습니다. 이후 프로필도 구현과 검증 근거를 갖추기 전에는 선택할 수 없습니다.
 
@@ -219,6 +219,41 @@ Core의 영속 checkpoint를 읽고 설치나 알림 부수 효과를 만들지 
 
 ## 스냅샷 실행 구성
 
+설치 미리보기는 적용 명령이 아니라 고정된 관측 전용 워크로드 구성을 만듭니다. 변경 불가능한
+이미지 참조, 중복 실행을 막고 시간이 제한된 CronJob, 명시적인 ServiceAccount 투영 토큰,
+영속 버퍼와 실제 수집기에서 도출한 읽기 전용 클러스터 RBAC를 사용합니다. 실행기 쓰기 권한,
+Secret 읽기, 호스트 네트워크나 특권 컨테이너는 만들지 않습니다. 설치 전에는 기존 GitOps
+관리 주체와 정확한 계획 검토가 여전히 필요합니다.
+
+Kubernetes Secret 투영 파일은 root 소유 심볼릭 링크일 수 있어 직접 마운트하면 워커의
+개인 파일 계약을 위반할 수 있습니다. 비루트 초기화 단계가 볼륨 안의 단일 해석된 세대에서
+지정된 파일 다섯 개만 읽어 소유자 전용 임시 디렉터리에 원자적으로 준비합니다. 볼륨 밖으로
+나가는 링크, 쓰기 가능한 소스, 크기 초과와 기존 자료 변경은 거부합니다. 관측 워커는 기존
+`0600`/`0700` 검사를 그대로 사용합니다. 저장소에서 자격 증명을 생성하는 기능이 아니라
+런타임 자료 처리이며 미리보기에는 참조만 포함합니다. 이미지 출처, 수락 정책, 저장소 지원,
+외부 통신, 배포, 철회 또는 제거 준비 상태를 입증하지는 않습니다.
+
+렌더러는 정확한 개인 자료 해시, 현재 유효한 단일 관측 등록, 대상, 관측 namespace,
+TLS 키와 인증서의 연결, 고정 볼륨 경로와 API·게이트웨이 포트를 검증합니다. API 원본은
+클러스터 내부 주소여야 하며 전체 읽기 프로필은 클러스터 범위 객체 전송을 요구합니다.
+리소스 여섯 개를 출력하고 CronJob은 별도로 승인된 활성화 전까지 일시 중지합니다.
+Namespace나 Secret은 생성하지 않습니다. 제한된 NetworkPolicy만으로 실제 외부 통신을
+입증하지는 않으며 다른 정책, DNS, 주소 변환과 설치된 CNI를 독립적으로 확인해야 합니다.
+
+```bash
+python -m fdai.delivery.kubernetes_connector_installation \
+  --inputs /private/installation.json --proposal /private/proposal.json \
+  --material-directory /private/observer-material
+```
+
+입력에는 `target_ref`, `namespace`, `name`, 해시로 고정한 `image`, `material_secret`,
+`material_digest`, `storage_class`, `gateway_port`, `api_port`, 제한된 `gateway_cidrs`,
+`api_cidrs`, `dns_cidrs`를 명시합니다. 개인 파일 권한은 `0600`이며 자료 디렉터리에는
+`config.json`, `registrations.json`, `ca.pem`, `client.pem`, `client.key`가 있습니다.
+실행 경로는 `/private/material`, `/api-identity`, `/spool/snapshots`로 고정합니다.
+미리보기는 입력·제안·매니페스트 해시를 연결하며 항상 `installation_ready=false`와
+`execution_authority=false`를 반환합니다.
+
 초기 실행 가능한 관측 경로는 명시적으로 설정한 상호 TLS(mTLS)를 사용합니다.
 양쪽 모두 인증서 체인을 검증합니다. 게이트웨이는 실제 TLS 클라이언트 인증서의 SHA-256
 지문에서 주체를 식별하고 수락 시 보호된 등록 파일을 다시 읽습니다. 전달된 인증서 헤더나
@@ -259,7 +294,7 @@ Inventory Job은 `FDAI_KUBERNETES_CONNECTOR_REGISTRATION_PATH`와
 순번을 감사와 원자적으로 저장하지만 수신 확인 자체는 그래프 반영을 입증하지 않습니다.
 
 이 경로는 민감한 내용을 제외한 완전한 스냅샷만 전송합니다. Event 이력, 영속 읽기 작업 전달,
-Executor 작업, 네트워크 분리, 배포 매니페스트, 보호된 실환경 검증은 별도 구현 항목입니다.
+Executor 작업, 네트워크 분리, 승인된 설치, 보호된 실환경 검증은 별도 구현 항목입니다.
 스케줄러가 제한된 관측 작업을 호출할 수 있지만 시작 프로그램에서 자동으로 활성화하지는
 않습니다. 로컬 TLS와 PostgreSQL 테스트는 합성 근거로 동작만 검증합니다.
 

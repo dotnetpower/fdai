@@ -38,7 +38,7 @@ from fdai.delivery.kubernetes_connector_transport import (
     ConnectorTransportConfig,
 )
 from fdai.delivery.kubernetes_connector_worker import ConnectorObserverWorker
-from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
+from fdai.shared.providers.state_store import StateStore
 
 
 class ConnectorRuntimeConfig(BaseModel):
@@ -227,7 +227,7 @@ async def observe_once(config: ConnectorRuntimeConfig) -> dict[str, object]:
 
 
 def build_snapshot_inbox(
-    config: ConnectorRuntimeConfig, store: PostgresStateStore
+    config: ConnectorRuntimeConfig, store: StateStore
 ) -> ConnectorSnapshotInbox:
     """Compose the same server-owned registry for HTTP admission and inventory reads."""
     return ConnectorSnapshotInbox(
@@ -240,7 +240,7 @@ def build_snapshot_inbox(
 
 
 def connector_inventory_source(
-    config: ConnectorRuntimeConfig, *, store: PostgresStateStore, principal_ref: str
+    config: ConnectorRuntimeConfig, *, store: StateStore, principal_ref: str
 ) -> ConnectorInventorySource:
     return ConnectorInventorySource(
         build_snapshot_inbox(config, store), principal_ref=principal_ref
@@ -249,6 +249,8 @@ def connector_inventory_source(
 
 def run_gateway(config: ConnectorRuntimeConfig) -> None:
     """Run the dedicated Core-owned mTLS ingress against its service-owned state store."""
+    from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
+
     if config.role != "gateway":
         raise ValueError("connector gateway role required")
     dsn = os.environ.get("FDAI_STATE_STORE_DSN", "")

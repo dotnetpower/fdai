@@ -101,7 +101,7 @@ denied combinations before ranking; missing, stale or unobservable facts stay un
 existing owner is preserved. Eligible existing GitOps or internal-host paths precede a new host;
 Run Command is a separately permitted one-shot bootstrap candidate, not a runtime transport.
 The selectable snapshot recipe requires a serialized CronJob, PVC, complete cluster read scope and
-direct mTLS ingress; its deployment renderer remains open. A forbidden PVC, cluster-wide read prohibition or mandatory TLS termination
+direct mTLS ingress; a suspended installation preview is available, but governed apply remains open. A forbidden PVC, cluster-wide read prohibition or mandatory TLS termination
 cannot silently select an unimplemented mode. Future profiles require their own implementation
 and verification evidence before selection.
 
@@ -219,6 +219,40 @@ desktop and mobile; authenticated standard-stack verification still requires ope
 
 ## Snapshot runtime
 
+Installation preview renders a fixed observer-only workload recipe, never an apply command.
+The recipe uses an immutable image reference, a serialized bounded CronJob, an explicit projected
+ServiceAccount token, a persistent spool and read-only cluster RBAC derived from the actual collector.
+It does not render executor verbs, Secret reads, host networking or privileged containers. Existing
+GitOps ownership and exact-plan review remain mandatory before any installation.
+
+Projected Kubernetes Secret files can be root-owned symlinks, so mounting them directly would
+violate the worker's private-file contract. A non-root init step reads only five named files from
+one resolved in-volume generation and stages them atomically into an owner-only ephemeral directory.
+Escaping symlinks, writable source files, oversized content and changed existing material fail.
+The observer then uses its unchanged `0600`/`0700` checks. This is runtime material handling, not
+repository credential generation; preview output contains references only. Preview does not prove
+image provenance, admission, storage support, egress, rollout, revocation or uninstall readiness.
+
+The renderer verifies the exact private material digest, current single observer enrollment, target,
+observer namespace, TLS key/certificate binding, fixed volume paths and API/gateway ports. The API
+origin must be the in-cluster endpoint, and the full-read profile requires cluster-resource transfer.
+It outputs six resources, with the CronJob suspended until a separate authorized activation.
+No Namespace or Secret is created, and the bounded NetworkPolicy does not prove effective egress:
+other policies, DNS, address translation and the installed CNI still need independent checks.
+
+```bash
+python -m fdai.delivery.kubernetes_connector_installation \
+  --inputs /private/installation.json --proposal /private/proposal.json \
+  --material-directory /private/observer-material
+```
+
+Inputs explicitly name `target_ref`, `namespace`, `name`, digest-pinned `image`, `material_secret`,
+`material_digest`, `storage_class`, `gateway_port`, `api_port`, and bounded `gateway_cidrs`,
+`api_cidrs`, `dns_cidrs`. Private files are `0600`; the material directory contains `config.json`,
+`registrations.json`, `ca.pem`, `client.pem`, and `client.key`. Runtime paths are fixed to
+`/private/material`, `/api-identity` and `/spool/snapshots`. The preview binds inputs, proposal and
+manifest digests and always reports `installation_ready=false` and `execution_authority=false`.
+
 The initial executable observation path uses explicitly configured mutual TLS (mTLS). Both
 peers verify the certificate chain. The gateway derives the principal from the actual TLS client
 certificate's SHA-256 fingerprint and reloads the protected enrollment file for admission. Forwarded
@@ -259,7 +293,7 @@ inventory writer still owns all resource and verified-relationship promotion. Th
 content and sequence atomically with audit, but its acknowledgment does not prove graph promotion.
 
 This path transfers complete content-safe snapshots only. Event history, durable read task dispatch,
-Executor work, segmentation, deployment manifests, and protected live validation remain separate
+Executor work, segmentation, approved installation, and protected live validation remain separate
 delivery items. A scheduler may invoke the bounded observer cycle; no startup launcher enables it
 implicitly. Local TLS and PostgreSQL tests use synthetic evidence and prove mechanics only.
 
