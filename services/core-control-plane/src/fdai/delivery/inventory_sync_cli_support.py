@@ -40,7 +40,10 @@ from fdai.delivery.azure.static_web_app_inventory import (
     AzureStaticWebAppInventoryConfig,
     AzureStaticWebAppInventoryEnricher,
 )
-from fdai.delivery.inventory_collection import collection_configuration_digest
+from fdai.delivery.inventory_collection import (
+    collection_configuration_digest,
+    collection_producer_digest,
+)
 from fdai.delivery.inventory_job_config import InventoryJobConfig, verify_declarative_sha256
 from fdai.delivery.inventory_progress import InventoryProgressRecorder
 from fdai.delivery.inventory_sync import InventoryPromotionEnricher, PromotedInventoryObservation
@@ -207,11 +210,13 @@ def build_sources(
     """Build ordered provider sources without granting promotion authority."""
 
     sources: list[InventorySource] = []
+    producer_digest = collection_producer_digest()
     for source_priority, source_name in enumerate(config.source_order):
         source_policy = config.snapshot_policy(source_name)
         collection_configuration = {
             "schema_version": "1.0.0",
             "source": source_name,
+            "producer_digest": producer_digest,
             "policy": asdict(source_policy),
             "management_endpoint": config.management_endpoint,
             "management_audience": config.management_audience,

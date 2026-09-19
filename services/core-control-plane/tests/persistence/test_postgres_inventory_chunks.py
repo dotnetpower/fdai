@@ -6,8 +6,8 @@ import os
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import replace
-from datetime import UTC, datetime
+from dataclasses import asdict, replace
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import psycopg
@@ -18,12 +18,38 @@ from fdai.delivery.inventory_collection import (
     resource_chunk,
     resource_chunk_batches,
 )
+from fdai.delivery.inventory_sync import InventorySyncCoordinator
+from fdai.delivery.inventory_sync_models import (
+    InventoryProjectionSourceState,
+    InventoryProjectionSourceStatus,
+    PromotedInventoryObservation,
+    compute_relationship_coverage,
+)
+from fdai.delivery.persistence.postgres_inventory_prepared import (
+    load_prepared_candidate,
+    seal_candidate,
+    verify_prepared_candidate,
+)
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStore,
     PostgresInventorySnapshotStoreConfig,
 )
-from fdai.shared.providers.inventory import InventoryBatch, ResourceRecord
-from fdai.shared.providers.inventory_snapshot import InventoryCoverageManifest
+from fdai.shared.providers.inventory import (
+    InventoryBatch,
+    LinkRecord,
+    ProviderRelationshipEvidence,
+    RelationshipDrop,
+    RelationshipDropReason,
+    RelationshipUnavailableReason,
+    ResourceRecord,
+)
+from fdai.shared.providers.inventory_snapshot import InventoryCoverageManifest, InventorySource
+from fdai.shared.providers.state_evidence import (
+    LinkObservationMetadata,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
+)
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.types.json import Jsonb
 
@@ -121,6 +147,9 @@ async def _database() -> AsyncIterator[tuple[PostgresInventorySnapshotStore, str
                     "resource_type TEXT NOT NULL, props JSONB, "
                     "provider_ref TEXT, last_seen TIMESTAMPTZ, "
                     "PRIMARY KEY(snapshot_id, resource_id));"
+                    "CREATE TABLE inventory_snapshot_link (snapshot_id TEXT, from_id TEXT, "
+                    "from_type TEXT, link_type TEXT, to_id TEXT, to_type TEXT, props JSONB, "
+                    "PRIMARY KEY(snapshot_id, from_id, link_type, to_id));"
                     "CREATE TABLE state_kv (key TEXT PRIMARY KEY, value JSONB, "
                     "updated_at TIMESTAMPTZ DEFAULT NOW())"
                 )
@@ -138,6 +167,465 @@ async def _database() -> AsyncIterator[tuple[PostgresInventorySnapshotStore, str
             yield store, attempt, collection_context_digest(manifest)
         finally:
             await admin.execute(f"DROP SCHEMA {schema} CASCADE")
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "none",
+        "stage",
+        "chunk",
+        "resource",
+        "manifest",
+        "seal",
+        "context",
+        "expired",
+        "missing_row",
+        "incomplete",
+        "coverage",
+        "missing_seal",
+        "origin",
+        "rich",
+        "base",
+        "states",
+        "future",
+        "window",
+        "flag_type",
+    ],
+)
+async def test_prepared_candidate_seals_exact_rows_and_rechecks_before_promotion(
+    defect: str,
+) -> None:
+    async with _database() as (store, attempt, context):
+        async with await store._connect() as connection:
+            cursor = await connection.execute(
+                "SELECT * FROM inventory_snapshot WHERE id=%s", (attempt,)
+            )
+            row = await cursor.fetchone()
+        source = InventoryCoverageManifest(
+            source=row["source"],
+            scopes=tuple(row["scopes"]),
+            resource_types=tuple(row["resource_types"]),
+            started_at=row["started_at"],
+            metadata=row["metadata"],
+        )
+        recorded_at = datetime.now(UTC)
+        manifest = replace(
+            source,
+            completed_at=recorded_at,
+            metadata={**source.metadata, "projection_complete": True},
+        )
+        observation = PromotedInventoryObservation(
+            generation=attempt,
+            resources=_batch().resources,
+            links=(),
+            complete=defect != "incomplete",
+            recorded_at=recorded_at,
+        )
+        if defect == "rich":
+            evidence = ProviderRelationshipEvidence(
+                mapping_id="azure.container-app-depends-on-managed-environment",
+                mapping_revision="sha256:" + "1" * 64,
+                mapping_receipt_ref="catalog-receipt:provider-relationships:azure-arg-v1",
+                provider_identity="azure",
+                source_identity="azure-resource-graph",
+                source_property_path="properties.managedEnvironmentId",
+                source_schema_version="azure-resource-graph-resources@2022-10-01",
+                source_schema_digest="sha256:" + "2" * 64,
+                observed_schema_digest="sha256:" + "2" * 64,
+                evidence_method="deterministic-cross-check",
+                freshness_ceiling_seconds=21600,
+                endpoint_orientation="owner_to_referenced",
+                provider_owner_id="app-example",
+                observation_receipt_ref="sha256:" + "3" * 64,
+            )
+            metadata = LinkObservationMetadata(
+                state_fact=StateFactMetadata(
+                    lane=StateFactLane.OBSERVED,
+                    authority=StateFactAuthority.TELEMETRY,
+                    source_identity="telemetry.runtime-calls",
+                    source_revision="1.0.0",
+                    effective_at=recorded_at,
+                    recorded_at=recorded_at,
+                    evidence_cutoff=recorded_at,
+                    freshness_ceiling_seconds=300,
+                    completeness=1.0,
+                    synthetic=False,
+                    evidence_refs=("sha256:" + "4" * 64,),
+                ),
+                verification_method="deterministic-cross-check",
+                verified=True,
+                verifier_identity="inventory.endpoint-verifier",
+                verifier_revision="1.0.0",
+                verification_receipt_ref="sha256:" + "5" * 64,
+                inventory_generation=attempt,
+                mapping_id=evidence.mapping_id,
+                mapping_revision=evidence.mapping_revision,
+                source_schema_version=evidence.source_schema_version,
+                source_schema_digest=evidence.source_schema_digest,
+            )
+            observation = replace(
+                observation,
+                resources=tuple(
+                    ResourceRecord(identifier, "compute.vm")
+                    for identifier in (
+                        "Resource-A",
+                        "resource-2",
+                        "resource_A",
+                        "resource-a",
+                    )
+                ),
+                links=(
+                    LinkRecord(
+                        from_id="Resource-A",
+                        from_type="compute.vm",
+                        link_type="depends_on",
+                        to_id="resource-a",
+                        to_type="compute.vm",
+                        mapping_evidence=evidence,
+                        observation_metadata=metadata,
+                        link_props={"provider_relationship_evidence": {"original": True}},
+                    ),
+                ),
+                relationship_drops=(
+                    RelationshipDrop(
+                        reason=RelationshipDropReason.MISSING_TARGET_ENDPOINT,
+                        unavailable_reason=RelationshipUnavailableReason.TARGET_OUTSIDE_ACTIVE_GENERATION,
+                    ),
+                ),
+                source_states=(
+                    InventoryProjectionSourceState(
+                        source="example-runtime",
+                        status=InventoryProjectionSourceStatus.AVAILABLE,
+                        observed_at=recorded_at,
+                        reason=None,
+                        coverage={"resources": 4},
+                        additive=True,
+                    ),
+                ),
+                state_base_generation="previous-example",
+                state_base_generation_checked=True,
+            )
+        manifest = replace(
+            manifest,
+            metadata={
+                **manifest.metadata,
+                "relationship_coverage": compute_relationship_coverage(observation).to_metadata(),
+                "prepared_candidate_required": True,
+                "derived_source_states": [
+                    state.to_metadata() for state in observation.source_states if not state.additive
+                ],
+                "additive_source_states": [
+                    state.to_metadata() for state in observation.source_states if state.additive
+                ],
+                **(
+                    {"state_base_generation": observation.state_base_generation}
+                    if observation.state_base_generation_checked
+                    else {}
+                ),
+            },
+        )
+        if defect == "base":
+            observation = replace(observation, state_base_generation_checked=True)
+        elif defect == "states":
+            manifest = replace(
+                manifest, metadata={**manifest.metadata, "derived_source_states": [{}]}
+            )
+        elif defect == "future":
+            manifest = replace(manifest, completed_at=recorded_at + timedelta(hours=1))
+        elif defect == "window":
+            source = replace(source, started_at=source.started_at - timedelta(seconds=1))
+            manifest = replace(manifest, started_at=source.started_at)
+        elif defect == "flag_type":
+            manifest = replace(manifest, metadata={**manifest.metadata, "projection_complete": 1})
+        if defect == "coverage":
+            manifest = replace(
+                manifest, metadata={**manifest.metadata, "relationship_coverage": {}}
+            )
+        if defect == "origin":
+            manifest = replace(
+                manifest, metadata={**manifest.metadata, "mapping_revision": "changed"}
+            )
+        if defect != "missing_row":
+            await store.stage(
+                attempt,
+                InventoryBatch(
+                    resources=observation.resources,
+                    links=observation.links,
+                ),
+            )
+        if defect in {
+            "missing_row",
+            "incomplete",
+            "coverage",
+            "origin",
+            "base",
+            "states",
+            "future",
+            "window",
+            "flag_type",
+        }:
+            with pytest.raises(ValueError, match="inventory prepared"):
+                await seal_candidate(
+                    store._config,
+                    source_manifest=source,
+                    manifest=manifest,
+                    observation=observation,
+                )
+            return
+        seal = await seal_candidate(
+            store._config, source_manifest=source, manifest=manifest, observation=observation
+        )
+        assert (
+            await seal_candidate(
+                store._config, source_manifest=source, manifest=manifest, observation=observation
+            )
+            == seal
+        )
+        loaded = await load_prepared_candidate(store._config, source)
+        assert loaded == (
+            manifest,
+            replace(
+                observation,
+                resources=tuple(
+                    sorted(
+                        observation.resources,
+                        key=lambda item: item.resource_id,
+                    )
+                ),
+            ),
+        )
+        assert await load_prepared_candidate(store._config, replace(source, source="other")) is None
+        if defect == "stage":
+            with pytest.raises(ValueError, match="cannot be changed"):
+                await store.stage(attempt, _batch())
+            return
+        if defect == "chunk":
+            with pytest.raises(ValueError, match="cannot be changed"):
+                await store.stage_chunk(
+                    attempt, _batch(), context_digest=context, sequence=0, previous_digest=None
+                )
+            return
+        async with await store._connect() as connection:
+            if defect == "resource":
+                await connection.execute(
+                    "UPDATE inventory_snapshot_resource SET props='{}' WHERE snapshot_id=%s",
+                    (attempt,),
+                )
+            elif defect == "manifest":
+                manifest = replace(manifest, metadata={**manifest.metadata, "substituted": True})
+            elif defect == "seal":
+                await connection.execute(
+                    "UPDATE state_kv SET value=jsonb_set(value, '{graph_digest}', '\"changed\"') "
+                    "WHERE key=%s",
+                    (collection_key(attempt) + ":prepared",),
+                )
+            elif defect == "context":
+                await connection.execute(
+                    "UPDATE inventory_snapshot SET source='other' WHERE id=%s", (attempt,)
+                )
+            elif defect == "missing_seal":
+                await connection.execute(
+                    "DELETE FROM state_kv WHERE key=%s", (collection_key(attempt) + ":prepared",)
+                )
+            elif defect == "expired":
+                await connection.execute(
+                    "UPDATE inventory_snapshot SET started_at=NOW()-INTERVAL '31 minutes' "
+                    "WHERE id=%s",
+                    (attempt,),
+                )
+            if defect in {"none", "rich"}:
+                await verify_prepared_candidate(connection, attempt, manifest)
+            else:
+                with pytest.raises(ValueError, match="inventory"):
+                    await verify_prepared_candidate(connection, attempt, manifest)
+            cursor = await connection.execute(
+                "SELECT status FROM inventory_snapshot WHERE id=%s", (attempt,)
+            )
+            assert (await cursor.fetchone())["status"] == "collecting"
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        "success",
+        "seal_corrupt",
+        "graph_corrupt",
+        "configuration",
+        "missing_seal",
+        "expired",
+        "ambiguous",
+        "future_start",
+        "source",
+        "scope",
+        "types",
+        "base_drift",
+    ],
+)
+async def test_completed_collection_resumes_in_new_process_without_provider_read(outcome) -> None:
+    class ProcessLost(BaseException):
+        pass
+
+    async with _database() as (store, unused_attempt, context):
+        async with await store._connect() as connection:
+            await connection.execute(
+                "ALTER TABLE inventory_snapshot ADD COLUMN promoted_at TIMESTAMPTZ, "
+                "ADD COLUMN resource_count INTEGER, ADD COLUMN link_count INTEGER;"
+                "CREATE TABLE inventory_active (singleton BOOLEAN PRIMARY KEY, "
+                "snapshot_id TEXT, updated_at TIMESTAMPTZ);"
+                "CREATE TABLE inventory_realtime_link (observed_at TIMESTAMPTZ);"
+                "CREATE TABLE inventory_realtime_resource (observed_at TIMESTAMPTZ)"
+            )
+            cursor = await connection.execute(
+                "SELECT * FROM inventory_snapshot WHERE id=%s", (unused_attempt,)
+            )
+            row = await cursor.fetchone()
+        source = InventoryCoverageManifest(
+            source=row["source"],
+            scopes=tuple(row["scopes"]),
+            resource_types=tuple(row["resource_types"]),
+            started_at=datetime.now(UTC),
+            metadata=row["metadata"],
+        )
+
+        class Inventory:
+            async def full_snapshot(self):
+                yield _batch()
+                yield InventoryBatch(final=True)
+
+        class Enricher:
+            async def enrich(self, observation):
+                return replace(observation, state_base_generation_checked=True)
+
+        retained = []
+
+        async def crash_after_seal(original, manifest, observation):
+            await seal_candidate(store._config, original, manifest, observation)
+            retained.append(observation.generation)
+            raise ProcessLost()
+
+        with pytest.raises(ProcessLost):
+            await InventorySyncCoordinator(
+                store=store, candidate_preparer=crash_after_seal, promotion_enricher=Enricher()
+            ).run((InventorySource(name="example-source", inventory=Inventory(), manifest=source),))
+        expected_active = None
+        if outcome == "ambiguous":
+            with pytest.raises(ProcessLost):
+                await InventorySyncCoordinator(
+                    store=store, candidate_preparer=crash_after_seal, promotion_enricher=Enricher()
+                ).run(
+                    (
+                        InventorySource(
+                            name="example-source", inventory=Inventory(), manifest=source
+                        ),
+                    )
+                )
+        elif outcome == "configuration":
+            source = replace(source, metadata={**source.metadata, "mapping_revision": "changed"})
+        elif outcome == "source":
+            source = replace(source, source="other-source")
+        elif outcome == "scope":
+            source = replace(source, scopes=("other-scope",))
+        elif outcome == "types":
+            source = replace(source, resource_types=("compute.container-app",))
+        else:
+            async with await store._connect() as connection:
+                if outcome == "seal_corrupt":
+                    await connection.execute(
+                        "UPDATE state_kv SET "
+                        "value=jsonb_set(value, '{graph_digest}', '\"changed\"') "
+                        "WHERE key=%s",
+                        (collection_key(retained[0]) + ":prepared",),
+                    )
+                elif outcome == "graph_corrupt":
+                    await connection.execute(
+                        "UPDATE inventory_snapshot_resource SET props='{}' WHERE snapshot_id=%s",
+                        (retained[0],),
+                    )
+                elif outcome == "missing_seal":
+                    await connection.execute(
+                        "DELETE FROM state_kv WHERE key=%s",
+                        (collection_key(retained[0]) + ":prepared",),
+                    )
+                elif outcome in {"expired", "future_start"}:
+                    offset = timedelta(minutes=-31 if outcome == "expired" else 1)
+                    await connection.execute(
+                        "UPDATE inventory_snapshot SET started_at=%s WHERE id=%s",
+                        (datetime.now(UTC) + offset, retained[0]),
+                    )
+                elif outcome == "base_drift":
+                    await connection.execute(
+                        "UPDATE inventory_snapshot SET status='active' WHERE id=%s",
+                        (unused_attempt,),
+                    )
+                    await connection.execute(
+                        "INSERT INTO inventory_active VALUES (TRUE, %s, NOW())",
+                        (unused_attempt,),
+                    )
+                    expected_active = unused_attempt
+        code = """
+import asyncio, json, os
+from datetime import UTC, datetime
+from functools import partial
+from fdai.delivery.inventory_sync import InventorySyncCoordinator
+from fdai.delivery.persistence.postgres_inventory_snapshot import (
+    PostgresInventorySnapshotStore, PostgresInventorySnapshotStoreConfig,
+)
+from fdai.delivery.persistence.postgres_inventory_prepared import load_prepared_candidate
+from fdai.shared.providers.inventory_snapshot import (
+    InventoryCoverageManifest, InventorySource, InventoryObservationKind,
+)
+class NoProvider:
+    def full_snapshot(self):
+        raise AssertionError("provider must not be read on sealed recovery")
+async def main():
+    values=json.loads(os.environ['PREPARED_SOURCE'])
+    values['started_at']=datetime.now(UTC)
+    values['scopes']=tuple(values['scopes'])
+    values['resource_types']=tuple(values['resource_types'])
+    values['observation_kind']=InventoryObservationKind(values['observation_kind'])
+    values.pop('completed_at')
+    source=InventoryCoverageManifest(**values)
+    config=PostgresInventorySnapshotStoreConfig(dsn=os.environ['PREPARED_TEST_DSN'])
+    observed=[]
+    async def observe(record):
+        observed.append(record.generation)
+    result=await InventorySyncCoordinator(store=PostgresInventorySnapshotStore(config=config),
+        candidate_loader=partial(load_prepared_candidate,config),promotion_observer=observe).run(
+        (InventorySource(name='example-source',inventory=NoProvider(),manifest=source),))
+    print(json.dumps({'attempt_id':result.attempt_id,'observed':observed}))
+asyncio.run(main())
+"""
+        process = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-c",
+            code,
+            env={
+                **os.environ,
+                "PREPARED_TEST_DSN": store._config.dsn,
+                "PREPARED_SOURCE": json.dumps(asdict(source), default=str),
+            },
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=20)
+        finally:
+            if process.returncode is None:
+                process.kill()
+                await process.wait()
+        if outcome == "success":
+            assert process.returncode == 0, stderr.decode()
+            assert json.loads(stdout) == {"attempt_id": retained[0], "observed": retained}
+            assert await store.active_snapshot_id() == retained[0]
+        else:
+            assert process.returncode != 0
+            assert stdout == b""
+            assert await store.active_snapshot_id() == expected_active
+            if outcome == "base_drift":
+                assert "state base generation changed" in stderr.decode()
+            elif outcome == "ambiguous":
+                assert "ambiguous candidates" in stderr.decode()
 
 
 async def test_chunk_checkpoint_survives_a_new_process_and_replays_idempotently() -> None:

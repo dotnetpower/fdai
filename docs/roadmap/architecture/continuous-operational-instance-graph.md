@@ -328,28 +328,28 @@ corrupt markers recover from that floor, while legacy corruption without a floor
 ### Staged publication successor
 
 Collection partitions remain separate from graph ownership. Private staging requires normalization and redaction; identical replays are no-ops and identity/content conflicts fail closed.
-ARG normalizes pages before fetching successors without retaining prior raw rows. Normalized generations
-remain bounded; provider restart still requires identity, relationship, and final-coverage replay.
+ARG normalizes pages before fetching successors and retains a bounded normalized generation, not prior raw rows. Unfinished provider restart still requires identity, relationship, and final-coverage replay.
 
 The coordinator stages Resource-only chunks of at most 1 MiB and 1,000 Resources through the existing
 PostgreSQL writer. Candidate rows, immutable chunk, digest, and checkpoint commit together. Context binds source, scopes, types, metadata, and an effective-configuration digest.
-That digest pins policy, management target/audience, request rate, vocabulary mappings, and signed fallback content. An additional ARG contract digest pins generated queries, reviewed relationships, and transport bounds. ARM-overlay and producer-revision pins remain required before automatic restart. Gaps and cross-chunk Resource conflicts fail closed.
+That digest pins policy, management target/audience, request rate, vocabulary mappings, signed fallback content, and installed FDAI Python producer source including ARM overlays. An ARG contract digest pins generated queries, reviewed relationships, and transport bounds. Source changes require a restarted process; gaps and cross-chunk Resource conflicts fail closed.
 Readback verifies the ordered chain one chunk at a time without a final fence. Calls expire after
 30 seconds and collecting attempts after 30 minutes. Only the final split chunk advances the cursor.
 Receipts grant no promotion, deletion, scope-change, or automatic provider-restart authority.
 Checkpoint `1.1.0` binds all fields, including cumulative counters, in its digest. Append revalidates the
 checkpoint and final chunk; legacy `1.0.0` requires full-chain verification and upgrades on successful append.
 
+After source exhaustion and enrichment, a seal binds exact staged rows, original clocks, coverage, source states, full mapping evidence, and the expected active base. Graph content and seal records each retain a 32 MiB ceiling.
+A new process can resume one unexpired sealed candidate in the exact production context without provider reads or reenrichment. Missing, conflicting, or unverifiable seals never authorize partial promotion.
+Sealing blocks further staging. Promotion rechecks the original database start time, context, seal, graph bytes, and existing active-base fence; rejected candidates leave the active pointer unchanged.
+
 [ARG pagination](https://learn.microsoft.com/en-us/azure/governance/resource-graph/concepts/paging-results)
-does not guarantee point-in-time consistency. Tokens cannot certify completeness, absence, or unchanged
-provider contents. Restart must preserve the observation window and revalidate full identity coverage;
-expired or unverifiable continuation requires a fresh bounded attempt. Only source exhaustion with exact
-coverage can establish absence; empty pages and storage buckets cannot. Partial promotion remains forbidden.
+does not guarantee point-in-time consistency. Tokens cannot certify completeness, absence, or unchanged provider contents. Restart preserves the observation window and revalidates full identity coverage;
+expired or unverifiable continuation requires a fresh bounded attempt. Only source exhaustion with exact coverage can establish absence; empty pages and storage buckets cannot. Partial promotion remains forbidden.
 
 Preparation follows `collecting -> sealed -> verified -> prepared`; only the existing projection
 owner can publish `committed`. Immutable chunk manifests bind exact scope, ownership epoch,
-catalog release, observation windows, coverage, and dependency revisions. A graph snapshot selects
-one verified set of partition versions. Queries and pagination pin that set instead of joining
+catalog release, observation windows, coverage, and dependency revisions. A graph snapshot selects one verified set of partition versions. Queries and pagination pin that set instead of joining
 each partition's latest value. Partial candidates never replace the active complete ownership set.
 
 Preparation may run concurrently, but publication remains single-writer initially. Publication

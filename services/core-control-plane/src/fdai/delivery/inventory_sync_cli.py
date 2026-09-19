@@ -94,6 +94,10 @@ from fdai.delivery.persistence import (
     PostgresStateStore,
     PostgresStateStoreConfig,
 )
+from fdai.delivery.persistence.postgres_inventory_prepared import (
+    load_prepared_candidate,
+    seal_candidate,
+)
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     InventoryReconciliationHealthState,
     PostgresInventoryReconciliationGate,
@@ -380,6 +384,12 @@ async def run(
                 promotion_enricher=effective_enricher,
                 promotion_observer=ontology_observer,
                 pre_run_recovery=ontology_recovery,
+                candidate_preparer=partial(
+                    seal_candidate, PostgresInventorySnapshotStoreConfig(dsn=config.dsn)
+                ),
+                candidate_loader=partial(
+                    load_prepared_candidate, PostgresInventorySnapshotStoreConfig(dsn=config.dsn)
+                ),
                 run_lock=PostgresAdvisoryResourceLock(
                     config=PostgresAdvisoryResourceLockConfig(
                         dsn=config.dsn,

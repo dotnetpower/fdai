@@ -4,13 +4,22 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
-from collections.abc import Iterator, Mapping
+from collections.abc import Awaitable, Callable, Iterator, Mapping
+from itertools import islice
+from pathlib import Path
 from typing import Any
 
 from fdai.delivery.azure.inventory_redaction import redact_runtime_environment
+from fdai.delivery.inventory_sync_models import PromotedInventoryObservation
 from fdai.shared.providers.inventory import InventoryBatch, ResourceRecord
-from fdai.shared.providers.inventory_snapshot import InventoryCoverageManifest
+from fdai.shared.providers.inventory_snapshot import (
+    InventoryCoverageManifest,
+    InventorySnapshotStore,
+    InventorySource,
+    InventorySyncResult,
+)
 from fdai.shared.providers.ontology_instance import normalize_json_value
 
 MAX_CHUNK_BYTES = 1024 * 1024
@@ -21,11 +30,72 @@ _DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 _PREFIX = "inventory-collection:"
 
 
+class InventoryPromotionObserverError(RuntimeError):
+    """The authoritative snapshot advanced but its derived projection failed."""
+
+
+async def notify_inventory_promotion(
+    observer: Callable[[PromotedInventoryObservation], Awaitable[None]] | None,
+    observation: PromotedInventoryObservation,
+) -> None:
+    """A failed derived model never invalidates the already promoted provider generation."""
+    if observer is None:
+        return
+    try:
+        await observer(observation)
+    except Exception as exc:
+        logging.getLogger("fdai.delivery.inventory_sync").exception(
+            "inventory_promotion_observer_failed", extra={"generation": observation.generation}
+        )
+        raise InventoryPromotionObserverError(
+            "inventory promotion observer failed after authoritative promotion"
+        ) from exc
+
+
+async def resume_prepared_collection(
+    source: InventorySource,
+    store: InventorySnapshotStore,
+    loader: Callable[
+        [InventoryCoverageManifest],
+        Awaitable[tuple[InventoryCoverageManifest, PromotedInventoryObservation] | None],
+    ],
+    observer: Callable[[PromotedInventoryObservation], Awaitable[None]],
+) -> InventorySyncResult | None:
+    """The caller holds its run lock; promotion independently rechecks the active base."""
+    candidate = await loader(source.manifest)
+    if candidate is None:
+        return None
+    manifest, observation = candidate
+    await store.promote(observation.generation, manifest)
+    await observer(observation)
+    return InventorySyncResult(attempt_id=observation.generation, source=source.name, failures=())
+
+
 def collection_configuration_digest(configuration: Mapping[str, Any]) -> str:
     encoded = json.dumps(
         normalize_json_value(configuration), sort_keys=True, separators=(",", ":"), allow_nan=False
     )
     return "sha256:" + hashlib.sha256(encoded.encode()).hexdigest()
+
+
+def collection_producer_digest(root: Path | None = None) -> str:
+    """Pin installed FDAI producer source, including ARM overlays, without retaining source text."""
+    source_root = (root or Path(__file__).resolve().parents[1]).resolve()
+    paths = sorted(islice(source_root.rglob("*.py"), 10001))
+    if not paths or len(paths) > 10000:
+        raise ValueError("inventory producer source is missing or exceeds its file bound")
+    total_bytes = 0
+    files = {}
+    for path in paths:
+        if path.is_symlink() or not path.resolve().is_relative_to(source_root):
+            raise ValueError("inventory producer source must stay within its package")
+        with path.open("rb") as stream:
+            content = stream.read(64 * 1024 * 1024 - total_bytes + 1)
+        total_bytes += len(content)
+        if total_bytes > 64 * 1024 * 1024:
+            raise ValueError("inventory producer source exceeds its byte bound")
+        files[path.relative_to(source_root).as_posix()] = hashlib.sha256(content).hexdigest()
+    return collection_configuration_digest({"schema_version": "1.0.0", "files": files})
 
 
 def collection_context_digest(manifest: InventoryCoverageManifest) -> str:

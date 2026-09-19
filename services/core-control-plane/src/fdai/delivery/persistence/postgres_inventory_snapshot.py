@@ -30,6 +30,11 @@ from fdai.delivery.persistence.postgres_inventory_graph_helpers import (
     _source_priority,
     _unavailable_graph,
 )
+from fdai.delivery.persistence.postgres_inventory_prepared import (
+    require_collecting,
+    require_unsealed,
+    verify_prepared_candidate,
+)
 from fdai.delivery.persistence.postgres_inventory_snapshot_support import (
     canonical_json_mapping as _canonical_json_mapping,
 )
@@ -144,6 +149,7 @@ class PostgresInventorySnapshotStore:
             async with connection.transaction():
                 await self._set_timeout(connection)
                 await self._require_collecting(connection, attempt_id)
+                await require_unsealed(connection, attempt_id)
                 await stage_snapshot_batch(
                     connection,
                     attempt_id=attempt_id,
@@ -176,6 +182,7 @@ class PostgresInventorySnapshotStore:
             async with connection.transaction():
                 await self._set_timeout(connection)
                 await self._require_collecting(connection, attempt_id)
+                await require_unsealed(connection, attempt_id)
                 await require_collection_context(connection, attempt_id, context_digest)
                 return await commit_resource_chunk(
                     connection,
@@ -217,6 +224,7 @@ class PostgresInventorySnapshotStore:
                 await self._set_timeout(connection)
                 await connection.execute("SELECT pg_advisory_xact_lock(%s)", (_PROMOTION_LOCK,))
                 await self._require_collecting(connection, attempt_id)
+                await verify_prepared_candidate(connection, attempt_id, manifest)
                 active_cursor = await connection.execute(
                     "SELECT a.snapshot_id, s.started_at, s.observation_kind, s.metadata "
                     "FROM inventory_active a JOIN inventory_snapshot s ON s.id=a.snapshot_id "
@@ -442,15 +450,7 @@ class PostgresInventorySnapshotStore:
             )
         return snapshot_id, resources
 
-    async def _require_collecting(
-        self, connection: psycopg.AsyncConnection[Any], attempt_id: str
-    ) -> None:
-        cursor = await connection.execute(
-            "SELECT status FROM inventory_snapshot WHERE id=%s FOR UPDATE", (attempt_id,)
-        )
-        row = await cursor.fetchone()
-        if row is None or row["status"] != "collecting":
-            raise ValueError("inventory attempt is missing or no longer collecting")
+    _require_collecting = staticmethod(require_collecting)
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         return await psycopg.AsyncConnection.connect(

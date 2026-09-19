@@ -17,7 +17,15 @@ from fdai_service_contracts.recorded_resource_state import (
     STATE_FACT_UNAVAILABLE_REASONS_PROPERTY,
 )
 
-from fdai.delivery.inventory_collection import collection_context_digest, resource_chunk_batches
+from fdai.delivery.inventory_collection import (
+    InventoryPromotionObserverError as InventoryPromotionObserverError,
+)
+from fdai.delivery.inventory_collection import (
+    collection_context_digest,
+    notify_inventory_promotion,
+    resource_chunk_batches,
+    resume_prepared_collection,
+)
 from fdai.delivery.inventory_relationship_verifier import verify_inventory_relationships
 from fdai.delivery.inventory_sync_models import (
     InventoryProjectionSourceState as InventoryProjectionSourceState,
@@ -98,10 +106,6 @@ class InventoryStreamError(RuntimeError):
     """An inventory stream violated its atomic-fence contract."""
 
 
-class InventoryPromotionObserverError(RuntimeError):
-    """The authoritative snapshot advanced but its derived projection failed."""
-
-
 class InventorySyncCoordinator:
     """Stage one source at a time and promote only a complete stream."""
 
@@ -112,6 +116,16 @@ class InventorySyncCoordinator:
         promotion_observer: InventoryPromotionObserver | None = None,
         promotion_enricher: InventoryPromotionEnricher | None = None,
         pre_run_recovery: InventoryPromotionRecovery | None = None,
+        candidate_preparer: Callable[
+            [InventoryCoverageManifest, InventoryCoverageManifest, PromotedInventoryObservation],
+            Awaitable[object],
+        ]
+        | None = None,
+        candidate_loader: Callable[
+            [InventoryCoverageManifest],
+            Awaitable[tuple[InventoryCoverageManifest, PromotedInventoryObservation] | None],
+        ]
+        | None = None,
         run_lock: ResourceLock | None = None,
         relationship_mapping_catalog: ProviderRelationshipMappingCatalog | None = None,
         progress_deadline_seconds: float = DEFAULT_PROGRESS_DEADLINE_SECONDS,
@@ -134,6 +148,8 @@ class InventorySyncCoordinator:
         self._observer = promotion_observer
         self._enricher = promotion_enricher
         self._pre_run_recovery = pre_run_recovery
+        self._candidate_preparer = candidate_preparer
+        self._candidate_loader = candidate_loader
         self._run_lock = run_lock
         self._relationship_mapping_catalog = relationship_mapping_catalog
         self._progress_deadline_seconds = progress_deadline_seconds
@@ -168,6 +184,12 @@ class InventorySyncCoordinator:
                 ) from exc
         failures: list[InventoryAttemptFailure] = []
         for source in sources:
+            if self._candidate_loader is not None:
+                resumed = await resume_prepared_collection(
+                    source, self._store, self._candidate_loader, self._notify_promotion
+                )
+                if resumed is not None:
+                    return resumed
             attempt_id = await self._store.begin(source.manifest)
             observed = _ObservationAccumulator(
                 enabled=True,
@@ -217,6 +239,10 @@ class InventorySyncCoordinator:
                         attempt_id, InventoryBatch(links=promoted_observation.links)
                     )
                 metadata = dict(source.manifest.metadata)
+                if promoted_observation.recorded_at is not None:
+                    completed = max(completed, promoted_observation.recorded_at)
+                if self._candidate_preparer is not None:
+                    metadata["prepared_candidate_required"] = True
                 metadata.pop("provider_scope_coverage", None)
                 relationship_drop_reasons = observed.relationship_drop_reasons(
                     promoted_observation.relationship_drops
@@ -257,6 +283,8 @@ class InventorySyncCoordinator:
                     completed_at=completed,
                     metadata=metadata,
                 )
+                if self._candidate_preparer is not None:
+                    await self._candidate_preparer(source.manifest, manifest, promoted_observation)
                 await self._store.promote(attempt_id, manifest)
             except asyncio.CancelledError:
                 try:
@@ -290,23 +318,7 @@ class InventorySyncCoordinator:
         raise InventorySourcesExhaustedError(failures)
 
     async def _notify_promotion(self, observation: PromotedInventoryObservation) -> None:
-        """Hand the promoted observation to the derived read model.
-
-        The promoted snapshot is already authoritative, so a failing derived
-        projection is recorded and left behind rather than invalidating it.
-        """
-        if self._observer is None:
-            return
-        try:
-            await self._observer(observation)
-        except Exception as exc:
-            _LOG.exception(
-                "inventory_promotion_observer_failed",
-                extra={"generation": observation.generation},
-            )
-            raise InventoryPromotionObserverError(
-                "inventory promotion observer failed after authoritative promotion"
-            ) from exc
+        await notify_inventory_promotion(self._observer, observation)
 
     async def _stage_stream(
         self,

@@ -31,7 +31,7 @@ from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentit
 from fdai.delivery.inventory_change_acceleration import (
     forward_recovery_deltas as _forward_recovery_deltas,
 )
-from fdai.delivery.inventory_collection import collection_context_digest
+from fdai.delivery.inventory_collection import collection_context_digest, collection_producer_digest
 from fdai.delivery.inventory_job_config import (
     InventoryJobConfig,
     inventory_scopes_from_env,
@@ -1638,6 +1638,32 @@ async def test_source_context_binds_effective_collection_configuration(
     assert "management_audience" not in modified.metadata
     assert modified.metadata["collection_configuration_digest"].startswith("sha256:")
     assert modified.metadata["arg_query_contract_digest"].startswith("sha256:")
+
+
+@pytest.mark.parametrize(
+    "change", ["same", "source", "add", "delete", "rename", "symlink", "empty"]
+)
+def test_collection_producer_digest_pins_code_and_rejects_unavailable_source(tmp_path, change):
+    source = tmp_path / "producer.py"
+    source.write_text("revision = 1\n", encoding="utf-8")
+    original = collection_producer_digest(tmp_path)
+    if change == "source":
+        source.write_text("revision = 2\n", encoding="utf-8")
+    elif change == "add":
+        (tmp_path / "overlay.py").write_text("revision = 1\n", encoding="utf-8")
+    elif change in {"delete", "empty"}:
+        source.unlink()
+        if change == "delete":
+            (tmp_path / "overlay.py").write_text("revision = 1\n", encoding="utf-8")
+    elif change == "rename":
+        source.rename(tmp_path / "renamed.py")
+    elif change == "symlink":
+        (tmp_path / "linked.py").symlink_to(source)
+    if change in {"symlink", "empty"}:
+        with pytest.raises(ValueError, match="inventory producer"):
+            collection_producer_digest(tmp_path)
+    else:
+        assert (collection_producer_digest(tmp_path) == original) is (change == "same")
 
 
 async def test_declarative_source_context_binds_verified_fixture_content(tmp_path: Path) -> None:

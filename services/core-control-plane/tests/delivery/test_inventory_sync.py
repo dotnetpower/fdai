@@ -117,6 +117,60 @@ class _Inventory:
         yield InventoryBatch(final=True)
 
 
+@pytest.mark.parametrize("fail_seal", [False, True])
+async def test_coordinator_seals_complete_candidate_before_promotion(fail_seal: bool) -> None:
+    store = _Store()
+    source = _source("arg", _Inventory([InventoryBatch(final=True)]))
+    sealed = []
+
+    async def prepare(original, manifest, observation):
+        assert original == source.manifest
+        assert manifest.metadata["prepared_candidate_required"] is True
+        assert observation.complete is True
+        assert store.promoted == []
+        sealed.append(observation.generation)
+        if fail_seal:
+            raise ValueError("synthetic seal failure")
+
+    coordinator = InventorySyncCoordinator(store=store, candidate_preparer=prepare)
+    if fail_seal:
+        with pytest.raises(InventorySourcesExhaustedError):
+            await coordinator.run((source,))
+        assert store.promoted == []
+    else:
+        await coordinator.run((source,))
+        assert store.promoted == sealed
+    assert sealed == ["attempt-1"]
+
+
+async def test_coordinator_resumes_prepared_without_provider_reads_or_reenrichment() -> None:
+    store = _Store()
+    source = _source("arg", _Inventory(error=AssertionError("provider must not be read")))
+    observation = PromotedInventoryObservation(
+        generation="retained-attempt",
+        resources=(),
+        links=(),
+        complete=True,
+        recorded_at=datetime(2026, 9, 20, tzinfo=UTC),
+    )
+    observed = []
+
+    async def load(manifest):
+        assert manifest == source.manifest
+        return manifest, observation
+
+    async def observe(record):
+        observed.append(record)
+
+    result = await InventorySyncCoordinator(
+        store=store, candidate_loader=load, promotion_observer=observe
+    ).run((source,))
+    assert result.attempt_id == observation.generation
+    assert observed == [observation]
+    assert store.sequence == 0
+    assert store.promoted == [observation.generation]
+
+
 def _source(name: str, inventory: Any) -> InventorySource:
     return InventorySource(
         name=name,
