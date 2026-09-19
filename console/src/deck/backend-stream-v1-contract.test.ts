@@ -43,7 +43,9 @@ test("rejects v1 frames with mismatched request ids or missing sequences", async
     });
 
     expect(reply.source).toBe(expectedSource);
-    expect(reply.text).toBe("Semantic interpretation is unavailable for this turn.");
+    expect(reply.text).toBe(
+      "FDAI rejected an inconsistent conversation response. No answer was accepted.",
+    );
     expect(tokens.join("")).toBe(reply.text);
     expect(tokens.join("")).not.toContain("must be discarded");
     expect(reply.verification).toBeUndefined();
