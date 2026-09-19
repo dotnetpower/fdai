@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
 	"aiohttp>=3.14.2,<4",
 	"anyio>=4.11,<5",
+	"fdai-runtime-diagnostics==0.1.0",
 	"fdai-service-contracts==0.1.0",
 	"httpx>=0.27,<1",
 	"pyjwt[crypto]>=2.10,<3",
@@ -34,6 +35,7 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [tool.uv.sources]
+fdai-runtime-diagnostics = { workspace = true }
 fdai-service-contracts = { workspace = true }
 
 [tool.hatch.build.targets.wheel]

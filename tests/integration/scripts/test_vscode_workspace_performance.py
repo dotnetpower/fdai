@@ -74,7 +74,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
-    assert len(tasks_by_label) == len(tasks["tasks"]) == 27
+    assert len(tasks_by_label) == len(tasks["tasks"]) == 31
     allowed_instance_policies = {
         "terminateNewest",
         "terminateOldest",
@@ -185,6 +185,10 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "conversation assurance: status",
         "conversation assurance: stop",
         "conversation assurance: open latest report",
+        "dev discuss: start profiled services",
+        "dev discuss: status",
+        "dev discuss: snapshot selected service",
+        "dev discuss: profile selected service (5s)",
     }
 
     docs_preview = tasks_by_label["docs site: serve (4321)"]
@@ -374,3 +378,25 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert "fdai.delivery.observation_campaign_cli" in service_script
     assert 'FDAI_OBSERVATION_DSN="$FDAI_STATE_STORE_DSN"' in service_script
     assert 'FDAI_OBSERVATION_SCOPES="$AZURE_SUBSCRIPTION_ID"' in service_script
+
+
+def test_workspace_exposes_explicit_local_development_diagnostics() -> None:
+    tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
+    assert isinstance(tasks, dict)
+    tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
+    start = tasks_by_label["dev discuss: start profiled services"]
+    assert start["command"].startswith("FDAI_DEVELOPMENT_DIAGNOSTICS=1 ")
+    assert start["dependsOn"] == [
+        "console: require primary worktree",
+        "console: prepare full stack",
+    ]
+    assert start["runOptions"] == {"instanceLimit": 1, "instancePolicy": "silent"}
+    assert (
+        "--duration-ms 5000"
+        in tasks_by_label["dev discuss: profile selected service (5s)"]["command"]
+    )
+    inputs = {item["id"]: item for item in tasks["inputs"]}
+    assert inputs["diagnosticService"]["options"] == [
+        "core-control-plane",
+        "operator-service",
+    ]

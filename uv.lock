@@ -23,6 +23,7 @@ members = [
     "fdai-github-app-auth",
     "fdai-isolated-executor-service",
     "fdai-operator-service",
+    "fdai-runtime-diagnostics",
     "fdai-service-contracts",
     "fdai-system-knowledge-service",
 ]
@@ -881,6 +882,7 @@ dev = [
     { name = "azure-storage-file-datalake" },
     { name = "croniter" },
     { name = "fdai-github-app-auth" },
+    { name = "fdai-runtime-diagnostics" },
     { name = "fdai-service-contracts" },
     { name = "httpx" },
     { name = "jsonschema" },
@@ -937,6 +939,7 @@ requires-dist = [
     { name = "azure-storage-file-datalake", marker = "extra == 'dev'", specifier = ">=12.25,<13" },
     { name = "croniter", marker = "extra == 'dev'", specifier = ">=6,<7" },
     { name = "fdai-github-app-auth", marker = "extra == 'dev'", editable = "packages/github-app-auth" },
+    { name = "fdai-runtime-diagnostics", marker = "extra == 'dev'", editable = "packages/runtime-diagnostics" },
     { name = "fdai-service-contracts", marker = "extra == 'dev'", editable = "packages/service-contracts" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27,<1" },
     { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4.23,<5" },
@@ -1095,6 +1098,7 @@ dependencies = [
     { name = "croniter" },
     { name = "cryptography" },
     { name = "fdai-github-app-auth" },
+    { name = "fdai-runtime-diagnostics" },
     { name = "fdai-service-contracts" },
     { name = "httpx" },
     { name = "jsonschema" },
@@ -1121,6 +1125,7 @@ requires-dist = [
     { name = "croniter", specifier = ">=6,<7" },
     { name = "cryptography", specifier = ">=46,<51" },
     { name = "fdai-github-app-auth", editable = "packages/github-app-auth" },
+    { name = "fdai-runtime-diagnostics", editable = "packages/runtime-diagnostics" },
     { name = "fdai-service-contracts", editable = "packages/service-contracts" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "jsonschema", specifier = ">=4.23,<5" },
@@ -1303,6 +1308,7 @@ dependencies = [
     { name = "azure-core" },
     { name = "azure-identity" },
     { name = "cryptography" },
+    { name = "fdai-runtime-diagnostics" },
     { name = "fdai-service-contracts" },
     { name = "httpx" },
     { name = "psycopg", extra = ["binary"] },
@@ -1325,6 +1331,7 @@ requires-dist = [
     { name = "azure-core", specifier = ">=1.28,<2" },
     { name = "azure-identity", specifier = ">=1.23,<2" },
     { name = "cryptography", specifier = ">=46,<51" },
+    { name = "fdai-runtime-diagnostics", editable = "packages/runtime-diagnostics" },
     { name = "fdai-service-contracts", editable = "packages/service-contracts" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
@@ -1335,6 +1342,17 @@ requires-dist = [
     { name = "weasyprint", marker = "extra == 'pdf-report'", specifier = ">=66,<70" },
 ]
 provides-extras = ["pdf-report"]
+
+[[package]]
+name = "fdai-runtime-diagnostics"
+version = "0.1.0"
+source = { editable = "packages/runtime-diagnostics" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.11,<3" }]
 
 [[package]]
 name = "fdai-service-contracts"

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/development-diagnostics-evaluation/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_kind",
+    "evaluation_source",
+    "profile_target",
+    "source_revision",
+    "worktree_digest",
+    "packet_digest",
+    "round_count",
+    "pass_count",
+    "minimum_score",
+    "criteria",
+    "hardening_round_count",
+    "maximum_residual_severity",
+    "pre_evaluation_finding_count",
+    "pre_evaluation_findings_fixed",
+    "full_service_startup",
+    "limitations",
+    "synthetic",
+    "external_state_authority",
+    "execution_authority",
+    "rounds"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "evidence_kind": {"const": "development_diagnostics_copilot_evaluation"},
+    "evaluation_source": {"const": "owner_only_local_uds_harness"},
+    "profile_target": {"const": "core_control_plane_contract_harness"},
+    "source_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "worktree_digest": {"$ref": "#/$defs/hex_digest"},
+    "packet_digest": {"$ref": "#/$defs/digest"},
+    "round_count": {"const": 20},
+    "pass_count": {"const": 20},
+    "minimum_score": {"const": 5},
+    "criteria": {
+      "type": "array",
+      "const": [
+        "appropriate",
+        "grounded",
+        "attributed",
+        "no_causation_overclaim",
+        "actionable"
+      ]
+    },
+    "hardening_round_count": {"type": "integer", "minimum": 10},
+    "maximum_residual_severity": {"const": "low"},
+    "pre_evaluation_finding_count": {"const": 1},
+    "pre_evaluation_findings_fixed": {"const": true},
+    "full_service_startup": {"const": "unavailable_after_bounded_readiness"},
+    "limitations": {
+      "type": "array",
+      "const": ["full_service_core_operator_capture_not_observed"]
+    },
+    "synthetic": {"const": true},
+    "external_state_authority": {"const": false},
+    "execution_authority": {"const": false},
+    "rounds": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 20,
+      "items": {"$ref": "#/$defs/round"}
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "hex_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "round": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["round", "review_digest", "result_digest", "score", "verdict"],
+      "properties": {
+        "round": {"type": "integer", "minimum": 1, "maximum": 20},
+        "review_digest": {"$ref": "#/$defs/digest"},
+        "result_digest": {"$ref": "#/$defs/digest"},
+        "score": {"const": 5},
+        "verdict": {"const": "pass"}
+      }
+    }
+  }
+}

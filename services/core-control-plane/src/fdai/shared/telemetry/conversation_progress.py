@@ -6,6 +6,8 @@ from collections import Counter
 from dataclasses import dataclass
 from threading import Lock
 
+from fdai_runtime_diagnostics import observe_stage as observe_development_stage
+
 PROGRESS_COUNTER_NAMES = (
     "corrections",
     "truncations",
@@ -72,6 +74,7 @@ class ConversationProgressMetrics:
             self._latencies["branch"] = _add_latency(self._latencies["branch"], duration_ms)
             if outcome in {"failed", "timed_out"}:
                 self._counts["branch_retry_suppressed"] += 1
+        observe_development_stage(f"conversation.branch.{kind}.{outcome}", duration_ms)
 
     def observe_latency(self, name: str, duration_ms: int) -> None:
         if name not in PROGRESS_LATENCY_NAMES:
@@ -79,6 +82,7 @@ class ConversationProgressMetrics:
         self._require_duration(duration_ms)
         with self._lock:
             self._latencies[name] = _add_latency(self._latencies[name], duration_ms)
+        observe_development_stage(f"conversation.{name}", duration_ms)
 
     def snapshot(self) -> ConversationProgressMetricsSnapshot:
         with self._lock:

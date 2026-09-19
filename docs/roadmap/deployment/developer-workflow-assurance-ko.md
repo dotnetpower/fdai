@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 04df56f0e2ee4b86df7a7ad8bd99b61dd3cd2b75
-translation_revised: 2026-09-12
+translation_source_sha: cba01eba026fd463a9dee41d4d85f051a8a6c4d5
+translation_revised: 2026-09-19
 ---
 
 # 개발 워크플로 보증
@@ -50,6 +50,7 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 | Hook | 변경형 hook 실행 전에 staged 및 unstaged 중첩을 감지하고 결정론적 복구 지침을 보존합니다. | Hook 실패가 작업 소유 변경을 조용히 버리지 않습니다. |
 | 브라우저 검사 | 집중 CLI Playwright 검사를 우선하고 공유 10-slot lease 계약을 보존합니다. | CLI 근거가 충분하면 브라우저 도구 사용을 제한된 최종 상호 작용 1회로 제한합니다. |
 | 로컬 서비스 | 제한된 timeout과 소유권 진단으로 모든 표준 로컬 서비스를 독립적으로 probe합니다. | Full-stack 준비 상태가 사용 불가능한 모든 서비스를 지목하며 SPA만으로 준비 상태를 추론하지 않습니다. |
+| 개발 진단 | 소유자 전용 Unix 소켓을 통해 명시적으로 선택한 로컬 Core 또는 Operator 프로세스를 프로파일링하고 결과를 정확한 소스 입력에 연결합니다. | 범위가 제한된 패킷이 지연 시간, CPU, Python 힙 및 추적되지 않는 메모리를 분리하고, GitHub Copilot은 정확히 일치하는 workspace snapshot만 진단합니다. |
 | 편집기 부하 | 호스트 부하, extension 부하 및 upstream 브라우저 payload 비용을 분리합니다. | 진단이 소유 프로세스를 식별하거나 제한을 upstream으로 분류합니다. |
 | 원격 사전 검사 | 고정된 시도 및 시간 예산 안에서 transient 읽기 실패만 retry합니다. | 영구 권한 및 policy 실패는 즉시 실패하며 retry는 Azure를 변경하지 않습니다. |
 
@@ -65,6 +66,28 @@ CI 범위 해석기는 결정론적으로 동작하며 안전한 쪽을 선택�
 문서로 분류하되 실행 가능한 스킬 자산은 보수적으로 분류합니다. 필수 결합 작업은 성공한
 작업과 의도적으로 생략된 작업만 허용하므로, 범위 전달은 실패하거나 취소된 검사를 성공으로
 바꾸지 않고 관련 없는 작업만 줄입니다.
+
+## 개발 진단 채널
+
+개발 진단 채널은 실행 중인 Core 또는 Operator 프로세스의 코드 병목을 찾기 위해 명시적으로
+활성화하는 로컬 워크플로입니다. 각 프로세스는 실행 위치가 `local`이고 개발 진단 플래그를
+활성화한 경우에만 소유자 전용 Unix 소켓 하나를 노출합니다. HTTP, 브라우저, Teams, Slack,
+Event Bus 또는 관리 리소스 경로에서는 이 소켓에 접근할 수 없습니다.
+
+프로세스 로컬 probe는 범위가 제한된 지연 시간 집계와 내용이 없는 프로세스 상태를 유지합니다.
+명시적 캡처는 프로세스마다 한 번씩 최대 30초 동안 `cProfile`과 `tracemalloc`을 실행할 수
+있습니다. 패킷은 저장소 상대 함수 또는 파일 위치, CPU 시간, Python 힙 차이, 상주 메모리,
+가비지 컬렉션, 스레드 및 파일 서술자 수, 이벤트 루프 지연, 캡처 오버헤드, 잘림 및 사용 불가
+이유를 보고합니다. 힙 객체, 요청이나 답변 본문, 환경 값, 공급자 payload, 자격 증명 또는 숨겨진
+추론은 영속화하지 않습니다.
+
+모든 패킷은 Git 리비전, 로컬 서비스 입력 digest, worktree patch digest, 프로세스 신원,
+runtime-scope receipt digest, 시간 구간 및 패킷 digest를 연결합니다. GitHub Copilot 검토는
+소유자 전용 export 및 import 경계를 사용합니다. Workspace 신원이나 패킷 digest가 바뀌면 검토를
+수락하지 않습니다. Copilot은 일치하는 workspace를 검사하고 진단을 제안할 수 있지만, 런타임은
+Copilot을 호출하거나 저장소 파일을 읽거나 코드를 편집하거나 pull request를 열거나 병합 또는
+실행 권한을 부여하지 않습니다. System Knowledge는 release 계약을 설명할 수 있지만 실제 측정은
+이 개발 워크플로에서 소유합니다.
 
 ## 검증 단계와 결과 재사용
 

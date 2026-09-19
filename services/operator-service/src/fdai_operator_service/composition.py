@@ -55,6 +55,7 @@ from fdai_operator_service.conversation_assurance_reader import (
     ConversationAssuranceReader,
     ConversationAssuranceReaderConfig,
 )
+from fdai_operator_service.development_diagnostics import build_development_diagnostics
 from fdai_operator_service.environment import (
     OperatorEnvironment,
 )
@@ -243,6 +244,7 @@ class ProductionOperatorComposition:
     def build_runtime(self, environ: Mapping[str, str] | None = None) -> OperatorRuntime:
         """Bind a validated environment snapshot to service-owned HTTP dependencies."""
         environment = OperatorEnvironment.parse(os.environ if environ is None else environ)
+        development_diagnostics = build_development_diagnostics(environment.values)
         model_revision_owner = build_model_revision_owner(
             environment,
             source=self.resolved_models_source,
@@ -505,6 +507,7 @@ class ProductionOperatorComposition:
                 narrator_scheduler,
                 hil_decision_outbox_bridge,
                 teams_http_client,
+                development_diagnostics=development_diagnostics,
                 alert_quality_bridge=alert_quality_bridge,
                 assignment_notice_bridge=assignment_notice_bridge,
                 test_context_bridge=test_context_bridge,
@@ -950,6 +953,7 @@ def _application_lifecycle(
     narrator_scheduler: PeriodicNarratorRefreshScheduler | None,
     hil_decision_outbox_bridge: HilDecisionOutboxBridge | None,
     teams_http_client: httpx.AsyncClient | None,
+    development_diagnostics: ApplicationLifecycle | None = None,
     assignment_notice_bridge: AssignmentNoticeBridge | None = None,
     alert_quality_bridge: AlertQualityBridge | None = None,
     test_context_bridge: TestContextBridge | None = None,
@@ -976,6 +980,7 @@ def _application_lifecycle(
             hil_decision_outbox_bridge,
             test_context_bridge,
             assignment_notice_bridge,
+            development_diagnostics,
             _OwnedHttpClient(teams_http_client) if teams_http_client is not None else None,
         )
         if service is not None
