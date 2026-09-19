@@ -237,7 +237,7 @@ PostgreSQL persistence keeps store coordination in `postgres_ontology.py` and is
 state-base completeness and object-ownership validation in `postgres_ontology_records.py`; this
 shared record-validation boundary does not create another graph writer or authority surface. Object, candidate-scan, and traversal reads bind their objects, relationships, and source coverage to one read-only repeatable-read database snapshot.
 Change-feed value parsing and replay-watermark decoding remain pure delivery helpers, so module
-splits do not change cursor progress, completeness, or writer authority.
+splits do not change cursor progress, completeness, or writer authority. The observation-record helper `postgres_inventory_observation_records.py` exports only `confirmed_tombstone`, `mapping`, `observation_from_row`, and `snapshot_records`.
 
 ### Private-safe change acceleration
 

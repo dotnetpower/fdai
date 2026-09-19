@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: be4185240f8ca87ba1b62e850a5df3aafd1b7afa
+translation_source_sha: 7563eca33ce045d88bd1c8d3bf4c0194d7bd1a85
 translation_revised: 2026-09-20
 ---
 # 지속형 운영 인스턴스 그래프
@@ -256,7 +256,7 @@ journal 기록은 완전성을 낮출 수 있지만 전역 또는 활성 범위 
 PostgreSQL 영속성은 저장소 조정을 `postgres_ontology.py`에 유지하고 인벤토리 상태 기준의 완전성과
 객체 소유권 검증을 `postgres_ontology_records.py`에 통합합니다. 이 공통 레코드 검증 경계는
 다른 그래프 기록기나 권한 표면을 만들지 않습니다. 변경 feed 값 해석과 replay watermark 해석은
-순수 delivery helper에 유지하므로 모듈 분리는 cursor 진행, 완전성 또는 쓰기 권한을 바꾸지 않습니다.
+순수 delivery helper에 유지하므로 모듈 분리는 cursor 진행, 완전성 또는 쓰기 권한을 바꾸지 않습니다. 관측 레코드 보조 모듈 `postgres_inventory_observation_records.py`는 `confirmed_tombstone`, `mapping`, `observation_from_row`, `snapshot_records`만 공개합니다.
 
 ### 비공개 네트워크 변경 가속
 

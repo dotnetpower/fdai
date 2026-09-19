@@ -265,4 +265,9 @@ def _scope_set_ref(scope_refs: tuple[str, ...]) -> str:
     return f"scope-set:sha256:{digest}"
 
 
-__all__ = ["confirmed_tombstone", "mapping", "observation_from_row", "snapshot_records"]
+__all__ = [
+    "confirmed_tombstone",
+    "mapping",
+    "observation_from_row",
+    "snapshot_records",
+]
