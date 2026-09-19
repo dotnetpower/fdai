@@ -372,6 +372,36 @@ def test_incremental_generation_reuses_unchanged_document_objects() -> None:
     assert all(left is right for left, right in zip(first.documents, second.documents, strict=True))
 
 
+async def test_generation_rebuild_does_not_relabel_unbound_previous_embeddings() -> None:
+    previous = tuple(replace(item, embedding=(-1.0,)) for item in _build().documents)
+    build = build_ontology_semantic_generation(
+        manifest=_manifest(),
+        embedding_space_id="new-space",
+        embedding_model_version="new-model",
+        embedding_dimension=1,
+        previous_documents=previous,
+    )
+
+    assert all(not document.embedding for document in build.documents)
+    assert build.reused_document_count == 0
+
+    class CurrentEmbedder:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def embed(self, text: str) -> tuple[float, ...]:
+            self.calls.append(text)
+            return (1.0,)
+
+    embedder = CurrentEmbedder()
+    index = InMemoryCatalogSemanticIndex(embedder=embedder)
+    await index.stage_generation(build.metadata, build.documents)
+    assert len(embedder.calls) == len(build.documents)
+    snapshot = await index.generation_validation_snapshot(build.metadata.generation_id)
+    assert snapshot is not None
+    assert all(document.embedding == (1.0,) for document in snapshot.documents)
+
+
 def test_generation_identity_changes_with_principal_scope() -> None:
     first = _build()
     second = build_ontology_semantic_generation(

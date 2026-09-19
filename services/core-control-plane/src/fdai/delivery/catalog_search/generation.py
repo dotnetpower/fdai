@@ -65,7 +65,8 @@ def build_ontology_semantic_generation(
     """Build one full inactive generation and reuse exact unchanged documents.
 
     Runtime object rows are deployment-local projections. This function performs
-    no provider reads and never writes or activates an index.
+    no provider reads and never writes or activates an index. Previous vectors and
+    staging identities lack independent embedding provenance and are not reused.
     """
 
     candidates = [*_declaration_documents(manifest), *_runtime_object_documents(runtime_objects)]
@@ -83,7 +84,7 @@ def build_ontology_semantic_generation(
     for candidate in candidates:
         digest = catalog_search_document_digest(candidate)
         prior = previous_by_digest.get(digest)
-        if prior is not None and prior.rule_id == candidate.rule_id:
+        if prior is not None and prior == candidate:
             documents.append(prior)
             reused += 1
         else:
