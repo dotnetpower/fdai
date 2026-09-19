@@ -23,6 +23,7 @@ members = [
     "fdai-github-app-auth",
     "fdai-isolated-executor-service",
     "fdai-operator-service",
+    "fdai-runtime-diagnostics",
     "fdai-service-contracts",
     "fdai-system-knowledge-service",
 ]
@@ -199,15 +200,15 @@ wheels = [
 
 [[package]]
 name = "anyio"
-version = "4.14.1"
+version = "4.15.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.15'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3b/72/5562aabb8dd7181e8e860622a38bea08d17842b99ecd4c91f84ac95251b0/anyio-4.14.1.tar.gz", hash = "sha256:8d648a3544c1a700e3ff78615cd679e4c5c3f149904287e73687b2596963629e", size = 254831, upload-time = "2026-06-24T20:56:06.017Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a9/d2/f4d173e22df740bc37b1db102b386ba719b66e95b0f0d751f556b387e6d2/anyio-4.15.1.tar.gz", hash = "sha256:9f28306018cbd6d329e64a36d58256edff76dd996fe423bc957326e578b82a94", size = 276966, upload-time = "2026-09-05T10:42:39.44Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/7b/90df4a0a816d98d6ea26f559d87836d494a2cf1fcf063be67df50a7bcc30/anyio-4.14.1-py3-none-any.whl", hash = "sha256:4e5533c5b8ff0a24f5d7a176cbe6877129cd183893f66b537f8f227d10527d72", size = 124875, upload-time = "2026-06-24T20:56:04.413Z" },
+    { url = "https://files.pythonhosted.org/packages/12/b8/4bd346e22b28902df4d651910f5242c28d84e4a5c2435ca5c3f797ed7e2e/anyio-4.15.1-py3-none-any.whl", hash = "sha256:6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101", size = 132079, upload-time = "2026-09-05T10:42:37.923Z" },
 ]
 
 [[package]]
@@ -881,6 +882,7 @@ dev = [
     { name = "azure-storage-file-datalake" },
     { name = "croniter" },
     { name = "fdai-github-app-auth" },
+    { name = "fdai-runtime-diagnostics" },
     { name = "fdai-service-contracts" },
     { name = "httpx" },
     { name = "jsonschema" },
@@ -937,6 +939,7 @@ requires-dist = [
     { name = "azure-storage-file-datalake", marker = "extra == 'dev'", specifier = ">=12.25,<13" },
     { name = "croniter", marker = "extra == 'dev'", specifier = ">=6,<7" },
     { name = "fdai-github-app-auth", marker = "extra == 'dev'", editable = "packages/github-app-auth" },
+    { name = "fdai-runtime-diagnostics", marker = "extra == 'dev'", editable = "packages/runtime-diagnostics" },
     { name = "fdai-service-contracts", marker = "extra == 'dev'", editable = "packages/service-contracts" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27,<1" },
     { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4.23,<5" },
@@ -1095,6 +1098,7 @@ dependencies = [
     { name = "croniter" },
     { name = "cryptography" },
     { name = "fdai-github-app-auth" },
+    { name = "fdai-runtime-diagnostics" },
     { name = "fdai-service-contracts" },
     { name = "httpx" },
     { name = "jsonschema" },
@@ -1121,6 +1125,7 @@ requires-dist = [
     { name = "croniter", specifier = ">=6,<7" },
     { name = "cryptography", specifier = ">=46,<51" },
     { name = "fdai-github-app-auth", editable = "packages/github-app-auth" },
+    { name = "fdai-runtime-diagnostics", editable = "packages/runtime-diagnostics" },
     { name = "fdai-service-contracts", editable = "packages/service-contracts" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "jsonschema", specifier = ">=4.23,<5" },
@@ -1303,6 +1308,7 @@ dependencies = [
     { name = "azure-core" },
     { name = "azure-identity" },
     { name = "cryptography" },
+    { name = "fdai-runtime-diagnostics" },
     { name = "fdai-service-contracts" },
     { name = "httpx" },
     { name = "psycopg", extra = ["binary"] },
@@ -1325,6 +1331,7 @@ requires-dist = [
     { name = "azure-core", specifier = ">=1.28,<2" },
     { name = "azure-identity", specifier = ">=1.23,<2" },
     { name = "cryptography", specifier = ">=46,<51" },
+    { name = "fdai-runtime-diagnostics", editable = "packages/runtime-diagnostics" },
     { name = "fdai-service-contracts", editable = "packages/service-contracts" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
@@ -1335,6 +1342,17 @@ requires-dist = [
     { name = "weasyprint", marker = "extra == 'pdf-report'", specifier = ">=66,<70" },
 ]
 provides-extras = ["pdf-report"]
+
+[[package]]
+name = "fdai-runtime-diagnostics"
+version = "0.1.0"
+source = { editable = "packages/runtime-diagnostics" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.11,<3" }]
 
 [[package]]
 name = "fdai-service-contracts"

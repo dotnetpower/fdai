@@ -27,6 +27,7 @@ dependencies = []
 # Development tooling. Concrete runtime deps still arrive with their own P0 tasks.
 dev = [
     "fdai-github-app-auth==0.1.0",
+    "fdai-runtime-diagnostics==0.1.0",
     "fdai-service-contracts==0.1.0",
     # Root integration tests span the validated five-service baseline and the
     # independently packaged System Knowledge Service candidate.
@@ -119,6 +120,7 @@ fdai-benchmark-sregym = { workspace = true }
 fdai-aks-commerce = { workspace = true }
 fdai-cost-governance = { workspace = true }
 fdai-github-app-auth = { workspace = true }
+fdai-runtime-diagnostics = { workspace = true }
 fdai-service-contracts = { workspace = true }
 fdai-core-control-plane = { workspace = true }
 fdai-operator-service = { workspace = true }
@@ -136,6 +138,7 @@ members = [
     "extensions/aks-commerce",
     "extensions/cost-governance",
     "packages/github-app-auth",
+    "packages/runtime-diagnostics",
     "packages/service-contracts",
     "services/core-control-plane",
     "services/operator-service",

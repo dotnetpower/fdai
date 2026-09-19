@@ -45,6 +45,7 @@ successful result.
 | Hooks | Detect staged and unstaged overlap and preserve deterministic recovery guidance before a mutating hook runs. | Hook failure does not silently discard task-owned work. |
 | Browser checks | Prefer focused CLI Playwright checks and preserve the shared 10-slot lease contract. | Browser-tool use is limited to one bounded final interaction when CLI evidence is sufficient. |
 | Local services | Probe every standard local service independently with bounded timeout and ownership diagnostics. | Full-stack readiness names every unavailable service and never infers readiness from the SPA. |
+| Development diagnostics | Profile an explicitly selected local Core or Operator process through an owner-only Unix socket and bind the result to its exact source inputs. | A bounded packet separates latency, CPU, Python heap, and untracked memory, then GitHub Copilot diagnoses only an exact matching workspace snapshot. |
 | Editor pressure | Separate host pressure, extension pressure, and upstream browser payload cost. | Diagnostics identify the owning process or classify the limitation as upstream. |
 | Remote preflight | Retry only transient read failures within a fixed attempt and time budget. | Permanent authorization and policy failures fail immediately; retries never mutate Azure. |
 
@@ -61,6 +62,41 @@ documentation; executable skill assets remain conservatively classified. The req
 only successful jobs and intentional skips, so scope routing reduces unrelated work without
 converting a failed or cancelled check into success.
 
+## Development diagnostic channel
+
+The development diagnostic channel is an explicitly activated local workflow for finding code
+bottlenecks in a running Core or Operator process. Each process exposes one owner-only Unix socket
+only when the execution venue is `local` and the development diagnostic flag is enabled. No HTTP,
+browser, Teams, Slack, Event Bus, or managed-resource route reaches this socket.
+
+The process-local probe retains bounded latency aggregates and reads content-free process state.
+An explicit capture can run `cProfile` and `tracemalloc` for at most 30 seconds, one capture per
+process. The packet reports repository-relative function or file locations, CPU time, Python heap
+differences, resident memory, garbage collection, thread and file-descriptor counts, event-loop
+delay, capture overhead, truncation, and unavailable reasons. It does not persist heap objects,
+request or answer bodies, environment values, provider payloads, credentials, or hidden reasoning.
+
+Every packet binds the Git revision, local service input digest, worktree patch digest, process
+identity, runtime-scope receipt digest, time window, and packet digest. A GitHub Copilot review uses
+an owner-only export and import boundary. Review is rejected when the workspace identity or packet
+digest changes. Copilot may inspect the matching workspace and propose a diagnosis, but the runtime
+does not call Copilot, read repository files, edit code, open a pull request, or grant merge or
+execution authority. System Knowledge can explain the release contract, while live measurements
+remain owned by this development workflow.
+
+Profiled full-stack startup completes the normal preparation stages before either diagnostic socket
+exists. Preparation therefore emits content-free stage durations for pre-process bottlenecks, while
+the sockets measure only the running Core and Operator processes. The local Core launcher uses its
+service-owned entry point. The Operator ASGI factory binds its runtime-scope receipt even when
+Uvicorn loads the factory directly, then appends explicitly enabled diagnostics to the composed
+application lifecycle without expanding the production composition root. Running `dev discuss: start or restart profiled services`
+replaces a stale task instance. GitHub Copilot in the active coding session reviews exported
+packets; no FDAI runtime or Azure OpenAI deployment is selected or invoked by the diagnostic
+channel. Local readiness recognizes the service-owned Core executable as the process owner and
+accepts fresh semantic-consumer progress followed by a fresh heartbeat. When an inventory
+generation changes before its ontology checkpoint is projected, the local analyzer remains
+unready but retries target resolution within five seconds instead of waiting its full loop interval.
+
 ## Validation stages and reuse
 
 Development checks target changed behavior, not the act of creating a commit. A changed-test
@@ -76,7 +112,7 @@ documents load for changes to those runtime contracts rather than every CI tooli
 | Edit | Owning focused tests and affected static contracts | Reuse only while code, tests, checker, configuration, dependencies, tools, and relevant environment inputs remain equal. |
 | Commit and push | Delivered content matches the tested inputs; hooks retain their owning controls | A new commit identifier alone does not invalidate a content-bound local result. Dirty content cannot certify a clean commit. |
 | Merge | Required CI on the actual integration revision | Local results do not replace required remote checks. A merge request does not also request a local whole-suite run. |
-| Release candidate | Selected images are built, scanned, published, and attested by the protected workflow | Reuse a verified candidate digest instead of building every source commit or every environment. |
+| Release candidate | Selected images are built, scanned, published, and attested by the protected workflow. Typed shared packages include their marker and wheel in every declared consumer image. | Reuse a verified candidate digest instead of building every source commit or every environment. |
 | Deploy | Exact source, digest, provenance, approval, policy, and fresh evidence | Local caches grant no deployment authority; stale vulnerability evidence can require a new scan of the same digest. |
 
 The local structural runner can reuse successful results across the optional validator and push

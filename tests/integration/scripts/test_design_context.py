@@ -48,10 +48,11 @@ def test_required_context_composes_every_matching_route() -> None:
     )
 
     assert ".github/copilot-instructions.md" in required
-    assert "docs/roadmap/architecture/fdai-constitution.md" not in required
+    assert "docs/roadmap/architecture/fdai-constitution.md" in required
     assert ".github/instructions/coding-conventions.instructions.md" in required
     assert ".github/instructions/app-shape.instructions.md" in required
     assert "docs/roadmap/deployment/dev-and-deploy-parity.md" in required
+    assert "docs/roadmap/deployment/developer-workflow-assurance.md" in required
     assert "docs/roadmap/interfaces/operator-console.md" in required
 
 

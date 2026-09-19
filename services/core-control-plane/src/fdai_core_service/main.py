@@ -13,7 +13,7 @@ SERVICE = ServiceDescriptor(
 
 def main() -> int:
     """Start the existing Core runtime through the service-owned entry point."""
-    record_runtime_scope_receipt(SERVICE)
+    receipt = record_runtime_scope_receipt(SERVICE)
     from fdai.runtime.bootstrap import main as run
 
-    return run()
+    return run(runtime_scope_receipt_digest=receipt.receipt_digest)

@@ -546,6 +546,13 @@ def test_supervisor_allows_bounded_inventory_recovery() -> None:
     assert "FDAI_CONSOLE_START_READINESS_SECONDS:-180" in source
 
 
+def test_core_launcher_uses_service_owned_runtime_scope_entrypoint() -> None:
+    source = _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
+
+    assert '"$repo_root/.venv/bin/fdai-core-control-plane"' in source
+    assert '"$repo_root/.venv/bin/python" -m fdai\n' not in source
+
+
 def test_supervisor_waits_for_the_analyzer_first_clean_tick() -> None:
     source = _START_SCRIPT.read_text(encoding="utf-8")
     service_source = _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")

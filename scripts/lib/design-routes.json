@@ -237,7 +237,8 @@
       ],
       "docs_update_routes": [
         "conversation-attachments",
-        "aks-commerce-business-scenario"
+        "aks-commerce-business-scenario",
+        "development-diagnostic-channel"
       ],
       "docs_update": [
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
@@ -303,7 +304,8 @@
       ],
       "docs_update_routes": [
         "conversation-attachments",
-        "aks-commerce-business-scenario"
+        "aks-commerce-business-scenario",
+        "development-diagnostic-channel"
       ],
       "docs_update": [
         "docs/roadmap/architecture/aks-diagnostic-evidence-plane.md",
@@ -374,6 +376,9 @@
         "docs/roadmap/fork-and-sequencing/scope-expansion.md",
         "docs/roadmap/decisioning/execution-model.md",
         "docs/roadmap/architecture/security-and-identity.md"
+      ],
+      "docs_update_routes": [
+        "development-diagnostic-channel"
       ],
       "docs_update": [
         "docs/roadmap/operations/aks-commerce-business-scenario.md",
@@ -507,6 +512,9 @@
         "docs/roadmap/architecture/fdai-constitution.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md",
         "config/constitution-traceability.json"
+      ],
+      "docs_update_routes": [
+        "development-diagnostic-channel"
       ],
       "docs_update": [
         "docs/roadmap/deployment/dev-and-deploy-parity.md",
@@ -669,7 +677,8 @@
       "docs_update_routes": [
         "conversation-attachments",
         "human-report-lines",
-        "aks-commerce-business-scenario"
+        "aks-commerce-business-scenario",
+        "development-diagnostic-channel"
       ],
       "docs_update": [
         "docs/roadmap/architecture/project-structure.md",
@@ -697,7 +706,8 @@
       ],
       "docs_update_routes": [
         "conversation-attachments",
-        "aks-commerce-business-scenario"
+        "aks-commerce-business-scenario",
+        "development-diagnostic-channel"
       ],
       "docs_update": [
         "docs/roadmap/architecture/multi-service-repository-layout.md",
@@ -1391,7 +1401,8 @@
         "docs/roadmap/architecture/service-graduation-and-ownership.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "development-diagnostic-channel"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/production-a3-channel-runtime.md",
@@ -1781,7 +1792,8 @@
       ],
       "docs_update_routes": [
         "human-report-lines",
-        "aks-commerce-business-scenario"
+        "aks-commerce-business-scenario",
+        "development-diagnostic-channel"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/conversation-attachments.md",
@@ -1997,6 +2009,67 @@
       ]
     },
     {
+      "id": "development-diagnostic-channel",
+      "paths": [
+        ".github/skills/development-diagnostics/**",
+        ".vscode/tasks.json",
+        "config/development-diagnostics-evaluation*.json",
+        "packages/runtime-diagnostics/**",
+        "pyproject.toml",
+        "scripts/automation/dev-discuss.py",
+        "scripts/automation/developer_workflow_runtime.py",
+        "scripts/automation/run-local-service.sh",
+        "scripts/deployment/local/run-console-service.sh",
+        "service-migrations/branches/core-control-plane/versions/*inventory_coverage_indexes.py",
+        "services/core-control-plane/src/fdai/delivery/analyzer_tick_cli.py",
+        "services/core-control-plane/pyproject.toml",
+        "services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology_source_coverage.py",
+        "services/core-control-plane/src/fdai/runtime/development_diagnostics.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_resources.py",
+        "services/core-control-plane/src/fdai/shared/telemetry/conversation_progress.py",
+        "services/core-control-plane/src/fdai_core_service/main.py",
+        "services/core-control-plane/tests/runtime/test_development_diagnostics.py",
+        "services/operator-service/pyproject.toml",
+        "services/operator-service/src/fdai_operator_service/composition.py",
+        "services/operator-service/src/fdai_operator_service/development_diagnostics.py",
+        "services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py",
+        "services/operator-service/src/fdai_operator_service/main.py",
+        "services/operator-service/tests/test_development_diagnostics.py",
+        "tests/integration/scripts/test_dev_discuss.py",
+        "tests/integration/scripts/test_developer_workflow.py",
+        "tests/integration/scripts/test_run_local_service.py",
+        "tests/integration/scripts/test_start_console_services.py",
+        "services/core-control-plane/tests/delivery/test_analyzer_tick_cli_topic.py",
+        "tests/integration/scripts/test_vscode_workspace_performance.py",
+        "uv.lock",
+        "docs/roadmap/deployment/developer-workflow-assurance*.md",
+        "docs/roadmap/architecture/code-map*.md",
+        "docs/roadmap-implementation/deployment/developer-workflow-assurance.md"
+      ],
+      "must_read": [
+        ".github/copilot-instructions.md",
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "config/constitution-traceability.json",
+        "docs/roadmap/deployment/developer-workflow-assurance.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity.md",
+        "docs/roadmap/decisioning/conversation-assurance.md",
+        "docs/roadmap/interfaces/system-knowledge-service.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/deployment/developer-workflow-assurance.md",
+        "docs/roadmap-implementation/deployment/developer-workflow-assurance.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov packages/runtime-diagnostics/tests services/core-control-plane/tests/runtime/test_development_diagnostics.py services/operator-service/tests/test_development_diagnostics.py tests/integration/scripts/test_dev_discuss.py tests/integration/scripts/test_vscode_workspace_performance.py",
+        "uv run mypy --strict packages/runtime-diagnostics/src services/core-control-plane/src/fdai/runtime/development_diagnostics.py services/operator-service/src/fdai_operator_service/development_diagnostics.py scripts/automation/dev-discuss.py",
+        "uv run ruff check packages/runtime-diagnostics services/core-control-plane/src/fdai/runtime/development_diagnostics.py services/core-control-plane/tests/runtime/test_development_diagnostics.py services/operator-service/src/fdai_operator_service/development_diagnostics.py services/operator-service/tests/test_development_diagnostics.py scripts/automation/dev-discuss.py tests/integration/scripts/test_dev_discuss.py"
+      ]
+    },
+    {
       "id": "operator-service-foundation",
       "paths": [
         "services/operator-service/src/fdai_operator_service/**"
@@ -2174,7 +2247,8 @@
         "docs/roadmap/architecture/continuous-operational-instance-graph.md"
       ],
       "docs_update_routes": [
-        "conversation-attachments"
+        "conversation-attachments",
+        "development-diagnostic-channel"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
@@ -2479,7 +2553,8 @@
       ],
       "docs_update_routes": [
         "human-report-lines",
-        "aks-commerce-business-scenario"
+        "aks-commerce-business-scenario",
+        "development-diagnostic-channel"
       ],
       "docs_update": [
         "docs/roadmap/operations/operator-initiated-sre-and-arb.md",
@@ -2518,7 +2593,8 @@
       "docs_update_routes": [
         "conversation-attachments",
         "human-report-lines",
-        "aks-commerce-business-scenario"
+        "aks-commerce-business-scenario",
+        "development-diagnostic-channel"
       ],
       "docs_update": [
         "docs/roadmap/deployment/console-read-boundary.md",
@@ -2668,7 +2744,8 @@
       "docs_update_routes": [
         "conversation-attachments",
         "human-report-lines",
-        "aks-commerce-business-scenario"
+        "aks-commerce-business-scenario",
+        "development-diagnostic-channel"
       ],
       "docs_update": [
         "docs/roadmap/architecture/finops-package-architecture.md",
@@ -3134,7 +3211,8 @@
         "conversation-attachments",
         "human-report-lines",
         "operator-incident-creation",
-        "aks-commerce-business-scenario"
+        "aks-commerce-business-scenario",
+        "development-diagnostic-channel"
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/framework-assessment.md",
@@ -3189,7 +3267,8 @@
         "conversation-attachments",
         "human-report-lines",
         "operator-incident-creation",
-        "aks-commerce-business-scenario"
+        "aks-commerce-business-scenario",
+        "development-diagnostic-channel"
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/wara-assessment.md",

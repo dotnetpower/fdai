@@ -932,6 +932,18 @@ class _CompositeLifecycle:
             raise first_error
 
 
+def compose_application_lifecycle(
+    *services: ApplicationLifecycle | None,
+) -> ApplicationLifecycle | None:
+    """Combine application lifecycles while preserving startup and shutdown order."""
+    active_services = tuple(service for service in services if service is not None)
+    if not active_services:
+        return None
+    if len(active_services) == 1:
+        return active_services[0]
+    return _CompositeLifecycle(active_services)
+
+
 def _application_lifecycle(
     model_revision_owner: OperatorResolvedModelsRevisionOwner | None,
     local_narrator: StartupOwnedLocalAzureNarratorAdapters | None,
@@ -954,37 +966,28 @@ def _application_lifecycle(
     alert_quality_bridge: AlertQualityBridge | None = None,
     test_context_bridge: TestContextBridge | None = None,
 ) -> ApplicationLifecycle | None:
-    services = tuple(
-        service
-        for service in (
-            model_revision_owner,
-            local_narrator,
-            bus,
-            bridge,
-            read_investigation_bridge,
-            background_task_projection_bridge,
-            wara_assessment_projection_bridge,
-            framework_assessment_projection_bridge,
-            read_investigation_completion_bridge,
-            action_confirmation_bridge,
-            incident_intervention_bridge,
-            azure_monitor_webhook_bridge,
-            alert_quality_bridge,
-            live_activity_snapshot_loader,
-            live_stage_relay,
-            narrator_scheduler,
-            hil_decision_outbox_bridge,
-            test_context_bridge,
-            assignment_notice_bridge,
-            _OwnedHttpClient(teams_http_client) if teams_http_client is not None else None,
-        )
-        if service is not None
+    return compose_application_lifecycle(
+        model_revision_owner,
+        local_narrator,
+        bus,
+        bridge,
+        read_investigation_bridge,
+        background_task_projection_bridge,
+        wara_assessment_projection_bridge,
+        framework_assessment_projection_bridge,
+        read_investigation_completion_bridge,
+        action_confirmation_bridge,
+        incident_intervention_bridge,
+        azure_monitor_webhook_bridge,
+        alert_quality_bridge,
+        live_activity_snapshot_loader,
+        live_stage_relay,
+        narrator_scheduler,
+        hil_decision_outbox_bridge,
+        test_context_bridge,
+        assignment_notice_bridge,
+        _OwnedHttpClient(teams_http_client) if teams_http_client is not None else None,
     )
-    if not services:
-        return None
-    if len(services) == 1:
-        return services[0]
-    return _CompositeLifecycle(services)
 
 
 def _readiness_probe(

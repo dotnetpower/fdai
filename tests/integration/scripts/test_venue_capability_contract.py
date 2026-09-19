@@ -152,6 +152,53 @@ def test_a_service_entrypoint_without_a_runtime_scope_receipt_fails(tmp_path: Pa
 
     assert len(findings) == 1
     assert findings[0].endswith(
-        "services/sample/src/sample_service/main.py: main() MUST record exactly one runtime "
+        "services/sample/src/sample_service/main.py: startup path MUST record exactly one runtime "
         "scope receipt; found 0"
+    )
+
+
+def test_a_service_entrypoint_may_record_the_receipt_in_its_asgi_factory(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    entrypoint = tmp_path / "services/sample/src/sample_service/main.py"
+    entrypoint.parent.mkdir(parents=True)
+    entrypoint.write_text(
+        "from fdai_service_contracts import ServiceDescriptor\n"
+        "SERVICE = ServiceDescriptor(service_id='sample')\n"
+        "def create_app():\n"
+        "    record_runtime_scope_receipt(SERVICE, {})\n"
+        "    return object()\n"
+        "def main():\n"
+        "    return serve('sample_service.main:create_app')\n",
+        encoding="utf-8",
+    )
+
+    assert module._entrypoint_violations(tmp_path) == []
+
+
+def test_a_service_entrypoint_rejects_duplicate_main_and_factory_receipts(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    entrypoint = tmp_path / "services/sample/src/sample_service/main.py"
+    entrypoint.parent.mkdir(parents=True)
+    entrypoint.write_text(
+        "from fdai_service_contracts import ServiceDescriptor\n"
+        "SERVICE = ServiceDescriptor(service_id='sample')\n"
+        "def create_app():\n"
+        "    record_runtime_scope_receipt(SERVICE, {})\n"
+        "    return object()\n"
+        "def main():\n"
+        "    record_runtime_scope_receipt(SERVICE, {})\n"
+        "    return serve('sample_service.main:create_app')\n",
+        encoding="utf-8",
+    )
+
+    findings = module._entrypoint_violations(tmp_path)
+
+    assert len(findings) == 1
+    assert findings[0].endswith(
+        "services/sample/src/sample_service/main.py: startup path MUST record exactly one runtime "
+        "scope receipt; found 2"
     )
