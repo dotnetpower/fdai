@@ -708,3 +708,52 @@ async def test_admission_cancellation_never_retries_or_becomes_a_fact(tmp_path) 
             material_directory=directory,
         )
     assert calls == ["GET"]
+
+
+@pytest.mark.parametrize("version", ["1.30.0", "1.34.0", "1.36.0"])
+def test_rendered_resources_pass_strict_kubernetes_schemas(tmp_path, version) -> None:
+    import copy
+    from datetime import timedelta
+
+    from fdai.delivery.kubernetes_connector_installation import render_observer_installation
+    from fdai.delivery.kubernetes_connector_planning import propose_observer_deployment
+
+    from .test_kubernetes_connector_planning import context
+    from .test_kubernetes_connector_spool import NOW
+
+    validator = pytest.importorskip(
+        "kubernetes_validate", reason="explicit pinned schema-validation overlay required"
+    )
+    directory, digest, target = installation_material(tmp_path)
+    proposal = propose_observer_deployment(
+        context(
+            target_ref=target, facts=(), observed_at=NOW, expires_at=NOW + timedelta(minutes=5)
+        ),
+        now=NOW,
+    )
+    preview = render_observer_installation(
+        install_inputs(target_ref=target, material_digest=digest),
+        proposal,
+        now=NOW,
+        material_directory=directory,
+    )
+    documents = preview["documents"]
+    template = next(item for item in documents if item["kind"] == "CronJob")["spec"]["jobTemplate"][
+        "spec"
+    ]["template"]
+    pod = {
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+            "name": "fdai-observer-example",
+            "namespace": "fdai-observers",
+            **template["metadata"],
+        },
+        "spec": template["spec"],
+    }
+    for document in [*documents, pod]:
+        validator.validate(document, version, strict=True)
+    invalid = copy.deepcopy(pod)
+    invalid["spec"]["unsupportedObserverField"] = True
+    with pytest.raises(validator.ValidationError):
+        validator.validate(invalid, version, strict=True)

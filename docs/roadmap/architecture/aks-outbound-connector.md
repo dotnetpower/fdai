@@ -312,6 +312,13 @@ only `admission`; retain it with the existing `retain-preflight` command. Matchi
 and real loopback TLS tests prove local mechanics, not actual Kubernetes schema or webhook behavior.
 Existing-resource updates and installation lifecycle effects are not supported by this probe.
 
+For repeatable local schema validation, run the existing installation tests with a pinned optional
+validator: `uv run --no-sync --with kubernetes-validate==1.36.0 pytest -q --no-cov services/core-control-plane/tests/delivery/test_kubernetes_connector_installation.py -k strict_kubernetes_schemas`.
+The seven generated resource shapes pass strict Kubernetes 1.30, 1.34 and 1.36 schemas, with an
+unknown-field negative control. This validates structure only, not admission webhooks, effective
+RBAC, network enforcement or the selected cluster version. The three optional cases explicitly
+skip without this validation overlay; ordinary runtime dependencies and the lockfile are unchanged.
+
 The initial executable observation path uses explicitly configured mutual TLS (mTLS). Both
 peers verify the certificate chain. The gateway derives the principal from the actual TLS client
 certificate's SHA-256 fingerprint and reloads the protected enrollment file for admission. Forwarded

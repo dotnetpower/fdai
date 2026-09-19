@@ -1,7 +1,7 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: d05c6450ed3115ebe07856cc2034c05a80365c68
+translation_source_sha: 6f02e5657d766b471f6efeef3d18654ed9e2d701
 translation_revised: 2026-09-20
 ---
 # AKS 역방향 커넥터
@@ -309,6 +309,13 @@ Pod 수락 거부, 리다이렉트와 불완전 응답은 알 수 없음으로 �
 최대 5분 동안 유효한 서명 결과는 `admission`만 포함하며 기존 `retain-preflight`로 보존합니다.
 응답 필드 일치와 실제 loopback TLS 테스트는 로컬 동작만 입증하며 실제 Kubernetes 스키마나
 webhook 동작을 입증하지 않습니다. 기존 리소스 갱신이나 설치 수명 주기 변경은 지원하지 않습니다.
+
+로컬 스키마 검증은 고정된 선택적 검증기로 기존 설치 테스트를 실행합니다.
+`uv run --no-sync --with kubernetes-validate==1.36.0 pytest -q --no-cov services/core-control-plane/tests/delivery/test_kubernetes_connector_installation.py -k strict_kubernetes_schemas`를 사용합니다.
+생성한 리소스 형태 일곱 개는 Kubernetes 1.30, 1.34, 1.36의 엄격한 스키마 검사를 통과하며
+알 수 없는 필드를 넣은 대조 검사는 거부됩니다. 구조만 검증할 뿐 admission webhook,
+실효 RBAC, 네트워크 적용이나 선택한 클러스터 버전을 검증하지 않습니다. 선택적 검사 세 개는
+검증 환경이 없으면 명시적으로 건너뛰며 일반 실행 의존성과 lockfile은 바꾸지 않습니다.
 
 초기 실행 가능한 관측 경로는 명시적으로 설정한 상호 TLS(mTLS)를 사용합니다.
 양쪽 모두 인증서 체인을 검증합니다. 게이트웨이는 실제 TLS 클라이언트 인증서의 SHA-256
