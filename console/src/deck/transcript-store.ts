@@ -22,6 +22,7 @@ import {
   parseGroundedCodeArtifacts,
   parseIncidentCandidates,
   parseModelTrace,
+  parsePantheonPromptProfiles,
   parseTurnTiming,
   type AnswerPlanMetadata,
   type AnswerPlanningMetadata,
@@ -122,6 +123,7 @@ export interface PersistedTurn {
   readonly presentationArtifact?: PresentationArtifact;
   readonly documentArtifact?: ConversationDocumentArtifact;
   readonly modelTrace?: ModelTrace;
+  readonly pantheonPromptProfiles?: import("./backend-types").PantheonPromptProfiles;
   readonly modelLatencyMs?: number;
   readonly modelUsage?: ModelUsage;
   readonly turnTiming?: TurnTiming;
@@ -183,6 +185,7 @@ export function serializeTurns(
         })) ?? [],
       });
       const modelTrace = parseModelTrace(t.modelTrace);
+      const pantheonPromptProfiles = parsePantheonPromptProfiles(t.pantheonPromptProfiles);
       const modelUsage = parseModelUsage(t.modelUsage);
       const turnTiming = parseTurnTiming(t.turnTiming);
       const trajectoryDetail = parseTrajectoryDetail(t.trajectoryDetail);
@@ -232,6 +235,7 @@ export function serializeTurns(
         ...(presentationArtifact ? { presentationArtifact } : {}),
         ...(documentArtifact ? { documentArtifact } : {}),
         ...(modelTrace ? { modelTrace } : {}),
+        ...(pantheonPromptProfiles ? { pantheonPromptProfiles } : {}),
         ...(nonnegativeSafeInteger(t.modelLatencyMs)
           ? { modelLatencyMs: t.modelLatencyMs }
           : {}),
@@ -316,6 +320,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
         : [],
     });
     const modelTrace = parseModelTrace(rec.modelTrace);
+    const pantheonPromptProfiles = parsePantheonPromptProfiles(rec.pantheonPromptProfiles);
     const modelUsage = parseModelUsage(rec.modelUsage);
     const turnTiming = parseTurnTiming(rec.turnTiming);
     const trajectoryDetail = parseTrajectoryDetail(rec.trajectoryDetail);
@@ -385,6 +390,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       ...(presentationArtifact ? { presentationArtifact } : {}),
       ...(documentArtifact ? { documentArtifact } : {}),
       ...(modelTrace ? { modelTrace } : {}),
+      ...(pantheonPromptProfiles ? { pantheonPromptProfiles } : {}),
       ...(turnTiming ? { turnTiming } : {}),
       ...(trajectoryDetail ? { trajectoryDetail } : {}),
       ...(resourceContext ? { resourceContext } : {}),

@@ -133,11 +133,19 @@ class RuntimeReadinessInventory:
     """Immutable readiness evidence for one ephemeral runtime."""
 
     capabilities: tuple[RuntimeCapabilityReadiness, ...]
+    assurance_corpus_digest: str | None = None
 
     def __post_init__(self) -> None:
         names = tuple(item.function_name for item in self.capabilities)
         if len(names) != len(set(names)):
             raise ValueError("runtime readiness function names MUST be unique")
+        if self.assurance_corpus_digest is not None and (
+            len(self.assurance_corpus_digest) != 64
+            or any(
+                character not in "0123456789abcdef" for character in self.assurance_corpus_digest
+            )
+        ):
+            raise ValueError("runtime readiness assurance corpus digest MUST be SHA-256")
 
     def capability(self, function_name: str) -> RuntimeCapabilityReadiness | None:
         return next(
@@ -146,7 +154,10 @@ class RuntimeReadinessInventory:
         )
 
     def to_dict(self) -> dict[str, object]:
-        return {"capabilities": [item.to_dict() for item in self.capabilities]}
+        return {
+            "capabilities": [item.to_dict() for item in self.capabilities],
+            "assurance_corpus_digest": self.assurance_corpus_digest,
+        }
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> RuntimeReadinessInventory:
@@ -157,7 +168,13 @@ class RuntimeReadinessInventory:
             raise ValueError("runtime readiness capabilities MUST be a list")
         if any(not isinstance(item, dict) for item in raw):
             raise ValueError("runtime readiness capability MUST be an object")
-        return cls(capabilities=tuple(RuntimeCapabilityReadiness.from_dict(item) for item in raw))
+        corpus_digest = value.get("assurance_corpus_digest")
+        if corpus_digest is not None and not isinstance(corpus_digest, str):
+            raise ValueError("runtime readiness assurance corpus digest MUST be a string")
+        return cls(
+            capabilities=tuple(RuntimeCapabilityReadiness.from_dict(item) for item in raw),
+            assurance_corpus_digest=corpus_digest,
+        )
 
 
 async def observe_runtime_readiness(
@@ -166,6 +183,7 @@ async def observe_runtime_readiness(
     function_bindings: Mapping[str, str],
     current_evidence_probe: SemanticCurrentEvidenceProbe | None,
     principal: Principal,
+    assurance_corpus_digest: str | None = None,
 ) -> RuntimeReadinessInventory:
     """Observe bindings and evidence through the providers owned by this runtime."""
 
@@ -259,7 +277,8 @@ async def observe_runtime_readiness(
             unavailable_reason=None if observation.complete else "current_evidence_incomplete",
         )
     return RuntimeReadinessInventory(
-        capabilities=tuple(capabilities[name] for name in sorted(capabilities))
+        capabilities=tuple(capabilities[name] for name in sorted(capabilities)),
+        assurance_corpus_digest=assurance_corpus_digest,
     )
 
 

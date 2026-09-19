@@ -373,6 +373,9 @@ async def build_semantic_runtime(
             ),
             current_evidence_probe=semantic_composition.current_evidence_probe,
             principal=conversation_assurance_probe_principal(),
+            assurance_corpus_digest=(
+                environment.get("FDAI_CONVERSATION_ASSURANCE_CORPUS_DIGEST", "").strip() or None
+            ),
         )
         write_runtime_readiness_receipt(Path(readiness_path), readiness)
     semantic_turn_binding = build_semantic_turn_binding(

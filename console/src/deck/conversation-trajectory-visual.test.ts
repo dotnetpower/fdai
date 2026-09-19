@@ -60,6 +60,14 @@ describe("observed trajectory typography", () => {
     expect(reply).not.toContain("conversation-trajectory-results.css");
   });
 
+  test("shows content-free Pantheon prompt profiles only inside the run record", () => {
+    expect(source).toContain("answer.pantheonPromptProfiles");
+    expect(source).toContain("participant.system_text_sha256");
+    expect(source).toContain("profile.profile_digest");
+    expect(source).not.toContain("system_text:");
+    expect(styles).toContain(".deck-pantheon-prompt-profiles");
+  });
+
   test("presents verified goals as instructions while retaining capability evidence", () => {
     expect(source).toContain("intentGoalInstruction(goal.intent)");
     expect(source).toContain("goal.capability ?? t(\"deck.trajectory.contextGoal\")");

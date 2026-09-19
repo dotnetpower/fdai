@@ -344,6 +344,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_DATABASE_URL=postgresql+psycopg://fdai:devonly@127.0.0.1:5432/fdai",
         "FDAI_VALIDATION_DATABASE_URL=postgresql+psycopg://fdai:devonly@127.0.0.1:5433/fdai_validation",
         "FDAI_STATE_STORE_DSN=postgresql://fdai:devonly@127.0.0.1:5432/fdai",
+        f"FDAI_CHAT_ASSURANCE_READINESS_RECEIPT={repo}/.fdai/conversation-assurance/runtime-readiness.json",
         "FDAI_METERING_DSN=postgresql://fdai:devonly@127.0.0.1:5432/fdai",
         "LLM_MODE=azure",
         f"LLM_RESOLVED_MODELS_PATH={expected_models_path}",

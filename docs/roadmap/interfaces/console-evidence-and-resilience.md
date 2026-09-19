@@ -257,7 +257,9 @@ Every completed answer keeps its trajectory summary available. The bounded origi
 stays hidden while the run record is collapsed and appears when the operator expands it.
 Internal AnswerPlan intent and detail labels don't appear above the answer. They remain available in
 the Run record decision context, while the answer leads with operator-facing content and verified
-evidence. Model-assisted planning changes only a validated presentation shape. A verified
+evidence. Pantheon assurance turns add content-free participant and evaluator prompt profiles to
+the expanded Run record; only profile identities, versions, digests, SYSTEM hashes, situations,
+and token budgets are retained. Model-assisted planning changes only a validated presentation shape. A verified
 `presentation_artifact` v1 can mix summary, table, chart, coverage, callout, detail, and evidence
 blocks whose content was compiled by the server from immutable evidence. The browser rejects an
 unknown block, duplicate slot, invalid bound, incompatible chart, or evidence reference outside the

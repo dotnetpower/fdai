@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 0e3733e8cef67357f18110fd451b2447b9015b8b
+translation_source_sha: e79ae2a25f433fd1038a6229b50fba013d734f26
 translation_revised: 2026-09-19
 ---
 # 대화 품질 보증
@@ -50,6 +50,7 @@ Core는 영속 큐와 Pantheon 품질 보증 단계의 schema-v2 timing을 기�
 ### 명시적 캠페인 운영
 
 `scripts/automation/conversation-assurance.py`로 캠페인을 미리 보고, 시작하고, 조회하거나 중지합니다. 일반 개선 트리거는 새롭고 근거 준비가 완료된 읽기 질문 하나를 준비하고 인증된 Console 턴 하나를 답변, Run Record, 프롬프트 manifest 및 답변 준비 gate에 연결하며, 측정 1회만 허용하고 `code_defect`만 Low 초과 발견이 없는 검증된 비평 10회 이상에 진입시킵니다. 이 메커니즘은 구현됐지만 새로운 라이브 검증 또는 qualification 근거는 아직 없습니다. 하위 캠페인은 최대 20개 질문을 평가하며 큰 census는 순차 하위 캠페인을 사용하고 첫 판단 보류 또는 미완료에서 중지합니다.
+명시적으로 요청한 비공개 AKS series는 활성 Azure CLI 범위와 검토된 Resource-to-Workload-to-BusinessService 그래프에서 대상이 결속된 질문을 정확히 3개 만들 수 있습니다. 준비 단계는 세 비공개 case를 하나의 소유자 전용 runtime corpus로 결합하고 local Core environment에 exact file과 digest를 결속하며 측정 전에 Core를 성공적으로 다시 시작해야 합니다. Runner는 다시 시작된 Core readiness receipt가 해당 exact digest를 전달할 때까지 browser attempt를 arm하지 않습니다. 이름은 소유자 전용 corpus와 browser memory에만 유지하며 보고서는 case id, digest, 타입이 지정된 상태 및 점수만 보존합니다. 그래프 또는 준비 근거가 없으면 질문을 보내기 전에 판단 보류합니다.
 고정 사례 측정 전에 런타임은 등록된 로캘을 Pantheon 대화 포트에 전달합니다. 추적 증적의 `participants[].situation`이 일치하지 않으면 영어로 대체하지 않고 진단에 실패합니다.
 
 선택적인 Unix socket supervisor는 명시적 명령을 기다리며 재시작으로 캠페인을 재개하거나 시작하지 않습니다. VS Code task는 표준 loopback Operator URL과 소유자 전용 bearer-token 파일 경로를 연결하며 bearer 값 자체를 포함하지 않습니다. 공급자 사용 제한, 사용 불가, 시간 초과 또는 누락된 측정 계약은 라이브 질문을 재시도하지 않고 판단 보류로 기록합니다. CLI는 일반 전송 판단 보류로 축약하기 전에 평가의 정확한 미완료 상태와 범위가 제한된 사유를 보존합니다. 수락된 의미 처리 결과는 답변이 아닌 라우팅 근거이며 답변과 답변 보류 문구가 모두 없으면 실패 시 닫습니다.

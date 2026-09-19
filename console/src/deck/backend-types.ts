@@ -365,6 +365,24 @@ export interface ModelTracePromptManifest {
   readonly reserved_output_tokens: number | null;
 }
 
+export interface PantheonPromptProfiles {
+  readonly answer_participants: readonly {
+    readonly agent: string;
+    readonly prompt_version: string;
+    readonly system_text_sha256: string;
+    readonly situation: string;
+  }[];
+  readonly evaluator_profiles: readonly {
+    readonly profile_id: string;
+    readonly profile_version: number;
+    readonly profile_digest: string;
+    readonly system_text_sha256: string;
+    readonly system_token_budget: number;
+    readonly request_token_budget: number;
+    readonly reserved_output_tokens: number;
+  }[];
+}
+
 export interface ModelTraceCall {
   readonly call_id: string;
   readonly kind: string;
@@ -711,6 +729,7 @@ export type ProgressiveAnswer = Answer & {
   readonly resourceContext?: ResourceContext;
   readonly evidenceFreshnessContext?: EvidenceFreshnessContext;
   readonly modelTrace?: ModelTrace;
+  readonly pantheonPromptProfiles?: PantheonPromptProfiles;
   readonly modelLatencyMs?: number;
   readonly modelUsage?: ModelUsage;
   readonly turnTiming?: TurnTiming;

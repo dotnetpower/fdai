@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: d8e36037a31a87c90a205a9b89e45d0330bea1dd
+translation_source_sha: 1af0381f5fee312a1a269f0983e8328a6e5d9616
 translation_revised: 2026-09-19
 ---
 
@@ -53,6 +53,8 @@ Pantheon 품질 보증 terminal은 `answer_generation`과 `pantheon_evaluator_mo
 포함하고 각 검토자가 해당 turn에 검증된 출력을 생성했는지를 함께 기록합니다. Operator는 terminal을
 전달하기 전에 이 필드를 검증합니다. 귀속 정보가 없는 과거 레코드는 `legacy_unattributed`로 읽으며,
 Operator는 digest, 배포 기본값 또는 현재 구성에서 모델을 추측하지 않습니다.
+
+같은 terminal은 `pantheon_prompt_profiles`를 요구합니다. `answer_participants`는 최대 3개의 agent 이름, prompt version, situation key 및 SYSTEM SHA-256 값을 전달합니다. `evaluator_profiles`는 최대 3개의 profile identity, version, digest, SYSTEM SHA-256 값 및 범위가 제한된 token budget을 전달합니다. Core와 Operator는 잘못된 shape를 거부합니다. Console은 펼친 Run Record 안에 이러한 content-free field만 표시하며 이 확장을 통해 raw SYSTEM text를 받지 않습니다.
 
 로컬 캠페인 CLI는 이 귀속 정보와 범위가 제한된 질문 및 답변 내용을 소유자 전용 transcript에
 저장할 수 있습니다. 이 transcript는 진단 데이터이며 cross-service 계약, qualification 레코드,
@@ -360,7 +362,7 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 | Exact-release 온톨로지 레지스트리 및 워크벤치 | implemented | `ontology_declaration_projection.py`; `ontology_dependents_projection.py`; `ontology_evidence_health_projection.py`; `ontology_release_diff_projection.py`; Operator operations 경로; `console/src/routes/ontology-object-type-detail.tsx`; focused Python 및 Console 검사 | 정확한 선언 상세, 서버 측 redaction, 범위가 제한된 종속 항목, 정직한 근거 상태, 보존 release 비교, clean route, 권한 없는 렌더링이 구현됐습니다. 인증된 로컬 Browser에서 `Decision`과 `Resource` 경로에 overflow, 원시 resource id, execute control이 없음을 확인했지만 관리되는 Browser 산출물은 보존하지 않았습니다. |
 | 활성 인벤토리 런타임 영향 범위 | implemented | `inventory_impact.py`, `PostgresFamilyStore` 영향 범위 읽기, `operator_inventory_active_read_20260819`, 엄격한 Console decoder 및 경로 테스트 | 읽기 전용 경로는 정확한 Resource 하나에서 활성 스냅샷의 저장 방향 링크를 제한된 범위로 탐색하고 provider 속성이나 실행 권한 없이 exact release, 원본 기준 시각, 완전성 및 잘림 상태를 보고합니다. |
 | 논리 서비스 구성요소 상태 답변 | implemented | `semantic_logical_service_answer.py`, Core 의미 처리기, 영문 및 한국어의 완전한 매핑과 부분 매핑 집중 검사 | 정확한 서비스, 워크로드, 런타임 형식, 관측 구성요소 상태, 매핑 범위, 완전성 및 제한 사항을 전체 건강도, 원인, 변경 또는 실행 주장 없이 표시합니다. |
-| 대화 assurance 최종 묶음 | implemented | Core 의미 턴 처리기, Operator 의미 턴 런타임 및 presentation, 집중 assurance 전달 테스트 | 유효한 평가는 범위가 제한된 사유와 정확한 답변 생성 모드를 보존합니다. `completed`만 `answered`를 내보내고 `deferred`, `held`, 과거 `unavailable`은 `held`를 내보냅니다. 명시적으로 선택한 모델 호출은 raw 프롬프트 텍스트나 권한 없이 범위가 제한된 프롬프트 프로필, SYSTEM digest, 순서가 지정된 레이어 및 예산 manifest를 추가할 수 있습니다. Assurance 변환 결과 실패는 `semantic_runtime_failed`를 사용하고 `result_store_*` 단계 실패만 `semantic_result_store_unavailable`을 사용합니다. |
+| 대화 assurance 최종 묶음 | implemented | Core 의미 턴 처리기, Operator 의미 턴 런타임 및 presentation, 집중 assurance 전달 테스트 | 유효한 평가는 범위가 제한된 사유와 정확한 답변 생성 모드를 보존합니다. `completed`만 `answered`를 내보내고 `deferred`, `held`, 과거 `unavailable`은 `held`를 내보냅니다. 명시적으로 선택한 모델 호출은 raw 프롬프트 텍스트나 권한 없이 범위가 제한된 프롬프트 프로필, SYSTEM digest, 순서가 지정된 레이어 및 예산 manifest를 추가할 수 있습니다. Pantheon assurance terminal은 펼친 Run Record를 위해 범위가 제한된 content-free 참여자 및 평가자 프롬프트 프로필도 전달합니다. Assurance 변환 결과 실패는 `semantic_runtime_failed`를 사용하고 `result_store_*` 단계 실패만 `semantic_result_store_unavailable`을 사용합니다. |
 | 증적 기반 런타임 Context snapshot | in-progress | 온톨로지 플랫폼의 보안 ObjectSet 및 Context 계약, 기존 Console 사용 불가 상태 | 워크벤치는 카탈로그 선언과 런타임 인스턴스를 병합하지 않습니다. principal 범위 Context 증적은 별도 전달 작업으로 남아 있습니다. |
 | HIL callback 계약 | implemented | Operator IAM family 경로; `services/operator-service/tests/test_operator_iam_family.py`; full-composition 테스트 | 서명, 재생 구간, 역할, 자기 승인 금지, 정확한 pending id 및 멱등적 결정 동작이 구현됐습니다. |
 | Python task workbench 및 근거 기반 code | implemented | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; Console Python task 테스트 | 정적 검증, inert 산출물, 기능 및 chat 실행 부재 경계에 focused 검사가 있습니다. |
@@ -373,6 +375,7 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-19 | implemented | Assurance terminal과 펼친 Run Record에 필수 content-free Pantheon 참여자 및 평가자 프롬프트 프로필 근거를 추가했습니다. | `current change`, 집중 Core projection, Operator validation, Console parser, persistence, presentation, browser worker, Ruff, strict mypy 및 typecheck 검사. | 이후 clean committed revision에서 새로운 인증 Run Record 하나를 보존합니다. Raw prompt, live score 또는 qualification 근거를 주장하지 않습니다. |
 | 2026-09-19 | implemented | 캡처된 각 semantic 모델 호출에 optional content-free prompt replay manifest를 추가해 Console이 raw hidden 프롬프트 텍스트 없이 동적 SYSTEM 프로필, 순서가 지정된 레이어, digest 및 예산 근거를 확인할 수 있게 했습니다. | `current change`, 집중 Core semantic projection 및 Console model-trace parser와 presentation 테스트, Ruff, strict mypy 및 typecheck. | 이후 정리된 커밋 리비전에서 새로운 인증 browser Run Record를 보존합니다. 이 변경은 live 프롬프트 품질이나 qualification을 주장하지 않습니다. |
 | 2026-09-19 | implemented | 완료되지 않은 assurance 평가가 생성된 답변과 범위가 제한된 정확한 실패 사유를 보존하면서도 Operator wire에서 답변 완료 상태로 표시되지 않도록 했습니다. | `current change`, 집중 Operator 대화 테스트 57개 통과, Ruff 및 format 통과. | 배포 후 새로운 인증된 판단 보류 최종 증적을 보존합니다. 공급자 실패를 답변 완료로 보고해서는 안 됩니다. |
 | 2026-09-19 | implemented | Operator wire에서 held assurance 평가와 정확한 결정론적, 의미 모델 또는 T2 답변 출처를 보존하고 변환 결과 실패를 결과 저장소 중단으로 잘못 표시하지 않도록 했습니다. | `current change`, 집중 의미 처리기 및 assurance presentation 테스트가 468개 테스트 묶음에서 통과했고 Ruff와 strict mypy가 통과했습니다. | Assurance 성공을 주장하기 전에 유효한 독립 검토가 포함된 새로운 인증 최종 증적을 보존합니다. |

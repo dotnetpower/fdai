@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 1ac755a2e0c912b2c75dccd71157b9b3dc403c6d
+translation_source_sha: b85082b7e9e0505a6560093aea3240798d990fc3
 translation_revised: 2026-09-19
 ---
 # 콘솔 근거 및 복원력
@@ -264,7 +264,7 @@ Command Deck은 모듈 조회 전에 산출물 전체를 검증합니다. 레지
 background 작업은 detached 작업 요약을 사용합니다. 복원된 간결한 턴은 영속 상세에서
 관찰된 행을 재구성하고 실제 운영 턴은 인과 순서로 이미 표시한 행을 유지합니다. 완료된 모든 답변은
 trajectory 요약을 확인할 수 있게 유지합니다. 범위가 제한된 original 운영자 프롬프트는 실행 기록이
-접혀 있는 동안 숨기고 운영자가 펼치면 표시합니다. 내부 AnswerPlan 의도 및
+접혀 있는 동안 숨기고 운영자가 펼치면 표시합니다. Pantheon assurance turn은 펼친 실행 기록에 content-free 참여자 및 평가자 프롬프트 프로필을 추가하며 profile identity, version, digest, SYSTEM hash, situation 및 token budget만 보존합니다. 내부 AnswerPlan 의도 및
 상세 라벨은 답변 위에 표시하지 않습니다. 실행 기록 결정 맥락에는 유지하며 답변은
 operator-facing 내용과 검증된 근거로 바로 시작합니다. Model-assisted 계획 수립은 검증된
 표현 형태만 변경합니다. 검증된 `presentation_artifact` v1은 서버가 변경할 수 없는 근거에서

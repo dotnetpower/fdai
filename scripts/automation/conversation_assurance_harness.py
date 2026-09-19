@@ -141,6 +141,7 @@ class BrowserRunObservation:
     expected_call_kinds: tuple[str, ...]
     observed_call_kinds: tuple[str, ...]
     prompt_manifests_match: bool
+    prompt_profiles_visible: bool
     system_layer_order_valid: bool
     untrusted_data_separated: bool
     preparing_answer_seen: bool
@@ -560,6 +561,8 @@ def reduce_browser_observation(
         prompt_reasons.append("model_trace_stage_missing")
     if not observation.prompt_manifests_match:
         prompt_reasons.append("prompt_manifest_mismatch")
+    if not observation.prompt_profiles_visible:
+        prompt_reasons.append("prompt_profiles_not_visible")
     if not observation.system_layer_order_valid:
         prompt_reasons.append("system_layer_order_invalid")
     if not observation.untrusted_data_separated:

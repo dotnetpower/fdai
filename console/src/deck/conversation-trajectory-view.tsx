@@ -7,6 +7,7 @@ import type {
   IntentGraphEvidence,
   IntentGraphMetadata,
   InvestigationActivity,
+  PantheonPromptProfiles,
 } from "./backend";
 import type { ConversationTrajectory } from "./conversation-trajectory";
 import { ConversationExecutionTimelineView } from "./conversation-execution-timeline-view";
@@ -114,6 +115,9 @@ export function ConversationTrajectoryView({
             evidenceAttempted={presentation.evidenceAttemptCount}
             evidenceReferences={presentation.evidenceReferenceCount}
           />
+          {answer.pantheonPromptProfiles ? (
+            <PantheonPromptProfilesView profiles={answer.pantheonPromptProfiles} />
+          ) : null}
           <ConversationExecutionTimelineView trajectory={trajectory}
             includeModelCalls={showModelTrace} />
           <ModelTraceWaterfall
@@ -198,6 +202,57 @@ export function ConversationTrajectoryView({
       ) : null}
       </details>
     </div>
+  );
+}
+
+function PantheonPromptProfilesView({
+  profiles,
+}: {
+  readonly profiles: PantheonPromptProfiles;
+}) {
+  return (
+    <section class="deck-pantheon-prompt-profiles"
+      aria-label={t("deck.modelTrace.pantheonProfiles")}>
+      <header>
+        <h4>{t("deck.modelTrace.pantheonProfiles")}</h4>
+        <span>{t("deck.modelTrace.profileCount", {
+          count: profiles.answer_participants.length + profiles.evaluator_profiles.length,
+        })}</span>
+      </header>
+      <div class="deck-pantheon-prompt-groups">
+        <section>
+          <h5>{t("deck.modelTrace.answerParticipants")}</h5>
+          <ol>
+            {profiles.answer_participants.map((participant, index) => (
+              <li key={`${index}:${participant.agent}:${participant.prompt_version}`}>
+                <strong>{participant.agent}</strong>
+                <span>{participant.prompt_version} · {participant.situation}</span>
+                <code>{participant.system_text_sha256}</code>
+              </li>
+            ))}
+          </ol>
+        </section>
+        <section>
+          <h5>{t("deck.modelTrace.evaluatorProfiles")}</h5>
+          {profiles.evaluator_profiles.length > 0 ? (
+            <ol>
+              {profiles.evaluator_profiles.map((profile, index) => (
+                <li key={`${index}:${profile.profile_id}:${profile.profile_version}`}>
+                  <strong>{profile.profile_id} v{profile.profile_version}</strong>
+                  <span>{t("deck.modelTrace.promptBudget", {
+                    system: profile.system_token_budget,
+                    request: profile.request_token_budget,
+                    output: profile.reserved_output_tokens,
+                  })}</span>
+                  <code>{profile.system_text_sha256}</code>
+                  <code>{profile.profile_digest}</code>
+                </li>
+              ))}
+            </ol>
+          ) : <p>{t("deck.modelTrace.noEvaluatorProfiles")}</p>}
+        </section>
+      </div>
+    </section>
   );
 }
 

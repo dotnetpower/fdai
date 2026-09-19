@@ -496,6 +496,7 @@ def _pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
     observations = assurance.get("pantheon_observations")
     reviews = assurance.get("pantheon_semantic_reviews")
     diagnostic = assurance.get("pantheon_diagnostic")
+    prompt_profiles = assurance.get("pantheon_prompt_profiles")
     turn_timing = assurance.get("turn_timing")
     assessment_state = assurance.get("assessment_state", "unavailable")
     assessment_reasons = assurance.get("assessment_reasons", [])
@@ -510,6 +511,7 @@ def _pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
         or not isinstance(observations, Mapping)
         or not isinstance(reviews, list)
         or not isinstance(diagnostic, Mapping)
+        or not _valid_pantheon_prompt_profiles(prompt_profiles)
         or (turn_timing is not None and not isinstance(turn_timing, Mapping))
         or (
             latency_ms is not None
@@ -549,8 +551,61 @@ def _pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
             "pantheon_observations": dict(observations),
             "pantheon_semantic_reviews": reviews,
             "pantheon_diagnostic": dict(diagnostic),
+            "pantheon_prompt_profiles": dict(cast(Mapping[str, object], prompt_profiles)),
             "execution_authority": False,
         },
+    )
+
+
+def _valid_pantheon_prompt_profiles(value: object) -> bool:
+    if not isinstance(value, Mapping) or set(value) != {
+        "answer_participants",
+        "evaluator_profiles",
+    }:
+        return False
+    participants = value.get("answer_participants")
+    evaluators = value.get("evaluator_profiles")
+    if (
+        not isinstance(participants, list)
+        or len(participants) > 3
+        or not isinstance(evaluators, list)
+        or len(evaluators) > 3
+    ):
+        return False
+    participant_fields = {"agent", "prompt_version", "system_text_sha256", "situation"}
+    evaluator_fields = {
+        "profile_id",
+        "profile_version",
+        "profile_digest",
+        "system_text_sha256",
+        "system_token_budget",
+        "request_token_budget",
+        "reserved_output_tokens",
+    }
+    return all(
+        isinstance(item, Mapping)
+        and set(item) == participant_fields
+        and all(isinstance(item.get(key), str) and item[key] for key in participant_fields)
+        for item in participants
+    ) and all(
+        isinstance(item, Mapping)
+        and set(item) == evaluator_fields
+        and isinstance(item.get("profile_id"), str)
+        and isinstance(item.get("profile_version"), int)
+        and not isinstance(item.get("profile_version"), bool)
+        and isinstance(item.get("profile_digest"), str)
+        and isinstance(item.get("system_text_sha256"), str)
+        and all(
+            isinstance(item.get(key), int)
+            and not isinstance(item.get(key), bool)
+            and item[key] >= 0
+            for key in (
+                "system_token_budget",
+                "request_token_budget",
+                "reserved_output_tokens",
+            )
+        )
+        for item in evaluators
     )
 
 

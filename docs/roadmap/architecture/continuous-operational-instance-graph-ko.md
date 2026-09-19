@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 44f6e4322ac30b7fc123d0fd762180898ac5d19b
+translation_source_sha: 21f5302944aba14ab20f0d76a3ca13d75397df21
 translation_revised: 2026-09-18
 ---
 # 지속형 운영 인스턴스 그래프
@@ -63,6 +63,7 @@ Azure CLI로 대체하지 않습니다. 로컬 자격 증명 정책은 그대로
   호출하므로 두 영속성 경로의 보존 근거가 달라지지 않습니다.
 - **그래프 우선:** 일반 질문은 공급자 API보다 먼저 현재 운영 그래프를 읽습니다. 필요한 근거가 누락되거나 오래되거나 불완전하거나 충돌하거나, 범위가 제한된 조회 정책에 따라 명시적으로 요청된 경우에만 실시간 공급자 조회를 허용합니다.
   생성된 질문은행은 모든 원본 blob 다이제스트를 결속하므로 원본 카탈로그가 바뀌면 전체를 결정론적으로 다시 생성해야 하며, 변경되지 않은 질문 레코드는 그래프 최신성, 완전성 또는 실행 권한을 부여하지 않습니다.
+  비공개 AKS assurance 문구는 명시적으로 요청한 Azure CLI 목록에서 시작할 수 있지만 target admission에는 exact active-inventory provider reference와 검토된 `workload_runs_on` 및 `implemented_by` 경로가 필요합니다. CLI 이름은 그래프 fact를 만들거나 최신성을 입증하지 않습니다.
 - **안전한 보강:** 실시간 조회는 현재 답변을 지원할 수 있으며 같은 ingress를 통해 타입이
   지정된 관측을 게시합니다. 부분 조회는 완전한 세대를 대체하거나 관측하지 않은 객체 또는
   관계를 삭제할 수 없습니다. 런타임 환경 바인딩은 메모리 안에서 정확한 신원으로 관계를

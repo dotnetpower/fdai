@@ -7,6 +7,7 @@ import type {
   IncidentCandidate,
   ModelTrace,
   ModelTraceCall,
+  PantheonPromptProfiles,
   TurnTiming,
   TurnTimingPhase,
 } from "./backend-types";
@@ -19,6 +20,7 @@ const MAX_CODE_VALIDATION_DETAIL_CHARS = 4 * 1024;
 const MAX_ANSWER_PLAN_SECTION_CHARS = 64;
 const MAX_ANSWER_PLAN_OVERRIDE_CHARS = 128;
 const SHA256 = /^[0-9a-f]{64}$/;
+const CONTENT_DIGEST = /^(?:sha256:)?[0-9a-f]{64}$/;
 const MAX_MODEL_TRACE_CALLS = 8;
 const MAX_MODEL_TRACE_MESSAGES = 24;
 const MAX_MODEL_TRACE_REQUEST_CHARS = 12_000;
@@ -215,6 +217,62 @@ export function parseModelTrace(raw: unknown): ModelTrace | undefined {
     redacted: true,
     calls,
     omitted_calls: record.omitted_calls,
+  };
+}
+
+export function parsePantheonPromptProfiles(raw: unknown): PantheonPromptProfiles | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const record = raw as Record<string, unknown>;
+  if (!Array.isArray(record.answer_participants) ||
+      record.answer_participants.length === 0 ||
+      record.answer_participants.length > 3 ||
+      !Array.isArray(record.evaluator_profiles) ||
+      record.evaluator_profiles.length > 3) return undefined;
+  const answerParticipants: PantheonPromptProfiles["answer_participants"][number][] = [];
+  for (const rawParticipant of record.answer_participants) {
+    if (typeof rawParticipant !== "object" || rawParticipant === null ||
+        Array.isArray(rawParticipant)) return undefined;
+    const participant = rawParticipant as Record<string, unknown>;
+    if (!boundedString(participant.agent, 128) ||
+        !boundedString(participant.prompt_version, 128) ||
+        !boundedString(participant.situation, 256) ||
+        typeof participant.system_text_sha256 !== "string" ||
+        !CONTENT_DIGEST.test(participant.system_text_sha256)) return undefined;
+    answerParticipants.push({
+      agent: participant.agent,
+      prompt_version: participant.prompt_version,
+      system_text_sha256: participant.system_text_sha256,
+      situation: participant.situation,
+    });
+  }
+  const evaluatorProfiles: PantheonPromptProfiles["evaluator_profiles"][number][] = [];
+  for (const rawProfile of record.evaluator_profiles) {
+    if (typeof rawProfile !== "object" || rawProfile === null || Array.isArray(rawProfile)) {
+      return undefined;
+    }
+    const profile = rawProfile as Record<string, unknown>;
+    if (!boundedString(profile.profile_id, 128) ||
+        !boundedInteger(profile.profile_version, 1, 1_000_000) ||
+        typeof profile.profile_digest !== "string" ||
+        !CONTENT_DIGEST.test(profile.profile_digest) ||
+        typeof profile.system_text_sha256 !== "string" ||
+        !CONTENT_DIGEST.test(profile.system_text_sha256) ||
+        !boundedInteger(profile.system_token_budget, 0, 1_000_000) ||
+        !boundedInteger(profile.request_token_budget, 0, 1_000_000) ||
+        !boundedInteger(profile.reserved_output_tokens, 0, 1_000_000)) return undefined;
+    evaluatorProfiles.push({
+      profile_id: profile.profile_id,
+      profile_version: profile.profile_version,
+      profile_digest: profile.profile_digest,
+      system_text_sha256: profile.system_text_sha256,
+      system_token_budget: profile.system_token_budget,
+      request_token_budget: profile.request_token_budget,
+      reserved_output_tokens: profile.reserved_output_tokens,
+    });
+  }
+  return {
+    answer_participants: answerParticipants,
+    evaluator_profiles: evaluatorProfiles,
   };
 }
 

@@ -203,6 +203,15 @@ describe("serializeTurns", () => {
             redactions: [],
           }],
         },
+        pantheonPromptProfiles: {
+          answer_participants: [{
+            agent: "Heimdall",
+            prompt_version: "1",
+            system_text_sha256: "c".repeat(64),
+            situation: "operator:direct:T0:en",
+          }],
+          evaluator_profiles: [],
+        },
         turnTiming: {
           schema_version: 1 as const,
           started_at: "2026-07-31T01:00:00Z",
@@ -386,6 +395,8 @@ describe("serializeTurns", () => {
     expect(parsed[0]!.text).toBe("what is the tier mix?");
     expect(parsed[1]!.source).toBe("llm:x");
     expect(parsed[1]!.modelTrace?.calls[0]?.response?.content).toBe("answer");
+    expect(parsed[1]!.pantheonPromptProfiles?.answer_participants[0]?.agent)
+      .toBe("Heimdall");
     expect(parsed[1]!.modelLatencyMs).toBe(8450);
     expect(parsed[1]!.modelUsage?.total_tokens).toBe(1742);
     expect(parsed[1]!.turnTiming?.phases[0]?.phase).toBe("generation");

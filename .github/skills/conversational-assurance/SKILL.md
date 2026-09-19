@@ -120,6 +120,41 @@ validation, documentation, and the task-owned local commit.
    and Korean owner docs plus the append-only implementation ledger. Commit only task-owned tracked
    files locally. Never commit `.fdai`, tokens, questions, answers, SYSTEM text, or browser captures.
 
+### Private target-bound AKS series
+
+When the operator explicitly requests a bounded count of questions using actual AKS and
+BusinessService names, the coding agent may use the private target-bound extension. This is a
+narrow exception to the generic no-resource-name wording rule, not permission to put deployment
+identities in source, chat, terminal output, tracked evidence, or reports.
+
+1. Verify `az account show` succeeds without printing tenant, subscription, username, or token. Do
+   not run `az login`, request another login, or switch the selected account. Start or reuse
+   `console: start full stack (Azure CLI debug, Contributor)`. This local development profile maps
+   the current CLI human to a fixed Contributor ceiling and grants no approval or execution role.
+2. Wait for the standard `5273` Console and `8010` Operator API plus Core, inventory, and analyzer
+   readiness. Core writes the owner-only runtime capability receipt configured by local preparation.
+3. Run `improve prepare-aks-series --run-prefix <new-prefix>`. The command reads AKS ids and names
+   through `az aks list`, joins the exact provider reference through the active local inventory and
+   reviewed `workload_runs_on` plus `implemented_by` graph to a named BusinessService, and writes
+   exactly three owner-only corpora and runs. It also writes one owner-only aggregate corpus and
+   atomically binds its exact file and digest in `.fdai/local-runtime.env`. An absent, stale,
+   ambiguous, or incomplete graph is a typed hold; the command never guesses a service name from
+   tags or naming conventions.
+4. Without asking the operator to run another command, invoke `console: restart core runtime` and
+   wait for Core readiness. Do not measure when restart or readiness fails. This restart registers
+   all three private case ids; it does not run a question or consume an attempt. `run-aks-series`
+   also requires the restarted Core readiness receipt to carry the aggregate corpus's exact digest
+   before it arms the first browser attempt.
+5. Run `improve run-aks-series --run-prefix <prefix>`. A local Playwright worker reads each private
+   corpus directly, uses the ordinary authenticated Web composer, binds the registered assurance
+   purpose, and writes only content-free browser evidence. Actual names and question/answer text do
+   not enter agent chat, command arguments, stdout, tracked files, screenshots, or final reports.
+6. Each question has one live attempt. The series continues only after a completed passing answer,
+   Run Record, prompt-profile, and Preparing answer gate. Provider, evidence, authorization,
+   baseline, evaluation-contract, or code failures stop the series without retrying that question.
+   A code defect enters the normal focused repair and ten-plus-round hardening workflow before a
+   separately authorized new paraphrase series.
+
 The browser evidence gate has three independent decisions:
 
 - `run_record_gate`: all six phases are present and terminal, record status matches receipts, and
@@ -330,6 +365,12 @@ python3 scripts/automation/conversation-assurance.py improve hardening-round \
 # Read the content-free improvement state
 python3 scripts/automation/conversation-assurance.py improve status --run-id <run-id>
 
+# Prepare and run three private AKS and BusinessService questions with the active az login
+python3 scripts/automation/conversation-assurance.py improve prepare-aks-series \
+   --run-prefix <new-prefix>
+python3 scripts/automation/conversation-assurance.py improve run-aks-series \
+   --run-prefix <prefix>
+
 # Stop the current campaign
 python3 scripts/automation/conversation-assurance.py stop
 
@@ -382,4 +423,5 @@ uv run pytest -q --no-cov \
    tests/integration/scripts/test_conversation_assurance_cli.py \
    tests/integration/scripts/test_conversation_assurance_harness.py \
    tests/integration/scripts/test_conversation_assurance_improvement_cli.py
+   tests/integration/scripts/test_conversation_assurance_aks.py
 ```

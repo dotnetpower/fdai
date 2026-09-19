@@ -20,6 +20,16 @@ from fdai.runtime.conversation_assurance_readiness import (
     RuntimeReadinessInventory,
     assess_capability_readiness,
 )
+from scripts.automation.conversation_assurance_aks import (
+    AksBusinessServiceBinding,
+    AksSeriesUnavailableError,
+    azure_cli_aks_clusters,
+    bind_private_runtime_corpus,
+    build_private_aks_corpora,
+    build_private_aks_runtime_corpus,
+    discover_aks_business_service_bindings,
+    local_operating_graph_reader,
+)
 from scripts.automation.conversation_assurance_cli import (
     _load_private_corpus,
     _start,
@@ -29,8 +39,11 @@ from scripts.automation.conversation_assurance_harness import (
     BrowserRunObservation,
     FailureClass,
     FindingSeverity,
+    GateState,
     ImprovementRun,
+    ImprovementState,
     MeasurementOutcome,
+    PresentationGate,
     read_private_run,
     validate_question_novelty,
     write_private_run,
@@ -40,6 +53,8 @@ _MAX_EVIDENCE_BYTES = 2 * 1024 * 1024
 _RUNS_DIRECTORY = "improvement-runs"
 
 StartOperation = Callable[[Path, Mapping[str, object]], Awaitable[dict[str, object]]]
+_AKS_FUNCTION = "query.resource_state_inventory"
+_AKS_CAPABILITY = "aks_business_service_current_state"
 
 
 def _run_path(project: Path, run_id: str) -> Path:
@@ -133,6 +148,95 @@ def _prepare(
         )
         write_private_run(output_path, run)
         return run
+
+
+def _prepare_aks_series(
+    *,
+    project: Path,
+    readiness_path: Path,
+    runtime_env_path: Path,
+    run_prefix: str,
+    source_revision: str,
+    worktree_dirty: bool,
+    bindings: Sequence[AksBusinessServiceBinding] | None = None,
+) -> tuple[ImprovementRun, ...]:
+    """Prepare three private AKS runs from the current CLI scope and local graph."""
+
+    if worktree_dirty:
+        raise ValueError("worktree_not_clean")
+    readiness = RuntimeReadinessInventory.from_dict(_read_private_object(readiness_path))
+    capability = readiness.capability(_AKS_FUNCTION)
+    if (
+        capability is None
+        or capability.stage is not ReadinessStage.EVIDENCE_READY
+        or capability.provided_authority is None
+    ):
+        raise ValueError("challenge_unavailable:aks_current_state_evidence_unavailable")
+    resolved_bindings = (
+        tuple(bindings)
+        if bindings is not None
+        else (
+            discover_aks_business_service_bindings(
+                azure_clusters=azure_cli_aks_clusters,
+                operating_graph=local_operating_graph_reader(runtime_env_path=runtime_env_path),
+            )
+        )
+    )
+    output_directory = _state_root(project) / "aks-improvement-corpora" / run_prefix
+    expected_corpus_paths = tuple(
+        output_directory / f"{run_prefix}-{index}.json" for index in range(1, 4)
+    )
+    runtime_corpus_path = output_directory / f"{run_prefix}-runtime.json"
+    preexisting_paths = {
+        path
+        for path in (*expected_corpus_paths, runtime_corpus_path)
+        if path.exists() or path.is_symlink()
+    }
+    runs: list[ImprovementRun] = []
+    try:
+        corpus_paths = build_private_aks_corpora(
+            output_directory=output_directory,
+            run_prefix=run_prefix,
+            bindings=resolved_bindings,
+        )
+        build_private_aks_runtime_corpus(
+            corpus_paths=corpus_paths,
+            output_path=runtime_corpus_path,
+        )
+        for index, corpus_path in enumerate(corpus_paths, start=1):
+            runs.append(
+                _prepare(
+                    project=project,
+                    corpus_path=corpus_path,
+                    readiness_path=readiness_path,
+                    run_id=f"{run_prefix}-{index}",
+                    capability_id=_AKS_CAPABILITY,
+                    required_functions=(_AKS_FUNCTION,),
+                    expected_authority=capability.provided_authority,
+                    source_revision=source_revision,
+                    worktree_dirty=worktree_dirty,
+                )
+            )
+        runtime_corpus = _load_private_corpus(runtime_corpus_path)
+        if len(runtime_corpus.cases) != 3:
+            raise ValueError("aks_runtime_corpus_count_invalid")
+        binding_lock = open_private_lock(_state_root(project) / "aks-runtime-corpus-binding.lock")
+        if binding_lock is None:
+            raise ValueError("aks_runtime_corpus_binding_active")
+        with binding_lock:
+            bind_private_runtime_corpus(
+                runtime_env_path=runtime_env_path,
+                corpus_path=runtime_corpus_path,
+                corpus_digest=runtime_corpus.content_digest,
+            )
+    except Exception:
+        for run in runs:
+            _run_path(project, run.run_id).unlink(missing_ok=True)
+        for corpus_path in (*expected_corpus_paths, runtime_corpus_path):
+            if corpus_path not in preexisting_paths:
+                corpus_path.unlink(missing_ok=True)
+        raise
+    return tuple(runs)
 
 
 async def _measure(
@@ -290,6 +394,129 @@ def _record_browser_measurement(
         return measured
 
 
+def _record_browser_failure(*, project: Path, run_id: str, reason: str) -> ImprovementRun:
+    """Consume an armed attempt when browser custody ends without valid evidence."""
+
+    path = _run_path(project, run_id)
+    lock = open_private_lock(_run_lock_path(project, run_id))
+    if lock is None:
+        raise ValueError("improvement_run_active")
+    with lock:
+        run = read_private_run(path)
+        if not run.measurement_reserved:
+            raise ValueError("browser_measurement_not_armed")
+        failed = run.record_measurement(
+            MeasurementOutcome(
+                terminal_state="held",
+                answer_generation_state="unavailable",
+                assessment_state="unavailable",
+                assessment_reasons=(reason,),
+            )
+        ).record_presentation(
+            run_record=PresentationGate(GateState.HELD, (reason,)),
+            prompt_assembly=PresentationGate(GateState.HELD, (reason,)),
+            preparing_answer=PresentationGate(GateState.HELD, (reason,)),
+        )
+        write_private_run(path, failed)
+        return failed
+
+
+def _run_aks_browser_series(
+    *,
+    project: Path,
+    run_prefix: str,
+    origin: str,
+    readiness_path: Path,
+    source_revision: str,
+    worktree_dirty: bool,
+) -> tuple[ImprovementRun, ...]:
+    """Run prepared AKS cases once each, stopping on the first non-pass."""
+
+    if worktree_dirty:
+        raise ValueError("worktree_not_clean")
+    worker = project / "console/scripts/conversation-assurance-browser.mjs"
+    corpus_root = _state_root(project) / "aks-improvement-corpora" / run_prefix
+    runtime_corpus = _load_private_corpus(corpus_root / f"{run_prefix}-runtime.json")
+    readiness = RuntimeReadinessInventory.from_dict(_read_private_object(readiness_path))
+    if readiness.assurance_corpus_digest != runtime_corpus.content_digest:
+        raise ValueError("core_runtime_corpus_not_loaded")
+    evidence_root = _state_root(project) / "browser-evidence" / run_prefix
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    evidence_root.chmod(0o700)
+    completed: list[ImprovementRun] = []
+    for index in range(1, 4):
+        run_id = f"{run_prefix}-{index}"
+        current = read_private_run(_run_path(project, run_id))
+        if current.source_revision != source_revision:
+            raise ValueError("measurement_revision_drift")
+        _arm_browser(project=project, run_id=run_id)
+        evidence_path = evidence_root / f"{index}.json"
+        try:
+            subprocess.run(  # noqa: S603 - fixed local Node worker and private paths
+                (
+                    "node",
+                    str(worker),
+                    "--corpus",
+                    str(corpus_root / f"{run_prefix}-{index}.json"),
+                    "--run-state",
+                    str(_run_path(project, run_id)),
+                    "--output",
+                    str(evidence_path),
+                    "--origin",
+                    origin,
+                ),
+                cwd=project,
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=180,
+            )
+            measured = _record_browser_measurement(
+                project=project,
+                run_id=run_id,
+                evidence_path=evidence_path,
+                source_revision=source_revision,
+                worktree_dirty=False,
+            )
+        except (OSError, subprocess.SubprocessError, ValueError):
+            measured = _record_browser_failure(
+                project=project,
+                run_id=run_id,
+                reason="browser_worker_failed",
+            )
+        failure_class = _automatic_failure_class(measured)
+        classified = _classify(
+            project=project,
+            run_id=run_id,
+            failure_class=failure_class,
+        )
+        completed.append(classified)
+        if classified.state is not ImprovementState.COMPLETED:
+            break
+    return tuple(completed)
+
+
+def _automatic_failure_class(run: ImprovementRun) -> FailureClass | None:
+    gates = (run.run_record_gate, run.prompt_assembly_gate, run.preparing_answer_gate)
+    if (
+        run.assessment_state == "completed"
+        and run.verdict == "pass"
+        and all(gate.state is GateState.PASSED for gate in gates)
+    ):
+        return None
+    if any(reason.startswith(("authorization_", "auth_")) for reason in run.assessment_reasons):
+        return FailureClass.AUTHORIZATION_OR_CONFIGURATION
+    if run.assessment_state != "completed":
+        return (
+            FailureClass.BASELINE_FAILURE
+            if "browser_worker_failed" in run.assessment_reasons
+            else FailureClass.PROVIDER_OR_EVIDENCE_UNAVAILABLE
+        )
+    if any(gate.state is not GateState.PASSED for gate in gates):
+        return FailureClass.EVALUATION_CONTRACT_DEFECT
+    return FailureClass.CODE_DEFECT
+
+
 def _arm_browser(*, project: Path, run_id: str) -> ImprovementRun:
     path = _run_path(project, run_id)
     lock = open_private_lock(_run_lock_path(project, run_id))
@@ -393,6 +620,7 @@ def _browser_observation(value: Mapping[str, Any]) -> BrowserRunObservation:
         expected_call_kinds=_strings(value.get("expected_call_kinds")),
         observed_call_kinds=_strings(value.get("observed_call_kinds")),
         prompt_manifests_match=value.get("prompt_manifests_match") is True,
+        prompt_profiles_visible=value.get("prompt_profiles_visible") is True,
         system_layer_order_valid=value.get("system_layer_order_valid") is True,
         untrusted_data_separated=value.get("untrusted_data_separated") is True,
         preparing_answer_seen=value.get("preparing_answer_seen") is True,
@@ -457,6 +685,26 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--capability", required=True)
     prepare.add_argument("--function", action="append", dest="functions", required=True)
     prepare.add_argument("--expected-authority", required=True)
+    prepare_aks = commands.add_parser("prepare-aks-series")
+    prepare_aks.add_argument("--run-prefix", required=True)
+    prepare_aks.add_argument(
+        "--readiness",
+        type=Path,
+        default=Path(".fdai/conversation-assurance/runtime-readiness.json"),
+    )
+    prepare_aks.add_argument(
+        "--runtime-env",
+        type=Path,
+        default=Path(".fdai/local-runtime.env"),
+    )
+    run_aks = commands.add_parser("run-aks-series")
+    run_aks.add_argument("--run-prefix", required=True)
+    run_aks.add_argument("--origin", default="http://localhost:5273")
+    run_aks.add_argument(
+        "--readiness",
+        type=Path,
+        default=Path(".fdai/conversation-assurance/runtime-readiness.json"),
+    )
     measure = commands.add_parser("measure-headless")
     measure.add_argument("--corpus", type=Path, required=True)
     measure.add_argument("--run-id", required=True)
@@ -508,6 +756,39 @@ def main(argv: Sequence[str] | None = None) -> int:
                 source_revision=revision,
                 worktree_dirty=dirty,
             )
+            payload = _summary(run)
+        elif arguments.operation == "prepare-aks-series":
+            revision, dirty = _git_snapshot(project)
+            runs = _prepare_aks_series(
+                project=project,
+                readiness_path=(project / arguments.readiness).resolve(),
+                runtime_env_path=(project / arguments.runtime_env).resolve(),
+                run_prefix=arguments.run_prefix,
+                source_revision=revision,
+                worktree_dirty=dirty,
+            )
+            payload = {
+                "state": "prepared",
+                "question_count": len(runs),
+                "core_restart_required": True,
+                "runs": [_summary(run) for run in runs],
+            }
+        elif arguments.operation == "run-aks-series":
+            revision, dirty = _git_snapshot(project)
+            runs = _run_aks_browser_series(
+                project=project,
+                run_prefix=arguments.run_prefix,
+                origin=arguments.origin,
+                readiness_path=(project / arguments.readiness).resolve(),
+                source_revision=revision,
+                worktree_dirty=dirty,
+            )
+            payload = {
+                "state": runs[-1].state if runs else "held",
+                "evaluated": len(runs),
+                "requested": 3,
+                "runs": [_summary(run) for run in runs],
+            }
         elif arguments.operation == "measure-headless":
             revision, dirty = _git_snapshot(project)
             run = asyncio.run(
@@ -519,6 +800,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     worktree_dirty=dirty,
                 )
             )
+            payload = _summary(run)
         elif arguments.operation == "record-browser-measurement":
             revision, dirty = _git_snapshot(project)
             run = _record_browser_measurement(
@@ -528,14 +810,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 source_revision=revision,
                 worktree_dirty=dirty,
             )
+            payload = _summary(run)
         elif arguments.operation == "arm-browser":
             run = _arm_browser(project=project, run_id=arguments.run_id)
+            payload = _summary(run)
         elif arguments.operation == "observe-browser":
             run = _observe_browser(
                 project=project,
                 run_id=arguments.run_id,
                 evidence_path=arguments.evidence.resolve(),
             )
+            payload = _summary(run)
         elif arguments.operation == "classify":
             run = _classify(
                 project=project,
@@ -546,6 +831,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     else FailureClass(arguments.failure_class)
                 ),
             )
+            payload = _summary(run)
         elif arguments.operation == "hardening-round":
             run = _hardening_round(
                 project=project,
@@ -556,10 +842,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 fixed_count=arguments.fixed_count,
                 validation_passed=arguments.validation_passed,
             )
+            payload = _summary(run)
         else:
             run = read_private_run(_run_path(project, arguments.run_id))
-        payload = _summary(run)
-    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+            payload = _summary(run)
+    except (
+        AksSeriesUnavailableError,
+        OSError,
+        ValueError,
+        subprocess.CalledProcessError,
+    ) as error:
         payload = {"state": "held", "reason": _bounded_reason(error)}
     print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
     return 0

@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: aaf3863bf6e46972fc5a46ba49a6224574f22622
+translation_source_sha: 51b9abcee4d7c3e6d865da43bfa9d59a7c4cc57e
 translation_revised: 2026-09-17
 ---
 
@@ -505,7 +505,7 @@ Teams SSO OBO 승인에 대한 목표 계약은 다음과 같습니다:
 - **CLI principal 대안**: `console: start full stack (Azure CLI debug, Contributor)` 작업을 사용하거나 `start-console-web.sh`에 `--auth-mode azure-cli`를 전달합니다. 실행기는 현재 CLI
   사용자를 고정된 `Contributor` 상한으로 변환하고 브라우저 및 API 경계에 확인 값 쌍을 설정합니다.
   이 구현 플래그를 `console/.env.local`에 영속하지 마세요. 이 진단 모드는 `Approver` 또는
-  `Owner`가 필요한 승인 상세를 열 수 없습니다.
+  `Owner`가 필요한 승인 상세를 열 수 없습니다. 명시적으로 요청한 읽기 전용 대화 assurance series는 추가 로그인 prompt 없이 이 활성 로그인을 재사용하며 다른 account를 선택하거나 Contributor 상한을 높일 수 없습니다.
 - **Synthetic 고정본**: 익명 권한 부여, static 사용자, 시드 감사 기록 및 시나리오 재생은
   pytest의 `app(test_fixtures=True)`에서만 사용할 수 있습니다. Interactive 개발 데이터 원본이
   아닙니다.

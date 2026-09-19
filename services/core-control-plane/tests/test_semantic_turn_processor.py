@@ -2822,6 +2822,17 @@ class _PantheonAssurance:
                     "output_available": False,
                 }
             ],
+            "pantheon_prompt_profiles": {
+                "answer_participants": [
+                    {
+                        "agent": "Odin",
+                        "prompt_version": "odin-v1",
+                        "system_text_sha256": "b" * 64,
+                        "situation": "audience=operator;phase=direct;tier=T1;locale=en",
+                    }
+                ],
+                "evaluator_profiles": [],
+            },
             "pantheon_diagnostic": {"score": 25},
             "execution_authority": False,
         }

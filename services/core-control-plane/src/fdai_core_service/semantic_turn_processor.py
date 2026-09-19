@@ -6435,6 +6435,7 @@ def _validate_pantheon_assurance_result(result: Mapping[str, object]) -> None:
         "pantheon_trace",
         "pantheon_observations",
         "pantheon_diagnostic",
+        "pantheon_prompt_profiles",
     )
     assessment_reasons = result.get("assessment_reasons")
     if (
