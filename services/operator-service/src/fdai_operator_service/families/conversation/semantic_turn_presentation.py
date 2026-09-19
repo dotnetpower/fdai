@@ -526,7 +526,7 @@ def _pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
         {
             "seq": 1,
             "revision": 0,
-            "status": "answered",
+            "status": "answered" if assessment_state == "completed" else "held",
             "answer": answer,
             "answer_generation": (
                 dict(cast(Mapping[str, object], answer_generation))
