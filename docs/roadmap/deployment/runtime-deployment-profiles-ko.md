@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 2174287a85946ce76105b645f06dd7d6841bc66a
+translation_source_sha: 1b0bbbc33af80548d45e6d4f02db230c50efb437
 translation_revised: 2026-09-19
 ---
 # 런타임 배포 프로파일
@@ -305,17 +305,20 @@ NetworkPolicy의 안정적인 워크로드 label은 버전 변경으로 해당 �
 Deployment 관측은 typed Apps v1 collection endpoint를 직접 읽고, 선택 서비스에는 인코딩된
 `labelSelector`를 사용합니다. 따라서 엄격한 검증기는 클라이언트가 합성한 일반 `List`가 아니라
 서버가 작성한 `DeploymentList`를 받습니다.
+identity-bridge 호환성은 일반 `List` 허용을 다시 도입하지 않습니다.
 이 전체 계획에서 알려진 기존 identity-bridge 기준선이 발견되더라도 채택은 계속 중단됩니다. 별도
 조정 계약은 일치하는 Terraform 상태와 typed 실제 근거에서 Operator command identity와 Document
-Worker ClamAV 정의만 복원할 수 있습니다. 이 계약은 inventory 읽기 역할 생성, 기존 identity-bridge
-제거, 기존 Job, Deployment, Service의 공급자 정규화만 허용합니다. 계획은 모든 워크로드 이미지와
-소스 버전, command federated identity, ClamAV digest, 초기화, UID, GID, 쓰기 가능 volume, Pod group을
-보존해야 합니다. 다른 주소나 계약 차이는 모두 거부합니다. 조정에는 별도 exact approval, 효과
-재조회, 완전한 전체 범위 변경 없음 계획이 필요하며, 이 근거가 있어야 과거 상태 채택을 다시 시도할
-수 있습니다.
-기존 identity-bridge를 제거할 때는 정확히 일치하는 5개 서비스의 wrapper command와 argument만
-이미지 entrypoint 기본값으로 복원합니다. 실제 또는 보존된 command 형태가 다르면 조정을 차단하므로,
-bridge를 제거한 Pod가 mount되지 않은 script를 호출하거나 실행 파일을 조용히 바꿀 수 없습니다.
+Worker ClamAV 정의, 정확한 identity bridge를 복원할 수 있습니다. 이 계약은 inventory 읽기 역할 생성,
+identity-bridge 상태 주소 이행, 기존 Job, Deployment, Service의 공급자 정규화만 허용합니다. 계획은
+모든 워크로드 이미지와 소스 버전, command federated identity, bridge script, ClamAV digest, 초기화,
+UID, GID, 쓰기 가능 volume, Pod group을 보존해야 합니다. 다른 주소나 계약 차이는 모두 거부합니다.
+조정에는 별도 exact approval, 효과 재조회, 완전한 전체 범위 변경 없음 계획이 필요하며, 이 근거가
+있어야 과거 상태 채택을 다시 시도할 수 있습니다. 정확히 일치하는 5개 서비스 wrapper를 계속 사용하는
+이미지는 관리되는 ConfigMap을 `/opt/fdai-compat`에, 크기가 제한된 runtime-state volume을
+`/app/.fdai`에 유지하면서 container 범위 `runAsNonRoot`도 보존합니다. 각 영향 이미지가 AKS federated
+identity로 직접 시작할 수 있음을 독립적으로 입증하기 전에는 bridge 삭제나 image entrypoint 기본값으로의
+command 교체를 거부합니다. ConfigMap이 현재 상태 외부에 존재하면 별도 claim과 권위 있는 UID 및
+content hash 재조회로 정확히 그 객체만 채택해야 하며, 객체를 암묵적으로 다시 만들거나 덮어쓰지 않습니다.
 이 워크로드 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는 전체 배포 준비가
 검증되지는 않습니다. 별도의 브라우저 게시 게이트가 워크로드 수렴 뒤 Console과 API 경계를
 검증합니다. 워크로드 생성기는 Operator, 격리된 Executor, 문서 API,
