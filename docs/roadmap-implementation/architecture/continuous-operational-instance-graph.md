@@ -60,8 +60,8 @@ Low. Local focused evidence does not claim Azure rollout or production performan
 | H02 | Mapped provider coverage reconciliation | implemented | Inventory adapter tests reject inconsistent mapped counts before data/fence emission. |
 | H03 | Init-container environment redaction | implemented | Both container families pass the post-join redaction regression. |
 | H04 | Truncated nested-resource observations | implemented | Existing commit `d42551f94` preserves nested observations; its ARG regressions passed in the 161-test cohort. |
-| H05 | Post-commit event publication recovery | not-started | Restart retries unacknowledged generation-stable Events after graph commit. |
-| H06 | Object evaluation with relationship gaps | not-started | Verified object observations remain evaluable without claiming complete topology. |
+| H05 | Post-commit event publication recovery | implemented | Durable content-bound pending/completed markers; completed-graph loader and actual recovery invocation preserve unacknowledged delivery. |
+| H06 | Object evaluation with relationship gaps | implemented | Classified relationship gaps keep the activity degraded while verified object Events still publish. |
 | H07 | Snapshot-consistent graph reads | not-started | Objects, links, and source coverage share one database snapshot. |
 | H08 | Independent mapping verification | not-started | Reject unregistered, substituted, and reversed mapping evidence. |
 | H09 | Built-in ARM scope identity | implemented | Scope-type substitution is rejected; reviewed Resource Group aliases remain accepted. |
@@ -91,11 +91,12 @@ Low. Local focused evidence does not claim Azure rollout or production performan
 | H33 | Transport failure classification | not-started | Continuation-token errors are not authentication failures. |
 | H34 | Invalidation marker recovery | not-started | Corrupt markers recover against a durable monotonic boundary. |
 | H35 | Inventory adapter documentation | implemented | Adapter documentation now describes authenticated live reads, fences, and owned persistence. |
-| H36 | Real publication recovery regression | not-started | The owning test invokes recovery and proves resumed delivery. |
+| H36 | Real publication recovery regression | implemented | The owning test invokes recovery, observes two publication attempts, one graph application, and a completed delivery marker. |
 
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-19 | implemented | Separated graph completion from content-bound Resource-event delivery, recovered pending publication without another graph write, and preserved object delivery when relationships remain degraded. | `current change`; observer, event publisher, and observation-journal tests: 116 passed; extended initial-generation loader cohort: 31 passed; three source files passed focused mypy. | Other open hardening rows and repeated adversarial review remain; no broker or Azure runtime validation is claimed. |
 | 2026-09-19 | implemented | Hardened provider count reconciliation, ordinary and init-container redaction, built-in and unclassified ARM identity, requested scope, nested parents, and clock-only duplicates. Reused the separately committed nested-subnet truncation repair without overwriting it. | `current change`; ARG tests: 161 passed; inventory adapter tests: 33 passed; focused Ruff passed; H04 source commit `d42551f94`. | H05-H08, H11, H14-H21, H23-H34, and H36 remain under the register and adversarial review. |
 | 2026-09-19 | implemented | Rejected projection-bound overflow before snapshot promotion and rejected incomplete snapshot input before journal access or tombstone confirmation. | `current change`; `inventory_sync.py`, `postgres_inventory_observation.py`; owning coordinator and observation-journal tests: 76 passed; focused Ruff passed. | Complete the 36-item hardening register and repeated adversarial review below; no live Azure or deployment evidence is claimed. |
 | 2026-09-18 | in-progress | After release convergence, the next analyzer tick correctly lowered managed readiness to 11/12 because subscription discovery retained inaccessible AKS clusters as incomplete fleet evidence. The active snapshot still retained positive Kubernetes observations, and the Dashboard release mismatch did not recur. | Local analyzer reported `inventory_source_incomplete`; active snapshot retained 164 Kubernetes Resources including 44 Pods; inventory and Operator releases remained equal and Dashboard v2 remained loaded without HTTP 409. | Grant the inventory read identity access to every intentionally discovered cluster or explicitly narrow the configured subscription discovery scope, then require a clean analyzer tick before claiming 12/12 readiness. |

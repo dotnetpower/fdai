@@ -139,6 +139,17 @@ def test_inventory_scopes_prefer_authoritative_multi_scope_setting() -> None:
     assert inventory_scopes_from_env({"AZURE_SUBSCRIPTION_ID": "legacy-scope"}) == ("legacy-scope",)
 
 
+def _state_store_double() -> SimpleNamespace:
+    from fdai.shared.providers.testing import InMemoryStateStore
+
+    store = InMemoryStateStore()
+    return SimpleNamespace(
+        read_state=AsyncMock(wraps=store.read_state),
+        write_state=AsyncMock(wraps=store.write_state),
+        write_state_with_audit_if_absent=AsyncMock(return_value=True),
+    )
+
+
 def _ontology_observer_harness(
     monkeypatch: pytest.MonkeyPatch,
     *,
@@ -151,6 +162,14 @@ def _ontology_observer_harness(
     if operator_requested:
         config_values["FDAI_INVENTORY_OPERATOR_REQUESTED"] = "1"
     config = InventoryJobConfig.from_env(config_values)
+    from fdai.delivery import inventory_ontology_observer
+    from fdai.shared.providers.testing import InMemoryStateStore
+
+    if isinstance(inventory_ontology_observer.PostgresStateStore, type):
+        status_store = InMemoryStateStore()
+        monkeypatch.setattr(
+            inventory_ontology_observer, "PostgresStateStore", lambda **_: status_store
+        )
     ontology_store = SimpleNamespace(
         sync_catalog=AsyncMock(),
         read_inventory_state_base=AsyncMock(return_value=()),
@@ -415,10 +434,7 @@ async def test_model_serving_enricher_matches_full_reconciliation_cadence() -> N
 async def test_ontology_observer_persists_diagnostics_on_inventory_promotion(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    state_store = SimpleNamespace(
-        write_state_with_audit_if_absent=AsyncMock(return_value=True),
-        read_state=AsyncMock(return_value=None),
-    )
+    state_store = _state_store_double()
     monkeypatch.setattr(
         "fdai.delivery.inventory_ontology_observer.PostgresStateStore",
         lambda **_: state_store,
@@ -1631,13 +1647,13 @@ async def test_ontology_observer_retries_configuration_event_failure(
 ) -> None:
     (
         observer,
-        _recovery,
-        _observation_journal,
+        recovery,
+        observation_journal,
         _ontology_store,
         _history_store,
-        _projector,
+        projector,
         activity_publisher,
-        _release_digest,
+        release_digest,
     ) = _ontology_observer_harness(monkeypatch)
     activity_publisher.configuration_event_publisher.side_effect = RuntimeError(
         "broker unavailable"
@@ -1649,6 +1665,60 @@ async def test_ontology_observer_retries_configuration_event_failure(
     activity = activity_publisher.publish.await_args.args[0]
     assert activity.status is OperationalActivityStatus.FAILED
     assert activity.reason_codes == ("configuration_event_publish_failed",)
+    store = projector.construction_kwargs["status_store"]
+    manifest = {
+        "generation": "snapshot-event-failure",
+        "ontology_release_digest": release_digest,
+        "manifest_digest": "sha256:" + "1" * 64,
+        "complete": True,
+    }
+    await store.write_state("inventory-ontology:manifest", manifest)
+    await store.write_state("inventory-ontology:status", {**manifest, "status": "available"})
+    observation_journal.load_pending_promoted_snapshot.side_effect = [
+        _promoted_observation("snapshot-event-failure"),
+        None,
+    ]
+    activity_publisher.configuration_event_publisher.side_effect = None
+
+    await recovery()
+
+    assert activity_publisher.configuration_event_publisher.await_count == 2
+    assert projector.apply.await_count == 1
+    delivery = await store.read_state("inventory-configuration:delivery")
+    assert delivery["status"] == "completed"
+
+
+async def test_ontology_observer_delivers_objects_with_classified_relationship_gaps(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.shared.providers.inventory import (
+        RelationshipDrop,
+        RelationshipDropReason,
+        RelationshipUnavailableReason,
+    )
+
+    observer, _, _, _, history, projector, publisher, _ = _ontology_observer_harness(monkeypatch)
+    observation = _promoted_observation("snapshot-gap")
+    observation = PromotedInventoryObservation(
+        generation=observation.generation,
+        resources=observation.resources,
+        links=(),
+        complete=True,
+        recorded_at=observation.recorded_at,
+        relationship_drops=(
+            RelationshipDrop(
+                reason=RelationshipDropReason.MISSING_TARGET_ENDPOINT,
+                unavailable_reason=RelationshipUnavailableReason.TARGET_OUTSIDE_ACTIVE_GENERATION,
+            ),
+        ),
+    )
+
+    await observer(observation)
+
+    projector.apply.assert_awaited_once()
+    history.append.assert_not_awaited()
+    publisher.configuration_event_publisher.assert_awaited_once_with(observation)
+    assert publisher.publish.await_args.args[0].status is OperationalActivityStatus.DEGRADED
 
 
 async def test_ontology_observer_does_not_advance_projection_after_history_failure(
@@ -1701,7 +1771,7 @@ async def test_ontology_observer_retains_history_before_projection_failure(
 async def test_ontology_recovery_replays_pending_history_before_new_projection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    status_store = SimpleNamespace(read_state=AsyncMock())
+    status_store = _state_store_double()
     monkeypatch.setattr(
         "fdai.delivery.inventory_ontology_observer.PostgresStateStore",
         lambda **_: status_store,
@@ -1724,20 +1794,25 @@ async def test_ontology_recovery_replays_pending_history_before_new_projection(
 
     observation_journal.load_pending_promoted_snapshot.side_effect = [observation, None]
     status_store = projector.construction_kwargs["status_store"]
-    status_store.read_state.return_value = {
-        "generation": observation.generation,
-        "ontology_release_digest": _release_digest,
-        "complete": True,
-        "manifest_digest": "sha256:" + "c" * 64,
-    }
+    await status_store.write_state(
+        "inventory-ontology:manifest",
+        {
+            "generation": observation.generation,
+            "ontology_release_digest": _release_digest,
+            "complete": True,
+            "manifest_digest": "sha256:" + "c" * 64,
+        },
+    )
     await recovery()
 
     assert observation_journal.load_pending_promoted_snapshot.await_count == 2
-    assert status_store.read_state.await_count == 2
-    assert all(
-        call.args == ("inventory-ontology:manifest",)
-        for call in status_store.read_state.await_args_list
-    )
+    assert [call.args[0] for call in status_store.read_state.await_args_list] == [
+        "inventory-ontology:manifest",
+        "inventory-ontology:manifest",
+        "inventory-ontology:status",
+        "inventory-configuration:delivery",
+        "inventory-ontology:manifest",
+    ]
     assert history_store.append.await_count == 2
     projector.apply.assert_awaited_once()
 
@@ -1891,7 +1966,7 @@ async def test_ontology_recovery_allows_fresh_collection_after_degraded_projecti
 ) -> None:
     monkeypatch.setattr(
         "fdai.delivery.inventory_ontology_observer.PostgresStateStore",
-        lambda **_: SimpleNamespace(read_state=AsyncMock(return_value=None)),
+        lambda **_: _state_store_double(),
     )
     (
         _observer,

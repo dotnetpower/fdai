@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, uuid5
 
@@ -11,6 +12,53 @@ from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.inventory import ResourceRecord
+
+INVENTORY_CONFIGURATION_DELIVERY_KEY = "inventory-configuration:delivery"
+
+
+def configuration_delivery_record(
+    observation: PromotedInventoryObservation,
+    *,
+    completed: bool = False,
+) -> dict[str, object]:
+    """Bind a durable handoff marker to exact retry-stable Resource observations."""
+    if not observation.complete or observation.recorded_at is None:
+        raise ValueError("configuration delivery requires a complete recorded observation")
+    digest = hashlib.sha256(observation.generation.encode("utf-8"))
+    for resource in sorted(observation.resources, key=lambda item: item.resource_id):
+        digest.update(
+            _digest_json(
+                {
+                    "id": resource.resource_id,
+                    "type": resource.type,
+                    "props": dict(resource.props),
+                    "provider_ref": resource.provider_ref,
+                    "last_seen": resource.last_seen,
+                }
+            ).encode("ascii")
+        )
+    return {
+        "schema_version": "1.0.0",
+        "generation": observation.generation,
+        "observation_digest": "sha256:" + digest.hexdigest(),
+        "status": "completed" if completed else "pending",
+        "resource_count": len(observation.resources),
+        "execution_authority": False,
+    }
+
+
+def configuration_delivery_pending(value: Mapping[str, object], *, generation: str) -> bool:
+    """Reject malformed current-generation delivery state rather than losing a retry."""
+    if value.get("generation") != generation:
+        return False
+    if (
+        value.get("schema_version") != "1.0.0"
+        or value.get("status") not in {"pending", "completed"}
+        or value.get("execution_authority") is not False
+        or not isinstance(value.get("observation_digest"), str)
+    ):
+        raise ValueError("inventory configuration delivery marker is invalid")
+    return value["status"] == "pending"
 
 
 async def publish_promoted_resource_events(

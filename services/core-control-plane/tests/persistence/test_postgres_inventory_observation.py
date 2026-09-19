@@ -8,6 +8,10 @@ from types import MethodType
 from typing import Any
 
 import pytest
+from fdai.delivery.inventory_configuration_events import (
+    INVENTORY_CONFIGURATION_DELIVERY_KEY,
+    configuration_delivery_record,
+)
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.persistence import postgres_inventory_observation as observation_module
 from fdai.delivery.persistence.postgres_inventory_observation import (
@@ -117,6 +121,54 @@ class _Connection:
         if "SELECT COUNT(*) AS pending" in query:
             return _Cursor([{"pending": 0}])
         return _Cursor([])
+
+
+@pytest.mark.parametrize("completed", [False, True])
+@pytest.mark.parametrize("has_state_base", [False, True])
+async def test_completed_graph_retains_pending_configuration_delivery(
+    monkeypatch: pytest.MonkeyPatch, completed: bool, has_state_base: bool
+) -> None:
+    observation = PromotedInventoryObservation(
+        generation="generation-delivery", resources=(), links=(), complete=True, recorded_at=NOW
+    )
+    marker = configuration_delivery_record(observation, completed=completed)
+
+    class _DeliveryConnection(_Connection):
+        async def execute(self, query: str, params: object = None) -> _Cursor:
+            if "s.completed_at, s.metadata" in query:
+                return _Cursor(
+                    [
+                        {
+                            "id": observation.generation,
+                            "completed_at": NOW,
+                            "metadata": {"state_base_generation": None} if has_state_base else {},
+                        }
+                    ]
+                )
+            if "key='inventory-ontology:manifest'" in query:
+                return _Cursor([{"value": {"generation": observation.generation}}])
+            if params == (INVENTORY_CONFIGURATION_DELIVERY_KEY,):
+                return _Cursor([{"value": marker}])
+            if "SELECT value FROM state_kv" in query:
+                return _Cursor([{"value": {"ontology_generation": observation.generation}}])
+            return _Cursor([])
+
+    connection = _DeliveryConnection({})
+
+    async def connect(_self: object) -> _DeliveryConnection:
+        return connection
+
+    monkeypatch.setattr(PostgresInventoryObservationJournal, "_connect", connect)
+    monkeypatch.setattr(
+        observation_module, "_snapshot_recovery_observation", lambda **_: observation
+    )
+    journal = PostgresInventoryObservationJournal(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://example")
+    )
+
+    result = await journal.load_pending_promoted_snapshot()
+
+    assert result == (None if completed else observation)
 
 
 class _GenerationWatermarkConnection:

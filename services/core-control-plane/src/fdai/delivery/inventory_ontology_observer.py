@@ -15,6 +15,10 @@ from fdai.delivery.aks_diagnostic_receipts import (
     InventoryPromotionAksDiagnosticObserver,
     StateStoreAksDiagnosticReceiptWriter,
 )
+from fdai.delivery.inventory_configuration_events import (
+    INVENTORY_CONFIGURATION_DELIVERY_KEY,
+    configuration_delivery_record,
+)
 from fdai.delivery.inventory_job_config import InventoryJobConfig, read_bool_env
 from fdai.delivery.inventory_sync import (
     InventoryPromotionObserver,
@@ -150,6 +154,10 @@ def build_ontology_observer(
                 failures.append(("topology_history_failed", exc))
             if history_succeeded:
                 try:
+                    await status_store.write_state(
+                        INVENTORY_CONFIGURATION_DELIVERY_KEY,
+                        configuration_delivery_record(observation),
+                    )
                     result = await projector.apply(
                         observation,
                         journal_high_watermark=journal_append.journal_high_watermark,
@@ -182,9 +190,9 @@ def build_ontology_observer(
         reason_codes = result.dropped_reasons + (
             () if history_available else ("topology_history_unavailable",)
         )
-        if available:
+        if result.status is InventoryOntologyProjectionStatus.AVAILABLE and result.complete:
             try:
-                await configuration_event_publisher(observation)
+                await _deliver_configuration(observation)
             except Exception:  # noqa: BLE001 - recovery retries the exact generation
                 await publisher.publish(
                     ontology_projection_activity(
@@ -216,10 +224,42 @@ def build_ontology_observer(
                 "inventory ontology projection is incomplete"
             )
 
+    async def _deliver_configuration(observation: PromotedInventoryObservation) -> None:
+        expected = configuration_delivery_record(observation)
+        retained = await status_store.read_state(INVENTORY_CONFIGURATION_DELIVERY_KEY)
+        completed = configuration_delivery_record(observation, completed=True)
+        if retained == completed:
+            return
+        if retained != expected:
+            raise ValueError("inventory configuration delivery content changed")
+        count = await configuration_event_publisher(observation)
+        if count != len(observation.resources):
+            raise ValueError("inventory configuration delivery count is incomplete")
+        await status_store.write_state(INVENTORY_CONFIGURATION_DELIVERY_KEY, completed)
+
+    async def _recover_observation(observation: PromotedInventoryObservation) -> None:
+        manifest = await status_store.read_state("inventory-ontology:manifest")
+        status = await status_store.read_state("inventory-ontology:status")
+        if (
+            manifest is not None
+            and status is not None
+            and manifest.get("generation") == observation.generation
+            and status.get("generation") == observation.generation
+            and manifest.get("ontology_release_digest") == ontology_release_digest
+            and status.get("ontology_release_digest") == ontology_release_digest
+            and manifest.get("complete") is True
+            and status.get("complete") is True
+            and status.get("status") == "available"
+            and manifest.get("manifest_digest") == status.get("manifest_digest")
+        ):
+            await _deliver_configuration(observation)
+            return
+        await _observe(observation)
+
     async def _recover() -> None:
         await inventory_sync_cli_support.recover_ontology_projection(
             load_pending=observation_journal.load_pending_promoted_snapshot,
-            observe=_observe,
+            observe=_recover_observation if projector is not None else _observe,
             status_store=status_store if projector is not None else None,
             release_digest=ontology_release_digest,
             allow_release_mismatch_collection=config.operator_requested,

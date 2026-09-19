@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 4139a96734bc0ba5ac07ea86ca1c510fa9bbdbaa
+translation_source_sha: 8b701a32f762ea70915b4caa5ee1a0e163a2bc0c
 translation_revised: 2026-09-19
 ---
 # 런타임 배포 프로파일
@@ -129,6 +129,7 @@ $$
 ## 상태 소유권
 
 초기 인벤토리 실행과 반복 실행에는 같은 변환 한도를 적용합니다. 한도를 넘은 후보는 이전 활성 세대를 유지하며, 불완전한 관측으로는 리소스 삭제를 확정할 수 없습니다.
+두 프로파일 모두 그래프 커밋 전에 관측 내용에 결속된 전달 표식을 저장하고, 그래프 완료 워터마크와 독립적으로 대기 중인 Resource Event를 복구합니다. 전달은 실행 권한을 부여하지 않습니다.
 
 두 런타임 프로파일의 연결된 배포는 정확한 Azure Marketplace Ubuntu 버전으로 Managed Host를
 부팅하고 Foundation 단계에서 체크섬으로 고정된 도구 체인을 설치합니다. 전용 Managed Host

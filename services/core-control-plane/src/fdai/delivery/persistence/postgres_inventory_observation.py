@@ -11,6 +11,10 @@ from typing import Any, Final
 import psycopg
 from psycopg.rows import dict_row
 
+from fdai.delivery.inventory_configuration_events import (
+    INVENTORY_CONFIGURATION_DELIVERY_KEY,
+    configuration_delivery_pending,
+)
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.persistence.postgres_inventory_observation_records import (
     confirmed_tombstone as _confirmed_tombstone,
@@ -325,8 +329,6 @@ class PostgresInventoryObservationJournal:
                 if snapshot is None or snapshot["completed_at"] is None:
                     return None
                 metadata = _mapping(snapshot["metadata"])
-                if "state_base_generation" not in metadata:
-                    return None
                 generation = str(snapshot["id"])
                 state_cursor = await connection.execute(
                     "SELECT value FROM state_kv WHERE key=%s",
@@ -339,15 +341,27 @@ class PostgresInventoryObservationJournal:
                 )
                 manifest_row = await manifest_cursor.fetchone()
                 manifest = _mapping(manifest_row["value"]) if manifest_row is not None else {}
+                delivery_cursor = await connection.execute(
+                    "SELECT value FROM state_kv WHERE key=%s",
+                    (INVENTORY_CONFIGURATION_DELIVERY_KEY,),
+                )
+                delivery_row = await delivery_cursor.fetchone()
+                delivery_pending = delivery_row is not None and configuration_delivery_pending(
+                    _mapping(delivery_row["value"]), generation=generation
+                )
+                if "state_base_generation" not in metadata and not delivery_pending:
+                    return None
                 if state.get("ontology_generation") == generation:
                     if manifest.get("generation") != generation:
                         raise ValueError("inventory ontology completion fence is inconsistent")
-                    return None
-                if manifest.get("generation") == generation:
+                    if not delivery_pending:
+                        return None
+                elif manifest.get("generation") == generation:
                     raise ValueError(
                         "inventory ontology manifest advanced without its atomic watermark"
                     )
-                metadata = _rebase_recovery_metadata(metadata, manifest)
+                else:
+                    metadata = _rebase_recovery_metadata(metadata, manifest)
                 resource_cursor = await connection.execute(
                     "SELECT resource_id, resource_type, props, provider_ref, last_seen "
                     "FROM inventory_snapshot_resource WHERE snapshot_id=%s "
