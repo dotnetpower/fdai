@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 41cda083bd756677b0c787d95e6f8dbde1a1b9ce
+translation_source_sha: 78ff51f8a8b44d66fbbc9e79fde8871ec332dd68
 translation_revised: 2026-09-20
 ---
 # 에이전트 판테온
@@ -89,6 +89,11 @@ Forseti가 중재를 제기한 뒤에는 같은 이벤트에 일반 판단을 �
 감사하며, 승리한 판정을 `ActionRun`으로 전환할 수 있는 에이전트는 Thor뿐입니다.
 후보의 상관관계, 멱등성, 리소스 및 ActionType 식별자는 유입 경계에서 범위가 제한되고 비어
 있지 않으며 앞뒤 공백을 허용하지 않습니다. 공유 관측 기준 시점에는 시간대가 포함되어야 합니다.
+Huginn이 소유하는 정규화된 `specialist.resilience_score` Event에는 0부터 1까지의 유한 score와
+완전한 예상 효과 및 근거 참조도 포함돼야 합니다. Loki는 Forseti가 사용하는 것과 동일한 후보
+계약을 적용하고 검증이 끝난 뒤에만 게시하며, 범위가 제한된 읽기 전용 score 변환 결과를 유지합니다.
+형식이 잘못됐거나 위조된 Event는 score를 생성하지 않습니다. ActionType은 A0 후보로 유지되며
+Loki에 판단, 승인 또는 실행 권한을 부여하지 않습니다.
 
 ### 3.2 발견 루프 학습기 (Norns)
 
@@ -139,7 +144,7 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path 배치 만) |
 | Njord | 비용 | 1 | CostAnomaly | propose_cost_action을 수행하고 별도 `Budget` graph lifecycle을 유지합니다. | no |
 | Freyr | 용량 | 1 | CapacityForecast, CapacityGraduationRecommendation | 용량 예측과 shadow-only 전환을 권고하고 별도 `SizingRecommendation` graph lifecycle을 유지합니다. | no |
-| Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
+| Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment을 수행하고 resilience-score 후보를 검증해 게시합니다. | no |
 
 Heimdall은 결정론적 예측 에피소드 평가와 종결의 책임자이며 비공개 `heimdall_forecast.py`와 `heimdall_alert_window.py`가 계산과 범위가 제한된 에피소드/경고 구간 기록을 소유합니다.
 반복 이벤트의 권위 있는 이상 징후를 게시한 뒤 선택적 `incident_candidate_hook`이 정규화된 리소스, 이벤트 타입, 상관관계, 최대 심각도, 사유 코드, 모든 급증 근거 키를 조립 소유 `IncidentLifecycleWorkflow`로 보냅니다.
@@ -179,7 +184,7 @@ Forseti의 관찰 모드 ARB 실패 기록은 맥락/근거 수집 실패에도 
 | Norns | 시간당 배치 감사 분석, 스트리밍 pattern 추출 | pattern 신호, RuleCandidate publish, close_issue 신호 | 모델 성능 표류 감지 | 4, 6, 8 (Judgment coherence), 10 |
 | Njord | 비용 인제스트 (daily), 예산 모니터, 비용 forecasting | 범위가 제한된 비용 샘플 -> anomaly, 시작할 때 수락된 보존 완료 USD 기준선을 복원하되 과거 finding은 다시 게시하지 않음, 예산 breach 경보, cost-advisor 조회 | RI / SP 최적화 제안 | 1, 2 |
 | Freyr | 사용률 샘플링, 용량 forecasting, sizing 분석 | 범위가 제한된 사용률 샘플 -> 예측, 규모 제안, 용량 advisor 조회 | 다차원 용량 (CPU + IOPS + net + mem) | 2, 3 |
-| Loki | chaos-experiment 스케줄, resilience-score 리프레시 | 범위가 제한된 예약 트리거 -> 항상-HIL 실험 제안, blast-radius 계산 | adversarial 시나리오 생성 (T2, off-path) | 3, 9 |
+| Loki | chaos-experiment 스케줄, resilience-score 리프레시 | 범위가 제한된 예약 트리거 -> 항상-HIL 실험 제안, 범위가 제한된 정규화 score Event -> 검증된 cross-vertical 후보, blast-radius 계산 | adversarial 시나리오 생성 (T2, off-path) | 3, 9 |
 
 ### 4.2 Per-agent KPI (성공과 성능 저하 신호)
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
@@ -236,6 +237,11 @@ def is_cross_vertical_candidate(topic: str, payload: dict[str, Any]) -> bool:
     return payload.get("kind") == "cross_vertical_candidate" and topic in _CANDIDATE_TOPIC_BINDINGS
 
 
+def validate_cross_vertical_candidate(topic: str, payload: dict[str, Any]) -> None:
+    """Apply the consumer's exact candidate contract at an owner producer boundary."""
+    _parse_candidate(topic, payload)
+
+
 def _parse_candidate(topic: str, payload: dict[str, Any]) -> _Candidate:
     binding = _CANDIDATE_TOPIC_BINDINGS.get(topic)
     if binding is None:
@@ -278,6 +284,14 @@ def _parse_candidate(topic: str, payload: dict[str, Any]) -> _Candidate:
         ]
     )[0]
     freshness = source_freshness(payload.get("source_freshness"))
+    resilience_score: float | None = None
+    if domain == "resilience":
+        raw_score = payload.get("score")
+        if isinstance(raw_score, bool) or not isinstance(raw_score, int | float):
+            raise ValueError("resilience candidate score MUST be a number")
+        resilience_score = float(raw_score)
+        if not math.isfinite(resilience_score) or not 0.0 <= resilience_score <= 1.0:
+            raise ValueError("resilience candidate score MUST be finite and in [0, 1]")
     normalized = {
         "domain": domain,
         "principal": principal,
@@ -290,6 +304,8 @@ def _parse_candidate(topic: str, payload: dict[str, Any]) -> _Candidate:
         "evidence_refs": payload.get("evidence_refs"),
         "source_freshness": payload.get("source_freshness"),
     }
+    if resilience_score is not None:
+        normalized["score"] = resilience_score
     digest = hashlib.sha256(
         json.dumps(
             normalized,
@@ -320,4 +336,5 @@ __all__ = [
     "CrossVerticalCandidateBatch",
     "INITIAL_VERTICAL_DOMAINS",
     "is_cross_vertical_candidate",
+    "validate_cross_vertical_candidate",
 ]

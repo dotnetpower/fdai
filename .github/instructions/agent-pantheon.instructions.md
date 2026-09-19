@@ -92,7 +92,7 @@ MAY publish that object type's topic.
 | **Norns** | Learner - proposes inert RuleCandidates (never mutates catalog) | governance | RuleCandidate, Pattern | `object.rule-candidate`, `object.pattern` | `object.audit-entry`, `object.issue`, `object.approval`, `object.context-index`, consent-filtered `object.post-turn-review` | off-path batch only | no |
 | **Njord** | Cost specialist - advisory to Forseti | domain | CostAnomaly | `object.cost-anomaly` | `object.event` (bounded cost samples) | no | no |
 | **Freyr** | Capacity specialist - advisory to Forseti | domain | CapacityForecast, CapacityGraduationRecommendation | `object.capacity-forecast`, `object.capacity-graduation-recommendation` | `object.event` (bounded utilization and graduation evidence), `object.cost-anomaly` | no | no |
-| **Loki** | Chaos specialist - proposes experiments (always HIL) | domain | ChaosExperiment, ResilienceScore | `object.chaos-experiment` | `object.event` (bounded schedule triggers), `object.action-run` (safe proposal-reservation closure only) | no | no |
+| **Loki** | Chaos specialist - proposes experiments (always HIL) | domain | ChaosExperiment, ResilienceScore | `object.chaos-experiment`, `object.resilience-score` | `object.event` (bounded schedule and resilience-score candidate triggers), `object.action-run` (safe proposal-reservation closure only) | no | no |
 
 > `object.override` is **not** a registered topic and no agent owns `Override`.
 > Do not publish or subscribe it. Override events flow through the exemption /

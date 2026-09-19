@@ -11,6 +11,7 @@
       "topic": "object.resilience-score",
       "principal": "Loki",
       "idempotency_key": "phase3-candidate-resilience-0001",
+      "score": 0.8,
       "action_type": "ops.restart-service",
       "effects": [
         {

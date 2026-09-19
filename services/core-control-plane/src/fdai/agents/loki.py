@@ -21,8 +21,13 @@ from fdai.agents._framework.introspection import (
     IntrospectionResult,
     agent_state_evidence_ref,
     capability_facts,
+    mentioned,
 )
 from fdai.agents._framework.loki_reservations import LokiReservationJournal
+from fdai.agents._framework.loki_resilience import (
+    RESILIENCE_SCORE_EVENT,
+    resilience_score_candidate,
+)
 from fdai.agents._framework.pantheon import _LOKI
 from fdai.agents._framework.specialist_ingress import (
     CHAOS_SCHEDULE_EVENT,
@@ -35,6 +40,7 @@ from fdai.shared.providers.state_store import StateStore
 #: so a bounded ring is sufficient and stops an unbounded leak on a
 #: long-running chaos scheduler.
 _MAX_PROPOSALS = 1_000
+_MAX_RESILIENCE_SCORES = 512
 _SAFE_CLOSURE_STATES = frozenset({"succeeded", "rejected", "deny_dropped", "rolled_back"})
 
 
@@ -71,6 +77,7 @@ class Loki(Agent):
             else None
         )
         self.proposals: deque[ChaosProposal] = deque(maxlen=_MAX_PROPOSALS)
+        self._resilience_scores: dict[str, tuple[float, str]] = {}
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -79,7 +86,18 @@ class Loki(Agent):
         if topic == "object.action-run":
             await self._release_from_action_run(payload)
             return
-        if topic != "object.event" or payload.get("event_type") != CHAOS_SCHEDULE_EVENT:
+        if topic != "object.event":
+            return
+        if payload.get("event_type") == RESILIENCE_SCORE_EVENT:
+            candidate = resilience_score_candidate(payload)
+            if candidate is None:
+                self.record_behavior("resilience_score:invalid")
+                return
+            if await self._publish_proposal("object.resilience-score", candidate):
+                self._remember_resilience_score(candidate)
+                self.record_behavior("resilience_score:published")
+            return
+        if payload.get("event_type") != CHAOS_SCHEDULE_EVENT:
             return
         signal = parse_chaos_schedule(payload)
         if signal is None:
@@ -214,6 +232,18 @@ class Loki(Agent):
         for t in targets:
             self._in_flight_targets.discard(t)
 
+    def _remember_resilience_score(self, candidate: dict[str, Any]) -> None:
+        resource_id = str(candidate["resource_id"])
+        if (
+            len(self._resilience_scores) >= _MAX_RESILIENCE_SCORES
+            and resource_id not in self._resilience_scores
+        ):
+            self._resilience_scores.pop(next(iter(self._resilience_scores)))
+        self._resilience_scores[resource_id] = (
+            float(candidate["score"]),
+            str(candidate["observed_at"]),
+        )
+
     async def _release_reservation(
         self,
         *,
@@ -245,7 +275,7 @@ class Loki(Agent):
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Chaos answers rest on proposals made; the cap alone is config."""
-        return bool(self.proposals)
+        return bool(self.proposals or self._resilience_scores)
 
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         accepted = [p for p in self.proposals if p.accepted]
@@ -256,17 +286,42 @@ class Loki(Agent):
             "in_flight_target_count": len(self._in_flight_targets),
             "proposals_total": len(self.proposals),
             "proposals_accepted": len(accepted),
-            "resilience_score_available": False,
+            "resilience_score_available": bool(self._resilience_scores),
+            "resilience_score_resource_count": len(self._resilience_scores),
         }
         normalized_question = question.casefold()
         if "resilience" in normalized_question and "score" in normalized_question:
+            resources = mentioned(question, self._resilience_scores)
+            if resources:
+                resource_id = resources[0]
+                score, observed_at = self._resilience_scores[resource_id]
+                facts.update(
+                    {
+                        "resource_id": resource_id,
+                        "resilience_score": score,
+                        "observed_at": observed_at,
+                    }
+                )
             evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
             facts["evidence_refs"] = [evidence_ref]
-            return IntrospectionResult(
-                answer=(
+            if resources:
+                answer = (
+                    f"Resource {resources[0]!r}: retained resilience score "
+                    f"{facts['resilience_score']:.3f} observed at {facts['observed_at']}. "
+                    f"Evidence: {evidence_ref}."
+                )
+            elif self._resilience_scores:
+                answer = (
+                    "A retained resilience score is available. Name the exact resource to read "
+                    f"its score. Evidence: {evidence_ref}."
+                )
+            else:
+                answer = (
                     "No retained resilience score is bound to this conversational projection. "
                     f"Evidence: {evidence_ref}."
-                ),
+                )
+            return IntrospectionResult(
+                answer=answer,
                 facts=facts,
             )
         evidence_ref = agent_state_evidence_ref(self.spec.name, facts)

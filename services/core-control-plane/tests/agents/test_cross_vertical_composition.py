@@ -63,7 +63,7 @@ def _scenario() -> dict[str, Any]:
 
 
 def _candidate_payload(scenario: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:
-    return {
+    payload = {
         "kind": "cross_vertical_candidate",
         "correlation_id": scenario["correlation_id"],
         "idempotency_key": candidate["idempotency_key"],
@@ -73,6 +73,9 @@ def _candidate_payload(scenario: dict[str, Any], candidate: dict[str, Any]) -> d
         "effects": candidate["effects"],
         "evidence_refs": candidate["evidence_refs"],
     }
+    if candidate["domain"] == "resilience":
+        payload["score"] = candidate["score"]
+    return payload
 
 
 def _wire(

@@ -87,6 +87,11 @@ decision with a `win`, `defer`, or `hil` disposition per candidate, Saga audits 
 only Thor can turn the winning verdict into an `ActionRun`.
 Candidate correlation, idempotency, resource, and ActionType identifiers are bounded, nonblank, and
 free of surrounding whitespace at ingress. The shared observation cutoff must include a timezone.
+A Huginn-owned normalized `specialist.resilience_score` Event must also carry a finite score from
+0 through 1 plus complete expected effects and evidence references. Loki applies the same candidate
+contract that Forseti consumes, publishes only after validation, and retains a bounded read-only
+score projection. A malformed or forged Event produces no score. The ActionType remains an A0
+candidate and grants Loki no judgment, approval, or execution authority.
 
 ### 3.2 Discovery-loop learners (Norns)
 
@@ -139,7 +144,7 @@ operations / interface), `3` = governance staff.
 | Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path batch only) |
 | Njord | Cost | 1 | CostAnomaly | propose_cost_action; retains the separate `Budget` graph lifecycle | no |
 | Freyr | Capacity | 1 | CapacityForecast, CapacityGraduationRecommendation | forecast capacity and propose shadow-only graduation; retains the separate `SizingRecommendation` graph lifecycle | no |
-| Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
+| Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment; validate and publish resilience-score candidates | no |
 
 Heimdall remains accountable for deterministic forecast episode evaluation and closure; private `heimdall_forecast.py` and `heimdall_alert_window.py` own calculation and bounded episode/alert-window bookkeeping.
 After an authoritative repeated-event anomaly, the optional `incident_candidate_hook` sends normalized resource, event type, correlation, worst severity, reason code, and all burst evidence keys to composition-owned `IncidentLifecycleWorkflow`.
@@ -179,7 +184,7 @@ Every agent performs four task categories: **R**ecurring (scheduled), **E**vent 
 | Norns | hourly batch audit analysis, streaming pattern extraction | pattern signal, RuleCandidate publish, close_issue signal | model performance drift detection | 4, 6, 8 (Judgment coherence), 10 |
 | Njord | cost ingestion (daily), budget monitor, cost forecasting | bounded cost sample -> anomaly; restore accepted retained complete USD baselines at startup without republishing historical findings; budget breach alert; cost-advisor query | RI / SP optimization proposals | 1, 2 |
 | Freyr | utilization sampling, capacity forecasting, sizing analysis | bounded utilization sample -> forecast; scale proposal; capacity advisor query | multi-dimensional capacity (CPU + IOPS + net + mem) | 2, 3 |
-| Loki | chaos-experiment scheduling, resilience-score refresh | bounded schedule trigger -> always-HIL experiment proposal; blast-radius calc | adversarial scenario generation (T2, off-path) | 3, 9 |
+| Loki | chaos-experiment scheduling, resilience-score refresh | bounded schedule trigger -> always-HIL experiment proposal; bounded normalized score Event -> validated cross-vertical candidate; blast-radius calc | adversarial scenario generation (T2, off-path) | 3, 9 |
 
 ### 4.2 Per-agent KPI (success and degradation signals)
 
