@@ -11,8 +11,10 @@ This gate parses Python syntax and resolves bounded compile-time string aliases.
 the environment variable is read or a venue literal is compared outside the declared contract,
 including values assembled by string concatenation. It also discovers every independently
 packaged service entry point from its ``ServiceDescriptor`` and requires exactly one structured
-runtime-scope receipt before startup. The receipt records product and venue configuration only;
-it grants no authority and makes no external-state claim.
+runtime-scope receipt on the startup path. A service that delegates to a same-module ASGI factory
+through ``serve("module:factory")`` may record the receipt in that factory so direct Uvicorn loading
+preserves the same contract. The receipt records product and venue configuration only; it grants
+no authority and makes no external-state claim.
 
 Exit codes: 0 clean, 1 on any violation.
 """
@@ -237,7 +239,7 @@ def _append_finding(
 
 
 def _entrypoint_violations(root: Path = ROOT) -> list[str]:
-    """Require one startup receipt in every service-owned executable entry point."""
+    """Require one startup receipt in every service-owned executable startup path."""
 
     services = root / "services"
     findings: list[str] = []
@@ -258,19 +260,55 @@ def _entrypoint_violations(root: Path = ROOT) -> list[str]:
         if main is None:
             findings.append(f"{_display(path)}: ServiceDescriptor entry point has no main()")
             continue
+        startup_functions = [main]
+        constants = _constant_aliases(tree)
+        module_name = _source_module_name(path)
+        functions = {
+            node.name: node
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
+        for factory_name in _same_module_serve_factories(main, constants, module_name):
+            factory = functions.get(factory_name)
+            if factory is not None and factory not in startup_functions:
+                startup_functions.append(factory)
         receipt_calls = [
             node
-            for node in ast.walk(main)
+            for function in startup_functions
+            for node in ast.walk(function)
             if isinstance(node, ast.Call) and _call_name(node.func) == _RECEIPT_CALL
         ]
         if len(receipt_calls) != 1:
             findings.append(
-                f"{_display(path)}: main() MUST record exactly one runtime scope receipt; "
+                f"{_display(path)}: startup path MUST record exactly one runtime scope receipt; "
                 f"found {len(receipt_calls)}"
             )
     if entrypoint_count == 0:
         findings.append("services: no ServiceDescriptor entry points were discovered")
     return findings
+
+
+def _source_module_name(path: Path) -> str:
+    source_index = max(index for index, part in enumerate(path.parts) if part == "src")
+    return ".".join(Path(*path.parts[source_index + 1 :]).with_suffix("").parts)
+
+
+def _same_module_serve_factories(
+    main: ast.FunctionDef | ast.AsyncFunctionDef,
+    constants: dict[str, str],
+    module_name: str,
+) -> tuple[str, ...]:
+    factories: set[str] = set()
+    for node in ast.walk(main):
+        if not isinstance(node, ast.Call) or _call_name(node.func) != "serve" or not node.args:
+            continue
+        reference = _constant_string(node.args[0], constants)
+        if reference is None:
+            continue
+        target_module, separator, factory_name = reference.partition(":")
+        if separator and target_module == module_name and factory_name.isidentifier():
+            factories.add(factory_name)
+    return tuple(sorted(factories))
 
 
 def _is_service_descriptor_assignment(node: ast.stmt) -> bool:

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: e50e783f0cbfa3e175ac683854da19fa16a00d65
+translation_source_sha: 50032390564fe7e095e069e9b7814400271a2d5b
 translation_revised: 2026-09-19
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -89,7 +89,7 @@ SPA, Manual Studio를 시작합니다. 일반 Console 빌드는 모듈 진입점
 
 프로세스 launcher는 `RUNTIME_ENV`와 독립적으로 `FDAI_EXECUTION_VENUE=local`을 설정합니다. 로컬 상태는 `127.0.0.1:5432`의 Docker PostgreSQL과 담당 서비스 역할을 사용하며, 로컬 이벤트 전송은 `127.0.0.1:19092`의 Redpanda를 사용합니다.
 준비 과정은 의미 physical topic을 배포된 Event Hubs와 같은 최소 두 partition으로 유지하고 `FDAI_OPERATING_MODEL_TOPIC=fdai.operating-model`을 설정합니다. 같은 논리 토픽 필터와 단조 프로바이더가 로컬 및 배포 환경에서 동작하며 게시자가 없으면 매핑을 사용할 수 없는 상태로 유지하고 sample 서비스 신원을 만들지 않습니다.
-Azure에 배포된 프로세스는 `FDAI_EXECUTION_VENUE=deployed`와 서비스 소유 Azure Database for PostgreSQL DSN 및 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는 executor 권한을 변경하지 않습니다. 서비스가 소유하는 모든 프로세스 진입점은 시작 전에 버전이 지정되고 내용 주소를 사용하는 `RuntimeScopeReceipt`를 하나 기록합니다. 이 증적은 안정적인 서비스 ID, 클라우드 운영 제품 목적, 선택한 실행 위치, 완전한 기능 행, 허용되는 유일한 차이 종류인 자격 증명, 엔드포인트, 프로바이더 범위 및 규모를 결속합니다. 외부 상태 권한과 실행 권한은 모두 false이며, 이 증적은 시작 구성을 증명할 뿐 프로바이더 접근 가능성이나 운영 성공을 증명하지 않습니다. AST 실행 위치 게이트는 모든 진입점을 찾아내고 공유 계약 밖의 직접, 별칭 또는 계산된 원시 실행 위치 읽기를 거부합니다. Schema parity는 legacy 및 서비스 소유 migration 5개로 이동한 뒤 대상 Settings, catalog, ontology 및 inventory projection을 권위 있는 입력에서 다시 생성합니다. 로컬 `audit_log`, `state_kv`, 승인, idempotency record, lease 또는 executor receipt를 배포 환경에 복제하지 않습니다. 이러한 record는 출처 venue의 인과 관계와 권한을 유지합니다.
+Azure에 배포된 프로세스는 `FDAI_EXECUTION_VENUE=deployed`와 서비스 소유 Azure Database for PostgreSQL DSN 및 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는 executor 권한을 변경하지 않습니다. 서비스가 소유하는 모든 프로세스 시작 경로는 시작 전에 버전이 지정되고 내용 주소를 사용하는 `RuntimeScopeReceipt`를 정확히 하나 기록합니다. 이 증적은 안정적인 서비스 ID, 클라우드 운영 제품 목적, 선택한 실행 위치, 완전한 기능 행, 허용되는 유일한 차이 종류인 자격 증명, 엔드포인트, 프로바이더 범위 및 규모를 결속합니다. 같은 모듈의 `serve("module:factory")` 위임은 팩터리에서 이 증적 하나를 기록하므로 Uvicorn 직접 로드와 서비스 소유 CLI 실행 모두 증적을 누락하거나 중복할 수 없습니다. 외부 상태 권한과 실행 권한은 모두 false이며, 이 증적은 시작 구성을 증명할 뿐 프로바이더 접근 가능성이나 운영 성공을 증명하지 않습니다. AST 실행 위치 게이트는 모든 진입점을 찾아내고 공유 계약 밖의 직접, 별칭 또는 계산된 원시 실행 위치 읽기를 거부합니다. Schema parity는 legacy 및 서비스 소유 migration 5개로 이동한 뒤 대상 Settings, catalog, ontology 및 inventory projection을 권위 있는 입력에서 다시 생성합니다. 로컬 `audit_log`, `state_kv`, 승인, idempotency record, lease 또는 executor receipt를 배포 환경에 복제하지 않습니다. 이러한 record는 출처 venue의 인과 관계와 권한을 유지합니다.
 
 두 번째 `db-integration` 샤드는 격리된 검증 PostgreSQL 포트 `5433`과 Redpanda 호스트 포트
 `19092`만 사용해 프로바이더 계약 Docker 매트릭스를 실행하며 Compose 클라이언트는
