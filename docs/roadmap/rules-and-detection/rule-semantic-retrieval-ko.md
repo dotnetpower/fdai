@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 311bdf6dbd2c82a1e7e3612d3b19299334d1db6e
+translation_source_sha: 5cd0a391fdd865979354741d125b1abf17a726aa
 translation_revised: 2026-09-20
 ---
 # Rule 의미 검색
@@ -42,12 +42,15 @@ PostgreSQL은 후보를 반환하기 전에 활성 세대 식별자를 계속 �
 
 평가기 자체가 빠진 필수 집단마다 이름이 포함된 실패 코드를 기록하고 `HOLD`를 발행합니다. 영어 사례 일부의 통과가 필수 한국어 근거를 대신할 수 없습니다. 기존 정책과 증적의 신원은 바뀌지 않으며, 이 검사는 충분한 표본 수나 실제 임베딩 품질을 입증하지 않습니다.
 
+평가 정책 `1.1.0`은 2부터 10,000 사이의 `min_samples_per_metric`을 명시하도록 요구합니다. 평가기와 독립 검토기는 측정한 재현율, 역순위 및 일치 없음 지표 각각에 이 최소 표본 수를 적용합니다. 양성 사례가 많더라도 음성 사례 하나의 부족을 메울 수 없습니다. 기존 `1.0.0`의 정확한 다이제스트와 증적은 유지하지만 새 필드를 넣거나 새 정책 다이제스트의 적격성을 대신할 수 없습니다. 운영 정책을 자동으로 올리거나 과거 승격 산출물을 다시 쓰지 않으며, 설정한 최소 표본 수에도 독립 검토된 평가 데이터와 실제 임베딩 근거가 필요합니다.
+
 ## 구현 상태
 
 ### 구현 범위
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 버전이 지정된 지표별 최소 표본 수 | implemented | 평가 정책 스키마 `1.1.0`, 평가기·정책 로더·승격 검토 테스트, 입력 해시가 같은 관련 검사 49개 통과 | 명시한 지표별 최소 표본 수를 평가 단계에서 강제하고 검토 단계에서 다시 검사합니다. 기존 정책 다이제스트를 정확히 유지하며 활성 `1.0.0` 구성과 과거 승격 증적은 바꾸지 않습니다. 새 적격성 정책 선택과 독립 검토된 실제 임베딩 근거 수집은 남아 있습니다. |
 | 정확한 세대 Rule 질의 | implemented | `core/ontology_platform/catalog_queries.py`; `tests/core/ontology_platform/test_catalog_queries.py` | 실행 권한 없이 후보 전용 결과와 내용 기반 주소를 가진 검색 및 호출 증적을 반환합니다. |
 | 선택적 의미 런타임 바인딩 | implemented | `composition/wire_semantic_query.py`; `tests/composition/test_wire_semantic_query.py` | 의미 인덱스와 정확한 카탈로그 다이제스트를 함께 요구합니다. |
 | Planner 가용성 계상 | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | 읽을 수 있지만 바인딩되지 않은 함수는 구조 커버리지에 `runtime_binding_unavailable`로 남고 planning에서는 숨겨집니다. |
@@ -66,6 +69,8 @@ PostgreSQL은 후보를 반환하기 전에 활성 세대 식별자를 계속 �
 | Operator Rule 검색 변환 결과 | implemented | `packages/service-contracts/src/fdai_service_contracts/semantic_turn.py`; `services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py`; Operator Service workflow 어댑터 및 경로; current change 집중 검사 | `POST /rules/search`는 검증된 정확한 함수 호출 증적과 정규 다이제스트를 포함하는 개정 번호가 있는 구체화된 변환 결과를 읽습니다. 공유 계약은 내용, 다이제스트, 작업, 의도, 기능 및 최종 상태 차이를 거부합니다. 직접 Core 호출이나 정책, 승인, 변경 또는 실행 권한을 추가하지 않습니다. |
 
 ### 구현 이력
+
+2026-09-20 후속 근거: 기존 정책 다이제스트를 바꾸지 않고 버전이 지정된 지표별 최소 표본 수와 독립 검토 검사를 추가했습니다. 한국어·오래된 원본 테스트가 실제 집단을 정책에 명시하도록 수정했습니다. 이 두 사례는 앞서 보고한 14개 통과와 불일치를 드러냈으므로 이전 결과를 최종 근거로 재사용하지 않습니다. 수정 후 평가기, 로더, 검토, 스키마, 증적 카탈로그 및 검색 검사 49개가 동일한 전후 입력 해시로 통과했고 Ruff와 strict mypy도 통과했습니다. 검토된 정책과 충분한 고정 평가 사례를 채택한 뒤 새로 승인된 제한된 실제 임베딩 측정이 필요합니다. 기존 증적과 활성 정책은 다시 쓰지 않았습니다.
 
 2026-09-20 추가 근거: `rule_semantic_evaluation.py`에서 증적의 `PASS` 발행 전에 필수 집단 존재 여부를 검사하도록 수정했습니다. 한국어 집단 누락 회귀는 수정 전에 실패했고, 수정 후 평가기 테스트 14개와 Ruff 및 strict mypy가 통과했습니다. 충분한 평가 표본 기준과 실제 임베딩 관련성 근거는 남아 있으며 기존 집단별 1개 사례를 늘린 변경은 아닙니다.
 

@@ -63,6 +63,7 @@ def load_retrieval_evaluation_policy_from_mapping(
             min_mean_reciprocal_rank=raw["min_mean_reciprocal_rank"],
             min_no_match_precision=raw["min_no_match_precision"],
             required_cohorts=tuple(raw["required_cohorts"]),
+            min_samples_per_metric=raw.get("min_samples_per_metric"),
         )
     except (TypeError, ValueError) as exc:
         raise EvaluationPolicyLoadError(

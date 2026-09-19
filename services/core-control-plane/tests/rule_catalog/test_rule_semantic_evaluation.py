@@ -252,6 +252,57 @@ async def test_evaluator_holds_when_a_required_cohort_is_absent() -> None:
     assert receipt.evaluation_policy_digest == policy.digest
 
 
+@pytest.mark.parametrize("positive_count,negative_count", [(1, 2), (2, 1), (2, 2)])
+async def test_sample_floor_applies_per_metric_and_is_rechecked_by_review(
+    positive_count: int,
+    negative_count: int,
+) -> None:
+    policy = replace(_policy(), schema_version="1.1.0", min_samples_per_metric=2)
+    cases = tuple(
+        RetrievalEvaluationCase(
+            f"positive-{index}",
+            f"Public storage variant {index}?",
+            "en-positive",
+            ("rule:public-access@1",),
+            EvaluationQueryOrigin.USER,
+        )
+        for index in range(positive_count)
+    ) + tuple(
+        RetrievalEvaluationCase(
+            f"negative-{index}",
+            f"Database connection variant {index}?",
+            "en-negative",
+            (),
+            EvaluationQueryOrigin.USER,
+        )
+        for index in range(negative_count)
+    )
+    receipt = await evaluate_semantic_surface(
+        _surface(),
+        cases,
+        retriever=_Retriever(),
+        policy=policy,
+        evaluator_ref="heimdall:rule-retrieval@1",
+        generation_digest=_DIGEST,
+        catalog_digest=_DIGEST,
+    )
+    sufficient = positive_count >= 2 and negative_count >= 2
+    assert (receipt.decision is ValidationDecision.PASS) is sufficient
+    assert all("sample-count-below-minimum" in code for code in receipt.failure_codes)
+    claimed_pass = replace(receipt, decision=ValidationDecision.PASS, failure_codes=())
+    assessment = assess_surface_promotion_review(
+        claimed_pass,
+        current_policy=policy,
+        expected_surface_digest=receipt.surface_digest,
+        expected_generation_digest=receipt.generation_digest,
+        expected_catalog_digest=receipt.catalog_digest,
+        expected_dataset_digest=receipt.dataset_digest,
+        expected_evaluator_ref=receipt.evaluator_ref,
+    )
+    assert (assessment.decision is PromotionReviewDecision.ELIGIBLE_FOR_REVIEW) is sufficient
+    assert all("sample-count-below-minimum" in code for code in assessment.reason_codes)
+
+
 async def test_review_assessment_revalidates_passing_receipt_metrics() -> None:
     policy = _policy()
     receipt = await evaluate_semantic_surface(
@@ -521,7 +572,7 @@ async def test_held_out_korean_evaluation_passes_positive_and_no_match_cohorts()
         surface,
         cases,
         retriever=_Retriever(),
-        policy=_policy(),
+        policy=replace(_policy(), required_cohorts=("ko-negative", "ko-positive")),
         evaluator_ref="heimdall:rule-retrieval-ko@1",
         generation_digest=_DIGEST,
         catalog_digest=_DIGEST,
@@ -663,7 +714,7 @@ async def test_retrieval_failure_holds_without_false_no_match_credit() -> None:
         _surface(),
         cases,
         retriever=_FailingRetriever(),
-        policy=_policy(),
+        policy=replace(_policy(), required_cohorts=("stale-state",)),
         evaluator_ref="heimdall:rule-retrieval@1",
         generation_digest=_DIGEST,
         catalog_digest=_DIGEST,

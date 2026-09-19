@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -27,6 +29,42 @@ def test_shipped_evaluation_policy_is_schema_valid_and_content_addressed() -> No
     assert "ko-positive" in first.required_cohorts
     assert "adversarial-negative" in first.required_cohorts
     assert "stale-active-generation" in first.required_cohorts
+
+
+def test_sample_floor_preserves_legacy_identity_and_binds_new_policy() -> None:
+    raw = json.loads(_CONFIG.read_text(encoding="utf-8"))
+    legacy = load_retrieval_evaluation_policy_from_mapping(raw)
+    assert (
+        legacy.digest
+        == "sha256:"
+        + hashlib.sha256(
+            json.dumps(raw, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+    )
+    policy = load_retrieval_evaluation_policy_from_mapping(
+        {**raw, "schema_version": "1.1.0", "min_samples_per_metric": 20}
+    )
+    assert policy.min_samples_per_metric == 20
+    assert policy.digest != legacy.digest
+    assert replace(policy, min_samples_per_metric=21).digest != policy.digest
+
+
+@pytest.mark.parametrize("floor", [None, True, 0, 1, 2.5, 10001])
+def test_sample_floor_requires_explicit_bounded_integer(floor: object) -> None:
+    raw = json.loads(_CONFIG.read_text(encoding="utf-8"))
+    raw["schema_version"] = "1.1.0"
+    if floor is not None:
+        raw["min_samples_per_metric"] = floor
+    with pytest.raises(EvaluationPolicyLoadError):
+        load_retrieval_evaluation_policy_from_mapping(raw)
+
+
+def test_legacy_policy_rejects_unversioned_sample_floor() -> None:
+    raw = json.loads(_CONFIG.read_text(encoding="utf-8"))
+    with pytest.raises(EvaluationPolicyLoadError):
+        load_retrieval_evaluation_policy_from_mapping({**raw, "min_samples_per_metric": 20})
+    with pytest.raises(ValueError, match="legacy"):
+        replace(load_retrieval_evaluation_policy_from_mapping(raw), min_samples_per_metric=20)
 
 
 def test_evaluation_policy_rejects_schema_and_domain_violations() -> None:

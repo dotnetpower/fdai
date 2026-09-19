@@ -192,7 +192,7 @@ an oversized capability projection holds instead of silently dropping its tail. 
 declaration generation is a catalog read projection, not a durable operational-instance index or
 a Rule activation. The dated baseline above is retained history; this section owns current status.
 Complete canonical declaration lists skip count/detail repair; the [planning owner](hierarchical-conversation-planning.md) records the exact typed shape and bounded model comparison. This does not widen principal scope or certify full query coverage.
-The [retrieval qualification owner](../rules-and-detection/rule-semantic-retrieval.md) now requires the evaluator itself to hold when a configured cohort is absent. Complete cohort presence does not establish adequate sample size or live embedding relevance.
+The [retrieval qualification owner](../rules-and-detection/rule-semantic-retrieval.md) requires the evaluator itself to hold when a configured cohort is absent. Policy `1.1.0` additionally binds explicit per-metric sample floors and rechecks them during review while preserving legacy `1.0.0` receipt identities. Complete cohort presence or this policy implementation does not establish adequate real-embedder qualification data or live relevance.
 When a semantic judgment was evaluated, declaration-list and declaration-detail frames require an accepted, unambiguous schema-family intent. A rejected or unrelated judgment cannot use a later model frame to widen its declaration scope; it returns the existing typed unavailable outcome before query execution.
 
 ### Implementation scope
