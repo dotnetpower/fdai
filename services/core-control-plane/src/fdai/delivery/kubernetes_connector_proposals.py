@@ -184,6 +184,16 @@ class ObserverDeploymentProposalService:
         revision = 0
         if previous is not None:
             old_context, old, revision = _checkpoint(previous, target=target)
+            if constraints is None:
+                values.update(
+                    {
+                        "existing_method": old_context.existing_method,
+                        "requested_method": old_context.requested_method,
+                    }
+                )
+                context = ObserverDeploymentContext.model_validate(values)
+                proposal = propose_observer_deployment(context, now=now)
+                fingerprint = _fingerprint(context, proposal)
             if (
                 old.evaluated_at > proposal.evaluated_at
                 or old_context.observed_at > context.observed_at
@@ -253,11 +263,14 @@ class ObserverDeploymentProposalService:
         current_facts = (
             constraints.facts if constraints is not None and now < constraints.expires_at else ()
         )
-        if (
-            sorted(context.facts, key=lambda fact: fact.name)
-            != sorted(current_facts, key=lambda fact: fact.name)
-            or context.existing_method != (constraints.existing_method if constraints else None)
-            or context.requested_method != (constraints.requested_method if constraints else None)
+        if sorted(context.facts, key=lambda fact: fact.name) != sorted(
+            current_facts, key=lambda fact: fact.name
+        ) or (
+            constraints is not None
+            and (
+                context.existing_method != constraints.existing_method
+                or context.requested_method != constraints.requested_method
+            )
         ):
             raise ValueError("observer proposal constraints changed; reinspection required")
         if not proposal.evaluated_at <= connector_time(self._now()) < proposal.expires_at:

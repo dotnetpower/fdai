@@ -242,6 +242,28 @@ async def test_readback_rejects_changed_constraints() -> None:
         await service.current(target)
 
 
+async def test_removed_constraints_preserve_known_installation_owner() -> None:
+    store = InMemoryStateStore()
+    target = to_neutral_id(CLUSTER)
+    reader = Constraints(
+        context(
+            target_ref=target,
+            facts=(),
+            existing_method="existing_host",
+            requested_method="existing_host",
+        )
+    )
+    service = ObserverDeploymentProposalService(store, constraints=reader, now=lambda: NOW)
+    await service.observe((observation(),))
+    reader.value = None
+    assert await service.observe((observation(),)) == 0
+    proposal = await service.current(target)
+    assert proposal.status == "needs_evidence"
+    assert all(
+        item.state == "blocked" for item in proposal.candidates if item.method != "existing_host"
+    )
+
+
 async def test_subscription_discovery_creates_proposal_when_credentials_are_unavailable(
     monkeypatch,
 ) -> None:
