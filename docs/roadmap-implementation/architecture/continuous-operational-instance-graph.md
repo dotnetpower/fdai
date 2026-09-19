@@ -57,18 +57,18 @@ Low. Local focused evidence does not claim Azure rollout or production performan
 | ID | Area | State | Evidence or required exit check |
 |----|------|-------|---------------------------------|
 | H01 | Incomplete snapshot deletion and promotion | implemented | 76 owning tests; incomplete input cannot access journal storage or advance the active pointer. |
-| H02 | Mapped provider coverage reconciliation | not-started | Reject mismatched mapped counts before the final fence. |
-| H03 | Init-container environment redaction | not-started | Neither container family persists environment names or values. |
-| H04 | Truncated nested-resource observations | not-started | Oversized VNet properties cannot prove child absence. |
+| H02 | Mapped provider coverage reconciliation | implemented | Inventory adapter tests reject inconsistent mapped counts before data/fence emission. |
+| H03 | Init-container environment redaction | implemented | Both container families pass the post-join redaction regression. |
+| H04 | Truncated nested-resource observations | implemented | Existing commit `d42551f94` preserves nested observations; its ARG regressions passed in the 161-test cohort. |
 | H05 | Post-commit event publication recovery | not-started | Restart retries unacknowledged generation-stable Events after graph commit. |
 | H06 | Object evaluation with relationship gaps | not-started | Verified object observations remain evaluable without claiming complete topology. |
 | H07 | Snapshot-consistent graph reads | not-started | Objects, links, and source coverage share one database snapshot. |
 | H08 | Independent mapping verification | not-started | Reject unregistered, substituted, and reversed mapping evidence. |
-| H09 | Built-in ARM scope identity | not-started | Subscription and Resource Group rows match exact identity shapes. |
-| H10 | Unclassified ARM identity | not-started | Unknown semantic types still pass exact provider identity validation. |
+| H09 | Built-in ARM scope identity | implemented | Scope-type substitution is rejected; reviewed Resource Group aliases remain accepted. |
+| H10 | Unclassified ARM identity | implemented | Unclassified provider-type substitution fails exact ARM identity validation. |
 | H11 | End-to-end collection deadlines | not-started | Enrichment, promotion, and notification have bounded failure outcomes. |
-| H12 | Requested subscription admission | not-started | A matching row cannot escape the configured scope set. |
-| H13 | Nested subnet parent admission | not-started | A child identity belongs to the exact observed VNet. |
+| H12 | Requested subscription admission | implemented | Mapped and unclassified rows outside configured subscriptions are rejected. |
+| H13 | Nested subnet parent admission | implemented | A nested subnet belonging to another VNet fails admission. |
 | H14 | Provider-reference conflicts | not-started | Conflicting provider identities cannot certify a relationship. |
 | H15 | Non-state property conflicts | not-started | Withheld properties retain explicit object evidence limitations. |
 | H16 | Missing and future observation time | not-started | Missing time and excessive skew cannot become current complete evidence. |
@@ -77,7 +77,7 @@ Low. Local focused evidence does not claim Azure rollout or production performan
 | H19 | Current/history freshness policy | not-started | Configured freshness survives both projections. |
 | H20 | Mixed freshness replay | not-started | Heterogeneous fact budgets survive exact replay. |
 | H21 | Identical replay idempotency | not-started | Identical replay leaves stored revisions and links unchanged. |
-| H22 | Clock-only duplicate adjudication | not-started | Equal content retains the earliest valid observation. |
+| H22 | Clock-only duplicate adjudication | implemented | Both input orders retain the earliest clock; unknown time is never upgraded. |
 | H23 | Relationship failure isolation | not-started | Safe positive object evidence survives without false relationship completeness. |
 | H24 | Collection memory bounds | not-started | Aggregate resource, link, and byte bounds cover the collected generation. |
 | H25 | Relationship-drop bounds | not-started | Suppression evidence cannot grow without a finite bound. |
@@ -90,12 +90,13 @@ Low. Local focused evidence does not claim Azure rollout or production performan
 | H32 | Relationship result bounds | not-started | Graph reads expose an independent edge ceiling and truncation. |
 | H33 | Transport failure classification | not-started | Continuation-token errors are not authentication failures. |
 | H34 | Invalidation marker recovery | not-started | Corrupt markers recover against a durable monotonic boundary. |
-| H35 | Inventory adapter documentation | not-started | Source documentation describes the implemented adapter rather than a stub. |
+| H35 | Inventory adapter documentation | implemented | Adapter documentation now describes authenticated live reads, fences, and owned persistence. |
 | H36 | Real publication recovery regression | not-started | The owning test invokes recovery and proves resumed delivery. |
 
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-19 | implemented | Hardened provider count reconciliation, ordinary and init-container redaction, built-in and unclassified ARM identity, requested scope, nested parents, and clock-only duplicates. Reused the separately committed nested-subnet truncation repair without overwriting it. | `current change`; ARG tests: 161 passed; inventory adapter tests: 33 passed; focused Ruff passed; H04 source commit `d42551f94`. | H05-H08, H11, H14-H21, H23-H34, and H36 remain under the register and adversarial review. |
 | 2026-09-19 | implemented | Rejected projection-bound overflow before snapshot promotion and rejected incomplete snapshot input before journal access or tombstone confirmation. | `current change`; `inventory_sync.py`, `postgres_inventory_observation.py`; owning coordinator and observation-journal tests: 76 passed; focused Ruff passed. | Complete the 36-item hardening register and repeated adversarial review below; no live Azure or deployment evidence is claimed. |
 | 2026-09-18 | in-progress | After release convergence, the next analyzer tick correctly lowered managed readiness to 11/12 because subscription discovery retained inaccessible AKS clusters as incomplete fleet evidence. The active snapshot still retained positive Kubernetes observations, and the Dashboard release mismatch did not recur. | Local analyzer reported `inventory_source_incomplete`; active snapshot retained 164 Kubernetes Resources including 44 Pods; inventory and Operator releases remained equal and Dashboard v2 remained loaded without HTTP 409. | Grant the inventory read identity access to every intentionally discovered cluster or explicitly narrow the configured subscription discovery scope, then require a clean analyzer tick before claiming 12/12 readiness. |
 | 2026-09-18 | validated | Completed an explicitly requested fresh local reconciliation under the `routes_to` 2.0 release, restarted the managed full stack, and verified inventory, manifest, status, and Operator projection convergence. | Local PostgreSQL reported active manifest and status generation equality, `complete=true`, `available`, and matching inventory/Operator release `sha256:26f6cdaa844d879bb21d1d4fb5f6292687306d6327d898d9df20e99b316fff06`; managed readiness reached 12/12; authenticated Dashboard v2 rendered 1,101 Resources with no loading state or HTTP 409. | Relationship evidence remains explicitly incomplete for reviewed unavailable candidates; it is independent from release consistency and does not reopen the 409. |

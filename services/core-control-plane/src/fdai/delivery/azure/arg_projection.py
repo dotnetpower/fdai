@@ -357,6 +357,13 @@ def materialize_nested_subnets(
         provider_type = arm_id_to_type(provider_ref)
         if provider_type is None or provider_type.casefold() != _SUBNET_ARM_TYPE.casefold():
             continue
+        parent_provider_ref = provider_parent_id(provider_ref)
+        if (
+            vnet.provider_ref is None
+            or parent_provider_ref is None
+            or parent_provider_ref.casefold() != vnet.provider_ref.casefold()
+        ):
+            raise ArmScopeError("subnet provider parent conflicts with the observed VNet")
         resource_id = to_neutral_id(provider_ref)
         if resource_id in seen:
             continue

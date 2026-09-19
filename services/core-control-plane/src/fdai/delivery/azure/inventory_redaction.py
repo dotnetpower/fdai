@@ -18,20 +18,21 @@ def redact_runtime_environment(resource: ResourceRecord) -> ResourceRecord:
     template = properties.get("template")
     if not isinstance(template, dict):
         return resource
-    containers = template.get("containers")
-    if not isinstance(containers, list):
-        return resource
     changed = False
-    for container in containers:
-        if not isinstance(container, dict):
+    for container_family in ("containers", "initContainers"):
+        containers = template.get(container_family)
+        if not isinstance(containers, list):
             continue
-        environment = container.get("env")
-        if not isinstance(environment, list):
-            continue
-        container["env"] = [
-            {"bindingRedacted": True} for item in environment if isinstance(item, Mapping)
-        ]
-        changed = True
+        for container in containers:
+            if not isinstance(container, dict):
+                continue
+            environment = container.get("env")
+            if not isinstance(environment, list):
+                continue
+            container["env"] = [
+                {"bindingRedacted": True} for item in environment if isinstance(item, Mapping)
+            ]
+            changed = True
     if not changed:
         return resource
     return ResourceRecord(

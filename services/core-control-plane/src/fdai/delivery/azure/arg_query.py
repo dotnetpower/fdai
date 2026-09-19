@@ -527,12 +527,16 @@ class AzureArgQueryFactory:
             raise ArgQueryError("unclassified ARG row lacks a provider id")
         if not isinstance(provider_type, str) or not provider_type.strip():
             raise ArgQueryError("unclassified ARG row lacks a provider type")
-        normalized_type = provider_type.strip().lower()
+        try:
+            normalized_type = arm_provider_type(arm_id, provider_type).casefold()
+        except ArmIdentityError as exc:
+            raise ArgQueryError("unclassified ARG row has conflicting provider type") from exc
         if normalized_type in self._mapped_provider_types:
             raise ArgQueryError("unclassified ARG query returned a mapped provider type")
 
         scope_error = ArgQueryError("unclassified ARG row has conflicting provider scope")
         scope = validated_arm_scope(arm_id, row, scope_error)
+        self._require_requested_scope(scope)
         props: dict[str, Any] = {"providerType": normalized_type}
         for key in ("name", "location", "kind", "resourceGroup"):
             if key in row and row[key] is not None:
@@ -610,16 +614,21 @@ class AzureArgQueryFactory:
         arm_type = self._resource_types.get(resource_type).azure_arm_type
         if arm_type is None:
             return None
-        provider_type = arm_type
-        if resource_type not in {"resource-group", "subscription"}:
-            try:
-                provider_type = arm_provider_type(arm_id, row.get("type"))
-            except ArmIdentityError as exc:
-                raise ArgQueryError(
-                    f"ARG row for {resource_type!r} has conflicting provider type"
-                ) from exc
-            if provider_type.casefold() != arm_type.casefold():
-                raise ArgQueryError(f"ARG row for {resource_type!r} has conflicting provider type")
+        supplied_type = row.get("type")
+        if (
+            resource_type == "resource-group"
+            and isinstance(supplied_type, str)
+            and supplied_type.casefold() == "microsoft.resources/subscriptions/resourcegroups"
+        ):
+            supplied_type = arm_type
+        try:
+            provider_type = arm_provider_type(arm_id, supplied_type)
+        except ArmIdentityError as exc:
+            raise ArgQueryError(
+                f"ARG row for {resource_type!r} has conflicting provider type"
+            ) from exc
+        if provider_type.casefold() != arm_type.casefold():
+            raise ArgQueryError(f"ARG row for {resource_type!r} has conflicting provider type")
         resolved_type = resolve_azure_resource_type(
             self._resource_types,
             arm_type=provider_type,
@@ -642,6 +651,7 @@ class AzureArgQueryFactory:
         neutral_id = _to_neutral_id(arm_id)
         scope_error = ArgQueryError(f"ARG {resource_type!r} row has conflicting provider scope")
         scope = validated_arm_scope(arm_id, row, scope_error)
+        self._require_requested_scope(scope)
         props: dict[str, Any] = {"providerType": provider_type}
         subscription_id = row.get("subscriptionId")
         if isinstance(subscription_id, str) and subscription_id:
@@ -692,6 +702,11 @@ class AzureArgQueryFactory:
             provider_ref=arm_id,
             last_seen=datetime.now(tz=UTC).isoformat(),
         )
+
+    def _require_requested_scope(self, scope: Mapping[str, str]) -> None:
+        subscription = scope.get("subscriptionId", "").casefold()
+        if subscription not in {value.casefold() for value in self._config.subscription_scopes}:
+            raise ArgQueryError("ARG row is outside the requested subscription scopes")
 
     def _containment_parent_id(self, arm_id: str, *, arm_type: str) -> str | None:
         parent = reviewed_containment_parent(

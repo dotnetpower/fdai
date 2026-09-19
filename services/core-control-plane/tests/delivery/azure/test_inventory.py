@@ -138,14 +138,17 @@ async def test_full_snapshot_emits_complete_generation_relationships_before_fenc
 
 
 @pytest.mark.asyncio
-async def test_full_snapshot_redacts_runtime_environment_after_relationship_projection() -> None:
+@pytest.mark.parametrize("container_family", ["containers", "initContainers"])
+async def test_full_snapshot_redacts_runtime_environment_after_relationship_projection(
+    container_family: str,
+) -> None:
     resource = ResourceRecord(
         resource_id="app/1",
         type="compute.container-app",
         props={
             "properties": {
                 "template": {
-                    "containers": [
+                    container_family: [
                         {
                             "env": [
                                 {"name": "POSTGRES_HOST", "value": "db.example.com"},
@@ -162,7 +165,7 @@ async def test_full_snapshot_redacts_runtime_environment_after_relationship_proj
         return ResourceQueryResult(resources=(resource,))
 
     def _relationships(resources: Sequence[ResourceRecord]) -> ResourceQueryResult:
-        environment = resources[0].props["properties"]["template"]["containers"][0]["env"]  # type: ignore[index]
+        environment = resources[0].props["properties"]["template"][container_family][0]["env"]  # type: ignore[index]
         assert environment[0]["value"] == "db.example.com"
         return ResourceQueryResult()
 
@@ -176,7 +179,7 @@ async def test_full_snapshot_redacts_runtime_environment_after_relationship_proj
     ]
 
     persisted = next(batch.resources[0] for batch in seen if batch.resources)
-    assert persisted.props["properties"]["template"]["containers"][0]["env"] == [  # type: ignore[index]
+    assert persisted.props["properties"]["template"][container_family][0]["env"] == [  # type: ignore[index]
         {"bindingRedacted": True},
         {"bindingRedacted": True},
     ]
@@ -256,6 +259,28 @@ async def test_full_snapshot_carries_provider_scope_coverage_on_final_fence() ->
     assert seen[-1].final is True
     assert seen[-1].provider_scope_coverage == coverage
     assert all(batch.provider_scope_coverage is None for batch in seen[:-1])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("expected_count", [1, 3, 100])
+async def test_full_snapshot_rejects_mapped_identity_count_mismatch(expected_count: int) -> None:
+    async def query(resource_type: str) -> ResourceQueryResult:
+        return ResourceQueryResult(resources=(_rr(f"{resource_type}/1", rtype=resource_type),))
+
+    async def coverage() -> ProviderScopeCoverage:
+        return ProviderScopeCoverage(
+            capture_method="azure_resource_graph_type_aggregation",
+            provider_object_count=expected_count,
+            mapped_provider_object_count=expected_count,
+            provider_type_count=1,
+        )
+
+    seen: list[InventoryBatch] = []
+    with pytest.raises(RuntimeError, match="mapped resource identities do not reconcile"):
+        async for batch in _adapter(query, scope_coverage=coverage).full_snapshot():
+            seen.append(batch)
+
+    assert not any(batch.final or batch.resources for batch in seen)
 
 
 @pytest.mark.asyncio
@@ -349,6 +374,33 @@ async def test_full_snapshot_emits_no_evidence_when_unmapped_identities_do_not_r
         not batch.final and not batch.resources and not batch.links and not batch.relationship_drops
         for batch in seen
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("first_seen", "second_seen", "expected_seen"),
+    [
+        ("2026-09-19T00:00:00Z", "2026-09-19T00:01:00Z", "2026-09-19T00:00:00Z"),
+        ("2026-09-19T00:01:00Z", "2026-09-19T00:00:00Z", "2026-09-19T00:00:00Z"),
+        (None, "2026-09-19T00:00:00Z", None),
+        ("2026-09-19T00:00:00Z", None, None),
+    ],
+)
+async def test_full_snapshot_deduplicates_clock_only_variance(
+    first_seen: str | None, second_seen: str | None, expected_seen: str | None
+) -> None:
+    async def query(resource_type: str) -> ResourceQueryResult:
+        return ResourceQueryResult(
+            resources=tuple(
+                ResourceRecord(resource_id="resource-1", type=resource_type, last_seen=timestamp)
+                for timestamp in (first_seen, second_seen)
+            )
+        )
+
+    batches = [batch async for batch in _adapter(query, types=("compute.vm",)).full_snapshot()]
+    records = [record for batch in batches for record in batch.resources]
+    assert len(records) == 1
+    assert records[0].last_seen == expected_seen
 
 
 @pytest.mark.asyncio

@@ -1664,6 +1664,79 @@ async def test_oversize_properties_are_truncated() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("resource_type", ["subscription", "resource-group"])
+async def test_scope_resource_rejects_a_vm_identity(resource_type: str) -> None:
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/"
+        "providers/Microsoft.Compute/virtualMachines/example"
+    )
+    async with _make_client(httpx.MockTransport(lambda _: httpx.Response(200))) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(), resource_types=_vocab(), http_client=client, config=_config()
+        )
+        with pytest.raises(ArgQueryError, match="conflicting provider type"):
+            factory._map_row(
+                _arm_row(arm_id=arm_id, arm_type="Microsoft.Compute/virtualMachines"),
+                resource_type=resource_type,
+            )
+
+
+@pytest.mark.asyncio
+async def test_unclassified_resource_rejects_a_substituted_provider_type() -> None:
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/"
+        "providers/Microsoft.Compute/virtualMachines/example"
+    )
+    async with _make_client(httpx.MockTransport(lambda _: httpx.Response(200))) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(), resource_types=_vocab(), http_client=client, config=_config()
+        )
+        with pytest.raises(ArgQueryError, match="conflicting provider type"):
+            factory._map_unclassified_row(
+                _arm_row(arm_id=arm_id, arm_type="Microsoft.Example/widgets")
+            )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unclassified", [False, True])
+async def test_resource_rejects_an_unrequested_subscription(unclassified: bool) -> None:
+    provider_type = (
+        "Microsoft.Example/widgets" if unclassified else "Microsoft.Compute/virtualMachines"
+    )
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000002/resourceGroups/rg-example/"
+        f"providers/{provider_type}/example"
+    )
+    async with _make_client(httpx.MockTransport(lambda _: httpx.Response(200))) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(), resource_types=_vocab(), http_client=client, config=_config()
+        )
+        with pytest.raises(ArgQueryError, match="outside the requested subscription"):
+            row = _arm_row(arm_id=arm_id, arm_type=provider_type)
+            if unclassified:
+                factory._map_unclassified_row(row)
+            else:
+                factory._map_row(row, resource_type="compute.vm")
+
+
+def test_nested_subnet_rejects_a_different_vnet_parent() -> None:
+    from fdai.delivery.azure.arg_projection import materialize_nested_subnets
+
+    parent = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/"
+        "providers/Microsoft.Network/virtualNetworks/example"
+    )
+    vnet = ResourceRecord(
+        resource_id=to_neutral_id(parent),
+        type="network.vnet",
+        provider_ref=parent,
+        props={"properties": {"subnets": [{"id": parent + "-other/subnets/example"}]}},
+    )
+    with pytest.raises(ArmScopeError, match="provider parent conflicts"):
+        materialize_nested_subnets(vnet)
+
+
+@pytest.mark.asyncio
 async def test_inventory_rejects_scope_that_conflicts_with_the_arm_id() -> None:
     arm_id = (
         "/subscriptions/00000000-0000-0000-0000-000000000001/"
@@ -3698,7 +3771,7 @@ async def test_web_and_function_shards_are_disambiguated_by_kind() -> None:
             identity=_identity(),
             resource_types=_vocab(),
             http_client=client,
-            config=_config(),
+            config=_config(subscription_scopes=("00000000-0000-0000-0000-000000000000",)),
         ).build_query_fn()
         web_resources, _web_links = await query("compute.web-app")
         function_resources, _function_links = await query("compute.function")

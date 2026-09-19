@@ -61,7 +61,7 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
   through the same ingress. A partial read cannot replace a complete generation or delete an
   unobserved object or relationship. Runtime environment bindings can participate in an in-memory,
   exact-identity relationship join, but their names and values are redacted before inventory
-  snapshot or ontology persistence.
+  snapshot or ontology persistence, including both ordinary and initialization containers.
 - **Time and provenance:** Every fact retains effective, provider-event, observation, FDAI-ingestion,
   recorded, and evidence-cutoff time plus source, revision, completeness, conflicts, and freshness.
   The normalized journal keeps these distinct; ingestion latency never rewrites provider event time.
@@ -104,8 +104,8 @@ Malformed continuation metadata cannot complete an Activity Log stream or advanc
 A collected property becomes a relationship only through a reviewed provider mapping. If that
 mapping omits an observed connection target, an absent graph edge never proves an absent path.
 Every reachable managed-service connection therefore needs its target type in the reviewed catalog.
-Each Azure row's supplied provider type and scope must agree case-insensitively with its exact ARM
-identity before the row enters either a full snapshot or a change stream. A contradiction fails the
+Each Azure row's supplied provider type and scope, including built-in scope and unclassified rows, must agree case-insensitively with its exact ARM
+identity and requested subscription set before the row enters either a full snapshot or a change stream. Full-scan mapped counts reconcile before the final fence, excluding separately materialized subnets and subscription anchors. Clock-only duplicates retain the earliest observation, and nested subnets verify the exact VNet parent. A contradiction fails the
 bounded collection and retains the previous complete generation.
 For an extension-resource identity containing multiple `/providers/` segments, the final provider
 namespace and its following type/name pairs define the observed Resource type; ancestor provider

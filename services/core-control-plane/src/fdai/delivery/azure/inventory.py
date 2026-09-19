@@ -1,53 +1,15 @@
-"""Azure Resource Graph (ARG) implementation of the ``Inventory`` Protocol.
+"""Collect a bounded Azure inventory through injected authenticated provider reads.
 
-This module realizes the 5th CSP-neutral wire contract for Azure - see
-``docs/roadmap/architecture/csp-neutrality.md § 5. Inventory Contract`` and the Protocol
-in ``services/core-control-plane/src/fdai/shared/providers/inventory.py``.
+``AzureArgQueryFactory`` supplies reviewed queries and identity-bound HTTP transport.
+Full scans combine resource-type shards, reconcile provider coverage, close relationship
+endpoints, and redact environment bindings before returning one complete generation.
+Empty progress batches carry no evidence. Any failed shard or coverage mismatch omits
+the final fence, so the coordinator retains its previous authoritative snapshot.
 
-P1 W-2 scope (stub)
--------------------
-
-The **structural contract** is frozen here so downstream consumers (the
-T0 engine's future graph-derived blast-radius, and the risk-gate) can be
-wired against a real interface:
-
-- **Parallel full-scan**: :meth:`AzureResourceGraphInventory.full_snapshot`
-  shards work by ``resource_type`` under a **bounded semaphore**
-  (``max_concurrent_queries``, default 4). The stub uses a synthetic
-  ``ResourceQueryFn`` so tests can assert the concurrency structure without
-  standing up ARG.
-- **Atomic-promote fence**: the stream **always** ends with an
-  :class:`InventoryBatch` whose ``final=True``. A caller MUST discard a
-  stream that ends without it; the stub enforces this on every path.
-- **Progress heartbeat**: an empty non-final batch claims no graph evidence.
-    ``full_snapshot`` emits one as each bounded provider read completes so a
-    consumer can distinguish a slow scan from a stalled one.
-- **Idempotent upsert (interface)**: batches are keyed on
-  ``resource_id`` for resources and ``(from_id, link_type, to_id)`` for
-  links. Adapters MUST NOT emit duplicates within one snapshot - this
-  stub deduplicates the synthetic input to make the invariant testable.
-- **Delta stream**: :meth:`AzureResourceGraphInventory.delta` accepts a
-  cursor and, when an :type:`ActivityLogFetchFn` is bound, pages the
-  forwarded Azure Activity Log change stream into idempotent-upsert
-  batches with an advancing cursor and the same ``final=True`` fence.
-  With no fetch bound it returns an empty final batch (the default until
-  the forwarder ships). The Activity-Log-to-Kafka forwarding is a
-  deployment concern (Event Hubs diagnostic settings); the neutral
-  mapping "one Activity Log record -> one :class:`ResourceRecord` upsert"
-  lives in
-  :class:`~fdai.delivery.azure.activity_log.AzureActivityLogFactory`.
-
-What is deliberately NOT here yet
----------------------------------
-
-- No ``azure-mgmt-resourcegraph`` client is instantiated (that lands in
-  P1 W-3 together with the OIDC-federated ``WorkloadIdentity`` binding).
-- No Kusto query templates ship - they are configuration, not code.
-- No writes into ``ontology_resource`` / ``ontology_link``; the caller
-  (event-ingest) is the upsert authority per the Inventory contract.
-- No Azure SDK imports appear anywhere in the module tree yet. When they
-  land they stay confined to this file (or a sibling under
-  ``delivery/azure/``) - ``core/`` never imports them.
+Resource duplicates with equal content retain their earliest observation time; content
+conflicts fail the generation. Activity Log delta pagination uses the same final-fence
+contract, while unbound deltas return no observations. Only the inventory coordinator
+and its owned projection persist observations; this adapter never writes ontology state.
 """
 
 from __future__ import annotations
@@ -56,6 +18,7 @@ import asyncio
 from collections import Counter
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field, replace
+from datetime import datetime
 from typing import Final
 
 from fdai.delivery.azure.inventory_redaction import redact_runtime_environment
@@ -186,8 +149,8 @@ class AzureResourceGraphInventory:
     :func:`fdai.composition.bind_azure_inventory`; tests inject a synthetic
     ``ResourceQueryFn`` to assert the concurrency structure and
     atomic-promote fence without standing up ARG. The ``full_snapshot``
-    path is live once bound; the ``delta`` (Activity-Log -> Kafka) path is
-    still a stub until the forwarder ships (see ``csp-neutrality.md § 5``).
+    path is live once bound; the delta path uses an independently supplied
+    Activity Log fetch function and never manufactures observations when unbound.
     """
 
     def __init__(
@@ -229,7 +192,7 @@ class AzureResourceGraphInventory:
         batch the caller uses to atomically promote the new graph
         (``docs/roadmap/architecture/csp-neutrality.md § 5``).
 
-        ``since`` is currently unused - the stub returns the full shard
+        ``since`` is currently unused - reconciliation returns the full shard
         each call. Production may honor it as an ``since <= last_seen``
         optimization; it MUST NOT substitute for :meth:`delta`.
         """
@@ -348,6 +311,15 @@ class AzureResourceGraphInventory:
         resources = _dedupe_resources(
             resource for batch in completed for resource in batch.resources
         )
+        if provider_scope_coverage is not None:
+            mapped_count = sum(
+                resource.type not in {UNCLASSIFIED_RESOURCE_TYPE, "subscription", "network.subnet"}
+                for resource in resources
+            )
+            if mapped_count != provider_scope_coverage.mapped_provider_object_count:
+                raise RuntimeError(
+                    "mapped resource identities do not reconcile with provider coverage"
+                )
         generation_relationships = (
             self._generation_relationships(resources)
             if self._generation_relationships is not None
@@ -394,8 +366,7 @@ class AzureResourceGraphInventory:
         the previous cursor and retries rather than banking a truncated
         delta (matches ``csp-neutrality.md § 5``).
 
-        With no fetch bound (the default until the Activity-Log forwarder
-        ships), this yields a single ``final=True`` empty batch so callers
+        With no fetch bound, this yields a single ``final=True`` empty batch so callers
         exercise the same atomic-promote fence as ``full_snapshot``.
         """
         if self._delta_fetch is None:
@@ -446,9 +417,20 @@ def _dedupe_resources(records: Iterable[ResourceRecord]) -> tuple[ResourceRecord
     for record in records:
         existing = seen.get(record.resource_id)
         if existing is not None and existing != record:
-            raise RuntimeError(
-                f"inventory resource {record.resource_id!r} has conflicting duplicates"
-            )
+            if (
+                existing.type != record.type
+                or existing.props != record.props
+                or existing.provider_ref != record.provider_ref
+            ):
+                raise RuntimeError(
+                    f"inventory resource {record.resource_id!r} has conflicting duplicates"
+                )
+            if existing.last_seen is None or (
+                record.last_seen is not None
+                and datetime.fromisoformat(existing.last_seen.replace("Z", "+00:00"))
+                <= datetime.fromisoformat(record.last_seen.replace("Z", "+00:00"))
+            ):
+                continue
         seen[record.resource_id] = record
     return tuple(seen[key] for key in sorted(seen))
 
