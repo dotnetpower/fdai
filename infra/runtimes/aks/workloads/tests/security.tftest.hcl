@@ -22,13 +22,26 @@ variables {
       service_port         = 80
       readiness_path       = "/ready"
       liveness_path        = "/health"
+      fs_group             = 101
       environment          = {}
       sidecars = {
         clamav = {
-          image  = "example.com/fdai/clamav@sha256:0000000000000000000000000000000000000000000000000000000000000000"
-          cpu    = "500m"
-          memory = "1Gi"
-          port   = 3310
+          image        = "example.com/fdai/clamav@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+          cpu          = "500m"
+          memory       = "1Gi"
+          port         = 3310
+          run_as_user  = 100
+          run_as_group = 101
+          init = {
+            name              = "clamav-database"
+            command           = ["/bin/sh", "-c"]
+            args              = ["cp -a /var/lib/clamav/. /target/"]
+            image_pull_policy = "IfNotPresent"
+            run_as_user       = 100
+            run_as_group      = 101
+            writable_path     = "database"
+            mount_path        = "/target"
+          }
           writable_paths = {
             database = { mount_path = "/var/lib/clamav", size_limit = "1Gi" }
           }
@@ -88,6 +101,16 @@ run "workload_security_baseline" {
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].image == var.workloads.example.sidecars.clamav.image &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].readiness_probe[0].tcp_socket[0].port == "3310" &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].security_context[0].read_only_root_filesystem &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].security_context[0].run_as_user == "100" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].security_context[0].run_as_group == "101" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].security_context[0].fs_group == "101" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].init_container[0].name == "clamav-database" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].init_container[0].image == var.workloads.example.sidecars.clamav.image &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].init_container[0].image_pull_policy == "IfNotPresent" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].init_container[0].security_context[0].run_as_user == "100" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].init_container[0].security_context[0].run_as_group == "101" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].init_container[0].volume_mount[0].name == "clamav-database" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].init_container[0].volume_mount[0].mount_path == "/target" &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].volume_mount[0].mount_path == "/var/lib/clamav" &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].volume[1].empty_dir[0].size_limit == "1Gi"
     )
