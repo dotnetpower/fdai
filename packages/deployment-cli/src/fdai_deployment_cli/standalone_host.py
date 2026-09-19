@@ -17,6 +17,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Final
+from urllib.parse import urlencode
 
 from fdai_deployment_cli.aks_readiness import verify_workload_health
 from fdai_deployment_cli.aks_service_update import (
@@ -1697,19 +1698,16 @@ def _capture_aks_deployments(context: dict[str, object], *, service: str | None 
     kubeconfig = Path(str(context.get("kubeconfig", "")))
     if not kubeconfig.is_file():
         raise ValueError("AKS kubeconfig is unavailable for service update readback")
+    endpoint = f"/apis/apps/v1/namespaces/{_AKS_RUNTIME_NAMESPACE}/deployments"
+    if service is not None:
+        endpoint = f"{endpoint}?{urlencode({'labelSelector': f'app.kubernetes.io/name={service}'})}"
     command = [
         "kubectl",
         "get",
-        "deployments",
-        "--namespace",
-        _AKS_RUNTIME_NAMESPACE,
-        "--output",
-        "json",
+        f"--raw={endpoint}",
         "--request-timeout=60s",
         f"--kubeconfig={kubeconfig}",
     ]
-    if service is not None:
-        command.append(f"--selector=app.kubernetes.io/name={service}")
     return _capture(
         tuple(command),
         cwd=kubeconfig.parent,

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 6dd548c42c95e20f1fd682f2457c3f3d547dd94e
+translation_source_sha: 894ecaca3ac105e9436270357a59fa64fb9ffc24
 translation_revised: 2026-09-19
 ---
 # 런타임 배포 프로파일
@@ -300,6 +300,9 @@ NetworkPolicy의 안정적인 워크로드 label은 버전 변경으로 해당 �
 변수, 과거 실제 스냅샷, 과거 exact plan을 서로 대조합니다. 그런 다음 Managed Identity로 원격 상태와
 현재 Deployment를 읽고 새롭고 완전한 전체 범위 변경 없음 계획을 요구합니다. 생성된 채택 증적은
 적용 권한을 부여하지 않으며 선택 서비스의 현재 exact-plan 승인을 대신할 수 없습니다.
+Deployment 관측은 typed Apps v1 collection endpoint를 직접 읽고, 선택 서비스에는 인코딩된
+`labelSelector`를 사용합니다. 따라서 엄격한 검증기는 클라이언트가 합성한 일반 `List`가 아니라
+서버가 작성한 `DeploymentList`를 받습니다.
 이 워크로드 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는 전체 배포 준비가
 검증되지는 않습니다. 별도의 브라우저 게시 게이트가 워크로드 수렴 뒤 Console과 API 경계를
 검증합니다. 워크로드 생성기는 Operator, 격리된 Executor, 문서 API,
