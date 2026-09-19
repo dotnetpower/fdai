@@ -131,7 +131,21 @@ async def fetch_arg_pages(
 ) -> ResourceQueryResult:
     """Fetch all pages for one shard without silently accepting a partial result."""
     observation_started_at = datetime.now(UTC).isoformat()
-    rows = await fetch_arg_row_pages(
+    collected: list[ResourceRecord] = []
+    collected_links: list[LinkRecord] = []
+    relationship_drops: list[RelationshipDrop] = []
+
+    async def consume_rows(rows: tuple[Mapping[str, Any], ...]) -> None:
+        for row in rows:
+            record = map_row(row)
+            if record is not None:
+                record = replace(record, last_seen=observation_started_at)
+                collected.append(record)
+                relationships = project_links(row, record)
+                collected_links.extend(relationships.links)
+                relationship_drops.extend(relationships.dropped)
+
+    await fetch_arg_row_pages(
         identity=identity,
         http_client=http_client,
         audience=audience,
@@ -150,18 +164,8 @@ async def fetch_arg_pages(
         initial_retry_delay_seconds=initial_retry_delay_seconds,
         max_retry_delay_seconds=max_retry_delay_seconds,
         page_observer=page_observer,
+        row_consumer=consume_rows,
     )
-    collected: list[ResourceRecord] = []
-    collected_links: list[LinkRecord] = []
-    relationship_drops: list[RelationshipDrop] = []
-    for row in rows:
-        record = map_row(row)
-        if record is not None:
-            record = replace(record, last_seen=observation_started_at)
-            collected.append(record)
-            relationships = project_links(row, record)
-            collected_links.extend(relationships.links)
-            relationship_drops.extend(relationships.dropped)
     return ResourceQueryResult(
         resources=tuple(collected),
         links=tuple(collected_links),
@@ -196,6 +200,7 @@ async def fetch_arg_row_pages(
     max_response_bytes: int | None = _DEFAULT_MAX_RESPONSE_BYTES,
     max_total_response_bytes: int | None = _DEFAULT_MAX_TOTAL_RESPONSE_BYTES,
     page_observer: ArgPageObserver | None = None,
+    row_consumer: Callable[[tuple[Mapping[str, Any], ...]], Awaitable[None]] | None = None,
 ) -> tuple[Mapping[str, Any], ...]:
     """Fetch a complete, bounded ARG row set with quota-aware retries."""
     if max_attempts < 1:
@@ -214,6 +219,14 @@ async def fetch_arg_row_pages(
         f"?api-version={api_version}"
     )
     collected: list[Mapping[str, Any]] = []
+    collected_count = 0
+
+    async def accept_rows(rows: list[Mapping[str, Any]]) -> None:
+        if row_consumer is None:
+            collected.extend(rows)
+        else:
+            await row_consumer(tuple(rows))
+
     skip_token: str | None = None
     seen_skip_tokens: set[str] = set()
     total_response_bytes = 0
@@ -280,8 +293,8 @@ async def fetch_arg_row_pages(
                 raise error_type(
                     f"ARG payload contained a non-object row for {result_name!r} (page {page})"
                 )
-            collected.append(row)
-        if max_records is not None and len(collected) > max_records:
+        collected_count += len(data)
+        if max_records is not None and collected_count > max_records:
             raise error_type(
                 f"ARG returned more than {max_records} records for {result_name!r}; "
                 "narrow the query"
@@ -300,7 +313,7 @@ async def fetch_arg_row_pages(
             )
         if not next_token:
             tokenless_truncated = truncated or _count_is_truncated(
-                payload, collected_count=len(collected)
+                payload, collected_count=collected_count
             )
             if not allow_truncated_without_token and tokenless_truncated:
                 raise error_type(
@@ -309,6 +322,7 @@ async def fetch_arg_row_pages(
                 )
             if truncation_observer is not None:
                 truncation_observer(tokenless_truncated)
+            await accept_rows(data)
             if page_observer is not None:
                 await page_observer(len(data), False)
             break
@@ -318,6 +332,7 @@ async def fetch_arg_row_pages(
             )
         seen_skip_tokens.add(next_token)
         skip_token = next_token
+        await accept_rows(data)
         if page_observer is not None:
             await page_observer(len(data), True)
     else:

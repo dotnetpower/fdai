@@ -61,6 +61,131 @@ REPO_ROOT = Path(__file__).resolve().parents[5]
 VOCABULARY_FILE = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
 
 
+async def test_inventory_normalizes_each_page_before_requesting_the_next(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/example/providers/Microsoft.Compute/virtualMachines/"
+    )
+    mapped: list[str] = []
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            assert mapped == [base + "first"]
+        payload: dict[str, Any] = {
+            "data": [
+                _arm_row(
+                    arm_id=base + ("first" if calls == 1 else "second"),
+                    arm_type="Microsoft.Compute/virtualMachines",
+                )
+            ],
+        }
+        if calls == 1:
+            payload["$skipToken"] = "next-page"
+        return httpx.Response(200, json=payload)
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        original = factory._map_row
+
+        def map_row(
+            row: dict[str, Any], *, resource_type: str, preserve_nested_subnets: bool = False
+        ):
+            mapped.append(row["id"])
+            return original(
+                row,
+                resource_type=resource_type,
+                preserve_nested_subnets=preserve_nested_subnets,
+            )
+
+        monkeypatch.setattr(factory, "_map_row", map_row)
+        result = await factory.build_query_fn()("compute.vm")
+    assert len(result.resources) == 2
+    assert mapped == [base + "first", base + "second"]
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "complete",
+        "invalid_token",
+        "truncated_final",
+        "repeat_token",
+        "row_limit",
+        "consumer_failure",
+        "http_failure",
+        "not_object",
+        "page_limit",
+    ],
+)
+async def test_raw_page_consumer_preserves_bounds_and_failure_fences(scenario: str) -> None:
+    calls = 0
+    accepted: list[tuple[int, ...]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if scenario == "http_failure" and calls == 2:
+            return httpx.Response(403)
+        payload: dict[str, Any] = {"data": [{"ordinal": calls}]}
+        if calls == 1:
+            payload["$skipToken"] = "next-page"
+        if calls == 2:
+            if scenario == "invalid_token":
+                payload["$skipToken"] = 42
+            elif scenario == "truncated_final":
+                payload["resultTruncated"] = True
+            elif scenario == "repeat_token":
+                payload["$skipToken"] = "next-page"
+            elif scenario == "not_object":
+                payload["data"] = [42]
+        return httpx.Response(200, json=payload)
+
+    async def consume(rows):
+        if scenario == "consumer_failure":
+            raise ArgQueryError("synthetic consumer failure")
+        accepted.append(tuple(row["ordinal"] for row in rows))
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+
+        async def fetch():
+            return await arg_transport.fetch_arg_row_pages(
+                identity=_identity(),
+                http_client=client,
+                audience="https://management.azure.com/.default",
+                endpoint="https://management.azure.com",
+                api_version="2022-10-01",
+                subscriptions=("00000000-0000-0000-0000-000000000001",),
+                query="Resources",
+                result_name="synthetic-page-consumer",
+                page_size=1,
+                max_pages=1 if scenario == "page_limit" else 3,
+                timeout_seconds=1,
+                error_type=ArgQueryError,
+                max_records=1 if scenario == "row_limit" else 3,
+                max_attempts=1,
+                row_consumer=consume,
+            )
+
+        if scenario == "complete":
+            assert await fetch() == ()
+            assert accepted == [(1,), (2,)]
+        else:
+            with pytest.raises(ArgQueryError):
+                await fetch()
+            assert accepted == ([] if scenario == "consumer_failure" else [(1,)])
+    assert calls == (1 if scenario in {"consumer_failure", "page_limit"} else 2)
+
+
 def _vocab() -> ResourceTypeRegistry:
     with VOCABULARY_FILE.open("r", encoding="utf-8") as fh:
         return load_resource_type_registry_from_mapping(yaml.safe_load(fh))

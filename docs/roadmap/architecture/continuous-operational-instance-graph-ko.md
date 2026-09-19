@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 4a0cd3bfcef892198f9a5cf6afd8675f1f29e329
+translation_source_sha: be4185240f8ca87ba1b62e850a5df3aafd1b7afa
 translation_revised: 2026-09-20
 ---
 # 지속형 운영 인스턴스 그래프
@@ -343,6 +343,9 @@ Console 카드, 도구 설명, 상세 패널 및 화면 맥락은 원시 프로�
 커밋합니다. 동일 내용의 재생은 아무것도 바꾸지 않고 같은 식별자의 다른 내용은 충돌입니다.
 빈 페이지나 저장 버킷이 아니라 정확한 원본 범위의 종료와 커버리지만 부재를 증명합니다.
 만료된 연속 조회는 새 원본 시도로 다시 시작합니다.
+ARG는 검증된 페이지를 다음 페이지 요청 전에 정규화합니다. 행 소비 경로는 이전 원본 행을
+보존하지 않지만 정규화된 세대는 여전히 한도 안에서 보존하며, 영속 청크와 재개 지점을 이용한
+재시작은 별도 구현 작업으로 남아 있습니다.
 
 준비 단계는 `collecting -> sealed -> verified -> prepared`이며 기존 변환 소유자만
 `committed`로 게시합니다. 불변 청크 매니페스트는 범위, 소유권 epoch, 카탈로그 release,

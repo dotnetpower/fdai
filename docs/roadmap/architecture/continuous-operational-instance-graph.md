@@ -332,6 +332,9 @@ enter bounded durable staging only after normalization and redaction. A page che
 content digest commit together; replay of identical content is a no-op and changed content under
 the same identity is a conflict. Source exhaustion and exact coverage, never an empty page or a
 storage bucket, authorize absence. Expired continuation requires a new source attempt.
+ARG now normalizes each validated page before requesting the next page. Its row-consumer path
+does not retain prior raw rows, but normalized generation retention remains bounded and durable
+chunk/checkpoint resume is still separate implementation work.
 
 Preparation follows `collecting -> sealed -> verified -> prepared`; only the existing projection
 owner can publish `committed`. Immutable chunk manifests bind exact scope, ownership epoch,
