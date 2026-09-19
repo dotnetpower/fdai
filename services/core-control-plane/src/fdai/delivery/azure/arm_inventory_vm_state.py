@@ -13,6 +13,10 @@ from fdai.shared.providers.inventory import ResourceRecord
 class ArmInventoryError(RuntimeError):
     """A direct ARM inventory shard could not complete safely."""
 
+    def __init__(self, message: str, *, retry_not_before: datetime | None = None) -> None:
+        super().__init__(message)
+        self.retry_not_before = retry_not_before
+
 
 def project_vmss_instance_state(row: Mapping[str, Any]) -> Mapping[str, Any]:
     """Keep one power-state code and discard unreviewed VMSS instance-view fields."""

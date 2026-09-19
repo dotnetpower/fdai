@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from math import isfinite
 from pathlib import Path
 from typing import Any, Final
 from urllib.parse import quote, urlparse
@@ -24,6 +25,7 @@ from fdai.delivery.azure.arg_projection import (
     truncate_props,
 )
 from fdai.delivery.azure.arg_relationships import project_provider_relationships
+from fdai.delivery.azure.arm_inventory_transport import fetch_arm_json
 from fdai.delivery.azure.arm_inventory_vm_state import (
     ArmInventoryError,
 )
@@ -104,6 +106,10 @@ class AzureArmInventoryFactoryConfig:
     max_child_collections: int = 2_048
     timeout_seconds: float = 30.0
     max_props_bytes: int = 64 * 1024
+    max_response_bytes: int = 10_000_000
+    max_total_response_bytes: int = 64_000_000
+    max_records: int = 50_000
+    max_attempts: int = 3
     relationship_mapping_root: Path = _DEFAULT_RELATIONSHIP_MAPPING_ROOT
 
     def __post_init__(self) -> None:
@@ -112,8 +118,23 @@ class AzureArmInventoryFactoryConfig:
         parsed = urlparse(self.arm_endpoint)
         if parsed.scheme != "https" or not parsed.netloc:
             raise ValueError("arm_endpoint MUST be an absolute HTTPS URL")
-        if self.max_pages < 1 or self.max_child_collections < 1 or self.timeout_seconds <= 0:
+        if (
+            self.max_pages < 1
+            or self.max_child_collections < 1
+            or not isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
             raise ValueError("ARM page and timeout limits MUST be positive")
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 1
+            for value in (
+                self.max_response_bytes,
+                self.max_total_response_bytes,
+                self.max_records,
+                self.max_attempts,
+            )
+        ):
+            raise ValueError("ARM response and retry limits MUST be positive integers")
         if self.max_props_bytes < 1024:
             raise ValueError("max_props_bytes MUST be >= 1024")
         if (
@@ -598,33 +619,26 @@ class AzureArmInventoryFactory:
     ) -> tuple[Mapping[str, Any], ...]:
         collected: list[Mapping[str, Any]] = []
         current = url
+        seen: set[str] = set()
+        total_bytes = 0
         for page in range(self._config.max_pages):
             self._validate_next_link(current)
-            try:
-                response = await self._http.get(
-                    current,
-                    headers=headers,
-                    timeout=self._config.timeout_seconds,
-                )
-            except httpx.HTTPError as exc:
-                raise ArmInventoryError(
-                    f"ARM request failed for {resource_type!r} (page {page}): {type(exc).__name__}"
-                ) from exc
-            if response.status_code >= 400:
-                raise ArmInventoryError(
-                    f"ARM returned HTTP {response.status_code} for {resource_type!r} (page {page})"
-                )
-            try:
-                payload = response.json()
-            except ValueError as exc:
-                raise ArmInventoryError(
-                    f"ARM returned non-JSON for {resource_type!r} (page {page})"
-                ) from exc
+            if current in seen:
+                raise ArmInventoryError("ARM pagination continuation did not advance")
+            seen.add(current)
+            payload, response_bytes = await self._read_json(
+                current, headers=headers, resource_type=resource_type
+            )
+            total_bytes += response_bytes
+            if total_bytes > self._config.max_total_response_bytes:
+                raise ArmInventoryError("ARM collection exceeded its total byte limit")
             rows = payload.get("value")
             if not isinstance(rows, list):
                 raise ArmInventoryError(
                     f"ARM payload missing value array for {resource_type!r} (page {page})"
                 )
+            if len(collected) + len(rows) > self._config.max_records:
+                raise ArmInventoryError("ARM collection exceeded its record limit")
             for row_index, row in enumerate(rows):
                 if not isinstance(row, Mapping):
                     raise ArmInventoryError(
@@ -665,27 +679,25 @@ class AzureArmInventoryFactory:
         )
         if expand is not None:
             url += f"&$expand={quote(expand, safe='')}"
-        try:
-            response = await self._http.get(
-                url,
-                headers=headers,
-                timeout=self._config.timeout_seconds,
-            )
-        except httpx.HTTPError as exc:
-            raise ArmInventoryError(
-                f"ARM exact request failed for {resource_type!r}: {type(exc).__name__}"
-            ) from exc
-        if response.status_code >= 400:
-            raise ArmInventoryError(
-                f"ARM returned HTTP {response.status_code} for exact {resource_type!r}"
-            )
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise ArmInventoryError(f"ARM returned non-JSON for exact {resource_type!r}") from exc
+        payload, _response_bytes = await self._read_json(
+            url, headers=headers, resource_type=resource_type
+        )
         if not isinstance(payload, Mapping) or not isinstance(payload.get("id"), str):
             raise ArmInventoryError(f"ARM exact response is malformed for {resource_type!r}")
         return payload
+
+    async def _read_json(
+        self, url: str, *, headers: Mapping[str, str], resource_type: str
+    ) -> tuple[Mapping[str, Any], int]:
+        return await fetch_arm_json(
+            client=self._http,
+            url=url,
+            headers=headers,
+            resource_type=resource_type,
+            timeout_seconds=self._config.timeout_seconds,
+            max_response_bytes=self._config.max_response_bytes,
+            max_attempts=self._config.max_attempts,
+        )
 
     def _validate_next_link(self, url: str) -> None:
         parsed = urlparse(url)

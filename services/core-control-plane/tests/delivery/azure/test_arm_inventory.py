@@ -7,7 +7,7 @@ from pathlib import Path
 import httpx
 import pytest
 import yaml
-from fdai.delivery.azure import arm_inventory
+from fdai.delivery.azure import arm_inventory, arm_inventory_transport
 from fdai.delivery.azure.arg_projection import to_neutral_id
 from fdai.delivery.azure.arm_inventory import (
     ArmInventoryError,
@@ -124,6 +124,70 @@ async def test_arm_shared_type_without_kind_fails_closed() -> None:
         ).build_query_fn()
         with pytest.raises(ArmInventoryError, match="unresolved resource kind"):
             await query("compute.function")
+
+
+@pytest.mark.parametrize("retry_after", ["2", "31"])
+async def test_arm_transient_retry_honors_provider_delay(retry_after, monkeypatch) -> None:
+    calls = 0
+    delays: list[float] = []
+
+    async def _record_delay(delay: float) -> None:
+        delays.append(delay)
+
+    monkeypatch.setattr(arm_inventory_transport, "_sleep", _record_delay)
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(503, headers={"Retry-After": retry_after})
+        return httpx.Response(200, json={"value": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_handler)) as client:
+        query = AzureArmInventoryFactory(
+            identity=_identity(),
+            resource_types=_vocabulary(),
+            http_client=client,
+            config=AzureArmInventoryFactoryConfig(subscription_scopes=("sub-1",)),
+        ).build_query_fn()
+        if retry_after == "31":
+            with pytest.raises(ArmInventoryError, match="HTTP 503") as failure:
+                await query("compute.vm")
+            assert failure.value.retry_not_before is not None
+            assert calls == 1 and delays == []
+        else:
+            assert (await query("compute.vm")).resources == ()
+            assert calls == 2 and delays == [2.0]
+
+
+@pytest.mark.parametrize("limit", ["bytes", "records"])
+async def test_arm_read_rejects_oversized_responses(limit: str) -> None:
+    row = {
+        "id": (
+            "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+            "Microsoft.Compute/virtualMachines/vm-example"
+        )
+    }
+    config = AzureArmInventoryFactoryConfig(
+        subscription_scopes=("sub-1",),
+        max_records=1,
+        max_response_bytes=16 if limit == "bytes" else 10_000,
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, json={"value": [row, row]})
+        )
+    ) as client:
+        query = AzureArmInventoryFactory(
+            identity=_identity(),
+            resource_types=_vocabulary(),
+            http_client=client,
+            config=config,
+        ).build_query_fn()
+        with pytest.raises(
+            ArmInventoryError, match="byte limit" if limit == "bytes" else "record limit"
+        ):
+            await query("compute.vm")
 
 
 async def test_arm_fallback_preserves_readable_model_deployment_facts() -> None:
