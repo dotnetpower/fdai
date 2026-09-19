@@ -591,7 +591,7 @@ Parked approvals and recovery receipts require the exact current ActionRun ident
   (Rego), and [infra/](../../../infra) (Terraform HCL).
 - **One lockfile** at the repo root (`uv.lock` or equivalent); the root `pyproject.toml` is a
   virtual workspace with `package = false`. Each runtime service and shared package has its own
-  distribution manifest. Source-checkout compatibility validation adds every declared shared package source root, including `packages/runtime-diagnostics/src/`, before importing service codecs. A security lock update invalidates prior image evidence and requires the selected images to rebuild and scan.
+  distribution manifest. Source-checkout compatibility validation adds every declared shared package source root, including `packages/runtime-diagnostics/src/`, before importing service codecs. The service-suite manifest assigns every service-owned regression exactly one owner, and dependency/import manifests name each shared distribution used directly by a service. A security lock update invalidates prior image evidence and requires the selected images to rebuild and scan.
 - Optional vertical distributions such as `fdai-cost-governance` live under `extensions/`. Core
   owns their immutable manifest, lifecycle, provider, and authority-neutral contracts, while the
   reviewed image composition supplies package code and resources. Core never imports an optional
