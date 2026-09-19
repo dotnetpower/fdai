@@ -67,6 +67,12 @@ class ConversationAssuranceCoordinator:
         self._deterministic_timing_sink = deterministic_timing_sink
         self._monotonic_ns = monotonic_ns or time.monotonic_ns
 
+    @property
+    def evaluator_models(self) -> tuple[tuple[str, str], ...]:
+        """Return configured semantic evaluator attribution without invoking a model."""
+
+        return self._reviewer.evaluator_models if self._reviewer is not None else ()
+
     async def assess(
         self,
         turn: TurnAssessmentInput,

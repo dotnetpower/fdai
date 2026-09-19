@@ -42,6 +42,20 @@ title: Operator Console - Data and Wire Contracts
 - Exit code: `0` on clean session end; `2` on invalid config; `3` on
   unrecoverable channel error.
 
+#### Pantheon assurance attribution extension
+
+A Pantheon assurance terminal adds `answer_generation` and
+`pantheon_evaluator_models`. Answer generation records `agent_projection` with no model identity,
+or `t2_model` with one nonempty model identity and family. The evaluator list contains at most
+three distinct configured reviewer identities and families plus whether each produced a validated
+output for that turn. Operator validates these fields before forwarding the terminal. Historical
+records without attribution remain readable as `legacy_unattributed`; Operator never guesses a
+model from a digest, deployment default, or current configuration.
+
+The local campaign CLI may place this attribution with bounded question and answer content in an
+owner-only transcript. That transcript is diagnostic data, not a cross-service contract,
+qualification record, audit entry, or authority source.
+
 ### 13.3 Operator API approval callback (Week 1)
 
 Two Operator-owned receivers resolve in one decision service. Neither trusts message identity or

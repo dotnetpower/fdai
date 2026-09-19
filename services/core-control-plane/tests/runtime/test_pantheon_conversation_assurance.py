@@ -203,6 +203,23 @@ async def test_runtime_persists_one_server_assembled_pantheon_diagnostic() -> No
     assert diagnostic["verdict"] == "pass"
     assert result["assessment_state"] == "completed"
     assert result["assessment_reasons"] == ["mixed_family_consensus"]
+    assert result["answer_generation"] == {
+        "mode": "agent_projection",
+        "model_identity": None,
+        "model_family": None,
+    }
+    assert result["pantheon_evaluator_models"] == [
+        {
+            "model_identity": "reviewer-a",
+            "model_family": "family-a",
+            "output_available": True,
+        },
+        {
+            "model_identity": "reviewer-b",
+            "model_family": "family-b",
+            "output_available": True,
+        },
+    ]
     stored = await ledger.list_assessments(principal_scope="operator-one")
     assert len(stored) == 1
     assert stored[0].decision.pantheon_diagnostic is not None
@@ -271,6 +288,11 @@ async def test_t2_diagnostic_binds_trusted_fixed_scenario_before_review() -> Non
     assert first.turns[0].answer_model_identity == "publisher-c:synthesizer-a"
     assert first.turns[0].answer_model_family == "family-c"
     assert "expected_t2=required" in first.turns[0].reference_facts
+    assert result["answer_generation"] == {
+        "mode": "t2_model",
+        "model_identity": "publisher-c:synthesizer-a",
+        "model_family": "family-c",
+    }
 
 
 async def test_external_t2_case_does_not_receive_fixed_scenario_facts() -> None:

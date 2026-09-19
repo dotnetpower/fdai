@@ -157,9 +157,17 @@ class RuntimePantheonConversationAssurance:
             review,
             pantheon_diagnostic=diagnostic,
         )
+        available_evaluator_models = {
+            (output.model_identity, output.model_family) for output in review.evaluator_outputs
+        }
         return {
             "schema_version": "1.0.0",
             "answer": answer,
+            "answer_generation": {
+                "mode": "t2_model" if answer_model_identity is not None else "agent_projection",
+                "model_identity": answer_model_identity,
+                "model_family": answer_model_family,
+            },
             "assessment_id": record.assessment_id,
             "assessment_state": record.state.value,
             "assessment_reasons": list(record.decision.reasons),
@@ -174,6 +182,15 @@ class RuntimePantheonConversationAssurance:
                     "results": {rubric.value: passed for rubric, passed in item.results},
                 }
                 for item in semantic_reviews
+            ],
+            "pantheon_evaluator_models": [
+                {
+                    "model_identity": model_identity,
+                    "model_family": model_family,
+                    "output_available": (model_identity, model_family)
+                    in available_evaluator_models,
+                }
+                for model_identity, model_family in self._coordinator.evaluator_models
             ],
             "pantheon_diagnostic": diagnostic.to_dict(),
             "execution_authority": False,

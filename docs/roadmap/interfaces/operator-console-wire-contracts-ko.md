@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 1e78fd0c4c8a28e790e4a7050bb61379546961f0
-translation_revised: 2026-09-17
+translation_source_sha: 9cfe64f84fdf2fc9f20a720192a2a67934d0b410
+translation_revised: 2026-09-19
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -44,6 +44,19 @@ translation_revised: 2026-09-17
   화면은 clean 유지).
 - Exit 코드: clean 세션 종료 시 `0`; 유효하지 않은 구성 시 `2`; 복구
   불가능한 채널 오류 시 `3`.
+
+#### Pantheon 품질 보증 귀속 확장
+
+Pantheon 품질 보증 terminal은 `answer_generation`과 `pantheon_evaluator_models`를 추가합니다.
+답변 생성은 모델 identity가 없는 `agent_projection` 또는 비어 있지 않은 모델 identity와 family를
+갖는 `t2_model`을 기록합니다. 평가기 목록은 구성된 검토자 identity와 family를 최대 3개까지
+포함하고 각 검토자가 해당 turn에 검증된 출력을 생성했는지를 함께 기록합니다. Operator는 terminal을
+전달하기 전에 이 필드를 검증합니다. 귀속 정보가 없는 과거 레코드는 `legacy_unattributed`로 읽으며,
+Operator는 digest, 배포 기본값 또는 현재 구성에서 모델을 추측하지 않습니다.
+
+로컬 캠페인 CLI는 이 귀속 정보와 범위가 제한된 질문 및 답변 내용을 소유자 전용 transcript에
+저장할 수 있습니다. 이 transcript는 진단 데이터이며 cross-service 계약, qualification 레코드,
+감사 항목 또는 권한 원본이 아닙니다.
 
 ### 13.3 Operator API 승인 콜백 (주 1)
 

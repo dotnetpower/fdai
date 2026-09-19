@@ -1458,10 +1458,14 @@ def _pantheon_assurance_payload(
         return None
     assessment_state = assurance.get("assessment_state")
     assessment_reasons = assurance.get("assessment_reasons")
+    answer_generation = assurance.get("answer_generation")
+    evaluator_models = assurance.get("pantheon_evaluator_models")
     if (
         assurance.get("schema_version") != "1.0.0"
         or not isinstance(assurance.get("answer"), str)
         or not assurance["answer"]
+        or not _valid_answer_generation(answer_generation)
+        or not _valid_evaluator_models(evaluator_models)
         or not isinstance(assurance.get("assessment_id"), str)
         or not isinstance(assurance.get("trace_receipt_id"), str)
         or not isinstance(assurance.get("pantheon_trace"), Mapping)
@@ -1480,6 +1484,48 @@ def _pantheon_assurance_payload(
     ):
         raise ValueError("Pantheon conversation assurance projection is malformed")
     return assurance
+
+
+def _valid_answer_generation(value: object) -> bool:
+    if value is None:
+        return True
+    if not isinstance(value, Mapping) or set(value) != {
+        "mode",
+        "model_identity",
+        "model_family",
+    }:
+        return False
+    mode = value.get("mode")
+    identity = value.get("model_identity")
+    family = value.get("model_family")
+    return mode in {"agent_projection", "t2_model"} and (
+        (identity is None and family is None and mode == "agent_projection")
+        or (
+            isinstance(identity, str)
+            and bool(identity.strip())
+            and isinstance(family, str)
+            and bool(family.strip())
+            and mode == "t2_model"
+        )
+    )
+
+
+def _valid_evaluator_models(value: object) -> bool:
+    return (
+        value is None
+        or isinstance(value, list)
+        and len(value) <= 3
+        and all(
+            isinstance(item, Mapping)
+            and set(item) == {"model_identity", "model_family", "output_available"}
+            and isinstance(item.get("model_identity"), str)
+            and bool(str(item["model_identity"]).strip())
+            and isinstance(item.get("model_family"), str)
+            and bool(str(item["model_family"]).strip())
+            and type(item.get("output_available")) is bool
+            for item in value
+        )
+    )
 
 
 def _proposal_digest(proposal: ConversationProposal) -> str:

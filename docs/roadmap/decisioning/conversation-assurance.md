@@ -44,6 +44,13 @@ The fixed census contains 230 balanced cases:
 Every measured turn binds the exact prompt-profile digest, content-free route, evidence,
 verification, T1/T2, complete request budget, metering, timing, and terminal-state data in one trace
 receipt. Private question and answer bodies remain outside tracked evidence.
+An explicitly started local campaign additionally writes `transcripts.jsonl` under the owner-only
+`.fdai/conversation-assurance/` directory. This private diagnostic record retains the bounded
+question, accepted terminal answer, source revision, answer-generation mode and model attribution,
+configured evaluator identities and families, output availability, assessment reasons, score, and
+verdict. A sensitivity finding omits the affected body and retains only its digest and omission
+reason. Transcript content never enters qualification, policy promotion, audit, or execution
+authority.
 Core also records schema-v2 timing across durable queue and Pantheon assurance phases. Operator
 returns the same phase list with trace latency, and a deferred assessment marks its phase degraded.
 A UUID-shaped deployment scope in an answer records `hidden_scope_leak` as a hard-zero violation;
@@ -66,7 +73,10 @@ uses the semantic deadline plus a bounded transport margin, requires strict UTF-
 final `done` event, and reduces transport or evaluator exceptions to content-free held reasons.
 Malformed bytes, duplicate terminals, and an error after a terminal cannot produce a passing case.
 The supervisor and direct CLI share one owner-only runner lock. The `report` command renders recent
-content-free evaluations without starting a campaign. For a complete census, it also reports one
+private transcripts when available and otherwise renders content-free evaluations without starting
+a campaign. `compare --baseline-case <id> --candidate-case <id>` compares two distinct retained
+cases by diagnostic score and verdict while returning both records for review. It cannot establish
+qualification or authorize a policy change. For a complete census, the report also includes one
 source-bound aggregate only after all 230 trace and diagnostic receipts join by digest and share a
 clean revision. Incomplete, duplicate, or mixed-revision evidence cannot produce qualification
 evidence. A lost T1 conclusion or any hard-zero safety escape stops automatic hardening and

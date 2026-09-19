@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 4ac0462cc8a681e06397df19aef799204e6a1d5b
+translation_source_sha: c763f8046f5b663f3500bec66e9c337a00d877a2
 translation_revised: 2026-09-19
 ---
 # 대화 품질 보증
@@ -46,6 +46,12 @@ Turn은 `27/30` 이상이면 통과하고, `24-26`이면 검토가 필요하며,
 측정된 모든 turn은 정확한 프롬프트 프로필 다이제스트, 콘텐츠 없는 라우팅, 근거, 검증,
 T1/T2, 전체 요청 예산, 계측, 지연 시간 및 최종 상태를 하나의 추적 증적에 연결합니다.
 비공개 질문과 답변 본문은 추적되는 근거에 포함하지 않습니다.
+명시적으로 시작한 로컬 캠페인은 소유자 전용 `.fdai/conversation-assurance/` 디렉터리의
+`transcripts.jsonl`에도 기록합니다. 이 비공개 진단 레코드는 범위가 제한된 질문, 승인된 최종
+답변, source revision, 답변 생성 mode와 모델 귀속, 구성된 평가 모델 identity와 family, 출력
+가용성, 평가 사유, 점수 및 verdict를 보존합니다. 민감도 발견이 있으면 해당 본문은 생략하고
+digest와 생략 사유만 보존합니다. Transcript 내용은 qualification, 정책 승격, 감사 또는 실행
+권한에 포함되지 않습니다.
 Core는 영속 큐와 Pantheon 품질 보증 단계 전체를 schema-v2 timing으로 기록합니다. Operator는
 추적 지연 시간과 같은 단계 목록을 반환하며 평가가 유예되면 해당 단계를 성능 저하로 표시합니다.
 답변에 UUID 형태의 배포 scope가 있으면 `hidden_scope_leak` hard-zero 위반을 기록합니다. 기존
@@ -69,7 +75,10 @@ Core는 영속 큐와 Pantheon 품질 보증 단계 전체를 schema-v2 timing�
 event 하나를 요구하며 전송 또는 평가기 예외를 내용이 없는 판단 보류 사유로 줄입니다. 잘못된 byte,
 중복 최종 결과, 최종 결과 뒤 오류는 통과 case를 만들 수 없습니다.
 Supervisor와 직접 CLI는 하나의 소유자 전용 실행기 잠금을 공유합니다. `report` 명령은 캠페인을
-시작하지 않고 최근의 콘텐츠가 없는 평가를 렌더링합니다. 전체 census에서는 230개 추적 및 진단
+시작하지 않고 최근 비공개 transcript가 있으면 이를 렌더링하며, 없으면 콘텐츠가 없는 평가를
+렌더링합니다. `compare --baseline-case <id> --candidate-case <id>`는 서로 다른 두 보존 사례의
+진단 점수와 verdict를 비교하고 검토할 두 레코드를 반환합니다. 이 비교는 qualification을
+수립하거나 정책 변경을 승인할 수 없습니다. 전체 census에서는 230개 추적 및 진단
 증적이 다이제스트로 연결되고 하나의 정리된 리비전을 공유한 뒤에만 출처가 연결된 집계를
 보고합니다. 불완전하거나 중복되거나 서로 다른 리비전이 섞인 근거로는 qualification 근거를
 생성할 수 없습니다. T1 결론이 손실되거나 하드 제로 안전성 이탈이 발생하면 자동 하드닝을
