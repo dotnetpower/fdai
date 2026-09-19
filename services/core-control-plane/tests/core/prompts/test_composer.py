@@ -421,6 +421,7 @@ async def test_conversation_preflight_prompt_stays_compact_and_authority_free() 
     assert [layer.id for layer in out.layer_manifest] == [
         "conversation-preflight",
         "conversation-preflight-resource-changes",
+        "conversation-preflight-schema-scope",
     ]
     assert out.system_token_budget is not None
     assert out.token_estimate <= out.system_token_budget
@@ -443,6 +444,33 @@ async def test_conversation_preflight_prompt_stays_compact_and_authority_free() 
     assert "prior context is unnecessary" in out.system_text
     assert "Core rechecks provenance, spans, confidence" in out.system_text
     assert "Fix every schema_repair error" in out.system_text
+
+
+@pytest.mark.asyncio
+async def test_preflight_schema_scope_treatment_preserves_general_knowledge_boundary() -> None:
+    repo_root = Path(__file__).resolve().parents[5]
+    registry = FileSystemPromptRegistry(repo_root / "rule-catalog")
+    composer = DefaultPromptComposer(registry=registry)
+
+    out = await composer.compose(
+        capability_id="conversation.preflight",
+        profile_id="shadow.conversation-preflight-schema-scope",
+    )
+
+    assert registry.get_base("conversation.preflight").version == 9
+    assert out.layer_manifest[0].version == 9
+    assert out.layer_manifest[-1].id == "conversation-preflight-schema-scope"
+    active = await composer.compose(capability_id="conversation.preflight")
+    assert active.system_text == out.system_text
+    assert "Server-scoped metadata requires operational evidence" in out.system_text
+    assert "principal-visible declarations" in out.system_text
+    assert "operational_family=none" in out.system_text
+    assert "Do not ask the user to supply server-owned policy or scope" in out.system_text
+    assert "Concept definitions remain general knowledge" in out.system_text
+    assert "knowledge_signal=none and general_answer=null" in out.system_text
+    assert "Include no approval, capability, evidence, or execution authority" in out.system_text
+    assert out.system_token_budget is not None
+    assert out.token_estimate <= out.system_token_budget
 
 
 @pytest.mark.asyncio
