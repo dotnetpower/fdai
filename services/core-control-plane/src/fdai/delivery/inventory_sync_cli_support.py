@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
 import math
 import re
 import ssl
 from collections.abc import Awaitable, Callable
+from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -56,7 +59,10 @@ from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
     PostgresKubernetesLifecycleConfig,
     PostgresKubernetesLifecycleStore,
 )
-from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
+from fdai.rule_catalog.schema.resource_type import (
+    ResourceTypeRegistry,
+    resource_type_mapping_digests,
+)
 from fdai.shared.providers.declarative_inventory import (
     DeclarativeInventory,
     DeclarativeInventoryConfig,
@@ -204,6 +210,26 @@ def build_sources(
     sources: list[InventorySource] = []
     for source_priority, source_name in enumerate(config.source_order):
         source_policy = config.snapshot_policy(source_name)
+        collection_configuration = {
+            "schema_version": "1.0.0",
+            "source": source_name,
+            "policy": asdict(source_policy),
+            "management_endpoint": config.management_endpoint,
+            "management_audience": config.management_audience,
+            "arg_requests_per_second": config.arg_requests_per_second,
+            "resource_type_mappings": dict(resource_type_mapping_digests(vocabulary)),
+            "declarative_sha256": config.declarative_sha256
+            if source_name == "declarative"
+            else None,
+        }
+        collection_configuration_digest = (
+            "sha256:"
+            + hashlib.sha256(
+                json.dumps(
+                    collection_configuration, sort_keys=True, separators=(",", ":"), allow_nan=False
+                ).encode()
+            ).hexdigest()
+        )
         concurrency = min(
             source_policy.global_concurrency_limit,
             source_policy.scope_concurrency_limit,
@@ -357,6 +383,7 @@ def build_sources(
                     observation_kind=observation_kind,
                     started_at=started_at,
                     metadata={
+                        "collection_configuration_digest": collection_configuration_digest,
                         "source_priority": source_priority,
                         "link_types": link_types,
                         "coverage_scope": (

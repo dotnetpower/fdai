@@ -31,6 +31,7 @@ from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentit
 from fdai.delivery.inventory_change_acceleration import (
     forward_recovery_deltas as _forward_recovery_deltas,
 )
+from fdai.delivery.inventory_collection import collection_context_digest
 from fdai.delivery.inventory_job_config import (
     InventoryJobConfig,
     inventory_scopes_from_env,
@@ -1543,6 +1544,127 @@ def test_resource_type_resolution_rejects_unknown_type() -> None:
 
     with pytest.raises(ValueError, match="unknown inventory resource types"):
         _resolve_resource_types(config, _vocabulary())
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "same",
+        "clock",
+        "order",
+        "endpoint",
+        "audience",
+        "rate",
+        "policy",
+        "mapping",
+        "version",
+        "kind",
+    ],
+)
+async def test_source_context_binds_effective_collection_configuration(
+    monkeypatch: pytest.MonkeyPatch, change: str
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {"FDAI_INVENTORY_DSN": "postgresql://example", "AZURE_SUBSCRIPTION_ID": "sub-1"}
+    )
+    vocabulary = _vocabulary()
+    identity = StaticWorkloadIdentity(
+        audience=config.management_audience,
+        token="synthetic",  # noqa: S106
+    )
+    started_at = datetime(2026, 1, 1, tzinfo=UTC)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_http_ok)) as client:
+
+        def build(configuration, registry, started):
+            return _build_sources(
+                config=configuration,
+                vocabulary=registry,
+                resource_types=("resource-group", "compute.vm"),
+                identity=identity,
+                http_client=client,
+                started_at=started,
+            )[0].manifest
+
+        original = build(config, vocabulary, started_at)
+        if change == "clock":
+            started_at = datetime(2026, 1, 2, tzinfo=UTC)
+        elif change == "order":
+            vocabulary = vocabulary.model_copy(update={"types": tuple(reversed(vocabulary.types))})
+        elif change == "endpoint":
+            config = replace(config, management_endpoint="https://example.com")
+        elif change == "audience":
+            config = replace(config, management_audience="https://example.com/.default")
+        elif change == "rate":
+            config = replace(config, arg_requests_per_second=config.arg_requests_per_second / 2)
+        elif change == "policy":
+            original_policy = InventoryJobConfig.snapshot_policy
+            monkeypatch.setattr(
+                InventoryJobConfig,
+                "snapshot_policy",
+                lambda instance, source: replace(
+                    original_policy(instance, source),
+                    max_requests_per_window=original_policy(
+                        instance, source
+                    ).max_requests_per_window
+                    + 1,
+                ),
+            )
+        elif change == "version":
+            vocabulary = vocabulary.model_copy(update={"version": "99.0.0"})
+        elif change in {"mapping", "kind"}:
+            update = (
+                {"azure_arm_type": "Microsoft.Example/widgets"}
+                if change == "mapping"
+                else {"azure_kind_tokens": ("example",)}
+            )
+            vocabulary = vocabulary.model_copy(
+                update={
+                    "types": tuple(
+                        entry.model_copy(update=update) if entry.id == "compute.vm" else entry
+                        for entry in vocabulary
+                    )
+                }
+            )
+        modified = build(config, vocabulary, started_at)
+    unchanged = change in {"same", "clock", "order"}
+    assert (collection_context_digest(original) == collection_context_digest(modified)) is unchanged
+    assert "management_endpoint" not in modified.metadata
+    assert "management_audience" not in modified.metadata
+    assert modified.metadata["collection_configuration_digest"].startswith("sha256:")
+
+
+async def test_declarative_source_context_binds_verified_fixture_content(tmp_path: Path) -> None:
+    fixture = tmp_path / "inventory.yaml"
+    fixture.write_text("resources: []\nlinks: []\n", encoding="utf-8")
+    config = replace(
+        InventoryJobConfig.from_env(
+            {"FDAI_INVENTORY_DSN": "postgresql://example", "AZURE_SUBSCRIPTION_ID": "sub-1"}
+        ),
+        source_order=("declarative",),
+        declarative_path=fixture,
+        declarative_sha256=hashlib.sha256(fixture.read_bytes()).hexdigest(),
+    )
+    vocabulary = _vocabulary()
+    identity = StaticWorkloadIdentity(audience=config.management_audience, token="synthetic")  # noqa: S106
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_http_ok)) as client:
+        arguments = dict(
+            vocabulary=vocabulary,
+            resource_types=("resource-group", "compute.vm"),
+            identity=identity,
+            http_client=client,
+            started_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        original = _build_sources(config=config, **arguments)[0].manifest
+        fixture.write_text("resources: []\nlinks: []\n# changed revision\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="does not match"):
+            _build_sources(config=config, **arguments)
+        updated = _build_sources(
+            config=replace(
+                config, declarative_sha256=hashlib.sha256(fixture.read_bytes()).hexdigest()
+            ),
+            **arguments,
+        )[0].manifest
+    assert collection_context_digest(original) != collection_context_digest(updated)
 
 
 async def test_source_builder_preserves_order_and_fallback_coverage() -> None:
