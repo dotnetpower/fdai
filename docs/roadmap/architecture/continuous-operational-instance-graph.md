@@ -334,7 +334,17 @@ the same identity is a conflict. Source exhaustion and exact coverage, never an 
 storage bucket, authorize absence. Expired continuation requires a new source attempt.
 ARG now normalizes each validated page before requesting the next page. Its row-consumer path
 does not retain prior raw rows, but normalized generation retention remains bounded and durable
-chunk/checkpoint resume is still separate implementation work.
+provider continuation remains separate implementation work.
+The coordinator now stages Resource-only chunks through the existing PostgreSQL candidate writer.
+Each chunk is at most 1 MiB and 1,000 Resources; its immutable body, digest, and continuation
+checkpoint commit with the candidate rows. The source, scopes, types, and collection metadata bind
+the context digest. Repeated identical chunks are no-ops, while gaps, changed content, and conflicting
+Resources across chunks fail closed. Readback verifies the complete ordered digest chain one chunk
+at a time without emitting a final source fence. Calls have a 30-second deadline and cannot resume
+an attempt outside its existing 30-minute collecting lifetime. A cursor advances only on the last
+chunk of a split batch. These receipts do not authorize promotion, deletion, scope changes, or
+automatic provider restart; relationship and final-coverage replay remain required before that path
+can be connected. Normalized chunk storage is private and requires prior environment redaction.
 
 Preparation follows `collecting -> sealed -> verified -> prepared`; only the existing projection
 owner can publish `committed`. Immutable chunk manifests bind exact scope, ownership epoch,

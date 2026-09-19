@@ -129,6 +129,38 @@ def _source(name: str, inventory: Any) -> InventorySource:
     )
 
 
+async def test_coordinator_stages_resources_through_chunk_capable_store() -> None:
+    from fdai.delivery.inventory_collection import collection_context_digest, resource_chunk
+
+    class ChunkStore(_Store):
+        receipts: list[dict[str, Any]] = []
+
+        async def stage_chunk(self, attempt_id, batch, **kwargs):
+            receipt = resource_chunk(attempt_id=attempt_id, batch=batch, **kwargs)
+            self.receipts.append(receipt)
+            await self.stage(attempt_id, batch)
+            return receipt
+
+    store = ChunkStore()
+    resources = tuple(ResourceRecord(f"resource-{index}", "compute.vm") for index in range(1001))
+    source = _source(
+        "example",
+        _Inventory(
+            [
+                InventoryBatch(resources=resources, cursor="next-page"),
+                InventoryBatch(final=True),
+            ]
+        ),
+    )
+    await InventorySyncCoordinator(store=store).run((source,))
+    assert len(store.receipts) == 2
+    assert store.receipts[0]["context_digest"] == collection_context_digest(source.manifest)
+    assert store.receipts[1]["previous_digest"] == store.receipts[0]["digest"]
+    assert store.receipts[0]["cursor"] is None
+    assert store.receipts[1]["cursor"] == "next-page"
+    assert store.promoted == ["attempt-1"]
+
+
 async def test_unverified_relationships_never_enter_the_promoted_snapshot() -> None:
     store = _Store()
     source = _source(

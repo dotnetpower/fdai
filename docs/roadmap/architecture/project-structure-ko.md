@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ca899b0e5d82233c9583f26535cc2e52032d71d8
+translation_source_sha: 283b5f47290e42cf90e66e5887e6f5dc3e570d06
 translation_revised: 2026-09-20
 ---
 # 프로젝트 구조
@@ -51,6 +51,12 @@ checkpoint부터 재개합니다.
 인벤토리는 전송 버퍼와 별도로 보존하는 정규 세대 레코드의 바이트도 제한합니다. PostgreSQL 공개 모듈은 기존 트랜잭션과 잠금 안에서 `postgres_ontology_replacement.py`에 일괄 교체를 위임하며 도우미에 독립적인 쓰기 권한을 주지 않습니다. 부작용 없는 저널 인자 변환과 관측 상태 검증은 기존 레코드 모듈에 유지하며 기존 가져오기 경로와 근거 의미를 보존합니다.
 
 ## Core 도메인 탐색 결정
+
+Resource 수집 청크의 인코딩은 `delivery/inventory_collection.py`에 둡니다. 기존 스냅샷 공개
+모듈은 원자적 청크 및 재개 지점 저장과 제한된 재생을
+`delivery/persistence/postgres_inventory_chunks.py`에 위임하며 두 경로는 지원 모듈의 후보
+배치 작성기를 재사용합니다. 이 도우미는 승격을 소유하거나 공급자 연속 조회의 권한을 부여하지
+않습니다.
 
 **초기 설계.** 모든 평면 Core 하위 시스템을 `pipeline`, `incident`, `operator`, `knowledge`
 또는 `platform` 아래로 실제 이동한 뒤 한 번의 코드 변경 도구로 모든 가져오기를 다시 작성합니다.

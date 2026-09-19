@@ -17,6 +17,7 @@ from fdai_service_contracts.recorded_resource_state import (
     STATE_FACT_UNAVAILABLE_REASONS_PROPERTY,
 )
 
+from fdai.delivery.inventory_collection import collection_context_digest, resource_chunk_batches
 from fdai.delivery.inventory_relationship_verifier import verify_inventory_relationships
 from fdai.delivery.inventory_sync_models import (
     InventoryProjectionSourceState as InventoryProjectionSourceState,
@@ -177,6 +178,7 @@ class InventorySyncCoordinator:
                     attempt_id,
                     cast(Inventory, source.inventory).full_snapshot(),
                     observed,
+                    context_digest=collection_context_digest(source.manifest),
                 )
                 promoted_observation = observed.result(
                     generation=attempt_id,
@@ -311,11 +313,16 @@ class InventorySyncCoordinator:
         attempt_id: str,
         stream: AsyncIterator[InventoryBatch],
         observed: _ObservationAccumulator,
+        *,
+        context_digest: str | None = None,
     ) -> tuple[datetime, ProviderScopeCoverage | None]:
         """Stage one source under a re-arming progress deadline and hard ceiling."""
 
         saw_final = False
         provider_scope_coverage: ProviderScopeCoverage | None = None
+        chunk_sequence = 0
+        previous_chunk_digest: str | None = None
+        stage_chunk = getattr(self._store, "stage_chunk", None)
         loop = asyncio.get_running_loop()
         ceiling_at = loop.time() + self._attempt_deadline_seconds
 
@@ -337,13 +344,22 @@ class InventorySyncCoordinator:
                     if batch.resources or batch.links or batch.relationship_drops:
                         observed.add(batch)
                     if batch.resources:
-                        await self._store.stage(
-                            attempt_id,
-                            InventoryBatch(
-                                resources=batch.resources,
-                                cursor=batch.cursor,
-                            ),
-                        )
+                        if callable(stage_chunk) and context_digest is not None:
+                            for chunk_batch in resource_chunk_batches(batch):
+                                receipt = await stage_chunk(
+                                    attempt_id,
+                                    chunk_batch,
+                                    context_digest=context_digest,
+                                    sequence=chunk_sequence,
+                                    previous_digest=previous_chunk_digest,
+                                )
+                                previous_chunk_digest = receipt["digest"]
+                                chunk_sequence += 1
+                        else:
+                            await self._store.stage(
+                                attempt_id,
+                                InventoryBatch(resources=batch.resources, cursor=batch.cursor),
+                            )
         except TimeoutError as exc:
             reason = "absolute ceiling" if loop.time() >= ceiling_at else "no-progress deadline"
             raise InventoryStreamError(f"inventory source exceeded its {reason}") from exc

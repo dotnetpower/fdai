@@ -260,6 +260,9 @@ objects in PostgreSQL. The [operational graph's capacity contract](../architectu
 and signed collection policy constrain collection; this is not a disk-backed unlimited stream.
 If the full subscription cannot fit those bounds, planning requires a reviewed partition strategy
 before scanning and never silently narrows the declared scope.
+Resource staging now atomically retains bounded immutable chunks and their context-bound
+checkpoints. Their replay restores candidate data only; a resumed provider stream still needs
+independent continuation validity, relationship evidence, and final scope coverage before closure.
 
 The inventory identity receives only read roles on the declared subscription and write access to
 its private staging and event surfaces. RBAC propagation is explicitly observed before collection.

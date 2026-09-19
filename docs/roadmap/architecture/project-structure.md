@@ -50,6 +50,11 @@ Inventory also bounds retained normalized generation bytes independently from tr
 
 ## Core domain navigation decision
 
+Resource collection chunk encoding lives in `delivery/inventory_collection.py`. The existing
+snapshot facade delegates atomic chunk/checkpoint persistence and bounded replay to
+`delivery/persistence/postgres_inventory_chunks.py`; both paths reuse the support-owned candidate
+batch writer. These helpers neither own promotion nor grant provider continuation authority.
+
 **Initial design.** Physically move every flat Core subsystem under `pipeline`, `incident`,
 `operator`, `knowledge`, or `platform`, then rewrite every import in one codemod.
 

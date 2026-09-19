@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: ce796411bf429e74305c976bc48e5df8b4de01a9
+translation_source_sha: 7351132ef047dedb7c1c6bdc70894e49f2a0dfe6
 translation_revised: 2026-09-20
 ---
 # 구독 초기 구성 보증
@@ -259,6 +259,9 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 보존합니다. [운영 그래프의 용량 계약](../architecture/continuous-operational-instance-graph-ko.md#저장-처리-한도)과
 서명된 수집 정책이 수집을 제한하며 디스크 기반의 무제한 스트림은 아닙니다. 전체 구독이 이
 한도에 맞지 않으면 스캔 전에 검토된 분할 전략이 필요하고 선언된 범위를 조용히 줄이지 않습니다.
+Resource 준비 단계는 한도가 있는 불변 청크와 맥락에 결속된 재개 지점을 원자적으로 보존합니다.
+청크 재생은 후보 데이터만 복원합니다. 공급자 스트림을 재개해 완료하려면 연속 조회의 유효성,
+관계 근거 및 최종 범위 커버리지를 별도로 검증해야 합니다.
 
 인벤토리 신원은 선언된 구독의 읽기 역할과 비공개 준비 및 이벤트 표면의 쓰기 권한만 받습니다.
 수집 전에 RBAC 전파를 명시적으로 관측합니다. 비공개 AKS 또는 다른 자식 원본은 엔드포인트,

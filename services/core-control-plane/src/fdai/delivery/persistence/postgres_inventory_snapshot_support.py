@@ -8,8 +8,9 @@ from typing import Any, Protocol
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
-from fdai.shared.providers.inventory import LinkRecord
+from fdai.shared.providers.inventory import InventoryBatch, LinkRecord
 from fdai.shared.providers.state_evidence import LINK_OBSERVATION_METADATA_PROPERTY
 
 
@@ -73,6 +74,81 @@ async def read_inventory_context(
         "resource_type": str(row["resource_type"]),
         "props": dict(props) if isinstance(props, Mapping) else {},
     }
+
+
+async def stage_snapshot_batch(
+    connection: psycopg.AsyncConnection[Any],
+    *,
+    attempt_id: str,
+    batch: InventoryBatch,
+    write_batch_size: int,
+    immutable_resources: bool = False,
+) -> None:
+    """Write candidate rows under the caller's collecting-attempt lock and transaction."""
+    for offset in range(0, len(batch.resources), write_batch_size):
+        rows = [
+            {
+                "snapshot_id": attempt_id,
+                "resource_id": item.resource_id,
+                "resource_type": item.type,
+                "props": json.loads(canonical_json_mapping(item.props, "snapshot resource props")),
+                "provider_ref": item.provider_ref,
+                "last_seen": item.last_seen,
+            }
+            for item in batch.resources[offset : offset + write_batch_size]
+        ]
+        cursor = await connection.execute(
+            "INSERT INTO inventory_snapshot_resource "
+            "(snapshot_id, resource_id, resource_type, props, provider_ref, last_seen) "
+            "SELECT item.snapshot_id, item.resource_id, item.resource_type, "
+            "item.props, item.provider_ref, item.last_seen "
+            "FROM jsonb_to_recordset(%s::jsonb) AS item("
+            "snapshot_id text, resource_id text, resource_type text, props jsonb, "
+            "provider_ref text, last_seen timestamptz) "
+            "ON CONFLICT (snapshot_id, resource_id) DO UPDATE SET "
+            "resource_type = CASE WHEN inventory_snapshot_resource.resource_type = "
+            "EXCLUDED.resource_type THEN EXCLUDED.resource_type ELSE NULL END, "
+            "props = EXCLUDED.props, provider_ref = EXCLUDED.provider_ref, "
+            "last_seen = EXCLUDED.last_seen "
+            "WHERE NOT %s OR (inventory_snapshot_resource.resource_type=EXCLUDED.resource_type "
+            "AND inventory_snapshot_resource.props=EXCLUDED.props "
+            "AND inventory_snapshot_resource.provider_ref "
+            "IS NOT DISTINCT FROM EXCLUDED.provider_ref "
+            "AND inventory_snapshot_resource.last_seen IS NOT DISTINCT FROM EXCLUDED.last_seen)",
+            (Jsonb(rows), immutable_resources),
+        )
+        if immutable_resources and cursor.rowcount != len(rows):
+            raise ValueError("inventory resource changed across immutable collection chunks")
+    for offset in range(0, len(batch.links), write_batch_size):
+        rows = [
+            {
+                "snapshot_id": attempt_id,
+                "from_id": item.from_id,
+                "from_type": item.from_type,
+                "link_type": item.link_type,
+                "to_id": item.to_id,
+                "to_type": item.to_type,
+                "props": json.loads(
+                    canonical_json_mapping(
+                        snapshot_relationship_props(item), "snapshot relationship props"
+                    )
+                ),
+            }
+            for item in batch.links[offset : offset + write_batch_size]
+        ]
+        await connection.execute(
+            "INSERT INTO inventory_snapshot_link "
+            "(snapshot_id, from_id, from_type, link_type, to_id, to_type, props) "
+            "SELECT item.snapshot_id, item.from_id, item.from_type, item.link_type, "
+            "item.to_id, item.to_type, item.props "
+            "FROM jsonb_to_recordset(%s::jsonb) AS item("
+            "snapshot_id text, from_id text, from_type text, link_type text, "
+            "to_id text, to_type text, props jsonb) "
+            "ON CONFLICT (snapshot_id, from_id, link_type, to_id) DO UPDATE SET "
+            "from_type = EXCLUDED.from_type, to_type = EXCLUDED.to_type, "
+            "props = EXCLUDED.props",
+            (Jsonb(rows),),
+        )
 
 
 def canonical_json_mapping(value: object, field: str) -> str:

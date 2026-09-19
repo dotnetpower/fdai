@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Final
@@ -12,9 +13,15 @@ from uuid import uuid4
 import psycopg
 from psycopg import IsolationLevel
 from psycopg.rows import dict_row
-from psycopg.types.json import Jsonb
 
 from fdai.core.views.architecture_graph import project_architecture_graph
+from fdai.delivery.persistence.postgres_inventory_chunks import (
+    commit_resource_chunk,
+    load_checkpoint,
+    replay_snapshot_chunks,
+    require_collection_context,
+    resource_chunk,
+)
 from fdai.delivery.persistence.postgres_inventory_graph import load_rooted_inventory_graph
 from fdai.delivery.persistence.postgres_inventory_graph_helpers import (
     _annotate_operating_scope,
@@ -28,6 +35,7 @@ from fdai.delivery.persistence.postgres_inventory_snapshot_support import (
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot_support import (
     read_inventory_context,
+    stage_snapshot_batch,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot_support import (
     snapshot_relationship_props as _snapshot_relationship_props,
@@ -136,66 +144,70 @@ class PostgresInventorySnapshotStore:
             async with connection.transaction():
                 await self._set_timeout(connection)
                 await self._require_collecting(connection, attempt_id)
-                for offset in range(0, len(batch.resources), self._config.write_batch_size):
-                    resource_rows = [
-                        {
-                            "snapshot_id": attempt_id,
-                            "resource_id": item.resource_id,
-                            "resource_type": item.type,
-                            "props": json.loads(
-                                _canonical_json_mapping(item.props, "snapshot resource props")
-                            ),
-                            "provider_ref": item.provider_ref,
-                            "last_seen": item.last_seen,
-                        }
-                        for item in batch.resources[offset : offset + self._config.write_batch_size]
-                    ]
-                    await connection.execute(
-                        "INSERT INTO inventory_snapshot_resource "
-                        "(snapshot_id, resource_id, resource_type, props, provider_ref, last_seen) "
-                        "SELECT item.snapshot_id, item.resource_id, item.resource_type, "
-                        "item.props, item.provider_ref, item.last_seen "
-                        "FROM jsonb_to_recordset(%s::jsonb) AS item("
-                        "snapshot_id text, resource_id text, resource_type text, props jsonb, "
-                        "provider_ref text, last_seen timestamptz) "
-                        "ON CONFLICT (snapshot_id, resource_id) DO UPDATE SET "
-                        "resource_type = CASE WHEN inventory_snapshot_resource.resource_type = "
-                        "EXCLUDED.resource_type THEN EXCLUDED.resource_type ELSE NULL END, "
-                        "props = EXCLUDED.props, provider_ref = EXCLUDED.provider_ref, "
-                        "last_seen = EXCLUDED.last_seen",
-                        (Jsonb(resource_rows),),
-                    )
-                for offset in range(0, len(batch.links), self._config.write_batch_size):
-                    link_rows = [
-                        {
-                            "snapshot_id": attempt_id,
-                            "from_id": item.from_id,
-                            "from_type": item.from_type,
-                            "link_type": item.link_type,
-                            "to_id": item.to_id,
-                            "to_type": item.to_type,
-                            "props": json.loads(
-                                _canonical_json_mapping(
-                                    _snapshot_relationship_props(item),
-                                    "snapshot relationship props",
-                                )
-                            ),
-                        }
-                        for item in batch.links[offset : offset + self._config.write_batch_size]
-                    ]
-                    await connection.execute(
-                        "INSERT INTO inventory_snapshot_link "
-                        "(snapshot_id, from_id, from_type, link_type, to_id, to_type, props) "
-                        "SELECT item.snapshot_id, item.from_id, item.from_type, item.link_type, "
-                        "item.to_id, item.to_type, item.props "
-                        "FROM jsonb_to_recordset(%s::jsonb) AS item("
-                        "snapshot_id text, from_id text, from_type text, link_type text, "
-                        "to_id text, to_type text, props jsonb) "
-                        "ON CONFLICT (snapshot_id, from_id, link_type, to_id) DO UPDATE SET "
-                        "from_type = EXCLUDED.from_type, to_type = EXCLUDED.to_type, "
-                        "props = EXCLUDED.props",
-                        (Jsonb(link_rows),),
-                    )
+                await stage_snapshot_batch(
+                    connection,
+                    attempt_id=attempt_id,
+                    batch=batch,
+                    write_batch_size=self._config.write_batch_size,
+                )
+
+    async def stage_chunk(
+        self,
+        attempt_id: str,
+        batch: InventoryBatch,
+        *,
+        context_digest: str,
+        sequence: int,
+        previous_digest: str | None,
+    ) -> Mapping[str, Any]:
+        """Atomically persist a resource chunk and its exact continuation checkpoint."""
+        chunk = resource_chunk(
+            attempt_id=attempt_id,
+            context_digest=context_digest,
+            sequence=sequence,
+            previous_digest=previous_digest,
+            batch=batch,
+        )
+        frozen_batch = InventoryBatch(
+            resources=tuple(ResourceRecord(**item) for item in chunk["resources"]),
+            cursor=chunk["cursor"],
+        )
+        async with asyncio.timeout(30), await self._connect() as connection:
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                await self._require_collecting(connection, attempt_id)
+                await require_collection_context(connection, attempt_id, context_digest)
+                return await commit_resource_chunk(
+                    connection,
+                    chunk=chunk,
+                    write_resources=lambda: stage_snapshot_batch(
+                        connection,
+                        attempt_id=attempt_id,
+                        batch=frozen_batch,
+                        write_batch_size=self._config.write_batch_size,
+                        immutable_resources=True,
+                    ),
+                )
+
+    async def read_chunk_checkpoint(
+        self,
+        attempt_id: str,
+        *,
+        context_digest: str,
+    ) -> Mapping[str, Any] | None:
+        return await load_checkpoint(self._config, attempt_id, context_digest=context_digest)
+
+    async def replay_chunks(
+        self,
+        attempt_id: str,
+        *,
+        context_digest: str,
+    ) -> AsyncIterator[InventoryBatch]:
+        """Read bounded immutable resource chunks; these never assert a complete source fence."""
+        async for batch in replay_snapshot_chunks(
+            self._config, attempt_id, context_digest=context_digest
+        ):
+            yield batch
 
     async def promote(self, attempt_id: str, manifest: InventoryCoverageManifest) -> None:
         completed = manifest.completed_at or datetime.now(tz=UTC)
@@ -779,6 +791,7 @@ class PostgresInventoryContextProvider:
 
 
 __all__ = [
+    "_snapshot_relationship_props",
     "PostgresInventoryAgeProvider",
     "PostgresInventoryContextProvider",
     "PostgresInventoryGraphProvider",
