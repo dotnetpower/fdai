@@ -12,6 +12,7 @@ from uuid import uuid4
 import psycopg
 from psycopg import IsolationLevel
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
 from fdai.core.views.architecture_graph import project_architecture_graph
 from fdai.delivery.persistence.postgres_inventory_graph import load_rooted_inventory_graph
@@ -135,65 +136,66 @@ class PostgresInventorySnapshotStore:
             async with connection.transaction():
                 await self._set_timeout(connection)
                 await self._require_collecting(connection, attempt_id)
-                cursor = connection.cursor()
                 for offset in range(0, len(batch.resources), self._config.write_batch_size):
                     resource_rows = [
-                        (
-                            attempt_id,
-                            item.resource_id,
-                            item.type,
-                            _canonical_json_mapping(item.props, "snapshot resource props"),
-                            item.provider_ref,
-                            item.last_seen,
-                        )
+                        {
+                            "snapshot_id": attempt_id,
+                            "resource_id": item.resource_id,
+                            "resource_type": item.type,
+                            "props": json.loads(
+                                _canonical_json_mapping(item.props, "snapshot resource props")
+                            ),
+                            "provider_ref": item.provider_ref,
+                            "last_seen": item.last_seen,
+                        }
                         for item in batch.resources[offset : offset + self._config.write_batch_size]
                     ]
-                    await self._executemany(
-                        cursor,
+                    await connection.execute(
                         "INSERT INTO inventory_snapshot_resource "
                         "(snapshot_id, resource_id, resource_type, props, provider_ref, last_seen) "
-                        "VALUES (%s, %s, %s, %s::jsonb, %s, %s) "
+                        "SELECT item.snapshot_id, item.resource_id, item.resource_type, "
+                        "item.props, item.provider_ref, item.last_seen "
+                        "FROM jsonb_to_recordset(%s::jsonb) AS item("
+                        "snapshot_id text, resource_id text, resource_type text, props jsonb, "
+                        "provider_ref text, last_seen timestamptz) "
                         "ON CONFLICT (snapshot_id, resource_id) DO UPDATE SET "
                         "resource_type = CASE WHEN inventory_snapshot_resource.resource_type = "
                         "EXCLUDED.resource_type THEN EXCLUDED.resource_type ELSE NULL END, "
                         "props = EXCLUDED.props, provider_ref = EXCLUDED.provider_ref, "
                         "last_seen = EXCLUDED.last_seen",
-                        resource_rows,
+                        (Jsonb(resource_rows),),
                     )
                 for offset in range(0, len(batch.links), self._config.write_batch_size):
                     link_rows = [
-                        (
-                            attempt_id,
-                            item.from_id,
-                            item.from_type,
-                            item.link_type,
-                            item.to_id,
-                            item.to_type,
-                            _canonical_json_mapping(
-                                _snapshot_relationship_props(item),
-                                "snapshot relationship props",
+                        {
+                            "snapshot_id": attempt_id,
+                            "from_id": item.from_id,
+                            "from_type": item.from_type,
+                            "link_type": item.link_type,
+                            "to_id": item.to_id,
+                            "to_type": item.to_type,
+                            "props": json.loads(
+                                _canonical_json_mapping(
+                                    _snapshot_relationship_props(item),
+                                    "snapshot relationship props",
+                                )
                             ),
-                        )
+                        }
                         for item in batch.links[offset : offset + self._config.write_batch_size]
                     ]
-                    await self._executemany(
-                        cursor,
+                    await connection.execute(
                         "INSERT INTO inventory_snapshot_link "
                         "(snapshot_id, from_id, from_type, link_type, to_id, to_type, props) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb) "
+                        "SELECT item.snapshot_id, item.from_id, item.from_type, item.link_type, "
+                        "item.to_id, item.to_type, item.props "
+                        "FROM jsonb_to_recordset(%s::jsonb) AS item("
+                        "snapshot_id text, from_id text, from_type text, link_type text, "
+                        "to_id text, to_type text, props jsonb) "
                         "ON CONFLICT (snapshot_id, from_id, link_type, to_id) DO UPDATE SET "
                         "from_type = EXCLUDED.from_type, to_type = EXCLUDED.to_type, "
                         "props = EXCLUDED.props",
-                        link_rows,
+                        (Jsonb(link_rows),),
                     )
-
-    async def _executemany(
-        self,
-        cursor: psycopg.AsyncCursor[Any],
-        query: str,
-        rows: list[tuple[Any, ...]],
-    ) -> None:
-        await cursor.executemany(query, rows)
 
     async def promote(self, attempt_id: str, manifest: InventoryCoverageManifest) -> None:
         completed = manifest.completed_at or datetime.now(tz=UTC)

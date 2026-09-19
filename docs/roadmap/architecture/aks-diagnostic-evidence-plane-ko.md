@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: f06d390953e50b8df5ee436ab02ca39c231131a8
+translation_source_sha: c820d892edad4ab6ec1572669e75d74330c718b5
 translation_revised: 2026-09-20
 ---
 # AKS 진단 근거 플레인
@@ -117,6 +117,9 @@ DNS, 라우팅, API 허용 범위, 비활성 Microsoft Entra 통합, 지원하�
 양성 근거를 지우지는 않지만, 필요한 모든 연결이 최신이고 완전하기 전까지 fleet 완전성은
 거짓입니다. 출처 상태 키는 `(source, scope_digest)`이므로 한 클러스터가 다른 클러스터의 사용
 불가 사유를 덮어쓸 수 없습니다.
+한 세대에 여러 사용 불가 scope 보강기가 실행되면 각 scope 상태는 영속적으로 유지하되 프로세스는
+세대 수준 경고 하나만 내보냅니다. 현재 사전 점검 근거가 없는 구독 검색은 관측 배포 제안을
+`needs_evidence`로 유지하며 source binding을 만들거나 private cluster 접근 제어를 약화하지 않습니다.
 각 관계 변환은 프로바이더 리소스와 클러스터 하나의 API 객체만 결합합니다. 앞선 fleet 연결에서
 수락한 객체나 관계를 다시 변환하지 않습니다.
 영속 저장소와 운영자 변환 결과는 `(source, scope_digest)`별로 개수가 제한된 fleet 상태를

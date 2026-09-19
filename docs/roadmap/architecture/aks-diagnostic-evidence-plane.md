@@ -120,6 +120,10 @@ Collection isolates failures by cluster. One unavailable cluster does not erase 
 evidence from another cluster, but fleet completeness remains false until every required binding
 is current and complete. Source-state keys are `(source, scope_digest)`, so one cluster cannot
 overwrite another cluster's unavailable reason.
+When several unavailable scope enrichers run for one generation, each scope state remains durable
+while the process emits one generation-level warning. Subscription discovery without current
+preflight evidence keeps the observer proposal at `needs_evidence`; it does not create a source
+binding or weaken private-cluster access controls.
 Each relationship projection combines provider resources with one cluster's API objects. It does
 not re-project objects or links accepted from an earlier fleet binding.
 Persistence and operator projections retain the bounded fleet states by `(source, scope_digest)`.

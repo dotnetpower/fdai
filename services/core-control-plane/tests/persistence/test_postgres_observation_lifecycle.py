@@ -90,8 +90,9 @@ class _Connection:
 class _BoundConnection(_Connection):
     async def execute(self, query: str, params: object = None) -> _Cursor:
         self.executions.append((query, params))
-        if "SELECT 1 AS present FROM inventory_observation_lifecycle_binding" in query:
-            return _Cursor([{"present": 1}])
+        if "SELECT observation_id FROM inventory_observation_lifecycle_binding" in query:
+            assert isinstance(params, tuple)
+            return _Cursor([{"observation_id": value} for value in params[0]])
         raise AssertionError("retained binding replay MUST NOT recompute lifecycle state")
 
 
@@ -107,9 +108,9 @@ async def test_retained_binding_replay_does_not_reclassify_late_observations() -
     assert replayed == frozenset({observation.observation_id})
     assert connection.executions == [
         (
-            "SELECT 1 AS present FROM inventory_observation_lifecycle_binding "
-            "WHERE observation_id=%s",
-            (observation.observation_id,),
+            "SELECT observation_id FROM inventory_observation_lifecycle_binding "
+            "WHERE observation_id=ANY(%s::text[])",
+            ([observation.observation_id],),
         )
     ]
 

@@ -24,7 +24,7 @@ def test_refresh_binds_projection_to_loaded_ontology_release() -> None:
     assert "ontology_release_digest=ontology.build_release().digest" in source
     assert "resource_type_mappings=resource_type_mapping_digests(resource_types)" in source
     assert "build_inventory_promotion_enricher(" in source
-    assert "promotion_enricher=effective_enricher" in source
+    assert "promotion_enricher=_TimedPromotionEnricher(effective_enricher)" in source
     assert "UnavailableKubernetesInventoryEnricher" not in source
     assert "AsyncAzureCliWorkloadIdentity.from_env()" in source
     assert "class AsyncAzureCliIdentity" not in source
@@ -41,6 +41,15 @@ def test_refresh_binds_projection_to_loaded_ontology_release() -> None:
     assert "active_scope_watermark = journal_append.active_scope_projection_watermark" in source
     assert "active_scope_projection_watermark=active_scope_watermark" in source
     assert "active_scope_refs=journal_append.active_scope_refs" in source
+    assert '_emit_duration("enricher-binding", binding_started_at)' in source
+    assert '_emit_duration("enrichment", started_at)' in source
+    assert '_emit_duration("collection-promotion", collection_started_at)' in source
+    assert '_emit_duration("journal-append", journal_started_at)' in source
+    assert '_emit_duration("graph-projection", graph_started_at)' in source
+    assert '_emit_duration("projection-activity", activity_started_at)' in source
+    assert '_emit_duration("ontology-projection", projection_started_at)' in source
+    assert '_emit_duration("operator-projection", operator_projection_started_at)' in source
+    assert '_emit_duration("total", refresh_started_at)' in source
 
 
 def test_refresh_keeps_provider_clients_open_through_inventory_promotion() -> None:

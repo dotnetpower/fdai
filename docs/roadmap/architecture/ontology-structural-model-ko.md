@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 0a13bef810b91d8a6eb445279f49f4b051b69825
+translation_source_sha: ef689618b9e3dfd020af9f4dd9c5dbedab25f506
 translation_revised: 2026-09-20
 ---
 # 온톨로지 구조 모델
@@ -187,6 +187,9 @@ API endpoint, CA 묶음 또는 마운트된 service-account token이 구성되�
 PostgreSQL 인스턴스 저장소 파사드는 순수 행 및 인벤토리 매니페스트 검증을 records 모듈에
 위임합니다. 따라서 트랜잭션, 저장 방향, 쿼리 동작 또는 import 호환성을 바꾸지 않고 persistence
 경계를 강제 크기 제한 아래로 유지합니다.
+Snapshot 행과 불변 관찰 수명 주기 행은 범위가 제한된 PostgreSQL 집합 쓰기를 사용할 수 있습니다.
+Writer는 하나의 트랜잭션, 활성 세대 fence, 충돌 동작 및 보존 내용 replay 검사를 유지합니다.
+Batching은 데이터베이스 왕복만 바꾸며 그래프나 근거 의미는 바꾸지 않습니다.
 
 인스턴스 화면은 다른 온톨로지 아이덴티티를 만들지 않고 ResourceType별 읽기 전용 상세 객체를
 연결할 수 있습니다. `llm-model-deployment`에서 Operator 변환 결과는 해당 객체를 정확한

@@ -174,6 +174,9 @@ Catalog declarations remain meaning only and never grant observation or executio
 The PostgreSQL instance-store facade delegates pure row and inventory-manifest validation to its
 records module so the persistence boundary remains below its enforced size limit without changing
 transactions, stored direction, query behavior, or import compatibility.
+Snapshot rows and immutable observation lifecycle rows may use bounded set-based PostgreSQL writes.
+The writer retains one transaction, the active-generation fence, conflict behavior, and retained
+content replay checks; batching changes database round trips, not graph or evidence semantics.
 
 An instance presentation can attach a ResourceType-specific read-only detail object without
 creating another ontology identity. For `llm-model-deployment`, the Operator projection binds that
