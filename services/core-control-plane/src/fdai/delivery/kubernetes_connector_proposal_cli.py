@@ -18,6 +18,7 @@ from fdai_service_contracts.observer_deployment import (
 from fdai.delivery.kubernetes_connector_planning import propose_observer_deployment
 from fdai.delivery.kubernetes_connector_preflight_runtime import (
     build_observer_constraints,
+    collect_admission_preflight,
     collect_read_preflight,
     retain_preflight_file,
 )
@@ -62,13 +63,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     retain.add_argument("--receipt", type=Path, required=True)
     collect = operations.add_parser("collect-read-preflight")
     collect.add_argument("--config", type=Path, required=True)
+    admission = operations.add_parser("collect-admission-preflight")
+    admission.add_argument("--config", type=Path, required=True)
     args = parser.parse_args(argv)
     proposal: ObserverDeploymentProposal | None
     try:
-        if args.operation == "collect-read-preflight":
-            receipt = asyncio.run(
-                collect_read_preflight(args.config, now=lambda: datetime.now(UTC))
+        if args.operation in {"collect-read-preflight", "collect-admission-preflight"}:
+            collector = (
+                collect_admission_preflight
+                if args.operation == "collect-admission-preflight"
+                else collect_read_preflight
             )
+            receipt = asyncio.run(collector(args.config, now=lambda: datetime.now(UTC)))
             print(receipt.model_dump_json())
             return 0
         if args.operation == "retain-preflight":

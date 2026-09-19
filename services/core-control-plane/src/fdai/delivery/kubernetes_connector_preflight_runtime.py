@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from fdai_service_contracts.cluster_connector import ConnectorContract, Digest, connector_time
 from fdai_service_contracts.observer_deployment import (
     ObserverDeploymentContext,
+    ObserverDeploymentProposal,
     ObserverPreflightReceipt,
     TargetRef,
 )
@@ -48,10 +49,31 @@ class ObserverReadPreflightConfig(ConnectorContract):
     grants_path: Path
 
 
+class ObserverAdmissionPreflightConfig(ObserverReadPreflightConfig):
+    """Deployment-preflight credential plus exact private draft inputs, never an observer grant."""
+
+    installation_inputs_path: Path
+    proposal_path: Path
+    material_directory: Path
+
+
 async def collect_read_preflight(
     path: Path, *, now: Callable[[], datetime]
 ) -> ObserverPreflightReceipt:
     """Perform only the exact reader's authorization probes and sign their observed fact."""
+    return await _collect_preflight(path, now=now, admission=False)
+
+
+async def collect_admission_preflight(
+    path: Path, *, now: Callable[[], datetime]
+) -> ObserverPreflightReceipt:
+    """Inspect server admission using only dry-run creates; never install or grant approval."""
+    return await _collect_preflight(path, now=now, admission=True)
+
+
+async def _collect_preflight(
+    path: Path, *, now: Callable[[], datetime], admission: bool
+) -> ObserverPreflightReceipt:
     import hashlib
 
     from fdai.delivery.kubernetes_api_inventory import ServiceAccountTokenAuth
@@ -59,9 +81,9 @@ async def collect_read_preflight(
     from fdai.delivery.kubernetes_connector_read_preflight import KubernetesObserverReadPreflight
 
     content = await asyncio.to_thread(private_file, path)
-    config = ObserverReadPreflightConfig.model_validate(
-        json.loads(content, object_pairs_hook=_unique)
-    )
+    config = (
+        ObserverAdmissionPreflightConfig if admission else ObserverReadPreflightConfig
+    ).model_validate(json.loads(content, object_pairs_hook=_unique))
     private = load_pem_private_key(
         await asyncio.to_thread(private_file, config.signing_key_path), password=None
     )
@@ -76,9 +98,10 @@ async def collect_read_preflight(
         or grant.revoked
         or not grant.valid_from <= cutoff < grant.expires_at
         or grant.producer_revision != config.producer_revision
-        or "kubernetes_api" not in grant.allowed_facts.get("kubernetes_read", ())
+        or "kubernetes_api"
+        not in grant.allowed_facts.get("admission" if admission else "kubernetes_read", ())
     ):
-        raise ValueError("observer read preflight verifier is unavailable")
+        raise ValueError("observer preflight verifier is unavailable")
     tls = ssl.create_default_context(cafile=str(config.api_ca_path))
     probe = KubernetesObserverReadPreflight(
         origin=config.api_origin,
@@ -88,7 +111,26 @@ async def collect_read_preflight(
         tls=tls,
         now=now,
     )
-    fact = await probe.collect()
+    if isinstance(config, ObserverAdmissionPreflightConfig):
+        from fdai.delivery.kubernetes_connector_installation import ObserverInstallationInput
+
+        inputs = ObserverInstallationInput.model_validate(
+            json.loads(
+                await asyncio.to_thread(private_file, config.installation_inputs_path),
+                object_pairs_hook=_unique,
+            )
+        )
+        proposal = ObserverDeploymentProposal.model_validate(
+            json.loads(
+                await asyncio.to_thread(private_file, config.proposal_path),
+                object_pairs_hook=_unique,
+            )
+        )
+        fact = await probe.collect_installation(
+            inputs, proposal, material_directory=config.material_directory
+        )
+    else:
+        fact = await probe.collect()
     context = ObserverDeploymentContext(
         target_ref=config.target_ref,
         discovery_digest=config.discovery_digest,

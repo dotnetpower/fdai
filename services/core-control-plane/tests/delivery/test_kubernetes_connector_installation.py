@@ -75,6 +75,8 @@ def install_inputs(**updates):
     return ObserverInstallationInput.model_validate(
         {
             "target_ref": "cluster-example",
+            "method": "gitops",
+            "egress": "private",
             "namespace": "fdai-observers",
             "name": "fdai-observer-example",
             "image": "registry.example/core@sha256:" + "a" * 64,
@@ -159,7 +161,7 @@ def test_installation_preview_rejects_unsafe_inputs(changes) -> None:
         install_inputs(**changes)
 
 
-def test_installation_preview_rejects_stale_unknown_and_foreign_proposals(tmp_path) -> None:
+def test_installation_preview_rejects_stale_blocked_and_foreign_proposals(tmp_path) -> None:
     from datetime import timedelta
 
     from fdai.delivery.kubernetes_connector_installation import render_observer_installation
@@ -168,7 +170,11 @@ def test_installation_preview_rejects_stale_unknown_and_foreign_proposals(tmp_pa
     from .test_kubernetes_connector_planning import NOW, context
 
     for inputs, proposal, now in (
-        (install_inputs(), propose_observer_deployment(context(facts=()), now=NOW), NOW),
+        (
+            install_inputs(),
+            propose_observer_deployment(context(states={"azure_policy": "denied"}), now=NOW),
+            NOW,
+        ),
         (
             install_inputs(target_ref="other-cluster"),
             propose_observer_deployment(context(), now=NOW),
@@ -362,3 +368,343 @@ def test_installation_material_is_bound_to_actual_workload(tmp_path, case) -> No
     else:
         with pytest.raises(ValueError):
             validate_installation_material(inputs, directory=directory, now=NOW)
+
+
+def test_explicit_unknown_candidate_renders_only_an_inspection_draft(tmp_path) -> None:
+    from datetime import timedelta
+
+    from fdai.delivery.kubernetes_connector_installation import render_observer_installation
+    from fdai.delivery.kubernetes_connector_planning import propose_observer_deployment
+
+    from .test_kubernetes_connector_planning import context
+    from .test_kubernetes_connector_spool import NOW
+
+    directory, digest, target = installation_material(tmp_path)
+    proposal = propose_observer_deployment(
+        context(
+            target_ref=target, facts=(), observed_at=NOW, expires_at=NOW + timedelta(minutes=5)
+        ),
+        now=NOW,
+    )
+    inputs = install_inputs(target_ref=target, material_digest=digest)
+    draft = render_observer_installation(inputs, proposal, now=NOW, material_directory=directory)
+    assert draft["recommended"] is False
+    assert "admission" in draft["missing"]
+    assert draft["execution_authority"] is False
+    assert draft["installation_ready"] is False
+    with pytest.raises(ValueError):
+        render_observer_installation(
+            inputs.model_copy(update={"method": "run_command"}),
+            proposal,
+            now=NOW,
+            material_directory=directory,
+        )
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["allowed", "forbidden", "redirect", "throttled", "foreign", "drift", "mutated", "pod-denied"],
+)
+async def test_server_admission_uses_only_exact_dry_run_requests(tmp_path, case) -> None:
+    import json
+    import ssl
+    from datetime import timedelta
+
+    import httpx
+    from fdai.delivery.kubernetes_connector_planning import propose_observer_deployment
+    from fdai.delivery.kubernetes_connector_read_preflight import KubernetesObserverReadPreflight
+
+    from .test_kubernetes_connector_planning import context
+    from .test_kubernetes_connector_spool import NOW
+
+    directory, digest, target = installation_material(tmp_path)
+    proposal = propose_observer_deployment(
+        context(
+            target_ref=target, facts=(), observed_at=NOW, expires_at=NOW + timedelta(minutes=5)
+        ),
+        now=NOW,
+    )
+    inputs = install_inputs(target_ref=target, material_digest=digest)
+    calls = []
+
+    class Auth:
+        async def headers(self):
+            return {"Authorization": "Bearer ephemeral-test"}
+
+    def handler(request):
+        calls.append(request)
+        if request.method == "GET":
+            assert request.url.path == "/api/v1/namespaces/kube-system"
+            foreign = case == "foreign" or (case == "drift" and len(calls) > 1)
+            return httpx.Response(
+                200,
+                json={
+                    "apiVersion": "v1",
+                    "kind": "Namespace",
+                    "metadata": {
+                        "name": "kube-system",
+                        "uid": "other" if foreign else "cluster-uid",
+                    },
+                },
+            )
+        assert request.method == "POST"
+        assert dict(request.url.params) == {
+            "dryRun": "All",
+            "fieldValidation": "Strict",
+            "fieldManager": "fdai-observer-preflight",
+        }
+        assert "Authorization" in request.headers
+        body = json.loads(request.content)
+        if case in {"forbidden", "redirect", "throttled"}:
+            return httpx.Response({"forbidden": 403, "redirect": 307, "throttled": 429}[case])
+        if body["kind"] == "Pod":
+            if case == "mutated":
+                body["spec"]["hostNetwork"] = True
+            if case == "pod-denied":
+                return httpx.Response(403)
+        return httpx.Response(201, json=body)
+
+    probe = KubernetesObserverReadPreflight(
+        origin="https://api.example",
+        target_ref=target,
+        namespace_uid="cluster-uid",
+        auth=Auth(),
+        tls=ssl.create_default_context(),
+        now=lambda: NOW,
+        transport=httpx.MockTransport(handler),
+    )
+    fact = await probe.collect_installation(inputs, proposal, material_directory=directory)
+    assert fact.name == "admission"
+    assert fact.state == ("allowed" if case == "allowed" else "unknown")
+    if case == "allowed":
+        assert len(calls) == 9
+    if case in {"forbidden", "redirect", "throttled"}:
+        assert len(calls) == 2
+
+
+async def test_admission_runtime_signs_only_registered_fact_and_can_retain_it(
+    tmp_path, monkeypatch
+) -> None:
+    import json
+    from datetime import timedelta
+
+    from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
+    from fdai.delivery.kubernetes_connector_planning import propose_observer_deployment
+    from fdai.delivery.kubernetes_connector_preflight import SignedObserverConstraints
+    from fdai.delivery.kubernetes_connector_preflight_runtime import (
+        FileObserverPreflightGrants,
+        collect_admission_preflight,
+    )
+    from fdai.delivery.kubernetes_connector_read_preflight import KubernetesObserverReadPreflight
+    from fdai.shared.providers.testing import InMemoryStateStore
+
+    from .test_kubernetes_connector_planning import DIGEST, NOW, context
+    from .test_kubernetes_connector_preflight import material
+
+    grant, _, private = material()
+    directory, digest, target = installation_material(tmp_path)
+    grant = grant.model_copy(
+        update={"target_ref": target, "allowed_facts": {"admission": ("kubernetes_api",)}}
+    )
+    proposal = propose_observer_deployment(context(target_ref=target, facts=()), now=NOW)
+    paths = {
+        name: tmp_path / name
+        for name in ("grants.json", "key.pem", "inputs.json", "proposal.json", "probe.json")
+    }
+    values = {
+        "grants.json": json.dumps([grant.model_dump(mode="json")]).encode(),
+        "key.pem": private.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()),
+        "inputs.json": install_inputs(target_ref=target, material_digest=digest)
+        .model_dump_json()
+        .encode(),
+        "proposal.json": proposal.model_dump_json().encode(),
+    }
+    config = {
+        "target_ref": target,
+        "discovery_digest": DIGEST,
+        "issuer_ref": grant.issuer_ref,
+        "producer_revision": DIGEST,
+        "api_origin": "https://api.example",
+        "namespace_uid": "cluster-uid",
+        "api_ca_path": str(tmp_path / "ca.pem"),
+        "api_token_path": str(tmp_path / "token"),
+        "signing_key_path": str(paths["key.pem"]),
+        "grants_path": str(paths["grants.json"]),
+        "installation_inputs_path": str(paths["inputs.json"]),
+        "proposal_path": str(paths["proposal.json"]),
+        "material_directory": str(directory),
+    }
+    values["probe.json"] = json.dumps(config).encode()
+    for name, content in values.items():
+        paths[name].write_bytes(content)
+        paths[name].chmod(0o600)
+    called = []
+
+    async def collect(self, inputs, supplied, *, material_directory):
+        from fdai_service_contracts.observer_deployment import ObserverDeploymentFact
+
+        assert (
+            inputs.target_ref == target and supplied == proposal and material_directory == directory
+        )
+        called.append(True)
+        return ObserverDeploymentFact(
+            target_ref=target,
+            name="admission",
+            state="allowed",
+            source="kubernetes_api",
+            evidence_digest=DIGEST,
+            observed_at=NOW,
+            expires_at=NOW + timedelta(minutes=5),
+        )
+
+    monkeypatch.setattr(KubernetesObserverReadPreflight, "collect_installation", collect)
+    receipt = await collect_admission_preflight(paths["probe.json"], now=lambda: NOW)
+    assert [fact.name for fact in receipt.context.facts] == ["admission"]
+    store = InMemoryStateStore()
+    reader = SignedObserverConstraints(
+        store, grants=FileObserverPreflightGrants(paths["grants.json"]), now=lambda: NOW
+    )
+    assert await reader.retain(receipt)
+    assert (await reader.read(target, now=NOW)).facts[0].name == "admission"
+    paths["grants.json"].write_text(
+        json.dumps(
+            [
+                grant.model_copy(
+                    update={"allowed_facts": {"kubernetes_read": ("kubernetes_api",)}}
+                ).model_dump(mode="json")
+            ]
+        )
+    )
+    with pytest.raises(ValueError, match="verifier"):
+        await collect_admission_preflight(paths["probe.json"], now=lambda: NOW)
+    assert len(called) == 1
+
+
+async def test_admission_requests_cross_real_verified_tls(tmp_path) -> None:
+    from datetime import timedelta
+
+    from aiohttp import web
+    from fdai.delivery.kubernetes_connector_planning import propose_observer_deployment
+    from fdai.delivery.kubernetes_connector_read_preflight import KubernetesObserverReadPreflight
+
+    from .test_kubernetes_connector_gateway import certificates
+    from .test_kubernetes_connector_planning import context
+    from .test_kubernetes_connector_spool import NOW
+
+    directory, digest, target = installation_material(tmp_path)
+    (server_tls, _), (client_tls, _) = certificates(tmp_path)
+    proposal = propose_observer_deployment(
+        context(
+            target_ref=target,
+            facts=(),
+            observed_at=NOW,
+            expires_at=NOW + timedelta(minutes=5),
+        ),
+        now=NOW,
+    )
+    checks = []
+
+    class Auth:
+        async def headers(self):
+            return {"Authorization": "Bearer deployment-preflight-test"}
+
+    async def endpoint(request):
+        assert request.headers["Authorization"] == "Bearer deployment-preflight-test"
+        if request.method == "GET":
+            assert request.path == "/api/v1/namespaces/kube-system"
+            return web.json_response(
+                {
+                    "apiVersion": "v1",
+                    "kind": "Namespace",
+                    "metadata": {"name": "kube-system", "uid": "cluster-uid"},
+                }
+            )
+        assert request.method == "POST"
+        assert dict(request.query) == {
+            "dryRun": "All",
+            "fieldValidation": "Strict",
+            "fieldManager": "fdai-observer-preflight",
+        }
+        document = await request.json()
+        checks.append(document["kind"])
+        return web.json_response(document, status=201)
+
+    app = web.Application()
+    app.router.add_route("*", "/{path:.*}", endpoint)
+    runner = web.AppRunner(app, access_log=None)
+    await runner.setup()
+    try:
+        site = web.TCPSite(runner, "127.0.0.1", 0, ssl_context=server_tls)
+        await site.start()
+        probe = KubernetesObserverReadPreflight(
+            origin=f"https://127.0.0.1:{runner.addresses[0][1]}",
+            target_ref=target,
+            namespace_uid="cluster-uid",
+            auth=Auth(),
+            tls=client_tls,
+            now=lambda: NOW,
+        )
+        fact = await probe.collect_installation(
+            install_inputs(target_ref=target, material_digest=digest),
+            proposal,
+            material_directory=directory,
+        )
+        assert fact.state == "allowed"
+        assert checks == [
+            "ServiceAccount",
+            "ClusterRole",
+            "ClusterRoleBinding",
+            "PersistentVolumeClaim",
+            "CronJob",
+            "NetworkPolicy",
+            "Pod",
+        ]
+    finally:
+        await runner.cleanup()
+
+
+async def test_admission_cancellation_never_retries_or_becomes_a_fact(tmp_path) -> None:
+    import asyncio
+    import ssl
+    from datetime import timedelta
+
+    import httpx
+    from fdai.delivery.kubernetes_connector_planning import propose_observer_deployment
+    from fdai.delivery.kubernetes_connector_read_preflight import KubernetesObserverReadPreflight
+
+    from .test_kubernetes_connector_planning import context
+    from .test_kubernetes_connector_spool import NOW
+
+    directory, digest, target = installation_material(tmp_path)
+    proposal = propose_observer_deployment(
+        context(
+            target_ref=target, facts=(), observed_at=NOW, expires_at=NOW + timedelta(minutes=5)
+        ),
+        now=NOW,
+    )
+    calls = []
+
+    class Auth:
+        async def headers(self):
+            return {"Authorization": "Bearer preflight-test"}
+
+    async def cancel(request):
+        calls.append(request.method)
+        raise asyncio.CancelledError
+
+    probe = KubernetesObserverReadPreflight(
+        origin="https://api.example",
+        target_ref=target,
+        namespace_uid="cluster-uid",
+        auth=Auth(),
+        tls=ssl.create_default_context(),
+        now=lambda: NOW,
+        transport=httpx.MockTransport(cancel),
+    )
+    with pytest.raises(asyncio.CancelledError):
+        await probe.collect_installation(
+            install_inputs(target_ref=target, material_digest=digest),
+            proposal,
+            material_directory=directory,
+        )
+    assert calls == ["GET"]

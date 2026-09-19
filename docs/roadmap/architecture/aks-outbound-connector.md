@@ -219,6 +219,16 @@ desktop and mobile; authenticated standard-stack verification still requires ope
 
 ## Snapshot runtime
 
+Preflight design critique identified a dependency cycle: admission cannot be verified before its
+manifest exists. The renderer therefore accepts an explicitly selected, non-blocked candidate
+whose missing facts remain visible. Such output is an inspection draft, not a recommendation.
+A ready recommendation still pins the selected method and egress; denied candidates never render.
+The admission probe uses a separately supplied deployment-preflight credential, not the observer's
+read-only ServiceAccount. It sends only the fixed recipe with `dryRun=All` and strict validation,
+checks cluster identity before and after, and never falls back to a persisted request or retries.
+The probe includes a separate Pod-template dry-run because CronJob acceptance cannot prove Pod
+admission. It cannot prove capacity, mounted storage, egress or installation success.
+
 Installation preview renders a fixed observer-only workload recipe, never an apply command.
 The recipe uses an immutable image reference, a serialized bounded CronJob, an explicit projected
 ServiceAccount token, a persistent spool and read-only cluster RBAC derived from the actual collector.
@@ -246,12 +256,24 @@ python -m fdai.delivery.kubernetes_connector_installation \
   --material-directory /private/observer-material
 ```
 
-Inputs explicitly name `target_ref`, `namespace`, `name`, digest-pinned `image`, `material_secret`,
+Inputs explicitly name `target_ref`, `method`, `egress`, `namespace`, `name`, digest-pinned `image`, `material_secret`,
 `material_digest`, `storage_class`, `gateway_port`, `api_port`, and bounded `gateway_cidrs`,
 `api_cidrs`, `dns_cidrs`. Private files are `0600`; the material directory contains `config.json`,
 `registrations.json`, `ca.pem`, `client.pem`, and `client.key`. Runtime paths are fixed to
 `/private/material`, `/api-identity` and `/spool/snapshots`. The preview binds inputs, proposal and
 manifest digests and always reports `installation_ready=false` and `execution_authority=false`.
+
+Use `python -m fdai.delivery.kubernetes_connector_proposal_cli collect-admission-preflight --config /private/admission.json`
+to inspect that draft. The private configuration extends the read-preflight fields with
+`installation_inputs_path`, `proposal_path` and `material_directory`; `api_token_path` references
+the separately authorized deployment-preflight identity, never an expanded observer role.
+Its registered verifier must permit `admission` from `kubernetes_api`. Seven fixed create requests
+use `dryRun=All`, `fieldValidation=Strict` and a fixed field manager between cluster UID reads.
+Changed specified fields, added list entries, rejected Pod admission, redirects and incomplete
+responses stay unknown. Failures are not retried. The signed five-minute-or-shorter result contains
+only `admission`; retain it with the existing `retain-preflight` command. Matching returned fields
+and real loopback TLS tests prove local mechanics, not actual Kubernetes schema or webhook behavior.
+Existing-resource updates and installation lifecycle effects are not supported by this probe.
 
 The initial executable observation path uses explicitly configured mutual TLS (mTLS). Both
 peers verify the certificate chain. The gateway derives the principal from the actual TLS client

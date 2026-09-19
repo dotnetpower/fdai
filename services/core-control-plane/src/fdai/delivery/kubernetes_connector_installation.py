@@ -7,7 +7,7 @@ import ipaddress
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
 from fdai_service_contracts.cluster_connector import (
@@ -17,7 +17,11 @@ from fdai_service_contracts.cluster_connector import (
     connector_time,
 )
 from fdai_service_contracts.compatibility import canonical_digest
-from fdai_service_contracts.observer_deployment import ObserverDeploymentProposal, TargetRef
+from fdai_service_contracts.observer_deployment import (
+    InstallMethod,
+    ObserverDeploymentProposal,
+    TargetRef,
+)
 from pydantic import Field, field_validator
 
 from fdai.delivery.kubernetes_connector_material import MATERIAL_FILES, material_digest
@@ -38,6 +42,8 @@ class ObserverInstallationInput(ConnectorContract):
     """Exact preview inputs. A referenced digest is not a release signature or plan approval."""
 
     target_ref: TargetRef
+    method: InstallMethod
+    egress: Literal["private", "public"]
     namespace: KubernetesName
     name: Annotated[
         str, Field(max_length=50, pattern=r"^fdai-observer-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
@@ -154,14 +160,24 @@ def render_observer_installation(
     """Return deterministic review material, not an executable approval or readiness receipt."""
     inputs = ObserverInstallationInput.model_validate_json(inputs.model_dump_json())
     proposal = ObserverDeploymentProposal.model_validate_json(proposal.model_dump_json())
+    candidate = next(
+        (
+            item
+            for item in proposal.candidates
+            if (item.method, item.egress) == (inputs.method, inputs.egress)
+        ),
+        None,
+    )
     if (
         proposal.target_ref != inputs.target_ref
-        or proposal.status != "ready_for_review"
-        or proposal.recommended is None
+        or proposal.status not in {"ready_for_review", "needs_evidence"}
+        or candidate is None
+        or candidate.state == "blocked"
+        or (proposal.recommended is not None and candidate != proposal.recommended)
         or not proposal.evaluated_at <= connector_time(now) < proposal.expires_at
     ):
         raise ValueError(
-            "observer installation preview requires a current exact-target recommendation"
+            "observer installation preview requires a current unblocked exact-target candidate"
         )
     validate_installation_material(inputs, directory=material_directory, now=now)
     labels = {
@@ -204,6 +220,7 @@ def render_observer_installation(
         }
     )
     security = {
+        "privileged": False,
         "allowPrivilegeEscalation": False,
         "readOnlyRootFilesystem": True,
         "capabilities": {"drop": ["ALL"]},
@@ -222,6 +239,9 @@ def render_observer_installation(
         },
     }
     pod = {
+        "hostNetwork": False,
+        "hostPID": False,
+        "hostIPC": False,
         "serviceAccountName": inputs.name,
         "automountServiceAccountToken": False,
         "restartPolicy": "Never",
@@ -370,7 +390,10 @@ def render_observer_installation(
         "schema_version": "1.0.0",
         "target_ref": inputs.target_ref,
         "proposal_digest": proposal.proposal_digest,
-        "method": proposal.recommended.method,
+        "method": candidate.method,
+        "egress": candidate.egress,
+        "missing": list(candidate.missing),
+        "recommended": proposal.recommended is not None,
         "inputs_digest": canonical_digest(inputs.model_dump(mode="json")),
         "material_digest": inputs.material_digest,
         "manifest_digest": canonical_digest(documents),

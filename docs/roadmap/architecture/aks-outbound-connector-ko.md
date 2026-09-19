@@ -1,7 +1,7 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: 0a99dee086be7a8dc936b55b383d093140ad64dd
+translation_source_sha: 5b9fac26ac3fec9c5c9325ccdf274352ed6e2f68
 translation_revised: 2026-09-20
 ---
 # AKS 역방향 커넥터
@@ -219,6 +219,15 @@ Core의 영속 checkpoint를 읽고 설치나 알림 부수 효과를 만들지 
 
 ## 스냅샷 실행 구성
 
+사전 점검 설계 검토에서 매니페스트 생성 전에 수락 여부를 검증할 수 없다는 의존성 순환을
+확인했습니다. 따라서 거부되지 않은 후보를 명시적으로 선택하면 부족한 근거를 유지한 채
+점검용 초안을 생성할 수 있습니다. 이 초안은 추천이 아닙니다. 확정된 추천은 선택된 방식과
+외부 통신 유형을 그대로 유지하며 거부된 후보는 렌더링하지 않습니다. 수락 점검은 관측용
+읽기 전용 ServiceAccount가 아니라 별도로 제공한 배포 점검 자격 증명을 사용합니다.
+고정된 구성에 `dryRun=All`과 엄격한 검증만 요청하고 전후 클러스터 신원을 확인합니다.
+영속 요청으로 전환하거나 재시도하지 않습니다. CronJob 수락만으로 Pod 수락을 입증할 수 없어
+Pod 템플릿도 별도로 dry-run합니다. 용량, 실제 마운트된 저장소, 외부 통신이나 설치 성공은 입증하지 않습니다.
+
 설치 미리보기는 적용 명령이 아니라 고정된 관측 전용 워크로드 구성을 만듭니다. 변경 불가능한
 이미지 참조, 중복 실행을 막고 시간이 제한된 CronJob, 명시적인 ServiceAccount 투영 토큰,
 영속 버퍼와 실제 수집기에서 도출한 읽기 전용 클러스터 RBAC를 사용합니다. 실행기 쓰기 권한,
@@ -246,13 +255,25 @@ python -m fdai.delivery.kubernetes_connector_installation \
   --material-directory /private/observer-material
 ```
 
-입력에는 `target_ref`, `namespace`, `name`, 해시로 고정한 `image`, `material_secret`,
+입력에는 `target_ref`, `method`, `egress`, `namespace`, `name`, 해시로 고정한 `image`, `material_secret`,
 `material_digest`, `storage_class`, `gateway_port`, `api_port`, 제한된 `gateway_cidrs`,
 `api_cidrs`, `dns_cidrs`를 명시합니다. 개인 파일 권한은 `0600`이며 자료 디렉터리에는
 `config.json`, `registrations.json`, `ca.pem`, `client.pem`, `client.key`가 있습니다.
 실행 경로는 `/private/material`, `/api-identity`, `/spool/snapshots`로 고정합니다.
 미리보기는 입력·제안·매니페스트 해시를 연결하며 항상 `installation_ready=false`와
 `execution_authority=false`를 반환합니다.
+
+`python -m fdai.delivery.kubernetes_connector_proposal_cli collect-admission-preflight --config /private/admission.json`
+명령으로 초안을 점검할 수 있습니다. 개인 구성은 읽기 사전 점검 필드에
+`installation_inputs_path`, `proposal_path`, `material_directory`를 추가합니다.
+`api_token_path`는 별도로 승인된 배포 점검 신원을 가리키며 관측 역할의 권한을 넓히지 않습니다.
+등록된 검증기는 `kubernetes_api` 출처의 `admission`을 검증할 수 있어야 합니다.
+클러스터 UID를 전후로 확인하며 고정된 생성 요청 일곱 개에 `dryRun=All`,
+`fieldValidation=Strict`와 고정 필드 관리자를 사용합니다. 명시한 필드 변경, 목록 항목 추가,
+Pod 수락 거부, 리다이렉트와 불완전 응답은 알 수 없음으로 남기고 실패 시 재시도하지 않습니다.
+최대 5분 동안 유효한 서명 결과는 `admission`만 포함하며 기존 `retain-preflight`로 보존합니다.
+응답 필드 일치와 실제 loopback TLS 테스트는 로컬 동작만 입증하며 실제 Kubernetes 스키마나
+webhook 동작을 입증하지 않습니다. 기존 리소스 갱신이나 설치 수명 주기 변경은 지원하지 않습니다.
 
 초기 실행 가능한 관측 경로는 명시적으로 설정한 상호 TLS(mTLS)를 사용합니다.
 양쪽 모두 인증서 체인을 검증합니다. 게이트웨이는 실제 TLS 클라이언트 인증서의 SHA-256
