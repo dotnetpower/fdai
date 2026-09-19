@@ -399,9 +399,7 @@
       "title": "에이전트 활동 로그",
       "lastObserved": "마지막 관찰",
       "rows": "행 {count}개",
-      "tailOn": "라이브 테일 켜짐",
-      "disableTail": "라이브 테일 끄기",
-      "resumeTail": "테일 재개",
+      "newEvents": "새 이벤트 {count}건",
       "columns": "열",
       "column": {
         "time": "시간",

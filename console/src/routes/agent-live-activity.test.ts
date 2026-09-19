@@ -15,7 +15,7 @@ import {
   filterAgentLogRows,
   fallbackAfterFullscreenFailure,
   hasAuditTrace,
-  isNearLogBottom,
+  isNearLogTop,
   toggleAgentLogColumn,
 } from "./agent-activity-log-model";
 
@@ -57,6 +57,15 @@ function liveConversation(sequence = 1): LiveAgentActivityEvent {
 }
 
 describe("agent live log projection", () => {
+  it("orders fractional timestamps and equal-time live sequences newest first", () => {
+    const rows = buildAgentLogRows([
+      { ...liveConversation(2), ts: "2026-07-24T10:01:00.128Z" },
+      { ...liveConversation(1), ts: "2026-07-24T10:01:00.127Z" },
+      { ...liveConversation(3), ts: "2026-07-24T10:01:00.128Z" },
+    ], []);
+    expect(rows.map((row) => row.id)).toEqual(["live:3", "live:2", "live:1"]);
+  });
+
   it("renders structured handler completion as one resource-first activity", () => {
     const rows = buildAgentLogRows([{
       sequence: 1,
@@ -117,7 +126,7 @@ describe("agent live log projection", () => {
     expect(AGENT_LOG_ROW_HIGHLIGHT_MS).toBe(3_000);
   });
 
-  it("combines durable audit, recorded conversations, and runtime turns chronologically", () => {
+  it("combines durable audit, recorded conversations, and runtime turns newest first", () => {
     const audit = auditItem(1, {
       summary: "Plan reviewed",
       conversation: [
@@ -130,17 +139,17 @@ describe("agent live log projection", () => {
 
     expect(rows).toHaveLength(4);
     expect(rows.map((row) => row.kind)).toEqual([
+      "handoff",
+      "handoff",
+      "handoff",
       "activity",
-      "handoff",
-      "handoff",
-      "handoff",
     ]);
-    expect(rows[1]).toMatchObject({
+    expect(rows[2]).toMatchObject({
       route: ["Odin", "Huginn"],
       detail: "Build the bounded plan.",
       source: "audit-operational",
     });
-    expect(rows.at(-1)).toMatchObject({
+    expect(rows[0]).toMatchObject({
       route: ["Heimdall", "Forseti"],
       detail: "Investigate the anomaly before judgment.",
       source: "runtime-observed",
@@ -161,8 +170,8 @@ describe("agent live log projection", () => {
     const rows = buildAgentLogRows([], audit);
 
     expect(rows).toHaveLength(AGENT_AUDIT_PARENT_LIMIT);
-    expect(rows[0]?.eventId).toBe("event-10");
-    expect(rows.at(-1)?.eventId).toBe(
+    expect(rows.at(-1)?.eventId).toBe("event-10");
+    expect(rows[0]?.eventId).toBe(
       `event-${AGENT_AUDIT_PARENT_LIMIT + 9}`,
     );
   });
@@ -189,7 +198,7 @@ describe("agent live log projection", () => {
     const after = buildAgentLogRows([identicalButDistinct, newer, existing], []);
 
     expect(after).toHaveLength(3);
-    expect(after.find((row) => row.detail === existing.detail)?.id).toBe(before[0]?.id);
+    expect(after.find((row) => row.id === before[0]?.id)?.detail).toBe(existing.detail);
     expect(new Set(after.map((row) => row.id)).size).toBe(after.length);
   });
 
@@ -230,19 +239,19 @@ describe("agent live log projection", () => {
     ]);
 
     expect(rows.filter((row) => row.kind === "activity").map((row) => row.detail))
-      .toEqual(["seq-2", "seq-10"]);
+      .toEqual(["seq-10", "seq-2"]);
     expect(rows.filter((row) => row.kind === "handoff").map((row) => row.detail))
-      .toEqual(turns.map((turn) => turn.text));
+      .toEqual(turns.map((turn) => turn.text).reverse());
   });
 
-  it("retains malformed timestamps at the visible end instead of silently pruning them", () => {
+  it("keeps malformed timestamps visible instead of silently pruning them", () => {
     const rows = buildAgentLogRows([], [
       auditItem(1, { summary: "valid" }, "2026-07-24T10:00:00Z"),
       auditItem(2, { summary: "malformed" }, "not-a-timestamp"),
     ]);
 
-    expect(rows.map((row) => row.detail)).toEqual(["valid", "malformed"]);
-    expect(rows.at(-1)).toMatchObject({
+    expect(rows.map((row) => row.detail)).toEqual(["malformed", "valid"]);
+    expect(rows[0]).toMatchObject({
       timestamp: "not-a-timestamp",
       timestampValid: false,
     });
@@ -261,11 +270,11 @@ describe("agent live log projection", () => {
     const conversationRows = rows.filter((row) => row.kind === "handoff");
 
     expect(rows).toHaveLength(1 + AGENT_AUDIT_CONVERSATION_LIMIT);
-    expect(conversationRows[0]?.detail).toBe(
+    expect(conversationRows.at(-1)?.detail).toBe(
       `turn-${1000 - AGENT_AUDIT_CONVERSATION_LIMIT}`,
     );
     expect(rows.some((row) => row.detail === "base")).toBe(true);
-    expect(conversationRows.at(-1)?.detail).toBe("turn-999");
+    expect(conversationRows[0]?.detail).toBe("turn-999");
   });
 
   it("never lets expanded audit conversations evict 500 retained activities", () => {
@@ -392,9 +401,11 @@ describe("agent live log controls", () => {
     expect(hasAuditTrace(rows.find((row) => row.source === "audit-operational")!)).toBe(true);
   });
 
-  it("uses a small bottom threshold for live-tail pause decisions", () => {
-    expect(isNearLogBottom(1000, 380, 600)).toBe(true);
-    expect(isNearLogBottom(1000, 300, 600)).toBe(false);
+  it("uses a small top threshold for newest-first updates", () => {
+    expect(isNearLogTop(0)).toBe(true);
+    expect(isNearLogTop(23)).toBe(true);
+    expect(isNearLogTop(24)).toBe(false);
+    expect(isNearLogTop(300)).toBe(false);
   });
 
   it("never layers fallback fullscreen over a failed native fullscreen exit", () => {
@@ -443,7 +454,7 @@ describe("agent live log controls", () => {
 
     expect(routeSource).toContain("lastEventAt={lastEventAt}");
     expect(journalSource).toContain('t("agentActivity.log.lastObserved")');
-    expect(journalSource).toContain("formatConsoleTime(lastEventAt)");
+    expect(journalSource).toContain('formatConsoleTime(lastEventAt, undefined, "-", "milliseconds")');
   });
 
   it("allows vertical wheel input to chain to the page at log boundaries", () => {

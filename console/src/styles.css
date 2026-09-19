@@ -16439,19 +16439,6 @@ main { padding-bottom: 60px !important; }
   cursor: pointer;
 }
 .aa-log-control:hover { background: var(--bg); }
-.aa-log-tail[aria-pressed="true"] {
-  border-color: color-mix(in oklab, var(--cs-sage) 38%, var(--border));
-  background: color-mix(in oklab, var(--cs-sage) 10%, var(--bg-elevated));
-  color: var(--cs-sage);
-}
-.aa-log-live-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--cs-sage);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--cs-sage) 13%, transparent);
-}
-.aa-log-tail[aria-pressed="false"] .aa-log-live-dot { background: var(--fg-muted); box-shadow: none; }
 .aa-log-columns { position: relative; }
 .aa-log-columns > summary { list-style: none; }
 .aa-log-columns > summary::-webkit-details-marker { display: none; }
@@ -16560,12 +16547,14 @@ main { padding-bottom: 60px !important; }
 .aa-log-scroll {
   block-size: clamp(440px, 62vh, 680px);
   overflow: auto;
+  overflow-anchor: none;
   overscroll-behavior-x: contain;
   overscroll-behavior-y: auto;
   scrollbar-color: color-mix(in oklab, var(--fg-muted) 50%, transparent) transparent;
   scrollbar-width: thin;
 }
 .aa-log-grid {
+  position: relative;
   min-width: 920px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
@@ -16592,10 +16581,11 @@ main { padding-bottom: 60px !important; }
   text-transform: uppercase;
 }
 .aa-log-row {
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
   isolation: isolate;
-  content-visibility: auto;
-  contain-intrinsic-block-size: 44px;
   min-height: 44px;
   padding: 7px 14px;
   border-top: 1px solid var(--border);
@@ -16604,7 +16594,6 @@ main { padding-bottom: 60px !important; }
   line-height: var(--cs-type-compact-line-height);
 }
 .aa-log-row > * { position: relative; z-index: 1; }
-.aa-log-header + .aa-log-row { border-top: 0; }
 .aa-log-row:hover { background: var(--bg); }
 .aa-log-row.is-new-activity::after {
   content: "";
@@ -16691,6 +16680,8 @@ main { padding-bottom: 60px !important; }
 }
 .aa-live-journal:fullscreen .aa-log-scroll,
 .aa-live-journal.is-fullscreen-fallback .aa-log-scroll { flex: 1 1 auto; block-size: auto; min-height: 0; }
+.aa-live-journal:fullscreen > :not(.aa-log-scroll),
+.aa-live-journal.is-fullscreen-fallback > :not(.aa-log-scroll) { flex-shrink: 0; }
 .aa-live-journal.is-fullscreen-fallback { position: fixed; inset: 0; z-index: 1000; }
 body.aa-log-fullscreen-fallback { overflow: hidden; }
 .aa-filter-set { display: flex; align-items: center; gap: 7px; }
@@ -16839,7 +16830,7 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
   .aa-log-grid { min-width: 0; }
   .aa-log-header { display: none; }
   .aa-log-row { display: flex; flex-wrap: wrap; gap: 5px 8px; padding: 9px 10px; }
-  .aa-log-row [data-column="time"] { flex: 0 0 112px; }
+  .aa-log-row [data-column="time"] { flex: 0 0 156px; }
   .aa-log-row [data-column="route"] { flex: 1 1 120px; }
   .aa-log-row [data-column="type"] { margin-left: auto; }
   .aa-log-row [data-column="detail"],

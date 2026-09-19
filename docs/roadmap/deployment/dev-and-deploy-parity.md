@@ -402,7 +402,7 @@ work; collecting, analyzing, deciding, executing, approving, auditing, Incident,
 non-durable, resets on reload, preserves each frame's recorded source, and never substitutes for the append-only audit log. In both
 venues, a newly appended non-replay row receives the same three-second neutral background fade; initial and replayed history never receives
 that cue. Reduced-motion mode preserves a static bounded tint, and shared typography keeps every log label and annotation at or above the
-caption-size floor.
+caption-size floor. Both venues render the same newest-first virtualized Activity list with millisecond timestamps, 250 ms update batches, bounded source buffers and a fixed reading snapshot while browsing history. A contextual new-events action replaces the persistent live-tail button. English and Korean share these controls; source authority, durable retention and Waterfall ordering remain unchanged. The [Activity presentation contract](../interfaces/console-evidence-and-resilience.md) owns the exact bounds and interaction rules.
 
 Completed conversation review follows the same split. Interactive local transport can publish the
 bounded Bragi `object.turn` envelope, but it does not fabricate a reviewer or durable proposal

@@ -1,4 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import {
+  defaultRangeExtractor,
+  elementScroll,
+  observeElementOffset,
+  observeElementRect,
+  Virtualizer,
+} from "@tanstack/virtual-core";
 import { Tooltip } from "../components/tooltip";
 import type { AuditItem } from "../types";
 import type { OperationalActivityKind } from "../agent-operational-activity";
@@ -20,7 +27,7 @@ import {
   filterAgentLogRows,
   fallbackAfterFullscreenFailure,
   hasAuditTrace,
-  isNearLogBottom,
+  isNearLogTop,
   toggleAgentLogColumn,
   type AgentLogColumn,
   type AgentLogRow,
@@ -36,7 +43,7 @@ const COLUMN_ORDER: readonly AgentLogColumn[] = [
   "correlation",
 ];
 const COLUMN_WIDTH: Readonly<Record<AgentLogColumn, string>> = {
-  time: "112px",
+  time: "156px",
   route: "150px",
   type: "96px",
   detail: "minmax(300px, 1fr)",
@@ -79,13 +86,17 @@ export function LiveActivityJournal({
   const [visibleColumns, setVisibleColumns] = useState<readonly AgentLogColumn[]>(
     DEFAULT_AGENT_LOG_COLUMNS,
   );
-  const [tailing, setTailing] = useState(true);
+  const [heldRows, setHeldRows] = useState<readonly AgentLogRow[] | null>(null);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(32);
+  const [, renderWindow] = useState(0);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
   const [fallbackFullscreen, setFallbackFullscreen] = useState(false);
   const [operationalLane, setOperationalLane] = useState<OperationalLane>("all");
   const panelRef = useRef<HTMLElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
   const columnsRef = useRef<HTMLDivElement>(null);
   const fullscreenButtonRef = useRef<HTMLButtonElement>(null);
   const fallbackFullscreenRef = useRef(false);
@@ -94,10 +105,71 @@ export function LiveActivityJournal({
   const highlightTimersRef = useRef<Set<number>>(new Set());
   const [highlightedRowIds, setHighlightedRowIds] = useState<ReadonlySet<string>>(new Set());
   const rows = useMemo(() => buildAgentLogRows(events, auditItems), [events, auditItems]);
-  const visibleRows = useMemo(
+  const filteredRows = useMemo(
     () => filterAgentLogRows(rows, selectedAgent, query, operationalLane),
     [rows, selectedAgent, query, operationalLane],
   );
+  const visibleRows = heldRows ?? filteredRows;
+  const heldRowIds = useMemo(
+    () => heldRows === null ? null : new Set(heldRows.map((row) => row.id)),
+    [heldRows],
+  );
+  const pendingCount = useMemo(
+    () => heldRowIds === null ? 0 : filteredRows.filter((row) => !heldRowIds.has(row.id)).length,
+    [filteredRows, heldRowIds],
+  );
+  const getItemKey = useMemo(() => (index: number) => visibleRows[index]!.id, [visibleRows]);
+  const rangeExtractor = useMemo(() => (range: Parameters<typeof defaultRangeExtractor>[0]) => {
+    const indexes = new Set(defaultRangeExtractor(range));
+    if (focusedIndex !== null) {
+      for (let index = focusedIndex - 1; index <= focusedIndex + 1; index += 1) {
+        if (index >= 0 && index < range.count) indexes.add(index);
+      }
+    }
+    return [...indexes].sort((left, right) => left - right);
+  }, [focusedIndex]);
+  const [virtualizer] = useState(() => new Virtualizer<HTMLDivElement, HTMLDivElement>({
+    count: 0,
+    getScrollElement: () => logRef.current,
+    estimateSize: () => 64,
+    observeElementRect,
+    observeElementOffset,
+    scrollToFn: elementScroll,
+    overscan: 6,
+    onChange: () => renderWindow((version) => version + 1),
+  }));
+  virtualizer.setOptions({
+    ...virtualizer.options,
+    count: visibleRows.length,
+    getItemKey,
+    rangeExtractor,
+    paddingStart: headerHeight,
+  });
+  virtualizer.shouldAdjustScrollPositionOnItemSizeChange = () => heldRows !== null;
+  useLayoutEffect(() => virtualizer._didMount(), [virtualizer]);
+  useLayoutEffect(() => virtualizer._willUpdate());
+  useLayoutEffect(() => {
+    const retainedIds = new Set(visibleRows.map((row) => row.id));
+    for (const key of virtualizer.itemSizeCache.keys()) {
+      if (!retainedIds.has(String(key))) virtualizer.itemSizeCache.delete(key);
+    }
+    if (heldRows === null && logRef.current?.scrollTop !== 0) {
+      virtualizer.scrollToOffset(0);
+    }
+  }, [visibleRows, heldRows]);
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    if (header === null) return;
+    const observer = new ResizeObserver(() => setHeaderHeight(header.getBoundingClientRect().height));
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    setHeldRows(null);
+    setFocusedIndex(null);
+    virtualizer.scrollToOffset(0);
+  }, [selectedAgent, query, operationalLane]);
+  useLayoutEffect(() => virtualizer.measure(), [visibleColumns]);
   const operationalLaneCounts = useMemo(() => Object.fromEntries(
     OPERATIONAL_LANES.map((lane) => [
       lane,
@@ -110,7 +182,6 @@ export function LiveActivityJournal({
     if (selectedAgent !== null) names.add(selectedAgent);
     return [...names].sort((left, right) => left.localeCompare(right));
   }, [rows, selectedAgent]);
-  const latestRowId = visibleRows.at(-1)?.id ?? null;
   const fullscreen = nativeFullscreen || fallbackFullscreen;
   const clearHighlightedRows = (rowIds: readonly string[]): void => {
     setHighlightedRowIds((current) => {
@@ -122,7 +193,7 @@ export function LiveActivityJournal({
   };
 
   useEffect(() => {
-    const appendedIds = appendedAgentLogRowIds(knownRowIdsRef.current, rows);
+    const appendedIds = appendedAgentLogRowIds(knownRowIdsRef.current, visibleRows);
     knownRowIdsRef.current = new Set(rows.map((row) => row.id));
     if (appendedIds.length === 0) return;
 
@@ -132,17 +203,12 @@ export function LiveActivityJournal({
       clearHighlightedRows(appendedIds);
     }, AGENT_LOG_ROW_HIGHLIGHT_MS);
     highlightTimersRef.current.add(timer);
-  }, [rows]);
+  }, [visibleRows]);
 
   useEffect(() => () => {
     highlightTimersRef.current.forEach((timer) => window.clearTimeout(timer));
     highlightTimersRef.current.clear();
   }, []);
-
-  useLayoutEffect(() => {
-    if (!tailing || logRef.current === null) return;
-    logRef.current.scrollTop = logRef.current.scrollHeight;
-  }, [tailing, latestRowId, selectedAgent, query]);
 
   useEffect(() => {
     const restoreFocus = () => {
@@ -243,7 +309,7 @@ export function LiveActivityJournal({
           <span>
             {t("agentActivity.live.session")} - {t(`agents.connection.${streamStatus}`)} - {observationSourceLabel(streamSource)}
             {lastEventAt ? (
-              <> - {t("agentActivity.log.lastObserved")} <time dateTime={lastEventAt}>{formatConsoleTime(lastEventAt)}</time></>
+              <> - {t("agentActivity.log.lastObserved")} <time dateTime={lastEventAt}>{formatConsoleTime(lastEventAt, undefined, "-", "milliseconds")}</time></>
             ) : null}
           </span>
           <h3 id="aa-live-journal-title">{t("agentActivity.log.title")}</h3>
@@ -252,17 +318,21 @@ export function LiveActivityJournal({
           <span class="aa-log-count" aria-live="polite">
             {t("agentActivity.log.rows", { count: visibleRows.length })}
           </span>
-          <button
-            ref={fullscreenButtonRef}
-            type="button"
-            class="aa-log-control aa-log-tail"
-            aria-pressed={tailing}
-            aria-label={t(tailing ? "agentActivity.log.disableTail" : "agentActivity.log.resumeTail")}
-            onClick={() => setTailing((current) => !current)}
-          >
-            <span class="aa-log-live-dot" aria-hidden="true" />
-            {t(tailing ? "agentActivity.log.tailOn" : "agentActivity.log.resumeTail")}
-          </button>
+          {pendingCount > 0 ? (
+            <button
+              type="button"
+              class="aa-log-control aa-log-new-events"
+              onClick={() => {
+                setHeldRows(null);
+                setFocusedIndex(null);
+                virtualizer.scrollToOffset(0);
+                logRef.current?.focus({ preventScroll: true });
+              }}
+            >
+              <span aria-hidden="true">↑</span>
+              {t("agentActivity.log.newEvents", { count: pendingCount })}
+            </button>
+          ) : null}
           <div ref={columnsRef} class="aa-log-columns">
             <Tooltip content={t("agentActivity.log.columns")}>
               <button
@@ -291,6 +361,7 @@ export function LiveActivityJournal({
           </div>
           <Tooltip content={t(fullscreen ? "agentActivity.log.exitFullscreen" : "agentActivity.log.fullscreen")}>
             <button
+              ref={fullscreenButtonRef}
               type="button"
               class="aa-log-control"
               aria-pressed={fullscreen}
@@ -343,14 +414,28 @@ export function LiveActivityJournal({
         ref={logRef}
         class="aa-log-scroll"
         role="log"
+        tabIndex={0}
         aria-live="off"
         aria-label={t("agentActivity.log.title")}
         onScroll={(event) => {
-          if (tailing && !isNearLogBottom(
-            event.currentTarget.scrollHeight,
-            event.currentTarget.scrollTop,
-            event.currentTarget.clientHeight,
-          )) setTailing(false);
+          if (isNearLogTop(event.currentTarget.scrollTop)) {
+            if (focusedIndex === null) setHeldRows(null);
+          } else {
+            setHeldRows((current) => current ?? filteredRows);
+          }
+        }}
+        onFocusCapture={(event) => {
+          const row = (event.target as HTMLElement).closest<HTMLElement>("[data-log-index]");
+          if (row) {
+            setHeldRows((current) => current ?? filteredRows);
+            setFocusedIndex(Number(row.dataset.logIndex));
+          }
+        }}
+        onBlurCapture={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            setFocusedIndex(null);
+            if (isNearLogTop(event.currentTarget.scrollTop)) setHeldRows(null);
+          }
         }}
       >
         <div
@@ -359,9 +444,9 @@ export function LiveActivityJournal({
           aria-label={t("agentActivity.log.title")}
           aria-rowcount={Math.max(visibleRows.length, 1) + 1}
           aria-colcount={visibleColumns.length}
-          style={`--aa-log-template:${template}`}
+          style={`--aa-log-template:${template};${visibleRows.length > 0 ? `height:${virtualizer.getTotalSize()}px` : ""}`}
         >
-          <div class="aa-log-header" role="row">
+          <div ref={headerRef} class="aa-log-header" role="row" aria-rowindex={1}>
             {COLUMN_ORDER.filter((column) => visibleColumns.includes(column)).map((column) => (
               <span key={column} role="columnheader" data-column={column}>
                 {t(`agentActivity.log.column.${column}`)}
@@ -372,13 +457,16 @@ export function LiveActivityJournal({
             <div class="aa-log-empty" role="row">
               <span role="cell">{t("agentActivity.log.noRows")}</span>
             </div>
-          ) : visibleRows.map((row) => (
+          ) : virtualizer.getVirtualItems().map((item) => (
             <AgentLogRowView
-              key={row.id}
-              row={row}
+              key={item.key}
+              row={visibleRows[item.index]!}
+              index={item.index}
+              offset={item.start}
+              measureElement={virtualizer.measureElement}
               visibleColumns={visibleColumns}
-              highlighted={highlightedRowIds.has(row.id)}
-              onHighlightEnd={() => clearHighlightedRows([row.id])}
+              highlighted={highlightedRowIds.has(visibleRows[item.index]!.id)}
+              onHighlightEnd={() => clearHighlightedRows([visibleRows[item.index]!.id])}
             />
           ))}
         </div>
@@ -393,34 +481,46 @@ export function LiveActivityJournal({
 
 function AgentLogRowView({
   row,
+  index,
+  offset,
+  measureElement,
   visibleColumns,
   highlighted,
   onHighlightEnd,
 }: {
   readonly row: AgentLogRow;
+  readonly index: number;
+  readonly offset: number;
+  readonly measureElement: (element: HTMLDivElement | null) => void;
   readonly visibleColumns: readonly AgentLogColumn[];
   readonly highlighted: boolean;
   readonly onHighlightEnd: () => void;
 }) {
   return (
     <div
+      ref={measureElement}
       class={`aa-log-row kind-${row.kind}${highlighted ? " is-new-activity" : ""}`}
+      data-index={index}
+      data-log-index={index}
+      data-log-id={row.id}
+      style={`transform:translateY(${offset}px)`}
       data-operational-kind={row.operationalKind ?? undefined}
       data-activity-id={row.activityId ?? undefined}
       role="row"
+      aria-rowindex={index + 2}
       onAnimationEnd={(event) => {
         if (event.animationName === "aa-log-row-highlight") onHighlightEnd();
       }}
     >
       {visibleColumns.includes("time") ? (
-        <Tooltip content={row.timestampValid ? undefined : row.timestamp}>
+        <Tooltip content={row.timestamp}>
           <time
             role="cell"
             data-column="time"
             dateTime={row.timestampValid ? row.timestamp : undefined}
             aria-invalid={row.timestampValid ? undefined : "true"}
           >
-            {formatConsoleTime(row.timestamp)}
+            {formatConsoleTime(row.timestamp, undefined, "-", "milliseconds")}
           </time>
         </Tooltip>
       ) : null}

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: d9e5110f1034c2a429d9901d548c9542fde9dfeb
+translation_source_sha: a0857be34fc47629e4450625a4e23ba2f60333bb
 translation_revised: 2026-09-20
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -398,7 +398,7 @@ analyzing, deciding, executing, approving, auditing, 인시던트 및 인계 프
 보존합니다. 추가 전용 감사 로그를 대체하지 않습니다. 두 실행 장소 모두 새로 추가된 재생 이외의
 행에 동일한 3초 중립 배경 페이드를 적용하며 최초 이력과 재생 이력에는 이 표시를 적용하지
 않습니다. 모션 감소 모드에서는 제한된 시간 동안 정적 배경색을 유지하고, 공유 타이포그래피로
-모든 로그 레이블과 주석을 캡션 크기 하한 이상으로 표시합니다.
+모든 로그 레이블과 주석을 캡션 크기 하한 이상으로 표시합니다. 두 실행 장소 모두 최신순 가상화 활동 목록, 밀리초 시각, 250 ms 갱신 묶음, 출처별 보존 상한, 과거 기록을 읽는 동안 고정되는 읽기 스냅샷을 동일하게 사용합니다. 항상 표시되는 따라가기 버튼은 새 이벤트가 있을 때만 나타나는 이동 버튼으로 대체합니다. 영어와 한국어에 같은 컨트롤을 적용하며 출처의 권위, 영속 보존 및 Waterfall 순서는 바꾸지 않습니다. 정확한 상한과 상호작용 규칙은 [활동 표시 계약](../interfaces/console-evidence-and-resilience-ko.md)에서 정의합니다.
 
 완료된 대화 검토도 같은 분리를 따릅니다. Interactive 로컬 전송 계층은 범위가 제한된 Bragi
 `object.turn` 묶음을 발행할 수 있지만 검토자나 영속 제안 저장소를 만들어 내지

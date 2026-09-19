@@ -114,7 +114,7 @@ interface Props {
 /** Number of audit rows pulled to build the timeline (newest first). */
 const TIMELINE_LIMIT = 200;
 export const OPERATIONAL_ACTIVITY_LIMIT = 500;
-const STREAM_RENDER_INTERVAL_MS = 100;
+const STREAM_RENDER_INTERVAL_MS = 250;
 const STREAM_PENDING_LIMIT = 1_024;
 
 interface Data {
