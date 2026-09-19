@@ -1,7 +1,7 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 61c851e710f6c85c0128555a5c99448735115314
+translation_source_sha: 8c255c728d6936fcb324841fbe005279b89396aa
 translation_revised: 2026-09-20
 ---
 # 시스템 지식 서비스
@@ -102,7 +102,8 @@ Muninn은 release context index의 최종 책임을 유지합니다. Bragi는 �
   않습니다.
 - **설명 전용 경계:** 다시 빌드한 카탈로그는 중복 Event 처리와 재시도, 검증된 Event 시각 구간,
   재시작에 안전한 재발 신원, 신뢰하는 수집 시각과 범위가 제한된 downstream 멱등성 키처럼
-  개정된 에이전트 보장을 제공할 수 있지만, 해당 보장을 집행하거나 Event 처리에 참여할 수 없습니다.
+  개정된 에이전트 보장과 명시적인 미관측 discovery 상태 신호를 제공할 수 있습니다. 해당 신호를 정상
+  근거로 취급하거나 보장을 집행하거나 Event 처리에 참여할 수 없습니다.
 - **결정적 검색:** 정확한 alias를 먼저 정렬합니다. 정규화한 영어 token과 한국어 두 음절 token을
   사용해 범위가 제한된 lexical fallback을 제공합니다. 점수가 낮으면 명시적인 사용 불가 답변을
   반환합니다.

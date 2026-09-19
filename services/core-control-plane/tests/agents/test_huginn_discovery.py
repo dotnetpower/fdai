@@ -113,6 +113,17 @@ def test_discovery_dedup_eviction_allows_old_key_redelivery() -> None:
     assert huginn.health()["dedup_size"] == 1
 
 
+def test_health_exposes_unobserved_discovery_signals() -> None:
+    health = Huginn().health()
+
+    assert health["discovery"] == {
+        "projection": "not_bound",
+        "cursor": "not_observed",
+        "backpressure": "not_observed",
+        "source_health": "not_observed",
+    }
+
+
 async def test_durable_dedup_recovers_pending_publication_after_lease_expiry() -> None:
     store = InMemoryStateStore()
     bus = InMemoryBus(load_pantheon(), isolate_handlers=False)

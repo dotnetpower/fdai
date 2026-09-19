@@ -289,6 +289,12 @@ class Huginn(Agent):
         return {
             "agent": "Huginn",
             "status": "ok",
+            "discovery": {
+                "projection": "bound" if self._discovery_projector is not None else "not_bound",
+                "cursor": "not_observed",
+                "backpressure": "not_observed",
+                "source_health": "not_observed",
+            },
             "dedup_size": len(self._seen_keys),
             "dedup_capacity": self._dedup_capacity,
             "behavior": self.behavior_snapshot(),

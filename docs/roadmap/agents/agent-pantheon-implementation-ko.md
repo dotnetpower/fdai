@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: da93b50175d010ce0781eb41f0c247baddd922ba
+translation_source_sha: 8fc5dea1a4f96907929c33adb4c78d6335bd4158
 translation_revised: 2026-09-20
 ---
 
@@ -42,6 +42,7 @@ translation_revised: 2026-09-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-20 | implemented | Huginn discovery 상태에서 관측 부재를 명시하도록 했습니다. Snapshot은 projection 결속 여부를 보고하고, 전달 소유 cursor, backpressure 및 source-health 신호가 없을 때 정상으로 간주하지 않고 `not_observed`로 표시합니다. | `현재 변경`; 집중 Huginn 상태 계약 및 discovery 검사. | 배포 소유 관측값이 준비되면 결속합니다. Cursor, transport 또는 provider 권한은 Huginn으로 이동하지 않았습니다. |
 | 2026-09-20 | implemented | 이전 ownership 교정 및 Loki 행을 조정했습니다. 해당 행의 Bragi 및 ResilienceScore source 잔여는 위에 추가된 후속 producer 완료 행으로 대체됐습니다. | `현재 변경`; append-only 원장 순서 및 집중 producer 근거. | 배포된 Bragi callback 및 통제된 runtime 근거는 남지만 구현되지 않은 source producer는 없습니다. |
 | 2026-09-20 | implemented | Loki의 raw `detected_at` 및 attribute timestamp fallback을 제거했습니다. 이제 ResilienceScore 후보 기준 시점은 Huginn이 검증한 `occurred_at` 또는 trusted `ingested_at`만 사용하므로 검증되지 않은 시간 출처를 허용하지 않으면서 실제 정규화 producer 경로가 동작합니다. | `현재 변경`; 집중 source-time, ingestion-time fallback, raw-time 거부 및 Huginn-to-Loki end-to-end 검사. | 통제된 runtime score-refresh 근거를 보존합니다. 범위가 제한된 대화 변환 결과의 durability는 주장하지 않습니다. |
 | 2026-09-20 | implemented | 모든 Pantheon 소유 topic에 양방향 producer 완전성 회귀를 추가했습니다. 제거된 dead claim과 구체적인 call 경로가 없는 향후 ownership 선언을 거부합니다. | `현재 변경`; 전체 registry invariant 검사. | 검토된 producer가 새 call shape를 도입할 때만 extractor를 확장하며 dead topic을 allowlist에 추가하지 않습니다. |
