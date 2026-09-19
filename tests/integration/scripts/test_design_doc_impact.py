@@ -186,6 +186,29 @@ def test_generated_question_bank_outputs_need_no_duplicate_design_update() -> No
     assert failures == []
 
 
+def test_generated_system_knowledge_catalog_needs_no_duplicate_design_update() -> None:
+    module = _load_module()
+    manifest = {
+        "routes": [
+            {
+                "id": "system-knowledge",
+                "paths": [
+                    "services/system-knowledge-service/src/"
+                    "fdai_system_knowledge_service/data/catalog.json"
+                ],
+                "docs_update": ["docs/system-knowledge.md"],
+            }
+        ]
+    }
+
+    failures = module.missing_doc_updates(
+        {"services/system-knowledge-service/src/fdai_system_knowledge_service/data/catalog.json"},
+        manifest,
+    )
+
+    assert failures == []
+
+
 def test_question_bank_source_change_still_requires_design_update() -> None:
     module = _load_module()
     manifest = {

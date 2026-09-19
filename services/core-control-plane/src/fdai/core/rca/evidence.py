@@ -32,7 +32,9 @@ standard library, so it stays under the ``core/`` import rule.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import math
 import re
 from collections.abc import Iterable
 from datetime import datetime
@@ -136,7 +138,12 @@ def _severity_fact(value: str) -> str:
 class TelemetryEvidenceGatherer:
     """Gather TELEMETRY citations for RCA from the log + trace seams."""
 
-    __slots__ = ("_error_severities", "_log_provider", "_trace_provider")
+    __slots__ = (
+        "_error_severities",
+        "_log_provider",
+        "_source_timeout_seconds",
+        "_trace_provider",
+    )
 
     def __init__(
         self,
@@ -144,10 +151,14 @@ class TelemetryEvidenceGatherer:
         log_provider: LogQueryProvider | None = None,
         trace_provider: TraceQueryProvider | None = None,
         error_severities: Iterable[str] = _DEFAULT_ERROR_SEVERITIES,
+        source_timeout_seconds: float = 4.0,
     ) -> None:
+        if not math.isfinite(source_timeout_seconds) or source_timeout_seconds <= 0.0:
+            raise ValueError("source_timeout_seconds MUST be finite and positive")
         self._log_provider = log_provider
         self._trace_provider = trace_provider
         self._error_severities = frozenset(s.lower() for s in error_severities)
+        self._source_timeout_seconds = source_timeout_seconds
 
     async def gather(
         self,
@@ -171,12 +182,17 @@ class TelemetryEvidenceGatherer:
         citations: list[Citation] = []
         seen: set[str] = set()
 
-        for ref in await self._gather_log_refs(resource_ref, since, until, log_expression, limit):
+        log_refs, span_refs = await asyncio.gather(
+            self._gather_log_refs(resource_ref, since, until, log_expression, limit),
+            self._gather_span_refs(resource_ref, since, until, trace_service, limit),
+        )
+
+        for ref in log_refs:
             if ref.ref not in seen:
                 seen.add(ref.ref)
                 citations.append(ref)
 
-        for ref in await self._gather_span_refs(resource_ref, since, until, trace_service, limit):
+        for ref in span_refs:
             if ref.ref not in seen:
                 seen.add(ref.ref)
                 citations.append(ref)
@@ -202,16 +218,17 @@ class TelemetryEvidenceGatherer:
         )
         refs: list[Citation] = []
         try:
-            async for record in self._log_provider.query(query):
-                if record.severity.lower() in self._error_severities:
-                    refs.append(
-                        Citation(
-                            kind=CitationKind.TELEMETRY,
-                            ref=_log_ref(record),
-                            facts=_log_facts(record),
+            async with asyncio.timeout(self._source_timeout_seconds):
+                async for record in self._log_provider.query(query):
+                    if record.severity.lower() in self._error_severities:
+                        refs.append(
+                            Citation(
+                                kind=CitationKind.TELEMETRY,
+                                ref=_log_ref(record),
+                                facts=_log_facts(record),
+                            )
                         )
-                    )
-        except LogQueryProviderError:
+        except (LogQueryProviderError, TimeoutError):
             _LOGGER.warning("rca_log_evidence_unavailable", extra={"resource_ref": resource_ref})
             return []
         return refs
@@ -235,16 +252,17 @@ class TelemetryEvidenceGatherer:
         )
         refs: list[Citation] = []
         try:
-            async for span in self._trace_provider.query(query):
-                if span.status.lower() == "error":
-                    refs.append(
-                        Citation(
-                            kind=CitationKind.TELEMETRY,
-                            ref=_span_ref(span),
-                            facts=_span_facts(span),
+            async with asyncio.timeout(self._source_timeout_seconds):
+                async for span in self._trace_provider.query(query):
+                    if span.status.lower() == "error":
+                        refs.append(
+                            Citation(
+                                kind=CitationKind.TELEMETRY,
+                                ref=_span_ref(span),
+                                facts=_span_facts(span),
+                            )
                         )
-                    )
-        except TraceQueryProviderError:
+        except (TraceQueryProviderError, TimeoutError):
             _LOGGER.warning("rca_trace_evidence_unavailable", extra={"resource_ref": resource_ref})
             return []
         return refs

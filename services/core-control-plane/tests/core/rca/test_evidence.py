@@ -9,6 +9,7 @@ async tests run under asyncio_mode="auto".
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
@@ -147,6 +148,18 @@ class _RaisingTraceProvider:
         yield  # pragma: no cover
 
 
+class _BlockedLogProvider:
+    async def query(self, query: LogQuery):
+        await asyncio.Event().wait()
+        yield  # pragma: no cover
+
+
+class _BlockedTraceProvider:
+    async def query(self, query: TraceQuery):
+        await asyncio.Event().wait()
+        yield  # pragma: no cover
+
+
 async def test_log_outage_is_fail_safe_trace_still_contributes() -> None:
     gatherer = TelemetryEvidenceGatherer(
         log_provider=_RaisingLogProvider(),
@@ -162,6 +175,37 @@ async def test_trace_outage_is_fail_safe() -> None:
         trace_provider=_RaisingTraceProvider(),
     )
     citations = await _gather(gatherer)
+    assert len(citations) == 1
+    assert citations[0].ref.startswith("log:")
+
+
+async def test_slow_log_source_does_not_block_trace_evidence() -> None:
+    gatherer = TelemetryEvidenceGatherer(
+        log_provider=_BlockedLogProvider(),
+        trace_provider=StaticTraceQueryProvider([_span("s1", "error")]),
+        source_timeout_seconds=0.01,
+    )
+
+    citations = await asyncio.wait_for(_gather(gatherer), timeout=0.1)
+
+    assert [citation.ref for citation in citations] == ["trace:trace-abc:s1"]
+
+
+@pytest.mark.parametrize("timeout", [0.0, -1.0, float("inf"), float("nan")])
+def test_source_timeout_must_be_finite_and_positive(timeout: float) -> None:
+    with pytest.raises(ValueError, match="source_timeout_seconds"):
+        TelemetryEvidenceGatherer(source_timeout_seconds=timeout)
+
+
+async def test_slow_trace_source_does_not_block_log_evidence() -> None:
+    gatherer = TelemetryEvidenceGatherer(
+        log_provider=StaticLogQueryProvider([_log("boom", "error")]),
+        trace_provider=_BlockedTraceProvider(),
+        source_timeout_seconds=0.01,
+    )
+
+    citations = await asyncio.wait_for(_gather(gatherer), timeout=0.1)
+
     assert len(citations) == 1
     assert citations[0].ref.startswith("log:")
 
