@@ -21,8 +21,10 @@ from fdai.delivery.kubernetes_connector_preflight_runtime import (
     build_observer_constraints,
     collect_admission_preflight,
     collect_artifact_preflight,
+    collect_capacity_preflight,
     collect_gateway_preflight,
     collect_read_preflight,
+    collect_storage_preflight,
     retain_preflight_file,
 )
 from fdai.delivery.kubernetes_connector_proposals import (
@@ -73,10 +75,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     gateway.add_argument("--config", type=Path, required=True)
     artifact = operations.add_parser("collect-artifact-preflight")
     artifact.add_argument("--config", type=Path, required=True)
+    capacity = operations.add_parser("collect-capacity-preflight")
+    capacity.add_argument("--config", type=Path, required=True)
+    storage = operations.add_parser("collect-storage-preflight")
+    storage.add_argument("--config", type=Path, required=True)
     args = parser.parse_args(argv)
     proposal: ObserverDeploymentProposal | None
     try:
         collectors = {
+            "collect-capacity-preflight": collect_capacity_preflight,
+            "collect-storage-preflight": collect_storage_preflight,
             "collect-artifact-preflight": collect_artifact_preflight,
             "collect-read-preflight": collect_read_preflight,
             "collect-admission-preflight": collect_admission_preflight,

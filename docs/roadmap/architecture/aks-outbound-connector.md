@@ -207,12 +207,12 @@ unknown rather than authorization. The signing key is read from an existing owne
 only the signed receipt is output. Retention verifies current grants before atomic state/audit
 storage and current reads verify signatures, scope, expiry and revocation again. This is an
 executable Kubernetes read preflight, not an automatically scheduled complete deployment preflight.
-Azure policy, artifact, capacity, storage, network and installation-owner producers remain open.
+Other implemented producers are described below; Azure policy, route classification and installation-owner producers remain open.
 
 ### Capacity and storage preflight
 
-The reusable accounting foundation is implemented; cluster collection and signed capacity/storage
-facts remain open. `kubernetes_quantity.py` wraps the official Kubernetes Python quantity parser,
+The reusable accounting foundation and explicitly invoked signed capacity/storage collectors are
+implemented. `kubernetes_quantity.py` wraps the official Kubernetes Python quantity parser,
 locked at `36.0.3` under Apache-2.0, rather than maintaining another suffix conversion engine.
 Core owns this dependency; parsing creates no API client and loads no credentials.
 `parse_resource_quantity` returns exact `Decimal` cores or bytes. Input is an ASCII quantity string
@@ -227,23 +227,44 @@ of app-container sums and each resource's init-container maximum, then add Pod o
 requests use limits, then zero; explicit malformed inputs never default. Per-container upward
 rounding can overcount fractional bytes. Unsupported resource types, restart/resize declarations
 and status, Pod-level resources, malformed arrays and more than 512 total containers raise
-`ValueError`, which a future collector must retain as unknown. The actual suspended observer recipe
+`ValueError`, which the collector retains as unknown. The actual suspended observer recipe
 is checked as 100 millicores, 128 MiB and a 1 GiB PVC. This proves arithmetic, not placement.
 
-The planned resource inspection is GET-only under the exact cluster UID binding. Complete paginated Node and
+Resource inspection is GET-only under the exact cluster UID binding. Complete paginated Node and
 Pod lists establish a point-in-time CPU, memory and Pod-slot fit for the fixed observer recipe.
 Unknown quantities, incomplete pages, in-place resize, restartable init containers, Pod-level
 resources or unassigned pending work withhold capacity rather than approximating it. Only ready,
 schedulable, untainted Linux/amd64 nodes are candidates. The result does not reserve capacity or
 prove placement, admission, volume topology or image availability. List versions are consistent
 within each collection, not an atomic snapshot across collections.
+Available units round down; consumed requests round up. Terminal Pods do not reserve a slot in this
+request-based calculation. List collection shares eight pages across Nodes and Pods, with at most
+256 items and 1 MiB per page. Duplicate identities, changing list resource versions, repeated
+continuation tokens and inconsistent remaining counts produce unknown. The collection has a
+30-second total deadline, a three-second request timeout, no redirects and no retries.
 
-The planned storage inspection requires an explicitly supplied existing PVC UID, exact namespace/name and
+Storage inspection requires an explicitly supplied existing PVC UID, exact namespace/name and
 StorageClass, Bound PVC/PV state, reciprocal claim identity, filesystem mode and sufficient 1 GiB
 capacity. A missing UID, unbound claim or uncertain provider evidence remains unknown; it never
 creates storage. This establishes binding only, not mount/write durability or installation ownership.
 Both checks retain minimized content digests, recheck cluster identity and original freshness, and
 remain independent of policy, route, human approval and execution authority.
+The PVC identity is checked before following its volume reference. Both PVC and PV are read twice;
+identity, resource-version or relevant content drift withholds the fact. A request larger than the
+current claim or volume capacity is unknown even before resize conditions appear. Other object
+reads retain the existing 16 KiB response cap. Only minimized resource-field digests are retained,
+not container environment, provider messages or CSI credential references.
+
+`collect-capacity-preflight --config /private/capacity.json` and
+`collect-storage-preflight --config /private/storage.json` reuse the read-preflight identity and
+signer configuration plus `installation_inputs_path`, `proposal_path` and `material_directory`.
+The recipe is regenerated from current private material, and its input/manifest digests bind the
+fact. Storage also requires `claim_uid`; omission returns unknown and never selects a PVC itself.
+Current grants must allow respectively `capacity` or `persistent_storage` from `kubernetes_api`.
+Retention uses the existing `retain-preflight` command, with revocation and freshness rechecked.
+Collection is not automatically scheduled. Existing-resource adoption, new PVC creation and
+independent mount/write evidence remain protected lifecycle work. Real loopback TLS, actual recipe
+rendering and signature/retention checks passed locally; no selected AKS observation is claimed.
 
 ### Artifact preflight
 

@@ -262,6 +262,8 @@ class KubernetesObserverReadPreflight:
         path: str,
         headers: dict[str, str],
         payload: dict[str, object] | None = None,
+        *,
+        max_bytes: int = 16384,
     ) -> dict[str, object]:
         async with client.stream(
             method, self._origin + path, headers=headers, json=payload
@@ -274,7 +276,7 @@ class KubernetesObserverReadPreflight:
             content = bytearray()
             async for chunk in response.aiter_bytes():
                 content.extend(chunk)
-                if len(content) > 16384:
+                if len(content) > max_bytes:
                     raise ValueError("Kubernetes preflight response exceeds its limit")
         value = json.loads(content, object_pairs_hook=_unique)
         if not isinstance(value, dict):

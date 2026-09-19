@@ -494,8 +494,9 @@ async def test_server_admission_uses_only_exact_dry_run_requests(tmp_path, case)
         assert len(calls) == 2
 
 
+@pytest.mark.parametrize("fact_name", ["admission", "capacity", "persistent_storage"])
 async def test_admission_runtime_signs_only_registered_fact_and_can_retain_it(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, fact_name
 ) -> None:
     import json
     from datetime import timedelta
@@ -506,8 +507,13 @@ async def test_admission_runtime_signs_only_registered_fact_and_can_retain_it(
     from fdai.delivery.kubernetes_connector_preflight_runtime import (
         FileObserverPreflightGrants,
         collect_admission_preflight,
+        collect_capacity_preflight,
+        collect_storage_preflight,
     )
     from fdai.delivery.kubernetes_connector_read_preflight import KubernetesObserverReadPreflight
+    from fdai.delivery.kubernetes_connector_resource_preflight import (
+        KubernetesObserverResourcePreflight,
+    )
     from fdai.shared.providers.testing import InMemoryStateStore
 
     from .test_kubernetes_connector_planning import DIGEST, NOW, context
@@ -516,7 +522,7 @@ async def test_admission_runtime_signs_only_registered_fact_and_can_retain_it(
     grant, _, private = material()
     directory, digest, target = installation_material(tmp_path)
     grant = grant.model_copy(
-        update={"target_ref": target, "allowed_facts": {"admission": ("kubernetes_api",)}}
+        update={"target_ref": target, "allowed_facts": {fact_name: ("kubernetes_api",)}}
     )
     proposal = propose_observer_deployment(context(target_ref=target, facts=()), now=NOW)
     paths = {
@@ -546,22 +552,26 @@ async def test_admission_runtime_signs_only_registered_fact_and_can_retain_it(
         "proposal_path": str(paths["proposal.json"]),
         "material_directory": str(directory),
     }
+    if fact_name != "admission":
+        config["claim_uid"] = "claim-uid"
     values["probe.json"] = json.dumps(config).encode()
     for name, content in values.items():
         paths[name].write_bytes(content)
         paths[name].chmod(0o600)
     called = []
 
-    async def collect(self, inputs, supplied, *, material_directory):
+    async def collect(self, inputs, supplied, *, material_directory, name=None, claim_uid=None):
         from fdai_service_contracts.observer_deployment import ObserverDeploymentFact
 
         assert (
             inputs.target_ref == target and supplied == proposal and material_directory == directory
         )
+        if fact_name != "admission":
+            assert name == fact_name and claim_uid == "claim-uid"
         called.append(True)
         return ObserverDeploymentFact(
             target_ref=target,
-            name="admission",
+            name=fact_name,
             state="allowed",
             source="kubernetes_api",
             evidence_digest=DIGEST,
@@ -570,14 +580,20 @@ async def test_admission_runtime_signs_only_registered_fact_and_can_retain_it(
         )
 
     monkeypatch.setattr(KubernetesObserverReadPreflight, "collect_installation", collect)
-    receipt = await collect_admission_preflight(paths["probe.json"], now=lambda: NOW)
-    assert [fact.name for fact in receipt.context.facts] == ["admission"]
+    monkeypatch.setattr(KubernetesObserverResourcePreflight, "collect_resources", collect)
+    collector = {
+        "admission": collect_admission_preflight,
+        "capacity": collect_capacity_preflight,
+        "persistent_storage": collect_storage_preflight,
+    }[fact_name]
+    receipt = await collector(paths["probe.json"], now=lambda: NOW)
+    assert [fact.name for fact in receipt.context.facts] == [fact_name]
     store = InMemoryStateStore()
     reader = SignedObserverConstraints(
         store, grants=FileObserverPreflightGrants(paths["grants.json"]), now=lambda: NOW
     )
     assert await reader.retain(receipt)
-    assert (await reader.read(target, now=NOW)).facts[0].name == "admission"
+    assert (await reader.read(target, now=NOW)).facts[0].name == fact_name
     paths["grants.json"].write_text(
         json.dumps(
             [
@@ -588,7 +604,7 @@ async def test_admission_runtime_signs_only_registered_fact_and_can_retain_it(
         )
     )
     with pytest.raises(ValueError, match="verifier"):
-        await collect_admission_preflight(paths["probe.json"], now=lambda: NOW)
+        await collector(paths["probe.json"], now=lambda: NOW)
     assert len(called) == 1
 
 

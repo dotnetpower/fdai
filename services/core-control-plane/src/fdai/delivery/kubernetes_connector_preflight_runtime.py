@@ -76,6 +76,26 @@ class ObserverAdmissionPreflightConfig(ObserverReadPreflightConfig):
     material_directory: Path
 
 
+class ObserverResourcePreflightConfig(ObserverAdmissionPreflightConfig):
+    """Exact observer recipe plus an optional independently selected existing PVC identity."""
+
+    claim_uid: TargetRef | None = None
+
+
+async def collect_capacity_preflight(
+    path: Path, *, now: Callable[[], datetime]
+) -> ObserverPreflightReceipt:
+    """Sign only point-in-time CPU, memory and Pod-slot evidence from complete lists."""
+    return await _collect_preflight(path, now=now, kind="capacity")
+
+
+async def collect_storage_preflight(
+    path: Path, *, now: Callable[[], datetime]
+) -> ObserverPreflightReceipt:
+    """Sign only exact existing PVC/PV binding evidence, never mount or write success."""
+    return await _collect_preflight(path, now=now, kind="persistent_storage")
+
+
 async def collect_read_preflight(
     path: Path, *, now: Callable[[], datetime]
 ) -> ObserverPreflightReceipt:
@@ -108,7 +128,7 @@ async def _collect_preflight(
     path: Path,
     *,
     now: Callable[[], datetime],
-    kind: Literal["read", "admission", "gateway", "artifact"],
+    kind: Literal["read", "admission", "gateway", "artifact", "capacity", "persistent_storage"],
 ) -> ObserverPreflightReceipt:
     import hashlib
 
@@ -118,7 +138,9 @@ async def _collect_preflight(
 
     content = await asyncio.to_thread(private_file, path)
     config = (
-        ObserverArtifactPreflightConfig
+        ObserverResourcePreflightConfig
+        if kind in ("capacity", "persistent_storage")
+        else ObserverArtifactPreflightConfig
         if kind == "artifact"
         else ObserverGatewayPreflightConfig
         if kind == "gateway"
@@ -148,7 +170,9 @@ async def _collect_preflight(
             else "kubernetes_api"
         )
         not in grant.allowed_facts.get(
-            "artifact_verified"
+            kind
+            if kind in ("capacity", "persistent_storage")
+            else "artifact_verified"
             if kind == "artifact"
             else "mtls_gateway"
             if kind == "gateway"
@@ -173,8 +197,17 @@ async def _collect_preflight(
     elif isinstance(config, ObserverGatewayPreflightConfig):
         fact = await _collect_gateway_fact(config, now=now)
     else:
+        from fdai.delivery.kubernetes_connector_resource_preflight import (
+            KubernetesObserverResourcePreflight,
+        )
+
         tls = ssl.create_default_context(cafile=str(config.api_ca_path))
-        probe = KubernetesObserverReadPreflight(
+        probe_type = (
+            KubernetesObserverResourcePreflight
+            if isinstance(config, ObserverResourcePreflightConfig)
+            else KubernetesObserverReadPreflight
+        )
+        probe = probe_type(
             origin=config.api_origin,
             target_ref=config.target_ref,
             namespace_uid=config.namespace_uid,
@@ -197,9 +230,20 @@ async def _collect_preflight(
                 object_pairs_hook=_unique,
             )
         )
-        fact = await probe.collect_installation(
-            inputs, proposal, material_directory=config.material_directory
-        )
+        if isinstance(config, ObserverResourcePreflightConfig):
+            if not isinstance(probe, KubernetesObserverResourcePreflight):
+                raise ValueError("Resource preflight requires its resource collector")
+            fact = await probe.collect_resources(
+                inputs,
+                proposal,
+                material_directory=config.material_directory,
+                name="capacity" if kind == "capacity" else "persistent_storage",
+                claim_uid=config.claim_uid,
+            )
+        else:
+            fact = await probe.collect_installation(
+                inputs, proposal, material_directory=config.material_directory
+            )
     elif isinstance(config, ObserverReadPreflightConfig):
         fact = await probe.collect()
     context = ObserverDeploymentContext(

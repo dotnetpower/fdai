@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: cd9260796d7feaaa76399b06a94abc5a05e84826
+translation_source_sha: 9ea6660ea1f65bc417aade390622a0f03d12d047
 translation_revised: 2026-09-20
 ---
 # AKS 진단 근거 플레인
@@ -48,7 +48,7 @@ Azure 관측은 정확한 대상을 검증한 뒤에만 결합됩니다. 결정�
 재사용 가능한 수량 변환과 일반 Pod CPU·메모리 계산은
 [커넥터 사전 점검 경계](aks-outbound-connector-ko.md#용량-및-저장소-사전-점검)에 정의합니다.
 이 순수 함수들은 완전한 Pod 레코드를 입력받으며 기존 정규화된 진단 수량 문자열은 바꾸지
-않습니다. 산술 계산만으로 출처의 완전성이나 스케줄링 가능성을 입증하지는 않습니다.
+않습니다. 산술 계산만으로 출처의 완전성이나 스케줄링 가능성을 입증하지는 않습니다. 명시적으로 호출하는 서명된 사전 점검은 완전한 Node·Pod 목록과 정확한 PVC·PV 연결을 별도로 수집합니다. 진단 정규화 범위를 넓히거나 배치, 마운트·쓰기 효과 또는 출처 승격을 입증하지는 않습니다.
 
 [역방향 커넥터](aks-outbound-connector-ko.md)는 관측 권한을 바꾸지 않고 명시적인 인증서
 인증 기반 스냅샷 전송을 제공합니다. 저장본을 읽는 어댑터는 기존 Inventory Job과 관계 검증기를
