@@ -846,7 +846,7 @@ async def test_local_loop_retries_target_resolution_failure_until_ready(
         return _job_report()
 
     result = await run_loop(
-        interval_seconds=5,
+        interval_seconds=60,
         max_ticks=2,
         tick=tick,
         sleep=lambda seconds: _record_sleep(sleeps, seconds),

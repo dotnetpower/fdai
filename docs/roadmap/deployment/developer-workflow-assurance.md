@@ -92,7 +92,9 @@ Uvicorn loads the factory directly. Running `dev discuss: start or restart profi
 replaces a stale task instance. GitHub Copilot in the active coding session reviews exported
 packets; no FDAI runtime or Azure OpenAI deployment is selected or invoked by the diagnostic
 channel. Local readiness recognizes the service-owned Core executable as the process owner and
-accepts fresh semantic-consumer progress followed by a fresh heartbeat.
+accepts fresh semantic-consumer progress followed by a fresh heartbeat. When an inventory
+generation changes before its ontology checkpoint is projected, the local analyzer remains
+unready but retries target resolution within five seconds instead of waiting its full loop interval.
 
 ## Validation stages and reuse
 
