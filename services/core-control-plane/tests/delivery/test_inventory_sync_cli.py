@@ -91,6 +91,31 @@ from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdenti
 from fdai_service_contracts import OperationalActivityStatus
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"FDAI_KUBERNETES_CONNECTOR_REGISTRATION_PATH": "/example/registrations.json"},
+        {"FDAI_KUBERNETES_CONNECTOR_CLUSTER_RESOURCES": "1"},
+        {
+            "FDAI_KUBERNETES_CONNECTOR_REGISTRATION_PATH": "/example/registrations.json",
+            "FDAI_KUBERNETES_CONNECTOR_PRINCIPAL_REF": "example",
+            "FDAI_KUBERNETES_SUBSCRIPTION_DISCOVERY": "1",
+        },
+    ],
+)
+def test_connector_rejects_incomplete_or_mixed_inventory_binding(extra: dict[str, str]) -> None:
+    with pytest.raises(ValueError, match="connector"):
+        InventoryJobConfig.from_env(
+            {
+                "FDAI_INVENTORY_DSN": "postgresql://example",
+                "FDAI_INVENTORY_SCOPES": "00000000-0000-0000-0000-000000000000",
+                **extra,
+            }
+        )
+
+
 _CLUSTER_REF = (
     "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/"
     "providers/Microsoft.ContainerService/managedClusters/aks-example"

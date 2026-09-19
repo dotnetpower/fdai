@@ -44,10 +44,11 @@ authority.
 
 ## Cluster source bindings
 
-The [outbound connector design](aks-outbound-connector.md) adds a planned cluster-initiated
-transport without changing this plane's observation authority. Its initial metadata contracts,
-inbox, and sender do not yet provide an authenticated deployed collector or inventory promotion.
-Direct collection remains the existing runtime path until that integration is validated.
+The [outbound connector](aks-outbound-connector.md) offers explicit certificate-authenticated
+snapshot transfer without changing this plane's observation authority. Its stored-source adapter
+uses the existing Inventory Job and relationship verifier and is exclusive with direct collection.
+Direct collection remains the default; Event history and protected private-cluster validation for
+the connector remain open in its implementation ledger.
 
 The runtime accepts a bounded collection of cluster bindings. Each binding contains:
 

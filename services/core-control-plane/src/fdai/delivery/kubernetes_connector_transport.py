@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+import ssl
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -14,6 +15,7 @@ import httpx
 from fdai_service_contracts.cluster_connector import ConnectorEvidence, connector_time
 
 from fdai.delivery.kubernetes_connector import ConnectorAdmissionReceipt, ConnectorAdmissionStatus
+from fdai.delivery.kubernetes_connector_artifact import decode_snapshot
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _REQUEST_LIMIT = 32_768
@@ -72,23 +74,32 @@ class ConnectorEvidenceTransport:
 
     An optional httpx transport is a composition/testing seam. Production construction uses
     normal TLS certificate validation, disables environment proxies, and follows no redirects.
-    This adapter transfers metadata only; it cannot upload raw evidence or invoke a mutation.
+    Snapshot transfer validates the normalized artifact before sending it. The adapter never
+    invokes a mutation. An explicitly supplied TLS context enables certificate authentication;
+    disabling certificate or hostname verification is not supported.
     """
 
     def __init__(
         self,
         config: ConnectorTransportConfig,
         *,
-        identity: WorkloadIdentity,
+        identity: WorkloadIdentity | None = None,
+        tls_context: ssl.SSLContext | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
         now: Callable[[], datetime] | None = None,
     ) -> None:
+        if tls_context is not None and (
+            tls_context.verify_mode != ssl.CERT_REQUIRED or not tls_context.check_hostname
+        ):
+            raise ValueError("connector TLS requires certificate and hostname verification")
+        if identity is None and tls_context is None:
+            raise ValueError("connector requires workload identity or an explicit mTLS context")
         self._config = config
         self._identity = identity
         self._now = now or (lambda: datetime.now(UTC))
         self._client = httpx.AsyncClient(
             transport=transport,
-            verify=True,
+            verify=tls_context if tls_context is not None else True,
             trust_env=False,
             follow_redirects=False,
             timeout=config.timeout_seconds,
@@ -104,33 +115,59 @@ class ConnectorEvidenceTransport:
         body = packet.model_dump_json().encode("utf-8")
         if len(body) > _REQUEST_LIMIT:
             raise ConnectorTransportError("connector request exceeds the metadata size limit")
+        return await self._send(packet, body, "/v1/connector/evidence")
+
+    async def send_snapshot(
+        self,
+        packet: ConnectorEvidence,
+        content: bytes,
+        *,
+        allow_cluster_resources: bool,
+    ) -> ConnectorAdmissionReceipt:
+        """Transfer exact validated artifact bytes with their bound evidence envelope."""
+        decode_snapshot(content, packet, allow_cluster_resources=allow_cluster_resources)
+        body = json.dumps(
+            {"evidence": packet.model_dump(mode="json"), "artifact": content.decode("utf-8")},
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+        if len(body) > 2 * 8_388_608 + _REQUEST_LIMIT:
+            raise ConnectorTransportError("connector snapshot transfer exceeds its size limit")
+        return await self._send(packet, body, "/v1/connector/snapshots")
+
+    async def _headers(self) -> dict[str, str]:
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        if self._identity is None:
+            return headers
+        try:
+            credential = await self._identity.get_token(self._config.audience)
+        except Exception:
+            raise ConnectorTransportError("connector identity is unavailable") from None
+        if (
+            credential.audience != self._config.audience
+            or connector_time(credential.expires_at) <= connector_time(self._now())
+            or not credential.token
+            or len(credential.token) > 16_384
+            or not credential.token.isascii()
+            or any(
+                char.isspace() or ord(char) < 32 or ord(char) == 127 for char in credential.token
+            )
+        ):
+            raise ConnectorTransportError("connector credential is invalid or expired")
+        headers["Authorization"] = f"Bearer {credential.token}"
+        return headers
+
+    async def _send(
+        self, packet: ConnectorEvidence, body: bytes, path: str
+    ) -> ConnectorAdmissionReceipt:
         try:
             async with asyncio.timeout(self._config.timeout_seconds):
-                try:
-                    credential = await self._identity.get_token(self._config.audience)
-                except Exception:
-                    raise ConnectorTransportError("connector identity is unavailable") from None
-                if (
-                    credential.audience != self._config.audience
-                    or connector_time(credential.expires_at) <= connector_time(self._now())
-                    or not credential.token
-                    or len(credential.token) > 16_384
-                    or not credential.token.isascii()
-                    or any(
-                        character.isspace() or ord(character) < 32 or ord(character) == 127
-                        for character in credential.token
-                    )
-                ):
-                    raise ConnectorTransportError("connector credential is invalid or expired")
+                headers = await self._headers()
                 async with self._client.stream(
                     "POST",
-                    self._config.origin.rstrip("/") + "/v1/connector/evidence",
+                    self._config.origin.rstrip("/") + path,
                     content=body,
-                    headers={
-                        "Authorization": f"Bearer {credential.token}",
-                        "Content-Type": "application/json",
-                        "Accept": "application/json",
-                    },
+                    headers=headers,
                     follow_redirects=False,
                 ) as response:
                     if response.status_code not in {200, 201}:

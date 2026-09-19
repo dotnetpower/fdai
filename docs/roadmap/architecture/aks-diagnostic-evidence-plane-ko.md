@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 45025f6a0a1592f7a662548d89b9c11d8eb7548f
+translation_source_sha: 83b4dd92279544e4ff82f13d2523511448a82ce5
 translation_revised: 2026-09-19
 ---
 # AKS 진단 근거 플레인
@@ -45,10 +45,10 @@ Azure 관측은 정확한 대상을 검증한 뒤에만 결합됩니다. 결정�
 
 ## 클러스터 출처 연결
 
-개발 중인 [역방향 커넥터 설계](aks-outbound-connector-ko.md)는 관측 권한을 바꾸지 않고
-클러스터에서 시작하는 전송 방식을 추가합니다. 초기 메타데이터 계약, 수신함, 송신기는 아직
-인증된 배포 수집기나 인벤토리 반영을 제공하지 않습니다. 이 연동을 검증하기 전까지
-기존 런타임은 직접 수집 경로를 유지합니다.
+[역방향 커넥터](aks-outbound-connector-ko.md)는 관측 권한을 바꾸지 않고 명시적인 인증서
+인증 기반 스냅샷 전송을 제공합니다. 저장본을 읽는 어댑터는 기존 Inventory Job과 관계 검증기를
+사용하며 직접 수집과 함께 설정할 수 없습니다. 직접 수집은 기본값으로 유지합니다.
+커넥터의 Event 이력과 보호된 private 클러스터 검증은 구현 원장에 남은 작업으로 기록합니다.
 
 런타임은 개수가 제한된 클러스터 연결 모음을 허용합니다. 각 연결은 다음을 포함합니다.
 

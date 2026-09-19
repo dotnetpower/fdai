@@ -1,7 +1,7 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: 6c8f3f9d2b918f183a6a42d7f9811adeb7323def
+translation_source_sha: 52cdd544fcd7cfa34ebb2a85d4c3caa7326f7061
 translation_revised: 2026-09-19
 ---
 # AKS 역방향 커넥터
@@ -87,6 +87,52 @@ Event 커서가 만료됐거나 순서가 누락되거나 스키마를 지원하
 전환에는 최신의 완전한 세대가 필요하며 두 번째 기록기를 만들지 않습니다. 미래 관측,
 오래된 세대, 식별 불일치, 같은 키의 다른 내용은 거부합니다. 동일 재시도는 안전하게 처리하고
 원래 관측 시각을 새로 갱신하지 않습니다.
+
+## 스냅샷 실행 구성
+
+초기 실행 가능한 관측 경로는 명시적으로 설정한 상호 TLS(mTLS)를 사용합니다.
+양쪽 모두 인증서 체인을 검증합니다. 게이트웨이는 실제 TLS 클라이언트 인증서의 SHA-256
+지문에서 주체를 식별하고 수락 시 보호된 등록 파일을 다시 읽습니다. 전달된 인증서 헤더나
+bearer 토큰은 이 게이트웨이의 인증 수단이 아닙니다. 송신기는 워크로드 토큰을 가져올 수
+있지만 대응하는 Entra 인증 수신 경로는 아직 없습니다. 직접 TLS 리스너를 사용하며,
+신뢰할 수 없는 프록시에서 TLS를 종료하는 구성은 지원하지 않습니다.
+
+기존 Core 배포 패키지에서 다음 진입점을 제공합니다.
+
+```bash
+python -m fdai.delivery.kubernetes_connector_cli observe-once --config /private/observer.json
+python -m fdai.delivery.kubernetes_connector_cli serve --config /private/gateway.json
+```
+
+각 구성 파일은 소유자만 접근하는 `0600` 권한이어야 합니다. `role`, `registration_path`,
+`tls_ca_path`, `tls_certificate_path`, `tls_key_path`를 지정합니다. 관측 구성에는
+`gateway_origin`, `observer_principal_ref`, `stream_id`, `producer_revision`,
+`spool_directory`, `api_server`, `api_ca_path`, `api_token_path`도 지정합니다.
+주체 참조는 인증서 주체 표시 이름이 아니라 클라이언트 인증서 지문입니다. 등록 파일은
+`cluster-connector-registration` 스키마를 따르는 제한된 JSON 배열입니다. 관측 등록에는
+정확한 클러스터에서 수집하는 전체 namespace 집합을 적으며 클러스터 참조는 정식 중립
+인벤토리 식별자입니다. 클러스터 범위 객체를 전송하려면 생성기와 수신기 모두
+`allow_cluster_resources: true`를 명시해야 합니다. 알 수 없는 구성 필드는 거부합니다.
+
+게이트웨이만 `FDAI_STATE_STORE_DSN`을 읽으며 관측 워커에는 중앙 DB 자격 증명을
+전달하지 않습니다. `0700` 버퍼 디렉터리는 하나의 등록과 스트림에 연결되고, 검증된
+스냅샷을 `0600` SQLite DB에 저장합니다. 정확한 수신 확인 후 가장 오래된 패킷만
+제거합니다. 확인 응답이 유실되면 새 수집 전에 원래 바이트와 시각으로 재전송합니다.
+용량 초과나 대기 근거 만료는 조용한 데이터 삭제가 아니라 작업 중단으로 처리합니다.
+수락되지 않은 스트림이 만료됐다면 명시적으로 등록 버전을 바꾸고 새 버퍼 디렉터리를
+사용해야 합니다. 자동 스트림 초기화와 수명 주기 공백 복구는 아직 구현하지 않았습니다.
+
+Inventory Job은 `FDAI_KUBERNETES_CONNECTOR_REGISTRATION_PATH`와
+`FDAI_KUBERNETES_CONNECTOR_PRINCIPAL_REF`로 이 소스를 선택합니다.
+`FDAI_KUBERNETES_CONNECTOR_CLUSTER_RESOURCES`는 클러스터 범위 읽기를 별도로
+허용합니다. 초기 연결은 직접 클러스터 연결 및 구독 자동 발견과 함께 사용할 수 없습니다.
+리소스 및 검증된 관계 반영은 기존 인벤토리 기록기가 계속 담당합니다. 게이트웨이는 내용과
+순번을 감사와 원자적으로 저장하지만 수신 확인 자체는 그래프 반영을 입증하지 않습니다.
+
+이 경로는 민감한 내용을 제외한 완전한 스냅샷만 전송합니다. Event 이력, 영속 읽기 작업 전달,
+Executor 작업, 네트워크 분리, 배포 매니페스트, 보호된 실환경 검증은 별도 구현 항목입니다.
+스케줄러가 제한된 관측 작업을 호출할 수 있지만 시작 프로그램에서 자동으로 활성화하지는
+않습니다. 로컬 TLS와 PostgreSQL 테스트는 합성 근거로 동작만 검증합니다.
 
 ## 승인된 운영 작업
 

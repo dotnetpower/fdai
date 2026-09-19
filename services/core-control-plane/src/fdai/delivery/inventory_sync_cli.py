@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import os
 import ssl
@@ -189,6 +190,45 @@ async def _build_kubernetes_enricher(
     stack: AsyncExitStack,
     identity: WorkloadIdentity | None = None,
 ) -> InventoryPromotionEnricher:
+    if config.kubernetes_connector_registration_path is not None:
+        if (
+            config.kubernetes_bindings
+            or config.kubernetes_subscription_discovery
+            or config.kubernetes_api_server
+            or config.kubernetes_unavailable_scopes
+        ):
+            raise ValueError("Kubernetes connector MUST NOT be combined with direct collection")
+        from fdai.delivery.kubernetes_connector_runtime import FileConnectorRegistrations
+        from fdai.delivery.kubernetes_connector_snapshot import (
+            ConnectorInventorySource,
+            ConnectorSnapshotInbox,
+        )
+
+        principal = config.kubernetes_connector_principal_ref
+        if not principal:
+            raise ValueError("Kubernetes connector requires a registered principal")
+        registrations = FileConnectorRegistrations(config.kubernetes_connector_registration_path)
+        registration = await registrations.read(principal)
+        if registration is None:
+            raise ValueError("Kubernetes connector enrollment is unavailable")
+        registration.admit(
+            principal_ref=principal,
+            scope=registration.scope,
+            capability="inventory.snapshot",
+            now=datetime.now(UTC),
+        )
+        inbox = ConnectorSnapshotInbox(
+            PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn)),
+            registrations=registrations,
+            allow_cluster_resources=config.kubernetes_connector_cluster_resources,
+            now=lambda: datetime.now(UTC),
+        )
+        return KubernetesInventoryEnricher(
+            source=ConnectorInventorySource(inbox, principal_ref=principal),
+            relationship_mapping_catalog=relationship_catalog,
+            scope_digest="sha256:"
+            + hashlib.sha256(registration.scope.cluster_ref.encode()).hexdigest(),
+        )
     if not config.kubernetes_bindings and not config.kubernetes_unavailable_scopes:
         return UnavailableKubernetesInventoryEnricher()
     enrichers: list[InventoryPromotionEnricher] = []

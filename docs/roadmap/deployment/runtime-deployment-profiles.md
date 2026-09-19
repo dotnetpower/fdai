@@ -200,6 +200,13 @@ Accepting an AKS stage never grants it approval or permission to skip an earlier
 
 ## Runtime rendering
 
+The optional [outbound snapshot connector](../architecture/aks-outbound-connector.md) runs from
+the existing Core distribution and does not change runtime selection or deployment authority.
+Inventory composition can explicitly select its certificate-authenticated stored source instead
+of direct Kubernetes bindings or subscription discovery, never both. The observer receives no
+central database identity; the dedicated gateway uses the Core-owned store. Default renderers do
+not install or enable these workloads yet, and local TLS/DB evidence is not deployment readiness.
+
 FDAI services keep one runtime-neutral workload specification containing the digest-pinned image,
 command, arguments, environment names, resource requests and limits, startup, liveness and readiness
 probes, ingress intent, service port, sidecars, secret references, workload identity and scaling bounds.

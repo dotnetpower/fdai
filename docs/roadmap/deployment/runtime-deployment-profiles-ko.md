@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 894ecaca3ac105e9436270357a59fa64fb9ffc24
+translation_source_sha: 4b5c32019a3bd95f3d67fd20a26411856279b560
 translation_revised: 2026-09-19
 ---
 # 런타임 배포 프로파일
@@ -219,6 +219,13 @@ DB 및 애플리케이션 준비는 모두 소유자 전용 kubeconfig를 [`kube
 선행 단계를 생략할 권한을 부여하지는 않습니다.
 
 ## 런타임 렌더링
+
+선택적인 [역방향 스냅샷 커넥터](../architecture/aks-outbound-connector-ko.md)는 기존 Core
+배포 패키지에서 실행하며 런타임 선택이나 배포 권한을 바꾸지 않습니다. 인벤토리 조립은 직접
+Kubernetes 연결 또는 구독 자동 발견 대신 인증서로 인증된 저장 소스를 명시적으로 선택할 수
+있지만 두 경로를 함께 사용할 수는 없습니다. 관측 워커에는 중앙 DB 신원을 부여하지 않고
+전용 게이트웨이가 Core 소유 저장소를 사용합니다. 기본 렌더러는 아직 이 워크로드를 설치하거나
+활성화하지 않으며 로컬 TLS/DB 검증은 배포 준비 상태를 뜻하지 않습니다.
 
 FDAI 서비스는 하나의 런타임 중립 워크로드 명세를 유지합니다. 이 명세에는 digest로 고정된 이미지,
 명령, 인자, 환경 변수 이름, 리소스 요청량과 제한량, 시작, 활성, 준비 프로브, 수신 의도, 서비스

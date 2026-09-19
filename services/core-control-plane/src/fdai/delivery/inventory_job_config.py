@@ -69,6 +69,9 @@ class InventoryJobConfig:
     kubernetes_bindings: tuple[KubernetesClusterBinding, ...] = ()
     kubernetes_subscription_discovery: bool = False
     kubernetes_unavailable_scopes: tuple[AksUnavailableScope, ...] = ()
+    kubernetes_connector_registration_path: Path | None = None
+    kubernetes_connector_principal_ref: str | None = None
+    kubernetes_connector_cluster_resources: bool = False
     monitor_workspace_id: str | None = None
     runtime_call_evidence_enabled: bool = False
     collection_policy: InventoryCollectionPolicy | None = None
@@ -220,6 +223,21 @@ class InventoryJobConfig:
             kubernetes_auth_mode,
             kubernetes_ca_value or kubernetes_ca_pem,
         )
+        connector_path = source.get("FDAI_KUBERNETES_CONNECTOR_REGISTRATION_PATH", "").strip()
+        connector_principal = source.get("FDAI_KUBERNETES_CONNECTOR_PRINCIPAL_REF", "").strip()
+        connector_cluster_resources = read_bool_env(
+            source, "FDAI_KUBERNETES_CONNECTOR_CLUSTER_RESOURCES", default=False
+        )
+        if bool(connector_path) != bool(connector_principal):
+            raise ValueError("Kubernetes connector requires registration path and principal")
+        if connector_cluster_resources and not connector_path:
+            raise ValueError("Kubernetes connector cluster permission requires a connector binding")
+        if connector_path and (
+            kubernetes_bindings_json
+            or kubernetes_subscription_discovery
+            or any((*kubernetes_values, kubernetes_token_value, kubernetes_audience))
+        ):
+            raise ValueError("Kubernetes connector MUST NOT be combined with direct collection")
         if kubernetes_bindings_json and any(
             (
                 *kubernetes_values,
@@ -314,6 +332,9 @@ class InventoryJobConfig:
         )
         return cls(
             dsn=dsn,
+            kubernetes_connector_registration_path=Path(connector_path) if connector_path else None,
+            kubernetes_connector_principal_ref=connector_principal or None,
+            kubernetes_connector_cluster_resources=connector_cluster_resources,
             scopes=scopes,
             source_order=source_order,
             resource_types=resource_types,

@@ -87,6 +87,52 @@ source selection per cluster; failover requires a fresh, complete generation, no
 Future observations, stale generations, mismatched identity, and same-key different-content replay
 are rejected. Identical retry remains safe and does not refresh the original observation time.
 
+## Snapshot runtime
+
+The initial executable observation path uses explicitly configured mutual TLS (mTLS). Both
+peers verify the certificate chain. The gateway derives the principal from the actual TLS client
+certificate's SHA-256 fingerprint and reloads the protected enrollment file for admission. Forwarded
+certificate headers and bearer tokens are not authentication for this gateway. Workload-token
+acquisition remains available in the transport, but a corresponding Entra-authenticated ingress is
+not implemented. Use a direct TLS listener; TLS termination at an untrusted proxy is unsupported.
+
+The existing Core distribution provides these entry points:
+
+```bash
+python -m fdai.delivery.kubernetes_connector_cli observe-once --config /private/observer.json
+python -m fdai.delivery.kubernetes_connector_cli serve --config /private/gateway.json
+```
+
+Each configuration file is owner-only mode `0600`. It names a `role`, `registration_path`,
+`tls_ca_path`, `tls_certificate_path`, and `tls_key_path`. Observer configuration additionally
+names `gateway_origin`, `observer_principal_ref`, `stream_id`, `producer_revision`,
+`spool_directory`, `api_server`, `api_ca_path`, and `api_token_path`. The principal reference is
+the client certificate fingerprint, not its subject display name. The enrollment file is a bounded
+JSON array of the registered `cluster-connector-registration` schema. Each observation registration
+lists the complete namespace set collected from its exact cluster, whose reference is the canonical
+neutral inventory identity. Cluster-scoped object transfer requires explicit
+`allow_cluster_resources: true` on both producer and receiver. Unknown configuration fields fail.
+
+The gateway alone reads `FDAI_STATE_STORE_DSN`. The observer receives no central database
+credential. Its mode-`0700` spool directory binds to one enrollment and stream and holds validated
+snapshots in a mode-`0600` SQLite database. Exact acknowledgment removes only the oldest packet;
+lost acknowledgment replays its original bytes and clock before new collection. Capacity exhaustion
+and expired pending evidence stop the cycle without silently dropping data. Recovering an expired
+unaccepted stream requires an explicitly revised enrollment and a new spool directory; automatic
+stream reset and lifecycle-gap recovery are not implemented.
+
+The Inventory Job selects this source with `FDAI_KUBERNETES_CONNECTOR_REGISTRATION_PATH` and
+`FDAI_KUBERNETES_CONNECTOR_PRINCIPAL_REF`. The independent
+`FDAI_KUBERNETES_CONNECTOR_CLUSTER_RESOURCES` flag controls cluster-scoped read permission. The
+initial binding is exclusive with direct cluster bindings and subscription discovery. The ordinary
+inventory writer still owns all resource and verified-relationship promotion. The gateway stores
+content and sequence atomically with audit, but its acknowledgment does not prove graph promotion.
+
+This path transfers complete content-safe snapshots only. Event history, durable read task dispatch,
+Executor work, segmentation, deployment manifests, and protected live validation remain separate
+delivery items. A scheduler may invoke the bounded observer cycle; no startup launcher enables it
+implicitly. Local TLS and PostgreSQL tests use synthetic evidence and prove mechanics only.
+
 ## Governed operations
 
 Read work and managed-resource changes have distinct schemas and queues. Read work has bounded
