@@ -385,7 +385,9 @@ def test_workspace_exposes_explicit_local_development_diagnostics() -> None:
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
     start = tasks_by_label["dev discuss: start or restart profiled services"]
-    assert start["command"].startswith("FDAI_DEVELOPMENT_DIAGNOSTICS=1 ")
+    assert start["command"] == (
+        "bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra"
+    )
     assert start["dependsOn"] == [
         "console: require primary worktree",
         "console: prepare full stack",

@@ -137,7 +137,9 @@ def _operator_restart_repo(tmp_path: Path) -> Path:
     (repo / ".fdai").mkdir()
     (repo / ".fdai/local-console-auth-mode").write_text("browser-entra\n", encoding="utf-8")
     (repo / ".fdai/local-operator-service.env").write_text(
-        "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0\nFDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=0\n",
+        "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0\n"
+        "FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=0\n"
+        "FDAI_DEVELOPMENT_DIAGNOSTICS=0\n",
         encoding="utf-8",
     )
     _write_executable(
@@ -147,6 +149,7 @@ status="${FDAI_TEST_RUNNER_STATUS:-0}"
 if [[ "$status" != "0" ]]; then
     exit "$status"
 fi
+printf '%s\n' "${FDAI_DEVELOPMENT_DIAGNOSTICS:-}" > diagnostics.txt
 sleep "${FDAI_TEST_LAUNCH_DELAY:-0}"
 printf '2026-08-26T00:00:00.000000+00:00 service=operator-api event=starting\n'
 printf '2026-08-26T00:00:00.000000+00:00 service=operator-api event=reused\n'
@@ -219,6 +222,16 @@ def test_operator_restart_emits_ready_after_reuse(tmp_path: Path) -> None:
     ]
     assert "service=operator-api event=ready" in result.stdout
     assert "service=operator-api event=failed" not in result.stderr
+
+
+def test_operator_launcher_always_enables_development_diagnostics(tmp_path: Path) -> None:
+    repo = _operator_restart_repo(tmp_path)
+
+    result = _run_operator_restart(repo)
+
+    assert result.returncode == 0
+    assert (repo / "diagnostics.txt").read_text(encoding="utf-8") == "1\n"
+    assert "core-runtime|operator-api)" in _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
 
 
 def test_operator_restart_emits_failed_for_readiness_failure(tmp_path: Path) -> None:

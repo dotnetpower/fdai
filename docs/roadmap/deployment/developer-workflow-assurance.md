@@ -45,7 +45,7 @@ successful result.
 | Hooks | Detect staged and unstaged overlap and preserve deterministic recovery guidance before a mutating hook runs. | Hook failure does not silently discard task-owned work. |
 | Browser checks | Prefer focused CLI Playwright checks and preserve the shared 10-slot lease contract. | Browser-tool use is limited to one bounded final interaction when CLI evidence is sufficient. |
 | Local services | Probe every standard local service independently with bounded timeout and ownership diagnostics. | Full-stack readiness names every unavailable service and never infers readiness from the SPA. |
-| Development diagnostics | Profile an explicitly selected local Core or Operator process through an owner-only Unix socket and bind the result to its exact source inputs. | A bounded packet separates latency, CPU, Python heap, and untracked memory, then GitHub Copilot diagnoses only an exact matching workspace snapshot. |
+| Development diagnostics | Profile each Core or Operator process started by the standard task-backed local launcher through an owner-only Unix socket and bind the result to its exact source inputs. | A bounded packet separates latency, CPU, Python heap, and untracked memory, then GitHub Copilot diagnoses only an exact matching workspace snapshot. |
 | Editor pressure | Separate host pressure, extension pressure, and upstream browser payload cost. | Diagnostics identify the owning process or classify the limitation as upstream. |
 | Remote preflight | Retry only transient read failures within a fixed attempt and time budget. | Permanent authorization and policy failures fail immediately; retries never mutate Azure. |
 
@@ -64,10 +64,11 @@ converting a failed or cancelled check into success.
 
 ## Development diagnostic channel
 
-The development diagnostic channel is an explicitly activated local workflow for finding code
-bottlenecks in a running Core or Operator process. Each process exposes one owner-only Unix socket
-only when the execution venue is `local` and the development diagnostic flag is enabled. No HTTP,
-browser, Teams, Slack, Event Bus, or managed-resource route reaches this socket.
+The standard task-backed local launcher always enables the development diagnostic channel for Core
+and Operator processes. Each process exposes one owner-only Unix socket only when the execution
+venue is `local`; direct process starts outside that launcher require the complete source and digest
+binding before diagnostics can be enabled. No HTTP, browser, Teams, Slack, Event Bus, or
+managed-resource route reaches this socket.
 
 The process-local probe retains bounded latency aggregates and reads content-free process state.
 An explicit capture can run `cProfile` and `tracemalloc` for at most 30 seconds, one capture per
@@ -88,9 +89,9 @@ Profiled full-stack startup completes the normal preparation stages before eithe
 exists. Preparation therefore emits content-free stage durations for pre-process bottlenecks, while
 the sockets measure only the running Core and Operator processes. The local Core launcher uses its
 service-owned entry point. The Operator ASGI factory binds its runtime-scope receipt even when
-Uvicorn loads the factory directly, then appends explicitly enabled diagnostics to the composed
+Uvicorn loads the factory directly, then appends launcher-enabled diagnostics to the composed
 application lifecycle without expanding the production composition root. Running `dev discuss: start or restart profiled services`
-replaces a stale task instance. GitHub Copilot in the active coding session reviews exported
+replaces a stale instance of the same always-profiled local stack. GitHub Copilot in the active coding session reviews exported
 packets; no FDAI runtime or Azure OpenAI deployment is selected or invoked by the diagnostic
 channel. Local readiness recognizes the service-owned Core executable as the process owner and
 accepts fresh semantic-consumer progress followed by a fresh heartbeat. When an inventory

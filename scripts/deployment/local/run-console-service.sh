@@ -163,6 +163,12 @@ if [[ -n "$env_file" ]]; then
   set +a
 fi
 
+case "$service" in
+  core-runtime|operator-api)
+    export FDAI_DEVELOPMENT_DIAGNOSTICS=1
+    ;;
+esac
+
 if [[ "$service" == "operator-api" ]] \
   && { [[ "${FDAI_OPERATOR_API_LOCAL_AZURE_CLI:-0}" != "$local_azure_cli_auth" ]] \
     || [[ "${FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM:-0}" != "$local_azure_cli_auth" ]]; }; then

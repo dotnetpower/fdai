@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 60351baf157289b730537c468e9c6d5191f6036d
+translation_source_sha: 49050a083b2d8881db574efb3655c4c1f32d352f
 translation_revised: 2026-09-19
 ---
 
@@ -50,7 +50,7 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 | Hook | 변경형 hook 실행 전에 staged 및 unstaged 중첩을 감지하고 결정론적 복구 지침을 보존합니다. | Hook 실패가 작업 소유 변경을 조용히 버리지 않습니다. |
 | 브라우저 검사 | 집중 CLI Playwright 검사를 우선하고 공유 10-slot lease 계약을 보존합니다. | CLI 근거가 충분하면 브라우저 도구 사용을 제한된 최종 상호 작용 1회로 제한합니다. |
 | 로컬 서비스 | 제한된 timeout과 소유권 진단으로 모든 표준 로컬 서비스를 독립적으로 probe합니다. | Full-stack 준비 상태가 사용 불가능한 모든 서비스를 지목하며 SPA만으로 준비 상태를 추론하지 않습니다. |
-| 개발 진단 | 소유자 전용 Unix 소켓을 통해 명시적으로 선택한 로컬 Core 또는 Operator 프로세스를 프로파일링하고 결과를 정확한 소스 입력에 연결합니다. | 범위가 제한된 패킷이 지연 시간, CPU, Python 힙 및 추적되지 않는 메모리를 분리하고, GitHub Copilot은 정확히 일치하는 workspace snapshot만 진단합니다. |
+| 개발 진단 | 표준 작업 기반 로컬 실행기가 시작한 각 Core 또는 Operator 프로세스를 소유자 전용 Unix 소켓을 통해 프로파일링하고 결과를 정확한 소스 입력에 연결합니다. | 범위가 제한된 패킷이 지연 시간, CPU, Python 힙 및 추적되지 않는 메모리를 분리하고, GitHub Copilot은 정확히 일치하는 workspace snapshot만 진단합니다. |
 | 편집기 부하 | 호스트 부하, extension 부하 및 upstream 브라우저 payload 비용을 분리합니다. | 진단이 소유 프로세스를 식별하거나 제한을 upstream으로 분류합니다. |
 | 원격 사전 검사 | 고정된 시도 및 시간 예산 안에서 transient 읽기 실패만 retry합니다. | 영구 권한 및 policy 실패는 즉시 실패하며 retry는 Azure를 변경하지 않습니다. |
 
@@ -69,10 +69,11 @@ CI 범위 해석기는 결정론적으로 동작하며 안전한 쪽을 선택�
 
 ## 개발 진단 채널
 
-개발 진단 채널은 실행 중인 Core 또는 Operator 프로세스의 코드 병목을 찾기 위해 명시적으로
-활성화하는 로컬 워크플로입니다. 각 프로세스는 실행 위치가 `local`이고 개발 진단 플래그를
-활성화한 경우에만 소유자 전용 Unix 소켓 하나를 노출합니다. HTTP, 브라우저, Teams, Slack,
-Event Bus 또는 관리 리소스 경로에서는 이 소켓에 접근할 수 없습니다.
+표준 작업 기반 로컬 실행기는 Core와 Operator 프로세스의 개발 진단 채널을 항상 활성화합니다.
+각 프로세스는 실행 위치가 `local`일 때만 소유자 전용 Unix 소켓 하나를 노출합니다. 해당
+실행기를 우회해 프로세스를 직접 시작할 때는 진단을 활성화하기 전에 완전한 소스 및 digest
+연결을 제공해야 합니다. HTTP, 브라우저, Teams, Slack, Event Bus 또는 관리 리소스 경로에서는
+이 소켓에 접근할 수 없습니다.
 
 프로세스 로컬 probe는 범위가 제한된 지연 시간 집계와 내용이 없는 프로세스 상태를 유지합니다.
 명시적 캡처는 프로세스마다 한 번씩 최대 30초 동안 `cProfile`과 `tracemalloc`을 실행할 수
@@ -93,9 +94,10 @@ Copilot을 호출하거나 저장소 파일을 읽거나 코드를 편집하거�
 준비 단계는 프로세스 시작 전 병목에 대해 내용이 없는 단계별 시간을 내보내고, 소켓은 실행 중인
 Core 및 Operator 프로세스만 측정합니다. 로컬 Core 실행기는 서비스 소유 진입점을 사용합니다.
 Operator ASGI 애플리케이션 팩터리는 Uvicorn이 팩터리를 직접 불러도 runtime-scope receipt를 연결합니다.
-그런 다음 명시적으로 활성화된 진단을 조립된 애플리케이션 수명 주기에 추가하여 선택적 계측이
+그런 다음 실행기가 활성화한 진단을 조립된 애플리케이션 수명 주기에 추가하여 로컬 계측이
 프로덕션 조립 루트의 의존성 수를 늘리지 않게 합니다.
-`dev discuss: start or restart profiled services`를 실행하면 오래된 작업 인스턴스를 교체합니다.
+`dev discuss: start or restart profiled services`를 실행하면 항상 프로파일링되는 동일한 로컬
+스택의 오래된 작업 인스턴스를 교체합니다.
 내보낸 패킷은 현재 코딩 세션의 GitHub Copilot이 검토하며, 진단 채널은 FDAI 런타임 모델이나
 Azure OpenAI 배포를 선택하거나 호출하지 않습니다. 로컬 준비 상태 검사는 서비스 소유 Core
 실행기를 프로세스 소유자로 인식하고 새로운 semantic consumer 진행 뒤의 새로운 heartbeat를
