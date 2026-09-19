@@ -124,6 +124,147 @@ async def test_same_verifier_cannot_replace_part_of_an_existing_signed_group() -
 
 
 @pytest.mark.parametrize(
+    "case", ["valid", "source", "signature", "digest", "oversize", "exit", "running"]
+)
+async def test_artifact_fact_uses_only_isolated_deployment_verifier(
+    tmp_path, monkeypatch, case
+) -> None:
+    import asyncio
+    import json
+    import signal
+    from pathlib import Path
+
+    from fdai.delivery.kubernetes_connector_artifact_preflight import collect_artifact_fact
+    from fdai_service_contracts.compatibility import canonical_digest
+
+    source, image = "a" * 40, "sha256:" + "b" * 64
+    request = tmp_path / "request.json"
+    request.write_text(
+        json.dumps(
+            {
+                "source_commit": source,
+                "image_digest": image,
+                "offline_kit": str(tmp_path / "kit"),
+                "work_dir": str(tmp_path / "work"),
+            }
+        )
+    )
+    request.chmod(0o600)
+    value = {
+        "schema_version": "1.0.0",
+        "source_commit": source,
+        "image_digest": image,
+        "platform_tag": "linux-x86_64",
+        "runtime_digest": DIGEST,
+        "bundle_digest": DIGEST,
+        "release_signature_verified": True,
+        "execution_authority": False,
+    }
+    if case == "source":
+        value["source_commit"] = "f" * 40
+    elif case == "signature":
+        value["release_signature_verified"] = False
+    value["evidence_digest"] = canonical_digest(value)
+    if case == "digest":
+        value["evidence_digest"] = "sha256:" + "0" * 64
+
+    class Process:
+        pid = 12345
+
+        def __init__(self):
+            self.returncode = None if case == "running" else 1 if case == "exit" else 0
+            self.stdout = asyncio.StreamReader()
+            self.stdout.feed_data(
+                b"x" * 8193 if case in {"oversize", "running"} else json.dumps(value).encode()
+            )
+            self.stdout.feed_eof()
+
+        async def wait(self):
+            return self.returncode
+
+    calls = []
+    processes, killed = [], []
+
+    async def start(*args, **kwargs):
+        calls.append(args)
+        assert args == (
+            "/verified/bin/python",
+            "-I",
+            "-m",
+            "fdai_deployment_cli.observer_artifact",
+            "--request",
+            str(request),
+        )
+        assert "PYTHONPATH" not in kwargs["env"] and "PYTHONHOME" not in kwargs["env"]
+        assert kwargs["start_new_session"] is True
+        process = Process()
+        processes.append(process)
+        return process
+
+    def kill(pid, received):
+        assert pid == 12345 and received == signal.SIGKILL
+        killed.append(pid)
+        processes[-1].returncode = -9
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", start)
+    from fdai.delivery import kubernetes_connector_artifact_preflight as artifact_module
+
+    monkeypatch.setattr(artifact_module.os, "killpg", kill)
+    fact = await collect_artifact_fact(
+        deployment_python=Path("/verified/bin/python"),
+        request_path=request,
+        target_ref="cluster-example",
+        source_commit=source,
+        image_digest=image,
+        now=lambda: NOW,
+    )
+    assert fact.state == ("allowed" if case == "valid" else "unknown")
+    assert len(calls) == 1
+    assert killed == ([12345] if case == "running" else [])
+    if case == "valid":
+        from cryptography.hazmat.primitives.serialization import (
+            Encoding,
+            NoEncryption,
+            PrivateFormat,
+        )
+        from fdai.delivery.kubernetes_connector_preflight import verify_preflight
+        from fdai.delivery.kubernetes_connector_preflight_runtime import (
+            FileObserverPreflightGrants,
+            collect_artifact_preflight,
+        )
+
+        grant, _, private = material()
+        grant = grant.model_copy(
+            update={"allowed_facts": {"artifact_verified": ("deployment_profile",)}}
+        )
+        config = {
+            "target_ref": "cluster-example",
+            "discovery_digest": DIGEST,
+            "issuer_ref": grant.issuer_ref,
+            "producer_revision": DIGEST,
+            "signing_key_path": str(tmp_path / "key.pem"),
+            "grants_path": str(tmp_path / "grants.json"),
+            "deployment_python_path": "/verified/bin/python",
+            "request_path": str(request),
+            "source_commit": source,
+            "image_digest": image,
+        }
+        files = {
+            "key.pem": private.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()),
+            "grants.json": json.dumps([grant.model_dump(mode="json")]).encode(),
+            "config.json": json.dumps(config).encode(),
+        }
+        for name, content in files.items():
+            (tmp_path / name).write_bytes(content)
+            (tmp_path / name).chmod(0o600)
+        signed = await collect_artifact_preflight(tmp_path / "config.json", now=lambda: NOW)
+        assert signed.context.facts == (fact,)
+        await verify_preflight(
+            signed, grants=FileObserverPreflightGrants(tmp_path / "grants.json"), now=NOW
+        )
+
+
+@pytest.mark.parametrize(
     "kind", ["signature", "target", "issuer", "scope", "revision", "expiry", "owner"]
 )
 async def test_invalid_preflight_never_persists(kind) -> None:

@@ -1,7 +1,7 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: 651e8c70a1cba617d077b6086d098d1edf4125e3
+translation_source_sha: 60189b5e56da7d2180713cdc2229d2780f80c80b
 translation_revised: 2026-09-20
 ---
 # AKS 역방향 커넥터
@@ -207,6 +207,26 @@ python -m fdai.delivery.kubernetes_connector_proposal_cli retain-preflight --rec
 서명, 범위, 만료, 철회를 다시 검증합니다. 실행 가능한 Kubernetes 읽기 사전 점검이지
 자동 예약된 전체 배포 점검은 아닙니다. Azure 정책, 이미지, 용량, 저장소, 네트워크와 설치
 관리 주체의 근거 생성기는 아직 남아 있습니다.
+
+### 산출물 사전 점검
+
+산출물 점검은 설치된 배포 CLI의 고정 release·배포 묶음 신뢰 루트, 완전한 오프라인 키트 검증,
+OCI 내용 검사를 재사용합니다. 단순 해시 검사로 대체하거나 다른 키트를 내려받거나 이미지를
+빌드하거나 레지스트리로 가져오거나 리소스를 배포하지 않습니다. 선택한 소스 커밋과 Core 이미지
+digest가 인증된 런타임 release와 일치해야 합니다. 정확한 서명 이미지의 근거일 뿐 대상 정책이나
+설치 준비 상태를 입증하지 않습니다.
+
+`collect-artifact-preflight --config /private/artifact-preflight.json`은 공통 서명자 필드와
+`deployment_python_path`, `request_path`, `source_commit`, `image_digest`를 사용합니다.
+배포 관리 주체가 신뢰하는 설치된 CLI 인터프리터를 제공하며 Core는 고정된
+`fdai_deployment_cli.observer_artifact` 모듈만 Python `-I`로 호출합니다. `PYTHONPATH`와
+`PYTHONHOME`은 전달하지 않습니다. 개인 요청에는 `offline_kit`, `work_dir`, `source_commit`,
+`image_digest`만 넣습니다. 경로는 절대 경로이고 작업 디렉터리는 개인 디렉터리이며 기존 키트
+검증기가 로컬 복사본을 관리합니다. 전체 실행 시간은 60초, 출력은 8 KiB로 제한하고 프로세스
+그룹 정리에도 기한을 적용합니다. 현재 등록된 서명자가 정확히 검증된 결과만
+`deployment_profile` 출처의 `artifact_verified`로 발행합니다. 예외, 도구 부재, 소스 변경,
+잘못된 출력은 알 수 없음으로 남기고 취소는 전달합니다. 어댑터는 로컬에서 시험했지만 운영
+검증을 위한 선택된 release 키트나 대상 산출물 준비 증적은 아직 제공되지 않았습니다.
 
 ### 게이트웨이 수락 사전 점검
 

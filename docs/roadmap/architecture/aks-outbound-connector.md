@@ -209,6 +209,26 @@ storage and current reads verify signatures, scope, expiry and revocation again.
 executable Kubernetes read preflight, not an automatically scheduled complete deployment preflight.
 Azure policy, artifact, capacity, storage, network and installation-owner producers remain open.
 
+### Artifact preflight
+
+Artifact inspection reuses the installed deployment CLI's pinned release and bundle trust roots,
+complete offline-kit verification, and OCI content checks. It never substitutes a hash-only file
+check, downloads a fallback kit, builds an image, imports a registry artifact or deploys a resource.
+The selected source commit and Core image digest must match the authenticated runtime release.
+The evidence attests that exact signed release image, not target policy or installation readiness.
+
+`collect-artifact-preflight --config /private/artifact-preflight.json` uses the common signer fields
+plus `deployment_python_path`, `request_path`, `source_commit` and `image_digest`. The deployment
+owner supplies a trusted installed CLI interpreter; Core invokes only its fixed
+`fdai_deployment_cli.observer_artifact` module under Python `-I`, without `PYTHONPATH` or `PYTHONHOME`.
+The private request contains exactly `offline_kit`, `work_dir`, `source_commit`, `image_digest`.
+Paths are absolute, the work directory is private, and existing kit verification owns local copies.
+The worker has a 60-second total deadline, an 8 KiB output cap and bounded process-group cleanup.
+Only the exact checked result can become `artifact_verified` from `deployment_profile` under a
+current registered signer. Exceptions, unavailable tools, source drift or malformed output remain
+unknown; cancellation propagates. This adapter is locally tested; no selected release kit or target
+artifact-readiness receipt has been supplied for operational verification.
+
 ### Gateway admission preflight
 
 Gateway inspection uses a bounded mTLS challenge without writing snapshot or inventory state.

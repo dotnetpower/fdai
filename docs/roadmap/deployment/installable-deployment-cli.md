@@ -30,7 +30,7 @@ inside the target virtual network.
 | GitHub dependency | None for tenant deployment |
 
 GitHub Actions may validate source, build images, and optionally publish signed releases; publication
-is not a deployment-validation prerequisite. GitHub Actions cannot plan, apply, resume, or tear down a tenant deployment.
+is not a deployment-validation prerequisite. GitHub Actions cannot plan, apply, resume, or tear down a tenant deployment. The read-only [observer artifact preflight](../architecture/aks-outbound-connector.md#artifact-preflight) reuses the same pinned-root offline kit and OCI verifier for an exact Core image; its bounded process result creates no new release trust, approval or installation authority.
 
 ## Connected source deployment
 

@@ -9,7 +9,7 @@ import ssl
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
@@ -21,6 +21,7 @@ from fdai_service_contracts.observer_deployment import (
     ObserverPreflightReceipt,
     TargetRef,
 )
+from pydantic import Field
 
 from fdai.delivery.kubernetes_connector_preflight import (
     ObserverPreflightGrant,
@@ -60,6 +61,13 @@ class ObserverGatewayPreflightConfig(ObserverSigningConfig):
     observer_config_path: Path
 
 
+class ObserverArtifactPreflightConfig(ObserverSigningConfig):
+    deployment_python_path: Path
+    request_path: Path
+    source_commit: Annotated[str, Field(pattern=r"^[a-f0-9]{40}$", min_length=40, max_length=40)]
+    image_digest: Digest
+
+
 class ObserverAdmissionPreflightConfig(ObserverReadPreflightConfig):
     """Deployment-preflight credential plus exact private draft inputs, never an observer grant."""
 
@@ -89,8 +97,18 @@ async def collect_gateway_preflight(
     return await _collect_preflight(path, now=now, kind="gateway")
 
 
+async def collect_artifact_preflight(
+    path: Path, *, now: Callable[[], datetime]
+) -> ObserverPreflightReceipt:
+    """Sign only exact Core-image evidence from the deployment-owned offline trust verifier."""
+    return await _collect_preflight(path, now=now, kind="artifact")
+
+
 async def _collect_preflight(
-    path: Path, *, now: Callable[[], datetime], kind: Literal["read", "admission", "gateway"]
+    path: Path,
+    *,
+    now: Callable[[], datetime],
+    kind: Literal["read", "admission", "gateway", "artifact"],
 ) -> ObserverPreflightReceipt:
     import hashlib
 
@@ -100,7 +118,9 @@ async def _collect_preflight(
 
     content = await asyncio.to_thread(private_file, path)
     config = (
-        ObserverGatewayPreflightConfig
+        ObserverArtifactPreflightConfig
+        if kind == "artifact"
+        else ObserverGatewayPreflightConfig
         if kind == "gateway"
         else ObserverAdmissionPreflightConfig
         if kind == "admission"
@@ -120,9 +140,17 @@ async def _collect_preflight(
         or grant.revoked
         or not grant.valid_from <= cutoff < grant.expires_at
         or grant.producer_revision != config.producer_revision
-        or ("network_probe" if kind == "gateway" else "kubernetes_api")
+        or (
+            "deployment_profile"
+            if kind == "artifact"
+            else "network_probe"
+            if kind == "gateway"
+            else "kubernetes_api"
+        )
         not in grant.allowed_facts.get(
-            "mtls_gateway"
+            "artifact_verified"
+            if kind == "artifact"
+            else "mtls_gateway"
             if kind == "gateway"
             else "admission"
             if kind == "admission"
@@ -131,7 +159,18 @@ async def _collect_preflight(
         )
     ):
         raise ValueError("observer preflight verifier is unavailable")
-    if isinstance(config, ObserverGatewayPreflightConfig):
+    if isinstance(config, ObserverArtifactPreflightConfig):
+        from fdai.delivery.kubernetes_connector_artifact_preflight import collect_artifact_fact
+
+        fact = await collect_artifact_fact(
+            deployment_python=config.deployment_python_path,
+            request_path=config.request_path,
+            target_ref=config.target_ref,
+            source_commit=config.source_commit,
+            image_digest=config.image_digest,
+            now=now,
+        )
+    elif isinstance(config, ObserverGatewayPreflightConfig):
         fact = await _collect_gateway_fact(config, now=now)
     else:
         tls = ssl.create_default_context(cafile=str(config.api_ca_path))
