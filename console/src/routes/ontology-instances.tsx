@@ -7,6 +7,7 @@ import { Tooltip } from "../components/tooltip";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
 import { formatDateTime, formatNumber, t } from "./i18n/ontology";
 import {
+  ONTOLOGY_INSTANCE_DIRECTORY_REFRESH_INTERVAL_MS,
   formatOntologyRefreshCountdown,
   installOntologyInstanceRefresh,
   ONTOLOGY_INSTANCE_REFRESH_INTERVAL_MS,
@@ -66,33 +67,41 @@ export function OntologyInstancesView({ client }: Props) {
   const [detailNextPeriodicAt, setDetailNextPeriodicAt] = useState<number | null>(null);
   const invalidationStream = useOntologyInvalidationStream({
     url: `${client.operatorApiBaseUrl.replace(/\/$/, "")}/ontology/instances/stream`,
-    enabled: selectedId !== null,
+    enabled: true,
     getAuthorizationHeader: client.authorizationHeader,
     onEvent: () => window.dispatchEvent(new Event("fdai:ontology-invalidated")),
   });
 
   useEffect(() => {
     let cancelled = false;
-    // Unmounting the toolbar mid-search would blur the input and close its suggestions.
-    setDirectory((current) => current.status === "ready" ? current : { status: "loading" });
-    client.panel<unknown>("/ontology/instances", search
-      ? { limit: "200", search }
-      : { limit: "200" }).then(
-      (payload) => {
-        if (!cancelled) setDirectory({
-          status: "ready",
-          data: decodeOntologyInstanceDirectory(payload),
-        });
-      },
-      (error: unknown) => {
+    const refresh = async (): Promise<void> => {
+      // Unmounting the toolbar mid-search would blur the input and close its suggestions.
+      setDirectory((current) => current.status === "ready" ? current : { status: "loading" });
+      try {
+        const payload = await client.panel<unknown>("/ontology/instances", search
+          ? { limit: "200", search }
+          : { limit: "200" });
+        if (!cancelled) {
+          setDirectory({
+            status: "ready",
+            data: decodeOntologyInstanceDirectory(payload),
+          });
+        }
+      } catch (error: unknown) {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : String(error);
         setDirectory(isOptionalOperatorApiUnavailable(error)
           ? { status: "unavailable", message: t("ontology.instances.inventoryUnavailable") }
           : { status: "error", message });
-      },
-    );
-    return () => { cancelled = true; };
+      }
+    };
+    const stopRefresh = installOntologyInstanceRefresh(refresh, undefined, {
+      intervalMs: ONTOLOGY_INSTANCE_DIRECTORY_REFRESH_INTERVAL_MS,
+    });
+    return () => {
+      cancelled = true;
+      stopRefresh();
+    };
   }, [client, search]);
 
   useEffect(() => {

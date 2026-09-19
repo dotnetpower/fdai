@@ -54,8 +54,8 @@ The per-rule findings read validates the requested identity against the same rev
 Committed inventory invalidation markers coordinate browser rereads without becoming graph state.
 Bulk state pages carry the marker watermark bound to their committed generation, and SSE resumes
 from that cursor. Clients without a page-bound cursor receive the current marker instead of risking
-a missed generation. Bulk Dashboard traversal uses markers as its primary signal and a five-minute
-visible-tab fallback, while selected-instance revalidation retains its separate 15-second cadence.
+a missed generation. Bulk Dashboard traversal and the Ontology Instances directory use markers as their primary signal and a five-minute visible-tab fallback while preserving the current server search.
+Selected-instance revalidation retains its separate 15-second cadence.
 
 [Bounded projection recovery](../interfaces/recorded-resource-state.md#bounded-automatic-recovery) distinguishes missing, pending, and release-mismatched generations without changing graph identity.
 The existing inventory owner verifies replay through its atomic manifest and journal; diagnostic receipts remain on their existing path and neither read route gains a writer or restart authority.

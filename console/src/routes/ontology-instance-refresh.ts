@@ -1,4 +1,5 @@
 export const ONTOLOGY_INSTANCE_REFRESH_INTERVAL_MS = 15_000;
+export const ONTOLOGY_INSTANCE_DIRECTORY_REFRESH_INTERVAL_MS = 300_000;
 
 export type OntologyInstanceRefreshTrigger =
   | "initial"

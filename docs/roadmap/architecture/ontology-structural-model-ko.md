@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 525af4c33ee9c7f17f62869e08fb986852b5b158
-translation_revised: 2026-09-18
+translation_source_sha: 24fe098fd0735795ddc550a242f85fc56bc91f2c
+translation_revised: 2026-09-19
 ---
 # 온톨로지 구조 모델
 
@@ -63,8 +63,9 @@ LinkType을 만들지 않으며 내용 신원은 Resource UID나 관계 신원�
 커밋된 인벤토리 무효화 표식은 그래프 상태가 되지 않고 브라우저 다시 읽기를 조정합니다. 대량 상태
 페이지는 커밋된 세대에 결속된 표식 워터마크를 전달하고 SSE는 이 커서에서 재개합니다. 페이지에
 결속된 커서가 없는 클라이언트는 세대를 놓칠 위험을 피하도록 현재 표식을 받습니다. 대량 Dashboard
-탐색은 표식을 기본 신호로 사용하고 표시 중인 탭에서 5분 fallback을 사용하지만, 선택한 인스턴스의
-재검증은 별도의 15초 간격을 유지합니다.
+탐색과 온톨로지 인스턴스 디렉터리는 표식을 기본 신호로 사용하고 표시 중인 탭에서 5분 fallback을
+사용합니다. 디렉터리는 현재 서버 검색어를 유지하며 재검증하고, 선택한 인스턴스의 재검증은 별도의
+15초 간격을 유지합니다.
 
 [제한된 변환 복구](../interfaces/recorded-resource-state-ko.md#제한된-자동-복구)는 그래프 신원을
 바꾸지 않고 누락, 지연, 릴리스 불일치를 구분합니다. 기존 인벤토리 주체가 원자적 매니페스트와
