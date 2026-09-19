@@ -450,6 +450,7 @@ resource "kubernetes_deployment_v1" "workload" {
             security_context {
               allow_privilege_escalation = false
               read_only_root_filesystem  = true
+              run_as_non_root            = true
               run_as_user                = sidecar.value.init.run_as_user
               run_as_group               = sidecar.value.init.run_as_group
               capabilities { drop = ["ALL"] }
@@ -472,6 +473,7 @@ resource "kubernetes_deployment_v1" "workload" {
           security_context {
             allow_privilege_escalation = false
             read_only_root_filesystem  = true
+            run_as_non_root            = true
             capabilities { drop = ["ALL"] }
           }
 
@@ -553,6 +555,7 @@ resource "kubernetes_deployment_v1" "workload" {
             security_context {
               allow_privilege_escalation = false
               read_only_root_filesystem  = true
+              run_as_non_root            = true
               run_as_user                = sidecar.value.run_as_user
               run_as_group               = sidecar.value.run_as_group
               capabilities { drop = ["ALL"] }
@@ -788,6 +791,7 @@ resource "kubernetes_cron_job_v1" "job" {
 
               security_context {
                 allow_privilege_escalation = false
+                run_as_non_root            = true
                 capabilities { drop = ["ALL"] }
               }
 
