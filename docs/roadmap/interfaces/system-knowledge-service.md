@@ -241,6 +241,12 @@ Key Vault HMAC secret after bootstrap. A protected workflow creates plan-only ou
 requires exact CI, image attestations, plan and context digests, and an explicit `bootstrap`,
 `enable`, or `disable` transition before apply.
 
+### Catalog provenance refresh
+
+The packaged catalog is regenerated when a cited Pantheon role or subscription changes. The
+refresh updates source blobs and explanatory records only. It grants no runtime, Console, AKS,
+identity, approval, catalog-promotion, or execution authority.
+
 ## Rollout
 
 1. Build and test the catalog, deterministic search, mention verification, and reply renderer.

@@ -1,8 +1,8 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: dbd067f9c143e8902cbe4e2d6c680a6ea89fb5c8
-translation_revised: 2026-09-13
+translation_source_sha: a4884ce0ad25bc9be8601a5a1e1f1b5240fa20b9
+translation_revised: 2026-09-20
 ---
 
 # FinOps 자율 운영
@@ -118,7 +118,7 @@ translation_revised: 2026-09-13
 | Heimdall | 이상, drift, forecast 및 근거 상태 기록을 생성한 뒤 최종 관측을 모든 예상 효과와 독립적으로 비교합니다. | 필수 감지 및 변경 상태 종료 |
 | Njord | `CostAnomaly`와 `Budget` advisory object 및 비용 목표 해석을 소유합니다. 주입된 `CostEstimator`는 에이전트나 publisher가 되지 않고 프로바이더에 연결된 추정값을 제공합니다. | 비용 판단에 필수 |
 | Freyr | 절감이 포화나 여유 용량 손실을 숨기지 않도록 용량 예측과 크기 조정 조언을 제공합니다. | 용량에 영향을 주는 대안에 필수 |
-| Loki | 불확실성 때문에 운영 환경 추측 대신 실험이 필요할 때 범위가 제한되고 항상 검토되는 복원력 실험을 제안합니다. | 조건부 검증 |
+| Loki | 불확실성 때문에 운영 환경 추측 대신 실험이 필요할 때 범위가 제한되고 항상 검토되는 복원력 실험을 제안합니다. 제안 대상 예약은 재시작 뒤에도 유지되며 정확하고 안전한 Thor ActionRun 종결 뒤에만 해제됩니다. | 조건부 검증 |
 | Muninn | replay와 T1 재사용을 위해 변경할 수 없는 컨텍스트 색인, 상태 스냅샷, 이전 사례 및 exact 변경 개정을 보존합니다. | 재사용과 학습에 필수 |
 | Forseti | 결정 컨텍스트를 구체화하고 헌법상 부적격한 대안을 제거하고 T0/T1/T2로 판단한 뒤 `Verdict`를 게시합니다. | 필수 판단 |
 | Odin | 비용이 신뢰성, 용량, 복구 또는 포트폴리오 목표와 충돌할 때 적격 대안만 순위를 정합니다. | 조건부 중재 |

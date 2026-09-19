@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: f91896bf3b638ce91d390e13abb6fbdb7a66450f
-translation_revised: 2026-09-19
+translation_source_sha: 67bedde813744f26e177f352a833f09d80462ad3
+translation_revised: 2026-09-20
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다. FDAI Console은 읽기 전용 제품이 아니라 통제된 운영자 인터페이스입니다. 서버가 인가한 타입 지정 요청을 제출할 수 있지만, 관리 리소스 실행은 브라우저 밖에서 이루어지며 고위험 작업에는 계속 사람 승인이 필요합니다.
@@ -538,6 +538,7 @@ pull 어댑터 추가. 콘솔은 이제:
 | 관측/발견 | `POST /read-investigations`는 Azure I/O 전에 영속 지연 시간 근거로 direct, streamed, detached 실행을 선택합니다. Direct Command Deck 및 HTTP 읽기는 owner-scoped result-replay 원장을 공유하며 streamed 응답이 닫히면 in-flight 읽기를 취소합니다. Dedicated 읽기 담당 연결이 있을 때만 등록되며 카탈로그 presence만으로 프로바이더 상태나 승격을 주장하지 않습니다. |
 | 예측 및 Dynamic learning | `GET /forecast-learning`은 예측 closure와 게시 상태를 변환 결과하고, `GET /dynamic-assurance`는 영속 scalar/그래프 모델 요약과 trajectory closure 개수를 변환 결과합니다. 두 경로 모두 Reader-only이며 detector/모델 변경, 승격, 승인 또는 실행 컨트롤을 제공하지 않습니다. |
 | 구독 프로비저닝 | `/provisioning`은 영속 단계 근거를 재생하고 예상 인벤토리 진행률을 표시하며 배포 권한 없이 검증된 준비 상태, 실패 또는 취소를 보여 줍니다. |
+| System Knowledge 역할 카탈로그 | 재생성은 인용된 Pantheon 역할 및 구독 사실을 갱신할 수 있습니다. Console 데이터 원본, AKS 시나리오 동작, 사람 보고 체계, 승인 경로 또는 실행 권한은 변경하지 않습니다. |
 
 실제 운영 Azure 완료 근거와 기능 승격은 여전히 권위 있는 레지스트리 및 배포
 검증에서 판단하며 이 문서의 phase 이름으로 추론하지 않습니다.

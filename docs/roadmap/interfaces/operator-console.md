@@ -540,6 +540,7 @@ availability source.
 | Observation/discovery | `POST /read-investigations` selects direct, streamed, or detached execution from durable latency evidence before Azure I/O. Direct Command Deck and HTTP reads share an owner-scoped result-replay ledger; closing a streamed response cancels its in-flight read. The surface is registered only with a dedicated reader binding; catalog presence alone proves neither provider health nor promotion. |
 | Forecast and Dynamic learning | `GET /forecast-learning` projects forecast closure and publication health; `GET /dynamic-assurance` projects durable scalar/graph model summaries and trajectory closure counts. Both routes are Reader-only and expose no detector/model mutation, promotion, approval, or execution control. |
 | Subscription provisioning | `/provisioning` replays durable stage evidence, follows estimated inventory progress, and renders verified readiness, failure, or cancellation without deployment authority. |
+| System Knowledge role catalog | Regeneration can refresh cited Pantheon role and subscription facts. It changes no Console data source, AKS scenario behavior, human reporting line, approval route, or execution authority. |
 
 Live Azure completion evidence and capability promotion remain governed by deployment verification
 and the authoritative registry, never inferred from phase names in this document.

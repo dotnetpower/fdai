@@ -311,7 +311,7 @@ Each consumer closes its subscription inside its own task, so the broker adapter
 | object.verdict | Forseti | Thor, Saga, Odin |
 | object.arbitration-request | Forseti | Odin |
 | object.arbitration-decision | Odin | Forseti, Saga |
-| object.action-run | Thor | Heimdall (terminal effect observation), Vidar, Var, Saga |
+| object.action-run | Thor | Heimdall (terminal effect observation), Vidar, Var, Saga, Loki (safe proposal-reservation closure only) |
 | object.approval | Var | Thor (action approvals only), Saga, Mimir (test-context reviews), Norns (learning reviews) |
 | object.rollback | Vidar | Thor (ActionRun projection), Saga |
 | object.audit-entry | Saga | Norns, Muninn (document index gate), Var (document HIL) |

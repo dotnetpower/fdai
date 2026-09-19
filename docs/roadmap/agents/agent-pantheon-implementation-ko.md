@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: a30639f58b7f7396162e022f69d25e5fc9fa7721
+translation_source_sha: d93fcd4ec6521d9acc0c42a5ec44eca72aa27953
 translation_revised: 2026-09-20
 ---
 
@@ -37,6 +37,7 @@ translation_revised: 2026-09-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-19 | implemented | Loki의 제안 단계 blast-radius 예약을 개정 번호로 보호된 StateStore 갱신으로 영속화하고 소비자 시작 전에 복원하도록 했습니다. 이제 Loki는 Thor가 소유한 안전한 최종 ActionRun을 읽어 정확한 실험, ActionType 및 대상 예약만 해제합니다. 실패, 알 수 없음, 위조 또는 불일치 종결은 예약을 유지합니다. Loki는 자문 역할을 유지하며 판단, 승인 또는 실행 권한을 얻지 않습니다. | `current change`; `loki_reservations.py`; Loki, 런타임, 구독, 재시작, 재생 및 복제본 간 집중 검사; strict mypy와 Ruff. | 통제된 배포 환경에서 chaos 제안, HIL, 최종 ActionRun 및 예약 해제 추적을 보존합니다. Chaos enforce 승격을 추론하지 않습니다. |
 | 2026-09-19 | implemented | 공유 불가역 작업 판단에서 ActionType 이름 휴리스틱을 제거했습니다. 이제 카탈로그의 `irreversible` 필드만 가역성의 긍정 근거가 되며, 카탈로그를 사용할 수 없으면 안전하게 정족수 2를 요구합니다. Forseti는 판단자, Var는 승인자, Thor는 유일한 실행기 역할을 유지합니다. | `current change`; `action_semantics.py`; 집중 정족수 및 카탈로그 회귀 검사; 프레임워크 레이아웃, strict mypy 및 Ruff. | 고정된 ActionType 다이제스트가 포함된 배포 불가역 작업 판단 증적을 보존합니다. 승격 상태는 바뀌지 않습니다. |
 | 2026-09-19 | implemented | Forseti의 운영자 RBAC에서 예제 principal 대체 동작을 제거했습니다. 이제 배포 정책이 없으면 운영자 작업 권한을 부여하지 않으며, 명시적으로 주입된 정책은 기존의 거부 및 보안 이벤트 동작을 유지합니다. 에이전트 역할, topic, 모델 정책 및 실행 권한은 바뀌지 않았습니다. | `current change`; `forseti.py`; 집중 RBAC 회귀 검사; Wave 3 및 프레임워크 레이아웃 검사; strict mypy와 Ruff. | 기존 실제 shadow 코호트와 함께 배포된 RBAC 판단 근거를 보존합니다. enforce 승격을 추론하지 않습니다. |
 | 2026-09-17 | implemented | 통합 과정에서 strict typing 불일치가 드러난 기존 `ActionObservationHook`을 Heimdall의 명시적 공개 export에 복원했습니다. 역할, 토픽, 관측 동작 및 권한은 바뀌지 않았습니다. | `current change`; `heimdall.py`; 프레임워크 레이아웃 검사; 대상 strict mypy. | 운영 검증을 추론하지 않으며 기존 실제 효과 종료 작업을 유지합니다. |

@@ -129,6 +129,7 @@ class PantheonRuntime:
         consumer_group_prefix: str = _DEFAULT_GROUP_PREFIX,
         saga: Saga | None = None,
         muninn_state_store: StateStore | None = None,
+        loki_state_store: StateStore | None = None,
         evidence_conflict_sink: EvidenceConflictSink | None = None,
         rule_generation_workers: runtime_subscriptions.RuleGenerationWorkerBindings | None = None,
         rule_generation_activation_binder: RuleGenerationActivationBinder | None = None,
@@ -229,6 +230,7 @@ class PantheonRuntime:
             handler_observer=handler_observer,
         )
         instantiated = factory.instantiate_pantheon()
+        instantiated["Loki"] = factory.configured_loki(loki_state_store)
         bind_catalog_review(instantiated, catalog_review)
         if (
             conversation_semantic_judgment is not None

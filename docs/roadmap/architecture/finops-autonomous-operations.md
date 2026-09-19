@@ -118,7 +118,7 @@ episode invokes every agent, but the vertical must provide a valid path for each
 | Heimdall | Produce anomaly, drift, forecast, and evidence-health records, then independently compare terminal observations with every expected effect. | Required sensing and changed-state closure. |
 | Njord | Own `CostAnomaly` and `Budget` advisory objects and cost-objective interpretation. An injected `CostEstimator` supplies provider-bound estimates without becoming an agent or publisher. | Required for cost judgment. |
 | Freyr | Supply capacity forecasts and sizing advice so savings cannot hide saturation or headroom loss. | Required for capacity-affecting options. |
-| Loki | Propose bounded, always-reviewed resilience experiments when uncertainty requires an experiment rather than a production guess. | Conditional validation. |
+| Loki | Propose bounded, always-reviewed resilience experiments when uncertainty requires an experiment rather than a production guess. Proposal target reservations survive restart and release only after an exact safe Thor ActionRun closure. | Conditional validation. |
 | Muninn | Retain immutable context indexes, state snapshots, prior cases, and exact change revisions for replay and T1 reuse. | Required for reuse and learning. |
 | Forseti | Materialize the decision context, remove constitutionally ineligible options, judge through T0/T1/T2, and publish `Verdict`. | Required judgment. |
 | Odin | Rank only eligible options when cost conflicts with reliability, capacity, recovery, or portfolio objectives. | Conditional arbitration. |

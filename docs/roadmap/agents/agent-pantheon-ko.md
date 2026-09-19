@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 38ed54da59ebf621ec5d333b9d9e15f5cac77f7c
-translation_revised: 2026-09-18
+translation_source_sha: fcf62928550d7fd7c29e7d5879a113bed6895bab
+translation_revised: 2026-09-20
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -309,7 +309,7 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 | object.verdict | Forseti | Thor, Saga, Odin |
 | object.arbitration-request | Forseti | Odin |
 | object.arbitration-decision | Odin | Forseti, Saga |
-| object.action-run | Thor | Heimdall(최종 효과 관측), Vidar, Var, Saga |
+| object.action-run | Thor | Heimdall(최종 효과 관측), Vidar, Var, Saga, Loki(안전한 제안 예약 종결 전용) |
 | object.approval | Var | Thor(액션 승인만), Saga, Mimir(테스트 맥락 검토), Norns(학습 검토) |
 | object.rollback | Vidar | Thor (ActionRun 변환 결과), Saga |
 | object.audit-entry | Saga | Norns, Muninn (문서 인덱스 게이트), Var (문서 HIL) |

@@ -721,7 +721,7 @@ _LOKI = AgentSpec(
     ),
     executes=(),
     initiates=(),
-    subscribes=("object.event",),  # canonical schedule triggers
+    subscribes=("object.event", "object.action-run"),  # schedule + safe closure
     question_domains=(
         "chaos_experiment_status",
         "resilience_score",

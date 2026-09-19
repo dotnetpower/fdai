@@ -22,17 +22,20 @@ from fdai.agents._framework.introspection import (
     agent_state_evidence_ref,
     capability_facts,
 )
+from fdai.agents._framework.loki_reservations import LokiReservationJournal
 from fdai.agents._framework.pantheon import _LOKI
 from fdai.agents._framework.specialist_ingress import (
     CHAOS_SCHEDULE_EVENT,
     parse_chaos_schedule,
 )
+from fdai.shared.providers.state_store import StateStore
 
 #: Cap on the retained proposal log. Loki appends one entry per proposal for
 #: the process lifetime; the log is only read for recent-accepted diagnostics,
 #: so a bounded ring is sufficient and stops an unbounded leak on a
 #: long-running chaos scheduler.
 _MAX_PROPOSALS = 1_000
+_SAFE_CLOSURE_STATES = frozenset({"succeeded", "rejected", "deny_dropped", "rolled_back"})
 
 
 @dataclass
@@ -55,17 +58,27 @@ class Loki(Agent):
         *,
         bus: PantheonBus | None = None,
         blast_radius_cap: int = 3,
+        state_store: StateStore | None = None,
     ) -> None:
         super().__init__(spec=_LOKI)
         self.bus = bus
         self._cap = blast_radius_cap
         self._in_flight_targets: set[str] = set()
+        self._reservations: dict[str, tuple[str, tuple[str, ...]]] = {}
+        self._reservation_journal = (
+            LokiReservationJournal(state_store, blast_radius_cap=blast_radius_cap)
+            if state_store is not None
+            else None
+        )
         self.proposals: deque[ChaosProposal] = deque(maxlen=_MAX_PROPOSALS)
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == "object.action-run":
+            await self._release_from_action_run(payload)
+            return
         if topic != "object.event" or payload.get("event_type") != CHAOS_SCHEDULE_EVENT:
             return
         signal = parse_chaos_schedule(payload)
@@ -79,6 +92,44 @@ class Loki(Agent):
             targets=signal.targets,
             correlation_id=signal.correlation_id,
         )
+
+    async def rehydrate(self) -> int:
+        """Restore durable target reservations before consumers start."""
+        if self._reservation_journal is None:
+            return 0
+        self._in_flight_targets = set(await self._reservation_journal.snapshot())
+        return len(self._in_flight_targets)
+
+    async def _release_from_action_run(self, payload: dict[str, Any]) -> None:
+        if (
+            payload.get("producer_principal") != "Thor"
+            or payload.get("state") not in _SAFE_CLOSURE_STATES
+        ):
+            return
+        params = payload.get("params")
+        if not isinstance(params, dict):
+            return
+        experiment_id = str(params.get("experiment_id") or "")
+        action_type = str(payload.get("action_type") or "")
+        raw_targets = params.get("targets")
+        targets = (
+            tuple(target for target in raw_targets if isinstance(target, str) and target)
+            if isinstance(raw_targets, list)
+            else ()
+        )
+        if not experiment_id or not action_type or not targets:
+            return
+        try:
+            released = await self._release_reservation(
+                experiment_id=experiment_id,
+                action_type=action_type,
+                targets=targets,
+            )
+        except ValueError:
+            self.record_behavior("chaos_reservation:closure_mismatch")
+            return
+        if released:
+            self.record_behavior("chaos_reservation:released")
 
     # ---- experiment scheduling ----------------------------------------
 
@@ -97,29 +148,35 @@ class Loki(Agent):
     ) -> ChaosProposal:
         # Enforce cap BEFORE emitting anything so a proposal storm does
         # not exceed the declared radius.
-        available = self._cap - len(self._in_flight_targets)
-        if available <= 0:
-            proposal = ChaosProposal(
+        if self._reservation_journal is not None:
+            reservation = await self._reservation_journal.reserve(
                 experiment_id=experiment_id,
                 action_type=action_type,
-                targets=(),
-                accepted=False,
-                reason="blast_radius_full",
+                targets=targets,
             )
-            self.proposals.append(proposal)
-            return proposal
-        selected = tuple(t for t in targets if t not in self._in_flight_targets)[:available]
+            self._in_flight_targets = set(reservation.occupied)
+            selected = reservation.targets
+            if reservation.duplicate:
+                self.record_behavior("chaos_reservation:replayed")
+        else:
+            available = self._cap - len(self._in_flight_targets)
+            selected = tuple(t for t in targets if t not in self._in_flight_targets)[:available]
         if not selected:
             proposal = ChaosProposal(
                 experiment_id=experiment_id,
                 action_type=action_type,
                 targets=(),
                 accepted=False,
-                reason="no_new_targets",
+                reason=(
+                    "blast_radius_full"
+                    if len(self._in_flight_targets) >= self._cap
+                    else "no_new_targets"
+                ),
             )
             self.proposals.append(proposal)
             return proposal
         self._in_flight_targets.update(selected)
+        self._reservations[experiment_id] = (action_type, selected)
         proposal = ChaosProposal(
             experiment_id=experiment_id,
             action_type=action_type,
@@ -156,6 +213,33 @@ class Loki(Agent):
         """Called after experiment completion (Wave 5 test helper)."""
         for t in targets:
             self._in_flight_targets.discard(t)
+
+    async def _release_reservation(
+        self,
+        *,
+        experiment_id: str,
+        action_type: str,
+        targets: tuple[str, ...],
+    ) -> bool:
+        if self._reservation_journal is not None:
+            result = await self._reservation_journal.release(
+                experiment_id=experiment_id,
+                action_type=action_type,
+                targets=targets,
+            )
+            if result is None:
+                return False
+            self._in_flight_targets = set(result.occupied)
+            self._reservations.pop(experiment_id, None)
+            return True
+        existing = self._reservations.get(experiment_id)
+        if existing is None:
+            return False
+        if existing != (action_type, targets):
+            raise ValueError("chaos completion does not match its reservation")
+        self.release_targets(targets)
+        del self._reservations[experiment_id]
+        return True
 
     # ---- conversational port -------------------------------------------
 

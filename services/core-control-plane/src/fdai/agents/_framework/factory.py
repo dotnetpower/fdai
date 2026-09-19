@@ -46,6 +46,7 @@ from fdai.shared.providers.cost_governance import (
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmissionProvider as DecisionEvidenceAdmissionProvider,
 )
+from fdai.shared.providers.state_store import StateStore
 
 PlanningCoordinator = SpecialistPlanningCoordinator
 KineticProposalSource = KineticActionProposalSource
@@ -167,6 +168,11 @@ def configured_freyr(
     return Freyr(graduation_controller=graduation_controller)
 
 
+def configured_loki(state_store: StateStore | None) -> Loki:
+    """Build Loki with the optional durable proposal-reservation store."""
+    return Loki(state_store=state_store)
+
+
 __all__ = [
     "KineticProposalSource",
     "PlanningCoordinator",
@@ -174,6 +180,7 @@ __all__ = [
     "DEFAULT_COST_RUNTIME_BINDINGS",
     "configured_forseti",
     "configured_freyr",
+    "configured_loki",
     "configured_njord",
     "instantiate_pantheon",
 ]

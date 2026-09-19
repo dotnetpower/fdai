@@ -1,8 +1,8 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 7d4d2fec61640c00fe82930a48bc54ed94c89c58
-translation_revised: 2026-09-18
+translation_source_sha: fdb535ebf654e68dfa40826608af16cc675843b9
+translation_revised: 2026-09-20
 ---
 # 시스템 지식 서비스
 
@@ -238,6 +238,12 @@ container, `AcrPull`, `Storage Blob Data Contributor`, `Key Vault Secrets User` 
 Vault HMAC secret 하나를 선택적으로 결속합니다. 보호된 workflow는 기본적으로 plan-only 출력을
 만들고 apply 전에 정확한 CI, image attestation, plan 및 context digest와 명시적인 `bootstrap`,
 `enable` 또는 `disable` transition을 요구합니다.
+
+### 카탈로그 출처 갱신
+
+인용된 Pantheon 역할 또는 구독이 변경되면 패키지 카탈로그를 재생성합니다. 이 갱신은 소스 blob과
+설명 레코드만 갱신합니다. 런타임, Console, AKS, 신원, 승인, 카탈로그 승격 또는 실행 권한을
+부여하지 않습니다.
 
 ## 출시 순서
 
