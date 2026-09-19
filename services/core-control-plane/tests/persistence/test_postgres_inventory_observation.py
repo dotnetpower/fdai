@@ -300,6 +300,34 @@ async def test_global_projection_watermark_stops_at_append_boundary() -> None:
     assert result == 50
 
 
+def test_replay_freshness_accepts_independent_fact_budgets() -> None:
+    contents = []
+    for budget in (300, 21600):
+        fact = StateFactMetadata(
+            lane=StateFactLane.OBSERVED,
+            authority=StateFactAuthority.PROVIDER,
+            source_identity="provider",
+            source_revision="revision",
+            effective_at=NOW,
+            recorded_at=NOW,
+            evidence_cutoff=NOW,
+            freshness_ceiling_seconds=budget,
+            completeness=1.0,
+            synthetic=False,
+            evidence_refs=("receipt:example",),
+        )
+        contents.append(
+            {
+                "properties": {
+                    "properties": {
+                        STATE_FACT_METADATA_PROPERTY: fact.to_mapping(),
+                    }
+                }
+            }
+        )
+    assert projection_freshness_ceiling({"object_content": contents}) == 300
+
+
 def _observation(properties: dict[str, Any]) -> NormalizedInventoryObservation:
     return NormalizedInventoryObservation.create(
         idempotency_key="event:stable",

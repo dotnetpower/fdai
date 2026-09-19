@@ -33,7 +33,7 @@ Inventory delivery verifies each configured subscription independently and recon
 type counts without allowing supplementary ARM children to replace missing native identities.
 The additive mapped-type accounting stays collection-local and preserves the existing persisted
 coverage shape. Scheduled health requires the active and ontology generations to match with complete
-object, relationship, and projection evidence; configured cadence remains within the source policy.
+object, relationship, and projection evidence; configured cadence remains within the source policy. Core observation adjudication owns the pure generation-clock check; inventory projection preserves independent property conflicts and canonical state provenance, without adding a provider dependency or writer.
 
 ## Core domain navigation decision
 

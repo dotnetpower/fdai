@@ -186,6 +186,7 @@ class InventoryOntologyProjector:
             resource_type_mappings=self._resource_type_mappings,
             seeded_resource_types=await self._seeded_resource_types(observation),
             freshness_ceiling_seconds=self._freshness_ceiling_seconds,
+            recorded_at=observation.recorded_at,
         )
         if not projection.complete:
             if fail_before_incomplete_status:

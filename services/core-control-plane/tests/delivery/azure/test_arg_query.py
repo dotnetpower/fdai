@@ -139,6 +139,39 @@ def test_arm_scope_rejects_resource_group_on_a_subscription_level_resource() -> 
 
 
 @pytest.mark.asyncio
+async def test_shard_clock_precedes_provider_read_and_row_parsing() -> None:
+    query_started = None
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal query_started
+        query_started = datetime.now(UTC)
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=(
+                            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+                            "resourceGroups/rg-example/providers/Microsoft.Compute/virtualMachines/example"
+                        ),
+                        arm_type="Microsoft.Compute/virtualMachines",
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(), resource_types=_vocab(), http_client=client, config=_config()
+        )
+        result = await factory.build_query_fn()("compute.vm")
+
+    assert query_started is not None
+    assert result.resources[0].last_seen is not None
+    assert datetime.fromisoformat(result.resources[0].last_seen) <= query_started
+
+
+@pytest.mark.asyncio
 async def test_inventory_preserves_sku_and_kind_for_security_assessment() -> None:
     arm_id = (
         "/subscriptions/00000000-0000-0000-0000-000000000001/"

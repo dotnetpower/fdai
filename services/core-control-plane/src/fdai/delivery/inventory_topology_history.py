@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Protocol
 
 from fdai.core.ontology_platform.inventory_projection import (
+    DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
     build_inventory_ontology_projection,
 )
 from fdai.core.ontology_platform.state_transitions import (
@@ -85,6 +86,7 @@ class InventoryTopologyHistoryPublisher:
         history_reader: TopologyHistoryReader | None = None,
         transition_writer: StateTransitionStore | None = None,
         current_state_reader: InventoryCurrentStateReader | None = None,
+        freshness_ceiling_seconds: int = DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
     ) -> None:
         if not _is_digest(ontology_release_digest):
             raise ValueError("ontology_release_digest MUST be a canonical SHA-256 digest")
@@ -93,6 +95,9 @@ class InventoryTopologyHistoryPublisher:
         self._history_reader = history_reader
         self._transition_writer = transition_writer
         self._current_state_reader = current_state_reader
+        if freshness_ceiling_seconds < 1:
+            raise ValueError("inventory history freshness ceiling MUST be positive")
+        self._freshness_ceiling_seconds = freshness_ceiling_seconds
         if (history_reader is None) != (transition_writer is None):
             raise ValueError(
                 "inventory state-transition history reader and writer MUST be bound together"
@@ -125,6 +130,8 @@ class InventoryTopologyHistoryPublisher:
             links=observation.links,
             observation_complete=observation.complete,
             relationship_drops=observation.relationship_drops,
+            freshness_ceiling_seconds=self._freshness_ceiling_seconds,
+            recorded_at=observation.recorded_at,
         )
         current_generation_retained = any(
             item.provider_generation_ref == observation.generation for item in previous_batches
@@ -144,10 +151,27 @@ class InventoryTopologyHistoryPublisher:
             return None
 
         evidence_ref = f"inventory-generation:{observation.generation}"
+        object_times = {
+            resource.resource_id: (
+                datetime.fromisoformat(resource.last_seen.replace("Z", "+00:00"))
+                if resource.last_seen is not None
+                else observation.recorded_at
+            )
+            for resource in observation.resources
+        }
+        link_times = {
+            (
+                link.from_id,
+                link.link_type,
+                link.to_id,
+            ): link.observation_metadata.state_fact.effective_at
+            for link in observation.links
+            if link.observation_metadata is not None
+        }
         object_revisions = tuple(
             TopologyObjectRevision.upsert(
                 record,
-                effective_at=observation.recorded_at,
+                effective_at=object_times[record.id],
                 recorded_at=observation.recorded_at,
                 evidence_ref=evidence_ref,
             )
@@ -162,7 +186,7 @@ class InventoryTopologyHistoryPublisher:
                 to_id=record.to_id,
                 to_type=object_types[record.to_id],
                 properties_json=_canonical_json(record.properties),
-                effective_at=observation.recorded_at,
+                effective_at=link_times[(record.from_id, record.link_type, record.to_id)],
                 recorded_at=observation.recorded_at,
                 deleted=False,
                 evidence_ref=evidence_ref,
@@ -350,6 +374,7 @@ def _source_receipt_digest(
                 "id": item.object_id,
                 "type": item.object_type,
                 "properties": json.loads(item.properties_json),
+                "effective_at": item.effective_at.isoformat(),
             }
             for item in object_revisions
         ],
@@ -361,6 +386,7 @@ def _source_receipt_digest(
                 "to_id": item.to_id,
                 "to_type": item.to_type,
                 "properties": json.loads(item.properties_json),
+                "effective_at": item.effective_at.isoformat(),
             }
             for item in link_revisions
         ],

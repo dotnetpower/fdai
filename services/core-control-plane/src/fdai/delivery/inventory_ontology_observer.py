@@ -121,6 +121,7 @@ def build_ontology_observer(
         topology_publisher = InventoryTopologyHistoryPublisher(
             writer=topology_store,
             ontology_release_digest=ontology_release_digest,
+            freshness_ceiling_seconds=config.reconciliation_interval_seconds,
             history_reader=topology_store,
             transition_writer=PostgresStateTransitionStore(
                 config=PostgresStateTransitionStoreConfig(dsn=config.dsn)

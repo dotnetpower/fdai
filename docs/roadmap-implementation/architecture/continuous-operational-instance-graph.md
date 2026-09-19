@@ -70,12 +70,12 @@ Low. Local focused evidence does not claim Azure rollout or production performan
 | H12 | Requested subscription admission | implemented | Mapped and unclassified rows outside configured subscriptions are rejected. |
 | H13 | Nested subnet parent admission | implemented | A nested subnet belonging to another VNet fails admission. |
 | H14 | Provider-reference conflicts | implemented | Conflicting provider references with otherwise identical content reject relationship verification. |
-| H15 | Non-state property conflicts | not-started | Withheld properties retain explicit object evidence limitations. |
-| H16 | Missing and future observation time | not-started | Missing time and excessive skew cannot become current complete evidence. |
-| H17 | Page observation clocks | not-started | Parsing delay does not refresh earlier provider observations. |
-| H18 | Topology effective time | not-started | Historical records distinguish effective time from recording time. |
-| H19 | Current/history freshness policy | not-started | Configured freshness survives both projections. |
-| H20 | Mixed freshness replay | not-started | Heterogeneous fact budgets survive exact replay. |
+| H15 | Non-state property conflicts | implemented | Object conflict evidence remains explicit and incomplete without changing an agreed state fact. |
+| H16 | Missing and future observation time | implemented | Recorded-generation cutoff checks raw and retained fact clocks, including untimed state values. |
+| H17 | Page observation clocks | implemented | A conservative read-start timestamp precedes provider I/O and parsing. |
+| H18 | Topology effective time | implemented | Fact effective time and baseline visibility remain separate and content-addressed. |
+| H19 | Current/history freshness policy | implemented | The observer supplies the same configured ceiling to current and history projectors. |
+| H20 | Mixed freshness replay | implemented | Replay retains canonical state metadata and independent budgets; mismatched state cannot reuse metadata. |
 | H21 | Identical replay idempotency | not-started | Identical replay leaves stored revisions and links unchanged. |
 | H22 | Clock-only duplicate adjudication | implemented | Both input orders retain the earliest clock; unknown time is never upgraded. |
 | H23 | Relationship failure isolation | not-started | Safe positive object evidence survives without false relationship completeness. |
@@ -96,6 +96,7 @@ Low. Local focused evidence does not claim Azure rollout or production performan
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-19 | implemented | Preserved object conflicts, rejected missing/future state clocks, fixed conservative ARG observation time, retained topology effective time, and aligned history/replay freshness without overwriting independent fact budgets. | `current change`; projection/runtime/journal/replay cohort: 157 passed; post-extraction projection: 81 passed; history/observer cohort: 24 passed; ARG clock regression: 1 passed; focused mypy passed. | Persistence idempotency, bounded storage/query costs, relation isolation, invalidation recovery, and repeated adversarial review remain. |
 | 2026-09-19 | implemented | Bound graph reads to one read snapshot, verified mapping declarations independently, retained Kubernetes endpoint types, rejected identity conflicts, and bounded the complete collection run and suppression evidence. | `current change`; relationship/coordinator/Kubernetes cohort: 94 passed; additional Kubernetes producer cohort: 16 passed; expanded coordinator cohort: 59 passed; query-entry cohort: 4 passed; focused mypy and Ruff passed. | Temporal evidence, replay/storage optimization, collection byte bounds, and adversarial review remain; no live database concurrency or production capacity claim is made. |
 | 2026-09-19 | implemented | Separated graph completion from content-bound Resource-event delivery, recovered pending publication without another graph write, and preserved object delivery when relationships remain degraded. | `current change`; observer, event publisher, and observation-journal tests: 116 passed; extended initial-generation loader cohort: 31 passed; three source files passed focused mypy. | Other open hardening rows and repeated adversarial review remain; no broker or Azure runtime validation is claimed. |
 | 2026-09-19 | implemented | Hardened provider count reconciliation, ordinary and init-container redaction, built-in and unclassified ARM identity, requested scope, nested parents, and clock-only duplicates. Reused the separately committed nested-subnet truncation repair without overwriting it. | `current change`; ARG tests: 161 passed; inventory adapter tests: 33 passed; focused Ruff passed; H04 source commit `d42551f94`. | H05-H08, H11, H14-H21, H23-H34, and H36 remain under the register and adversarial review. |

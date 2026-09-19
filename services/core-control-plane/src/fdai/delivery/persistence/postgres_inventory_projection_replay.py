@@ -63,13 +63,25 @@ def build_projection_replay_observation(
     resources: list[ResourceRecord] = []
     links: list[LinkRecord] = []
     stateful_ids = _projection_stateful_object_ids(prior_manifest)
+    retained_properties = {
+        item["id"]: item["properties"]["properties"]
+        for item in prior_manifest["object_content"]
+        if item["id"] in stateful_ids
+    }
     for record in records:
         if record.subject_kind is InventoryObservationSubjectKind.OBJECT:
+            properties = dict(record.properties)
+            retained = retained_properties.get(record.subject_ref)
+            if retained is not None:
+                state_fact_metadata_values(retained[STATE_FACT_METADATA_PROPERTY])
+                properties[STATE_FACT_METADATA_PROPERTY] = retained[STATE_FACT_METADATA_PROPERTY]
+                if "state" in retained:
+                    properties["state"] = retained["state"]
             resources.append(
                 ResourceRecord(
                     resource_id=record.subject_ref,
                     type=record.subject_type,
-                    props=record.properties,
+                    props=properties,
                     provider_ref=record.provider_ref,
                     last_seen=(
                         record.observed_at.astimezone(UTC).isoformat()
@@ -259,7 +271,7 @@ def manifest_watermarks(manifest: Mapping[str, Any]) -> tuple[int, int]:
 
 def projection_freshness_ceiling(manifest: Mapping[str, Any]) -> int:
     object_content = manifest.get("object_content")
-    if not isinstance(object_content, list) or not object_content:
+    if not isinstance(object_content, list):
         raise ValueError("inventory projection replay manifest object content is unavailable")
     ceilings: set[int] = set()
     for item in object_content:
@@ -281,9 +293,7 @@ def projection_freshness_ceiling(manifest: Mapping[str, Any]) -> int:
         )
     if not ceilings:
         return DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS
-    if len(ceilings) != 1:
-        raise ValueError("inventory projection replay freshness ceiling is inconsistent")
-    return next(iter(ceilings))
+    return min(ceilings)
 
 
 def _classified_replay_drop(reason: RelationshipDropReason) -> RelationshipDrop | None:

@@ -64,7 +64,7 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
   snapshot or ontology persistence, including both ordinary and initialization containers.
 - **Time and provenance:** Every fact retains effective, provider-event, observation, FDAI-ingestion,
   recorded, and evidence-cutoff time plus source, revision, completeness, conflicts, and freshness.
-  The normalized journal keeps these distinct; ingestion latency never rewrites provider event time.
+  The normalized journal keeps these distinct; ingestion latency never rewrites provider event time. ARG snapshots use a conservative read-start clock rather than parsing time. Missing state clocks and future evidence stay incomplete at the recorded-generation cutoff. Topology facts retain their observation effective time separately from baseline visibility, and replay preserves each fact's original freshness budget.
 - **No false absence:** Missing events, truncated reads, cursor lag, an open realtime overlay, and archive
   unavailability remain incomplete. A projection-bound overflow cannot promote a candidate or confirm a tombstone; the journal rejects incomplete snapshot input before database access. An empty provider-type aggregation cannot certify complete provider
   scope because an empty subscription and an identity with no provider visibility are indistinguishable.

@@ -264,6 +264,38 @@ async def test_complete_promotion_publishes_one_retained_topology_baseline() -> 
     assert writer.calls[0][2].startswith("sha256:")
 
 
+async def test_history_retains_observation_time_and_configured_freshness() -> None:
+    writer = _Writer()
+    publisher = InventoryTopologyHistoryPublisher(
+        writer=writer,
+        ontology_release_digest=RELEASE_DIGEST,
+        freshness_ceiling_seconds=123,
+    )
+    observed_at = RECORDED_AT - timedelta(minutes=5)
+    observation = PromotedInventoryObservation(
+        generation="snapshot-clock",
+        resources=(
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={"powerState": "running"},
+                last_seen=observed_at.isoformat(),
+            ),
+        ),
+        links=(),
+        complete=True,
+        recorded_at=RECORDED_AT,
+    )
+
+    batch = await publisher.publish(observation)
+
+    assert batch is not None
+    assert batch.effective_at == RECORDED_AT
+    assert batch.object_revisions[0].effective_at == observed_at
+    props = json.loads(batch.object_revisions[0].properties_json)["properties"]
+    assert props["state_fact_metadata"]["freshness_ceiling_seconds"] == 123
+
+
 async def test_incomplete_promotion_does_not_publish_partial_history() -> None:
     writer = _Writer()
     publisher = InventoryTopologyHistoryPublisher(

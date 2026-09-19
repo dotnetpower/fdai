@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import replace
+from datetime import UTC, datetime
 from math import isfinite
 from typing import Any
 
@@ -128,6 +130,7 @@ async def fetch_arg_pages(
     page_observer: ArgPageObserver | None = None,
 ) -> ResourceQueryResult:
     """Fetch all pages for one shard without silently accepting a partial result."""
+    observation_started_at = datetime.now(UTC).isoformat()
     rows = await fetch_arg_row_pages(
         identity=identity,
         http_client=http_client,
@@ -154,6 +157,7 @@ async def fetch_arg_pages(
     for row in rows:
         record = map_row(row)
         if record is not None:
+            record = replace(record, last_seen=observation_started_at)
             collected.append(record)
             relationships = project_links(row, record)
             collected_links.extend(relationships.links)

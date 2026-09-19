@@ -52,6 +52,7 @@ from .observation_adjudication import (
     ObservationVerdict,
     ObservedClaim,
     adjudicate_observations,
+    observation_time_gaps,
 )
 
 #: Registered ``Resource -> Resource`` observation links. A new topology link type
@@ -86,6 +87,7 @@ _DROP_DUPLICATE_EDGE = "duplicate_edge"
 _DROP_CONFLICTING_DUPLICATE = "conflicting_duplicate"
 _DROP_UNMAPPED_RESOURCE_TYPE = "unmapped_resource_type"
 _DROP_UNSEEDED_RESOURCE_TYPE = "unseeded_resource_type"
+_DROP_RESOURCE_PROPERTY_CONFLICT = "resource_property_conflict"
 _NON_BLOCKING_DROPS = frozenset({_DROP_UNSEEDED_RESOURCE_TYPE})
 _RECIPROCAL_LINK_TYPES = frozenset({"depends_on", "peered_with", "runtime_calls"})
 
@@ -126,6 +128,7 @@ def build_inventory_ontology_projection(
     resource_type_mappings: Mapping[str, str] | None = None,
     seeded_resource_types: Set[str] | None = None,
     freshness_ceiling_seconds: int = DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
+    recorded_at: datetime | None = None,
 ) -> InventoryOntologyProjection:
     """Restate one inventory observation as a typed resource subgraph.
 
@@ -152,6 +155,8 @@ def build_inventory_ontology_projection(
         raise ValueError("inventory projection link count exceeds its bound")
     if freshness_ceiling_seconds < 1:
         raise ValueError("inventory projection freshness ceiling MUST be >= 1 second")
+    if recorded_at is not None and recorded_at.tzinfo is None:
+        raise ValueError("inventory projection recorded_at MUST be timezone-aware")
 
     objects = _build_objects(
         resources,
@@ -165,7 +170,11 @@ def build_inventory_ontology_projection(
     blocking_dropped = {
         item.reason.value for item in relationship_drops if not item.classified_unavailable
     }
-    projection_dropped: set[str] = set()
+    projection_dropped = observation_time_gaps(resources, recorded_at=recorded_at)
+    if any(
+        record.properties["properties"].get("observation_conflicts") for record in objects.values()
+    ):
+        projection_dropped.add(_DROP_RESOURCE_PROPERTY_CONFLICT)
     if observation_complete:
         projected_links = _build_links(
             links,
@@ -321,6 +330,9 @@ def _resource_object(
         )
     properties: dict[str, Any] = {"id": resource_id, "type": verdict.type}
     provider_properties = dict(verdict.agreed_properties)
+    provider_properties.pop("observation_conflicts", None)
+    if verdict.conflicts:
+        provider_properties["observation_conflicts"] = list(verdict.conflicts)
     _add_observed_state(
         provider_properties,
         resource_type=verdict.type,
@@ -447,6 +459,10 @@ def _operational_state_metadata(
     root_metadata = properties.get(STATE_FACT_METADATA_PROPERTY)
     if isinstance(root_metadata, Mapping) and "lane" in root_metadata:
         return _canonical_state_metadata(root_metadata)
+    if isinstance(root_metadata, Mapping) and _has_canonical_state(properties, resource_type):
+        canonical = _canonical_state_metadata(root_metadata.get("state"))
+        if canonical is not None:
+            return canonical
     for prefix in ("", "properties.", "properties.properties."):
         owner = _state_owner(properties, prefix)
         if owner is None:
@@ -555,6 +571,8 @@ def _allowlisted_state_metadata(
         for prefix in ("", "properties.", "properties.properties.")
         for path in allowed_paths
     }
+    if _has_canonical_state(owner, resource_type):
+        allowed_keys["state"] = "state"
     retained: dict[str, object] = {}
     for key, value in metadata.items():
         path = allowed_keys.get(key)
@@ -621,11 +639,21 @@ def _flat_state_metadata_allowed(
     resource_type: str,
 ) -> bool:
     operational_paths = operational_state_paths(resource_type)
-    return any(
+    return _has_canonical_state(owner, resource_type) or any(
         path in operational_paths
         and is_recorded_state_value_valid(owner.get(path), allow_unknown=False)
         for path in ("status", "state")
     )
+
+
+def _has_canonical_state(owner: Mapping[str, object], resource_type: str) -> bool:
+    state = owner.get("state")
+    return isinstance(state, str) and {
+        value
+        for _, value in _operational_state_candidates(
+            owner, paths=operational_state_paths(resource_type)
+        )
+    } == {state}
 
 
 def _state_value_at(owner: Mapping[str, object], path: str) -> object:

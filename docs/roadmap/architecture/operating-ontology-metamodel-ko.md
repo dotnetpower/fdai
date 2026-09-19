@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 9e98c28a8c7ee836a88f78e93df1c4e84e4590fb
-translation_revised: 2026-09-18
+translation_source_sha: 9e9f0f29d5ec69f65b94282f46b8e0677c118a2a
+translation_revised: 2026-09-19
 ---
 # FDAI 운영 온톨로지 메타모델
 
@@ -168,6 +168,12 @@ High-frequency 텔레메트리는 샘플마다 Resource 객체를 다시 쓰지 
 출처에 유지합니다. Owning 변환 결과가 위 필드를 보존할 수 있을 때만 범위가 제한된 관측 또는
 derived 평가가 그래프에 들어갑니다. Late 근거는 새 산출물을 만들며 historical 결정이
 사용한 맥락을 다시 쓰지 않습니다.
+
+운영 상태에 대한 합의가 다른 속성의 충돌을 지우지는 않습니다. 변환 결과는 제한된 객체 충돌
+근거를 유지하며 객체 내용 전체가 완전하다고 주장할 수 없습니다. 정규 상태 메타데이터는 검토된
+공급자 상태 경로의 값과 일치할 때만 재사용할 수 있습니다. 현재 및 이력 변환은 구성된 최신성
+예산을 공유하지만, 정확한 재생은 하나의 전역 값을 요구하지 않고 독립적인 출처의 사실별 예산을
+보존합니다.
 
 ## 맥락 모델
 

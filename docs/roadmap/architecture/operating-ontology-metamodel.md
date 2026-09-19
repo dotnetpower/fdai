@@ -170,6 +170,12 @@ authoritative evidence source. A bounded observation or derived assessment enter
 when an owning projection can preserve the fields above. Late evidence creates a new artifact and
 never rewrites the context used by a historical decision.
 
+An agreed operational-state fact does not erase conflicts in other properties: projection retains
+bounded object conflict evidence and cannot claim complete object content. Canonical state metadata
+is reusable only when its value agrees with the reviewed provider-state paths. Current and history
+projections share the configured freshness budget, while exact replay retains independently sourced
+fact budgets instead of requiring one global value.
+
 ## Context model
 
 Context has two separate forms:
