@@ -57,6 +57,23 @@ def test_semantic_judgment_uses_strict_structured_output() -> None:
     assert envelope["name"] == "semantic-judgment"
     assert envelope["strict"] is True
     _assert_strict_objects(envelope["schema"])
+    schema = envelope["schema"]
+    assert isinstance(schema, Mapping)
+    properties = schema["properties"]
+    assert isinstance(properties, Mapping)
+    alternatives = properties["alternatives"]
+    unresolved_terms = properties["unresolved_terms"]
+    clarification_property = properties["clarification"]
+    assert isinstance(alternatives, Mapping)
+    assert isinstance(unresolved_terms, Mapping)
+    assert isinstance(clarification_property, Mapping)
+    assert str(alternatives["description"]).startswith("At most 8")
+    assert str(unresolved_terms["description"]).startswith("At most 8")
+    clarification_options = clarification_property["anyOf"]
+    assert isinstance(clarification_options, list)
+    clarification = clarification_options[0]
+    assert isinstance(clarification, Mapping)
+    assert "when ambiguous is true" in clarification["description"]
 
 
 def test_forbidden_actions_schema_requires_explicit_shadow_opt_in() -> None:
