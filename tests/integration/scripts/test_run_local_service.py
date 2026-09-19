@@ -630,7 +630,9 @@ def test_runner_rejects_reuse_when_launch_inputs_change(tmp_path: Path) -> None:
         first_process.wait(timeout=5)
 
 
-def test_runner_rejects_diagnostic_reuse_when_worktree_changes(tmp_path: Path) -> None:
+def test_runner_reuses_diagnostics_until_revision_or_service_inputs_change(
+    tmp_path: Path,
+) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     tracked = repo / "tracked.txt"
@@ -698,7 +700,7 @@ def test_runner_rejects_diagnostic_reuse_when_worktree_changes(tmp_path: Path) -
         assert "service=operator-api event=reused" in reuse_result.stdout
         tracked.write_text("changed\n", encoding="utf-8")
 
-        second_result = subprocess.run(  # noqa: S603 - fixed test command
+        worktree_result = subprocess.run(  # noqa: S603 - fixed test command
             command,
             cwd=repo,
             capture_output=True,
@@ -707,8 +709,37 @@ def test_runner_rejects_diagnostic_reuse_when_worktree_changes(tmp_path: Path) -
             check=False,
         )
 
-        assert second_result.returncode == 75
-        assert "service restart required: operator-api" in second_result.stderr
+        assert worktree_result.returncode == 0
+        assert "service=operator-api event=reused" in worktree_result.stdout
+        subprocess.run(  # noqa: S603 - fixed Git command in a test-owned repository.
+            [_GIT, "add", "tracked.txt"], cwd=repo, check=True
+        )
+        subprocess.run(  # noqa: S603 - fixed Git command in a test-owned repository.
+            [
+                _GIT,
+                "-c",
+                "user.name=FDAI Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-qm",
+                "change fixture",
+            ],
+            cwd=repo,
+            check=True,
+        )
+
+        revision_result = subprocess.run(  # noqa: S603 - fixed test command
+            command,
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            env=environment,
+            check=False,
+        )
+
+        assert revision_result.returncode == 75
+        assert "service restart required: operator-api" in revision_result.stderr
         assert first_process.poll() is None
     finally:
         first_process.terminate()

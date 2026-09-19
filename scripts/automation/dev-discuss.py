@@ -22,6 +22,10 @@ from fdai_runtime_diagnostics import DevelopmentProfilePacket, request_profile
 
 SCHEMA = "1.0.0"
 SERVICES = ("core-control-plane", "operator-service")
+SERVICE_LAUNCHERS = {
+    "core-control-plane": "core-runtime",
+    "operator-service": "operator-api",
+}
 SEVERITIES = ("low", "medium", "high", "critical")
 MAX_PACKETS = 20
 MAX_FILE_BYTES = 1024 * 1024
@@ -101,6 +105,26 @@ def _worktree_digest(root: Path) -> str:
     return value
 
 
+def _service_input_digest(root: Path, service: str) -> str:
+    result = subprocess.run(
+        [
+            "bash",
+            str(root / "scripts" / "deployment" / "local" / "run-console-service.sh"),
+            SERVICE_LAUNCHERS[service],
+            "--print-input-digest",
+        ],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    value = result.stdout.strip()
+    if _HEX64.fullmatch(value) is None:
+        raise ValueError("service input digest is invalid")
+    return value
+
+
 def _state(root: Path) -> Path:
     local_state = root / ".fdai"
     if local_state.is_symlink():
@@ -131,8 +155,8 @@ async def _capture(
     )
     if packet.source_revision != _git_revision(root):
         raise ValueError("running service revision does not match the workspace")
-    if packet.worktree_digest != _worktree_digest(root):
-        raise ValueError("running service worktree digest does not match the workspace")
+    if packet.service_input_digest != _service_input_digest(root, service):
+        raise ValueError("running service inputs do not match the workspace")
     return packet
 
 

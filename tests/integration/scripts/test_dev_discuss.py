@@ -181,7 +181,7 @@ async def test_capture_accepts_one_exact_matching_runtime_packet(
     )
     server = DevelopmentDiagnosticServer(config)
     monkeypatch.setattr(module, "_git_revision", lambda _root: REVISION)
-    monkeypatch.setattr(module, "_worktree_digest", lambda _root: WORKTREE_DIGEST)
+    monkeypatch.setattr(module, "_service_input_digest", lambda _root, _service: INPUT_DIGEST)
     await server.start()
     try:
         packet = await module._capture(
@@ -191,6 +191,19 @@ async def test_capture_accepts_one_exact_matching_runtime_packet(
             cpu=True,
             heap=True,
         )
+        monkeypatch.setattr(
+            module,
+            "_service_input_digest",
+            lambda _root, _service: "e" * 64,
+        )
+        with pytest.raises(ValueError, match="service inputs do not match"):
+            await module._capture(
+                short_root,
+                service="core-control-plane",
+                duration_ms=0,
+                cpu=True,
+                heap=True,
+            )
     finally:
         await server.aclose()
         shutil.rmtree(short_root)

@@ -83,7 +83,6 @@ if [[ -n "$input_digest" ]]; then
     printf '%s\0' "$input_digest"
     if [[ "$diagnostics_enabled" == "1" ]]; then
       printf '%s\0' "$source_revision"
-      printf '%s\0' "$worktree_digest"
     fi
     printf '%s\0' "$@"
   } | sha256sum | cut -d' ' -f1)"

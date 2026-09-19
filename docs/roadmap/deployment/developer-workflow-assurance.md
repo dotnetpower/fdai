@@ -81,9 +81,11 @@ delay, capture overhead, truncation, and unavailable reasons. It does not persis
 request or answer bodies, environment values, provider payloads, credentials, or hidden reasoning.
 
 Every packet binds the Git revision, local service input digest, worktree patch digest, process
-identity, runtime-scope receipt digest, time window, and packet digest. A GitHub Copilot review uses
-an owner-only export and import boundary. Review is rejected when the workspace identity or packet
-digest changes. Copilot may inspect the matching workspace and propose a diagnosis, but the runtime
+identity, runtime-scope receipt digest, time window, and packet digest. Capture admission compares
+the Git revision and service input digest, so an unrelated worktree edit does not invalidate a
+running service. A GitHub Copilot review uses an owner-only export and import boundary and retains
+the full worktree digest. Review is rejected when the workspace identity or packet digest changes.
+Copilot may inspect the matching workspace and propose a diagnosis, but the runtime
 does not call Copilot, read repository files, edit code, open a pull request, or grant merge or
 execution authority. System Knowledge can explain the release contract, while live measurements
 remain owned by this development workflow.
@@ -98,8 +100,9 @@ replaces a stale instance of the same always-profiled local stack. It terminates
 supervisor from the same checkout and waits for the supervisor lock to be released before starting
 new children. GitHub Copilot in the active coding session reviews exported
 packets; no FDAI runtime or Azure OpenAI deployment is selected or invoked by the diagnostic
-channel. A profiled service reuse fingerprint includes its Git revision and worktree digest, so a
-commit or worktree change replaces the stale process instead of returning mismatched evidence.
+channel. A profiled service reuse fingerprint includes its Git revision and service input digest,
+so a commit or relevant service-input change replaces the stale process without restarting it for
+an unrelated worktree edit.
 Local readiness recognizes the service-owned Core executable as the process owner and
 accepts fresh semantic-consumer progress followed by a fresh heartbeat. When an inventory
 generation changes before its ontology checkpoint is projected, the local analyzer remains

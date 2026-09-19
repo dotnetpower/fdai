@@ -234,6 +234,29 @@ def test_operator_launcher_always_enables_development_diagnostics(tmp_path: Path
     assert "core-runtime|operator-api)" in _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
 
 
+def test_operator_launcher_prints_input_digest_without_auth_or_start(tmp_path: Path) -> None:
+    repo = _operator_restart_repo(tmp_path)
+
+    result = subprocess.run(  # noqa: S603 - fixed test-owned launcher.
+        [
+            _BASH,
+            str(repo / "scripts/deployment/local/run-console-service.sh"),
+            "operator-api",
+            "--print-input-digest",
+        ],
+        cwd=repo,
+        env=os.environ,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == f"{'0' * 64}\n"
+    assert not (repo / "diagnostics.txt").exists()
+
+
 def test_operator_restart_emits_failed_for_readiness_failure(tmp_path: Path) -> None:
     result = _run_operator_restart(
         _operator_restart_repo(tmp_path),
