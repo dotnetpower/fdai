@@ -9,7 +9,7 @@ the security model; it complements the control loop and safety invariants in
 the topology in
 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md),
 and the code/CI gates in
-[coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md).
+[coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md). Declaration-list facets such as `available`, `queryable`, and `readable` express candidate meaning, not authorization. Core constrains the selected declaration kind to the current principal manifest; these facets cannot grant access, create observed state, or bypass the exact-release verifier.
 
 ## Implementation status
 

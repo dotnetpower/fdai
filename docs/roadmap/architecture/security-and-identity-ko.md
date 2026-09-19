@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 99da5a708e8d1a9f45424d0adc9cc9466b869f4c
-translation_revised: 2026-09-17
+translation_source_sha: e305b4b7e9382690eb2b71641f7db263fb75f8fd
+translation_revised: 2026-09-20
 ---
 
 # 보안과 아이덴티티
@@ -12,7 +12,7 @@ translation_revised: 2026-09-17
 컨트롤 루프와 안전 불변식,
 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) 의 토폴로지,
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
-의 코드/CI 게이트를 보완합니다.
+의 코드/CI 게이트를 보완합니다. 선언 목록의 `available`, `queryable`, `readable` facet은 후보 의미를 나타낼 뿐 권한을 증명하지 않습니다. Core는 선택한 선언 종류를 현재 principal 매니페스트로 제한합니다. 이 facet은 접근 권한을 부여하거나 관측 상태를 만들거나 정확한 release 검증을 우회할 수 없습니다.
 
 ## 구현 상태
 

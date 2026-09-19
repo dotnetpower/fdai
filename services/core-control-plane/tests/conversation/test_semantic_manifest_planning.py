@@ -115,6 +115,14 @@ def _judgment(
             "query.ontology_relationships",
             ("object_types", "visible_in_current_scope"),
         ),
+        (
+            "query.ontology_relationships",
+            ("readable_object_types",),
+        ),
+        (
+            "query.ontology_relationships",
+            ("object_types", "available"),
+        ),
     ),
 )
 def test_queryable_object_types_use_the_principal_manifest_without_model_fallback(
@@ -176,6 +184,81 @@ def test_manifest_list_requires_current_visible_queryable_facets(
             utterance=_UTTERANCE,
             context=(),
             descriptors=manifest.descriptors,
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize("kind", ("object", "interface", "link", "action", "function"))
+@pytest.mark.parametrize("readable", ("available", "queryable", "readable"))
+@pytest.mark.parametrize("combined", (False, True))
+def test_readable_manifest_facets_preserve_exact_declaration_kind(
+    kind: str,
+    readable: str,
+    combined: bool,
+) -> None:
+    manifest = _manifest()
+    facets = (f"{readable}_{kind}_types",) if combined else (f"{kind}_types", readable)
+    selected = build_ontology_schema_frame(
+        _judgment(facets, primary_intent="query.ontology_relationships"),
+        utterance="이 운영자가 조회할 수 있는 선언 유형을 보여 주세요.",
+        context=(),
+        descriptors=manifest.descriptors,
+    )
+
+    assert selected is not None
+    _, frame = selected
+    assert frame.subject_constraints == (kind,)
+    assert frame.output_shape == SemanticOutputShape.ONTOLOGY_MANIFEST
+    assert frame.evidence_requirements == ("principal_manifest_evidence",)
+
+
+@pytest.mark.parametrize(
+    "facets",
+    (
+        ("unavailable_object_types",),
+        ("unreadable_object_types",),
+        ("not_readable_object_types",),
+        ("object_types",),
+        ("object_types", "link_types", "available"),
+        ("readable_object_types", "readable_function_types"),
+        ("object_types", "available", "unavailable"),
+        ("readable_object_types", "historical"),
+        ("readable_object_types", "properties"),
+    ),
+)
+def test_readable_manifest_facets_do_not_invent_or_merge_declaration_scope(
+    facets: tuple[str, ...],
+) -> None:
+    assert (
+        build_ontology_schema_frame(
+            _judgment(facets, primary_intent="query.ontology_relationships"),
+            utterance=_UTTERANCE,
+            context=(),
+            descriptors=_manifest().descriptors,
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "updates",
+    (
+        {"ambiguous": True},
+        {"secondary_intents": ("query.ontology_declaration",)},
+        {"action_posture": "draft_only"},
+        {"execution_authority": True},
+    ),
+)
+def test_readable_manifest_facets_preserve_judgment_guards(updates: dict[str, object]) -> None:
+    judgment = _judgment(("readable_object_types",)).model_copy(update=updates)
+
+    assert (
+        build_ontology_schema_frame(
+            judgment,
+            utterance=_UTTERANCE,
+            context=(),
+            descriptors=_manifest().descriptors,
         )
         is None
     )
