@@ -19,6 +19,7 @@ that applies before Terraform changes infrastructure or role assignments.
 | AKS basic deployment followed by detailed private-network provisioning | not-started | Two-stage contract below; no new runtime acceptance evidence | An ordinary PC can initiate the AKS baseline without prebuilt internal infrastructure. API Server VNet Integration, stage selection, baseline acceptance, Console network requests and resumable protected execution still need implementation and end-to-end validation. |
 | Read-only inspection and profile initialization commands | implemented | `packages/deployment-cli`; focused profile, target, tool, and productization tests | The dedicated distribution registers `fdaictl`, writes private target-bound profiles, and returns review until execution-host evidence exists. |
 | Managed VM, private backend, and manual deployment host | implemented | `infra/bootstrap/`, standalone deployment modules, and focused bootstrap tests | The durable VNet host, workload identity, private state, exact plans, and application apply run without GitHub Actions. |
+| Audited Run Command private relay | implemented | `execution_bundle.py`, `run_command_receiver.py`, `run_command_private_relay.py`, fixed bootstrap/orchestration modules, and 25 focused passing tests | One eligible Linux deployment host can stage a digest-bound bundle to one peered WSL host without cloud artifact storage. Live Azure transfer evidence and automatic access-profile routing remain open. |
 | Fresh-subscription local coordinator | implemented | `fdaictl provision azure`; `fdai-up.sh`; signed-kit, Foundation, Bastion, managed-host, approval, license, migration, and convergence modules; routed lifecycle tests | One `dev` process derives the target from the active Azure CLI user and keeps stateful transitions serial. Tenant deployment has no GitHub transport. A governed Azure receipt and complete subscription-assurance evidence remain open. |
 | Prebuilt OCI deployment appliance consumption | in-progress | `run-deployment-appliance.sh`; focused script and CLI tests | Tenant provisioning can start the manual standalone coordinator from a release-published, digest-pinned appliance with no public artifact fallback. A governed artifact-offline Azure receipt remains open; tenant deployment does not construct the image. |
 | Offline-kit construction and verification | validated | `fdai_deployment_cli.offline_kit`; locked release scripts; successful network-isolated air-gap drill | Signature-first verification, exact files, SBOM coverage, ABI/libc binding, private snapshots, and shipped-wheel installation pass. |
@@ -31,6 +32,7 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-19 | implemented | Added a claim-first, source-address-bound, certificate-pinned private TLS relay for the explicit audited Action Run Command access path. It creates no cloud staging artifact, allows one verification-only recovery, and grants no apply authority. | `current change`; execution bundle and receiver modules, fixed relay/bootstrap/orchestration modules, 25 focused tests, Ruff. | Retain one exact live peered-host transfer receipt, then connect the explicit adapter to reviewed `fdaictl` access-profile routing without changing VM lifecycle or application approval. |
 | 2026-09-17 | in-progress | Removed public release publication and online Azure convergence as operational-validation prerequisites. One exact locally built signed kit now supplies both the local coordinator and appliance entry points; online acquisition remains a supported optional distribution path. | `current change`; owner documents and Azure deployment skill; no runtime, signature, approval, or Azure behavior changed. | Build and independently verify one local complete kit, then retain separately approved local-coordinator and appliance-entry-point convergence receipts from those same bytes. |
 | 2026-09-16 | not-started | Made AKS the explicit basic-deployment target and moved selected peering, private endpoints, private DNS, private-cluster mode and public-access removal into a Console-originated detailed provisioning plan. Tenant provisioning consumes prebuilt signed images and never builds or captures them. | `current change`; documentation and deployment-skill contracts only; no CLI, Console, Terraform or Azure effect claimed. | Implement the API-server subnet and public baseline, remove tenant image builders, add Console network request states and protected execution, and retain both baseline and private-transition receipts. |
 | 2026-09-15 | not-started | Defined ordinary-PC initiation and separated baseline service deployment from later detailed provisioning. Advanced unselected configuration cannot block baseline success; policy-mandated security and state protection remain prerequisites for the effects that need them. | Current design and deployment-skill update only; no new CLI commands, schema fields, platform support or deployed behavior claimed. | Implement both stages and prove an outside-PC start reaches authenticated baseline health, then add a selected capability without reinstalling or resetting persistent state. |
@@ -78,6 +80,9 @@ that applies before Terraform changes infrastructure or role assignments.
 - [x] Publish and verify a replacement signed kit containing the stable Network API correction, then confirm Foundation discovery from that exact artifact without treating discovery as deployment readiness. Evidence: `deployment-v0.1.0-r4` and the linked issue #803 read-only checkpoint; the existing installed CLI already matches all 59 signed wheel files and was not replaced.
 - [ ] Retain target-bound Foundation and application convergence receipts from the local coordinator and appliance entry point using the same exact locally supplied signed kit, without requiring public release publication or claiming whole-subscription readiness.
 - [ ] Demonstrate current-VM `existing-host` execution without creating a redundant host or relocating an already correct protected backend, retaining identity, exact-plan, no-repeat and readback checks.
+- [ ] Retain one exact live private-relay Run Command staging receipt over the reviewed peered route,
+  then connect the explicit adapter to `fdaictl` access-profile selection without broadening VM,
+  network, plan, or application authority.
 - [ ] Demonstrate ordinary-PC basic deployment without preconfigured private access, with later detailed provisioning that preserves installation identity, existing state and Trial start time; keep optional missing capabilities separate from baseline health.
 - [ ] Create the AKS basic profile with API Server VNet Integration and dedicated workload and API-server subnets, then prove authenticated restricted public management access from the initiating coordinator.
 - [ ] Implement `/provisioning` network intent, assessment, exact-plan request, approval, apply, rollback and independent readback for peering, private endpoints, DNS and private-cluster mode.
@@ -344,6 +349,26 @@ The managed-host access order is fixed:
 Fresh-subscription Genesis doesn't fall through this list. A profile with `access_method=bastion`
 selects the exact Standard Bastion native tunnel created by Foundation. Enrollment material then
 travels only through SSH standard input, and state handoff uses the same pinned host-key boundary.
+
+`access_method=run_command` is explicit and never an automatic Bastion fallback. It can stage a
+digest-bound execution bundle only from an eligible Linux deployment host over an already connected
+peered private route to the selected WSL host. An exact profile and current human approval bind the
+complete target descriptor. The active human account must match the derived tenant/subscription
+binding, and live Azure readback must match the VM resource id, private address, and deployment UAMI.
+Only then does the coordinator record an immutable claim before a
+one-shot TLS relay listens or Action Run Command starts. The relay accepts only the selected host's
+private source address; WSL pins the ephemeral certificate digest, verifies the fixed receiver and
+bundle, and returns typed evidence over the same relay. No SAS, account key, bearer token, arbitrary
+remote script, or cloud staging artifact belongs to this transport. An ambiguous invocation permits
+one separately claimed verification-only call and never repeats extraction or fresh transfer. VM
+lifecycle approval remains separate, and the staging receipt grants no Terraform apply authority.
+The implementation uses Action Run Command (`az vm run-command invoke`), not a managed command
+resource. It requires a healthy VM agent, an existing private route from WSL to the relay address,
+one-command concurrency, a completion marker within the 4 KiB response bound, and completion inside
+the 90-minute service ceiling. The Linux host must bind the reviewed private address and port and
+provide Python and OpenSSL. These limits do not weaken the coordinator's shorter deadline.
+The explicit adapter is `dev`-only with approval quorum one. Staging and production remain blocked
+until this transport supports and verifies their protected approval quorum.
 
 Temporary public access is never a silent fallback. Its plan requires an allowlisted source CIDR,
 key- or certificate-only SSH, a bounded access window, and automatic removal of the public IP and

@@ -1,8 +1,8 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 134be0731125d7ac396a8c1d3746e3d108e99bb8
-translation_revised: 2026-09-17
+translation_source_sha: db9f4992a8ac9220be5cda0ecff82bde767c9218
+translation_revised: 2026-09-19
 ---
 # 프로비저닝 실행 프로파일
 
@@ -22,6 +22,7 @@ translation_revised: 2026-09-17
 | AKS 기본 배포와 후속 상세 비공개 네트워크 프로비저닝 | not-started | 아래 두 단계 계약이며 새로운 실행 검증 근거는 없음 | 일반 PC에서 미리 구축한 내부 인프라 없이 AKS 기본 흐름을 시작할 수 있습니다. API Server VNet Integration, 명시적 단계 선택, 기본 가동 검증, Console 네트워크 요청과 재개 가능한 보호 실행은 구현 및 전체 경로 검증이 필요합니다. |
 | 읽기 전용 점검 및 프로파일 초기화 명령 | implemented | `packages/deployment-cli`, 집중 프로필, 대상, 도구, 제품화 검사 | 전용 배포판이 `fdaictl`을 등록하고 비공개 대상 연결 프로필을 쓰며 실행 호스트 근거가 있을 때까지 검토 상태를 반환합니다. |
 | 관리 VM, 비공개 백엔드 및 수동 배포 호스트 | implemented | `infra/bootstrap/`, standalone 배포 모듈 및 집중 bootstrap 테스트 | 영속 VNet 호스트, workload identity, 비공개 상태, 정확한 계획 및 애플리케이션 적용이 GitHub Actions 없이 실행됩니다. |
+| 감사되는 Run Command 비공개 중계 | implemented | `execution_bundle.py`, `run_command_receiver.py`, `run_command_private_relay.py`, 고정 초기 구성 및 조정 모듈, 집중 테스트 25개 통과 | 적격 Linux 배포 호스트 하나가 클라우드 산출물 저장소 없이 피어링된 WSL 호스트 하나로 digest가 고정된 묶음을 staging할 수 있습니다. 실제 Azure 전송 근거와 자동 접근 프로파일 라우팅은 남아 있습니다. |
 | 신규 구독 로컬 조정기 | implemented | `fdaictl provision azure`, `fdai-up.sh`, 서명 키트, 기반 계층, Bastion, 관리 호스트, 승인, 라이선스, 마이그레이션 및 수렴 모듈과 라우팅된 수명 주기 테스트 | 하나의 `dev` 프로세스가 활성 Azure CLI 사용자에서 대상을 결정하고 상태 변경 전이를 직렬로 유지합니다. 대상 환경 배포에는 GitHub 전송 계층이 없습니다. 통제된 Azure 증적과 완전한 구독 보증 근거는 남아 있습니다. |
 | 사전 빌드 OCI 배포 어플라이언스 사용 | in-progress | `run-deployment-appliance.sh`, 집중 스크립트 및 CLI 테스트 | 테넌트 프로비저닝은 release에서 게시하고 digest로 고정한 어플라이언스에서 공개 산출물 대체 경로 없이 수동 standalone 조정기를 시작할 수 있습니다. 통제된 아티팩트 오프라인 Azure 증적은 남아 있으며 테넌트 배포는 이미지를 만들지 않습니다. |
 | Offline-kit 생성 및 검증 | validated | `fdai_deployment_cli.offline_kit`, 잠긴 릴리스 스크립트, 성공한 네트워크 격리 air-gap 훈련 | 서명 우선 검증, 정확한 파일, SBOM 커버리지, ABI/libc 연결, 비공개 스냅샷, 제공 wheel 설치가 통과합니다. |
@@ -34,6 +35,7 @@ translation_revised: 2026-09-17
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-19 | implemented | 명시적으로 선택하는 감사된 Action Run Command 접근 경로에 실행 전 기록을 우선하는 출발지 주소 제한 및 인증서 고정 비공개 TLS 중계를 추가했습니다. 클라우드 staging 산출물을 만들지 않고 검증 전용 복구를 한 번만 허용하며 적용 권한을 부여하지 않습니다. | `current change`, 실행 묶음 및 수신기 모듈, 고정 중계·초기 구성·조정 모듈, 집중 테스트 25개, Ruff | 정확한 실제 피어링 호스트 전송 증적을 보존한 뒤 VM 수명 주기나 애플리케이션 승인을 바꾸지 않고 명시적 adapter를 검토된 `fdaictl` 접근 프로파일 라우팅에 연결합니다. |
 | 2026-09-17 | in-progress | 공개 release 게시와 온라인 Azure 수렴을 운영 검증의 필수 조건에서 제거했습니다. 로컬에서 빌드한 정확한 서명 키트 하나를 로컬 조정기와 어플라이언스 진입점에 함께 사용하며, 온라인 획득은 지원되는 선택적 배포판 경로로 유지합니다. | `current change`, 설계 소유자 문서 및 Azure 배포 스킬, 런타임·서명·승인·Azure 동작 변경 없음 | 로컬 완전한 키트 하나를 빌드하고 독립적으로 검증한 뒤 같은 바이트에서 별도 승인된 로컬 조정기 및 어플라이언스 진입점 수렴 증적을 보존합니다. |
 | 2026-09-16 | not-started | AKS를 명시적인 기본 배포 대상으로 정하고, 선택한 피어링, 비공개 엔드포인트, 비공개 DNS, 비공개 클러스터 모드와 공개 접근 제거를 Console에서 시작하는 상세 프로비저닝 계획으로 옮겼습니다. 테넌트 프로비저닝은 미리 빌드하고 서명한 이미지만 사용하며 이미지를 빌드하거나 캡처하지 않습니다. | `current change`, 문서 및 배포 스킬 계약만 변경했으며 CLI, Console, Terraform 또는 Azure 효과는 주장하지 않습니다. | API 서버 서브넷과 공개 기본 구성을 구현하고 테넌트 이미지 builder를 제거하며 Console 네트워크 요청 상태와 보호된 실행을 추가한 뒤 기본 및 비공개 전환 증적을 보존합니다. |
 | 2026-09-15 | not-started | 일반 PC에서의 시작을 정의하고 기본 서비스 배포와 후속 상세 프로비저닝을 분리했습니다. 선택하지 않은 고급 구성은 기본 배포 성공을 막지 않으며 정책상 필수 보안과 상태 보호는 해당 변경의 선행 조건으로 유지합니다. | 현재 설계와 배포 스킬 변경만 포함하며 새 CLI 명령, 스키마 필드, 플랫폼 지원이나 배포된 동작을 주장하지 않습니다. | 외부 PC에서 시작해 인증된 기본 서비스 상태에 도달하는 두 단계를 구현·검증하고, 재설치나 영속 상태 초기화 없이 선택한 기능을 추가합니다. |
@@ -81,6 +83,9 @@ translation_revised: 2026-09-17
 - [x] 안정 Network API 수정을 포함한 대체 서명 키트를 게시하고 검증한 뒤 해당 아티팩트에서 Foundation 검색을 확인합니다. 검색 성공을 배포 준비 완료로 취급하지 않습니다. 근거: `deployment-v0.1.0-r4`와 연결된 이슈 #803의 읽기 전용 검증 기록입니다. 기존 CLI 설치 파일 59개가 이미 서명된 휠과 일치하므로 교체하지 않았습니다.
 - [ ] 공개 release 게시 또는 전체 구독 준비 상태 주장을 요구하지 않고 같은 정확한 로컬 서명 키트로 실행한 로컬 조정기와 어플라이언스 진입점의 대상 연결 기반 Foundation 및 애플리케이션 수렴 증적을 보존합니다.
 - [ ] 별도 호스트를 불필요하게 만들거나 올바르게 보호된 기존 백엔드를 옮기지 않고 현재 VM에서 `existing-host` 실행을 검증하며, 신원·정확한 계획·재적용 금지·독립 조회 검사를 유지합니다.
+- [ ] 검토된 피어링 경로에서 정확한 실제 비공개 중계 Run Command staging 증적 하나를
+  보존한 뒤 VM, 네트워크, 계획 또는 애플리케이션 권한을 넓히지 않고 명시적 adapter를
+  `fdaictl` 접근 프로파일 선택에 연결합니다.
 - [ ] 사설 접근을 미리 설정하지 않은 일반 PC에서 기본 배포를 검증하고, 설치 식별자·기존 상태·Trial 시작 시점을 보존한 채 상세 프로비저닝을 진행하며, 선택 기능의 미설정 상태와 기본 서비스 상태를 구분합니다.
 - [ ] API Server VNet Integration과 워크로드 및 API 서버 전용 서브넷을 포함한 AKS 기본 프로파일을 만들고, 배포를 시작한 조정기에서 인증되고 제한된 공개 관리 접근을 검증합니다.
 - [ ] 피어링, 비공개 엔드포인트, DNS, 비공개 클러스터 모드에 대해 `/provisioning` 네트워크 의도, 평가, 정확한 계획 요청, 승인, 적용, rollback 및 독립 재확인 상태를 구현합니다.
@@ -340,6 +345,25 @@ Managed-host 접근 순서는 다음과 같이 고정합니다.
 신규 구독 Genesis는 이 목록을 차례로 대체 시도하지 않습니다. `access_method=bastion`인
 프로파일은 기반 계층이 만든 정확한 Standard Bastion 네이티브 터널을 선택합니다. 등록 자료는
 SSH 표준 입력으로만 전달하며 상태 인계는 고정된 같은 호스트 키 경계를 사용합니다.
+
+`access_method=run_command`는 명시적으로 선택하며 Bastion의 자동 대체 경로가 아닙니다.
+적격 Linux 배포 호스트에서 이미 연결되고 피어링된 비공개 경로를 통해 선택한 WSL 호스트로만
+digest가 고정된 실행 묶음을 staging할 수 있습니다. 정확한 프로파일과 현재 사람 승인은 전체 대상
+서술자에 연결됩니다. 활성 사람 계정은 계산된 테넌트와 구독 binding에 일치해야 하며, 실제 Azure
+재조회는 VM 리소스 ID, 비공개 주소, 배포 UAMI와 일치해야 합니다. 이 검증을 마친 뒤에만 조정기는
+일회성 TLS 중계가 수신을 시작하거나 Action Run Command가 시작하기 전에 변경 불가능한 시작 기록을 남깁니다. 중계는 선택한 호스트의
+비공개 출발지 주소만 허용합니다. WSL은 임시 인증서 digest를 고정하고, 고정 수신기와 묶음을
+검증한 뒤 같은 중계로 형식이 지정된 근거를 반환합니다. SAS, 계정 키, bearer token, 임의 원격
+스크립트, 클라우드 staging 산출물은 이 전송 경로의 범위 밖입니다. 결과가 불명확한 호출은 별도로
+시작 기록을 남긴 검증 전용 호출을 한 번만 허용하며 추출이나 새 전송을 반복하지 않습니다. VM
+수명 주기 승인은 별도 작업으로 유지하고 staging 증적은 Terraform 적용 권한을 부여하지 않습니다.
+구현은 관리형 command 리소스가 아니라 Action Run Command(`az vm run-command invoke`)를
+사용합니다. 정상 VM agent, WSL에서 중계 주소로 이어지는 기존 비공개 경로, 동시 command 1개,
+4 KiB 응답 범위 안의 완료 표식, 서비스의 90분 상한 안에서 완료가 필요합니다. Linux 호스트는
+검토된 비공개 주소와 포트를 바인딩할 수 있고 Python과 OpenSSL을 제공해야 합니다. 이 제한은
+조정기의 더 짧은 기한을 완화하지 않습니다.
+명시적 adapter는 승인 정족수 1인 `dev`에서만 사용할 수 있습니다. staging과 production은 이
+전송 경로가 보호된 승인 정족수를 지원하고 검증할 때까지 차단합니다.
 
 Temporary 공개 접근은 silent 대체 경로로 사용하지 않습니다. 계획에는 허용 목록에 포함된
 출처 CIDR, 키 또는 certificate만 사용하는 SSH, 제한된 접근 구간, 공개 IP와 temporary
