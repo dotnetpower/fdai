@@ -1,7 +1,7 @@
 ---
 translation_of: aks-commerce-business-scenario.md
-translation_source_sha: 01dfceaa14dcbd9bdc3c903ff5cbe2334b9b4df0
-translation_revised: 2026-09-18
+translation_source_sha: 858ee6e87fc62a86d448c4890ea7c451c9a8441a
+translation_revised: 2026-09-19
 ---
 # AKS 상거래 비즈니스 시나리오
 
@@ -319,6 +319,8 @@ Kubernetes API 수락은 성공이 아닙니다.
   수 있도록 AKS 관리 API를 공개합니다. Microsoft Entra 인증, Azure RBAC, 로컬 계정
   비활성화는 계속 필수이며 이 엔드포인트는 익명 접근이나 애플리케이션 접근 권한을
   부여하지 않습니다.
+- 시스템 풀은 두 노드를 사용하여 기준 소스의 용량을 보존된 배포 확인 결과와
+  일치시킵니다. 이 고정 랩 기준은 자동 크기 조정이나 프로덕션 가용성을 의미하지 않습니다.
 - 공개 API 접근과 승인된 IP 범위 부재에 대한 Trivy 및 Checkov 예외는 이 폐기 가능한
   클러스터 리소스 바로 옆에만 둡니다. 다른 AKS 점검을 억제하거나 위 인증 및 권한 부여
   제어를 약화하지 않습니다.
