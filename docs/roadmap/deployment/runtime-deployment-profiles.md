@@ -238,7 +238,7 @@ The five-service AKS baseline enables lexical document retrieval without requiri
 deployment. Document API and Worker use distinct workload identities, role-scoped database DSNs,
 the shared ADLS account and the `fdai.pipeline.stages` entity. The Worker Pod includes the existing
 digest-pinned ClamAV image as a replica-local TCP sidecar. Its root remains read-only and only the
-declared database, run and temporary paths receive size-limited `emptyDir` volumes.
+declared database, run and temporary paths receive size-limited `emptyDir` volumes. The restricted namespace requires `runAsNonRoot` at both Pod and container scope for workloads, init containers, sidecars, and scheduled jobs; a Pod-level setting alone does not satisfy admission.
 
 Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active deadline,
 a retry limit, and bounded history. Manual jobs require a separate approval and are not perpetual desired-state resources.
