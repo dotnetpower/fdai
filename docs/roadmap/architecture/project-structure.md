@@ -149,19 +149,8 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   Stage owners provide monotonic start and completion values through a typed receipt; Core derives
   duration only after the receipt environment matches the installed stage contract.
   Conversation Assurance emits the deterministic-verification receipt only when composition injects both the PR benchmark environment and a sink. Ordinary Azure composition may expose the shared metering sink and pricing table for measured conversation usage, but it does not activate benchmark receipts.
-  Explicit Pantheon campaigns use a separate one-time runtime binding after Pantheon initialization.
-  Core validates the requested case against the fixed server census, Bragi produces the single
-  terminal answer, and the off-path distinct-family reviewers append the correlated 30-point
-  diagnostic. Child closure retains only the ordered attempted case ids and the held case id, when
-  present, so later explicit campaigns can exclude prior attempts without retrying a live request.
-  The local campaign CLI may separately retain bounded question and answer content plus answer and
-  evaluator model attribution in an owner-only transcript. Sensitive bodies are omitted, and this
-  transcript is never tracked qualification, policy, audit, or authority evidence. Ordinary
-  `operations-review` turns continue through the existing semantic runtime, which exposes an
-  immutable snapshot of registered function authorities to readiness consumers. Schema-validated
-  judgment can recover only generic typed frames whose canonical subjects and facets match the
-  active manifest. Golden certification binds the exact expected terminal posture, and the Operator
-  envelope preserves the requested locale before Core planning.
+  Explicit Pantheon campaigns use a separate one-time runtime binding after initialization. Core validates the fixed census case, Bragi produces one terminal answer, distinct-family reviewers append the correlated diagnostic, child closure retains attempted and held case ids, and an owner-only CLI transcript may retain bounded content and model attribution while omitting sensitive bodies and granting no qualification, policy, audit, or authority evidence.
+  Ordinary `operations-review` turns continue through the existing semantic runtime and immutable function-authority snapshot. Schema-validated judgment recovers only generic typed frames matching the active manifest, Golden certification binds the expected terminal posture, and the Operator envelope preserves locale before Core planning.
   The Azure evaluator adapter selects family-compatible completion fields and reduces connection, HTTP status, and invalid-response failures to bounded content-free reason codes. Core validates and preserves those codes through semantic reduction and held assessment merging without inspecting provider response content or granting provider authority. Historical `context_locale_scorecard.py` remains a compatibility-only re-export.
   The repository CLI parses content-free samples and never converts a trace commitment into a
   complete-trace claim. The adjacent `quality_trace.py` reducer accepts only record commitments and

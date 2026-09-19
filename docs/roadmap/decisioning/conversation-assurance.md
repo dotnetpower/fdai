@@ -41,54 +41,22 @@ The fixed census contains 230 balanced cases:
 | Routing | 30 | One explicit and one implicit owner route for every agent. |
 | T2 | 20 | Required, forbidden, unavailable, budget, provider, and output-safety outcomes. |
 
-Every measured turn binds the exact prompt-profile digest, content-free route, evidence,
-verification, T1/T2, complete request budget, metering, timing, and terminal-state data in one trace
-receipt. Private question and answer bodies remain outside tracked evidence.
-An explicitly started local campaign additionally writes `transcripts.jsonl` under the owner-only
-`.fdai/conversation-assurance/` directory. This private diagnostic record retains the bounded
-question, accepted terminal answer, source revision, answer-generation mode and model attribution,
-configured evaluator identities and families, output availability, assessment reasons, score, and
-verdict. A sensitivity finding omits the affected body and retains only its digest and omission
-reason. Transcript content never enters qualification, policy promotion, audit, or execution
-authority.
-Core also records schema-v2 timing across durable queue and Pantheon assurance phases. Operator
-returns the same phase list with trace latency, and a deferred assessment marks its phase degraded.
-A UUID-shaped deployment scope in an answer records `hidden_scope_leak` as a hard-zero violation;
-the existing sensitivity scan may independently record `sensitive_output` for the same answer.
+Every measured turn binds prompt-profile, route, evidence, verification, T1/T2, budget, metering, timing, and terminal-state data in one trace receipt; private question and answer bodies remain outside tracked evidence.
+An explicitly started local campaign also writes owner-only `.fdai/conversation-assurance/transcripts.jsonl` with bounded questions, accepted answers, source revision, answer-generation and evaluator attribution, output availability, assessment reasons, score, and verdict. A sensitivity finding replaces the affected body with its digest and omission reason. Transcript content grants no qualification, policy-promotion, audit, or execution authority.
+Core records schema-v2 timing across durable queue and Pantheon assurance phases, and Operator returns the same phases with trace latency while marking a deferred phase degraded. A UUID-shaped deployment scope records `hidden_scope_leak` as a hard-zero violation; the sensitivity scan may also record `sensitive_output`.
 
 ### Explicit campaign operation
 
-Use `scripts/automation/conversation-assurance.py` to preview or start a campaign, read status, or
-request a stop. One child evaluates at most 20 questions. Larger census runs use sequential child
-campaigns and stop after the first hold or incomplete child.
-Before measuring a fixed case, the runtime forwards its registered locale to the Pantheon
-conversation port. The trace `participants[].situation` must record that same locale; a mismatch
-fails the diagnostic instead of silently defaulting to English.
+Use `scripts/automation/conversation-assurance.py` to preview, start, inspect, or stop a campaign. Each child evaluates at most 20 questions; larger census runs use sequential children and stop after the first hold or incomplete child.
+Before measuring a fixed case, the runtime forwards its registered locale to the Pantheon conversation port. The trace `participants[].situation` must match or the diagnostic fails instead of silently defaulting to English.
 
-The optional Unix-socket supervisor waits for explicit commands. Restarting it does not resume or
-start a campaign. Provider throttling, unavailability, timeout, or a missing measurement contract
-records a hold and does not retry the live question.
-The authenticated Operator request rejects redirects before a private bearer can cross origins,
-uses the semantic deadline plus a bounded transport margin, requires strict UTF-8 and exactly one
-final `done` event, and reduces transport or evaluator exceptions to content-free held reasons.
-Malformed bytes, duplicate terminals, and an error after a terminal cannot produce a passing case.
-The supervisor and direct CLI share one owner-only runner lock. The `report` command renders recent
-private transcripts when available and otherwise renders content-free evaluations without starting
-a campaign. `compare --baseline-case <id> --candidate-case <id>` compares two distinct retained
-cases by diagnostic score and verdict while returning both records for review. It cannot establish
-qualification or authorize a policy change. For a complete census, the report also includes one
-source-bound aggregate only after all 230 trace and diagnostic receipts join by digest and share a
-clean revision. Incomplete, duplicate, or mixed-revision evidence cannot produce qualification
-evidence. A lost T1 conclusion or any hard-zero safety escape stops automatic hardening and
-requires human review.
-Each completed child also records the ordered case ids whose measurements started and the exact
-case id that held, when present. These content-free identities let a later explicitly authorized
-campaign exclude attempted questions without retaining question text or retrying a live request.
+The optional Unix-socket supervisor waits for explicit commands and never resumes or starts a campaign on restart. Provider throttling, unavailability, timeout, or a missing measurement contract records a hold without retrying the live question.
+The authenticated Operator request rejects redirects before a private bearer crosses origins, applies the semantic deadline plus bounded transport margin, requires strict UTF-8 and exactly one final `done` event, and reduces transport or evaluator exceptions to content-free held reasons. Malformed bytes, duplicate terminals, or an error after a terminal cannot pass.
+The supervisor and CLI share one owner-only runner lock. `report` renders private transcripts when available and otherwise content-free evaluations; `compare --baseline-case <id> --candidate-case <id>` returns two distinct retained records and their diagnostic score and verdict without establishing qualification or policy authority.
+A complete-census aggregate requires all 230 trace and diagnostic receipts to join by digest on one clean revision. Incomplete, duplicate, mixed-revision, lost-T1, or hard-zero evidence cannot qualify and requires human review.
+Each completed child records ordered attempted case ids and any held case id, allowing a later authorized campaign to exclude prior attempts without retaining question text or retrying a live request.
 
-Built-in T2 cases that require synthesis bind a bounded, server-owned conflict fixture to the
-read-only deliberation evaluator. The fixture is selected by the registered case identity rather
-than inferred from prose, affects only deterministic T1 admission, and is never operational or
-authorization evidence. External corpora and ordinary conversations cannot acquire this fixture.
+Built-in T2 synthesis cases bind a bounded server-owned conflict fixture to the read-only deliberation evaluator. Registered case identity selects it without prose inference; it affects only deterministic T1 admission, grants no operational or authorization evidence, and is unavailable to external corpora and ordinary conversations.
 
 For larger diagnostic series, `start --corpus <path>` accepts an owner-only JSON corpus with
 explicit case ids, locales, expected agents, routing methods, handoff outcomes, and T2 outcomes.
