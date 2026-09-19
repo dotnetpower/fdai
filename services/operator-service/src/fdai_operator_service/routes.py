@@ -18,7 +18,6 @@ from fdai_service_contracts import (
     BrowserEvidenceQuery,
     HilQueueQuery,
     IncidentAttentionProjection,
-    IncidentAttentionQuery,
     IncidentQuery,
     JsonObject,
     OperatorPrincipal,
@@ -97,6 +96,7 @@ from fdai_operator_service.families.workflow import (
     WorkflowReadStore,
     build_workflow_family_routes,
 )
+from fdai_operator_service.incident_attention_poller import IncidentAttentionPoller
 from fdai_operator_service.notification_template_preview import (
     incident_opened_template_preview,
 )
@@ -227,6 +227,7 @@ def build_operator_app(
     lifecycle: ApplicationLifecycle | None = None,
 ) -> Starlette:
     """Build the complete Operator API without executor or FDAI imports."""
+    incident_attention_poller = IncidentAttentionPoller(read_model)
     _validate_data_sources(data_sources)
     ownership = aggregate_route_manifest(
         route_families.operation_panels,
@@ -370,9 +371,7 @@ def build_operator_app(
     async def incident_attention_stream(request: Request) -> Response:
         authorize(request)
         after_seq = _last_event_id(request)
-        initial = await read_model.incident_attention(
-            IncidentAttentionQuery(after_seq=after_seq, limit=50)
-        )
+        initial = await incident_attention_poller.read(after_seq=after_seq)
 
         async def events() -> AsyncIterator[bytes]:
             current = after_seq
@@ -385,9 +384,7 @@ def build_operator_app(
                     yield b": keepalive\n\n"
                 await asyncio.sleep(2.0)
                 try:
-                    projection = await read_model.incident_attention(
-                        IncidentAttentionQuery(after_seq=current, limit=50)
-                    )
+                    projection = await incident_attention_poller.read(after_seq=current)
                 except ProjectionUnavailableError:
                     return
 

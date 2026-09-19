@@ -470,7 +470,13 @@ Every mutating node has its own exact plan, current human approval, pre-effect c
 rollback or recovery reference, and authoritative observer. `deployment_ready=true` requires all
 selected services healthy, workload identities effective, Kafka round trips complete, database
 migrations current, one canary job successful, and every selected state root at a second
-zero-change plan. Mixed-revision service rollout preserves the Audit API's page-only default: a newer Console may send additive `summary=true` while an older Operator returns the prior page envelope, and new Operators compute the ledger-wide summary only for that opt-in so Incident, Agent Activity, Trace, and optional cost-package routes do not inherit its scan cost.
+zero-change plan. Each Operator replica coalesces identical incident-attention reads for concurrent
+SSE subscribers inside one two-second poll interval. This cache is process-local, carries no durable
+evidence or authority, and does not coordinate replicas. Mixed-revision service rollout preserves
+the Audit API's page-only default: a newer Console may send additive `summary=true` while an older
+Operator returns the prior page envelope, and new Operators compute the ledger-wide summary only
+for that opt-in so Incident, Agent Activity, Trace, and optional cost-package routes do not inherit
+its scan cost.
 
 ## Signed kit requirements
 
