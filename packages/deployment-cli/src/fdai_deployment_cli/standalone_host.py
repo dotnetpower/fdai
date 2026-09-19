@@ -19,6 +19,10 @@ from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlencode
 
+from fdai_deployment_cli.aks_historical_reconciliation import (
+    reconciled_variables,
+    validate_reconciliation_plan,
+)
 from fdai_deployment_cli.aks_readiness import verify_workload_health
 from fdai_deployment_cli.aks_service_update import (
     SERVICES as AKS_SERVICES,
@@ -161,6 +165,13 @@ def main(argv: list[str] | None = None) -> int:
     adopt_historical.add_argument("--live", type=Path, required=True)
     adopt_historical.add_argument("--plan", type=Path, required=True)
     adopt_historical.set_defaults(handler=_adopt_historical_aks_application)
+
+    apply_historical = subcommands.add_parser("apply-historical-aks-reconciliation")
+    apply_historical.add_argument("--approval", type=Path, required=True)
+    apply_historical.set_defaults(handler=_apply_historical_aks_reconciliation)
+
+    recover_historical = subcommands.add_parser("recover-historical-aks-reconciliation")
+    recover_historical.set_defaults(handler=_recover_historical_aks_reconciliation)
 
     plan = subcommands.add_parser("plan")
     plan.add_argument("--stage", choices=_STAGES, required=True)
@@ -1361,6 +1372,35 @@ def _adopt_historical_aks_application(
         "kubeconfig": str(kubeconfig),
         "expected_workloads": baseline["expected_workloads"],
     }
+    reconciliation_applied = (work_dir / "historical-reconciliation-receipt.json").is_file()
+    if reconciliation_applied:
+        retained_context = _private_json(
+            work_dir / "context.json",
+            "historical AKS reconciliation context",
+        )
+        reconciliation = _historical_reconciliation_record(
+            retained_context,
+            work_dir,
+            stage="application",
+            service=None,
+        )
+        if reconciliation is None:
+            raise ValueError("historical AKS reconciliation context is unavailable")
+        _historical_reconciliation_receipt(work_dir, context, reconciliation)
+        state_path = work_dir / "historical-reconciliation-state.json"
+        variables_path = work_dir / "workloads.auto.tfvars.json"
+        live_path = work_dir / "historical-reconciliation-live.json"
+        plan_path = work_dir / "historical-reconciliation-zero-plan.json"
+        state = _private_json(state_path, "reconciled historical AKS Terraform state")
+        variables = _private_json(variables_path, "reconciled historical AKS variables")
+        live = _private_json(live_path, "reconciled historical AKS live baseline")
+        plan = _private_json(plan_path, "reconciled historical AKS zero-change plan")
+        baseline = _validate_historical_aks_baseline(
+            state=state,
+            variables=variables,
+            live=live,
+            plan=plan,
+        )
     _managed_identity_login_from_context(context, work_dir)
     remote_state = json.loads(
         _capture(
@@ -1383,8 +1423,20 @@ def _adopt_historical_aks_application(
     observed_live = json.loads(_capture_aks_deployments(context))
     if not isinstance(observed_live, dict):
         raise ValueError("historical AKS live readback is invalid")
+    current_variables = reconciled_variables(
+        state=state,
+        variables=variables,
+        live=observed_live,
+    )
+    current_variables_path = work_dir / "historical-reconciliation.auto.tfvars.json"
+    _replace_private_json(current_variables_path, current_variables)
     _activate_terraform_stage("application", context, work_dir)
-    current_plan_path = work_dir / "historical-adoption-current.tfplan"
+    current_plan_path = work_dir / (
+        "historical-adoption-current.tfplan"
+        if reconciliation_applied
+        else "historical-reconciliation.tfplan"
+    )
+    current_plan_path.unlink(missing_ok=True)
     current_plan = subprocess.run(
         (
             "terraform",
@@ -1392,7 +1444,7 @@ def _adopt_historical_aks_application(
             "-detailed-exitcode",
             "-input=false",
             "-no-color",
-            f"-var-file={variables_path}",
+            f"-var-file={current_variables_path}",
             f"-out={current_plan_path}",
         ),
         cwd=workloads_infra,
@@ -1400,8 +1452,8 @@ def _adopt_historical_aks_application(
         capture_output=True,
         timeout=1800,
     )
-    if current_plan.returncode != 0:
-        raise ValueError("historical AKS current plan is not zero-change")
+    if current_plan.returncode not in {0, 2}:
+        raise ValueError("historical AKS current plan failed")
     current_plan_document = json.loads(
         _capture(
             ("terraform", "show", "-json", str(current_plan_path)),
@@ -1412,14 +1464,57 @@ def _adopt_historical_aks_application(
     )
     if not isinstance(current_plan_document, dict):
         raise ValueError("historical AKS current plan projection is invalid")
+    if current_plan.returncode == 2:
+        mutations = validate_reconciliation_plan(
+            current_plan_document,
+            variables=current_variables,
+        )
+        summary = _plan_summary(current_plan_document)
+        review: dict[str, object] = {
+            "schema_version": "fdai.standalone-application-plan.v1",
+            "stage": "application",
+            "plan_digest": _file_digest(current_plan_path),
+            "target_binding": target_binding,
+            "source_commit": source_commit,
+            "runtime_profile_digest": profile.digest,
+            "runtime_platform": "aks",
+            "summary": summary,
+            "expires_at": _moment(datetime.now(UTC) + timedelta(hours=1)),
+            "mutation_performed": False,
+            "subscription_ready": False,
+            "historical_reconciliation": {
+                "operation": "historical-reconciliation",
+                "variables_digest": canonical_digest(current_variables),
+                "mutations": list(mutations),
+            },
+        }
+        review["review_digest"] = canonical_digest(review)
+        context["active_historical_reconciliation"] = {
+            "operation": "historical-reconciliation",
+            "variables_digest": canonical_digest(current_variables),
+            "mutations": list(mutations),
+            "review_digest": review["review_digest"],
+        }
+        _replace_private_json(work_dir / "context.json", context)
+        _replace_private_json(work_dir / "workloads.auto.tfvars.json", current_variables)
+        _replace_private_json(work_dir / "application.auto.tfvars.json", {"env": "dev"})
+        _replace_private_json(work_dir / "historical-reconciliation-review.json", review)
+        return {
+            "schema_version": "fdai.historical-aks-application-adoption.v1",
+            "state": "reconciliation-required",
+            "reconciliation_review": review,
+            "mutation_performed": False,
+            "subscription_ready": False,
+        }
     _validate_historical_aks_baseline(
         state=remote_state,
-        variables=variables,
+        variables=current_variables,
         live=observed_live,
         plan=current_plan_document,
     )
     current_plan_summary = _plan_summary(current_plan_document)
 
+    context.pop("active_historical_reconciliation", None)
     context_digest = canonical_digest(context)
     receipt: dict[str, object] = {
         "schema_version": "fdai.historical-aks-application-adoption.v1",
@@ -1452,7 +1547,7 @@ def _adopt_historical_aks_application(
             raise ValueError("retained historical AKS adoption receipt differs")
     else:
         _replace_private_json(work_dir / "context.json", context)
-        _replace_private_json(work_dir / "workloads.auto.tfvars.json", variables)
+        _replace_private_json(work_dir / "workloads.auto.tfvars.json", current_variables)
         _replace_private_json(work_dir / "application.auto.tfvars.json", {"env": "dev"})
         _replace_private_json(retained_receipt, receipt)
     return receipt
@@ -1679,6 +1774,69 @@ def _service_update_record(
     return record
 
 
+def _historical_reconciliation_record(
+    context: dict[str, object],
+    work_dir: Path,
+    *,
+    stage: str,
+    service: str | None,
+) -> dict[str, Any] | None:
+    value = context.get("active_historical_reconciliation")
+    if value is None:
+        return None
+    if stage != "application" or service is not None:
+        raise ValueError("historical AKS reconciliation blocks another application operation")
+    record = _mapping(value, "active historical AKS reconciliation")
+    mutations = record.get("mutations")
+    variables = _private_json(
+        work_dir / "workloads.auto.tfvars.json",
+        "historical AKS reconciliation variables",
+    )
+    review = _private_json(
+        work_dir / "historical-reconciliation-review.json",
+        "historical AKS reconciliation review",
+    )
+    review_binding = review.get("historical_reconciliation")
+    if (
+        set(record) != {"operation", "variables_digest", "mutations", "review_digest"}
+        or record.get("operation") != "historical-reconciliation"
+        or record.get("variables_digest") != canonical_digest(variables)
+        or not isinstance(mutations, list)
+        or not mutations
+        or len(mutations) > 64
+        or mutations != sorted(set(mutations))
+        or any(not isinstance(item, str) or not item for item in mutations)
+        or record.get("review_digest") != review.get("review_digest")
+        or review_binding
+        != {
+            "operation": record.get("operation"),
+            "variables_digest": record.get("variables_digest"),
+            "mutations": mutations,
+        }
+    ):
+        raise ValueError("active historical AKS reconciliation is invalid")
+    return record
+
+
+def _application_operation(
+    context: dict[str, object],
+    work_dir: Path,
+    *,
+    stage: str,
+    service: str | None,
+    update: dict[str, Any] | None,
+) -> tuple[str, dict[str, Any] | None]:
+    reconciliation = _historical_reconciliation_record(
+        context,
+        work_dir,
+        stage=stage,
+        service=service,
+    )
+    if reconciliation is not None:
+        return str(reconciliation["operation"]), reconciliation
+    return (str(update["operation"]) if update is not None else stage), None
+
+
 def _service_update_review(update: dict[str, Any]) -> dict[str, str]:
     return {
         "service": str(update["service"]),
@@ -1786,6 +1944,172 @@ def _service_update_zero_change(
     return completed.returncode == 0
 
 
+def _historical_reconciliation_postconditions(
+    context: dict[str, object],
+    work_dir: Path,
+    reconciliation: dict[str, Any],
+) -> dict[str, str]:
+    """Retain authoritative state, typed live readback, and a full zero-change plan."""
+
+    infra, variables_path = _stage_paths("application", context, work_dir)
+    variables = _private_json(variables_path, "historical AKS reconciliation variables")
+    if reconciliation.get("variables_digest") != canonical_digest(variables):
+        raise ValueError("historical AKS reconciliation variables changed")
+    _activate_terraform_stage("application", context, work_dir)
+    zero_plan_path = work_dir / "historical-reconciliation-zero.tfplan"
+    zero_plan_path.unlink(missing_ok=True)
+    completed = subprocess.run(
+        (
+            "terraform",
+            "plan",
+            "-detailed-exitcode",
+            "-input=false",
+            "-no-color",
+            f"-var-file={variables_path}",
+            f"-out={zero_plan_path}",
+        ),
+        cwd=infra,
+        check=False,
+        capture_output=True,
+        timeout=1800,
+    )
+    if completed.returncode != 0:
+        raise ValueError("historical AKS reconciliation is not zero-change")
+    zero_plan = json.loads(
+        _capture(
+            ("terraform", "show", "-json", str(zero_plan_path)),
+            cwd=infra,
+            timeout=300,
+            reason="historical AKS reconciliation plan projection failed",
+        )
+    )
+    state = json.loads(
+        _capture(
+            ("terraform", "state", "pull"),
+            cwd=infra,
+            timeout=300,
+            reason="historical AKS reconciliation state readback failed",
+        )
+    )
+    live = json.loads(_capture_aks_deployments(context))
+    if not all(isinstance(value, dict) for value in (zero_plan, state, live)):
+        raise ValueError("historical AKS reconciliation readback is invalid")
+    _validate_historical_aks_baseline(
+        state=state,
+        variables=variables,
+        live=live,
+        plan=zero_plan,
+    )
+    outputs = {
+        "state": work_dir / "historical-reconciliation-state.json",
+        "live": work_dir / "historical-reconciliation-live.json",
+        "plan": work_dir / "historical-reconciliation-zero-plan.json",
+    }
+    for name, path in outputs.items():
+        value = {"state": state, "live": live, "plan": zero_plan}[name]
+        _replace_private_json(path, value)
+    return {
+        "post_state_sha256": _file_digest(outputs["state"]),
+        "post_variables_sha256": _file_digest(variables_path),
+        "post_live_sha256": _file_digest(outputs["live"]),
+        "zero_plan_sha256": _file_digest(outputs["plan"]),
+    }
+
+
+def _validate_historical_reconciliation_plan(
+    context: dict[str, object],
+    work_dir: Path,
+    reconciliation: dict[str, Any],
+    plan_path: Path,
+) -> None:
+    infra, variables_path = _stage_paths("application", context, work_dir)
+    document = json.loads(
+        _capture(
+            ("terraform", "show", "-json", str(plan_path)),
+            cwd=infra,
+            timeout=300,
+            reason="historical AKS reconciliation plan projection failed",
+        )
+    )
+    if not isinstance(document, dict):
+        raise ValueError("historical AKS reconciliation plan projection is invalid")
+    mutations = validate_reconciliation_plan(
+        document,
+        variables=_private_json(variables_path, "historical AKS reconciliation variables"),
+    )
+    if list(mutations) != reconciliation.get("mutations"):
+        raise ValueError("historical AKS reconciliation plan scope changed")
+
+
+def _historical_reconciliation_receipt(
+    work_dir: Path,
+    context: dict[str, object],
+    reconciliation: dict[str, Any],
+) -> dict[str, object]:
+    path = work_dir / "historical-reconciliation-receipt.json"
+    receipt = _private_json(path, "historical AKS reconciliation receipt")
+    required = {
+        "schema_version",
+        "state",
+        "stage",
+        "operation",
+        "plan_digest",
+        "runtime_profile_digest",
+        "claim_digest",
+        "control_plane_readback_verified",
+        "effect_verified",
+        "terraform_zero_change_verified",
+        "mutations",
+        "post_state_sha256",
+        "post_variables_sha256",
+        "post_live_sha256",
+        "zero_plan_sha256",
+        "mutation_performed",
+        "subscription_ready",
+        "receipt_digest",
+    }
+    optional = {"verification_only_recovery"}
+    document = {key: value for key, value in receipt.items() if key != "receipt_digest"}
+    expected_files = {
+        "post_state_sha256": work_dir / "historical-reconciliation-state.json",
+        "post_variables_sha256": work_dir / "workloads.auto.tfvars.json",
+        "post_live_sha256": work_dir / "historical-reconciliation-live.json",
+        "zero_plan_sha256": work_dir / "historical-reconciliation-zero-plan.json",
+    }
+    review = _private_json(
+        work_dir / "historical-reconciliation-review.json",
+        "historical AKS reconciliation review",
+    )
+    claim = _private_json(
+        work_dir / "historical-reconciliation-claim.json",
+        "historical AKS reconciliation claim",
+    )
+    if (
+        not required.issubset(receipt)
+        or set(receipt) - required != set(receipt).intersection(optional)
+        or receipt.get("schema_version") != "fdai.historical-aks-reconciliation-receipt.v1"
+        or receipt.get("state") != "applied"
+        or receipt.get("stage") != "application"
+        or receipt.get("operation") != reconciliation.get("operation")
+        or receipt.get("plan_digest") != review.get("plan_digest")
+        or receipt.get("claim_digest") != canonical_digest(claim)
+        or receipt.get("runtime_profile_digest") != _runtime_profile_digest(context)
+        or receipt.get("control_plane_readback_verified") is not True
+        or receipt.get("effect_verified") is not True
+        or receipt.get("terraform_zero_change_verified") is not True
+        or receipt.get("mutations") != reconciliation.get("mutations")
+        or receipt.get("mutation_performed") is not True
+        or receipt.get("subscription_ready") is not False
+        or receipt.get("receipt_digest") != canonical_digest(document)
+        or any(
+            not isinstance(receipt.get(field), str) or receipt[field] != _file_digest(file_path)
+            for field, file_path in expected_files.items()
+        )
+    ):
+        raise ValueError("historical AKS reconciliation receipt is invalid")
+    return receipt
+
+
 def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     stage = str(args.stage)
     service = getattr(args, "service", None)
@@ -1820,7 +2144,15 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
                 raise ValueError("AKS application plan requires the applied database plan")
     context = _private_json(work_dir / "context.json", "standalone host context")
     update = _service_update_record(context, work_dir, stage=stage, service=service)
-    operation = str(update["operation"]) if update is not None else stage
+    operation, reconciliation = _application_operation(
+        context,
+        work_dir,
+        stage=stage,
+        service=service,
+        update=update,
+    )
+    if reconciliation is not None:
+        raise ValueError("historical AKS reconciliation requires its retained exact review")
     _managed_identity_login_from_context(context, work_dir)
     infra, variables = _stage_paths(stage, context, work_dir)
     _activate_terraform_stage(stage, context, work_dir)
@@ -1877,7 +2209,13 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     context = _private_json(work_dir / "context.json", "standalone host context")
     service = getattr(args, "service", None)
     update = _service_update_record(context, work_dir, stage=stage, service=service)
-    operation = str(update["operation"]) if update is not None else stage
+    operation, reconciliation = _application_operation(
+        context,
+        work_dir,
+        stage=stage,
+        service=service,
+        update=update,
+    )
     review = _private_json(work_dir / f"{operation}-review.json", "standalone plan review")
     if update is not None and review.get("service_update") != _service_update_review(update):
         raise ValueError("AKS service update review differs from the prepared operation")
@@ -1889,9 +2227,18 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     plan_path = work_dir / f"{operation}.tfplan"
     if _file_digest(plan_path) != review["plan_digest"]:
         raise ValueError("standalone application plan changed before apply")
+    if reconciliation is not None:
+        _validate_historical_reconciliation_plan(
+            context,
+            work_dir,
+            reconciliation,
+            plan_path,
+        )
     claim_path = work_dir / f"{operation}-claim.json"
     receipt_path = work_dir / f"{operation}-receipt.json"
     if receipt_path.exists():
+        if reconciliation is not None:
+            return _historical_reconciliation_receipt(work_dir, context, reconciliation)
         return _private_json(receipt_path, "standalone apply receipt")
     claim = {
         "schema_version": "fdai.standalone-application-claim.v1",
@@ -1928,6 +2275,11 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         raise ValueError(f"{stage} apply effect readback is incomplete")
     if update is not None and not _service_update_zero_change(context, work_dir, update):
         raise ValueError("AKS service update did not converge to a zero-change targeted plan")
+    reconciliation_evidence = (
+        _historical_reconciliation_postconditions(context, work_dir, reconciliation)
+        if reconciliation is not None
+        else None
+    )
     receipt: dict[str, object] = {
         "schema_version": "fdai.standalone-application-apply-receipt.v1",
         "state": "applied",
@@ -1943,9 +2295,32 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         receipt["service_update"] = _service_update_review(update)
         receipt["peer_state_unchanged_verified"] = True
         receipt["terraform_zero_change_verified"] = True
+    if reconciliation is not None and reconciliation_evidence is not None:
+        receipt.update(
+            {
+                "schema_version": "fdai.historical-aks-reconciliation-receipt.v1",
+                "operation": operation,
+                "effect_verified": True,
+                "terraform_zero_change_verified": True,
+                "mutations": reconciliation["mutations"],
+                **reconciliation_evidence,
+            }
+        )
     receipt["receipt_digest"] = canonical_digest(receipt)
     _replace_private_json(receipt_path, receipt)
     return receipt
+
+
+def _apply_historical_aks_reconciliation(
+    args: argparse.Namespace, work_dir: Path
+) -> dict[str, object]:
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    if context.get("active_historical_reconciliation") is None:
+        raise ValueError("no active historical AKS reconciliation is pending")
+    return _apply(
+        argparse.Namespace(stage="application", service=None, approval=args.approval),
+        work_dir,
+    )
 
 
 def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
@@ -1955,9 +2330,17 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
     context = _private_json(work_dir / "context.json", "standalone host context")
     service = getattr(args, "service", None)
     update = _service_update_record(context, work_dir, stage=stage, service=service)
-    operation = str(update["operation"]) if update is not None else stage
+    operation, reconciliation = _application_operation(
+        context,
+        work_dir,
+        stage=stage,
+        service=service,
+        update=update,
+    )
     receipt_path = work_dir / f"{operation}-receipt.json"
     if receipt_path.exists():
+        if reconciliation is not None:
+            return _historical_reconciliation_receipt(work_dir, context, reconciliation)
         return _private_json(receipt_path, "standalone apply receipt")
     claim_path = work_dir / f"{operation}-claim.json"
     if not claim_path.exists():
@@ -1986,21 +2369,38 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
     _managed_identity_login_from_context(context, work_dir)
     infra, variables = _stage_paths(stage, context, work_dir)
     _activate_terraform_stage(stage, context, work_dir)
-    command = [
-        "terraform",
-        "plan",
-        "-detailed-exitcode",
-        "-input=false",
-        "-no-color",
-        f"-var-file={variables}",
-    ]
-    if stage == "substrate":
-        command.extend(f"-target={target}" for target in _substrate_targets(context))
-    if update is not None:
-        command.append(f"-target={_service_update_target(str(update['service']))}")
-    completed = subprocess.run(command, cwd=infra, check=False, capture_output=True, timeout=1800)
-    if completed.returncode != 0:
-        raise ValueError("standalone apply effect is not recoverably converged")
+    if reconciliation is not None:
+        plan_path = work_dir / f"{operation}.tfplan"
+        if _file_digest(plan_path) != review.get("plan_digest"):
+            raise ValueError("historical AKS reconciliation plan changed before recovery")
+        _validate_historical_reconciliation_plan(
+            context,
+            work_dir,
+            reconciliation,
+            plan_path,
+        )
+    else:
+        command = [
+            "terraform",
+            "plan",
+            "-detailed-exitcode",
+            "-input=false",
+            "-no-color",
+            f"-var-file={variables}",
+        ]
+        if stage == "substrate":
+            command.extend(f"-target={target}" for target in _substrate_targets(context))
+        if update is not None:
+            command.append(f"-target={_service_update_target(str(update['service']))}")
+        completed = subprocess.run(
+            command,
+            cwd=infra,
+            check=False,
+            capture_output=True,
+            timeout=1800,
+        )
+        if completed.returncode != 0:
+            raise ValueError("standalone apply effect is not recoverably converged")
     effect_verified = (
         _readback_aks_service_update(context, update)
         if update is not None
@@ -2008,6 +2408,11 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
     )
     if not effect_verified:
         raise ValueError("standalone apply effect readback is incomplete")
+    reconciliation_evidence = (
+        _historical_reconciliation_postconditions(context, work_dir, reconciliation)
+        if reconciliation is not None
+        else None
+    )
     receipt: dict[str, object] = {
         "schema_version": "fdai.standalone-application-apply-receipt.v1",
         "state": "applied",
@@ -2024,9 +2429,32 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
         receipt["service_update"] = _service_update_review(update)
         receipt["peer_state_unchanged_verified"] = True
         receipt["terraform_zero_change_verified"] = True
+    if reconciliation is not None and reconciliation_evidence is not None:
+        receipt.update(
+            {
+                "schema_version": "fdai.historical-aks-reconciliation-receipt.v1",
+                "operation": operation,
+                "effect_verified": True,
+                "terraform_zero_change_verified": True,
+                "mutations": reconciliation["mutations"],
+                **reconciliation_evidence,
+            }
+        )
     receipt["receipt_digest"] = canonical_digest(receipt)
     _replace_private_json(receipt_path, receipt)
     return receipt
+
+
+def _recover_historical_aks_reconciliation(
+    _args: argparse.Namespace, work_dir: Path
+) -> dict[str, object]:
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    if context.get("active_historical_reconciliation") is None:
+        raise ValueError("no active historical AKS reconciliation is pending")
+    return _recover_apply(
+        argparse.Namespace(stage="application", service=None),
+        work_dir,
+    )
 
 
 def _import_images(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
