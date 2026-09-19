@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 3981b4eb8be6647c1c345f1f63e4c65bf9619353
+translation_source_sha: da93b50175d010ce0781eb41f0c247baddd922ba
 translation_revised: 2026-09-20
 ---
 
@@ -42,6 +42,8 @@ translation_revised: 2026-09-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-20 | implemented | 이전 ownership 교정 및 Loki 행을 조정했습니다. 해당 행의 Bragi 및 ResilienceScore source 잔여는 위에 추가된 후속 producer 완료 행으로 대체됐습니다. | `현재 변경`; append-only 원장 순서 및 집중 producer 근거. | 배포된 Bragi callback 및 통제된 runtime 근거는 남지만 구현되지 않은 source producer는 없습니다. |
+| 2026-09-20 | implemented | Loki의 raw `detected_at` 및 attribute timestamp fallback을 제거했습니다. 이제 ResilienceScore 후보 기준 시점은 Huginn이 검증한 `occurred_at` 또는 trusted `ingested_at`만 사용하므로 검증되지 않은 시간 출처를 허용하지 않으면서 실제 정규화 producer 경로가 동작합니다. | `현재 변경`; 집중 source-time, ingestion-time fallback, raw-time 거부 및 Huginn-to-Loki end-to-end 검사. | 통제된 runtime score-refresh 근거를 보존합니다. 범위가 제한된 대화 변환 결과의 durability는 주장하지 않습니다. |
 | 2026-09-20 | implemented | 모든 Pantheon 소유 topic에 양방향 producer 완전성 회귀를 추가했습니다. 제거된 dead claim과 구체적인 call 경로가 없는 향후 ownership 선언을 거부합니다. | `현재 변경`; 전체 registry invariant 검사. | 검토된 producer가 새 call shape를 도입할 때만 extractor를 확장하며 dead topic을 allowlist에 추가하지 않습니다. |
 | 2026-09-20 | implemented | Bragi의 누락된 `Conversation`, `UserPreference` 및 `PostTurnReview` producer 경계를 추가했습니다. Conversation은 세션마다 한 번, 첫 Turn보다 먼저 게시됩니다. Preference payload는 principal을 hash하고 revision을 별도 content digest에 결속합니다. Post-turn review는 Bragi 소유 topic을 통해서만 Norns에 도달합니다. | `현재 변경`; 집중 producer, privacy, idempotency, no-bus, Norns intake, 대화, runtime, governance, Ruff, mypy, import 및 LOC 검사. | 배포된 Operator preference store와 non-blocking post-turn queue를 typed Bragi 메서드에 결속하고 restart 및 duplicate-delivery 증적을 보존합니다. |
 | 2026-09-20 | implemented | 엄격한 Huginn 소유 정규화 Event에서 Loki의 누락된 `object.resilience-score` producer를 추가했습니다. Boolean, 비유한, 범위 밖, 불완전 또는 위조된 입력은 후보를 만들지 않으며, 유효한 후보는 다른 버티컬이 도착할 때까지 Forseti에서 pending 상태로 유지됩니다. Score는 replay 신원에 참여하므로 동일 key의 score 대체는 duplicate로 보이지 않고 HIL로 종결됩니다. | `현재 변경`; 집중 Loki producer, 잘못된 입력, 소유자 인증, score 대체, Forseti pending 상태, Wave 5 및 cross-vertical 검사. | 별도로 선언된 Bragi session event를 구현하고 통제된 runtime score-refresh 근거를 보존합니다. |

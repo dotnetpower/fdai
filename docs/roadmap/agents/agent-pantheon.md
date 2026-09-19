@@ -90,7 +90,8 @@ free of surrounding whitespace at ingress. The shared observation cutoff must in
 A Huginn-owned normalized `specialist.resilience_score` Event must also carry a finite score from
 0 through 1 plus complete expected effects and evidence references. Loki applies the same candidate
 contract that Forseti consumes, publishes only after validation, and retains a bounded read-only
-score projection. A malformed or forged Event produces no score. The ActionType remains an A0
+score projection. Its cutoff uses Huginn-validated `occurred_at`, falling back only to trusted
+`ingested_at`; raw timestamp attributes cannot substitute. A malformed or forged Event produces no score. The ActionType remains an A0
 candidate and grants Loki no judgment, approval, or execution authority.
 
 ### 3.2 Discovery-loop learners (Norns)

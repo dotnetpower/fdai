@@ -33,7 +33,7 @@ def resilience_score_candidate(event: Mapping[str, Any]) -> dict[str, Any] | Non
         "correlation_id": event.get("correlation_id"),
         "idempotency_key": event.get("idempotency_key"),
         "resource_id": attributes.get("resource_id") or event.get("resource_id"),
-        "observed_at": attributes.get("observed_at") or event.get("detected_at"),
+        "observed_at": event.get("occurred_at") or event.get("ingested_at"),
         "score": normalized_score,
         "action_type": attributes.get("action_type"),
         "effects": attributes.get("effects"),

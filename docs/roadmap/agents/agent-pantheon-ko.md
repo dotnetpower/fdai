@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 78ff51f8a8b44d66fbbc9e79fde8871ec332dd68
+translation_source_sha: 87120227ed00c06b6abb3db0d2acd2ef8190105b
 translation_revised: 2026-09-20
 ---
 # 에이전트 판테온
@@ -92,7 +92,9 @@ Forseti가 중재를 제기한 뒤에는 같은 이벤트에 일반 판단을 �
 Huginn이 소유하는 정규화된 `specialist.resilience_score` Event에는 0부터 1까지의 유한 score와
 완전한 예상 효과 및 근거 참조도 포함돼야 합니다. Loki는 Forseti가 사용하는 것과 동일한 후보
 계약을 적용하고 검증이 끝난 뒤에만 게시하며, 범위가 제한된 읽기 전용 score 변환 결과를 유지합니다.
-형식이 잘못됐거나 위조된 Event는 score를 생성하지 않습니다. ActionType은 A0 후보로 유지되며
+기준 시점은 Huginn이 검증한 `occurred_at`을 사용하고 값이 없을 때만 trusted `ingested_at`으로
+대체하며 raw timestamp attribute는 대신 사용할 수 없습니다. 형식이 잘못됐거나 위조된 Event는
+score를 생성하지 않습니다. ActionType은 A0 후보로 유지되며
 Loki에 판단, 승인 또는 실행 권한을 부여하지 않습니다.
 
 ### 3.2 발견 루프 학습기 (Norns)
