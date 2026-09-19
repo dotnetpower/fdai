@@ -13,6 +13,13 @@ from fdai_deployment_cli.aks_service_update import SERVICES
 
 COMMIT = "a" * 40
 IMAGE = "example.azurecr.io/{name}@sha256:" + "b" * 64
+LEGACY_RUNTIME_ARGS = {
+    "core-control-plane": "/app/.venv/bin/fdai-core-control-plane",
+    "document-ingestion-api": "/app/.venv/bin/fdai-document-ingestion-api",
+    "document-processing-worker": "/app/.venv/bin/fdai-document-processing-worker",
+    "isolated-executor": "/app/.venv/bin/fdai-isolated-executor-service",
+    "operator-service": "/app/.venv/bin/fdai-operator-service",
+}
 
 
 def _variables() -> dict[str, object]:
@@ -25,6 +32,12 @@ def _variables() -> dict[str, object]:
                 "source_commit": COMMIT,
                 "additional_identities": {},
                 "sidecars": {},
+                "command": ["/app/.venv/bin/python"],
+                "args": [
+                    "/opt/fdai-compat/identity_bridge.py",
+                    "--",
+                    LEGACY_RUNTIME_ARGS[name],
+                ],
             }
             for name in SERVICES
         },
@@ -38,6 +51,12 @@ def _live() -> dict[str, object]:
             {
                 "name": name,
                 "image": IMAGE.format(name=name),
+                "command": ["/app/.venv/bin/python"],
+                "args": [
+                    "/opt/fdai-compat/identity_bridge.py",
+                    "--",
+                    LEGACY_RUNTIME_ARGS[name],
+                ],
                 "env": (
                     [
                         {
@@ -158,6 +177,8 @@ def test_reconciled_variables_restore_only_command_identity_and_clamav() -> None
     command = result["workloads"]["operator-service"]["additional_identities"]["command"]
     assert command["client_id"] == "00000000-0000-0000-0000-000000000005"
     assert command["resource_id"].endswith("/userAssignedIdentities/command")
+    assert all(workload["command"] == [] for workload in result["workloads"].values())
+    assert all(workload["args"] == [] for workload in result["workloads"].values())
     clamav = result["workloads"]["document-processing-worker"]["sidecars"]["clamav"]
     assert clamav == {
         "image": IMAGE.format(name="clamav"),
@@ -187,7 +208,9 @@ def test_reconciled_variables_restore_only_command_identity_and_clamav() -> None
     assert result["workloads"]["document-processing-worker"]["fs_group"] == 101
 
 
-@pytest.mark.parametrize("change", ["generic-list", "fic-subject", "command-client", "clamav"])
+@pytest.mark.parametrize(
+    "change", ["generic-list", "fic-subject", "command-client", "runtime-command", "clamav"]
+)
 def test_reconciled_variables_reject_untrusted_live_safety_input(change: str) -> None:
     state = _state()
     live = _live()
@@ -200,6 +223,10 @@ def test_reconciled_variables_reject_untrusted_live_safety_input(change: str) ->
             item for item in live["items"] if item["metadata"]["name"] == "operator-service"
         )
         operator["spec"]["template"]["spec"]["containers"][0]["env"][0]["value"] = "invalid"
+    elif change == "runtime-command":
+        live["items"][0]["spec"]["template"]["spec"]["containers"][0]["args"][-1] = (
+            "/app/.venv/bin/untrusted"
+        )
     else:
         worker = next(
             item
@@ -213,7 +240,31 @@ def test_reconciled_variables_reject_untrusted_live_safety_input(change: str) ->
 
 
 def _terraform_workload(name: str, *, legacy: bool) -> dict[str, object]:
-    containers = [{"name": name, "image": IMAGE.format(name=name), "volume_mount": []}]
+    legacy_runtime = legacy and name in LEGACY_RUNTIME_ARGS
+    containers = [
+        {
+            "name": name,
+            "image": IMAGE.format(name=name),
+            "command": ["/app/.venv/bin/python"] if legacy_runtime else [],
+            "args": (
+                [
+                    "/opt/fdai-compat/identity_bridge.py",
+                    "--",
+                    LEGACY_RUNTIME_ARGS[name],
+                ]
+                if legacy_runtime
+                else []
+            ),
+            "volume_mount": (
+                [
+                    {"name": "identity-bridge"},
+                    {"name": "runtime-state"},
+                ]
+                if legacy
+                else []
+            ),
+        }
+    ]
     if name == "document-processing-worker":
         containers.append({"name": "clamav", "image": IMAGE.format(name="clamav")})
     return {
@@ -242,7 +293,14 @@ def _terraform_workload(name: str, *, legacy: bool) -> dict[str, object]:
                             {
                                 "container": containers,
                                 "init_container": ([{"name": "identity-bridge"}] if legacy else []),
-                                "volume": ([{"name": "identity-bridge"}] if legacy else []),
+                                "volume": (
+                                    [
+                                        {"name": "identity-bridge"},
+                                        {"name": "runtime-state"},
+                                    ]
+                                    if legacy
+                                    else []
+                                ),
                             }
                         ],
                     }
@@ -330,3 +388,15 @@ def test_reconciliation_plan_accepts_only_legacy_normalization() -> None:
     unsafe["resource_changes"][0]["change"]["actions"] = ["delete"]
     with pytest.raises(ValueError, match="command identity"):
         validate_reconciliation_plan(unsafe, variables=variables)
+
+    unsafe_command = copy.deepcopy(plan)
+    deployment = next(
+        change
+        for change in unsafe_command["resource_changes"]
+        if change["address"] == 'kubernetes_deployment_v1.workload["operator-service"]'
+    )
+    deployment["change"]["after"]["spec"][0]["template"][0]["spec"][0]["container"][0][
+        "command"
+    ] = ["/bin/sh"]
+    with pytest.raises(ValueError, match="workload contract"):
+        validate_reconciliation_plan(unsafe_command, variables=variables)

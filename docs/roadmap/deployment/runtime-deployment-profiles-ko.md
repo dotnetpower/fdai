@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 66666c3b36f8ff8a16137d15bc778954c2359c1a
+translation_source_sha: 2174287a85946ce76105b645f06dd7d6841bc66a
 translation_revised: 2026-09-19
 ---
 # 런타임 배포 프로파일
@@ -313,6 +313,9 @@ Worker ClamAV 정의만 복원할 수 있습니다. 이 계약은 inventory 읽�
 보존해야 합니다. 다른 주소나 계약 차이는 모두 거부합니다. 조정에는 별도 exact approval, 효과
 재조회, 완전한 전체 범위 변경 없음 계획이 필요하며, 이 근거가 있어야 과거 상태 채택을 다시 시도할
 수 있습니다.
+기존 identity-bridge를 제거할 때는 정확히 일치하는 5개 서비스의 wrapper command와 argument만
+이미지 entrypoint 기본값으로 복원합니다. 실제 또는 보존된 command 형태가 다르면 조정을 차단하므로,
+bridge를 제거한 Pod가 mount되지 않은 script를 호출하거나 실행 파일을 조용히 바꿀 수 없습니다.
 이 워크로드 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는 전체 배포 준비가
 검증되지는 않습니다. 별도의 브라우저 게시 게이트가 워크로드 수렴 뒤 Console과 API 경계를
 검증합니다. 워크로드 생성기는 Operator, 격리된 Executor, 문서 API,
