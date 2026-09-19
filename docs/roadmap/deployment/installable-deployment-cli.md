@@ -265,6 +265,27 @@ Private registry mirror or import remains execution-host work when selected. It 
 artifact location, independently reads back the same digest and cannot alter image bytes. An
 ambiguous publication claim resumes verification only and never rebuilds or republishes the image.
 
+An existing `dev` AKS installation can update one service directly from a clean local checkout on
+its eligible deployment host. This path is separate from new installation and release assembly:
+
+```bash
+fdaictl provision source-service-update \
+  --source <clean-checkout> \
+  --service operator-service \
+  --application-work-dir <retained-application-work-dir>
+```
+
+The command snapshots tracked source, builds one Linux OCI archive with the exact Git revision,
+validates its archive and manifest digests, and requests current human approval before registry
+import. The retained deployment Managed Identity performs the import and reads back the digest.
+The coordinator then produces a Terraform plan limited to the selected Deployment, requests the
+normal exact-plan approval, applies it, verifies healthy replicas and unchanged peer rollout
+identity, and requires a targeted zero-change plan. A retained import or apply claim permits only
+verification recovery. This path accepts no dirty checkout, mutable tag, direct developer registry
+push, direct `kubectl` mutation, staging or production target, new installation, dependency image,
+database migration, or runtime-profile change. It creates operator-selected source evidence, not a
+release signature or deployment readiness for the whole installation.
+
 The development source path is selected explicitly with `fdaictl provision azure --source <path>`.
 It is mutually exclusive with `--online` and `--offline-kit`. Initial support targets a new
 `dev` installation using AKS and PostgreSQL Flexible Server. It does not migrate an existing

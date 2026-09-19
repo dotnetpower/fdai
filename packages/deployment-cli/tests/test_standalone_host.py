@@ -3,8 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import shutil
 import subprocess
+import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -1727,6 +1727,172 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
         "update_digest": prepared["update_digest"],
     }
     assert '-target=kubernetes_deployment_v1.workload["core-control-plane"]' in plan_commands[0]
+
+
+def test_source_service_image_import_uses_managed_identity_and_registry_readback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from test_oci_archive import COMMIT, make_archive
+
+    tmp_path.chmod(0o700)
+    archive = tmp_path / "operator-service.oci.tar"
+    fixture = make_archive(archive)
+    archive.chmod(0o600)
+    context = {
+        "registry_login_server": "example.azurecr.io",
+        "registry_name": "example",
+        "subscription_id": "00000000-0000-0000-0000-000000000000",
+        "target_binding": "d" * 64,
+        "runtime_profile": {
+            "runtime_platform": "aks",
+            "database_placement": "postgres-flex",
+        },
+    }
+    (tmp_path / "context.json").write_text(json.dumps(context), encoding="utf-8")
+    (tmp_path / "context.json").chmod(0o600)
+    (tmp_path / "substrate-receipt.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "substrate-receipt.json").chmod(0o600)
+    (tmp_path / "application.auto.tfvars.json").write_text('{"env":"dev"}', encoding="utf-8")
+    (tmp_path / "application.auto.tfvars.json").chmod(0o600)
+    now = datetime.now(UTC).replace(microsecond=0)
+    approval = {
+        "schema_version": "fdai.source-service-image-import-approval.v1",
+        "service": "operator-service",
+        "source_commit": COMMIT,
+        "archive_sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+        "image_digest": fixture.manifest_digest,
+        "target_binding": "d" * 64,
+        "actor_digest": "e" * 64,
+        "approved_at": now.isoformat().replace("+00:00", "Z"),
+        "expires_at": (now + timedelta(minutes=30)).isoformat().replace("+00:00", "Z"),
+    }
+    approval["approval_digest"] = canonical_digest(approval)
+    approval_path = tmp_path / "source-image-approval.json"
+    approval_path.write_text(json.dumps(approval), encoding="utf-8")
+    approval_path.chmod(0o600)
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(
+        standalone_host,
+        "_capture",
+        lambda command, **_kwargs: (
+            "registry-token" if command[:3] == ("az", "acr", "login") else fixture.manifest_digest
+        ),
+    )
+    commands: list[tuple[str, ...]] = []
+    monkeypatch.setattr(
+        standalone_host,
+        "_run",
+        lambda command, **_kwargs: commands.append(tuple(command)),
+    )
+    monkeypatch.setattr(
+        standalone_host.subprocess,
+        "run",
+        lambda command, **_kwargs: subprocess.CompletedProcess(command, 0, "", ""),
+    )
+
+    receipt = standalone_host._import_source_service_image(
+        SimpleNamespace(
+            service="operator-service",
+            archive=archive,
+            archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
+            image_digest=fixture.manifest_digest,
+            source_commit=COMMIT,
+            approval=approval_path,
+        ),
+        tmp_path,
+    )
+
+    assert receipt["state"] == "imported"
+    assert receipt["service"] == "operator-service"
+    assert receipt["source_commit"] == COMMIT
+    assert receipt["image"] == f"example.azurecr.io/operator-service@{fixture.manifest_digest}"
+    assert receipt["effect_verified"] is True
+    assert any(command[:2] == ("oras", "cp") for command in commands)
+    assert (tmp_path / "source-image-import-operator-service-claim.json").is_file()
+    assert (tmp_path / "source-image-import-operator-service-receipt.json").is_file()
+
+    recovered = standalone_host._import_source_service_image(
+        SimpleNamespace(
+            service="operator-service",
+            archive=archive,
+            archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
+            image_digest=fixture.manifest_digest,
+            source_commit=COMMIT,
+            approval=approval_path,
+        ),
+        tmp_path,
+    )
+
+    assert recovered["mutation_performed"] is True
+    assert sum(command[:2] == ("oras", "cp") for command in commands) == 1
+
+
+def test_source_image_import_approval_expiry_is_recovery_only() -> None:
+    approved_at = datetime.now(UTC).replace(microsecond=0) - timedelta(hours=1)
+    approval = {
+        "schema_version": "fdai.source-service-image-import-approval.v1",
+        "service": "operator-service",
+        "source_commit": "c" * 40,
+        "archive_sha256": "a" * 64,
+        "image_digest": "sha256:" + "b" * 64,
+        "target_binding": "d" * 64,
+        "actor_digest": "e" * 64,
+        "approved_at": approved_at.isoformat().replace("+00:00", "Z"),
+        "expires_at": (approved_at + timedelta(minutes=30)).isoformat().replace("+00:00", "Z"),
+    }
+    approval["approval_digest"] = canonical_digest(approval)
+    arguments = {
+        "service": "operator-service",
+        "source_commit": "c" * 40,
+        "archive_digest": "a" * 64,
+        "image_digest": "sha256:" + "b" * 64,
+        "target_binding": "d" * 64,
+    }
+
+    with pytest.raises(ValueError, match="expired"):
+        standalone_host._validate_source_image_import_approval(approval, **arguments)
+    assert (
+        standalone_host._validate_source_image_import_approval(
+            approval, **arguments, allow_expired=True
+        )
+        == approval["approval_digest"]
+    )
+
+
+def test_source_service_update_rejects_non_dev_installation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tmp_path.chmod(0o700)
+    context = {
+        "runtime_profile": {
+            "runtime_platform": "aks",
+            "database_placement": "postgres-flex",
+        },
+        "expected_workloads": {
+            "operator-service": {
+                "image": "example.azurecr.io/operator-service@sha256:" + "a" * 64,
+                "source_commit": "b" * 40,
+            }
+        },
+    }
+    for name, value in (
+        ("context.json", context),
+        ("application.auto.tfvars.json", {"env": "production"}),
+        ("application-receipt.json", {"state": "applied"}),
+    ):
+        path = tmp_path / name
+        path.write_text(json.dumps(value), encoding="utf-8")
+        path.chmod(0o600)
+    monkeypatch.setattr(
+        standalone_host,
+        "_managed_identity_login_from_context",
+        lambda *_: pytest.fail("non-dev source update acquired deployment identity"),
+    )
+
+    with pytest.raises(ValueError, match="only for retained dev"):
+        standalone_host._service_update_context(
+            SimpleNamespace(service="operator-service"), tmp_path
+        )
 
 
 def test_database_plan_requires_cluster_and_image_receipts(tmp_path: Path) -> None:

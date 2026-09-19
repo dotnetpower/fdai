@@ -122,12 +122,11 @@ Marketplace Ubuntu version and install the checksum-pinned toolchain during Foun
 not build or require a dedicated managed-host image. Artifact-offline deployments can still select a separately verified prebuilt host image when bootstrap downloads are unavailable.
 After application convergence, the managed host invokes the Core inventory entry point in explicit `--initial` mode, bypassing only the recurring due-time gate. It uses the already authenticated deploy identity for full-subscription ARG/ARM reads and immutable progress writes, then starts a separate read-only closure process. The recurring runtime schedule and its workload identity remain unchanged; the bootstrap path grants no ongoing deployment authority to the inventory workload. Presentation and integration contracts account for this as the sixteenth phase and for `provisioning-events` as the third private Foundation container; older additive receipt doubles may omit `inventory_ready` without being interpreted as ready. After an initial or recurring scan projects a complete promoted generation, the focused `inventory_ontology_observer.py` delivery module publishes one retry-stable Resource observation Event per Resource to the existing control-loop topic while the CLI remains composition-only. Forseti remains the rule judge, Saga remains the audit owner, and an incomplete projection or publication failure cannot satisfy inventory closure or create execution authority.
 
-Tenant provisioning consumes prebuilt service and dependency images only. A complete release's
-closed dependency-image set includes both ClamAV and pgvector; neither can be omitted from the
-signed kit when one deployment profile does not use it. The provisioner verifies signatures,
-provenance, source revision, platform and digest before making the images available to AKS. It does
-not invoke Docker, Buildx, ACR Tasks, a remote builder or VM image capture. Release construction is
-an upstream supply-chain activity and is never recovered by rebuilding inside a tenant run.
+Tenant provisioning consumes prebuilt service and dependency images for new installations, whole-profile convergence, staging, production, dependencies, and releases.
+A complete release includes ClamAV and pgvector, and the provisioner verifies signatures, provenance, source revision, platform, and digest without Docker, Buildx,
+ACR Tasks, a remote builder, or VM image capture. One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
+existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
+Managed Identity import and the Deployment-only exact plan; digest and health readback, unchanged peers, and targeted zero change remain required.
 
 An optional Foundation `application_workload` token can separate the new application group's name
 from operations naming without changing the AKS profile. It grants no ownership of an existing group;

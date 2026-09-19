@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 232fbd103c1500e58d62824ff3ea8412bf4be548
-translation_revised: 2026-09-18
+translation_source_sha: dbdc07c49ac849a5631a5ce93770e836612dfb67
+translation_revised: 2026-09-19
 ---
 
 # 설치형 배포 CLI
@@ -267,6 +267,27 @@ digest로 식별합니다. 조정기는 레지스트리 자격 증명을 얻기 
 선택한 경우 비공개 레지스트리 미러 또는 반입은 실행 호스트 작업으로 유지합니다. 산출물 위치만
 바꾸고 같은 digest를 독립적으로 다시 확인하며 이미지 바이트를 변경할 수 없습니다. 게시 결과가
 불명확하면 검증만 재개하며 이미지를 다시 빌드하거나 게시하지 않습니다.
+
+기존 `dev` AKS 설치에서는 적격 배포 호스트의 깨끗한 로컬 checkout에서 서비스 하나를 직접
+업데이트할 수 있습니다. 이 경로는 새 설치 및 release 조립과 분리됩니다.
+
+```bash
+fdaictl provision source-service-update \
+  --source <clean-checkout> \
+  --service operator-service \
+  --application-work-dir <retained-application-work-dir>
+```
+
+이 명령은 추적된 소스를 스냅샷으로 만들고 정확한 Git 버전이 포함된 Linux OCI archive 하나를
+빌드한 뒤 archive와 manifest digest를 검증합니다. 레지스트리 반입 전에는 현재 사람 승인을
+요청합니다. 보존된 배포 Managed Identity가 반입을 수행하고 digest를 다시 읽어 확인합니다.
+그런 다음 조정기는 선택한 Deployment로 제한된 Terraform 계획을 만들고 일반적인 exact-plan
+승인을 요청합니다. 적용 후에는 정상 replica, 다른 서비스의 변경되지 않은 rollout 신원 및
+대상별 zero-change 계획을 확인합니다. 보존된 반입 또는 적용 실행 전 기록이 있으면 검증 복구만
+허용합니다. 변경이 있는 checkout, 변경 가능한 태그, 개발자 신원으로 직접 수행하는 레지스트리
+push, 직접 `kubectl` 변경, staging 또는 production 대상, 새 설치, 의존성 이미지, 데이터베이스
+마이그레이션 및 런타임 프로파일 변경은 이 경로에서 허용되지 않습니다. 이 경로는 운영자가 선택한
+소스 근거를 만들며 release 서명이나 전체 설치의 배포 준비를 증명하지 않습니다.
 
 개발용 소스 경로는 `fdaictl provision azure --source <path>`로 명시적으로 선택합니다.
 `--online`, `--offline-kit`과 함께 사용할 수 없습니다. 초기 지원 대상은 AKS와 PostgreSQL

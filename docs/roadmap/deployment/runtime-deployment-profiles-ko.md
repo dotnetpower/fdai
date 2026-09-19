@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 8625c6cb8dde9e2b3c36f85127c045408d799cd9
-translation_revised: 2026-09-18
+translation_source_sha: 53771925e502ec613a37df768fe5a384b1c59bb2
+translation_revised: 2026-09-19
 ---
 # 런타임 배포 프로파일
 
@@ -139,12 +139,14 @@ $$
 세 번째 비공개 Foundation 컨테이너로 반영합니다. 이전 추가 필드 방식의 증적 테스트 대역에
 `inventory_ready`가 없어도 준비 상태로 해석하지 않습니다. 초기 또는 반복 검사가 완전한 승격 세대를 온톨로지에 반영하면 범위가 제한된 delivery 모듈 `inventory_ontology_observer.py`가 Resource마다 재시도에 안정적인 관측 Event 하나를 기존 컨트롤 루프 토픽에 게시하고 CLI는 조립만 담당합니다. 규칙 판단은 계속 Forseti가 소유하고 감사는 Saga가 소유합니다. 불완전한 변환 결과나 게시 실패로는 인벤토리 종결 조건을 충족하거나 실행 권한을 만들 수 없습니다.
 
-테넌트 프로비저닝은 미리 빌드된 서비스 및 의존성 이미지만 사용합니다. 완전한 release의 닫힌
-의존성 이미지 집합에는 ClamAV와 pgvector가 모두 포함됩니다. 배포 프로파일 하나가 특정 이미지를
-사용하지 않더라도 서명된 키트에서 해당 이미지를 생략할 수 없습니다. 프로비저닝 도구는 AKS에서
-이미지를 사용할 수 있게 만들기 전에 서명, 출처, 소스 버전, 플랫폼 및 digest를 검증합니다.
-Docker, Buildx, ACR Tasks, 원격 빌더 또는 VM 이미지 캡처를 실행하지 않습니다. release 생성은
-업스트림 공급망의 작업이며 테넌트 실행 안에서 다시 빌드하는 방식으로 복구하지 않습니다.
+테넌트 프로비저닝은 새 설치, 전체 프로파일 수렴, staging, production, 의존성 및 release에서 미리
+빌드된 서비스와 의존성 이미지를 사용합니다. 완전한 release에는 ClamAV와 pgvector가 포함되며
+프로비저닝 도구는 Docker, Buildx, ACR Tasks, 원격 빌더 또는 VM 이미지 캡처 없이 서명, 출처,
+소스 버전, 플랫폼 및 digest를 검증합니다. 범위가 제한된 예외 하나는 적격 호스트가 기존의 정상
+`dev` AKS 설치에서 서비스 하나에 `fdaictl provision source-service-update`를 실행하도록
+허용합니다. 소스에서 빌드한 이미지는 release 신뢰가 아니라 운영자가 선택한 근거로 유지됩니다.
+현재 사람 승인이 Managed Identity 반입과 Deployment 전용 exact 계획을 통제하며, digest와 상태
+다시 읽기, 변경되지 않은 다른 서비스 및 대상별 zero change를 계속 확인해야 합니다.
 
 Foundation의 선택 입력 `application_workload`는 AKS 프로파일을 바꾸지 않고 새 애플리케이션
 그룹 이름을 운영 리소스 이름과 분리합니다. 기존 그룹의 소유권을 부여하지는 않으며, 부분 상태

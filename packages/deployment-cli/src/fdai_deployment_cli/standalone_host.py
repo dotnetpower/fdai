@@ -29,6 +29,7 @@ from fdai_deployment_cli.aks_service_update import (
 from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
 from fdai_deployment_cli.license import inspect_license
+from fdai_deployment_cli.oci_archive import validate_oci_archive
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.target import compute_target_binding
@@ -170,6 +171,19 @@ def main(argv: list[str] | None = None) -> int:
 
     images = subcommands.add_parser("import-images")
     images.set_defaults(handler=_import_images)
+
+    source_image = subcommands.add_parser("import-source-image")
+    source_image.add_argument("--service", choices=sorted(AKS_SERVICES), required=True)
+    source_image.add_argument("--archive", type=Path, required=True)
+    source_image.add_argument("--archive-sha256", required=True)
+    source_image.add_argument("--image-digest", required=True)
+    source_image.add_argument("--source-commit", required=True)
+    source_image.add_argument("--approval", type=Path, required=True)
+    source_image.set_defaults(handler=_import_source_service_image)
+
+    update_context = subcommands.add_parser("service-update-context")
+    update_context.add_argument("--service", choices=sorted(AKS_SERVICES), required=True)
+    update_context.set_defaults(handler=_service_update_context, read_only=True)
 
     binding = subcommands.add_parser("deployment-binding")
     binding.set_defaults(handler=_deployment_binding)
@@ -1605,6 +1619,279 @@ def _import_images(_args: argparse.Namespace, work_dir: Path) -> dict[str, objec
     result["receipt_digest"] = canonical_digest(result)
     _replace_private_json(work_dir / "image-import-receipt.json", result)
     return result
+
+
+def _import_source_service_image(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
+    """Import one source-built OCI archive through the retained deployment identity."""
+
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    if _runtime_platform(context) != "aks":
+        raise ValueError("source service image import requires an AKS installation")
+    _require_source_service_update_dev_environment(work_dir)
+    if not (work_dir / "substrate-receipt.json").is_file():
+        raise ValueError("source service image import requires the applied substrate plan")
+    service = str(args.service)
+    source_commit = str(args.source_commit)
+    archive_digest = str(args.archive_sha256)
+    image_digest = str(args.image_digest)
+    if (
+        service not in AKS_SERVICES
+        or _SOURCE_COMMIT.fullmatch(source_commit) is None
+        or _DIGEST.fullmatch(archive_digest) is None
+        or re.fullmatch(r"sha256:[0-9a-f]{64}", image_digest) is None
+    ):
+        raise ValueError("source service image identity is invalid")
+    archive = _absolute(args.archive)
+    verified = validate_oci_archive(
+        archive,
+        expected_archive_sha256=archive_digest,
+        expected_manifest_digest=image_digest,
+        expected_source_commit=source_commit,
+        expected_platform_tag="linux-x86_64",
+    )
+    target_binding = context.get("target_binding")
+    if not isinstance(target_binding, str) or _DIGEST.fullmatch(target_binding) is None:
+        raise ValueError("source service image target binding is invalid")
+    claim_path = work_dir / f"source-image-import-{service}-claim.json"
+    receipt_path = work_dir / f"source-image-import-{service}-receipt.json"
+    verification_only = claim_path.exists() or claim_path.is_symlink()
+    approval = _private_json(_absolute(args.approval), "source service image import approval")
+    approval_digest = _validate_source_image_import_approval(
+        approval,
+        service=service,
+        source_commit=source_commit,
+        archive_digest=verified.archive_sha256,
+        image_digest=verified.manifest.digest,
+        target_binding=target_binding,
+        allow_expired=verification_only,
+    )
+    claim: dict[str, object] = {
+        "schema_version": "fdai.source-service-image-import-claim.v1",
+        "service": service,
+        "source_commit": source_commit,
+        "archive_sha256": verified.archive_sha256,
+        "image_digest": verified.manifest.digest,
+        "target_binding": target_binding,
+        "approval_digest": approval_digest,
+        "mutation_performed": False,
+    }
+    if verification_only:
+        retained_claim = _private_json(claim_path, "source service image import claim")
+        if retained_claim != claim:
+            raise ValueError("source service image import claim differs")
+    elif receipt_path.exists() or receipt_path.is_symlink():
+        raise ValueError("source service image import receipt exists without its claim")
+
+    _managed_identity_login_from_context(context, work_dir)
+    token = _capture(
+        (
+            "az",
+            "acr",
+            "login",
+            "--name",
+            str(context["registry_name"]),
+            "--subscription",
+            str(context["subscription_id"]),
+            "--expose-token",
+            "--query",
+            "accessToken",
+            "--output",
+            "tsv",
+            "--only-show-errors",
+        ),
+        cwd=work_dir,
+        timeout=120,
+        reason="ACR token acquisition failed",
+    ).strip()
+    if not token or any(character in token for character in "\r\n"):
+        raise ValueError("ACR token response is invalid")
+    registry_config = work_dir / f"oras-auth-{service}.json"
+    registry_config.unlink(missing_ok=True)
+    login = subprocess.run(
+        (
+            "oras",
+            "login",
+            "--registry-config",
+            str(registry_config),
+            str(context["registry_login_server"]),
+            "--username",
+            "00000000-0000-0000-0000-000000000000",
+            "--password-stdin",
+        ),
+        input=token,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    token = ""
+    if login.returncode != 0:
+        registry_config.unlink(missing_ok=True)
+        raise ValueError("ACR login failed")
+    try:
+        if not verification_only:
+            write_private_output(
+                claim_path,
+                json.dumps(claim, sort_keys=True, separators=(",", ":")) + "\n",
+            )
+            layout = work_dir / "source-oci" / f"{service}-{image_digest[7:19]}"
+            layout.mkdir(mode=0o700, parents=True)
+            _run(
+                ("tar", "-xf", str(archive), "-C", str(layout), "--no-same-owner"),
+                cwd=work_dir,
+                timeout=300,
+                reason="source OCI archive extraction failed",
+            )
+            _run(
+                (
+                    "oras",
+                    "cp",
+                    "--registry-config",
+                    str(registry_config),
+                    "--from-oci-layout",
+                    f"{layout}@{image_digest}",
+                    f"{context['registry_login_server']}/{service}:sha-{source_commit}",
+                ),
+                cwd=work_dir,
+                timeout=1800,
+                reason=("source OCI image import failed; verification-only recovery is required"),
+            )
+        observed = _capture(
+            (
+                "az",
+                "acr",
+                "manifest",
+                "show-metadata",
+                "--registry",
+                str(context["registry_name"]),
+                "--name",
+                f"{service}@{image_digest}",
+                "--query",
+                "digest",
+                "--output",
+                "tsv",
+                "--only-show-errors",
+            ),
+            cwd=work_dir,
+            timeout=120,
+            reason="source OCI image readback failed",
+        ).strip()
+        if observed != image_digest:
+            raise ValueError("source OCI image digest readback differs")
+    finally:
+        registry_config.unlink(missing_ok=True)
+    receipt: dict[str, object] = {
+        "schema_version": "fdai.source-service-image-import-receipt.v1",
+        "state": "imported",
+        "service": service,
+        "source_commit": source_commit,
+        "archive_sha256": archive_digest,
+        "image_digest": image_digest,
+        "image": f"{context['registry_login_server']}/{service}@{image_digest}",
+        "claim_digest": canonical_digest(claim),
+        "effect_verified": True,
+        "mutation_performed": True,
+        "subscription_ready": False,
+    }
+    receipt["receipt_digest"] = canonical_digest(receipt)
+    if receipt_path.exists() or receipt_path.is_symlink():
+        retained_receipt = _private_json(receipt_path, "source service image import receipt")
+        if retained_receipt != receipt:
+            raise ValueError("source service image import receipt differs")
+        return retained_receipt
+    else:
+        _replace_private_json(receipt_path, receipt)
+    return receipt
+
+
+def _validate_source_image_import_approval(
+    approval: dict[str, object],
+    *,
+    service: str,
+    source_commit: str,
+    archive_digest: str,
+    image_digest: str,
+    target_binding: str,
+    allow_expired: bool = False,
+) -> str:
+    digest = approval.get("approval_digest")
+    document = {key: value for key, value in approval.items() if key != "approval_digest"}
+    if (
+        set(approval)
+        != {
+            "schema_version",
+            "service",
+            "source_commit",
+            "archive_sha256",
+            "image_digest",
+            "target_binding",
+            "actor_digest",
+            "approved_at",
+            "expires_at",
+            "approval_digest",
+        }
+        or approval.get("schema_version") != "fdai.source-service-image-import-approval.v1"
+        or approval.get("service") != service
+        or approval.get("source_commit") != source_commit
+        or approval.get("archive_sha256") != archive_digest
+        or approval.get("image_digest") != image_digest
+        or approval.get("target_binding") != target_binding
+        or not isinstance(approval.get("actor_digest"), str)
+        or _DIGEST.fullmatch(str(approval["actor_digest"])) is None
+        or not isinstance(digest, str)
+        or digest != canonical_digest(document)
+    ):
+        raise ValueError("source service image import approval is invalid")
+    try:
+        approved_at = datetime.fromisoformat(str(approval["approved_at"]).replace("Z", "+00:00"))
+        expires_at = datetime.fromisoformat(str(approval["expires_at"]).replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("source service image import approval is invalid") from exc
+    now = datetime.now(UTC)
+    if (
+        approved_at.tzinfo is None
+        or expires_at.tzinfo is None
+        or approved_at > now
+        or (expires_at <= now and not allow_expired)
+        or expires_at > approved_at + timedelta(hours=1)
+    ):
+        raise ValueError("source service image import approval is invalid or expired")
+    return digest
+
+
+def _service_update_context(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
+    """Return sanitized retained state needed to bind one source service update."""
+
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    if _runtime_platform(context) != "aks" or not (work_dir / "application-receipt.json").is_file():
+        raise ValueError("source service update requires an applied AKS application baseline")
+    _require_source_service_update_dev_environment(work_dir)
+    service = str(args.service)
+    expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
+    selected = _mapping(expected.get(service), f"expected AKS workload {service}")
+    active = context.get("active_service_update")
+    active_review = None
+    if isinstance(active, dict):
+        record = _service_update_record(context, work_dir, stage="application", service=service)
+        if record is not None:
+            active_review = _service_update_review(record)
+    return {
+        "schema_version": "fdai.source-service-update-context.v1",
+        "state": "verified",
+        "service": service,
+        "target_binding": context["target_binding"],
+        "current_image": selected["image"],
+        "current_source_commit": selected["source_commit"],
+        "active_service_update": active_review,
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
+
+
+def _require_source_service_update_dev_environment(work_dir: Path) -> None:
+    values = _private_json(work_dir / "application.auto.tfvars.json", "application variables")
+    if values.get("env") != "dev":
+        raise ValueError("source service updates are supported only for retained dev installations")
 
 
 def _migrate(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
