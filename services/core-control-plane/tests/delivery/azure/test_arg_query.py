@@ -2283,7 +2283,10 @@ def test_materialize_nested_subnets_uses_observed_vnet_payload() -> None:
 
 
 @pytest.mark.asyncio
-async def test_subnet_shard_queries_vnets_and_materializes_nested_records() -> None:
+@pytest.mark.parametrize("parent_padding", [0, 70_000])
+async def test_subnet_shard_queries_vnets_and_materializes_nested_records(
+    parent_padding: int,
+) -> None:
     vnet_id = (
         "/subscriptions/00000000-0000-0000-0000-000000000001/"
         "resourceGroups/rg-example/providers/Microsoft.Network/virtualNetworks/vnet-example"
@@ -2308,13 +2311,14 @@ async def test_subnet_shard_queries_vnets_and_materializes_nested_records() -> N
                         extra={
                             "resourceGroup": "rg-example",
                             "properties": {
+                                "padding": "x" * parent_padding,
                                 "subnets": [
                                     {
                                         "id": f"{vnet_id}/subnets/app",
                                         "name": "app",
                                         "properties": {"networkSecurityGroup": {"id": nsg_id}},
                                     }
-                                ]
+                                ],
                             },
                         },
                     )

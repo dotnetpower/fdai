@@ -264,7 +264,9 @@ class AzureArgQueryFactory:
                 return ResourceQueryResult()
 
             shard = await self._fetch_all_pages(
-                resource_type=query_resource_type, arm_type=arm_type
+                resource_type=query_resource_type,
+                arm_type=arm_type,
+                preserve_nested_subnets=resource_type == "network.subnet",
             )
             if resource_type == "network.subnet":
                 subnet_records: list[ResourceRecord] = []
@@ -279,6 +281,10 @@ class AzureArgQueryFactory:
                         ) from exc
                     subnet_records.extend(nested_records)
                     for record in nested_records:
+                        if _truncate_props(
+                            record.props, max_bytes=self._config.max_props_bytes
+                        ).get("_truncated"):
+                            raise ArgQueryError("ARG nested subnet properties exceed their bound")
                         properties = record.props.get("properties")
                         projected = self._project_links(
                             {
@@ -545,7 +551,13 @@ class AzureArgQueryFactory:
             last_seen=datetime.now(tz=UTC).isoformat(),
         )
 
-    async def _fetch_all_pages(self, *, resource_type: str, arm_type: str) -> ResourceQueryResult:
+    async def _fetch_all_pages(
+        self,
+        *,
+        resource_type: str,
+        arm_type: str,
+        preserve_nested_subnets: bool = False,
+    ) -> ResourceQueryResult:
         query = self._build_query(arm_type=arm_type)
         return await fetch_arg_pages(
             identity=self._identity,
@@ -560,7 +572,11 @@ class AzureArgQueryFactory:
             max_pages=self._config.max_pages,
             timeout_seconds=self._config.timeout_seconds,
             error_type=ArgQueryError,
-            map_row=lambda row: self._map_row(row, resource_type=resource_type),
+            map_row=lambda row: self._map_row(
+                row,
+                resource_type=resource_type,
+                preserve_nested_subnets=preserve_nested_subnets,
+            ),
             project_links=self._project_links,
             throttle_gate=self._throttle_gate,
             rate_limiter=self._rate_limiter,
@@ -581,7 +597,13 @@ class AzureArgQueryFactory:
             source_identity="azure-resource-graph",
         )
 
-    def _map_row(self, row: Mapping[str, Any], *, resource_type: str) -> ResourceRecord | None:
+    def _map_row(
+        self,
+        row: Mapping[str, Any],
+        *,
+        resource_type: str,
+        preserve_nested_subnets: bool = False,
+    ) -> ResourceRecord | None:
         arm_id = row.get("id")
         if not isinstance(arm_id, str) or not arm_id:
             raise ArgQueryError(f"ARG row for {resource_type!r} lacks a provider id")
@@ -651,6 +673,10 @@ class AzureArgQueryFactory:
             props["properties"] = nested_schedule
 
         props = _truncate_props(props, max_bytes=self._config.max_props_bytes)
+        if preserve_nested_subnets:
+            observed_properties = row.get("properties")
+            if isinstance(observed_properties, Mapping) and "subnets" in observed_properties:
+                props["properties"] = {"subnets": observed_properties["subnets"]}
         props["providerType"] = provider_type
         props.update(scope)
         add_neutral_resource_scope(props)
