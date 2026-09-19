@@ -1,5 +1,4 @@
 # Pre-existing main-branch agent debt (bragi); growth blocked until tracker #14 extraction.
-814 services/core-control-plane/src/fdai/agents/bragi.py
 # Pre-existing main-branch agent debt (forseti); growth blocked until tracker #14 extraction.
 1111 services/core-control-plane/src/fdai/agents/forseti.py
 # Pre-existing main-branch agent debt (heimdall); growth blocked until tracker #14 extraction.

@@ -29,7 +29,7 @@ from fdai.agents._framework.bragi_models import ConversationSession, RoutingDeci
 from fdai.agents._framework.bragi_progress import append_submitted, evict_oldest, record_progress
 from fdai.agents._framework.bragi_proposal import build_action_proposal
 from fdai.agents._framework.bragi_publication import (
-    a2a_turn_event_payload,
+    BragiPublicationMixin,
     handoff_event_payload,
     turn_event_payload,
 )
@@ -96,7 +96,7 @@ _PROPOSAL_TIMEOUT_SECONDS = 5.0
 #: submit a normal action from either surface. Refused before the proposal
 #: enters the pipeline (defense-in-depth with Forseti's principal-level RBAC
 #: deny).
-class Bragi(Agent):
+class Bragi(BragiPublicationMixin, Agent):
     """Wave-4 Bragi: routing + orchestration + session tracker."""
 
     def __init__(
@@ -464,6 +464,8 @@ class Bragi(Agent):
         )
         if session.user_id != user_id:
             raise PermissionError(f"session {session_id!r} belongs to a different user")
+        if not session.conversation_published:
+            session.conversation_published = await self._publish_conversation(session)
         # Bound the session map so a long-lived narrator cannot leak one entry
         # per session id forever (evicts oldest, never the active session).
         evict_oldest(self._sessions, _MAX_SESSIONS, keep=session_id)
@@ -709,27 +711,6 @@ class Bragi(Agent):
                 session_id=session_id,
                 turn=turn,
                 contributor_limit=_MAX_CONTRIBUTORS,
-            ),
-        )
-
-    async def _publish_a2a_turn(
-        self,
-        *,
-        requester: str,
-        target_agent: str,
-        question: str,
-        response: dict[str, Any],
-    ) -> None:
-        if self.bus is None:
-            return
-        await self.bus.publish(
-            "Bragi",
-            "object.turn",
-            a2a_turn_event_payload(
-                requester=requester,
-                target_agent=target_agent,
-                question=question,
-                response=response,
             ),
         )
 

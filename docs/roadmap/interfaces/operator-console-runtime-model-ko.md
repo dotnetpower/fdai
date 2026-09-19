@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: 4045f3965e89c42f67b1731279bc9572faac7738
-translation_revised: 2026-08-26
+translation_source_sha: 2d6e08a62ae5d180a850294eca5f4c90e35b3c2e
+translation_revised: 2026-09-20
 ---
 
 # Operator Console - Narrator, DI Seams, and 세션 모델
@@ -325,11 +325,13 @@ class ConversationSession:
 - **대화 원장**: 인바운드와 최종 assistant 턴은 고정된 요청 멱등성
   키와 함께 `conversation_turn`에 덧붙이기된다. 감사와 범용 온톨로지
   변환 결과에는 raw 대화 본문 대신 id, 해시, 라우팅 메타데이터, 근거
-  참조만 남긴다.
+  참조만 남긴다. Bragi는 disposable in-process 세션이 처음 활성화될 때 content-free
+  `object.conversation` 하나도 게시합니다.
 - **사용자 맥락**: `UserPreferenceStore`는 로케일, verbosity, 표준 시간대,
   learner consent를 저장한다. `UserMemoryStore`는 source-turn 출처 이력과
   선택적 만료가 있는 명시적으로 확인된 사실만 수락한다. `operator_memory`는
-  승인된 리소스 범위 운영 지식을 위한 별도 저장소로 유지한다.
+  승인된 리소스 범위 운영 지식을 위한 별도 저장소로 유지한다. Bragi의 typed preference
+  publisher는 소유 store가 반환한 검증된 revision만 받으며 deployed store callback은 별도 binding입니다.
 - **Optimistic 동시성**: 선호 설정 및 정책 쓰기는 현재 개정 번호를 요구하고
   생성할 때만 `0`을 사용합니다. Policy 및 briefing-subscription 삭제도 현재 개정 번호를
   요구하므로 stale Settings 탭은 `409`를 받습니다.
@@ -337,7 +339,7 @@ class ConversationSession:
   제공한다. Raw 턴 본문은 같은 principal이 `share_with_learner: true`를
   명시적으로 설정한 경우에만 제공한다.
 - **Post-turn 검토**: 두 대화 턴이 저장된 뒤 채팅 경로는 범위가 제한된 묶음을 non-blocking 큐에
-  제출합니다. Bragi가 `object.turn`에 발행하고 Norns가 응답 지연 시간 밖에서 결정론적 충족 여부와 선택적
+  제출합니다. Bragi가 `object.post-turn-review`에 발행하고 Norns가 응답 지연 시간 밖에서 결정론적 충족 여부와 선택적
   mixed-family 검토를 수행합니다. 읽기 담당이 볼 수 있는 `post-turn-reviews` 패널은 GET-only이며 제안 본문나
   승인 컨트롤 없이 영속 상태, 근거 참조, 제안 상태와 집계 acceptance를 제공합니다. Materialized operator-memory 제안은 retained 항목에 대한 restrictive foreign 키를 가지며 대화 reuse도 exact 항목이 활성 상태이고 여전히 해당 제안을 인용하는지 다시 확인합니다.
 - **보존 및 변환 결과 정리**: 스케줄러는 90일이 지난 비활성 대화와 오래된

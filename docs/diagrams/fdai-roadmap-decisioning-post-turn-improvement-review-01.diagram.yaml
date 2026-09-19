@@ -9,12 +9,12 @@ locales:
     title: Design at a glance
     description: FDAI flow for Design at a glance.
     alt: Design at a glance. The main stages are Persist completed turn, Bounded non-blocking queue, Bragi publishes
-      object.turn, Norns checks eligibility, Durable terminal record, Two distinct model families, Exact agreement and
+      object.post-turn-review, Norns checks eligibility, Durable terminal record, Two distinct model families, Exact agreement and
       deterministic checks, Operator-memory draft, Runtime-skill draft, Norns RuleCandidate path, Read-only projection.
   ko:
     title: 한눈에 보는 설계
     description: 한눈에 보는 설계에 대한 FDAI 흐름입니다.
-    alt: 한눈에 보는 설계. 주요 단계는 완료 turn 저장, Bounded non-blocking queue, Bragi가 object.turn 발행, Norns eligibility 검사, Durable
+    alt: 한눈에 보는 설계. 주요 단계는 완료 turn 저장, Bounded non-blocking queue, Bragi가 object.post-turn-review 발행, Norns eligibility 검사, Durable
       terminal record, 서로 다른 두 model family, 완전한 합의와 결정론적 검사, Operator-memory draft, Runtime-skill draft, Norns
       RuleCandidate 경로, Read-only projection입니다.
 canvas:
@@ -39,8 +39,8 @@ nodes:
     kind: process
     shape: card
     label:
-      en: Bragi publishes object.turn
-      ko: Bragi가 object.turn 발행
+      en: Bragi publishes object.post-turn-review
+      ko: Bragi가 object.post-turn-review 발행
   - id: norns
     kind: process
     shape: card

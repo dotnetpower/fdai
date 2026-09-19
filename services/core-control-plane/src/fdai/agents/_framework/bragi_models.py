@@ -32,6 +32,7 @@ class ConversationSession:
     session_id: str
     user_id: str
     turns: list[Turn] = field(default_factory=list)
+    conversation_published: bool = False
 
 
 __all__ = ["ConversationSession", "RoutingDecision", "Turn"]

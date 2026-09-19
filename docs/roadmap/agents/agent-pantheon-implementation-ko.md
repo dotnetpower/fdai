@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 1665212c7bc82bbc534f0eb0c3570528a9444ef2
+translation_source_sha: d828d7bda5779efe34de3c6ae8791d917fbc40d0
 translation_revised: 2026-09-20
 ---
 
@@ -28,6 +28,7 @@ translation_revised: 2026-09-20
 | 영속 권한, 복구, 인계 및 학습 재생 | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore 기반 CAS, 점유 유효 기간, 검사 지점, 보낼 편지함 및 시작 복구 경로에는 재시작과 동시성 집중 검사 근거가 있습니다. 범위가 제한된 Low 심각도 복제본 간 및 작업 신원 잔여 문제 두 건은 아래에 열어 둡니다. |
 | 영속 Huginn 유입 중복 제거 | implemented | `agents/{huginn.py,_framework/huginn_dedup.py}` 및 집중 discovery/runtime 검사 | 프로덕션 조립은 유입 consumer를 시작하기 전에 제한된 key claim, 정확한 정규화 재시도 payload, owner lease 및 게시 checkpoint를 영속화합니다. Broker 수락 후 checkpoint 전 crash는 event bus의 at-least-once 계약에 따라 동일한 stable idempotency key를 다시 전달할 수 있습니다. |
 | Loki ResilienceScore 생산 | implemented | `agents/{loki.py,_framework/loki_resilience.py}`; 집중 Wave 5 및 cross-vertical 후보 검사 | Loki는 Huginn이 소유하는 정규화 score Event를 consumer의 정확한 후보 계약으로 검증하고 `object.resilience-score`를 게시하며, 범위가 제한된 읽기 전용 score 변환 결과만 유지합니다. 후보는 판단, 승인 또는 실행 권한을 부여하지 않습니다. |
+| Bragi 세션 객체 생산 | implemented | `agents/{bragi.py,_framework/bragi_publication.py}`; 집중 Bragi, 대화, Norns, runtime 및 governance 검사 | 첫 in-process 세션은 content-free `Conversation` 하나를 게시합니다. 명시적 메서드는 검증된 `UserPreferenceRecord`와 동의가 확인된 `PostTurnReviewInput` 값만 받아 소유 topic에 게시하며 판단, 승인 또는 실행 경로를 노출하지 않습니다. 배포가 소유하는 store 및 queue binding은 별도입니다. |
 | W7 에이전트 간 shadow 작업 흐름 메커니즘 | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 작업 흐름에 실행 가능한 합성 shadow 추적이 있으며, enforce 작업 흐름을 기본값으로 사용하는 근거는 이 문서에 없습니다. |
 | W8 KPI, 승격 및 성능 저하 메커니즘 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 보고는 측정값과 사용 불가능한 근거를 구분하고, 근거가 없으면 승격을 차단하며, 주입된 성능 저하 훈련이 고정 판테온을 다룹니다. |
 | W3 추적 연속성 근거 인계 | implemented | `huginn.py`; `heimdall.py`; `test_trace_continuity_chain.py` | sensing 경로는 허용 목록의 범위가 제한된 연속성 근거만 보존하고 역할, topic, 작업 권한을 바꾸지 않은 채 관측된 사유를 인시던트 후보 하나에 전달합니다. |
@@ -40,6 +41,7 @@ translation_revised: 2026-09-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-20 | implemented | Bragi의 누락된 `Conversation`, `UserPreference` 및 `PostTurnReview` producer 경계를 추가했습니다. Conversation은 세션마다 한 번, 첫 Turn보다 먼저 게시됩니다. Preference payload는 principal을 hash하고 revision을 별도 content digest에 결속합니다. Post-turn review는 Bragi 소유 topic을 통해서만 Norns에 도달합니다. | `현재 변경`; 집중 producer, privacy, idempotency, no-bus, Norns intake, 대화, runtime, governance, Ruff, mypy, import 및 LOC 검사. | 배포된 Operator preference store와 non-blocking post-turn queue를 typed Bragi 메서드에 결속하고 restart 및 duplicate-delivery 증적을 보존합니다. |
 | 2026-09-20 | implemented | 엄격한 Huginn 소유 정규화 Event에서 Loki의 누락된 `object.resilience-score` producer를 추가했습니다. Boolean, 비유한, 범위 밖, 불완전 또는 위조된 입력은 후보를 만들지 않으며, 유효한 후보는 다른 버티컬이 도착할 때까지 Forseti에서 pending 상태로 유지됩니다. Score는 replay 신원에 참여하므로 동일 key의 score 대체는 duplicate로 보이지 않고 HIL로 종결됩니다. | `현재 변경`; 집중 Loki producer, 잘못된 입력, 소유자 인증, score 대체, Forseti pending 상태, Wave 5 및 cross-vertical 검사. | 별도로 선언된 Bragi session event를 구현하고 통제된 runtime score-refresh 근거를 보존합니다. |
 | 2026-09-20 | implemented | `AgentSpec.owns`에서 생산되지 않는 event-bus claim 네 개를 제거했습니다. 해당 항목은 ActionRun에 포함된 `ActionAttempt`, core RCA projection, graph-only `Budget` 및 `SizingRecommendation`입니다. 고정 에이전트 15개와 전역 판단자, 승인자, 실행기, 감사자 및 복구 역할은 바뀌지 않았습니다. | `현재 변경`; Pantheon registry, topic, ontology alignment, doc parity, Console agent contract 및 집중 specialist 검사. | 별도로 선언된 Bragi session event와 Loki `ResilienceScore` producer를 구현합니다. Graph materialization 근거는 bus publication과 별도로 보존합니다. |
 | 2026-09-20 | implemented | 프로덕션 조립의 프로세스 전용 Huginn 중복 제거를 제한된 StateStore CAS 원장으로 교체했습니다. 게시 대기 상태는 원래 정규화된 Event와 Change를 보존하고, 활성 replica lease는 동시 takeover를 막으며, 시작 시 완료 key를 복원하고 idempotency key payload 대체를 실패 폐쇄합니다. | `현재 변경`; 게시 중단, lease 만료 재시작, 활성 claim 충돌, 완료 key 재수화, payload 충돌, discovery, runtime, Ruff 및 mypy 집중 검사. | 통제된 broker 중단 및 재시작 근거를 보존합니다. Broker 수락/checkpoint crash 구간에서는 at-least-once 재전달 가능성이 남습니다. |

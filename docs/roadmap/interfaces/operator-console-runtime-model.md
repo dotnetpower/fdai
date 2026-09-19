@@ -338,11 +338,14 @@ class ConversationSession:
 - **Conversation record**: inbound and terminal assistant turns append to
   `conversation_turn` with a stable request idempotency key. The audit and
   generic ontology projections retain ids, hashes, routing metadata, and
-  evidence references, not raw conversation bodies.
+  evidence references, not raw conversation bodies. Bragi also publishes one content-free
+  `object.conversation` when its disposable in-process session first becomes active.
 - **User context**: `UserPreferenceStore` holds locale, verbosity, timezone,
   and learner consent. `UserMemoryStore` accepts only explicitly confirmed
   facts with source-turn provenance and optional expiry. `operator_memory`
-  remains a separate store for approved resource-scoped operational knowledge.
+  remains a separate store for approved resource-scoped operational knowledge. Bragi's typed
+  preference publisher accepts only the validated revision returned by the owning store; the
+  deployed store callback remains a separate binding.
 - **Optimistic concurrency**: preference and policy writes require the current
   revision, using `0` only for creation. Policy and briefing-subscription deletes
   also require the current revision, so a stale Settings tab receives `409`.
@@ -350,7 +353,7 @@ class ConversationSession:
   default. A raw turn body is available only when the same principal has an
   explicit `share_with_learner: true` preference.
 - **Post-turn review**: after both conversation turns are persisted, the chat route submits a bounded
-  envelope to a non-blocking queue. Bragi publishes it on `object.turn`; Norns performs deterministic
+  envelope to a non-blocking queue. Bragi publishes it on `object.post-turn-review`; Norns performs deterministic
   eligibility and optional mixed-family review outside response latency. The Reader-visible `post-turn-reviews`
   panel is GET-only and exposes durable status, evidence references, proposal state, and aggregate acceptance without proposal bodies or approval controls. A materialized operator-memory proposal has a restrictive foreign key to its retained entry; conversation reuse also rechecks that exact entry is active and still cites the proposal.
 - **Retention and projection cleanup**: the scheduler removes inactive
