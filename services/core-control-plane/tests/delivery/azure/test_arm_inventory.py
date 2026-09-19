@@ -81,6 +81,51 @@ async def test_arm_fallback_pages_and_emits_contains_link() -> None:
     assert resources[0].props["providerType"] == "Microsoft.Compute/virtualMachines"
 
 
+@pytest.mark.parametrize(
+    ("kind", "expected_type"),
+    [("functionapp", "compute.function"), ("app", "compute.web-app")],
+)
+async def test_arm_shared_type_is_discriminated_once(kind: str, expected_type: str) -> None:
+    row = {
+        "id": "/subscriptions/sub-1/resourceGroups/rg-1/providers/Microsoft.Web/sites/example",
+        "type": "Microsoft.Web/sites",
+        "kind": kind,
+    }
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"value": [row]}))
+    ) as client:
+        query = AzureArmInventoryFactory(
+            identity=_identity(),
+            resource_types=_vocabulary(),
+            http_client=client,
+            config=AzureArmInventoryFactoryConfig(subscription_scopes=("sub-1",)),
+        ).build_query_fn()
+        results = [
+            await query(resource_type) for resource_type in ("compute.function", "compute.web-app")
+        ]
+    records = [record for result in results for record in result.resources]
+    assert len(records) == 1
+    assert records[0].type == expected_type
+
+
+async def test_arm_shared_type_without_kind_fails_closed() -> None:
+    row = {
+        "id": "/subscriptions/sub-1/resourceGroups/rg-1/providers/Microsoft.Web/sites/example",
+        "type": "Microsoft.Web/sites",
+    }
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"value": [row]}))
+    ) as client:
+        query = AzureArmInventoryFactory(
+            identity=_identity(),
+            resource_types=_vocabulary(),
+            http_client=client,
+            config=AzureArmInventoryFactoryConfig(subscription_scopes=("sub-1",)),
+        ).build_query_fn()
+        with pytest.raises(ArmInventoryError, match="unresolved resource kind"):
+            await query("compute.function")
+
+
 async def test_arm_fallback_preserves_readable_model_deployment_facts() -> None:
     account_id = (
         "/subscriptions/sub-1/resourceGroups/rg-1/providers/"

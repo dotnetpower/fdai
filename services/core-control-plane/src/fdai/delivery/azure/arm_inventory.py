@@ -44,7 +44,7 @@ from fdai.delivery.azure.model_deployment import (
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     load_provider_relationship_mapping_catalog,
 )
-from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
+from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry, resolve_azure_resource_type
 from fdai.shared.providers.inventory import LinkRecord, RelationshipDrop, ResourceRecord
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -186,6 +186,7 @@ class AzureArmInventoryFactory:
                         headers=headers,
                         resource_type=resource_type,
                     )
+                rows = self._select_resource_rows(rows, resource_type=resource_type)
                 mapped_resources = tuple(
                     _map_arm_row(
                         row,
@@ -229,6 +230,30 @@ class AzureArmInventoryFactory:
             )
 
         return _fetch
+
+    def _select_resource_rows(
+        self,
+        rows: Sequence[Mapping[str, Any]],
+        *,
+        resource_type: str,
+    ) -> tuple[Mapping[str, Any], ...]:
+        expected = self._resource_types.get(resource_type).azure_arm_type
+        selected: list[Mapping[str, Any]] = []
+        for row in rows:
+            try:
+                provider_type = arm_provider_type(str(row["id"]), row.get("type"))
+            except ArmIdentityError as exc:
+                raise ArmInventoryError("ARM row has conflicting provider type") from exc
+            if expected is None or provider_type.casefold() != expected.casefold():
+                raise ArmInventoryError("ARM row does not match the requested provider type")
+            resolved = resolve_azure_resource_type(
+                self._resource_types, arm_type=provider_type, kind=row.get("kind")
+            )
+            if resolved is None:
+                raise ArmInventoryError("ARM row has an unresolved resource kind")
+            if resolved == resource_type:
+                selected.append(row)
+        return tuple(selected)
 
     def build_child_overlay_query_fn(self, primary_query: ResourceQueryFn) -> ResourceQueryFn:
         """Overlay ARM-only child collections onto a primary inventory query."""
