@@ -285,6 +285,11 @@ def _terraform_workload(name: str, *, legacy: bool) -> dict[str, object]:
                 [
                     {"name": "identity-bridge"},
                     {"name": "runtime-state"},
+                    {
+                        "name": "secrets",
+                        "sub_path": None if legacy else "",
+                        "sub_path_expr": None if legacy else "",
+                    },
                 ]
                 if legacy_runtime
                 else []
@@ -432,3 +437,15 @@ def test_reconciliation_plan_accepts_only_legacy_normalization() -> None:
     ] = ["/bin/sh"]
     with pytest.raises(ValueError, match="workload contract"):
         validate_reconciliation_plan(unsafe_command, variables=variables)
+
+    unsafe_subpath = copy.deepcopy(plan)
+    deployment = next(
+        change
+        for change in unsafe_subpath["resource_changes"]
+        if change["address"] == 'kubernetes_deployment_v1.workload["operator-service"]'
+    )
+    deployment["change"]["after"]["spec"][0]["template"][0]["spec"][0]["container"][0][
+        "volume_mount"
+    ][2]["sub_path"] = "unexpected"
+    with pytest.raises(ValueError, match="workload contract"):
+        validate_reconciliation_plan(unsafe_subpath, variables=variables)

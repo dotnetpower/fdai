@@ -497,6 +497,12 @@ def _normalize_template(template: dict[str, Any]) -> None:
                     if not isinstance(mount, dict)
                     or mount.get("name") not in {"identity-bridge", "runtime-state"}
                 ]
+                for mount in item["volume_mount"]:
+                    if not isinstance(mount, dict):
+                        continue
+                    for field in ("sub_path", "sub_path_expr"):
+                        if mount.get(field) in (None, ""):
+                            mount.pop(field, None)
             retained.append(item)
         spec[container_key] = retained
     volumes = spec.get("volume")
