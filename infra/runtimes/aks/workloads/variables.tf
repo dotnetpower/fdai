@@ -104,20 +104,21 @@ variable "workloads" {
       resource_id = string
       client_id   = string
     })), {})
-    command            = list(string)
-    args               = optional(list(string), [])
-    replicas           = number
-    max_replicas       = number
-    cpu                = string
-    memory             = string
-    port               = number
-    service_port       = optional(number)
-    external           = optional(bool, false)
-    readiness_path     = string
-    liveness_path      = string
-    fs_group           = optional(number)
-    environment        = map(string)
-    secret_environment = optional(map(string), {})
+    command                 = list(string)
+    args                    = optional(list(string), [])
+    replicas                = number
+    max_replicas            = number
+    cpu                     = string
+    memory                  = string
+    port                    = number
+    service_port            = optional(number)
+    external                = optional(bool, false)
+    readiness_path          = string
+    liveness_path           = string
+    fs_group                = optional(number)
+    identity_bridge_enabled = optional(bool, false)
+    environment             = map(string)
+    secret_environment      = optional(map(string), {})
     sidecars = optional(map(object({
       image        = string
       command      = optional(list(string), [])
@@ -162,6 +163,26 @@ variable "workloads" {
       ])
     ])
     error_message = "Every workload requires an exact source commit, digest-pinned images, valid scaling bounds, and a valid port."
+  }
+}
+
+variable "identity_bridge" {
+  description = "Optional compatibility bridge retained for images that require a managed-identity endpoint."
+  type = object({
+    config_map_name          = string
+    script                   = string
+    runtime_state_size_limit = optional(string, "256Mi")
+  })
+  default = null
+
+  validation {
+    condition = var.identity_bridge == null ? true : (
+      can(regex("^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", var.identity_bridge.config_map_name)) &&
+      length(var.identity_bridge.script) > 0 &&
+      length(var.identity_bridge.script) <= 65536 &&
+      can(regex("^[1-9][0-9]*(Mi|Gi)$", var.identity_bridge.runtime_state_size_limit))
+    )
+    error_message = "The identity bridge requires a valid ConfigMap name, bounded script, and Mi or Gi runtime-state limit."
   }
 }
 

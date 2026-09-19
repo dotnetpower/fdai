@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 2bd8378d465ec6f05088b02998de235ddf98aef9
+translation_source_sha: d5114a287c434c4a0b920417757222f73c30497b
 translation_revised: 2026-09-19
 ---
 # 런타임 배포 프로파일
@@ -260,7 +260,9 @@ Operator의 배정 알림과 사람 승인(HIL) 전송에 필요한 가져오기
 Document API와 Worker는 서로 다른 워크로드 신원, 역할 범위 데이터베이스 DSN, 공유 ADLS 계정 및
 `fdai.pipeline.stages` 엔터티를 사용합니다. Worker Pod는 기존 digest 고정 ClamAV 이미지를
 replica-local TCP sidecar로 포함합니다. 루트는 읽기 전용으로 유지하고 선언된 데이터베이스, 실행 및
-임시 경로에만 크기가 제한된 `emptyDir` 볼륨을 제공합니다.
+임시 경로에만 크기가 제한된 `emptyDir` 볼륨을 제공합니다. restricted namespace에서는 워크로드,
+init container, sidecar, 예약 작업의 Pod와 container 범위 모두에 `runAsNonRoot`가 필요합니다.
+Pod 범위 설정만으로는 admission을 통과하지 못합니다.
 
 예약 작업은 `concurrencyPolicy=Forbid`, 완료 수 1, 병렬 작업자 1, 제한된 active deadline, 재시도
 한도, 제한된 이력을 사용합니다. 수동 작업은 별도로 승인된 요청으로만 만들며 영구 desired-state
@@ -303,14 +305,22 @@ NetworkPolicy의 안정적인 워크로드 label은 버전 변경으로 해당 �
 Deployment 관측은 typed Apps v1 collection endpoint를 직접 읽고, 선택 서비스에는 인코딩된
 `labelSelector`를 사용합니다. 따라서 엄격한 검증기는 클라이언트가 합성한 일반 `List`가 아니라
 서버가 작성한 `DeploymentList`를 받습니다.
+identity-bridge 호환성은 일반 `List` 허용을 다시 도입하지 않습니다.
 이 전체 계획에서 알려진 기존 identity-bridge 기준선이 발견되더라도 채택은 계속 중단됩니다. 별도
 조정 계약은 일치하는 Terraform 상태와 typed 실제 근거에서 Operator command identity와 Document
-Worker ClamAV 정의만 복원할 수 있습니다. 이 계약은 inventory 읽기 역할 생성, 기존 identity-bridge
-제거, 기존 Job, Deployment, Service의 공급자 정규화만 허용합니다. 계획은 모든 워크로드 이미지와
-소스 버전, command federated identity, ClamAV digest, 초기화, UID, GID, 쓰기 가능 volume, Pod group을
-보존해야 합니다. 다른 주소나 계약 차이는 모두 거부합니다. 조정에는 별도 exact approval, 효과
-재조회, 완전한 전체 범위 변경 없음 계획이 필요하며, 이 근거가 있어야 과거 상태 채택을 다시 시도할
-수 있습니다.
+Worker ClamAV 정의, 정확한 identity bridge를 복원할 수 있습니다. 이 계약은 inventory 읽기 역할 생성,
+identity-bridge 상태 주소 이행, 기존 Job, Deployment, Service의 공급자 정규화만 허용합니다. 계획은
+모든 워크로드 이미지와 소스 버전, command federated identity, bridge script, ClamAV digest, 초기화,
+UID, GID, 쓰기 가능 volume, Pod group을 보존해야 합니다. 다른 주소나 계약 차이는 모두 거부합니다.
+조정에는 별도 exact approval, 효과 재조회, 완전한 전체 범위 변경 없음 계획이 필요하며, 이 근거가
+있어야 과거 상태 채택을 다시 시도할 수 있습니다. 검증기는 공급자 관점에서 동일한 생략, null, 빈
+`sub_path`와 `sub_path_expr` 값만 정규화합니다. 비어 있지 않은 subpath는 계약 변경으로 계속 거부합니다.
+정확히 일치하는 5개 서비스 wrapper를 계속 사용하는
+이미지는 관리되는 ConfigMap을 `/opt/fdai-compat`에, 크기가 제한된 runtime-state volume을
+`/app/.fdai`에 유지하면서 container 범위 `runAsNonRoot`도 보존합니다. 각 영향 이미지가 AKS federated
+identity로 직접 시작할 수 있음을 독립적으로 입증하기 전에는 bridge 삭제나 image entrypoint 기본값으로의
+command 교체를 거부합니다. ConfigMap이 현재 상태 외부에 존재하면 별도 claim과 권위 있는 UID 및
+content hash 재조회로 정확히 그 객체만 채택해야 하며, 객체를 암묵적으로 다시 만들거나 덮어쓰지 않습니다.
 이 워크로드 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는 전체 배포 준비가
 검증되지는 않습니다. 별도의 브라우저 게시 게이트가 워크로드 수렴 뒤 Console과 API 경계를
 검증합니다. 워크로드 생성기는 Operator, 격리된 Executor, 문서 API,

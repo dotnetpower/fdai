@@ -81,6 +81,22 @@ resource "kubernetes_namespace_v1" "runtime" {
   }
 }
 
+resource "kubernetes_config_map_v1" "identity_bridge" {
+  count = var.identity_bridge == null ? 0 : 1
+
+  metadata {
+    name      = var.identity_bridge.config_map_name
+    namespace = kubernetes_namespace_v1.runtime.metadata[0].name
+  }
+
+  data = { "identity_bridge.py" = var.identity_bridge.script }
+}
+
+moved {
+  from = kubernetes_config_map_v1.identity_bridge
+  to   = kubernetes_config_map_v1.identity_bridge[0]
+}
+
 resource "kubernetes_service_account_v1" "identity" {
   for_each = local.service_accounts
 
@@ -450,6 +466,7 @@ resource "kubernetes_deployment_v1" "workload" {
             security_context {
               allow_privilege_escalation = false
               read_only_root_filesystem  = true
+              run_as_non_root            = true
               run_as_user                = sidecar.value.init.run_as_user
               run_as_group               = sidecar.value.init.run_as_group
               capabilities { drop = ["ALL"] }
@@ -472,6 +489,7 @@ resource "kubernetes_deployment_v1" "workload" {
           security_context {
             allow_privilege_escalation = false
             read_only_root_filesystem  = true
+            run_as_non_root            = true
             capabilities { drop = ["ALL"] }
           }
 
@@ -531,6 +549,18 @@ resource "kubernetes_deployment_v1" "workload" {
           }
 
           dynamic "volume_mount" {
+            for_each = each.value.identity_bridge_enabled ? {
+              identity-bridge = { mount_path = "/opt/fdai-compat", read_only = true }
+              runtime-state   = { mount_path = "/app/.fdai", read_only = false }
+            } : {}
+            content {
+              name       = volume_mount.key
+              mount_path = volume_mount.value.mount_path
+              read_only  = volume_mount.value.read_only
+            }
+          }
+
+          dynamic "volume_mount" {
             for_each = length(each.value.secret_environment) > 0 ? [1] : []
             content {
               name       = "secrets"
@@ -553,6 +583,7 @@ resource "kubernetes_deployment_v1" "workload" {
             security_context {
               allow_privilege_escalation = false
               read_only_root_filesystem  = true
+              run_as_non_root            = true
               run_as_user                = sidecar.value.run_as_user
               run_as_group               = sidecar.value.run_as_group
               capabilities { drop = ["ALL"] }
@@ -599,6 +630,28 @@ resource "kubernetes_deployment_v1" "workload" {
         }
 
         dynamic "volume" {
+          for_each = each.value.identity_bridge_enabled ? [var.identity_bridge] : []
+          content {
+            name = "identity-bridge"
+            config_map {
+              name         = kubernetes_config_map_v1.identity_bridge[0].metadata[0].name
+              default_mode = "0444"
+              optional     = false
+            }
+          }
+        }
+
+        dynamic "volume" {
+          for_each = each.value.identity_bridge_enabled ? [var.identity_bridge] : []
+          content {
+            name = "runtime-state"
+            empty_dir {
+              size_limit = volume.value.runtime_state_size_limit
+            }
+          }
+        }
+
+        dynamic "volume" {
           for_each = merge({}, [
             for sidecar_name, sidecar in each.value.sidecars : {
               for volume_name, volume in sidecar.writable_paths :
@@ -632,6 +685,11 @@ resource "kubernetes_deployment_v1" "workload" {
 
   lifecycle {
     ignore_changes = [spec[0].replicas]
+
+    precondition {
+      condition     = !each.value.identity_bridge_enabled || var.identity_bridge != null
+      error_message = "An identity-bridge workload requires the managed identity bridge ConfigMap contract."
+    }
   }
 }
 
@@ -788,6 +846,7 @@ resource "kubernetes_cron_job_v1" "job" {
 
               security_context {
                 allow_privilege_escalation = false
+                run_as_non_root            = true
                 capabilities { drop = ["ALL"] }
               }
 

@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 53708cb2b88c287fa0f34f62566bd1400057f287
+translation_source_sha: 40aee0b85c4fd951eea1339bdefc0a718dbb983f
 translation_revised: 2026-09-19
 ---
 
@@ -35,6 +35,11 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 이 명령은 기존 Git common dir 상태와 프로세스 메타데이터를 읽습니다. 두 번째 감사 로그를
 추가하거나, 커밋 후 세션 소유권을 추론하거나, 사용할 수 없는 진단을 성공 결과로 바꾸지
 않습니다.
+
+장기 실행 workspace supervisor는 커밋된 VS Code 작업에서 필요한 모든 endpoint와 비공개 파일
+경로를 받습니다. 대화 품질 보증 supervisor 작업은 표준 loopback Operator URL과 소유자 전용
+bearer-token 파일 경로를 전달하지만 bearer 값 자체는 전달하지 않습니다. 따라서 source를 다시
+불러오고 작업을 재시작해도 editor의 주변 환경에 의존하지 않고 인증된 로컬 계약을 유지합니다.
 
 ![설계 개요. 주요 단계는 편집과 집중 검사, 워크플로 진단, 집중 커밋, 구조 pre-push, SHA 기반 CI, 원격 작업, 제한된 인계입니다.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.ko.svg)
 

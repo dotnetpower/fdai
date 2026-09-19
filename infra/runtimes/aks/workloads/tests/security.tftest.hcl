@@ -69,6 +69,7 @@ run "workload_security_baseline" {
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].image == var.workloads.example.image &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].image_pull_policy == "Always" &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].security_context[0].read_only_root_filesystem &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].security_context[0].run_as_non_root &&
       !kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].security_context[0].allow_privilege_escalation
     )
     error_message = "Workloads must preserve the approved digest and run without a writable root or privilege escalation."
@@ -101,12 +102,14 @@ run "workload_security_baseline" {
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].image == var.workloads.example.sidecars.clamav.image &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].readiness_probe[0].tcp_socket[0].port == "3310" &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].security_context[0].read_only_root_filesystem &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].security_context[0].run_as_non_root &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].security_context[0].run_as_user == "100" &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[1].security_context[0].run_as_group == "101" &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].security_context[0].fs_group == "101" &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].init_container[0].name == "clamav-database" &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].init_container[0].image == var.workloads.example.sidecars.clamav.image &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].init_container[0].image_pull_policy == "IfNotPresent" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].init_container[0].security_context[0].run_as_non_root &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].init_container[0].security_context[0].run_as_user == "100" &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].init_container[0].security_context[0].run_as_group == "101" &&
       kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].init_container[0].volume_mount[0].name == "clamav-database" &&
@@ -124,6 +127,51 @@ run "workload_security_baseline" {
     )
     error_message = "A public Service port may differ from its immutable container target port."
   }
+}
+
+run "identity_bridge_compatibility" {
+  command = plan
+
+  variables {
+    identity_bridge = {
+      config_map_name = "fdai-identity-bridge"
+      script          = "print('bridge')\n"
+    }
+    workloads = {
+      example = merge(var.workloads.example, {
+        identity_bridge_enabled = true
+      })
+    }
+  }
+
+  assert {
+    condition = (
+      kubernetes_config_map_v1.identity_bridge[0].metadata[0].name == "fdai-identity-bridge" &&
+      kubernetes_config_map_v1.identity_bridge[0].data["identity_bridge.py"] == "print('bridge')\n" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].volume_mount[1].name == "identity-bridge" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].volume_mount[1].mount_path == "/opt/fdai-compat" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].volume_mount[1].read_only &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].volume_mount[2].name == "runtime-state" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].container[0].volume_mount[2].mount_path == "/app/.fdai" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].volume[1].config_map[0].name == "fdai-identity-bridge" &&
+      kubernetes_deployment_v1.workload["example"].spec[0].template[0].spec[0].volume[2].empty_dir[0].size_limit == "256Mi"
+    )
+    error_message = "Historical identity compatibility must retain the exact bridge and bounded runtime-state mounts."
+  }
+}
+
+run "reject_identity_bridge_without_config_map" {
+  command = plan
+
+  variables {
+    workloads = {
+      example = merge(var.workloads.example, {
+        identity_bridge_enabled = true
+      })
+    }
+  }
+
+  expect_failures = [kubernetes_deployment_v1.workload["example"]]
 }
 
 run "reject_mutable_image" {

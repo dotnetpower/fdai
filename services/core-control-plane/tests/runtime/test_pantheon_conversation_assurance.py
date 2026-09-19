@@ -116,6 +116,17 @@ class _SemanticallyHeldPantheon(_Pantheon):
         return turn
 
 
+class _AcceptedWithoutAnswerPantheon(_Pantheon):
+    async def ask(self, **values: object) -> object:
+        turn = await super().ask(**values)
+        turn.answer["answer"] = None
+        turn.answer["semantic_judgment"] = {
+            "disposition": "accepted",
+            "reason_code": "accepted",
+        }
+        return turn
+
+
 class _DeliberatingPantheon:
     def __init__(self) -> None:
         self.fixed_assurance_facts: object = None
@@ -278,6 +289,39 @@ async def test_runtime_preserves_semantic_hold_reason_without_answer_attribution
     }
     assert len(evaluator.turns) == 1
     assert result["assessment_reasons"] == ["mixed_family_consensus"]
+
+
+async def test_runtime_does_not_render_accepted_judgment_as_abstention() -> None:
+    runtime = RuntimePantheonConversationAssurance(
+        pantheon=_AcceptedWithoutAnswerPantheon(),  # type: ignore[arg-type]
+        coordinator=ConversationAssuranceCoordinator(
+            ledger=InMemoryConversationAssuranceLedger(),
+            reviewer=MixedFamilyAssuranceReviewer(
+                first=_Evaluator("reviewer-a", "family-a"),
+                second=_Evaluator("reviewer-b", "family-b"),
+            ),
+            rubric_version="1.0.0",
+        ),
+        source_revision="a" * 40,
+        source_content_digest="b" * 64,
+    )
+    case = build_pantheon_census(PANTHEON_SPECS).cases[0]
+    request = SemanticTurnRequest(
+        utterance=case.question,
+        principal=SemanticTurnPrincipal(
+            subject_id="operator-one",
+            roles=(OperatorRole.READER,),
+        ),
+        session_id="pantheon-assurance:campaign-one",
+        turn_id="turn-accepted",
+        turn_sequence=0,
+        locale=case.locale,
+        purpose=f"conversation-assurance:{case.case_id}",
+        deadline_at="2026-08-30T12:00:00Z",
+    )
+
+    with pytest.raises(RuntimeError, match="Pantheon answer is unavailable"):
+        await runtime.evaluate(request, case_id=case.case_id)
 
 
 async def test_t2_diagnostic_binds_trusted_fixed_scenario_before_review() -> None:
