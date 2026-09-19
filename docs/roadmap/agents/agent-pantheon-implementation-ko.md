@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: d828d7bda5779efe34de3c6ae8791d917fbc40d0
+translation_source_sha: 3981b4eb8be6647c1c345f1f63e4c65bf9619353
 translation_revised: 2026-09-20
 ---
 
@@ -24,6 +24,7 @@ translation_revised: 2026-09-20
 |------|------|------|------|
 | W0-W1 문서, 온톨로지 및 프레임워크 기반 | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | 고정 레지스트리, 패키지 경계, 문서 일치 및 타입이 지정된 토픽 기반을 실행하고 검사할 수 있습니다. |
 | Bus 및 graph ownership 분리 | implemented | `_framework/{pantheon,topics}.py`; ontology alignment, topic, registry, doc parity 및 Console agent contract 검사 | 이제 `AgentSpec.owns`에는 생산 가능한 event-bus 객체만 포함됩니다. `Budget`과 `SizingRecommendation`은 사용되지 않는 topic을 만들지 않고 Njord와 Freyr의 graph lifecycle ownership을 유지합니다. ActionRun에 포함된 attempt 상태와 core RCA projection은 bus registry 밖에 유지됩니다. |
+| 소유 topic producer 완전성 | implemented | [`test_registry.py`](../../../services/core-control-plane/tests/agents/test_registry.py) | AST 기반 registry 검증은 모든 `AgentSpec.publishes` topic이 구체적인 publish call에 도달하도록 요구하고, 선언되지 않은 topic의 producer 근거를 거부합니다. 임의의 문자열 언급을 producer로 취급하지 않고 literal call, import된 topic 상수 및 정확한 dynamic-topic 비교를 인식합니다. |
 | W2-W6 거버넌스, 파이프라인, 인터페이스, 전문 에이전트, 인계 및 보안 메커니즘 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py) | 선택적 T2 종합 전의 T1 답변 평가를 포함한 범위가 제한된 메커니즘을 집중 합성 검사로 실행하지만 실제 운영 검증을 입증하지는 않습니다. |
 | 영속 권한, 복구, 인계 및 학습 재생 | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore 기반 CAS, 점유 유효 기간, 검사 지점, 보낼 편지함 및 시작 복구 경로에는 재시작과 동시성 집중 검사 근거가 있습니다. 범위가 제한된 Low 심각도 복제본 간 및 작업 신원 잔여 문제 두 건은 아래에 열어 둡니다. |
 | 영속 Huginn 유입 중복 제거 | implemented | `agents/{huginn.py,_framework/huginn_dedup.py}` 및 집중 discovery/runtime 검사 | 프로덕션 조립은 유입 consumer를 시작하기 전에 제한된 key claim, 정확한 정규화 재시도 payload, owner lease 및 게시 checkpoint를 영속화합니다. Broker 수락 후 checkpoint 전 crash는 event bus의 at-least-once 계약에 따라 동일한 stable idempotency key를 다시 전달할 수 있습니다. |
@@ -41,6 +42,7 @@ translation_revised: 2026-09-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-20 | implemented | 모든 Pantheon 소유 topic에 양방향 producer 완전성 회귀를 추가했습니다. 제거된 dead claim과 구체적인 call 경로가 없는 향후 ownership 선언을 거부합니다. | `현재 변경`; 전체 registry invariant 검사. | 검토된 producer가 새 call shape를 도입할 때만 extractor를 확장하며 dead topic을 allowlist에 추가하지 않습니다. |
 | 2026-09-20 | implemented | Bragi의 누락된 `Conversation`, `UserPreference` 및 `PostTurnReview` producer 경계를 추가했습니다. Conversation은 세션마다 한 번, 첫 Turn보다 먼저 게시됩니다. Preference payload는 principal을 hash하고 revision을 별도 content digest에 결속합니다. Post-turn review는 Bragi 소유 topic을 통해서만 Norns에 도달합니다. | `현재 변경`; 집중 producer, privacy, idempotency, no-bus, Norns intake, 대화, runtime, governance, Ruff, mypy, import 및 LOC 검사. | 배포된 Operator preference store와 non-blocking post-turn queue를 typed Bragi 메서드에 결속하고 restart 및 duplicate-delivery 증적을 보존합니다. |
 | 2026-09-20 | implemented | 엄격한 Huginn 소유 정규화 Event에서 Loki의 누락된 `object.resilience-score` producer를 추가했습니다. Boolean, 비유한, 범위 밖, 불완전 또는 위조된 입력은 후보를 만들지 않으며, 유효한 후보는 다른 버티컬이 도착할 때까지 Forseti에서 pending 상태로 유지됩니다. Score는 replay 신원에 참여하므로 동일 key의 score 대체는 duplicate로 보이지 않고 HIL로 종결됩니다. | `현재 변경`; 집중 Loki producer, 잘못된 입력, 소유자 인증, score 대체, Forseti pending 상태, Wave 5 및 cross-vertical 검사. | 별도로 선언된 Bragi session event를 구현하고 통제된 runtime score-refresh 근거를 보존합니다. |
 | 2026-09-20 | implemented | `AgentSpec.owns`에서 생산되지 않는 event-bus claim 네 개를 제거했습니다. 해당 항목은 ActionRun에 포함된 `ActionAttempt`, core RCA projection, graph-only `Budget` 및 `SizingRecommendation`입니다. 고정 에이전트 15개와 전역 판단자, 승인자, 실행기, 감사자 및 복구 역할은 바뀌지 않았습니다. | `현재 변경`; Pantheon registry, topic, ontology alignment, doc parity, Console agent contract 및 집중 specialist 검사. | 별도로 선언된 Bragi session event와 Loki `ResilienceScore` producer를 구현합니다. Graph materialization 근거는 bus publication과 별도로 보존합니다. |
