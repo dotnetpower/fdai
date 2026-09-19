@@ -12,6 +12,11 @@ from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
 from pydantic import ValidationError as PydanticValidationError
 
+from fdai_service_contracts.cluster_connector import (
+    ConnectorEvidence,
+    ConnectorRegistration,
+    ConnectorWork,
+)
 from fdai_service_contracts.decision_evidence import DecisionCriticalEvidenceReceipt
 from fdai_service_contracts.decision_evidence_verification import (
     DecisionEvidenceVerificationBundle,
@@ -40,6 +45,12 @@ class SchemaNotFoundError(LookupError):
 
 _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("action", "1.0.0"): "schemas/action/1.0.0.json",
+    ("cluster-connector-evidence", "1.0.0"): "schemas/cluster-connector-evidence/1.0.0.json",
+    (
+        "cluster-connector-registration",
+        "1.0.0",
+    ): "schemas/cluster-connector-registration/1.0.0.json",
+    ("cluster-connector-work", "1.0.0"): "schemas/cluster-connector-work/1.0.0.json",
     ("alert-noise-assessment", "1.0.0"): "schemas/alert-noise-assessment/1.0.0.json",
     ("alert-noise-evaluation", "1.0.0"): "schemas/alert-noise-evaluation/1.0.0.json",
     (
@@ -258,6 +269,12 @@ class JsonSchemaContractValidator:
             if schema_name == "test-context-command"
             else TestContextDraft
             if schema_name == "test-context-draft"
+            else ConnectorEvidence
+            if schema_name == "cluster-connector-evidence"
+            else ConnectorRegistration
+            if schema_name == "cluster-connector-registration"
+            else ConnectorWork
+            if schema_name == "cluster-connector-work"
             else None
         )
         if semantic_model is not None:

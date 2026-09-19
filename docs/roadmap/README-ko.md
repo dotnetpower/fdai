@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 82a618c1433f2aff8c21b1f6251348ddd43b114b
-translation_revised: 2026-09-17
+translation_source_sha: 44aa140d6451048ed4dd89ee134f1da031e4886c
+translation_revised: 2026-09-19
 ---
 # FDAI 로드맵
 
@@ -63,6 +63,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 5e | [ontology-structural-model-ko.md](architecture/ontology-structural-model-ko.md) | 정확한 리소스 형식, 분류 집계, 링크 역할과 특성, 순서가 있는 형식화된 경로, 범위가 제한된 그래프 표현 |
 | 5f | [operating-intent-source-ko.md](architecture/operating-intent-source-ko.md) | 배포 소유 six-type operating-intent 출처: 고정된 신원, fail closed 승인, 유계 재검증, replica 직렬화 투영 |
 | 5g | [aks-diagnostic-evidence-plane-ko.md](architecture/aks-diagnostic-evidence-plane-ko.md) | 정확한 다중 클러스터 연결, 워크로드 근거, 결정론적 진단 및 권한 없는 AKS 변환 결과 |
+| 5h | [aks-outbound-connector-ko.md](architecture/aks-outbound-connector-ko.md) | 클러스터가 시작하는 근거 및 승인 작업 전송과 별도로 관리하는 선택적 네트워크 분리 |
 | 6 | [security-and-identity-ko.md](architecture/security-and-identity-ko.md) | 최소 권한 신원, secrets, 안전 불변식 |
 | 7 | [deployment-ko.md](deployment/deployment-ko.md) | IaC, CI/CD, 환경, 릴리스 / 롤백 |
 | 7a | [architecture-review-board-ko.md](architecture/architecture-review-board-ko.md) | 정본 ARB 색인: 결정 경계와 온톨로지 에이전트, 근거 권한, 전달 계획 문서 |

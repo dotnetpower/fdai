@@ -259,6 +259,34 @@
       ]
     },
     {
+      "id": "aks-outbound-connector",
+      "paths": [
+        "docs/roadmap/architecture/aks-outbound-connector*.md",
+        "docs/roadmap-implementation/architecture/aks-outbound-connector.md",
+        "packages/service-contracts/src/fdai_service_contracts/cluster_connector.py",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/cluster-connector-*/**",
+        "packages/service-contracts/tests/test_cluster_connector.py",
+        "services/core-control-plane/src/fdai/delivery/kubernetes_connector*.py",
+        "services/core-control-plane/tests/delivery/test_kubernetes_connector*.py",
+        "scripts/quality/contracts/generate_cluster_connector_schemas.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "docs/roadmap/architecture/aks-outbound-connector.md",
+        "docs/roadmap/architecture/aks-diagnostic-evidence-plane.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/aks-outbound-connector.md",
+        "docs/roadmap-implementation/architecture/aks-outbound-connector.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov packages/service-contracts/tests/test_cluster_connector.py services/core-control-plane/tests/delivery/test_kubernetes_connector.py services/core-control-plane/tests/delivery/test_kubernetes_connector_transport.py services/core-control-plane/tests/delivery/test_kubernetes_connector_policy.py",
+        "uv run python scripts/quality/contracts/generate_cluster_connector_schemas.py --check"
+      ]
+    },
+    {
       "id": "aks-diagnostic-evidence-plane",
       "paths": [
         "docs/roadmap/architecture/aks-diagnostic-evidence-plane*.md",

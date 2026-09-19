@@ -44,6 +44,11 @@ authority.
 
 ## Cluster source bindings
 
+The [outbound connector design](aks-outbound-connector.md) adds a planned cluster-initiated
+transport without changing this plane's observation authority. Its initial metadata contracts,
+inbox, and sender do not yet provide an authenticated deployed collector or inventory promotion.
+Direct collection remains the existing runtime path until that integration is validated.
+
 The runtime accepts a bounded collection of cluster bindings. Each binding contains:
 
 - one canonical AKS ARM id;

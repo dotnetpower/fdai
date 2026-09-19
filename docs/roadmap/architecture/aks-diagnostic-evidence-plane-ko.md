@@ -1,8 +1,8 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: be1135ea8333b4d471857d6a5ed1a0bb3feb6c1e
-translation_revised: 2026-09-18
+translation_source_sha: 45025f6a0a1592f7a662548d89b9c11d8eb7548f
+translation_revised: 2026-09-19
 ---
 # AKS 진단 근거 플레인
 
@@ -44,6 +44,11 @@ Azure 관측은 정확한 대상을 검증한 뒤에만 결합됩니다. 결정�
 | D12 | FDAI가 무엇을 할 수 있나요? | 항상 `execution_authority=false`; 작업 계획과 실행은 이 플레인 밖에 유지 |
 
 ## 클러스터 출처 연결
+
+개발 중인 [역방향 커넥터 설계](aks-outbound-connector-ko.md)는 관측 권한을 바꾸지 않고
+클러스터에서 시작하는 전송 방식을 추가합니다. 초기 메타데이터 계약, 수신함, 송신기는 아직
+인증된 배포 수집기나 인벤토리 반영을 제공하지 않습니다. 이 연동을 검증하기 전까지
+기존 런타임은 직접 수집 경로를 유지합니다.
 
 런타임은 개수가 제한된 클러스터 연결 모음을 허용합니다. 각 연결은 다음을 포함합니다.
 
