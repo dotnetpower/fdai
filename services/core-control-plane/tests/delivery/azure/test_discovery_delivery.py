@@ -36,6 +36,7 @@ def _intent(
     *,
     result_kind: DiscoveryResultKind = DiscoveryResultKind.LIST,
     scope_kind: DiscoveryScopeKind = DiscoveryScopeKind.SUBSCRIPTION,
+    predicates: tuple[DiscoveryPredicate, ...] | None = None,
 ) -> DiscoveryIntent:
     universe = (
         DiscoveryUniverse.RESOURCE_CONTAINERS
@@ -48,7 +49,7 @@ def _intent(
         "universes": (universe,),
         "scope_kind": scope_kind,
         "scope_digest": DIGEST,
-        "predicates": (predicate,),
+        "predicates": (predicate,) if predicates is None else predicates,
         "limits": DiscoveryLimits(max_results=100),
         "include_command_explanation": True,
         "unresolved_modifiers": (),
@@ -57,9 +58,9 @@ def _intent(
     return DiscoveryIntent(intent_digest=discovery_intent_digest(**values), **values)
 
 
-def _plan(profile_index: int = 1, **intent_options):
+def _plan(profile_index: int = 1, *, operation_index: int = 1, **intent_options):
     profile = default_azure_discovery_profiles()[profile_index]
-    operation = profile.operations[1]
+    operation = profile.operations[operation_index]
     intent = _intent(profile_index, **intent_options)
     eligibility = BackendEligibility(
         operation_id=operation.operation_id,
@@ -264,6 +265,36 @@ def test_explanation_cannot_claim_an_unvalidated_cli_version() -> None:
             validated_at=datetime(2026, 1, 1, tzinfo=UTC),
             cli_version="2.87.0",
         )
+
+
+@pytest.mark.parametrize("profile_index", [0, 1])
+@pytest.mark.parametrize("result_kind", [DiscoveryResultKind.LIST, DiscoveryResultKind.COUNT])
+def test_arm_explanation_has_an_executable_scoped_query(profile_index, result_kind) -> None:
+    _profile, operation, plan = _plan(
+        profile_index,
+        operation_index=2,
+        predicates=(),
+        result_kind=result_kind,
+        scope_kind=DiscoveryScopeKind.RESOURCE_GROUP,
+    )
+    explanation = render_command_explanation(
+        plan=plan,
+        operation=operation,
+        validated_at=datetime(2026, 1, 1, tzinfo=UTC),
+        cli_version="2.89.1",
+    )
+    argv = explanation.cli_argv
+    assert "<resource-group>" in argv
+    query = argv[argv.index("--query") + 1]
+    if result_kind is DiscoveryResultKind.COUNT:
+        assert query == ("length([@])" if profile_index == 0 else "length(@)")
+    else:
+        source = "[@]" if profile_index == 0 else "@"
+        assert query == (
+            f"{source}[:100]."
+            "{id:id,type:type,name:name,resourceGroup:resourceGroup,location:location}"
+        )
+    assert "registered-query" not in query
 
 
 def test_coverage_contract_exposes_documented_unmapped_state() -> None:

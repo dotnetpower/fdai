@@ -70,8 +70,8 @@ These component checks do not establish a conversational runtime binding. Aggreg
 canaries also do not qualify the workload identity, collector pagination, normalization, snapshot
 promotion, or restricted-network failover. Those claims require separate exact-revision evidence.
 
-Profile revision `1.2.0` and the canary recorder share the Azure CLI `2.89.1` pin. Historical
-`1.1.0` profiles remain reconstructible for retained evidence. `--validate` checks historical
+Profile revision `1.3.0` and the canary recorder share the Azure CLI `2.89.1` pin. Historical
+`1.1.0` and `1.2.0` profiles remain reconstructible for retained evidence. `--validate` checks historical
 integrity only; `--validate --require-current` also requires the current catalog, exact plan
 bindings, and an evidence age between zero and 3,600 seconds. Both validation modes are offline.
 
@@ -79,6 +79,7 @@ bindings, and an evidence age between zero and 3,600 seconds. Both validation mo
 |------------|----------------------------|-------------------------|
 | Resource groups and ordinary ARM resources | Subscription and Resource Group scopes; list, count, and types | Runtime binding and collector receipts remain separate from component validation. |
 | Name, provider type, group, and location predicates | Exact, contains, in, and exists predicates | Only registered equivalent backends are eligible. |
+| Generic ARM reproduction | Unfiltered list and count; exact Resource Group scope | Executable JMESPath preserves bounded output; case-insensitive predicates and type aggregation remain ARG-only. |
 | Tags, operational state, relationships, and broader universes | No generic discovery profile | Return explicit unsupported; do not drop a requested predicate or universe. |
 | Tenant, management-group, directory, and data-plane scopes | No generic discovery profile | Require separate reviewed profiles and identity admission. |
 

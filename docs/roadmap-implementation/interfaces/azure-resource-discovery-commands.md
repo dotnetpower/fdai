@@ -40,6 +40,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | 2026-09-19 | implemented | First hardening rounds rejected scalar predicate ambiguity, operation substitution, and execution or merge result-limit overruns. ARM transport now streams bounded bodies, caps accumulated rows and bytes, and respects bounded provider retries. Snapshot policies match the current graph capacity, apply source constructor limits, and drive replay-stable bounded jitter. | Commits `52ce9079d`, `b0e63c152`, `d42551f94`, `06f44f708`, `2e8c476f0`, `33abbd360`, `6855827fd`; focused ARG 155, ARM 31, inventory/scheduling 305, discovery contract 55, qualification 35, and policy 13 passing checks at their respective checkpoints. | This is partial campaign evidence, not closure of all 36 findings. See the review register below. |
 
+| 2026-09-20 | implemented | Added executable bounded ARM list/count reproduction with exact group scope. Profile `1.3.0` excludes ARM predicates and type aggregation whose ARG equivalence cannot be preserved, while retained `1.1.0` and `1.2.0` profiles remain reconstructible. | `current change`; delivery, coverage and recorder cohort `42 passed`; all four fixed queries were evaluated locally with `jmespath==1.0.1` and remain pinned by exact golden tests without a new runtime or repository dependency. | Runtime discovery and collector qualification remain open; no live provider request was issued. |
+
 ### Review register
 
 The numbered items refer to the 2026-09-19 review. `local-verified` does not mean deployed.
@@ -61,7 +63,7 @@ The numbered items refer to the 2026-09-19 review. `local-verified` does not mea
 | 19 | partial | Source page limits follow policy; adaptive partitioning of oversized shards remains open. |
 | 20 | open | Refresh coordinator no-progress state on actual page progress, not only shard completion. |
 | 21, 22 | local-verified | ARM bounded retry and streamed byte/row/cycle guards have focused regressions. |
-| 25, 26, 27 | partial | ARG scope, aggregation, and CLI page limits are verified; fully reproducible ARM query rendering remains open. |
+| 25, 26, 27 | local-verified | ARG scope, aggregation, and CLI page limits plus executable ARM list/count queries are verified; unsupported ARM predicate/type semantics cannot become a fallback. |
 | 28, 30 | live-evidence-required | Exact-revision workload identity, collection, promotion, failover and recovery receipts require separately authorized live work. |
 | 31 | open | Share equivalent provider reads within one generation without caching across freshness boundaries. |
 | 32 | partial | Production jitter is bound; stable-cycle adaptation still needs measured state. |

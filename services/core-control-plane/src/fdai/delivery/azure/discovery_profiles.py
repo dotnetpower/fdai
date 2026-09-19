@@ -15,7 +15,7 @@ from fdai_service_contracts.discovery import (
     discovery_profile_digest,
 )
 
-AZURE_DISCOVERY_CATALOG_VERSION = "1.2.0"
+AZURE_DISCOVERY_CATALOG_VERSION = "1.3.0"
 AZURE_DISCOVERY_CLI_VERSION = "2.89.1"
 
 
@@ -24,7 +24,7 @@ def default_azure_discovery_profiles(
 ) -> tuple[DiscoveryProfile, ...]:
     """Return the reviewed resource-container and generic ARM discovery profiles."""
 
-    if revision not in {"1.1.0", AZURE_DISCOVERY_CATALOG_VERSION}:
+    if revision not in {"1.1.0", "1.2.0", AZURE_DISCOVERY_CATALOG_VERSION}:
         raise ValueError("unsupported Azure discovery profile revision")
     cli_version = "2.87.0" if revision == "1.1.0" else AZURE_DISCOVERY_CLI_VERSION
     return (
@@ -176,6 +176,19 @@ def _profile(
     operations: tuple[DiscoveryOperationProfile, ...],
     provenance_ref: str,
 ) -> DiscoveryProfile:
+    if revision == AZURE_DISCOVERY_CATALOG_VERSION:
+        operations = tuple(
+            operation.model_copy(
+                update={
+                    "result_kinds": (DiscoveryResultKind.LIST, DiscoveryResultKind.COUNT),
+                    "predicate_fields": (),
+                    "predicate_operators": (),
+                }
+            )
+            if operation.backend is DiscoveryBackend.GENERIC_ARM
+            else operation
+            for operation in operations
+        )
     for operation in operations:
         if operation.universes != (universe,):
             raise ValueError("Azure discovery profile operation universe mismatch")

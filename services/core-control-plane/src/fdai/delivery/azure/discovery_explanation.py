@@ -19,10 +19,7 @@ from fdai_service_contracts.discovery_evidence import (
     command_explanation_digest,
 )
 
-from fdai.delivery.azure.discovery_profiles import (
-    AZURE_DISCOVERY_CATALOG_VERSION,
-    AZURE_DISCOVERY_CLI_VERSION,
-)
+from fdai.delivery.azure.discovery_profiles import AZURE_DISCOVERY_CLI_VERSION
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,7 +52,7 @@ def render_command_explanation(
     rendered = render_registered_azure_command(plan=plan, operation=operation)
     values: dict[str, object] = {
         "command_id": rendered.command_id,
-        "catalog_version": AZURE_DISCOVERY_CATALOG_VERSION,
+        "catalog_version": plan.profile_revision,
         "plan_digest": plan.plan_digest,
         "backend": plan.backend,
         "scope_kind": plan.scope_kind,
@@ -105,20 +102,18 @@ def render_registered_azure_command(
         kql = _render_kql(plan, table="Resources", resource_groups=False)
         return _arg_command(template_id, plan=plan, kql=kql)
     if template_id == "azure.arm.resource-groups.list.v1":
+        exact_group = plan.scope_kind is DiscoveryScopeKind.RESOURCE_GROUP
         return RenderedAzureCommand(
             command_id=template_id,
             argv=(
                 "az",
                 "group",
-                "list",
+                "show" if exact_group else "list",
                 "--subscription",
                 "<subscription-id>",
+                *(("--name", "<resource-group>") if exact_group else ()),
                 "--query",
-                (
-                    "<registered-query:azure.resource-groups.resource-group.v1>"
-                    if plan.scope_kind is DiscoveryScopeKind.RESOURCE_GROUP
-                    else "<registered-query:azure.resource-groups.list.v1>"
-                ),
+                _arm_query(plan, singleton=exact_group),
                 "--output",
                 "json",
             ),
@@ -139,13 +134,27 @@ def render_registered_azure_command(
                     else ()
                 ),
                 "--query",
-                "<registered-query:azure.arm-resources.list.v1>",
+                _arm_query(plan),
                 "--output",
                 "json",
             ),
             kql_template=None,
         )
     raise LookupError(f"unknown Azure discovery command template {template_id!r}")
+
+
+def _arm_query(plan: DiscoveryQueryPlan, *, singleton: bool = False) -> str:
+    if plan.predicates:
+        raise ValueError("ARM reproduction does not support equivalent case-insensitive predicates")
+    if plan.result_kind is DiscoveryResultKind.COUNT:
+        return "length([@])" if singleton else "length(@)"
+    if plan.result_kind is not DiscoveryResultKind.LIST:
+        raise ValueError("ARM reproduction does not support this result kind")
+    source = "[@]" if singleton else "@"
+    return (
+        f"{source}[:{plan.limits.max_results}]."
+        "{id:id,type:type,name:name,resourceGroup:resourceGroup,location:location}"
+    )
 
 
 def render_coverage_canary_command(
