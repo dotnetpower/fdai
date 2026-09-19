@@ -19,7 +19,10 @@ from fdai_service_contracts.discovery_evidence import (
     command_explanation_digest,
 )
 
-from fdai.delivery.azure.discovery_profiles import AZURE_DISCOVERY_CATALOG_VERSION
+from fdai.delivery.azure.discovery_profiles import (
+    AZURE_DISCOVERY_CATALOG_VERSION,
+    AZURE_DISCOVERY_CLI_VERSION,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +45,13 @@ def render_command_explanation(
 
     if plan.operation_id != operation.operation_id:
         raise ValueError("discovery plan and operation profile MUST match")
+    cli_pins = tuple(
+        value for value in operation.validation_versions if value.startswith("azure-cli@")
+    )
+    if f"azure-cli@{cli_version}" not in (
+        cli_pins or (f"azure-cli@{AZURE_DISCOVERY_CLI_VERSION}",)
+    ):
+        raise ValueError("command explanation CLI version MUST match the registered validation pin")
     rendered = render_registered_azure_command(plan=plan, operation=operation)
     values: dict[str, object] = {
         "command_id": rendered.command_id,

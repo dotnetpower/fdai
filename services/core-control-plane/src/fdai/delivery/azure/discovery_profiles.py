@@ -15,14 +15,21 @@ from fdai_service_contracts.discovery import (
     discovery_profile_digest,
 )
 
-AZURE_DISCOVERY_CATALOG_VERSION = "1.1.0"
+AZURE_DISCOVERY_CATALOG_VERSION = "1.2.0"
+AZURE_DISCOVERY_CLI_VERSION = "2.89.1"
 
 
-def default_azure_discovery_profiles() -> tuple[DiscoveryProfile, ...]:
+def default_azure_discovery_profiles(
+    *, revision: str = AZURE_DISCOVERY_CATALOG_VERSION
+) -> tuple[DiscoveryProfile, ...]:
     """Return the reviewed resource-container and generic ARM discovery profiles."""
 
+    if revision not in {"1.1.0", AZURE_DISCOVERY_CATALOG_VERSION}:
+        raise ValueError("unsupported Azure discovery profile revision")
+    cli_version = "2.87.0" if revision == "1.1.0" else AZURE_DISCOVERY_CLI_VERSION
     return (
         _profile(
+            revision=revision,
             profile_id="azure.resource-groups",
             provider_type="Microsoft.Resources/subscriptions/resourceGroups",
             universe=DiscoveryUniverse.RESOURCE_CONTAINERS,
@@ -43,7 +50,7 @@ def default_azure_discovery_profiles() -> tuple[DiscoveryProfile, ...]:
                     equivalence_key="azure.resource-groups.list.v1",
                     validation_versions=(
                         "azure-resource-graph-api@2022-10-01",
-                        "azure-cli@2.87.0",
+                        f"azure-cli@{cli_version}",
                         "resource-graph-extension@2.1.1",
                     ),
                 ),
@@ -55,13 +62,14 @@ def default_azure_discovery_profiles() -> tuple[DiscoveryProfile, ...]:
                     equivalence_key="azure.resource-groups.list.v1",
                     validation_versions=(
                         "azure-resource-manager-api@2021-04-01",
-                        "azure-cli@2.87.0",
+                        f"azure-cli@{cli_version}",
                     ),
                 ),
             ),
             provenance_ref="microsoft.resource-graph.resource-containers",
         ),
         _profile(
+            revision=revision,
             profile_id="azure.arm-resources",
             provider_type="Microsoft.Resources/resources",
             universe=DiscoveryUniverse.ARM_RESOURCES,
@@ -82,7 +90,7 @@ def default_azure_discovery_profiles() -> tuple[DiscoveryProfile, ...]:
                     equivalence_key="azure.arm-resources.list.v1",
                     validation_versions=(
                         "azure-resource-graph-api@2022-10-01",
-                        "azure-cli@2.87.0",
+                        f"azure-cli@{cli_version}",
                         "resource-graph-extension@2.1.1",
                     ),
                 ),
@@ -94,7 +102,7 @@ def default_azure_discovery_profiles() -> tuple[DiscoveryProfile, ...]:
                     equivalence_key="azure.arm-resources.list.v1",
                     validation_versions=(
                         "azure-resource-manager-api@2021-04-01",
-                        "azure-cli@2.87.0",
+                        f"azure-cli@{cli_version}",
                     ),
                 ),
             ),
@@ -161,6 +169,7 @@ def _operation(
 
 def _profile(
     *,
+    revision: str,
     profile_id: str,
     provider_type: str,
     universe: DiscoveryUniverse,
@@ -172,7 +181,7 @@ def _profile(
             raise ValueError("Azure discovery profile operation universe mismatch")
     values: dict[str, object] = {
         "profile_id": profile_id,
-        "revision": AZURE_DISCOVERY_CATALOG_VERSION,
+        "revision": revision,
         "cloud": "azure",
         "provider_type": provider_type,
         "operations": operations,

@@ -36,6 +36,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | 2026-09-19 | in-progress | Hardened discovery failure semantics, profile ceilings, exact-plan merge, plan-bound execution receipts, expected scope/platform reconciliation, and ARG reproduction semantics. Consolidated duplicate owner ledgers without deleting history and separated aggregate canaries from runtime qualification. | `current change`; contract, router, delivery, coverage, and recorder cohort `60 passed`; focused Ruff and mypy. | Bind and verify the production discovery path, complete the remaining inventory hardening register, and retain separately authorized exact-revision collector and failover evidence. |
 
+| 2026-09-19 | implemented | Unified current CLI pins under profile revision `1.2.0`, retained exact `1.1.0` reconstruction, rejected unvalidated explanation versions, and separated historical integrity from explicit current-catalog, plan-binding, and freshness qualification. Added a bounded support matrix without claiming new runtime bindings. | `current change`; recorder, delivery, and coverage cohort `35 passed`; retained historical canary validates offline unchanged. | Runtime discovery binding and exact collector/failover receipts remain open. |
+
 ### Remaining work
 
 - [ ] Verify the production discovery binding from an authenticated typed intent through exact-plan execution and evidence projection; component tests alone do not close this item.

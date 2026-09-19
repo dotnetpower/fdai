@@ -21,6 +21,7 @@ from fdai.delivery.azure.discovery_coverage import (
 from fdai.delivery.azure.discovery_explanation import render_coverage_canary_command
 from fdai.delivery.azure.discovery_profiles import (
     AZURE_DISCOVERY_CATALOG_VERSION,
+    AZURE_DISCOVERY_CLI_VERSION,
     default_azure_discovery_profiles,
 )
 from fdai.delivery.azure.discovery_receipts import build_provider_coverage_canary_receipt
@@ -41,7 +42,7 @@ from fdai_service_contracts.discovery_evidence import (
 )
 from fdai_service_contracts.ontology_query import content_digest
 
-_AZURE_CLI_VERSION = "2.89.1"
+_AZURE_CLI_VERSION = AZURE_DISCOVERY_CLI_VERSION
 _RESOURCE_GRAPH_EXTENSION_VERSION = "2.1.1"
 _ARG_API_VERSION = "2022-10-01"
 _MAX_PROVIDER_TYPES = 256
@@ -331,19 +332,29 @@ def _evidence_payload(*, expected_subscription_id: str, observed_at: datetime) -
         "execution_authority": False,
     }
     payload = {**body, "evidence_digest": content_digest(body)}
-    validate_evidence_payload(payload)
+    validate_evidence_payload(payload, require_current=True)
     return payload
 
 
-def validate_evidence_payload(payload: object) -> None:
-    """Validate retained evidence against current profiles without provider access."""
+def validate_evidence_payload(
+    payload: object, *, require_current: bool = False, evaluated_at: datetime | None = None
+) -> None:
+    """Separate historical integrity from current catalog and freshness qualification."""
 
     if not isinstance(payload, dict):
         raise CanaryError("Azure discovery evidence has an invalid shape")
     body = {key: value for key, value in payload.items() if key != "evidence_digest"}
     if payload.get("evidence_digest") != content_digest(body):
         raise CanaryError("Azure discovery evidence digest does not match its content")
-    profiles = default_azure_discovery_profiles()
+    revision = payload.get("profile_revision")
+    if not isinstance(revision, str):
+        raise CanaryError("Azure discovery evidence profile revision is invalid")
+    try:
+        profiles = default_azure_discovery_profiles(revision=revision)
+    except ValueError as exc:
+        raise CanaryError("Azure discovery evidence profile revision is unsupported") from exc
+    if require_current and revision != AZURE_DISCOVERY_CATALOG_VERSION:
+        raise CanaryError("Azure discovery evidence does not qualify the current catalog")
     expected_versions = [
         f"azure-resource-graph-api@{_ARG_API_VERSION}",
         f"azure-cli@{_AZURE_CLI_VERSION}",
@@ -352,7 +363,7 @@ def validate_evidence_payload(payload: object) -> None:
     if (
         payload.get("schema_version") != "1.0.0"
         or payload.get("evidence_kind") != "azure_discovery_live_canary"
-        or payload.get("profile_revision") != AZURE_DISCOVERY_CATALOG_VERSION
+        or payload.get("profile_revision") != revision
         or payload.get("platform_versions") != expected_versions
         or payload.get("profile_digests") != [profile.profile_digest for profile in profiles]
         or payload.get("execution_authority") is not False
@@ -380,6 +391,19 @@ def validate_evidence_payload(payload: object) -> None:
         raise CanaryError("Azure discovery evidence contains an invalid receipt") from exc
     if len(executions) != 2 or len(coverage) != 2:
         raise CanaryError("Azure discovery evidence must contain exactly two coverage claims")
+    if require_current:
+        evaluation_time = evaluated_at or datetime.now(UTC)
+        if evaluation_time.tzinfo is None or generated_at.tzinfo is None:
+            raise CanaryError("Azure discovery qualification requires timezone-aware clocks")
+        if not 0 <= (evaluation_time - generated_at).total_seconds() <= 3_600:
+            raise CanaryError("Azure discovery evidence is stale or future-dated")
+        by_execution = {item.receipt_digest: item for item in executions}
+        if any(
+            by_execution.get(item.execution_receipt_digest) is None
+            or by_execution[item.execution_receipt_digest].plan_digest != item.plan_digest
+            for item in coverage
+        ):
+            raise CanaryError("current Azure discovery qualification requires exact plan binding")
     expected_proof_counts = {item.universe.value: item.discovered_count for item in coverage}
     if (
         len(aggregate_proofs) != 2
@@ -448,6 +472,7 @@ def main(argv: list[str] | None = None) -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--subscription-id")
     mode.add_argument("--validate", action="store_true")
+    parser.add_argument("--require-current", action="store_true")
     parser.add_argument(
         "--output",
         type=Path,
@@ -456,9 +481,19 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
     try:
         if arguments.validate:
-            validate_evidence_payload(json.loads(arguments.output.read_text(encoding="utf-8")))
-            print("record-azure-discovery-canary: retained evidence is valid")
+            validate_evidence_payload(
+                json.loads(arguments.output.read_text(encoding="utf-8")),
+                require_current=arguments.require_current,
+            )
+            print(
+                "record-azure-discovery-canary: current catalog and freshness qualified"
+                if arguments.require_current
+                else "record-azure-discovery-canary: historical integrity valid; "
+                "not current readiness"
+            )
             return 0
+        if arguments.require_current:
+            raise CanaryError("--require-current requires --validate")
         if arguments.subscription_id is None:
             raise CanaryError("Azure subscription id is required for live recording")
         payload = _evidence_payload(

@@ -102,7 +102,7 @@ def test_arg_profiles_pin_normalization_and_validation_versions() -> None:
         assert operation.normalization_id == "azure.provider-resource-observation.v1"
         assert operation.validation_versions == (
             "azure-resource-graph-api@2022-10-01",
-            "azure-cli@2.87.0",
+            "azure-cli@2.89.1",
             "resource-graph-extension@2.1.1",
         )
 
@@ -180,7 +180,7 @@ def test_command_explanation_matches_golden_and_is_equivalent_only() -> None:
         plan=plan,
         operation=operation,
         validated_at=datetime(2026, 1, 1, tzinfo=UTC),
-        cli_version="2.87.0",
+        cli_version="2.89.1",
     )
     encoded = explanation.model_dump_json()
 
@@ -225,12 +225,23 @@ def test_explanation_preserves_scope_and_result_kind(result_kind, expected) -> N
         plan=plan,
         operation=operation,
         validated_at=datetime(2026, 1, 1, tzinfo=UTC),
-        cli_version="2.87.0",
+        cli_version="2.89.1",
     )
     assert plan.result_kind is result_kind
     assert "where resourceGroup =~ '<resource-group>'" in explanation.kql_template
     assert expected in explanation.kql_template
     assert "project id" not in explanation.kql_template
+
+
+def test_explanation_cannot_claim_an_unvalidated_cli_version() -> None:
+    _profile, operation, plan = _plan()
+    with pytest.raises(ValueError, match="registered validation pin"):
+        render_command_explanation(
+            plan=plan,
+            operation=operation,
+            validated_at=datetime(2026, 1, 1, tzinfo=UTC),
+            cli_version="2.87.0",
+        )
 
 
 def test_coverage_contract_exposes_documented_unmapped_state() -> None:

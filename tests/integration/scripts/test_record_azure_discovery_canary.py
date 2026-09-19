@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import json
 import os
+import runpy
 import subprocess
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
+
+import pytest
 
 _ROOT = Path(__file__).resolve().parents[3]
 _RECORDER = _ROOT / "scripts" / "automation" / "record-azure-discovery-canary.py"
@@ -145,6 +149,29 @@ def test_recorder_rejects_incomplete_arg_response(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert not output.exists()
     assert "response is incomplete or invalid" in result.stderr
+
+
+def test_current_qualification_rejects_stale_evidence_without_invalidating_history(
+    tmp_path: Path,
+) -> None:
+    result, output, _calls = _run(tmp_path)
+    assert result.returncode == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    recorder = runpy.run_path(str(_RECORDER))
+    validator = recorder["validate_evidence_payload"]
+    generated = datetime.fromisoformat(payload["generated_at"].replace("Z", "+00:00"))
+    validator(payload, require_current=True, evaluated_at=generated)
+    validator(payload, evaluated_at=generated + timedelta(days=30))
+    with pytest.raises(recorder["CanaryError"], match="stale or future-dated"):
+        validator(payload, require_current=True, evaluated_at=generated + timedelta(seconds=3601))
+
+
+def test_historical_catalog_cannot_qualify_as_current() -> None:
+    payload = json.loads((_ROOT / "config" / "azure-discovery-live-evidence.json").read_text())
+    recorder = runpy.run_path(str(_RECORDER))
+    recorder["validate_evidence_payload"](payload)
+    with pytest.raises(recorder["CanaryError"], match="current catalog"):
+        recorder["validate_evidence_payload"](payload, require_current=True)
 
 
 def test_offline_validation_rejects_tampered_retained_evidence(tmp_path: Path) -> None:
