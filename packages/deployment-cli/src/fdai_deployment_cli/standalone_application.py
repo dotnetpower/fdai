@@ -647,7 +647,13 @@ def _approve_plan(
             raise TimeoutError("standalone approval deadline expired; no approval was granted")
         return remaining
 
-    expected = f"{stage}-apply"
+    historical_reconciliation = review.get("historical_reconciliation")
+    operation = (
+        str(historical_reconciliation["operation"])
+        if isinstance(historical_reconciliation, dict)
+        else stage
+    )
+    expected = f"{operation}-apply"
     print(json.dumps(review, indent=2, sort_keys=True), file=sys.stderr)
     print(
         f"Type the exact stage name to approve ({expected}): ", end="", file=sys.stderr, flush=True
@@ -682,7 +688,7 @@ def _approve_plan(
         "approved_at": _moment(now),
         "expires_at": _moment(expires),
     }
-    path = root / f"{stage}-approval.json"
+    path = root / f"{operation}-approval.json"
     path.unlink(missing_ok=True)
     write_private_output(path, json.dumps(approval, sort_keys=True, separators=(",", ":")) + "\n")
     return path

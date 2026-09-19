@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: d5114a287c434c4a0b920417757222f73c30497b
+translation_source_sha: 73538a9476e3fbb0ec12a82cf57897b622edcee1
 translation_revised: 2026-09-19
 ---
 # 런타임 배포 프로파일
@@ -315,6 +315,12 @@ UID, GID, 쓰기 가능 volume, Pod group을 보존해야 합니다. 다른 주�
 조정에는 별도 exact approval, 효과 재조회, 완전한 전체 범위 변경 없음 계획이 필요하며, 이 근거가
 있어야 과거 상태 채택을 다시 시도할 수 있습니다. 검증기는 공급자 관점에서 동일한 생략, null, 빈
 `sub_path`와 `sub_path_expr` 값만 정규화합니다. 비어 있지 않은 subpath는 계약 변경으로 계속 거부합니다.
+소스 서비스 조정기가 이 별도 조정 수명 주기를 소유합니다. 엄격하고 런타임 프로파일에 연결된 검토를
+반환하고, 새 효과 전에 검증 전용 복구를 확인하며, 실행 전 기록이 없을 때 현재의 정확한 승인을
+요구합니다. 보존된 이진 계획을 다시 검증하고 Managed Identity로 한 번 적용하기 전에 실행 전 기록을
+씁니다. 증적에 연결된 새 상태, typed Deployment 재조회, 정상 워크로드, 완전한 전체 범위 변경 없음
+계획이 모두 있어야 과거 상태 채택을 재개합니다.
+
 정확히 일치하는 5개 서비스 wrapper를 계속 사용하는
 이미지는 관리되는 ConfigMap을 `/opt/fdai-compat`에, 크기가 제한된 runtime-state volume을
 `/app/.fdai`에 유지하면서 container 범위 `runAsNonRoot`도 보존합니다. 각 영향 이미지가 AKS federated

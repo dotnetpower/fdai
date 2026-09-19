@@ -16,13 +16,17 @@ _FIELDS = frozenset(
         "review_digest",
         "target_binding",
         "source_commit",
+        "runtime_profile_digest",
+        "runtime_platform",
         "summary",
         "expires_at",
         "mutation_performed",
         "subscription_ready",
     }
 )
+_LEGACY_FIELDS = _FIELDS - {"runtime_profile_digest", "runtime_platform"}
 _SERVICE_UPDATE_FIELDS = frozenset({"service", "image", "source_commit", "update_digest"})
+_HISTORICAL_RECONCILIATION_FIELDS = frozenset({"operation", "variables_digest", "mutations"})
 _ACTIONS = frozenset({"create", "update", "delete", "replace", "read", "no-op"})
 _ERROR = "standalone plan review is invalid or expired; request a current exact plan"
 
@@ -33,7 +37,14 @@ def validate_plan_review(review: dict[str, Any]) -> tuple[str, int]:
     stage = review.get("stage")
     summary = review.get("summary")
     if (
-        set(review) not in (_FIELDS, _FIELDS | {"service_update"})
+        set(review)
+        not in (
+            _LEGACY_FIELDS,
+            _LEGACY_FIELDS | {"service_update"},
+            _FIELDS,
+            _FIELDS | {"service_update"},
+            _FIELDS | {"historical_reconciliation"},
+        )
         or review.get("schema_version") != "fdai.standalone-application-plan.v1"
         or not isinstance(stage, str)
         or stage not in {"substrate", "runtime", "database", "application"}
@@ -68,6 +79,28 @@ def validate_plan_review(review: dict[str, Any]) -> tuple[str, int]:
         or re.fullmatch(r"[0-9a-f]{64}", service_update["update_digest"]) is None
     ):
         raise ValueError(_ERROR)
+    historical_reconciliation = review.get("historical_reconciliation")
+    if historical_reconciliation is not None and (
+        stage != "application"
+        or not isinstance(historical_reconciliation, dict)
+        or set(historical_reconciliation) != _HISTORICAL_RECONCILIATION_FIELDS
+        or historical_reconciliation.get("operation") != "historical-reconciliation"
+        or not isinstance(historical_reconciliation.get("variables_digest"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", str(historical_reconciliation["variables_digest"])) is None
+        or not isinstance(historical_reconciliation.get("mutations"), list)
+        or not historical_reconciliation["mutations"]
+        or len(historical_reconciliation["mutations"]) > 64
+        or historical_reconciliation["mutations"]
+        != sorted(set(historical_reconciliation["mutations"]))
+        or any(
+            not isinstance(item, str)
+            or not 0 < len(item) <= 512
+            or not item.isascii()
+            or not item.isprintable()
+            for item in historical_reconciliation["mutations"]
+        )
+    ):
+        raise ValueError(_ERROR)
     for key, length in (
         ("plan_digest", 64),
         ("review_digest", 64),
@@ -76,6 +109,14 @@ def validate_plan_review(review: dict[str, Any]) -> tuple[str, int]:
     ):
         value = review.get(key)
         if not isinstance(value, str) or re.fullmatch(rf"[0-9a-f]{{{length}}}", value) is None:
+            raise ValueError(_ERROR)
+    if "runtime_profile_digest" in review or "runtime_platform" in review:
+        runtime_profile_digest = review.get("runtime_profile_digest")
+        if (
+            not isinstance(runtime_profile_digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", runtime_profile_digest) is None
+            or review.get("runtime_platform") not in {"aks", "container-apps"}
+        ):
             raise ValueError(_ERROR)
     counts = summary.get("action_counts")
     if (

@@ -191,6 +191,57 @@ def test_exact_approval_still_passes_managed_host_validation(
     standalone_host._validate_approval(review, approval, context=review)
 
 
+def test_runtime_profile_bound_review_passes_exact_approval(
+    tmp_path, monkeypatch, ready_terminal
+) -> None:
+    review = _review(
+        runtime_profile_digest="e" * 64,
+        runtime_platform="aks",
+        summary={"action_counts": {"update": 1}},
+    )
+    monkeypatch.setattr("builtins.input", lambda _prompt: "application-apply")
+    monkeypatch.setattr(
+        standalone_application, "_azure_actor_digest", lambda _binding, **_kwargs: "d" * 64
+    )
+
+    approval_path = standalone_application._approve_plan(tmp_path, review)
+    approval = json.loads(approval_path.read_text())
+
+    standalone_host._validate_approval(review, approval, context=review)
+
+
+def test_historical_reconciliation_uses_distinct_exact_approval(
+    tmp_path, monkeypatch, ready_terminal
+) -> None:
+    review = _review(
+        runtime_profile_digest="e" * 64,
+        runtime_platform="aks",
+        summary={"action_counts": {"update": 1}},
+        historical_reconciliation={
+            "operation": "historical-reconciliation",
+            "variables_digest": "f" * 64,
+            "mutations": ['kubernetes_deployment_v1.workload["operator-service"]'],
+        },
+    )
+    answers: list[str] = []
+
+    def approve(_prompt: str) -> str:
+        answers.append("historical-reconciliation-apply")
+        return answers[-1]
+
+    monkeypatch.setattr("builtins.input", approve)
+    monkeypatch.setattr(
+        standalone_application, "_azure_actor_digest", lambda _binding, **_kwargs: "d" * 64
+    )
+
+    approval_path = standalone_application._approve_plan(tmp_path, review)
+    approval = json.loads(approval_path.read_text())
+
+    assert approval_path.name == "historical-reconciliation-approval.json"
+    assert answers == ["historical-reconciliation-apply"]
+    standalone_host._validate_approval(review, approval, context=review)
+
+
 def test_approval_input_wait_is_bounded_before_reading(monkeypatch):
     monkeypatch.setattr(standalone_application.sys, "stdin", SimpleNamespace(isatty=lambda: True))
     monkeypatch.setattr(
