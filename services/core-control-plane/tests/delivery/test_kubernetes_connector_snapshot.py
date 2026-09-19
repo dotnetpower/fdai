@@ -81,6 +81,79 @@ async def test_spool_to_atomic_inbox_to_inventory_source(tmp_path) -> None:
         await ConnectorInventorySource(inbox, principal_ref="example").collect()
 
 
+@pytest.mark.parametrize("operation", ["current", "duplicate"])
+async def test_snapshot_expiring_during_read_is_not_returned(tmp_path, operation) -> None:
+    clock = [NOW]
+
+    class SlowStore(InMemoryStateStore):
+        expire = False
+
+        async def read_state(self, key):
+            value = await super().read_state(key)
+            if self.expire:
+                clock[0] = NOW + timedelta(minutes=5)
+            return value
+
+    store = SlowStore()
+    outbox = ConnectorSnapshotSpool(
+        tmp_path / "spool",
+        registration=registration(),
+        stream_id="example",
+        allow_cluster_resources=False,
+    )
+    pending = await outbox.enqueue(
+        snapshot(), registration=registration(), producer_revision=REVISION, now=NOW
+    )
+    inbox = ConnectorSnapshotInbox(
+        store, registrations=Registrations(), allow_cluster_resources=False, now=lambda: clock[0]
+    )
+    await inbox.accept(pending.evidence, pending.content, principal_ref="example")
+    store.expire = True
+    with pytest.raises(ValueError):
+        if operation == "current":
+            await inbox.current(principal_ref="example")
+        else:
+            await inbox.accept(pending.evidence, pending.content, principal_ref="example")
+    assert len(list(store.audit_entries)) == 1
+
+
+async def test_post_commit_revocation_withholds_ack_and_preserves_idempotent_evidence(
+    tmp_path,
+) -> None:
+    registrations = Registrations()
+
+    class RevokingStore(InMemoryStateStore):
+        async def write_state_with_audit_if_absent(self, key, value, audit_entry):
+            created = await super().write_state_with_audit_if_absent(key, value, audit_entry)
+            registrations.registration = registration().model_copy(update={"revoked": True})
+            return created
+
+    store = RevokingStore()
+    outbox = ConnectorSnapshotSpool(
+        tmp_path / "spool",
+        registration=registration(),
+        stream_id="example",
+        allow_cluster_resources=False,
+    )
+    pending = await outbox.enqueue(
+        snapshot(), registration=registration(), producer_revision=REVISION, now=NOW
+    )
+    inbox = ConnectorSnapshotInbox(
+        store, registrations=registrations, allow_cluster_resources=False, now=lambda: NOW
+    )
+    with pytest.raises(ValueError):
+        await inbox.accept(pending.evidence, pending.content, principal_ref="example")
+    assert len(list(store.audit_entries)) == 1
+    assert await outbox.oldest() == pending
+    with pytest.raises(ValueError):
+        await inbox.current(principal_ref="example")
+    registrations.registration = registration()
+    assert (
+        await inbox.accept(pending.evidence, pending.content, principal_ref="example")
+    ).status == "duplicate"
+    assert len(list(store.audit_entries)) == 1
+
+
 async def test_inventory_job_composes_connector_source_from_environment(
     tmp_path, monkeypatch
 ) -> None:
@@ -162,3 +235,41 @@ async def test_stale_original_clock_and_forged_principal_do_not_promote(tmp_path
     clock[0] += timedelta(minutes=5)
     with pytest.raises(KubernetesApiInventoryError):
         await ConnectorInventorySource(inbox, principal_ref="example").collect()
+
+
+@pytest.mark.parametrize("operation", ["current", "duplicate"])
+async def test_registration_revoked_during_snapshot_read_is_not_admitted(
+    tmp_path, operation
+) -> None:
+    registrations = Registrations()
+
+    class RevokingStore(InMemoryStateStore):
+        revoke = False
+
+        async def read_state(self, key):
+            value = await super().read_state(key)
+            if self.revoke:
+                registrations.registration = registration().model_copy(update={"revoked": True})
+            return value
+
+    store = RevokingStore()
+    outbox = ConnectorSnapshotSpool(
+        tmp_path / "spool",
+        registration=registration(),
+        stream_id="example",
+        allow_cluster_resources=False,
+    )
+    pending = await outbox.enqueue(
+        snapshot(), registration=registration(), producer_revision=REVISION, now=NOW
+    )
+    inbox = ConnectorSnapshotInbox(
+        store, registrations=registrations, allow_cluster_resources=False, now=lambda: NOW
+    )
+    await inbox.accept(pending.evidence, pending.content, principal_ref="example")
+    store.revoke = True
+    with pytest.raises(ValueError):
+        if operation == "current":
+            await inbox.current(principal_ref="example")
+        else:
+            await inbox.accept(pending.evidence, pending.content, principal_ref="example")
+    assert len(list(store.audit_entries)) == 1

@@ -78,6 +78,7 @@ class ConnectorSnapshotInbox:
             prior, prior_content = self._validate(previous, registration)
             sequence = prior.sequence
             if prior.digest == packet.digest and prior_content == content:
+                await self._recheck(packet, registration, principal_ref=principal_ref)
                 return ConnectorAdmissionReceipt(
                     ConnectorAdmissionStatus.DUPLICATE, packet.digest, packet.sequence
                 )
@@ -85,13 +86,8 @@ class ConnectorSnapshotInbox:
                 raise ConnectorAdmissionError("connector stream changed or observation regressed")
         if packet.sequence != sequence + 1:
             raise ConnectorAdmissionError("connector snapshot sequence is not contiguous")
-        refreshed = await self._registration(principal_ref)
-        if refreshed != registration:
-            raise ConnectorAdmissionError("connector registration changed during admission")
+        await self._recheck(packet, registration, principal_ref=principal_ref)
         current = connector_time(self._now())
-        packet.admit(
-            refreshed, principal_ref=principal_ref, now=current, max_age_seconds=self._max_age
-        )
         value = {
             "revision": packet.sequence,
             "evidence": packet.model_dump(mode="json"),
@@ -115,6 +111,7 @@ class ConnectorSnapshotInbox:
                 key, value, expected_revision=sequence, audit_entry=audit
             )
         if created:
+            await self._recheck(packet, registration, principal_ref=principal_ref)
             return ConnectorAdmissionReceipt(
                 ConnectorAdmissionStatus.ACCEPTED, packet.digest, packet.sequence
             )
@@ -122,6 +119,7 @@ class ConnectorSnapshotInbox:
         if winner is not None:
             winning_packet, winning_content = self._validate(winner, registration)
             if winning_packet.digest == packet.digest and winning_content == content:
+                await self._recheck(packet, registration, principal_ref=principal_ref)
                 return ConnectorAdmissionReceipt(
                     ConnectorAdmissionStatus.DUPLICATE, packet.digest, packet.sequence
                 )
@@ -136,13 +134,19 @@ class ConnectorSnapshotInbox:
         if value is None:
             raise ConnectorAdmissionError("connector has no accepted snapshot")
         packet, content = self._validate(value, registration)
+        snapshot = decode_snapshot(content, packet, allow_cluster_resources=self._cluster_resources)
+        await self._recheck(packet, registration, principal_ref=principal_ref)
+        return snapshot
+
+    async def _recheck(
+        self, packet: ConnectorEvidence, registration: ConnectorRegistration, *, principal_ref: str
+    ) -> None:
+        refreshed = await self._registration(principal_ref)
+        if refreshed != registration:
+            raise ConnectorAdmissionError("connector registration changed during admission")
         packet.admit(
-            registration,
-            principal_ref=principal_ref,
-            now=self._now(),
-            max_age_seconds=self._max_age,
+            refreshed, principal_ref=principal_ref, now=self._now(), max_age_seconds=self._max_age
         )
-        return decode_snapshot(content, packet, allow_cluster_resources=self._cluster_resources)
 
     async def _registration(self, principal_ref: str) -> ConnectorRegistration:
         registration = await self._registrations.read(principal_ref)
