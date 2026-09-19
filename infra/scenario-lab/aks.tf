@@ -11,9 +11,9 @@ resource "azurerm_kubernetes_cluster" "scenario_lab" {
   # checkov:skip=CKV_AZURE_6:Changing local egress requires an authenticated public API without a fixed IP allowlist.
   # checkov:skip=CKV_AZURE_115:The disposable demo uses Entra, Azure RBAC, and disabled local accounts on its public API.
   # checkov:skip=CKV_AZURE_117:CMK-backed node disks add durable key infrastructure to a disposable fault target.
-  # checkov:skip=CKV_AZURE_116:The one-node lab validates fault behavior, not Azure Policy admission.
-  # checkov:skip=CKV_AZURE_232:A separate tainted system pool would double the minimum node cost.
-  # checkov:skip=CKV_AZURE_168:Thirty pods bound the one-node lab and cover the three-replica workload.
+  # checkov:skip=CKV_AZURE_116:The disposable lab validates fault behavior, not Azure Policy admission.
+  # checkov:skip=CKV_AZURE_232:A separate tainted system pool would increase the minimum node cost.
+  # checkov:skip=CKV_AZURE_168:Thirty pods per node bound the two-node lab and cover the three-replica workload.
   # checkov:skip=CKV_AZURE_170:Paid AKS SLA is not required for an approved disposable test window.
   # checkov:skip=CKV_AZURE_226:Managed OS disks avoid ephemeral-disk SKU coupling in regional labs.
   # checkov:skip=CKV_AZURE_227:Host encryption is subscription-feature and SKU gated; storage encryption remains platform-managed.
@@ -37,7 +37,7 @@ resource "azurerm_kubernetes_cluster" "scenario_lab" {
   default_node_pool {
     name                         = "system"
     vm_size                      = var.aks_node_vm_size
-    node_count                   = 1
+    node_count                   = 2
     vnet_subnet_id               = azurerm_subnet.aks.id
     only_critical_addons_enabled = false
     os_disk_type                 = "Managed"
