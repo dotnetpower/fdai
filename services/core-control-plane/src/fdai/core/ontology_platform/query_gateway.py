@@ -27,8 +27,10 @@ from fdai.shared.contracts.models import (
 )
 from fdai.shared.ontology.acl import (
     ProjectionRequest,
+    RedactedField,
     RedactionReason,
     project_graph_snapshot,
+    redact_properties,
 )
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import (
@@ -251,7 +253,39 @@ class SecuredObjectSetQueryGateway:
             as_of=definition.as_of,
             projection_request=projection_request,
         )
+        predicate_properties = {predicate.property: None for predicate in definition.predicates}
+        predicate_types = (
+            self._service.resolve_types(definition)
+            if predicate_properties or definition.object_ids
+            else ()
+        )
+        for type_name in predicate_types:
+            declaration = self._object_types[type_name]
+            checked_properties = dict(predicate_properties)
+            if definition.object_ids:
+                checked_properties[declaration.key] = None
+            projected = redact_properties(declaration, checked_properties, effective_request)
+            if any(isinstance(value, RedactedField) for value in projected.values()):
+                raise PermissionError("object-set predicate property is not readable")
+        roots = None
+        if definition.root_ids:
+            roots = await self._service.query_roots(definition.root_ids)
+            visible_roots = project_graph_snapshot(
+                roots, object_types=self._object_types, request=effective_request
+            )
+            if (
+                roots.truncated
+                or not roots.source_complete
+                or {record.id for record in visible_roots.objects} != set(definition.root_ids)
+            ):
+                raise PermissionError("object-set traversal roots are not authorized")
         materialization = await self._service.materialize(definition)
+        if (
+            roots is not None
+            and roots.source_generation is not None
+            and roots.source_generation != materialization.graph.source_generation
+        ):
+            raise ValueError("object-set traversal source generation changed")
         return await self._secure(
             materialization,
             definition=definition,

@@ -28,6 +28,18 @@ evaluation gates, and failed-query feedback loop.
 > input- and result-bound evaluation receipts for allow and deny outcomes. Retrieval still cannot
 > claim a verdict without that evaluation receipt.
 
+## Search execution boundaries
+
+Both adapters use the same bilingual lexical scorer, configurable finite ranking weights,
+minimum score, and stable identifier tie order. Exact authorized identifier lookup does not require
+an embedding call. PostgreSQL still verifies active generation identity before returning candidates.
+Its bounded document cache checks ordered MVCC row versions and transaction epoch on every read;
+changed rows invalidate cached validation, and rows modified in the current transaction are never
+cached. The 36-case local adapter cohort covers 24 English/Korean positive queries, eight no-match
+queries, and four exact identifiers with an unavailable embedder. This tests retrieval mechanics,
+not live embedding relevance, language-model accuracy, or promotion eligibility. The historical
+seven-case promotion fixture remains a separate, small evidence set.
+
 ## Implementation status
 
 ### Implementation scope

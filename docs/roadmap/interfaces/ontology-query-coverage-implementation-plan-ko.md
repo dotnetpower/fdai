@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 810cb3a995fed800f379d6de9440a2d51bc8e069
-translation_revised: 2026-09-17
+translation_source_sha: bcc8353b4317889ca297b92761435ee13d3f8dab
+translation_revised: 2026-09-20
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -60,7 +60,7 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 > **운영 preflight 의미 판단:** F1-F4, 현재 리소스 모음 및 정확한 Resource 현재 상태 요청 하나를 포함하는 검토된 형식에서는
 > Compact T1
 > preflight가 출처가 결속된 후보 의미를 제공해 두 번째 직렬 의미 판단 호출을 생략할 수 있습니다.
-> Core는 명시적이고 맥락과 독립적인 요청, 0.90 이상의 확신도, 현재 발화의 정확한 원문 범위,
+> Core는 명시적이고 맥락과 독립적인 요청, 0.75 이상의 확신도, 현재 발화의 정확한 원문 범위,
 > 지원되는 한 시간 정규화, 유형별 대상 및 facet 형식, 기존 principal 매니페스트를 모두 확인한
 > 경우에만 이를 수락합니다. 일치하지 않으면 전체 의미 판단을 유지합니다.
 > 리소스 모음 제안은 canonical 피연산자 없이 원문에 근거한 하위 유형 또는 범주 필터 하나와 현재
@@ -88,7 +88,7 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 > 근거가 있는 이름과 타입으로 Resource Group 객체를 선택합니다. 이 대상은 하위 리소스 구성원
 > 조회로 바뀔 수 없습니다.
 >
-> **구현 상태(2026-08-10):** Exact 온톨로지 release, 의미 후보, 범위가 제한된 ObjectSet, secured 조회
+> **과거 기준선(2026-08-10, 현재 라우팅이 아님):** Exact 온톨로지 release, 의미 후보, 범위가 제한된 ObjectSet, secured 조회
 > 증적, 타입이 지정된 함수 등록, 현재 인벤토리 변환 결과, 메트릭 프로바이더 및 causal-analysis
 > 기본 요소가 있습니다. 운영 경로는 여전히 정규식/토큰 라우팅과 선택적인 serial 2-3 명령
 > 읽기 계획을 사용합니다. 서버 측 의도 그래프, principal 범위로 한정된 release 기반 조회
@@ -200,6 +200,13 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 
 ## 구현 상태
 
+현재 플래너는 정확한 매니페스트에서 구성하고 검증한 principal 범위의 선언 후보 인덱스를 사용합니다.
+후보 순위는 의도를 선택하거나 전체 매니페스트를 기준으로 하는 계획 검증을 대신하지 않습니다.
+후보 수와 제외 수를 명시하고 보조 의도에 필요한 선언을 보존하며, 기능 정보가 예산을 넘으면
+뒷부분을 조용히 버리지 않고 보류합니다. 프로세스 내부 선언 세대는 카탈로그의 읽기 변환 결과이며,
+영속 운영 인스턴스 인덱스나 Rule 활성화가 아닙니다. 위의 날짜가 있는 기준선은 과거 기록이고
+현재 구현 상태는 이 절에서 관리합니다.
+
 ### 구현 범위
 
 | 영역 | 상태 | 근거 | 참고 |
@@ -236,6 +243,8 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-19 | implemented | 범위가 결속된 조회 인가, 과거 release 해석, 원본 세대, 정확한 연산, 취소, 후보 계상과 영속 어댑터의 일치에 대해 로컬 비평 10회를 완료했습니다. | `current change`, 담당 경로 통합 검사 1,888개 통과 및 기존 tsc 부재 1개 건너뜀, 분리된 PostgreSQL 검사 3개, 소스 22개 strict mypy, composition 소유권 39개 통과 | 영속 운영 인스턴스 의미 인덱스, 운영 임베딩의 독립 관련성 평가, 정확한 소스의 통제된 실제 운영 인증은 남아 있습니다. 전체 질의 완료나 운영 준비 완료를 주장하지 않습니다. |
+| 2026-09-19 | in-progress | 조회 인가, principal 범위 증적, 과거 release, 관계 탐색, 정확한 수치 연산, 취소, 원본 세대, 후보 선택과 영속 검색의 일치를 보강했습니다. 운영 사전 판단 기준을 구현된 0.75로 맞췄습니다. | `current change`, 조회·계획·조립 및 분리된 PostgreSQL 집중 회귀, 변경된 소스 21개의 strict mypy | 최종 비평과 정확한 소스의 검증을 마무리합니다. 로컬 고정본은 통제된 실제 운영 인증을 대신하지 않습니다. |
 | 2026-09-17 | implemented | 병합된 Trace 표시 카탈로그가 소스 digest를 변경한 뒤 질문 bank와 semantic-intent coverage 출처 이력을 다시 생성했습니다. 질문 identity, coverage 상태 및 권한은 바뀌지 않습니다. | `current change`, canonical generator, 집중 아티팩트 parity 테스트 | 런타임 또는 승격 주장을 추가하지 않습니다. |
 | 2026-09-17 | implemented | 새로 병합된 Console 카탈로그 byte로 인해 이전 아티팩트가 무효화된 뒤 질문 bank와 이에 의존하는 semantic inventory 소스 commitment를 다시 생성했습니다. | `current change`, canonical builder, 집중 질문 bank 및 semantic coverage 테스트 12개 통과, 질문 identity 400개와 coverage gap 변경 없음 | #1241의 exact-head 보호 전달이며 model 또는 실제 campaign은 실행하지 않았습니다. |
 | 2026-09-17 | implemented | 이후 Agent Activity Console 카탈로그 갱신이 권위 있는 소스 digest를 다시 변경한 뒤 질문 bank와 이에 의존하는 semantic-intent coverage를 함께 다시 생성했습니다. 질문 identity, coverage, readiness 및 실행 권한은 바뀌지 않습니다. | `current change`, 공식 generator 2개, 집중 아티팩트 parity 테스트 | 실제 또는 승격 주장을 추가하지 않습니다. |

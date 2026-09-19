@@ -41,7 +41,7 @@ Coverage-inventory regeneration follows question-bank source changes, including 
 > **Operational preflight judgment:** For reviewed shapes covering F1-F4, current Resource
 > collections, and one exact Resource current-state request, compact T1
 > preflight can provide provenance-bound candidate meaning and avoid a second serial judgment call.
-> Core accepts it only for an explicit, context-independent request with at least 0.90 confidence,
+> Core accepts it only for an explicit, context-independent request with at least 0.75 confidence,
 > exact current-utterance spans, supported one-hour canonicalization, a family-specific target and
 > facet shape, and the ordinary principal manifest. Any mismatch retains full semantic judgment.
 > A Resource collection proposal can carry one source-grounded subtype or category filter and one
@@ -69,7 +69,7 @@ Coverage-inventory regeneration follows question-bank source changes, including 
 > `resource_group` target is rejected as an incompatible typed combination and retried before
 > planning. In contrast, a `resource_group` target with explicit collection, list, and name-filter facets selects Resource Group objects by grounded name and type with relationships disabled; it cannot become a child-resource membership query.
 >
-> **Implementation status (2026-08-10):** Exact ontology releases, semantic candidates, bounded
+> **Historical baseline (2026-08-10, not current routing):** Exact ontology releases, semantic candidates, bounded
 > ObjectSets, secured query receipts, typed function registration, current inventory projection,
 > metric providers, and causal-analysis primitives exist. The production path still uses regex and
 > token routing plus an optional serial two-to-three-command read plan. A server-side intent graph,
@@ -185,6 +185,13 @@ Coverage-inventory regeneration follows question-bank source changes, including 
 
 ## Implementation status
 
+Current planning uses a principal-scoped declaration candidate index built and validated from the
+exact manifest. Ranking cannot select an intent or replace full-manifest plan verification.
+Candidate counts and omissions remain explicit, secondary intents retain their declarations, and
+an oversized capability projection holds instead of silently dropping its tail. The in-process
+declaration generation is a catalog read projection, not a durable operational-instance index or
+a Rule activation. The dated baseline above is retained history; this section owns current status.
+
 ### Implementation scope
 
 | Area | State | Evidence | Notes |
@@ -221,6 +228,8 @@ Coverage-inventory regeneration follows question-bank source changes, including 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-19 | implemented | Completed ten local critique rounds for scoped query authorization, historical release interpretation, source lineage, exact algebra, cancellation, candidate accounting, and durable adapter parity. | `current change`; integrated owning checks: 1,888 passed and one existing tsc-unavailable skip; isolated PostgreSQL: three passed; strict mypy: 22 sources; composition ownership: 39 passed. | Durable operational-instance semantic indexing, production-embedder held-out relevance, and exact-source governed live certification remain open. No all-query or production-ready claim. |
+| 2026-09-19 | in-progress | Hardened query authorization, scoped receipts, historical releases, traversal, exact arithmetic, cancellation, source lineage, candidate selection, and durable search parity. Reconciled operational preflight to the implemented 0.75 threshold. | `current change`; focused query, planning, composition, and isolated PostgreSQL regressions; strict mypy over 21 changed source files. | Complete the final critique rounds and exact-source verification. Local fixtures do not satisfy governed live certification. |
 | 2026-09-17 | implemented | Regenerated question-bank and semantic-intent coverage provenance after the merged Trace presentation catalog changed their source digest. Question identities, coverage states, and authority remain unchanged. | `current change`; canonical generators; focused artifact parity tests | No runtime or promotion claim is added. |
 | 2026-09-17 | implemented | Regenerated question-bank and dependent semantic inventory source commitments after newly merged Console catalog bytes invalidated the previous artifacts. | `current change`; canonical builders; 12 focused question-bank and semantic-coverage tests passed; 400 question identities and coverage gaps unchanged. | Exact-head protected delivery under #1241; no model or live campaign was run. |
 | 2026-09-17 | implemented | Regenerated the question bank and dependent semantic-intent coverage together after a later Agent Activity Console catalog update changed their authoritative source digest again. Question identity, coverage, readiness, and execution authority remain unchanged. | `current change`; both official generators; focused artifact parity tests | No live or promotion claim is added. |

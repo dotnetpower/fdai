@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, datetime
 
+import pytest
 from fdai.core.ontology_platform import (
     QueryNodeResult,
     TopologyAtNodeHandler,
@@ -16,9 +17,11 @@ from fdai.core.ontology_platform import (
     graph_at,
     topology_diff,
 )
+from fdai.core.ontology_platform.query_execution import QueryNodeHeldError
 from fdai.core.ontology_platform.topology_history import _digest
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKind, canonical_json
+from tests.core.ontology_platform.test_query_gateway import _object_type, _request
 
 T0 = datetime(2026, 8, 10, 0, tzinfo=UTC)
 T1 = datetime(2026, 8, 10, 1, tzinfo=UTC)
@@ -302,7 +305,12 @@ async def test_topology_query_handlers_materialize_and_diff_retained_views() -> 
         source_receipt_digest=RELEASE_DIGEST,
         link_revisions=(_peering(effective_at=T1, recorded_at=T1, deleted=True),),
     )
-    at_handler = TopologyAtNodeHandler(_Reader((baseline, removal)))
+    at_handler = TopologyAtNodeHandler(
+        _Reader((baseline, removal)),
+        expected_release_digest=RELEASE_DIGEST,
+        object_types={"Resource": _object_type()},
+        projection_request=_request(),
+    )
 
     async def materialize(node_id: str, at: datetime) -> QueryNodeResult:
         return await at_handler(
@@ -332,3 +340,64 @@ async def test_topology_query_handlers_materialize_and_diff_retained_views() -> 
     assert isinstance(result.value, TopologyDiff)
     assert result.value.removed_link_keys == ("vnet-a|peered_with|vnet-b",)
     assert result.evidence_refs[-1].startswith("topology-diff:sha256:")
+
+
+async def test_historical_query_projects_private_properties_and_rejects_foreign_release() -> None:
+    revision = TopologyObjectRevision.upsert(
+        OntologyObjectRecord(
+            id="resource-a",
+            object_type="Resource",
+            properties={"id": "resource-a", "operator_note": "private-value"},
+        ),
+        effective_at=T0,
+        recorded_at=T0,
+        evidence_ref="evidence:historical",
+    )
+    batch = TopologyRevisionBatch(
+        revision_id="revision-a",
+        provider_generation_ref="generation-a",
+        effective_at=T0,
+        recorded_at=T0,
+        complete_snapshot=True,
+        ontology_release_digest=RELEASE_DIGEST,
+        source_receipt_digest=RELEASE_DIGEST,
+        object_revisions=(revision,),
+    )
+    node = OntologyQueryNode(
+        node_id="history",
+        kind=QueryNodeKind.TOPOLOGY_AT,
+        arguments_json=canonical_json({"as_of": T0.isoformat(), "known_at": T1.isoformat()}),
+        output_kind="topology.graph",
+    )
+    result = await TopologyAtNodeHandler(
+        _Reader((batch,)),
+        expected_release_digest=RELEASE_DIGEST,
+        object_types={"Resource": _object_type()},
+        projection_request=_request(principal_scope_digest=RELEASE_DIGEST),
+    )(node, {})
+    assert result.value.graph.objects[0].properties["operator_note"] == "[redacted]"
+    assert result.value.digest != graph_at((batch,), as_of=T0, known_at=T1).digest
+    with pytest.raises(QueryNodeHeldError, match="topology_release_unavailable"):
+        await TopologyAtNodeHandler(
+            _Reader((batch,)),
+            expected_release_digest="sha256:" + "b" * 64,
+            object_types={"Resource": _object_type()},
+            projection_request=_request(),
+        )(node, {})
+    with pytest.raises(PermissionError, match="authorized projection"):
+        await TopologyAtNodeHandler(_Reader((batch,)))(node, {})
+    with pytest.raises(QueryNodeHeldError, match="topology_release_unavailable"):
+        await TopologyAtNodeHandler(
+            _Reader((replace(batch, ontology_release_digest=None),)),
+            expected_release_digest=RELEASE_DIGEST,
+            object_types={"Resource": _object_type()},
+            projection_request=_request(),
+        )(node, {})
+    with pytest.raises(ValueError, match="not in the future"):
+        await TopologyAtNodeHandler(
+            _Reader((batch,)),
+            expected_release_digest=RELEASE_DIGEST,
+            object_types={"Resource": _object_type()},
+            projection_request=_request(),
+            now=lambda: T0,
+        )(node, {})

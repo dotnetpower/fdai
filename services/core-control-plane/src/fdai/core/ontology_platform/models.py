@@ -134,6 +134,9 @@ class RelationshipTraversalDefinition(ContractBase):
     as_of: datetime
     purpose: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")]
     limit: int = Field(default=100, ge=1, le=1000)
+    freshness_seconds: int | None = Field(
+        default=None, ge=1, le=86_400, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def _bounded_traversal(self) -> RelationshipTraversalDefinition:
@@ -160,6 +163,9 @@ class TypedPathDefinition(ContractBase):
     as_of: datetime
     purpose: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")]
     limit: int = Field(default=100, ge=1, le=1000)
+    freshness_seconds: int | None = Field(
+        default=None, ge=1, le=86_400, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def _bounded_path(self) -> TypedPathDefinition:

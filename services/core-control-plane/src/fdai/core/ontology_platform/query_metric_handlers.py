@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 from datetime import datetime
 from typing import Any
@@ -91,9 +91,11 @@ class MetricSeriesNodeHandler:
         *,
         registry: MetricSemanticRegistry,
         provider: MetricWindowProvider,
+        authorize_resource: Callable[[str], Awaitable[None]] | None = None,
     ) -> None:
         self._registry = registry
         self._provider = provider
+        self._authorize_resource = authorize_resource
 
     async def __call__(
         self,
@@ -109,6 +111,9 @@ class MetricSeriesNodeHandler:
         start = _timestamp(node.arguments["start"], "start")
         end = _timestamp(node.arguments["end"], "end")
         definition = self._registry.resolve(concept_id)
+        if self._authorize_resource is None:
+            raise PermissionError("metric source requires authorized Resource evidence")
+        await self._authorize_resource(resource_id)
         result = await self._provider.read(
             definition=definition,
             resource_id=resource_id,
@@ -166,17 +171,19 @@ class MetricScopeSeriesNodeHandler:
         start = _timestamp(node.arguments["start"], "start")
         end = _timestamp(node.arguments["end"], "end")
         definition = self._registry.resolve(concept_id)
-        if not resource_ids:
+        if len(resource_ids) != 1:
             result = MetricWindow(
                 concept_id=concept_id,
-                resource_id="scope:none",
+                resource_id="scope:none" if not resource_ids else "scope:multiple",
                 unit=definition.canonical_unit,
                 start=start,
                 end=end,
                 samples=(),
                 complete=False,
                 evidence_refs=dependency.evidence_refs,
-                missing_reason="no_visible_resource",
+                missing_reason="no_visible_resource"
+                if not resource_ids
+                else "object_scope_ambiguous",
             )
             return QueryNodeResult(
                 value=result,

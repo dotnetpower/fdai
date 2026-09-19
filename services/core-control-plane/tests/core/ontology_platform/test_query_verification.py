@@ -463,7 +463,7 @@ def test_verifier_accepts_typed_temporal_metric_causal_dag() -> None:
                 {
                     "concept_id": "network.change",
                     "resource_id": "resource-a",
-                    "start": NOW.isoformat(),
+                    "start": (NOW - timedelta(minutes=5)).isoformat(),
                     "end": NOW.isoformat(),
                 }
             ),
@@ -476,7 +476,7 @@ def test_verifier_accepts_typed_temporal_metric_causal_dag() -> None:
                 {
                     "concept_id": "storage.write.success",
                     "resource_id": "resource-a",
-                    "start": NOW.isoformat(),
+                    "start": (NOW - timedelta(minutes=5)).isoformat(),
                     "end": NOW.isoformat(),
                 }
             ),

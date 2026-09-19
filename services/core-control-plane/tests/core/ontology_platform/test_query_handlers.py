@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
@@ -85,16 +86,16 @@ async def test_set_operations_are_identity_stable_and_propagate_incompleteness()
     intersection = await SetOperationNodeHandler("intersection")(
         _node(QueryNodeKind.INTERSECTION, dependencies=("left", "right")), dependencies
     )
-    subtraction = await SetOperationNodeHandler("subtraction")(
-        _node(QueryNodeKind.SUBTRACTION, dependencies=("left", "right")), dependencies
-    )
+    with pytest.raises(RuntimeError, match="subtraction_exclusion_scope_incomplete"):
+        await SetOperationNodeHandler("subtraction")(
+            _node(QueryNodeKind.SUBTRACTION, dependencies=("left", "right")), dependencies
+        )
 
     assert isinstance(union.value, QueryTable)
     assert [row.row_id for row in union.value.rows] == ["a", "b", "c"]
     assert union.value.complete is False
     assert union.value.truncation_reason == "source_limit"
     assert [row.row_id for row in intersection.value.rows] == ["b"]
-    assert [row.row_id for row in subtraction.value.rows] == ["a"]
     assert union.evidence_refs[:2] == ("evidence:left", "evidence:right")
 
 
@@ -156,6 +157,108 @@ async def test_order_project_and_aggregate_preserve_typed_bounds() -> None:
         {"group": {"team": "blue"}, "operation": "average", "value": "3"},
         {"group": {"team": "red"}, "operation": "average", "value": "3"},
     ]
+
+
+async def test_large_sum_preserves_all_integer_digits() -> None:
+    value = 123456789012345678901234567890
+    result = await AggregateNodeHandler()(
+        _node(
+            QueryNodeKind.AGGREGATE,
+            dependencies=("source",),
+            arguments={"operation": "sum", "field": "value"},
+        ),
+        {"source": QueryNodeResult(_table(("a", {"value": value}), ("b", {"value": 1})))},
+    )
+    assert result.value.rows[0].values["value"] == str(value + 1)
+
+
+async def test_aggregate_numeric_order_survives_projection() -> None:
+    aggregate = await AggregateNodeHandler()(
+        _node(
+            QueryNodeKind.AGGREGATE,
+            dependencies=("source",),
+            arguments={"operation": "sum", "field": "value", "group_by": ["group"]},
+        ),
+        {
+            "source": QueryNodeResult(
+                _table(("a", {"value": 9, "group": "a"}), ("b", {"value": 10, "group": "b"}))
+            )
+        },
+    )
+    projected = await ProjectNodeHandler()(
+        _node(QueryNodeKind.PROJECT, dependencies=("source",), arguments={"fields": ["value"]}),
+        {"source": aggregate},
+    )
+    ordered = await OrderNodeHandler()(
+        _node(
+            QueryNodeKind.ORDER,
+            dependencies=("source",),
+            arguments={"keys": [{"field": "value", "direction": "descending"}]},
+        ),
+        {"source": projected},
+    )
+    assert [row.values["value"] for row in ordered.value.rows] == ["10", "9"]
+    assert ordered.value.numeric_fields == ("value",)
+    repeated = await AggregateNodeHandler()(
+        _node(
+            QueryNodeKind.AGGREGATE,
+            dependencies=("source",),
+            arguments={"operation": "sum", "field": "value"},
+        ),
+        {"source": projected},
+    )
+    assert repeated.value.rows[0].values["value"] == "19"
+
+
+async def test_set_operation_rejects_mixed_generations_and_preserves_source_lineage() -> None:
+    first = replace(_table(("a", {"value": 1})), source_generation="generation-a")
+    second = replace(_table(("b", {"value": 2})), source_generation="generation-b")
+    node = _node(QueryNodeKind.UNION, dependencies=("left", "right"))
+    with pytest.raises(RuntimeError, match="query_source_generation_conflict"):
+        await SetOperationNodeHandler("union")(
+            node, {"left": QueryNodeResult(first), "right": QueryNodeResult(second)}
+        )
+    result = await SetOperationNodeHandler("union")(
+        node,
+        {
+            "left": QueryNodeResult(first),
+            "right": QueryNodeResult(replace(second, source_generation="generation-a")),
+        },
+    )
+    assert result.value.source_generation == "generation-a"
+
+
+async def test_large_union_is_explicitly_truncated() -> None:
+    result = await SetOperationNodeHandler("union")(
+        _node(QueryNodeKind.UNION, dependencies=("left", "right")),
+        {
+            side: QueryNodeResult(
+                _table(*((f"{side}-{index}", {"value": index}) for index in range(600)))
+            )
+            for side in ("left", "right")
+        },
+    )
+    assert len(result.value.rows) == 1000
+    assert result.value.complete is False
+    assert result.value.truncation_reason == "result_limit"
+
+
+async def test_optional_property_projects_null_and_sorts_last() -> None:
+    result = await ProjectNodeHandler()(
+        _node(QueryNodeKind.PROJECT, dependencies=("source",), arguments={"fields": ["optional"]}),
+        {"source": QueryNodeResult(_table(("a", {"optional": 1}), ("b", {})))},
+    )
+    assert result.value.rows[1].values == {"optional": None}
+    for direction in ("ascending", "descending"):
+        ordered = await OrderNodeHandler()(
+            _node(
+                QueryNodeKind.ORDER,
+                dependencies=("source",),
+                arguments={"keys": [{"field": "optional", "direction": direction}]},
+            ),
+            {"source": result},
+        )
+        assert [row.row_id for row in ordered.value.rows] == ["a", "b"]
 
 
 async def test_empty_global_count_is_complete_zero() -> None:

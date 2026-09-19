@@ -178,6 +178,12 @@ class OntologyQueryPlanVerifier:
                 _field(item["field"])
                 if item["direction"] not in {"ascending", "descending"}:
                     raise ValueError("order direction is unsupported")
+            self._verify_dependency_fields(
+                node,
+                fields=tuple(_field(item["field"]) for item in keys),
+                nodes_by_id=nodes_by_id,
+                descriptors=descriptors,
+            )
             _optional_limit(arguments)
             return
         if node.kind is QueryNodeKind.PROJECT:
@@ -189,6 +195,12 @@ class OntologyQueryPlanVerifier:
             normalized = tuple(_field(item) for item in fields)
             if len(normalized) != len(set(normalized)):
                 raise ValueError("project fields MUST be unique")
+            self._verify_dependency_fields(
+                node,
+                fields=normalized,
+                nodes_by_id=nodes_by_id,
+                descriptors=descriptors,
+            )
             return
         if node.kind is QueryNodeKind.AGGREGATE:
             self._verify_table_dependencies(node, nodes_by_id=nodes_by_id, minimum=1, expected=1)
@@ -241,6 +253,8 @@ class OntologyQueryPlanVerifier:
             and arguments.get("concept_id") not in self._reviewed_metric_concepts
         ):
             raise ValueError("metric concept is absent from the reviewed registry")
+        if node.kind in _METRIC_KINDS:
+            _metric_interval(arguments)
 
     @staticmethod
     def _verify_temporal_dependencies(
@@ -638,6 +652,13 @@ class OntologyQueryPlanVerifier:
             raise ValueError("query table node has an invalid dependency count")
         if any(nodes_by_id[item].output_kind != "query.table" for item in node.depends_on):
             raise ValueError("query table node dependencies MUST output query.table")
+
+
+def _metric_interval(arguments: Mapping[str, Any]) -> None:
+    start = _timestamp(arguments.get("start"), "metric.start")
+    end = _timestamp(arguments.get("end"), "metric.end")
+    if not 0 < (end - start).total_seconds() <= 31 * 86_400:
+        raise ValueError("metric interval MUST be positive and at most 31 days")
 
 
 def _verify_keys(

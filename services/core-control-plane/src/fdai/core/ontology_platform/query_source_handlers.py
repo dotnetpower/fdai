@@ -35,7 +35,7 @@ from .query_gateway import (
     SecuredOntologyInstancePathReceipt,
 )
 from .query_receipt_authority import SecuredQueryReceiptAuthority, secured_query_scope_digest
-from .query_values import QueryRow, QueryTable
+from .query_values import QueryRow, QueryTable, relationship_endpoint_table
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,6 +49,7 @@ class SecuredObjectSetNodeHandler:
         *,
         caller_role: CeilingRole,
         purposes: Sequence[str],
+        principal_scope_digest: str | None = None,
         receipt_authority: SecuredQueryReceiptAuthority | None = None,
         decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
         graph_refresher: SecuredGraphEvidenceQueryRefresher | None = None,
@@ -57,6 +58,7 @@ class SecuredObjectSetNodeHandler:
         self._request = ProjectionRequest(
             caller_role=caller_role,
             declared_purposes=frozenset(purposes),
+            principal_scope_digest=principal_scope_digest,
         )
         self._receipt_authority = receipt_authority
         self._decision_evidence = decision_evidence
@@ -118,16 +120,20 @@ class SecuredRelationshipTraversalNodeHandler:
         *,
         caller_role: CeilingRole,
         purposes: Sequence[str],
+        principal_scope_digest: str | None = None,
         receipt_authority: SecuredQueryReceiptAuthority | None = None,
         decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
+        graph_refresher: SecuredGraphEvidenceQueryRefresher | None = None,
     ) -> None:
         self._gateway = gateway
         self._request = ProjectionRequest(
             caller_role=caller_role,
             declared_purposes=frozenset(purposes),
+            principal_scope_digest=principal_scope_digest,
         )
         self._receipt_authority = receipt_authority
         self._decision_evidence = decision_evidence
+        self._graph_refresher = graph_refresher
 
     async def __call__(
         self,
@@ -157,10 +163,18 @@ class SecuredRelationshipTraversalNodeHandler:
             as_of=traversal.as_of,
             purpose=traversal.purpose,
             limit=traversal.limit,
+            freshness_seconds=traversal.freshness_seconds,
         )
         secured = await self._gateway.materialize(
             definition,
             projection_request=self._request,
+        )
+        secured = await _refresh_traversal_result(
+            secured,
+            definition=definition,
+            request=self._request,
+            refresher=self._graph_refresher,
+            expected_generation=dependency.source_generation,
         )
         if self._receipt_authority is not None:
             await _issue_secured_result(
@@ -173,6 +187,7 @@ class SecuredRelationshipTraversalNodeHandler:
             root_ids=(dependency.rows[0].row_id,),
             link_type=traversal.link_types[0],
             direction=traversal.direction,
+            max_depth=traversal.max_depth,
         )
         return QueryNodeResult(
             value=table,
@@ -192,25 +207,17 @@ def _relationship_traversal_table(
     root_ids: tuple[str, ...],
     link_type: str,
     direction: str,
+    max_depth: int = 1,
 ) -> QueryTable:
     """Return only endpoints reached from the dependency roots."""
 
-    roots = set(root_ids)
-    reached: set[str] = set()
-    for link in secured.materialization.graph.links:
-        if link.link_type != link_type:
-            continue
-        if direction == "outgoing" and link.from_id in roots:
-            reached.add(link.to_id)
-        elif direction == "incoming" and link.to_id in roots:
-            reached.add(link.from_id)
-    raw_table = _secured_query_table(secured)
-    if not reached:
-        reached = {row.row_id for row in raw_table.rows if row.row_id not in roots}
-    return QueryTable(
-        rows=tuple(row for row in raw_table.rows if row.row_id in reached),
-        complete=raw_table.complete,
-        truncation_reason=raw_table.truncation_reason,
+    return relationship_endpoint_table(
+        _secured_query_table(secured),
+        secured.materialization.graph,
+        root_ids=root_ids,
+        link_type=link_type,
+        direction=direction,
+        max_depth=max_depth,
     )
 
 
@@ -223,16 +230,20 @@ class SecuredTypedPathNodeHandler:
         *,
         caller_role: CeilingRole,
         purposes: Sequence[str],
+        principal_scope_digest: str | None = None,
         receipt_authority: SecuredQueryReceiptAuthority | None = None,
         decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
+        graph_refresher: SecuredGraphEvidenceQueryRefresher | None = None,
     ) -> None:
         self._gateway = gateway
         self._request = ProjectionRequest(
             caller_role=caller_role,
             declared_purposes=frozenset(purposes),
+            principal_scope_digest=principal_scope_digest,
         )
         self._receipt_authority = receipt_authority
         self._decision_evidence = decision_evidence
+        self._graph_refresher = graph_refresher
 
     async def __call__(
         self,
@@ -266,10 +277,18 @@ class SecuredTypedPathNodeHandler:
                 as_of=path.as_of,
                 purpose=path.purpose,
                 limit=path.limit,
+                freshness_seconds=path.freshness_seconds,
             )
             secured = await self._gateway.materialize(
                 definition,
                 projection_request=self._request,
+            )
+            secured = await _refresh_traversal_result(
+                secured,
+                definition=definition,
+                request=self._request,
+                refresher=self._graph_refresher,
+                expected_generation=current.source_generation,
             )
             if self._receipt_authority is not None:
                 await _issue_secured_result(
@@ -277,12 +296,12 @@ class SecuredTypedPathNodeHandler:
                     secured,
                     provider=self._decision_evidence,
                 )
-            current = _typed_path_step_table(
+            current = _relationship_traversal_table(
                 secured,
                 root_ids=root_ids,
                 link_type=step.link_type,
                 direction=step.direction,
-                max_hops=step.max_hops,
+                max_depth=step.max_hops,
             )
             evidence_refs.extend(
                 (
@@ -308,6 +327,11 @@ class SecuredTypedPathNodeHandler:
                 ),
                 projection_request=self._request,
             )
+            if (
+                current.source_generation is not None
+                and output.receipt.source_generation != current.source_generation
+            ):
+                raise QueryNodeHeldError("query_source_generation_conflict")
             if not output.receipt.complete or {
                 item.id for item in output.materialization.graph.objects
             } != set(endpoint_ids):
@@ -329,6 +353,25 @@ class SecuredTypedPathNodeHandler:
             evidence_refs=tuple(dict.fromkeys(evidence_refs)),
             authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         )
+
+
+async def _refresh_traversal_result(
+    secured: SecuredObjectSetQueryResult,
+    *,
+    definition: ObjectSetDefinition,
+    request: ProjectionRequest,
+    refresher: SecuredGraphEvidenceQueryRefresher | None,
+    expected_generation: str | None,
+) -> SecuredObjectSetQueryResult:
+    if definition.freshness_seconds is not None:
+        if refresher is None:
+            raise QueryNodeHeldError("graph_freshness_unavailable")
+        secured = await refresher.refresh(
+            definition=definition, projection_request=request, secured=secured
+        )
+    if expected_generation is not None and secured.receipt.source_generation != expected_generation:
+        raise QueryNodeHeldError("query_source_generation_conflict")
+    return secured
 
 
 class SecuredOntologyInstancePathNodeHandler:
@@ -527,37 +570,6 @@ async def _issue_secured_result(
     authority.issue(result, admission)
 
 
-def _typed_path_step_table(
-    secured: SecuredObjectSetQueryResult,
-    *,
-    root_ids: tuple[str, ...],
-    link_type: str,
-    direction: str,
-    max_hops: int,
-) -> QueryTable:
-    """Return only endpoints reached by one typed step, excluding carried roots."""
-
-    roots = set(root_ids)
-    reached: set[str] = set()
-    for link in secured.materialization.graph.links:
-        if link.link_type != link_type:
-            continue
-        if direction == "outgoing" and link.from_id in roots:
-            reached.add(link.to_id)
-        elif direction == "incoming" and link.to_id in roots:
-            reached.add(link.from_id)
-    raw_table = _secured_query_table(secured)
-    if max_hops > 1:
-        reached = {row.row_id for row in raw_table.rows if row.row_id not in roots}
-    if not reached:
-        reached = {row.row_id for row in raw_table.rows if row.row_id not in roots}
-    return QueryTable(
-        rows=tuple(row for row in raw_table.rows if row.row_id in reached),
-        complete=raw_table.complete,
-        truncation_reason=raw_table.truncation_reason,
-    )
-
-
 class FunctionNodeHandler:
     """Invoke one exact-release query, derive, or validate function with a receipt."""
 
@@ -695,11 +707,16 @@ def _function_value(value: object) -> object:
 
 
 def _query_table(value: object) -> QueryTable:
-    if not isinstance(value, Mapping) or set(value) != {
+    required = {
         "rows",
         "complete",
         "truncation_reason",
-    }:
+    }
+    if (
+        not isinstance(value, Mapping)
+        or not required <= set(value)
+        or set(value) - required - {"numeric_fields", "source_generation"}
+    ):
         raise ValueError("query.table function output is malformed")
     raw_rows = value["rows"]
     if not isinstance(raw_rows, list):
@@ -718,10 +735,20 @@ def _query_table(value: object) -> QueryTable:
         truncation_reason is not None and not isinstance(truncation_reason, str)
     ):
         raise ValueError("query.table function completeness is malformed")
+    numeric_fields = value.get("numeric_fields", [])
+    if not isinstance(numeric_fields, list) or not all(
+        isinstance(field, str) for field in numeric_fields
+    ):
+        raise ValueError("query.table numeric fields MUST be a list of identifiers")
+    source_generation = value.get("source_generation")
+    if source_generation is not None and not isinstance(source_generation, str):
+        raise ValueError("query.table source generation MUST be a string")
     return QueryTable(
         rows=tuple(rows),
         complete=complete,
         truncation_reason=truncation_reason,
+        numeric_fields=tuple(numeric_fields),
+        source_generation=source_generation,
     )
 
 
@@ -747,6 +774,7 @@ def _secured_query_table(secured: SecuredObjectSetQueryResult) -> QueryTable:
         ),
         complete=secured.receipt.complete,
         truncation_reason=limitation,
+        source_generation=secured.receipt.source_generation,
     )
 
 

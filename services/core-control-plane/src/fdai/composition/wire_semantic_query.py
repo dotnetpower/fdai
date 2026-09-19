@@ -20,7 +20,6 @@ from fdai.core.conversation.semantic_manifest import (
 )
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_models import (
-    CompleteManifestSelector,
     SemanticPlanningModel,
 )
 from fdai.core.conversation.session import Principal
@@ -29,14 +28,12 @@ from fdai.core.ontology_platform import (
     TOPOLOGY_ARGUMENT_SCHEMAS,
     AggregateNodeHandler,
     EvidenceJoinNodeHandler,
-    FunctionInvocationContext,
     FunctionNodeHandler,
     MetricComparisonNodeHandler,
     MetricScopeSeriesNodeHandler,
     MetricSemanticRegistry,
     MetricSeriesNodeHandler,
     MetricWindowProvider,
-    ObjectSetDefinition,
     ObjectSetService,
     OntologyFunctionRegistry,
     OntologyQueryPlanExecutor,
@@ -131,7 +128,6 @@ from fdai.core.ontology_platform.query_execution import QueryNodeHandler
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.core.ontology_platform.query_receipt_authority import (
     SecuredQueryReceiptAuthority,
-    secured_query_scope_digest,
 )
 from fdai.core.ontology_platform.recent_resource_changes import (
     RECENT_RESOURCE_CHANGES_FUNCTION_NAME,
@@ -225,8 +221,10 @@ from .semantic_query_current_evidence import (
     SemanticQueryConversationRuntime,
     bind_semantic_current_evidence,
 )
+from .semantic_query_descriptor_selector import ManifestDescriptorIndex
 from .semantic_query_invocation_context import semantic_query_invocation_context
 from .semantic_query_runtime_composition import SemanticQueryRuntimeComposition
+from .semantic_query_scoped_sources import scoped_source_handlers, secured_resource_selector
 
 _FRAME_CAPABILITY = "semantic.query.frame"
 _PLAN_CAPABILITY = "semantic.query.plan"
@@ -312,35 +310,13 @@ def build_semantic_query_runtime(
     function_registry = OntologyFunctionRegistry(release=ontology_release)
     declarations = {item.name: item for item in function_types}
 
-    async def select_resources(
-        arguments: Mapping[str, object],
-        context: FunctionInvocationContext,
-    ) -> object:
-        definition = ObjectSetDefinition.model_validate(arguments["object_set"])
-        result = await gateway.materialize(
-            definition,
-            projection_request=ProjectionRequest(
-                caller_role=context.caller_role,
-                declared_purposes=frozenset(context.purposes),
-            ),
-        )
-        admission = None
-        if decision_evidence_admission_provider is not None:
-            receipt = result.receipt
-            admission = await decision_evidence_admission_provider.admit(
-                evidence_digest=receipt.projected_result_digest,
-                scope_digest=secured_query_scope_digest(receipt),
-                purpose_id=receipt.purpose,
-                source_revision=receipt.ontology_release.digest,
-            )
-        receipt_authority.issue(result, admission)
-        return result
-
     inventory_function = declarations.get("inventory.select_resources")
     if inventory_function is not None:
         function_registry.register_contextual(
             inventory_function,
-            select_resources,
+            secured_resource_selector(
+                gateway, graph_refresher, receipt_authority, decision_evidence_admission_provider
+            ),
             authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         )
     if catalog_index is not None and catalog_digest is not None:
@@ -712,7 +688,7 @@ def build_semantic_query_runtime(
                 tuple(sorted(metric_registry.definitions)) if metric_registry is not None else ()
             ),
         ),
-        descriptor_selector=CompleteManifestSelector(),
+        descriptor_selector=ManifestDescriptorIndex(),
         metric_concepts=tuple(
             sorted(
                 {
@@ -734,12 +710,14 @@ def build_semantic_query_runtime(
             role = CeilingRole(principal.role)
         except ValueError as exc:
             raise PermissionError("break-glass principals cannot execute semantic queries") from exc
+        principal_scope = semantic_principal_scope_digest(principal=principal, purpose=purpose)
         return OntologyQueryPlanExecutor(
             handlers={
                 QueryNodeKind.OBJECT_SET: SecuredObjectSetNodeHandler(
                     gateway,
                     caller_role=role,
                     purposes=(purpose,),
+                    principal_scope_digest=principal_scope,
                     receipt_authority=receipt_authority,
                     decision_evidence=decision_evidence_admission_provider,
                     graph_refresher=graph_refresher,
@@ -757,15 +735,19 @@ def build_semantic_query_runtime(
                     gateway,
                     caller_role=role,
                     purposes=(purpose,),
+                    principal_scope_digest=principal_scope,
                     receipt_authority=receipt_authority,
                     decision_evidence=decision_evidence_admission_provider,
+                    graph_refresher=graph_refresher,
                 ),
                 QueryNodeKind.TYPED_PATH: SecuredTypedPathNodeHandler(
                     gateway,
                     caller_role=role,
                     purposes=(purpose,),
+                    principal_scope_digest=principal_scope,
                     receipt_authority=receipt_authority,
                     decision_evidence=decision_evidence_admission_provider,
+                    graph_refresher=graph_refresher,
                 ),
                 QueryNodeKind.FUNCTION: FunctionNodeHandler(
                     function_registry,
@@ -779,6 +761,21 @@ def build_semantic_query_runtime(
                     allow_presentation_read_dependencies=True,
                 ),
                 **handlers,
+                **scoped_source_handlers(
+                    gateway=gateway,
+                    projection_request=ProjectionRequest(
+                        caller_role=role,
+                        declared_purposes=frozenset({purpose}),
+                        principal_scope_digest=principal_scope,
+                    ),
+                    purpose=purpose,
+                    release_digest=ontology_release.digest,
+                    object_types={item.name: item for item in ontology_catalog.object_types},
+                    now=evaluation_cutoff,
+                    topology_reader=topology_reader,
+                    metric_registry=metric_registry,
+                    metric_provider=metric_window_provider,
+                ),
             }
         )
 

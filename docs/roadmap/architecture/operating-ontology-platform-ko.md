@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: f7574b796d07a0074e9550b390c1ad9c79f679ec
-translation_revised: 2026-09-17
+translation_source_sha: d5abe29ad745a4fecce827abdc25cf7cc8003431
+translation_revised: 2026-09-19
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -264,8 +264,18 @@ Property 조건식은 `equals`, `not_equals`, `in`, `exists`, `absent`, `at_leas
 짧은 결과를 완전한 absence 점유로 사용할 수 없습니다. `traversal_limit`은 그래프 expansion이
 객체 상한에 도달했다는 뜻입니다. In-memory 및 PostgreSQL 저장소는 reached 객체뿐 아니라 initial
 루트에도 요청한 객체 한도를 동일하게 적용합니다.
-Exact-id 조건식은 batch당 최대 id 128개를 하나의 indexed store query로 읽습니다. Reader는
-`result_limit`을 입증할 만큼 일치 객체를 확보하면 중단합니다.
+객체만 읽는 정확한 ID 조건식은 최대 128개씩 나누어 조회합니다. 관계를 포함한 정확한 ID 선택은
+하나의 제한된 스냅샷을 사용하므로 묶음 사이의 링크가 사라지지 않습니다. 게이트웨이는 구체화 전에
+조건식 속성과 정확한 식별자의 읽기 권한을 검사하고, 관계 확장 전에 시작점을 다시 인가합니다.
+과거 조회에도 동일한 속성 ACL을 적용하고 보존된 release와 해석에 사용하는 release의 일치를
+요구합니다. 필요한 release가 없으면 조회를 보류합니다.
+
+ObjectSet 증적은 원본, 관계, 함수 조회에 인증된 principal 범위를 유지합니다. 현재 상태 표현용
+증적은 설정된 제한 시간 뒤에 만료되며 기본값은 90초입니다. 내용이 같아도 역할과 principal 범위로
+캐시를 분리합니다. 조회 테이블은 순수 연산에서도 원본 세대와 명시적인 숫자 열 메타데이터를
+보존합니다. 다른 세대의 결합은 보류하고, 정확한 십진수 집계는 주변 실행 환경의 정밀도에 의존하지
+않으며, 숫자 문자열은 속성 선택 뒤에도 숫자로 정렬됩니다. 없는 선택 속성은 null로 유지하고
+결과 한도를 명시하며, 취소 시 하위 작업을 정리합니다. 진행 표시 대기에는 별도 제한 시간을 둡니다.
 
 ## 의미 액션과 변경 계획
 

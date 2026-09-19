@@ -4,14 +4,17 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from typing import cast
+from unittest.mock import AsyncMock
 
 import pytest
 from fdai.core.ontology_platform.interfaces import compile_interfaces
 from fdai.core.ontology_platform.models import (
+    ObjectPredicate,
     ObjectSelector,
     ObjectSelectorKind,
     ObjectSetDefinition,
     ObjectSetMaterialization,
+    ObjectTraversal,
 )
 from fdai.core.ontology_platform.object_sets import ObjectSetService
 from fdai.core.ontology_platform.query_gateway import (
@@ -103,6 +106,7 @@ async def _gateway_with_records(
     *records: OntologyObjectRecord,
     links: tuple[OntologyLinkRecord, ...] = (),
     source_complete: bool = True,
+    transitive: bool = False,
 ) -> SecuredObjectSetQueryGateway:
     link_type = OntologyLinkType(
         schema_version="1.0.0",
@@ -111,6 +115,7 @@ async def _gateway_with_records(
         from_type="Resource",
         to_type="Resource",
         cardinality=LinkCardinality.MANY_TO_MANY,
+        is_transitive=transitive,
     )
     store = InMemoryOntologyInstanceStore(
         object_types=(object_type,),
@@ -163,6 +168,23 @@ async def test_gateway_binds_authenticated_principal_scope_to_receipt() -> None:
     assert result.receipt.principal_scope_digest == "sha256:" + "a" * 64
 
 
+@pytest.mark.parametrize("property_name", ["operator_note", "incident_context", "undeclared"])
+async def test_gateway_rejects_unreadable_predicates_before_store_access(
+    property_name: str,
+) -> None:
+    gateway = await _gateway_with_records(_object_type())
+    materialize = AsyncMock(wraps=gateway._service.materialize)
+    gateway._service.materialize = materialize
+    definition = _definition().model_copy(
+        update={"predicates": (ObjectPredicate(property=property_name, equals="example"),)}
+    )
+
+    with pytest.raises(PermissionError, match="predicate property is not readable"):
+        await gateway.materialize(definition, projection_request=_request())
+
+    materialize.assert_not_awaited()
+
+
 async def test_gateway_applies_role_redaction_to_every_returned_object() -> None:
     object_type = _object_type()
     gateway = await _gateway_with_records(
@@ -198,6 +220,38 @@ async def test_gateway_applies_role_redaction_to_every_returned_object() -> None
     ]
     assert result.receipt.redactions.access_scope_count == 2
     assert result.receipt.redactions.objects_with_redactions == 2
+
+
+async def test_gateway_rejects_exact_selection_of_hidden_identity_before_materialization() -> None:
+    gateway = await _gateway_with_records(_object_type(restricted_identity=True))
+    materialize = AsyncMock(wraps=gateway._service.materialize)
+    gateway._service.materialize = materialize
+    with pytest.raises(PermissionError, match="not readable"):
+        await gateway.materialize(
+            _definition().model_copy(update={"object_ids": ("hidden",)}),
+            projection_request=_request(),
+        )
+    materialize.assert_not_awaited()
+
+
+async def test_gateway_rejects_hidden_traversal_root_before_expansion() -> None:
+    gateway = await _gateway_with_records(
+        _object_type(restricted_identity=True),
+        OntologyObjectRecord(id="hidden", object_type="Resource", properties={"id": "hidden"}),
+    )
+    materialize = AsyncMock(wraps=gateway._service.materialize)
+    gateway._service.materialize = materialize
+    with pytest.raises(PermissionError, match="roots are not authorized"):
+        await gateway.materialize(
+            _definition().model_copy(
+                update={
+                    "root_ids": ("hidden",),
+                    "traversal": ObjectTraversal(link_types=("depends_on",)),
+                }
+            ),
+            projection_request=_request(),
+        )
+    materialize.assert_not_awaited()
 
 
 async def test_resource_receipt_preserves_incomplete_source_without_query_truncation() -> None:

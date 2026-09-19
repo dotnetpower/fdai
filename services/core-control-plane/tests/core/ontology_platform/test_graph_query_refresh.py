@@ -156,6 +156,26 @@ def _request() -> ProjectionRequest:
     )
 
 
+async def test_interface_selection_cannot_skip_resource_freshness() -> None:
+    secured = _secured(age_seconds=120)
+    definition = secured.materialization.definition.model_copy(
+        update={"selector": ObjectSelector(kind=ObjectSelectorKind.INTERFACE, name="Identifiable")}
+    )
+    materialization = secured.materialization.model_copy(update={"definition": definition})
+    secured = secured.model_copy(
+        update={
+            "materialization": materialization,
+            "receipt": secured.receipt.model_copy(
+                update={"projected_result_digest": _projected_result_digest(materialization)}
+            ),
+        }
+    )
+    with pytest.raises(QueryNodeHeldError, match="graph_refresh_hold"):
+        await SecuredGraphEvidenceQueryRefresher(gateway=_Gateway(secured)).refresh(
+            definition=definition, projection_request=_request(), secured=secured
+        )
+
+
 async def test_current_complete_graph_skips_live_provider() -> None:
     secured = _secured(age_seconds=30)
     live = _LiveProvider()

@@ -51,6 +51,130 @@ def _plan(nodes: tuple[OntologyQueryNode, ...], outputs: tuple[str, ...]) -> Ont
     )
 
 
+@pytest.mark.parametrize("parent_cancel", [False, True])
+async def test_executor_drains_children_on_timeout_and_parent_cancellation(
+    parent_cancel: bool,
+) -> None:
+    started = asyncio.Event()
+    drained = asyncio.Event()
+
+    async def handler(node, dependencies):  # type: ignore[no-untyped-def]
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            drained.set()
+
+    node = OntologyQueryNode(
+        node_id="source", kind=QueryNodeKind.OBJECT_SET, output_kind="query.table"
+    )
+    executor = OntologyQueryPlanExecutor(
+        handlers={QueryNodeKind.OBJECT_SET: handler}, node_timeout_seconds=0.02
+    )
+    previous_tasks = set(asyncio.all_tasks())
+    task = asyncio.create_task(
+        executor.execute(
+            _plan((node,), ("source",)),
+            expected_release_digest=DIGEST_A,
+            expected_manifest_digest=DIGEST_B,
+            expected_role="Reader",
+            expected_purpose="incident-investigation",
+            cancelled=asyncio.Event(),
+        )
+    )
+    await asyncio.wait_for(started.wait(), timeout=1)
+    if parent_cancel:
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    else:
+        result = await task
+        assert result.receipts[0].status is TaskStatus.TIMED_OUT
+    assert drained.is_set()
+    assert set(asyncio.all_tasks()) <= previous_tasks
+
+
+async def test_stalled_progress_cannot_block_query_completion() -> None:
+    async def observer(progress):  # type: ignore[no-untyped-def]
+        await asyncio.Event().wait()
+
+    async def handler(node, dependencies):  # type: ignore[no-untyped-def]
+        return QueryNodeResult(value="complete")
+
+    node = OntologyQueryNode(
+        node_id="source", kind=QueryNodeKind.OBJECT_SET, output_kind="query.table"
+    )
+    async with asyncio.timeout(1):
+        result = await OntologyQueryPlanExecutor(
+            handlers={QueryNodeKind.OBJECT_SET: handler}, progress_timeout_seconds=0.01
+        ).execute(
+            _plan((node,), ("source",)),
+            expected_release_digest=DIGEST_A,
+            expected_manifest_digest=DIGEST_B,
+            expected_role="Reader",
+            expected_purpose="incident-investigation",
+            progress_observer=observer,
+        )
+    assert result.status == "completed"
+
+
+@pytest.mark.parametrize("error_type", [PermissionError, OSError])
+async def test_provider_errors_never_log_private_message(
+    error_type: type[Exception], caplog: pytest.LogCaptureFixture
+) -> None:
+    async def handler(node, dependencies):  # type: ignore[no-untyped-def]
+        raise error_type("private-provider-payload")
+
+    node = OntologyQueryNode(
+        node_id="source", kind=QueryNodeKind.OBJECT_SET, output_kind="query.table"
+    )
+    await OntologyQueryPlanExecutor(handlers={QueryNodeKind.OBJECT_SET: handler}).execute(
+        _plan((node,), ("source",)),
+        expected_release_digest=DIGEST_A,
+        expected_manifest_digest=DIGEST_B,
+        expected_role="Reader",
+        expected_purpose="incident-investigation",
+    )
+    assert "private-provider-payload" not in caplog.text
+    assert all(record.exc_info is None for record in caplog.records)
+
+
+async def test_executor_cancels_queued_nodes_without_calling_their_provider() -> None:
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+    called: list[str] = []
+
+    async def handler(node, dependencies):  # type: ignore[no-untyped-def]
+        called.append(node.node_id)
+        started.set()
+        await asyncio.Event().wait()
+
+    nodes = tuple(
+        OntologyQueryNode(node_id=name, kind=QueryNodeKind.OBJECT_SET, output_kind="query.table")
+        for name in ("first", "queued")
+    )
+    existing = set(asyncio.all_tasks())
+    task = asyncio.create_task(
+        OntologyQueryPlanExecutor(
+            handlers={QueryNodeKind.OBJECT_SET: handler},
+            max_concurrency=1,
+        ).execute(
+            _plan(nodes, ("first", "queued")),
+            expected_release_digest=DIGEST_A,
+            expected_manifest_digest=DIGEST_B,
+            expected_role="Reader",
+            expected_purpose="incident-investigation",
+            cancelled=cancelled,
+        )
+    )
+    await asyncio.wait_for(started.wait(), timeout=1)
+    cancelled.set()
+    execution = await task
+    assert called == ["first"]
+    assert all(receipt.status is TaskStatus.CANCELLED for receipt in execution.receipts)
+    assert set(asyncio.all_tasks()) <= existing
+
+
 async def test_executor_runs_independent_nodes_concurrently_then_joins() -> None:
     first_started = asyncio.Event()
     second_started = asyncio.Event()

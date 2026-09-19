@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fdai.core.ontology_platform.functions import FunctionInvocationContext
 from fdai.core.ontology_platform.query_gateway import (
     SecuredObjectSetQueryResult,
@@ -180,23 +181,31 @@ def test_unverified_mismatched_or_expired_admission_fails_closed() -> None:
             raise AssertionError("unverified query result resolved")
 
 
-def test_presentation_read_accepts_only_exact_bragi_operations_scope() -> None:
+def _presentation_result(
+    *, role: CeilingRole = CeilingRole.READER, scope: str | None = None
+) -> SecuredObjectSetQueryResult:
     original = _secured_result(objects=(_resource("resource-a", "network.nic"),), links=())
     definition = original.materialization.definition.model_copy(
         update={"purpose": "operations-review"}
     )
     materialization = original.materialization.model_copy(update={"definition": definition})
-    result = original.model_copy(
+    return original.model_copy(
         update={
             "materialization": materialization,
             "receipt": original.receipt.model_copy(
                 update={
                     "purpose": "operations-review",
+                    "caller_role": role,
+                    "principal_scope_digest": scope,
                     "projected_result_digest": _projected_result_digest(materialization),
                 }
             ),
         }
     )
+
+
+def test_presentation_read_accepts_only_exact_bragi_operations_scope() -> None:
+    result = _presentation_result()
     digest = result.receipt.projected_result_digest
     authority = _authority()
     authority.issue(result)
@@ -242,3 +251,73 @@ def test_presentation_read_accepts_only_exact_bragi_operations_scope() -> None:
             assert "presentation read dependency scope does not match" in str(exc)
         else:  # pragma: no cover - explicit fail-closed assertion
             raise AssertionError("mismatched presentation read scope resolved")
+
+
+def test_identical_results_are_isolated_by_role_and_principal_scope() -> None:
+    results = tuple(
+        _presentation_result(role=role, scope="sha256:" + marker * 64)
+        for role, marker in (
+            (CeilingRole.READER, "a"),
+            (CeilingRole.OWNER, "a"),
+            (CeilingRole.READER, "b"),
+        )
+    )
+    authority = SecuredQueryReceiptAuthority(now=lambda: results[0].receipt.observation_cutoff)
+    for result in results:
+        authority.issue(result)
+    for result in results:
+        assert (
+            authority.resolve_presentation_read(
+                (f"ontology-object-set:{result.receipt.projected_result_digest}",),
+                invocation_context=FunctionInvocationContext(
+                    caller_agent="Bragi",
+                    caller_role=result.receipt.caller_role,
+                    purposes=("operations-review",),
+                    principal_scope_digest=result.receipt.principal_scope_digest,
+                ),
+                expected_release=result.receipt.ontology_release,
+                expected_purpose="operations-review",
+            )
+            == result
+        )
+    with pytest.raises(PermissionError, match="one issued ObjectSet"):
+        authority.resolve((f"ontology-object-set:{results[0].receipt.projected_result_digest}",))
+
+
+@pytest.mark.parametrize("age_seconds", [-1, 91])
+def test_scoped_presentation_receipt_rejects_future_or_expired_evidence(age_seconds: int) -> None:
+    result = _presentation_result(scope="sha256:" + "a" * 64)
+    authority = SecuredQueryReceiptAuthority(
+        now=lambda: result.receipt.observation_cutoff + timedelta(seconds=age_seconds)
+    )
+    authority.issue(result)
+    with pytest.raises(PermissionError, match="validity window"):
+        authority.resolve_presentation_read(
+            (f"ontology-object-set:{result.receipt.projected_result_digest}",),
+            invocation_context=FunctionInvocationContext(
+                caller_agent="Bragi",
+                caller_role=CeilingRole.READER,
+                purposes=("operations-review",),
+                principal_scope_digest=result.receipt.principal_scope_digest,
+            ),
+            expected_release=result.receipt.ontology_release,
+            expected_purpose="operations-review",
+        )
+
+
+def test_presentation_receipt_rejects_another_principal_before_returning_rows() -> None:
+    result = _presentation_result(scope="sha256:" + "a" * 64)
+    authority = SecuredQueryReceiptAuthority(now=lambda: result.receipt.observation_cutoff)
+    authority.issue(result)
+    with pytest.raises(PermissionError, match="one issued ObjectSet"):
+        authority.resolve_presentation_read(
+            (f"ontology-object-set:{result.receipt.projected_result_digest}",),
+            invocation_context=FunctionInvocationContext(
+                caller_agent="Bragi",
+                caller_role=CeilingRole.READER,
+                purposes=("operations-review",),
+                principal_scope_digest="sha256:" + "b" * 64,
+            ),
+            expected_release=result.receipt.ontology_release,
+            expected_purpose="operations-review",
+        )

@@ -5,13 +5,14 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
+from dataclasses import replace
 from decimal import Decimal, InvalidOperation, localcontext
 from functools import partial
 from typing import Any, Literal, cast
 
 from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKind
 
-from .query_execution import QueryNodeResult
+from .query_execution import QueryNodeHeldError, QueryNodeResult
 from .query_values import QueryRow, QueryTable, combine_incompleteness
 
 _MAX_FIELDS = 64
@@ -34,8 +35,12 @@ class SetOperationNodeHandler:
         if node.kind is not expected_kind:
             raise ValueError("set operation handler is bound to the wrong node kind")
         tables = _dependency_tables(node, dependencies, minimum=2)
+        if any(table.numeric_fields != tables[0].numeric_fields for table in tables):
+            raise ValueError("set operation numeric field schemas do not match")
         if self._operation == "subtraction" and len(tables) != 2:
             raise ValueError("subtraction node requires exactly two dependencies")
+        if self._operation == "subtraction" and not tables[1].complete:
+            raise QueryNodeHeldError("subtraction_exclusion_scope_incomplete")
         by_table = [dict((row.row_id, row) for row in table.rows) for table in tables]
         if self._operation == "union":
             selected_ids = set().union(*(set(rows) for rows in by_table))
@@ -49,10 +54,17 @@ class SetOperationNodeHandler:
             if any(item.values_json != candidates[0].values_json for item in candidates[1:]):
                 raise ValueError("set operation found conflicting payloads for one row id")
             selected.append(candidates[0])
+        limited = len(selected) > _MAX_ROWS
+        reasons = tuple(
+            reason
+            for reason in (combine_incompleteness(tables), "result_limit" if limited else None)
+            if reason
+        )
         table = QueryTable(
-            rows=tuple(selected),
-            complete=all(item.complete for item in tables),
-            truncation_reason=combine_incompleteness(tables),
+            rows=tuple(selected[:_MAX_ROWS]),
+            complete=all(item.complete for item in tables) and not limited,
+            truncation_reason="+".join(reasons) or None,
+            numeric_fields=tables[0].numeric_fields,
         )
         return _table_result(table, dependencies)
 
@@ -80,13 +92,20 @@ class OrderNodeHandler:
             keys.append((field, direction == "descending"))
         rows = list(table.rows)
         for field, reverse in reversed(keys):
-            values = [_scalar_sort_value(_path_value(row.values, field)) for row in rows]
+            numeric = field in table.numeric_fields
+            missing = [row for row in rows if _path_value(row.values, field) is None]
+            present = [row for row in rows if _path_value(row.values, field) is not None]
+            values = [
+                _scalar_sort_value(_path_value(row.values, field), numeric=numeric)
+                for row in present
+            ]
             if len({kind for kind, _value in values}) > 1:
                 raise ValueError("order field values MUST have one scalar type")
-            rows.sort(
-                key=partial(_row_sort_value, path=field),
+            present.sort(
+                key=partial(_row_sort_value, path=field, numeric=numeric),
                 reverse=reverse,
             )
+            rows = present + missing
         limit = _limit(node.arguments)
         limited = len(rows) > limit
         reason = "result_limit" if limited else table.truncation_reason
@@ -94,6 +113,7 @@ class OrderNodeHandler:
             rows=tuple(rows[:limit]),
             complete=table.complete and not limited,
             truncation_reason=reason,
+            numeric_fields=table.numeric_fields,
         )
         return _table_result(result, dependencies)
 
@@ -124,6 +144,7 @@ class ProjectNodeHandler:
             rows=rows,
             complete=table.complete,
             truncation_reason=table.truncation_reason,
+            numeric_fields=tuple(field for field in table.numeric_fields if field in fields),
         )
         return _table_result(result, dependencies)
 
@@ -174,11 +195,18 @@ class AggregateNodeHandler:
             else:
                 if field is None:  # pragma: no cover - operation validation invariant
                     raise RuntimeError("numeric aggregate field is unavailable")
-                numbers = tuple(_decimal(_path_value(row.values, field)) for row in rows)
+                numbers = tuple(
+                    _decimal(
+                        _path_value(row.values, field), allow_text=field in table.numeric_fields
+                    )
+                    for row in rows
+                )
                 if not numbers:
                     raise ValueError("numeric aggregate requires at least one row")
                 if operation == "sum":
-                    calculated = sum(numbers, Decimal(0))
+                    with localcontext() as context:
+                        context.prec = 512
+                        calculated = sum(numbers, Decimal(0))
                 elif operation == "minimum":
                     calculated = min(numbers)
                 elif operation == "maximum":
@@ -201,6 +229,7 @@ class AggregateNodeHandler:
             rows=tuple(aggregate_rows[:limit]),
             complete=table.complete and not limited,
             truncation_reason="result_limit" if limited else table.truncation_reason,
+            numeric_fields=("value",),
         )
         return _table_result(result, dependencies)
 
@@ -236,6 +265,15 @@ def _table_result(
     table: QueryTable,
     dependencies: Mapping[str, QueryNodeResult],
 ) -> QueryNodeResult:
+    generations = {
+        result.value.source_generation
+        for result in dependencies.values()
+        if isinstance(result.value, QueryTable) and result.value.source_generation is not None
+    }
+    if len(generations) > 1:
+        raise QueryNodeHeldError("query_source_generation_conflict")
+    if generations:
+        table = replace(table, source_generation=next(iter(generations)))
     return QueryNodeResult(
         value=table,
         evidence_refs=_evidence_refs(dependencies) + (f"ontology-query-table:{table.digest}",),
@@ -267,12 +305,24 @@ def _path_value(values: Mapping[str, Any], path: str) -> object:
     current: object = values
     for part in path.split("."):
         if not isinstance(current, Mapping) or part not in current:
-            raise ValueError(f"query field {path!r} is absent")
+            return None
         current = current[part]
     return current
 
 
-def _scalar_sort_value(value: object) -> tuple[str, str | int | float]:
+def _scalar_sort_value(
+    value: object, *, numeric: bool = False
+) -> tuple[str, str | int | float | Decimal]:
+    if numeric:
+        if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+            raise ValueError("typed numeric order value MUST be a finite number")
+        try:
+            number = Decimal(str(value))
+        except InvalidOperation as error:
+            raise ValueError("typed numeric order value MUST be a finite number") from error
+        if not number.is_finite():
+            raise ValueError("typed numeric order value MUST be a finite number")
+        return "number", number
     if isinstance(value, bool):
         return "boolean", int(value)
     if isinstance(value, str):
@@ -284,8 +334,10 @@ def _scalar_sort_value(value: object) -> tuple[str, str | int | float]:
     raise ValueError("order fields MUST contain scalar string, number, or boolean values")
 
 
-def _row_sort_value(row: QueryRow, *, path: str) -> str | int | float:
-    return _scalar_sort_value(_path_value(row.values, path))[1]
+def _row_sort_value(
+    row: QueryRow, *, path: str, numeric: bool = False
+) -> str | int | float | Decimal:
+    return _scalar_sort_value(_path_value(row.values, path), numeric=numeric)[1]
 
 
 def _limit(arguments: Mapping[str, Any]) -> int:
@@ -295,8 +347,10 @@ def _limit(arguments: Mapping[str, Any]) -> int:
     return cast(int, value)
 
 
-def _decimal(value: object) -> Decimal:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+def _decimal(value: object, *, allow_text: bool = False) -> Decimal:
+    if isinstance(value, bool) or not (
+        isinstance(value, (int, float)) or (allow_text and isinstance(value, str))
+    ):
         raise ValueError("numeric aggregate field MUST contain numbers")
     try:
         number = Decimal(str(value))
@@ -304,14 +358,16 @@ def _decimal(value: object) -> Decimal:
         raise ValueError("numeric aggregate field MUST contain numbers") from exc
     if not number.is_finite():
         raise ValueError("numeric aggregate field MUST be finite")
-    if len(number.as_tuple().digits) > 128 or abs(number.adjusted()) > 128:
+    bound = 512 if allow_text else 128
+    if len(number.as_tuple().digits) > bound or abs(number.adjusted()) > bound:
         raise ValueError("numeric aggregate field exceeds decimal bounds")
     return number
 
 
 def _decimal_text(value: Decimal) -> str:
-    normalized = value.normalize()
-    text = format(normalized, "f")
+    text = format(value, "f")
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
     return "0" if text in {"-0", ""} else text
 
 

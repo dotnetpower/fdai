@@ -251,11 +251,18 @@ def _semantic_judgment_capabilities(
                 capability["measure_concepts"] = sorted(set(measure_concepts))
         if kind == "object":
             properties = descriptor.get("properties")
-            if isinstance(properties, Mapping) and len(properties) <= 32:
+            if isinstance(properties, Mapping):
+                property_names = sorted(properties)
+                key = descriptor.get("key")
+                if isinstance(key, str) and key in property_names:
+                    property_names.remove(key)
+                    property_names.insert(0, key)
                 capability["canonical_values"] = [
                     name,
-                    *(f"{name}.{property_name}" for property_name in sorted(properties)),
+                    *(f"{name}.{property_name}" for property_name in property_names[:32]),
                 ]
+                if len(property_names) > 32:
+                    capability["canonical_values_omitted"] = len(property_names) - 32
         capability_bytes = len(
             json.dumps(
                 capability,
@@ -265,10 +272,27 @@ def _semantic_judgment_capabilities(
             ).encode("utf-8")
         )
         candidate_bytes = encoded_bytes + int(bool(capabilities)) + capability_bytes
-        if candidate_bytes > _MAX_JUDGMENT_CAPABILITY_BYTES:
-            break
         capabilities.append(capability)
         encoded_bytes = candidate_bytes
+    if encoded_bytes > _MAX_JUDGMENT_CAPABILITY_BYTES:
+        for capability in sorted(
+            capabilities, key=lambda item: len(json.dumps(item)), reverse=True
+        ):
+            values = capability.pop("canonical_values", None)
+            if values is None:
+                continue
+            capability["canonical_values_omitted"] = (
+                len(values) - 1 + capability.get("canonical_values_omitted", 0)
+            )
+            encoded_bytes = len(
+                json.dumps(
+                    capabilities, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+                ).encode("utf-8")
+            )
+            if encoded_bytes <= _MAX_JUDGMENT_CAPABILITY_BYTES:
+                break
+    if encoded_bytes > _MAX_JUDGMENT_CAPABILITY_BYTES:
+        raise ValueError("semantic judgment capability projection exceeds its byte budget")
     return tuple(capabilities)
 
 
@@ -364,7 +388,16 @@ def _descriptors_for_judgment(
 ) -> tuple[dict[str, Any], ...]:
     """Narrow known operational families after model-backed intent classification."""
 
-    return _descriptors_for_operational_intent(descriptors, judgment.primary_intent)
+    required: set[str] = set()
+    for intent in (judgment.primary_intent, *judgment.secondary_intents):
+        names = _OPERATIONAL_DESCRIPTOR_NAMES.get(intent)
+        if names is None:
+            return descriptors
+        required.update(names)
+    selected = tuple(descriptor for descriptor in descriptors if descriptor.get("name") in required)
+    if not required <= {descriptor.get("name") for descriptor in selected}:
+        return descriptors
+    return selected
 
 
 def _descriptors_for_operational_intent(

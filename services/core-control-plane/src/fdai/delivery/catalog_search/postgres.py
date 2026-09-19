@@ -5,10 +5,11 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+from collections import OrderedDict
 from collections.abc import Sequence
 from dataclasses import replace
 from datetime import datetime
-from typing import Any, Final, cast
+from typing import Any, cast
 
 import psycopg
 from psycopg.rows import dict_row
@@ -34,11 +35,14 @@ from fdai.shared.providers.catalog_search import (
     CatalogSearchResult,
     CatalogSemanticIndex,
     Embedder,
-    build_document_digest_manifest,
     catalog_search_document_digest,
 )
 
-_MIN_SCORE: Final[float] = 0.2
+from ._postgres_validation_cache import lock_corpus as _lock_corpus
+from ._postgres_validation_cache import retain_validated_documents, validation_cache_key
+from ._postgres_validation_cache import verify_document_identity as _verify_document_identity
+from ._postgres_validation_cache import without_embeddings as _without_embeddings
+from .ranking import rank_documents
 
 
 class PostgresCatalogSemanticIndex(CatalogSemanticIndex):
@@ -52,6 +56,9 @@ class PostgresCatalogSemanticIndex(CatalogSemanticIndex):
     ) -> None:
         self._config = config
         self._embedder = embedder
+        self._validated_documents: OrderedDict[
+            tuple[str, str, str], tuple[tuple[CatalogSearchDocument, ...], int]
+        ] = OrderedDict()
 
     async def upsert(self, documents: Sequence[CatalogSearchDocument]) -> int:
         prepared = await self._prepare_documents(documents)
@@ -403,8 +410,6 @@ class PostgresCatalogSemanticIndex(CatalogSemanticIndex):
     ) -> Sequence[CatalogSearchResult]:
         if not 1 <= k <= 100 or not query.strip():
             return ()
-        query_vector = await self._embedder.embed(query)
-        vector = _encode_vector(query_vector, self._config.embedding_dimension)
         async with await self._connect() as connection, connection.transaction():
             await self._set_session_knobs(connection)
             await _lock_corpus(connection, corpus, shared=True)
@@ -421,55 +426,59 @@ class PostgresCatalogSemanticIndex(CatalogSemanticIndex):
             loaded = await self._load_generation(connection, str(row["generation_id"]))
             if loaded is None:
                 raise CatalogGenerationStaleError("active catalog generation is unavailable")
-            metadata, _documents = loaded
+            metadata, documents = loaded
             if (
                 expected_catalog_digest is not None
                 and metadata.catalog_digest != expected_catalog_digest
             ):
                 raise CatalogGenerationStaleError("active catalog generation is stale")
-            results = await connection.execute(
-                "WITH distances AS (SELECT d.rule_id, d.document_kind, "
-                "CASE WHEN lower(d.rule_id)=lower(%s) THEN 1.0 ELSE 0.0 END AS exact, "
-                "ts_rank_cd(d.search_vector, plainto_tsquery('simple', %s)) AS lexical, "
-                "d.embedding <=> %s::vector AS distance "
-                "FROM catalog_search_generation_document d WHERE d.generation_id=%s "
-                "AND (%s::text[] IS NULL OR d.rule_id=ANY(%s::text[]))), "
-                "scored AS (SELECT rule_id, document_kind, exact, lexical, "
-                "CASE WHEN distance='NaN'::double precision THEN 0.0 "
-                "ELSE GREATEST(0.0, 1.0 - distance) END AS semantic FROM distances) "
-                "SELECT rule_id, document_kind, exact, lexical, semantic, "
-                "exact + lexical + semantic AS score FROM scored "
-                "WHERE exact + lexical + semantic >= %s "
-                "ORDER BY score DESC, rule_id ASC LIMIT %s",
-                (
-                    query,
-                    query,
-                    vector,
-                    metadata.generation_id,
-                    list(candidate_rule_ids) if candidate_rule_ids is not None else None,
-                    list(candidate_rule_ids) if candidate_rule_ids is not None else None,
-                    _MIN_SCORE,
-                    int(k),
-                ),
+            exact_documents = tuple(
+                document
+                for document in documents
+                if query.casefold().strip() == document.rule_id.casefold()
+                and (candidate_rule_ids is None or document.rule_id in candidate_rule_ids)
             )
-            rows = await results.fetchall()
+            semantic_scores: dict[str, float] = {}
+            if not exact_documents:
+                query_vector = await self._embedder.embed(query)
+                vector = _encode_vector(query_vector, self._config.embedding_dimension)
+                results = await connection.execute(
+                    "WITH distances AS (SELECT d.rule_id, d.embedding <=> %s::vector AS distance "
+                    "FROM catalog_search_generation_document d WHERE d.generation_id=%s "
+                    "AND (%s::text[] IS NULL OR d.rule_id=ANY(%s::text[]))) "
+                    "SELECT rule_id, CASE WHEN distance='NaN'::double precision THEN 0.0 "
+                    "ELSE GREATEST(0.0, 1.0 - distance) END AS semantic FROM distances",
+                    (
+                        vector,
+                        metadata.generation_id,
+                        list(candidate_rule_ids) if candidate_rule_ids is not None else None,
+                        list(candidate_rule_ids) if candidate_rule_ids is not None else None,
+                    ),
+                )
+                semantic_scores = {
+                    str(item["rule_id"]): float(item["semantic"])
+                    for item in await results.fetchall()
+                }
+            ranked = rank_documents(
+                exact_documents or documents,
+                query,
+                policy=self._config.ranking_policy,
+                semantic_scores=semantic_scores,
+                candidate_rule_ids=candidate_rule_ids,
+            )
         return tuple(
             CatalogSearchResult(
-                rule_id=str(item["rule_id"]),
-                score=float(item["score"]),
-                match="exact_id" if float(item["exact"]) else "hybrid",
-                components={
-                    "exact": float(item["exact"]),
-                    "lexical": float(item["lexical"]),
-                    "semantic": float(item["semantic"]),
-                },
+                rule_id=document.rule_id,
+                score=score,
+                match="exact_id" if components["exact"] else "hybrid",
+                components=components,
                 corpus=metadata.corpus,
                 generation_id=metadata.generation_id,
                 generation_digest=metadata.generation_digest,
                 catalog_digest=metadata.catalog_digest,
-                document_kind=cast(CatalogDocumentKind, str(item["document_kind"])),
+                document_kind=document.document_kind,
             )
-            for item in rows
+            for score, document, components in ranked[:k]
         )
 
     async def _prepare_documents(
@@ -508,7 +517,8 @@ class PostgresCatalogSemanticIndex(CatalogSemanticIndex):
             "semantic_schema_digest, ontology_release_digest, embedding_space_id, "
             "embedding_model_version, embedding_dimension, state, "
             "validation_receipt_digest, document_count, document_digest_root, "
-            "document_digest_chunks, inline_document_digests, activated_at "
+            "document_digest_chunks, inline_document_digests, activated_at, "
+            "pg_current_xact_id()::text AS transaction_identity "
             "FROM catalog_search_generation WHERE generation_id=%s" + suffix,
             (generation_id,),
         )
@@ -516,6 +526,13 @@ class PostgresCatalogSemanticIndex(CatalogSemanticIndex):
         if row is None:
             return None
         metadata = _metadata_from_row(row)
+        cache_key = await validation_cache_key(
+            connection, metadata, str(row["transaction_identity"])
+        )
+        cached = self._validated_documents.get(cache_key) if cache_key is not None else None
+        if cached is not None and cache_key is not None:
+            self._validated_documents.move_to_end(cache_key)
+            return metadata, cached[0]
         document_cursor = await connection.execute(
             "SELECT ordinal, rule_id, text, neighbor_ids, document_kind, manifest_digest, "
             "surface_digest, content_hash FROM catalog_search_generation_document "
@@ -532,6 +549,13 @@ class PostgresCatalogSemanticIndex(CatalogSemanticIndex):
             if catalog_search_document_digest(item)[7:] != str(stored["content_hash"]):
                 raise ValueError("catalog generation stored document hash mismatch")
         _verify_document_identity(metadata, documents)
+        retain_validated_documents(
+            self._validated_documents,
+            cache_key,
+            documents,
+            max_entries=self._config.validation_cache_entries,
+            max_bytes=self._config.validation_cache_bytes,
+        )
         return metadata, documents
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
@@ -624,17 +648,6 @@ def _normalize_documents(
     return normalized
 
 
-def _verify_document_identity(
-    metadata: CatalogGenerationMetadata,
-    documents: Sequence[CatalogSearchDocument],
-) -> None:
-    actual = build_document_digest_manifest(
-        tuple(catalog_search_document_digest(item) for item in documents)
-    )
-    if actual != metadata.document_digest_manifest:
-        raise ValueError("catalog generation document digest manifest mismatch")
-
-
 def _metadata_insert_values(metadata: CatalogGenerationMetadata) -> tuple[object, ...]:
     manifest = metadata.document_digest_manifest
     return (
@@ -723,12 +736,6 @@ def _document_from_row(
     )
 
 
-def _without_embeddings(
-    documents: Sequence[CatalogSearchDocument],
-) -> tuple[CatalogSearchDocument, ...]:
-    return tuple(replace(item, embedding=()) for item in documents)
-
-
 def _chunk_mapping(chunk: CatalogDocumentDigestChunk) -> dict[str, object]:
     return {
         "index": chunk.index,
@@ -775,19 +782,6 @@ def _required(mapping: dict[str, object], key: str, field: str) -> object:
     if key not in mapping:
         raise ValueError(f"{field} is required")
     return mapping[key]
-
-
-async def _lock_corpus(
-    connection: psycopg.AsyncConnection[Any],
-    corpus: CatalogCorpus,
-    *,
-    shared: bool = False,
-) -> None:
-    function = "pg_advisory_xact_lock_shared" if shared else "pg_advisory_xact_lock"
-    await connection.execute(
-        f"SELECT {function}(hashtextextended(%s, 0))",  # noqa: S608 - fixed function names
-        (f"catalog-search:{corpus}",),
-    )
 
 
 __all__ = ["PostgresCatalogSemanticIndex", "PostgresCatalogSemanticIndexConfig"]

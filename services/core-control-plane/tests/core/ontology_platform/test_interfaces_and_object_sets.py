@@ -381,6 +381,7 @@ async def test_exact_id_predicates_use_bounded_lookups_and_preserve_intersection
             as_of=datetime(2026, 8, 1, tzinfo=UTC),
             purpose="operations-review",
             limit=1_000,
+            include_relationships=False,
         )
     )
 
@@ -442,6 +443,7 @@ async def test_exact_id_batches_stop_after_the_result_limit() -> None:
             as_of=datetime(2026, 8, 1, tzinfo=UTC),
             purpose="operations-review",
             limit=10,
+            include_relationships=False,
         )
     )
 

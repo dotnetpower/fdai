@@ -213,6 +213,9 @@ def test_complete_join_retains_refutation_and_competing_explanations() -> None:
 
 
 async def test_metric_and_evidence_join_query_handlers_use_exact_typed_dependencies() -> None:
+    async def authorize(resource_id: str) -> None:
+        assert resource_id == "service-a"
+
     definition = MetricSemanticDefinition(
         concept_id="request.volume",
         provider_metric="http.server.request.count",
@@ -223,6 +226,7 @@ async def test_metric_and_evidence_join_query_handlers_use_exact_typed_dependenc
     metric_handler = MetricSeriesNodeHandler(
         registry=MetricSemanticRegistry.build((definition,)),
         provider=_Provider(),
+        authorize_resource=authorize,
     )
     metric = await metric_handler(
         OntologyQueryNode(
@@ -262,7 +266,7 @@ async def test_metric_and_evidence_join_query_handlers_use_exact_typed_dependenc
     assert "topology_change_unavailable" in join.value.limitations
 
 
-async def test_metric_scope_series_reads_one_canonical_resource_and_marks_sampling() -> None:
+async def test_metric_scope_series_does_not_sample_an_arbitrary_resource() -> None:
     handler = _scope_handler()
     scope = QueryTable(
         rows=(
@@ -278,10 +282,11 @@ async def test_metric_scope_series_reads_one_canonical_resource_and_marks_sampli
     )
 
     assert isinstance(result.value, MetricWindow)
-    assert result.value.resource_id == "service-a"
+    assert result.value.resource_id == "scope:multiple"
     assert result.value.complete is False
-    assert result.value.missing_reason == "object_scope_sampled"
-    assert result.value.evidence_refs == ("metric:provider", "objectset:receipt")
+    assert result.value.samples == ()
+    assert result.value.missing_reason == "object_scope_ambiguous"
+    assert result.value.evidence_refs == ("objectset:receipt",)
 
 
 async def test_metric_scope_series_retains_empty_and_incomplete_scope_evidence() -> None:
@@ -350,16 +355,10 @@ async def test_metric_scope_series_rejects_unproven_scope_and_provider_identity_
         )
 
 
-async def test_metric_scope_series_preserves_provider_and_sampling_gaps() -> None:
+async def test_metric_scope_series_holds_ambiguous_scope_before_provider_io() -> None:
     class _GapProvider(_Provider):
         async def read(self, *, definition, resource_id, start, end):  # type: ignore[no-untyped-def]
-            result = await super().read(
-                definition=definition,
-                resource_id=resource_id,
-                start=start,
-                end=end,
-            )
-            return replace(result, complete=False, missing_reason="provider_gap")
+            raise AssertionError("ambiguous scope MUST NOT call the provider")
 
     scope = QueryTable(
         rows=(
@@ -375,7 +374,7 @@ async def test_metric_scope_series_preserves_provider_and_sampling_gaps() -> Non
 
     assert isinstance(result.value, MetricWindow)
     assert result.value.complete is False
-    assert result.value.missing_reason == "object_scope_sampled+provider_gap"
+    assert result.value.missing_reason == "object_scope_ambiguous"
 
 
 async def test_metric_scope_series_uses_reviewed_exact_identity_labels() -> None:

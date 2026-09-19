@@ -265,8 +265,19 @@ Materialization distinguishes `result_limit`, `candidate_limit`, and `traversal_
 short result is incomplete evidence rather than a complete absence claim. A `traversal_limit`
 means graph expansion reached its object ceiling. The in-memory and PostgreSQL stores both apply
 the requested object limit to initial roots as well as reached objects.
-Exact-id predicates use fixed batches of at most 128 ids through one indexed store query per batch.
-The reader stops after it has enough matching objects to prove `result_limit`.
+Object-only exact-id predicates use fixed batches of at most 128 ids. Relationship-bearing exact
+selections instead use one bounded snapshot so links between selected batches cannot disappear.
+The gateway authorizes predicate properties and exact identities before materialization and
+reauthorizes traversal roots before expansion. Historical reads apply the same property ACL and
+require the retained release to match the interpreting release; an unavailable release holds.
+
+ObjectSet receipts retain authenticated principal scope through source, traversal, and function
+reads. Current scoped presentation receipts expire after the configured bounded window, which
+defaults to 90 seconds. Role and principal scope separate cache entries even for identical content.
+Query tables preserve source generation and explicit numeric-field metadata through pure algebra.
+Mixed generations hold, exact decimal aggregation does not use ambient precision, and numeric
+strings retain numeric ordering after projection. Missing optional values stay null, result bounds
+stay explicit, and cancellation drains child work independently of bounded progress observers.
 
 ## Semantic actions and mutation plans
 
