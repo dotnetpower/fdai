@@ -347,10 +347,10 @@ Sealing blocks further staging. Promotion rechecks the original database start t
 does not guarantee point-in-time consistency. Tokens cannot certify completeness, absence, or unchanged provider contents. Restart preserves the observation window and revalidates full identity coverage;
 expired or unverifiable continuation requires a fresh bounded attempt. Only source exhaustion with exact coverage can establish absence; empty pages and storage buckets cannot. Partial promotion remains forbidden.
 
-Preparation follows `collecting -> sealed -> verified -> prepared`; only the existing projection
-owner can publish `committed`. Immutable chunk manifests bind exact scope, ownership epoch,
-catalog release, observation windows, coverage, and dependency revisions. A graph snapshot selects one verified set of partition versions. Queries and pagination pin that set instead of joining
-each partition's latest value. Partial candidates never replace the active complete ownership set.
+Preparation follows `collecting -> sealed -> verified -> prepared`; only the existing projection owner can publish `committed`. Inventory-bound publication now durably stores immutable canonical replacement inputs before taking the graph writer lock.
+Each chunk admits at most 1 MiB and 1,000 records; graph content and manifest each admit 32 MiB. The manifest binds chunk digests, release, generation, prior ownership identities, revisions, state updates, and the projection watermark.
+Publication rereads and verifies durable content, retains existing active-generation, revision, endpoint, and cardinality checks, and atomically records the prepared reference with graph and state changes. This still replaces graph rows under the existing lock; it is not a short pointer-switch transaction.
+Future partition manifests must also pin ownership epochs, observation windows, coverage, and dependency revisions. Queries and pagination must select one verified partition set, not each partition's latest value. Partial candidates never replace the active complete ownership set.
 
 Preparation may run concurrently, but publication remains single-writer initially. Publication
 rechecks its expected base and fencing token and atomically advances the active graph reference,

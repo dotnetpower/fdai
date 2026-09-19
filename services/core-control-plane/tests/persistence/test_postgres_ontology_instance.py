@@ -175,6 +175,59 @@ def _review_object(identifier: str, object_type: str = "ReviewCase") -> Ontology
     )
 
 
+@pytest.mark.parametrize("defect", ["none", "manifest", "chunk", "missing", "mutation"])
+def test_prepared_ontology_inputs_are_content_bound_and_frozen(defect) -> None:
+    from fdai.delivery.persistence.postgres_ontology_prepared import (
+        prepare_replacement,
+        restore_replacement,
+    )
+    from fdai.shared.providers.ontology_instance import pin_object_record
+
+    store = PostgresOntologyInstanceStore(
+        config=PostgresOntologyInstanceStoreConfig(dsn="postgresql://example"),
+        object_types=(_type("ReviewCase"),),
+        link_types=(),
+    )
+    properties = {"id": "case", "status": "open"}
+    record = pin_object_record(
+        OntologyObjectRecord(
+            id="case",
+            object_type="ReviewCase",
+            properties=properties,
+        ),
+        store._release,
+    )
+    prepared = prepare_replacement(
+        objects=(record,),
+        links=(),
+        previous_object_ids=(),
+        previous_link_keys=(),
+        release_digest=store._release.digest,
+        expected_active_generation="example-generation",
+        state_updates={"example-status": {"ready": True}},
+        observation_projection_watermark=None,
+    )
+    expected_digest = prepared.digest
+    if defect == "manifest":
+        prepared = replace(
+            prepared, manifest=prepared.manifest.replace('"ready":true', '"ready":1')
+        )
+    elif defect == "chunk":
+        prepared = replace(prepared, chunks=(prepared.chunks[0].replace('"open"', '"closed"'),))
+    elif defect == "missing":
+        prepared = replace(prepared, chunks=())
+    elif defect == "mutation":
+        properties["status"] = "closed"
+    if defect in {"manifest", "chunk", "missing"}:
+        with pytest.raises(OntologyInstanceValidationError, match="prepared ontology"):
+            restore_replacement(prepared, expected_digest=expected_digest)
+    else:
+        manifest, objects, links = restore_replacement(prepared, expected_digest=expected_digest)
+        assert objects[0].properties == {"id": "case", "status": "open"}
+        assert links == ()
+        assert manifest["expected_active_generation"] == "example-generation"
+
+
 async def test_isolated_replacement_replay_is_noop_and_foreign_deletion_is_blocked() -> None:
     async with _isolated_replacement_store() as store:
         objects = (_review_object("case"), _review_object("check", "ReviewCheck"))
@@ -198,6 +251,233 @@ async def test_isolated_replacement_replay_is_noop_and_foreign_deletion_is_block
             previous_link_keys=(("case", "contains_check", "check"),),
         )
         assert (await store.query_objects()).objects == ()
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "release",
+        "duplicate",
+        "watermark_bool",
+        "watermark_negative",
+        "generation",
+        "generation_size",
+        "graph_bytes",
+        "manifest_bytes",
+        "chunk_bytes",
+        "objects",
+        "owners",
+    ],
+)
+def test_prepared_ontology_admission_bounds(monkeypatch, defect):
+    from fdai.delivery.persistence import postgres_ontology_prepared as prepared_module
+    from fdai.shared.providers.ontology_instance import pin_object_record
+
+    store = PostgresOntologyInstanceStore(
+        config=PostgresOntologyInstanceStoreConfig(dsn="postgresql://example"),
+        object_types=(_type("ReviewCase"),),
+        link_types=(),
+    )
+    record = pin_object_record(_review_object("case"), store._release)
+    arguments = dict(
+        objects=(record,),
+        links=(),
+        previous_object_ids=(),
+        previous_link_keys=(),
+        release_digest=store._release.digest,
+        expected_active_generation="example-generation",
+        state_updates={},
+        observation_projection_watermark=None,
+    )
+    if defect == "release":
+        arguments["release_digest"] = "sha256:" + "f" * 64
+    elif defect == "duplicate":
+        arguments["objects"] = (record, record)
+    elif defect.startswith("watermark"):
+        arguments["observation_projection_watermark"] = True if defect == "watermark_bool" else -1
+    elif defect.startswith("generation"):
+        arguments["expected_active_generation"] = " " if defect == "generation" else "x" * 257
+    elif defect in {"graph_bytes", "manifest_bytes", "chunk_bytes"}:
+        monkeypatch.setattr(prepared_module, "_MAX_" + defect.upper(), 100)
+    elif defect == "objects":
+        arguments["objects"] = (record,) * 50_001
+    elif defect == "owners":
+        arguments["previous_object_ids"] = ("case",) * 50_001
+    with pytest.raises(OntologyInstanceValidationError, match="prepared ontology"):
+        prepared_module.prepare_replacement(**arguments)
+
+
+def test_prepared_ontology_chunks_preserve_canonical_order_and_record_limits():
+    import json
+
+    from fdai.delivery.persistence.postgres_ontology_prepared import (
+        prepare_replacement,
+        restore_replacement,
+    )
+    from fdai.shared.providers.ontology_instance import pin_object_record
+
+    store = PostgresOntologyInstanceStore(
+        config=PostgresOntologyInstanceStoreConfig(dsn="postgresql://example"),
+        object_types=(_type("ReviewCase"),),
+        link_types=(),
+    )
+    objects = tuple(
+        pin_object_record(_review_object(f"case-{index:04d}"), store._release)
+        for index in range(1200)
+    )
+    arguments = dict(
+        links=(),
+        previous_object_ids=(),
+        previous_link_keys=(),
+        release_digest=store._release.digest,
+        expected_active_generation="example-generation",
+        state_updates={},
+        observation_projection_watermark=None,
+    )
+    prepared = prepare_replacement(objects=objects, **arguments)
+    assert prepare_replacement(objects=tuple(reversed(objects)), **arguments) == prepared
+    assert len(prepared.chunks) == 2
+    assert all(len(json.loads(chunk)["records"]) <= 1000 for chunk in prepared.chunks)
+    assert all(len(chunk.encode()) <= 1024 * 1024 for chunk in prepared.chunks)
+    assert restore_replacement(prepared, expected_digest=prepared.digest)[1] == objects
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "none",
+        "manifest",
+        "chunk",
+        "missing",
+        "active_generation",
+        "conflict",
+        "missing_endpoint",
+        "state_write",
+        "lost_revision",
+        "caller_mutation",
+        "cancel",
+        "wrong_release",
+    ],
+)
+async def test_isolated_prepared_ontology_publication_rechecks_durable_inputs(monkeypatch, defect):
+    from fdai.delivery.persistence.postgres_ontology_prepared import persist_replacement
+
+    async with _isolated_replacement_store() as store:
+        async with await store._connect() as connection:
+            await connection.execute(
+                "CREATE TABLE inventory_active (singleton BOOLEAN PRIMARY KEY, snapshot_id TEXT);"
+                "INSERT INTO inventory_active VALUES (TRUE, 'example-generation')"
+            )
+        retained = []
+        state_updates = {"example-status": {"ready": True}}
+        before = await store.query_objects()
+
+        async def persist(config, prepared):
+            nonlocal before
+            await persist_replacement(config, prepared)
+            await persist_replacement(config, prepared)
+            retained.append(prepared)
+            assert (await store.query_objects()).objects == ()
+            async with await store._connect() as connection:
+                if defect == "manifest":
+                    await connection.execute(
+                        "UPDATE state_kv SET value='{}' WHERE key=%s",
+                        ("ontology-prepared:" + prepared.digest,),
+                    )
+                elif defect in {"chunk", "missing"}:
+                    import json
+
+                    key = "ontology-prepared:" + json.loads(prepared.manifest)["chunks"][0]
+                    if defect == "chunk":
+                        await connection.execute(
+                            "UPDATE state_kv SET value='{}' WHERE key=%s", (key,)
+                        )
+                    else:
+                        await connection.execute("DELETE FROM state_kv WHERE key=%s", (key,))
+                elif defect == "active_generation":
+                    await connection.execute(
+                        "UPDATE inventory_active SET snapshot_id='other-generation'"
+                    )
+                elif defect == "state_write":
+                    await connection.execute(
+                        "CREATE FUNCTION reject_prepared_commit() RETURNS trigger LANGUAGE plpgsql "
+                        "AS $$ BEGIN RAISE EXCEPTION 'synthetic commit failure'; END $$;"
+                        "CREATE TRIGGER reject_prepared_commit BEFORE INSERT ON state_kv "
+                        "FOR EACH ROW WHEN (NEW.key='inventory-ontology:prepared-snapshot') "
+                        "EXECUTE FUNCTION reject_prepared_commit()"
+                    )
+                elif defect == "conflict":
+                    await connection.execute(
+                        "UPDATE state_kv SET value='{}' WHERE key=%s",
+                        ("ontology-prepared:" + prepared.digest,),
+                    )
+            if defect == "conflict":
+                await persist_replacement(config, prepared)
+            elif defect == "lost_revision":
+                await store.replace_subgraph(objects=(_review_object("case"),), links=())
+                before = await store.query_objects()
+            elif defect == "caller_mutation":
+                state_updates["example-status"]["ready"] = False
+            elif defect == "cancel":
+                raise asyncio.CancelledError()
+
+        monkeypatch.setattr(postgres_ontology, "persist_replacement", persist)
+
+        async def publish():
+            record = _review_object("case")
+            if defect == "wrong_release":
+                from fdai.shared.providers.ontology_instance import pin_object_record
+
+                record = pin_object_record(record, store._release)
+                record = replace(
+                    record,
+                    type_ref=record.type_ref.model_copy(
+                        update={"catalog_digest": "sha256:" + "f" * 64},
+                    ),
+                )
+            await store.replace_subgraph_with_state(
+                objects=(record,),
+                links=(
+                    OntologyLinkRecord(link_type="contains_check", from_id="case", to_id="missing"),
+                )
+                if defect == "missing_endpoint"
+                else (),
+                previous_object_ids=(),
+                previous_link_keys=(),
+                state_updates=state_updates,
+                expected_active_generation="example-generation",
+            )
+
+        if defect in {"none", "caller_mutation"}:
+            await publish()
+            assert [item.id for item in (await store.query_objects()).objects] == ["case"]
+        else:
+            error_type = (
+                asyncio.CancelledError
+                if defect == "cancel"
+                else psycopg.errors.RaiseException
+                if defect == "state_write"
+                else OntologyInstanceValidationError
+            )
+            with pytest.raises(error_type):
+                await publish()
+            assert await store.query_objects() == before
+        async with await store._connect() as connection:
+            cursor = await connection.execute(
+                "SELECT value FROM state_kv WHERE key=%s", ("inventory-ontology:prepared-snapshot",)
+            )
+            row = await cursor.fetchone()
+            if defect in {"none", "caller_mutation"}:
+                assert row["value"]["digest"] == retained[0].digest
+            else:
+                assert row is None
+            cursor = await connection.execute(
+                "SELECT value FROM state_kv WHERE key='example-status'"
+            )
+            status = await cursor.fetchone()
+            assert (status["value"] if status else None) == (
+                {"ready": True} if defect in {"none", "caller_mutation"} else None
+            )
 
 
 async def test_isolated_graph_query_limits_relationships(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -20,6 +20,11 @@ from fdai.delivery.persistence.postgres_ontology_graph import (
     _query_objects,
     _traverse,
 )
+from fdai.delivery.persistence.postgres_ontology_prepared import (
+    load_replacement,
+    persist_replacement,
+    prepare_replacement,
+)
 from fdai.delivery.persistence.postgres_ontology_records import (
     _inventory_manifest_object_ids,
     _inventory_state_base_available,
@@ -440,6 +445,19 @@ class PostgresOntologyInstanceStore:
             raise OntologyInstanceValidationError("replacement link keys MUST be unique")
         for object_record in normalized_objects:
             validate_object_record(object_record, self._object_types)
+        prepared = None
+        if _expected_active_generation is not None:
+            prepared = prepare_replacement(
+                objects=normalized_objects,
+                links=normalized_links,
+                previous_object_ids=previous_object_ids,
+                previous_link_keys=previous_link_keys,
+                release_digest=self._release.digest,
+                expected_active_generation=_expected_active_generation,
+                state_updates=_state_updates or {},
+                observation_projection_watermark=_observation_projection_watermark,
+            )
+            await persist_replacement(self._config, prepared)
         async with asyncio.timeout(60), await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
@@ -447,6 +465,22 @@ class PostgresOntologyInstanceStore:
                     "SELECT pg_advisory_xact_lock(%s)",
                     (_SUBGRAPH_REPLACEMENT_LOCK,),
                 )
+                if prepared is not None:
+                    manifest, normalized_objects, normalized_links = await load_replacement(
+                        connection,
+                        expected_digest=prepared.digest,
+                    )
+                    previous_object_ids = tuple(manifest["previous_object_ids"])
+                    previous_link_keys = tuple(tuple(key) for key in manifest["previous_link_keys"])
+                    _state_updates = {
+                        **manifest["state_updates"],
+                        "inventory-ontology:prepared-snapshot": {
+                            "schema_version": "1.0.0",
+                            "digest": prepared.digest,
+                            "generation": manifest["expected_active_generation"],
+                            "release_digest": manifest["release_digest"],
+                        },
+                    }
                 if _expected_active_generation is not None:
                     active_cursor = await connection.execute(
                         "SELECT snapshot_id FROM inventory_active WHERE singleton=TRUE FOR UPDATE"
