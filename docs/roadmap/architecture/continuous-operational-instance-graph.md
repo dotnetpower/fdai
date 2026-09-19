@@ -66,7 +66,7 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
   recorded, and evidence-cutoff time plus source, revision, completeness, conflicts, and freshness.
   The normalized journal keeps these distinct; ingestion latency never rewrites provider event time.
 - **No false absence:** Missing events, truncated reads, cursor lag, an open realtime overlay, and archive
-  unavailability remain incomplete. An empty provider-type aggregation cannot certify complete provider
+  unavailability remain incomplete. A projection-bound overflow cannot promote a candidate or confirm a tombstone; the journal rejects incomplete snapshot input before database access. An empty provider-type aggregation cannot certify complete provider
   scope because an empty subscription and an identity with no provider visibility are indistinguishable.
   A bounded query can return verified positive observations, but missing scope never proves absence.
 - **Read/write separation:** Provider observation and ontology projection are read-plane work.

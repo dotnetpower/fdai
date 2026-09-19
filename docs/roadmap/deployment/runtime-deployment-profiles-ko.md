@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 4b5c32019a3bd95f3d67fd20a26411856279b560
+translation_source_sha: 4139a96734bc0ba5ac07ea86ca1c510fa9bbdbaa
 translation_revised: 2026-09-19
 ---
 # 런타임 배포 프로파일
@@ -127,6 +127,8 @@ $$
 프로파일이 차단됩니다. 오류에는 테넌트 데이터를 노출하지 않고 요청량과 할당 가능량을 표시합니다.
 
 ## 상태 소유권
+
+초기 인벤토리 실행과 반복 실행에는 같은 변환 한도를 적용합니다. 한도를 넘은 후보는 이전 활성 세대를 유지하며, 불완전한 관측으로는 리소스 삭제를 확정할 수 없습니다.
 
 두 런타임 프로파일의 연결된 배포는 정확한 Azure Marketplace Ubuntu 버전으로 Managed Host를
 부팅하고 Foundation 단계에서 체크섬으로 고정된 도구 체인을 설치합니다. 전용 Managed Host

@@ -8,6 +8,7 @@ from types import MethodType
 from typing import Any
 
 import pytest
+from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.persistence import postgres_inventory_observation as observation_module
 from fdai.delivery.persistence.postgres_inventory_observation import (
     _INSERT_OBSERVATION_SQL,
@@ -49,6 +50,28 @@ from fdai.shared.providers.state_evidence import (
 )
 
 NOW = datetime(2026, 9, 5, tzinfo=UTC)
+
+
+async def test_incomplete_snapshot_is_rejected_before_database_access(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def reject_database_access(*args: object) -> None:
+        raise AssertionError("incomplete snapshot MUST NOT access the database")
+
+    monkeypatch.setattr(PostgresInventoryObservationJournal, "_connect", reject_database_access)
+    journal = PostgresInventoryObservationJournal(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://example")
+    )
+    observation = PromotedInventoryObservation(
+        generation="incomplete-generation",
+        resources=(),
+        links=(),
+        complete=False,
+        recorded_at=NOW,
+    )
+
+    with pytest.raises(ValueError, match="incomplete inventory observation"):
+        await journal.append_promoted_snapshot(observation)
 
 
 class _Cursor:

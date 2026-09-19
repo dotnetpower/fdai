@@ -43,9 +43,60 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Runtime-call evidence foundation | implemented | `runtime_calls.yaml`; `runtime_call_projection.py`; `runtime_call_telemetry.py`; `delivery/azure/runtime_call_telemetry.py`; focused catalog, endpoint, source, and authorization checks | A bounded Azure Monitor adapter carries exact caller and target Resource IDs into separately authenticated telemetry records. The existing inventory enricher remains the single writer; malformed, incomplete, stale, redacted, or out-of-generation records add no edge. Deployed evidence remains separate. |
 | Operational state-transition ledger | implemented | `state_transitions.py`; `postgres_state_transitions.py`; Core service migration; inventory promotion publisher; focused contract, persistence, migration, and publisher checks | Content-addressed bitemporal transitions and positive coverage are append-only. Inventory snapshots produce real state edges but keep interval coverage incomplete until a continuous source proves the whole window. |
 
+### Inventory hardening register
+
+The 2026-09-19 review covers collection, interpretation, persistence, and replay, not execution
+authority. The accepted plan repairs admission and deletion first, then durable delivery and
+snapshot-consistent reads, temporal evidence, and bounded storage. Its critique rejected treating
+all 36 observations as proven production defects: adapter-boundary reproductions, concurrency
+risks, and design tradeoffs need different checks. The revised plan preserves fail-closed scope,
+immutable evidence, and single-writer ownership; it does not loosen admission to achieve coverage.
+Each subsequent review round inspects at least ten independent cases and reopens any finding above
+Low. Local focused evidence does not claim Azure rollout or production performance.
+
+| ID | Area | State | Evidence or required exit check |
+|----|------|-------|---------------------------------|
+| H01 | Incomplete snapshot deletion and promotion | implemented | 76 owning tests; incomplete input cannot access journal storage or advance the active pointer. |
+| H02 | Mapped provider coverage reconciliation | not-started | Reject mismatched mapped counts before the final fence. |
+| H03 | Init-container environment redaction | not-started | Neither container family persists environment names or values. |
+| H04 | Truncated nested-resource observations | not-started | Oversized VNet properties cannot prove child absence. |
+| H05 | Post-commit event publication recovery | not-started | Restart retries unacknowledged generation-stable Events after graph commit. |
+| H06 | Object evaluation with relationship gaps | not-started | Verified object observations remain evaluable without claiming complete topology. |
+| H07 | Snapshot-consistent graph reads | not-started | Objects, links, and source coverage share one database snapshot. |
+| H08 | Independent mapping verification | not-started | Reject unregistered, substituted, and reversed mapping evidence. |
+| H09 | Built-in ARM scope identity | not-started | Subscription and Resource Group rows match exact identity shapes. |
+| H10 | Unclassified ARM identity | not-started | Unknown semantic types still pass exact provider identity validation. |
+| H11 | End-to-end collection deadlines | not-started | Enrichment, promotion, and notification have bounded failure outcomes. |
+| H12 | Requested subscription admission | not-started | A matching row cannot escape the configured scope set. |
+| H13 | Nested subnet parent admission | not-started | A child identity belongs to the exact observed VNet. |
+| H14 | Provider-reference conflicts | not-started | Conflicting provider identities cannot certify a relationship. |
+| H15 | Non-state property conflicts | not-started | Withheld properties retain explicit object evidence limitations. |
+| H16 | Missing and future observation time | not-started | Missing time and excessive skew cannot become current complete evidence. |
+| H17 | Page observation clocks | not-started | Parsing delay does not refresh earlier provider observations. |
+| H18 | Topology effective time | not-started | Historical records distinguish effective time from recording time. |
+| H19 | Current/history freshness policy | not-started | Configured freshness survives both projections. |
+| H20 | Mixed freshness replay | not-started | Heterogeneous fact budgets survive exact replay. |
+| H21 | Identical replay idempotency | not-started | Identical replay leaves stored revisions and links unchanged. |
+| H22 | Clock-only duplicate adjudication | not-started | Equal content retains the earliest valid observation. |
+| H23 | Relationship failure isolation | not-started | Safe positive object evidence survives without false relationship completeness. |
+| H24 | Collection memory bounds | not-started | Aggregate resource, link, and byte bounds cover the collected generation. |
+| H25 | Relationship-drop bounds | not-started | Suppression evidence cannot grow without a finite bound. |
+| H26 | Large shard handling | not-started | Bounded partitioning or explicit supported limits prevent repeated unproductive scans. |
+| H27 | Cardinality query complexity | not-started | High-fanout validation avoids repeated sibling scans. |
+| H28 | Persistence round trips | not-started | Batch operations retain revision and endpoint checks. |
+| H29 | Projection lock scope | not-started | Preserve ownership while bounding unrelated writer contention. |
+| H30 | Manifest storage bounds | not-started | Receipt representation and replay have bounded encoded size. |
+| H31 | Cross-owner deletion | not-started | Removing an owned object cannot silently erase foreign-owned evidence. |
+| H32 | Relationship result bounds | not-started | Graph reads expose an independent edge ceiling and truncation. |
+| H33 | Transport failure classification | not-started | Continuation-token errors are not authentication failures. |
+| H34 | Invalidation marker recovery | not-started | Corrupt markers recover against a durable monotonic boundary. |
+| H35 | Inventory adapter documentation | not-started | Source documentation describes the implemented adapter rather than a stub. |
+| H36 | Real publication recovery regression | not-started | The owning test invokes recovery and proves resumed delivery. |
+
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-19 | implemented | Rejected projection-bound overflow before snapshot promotion and rejected incomplete snapshot input before journal access or tombstone confirmation. | `current change`; `inventory_sync.py`, `postgres_inventory_observation.py`; owning coordinator and observation-journal tests: 76 passed; focused Ruff passed. | Complete the 36-item hardening register and repeated adversarial review below; no live Azure or deployment evidence is claimed. |
 | 2026-09-18 | in-progress | After release convergence, the next analyzer tick correctly lowered managed readiness to 11/12 because subscription discovery retained inaccessible AKS clusters as incomplete fleet evidence. The active snapshot still retained positive Kubernetes observations, and the Dashboard release mismatch did not recur. | Local analyzer reported `inventory_source_incomplete`; active snapshot retained 164 Kubernetes Resources including 44 Pods; inventory and Operator releases remained equal and Dashboard v2 remained loaded without HTTP 409. | Grant the inventory read identity access to every intentionally discovered cluster or explicitly narrow the configured subscription discovery scope, then require a clean analyzer tick before claiming 12/12 readiness. |
 | 2026-09-18 | validated | Completed an explicitly requested fresh local reconciliation under the `routes_to` 2.0 release, restarted the managed full stack, and verified inventory, manifest, status, and Operator projection convergence. | Local PostgreSQL reported active manifest and status generation equality, `complete=true`, `available`, and matching inventory/Operator release `sha256:26f6cdaa844d879bb21d1d4fb5f6292687306d6327d898d9df20e99b316fff06`; managed readiness reached 12/12; authenticated Dashboard v2 rendered 1,101 Resources with no loading state or HTTP 409. | Relationship evidence remains explicitly incomplete for reviewed unavailable candidates; it is independent from release consistency and does not reopen the 409. |
 | 2026-09-18 | implemented | Allowed an explicitly operator-requested full reconciliation to preserve an unreplayable release-mismatched pending generation and proceed to fresh collection. Automatic recovery retains the existing fail-closed deployment-alignment error. | `current change`; focused recovery and observer wiring cohort passed 22 cases; Ruff and strict mypy passed. | Run the requested local reconciliation and verify inventory and Operator release convergence. |

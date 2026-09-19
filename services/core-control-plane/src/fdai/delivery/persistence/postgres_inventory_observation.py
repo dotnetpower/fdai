@@ -378,6 +378,8 @@ class PostgresInventoryObservationJournal:
     ) -> InventorySnapshotObservationAppendResult:
         """Dual-write one promoted full snapshot and confirm covered tombstones."""
 
+        if not observation.complete:
+            raise ValueError("incomplete inventory observation cannot confirm a snapshot")
         if observation.recorded_at is None:
             raise ValueError("promoted inventory observation recorded_at MUST be supplied")
         async with await self._connect() as connection:

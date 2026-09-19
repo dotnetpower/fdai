@@ -166,6 +166,10 @@ class InventorySyncCoordinator:
                     generation=attempt_id,
                     recorded_at=datetime.now(tz=UTC),
                 )
+                if not promoted_observation.complete:
+                    raise InventoryStreamError(
+                        "inventory observation exceeded its projection bounds"
+                    )
                 if source.manifest.metadata.get("coverage_scope") == "requested_resource_types":
                     raise InventoryStreamError(
                         "resource-type subset cannot promote the global inventory snapshot"

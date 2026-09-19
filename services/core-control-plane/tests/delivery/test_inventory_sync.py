@@ -129,6 +129,39 @@ def _source(name: str, inventory: Any) -> InventorySource:
     )
 
 
+async def test_oversized_observation_cannot_advance_active_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("fdai.delivery.inventory_sync._MAX_OBSERVED_RESOURCES", 1)
+    store = _Store()
+    observations: list[PromotedInventoryObservation] = []
+
+    async def observe(observation: PromotedInventoryObservation) -> None:
+        observations.append(observation)
+
+    source = _source(
+        "arg",
+        _Inventory(
+            [
+                InventoryBatch(
+                    resources=(
+                        ResourceRecord(resource_id="resource-1", type="compute.vm"),
+                        ResourceRecord(resource_id="resource-2", type="compute.vm"),
+                    )
+                ),
+                InventoryBatch(final=True),
+            ]
+        ),
+    )
+
+    with pytest.raises(InventorySourcesExhaustedError):
+        await InventorySyncCoordinator(store=store, promotion_observer=observe).run((source,))
+
+    assert store.promoted == []
+    assert observations == []
+    assert store.failed[0][1].code is InventoryFailureCode.PARTIAL
+
+
 class _StallingInventory:
     def __init__(self, stalled: asyncio.Event) -> None:
         self._stalled = stalled
