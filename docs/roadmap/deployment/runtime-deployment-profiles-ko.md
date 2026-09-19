@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: b33869ae818857473423ba2f252fa17519b53f8a
+translation_source_sha: e14782f4b840d4ffaae8c45aa5ffa5928bb7dc61
 translation_revised: 2026-09-20
 ---
 # 런타임 배포 프로파일
@@ -22,6 +22,7 @@ facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권�
 노드 크기·비용·호스트 신원·정확한 계획 승인은 검증하지 않습니다. 이 근거는 프로파일에 연결된
 계획을 대신할 수 없습니다. 지원 자료 설치에는 검증된 경로를 명시적으로 전달하며 소스 자료가
 없다고 kit를 자동 선택하지 않습니다. [소스 경계](installable-deployment-cli-ko.md#명시적-소스-복구)를 참고하세요.
+두 프로파일 모두 읽기 측 리소스 계산을 위해 Core의 잠긴 Kubernetes 수량 도구를 패키징합니다. 이 의존성은 런타임을 선택하거나 Kubernetes 접근을 허용하거나 노드 적합성을 입증하거나 Cost Governance를 활성화하지 않습니다. 독립 배포 CLI는 별도 의존성 집합을 유지합니다.
 
 운영자는 런타임 플랫폼과 데이터베이스 배치를 하나씩 선택합니다. `fdaictl`은 조합을 검증하고,
 용량과 비용을 추정하며, 플랫폼별 프로비저닝 그래프를 컴파일하고, 각 정확한 플랜에 대한 승인을

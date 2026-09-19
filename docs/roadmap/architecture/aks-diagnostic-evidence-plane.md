@@ -44,6 +44,11 @@ authority.
 
 ## Cluster source bindings
 
+Reusable quantity conversion and ordinary Pod CPU/memory accounting are defined in the
+[connector preflight boundary](aks-outbound-connector.md#capacity-and-storage-preflight).
+These pure helpers consume complete Pod records; existing normalized diagnostic quantity text
+is unchanged. Arithmetic alone proves neither source completeness nor schedulability.
+
 The [outbound connector](aks-outbound-connector.md) offers explicit certificate-authenticated
 snapshot transfer without changing this plane's observation authority. Its stored-source adapter
 uses the existing Inventory Job and relationship verifier and is exclusive with direct collection.

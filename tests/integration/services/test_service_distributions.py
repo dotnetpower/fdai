@@ -60,6 +60,7 @@ EXPECTED_DEPENDENCIES = {
         "fdai-service-contracts",
         "httpx",
         "jsonschema",
+        "kubernetes",
         "markdown-it-py",
         "opentelemetry-api",
         "opentelemetry-exporter-otlp-proto-grpc",

@@ -11,7 +11,7 @@ verification; delivery owns bilingual ranking and PostgreSQL generation-cache va
 The existing schema-repair policy recognizes a complete canonical single-kind manifest list before repair; catalog-owned prompt profiles propose that shape without raw-language routing or new authority.
 Document and operational reads keep their independent evidence authorities and exact source scope. Core's frame gate also requires an accepted matching schema intent when judgment was evaluated; a rejected judgment cannot resume through a model-authored declaration list or detail frame.
 
-The physical service workspace is owned by [Multi-Service Repository Layout](multi-service-repository-layout.md). This document owns dependency direction, structural gates, extension seams, control-loop wiring, configuration, and repository conventions. The private
+The physical service workspace is owned by [Multi-Service Repository Layout](multi-service-repository-layout.md). The Core-owned `kubernetes` dependency backs reusable quantity accounting in delivery; root development tooling mirrors it, while shared contracts and independently packaged services do not acquire it. This document owns dependency direction, structural gates, extension seams, control-loop wiring, configuration, and repository conventions. The private
 composition type module stays below its enforced size ceiling so new bindings remain reviewable and move to focused wire modules before the
 shared container becomes a second root. Case-history review requires both failure and matched control evidence before it can propose an
 inert learning candidate. A Workflow approval step cannot lower the no-self-approval invariant; the contract rejects a disabled value at

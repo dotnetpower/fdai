@@ -21,6 +21,7 @@ The host's read-only `verify-source-runtime` command checks pinned source/runtim
 runtime or database placement, node sizing, cost, host identity or exact-plan authority. Its evidence
 cannot replace a profile-bound plan. Support installation receives an already-admitted artifact root;
 missing source support never selects a kit implicitly. See the [source boundary](installable-deployment-cli.md#explicit-source-recovery).
+Both profiles package Core's locked Kubernetes quantity utility for read-side resource accounting. This dependency neither chooses a runtime nor grants Kubernetes access, proves node fit, or enables Cost Governance; the standalone deployment CLI retains its independent dependency set.
 
 The operator chooses one runtime platform and one database placement. `fdaictl` validates the
 combination, estimates its capacity and cost, compiles a platform-specific provisioning graph,

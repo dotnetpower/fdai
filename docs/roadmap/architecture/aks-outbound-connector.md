@@ -209,6 +209,42 @@ storage and current reads verify signatures, scope, expiry and revocation again.
 executable Kubernetes read preflight, not an automatically scheduled complete deployment preflight.
 Azure policy, artifact, capacity, storage, network and installation-owner producers remain open.
 
+### Capacity and storage preflight
+
+The reusable accounting foundation is implemented; cluster collection and signed capacity/storage
+facts remain open. `kubernetes_quantity.py` wraps the official Kubernetes Python quantity parser,
+locked at `36.0.3` under Apache-2.0, rather than maintaining another suffix conversion engine.
+Core owns this dependency; parsing creates no API client and loads no credentials.
+`parse_resource_quantity` returns exact `Decimal` cores or bytes. Input is an ASCII quantity string
+of at most 96 characters or a JSON integer, with exponent magnitude at most 64 and value at most
+`2**63 - 1`. Negative values, booleans, floats, non-finite values, whitespace and unsupported syntax
+raise `KubernetesQuantityError`; none become zero. `cpu_millicores` and `storage_bytes` round requests
+up to integer units and reject overflow. They are not capacity-floor functions, API admission
+validators or Go quantity serializers, and parsing does not round or clamp to Go precision.
+
+`pod_resource_requests` reuses these functions for ordinary CPU/memory requests: take the greater
+of app-container sums and each resource's init-container maximum, then add Pod overhead. Missing
+requests use limits, then zero; explicit malformed inputs never default. Per-container upward
+rounding can overcount fractional bytes. Unsupported resource types, restart/resize declarations
+and status, Pod-level resources, malformed arrays and more than 512 total containers raise
+`ValueError`, which a future collector must retain as unknown. The actual suspended observer recipe
+is checked as 100 millicores, 128 MiB and a 1 GiB PVC. This proves arithmetic, not placement.
+
+The planned resource inspection is GET-only under the exact cluster UID binding. Complete paginated Node and
+Pod lists establish a point-in-time CPU, memory and Pod-slot fit for the fixed observer recipe.
+Unknown quantities, incomplete pages, in-place resize, restartable init containers, Pod-level
+resources or unassigned pending work withhold capacity rather than approximating it. Only ready,
+schedulable, untainted Linux/amd64 nodes are candidates. The result does not reserve capacity or
+prove placement, admission, volume topology or image availability. List versions are consistent
+within each collection, not an atomic snapshot across collections.
+
+The planned storage inspection requires an explicitly supplied existing PVC UID, exact namespace/name and
+StorageClass, Bound PVC/PV state, reciprocal claim identity, filesystem mode and sufficient 1 GiB
+capacity. A missing UID, unbound claim or uncertain provider evidence remains unknown; it never
+creates storage. This establishes binding only, not mount/write durability or installation ownership.
+Both checks retain minimized content digests, recheck cluster identity and original freshness, and
+remain independent of policy, route, human approval and execution authority.
+
 ### Artifact preflight
 
 Artifact inspection reuses the installed deployment CLI's pinned release and bundle trust roots,

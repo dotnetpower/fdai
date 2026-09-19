@@ -96,6 +96,11 @@ def install_inputs(**updates):
 def test_installation_preview_is_deterministic_non_root_and_read_only(tmp_path) -> None:
     from fdai.delivery.kubernetes_connector_installation import render_observer_installation
     from fdai.delivery.kubernetes_connector_planning import propose_observer_deployment
+    from fdai.delivery.kubernetes_quantity import storage_bytes
+    from fdai.delivery.kubernetes_resource_accounting import (
+        PodResourceRequests,
+        pod_resource_requests,
+    )
 
     from .test_kubernetes_connector_planning import context
     from .test_kubernetes_connector_spool import NOW
@@ -135,6 +140,13 @@ def test_installation_preview_is_deterministic_non_root_and_read_only(tmp_path) 
     assert job["suspend"] is True
     assert job["concurrencyPolicy"] == "Forbid"
     pod = job["jobTemplate"]["spec"]["template"]["spec"]
+    assert pod_resource_requests({"spec": pod}) == PodResourceRequests(100, 128 * 1024**2)
+    assert (
+        storage_bytes(
+            resources["PersistentVolumeClaim"]["spec"]["resources"]["requests"]["storage"]
+        )
+        == 1024**3
+    )
     assert pod["automountServiceAccountToken"] is False
     for container in pod["initContainers"] + pod["containers"]:
         assert container["securityContext"]["runAsNonRoot"] is True

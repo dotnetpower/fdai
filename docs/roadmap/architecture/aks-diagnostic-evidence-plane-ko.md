@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: c820d892edad4ab6ec1572669e75d74330c718b5
+translation_source_sha: cd9260796d7feaaa76399b06a94abc5a05e84826
 translation_revised: 2026-09-20
 ---
 # AKS 진단 근거 플레인
@@ -44,6 +44,11 @@ Azure 관측은 정확한 대상을 검증한 뒤에만 결합됩니다. 결정�
 | D12 | FDAI가 무엇을 할 수 있나요? | 항상 `execution_authority=false`; 작업 계획과 실행은 이 플레인 밖에 유지 |
 
 ## 클러스터 출처 연결
+
+재사용 가능한 수량 변환과 일반 Pod CPU·메모리 계산은
+[커넥터 사전 점검 경계](aks-outbound-connector-ko.md#용량-및-저장소-사전-점검)에 정의합니다.
+이 순수 함수들은 완전한 Pod 레코드를 입력받으며 기존 정규화된 진단 수량 문자열은 바꾸지
+않습니다. 산술 계산만으로 출처의 완전성이나 스케줄링 가능성을 입증하지는 않습니다.
 
 [역방향 커넥터](aks-outbound-connector-ko.md)는 관측 권한을 바꾸지 않고 명시적인 인증서
 인증 기반 스냅샷 전송을 제공합니다. 저장본을 읽는 어댑터는 기존 Inventory Job과 관계 검증기를
