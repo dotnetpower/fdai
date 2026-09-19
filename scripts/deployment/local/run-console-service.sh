@@ -149,6 +149,9 @@ else
     uv.lock
     scripts/deployment/local/run-console-service.sh
   )
+  if [[ "$service" == "core-runtime" || "$service" == "operator-api" ]]; then
+    digest_inputs+=(packages/runtime-diagnostics/src)
+  fi
   if [[ "$service" == "core-runtime" ]]; then
     digest_inputs+=(rule-catalog)
   elif [[ "$service" == "cost-governance-analytics" ]]; then

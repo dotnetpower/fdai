@@ -630,7 +630,7 @@ def test_runner_rejects_reuse_when_launch_inputs_change(tmp_path: Path) -> None:
         first_process.wait(timeout=5)
 
 
-def test_runner_reuses_diagnostics_until_revision_or_service_inputs_change(
+def test_runner_reuses_diagnostics_until_service_inputs_change(
     tmp_path: Path,
 ) -> None:
     repo = tmp_path / "repo"
@@ -738,8 +738,21 @@ def test_runner_reuses_diagnostics_until_revision_or_service_inputs_change(
             check=False,
         )
 
-        assert revision_result.returncode == 75
-        assert "service restart required: operator-api" in revision_result.stderr
+        assert revision_result.returncode == 0
+        assert "service=operator-api event=reused" in revision_result.stdout
+        environment["FDAI_LOCAL_SERVICE_INPUT_DIGEST"] = "b" * 64
+
+        input_result = subprocess.run(  # noqa: S603 - fixed test command
+            command,
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            env=environment,
+            check=False,
+        )
+
+        assert input_result.returncode == 75
+        assert "service restart required: operator-api" in input_result.stderr
         assert first_process.poll() is None
     finally:
         first_process.terminate()

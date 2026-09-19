@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: f9b4442dbf06d55980dfe1207e9b1414a1653e85
+translation_source_sha: bf2e5dc459880df28daa7ee3eb91d1998dc1a647
 translation_revised: 2026-09-19
 ---
 
@@ -86,10 +86,11 @@ CI 범위 해석기는 결정론적으로 동작하며 안전한 쪽을 선택�
 추론은 영속화하지 않습니다.
 
 모든 패킷은 Git 리비전, 로컬 서비스 입력 digest, worktree patch digest, 프로세스 신원,
-runtime-scope receipt digest, 시간 구간 및 패킷 digest를 연결합니다. 캡처 허용 여부는 Git
-리비전과 서비스 입력 digest를 비교하므로 관련 없는 worktree 편집은 실행 중인 서비스를
-무효화하지 않습니다. GitHub Copilot 검토는 소유자 전용 export 및 import 경계를 사용하며 전체
-worktree digest를 유지합니다. Workspace 신원이나 패킷 digest가 바뀌면 검토를 수락하지 않습니다.
+runtime-scope receipt digest, 시간 구간 및 패킷 digest를 연결합니다. 캡처 허용 여부는 정식
+서비스 입력 digest를 비교합니다. Git 리비전과 worktree digest는 출처 정보로 유지하므로 해당
+서비스 입력 밖의 commit이나 편집은 실행 중인 서비스를 무효화하지 않습니다. GitHub Copilot
+검토는 소유자 전용 export 및 import 경계를 사용하며 전체 workspace 신원을 유지합니다.
+Workspace 신원이나 패킷 digest가 바뀌면 검토를 수락하지 않습니다.
 Copilot은 일치하는 workspace를 검사하고 진단을 제안할 수 있지만, 런타임은
 Copilot을 호출하거나 저장소 파일을 읽거나 코드를 편집하거나 pull request를 열거나 병합 또는
 실행 권한을 부여하지 않습니다. System Knowledge는 release 계약을 설명할 수 있지만 실제 측정은
@@ -106,9 +107,9 @@ Operator ASGI 애플리케이션 팩터리는 Uvicorn이 팩터리를 직접 불
 supervisor lock이 해제된 후 새 자식 프로세스를 시작합니다.
 내보낸 패킷은 현재 코딩 세션의 GitHub Copilot이 검토하며, 진단 채널은 FDAI 런타임 모델이나
 Azure OpenAI 배포를 선택하거나 호출하지 않습니다.
-서비스 재사용 fingerprint에는 Git 리비전과 서비스 입력 digest가 포함됩니다. 따라서 commit이나
-관련 서비스 입력이 바뀌면 오래된 프로세스를 교체하지만 관련 없는 worktree 편집 때문에
-재시작하지는 않습니다. 로컬 준비
+서비스 재사용 fingerprint에는 runtime-diagnostics 패키지를 포함한 정식 서비스 입력 digest가
+포함됩니다. 관련 입력이 바뀌면 오래된 프로세스를 교체하지만 관련 없는 commit이나 worktree
+편집 때문에 재시작하지는 않습니다. 로컬 준비
 상태 검사는 서비스 소유 Core 실행기를 프로세스 소유자로 인식하고 새로운 semantic consumer
 진행 뒤의 새로운 heartbeat를
 허용합니다. 인벤토리 세대가 ontology checkpoint 변환보다 먼저 바뀌면 로컬 analyzer는 준비되지

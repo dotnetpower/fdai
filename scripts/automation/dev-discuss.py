@@ -153,8 +153,6 @@ async def _capture(
         heap=heap,
         timeout_seconds=max(5.0, duration_ms / 1000 + 5.0),
     )
-    if packet.source_revision != _git_revision(root):
-        raise ValueError("running service revision does not match the workspace")
     if packet.service_input_digest != _service_input_digest(root, service):
         raise ValueError("running service inputs do not match the workspace")
     return packet
