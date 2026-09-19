@@ -75,6 +75,9 @@ process. The packet reports repository-relative function or file locations, CPU 
 differences, resident memory, garbage collection, thread and file-descriptor counts, event-loop
 delay, capture overhead, truncation, and unavailable reasons. It does not persist heap objects,
 request or answer bodies, environment values, provider payloads, credentials, or hidden reasoning.
+The Operator semantic runtime may validate assurance answer-generation attribution, evaluator-model
+attribution, and a held assessment state for the product projection. Those fields remain product
+conversation data and never enter the diagnostic probe, packet, export, or Copilot review.
 
 Every packet binds the Git revision, local service input digest, worktree patch digest, process
 identity, runtime-scope receipt digest, time window, and packet digest. A GitHub Copilot review uses
