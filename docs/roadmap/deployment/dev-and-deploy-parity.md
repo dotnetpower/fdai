@@ -276,10 +276,10 @@ the same local PostgreSQL conversation and assessment stores as deployment and a
 deterministic terminal checks. Semantic review activates only with two distinct resolved model
 families; a narrator-only or `hil-only` secondary stays inconclusive instead of using one model.
 When the default artifact is missing, full-stack preparation generates it from existing deployments in the selected subscription and resource group. Discovery has a 120-second deadline and limits of eight accounts and 100 deployments per account. Exactly one account must supply a registry-matched narrator and embedding; ambiguity or discovery failure stops preparation. The atomic, gitignored file is owner-only and binds actual deployment names. Explicit selections and existing artifacts are never overwritten. Bootstrap binds only T1 and an observed primary reasoner, retains `hil-only`, and creates no resources, grants, or inference calls. Active model inference remains separately verified.
-The committed VS Code tasks start, inspect, stop, or report a Pantheon campaign only after an
-explicit operator command. Local Core binds the fixed-census diagnostic to the same PostgreSQL and
-Operator semantic transport, records the current Git revision plus task-owned source digest, and
-starts no campaign during process startup or restart.
+The committed VS Code tasks operate a Pantheon campaign only after an explicit operator command.
+The supervisor task passes the standard loopback Operator URL and owner-only token-file path, never
+the bearer value. Local Core binds the same PostgreSQL and Operator transport and starts no campaign
+during process startup. Deployment may vary those bindings without changing assessment behavior.
 When PostgreSQL StateStore is configured, both profiles persist ontology-owned failed-answer
 attributions as idempotent hold-first adequacy reviews with a shadow audit record. Interactive local
 without durable state leaves the optional review sink unavailable. Neither profile performs replay,

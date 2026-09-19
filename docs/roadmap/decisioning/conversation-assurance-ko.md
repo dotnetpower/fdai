@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 8dcd81373ddec0a67eff24b96b37df8a1467c2df
+translation_source_sha: 64a13887464a626b769e1bb6757cc70a61efc8f3
 translation_revised: 2026-09-19
 ---
 # 대화 품질 보증
@@ -52,7 +52,7 @@ Core는 영속 큐와 Pantheon 품질 보증 단계의 schema-v2 timing을 기�
 `scripts/automation/conversation-assurance.py`로 캠페인을 미리 보고, 시작하고, 조회하거나 중지합니다. 하위 캠페인은 최대 20개 질문을 평가하며 큰 census는 순차 하위 캠페인을 사용하고 첫 판단 보류 또는 미완료에서 중지합니다.
 고정 사례 측정 전에 런타임은 등록된 로캘을 Pantheon 대화 포트에 전달합니다. 추적 증적의 `participants[].situation`이 일치하지 않으면 영어로 대체하지 않고 진단에 실패합니다.
 
-선택적인 Unix socket supervisor는 명시적 명령을 기다리며 재시작으로 캠페인을 재개하거나 시작하지 않습니다. 공급자 사용 제한, 사용 불가, 시간 초과 또는 누락된 측정 계약은 라이브 질문을 재시도하지 않고 판단 보류로 기록합니다.
+선택적인 Unix socket supervisor는 명시적 명령을 기다리며 재시작으로 캠페인을 재개하거나 시작하지 않습니다. VS Code task는 표준 loopback Operator URL과 소유자 전용 bearer-token 파일 경로를 연결하며 bearer 값 자체를 포함하지 않습니다. 공급자 사용 제한, 사용 불가, 시간 초과 또는 누락된 측정 계약은 라이브 질문을 재시도하지 않고 판단 보류로 기록합니다. CLI는 일반 전송 판단 보류로 축약하기 전에 평가의 정확한 미완료 상태와 범위가 제한된 사유를 보존합니다. 수락된 의미 처리 결과는 답변이 아닌 라우팅 근거이며 답변과 답변 보류 문구가 모두 없으면 실패 시 닫습니다.
 인증된 Operator 요청은 private bearer가 origin을 넘기 전에 redirect를 거부하고 의미 기한과 범위 제한 전송 여유를 적용하며 엄격한 UTF-8과 마지막 `done` event 하나를 요구합니다. 전송 및 evaluator 예외는 내용 없는 판단 보류 사유로 축약하고 잘못된 byte, 중복 최종 결과 또는 최종 결과 뒤 오류는 통과할 수 없습니다.
 Supervisor와 CLI는 하나의 소유자 전용 실행기 잠금을 공유합니다. `report`는 비공개 transcript가 있으면 이를, 없으면 내용 없는 평가를 렌더링합니다. `compare --baseline-case <id> --candidate-case <id>`는 서로 다른 두 보존 레코드와 진단 점수 및 verdict를 반환하지만 qualification이나 정책 권한을 수립하지 않습니다.
 전체 census 집계는 230개 추적 및 진단 증적이 하나의 정리된 리비전에서 digest로 연결돼야 합니다. 불완전, 중복, 혼합 리비전, T1 결론 손실 또는 hard-zero 근거는 qualification을 만들 수 없으며 사람 검토가 필요합니다.
@@ -586,7 +586,7 @@ $$
   T2 모델이 최종 답변을 생성한 경우에만 해당 모델을 답변 원본으로 기록하며, 라우팅 신원만으로는
   저작자를 정하지 않습니다.
 - 유효하지 않거나 신뢰도가 낮은 독립 검토는 최종 답변을 보존하고 범위가 제한된 평가 사유와 함께
-  `held`를 기록하며 실제 운영 질문을 재시도하지 않고 해당 사례를 종료합니다.
+  최종 상태 `held`를 내보내며 실제 운영 질문을 재시도하지 않고 해당 사례를 종료합니다.
 - intake 용량 거부, delegate 거부 및 최종 평가 실패는 이미 저장된 답변을 변경하지 않고
  구조화된 경고를 기록합니다.
 - 저장소 실패 시 활성 정책을 변경하지 않습니다.
