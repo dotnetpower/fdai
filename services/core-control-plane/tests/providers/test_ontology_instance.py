@@ -77,6 +77,29 @@ async def _upsert(
     )
 
 
+async def test_relationship_query_budget_is_independent_of_object_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "fdai.shared.providers.testing.ontology_instance.MAX_ONTOLOGY_QUERY_LINKS", 1
+    )
+    store = _store()
+    await _upsert(store, "review", "ReviewCase", "open")
+    for identifier in ("check-a", "check-b"):
+        await _upsert(store, identifier, "ReviewCheck", "open")
+        await store.upsert_link(
+            OntologyLinkRecord(
+                link_type="contains_check",
+                from_id="review",
+                to_id=identifier,
+            )
+        )
+    result = await store.query_objects(limit=10)
+    assert len(result.objects) == 3
+    assert len(result.links) == 1
+    assert result.truncated is True
+
+
 async def test_upsert_validates_and_increments_revision() -> None:
     store = _store()
     first = await _upsert(store, "review-1", "ReviewCase", "open")

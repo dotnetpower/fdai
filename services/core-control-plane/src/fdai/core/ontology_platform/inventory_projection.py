@@ -104,10 +104,10 @@ class InventoryOntologyProjection:
     A pinned graph revision resolves that identity, so the caller supplies it and
     it is never derived from the projected content.
 
-    ``complete`` is ``False`` whenever the observation was partial or an observed
-    relationship was dropped. A missing catalog-owned classification target is a
-    recorded non-blocking drop: it omits only derived classification enrichment and
-    keeps the authoritative inventory generation writable.
+    ``complete`` tracks object, clock, and classification admission. Rejected
+    relationship candidates lower ``relationship_complete`` without blocking
+    verified objects. Missing catalog-owned classification targets omit only
+    derived enrichment and keep the inventory generation writable.
     """
 
     generation: str
@@ -136,9 +136,9 @@ def build_inventory_ontology_projection(
     ``(from_id, link_type, to_id)``, matching the ``Inventory`` batch contract, so
     a caller may concatenate streamed batches. Repeating identical observed content
     is a no-op. Repeating one id with disagreeing content is adjudicated: the
-    contested values are withheld and the object's state fact carries an explicit
-    conflict that every downstream consumer demotes on. The disagreement is never
-    averaged, and neither the newest nor the first observation wins.
+    contested values are withheld and object conflicts stay explicit. State facts
+    retain their own conflict status, so unrelated property conflicts cannot taint
+    agreed state. The disagreement is never averaged or resolved by arrival order.
 
     Raises:
         ValueError: ``generation`` is blank or the observation exceeds its bounds.
@@ -167,10 +167,8 @@ def build_inventory_ontology_projection(
         resource_id: str(record.properties["type"]) for resource_id, record in objects.items()
     }
     upstream_dropped = {item.reason.value for item in relationship_drops}
-    blocking_dropped = {
-        item.reason.value for item in relationship_drops if not item.classified_unavailable
-    }
     projection_dropped = observation_time_gaps(resources, recorded_at=recorded_at)
+    relationship_projection_dropped: set[str] = set()
     if any(
         record.properties["properties"].get("observation_conflicts") for record in objects.values()
     ):
@@ -180,7 +178,7 @@ def build_inventory_ontology_projection(
             links,
             generation=generation,
             observed_types=observed_types,
-            dropped=projection_dropped,
+            dropped=relationship_projection_dropped,
         )
         if resource_type_mappings is not None:
             projected_links += _build_classification_links(
@@ -200,14 +198,13 @@ def build_inventory_ontology_projection(
         projected_links = ()
         projection_dropped.add(_DROP_OBSERVATION_INCOMPLETE)
 
-    dropped = upstream_dropped | projection_dropped
-    blocking_dropped.update(projection_dropped)
+    dropped = upstream_dropped | projection_dropped | relationship_projection_dropped
 
     return InventoryOntologyProjection(
         generation=generation,
         objects=tuple(objects[key] for key in sorted(objects)),
         links=projected_links,
-        complete=observation_complete and not (blocking_dropped - _NON_BLOCKING_DROPS),
+        complete=observation_complete and not (projection_dropped - _NON_BLOCKING_DROPS),
         relationship_complete=observation_complete and not dropped,
         dropped_reasons=tuple(sorted(dropped)),
     )

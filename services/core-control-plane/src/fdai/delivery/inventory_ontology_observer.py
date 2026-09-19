@@ -234,7 +234,7 @@ def build_ontology_observer(
         if retained != expected:
             raise ValueError("inventory configuration delivery content changed")
         count = await configuration_event_publisher(observation)
-        if count != len(observation.resources):
+        if type(count) is not int or count != len(observation.resources):
             raise ValueError("inventory configuration delivery count is incomplete")
         await status_store.write_state(INVENTORY_CONFIGURATION_DELIVERY_KEY, completed)
 

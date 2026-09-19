@@ -33,6 +33,9 @@ from fdai.delivery.inventory_sync_models import (
 from fdai.delivery.inventory_sync_models import (
     compute_relationship_coverage as compute_relationship_coverage,
 )
+from fdai.delivery.inventory_sync_models import (
+    validate_observed_state_fact as _validate_observed_state_fact,
+)
 from fdai.delivery.kubernetes_relationships import project_kubernetes_relationships
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     ProviderRelationshipMappingCatalog,
@@ -56,11 +59,8 @@ from fdai.shared.providers.inventory_snapshot import (
 )
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_evidence import (
-    STATE_FACT_EQUAL_TIME_CONFLICT,
     STATE_FACT_METADATA_PROPERTY,
     StateFactAuthority,
-    StateFactLane,
-    StateFactMetadata,
 )
 
 _LOG = logging.getLogger(__name__)
@@ -169,7 +169,7 @@ class InventorySyncCoordinator:
         for source in sources:
             attempt_id = await self._store.begin(source.manifest)
             observed = _ObservationAccumulator(
-                enabled=self._observer is not None or self._enricher is not None,
+                enabled=True,
                 relationship_mapping_catalog=self._relationship_mapping_catalog,
             )
             try:
@@ -197,12 +197,11 @@ class InventorySyncCoordinator:
                         promoted_observation,
                         enriched,
                     )
-                    if changed_resources or added_links:
+                    if changed_resources:
                         await self._store.stage(
                             attempt_id,
                             InventoryBatch(
                                 resources=changed_resources,
-                                links=added_links,
                             ),
                         )
                     promoted_observation = enriched
@@ -211,6 +210,10 @@ class InventorySyncCoordinator:
                     )
                     if enriched.recorded_at is not None and enriched.recorded_at > completed:
                         completed = enriched.recorded_at
+                if promoted_observation.links:
+                    await self._store.stage(
+                        attempt_id, InventoryBatch(links=promoted_observation.links)
+                    )
                 metadata = dict(source.manifest.metadata)
                 metadata.pop("provider_scope_coverage", None)
                 relationship_drop_reasons = observed.relationship_drop_reasons(
@@ -333,12 +336,11 @@ class InventorySyncCoordinator:
                         provider_scope_coverage = batch.provider_scope_coverage
                     if batch.resources or batch.links or batch.relationship_drops:
                         observed.add(batch)
-                    if batch.resources or batch.links:
+                    if batch.resources:
                         await self._store.stage(
                             attempt_id,
                             InventoryBatch(
                                 resources=batch.resources,
-                                links=batch.links,
                                 cursor=batch.cursor,
                             ),
                         )
@@ -371,6 +373,10 @@ class _ObservationAccumulator:
         self._truncated = False
 
     def add(self, batch: InventoryBatch) -> None:
+        if any(resource.props.get("_truncated") is True for resource in batch.resources):
+            raise InventoryStreamError(
+                "truncated inventory properties cannot promote a full snapshot"
+            )
         if len(self._relationship_drops) + len(batch.relationship_drops) > _MAX_OBSERVED_DROPS:
             raise InventoryStreamError("inventory relationship drops exceeded their bound")
         self._relationship_drops.extend(batch.relationship_drops)
@@ -747,46 +753,6 @@ def _validate_resource_state_enrichment(
         raise ValueError(
             "inventory state enrichment MUST supply one reviewed state fact or unavailable reason"
         )
-
-
-def _validate_observed_state_fact(
-    *,
-    state: object,
-    metadata: object,
-    authority: StateFactAuthority,
-    source_identity: str,
-    source_revision_prefix: str,
-    allowed_states: set[str],
-) -> None:
-    if not isinstance(state, str) or not state.strip():
-        raise ValueError("inventory state enrichment MUST supply a bounded state")
-    if state not in allowed_states:
-        raise ValueError("inventory state enrichment supplied an unsupported state")
-    if not isinstance(metadata, Mapping):
-        raise ValueError("inventory state metadata is missing")
-    fact = StateFactMetadata.from_mapping(metadata)
-    evidence_shape_valid = (fact.completeness == 1.0 and not fact.conflicts) or (
-        fact.completeness == 0.0 and fact.conflicts == (STATE_FACT_EQUAL_TIME_CONFLICT,)
-    )
-    if (
-        fact.lane is not StateFactLane.OBSERVED
-        or fact.authority is not authority
-        or fact.source_identity != source_identity
-        or not _content_addressed_revision(fact.source_revision, source_revision_prefix)
-        or fact.evidence_refs != (fact.source_revision,)
-        or fact.synthetic
-        or not evidence_shape_valid
-    ):
-        raise ValueError("inventory state metadata is not authoritative observed evidence")
-
-
-def _content_addressed_revision(value: str, prefix: str) -> bool:
-    digest = value.removeprefix(prefix)
-    return (
-        value.startswith(prefix)
-        and len(digest) == 64
-        and all(character in "0123456789abcdef" for character in digest)
-    )
 
 
 __all__ = [

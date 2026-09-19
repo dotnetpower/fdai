@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7d5a1a29be455e60a6e4be26c07dfd752d039337
+translation_source_sha: 72a8ddde96a3060ac4324411e288c5ab7bfe6928
 translation_revised: 2026-09-20
 ---
 # 프로젝트 구조
@@ -47,6 +47,8 @@ checkpoint부터 재개합니다.
 사용합니다. 범위와 세대에 기반한 지터는 재생 시 동일하고 최대 수집 간격을 넘지 않습니다.
 이 제한만으로 원본 간 공유 이동 시간창 바이트 예산이나 디스크 기반 세대 스트리밍이 구현되는
 것은 아닙니다.
+
+인벤토리는 전송 버퍼와 별도로 보존하는 정규 세대 레코드의 바이트도 제한합니다. PostgreSQL 공개 모듈은 기존 트랜잭션과 잠금 안에서 `postgres_ontology_replacement.py`에 일괄 교체를 위임하며 도우미에 독립적인 쓰기 권한을 주지 않습니다. 부작용 없는 저널 인자 변환과 관측 상태 검증은 기존 레코드 모듈에 유지하며 기존 가져오기 경로와 근거 의미를 보존합니다.
 
 ## Core 도메인 탐색 결정
 

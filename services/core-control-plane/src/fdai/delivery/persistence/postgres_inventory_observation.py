@@ -24,6 +24,9 @@ from fdai.delivery.persistence.postgres_inventory_observation_records import (
     observation_from_row as _observation,
 )
 from fdai.delivery.persistence.postgres_inventory_observation_records import (
+    observation_params as _observation_params,
+)
+from fdai.delivery.persistence.postgres_inventory_observation_records import (
     snapshot_records as _snapshot_records,
 )
 from fdai.delivery.persistence.postgres_inventory_projection_checkpoints import (
@@ -60,7 +63,6 @@ from fdai.shared.providers.inventory import (
     ResourceRecord,
 )
 from fdai.shared.providers.inventory_observation import (
-    INVENTORY_OBSERVATION_SCHEMA_VERSION,
     InventoryObservationKind,
     InventoryObservationSubjectKind,
     NormalizedInventoryObservation,
@@ -394,6 +396,8 @@ class PostgresInventoryObservationJournal:
 
         if not observation.complete:
             raise ValueError("incomplete inventory observation cannot confirm a snapshot")
+        if any(resource.props.get("_truncated") is True for resource in observation.resources):
+            raise ValueError("truncated inventory properties cannot confirm a full snapshot")
         if observation.recorded_at is None:
             raise ValueError("promoted inventory observation recorded_at MUST be supplied")
         async with await self._connect() as connection:
@@ -716,43 +720,6 @@ async def _append_records(
     high_watermark = max(retained_watermarks)
     await _update_watermark_state(connection, journal_watermark=high_watermark)
     return InventoryObservationAppendResult(high_watermark, inserted)
-
-
-def _observation_params(item: NormalizedInventoryObservation) -> tuple[object, ...]:
-    return (
-        item.observation_id,
-        item.content_digest,
-        INVENTORY_OBSERVATION_SCHEMA_VERSION,
-        item.idempotency_key,
-        item.subject_kind.value,
-        item.observation_kind.value,
-        item.mutation_kind.value,
-        item.subject_ref,
-        item.subject_type,
-        item.properties_json,
-        list(item.property_mask),
-        item.properties_complete,
-        item.links_complete,
-        item.tombstone_confirmed,
-        item.provider_ref,
-        item.scope_ref,
-        item.operation,
-        item.operation_status,
-        item.source_identity,
-        item.source_event_id,
-        item.source_revision,
-        item.effective_at,
-        item.observed_at,
-        item.evidence_cutoff,
-        item.recorded_at,
-        item.ingested_at,
-        item.provider_event_at,
-        item.from_id,
-        item.from_type,
-        item.link_type,
-        item.to_id,
-        item.to_type,
-    )
 
 
 async def _update_watermark_state(

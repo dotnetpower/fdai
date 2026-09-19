@@ -46,6 +46,8 @@ uses its declared byte ceiling. Scope-and-generation jitter is replay-stable and
 maximum poll interval. These bounds do not yet establish a shared cross-source rolling byte budget
 or a disk-backed generation stream.
 
+Inventory also bounds retained normalized generation bytes independently from transport buffers. The PostgreSQL facade delegates batched replacement to `postgres_ontology_replacement.py` inside its existing transaction and locks; the helper gains no independent writer authority. Pure journal parameter conversion and observed-state validation stay in the existing record modules, preserving facade imports and evidence semantics.
+
 ## Core domain navigation decision
 
 **Initial design.** Physically move every flat Core subsystem under `pipeline`, `incident`,

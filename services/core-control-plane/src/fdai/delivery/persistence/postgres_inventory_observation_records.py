@@ -13,11 +13,49 @@ from fdai.delivery.persistence.postgres_inventory_snapshot_support import (
     snapshot_relationship_props as _snapshot_relationship_props,
 )
 from fdai.shared.providers.inventory_observation import (
+    INVENTORY_OBSERVATION_SCHEMA_VERSION,
     InventoryMutationKind,
     InventoryObservationKind,
     InventoryObservationSubjectKind,
     NormalizedInventoryObservation,
 )
+
+
+def observation_params(item: NormalizedInventoryObservation) -> tuple[object, ...]:
+    return (
+        item.observation_id,
+        item.content_digest,
+        INVENTORY_OBSERVATION_SCHEMA_VERSION,
+        item.idempotency_key,
+        item.subject_kind.value,
+        item.observation_kind.value,
+        item.mutation_kind.value,
+        item.subject_ref,
+        item.subject_type,
+        item.properties_json,
+        list(item.property_mask),
+        item.properties_complete,
+        item.links_complete,
+        item.tombstone_confirmed,
+        item.provider_ref,
+        item.scope_ref,
+        item.operation,
+        item.operation_status,
+        item.source_identity,
+        item.source_event_id,
+        item.source_revision,
+        item.effective_at,
+        item.observed_at,
+        item.evidence_cutoff,
+        item.recorded_at,
+        item.ingested_at,
+        item.provider_event_at,
+        item.from_id,
+        item.from_type,
+        item.link_type,
+        item.to_id,
+        item.to_type,
+    )
 
 
 def observation_from_row(row: Mapping[str, Any]) -> NormalizedInventoryObservation:
@@ -78,6 +116,7 @@ def snapshot_records(
         raise ValueError("promoted inventory observation recorded_at MUST be supplied")
     records: list[NormalizedInventoryObservation] = []
     scope_ref = _scope_set_ref(scope_refs)
+    relationships_complete = observation.complete and not observation.relationship_drops
     for resource in observation.resources:
         observed_at = _timestamp(resource.last_seen) or observation.recorded_at
         records.append(
@@ -93,7 +132,7 @@ def snapshot_records(
                 properties=resource.props,
                 property_mask=tuple(resource.props),
                 properties_complete=True,
-                links_complete=observation.complete,
+                links_complete=relationships_complete,
                 tombstone_confirmed=False,
                 provider_ref=resource.provider_ref,
                 scope_ref=_provider_scope(resource.provider_ref) or scope_ref,
@@ -121,7 +160,7 @@ def snapshot_records(
                 properties=relationship_properties,
                 property_mask=tuple(relationship_properties),
                 properties_complete=True,
-                links_complete=observation.complete,
+                links_complete=relationships_complete,
                 tombstone_confirmed=False,
                 scope_ref=scope_ref,
                 source_identity="inventory.reconciliation",

@@ -7,7 +7,11 @@ from pathlib import Path
 import pytest
 import yaml
 from fdai.core.tiers.t0_deterministic import PolicyResult, RuleIndex, T0Engine
-from fdai.delivery.inventory_configuration_events import publish_promoted_resource_events
+from fdai.delivery.inventory_configuration_events import (
+    configuration_delivery_pending,
+    configuration_delivery_record,
+    publish_promoted_resource_events,
+)
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.shared.contracts.models import Event, Rule
@@ -21,6 +25,52 @@ class _DenyEvaluator:
     def evaluate(self, rule: Rule, resource_props: object) -> PolicyResult:
         del rule, resource_props
         return PolicyResult(denied=True, context={"reason": "test-policy-denied"})
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("resource_count", True),
+        ("resource_count", -1),
+        ("observation_digest", "invalid"),
+        ("execution_authority", True),
+        ("extra", "invalid"),
+    ],
+)
+def test_delivery_marker_rejects_malformed_completion(field: str, value: object) -> None:
+    observation = PromotedInventoryObservation(
+        generation="generation-1",
+        resources=(),
+        links=(),
+        complete=True,
+        recorded_at=datetime(2026, 9, 17, tzinfo=UTC),
+    )
+    marker = configuration_delivery_record(observation, completed=True)
+    marker[field] = value
+    with pytest.raises(ValueError, match="marker is invalid"):
+        configuration_delivery_pending(marker, generation=observation.generation)
+
+
+async def test_truncated_properties_cannot_publish_a_complete_event() -> None:
+    bus = InMemoryEventBus()
+    observation = PromotedInventoryObservation(
+        generation="generation-1",
+        resources=(
+            ResourceRecord(
+                resource_id="example",
+                type="compute.vm",
+                props={"_truncated": True},
+            ),
+        ),
+        links=(),
+        complete=True,
+        recorded_at=datetime(2026, 9, 17, tzinfo=UTC),
+    )
+    with pytest.raises(ValueError, match="truncated inventory"):
+        await publish_promoted_resource_events(
+            observation, event_bus=bus, topic="events", scope_ref="example"
+        )
+    assert [event async for event in bus.subscribe("events", "reader")] == []
 
 
 @pytest.mark.asyncio

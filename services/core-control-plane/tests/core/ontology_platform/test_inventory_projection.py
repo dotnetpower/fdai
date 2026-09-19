@@ -1140,7 +1140,8 @@ def test_unregistered_link_type_is_dropped_and_reported() -> None:
     )
 
     assert projection.links == ()
-    assert projection.complete is False
+    assert projection.complete is True
+    assert projection.relationship_complete is False
     assert "unregistered_link_type" in projection.dropped_reasons
 
 
@@ -1252,7 +1253,8 @@ def test_unobserved_endpoint_is_dropped_and_reported(
     )
 
     assert projection.links == ()
-    assert projection.complete is False
+    assert projection.complete is True
+    assert projection.relationship_complete is False
     assert expected_reason in projection.dropped_reasons
 
 

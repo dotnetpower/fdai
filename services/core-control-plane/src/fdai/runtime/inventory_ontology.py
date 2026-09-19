@@ -77,12 +77,22 @@ from fdai.shared.providers.state_store import StateStore
 
 INVENTORY_ONTOLOGY_MANIFEST_KEY = "inventory-ontology:manifest"
 INVENTORY_ONTOLOGY_INVALIDATION_KEY = "inventory-ontology:invalidation"
+INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY = "inventory-ontology:cursor-floor"
 INVENTORY_ONTOLOGY_STATUS_KEY = "inventory-ontology:status"
 _DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 _PROJECTION_LOCK_ID = "inventory-ontology-projection"
 _REVISION_READ_BATCH_SIZE = 1_000
 
 _LOG = logging.getLogger(__name__)
+
+
+def _valid_marker_timestamp(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).tzinfo is not None
+    except ValueError:
+        return False
 
 
 @dataclass(frozen=True, slots=True)
@@ -309,6 +319,9 @@ class InventoryOntologyProjector:
         }
         if invalidation_state is not None:
             state_updates[INVENTORY_ONTOLOGY_INVALIDATION_KEY] = invalidation_state
+            state_updates[INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY] = {
+                "sequence": invalidation_state["sequence"]
+            }
         active_scope_state = checkpoints.active_scope_state(generation=projection.generation)
         if active_scope_state is not None:
             state_updates[INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY] = active_scope_state
@@ -352,6 +365,10 @@ class InventoryOntologyProjector:
                     INVENTORY_ONTOLOGY_INVALIDATION_KEY,
                     invalidation_state,
                 )
+                await self._status_store.write_state(
+                    INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY,
+                    {"sequence": invalidation_state["sequence"]},
+                )
         if projection_high_watermark is not None and not callable(atomic_replace):
             if self._observation_journal is None:
                 raise RuntimeError("inventory ontology journal watermark has no durable writer")
@@ -393,21 +410,35 @@ class InventoryOntologyProjector:
 
         previous = await self._status_store.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
         previous_sequence = 0
+        floor = await self._status_store.read_state(INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY)
+        if floor is not None:
+            floor_sequence = floor.get("sequence")
+            if (
+                not isinstance(floor_sequence, int)
+                or isinstance(floor_sequence, bool)
+                or floor_sequence < 1
+            ):
+                raise ValueError("inventory invalidation cursor floor requires repair")
+            previous_sequence = floor_sequence
         if isinstance(previous, Mapping):
             sequence = previous.get("sequence")
             if isinstance(sequence, int) and not isinstance(sequence, bool) and sequence >= 1:
-                previous_sequence = sequence
+                previous_sequence = max(previous_sequence, sequence)
             else:
-                _LOG.warning("inventory_ontology_invalidation_marker_unrecoverable")
-                return None
+                if previous_sequence == 0:
+                    raise ValueError("inventory invalidation cursor floor requires repair")
+                _LOG.warning("inventory_ontology_invalidation_marker_rebuilt_from_floor")
             valid_previous = (
                 previous.get("schema_version") == "1.0.0"
                 and previous_sequence >= 1
+                and isinstance(sequence, int)
+                and not isinstance(sequence, bool)
+                and sequence == previous_sequence
                 and isinstance(previous.get("generation"), str)
                 and bool(previous["generation"])
                 and isinstance(previous.get("manifest_digest"), str)
                 and _DIGEST_PATTERN.fullmatch(previous["manifest_digest"]) is not None
-                and isinstance(previous.get("recorded_at"), str)
+                and _valid_marker_timestamp(previous.get("recorded_at"))
                 and previous.get("complete") is True
                 and previous.get("execution_authority") is False
                 and previous.get("mutation_authority") is False
@@ -421,8 +452,9 @@ class InventoryOntologyProjector:
             if not valid_previous:
                 _LOG.warning("inventory_ontology_invalidation_marker_replaced")
         elif previous is not None:
-            _LOG.warning("inventory_ontology_invalidation_marker_unrecoverable")
-            return None
+            if previous_sequence == 0:
+                raise ValueError("inventory invalidation cursor floor requires repair")
+            _LOG.warning("inventory_ontology_invalidation_marker_rebuilt_from_floor")
         if journal_high_watermark is None and previous_sequence == 0:
             return None
         journal_cursor = journal_high_watermark or 0

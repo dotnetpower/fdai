@@ -105,7 +105,7 @@ A collected property becomes a relationship only through a reviewed provider map
 mapping omits an observed connection target, an absent graph edge never proves an absent path. The generation verifier independently matches mapping identity, review digest, schema, source path, direction, owner, and freshness against its injected catalog. Conflicting provider references cannot certify a link; Kubernetes producers retain both observed endpoint types.
 Every reachable managed-service connection therefore needs its target type in the reviewed catalog.
 Each Azure row's supplied provider type and scope, including built-in scope and unclassified rows, must agree case-insensitively with its exact ARM
-identity and requested subscription set before the row enters either a full snapshot or a change stream. Full-scan mapped counts reconcile before the final fence, excluding separately materialized subnets and subscription anchors. Clock-only duplicates retain the earliest observation, and nested subnets verify the exact VNet parent. A contradiction fails the
+identity and requested subscription set before the row enters either a full snapshot or a change stream. Full-scan mapped counts reconcile before the final fence, excluding separately materialized subnets and subscription anchors. Clock-only duplicates retain the earliest observation, and nested subnets verify the exact VNet parent. Malformed child rows and conflicting duplicate children fail instead of silently disappearing. A contradiction fails the
 bounded collection and retains the previous complete generation.
 For an extension-resource identity containing multiple `/providers/` segments, the final provider
 namespace and its following type/name pairs define the observed Resource type; ancestor provider
@@ -220,7 +220,7 @@ read blocks the plan and never falls back to a constructed identity.
 
 Continuous means collection always has a durable next action, not one never-ending process. Event consumers can remain active while safe-to-retry cursor and reconciliation tasks persist progress. Full reconciliation also emits a separate count-only progress chain: page and provider-type callbacks serialize absolute counters without provider identifiers, PostgreSQL owns the current projection, and an optional private Blob copy is immutable bootstrap evidence only. The chain does not change snapshot authority; a distinct read-only closer validates every digest link and the exact active generation before it can append the 100 percent terminal record. Progress publisher composition and principal-safe value hashing stay in focused delivery siblings so the orchestration entry point remains below the structural size ceiling without moving authority. Merged question-source changes regenerate the complete deterministic bank and review catalog without changing runtime or execution authority.
 After a complete promoted generation reaches the ontology projection, the Inventory Job publishes one content-addressed `inventory.resource_observed` Event per Resource. The focused `inventory_ontology_observer.py` module owns projection, topology history, and this handoff; the CLI only composes it. Forseti's T0 path judges the recorded properties, and the Event remains in shadow mode without execution authority.
-Graph completion and Resource-event delivery have separate durable markers. A content-bound pending marker precedes graph commit; broker acceptance of every Resource precedes delivery completion. Recovery can resume delivery after graph completion without rewriting the graph. Classified relationship gaps keep topology degraded but do not suppress verified Resource observations or imply missing relationships.
+Graph completion and Resource-event delivery have separate durable markers. A content-bound pending marker precedes graph commit; broker acceptance of every Resource precedes delivery completion. Recovery can resume delivery after graph completion without rewriting the graph. Strict marker shape and digest validation prevent corrupt completion from suppressing delivery. Truncated properties cannot enter complete staging, journal, or Resource Events. Relationship gaps keep topology degraded but do not suppress verified Resource observations or imply missing relationships; only the final verified link set enters snapshot staging.
 An explicitly requested one-shot Inventory execution can set `FDAI_INVENTORY_OPERATOR_REQUESTED=1` to activate the adaptive scheduler's existing operator
 priority. The request collects immediately only when the source is healthy and no collection is
 active; provider pressure, backoff, throttling, circuit state, and every evidence gate still apply.
@@ -310,6 +310,21 @@ An optional `serving` fact records only recent exact-deployment success with tel
 separate from Resource Health and authority. Azure Monitor reads are bounded and make no inference;
 valid completed results survive timeout, invalid budgets fail closed, and additive metadata preserves N-1 readers.
 
+### Bounded persistence
+
+One generation admits at most 50,000 Resources, 200,000 relationships or suppression records,
+and 16 MiB of normalized collected records. Capacity exhaustion stops before the final fence and
+retains the prior generation. These are supported single-generation limits, not a claim of
+unlimited tenant scale; larger scopes require separately reviewed partitioned ownership.
+These limits do not bound total process memory: in-flight transport buffers have separate limits. Capacity errors never silently narrow an active scope or authorize deletion outside a newly approved ownership boundary.
+The 32 MiB manifest ceiling is checked during incremental hashing. PostgreSQL batches replacement
+writes, keeps unchanged content at its existing revision, and validates cardinality with indexed
+endpoint sets. A 60-second replacement deadline bounds global single-writer lock occupancy; the
+lock remains intentional to preserve cross-owner cardinality. Foreign relationships block owned
+object deletion instead of being silently removed. Object queries independently cap returned links
+at 16,000 and report truncation. Invalidation commits retain a separate monotonic cursor floor;
+corrupt markers recover from that floor, while legacy corruption without a floor requires repair.
+
 ### Load-aware scheduling
 
 Each source has a validated policy rather than one global interval. The policy includes:
@@ -359,8 +374,8 @@ verified links. The ontology projection advances the same generation with
 `relationship_complete=false` and preserves every classified reason. Relationship coverage bounds
 relationship claims: it prevents a query from using the graph as complete relationship evidence,
 while a snapshot whose object set admits no intra-set edge states nothing about relationships and
-therefore keeps its own object coverage. An unclassified drop, invalid verification metadata,
-partial source generation, conflict, or cardinality violation remains blocking and preserves the
+therefore keeps its own object coverage. Unclassified or invalid relationship candidates are excluded and keep relationship completeness false, without freezing independently verified objects. A
+partial source generation, object conflict, or persisted cardinality violation remains blocking and preserves the
 previous graph. Kubernetes EndpointSlice and Ingress array mappings materialize every exactly resolved backend as a separate `routes_to` edge under the many-to-many LinkType; projection retains the complete observed destination set because selecting one backend would discard provider truth rather than recover a cardinality mismatch.
 
 Open container environment values that resolve to the owning Resource are identity references,
@@ -369,8 +384,8 @@ it does not suppress self-links from explicit relationship fields. Reciprocal `d
 are separate facts only when each direction has one candidate, its own source Resource owns the
 provider evidence, and both mappings declare owner-to-reference direction. Both edges still pass
 the complete-generation endpoint, schema, observation-time, and independent-verifier checks.
-Verifier revision `inventory-generation-verifier.v2` records this distinction. Duplicate edges,
-unsupported reversed orientations, and self-links remain blocking.
+Verifier revision `inventory-generation-verifier.v3` additionally revalidates the reviewed catalog. Duplicate edges,
+unsupported reversed orientations, and self-links remain excluded and lower relationship completeness.
 
 An exact reviewed provider parent shadows generic Resource Group containment for the same child.
 Snapshot promotion independently rejects more than one `contains` parent for any child before the

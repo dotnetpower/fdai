@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -24,11 +25,14 @@ from fdai.delivery.persistence.postgres_ontology_records import (
     _inventory_state_base_available,
     _link_from_row,  # noqa: F401
     _object_from_row,
-    _require_projection_revision,
     _require_type_ref,
     _unavailable_inventory_projection_status,
     _validate_limit,
 )
+from fdai.delivery.persistence.postgres_ontology_records import (
+    _require_projection_revision as _require_projection_revision,
+)
+from fdai.delivery.persistence.postgres_ontology_replacement import replace_records
 from fdai.delivery.persistence.postgres_ontology_source_coverage import (
     resolve_inventory_graph_source_coverage,
 )
@@ -436,8 +440,7 @@ class PostgresOntologyInstanceStore:
             raise OntologyInstanceValidationError("replacement link keys MUST be unique")
         for object_record in normalized_objects:
             validate_object_record(object_record, self._object_types)
-        desired_ids = {item.id for item in normalized_objects}
-        async with await self._connect() as connection:
+        async with asyncio.timeout(60), await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
                 await connection.execute(
@@ -460,98 +463,15 @@ class PostgresOntologyInstanceStore:
                         "ORDER BY name FOR UPDATE",
                         (link_type_names,),
                     )
-                for object_record in normalized_objects:
-                    cursor = await connection.execute(
-                        "SELECT object_type, revision FROM ontology_resource "
-                        "WHERE id = %s FOR UPDATE",
-                        (object_record.id,),
-                    )
-                    existing = await cursor.fetchone()
-                    if existing is None:
-                        _require_projection_revision(
-                            object_id=object_record.id,
-                            expected=object_record.revision,
-                            current=0,
-                        )
-                        await connection.execute(
-                            "INSERT INTO ontology_resource "
-                            "(id, object_type, properties, revision, type_version, catalog_digest) "
-                            "VALUES (%s, %s, %s::jsonb, 1, %s, %s)",
-                            (
-                                object_record.id,
-                                object_record.object_type,
-                                canonical_json_mapping(
-                                    object_record.properties,
-                                    path=f"{object_record.object_type}.properties",
-                                )[1],
-                                _require_type_ref(object_record.type_ref).version,
-                                _require_type_ref(object_record.type_ref).catalog_digest,
-                            ),
-                        )
-                    else:
-                        _require_projection_revision(
-                            object_id=object_record.id,
-                            expected=object_record.revision,
-                            current=int(existing["revision"]),
-                        )
-                        await self._update_existing(
-                            connection,
-                            record=object_record,
-                            existing=existing,
-                            expected_revision=object_record.revision,
-                        )
-                for from_id, link_type, to_id in previous_link_keys:
-                    await connection.execute(
-                        "DELETE FROM ontology_link "
-                        "WHERE from_id = %s AND link_type = %s AND to_id = %s",
-                        (from_id, link_type, to_id),
-                    )
-                for object_id in set(previous_object_ids) - desired_ids:
-                    await connection.execute(
-                        "DELETE FROM ontology_link WHERE from_id = %s OR to_id = %s",
-                        (object_id, object_id),
-                    )
-                    await connection.execute(
-                        "DELETE FROM ontology_resource WHERE id = %s",
-                        (object_id,),
-                    )
-                for link_record in normalized_links:
-                    link_objects = await _load_objects(
-                        connection,
-                        identifiers=(link_record.from_id, link_record.to_id),
-                        releases=self._releases,
-                    )
-                    existing_links = await _cardinality_links(
-                        connection,
-                        link_record,
-                        releases=self._releases,
-                    )
-                    validate_link_record(
-                        link_record,
-                        link_types=self._link_types,
-                        objects=link_objects,
-                        existing_links=existing_links,
-                    )
-                    await connection.execute(
-                        "INSERT INTO ontology_link "
-                        "(link_type, from_id, to_id, properties, type_version, catalog_digest) "
-                        "VALUES (%s, %s, %s, %s::jsonb, %s, %s) "
-                        "ON CONFLICT (from_id, link_type, to_id) "
-                        "DO UPDATE SET properties = EXCLUDED.properties, "
-                        "type_version = EXCLUDED.type_version, "
-                        "catalog_digest = EXCLUDED.catalog_digest",
-                        (
-                            link_record.link_type,
-                            link_record.from_id,
-                            link_record.to_id,
-                            canonical_json_mapping(
-                                link_record.properties,
-                                path=f"{link_record.link_type}.properties",
-                            )[1],
-                            _require_type_ref(link_record.type_ref).version,
-                            _require_type_ref(link_record.type_ref).catalog_digest,
-                        ),
-                    )
+                await replace_records(
+                    connection,
+                    objects=normalized_objects,
+                    links=normalized_links,
+                    previous_object_ids=previous_object_ids,
+                    previous_link_keys=previous_link_keys,
+                    releases=self._releases,
+                    link_types=self._link_types,
+                )
                 for key, value in sorted((_state_updates or {}).items()):
                     await connection.execute(
                         "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "

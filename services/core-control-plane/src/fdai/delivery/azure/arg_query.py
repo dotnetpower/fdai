@@ -737,16 +737,7 @@ class AzureArgQueryFactory:
 
 
 def _resolve_acr_login_server_to_arm_id(login_server: str) -> str | None:
-    """Placeholder for the ACR login-server → ARM id registry lookup.
-
-    Returns ``None`` in this cycle - no resolver is wired yet, so every
-    ``properties.acrLoginServer`` reference is treated as unresolvable
-    and dropped by :func:`_extract_depends_on_links_from_row`. Tests
-    monkeypatch this hook to exercise the resolvable path when the
-    registry lookup is wired.
-    """
-    # `login_server` is untrusted vendor text; the guard here is
-    # intentionally boring so it stays inert.
+    """Compatibility hook; exact ACR resolution belongs to the generation join."""
     del login_server
     return None
 
@@ -792,10 +783,6 @@ def _extract_depends_on_links_from_row(
         source_identity="azure-resource-graph",
     )
     return tuple(link for link in result.links if link.link_type == "depends_on")
-
-
-# Guard against accidental widening: this file MUST NOT introduce
-# `azure-mgmt-*` imports. The single dependency is `httpx`.
 
 
 __all__ = [

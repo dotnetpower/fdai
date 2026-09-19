@@ -2392,9 +2392,8 @@ def test_materialize_nested_subnets_uses_observed_vnet_payload() -> None:
             "properties": {
                 "subnets": [
                     {"id": subnet_id, "name": "app"},
-                    {"id": subnet_id, "name": "duplicate"},
+                    {"id": subnet_id, "name": "app"},
                     {"id": f"{vnet_id.lower()}/subnets/data", "name": "data"},
-                    {"id": f"{vnet_id}/peerings/not-a-subnet", "name": "invalid"},
                 ]
             },
         },
@@ -2484,6 +2483,31 @@ async def test_subnet_shard_queries_vnets_and_materializes_nested_records(
         ("network.subnet", "attached_to", "network.nsg"),
         ("network.vnet", "contains", "network.subnet"),
     }
+
+
+@pytest.mark.parametrize("defect", ["duplicate", "missing_id", "wrong_type", "wrong_shape"])
+def test_malformed_nested_subnet_cannot_disappear_silently(defect: str) -> None:
+    from fdai.delivery.azure.arg_projection import materialize_nested_subnets
+
+    parent = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/"
+        "providers/Microsoft.Network/virtualNetworks/example"
+    )
+    valid = {"id": parent + "/subnets/example", "name": "example"}
+    malformed = {
+        "duplicate": {**valid, "name": "conflicting"},
+        "missing_id": {"name": "example"},
+        "wrong_type": {"id": parent + "/peerings/example"},
+        "wrong_shape": "invalid",
+    }[defect]
+    resource = ResourceRecord(
+        resource_id=to_neutral_id(parent),
+        type="network.vnet",
+        provider_ref=parent,
+        props={"properties": {"subnets": [valid, malformed]}},
+    )
+    with pytest.raises(ArmScopeError):
+        materialize_nested_subnets(resource)
 
 
 def test_extract_attached_to_from_subnet_reference() -> None:

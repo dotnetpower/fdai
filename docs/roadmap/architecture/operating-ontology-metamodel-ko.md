@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 9e9f0f29d5ec69f65b94282f46b8e0677c118a2a
-translation_revised: 2026-09-19
+translation_source_sha: 447de09cac1a6de08941f976c4ad9b0bab6b1eed
+translation_revised: 2026-09-20
 ---
 # FDAI 운영 온톨로지 메타모델
 
@@ -173,7 +173,7 @@ derived 평가가 그래프에 들어갑니다. Late 근거는 새 산출물을 
 근거를 유지하며 객체 내용 전체가 완전하다고 주장할 수 없습니다. 정규 상태 메타데이터는 검토된
 공급자 상태 경로의 값과 일치할 때만 재사용할 수 있습니다. 현재 및 이력 변환은 구성된 최신성
 예산을 공유하지만, 정확한 재생은 하나의 전역 값을 요구하지 않고 독립적인 출처의 사실별 예산을
-보존합니다.
+보존합니다. 잘못된 관계 후보는 제외하고 관계 완전성을 낮추되 검증된 객체의 갱신은 막지 않습니다. 객체 충돌과 부분 세대는 계속 차단합니다. 같은 그래프를 재생하면 수정 번호가 유지되며, 소유 객체를 삭제할 때 외부 소유 관계를 지울 수 없습니다.
 
 ## 맥락 모델
 

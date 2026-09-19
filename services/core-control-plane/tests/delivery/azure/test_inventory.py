@@ -35,7 +35,7 @@ from fdai.shared.providers import (
     ProviderTypeCount,
     ResourceRecord,
 )
-from fdai.shared.providers.inventory import RelationshipDropReason
+from fdai.shared.providers.inventory import RelationshipDrop, RelationshipDropReason
 
 
 def _rr(resource_id: str, rtype: str = "compute.vm") -> ResourceRecord:
@@ -236,6 +236,30 @@ async def test_full_snapshot_preserves_distinct_missing_target_drop_counts() -> 
         RelationshipDropReason.MISSING_TARGET_ENDPOINT,
         RelationshipDropReason.MISSING_TARGET_ENDPOINT,
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "bound", ["MAX_GENERATION_RESOURCES", "MAX_GENERATION_LINKS", "MAX_GENERATION_BYTES"]
+)
+async def test_generation_capacity_fails_without_a_final_fence(
+    monkeypatch: pytest.MonkeyPatch, bound: str
+) -> None:
+    monkeypatch.setattr(f"fdai.delivery.azure.inventory.{bound}", 1)
+
+    async def query(resource_type: str) -> ResourceQueryResult:
+        return ResourceQueryResult(
+            resources=(_rr(resource_type + "/1", rtype=resource_type),),
+            relationship_drops=(
+                RelationshipDrop(reason=RelationshipDropReason.UNVERIFIED_METADATA),
+            ),
+        )
+
+    batches: list[InventoryBatch] = []
+    with pytest.raises(RuntimeError, match="capacity exceeded"):
+        async for batch in _adapter(query).full_snapshot():
+            batches.append(batch)
+    assert not any(batch.final or batch.resources for batch in batches)
 
 
 @pytest.mark.asyncio

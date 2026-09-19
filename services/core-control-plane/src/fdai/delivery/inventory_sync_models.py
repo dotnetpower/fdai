@@ -8,6 +8,52 @@ from datetime import datetime
 from enum import StrEnum
 
 from fdai.shared.providers.inventory import LinkRecord, RelationshipDrop, ResourceRecord
+from fdai.shared.providers.state_evidence import (
+    STATE_FACT_EQUAL_TIME_CONFLICT,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
+)
+
+
+def validate_observed_state_fact(
+    *,
+    state: object,
+    metadata: object,
+    authority: StateFactAuthority,
+    source_identity: str,
+    source_revision_prefix: str,
+    allowed_states: set[str],
+) -> None:
+    if not isinstance(state, str) or not state.strip():
+        raise ValueError("inventory state enrichment MUST supply a bounded state")
+    if state not in allowed_states:
+        raise ValueError("inventory state enrichment supplied an unsupported state")
+    if not isinstance(metadata, Mapping):
+        raise ValueError("inventory state metadata is missing")
+    fact = StateFactMetadata.from_mapping(metadata)
+    evidence_shape_valid = (fact.completeness == 1.0 and not fact.conflicts) or (
+        fact.completeness == 0.0 and fact.conflicts == (STATE_FACT_EQUAL_TIME_CONFLICT,)
+    )
+    if (
+        fact.lane is not StateFactLane.OBSERVED
+        or fact.authority is not authority
+        or fact.source_identity != source_identity
+        or not _content_addressed_revision(fact.source_revision, source_revision_prefix)
+        or fact.evidence_refs != (fact.source_revision,)
+        or fact.synthetic
+        or not evidence_shape_valid
+    ):
+        raise ValueError("inventory state metadata is not authoritative observed evidence")
+
+
+def _content_addressed_revision(value: str, prefix: str) -> bool:
+    digest = value.removeprefix(prefix)
+    return (
+        value.startswith(prefix)
+        and len(digest) == 64
+        and all(character in "0123456789abcdef" for character in digest)
+    )
 
 
 @dataclass(frozen=True, slots=True)

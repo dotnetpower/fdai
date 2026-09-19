@@ -7,6 +7,9 @@ import os
 import subprocess
 import sys
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -30,6 +33,7 @@ from fdai.shared.providers.ontology_instance import (
     OntologyLinkRecord,
     OntologyObjectRecord,
 )
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.rows import dict_row
 
 pytestmark = pytest.mark.integration
@@ -118,6 +122,174 @@ async def test_graph_reads_open_one_repeatable_read_snapshot(
         "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY",
     )
     store._connect.assert_awaited_once()
+
+
+@asynccontextmanager
+async def _isolated_replacement_store() -> AsyncIterator[PostgresOntologyInstanceStore]:
+    dsn = os.environ.get("FDAI_ONTOLOGY_TEST_DSN")
+    if not dsn:
+        pytest.skip("FDAI_ONTOLOGY_TEST_DSN requires a disposable local PostgreSQL")
+    assert conninfo_to_dict(dsn).get("host") in {"127.0.0.1", "localhost"}
+    schema = "ontology_review_" + uuid.uuid4().hex
+    async with await psycopg.AsyncConnection.connect(dsn, autocommit=True) as admin:
+        await admin.execute(f"CREATE SCHEMA {schema}")
+        try:
+            scoped = make_conninfo(dsn, options=f"-c search_path={schema}")
+            async with await psycopg.AsyncConnection.connect(scoped) as connection:
+                await connection.execute(
+                    "CREATE TABLE ontology_resource (id TEXT PRIMARY KEY, "
+                    "object_type TEXT NOT NULL, properties JSONB NOT NULL, "
+                    "revision BIGINT NOT NULL, type_version TEXT NOT NULL, "
+                    "catalog_digest TEXT NOT NULL, updated_at TIMESTAMPTZ DEFAULT NOW());"
+                    "CREATE TABLE ontology_link_type (name TEXT PRIMARY KEY);"
+                    "INSERT INTO ontology_link_type VALUES ('contains_check');"
+                    "CREATE TABLE ontology_link (link_type TEXT NOT NULL, "
+                    "from_id TEXT REFERENCES ontology_resource(id), "
+                    "to_id TEXT REFERENCES ontology_resource(id), properties JSONB NOT NULL, "
+                    "type_version TEXT NOT NULL, catalog_digest TEXT NOT NULL, "
+                    "PRIMARY KEY(from_id, link_type, to_id));"
+                    "CREATE TABLE state_kv (key TEXT PRIMARY KEY, value JSONB NOT NULL, "
+                    "updated_at TIMESTAMPTZ DEFAULT NOW())"
+                )
+            yield PostgresOntologyInstanceStore(
+                config=PostgresOntologyInstanceStoreConfig(dsn=scoped),
+                object_types=(_type("ReviewCase"), _type("ReviewCheck")),
+                link_types=(
+                    OntologyLinkType(
+                        schema_version="1.0.0",
+                        name="contains_check",
+                        version="1.0.0",
+                        from_type="ReviewCase",
+                        to_type="ReviewCheck",
+                        cardinality=LinkCardinality.ONE_TO_MANY,
+                    ),
+                ),
+            )
+        finally:
+            await admin.execute(f"DROP SCHEMA {schema} CASCADE")
+
+
+def _review_object(identifier: str, object_type: str = "ReviewCase") -> OntologyObjectRecord:
+    return OntologyObjectRecord(
+        id=identifier, object_type=object_type, properties={"id": identifier, "status": "open"}
+    )
+
+
+async def test_isolated_replacement_replay_is_noop_and_foreign_deletion_is_blocked() -> None:
+    async with _isolated_replacement_store() as store:
+        objects = (_review_object("case"), _review_object("check", "ReviewCheck"))
+        link = OntologyLinkRecord(link_type="contains_check", from_id="case", to_id="check")
+        await store.replace_subgraph(objects=objects, links=(link,))
+        first = await store.query_objects()
+        await store.replace_subgraph(
+            objects=first.objects,
+            links=first.links,
+            previous_object_ids=("case", "check"),
+            previous_link_keys=(("case", "contains_check", "check"),),
+        )
+        assert await store.query_objects() == first
+        with pytest.raises(OntologyInstanceValidationError, match="foreign relationships"):
+            await store.replace_subgraph(objects=(), links=(), previous_object_ids=("case",))
+        assert await store.query_objects() == first
+        await store.replace_subgraph(
+            objects=(),
+            links=(),
+            previous_object_ids=("case", "check"),
+            previous_link_keys=(("case", "contains_check", "check"),),
+        )
+        assert (await store.query_objects()).objects == ()
+
+
+async def test_isolated_graph_query_limits_relationships(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "fdai.delivery.persistence.postgres_ontology_graph.MAX_ONTOLOGY_QUERY_LINKS", 1
+    )
+    async with _isolated_replacement_store() as store:
+        objects = (
+            _review_object("case"),
+            _review_object("check-a", "ReviewCheck"),
+            _review_object("check-b", "ReviewCheck"),
+        )
+        links = tuple(
+            OntologyLinkRecord(
+                link_type="contains_check",
+                from_id="case",
+                to_id=identifier,
+            )
+            for identifier in ("check-a", "check-b")
+        )
+        await store.replace_subgraph(objects=objects, links=links)
+        result = await store.query_objects(limit=10)
+        assert len(result.objects) == 3
+        assert len(result.links) == 1
+        assert result.truncated is True
+
+
+async def test_isolated_replacement_rejects_cardinality_and_stale_revision_atomically() -> None:
+    async with _isolated_replacement_store() as store:
+        originals = (_review_object("case-a"), _review_object("check", "ReviewCheck"))
+        link = OntologyLinkRecord(link_type="contains_check", from_id="case-a", to_id="check")
+        await store.replace_subgraph(objects=originals, links=(link,))
+        before = await store.query_objects()
+        with pytest.raises(OntologyInstanceValidationError, match="cardinality"):
+            await store.replace_subgraph(
+                objects=(_review_object("case-b"),),
+                links=(replace(link, from_id="case-b"),),
+            )
+        assert await store.get_object("case-b") is None
+        with pytest.raises(OntologyInstanceValidationError, match="revision fence"):
+            await store.replace_subgraph(objects=originals, links=())
+        assert await store.query_objects() == before
+
+
+async def test_isolated_graph_read_does_not_mix_concurrent_replacement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with _isolated_replacement_store() as store:
+        await store.replace_subgraph(objects=(_review_object("case-a"),), links=())
+        from fdai.delivery.persistence import postgres_ontology_graph
+
+        load_links = postgres_ontology_graph._links_within
+        entered = False
+
+        async def replace_between_reads(connection, identifiers, *, releases):
+            nonlocal entered
+            if not entered:
+                entered = True
+                await store.replace_subgraph(
+                    objects=(_review_object("case-b"),), links=(), previous_object_ids=("case-a",)
+                )
+                cursor = await connection.execute("SELECT id FROM ontology_resource ORDER BY id")
+                assert [row["id"] for row in await cursor.fetchall()] == ["case-a"]
+            return await load_links(connection, identifiers, releases=releases)
+
+        monkeypatch.setattr(postgres_ontology_graph, "_links_within", replace_between_reads)
+        result = await store.query_objects()
+        assert [record.id for record in result.objects] == ["case-a"]
+        assert [record.id for record in (await store.query_objects()).objects] == ["case-b"]
+
+
+async def test_isolated_replacement_handles_batched_high_fanout() -> None:
+    async with _isolated_replacement_store() as store:
+        objects = (
+            _review_object("case"),
+            *(_review_object(f"check-{index:04}", "ReviewCheck") for index in range(1200)),
+        )
+        links = tuple(
+            OntologyLinkRecord(
+                link_type="contains_check",
+                from_id="case",
+                to_id=record.id,
+            )
+            for record in objects[1:]
+        )
+        await store.replace_subgraph(objects=objects, links=links)
+        async with await store._connect() as connection:
+            cursor = await connection.execute(
+                "SELECT (SELECT COUNT(*) FROM ontology_resource) AS objects, "
+                "(SELECT COUNT(*) FROM ontology_link) AS links"
+            )
+            assert await cursor.fetchone() == {"objects": 1201, "links": 1200}
 
 
 async def test_postgres_atomic_create_deduplicates_concurrent_identity() -> None:

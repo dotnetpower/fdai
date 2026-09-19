@@ -62,7 +62,7 @@ Low. Local focused evidence does not claim Azure rollout or production performan
 | H04 | Truncated nested-resource observations | implemented | Existing commit `d42551f94` preserves nested observations; its ARG regressions passed in the 161-test cohort. |
 | H05 | Post-commit event publication recovery | implemented | Durable content-bound pending/completed markers; completed-graph loader and actual recovery invocation preserve unacknowledged delivery. |
 | H06 | Object evaluation with relationship gaps | implemented | Classified relationship gaps keep the activity degraded while verified object Events still publish. |
-| H07 | Snapshot-consistent graph reads | implemented | Four query-entry regressions require read-only repeatable-read before data access; real database concurrency remains a later hardening check. |
+| H07 | Snapshot-consistent graph reads | implemented | Four query-entry regressions require read-only repeatable-read before data access; disposable PostgreSQL also verifies a read concurrent with graph replacement. |
 | H08 | Independent mapping verification | implemented | Verifier v3 checks the injected reviewed mapping, owner, direction, schema, and budget; substituted evidence is rejected. |
 | H09 | Built-in ARM scope identity | implemented | Scope-type substitution is rejected; reviewed Resource Group aliases remain accepted. |
 | H10 | Unclassified ARM identity | implemented | Unclassified provider-type substitution fails exact ARM identity validation. |
@@ -76,26 +76,50 @@ Low. Local focused evidence does not claim Azure rollout or production performan
 | H18 | Topology effective time | implemented | Fact effective time and baseline visibility remain separate and content-addressed. |
 | H19 | Current/history freshness policy | implemented | The observer supplies the same configured ceiling to current and history projectors. |
 | H20 | Mixed freshness replay | implemented | Replay retains canonical state metadata and independent budgets; mismatched state cannot reuse metadata. |
-| H21 | Identical replay idempotency | not-started | Identical replay leaves stored revisions and links unchanged. |
+| H21 | Identical replay idempotency | implemented | In-memory and disposable PostgreSQL replay preserve revisions and graph content. |
 | H22 | Clock-only duplicate adjudication | implemented | Both input orders retain the earliest clock; unknown time is never upgraded. |
-| H23 | Relationship failure isolation | not-started | Safe positive object evidence survives without false relationship completeness. |
-| H24 | Collection memory bounds | not-started | Aggregate resource, link, and byte bounds cover the collected generation. |
+| H23 | Relationship failure isolation | implemented | Invalid candidates remain excluded; verified objects advance while relationship coverage remains false. |
+| H24 | Collection memory bounds | implemented | Each completed shard charges a generation-wide record and 16 MiB normalized-byte budget before retention. |
 | H25 | Relationship-drop bounds | implemented | Stream and enrichment drop accumulation reject overflow, including a disabled projection accumulator. |
-| H26 | Large shard handling | not-started | Bounded partitioning or explicit supported limits prevent repeated unproductive scans. |
-| H27 | Cardinality query complexity | not-started | High-fanout validation avoids repeated sibling scans. |
-| H28 | Persistence round trips | not-started | Batch operations retain revision and endpoint checks. |
-| H29 | Projection lock scope | not-started | Preserve ownership while bounding unrelated writer contention. |
-| H30 | Manifest storage bounds | not-started | Receipt representation and replay have bounded encoded size. |
-| H31 | Cross-owner deletion | not-started | Removing an owned object cannot silently erase foreign-owned evidence. |
-| H32 | Relationship result bounds | not-started | Graph reads expose an independent edge ceiling and truncation. |
+| H26 | Large shard handling | implemented | Explicit 50,000 Resource/200,000 relationship single-generation capacity and early byte failure; existing policy admission from `5de5ef5b6` reinforces the ceiling. Larger partitioned ownership is not claimed. |
+| H27 | Cardinality query complexity | implemented | Replacement checks constrained endpoint sets once per LinkType and skips unnecessary many-to-many scans. |
+| H28 | Persistence round trips | implemented | Batched writes and endpoint preload retain CAS; 1,201 objects/1,200 links passed disposable PostgreSQL regression. |
+| H29 | Projection lock scope | implemented | Retained the global ownership lock deliberately, reduced work under it, and imposed a 60-second transaction deadline. No concurrent-owner throughput guarantee is claimed. |
+| H30 | Manifest storage bounds | implemented | Streaming canonical hashing rejects manifests above 32 MiB before graph writes. |
+| H31 | Cross-owner deletion | implemented | Disposable PostgreSQL and the reference store reject deletion while foreign relationships remain. |
+| H32 | Relationship result bounds | implemented | Both stores cap object-query links at 16,000 with explicit truncation; independent of object limit. |
 | H33 | Transport failure classification | implemented | Truncated continuation-token responses classify as partial rather than authentication failure. |
-| H34 | Invalidation marker recovery | not-started | Corrupt markers recover against a durable monotonic boundary. |
+| H34 | Invalidation marker recovery | implemented | Graph commit retains a separate cursor floor; corruption recovers from it. Legacy corruption lacking a provable floor fails explicitly for repair. |
 | H35 | Inventory adapter documentation | implemented | Adapter documentation now describes authenticated live reads, fences, and owned persistence. |
 | H36 | Real publication recovery regression | implemented | The owning test invokes recovery, observes two publication attempts, one graph application, and a completed delivery marker. |
+
+### Adversarial hardening rounds
+
+Each round reviewed these twelve boundaries: interrupted delivery, substituted mapping evidence,
+mixed freshness replay, observation-time ordering, duplicate observations, generation capacity,
+read-snapshot isolation, revision races, cardinality, foreign-link deletion, invalidation recovery,
+and partial relationship reads. Findings were rechecked after repair rather than counted as closed
+merely because a guard was added. The rounds used synthetic inputs and local tests, not live Azure.
+
+| Round | Cases reviewed | Highest new severity | Finding and disposition |
+|-------|----------------|----------------------|-------------------------|
+| 1 | 12 | High | Same-generation invalidation could reuse corrupt or regressed markers; truncated properties could claim complete journal/Event evidence; malformed delivery completion could suppress retries. Cursor-floor, property-completeness, and strict delivery-marker regressions now cover these paths. |
+| 2 | 12 | High | Snapshot staging retained raw relationships before generation verification. Staging now persists only the final verified link set; rejected candidates remain explicit incomplete coverage. Coordinator and journal cohort: 144 passed. |
+| 3 | 12 | Medium | Malformed nested subnet rows and conflicting duplicate children could silently disappear. Exact malformed-child and conflicting-duplicate regressions now reject collection; identical duplicates remain admissible. Nested-resource cohort: 14 passed. |
+| 4 | 12 | Low | Rechecked the twelve boundaries after the repairs without finding another unresolved Medium-or-higher defect in this bounded review. Integrated focused cohort: 689 passed; disposable PostgreSQL cohort: 9 passed. |
+
+Residual Low limitations are explicit supported-capacity and operating choices: normalized-record
+bytes are not a process-RSS guarantee; larger scopes require reviewed partitioned ownership; the
+global writer lock remains bounded rather than offering parallel-owner throughput; and legacy
+invalidation corruption without a provable cursor floor requires explicit repair. These limitations
+must not be relabeled as unlimited scale, unattended recovery, or production performance evidence.
 
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-20 | implemented | Revalidated the final record-helper moves and hardening repairs against the resumed checkout, including concurrent graph replacement. | `current change`; 14 owning test files: 628 passed; disposable PostgreSQL read/replacement cohort: 9 passed; Ruff passed for 27 changed files; strict mypy passed for 18 source files; the owner and append-only ledger check passed. | Local evidence only. The Low limitations in the adversarial-round record and separately governed deployment evidence remain unchanged. |
+| 2026-09-20 | implemented | Completed four twelve-boundary adversarial rounds over H01-H36, repairing invalidation replay, truncated-property admission, delivery-marker integrity, raw-link staging, and nested-child omission. | `current change`; the adversarial round table names the owning regressions, the 689-test integrated cohort, and nine disposable PostgreSQL checks. | No unresolved finding above Low remains in the reviewed local scope. Supported capacity, legacy manual repair, and separately authorized production/Azure evidence remain explicitly limited. |
+| 2026-09-19 | implemented | Batched graph replacement while preserving revision and foreign-link checks, bounded writer time, manifest bytes, collected generations and query edges, repaired invalidation from durable floors, and separated relationship candidate failure from verified object progress. | `current change`; disposable PostgreSQL: 9 passed including concurrent-read isolation and 1,200-link fanout; projection/runtime/history: 134 passed; inventory adapter: 38 passed; row/query regression: 26 passed; eight source files passed focused mypy. | All 36 original rows have implementation evidence or explicit bounded design treatment. At least ten-case adversarial rounds and integrated focused validation remain mandatory before completion. |
 | 2026-09-19 | implemented | Preserved object conflicts, rejected missing/future state clocks, fixed conservative ARG observation time, retained topology effective time, and aligned history/replay freshness without overwriting independent fact budgets. | `current change`; projection/runtime/journal/replay cohort: 157 passed; post-extraction projection: 81 passed; history/observer cohort: 24 passed; ARG clock regression: 1 passed; focused mypy passed. | Persistence idempotency, bounded storage/query costs, relation isolation, invalidation recovery, and repeated adversarial review remain. |
 | 2026-09-19 | implemented | Bound graph reads to one read snapshot, verified mapping declarations independently, retained Kubernetes endpoint types, rejected identity conflicts, and bounded the complete collection run and suppression evidence. | `current change`; relationship/coordinator/Kubernetes cohort: 94 passed; additional Kubernetes producer cohort: 16 passed; expanded coordinator cohort: 59 passed; query-entry cohort: 4 passed; focused mypy and Ruff passed. | Temporal evidence, replay/storage optimization, collection byte bounds, and adversarial review remain; no live database concurrency or production capacity claim is made. |
 | 2026-09-19 | implemented | Separated graph completion from content-bound Resource-event delivery, recovered pending publication without another graph write, and preserved object delivery when relationships remain degraded. | `current change`; observer, event publisher, and observation-journal tests: 116 passed; extended initial-generation loader cohort: 31 passed; three source files passed focused mypy. | Other open hardening rows and repeated adversarial review remain; no broker or Azure runtime validation is claimed. |
@@ -383,6 +407,9 @@ retention remain in progress.
 | 2026-09-12 | implemented | Regenerated semantic-intent coverage source commitments after the inventory projection change. Evaluation counts and thresholds are unchanged. | `current change`; `build_semantic_intent_coverage.py`; `pytest -q --no-cov tests/integration/evaluation/test_semantic_intent_coverage.py`: 4 passed. | Pushed-SHA CI remains authoritative; no runtime or promotion evidence is inferred. |
 
 ### Remaining work
+
+- [x] Complete H01-H36 and repeated reviews of at least ten boundaries until no reviewed finding
+  above Low remains; four twelve-boundary rounds and the focused evidence are recorded above.
 
 - [x] Preserve provider event and FDAI ingestion time as distinct normalized observation fields,
   retain legacy identities during migration, and fail closed on impossible temporal ordering.

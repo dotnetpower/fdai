@@ -15,9 +15,10 @@ and its owned projection persist observations; this adapter never writes ontolog
 from __future__ import annotations
 
 import asyncio
+import json
 from collections import Counter
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from typing import Final
 
@@ -35,6 +36,9 @@ from fdai.shared.providers.inventory import (
 
 _DEFAULT_MAX_CONCURRENT_QUERIES: Final[int] = 4
 _DEFAULT_MAX_DELTA_PAGES: Final[int] = 64
+MAX_GENERATION_RESOURCES = 50_000
+MAX_GENERATION_LINKS = 200_000
+MAX_GENERATION_BYTES = 16 * 1024 * 1024
 InventoryShardObserver = Callable[[int, int, int, int], Awaitable[object]]
 InventorySourceObserver = Callable[[], Awaitable[object]]
 
@@ -65,6 +69,40 @@ ResourceQueryFn = Callable[
 ScopeCoverageFn = Callable[[], Awaitable[ProviderScopeCoverage]]
 UnmappedResourceQueryFn = Callable[[], Awaitable[ResourceQueryResult]]
 GenerationRelationshipFn = Callable[[Sequence[ResourceRecord]], ResourceQueryResult]
+
+
+@dataclass
+class _GenerationBudget:
+    resources: int = 0
+    links: int = 0
+    drops: int = 0
+    encoded_bytes: int = 0
+
+    def consume(self, result: ResourceQueryResult) -> None:
+        self.resources += len(result.resources)
+        self.links += len(result.links)
+        self.drops += len(result.relationship_drops)
+        if (
+            self.resources > MAX_GENERATION_RESOURCES
+            or self.links > MAX_GENERATION_LINKS
+            or self.drops > MAX_GENERATION_LINKS
+        ):
+            raise RuntimeError(
+                "inventory generation capacity exceeded; narrow the collection scope"
+            )
+        encoder = json.JSONEncoder(ensure_ascii=True, separators=(",", ":"), default=str)
+        records: Iterable[ResourceRecord | LinkRecord | RelationshipDrop] = (
+            *result.resources,
+            *result.links,
+            *result.relationship_drops,
+        )
+        for record in records:
+            for chunk in encoder.iterencode(asdict(record)):
+                self.encoded_bytes += len(chunk)
+                if self.encoded_bytes > MAX_GENERATION_BYTES:
+                    raise RuntimeError(
+                        "inventory generation byte capacity exceeded; narrow the collection scope"
+                    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,6 +240,7 @@ class AzureResourceGraphInventory:
             await self._source_observer()
 
         semaphore = asyncio.Semaphore(self._config.max_concurrent_queries)
+        budget = _GenerationBudget()
 
         async def _fetch(rt: str) -> InventoryBatch:
             async with semaphore:
@@ -216,6 +255,13 @@ class AzureResourceGraphInventory:
             else:
                 resources_raw, links_raw = query_result
                 relationship_drops = ()
+            budget.consume(
+                ResourceQueryResult(
+                    resources=tuple(resources_raw),
+                    links=tuple(links_raw),
+                    relationship_drops=relationship_drops,
+                )
+            )
             resources = _dedupe_resources(resources_raw)
             links, duplicate_drops = _validate_links(links_raw)
             return InventoryBatch(
@@ -246,7 +292,9 @@ class AzureResourceGraphInventory:
 
             async def _fetch_unmapped_resources() -> ResourceQueryResult:
                 async with semaphore:
-                    return await unmapped_resources()
+                    result = await unmapped_resources()
+                budget.consume(result)
+                return result
 
             unmapped_task = asyncio.create_task(
                 _fetch_unmapped_resources(),
@@ -346,6 +394,7 @@ class AzureResourceGraphInventory:
             if self._generation_relationships is not None
             else ResourceQueryResult()
         )
+        budget.consume(generation_relationships)
         links, generation_drops = _validate_links(
             (
                 *(link for batch in completed for link in batch.links),

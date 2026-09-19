@@ -12,6 +12,7 @@ from fdai.runtime.inventory_ontology_state import InventoryOntologyProjectionSta
 MANIFEST_SCHEMA_VERSION = "1.3.0"
 LEGACY_MANIFEST_SCHEMA_VERSION = "1.2.0"
 IDENTITY_ONLY_MANIFEST_SCHEMA_VERSION = "1.1.0"
+MAX_MANIFEST_BYTES = 32 * 1024 * 1024
 
 
 def projection_content(
@@ -159,10 +160,7 @@ def manifest_digest(
     if journal_high_watermark is not None:
         payload["journal_high_watermark"] = journal_high_watermark
         payload["projection_high_watermark"] = projection_high_watermark
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
-        "utf-8"
-    )
-    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+    return _bounded_digest(payload)
 
 
 def manifest_content_digest(
@@ -190,10 +188,22 @@ def manifest_content_digest(
         "object_content": list(object_content),
         "link_content": list(link_content),
     }
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
-        "utf-8"
+    return _bounded_digest(payload)
+
+
+def _bounded_digest(payload: Mapping[str, object]) -> str:
+    digest = hashlib.sha256()
+    byte_count = 0
+    encoder = json.JSONEncoder(
+        sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
     )
-    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+    for chunk in encoder.iterencode(payload):
+        encoded = chunk.encode("utf-8")
+        byte_count += len(encoded)
+        if byte_count > MAX_MANIFEST_BYTES:
+            raise ValueError("inventory ontology manifest exceeds its encoded byte bound")
+        digest.update(encoded)
+    return "sha256:" + digest.hexdigest()
 
 
 def manifest_watermark(value: Mapping[str, object], key: str) -> int | None:

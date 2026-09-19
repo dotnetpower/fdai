@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, uuid5
@@ -51,11 +52,24 @@ def configuration_delivery_pending(value: Mapping[str, object], *, generation: s
     """Reject malformed current-generation delivery state rather than losing a retry."""
     if value.get("generation") != generation:
         return False
+    resource_count = value.get("resource_count")
     if (
         value.get("schema_version") != "1.0.0"
         or value.get("status") not in {"pending", "completed"}
         or value.get("execution_authority") is not False
         or not isinstance(value.get("observation_digest"), str)
+        or re.fullmatch(r"sha256:[0-9a-f]{64}", str(value.get("observation_digest"))) is None
+        or type(resource_count) is not int
+        or not 0 <= resource_count <= 50_000
+        or set(value)
+        != {
+            "schema_version",
+            "generation",
+            "observation_digest",
+            "status",
+            "resource_count",
+            "execution_authority",
+        }
     ):
         raise ValueError("inventory configuration delivery marker is invalid")
     return value["status"] == "pending"
@@ -82,6 +96,8 @@ async def publish_promoted_resource_events(
         raise ValueError("configuration event topic and scope_ref MUST be non-empty")
 
     resources = sorted(observation.resources, key=lambda item: item.resource_id)
+    if any(resource.props.get("_truncated") is True for resource in resources):
+        raise ValueError("truncated inventory cannot publish complete configuration observations")
     if len({resource.resource_id for resource in resources}) != len(resources):
         raise ValueError("promoted inventory contains duplicate Resource identities")
 

@@ -18,6 +18,7 @@ from fdai.delivery.persistence.postgres_ontology_source_coverage import (
 )
 from fdai.shared.contracts.models import OntologyLinkType, OntologyRelease
 from fdai.shared.providers.ontology_instance import (
+    MAX_ONTOLOGY_QUERY_LINKS,
     OntologyDirection,
     OntologyGraphSnapshot,
     OntologyLinkRecord,
@@ -92,7 +93,7 @@ async def _query_objects(
     )
     links = tuple(
         sorted(
-            raw_links,
+            raw_links[:MAX_ONTOLOGY_QUERY_LINKS],
             key=lambda link: ontology_link_sort_key(
                 link,
                 link_types=link_types,
@@ -109,7 +110,7 @@ async def _query_objects(
     return OntologyGraphSnapshot(
         objects=objects,
         links=links,
-        truncated=truncated,
+        truncated=truncated or len(raw_links) > MAX_ONTOLOGY_QUERY_LINKS,
         source_complete=source_complete,
         source_generation=source_generation,
     )
@@ -244,8 +245,8 @@ async def _links_within(
         "SELECT link_type, from_id, to_id, properties, type_version, catalog_digest "
         "FROM ontology_link "
         "WHERE from_id = ANY(%s::text[]) AND to_id = ANY(%s::text[]) "
-        "ORDER BY from_id, link_type, to_id",
-        (list(identifiers), list(identifiers)),
+        "ORDER BY from_id, link_type, to_id LIMIT %s",
+        (list(identifiers), list(identifiers), MAX_ONTOLOGY_QUERY_LINKS + 1),
     )
     return tuple(_link_from_row(row, releases=releases) for row in await cursor.fetchall())
 

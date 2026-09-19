@@ -300,6 +300,23 @@ async def test_global_projection_watermark_stops_at_append_boundary() -> None:
     assert result == 50
 
 
+def test_journal_never_upgrades_relationship_gaps_to_complete() -> None:
+    from fdai.delivery.persistence.postgres_inventory_observation_records import snapshot_records
+    from fdai.shared.providers.inventory import RelationshipDrop, ResourceRecord
+
+    observation = PromotedInventoryObservation(
+        generation="generation-gap",
+        resources=(ResourceRecord(resource_id="example", type="compute.vm"),),
+        links=(),
+        complete=True,
+        recorded_at=NOW,
+        relationship_drops=(RelationshipDrop(reason=RelationshipDropReason.UNVERIFIED_METADATA),),
+    )
+    records = snapshot_records(observation, scope_refs=("example",))
+    assert records[0].properties_complete is True
+    assert records[0].links_complete is False
+
+
 def test_replay_freshness_accepts_independent_fact_budgets() -> None:
     contents = []
     for budget in (300, 21600):

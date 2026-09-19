@@ -129,6 +129,37 @@ def _source(name: str, inventory: Any) -> InventorySource:
     )
 
 
+async def test_unverified_relationships_never_enter_the_promoted_snapshot() -> None:
+    store = _Store()
+    source = _source(
+        "arg",
+        _Inventory(
+            [
+                InventoryBatch(
+                    resources=(
+                        ResourceRecord(resource_id="resource-1", type="compute.vm"),
+                        ResourceRecord(resource_id="resource-2", type="compute.vm"),
+                    ),
+                    links=(
+                        LinkRecord(
+                            from_id="resource-1",
+                            from_type="compute.vm",
+                            link_type="depends_on",
+                            to_id="resource-2",
+                            to_type="compute.vm",
+                        ),
+                    ),
+                ),
+                InventoryBatch(final=True),
+            ]
+        ),
+    )
+    await InventorySyncCoordinator(store=store).run((source,))
+    assert store.promoted == ["attempt-1"]
+    assert not any(batch.links for batch in store.batches["attempt-1"])
+    assert store.promoted_manifests[0].metadata["relationship_complete"] is False
+
+
 async def test_oversized_observation_cannot_advance_active_snapshot(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -209,6 +240,22 @@ def test_drop_accumulation_is_bounded_even_without_a_projection(
         accumulator.add(InventoryBatch(relationship_drops=(drop,)))
     with pytest.raises(InventoryStreamError, match="drops exceeded"):
         accumulator.add_relationship_drops((drop,))
+
+
+def test_truncated_properties_fail_before_staging_even_without_projection() -> None:
+    accumulator = _ObservationAccumulator(enabled=False, relationship_mapping_catalog=None)
+    with pytest.raises(InventoryStreamError, match="truncated inventory"):
+        accumulator.add(
+            InventoryBatch(
+                resources=(
+                    ResourceRecord(
+                        resource_id="example",
+                        type="compute.vm",
+                        props={"_truncated": True},
+                    ),
+                )
+            )
+        )
 
 
 def test_continuation_token_failure_is_partial_not_authentication() -> None:
@@ -861,6 +908,10 @@ async def test_promotion_enrichment_stages_reviewed_static_web_app_operational_s
     ("source_revision", "evidence_refs"),
     [
         ("not-content-addressed", ("not-content-addressed",)),
+        (
+            "azure-static-web-app-environment:sha256:" + "1" * 63 + "g",
+            ("azure-static-web-app-environment:sha256:" + "1" * 63 + "g",),
+        ),
         (
             "azure-static-web-app-environment:sha256:" + "1" * 64,
             ("azure-static-web-app-environment:sha256:" + "2" * 64,),
