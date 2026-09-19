@@ -164,6 +164,97 @@ async def test_constraint_discovery_binding_cannot_change_on_create_or_read(chan
     assert len(list(store.audit_entries)) == 1
 
 
+async def test_unavailable_constraints_degrade_to_inspection_and_preserve_owner() -> None:
+    target = to_neutral_id(CLUSTER)
+    valid = context()
+    values = context(
+        target_ref=target,
+        existing_method="existing_host",
+        facts=tuple(fact.model_copy(update={"target_ref": target}) for fact in valid.facts),
+    )
+
+    class FailingConstraints(Constraints):
+        unavailable = False
+
+        async def read(self, target_ref, *, now):
+            if self.unavailable:
+                raise ValueError("synthetic invalid or expired preflight")
+            return self.value
+
+    reader, store = FailingConstraints(values), InMemoryStateStore()
+    service = ObserverDeploymentProposalService(store, constraints=reader, now=lambda: NOW)
+    await service.observe((observation(),))
+    assert (await service.current(target)).status == "ready_for_review"
+    reader.unavailable = True
+    with pytest.raises(ValueError):
+        await service.current(target)
+    assert await service.observe((observation(),)) == 1
+    current = await service.current(target)
+    assert current.status == "needs_evidence" and current.recommended is None
+    assert all(
+        item.state == "blocked" for item in current.candidates if item.method != "existing_host"
+    )
+    assert list(store.audit_entries)[-1]["entry"]["reason"] == "constraint_evidence_unavailable"
+
+
+@pytest.mark.parametrize("failure", ["revoked", "expired"])
+async def test_signed_preflight_lifecycle_recovers_to_no_authority_inspection(failure) -> None:
+    from fdai.delivery.kubernetes_connector_preflight import SignedObserverConstraints
+
+    from .test_kubernetes_connector_preflight import Grants, material
+
+    target = to_neutral_id(CLUSTER)
+    grant, receipt, private = material()
+    grant = grant.model_copy(update={"target_ref": target, "can_select_owner": True})
+    receipt = receipt.model_copy(
+        update={
+            "context": receipt.context.model_copy(
+                update={
+                    "target_ref": target,
+                    "existing_method": "existing_host",
+                    "facts": tuple(
+                        fact.model_copy(update={"target_ref": target})
+                        for fact in receipt.context.facts
+                    ),
+                }
+            )
+        }
+    )
+    receipt = receipt.model_copy(update={"signature": private.sign(receipt.signing_bytes()).hex()})
+    store, grants, clock = InMemoryStateStore(), Grants(grant), [NOW]
+    constraints = SignedObserverConstraints(store, grants=grants, now=lambda: clock[0])
+    await constraints.retain(receipt)
+    service = ObserverDeploymentProposalService(
+        store, constraints=constraints, now=lambda: clock[0]
+    )
+    await service.observe((observation(),))
+    assert (await service.current(target)).status == "ready_for_review"
+    if failure == "revoked":
+        grants.grant = grant.model_copy(update={"revoked": True})
+    else:
+        clock[0] += timedelta(minutes=10)
+    await service.observe((AksPrivateClusterObservation(CLUSTER, clock[0], DIGEST),))
+    result = await service.current(target)
+    assert result.status == "needs_evidence" and result.execution_authority is False
+    assert all(
+        item.state == "blocked" for item in result.candidates if item.method != "existing_host"
+    )
+
+
+async def test_preflight_storage_failure_is_not_hidden_as_missing_facts() -> None:
+    class BrokenStoreConstraints:
+        async def read(self, target_ref, *, now):
+            raise RuntimeError("synthetic storage unavailable")
+
+    store = InMemoryStateStore()
+    service = ObserverDeploymentProposalService(
+        store, constraints=BrokenStoreConstraints(), now=lambda: NOW
+    )
+    with pytest.raises(RuntimeError, match="storage"):
+        await service.observe((observation(),))
+    assert not list(store.audit_entries)
+
+
 async def test_current_proposal_rejects_expiry_and_older_discovery() -> None:
     store = InMemoryStateStore()
     clock = [NOW]

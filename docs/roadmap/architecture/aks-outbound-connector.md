@@ -131,6 +131,12 @@ and atomic state/audit providers, denies conflicting same-time evidence, and nev
 authority. Existing owner pins survive missing or revoked facts. The runtime source must be wired
 before this boundary can be described as automatic preflight coverage.
 
+Expired, revoked or invalid preflight receipts and missing private verifier files cannot keep an
+old recommendation usable. A fresh discovery discards their facts, retains prior owner pins and
+records `needs_evidence` with `constraint_evidence_unavailable` in its audit. Current reads of the
+old fact-bearing proposal remain denied. Storage-service errors and cancellation still propagate;
+this bounded recovery never fabricates evidence, repeats collection or grants installation authority.
+
 When subscription Kubernetes discovery is enabled, explicit private observations now create one
 Core-owned proposal per neutral cluster identity even if credential discovery fails. The job keeps
 its existing read identity and persists the context, recommendation and audit atomically. Repeated

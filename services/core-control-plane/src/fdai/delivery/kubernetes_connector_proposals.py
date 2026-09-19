@@ -149,7 +149,7 @@ class ObserverDeploymentProposalService:
         target = to_neutral_id(observation.cluster_ref)
         if self._observing is not None and await self._observing(target):
             return False
-        constraints = await self._constraints.read(target, now=now)
+        constraints, unavailable = await self._read_constraints(target, now=now)
         values: dict[str, object] = {
             "target_ref": target,
             "discovery_digest": observation.source_digest,
@@ -230,6 +230,7 @@ class ObserverDeploymentProposalService:
             "status": proposal.status,
             "execution_authority": False,
             "approval_required": True,
+            "reason": "constraint_evidence_unavailable" if unavailable else "current_evidence",
         }
         if not now <= connector_time(self._now()) < proposal.expires_at:
             raise ValueError("observer proposal expired before persistence")
@@ -264,7 +265,7 @@ class ObserverDeploymentProposalService:
             return None
         context, proposal, _ = _checkpoint(value, target=target_ref)
         now = connector_time(self._now())
-        constraints = await self._constraints.read(target_ref, now=now)
+        constraints, _ = await self._read_constraints(target_ref, now=now)
         if constraints is not None:
             constraints = ObserverDeploymentContext.model_validate_json(
                 constraints.model_dump_json()
@@ -292,3 +293,12 @@ class ObserverDeploymentProposalService:
         if not proposal.evaluated_at <= connector_time(self._now()) < proposal.expires_at:
             raise ValueError("observer proposal is stale; reinspection required")
         return proposal
+
+    async def _read_constraints(
+        self, target_ref: str, *, now: datetime
+    ) -> tuple[ObserverDeploymentContext | None, bool]:
+        """Discard unusable evidence, never old owner pins or storage-service failures."""
+        try:
+            return await self._constraints.read(target_ref, now=now), False
+        except (ValueError, FileNotFoundError, PermissionError):
+            return None, True
