@@ -6,13 +6,15 @@ import base64
 import binascii
 import hashlib
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import quote, urlparse
 
 import httpx
 import yaml
+from fdai_service_contracts.compatibility import canonical_digest
 
 from fdai.delivery.kubernetes_cluster_binding import KubernetesClusterBinding
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -49,11 +51,21 @@ class AksUnavailableScope:
 
 
 @dataclass(frozen=True, slots=True)
+class AksPrivateClusterObservation:
+    """Explicit private-mode fact from the authenticated management-plane cluster list."""
+
+    cluster_ref: str
+    observed_at: datetime
+    source_digest: str
+
+
+@dataclass(frozen=True, slots=True)
 class AksSubscriptionDiscoveryResult:
     """Return usable in-memory bindings and explicit unavailable cluster scopes."""
 
     bindings: tuple[KubernetesClusterBinding, ...]
     unavailable_scopes: tuple[AksUnavailableScope, ...]
+    private_clusters: tuple[AksPrivateClusterObservation, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,11 +105,13 @@ class AzureAksSubscriptionBindingDiscovery:
         identity: WorkloadIdentity,
         http_client: httpx.AsyncClient,
         config: AksSubscriptionDiscoveryConfig,
+        now: Callable[[], datetime] | None = None,
     ) -> None:
         self._identity = identity
         self._http = http_client
         self._config = config
         self._management_host = urlparse(config.management_endpoint).netloc.casefold()
+        self._now = now or (lambda: datetime.now(UTC))
 
     async def discover(self, subscription_id: str) -> AksSubscriptionDiscoveryResult:
         """Discover current clusters and discard credential responses after minimization."""
@@ -112,11 +126,31 @@ class AzureAksSubscriptionBindingDiscovery:
             "Accept": "application/json",
         }
         clusters = await self._list_clusters(subscription_id, headers=headers)
+        observed_at = self._now()
+        if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+            raise AksSubscriptionDiscoveryError("AKS discovery clock must be timezone-aware")
         bindings: list[KubernetesClusterBinding] = []
         unavailable: list[AksUnavailableScope] = []
+        private_clusters: list[AksPrivateClusterObservation] = []
         for cluster in sorted(clusters, key=lambda item: str(item["id"]).casefold()):
             cluster_ref = str(cluster["id"])
             scope_digest = _scope_digest(cluster_ref)
+            properties = cluster.get("properties")
+            profile = (
+                properties.get("apiServerAccessProfile")
+                if isinstance(properties, Mapping)
+                else None
+            )
+            if isinstance(profile, Mapping) and profile.get("enablePrivateCluster") is True:
+                private_clusters.append(
+                    AksPrivateClusterObservation(
+                        cluster_ref=cluster_ref,
+                        observed_at=observed_at,
+                        source_digest=canonical_digest(
+                            {"cluster_ref": cluster_ref.casefold(), "enablePrivateCluster": True}
+                        ),
+                    )
+                )
             if not _supports_azure_rbac(cluster):
                 unavailable.append(
                     AksUnavailableScope(
@@ -142,6 +176,7 @@ class AzureAksSubscriptionBindingDiscovery:
         return AksSubscriptionDiscoveryResult(
             bindings=tuple(bindings),
             unavailable_scopes=tuple(unavailable),
+            private_clusters=tuple(private_clusters),
         )
 
     async def _list_clusters(
@@ -157,6 +192,7 @@ class AzureAksSubscriptionBindingDiscovery:
             f"?api-version={quote(self._config.api_version, safe='')}"
         )
         clusters: list[Mapping[str, Any]] = []
+        identities: set[str] = set()
         for _page in range(self._config.max_pages):
             self._validate_management_url(current)
             response = await self._request("GET", current, headers=headers)
@@ -174,6 +210,11 @@ class AzureAksSubscriptionBindingDiscovery:
                     raise AksSubscriptionDiscoveryError(
                         "AKS discovery returned an out-of-scope cluster"
                     )
+                if cluster_ref.casefold() in identities:
+                    raise AksSubscriptionDiscoveryError(
+                        "AKS discovery returned a duplicate cluster"
+                    )
+                identities.add(cluster_ref.casefold())
                 clusters.append(value)
                 if len(clusters) > self._config.max_clusters:
                     raise AksSubscriptionDiscoveryError("AKS discovery cluster cap exceeded")

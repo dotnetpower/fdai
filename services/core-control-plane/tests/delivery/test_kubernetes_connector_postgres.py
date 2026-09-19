@@ -93,8 +93,41 @@ async def test_postgres_atomic_snapshot_and_restart(tmp_path) -> None:
             await inbox().accept(third.evidence, third.content, principal_ref="example")
         cursor = await connection.execute("SELECT value->>'revision' FROM state_kv")
         assert (await cursor.fetchone())[0] == "2"
+        await connection.execute("ALTER TABLE audit_log DROP CONSTRAINT reject_next_audit")
+        await _assert_proposals_atomic(store, connection)
     finally:
         await connection.execute(
             sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(sql.Identifier(schema))
         )
         await connection.close()
+
+
+async def _assert_proposals_atomic(store, connection) -> None:
+    from fdai.delivery.azure.arg_projection import to_neutral_id
+    from fdai.delivery.kubernetes_connector_proposals import (
+        OBSERVER_PROPOSAL_PREFIX,
+        ObserverDeploymentProposalService,
+    )
+    from fdai_service_contracts.compatibility import canonical_digest
+
+    from .test_kubernetes_connector_planning import NOW as PROPOSAL_NOW
+    from .test_kubernetes_connector_planning import context
+    from .test_kubernetes_connector_proposals import CLUSTER, Constraints, observation
+
+    reader = Constraints()
+    service = ObserverDeploymentProposalService(store, constraints=reader, now=lambda: PROPOSAL_NOW)
+    receipts = await asyncio.gather(*(service.observe((observation(),)) for _ in range(8)))
+    assert sum(receipts) == 1
+    target = to_neutral_id(CLUSTER)
+    assert (await service.current(target)).status == "needs_evidence"
+    assert await store.verify_chain()
+    key = OBSERVER_PROPOSAL_PREFIX + canonical_digest({"target_ref": target})
+    before = await store.read_state(key)
+    reader.value = context(target_ref=target, facts=(), requested_method="run_command")
+    await connection.execute(
+        "ALTER TABLE audit_log ADD CONSTRAINT reject_proposal_audit CHECK (false) NOT VALID"
+    )
+    with pytest.raises(psycopg.errors.CheckViolation):
+        await service.observe((observation(),))
+    assert await store.read_state(key) == before
+    assert await store.verify_chain()

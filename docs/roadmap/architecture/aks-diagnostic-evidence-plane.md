@@ -50,6 +50,11 @@ uses the existing Inventory Job and relationship verifier and is exclusive with 
 Direct collection remains the default; Event history and protected private-cluster validation for
 the connector remain open in its implementation ledger.
 
+Subscription discovery also preserves an explicit boolean private-cluster fact independently of
+credential availability. It creates a Core-owned [observer deployment proposal](aks-outbound-connector.md#implemented-proposal-boundary), not a new source binding or approval.
+Missing preflight evidence remains unknown; repeated discovery is deduplicated and cannot install
+an observer, increase diagnostic coverage, or turn an unreachable API into a private-mode finding.
+
 The runtime accepts a bounded collection of cluster bindings. Each binding contains:
 
 - one canonical AKS ARM id;

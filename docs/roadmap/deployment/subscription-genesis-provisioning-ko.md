@@ -1,8 +1,8 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 5410860d73f8d1483378f849d81e97f8523d2fc9
-translation_revised: 2026-09-17
+translation_source_sha: 4481f930f6861add63d3a476f0b9f0ca29480b38
+translation_revised: 2026-09-19
 ---
 # 구독 초기 프로비저닝
 
@@ -75,7 +75,7 @@ AKS fleet 관측은 정확한 클러스터 연결을 최대 32개 허용하며 �
 이전 커서 공백을 계속 불완전 상태로 유지합니다.
 승격된 세대는 정확한 활성 범위 그래프 checkpoint를 전체 범위 보존 경계와 별도로 기록합니다.
 보존된 비활성 범위 이력은 현재 범위 준비 상태를 차단하지 않으며, 활성 범위에서 스냅샷 이후에
-발생한 관측은 변환 결과가 따라잡을 때까지 준비 상태를 불완전하게 유지합니다.
+발생한 관측은 변환 결과가 따라잡을 때까지 준비 상태를 불완전하게 유지합니다. 명시적으로 private 클러스터를 발견하면 실행 권한이 없는 [관측 구성 제안](../architecture/aks-outbound-connector-ko.md#구현된-제안-범위)도 기록합니다. 제약 근거가 없으면 조사를 요청하며 설치를 수행하거나 초기 구성 준비 상태를 높이지 않습니다.
 
 ## 목표 운영자 경험
 

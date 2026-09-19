@@ -22,6 +22,10 @@ from fdai_service_contracts.decision_evidence_verification import (
     DecisionEvidenceVerificationBundle,
 )
 from fdai_service_contracts.execution_safeguards import SafeguardProofBundle
+from fdai_service_contracts.observer_deployment import (
+    ObserverDeploymentContext,
+    ObserverDeploymentProposal,
+)
 from fdai_service_contracts.runtime_scope import RuntimeScopeReceipt
 from fdai_service_contracts.test_context import (
     TestContextApplication,
@@ -51,6 +55,8 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
         "1.0.0",
     ): "schemas/cluster-connector-registration/1.0.0.json",
     ("cluster-connector-work", "1.0.0"): "schemas/cluster-connector-work/1.0.0.json",
+    ("observer-deployment-context", "1.0.0"): "schemas/observer-deployment-context/1.0.0.json",
+    ("observer-deployment-proposal", "1.0.0"): "schemas/observer-deployment-proposal/1.0.0.json",
     ("alert-noise-assessment", "1.0.0"): "schemas/alert-noise-assessment/1.0.0.json",
     ("alert-noise-evaluation", "1.0.0"): "schemas/alert-noise-evaluation/1.0.0.json",
     (
@@ -275,6 +281,10 @@ class JsonSchemaContractValidator:
             if schema_name == "cluster-connector-registration"
             else ConnectorWork
             if schema_name == "cluster-connector-work"
+            else ObserverDeploymentContext
+            if schema_name == "observer-deployment-context"
+            else ObserverDeploymentProposal
+            if schema_name == "observer-deployment-proposal"
             else None
         )
         if semantic_model is not None:

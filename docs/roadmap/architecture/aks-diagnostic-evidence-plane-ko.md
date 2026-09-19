@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 83b4dd92279544e4ff82f13d2523511448a82ce5
+translation_source_sha: 57ab32252170f8da710c7116e2814641a686a4cd
 translation_revised: 2026-09-19
 ---
 # AKS 진단 근거 플레인
@@ -49,6 +49,11 @@ Azure 관측은 정확한 대상을 검증한 뒤에만 결합됩니다. 결정�
 인증 기반 스냅샷 전송을 제공합니다. 저장본을 읽는 어댑터는 기존 Inventory Job과 관계 검증기를
 사용하며 직접 수집과 함께 설정할 수 없습니다. 직접 수집은 기본값으로 유지합니다.
 커넥터의 Event 이력과 보호된 private 클러스터 검증은 구현 원장에 남은 작업으로 기록합니다.
+
+구독 자동 발견은 자격 증명 조회 가능 여부와 별개로 명시적인 불리언 private 사실도 보존합니다.
+이 사실로 Core 소유의 [관측 배포 제안](aks-outbound-connector-ko.md#구현된-제안-범위)을 만들지만 새 소스 연결이나 승인을 만들지는 않습니다.
+사전 점검 근거가 없으면 알 수 없음으로 유지하고 반복 발견은 중복 제거합니다. 관측 워커 설치,
+진단 범위 확대, API 연결 실패를 근거로 한 private 판정은 하지 않습니다.
 
 런타임은 개수가 제한된 클러스터 연결 모음을 허용합니다. 각 연결은 다음을 포함합니다.
 

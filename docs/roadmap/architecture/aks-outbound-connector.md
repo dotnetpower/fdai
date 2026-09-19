@@ -87,6 +87,59 @@ source selection per cluster; failover requires a fresh, complete generation, no
 Future observations, stale generations, mismatched identity, and same-key different-content replay
 are rejected. Identical retry remains safe and does not refresh the original observation time.
 
+## Constraint-based deployment proposals
+
+Private-cluster detection creates an observation and a bounded deployment recommendation, never
+an installation command. Only an explicit boolean `enablePrivateCluster` from authenticated Azure
+cluster metadata establishes private mode. A name, private-looking endpoint, missing API access,
+or absent property does not establish it. Each recommendation binds the exact cluster, source
+revision, observation cutoff, constraint evidence, supported capability profile, and expiry.
+
+The selector independently evaluates installation ownership, management access, runtime egress,
+identity, artifact supply, Kubernetes admission, capacity, and persistent storage. It excludes
+denied combinations before ranking; missing, stale or unobservable facts stay unknown. A known
+existing owner is preserved. Eligible existing GitOps or internal-host paths precede a new host;
+Run Command is a separately permitted one-shot bootstrap candidate, not a runtime transport.
+The selectable snapshot recipe requires a serialized CronJob, PVC, complete cluster read scope and
+direct mTLS ingress; its deployment renderer remains open. A forbidden PVC, cluster-wide read prohibition or mandatory TLS termination
+cannot silently select an unimplemented mode. Future profiles require their own implementation
+and verification evidence before selection.
+
+Recommendations list rejected alternatives, missing facts, prerequisites, and the least-change
+eligible profile. If no candidate is fully supported, they request inspection or report a blocker.
+Operators may pin an allowed installation method; a pin cannot bypass policy and an unsuccessful
+apply cannot silently switch methods. A proposal is deduplicated by target and evidence content;
+repeated discovery cannot create duplicate approvals or repeatedly notify an unchanged condition.
+The future Operator surface must expose only purpose- and role-scoped proposals. Enabling observation does
+not enable deployment; exact target, artifact, plan, current authority and independent approval
+remain deployment-workflow responsibilities. Readiness distinguishes installed, authenticated,
+observing and independently verified rather than inferring health from a Pod or heartbeat.
+
+### Implemented proposal boundary
+
+When subscription Kubernetes discovery is enabled, explicit private observations now create one
+Core-owned proposal per neutral cluster identity even if credential discovery fails. The job keeps
+its existing read identity and persists the context, recommendation and audit atomically. Repeated
+identical evidence reuses the current proposal; older observations cannot replace newer evidence.
+Expiry, corrupt records and changed preflight constraints reject current readback. An expired
+constraint context retains its last known owner and method pin but cannot supply eligible facts.
+
+The initial schema pair is `observer-deployment-context` and `observer-deployment-proposal`.
+Absent server-owned preflight evidence produces `needs_evidence`, not a best-guess installation.
+The constraint reader is an injection boundary: an evidence digest proves content integrity, not
+source authentication. Automatic constraint collectors and a reviewed constraint writer are not
+implemented. Supplied-context evaluation is available without persistence or network calls:
+
+```bash
+python -m fdai.delivery.kubernetes_connector_proposal_cli evaluate --context /private/context.json
+python -m fdai.delivery.kubernetes_connector_proposal_cli show --target-ref <neutral-cluster-ref>
+```
+
+The context file must be owner-only `0600`. The read command uses the existing Core
+`FDAI_STATE_STORE_DSN`, permits only loopback PostgreSQL in a local venue, and fails on stale or
+changed evidence. Neither command approves, installs or sends a notification. Console/ChatOps
+projection, governed installation and operational readiness remain unimplemented boundaries.
+
 ## Snapshot runtime
 
 The initial executable observation path uses explicitly configured mutual TLS (mTLS). Both

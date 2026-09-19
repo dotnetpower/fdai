@@ -127,6 +127,44 @@ async def test_discovery_rejects_embedded_credentials_per_cluster() -> None:
     assert result.unavailable_scopes[0].reason == "kubernetes_discovered_binding_unavailable"
 
 
+@pytest.mark.parametrize(
+    "private_flag,expected", [(True, 1), (False, 0), ("true", 0), (1, 0), (None, 0)]
+)
+async def test_explicit_private_mode_survives_unavailable_credentials(
+    private_flag, expected
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            cluster = _cluster(_CLUSTER_ONE)
+            cluster["properties"]["apiServerAccessProfile"] = {"enablePrivateCluster": private_flag}
+            return httpx.Response(200, json={"value": [cluster]})
+        return httpx.Response(403)
+
+    discovery = _discovery(handler)
+    try:
+        result = await discovery.discover(_SUBSCRIPTION)
+        assert len(result.private_clusters) == expected
+        assert result.bindings == ()
+        if expected:
+            assert result.private_clusters[0].cluster_ref == _CLUSTER_ONE
+            assert result.private_clusters[0].observed_at.tzinfo is not None
+    finally:
+        await discovery._http.aclose()
+
+
+async def test_duplicate_private_cluster_rows_do_not_create_ambiguous_proposals() -> None:
+    discovery = _discovery(
+        lambda request: httpx.Response(
+            200, json={"value": [_cluster(_CLUSTER_ONE), _cluster(_CLUSTER_ONE)]}
+        )
+    )
+    try:
+        with pytest.raises(AksSubscriptionDiscoveryError, match="duplicate"):
+            await discovery.discover(_SUBSCRIPTION)
+    finally:
+        await discovery._http.aclose()
+
+
 @pytest.mark.asyncio
 async def test_discovery_rejects_incomplete_pagination() -> None:
     def handler(_request: httpx.Request) -> httpx.Response:

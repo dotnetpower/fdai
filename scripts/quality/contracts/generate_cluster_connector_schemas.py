@@ -12,6 +12,10 @@ from fdai_service_contracts.cluster_connector import (
     ConnectorRegistration,
     ConnectorWork,
 )
+from fdai_service_contracts.observer_deployment import (
+    ObserverDeploymentContext,
+    ObserverDeploymentProposal,
+)
 from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -20,6 +24,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "cluster-connector-evidence": ConnectorEvidence,
     "cluster-connector-registration": ConnectorRegistration,
     "cluster-connector-work": ConnectorWork,
+    "observer-deployment-context": ObserverDeploymentContext,
+    "observer-deployment-proposal": ObserverDeploymentProposal,
 }
 
 
