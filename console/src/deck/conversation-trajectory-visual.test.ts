@@ -47,6 +47,7 @@ describe("observed trajectory typography", () => {
     expect(source).toContain("deck-trajectory-phase-strip cs-run-phase-strip");
     expect(sharedStyles).toContain(".cs-run-record-summary");
     expect(sharedStyles).toContain("grid-template-columns: repeat(6, minmax(0, 1fr));");
+    expect(source).toContain('data-phase={phase} data-state={phaseStates[phase]}');
   });
 
   test("keeps read and evidence status in the run record, not the reply footer", () => {

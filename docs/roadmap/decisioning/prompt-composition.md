@@ -70,6 +70,10 @@ Content-free stage logs report elapsed time, remaining time, status, and reserve
 An attempted or reserved stage is not proof that a provider accepted a physical request.
 Prompt composition logs total, Operator Memory, and skill-disclosure duration with layer and token
 counts, without retaining system text, operator input, or memory bodies.
+When browser-local model tracing is explicitly enabled, each recorded provider call also carries a
+content-free replay manifest with the SYSTEM digest, selected profile, ordered layer references,
+and token budgets. The Run Record displays this evidence beside the redacted request messages; it
+does not add raw prompt text, hidden reasoning, authority, or retrospective capture.
 Schema text and prepared-validator caches are bounded and contain no user input; every response
 still runs through both its original and configured provider schema. Existing credential caching remains authoritative rather than
 adding another token cache. Offline request-count and clock tests prove mechanism changes, not

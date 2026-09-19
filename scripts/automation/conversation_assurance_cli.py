@@ -109,10 +109,13 @@ class OperatorHttpEvaluator:
             raise CampaignHoldError(f"assessment_{assessment_state}:{reason}")
         if terminal.get("status") == "held":
             receipt = terminal.get("semantic_receipt")
-            reason = receipt.get("reason_code") if isinstance(receipt, Mapping) else None
-            if not isinstance(reason, str) or _ASSESSMENT_REASON.fullmatch(reason) is None:
-                reason = "terminal_held"
-            raise CampaignHoldError(reason)
+            terminal_reason = receipt.get("reason_code") if isinstance(receipt, Mapping) else None
+            if (
+                not isinstance(terminal_reason, str)
+                or _ASSESSMENT_REASON.fullmatch(terminal_reason) is None
+            ):
+                terminal_reason = "terminal_held"
+            raise CampaignHoldError(terminal_reason)
         assessment_reasons = _assessment_reasons(terminal.get("assessment_reasons"))
         if assessment_state != "completed":
             raise CampaignHoldError("assessment_state_unavailable")
@@ -201,6 +204,7 @@ class OperatorHttpEvaluator:
                 ],
                 "answer_generation": terminal.get("answer_generation"),
                 "evaluator_models": terminal.get("pantheon_evaluator_models", []),
+                "terminal_state": terminal.get("status"),
                 "assessment_state": terminal.get("assessment_state", terminal.get("status")),
                 "assessment_reasons": terminal.get("assessment_reasons", []),
                 "score": diagnostic.get("score") if isinstance(diagnostic, Mapping) else None,

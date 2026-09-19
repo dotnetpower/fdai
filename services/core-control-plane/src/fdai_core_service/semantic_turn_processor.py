@@ -46,6 +46,7 @@ from fdai.core.ontology_platform.recent_resource_changes import (
     ACTIVITY_LOG_RESOURCE_CHANGE_SOURCE_IDENTITY,
     ARG_RESOURCE_CHANGE_SOURCE_IDENTITY,
 )
+from fdai.core.prompts.types import PromptReplayManifest
 from fdai.shared.contracts.models import OntologyDeclarationKind
 from fdai_service_contracts import (
     MAX_SEMANTIC_EVIDENCE_REFS,
@@ -172,6 +173,7 @@ class _ObservedModelCall(Protocol):
     model: str
     usage: Mapping[str, int] | None
     trace_call: Mapping[str, object]
+    prompt_replay_manifest: PromptReplayManifest | None
 
 
 class SemanticTurnRejectedError(ValueError):
@@ -1925,6 +1927,27 @@ def _semantic_model_extensions(
         call["call_id"] = (
             f"{kind}-{index}" if isinstance(kind, str) and kind else f"semantic-model-{index}"
         )
+        manifest = observation.prompt_replay_manifest
+        if manifest is not None:
+            call["prompt_manifest"] = {
+                "system_text_sha256": manifest.system_text_sha256,
+                "layers": [
+                    {
+                        "id": layer.id,
+                        "version": layer.version,
+                        "layer": layer.layer.value,
+                        "token_estimate": layer.token_estimate,
+                    }
+                    for layer in manifest.layer_manifest
+                ],
+                "token_estimate": manifest.token_estimate,
+                "profile_id": manifest.profile_id,
+                "profile_version": manifest.profile_version,
+                "profile_digest": manifest.profile_digest,
+                "system_token_budget": manifest.system_token_budget,
+                "request_token_budget": manifest.request_token_budget,
+                "reserved_output_tokens": manifest.reserved_output_tokens,
+            }
         duration = call.get("duration_ms")
         if isinstance(duration, int) and not isinstance(duration, bool) and duration >= 0:
             latency_ms += duration

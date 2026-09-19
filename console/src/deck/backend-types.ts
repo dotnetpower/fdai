@@ -348,6 +348,23 @@ export interface ModelTraceMessage {
   readonly content: string;
 }
 
+export interface ModelTracePromptManifest {
+  readonly system_text_sha256: string;
+  readonly layers: readonly {
+    readonly id: string;
+    readonly version: number;
+    readonly layer: string;
+    readonly token_estimate: number;
+  }[];
+  readonly token_estimate: number;
+  readonly profile_id: string | null;
+  readonly profile_version: number | null;
+  readonly profile_digest: string | null;
+  readonly system_token_budget: number | null;
+  readonly request_token_budget: number | null;
+  readonly reserved_output_tokens: number | null;
+}
+
 export interface ModelTraceCall {
   readonly call_id: string;
   readonly kind: string;
@@ -370,6 +387,7 @@ export interface ModelTraceCall {
     readonly rule: string;
     readonly replacements: number;
   }[];
+  readonly prompt_manifest?: ModelTracePromptManifest;
 }
 
 export interface ModelTrace {

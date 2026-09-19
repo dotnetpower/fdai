@@ -148,6 +148,40 @@ export function ModelTraceWaterfall({
               </summary>
               <div class="deck-model-trace-detail">
                 <TraceHash label={t("deck.modelTrace.requestHash")} value={call.request.sha256} />
+                {call.prompt_manifest ? (
+                  <section class="deck-model-trace-prompt-manifest">
+                    <h5>{t("deck.modelTrace.promptManifest")}</h5>
+                    <TraceHash
+                      label={t("deck.modelTrace.systemHash")}
+                      value={call.prompt_manifest.system_text_sha256}
+                    />
+                    <dl>
+                      <div>
+                        <dt>{t("deck.modelTrace.profile")}</dt>
+                        <dd>{call.prompt_manifest.profile_id ?? t("deck.modelTrace.noProfile")}</dd>
+                      </div>
+                      {call.prompt_manifest.profile_digest ? (
+                        <div>
+                          <dt>{t("deck.modelTrace.profileDigest")}</dt>
+                          <dd><code>{call.prompt_manifest.profile_digest}</code></dd>
+                        </div>
+                      ) : null}
+                      <div>
+                        <dt>{t("deck.modelTrace.tokenBudget")}</dt>
+                        <dd>{call.prompt_manifest.token_estimate} / {call.prompt_manifest.system_token_budget ?? "-"}</dd>
+                      </div>
+                    </dl>
+                    <ol aria-label={t("deck.modelTrace.promptLayers")}>
+                      {call.prompt_manifest.layers.map((layer) => (
+                        <li key={`${layer.id}-${layer.version}-${layer.layer}`}>
+                          <code>{layer.layer}</code>
+                          <span><span class="sr-only">{t("deck.modelTrace.layerIdentity")}: </span>{layer.id} v{layer.version}</span>
+                          <span><span class="sr-only">{t("deck.modelTrace.layerTokens")}: </span>{layer.token_estimate}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+                ) : null}
                 <ol class="deck-model-trace-messages">
                   {groupModelTraceMessages(call.request.messages).map((group, groupIndex) => (
                     <li key={`${call.call_id}-request-${groupIndex}`}>

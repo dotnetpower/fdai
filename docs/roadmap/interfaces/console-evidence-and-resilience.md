@@ -357,7 +357,7 @@ an enabled trace with zero calls remains visible and explains that the determini
 provider lane. When capture is off, the panel remains visible with a Settings opt-in notice while
 stored trace data stays hidden. A turn without captured trace uses the same explicit unavailable state.
 Each disclosure preserves the recorded message array and request SHA while grouping consecutive
-system layers under one `SYSTEM` heading. JSON bodies are pretty-printed. Object or array JSON
+system layers under one `SYSTEM` heading. A call with prompt evidence also shows the content-free SYSTEM digest, selected profile, ordered layer ids and versions, and token budget from the exact prompt replay manifest. JSON bodies are pretty-printed. Object or array JSON
 serialized inside a JSON string is expanded with bounded depth and node limits, while plain text
 and malformed nested values remain unchanged. Bounded request and response blocks use
 theme-matched scrollbars. The disclosure also shows assistant content, token usage, exact-content

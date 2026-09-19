@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 285506173bf6397566293703bf571f233379ec4d
+translation_source_sha: 1ac755a2e0c912b2c75dccd71157b9b3dc403c6d
 translation_revised: 2026-09-19
 ---
 # 콘솔 근거 및 복원력
@@ -364,7 +364,7 @@ Exact-answer 영속 재생에는 같은 범위가 제한된 브라우저 파서�
 않은 턴은 명시적인 사용 불가 상태를 표시합니다. 캡처 설정이 꺼져 있어도 패널은 Settings 명시적 선택
 안내와 함께 표시하지만 저장된 trace 데이터는 계속 숨깁니다. 각 공개는 역할 순서의
 기록된 메시지 array와 요청 SHA를 보존하면서 연속 system 계층을 하나의 `SYSTEM` heading으로 묶습니다.
-JSON 본문은 보기 좋게 정렬합니다. JSON 문자열 안에 다시 직렬화된 객체 또는 배열 JSON은 제한된 깊이와
+프롬프트 근거가 있는 호출은 exact prompt replay manifest의 content-free SYSTEM digest, 선택한 프로필, 순서가 지정된 레이어 id와 version 및 토큰 예산도 표시합니다. JSON 본문은 보기 좋게 정렬합니다. JSON 문자열 안에 다시 직렬화된 객체 또는 배열 JSON은 제한된 깊이와
 노드 수 안에서 펼치며, 일반 텍스트와 잘못된 중첩 값은 변경하지 않습니다. 범위가 제한된 요청 및 응답
 블록에는 테마에 맞는 scrollbar를 적용합니다. 공개는 assistant 내용, 토큰 사용량, exact-content SHA-256
 및 민감정보 제거 개수도 표시합니다. 자격 증명, 테넌트 또는 리소스 식별자, URL, 이메일, IP 주소, inline 이미지,

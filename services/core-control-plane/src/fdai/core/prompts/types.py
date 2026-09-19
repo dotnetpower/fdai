@@ -205,6 +205,18 @@ class LayerRef:
     layer: PromptLayer
     token_estimate: int
 
+    def __post_init__(self) -> None:
+        if _PROMPT_COMPONENT_ID.fullmatch(self.id) is None:
+            raise ValueError("prompt layer id MUST be a canonical component id")
+        if not isinstance(self.version, int) or isinstance(self.version, bool) or self.version < 1:
+            raise ValueError("prompt layer version MUST be a positive integer")
+        if (
+            not isinstance(self.token_estimate, int)
+            or isinstance(self.token_estimate, bool)
+            or self.token_estimate < 0
+        ):
+            raise ValueError("prompt layer token_estimate MUST be non-negative")
+
 
 @dataclass(frozen=True, slots=True)
 class AblatedLayerRef:
@@ -377,6 +389,8 @@ class PromptReplayManifest:
     def __post_init__(self) -> None:
         if re.fullmatch(r"[a-f0-9]{64}", self.system_text_sha256) is None:
             raise ValueError("prompt replay system_text_sha256 MUST be a SHA-256 hex digest")
+        if len(self.layer_manifest) > 32:
+            raise ValueError("prompt replay layer_manifest MUST NOT exceed 32 entries")
         if not isinstance(self.token_estimate, int) or self.token_estimate < 0:
             raise ValueError("prompt replay token_estimate MUST be a non-negative integer")
         _validate_profile_replay_fields(

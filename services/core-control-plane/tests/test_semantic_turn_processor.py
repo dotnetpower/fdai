@@ -4631,6 +4631,57 @@ async def test_direct_greeting_projects_measured_usage_and_opt_in_trace(
     assert semantic["checks_total"] == 0
 
 
+async def test_model_trace_projects_content_free_prompt_manifest() -> None:
+    from fdai.core.prompts.types import LayerRef, PromptLayer, PromptReplayManifest
+
+    trace_call: dict[str, object] = {
+        "call_id": "adapter-call",
+        "kind": "semantic-judgment",
+        "model": "semantic-test",
+        "status": "completed",
+        "started_at": "2026-08-11T12:00:00+00:00",
+        "completed_at": "2026-08-11T12:00:00.025000+00:00",
+        "duration_ms": 25,
+        "request": {"messages": [], "sha256": "a" * 64},
+        "response": {"role": "assistant", "content": "{}", "sha256": "b" * 64},
+        "usage": {"total_tokens": 15},
+        "redactions": [],
+    }
+    manifest = PromptReplayManifest(
+        system_text_sha256="c" * 64,
+        layer_manifest=(LayerRef("base", 1, PromptLayer.BASE, 12),),
+        token_estimate=12,
+        profile_id="semantic-active",
+        profile_version=2,
+        profile_digest="sha256:" + "d" * 64,
+        system_token_budget=100,
+        request_token_budget=200,
+        reserved_output_tokens=50,
+    )
+    runtime_result = _runtime_result(
+        "direct_response",
+        model_observations=(
+            SemanticJudgmentObservation(
+                model="semantic-test",
+                usage={"total_tokens": 15},
+                trace_call=trace_call,
+                prompt_replay_manifest=manifest,
+            ),
+        ),
+    )
+
+    projection = _projection(
+        await _processor(_Runtime(runtime_result)).process(_request(include_model_trace=True))
+    )
+
+    projected = projection["payload"]["model_trace"]["calls"][0]["prompt_manifest"]
+    assert projected["system_text_sha256"] == "c" * 64
+    assert projected["profile_id"] == "semantic-active"
+    assert projected["layers"] == [
+        {"id": "base", "version": 1, "layer": "base", "token_estimate": 12}
+    ]
+
+
 async def test_direct_response_without_model_authored_answer_fails_closed() -> None:
     runtime_result = _runtime_result("direct_response")
     runtime_result.planning.direct_response_answer = None

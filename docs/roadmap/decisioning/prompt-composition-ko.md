@@ -1,8 +1,8 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: a558196d6b188c67ee2d7191c6008efb2b3bb621
-translation_revised: 2026-09-09
+translation_source_sha: 560af88a4187dabf4ff1ee4ce42fdb171c7b0c9f
+translation_revised: 2026-09-19
 ---
 
 # 진화하는 시스템 프롬프트
@@ -68,6 +68,10 @@ T2 다중 공급자 품질 검사는 완화하지 않습니다.
 시도나 예약만으로 공급자가 실제 요청을 수락했다고 볼 수는 없습니다. 스키마 캐시는
 사용자 입력을 보관하지 않습니다. 프롬프트 조립 로그는 시스템 텍스트, 운영자 입력, memory
 본문을 보존하지 않고 전체, Operator Memory, 스킬 공개 시간과 레이어 및 토큰 수를 기록합니다.
+browser-local 모델 tracing을 명시적으로 활성화하면 기록된 각 프로바이더 호출에 SYSTEM digest,
+선택된 프로필, 순서가 지정된 레이어 참조 및 토큰 예산을 포함하는 content-free replay manifest도
+추가합니다. Run Record는 이 근거를 민감정보가 제거된 요청 메시지 옆에 표시하며 raw 프롬프트 텍스트,
+hidden reasoning, 권한 또는 소급 캡처를 추가하지 않습니다.
 준비된 검증기 캐시도 크기를 제한하고 모든 응답은 원본과 구성된
 공급자 스키마로 다시 검증합니다. 기존 자격 증명 캐시를 재사용합니다. 오프라인 호출 수와 시계
 테스트는 처리 방식의 변화를 입증할 뿐 실제 모델 품질이나 운영 속도 개선율을 입증하지 않습니다.

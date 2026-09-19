@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import type { RetrievalSourcePreview } from "./backend";
 import type { ViewSnapshot } from "./context";
@@ -17,6 +19,17 @@ const snapshot: ViewSnapshot = {
 };
 
 describe("sourceCards", () => {
+  test("exposes content-free phase attributes for browser assurance", () => {
+    const source = readFileSync(
+      fileURLToPath(new URL("./retrieval-trace.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(source).toContain('data-phase={stage.id}');
+    expect(source).toContain('data-done={stage.done ? "true" : "false"}');
+    expect(source).toContain('data-side={stage.side}');
+  });
+
   test("omits unavailable screen facts while preserving non-placeholder gaps", () => {
     expect(sourceCards(snapshot, [])).toEqual([
       { kind: "evidence", label: "source_gap", detail: "-" },

@@ -234,7 +234,11 @@ function parseModelTraceCall(raw: unknown): ModelTraceCall | undefined {
   const response = call.response === null ? null : parseModelTraceResponse(call.response);
   const usage = call.usage === null ? null : parseModelTraceUsage(call.usage);
   const redactions = parseModelTraceRedactions(call.redactions);
+  const promptManifest = call.prompt_manifest === undefined
+    ? undefined
+    : parseModelTracePromptManifest(call.prompt_manifest);
   if (!request || response === undefined || usage === undefined || !redactions) return undefined;
+  if (call.prompt_manifest !== undefined && promptManifest === undefined) return undefined;
   if (call.status === "completed" && (completedAt === null || durationMs === null || response === null)) {
     return undefined;
   }
@@ -253,6 +257,63 @@ function parseModelTraceCall(raw: unknown): ModelTraceCall | undefined {
     response,
     usage,
     redactions,
+    ...(promptManifest ? { prompt_manifest: promptManifest } : {}),
+  };
+}
+
+function parseModelTracePromptManifest(
+  raw: unknown,
+): ModelTraceCall["prompt_manifest"] | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const manifest = raw as Record<string, unknown>;
+  if (typeof manifest.system_text_sha256 !== "string" ||
+      !SHA256.test(manifest.system_text_sha256) ||
+      !Array.isArray(manifest.layers) || manifest.layers.length > 32 ||
+      !boundedInteger(manifest.token_estimate, 0, 1_000_000)) return undefined;
+  const layers: NonNullable<ModelTraceCall["prompt_manifest"]>["layers"][number][] = [];
+  for (const rawLayer of manifest.layers) {
+    if (typeof rawLayer !== "object" || rawLayer === null || Array.isArray(rawLayer)) {
+      return undefined;
+    }
+    const layer = rawLayer as Record<string, unknown>;
+    if (!boundedString(layer.id, 128) || !boundedInteger(layer.version, 1, 1_000_000) ||
+        !boundedString(layer.layer, 64) ||
+        !boundedInteger(layer.token_estimate, 0, 1_000_000)) return undefined;
+    layers.push({
+      id: layer.id,
+      version: layer.version,
+      layer: layer.layer,
+      token_estimate: layer.token_estimate,
+    });
+  }
+  const profileValues = [
+    manifest.profile_id,
+    manifest.profile_version,
+    manifest.profile_digest,
+    manifest.system_token_budget,
+    manifest.request_token_budget,
+    manifest.reserved_output_tokens,
+  ];
+  const profileAbsent = profileValues.every((value) => value === null);
+  const profileComplete = typeof manifest.profile_id === "string" &&
+    /^[a-z0-9][a-z0-9.\-:]{0,127}$/.test(manifest.profile_id) &&
+    boundedInteger(manifest.profile_version, 1, 1_000_000) &&
+    typeof manifest.profile_digest === "string" &&
+    /^sha256:[0-9a-f]{64}$/.test(manifest.profile_digest) &&
+    boundedInteger(manifest.system_token_budget, 0, 1_000_000) &&
+    boundedInteger(manifest.request_token_budget, 0, 2_000_000) &&
+    boundedInteger(manifest.reserved_output_tokens, 0, 1_000_000);
+  if (!profileAbsent && !profileComplete) return undefined;
+  return {
+    system_text_sha256: manifest.system_text_sha256,
+    layers,
+    token_estimate: manifest.token_estimate,
+    profile_id: profileAbsent ? null : manifest.profile_id as string,
+    profile_version: profileAbsent ? null : manifest.profile_version as number,
+    profile_digest: profileAbsent ? null : manifest.profile_digest as string,
+    system_token_budget: profileAbsent ? null : manifest.system_token_budget as number,
+    request_token_budget: profileAbsent ? null : manifest.request_token_budget as number,
+    reserved_output_tokens: profileAbsent ? null : manifest.reserved_output_tokens as number,
   };
 }
 

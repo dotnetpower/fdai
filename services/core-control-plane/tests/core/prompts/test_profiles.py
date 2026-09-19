@@ -9,6 +9,7 @@ import pytest
 from fdai.core.prompts import (
     ComposedPrompt,
     FileSystemPromptRegistry,
+    LayerRef,
     PromptArtifactRef,
     PromptBudgetExceededError,
     PromptLayer,
@@ -132,6 +133,21 @@ def test_replay_budget_fields_require_profile_identity() -> None:
             layer_manifest=(),
             token_estimate=1,
             request_token_budget=1024,
+        )
+
+
+def test_prompt_replay_rejects_invalid_or_oversized_layer_manifest() -> None:
+    with pytest.raises(ValueError, match="canonical component id"):
+        LayerRef("Invalid Layer", 1, PromptLayer.BASE, 1)
+    with pytest.raises(ValueError, match="positive integer"):
+        LayerRef("valid-layer", 0, PromptLayer.BASE, 1)
+    with pytest.raises(ValueError, match="32 entries"):
+        PromptReplayManifest(
+            system_text_sha256="a" * 64,
+            layer_manifest=tuple(
+                LayerRef(f"layer-{index}", 1, PromptLayer.PACK, 1) for index in range(33)
+            ),
+            token_estimate=33,
         )
 
 

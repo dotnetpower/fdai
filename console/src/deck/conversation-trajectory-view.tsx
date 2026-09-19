@@ -266,7 +266,7 @@ function PhaseStrip({
   return (
     <ol class="deck-trajectory-phase-strip cs-run-phase-strip" aria-label={t("deck.trajectory.phaseLabel")}>
       {TRAJECTORY_PHASES.map((phase, index) => (
-        <li class="cs-run-phase" key={phase} data-state={phaseStates[phase]}>
+        <li class="cs-run-phase" key={phase} data-phase={phase} data-state={phaseStates[phase]}>
           <span class="cs-run-phase-mark" aria-hidden="true">{phaseMark(phaseStates[phase], index)}</span>
           <strong>{t(`deck.trajectory.phase.${phase}`)}</strong>
           <small>{phaseStateLabel(phaseStates[phase])}</small>
@@ -292,7 +292,7 @@ function PhaseDetails({
   return (
     <ol class="deck-trajectory-phase-details" aria-label={t("deck.trajectory.phaseLabel")}>
       {TRAJECTORY_PHASES.map((phase, index) => (
-        <li key={phase} data-state={phaseStates[phase]}>
+        <li key={phase} data-phase={phase} data-state={phaseStates[phase]}>
           <span class="deck-trajectory-phase-detail-mark" aria-hidden="true">
             {phaseMark(phaseStates[phase], index)}
           </span>

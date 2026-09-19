@@ -330,6 +330,35 @@ def test_operator_request_timeout_is_bounded_to_semantic_deadline_margin(
     assert observed_timeout == [100]
 
 
+def test_private_transcript_preserves_terminal_and_assessment_states(tmp_path: Path) -> None:
+    module = _load_module()
+    transcript = module.PrivateJsonlLedger(tmp_path / "transcripts.jsonl")
+    evaluator = module.OperatorHttpEvaluator(
+        base_url="http://127.0.0.1:8010",
+        bearer_token="test-token",
+        turn_ledger=module.PrivateJsonlLedger(tmp_path / "turns.jsonl"),
+        transcript_ledger=transcript,
+    )
+    case = module.build_pantheon_census(module.PANTHEON_SPECS).cases[0]
+
+    evaluator._record_transcript(  # noqa: SLF001
+        case,
+        campaign_id="campaign-one",
+        terminal={
+            "status": "held",
+            "assessment_state": "deferred",
+            "assessment_reasons": ["provider_http_429"],
+            "answer_generation": {"state": "completed", "mode": "semantic"},
+        },
+    )
+
+    row = transcript.read(limit=1)[0]
+    assert row["terminal_state"] == "held"
+    assert row["assessment_state"] == "deferred"
+    assert row["assessment_reasons"] == ["provider_http_429"]
+    assert row["answer_generation"] == {"state": "completed", "mode": "semantic"}
+
+
 @pytest.mark.parametrize(
     ("failure", "reason"),
     (
@@ -476,6 +505,7 @@ def test_operator_evaluator_holds_deferred_assessment(tmp_path: Path) -> None:
             "score": None,
             "source_revision": "a" * 40,
             "suite": case.suite,
+            "terminal_state": "held",
             "verdict": None,
         },
     )
