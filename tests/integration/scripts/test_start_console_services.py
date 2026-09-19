@@ -941,6 +941,36 @@ def test_preparation_reuses_each_unchanged_stage_when_stack_is_stopped(
     assert "stage=entra-redirects event=completed" not in result.stdout
 
 
+def test_managed_preparation_defers_stale_inventory_to_reconciliation(
+    tmp_path: Path,
+) -> None:
+    repo, environment = _staged_preparation_repo(
+        tmp_path,
+        stale_stage="authoritative-inventory",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [
+            _BASH,
+            str(repo / "scripts/deployment/local/prepare-console-full-stack.sh"),
+            "--defer-authoritative-inventory",
+        ],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.count("event=reused") == 7
+    assert (
+        "stage=authoritative-inventory event=deferred owner=inventory-reconciliation"
+        in result.stdout
+    )
+
+
 @pytest.mark.parametrize(
     "stale_operator_environment",
     [

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 255ba79d1e818073fbc056af6e45ad429992c798
+translation_source_sha: db63b61301921087d2135168c6629bd0410d973b
 translation_revised: 2026-09-20
 ---
 # FDAI Console 대화
@@ -67,6 +67,7 @@ Process 저널은 적응형 조사 공간도 제공합니다. Operator는 Proces
 Operator 소유 Kafka 어댑터는 의미 제안을 게시하고 의미 변환 결과를 소비하며 검증된 Core 단계 및 Pantheon 런타임 상태 프레임을 별도의 범위 제한 `/live/stream`과 `/agents/stream` SSE 허브로 중계합니다. 실시간 화면은 제어 루프 결정에 `/live/stream`을 사용하고 현재 소스 읽기 활동에는 별도의 읽기 전용 `/agents/stream` 구독을 사용합니다. 따라서 인벤토리, 상태, 메트릭, 로그, 비용 및 복구 관찰을 결정이나 실행으로 표시하지 않으면서도 활동 상태를 계속 확인할 수 있습니다. 인증된 `GET /agents/activity`는 Console이 새 스트림 프레임을 적용하기 전에 영속 원본에서 범위가 제한된 인벤토리 검사, 온톨로지 변환 및 현재 상태 읽기 이력을 제공하며 현재 상태 재생과 실제 운영 프레임은 같은 해시 상관관계 활동 ID를 사용합니다. 이 관찰 경로는 스냅샷 읽기와 같은 bearer 게이트를 사용하고 Kafka가 없으면 연결 유지 신호를 보내며, 권한 있는 프레임이 도착할 때까지 `Awaiting source`를 표시합니다. `GET /chat/health`는 영속 대화 변환 결과 행을 요구하지 않고 의미 브리지의 프로세스 소유 워커 준비 상태를 직접 읽습니다. Console 게시는 선택한 프로필에 HTTPS 브라우저 gateway 기준 URL이 있으면 해당 URL을 사용하고, 없으면 Container Apps FQDN을 유지합니다. 두 경로 모두 브라우저 경로 재작성 없이 같은 루트 Operator API 경로를 노출합니다.
 Terraform은 request와 projection topic을 고정합니다. Core는 검증된 query table을 렌더링하고 Operator는 영속 result를 기존 `done` event로 변환합니다.
 주입된 공급자가 우선하며 로컬 서술기는 다른 공급자와 함께 사용하지 않습니다. 전체 스택 준비는 명시적 절대 경로 `FDAI_LOCAL_RESOLVED_MODELS_PATH`의 경로와 파일 바이트를 기존 캐시와 단계별 캐시 식별값에 포함합니다. 변경되면 모델 연결을 다시 생성합니다. 같은 계약은 서비스 경계를 변경하지 않고 명시적으로 활성화한 소유자 전용 Kubernetes fleet 파일도 포함합니다. 명시적 선택 없이 기본 모델 산출물이 누락되면 [런타임 동등성](../deployment/dev-and-deploy-parity-ko.md) 규칙에 따라 캐시 재사용 전에 선택 범위의 기존 배포에서 생성합니다. 조회가 실패하거나 대상이 모호하면 준비를 중단하며 리소스를 생성하거나 권한을 부여하지 않습니다.
+관리되는 전체 스택 작업은 권위 있는 인벤토리 새로 고침을 지속 조정 프로세스에 맡기므로 수집이 진행되는 동안 Console, Core 및 Operator 프로세스를 시작할 수 있습니다. 전체 준비 상태는 활성 범위 인벤토리 커버리지와 analyzer의 첫 번째 정상 tick을 계속 요구합니다. 독립 실행 준비는 동기 인벤토리 새로 고침을 유지합니다.
 Operator API는 검토를 준비된으로 표시하거나 카탈로그 제안을 만들거나 권한을 부여하지 않습니다. 잘못된 답변 보고는 자율 재평가 근거만 추가하며 통제된 transition에는 exact 재생 근거와 기존 카탈로그 수명 주기가 계속 필요합니다.
 ### 1.1 공유 glossary에 추가된 어휘
 

@@ -144,7 +144,7 @@
     {
       "label": "console: prepare full stack",
       "type": "shell",
-      "command": "bash scripts/deployment/local/prepare-console-full-stack.sh --auth-mode browser-entra",
+      "command": "bash scripts/deployment/local/prepare-console-full-stack.sh --defer-authoritative-inventory --auth-mode browser-entra",
       "options": {
         "env": {
           "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION": "1"
@@ -165,7 +165,7 @@
       "label": "console: prepare full stack (Azure CLI debug, Contributor)",
       "hide": true,
       "type": "shell",
-      "command": "bash scripts/deployment/local/prepare-console-full-stack.sh --auth-mode azure-cli",
+      "command": "bash scripts/deployment/local/prepare-console-full-stack.sh --defer-authoritative-inventory --auth-mode azure-cli",
       "options": {
         "env": {
           "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION": "1"

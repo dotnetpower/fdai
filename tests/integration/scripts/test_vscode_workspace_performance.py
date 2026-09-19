@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -90,7 +91,8 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
 
     prepare_stack = tasks_by_label["console: prepare full stack"]
     assert prepare_stack["command"] == (
-        "bash scripts/deployment/local/prepare-console-full-stack.sh --auth-mode browser-entra"
+        "bash scripts/deployment/local/prepare-console-full-stack.sh "
+        "--defer-authoritative-inventory --auth-mode browser-entra"
     )
     assert "dependsOn" not in prepare_stack
     assert prepare_stack["runOptions"] == {"instanceLimit": 1}
@@ -119,9 +121,14 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "service-environments",
         "entra-redirects",
     ]
-    preparation_positions = [
-        preparation_script.index(f"run_stage \\\n  {stage} \\\n") for stage in preparation_stages
-    ]
+    preparation_positions = []
+    for stage in preparation_stages:
+        match = re.search(
+            rf"(?m)^\s*run_stage \\\n\s+{re.escape(stage)} \\\n",
+            preparation_script,
+        )
+        assert match is not None
+        preparation_positions.append(match.start())
     assert preparation_positions == sorted(preparation_positions)
     assert (
         preparation_script.index('bash "$repo_root/scripts/deployment/local/dev-up.sh"')

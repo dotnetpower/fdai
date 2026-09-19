@@ -102,10 +102,14 @@ does not call Copilot, read repository files, edit code, open a pull request, or
 execution authority. System Knowledge can explain the release contract, while live measurements
 remain owned by this development workflow.
 
-Profiled full-stack startup completes the normal preparation stages before either diagnostic socket
-exists. Preparation therefore emits content-free stage durations for pre-process bottlenecks, while
-the sockets measure only the running Core and Operator processes. The local Core launcher uses its
-service-owned entry point. The Operator ASGI factory binds its runtime-scope receipt even when
+Profiled full-stack startup completes prerequisite preparation before either diagnostic socket
+exists. The managed full-stack task defers authoritative inventory refresh to its continuous
+inventory reconciliation process so the Console, Core, and Operator processes can start in
+parallel with that refresh. Complete readiness still waits for active-scope inventory coverage and
+the analyzer's clean first tick; standalone preparation retains the synchronous inventory stage.
+Preparation emits content-free stage durations for pre-process bottlenecks, while the sockets
+measure only the running Core and Operator processes. The local Core launcher uses its service-owned
+entry point. The Operator ASGI factory binds its runtime-scope receipt even when
 Uvicorn loads the factory directly, then appends launcher-enabled diagnostics to the composed
 application lifecycle without expanding the production composition root. Running `dev discuss: start or restart profiled services`
 replaces a stale instance of the same always-profiled local stack. It terminates only a verified
