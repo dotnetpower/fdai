@@ -138,6 +138,8 @@ class PantheonCampaignController:
             }
         )
         evaluated = 0
+        attempted_case_ids: list[str] = []
+        held_case_id: str | None = None
         state = CampaignState.COMPLETED
         reason = "question_budget_completed"
         for case in cases:
@@ -150,6 +152,7 @@ class PantheonCampaignController:
                 state = CampaignState.HELD
                 reason = "no_progress_deadline"
                 break
+            attempted_case_ids.append(case.case_id)
             try:
                 diagnostic = await asyncio.wait_for(
                     self._evaluator.evaluate(case, campaign_id=campaign_id),
@@ -158,14 +161,17 @@ class PantheonCampaignController:
             except TimeoutError:
                 state = CampaignState.HELD
                 reason = "measurement_timeout"
+                held_case_id = case.case_id
                 break
             except CampaignHoldError as error:
                 state = CampaignState.HELD
                 reason = str(error)[:128] or "measurement_held"
+                held_case_id = case.case_id
                 break
             except Exception as error:  # noqa: BLE001 - evaluator failures terminate fail-closed
                 state = CampaignState.HELD
                 reason = f"measurement_error:{type(error).__name__}"
+                held_case_id = case.case_id
                 break
             self._evaluations.append(
                 {
@@ -194,6 +200,8 @@ class PantheonCampaignController:
                 "state": state.value,
                 "evaluated": evaluated,
                 "requested": len(cases),
+                "attempted_case_ids": attempted_case_ids,
+                "held_case_id": held_case_id,
                 "reason": reason,
                 "recorded_at": self._now().isoformat(),
             }

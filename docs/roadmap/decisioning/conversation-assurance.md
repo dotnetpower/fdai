@@ -71,6 +71,9 @@ source-bound aggregate only after all 230 trace and diagnostic receipts join by 
 clean revision. Incomplete, duplicate, or mixed-revision evidence cannot produce qualification
 evidence. A lost T1 conclusion or any hard-zero safety escape stops automatic hardening and
 requires human review.
+Each completed child also records the ordered case ids whose measurements started and the exact
+case id that held, when present. These content-free identities let a later explicitly authorized
+campaign exclude attempted questions without retaining question text or retrying a live request.
 
 For larger diagnostic series, `start --corpus <path>` accepts an owner-only JSON corpus with
 explicit case ids, locales, expected agents, routing methods, handoff outcomes, and T2 outcomes.

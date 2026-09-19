@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 76f9585ae8234334616cb48c89994cc28633258f
-translation_revised: 2026-09-17
+translation_source_sha: 48f20f828098ce5eabca0b2427294fe7244f2e4e
+translation_revised: 2026-09-19
 ---
 # 대화 품질 보증
 
@@ -74,6 +74,9 @@ Supervisor와 직접 CLI는 하나의 소유자 전용 실행기 잠금을 공�
 보고합니다. 불완전하거나 중복되거나 서로 다른 리비전이 섞인 근거로는 qualification 근거를
 생성할 수 없습니다. T1 결론이 손실되거나 하드 제로 안전성 이탈이 발생하면 자동 하드닝을
 중지하고 사람 검토를 요구합니다.
+완료된 각 하위 캠페인은 측정을 시작한 사례 ID의 순서와, 판단 보류가 있으면 그 정확한 사례
+ID도 기록합니다. 이 내용 없는 식별 정보를 사용하면 이후 명시적으로 승인된 캠페인이 질문
+텍스트를 보존하거나 라이브 요청을 재시도하지 않고 이미 시도한 질문을 제외할 수 있습니다.
 
 더 큰 진단 series에는 `start --corpus <path>`로 소유자 전용 JSON 말뭉치를 사용할 수
 있습니다. 각 사례에는 사례 id, 로케일, 예상 에이전트, 라우팅 방법, 인계 결과 및 T2 결과를
