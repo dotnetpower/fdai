@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: db1ad476fa047e8e71e8f99819a9077af6942487
+translation_source_sha: 6dd548c42c95e20f1fd682f2457c3f3d547dd94e
 translation_revised: 2026-09-19
 ---
 # 런타임 배포 프로파일
@@ -295,6 +295,11 @@ NetworkPolicy의 안정적인 워크로드 label은 버전 변경으로 해당 �
 포함되는 것을 방지합니다. 상태 재조회는 선택한 세대, 복제본, digest 및 상태를 확인하고 다른
 서비스의 UID, 세대, 이미지 및 버전이 바뀌지 않았음을 입증한 뒤
 대상 범위의 변경 없음 계획을 요구합니다. 선택하지 않은 이미지는 다시 빌드하거나 배포하지 않습니다.
+보존된 워크로드 상태가 standalone 애플리케이션 증적보다 먼저 만들어졌다면 선택 서비스 업데이트는
+먼저 비공개 5개 항목 근거 집합에서 해당 상태를 채택할 수 있습니다. 채택 단계는 보존된 상태, 목표
+변수, 과거 실제 스냅샷, 과거 exact plan을 서로 대조합니다. 그런 다음 Managed Identity로 원격 상태와
+현재 Deployment를 읽고 새롭고 완전한 전체 범위 변경 없음 계획을 요구합니다. 생성된 채택 증적은
+적용 권한을 부여하지 않으며 선택 서비스의 현재 exact-plan 승인을 대신할 수 없습니다.
 이 워크로드 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는 전체 배포 준비가
 검증되지는 않습니다. 별도의 브라우저 게시 게이트가 워크로드 수렴 뒤 Console과 API 경계를
 검증합니다. 워크로드 생성기는 Operator, 격리된 Executor, 문서 API,

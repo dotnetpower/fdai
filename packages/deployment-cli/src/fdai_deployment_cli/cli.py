@@ -358,6 +358,11 @@ def _provision_source_service_update(args: argparse.Namespace) -> int:
         work_dir=selected,
         service=args.service,
         timeout_seconds=args.timeout_seconds,
+        adopt_historical_binding=args.adopt_historical_binding,
+        adopt_historical_state=args.adopt_historical_state,
+        adopt_historical_variables=args.adopt_historical_variables,
+        adopt_historical_live=args.adopt_historical_live,
+        adopt_historical_plan=args.adopt_historical_plan,
     )
     print(
         json.dumps(result, sort_keys=True, separators=(",", ":"))

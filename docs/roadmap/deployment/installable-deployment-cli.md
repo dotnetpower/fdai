@@ -286,6 +286,7 @@ push, direct `kubectl` mutation, staging or production target, new installation,
 database migration, or runtime-profile change. It creates operator-selected source evidence, not a
 release signature or deployment readiness for the whole installation.
 
+An installation whose workload state predates the standalone application receipt can use a bounded adoption step by supplying all five `--adopt-historical-*` inputs: a private binding, retained Terraform state, workload variables, live Deployment snapshot, and the historical exact plan. The binding can reference execution assets only below its evidence directory and pins the Terraform binary digest, source revision, Managed Identity, and runtime profile. The coordinator accepts the historical plan only when it contains one in-place Deployment update and no unrelated mutation, or when it is a complete zero-change plan. It then uses the Managed Identity to compare remote state and current Deployments, creates a fresh full Terraform plan, and writes a distinct adoption receipt only when that plan is complete and zero-change. Partial inputs, changed peers, state drift, a tampered receipt, or a plan with changes stop the update. Adoption writes local evidence only; it does not change Azure resources or grant apply authority.
 The development source path is selected explicitly with `fdaictl provision azure --source <path>`.
 It is mutually exclusive with `--online` and `--offline-kit`. Initial support targets a new
 `dev` installation using AKS and PostgreSQL Flexible Server. It does not migrate an existing

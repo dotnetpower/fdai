@@ -1729,6 +1729,321 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
     assert '-target=kubernetes_deployment_v1.workload["core-control-plane"]' in plan_commands[0]
 
 
+def test_historical_aks_baseline_requires_matching_state_live_and_bounded_plan() -> None:
+    services = sorted(
+        {
+            "core-control-plane",
+            "operator-service",
+            "document-ingestion-api",
+            "document-processing-worker",
+            "isolated-executor",
+        }
+    )
+    source_commit = "a" * 40
+    workloads = {
+        name: {
+            "image": f"example.azurecr.io/{name}@sha256:{index:064x}",
+            "replicas": 2,
+            "max_replicas": 3,
+            "source_commit": source_commit,
+        }
+        for index, name in enumerate(services, start=1)
+    }
+    state = {
+        "version": 4,
+        "serial": 7,
+        "lineage": "retained-lineage",
+        "resources": [
+            {
+                "mode": "managed",
+                "type": "kubernetes_deployment_v1",
+                "name": "workload",
+                "instances": [
+                    {
+                        "index_key": name,
+                        "attributes": {
+                            "metadata": [{"name": name}],
+                            "spec": [
+                                {
+                                    "template": [
+                                        {
+                                            "metadata": [
+                                                {"labels": {"fdai.io/source-commit": source_commit}}
+                                            ],
+                                            "spec": [
+                                                {
+                                                    "container": [
+                                                        {
+                                                            "name": name,
+                                                            "image": workload["image"],
+                                                        }
+                                                    ]
+                                                }
+                                            ],
+                                        }
+                                    ]
+                                }
+                            ],
+                        },
+                    }
+                    for name, workload in workloads.items()
+                ],
+            }
+        ],
+    }
+    live = {
+        "kind": "DeploymentList",
+        "items": [
+            {
+                "metadata": {"name": name, "uid": f"uid-{name}", "generation": 1},
+                "spec": {
+                    "template": {
+                        "metadata": {"labels": {"fdai.io/source-commit": source_commit}},
+                        "spec": {"containers": [{"name": name, "image": workload["image"]}]},
+                    }
+                },
+            }
+            for name, workload in workloads.items()
+        ],
+    }
+    historical_plan = {
+        "applyable": True,
+        "complete": False,
+        "errored": False,
+        "resource_changes": [
+            {
+                "address": f'kubernetes_deployment_v1.workload["{name}"]',
+                "change": {"actions": ["update"] if name == "core-control-plane" else ["no-op"]},
+            }
+            for name in services
+        ],
+    }
+
+    baseline = standalone_host._validate_historical_aks_baseline(
+        state=state,
+        variables={"namespace": "fdai-runtime", "workloads": workloads},
+        live=live,
+        plan=historical_plan,
+    )
+
+    assert baseline["expected_workloads"] == workloads
+    assert baseline["state_lineage"] == "retained-lineage"
+    assert baseline["historical_plan_service"] == "core-control-plane"
+    operator_change = next(
+        change
+        for change in historical_plan["resource_changes"]
+        if 'workload["operator-service"]' in change["address"]
+    )
+    operator_change["change"]["actions"] = ["update"]
+    with pytest.raises(ValueError, match="mutation is invalid"):
+        standalone_host._validate_historical_aks_baseline(
+            state=state,
+            variables={"namespace": "fdai-runtime", "workloads": workloads},
+            live=live,
+            plan=historical_plan,
+        )
+    operator_change["change"]["actions"] = ["no-op"]
+    live["items"][0]["spec"]["template"]["spec"]["containers"][0]["image"] = (
+        "example.azurecr.io/changed@sha256:" + "f" * 64
+    )
+    with pytest.raises(ValueError, match="live baseline differs"):
+        standalone_host._validate_historical_aks_baseline(
+            state=state,
+            variables={"namespace": "fdai-runtime", "workloads": workloads},
+            live=live,
+            plan=historical_plan,
+        )
+
+
+def _historical_adoption_inputs(tmp_path: Path) -> tuple[Path, SimpleNamespace, dict[str, object]]:
+    work_dir = tmp_path / "application"
+    work_dir.mkdir(mode=0o700)
+    evidence = tmp_path / "evidence"
+    evidence.mkdir(mode=0o700)
+    for directory in (
+        "repository",
+        "azure-terraform",
+        "terraform-data",
+        "tools",
+        "workloads",
+    ):
+        (evidence / directory).mkdir(mode=0o700)
+    terraform = evidence / "tools/terraform"
+    terraform.write_bytes(b"verified terraform")
+    terraform.chmod(0o700)
+    (evidence / "kubeconfig").write_text("verified kubeconfig", encoding="utf-8")
+    (evidence / "kubeconfig").chmod(0o600)
+    source_commit = "a" * 40
+    binding = {
+        "schema_version": "fdai.historical-aks-application-binding.v1",
+        "source_commit": source_commit,
+        "subscription_id": "00000000-0000-0000-0000-000000000001",
+        "tenant_id": "00000000-0000-0000-0000-000000000002",
+        "client_id": "00000000-0000-0000-0000-000000000003",
+        "principal_id": "00000000-0000-0000-0000-000000000004",
+        "runtime_profile": {
+            "schema_version": "fdai.runtime-deployment-profile.v1",
+            "runtime_platform": "aks",
+            "database_placement": "postgres-flex",
+            "system_node_count": 3,
+            "system_node_sku": "Standard_D4as_v5",
+            "user_node_min_count": 3,
+            "user_node_max_count": 5,
+            "user_node_sku": "Standard_D4as_v5",
+        },
+        "source_root": "repository",
+        "terraform": "tools/terraform",
+        "terraform_sha256": hashlib.sha256(terraform.read_bytes()).hexdigest(),
+        "provider_mirror": "azure-terraform",
+        "workloads_infra": "workloads",
+        "terraform_data": "terraform-data",
+        "kubeconfig": "kubeconfig",
+        "kit_bin": "tools",
+    }
+    documents: dict[str, object] = {
+        "binding": binding,
+        "state": {"version": 4, "serial": 7, "lineage": "lineage", "resources": []},
+        "variables": {"namespace": "fdai-runtime", "workloads": {}},
+        "live": {"kind": "DeploymentList", "items": []},
+        "plan": {"errored": False, "resource_changes": []},
+    }
+    paths: dict[str, Path] = {}
+    for name, value in documents.items():
+        path = evidence / f"{name}.json"
+        path.write_text(json.dumps(value), encoding="utf-8")
+        path.chmod(0o600)
+        paths[name] = path
+    args = SimpleNamespace(
+        binding=paths["binding"],
+        state=paths["state"],
+        variables=paths["variables"],
+        live=paths["live"],
+        plan=paths["plan"],
+    )
+    baseline = {
+        "expected_workloads": {
+            "operator-service": {
+                "image": "example.azurecr.io/operator-service@sha256:" + "b" * 64,
+                "replicas": 2,
+                "max_replicas": 3,
+                "source_commit": source_commit,
+            }
+        },
+        "state_lineage": "lineage",
+        "state_serial": 7,
+        "historical_plan_service": "core-control-plane",
+    }
+    return work_dir, args, baseline
+
+
+def _current_aks_zero_change_plan() -> dict[str, object]:
+    return {
+        "complete": True,
+        "errored": False,
+        "resource_changes": [
+            {
+                "type": "kubernetes_deployment_v1",
+                "address": f'kubernetes_deployment_v1.workload["{service}"]',
+                "change": {"actions": ["no-op"]},
+            }
+            for service in sorted(standalone_host.AKS_SERVICES)
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    ("failure", "message"),
+    [
+        ("remote", "remote state differs"),
+        ("live", "live readback differs"),
+        ("plan", "current plan is not zero-change"),
+    ],
+)
+def test_historical_aks_adoption_fails_closed_on_current_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+    message: str,
+) -> None:
+    work_dir, args, baseline = _historical_adoption_inputs(tmp_path)
+    validation_calls = 0
+
+    def validate(**_kwargs: object) -> dict[str, object]:
+        nonlocal validation_calls
+        validation_calls += 1
+        if failure == "live" and validation_calls == 2:
+            raise ValueError("historical AKS live readback differs")
+        return baseline
+
+    retained_state = json.loads(Path(args.state).read_text(encoding="utf-8"))
+    remote_state = dict(retained_state)
+    if failure == "remote":
+        remote_state["resources"] = [{"type": "unexpected"}]
+
+    def capture(command: tuple[str, ...], **_kwargs: object) -> str:
+        if command[0] == "git":
+            return "a" * 40 + "\n"
+        if command[1:3] == ("state", "pull"):
+            return json.dumps(remote_state)
+        return json.dumps(_current_aks_zero_change_plan())
+
+    monkeypatch.setattr(standalone_host, "_validate_historical_aks_baseline", validate)
+    monkeypatch.setattr(standalone_host, "_capture", capture)
+    monkeypatch.setattr(standalone_host, "_capture_aks_deployments", lambda *_: "{}")
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
+    monkeypatch.setattr(
+        standalone_host.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=2 if failure == "plan" else 0),
+    )
+
+    with pytest.raises(ValueError, match=message):
+        standalone_host._adopt_historical_aks_application(args, work_dir)
+    assert not (work_dir / "historical-aks-application-adoption-receipt.json").exists()
+
+
+def test_historical_aks_adoption_is_idempotent_and_rejects_tampered_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    work_dir, args, baseline = _historical_adoption_inputs(tmp_path)
+    retained_state = Path(args.state).read_text(encoding="utf-8")
+
+    def capture(command: tuple[str, ...], **_kwargs: object) -> str:
+        if command[0] == "git":
+            return "a" * 40 + "\n"
+        if command[1:3] == ("state", "pull"):
+            return retained_state
+        return json.dumps(_current_aks_zero_change_plan())
+
+    monkeypatch.setattr(standalone_host, "_validate_historical_aks_baseline", lambda **_: baseline)
+    monkeypatch.setattr(standalone_host, "_capture", capture)
+    monkeypatch.setattr(standalone_host, "_capture_aks_deployments", lambda *_: "{}")
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
+    monkeypatch.setattr(
+        standalone_host.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=0),
+    )
+
+    first = standalone_host._adopt_historical_aks_application(args, work_dir)
+    second = standalone_host._adopt_historical_aks_application(args, work_dir)
+    assert second == first
+    context = json.loads((work_dir / "context.json").read_text(encoding="utf-8"))
+    standalone_host._require_aks_application_baseline(work_dir, context)
+
+    receipt_path = work_dir / "historical-aks-application-adoption-receipt.json"
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt["remote_state_verified"] = False
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+    receipt_path.chmod(0o600)
+    with pytest.raises(ValueError, match="historical AKS adoption receipt is invalid"):
+        standalone_host._require_aks_application_baseline(work_dir, context)
+    with pytest.raises(ValueError, match="retained historical AKS adoption receipt differs"):
+        standalone_host._adopt_historical_aks_application(args, work_dir)
+
+
 def test_source_service_image_import_uses_managed_identity_and_registry_readback(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
