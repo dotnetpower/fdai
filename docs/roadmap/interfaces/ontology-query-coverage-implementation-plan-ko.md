@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 65ab03916d1c4c0fd66905b14cbfc94c8d5df33c
+translation_source_sha: 5b9dbdef40dd0b6f436debee97164d143fc9d5eb
 translation_revised: 2026-09-20
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -215,6 +215,7 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 격리된 불변 온톨로지 준비 저장 | implemented | `ontology_snapshot_store.py`, 세대 테스트 38개와 로컬 PostgreSQL 재연결·변조 테스트 1개 통과, Ruff 및 strict mypy | 서비스 소유 StateStore의 별도 내용 기반 네임스페이스에 청크당 128행/512 KiB, 스냅샷당 64 MiB로 제한해 저장합니다. 마지막에 쓰는 완료 헤더는 principal, 매니페스트, 원본 세대, release 및 임베딩 메타데이터를 결속합니다. 읽을 때 내용을 재검증하며 중단된 쓰기는 노출하지 않습니다. 이는 준비 저장이며 전체 자료 검색 인덱스가 아닙니다. 인가된 원본 생성, 보존 관리, 담당 에이전트의 이벤트 활성화 및 런타임 검색은 남아 있습니다. |
 | Azure 및 인시던트 의미 판단 | validated | `semantic_judgment.py`, `semantic_judgment_grounding.py`, shadow 프롬프트 v9-v14, v41, exact-source 집단 `a5d3627b3` | 16-case v14 shadow 집단은 주 의도, 대상 추출, 범위 유효성, 명확화 정밀도 및 보조 의도 재현율에서 100%를 달성했고 모든 안전 계수는 0이었습니다. 엄격한 프로바이더 스키마는 지원되지 않는 길이 키워드를 제거할 때도 대안 및 미해결 용어 각각 최대 8개라는 모호성 한도와 필수 단일 명확화 질문에 대한 설명을 유지하며 서버 검증이 계속 최종 권위를 가집니다. 이는 범위가 제한된 판단 집단의 검증이며 enforce 승격 또는 frame-plan 운영 준비 상태를 뜻하지 않습니다. |
 | 출처가 결속된 운영 preflight | implemented | `conversation-preflight.v9.yaml`, `conversation_preflight.py`, `conversation_preflight_validation.py`, `semantic_planning.py`, 집중 테스트, Ruff 및 strict mypy | 검토된 운영 형식은 직렬 전체 의미 판단 호출 하나를 제거할 수 있습니다. 낮은 확신도, 맥락 의존, 오래됨, 잘못된 형식, 지원되지 않음, 신원 불일치 또는 일반 범주 제안은 전체 의미 판단을 유지하거나 frame/provider I/O 전에 Resource 신원 명확화를 반환합니다. |
 | 서비스 간 의미 계약 및 Core 처리 | 구현됨 | `semantic_turn.py`, `semantic_turn_consumer.py`, `semantic_turn_processor.py`, 통과한 의미 경로 테스트 88개 | 버전 1.2 요청은 90초로 제한되고 결과는 멱등성을 보장하며 점유를 복구할 수 있습니다. Rule 결과는 실행 권한이 없는 후보 전용으로 유지됩니다. |
@@ -244,6 +245,8 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 | 증적에 결속된 의미 답변 권한 | 구현됨 | `functions.py`, `query_execution.py`, `intent_graph.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, 집중 Core, Operator 및 서비스 간 테스트 통과 | 서버 함수 레지스트리가 최초 권한 생산자입니다. 쿼리 노드와 목표 증적은 권한을 근거 참조와 함께 보관합니다. 구독 상태, 인벤토리 그래프, 사용량 측정 및 온톨로지 매니페스트 권한을 서로 구분합니다. 권한이 없거나 충돌하면 턴을 보류하며 모델 또는 클라이언트 권한 텍스트로 증적을 재정의할 수 없습니다. |
 
 ### 구현 이력
+
+2026-09-20 추가 근거: 격리된 불변 온톨로지 준비 저장의 마지막 완료 기록, 멱등 재시도, 청크 크기 제한, principal·원본 결속 및 재시작 읽기를 구현했습니다. `ontology_snapshot_store.py`와 `test_ontology_generation.py`의 로컬 테스트 38개 및 PostgreSQL 재연결·변조 테스트 1개가 통과했습니다. DB 검사는 자체 생성한 고유 합성 키만 기록하고 삭제합니다. 인가된 원본 생성, 감사 기록을 포함한 이벤트 활성화·무효화, 보존 관리 및 그래프 재인가 검색 연결은 남아 있으며 Rule 포인터나 운영 준비 상태는 바뀌지 않습니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
