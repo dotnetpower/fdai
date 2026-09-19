@@ -115,15 +115,28 @@ variable "workloads" {
     external           = optional(bool, false)
     readiness_path     = string
     liveness_path      = string
+    fs_group           = optional(number)
     environment        = map(string)
     secret_environment = optional(map(string), {})
     sidecars = optional(map(object({
-      image   = string
-      command = optional(list(string), [])
-      args    = optional(list(string), [])
-      cpu     = string
-      memory  = string
-      port    = number
+      image        = string
+      command      = optional(list(string), [])
+      args         = optional(list(string), [])
+      cpu          = string
+      memory       = string
+      port         = number
+      run_as_user  = optional(number)
+      run_as_group = optional(number)
+      init = optional(object({
+        name              = string
+        command           = list(string)
+        args              = optional(list(string), [])
+        image_pull_policy = optional(string, "Always")
+        run_as_user       = number
+        run_as_group      = number
+        writable_path     = string
+        mount_path        = string
+      }))
       writable_paths = optional(map(object({
         mount_path = string
         size_limit = string
@@ -143,7 +156,9 @@ variable "workloads" {
         for sidecar_name, sidecar in workload.sidecars :
         can(regex("^[a-z][a-z0-9-]{0,62}$", sidecar_name)) &&
         can(regex("^[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$", sidecar.image)) &&
-        sidecar.port >= 1 && sidecar.port <= 65535
+        sidecar.port >= 1 && sidecar.port <= 65535 &&
+        (sidecar.init == null ? true : contains(["Always", "IfNotPresent"], sidecar.init.image_pull_policy)) &&
+        (sidecar.init == null ? true : contains(keys(sidecar.writable_paths), sidecar.init.writable_path))
       ])
     ])
     error_message = "Every workload requires an exact source commit, digest-pinned images, valid scaling bounds, and a valid port."

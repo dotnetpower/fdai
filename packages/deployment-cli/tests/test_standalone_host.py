@@ -1497,7 +1497,20 @@ def test_aks_document_workloads_bind_complete_service_contracts() -> None:
     assert api["service_port"] == 80
     assert worker["environment"]["FDAI_DATABASE_ROLE"] == "fdai_ingestion_worker"
     assert worker["environment"]["FDAI_CLAMAV_HOST"] == "127.0.0.1"
+    assert worker["fs_group"] == 101
     assert worker["sidecars"]["clamav"]["image"] == refs["clamav"]
+    assert worker["sidecars"]["clamav"]["run_as_user"] == 100
+    assert worker["sidecars"]["clamav"]["run_as_group"] == 101
+    assert worker["sidecars"]["clamav"]["init"] == {
+        "name": "clamav-database",
+        "command": ["/bin/sh", "-c"],
+        "args": ["cp -a /var/lib/clamav/. /target/"],
+        "image_pull_policy": "IfNotPresent",
+        "run_as_user": 100,
+        "run_as_group": 101,
+        "writable_path": "database",
+        "mount_path": "/target",
+    }
     assert worker["sidecars"]["clamav"]["writable_paths"]["database"] == {
         "mount_path": "/var/lib/clamav",
         "size_limit": "1Gi",
