@@ -353,7 +353,7 @@ travels only through SSH standard input, and state handoff uses the same pinned 
 `access_method=run_command` is explicit and never an automatic Bastion fallback. It can stage a
 digest-bound execution bundle only from an eligible Linux deployment host over an already connected
 peered private route to the selected WSL host. An exact profile and current human approval bind the
-complete target descriptor. The active human account must match the derived tenant/subscription
+complete target descriptor, operation id, bundle receipt digest, and receiver digest. The active human account must match the derived tenant/subscription
 binding, and live Azure readback must match the VM resource id, private address, and deployment UAMI.
 Only then does the coordinator record an immutable claim before a
 one-shot TLS relay listens or Action Run Command starts. The relay accepts only the selected host's

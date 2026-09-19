@@ -247,13 +247,6 @@ def _transfer_execution_bundle_locked(
 ) -> dict[str, object]:
     deadline = DeploymentDeadline(timeout_seconds)
     validate_target(target)
-    approval_digest = validate_transport_authority(
-        target=target,
-        profile_value=profile,
-        approval=approval,
-        capture=capture,
-        deadline=deadline,
-    )
     _validate_bundle_receipt(bundle_receipt)
     file_count = _required_int(bundle_receipt, "file_count")
     bundle_digest = _private_digest(bundle, maximum=MAX_BUNDLE_BYTES)
@@ -265,6 +258,16 @@ def _transfer_execution_bundle_locked(
     if _private_digest(receiver, maximum=4 * 1024 * 1024) != receiver_digest:
         raise ValueError("run command receiver digest differs")
     operation_id = str(bundle_receipt["operation_id"])
+    approval_digest = validate_transport_authority(
+        target=target,
+        profile_value=profile,
+        approval=approval,
+        operation_id=operation_id,
+        bundle_receipt_digest=str(bundle_receipt["receipt_digest"]),
+        receiver_digest=receiver_digest,
+        capture=capture,
+        deadline=deadline,
+    )
     parameters = transfer_parameters(
         operation_id=operation_id,
         bundle_digest=bundle_digest,

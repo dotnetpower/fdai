@@ -109,6 +109,9 @@ def _authority_inputs() -> tuple[dict[str, object], dict[str, object], dict[str,
         "target_binding": target["target_binding"],
         "target_digest": canonical_digest(target),
         "profile_digest": canonical_digest(profile),
+        "operation_id": "historical-aks-recovery",
+        "bundle_receipt_digest": "e" * 64,
+        "receiver_digest": "b" * 64,
         "actor_digest": hashlib.sha256(
             f"{target['target_binding']}:operator@example.com".encode()
         ).hexdigest(),
@@ -290,6 +293,9 @@ def test_transport_authority_binds_profile_actor_and_live_vm() -> None:
         target=target,
         profile_value=profile,
         approval=approval,
+        operation_id="historical-aks-recovery",
+        bundle_receipt_digest="e" * 64,
+        receiver_digest="b" * 64,
         capture=_authority_capture,
         deadline=authority.DeploymentDeadline(600),
         now=now,
@@ -307,8 +313,30 @@ def test_transport_authority_rejects_target_drift_before_readback() -> None:
             target=target,
             profile_value=profile,
             approval=approval,
+            operation_id="historical-aks-recovery",
+            bundle_receipt_digest="e" * 64,
+            receiver_digest="b" * 64,
             capture=lambda *_args, **_kwargs: (_ for _ in ()).throw(
                 AssertionError("drift must fail before Azure readback")
+            ),
+            deadline=authority.DeploymentDeadline(600),
+            now=now,
+        )
+
+
+def test_transport_authority_rejects_bundle_receipt_drift_before_readback() -> None:
+    target, profile, approval, now = _authority_inputs()
+
+    with pytest.raises(ValueError, match="approval"):
+        authority.validate_transport_authority(
+            target=target,
+            profile_value=profile,
+            approval=approval,
+            operation_id="historical-aks-recovery",
+            bundle_receipt_digest="9" * 64,
+            receiver_digest="b" * 64,
+            capture=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                AssertionError("payload drift must fail before Azure readback")
             ),
             deadline=authority.DeploymentDeadline(600),
             now=now,
@@ -325,6 +353,9 @@ def test_transport_authority_rejects_non_dev_quorum_profile() -> None:
             target=target,
             profile_value=profile,
             approval=approval,
+            operation_id="historical-aks-recovery",
+            bundle_receipt_digest="e" * 64,
+            receiver_digest="b" * 64,
             capture=lambda *_args, **_kwargs: (_ for _ in ()).throw(
                 AssertionError("non-dev profile must fail before Azure readback")
             ),
@@ -345,6 +376,9 @@ def test_transport_authority_uses_shared_deadline() -> None:
         target=target,
         profile_value=profile,
         approval=approval,
+        operation_id="historical-aks-recovery",
+        bundle_receipt_digest="e" * 64,
+        receiver_digest="b" * 64,
         capture=capture,
         deadline=authority.DeploymentDeadline(5),
         now=now,

@@ -23,6 +23,9 @@ def validate_transport_authority(
     target: dict[str, object],
     profile_value: dict[str, object],
     approval: dict[str, object],
+    operation_id: str,
+    bundle_receipt_digest: str,
+    receiver_digest: str,
     capture: Callable[..., str],
     deadline: DeploymentDeadline,
     now: datetime | None = None,
@@ -55,6 +58,9 @@ def validate_transport_authority(
         target_binding=target_binding,
         target_digest=target_digest,
         profile_digest=profile_digest,
+        operation_id=operation_id,
+        bundle_receipt_digest=bundle_receipt_digest,
+        receiver_digest=receiver_digest,
         now=now or datetime.now(UTC),
     )
     account = _capture_json(
@@ -144,6 +150,9 @@ def _validate_approval(
     target_binding: str,
     target_digest: str,
     profile_digest: str,
+    operation_id: str,
+    bundle_receipt_digest: str,
+    receiver_digest: str,
     now: datetime,
 ) -> None:
     expected = {
@@ -152,6 +161,9 @@ def _validate_approval(
         "target_binding",
         "target_digest",
         "profile_digest",
+        "operation_id",
+        "bundle_receipt_digest",
+        "receiver_digest",
         "actor_digest",
         "approved_at",
         "expires_at",
@@ -168,6 +180,11 @@ def _validate_approval(
         or approval.get("target_binding") != target_binding
         or approval.get("target_digest") != target_digest
         or approval.get("profile_digest") != profile_digest
+        or approval.get("operation_id") != operation_id
+        or approval.get("bundle_receipt_digest") != bundle_receipt_digest
+        or approval.get("receiver_digest") != receiver_digest
+        or _DIGEST.fullmatch(bundle_receipt_digest) is None
+        or _DIGEST.fullmatch(receiver_digest) is None
         or not isinstance(approval.get("actor_digest"), str)
         or _DIGEST.fullmatch(str(approval["actor_digest"])) is None
         or approved_at > now
