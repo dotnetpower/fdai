@@ -167,6 +167,67 @@ async def test_consumer_lifecycle_stores_before_advancing_and_quarantines_malfor
     assert not bridge.workers_ready()
 
 
+async def test_retry_log_excludes_provider_message_and_payload(monkeypatch, caplog) -> None:
+    import asyncio
+
+    import psycopg
+    from fdai_operator_service import observer_deployment_projection as module
+
+    suspended = asyncio.Event()
+    never = asyncio.Event()
+
+    async def suspend_retry(delay):
+        suspended.set()
+        await never.wait()
+
+    class Source:
+        async def probe_readiness(self):
+            raise psycopg.errors.InsufficientPrivilege("sensitive provider payload")
+
+    monkeypatch.setattr(module.asyncio, "sleep", suspend_retry)
+    source = Source()
+    bridge = module.ObserverProposalBridge(store=object(), source=source, publisher=object())
+    try:
+        await bridge.start()
+        await asyncio.wait_for(suspended.wait(), timeout=2)
+        assert not bridge.workers_ready()
+        record = next(
+            record
+            for record in caplog.records
+            if record.message == "observer_proposal_projection_retrying"
+        )
+        assert record.failure_type == "InsufficientPrivilege"
+        assert record.sqlstate == "42501"
+        assert "sensitive provider payload" not in caplog.text
+        assert record.exc_info is None
+    finally:
+        await bridge.aclose()
+
+
+@pytest.mark.parametrize("driver", ("postgresql", "postgresql+psycopg"))
+@pytest.mark.parametrize("operation", ("read", "retain"))
+async def test_store_normalizes_dsn_before_driver_connection(
+    monkeypatch, driver, operation
+) -> None:
+    from unittest.mock import AsyncMock
+
+    import psycopg
+    from fdai_operator_service.observer_deployment_projection import PostgresObserverProjectionStore
+
+    connect = AsyncMock(side_effect=RuntimeError("connection boundary reached"))
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", connect)
+    store = PostgresObserverProjectionStore(f"{driver}://user@example.com/database")
+
+    with pytest.raises(RuntimeError, match="connection boundary reached"):
+        if operation == "read":
+            await store.read(None)
+        else:
+            await store.retain(projection())
+
+    connect.assert_awaited_once()
+    assert connect.call_args.args == ("postgresql://user@example.com/database",)
+
+
 @pytest.mark.integration
 async def test_postgres_observer_projection_atomic_ordering() -> None:
     import asyncio

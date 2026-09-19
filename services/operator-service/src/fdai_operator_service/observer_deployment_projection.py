@@ -23,6 +23,7 @@ from fdai_operator_service.families.operations.contracts import (
     ProjectionReader,
     ProjectionUnavailableError,
 )
+from fdai_operator_service.postgres_dsn import normalize_psycopg_dsn
 from fdai_operator_service.wara_projection import WaraProjectionPublisher, WaraProjectionSource
 
 PREFIX = "operator-observer-proposal:v1:"
@@ -59,7 +60,7 @@ class PostgresObserverProjectionStore:
     """Use only the Operator-owned state table and serialize one target's projection writes."""
 
     def __init__(self, dsn: str) -> None:
-        self._dsn = dsn
+        self._dsn = normalize_psycopg_dsn(dsn)
 
     async def retain(self, projection: ObserverProposalProjection) -> None:
         projection = ObserverProposalProjection.model_validate_json(projection.model_dump_json())
@@ -216,7 +217,13 @@ class ObserverProposalBridge:
                     async with asyncio.timeout(8):
                         await self._store.retain(projection)
                 self._healthy = False
-            except Exception:
+            except Exception as error:
                 self._healthy = False
-                _LOGGER.warning("observer_proposal_projection_retrying")
+                _LOGGER.warning(
+                    "observer_proposal_projection_retrying",
+                    extra={
+                        "failure_type": type(error).__name__,
+                        "sqlstate": error.sqlstate if isinstance(error, psycopg.Error) else None,
+                    },
+                )
             await asyncio.sleep(1)
