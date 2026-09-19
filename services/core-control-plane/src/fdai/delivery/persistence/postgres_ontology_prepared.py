@@ -7,7 +7,7 @@ import hashlib
 import json
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 import psycopg
@@ -150,6 +150,7 @@ def prepare_replacement(
             "link_count": len(links),
             "chunks": [_digest(chunk) for chunk in chunks],
             "state_updates": state_updates,
+            "dependency_revisions": {},
             "observation_projection_watermark": observation_projection_watermark,
         },
         limit=_MAX_MANIFEST_BYTES,
@@ -185,6 +186,67 @@ def restore_replacement(
     if len(objects) != manifest["object_count"] or len(links) != manifest["link_count"]:
         raise OntologyInstanceValidationError("prepared ontology record count changed")
     return manifest, tuple(objects), tuple(links)
+
+
+async def _dependency_revisions(
+    connection: psycopg.AsyncConnection[Any], identifiers: Sequence[str], *, lock: bool
+) -> dict[str, Any]:
+    retained: dict[str, Any] = dict.fromkeys(identifiers)
+    for offset in range(0, len(identifiers), 1000):
+        query = (
+            "SELECT id, revision, object_type, type_version, catalog_digest FROM ontology_resource "
+            "WHERE id=ANY(%s::text[]) ORDER BY id"
+        )
+        cursor = await connection.execute(
+            query + (" FOR SHARE" if lock else ""), (list(identifiers[offset : offset + 1000]),)
+        )
+        for row in await cursor.fetchall():
+            retained[row["id"]] = {key: value for key, value in row.items() if key != "id"}
+    return retained
+
+
+async def pin_replacement_dependencies(
+    config: PostgresOntologyInstanceStoreConfig, prepared: PreparedOntologyReplacement
+) -> PreparedOntologyReplacement:
+    """Bind removed and external endpoint revisions from one read-only database snapshot."""
+    manifest, objects, links = restore_replacement(prepared, expected_digest=prepared.digest)
+    desired = {record.id for record in objects}
+    foreign = {identifier for link in links for identifier in (link.from_id, link.to_id)} - desired
+    identifiers = sorted(foreign | (set(manifest["previous_object_ids"]) - desired))
+    if len(identifiers) > 250_000:
+        raise OntologyInstanceValidationError("prepared ontology dependencies exceed their bound")
+    if not identifiers:
+        return prepared
+    async with (
+        asyncio.timeout(30),
+        await psycopg.AsyncConnection.connect(
+            config.dsn, row_factory=dict_row, connect_timeout=config.connect_timeout_s
+        ) as connection,
+    ):
+        await connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        await connection.execute(
+            "SELECT set_config('statement_timeout', %s, true)", (str(config.statement_timeout_ms),)
+        )
+        revisions = await _dependency_revisions(connection, identifiers, lock=False)
+    if any(revisions[identifier] is None for identifier in foreign):
+        raise OntologyInstanceValidationError("prepared ontology external endpoint is missing")
+    manifest["dependency_revisions"] = revisions
+    manifest["previous_object_ids"] = [
+        identifier
+        for identifier in manifest["previous_object_ids"]
+        if identifier not in revisions or revisions[identifier] is not None
+    ]
+    return replace(prepared, manifest=_encode(manifest, limit=_MAX_MANIFEST_BYTES))
+
+
+async def verify_replacement_dependencies(
+    connection: psycopg.AsyncConnection[Any], manifest: Mapping[str, Any]
+) -> None:
+    """Hold observed dependency rows through publication; missing prior rows are never deleted."""
+    expected = manifest["dependency_revisions"]
+    actual = await _dependency_revisions(connection, sorted(expected), lock=True)
+    if _encode(actual, limit=_MAX_MANIFEST_BYTES) != _encode(expected, limit=_MAX_MANIFEST_BYTES):
+        raise OntologyInstanceValidationError("prepared ontology dependency revision changed")
 
 
 async def persist_replacement(

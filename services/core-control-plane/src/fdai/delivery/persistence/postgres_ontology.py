@@ -23,7 +23,9 @@ from fdai.delivery.persistence.postgres_ontology_graph import (
 from fdai.delivery.persistence.postgres_ontology_prepared import (
     load_replacement,
     persist_replacement,
+    pin_replacement_dependencies,
     prepare_replacement,
+    verify_replacement_dependencies,
 )
 from fdai.delivery.persistence.postgres_ontology_records import (
     _inventory_manifest_object_ids,
@@ -457,6 +459,7 @@ class PostgresOntologyInstanceStore:
                 state_updates=_state_updates or {},
                 observation_projection_watermark=_observation_projection_watermark,
             )
+            prepared = await pin_replacement_dependencies(self._config, prepared)
             await persist_replacement(self._config, prepared)
         async with asyncio.timeout(60), await self._connect() as connection:
             async with connection.transaction():
@@ -497,6 +500,8 @@ class PostgresOntologyInstanceStore:
                         "ORDER BY name FOR UPDATE",
                         (link_type_names,),
                     )
+                if prepared is not None:
+                    await verify_replacement_dependencies(connection, manifest)
                 await replace_records(
                     connection,
                     objects=normalized_objects,

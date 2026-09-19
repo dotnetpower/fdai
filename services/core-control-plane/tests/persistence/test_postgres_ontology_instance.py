@@ -480,6 +480,94 @@ async def test_isolated_prepared_ontology_publication_rechecks_durable_inputs(mo
             )
 
 
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "external_changed",
+        "removed_changed",
+        "absent_created",
+        "absent_after_check",
+        "unchanged",
+    ],
+)
+async def test_isolated_prepared_dependencies_reject_drift_and_preserve_new_foreign_rows(
+    monkeypatch,
+    scenario,
+):
+    from fdai.delivery.persistence.postgres_ontology_prepared import (
+        persist_replacement,
+        verify_replacement_dependencies,
+    )
+
+    async with _isolated_replacement_store() as store:
+        async with await store._connect() as connection:
+            await connection.execute(
+                "CREATE TABLE inventory_active (singleton BOOLEAN PRIMARY KEY, snapshot_id TEXT);"
+                "INSERT INTO inventory_active VALUES (TRUE, 'example-generation')"
+            )
+        if scenario == "external_changed":
+            await store.upsert_object(_review_object("dependency", "ReviewCheck"))
+        elif scenario in {"removed_changed", "unchanged"}:
+            await store.upsert_object(_review_object("dependency"))
+        before = await store.query_objects()
+
+        async def persist(config, prepared):
+            nonlocal before
+            await persist_replacement(config, prepared)
+            if scenario in {"external_changed", "removed_changed"}:
+                original = await store.get_object("dependency")
+                await store.upsert_object(
+                    replace(
+                        original,
+                        properties={
+                            **original.properties,
+                            "status": "changed",
+                        },
+                    ),
+                    expected_revision=original.revision,
+                )
+            elif scenario == "absent_created":
+                await store.create_object_if_absent(_review_object("dependency"))
+            before = await store.query_objects()
+
+        async def verify(connection, manifest):
+            await verify_replacement_dependencies(connection, manifest)
+            if scenario == "absent_after_check":
+                await store.create_object_if_absent(_review_object("dependency"))
+
+        monkeypatch.setattr(postgres_ontology, "persist_replacement", persist)
+        monkeypatch.setattr(postgres_ontology, "verify_replacement_dependencies", verify)
+
+        async def publish():
+            await store.replace_subgraph_with_state(
+                objects=(_review_object("new-case"),),
+                links=(
+                    OntologyLinkRecord(
+                        link_type="contains_check", from_id="new-case", to_id="dependency"
+                    ),
+                )
+                if scenario == "external_changed"
+                else (),
+                previous_object_ids=() if scenario == "external_changed" else ("dependency",),
+                previous_link_keys=(),
+                state_updates={},
+                expected_active_generation="example-generation",
+            )
+
+        if scenario in {"unchanged", "absent_after_check"}:
+            await publish()
+            identifiers = {record.id for record in (await store.query_objects()).objects}
+            assert identifiers == (
+                {"new-case", "dependency"} if scenario == "absent_after_check" else {"new-case"}
+            )
+        else:
+            with pytest.raises(
+                OntologyInstanceValidationError, match="dependency revision changed"
+            ):
+                await publish()
+            assert await store.query_objects() == before
+
+
 async def test_isolated_graph_query_limits_relationships(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "fdai.delivery.persistence.postgres_ontology_graph.MAX_ONTOLOGY_QUERY_LINKS", 1
