@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime, timedelta
 from typing import Any, Protocol
 
@@ -125,8 +125,10 @@ class ObserverDeploymentProposalService:
         *,
         constraints: ObserverConstraintReader,
         now: Callable[[], datetime],
+        observing: Callable[[str], Awaitable[bool]] | None = None,
     ) -> None:
         self._store, self._constraints, self._now = store, constraints, now
+        self._observing = observing
 
     async def observe(self, observations: tuple[AksPrivateClusterObservation, ...]) -> int:
         if len(observations) > 128:
@@ -145,6 +147,8 @@ class ObserverDeploymentProposalService:
         if not cutoff <= now < cutoff + timedelta(minutes=10):
             raise ValueError("private cluster discovery evidence is future or stale")
         target = to_neutral_id(observation.cluster_ref)
+        if self._observing is not None and await self._observing(target):
+            return False
         constraints = await self._constraints.read(target, now=now)
         values: dict[str, object] = {
             "target_ref": target,
@@ -159,6 +163,11 @@ class ObserverDeploymentProposalService:
             )
             if constraints.target_ref != target:
                 raise ValueError("observer constraints changed target")
+            if (
+                constraints.discovery_digest != observation.source_digest
+                or not constraints.private_cluster
+            ):
+                raise ValueError("observer constraints changed discovery binding")
             if constraints.observed_at > now:
                 raise ValueError("observer constraints are from the future")
             values.update(
@@ -247,6 +256,8 @@ class ObserverDeploymentProposalService:
 
     async def current(self, target_ref: str) -> ObserverDeploymentProposal | None:
         """Read an exact target's replay-verified current proposal, or reject stale evidence."""
+        if self._observing is not None and await self._observing(target_ref):
+            return None
         key = OBSERVER_PROPOSAL_PREFIX + canonical_digest({"target_ref": target_ref})
         value = await self._store.read_state(key)
         if value is None:
@@ -260,6 +271,11 @@ class ObserverDeploymentProposalService:
             )
             if constraints.target_ref != target_ref or constraints.observed_at > now:
                 raise ValueError("observer proposal constraints are invalid")
+            if (
+                constraints.discovery_digest != context.discovery_digest
+                or not constraints.private_cluster
+            ):
+                raise ValueError("observer proposal constraints changed discovery binding")
         current_facts = (
             constraints.facts if constraints is not None and now < constraints.expires_at else ()
         )

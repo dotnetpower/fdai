@@ -137,6 +137,18 @@ class FileConnectorRegistrations:
         return await asyncio.to_thread(self._read, principal_ref)
 
     def _read(self, principal_ref: str) -> ConnectorRegistration | None:
+        return next(
+            (entry for entry in self._entries() if entry.principal_ref == principal_ref), None
+        )
+
+    async def for_target(self, target_ref: str) -> ConnectorRegistration | None:
+        entries = await asyncio.to_thread(self._entries)
+        matches = [entry for entry in entries if entry.scope.cluster_ref == target_ref]
+        if len(matches) > 1:
+            raise ValueError("connector target has ambiguous observer enrollments")
+        return matches[0] if matches else None
+
+    def _entries(self) -> tuple[ConnectorRegistration, ...]:
         value = json.loads(private_file(self._path), object_pairs_hook=_unique_fields)
         if not isinstance(value, list) or not 1 <= len(value) <= 32:
             raise ValueError("connector registrations must contain 1 to 32 entries")
@@ -149,7 +161,7 @@ class FileConnectorRegistrations:
             )
         if any(entry.role != "observer" for entry in entries):
             raise ValueError("snapshot gateway admits only observer enrollments")
-        return next((entry for entry in entries if entry.principal_ref == principal_ref), None)
+        return tuple(entries)
 
 
 def connector_tls(config: ConnectorRuntimeConfig) -> ssl.SSLContext:

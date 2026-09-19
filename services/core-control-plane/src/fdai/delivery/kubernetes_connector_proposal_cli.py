@@ -15,6 +15,7 @@ from fdai_service_contracts.observer_deployment import (
     ObserverDeploymentProposal,
 )
 
+from fdai.delivery.kubernetes_connector_observed import build_observer_evidence
 from fdai.delivery.kubernetes_connector_planning import propose_observer_deployment
 from fdai.delivery.kubernetes_connector_preflight_runtime import (
     build_observer_constraints,
@@ -40,6 +41,7 @@ async def _current(target_ref: str) -> ObserverDeploymentProposal | None:
         store,
         constraints=build_observer_constraints(store, now=lambda: datetime.now(UTC)),
         now=lambda: datetime.now(UTC),
+        observing=build_observer_evidence(store, now=lambda: datetime.now(UTC)),
     )
     async with asyncio.timeout(10):
         return await service.current(target_ref)

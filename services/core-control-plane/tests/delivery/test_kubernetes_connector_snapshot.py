@@ -32,6 +32,69 @@ class Registrations:
         return self.registration if principal_ref == "example" else None
 
 
+async def test_current_observer_evidence_requires_fresh_exact_registered_snapshot(tmp_path) -> None:
+    from fdai.delivery.kubernetes_connector_observed import CurrentObserverEvidence
+    from fdai.delivery.kubernetes_connector_runtime import FileConnectorRegistrations
+
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps([registration().model_dump(mode="json")]))
+    registry.chmod(0o600)
+    store, clock = InMemoryStateStore(), [NOW]
+    observed = CurrentObserverEvidence(
+        store, registrations=FileConnectorRegistrations(registry), now=lambda: clock[0]
+    )
+    assert not await observed.observing("cluster-example")
+    spool = ConnectorSnapshotSpool(
+        tmp_path / "spool",
+        registration=registration(),
+        stream_id="example",
+        allow_cluster_resources=False,
+    )
+    pending = await spool.enqueue(
+        snapshot(), registration=registration(), producer_revision=REVISION, now=NOW
+    )
+    inbox = ConnectorSnapshotInbox(
+        store,
+        registrations=FileConnectorRegistrations(registry),
+        allow_cluster_resources=False,
+        now=lambda: clock[0],
+    )
+    await inbox.accept(pending.evidence, pending.content, principal_ref="example")
+    assert await observed.observing("cluster-example")
+    assert not await observed.observing("foreign-cluster")
+    clock[0] += timedelta(minutes=5)
+    assert not await observed.observing("cluster-example")
+    clock[0] = NOW
+    registry.write_text(
+        json.dumps([registration().model_copy(update={"revoked": True}).model_dump(mode="json")])
+    )
+    assert not await observed.observing("cluster-example")
+    registry.write_text("invalid registry")
+    assert not await observed.observing("cluster-example")
+    second = registration().model_dump(mode="json")
+    second["principal_ref"] = "second-observer"
+    second["scope"]["deployment_ref"] = "other-deployment"
+    registry.write_text(json.dumps([registration().model_dump(mode="json"), second]))
+    assert not await observed.observing("cluster-example")
+    registry.write_text(json.dumps([registration().model_dump(mode="json")]))
+    from fdai.delivery.kubernetes_connector_snapshot import snapshot_key
+
+    await store.write_state(snapshot_key(registration()), {"corrupt": True})
+    assert not await observed.observing("cluster-example")
+
+
+def test_observer_evidence_requires_explicit_registry_selection(monkeypatch) -> None:
+    from fdai.delivery.kubernetes_connector_observed import (
+        OBSERVER_REGISTRATIONS_ENV,
+        build_observer_evidence,
+    )
+
+    monkeypatch.delenv(OBSERVER_REGISTRATIONS_ENV, raising=False)
+    assert build_observer_evidence(InMemoryStateStore(), now=lambda: NOW) is None
+    monkeypatch.setenv(OBSERVER_REGISTRATIONS_ENV, "/private/registrations.json")
+    assert build_observer_evidence(InMemoryStateStore(), now=lambda: NOW) is not None
+
+
 async def test_spool_to_atomic_inbox_to_inventory_source(tmp_path) -> None:
     store = InMemoryStateStore()
     registrations = Registrations()

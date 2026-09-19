@@ -589,6 +589,7 @@ async def _discover_subscription_kubernetes_bindings(
             ),
         )
     if result.private_clusters:
+        from fdai.delivery.kubernetes_connector_observed import build_observer_evidence
         from fdai.delivery.kubernetes_connector_preflight_runtime import build_observer_constraints
         from fdai.delivery.kubernetes_connector_proposals import (
             ObserverDeploymentProposalService,
@@ -599,6 +600,7 @@ async def _discover_subscription_kubernetes_bindings(
             proposal_store,
             constraints=build_observer_constraints(proposal_store, now=lambda: datetime.now(UTC)),
             now=lambda: datetime.now(UTC),
+            observing=build_observer_evidence(proposal_store, now=lambda: datetime.now(UTC)),
         )
         async with asyncio.timeout(10):
             await proposals.observe(result.private_clusters)

@@ -138,6 +138,18 @@ identical evidence reuses the current proposal; older observations cannot replac
 Expiry, corrupt records and changed preflight constraints reject current readback. An expired
 constraint context retains its last known owner and method pin but cannot supply eligible facts.
 
+Setup suppression uses current accepted snapshot evidence, not Pod presence or enrollment alone.
+An optional deployment-owned observer registry binds exact targets to authenticated principals.
+Only one matching observer with a currently valid enrollment and a fresh, integrity-checked complete
+snapshot suppresses a new setup proposal and withholds an existing recommendation on readback.
+Missing, revoked, expired, ambiguous or corrupt evidence cannot suppress inspection. The existing
+Operator unavailable projection removes any old recommendation without claiming installed health,
+inventory promotion or effect verification. Suppression neither deletes history nor changes authority.
+`FDAI_OBSERVER_REGISTRATIONS_PATH` explicitly selects the same owner-only registration format as
+the gateway for discovery and Core proposal reads. Without that binding, suppression is unavailable.
+The evidence reader accepts snapshots younger than five minutes and rechecks exact enrollment after
+storage I/O. Failed evidence reads cannot hide a setup need; storage service failures remain errors.
+
 The initial schema pair is `observer-deployment-context` and `observer-deployment-proposal`.
 Absent server-owned preflight evidence produces `needs_evidence`, not a best-guess installation.
 The signed preflight reader authenticates the registered verifier and retains up to 16 independent

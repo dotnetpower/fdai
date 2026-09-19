@@ -31,6 +31,41 @@ def observation():
     return AksPrivateClusterObservation(CLUSTER, NOW, DIGEST)
 
 
+async def test_fresh_observation_suppresses_setup_without_deleting_history() -> None:
+    from fdai.delivery.kubernetes_connector_projection import publish_observer_proposal
+
+    active = [False]
+
+    async def observing(target):
+        assert target == to_neutral_id(CLUSTER)
+        return active[0]
+
+    store = InMemoryStateStore()
+    service = ObserverDeploymentProposalService(
+        store, constraints=Constraints(), now=lambda: NOW, observing=observing
+    )
+    assert await service.observe((observation(),)) == 1
+    history = await store.read_states(OBSERVER_PROPOSAL_PREFIX, limit=10)
+    active[0] = True
+    assert await service.observe((observation(),)) == 0
+    assert await service.current(to_neutral_id(CLUSTER)) is None
+    assert await store.read_states(OBSERVER_PROPOSAL_PREFIX, limit=10) == history
+    assert len(list(store.audit_entries)) == 1
+    publications = []
+
+    class Bus:
+        async def publish(self, topic, key, payload):
+            publications.append(payload)
+
+    await publish_observer_proposal(
+        target_ref=to_neutral_id(CLUSTER), service=service, store=store, bus=Bus(), now=lambda: NOW
+    )
+    assert publications[-1]["state"] == "unavailable"
+    assert publications[-1]["proposal"] is None
+    active[0] = False
+    assert (await service.current(to_neutral_id(CLUSTER))).status == "needs_evidence"
+
+
 async def test_unknown_constraints_create_one_proactive_inspection_proposal() -> None:
     store = InMemoryStateStore()
     service = ObserverDeploymentProposalService(store, constraints=Constraints(), now=lambda: NOW)
@@ -106,6 +141,27 @@ async def test_stale_discovery_and_foreign_constraints_never_persist() -> None:
     with pytest.raises(ValueError, match="stale"):
         await stale.observe((observation(),))
     assert list(store.audit_entries) == []
+
+
+@pytest.mark.parametrize("changed", ["discovery", "private_mode"])
+async def test_constraint_discovery_binding_cannot_change_on_create_or_read(changed) -> None:
+    target = to_neutral_id(CLUSTER)
+    valid = context(target_ref=target, facts=())
+    reader, store = Constraints(valid), InMemoryStateStore()
+    service = ObserverDeploymentProposalService(store, constraints=reader, now=lambda: NOW)
+    await service.observe((observation(),))
+    reader.value = valid.model_copy(
+        update=(
+            {"discovery_digest": "sha256:" + "b" * 64}
+            if changed == "discovery"
+            else {"private_cluster": False}
+        )
+    )
+    with pytest.raises(ValueError, match="discovery"):
+        await service.current(target)
+    with pytest.raises(ValueError, match="discovery"):
+        await service.observe((observation(),))
+    assert len(list(store.audit_entries)) == 1
 
 
 async def test_current_proposal_rejects_expiry_and_older_discovery() -> None:
@@ -324,6 +380,17 @@ async def test_subscription_discovery_creates_proposal_when_credentials_are_unav
 
     monkeypatch.setattr(cli, "AzureAksSubscriptionBindingDiscovery", Discovery)
     monkeypatch.setattr(cli, "PostgresStateStore", lambda **kwargs: store)
+    from fdai.delivery import kubernetes_connector_observed as observation_runtime
+
+    evidence_checks = []
+
+    async def not_observing(target):
+        evidence_checks.append(target)
+        return False
+
+    monkeypatch.setattr(
+        observation_runtime, "build_observer_evidence", lambda *args, **kwargs: not_observing
+    )
     from fdai.delivery import kubernetes_connector_projection as publication
 
     publications = []
@@ -348,3 +415,4 @@ async def test_subscription_discovery_creates_proposal_when_credentials_are_unav
     assert len(rows) == 1
     assert rows[0]["proposal"]["status"] == "needs_evidence"
     assert publications == [(to_neutral_id(CLUSTER),)]
+    assert evidence_checks == [to_neutral_id(CLUSTER)]
