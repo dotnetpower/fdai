@@ -84,6 +84,14 @@ does not call Copilot, read repository files, edit code, open a pull request, or
 execution authority. System Knowledge can explain the release contract, while live measurements
 remain owned by this development workflow.
 
+Profiled full-stack startup completes the normal preparation stages before either diagnostic socket
+exists. Preparation therefore emits content-free stage durations for pre-process bottlenecks, while
+the sockets measure only the running Core and Operator processes. The local Core launcher uses its
+service-owned entry point, and the Operator ASGI factory binds its runtime-scope receipt even when
+Uvicorn loads the factory directly. Re-running the profiled VS Code task replaces a stale task
+instance. GitHub Copilot in the active coding session reviews exported packets; no FDAI runtime or
+Azure OpenAI deployment is selected or invoked by the diagnostic channel.
+
 ## Validation stages and reuse
 
 Development checks target changed behavior, not the act of creating a commit. A changed-test

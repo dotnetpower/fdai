@@ -715,6 +715,28 @@ def test_core_restart_readiness_retains_markers_across_large_startup_log(
     )
 
 
+def test_core_restart_readiness_accepts_fresh_semantic_consumer_progress(
+    tmp_path: Path,
+) -> None:
+    log_dir = tmp_path / ".fdai" / "logs"
+    log_dir.mkdir(parents=True)
+    log_file = log_dir / "core-runtime.log"
+    started = datetime(2026, 8, 20, 13, 0, 0, tzinfo=UTC)
+    current = datetime(2026, 8, 20, 13, 0, 4, tzinfo=UTC)
+    log_file.write_text(
+        "2026-08-20T13:00:02.000000+00:00 event_bus_consumer_progress "
+        'consumer_group="fdai-core-semantic-turn.example"\n'
+        "2026-08-20T13:00:03.000000+00:00 pantheon_heartbeat\n",
+        encoding="utf-8",
+    )
+
+    assert developer_workflow_runtime._core_runtime_ready_after(
+        tmp_path,
+        not_before=started,
+        now=current,
+    )
+
+
 def test_core_restart_readiness_spans_one_log_rotation(tmp_path: Path) -> None:
     log_dir = tmp_path / ".fdai" / "logs"
     log_dir.mkdir(parents=True)

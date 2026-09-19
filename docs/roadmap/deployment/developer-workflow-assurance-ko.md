@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: cba01eba026fd463a9dee41d4d85f051a8a6c4d5
+translation_source_sha: 35fc14ba28a7a82fae1d01037da376e071a8b4dc
 translation_revised: 2026-09-19
 ---
 
@@ -88,6 +88,14 @@ runtime-scope receipt digest, 시간 구간 및 패킷 digest를 연결합니다
 Copilot을 호출하거나 저장소 파일을 읽거나 코드를 편집하거나 pull request를 열거나 병합 또는
 실행 권한을 부여하지 않습니다. System Knowledge는 release 계약을 설명할 수 있지만 실제 측정은
 이 개발 워크플로에서 소유합니다.
+
+프로파일링된 전체 스택 시작은 진단 소켓이 생성되기 전에 일반 준비 단계를 완료합니다. 따라서
+준비 단계는 프로세스 시작 전 병목에 대해 내용이 없는 단계별 시간을 내보내고, 소켓은 실행 중인
+Core 및 Operator 프로세스만 측정합니다. 로컬 Core 실행기는 서비스 소유 진입점을 사용하며,
+Uvicorn이 Operator ASGI 애플리케이션 팩터리를 직접 불러도 팩터리가 runtime-scope receipt를 연결합니다.
+프로파일링 VS Code 작업을 다시 실행하면 오래된 작업 인스턴스를 교체합니다. 내보낸 패킷은 현재
+코딩 세션의 GitHub Copilot이 검토하며, 진단 채널은 FDAI 런타임 모델이나 Azure OpenAI 배포를
+선택하거나 호출하지 않습니다.
 
 ## 검증 단계와 결과 재사용
 

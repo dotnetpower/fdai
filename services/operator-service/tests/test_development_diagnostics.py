@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
+import fdai_operator_service.main as operator_main
 import pytest
 from fdai_operator_service.composition import _CompositeLifecycle
 from fdai_operator_service.development_diagnostics import build_development_diagnostics
@@ -27,6 +29,25 @@ def _environment(tmp_path: Path, *, venue: str = "local") -> dict[str, str]:
 
 def test_operator_diagnostics_are_disabled_without_explicit_activation() -> None:
     assert build_development_diagnostics({}) is None
+
+
+def test_asgi_factory_binds_runtime_scope_receipt_for_direct_uvicorn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, str] = {}
+
+    def build_application(environment: dict[str, str]) -> Any:
+        captured.update(environment)
+        return object()
+
+    monkeypatch.setattr(operator_main, "build_application", build_application)
+    source = {"FDAI_EXECUTION_VENUE": "local"}
+
+    operator_main.create_app(source)
+
+    assert source == {"FDAI_EXECUTION_VENUE": "local"}
+    assert captured["FDAI_RUNTIME_SCOPE_RECEIPT_DIGEST"].startswith("sha256:")
+    assert len(captured["FDAI_RUNTIME_SCOPE_RECEIPT_DIGEST"]) == 71
 
 
 def test_operator_diagnostics_build_only_for_local_venue(tmp_path: Path) -> None:

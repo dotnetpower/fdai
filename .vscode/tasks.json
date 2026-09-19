@@ -573,7 +573,7 @@
       },
       "runOptions": {
         "instanceLimit": 1,
-        "instancePolicy": "silent"
+        "instancePolicy": "terminateOldest"
       }
     },
     {

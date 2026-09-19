@@ -390,7 +390,10 @@ def test_workspace_exposes_explicit_local_development_diagnostics() -> None:
         "console: require primary worktree",
         "console: prepare full stack",
     ]
-    assert start["runOptions"] == {"instanceLimit": 1, "instancePolicy": "silent"}
+    assert start["runOptions"] == {
+        "instanceLimit": 1,
+        "instancePolicy": "terminateOldest",
+    }
     assert (
         "--duration-ms 5000"
         in tasks_by_label["dev discuss: profile selected service (5s)"]["command"]
