@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 50032390564fe7e095e069e9b7814400271a2d5b
+translation_source_sha: 8ef6c76692d752ec25edeb6e624f6fdc7bb036c8
 translation_revised: 2026-09-19
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -277,9 +277,8 @@ Standard full-stack launch는 서술기 엔드포인트 조정을 유지합니�
 명시적인 top-level `hil-only` 모드라는 코어 조립 하한도 충족할 때만 사용할 수 있습니다. 호환되지 않는 vision 산출물은 준비가 성공했다고 보고한 뒤 Core 런타임을 중지시키는 대신 정본 산출물로 대체 경로합니다. LLM 비용
 패널과 `query_llm_usage` 채팅 기능은 로컬 및 deployed 프로파일에서 이 measured 읽기 담당을 공유합니다. 비용은 명시적 deployment-to-family 연결만 사용하며 누락된 계열은 unpriced 상태로 둡니다.
 대화 Assurance는 배포와 같은 로컬 대화 및 평가 저장소를 사용하고 결정론적 최종 검사를 항상 실행합니다. 의미 검토는 서로 다른 resolved 모델 계열이 둘 이상일 때만 활성화되며 narrator-only 또는 `hil-only` 보조는
-단일 모델 대신 inconclusive를 유지합니다. 기본 산출물이 없으면 전체 스택 준비 과정에서 선택한 구독과 리소스 그룹의 기존 배포를 조회해 생성합니다. 조회는 120초, 계정 8개, 계정별 배포 100개로 제한합니다. 레지스트리와 일치하는 서술기와 임베딩을 제공하는 계정이 정확히 하나여야 하며, 대상이 모호하거나 조회에 실패하면 준비를 중단합니다. Git에서 제외한 소유자 전용 파일을 원자적으로 만들고 실제 배포 이름을 연결합니다. 명시적 선택과 기존 파일은 덮어쓰지 않습니다. 초기 설정은 T1과 관측된 기본 추론기만 연결하고 `hil-only`를 유지하며, 리소스 생성, 권한 부여, 추론 호출을 수행하지 않습니다. 실제 모델 추론은 별도로 검증합니다. 커밋된 VS Code 작업은 운영자의 명시적 명령이 있을 때만 Pantheon 캠페인을
-시작하고, 상태를 확인하고, 중지하거나 보고합니다. 로컬 Core는 고정 census 진단을 같은 PostgreSQL 및 Operator 의미 전송 경로에 연결하고, 현재 Git 리비전과 작업 소유 소스 다이제스트를 기록하며, 프로세스 시작 또는
-재시작 중에는 캠페인을 시작하지 않습니다. PostgreSQL StateStore가 구성되면 두 프로파일은 ontology-owned failed-answer 귀속을 shadow 감사 기록이 있는 멱등적 hold-first adequacy 검토로
+단일 모델 대신 inconclusive를 유지합니다. 기본 산출물이 없으면 전체 스택 준비 과정에서 선택한 구독과 리소스 그룹의 기존 배포를 조회해 생성합니다. 조회는 120초, 계정 8개, 계정별 배포 100개로 제한합니다. 레지스트리와 일치하는 서술기와 임베딩을 제공하는 계정이 정확히 하나여야 하며, 대상이 모호하거나 조회에 실패하면 준비를 중단합니다. Git에서 제외한 소유자 전용 파일을 원자적으로 만들고 실제 배포 이름을 연결합니다. 명시적 선택과 기존 파일은 덮어쓰지 않습니다. 초기 설정은 T1과 관측된 기본 추론기만 연결하고 `hil-only`를 유지하며, 리소스 생성, 권한 부여, 추론 호출을 수행하지 않습니다. 실제 모델 추론은 별도로 검증합니다. 커밋된 VS Code 작업은 운영자의 명시적 명령이 있을 때만 Pantheon 캠페인을 운영합니다.
+Supervisor 작업은 표준 loopback Operator URL과 소유자 전용 token 파일 경로를 전달하지만 bearer 값 자체는 포함하지 않습니다. 로컬 Core는 같은 PostgreSQL 및 Operator 전송 경로에 연결하며 프로세스 시작 중에는 캠페인을 시작하지 않습니다. 배포 환경은 평가 동작을 바꾸지 않고 이 연결 값만 다르게 설정할 수 있습니다. PostgreSQL StateStore가 구성되면 두 프로파일은 ontology-owned failed-answer 귀속을 shadow 감사 기록이 있는 멱등적 hold-first adequacy 검토로
 저장합니다. 영속 상태가 없는 interactive 로컬은 선택적 검토 싱크를 사용 불가로 유지합니다. 어느 프로파일도 이 intake 경로에서 재생을 수행하거나 제안을 만들거나 검토를 promote하지 않습니다.
 
 `FDAI_MONITOR_WORKSPACE_ID`가 설정되면 명시적 Command Deck `query_log` 명령은 두 프로파일에서 같은 범위가 제한된 Azure Monitor Logs 프로바이더를 사용합니다. Interactive 로컬은 현재
