@@ -148,6 +148,91 @@ test.describe("Ontology instance-first navigation", () => {
     );
   });
 
+  for (const searchTerm of ["", "kubernetes.pod"]) {
+    test(`discovers a new Pod through SSE before selection with search ${searchTerm || "empty"}`, async ({
+      page,
+    }) => {
+      const requests = await installOntologyFixture(page);
+      const directorySearches: Array<string | null> = [];
+      let promoted = false;
+      let sendInvalidation: (() => void) | undefined;
+      const invalidation = new Promise<void>((resolve) => { sendInvalidation = resolve; });
+      let streamRequests = 0;
+      await page.route(/\/ontology\/instances(?:\/stream)?(?:\?.*)?$/, async (route) => {
+        const url = new URL(route.request().url());
+        if (url.pathname.endsWith("/stream")) {
+          streamRequests += 1;
+          if (streamRequests > 1) {
+            await route.fulfill({ status: 404 });
+            return;
+          }
+          await invalidation;
+          await route.fulfill({
+            contentType: "text/event-stream",
+            body: `id: 1\nevent: inventory.invalidated\ndata: ${JSON.stringify({
+              schema_version: "1.0.0",
+              watermark: 1,
+              observation_count: 1,
+              observed_at: "2026-09-19T00:00:00Z",
+              recorded_at: "2026-09-19T00:00:01Z",
+              complete: false,
+              execution_authority: false,
+              mutation_authority: false,
+            })}\n\n`,
+          });
+          return;
+        }
+        if (!url.pathname.endsWith("/instances")) {
+          await route.fallback();
+          return;
+        }
+        const search = url.searchParams.get("search");
+        directorySearches.push(search);
+        await json(route, {
+          ...instanceDirectory(),
+          search,
+          source_generation: promoted ? "example-promoted-generation" : "example-generation",
+          resources: promoted ? [{
+            id: "example-cluster/kubernetes/kubernetes.pod/default/example-pod-uid",
+            object_type: "Resource",
+            resource_type: "kubernetes.pod",
+            name: "example-new-pod",
+            location: null,
+            resource_group: null,
+            status: "Running",
+            last_seen: "2026-09-19T00:00:00Z",
+            selected: false,
+          }] : [],
+        });
+      });
+      try {
+        await page.goto("/ontology");
+        const search = page.getByRole("combobox", { name: /Search active generation/ });
+        await expect(search).toBeVisible();
+        await expect.poll(() => streamRequests).toBe(1);
+        await search.focus();
+        if (searchTerm) {
+          await search.fill(searchTerm);
+          await expect.poll(() => directorySearches.at(-1)).toBe(searchTerm);
+        }
+        await expect(page.getByRole("option")).toHaveCount(0);
+        const readCount = directorySearches.length;
+        promoted = true;
+        sendInvalidation?.();
+
+        await expect(page.getByRole("option", { name: /example-new-pod/ })).toBeVisible();
+        expect(directorySearches.length).toBeGreaterThan(readCount);
+        expect(directorySearches.at(-1)).toBe(searchTerm || null);
+        await expect(search).toHaveValue(searchTerm);
+        await expect(search).toBeFocused();
+        expect(new URL(page.url()).searchParams.has("instance")).toBe(false);
+        expect(requests).not.toContain("/ontology/instances/explore");
+      } finally {
+        sendInvalidation?.();
+      }
+    });
+  }
+
   test("loads instances first and progressively discloses reference views", async ({
     page,
   }, testInfo) => {

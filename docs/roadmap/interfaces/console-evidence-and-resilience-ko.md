@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 8ea4c87afcfa742625e50f8ac18d97acf41ae111
+translation_source_sha: db7ad067ce185de84414394ba77da33111ee7f8f
 translation_revised: 2026-09-19
 ---
 # 콘솔 근거 및 복원력
@@ -628,7 +628,7 @@ Resource 포커스, 생성 형상, Network 경로, 영향 표현, 반응형 상�
 - 카탈로그 동등성 및 route-local 대체 경로 테스트가 localization을 검증합니다.
 - 재생 테스트가 JSON, SSE 및 cross-transport 멱등성을 검증합니다.
 - 출처 이력 테스트가 사용 불가, 알 수 없음, malformed 및 route-owner 상태를 검증합니다.
-- 스트림 테스트가 inactivity, authentication 분류, 프레임 한도 및 액션 시간 초과를 검증합니다.
+- 스트림 테스트가 비활성 상태, 인증 분류, 프레임 한도 및 액션 시간 초과를 검증합니다. 인스턴스 디렉터리 브라우저 회귀 검사는 선택 전에 SSE 무효화를 전달하고, 페이지 새로 고침이나 검색 재제출, 포커스 손실, Resource 선택 없이 새로 승격된 Pod가 나타나는지 검증합니다. 빈 검색어와 유지 중인 Pod 검색어를 모두 합성 데이터로 검사하며 실제 프로바이더 근거로 취급하지 않습니다.
 - 아키텍처 테스트가 배치, 선택, accessibility, 캐시 최신성 및 범위가 제한된 polling을 검증합니다. Browser Entra 상태 전송은 정확한 MSAL cache encryption cookie만 수락하고 값을 log에 남기지 않으며 대상 loopback origin에 연결합니다. Live Command Deck 근거는 접근 가능한 `complementary` 또는 전체 작업 영역 `dialog` 역할을 따르고 history panel에서 새 대화를 만듭니다.
 - 아키텍처 배치 회귀 검사는 형상이 없고 잘린 500개 기록과 40개 Resource Group을 사용합니다.
   범위가 제한된 Landscape 및 포커스 개수, 유한한 배치, 고유한 위치, 암묵적인 원점 대체 0개를
