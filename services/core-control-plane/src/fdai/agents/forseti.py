@@ -117,14 +117,12 @@ _LOGGER = logging.getLogger(__name__)
 # ``event_type -> proposed ActionType id`` (rule match). Wave 3 uses a
 # tiny in-memory table; real T0 loader consumes rule catalog YAML.
 # ---------------------------------------------------------------------------
-# RBAC (wave 3 minimal model)
+# RBAC
 # ---------------------------------------------------------------------------
 
-# principal -> set of allowed action ids. Fork RBAC seam replaces this.
-_DEFAULT_RBAC: dict[str, frozenset[str]] = {
-    "operator@example.com": frozenset(_RISK_VERDICT.keys()) - {"remediate.delete-storage"},
-    "guest@example.com": frozenset({"ops.restart-service"}),
-}
+# An absent deployment policy grants no operator authority. Tests and composition
+# roots that need an allowed principal inject an explicit mapping.
+_DEFAULT_RBAC: dict[str, frozenset[str]] = {}
 
 # LRU cap on the per-resource domain-advice maps, so a long-lived judge that
 # sees advice for many resources without a conflict cannot leak memory.

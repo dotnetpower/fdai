@@ -103,7 +103,7 @@
     "services/core-control-plane/src/fdai/agents/_framework/vertical_precedence.py": "5e75973531eba5c426d7b6dd5060c2f8b70c7a1f69236533c27f58bb4b2e55d0",
     "services/core-control-plane/src/fdai/agents/_framework/workflows.py": "0702e932b27232c08dc222bc4f3ebc950dcdc7d25ba612e466f7ad560dbfe9e1",
     "services/core-control-plane/src/fdai/agents/bragi.py": "2501c43bec0598db54dab7b09e6452c4f7a10d8fbde40d8897c0621a3eebc0e3",
-    "services/core-control-plane/src/fdai/agents/forseti.py": "90c0ff1248872b3df3910923bd212ff4da18d29d21337f47c17f3c1dba3632d5",
+    "services/core-control-plane/src/fdai/agents/forseti.py": "59805bfdd4a9e7bc60251159441bf813d915ab824bc6183a9a536cc80f5d8e9d",
     "services/core-control-plane/src/fdai/agents/freyr.py": "648ff344eb9bb01c3372aaef0f667b8ab1dbe3f8b4cae396d51c00485c6fe6f1",
     "services/core-control-plane/src/fdai/agents/heimdall.py": "54a200eb69307818465ea73a05c3b323b2daa536115fe6cb16d6904f89e4b843",
     "services/core-control-plane/src/fdai/agents/huginn.py": "b7c249232d7edd918d1ced595ec5480fa65d90a67f8abe73749e41007d8e63b4",
