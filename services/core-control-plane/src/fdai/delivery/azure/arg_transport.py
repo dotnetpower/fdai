@@ -283,14 +283,21 @@ async def fetch_arg_row_pages(
                 "narrow the query"
             )
 
+        truncated = _result_is_truncated(
+            payload,
+            error_type=error_type,
+            result_name=result_name,
+            page=page,
+        )
         next_token = payload.get("$skipToken")
-        if not isinstance(next_token, str) or not next_token:
-            tokenless_truncated = _result_is_truncated(
-                payload,
-                error_type=error_type,
-                result_name=result_name,
-                page=page,
-            ) or _count_is_truncated(payload)
+        if next_token is not None and not isinstance(next_token, str):
+            raise error_type(
+                f"ARG continuation token was invalid for {result_name!r} (page {page})"
+            )
+        if not next_token:
+            tokenless_truncated = truncated or _count_is_truncated(
+                payload, collected_count=len(collected)
+            )
             if not allow_truncated_without_token and tokenless_truncated:
                 raise error_type(
                     f"ARG returned a truncated result without a continuation token for "
@@ -449,13 +456,6 @@ def _quota_reset_seconds(headers: httpx.Headers) -> float | None:
     return delay
 
 
-def _count_is_truncated(payload: Mapping[str, Any]) -> bool:
-    count = payload.get("count")
+def _count_is_truncated(payload: Mapping[str, Any], *, collected_count: int) -> bool:
     total = payload.get("totalRecords")
-    return (
-        isinstance(count, int)
-        and not isinstance(count, bool)
-        and isinstance(total, int)
-        and not isinstance(total, bool)
-        and count < total
-    )
+    return isinstance(total, int) and not isinstance(total, bool) and collected_count < total

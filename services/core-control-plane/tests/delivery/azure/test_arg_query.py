@@ -811,6 +811,9 @@ async def test_skip_token_is_followed_until_exhausted() -> None:
                 ),
             ],
             "$skipToken": "next-1",
+            "count": 2,
+            "totalRecords": 3,
+            "resultTruncated": "false",
         },
         {
             "data": [
@@ -823,6 +826,9 @@ async def test_skip_token_is_followed_until_exhausted() -> None:
                     arm_type="Microsoft.Storage/storageAccounts",
                 ),
             ],
+            "count": 1,
+            "totalRecords": 3,
+            "resultTruncated": "false",
         },
     ]
     calls: list[dict[str, Any]] = []
@@ -1385,6 +1391,23 @@ async def test_retry_after_beyond_local_bound_fails_without_early_retry(
 
     assert calls == 1
     assert delays == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("token", [42, True, {}, []])
+async def test_malformed_skip_token_fails_closed(token: object) -> None:
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": [], "$skipToken": token})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        with pytest.raises(ArgQueryError, match="continuation token was invalid"):
+            await factory.build_query_fn()("object-storage")
 
 
 @pytest.mark.asyncio
