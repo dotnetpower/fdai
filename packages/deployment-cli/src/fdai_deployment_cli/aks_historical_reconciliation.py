@@ -23,6 +23,48 @@ _INVENTORY_RESOURCES = {
 _LEGACY_CONFIG_MAP = "kubernetes_config_map_v1.identity_bridge"
 _JOBS = {"analyzer", "canary", "inventory", "observation-campaign"}
 _EXTERNAL_SERVICES = {"core-control-plane", "document-processing-worker", "isolated-executor"}
+_LEGACY_RUNTIME_COMMANDS = {
+    "core-control-plane": (
+        ["/app/.venv/bin/python"],
+        [
+            "/opt/fdai-compat/identity_bridge.py",
+            "--",
+            "/app/.venv/bin/fdai-core-control-plane",
+        ],
+    ),
+    "document-ingestion-api": (
+        ["/app/.venv/bin/python"],
+        [
+            "/opt/fdai-compat/identity_bridge.py",
+            "--",
+            "/app/.venv/bin/fdai-document-ingestion-api",
+        ],
+    ),
+    "document-processing-worker": (
+        ["/app/.venv/bin/python"],
+        [
+            "/opt/fdai-compat/identity_bridge.py",
+            "--",
+            "/app/.venv/bin/fdai-document-processing-worker",
+        ],
+    ),
+    "isolated-executor": (
+        ["/app/.venv/bin/python"],
+        [
+            "/opt/fdai-compat/identity_bridge.py",
+            "--",
+            "/app/.venv/bin/fdai-isolated-executor-service",
+        ],
+    ),
+    "operator-service": (
+        ["/app/.venv/bin/python"],
+        [
+            "/opt/fdai-compat/identity_bridge.py",
+            "--",
+            "/app/.venv/bin/fdai-operator-service",
+        ],
+    ),
+}
 
 
 def reconciled_variables(
@@ -35,6 +77,20 @@ def reconciled_variables(
     if set(workloads) != set(SERVICES):
         raise ValueError("historical AKS workload inventory is incomplete")
     deployments = _live_deployments(live)
+
+    for name, workload_value in workloads.items():
+        workload = _mapping(workload_value, f"historical AKS {name} workload")
+        command, arguments = _LEGACY_RUNTIME_COMMANDS[name]
+        live_container = _runtime_container(deployments[name], name)
+        if (
+            live_container.get("command") != command
+            or live_container.get("args") != arguments
+            or workload.get("command", command) != command
+            or workload.get("args", arguments) != arguments
+        ):
+            raise ValueError(f"historical AKS {name} identity bridge command is invalid")
+        workload["command"] = []
+        workload["args"] = []
 
     operator = _mapping(workloads.get("operator-service"), "operator workload")
     operator_live = deployments["operator-service"]
@@ -386,6 +442,14 @@ def _normalize_template(template: dict[str, Any]) -> None:
             item = copy.deepcopy(container)
             if container_key == "init_container" and item.get("name") == "identity-bridge":
                 continue
+            legacy_command = _LEGACY_RUNTIME_COMMANDS.get(str(item.get("name")))
+            if (
+                legacy_command is not None
+                and item.get("command") == legacy_command[0]
+                and item.get("args") == legacy_command[1]
+            ):
+                item["command"] = []
+                item["args"] = []
             security = item.get("security_context")
             if isinstance(security, list) and len(security) == 1 and isinstance(security[0], dict):
                 security[0].pop("run_as_non_root", None)
