@@ -630,6 +630,91 @@ def test_runner_rejects_reuse_when_launch_inputs_change(tmp_path: Path) -> None:
         first_process.wait(timeout=5)
 
 
+def test_runner_rejects_diagnostic_reuse_when_worktree_changes(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    tracked = repo / "tracked.txt"
+    tracked.write_text("original\n", encoding="utf-8")
+    subprocess.run(  # noqa: S603 - fixed Git command in a test-owned repository.
+        [_GIT, "init", "-q"], cwd=repo, check=True
+    )
+    subprocess.run(  # noqa: S603 - fixed Git command in a test-owned repository.
+        [_GIT, "add", "tracked.txt"], cwd=repo, check=True
+    )
+    subprocess.run(  # noqa: S603 - fixed Git command in a test-owned repository.
+        [
+            _GIT,
+            "-c",
+            "user.name=FDAI Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-qm",
+            "test fixture",
+        ],
+        cwd=repo,
+        check=True,
+    )
+    log_file = tmp_path / "runtime-logs" / "operator-api.log"
+    environment = {
+        **os.environ,
+        "FDAI_DEVELOPMENT_DIAGNOSTICS": "1",
+        "FDAI_LOCAL_SERVICE_INPUT_DIGEST": "a" * 64,
+        "FDAI_LOCAL_SERVICE_REUSE_EXISTING": "1",
+    }
+    command = [
+        _BASH,
+        str(_RUNNER),
+        "operator-api",
+        str(log_file),
+        "--",
+        sys.executable,
+        "-c",
+        "import time; print('first-ready', flush=True); time.sleep(10)",
+    ]
+    first_process = subprocess.Popen(  # noqa: S603 - fixed test command
+        command,
+        cwd=repo,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=environment,
+    )
+    try:
+        assert first_process.stdout is not None
+        assert first_process.stdout.readline().rstrip().endswith("event=starting")
+        assert first_process.stdout.readline().rstrip() == "first-ready"
+
+        reuse_result = subprocess.run(  # noqa: S603 - fixed test command
+            command,
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            env=environment,
+            check=False,
+        )
+
+        assert reuse_result.returncode == 0
+        assert "service=operator-api event=reused" in reuse_result.stdout
+        tracked.write_text("changed\n", encoding="utf-8")
+
+        second_result = subprocess.run(  # noqa: S603 - fixed test command
+            command,
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            env=environment,
+            check=False,
+        )
+
+        assert second_result.returncode == 75
+        assert "service restart required: operator-api" in second_result.stderr
+        assert first_process.poll() is None
+    finally:
+        first_process.terminate()
+        first_process.wait(timeout=5)
+
+
 def test_runner_rejects_reuse_when_recorded_owner_does_not_hold_the_lock(
     tmp_path: Path,
 ) -> None:

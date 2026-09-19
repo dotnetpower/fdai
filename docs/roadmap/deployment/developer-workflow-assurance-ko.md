@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 49050a083b2d8881db574efb3655c4c1f32d352f
+translation_source_sha: a9bcf82e8211a0167ad3f8d4920618e266e69aab
 translation_revised: 2026-09-19
 ---
 
@@ -100,7 +100,10 @@ Operator ASGI 애플리케이션 팩터리는 Uvicorn이 팩터리를 직접 불
 스택의 오래된 작업 인스턴스를 교체합니다.
 내보낸 패킷은 현재 코딩 세션의 GitHub Copilot이 검토하며, 진단 채널은 FDAI 런타임 모델이나
 Azure OpenAI 배포를 선택하거나 호출하지 않습니다. 로컬 준비 상태 검사는 서비스 소유 Core
-실행기를 프로세스 소유자로 인식하고 새로운 semantic consumer 진행 뒤의 새로운 heartbeat를
+서비스 재사용 fingerprint에는 Git 리비전과 worktree digest가 포함됩니다. 따라서 commit이나
+worktree가 바뀌면 일치하지 않는 근거를 반환하지 않고 오래된 프로세스를 교체합니다. 로컬 준비
+상태 검사는 서비스 소유 Core 실행기를 프로세스 소유자로 인식하고 새로운 semantic consumer
+진행 뒤의 새로운 heartbeat를
 허용합니다. 인벤토리 세대가 ontology checkpoint 변환보다 먼저 바뀌면 로컬 analyzer는 준비되지
 않은 상태를 유지하지만 전체 loop interval을 기다리지 않고 5초 안에 target resolution을 다시
 시도합니다.
