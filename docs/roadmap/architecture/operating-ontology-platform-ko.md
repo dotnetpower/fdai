@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: d5abe29ad745a4fecce827abdc25cf7cc8003431
-translation_revised: 2026-09-19
+translation_source_sha: 3f5bb574d0ec9047ecb5e7f2fa0d6ff8bca97f6d
+translation_revised: 2026-09-20
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -86,6 +86,8 @@ catalog-as-code가 계속 권위 원천이고 인스턴스 그래프는 읽기 �
 후보 스냅샷 하나로 승격하며 후보 50,000개 제한을 적용합니다. 후보 잘림은 증적을 불완전한 상태로
 유지합니다. 관계를 포함하는 ObjectSet은 범위가 제한된 관계 조회를 유지하며 더 큰 후보 스캔을
 사용하지 않습니다.
+
+온톨로지 의미 준비 저장은 원시 인스턴스 저장소가 아니라 같은 보안 게이트웨이를 사용합니다. 작성기는 하나의 명시된 용도에 대해 필터와 관계가 없는 ObjectType 투영 하나를 받으며, 보이는 신원·정확한 release·원본 세대와 기존 객체 1,000개 상한 안의 완전한 결과를 요구합니다. 기계 표시된 비공개 필드를 제외하고 정확한 변환 결과 다이제스트를 불변 스냅샷에 결속합니다. 이는 비활성 후보 준비이며 의사 결정 근거 승인, 활성화 또는 전체 인스턴스 조회 커버리지가 아닙니다. 남은 수명 주기와 검색 작업은 [조회 커버리지](../interfaces/ontology-query-coverage-implementation-plan-ko.md)에서 관리합니다.
 
 광범위한 최근 Resource 상태 변경 조회는 `resource.operational_state`와
 `resource.availability_state`를 검증된 상태 metadata가 있는 모든 Resource에서 읽습니다. 더 좁은

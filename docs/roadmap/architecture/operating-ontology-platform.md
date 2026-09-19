@@ -80,6 +80,8 @@ escalates to one relationship-free candidate snapshot, from one store connection
 50,000-candidate ceiling. Candidate truncation keeps the receipt incomplete. Relationship-bearing
 ObjectSets retain their bounded relationship query and never use the larger candidate scan.
 
+Ontology semantic staging consumes this same secured gateway, not the raw instance store. Its writer accepts one unfiltered, relationship-free ObjectType projection with one declared purpose, visible identities, an exact release and source generation, and a complete result within the existing 1,000-object ceiling. It excludes machine-marked redactions and binds the exact projected-result digest to the immutable snapshot. This is inactive candidate preparation, not decision-evidence admission, activation, or full-instance query coverage; [query coverage](../interfaces/ontology-query-coverage-implementation-plan.md) owns the remaining lifecycle and retrieval work.
+
 A broad recent Resource state-change query reads both `resource.operational_state` and
 `resource.availability_state` across every Resource that carries verified state metadata. It does
 not reuse the narrower operational-state ResourceType allowlist. A query that names a concrete

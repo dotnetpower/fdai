@@ -106,6 +106,8 @@ async def _gateway_with_records(
     *records: OntologyObjectRecord,
     links: tuple[OntologyLinkRecord, ...] = (),
     source_complete: bool = True,
+    snapshot_complete: bool = True,
+    source_generation: str | None = None,
     transitive: bool = False,
 ) -> SecuredObjectSetQueryGateway:
     link_type = OntologyLinkType(
@@ -120,6 +122,8 @@ async def _gateway_with_records(
     store = InMemoryOntologyInstanceStore(
         object_types=(object_type,),
         link_types=((link_type,) if links else ()),
+        source_complete=snapshot_complete,
+        source_generation=source_generation,
     )
     for record in records:
         await store.upsert_object(record)
@@ -166,6 +170,134 @@ async def test_gateway_binds_authenticated_principal_scope_to_receipt() -> None:
     )
 
     assert result.receipt.principal_scope_digest == "sha256:" + "a" * 64
+
+
+@pytest.mark.parametrize(
+    "failure", [None, "incomplete", "generation", "missing", "truncated", "identity", "release"]
+)
+async def test_secured_semantic_staging_preserves_source_and_excludes_private_values(
+    failure: str | None,
+) -> None:
+    from fdai.core.ontology_platform import build_query_manifest
+    from fdai.delivery.catalog_search.ontology_snapshot_store import (
+        OntologyGenerationSnapshotStore,
+        OntologySnapshotCorruptionError,
+    )
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    object_type = _object_type(restricted_identity=failure == "identity")
+    records = tuple(
+        OntologyObjectRecord(
+            id=f"resource-{index}",
+            object_type="Resource",
+            properties={"id": f"resource-{index}", "operator_note": "synthetic-private-value"},
+        )
+        for index in range(2)
+    )
+    gateway = await _gateway_with_records(
+        object_type,
+        *records,
+        source_complete=failure != "incomplete",
+        snapshot_complete=failure != "incomplete",
+        source_generation=None if failure == "missing" else "source-1",
+    )
+    manifest_type = (
+        object_type.model_copy(update={"version": "2.0.0"}) if failure == "release" else object_type
+    )
+    manifest = build_query_manifest(
+        release=build_ontology_release(object_types=(manifest_type,)),
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest="sha256:" + "a" * 64,
+        object_types=(manifest_type,),
+    )
+    state = InMemoryStateStore()
+    snapshots = OntologyGenerationSnapshotStore(state)
+    definition = _definition(limit=1 if failure == "truncated" else 100).model_copy(
+        update={"include_relationships": False}
+    )
+
+    async def stage():
+        return await snapshots.stage_from_gateway(
+            gateway=gateway,
+            definition=definition,
+            manifest=manifest,
+            expected_source_generation="other-source" if failure == "generation" else "source-1",
+            embedding_space_id="projection-test",
+            embedding_model_version="projection-test",
+            embedding_dimension=1,
+        )
+
+    if failure is not None:
+        with pytest.raises(ValueError, match="source evidence"):
+            await stage()
+        assert state._state == {}
+        return
+    staged = await stage()
+    restored = await snapshots.read(
+        staged.snapshot_digest,
+        manifest=manifest,
+        source_generation=staged.source_generation,
+        source_projection_digest=staged.source_projection_digest,
+    )
+    assert restored is not None
+    object_documents = [
+        item for item in restored.documents if item.document_kind == "ontology_object"
+    ]
+    assert len(object_documents) == 2
+    assert all("synthetic-private-value" not in item.text for item in restored.documents)
+    assert all("operator_note" not in item.text for item in object_documents)
+    with pytest.raises(OntologySnapshotCorruptionError):
+        await snapshots.read(
+            staged.snapshot_digest,
+            manifest=manifest,
+            source_generation=staged.source_generation,
+        )
+
+
+@pytest.mark.parametrize("property_name", ["operator_note", "incident_context", "undeclared"])
+async def test_secured_semantic_staging_rejects_partial_or_cross_purpose_selection_before_io(
+    property_name: str,
+) -> None:
+    from fdai.core.ontology_platform import build_query_manifest
+    from fdai.delivery.catalog_search.ontology_snapshot_store import OntologyGenerationSnapshotStore
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    object_type = _object_type()
+    manifest = build_query_manifest(
+        release=build_ontology_release(object_types=(object_type,)),
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest="sha256:" + "a" * 64,
+        object_types=(object_type,),
+    )
+    definition = _definition().model_copy(
+        update={
+            "include_relationships": False,
+            "predicates": (ObjectPredicate(property=property_name, equals="example"),),
+        }
+    )
+    gateway = AsyncMock(spec=SecuredObjectSetQueryGateway)
+    state = InMemoryStateStore()
+    snapshots = OntologyGenerationSnapshotStore(state)
+    for rejected in (
+        definition,
+        definition.model_copy(update={"predicates": (), "purpose": "incident-response"}),
+        definition.model_copy(update={"predicates": (), "include_relationships": True}),
+        definition.model_copy(update={"predicates": (), "object_ids": ("resource-a",)}),
+    ):
+        with pytest.raises(ValueError, match="single-purpose type selection"):
+            await snapshots.stage_from_gateway(
+                gateway=gateway,
+                definition=rejected,
+                manifest=manifest,
+                expected_source_generation="source-1",
+                embedding_space_id="projection-test",
+                embedding_model_version="projection-test",
+                embedding_dimension=1,
+            )
+    gateway.materialize.assert_not_awaited()
+    assert state._state == {}
 
 
 @pytest.mark.parametrize("property_name", ["operator_note", "incident_context", "undeclared"])

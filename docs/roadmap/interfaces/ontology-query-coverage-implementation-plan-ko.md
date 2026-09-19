@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 65bcaab47db8295918bcc2a75d26661b7ed5609a
+translation_source_sha: 265337fbfc6d2abee615a7851df4275d13853c29
 translation_revised: 2026-09-20
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -217,6 +217,7 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 인가된 제한 범위 온톨로지 준비 작성기 | implemented | `OntologyGenerationSnapshotStore.stage_from_gateway`, 로컬 PostgreSQL 영속성 포함 게이트웨이·세대 검사 68개 통과 | 기존 principal·용도 ACL 게이트웨이로 필터 없는 ObjectType 하나를 읽고, 쓰기 전에 정확한 release·원본 세대·잘리지 않은 완전한 근거·보이는 신원을 요구합니다. 직렬화된 비공개 필드 맵에 표시된 값을 제외하고 정확한 변환 결과 다이제스트를 고정합니다. 읽기에도 그 다이제스트가 필요합니다. 기존 객체 1,000개 상한을 유지하며 여러 유형·페이지 생성, 담당 에이전트의 이벤트 활성화, 런타임 후보 검색은 이 작성기에 포함하지 않습니다. |
 | 격리된 불변 온톨로지 준비 저장 | implemented | `ontology_snapshot_store.py`, 세대 테스트 38개와 로컬 PostgreSQL 재연결·변조 테스트 1개 통과, Ruff 및 strict mypy | 서비스 소유 StateStore의 별도 내용 기반 네임스페이스에 청크당 128행/512 KiB, 스냅샷당 64 MiB로 제한해 저장합니다. 마지막에 쓰는 완료 헤더는 principal, 매니페스트, 원본 세대, release 및 임베딩 메타데이터를 결속합니다. 읽을 때 내용을 재검증하며 중단된 쓰기는 노출하지 않습니다. 이는 준비 저장이며 전체 자료 검색 인덱스가 아닙니다. 인가된 원본 생성, 보존 관리, 담당 에이전트의 이벤트 활성화 및 런타임 검색은 남아 있습니다. |
 | Azure 및 인시던트 의미 판단 | validated | `semantic_judgment.py`, `semantic_judgment_grounding.py`, shadow 프롬프트 v9-v14, v41, exact-source 집단 `a5d3627b3` | 16-case v14 shadow 집단은 주 의도, 대상 추출, 범위 유효성, 명확화 정밀도 및 보조 의도 재현율에서 100%를 달성했고 모든 안전 계수는 0이었습니다. 엄격한 프로바이더 스키마는 지원되지 않는 길이 키워드를 제거할 때도 대안 및 미해결 용어 각각 최대 8개라는 모호성 한도와 필수 단일 명확화 질문에 대한 설명을 유지하며 서버 검증이 계속 최종 권위를 가집니다. 이는 범위가 제한된 판단 집단의 검증이며 enforce 승격 또는 frame-plan 운영 준비 상태를 뜻하지 않습니다. |
 | 출처가 결속된 운영 preflight | implemented | `conversation-preflight.v9.yaml`, `conversation_preflight.py`, `conversation_preflight_validation.py`, `semantic_planning.py`, 집중 테스트, Ruff 및 strict mypy | 검토된 운영 형식은 직렬 전체 의미 판단 호출 하나를 제거할 수 있습니다. 낮은 확신도, 맥락 의존, 오래됨, 잘못된 형식, 지원되지 않음, 신원 불일치 또는 일반 범주 제안은 전체 의미 판단을 유지하거나 frame/provider I/O 전에 Resource 신원 명확화를 반환합니다. |
@@ -247,6 +248,8 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 | 증적에 결속된 의미 답변 권한 | 구현됨 | `functions.py`, `query_execution.py`, `intent_graph.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, 집중 Core, Operator 및 서비스 간 테스트 통과 | 서버 함수 레지스트리가 최초 권한 생산자입니다. 쿼리 노드와 목표 증적은 권한을 근거 참조와 함께 보관합니다. 구독 상태, 인벤토리 그래프, 사용량 측정 및 온톨로지 매니페스트 권한을 서로 구분합니다. 권한이 없거나 충돌하면 턴을 보류하며 모델 또는 클라이언트 권한 텍스트로 증적을 재정의할 수 없습니다. |
 
 ### 구현 이력
+
+2026-09-20 인가된 작성 경로 근거: 보안 ObjectSet 게이트웨이로 읽고 기계 표시된 비공개 필드를 제외하며, 불완전하거나 바뀐 원본 근거를 거부하고 정확한 투영을 불변 준비 저장에 결속했습니다. `ontology_snapshot_store.py`와 `test_query_gateway.py`를 포함한 게이트웨이·세대 검사 68개가 동일한 전후 입력 해시로 통과했으며 로컬 PostgreSQL 스냅샷 검사, Ruff 및 strict mypy도 포함합니다. 여러 유형·페이지의 완전한 원본 생성, 보존 관리, 감사 기록을 포함한 담당 에이전트의 이벤트 활성화·무효화 및 현재 그래프에서 인가한 후보 소비는 남아 있습니다. 이 어댑터를 운영 인덱스로 연결한 것은 아닙니다.
 
 2026-09-20 후속 세대 근거: 내용만 같은 이전 문서의 벡터를 새 모델 세대의 벡터로 잘못 표시하지 못하도록 수정했습니다. 임베딩이 없는 정본 문서 재사용은 유지합니다. `generation.py` 회귀는 수정 전에 실패했고, 수정 후 PostgreSQL 스냅샷 재연결·변조를 포함한 소유 테스트 40개가 동일한 입력으로 통과했으며 Ruff와 strict mypy도 통과했습니다. 인가된 원본 생성, 담당 에이전트의 이벤트 수명 주기, 런타임 인스턴스 검색 및 실제 임베딩 적격성 검증은 남아 있습니다.
 
