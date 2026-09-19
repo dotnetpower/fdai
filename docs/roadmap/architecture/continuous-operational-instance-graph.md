@@ -325,6 +325,37 @@ object deletion instead of being silently removed. Object queries independently 
 at 16,000 and report truncation. Invalidation commits retain a separate monotonic cursor floor;
 corrupt markers recover from that floor, while legacy corruption without a floor requires repair.
 
+### Staged publication successor
+
+The next capacity boundary separates collection partitions from graph ownership. Provider pages
+enter bounded durable staging only after normalization and redaction. A page checkpoint and its
+content digest commit together; replay of identical content is a no-op and changed content under
+the same identity is a conflict. Source exhaustion and exact coverage, never an empty page or a
+storage bucket, authorize absence. Expired continuation requires a new source attempt.
+
+Preparation follows `collecting -> sealed -> verified -> prepared`; only the existing projection
+owner can publish `committed`. Immutable chunk manifests bind exact scope, ownership epoch,
+catalog release, observation windows, coverage, and dependency revisions. A graph snapshot selects
+one verified set of partition versions. Queries and pagination pin that set instead of joining
+each partition's latest value. Partial candidates never replace the active complete ownership set.
+
+Preparation may run concurrently, but publication remains single-writer initially. Publication
+rechecks its expected base and fencing token and atomically advances the active graph reference,
+observation checkpoint, invalidation, and delivery intent. Resource-event delivery uses immutable
+generation-specific identities, not one overwritten global marker. Broker uncertainty permits
+at-least-once retry with the same event identities and never claims evaluation completion.
+
+Cursor repair uses a versioned stream epoch when no reliable numeric floor survives. A changed
+epoch requires an authenticated snapshot reread before resubscription; it cannot refresh provider
+facts. Old clients retain an explicit compatibility or unavailable outcome. Repair records bind
+the current graph, prior damaged-state digest, actor, and independently checked recovery basis.
+
+Critique rejected immediate lock removal, larger in-memory limits, and implicit scope narrowing.
+The revised sequence is measured baseline, durable collection, immutable snapshot publication,
+epoch recovery, then evidence-driven ownership parallelism. New contracts remain internal read-model
+metadata and grant no managed-resource authority. The implementation ledger separates planned
+contracts from connected, tested paths; this section does not claim completed rollout.
+
 ### Load-aware scheduling
 
 Each source has a validated policy rather than one global interval. The policy includes:

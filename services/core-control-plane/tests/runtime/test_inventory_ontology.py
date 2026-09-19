@@ -199,6 +199,31 @@ def _projector(
     )
 
 
+async def test_generation_delivery_publication_rolls_back_with_graph_failure() -> None:
+    from fdai.delivery.inventory_configuration_events import configuration_delivery_key
+
+    status = _FailStatusOnceStore()
+    store = _AtomicOntologyStore(status)
+    projector = _projector(store, status)
+    observation = PromotedInventoryObservation(
+        generation="publication-example",
+        resources=(),
+        links=(),
+        complete=True,
+        recorded_at=datetime(2026, 9, 20, tzinfo=UTC),
+    )
+    publication_key = configuration_delivery_key(observation.generation) + ":projection"
+    with pytest.raises(RuntimeError, match="injected status commit failure"):
+        await projector.apply(observation)
+    assert await status.read_state(publication_key) is None
+    await projector.apply(observation)
+    publication = await status.read_state(publication_key)
+    manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    assert publication is not None and manifest is not None
+    assert publication["manifest_digest"] == manifest["manifest_digest"]
+    assert publication["status"] == "projected"
+
+
 async def test_projection_advances_journal_watermark_with_graph_commit() -> None:
     status = InMemoryStateStore()
     store = _AtomicOntologyStore(status)

@@ -146,6 +146,7 @@ def _state_store_double() -> SimpleNamespace:
     return SimpleNamespace(
         read_state=AsyncMock(wraps=store.read_state),
         write_state=AsyncMock(wraps=store.write_state),
+        write_state_if_absent=AsyncMock(wraps=store.write_state_if_absent),
         write_state_with_audit_if_absent=AsyncMock(return_value=True),
     )
 
@@ -226,6 +227,10 @@ def _ontology_observer_harness(
         lambda *_args, **_kwargs: observation_journal,
     )
     configuration_event_publisher = AsyncMock(return_value=1)
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_ontology_observer.PostgresInventoryDeliveryReader",
+        lambda **_: SimpleNamespace(load_next=AsyncMock(return_value=None)),
+    )
     activity_publisher = SimpleNamespace(
         publish=AsyncMock(),
         configuration_event_publisher=configuration_event_publisher,
@@ -1806,10 +1811,16 @@ async def test_ontology_recovery_replays_pending_history_before_new_projection(
     await recovery()
 
     assert observation_journal.load_pending_promoted_snapshot.await_count == 2
+    from fdai.delivery.inventory_configuration_events import configuration_delivery_key
+
+    delivery_key = configuration_delivery_key(observation.generation)
     assert [call.args[0] for call in status_store.read_state.await_args_list] == [
         "inventory-ontology:manifest",
         "inventory-ontology:manifest",
         "inventory-ontology:status",
+        delivery_key,
+        delivery_key,
+        delivery_key,
         "inventory-configuration:delivery",
         "inventory-ontology:manifest",
     ]

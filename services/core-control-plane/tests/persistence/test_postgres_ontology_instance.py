@@ -269,6 +269,76 @@ async def test_isolated_graph_read_does_not_mix_concurrent_replacement(
         assert [record.id for record in (await store.query_objects()).objects] == ["case-b"]
 
 
+async def test_isolated_delivery_reader_retains_superseded_pending_generation() -> None:
+    from datetime import UTC, datetime
+
+    from fdai.delivery.inventory_configuration_events import (
+        configuration_delivery_key,
+        configuration_delivery_record,
+        configuration_projection_record,
+    )
+    from fdai.delivery.inventory_sync_models import PromotedInventoryObservation
+    from fdai.delivery.persistence.postgres_inventory_delivery import (
+        PostgresInventoryDeliveryReader,
+    )
+    from fdai.delivery.persistence.postgres_inventory_snapshot import (
+        PostgresInventorySnapshotStoreConfig,
+    )
+    from psycopg.types.json import Jsonb
+
+    async with _isolated_replacement_store() as store:
+        observation = PromotedInventoryObservation(
+            generation="older-generation",
+            resources=(),
+            links=(),
+            complete=True,
+            recorded_at=datetime(2026, 9, 20, tzinfo=UTC),
+        )
+        key = configuration_delivery_key(observation.generation)
+        newer = replace(observation, generation="newer-unpublished")
+        async with await store._connect() as connection:
+            await connection.execute(
+                "CREATE TABLE inventory_snapshot "
+                "(id TEXT PRIMARY KEY, completed_at TIMESTAMPTZ, scopes JSONB);"
+                "CREATE TABLE inventory_snapshot_resource (snapshot_id TEXT, resource_id TEXT, "
+                "resource_type TEXT, props JSONB, provider_ref TEXT, last_seen TIMESTAMPTZ)"
+            )
+            await connection.execute(
+                "INSERT INTO inventory_snapshot VALUES (%s, %s, %s)",
+                (observation.generation, observation.recorded_at, Jsonb(["scope-example"])),
+            )
+        await store.replace_subgraph(
+            objects=(),
+            links=(),
+            _state_updates={
+                key: configuration_delivery_record(observation),
+                key + ":projection": configuration_projection_record(
+                    observation,
+                    ontology_release_digest="sha256:" + "a" * 64,
+                    manifest_digest="sha256:" + "b" * 64,
+                ),
+                configuration_delivery_key(newer.generation): configuration_delivery_record(newer),
+            },
+        )
+        reader = PostgresInventoryDeliveryReader(
+            config=PostgresInventorySnapshotStoreConfig(dsn=store._config.dsn),
+            scope_refs=("scope-example",),
+        )
+        assert await reader.load_next() == observation
+        wrong_scope = PostgresInventoryDeliveryReader(
+            config=PostgresInventorySnapshotStoreConfig(dsn=store._config.dsn),
+            scope_refs=("different-scope",),
+        )
+        with pytest.raises(ValueError, match="scope changed"):
+            await wrong_scope.load_next()
+        async with await store._connect() as connection:
+            await connection.execute(
+                "UPDATE state_kv SET value=%s WHERE key=%s",
+                (Jsonb(configuration_delivery_record(observation, completed=True)), key),
+            )
+        assert await reader.load_next() is None
+
+
 async def test_isolated_replacement_handles_batched_high_fanout() -> None:
     async with _isolated_replacement_store() as store:
         objects = (

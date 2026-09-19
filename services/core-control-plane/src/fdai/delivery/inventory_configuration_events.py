@@ -13,8 +13,92 @@ from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.inventory import ResourceRecord
+from fdai.shared.providers.state_store import StateStore
 
 INVENTORY_CONFIGURATION_DELIVERY_KEY = "inventory-configuration:delivery"
+INVENTORY_CONFIGURATION_DELIVERY_PREFIX = "inventory-configuration:generations:"
+
+
+def configuration_delivery_key(generation: str) -> str:
+    if not generation or generation != generation.strip() or len(generation) > 256:
+        raise ValueError("inventory delivery generation MUST be canonical bounded text")
+    return (
+        INVENTORY_CONFIGURATION_DELIVERY_PREFIX
+        + hashlib.sha256(generation.encode("utf-8")).hexdigest()
+    )
+
+
+async def prepare_configuration_delivery(
+    store: StateStore, observation: PromotedInventoryObservation
+) -> None:
+    """Retain independent generation identity without reopening completed delivery."""
+    key = configuration_delivery_key(observation.generation)
+    pending = configuration_delivery_record(observation)
+    completed = configuration_delivery_record(observation, completed=True)
+    await store.write_state_if_absent(key, pending)
+    retained = await store.read_state(key)
+    if retained is None:
+        raise ValueError("inventory configuration delivery record is unavailable")
+    configuration_delivery_pending(retained, generation=observation.generation)
+    if retained != pending and retained != completed:
+        raise ValueError("inventory configuration delivery content changed")
+    await store.write_state(INVENTORY_CONFIGURATION_DELIVERY_KEY, retained)
+
+
+def configuration_projection_record(
+    observation: PromotedInventoryObservation,
+    *,
+    ontology_release_digest: str,
+    manifest_digest: str,
+) -> dict[str, object]:
+    for digest in (ontology_release_digest, manifest_digest):
+        if re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None:
+            raise ValueError("inventory publication requires exact canonical digests")
+    return {
+        **configuration_delivery_record(observation),
+        "status": "projected",
+        "ontology_release_digest": ontology_release_digest,
+        "manifest_digest": manifest_digest,
+        "recorded_at": observation.recorded_at.isoformat() if observation.recorded_at else None,
+    }
+
+
+async def retained_configuration_delivery(
+    store: StateStore, observation: PromotedInventoryObservation
+) -> Mapping[str, object]:
+    """Adopt only an exact legacy record; a newer generation is never a fallback."""
+    key = configuration_delivery_key(observation.generation)
+    retained = await store.read_state(key)
+    if retained is None:
+        legacy = await store.read_state(INVENTORY_CONFIGURATION_DELIVERY_KEY)
+        if legacy not in (
+            configuration_delivery_record(observation),
+            configuration_delivery_record(observation, completed=True),
+        ):
+            raise ValueError("inventory configuration delivery content changed")
+        if legacy is None:
+            raise ValueError("inventory configuration delivery record is unavailable")
+        configuration_delivery_pending(legacy, generation=observation.generation)
+        await store.write_state_if_absent(key, legacy)
+        retained = await store.read_state(key)
+    if retained is None:
+        raise ValueError("inventory configuration delivery record is unavailable")
+    configuration_delivery_pending(retained, generation=observation.generation)
+    return retained
+
+
+async def complete_configuration_delivery(
+    store: StateStore, observation: PromotedInventoryObservation
+) -> None:
+    retained = await retained_configuration_delivery(store, observation)
+    pending = configuration_delivery_record(observation)
+    completed = configuration_delivery_record(observation, completed=True)
+    if retained != pending and retained != completed:
+        raise ValueError("inventory configuration delivery content changed")
+    await store.write_state(configuration_delivery_key(observation.generation), completed)
+    legacy = await store.read_state(INVENTORY_CONFIGURATION_DELIVERY_KEY)
+    if legacy is not None and legacy.get("generation") == observation.generation:
+        await store.write_state(INVENTORY_CONFIGURATION_DELIVERY_KEY, completed)
 
 
 def configuration_delivery_record(

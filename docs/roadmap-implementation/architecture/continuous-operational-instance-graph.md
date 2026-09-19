@@ -114,9 +114,27 @@ global writer lock remains bounded rather than offering parallel-owner throughpu
 invalidation corruption without a provable cursor floor requires explicit repair. These limitations
 must not be relabeled as unlimited scale, unattended recovery, or production performance evidence.
 
+### Capacity and recovery successor
+
+The 2026-09-20 implementation request covers the staged-publication design, not another assertion
+that the existing bounded profile already supports unlimited scale. Each package retains its own
+exit evidence. Publication stays single-owner until measured contention justifies a separately
+verified ownership split.
+
+| ID | Area | State | Required exit evidence |
+|----|------|-------|------------------------|
+| S01 | Generation-specific delivery | implemented | Generation-keyed delivery and atomic publication receipts; exact-source/scope replay; 144 focused tests, one added atomic-rollback regression, and disposable PostgreSQL older-generation/unpublished/scope-drift checks. Overall successor hardening remains open. |
+| S02 | Durable bounded collection | not-started | Bounded page memory, atomic chunk/checkpoint storage, duplicate/conflict handling, and continuation expiry regression. |
+| S03 | Prepared immutable graph | not-started | Exact immutable candidate data and dependency digests; rejected or abandoned preparation never changes active reads. |
+| S04 | Short atomic publication | not-started | Base/fence recheck, active pointer and delivery intent atomicity, reader snapshot pinning, and concurrent replacement proof. |
+| S05 | Cursor epoch repair | not-started | Authenticated snapshot reset, old-client compatibility, restart-safe repair receipt, and unchanged observation freshness. |
+| S06 | Capacity evidence | not-started | Reproducible local RSS, publication latency, lock occupancy, and restart measurements with stated input sizes and ceilings. |
+| S07 | Adversarial closure | not-started | Repeated reviews of at least twelve boundaries, fixing every finding above Low and reporting unverified deployment requirements separately. |
+
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-20 | implemented | Added generation-specific configuration delivery with legacy compatibility, graph-atomic publication evidence, and oldest-first bounded recovery of committed older snapshots. Corrupt marker types, changed content, missing snapshots, and changed collection scopes cannot authorize replay. | `current change`; `inventory_configuration_events.py`, `inventory_ontology_observer.py`, `inventory_ontology.py`, and `postgres_inventory_delivery.py`; 144 focused tests; atomic publication rollback regression; one disposable PostgreSQL recovery test including scope drift. | S02-S07 remain open. Source snapshots are retained by the current implementation; any future snapshot purge must preserve pending delivery. Shared staging/journal work is being edited by another session and requires an isolated integration checkpoint before schema and publication changes. |
 | 2026-09-20 | implemented | Revalidated the final record-helper moves and hardening repairs against the resumed checkout, including concurrent graph replacement. | `current change`; 14 owning test files: 628 passed; disposable PostgreSQL read/replacement cohort: 9 passed; Ruff passed for 27 changed files; strict mypy passed for 18 source files; the owner and append-only ledger check passed. | Local evidence only. The Low limitations in the adversarial-round record and separately governed deployment evidence remain unchanged. |
 | 2026-09-20 | implemented | Completed four twelve-boundary adversarial rounds over H01-H36, repairing invalidation replay, truncated-property admission, delivery-marker integrity, raw-link staging, and nested-child omission. | `current change`; the adversarial round table names the owning regressions, the 689-test integrated cohort, and nine disposable PostgreSQL checks. | No unresolved finding above Low remains in the reviewed local scope. Supported capacity, legacy manual repair, and separately authorized production/Azure evidence remain explicitly limited. |
 | 2026-09-19 | implemented | Batched graph replacement while preserving revision and foreign-link checks, bounded writer time, manifest bytes, collected generations and query edges, repaired invalidation from durable floors, and separated relationship candidate failure from verified object progress. | `current change`; disposable PostgreSQL: 9 passed including concurrent-read isolation and 1,200-link fanout; projection/runtime/history: 134 passed; inventory adapter: 38 passed; row/query regression: 26 passed; eight source files passed focused mypy. | All 36 original rows have implementation evidence or explicit bounded design treatment. At least ten-case adversarial rounds and integrated focused validation remain mandatory before completion. |

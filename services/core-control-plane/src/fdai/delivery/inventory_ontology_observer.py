@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import Awaitable, Callable
 
@@ -16,8 +17,10 @@ from fdai.delivery.aks_diagnostic_receipts import (
     StateStoreAksDiagnosticReceiptWriter,
 )
 from fdai.delivery.inventory_configuration_events import (
-    INVENTORY_CONFIGURATION_DELIVERY_KEY,
+    complete_configuration_delivery,
     configuration_delivery_record,
+    prepare_configuration_delivery,
+    retained_configuration_delivery,
 )
 from fdai.delivery.inventory_job_config import InventoryJobConfig, read_bool_env
 from fdai.delivery.inventory_sync import (
@@ -37,6 +40,10 @@ from fdai.delivery.persistence import (
     PostgresOntologyInstanceStoreConfig,
     PostgresStateStore,
     PostgresStateStoreConfig,
+)
+from fdai.delivery.persistence.postgres_inventory_delivery import PostgresInventoryDeliveryReader
+from fdai.delivery.persistence.postgres_inventory_snapshot import (
+    PostgresInventorySnapshotStoreConfig,
 )
 from fdai.delivery.persistence.postgres_resource_lock import (
     PostgresAdvisoryResourceLock,
@@ -83,6 +90,10 @@ def build_ontology_observer(
     )
     ontology_release_digest = catalog.build_release().digest
     status_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
+    delivery_reader = PostgresInventoryDeliveryReader(
+        config=PostgresInventorySnapshotStoreConfig(dsn=config.dsn),
+        scope_refs=config.scopes,
+    )
     diagnostic_observer = InventoryPromotionAksDiagnosticObserver(
         service=AksDiagnosticReceiptService(
             writer=StateStoreAksDiagnosticReceiptWriter(store=status_store)
@@ -155,10 +166,7 @@ def build_ontology_observer(
                 failures.append(("topology_history_failed", exc))
             if history_succeeded:
                 try:
-                    await status_store.write_state(
-                        INVENTORY_CONFIGURATION_DELIVERY_KEY,
-                        configuration_delivery_record(observation),
-                    )
+                    await prepare_configuration_delivery(status_store, observation)
                     result = await projector.apply(
                         observation,
                         journal_high_watermark=journal_append.journal_high_watermark,
@@ -227,7 +235,7 @@ def build_ontology_observer(
 
     async def _deliver_configuration(observation: PromotedInventoryObservation) -> None:
         expected = configuration_delivery_record(observation)
-        retained = await status_store.read_state(INVENTORY_CONFIGURATION_DELIVERY_KEY)
+        retained = await retained_configuration_delivery(status_store, observation)
         completed = configuration_delivery_record(observation, completed=True)
         if retained == completed:
             return
@@ -236,7 +244,7 @@ def build_ontology_observer(
         count = await configuration_event_publisher(observation)
         if type(count) is not int or count != len(observation.resources):
             raise ValueError("inventory configuration delivery count is incomplete")
-        await status_store.write_state(INVENTORY_CONFIGURATION_DELIVERY_KEY, completed)
+        await complete_configuration_delivery(status_store, observation)
 
     async def _recover_observation(observation: PromotedInventoryObservation) -> None:
         manifest = await status_store.read_state("inventory-ontology:manifest")
@@ -258,6 +266,17 @@ def build_ontology_observer(
         await _observe(observation)
 
     async def _recover() -> None:
+        if projector is not None:
+            async with asyncio.timeout(60):
+                for _ in range(16):
+                    pending_delivery = await delivery_reader.load_next()
+                    if pending_delivery is None:
+                        break
+                    await _deliver_configuration(pending_delivery)
+                else:
+                    raise RuntimeError(
+                        "inventory delivery recovery reached its per-run generation bound"
+                    )
         await inventory_sync_cli_support.recover_ontology_projection(
             load_pending=observation_journal.load_pending_promoted_snapshot,
             observe=_recover_observation if projector is not None else _observe,

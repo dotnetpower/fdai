@@ -25,6 +25,10 @@ from fdai.core.ontology_platform.inventory_projection import (
     InventoryOntologyProjection,
     build_inventory_ontology_projection,
 )
+from fdai.delivery.inventory_configuration_events import (
+    configuration_delivery_key,
+    configuration_projection_record,
+)
 from fdai.delivery.inventory_sync import (
     INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY,
     PromotedInventoryObservation,
@@ -317,6 +321,18 @@ class InventoryOntologyProjector:
             INVENTORY_ONTOLOGY_MANIFEST_KEY: manifest_state,
             INVENTORY_ONTOLOGY_STATUS_KEY: status_state,
         }
+        publication_key = configuration_delivery_key(observation.generation) + ":projection"
+        publication_state = (
+            configuration_projection_record(
+                observation,
+                ontology_release_digest=self._ontology_release_digest,
+                manifest_digest=current_manifest_digest,
+            )
+            if observation.recorded_at is not None
+            else None
+        )
+        if publication_state is not None:
+            state_updates[publication_key] = publication_state
         if invalidation_state is not None:
             state_updates[INVENTORY_ONTOLOGY_INVALIDATION_KEY] = invalidation_state
             state_updates[INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY] = {
@@ -355,6 +371,8 @@ class InventoryOntologyProjector:
                 INVENTORY_ONTOLOGY_STATUS_KEY,
                 status_state,
             )
+            if publication_state is not None:
+                await self._status_store.write_state(publication_key, publication_state)
             if active_scope_state is not None:
                 await self._status_store.write_state(
                     INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY,
