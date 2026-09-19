@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 1b0bbbc33af80548d45e6d4f02db230c50efb437
+translation_source_sha: d5114a287c434c4a0b920417757222f73c30497b
 translation_revised: 2026-09-19
 ---
 # 런타임 배포 프로파일
@@ -313,7 +313,9 @@ identity-bridge 상태 주소 이행, 기존 Job, Deployment, Service의 공급�
 모든 워크로드 이미지와 소스 버전, command federated identity, bridge script, ClamAV digest, 초기화,
 UID, GID, 쓰기 가능 volume, Pod group을 보존해야 합니다. 다른 주소나 계약 차이는 모두 거부합니다.
 조정에는 별도 exact approval, 효과 재조회, 완전한 전체 범위 변경 없음 계획이 필요하며, 이 근거가
-있어야 과거 상태 채택을 다시 시도할 수 있습니다. 정확히 일치하는 5개 서비스 wrapper를 계속 사용하는
+있어야 과거 상태 채택을 다시 시도할 수 있습니다. 검증기는 공급자 관점에서 동일한 생략, null, 빈
+`sub_path`와 `sub_path_expr` 값만 정규화합니다. 비어 있지 않은 subpath는 계약 변경으로 계속 거부합니다.
+정확히 일치하는 5개 서비스 wrapper를 계속 사용하는
 이미지는 관리되는 ConfigMap을 `/opt/fdai-compat`에, 크기가 제한된 runtime-state volume을
 `/app/.fdai`에 유지하면서 container 범위 `runAsNonRoot`도 보존합니다. 각 영향 이미지가 AKS federated
 identity로 직접 시작할 수 있음을 독립적으로 입증하기 전에는 bridge 삭제나 image entrypoint 기본값으로의
