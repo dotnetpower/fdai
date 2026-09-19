@@ -2,6 +2,7 @@
 
 from typing import Any, cast
 
+import pytest
 from fdai_operator_service.families.conversation.semantic_turn_presentation import (
     semantic_done_event_data,
 )
@@ -110,6 +111,22 @@ def test_pantheon_assurance_projection_becomes_one_bounded_terminal_answer() -> 
     assert done["turn_timing"]["duration_ms"] == 25
     assert done["turn_timing"]["phases"][0]["phase"] == "pantheon_assurance"
     assert done["execution_authority"] is False
+
+
+@pytest.mark.parametrize("assessment_state", ("deferred", "held", "unavailable"))
+def test_incomplete_pantheon_assurance_is_not_presented_as_answered(
+    assessment_state: str,
+) -> None:
+    assurance = _assurance()
+    assurance["assessment_state"] = assessment_state
+    assurance["assessment_reasons"] = ["evaluator_error:provider_http_429"]
+
+    done = semantic_done_event_data({"payload": {"pantheon_assurance": assurance}})
+
+    assert done["status"] == "held"
+    assert done["answer"] == "Bounded Pantheon answer."
+    assert done["assessment_state"] == assessment_state
+    assert done["assessment_reasons"] == ["evaluator_error:provider_http_429"]
 
 
 def test_legacy_pantheon_assurance_without_timing_remains_readable() -> None:

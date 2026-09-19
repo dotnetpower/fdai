@@ -467,6 +467,12 @@
       "label": "conversation assurance: start supervisor",
       "type": "shell",
       "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py supervisor",
+      "options": {
+        "env": {
+          "FDAI_CONVERSATION_ASSURANCE_OPERATOR_URL": "http://127.0.0.1:8010",
+          "FDAI_CONVERSATION_ASSURANCE_TOKEN_FILE": "${workspaceFolder}/.fdai/conversation-assurance/operator-token"
+        }
+      },
       "isBackground": true,
       "problemMatcher": {
         "owner": "conversation-assurance-supervisor",

@@ -419,6 +419,7 @@ def test_operator_evaluator_holds_deferred_assessment(tmp_path: Path) -> None:
         transcript_ledger=transcripts,
     )
     evaluator._request = lambda *_args: {  # noqa: SLF001
+        "status": "held",
         "answer": "Odin cannot verify the current state without owned evidence.",
         "answer_generation": {
             "mode": "agent_projection",
@@ -478,6 +479,33 @@ def test_operator_evaluator_holds_deferred_assessment(tmp_path: Path) -> None:
             "verdict": None,
         },
     )
+
+
+@pytest.mark.parametrize("assessment_state", ("held", "unavailable"))
+def test_operator_evaluator_preserves_noncompleted_assessment_reason(
+    tmp_path: Path,
+    assessment_state: str,
+) -> None:
+    module = _load_module()
+    evaluator = module.OperatorHttpEvaluator(
+        base_url="http://127.0.0.1:8010",
+        bearer_token="test-token",
+        turn_ledger=module.PrivateJsonlLedger(tmp_path / "turns.jsonl"),
+    )
+    evaluator._request = lambda *_args: {  # noqa: SLF001
+        "status": "held",
+        "assessment_state": assessment_state,
+        "assessment_reasons": ["provider_response_invalid"],
+    }
+    case = module.build_pantheon_census(module.PANTHEON_SPECS).cases[0]
+
+    with pytest.raises(
+        module.CampaignHoldError,
+        match=rf"^assessment_{assessment_state}:provider_response_invalid$",
+    ):
+        asyncio.run(evaluator.evaluate(case, campaign_id="campaign-one"))
+
+    assert not (tmp_path / "turns.jsonl").exists()
 
 
 def test_operator_evaluator_preserves_terminal_hold_reason(tmp_path: Path) -> None:

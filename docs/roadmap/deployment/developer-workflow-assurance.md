@@ -31,6 +31,12 @@ The command reads existing Git-common-dir state and process metadata. It does no
 audit log, infer session ownership after a commit, or convert an unavailable diagnostic into a
 successful result.
 
+Long-running workspace supervisors receive every required endpoint and private-file path from their
+committed VS Code task. The Conversation Assurance supervisor task passes the standard loopback
+Operator URL and owner-only bearer-token file path, but never the bearer value, so a source reload
+and task restart preserve the authenticated local contract without relying on the editor's ambient
+environment.
+
 ![Design at a glance. The main stages are Edit and focused check, Workflow diagnostics, Focused commit, Structural pre-push, SHA-addressed CI, Remote work, Bounded handover.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.en.svg)
 
 ## Measured controls

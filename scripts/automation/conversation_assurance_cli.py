@@ -102,17 +102,18 @@ class OperatorHttpEvaluator:
     ) -> PantheonTurnDiagnostic:
         terminal = await asyncio.to_thread(self._request, case, campaign_id)
         self._record_transcript(case, campaign_id=campaign_id, terminal=terminal)
+        assessment_state = terminal.get("assessment_state")
+        if assessment_state in {"deferred", "held", "unavailable"}:
+            assessment_reasons = _assessment_reasons(terminal.get("assessment_reasons"))
+            reason = ",".join(assessment_reasons) or "unspecified"
+            raise CampaignHoldError(f"assessment_{assessment_state}:{reason}")
         if terminal.get("status") == "held":
             receipt = terminal.get("semantic_receipt")
             reason = receipt.get("reason_code") if isinstance(receipt, Mapping) else None
             if not isinstance(reason, str) or _ASSESSMENT_REASON.fullmatch(reason) is None:
                 reason = "terminal_held"
             raise CampaignHoldError(reason)
-        assessment_state = terminal.get("assessment_state")
         assessment_reasons = _assessment_reasons(terminal.get("assessment_reasons"))
-        if assessment_state == "deferred":
-            reason = ",".join(assessment_reasons) or "unspecified"
-            raise CampaignHoldError(f"assessment_deferred:{reason}")
         if assessment_state != "completed":
             raise CampaignHoldError("assessment_state_unavailable")
         trace_raw = terminal.get("pantheon_trace")
