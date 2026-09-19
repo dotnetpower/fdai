@@ -602,6 +602,14 @@ async def _discover_subscription_kubernetes_bindings(
         )
         async with asyncio.timeout(10):
             await proposals.observe(result.private_clusters)
+        from fdai.delivery.kubernetes_connector_projection import publish_discovered_proposals
+
+        await publish_discovered_proposals(
+            targets=tuple(to_neutral_id(item.cluster_ref) for item in result.private_clusters),
+            service=proposals,
+            store=proposal_store,
+            identity=identity,
+        )
     return replace(
         config,
         kubernetes_bindings=result.bindings,

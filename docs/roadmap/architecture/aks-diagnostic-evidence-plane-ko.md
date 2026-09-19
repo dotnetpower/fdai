@@ -1,8 +1,8 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 24d38d67ec202b264167fca5207295e57da0c9a8
-translation_revised: 2026-09-19
+translation_source_sha: f06d390953e50b8df5ee436ab02ca39c231131a8
+translation_revised: 2026-09-20
 ---
 # AKS 진단 근거 플레인
 
@@ -57,6 +57,9 @@ Azure 관측은 정확한 대상을 검증한 뒤에만 결합됩니다. 결정�
 구성된 제안 경로는 이제 서명된 대상별 사전 점검 증적을 읽고 검증 주체 철회를 다시 확인합니다.
 별도의 제한된 Kubernetes 수집기는 정확한 클러스터 식별 후 기존 읽기 신원의 목록 조회
 권한만 확인합니다. 진단, 설치 또는 준비 상태를 입증하지는 않습니다.
+관측 구성 추천은 이제 기존 이벤트 전송을 통해 별도의 역할 검사된 Operator 읽기 데이터로
+전달됩니다. 짧은 유효기간과 명시적인 사용 불가 상태는 진단 완전성을 높이지 않으며
+Console은 설치나 승인 명령을 제공하지 않습니다.
 
 런타임은 개수가 제한된 클러스터 연결 모음을 허용합니다. 각 연결은 다음을 포함합니다.
 

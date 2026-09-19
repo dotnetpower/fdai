@@ -46,6 +46,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 FAMILY_ROOT = REPO_ROOT / "services/operator-service/src/fdai_operator_service/families/operations"
 HEADERS = {"Authorization": "Bearer reader"}
 LEGACY_ROUTE_SNAPSHOT = {
+    (("GET", "HEAD"), "/observer-deployment-proposals", "observer_deployment_proposals"),
     (("GET", "HEAD"), "/inventory/graph", "handler"),
     (("GET", "HEAD"), "/ontology/graph", "handler"),
     (("GET", "HEAD"), "/ontology/instances", "ontology_instances"),
@@ -229,7 +230,27 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 42
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 43
+
+
+def test_observer_proposals_require_authentication_and_never_submit_actions() -> None:
+    dependencies = RecordingDependencies()
+    client = _client(dependencies)
+    assert client.get("/observer-deployment-proposals").status_code == 401
+    assert (
+        client.get(
+            "/observer-deployment-proposals?target_ref=cluster-example", headers=HEADERS
+        ).status_code
+        == 200
+    )
+    query = dependencies.queries[-1]
+    assert query.operation == "observer.deployment.proposals"
+    assert query.params["target_ref"] == ("cluster-example",)
+    assert query.principal_id == "reader-oid"
+    assert (
+        client.post("/observer-deployment-proposals", headers=HEADERS, json={}).status_code == 405
+    )
+    assert dependencies.proposals == []
 
 
 def test_recorded_state_route_is_authenticated_and_preserves_bounded_query_context() -> None:

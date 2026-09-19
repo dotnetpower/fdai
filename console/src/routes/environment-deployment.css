@@ -5,7 +5,19 @@
 
 .environment-deployment-tabs {
   margin-bottom: 0;
+  flex-wrap: wrap;
 }
+
+.observer-proposals, .observer-proposal { min-width: 0; }
+.observer-proposal { border-bottom: 1px solid var(--border); padding: 12px 0; }
+.observer-proposal summary { cursor: pointer; overflow-wrap: anywhere; }
+.observer-proposal strong { overflow-wrap: anywhere; }
+.observer-proposal summary > span { display: block; margin-top: 4px; }
+.observer-proposal dl { margin: 0; }
+.observer-proposal dl > div { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(0, 2fr); gap: 12px; padding: 8px 0; }
+.observer-proposal dd { margin: 0; overflow-wrap: anywhere; }
+.observer-proposal code { display: block; font-size: var(--cs-type-compact-size); overflow-wrap: anywhere; }
+@media (max-width: 700px) { .observer-proposal dl > div { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
 
 .environment-deployment-panel {
   padding-top: 4px;

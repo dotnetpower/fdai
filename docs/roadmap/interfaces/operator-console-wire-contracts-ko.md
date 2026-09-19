@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 1e78fd0c4c8a28e790e4a7050bb61379546961f0
-translation_revised: 2026-09-17
+translation_source_sha: 5c7ceb6f34b13d62576de984a4e4252af83a5f0e
+translation_revised: 2026-09-20
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -10,6 +10,13 @@ translation_revised: 2026-09-17
 > [operator-console-ko.md](operator-console-ko.md) 섹션 13 (13.1-13.3, 13.6-13.9)에서 분리한 focused 소유자 문서입니다.
 
 ## 13. 데이터 + wire 계약
+
+관측 구성은 기존 전송에서 별도의 `observer-proposal-projection` 스키마와
+`core.observer-deployment.projections` 논리 토픽을 사용합니다. Operator가 순서 보장된
+자체 표시 데이터와 인증된 GET 경로를 소유하며 1분 유효기간은 승인이나 Incident 생성 권한을
+부여하지 않습니다. 공용 Kafka 허용 목록에는 이 구독과 정제된 DLQ만 추가하며 제안, 승인,
+변경 발행자를 추가하지 않습니다.
+[관측 전달 계약](../architecture/aks-outbound-connector-ko.md#operator-전달-계약)을 참조하세요.
 
 ### 13.1 감사 항목 - `console.turn` action_kind
 

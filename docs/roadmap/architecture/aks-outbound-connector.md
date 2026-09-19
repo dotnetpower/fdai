@@ -110,7 +110,7 @@ eligible profile. If no candidate is fully supported, they request inspection or
 Operators may pin an allowed installation method; a pin cannot bypass policy and an unsuccessful
 apply cannot silently switch methods. A proposal is deduplicated by target and evidence content;
 repeated discovery cannot create duplicate approvals or repeatedly notify an unchanged condition.
-The future Operator surface must expose only purpose- and role-scoped proposals. Enabling observation does
+The Operator surface exposes role-gated read-only proposals. Enabling observation does
 not enable deployment; exact target, artifact, plan, current authority and independent approval
 remain deployment-workflow responsibilities. Readiness distinguishes installed, authenticated,
 observing and independently verified rather than inferring health from a Pod or heartbeat.
@@ -153,8 +153,8 @@ python -m fdai.delivery.kubernetes_connector_proposal_cli show --target-ref <neu
 
 The context file must be owner-only `0600`. The read command uses the existing Core
 `FDAI_STATE_STORE_DSN`, permits only loopback PostgreSQL in a local venue, and fails on stale or
-changed evidence. Neither command approves, installs or sends a notification. Console/ChatOps
-projection, governed installation and operational readiness remain unimplemented boundaries.
+changed evidence. Neither command approves, installs or sends a notification. Console projection is
+implemented below; ChatOps notification, governed installation and operational readiness remain open.
 
 ### Authenticated read preflight
 
@@ -186,6 +186,36 @@ only the signed receipt is output. Retention verifies current grants before atom
 storage and current reads verify signatures, scope, expiry and revocation again. This is an
 executable Kubernetes read preflight, not an automatically scheduled complete deployment preflight.
 Azure policy, artifact, capacity, storage, network and installation-owner producers remain open.
+
+### Operator delivery contract
+
+The Core producer publishes proposal snapshots on a dedicated logical event topic over the existing
+service transport. The Operator consumer owns its local projection; it never reads the Core store
+or treats received content as an approval. Core revalidates current constraints before publication.
+Projection leases last at most one minute and never exceed the proposal expiry. Missing refresh
+is unavailable, not continued readiness. Broker acknowledgment alone does not prove Operator delivery.
+
+Each snapshot carries its exact target, source proposal revision, publication time, expiry and
+content digest. Duplicate delivery is idempotent, older publication is ignored, and equal-time
+different-content delivery is a conflict. Publication retries read the durable Core checkpoint;
+they cannot generate an installation or notification side effect. Role-gated GET routes expose
+these read models. A separate principal-scoped interaction is required before any later plan or
+approval, and expired projection content is withheld rather than displayed as current.
+
+The implementation uses `core.observer-deployment.projections` and honors the existing
+`FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC` multiplexing setting. A successful discovery publishes the
+current durable targets; no broker topic or permission is created by this code. Operator composition
+starts and supervises the consumer, registers its source, and serves authenticated
+`GET /observer-deployment-proposals` with an optional exact `target_ref`. PostgreSQL serializes
+same-target writes and protects newer source revisions from reordered messages. Future messages
+are quarantined; equal-time conflicts withhold content until newer evidence arrives.
+
+Settings > Environment and deployment > Cluster observers renders the read-only list at
+`/settings/environment-and-deployment/observers`. Candidate disclosures show method, egress and
+missing or denied constraints. Refresh performs GET only; loading uses the shared skeleton and
+expired proposals disappear from the usable detail even while the page stays open. The view has
+no install or approve operation. Isolated English/Korean browser checks cover desktop, constrained
+desktop and mobile; authenticated standard-stack verification still requires operator sign-in.
 
 ## Snapshot runtime
 

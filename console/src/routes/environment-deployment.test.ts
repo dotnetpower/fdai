@@ -21,9 +21,9 @@ describe("environment and deployment navigation", () => {
   });
 
   test("cycles keyboard focus and honors boundary keys", () => {
-    expect(nextEnvironmentDeploymentTab("readiness", "ArrowLeft")).toBe("deployment");
-    expect(nextEnvironmentDeploymentTab("deployment", "ArrowRight")).toBe("readiness");
+    expect(nextEnvironmentDeploymentTab("readiness", "ArrowLeft")).toBe("observers");
+    expect(nextEnvironmentDeploymentTab("deployment", "ArrowRight")).toBe("observers");
     expect(nextEnvironmentDeploymentTab("deployment", "Home")).toBe("readiness");
-    expect(nextEnvironmentDeploymentTab("readiness", "End")).toBe("deployment");
+    expect(nextEnvironmentDeploymentTab("readiness", "End")).toBe("observers");
   });
 });

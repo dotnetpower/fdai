@@ -24,6 +24,7 @@ from fdai_service_contracts.incident_creation import INCIDENT_CREATION_REQUEST_T
 from fdai_service_contracts.incident_intervention import (
     INCIDENT_INTERVENTION_REQUEST_TOPIC,
 )
+from fdai_service_contracts.observer_deployment import OBSERVER_PROPOSAL_TOPIC
 from fdai_service_contracts.semantic_turn import (
     LOGICAL_TOPIC_FIELD,
     multiplexed_consumer_group,
@@ -76,6 +77,7 @@ class OperatorSemanticKafkaConfig:
     incident_intervention_topic: str = INCIDENT_INTERVENTION_REQUEST_TOPIC
     assignment_request_topic: str = ASSIGNMENT_REQUEST_TOPIC
     assignment_projection_topic: str = ASSIGNMENT_PROJECTION_TOPIC
+    observer_proposal_topic: str = OBSERVER_PROPOSAL_TOPIC
     client_id: str = "fdai-operator-service"
     auto_offset_reset: str = "earliest"
     dlq_suffix: str = ".dlq"
@@ -95,6 +97,11 @@ class OperatorSemanticKafkaConfig:
         ):
             raise ValueError("semantic Kafka topics MUST be distinct valid topic names")
         configured_topics = set(semantic_topics)
+        _require_distinct_topic(
+            self.observer_proposal_topic,
+            occupied=configured_topics,
+            error_message="observer proposal topic MUST be distinct and valid",
+        )
         for assignment_topic in (self.assignment_request_topic, self.assignment_projection_topic):
             _require_distinct_topic(
                 assignment_topic,
@@ -251,6 +258,7 @@ class OperatorSemanticKafkaBus:
         allowed.add(self._config.alert_quality_topic + self._config.dlq_suffix)
         allowed.add(self._config.assignment_request_topic)
         allowed.add(f"{self._config.assignment_projection_topic}{self._config.dlq_suffix}")
+        allowed.add(f"{self._config.observer_proposal_topic}{self._config.dlq_suffix}")
         if topic not in allowed:
             raise ValueError("semantic Kafka publish topic is not configured")
         producer = await self._get_producer()
@@ -317,6 +325,7 @@ class OperatorSemanticKafkaBus:
             self._config.framework_assessment_topic,
             self._config.alert_quality_topic,
             self._config.assignment_projection_topic,
+            self._config.observer_proposal_topic,
         }:
             raise ValueError("semantic Kafka subscription topic is not configured")
         physical_topic = self._config.physical_topic or topic

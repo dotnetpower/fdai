@@ -226,3 +226,57 @@ class ObserverPreflightReceipt(ConnectorContract):
             "fdai.observer-preflight.v1:"
             + canonical_digest(self.model_dump(mode="json", exclude={"signature"}))
         ).encode("ascii")
+
+
+OBSERVER_PROPOSAL_TOPIC = "core.observer-deployment.projections"
+OBSERVER_PROPOSAL_GROUP = "operator-observer-deployment-projections-v1"
+
+
+class ObserverProposalProjection(ConnectorContract):
+    """Short-lived Core read projection, never approval or operational readiness."""
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    projection_digest: Digest
+    target_ref: TargetRef
+    source_revision: Annotated[int, Field(strict=True, ge=1, le=2**63 - 1)]
+    published_at: datetime
+    expires_at: datetime
+    proposal: ObserverDeploymentProposal | None
+    state: Literal["current", "unavailable"]
+    reason: Literal["current_evidence", "evidence_unavailable"]
+    execution_authority: Literal[False] = False
+
+    @field_validator("published_at", "expires_at", mode="before")
+    @classmethod
+    def _clock(cls, value: object) -> datetime:
+        return connector_time(value)
+
+    @field_validator("execution_authority", mode="before")
+    @classmethod
+    def _authority(cls, value: object) -> object:
+        if value is not False:
+            raise ValueError("observer projection cannot grant authority")
+        return value
+
+    @model_validator(mode="after")
+    def _integrity(self) -> Self:
+        if not timedelta(0) < self.expires_at - self.published_at <= timedelta(minutes=1):
+            raise ValueError("observer projection lease exceeds its bound")
+        if self.state == "current":
+            if self.proposal is None or self.reason != "current_evidence":
+                raise ValueError("current observer projection requires evidence")
+            if (
+                self.proposal.target_ref != self.target_ref
+                or not self.proposal.evaluated_at
+                <= self.published_at
+                < self.expires_at
+                <= self.proposal.expires_at
+            ):
+                raise ValueError("observer projection target or time mismatch")
+        elif self.proposal is not None or self.reason != "evidence_unavailable":
+            raise ValueError("unavailable observer projection cannot expose a current proposal")
+        if self.projection_digest != canonical_digest(
+            self.model_dump(mode="json", exclude={"projection_digest"})
+        ):
+            raise ValueError("observer projection digest mismatch")
+        return self

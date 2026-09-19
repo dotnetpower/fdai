@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 833ac0aa2c0fc851bff20e9f81d572dcc6173736
-translation_revised: 2026-09-17
+translation_source_sha: 03931075531091ca0ba4f31278a526667013c21c
+translation_revised: 2026-09-20
 ---
 
 # 콘솔 운영
@@ -17,7 +17,7 @@ translation_revised: 2026-09-17
 > 공급자 자격 증명은 설정 > 통합에서 관리하며, 구성되지 않은 GitHub, GitLab 또는 Azure DevOps 커넥터는 명시적으로 사용할 수 없는 상태를 유지합니다.
 >
 > **환경 설정 경계:** 준비 상태와 배포 실행 근거는 설정 > 환경 및 배포에서 함께 제공합니다.
-> `/onboarding`과 `/provisioning`은 운영의 기본 탐색 대상이 아니라 호환 경로로 유지하며, 두 보기 모두 읽기 전용이고 프로비저닝을 시작, 재시도, 승인 또는 변경할 수 없습니다.
+> `/onboarding`과 `/provisioning`은 읽기 전용 호환 경로로 유지합니다. 세 번째 [클러스터 관측](../architecture/aks-outbound-connector-ko.md#operator-전달-계약) 탭은 Operator 소유 표시 데이터를 통해 유효기간이 제한된 Core 추천을 보여줍니다. GET 새로고침과 후보 펼치기만 제공하며 설치·승인 동작은 없습니다. 만료되거나 충돌한 근거는 사용 불가입니다.
 >
 ## 설계 요약
 

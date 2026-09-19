@@ -264,6 +264,44 @@ async def test_removed_constraints_preserve_known_installation_owner() -> None:
     )
 
 
+async def test_projection_publishes_current_or_unavailable_without_core_state_access() -> None:
+    from fdai.delivery.kubernetes_connector_projection import publish_observer_proposal
+    from fdai_service_contracts.observer_deployment import (
+        OBSERVER_PROPOSAL_TOPIC,
+        ObserverProposalProjection,
+    )
+
+    store, reader = InMemoryStateStore(), Constraints()
+    service = ObserverDeploymentProposalService(store, constraints=reader, now=lambda: NOW)
+    await service.observe((observation(),))
+
+    class Bus:
+        def __init__(self):
+            self.records = []
+
+        async def publish(self, topic, key, payload):
+            assert topic == OBSERVER_PROPOSAL_TOPIC
+            self.records.append(ObserverProposalProjection.model_validate(payload))
+
+    bus = Bus()
+    target = to_neutral_id(CLUSTER)
+    assert await publish_observer_proposal(
+        target_ref=target, service=service, store=store, bus=bus, now=lambda: NOW
+    )
+    assert bus.records[-1].state == "current"
+    assert bus.records[-1].expires_at == NOW + timedelta(minutes=1)
+    reader.value = context(target_ref=target, facts=(), requested_method="run_command")
+    assert await publish_observer_proposal(
+        target_ref=target,
+        service=service,
+        store=store,
+        bus=bus,
+        now=lambda: NOW + timedelta(seconds=1),
+    )
+    assert bus.records[-1].state == "unavailable"
+    assert bus.records[-1].proposal is None
+
+
 async def test_subscription_discovery_creates_proposal_when_credentials_are_unavailable(
     monkeypatch,
 ) -> None:
@@ -286,6 +324,14 @@ async def test_subscription_discovery_creates_proposal_when_credentials_are_unav
 
     monkeypatch.setattr(cli, "AzureAksSubscriptionBindingDiscovery", Discovery)
     monkeypatch.setattr(cli, "PostgresStateStore", lambda **kwargs: store)
+    from fdai.delivery import kubernetes_connector_projection as publication
+
+    publications = []
+
+    async def publish(**kwargs):
+        publications.append(kwargs["targets"])
+
+    monkeypatch.setattr(publication, "publish_discovered_proposals", publish)
     config = InventoryJobConfig.from_env(
         {
             "FDAI_INVENTORY_DSN": "postgresql://localhost/example",
@@ -301,3 +347,4 @@ async def test_subscription_discovery_creates_proposal_when_credentials_are_unav
     rows = await store.read_states(OBSERVER_PROPOSAL_PREFIX, limit=10)
     assert len(rows) == 1
     assert rows[0]["proposal"]["status"] == "needs_evidence"
+    assert publications == [(to_neutral_id(CLUSTER),)]

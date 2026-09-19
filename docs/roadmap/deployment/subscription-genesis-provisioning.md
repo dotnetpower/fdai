@@ -74,7 +74,7 @@ audit entry. Pending promotion recovery replays that step even when ontology pro
 disabled, while retained Event coverage segments keep earlier cursor gaps incomplete.
 A promoted generation records an exact active-scope graph checkpoint separately from the all-scope
 retention fence. Retained inactive-scope history cannot block current-scope readiness, while active
-post-snapshot observations still keep readiness incomplete until projection catches up. Explicit private-cluster discovery also records an inert [observer setup proposal](../architecture/aks-outbound-connector.md#implemented-proposal-boundary); registered signed preflight receipts supply facts, while missing or unsigned constraints cannot authorize installation or raise Genesis readiness.
+post-snapshot observations still keep readiness incomplete until projection catches up. Explicit private-cluster discovery records and publishes an inert [observer setup proposal](../architecture/aks-outbound-connector.md#implemented-proposal-boundary) for Operator-owned readback; signed preflight supplies facts, while missing or unsigned constraints cannot authorize installation or raise Genesis readiness.
 
 ## Target operator experience
 

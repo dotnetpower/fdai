@@ -1099,7 +1099,27 @@
     "tabsLabel": "환경 및 배포 보기",
     "readinessTab": "준비 상태",
     "deploymentTab": "배포 실행",
+    "observersTab": "클러스터 관측",
     "invalidTab": "요청한 환경 및 배포 보기를 찾을 수 없습니다."
+  },
+  "observerProposals": {
+    "title": "클러스터 관측 구성 제안",
+    "empty": "수신한 관측 구성 제안이 없습니다.",
+    "unavailable": "현재 관측 근거를 사용할 수 없습니다.",
+    "ready_for_review": "검토 가능",
+    "needs_evidence": "추가 근거 필요",
+    "blocked": "차단됨",
+    "not_applicable": "해당 없음",
+    "recommendation": "추천 설치 방식",
+    "gitops": "기존 GitOps",
+    "existing_host": "기존 내부 호스트",
+    "managed_host": "새 관리 호스트",
+    "run_command": "일회성 Run Command",
+    "private": "사설 외부 통신",
+    "public": "공용 외부 통신",
+    "eligible": "검토 조건 충족",
+    "unknown": "미확인",
+    "expires": "근거 만료"
   },
   "provision": {
     "subtitle": "활성 프로비저닝 스트림의 읽기 전용 진행 상태",

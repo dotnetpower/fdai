@@ -13,7 +13,7 @@ or a second source of provider truth.
 > Governance review-class tokens colocated with catalog schemas remain change-control metadata,
 > not ontology types or autonomy axes. `standing-authority-promotion` cannot change an ActionType
 > mode or grant A3-E authority. The Operator promotion-gate view is read-only registry metadata
-> outside ontology identity and classification.
+> outside ontology identity and classification. [Observer setup projections](aks-outbound-connector.md#operator-delivery-contract) likewise reference an existing neutral cluster identity without creating Resource, ObjectType, LinkType or installation authority.
 >
 > **Compatibility boundary:** Existing `Resource`, `ResourceType`, LinkType identities, stored link
 > directions, and historical ontology releases remain valid. New structural surfaces are additive

@@ -14,7 +14,7 @@ It does not introduce another application, a generic work-item model, or a secon
 > Provider credentials remain in Settings > Integrations, and unconfigured GitHub, GitLab, or Azure DevOps connectors stay explicitly unavailable.
 >
 > **Environment setup boundary:** Readiness and deployment-run evidence share Settings > Environment and deployment.
-> `/onboarding` and `/provisioning` remain compatibility routes rather than primary Operations destinations. Both views remain read-only and cannot start, retry, approve, or alter provisioning.
+> `/onboarding` and `/provisioning` remain read-only compatibility routes. A third [Cluster observers](../architecture/aks-outbound-connector.md#operator-delivery-contract) tab presents leased Core recommendations through Operator-owned projections with GET refresh and candidate disclosures, never install or approve controls. Expired or conflicting evidence is unavailable.
 >
 ## Design at a glance
 

@@ -16,6 +16,7 @@ from fdai_service_contracts.observer_deployment import (
     ObserverDeploymentContext,
     ObserverDeploymentProposal,
     ObserverPreflightReceipt,
+    ObserverProposalProjection,
 )
 from pydantic import BaseModel
 
@@ -28,6 +29,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "observer-deployment-context": ObserverDeploymentContext,
     "observer-deployment-proposal": ObserverDeploymentProposal,
     "observer-preflight-receipt": ObserverPreflightReceipt,
+    "observer-proposal-projection": ObserverProposalProjection,
 }
 
 

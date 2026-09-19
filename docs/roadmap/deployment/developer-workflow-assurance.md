@@ -69,6 +69,8 @@ and Operator processes. Each process exposes one owner-only Unix socket only whe
 venue is `local`; direct process starts outside that launcher require the complete source and digest
 binding before diagnostics can be enabled. No HTTP, browser, Teams, Slack, Event Bus, or
 managed-resource route reaches this socket.
+The observer-proposal consumer is a normal application lifecycle worker, not a diagnostic channel.
+Its readiness joins the Operator worker checks; its GET projection neither reaches this socket nor authorizes a stack restart or live provider probe.
 
 The `status` command sends a bounded protocol request to each socket. A socket path left behind by
 an interrupted process is unavailable, not healthy.

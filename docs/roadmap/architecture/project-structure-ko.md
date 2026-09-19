@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: e28d8f858825c0113f7298a46f96ec82483d2748
-translation_revised: 2026-09-19
+translation_source_sha: 70086b08a35822661f7eb32b0a0f820e2142238e
+translation_revised: 2026-09-20
 ---
 # 프로젝트 구조
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. 공유 서비스 계약 SDK는 권한을 부여하지 않는 `RuntimeScopeReceipt`를 소유하며, 서비스가 소유하는 모든 진입점은 시작 전에 이 증적을 하나 내보내 제품 목적, 실행 위치 및 허용된 완전한 기능 행을 결속하되 프로바이더 상태나 성공을 주장하지 않습니다. 공유 온톨로지 코드는 프로덕션 라우팅 및 탐지 제어의 고정된 절대 범위 레지스트리를 소유하고, 런타임과 전달 계층은 활성 값을 버전이 지정된 구성에 유지하며 새 권한 경로를 가져오지 않습니다. Post-turn 런타임 스킬 초안은 스킬을 활성화하지 않고 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 메타데이터에 보존합니다. Bootstrap은 후보를 평가하거나 게시하기 전에 Norns 룰 힌트를 현재 discovery-activation 결정 뒤에 결속합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 질문은행과 CQAS 산출물도 정확한 원본 카탈로그에서 의존성 순서에 따라 전체를 다시 생성하며 다이제스트만 수동으로 수정하지 않습니다. 확인된 인시던트 생성은 전용 논리 토픽의 버전이 지정된 권한 없는 요청으로 Operator/Core 경계를 통과합니다. Operator는 인증, 원본 초안 재검증 및 영속 수락을 소유하고 Core만 인시던트 수명 주기와 감사 레코드를 기록합니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
@@ -616,7 +616,7 @@ Var는 순수 승인 대기 데이터를 비공개 결정 레코드 도우미에
   패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다. 보호된 W7 워크플로는 판단, 승인, 실행 또는 승격 권한을 패키지나 Operator 조립으로 옮기지 않고 정확한 release, Process, 공개 및 보존 근거를 유지합니다.
 - 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있으며, `execution_safeguards.py`는 Core, 작업 흐름, Isolated 실행기의 생성기와 검증기가 공유하는 공급자 중립 무권한 7개 증명 묶음을 소유합니다. `recorded_resource_state.py`는 Core 변환 결과와 Operator 조회가 공유하는 공급자 중립 상태 경로 적용성 집합, 선택적인 정확한 대상 `serving` 경로 및 범위가 제한된 사용 불가 사유 토큰을 소유합니다. Azure delivery는 기존 `MetricProvider` 경계를 통해 수동적인 서비스 응답 근거를 제공하고 해당 메타데이터는 온톨로지 변환 허용 목록을 통과해 유지됩니다. 공급자 어댑터는 검토된 토큰만 선택할 수 있으며, 공급자 응답 원문과 프로비저닝 기반 추론은 계약 밖에 둡니다.
   `operational_activity.py`는 버전이 지정되고 권한을 부여하지 않는 Agent Activity 수명 주기 근거를 소유합니다. 버전 `1.3.0`은 안정적인 활동 신원을 전환 멱등성과 분리하고 기계 처리에 안전한 사유 코드를 요구합니다. `runtime_call.py`는 인증된 런타임 호출 변환 결과에서 사용하는 정확한 호출자 및 대상 Resource 참조와 권한을 부여하지 않는 근거 메타데이터를 소유합니다. Core 조립은 정확한 release, 세대, 범위, 최신성 및 독립 검증기 검사를 통과한 뒤에만 인벤토리를 보강할 수 있습니다. `operator.py`는 `AuditPageProjection`을 추가 기능으로, `AuditQuery.include_summary`를 명시적인 활성화 설정으로 유지합니다. 페이지 전용 읽기가 기본이며 감사 작업 영역만 보존 범위 수치와 무결성 관측을 요청하고, 어느 변환 결과도 승인, 변경 또는 실행 권한을 부여하지 않습니다.
-  [커넥터 메타데이터, 사전 점검 증적과 관측 배포 제안](aks-outbound-connector-ko.md)은 권한 없이 범위, 시각, 역할을 검증합니다. Core 전달 계층이 mTLS 스냅샷, 버퍼, 인벤토리 연결, 검증 주체 등록, 서명된 읽기 점검과 감사된 추천을 소유합니다. `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
+  [커넥터와 관측 계약](aks-outbound-connector-ko.md)은 권한 없이 범위, 시각, 역할을 검증합니다. Core가 스냅샷, 서명된 사전 점검과 감사된 추천을 소유하고, Operator는 유효기간이 제한된 이벤트를 소비해 Console용 순서 보장 읽기 데이터를 자체 저장합니다. `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고
   체크섬으로 고정한 생성기는 호환성 매니페스트의 모든 N/N-1 스키마를 백엔드 서비스 5개용
   Python 타입과 Console용 TypeScript 타입으로 변환합니다. 현재 생성된 보기는 안전조건 결속 명령 및 관측 스키마에서 갱신됩니다. 이 파일은 읽기 전용 개발
