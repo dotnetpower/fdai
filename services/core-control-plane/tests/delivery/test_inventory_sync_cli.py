@@ -1559,6 +1559,7 @@ def test_resource_type_resolution_rejects_unknown_type() -> None:
         "mapping",
         "version",
         "kind",
+        "arg_query",
     ],
 )
 async def test_source_context_binds_effective_collection_configuration(
@@ -1609,6 +1610,11 @@ async def test_source_context_binds_effective_collection_configuration(
                     + 1,
                 ),
             )
+        elif change == "arg_query":
+            monkeypatch.setattr(
+                "fdai.delivery.azure.arg_query.AzureArgQueryFactory.collection_contract_digest",
+                property(lambda factory: "sha256:" + "a" * 64),
+            )
         elif change == "version":
             vocabulary = vocabulary.model_copy(update={"version": "99.0.0"})
         elif change in {"mapping", "kind"}:
@@ -1631,6 +1637,7 @@ async def test_source_context_binds_effective_collection_configuration(
     assert "management_endpoint" not in modified.metadata
     assert "management_audience" not in modified.metadata
     assert modified.metadata["collection_configuration_digest"].startswith("sha256:")
+    assert modified.metadata["arg_query_contract_digest"].startswith("sha256:")
 
 
 async def test_declarative_source_context_binds_verified_fixture_content(tmp_path: Path) -> None:

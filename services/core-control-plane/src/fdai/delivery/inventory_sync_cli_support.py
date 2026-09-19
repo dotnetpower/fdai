@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import logging
 import math
 import re
@@ -42,6 +40,7 @@ from fdai.delivery.azure.static_web_app_inventory import (
     AzureStaticWebAppInventoryConfig,
     AzureStaticWebAppInventoryEnricher,
 )
+from fdai.delivery.inventory_collection import collection_configuration_digest
 from fdai.delivery.inventory_job_config import InventoryJobConfig, verify_declarative_sha256
 from fdai.delivery.inventory_progress import InventoryProgressRecorder
 from fdai.delivery.inventory_sync import InventoryPromotionEnricher, PromotedInventoryObservation
@@ -222,14 +221,8 @@ def build_sources(
             if source_name == "declarative"
             else None,
         }
-        collection_configuration_digest = (
-            "sha256:"
-            + hashlib.sha256(
-                json.dumps(
-                    collection_configuration, sort_keys=True, separators=(",", ":"), allow_nan=False
-                ).encode()
-            ).hexdigest()
-        )
+        configuration_digest = collection_configuration_digest(collection_configuration)
+        arg_query_contract_digest: str | None = None
         concurrency = min(
             source_policy.global_concurrency_limit,
             source_policy.scope_concurrency_limit,
@@ -264,6 +257,7 @@ def build_sources(
                     else lambda _rows, has_more: progress_recorder.page_collected(has_more=has_more)
                 ),
             )
+            arg_query_contract_digest = query_factory.collection_contract_digest
             query = AzureArmInventoryFactory(
                 identity=identity,
                 resource_types=vocabulary,
@@ -383,7 +377,8 @@ def build_sources(
                     observation_kind=observation_kind,
                     started_at=started_at,
                     metadata={
-                        "collection_configuration_digest": collection_configuration_digest,
+                        "collection_configuration_digest": configuration_digest,
+                        "arg_query_contract_digest": arg_query_contract_digest,
                         "source_priority": source_priority,
                         "link_types": link_types,
                         "coverage_scope": (

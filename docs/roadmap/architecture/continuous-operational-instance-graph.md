@@ -333,7 +333,7 @@ remain bounded; provider restart still requires identity, relationship, and fina
 
 The coordinator stages Resource-only chunks of at most 1 MiB and 1,000 Resources through the existing
 PostgreSQL writer. Candidate rows, immutable chunk, digest, and checkpoint commit together. Context binds source, scopes, types, metadata, and an effective-configuration digest.
-That digest pins policy, management target/audience, request rate, vocabulary mappings, and signed fallback content. Query, relationship-catalog, and producer-revision pins remain required before automatic restart. Gaps and cross-chunk Resource conflicts fail closed.
+That digest pins policy, management target/audience, request rate, vocabulary mappings, and signed fallback content. An additional ARG contract digest pins generated queries, reviewed relationships, and transport bounds. ARM-overlay and producer-revision pins remain required before automatic restart. Gaps and cross-chunk Resource conflicts fail closed.
 Readback verifies the ordered chain one chunk at a time without a final fence. Calls expire after
 30 seconds and collecting attempts after 30 minutes. Only the final split chunk advances the cursor.
 Receipts grant no promotion, deletion, scope-change, or automatic provider-restart authority.

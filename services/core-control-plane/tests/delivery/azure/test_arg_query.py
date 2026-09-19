@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -65,6 +66,75 @@ from fdai.shared.providers.workload_identity import IdentityToken, WorkloadIdent
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 VOCABULARY_FILE = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "same",
+        "scopes_order",
+        "catalog_path",
+        "page_size",
+        "query",
+        "coverage",
+        "unmapped",
+        "mapping",
+        "review",
+    ],
+)
+async def test_collection_contract_digest_binds_effective_queries(
+    monkeypatch: pytest.MonkeyPatch, change: str
+) -> None:
+    async with _make_client(httpx.MockTransport(lambda request: httpx.Response(200))) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(subscription_scopes=("scope-a", "scope-b")),
+        )
+        original = factory.collection_contract_digest
+        if change == "scopes_order":
+            factory._config = replace(factory._config, subscription_scopes=("scope-b", "scope-a"))
+        elif change == "catalog_path":
+            factory._config = replace(
+                factory._config, relationship_mapping_root=Path("other-location")
+            )
+        elif change == "page_size":
+            factory._config = replace(factory._config, page_size=3)
+        elif change == "query":
+            build_query = factory._build_query
+            monkeypatch.setattr(
+                factory, "_build_query", lambda **kwargs: build_query(**kwargs) + " | take 1"
+            )
+        elif change in {"coverage", "unmapped"}:
+            method = (
+                "_build_scope_coverage_query"
+                if change == "coverage"
+                else "_build_unmapped_resource_query"
+            )
+            monkeypatch.setattr(factory, method, lambda: "Resources | take 1")
+        elif change == "mapping":
+            catalog = factory._relationship_mappings
+            mappings = (
+                catalog.mappings[0].model_copy(
+                    update={"source_property_path": "properties.changed"}
+                ),
+                *catalog.mappings[1:],
+            )
+            factory._relationship_mappings = catalog.model_copy(update={"mappings": mappings})
+        elif change == "review":
+            catalog = factory._relationship_mappings
+            factory._relationship_mappings = catalog.model_copy(
+                update={
+                    "review": catalog.review.model_copy(
+                        update={"content_hash": "sha256:" + "a" * 64}
+                    )
+                }
+            )
+        assert (factory.collection_contract_digest == original) is (
+            change in {"same", "scopes_order", "catalog_path"}
+        )
+        assert original.startswith("sha256:") and len(original) == 71
 
 
 @pytest.mark.parametrize("kind", ["resources", "links", "drops", "bytes"])

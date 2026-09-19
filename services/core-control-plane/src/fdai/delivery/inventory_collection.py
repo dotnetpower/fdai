@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from typing import Any
 
 from fdai.delivery.azure.inventory_redaction import redact_runtime_environment
@@ -19,6 +19,13 @@ MAX_COLLECTION_CHUNKS = 10000
 MAX_COLLECTION_BYTES = 16 * 1024 * 1024
 _DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 _PREFIX = "inventory-collection:"
+
+
+def collection_configuration_digest(configuration: Mapping[str, Any]) -> str:
+    encoded = json.dumps(
+        normalize_json_value(configuration), sort_keys=True, separators=(",", ":"), allow_nan=False
+    )
+    return "sha256:" + hashlib.sha256(encoded.encode()).hexdigest()
 
 
 def collection_context_digest(manifest: InventoryCoverageManifest) -> str:

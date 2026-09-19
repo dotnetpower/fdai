@@ -25,6 +25,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from fdai.delivery.azure.arg_collection_context import arg_collection_contract_digest
 from fdai.delivery.azure.arg_projection import (
     ArmIdentityError,
     ArmScopeError,
@@ -243,9 +244,10 @@ class AzureArgQueryFactory:
             load_provider_relationship_mapping_catalog(config.relationship_mapping_root)
         )
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
+    @property
+    def collection_contract_digest(self) -> str:
+        """Bind effective ARG queries, reviewed relationships, and transport configuration."""
+        return arg_collection_contract_digest(self)
 
     def build_query_fn(self) -> ResourceQueryFn:
         """Return a :type:`ResourceQueryFn` closed over this factory's state."""
