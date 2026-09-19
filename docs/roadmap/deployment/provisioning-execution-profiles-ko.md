@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: db9f4992a8ac9220be5cda0ecff82bde767c9218
+translation_source_sha: 537ef516a5e09ad92c97d24c0b9014ff1115aafb
 translation_revised: 2026-09-19
 ---
 # 프로비저닝 실행 프로파일
@@ -349,7 +349,7 @@ SSH 표준 입력으로만 전달하며 상태 인계는 고정된 같은 호스
 `access_method=run_command`는 명시적으로 선택하며 Bastion의 자동 대체 경로가 아닙니다.
 적격 Linux 배포 호스트에서 이미 연결되고 피어링된 비공개 경로를 통해 선택한 WSL 호스트로만
 digest가 고정된 실행 묶음을 staging할 수 있습니다. 정확한 프로파일과 현재 사람 승인은 전체 대상
-서술자에 연결됩니다. 활성 사람 계정은 계산된 테넌트와 구독 binding에 일치해야 하며, 실제 Azure
+서술자, 작업 ID, 실행 묶음 증적 digest, 수신기 digest에 연결됩니다. 활성 사람 계정은 계산된 테넌트와 구독 binding에 일치해야 하며, 실제 Azure
 재조회는 VM 리소스 ID, 비공개 주소, 배포 UAMI와 일치해야 합니다. 이 검증을 마친 뒤에만 조정기는
 일회성 TLS 중계가 수신을 시작하거나 Action Run Command가 시작하기 전에 변경 불가능한 시작 기록을 남깁니다. 중계는 선택한 호스트의
 비공개 출발지 주소만 허용합니다. WSL은 임시 인증서 digest를 고정하고, 고정 수신기와 묶음을
