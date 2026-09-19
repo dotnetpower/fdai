@@ -185,7 +185,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "conversation assurance: status",
         "conversation assurance: stop",
         "conversation assurance: open latest report",
-        "dev discuss: start profiled services",
+        "dev discuss: start or restart profiled services",
         "dev discuss: status",
         "dev discuss: snapshot selected service",
         "dev discuss: profile selected service (5s)",
@@ -384,7 +384,7 @@ def test_workspace_exposes_explicit_local_development_diagnostics() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
-    start = tasks_by_label["dev discuss: start profiled services"]
+    start = tasks_by_label["dev discuss: start or restart profiled services"]
     assert start["command"].startswith("FDAI_DEVELOPMENT_DIAGNOSTICS=1 ")
     assert start["dependsOn"] == [
         "console: require primary worktree",

@@ -12,7 +12,8 @@ edge, deployment workflow, approval path, or executor.
 
 ## Activation
 
-Do not activate profiling implicitly. The operator starts `dev discuss: start profiled services`
+Do not activate profiling implicitly. The operator starts
+`dev discuss: start or restart profiled services`
 or launches the standard local supervisor with `FDAI_DEVELOPMENT_DIAGNOSTICS=1`. A running standard
 stack without that flag must be stopped through its supervisor before a profiled stack starts.
 

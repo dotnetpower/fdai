@@ -88,9 +88,10 @@ Profiled full-stack startup completes the normal preparation stages before eithe
 exists. Preparation therefore emits content-free stage durations for pre-process bottlenecks, while
 the sockets measure only the running Core and Operator processes. The local Core launcher uses its
 service-owned entry point, and the Operator ASGI factory binds its runtime-scope receipt even when
-Uvicorn loads the factory directly. Re-running the profiled VS Code task replaces a stale task
-instance. GitHub Copilot in the active coding session reviews exported packets; no FDAI runtime or
-Azure OpenAI deployment is selected or invoked by the diagnostic channel.
+Uvicorn loads the factory directly. Running `dev discuss: start or restart profiled services`
+replaces a stale task instance. GitHub Copilot in the active coding session reviews exported
+packets; no FDAI runtime or Azure OpenAI deployment is selected or invoked by the diagnostic
+channel.
 
 ## Validation stages and reuse
 
