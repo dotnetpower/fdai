@@ -548,7 +548,7 @@
     {
       "label": "dev discuss: start or restart profiled services",
       "type": "shell",
-      "command": "bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra",
+      "command": "bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra --replace-existing",
       "dependsOrder": "sequence",
       "dependsOn": [
         "console: require primary worktree",

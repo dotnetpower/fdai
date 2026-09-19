@@ -518,6 +518,89 @@ exec sleep 30
                 process.wait(timeout=5)
 
 
+def test_replace_supervisor_waits_for_existing_owner_cleanup(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    start_script = repo / "scripts/deployment/local/start-console-services.sh"
+    start_script.parent.mkdir(parents=True)
+    shutil.copy2(_START_SCRIPT, start_script)
+    (repo / ".fdai/logs").mkdir(parents=True)
+    (repo / ".fdai/local-console-auth-mode").write_text(
+        "browser-entra\n",
+        encoding="utf-8",
+    )
+    _write_executable(
+        repo / "scripts/deployment/local/run-console-service.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == "local-analyzer" ]]; then
+  printf '%s\n' "$FDAI_ANALYZER_RUN_ID" >> "$FDAI_TEST_ANALYZER_IDS"
+fi
+exec {service_lock_fd}>> ".fdai/logs/$1.log.lock"
+if ! flock -n "$service_lock_fd"; then
+  exit 0
+fi
+exec sleep 30
+""",
+    )
+    _write_executable(
+        repo / ".venv/bin/python",
+        "#!/usr/bin/env bash\nsleep 0.1\nexit 0\n",
+    )
+    analyzer_ids = repo / "analyzer-ids.txt"
+    first_output_path = repo / "first.out"
+    second_output_path = repo / "second.out"
+    environment = {
+        **os.environ,
+        "FDAI_TEST_ANALYZER_IDS": str(analyzer_ids),
+    }
+    command = [_BASH, str(start_script), "--auth-mode", "browser-entra"]
+    first_output = first_output_path.open("w", encoding="utf-8")
+    second_output = second_output_path.open("w", encoding="utf-8")
+    first = subprocess.Popen(  # noqa: S603 - fixed test-owned supervisor.
+        command,
+        cwd=repo,
+        env=environment,
+        stdout=first_output,
+        stderr=subprocess.STDOUT,
+    )
+    second: subprocess.Popen[bytes] | None = None
+    try:
+        deadline = time.monotonic() + 5
+        while "service=console-stack event=ready" not in first_output_path.read_text(
+            encoding="utf-8"
+        ):
+            assert first.poll() is None
+            assert time.monotonic() < deadline
+            time.sleep(0.02)
+
+        second = subprocess.Popen(  # noqa: S603 - fixed test-owned supervisor.
+            [*command, "--replace-existing"],
+            cwd=repo,
+            env=environment,
+            stdout=second_output,
+            stderr=subprocess.STDOUT,
+        )
+        deadline = time.monotonic() + 5
+        while "service=console-stack event=ready" not in second_output_path.read_text(
+            encoding="utf-8"
+        ):
+            assert second.poll() is None
+            assert time.monotonic() < deadline
+            time.sleep(0.02)
+
+        assert first.wait(timeout=1) == 130
+        run_ids = analyzer_ids.read_text(encoding="utf-8").splitlines()
+        assert len(run_ids) == 2
+        assert run_ids[0] != run_ids[1]
+    finally:
+        for process in (first, second):
+            if process is not None and process.poll() is None:
+                process.terminate()
+                process.wait(timeout=5)
+        first_output.close()
+        second_output.close()
+
+
 @pytest.mark.parametrize("prepared_mode", [None, "unexpected", "azure-cli"])
 def test_supervisor_rejects_unprepared_auth_mode(
     tmp_path: Path,

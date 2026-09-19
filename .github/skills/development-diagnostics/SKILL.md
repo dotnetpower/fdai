@@ -13,15 +13,19 @@ edge, deployment workflow, approval path, or executor.
 ## Activation
 
 The standard task-backed local launcher always enables diagnostics for Core and Operator. Use
-`dev discuss: start or restart profiled services` when that stack is stale or not running. A direct
-process start outside the launcher must supply the complete diagnostic source and digest binding;
-do not enable only the feature flag.
+`dev discuss: start or restart profiled services` when that stack is stale or not running. The task
+stops a verified supervisor from the same checkout and waits for its lock to be released before
+starting the replacement. A direct process start outside the launcher must supply the complete
+diagnostic source and digest binding; do not enable only the feature flag.
 
 Check availability:
 
 ```bash
 .venv/bin/python scripts/automation/dev-discuss.py status
 ```
+
+Availability requires a successful bounded protocol response. A leftover socket file is reported
+as unavailable.
 
 ## Capture
 

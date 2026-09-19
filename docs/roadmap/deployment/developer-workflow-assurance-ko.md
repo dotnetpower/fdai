@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: a9bcf82e8211a0167ad3f8d4920618e266e69aab
+translation_source_sha: 3c85f79ec8d44cd01bb1d8d696a27fd906648869
 translation_revised: 2026-09-19
 ---
 
@@ -75,6 +75,9 @@ CI 범위 해석기는 결정론적으로 동작하며 안전한 쪽을 선택�
 연결을 제공해야 합니다. HTTP, 브라우저, Teams, Slack, Event Bus 또는 관리 리소스 경로에서는
 이 소켓에 접근할 수 없습니다.
 
+`status` 명령은 각 소켓에 범위가 제한된 프로토콜 요청을 보냅니다. 중단된 프로세스가 남긴
+소켓 경로는 정상 상태가 아니라 사용 불가 상태로 보고합니다.
+
 프로세스 로컬 probe는 범위가 제한된 지연 시간 집계와 내용이 없는 프로세스 상태를 유지합니다.
 명시적 캡처는 프로세스마다 한 번씩 최대 30초 동안 `cProfile`과 `tracemalloc`을 실행할 수
 있습니다. 패킷은 저장소 상대 함수 또는 파일 위치, CPU 시간, Python 힙 차이, 상주 메모리,
@@ -97,9 +100,10 @@ Operator ASGI 애플리케이션 팩터리는 Uvicorn이 팩터리를 직접 불
 그런 다음 실행기가 활성화한 진단을 조립된 애플리케이션 수명 주기에 추가하여 로컬 계측이
 프로덕션 조립 루트의 의존성 수를 늘리지 않게 합니다.
 `dev discuss: start or restart profiled services`를 실행하면 항상 프로파일링되는 동일한 로컬
-스택의 오래된 작업 인스턴스를 교체합니다.
+스택의 오래된 작업 인스턴스를 교체합니다. 같은 checkout의 검증된 supervisor만 종료하고,
+supervisor lock이 해제된 후 새 자식 프로세스를 시작합니다.
 내보낸 패킷은 현재 코딩 세션의 GitHub Copilot이 검토하며, 진단 채널은 FDAI 런타임 모델이나
-Azure OpenAI 배포를 선택하거나 호출하지 않습니다. 로컬 준비 상태 검사는 서비스 소유 Core
+Azure OpenAI 배포를 선택하거나 호출하지 않습니다.
 서비스 재사용 fingerprint에는 Git 리비전과 worktree digest가 포함됩니다. 따라서 commit이나
 worktree가 바뀌면 일치하지 않는 근거를 반환하지 않고 오래된 프로세스를 교체합니다. 로컬 준비
 상태 검사는 서비스 소유 Core 실행기를 프로세스 소유자로 인식하고 새로운 semantic consumer

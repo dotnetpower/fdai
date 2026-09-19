@@ -70,6 +70,9 @@ venue is `local`; direct process starts outside that launcher require the comple
 binding before diagnostics can be enabled. No HTTP, browser, Teams, Slack, Event Bus, or
 managed-resource route reaches this socket.
 
+The `status` command sends a bounded protocol request to each socket. A socket path left behind by
+an interrupted process is unavailable, not healthy.
+
 The process-local probe retains bounded latency aggregates and reads content-free process state.
 An explicit capture can run `cProfile` and `tracemalloc` for at most 30 seconds, one capture per
 process. The packet reports repository-relative function or file locations, CPU time, Python heap
@@ -91,7 +94,9 @@ the sockets measure only the running Core and Operator processes. The local Core
 service-owned entry point. The Operator ASGI factory binds its runtime-scope receipt even when
 Uvicorn loads the factory directly, then appends launcher-enabled diagnostics to the composed
 application lifecycle without expanding the production composition root. Running `dev discuss: start or restart profiled services`
-replaces a stale instance of the same always-profiled local stack. GitHub Copilot in the active coding session reviews exported
+replaces a stale instance of the same always-profiled local stack. It terminates only a verified
+supervisor from the same checkout and waits for the supervisor lock to be released before starting
+new children. GitHub Copilot in the active coding session reviews exported
 packets; no FDAI runtime or Azure OpenAI deployment is selected or invoked by the diagnostic
 channel. A profiled service reuse fingerprint includes its Git revision and worktree digest, so a
 commit or worktree change replaces the stale process instead of returning mismatched evidence.

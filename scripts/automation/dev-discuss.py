@@ -335,9 +335,28 @@ def _prune(directory: Path, pattern: str) -> None:
         path.unlink()
 
 
-def _status(root: Path) -> int:
+async def _socket_available(socket_path: Path) -> bool:
+    if not socket_path.is_socket():
+        return False
+    try:
+        await request_profile(
+            socket_path,
+            duration_ms=0,
+            cpu=False,
+            heap=False,
+            timeout_seconds=2,
+        )
+    except (OSError, TimeoutError, RuntimeError, ValueError):
+        return False
+    return True
+
+
+async def _status(root: Path) -> int:
     sockets = root / ".fdai" / "runtime-diagnostics"
-    value = {service: (sockets / f"{service}.sock").is_socket() for service in SERVICES}
+    availability = await asyncio.gather(
+        *(_socket_available(sockets / f"{service}.sock") for service in SERVICES)
+    )
+    value = dict(zip(SERVICES, availability, strict=True))
     print(json.dumps(value, sort_keys=True))
     return 0 if any(value.values()) else 1
 
@@ -357,7 +376,7 @@ def _report(root: Path, top: int) -> int:
 async def _main_async(options: argparse.Namespace) -> int:
     root = _root()
     if options.command == "status":
-        return _status(root)
+        return await _status(root)
     if options.command == "report":
         return _report(root, options.top)
     if options.command == "copilot-import":

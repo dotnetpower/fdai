@@ -1,18 +1,65 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 2 || "$1" != "--auth-mode" ]]; then
-  echo "Usage: $0 --auth-mode browser-entra|azure-cli" >&2
+if [[ $# -lt 2 || $# -gt 3 || "$1" != "--auth-mode" ]]; then
+  echo "Usage: $0 --auth-mode browser-entra|azure-cli [--replace-existing]" >&2
   exit 2
 fi
 auth_mode="$2"
 if [[ "$auth_mode" != "browser-entra" && "$auth_mode" != "azure-cli" ]]; then
-  echo "Usage: $0 --auth-mode browser-entra|azure-cli" >&2
+  echo "Usage: $0 --auth-mode browser-entra|azure-cli [--replace-existing]" >&2
   exit 2
+fi
+replace_existing=0
+if [[ $# -eq 3 ]]; then
+  if [[ "$3" != "--replace-existing" ]]; then
+    echo "Usage: $0 --auth-mode browser-entra|azure-cli [--replace-existing]" >&2
+    exit 2
+  fi
+  replace_existing=1
 fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$repo_root"
+
+mkdir -p "$repo_root/.fdai/logs"
+stack_lock_file="$repo_root/.fdai/logs/console-stack.log.lock"
+exec {stack_lock_fd}>> "$stack_lock_file"
+chmod 600 "$stack_lock_file"
+owns_stack_lock=0
+if flock -n "$stack_lock_fd"; then
+  owns_stack_lock=1
+elif [[ "$replace_existing" == "1" ]]; then
+  read -r supervisor_pid < "$stack_lock_file" || true
+  supervisor_cwd="$(readlink -f "/proc/${supervisor_pid:-invalid}/cwd" 2>/dev/null || true)"
+  supervisor_is_managed=0
+  if [[ "${supervisor_pid:-}" =~ ^[1-9][0-9]*$ \
+    && "$supervisor_cwd" == "$repo_root" \
+    && -r "/proc/$supervisor_pid/cmdline" ]] \
+    && grep -zEq '(^|/)scripts/deployment/local/start-console-services\.sh$' \
+      "/proc/$supervisor_pid/cmdline"; then
+    for supervisor_fd in "/proc/$supervisor_pid/fd/"*; do
+      if [[ "$(readlink -f "$supervisor_fd" 2>/dev/null || true)" \
+        == "$(readlink -f "$stack_lock_file")" ]]; then
+        supervisor_is_managed=1
+        break
+      fi
+    done
+  fi
+  if [[ "$supervisor_is_managed" != "1" ]]; then
+    echo "existing Console supervisor ownership cannot be verified" >&2
+    exit 75
+  fi
+  kill -TERM "$supervisor_pid" 2>/dev/null || true
+  if ! flock -w 15 "$stack_lock_fd"; then
+    echo "existing Console supervisor did not release its lock" >&2
+    exit 75
+  fi
+  owns_stack_lock=1
+fi
+if [[ "$owns_stack_lock" == "1" ]]; then
+  printf '%s\n' "$$" > "$stack_lock_file"
+fi
 
 services=(
   core-runtime
@@ -149,7 +196,6 @@ for service in "${services[@]}"; do
   child_pids+=("$!")
 done
 printf '%s service=console-stack event=started\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
-
 "$repo_root/.venv/bin/python" \
   "$repo_root/scripts/automation/run-bounded-command.py" \
   --label console-readiness \
