@@ -27,15 +27,19 @@ COPY services/isolated-executor/pyproject.toml ./services/isolated-executor/pypr
 COPY services/system-knowledge-service/pyproject.toml ./services/system-knowledge-service/pyproject.toml
 COPY packages/github-app-auth/pyproject.toml ./packages/github-app-auth/pyproject.toml
 COPY packages/service-contracts/ ./packages/service-contracts/
+COPY packages/runtime-diagnostics/ ./packages/runtime-diagnostics/
 COPY services/operator-service/ ./services/operator-service/
 RUN uv build --wheel --package fdai-service-contracts --out-dir /wheels \
+    && uv build --wheel --package fdai-runtime-diagnostics --out-dir /wheels \
     && uv build --wheel --package fdai-operator-service --out-dir /wheels \
     && uv sync --frozen --package fdai-operator-service --no-dev --no-editable \
         --no-install-package fdai \
         --no-install-package fdai-service-contracts \
+        --no-install-package fdai-runtime-diagnostics \
         --no-install-package fdai-operator-service \
     && uv pip install --python /app/.venv/bin/python --no-deps \
         /wheels/fdai_service_contracts-*.whl \
+        /wheels/fdai_runtime_diagnostics-*.whl \
         /wheels/fdai_operator_service-*.whl \
     && test -x /app/.venv/bin/fdai-operator-service \
     && test "$(head -n 1 /app/.venv/bin/fdai-operator-service)" = "#!/app/.venv/bin/python"

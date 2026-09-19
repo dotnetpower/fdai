@@ -112,7 +112,7 @@ documents load for changes to those runtime contracts rather than every CI tooli
 | Edit | Owning focused tests and affected static contracts | Reuse only while code, tests, checker, configuration, dependencies, tools, and relevant environment inputs remain equal. |
 | Commit and push | Delivered content matches the tested inputs; hooks retain their owning controls | A new commit identifier alone does not invalidate a content-bound local result. Dirty content cannot certify a clean commit. |
 | Merge | Required CI on the actual integration revision | Local results do not replace required remote checks. A merge request does not also request a local whole-suite run. |
-| Release candidate | Selected images are built, scanned, published, and attested by the protected workflow | Reuse a verified candidate digest instead of building every source commit or every environment. |
+| Release candidate | Selected images are built, scanned, published, and attested by the protected workflow. Typed shared packages include their marker and wheel in every declared consumer image. | Reuse a verified candidate digest instead of building every source commit or every environment. |
 | Deploy | Exact source, digest, provenance, approval, policy, and fresh evidence | Local caches grant no deployment authority; stale vulnerability evidence can require a new scan of the same digest. |
 
 The local structural runner can reuse successful results across the optional validator and push

@@ -104,10 +104,12 @@ _CORE_PREFIXES = (
 )
 _COST_GOVERNANCE_PREFIX = "extensions/cost-governance/"
 _GITHUB_APP_AUTH_PREFIX = "packages/github-app-auth/"
+_RUNTIME_DIAGNOSTICS_PREFIX = "packages/runtime-diagnostics/"
 _SOURCE_PACKAGE_PREFIXES = (
     *(f"services/{target.service}/" for target in IMAGE_TARGETS),
     _COST_GOVERNANCE_PREFIX,
     _GITHUB_APP_AUTH_PREFIX,
+    _RUNTIME_DIAGNOSTICS_PREFIX,
     "packages/service-contracts/",
     "evaluation-sdk/",
 )
@@ -173,6 +175,9 @@ def select_image_targets(
 
     selected: set[str] = set()
     for path in paths:
+        if path.startswith(_RUNTIME_DIAGNOSTICS_PREFIX):
+            selected.update({"core-control-plane", "cost-governance", "operator-service"})
+            continue
         if path.startswith(_GITHUB_APP_AUTH_PREFIX):
             selected.update({"core-control-plane", "cost-governance", "document-ingestion-api"})
             continue

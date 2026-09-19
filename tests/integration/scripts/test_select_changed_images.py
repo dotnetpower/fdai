@@ -56,6 +56,11 @@ def test_runtime_assets_select_only_their_consumers() -> None:
         "cost-governance",
         "document-ingestion-api",
     ]
+    assert _targets(["packages/runtime-diagnostics/pyproject.toml"]) == [
+        "core-control-plane",
+        "cost-governance",
+        "operator-service",
+    ]
 
 
 def test_cost_governance_sources_select_the_distribution_profile_only() -> None:
@@ -123,6 +128,7 @@ def test_matrix_json_contains_complete_target_records() -> None:
         "services/operator-service/docs/README.md",
         "packages/service-contracts/src/contracts.py",
         "packages/github-app-auth/src/auth.py",
+        "packages/runtime-diagnostics/src/fdai_runtime_diagnostics/probe.py",
         "extensions/cost-governance/src/fdai_cost_governance/__init__.py",
         "evaluation-sdk/src/evaluation/types.pyi",
         "docs/user-guide/get-started.md",
