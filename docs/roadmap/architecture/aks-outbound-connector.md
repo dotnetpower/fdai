@@ -152,8 +152,12 @@ storage I/O. Failed evidence reads cannot hide a setup need; storage service fai
 
 The initial schema pair is `observer-deployment-context` and `observer-deployment-proposal`.
 Absent server-owned preflight evidence produces `needs_evidence`, not a best-guess installation.
-The signed preflight reader authenticates the registered verifier and retains up to 16 independent
-issuer contributions under one atomic target checkpoint. Conflicting facts, owners or discovery
+The signed preflight reader authenticates registered verifiers and retains up to 16 independent
+contributions, keyed by issuer and signed fact-name set, under one atomic target checkpoint.
+Disjoint collectors from one verifier coexist; a newer receipt replaces only its exact contribution.
+Overlapping differently grouped facts from one issuer are rejected rather than partially rewriting
+a signed receipt. Existing aggregate receipts remain readable and require an explicit producer
+handoff before changing their fact grouping. Conflicting facts, owners or discovery
 bindings block readback. Unsigned legacy context supplies owner pins only, never eligible facts.
 Supplied-context evaluation remains available without persistence or network calls; it does not
 authenticate that file's assertions:

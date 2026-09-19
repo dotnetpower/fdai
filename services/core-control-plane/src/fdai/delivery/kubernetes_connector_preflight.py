@@ -26,6 +26,10 @@ from fdai.shared.providers.state_store import StateStore
 PREFLIGHT_PREFIX = "observer-deployment:preflight:v1:"
 
 
+def _contribution(receipt: ObserverPreflightReceipt) -> tuple[str, tuple[str, ...]]:
+    return receipt.issuer_ref, tuple(sorted(fact.name for fact in receipt.context.facts))
+
+
 class ObserverPreflightGrant(ConnectorContract):
     """Deployment-owned verifier enrollment; the issuer cannot register or widen itself."""
 
@@ -134,7 +138,16 @@ class SignedObserverConstraints:
             receipts, revision = self._decode(previous)
             if any(item.context.target_ref != receipt.context.target_ref for item in receipts):
                 raise ValueError("observer preflight checkpoint changed target")
-            old = next((item for item in receipts if item.issuer_ref == receipt.issuer_ref), None)
+            identity = _contribution(receipt)
+            for item in receipts:
+                prior_identity = _contribution(item)
+                if (
+                    prior_identity[0] == identity[0]
+                    and prior_identity != identity
+                    and set(prior_identity[1]) & set(identity[1])
+                ):
+                    raise ValueError("observer preflight contribution overlaps retained evidence")
+            old = next((item for item in receipts if _contribution(item) == identity), None)
             if old is not None:
                 if old == receipt:
                     await verify_preflight(
@@ -148,12 +161,15 @@ class SignedObserverConstraints:
                     raise ValueError("observer preflight conflicts with current evidence")
         receipts = tuple(
             sorted(
-                (*[item for item in receipts if item.issuer_ref != receipt.issuer_ref], receipt),
-                key=lambda item: item.issuer_ref,
+                (
+                    *[item for item in receipts if _contribution(item) != _contribution(receipt)],
+                    receipt,
+                ),
+                key=_contribution,
             )
         )
         if len(receipts) > 16:
-            raise ValueError("observer preflight verifier count exceeds its bound")
+            raise ValueError("observer preflight contribution count exceeds its bound")
         current = await verify_preflight(
             receipt, grants=self._grants, now=self._now(), clock=self._now
         )
@@ -247,8 +263,15 @@ class SignedObserverConstraints:
         if not isinstance(raw, list) or not 1 <= len(raw) <= 16:
             raise ValueError("observer preflight receipts exceed their bound")
         receipts = tuple(ObserverPreflightReceipt.model_validate(item) for item in raw)
-        if len({item.issuer_ref for item in receipts}) != len(receipts):
-            raise ValueError("observer preflight issuers must be unique")
+        if len({_contribution(item) for item in receipts}) != len(receipts):
+            raise ValueError("observer preflight contributions must be unique")
+        per_issuer: dict[str, set[str]] = {}
+        for item in receipts:
+            issuer, names = _contribution(item)
+            retained = per_issuer.setdefault(issuer, set())
+            if retained.intersection(names):
+                raise ValueError("observer preflight contributions overlap")
+            retained.update(names)
         if (
             canonical_digest([item.model_dump(mode="json") for item in receipts])
             != value["receipt_digest"]

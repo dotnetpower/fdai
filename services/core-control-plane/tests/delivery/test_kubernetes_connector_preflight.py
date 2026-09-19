@@ -65,6 +65,64 @@ async def test_signed_preflight_is_retained_once_and_revocation_is_current() -> 
     assert await store.verify_chain()
 
 
+async def test_same_verifier_keeps_independent_collector_receipts() -> None:
+    grant, original, private = material()
+    store = InMemoryStateStore()
+    clock = [NOW]
+    source = SignedObserverConstraints(store, grants=Grants(grant), now=lambda: clock[0])
+
+    def signed_fact(name, *, state="allowed", issued=NOW):
+        fact = next(item for item in original.context.facts if item.name == name).model_copy(
+            update={"state": state}
+        )
+        receipt = original.model_copy(
+            update={
+                "context": original.context.model_copy(update={"facts": (fact,)}),
+                "issued_at": issued,
+            }
+        )
+        return receipt.model_copy(update={"signature": private.sign(receipt.signing_bytes()).hex()})
+
+    for name in ("kubernetes_read", "admission", "mtls_gateway"):
+        assert await source.retain(signed_fact(name))
+    result = await source.read(original.context.target_ref, now=NOW)
+    assert {fact.name for fact in result.facts} == {"kubernetes_read", "admission", "mtls_gateway"}
+    clock[0] += timedelta(seconds=1)
+    replacement = signed_fact("admission", state="denied", issued=clock[0])
+    assert await source.retain(replacement)
+    assert not await source.retain(replacement)
+    result = await source.read(original.context.target_ref, now=clock[0])
+    assert {fact.name: fact.state for fact in result.facts} == {
+        "kubernetes_read": "allowed",
+        "admission": "denied",
+        "mtls_gateway": "allowed",
+    }
+    assert len(list(store.audit_entries)) == 4
+
+
+async def test_same_verifier_cannot_replace_part_of_an_existing_signed_group() -> None:
+    grant, original, private = material()
+    store = InMemoryStateStore()
+    source = SignedObserverConstraints(
+        store, grants=Grants(grant), now=lambda: NOW + timedelta(seconds=1)
+    )
+    assert await source.retain(original)
+    partial = original.model_copy(
+        update={
+            "context": original.context.model_copy(update={"facts": original.context.facts[:1]}),
+            "issued_at": NOW + timedelta(seconds=1),
+        }
+    )
+    partial = partial.model_copy(update={"signature": private.sign(partial.signing_bytes()).hex()})
+    with pytest.raises(ValueError, match="overlap"):
+        await source.retain(partial)
+    assert (
+        len((await source.read(original.context.target_ref, now=NOW + timedelta(seconds=1))).facts)
+        == 16
+    )
+    assert len(list(store.audit_entries)) == 1
+
+
 @pytest.mark.parametrize(
     "kind", ["signature", "target", "issuer", "scope", "revision", "expiry", "owner"]
 )
