@@ -58,6 +58,53 @@ def test_runner_preserves_output_permissions_and_exit_status(tmp_path: Path) -> 
     assert _TIMESTAMP_PREFIX.match(lines[-1])
 
 
+def test_runner_injects_content_bound_development_diagnostic_identity(
+    tmp_path: Path,
+) -> None:
+    log_file = tmp_path / "logs" / "operator-api.log"
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "FDAI_DEVELOPMENT_DIAGNOSTICS": "1",
+            "FDAI_LOCAL_SERVICE_INPUT_DIGEST": "a" * 64,
+        }
+    )
+    command = (
+        "import os; "
+        "print(os.environ['FDAI_DEVELOPMENT_DIAGNOSTICS_SOURCE_REVISION']); "
+        "print(os.environ['FDAI_DEVELOPMENT_DIAGNOSTICS_INPUT_DIGEST']); "
+        "print(os.environ['FDAI_DEVELOPMENT_DIAGNOSTICS_WORKTREE_DIGEST']); "
+        "print(os.environ['FDAI_DEVELOPMENT_DIAGNOSTICS_SOURCE_ROOT']); "
+        "print(os.environ['FDAI_DEVELOPMENT_DIAGNOSTICS_SOCKET_DIR'])"
+    )
+
+    result = subprocess.run(  # noqa: S603 - command and executable are fixed test inputs
+        [
+            _BASH,
+            str(_RUNNER),
+            "operator-api",
+            str(log_file),
+            "--",
+            sys.executable,
+            "-c",
+            command,
+        ],
+        cwd=Path(__file__).parents[3],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+
+    assert result.returncode == 0
+    values = [line for line in result.stdout.splitlines() if "service=" not in line]
+    assert re.fullmatch(r"[0-9a-f]{40}", values[0])
+    assert values[1] == "a" * 64
+    assert re.fullmatch(r"[0-9a-f]{64}", values[2])
+    assert values[3] == str(Path(__file__).parents[3])
+    assert values[4] == str(log_file.parent.parent / "runtime-diagnostics")
+
+
 def test_runner_removes_only_stale_output_fifos(tmp_path: Path) -> None:
     log_dir = tmp_path / "logs"
     log_dir.mkdir()

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: c2cd64797dd835a38d876732245815bcaebc1fb2
+translation_source_sha: 6dd548c42c95e20f1fd682f2457c3f3d547dd94e
 translation_revised: 2026-09-19
 ---
 # 런타임 배포 프로파일
@@ -140,7 +140,7 @@ $$
 `inventory_ready`가 없어도 준비 상태로 해석하지 않습니다. 초기 또는 반복 검사가 완전한 승격 세대를 온톨로지에 반영하면 범위가 제한된 delivery 모듈 `inventory_ontology_observer.py`가 Resource마다 재시도에 안정적인 관측 Event 하나를 기존 컨트롤 루프 토픽에 게시하고 CLI는 조립만 담당합니다. 규칙 판단은 계속 Forseti가 소유하고 감사는 Saga가 소유합니다. 불완전한 변환 결과나 게시 실패로는 인벤토리 종결 조건을 충족하거나 실행 권한을 만들 수 없습니다.
 
 테넌트 프로비저닝은 새 설치, 전체 프로파일 수렴, staging, production, 의존성 및 release에서 미리
-빌드된 서비스와 의존성 이미지를 사용합니다. 완전한 release에는 ClamAV와 pgvector가 포함되며
+빌드된 서비스와 의존성 이미지를 사용합니다. Core, Operator 및 Cost Governance 프로파일은 배포판에서 가져오는 타입 정보가 있는 공유 런타임 진단 wheel을 설치하며, 실행 위치 가드는 명시적인 로컬 개발 환경 밖에서 해당 소켓을 사용할 수 없게 유지합니다. 완전한 release에는 ClamAV와 pgvector가 포함되며
 프로비저닝 도구는 Docker, Buildx, ACR Tasks, 원격 빌더 또는 VM 이미지 캡처 없이 서명, 출처,
 소스 버전, 플랫폼 및 digest를 검증합니다. 범위가 제한된 예외 하나는 적격 호스트가 기존의 정상
 `dev` AKS 설치에서 서비스 하나에 `fdaictl provision source-service-update`를 실행하도록

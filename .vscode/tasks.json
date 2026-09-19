@@ -544,6 +544,70 @@
         "panel": "new",
         "group": "conversation-assurance"
       }
+    },
+    {
+      "label": "dev discuss: start or restart profiled services",
+      "type": "shell",
+      "command": "FDAI_DEVELOPMENT_DIAGNOSTICS=1 bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "console: require primary worktree",
+        "console: prepare full stack"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "dev-discuss-services",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "service=console-stack event=starting$",
+          "endsPattern": "service=console-stack event=(ready|failed)(?: |$)"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "dev-discuss",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "terminateOldest"
+      }
+    },
+    {
+      "label": "dev discuss: status",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/dev-discuss.py status",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "dev-discuss"
+      }
+    },
+    {
+      "label": "dev discuss: snapshot selected service",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/dev-discuss.py capture --service ${input:diagnosticService}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "dev-discuss"
+      }
+    },
+    {
+      "label": "dev discuss: profile selected service (5s)",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/dev-discuss.py capture --service ${input:diagnosticService} --duration-ms 5000",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "dev-discuss"
+      }
     }
   ],
   "inputs": [
@@ -569,6 +633,16 @@
         "Loki"
       ],
       "default": "Odin"
+    },
+    {
+      "id": "diagnosticService",
+      "type": "pickString",
+      "description": "Local FDAI service to profile",
+      "options": [
+        "core-control-plane",
+        "operator-service"
+      ],
+      "default": "core-control-plane"
     }
   ]
 }

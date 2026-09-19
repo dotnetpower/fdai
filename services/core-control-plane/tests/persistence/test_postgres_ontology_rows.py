@@ -261,6 +261,14 @@ async def test_pending_reconciliation_is_scoped_to_the_active_snapshot() -> None
     assert complete is True
     assert generation == "generation-2"
     assert "jsonb_array_elements_text(snapshot.scopes)" in connection.statement
+    assert (
+        "JOIN inventory_observation_partition AS correction "
+        "ON correction.scope_ref=correction_scope.scope"
+    ) in connection.statement
+    assert (
+        "JOIN inventory_observation_journal AS pending ON pending.scope_ref=pending_scope.scope"
+    ) in connection.statement
+    assert "pending.scope_ref IN" not in connection.statement
     assert connection.params == ("inventory-ontology:active-scope-checkpoint",)
     assert "active_checkpoint.value->'scope_refs'=snapshot.scopes" in connection.statement
     assert "marker.key = 'inventory-relationship-reconciliation:' || active_scope.scope" in (

@@ -117,6 +117,7 @@ from fdai.runtime.venue import (
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.analyzer_tick")
+_TARGET_RESOLUTION_RETRY_SECONDS = 5.0
 
 _PUBLICATION_STATES = tuple(item.value for item in AnalyzerPublicationStatus)
 
@@ -668,7 +669,12 @@ async def run_loop(
             if max_ticks is not None and completed >= max_ticks:
                 return 0
         elapsed = monotonic() - tick_started
-        await sleep(max(0.0, float(interval_seconds) - elapsed))
+        next_interval = (
+            min(float(interval_seconds), _TARGET_RESOLUTION_RETRY_SECONDS)
+            if failure_reason == "target_resolution_unavailable"
+            else float(interval_seconds)
+        )
+        await sleep(max(0.0, next_interval - elapsed))
     return 0
 
 

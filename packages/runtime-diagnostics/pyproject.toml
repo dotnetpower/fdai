@@ -1,0 +1,23 @@
+[project]
+name = "fdai-runtime-diagnostics"
+version = "0.1.0"
+description = "Local-only bounded runtime diagnostics for FDAI development"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2.11,<3"]
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fdai_runtime_diagnostics"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/fdai_runtime_diagnostics"]

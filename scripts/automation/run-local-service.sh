@@ -49,6 +49,29 @@ if [[ "$reuse_existing" == "1" && -z "$input_digest" ]]; then
   echo "FDAI_LOCAL_SERVICE_INPUT_DIGEST is required when service reuse is enabled" >&2
   exit 2
 fi
+diagnostics_enabled="${FDAI_DEVELOPMENT_DIAGNOSTICS:-0}"
+if [[ "$diagnostics_enabled" != "0" && "$diagnostics_enabled" != "1" ]]; then
+  echo "FDAI_DEVELOPMENT_DIAGNOSTICS MUST be 0 or 1" >&2
+  exit 2
+fi
+if [[ "$diagnostics_enabled" == "1" ]]; then
+  if [[ -z "$input_digest" ]]; then
+    echo "FDAI_LOCAL_SERVICE_INPUT_DIGEST is required for development diagnostics" >&2
+    exit 2
+  fi
+  source_revision="$(git rev-parse --verify HEAD 2>/dev/null || true)"
+  if [[ ! "$source_revision" =~ ^[a-f0-9]{40}$ ]]; then
+    echo "development diagnostics require one exact Git revision" >&2
+    exit 2
+  fi
+  digest_script="$(dirname "${BASH_SOURCE[0]}")/local-service-input-digest.py"
+  worktree_digest="$(python3 "$digest_script" --paths-only .)" || exit $?
+  export FDAI_DEVELOPMENT_DIAGNOSTICS_SOURCE_REVISION="$source_revision"
+  export FDAI_DEVELOPMENT_DIAGNOSTICS_INPUT_DIGEST="$input_digest"
+  export FDAI_DEVELOPMENT_DIAGNOSTICS_WORKTREE_DIGEST="$worktree_digest"
+  diagnostics_source_root="$(pwd -P)" || exit $?
+  export FDAI_DEVELOPMENT_DIAGNOSTICS_SOURCE_ROOT="$diagnostics_source_root"
+fi
 shutdown_seconds="${FDAI_LOCAL_SERVICE_SHUTDOWN_SECONDS:-10}"
 if [[ ! "$shutdown_seconds" =~ ^[1-9][0-9]*$ ]]; then
   echo "FDAI_LOCAL_SERVICE_SHUTDOWN_SECONDS MUST be a positive integer" >&2
@@ -65,6 +88,10 @@ fi
 log_dir="$(dirname "$log_file")"
 mkdir -p "$log_dir"
 chmod 700 "$log_dir"
+if [[ "$diagnostics_enabled" == "1" ]]; then
+  diagnostics_socket_dir="$(readlink -m "$log_dir/../runtime-diagnostics")" || exit $?
+  export FDAI_DEVELOPMENT_DIAGNOSTICS_SOCKET_DIR="$diagnostics_socket_dir"
+fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 launch_marker="${FDAI_LOCAL_SERVICE_LAUNCH_MARKER:-}"
 if [[ -n "$launch_marker" \

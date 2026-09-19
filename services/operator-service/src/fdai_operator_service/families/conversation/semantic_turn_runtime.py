@@ -54,6 +54,7 @@ from fdai_operator_service.postgres_semantic_turn_store import (
     SemanticTurnRequestAbsentError,
     SemanticTurnTerminalClosedError,
 )
+from fdai_runtime_diagnostics import observe_stage as observe_development_stage
 from fdai_service_contracts import (
     MAX_INTENT_GRAPH_GOALS,
     ContractValidationError,
@@ -1603,6 +1604,7 @@ def _verified_query_activities(
             return ()
         if not _receipt_represents_read(status, reason):
             continue
+        observe_development_stage(f"conversation.query.{status}", duration_ms)
         node_id = task_id.removeprefix("query:")
         node_output = outputs.get(node_id)
         command = _verified_query_command(

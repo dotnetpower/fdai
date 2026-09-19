@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a1c8e1a17b90f2146e1704cedefe19a037555e76
-translation_revised: 2026-09-15
+translation_source_sha: e3bc4efa77c063621854ec7f6b306126c2af291d
+translation_revised: 2026-09-19
 ---
 # 코드 맵
 
@@ -30,6 +30,7 @@ translation_revised: 2026-09-15
 | Isolated Executor | [fdai_executor_service](../../../services/isolated-executor/src/fdai_executor_service/) | [Executor 테스트](../../../services/isolated-executor/tests/) | `fdai-isolated-executor-service` |
 | System Knowledge Service | [fdai_system_knowledge_service](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/) | [System Knowledge 테스트](../../../services/system-knowledge-service/tests/) | `fdai-system-knowledge-service` |
 | 서비스 계약 | [fdai_service_contracts](../../../packages/service-contracts/src/fdai_service_contracts/) | [계약 테스트](../../../packages/service-contracts/tests/) | `fdai-service-contracts` |
+| 런타임 진단 | [fdai_runtime_diagnostics](../../../packages/runtime-diagnostics/src/fdai_runtime_diagnostics/) | [진단 테스트](../../../packages/runtime-diagnostics/tests/) | `fdai-runtime-diagnostics` |
 | 선택적 Cost Governance 패키지 | [fdai_cost_governance](../../../extensions/cost-governance/src/fdai_cost_governance/) | [패키지 테스트](../../../extensions/cost-governance/tests/) | `fdai-cost-governance` |
 | 서비스 간 통합 | 해당 없음 | [루트 통합 테스트](../../../tests/integration/) | 가상 루트 전용 |
 
@@ -69,12 +70,13 @@ Core 배포 단위는 전체 `fdai` 네임스페이스를 유지합니다. 다�
 
 서비스는 다른 서비스 구현이 아니라 [fdai-service-contracts](../../../packages/service-contracts/)에 의존합니다. 로컬 및 배포 조립은 같은 논리 topic, 멱등성, 준비 상태, 증적 경계를 유지합니다.
 
-## Shared 계약 SDK
+## 공유 패키지
 
 | 패키지 | 책임 | 테스트 |
 |--------|------|--------|
 | [fdai-service-contracts](../../../packages/service-contracts/) | 서비스 조립이나 공급자 I/O가 없는 버전별 프로세스 간 wire 서술자, codec, 준비 상태 레코드, 호환성 검사 | [계약 테스트](../../../packages/service-contracts/tests/) |
 | [github-app-auth](../../../packages/github-app-auth/) | 승인된 서비스 이미지가 공유하는 갱신 가능한 GitHub App 자격 증명 | [패키지 테스트](../../../packages/github-app-auth/tests/) |
+| [runtime-diagnostics](../../../packages/runtime-diagnostics/) | 제품 또는 실행 권한 없이 소유자 전용 Unix 소켓을 통해 명시적으로 활성화하는 로컬 전용 CPU, Python 힙, 프로세스 및 단계 프로파일링 | [진단 테스트](../../../packages/runtime-diagnostics/tests/) |
 
 [공유 계약 런타임 참조](../../reference/shared-contract-runtime-ko.md)에서 버전 협상, 논리 topic, 실행 장소, 호환성 규칙을 설명합니다.
 

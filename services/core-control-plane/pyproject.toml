@@ -14,6 +14,7 @@ dependencies = [
 	"croniter>=6,<7",
 	"cryptography>=46,<51",
 	"fdai-github-app-auth==0.1.0",
+	"fdai-runtime-diagnostics==0.1.0",
 	"fdai-service-contracts==0.1.0",
 	"httpx>=0.27,<1",
 	"jsonschema>=4.23,<5",
@@ -48,6 +49,7 @@ build-backend = "hatchling.build"
 
 [tool.uv.sources]
 fdai-github-app-auth = { workspace = true }
+fdai-runtime-diagnostics = { workspace = true }
 fdai-service-contracts = { workspace = true }
 
 [tool.hatch.build.targets.wheel]

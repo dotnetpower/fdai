@@ -27,6 +27,7 @@ This page maps FDAI runtime distributions and repository areas to their source, 
 | Isolated Executor | [fdai_executor_service](../../../services/isolated-executor/src/fdai_executor_service/) | [Executor tests](../../../services/isolated-executor/tests/) | `fdai-isolated-executor-service` |
 | System Knowledge Service | [fdai_system_knowledge_service](../../../services/system-knowledge-service/src/fdai_system_knowledge_service/) | [System Knowledge tests](../../../services/system-knowledge-service/tests/) | `fdai-system-knowledge-service` |
 | Service contracts | [fdai_service_contracts](../../../packages/service-contracts/src/fdai_service_contracts/) | [Contract tests](../../../packages/service-contracts/tests/) | `fdai-service-contracts` |
+| Runtime diagnostics | [fdai_runtime_diagnostics](../../../packages/runtime-diagnostics/src/fdai_runtime_diagnostics/) | [Diagnostic tests](../../../packages/runtime-diagnostics/tests/) | `fdai-runtime-diagnostics` |
 | Optional Cost Governance package | [fdai_cost_governance](../../../extensions/cost-governance/src/fdai_cost_governance/) | [Package tests](../../../extensions/cost-governance/tests/) | `fdai-cost-governance` |
 | Cross-service integration | Not applicable | [Root integration tests](../../../tests/integration/) | Virtual root only |
 
@@ -66,12 +67,13 @@ The Core distribution retains the complete `fdai` namespace. The following table
 
 Services depend on [fdai-service-contracts](../../../packages/service-contracts/), not on another service implementation. Local and deployed composition preserve the same logical topics, idempotency, readiness, and receipt boundaries.
 
-## Shared contract SDK
+## Shared packages
 
 | Package | Responsibility | Tests |
 |---------|----------------|-------|
 | [fdai-service-contracts](../../../packages/service-contracts/) | Versioned cross-process wire descriptors, codecs, readiness records, and compatibility checks without service composition or provider I/O | [Contract tests](../../../packages/service-contracts/tests/) |
 | [github-app-auth](../../../packages/github-app-auth/) | Refreshable GitHub App credentials shared by approved service images | [Package tests](../../../packages/github-app-auth/tests/) |
+| [runtime-diagnostics](../../../packages/runtime-diagnostics/) | Explicit local-only CPU, Python heap, process, and stage profiling over an owner-only Unix socket with no product or execution authority | [Diagnostic tests](../../../packages/runtime-diagnostics/tests/) |
 
 The [shared contract runtime reference](../../reference/shared-contract-runtime.md) documents version negotiation, logical topics, execution venues, and compatibility rules.
 

@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_kind": "development_diagnostics_copilot_evaluation",
+  "evaluation_source": "owner_only_local_uds_harness",
+  "profile_target": "core_control_plane_contract_harness",
+  "source_revision": "e4b307684a19793c1aa6dbb568265bef3ddbd09e",
+  "worktree_digest": "f810944260919a3863da33347d4cecd856c45087e3c3807ccd716350e2bd8df0",
+  "packet_digest": "sha256:c70521a6f3381dcf5f3459ac8105433aeb586f1af1d45186f466c4aebcb62ee4",
+  "round_count": 20,
+  "pass_count": 20,
+  "minimum_score": 5,
+  "criteria": [
+    "appropriate",
+    "grounded",
+    "attributed",
+    "no_causation_overclaim",
+    "actionable"
+  ],
+  "hardening_round_count": 13,
+  "maximum_residual_severity": "low",
+  "pre_evaluation_finding_count": 1,
+  "pre_evaluation_findings_fixed": true,
+  "full_service_startup": "unavailable_after_bounded_readiness",
+  "limitations": [
+    "full_service_core_operator_capture_not_observed"
+  ],
+  "synthetic": true,
+  "external_state_authority": false,
+  "execution_authority": false,
+  "rounds": [
+    {"round": 1, "review_digest": "sha256:87214a667952f37b33ebdae74daf844b6f080a47bec728c9112fe486a4d7f14e", "result_digest": "sha256:a0452a4a4b5dfc931617017389b4d210326c40e42a987dd6c12e53c408d75a4d", "score": 5, "verdict": "pass"},
+    {"round": 2, "review_digest": "sha256:23d1619a3a0570c248e84fc5e65cef2687a74ba5b410adec14f47fb64c5b38b3", "result_digest": "sha256:2133988a6445c40c91d5a18706c524854fa9f67ec4134aa2ada741b75fcbb4b7", "score": 5, "verdict": "pass"},
+    {"round": 3, "review_digest": "sha256:e9e6d676c565c01f649dd3d54ac258088a1f8f5702cd767e5ecc3120e5ee006e", "result_digest": "sha256:b7632aeda0d1820c644f54b7193a28d3e8b5c9f458c78696d3299472e4529b53", "score": 5, "verdict": "pass"},
+    {"round": 4, "review_digest": "sha256:20da738eb845a15cb8820b9e78858bd3e60851e92702c9c2c9f49f735a420895", "result_digest": "sha256:1eacc5b6190800a68912ddad6cb281eb96dd1797a95344d9df9efb1116243c8d", "score": 5, "verdict": "pass"},
+    {"round": 5, "review_digest": "sha256:0b030307aaf85e2b61760e26b0c22a734b2848a32f682b1f7d3a4c5bbf161bae", "result_digest": "sha256:76c411b376990fbb4a697550719d52fe8ded113dd0b2d2041a28e22d255604d9", "score": 5, "verdict": "pass"},
+    {"round": 6, "review_digest": "sha256:d7559371f567bc2fd6450e03335b618362388ecc877a8b0922af1ec6bc82d157", "result_digest": "sha256:6b0dd17b91e79058e17cbe0d097492116eb46ee519fc8ab5880271ccdf69d990", "score": 5, "verdict": "pass"},
+    {"round": 7, "review_digest": "sha256:19f26a10bb1909ed887690f106b30e3d09fac4fd318566d4bc95d82eff7708f7", "result_digest": "sha256:7910d1ef1d357bb3805e5089d2e2041b20cede33dffb971cd9dd79b754f648e5", "score": 5, "verdict": "pass"},
+    {"round": 8, "review_digest": "sha256:7d37ef426ace8c9c0b07801ab80017380e8eec3a73d47592d148d4ff3fe2c974", "result_digest": "sha256:8e9a407940f42b9e1a5eebda3cde25535b127f718c95387f5bbe039af838a535", "score": 5, "verdict": "pass"},
+    {"round": 9, "review_digest": "sha256:d5c5b4c4aa25ce7d34911099a5aef34f4800ea5085e5c54cec51d047752592d6", "result_digest": "sha256:effc398e765722b66807bed360d9b86e78f91d8b847bc614a9bc3663707e7842", "score": 5, "verdict": "pass"},
+    {"round": 10, "review_digest": "sha256:d5837c2f3cc83214c369d00842dec053c30c424d9e0160f392322240c98e2dea", "result_digest": "sha256:4d86d17973f749e4f0682ce5c52c72ae95945e6b11765162c722c0314cec1aa9", "score": 5, "verdict": "pass"},
+    {"round": 11, "review_digest": "sha256:5fffce313a74eb84161a07a6278c6cd7a336dde13159bfcfdbfa51e2895327f4", "result_digest": "sha256:1452b43e3e09f6f66d1d91c43bfd26d6cba2b1af23eecb73da50a557fc5c5fae", "score": 5, "verdict": "pass"},
+    {"round": 12, "review_digest": "sha256:abbbac49003337a3b2b6f1c0683ac6c916ab214d8812c130ea41a5b736bc27a2", "result_digest": "sha256:e30f81adc03401e5e2fa9e731a893e86f8ad9787c367f850c25061d63b8ea760", "score": 5, "verdict": "pass"},
+    {"round": 13, "review_digest": "sha256:ebc550a62d8e028b9dd8d3abbdaf4d5ee734a1270a3993bc1ce310031115847e", "result_digest": "sha256:26dcc436cb1664b1ffe39f94989d270be493577ced0f9b54ded6828ff92a60ff", "score": 5, "verdict": "pass"},
+    {"round": 14, "review_digest": "sha256:a66582456c26dc852a6fc77afb42cec994e98143c0f818bfcfd56b92b065cd4c", "result_digest": "sha256:00b8d9972bba2e8c5540ace877d0d46806aeb1ea2571890a95a439cd4b354412", "score": 5, "verdict": "pass"},
+    {"round": 15, "review_digest": "sha256:5d0b02740fa0d32162c70be80bb3f278828a0bf3636beb4ea7995dc7910ce6ae", "result_digest": "sha256:2d6917ea43265a34a9bcd9100747e388bd37f4317299baadad86734dfb286c00", "score": 5, "verdict": "pass"},
+    {"round": 16, "review_digest": "sha256:0e89e8da876de4e19375050b52fc58fd0d6288be678b805326b34cfa2c6d83e9", "result_digest": "sha256:6c6a2604c302a3cc5b2078f5c86d568cdbbd9f7168e8a0b8d17b865ba10fe30f", "score": 5, "verdict": "pass"},
+    {"round": 17, "review_digest": "sha256:3ad56b19c15d993fa5e9c7b332702333cfac4d2d0b0ad0c83f35f9e7da7f2917", "result_digest": "sha256:0a052f43f6cc744d7ce654656d7a7a41eb255f249ec47b76c74819ad63a3fac2", "score": 5, "verdict": "pass"},
+    {"round": 18, "review_digest": "sha256:a787444240f5a773f6d843cef24dbd36ef3eb53518569365fb215efe8dce8579", "result_digest": "sha256:a4e9e90ca0593993dd911533170b20101664c1df18199c53358d93874a1a7b7f", "score": 5, "verdict": "pass"},
+    {"round": 19, "review_digest": "sha256:c2c32649efd180e71c8d2e045f42e5a054cfe03847c7343e0d542115aa9ae173", "result_digest": "sha256:a9325b0b049320feeac6e912169a7bf6f84d2d4bc924c731cd207b2877a2f02a", "score": 5, "verdict": "pass"},
+    {"round": 20, "review_digest": "sha256:2d767ca6f3d25c1d6bf1487a407451bbb7a94f48d3d6bace2ddea01065d76288", "result_digest": "sha256:339f0d9a5858e7edb9f5a226d711eedf978ca8b1c41afd9dfc097da5efc9f482", "score": 5, "verdict": "pass"}
+  ]
+}

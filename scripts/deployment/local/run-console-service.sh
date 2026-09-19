@@ -183,7 +183,7 @@ case "$service" in
       FDAI_PANTHEON_HEARTBEAT_SECONDS=2
       FDAI_RUNTIME_LOCK_FILE="$repo_root/.fdai/core-runtime.lock"
       PYTHONPATH="$service_pythonpath"
-      "$repo_root/.venv/bin/python" -m fdai
+      "$repo_root/.venv/bin/fdai-core-control-plane"
     )
     ;;
   operator-api)

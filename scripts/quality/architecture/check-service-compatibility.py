@@ -16,6 +16,7 @@ from jsonschema.exceptions import SchemaError, ValidationError
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CONTRACT_SOURCE = REPO_ROOT / "packages" / "service-contracts" / "src"
+RUNTIME_DIAGNOSTICS_SOURCE = REPO_ROOT / "packages" / "runtime-diagnostics" / "src"
 SERVICE_SOURCES = (
     REPO_ROOT / "services" / "core-control-plane" / "src",
     REPO_ROOT / "services" / "operator-service" / "src",
@@ -23,7 +24,7 @@ SERVICE_SOURCES = (
     REPO_ROOT / "services" / "document-processing-worker" / "src",
     REPO_ROOT / "services" / "isolated-executor" / "src",
 )
-for source_root in (CONTRACT_SOURCE, *SERVICE_SOURCES):
+for source_root in (CONTRACT_SOURCE, RUNTIME_DIAGNOSTICS_SOURCE, *SERVICE_SOURCES):
     sys.path.insert(0, str(source_root))
 
 from fdai_service_contracts import (  # noqa: E402

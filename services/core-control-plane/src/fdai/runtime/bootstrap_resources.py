@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
+from fdai_runtime_diagnostics import DevelopmentDiagnosticServer
 
 from fdai.runtime.bootstrap_messaging import MessagingRuntime
 from fdai.runtime.bootstrap_pantheon import PantheonInitializationResult
@@ -18,6 +19,7 @@ class RuntimeResources:
     """Resources acquired during startup and released in dependency order."""
 
     health_server: RuntimeHealthServer | None = None
+    development_diagnostics: DevelopmentDiagnosticServer | None = None
     http_client: httpx.AsyncClient | None = None
     messaging: MessagingRuntime | None = None
     isolated_executor_client: Any = None
@@ -29,8 +31,12 @@ class RuntimeResources:
 
         try:
             try:
-                if self.isolated_executor_client is not None:
-                    await self.isolated_executor_client.stop()
+                try:
+                    if self.development_diagnostics is not None:
+                        await self.development_diagnostics.aclose()
+                finally:
+                    if self.isolated_executor_client is not None:
+                        await self.isolated_executor_client.stop()
             finally:
                 if self.task_workers is not None:
                     await self.task_workers.aclose()

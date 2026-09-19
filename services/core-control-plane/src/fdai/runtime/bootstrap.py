@@ -6,6 +6,7 @@ import logging
 import os
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from functools import partial
 from typing import Any
 
 import httpx
@@ -57,6 +58,7 @@ from fdai.runtime.configuration import (
     _new_http_client,
     _summarize_config,
 )
+from fdai.runtime.development_diagnostics import build_development_diagnostics
 from fdai.runtime.github_auth import (
     build_github_token_provider,
     github_credentials_configured,
@@ -80,7 +82,7 @@ __all__ = [
 ]
 
 
-async def _run() -> int:
+async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
     container = default_container_from_env()
     plan = build_bootstrap_plan(
         llm_mode=container.config.llm.mode,
@@ -95,6 +97,12 @@ async def _run() -> int:
     state_store: StateStore | None = None
 
     try:
+        resources.development_diagnostics = build_development_diagnostics(
+            os.environ,
+            runtime_scope_receipt_digest=runtime_scope_receipt_digest,
+        )
+        if resources.development_diagnostics is not None:
+            await resources.development_diagnostics.start()
         resources.health_server = await open_health_port()
         if container.config.llm.mode == LlmMode.AZURE or plan.start_consumer:
             runtime_values = await runtime_settings_service_from_env(os.environ).effective_values()
@@ -265,5 +273,5 @@ async def _attach_model_lifecycle_startup_revision(
     )
 
 
-def main() -> int:
-    return _run_main(_run)
+def main(*, runtime_scope_receipt_digest: str | None = None) -> int:
+    return _run_main(partial(_run, runtime_scope_receipt_digest=runtime_scope_receipt_digest))

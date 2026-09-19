@@ -38,6 +38,7 @@ IMAGE_AFFECTING_PATHS = {
     "extensions/code-assurance/pyproject.toml",
     "extensions/cost-governance/**",
     "packages/github-app-auth/**",
+    "packages/runtime-diagnostics/**",
     "packages/service-contracts/**",
     "policies/**",
     "pyproject.toml",
@@ -151,6 +152,20 @@ def test_github_services_install_refreshable_app_auth_wheel() -> None:
         assert "uv build --wheel --package fdai-github-app-auth" in builder
         assert "--no-install-package fdai-github-app-auth" in builder
         assert "/wheels/fdai_github_app_auth-*.whl" in builder
+
+
+def test_diagnostics_consumers_install_runtime_diagnostics_wheel() -> None:
+    dockerfiles = (
+        _dockerfile("core-control-plane"),
+        _dockerfile("operator-service"),
+        REPO_ROOT / "extensions" / "cost-governance" / "docker" / "Dockerfile",
+    )
+    for dockerfile in dockerfiles:
+        builder = _stage(dockerfile.read_text(encoding="utf-8"), "builder")
+        assert "COPY packages/runtime-diagnostics/ ./packages/runtime-diagnostics/" in builder
+        assert "uv build --wheel --package fdai-runtime-diagnostics" in builder
+        assert "--no-install-package fdai-runtime-diagnostics" in builder
+        assert "/wheels/fdai_runtime_diagnostics-*.whl" in builder
 
 
 def test_runtime_assets_follow_service_ownership() -> None:
