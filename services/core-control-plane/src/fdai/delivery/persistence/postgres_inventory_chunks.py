@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
@@ -31,6 +32,12 @@ from fdai.shared.providers.inventory_snapshot import (
     InventoryCoverageManifest,
     InventoryObservationKind,
 )
+
+
+def _checkpoint_digest(checkpoint: Mapping[str, Any]) -> str:
+    content = {key: value for key, value in checkpoint.items() if key != "content_digest"}
+    encoded = json.dumps(content, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return "sha256:" + hashlib.sha256(encoded.encode()).hexdigest()
 
 
 async def require_collection_context(
@@ -83,39 +90,22 @@ async def commit_resource_chunk(
         if checkpoint is None or checkpoint["next_sequence"] <= chunk["sequence"]:
             raise ValueError("inventory duplicate chunk has no durable checkpoint")
         return chunk
-    cursor = await connection.execute(
-        "SELECT value FROM state_kv WHERE key=%s", (key + ":checkpoint",)
+    checkpoint = await read_checkpoint(
+        connection,
+        attempt_id=chunk["attempt_id"],
+        context_digest=chunk["context_digest"],
     )
-    row = await cursor.fetchone()
-    checkpoint = row["value"] if row is not None else None
     byte_count = len(json.dumps(chunk, sort_keys=True, separators=(",", ":")).encode())
     resource_count = len(chunk["resources"])
     if checkpoint is None:
         if chunk["sequence"] != 0:
             raise ValueError("inventory chunk has no initial checkpoint")
     elif (
-        not isinstance(checkpoint, Mapping)
-        or set(checkpoint)
-        != {
-            "schema_version",
-            "attempt_id",
-            "context_digest",
-            "next_sequence",
-            "digest",
-            "cursor",
-            "byte_count",
-            "resource_count",
-        }
-        or type(checkpoint.get("next_sequence")) is not int
-        or checkpoint.get("context_digest") != chunk["context_digest"]
-        or checkpoint.get("next_sequence") != chunk["sequence"]
-        or checkpoint.get("digest") != chunk["previous_digest"]
+        checkpoint["next_sequence"] != chunk["sequence"]
+        or checkpoint["digest"] != chunk["previous_digest"]
     ):
         raise ValueError("inventory chunk checkpoint fence changed")
     if checkpoint is not None:
-        for name in ("byte_count", "resource_count"):
-            if type(checkpoint.get(name)) is not int or checkpoint[name] < 0:
-                raise ValueError("inventory chunk checkpoint counters are invalid")
         byte_count += checkpoint["byte_count"]
         resource_count += checkpoint["resource_count"]
     if byte_count > MAX_COLLECTION_BYTES or resource_count > 50000:
@@ -125,7 +115,7 @@ async def commit_resource_chunk(
         "INSERT INTO state_kv (key, value) VALUES (%s, %s)", (chunk_key, Jsonb(chunk))
     )
     checkpoint = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "attempt_id": chunk["attempt_id"],
         "context_digest": chunk["context_digest"],
         "next_sequence": chunk["sequence"] + 1,
@@ -134,6 +124,7 @@ async def commit_resource_chunk(
         "byte_count": byte_count,
         "resource_count": resource_count,
     }
+    checkpoint["content_digest"] = _checkpoint_digest(checkpoint)
     await connection.execute(
         "INSERT INTO state_kv (key, value) VALUES (%s, %s) "
         "ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()",
@@ -158,7 +149,7 @@ async def read_checkpoint(
     checkpoint = row["value"]
     if (
         not isinstance(checkpoint, Mapping)
-        or checkpoint.get("schema_version") != "1.0.0"
+        or checkpoint.get("schema_version") not in ("1.0.0", "1.1.0")
         or checkpoint.get("attempt_id") != attempt_id
         or checkpoint.get("context_digest") != context_digest
         or type(checkpoint.get("next_sequence")) is not int
@@ -169,6 +160,22 @@ async def read_checkpoint(
         or not 0 < checkpoint["resource_count"] <= 50000
     ):
         raise ValueError("inventory chunk checkpoint is invalid or belongs to another context")
+    fields = {
+        "schema_version",
+        "attempt_id",
+        "context_digest",
+        "next_sequence",
+        "digest",
+        "cursor",
+        "byte_count",
+        "resource_count",
+    }
+    if checkpoint["schema_version"] == "1.1.0":
+        fields.add("content_digest")
+        if checkpoint.get("content_digest") != _checkpoint_digest(checkpoint):
+            raise ValueError("inventory chunk checkpoint content changed")
+    if set(checkpoint) != fields:
+        raise ValueError("inventory chunk checkpoint fields are invalid")
     cursor = await connection.execute(
         "SELECT value FROM state_kv WHERE key=%s",
         (f"{key}:chunk:{checkpoint['next_sequence'] - 1:08d}",),
@@ -196,6 +203,14 @@ async def read_checkpoint(
         or rebuilt["cursor"] != checkpoint.get("cursor")
     ):
         raise ValueError("inventory checkpoint chunk content changed")
+    if checkpoint["schema_version"] == "1.0.0":
+        replayed_resources = 0
+        async for batch in replay_resource_chunks(
+            connection, attempt_id=attempt_id, context_digest=context_digest, checkpoint=checkpoint
+        ):
+            replayed_resources += len(batch.resources)
+        if replayed_resources != checkpoint["resource_count"]:
+            raise ValueError("inventory legacy checkpoint counters changed")
     return checkpoint
 
 

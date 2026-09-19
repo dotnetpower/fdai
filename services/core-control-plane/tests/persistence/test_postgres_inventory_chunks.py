@@ -25,6 +25,7 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
 from fdai.shared.providers.inventory import InventoryBatch, ResourceRecord
 from fdai.shared.providers.inventory_snapshot import InventoryCoverageManifest
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
+from psycopg.types.json import Jsonb
 
 
 def _batch() -> InventoryBatch:
@@ -248,6 +249,119 @@ async def test_chunk_rejects_invalid_resume_without_advancing(defect: str) -> No
                 else first["digest"],
             )
         assert await store.read_chunk_checkpoint(attempt, context_digest=context) == before
+
+
+@pytest.mark.parametrize(
+    "defect",
+    ["schema", "attempt", "cursor", "bytes", "resources", "missing_chunk", "changed_chunk"],
+)
+async def test_append_rejects_corrupt_retained_checkpoint(defect: str) -> None:
+    async with _database() as (store, attempt, context):
+        first = await store.stage_chunk(
+            attempt, _batch(), context_digest=context, sequence=0, previous_digest=None
+        )
+        key = collection_key(attempt)
+        async with await store._connect() as connection:
+            if defect == "missing_chunk":
+                await connection.execute(
+                    "DELETE FROM state_kv WHERE key=%s", (key + ":chunk:00000000",)
+                )
+            elif defect == "changed_chunk":
+                await connection.execute(
+                    "UPDATE state_kv SET value=value || %s WHERE key=%s",
+                    (Jsonb({"cursor": "changed"}), key + ":chunk:00000000"),
+                )
+            else:
+                change = {
+                    "schema": {"schema_version": "unknown"},
+                    "attempt": {"attempt_id": "other-attempt"},
+                    "cursor": {"cursor": "changed"},
+                    "bytes": {"byte_count": 1},
+                    "resources": {"resource_count": 2},
+                }[defect]
+                await connection.execute(
+                    "UPDATE state_kv SET value=value || %s WHERE key=%s",
+                    (Jsonb(change), key + ":checkpoint"),
+                )
+        second = InventoryBatch(resources=(ResourceRecord("resource-two", "compute.vm"),))
+        with pytest.raises(ValueError):
+            await store.stage_chunk(
+                attempt, second, context_digest=context, sequence=1, previous_digest=first["digest"]
+            )
+        async with await store._connect() as connection:
+            cursor = await connection.execute(
+                "SELECT COUNT(*) AS total FROM inventory_snapshot_resource "
+                "WHERE resource_id='resource-two'"
+            )
+            assert (await cursor.fetchone())["total"] == 0
+            cursor = await connection.execute(
+                "SELECT COUNT(*) AS total FROM state_kv WHERE key=%s", (key + ":chunk:00000001",)
+            )
+            assert (await cursor.fetchone())["total"] == 0
+
+
+@pytest.mark.parametrize(
+    "defect", ["none", "bytes", "resources", "missing_prefix", "changed_prefix", "extra"]
+)
+async def test_legacy_checkpoint_requires_verified_chain_before_upgrade(defect: str) -> None:
+    async with _database() as (store, attempt, context):
+        first = await store.stage_chunk(
+            attempt, _batch(), context_digest=context, sequence=0, previous_digest=None
+        )
+        second = await store.stage_chunk(
+            attempt,
+            InventoryBatch(resources=(ResourceRecord("resource-two", "compute.vm"),)),
+            context_digest=context,
+            sequence=1,
+            previous_digest=first["digest"],
+        )
+        key = collection_key(attempt)
+        async with await store._connect() as connection:
+            change = {"schema_version": "1.0.0"}
+            change.update(
+                {
+                    "bytes": {"byte_count": 1},
+                    "resources": {"resource_count": 1},
+                    "extra": {"unknown": True},
+                }.get(defect, {})
+            )
+            await connection.execute(
+                "UPDATE state_kv SET value=(value - 'content_digest') || %s WHERE key=%s",
+                (Jsonb(change), key + ":checkpoint"),
+            )
+            if defect == "missing_prefix":
+                await connection.execute(
+                    "DELETE FROM state_kv WHERE key=%s", (key + ":chunk:00000000",)
+                )
+            elif defect == "changed_prefix":
+                await connection.execute(
+                    "UPDATE state_kv SET value=value || %s WHERE key=%s",
+                    (Jsonb({"cursor": "changed"}), key + ":chunk:00000000"),
+                )
+
+        async def append():
+            return await store.stage_chunk(
+                attempt,
+                InventoryBatch(resources=(ResourceRecord("resource-three", "compute.vm"),)),
+                context_digest=context,
+                sequence=2,
+                previous_digest=second["digest"],
+            )
+
+        if defect != "none":
+            with pytest.raises(ValueError):
+                await store.read_chunk_checkpoint(attempt, context_digest=context)
+            with pytest.raises(ValueError):
+                await append()
+        else:
+            legacy = await store.read_chunk_checkpoint(attempt, context_digest=context)
+            assert legacy["schema_version"] == "1.0.0"
+            await append()
+            upgraded = await store.read_chunk_checkpoint(attempt, context_digest=context)
+            assert upgraded["schema_version"] == "1.1.0"
+            assert upgraded["next_sequence"] == 3
+            assert upgraded["resource_count"] == 3
+            assert upgraded["content_digest"].startswith("sha256:")
 
 
 async def test_checkpoint_failure_rolls_back_resource_and_chunk() -> None:

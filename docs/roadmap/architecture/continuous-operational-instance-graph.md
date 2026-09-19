@@ -327,24 +327,24 @@ corrupt markers recover from that floor, while legacy corruption without a floor
 
 ### Staged publication successor
 
-The next capacity boundary separates collection partitions from graph ownership. Provider pages
-enter bounded durable staging only after normalization and redaction. A page checkpoint and its
-content digest commit together; replay of identical content is a no-op and changed content under
-the same identity is a conflict. Source exhaustion and exact coverage, never an empty page or a
-storage bucket, authorize absence. Expired continuation requires a new source attempt.
-ARG now normalizes each validated page before requesting the next page. Its row-consumer path
-does not retain prior raw rows, but normalized generation retention remains bounded and durable
-provider continuation remains separate implementation work.
-The coordinator now stages Resource-only chunks through the existing PostgreSQL candidate writer.
-Each chunk is at most 1 MiB and 1,000 Resources; its immutable body, digest, and continuation
-checkpoint commit with the candidate rows. The source, scopes, types, and collection metadata bind
-the context digest. Repeated identical chunks are no-ops, while gaps, changed content, and conflicting
-Resources across chunks fail closed. Readback verifies the complete ordered digest chain one chunk
-at a time without emitting a final source fence. Calls have a 30-second deadline and cannot resume
-an attempt outside its existing 30-minute collecting lifetime. A cursor advances only on the last
-chunk of a split batch. These receipts do not authorize promotion, deletion, scope changes, or
-automatic provider restart; relationship and final-coverage replay remain required before that path
-can be connected. Normalized chunk storage is private and requires prior environment redaction.
+Collection partitions remain separate from graph ownership. Private staging requires normalization and redaction; identical replays are no-ops and identity/content conflicts fail closed.
+ARG normalizes pages before fetching successors without retaining prior raw rows. Normalized generations
+remain bounded; provider restart still requires identity, relationship, and final-coverage replay.
+
+The coordinator stages Resource-only chunks of at most 1 MiB and 1,000 Resources through the existing
+PostgreSQL writer. Candidate rows, immutable chunk, digest, and checkpoint commit together. Context binds
+source, scopes, types, and collection metadata; gaps and cross-chunk Resource conflicts fail closed.
+Readback verifies the ordered chain one chunk at a time without a final fence. Calls expire after
+30 seconds and collecting attempts after 30 minutes. Only the final split chunk advances the cursor.
+Receipts grant no promotion, deletion, scope-change, or automatic provider-restart authority.
+Checkpoint `1.1.0` binds all fields, including cumulative counters, in its digest. Append revalidates the
+checkpoint and final chunk; legacy `1.0.0` requires full-chain verification and upgrades on successful append.
+
+[ARG pagination](https://learn.microsoft.com/en-us/azure/governance/resource-graph/concepts/paging-results)
+does not guarantee point-in-time consistency. Tokens cannot certify completeness, absence, or unchanged
+provider contents. Restart must preserve the observation window and revalidate full identity coverage;
+expired or unverifiable continuation requires a fresh bounded attempt. Only source exhaustion with exact
+coverage can establish absence; empty pages and storage buckets cannot. Partial promotion remains forbidden.
 
 Preparation follows `collecting -> sealed -> verified -> prepared`; only the existing projection
 owner can publish `committed`. Immutable chunk manifests bind exact scope, ownership epoch,
