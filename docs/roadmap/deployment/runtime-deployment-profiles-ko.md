@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 6dd548c42c95e20f1fd682f2457c3f3d547dd94e
+translation_source_sha: ae276d5f2bc14f7c253826d2493b2dcfd19bb8cf
 translation_revised: 2026-09-19
 ---
 # 런타임 배포 프로파일
@@ -286,7 +286,9 @@ archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle�
 해당 목록 전체, 현재 관측 세대, 준비된 복제본, 같은 소스 버전에서 실행 중인 Pod 이미지 digest를
 요구합니다. 비어 있거나 중복되거나 오래되거나 형식이 잘못됐거나 일부만 정상인 응답은 성공이
 아니라 사용 불가로 처리합니다. 기대 목록에는 다섯 기본 서비스가 모두 있어야 하며, 생성기가
-하나를 누락했다고 해서 부분 롤아웃을 완료된 것으로 판단해서는 안 됩니다.
+하나를 누락했다고 해서 부분 롤아웃을 완료된 것으로 판단해서는 안 됩니다. 상태 재조회는 Kubernetes
+`DeploymentList` 또는 일반 `v1 List`를 허용하지만, 일반 목록은 모든 항목이 `apps/v1 Deployment`일
+때만 유효하며 다른 리소스 종류가 섞이면 거부합니다.
 이 완전한 집합 규칙은 초기 설치와 전체 프로파일 수렴에만 적용합니다. 일상적인 업데이트는 Core
 하나 또는 다른 명시적 서비스를 선택할 수 있습니다. 각 워크로드는 자체 소스 버전을 보유하며
 계획은 해당 Deployment의 제자리 업데이트만 허용합니다.
