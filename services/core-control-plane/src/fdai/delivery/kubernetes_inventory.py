@@ -170,6 +170,7 @@ class KubernetesInventoryEnricher:
         )
         verified = verify_inventory_relationships(
             generation=observation.generation,
+            mapping_catalog=self._relationship_mapping_catalog,
             resources=projection_resources,
             links=projected.links,
             complete=True,

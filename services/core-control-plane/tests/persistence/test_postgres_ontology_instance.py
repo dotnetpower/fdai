@@ -8,6 +8,7 @@ import subprocess
 import sys
 import uuid
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import psycopg
 import pytest
@@ -24,6 +25,7 @@ from fdai.shared.contracts.models import (
     PropertyType,
 )
 from fdai.shared.providers.ontology_instance import (
+    OntologyGraphSnapshot,
     OntologyInstanceValidationError,
     OntologyLinkRecord,
     OntologyObjectRecord,
@@ -80,6 +82,42 @@ def _store() -> PostgresOntologyInstanceStore:
             ),
         ),
     )
+
+
+@pytest.mark.parametrize(
+    ("operation", "arguments"),
+    [
+        ("query_objects", {}),
+        ("scan_objects", {}),
+        ("traverse", {"root_ids": ("example",)}),
+        ("traverse_from_type", {"root_object_type": "ReviewCase"}),
+    ],
+)
+async def test_graph_reads_open_one_repeatable_read_snapshot(
+    monkeypatch: pytest.MonkeyPatch, operation: str, arguments: dict[str, object]
+) -> None:
+    store = PostgresOntologyInstanceStore(
+        config=PostgresOntologyInstanceStoreConfig(dsn="postgresql://example"),
+        object_types=(_type("ReviewCase"),),
+        link_types=(),
+    )
+    connection = AsyncMock()
+    connection.__aenter__.return_value = connection
+    connection.execute.return_value.fetchall.return_value = []
+    monkeypatch.setattr(store, "_connect", AsyncMock(return_value=connection))
+    monkeypatch.setattr(
+        postgres_ontology, "_query_objects", AsyncMock(return_value=OntologyGraphSnapshot())
+    )
+    monkeypatch.setattr(
+        postgres_ontology, "_traverse", AsyncMock(return_value=OntologyGraphSnapshot())
+    )
+
+    await getattr(store, operation)(**arguments)
+
+    assert connection.execute.await_args_list[0].args == (
+        "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY",
+    )
+    store._connect.assert_awaited_once()
 
 
 async def test_postgres_atomic_create_deduplicates_concurrent_identity() -> None:

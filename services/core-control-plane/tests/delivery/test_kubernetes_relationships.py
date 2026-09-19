@@ -630,6 +630,7 @@ def test_complete_candidates_require_independent_generation_verification() -> No
 
     verified = verify_inventory_relationships(
         generation="kubernetes-generation-1",
+        mapping_catalog=load_provider_relationship_mapping_catalog(CATALOG_ROOT),
         resources=resources,
         links=projected.links,
         complete=True,

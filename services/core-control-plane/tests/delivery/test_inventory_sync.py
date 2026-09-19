@@ -162,6 +162,70 @@ async def test_oversized_observation_cannot_advance_active_snapshot(
     assert store.failed[0][1].code is InventoryFailureCode.PARTIAL
 
 
+@pytest.mark.parametrize("stage", ["begin", "enrichment", "promotion", "observer"])
+async def test_end_to_end_deadline_bounds_every_stage(
+    monkeypatch: pytest.MonkeyPatch, stage: str
+) -> None:
+    store = _Store()
+
+    async def stall(*args: object) -> None:
+        await asyncio.Event().wait()
+
+    class _Enricher:
+        async def enrich(
+            self, observation: PromotedInventoryObservation
+        ) -> PromotedInventoryObservation:
+            if stage == "enrichment":
+                await stall()
+            return observation
+
+    if stage in {"begin", "promotion"}:
+        monkeypatch.setattr(store, "begin" if stage == "begin" else "promote", stall)
+    coordinator = InventorySyncCoordinator(
+        store=store,
+        promotion_enricher=_Enricher(),
+        promotion_observer=stall if stage == "observer" else None,
+        progress_deadline_seconds=0.02,
+        attempt_deadline_seconds=0.04,
+    )
+
+    with pytest.raises(InventorySourcesExhaustedError):
+        await coordinator.run((_source("arg", _Inventory([InventoryBatch(final=True)])),))
+
+    assert store.promoted == (["attempt-1"] if stage == "observer" else [])
+    if stage in {"enrichment", "promotion"}:
+        assert store.failed[0][1].code is InventoryFailureCode.PARTIAL
+
+
+def test_drop_accumulation_is_bounded_even_without_a_projection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("fdai.delivery.inventory_sync._MAX_OBSERVED_DROPS", 1)
+    accumulator = _ObservationAccumulator(enabled=False, relationship_mapping_catalog=None)
+    drop = RelationshipDrop(reason=RelationshipDropReason.UNVERIFIED_METADATA)
+    accumulator.add(InventoryBatch(relationship_drops=(drop,)))
+
+    with pytest.raises(InventoryStreamError, match="drops exceeded"):
+        accumulator.add(InventoryBatch(relationship_drops=(drop,)))
+    with pytest.raises(InventoryStreamError, match="drops exceeded"):
+        accumulator.add_relationship_drops((drop,))
+
+
+def test_continuation_token_failure_is_partial_not_authentication() -> None:
+    failure = classify_inventory_failure(
+        RuntimeError("ARG returned a truncated result without a continuation token")
+    )
+    assert failure.code is InventoryFailureCode.PARTIAL
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf")])
+def test_collection_deadlines_reject_nonfinite_values(value: float) -> None:
+    with pytest.raises(ValueError):
+        InventorySyncCoordinator(store=_Store(), progress_deadline_seconds=value)
+    with pytest.raises(ValueError):
+        InventorySyncCoordinator(store=_Store(), attempt_deadline_seconds=value)
+
+
 class _StallingInventory:
     def __init__(self, stalled: asyncio.Event) -> None:
         self._stalled = stalled
@@ -372,7 +436,10 @@ async def test_absolute_ceiling_bounds_a_source_that_keeps_rearming() -> None:
             (_source("arg", _SlowButProgressingInventory(beats=100, gap_seconds=0.05)),)
         )
 
-    assert store.failed[0][1].message == "inventory source exceeded its absolute ceiling"
+    assert store.failed[0][1].code is InventoryFailureCode.PARTIAL
+    assert store.failed[0][1].message == (
+        "inventory candidate was cancelled before promotion completed"
+    )
 
 
 async def test_timed_out_attempt_closes_its_source_stream() -> None:

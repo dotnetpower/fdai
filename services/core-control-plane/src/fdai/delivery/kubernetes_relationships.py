@@ -421,6 +421,8 @@ def _mapping_evidence(
         endpoint_orientation=mapping.endpoint_orientation.value,
         provider_owner_id=owner.resource_id,
         observation_receipt_ref="sha256:" + hashlib.sha256(payload).hexdigest(),
+        source_provider_type=owner.type,
+        target_provider_type=target.type,
     )
 
 

@@ -102,7 +102,7 @@ semantics; the provider feed module re-exports that behavior instead of maintain
 Malformed continuation metadata cannot complete an Activity Log stream or advance its durable cursor. Parent-only Azure Cognitive Services deployment writes/deletes remain reconciliation-only when `Succeeded`. For normalized Resource Group envelopes, this treatment is limited to six exact ARM identity-derived types: `Microsoft.Authorization/roleAssignments`, `Microsoft.Compute/virtualMachineScaleSets`, `Microsoft.KeyVault/vaults`, `Microsoft.ManagedIdentity/userAssignedIdentities`, `Microsoft.Network/networkSecurityGroups`, and `Microsoft.Storage/storageAccounts`. Each must carry its exact `<derived-type>/delete` operation and `Succeeded` status. These signals retain validated timezone-aware event time, including signal-only pages, without Resource/relationship upserts, invented children, deletion claims, or blocking unrelated valid rows. Cursor persistence requires the complete stream fence and marker write; other status, timestamp, and reviewed-identity checks remain unchanged. [The ledger](../../roadmap-implementation/architecture/continuous-operational-instance-graph.md) records the exact aliases and focused evidence.
 
 A collected property becomes a relationship only through a reviewed provider mapping. If that
-mapping omits an observed connection target, an absent graph edge never proves an absent path.
+mapping omits an observed connection target, an absent graph edge never proves an absent path. The generation verifier independently matches mapping identity, review digest, schema, source path, direction, owner, and freshness against its injected catalog. Conflicting provider references cannot certify a link; Kubernetes producers retain both observed endpoint types.
 Every reachable managed-service connection therefore needs its target type in the reviewed catalog.
 Each Azure row's supplied provider type and scope, including built-in scope and unclassified rows, must agree case-insensitively with its exact ARM
 identity and requested subscription set before the row enters either a full snapshot or a change stream. Full-scan mapped counts reconcile before the final fence, excluding separately materialized subnets and subscription anchors. Clock-only duplicates retain the earliest observation, and nested subnets verify the exact VNet parent. A contradiction fails the
@@ -235,7 +235,7 @@ Concurrent later journal writes can lower completeness, but cannot advance eithe
 projection checkpoints beyond that append boundary.
 PostgreSQL persistence keeps store coordination in `postgres_ontology.py` and isolates inventory
 state-base completeness and object-ownership validation in `postgres_ontology_records.py`; this
-shared record-validation boundary does not create another graph writer or authority surface.
+shared record-validation boundary does not create another graph writer or authority surface. Object, candidate-scan, and traversal reads bind their objects, relationships, and source coverage to one read-only repeatable-read database snapshot.
 Change-feed value parsing and replay-watermark decoding remain pure delivery helpers, so module
 splits do not change cursor progress, completeness, or writer authority.
 
@@ -318,7 +318,7 @@ Each source has a validated policy rather than one global interval. The policy i
 - minimum and maximum poll intervals;
 - request and byte budgets per window;
 - global, scope, resource-type, and endpoint concurrency limits;
-- cursor page, object, relationship, time, and no-progress bounds;
+- cursor page, object, relationship, suppression-record, time, and no-progress bounds;
 - priority for changed, stale, critical, and operator-requested targets;
 - bounded jitter, exponential backoff, and a circuit-breaker threshold;
 - provider `Retry-After`, quota, and remaining-budget observations.
@@ -337,7 +337,7 @@ Both paths build the same ordered runtime-call, Resource Health, Static Web App,
 enrichment pipeline through the inventory CLI support boundary.
 
 Validated configuration supplies deployment values. Repository defaults and tests define safe bounds, not a
-claim that one interval fits every tenant or provider API.
+claim that one interval fits every tenant or provider API. One finite end-to-end deadline covers lock acquisition, collection, enrichment, promotion, and notification; cancelled candidates get bounded failure cleanup. Pagination and continuation failures remain partial collection failures, not inferred authentication failures.
 The coordinator imports and explicitly re-exports immutable promoted-observation and relationship-coverage
 records from a focused delivery module. Existing consumers keep the same delivery boundary, and the
 separation changes neither single-writer ownership nor promotion authority.

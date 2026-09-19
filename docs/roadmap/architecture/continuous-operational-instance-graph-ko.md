@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: bda7be160f2f516511a4ca3c31c67da672377cb0
+translation_source_sha: 575a99c00741af74ad91762c4593b215a556fbb6
 translation_revised: 2026-09-19
 ---
 # 지속형 운영 인스턴스 그래프
@@ -89,7 +89,7 @@ Azure CLI로 대체하지 않습니다. 로컬 자격 증명 정책은 그대로
 
 ### 원본 전략
 
-전체 수집은 기본 범위 유형과 미분류 행도 정확한 ARM ID 및 요청한 구독과 대조합니다. 별도로 생성하는 Subnet과 구독 기준 객체를 제외한 매핑된 리소스 수는 최종 종료 경계 전에 공급자 집계와 일치해야 합니다. 내용이 같고 시각만 다른 중복은 가장 이른 관측을 유지하며, 중첩 Subnet은 정확한 VNet 부모를 검증합니다.
+전체 수집은 기본 범위 유형과 미분류 행도 정확한 ARM ID 및 요청한 구독과 대조합니다. 별도로 생성하는 Subnet과 구독 기준 객체를 제외한 매핑된 리소스 수는 최종 종료 경계 전에 공급자 집계와 일치해야 합니다. 내용이 같고 시각만 다른 중복은 가장 이른 관측을 유지하며, 중첩 Subnet은 정확한 VNet 부모를 검증합니다. 잠금 획득, 수집, 보강, 승격, 알림은 하나의 유한한 전체 기한을 공유하며 취소된 후보의 실패 정리에도 기한을 둡니다. 관계 제외 기록에는 개수 한도를 적용하고, 페이지 및 다음 페이지 표식 오류는 인증 오류가 아닌 부분 수집 실패로 기록합니다. 객체 조회, 후보 검색, 그래프 탐색은 객체·관계·원본 범위를 하나의 읽기 전용 repeatable-read DB 스냅샷에 결속합니다.
 
 수집기는 필요한 최신성을 보존할 수 있는 가장 저렴한 권위 있는 신호를 사용합니다.
 
@@ -112,7 +112,7 @@ Resource Changes의 커서, 재시도, 수집 경계 및 게시 의미는 하나
 feed 모듈은 두 번째 루프를 유지하지 않고 이 동작을 다시 내보냅니다.
 잘못된 다음 페이지 정보는 Activity Log 스트림을 완료하거나 영속 커서를 진행할 수 없습니다. 부모 계정만 가리키는 Azure Cognitive Services 배포 쓰기/삭제는 `Succeeded`일 때 계속 전체 조정만 요청합니다. 정규화된 Resource Group 묶음에서는 정확한 ARM ID로부터 도출한 유형을 `Microsoft.Authorization/roleAssignments`, `Microsoft.Compute/virtualMachineScaleSets`, `Microsoft.KeyVault/vaults`, `Microsoft.ManagedIdentity/userAssignedIdentities`, `Microsoft.Network/networkSecurityGroups`, `Microsoft.Storage/storageAccounts`의 정확한 6개 유형으로 제한합니다. 각 유형에는 정확한 `<derived-type>/delete` 작업과 `Succeeded` 상태가 있어야 합니다. 이 신호는 신호만 있는 페이지에서도 시간대가 포함된 검증된 이벤트 시간을 보존하며, Resource/관계를 추가하거나 갱신하지 않고 없는 자식을 만들거나 삭제를 단정하거나 유효한 다른 행을 막지 않습니다. 커서 저장에는 완전한 스트림 종료 경계와 조정 마커 저장이 필요하며, 그 밖의 상태, 타임스탬프 및 검토된 신원 검증은 바꾸지 않습니다. 정확한 별칭과 집중 검증 근거는 [구현 원장](../../roadmap-implementation/architecture/continuous-operational-instance-graph.md)에 기록되어 있습니다.
 
-수집된 속성은 검토된 프로바이더 mapping을 거쳐야만 관계가 됩니다. Mapping이 관측된 연결
+수집된 속성은 검토된 프로바이더 mapping을 거쳐야만 관계가 됩니다. 세대 검증기는 주입된 카탈로그의 매핑 신원, 검토 다이제스트, 스키마, 원본 경로, 방향, 소유자, 최신성과 독립적으로 대조합니다. 공급자 참조가 충돌하면 관계를 검증할 수 없으며 Kubernetes 생산자는 관측된 두 끝점 유형을 보존합니다. Mapping이 관측된 연결
 대상을 빠뜨리면 없는 그래프 edge가 경로 부재를 입증하지 않습니다. 따라서 도달 가능한 모든
 관리형 서비스 연결의 대상 유형을 검토된 카탈로그에 선언하는 것이 좋습니다.
 각 Azure 행이 제공한 공급자 유형과 범위는 전체 스냅샷이나 변경 스트림에 들어가기 전에 정확한

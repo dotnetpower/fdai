@@ -118,6 +118,7 @@ planning. The error reports the requested and allocatable quantities without exp
 ## State ownership
 
 Initial and recurring inventory runs share the same projection bounds: an oversized candidate retains the previous active generation, and incomplete observations cannot confirm resource deletion.
+Their end-to-end deadline also covers enrichment, promotion, and notification, with bounded cancellation cleanup rather than an indefinitely collecting candidate.
 Both profiles retain a content-bound delivery marker before graph commit and recover pending Resource Events independently of the graph completion watermark; delivery never grants execution authority.
 
 Connected deployments for both runtime profiles boot the managed host from an exact Azure

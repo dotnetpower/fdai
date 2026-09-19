@@ -8,6 +8,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
 
+from fdai.rule_catalog.schema.provider_relationship_mapping import (
+    EndpointOrientation,
+    ProviderRelationshipMapping,
+    ProviderRelationshipMappingCatalog,
+)
 from fdai.shared.providers.inventory import (
     LinkRecord,
     RelationshipDrop,
@@ -23,7 +28,7 @@ from fdai.shared.providers.state_evidence import (
 )
 
 DEFAULT_RELATIONSHIP_VERIFIER_IDENTITY = "fdai-inventory-generation-verifier"
-DEFAULT_RELATIONSHIP_VERIFIER_REVISION = "inventory-generation-verifier.v2"
+DEFAULT_RELATIONSHIP_VERIFIER_REVISION = "inventory-generation-verifier.v3"
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +46,7 @@ def verify_inventory_relationships(
     links: Sequence[LinkRecord],
     complete: bool,
     recorded_at: datetime,
+    mapping_catalog: ProviderRelationshipMappingCatalog | None = None,
     upstream_drops: Sequence[RelationshipDrop] = (),
     verifier_identity: str | None = DEFAULT_RELATIONSHIP_VERIFIER_IDENTITY,
     verifier_revision: str = DEFAULT_RELATIONSHIP_VERIFIER_REVISION,
@@ -57,6 +63,11 @@ def verify_inventory_relationships(
         return VerifiedInventoryRelationships(links=(), dropped=_canonical_drops(dropped))
 
     resources_by_id, contested_ids = _resources_by_id(resources)
+    reviewed_mappings = (
+        {mapping.mapping_id: mapping for mapping in mapping_catalog.mappings}
+        if mapping_catalog is not None
+        else {}
+    )
     grouped: dict[tuple[str, str, str], list[LinkRecord]] = {}
     for link in links:
         grouped.setdefault((link.from_id, link.link_type, link.to_id), []).append(link)
@@ -98,6 +109,11 @@ def verify_inventory_relationships(
             continue
         if evidence.source_schema_digest != evidence.observed_schema_digest:
             dropped.append(_drop(RelationshipDropReason.STALE_SOURCE_SCHEMA_DIGEST, link))
+            continue
+        if not _matches_reviewed_mapping(
+            link, mapping_catalog, reviewed_mappings.get(evidence.mapping_id)
+        ):
+            dropped.append(_drop(RelationshipDropReason.UNVERIFIED_METADATA, link))
             continue
         source = resources_by_id.get(link.from_id)
         target = resources_by_id.get(link.to_id)
@@ -169,6 +185,41 @@ def verify_inventory_relationships(
     )
 
 
+def _matches_reviewed_mapping(
+    link: LinkRecord,
+    catalog: ProviderRelationshipMappingCatalog | None,
+    mapping: ProviderRelationshipMapping | None,
+) -> bool:
+    evidence = link.mapping_evidence
+    if catalog is None or mapping is None or evidence is None:
+        return False
+    owner_id = (
+        link.from_id
+        if mapping.endpoint_orientation is EndpointOrientation.OWNER_TO_REFERENCED
+        else link.to_id
+    )
+    source_type = (evidence.source_provider_type or "").casefold()
+    target_type = (evidence.target_provider_type or "").casefold()
+    return (
+        evidence.mapping_revision == catalog.review.content_hash
+        and evidence.mapping_receipt_ref == catalog.review.immutable_receipt_ref
+        and evidence.provider_identity == mapping.provider
+        and evidence.source_identity == mapping.source_identity
+        and evidence.source_property_path == mapping.source_property_path
+        and evidence.source_schema_version == mapping.source_schema.version
+        and evidence.source_schema_digest == mapping.source_schema.digest
+        and evidence.evidence_method == mapping.evidence_method
+        and evidence.freshness_ceiling_seconds == mapping.freshness.max_age_seconds
+        and evidence.endpoint_orientation == mapping.endpoint_orientation.value
+        and evidence.provider_owner_id == owner_id
+        and link.link_type == mapping.link_type
+        and bool(source_type)
+        and bool(target_type)
+        and ("*" in mapping.source_provider_types or source_type in mapping.source_provider_types)
+        and ("*" in mapping.target_provider_types or target_type in mapping.target_provider_types)
+    )
+
+
 def _independently_owned_dependencies(first: LinkRecord, second: LinkRecord) -> bool:
     """Distinguish two observed prerequisites from one reference with reversed direction."""
     return all(
@@ -198,7 +249,11 @@ def _resources_by_id(
         if prior is None:
             indexed[resource.resource_id] = resource
             continue
-        if prior.type != resource.type or dict(prior.props) != dict(resource.props):
+        if (
+            prior.type != resource.type
+            or dict(prior.props) != dict(resource.props)
+            or prior.provider_ref != resource.provider_ref
+        ):
             contested.add(resource.resource_id)
             continue
         indexed[resource.resource_id] = _earlier_observation(prior, resource)
@@ -238,6 +293,10 @@ def _verification_receipt(
     payload = json.dumps(
         {
             "edge": [link.from_id, link.link_type, link.to_id],
+            "endpoint_types": [link.from_type, link.to_type],
+            "mapping_id": evidence.mapping_id,
+            "mapping_revision": evidence.mapping_revision,
+            "provider_owner_id": evidence.provider_owner_id,
             "generation": generation,
             "mapping_receipt_ref": evidence.mapping_receipt_ref,
             "observation_receipt_ref": evidence.observation_receipt_ref,

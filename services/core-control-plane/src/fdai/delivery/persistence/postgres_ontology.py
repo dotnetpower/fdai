@@ -670,7 +670,7 @@ class PostgresOntologyInstanceStore:
         ):
             raise ValueError("object_ids MUST contain at most 1000 unique bounded identities")
         async with await self._connect() as connection:
-            await self._set_timeout(connection)
+            await self._set_read_snapshot(connection)
             return await _query_objects(
                 connection,
                 releases=self._releases,
@@ -695,7 +695,7 @@ class PostgresOntologyInstanceStore:
         if not 1 <= candidate_limit <= MAX_ONTOLOGY_OBJECT_SCAN:
             raise ValueError(f"candidate_limit MUST be in [1, {MAX_ONTOLOGY_OBJECT_SCAN}]")
         async with await self._connect() as connection:
-            await self._set_timeout(connection)
+            await self._set_read_snapshot(connection)
             return await _query_objects(
                 connection,
                 releases=self._releases,
@@ -724,7 +724,7 @@ class PostgresOntologyInstanceStore:
         if direction not in {"outgoing", "incoming", "both"}:
             raise ValueError("direction MUST be outgoing, incoming, or both")
         async with await self._connect() as connection:
-            await self._set_timeout(connection)
+            await self._set_read_snapshot(connection)
             return await _traverse(
                 connection,
                 releases=self._releases,
@@ -754,7 +754,7 @@ class PostgresOntologyInstanceStore:
         if direction not in {"outgoing", "incoming", "both"}:
             raise ValueError("direction MUST be outgoing, incoming, or both")
         async with await self._connect() as connection:
-            await self._set_timeout(connection)
+            await self._set_read_snapshot(connection)
             cursor = await connection.execute(
                 "SELECT id FROM ontology_resource WHERE object_type=%s ORDER BY id LIMIT %s",
                 (root_object_type, limit + 1),
@@ -772,6 +772,10 @@ class PostgresOntologyInstanceStore:
                 limit=limit,
                 initially_truncated=len(selected) > limit,
             )
+
+    async def _set_read_snapshot(self, connection: psycopg.AsyncConnection[Any]) -> None:
+        await connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        await self._set_timeout(connection)
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         return await psycopg.AsyncConnection.connect(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import socket
 from collections import Counter
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
@@ -69,6 +70,7 @@ _LOG = logging.getLogger(__name__)
 #: degrades to an explicitly incomplete observation instead of exhausting memory.
 _MAX_OBSERVED_RESOURCES = 50_000
 _MAX_OBSERVED_LINKS = 200_000
+_MAX_OBSERVED_DROPS = 200_000
 INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY = "inventory-ontology:active-scope-checkpoint"
 DEFAULT_PROGRESS_DEADLINE_SECONDS = 900.0
 DEFAULT_ATTEMPT_DEADLINE_SECONDS = 1500.0
@@ -114,9 +116,12 @@ class InventorySyncCoordinator:
         progress_deadline_seconds: float = DEFAULT_PROGRESS_DEADLINE_SECONDS,
         attempt_deadline_seconds: float = DEFAULT_ATTEMPT_DEADLINE_SECONDS,
     ) -> None:
-        if progress_deadline_seconds <= 0:
+        if not math.isfinite(progress_deadline_seconds) or progress_deadline_seconds <= 0:
             raise ValueError("inventory progress_deadline_seconds MUST be > 0")
-        if attempt_deadline_seconds < progress_deadline_seconds:
+        if (
+            not math.isfinite(attempt_deadline_seconds)
+            or attempt_deadline_seconds < progress_deadline_seconds
+        ):
             raise ValueError(
                 "inventory attempt_deadline_seconds MUST be >= progress_deadline_seconds"
             )
@@ -136,10 +141,21 @@ class InventorySyncCoordinator:
     async def run(self, sources: Sequence[InventorySource]) -> InventorySyncResult:
         if not sources:
             raise ValueError("sources MUST NOT be empty")
-        if self._run_lock is None:
-            return await self._run_locked(sources)
-        async with self._run_lock.acquire(_RUN_LOCK_ID):
-            return await self._run_locked(sources)
+        try:
+            async with asyncio.timeout(self._attempt_deadline_seconds):
+                if self._run_lock is None:
+                    return await self._run_locked(sources)
+                async with self._run_lock.acquire(_RUN_LOCK_ID):
+                    return await self._run_locked(sources)
+        except TimeoutError as exc:
+            raise InventorySourcesExhaustedError(
+                (
+                    InventoryAttemptFailure(
+                        code=InventoryFailureCode.PARTIAL,
+                        message="inventory run exceeded its end-to-end deadline",
+                    ),
+                )
+            ) from exc
 
     async def _run_locked(self, sources: Sequence[InventorySource]) -> InventorySyncResult:
         if self._pre_run_recovery is not None:
@@ -237,6 +253,24 @@ class InventorySyncCoordinator:
                     metadata=metadata,
                 )
                 await self._store.promote(attempt_id, manifest)
+            except asyncio.CancelledError:
+                try:
+                    async with asyncio.timeout(5):
+                        await self._store.fail(
+                            attempt_id,
+                            InventoryAttemptFailure(
+                                code=InventoryFailureCode.PARTIAL,
+                                message=(
+                                    "inventory candidate was cancelled before promotion completed"
+                                ),
+                            ),
+                        )
+                except Exception as cleanup_error:
+                    _LOG.warning(
+                        "inventory_cancel_cleanup_failed",
+                        extra={"error_type": type(cleanup_error).__name__},
+                    )
+                raise
             except Exception as exc:  # noqa: BLE001 - source boundary, classified and retained
                 failure = classify_inventory_failure(exc)
                 await self._store.fail(attempt_id, failure)
@@ -337,6 +371,8 @@ class _ObservationAccumulator:
         self._truncated = False
 
     def add(self, batch: InventoryBatch) -> None:
+        if len(self._relationship_drops) + len(batch.relationship_drops) > _MAX_OBSERVED_DROPS:
+            raise InventoryStreamError("inventory relationship drops exceeded their bound")
         self._relationship_drops.extend(batch.relationship_drops)
         if not self._enabled or self._truncated:
             return
@@ -365,6 +401,8 @@ class _ObservationAccumulator:
     def add_relationship_drops(self, drops: Sequence[RelationshipDrop]) -> None:
         """Include enrichment gaps in the promotion coverage metadata."""
 
+        if len(self._relationship_drops) + len(drops) > _MAX_OBSERVED_DROPS:
+            raise InventoryStreamError("inventory relationship drops exceeded their bound")
         self._relationship_drops.extend(drops)
 
     def relationship_drop_classifications(
@@ -431,6 +469,7 @@ class _ObservationAccumulator:
         )
         verified = verify_inventory_relationships(
             generation=generation,
+            mapping_catalog=self._relationship_mapping_catalog,
             resources=self._resources,
             links=((*self._links, *projected.links) if projected is not None else self._links),
             complete=not self._truncated,
@@ -474,13 +513,15 @@ def classify_inventory_failure(exc: Exception) -> InventoryAttemptFailure:
         )
     else:
         text = str(exc).lower()
-        if "http 401" in text or "token" in text or "identity" in text:
+        if "http 401" in text or "identity token request failed" in text:
             code = InventoryFailureCode.TOKEN_FAILED
         elif "http 403" in text or "forbidden" in text:
             code = InventoryFailureCode.FORBIDDEN
         elif "http 429" in text or "throttl" in text:
             code = InventoryFailureCode.THROTTLED
-        elif "pagination cap" in text or "partial" in text:
+        elif any(
+            reason in text for reason in ("pagination cap", "partial", "truncated", "continuation")
+        ):
             code = InventoryFailureCode.PARTIAL
         elif isinstance(exc, (ValueError, TypeError)):
             code = InventoryFailureCode.INVALID_DATA

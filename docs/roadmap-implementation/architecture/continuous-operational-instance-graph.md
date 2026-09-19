@@ -62,14 +62,14 @@ Low. Local focused evidence does not claim Azure rollout or production performan
 | H04 | Truncated nested-resource observations | implemented | Existing commit `d42551f94` preserves nested observations; its ARG regressions passed in the 161-test cohort. |
 | H05 | Post-commit event publication recovery | implemented | Durable content-bound pending/completed markers; completed-graph loader and actual recovery invocation preserve unacknowledged delivery. |
 | H06 | Object evaluation with relationship gaps | implemented | Classified relationship gaps keep the activity degraded while verified object Events still publish. |
-| H07 | Snapshot-consistent graph reads | not-started | Objects, links, and source coverage share one database snapshot. |
-| H08 | Independent mapping verification | not-started | Reject unregistered, substituted, and reversed mapping evidence. |
+| H07 | Snapshot-consistent graph reads | implemented | Four query-entry regressions require read-only repeatable-read before data access; real database concurrency remains a later hardening check. |
+| H08 | Independent mapping verification | implemented | Verifier v3 checks the injected reviewed mapping, owner, direction, schema, and budget; substituted evidence is rejected. |
 | H09 | Built-in ARM scope identity | implemented | Scope-type substitution is rejected; reviewed Resource Group aliases remain accepted. |
 | H10 | Unclassified ARM identity | implemented | Unclassified provider-type substitution fails exact ARM identity validation. |
-| H11 | End-to-end collection deadlines | not-started | Enrichment, promotion, and notification have bounded failure outcomes. |
+| H11 | End-to-end collection deadlines | implemented | Four stalling-stage regressions cover begin, enrichment, promotion, and notification; non-finite budgets are rejected. |
 | H12 | Requested subscription admission | implemented | Mapped and unclassified rows outside configured subscriptions are rejected. |
 | H13 | Nested subnet parent admission | implemented | A nested subnet belonging to another VNet fails admission. |
-| H14 | Provider-reference conflicts | not-started | Conflicting provider identities cannot certify a relationship. |
+| H14 | Provider-reference conflicts | implemented | Conflicting provider references with otherwise identical content reject relationship verification. |
 | H15 | Non-state property conflicts | not-started | Withheld properties retain explicit object evidence limitations. |
 | H16 | Missing and future observation time | not-started | Missing time and excessive skew cannot become current complete evidence. |
 | H17 | Page observation clocks | not-started | Parsing delay does not refresh earlier provider observations. |
@@ -80,7 +80,7 @@ Low. Local focused evidence does not claim Azure rollout or production performan
 | H22 | Clock-only duplicate adjudication | implemented | Both input orders retain the earliest clock; unknown time is never upgraded. |
 | H23 | Relationship failure isolation | not-started | Safe positive object evidence survives without false relationship completeness. |
 | H24 | Collection memory bounds | not-started | Aggregate resource, link, and byte bounds cover the collected generation. |
-| H25 | Relationship-drop bounds | not-started | Suppression evidence cannot grow without a finite bound. |
+| H25 | Relationship-drop bounds | implemented | Stream and enrichment drop accumulation reject overflow, including a disabled projection accumulator. |
 | H26 | Large shard handling | not-started | Bounded partitioning or explicit supported limits prevent repeated unproductive scans. |
 | H27 | Cardinality query complexity | not-started | High-fanout validation avoids repeated sibling scans. |
 | H28 | Persistence round trips | not-started | Batch operations retain revision and endpoint checks. |
@@ -88,7 +88,7 @@ Low. Local focused evidence does not claim Azure rollout or production performan
 | H30 | Manifest storage bounds | not-started | Receipt representation and replay have bounded encoded size. |
 | H31 | Cross-owner deletion | not-started | Removing an owned object cannot silently erase foreign-owned evidence. |
 | H32 | Relationship result bounds | not-started | Graph reads expose an independent edge ceiling and truncation. |
-| H33 | Transport failure classification | not-started | Continuation-token errors are not authentication failures. |
+| H33 | Transport failure classification | implemented | Truncated continuation-token responses classify as partial rather than authentication failure. |
 | H34 | Invalidation marker recovery | not-started | Corrupt markers recover against a durable monotonic boundary. |
 | H35 | Inventory adapter documentation | implemented | Adapter documentation now describes authenticated live reads, fences, and owned persistence. |
 | H36 | Real publication recovery regression | implemented | The owning test invokes recovery, observes two publication attempts, one graph application, and a completed delivery marker. |
@@ -96,6 +96,7 @@ Low. Local focused evidence does not claim Azure rollout or production performan
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-19 | implemented | Bound graph reads to one read snapshot, verified mapping declarations independently, retained Kubernetes endpoint types, rejected identity conflicts, and bounded the complete collection run and suppression evidence. | `current change`; relationship/coordinator/Kubernetes cohort: 94 passed; additional Kubernetes producer cohort: 16 passed; expanded coordinator cohort: 59 passed; query-entry cohort: 4 passed; focused mypy and Ruff passed. | Temporal evidence, replay/storage optimization, collection byte bounds, and adversarial review remain; no live database concurrency or production capacity claim is made. |
 | 2026-09-19 | implemented | Separated graph completion from content-bound Resource-event delivery, recovered pending publication without another graph write, and preserved object delivery when relationships remain degraded. | `current change`; observer, event publisher, and observation-journal tests: 116 passed; extended initial-generation loader cohort: 31 passed; three source files passed focused mypy. | Other open hardening rows and repeated adversarial review remain; no broker or Azure runtime validation is claimed. |
 | 2026-09-19 | implemented | Hardened provider count reconciliation, ordinary and init-container redaction, built-in and unclassified ARM identity, requested scope, nested parents, and clock-only duplicates. Reused the separately committed nested-subnet truncation repair without overwriting it. | `current change`; ARG tests: 161 passed; inventory adapter tests: 33 passed; focused Ruff passed; H04 source commit `d42551f94`. | H05-H08, H11, H14-H21, H23-H34, and H36 remain under the register and adversarial review. |
 | 2026-09-19 | implemented | Rejected projection-bound overflow before snapshot promotion and rejected incomplete snapshot input before journal access or tombstone confirmation. | `current change`; `inventory_sync.py`, `postgres_inventory_observation.py`; owning coordinator and observation-journal tests: 76 passed; focused Ruff passed. | Complete the 36-item hardening register and repeated adversarial review below; no live Azure or deployment evidence is claimed. |
