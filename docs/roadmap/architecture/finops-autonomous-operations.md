@@ -114,7 +114,7 @@ episode invokes every agent, but the vertical must provide a valid path for each
 
 | Agent | FinOps responsibility | Participation |
 |-------|-----------------------|---------------|
-| Huginn | Normalize bounded provider, billing, inventory, change, and schedule ingress into owned `Event` or `Change` records. | Required ingress. |
+| Huginn | Normalize bounded provider, billing, inventory, change, and schedule ingress into owned `Event` or `Change` records. StateStore-backed claims retain bounded deduplication across restart while any crash-window redelivery keeps the same idempotency key. | Required ingress. |
 | Heimdall | Produce anomaly, drift, forecast, and evidence-health records, then independently compare terminal observations with every expected effect. | Required sensing and changed-state closure. |
 | Njord | Own `CostAnomaly` and `Budget` advisory objects and cost-objective interpretation. An injected `CostEstimator` supplies provider-bound estimates without becoming an agent or publisher. | Required for cost judgment. |
 | Freyr | Supply capacity forecasts and sizing advice so savings cannot hide saturation or headroom loss. | Required for capacity-affecting options. |

@@ -9,6 +9,7 @@ from fdai.agents._framework import factory
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
+from fdai.agents.huginn import Huginn
 from fdai.agents.loki import Loki
 from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn
@@ -43,6 +44,11 @@ _MAX_NORNS_STARTUP_RECOVERY = 5_000
 
 async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
     """Restore durable executor and learner work before consumers start."""
+    huginn = agents.get("Huginn")
+    if isinstance(huginn, Huginn):
+        restored = await huginn.rehydrate()
+        if restored:
+            _LOG.info("pantheon_huginn_rehydrated", extra={"dedup_keys": restored})
     thor = agents.get("Thor")
     if isinstance(thor, Thor):
         restored = await thor.rehydrate()

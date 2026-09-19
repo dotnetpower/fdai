@@ -1,7 +1,7 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: a4884ce0ad25bc9be8601a5a1e1f1b5240fa20b9
+translation_source_sha: 1947084260b26e9e6ad9d566e4486e329624d435
 translation_revised: 2026-09-20
 ---
 
@@ -114,7 +114,7 @@ translation_revised: 2026-09-20
 
 | 에이전트 | FinOps 책임 | 참여 방식 |
 |----------|-------------|-----------|
-| Huginn | 범위가 제한된 프로바이더, 청구, inventory, 변경 및 일정 ingress를 소유한 `Event` 또는 `Change` 기록으로 정규화합니다. | 필수 ingress |
+| Huginn | 범위가 제한된 프로바이더, 청구, inventory, 변경 및 일정 ingress를 소유한 `Event` 또는 `Change` 기록으로 정규화합니다. StateStore 기반 claim은 재시작 후에도 제한된 중복 제거를 유지하며 crash 구간의 재전달은 동일한 idempotency key를 유지합니다. | 필수 ingress |
 | Heimdall | 이상, drift, forecast 및 근거 상태 기록을 생성한 뒤 최종 관측을 모든 예상 효과와 독립적으로 비교합니다. | 필수 감지 및 변경 상태 종료 |
 | Njord | `CostAnomaly`와 `Budget` advisory object 및 비용 목표 해석을 소유합니다. 주입된 `CostEstimator`는 에이전트나 publisher가 되지 않고 프로바이더에 연결된 추정값을 제공합니다. | 비용 판단에 필수 |
 | Freyr | 절감이 포화나 여유 용량 손실을 숨기지 않도록 용량 예측과 크기 조정 조언을 제공합니다. | 용량에 영향을 주는 대안에 필수 |

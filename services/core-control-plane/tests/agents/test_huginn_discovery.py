@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+from fdai.agents._framework.bus import InMemoryBus
+from fdai.agents._framework.huginn_dedup import HuginnClaimInProgressError
+from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.huginn import Huginn
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
 def _canonical_event() -> dict[str, Any]:
@@ -106,3 +111,81 @@ def test_discovery_dedup_eviction_allows_old_key_redelivery() -> None:
     assert asyncio.run(huginn.ingest(second)) is not None
     assert asyncio.run(huginn.ingest(first)) is not None
     assert huginn.health()["dedup_size"] == 1
+
+
+async def test_durable_dedup_recovers_pending_publication_after_lease_expiry() -> None:
+    store = InMemoryStateStore()
+    bus = InMemoryBus(load_pantheon(), isolate_handlers=False)
+    failed = False
+
+    async def fail_once(_topic: str, _payload: dict[str, Any]) -> None:
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise RuntimeError("synthetic publish interruption")
+
+    bus.subscribe("object.event", "fail-once", fail_once)
+    dedup_now = [datetime(2026, 9, 20, 0, 0, tzinfo=UTC)]
+    ingested_at = datetime(2026, 9, 20, 1, 0, tzinfo=UTC)
+    first = Huginn(
+        bus=bus,
+        state_store=store,
+        clock=lambda: ingested_at,
+        dedup_clock=lambda: dedup_now[0],
+        dedup_claim_lease=timedelta(seconds=30),
+    )
+    with pytest.raises(RuntimeError, match="synthetic publish interruption"):
+        await first.ingest(_canonical_event())
+
+    dedup_now[0] += timedelta(seconds=31)
+    restarted = Huginn(
+        bus=bus,
+        state_store=store,
+        clock=lambda: ingested_at + timedelta(hours=1),
+        dedup_clock=lambda: dedup_now[0],
+        dedup_claim_lease=timedelta(seconds=30),
+    )
+    recovered = await restarted.ingest(_canonical_event())
+
+    assert recovered is not None
+    assert recovered["ingested_at"] == ingested_at.isoformat()
+    assert len(bus.messages_on("object.event")) == 2
+    assert len(bus.messages_on("object.change")) == 1
+
+
+async def test_durable_dedup_rejects_live_cross_replica_claim() -> None:
+    store = InMemoryStateStore()
+    bus = InMemoryBus(load_pantheon(), isolate_handlers=False)
+
+    async def fail(_topic: str, _payload: dict[str, Any]) -> None:
+        raise RuntimeError("synthetic publish interruption")
+
+    bus.subscribe("object.event", "fail", fail)
+    dedup_now = datetime(2026, 9, 20, 0, 0, tzinfo=UTC)
+    first = Huginn(bus=bus, state_store=store, dedup_clock=lambda: dedup_now)
+    with pytest.raises(RuntimeError, match="synthetic publish interruption"):
+        await first.ingest(_canonical_event())
+
+    competing = Huginn(state_store=store, dedup_clock=lambda: dedup_now)
+    with pytest.raises(HuginnClaimInProgressError, match="claim remains active"):
+        await competing.ingest(_canonical_event())
+
+
+async def test_durable_dedup_rehydrates_completed_key() -> None:
+    store = InMemoryStateStore()
+    first = Huginn(state_store=store)
+    assert await first.ingest(_canonical_event()) is not None
+
+    restarted = Huginn(state_store=store)
+    assert await restarted.rehydrate() == 1
+    assert await restarted.ingest(_canonical_event()) is None
+
+
+async def test_durable_dedup_rejects_idempotency_payload_collision() -> None:
+    store = InMemoryStateStore()
+    assert await Huginn(state_store=store).ingest(_canonical_event()) is not None
+    changed = _canonical_event()
+    changed["resource_ref"] = "resource-2"
+
+    with pytest.raises(ValueError, match="collides with another raw request"):
+        await Huginn(state_store=store).ingest(changed)

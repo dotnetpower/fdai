@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: d93fcd4ec6521d9acc0c42a5ec44eca72aa27953
+translation_source_sha: 2cbbcbd022d55272ffaf954fab3291f4d5859097
 translation_revised: 2026-09-20
 ---
 
@@ -25,6 +25,7 @@ translation_revised: 2026-09-20
 | W0-W1 문서, 온톨로지 및 프레임워크 기반 | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | 고정 레지스트리, 패키지 경계, 문서 일치 및 타입이 지정된 토픽 기반을 실행하고 검사할 수 있습니다. |
 | W2-W6 거버넌스, 파이프라인, 인터페이스, 전문 에이전트, 인계 및 보안 메커니즘 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py) | 선택적 T2 종합 전의 T1 답변 평가를 포함한 범위가 제한된 메커니즘을 집중 합성 검사로 실행하지만 실제 운영 검증을 입증하지는 않습니다. |
 | 영속 권한, 복구, 인계 및 학습 재생 | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore 기반 CAS, 점유 유효 기간, 검사 지점, 보낼 편지함 및 시작 복구 경로에는 재시작과 동시성 집중 검사 근거가 있습니다. 범위가 제한된 Low 심각도 복제본 간 및 작업 신원 잔여 문제 두 건은 아래에 열어 둡니다. |
+| 영속 Huginn 유입 중복 제거 | implemented | `agents/{huginn.py,_framework/huginn_dedup.py}` 및 집중 discovery/runtime 검사 | 프로덕션 조립은 유입 consumer를 시작하기 전에 제한된 key claim, 정확한 정규화 재시도 payload, owner lease 및 게시 checkpoint를 영속화합니다. Broker 수락 후 checkpoint 전 crash는 event bus의 at-least-once 계약에 따라 동일한 stable idempotency key를 다시 전달할 수 있습니다. |
 | W7 에이전트 간 shadow 작업 흐름 메커니즘 | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 작업 흐름에 실행 가능한 합성 shadow 추적이 있으며, enforce 작업 흐름을 기본값으로 사용하는 근거는 이 문서에 없습니다. |
 | W8 KPI, 승격 및 성능 저하 메커니즘 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 보고는 측정값과 사용 불가능한 근거를 구분하고, 근거가 없으면 승격을 차단하며, 주입된 성능 저하 훈련이 고정 판테온을 다룹니다. |
 | W3 추적 연속성 근거 인계 | implemented | `huginn.py`; `heimdall.py`; `test_trace_continuity_chain.py` | sensing 경로는 허용 목록의 범위가 제한된 연속성 근거만 보존하고 역할, topic, 작업 권한을 바꾸지 않은 채 관측된 사유를 인시던트 후보 하나에 전달합니다. |
@@ -37,6 +38,7 @@ translation_revised: 2026-09-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-20 | implemented | 프로덕션 조립의 프로세스 전용 Huginn 중복 제거를 제한된 StateStore CAS 원장으로 교체했습니다. 게시 대기 상태는 원래 정규화된 Event와 Change를 보존하고, 활성 replica lease는 동시 takeover를 막으며, 시작 시 완료 key를 복원하고 idempotency key payload 대체를 실패 폐쇄합니다. | `현재 변경`; 게시 중단, lease 만료 재시작, 활성 claim 충돌, 완료 key 재수화, payload 충돌, discovery, runtime, Ruff 및 mypy 집중 검사. | 통제된 broker 중단 및 재시작 근거를 보존합니다. Broker 수락/checkpoint crash 구간에서는 at-least-once 재전달 가능성이 남습니다. |
 | 2026-09-19 | implemented | Loki의 제안 단계 blast-radius 예약을 개정 번호로 보호된 StateStore 갱신으로 영속화하고 소비자 시작 전에 복원하도록 했습니다. 이제 Loki는 Thor가 소유한 안전한 최종 ActionRun을 읽어 정확한 실험, ActionType 및 대상 예약만 해제합니다. 실패, 알 수 없음, 위조 또는 불일치 종결은 예약을 유지합니다. Loki는 자문 역할을 유지하며 판단, 승인 또는 실행 권한을 얻지 않습니다. | `current change`; `loki_reservations.py`; Loki, 런타임, 구독, 재시작, 재생 및 복제본 간 집중 검사; strict mypy와 Ruff. | 통제된 배포 환경에서 chaos 제안, HIL, 최종 ActionRun 및 예약 해제 추적을 보존합니다. Chaos enforce 승격을 추론하지 않습니다. |
 | 2026-09-19 | implemented | 공유 불가역 작업 판단에서 ActionType 이름 휴리스틱을 제거했습니다. 이제 카탈로그의 `irreversible` 필드만 가역성의 긍정 근거가 되며, 카탈로그를 사용할 수 없으면 안전하게 정족수 2를 요구합니다. Forseti는 판단자, Var는 승인자, Thor는 유일한 실행기 역할을 유지합니다. | `current change`; `action_semantics.py`; 집중 정족수 및 카탈로그 회귀 검사; 프레임워크 레이아웃, strict mypy 및 Ruff. | 고정된 ActionType 다이제스트가 포함된 배포 불가역 작업 판단 증적을 보존합니다. 승격 상태는 바뀌지 않습니다. |
 | 2026-09-19 | implemented | Forseti의 운영자 RBAC에서 예제 principal 대체 동작을 제거했습니다. 이제 배포 정책이 없으면 운영자 작업 권한을 부여하지 않으며, 명시적으로 주입된 정책은 기존의 거부 및 보안 이벤트 동작을 유지합니다. 에이전트 역할, topic, 모델 정책 및 실행 권한은 바뀌지 않았습니다. | `current change`; `forseti.py`; 집중 RBAC 회귀 검사; Wave 3 및 프레임워크 레이아웃 검사; strict mypy와 Ruff. | 기존 실제 shadow 코호트와 함께 배포된 RBAC 판단 근거를 보존합니다. enforce 승격을 추론하지 않습니다. |

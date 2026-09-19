@@ -10,13 +10,17 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai_service_contracts.alert_noise_wire import ALERT_NOISE_EVENT_TYPES, SignedAlertCommand
 
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.huginn_dedup import (
+    HuginnDedupJournal,
+    request_digest,
+)
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     agent_state_evidence_ref,
@@ -24,6 +28,7 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.pantheon import _HUGINN
 from fdai.core.case_history import OperationalCaseInput
+from fdai.shared.providers.state_store import StateStore
 
 # Bound the dedup memory so a long-lived process cannot leak: the most
 # recent N idempotency keys are retained; older keys age out (a re-arrival
@@ -236,6 +241,9 @@ class Huginn(Agent):
         dedup_capacity: int = _DEDUP_CAPACITY,
         discovery_projector: DiscoveryProjector | None = None,
         clock: Callable[[], datetime] | None = None,
+        state_store: StateStore | None = None,
+        dedup_clock: Callable[[], datetime] | None = None,
+        dedup_claim_lease: timedelta = timedelta(seconds=60),
     ) -> None:
         super().__init__(spec=_HUGINN)
         self.bus = bus
@@ -245,6 +253,16 @@ class Huginn(Agent):
         self._discovery_projector = discovery_projector
         self._alert_noise_verifier: Callable[[Mapping[str, Any]], object] | None = None
         self._clock: Callable[[], datetime] = clock or (lambda: datetime.now(tz=UTC))
+        self._dedup_journal = (
+            HuginnDedupJournal(
+                state_store,
+                capacity=dedup_capacity,
+                clock=dedup_clock,
+                claim_lease=dedup_claim_lease,
+            )
+            if state_store is not None
+            else None
+        )
         # OrderedDict as an LRU set: key -> None, oldest first.
         self._seen_keys: OrderedDict[str, None] = OrderedDict()
 
@@ -256,6 +274,15 @@ class Huginn(Agent):
         if self._alert_noise_verifier is not None:
             raise RuntimeError("alert ingress verifier is already bound")
         self._alert_noise_verifier = verifier
+
+    async def rehydrate(self) -> int:
+        """Restore completed dedup keys before the ingress consumer starts."""
+        if self._dedup_journal is None:
+            return 0
+        self._seen_keys = OrderedDict(
+            (key, None) for key in await self._dedup_journal.published_keys()
+        )
+        return len(self._seen_keys)
 
     def health(self) -> dict[str, Any]:
         """Expose ingress / dedup state for Heimdall's probe."""
@@ -285,6 +312,7 @@ class Huginn(Agent):
         if not key:
             raise ValueError("event missing idempotency_key / id / event_id")
         key = key[:_MAX_FIELD_CHARS]
+        raw_request_digest = request_digest(raw) if self._dedup_journal is not None else ""
         if key in self._seen_keys:
             self._seen_keys.move_to_end(key)
             self.record_behavior("deduped")
@@ -417,6 +445,19 @@ class Huginn(Agent):
         )
         if change_projection is not None:
             payload["normalized_change"] = dict(change_projection)
+        if self._dedup_journal is not None:
+            claim = await self._dedup_journal.claim(
+                idempotency_key=key,
+                request_digest=raw_request_digest,
+                payload=payload,
+                change_projection=change_projection,
+            )
+            if claim.duplicate:
+                self._remember_key(key)
+                self.record_behavior("deduped")
+                return None
+            payload = claim.payload
+            change_projection = claim.change_projection
         # Measurable behaviour: the sensing layer's ingest / dedup rates, so a
         # scenario can see an ingress flood (the flooding concern one layer up
         # from the judge). Recorded on the decision to emit, before publish.
@@ -432,10 +473,19 @@ class Huginn(Agent):
             await self.bus.publish("Huginn", "object.event", payload)
             if change_projection is not None:
                 await self.bus.publish("Huginn", "object.change", change_projection)
+        if self._dedup_journal is not None:
+            await self._dedup_journal.complete(
+                idempotency_key=key,
+                request_digest=raw_request_digest,
+            )
+        self._remember_key(key)
+        return payload
+
+    def _remember_key(self, key: str) -> None:
         self._seen_keys[key] = None
+        self._seen_keys.move_to_end(key)
         if len(self._seen_keys) > self._dedup_capacity:
             self._seen_keys.popitem(last=False)
-        return payload
 
     # ---- conversational port -------------------------------------------
 
