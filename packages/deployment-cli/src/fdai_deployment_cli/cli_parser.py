@@ -18,6 +18,7 @@ from fdai_deployment_cli.cli_help import (
 )
 from fdai_deployment_cli.foundation_plan import register_foundation_plan_command
 from fdai_deployment_cli.state_handoff import register_state_handoff_command
+from fdai_deployment_cli.aks_service_update import SERVICES as AKS_SERVICES
 
 CommandHandler = Callable[[argparse.Namespace], int]
 
@@ -303,6 +304,19 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         help="Resolved model manifest paired with the recovered state",
     )
     azure.set_defaults(handler=handlers["provision_azure"])
+
+    source_update = command(
+        provision_commands,
+        "source-service-update",
+        "Build and deploy one service from a clean source checkout",
+    )
+    source_update.add_argument("--source", type=Path, required=True)
+    source_update.add_argument("--service", choices=sorted(AKS_SERVICES), required=True)
+    source_update.add_argument("--application-work-dir", type=Path, required=True)
+    source_update.add_argument("--work-dir", type=Path)
+    source_update.add_argument("--timeout-seconds", type=int, default=14400)
+    source_update.add_argument("--output", choices=("text", "json"), default="text")
+    source_update.set_defaults(handler=handlers["provision_source_service_update"])
     console_update = command(
         provision_commands,
         "console-update",

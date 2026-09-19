@@ -58,6 +58,7 @@ from fdai_deployment_cli.simulation import rehearse
 from fdai_deployment_cli.source_azure import plan_source_installation
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_foundation import prepare_source_foundation_plan
+from fdai_deployment_cli.source_service_update import deploy_source_service_update
 from fdai_deployment_cli.standalone_deploy import deploy_azure_foundation
 from fdai_deployment_cli.state import read_journal
 from fdai_deployment_cli.status_projection import project_status
@@ -98,6 +99,7 @@ def _parser() -> argparse.ArgumentParser:
             "offline_configure_console": _offline_configure_console,
             "offline_install_support": _offline_install_support,
             "provision_azure": _provision_azure,
+            "provision_source_service_update": _provision_source_service_update,
             "provision_console_update_build": _provision_console_update_build,
             "provision_console_update_plan": _provision_console_update_plan,
             "provision_console_update_apply": _provision_console_update_apply,
@@ -330,6 +332,37 @@ def _provision_azure(args: argparse.Namespace) -> int:
         text=(
             "standalone Azure deployment ready; subscription-wide assurance evidence remains open"
         ),
+    )
+    return 0
+
+
+def _provision_source_service_update(args: argparse.Namespace) -> int:
+    """Build and deploy one source-selected service from an eligible deployment host."""
+
+    source = args.source.absolute()
+    application = args.application_work_dir.absolute()
+    selected = args.work_dir
+    if selected is None:
+        commit = subprocess.run(
+            ("git", "rev-parse", "HEAD"),
+            cwd=source,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        ).stdout.strip()
+        selected = Path.home() / ".local/state/fdai/source-service-updates" / commit / args.service
+    result = deploy_source_service_update(
+        source_root=source,
+        application_work_dir=application,
+        work_dir=selected,
+        service=args.service,
+        timeout_seconds=args.timeout_seconds,
+    )
+    print(
+        json.dumps(result, sort_keys=True, separators=(",", ":"))
+        if args.output == "json"
+        else (f"source service update applied: {result['service']} at {result['source_commit']}")
     )
     return 0
 
