@@ -7,7 +7,7 @@ import json
 import os
 import re
 import subprocess
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -69,7 +69,7 @@ def _review(path: Path) -> dict[str, Any]:
         {key: item for key, item in value.items() if key != "review_digest"}
     ):
         raise ManualOperatorUpdateError("manual Operator review digest is invalid")
-    if _timestamp(value.get("expires_at"), "expiry") <= datetime.now(UTC):
+    if _timestamp(value.get("expires_at"), "expiry") <= datetime.now(timezone.utc):  # noqa: UP017 - Python 3.10 host
         raise ManualOperatorUpdateError("manual Operator review is expired")
     return value
 
@@ -155,7 +155,7 @@ def _image_attestation(path: Path, image_ref: str, source_commit: str) -> dict[s
     ):
         raise ManualOperatorUpdateError("manual Operator image attestation is invalid")
     verified_at = _timestamp(value.get("verified_at"), "image attestation timestamp")
-    if datetime.now(UTC) - verified_at > timedelta(hours=1):
+    if datetime.now(timezone.utc) - verified_at > timedelta(hours=1):  # noqa: UP017 - Python 3.10 host
         raise ManualOperatorUpdateError("manual Operator image attestation is stale")
     return value
 

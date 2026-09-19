@@ -9,7 +9,7 @@ import json
 import os
 import re
 import subprocess
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -115,7 +115,7 @@ def prepare(
     )
     _validate_plan(plan_json)
     common._write_private(plan_json_path, plan_json)
-    created_at = datetime.now(UTC)
+    created_at = datetime.now(timezone.utc)  # noqa: UP017 - Python 3.10 host
     review: dict[str, Any] = {
         "schema_version": "fdai.manual-operator-platform-review.v1",
         "source_commit": source_commit,
@@ -199,7 +199,7 @@ def apply(
             "plan_digest": review["plan_digest"],
             "idempotency_key": review["idempotency_key"],
             "executor_digest": common._executor_digest(target),
-            "claimed_at": datetime.now(UTC).isoformat(),
+            "claimed_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017 - Python 3.10 host
             "mutation_performed": False,
         }
         claim["claim_digest"] = common._canonical_digest(claim)
@@ -277,7 +277,7 @@ def apply(
             "secret_reference_digest": common._canonical_digest(secret_id.casefold()),
             "secret_readback_verified": True,
             "role_readback_verified": True,
-            "completed_at": datetime.now(UTC).isoformat(),
+            "completed_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017 - Python 3.10 host
             "mutation_performed": True,
         }
         receipt["receipt_digest"] = common._canonical_digest(receipt)

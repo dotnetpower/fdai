@@ -13,7 +13,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -137,7 +137,7 @@ def prepare(
         raise ManualOperatorUpdateError("planned Operator target differs from current state")
     plan_digest = _file_digest(plan_path)
     plan_json_digest = _file_digest(plan_json_path)
-    created_at = datetime.now(UTC)
+    created_at = datetime.now(timezone.utc)  # noqa: UP017 - Python 3.10 host
     review: dict[str, Any] = {
         "schema_version": "fdai.manual-operator-update-review.v1",
         "source_commit": source_commit,
@@ -184,7 +184,7 @@ def attest_image(
         "source_commit": source_commit,
         "predicate_type": "https://slsa.dev/provenance/v1",
         "signer_workflow": f"{repository}/.github/workflows/container-supply-chain.yml",
-        "verified_at": datetime.now(UTC).isoformat(),
+        "verified_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017 - Python 3.10 host
         "mutation_performed": False,
     }
     receipt["attestation_digest"] = _canonical_digest(receipt)
@@ -245,7 +245,7 @@ def approve(*, target_path: Path, review_path: Path, output: Path) -> dict[str, 
         "actor_digest": hashlib.sha256(
             f"{review['target_binding']}:{object_id.casefold()}".encode()
         ).hexdigest(),
-        "approved_at": datetime.now(UTC).isoformat(),
+        "approved_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017 - Python 3.10 host
         "expires_at": review["expires_at"],
     }
     approval["approval_digest"] = _canonical_digest(approval)
@@ -313,7 +313,7 @@ def apply(
             "plan_digest": review["plan_digest"],
             "idempotency_key": review["idempotency_key"],
             "executor_digest": _executor_digest(target),
-            "claimed_at": datetime.now(UTC).isoformat(),
+            "claimed_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017 - Python 3.10 host
             "mutation_performed": False,
         }
         claim["claim_digest"] = _canonical_digest(claim)
@@ -346,7 +346,7 @@ def apply(
                 "plan_digest": review["plan_digest"],
                 "previous_revision": review["previous_revision"],
                 "rollback_verified": True,
-                "completed_at": datetime.now(UTC).isoformat(),
+                "completed_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017 - Python 3.10 host
             }
             failure["receipt_digest"] = _canonical_digest(failure)
             _write_private(work_dir / "failure.json", failure)
@@ -365,7 +365,7 @@ def apply(
             ).hexdigest(),
             "health_verified": True,
             "effect_readback_verified": True,
-            "completed_at": datetime.now(UTC).isoformat(),
+            "completed_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017 - Python 3.10 host
             "mutation_performed": True,
         }
         receipt["receipt_digest"] = _canonical_digest(receipt)

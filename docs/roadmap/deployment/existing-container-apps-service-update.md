@@ -51,6 +51,9 @@ object ID, target, review digest, plan digest, and expiry. Apply requires a diff
 UAMI principal and rejects changed source, target, plan bytes, plan projection, approval, or
 rollback baseline.
 
+The manual coordinator supports the deployment host's Python 3.10 runtime. Its UTC records use the
+standard-library compatibility surface rather than requiring a newer interpreter during recovery.
+
 ### Platform prerequisite
 
 When the existing platform state predates the Cost Governance pseudonym key,

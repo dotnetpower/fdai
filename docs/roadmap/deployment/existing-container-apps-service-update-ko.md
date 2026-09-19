@@ -1,6 +1,6 @@
 ---
 translation_of: existing-container-apps-service-update.md
-translation_source_sha: 9bba655945934a0891df5b22bfb5baad74ed08e2
+translation_source_sha: 8e86a7192cca23af0f8bb3416091593195a2292f
 translation_revised: 2026-09-19
 ---
 # 기존 Container Apps 서비스 업데이트
@@ -49,6 +49,9 @@ backend를 초기화하고 리소스 하나에 대해 20분 동안 유효한 저
 활성 Azure 사용자는 실행 호스트 밖에서 `approve`를 실행합니다. 승인은 Entra 사용자 object ID,
 대상, 검토 digest, 플랜 digest 및 만료 시각을 결속합니다. 적용에는 서로 다른 배포 UAMI principal이
 필요하며 소스, 대상, 플랜 바이트, 플랜 projection, 승인 또는 롤백 기준이 바뀌면 차단합니다.
+
+수동 조정기는 배포 호스트의 Python 3.10 런타임을 지원합니다. UTC 기록은 복구 중에 더 새로운
+인터프리터를 요구하지 않고 표준 라이브러리의 호환 표면을 사용합니다.
 
 ### 플랫폼 선행조건
 

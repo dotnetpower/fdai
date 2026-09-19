@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import ModuleType
 
@@ -154,7 +154,7 @@ def test_image_attestation_rejects_another_candidate(tmp_path: Path, update: Mod
         "source_commit": "c" * 40,
         "predicate_type": "https://slsa.dev/provenance/v1",
         "signer_workflow": "dotnetpower/fdai/.github/workflows/container-supply-chain.yml",
-        "verified_at": datetime.now(UTC).isoformat(),
+        "verified_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017 - Python 3.10 host
         "mutation_performed": False,
     }
     receipt["attestation_digest"] = update._canonical_digest(receipt)
@@ -314,8 +314,8 @@ def _review(update: ModuleType, target: dict[str, str]) -> dict[str, object]:
         "rollback_action": "copy_verified_previous_revision",
         "blast_radius": "one_existing_operator_container_app",
         "idempotency_key": "f" * 64,
-        "created_at": datetime.now(UTC).isoformat(),
-        "expires_at": (datetime.now(UTC) + timedelta(minutes=10)).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017 - Python 3.10 host
+        "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),  # noqa: UP017 - Python 3.10 host
         "mutation_performed": False,
     }
     value["review_digest"] = update._canonical_digest(value)
@@ -335,7 +335,7 @@ def _apply_files(tmp_path: Path, update: ModuleType) -> tuple[Path, Path, Path, 
         "plan_digest": review["plan_digest"],
         "target_binding": review["target_binding"],
         "actor_digest": "9" * 64,
-        "approved_at": datetime.now(UTC).isoformat(),
+        "approved_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017 - Python 3.10 host
         "expires_at": review["expires_at"],
     }
     approval_value["approval_digest"] = update._canonical_digest(approval_value)
