@@ -484,7 +484,7 @@ class InventoryOntologyProjector:
             _LOG.warning("inventory_ontology_invalidation_marker_rebuilt_from_floor")
         if journal_high_watermark is None and previous_sequence == 0:
             return None
-        journal_cursor = journal_high_watermark or 0
+        journal_cursor = 0 if epoch else journal_high_watermark or 0
         if max(previous_sequence, journal_cursor) >= 2**53 - 1:
             raise ValueError("inventory invalidation cursor sequence requires repair")
         committed_at = recorded_at or datetime.now(UTC)

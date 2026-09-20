@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: cdd6ff2640f899e66c9d53fffec62a01adc8a1a6
+translation_source_sha: 3d19ac38e34e54baaa92633dbcc7f1d3f2a91a92
 translation_revised: 2026-09-20
 ---
 # 지속형 운영 인스턴스 그래프
@@ -370,7 +370,7 @@ broker 결과가 불확실하면 동일 이벤트 식별자로 재시도하며 �
 신뢰 가능한 숫자 하한이 사라진 커서는 버전이 있는 스트림 epoch로 복구합니다. 기존 숫자 스트림은 호환성을 유지하며, 복구된 스트림은 `cursor_version=2`와 `epoch:sequence`를 요구하고 구형 클라이언트에 사용 불가를 반환합니다. epoch가 바뀌면 연결을 종료하고 Console이 10초 안에 인증된 스냅샷을 다시 읽어야 커서를 승인합니다. 실패하거나 취소된 재조회는 커서를 승인하거나 공급자 사실의 최신성을 갱신하지 않습니다.
 유지보수 명령 `python -m fdai.delivery.persistence.postgres_inventory_cursor_repair --inspect`는 `FDAI_STATE_STORE_DSN`으로 선택한 대상만 읽습니다. 명시적 `--apply`에는 `--repair-id`, `--expected-generation`, `--expected-manifest-digest`, `--expected-damage-digest` 조회값도 필요합니다. 다른 DB를 선택하거나 공급자를 호출하지 않습니다.
 복구는 기존 변환 및 그래프 잠금을 유지하고, 저장된 그래프 내용과 release를 완전한 활성 매니페스트와 독립적으로 대조한 뒤 30초 안에 epoch, 하한 및 불변 증적을 원자적으로 기록합니다. 증적은 행위자, DB principal, 손상 상태 다이제스트 및 검증된 그래프에 결속됩니다. 같은 요청의 재시작은 멱등적이며 요청이나 근거가 바뀌면 차단합니다.
-그래프 행, 매니페스트, 상태 및 원본 관측 시각은 바꾸지 않습니다. 복구 메타데이터는 관리 리소스 권한을 부여하지 않습니다. 정확한 release 배포와 실제 환경의 복구 근거는 별도 요건입니다.
+그래프 행, 매니페스트, 상태 및 원본 관측 시각은 바꾸지 않습니다. 복구된 epoch는 이전 저널 숫자와 독립적으로 자체 순번을 증가시키므로 과거 스트림의 숫자 한도 초과가 즉시 다시 발생하지 않습니다. 복구 메타데이터는 관리 리소스 권한을 부여하지 않습니다. 정확한 release 배포와 실제 환경의 복구 근거는 별도 요건입니다.
 
 비평에서는 즉시 잠금 제거, 메모리 한도 확대 및 암묵적 범위 축소를 배제했습니다. 수정한
 순서는 기준 측정, 영속 수집, 불변 스냅샷 게시, epoch 복구, 근거에 따른 소유권 병렬화입니다.

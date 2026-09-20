@@ -414,7 +414,15 @@ async def test_same_generation_cannot_reuse_corrupt_or_regressed_marker(defect: 
 
 
 @pytest.mark.parametrize(
-    "defect", ["none", "epoch_mismatch", "epoch_type", "floor_overflow", "journal_overflow"]
+    "defect",
+    [
+        "none",
+        "epoch_mismatch",
+        "epoch_type",
+        "floor_overflow",
+        "legacy_journal_overflow",
+        "old_epoch_overflow",
+    ],
 )
 async def test_projection_preserves_repaired_epoch_and_rejects_cursor_drift(defect) -> None:
     status = InMemoryStateStore()
@@ -426,29 +434,32 @@ async def test_projection_preserves_repaired_epoch_and_rejects_cursor_drift(defe
         floor["epoch"] = 123
     elif defect == "floor_overflow":
         floor["sequence"] = 2**53 - 1
+    elif defect == "legacy_journal_overflow":
+        floor.pop("epoch")
     await status.write_state(INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY, floor)
     if defect == "epoch_mismatch":
         await status.write_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY, {"epoch": "b" * 32})
     observation = _observation(generation="snapshot-epoch", resource_ids=("vm-1",))
-    if defect != "none":
+    if defect not in {"none", "old_epoch_overflow"}:
         with pytest.raises(ValueError, match="requires repair"):
             await projector.apply(
                 observation,
-                journal_high_watermark=(2**53 if defect == "journal_overflow" else 7),
+                journal_high_watermark=(2**53 if defect == "legacy_journal_overflow" else 7),
                 projection_high_watermark=6,
             )
         assert await store.get_object("vm-1") is None
         return
-    await projector.apply(observation, journal_high_watermark=7, projection_high_watermark=6)
+    journal = 2**53 if defect == "old_epoch_overflow" else 7
+    await projector.apply(observation, journal_high_watermark=journal, projection_high_watermark=6)
     marker = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
     assert marker["epoch"] == epoch
     assert marker["schema_version"] == "2.0.0"
-    assert marker["sequence"] == 8
+    assert marker["sequence"] == 2
     assert await status.read_state(INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY) == {
-        "sequence": 8,
+        "sequence": 2,
         "epoch": epoch,
     }
-    await projector.apply(observation, journal_high_watermark=7, projection_high_watermark=6)
+    await projector.apply(observation, journal_high_watermark=journal, projection_high_watermark=6)
     assert await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY) == marker
 
 
