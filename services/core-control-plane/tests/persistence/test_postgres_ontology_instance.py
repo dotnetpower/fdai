@@ -301,6 +301,8 @@ async def test_isolated_committed_resource_scan_preserves_current_evidence(condi
                 )
             elif condition == "chunk_missing":
                 await connection.execute("DELETE FROM state_kv WHERE value->>'kind'='objects'")
+        content_read = AsyncMock(wraps=snapshots._read_content)
+        monkeypatch.setattr(snapshots, "_read_content", content_read)
         page_read = AsyncMock(wraps=snapshots.read_snapshot_page)
         monkeypatch.setattr(snapshots, "read_snapshot_page", page_read)
         operation = store.scan_objects(
@@ -337,6 +339,8 @@ async def test_isolated_committed_resource_scan_preserves_current_evidence(condi
                 else 1
             )
             assert page_read.await_count == expected_calls
+            if condition == "pages":
+                assert content_read.await_count == 5
             assert len({id(call.kwargs["_connection"]) for call in page_read.await_args_list}) <= 1
 
 
@@ -453,6 +457,25 @@ async def test_isolated_committed_resource_scan_keeps_filtered_and_other_owner_p
         graph = await store.scan_objects(**{"object_types": ("Resource",), **filters})
         assert len(graph.objects) == (0 if "object_types" in filters else 1)
         pinned.assert_not_awaited()
+
+
+@pytest.mark.parametrize("mismatch", ["digest", "connection"])
+async def test_prepared_ontology_snapshot_index_rejects_other_read(mismatch):
+    from fdai.delivery.persistence.postgres_ontology_snapshot import (
+        _SnapshotIndex,
+        read_snapshot_page,
+    )
+
+    connection = AsyncMock()
+    digest = "sha256:" + "a" * 64
+    index = _SnapshotIndex(connection, digest, {}, {}, (), {})
+    with pytest.raises(OntologyInstanceValidationError, match="another read"):
+        await read_snapshot_page(
+            PostgresOntologyInstanceStoreConfig(dsn="postgresql://example"),
+            snapshot_digest=("sha256:" + "b" * 64) if mismatch == "digest" else digest,
+            _connection=AsyncMock() if mismatch == "connection" else connection,
+            _index=index,
+        )
 
 
 @pytest.mark.parametrize("defect", ["none", "manifest", "chunk", "missing", "mutation"])

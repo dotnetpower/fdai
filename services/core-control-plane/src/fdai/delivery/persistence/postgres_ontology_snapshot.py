@@ -190,6 +190,7 @@ async def read_snapshot_page(
     cursor: str | None = None,
     limit: int = 1000,
     _connection: psycopg.AsyncConnection[Any] | None = None,
+    _index: _SnapshotIndex | None = None,
 ) -> CommittedOntologyPage:
     """Read immutable committed partitions; a cursor selects content and grants no authorization.
 
@@ -218,39 +219,12 @@ async def read_snapshot_page(
         asyncio.timeout(30),
         _snapshot_connection(config, _connection) as connection,
     ):
-        receipt = await _read_content(connection, _PREFIX, snapshot_digest, _MAX_RECEIPT_BYTES)
-        manifest = await _read_content(
-            connection, "ontology-prepared:", receipt.get("prepared_digest"), 32 * 1024 * 1024
-        )
-        partitions = receipt.get("partitions")
-        revisions = receipt.get("object_revisions")
-        if (
-            receipt.get("schema_version") != "1.0.0"
-            or manifest.get("schema_version") != "1.0.0"
-            or receipt.get("generation") != manifest.get("expected_active_generation")
-            or receipt.get("release_digest") != manifest.get("release_digest")
-            or not isinstance(partitions, list)
-            or len(partitions) > 1000
-            or not isinstance(revisions, dict)
-            or len(revisions) != manifest.get("object_count")
-            or any(type(value) is not int or value < 1 for value in revisions.values())
-            or any(
-                not isinstance(part, dict)
-                or set(part) != {"digest", "kind", "count"}
-                or part["kind"] not in {"objects", "links"}
-                or type(part["count"]) is not int
-                or not 1 <= part["count"] <= 1000
-                for part in partitions
-            )
-            or [part["digest"] for part in partitions] != manifest.get("chunks")
-            or sum(part["count"] for part in partitions if part["kind"] == "objects")
-            != manifest.get("object_count")
-            or sum(part["count"] for part in partitions if part["kind"] == "links")
-            != manifest.get("link_count")
-        ):
+        index = _index or await _read_index(connection, snapshot_digest)
+        if index.connection is not connection or index.digest != snapshot_digest:
             raise OntologyInstanceValidationError(
-                "committed ontology snapshot receipt is malformed"
+                "committed ontology snapshot index belongs to another read"
             )
+        receipt, partitions, revisions = index.receipt, index.partitions, index.revisions
         total = sum(part["count"] for part in partitions if part["kind"] == kind)
         if offset > total:
             raise ValueError("snapshot page cursor is beyond the recorded bounds")
@@ -314,6 +288,51 @@ async def read_snapshot_page(
         )
 
 
+@dataclass(frozen=True, slots=True)
+class _SnapshotIndex:
+    connection: psycopg.AsyncConnection[Any]
+    digest: str
+    receipt: dict[str, Any]
+    manifest: dict[str, Any]
+    partitions: tuple[dict[str, Any], ...]
+    revisions: dict[str, int]
+
+
+async def _read_index(connection: psycopg.AsyncConnection[Any], digest: str) -> _SnapshotIndex:
+    receipt = await _read_content(connection, _PREFIX, digest, _MAX_RECEIPT_BYTES)
+    manifest = await _read_content(
+        connection, "ontology-prepared:", receipt.get("prepared_digest"), 32 * 1024 * 1024
+    )
+    partitions = receipt.get("partitions")
+    revisions = receipt.get("object_revisions")
+    if (
+        receipt.get("schema_version") != "1.0.0"
+        or manifest.get("schema_version") != "1.0.0"
+        or receipt.get("generation") != manifest.get("expected_active_generation")
+        or receipt.get("release_digest") != manifest.get("release_digest")
+        or not isinstance(partitions, list)
+        or len(partitions) > 1000
+        or not isinstance(revisions, dict)
+        or len(revisions) != manifest.get("object_count")
+        or any(type(value) is not int or value < 1 for value in revisions.values())
+        or any(
+            not isinstance(part, dict)
+            or set(part) != {"digest", "kind", "count"}
+            or part["kind"] not in {"objects", "links"}
+            or type(part["count"]) is not int
+            or not 1 <= part["count"] <= 1000
+            for part in partitions
+        )
+        or [part["digest"] for part in partitions] != manifest.get("chunks")
+        or sum(part["count"] for part in partitions if part["kind"] == "objects")
+        != manifest.get("object_count")
+        or sum(part["count"] for part in partitions if part["kind"] == "links")
+        != manifest.get("link_count")
+    ):
+        raise OntologyInstanceValidationError("committed ontology snapshot receipt is malformed")
+    return _SnapshotIndex(connection, digest, receipt, manifest, tuple(partitions), revisions)
+
+
 async def scan_current_inventory_snapshot(
     connection: psycopg.AsyncConnection[Any],
     config: PostgresOntologyInstanceStoreConfig,
@@ -337,10 +356,8 @@ async def scan_current_inventory_snapshot(
         digest = await pin_current_snapshot(config, _connection=connection)
         if digest is None:
             raise OntologyInstanceValidationError("committed ontology snapshot is unavailable")
-        receipt = await _read_content(connection, _PREFIX, digest, _MAX_RECEIPT_BYTES)
-        manifest = await _read_content(
-            connection, "ontology-prepared:", receipt.get("prepared_digest"), 32 * 1024 * 1024
-        )
+        index = await _read_index(connection, digest)
+        receipt, manifest = index.receipt, index.manifest
         updates = manifest.get("state_updates")
         keys = ("inventory-ontology:manifest", "inventory-ontology:status")
         cursor = await connection.execute(
@@ -379,6 +396,7 @@ async def scan_current_inventory_snapshot(
                 cursor=next_cursor,
                 limit=min(1000, candidate_limit - len(objects)),
                 _connection=connection,
+                _index=index,
             )
             if any(
                 record.object_type != "Resource"
