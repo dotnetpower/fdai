@@ -70,6 +70,12 @@ export function OntologyInstancesView({ client }: Props) {
     enabled: true,
     getAuthorizationHeader: client.authorizationHeader,
     onEvent: () => window.dispatchEvent(new Event("fdai:ontology-invalidated")),
+    reloadSnapshot: async (isCurrent) => {
+      const payload = await client.panel<unknown>("/ontology/instances", search
+        ? { limit: "200", search } : { limit: "200" });
+      if (!isCurrent()) return;
+      setDirectory({ status: "ready", data: decodeOntologyInstanceDirectory(payload) });
+    },
   });
 
   useEffect(() => {

@@ -311,7 +311,7 @@ incident, or query receipt. It pins the ontology release, query profile, cutoff,
 revisions, state lanes, source watermarks, completeness, conflicts, truncation, and evidence
 references. The browser never merges a catalog topology with runtime inventory and never treats a
 missing or incomplete relationship as false. A context snapshot remains read-only and carries
-`mutation_authority: false`.
+`mutation_authority: false`. Inventory SSE negotiates `cursor_version=2` for repaired `epoch:sequence` cursors and emits an identifier-free reset requirement when epochs differ. Clients reread their authenticated snapshot before reconnecting; numeric-only clients receive unavailable for repaired streams. Other principal-scoped stream cursors, including incident replay, remain unchanged.
 
 The ActionType projection is additive: `action_type_count` and `action_types`
 may be zero or absent on an older deployment, while ObjectType and LinkType

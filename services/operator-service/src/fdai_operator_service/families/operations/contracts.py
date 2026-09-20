@@ -559,6 +559,7 @@ class ReplayQuery:
     principal_id: str
     after_sequence: int | None
     limit: int
+    cursor_epoch: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -1295,6 +1295,57 @@ async def test_inventory_invalidation_initial_connect_establishes_watermark_with
     }
 
 
+@pytest.mark.parametrize(
+    "cursor_epoch,after_sequence,outcome",
+    [
+        (None, 900, "unavailable"),
+        ("", 900, "reset"),
+        ("b" * 32, 900, "reset"),
+        ("a" * 32, 41, "event"),
+        ("a" * 32, 42, "empty"),
+        ("a" * 32, 900, "empty"),
+        ("broken", 0, "invalid"),
+    ],
+)
+async def test_inventory_epoch_replay_does_not_compare_unrelated_sequences(
+    monkeypatch,
+    cursor_epoch,
+    after_sequence,
+    outcome,
+) -> None:
+    row = _invalidation_row()
+    row["marker"] = {**row["marker"], "schema_version": "2.0.0", "epoch": "a" * 32}
+
+    async def fetch_all(self, statement, parameters):
+        return [row]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    async def replay():
+        return await store.replay(
+            stream=INVENTORY_INVALIDATION_STREAM,
+            principal_id="reader-oid",
+            after_sequence=after_sequence,
+            limit=1,
+            cursor_epoch=cursor_epoch,
+        )
+
+    if outcome in {"unavailable", "invalid"}:
+        with pytest.raises(
+            PostgresFamilyStoreUnavailable if outcome == "unavailable" else ValueError
+        ):
+            await replay()
+    else:
+        events = await replay()
+        if outcome == "empty":
+            assert events == ()
+        else:
+            assert events[0].data["epoch"] == "a" * 32
+            assert events[0].data["reset_required"] is (outcome == "reset")
+            assert events[0].data["observed_at"] == "2026-09-06T01:00:00+00:00"
+
+
 async def test_inventory_invalidation_initial_connect_without_a_commit_yields_no_event(
     monkeypatch: Any,
 ) -> None:

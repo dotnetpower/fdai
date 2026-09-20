@@ -336,7 +336,8 @@ class InventoryOntologyProjector:
         if invalidation_state is not None:
             state_updates[INVENTORY_ONTOLOGY_INVALIDATION_KEY] = invalidation_state
             state_updates[INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY] = {
-                "sequence": invalidation_state["sequence"]
+                "sequence": invalidation_state["sequence"],
+                **({"epoch": invalidation_state["epoch"]} if "epoch" in invalidation_state else {}),
             }
         active_scope_state = checkpoints.active_scope_state(generation=projection.generation)
         if active_scope_state is not None:
@@ -385,7 +386,7 @@ class InventoryOntologyProjector:
                 )
                 await self._status_store.write_state(
                     INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY,
-                    {"sequence": invalidation_state["sequence"]},
+                    state_updates[INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY],
                 )
         if projection_high_watermark is not None and not callable(atomic_replace):
             if self._observation_journal is None:
@@ -429,16 +430,24 @@ class InventoryOntologyProjector:
         previous = await self._status_store.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
         previous_sequence = 0
         floor = await self._status_store.read_state(INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY)
+        epoch = floor.get("epoch") if isinstance(floor, Mapping) else None
+        if epoch is not None and (
+            not isinstance(epoch, str) or re.fullmatch(r"[a-f0-9]{32}", epoch) is None
+        ):
+            raise ValueError("inventory invalidation cursor epoch requires repair")
         if floor is not None:
             floor_sequence = floor.get("sequence")
             if (
                 not isinstance(floor_sequence, int)
                 or isinstance(floor_sequence, bool)
                 or floor_sequence < 1
+                or floor_sequence >= 2**53 - 1
             ):
                 raise ValueError("inventory invalidation cursor floor requires repair")
             previous_sequence = floor_sequence
         if isinstance(previous, Mapping):
+            if previous.get("epoch") != epoch:
+                raise ValueError("inventory invalidation cursor epoch requires repair")
             sequence = previous.get("sequence")
             if isinstance(sequence, int) and not isinstance(sequence, bool) and sequence >= 1:
                 previous_sequence = max(previous_sequence, sequence)
@@ -447,7 +456,7 @@ class InventoryOntologyProjector:
                     raise ValueError("inventory invalidation cursor floor requires repair")
                 _LOG.warning("inventory_ontology_invalidation_marker_rebuilt_from_floor")
             valid_previous = (
-                previous.get("schema_version") == "1.0.0"
+                previous.get("schema_version") == ("2.0.0" if epoch else "1.0.0")
                 and previous_sequence >= 1
                 and isinstance(sequence, int)
                 and not isinstance(sequence, bool)
@@ -476,11 +485,14 @@ class InventoryOntologyProjector:
         if journal_high_watermark is None and previous_sequence == 0:
             return None
         journal_cursor = journal_high_watermark or 0
+        if max(previous_sequence, journal_cursor) >= 2**53 - 1:
+            raise ValueError("inventory invalidation cursor sequence requires repair")
         committed_at = recorded_at or datetime.now(UTC)
         if committed_at.tzinfo is None:
             raise ValueError("inventory ontology invalidation time MUST be timezone-aware")
         return {
-            "schema_version": "1.0.0",
+            "schema_version": "2.0.0" if epoch else "1.0.0",
+            **({"epoch": epoch} if epoch else {}),
             "sequence": max(previous_sequence, journal_cursor) + 1,
             "generation": generation,
             "manifest_digest": manifest_digest,

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: ef689618b9e3dfd020af9f4dd9c5dbedab25f506
+translation_source_sha: 5b0067cffe1eb7a72a25cfa54f1bf0460f58d9a2
 translation_revised: 2026-09-20
 ---
 # 온톨로지 구조 모델
@@ -65,7 +65,7 @@ LinkType을 만들지 않으며 내용 신원은 Resource UID나 관계 신원�
 결속된 커서가 없는 클라이언트는 세대를 놓칠 위험을 피하도록 현재 표식을 받습니다. 대량 Dashboard
 탐색과 온톨로지 인스턴스 디렉터리는 표식을 기본 신호로 사용하고 표시 중인 탭에서 5분 fallback을
 사용합니다. 디렉터리는 현재 서버 검색어를 유지하며 재검증하고, 선택한 인스턴스의 재검증은 별도의
-15초 간격을 유지합니다.
+15초 간격을 유지합니다. 명시적 커서 복구는 협상된 스트림 epoch를 사용합니다. epoch가 바뀌면 인증된 스냅샷을 다시 읽어야 커서를 승인하며, 숫자 커서만 지원하는 구형 클라이언트에는 사용 불가를 반환합니다. 복구는 온톨로지 신원, 기록된 사실, 원본 시각 또는 실행 권한을 바꾸지 않습니다.
 
 [제한된 변환 복구](../interfaces/recorded-resource-state-ko.md#제한된-자동-복구)는 그래프 신원을
 바꾸지 않고 누락, 지연, 릴리스 불일치를 구분합니다. 기존 인벤토리 주체가 원자적 매니페스트와

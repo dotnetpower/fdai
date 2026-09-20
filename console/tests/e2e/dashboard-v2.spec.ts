@@ -110,6 +110,48 @@ test.describe("Native Dashboard v2", () => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Desktop gate precedes constrained and touch scenarios.");
   });
 
+  for (const outcome of ["success", "failure"] as const) {
+    test(`waits for authenticated epoch reset snapshot ${outcome}`, async ({ page }) => {
+      await page.clock.install();
+      await installApi(page, () => inventory(6));
+      const cursors: string[] = [];
+      const epoch = "b".repeat(32);
+      let snapshotReads = 0;
+      let releaseRead: () => void = () => undefined;
+      const rereadAllowed = new Promise<void>((resolve) => { releaseRead = resolve; });
+      await page.route("**/ontology/instances/states*", async (route) => {
+        snapshotReads += 1;
+        if (snapshotReads === 2) {
+          await rereadAllowed;
+          if (outcome === "failure") return json(route, { error: { message: "unavailable" } }, 503);
+        }
+        return json(route, recordedPage(inventory(snapshotReads > 1 ? 7 : 6)));
+      });
+      await page.route("**/ontology/instances/stream*", async (route) => {
+        expect(new URL(route.request().url()).searchParams.get("cursor_version")).toBe("2");
+        cursors.push(route.request().headers()["last-event-id"] ?? "none");
+        const event = { schema_version: "2.0.0", epoch, watermark: 1, reset_required: true,
+          observation_count: 1, observed_at: "2026-09-05T03:00:00Z", recorded_at: "2026-09-05T03:00:00Z",
+          complete: false, execution_authority: false, mutation_authority: false };
+        await route.fulfill({ contentType: "text/event-stream", body: cursors.length === 1
+          ? `id: ${epoch}:1\nevent: inventory.invalidated\ndata: ${JSON.stringify(event)}\n\n`
+          : ": heartbeat\n\n" });
+      });
+      await openV2(page);
+      await expect.poll(() => snapshotReads).toBe(2);
+      expect(cursors).toEqual(["42"]);
+      releaseRead();
+      if (outcome === "success") {
+        await expect.poll(() => cursors.length).toBe(2);
+        expect(cursors[1]).toBe(`${epoch}:1`);
+        await expect(page.locator(".dv2-summary strong").first()).toHaveText("7");
+      } else {
+        await page.clock.fastForward(30_000);
+        expect(cursors).toEqual(["42"]);
+      }
+    });
+  }
+
   test("automatically recovers an initially missing ontology projection", async ({ page }, testInfo) => {
     const requests = await installApi(page, () => inventory(6));
     let available = false;

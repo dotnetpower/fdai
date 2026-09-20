@@ -358,10 +358,10 @@ observation checkpoint, invalidation, and delivery intent. Resource-event delive
 generation-specific identities, not one overwritten global marker. Broker uncertainty permits
 at-least-once retry with the same event identities and never claims evaluation completion.
 
-Cursor repair uses a versioned stream epoch when no reliable numeric floor survives. A changed
-epoch requires an authenticated snapshot reread before resubscription; it cannot refresh provider
-facts. Old clients retain an explicit compatibility or unavailable outcome. Repair records bind
-the current graph, prior damaged-state digest, actor, and independently checked recovery basis.
+Cursor repair uses a versioned stream epoch when no reliable numeric floor survives. Normal numeric streams remain compatible; repaired streams require `cursor_version=2` and `epoch:sequence`, and return unavailable to legacy clients. An epoch change ends the stream and requires an authenticated snapshot reread within ten seconds before the Console acknowledges its cursor. Failed or cancelled rereads never acknowledge it or refresh provider facts.
+The maintenance command `python -m fdai.delivery.persistence.postgres_inventory_cursor_repair --inspect` reads only the target selected by `FDAI_STATE_STORE_DSN`. Explicit `--apply` additionally requires `--repair-id`, `--expected-generation`, `--expected-manifest-digest`, and `--expected-damage-digest` from inspection; it never selects another database or contacts a provider.
+Repair holds the existing projection and graph locks, independently compares stored graph content and release with the complete active manifest, and atomically writes epoch, floor and an immutable receipt within 30 seconds. Receipts bind actor, database principal, damaged-state digest and verified graph. Same-request restart is idempotent; changed requests or evidence fail closed.
+Graph rows, manifest, status and source observation times remain unchanged. Recovery metadata grants no managed-resource authority. Exact-release deployment and live repair evidence remain separate requirements.
 
 Critique rejected immediate lock removal, larger in-memory limits, and implicit scope narrowing.
 The revised sequence is measured baseline, durable collection, immutable snapshot publication,

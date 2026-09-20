@@ -413,6 +413,45 @@ async def test_same_generation_cannot_reuse_corrupt_or_regressed_marker(defect: 
     assert datetime.fromisoformat(restored["recorded_at"]).tzinfo is not None
 
 
+@pytest.mark.parametrize(
+    "defect", ["none", "epoch_mismatch", "epoch_type", "floor_overflow", "journal_overflow"]
+)
+async def test_projection_preserves_repaired_epoch_and_rejects_cursor_drift(defect) -> None:
+    status = InMemoryStateStore()
+    store = _AtomicOntologyStore(status)
+    projector = _projector(store, status)
+    epoch = "a" * 32
+    floor = {"sequence": 1, "epoch": epoch}
+    if defect == "epoch_type":
+        floor["epoch"] = 123
+    elif defect == "floor_overflow":
+        floor["sequence"] = 2**53 - 1
+    await status.write_state(INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY, floor)
+    if defect == "epoch_mismatch":
+        await status.write_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY, {"epoch": "b" * 32})
+    observation = _observation(generation="snapshot-epoch", resource_ids=("vm-1",))
+    if defect != "none":
+        with pytest.raises(ValueError, match="requires repair"):
+            await projector.apply(
+                observation,
+                journal_high_watermark=(2**53 if defect == "journal_overflow" else 7),
+                projection_high_watermark=6,
+            )
+        assert await store.get_object("vm-1") is None
+        return
+    await projector.apply(observation, journal_high_watermark=7, projection_high_watermark=6)
+    marker = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+    assert marker["epoch"] == epoch
+    assert marker["schema_version"] == "2.0.0"
+    assert marker["sequence"] == 8
+    assert await status.read_state(INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY) == {
+        "sequence": 8,
+        "epoch": epoch,
+    }
+    await projector.apply(observation, journal_high_watermark=7, projection_high_watermark=6)
+    assert await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY) == marker
+
+
 async def test_oversized_manifest_cannot_write_objects(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("fdai.runtime.inventory_ontology_manifest.MAX_MANIFEST_BYTES", 100)
     status = InMemoryStateStore()

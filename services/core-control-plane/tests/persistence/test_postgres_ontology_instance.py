@@ -568,6 +568,189 @@ async def test_isolated_prepared_dependencies_reject_drift_and_preserve_new_fore
             assert await store.query_objects() == before
 
 
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "none",
+        "generation",
+        "manifest",
+        "damage",
+        "status",
+        "graph",
+        "release",
+        "future",
+        "missing_object",
+        "rollback",
+        "process_restart",
+        "concurrent",
+    ],
+)
+async def test_isolated_cursor_repair_requires_exact_committed_graph(defect):
+    import getpass
+    import json
+    from datetime import UTC, datetime, timedelta
+
+    from fdai.delivery.persistence.postgres_inventory_cursor_repair import (
+        damage_digest,
+        inspect_inventory_cursor,
+        repair_inventory_cursor,
+    )
+    from fdai.runtime.inventory_ontology_manifest import _bounded_digest
+    from psycopg.types.json import Jsonb
+
+    async with _isolated_replacement_store() as store:
+        await store.upsert_object(_review_object("case"))
+        original_time = datetime.now(UTC) - timedelta(hours=1)
+        manifest = {
+            "schema_version": "1.3.0",
+            "generation": "example-generation",
+            "ontology_release_digest": store._release.digest,
+            "complete": True,
+            "relationship_complete": True,
+            "dropped_reasons": [],
+            "object_ids": ["case"],
+            "link_keys": [],
+            "object_content": [
+                {
+                    "id": "case",
+                    "object_type": "ReviewCase",
+                    "properties": {"id": "case", "status": "open"},
+                }
+            ],
+            "link_content": [],
+        }
+        manifest["manifest_digest"] = _bounded_digest(manifest)
+        status = {
+            "generation": "example-generation",
+            "manifest_digest": manifest["manifest_digest"],
+            "status": "available",
+            "complete": True,
+        }
+        marker = {"sequence": "broken"}
+        async with await store._connect() as connection:
+            await connection.execute(
+                "CREATE TABLE inventory_active (singleton BOOLEAN PRIMARY KEY,snapshot_id TEXT);"
+                "CREATE TABLE inventory_snapshot (id TEXT PRIMARY KEY,completed_at TIMESTAMPTZ);"
+                "INSERT INTO inventory_active VALUES (TRUE,'example-generation')"
+            )
+            await connection.execute(
+                "INSERT INTO inventory_snapshot VALUES ('example-generation',%s)",
+                (datetime.now(UTC) + timedelta(hours=1) if defect == "future" else original_time,),
+            )
+            if defect == "manifest":
+                manifest["complete"] = False
+            elif defect == "status":
+                status["status"] = "unavailable"
+            elif defect == "graph":
+                await connection.execute("UPDATE ontology_resource SET properties='{}'")
+            elif defect == "release":
+                await connection.execute("UPDATE ontology_resource SET catalog_digest='other'")
+            elif defect == "missing_object":
+                await connection.execute("DELETE FROM ontology_resource")
+            for name, value in (
+                ("manifest", manifest),
+                ("status", status),
+                ("invalidation", marker),
+            ):
+                await connection.execute(
+                    "INSERT INTO state_kv (key,value) VALUES (%s,%s)",
+                    ("inventory-ontology:" + name, Jsonb(value)),
+                )
+            if defect == "rollback":
+                await connection.execute(
+                    "CREATE FUNCTION reject_cursor() RETURNS trigger LANGUAGE plpgsql "
+                    "AS $$ BEGIN RAISE EXCEPTION 'synthetic failure'; END $$;"
+                    "CREATE TRIGGER reject_cursor BEFORE INSERT ON state_kv "
+                    "FOR EACH ROW WHEN (NEW.key='inventory-ontology:cursor-floor') "
+                    "EXECUTE FUNCTION reject_cursor()"
+                )
+
+        async def graph_rows():
+            async with await store._connect() as connection:
+                cursor = await connection.execute("SELECT * FROM ontology_resource ORDER BY id")
+                return await cursor.fetchall()
+
+        before = await graph_rows()
+        request = dict(
+            actor=getpass.getuser() if defect == "process_restart" else "example-maintainer",
+            repair_id="repair-example",
+            expected_generation="changed" if defect == "generation" else "example-generation",
+            expected_manifest_digest=manifest["manifest_digest"],
+            expected_damage_digest=damage_digest(marker, None)
+            if defect != "damage"
+            else "sha256:" + "f" * 64,
+        )
+        if defect in {"none", "process_restart", "concurrent"}:
+            basis = await inspect_inventory_cursor(store._config)
+            assert basis == {
+                "status": "inspected",
+                **{key: value for key, value in request.items() if key.startswith("expected_")},
+            }
+            receipt = await repair_inventory_cursor(store._config, **request)
+            if defect == "process_restart":
+                command = [
+                    sys.executable,
+                    "-m",
+                    "fdai.delivery.persistence.postgres_inventory_cursor_repair",
+                    "--apply",
+                ]
+                for name, value in request.items():
+                    if name != "actor":
+                        command.extend(("--" + name.replace("_", "-"), value))
+                process = await asyncio.create_subprocess_exec(
+                    *command,
+                    env={**os.environ, "FDAI_STATE_STORE_DSN": store._config.dsn},
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                try:
+                    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=15)
+                finally:
+                    if process.returncode is None:
+                        process.kill()
+                        await process.wait()
+                assert process.returncode == 0, stderr.decode()
+                assert json.loads(stdout) == {
+                    "status": "repaired",
+                    "receipt_digest": receipt["content_digest"],
+                    "epoch": receipt["epoch"],
+                }
+            elif defect == "concurrent":
+                simultaneous = await asyncio.gather(
+                    *(repair_inventory_cursor(store._config, **request) for _ in range(2))
+                )
+                assert simultaneous == [receipt, receipt]
+            assert await repair_inventory_cursor(store._config, **request) == receipt
+            assert receipt["observed_at"] == original_time.isoformat()
+            with pytest.raises(ValueError, match="receipt conflicts"):
+                await repair_inventory_cursor(
+                    store._config, **{**request, "actor": "other-maintainer"}
+                )
+        else:
+            with pytest.raises(
+                psycopg.errors.RaiseException if defect == "rollback" else ValueError
+            ):
+                await repair_inventory_cursor(store._config, **request)
+        assert await graph_rows() == before
+        async with await store._connect() as connection:
+            cursor = await connection.execute("SELECT key,value FROM state_kv ORDER BY key")
+            states = {row["key"]: row["value"] for row in await cursor.fetchall()}
+            assert states["inventory-ontology:manifest"] == manifest
+            assert states["inventory-ontology:status"] == status
+            if defect in {"none", "process_restart", "concurrent"}:
+                assert states["inventory-ontology:invalidation"]["epoch"] == receipt["epoch"]
+                assert states["inventory-ontology:cursor-floor"] == {
+                    "epoch": receipt["epoch"],
+                    "sequence": 1,
+                }
+            else:
+                assert states["inventory-ontology:invalidation"] == marker
+                assert "inventory-ontology:cursor-floor" not in states
+                assert not any(
+                    key.startswith("inventory-ontology:cursor-repair:") for key in states
+                )
+
+
 async def test_isolated_graph_query_limits_relationships(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "fdai.delivery.persistence.postgres_ontology_graph.MAX_ONTOLOGY_QUERY_LINKS", 1

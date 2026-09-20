@@ -141,8 +141,8 @@ primary refresh signal and a five-minute visible-tab fallback rather than the se
 15-second interval. The directory preserves its current server search while revalidating. Each state page carries
 the invalidation watermark bound to its committed generation. The Dashboard starts its stream from
 that cursor, so it receives every newer marker without rereading the generation it already loaded.
-A legacy response without a cursor receives the current marker and may reread once rather than
-silently missing a generation.
+A legacy response without a cursor receives the current marker and may reread once rather than silently missing a generation. After explicit cursor repair, the negotiated v2 stream carries an epoch and closes on epoch mismatch; the Console rereads the authenticated snapshot within ten seconds before acknowledging the new cursor.
+Failed, timed-out or identity-cancelled reset reads do not reconnect or update the cursor. Numeric-only clients receive unavailable for repaired streams; normal v1 streams remain compatible. [Cursor repair](../architecture/continuous-operational-instance-graph.md#staged-publication-successor) changes no Resource facts or observation freshness.
 
 ## Bounded automatic recovery
 
