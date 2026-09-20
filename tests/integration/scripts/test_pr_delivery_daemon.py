@@ -65,6 +65,7 @@ class FakeRunner:
         self.merge_fails = False
         self.remote_sha: str | None = None
         self.remote_sha_after_push: str | None = None
+        self.fetch_failures = 0
         self.pushes = 0
 
     def __call__(
@@ -104,6 +105,9 @@ class FakeRunner:
         if args == ("git", "status", "--porcelain"):
             return support.CommandResult(0, "", "")
         if args[:2] == ("git", "fetch"):
+            if self.fetch_failures:
+                self.fetch_failures -= 1
+                return support.CommandResult(1, "", "transient ref update failure")
             return support.CommandResult(0, "", "")
         if args[:3] == ("git", "merge", "--no-edit"):
             if self.merge_fails:
@@ -256,6 +260,33 @@ def test_daemon_verifies_a_reported_merge_on_remote_base(tmp_path: Path) -> None
     assert state["terminal"] is True
     assert state["merge_commit"] == _C
     assert ("git", "merge-base", "--is-ancestor", _C, "refs/remotes/origin/main") in fake.commands
+
+
+def test_merge_verification_retries_one_transient_fetch_failure(tmp_path: Path) -> None:
+    fake = FakeRunner(tmp_path, [_payload(state="MERGED", merge_commit=_C)])
+    fake.fetch_failures = 1
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+    coordinator.stop_event.wait = lambda _seconds: False  # type: ignore[method-assign]
+
+    assert coordinator.run() == 0
+
+    fetches = [command for command in fake.commands if command[:2] == ("git", "fetch")]
+    assert len(fetches) == 2
+    assert support.read_state(coordinator.paths.state)["phase"] == "merged"  # type: ignore[index]
+
+
+def test_merge_verification_fails_closed_after_bounded_fetch_retry(tmp_path: Path) -> None:
+    fake = FakeRunner(tmp_path, [_payload(state="MERGED", merge_commit=_C)])
+    fake.fetch_failures = 2
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+    coordinator.stop_event.wait = lambda _seconds: False  # type: ignore[method-assign]
+
+    with pytest.raises(support.DeliveryError, match="failed during merge verification"):
+        coordinator.run()
+
+    fetches = [command for command in fake.commands if command[:2] == ("git", "fetch")]
+    assert len(fetches) == 2
+    assert support.read_state(coordinator.paths.state)["phase"] == "failed"  # type: ignore[index]
 
 
 def test_daemon_stops_without_mutating_when_a_required_check_fails(tmp_path: Path) -> None:
