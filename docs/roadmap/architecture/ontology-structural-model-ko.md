@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 788caa891427f74d70c1d75af147d90413a1a5d7
+translation_source_sha: 0a86576f1272b99147b26bd154ce799a322d3459
 translation_revised: 2026-09-20
 ---
 # 온톨로지 구조 모델
@@ -74,9 +74,10 @@ LinkType을 만들지 않으며 내용 신원은 Resource UID나 관계 신원�
 완전한 reconciliation은 항상 세대별 최신 snapshot 증적을 유지합니다. 내용 전용 그래프 digest가
 projection과 Resource Event handoff를 완료한 이전 세대와 같으면, replay는 변경되지 않은 사실을
 추가하는 대신 해당 이전 원장 세대를 참조할 수 있습니다. 세대와 관측 전용 시각은 이 동등성
-digest에 포함하지 않지만 리소스 값, 관계 의미, 검증 상태, 원본 가용성, 완전성 및 충돌은
-포함합니다. 현재 projection은 계속 최신 관측에서 전진하며, 의미 변경, 불완전한 이전 handoff
-또는 누락된 이전 원장은 전체 새 append를 요구합니다.
+digest에 포함하지 않지만 리소스 값, 관계 의미, 검증 상태, 완전성 및 충돌은
+포함합니다. 원본 상태 증적은 각 최신 snapshot에 남으며 Resource 또는 Link 원장 사실을
+중복시키지 않습니다. 현재 projection은 계속 최신 관측에서 전진하며, 의미 있는 그래프 변경,
+불완전한 이전 handoff 또는 누락된 이전 원장은 전체 새 append를 요구합니다.
 
 저장소에서 실행할 수 없는 조건식이 있는 ObjectSet은 먼저 관계를 제외한 객체 1,000개 후보 구간을
 평가합니다. 이 구간이 잘렸고 요청한 결과 제한을 증명하지 못하면 저장소는 객체 50,000개로 제한된

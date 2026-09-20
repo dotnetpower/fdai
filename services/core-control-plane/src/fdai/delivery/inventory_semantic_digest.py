@@ -76,22 +76,10 @@ def inventory_semantic_digest(observation: PromotedInventoryObservation) -> str:
         )
         for item in observation.relationship_drops
     )
-    source_states = sorted(
-        (
-            item.source,
-            item.status.value,
-            item.reason,
-            item.scope_digest,
-            tuple(sorted(item.coverage.items())),
-            item.additive,
-        )
-        for item in observation.source_states
-    )
     body = {
         "resources": resources,
         "links": links,
         "relationship_drops": drops,
-        "source_states": source_states,
     }
     encoded = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
