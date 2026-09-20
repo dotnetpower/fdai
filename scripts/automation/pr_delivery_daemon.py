@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Start or inspect one bounded local coordinator for a published pull request."""
+"""Start, wait for, or inspect one bounded coordinator for a published pull request."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Sequence
 from pathlib import Path
@@ -159,10 +160,49 @@ def _status(config: DeliveryConfig, runner: Runner = _default_runner) -> int:
     return 0
 
 
+def _wait(
+    config: DeliveryConfig,
+    runner: Runner = _default_runner,
+    *,
+    stop_event: threading.Event | None = None,
+) -> int:
+    """Wait for one daemon's terminal state without querying GitHub again."""
+    config.validate()
+    paths = _paths(runner, config)
+    event = stop_event or threading.Event()
+    deadline = time.monotonic() + config.total_timeout_seconds
+    expected = {
+        "repository": config.repository,
+        "pr_number": config.pr_number,
+        "topic_branch": config.topic_branch,
+        "base_branch": config.base_branch,
+        "worktree": str(config.worktree),
+    }
+    while not event.is_set():
+        state = _read_state(paths.state)
+        if state is None:
+            raise DeliveryError("delivery daemon state is unavailable")
+        if any(state.get(key) != value for key, value in expected.items()):
+            raise DeliveryError("delivery daemon state does not match the requested delivery")
+        terminal = state.get("terminal")
+        if not isinstance(terminal, bool):
+            raise DeliveryError("delivery daemon terminal state is invalid")
+        if terminal:
+            print(json.dumps(state, sort_keys=True))
+            return 0 if state.get("phase") == "merged" else 1
+        if not _is_matching_process(state.get("pid"), config):
+            raise DeliveryError("delivery daemon stopped without a terminal state")
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise DeliveryError("delivery wait timed out")
+        event.wait(min(1.0, remaining))
+    return 130
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     operations = parser.add_subparsers(dest="operation", required=True)
-    for operation in ("start", "run", "status"):
+    for operation in ("start", "run", "status", "wait"):
         command = operations.add_parser(operation)
         _add_config_arguments(command)
     return parser
@@ -176,6 +216,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _start(config)
         if args.operation == "status":
             return _status(config)
+        if args.operation == "wait":
+            stop_event = threading.Event()
+            signal.signal(signal.SIGINT, lambda *_: stop_event.set())
+            signal.signal(signal.SIGTERM, lambda *_: stop_event.set())
+            return _wait(config, stop_event=stop_event)
         coordinator = DeliveryDaemon(config)
         signal.signal(signal.SIGINT, lambda *_: coordinator.stop_event.set())
         signal.signal(signal.SIGTERM, lambda *_: coordinator.stop_event.set())
