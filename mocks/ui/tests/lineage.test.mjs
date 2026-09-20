@@ -12,7 +12,7 @@ const origin = "http://127.0.0.1:5373";
 const output = join(root, ".fdai/visual-review/lineage");
 const evidence = [];
 const errors = [];
-const inputPaths = ["index.html", "ui/calm-slate-tokens.css", "ui/calm-slate-primitives.css", "console/package-lock.json", "mocks/ui/lineage.html", "mocks/ui/assets/calm-slate.css", "mocks/ui/assets/calm-slate.js", "mocks/ui/assets/lineage.css", "mocks/ui/assets/lineage.js", "mocks/ui/assets/lineage-ontology.js", "mocks/ui/assets/lineage-icons.js", "mocks/ui/tests/lineage.test.mjs"];
+const inputPaths = ["index.html", "ui/calm-slate-tokens.css", "ui/calm-slate-primitives.css", "console/package-lock.json", "mocks/ui/lineage.html", "mocks/ui/assets/calm-slate.css", "mocks/ui/assets/calm-slate.js", "mocks/ui/assets/lineage.css", "mocks/ui/assets/lineage.js", "mocks/ui/assets/lineage-ontology.js", "mocks/ui/assets/lineage-icons.js", "mocks/ui/tests/lineage.test.mjs", ...["resource-graph", "kubernetes-services", "monitor", "subscriptions"].map(name => `tools/architecture-diagrams/assets/azure/${name}.svg`)];
 const inputHashes = async () => Object.fromEntries(await Promise.all(inputPaths.map(async path => [path, createHash("sha256").update(await readFile(join(root, path))).digest("hex")])));
 const inputsBefore = await inputHashes();
 const browser = await chromium.launch({ headless: true });
@@ -91,6 +91,14 @@ try {
   assert.equal(await frame.locator('[data-kind="resource-group"]').count(), 10);
   assert.equal(await frame.locator('[data-kind="type"]').count(), 3);
   assert.equal(await frame.locator('[data-relation="example instance"]').count(), 8);
+  for (const [selector, filename] of [["[data-node='arg']", "resource-graph"], ["[data-node='aks']", "kubernetes-services"], ["[data-node='logs']", "monitor"], ["[data-resource-type='kubernetes-cluster']", "kubernetes-services"]]) {
+    assert.match(await frame.locator(`${selector} img`).getAttribute("src"), new RegExp(`/azure/${filename}\\.svg$`));
+  }
+  assert.equal(await frame.locator('[data-resource-type="kubernetes.pod"] img').count(), 0, "native Pod types must not imply an Azure service");
+  await frame.locator('[data-node="arg"]').click();
+  assert.match(await frame.locator("#lineageSelection img").getAttribute("src"), /resource-graph\.svg$/);
+  assert.match(await frame.locator("#lineageInspector h2 img").getAttribute("src"), /resource-graph\.svg$/);
+  await frame.locator('[data-resource-type="kubernetes.pod"]').click();
   const fit = await frame.locator("#lineageViewport").evaluate(element => ({ width: element.clientWidth, height: element.clientHeight, scrollWidth: element.scrollWidth, scrollHeight: element.scrollHeight }));
   assert.ok(fit.scrollWidth <= fit.width + 1 && fit.scrollHeight <= fit.height + 1, "default camera must fit the entire graph");
   await page.screenshot({ path: join(output, "overview.png"), fullPage: true });
@@ -279,10 +287,49 @@ try {
   await page.mouse.up();
   assert.ok(await viewport.evaluate(element => element.scrollLeft) >= 375, "background drag pans the canvas");
   assert.equal(await viewport.evaluate(element => element.classList.contains("is-dragging")), false);
+  const anchorBefore = await viewport.evaluate(element => {
+    const scale = new DOMMatrix(getComputedStyle(document.querySelector("#lineageCanvas")).transform).a;
+    return { x: (element.scrollLeft + 100) / scale, y: (element.scrollTop + 30) / scale, pageTop: scrollY };
+  });
+  await page.mouse.wheel(0, -100);
+  await frame.waitForFunction(() => Number.parseInt(document.querySelector("#lineageZoom").value) > 100);
+  const anchorAfter = await viewport.evaluate(element => {
+    const scale = new DOMMatrix(getComputedStyle(document.querySelector("#lineageCanvas")).transform).a;
+    return { x: (element.scrollLeft + 100) / scale, y: (element.scrollTop + 30) / scale, pageTop: scrollY };
+  });
+  assert.ok(Math.abs(anchorAfter.x - anchorBefore.x) < 2 && Math.abs(anchorAfter.y - anchorBefore.y) < 2, "plain-wheel zoom preserves the pointer's world position");
+  assert.equal(anchorAfter.pageTop, anchorBefore.pageTop, "canvas wheel must not scroll the page");
+  await page.mouse.wheel(0, 100);
+  await frame.waitForFunction(() => Number.parseInt(document.querySelector("#lineageZoom").value) <= 100);
   await page.keyboard.down("Control");
   await page.mouse.wheel(0, -100);
   await page.keyboard.up("Control");
   await frame.waitForFunction(() => Number.parseInt(document.querySelector("#lineageZoom").value) > 100);
+  const passThrough = await viewport.evaluate(element => {
+    const shifted = new WheelEvent("wheel", { deltaY: 100, shiftKey: true, bubbles: true, cancelable: true });
+    const horizontal = new WheelEvent("wheel", { deltaX: 100, bubbles: true, cancelable: true });
+    return [element.dispatchEvent(shifted), element.dispatchEvent(horizontal)];
+  });
+  assert.deepEqual(passThrough, [true, true], "shifted and horizontal scrolling remain available for panning");
+  const wheelModes = await viewport.evaluate(element => {
+    const scale = () => new DOMMatrix(getComputedStyle(document.querySelector("#lineageCanvas")).transform).a;
+    const bounds = element.getBoundingClientRect();
+    const before = scale();
+    element.dispatchEvent(new WheelEvent("wheel", { deltaY: -3, deltaMode: 1, clientX: bounds.left + 100, clientY: bounds.top + 100, cancelable: true }));
+    const line = scale();
+    element.dispatchEvent(new WheelEvent("wheel", { deltaY: 1, deltaMode: 2, clientX: bounds.left + 100, clientY: bounds.top + 100, cancelable: true }));
+    return { line: line / before, page: scale() / line };
+  });
+  assert.ok(Math.abs(wheelModes.line - Math.exp(48 * .002)) < .0001, "line-based wheel deltas are normalized");
+  assert.ok(Math.abs(wheelModes.page - Math.exp(-240 * .002)) < .0001, "page-based wheel deltas are bounded");
+  await frame.evaluate(() => scrollTo(0, 0));
+  const outside = await frame.locator(".ln-heading").boundingBox();
+  const outsideZoom = await frame.locator("#lineageZoom").innerText();
+  await page.mouse.move(outside.x + 20, outside.y + 20);
+  await page.mouse.wheel(0, 100);
+  await frame.waitForFunction(() => scrollY > 0);
+  assert.equal(await frame.locator("#lineageZoom").innerText(), outsideZoom, "wheel outside the canvas scrolls the page without zooming");
+  evidence.push({ name: "Azure asset identity, plain-wheel anchoring, normalized deltas and page-scroll boundary", disposition: "passed", wheelModes });
   await viewport.focus();
   await page.keyboard.press("0");
   await frame.waitForFunction(() => {
@@ -360,7 +407,7 @@ try {
       await frame.locator("#lineageCaseDetails > summary").click();
     }
     await frame.locator("#lineageRecordPicker").selectOption("resource-type");
-    assert.match(await frame.locator("#lineageInspector h2").innerText(), /^Resource$/);
+    assert.equal((await frame.locator("#lineageInspector h2").innerText()).trim(), "Resource");
     await measure(frame, `${viewport.width}px master frame`);
     await frame.locator('[data-view="sources"]').click();
     await measure(frame, `${viewport.width}px source register`);

@@ -52,6 +52,15 @@
     return `<svg class="ln-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${window.fdaiLineageIcons[name].map(([tag, attributes]) => `<${tag} ${Object.entries(attributes).map(([key, value]) => `${key}="${escape(value)}"`).join(" ")}></${tag}>`).join("")}</svg>`;
   }
   const kindIcons = { source: "Database", evidence: "FileText", normative: "BookOpen", type: "Layers", "resource-group": "Boxes", ontology: "Box", outcome: "ShieldCheck" };
+  function nodeSymbol(node) {
+    if (node.agent) return `<img class="ln-icon" src="../../../console/public/agent-icons/${node.agent}.svg" alt="" />`;
+    const azureSource = { arg: "resource-graph", aks: "kubernetes-services", logs: "monitor" }[node.id];
+    const resourceType = node.resourceType || node.properties?.type;
+    const azureResource = resourceType === "kubernetes-cluster" ? "kubernetes-services" : null;
+    const azureIcon = azureSource || azureResource || (node.title === "Azure Monitor Metrics" ? "monitor" : null);
+    if (azureIcon) return `<img class="ln-icon" src="../../../tools/architecture-diagrams/assets/azure/${azureIcon}.svg" alt="" />`;
+    return icon(node.objectType === "Observation" && node.kind === "ontology" ? "Activity" : kindIcons[node.kind] || "Box");
+  }
   byId("lineageSearchIcon").innerHTML = icon("Search");
   byId("lineageSearchClear").innerHTML = icon("X");
   function highlighted(value) {
@@ -135,7 +144,7 @@
     const matches = graph.nodes.filter(node => `${node.title} ${node.sub} ${node.owner} ${node.origin} ${node.version} ${node.objectType || ""} ${node.properties?.id || ""} ${node.members?.map(member => `${member.title} ${member.properties.id}`).join(" ") || ""}`.toLowerCase().includes(query));
     const visible = new Set((focused ? matches.filter(node => related.has(node.id)) : matches).map(node => node.id));
     byId("lineageNodes").innerHTML = graph.nodes.filter(node => visible.has(node.id)).map(node => {
-      const symbol = node.agent ? `<img src="../../../console/public/agent-icons/${node.agent}.svg" alt="" />` : icon(node.objectType === "Observation" && node.kind === "ontology" ? "Activity" : kindIcons[node.kind] || "Box");
+      const symbol = nodeSymbol(node);
       const title = node.id === "arg" ? "Resource Graph" : node.title;
       return `<button type="button" class="ln-node ${node.missing && !isComplete() ? "is-missing" : ""} ${hasGap(node) ? "is-held" : ""}" data-node="${node.id}" data-kind="${node.kind}" ${node.resourceType ? `data-resource-type="${node.resourceType}"` : ""} style="left:${node.x}px;top:${node.y}px" aria-pressed="${selected === node.id}" aria-label="${escape(`${node.title}, ${node.kind === "resource-group" ? "ResourceType" : node.kind}, ${status(node)}`)}" title="${escape(node.title)}"><span class="ln-node-heading">${symbol}<strong>${highlighted(title)}${node.members ? ` (${node.members.length})` : ""}</strong></span><small>${escape(node.kind === "resource-group" ? "ResourceType / sample scope" : node.sub)}</small><span class="ln-node-state">${escape(status(node))}</span></button>`;
     }).join("");
@@ -163,7 +172,7 @@
     byId("caseState").textContent = isComplete() ? "Evaluated - shadow review only" : "Held - missing log evidence";
     byId("lineageCompactState").textContent = isComplete() ? "Shadow review" : "Held";
     const selectedRecord = lookup.get(selected);
-    byId("lineageSelection").innerHTML = `${icon(selectedRecord.kind === "resource-group" ? "Boxes" : kindIcons[selectedRecord.kind] || "GitBranch")}<strong>${escape(selectedRecord.title)}</strong><span>${graph.edges.filter(edge => edge[1] === selected).length} inputs / ${graph.edges.filter(edge => edge[0] === selected).length} outputs</span>`;
+    byId("lineageSelection").innerHTML = `${nodeSymbol(selectedRecord)}<strong>${escape(selectedRecord.title)}</strong><span>${graph.edges.filter(edge => edge[1] === selected).length} inputs / ${graph.edges.filter(edge => edge[0] === selected).length} outputs</span>`;
     byId("lineageRecordPicker").innerHTML = graph.nodes.filter(node => visible.has(node.id)).map(node => `<option value="${node.id}">${escape(node.title)}${node.members ? ` (${node.members.length})` : ""}</option>`).join("");
     byId("lineageRecordPicker").value = selected;
     byId("lineageRecordPicker").disabled = visible.size === 0;
@@ -185,14 +194,14 @@
     const expansion = groupId ? `<button type="button" class="ln-focus ln-expand" data-expand="${groupId}" aria-expanded="${expandedGroup === groupId}">${icon(expandedGroup === groupId ? "Minimize" : "Boxes")}${expandedGroup === groupId ? "Collapse instances" : `Expand ${lookup.get(groupId).members.length} instances`}</button>` : "";
     const inspector = byId("lineageInspector");
     const changed = inspector.dataset.selection !== selected;
-    inspector.innerHTML = `<div class="ln-inspector-intro"><span class="ln-record-kind">${escape(node.kind === "resource-group" ? "RESOURCE TYPE / SCOPED AGGREGATE" : node.kind === "type" ? "OBJECT TYPE / DECLARATION" : node.objectType ? `${node.objectType.toUpperCase()} / ONTOLOGY INSTANCE` : `${node.kind.toUpperCase()} / SELECTED RECORD`)}</span><h2>${escape(node.title)}</h2><strong class="${hasGap(node) ? "ln-warning" : "ln-success"}">${escape(status(node))}</strong>${health}${expansion}<p>${escape(detail)}</p></div><div class="ln-record-metadata"><dl><div><dt>Owner</dt><dd>${escape(node.owner)}</dd></div><div><dt>Version</dt><dd><code>${escape(node.version)}</code></dd></div><div><dt>Source</dt><dd>${escape(node.origin)}</dd></div><div><dt>Cutoff</dt><dd>20 Sep 2026 / 10:42 UTC</dd></div></dl>${properties}<div class="ln-record-note">Synthetic evidence / No execution authority</div></div><div class="ln-record-connections"><h3>${icon("ArrowLeft")} Incoming <small>${incoming.length}</small></h3><div class="ln-related">${relationButtons(incoming, 0)}</div><h3>${icon("ArrowRight")} Outgoing <small>${outgoing.length}</small></h3><div class="ln-related">${relationButtons(outgoing, 1)}</div><button type="button" class="ln-focus" id="lineageFocus" aria-pressed="${focused}">${icon("Scan")}${focused ? "Show all records" : "Focus on this record"}</button></div>`;
+    inspector.innerHTML = `<div class="ln-inspector-intro"><span class="ln-record-kind">${escape(node.kind === "resource-group" ? "RESOURCE TYPE / SCOPED AGGREGATE" : node.kind === "type" ? "OBJECT TYPE / DECLARATION" : node.objectType ? `${node.objectType.toUpperCase()} / ONTOLOGY INSTANCE` : `${node.kind.toUpperCase()} / SELECTED RECORD`)}</span><h2>${nodeSymbol(node)} ${escape(node.title)}</h2><strong class="${hasGap(node) ? "ln-warning" : "ln-success"}">${escape(status(node))}</strong>${health}${expansion}<p>${escape(detail)}</p></div><div class="ln-record-metadata"><dl><div><dt>Owner</dt><dd>${escape(node.owner)}</dd></div><div><dt>Version</dt><dd><code>${escape(node.version)}</code></dd></div><div><dt>Source</dt><dd>${escape(node.origin)}</dd></div><div><dt>Cutoff</dt><dd>20 Sep 2026 / 10:42 UTC</dd></div></dl>${properties}<div class="ln-record-note">Synthetic evidence / No execution authority</div></div><div class="ln-record-connections"><h3>${icon("ArrowLeft")} Incoming <small>${incoming.length}</small></h3><div class="ln-related">${relationButtons(incoming, 0)}</div><h3>${icon("ArrowRight")} Outgoing <small>${outgoing.length}</small></h3><div class="ln-related">${relationButtons(outgoing, 1)}</div><button type="button" class="ln-focus" id="lineageFocus" aria-pressed="${focused}">${icon("Scan")}${focused ? "Show all records" : "Focus on this record"}</button></div>`;
     inspector.dataset.selection = selected;
     if (changed) inspector.scrollTop = 0;
   }
   function renderSources(query) {
     const sources = nodes.filter(node => node.x === 24).map(node => [node.title, node.kind === "normative" ? "Rules / knowledge" : "Observed data", node.sub, status(node), node.id]);
     const rows = [...sources, ...extraSources].filter(source => source.join(" ").toLowerCase().includes(query));
-    byId("lineageSources").innerHTML = `<h2>Source register <small>${rows.length}</small></h2>` + (rows.length ? rows.map(([title, kind, scope, state, id]) => `<article class="ln-source-row"><div>${id ? `<button type="button" data-select="${id}">${escape(title)}</button>` : `<strong>${escape(title)}</strong>`}</div><span>${escape(kind)}</span><span>${escape(scope)}</span><span>${escape(state)}</span></article>`).join("") : "<p>No matching sources.</p>");
+    byId("lineageSources").innerHTML = `<h2>Source register <small>${rows.length}</small></h2>` + (rows.length ? rows.map(([title, kind, scope, state, id]) => `<article class="ln-source-row"><div>${id ? `<button type="button" data-select="${id}">${nodeSymbol(originals.get(id))} ${escape(title)}</button>` : `<strong>${nodeSymbol({ title, kind: "source" })} ${escape(title)}</strong>`}</div><span>${escape(kind)}</span><span>${escape(scope)}</span><span>${escape(state)}</span></article>`).join("") : "<p>No matching sources.</p>");
   }
   function select(id) { selected = id; byId("lineageSearch").value = ""; setView("graph"); render(); }
   function setView(next) { view = next; byId("lineageLayout").hidden = view !== "graph"; byId("lineageSources").hidden = view !== "sources"; document.querySelectorAll("[data-view]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.view === view))); searchCount(); }
@@ -296,9 +305,12 @@
   const stopDrag = () => { drag = null; viewport.classList.remove("is-dragging"); };
   viewport.addEventListener("pointerup", stopDrag); viewport.addEventListener("pointercancel", stopDrag);
   viewport.addEventListener("wheel", event => {
-    if (!event.ctrlKey && !event.metaKey) return;
+    if (!event.deltaY || event.shiftKey) return;
     event.preventDefault(); const bounds = viewport.getBoundingClientRect();
-    changeZoom(zoom * Math.exp(-event.deltaY * .002), event.clientX - bounds.left, event.clientY - bounds.top);
+    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientHeight : 1;
+    const delta = Math.max(-240, Math.min(240, event.deltaY * unit));
+    changeZoom(zoom * Math.exp(-delta * .002), event.clientX - bounds.left, event.clientY - bounds.top);
+    savePreview();
   }, { passive: false });
   viewport.addEventListener("keydown", event => {
     const button = event.target.closest("[data-node]");
