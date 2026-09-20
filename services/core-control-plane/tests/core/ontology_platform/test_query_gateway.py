@@ -351,6 +351,101 @@ async def test_index_snapshot_rejects_invalid_scope_before_store_io(names, limit
 
 
 @pytest.mark.parametrize(
+    "drift", [None, "fabricated", "missing", "changed", "generation", "embedding", "vectors"]
+)
+async def test_snapshot_validation_reconstructs_runtime_objects_from_current_graph(
+    drift: str | None,
+) -> None:
+    from dataclasses import replace
+
+    from fdai.core.ontology_platform import build_query_manifest
+    from fdai.delivery.catalog_search.generation import build_ontology_semantic_generation
+    from fdai.delivery.catalog_search.ontology_snapshot_store import (
+        OntologyGenerationSnapshotStore,
+        OntologyStagedProjection,
+    )
+    from fdai.delivery.catalog_search.ontology_snapshot_validation import (
+        validate_snapshot_against_current_graph,
+    )
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    object_type = _object_type()
+    record = OntologyObjectRecord(
+        id="resource-a",
+        object_type="Resource",
+        properties={"id": "resource-a", "label": "original"},
+    )
+    gateway = await _gateway_with_records(
+        object_type, record, source_generation="source-2" if drift == "generation" else "source-1"
+    )
+    manifest = build_query_manifest(
+        release=build_ontology_release(object_types=(object_type,)),
+        object_types=(object_type,),
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest="sha256:" + "a" * 64,
+    )
+    objects = (record,)
+    if drift == "fabricated":
+        objects += (
+            OntologyObjectRecord(
+                id="invented", object_type="Resource", properties={"id": "invented"}
+            ),
+        )
+    elif drift == "missing":
+        objects = ()
+    elif drift == "changed":
+        objects = (
+            OntologyObjectRecord(
+                id=record.id,
+                object_type=record.object_type,
+                properties={"id": record.id, "label": "modified"},
+            ),
+        )
+    build = build_ontology_semantic_generation(
+        manifest=manifest,
+        runtime_objects=objects,
+        embedding_space_id="test-space",
+        embedding_model_version="test-model",
+        embedding_dimension=1,
+    )
+    if drift == "vectors":
+        build = replace(
+            build, documents=tuple(replace(item, embedding=(0.1,)) for item in build.documents)
+        )
+    state = InMemoryStateStore()
+    snapshots = OntologyGenerationSnapshotStore(state)
+    projection_digest = "sha256:" + "c" * 64
+    snapshot_digest = await snapshots.stage(
+        build=build,
+        manifest=manifest,
+        source_generation="source-1",
+        source_projection_digest=projection_digest,
+    )
+    writes_before = len(state._state)
+    operation = validate_snapshot_against_current_graph(
+        snapshots=snapshots,
+        staged=OntologyStagedProjection(snapshot_digest, projection_digest, "source-1"),
+        gateway=gateway,
+        manifest=manifest,
+        as_of=datetime(2026, 8, 8, tzinfo=UTC),
+        embedding_space_id="other-space" if drift == "embedding" else "test-space",
+        embedding_model_version="test-model",
+        embedding_dimension=1,
+        validator_id="Heimdall-test",
+    )
+    if drift:
+        with pytest.raises(ValueError, match="snapshot validation"):
+            await operation
+    else:
+        validated = await operation
+        assert validated.snapshot_digest == snapshot_digest
+        assert validated.receipt_digest.startswith("sha256:")
+        assert validated.generation_digest == build.metadata.generation_digest
+    assert len(state._state) == writes_before
+
+
+@pytest.mark.parametrize(
     "failure", [None, "incomplete", "generation", "missing", "truncated", "identity", "release"]
 )
 async def test_secured_semantic_staging_preserves_source_and_excludes_private_values(

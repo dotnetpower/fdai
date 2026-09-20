@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 5b4681e1aac9b5dcf7f9a8746fee55a0d441a8f5
+translation_source_sha: 5d3a1e5206190878c2c1867694c6b18f1c3569d4
 translation_revised: 2026-09-20
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -217,6 +217,7 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 현재 원본을 이용한 독립 준비 검증 | implemented | `ontology_snapshot_validation.py`, 로컬 PostgreSQL 포함 게이트웨이·ObjectSet·세대 검사 105개 통과 | 새롭고 완전한 인가 그래프 읽기에서 모든 후보를 재구성하고 정확한 내용·원본·principal·release·기대 임베딩 신원을 비교합니다. 가짜, 누락, 수정 또는 변경된 객체는 거부하며 미리 계산한 벡터나 인덱스 신원을 인증하지 않습니다. 검증 전용 근거이며 Heimdall 이벤트 구독과 Muninn 활성화 소비자는 아직 연결되지 않았습니다. |
 | 완전한 다중 유형 준비 원본 | implemented | `scan_snapshot`, `stage_manifest_from_gateway`, 로컬 PostgreSQL을 포함한 게이트웨이·ObjectSet·세대 검사 95개 | 모든 매니페스트 ObjectType을 단일 원본 스냅샷에서 읽고 ACL과 원본·release·principal 결속을 유지하며 객체와 선언을 합쳐 20,000개 안에 준비합니다. 일반 ObjectSet의 1,000개 제한은 유지합니다. 페이지나 서로 다른 세대를 합치지 않으며 초과하면 쓰기 전에 보류합니다. 담당 에이전트의 이벤트 활성화, 보존 관리, 영속 벡터 검색 및 현재 그래프의 후보 재인가는 남아 있습니다. |
 | 인가된 제한 범위 온톨로지 준비 작성기 | implemented | `OntologyGenerationSnapshotStore.stage_from_gateway`, 로컬 PostgreSQL 영속성 포함 게이트웨이·세대 검사 68개 통과 | 기존 principal·용도 ACL 게이트웨이로 필터 없는 ObjectType 하나를 읽고, 쓰기 전에 정확한 release·원본 세대·잘리지 않은 완전한 근거·보이는 신원을 요구합니다. 직렬화된 비공개 필드 맵에 표시된 값을 제외하고 정확한 변환 결과 다이제스트를 고정합니다. 읽기에도 그 다이제스트가 필요합니다. 기존 객체 1,000개 상한을 유지하며 여러 유형·페이지 생성, 담당 에이전트의 이벤트 활성화, 런타임 후보 검색은 이 작성기에 포함하지 않습니다. |
 | 격리된 불변 온톨로지 준비 저장 | implemented | `ontology_snapshot_store.py`, 세대 테스트 38개와 로컬 PostgreSQL 재연결·변조 테스트 1개 통과, Ruff 및 strict mypy | 서비스 소유 StateStore의 별도 내용 기반 네임스페이스에 청크당 128행/512 KiB, 스냅샷당 64 MiB로 제한해 저장합니다. 마지막에 쓰는 완료 헤더는 principal, 매니페스트, 원본 세대, release 및 임베딩 메타데이터를 결속합니다. 읽을 때 내용을 재검증하며 중단된 쓰기는 노출하지 않습니다. 이는 준비 저장이며 전체 자료 검색 인덱스가 아닙니다. 인가된 원본 생성, 보존 관리, 담당 에이전트의 이벤트 활성화 및 런타임 검색은 남아 있습니다. |
@@ -249,6 +250,8 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 | 증적에 결속된 의미 답변 권한 | 구현됨 | `functions.py`, `query_execution.py`, `intent_graph.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, 집중 Core, Operator 및 서비스 간 테스트 통과 | 서버 함수 레지스트리가 최초 권한 생산자입니다. 쿼리 노드와 목표 증적은 권한을 근거 참조와 함께 보관합니다. 구독 상태, 인벤토리 그래프, 사용량 측정 및 온톨로지 매니페스트 권한을 서로 구분합니다. 권한이 없거나 충돌하면 턴을 보류하며 모델 또는 클라이언트 권한 텍스트로 증적을 재정의할 수 없습니다. |
 
 ### 구현 이력
+
+2026-09-20 독립 원본 검증 근거: 저장된 해시끼리의 일관성을 신뢰하지 않고 현재 인가 그래프에서 준비된 운영 객체를 다시 구성해 비교합니다. 원본 전용 검증에서는 미리 계산한 벡터도 거부합니다. `ontology_snapshot_validation.py`의 집중 사례 7개와 로컬 PostgreSQL 포함 소유 검사 105개가 동일한 입력 해시로 통과했고 Ruff 및 strict mypy도 통과했습니다. 감사 기록을 포함한 비교·교체 활성화 전에 Muninn 소유 ContextIndex 준비와 Heimdall 검증을 타입 이벤트로 연결해야 합니다. Rule 수명 주기 토픽이나 포인터로 대신할 수 없습니다. 고정 정책 20개의 보정은 최고 15/16으로 실패했으므로 분리된 실제 평가 24개는 실행하지 않았고 운영 순위 정책도 바꾸지 않았습니다.
 
 2026-09-20 원본 신원 보강: ACL 투영 전에 스캔한 원본 선언 참조와 객체 신원을 독립적으로 다시 검증하고 제한된 스냅샷 신원 계산을 분리했습니다. `query_snapshot.py` 관련 원본 신원 회귀 3개는 수정 전에 실패했고, 수정 후 로컬 PostgreSQL을 포함한 게이트웨이·ObjectSet·세대 검사 98개와 Ruff 및 strict mypy가 통과했습니다. Muninn ContextIndex 수명 주기, 격리된 벡터 검색 및 현재 그래프 재인가는 아직 연결되지 않았습니다. 실제 임베딩 진단은 13/16이며 통제된 모델 버전 결속이 없고, 인증된 Console 근거는 브라우저 CDP 연결 시간 초과로 차단됐습니다. 운영 준비 완료나 Low 이하만 남았다는 주장은 하지 않습니다.
 
