@@ -126,10 +126,29 @@ verified ownership split.
 | S01 | Generation-specific delivery | implemented | Generation-keyed delivery and atomic publication receipts; exact-source/scope replay; 144 focused tests, one added atomic-rollback regression, and disposable PostgreSQL older-generation/unpublished/scope-drift checks. Overall successor hardening remains open. |
 | S02 | Durable bounded collection | in-progress | Resource chunks/checkpoints and fully collected, enriched, sealed candidate recovery are connected to production. Context pins effective configuration, ARG queries/catalog, and installed FDAI producer code. Current coordinator/CLI/disposable PostgreSQL cohort: 237 passed, including 12 separate-process recovery conditions. Unfinished provider continuation and end-to-end bounded-memory collection remain open; ARG tokens are not point-in-time evidence. |
 | S03 | Prepared immutable graph | in-progress | Sealed inventory candidates and durable ontology replacement inputs are connected. Publication verifies stored chunks plus prepared removed/external endpoint revisions and atomically records the prepared reference. Ontology preparation/publication cohort: 44 passed, including 12 publication conditions, 17 input boundaries and five dependency races. Versioned partition sets and pinned reader selection remain open. |
-| S04 | Short atomic publication | not-started | Base/fence recheck, active pointer and delivery intent atomicity, reader snapshot pinning, and concurrent replacement proof. |
+| S04 | Short atomic publication | not-started | Base/fence recheck, active pointer and delivery intent atomicity, reader snapshot pinning, and concurrent replacement proof. The examined same-name UNION-view cutover rejects current N-1 ON CONFLICT writers; activation and rollback compatibility require an explicit decision before that cutover can be implemented. Moving decode outside the lock is not pointer publication. |
 | S05 | Cursor epoch repair | implemented | Explicit inspect/apply maintenance path verifies exact generation, manifest, damage digest and independent graph readback; atomically commits epoch/floor/receipt. Projector preserves epoch; Operator negotiates v2 or rejects legacy; Console waits for authenticated snapshot reread and rejects failed/late acknowledgement. 12 disposable DB repair scenarios including CLI restart, 219 owning backend tests, 144 Console tests, source typing and Console typecheck passed. Live repair/deployment and successor-wide hardening remain separate. |
 | S06 | Capacity evidence | in-progress | Existing ARG allocation baseline is supplemented by fresh-process 10,000/50,000-object PostgreSQL measurements below: initial/replay duration, lock occupancy, peak RSS, and prepared restart. All four bounded profiles passed with unchanged input digests. Current durable preparation is slower and uses more RSS than direct replacement; repeat qualification after S02-S04 changes. No live capacity or percentile claim. |
 | S07 | Adversarial closure | not-started | Repeated reviews of at least twelve boundaries, fixing every finding above Low and reporting unverified deployment requirements separately. |
+
+### Publication transition decision
+
+The examined stable-read-name design cannot silently preserve existing writers: PostgreSQL 16
+rejects `INSERT ... ON CONFLICT` against the proposed UNION view with SQLSTATE `55000`.
+A disposable two-table/view reproduction confirmed the failure and preserved both base tables.
+This demonstrates a limitation of that design, not impossibility of all alternative storage designs.
+
+Before a breaking cutover, select and review either a bounded activation that fences N-1 writers,
+or an expand/contract compatibility phase that keeps the old writable tables synchronized until all
+writers and readers can use versioned storage. The latter must not count its dual-write phase as
+constant-size pointer publication. Both paths require explicit source ownership, dependency fences,
+schema grants, deterministic rollback, and exact-snapshot reader evidence.
+
+The operator was unavailable when asked whether N-1 writer interruption is acceptable; no explicit
+relaxation was received. No schema cutover, live migration, service restart, or worktree change ran.
+S02 partial-source continuation remains independently incomplete; S03/S04 must not be closed by
+relabelling immutable input storage as a complete versioned graph. Final S06 measurement and S07
+above-Low closure depend on the completed implementation, not this checkpoint.
 
 ### Synthetic publication capacity baseline
 
@@ -171,6 +190,7 @@ speedup; publication still scales with full graph size. Source SHA-256:
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-20 | in-progress | Recorded the concrete N-1 writer incompatibility of the considered UNION-view graph cutover instead of applying an unapproved breaking migration. Separately proved cursor repair under a non-superuser DML role and rejection under a SELECT-only role. | Disposable PostgreSQL view/upsert reproduction returned SQLSTATE `55000` with unchanged base rows; `1db11eb02` role regressions passed two cases. No live schema or service changed. | Decide breaking writer activation versus compatibility phase; then complete S02 partial collection, S03 versioned readers, S04 short publication, remeasure S06 and run successor-wide S07 rounds. Current local checkpoints are not whole-task completion. |
 | 2026-09-20 | implemented | Follow-up epoch review found the new sequence still inherited the old journal maximum, preventing recovery from numeric overflow. Repaired epochs now increment only their own retained floor; legacy numeric streams retain existing journal comparison and overflow refusal. | `current change`; 12 focused cursor/marker cases passed, including old-epoch journal values above the safe browser integer limit. | S02-S04 and successor-wide closure remain open. This repair changes no source time, journal watermark or authority. |
 | 2026-09-20 | in-progress | Moved typed immutable input reconstruction outside the global writer lock. Publication compares exact persisted JSON text server-side and locks each verified row until commit, retaining corruption, missing-input, numeric-representation and dependency fences. | `current change`; 61 disposable/local tests with stable explicit input hashes; three new ordering/numeric-type/concurrent-delete cases; 50000-object follow-up capacity sample; focused Ruff, mypy and editor diagnostics passed. A prior 61-case run with changed digests was excluded. | This reduces work inside the lock but does not implement S04 pointer publication. N/N-1 writer compatibility and shared-table schema transition still need resolution; S02/S03/S06/S07 remain open. |
 | 2026-09-20 | in-progress | Added reproducible fresh-process capacity measurement over existing isolated PostgreSQL fixtures, covering initial publication, idempotent replay, actual writer-lock occupancy, process RSS and prepared-input restart. | `current change`; two 1000-object smoke cases and four fresh-process 10000/50000-object profiles passed; exact counts and unchanged before/after producer/test hashes verified. The baseline table retains raw measurements, limitations and reproduction inputs. | Measurements show current preparation increases latency and RSS. S02-S04 still require bounded streaming and short publication; repeat S06 after those changes. No live capacity or whole-successor closure claim. |
