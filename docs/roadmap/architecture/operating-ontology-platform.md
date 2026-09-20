@@ -82,6 +82,8 @@ ObjectSets retain their bounded relationship query and never use the larger cand
 
 Ontology semantic staging consumes the secured gateway, not a raw-store bypass. The single-type writer retains the ordinary 1,000-object ceiling. The off-path manifest writer scans every readable type in one relationship-free store snapshot, applies the same role/purpose ACL, and caps the combined declarations and objects at 20,000. Truncated, incomplete, unversioned, identity-redacted, or release-mismatched results are rejected before staging. Ordered per-object hashes bind large projections without enlarging the receipt JSON limit. Redacted fields never enter candidate documents. This is inactive preparation, not admission, activation, or complete query coverage; [query coverage](../interfaces/ontology-query-coverage-implementation-plan.md) owns remaining lifecycle and retrieval work.
 
+The off-path scan also revalidates each raw record's exact declaration reference, required fields, property types, and key before ACL projection. An absent reference, stale declaration version, or mismatched instance key cannot enter a complete index snapshot. Errors omit raw source values.
+
 A broad recent Resource state-change query reads both `resource.operational_state` and
 `resource.availability_state` across every Resource that carries verified state metadata. It does
 not reuse the narrower operational-state ResourceType allowlist. A query that names a concrete

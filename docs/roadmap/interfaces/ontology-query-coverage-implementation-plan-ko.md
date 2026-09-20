@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 13702db9f438823c3878788f98112b02d650822a
+translation_source_sha: 5b4681e1aac9b5dcf7f9a8746fee55a0d441a8f5
 translation_revised: 2026-09-20
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -249,6 +249,8 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 | 증적에 결속된 의미 답변 권한 | 구현됨 | `functions.py`, `query_execution.py`, `intent_graph.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, 집중 Core, Operator 및 서비스 간 테스트 통과 | 서버 함수 레지스트리가 최초 권한 생산자입니다. 쿼리 노드와 목표 증적은 권한을 근거 참조와 함께 보관합니다. 구독 상태, 인벤토리 그래프, 사용량 측정 및 온톨로지 매니페스트 권한을 서로 구분합니다. 권한이 없거나 충돌하면 턴을 보류하며 모델 또는 클라이언트 권한 텍스트로 증적을 재정의할 수 없습니다. |
 
 ### 구현 이력
+
+2026-09-20 원본 신원 보강: ACL 투영 전에 스캔한 원본 선언 참조와 객체 신원을 독립적으로 다시 검증하고 제한된 스냅샷 신원 계산을 분리했습니다. `query_snapshot.py` 관련 원본 신원 회귀 3개는 수정 전에 실패했고, 수정 후 로컬 PostgreSQL을 포함한 게이트웨이·ObjectSet·세대 검사 98개와 Ruff 및 strict mypy가 통과했습니다. Muninn ContextIndex 수명 주기, 격리된 벡터 검색 및 현재 그래프 재인가는 아직 연결되지 않았습니다. 실제 임베딩 진단은 13/16이며 통제된 모델 버전 결속이 없고, 인증된 Console 근거는 브라우저 CDP 연결 시간 초과로 차단됐습니다. 운영 준비 완료나 Low 이하만 남았다는 주장은 하지 않습니다.
 
 2026-09-20 다중 유형 원본 근거: 보안 게이트웨이의 질의 경로 밖에서 단일 스냅샷으로 완전한 다중 유형 원본을 읽어 불변 준비 저장에 연결했습니다. 일반 조회 상한을 유지하고 큰 투영은 순서가 있는 객체 해시로 결속합니다. `query_gateway.py`, `object_sets.py`, `ontology_snapshot_store.py` 소유 검사 95개가 동일한 입력 해시로 통과했고 Ruff와 strict mypy도 통과했습니다. 담당 에이전트의 활성화·무효화, 보존 관리 및 영속 후보 검색 연결은 남아 있습니다. 승인된 실제 임베딩 진단은 13/16이므로 품질 적격성은 실패 상태이며 완료 근거가 아닙니다.
 

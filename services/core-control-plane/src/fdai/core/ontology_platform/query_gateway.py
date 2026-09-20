@@ -8,7 +8,6 @@ submits actions, calls providers, or grants execution authority.
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -49,6 +48,7 @@ from .models import (
     OntologyInstancePathDefinition,
 )
 from .object_sets import ObjectSetService
+from .query_snapshot import snapshot_projection_digest, validate_snapshot_records
 
 
 class ObjectSetRedactionSummary(ContractBase):
@@ -290,6 +290,7 @@ class SecuredObjectSetQueryGateway:
             or any(record.object_type not in object_type_names for record in source.objects)
         ):
             raise ValueError("index snapshot requires complete versioned object-only evidence")
+        validate_snapshot_records(source, self._object_types)
         graph = _freeze_graph(
             project_graph_snapshot(
                 source,
@@ -306,33 +307,14 @@ class SecuredObjectSetQueryGateway:
         if redactions.redacted_identity_count:
             raise ValueError("index snapshot requires complete visible object identities")
         names = tuple(sorted(object_type_names))
-        object_root = hashlib.sha256()
-        for record in sorted(graph.objects, key=lambda item: (item.object_type, item.id)):
-            object_root.update(
-                content_digest(
-                    {
-                        "id": record.id,
-                        "object_type": record.object_type,
-                        "properties": _mutable_json(record.properties),
-                        "revision": record.revision,
-                        "type_ref": record.type_ref.model_dump(mode="json")
-                        if record.type_ref
-                        else None,
-                    }
-                ).encode("ascii")
-            )
-        digest = content_digest(
-            {
-                "object_type_names": names,
-                "ontology_release_digest": self._ontology_release.digest,
-                "principal_scope_digest": request.principal_scope_digest,
-                "caller_role": request.caller_role.value,
-                "purpose": purpose,
-                "observation_cutoff": cutoff.isoformat(),
-                "source_generation": graph.source_generation,
-                "object_count": len(graph.objects),
-                "objects_root": "sha256:" + object_root.hexdigest(),
-            }
+        digest = snapshot_projection_digest(
+            graph=graph,
+            object_type_names=names,
+            ontology_release_digest=self._ontology_release.digest,
+            principal_scope_digest=request.principal_scope_digest,
+            caller_role=request.caller_role,
+            purpose=purpose,
+            observation_cutoff=cutoff,
         )
         return SecuredOntologySnapshot(
             graph,

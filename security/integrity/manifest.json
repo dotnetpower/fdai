@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1612,
+  "file_count": 1613,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "a40ba165a0e72fe8cfbe0333648f0718c29d2a3fe36b128e00e9ed728d97d8e0",
     ".github/instructions/agent-stewardship.instructions.md": "6d34f24fe8879f3edac388d5e7fd9ab138563ca386a5c401f72d8fc3c1698624",
@@ -862,12 +862,13 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/projection.py": "c39e903c920dbaea9fe598638fdc3392174d2f73b2925747705410d92e7ee22e",
     "services/core-control-plane/src/fdai/core/ontology_platform/property_values.py": "412fadc96fcede75819ac47afb7a0a527841c64802cc19944c7f750198ee90fb",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_execution.py": "047e77fd433e2cb59e04fe3ecdfda2ca5c5178cb62b12f66ac73e2de135dff43",
-    "services/core-control-plane/src/fdai/core/ontology_platform/query_gateway.py": "312703232febced1557eb2a5ec6c19cfef415d3d0efb790149ef13958e412229",
+    "services/core-control-plane/src/fdai/core/ontology_platform/query_gateway.py": "cfbe95430dfade31594719bfac513a8847f8a877eecbf2828e3186dc31a6f50d",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_handlers.py": "45ef98326b383d4cff996a46ff62e2884f5711e81c53d60fd6d3f7e1684f1a83",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_manifest.py": "340a55174396171310d9ca4d4696e92d178899e7ecb29286824544aa99855347",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_metric_handlers.py": "34e79292ea589a577d0e1788796d35f1550db9804debb2a3c4905498b7cf2b65",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_profiles.py": "acfe5ce10ab12f156ed509221ccc9dbf778597c203caf206d047875c88c51b19",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_receipt_authority.py": "ad96a97563844bff3b24d8333bc3135d5a7ad0ef28660019d0fda7ca815b26d9",
+    "services/core-control-plane/src/fdai/core/ontology_platform/query_snapshot.py": "ed41f11667c7c2a2a5be1f16c6e34d8c9b5b5a50da813ee2d3234c56dcd77928",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_source_handlers.py": "720349ab149d650b9beddb63376bb0a5465d8391ee05a7f4f6da139b6dfdf10e",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_telemetry_handlers.py": "0108f760b7109e8366b5250e669c3469c7d8b344bceb322f5834b7fee9361dad",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_topology_handlers.py": "e052fabcc478f9e29e0c8809ce2e81bc792a14b5d8afd504820f7a9877744507",

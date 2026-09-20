@@ -289,6 +289,40 @@ async def test_manifest_staging_reads_multiple_types_in_one_generation() -> None
     )
 
 
+@pytest.mark.parametrize("invalid", ["missing-ref", "old-ref", "identity-drift"])
+async def test_index_snapshot_rejects_invalid_source_record_identity(invalid: str) -> None:
+    from dataclasses import replace
+
+    object_type = _object_type()
+    gateway = await _gateway_with_records(
+        object_type,
+        OntologyObjectRecord(
+            id="resource-a", object_type="Resource", properties={"id": "resource-a"}
+        ),
+        source_generation="source-1",
+    )
+    original = await gateway._service._store.scan_objects(object_types=("Resource",))
+    record = original.objects[0]
+    if invalid == "missing-ref":
+        record = replace(record, type_ref=None)
+    elif invalid == "old-ref":
+        assert record.type_ref is not None
+        record = replace(record, type_ref=record.type_ref.model_copy(update={"version": "0.1.0"}))
+    else:
+        record = replace(record, properties={"id": "another-resource"})
+    gateway._service._store.scan_objects = AsyncMock(
+        return_value=replace(original, objects=(record,))
+    )
+    with pytest.raises(ValueError, match="source record"):
+        await gateway.scan_snapshot(
+            object_type_names=("Resource",),
+            purpose="operations-review",
+            as_of=datetime(2026, 8, 8, tzinfo=UTC),
+            candidate_limit=100,
+            projection_request=_request(principal_scope_digest="sha256:" + "a" * 64),
+        )
+
+
 @pytest.mark.parametrize(
     "names,limit,scope",
     [
