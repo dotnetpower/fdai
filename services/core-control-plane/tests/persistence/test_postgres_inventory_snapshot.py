@@ -49,7 +49,9 @@ from fdai.shared.providers.state_evidence import (
     StateFactLane,
     StateFactMetadata,
 )
+from psycopg.abc import Params, Query
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
 pytestmark = pytest.mark.integration
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -517,26 +519,31 @@ async def test_rooted_inventory_graph_respects_depth_and_limit() -> None:
     assert limited["truncation_reasons"] == ["resource_limit"]
 
 
-async def test_inventory_snapshot_stage_chunks_large_batches() -> None:
+async def test_inventory_snapshot_stage_chunks_large_batches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _upgrade()
+    batch_sizes: list[int] = []
+    original_execute = psycopg.AsyncConnection.execute
 
-    class RecordingSnapshotStore(PostgresInventorySnapshotStore):
-        batch_sizes: list[int]
+    async def recording_execute(
+        connection: psycopg.AsyncConnection[object],
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool = False,
+    ) -> psycopg.AsyncCursor[object]:
+        if isinstance(query, str) and query.startswith(
+            ("INSERT INTO inventory_snapshot_resource ", "INSERT INTO inventory_snapshot_link ")
+        ):
+            assert isinstance(params, tuple)
+            assert isinstance(params[0], Jsonb)
+            batch_sizes.append(len(params[0].obj))
+        return await original_execute(connection, query, params, prepare=prepare, binary=binary)
 
-        def __init__(self, *, config: PostgresInventorySnapshotStoreConfig) -> None:
-            super().__init__(config=config)
-            self.batch_sizes = []
-
-        async def _executemany(
-            self,
-            cursor: psycopg.AsyncCursor[object],
-            query: str,
-            rows: list[tuple[object, ...]],
-        ) -> None:
-            self.batch_sizes.append(len(rows))
-            await super()._executemany(cursor, query, rows)
-
-    store = RecordingSnapshotStore(
+    monkeypatch.setattr(psycopg.AsyncConnection, "execute", recording_execute)
+    store = PostgresInventorySnapshotStore(
         config=PostgresInventorySnapshotStoreConfig(dsn=_dsn(), write_batch_size=2)
     )
     attempt = await store.begin(_manifest("arg"))
@@ -560,7 +567,22 @@ async def test_inventory_snapshot_stage_chunks_large_batches() -> None:
         ),
     )
 
-    assert store.batch_sizes == [2, 2, 1, 2, 2]
+    assert batch_sizes == [2, 2, 1, 2, 2]
+    async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+        resource_cursor = await connection.execute(
+            "SELECT resource_id FROM inventory_snapshot_resource "
+            "WHERE snapshot_id=%s ORDER BY resource_id",
+            (attempt,),
+        )
+        assert await resource_cursor.fetchall() == [(resource_id,) for resource_id in resource_ids]
+        link_cursor = await connection.execute(
+            "SELECT from_id, link_type, to_id FROM inventory_snapshot_link "
+            "WHERE snapshot_id=%s ORDER BY to_id",
+            (attempt,),
+        )
+        assert await link_cursor.fetchall() == [
+            (resource_ids[0], "depends_on", resource_id) for resource_id in resource_ids[1:]
+        ]
 
 
 async def test_rooted_inventory_graph_expands_frontier_fairly() -> None:
