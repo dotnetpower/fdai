@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final
@@ -127,17 +128,25 @@ class AzureOpenAIEmbeddingModel:
                 await self._metering.emit_safe(usage)
         try:
             vector = response_body["data"][0]["embedding"]
-        except (KeyError, IndexError, TypeError) as exc:
+        except (KeyError, IndexError, TypeError):
             raise RuntimeError(
-                f"Azure OpenAI embeddings response missing data[0].embedding: {response_body!r}"
-            ) from exc
+                "Azure OpenAI embeddings response missing data[0].embedding"
+            ) from None
         if not isinstance(vector, list):
             raise RuntimeError("Azure OpenAI embeddings response 'embedding' MUST be a list")
         if len(vector) != self._config.dim:
             raise RuntimeError(
                 f"embedding length {len(vector)} != configured dim {self._config.dim}"
             )
-        return [float(v) for v in vector]
+        try:
+            if any(type(value) not in {int, float} for value in vector):
+                raise ValueError("non-numeric vector")
+            values = [float(value) for value in vector]
+            if not all(math.isfinite(value) for value in values):
+                raise ValueError("non-finite vector")
+        except (ValueError, TypeError, OverflowError):
+            raise RuntimeError("Azure OpenAI embedding values MUST be finite numbers") from None
+        return values
 
 
 __all__ = ["AzureOpenAIEmbeddingModel", "AzureOpenAIEmbeddingModelConfig"]

@@ -142,7 +142,7 @@ async def test_embeddings_rejects_dim_mismatch() -> None:
 @pytest.mark.asyncio
 async def test_embeddings_rejects_malformed_body() -> None:
     async def handler(_req: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"data": []})
+        return httpx.Response(200, json={"data": [], "private": "synthetic-private-marker"})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
         adapter = AzureOpenAIEmbeddingModel(
@@ -154,8 +154,30 @@ async def test_embeddings_rejects_malformed_body() -> None:
                 dim=1536,
             ),
         )
-        with pytest.raises(RuntimeError, match="data\\[0\\].embedding"):
+        with pytest.raises(RuntimeError, match="data\\[0\\].embedding") as caught:
             await adapter.embed("hi")
+        assert "synthetic-private-marker" not in str(caught.value)
+        assert caught.value.__suppress_context__
+
+
+@pytest.mark.parametrize("value", [True, "0.1", None, {}, float("nan"), float("inf"), 10**400])
+async def test_embeddings_rejects_non_numeric_or_non_finite_components(value: object) -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=json.dumps({"data": [{"embedding": [value]}]}))
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        adapter = AzureOpenAIEmbeddingModel(
+            identity=_StaticIdentity(),
+            http_client=http,
+            config=AzureOpenAIEmbeddingModelConfig(
+                endpoint="https://oai-test.openai.azure.com",
+                deployment="t1-embedding",
+                dim=1,
+            ),
+        )
+        with pytest.raises(RuntimeError, match="finite numbers") as caught:
+            await adapter.embed("ordinary query")
+        assert caught.value.__suppress_context__
 
 
 @pytest.mark.asyncio
