@@ -47,6 +47,7 @@ describe("observed trajectory typography", () => {
     expect(source).toContain("deck-trajectory-phase-strip cs-run-phase-strip");
     expect(sharedStyles).toContain(".cs-run-record-summary");
     expect(sharedStyles).toContain("grid-template-columns: repeat(6, minmax(0, 1fr));");
+    expect(source).toContain('data-phase={phase} data-state={phaseStates[phase]}');
   });
 
   test("keeps read and evidence status in the run record, not the reply footer", () => {
@@ -57,6 +58,14 @@ describe("observed trajectory typography", () => {
     expect(reply).toContain('class="deck-gr-source-status"');
     expect(reply).not.toContain('class="deck-gr-review-status"');
     expect(reply).not.toContain("conversation-trajectory-results.css");
+  });
+
+  test("shows content-free Pantheon prompt profiles only inside the run record", () => {
+    expect(source).toContain("answer.pantheonPromptProfiles");
+    expect(source).toContain("participant.system_text_sha256");
+    expect(source).toContain("profile.profile_digest");
+    expect(source).not.toContain("system_text:");
+    expect(styles).toContain(".deck-pantheon-prompt-profiles");
   });
 
   test("presents verified goals as instructions while retaining capability evidence", () => {

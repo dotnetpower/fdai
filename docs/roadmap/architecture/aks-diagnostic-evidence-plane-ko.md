@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 9ea6660ea1f65bc417aade390622a0f03d12d047
+translation_source_sha: c54d29c9056e89732ab600dac2cf4776abfdbcfc
 translation_revised: 2026-09-20
 ---
 # AKS 진단 근거 플레인
@@ -114,6 +114,7 @@ DNS, 라우팅, API 허용 범위, 비활성 Microsoft Entra 통합, 지원하�
 로컬 개발에서는 Kubernetes 수집을 명시적으로 활성화하고 소유자 전용 fleet 연결 파일을 제공한
 경우에만 연결합니다. 구독 검색을 상속하거나 자격 증명을 저장소에 복사하거나 대화형 사람 신원을
 암묵적으로 재사용하지 않습니다.
+명시적으로 요청한 로컬 대화 assurance series는 범위가 제한된 `az aks list` 검색 1회에 이미 선택된 Azure CLI 사람을 재사용할 수 있습니다. 이 읽기는 비공개 대상 질문 문구만 제공하며 AKS 진단 근거가 아닙니다. exact provider reference가 활성 로컬 inventory 및 검토된 BusinessService 그래프와 연결된 후에만 질문을 선택할 수 있으며 이름과 provider id는 추적되는 레코드나 명령 출력에 포함되지 않습니다.
 격리된 공개 개발 Terraform 호출자는 검증된 Azure CLI 사람일 수 있지만, 이 관리 신원은 AKS
 근거 reader 또는 runtime executor가 되지 않습니다. 보호된 배포는 안정 deploy UAMI를 계속
 사용하며 모든 Kubernetes 읽기는 전용 인벤토리 신원에 결합됩니다.

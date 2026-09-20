@@ -1,7 +1,7 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 8c255c728d6936fcb324841fbe005279b89396aa
+translation_source_sha: f65737cc6e7bbea3494097ba9ed4cc102f19bdc8
 translation_revised: 2026-09-20
 ---
 # 시스템 지식 서비스
@@ -138,6 +138,10 @@ release 트리와 일치합니다. 서식만 압축하거나 경로 맥락을 �
 Loki의 검증된 `object.resilience-score` 경로 및 Huginn 소유 event-time 경계를 포함한 Pantheon
 producer 수정은 인용과 다이제스트만 갱신합니다. 카탈로그는 정규화 Event를 소비하거나 runtime
 후보 또는 timestamp authority를 만들지 않습니다.
+
+의미 담당자 변환 결과 갱신은 정본 primary 및 secondary intent가 에이전트 담당자를 결정하고 요청
+facet은 답변 형식 제약으로 남는다는 점을 기록합니다. 카탈로그는 검토된 이 경계를 설명할 뿐 턴을
+라우팅하거나 에이전트 권한을 부여하지 않습니다.
 인용한 읽기 담당 대화 권한 수정도 설명에만 사용됩니다. 읽기 담당은 자신에게 허용된 도구
 범위에서 `chat.stream`을 사용할 수 있지만 백그라운드, 변경, 승인 및 실행 작업은 계속 역할로
 제한됩니다.

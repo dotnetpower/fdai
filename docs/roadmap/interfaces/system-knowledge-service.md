@@ -138,6 +138,10 @@ attribution, localized scope-safe and digest-verified temporal evidence, role an
 Pantheon producer corrections, including Loki's validated `object.resilience-score` path and its
 Huginn-owned event-time boundary, refresh citations and digests only. The catalog neither consumes
 the normalized Event nor creates a runtime candidate or timestamp authority.
+
+Semantic-owner projection refreshes record that canonical primary and secondary intents determine
+agent ownership while requested facets remain answer-shape constraints. The catalog only describes
+that reviewed boundary; it does not route a turn or grant agent authority.
 A cited Reader interactive-chat correction remains descriptive: it records that Reader can use `chat.stream` at the Reader tool floor while background, mutation, approval, and execution operations stay role-gated.
 The current refresh also carries the reviewed Incident guidance boundary in which Saga audits the
 Huginn-normalized event and Forseti declines judgment; this source-pin update grants no authority.

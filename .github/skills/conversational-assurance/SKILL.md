@@ -13,8 +13,10 @@ This skill is the single owner of conversation-assurance trigger semantics, camp
 status behavior, evaluation rubrics, persistence, diagnosis, and stop conditions. Do not duplicate
 these operational rules in the always-on Copilot instructions.
 
-> Scope: This is a local development assurance loop. It does not join the Pantheon, execute an
-> Azure mutation, approve an action, edit code, or merge a branch into `main`.
+> Scope: This is a local development assurance loop. The runtime harness does not join the
+> Pantheon, execute an Azure mutation, approve an action, edit code, or merge a branch into
+> `main`. After the harness classifies a measured failure as `code_defect`, the active coding
+> agent may repair the smallest owning abstraction through the normal repository workflow.
 
 ## Explicit campaign contract
 
@@ -25,8 +27,10 @@ timer, stale-activity recovery, a failed implementation check, an inconclusive C
 any other implicit trigger. Loading this skill for watchdog implementation or review does not
 authorize a campaign or a live Azure/model call.
 
-- One normal explicit trigger starts one campaign. An explicit request for 100 or more evaluations
-   starts one parent series composed of bounded child campaigns.
+- One plain explicit improvement trigger starts one resumable, one-question improvement run. A
+   named `census`, `agent`, `routing`, or `t2` suite starts the corresponding bounded campaign.
+   An explicit request for 100 or more evaluations starts one parent series composed of bounded
+   child campaigns.
 - One child campaign evaluates at most 20 questions. One parent series can contain at most 10,000
    unique case ids.
 - These limits belong to the campaign id, not a UTC date. A later explicit trigger creates a new
@@ -55,15 +59,115 @@ The trigger phrases are `대화개선`, `채팅개선`, `대화무한개선`, `�
 `conversation improvement`, `chat improvement`, and `continuous conversation assurance`.
 When one appears:
 
-1. Select `census`, `agent`, `routing`, or `t2`; use `census` when no suite is named.
-2. Use `scripts/automation/conversation-assurance.py start --suite <suite>` for the fixed census.
-3. For a reviewed large corpus, set the matching Core file and digest configuration, then pass the
+1. Use the one-question improvement harness below when no suite is named.
+2. Select `census`, `agent`, `routing`, or `t2` only when the operator names a suite.
+3. Use `scripts/automation/conversation-assurance.py start --suite <suite>` for a fixed suite.
+4. For a reviewed large corpus, set the matching Core file and digest configuration, then pass the
    same owner-only file with `--corpus <path>`.
-4. Use `--dry-run` first. It validates the corpus and reports question and child counts without an
+5. Use `--dry-run` first. It validates the corpus and reports question and child counts without an
    Operator request or model call.
 
 The harness uses the authenticated Operator `/chat/stream` contract and a
 `pantheon-assurance:<campaign-id>` session. It does not invent a second answer engine.
+
+## One-question improvement harness
+
+The plain `대화개선`, `채팅개선`, `conversation improvement`, or `chat improvement` trigger runs
+this coding-agent workflow end to end. The Python harness owns content-free state and invariants;
+the coding agent owns question authoring, authenticated browser operation, defect repair, focused
+validation, documentation, and the task-owned local commit.
+
+1. **Preflight**: read this skill and route-selected design documents. Record the clean HEAD and
+   verify the standard local stack, Browser Entra sign-in, current token, supervisor, and readiness
+   receipt. Stop as `baseline_failure` or `authorization_or_configuration` before a live attempt
+   when these prerequisites are absent.
+2. **Select one new question**: choose only a read-only capability whose exact runtime receipt is
+   `declared`, `bound`, `reachable`, and `evidence_ready` with matching authority. Create one
+   owner-only corpus. Exclude every attempted case id, normalized fingerprint, lexical near
+   duplicate, embedding near duplicate, and `held-terminal-fidelity-heimdall-en-2`. Never include
+   a tenant, subscription, resource name, endpoint, credential, or secret.
+3. **Prepare and dry-run**: run `improve prepare` with the corpus, readiness receipt, capability,
+   required functions, and expected authority. Preparation requires one question, one child, a
+   clean source revision, exact authority, and a new question. It writes only an owner-only state
+   record under `.fdai/conversation-assurance/improvement-runs/`.
+4. **Measure in Web once**: run `improve arm-browser` immediately before using the authenticated
+   standard-port Console. Enable model trace before sending. Intercept only the next `/chat/stream`
+   request, preserve its authentication and normal
+   payload, and add `purpose=conversation-assurance:<case-id>`,
+   `session_id=pantheon-assurance:<run-id>`, and `include_model_trace=true`. Core accepts the case
+   only when the registered question and locale exactly match. Remove the interceptor immediately.
+   Never send the question through the headless evaluator as a second measurement.
+5. **Observe the same turn**: retain one content-free owner-only browser evidence object. It records
+   request count, endpoint contract, exact terminal/assessment states and reasons, the six Run
+   Record phase states, model-call kinds and omissions, prompt-manifest digest/layer checks, and
+   Preparing answer transition checks. It contains no question, answer, SYSTEM text, token,
+   endpoint value, principal value, screenshot, or raw provider payload.
+6. **Record and classify**: run `improve record-browser-measurement`, then `improve classify` with
+   exactly one of the five failure classes. Answer generation and assessment completion remain
+   independent. A deferred, held, unavailable, or missing assessment is never answered or passed.
+   A one-question result always has `qualification=false`.
+7. **Repair only code defects**: for `code_defect`, change the smallest owning abstraction. Do not
+   hardcode the question, add a phrase exception, weaken a gate, or retry the live question. Run
+   the narrowest focused test immediately after the first edit. Every other failure class remains
+   terminal held evidence with no code candidate.
+8. **Critique and harden**: after the focused implementation passes, perform at least ten explicit,
+   independent critique rounds over the complete task-owned diff. Fix every verified finding above
+   Low, rerun the smallest affected check, and record each round with reviewer scope, finding and
+   fix counts, validation result, and remaining maximum severity. Continue beyond ten rounds until
+   the remaining maximum severity is Low or none.
+9. **Close truthfully**: run the owning regression tests, Ruff, mypy where applicable, Console tests,
+   catalog/translation checks, design-route checks, and roadmap-ledger checks. Update the English
+   and Korean owner docs plus the append-only implementation ledger. Commit only task-owned tracked
+   files locally. Never commit `.fdai`, tokens, questions, answers, SYSTEM text, or browser captures.
+
+### Private target-bound AKS series
+
+When the operator explicitly requests a bounded count of questions using actual AKS and
+BusinessService names, the coding agent may use the private target-bound extension. This is a
+narrow exception to the generic no-resource-name wording rule, not permission to put deployment
+identities in source, chat, terminal output, tracked evidence, or reports.
+
+1. Verify `az account show` succeeds without printing tenant, subscription, username, or token. Do
+   not run `az login`, request another login, or switch the selected account. Start or reuse
+   `console: start full stack (Azure CLI debug, Contributor)`. This local development profile maps
+   the current CLI human to a fixed Contributor ceiling and grants no approval or execution role.
+2. Wait for the standard `5273` Console and `8010` Operator API plus Core, inventory, and analyzer
+   readiness. Core writes the owner-only runtime capability receipt configured by local preparation.
+3. Run `improve prepare-aks-series --run-prefix <new-prefix>`. The command reads AKS ids and names
+   through `az aks list`, joins the exact provider reference through the active local inventory and
+   reviewed `workload_runs_on` plus `implemented_by` graph to a named BusinessService, and writes
+   exactly three owner-only corpora and runs. It also writes one owner-only aggregate corpus and
+   atomically binds its exact file and digest in `.fdai/local-runtime.env`. An absent, stale,
+   ambiguous, or incomplete graph is a typed hold; the command never guesses a service name from
+   tags or naming conventions.
+4. Without asking the operator to run another command, invoke `console: restart core runtime` and
+   wait for Core readiness. Do not measure when restart or readiness fails. This restart registers
+   all three private case ids; it does not run a question or consume an attempt. `run-aks-series`
+   also requires the restarted Core readiness receipt to carry the aggregate corpus's exact digest
+   before it arms the first browser attempt.
+5. Run `improve run-aks-series --run-prefix <prefix>`. A local Playwright worker reads each private
+   corpus directly, uses the ordinary authenticated Web composer, binds the registered assurance
+   purpose, and writes only content-free browser evidence. Actual names and question/answer text do
+   not enter agent chat, command arguments, stdout, tracked files, screenshots, or final reports.
+6. Each question has one live attempt. The series continues only after a completed passing answer,
+   Run Record, prompt-profile, and Preparing answer gate. Provider, evidence, authorization,
+   baseline, evaluation-contract, or code failures stop the series without retrying that question.
+   A code defect enters the normal focused repair and ten-plus-round hardening workflow before a
+   separately authorized new paraphrase series.
+
+The browser evidence gate has three independent decisions:
+
+- `run_record_gate`: all six phases are present and terminal, record status matches receipts, and
+  no sensitive value appears.
+- `prompt_assembly_gate`: trace capture was enabled, no calls were omitted, expected call kinds are
+  present, the SYSTEM digest matches the redacted request, ordered layers match the prompt replay
+  manifest, budgets are bounded, and untrusted operator/evidence data stays outside SYSTEM layers.
+- `preparing_answer_gate`: Preparing answer was observed after retrieval began, no answer token was
+  exposed early, the preparing surface never overlapped the terminal answer, and the terminal
+  transition completed.
+
+All three gates and the canonical answer assessment must pass. Missing browser or prompt evidence
+is held evaluation evidence, not a product-quality pass.
 
 ## Assurance loop
 
@@ -236,6 +340,37 @@ any later implementation through the normal repository workflow.
 ## Operations
 
 ```bash
+# Prepare one clean-revision improvement run without an Operator or model call
+python3 scripts/automation/conversation-assurance.py improve prepare \
+   --corpus <private-corpus.json> \
+   --readiness <private-readiness.json> \
+   --run-id <new-run-id> \
+   --capability <capability-id> \
+   --function <required-function> \
+   --expected-authority <authority>
+
+# Record the one browser-owned live measurement and its Run Record evidence
+python3 scripts/automation/conversation-assurance.py improve arm-browser \
+   --run-id <run-id>
+python3 scripts/automation/conversation-assurance.py improve record-browser-measurement \
+   --run-id <run-id> --evidence <private-browser-evidence.json>
+
+# Persist the typed diagnosis and each validated critique round
+python3 scripts/automation/conversation-assurance.py improve classify \
+   --run-id <run-id> --failure-class <class-or-none>
+python3 scripts/automation/conversation-assurance.py improve hardening-round \
+   --run-id <run-id> --severity <severity> --reviewer-scope <scope> \
+   --finding-count <count> --fixed-count <count> --validation-passed
+
+# Read the content-free improvement state
+python3 scripts/automation/conversation-assurance.py improve status --run-id <run-id>
+
+# Prepare and run three private AKS and BusinessService questions with the active az login
+python3 scripts/automation/conversation-assurance.py improve prepare-aks-series \
+   --run-prefix <new-prefix>
+python3 scripts/automation/conversation-assurance.py improve run-aks-series \
+   --run-prefix <prefix>
+
 # Stop the current campaign
 python3 scripts/automation/conversation-assurance.py stop
 
@@ -285,5 +420,8 @@ uv run pytest -q --no-cov \
    services/core-control-plane/tests/core/conversation_assurance/test_pantheon_campaign.py \
    services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py \
   tests/integration/scripts/test_conversation_assurance_answer_gate.py \
-   tests/integration/scripts/test_conversation_assurance_cli.py
+   tests/integration/scripts/test_conversation_assurance_cli.py \
+   tests/integration/scripts/test_conversation_assurance_harness.py \
+   tests/integration/scripts/test_conversation_assurance_improvement_cli.py
+   tests/integration/scripts/test_conversation_assurance_aks.py
 ```

@@ -9081,6 +9081,17 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-model-trace-meta dd { margin: 0; font-variant-numeric: tabular-nums; }
 .deck-model-trace-meta ul { display: flex; flex-wrap: wrap; gap: 4px; }
 .deck-model-trace-meta li { padding: 3px 6px; border-radius: 3px; background: var(--bg-elevated); font-size: .75rem; }
+.deck-pantheon-prompt-profiles { margin: 12px 0; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
+.deck-pantheon-prompt-profiles > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.deck-pantheon-prompt-profiles h4, .deck-pantheon-prompt-profiles h5 { margin: 0; }
+.deck-pantheon-prompt-profiles > header span, .deck-pantheon-prompt-profiles p { color: var(--fg-muted); font-size: var(--deck-font-small); }
+.deck-pantheon-prompt-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.deck-pantheon-prompt-groups > section { min-width: 0; padding: 9px; background: var(--bg-elevated); }
+.deck-pantheon-prompt-groups ol { display: grid; gap: 8px; margin: 8px 0 0; padding: 0; list-style: none; }
+.deck-pantheon-prompt-groups li { display: grid; gap: 3px; min-width: 0; font-size: var(--deck-font-small); }
+.deck-pantheon-prompt-groups li > span { color: var(--fg-muted); overflow-wrap: anywhere; }
+.deck-pantheon-prompt-groups code { display: block; color: var(--fg-muted); overflow-wrap: anywhere; white-space: normal; }
+@media (max-width: 720px) { .deck-pantheon-prompt-groups { grid-template-columns: 1fr; } }
 .deck-trajectory-title,
 .deck-trajectory-event > details > summary strong,
 .deck-trajectory-context > h4,

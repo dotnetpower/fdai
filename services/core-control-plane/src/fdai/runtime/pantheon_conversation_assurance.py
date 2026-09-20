@@ -198,6 +198,20 @@ class RuntimePantheonConversationAssurance:
                 }
                 for model_identity, model_family in self._coordinator.evaluator_models
             ],
+            "pantheon_prompt_profiles": {
+                "answer_participants": [
+                    {
+                        "agent": participant.agent,
+                        "prompt_version": participant.prompt_version,
+                        "system_text_sha256": participant.prompt_sha256,
+                        "situation": participant.situation,
+                    }
+                    for participant in trace.participants
+                ],
+                "evaluator_profiles": [
+                    profile.to_dict() for profile in review.decision.prompt_profile_evidence
+                ],
+            },
             "pantheon_diagnostic": diagnostic.to_dict(),
             "execution_authority": False,
         }

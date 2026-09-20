@@ -45,6 +45,7 @@ import {
   parseGroundedCodeArtifacts,
   parseIncidentCandidates,
   parseModelTrace,
+  parsePantheonPromptProfiles,
   parseTurnTiming,
 } from "./backend-parsers";
 import type { ViewSnapshot } from "./context";
@@ -72,6 +73,7 @@ export {
   parseGroundedCodeArtifacts,
   parseIncidentCandidates,
   parseModelTrace,
+  parsePantheonPromptProfiles,
   parseTurnTiming,
 } from "./backend-parsers";
 export {
@@ -214,6 +216,11 @@ export async function askBackend(
       ? (payload as Record<string, unknown>).model_trace
       : undefined,
   );
+  const pantheonPromptProfiles = parsePantheonPromptProfiles(
+    typeof payload === "object" && payload !== null
+      ? (payload as Record<string, unknown>).pantheon_prompt_profiles
+      : undefined,
+  );
   const turnTiming = parseTurnTiming(
     typeof payload === "object" && payload !== null
       ? (payload as Record<string, unknown>).turn_timing
@@ -290,6 +297,7 @@ export async function askBackend(
     ...(resourceContext ? { resourceContext } : {}),
     ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),
     ...(modelTrace ? { modelTrace } : {}),
+    ...(pantheonPromptProfiles ? { pantheonPromptProfiles } : {}),
     ...(latencyMs !== null && latencyMs >= 0 ? { modelLatencyMs: latencyMs } : {}),
     ...(modelUsage ? { modelUsage } : {}),
     ...(turnTiming ? { turnTiming } : {}),

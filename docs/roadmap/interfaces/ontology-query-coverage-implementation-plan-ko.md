@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 5d3a1e5206190878c2c1867694c6b18f1c3569d4
+translation_source_sha: 82662d1fe4e0b7a5acd10680100b869ebe99948e
 translation_revised: 2026-09-20
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -16,8 +16,7 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 접근 범위를 넓히지 않습니다. 프레임 모델 스키마는 서버가 결속하는 검색어 필드를 제외합니다.
 커버리지 목록은 탐색과 추적 라벨 카탈로그를 포함한 질문 은행 소스 변경 뒤 재생성하며 출처 다이제스트만 갱신하고 측정된 커버리지는 바꾸지 않습니다. Console 카탈로그 변경이 병합되면 질문 은행을 먼저 재생성한 뒤 이에 의존하는 의미 목록을 다시 만듭니다. 원본 검증값만 수정할 때는 400개 질문 집단과 기존 검증 공백을 그대로 유지합니다.
 
-> **커버리지 경계:** 100%는 하나의 활성 온톨로지 release에서 읽을 수 있는 모든 선언이
-> principal 범위로 한정된 조회 서술자 또는 타입이 지정된 사용 불가 사유를 갖는다는 뜻입니다. 신원,
+> **커버리지 경계:** 100%는 하나의 활성 온톨로지 release에서 읽을 수 있는 모든 선언이 principal 범위로 한정된 조회 서술자 또는 타입이 지정된 사용 불가 사유를 갖는다는 뜻입니다. 신원,
 > 프로바이더 데이터, 이력 또는 근거가 없을 때 완전하거나 정확한 답을 보장한다는 뜻이 아닙니다.
 >
 > **권한 경계:** 자연어 및 임베딩 출력은 후보 전용으로 유지합니다. 읽기 계획에는
@@ -270,6 +269,7 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 | 2026-09-20 | implemented | 승인된 EN/KO 실제 질문 2개가 서로 다른 범위를 선택한 뒤, 간결한 읽기 스키마 목록 facet이 선언 종류 하나를 유지하도록 수정했습니다. 영어 결과는 검증됐지만 한국어 결과는 모든 선언 종류를 선택해 부분 답변이 됐으므로 실제 질문 묶음 실행을 중단했습니다. 부정·이력·속성 요구가 추가되면 이를 버리지 않고 간결한 경로에서 제외합니다. | `current change`, `semantic_manifest_planning.py`, `test_semantic_manifest_planning.py`, 매니페스트·선언·스키마 집중 테스트 59개 통과, Ruff 및 strict mypy 통과 | 커밋된 수정본을 실행 환경에 반영하고 같은 범위의 이중 언어 실제 증적을 보존해야 합니다. 로컬 회귀 검사는 영속 인스턴스 인덱스, 실제 임베딩의 관련성 또는 정확한 소스 인증을 완료하지 않습니다. |
 | 2026-09-19 | implemented | 범위가 결속된 조회 인가, 과거 release 해석, 원본 세대, 정확한 연산, 취소, 후보 계상과 영속 어댑터의 일치에 대해 로컬 비평 10회를 완료했습니다. | `current change`, 담당 경로 통합 검사 1,888개 통과 및 기존 tsc 부재 1개 건너뜀, 분리된 PostgreSQL 검사 3개, 소스 22개 strict mypy, composition 소유권 39개 통과 | 영속 운영 인스턴스 의미 인덱스, 운영 임베딩의 독립 관련성 평가, 정확한 소스의 통제된 실제 운영 인증은 남아 있습니다. 전체 질의 완료나 운영 준비 완료를 주장하지 않습니다. |
 | 2026-09-19 | in-progress | 조회 인가, principal 범위 증적, 과거 release, 관계 탐색, 정확한 수치 연산, 취소, 원본 세대, 후보 선택과 영속 검색의 일치를 보강했습니다. 운영 사전 판단 기준을 구현된 0.75로 맞췄습니다. | `current change`, 조회·계획·조립 및 분리된 PostgreSQL 집중 회귀, 변경된 소스 21개의 strict mypy | 최종 비평과 정확한 소스의 검증을 마무리합니다. 로컬 고정본은 통제된 실제 운영 인증을 대신하지 않습니다. |
+| 2026-09-20 | implemented | 통합된 Console 카탈로그와 표시 유형의 바이트 변경으로 출처 다이제스트가 바뀐 뒤 생성된 질문 은행과 이에 의존하는 의미 의도 커버리지를 갱신했습니다. 질문 신원, 커버리지 분류, 준비 상태 및 권한은 바뀌지 않습니다. | `current change`, 정본 생성기, 정확한 아티팩트 동등성 테스트 2개 통과 | 푸시된 SHA의 CI가 최종 근거이며 런타임 또는 승격 주장을 추가하지 않습니다. |
 | 2026-09-17 | implemented | 병합된 Trace 표시 카탈로그가 소스 digest를 변경한 뒤 질문 bank와 semantic-intent coverage 출처 이력을 다시 생성했습니다. 질문 identity, coverage 상태 및 권한은 바뀌지 않습니다. | `current change`, canonical generator, 집중 아티팩트 parity 테스트 | 런타임 또는 승격 주장을 추가하지 않습니다. |
 | 2026-09-17 | implemented | 새로 병합된 Console 카탈로그 byte로 인해 이전 아티팩트가 무효화된 뒤 질문 bank와 이에 의존하는 semantic inventory 소스 commitment를 다시 생성했습니다. | `current change`, canonical builder, 집중 질문 bank 및 semantic coverage 테스트 12개 통과, 질문 identity 400개와 coverage gap 변경 없음 | #1241의 exact-head 보호 전달이며 model 또는 실제 campaign은 실행하지 않았습니다. |
 | 2026-09-17 | implemented | 이후 Agent Activity Console 카탈로그 갱신이 권위 있는 소스 digest를 다시 변경한 뒤 질문 bank와 이에 의존하는 semantic-intent coverage를 함께 다시 생성했습니다. 질문 identity, coverage, readiness 및 실행 권한은 바뀌지 않습니다. | `current change`, 공식 generator 2개, 집중 아티팩트 parity 테스트 | 실제 또는 승격 주장을 추가하지 않습니다. |

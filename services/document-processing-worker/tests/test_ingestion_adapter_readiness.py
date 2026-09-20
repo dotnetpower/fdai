@@ -143,6 +143,15 @@ class FakeKafkaConsumer:
         return None
 
 
+class IdleKafkaConsumer(FakeKafkaConsumer):
+    async def getone(self) -> object:
+        await asyncio.sleep(0)
+        raise TimeoutError
+
+    def assignment(self) -> set[str]:
+        return set()
+
+
 class Connection:
     async def __aenter__(self) -> Connection:
         return self
@@ -614,6 +623,29 @@ async def test_kafka_consumer_readiness_requires_current_group_ownership(
     now = 16.0
     assert not bus.consumer_group_ready("object.event", "document-worker", freshness_seconds=5.0)
     await events.aclose()
+    assert not bus.consumer_group_ready("object.event", "document-worker", freshness_seconds=5.0)
+
+
+async def test_kafka_consumer_readiness_allows_healthy_idle_group_member(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", IdleKafkaConsumer)
+    bus = EventHubsKafkaBus(
+        config=EventHubsKafkaConfig(bootstrap_servers="example.com:9093"),
+        credential=OffsetCredential(),  # type: ignore[arg-type]
+    )
+    events = bus.subscribe("object.event", "document-worker")
+    pending = asyncio.create_task(anext(events))
+
+    for _ in range(20):
+        await asyncio.sleep(0)
+        if bus.consumer_group_ready("object.event", "document-worker", freshness_seconds=5.0):
+            break
+
+    assert bus.consumer_group_ready("object.event", "document-worker", freshness_seconds=5.0)
+    assert not pending.done()
+    pending.cancel()
+    await asyncio.gather(pending, return_exceptions=True)
     assert not bus.consumer_group_ready("object.event", "document-worker", freshness_seconds=5.0)
 
 

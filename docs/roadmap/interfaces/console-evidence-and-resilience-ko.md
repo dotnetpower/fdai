@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 61b9bfbc0b98c85ce4027223a3983d00fa1242f0
+translation_source_sha: 6850f590548b774675744e1e149830abfa031c95
 translation_revised: 2026-09-20
 ---
 # 콘솔 근거 및 복원력
@@ -264,7 +264,7 @@ Command Deck은 모듈 조회 전에 산출물 전체를 검증합니다. 레지
 background 작업은 detached 작업 요약을 사용합니다. 복원된 간결한 턴은 영속 상세에서
 관찰된 행을 재구성하고 실제 운영 턴은 인과 순서로 이미 표시한 행을 유지합니다. 완료된 모든 답변은
 trajectory 요약을 확인할 수 있게 유지합니다. 범위가 제한된 original 운영자 프롬프트는 실행 기록이
-접혀 있는 동안 숨기고 운영자가 펼치면 표시합니다. 내부 AnswerPlan 의도 및
+접혀 있는 동안 숨기고 운영자가 펼치면 표시합니다. Pantheon assurance turn은 펼친 실행 기록에 content-free 참여자 및 평가자 프롬프트 프로필을 추가하며 profile identity, version, digest, SYSTEM hash, situation 및 token budget만 보존합니다. 내부 AnswerPlan 의도 및
 상세 라벨은 답변 위에 표시하지 않습니다. 실행 기록 결정 맥락에는 유지하며 답변은
 operator-facing 내용과 검증된 근거로 바로 시작합니다. Model-assisted 계획 수립은 검증된
 표현 형태만 변경합니다. 검증된 `presentation_artifact` v1은 서버가 변경할 수 없는 근거에서
@@ -364,7 +364,7 @@ Exact-answer 영속 재생에는 같은 범위가 제한된 브라우저 파서�
 않은 턴은 명시적인 사용 불가 상태를 표시합니다. 캡처 설정이 꺼져 있어도 패널은 Settings 명시적 선택
 안내와 함께 표시하지만 저장된 trace 데이터는 계속 숨깁니다. 각 공개는 역할 순서의
 기록된 메시지 array와 요청 SHA를 보존하면서 연속 system 계층을 하나의 `SYSTEM` heading으로 묶습니다.
-JSON 본문은 보기 좋게 정렬합니다. JSON 문자열 안에 다시 직렬화된 객체 또는 배열 JSON은 제한된 깊이와
+프롬프트 근거가 있는 호출은 exact prompt replay manifest의 content-free SYSTEM digest, 선택한 프로필, 순서가 지정된 레이어 id와 version 및 토큰 예산도 표시합니다. JSON 본문은 보기 좋게 정렬합니다. JSON 문자열 안에 다시 직렬화된 객체 또는 배열 JSON은 제한된 깊이와
 노드 수 안에서 펼치며, 일반 텍스트와 잘못된 중첩 값은 변경하지 않습니다. 범위가 제한된 요청 및 응답
 블록에는 테마에 맞는 scrollbar를 적용합니다. 공개는 assistant 내용, 토큰 사용량, exact-content SHA-256
 및 민감정보 제거 개수도 표시합니다. 자격 증명, 테넌트 또는 리소스 식별자, URL, 이메일, IP 주소, inline 이미지,

@@ -110,6 +110,19 @@ describe("buildModelTraceBars", () => {
     expect(styles).toMatch(/\.deck-trajectory,\s*\.deck-model-trace\s*{[^}]*--deck-font-heading: 13px;[^}]*--deck-font-body: 12px;[^}]*--deck-font-small: 11px;[^}]*--deck-font-label: 11px;/s);
   });
 
+  it("renders content-free prompt profile and ordered layer evidence", () => {
+    const source = readFileSync(
+      fileURLToPath(new URL("./model-trace-waterfall.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(source).toContain("deck-model-trace-prompt-manifest");
+    expect(source).toContain("call.prompt_manifest.system_text_sha256");
+    expect(source).toContain("call.prompt_manifest.profile_digest");
+    expect(source).toContain("call.prompt_manifest.layers.map");
+    expect(source).not.toContain("prompt_manifest.system_text:");
+  });
+
   it("expands escaped JSON inside a model request message", () => {
     const nested = JSON.stringify({
       role: "user",

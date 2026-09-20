@@ -92,6 +92,7 @@ export interface Turn {
   readonly actionDraft?: ActionDraft;
   readonly testContextDraft?: import("./test-context").TestContextDraft;
   readonly modelTrace?: ModelTrace;
+  readonly pantheonPromptProfiles?: import("./backend-types").PantheonPromptProfiles;
   readonly modelLatencyMs?: number;
   readonly modelUsage?: import("./backend-types").ModelUsage;
   readonly turnTiming?: TurnTiming;

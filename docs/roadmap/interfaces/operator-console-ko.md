@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: ed61e9b642d0ed648c6eece6587f9b0bb37f199a
+translation_source_sha: 6709972869fd8e3c610aa4817943fd2e13442c67
 translation_revised: 2026-09-20
 ---
 # FDAI Console 대화
@@ -53,7 +53,7 @@ FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI�
   불투명한 세션 기억으로 남지 않습니다. 영속 대화 상태는 감사와 내보내기가 가능한 CSP-중립
   `audit_log` 및 `operator_memory` record에 저장됩니다.
 
-완료된 답변은 off-path [대화 Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. JSON과 SSE 어댑터는 타입이 지정된 conversation-turn 서비스와 분리된 요청 설정, 근거, 진행 상황, 검증 및 terminal-delivery 보조 로직을 공유하면서 기존 wire 계약을 유지합니다.
+완료된 답변은 off-path [대화 Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. 단일 질문 개선 turn은 같은 인증된 `/chat/stream` 요청을 사용하고 6단계 Run Record, content-free 동적 프롬프트 manifest, Pantheon 참여자 및 평가자 프롬프트 프로필, 답변 준비 전환을 서로 다른 표현 gate로 노출합니다. 펼친 Run Record는 profile id, version, hash, situation 및 budget만 표시하며 SYSTEM text는 표시하지 않습니다. JSON과 SSE 어댑터는 타입이 지정된 conversation-turn 서비스와 분리된 요청 설정, 근거, 진행 상황, 검증 및 terminal-delivery 보조 로직을 공유하면서 기존 wire 계약을 유지합니다. 브라우저 assurance 파서와 근거 게이트 회귀 검사는 Console Vitest 테스트 모음에 등록되므로 저장소 전체 Console 수집과 집중 검사가 같은 실행기 계약을 검증합니다.
 최종 intake는 exact 검증 사유와 evidence-manifest 완전성을 보존합니다. 결과 요약, 맥락 선택, Azure 조사, 영속 전달 및 첨부 근거는 타입이 지정된 프로바이더가 계속 소유하고 어댑터 모듈은 표현과 영속성만 조정합니다.
 명시적 고정 census 진단 요청은 범위가 제한된 `conversation-assurance:<case-id>` 목적을 사용합니다. Core는 Bragi가 답변하기 전에 사례, 질문 및 로케일을 서버 소유 census와 대조해 검증합니다. 생성된 `done` 이벤트는 답변, 콘텐츠가 없는 진단, 추적 지연 시간 및 schema-v2 큐/품질 보증 timing을 전달하며, 일반 `operations-review` 요청은 기존 의미 결과 계약을 유지합니다.
 버전 1.2 semantic projection은 서비스 분리 전반에서 이 경계를 보존합니다. `answered`는 exact release, principal manifest, 계획, 실행 receipt, 근거 참조를 요구하며 의존성을 사용할 수 없으면 typed limitation을 반환합니다. 기록 상태 조회도 Operator와 인벤토리 온톨로지 release가 다르면 HTTP 409로 닫힌 상태를 유지하며 현재 release에서 완전한 원자적 재변환을 마친 뒤에만 복구합니다.
@@ -207,7 +207,7 @@ RBAC 하한, side-effect 등급과 문서화된 실패 표면을 가집니다. W
 같은 변환 결과는 결정론적 채널 verb `search_tools`, `describe_tool`과 타입이 지정된 읽기 RPC
 메서드 `tools.search`, `tools.describe`로 제공됩니다. 채널 호출은 resolved `Principal`을
 사용하고 RPC 호출은 호출자가 제공한 역할 매개변수가 아니라 server-authorized 범위에서 역할을
-도출합니다. 두 표면 모두 서술자만 반환하며 대상을 invoke할 수 없습니다.
+도출합니다. 두 표면 모두 서술자만 반환하며 대상을 invoke할 수 없습니다. 에이전트 위임 전에 서버는 정본 primary 및 secondary intent와 정확히 소유한 ObjectType 대상만으로 담당자를 결정합니다. 요청 facet은 답변 및 근거 형식을 제한할 뿐 에이전트를 선택하거나 점수를 높일 수 없습니다. 이러한 담당자 입력으로 책임 에이전트를 결정할 수 없으면 출력 facet을 라우팅 권한으로 취급하지 않고 해당 턴을 기권하거나 보류 상태로 유지합니다.
 ### 3.1 Day-1 도구 집합 (읽기 전용 + explain)
 
 | 도구 | 목적 | RBAC 하한 | Delegates to |
@@ -488,7 +488,7 @@ notification 라우팅만 소유합니다. 대화 채널은 `FDAI_SLACK_CHANNEL_
 ## 9. 성장 모델 (카탈로그 + 운영자 기억)
 
 콘솔은 시간이 지나면서 세 가지 결정론적 방식으로 개선되며 모델 학습은 여기에 **포함되지 않습니다**. 운영자 기억 검토는 조회 건수 한도를 적용하기 전에 기억 항목과 압축 후보 모두에 선택한 범위 유형과 참조를 적용합니다. 후보 행에는 정확한 범위를 표시하며, 필터를 비워 두면 해당 조건의 전체 범위 조회를 유지합니다. 이 조회로 승인이나 기억 쓰기 권한이 생기지는 않습니다.
-Agent Activity 또는 Trace 표시 문구를 포함하여 연결된 Console 카탈로그 원본이 바뀌면 동일한 변경에 전체 질문 은행과 의미 의도 범위의 순차 재생성 결과를 포함합니다. 산출물 동등성 검사는 오래된 원본 다이제스트를 차단하며 출처 이력만 갱신하는 작업은 질문 신원, 준비 상태 또는 권한을 바꿀 수 없습니다. 기준 브랜치를 반영한 뒤에는 최종 병합 내용을 다시 검사합니다. 이전 작업 커밋의 통과 결과가 새로 병합된 카탈로그 내용까지 검증하지는 않습니다. 대화 전달도 기록된 차단기 모드별 개수만 표시합니다. System Knowledge 원본의 검증값을 다시 생성해도 브라우저에 일시 중지, 재개, 재시도, 승인 또는 에스컬레이션 권한이 생기지는 않습니다.
+Agent Activity 또는 Trace 표시 문구를 포함하여 연결된 Console 카탈로그 원본이 바뀌면 동일한 변경에 전체 질문 은행과 의미 의도 범위의 순차 재생성 결과를 포함합니다. 산출물 동등성 검사는 오래된 원본 다이제스트를 차단하며 출처 이력만 갱신하는 작업은 질문 신원, 준비 상태 또는 권한을 바꿀 수 없습니다. 두 번째 생성기 실행이 끝난 뒤 두 산출물 동등성 검사를 모두 실행하여 새로 생성한 질문 은행을 기준으로 의미 목록을 검증합니다. 기준 브랜치를 반영한 뒤에는 최종 병합 내용을 다시 검사합니다. 이전 작업 커밋의 통과 결과가 새로 병합된 카탈로그 내용까지 검증하지는 않습니다. 대화 전달도 기록된 차단기 모드별 개수만 표시합니다. System Knowledge 원본의 검증값을 다시 생성해도 브라우저에 일시 중지, 재개, 재시도, 승인 또는 에스컬레이션 권한이 생기지는 않습니다.
 
 ### 9.1 Day 1
 

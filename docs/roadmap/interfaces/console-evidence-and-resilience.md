@@ -257,7 +257,7 @@ Every completed answer keeps its trajectory summary available. The bounded origi
 stays hidden while the run record is collapsed and appears when the operator expands it.
 Internal AnswerPlan intent and detail labels don't appear above the answer. They remain available in
 the Run record decision context, while the answer leads with operator-facing content and verified
-evidence. Model-assisted planning changes only a validated presentation shape. A verified
+evidence. Pantheon assurance turns add content-free participant and evaluator prompt profiles to the expanded Run record; only profile identities, versions, digests, SYSTEM hashes, situations, and token budgets are retained. Model-assisted planning changes only a validated presentation shape. A verified
 `presentation_artifact` v1 can mix summary, table, chart, coverage, callout, detail, and evidence
 blocks whose content was compiled by the server from immutable evidence. The browser rejects an
 unknown block, duplicate slot, invalid bound, incompatible chart, or evidence reference outside the
@@ -357,7 +357,7 @@ an enabled trace with zero calls remains visible and explains that the determini
 provider lane. When capture is off, the panel remains visible with a Settings opt-in notice while
 stored trace data stays hidden. A turn without captured trace uses the same explicit unavailable state.
 Each disclosure preserves the recorded message array and request SHA while grouping consecutive
-system layers under one `SYSTEM` heading. JSON bodies are pretty-printed. Object or array JSON
+system layers under one `SYSTEM` heading. A call with prompt evidence also shows the content-free SYSTEM digest, selected profile, ordered layer ids and versions, and token budget from the exact prompt replay manifest. JSON bodies are pretty-printed. Object or array JSON
 serialized inside a JSON string is expanded with bounded depth and node limits, while plain text
 and malformed nested values remain unchanged. Bounded request and response blocks use
 theme-matched scrollbars. The disclosure also shows assistant content, token usage, exact-content

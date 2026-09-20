@@ -344,6 +344,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_DATABASE_URL=postgresql+psycopg://fdai:devonly@127.0.0.1:5432/fdai",
         "FDAI_VALIDATION_DATABASE_URL=postgresql+psycopg://fdai:devonly@127.0.0.1:5433/fdai_validation",
         "FDAI_STATE_STORE_DSN=postgresql://fdai:devonly@127.0.0.1:5432/fdai",
+        f"FDAI_CHAT_ASSURANCE_READINESS_RECEIPT={repo}/.fdai/conversation-assurance/runtime-readiness.json",
         "FDAI_METERING_DSN=postgresql://fdai:devonly@127.0.0.1:5432/fdai",
         "LLM_MODE=azure",
         f"LLM_RESOLVED_MODELS_PATH={expected_models_path}",
@@ -389,7 +390,7 @@ def test_full_stack_task_explicitly_activates_saved_teams_notifications() -> Non
 def test_full_stack_cache_binds_local_activation_inputs() -> None:
     source = _FULL_STACK_SCRIPT.read_text(encoding="utf-8")
     runtime_stage = source[source.index("run_stage \\\n  runtime-environment") :]
-    runtime_stage = runtime_stage[: runtime_stage.index("run_stage \\\n  authoritative-inventory")]
+    runtime_stage = runtime_stage[: runtime_stage.index("\n  prepare_runtime_environment \\\n")]
 
     assert "configuration_digest" in runtime_stage
     assert "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION" in runtime_stage

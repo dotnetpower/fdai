@@ -120,7 +120,7 @@ class EventHubsKafkaBus:
         *,
         freshness_seconds: float,
     ) -> bool:
-        """Return current ownership plus a fresh successful poll or record receipt."""
+        """Return active group membership plus a fresh poll or record receipt."""
         state = self._consumer_groups.get((topic, group_id))
         return bool(
             state is not None
@@ -229,9 +229,7 @@ class EventHubsKafkaBus:
                             timeout=min(remaining, _CONSUMER_HEALTH_POLL_SECONDS),
                         )
                     except TimeoutError:
-                        assignment = getattr(consumer, "assignment", None)
-                        if callable(assignment) and assignment():
-                            self._consumer_succeeded(topic, group_id)
+                        self._consumer_succeeded(topic, group_id)
                         continue
                     key = (message.key or b"").decode(errors="replace")
                     payload = _decode(message.value)

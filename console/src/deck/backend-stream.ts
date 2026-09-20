@@ -35,6 +35,7 @@ import {
   parseGroundedCodeArtifacts,
   parseIncidentCandidates,
   parseModelTrace,
+  parsePantheonPromptProfiles,
   parseTurnTiming,
 } from "./backend-parsers";
 import type {
@@ -701,6 +702,7 @@ export async function askBackendStream(
     done.evidence_freshness_context,
   );
   const modelTrace = parseModelTrace(done.model_trace);
+  const pantheonPromptProfiles = parsePantheonPromptProfiles(done.pantheon_prompt_profiles);
   const modelUsage = parseModelUsage(done.usage);
   const turnTiming = parseTurnTiming(done.turn_timing);
   const trajectoryDetail = parseTrajectoryDetail(done.trajectory_detail);
@@ -756,6 +758,7 @@ export async function askBackendStream(
     ...(resourceContext ? { resourceContext } : {}),
     ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),
     ...(modelTrace ? { modelTrace } : {}),
+    ...(pantheonPromptProfiles ? { pantheonPromptProfiles } : {}),
     ...(latencyMs !== null && latencyMs >= 0 ? { modelLatencyMs: latencyMs } : {}),
     ...(modelUsage ? { modelUsage } : {}),
     ...(turnTiming ? { turnTiming } : {}),
