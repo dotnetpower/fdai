@@ -49,6 +49,7 @@ def transfer_execution_bundle(
     target: dict[str, object],
     profile: dict[str, object],
     approval: dict[str, object],
+    authority_receipt: dict[str, object] | None = None,
     timeout_seconds: int,
 ) -> dict[str, object]:
     """Stage one exact bundle while preserving the public transport API."""
@@ -62,6 +63,7 @@ def transfer_execution_bundle(
         target=target,
         profile=profile,
         approval=approval,
+        authority_receipt=authority_receipt,
         timeout_seconds=timeout_seconds,
         capture=_capture,
         relay_factory=_relay_factory,
@@ -88,6 +90,7 @@ def main() -> int:
     parser.add_argument("--target", type=Path, required=True)
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--approval", type=Path, required=True)
+    parser.add_argument("--authority-receipt", type=Path)
     parser.add_argument("--timeout-seconds", type=int, default=2400)
     args = parser.parse_args()
     try:
@@ -100,6 +103,11 @@ def main() -> int:
             target=_read(args.target, "run command transfer target"),
             profile=_read(args.profile, "run command provision profile"),
             approval=_read(args.approval, "run command transport approval"),
+            authority_receipt=(
+                _read(args.authority_receipt, "run command transport authority receipt")
+                if args.authority_receipt is not None
+                else None
+            ),
             timeout_seconds=args.timeout_seconds,
         )
     except (OSError, ValueError, subprocess.SubprocessError):

@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT / "scripts/deployment/azure"))
 
 import run_command_authority as authority  # noqa: E402
 import run_command_transfer as implementation  # noqa: E402
+import source_run_command_authority as authority_cli  # noqa: E402
 import source_run_command_transport as transport  # noqa: E402
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest  # noqa: E402
 from fdai_deployment_cli.private_output import write_private_bytes  # noqa: E402
@@ -29,6 +30,11 @@ def _approved_authority(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         implementation,
         "validate_transport_authority",
+        lambda **_kwargs: "f" * 64,
+    )
+    monkeypatch.setattr(
+        implementation,
+        "validate_delegated_transport_authority",
         lambda **_kwargs: "f" * 64,
     )
     monkeypatch.setattr(
@@ -149,6 +155,22 @@ def _authority_capture(command: tuple[str, ...], **_kwargs: object) -> str:
             },
         }
     )
+
+
+def _executor_authority_capture(command: tuple[str, ...], **_kwargs: object) -> str:
+    if command[:3] == ("az", "account", "show"):
+        return json.dumps(
+            {
+                "subscription_id": "00000000-0000-0000-0000-000000000002",
+                "tenant_id": "00000000-0000-0000-0000-000000000001",
+                "user_type": "servicePrincipal",
+            }
+        )
+    if command[:3] == ("az", "account", "get-access-token"):
+        header = "eyJhbGciOiJub25lIn0"
+        payload = "eyJvaWQiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDQifQ"
+        return f"{header}.{payload}.signature"
+    return _authority_capture(command, **_kwargs)
 
 
 def _host_result(bundle_digest: str = "a" * 64, claim_digest: str = "d" * 64) -> dict[str, object]:
@@ -302,6 +324,77 @@ def test_transport_authority_binds_profile_actor_and_live_vm() -> None:
     )
 
     assert digest == approval["approval_digest"]
+
+
+def test_transport_authority_receipt_delegates_to_exact_managed_identity() -> None:
+    target, profile, approval, now = _authority_inputs()
+    receipt = authority.capture_transport_authority(
+        target=target,
+        profile_value=profile,
+        approval=approval,
+        operation_id="historical-aks-recovery",
+        bundle_receipt_digest="e" * 64,
+        receiver_digest="b" * 64,
+        capture=_authority_capture,
+        deadline=authority.DeploymentDeadline(600),
+        now=now,
+    )
+
+    digest = authority.validate_delegated_transport_authority(
+        target=target,
+        profile_value=profile,
+        approval=approval,
+        authority_receipt=receipt,
+        operation_id="historical-aks-recovery",
+        bundle_receipt_digest="e" * 64,
+        receiver_digest="b" * 64,
+        capture=_executor_authority_capture,
+        deadline=authority.DeploymentDeadline(600),
+        now=now,
+    )
+
+    assert digest == approval["approval_digest"]
+    assert receipt["human_actor_verified"] is True
+    assert receipt["vm_readback_verified"] is True
+    assert receipt["mutation_performed"] is False
+
+
+@pytest.mark.parametrize("drift", ["payload", "executor"])
+def test_delegated_transport_authority_rejects_drift_before_effect(drift: str) -> None:
+    target, profile, approval, now = _authority_inputs()
+    receipt = authority.capture_transport_authority(
+        target=target,
+        profile_value=profile,
+        approval=approval,
+        operation_id="historical-aks-recovery",
+        bundle_receipt_digest="e" * 64,
+        receiver_digest="b" * 64,
+        capture=_authority_capture,
+        deadline=authority.DeploymentDeadline(600),
+        now=now,
+    )
+    bundle_receipt_digest = "9" * 64 if drift == "payload" else "e" * 64
+
+    def capture(command: tuple[str, ...], **kwargs: object) -> str:
+        if drift == "executor" and command[:3] == ("az", "account", "get-access-token"):
+            header = "eyJhbGciOiJub25lIn0"
+            payload = "eyJvaWQiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDkifQ"
+            return f"{header}.{payload}.signature"
+        return _executor_authority_capture(command, **kwargs)
+
+    with pytest.raises(ValueError, match="authority|executor|approval"):
+        authority.validate_delegated_transport_authority(
+            target=target,
+            profile_value=profile,
+            approval=approval,
+            authority_receipt=receipt,
+            operation_id="historical-aks-recovery",
+            bundle_receipt_digest=bundle_receipt_digest,
+            receiver_digest="b" * 64,
+            capture=capture,
+            deadline=authority.DeploymentDeadline(600),
+            now=now,
+        )
 
 
 def test_transport_authority_rejects_target_drift_before_readback() -> None:
@@ -556,6 +649,107 @@ def test_transfer_claims_before_relay_and_creates_no_cloud_artifact(
     assert len(commands) == 1
     assert commands[0][:4] == ("az", "vm", "run-command", "invoke")
     assert not any("storage" in part or "blob" in part for part in commands[0])
+
+
+def test_transfer_uses_delegated_authority_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    work, bundle, receipt, receiver, receiver_digest = _transfer_inputs(tmp_path)
+    observed: list[dict[str, object]] = []
+
+    def delegated(**kwargs: object) -> str:
+        observed.append(kwargs)
+        return "f" * 64
+
+    monkeypatch.setattr(implementation, "validate_delegated_transport_authority", delegated)
+    monkeypatch.setattr(
+        implementation,
+        "validate_transport_authority",
+        lambda **_kwargs: pytest.fail("delegated receipt must not use local actor validation"),
+    )
+    monkeypatch.setattr(transport, "_capture", lambda *_args, **_kwargs: _command_response())
+    monkeypatch.setattr(
+        transport,
+        "_relay_factory",
+        _fake_relay_factory(work, str(receipt["bundle_digest"])),
+    )
+    authority_receipt = {
+        "schema_version": "fdai.test-authority-receipt.v1",
+        "receipt_digest": "8" * 64,
+    }
+
+    result = _transfer_execution_bundle(
+        work_dir=work,
+        bundle=bundle,
+        bundle_receipt=receipt,
+        receiver=receiver,
+        receiver_digest=receiver_digest,
+        target=_target(),
+        authority_receipt=authority_receipt,
+        timeout_seconds=600,
+    )
+
+    assert result["state"] == "verified"
+    assert observed[0]["authority_receipt"] is authority_receipt
+    claim = json.loads((work / "run-command-bundle-transfer-claim.json").read_text())
+    assert claim["schema_version"] == "fdai.run-command-private-relay-transfer-claim.v2"
+    assert claim["authority_receipt_digest"] == authority_receipt["receipt_digest"]
+
+
+def test_authority_cli_derives_immutable_artifact_bindings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _work, _bundle, bundle_receipt, receiver, receiver_digest = _transfer_inputs(tmp_path)
+    target, profile, approval, _now = _authority_inputs()
+    paths = {
+        "target": tmp_path / "target.json",
+        "profile": tmp_path / "profile.json",
+        "approval": tmp_path / "approval.json",
+        "bundle_receipt": tmp_path / "bundle-receipt.json",
+    }
+    for name, value in (
+        ("target", target),
+        ("profile", profile),
+        ("approval", approval),
+        ("bundle_receipt", bundle_receipt),
+    ):
+        write_private_bytes(paths[name], canonical_bytes(value))
+    observed: list[dict[str, object]] = []
+
+    def capture(**kwargs: object) -> dict[str, object]:
+        observed.append(kwargs)
+        return {"schema_version": "fdai.test-authority-receipt.v1"}
+
+    monkeypatch.setattr(authority_cli, "capture_transport_authority", capture)
+    output = tmp_path / "authority-receipt.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "source_run_command_authority.py",
+            "--target",
+            str(paths["target"]),
+            "--profile",
+            str(paths["profile"]),
+            "--approval",
+            str(paths["approval"]),
+            "--bundle-receipt",
+            str(paths["bundle_receipt"]),
+            "--receiver",
+            str(receiver),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert authority_cli.main() == 0
+    assert observed[0]["operation_id"] == bundle_receipt["operation_id"]
+    assert observed[0]["bundle_receipt_digest"] == bundle_receipt["receipt_digest"]
+    assert observed[0]["receiver_digest"] == receiver_digest
+    assert output.stat().st_mode & 0o077 == 0
+    assert json.loads(capsys.readouterr().out)["schema_version"] == (
+        "fdai.test-authority-receipt.v1"
+    )
 
 
 def test_transfer_work_directory_allows_only_one_active_coordinator(
