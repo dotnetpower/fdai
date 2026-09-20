@@ -751,6 +751,174 @@ async def test_isolated_cursor_repair_requires_exact_committed_graph(defect):
                 )
 
 
+@pytest.mark.parametrize("publication", ["direct", "prepared"])
+async def test_isolated_ontology_capacity_measurement(monkeypatch, publication):
+    import hashlib
+    import json
+    import resource
+    import time
+
+    count = int(os.environ.get("FDAI_ONTOLOGY_CAPACITY_ROWS", "1000"))
+    padding = int(os.environ.get("FDAI_ONTOLOGY_CAPACITY_PADDING", "64"))
+    assert 2 <= count <= 50_000 and 0 <= padding <= 512
+    occupancy = []
+
+    class TimedConnection(psycopg.AsyncConnection):
+        lock_started = None
+
+        async def execute(self, query, params=None, **kwargs):
+            result = await super().execute(query, params, **kwargs)
+            if query == "SELECT pg_advisory_xact_lock(%s)" and params == (
+                postgres_ontology._SUBGRAPH_REPLACEMENT_LOCK,
+            ):
+                self.lock_started = time.perf_counter()
+            return result
+
+        @asynccontextmanager
+        async def transaction(self, *args, **kwargs):
+            try:
+                async with super().transaction(*args, **kwargs) as transaction:
+                    yield transaction
+            finally:
+                if self.lock_started is not None:
+                    occupancy.append(time.perf_counter() - self.lock_started)
+                    self.lock_started = None
+
+    async with _isolated_replacement_store() as store:
+        async with await store._connect() as connection:
+            await connection.execute(
+                "CREATE TABLE inventory_active (singleton BOOLEAN PRIMARY KEY,snapshot_id TEXT);"
+                "INSERT INTO inventory_active VALUES (TRUE,'capacity-generation')"
+            )
+
+        async def connect():
+            return await TimedConnection.connect(store._config.dsn, row_factory=dict_row)
+
+        monkeypatch.setattr(store, "_connect", connect)
+        objects = tuple(
+            OntologyObjectRecord(
+                id=f"capacity-{index:06d}",
+                object_type="ReviewCase" if index == 0 else "ReviewCheck",
+                properties={"id": f"capacity-{index:06d}", "status": "x" * padding},
+            )
+            for index in range(count)
+        )
+        links = tuple(
+            OntologyLinkRecord(link_type="contains_check", from_id=objects[0].id, to_id=item.id)
+            for item in objects[1:]
+        )
+        durations = []
+        for replay in (False, True):
+            started = time.perf_counter()
+            await store.replace_subgraph(
+                objects=tuple(replace(item, revision=1) for item in objects) if replay else objects,
+                links=links,
+                previous_object_ids=tuple(item.id for item in objects) if replay else (),
+                previous_link_keys=tuple(
+                    (item.from_id, item.link_type, item.to_id) for item in links
+                )
+                if replay
+                else (),
+                _expected_active_generation="capacity-generation"
+                if publication == "prepared"
+                else None,
+                _state_updates={"capacity-status": {"complete": True, "count": count}},
+            )
+            durations.append(time.perf_counter() - started)
+        async with await store._connect() as connection:
+            cursor = await connection.execute(
+                "SELECT COUNT(*) AS count,MAX(revision) AS revision FROM ontology_resource"
+            )
+            assert await cursor.fetchone() == {"count": count, "revision": 1}
+            cursor = await connection.execute("SELECT COUNT(*) AS count FROM ontology_link")
+            assert (await cursor.fetchone())["count"] == count - 1
+        assert len(occupancy) == 2 and all(0 < value < 60 for value in occupancy)
+        restart = None
+        if publication == "prepared":
+            code = """
+import asyncio, json, os, resource, runpy, sys, time
+from fdai.delivery.persistence.postgres_ontology_prepared import load_replacement
+fixture = runpy.run_path(os.environ['CAPACITY_TEST_PATH'])
+async def main():
+    store = fixture['PostgresOntologyInstanceStore'](
+        config=fixture['PostgresOntologyInstanceStoreConfig'](dsn=os.environ['CAPACITY_TEST_DSN']),
+        object_types=(fixture['_type']('ReviewCase'),fixture['_type']('ReviewCheck')),
+        link_types=(fixture['OntologyLinkType'](schema_version='1.0.0',name='contains_check',
+            version='1.0.0',from_type='ReviewCase',to_type='ReviewCheck',
+            cardinality=fixture['LinkCardinality'].ONE_TO_MANY),),
+    )
+    started = time.perf_counter()
+    async with await store._connect() as connection:
+        cursor = await connection.execute(
+            "SELECT value FROM state_kv WHERE key='inventory-ontology:prepared-snapshot'")
+        pointer = (await cursor.fetchone())['value']
+        manifest, objects, links = await load_replacement(
+            connection, expected_digest=pointer['digest'])
+    await store.replace_subgraph_with_state(objects=objects,links=links,
+        previous_object_ids=tuple(manifest['previous_object_ids']),
+        previous_link_keys=tuple(tuple(key) for key in manifest['previous_link_keys']),
+        expected_active_generation=manifest['expected_active_generation'],
+        state_updates=manifest['state_updates'])
+    print(json.dumps({'seconds':time.perf_counter()-started,
+        'process_peak_rss_bytes':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss *
+            (1 if sys.platform == 'darwin' else 1024)}))
+asyncio.run(main())
+"""
+            process = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-c",
+                code,
+                env={
+                    **os.environ,
+                    "CAPACITY_TEST_PATH": __file__,
+                    "CAPACITY_TEST_DSN": store._config.dsn,
+                },
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=90)
+            finally:
+                if process.returncode is None:
+                    process.kill()
+                    await process.wait()
+            assert process.returncode == 0, stderr.decode()
+            restart = json.loads(stdout)
+            assert 0 < restart["seconds"] < 90
+        root = REPO_ROOT / "services/core-control-plane/src/fdai/delivery/persistence"
+        source = {
+            name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+            for name in (
+                "postgres_ontology.py",
+                "postgres_ontology_prepared.py",
+                "postgres_ontology_replacement.py",
+            )
+        }
+        print(
+            "ONTOLOGY_CAPACITY="
+            + json.dumps(
+                {
+                    "schema_version": "1.0.0",
+                    "profile": "synthetic-one-to-many",
+                    "publication": publication,
+                    "objects": count,
+                    "links": count - 1,
+                    "padding_bytes": padding,
+                    "initial_seconds": durations[0],
+                    "replay_seconds": durations[1],
+                    "initial_lock_seconds": occupancy[0],
+                    "replay_lock_seconds": occupancy[1],
+                    "process_peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+                    * (1 if sys.platform == "darwin" else 1024),
+                    "source_sha256": source,
+                    "provider_calls": 0,
+                    "restart": restart,
+                },
+                sort_keys=True,
+            )
+        )
+
+
 async def test_isolated_graph_query_limits_relationships(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "fdai.delivery.persistence.postgres_ontology_graph.MAX_ONTOLOGY_QUERY_LINKS", 1

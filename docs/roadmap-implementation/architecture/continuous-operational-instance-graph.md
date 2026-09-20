@@ -128,12 +128,42 @@ verified ownership split.
 | S03 | Prepared immutable graph | in-progress | Sealed inventory candidates and durable ontology replacement inputs are connected. Publication verifies stored chunks plus prepared removed/external endpoint revisions and atomically records the prepared reference. Ontology preparation/publication cohort: 44 passed, including 12 publication conditions, 17 input boundaries and five dependency races. Versioned partition sets and pinned reader selection remain open. |
 | S04 | Short atomic publication | not-started | Base/fence recheck, active pointer and delivery intent atomicity, reader snapshot pinning, and concurrent replacement proof. |
 | S05 | Cursor epoch repair | implemented | Explicit inspect/apply maintenance path verifies exact generation, manifest, damage digest and independent graph readback; atomically commits epoch/floor/receipt. Projector preserves epoch; Operator negotiates v2 or rejects legacy; Console waits for authenticated snapshot reread and rejects failed/late acknowledgement. 12 disposable DB repair scenarios including CLI restart, 219 owning backend tests, 144 Console tests, source typing and Console typecheck passed. Live repair/deployment and successor-wide hardening remain separate. |
-| S06 | Capacity evidence | in-progress | Synthetic 32-page/4,096-row/512-byte-padding comparison measured Python allocation peaks of 3,937,437 bytes retaining rows and 2,632,493 bytes consuming pages. This is not process RSS or live capacity. Publication latency, lock occupancy, restart, and reproducible RSS measurements remain open. |
+| S06 | Capacity evidence | in-progress | Existing ARG allocation baseline is supplemented by fresh-process 10,000/50,000-object PostgreSQL measurements below: initial/replay duration, lock occupancy, peak RSS, and prepared restart. All four bounded profiles passed with unchanged input digests. Current durable preparation is slower and uses more RSS than direct replacement; repeat qualification after S02-S04 changes. No live capacity or percentile claim. |
 | S07 | Adversarial closure | not-started | Repeated reviews of at least twelve boundaries, fixing every finding above Low and reporting unverified deployment requirements separately. |
+
+### Synthetic publication capacity baseline
+
+The 2026-09-20 local baseline uses Python 3.13, disposable loopback PostgreSQL 16, one process per
+profile, and a synthetic one-to-many graph with `objects - 1` relationships. Padding is per object.
+All rows and links survived initial publication, idempotent replay kept revision 1, and prepared
+inputs were reread and republished by a separate Python process. No provider call occurred.
+
+| Objects / Padding Bytes | Path | Initial / Replay Seconds | Initial / Replay Lock Seconds | Process Peak RSS Bytes | Restart Seconds / RSS Bytes |
+|-------------------------|------|--------------------------|-------------------------------|------------------------|-----------------------------|
+| 10000 / 512 | direct | 0.980 / 0.809 | 0.828 / 0.528 | 268378112 | not applicable |
+| 10000 / 512 | prepared | 1.926 / 1.845 | 1.096 / 0.834 | 315928576 | 2.073 / 315928576 |
+| 50000 / 0 | direct | 5.201 / 3.590 | 4.146 / 2.349 | 420040704 | not applicable |
+| 50000 / 0 | prepared | 9.811 / 9.230 | 5.247 / 4.147 | 564948992 | 10.375 / 620654592 |
+
+RSS is the complete Python process high-water mark, including test/import and process-launch costs,
+not graph-only allocation or PostgreSQL server memory. Lock occupancy starts after acquisition and
+ends after the transaction context exits; it excludes waiting for the lock. These single local
+samples are not p95, a service SLA, Azure throughput, or full collector end-to-end capacity.
+They do not close S04: durable preparation still rereads and replaces full content under the lock.
+
+Reproduce each profile in a fresh process with a disposable loopback `FDAI_ONTOLOGY_TEST_DSN`,
+`FDAI_ONTOLOGY_CAPACITY_ROWS` and `FDAI_ONTOLOGY_CAPACITY_PADDING`, using
+`uv run pytest -q -s --no-cov 'services/core-control-plane/tests/persistence/test_postgres_ontology_instance.py::test_isolated_ontology_capacity_measurement[prepared]'`
+or the `[direct]` node. The fixture creates and drops a unique private schema and refuses remote hosts.
+Machine-readable `ONTOLOGY_CAPACITY` output binds the producer files by SHA-256. Recorded inputs:
+`postgres_ontology.py=94f02f8e179095c496a48495e091b81b08ebbfc00a7649407999410effe4deb6`,
+`postgres_ontology_prepared.py=195674c84d87d26eef42848d016ac2b74bc7342088c31d992ec0cfb3eb4ccb40`,
+`postgres_ontology_replacement.py=341c86bc6ff211e3e61f56ae786e96af9ec294baf35e2a36a929f49428074ed1`.
 
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-20 | in-progress | Added reproducible fresh-process capacity measurement over existing isolated PostgreSQL fixtures, covering initial publication, idempotent replay, actual writer-lock occupancy, process RSS and prepared-input restart. | `current change`; two 1000-object smoke cases and four fresh-process 10000/50000-object profiles passed; exact counts and unchanged before/after producer/test hashes verified. The baseline table retains raw measurements, limitations and reproduction inputs. | Measurements show current preparation increases latency and RSS. S02-S04 still require bounded streaming and short publication; repeat S06 after those changes. No live capacity or whole-successor closure claim. |
 | 2026-09-20 | implemented | Connected explicit epoch cursor repair, graph readback and immutable receipts to epoch-preserving publication, negotiated Operator SSE and authenticated Console snapshot reset. Hardening rejects unrelated epoch sequence comparison, invalid cursor syntax, damaged graph/release/status, changed request, and late acknowledgement after identity change or timeout. | `current change`; `postgres_inventory_cursor_repair.py`, inventory projector, operations contracts/factory/store and two Console consumers; 12 DB scenarios including a separate CLI process, 219 backend tests and 144 Console tests passed; six-source mypy and Console typecheck passed. A no-test run during another session's hook was excluded. | No live database repair, provider call, service restart or deployment was performed. S02 unfinished-source continuation, S03 partition/versioned readers, S04 short publication, S06 capacity and S07 campaign closure remain open. |
 | 2026-09-20 | in-progress | Follow-up review found preparation did not bind removed objects or external endpoint revisions. Added one-snapshot dependency pins and publication-time row locks/comparison. Already absent removal targets are excluded from actual deletion, preventing a later foreign insert from being erased. | `current change`; `postgres_ontology_prepared.py`, store and five new dependency-race scenarios; full bounded local cohort: 44 passed with unchanged input digests; focused Ruff and two-source mypy passed. | S03 partition sets and reader pinning, S02 unfinished-source continuation, S04 short publication, S05 epoch repair, S06 capacity and S07 whole-successor closure remain open. This does not remove global replacement locking. |
 | 2026-09-20 | in-progress | Added immutable content-addressed ontology replacement chunks and manifests before the writer transaction, binding release, generation, prior identities, revisions, state updates, and projection watermark. Publication rereads stored inputs and commits their reference with existing graph/state changes. | `current change`; `postgres_ontology_prepared.py`, store and owning tests; 39 passed with unchanged input digests, including 17 input boundary cases and 12 publication conditions covering corruption, missing chunks, active-generation drift, immutable conflict, missing endpoint, state-write rollback, stale revision, caller mutation, cancellation, and release drift. Focused Ruff and two-source mypy passed. | This is durable input preparation, not a short pointer switch or partition-pinned read implementation. S02 unfinished-source continuation, S03 dependency/partition completion, S04-S07 remain open. No live or deployment evidence. |

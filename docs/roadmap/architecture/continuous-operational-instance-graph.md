@@ -316,7 +316,7 @@ One generation admits at most 50,000 Resources, 200,000 relationships or suppres
 and 16 MiB of normalized collected records. Capacity exhaustion stops before the final fence and
 retains the prior generation. These are supported single-generation limits, not a claim of
 unlimited tenant scale; larger scopes require separately reviewed partitioned ownership.
-These limits do not bound total process memory: in-flight transport buffers have separate limits. Capacity errors never silently narrow an active scope or authorize deletion outside a newly approved ownership boundary.
+These limits do not bound total process memory: in-flight transport buffers have separate limits. Capacity errors never silently narrow an active scope or authorize deletion outside a newly approved ownership boundary. The implementation ledger retains fresh-process synthetic RSS, initial/replay lock occupancy and restart measurements; durable preparation currently increases cost and is not yet a publication-latency improvement.
 The 32 MiB manifest ceiling is checked during incremental hashing. PostgreSQL batches replacement
 writes, keeps unchanged content at its existing revision, and validates cardinality with indexed
 endpoint sets. A 60-second replacement deadline bounds global single-writer lock occupancy; the
