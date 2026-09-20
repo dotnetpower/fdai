@@ -66,6 +66,7 @@ EXPECTED_DEPENDENCIES = {
         "opentelemetry-exporter-otlp-proto-grpc",
         "opentelemetry-sdk",
         "psycopg",
+        "psycopg-pool",
         "pydantic",
         "pypdf",
         "python-snappy",

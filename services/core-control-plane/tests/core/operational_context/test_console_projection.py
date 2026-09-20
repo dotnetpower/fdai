@@ -208,6 +208,7 @@ def _authenticated_context(
     invocation = FunctionInvocationContext(
         caller_agent="Bragi",
         caller_role="reader",
+        principal_scope_digest=PRINCIPAL_SCOPE,
         purposes=("operator_context",),
         evidence_refs=(result.receipt.projected_result_digest,),
     )

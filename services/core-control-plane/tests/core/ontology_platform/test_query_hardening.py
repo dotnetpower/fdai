@@ -1,5 +1,6 @@
 """Regression inputs retained from the ontology query hardening review."""
 
+import json
 from datetime import timedelta
 from unittest.mock import AsyncMock
 
@@ -212,7 +213,7 @@ def test_hidden_and_unknown_projection_fields_are_rejected(kind: QueryNodeKind) 
             )
 
 
-def test_large_property_projection_retains_identity_and_omission_accounting() -> None:
+def test_large_property_projection_omits_partial_canonical_values() -> None:
     result = _semantic_judgment_capabilities(
         (
             {
@@ -223,16 +224,22 @@ def test_large_property_projection_retains_identity_and_omission_accounting() ->
             },
         )
     )
-    assert "Example.id" in result[0]["canonical_values"]
-    assert result[0]["canonical_values_omitted"] == 9
+    assert result[0]["name"] == "Example"
+    assert "canonical_values" not in result[0]
+    assert "canonical_values_omitted" not in result[0]
 
 
-def test_capability_budget_never_silently_drops_declarations() -> None:
+def test_capability_budget_keeps_a_deterministic_ranked_prefix() -> None:
     descriptors = tuple(
         {"kind": "function", "name": f"query.{index}" + "x" * 90} for index in range(512)
     )
-    with pytest.raises(ValueError, match="byte budget"):
-        _semantic_judgment_capabilities(descriptors)
+    result = _semantic_judgment_capabilities(descriptors)
+
+    assert 0 < len(result) < len(descriptors)
+    assert [item["name"] for item in result] == [
+        descriptor["name"] for descriptor in descriptors[: len(result)]
+    ]
+    assert len(json.dumps(result, separators=(",", ":"), sort_keys=True).encode()) <= 32 * 1024
 
 
 async def test_unknown_metric_target_never_calls_provider() -> None:

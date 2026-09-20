@@ -2219,7 +2219,7 @@ async def test_postgres_replace_subgraph_rejects_batch_cardinality_atomically() 
         for review_id in review_ids
     )
 
-    with pytest.raises(OntologyInstanceValidationError, match="one_to_many cardinality"):
+    with pytest.raises(OntologyInstanceValidationError, match="violates cardinality"):
         await store.replace_subgraph(objects=objects, links=links)
 
     assert [await store.get_object(record.id) for record in objects] == [None, None, None]

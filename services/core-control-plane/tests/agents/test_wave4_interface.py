@@ -478,7 +478,10 @@ def test_bragi_records_handoff_publish_failure_on_the_turn() -> None:
     assert turn.answer["handoff_needed"] is True
     assert turn.answer["handoff_status"] == "publish_failed"
     assert bragi.behavior_snapshot()["handoff:publish_failed"] == 1
-    assert [message.topic for message in bus.published] == ["object.turn"]
+    assert [message.topic for message in bus.published] == [
+        "object.conversation",
+        "object.turn",
+    ]
 
 
 def test_bragi_sessions_for_partitions_by_user() -> None:

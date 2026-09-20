@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: a52202c132570203c52034411a43853e563a08aa
+translation_source_sha: e00fa6ad5fa2866bbae055ec56ee4617951d982a
 translation_revised: 2026-09-20
 ---
 
@@ -42,6 +42,7 @@ translation_revised: 2026-09-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-20 | implemented | 기존 pipeline 테스트가 의도한 운영자 RBAC와 ActionType 의미를 명시적으로 주입하도록 했습니다. 알 수 없는 principal 거부와 카탈로그 부재 시 정족수 2를 유지하고, Bragi fixture는 Conversation 이후 Turn을 게시하는 순서에 맞췄습니다. 런타임 코드는 기존 800줄 상한을 위한 주석 축약만 포함합니다. | `현재 변경`; 집중 에이전트 테스트 83개와 고정 replay 테스트 122개 통과, 집중 Ruff 및 strict mypy 통과. | 보호된 CI 근거를 보존합니다. 역할, topic, 승인, 실행 또는 복구 권한은 바뀌지 않았습니다. |
 | 2026-09-20 | implemented | Huginn의 범위가 제한된 영속 유입 원장을 최대 64개의 결정론적 shard로 분할하고, 기존 단일 행을 압축하는 개정 번호 CAS 이행을 추가했습니다. 일반 claim 및 게시 갱신은 더 이상 권한 없는 전달 checkpoint를 감사에 중복 기록하지 않으며 복구와 이행은 계속 감사합니다. 정확한 전체 용량, 대기 lease, 정규화된 재시도 payload, 재시작 replay, 충돌 거부 및 broker 수락/checkpoint 경계는 바뀌지 않습니다. | `현재 변경`; 기존 원장 이행, 제거, 재시작, lease, 충돌, checkpoint 감사, discovery, Ruff 및 strict mypy 집중 검사. | 통제된 broker 중단 및 재시작 근거를 보존합니다. Broker 수락/checkpoint crash 구간에서는 at-least-once 재전달 가능성이 남습니다. |
 | 2026-09-20 | implemented | Huginn discovery 상태에서 관측 부재를 명시하도록 했습니다. Snapshot은 projection 결속 여부를 보고하고, 전달 소유 cursor, backpressure 및 source-health 신호가 없을 때 정상으로 간주하지 않고 `not_observed`로 표시합니다. | `현재 변경`; 집중 Huginn 상태 계약 및 discovery 검사. | 배포 소유 관측값이 준비되면 결속합니다. Cursor, transport 또는 provider 권한은 Huginn으로 이동하지 않았습니다. |
 | 2026-09-20 | implemented | 이전 ownership 교정 및 Loki 행을 조정했습니다. 해당 행의 Bragi 및 ResilienceScore source 잔여는 위에 추가된 후속 producer 완료 행으로 대체됐습니다. | `현재 변경`; append-only 원장 순서 및 집중 producer 근거. | 배포된 Bragi callback 및 통제된 runtime 근거는 남지만 구현되지 않은 source producer는 없습니다. |

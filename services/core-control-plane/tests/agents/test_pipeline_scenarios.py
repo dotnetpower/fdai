@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.forseti import Forseti
@@ -23,7 +24,13 @@ from fdai.agents.var import Var
 
 def _wire_pipeline(*, shadow: bool) -> tuple[InMemoryBus, Forseti, Thor, Var, Saga]:
     bus = InMemoryBus(registry=load_pantheon())
-    forseti = Forseti()
+    forseti = Forseti(
+        rbac={"operator@example.com": frozenset({"remediate.enable-encryption"})},
+        action_semantics=ActionSemanticsCatalog(
+            irreversible_by_id={"remediate.enable-encryption": False},
+            rollback_by_id={},
+        ),
+    )
     forseti.bind_bus(bus)
     thor = Thor(shadow_by_default=shadow)
     thor.bind_bus(bus)

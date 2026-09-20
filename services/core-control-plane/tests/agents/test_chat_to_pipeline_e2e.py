@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.bragi import Bragi
@@ -33,6 +34,13 @@ _OPERATOR = "operator@example.com"  # allowed everything except delete-storage
 _GUEST = "guest@example.com"  # allowed only ops.restart-service
 _APPROVER = "approver@example.com"
 _DIGEST = "sha256:" + ("a" * 64)
+_ACTION_SEMANTICS = ActionSemanticsCatalog(
+    irreversible_by_id={
+        "ops.restart-service": False,
+        "remediate.enable-encryption": False,
+    },
+    rollback_by_id={},
+)
 
 
 class _ActionJudgmentModel:
@@ -117,7 +125,14 @@ class _Harness:
         reg = load_pantheon()
         self.bus = InMemoryBus(registry=reg)
         self.huginn = Huginn(bus=self.bus)
-        self.forseti = Forseti(bus=self.bus)
+        self.forseti = Forseti(
+            bus=self.bus,
+            rbac={
+                _OPERATOR: frozenset({"ops.restart-service", "remediate.enable-encryption"}),
+                _GUEST: frozenset({"ops.restart-service"}),
+            },
+            action_semantics=_ACTION_SEMANTICS,
+        )
         # Shadow-first: mirror the runtime default so an 'auto' verdict is
         # judged-and-logged, never a live mutation, until an explicit promotion.
         self.thor = Thor(bus=self.bus, shadow_by_default=True)

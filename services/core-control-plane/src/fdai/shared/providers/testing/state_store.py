@@ -438,5 +438,8 @@ class InMemoryStateStore(StateStore):
             previous = record["entry_hash"]
         return True
 
+    async def aclose(self) -> None:
+        """Release no resources for the in-memory test adapter."""
+
 
 __all__ = ["InMemoryStateStore"]

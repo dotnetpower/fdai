@@ -362,7 +362,7 @@
                 "action_type": {"const": ""},
                 "winning_domain": {"const": ""},
                 "owner_available": {"const": false},
-                "quorum_required": {"const": 1}
+                "quorum_required": {"const": 2}
               }
             }
           }

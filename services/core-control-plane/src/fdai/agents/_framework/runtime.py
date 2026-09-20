@@ -342,8 +342,7 @@ class PantheonRuntime:
 
             heimdall.register_incident_candidate(observe_and_open)
 
-        # Only explicit promotion permits Thor enforce; otherwise parallel P1 dispatch
-        # could double-mutate and violate shadow-before-enforce.
+        # Only explicit promotion permits Thor enforce; parallel P1 dispatch could double-mutate.
         thor = instantiated["Thor"]
         if isinstance(thor, Thor):
             execution_safety.configure_thor_execution(

@@ -55,9 +55,21 @@ async def test_sync_catalog_upserts_objects_before_links() -> None:
 
     await store.sync_catalog()
 
-    release_query, release_parameters = connection.execute.await_args_list[1].args
-    object_query, object_parameters = connection.execute.await_args_list[2].args
-    link_query, link_parameters = connection.execute.await_args_list[3].args
+    release_query, release_parameters = next(
+        call.args
+        for call in connection.execute.await_args_list
+        if "INSERT INTO ontology_release" in call.args[0]
+    )
+    object_query, object_parameters = next(
+        call.args
+        for call in connection.execute.await_args_list
+        if "INSERT INTO ontology_object_type" in call.args[0]
+    )
+    link_query, link_parameters = next(
+        call.args
+        for call in connection.execute.await_args_list
+        if "INSERT INTO ontology_link_type" in call.args[0]
+    )
     assert "INSERT INTO ontology_release" in release_query
     assert release_parameters[0].startswith("sha256:")
     assert "INSERT INTO ontology_object_type" in object_query
@@ -102,7 +114,7 @@ async def test_sync_catalog_loads_historical_release_for_restart_reads() -> None
     connection.__aenter__ = AsyncMock(return_value=connection)
     connection.__aexit__ = AsyncMock(return_value=None)
     connection.transaction.return_value = _async_context(connection)
-    connection.execute = AsyncMock(side_effect=[None, None, None, release_cursor])
+    connection.execute = AsyncMock(side_effect=[None, None, None, None, release_cursor])
     store = PostgresOntologyInstanceStore(
         config=PostgresOntologyInstanceStoreConfig(dsn="postgresql://example"),
         object_types=(current_type,),
