@@ -2211,9 +2211,14 @@ async def test_recovery_delta_forwards_every_scope(monkeypatch: pytest.MonkeyPat
         }
     )
     forward = AsyncMock(side_effect=(2, 3))
+    state_store = SimpleNamespace(aclose=AsyncMock())
     monkeypatch.setattr(
         "fdai.delivery.inventory_change_acceleration.forward_inventory_delta",
         forward,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_change_acceleration.PostgresStateStore",
+        lambda **_: state_store,
     )
     identity = StaticWorkloadIdentity(
         audience="https://management.azure.com/.default",
@@ -2242,6 +2247,7 @@ async def test_recovery_delta_forwards_every_scope(monkeypatch: pytest.MonkeyPat
     assert [call.kwargs["scope"] for call in forward.await_args_list] == list(config.scopes)
     assert all(call.kwargs["properties_complete"] is False for call in forward.await_args_list)
     assert locked_scopes == [f"inventory-recovery-delta:{scope}" for scope in config.scopes]
+    state_store.aclose.assert_awaited_once_with()
 
 
 def test_container_entrypoint_translates_positional_modes() -> None:

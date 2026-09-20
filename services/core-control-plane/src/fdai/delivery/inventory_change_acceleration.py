@@ -111,39 +111,42 @@ async def forward_recovery_deltas(
     """Forward every configured scope and commit each cursor only at its final fence."""
 
     state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
-    published = 0
-    for scope in config.scopes:
-        async with scope_lock.acquire(f"inventory-recovery-delta:{scope}"):
-            activity_fetch = AzureActivityLogFactory(
-                identity=identity,
-                resource_types=vocabulary,
-                http_client=http_client,
-                config=AzureActivityLogFactoryConfig(
-                    subscription_scope=scope,
-                    arg_endpoint=config.management_endpoint,
-                    audience=config.management_audience,
-                ),
-            ).build_fetch_fn()
+    try:
+        published = 0
+        for scope in config.scopes:
+            async with scope_lock.acquire(f"inventory-recovery-delta:{scope}"):
+                activity_fetch = AzureActivityLogFactory(
+                    identity=identity,
+                    resource_types=vocabulary,
+                    http_client=http_client,
+                    config=AzureActivityLogFactoryConfig(
+                        subscription_scope=scope,
+                        arg_endpoint=config.management_endpoint,
+                        audience=config.management_audience,
+                    ),
+                ).build_fetch_fn()
 
-            async def _noop_query(
-                _resource_type: str,
-            ) -> tuple[tuple[ResourceRecord, ...], tuple[LinkRecord, ...]]:
-                return (), ()
+                async def _noop_query(
+                    _resource_type: str,
+                ) -> tuple[tuple[ResourceRecord, ...], tuple[LinkRecord, ...]]:
+                    return (), ()
 
-            delta_inventory = AzureResourceGraphInventory(
-                config=AzureInventoryConfig(resource_types=()),
-                query=_noop_query,
-                delta_fetch=activity_fetch,
-            )
-            published += await forward_inventory_delta(
-                inventory=delta_inventory,
-                state_store=state_store,
-                event_bus=event_bus,
-                topic=topic,
-                scope=scope,
-                properties_complete=False,
-            )
-    return published
+                delta_inventory = AzureResourceGraphInventory(
+                    config=AzureInventoryConfig(resource_types=()),
+                    query=_noop_query,
+                    delta_fetch=activity_fetch,
+                )
+                published += await forward_inventory_delta(
+                    inventory=delta_inventory,
+                    state_store=state_store,
+                    event_bus=event_bus,
+                    topic=topic,
+                    scope=scope,
+                    properties_complete=False,
+                )
+        return published
+    finally:
+        await state_store.aclose()
 
 
 def recovery_delta_lock(config: InventoryJobConfig) -> ResourceLock:
@@ -191,34 +194,37 @@ async def _forward_resource_changes(
     """Forward one bounded resource-change poll per configured scope."""
 
     state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
-    published = 0
-    for scope in config.scopes:
-        async with scope_lock.acquire(f"inventory-resource-change-feed:{scope}"):
-            feed = AzureResourceChangeFeed(
-                identity=identity,
-                resource_types=vocabulary,
-                http_client=http_client,
-                config=AzureResourceChangeFeedConfig(
-                    subscription_scope=scope,
-                    arg_endpoint=config.management_endpoint,
-                    audience=config.management_audience,
-                    requests_per_second=config.arg_requests_per_second,
-                ),
-                allowed_resource_types=(
-                    frozenset(config.resource_types) if config.resource_types else None
-                ),
-            )
-            published += await forward_arg_resource_changes(
-                feed=feed,
-                state_store=state_store,
-                event_bus=event_bus,
-                topic=topic,
-                scope=scope,
-                ingestion_fence=PostgresResourceChangeIngestionFence(
-                    config=PostgresRecentResourceChangeReaderConfig(dsn=config.dsn)
-                ),
-            )
-    return published
+    try:
+        published = 0
+        for scope in config.scopes:
+            async with scope_lock.acquire(f"inventory-resource-change-feed:{scope}"):
+                feed = AzureResourceChangeFeed(
+                    identity=identity,
+                    resource_types=vocabulary,
+                    http_client=http_client,
+                    config=AzureResourceChangeFeedConfig(
+                        subscription_scope=scope,
+                        arg_endpoint=config.management_endpoint,
+                        audience=config.management_audience,
+                        requests_per_second=config.arg_requests_per_second,
+                    ),
+                    allowed_resource_types=(
+                        frozenset(config.resource_types) if config.resource_types else None
+                    ),
+                )
+                published += await forward_arg_resource_changes(
+                    feed=feed,
+                    state_store=state_store,
+                    event_bus=event_bus,
+                    topic=topic,
+                    scope=scope,
+                    ingestion_fence=PostgresResourceChangeIngestionFence(
+                        config=PostgresRecentResourceChangeReaderConfig(dsn=config.dsn)
+                    ),
+                )
+        return published
+    finally:
+        await state_store.aclose()
 
 
 __all__ = [
