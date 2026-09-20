@@ -41,6 +41,12 @@ from fdai.delivery.persistence.postgres_ontology_records import (
     _require_projection_revision as _require_projection_revision,
 )
 from fdai.delivery.persistence.postgres_ontology_replacement import replace_records
+from fdai.delivery.persistence.postgres_ontology_snapshot import (
+    CommittedOntologyPage,
+    pin_current_snapshot,
+    read_snapshot_page,
+    record_committed_snapshot,
+)
 from fdai.delivery.persistence.postgres_ontology_source_coverage import (
     resolve_inventory_graph_source_coverage,
 )
@@ -504,7 +510,7 @@ class PostgresOntologyInstanceStore:
                     )
                 if prepared is not None:
                     await verify_replacement_dependencies(connection, manifest)
-                await replace_records(
+                committed_revisions = await replace_records(
                     connection,
                     objects=normalized_objects,
                     links=normalized_links,
@@ -513,6 +519,19 @@ class PostgresOntologyInstanceStore:
                     releases=self._releases,
                     link_types=self._link_types,
                 )
+                if prepared is not None:
+                    snapshot_digest = await record_committed_snapshot(
+                        connection,
+                        prepared,
+                        committed_revisions,
+                    )
+                    _state_updates = {
+                        **(_state_updates or {}),
+                        "inventory-ontology:prepared-snapshot": {
+                            **(_state_updates or {})["inventory-ontology:prepared-snapshot"],
+                            "snapshot_digest": snapshot_digest,
+                        },
+                    }
                 for key, value in sorted((_state_updates or {}).items()):
                     await connection.execute(
                         "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
@@ -554,6 +573,25 @@ class PostgresOntologyInstanceStore:
             _state_updates=state_updates,
             _expected_active_generation=expected_active_generation,
             _observation_projection_watermark=observation_projection_watermark,
+        )
+
+    async def pin_inventory_snapshot(self) -> str | None:
+        return await pin_current_snapshot(self._config)
+
+    async def read_inventory_snapshot_page(
+        self,
+        *,
+        snapshot_digest: str,
+        cursor: str | None = None,
+        limit: int = 1000,
+        relationships: bool = False,
+    ) -> CommittedOntologyPage:
+        return await read_snapshot_page(
+            self._config,
+            snapshot_digest=snapshot_digest,
+            cursor=cursor,
+            limit=limit,
+            kind="links" if relationships else "objects",
         )
 
     async def write_state_if_active_generation(

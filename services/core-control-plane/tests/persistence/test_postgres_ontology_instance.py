@@ -253,6 +253,291 @@ async def test_isolated_replacement_replay_is_noop_and_foreign_deletion_is_block
         assert (await store.query_objects()).objects == ()
 
 
+async def test_isolated_snapshot_pages_pin_committed_version_across_new_publication():
+    async with _isolated_replacement_store() as store:
+        async with await store._connect() as connection:
+            await connection.execute(
+                "CREATE TABLE inventory_active (singleton BOOLEAN PRIMARY KEY,snapshot_id TEXT);"
+                "INSERT INTO inventory_active VALUES (TRUE,'snapshot-one')"
+            )
+        assert await store.pin_inventory_snapshot() is None
+        originals = (_review_object("case"), _review_object("check", "ReviewCheck"))
+        link = OntologyLinkRecord(link_type="contains_check", from_id="case", to_id="check")
+        await store.replace_subgraph_with_state(
+            objects=originals,
+            links=(link,),
+            previous_object_ids=(),
+            previous_link_keys=(),
+            state_updates={},
+            expected_active_generation="snapshot-one",
+        )
+        pin = await store.pin_inventory_snapshot()
+        first = await store.read_inventory_snapshot_page(snapshot_digest=pin, limit=1)
+        assert first.objects[0].id == "case" and first.objects[0].revision == 1
+        assert first.next_cursor is not None
+        async with await store._connect() as connection:
+            await connection.execute("UPDATE inventory_active SET snapshot_id='snapshot-two'")
+        with pytest.raises(OntologyInstanceValidationError, match="unavailable or pending"):
+            await store.pin_inventory_snapshot()
+        current = await store.query_objects()
+        changed = tuple(
+            replace(record, properties={**record.properties, "status": "closed"})
+            for record in current.objects
+        )
+        await store.replace_subgraph_with_state(
+            objects=changed,
+            links=(),
+            previous_object_ids=("case", "check"),
+            previous_link_keys=(("case", "contains_check", "check"),),
+            state_updates={},
+            expected_active_generation="snapshot-two",
+        )
+        next_page = await store.read_inventory_snapshot_page(
+            snapshot_digest=pin, cursor=first.next_cursor, limit=1
+        )
+        assert next_page.generation == first.generation == "snapshot-one"
+        assert next_page.objects[0].properties["status"] == "open"
+        assert next_page.objects[0].revision == 1 and next_page.next_cursor is None
+        edges = await store.read_inventory_snapshot_page(snapshot_digest=pin, relationships=True)
+        assert edges.links[0].to_id == "check"
+        new_pin = await store.pin_inventory_snapshot()
+        assert new_pin != pin
+        new_page = await store.read_inventory_snapshot_page(snapshot_digest=new_pin)
+        assert all(
+            item.revision == 2 and item.properties["status"] == "closed"
+            for item in new_page.objects
+        )
+        with pytest.raises(ValueError, match="version and kind"):
+            await store.read_inventory_snapshot_page(
+                snapshot_digest=new_pin, cursor=first.next_cursor
+            )
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "receipt_missing",
+        "receipt_corrupt",
+        "manifest_missing",
+        "manifest_corrupt",
+        "chunk_missing",
+        "chunk_corrupt",
+        "database_rebuilt",
+        "cursor_kind",
+        "cursor_version",
+        "cursor_past_end",
+        "limit_bool",
+        "limit_oversize",
+        "reader_role",
+        "legacy_pointer",
+    ],
+)
+async def test_isolated_snapshot_read_fails_closed_without_current_graph_fallback(defect):
+    from fdai.delivery.persistence.postgres_ontology_snapshot import read_snapshot_page
+    from psycopg import sql
+
+    async with _isolated_replacement_store() as store:
+        async with await store._connect() as connection:
+            await connection.execute(
+                "CREATE TABLE inventory_active (singleton BOOLEAN PRIMARY KEY,snapshot_id TEXT);"
+                "INSERT INTO inventory_active VALUES (TRUE,'snapshot-example')"
+            )
+        await store.replace_subgraph_with_state(
+            objects=(_review_object("case"),),
+            links=(),
+            previous_object_ids=(),
+            previous_link_keys=(),
+            state_updates={},
+            expected_active_generation="snapshot-example",
+        )
+        pin = await store.pin_inventory_snapshot()
+        request = dict(snapshot_digest=pin)
+        role_name = None
+        async with await store._connect() as connection:
+            cursor = await connection.execute(
+                "SELECT value FROM state_kv WHERE key=%s", ("ontology-committed:" + pin,)
+            )
+            receipt = (await cursor.fetchone())["value"]
+            if defect == "database_rebuilt":
+                await connection.execute("DELETE FROM state_kv")
+            elif defect.startswith(("receipt_", "manifest_", "chunk_")):
+                target = {
+                    "receipt": "ontology-committed:" + pin,
+                    "manifest": "ontology-prepared:" + receipt["prepared_digest"],
+                    "chunk": "ontology-prepared:" + receipt["partitions"][0]["digest"],
+                }[defect.split("_")[0]]
+                query = (
+                    "DELETE FROM state_kv WHERE key=%s"
+                    if defect.endswith("missing")
+                    else "UPDATE state_kv SET value='{}' WHERE key=%s"
+                )
+                await connection.execute(query, (target,))
+            elif defect == "legacy_pointer":
+                await connection.execute(
+                    "UPDATE state_kv SET value=value-'snapshot_digest' "
+                    "WHERE key='inventory-ontology:prepared-snapshot'"
+                )
+            elif defect == "reader_role":
+                role_name = "snapshot_reader_" + uuid.uuid4().hex
+                cursor = await connection.execute("SELECT current_schema() AS name")
+                schema = (await cursor.fetchone())["name"]
+                await connection.execute(
+                    sql.SQL("CREATE ROLE {} NOLOGIN NOSUPERUSER").format(sql.Identifier(role_name))
+                )
+                await connection.execute(
+                    sql.SQL("GRANT USAGE ON SCHEMA {} TO {}").format(
+                        sql.Identifier(schema), sql.Identifier(role_name)
+                    )
+                )
+                await connection.execute(
+                    sql.SQL("GRANT SELECT ON ALL TABLES IN SCHEMA {} TO {}").format(
+                        sql.Identifier(schema), sql.Identifier(role_name)
+                    )
+                )
+        if defect == "cursor_kind":
+            request["cursor"] = pin + ":links:0"
+        elif defect == "cursor_version":
+            request["cursor"] = "sha256:" + "f" * 64 + ":objects:0"
+        elif defect == "cursor_past_end":
+            request["cursor"] = pin + ":objects:2"
+        elif defect.startswith("limit_"):
+            request["limit"] = True if defect == "limit_bool" else 1001
+        if role_name is not None:
+            options = (
+                conninfo_to_dict(store._config.dsn).get("options", "") + f" -c role={role_name}"
+            )
+            config = replace(store._config, dsn=make_conninfo(store._config.dsn, options=options))
+            try:
+                page = await read_snapshot_page(config, **request)
+                assert [item.id for item in page.objects] == ["case"]
+                assert page.objects[0].revision == 1
+            finally:
+                async with await store._connect() as connection:
+                    await connection.execute(
+                        sql.SQL("DROP OWNED BY {}").format(sql.Identifier(role_name))
+                    )
+                    await connection.execute(
+                        sql.SQL("DROP ROLE {}").format(sql.Identifier(role_name))
+                    )
+        elif defect == "legacy_pointer":
+            with pytest.raises(OntologyInstanceValidationError, match="unavailable or pending"):
+                await store.pin_inventory_snapshot()
+        else:
+            with pytest.raises(ValueError):
+                await store.read_inventory_snapshot_page(**request)
+        assert await store.get_object("case") is not None
+
+
+async def test_isolated_snapshot_read_fetches_only_selected_partition(monkeypatch):
+    from fdai.delivery.persistence import postgres_ontology_snapshot as snapshots
+
+    async with _isolated_replacement_store() as store:
+        async with await store._connect() as connection:
+            await connection.execute(
+                "CREATE TABLE inventory_active (singleton BOOLEAN PRIMARY KEY,snapshot_id TEXT);"
+                "INSERT INTO inventory_active VALUES (TRUE,'snapshot-example')"
+            )
+        objects = tuple(_review_object(f"case-{index:04d}") for index in range(1001))
+        await store.replace_subgraph_with_state(
+            objects=objects,
+            links=(),
+            previous_object_ids=(),
+            previous_link_keys=(),
+            state_updates={},
+            expected_active_generation="snapshot-example",
+        )
+        pin = await store.pin_inventory_snapshot()
+        calls = []
+        read_content = snapshots._read_content
+
+        async def observe(connection, prefix, digest, limit):
+            calls.append((prefix, digest))
+            return await read_content(connection, prefix, digest, limit)
+
+        monkeypatch.setattr(snapshots, "_read_content", observe)
+        page = await store.read_inventory_snapshot_page(
+            snapshot_digest=pin, cursor=pin + ":objects:1000", limit=1
+        )
+        assert page.objects[0].id == "case-1000"
+        assert page.next_cursor is None
+        assert len(calls) == 3
+        empty = await store.read_inventory_snapshot_page(snapshot_digest=pin, relationships=True)
+        assert empty.total_count == 0 and empty.links == () and empty.next_cursor is None
+
+
+async def test_isolated_snapshot_read_remains_consistent_during_concurrent_receipt_removal(
+    monkeypatch,
+):
+    from fdai.delivery.persistence import postgres_ontology_snapshot as snapshots
+
+    async with _isolated_replacement_store() as store:
+        async with await store._connect() as connection:
+            await connection.execute(
+                "CREATE TABLE inventory_active (singleton BOOLEAN PRIMARY KEY,snapshot_id TEXT);"
+                "INSERT INTO inventory_active VALUES (TRUE,'snapshot-example')"
+            )
+        await store.replace_subgraph_with_state(
+            objects=(_review_object("case"),),
+            links=(),
+            previous_object_ids=(),
+            previous_link_keys=(),
+            state_updates={},
+            expected_active_generation="snapshot-example",
+        )
+        pin = await store.pin_inventory_snapshot()
+        read_content = snapshots._read_content
+        deleted = False
+
+        async def remove_after_receipt(connection, prefix, digest, limit):
+            nonlocal deleted
+            content = await read_content(connection, prefix, digest, limit)
+            if not deleted:
+                deleted = True
+                async with await store._connect() as writer:
+                    await writer.execute("DELETE FROM state_kv")
+            return content
+
+        monkeypatch.setattr(snapshots, "_read_content", remove_after_receipt)
+        page = await store.read_inventory_snapshot_page(snapshot_digest=pin)
+        assert page.objects[0].id == "case"
+        with pytest.raises(OntologyInstanceValidationError, match="unavailable"):
+            await store.read_inventory_snapshot_page(snapshot_digest=pin)
+
+
+async def test_isolated_published_snapshot_receipt_binds_actual_revisions():
+    async with _isolated_replacement_store() as store:
+        async with await store._connect() as connection:
+            await connection.execute(
+                "CREATE TABLE inventory_active (singleton BOOLEAN PRIMARY KEY,snapshot_id TEXT);"
+                "INSERT INTO inventory_active VALUES (TRUE,'snapshot-example')"
+            )
+        record = _review_object("case")
+        for expected_revision, status in ((1, "open"), (1, "open"), (2, "closed")):
+            await store.replace_subgraph_with_state(
+                objects=(replace(record, properties={"id": "case", "status": status}),),
+                links=(),
+                previous_object_ids=("case",) if record.revision else (),
+                previous_link_keys=(),
+                state_updates={},
+                expected_active_generation="snapshot-example",
+            )
+            record = await store.get_object("case")
+            assert record.revision == expected_revision
+            async with await store._connect() as connection:
+                cursor = await connection.execute(
+                    "SELECT value FROM state_kv WHERE key='inventory-ontology:prepared-snapshot'"
+                )
+                pointer = (await cursor.fetchone())["value"]
+                cursor = await connection.execute(
+                    "SELECT value FROM state_kv WHERE key=%s",
+                    ("ontology-committed:" + pointer["snapshot_digest"],),
+                )
+                receipt = (await cursor.fetchone())["value"]
+            assert receipt["object_revisions"] == {"case": expected_revision}
+            assert receipt["prepared_digest"] == pointer["digest"]
+            assert receipt["generation"] == "snapshot-example"
+
+
 @pytest.mark.parametrize(
     "defect",
     [
@@ -477,6 +762,13 @@ async def test_isolated_prepared_ontology_publication_rechecks_durable_inputs(mo
             status = await cursor.fetchone()
             assert (status["value"] if status else None) == (
                 {"ready": True} if defect in {"none", "caller_mutation"} else None
+            )
+            cursor = await connection.execute(
+                "SELECT COUNT(*) AS count FROM state_kv "
+                "WHERE starts_with(key,'ontology-committed:')"
+            )
+            assert (await cursor.fetchone())["count"] == (
+                1 if defect in {"none", "caller_mutation"} else 0
             )
 
 

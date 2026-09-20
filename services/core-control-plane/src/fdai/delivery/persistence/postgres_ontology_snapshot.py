@@ -1,0 +1,295 @@
+"""Content-addressed publication receipts for version-pinned inventory graph reads.
+
+The existing graph writer commits these receipts in its graph/state transaction.
+Prepared inputs alone are never published snapshots. Existing tables and N-1 writers
+retain their contracts; this additive read boundary grants no write authority.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import re
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Literal
+
+import psycopg
+from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
+
+from fdai.delivery.persistence.postgres_ontology_prepared import (
+    PreparedOntologyReplacement,
+    _digest,
+    _encode,
+)
+from fdai.shared.contracts.models import OntologyTypeRef
+from fdai.shared.providers.ontology_instance import (
+    OntologyInstanceValidationError,
+    OntologyLinkRecord,
+    OntologyObjectRecord,
+)
+
+if TYPE_CHECKING:
+    from fdai.delivery.persistence.postgres_ontology import PostgresOntologyInstanceStoreConfig
+
+_PREFIX = "ontology-committed:"
+_MAX_RECEIPT_BYTES = 8 * 1024 * 1024
+_DIGEST = re.compile(r"sha256:[a-f0-9]{64}")
+
+
+@dataclass(frozen=True, slots=True)
+class CommittedOntologyPage:
+    """One page of the published owner's subgraph, not other owners' endpoint contents."""
+
+    snapshot_digest: str
+    generation: str
+    release_digest: str
+    objects: tuple[OntologyObjectRecord, ...]
+    links: tuple[OntologyLinkRecord, ...]
+    next_cursor: str | None
+    total_count: int
+
+
+async def record_committed_snapshot(
+    connection: psycopg.AsyncConnection[Any],
+    prepared: PreparedOntologyReplacement,
+    committed_revisions: Mapping[str, int],
+) -> str:
+    """Record actual committed revisions inside the caller's existing graph transaction."""
+    manifest = json.loads(prepared.manifest)
+    if len(committed_revisions) != manifest["object_count"] or any(
+        type(value) is not int or value < 1 for value in committed_revisions.values()
+    ):
+        raise OntologyInstanceValidationError("committed ontology revisions are invalid")
+    encoded = _encode(
+        {
+            "schema_version": "1.0.0",
+            "prepared_digest": prepared.digest,
+            "generation": manifest["expected_active_generation"],
+            "release_digest": manifest["release_digest"],
+            "object_revisions": committed_revisions,
+            "partitions": [
+                {
+                    "digest": _digest(chunk),
+                    "kind": (payload := json.loads(chunk))["kind"],
+                    "count": len(payload["records"]),
+                }
+                for chunk in prepared.chunks
+            ],
+        },
+        limit=_MAX_RECEIPT_BYTES,
+    )
+    digest = _digest(encoded)
+    key = _PREFIX + digest
+    await connection.execute(
+        "INSERT INTO state_kv (key,value) VALUES (%s,%s) ON CONFLICT (key) DO NOTHING",
+        (key, Jsonb(json.loads(encoded))),
+    )
+    cursor = await connection.execute("SELECT value FROM state_kv WHERE key=%s FOR SHARE", (key,))
+    row = await cursor.fetchone()
+    if row is None or _encode(row["value"], limit=_MAX_RECEIPT_BYTES) != encoded:
+        raise OntologyInstanceValidationError("committed ontology receipt conflicts with content")
+    return digest
+
+
+async def pin_current_snapshot(config: PostgresOntologyInstanceStoreConfig) -> str | None:
+    """Select a committed inventory version only when graph and inventory generations agree."""
+    async with (
+        asyncio.timeout(10),
+        await psycopg.AsyncConnection.connect(
+            config.dsn,
+            row_factory=dict_row,
+            connect_timeout=config.connect_timeout_s,
+        ) as connection,
+    ):
+        await connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        await connection.execute(
+            "SELECT set_config('statement_timeout',%s,true)", (str(config.statement_timeout_ms),)
+        )
+        cursor = await connection.execute(
+            "SELECT pointer.value, active.snapshot_id FROM state_kv pointer "
+            "LEFT JOIN inventory_active active ON active.singleton=TRUE "
+            "WHERE pointer.key='inventory-ontology:prepared-snapshot'",
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        pointer = row["value"]
+        if (
+            not isinstance(pointer, Mapping)
+            or pointer.get("generation") != row["snapshot_id"]
+            or not isinstance(pointer.get("snapshot_digest"), str)
+            or _DIGEST.fullmatch(pointer["snapshot_digest"]) is None
+        ):
+            raise OntologyInstanceValidationError(
+                "committed ontology snapshot is unavailable or pending"
+            )
+        receipt = await _read_content(
+            connection, _PREFIX, pointer["snapshot_digest"], _MAX_RECEIPT_BYTES
+        )
+        if (
+            receipt.get("prepared_digest") != pointer.get("digest")
+            or receipt.get("generation") != pointer.get("generation")
+            or receipt.get("release_digest") != pointer.get("release_digest")
+        ):
+            raise OntologyInstanceValidationError(
+                "committed ontology snapshot pointer is inconsistent"
+            )
+        return str(pointer["snapshot_digest"])
+
+
+async def _read_content(
+    connection: psycopg.AsyncConnection[Any],
+    prefix: str,
+    digest: object,
+    limit: int,
+) -> dict[str, Any]:
+    if not isinstance(digest, str) or _DIGEST.fullmatch(digest) is None:
+        raise OntologyInstanceValidationError("committed ontology content reference is invalid")
+    cursor = await connection.execute("SELECT value FROM state_kv WHERE key=%s", (prefix + digest,))
+    row = await cursor.fetchone()
+    if row is None or not isinstance(row["value"], dict):
+        raise OntologyInstanceValidationError("committed ontology content is unavailable")
+    if _digest(_encode(row["value"], limit=limit)) != digest:
+        raise OntologyInstanceValidationError("committed ontology content digest changed")
+    return dict(row["value"])
+
+
+async def read_snapshot_page(
+    config: PostgresOntologyInstanceStoreConfig,
+    *,
+    snapshot_digest: str,
+    kind: Literal["objects", "links"] = "objects",
+    cursor: str | None = None,
+    limit: int = 1000,
+) -> CommittedOntologyPage:
+    """Read immutable committed partitions; a cursor selects content and grants no authorization.
+
+    Callers must retain their existing principal/scope checks. An absent receipt (including
+    after a database rebuild) fails closed, never falls back to current live graph rows.
+    """
+    if (
+        not isinstance(snapshot_digest, str)
+        or _DIGEST.fullmatch(snapshot_digest) is None
+        or kind not in {"objects", "links"}
+        or type(limit) is not int
+        or not 1 <= limit <= 1000
+    ):
+        raise ValueError("snapshot page requires a valid digest, kind and bounded limit")
+    offset = 0
+    if cursor is not None:
+        prefix = snapshot_digest + ":" + kind + ":"
+        if (
+            not isinstance(cursor, str)
+            or not cursor.startswith(prefix)
+            or re.fullmatch(r"0|[1-9][0-9]{0,5}", cursor[len(prefix) :]) is None
+        ):
+            raise ValueError("snapshot page cursor does not match its version and kind")
+        offset = int(cursor[len(prefix) :])
+    async with (
+        asyncio.timeout(30),
+        await psycopg.AsyncConnection.connect(
+            config.dsn,
+            row_factory=dict_row,
+            connect_timeout=config.connect_timeout_s,
+        ) as connection,
+    ):
+        await connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        await connection.execute(
+            "SELECT set_config('statement_timeout',%s,true)", (str(config.statement_timeout_ms),)
+        )
+        receipt = await _read_content(connection, _PREFIX, snapshot_digest, _MAX_RECEIPT_BYTES)
+        manifest = await _read_content(
+            connection, "ontology-prepared:", receipt.get("prepared_digest"), 32 * 1024 * 1024
+        )
+        partitions = receipt.get("partitions")
+        revisions = receipt.get("object_revisions")
+        if (
+            receipt.get("schema_version") != "1.0.0"
+            or manifest.get("schema_version") != "1.0.0"
+            or receipt.get("generation") != manifest.get("expected_active_generation")
+            or receipt.get("release_digest") != manifest.get("release_digest")
+            or not isinstance(partitions, list)
+            or len(partitions) > 1000
+            or not isinstance(revisions, dict)
+            or len(revisions) != manifest.get("object_count")
+            or any(type(value) is not int or value < 1 for value in revisions.values())
+            or any(
+                not isinstance(part, dict)
+                or set(part) != {"digest", "kind", "count"}
+                or part["kind"] not in {"objects", "links"}
+                or type(part["count"]) is not int
+                or not 1 <= part["count"] <= 1000
+                for part in partitions
+            )
+            or [part["digest"] for part in partitions] != manifest.get("chunks")
+            or sum(part["count"] for part in partitions if part["kind"] == "objects")
+            != manifest.get("object_count")
+            or sum(part["count"] for part in partitions if part["kind"] == "links")
+            != manifest.get("link_count")
+        ):
+            raise OntologyInstanceValidationError(
+                "committed ontology snapshot receipt is malformed"
+            )
+        total = sum(part["count"] for part in partitions if part["kind"] == kind)
+        if offset > total:
+            raise ValueError("snapshot page cursor is beyond the recorded bounds")
+        objects = []
+        links = []
+        consumed = 0
+        selected = 0
+        for partition in partitions:
+            if partition["kind"] != kind:
+                continue
+            start = consumed
+            consumed += partition["count"]
+            if consumed <= offset:
+                continue
+            if selected >= limit:
+                break
+            chunk = await _read_content(
+                connection, "ontology-prepared:", partition["digest"], 1024 * 1024
+            )
+            records = chunk.get("records")
+            if (
+                chunk.get("kind") != kind
+                or not isinstance(records, list)
+                or len(records) != partition["count"]
+            ):
+                raise OntologyInstanceValidationError(
+                    "committed ontology snapshot partition changed"
+                )
+            for values in records[
+                max(0, offset - start) : max(0, offset - start) + limit - selected
+            ]:
+                values = dict(values)
+                values["type_ref"] = OntologyTypeRef.model_validate(values["type_ref"])
+                if values["type_ref"].catalog_digest != receipt["release_digest"]:
+                    raise OntologyInstanceValidationError(
+                        "committed ontology snapshot release changed"
+                    )
+                if kind == "objects":
+                    if values.get("id") not in revisions or revisions[values["id"]] not in {
+                        values["revision"],
+                        values["revision"] + 1,
+                    }:
+                        raise OntologyInstanceValidationError(
+                            "committed ontology snapshot revision changed"
+                        )
+                    objects.append(
+                        OntologyObjectRecord(**{**values, "revision": revisions[values["id"]]})
+                    )
+                else:
+                    links.append(OntologyLinkRecord(**values))
+                selected += 1
+        next_offset = offset + selected
+        return CommittedOntologyPage(
+            snapshot_digest=snapshot_digest,
+            generation=receipt["generation"],
+            release_digest=receipt["release_digest"],
+            objects=tuple(objects),
+            links=tuple(links),
+            total_count=total,
+            next_cursor=f"{snapshot_digest}:{kind}:{next_offset}" if next_offset < total else None,
+        )

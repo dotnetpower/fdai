@@ -30,7 +30,7 @@ async def replace_records(
     previous_link_keys: Sequence[tuple[str, str, str]],
     releases: Mapping[str, OntologyRelease],
     link_types: Mapping[str, OntologyLinkType],
-) -> None:
+) -> dict[str, int]:
     """Retain CAS, foreign-link protection, and cardinality under caller-owned locks."""
     desired = {record.id: record for record in objects}
     removed = sorted(set(previous_object_ids) - desired.keys())
@@ -44,6 +44,7 @@ async def replace_records(
         )
         existing.update((str(row["id"]), row) for row in await cursor.fetchall())
     rows: list[tuple[Any, ...]] = []
+    committed_revisions: dict[str, int] = {}
     for record in objects:
         prior = existing.get(record.id)
         revision = int(prior["revision"]) if prior is not None else 0
@@ -57,7 +58,9 @@ async def replace_records(
             and prior["type_version"] == reference.version
             and prior["catalog_digest"] == reference.catalog_digest
         ):
+            committed_revisions[record.id] = revision
             continue
+        committed_revisions[record.id] = revision + 1
         rows.append(
             (
                 record.id,
@@ -136,6 +139,7 @@ async def replace_records(
         "IS DISTINCT FROM (EXCLUDED.properties, EXCLUDED.type_version, EXCLUDED.catalog_digest)",
         link_rows,
     )
+    return committed_revisions
 
 
 async def _validate_links(
