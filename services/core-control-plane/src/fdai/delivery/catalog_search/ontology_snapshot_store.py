@@ -7,6 +7,7 @@ import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
@@ -76,6 +77,82 @@ class OntologyGenerationSnapshotStore:
 
     def __init__(self, store: StateStore) -> None:
         self._store = store
+
+    async def stage_manifest_from_gateway(
+        self,
+        *,
+        gateway: SecuredObjectSetQueryGateway,
+        manifest: QueryManifest,
+        as_of: datetime,
+        expected_source_generation: str,
+        embedding_space_id: str,
+        embedding_model_version: str,
+        embedding_dimension: int,
+    ) -> OntologyStagedProjection:
+        """Stage all readable types from one complete source snapshot, never mixed pages.
+
+        The combined declaration/object budget remains 20,000 documents. No write
+        occurs until ACL, release, scope, and exact source generation checks pass.
+        """
+        names = tuple(
+            sorted(str(item["name"]) for item in manifest.descriptors if item["kind"] == "object")
+        )
+        available = _MAX_DOCUMENTS - len(manifest.descriptors) - len(manifest.unavailable)
+        if not names or len(manifest.purposes) != 1 or available < 1:
+            raise ValueError("ontology staging requires one purpose and a bounded type manifest")
+        projected = await gateway.scan_snapshot(
+            object_type_names=names,
+            purpose=manifest.purposes[0],
+            as_of=as_of,
+            candidate_limit=available,
+            projection_request=ProjectionRequest(
+                caller_role=manifest.principal_role,
+                declared_purposes=frozenset(manifest.purposes),
+                principal_scope_digest=manifest.coverage_receipt.principal_scope_digest,
+            ),
+        )
+        if (
+            projected.ontology_release_digest != manifest.release_digest
+            or projected.principal_scope_digest != manifest.coverage_receipt.principal_scope_digest
+            or projected.graph.source_generation != expected_source_generation
+            or projected.caller_role != manifest.principal_role
+            or projected.purpose != manifest.purposes[0]
+            or projected.object_type_names != names
+        ):
+            raise ValueError(
+                "ontology staging requires current complete authorized source evidence"
+            )
+        records = tuple(
+            OntologyObjectRecord(
+                id=record.id,
+                object_type=record.object_type,
+                properties={
+                    key: value
+                    for key, value in record.properties.items()
+                    if key != "__redactions__"
+                    and key not in record.properties.get("__redactions__", {})
+                },
+            )
+            for record in projected.graph.objects
+        )
+        build = build_ontology_semantic_generation(
+            manifest=manifest,
+            runtime_objects=records,
+            embedding_space_id=embedding_space_id,
+            embedding_model_version=embedding_model_version,
+            embedding_dimension=embedding_dimension,
+        )
+        snapshot_digest = await self.stage(
+            build=build,
+            manifest=manifest,
+            source_generation=expected_source_generation,
+            source_projection_digest=projected.source_projection_digest,
+        )
+        return OntologyStagedProjection(
+            snapshot_digest,
+            projected.source_projection_digest,
+            expected_source_generation,
+        )
 
     async def stage_from_gateway(
         self,

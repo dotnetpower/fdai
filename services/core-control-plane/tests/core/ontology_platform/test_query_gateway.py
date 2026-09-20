@@ -173,6 +173,150 @@ async def test_gateway_binds_authenticated_principal_scope_to_receipt() -> None:
 
 
 @pytest.mark.parametrize(
+    "count,limit,complete", [(1001, 1200, True), (1001, 1000, True), (2, 1200, False)]
+)
+async def test_secured_index_snapshot_preserves_atomic_completeness(
+    count: int,
+    limit: int,
+    complete: bool,
+) -> None:
+    object_type = _object_type()
+    records = tuple(
+        OntologyObjectRecord(
+            id=f"resource-{index}",
+            object_type="Resource",
+            properties={
+                "id": f"resource-{index}",
+                "operator_note": "private-marker",
+            },
+        )
+        for index in range(count)
+    )
+    gateway = await _gateway_with_records(
+        object_type,
+        *records,
+        snapshot_complete=complete,
+        source_generation="snapshot-1",
+    )
+    scan = AsyncMock(wraps=gateway._service._store.scan_objects)
+    gateway._service._store.scan_objects = scan
+    operation = gateway.scan_snapshot(
+        object_type_names=("Resource",),
+        purpose="operations-review",
+        as_of=datetime(2026, 8, 8, tzinfo=UTC),
+        candidate_limit=limit,
+        projection_request=_request(principal_scope_digest="sha256:" + "a" * 64),
+    )
+    if count > limit or not complete:
+        with pytest.raises(ValueError, match="complete"):
+            await operation
+    else:
+        result = await operation
+        assert len(result.graph.objects) == count
+        assert result.graph.source_generation == "snapshot-1"
+        assert all(
+            record.properties["operator_note"] == REDACTED_PLACEHOLDER
+            for record in result.graph.objects
+        )
+        assert result.source_projection_digest.startswith("sha256:")
+        assert result.principal_scope_digest == "sha256:" + "a" * 64
+    scan.assert_awaited_once_with(object_types=("Resource",), candidate_limit=limit)
+
+
+async def test_manifest_staging_reads_multiple_types_in_one_generation() -> None:
+    from fdai.core.ontology_platform import build_query_manifest
+    from fdai.delivery.catalog_search.ontology_snapshot_store import OntologyGenerationSnapshotStore
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    resource = _object_type()
+    service_type = resource.model_copy(update={"name": "ExampleService"})
+    declarations = (resource, service_type)
+    store = InMemoryOntologyInstanceStore(
+        object_types=declarations,
+        link_types=(),
+        source_generation="source-1",
+    )
+    for index in range(1002):
+        await store.upsert_object(
+            OntologyObjectRecord(
+                id=f"example-{index}",
+                object_type="Resource" if index < 1001 else "ExampleService",
+                properties={"id": f"example-{index}", "operator_note": "private-marker"},
+            )
+        )
+    release = build_ontology_release(object_types=declarations)
+    manifest = build_query_manifest(
+        release=release,
+        object_types=declarations,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest="sha256:" + "a" * 64,
+    )
+    gateway = SecuredObjectSetQueryGateway(
+        service=ObjectSetService(
+            store=store,
+            object_type_names=frozenset(item.name for item in declarations),
+            interfaces=compile_interfaces(
+                interfaces=(), implementations=(), object_types=declarations
+            ),
+        ),
+        object_types={item.name: item for item in declarations},
+        ontology_release=release,
+        evaluation_cutoff=lambda: datetime(2026, 8, 8, tzinfo=UTC),
+    )
+    scan = AsyncMock(wraps=store.scan_objects)
+    store.scan_objects = scan
+    snapshots = OntologyGenerationSnapshotStore(InMemoryStateStore())
+    staged = await snapshots.stage_manifest_from_gateway(
+        gateway=gateway,
+        manifest=manifest,
+        as_of=datetime(2026, 8, 8, tzinfo=UTC),
+        expected_source_generation="source-1",
+        embedding_space_id="test-space",
+        embedding_model_version="test-model",
+        embedding_dimension=1,
+    )
+    restored = await snapshots.read(
+        staged.snapshot_digest,
+        manifest=manifest,
+        source_generation="source-1",
+        source_projection_digest=staged.source_projection_digest,
+    )
+    assert restored is not None and len(restored.documents) == 1004
+    assert all("private-marker" not in item.text for item in restored.documents)
+    scan.assert_awaited_once_with(
+        object_types=("ExampleService", "Resource"), candidate_limit=19998
+    )
+
+
+@pytest.mark.parametrize(
+    "names,limit,scope",
+    [
+        ((), 100, "scoped"),
+        (("Unknown",), 100, "scoped"),
+        (("Resource",), 20001, "scoped"),
+        (("Resource",), True, "scoped"),
+        (("Resource",), 100, None),
+    ],
+)
+async def test_index_snapshot_rejects_invalid_scope_before_store_io(names, limit, scope) -> None:
+    gateway = await _gateway_with_records(_object_type(), source_generation="source-1")
+    scan = AsyncMock(wraps=gateway._service._store.scan_objects)
+    gateway._service._store.scan_objects = scan
+    with pytest.raises(ValueError):
+        await gateway.scan_snapshot(
+            object_type_names=names,
+            purpose="operations-review",
+            as_of=datetime(2026, 8, 8, tzinfo=UTC),
+            candidate_limit=limit,
+            projection_request=_request(
+                principal_scope_digest="sha256:" + "a" * 64 if scope else None
+            ),
+        )
+    scan.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
     "failure", [None, "incomplete", "generation", "missing", "truncated", "identity", "release"]
 )
 async def test_secured_semantic_staging_preserves_source_and_excludes_private_values(

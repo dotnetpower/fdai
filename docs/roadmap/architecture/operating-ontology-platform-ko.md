@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 3f5bb574d0ec9047ecb5e7f2fa0d6ff8bca97f6d
+translation_source_sha: c86e2924b290ddb2360a0eb5eacc475890e0f3b3
 translation_revised: 2026-09-20
 ---
 # FDAI 온톨로지 안전 인프라
@@ -87,7 +87,7 @@ catalog-as-code가 계속 권위 원천이고 인스턴스 그래프는 읽기 �
 유지합니다. 관계를 포함하는 ObjectSet은 범위가 제한된 관계 조회를 유지하며 더 큰 후보 스캔을
 사용하지 않습니다.
 
-온톨로지 의미 준비 저장은 원시 인스턴스 저장소가 아니라 같은 보안 게이트웨이를 사용합니다. 작성기는 하나의 명시된 용도에 대해 필터와 관계가 없는 ObjectType 투영 하나를 받으며, 보이는 신원·정확한 release·원본 세대와 기존 객체 1,000개 상한 안의 완전한 결과를 요구합니다. 기계 표시된 비공개 필드를 제외하고 정확한 변환 결과 다이제스트를 불변 스냅샷에 결속합니다. 이는 비활성 후보 준비이며 의사 결정 근거 승인, 활성화 또는 전체 인스턴스 조회 커버리지가 아닙니다. 남은 수명 주기와 검색 작업은 [조회 커버리지](../interfaces/ontology-query-coverage-implementation-plan-ko.md)에서 관리합니다.
+온톨로지 의미 준비 저장은 원시 저장소를 우회하지 않고 보안 게이트웨이를 사용합니다. 단일 유형 작성기는 일반 객체 1,000개 상한을 유지합니다. 질의 경로 밖의 매니페스트 작성기는 읽을 수 있는 모든 유형을 관계 없는 단일 저장소 스냅샷으로 읽고 같은 역할·용도 ACL을 적용하며 선언과 객체를 합쳐 20,000개로 제한합니다. 잘림, 불완전, 원본 세대 누락, 숨긴 신원 또는 release 불일치는 준비 저장 전에 거부합니다. 순서가 있는 객체별 해시로 큰 투영을 결속하므로 증적 JSON 제한은 늘리지 않습니다. 비공개 필드는 후보 문서에 넣지 않습니다. 이는 비활성 준비이며 승인, 활성화 또는 완전한 조회 커버리지가 아닙니다. 남은 수명 주기와 검색 작업은 [조회 커버리지](../interfaces/ontology-query-coverage-implementation-plan-ko.md)에서 관리합니다.
 
 광범위한 최근 Resource 상태 변경 조회는 `resource.operational_state`와
 `resource.availability_state`를 검증된 상태 metadata가 있는 모든 Resource에서 읽습니다. 더 좁은

@@ -187,6 +187,26 @@ class ObjectSetService:
             include_relationships=False,
         )
 
+    async def scan_snapshot(
+        self,
+        *,
+        object_type_names: tuple[str, ...],
+        candidate_limit: int,
+    ) -> OntologyGraphSnapshot:
+        """Read one bounded source snapshot for off-path index preparation."""
+        if (
+            not object_type_names
+            or len(set(object_type_names)) != len(object_type_names)
+            or not set(object_type_names) <= self._object_type_names
+            or type(candidate_limit) is not int
+            or not 1 <= candidate_limit <= 20_000
+        ):
+            raise ValueError("index snapshot requires known unique types and a bounded limit")
+        return await self._store.scan_objects(
+            object_types=tuple(sorted(object_type_names)),
+            candidate_limit=candidate_limit,
+        )
+
 
 def _exact_id_values(predicates: Sequence[ObjectPredicate]) -> tuple[str, ...] | None:
     """Return an exact id selector suitable for bounded per-id store reads."""

@@ -8,6 +8,7 @@ submits actions, calls providers, or grants execution authority.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -194,6 +195,20 @@ class UnsupportedObjectSetAsOfError(ValueError):
     temporal_support: Literal["current_state_only"] = "current_state_only"
 
 
+@dataclass(frozen=True, slots=True)
+class SecuredOntologySnapshot:
+    """Complete candidate-only graph read; no activation or execution authority."""
+
+    graph: OntologyGraphSnapshot
+    object_type_names: tuple[str, ...]
+    ontology_release_digest: str
+    principal_scope_digest: str
+    caller_role: CeilingRole
+    purpose: str
+    observation_cutoff: datetime
+    source_projection_digest: str
+
+
 class SecuredObjectSetQueryGateway:
     """Materialize one bounded ObjectSet through shared role and purpose ACLs.
 
@@ -239,6 +254,96 @@ class SecuredObjectSetQueryGateway:
         self._evaluation_cutoff = evaluation_cutoff
         self._graph_completeness = graph_completeness
         self._max_as_of_skew_seconds = skew_seconds
+
+    async def scan_snapshot(
+        self,
+        *,
+        object_type_names: tuple[str, ...],
+        purpose: str,
+        as_of: datetime,
+        candidate_limit: int,
+        projection_request: ProjectionRequest,
+    ) -> SecuredOntologySnapshot:
+        """Project one complete bounded source snapshot without widening ObjectSets.
+
+        This off-path read supports index preparation, not model-selected ordinary
+        queries. All types share one source generation and the existing role/purpose
+        ACL. Truncated, unversioned, incomplete, or identity-redacted reads fail closed.
+        """
+        request, cutoff = self._prepare_current_request(
+            purpose=purpose,
+            as_of=as_of,
+            projection_request=projection_request,
+        )
+        if not request.principal_scope_digest:
+            raise ValueError("index snapshot requires authenticated principal scope")
+        source = await self._service.scan_snapshot(
+            object_type_names=object_type_names,
+            candidate_limit=candidate_limit,
+        )
+        if (
+            source.truncated
+            or not source.source_complete
+            or not source.source_generation
+            or source.links
+            or len(source.objects) > candidate_limit
+            or any(record.object_type not in object_type_names for record in source.objects)
+        ):
+            raise ValueError("index snapshot requires complete versioned object-only evidence")
+        graph = _freeze_graph(
+            project_graph_snapshot(
+                source,
+                object_types=self._object_types,
+                request=request,
+            )
+        )
+        redactions = _summarize_redactions(
+            graph,
+            object_types=self._object_types,
+            source_graph=source,
+            removed_link_count=0,
+        )
+        if redactions.redacted_identity_count:
+            raise ValueError("index snapshot requires complete visible object identities")
+        names = tuple(sorted(object_type_names))
+        object_root = hashlib.sha256()
+        for record in sorted(graph.objects, key=lambda item: (item.object_type, item.id)):
+            object_root.update(
+                content_digest(
+                    {
+                        "id": record.id,
+                        "object_type": record.object_type,
+                        "properties": _mutable_json(record.properties),
+                        "revision": record.revision,
+                        "type_ref": record.type_ref.model_dump(mode="json")
+                        if record.type_ref
+                        else None,
+                    }
+                ).encode("ascii")
+            )
+        digest = content_digest(
+            {
+                "object_type_names": names,
+                "ontology_release_digest": self._ontology_release.digest,
+                "principal_scope_digest": request.principal_scope_digest,
+                "caller_role": request.caller_role.value,
+                "purpose": purpose,
+                "observation_cutoff": cutoff.isoformat(),
+                "source_generation": graph.source_generation,
+                "object_count": len(graph.objects),
+                "objects_root": "sha256:" + object_root.hexdigest(),
+            }
+        )
+        return SecuredOntologySnapshot(
+            graph,
+            names,
+            self._ontology_release.digest,
+            request.principal_scope_digest,
+            request.caller_role,
+            purpose,
+            cutoff,
+            digest,
+        )
 
     async def materialize(
         self,
