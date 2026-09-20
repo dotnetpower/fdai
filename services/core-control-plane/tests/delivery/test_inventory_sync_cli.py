@@ -20,6 +20,7 @@ import pytest
 import yaml
 from fdai.delivery import inventory_sync_cli_support
 from fdai.delivery.aks_subscription_discovery import (
+    AksPrivateClusterObservation,
     AksSubscriptionDiscoveryError,
     AksSubscriptionDiscoveryResult,
 )
@@ -732,6 +733,69 @@ async def test_subscription_discovery_result_is_applied_to_the_inventory_tick(
 
     assert resolved.kubernetes_bindings == (binding,)
     assert resolved.kubernetes_unavailable_scopes == ()
+
+
+async def test_private_cluster_discovery_closes_proposal_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "00000000-0000-0000-0000-000000000001",
+            "FDAI_KUBERNETES_SUBSCRIPTION_DISCOVERY": "1",
+        }
+    )
+    private_cluster = AksPrivateClusterObservation(
+        cluster_ref=_CLUSTER_REF,
+        observed_at=datetime(2026, 9, 20, tzinfo=UTC),
+        source_digest="sha256:" + "1" * 64,
+    )
+    discovery = SimpleNamespace(
+        discover=AsyncMock(
+            return_value=AksSubscriptionDiscoveryResult(
+                bindings=(),
+                unavailable_scopes=(),
+                private_clusters=(private_cluster,),
+            )
+        )
+    )
+    proposal_store = SimpleNamespace(aclose=AsyncMock())
+    proposals = SimpleNamespace(observe=AsyncMock())
+    publish = AsyncMock()
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.AzureAksSubscriptionBindingDiscovery",
+        lambda **_kwargs: discovery,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.PostgresStateStore",
+        lambda **_kwargs: proposal_store,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli._workload_identity",
+        lambda **_kwargs: Mock(),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.kubernetes_connector_preflight_runtime.build_observer_constraints",
+        lambda *_args, **_kwargs: Mock(),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.kubernetes_connector_observed.build_observer_evidence",
+        lambda *_args, **_kwargs: Mock(),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.kubernetes_connector_proposals.ObserverDeploymentProposalService",
+        lambda *_args, **_kwargs: proposals,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.kubernetes_connector_projection.publish_discovered_proposals",
+        publish,
+    )
+
+    await _resolve_subscription_kubernetes_bindings(config)
+
+    proposals.observe.assert_awaited_once_with((private_cluster,))
+    publish.assert_awaited_once()
+    proposal_store.aclose.assert_awaited_once_with()
 
 
 async def test_subscription_discovery_failure_is_explicitly_unavailable(

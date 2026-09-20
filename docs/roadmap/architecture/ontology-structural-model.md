@@ -68,8 +68,9 @@ remain on each fresh snapshot and do not duplicate Resource or Link journal fact
 projection still advances from the fresh observation, and any semantic graph change, incomplete
 prior handoff, or missing prior journal requires a full new append.
 The one-shot inventory coordinator owns its runtime-settings, ontology-status, collection-health,
-and change-accelerator stores. It closes them through its asynchronous lifecycle with provider
-clients and event transport, so a completed or failed tick leaves no database-pool worker behind.
+change-accelerator, and private-cluster proposal stores. It closes them through its asynchronous
+lifecycle with provider clients and event transport, so a completed or failed tick leaves no
+database-pool worker behind.
 
 An ObjectSet with a predicate that cannot run in the store first evaluates a 1,000-object,
 relationship-free candidate window. If that window is truncated and does not prove the requested
