@@ -160,10 +160,13 @@ describe("Operator API authentication boundary", () => {
     await expect(transport.getJson("/healthz")).resolves.toEqual({ ok: true });
   });
 
-  test("distinguishes projection unavailability from an operational 503", async () => {
+  test.each([
+    "authoritative Operator projection is unavailable",
+    "authoritative projection is unavailable",
+  ])("distinguishes %s from an operational 503", async (message) => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(Response.json(
-        { error: { status: 503, message: "authoritative Operator projection is unavailable" } },
+        { error: { status: 503, message } },
         { status: 503 },
       ))
       .mockResolvedValueOnce(Response.json(

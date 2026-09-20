@@ -30,13 +30,16 @@ export function isOptionalOperatorApiUnavailable(error: unknown): error is Opera
     );
 }
 
-const PROJECTION_UNAVAILABLE_MESSAGE = "authoritative Operator projection is unavailable";
+const PROJECTION_UNAVAILABLE_MESSAGES = new Set([
+  "authoritative Operator projection is unavailable",
+  "authoritative projection is unavailable",
+]);
 
 function responseError(status: number, message: string, reason?: unknown): OperatorApiError {
   return new OperatorApiError(
     status,
     message,
-    status === 503 && message === PROJECTION_UNAVAILABLE_MESSAGE
+    status === 503 && PROJECTION_UNAVAILABLE_MESSAGES.has(message)
       ? "projection-unavailable"
       : "http",
     reason === undefined ? undefined
