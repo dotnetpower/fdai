@@ -55,6 +55,17 @@ def _assurance() -> dict[str, object]:
         "pantheon_trace": {"receipt_digest": "a" * 64, "latency_ms": 20},
         "pantheon_observations": {"read_only": True},
         "pantheon_semantic_reviews": [],
+        "pantheon_prompt_profiles": {
+            "answer_participants": [
+                {
+                    "agent": "Odin",
+                    "prompt_version": "odin-v1",
+                    "system_text_sha256": "b" * 64,
+                    "situation": "audience=operator;phase=direct;tier=T1;locale=en",
+                }
+            ],
+            "evaluator_profiles": [],
+        },
         "pantheon_diagnostic": {"score": 25},
         "execution_authority": False,
     }

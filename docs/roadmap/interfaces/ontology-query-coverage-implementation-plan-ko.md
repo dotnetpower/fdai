@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: ad8d27535608f668473c8bc7f4618d2a8bc004d0
-translation_revised: 2026-09-19
+translation_source_sha: eadfc2eca0dea53c99ce3e191c8d471ee99636d0
+translation_revised: 2026-09-20
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -16,8 +16,7 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 접근 범위를 넓히지 않습니다. 프레임 모델 스키마는 서버가 결속하는 검색어 필드를 제외합니다.
 커버리지 목록은 탐색과 추적 라벨 카탈로그를 포함한 질문 은행 소스 변경 뒤 재생성하며 출처 다이제스트만 갱신하고 측정된 커버리지는 바꾸지 않습니다. Console 카탈로그 변경이 병합되면 질문 은행을 먼저 재생성한 뒤 이에 의존하는 의미 목록을 다시 만듭니다. 원본 검증값만 수정할 때는 400개 질문 집단과 기존 검증 공백을 그대로 유지합니다.
 
-> **커버리지 경계:** 100%는 하나의 활성 온톨로지 release에서 읽을 수 있는 모든 선언이
-> principal 범위로 한정된 조회 서술자 또는 타입이 지정된 사용 불가 사유를 갖는다는 뜻입니다. 신원,
+> **커버리지 경계:** 100%는 하나의 활성 온톨로지 release에서 읽을 수 있는 모든 선언이 principal 범위로 한정된 조회 서술자 또는 타입이 지정된 사용 불가 사유를 갖는다는 뜻입니다. 신원,
 > 프로바이더 데이터, 이력 또는 근거가 없을 때 완전하거나 정확한 답을 보장한다는 뜻이 아닙니다.
 >
 > **권한 경계:** 자연어 및 임베딩 출력은 후보 전용으로 유지합니다. 읽기 계획에는
@@ -236,6 +235,7 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-20 | implemented | 통합된 Console 카탈로그와 표시 유형의 바이트 변경으로 출처 다이제스트가 바뀐 뒤 생성된 질문 은행과 이에 의존하는 의미 의도 커버리지를 갱신했습니다. 질문 신원, 커버리지 분류, 준비 상태 및 권한은 바뀌지 않습니다. | `current change`, 정본 생성기, 정확한 아티팩트 동등성 테스트 2개 통과 | 푸시된 SHA의 CI가 최종 근거이며 런타임 또는 승격 주장을 추가하지 않습니다. |
 | 2026-09-17 | implemented | 병합된 Trace 표시 카탈로그가 소스 digest를 변경한 뒤 질문 bank와 semantic-intent coverage 출처 이력을 다시 생성했습니다. 질문 identity, coverage 상태 및 권한은 바뀌지 않습니다. | `current change`, canonical generator, 집중 아티팩트 parity 테스트 | 런타임 또는 승격 주장을 추가하지 않습니다. |
 | 2026-09-17 | implemented | 새로 병합된 Console 카탈로그 byte로 인해 이전 아티팩트가 무효화된 뒤 질문 bank와 이에 의존하는 semantic inventory 소스 commitment를 다시 생성했습니다. | `current change`, canonical builder, 집중 질문 bank 및 semantic coverage 테스트 12개 통과, 질문 identity 400개와 coverage gap 변경 없음 | #1241의 exact-head 보호 전달이며 model 또는 실제 campaign은 실행하지 않았습니다. |
 | 2026-09-17 | implemented | 이후 Agent Activity Console 카탈로그 갱신이 권위 있는 소스 digest를 다시 변경한 뒤 질문 bank와 이에 의존하는 semantic-intent coverage를 함께 다시 생성했습니다. 질문 identity, coverage, readiness 및 실행 권한은 바뀌지 않습니다. | `current change`, 공식 generator 2개, 집중 아티팩트 parity 테스트 | 실제 또는 승격 주장을 추가하지 않습니다. |
