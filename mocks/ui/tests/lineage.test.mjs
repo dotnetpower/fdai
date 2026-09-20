@@ -65,13 +65,51 @@ try {
   await frame.locator('[data-node="forseti"]').waitFor();
   const loadMs = performance.now() - started;
   assert.ok(loadMs < 5000, `initial local render ${loadMs}ms exceeds 5s budget`);
-  assert.equal(await frame.locator(".ln-node").count(), 17);
-  assert.equal(await frame.locator(".ln-edge").count(), 16);
+  assert.equal(await frame.locator(".ln-node").count(), 21);
+  assert.equal(await frame.locator(".ln-edge").count(), 23);
+  assert.equal(await frame.locator('[data-kind="ontology"]').count(), 4);
+  const paths = await frame.locator(".ln-edge").evaluateAll(elements => elements.map(element => element.getAttribute("d")));
+  paths.forEach(path => {
+    assert.match(path, /^M[\d. -]+ C/);
+    assert.doesNotMatch(path, /[HLVQ]/i, "every connection must use cubic curves, not orthogonal segments");
+  });
+  const grid = await frame.locator("#lineageViewport").evaluate(element => ({ image: getComputedStyle(element).backgroundImage, size: getComputedStyle(element).backgroundSize }));
+  assert.match(grid.image, /radial-gradient/);
+  assert.equal(grid.size, "20px 20px");
+  const intersectedNodes = await frame.evaluate(() => {
+    const nodes = [...document.querySelectorAll(".ln-node")];
+    return [...document.querySelectorAll(".ln-edge")].flatMap(path => {
+      const collisions = new Set();
+      const length = path.getTotalLength();
+      for (let distance = 0; distance <= length; distance += 2) {
+        const point = path.getPointAtLength(distance);
+        nodes.filter(node => ![path.dataset.from, path.dataset.to].includes(node.dataset.node)).forEach(node => {
+          if (point.x > node.offsetLeft && point.x < node.offsetLeft + node.offsetWidth && point.y > node.offsetTop && point.y < node.offsetTop + node.offsetHeight) collisions.add(node.dataset.node);
+        });
+      }
+      return [...collisions].map(node => `${path.dataset.from} -> ${path.dataset.to} crosses ${node}`);
+    });
+  });
+  assert.deepEqual(intersectedNodes, [], "curves must not pass through unrelated nodes");
   assert.equal(await frame.locator(".ln-edge.is-missing").count(), 2);
   assert.match(await frame.locator("#caseState").innerText(), /Held/);
   assert.match(await frame.locator(".ln-boundary").innerText(), /No live sources/);
   await measure(frame, "Desktop default, master shell");
   await page.screenshot({ path: join(output, "desktop.png"), fullPage: true });
+
+  await frame.locator('[data-node="memory-observation"]').click();
+  assert.match(await frame.locator("#lineageInspector").innerText(), /OBSERVATION \/ ONTOLOGY INSTANCE/);
+  assert.match(await frame.locator(".ln-properties").innerText(), /sample-pod-01/);
+  assert.match(await frame.locator(".ln-properties").innerText(), /742391808/);
+  const targetRelation = frame.locator('#lineageInspector [data-select="pod-resource"]');
+  assert.match(await targetRelation.innerText(), /observation_targets_resource/);
+  await targetRelation.click();
+  assert.match(await frame.locator("#lineageInspector").innerText(), /RESOURCE \/ ONTOLOGY INSTANCE/);
+  assert.match(await frame.locator(".ln-properties").innerText(), /kubernetes.pod/);
+  await frame.locator("#lineageSearch").fill("sample-observation-m9");
+  assert.equal(await frame.locator(".ln-node").count(), 1);
+  await frame.locator("#lineageSearch").fill("");
+  evidence.push({ name: "Cubic connections, dot grid and canonical ontology instance drill-down", disposition: "passed", grid, connections: paths.length });
 
   await frame.locator('[data-node="aks"]').focus();
   await page.keyboard.press("Enter");
@@ -81,7 +119,7 @@ try {
   await frame.locator("#lineageFocus").click();
   assert.equal(await frame.locator(".ln-node").count(), 2);
   await frame.locator("#lineageReset").click();
-  assert.equal(await frame.locator(".ln-node").count(), 17);
+  assert.equal(await frame.locator(".ln-node").count(), 21);
   await frame.locator("#lineageZoomIn").click();
   assert.equal(await frame.locator("#lineageZoom").innerText(), "113%");
   await frame.locator("#lineageZoomOut").click();
@@ -121,6 +159,13 @@ try {
   });
   assert.deepEqual(textContrast.filter(item => item.ratio < 4.5), []);
   evidence.push({ name: "Graph and inspector text contrast", disposition: "passed", minimum: Math.min(...textContrast.map(item => item.ratio)) });
+
+  await page.setViewportSize({ width: 1920, height: 1200 });
+  await page.locator(".nav-collapse").click();
+  await frame.locator('[data-node="pod-resource"]').click();
+  await frame.locator("#lineageViewport").evaluate(element => { element.scrollLeft = 0; });
+  await measure(frame, "Wide desktop ontology inspector");
+  await page.screenshot({ path: join(output, "desktop-wide.png"), fullPage: true });
 
   for (const viewport of [{ width: 993, height: 641 }, { width: 390, height: 844 }, { width: 320, height: 844 }]) {
     await page.setViewportSize(viewport);

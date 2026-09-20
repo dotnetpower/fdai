@@ -33,22 +33,26 @@
 .ln-dot { width: 8px; height: 8px; border-radius: 2px; background: #396790; }
 .ln-dot.normative { background: #8b651e; }
 .ln-dot.processing { background: #36715f; }
+.ln-dot.ontology { background: #396491; border-radius: 50%; }
 .ln-tools { display: flex; align-items: center; gap: 6px; }
 .ln-tools button { min-width: 36px; }
 .ln-tools output { width: 44px; text-align: center; font-size: var(--cs-type-label-size); font-variant-numeric: tabular-nums; }
-.ln-canvas-scroll { position: relative; overflow: auto; height: 694px; background-color: #fafbfd; background-image: radial-gradient(#d7dfe7 .7px, transparent .7px); background-size: 16px 16px; }
-#lineageCanvasSize { width: 984px; height: 692px; }
-.ln-canvas { position: relative; width: 984px; height: 692px; transform-origin: top left; }
+.ln-page .ln-canvas-scroll { position: relative; overflow: auto; height: 694px; background-color: #fafbfd; background-image: radial-gradient(circle, #b3bfce 1px, transparent 1.25px); background-size: 20px 20px; }
+#lineageCanvasSize { width: 1272px; height: 692px; }
+.ln-canvas { position: relative; width: 1272px; height: 692px; transform-origin: top left; }
 .ln-column { position: absolute; top: 18px; color: #4d5d70; font-size: var(--cs-type-label-size); font-weight: 600; }
 .ln-edges { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
 .ln-edge { fill: none; stroke: #778b9f; stroke-width: 1.5; marker-end: url(#lineageArrow); }
 .ln-edge.is-missing { stroke: #967128; stroke-dasharray: 5 5; }
 .ln-edge.is-selected { stroke: #315f89; stroke-width: 2.5; }
+.ln-edge.is-ontology { stroke: #396491; stroke-width: 2; }
 .ln-edge.is-muted { opacity: .14; }
 .ln-page .ln-node { position: absolute; width: 194px; height: 78px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; align-items: stretch; text-align: left; background: #fff; border: 1px solid #8a9aae; box-shadow: 0 2px 4px #21354b08; border-radius: 6px; line-height: 1.35; }
 .ln-node[data-kind="normative"] { background: #fffdf4; border-color: #998759; }
 .ln-node[data-kind="agent"] { background: #f3f9f6; border-color: #7e9a90; }
 .ln-node[data-kind="outcome"] { background: #f4f6fb; }
+.ln-node[data-kind="ontology"] { background: #edf4fc; border-color: #678bb2; }
+.ln-node[data-kind="ontology"] .ln-node-state { color: #315e90; }
 .ln-node.is-missing { border-style: dashed; background: #fffcf6; }
 .ln-page .ln-node[aria-pressed="true"] { outline: 2px solid #315e90; outline-offset: 3px; box-shadow: 0 3px 12px #315e9014; }
 .ln-node.is-muted { opacity: .38; }
@@ -80,5 +84,5 @@
 .ln-source-row span { font-size: var(--cs-type-compact-size); color: var(--cs-text-soft); }
 .ln-source-row button { text-align: left; }
 @media (max-width: 1300px) { .ln-layout { grid-template-columns: minmax(0, 1fr); } .ln-inspector { border-left: 0; border-top: 1px solid var(--cs-hairline); display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; } .ln-inspector > .ln-inspector-intro { grid-column: 1 / -1; } }
-@media (max-width: 740px) { .ln-workspace { padding: 16px; } .ln-case { grid-template-columns: 1fr; gap: 16px; } .ln-heading { align-items: flex-start; } .ln-heading-meta { flex-direction: column; align-items: flex-end; } .ln-toolbar { align-items: stretch; } .ln-search { flex-basis: 100%; order: 3; } .ln-scenario { flex-wrap: wrap; } .ln-inspector { display: block; } .ln-source-row { grid-template-columns: 1fr; gap: 6px; } .ln-page :is(button, input, select) { min-height: 44px; } .ln-canvas-scroll { height: 560px; } .ln-tools button { min-width: 44px; } }
+@media (max-width: 740px) { .ln-workspace { padding: 16px; } .ln-case { grid-template-columns: 1fr; gap: 16px; } .ln-heading { align-items: flex-start; } .ln-heading-meta { flex-direction: column; align-items: flex-end; } .ln-toolbar { align-items: stretch; } .ln-search { flex-basis: 100%; order: 3; } .ln-scenario { flex-wrap: wrap; } .ln-inspector { display: block; } .ln-source-row { grid-template-columns: 1fr; gap: 6px; } .ln-page :is(button, input, select) { min-height: 44px; } .ln-page .ln-canvas-scroll { height: 560px; } .ln-tools button { min-width: 44px; } }
 @media (forced-colors: active) { .ln-edge { stroke: CanvasText; } .ln-node.is-muted { opacity: 1; } .ln-node[aria-pressed="true"] { outline-color: Highlight; } }

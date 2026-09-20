@@ -13,17 +13,24 @@
     { id: "log-window", title: "Log window", sub: "10:37-10:42 UTC", kind: "evidence", x: 270, y: 380, status: "Required / unavailable", detail: "The required log input is explicitly unresolved. Dashed connections show requirements, not consumed evidence.", owner: "Heimdall", version: "window / sample-l6", origin: "log-analytics", missing: true },
     { id: "policy", title: "Evaluation criteria", sub: "Rules + ontology mapping", kind: "normative", x: 270, y: 484, status: "Exact versions retained", detail: "Pinned rule and property-semantics versions define how evidence is evaluated. They do not assert the current state of the workload.", owner: "Forseti", version: "criteria / sample-v7", origin: "catalog" },
     { id: "excerpt", title: "Runbook excerpt", sub: "Section 3 / sample-v4", kind: "normative", x: 270, y: 588, status: "Advisory", detail: "The source document and excerpt version remain linked so an explanation can cite the actual retained material.", owner: "Muninn", version: "excerpt / sample-e3", origin: "document" },
-    { id: "huginn", title: "Huginn", sub: "Normalize / sample-h12", kind: "agent", x: 516, y: 120, status: "Completed / attempt 1", detail: "This execution consumes the exact cloud and Kubernetes observations. Identity matching does not make their collection times atomic.", owner: "Huginn", version: "run / sample-h12", origin: "derived", agent: "huginn" },
+    { id: "huginn", title: "Huginn", sub: "Normalize / sample-h12", kind: "agent", x: 516, y: 120, status: "Completed / attempt 1", detail: "This execution normalizes cloud, Kubernetes and metric inputs into versioned Resource and Observation instances. Identity matching does not make their collection times atomic.", owner: "Huginn", version: "run / sample-h12", origin: "derived", agent: "huginn" },
     { id: "heimdall", title: "Heimdall", sub: "Qualify / sample-e08", kind: "agent", x: 516, y: 328, status: "Partial / attempt 2", detail: "The same logical qualification run has two delivery attempts. Available metrics are retained; unavailable logs remain a gap, not a zero result.", owner: "Heimdall", version: "run / sample-e08", origin: "derived", agent: "heimdall", held: true },
-    { id: "forseti", title: "Forseti", sub: "Evaluate / sample-f04", kind: "agent", x: 762, y: 224, status: "Held / missing evidence", detail: "Forseti joins the actual observations and reviewed criteria. This case does not establish cause or authorize a remediation.", owner: "Forseti", version: "run / sample-f04", origin: "derived", agent: "forseti", held: true },
-    { id: "decision", title: "Decision record", sub: "sample-case-024", kind: "outcome", x: 762, y: 432, status: "Hold / no dispatch", detail: "The decision retains its original cutoff and exact input versions. Approval, execution and independent effect verification have not occurred.", owner: "Forseti", version: "decision / sample-d1", origin: "derived", held: true },
-    { id: "saga", title: "Saga", sub: "Audit / sample-a21", kind: "agent", x: 762, y: 588, status: "Recorded", detail: "The audit record preserves the held outcome and evidence gap. Audit persistence does not change the decision or add execution authority.", owner: "Saga", version: "audit / sample-a21", origin: "audit", agent: "saga" }
+    { id: "cluster-resource", title: "example-cluster", sub: "Resource / kubernetes-cluster", kind: "ontology", x: 762, y: 68, status: "Instance / revision 42", detail: "A synthetic Resource instance using the canonical Resource ObjectType. Its cloud inventory provenance remains distinct from the Pod's runtime observation.", owner: "Huginn", version: "Resource@1.0.0 / rev 42", origin: "cloud-inventory", objectType: "Resource", properties: { id: "sample-cluster-01", type: "kubernetes-cluster", name: "example-cluster" } },
+    { id: "pod-resource", title: "example-api", sub: "Resource / kubernetes.pod", kind: "ontology", x: 762, y: 172, status: "Instance / revision 18", detail: "A UID-grounded synthetic Pod Resource, not an ObjectType declaration. The Observation relationship identifies its measured target; it does not assert causation.", owner: "Huginn", version: "Resource@1.0.0 / rev 18", origin: "kubernetes-api", objectType: "Resource", properties: { id: "sample-pod-01", type: "kubernetes.pod", name: "example-api", "properties.restart_count": 3 } },
+    { id: "memory-observation", title: "Memory working set", sub: "Observation / sample-m9", kind: "ontology", x: 762, y: 328, status: "708 MiB / recorded", detail: "An immutable synthetic Observation linked to the Pod through observation_targets_resource. Qualification does not turn this stored observation into a second independent source.", owner: "Huginn", version: "Observation@1.0.0 / rev 1", origin: "prometheus", objectType: "Observation", properties: { id: "sample-observation-m9", target_ref: "sample-pod-01", metric: "memory_working_set_bytes", value: 742391808, unit: "bytes", observed_at: "2026-09-20T10:42:00Z", evidence_ref: "sample-metric-window-m9", source_revision: "sample-m9" } },
+    { id: "rule-instance", title: "Memory pressure rule", sub: "Rule / sample.pod.memory", kind: "ontology", x: 762, y: 484, status: "Catalog projection", detail: "A synthetic Rule instance projected from reviewed catalog criteria. The original catalog remains authoritative; this read model grants no execution authority.", owner: "Mimir", version: "Rule@1.0.0 / rev 7", origin: "catalog", objectType: "Rule", properties: { id: "sample.pod.memory", version: "1.0.0", severity: "medium", resource_type: "kubernetes.pod" } },
+    { id: "forseti", title: "Forseti", sub: "Evaluate / sample-f04", kind: "agent", x: 1054, y: 224, status: "Held / missing evidence", detail: "Forseti joins qualified evidence, exact Resource instances and the reviewed Rule projection. This case does not establish cause or authorize a remediation.", owner: "Forseti", version: "run / sample-f04", origin: "derived", agent: "forseti", held: true },
+    { id: "decision", title: "Decision record", sub: "sample-case-024", kind: "outcome", x: 1054, y: 432, status: "Hold / no dispatch", detail: "The decision retains its original cutoff and exact input versions. Approval, execution and independent effect verification have not occurred.", owner: "Forseti", version: "decision / sample-d1", origin: "derived", held: true },
+    { id: "saga", title: "Saga", sub: "Audit / sample-a21", kind: "agent", x: 1054, y: 588, status: "Recorded", detail: "The audit record preserves the held outcome and evidence gap. Audit persistence does not change the decision or add execution authority.", owner: "Saga", version: "audit / sample-a21", origin: "audit", agent: "saga" }
   ];
   const edges = [
     ["arg", "inventory", "observed"], ["aks", "pod", "observed"], ["prom", "metric", "observed"], ["logs", "log-window", "required"],
     ["rules", "policy", "defines"], ["docs", "excerpt", "cites"], ["inventory", "huginn", "consumed"], ["pod", "huginn", "consumed"],
-    ["metric", "heimdall", "consumed"], ["log-window", "heimdall", "required"], ["huginn", "forseti", "consumed"], ["heimdall", "forseti", "consumed"],
-    ["policy", "forseti", "evaluated against"], ["excerpt", "forseti", "cited"], ["forseti", "decision", "produced"], ["decision", "saga", "audited"]
+    ["metric", "huginn", "consumed"], ["log-window", "heimdall", "required"], ["heimdall", "forseti", "consumed"],
+    ["huginn", "cluster-resource", "projected"], ["huginn", "pod-resource", "projected"], ["huginn", "memory-observation", "normalized"],
+    ["memory-observation", "heimdall", "qualified"], ["memory-observation", "pod-resource", "observation_targets_resource"],
+    ["cluster-resource", "forseti", "consumed"], ["pod-resource", "forseti", "consumed"], ["policy", "rule-instance", "projected"],
+    ["rule-instance", "forseti", "evaluated against"], ["excerpt", "forseti", "cited"], ["forseti", "decision", "produced"], ["decision", "saga", "audited"]
   ];
   const extraSources = [
     ["Azure Monitor Metrics", "Observed data", "Native metric queries", "Not used in this case"],
@@ -48,7 +55,7 @@
   function render() {
     const query = byId("lineageSearch").value.trim().toLowerCase();
     const related = neighbors(selected);
-    const matches = nodes.filter(node => `${node.title} ${node.sub} ${node.owner}`.toLowerCase().includes(query));
+    const matches = nodes.filter(node => `${node.title} ${node.sub} ${node.owner} ${node.objectType || ""} ${node.properties?.id || ""}`.toLowerCase().includes(query));
     const visible = new Set((focused ? matches.filter(node => related.has(node.id)) : matches).map(node => node.id));
     byId("lineageNodes").innerHTML = nodes.filter(node => visible.has(node.id)).map(node => {
       const image = node.agent ? `../../../console/public/agent-icons/${node.agent}.svg` : node.icon && node.icon !== "kubernetes.svg" ? `../../../tools/architecture-diagrams/assets/azure/${node.icon}` : "";
@@ -60,12 +67,22 @@
       const source = lookup.get(from), target = lookup.get(to);
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       const sameColumn = source.x === target.x;
-      const startX = source.x + (sameColumn ? 97 : 194), startY = source.y + (sameColumn ? 78 : 39);
-      const endX = target.x + (sameColumn ? 97 : 0), endY = target.y + (sameColumn ? 0 : 39);
-      const normativeRoute = from === "policy" || from === "excerpt";
-      const corridor = from === "policy" ? 732 : 746;
-      path.setAttribute("d", normativeRoute ? `M${startX} ${startY} H${corridor - 8} Q${corridor} ${startY} ${corridor} ${startY - 8} V${endY + 8} Q${corridor} ${endY} ${corridor + 8} ${endY} H${endX}` : sameColumn ? `M${startX} ${startY} L${endX} ${endY}` : `M${startX} ${startY} C${startX + 32} ${startY} ${endX - 32} ${endY} ${endX} ${endY}`);
-      path.setAttribute("class", `ln-edge ${relation === "required" && !isComplete() ? "is-missing" : ""} ${from === selected || to === selected ? "is-selected" : ""}`);
+      const forward = target.x > source.x, downward = target.y > source.y;
+      const startX = source.x + (sameColumn ? 97 : forward ? 194 : 0), startY = source.y + (sameColumn ? downward ? 78 : 0 : 39);
+      const endX = target.x + (sameColumn ? 97 : forward ? 0 : 194), endY = target.y + (sameColumn ? downward ? 0 : 78 : 39);
+      const bend = Math.max(32, Math.abs(endX - startX) * .45) * (forward ? 1 : -1);
+      const lift = startY === endY ? 12 : 0;
+      const verticalBend = Math.abs(endY - startY) * .35 * (downward ? 1 : -1);
+      let curve = sameColumn
+        ? `M${startX} ${startY} C${startX + 28} ${startY + verticalBend} ${endX + 28} ${endY - verticalBend} ${endX} ${endY}`
+        : `M${startX} ${startY} C${startX + bend} ${startY - lift} ${endX - bend} ${endY + lift} ${endX} ${endY}`;
+      if (from === "excerpt") curve = `M${startX} ${startY} C640 651 892 651 978 619 C1024 602 1010 ${endY} ${endX} ${endY}`;
+      if (from === "heimdall" && to === "forseti") curve = `M${startX} ${startY} C730 312 736 280 866 280 C984 280 1004 ${endY} ${endX} ${endY}`;
+      path.setAttribute("d", curve);
+      path.dataset.from = from;
+      path.dataset.to = to;
+      path.dataset.relation = relation;
+      path.setAttribute("class", `ln-edge ${relation === "observation_targets_resource" ? "is-ontology" : ""} ${relation === "required" && !isComplete() ? "is-missing" : ""} ${from === selected || to === selected ? "is-selected" : ""}`);
       byId("lineageEdges").append(path);
     });
     byId("lineageEmpty").hidden = visible.size > 0;
@@ -81,7 +98,8 @@
     const outgoing = edges.filter(edge => edge[0] === selected);
     const relationButtons = (items, index) => items.map(edge => `<button type="button" data-select="${edge[index]}">${escape(lookup.get(edge[index]).title)}<small> / ${escape(edge[2] === "required" && isComplete() ? "consumed" : edge[2])}</small></button>`).join("") || "<span>No recorded connections</span>";
     const detail = isComplete() && ["logs", "log-window", "heimdall", "forseti", "decision"].includes(node.id) ? "This alternate synthetic snapshot includes the required log window. Evaluation is shadow-only; no approval, dispatch or effect-verification record is implied." : node.detail;
-    byId("lineageInspector").innerHTML = `<div class="ln-inspector-intro"><span class="ln-record-kind">${escape(node.kind.toUpperCase())} / SELECTED RECORD</span><h2>${escape(node.title)}</h2><strong class="${(node.missing || node.held) && !isComplete() ? "ln-warning" : "ln-success"}">${escape(status(node))}</strong><p>${escape(detail)}</p></div><div><dl><div><dt>Accountable agent</dt><dd>${escape(node.owner)}</dd></div><div><dt>Exact record version</dt><dd><code>${escape(node.version)}</code></dd></div><div><dt>Origin family</dt><dd>${escape(node.origin)}</dd></div><div><dt>Cutoff</dt><dd>2026-09-20 10:42:00 UTC</dd></div></dl><div class="ln-record-note">Synthetic evidence<br />Execution authority: none</div></div><div><h3>Inputs <small>${incoming.length}</small></h3><div class="ln-related">${relationButtons(incoming, 0)}</div><h3>Used by <small>${outgoing.length}</small></h3><div class="ln-related">${relationButtons(outgoing, 1)}</div><button type="button" class="ln-focus" id="lineageFocus" aria-pressed="${focused}">${focused ? "Show all records" : "Focus on this record"}</button></div>`;
+    const properties = node.properties ? `<h3>Instance properties</h3><dl class="ln-properties">${Object.entries(node.properties).map(([key, value]) => `<div><dt>${escape(key)}</dt><dd>${escape(value)}</dd></div>`).join("")}</dl>` : "";
+    byId("lineageInspector").innerHTML = `<div class="ln-inspector-intro"><span class="ln-record-kind">${escape(node.objectType ? `${node.objectType.toUpperCase()} / ONTOLOGY INSTANCE` : `${node.kind.toUpperCase()} / SELECTED RECORD`)}</span><h2>${escape(node.title)}</h2><strong class="${(node.missing || node.held) && !isComplete() ? "ln-warning" : "ln-success"}">${escape(status(node))}</strong><p>${escape(detail)}</p></div><div><dl><div><dt>Accountable agent</dt><dd>${escape(node.owner)}</dd></div><div><dt>Exact record version</dt><dd><code>${escape(node.version)}</code></dd></div><div><dt>Origin family</dt><dd>${escape(node.origin)}</dd></div><div><dt>Cutoff</dt><dd>2026-09-20 10:42:00 UTC</dd></div></dl>${properties}<div class="ln-record-note">Synthetic evidence<br />Execution authority: none</div></div><div><h3>Incoming connections <small>${incoming.length}</small></h3><div class="ln-related">${relationButtons(incoming, 0)}</div><h3>Outgoing connections <small>${outgoing.length}</small></h3><div class="ln-related">${relationButtons(outgoing, 1)}</div><button type="button" class="ln-focus" id="lineageFocus" aria-pressed="${focused}">${focused ? "Show all records" : "Focus on this record"}</button></div>`;
   }
   function renderSources(query) {
     const sources = nodes.filter(node => node.x === 24).map(node => [node.title, node.kind === "normative" ? "Rules / knowledge" : "Observed data", node.sub, status(node), node.id]);
@@ -100,7 +118,7 @@
     if (button.id === "lineageReset") { focused = false; byId("lineageSearch").value = ""; zoom = 1; updateZoom(); render(); }
     if (button.id === "lineageZoomIn" || button.id === "lineageZoomOut") { zoom = Math.max(.75, Math.min(1.5, zoom + (button.id === "lineageZoomIn" ? .125 : -.125))); updateZoom(); }
   });
-  function updateZoom() { byId("lineageCanvas").style.transform = `scale(${zoom})`; byId("lineageCanvasSize").style.width = `${984 * zoom}px`; byId("lineageCanvasSize").style.height = `${692 * zoom}px`; byId("lineageZoom").value = `${Math.round(zoom * 100)}%`; }
+  function updateZoom() { byId("lineageCanvas").style.transform = `scale(${zoom})`; byId("lineageCanvasSize").style.width = `${1272 * zoom}px`; byId("lineageCanvasSize").style.height = `${692 * zoom}px`; byId("lineageZoom").value = `${Math.round(zoom * 100)}%`; }
   byId("lineageSearch").addEventListener("input", render);
   byId("lineageScenario").addEventListener("change", render);
   render();

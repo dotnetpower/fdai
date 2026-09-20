@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lineage - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <link rel="stylesheet" href="assets/lineage.css?v=1" />
+  <link rel="stylesheet" href="assets/lineage.css?v=2" />
   <script src="assets/calm-slate.js?v=lineage-v1" defer></script>
-  <script src="assets/lineage.js?v=1" defer></script>
+  <script src="assets/lineage.js?v=2" defer></script>
 </head>
 <body class="ln-page">
   <main class="ln-workspace">
@@ -27,11 +27,11 @@
     </div>
     <div class="ln-layout" id="lineageLayout">
       <section class="ln-graph-region" aria-label="Evidence lineage graph">
-        <div class="ln-graph-head"><div class="ln-legend"><span><i class="ln-dot observed"></i>Observed data</span><span><i class="ln-dot normative"></i>Rules / knowledge</span><span><i class="ln-dot processing"></i>Agent execution</span></div><div class="ln-tools"><button type="button" id="lineageReset" title="Show the full lineage">Show all</button><button type="button" id="lineageZoomOut" aria-label="Zoom out" title="Zoom out">-</button><output id="lineageZoom" aria-label="Graph zoom">100%</output><button type="button" id="lineageZoomIn" aria-label="Zoom in" title="Zoom in">+</button></div></div>
+        <div class="ln-graph-head"><div class="ln-legend"><span><i class="ln-dot observed"></i>Observed data</span><span><i class="ln-dot normative"></i>Rules / knowledge</span><span><i class="ln-dot processing"></i>Agent execution</span><span><i class="ln-dot ontology"></i>Ontology instance</span></div><div class="ln-tools"><button type="button" id="lineageReset" title="Show the full lineage">Show all</button><button type="button" id="lineageZoomOut" aria-label="Zoom out" title="Zoom out">-</button><output id="lineageZoom" aria-label="Graph zoom">100%</output><button type="button" id="lineageZoomIn" aria-label="Zoom in" title="Zoom in">+</button></div></div>
         <div class="ln-canvas-scroll" id="lineageViewport" tabindex="0" aria-label="Scrollable lineage graph">
           <div id="lineageCanvasSize"><div class="ln-canvas" id="lineageCanvas">
-            <div class="ln-column" style="left:24px">01 / Sources</div><div class="ln-column" style="left:270px">02 / Versioned inputs</div><div class="ln-column" style="left:516px">03 / Agent executions</div><div class="ln-column" style="left:762px">04 / Decision &amp; audit</div>
-            <svg class="ln-edges" id="lineageEdges" width="984" height="692" aria-hidden="true"><defs><marker id="lineageArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" /></marker></defs></svg>
+            <div class="ln-column" style="left:24px">01 / Sources</div><div class="ln-column" style="left:270px">02 / Versioned inputs</div><div class="ln-column" style="left:516px">03 / Agent executions</div><div class="ln-column" style="left:762px">04 / Ontology instances</div><div class="ln-column" style="left:1054px">05 / Decision &amp; audit</div>
+            <svg class="ln-edges" id="lineageEdges" width="1272" height="692" aria-hidden="true"><defs><marker id="lineageArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" /></marker></defs></svg>
             <div id="lineageNodes"></div>
           </div></div>
           <p class="ln-empty" id="lineageEmpty" hidden>No matching records.</p>
