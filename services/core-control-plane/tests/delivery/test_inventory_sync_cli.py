@@ -1468,7 +1468,7 @@ async def test_collection_health_persists_only_sanitized_aggregate_state(
             "AZURE_SUBSCRIPTION_ID": "sub-1",
         }
     )
-    store = SimpleNamespace(write_state=AsyncMock())
+    store = SimpleNamespace(write_state=AsyncMock(), aclose=AsyncMock())
     monkeypatch.setattr(
         "fdai.delivery.inventory_sync_cli.PostgresStateStore",
         lambda **_: store,
@@ -1503,6 +1503,7 @@ async def test_collection_health_persists_only_sanitized_aggregate_state(
     )
 
     key, projection = store.write_state.await_args.args
+    store.aclose.assert_awaited_once_with()
     assert key == "inventory-collection-health"
     assert projection["source_alias"] == "arg-snapshot"
     assert projection["cursor"]["state"] == "unavailable"

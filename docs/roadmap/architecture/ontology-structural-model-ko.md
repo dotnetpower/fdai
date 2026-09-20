@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: b2d68fd95960700ecb3483caa5ba5c87d5c38ba0
+translation_source_sha: 88c43d0366f54701c42829ba3bba544e989e0061
 translation_revised: 2026-09-20
 ---
 # 온톨로지 구조 모델
@@ -78,9 +78,9 @@ digest에 포함하지 않지만 리소스 값, 관계 의미, 검증 상태, �
 포함합니다. 원본 상태 증적은 각 최신 snapshot에 남으며 Resource 또는 Link 원장 사실을
 중복시키지 않습니다. 현재 projection은 계속 최신 관측에서 전진하며, 의미 있는 그래프 변경,
 불완전한 이전 handoff 또는 누락된 이전 원장은 전체 새 append를 요구합니다.
-일회성 inventory coordinator는 runtime-settings 및 ontology-status store를 소유합니다. 완료되거나
-실패한 tick이 database pool worker를 남기지 않도록 provider client와 event transport를 소유하는
-같은 비동기 exit stack에서 두 store를 모두 닫습니다.
+일회성 inventory coordinator는 runtime-settings, ontology-status 및 collection-health store를
+소유합니다. 완료되거나 실패한 tick이 database pool worker를 남기지 않도록 provider client 및
+event transport와 함께 비동기 수명 주기에서 모두 닫습니다.
 
 저장소에서 실행할 수 없는 조건식이 있는 ObjectSet은 먼저 관계를 제외한 객체 1,000개 후보 구간을
 평가합니다. 이 구간이 잘렸고 요청한 결과 제한을 증명하지 못하면 저장소는 객체 50,000개로 제한된

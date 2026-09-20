@@ -662,9 +662,11 @@ async def _publish_collection_health(
     )
     if projection is None:
         return
-    await PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn)).write_state(
-        _COLLECTION_HEALTH_STATE_KEY, projection
-    )
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
+    try:
+        await store.write_state(_COLLECTION_HEALTH_STATE_KEY, projection)
+    finally:
+        await store.aclose()
 
 
 async def _drain_change_stream(config: InventoryJobConfig) -> ChangeStreamDrainResult:
