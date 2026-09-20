@@ -1,6 +1,6 @@
 ---
 name: pr-delivery
-description: "Complete an explicitly authorized FDAI code delivery through commit, push, pull request handling, protected merge, and safe local topic-branch cleanup. Use when the operator asks to commit and push, publish completed work, land a change, merge a PR, or handle a PR through completion."
+description: "Complete and continuously monitor an explicitly authorized FDAI code delivery through commit, push, pull request handling, CI remediation, protected merge, and safe local topic-branch cleanup. Use when the operator asks to commit and push, publish completed work, land a change, monitor until success, merge a PR, or handle a PR through completion."
 argument-hint: "Optional: PR number, issue number, or requested stopping point"
 ---
 
@@ -43,11 +43,14 @@ access, an admin bypass, or a force-push.
    - If checks are pending and repository policy supports auto-merge, enable protected auto-merge
      with the repository's established merge method. Record that external evidence is pending.
    - When Merge Queue is unavailable and delivery is authorized through merge, start the canonical
-     one-time coordinator described below. The coordinator owns subsequent bounded observations and
-     behind-branch updates; the interactive agent does not poll alongside it.
+     one-time coordinator described below, then attach its local-state waiter through an async
+     terminal. The coordinator owns subsequent bounded GitHub observations and behind-branch
+     updates; the waiter only reports its terminal state, and the interactive agent does not poll
+     alongside either process.
    - If a required check fails, use the `ci-diagnosis` skill on that exact attempt, fix only the
      established cause locally, rerun the narrowest falsifying check, commit, push, and update the
-     existing PR.
+     existing PR. Restore auto-merge, restart the coordinator, and attach a new waiter. Continue
+     this bounded diagnose-fix-validate-publish-monitor loop until merge or a genuine blocker.
    - Address actionable review comments within the authorized scope. Escalate ambiguous,
      scope-expanding, security-sensitive, or authority-changing requests instead of guessing.
    - Never use an admin override, dismiss a required review, weaken branch protection, or merge a
@@ -83,6 +86,25 @@ Start it from the clean isolated topic-branch worktree with that worktree's sele
   --worktree <absolute-worktree-path>
 ```
 
+Immediately after `start` succeeds, run the matching local-state waiter with the agent terminal in
+async mode so terminal completion returns control to the coding session without another GitHub
+query:
+
+```bash
+.venv/bin/python scripts/automation/pr_delivery_daemon.py wait \
+  --repo <owner/repository> \
+  --pr-number <number> \
+  --topic-branch <topic-branch> \
+  --base-branch <base-branch> \
+  --worktree <absolute-worktree-path>
+```
+
+The waiter reads only the private state file and verifies the daemon process identity. It exits zero
+only for a verified merge and nonzero for failed checks, conflicts, closure, interruption, or bounded
+timeouts. Do not use `get_terminal_output`, manual status loops, or additional GitHub reads while the
+async waiter is active; terminal completion is the wake-up signal. On a nonzero result, read status
+once, follow the failure route above, and attach a new waiter after the corrected head is published.
+
 The `start` operation returns immediately after creating one detached, finite process. It writes a
 private state record and log beneath the Git common directory and reuses an exact live process for
 the same PR instead of starting a duplicate. Do not pass tokens, credentials, URLs containing
@@ -114,10 +136,13 @@ coordinator does not inherit the exception because it did not perform the verifi
 ## Waiting and resumption
 
 GitHub Actions and reviews are external evidence. Do not repeatedly query them interactively. When
-checks are still running, enable auto-merge if allowed and either start the one-time coordinator or
-record the exact PR and head SHA before leaving the work blocked on external evidence. Resume from
-that same PR when the coordinator records a terminal outcome, a terminal notification arrives, or
-a later operator turn begins; do not create a replacement PR or silently switch revisions.
+checks are still running, enable auto-merge if allowed, start the one-time coordinator, and attach
+the async local-state waiter. Do not report delivery complete or end an active delivery turn merely
+because CI is pending. Resume from that same PR when the waiter emits a terminal notification. A
+failed check, conflict, or behind-head update returns control for the bounded remediation loop; a
+deadline, unavailable credential, ambiguous review, or scope-expanding repair is a genuine blocker
+and must be reported instead of retried indefinitely. Do not create a replacement PR or silently
+switch revisions.
 
 ## Example
 
