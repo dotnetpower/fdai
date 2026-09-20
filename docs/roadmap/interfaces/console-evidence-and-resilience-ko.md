@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: b85082b7e9e0505a6560093aea3240798d990fc3
-translation_revised: 2026-09-19
+translation_source_sha: 54acc38e9959d1a09e4a17c719df7a2172f28be0
+translation_revised: 2026-09-20
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다. 지식 전체 현황은 [클라우드 참조 수명 주기](cloud-resource-knowledge-lifecycle-ko.md)의 날짜, 가장 제한적인 출처 최신성, 정확한 바이트의 패키지 검토와 확인된 롤백 요청을 표시합니다. 원본 상태와 오프라인 패키지 접수를 분리하고, 신뢰 자료를 받지 않으면서 배포에서 관리하는 설정을 안내하며, 거부된 읽기 전용 검사는 다시 시도할 수 있게 유지하되 불확실한 쓰기는 권위 있는 상태를 다시 불러오게 합니다. 반입이나 색인 검증 대기를 검색 활성화로 표시하지 않으며 원본 URL은 표시용으로 유지합니다. 만료된 정책은 이력을 숨기지 않고 쓰기 작업을 차단합니다. 대소문자를 구분하지 않는 JSON 파일명 검사는 파일 형식만 검증하며 대화 의도를 해석하지 않습니다.

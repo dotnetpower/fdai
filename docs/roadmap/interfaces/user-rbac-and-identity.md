@@ -503,9 +503,7 @@ Human users never hold PATs or long-lived secrets:
   pass `--auth-mode azure-cli` to `start-console-web.sh`. The launcher projects the current CLI user
   with a fixed `Contributor` ceiling and sets paired confirmation values at the browser and API
   boundaries. Don't persist those implementation flags in `console/.env.local`. This diagnostic
-  mode cannot open approval details that require `Approver` or `Owner`. An explicitly requested
-  read-only conversation-assurance series reuses this active login without another sign-in prompt;
-  it cannot select another account or raise the Contributor ceiling.
+  mode cannot open approval details that require `Approver` or `Owner`. An explicitly requested read-only conversation-assurance series reuses this active login without another sign-in prompt; it cannot select another account or raise the Contributor ceiling.
 - **Synthetic fixtures**: anonymous authorization, static users, seed audit records,
   and scenario replay are available only through `app(test_fixtures=True)` under
   pytest. They aren't an interactive development data source.

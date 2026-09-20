@@ -206,13 +206,7 @@ their own typed request contracts. New tools are additive; they never override a
 The same projection is available through the deterministic channel verbs `search_tools` and
 `describe_tool`, and typed read RPC methods `tools.search` and `tools.describe`. Channel calls use
 the resolved `Principal`; RPC calls derive the role from server-authorized scopes, never from a
-caller-supplied role parameter. Both surfaces return descriptors only and cannot invoke the target.
-
-Before agent delegation, the server derives ownership only from canonical primary and secondary
-intents and exact owned ObjectType targets. Requested facets constrain answer and evidence shape;
-they cannot select or outscore an agent. If those ownership inputs do not resolve an accountable
-agent, the turn abstains or remains held instead of treating an output facet as routing authority.
-
+caller-supplied role parameter. Both surfaces return descriptors only and cannot invoke the target. Before agent delegation, the server derives ownership only from canonical primary and secondary intents and exact owned ObjectType targets. Requested facets constrain answer and evidence shape; they cannot select or outscore an agent. If those ownership inputs do not resolve an accountable agent, the turn abstains or remains held instead of treating an output facet as routing authority.
 ### 3.1 Day-1 tool set (read-only + explain)
 | Tool | Purpose | RBAC floor | Delegates to |
 |------|---------|-----------|--------------|

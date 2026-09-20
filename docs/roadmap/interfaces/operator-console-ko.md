@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 4591a6acfb5cc25a669ab42ce2566fe8c4ddc27b
+translation_source_sha: 37fcf06f980c500e39fef0b439397da6ee34c57a
 translation_revised: 2026-09-20
 ---
 # FDAI Console 대화
@@ -205,13 +205,7 @@ RBAC 하한, side-effect 등급과 문서화된 실패 표면을 가집니다. W
 같은 변환 결과는 결정론적 채널 verb `search_tools`, `describe_tool`과 타입이 지정된 읽기 RPC
 메서드 `tools.search`, `tools.describe`로 제공됩니다. 채널 호출은 resolved `Principal`을
 사용하고 RPC 호출은 호출자가 제공한 역할 매개변수가 아니라 server-authorized 범위에서 역할을
-도출합니다. 두 표면 모두 서술자만 반환하며 대상을 invoke할 수 없습니다.
-
-에이전트 위임 전에 서버는 정본 primary 및 secondary intent와 정확히 소유한 ObjectType 대상만으로
-담당자를 결정합니다. 요청 facet은 답변 및 근거 형식을 제한할 뿐 에이전트를 선택하거나 점수를
-높일 수 없습니다. 이러한 담당자 입력으로 책임 에이전트를 결정할 수 없으면 출력 facet을 라우팅
-권한으로 취급하지 않고 해당 턴을 기권하거나 보류 상태로 유지합니다.
-
+도출합니다. 두 표면 모두 서술자만 반환하며 대상을 invoke할 수 없습니다. 에이전트 위임 전에 서버는 정본 primary 및 secondary intent와 정확히 소유한 ObjectType 대상만으로 담당자를 결정합니다. 요청 facet은 답변 및 근거 형식을 제한할 뿐 에이전트를 선택하거나 점수를 높일 수 없습니다. 이러한 담당자 입력으로 책임 에이전트를 결정할 수 없으면 출력 facet을 라우팅 권한으로 취급하지 않고 해당 턴을 기권하거나 보류 상태로 유지합니다.
 ### 3.1 Day-1 도구 집합 (읽기 전용 + explain)
 
 | 도구 | 목적 | RBAC 하한 | Delegates to |
