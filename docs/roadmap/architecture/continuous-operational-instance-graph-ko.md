@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: bdf1b92ce395778a1ff85d4eef43490a248b104f
+translation_source_sha: 0eebeaaa1c8fe70aa2f9d891310bf0f12ed4470e
 translation_revised: 2026-09-20
 ---
 # 지속형 운영 인스턴스 그래프
@@ -471,7 +471,6 @@ PostgreSQL projector는 lock을 획득하고 활성 인벤토리 세대를 다�
 ## 보존, rollup, archive
 
 ### 저장 계층
-
 | 계층 | 내용 | 조회 동작 |
 |------|------|-----------|
 | Hot | 현재 객체와 링크, 최신성 상태, 활성 overlay, 최근의 정확한 관측 | 기본 운영 조회 경로입니다. |
@@ -479,6 +478,7 @@ PostgreSQL projector는 lock을 획득하고 활성 인벤토리 세대를 다�
 | Rollup | 타입이 지정된 시간별, 일별 또는 정책 선택 집계와 원본 범위 및 완전성 | 정확한 이벤트가 필요하지 않은 장기 추세에 사용합니다. |
 | Archive | 변경 불가능하게 압축된 partition, content-addressed 매니페스트, 출처, 보존 등급, 복원 metadata | 명시적인 이력 검색 경로에서만 읽습니다. |
 
+재구축 가능한 hot 변환 결과에는 고정된 로컬 저장소 상한을 적용합니다. Inventory는 활성 세대와 수집 중인 세대를 유지하고, 대체된 snapshot과 실패한 snapshot은 각각 최신 3개를 유지합니다. Ontology snapshot 조회는 최신 committed pin 8개와 각 pin의 정확한 prepared 매니페스트 및 chunk를 보존합니다. PostgreSQL LLM metering과 컨트롤 루프 분류 변환 결과는 각각 최신 레코드 50,000개를 보존합니다. 이 상한은 관측 원장, 감사 체인, 승인, 실행, rollback 또는 archive 근거를 삭제하지 않습니다. 이러한 레코드는 아래의 통제된 partition 및 hold 수명 주기를 따릅니다.
 ### 범위가 제한된 관측 이력
 
 런타임은 기존 overlay를 현재 조회 경로로 유지하면서 정규화된 관측을 추가 전용 원장에

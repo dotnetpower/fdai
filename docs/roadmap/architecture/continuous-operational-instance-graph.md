@@ -462,7 +462,6 @@ promote the global snapshot or replace the global ontology projection.
 ## Retention, rollup, and archive
 
 ### Storage tiers
-
 | Tier | Contents | Query behavior |
 |------|----------|----------------|
 | Hot | Current objects and links, freshness health, active overlays, and recent exact observations | Default operational query path. |
@@ -470,6 +469,7 @@ promote the global snapshot or replace the global ontology projection.
 | Rollup | Typed hourly, daily, or policy-selected aggregates with source coverage and completeness | Used for long-range trends when exact events are not required. |
 | Archive | Immutable compressed partitions plus content-addressed manifests, provenance, retention class, and restore metadata | Read only through an explicit historical retrieval path. |
 
+Rebuildable hot projections have fixed local storage bounds. Inventory keeps the active and any collecting generation plus the three newest superseded and three newest failed snapshots. Ontology snapshot reads retain the eight newest committed pins and their exact prepared manifests and chunks. PostgreSQL LLM metering and the control-loop classification projection each retain the newest 50,000 records. These limits do not delete the observation journal, audit chain, approval, execution, rollback, or archive evidence; those records follow their governed partition and hold lifecycle below.
 ### Bounded observation history
 
 The runtime dual-writes an append-only normalized observation journal while the existing overlay

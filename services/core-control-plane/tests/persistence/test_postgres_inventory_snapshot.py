@@ -49,6 +49,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactLane,
     StateFactMetadata,
 )
+from psycopg.rows import dict_row
 
 pytestmark = pytest.mark.integration
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -315,6 +316,59 @@ async def test_failed_candidate_retains_last_active_snapshot() -> None:
         "tags": {"fdai:managed": "true", "fdai:workload": "fdai"},
     }
     assert await context_provider("missing-resource") is None
+
+
+async def test_inventory_snapshot_retention_bounds_terminal_generations() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    promoted: list[str] = []
+    failed: list[str] = []
+
+    for index in range(5):
+        manifest = _manifest("retention-test")
+        attempt = await store.begin(manifest)
+        await store.stage(
+            attempt,
+            InventoryBatch(
+                resources=(
+                    ResourceRecord(
+                        f"retention-resource-{index}",
+                        "compute.vm",
+                    ),
+                )
+            ),
+        )
+        await store.promote(attempt, manifest)
+        promoted.append(attempt)
+
+    for _index in range(5):
+        attempt = await store.begin(_manifest("retention-failure-test"))
+        await store.fail(
+            attempt,
+            InventoryAttemptFailure(InventoryFailureCode.NETWORK_BLOCKED, "synthetic failure"),
+        )
+        failed.append(attempt)
+
+    async with await psycopg.AsyncConnection.connect(_dsn(), row_factory=dict_row) as connection:
+        cursor = await connection.execute(
+            "SELECT id, status FROM inventory_snapshot WHERE id=ANY(%s::text[]) ORDER BY id",
+            (promoted + failed,),
+        )
+        retained = {row["id"]: row["status"] for row in await cursor.fetchall()}
+        cursor = await connection.execute(
+            "SELECT COUNT(*) AS total FROM inventory_snapshot_resource "
+            "WHERE snapshot_id=ANY(%s::text[])",
+            (promoted[:1],),
+        )
+        oldest_resource_count = int((await cursor.fetchone())["total"])
+
+    assert promoted[0] not in retained
+    assert retained[promoted[-1]] == "active"
+    assert sum(status == "superseded" for status in retained.values()) == 3
+    assert failed[0] not in retained and failed[1] not in retained
+    assert sum(status == "failed" for status in retained.values()) == 3
+    assert oldest_resource_count == 0
 
 
 async def test_inventory_coverage_summary_does_not_decode_resource_properties() -> None:

@@ -183,6 +183,32 @@ class PostgresStateStore(StateStore):
                 row = await cursor.fetchone()
         return row is not None
 
+    async def compare_and_set_state(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+    ) -> bool:
+        if expected_revision < 0:
+            raise ValueError("expected_revision MUST be >= 0")
+        async with self._connection() as conn:
+            async with conn.transaction():
+                await self._set_statement_timeout(conn)
+                cursor = await conn.execute(
+                    """
+                    UPDATE state_kv
+                       SET value = %s::jsonb,
+                           updated_at = NOW()
+                     WHERE key = %s
+                       AND COALESCE(value ->> 'revision', '0') = %s
+                    RETURNING key
+                    """,
+                    (json.dumps(dict(value), default=str), key, str(expected_revision)),
+                )
+                row = await cursor.fetchone()
+        return row is not None
+
     async def write_state_with_audit_if_absent(
         self,
         key: str,

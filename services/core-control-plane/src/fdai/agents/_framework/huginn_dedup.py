@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections.abc import Callable, Mapping
@@ -12,7 +13,9 @@ from uuid import uuid4
 
 from fdai.shared.providers.state_store import StateStore
 
-_STATE_KEY = "pantheon/huginn/ingress-dedup"
+_LEGACY_STATE_KEY = "pantheon/huginn/ingress-dedup"
+_SHARD_PREFIX = _LEGACY_STATE_KEY + "/shard-"
+_MAX_SHARDS = 64
 _MAX_CAS_ATTEMPTS = 8
 _DEFAULT_LEASE = timedelta(seconds=60)
 _MAX_LEASE = timedelta(minutes=5)
@@ -49,14 +52,26 @@ class HuginnDedupJournal:
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._claim_lease = claim_lease
         self._owner_token = uuid4().hex
+        self._shard_count = min(_MAX_SHARDS, capacity)
+        self._migration_lock = asyncio.Lock()
+        self._migration_complete = False
 
     async def published_keys(self) -> tuple[str, ...]:
         """Return completed keys in oldest-to-newest sequence order."""
-        _, stored_capacity, _, entries = _decode(await self._store.read_state(_STATE_KEY))
-        self._validate_capacity(stored_capacity)
+        await self._ensure_migrated()
+        states = await asyncio.gather(
+            *(self._store.read_state(self._shard_key(index)) for index in range(self._shard_count))
+        )
+        entries: dict[str, dict[str, Any]] = {}
+        for index, state in enumerate(states):
+            _, stored_capacity, _, shard_entries = _decode(state)
+            self._validate_capacity(stored_capacity, expected=self._shard_capacity(index))
+            entries.update(shard_entries)
         return tuple(
             key
-            for key, entry in sorted(entries.items(), key=lambda item: int(item[1]["sequence"]))
+            for key, entry in sorted(
+                entries.items(), key=lambda item: (int(item[1]["sequence"]), item[0])
+            )
             if entry["status"] == "published"
         )
 
@@ -69,11 +84,15 @@ class HuginnDedupJournal:
         change_projection: Mapping[str, Any] | None,
     ) -> HuginnIngressClaim:
         """Claim one key or return its completed duplicate disposition."""
+        await self._ensure_migrated()
+        shard_index = self._shard_index(idempotency_key)
+        state_key = self._shard_key(shard_index)
+        capacity = self._shard_capacity(shard_index)
         now = _clock_now(self._clock)
         for _ in range(_MAX_CAS_ATTEMPTS):
-            current = await self._store.read_state(_STATE_KEY)
+            current = await self._store.read_state(state_key)
             revision, stored_capacity, next_sequence, entries = _decode(current)
-            self._validate_capacity(stored_capacity)
+            self._validate_capacity(stored_capacity, expected=capacity)
             existing = entries.get(idempotency_key)
             if existing is not None:
                 _validate_request(existing, request_digest=request_digest)
@@ -91,8 +110,10 @@ class HuginnDedupJournal:
                 replacement["lease_expires_at"] = (now + self._claim_lease).isoformat()
                 next_entries = {**entries, idempotency_key: replacement}
                 if await self._advance(
+                    state_key=state_key,
                     current=current,
                     revision=revision,
+                    capacity=capacity,
                     next_sequence=next_sequence,
                     entries=next_entries,
                     audit={
@@ -107,7 +128,7 @@ class HuginnDedupJournal:
                 continue
 
             next_entries = dict(entries)
-            if len(next_entries) >= self._capacity:
+            if len(next_entries) >= capacity:
                 evictable = sorted(
                     (
                         (key, entry)
@@ -136,27 +157,26 @@ class HuginnDedupJournal:
             }
             next_entries[idempotency_key] = entry
             if await self._advance(
+                state_key=state_key,
                 current=current,
                 revision=revision,
+                capacity=capacity,
                 next_sequence=next_sequence + 1,
                 entries=next_entries,
-                audit={
-                    "actor": "Huginn",
-                    "action_kind": "ingress.claim.created",
-                    "idempotency_key": idempotency_key,
-                    "request_digest": request_digest,
-                    "revision": revision + 1,
-                },
             ):
                 return _claim_from_entry(entry)
         raise RuntimeError("Huginn dedup claim contention exceeded the bounded retry limit")
 
     async def complete(self, *, idempotency_key: str, request_digest: str) -> None:
         """Checkpoint successful publication without retaining the payload body."""
+        await self._ensure_migrated()
+        shard_index = self._shard_index(idempotency_key)
+        state_key = self._shard_key(shard_index)
+        capacity = self._shard_capacity(shard_index)
         for _ in range(_MAX_CAS_ATTEMPTS):
-            current = await self._store.read_state(_STATE_KEY)
+            current = await self._store.read_state(state_key)
             revision, stored_capacity, next_sequence, entries = _decode(current)
-            self._validate_capacity(stored_capacity)
+            self._validate_capacity(stored_capacity, expected=capacity)
             existing = entries.get(idempotency_key)
             if existing is None:
                 raise RuntimeError("Huginn ingress claim disappeared before completion")
@@ -175,17 +195,12 @@ class HuginnDedupJournal:
                 "change_projection": None,
             }
             if await self._advance(
+                state_key=state_key,
                 current=current,
                 revision=revision,
+                capacity=capacity,
                 next_sequence=next_sequence,
                 entries={**entries, idempotency_key: completed},
-                audit={
-                    "actor": "Huginn",
-                    "action_kind": "ingress.claim.published",
-                    "idempotency_key": idempotency_key,
-                    "request_digest": request_digest,
-                    "revision": revision + 1,
-                },
             ):
                 return
         raise RuntimeError("Huginn dedup completion contention exceeded the bounded retry limit")
@@ -193,30 +208,142 @@ class HuginnDedupJournal:
     async def _advance(
         self,
         *,
+        state_key: str,
         current: Mapping[str, Any] | None,
         revision: int,
+        capacity: int,
         next_sequence: int,
         entries: Mapping[str, Mapping[str, Any]],
-        audit: Mapping[str, Any],
+        audit: Mapping[str, Any] | None = None,
     ) -> bool:
         value = _encode(
             revision=revision + 1,
-            capacity=self._capacity,
+            capacity=capacity,
             next_sequence=next_sequence,
             entries=entries,
         )
         if current is None:
-            return await self._store.write_state_with_audit_if_absent(_STATE_KEY, value, audit)
+            if audit is None:
+                return await self._store.write_state_if_absent(state_key, value)
+            return await self._store.write_state_with_audit_if_absent(state_key, value, audit)
+        if audit is None:
+            return await self._store.compare_and_set_state(
+                state_key,
+                value,
+                expected_revision=revision,
+            )
         return await self._store.compare_and_set_state_with_audit(
-            _STATE_KEY,
+            state_key,
             value,
             expected_revision=revision,
             audit_entry=audit,
         )
 
-    def _validate_capacity(self, stored_capacity: int | None) -> None:
-        if stored_capacity is not None and stored_capacity != self._capacity:
+    def _validate_capacity(self, stored_capacity: int | None, *, expected: int) -> None:
+        if stored_capacity is not None and stored_capacity != expected:
             raise ValueError("Huginn dedup capacity conflicts with durable state")
+
+    def _shard_index(self, idempotency_key: str) -> int:
+        digest = hashlib.sha256(idempotency_key.encode()).digest()
+        return int.from_bytes(digest[:2], "big") % self._shard_count
+
+    def _shard_key(self, index: int) -> str:
+        return f"{_SHARD_PREFIX}{index:02x}"
+
+    def _shard_capacity(self, index: int) -> int:
+        base, remainder = divmod(self._capacity, self._shard_count)
+        return base + (1 if index < remainder else 0)
+
+    async def _ensure_migrated(self) -> None:
+        if self._migration_complete:
+            return
+        async with self._migration_lock:
+            if self._migration_complete:
+                return
+            for _ in range(_MAX_CAS_ATTEMPTS):
+                current = await self._store.read_state(_LEGACY_STATE_KEY)
+                revision, stored_capacity, _next_sequence, entries = _decode(current)
+                self._validate_capacity(stored_capacity, expected=self._capacity)
+                if not entries:
+                    self._migration_complete = True
+                    return
+                grouped: dict[int, dict[str, dict[str, Any]]] = {}
+                for key, entry in entries.items():
+                    grouped.setdefault(self._shard_index(key), {})[key] = entry
+                for index, legacy_entries in sorted(grouped.items()):
+                    await self._merge_legacy_shard(index, legacy_entries)
+                if await self._advance(
+                    state_key=_LEGACY_STATE_KEY,
+                    current=current,
+                    revision=revision,
+                    capacity=self._capacity,
+                    next_sequence=1,
+                    entries={},
+                    audit={
+                        "actor": "Huginn",
+                        "action_kind": "ingress.claim.migrated",
+                        "revision": revision + 1,
+                        "shard_count": self._shard_count,
+                    },
+                ):
+                    self._migration_complete = True
+                    return
+            raise RuntimeError("Huginn dedup migration contention exceeded the bounded retry limit")
+
+    async def _merge_legacy_shard(
+        self,
+        index: int,
+        legacy_entries: Mapping[str, Mapping[str, Any]],
+    ) -> None:
+        state_key = self._shard_key(index)
+        capacity = self._shard_capacity(index)
+        for _ in range(_MAX_CAS_ATTEMPTS):
+            current = await self._store.read_state(state_key)
+            revision, stored_capacity, next_sequence, entries = _decode(current)
+            self._validate_capacity(stored_capacity, expected=capacity)
+            merged = dict(entries)
+            for key, entry in sorted(
+                legacy_entries.items(), key=lambda item: int(item[1]["sequence"])
+            ):
+                existing = merged.get(key)
+                if existing is not None:
+                    _validate_request(existing, request_digest=str(entry["request_digest"]))
+                    continue
+                migrated = dict(entry)
+                migrated["sequence"] = next_sequence
+                next_sequence += 1
+                merged[key] = migrated
+            while len(merged) > capacity:
+                evictable = min(
+                    (
+                        (key, entry)
+                        for key, entry in merged.items()
+                        if entry["status"] == "published"
+                    ),
+                    key=lambda item: int(item[1]["sequence"]),
+                    default=None,
+                )
+                if evictable is None:
+                    raise RuntimeError("Huginn dedup shard has no completed entry to evict")
+                del merged[evictable[0]]
+            if merged == entries:
+                return
+            if await self._advance(
+                state_key=state_key,
+                current=current,
+                revision=revision,
+                capacity=capacity,
+                next_sequence=next_sequence,
+                entries=merged,
+                audit={
+                    "actor": "Huginn",
+                    "action_kind": "ingress.claim.shard_migrated",
+                    "revision": revision + 1,
+                    "shard": index,
+                },
+            ):
+                return
+        raise RuntimeError("Huginn dedup shard migration exceeded the bounded retry limit")
 
 
 def request_digest(raw: Mapping[str, Any]) -> str:

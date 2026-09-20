@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 8fc5dea1a4f96907929c33adb4c78d6335bd4158
+translation_source_sha: a52202c132570203c52034411a43853e563a08aa
 translation_revised: 2026-09-20
 ---
 
@@ -27,7 +27,7 @@ translation_revised: 2026-09-20
 | 소유 topic producer 완전성 | implemented | [`test_registry.py`](../../../services/core-control-plane/tests/agents/test_registry.py) | AST 기반 registry 검증은 모든 `AgentSpec.publishes` topic이 구체적인 publish call에 도달하도록 요구하고, 선언되지 않은 topic의 producer 근거를 거부합니다. 임의의 문자열 언급을 producer로 취급하지 않고 literal call, import된 topic 상수 및 정확한 dynamic-topic 비교를 인식합니다. |
 | W2-W6 거버넌스, 파이프라인, 인터페이스, 전문 에이전트, 인계 및 보안 메커니즘 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py) | 선택적 T2 종합 전의 T1 답변 평가를 포함한 범위가 제한된 메커니즘을 집중 합성 검사로 실행하지만 실제 운영 검증을 입증하지는 않습니다. |
 | 영속 권한, 복구, 인계 및 학습 재생 | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore 기반 CAS, 점유 유효 기간, 검사 지점, 보낼 편지함 및 시작 복구 경로에는 재시작과 동시성 집중 검사 근거가 있습니다. 범위가 제한된 Low 심각도 복제본 간 및 작업 신원 잔여 문제 두 건은 아래에 열어 둡니다. |
-| 영속 Huginn 유입 중복 제거 | implemented | `agents/{huginn.py,_framework/huginn_dedup.py}` 및 집중 discovery/runtime 검사 | 프로덕션 조립은 유입 consumer를 시작하기 전에 제한된 key claim, 정확한 정규화 재시도 payload, owner lease 및 게시 checkpoint를 영속화합니다. Broker 수락 후 checkpoint 전 crash는 event bus의 at-least-once 계약에 따라 동일한 stable idempotency key를 다시 전달할 수 있습니다. |
+| 영속 Huginn 유입 중복 제거 | implemented | `agents/{huginn.py,_framework/huginn_dedup.py}` 및 집중 discovery/runtime 검사 | 프로덕션 조립은 유입 consumer를 시작하기 전에 최대 64개의 정확한 용량 shard에 제한된 key claim, 정확한 정규화 재시도 payload, owner lease 및 게시 checkpoint를 영속화합니다. 일반 claim은 권한 없는 개정 번호 CAS를 사용해 각 이벤트를 감사에 중복 기록하지 않으며, 복구와 이행은 계속 감사합니다. 시작 시 기존 단일 행 원장을 멱등적으로 이행하고 압축합니다. Broker 수락 후 checkpoint 전 crash는 event bus의 at-least-once 계약에 따라 동일한 stable idempotency key를 다시 전달할 수 있습니다. |
 | Loki ResilienceScore 생산 | implemented | `agents/{loki.py,_framework/loki_resilience.py}`; 집중 Wave 5 및 cross-vertical 후보 검사 | Loki는 Huginn이 소유하는 정규화 score Event를 consumer의 정확한 후보 계약으로 검증하고 `object.resilience-score`를 게시하며, 범위가 제한된 읽기 전용 score 변환 결과만 유지합니다. 후보는 판단, 승인 또는 실행 권한을 부여하지 않습니다. |
 | Bragi 세션 객체 생산 | implemented | `agents/{bragi.py,_framework/bragi_publication.py}`; 집중 Bragi, 대화, Norns, runtime 및 governance 검사 | 첫 in-process 세션은 content-free `Conversation` 하나를 게시합니다. 명시적 메서드는 검증된 `UserPreferenceRecord`와 동의가 확인된 `PostTurnReviewInput` 값만 받아 소유 topic에 게시하며 판단, 승인 또는 실행 경로를 노출하지 않습니다. 배포가 소유하는 store 및 queue binding은 별도입니다. |
 | W7 에이전트 간 shadow 작업 흐름 메커니즘 | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 작업 흐름에 실행 가능한 합성 shadow 추적이 있으며, enforce 작업 흐름을 기본값으로 사용하는 근거는 이 문서에 없습니다. |
@@ -42,6 +42,7 @@ translation_revised: 2026-09-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-20 | implemented | Huginn의 범위가 제한된 영속 유입 원장을 최대 64개의 결정론적 shard로 분할하고, 기존 단일 행을 압축하는 개정 번호 CAS 이행을 추가했습니다. 일반 claim 및 게시 갱신은 더 이상 권한 없는 전달 checkpoint를 감사에 중복 기록하지 않으며 복구와 이행은 계속 감사합니다. 정확한 전체 용량, 대기 lease, 정규화된 재시도 payload, 재시작 replay, 충돌 거부 및 broker 수락/checkpoint 경계는 바뀌지 않습니다. | `현재 변경`; 기존 원장 이행, 제거, 재시작, lease, 충돌, checkpoint 감사, discovery, Ruff 및 strict mypy 집중 검사. | 통제된 broker 중단 및 재시작 근거를 보존합니다. Broker 수락/checkpoint crash 구간에서는 at-least-once 재전달 가능성이 남습니다. |
 | 2026-09-20 | implemented | Huginn discovery 상태에서 관측 부재를 명시하도록 했습니다. Snapshot은 projection 결속 여부를 보고하고, 전달 소유 cursor, backpressure 및 source-health 신호가 없을 때 정상으로 간주하지 않고 `not_observed`로 표시합니다. | `현재 변경`; 집중 Huginn 상태 계약 및 discovery 검사. | 배포 소유 관측값이 준비되면 결속합니다. Cursor, transport 또는 provider 권한은 Huginn으로 이동하지 않았습니다. |
 | 2026-09-20 | implemented | 이전 ownership 교정 및 Loki 행을 조정했습니다. 해당 행의 Bragi 및 ResilienceScore source 잔여는 위에 추가된 후속 producer 완료 행으로 대체됐습니다. | `현재 변경`; append-only 원장 순서 및 집중 producer 근거. | 배포된 Bragi callback 및 통제된 runtime 근거는 남지만 구현되지 않은 source producer는 없습니다. |
 | 2026-09-20 | implemented | Loki의 raw `detected_at` 및 attribute timestamp fallback을 제거했습니다. 이제 ResilienceScore 후보 기준 시점은 Huginn이 검증한 `occurred_at` 또는 trusted `ingested_at`만 사용하므로 검증되지 않은 시간 출처를 허용하지 않으면서 실제 정규화 producer 경로가 동작합니다. | `현재 변경`; 집중 source-time, ingestion-time fallback, raw-time 거부 및 Huginn-to-Loki end-to-end 검사. | 통제된 runtime score-refresh 근거를 보존합니다. 범위가 제한된 대화 변환 결과의 durability는 주장하지 않습니다. |

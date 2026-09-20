@@ -128,6 +128,21 @@ class InMemoryStateStore(StateStore):
             self._write_locked(key, value)
             return True
 
+    async def compare_and_set_state(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+    ) -> bool:
+        with self._lock:
+            existing = self._state.get(key)
+            current_revision = existing.get("revision", 0) if existing is not None else 0
+            if current_revision != expected_revision:
+                return False
+            self._write_locked(key, value)
+            return True
+
     async def write_state_with_audit_if_absent(
         self,
         key: str,

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 56e255e552da82907549e73bfd262c23b14f9f6b
+translation_source_sha: 16945cf813f64cdbd8f5c30f0b676cac5f2054fb
 translation_revised: 2026-09-20
 ---
 # 에이전트 판테온
@@ -157,7 +157,7 @@ Heimdall은 결정론적 예측 에피소드 평가와 종결의 책임자이며
 명시적 `incident_correlation=correlate`, 상관관계, 근거, 활성 자동 열기, 충분한 심각도를 갖춘 후보만 워크플로로 전달하고 나머지는 이상 징후로 유지합니다. 워크플로는 `IncidentRegistry`가 감사된 기록을 쓰기 전에 근거를 다시 확인합니다.
 훅 실패는 동작 횟수를 늘리고 재시도할 제한 구간을 보존하며 수락과 정책상 보류는 별도로 계수합니다. 운영 조립은 레지스트리를 복원하고 활성화된 훅을 연결하며 Operator는 Heimdall을 가장하지 않습니다.
 
-Huginn은 실시간 리소스 발견과 정규화된 `Change` 기록을 소유합니다. Azure 생성/갱신/삭제 신호는 정본 Event Hubs Kafka 유입에서 정규화, 중복 제거, 상관관계 처리를 거쳐 `Event`가 됩니다. 권위 있는 이벤트 시각을 가진 IaC 계획, 릴리스 요청, 공급자 활동은 `object.change`도 만들며 Muninn이 결정 맥락용 불변 내용 기반 개정을 보존합니다.
+Huginn은 실시간 리소스 발견과 정규화된 `Change` 기록을 소유합니다. Azure 생성/갱신/삭제 신호는 정본 Event Hubs Kafka 유입에서 정규화, 중복 제거, 상관관계 처리를 거쳐 `Event`가 됩니다. 영속 중복 제거는 최대 64개의 결정론적 shard로 분할한 정확한 용량의 원장을 사용합니다. 시작 시 lease, 재시도 payload 또는 event bus의 at-least-once 수락/checkpoint 경계를 바꾸지 않고 개정 번호 CAS를 통해 기존 단일 행 원장을 이행하고 압축합니다. 일반 claim 생성과 게시는 권한이 없는 전달 checkpoint이므로 각 이벤트를 감사 체인에 중복 기록하지 않으며, lease 복구와 기존 원장 이행은 계속 감사합니다. 권위 있는 이벤트 시각을 가진 IaC 계획, 릴리스 요청, 공급자 활동은 `object.change`도 만들며 Muninn이 결정 맥락용 불변 내용 기반 개정을 보존합니다.
 원인이 된 `object.event`에 같은 정규화 Change 근거를 담아 토픽 간 도착 순서에 의존하지 않습니다. Forseti는 일반 규칙 판단 전에 계획된 변경의 영향을 제한된 범위에서 분석하고 Verdict 및 DecisionCase 근거에 보존합니다. 평가가 없거나 오래되었거나 실패했거나 검토가 필요하면 사람 승인을 요구합니다.
 관측된 변경은 맥락일 뿐이며 런타임은 그래프 최신성으로 계획된 변경을 자동 허용할 권한을 제공하지 않습니다. 최신성에는 명시적인 문자열 출처, 시각, 정수 최대 유효 기간이 필요하며 불리언 기간을 포함한 잘못된 값은 실패 시 차단하여 사람 승인으로 낮춥니다.
 일반 Verdict와 중재 DecisionCase는 같은 타입 지정 최신성 근거를 사용하므로 중재는 맥락 상한이 제거한 권한을 복구할 수 없습니다. 이 변환 결과는 작업 권한을 부여하지 않습니다.

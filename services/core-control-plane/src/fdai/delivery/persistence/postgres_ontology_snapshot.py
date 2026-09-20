@@ -39,7 +39,9 @@ if TYPE_CHECKING:
     from fdai.delivery.persistence.postgres_ontology import PostgresOntologyInstanceStoreConfig
 
 _PREFIX = "ontology-committed:"
+_PREPARED_PREFIX = "ontology-prepared:"
 _MAX_RECEIPT_BYTES = 8 * 1024 * 1024
+_COMMITTED_SNAPSHOT_RETENTION = 8
 _DIGEST = re.compile(r"sha256:[a-f0-9]{64}")
 
 
@@ -54,6 +56,71 @@ class CommittedOntologyPage:
     links: tuple[OntologyLinkRecord, ...]
     next_cursor: str | None
     total_count: int
+
+
+async def _prune_committed_snapshots(
+    connection: psycopg.AsyncConnection[Any],
+    *,
+    current_digest: str,
+) -> int:
+    cursor = await connection.execute(
+        "SELECT key, value FROM state_kv WHERE starts_with(key, %s) "
+        "ORDER BY updated_at DESC, key DESC FOR UPDATE",
+        (_PREFIX,),
+    )
+    rows = await cursor.fetchall()
+    current_key = _PREFIX + current_digest
+    retained = rows[:_COMMITTED_SNAPSHOT_RETENTION]
+    if not any(row["key"] == current_key for row in retained):
+        raise OntologyInstanceValidationError("current committed ontology snapshot is not retained")
+    retained_receipts = {str(row["key"]) for row in retained}
+    prepared_keys: set[str] = set()
+    for row in retained:
+        receipt = row["value"]
+        prepared_digest = receipt.get("prepared_digest") if isinstance(receipt, Mapping) else None
+        partitions = receipt.get("partitions") if isinstance(receipt, Mapping) else None
+        if (
+            not isinstance(prepared_digest, str)
+            or _DIGEST.fullmatch(prepared_digest) is None
+            or not isinstance(partitions, list)
+            or len(partitions) > 1000
+        ):
+            raise OntologyInstanceValidationError("committed ontology retention receipt is invalid")
+        prepared_keys.add(_PREPARED_PREFIX + prepared_digest)
+        for partition in partitions:
+            digest = partition.get("digest") if isinstance(partition, Mapping) else None
+            if not isinstance(digest, str) or _DIGEST.fullmatch(digest) is None:
+                raise OntologyInstanceValidationError(
+                    "committed ontology retention partition is invalid"
+                )
+            prepared_keys.add(_PREPARED_PREFIX + digest)
+    expired_prepared_keys: set[str] = set()
+    for row in rows[_COMMITTED_SNAPSHOT_RETENTION:]:
+        receipt = row["value"]
+        if not isinstance(receipt, Mapping):
+            continue
+        prepared_digest = receipt.get("prepared_digest")
+        if isinstance(prepared_digest, str) and _DIGEST.fullmatch(prepared_digest):
+            expired_prepared_keys.add(_PREPARED_PREFIX + prepared_digest)
+        partitions = receipt.get("partitions")
+        if isinstance(partitions, list):
+            for partition in partitions:
+                digest = partition.get("digest") if isinstance(partition, Mapping) else None
+                if isinstance(digest, str) and _DIGEST.fullmatch(digest):
+                    expired_prepared_keys.add(_PREPARED_PREFIX + digest)
+    removed = len(rows) - len(retained_receipts)
+    if removed:
+        await connection.execute(
+            "DELETE FROM state_kv WHERE starts_with(key, %s) AND NOT (key=ANY(%s::text[]))",
+            (_PREFIX, sorted(retained_receipts)),
+        )
+    await connection.execute(
+        "DELETE FROM state_kv WHERE starts_with(key, %s) "
+        "AND NOT (key=ANY(%s::text[])) "
+        "AND (key=ANY(%s::text[]) OR updated_at < NOW()-INTERVAL '1 hour')",
+        (_PREPARED_PREFIX, sorted(prepared_keys), sorted(expired_prepared_keys)),
+    )
+    return removed
 
 
 async def record_committed_snapshot(
@@ -96,6 +163,7 @@ async def record_committed_snapshot(
     row = await cursor.fetchone()
     if row is None or _encode(row["value"], limit=_MAX_RECEIPT_BYTES) != encoded:
         raise OntologyInstanceValidationError("committed ontology receipt conflicts with content")
+    await _prune_committed_snapshots(connection, current_digest=digest)
     return {
         **state_updates,
         "inventory-ontology:prepared-snapshot": {

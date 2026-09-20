@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, Mock
 from uuid import UUID
 
 import pytest
-from fdai.core.control_loop import _process
+from fdai.core.control_loop import _measurement, _process
 from fdai.core.control_loop._measurement import (
     TerminalMeasurementRecorder,
     build_control_loop_measurement,
@@ -107,6 +107,22 @@ async def test_replay_capture_times_do_not_replace_original_terminal() -> None:
     )
     assert len(_measurements(store)) == 1
     assert _measurements(store)[0]["recorded_at"] == NOW.isoformat().replace("+00:00", "Z")
+
+
+async def test_terminal_measurement_projection_retains_newest_records(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(_measurement, "_STATE_RETENTION", 2)
+    monkeypatch.setattr(_measurement, "_RETENTION_INTERVAL", 1)
+    store = InMemoryStateStore()
+    recorder = TerminalMeasurementRecorder(store)
+
+    for index in range(4):
+        await recorder.record(_event(f"event-{index}"), _result(), recorded_at=NOW)
+
+    retained = await store.read_states("measurement:control-loop:v1:", limit=10)
+    assert len(retained) == 2
+    assert len(_measurements(store)) == 4
 
 
 async def test_duplicate_acknowledgement_without_retained_evidence_is_not_success() -> None:

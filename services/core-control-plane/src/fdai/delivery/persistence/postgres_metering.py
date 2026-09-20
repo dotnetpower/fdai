@@ -12,6 +12,8 @@ from psycopg.rows import dict_row
 from fdai.core.metering.records import InvocationMode, InvocationScope, LlmInvocation
 from fdai.core.metering.usage import TokenUsage
 
+_DEFAULT_MAX_RECORDS = 50_000
+
 
 @dataclass(frozen=True, slots=True)
 class PostgresMeteringStoreConfig:
@@ -20,6 +22,7 @@ class PostgresMeteringStoreConfig:
     dsn: str
     statement_timeout_ms: int = 15_000
     connect_timeout_s: int = 10
+    max_records: int = _DEFAULT_MAX_RECORDS
 
     def __post_init__(self) -> None:
         if not self.dsn:
@@ -28,6 +31,8 @@ class PostgresMeteringStoreConfig:
             raise ValueError("statement_timeout_ms MUST be >= 1")
         if self.connect_timeout_s < 1:
             raise ValueError("connect_timeout_s MUST be >= 1")
+        if self.max_records < 1:
+            raise ValueError("max_records MUST be >= 1")
 
 
 class PostgresMeteringStore:
@@ -62,6 +67,14 @@ class PostgresMeteringStore:
                         invocation.cost,
                         invocation.currency,
                     ),
+                )
+                await connection.execute(
+                    "WITH cutoff AS ("
+                    "SELECT invocation_id FROM llm_invocation "
+                    "ORDER BY invocation_id DESC OFFSET %s LIMIT 1"
+                    ") DELETE FROM llm_invocation WHERE invocation_id < "
+                    "(SELECT invocation_id FROM cutoff)",
+                    (self._config.max_records - 1,),
                 )
 
     async def invocations(self) -> tuple[LlmInvocation, ...]:

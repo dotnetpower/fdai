@@ -58,6 +58,7 @@ from fdai.shared.providers.inventory_snapshot import (
 
 _PROMOTION_LOCK: Final[int] = 732_410_991
 _MAX_GRAPH_ROWS: Final[int] = 5000
+_TERMINAL_SNAPSHOT_RETENTION: Final[int] = 3
 _ALL_RESOURCES_QUERY = (
     "WITH effective_resources AS ("
     "SELECT r.resource_id, r.resource_type, r.props, r.provider_ref, r.last_seen "
@@ -80,6 +81,33 @@ _SELECT_EFFECTIVE_LINKS_QUERY = (
     "WHERE from_id=ANY(%s::text[]) AND to_id=ANY(%s::text[]) "
     "AND link_type=ANY(%s::text[]) ORDER BY from_id, link_type, to_id"
 )
+
+
+async def _prune_terminal_snapshots(connection: psycopg.AsyncConnection[Any]) -> int:
+    cursor = await connection.execute(
+        "SELECT id FROM ("
+        "SELECT id, status, ROW_NUMBER() OVER ("
+        "PARTITION BY status ORDER BY COALESCE(promoted_at, completed_at, started_at) DESC, id DESC"
+        ") AS retained_rank FROM inventory_snapshot "
+        "WHERE status IN ('superseded', 'failed')"
+        ") terminal WHERE retained_rank > %s ORDER BY id",
+        (_TERMINAL_SNAPSHOT_RETENTION,),
+    )
+    snapshot_ids = [str(row["id"]) for row in await cursor.fetchall()]
+    if not snapshot_ids:
+        return 0
+    await connection.execute(
+        "DELETE FROM state_kv WHERE EXISTS ("
+        "SELECT 1 FROM unnest(%s::text[]) AS doomed(snapshot_id) "
+        "WHERE starts_with(state_kv.key, 'inventory-collection:' || doomed.snapshot_id || ':')"
+        ")",
+        (snapshot_ids,),
+    )
+    await connection.execute(
+        "DELETE FROM inventory_snapshot WHERE id=ANY(%s::text[])",
+        (snapshot_ids,),
+    )
+    return len(snapshot_ids)
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,6 +164,7 @@ class PostgresInventorySnapshotStore:
                         started,
                     ),
                 )
+                await _prune_terminal_snapshots(connection)
         return attempt_id
 
     async def stage(self, attempt_id: str, batch: InventoryBatch) -> None:
@@ -336,15 +365,18 @@ class PostgresInventorySnapshotStore:
                             candidate_started,
                         ),
                     )
+                await _prune_terminal_snapshots(connection)
 
     async def fail(self, attempt_id: str, failure: InventoryAttemptFailure) -> None:
         async with await self._connect() as connection:
-            await self._set_timeout(connection)
-            await connection.execute(
-                "UPDATE inventory_snapshot SET status='failed', completed_at=NOW(), "
-                "failure_code=%s, failure_message=%s WHERE id=%s AND status='collecting'",
-                (failure.code.value, failure.message, attempt_id),
-            )
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                await connection.execute(
+                    "UPDATE inventory_snapshot SET status='failed', completed_at=NOW(), "
+                    "failure_code=%s, failure_message=%s WHERE id=%s AND status='collecting'",
+                    (failure.code.value, failure.message, attempt_id),
+                )
+                await _prune_terminal_snapshots(connection)
 
     async def active_snapshot_id(self) -> str | None:
         """Reread the durable active pointer after a promotion attempt."""

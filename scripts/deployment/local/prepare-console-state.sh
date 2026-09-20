@@ -28,6 +28,9 @@ migration_order="$(
 mapfile -t service_ids <<< "$migration_order"
 
 if [[ "$check_only" == "1" ]]; then
+  FDAI_DATABASE_URL="$database_url" \
+    "$repo_root/.venv/bin/python" \
+      "$repo_root/scripts/deployment/local/maintain-development-database.py" --check
   FDAI_DATABASE_URL="$validation_database_url" \
     "$repo_root/.venv/bin/python" -m alembic -c "$repo_root/alembic.ini" \
       current --check-heads >/dev/null
@@ -43,6 +46,10 @@ if [[ "$check_only" == "1" ]]; then
   echo "local PostgreSQL legacy schema and all five service migrations are current"
   exit 0
 fi
+
+FDAI_DATABASE_URL="$database_url" \
+  "$repo_root/.venv/bin/python" \
+    "$repo_root/scripts/deployment/local/maintain-development-database.py"
 
 FDAI_DATABASE_URL="$validation_database_url" \
   "$repo_root/.venv/bin/python" -m alembic -c "$repo_root/alembic.ini" upgrade head

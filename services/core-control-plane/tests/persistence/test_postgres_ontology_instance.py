@@ -742,6 +742,51 @@ async def test_isolated_snapshot_pages_pin_committed_version_across_new_publicat
             )
 
 
+async def test_isolated_snapshot_retention_bounds_committed_and_prepared_state() -> None:
+    async with _isolated_replacement_store() as store:
+        async with await store._connect() as connection:
+            await connection.execute(
+                "CREATE TABLE inventory_active (singleton BOOLEAN PRIMARY KEY,snapshot_id TEXT);"
+                "INSERT INTO inventory_active VALUES (TRUE,'snapshot-example')"
+            )
+        pins: list[str] = []
+        previous: tuple[str, ...] = ()
+        for index in range(9):
+            identifier = f"case-{index}"
+            await store.replace_subgraph_with_state(
+                objects=(_review_object(identifier),),
+                links=(),
+                previous_object_ids=previous,
+                previous_link_keys=(),
+                state_updates={},
+                expected_active_generation="snapshot-example",
+            )
+            pin = await store.pin_inventory_snapshot()
+            assert pin is not None
+            pins.append(pin)
+            previous = (identifier,)
+
+        async with await store._connect() as connection:
+            committed = await connection.execute(
+                "SELECT COUNT(*) AS total FROM state_kv "
+                "WHERE starts_with(key, 'ontology-committed:')"
+            )
+            prepared = await connection.execute(
+                "SELECT COUNT(*) AS total FROM state_kv "
+                "WHERE starts_with(key, 'ontology-prepared:')"
+            )
+            committed_count = int((await committed.fetchone())["total"])
+            prepared_count = int((await prepared.fetchone())["total"])
+
+        with pytest.raises(OntologyInstanceValidationError):
+            await store.read_inventory_snapshot_page(snapshot_digest=pins[0])
+        current = await store.read_inventory_snapshot_page(snapshot_digest=pins[-1])
+
+    assert committed_count == 8
+    assert prepared_count <= 16
+    assert [item.id for item in current.objects] == ["case-8"]
+
+
 @pytest.mark.parametrize(
     "defect",
     [

@@ -8,7 +8,10 @@ from typing import Any
 
 import pytest
 from fdai.agents._framework.bus import InMemoryBus
-from fdai.agents._framework.huginn_dedup import HuginnClaimInProgressError
+from fdai.agents._framework.huginn_dedup import (
+    HuginnClaimInProgressError,
+    request_digest,
+)
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.huginn import Huginn
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -192,6 +195,14 @@ async def test_durable_dedup_rehydrates_completed_key() -> None:
     assert await restarted.ingest(_canonical_event()) is None
 
 
+async def test_durable_dedup_does_not_audit_mechanical_delivery_checkpoints() -> None:
+    store = InMemoryStateStore()
+
+    assert await Huginn(state_store=store).ingest(_canonical_event()) is not None
+
+    assert tuple(store.audit_entries) == ()
+
+
 async def test_durable_dedup_rejects_idempotency_payload_collision() -> None:
     store = InMemoryStateStore()
     assert await Huginn(state_store=store).ingest(_canonical_event()) is not None
@@ -200,3 +211,55 @@ async def test_durable_dedup_rejects_idempotency_payload_collision() -> None:
 
     with pytest.raises(ValueError, match="collides with another raw request"):
         await Huginn(state_store=store).ingest(changed)
+
+
+async def test_durable_dedup_migrates_and_compacts_legacy_journal() -> None:
+    store = InMemoryStateStore()
+    first = _canonical_event()
+    second = _canonical_event()
+    second["idempotency_key"] = "azure-resource-change:event-2"
+    second["event_id"] = "00000000-0000-0000-0000-000000000003"
+    await store.write_state(
+        "pantheon/huginn/ingress-dedup",
+        {
+            "schema_version": "1.0.0",
+            "revision": 1,
+            "capacity": 2,
+            "next_sequence": 3,
+            "entries": {
+                first["idempotency_key"]: {
+                    "request_digest": request_digest(first),
+                    "status": "published",
+                    "owner_token": "",
+                    "lease_expires_at": "",
+                    "sequence": 1,
+                    "payload": None,
+                    "change_projection": None,
+                },
+                second["idempotency_key"]: {
+                    "request_digest": request_digest(second),
+                    "status": "published",
+                    "owner_token": "",
+                    "lease_expires_at": "",
+                    "sequence": 2,
+                    "payload": None,
+                    "change_projection": None,
+                },
+            },
+        },
+    )
+    migrated = Huginn(state_store=store, dedup_capacity=2)
+
+    assert await migrated.rehydrate() == 2
+    legacy = await store.read_state("pantheon/huginn/ingress-dedup")
+    assert legacy is not None and legacy["entries"] == {}
+    assert await migrated.ingest(first) is None
+
+    third = _canonical_event()
+    third["idempotency_key"] = "azure-resource-change:event-3"
+    third["event_id"] = "00000000-0000-0000-0000-000000000004"
+    assert await migrated.ingest(third) is not None
+
+    restarted = Huginn(state_store=store, dedup_capacity=2)
+    assert await restarted.rehydrate() == 2
+    assert await restarted.ingest(first) is not None

@@ -109,6 +109,16 @@ class StateStore(Protocol):
         """
         ...
 
+    async def compare_and_set_state(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+    ) -> bool:
+        """Atomically update non-authoritative state when its revision matches."""
+        ...
+
     async def write_state_with_audit_if_absent(
         self,
         key: str,
