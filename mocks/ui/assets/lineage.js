@@ -39,18 +39,29 @@
     ["Historical cases", "Reference knowledge", "Versioned case evidence", "Not used in this case"]
   ];
   const canvasWidth = 2010, canvasHeight = 1060;
-  let selected = "resource-type", focused = false, zoom = 1, view = "graph", fitted = true;
-  const lookup = new Map(nodes.map(node => [node.id, node]));
+  let expandedGroup = null;
+  let graph = window.fdaiLineageOntology.buildResourceTypeGraph(nodes, edges);
+  let selected = graph.membership.get("pod-resource"), focused = false, zoom = 1, view = "graph", fitted = true;
+  let lookup = new Map(graph.nodes.map(node => [node.id, node]));
+  const originals = new Map(nodes.map(node => [node.id, node]));
   const curves = new Map();
   const byId = id => document.getElementById(id);
   const escape = value => String(value).replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
   const isComplete = () => byId("lineageScenario").value === "complete";
+  const hasGap = node => node.kind === "resource-group" ? node.held : node.evidenceState ? node.evidenceState !== "current" : (node.missing || node.held) && !isComplete();
   function status(node) {
+    if (node.evidenceState) return `Evidence: ${node.evidenceState}`;
     if (!isComplete()) return node.status;
     return ({ logs: "Recorded", "log-window": "Coverage: complete", heimdall: "Qualified / attempt 2", forseti: "Evaluated / shadow only", decision: "Review / no dispatch" })[node.id] || node.status;
   }
   function neighbors(id) {
-    return new Set([id, ...edges.filter(edge => edge[0] === id || edge[1] === id).flatMap(edge => edge.slice(0, 2))]);
+    return new Set([id, ...graph.edges.filter(edge => edge[0] === id || edge[1] === id).flatMap(edge => edge.slice(0, 2))]);
+  }
+  function rebuild() {
+    graph = window.fdaiLineageOntology.buildResourceTypeGraph(nodes, edges, expandedGroup);
+    lookup = new Map(graph.nodes.map(node => [node.id, node]));
+    curves.clear();
+    if (!lookup.has(selected)) selected = graph.membership.get(selected) || "resource-type";
   }
   function connectionCurve(from, to) {
     const key = `${from}:${to}`;
@@ -64,7 +75,7 @@
     const direct = sameColumn
       ? [[start, [start[0] + 48, start[1]], [end[0] + 48, end[1]], end]]
       : [[start, [start[0] + bend, start[1] - 6], [end[0] - bend, end[1] + 6], end]];
-    const obstacles = nodes.filter(node => node.id !== from && node.id !== to);
+    const obstacles = graph.nodes.filter(node => node.id !== from && node.id !== to);
     function clear(segments) {
       return segments.every(points => {
         const steps = Math.max(16, Math.ceil(points.slice(1).reduce((total, point, index) => total + Math.hypot(point[0] - points[index][0], point[1] - points[index][1]), 0) / 8));
@@ -95,40 +106,46 @@
   function render() {
     const query = byId("lineageSearch").value.trim().toLowerCase();
     const related = neighbors(selected);
-    const matches = nodes.filter(node => `${node.title} ${node.sub} ${node.owner} ${node.objectType || ""} ${node.properties?.id || ""}`.toLowerCase().includes(query));
+    const matches = graph.nodes.filter(node => `${node.title} ${node.sub} ${node.owner} ${node.objectType || ""} ${node.properties?.id || ""} ${node.members?.map(member => `${member.title} ${member.properties.id}`).join(" ") || ""}`.toLowerCase().includes(query));
     const visible = new Set((focused ? matches.filter(node => related.has(node.id)) : matches).map(node => node.id));
-    byId("lineageNodes").innerHTML = nodes.filter(node => visible.has(node.id)).map(node => {
+    byId("lineageNodes").innerHTML = graph.nodes.filter(node => visible.has(node.id)).map(node => {
       const image = node.agent ? `../../../console/public/agent-icons/${node.agent}.svg` : node.icon && node.icon !== "kubernetes.svg" ? `../../../tools/architecture-diagrams/assets/azure/${node.icon}` : "";
-      return `<button type="button" class="ln-node ${node.missing && !isComplete() ? "is-missing" : ""} ${node.held && !isComplete() ? "is-held" : ""}" data-node="${node.id}" data-kind="${node.kind}" style="left:${node.x}px;top:${node.y}px" aria-pressed="${selected === node.id}"><span class="ln-node-heading">${image ? `<img src="${image}" alt="" />` : ""}<strong>${escape(node.title)}</strong></span><small>${escape(node.sub)}</small><span class="ln-node-state">${escape(status(node))}</span></button>`;
+      return `<button type="button" class="ln-node ${node.missing && !isComplete() ? "is-missing" : ""} ${hasGap(node) ? "is-held" : ""}" data-node="${node.id}" data-kind="${node.kind}" ${node.resourceType ? `data-resource-type="${node.resourceType}"` : ""} style="left:${node.x}px;top:${node.y}px" aria-pressed="${selected === node.id}"><span class="ln-node-heading">${image ? `<img src="${image}" alt="" />` : ""}<strong>${escape(node.title)}${node.members ? ` (${node.members.length})` : ""}</strong></span><small>${escape(node.kind === "resource-group" ? "ResourceType / sample scope" : node.sub)}</small><span class="ln-node-state">${escape(status(node))}</span></button>`;
     }).join("");
     byId("lineageEdges").querySelectorAll(".ln-edge").forEach(edge => edge.remove());
-    const shownEdges = edges.filter(edge => visible.has(edge[0]) && visible.has(edge[1]));
-    shownEdges.forEach(([from, to, relation]) => {
+    const shownEdges = graph.edges.filter(edge => visible.has(edge[0]) && visible.has(edge[1]));
+    shownEdges.forEach(([from, to, relation, records, aggregated]) => {
       const source = lookup.get(from), target = lookup.get(to);
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute("d", connectionCurve(from, to));
       path.dataset.from = from;
       path.dataset.to = to;
       path.dataset.relation = relation;
-      const membership = relation === "example instance";
-      path.setAttribute("class", `ln-edge ${membership ? "is-membership" : source.objectType && target.objectType ? "is-ontology" : ""} ${relation === "required" && !isComplete() ? "is-missing" : ""} ${from === selected || to === selected ? "is-selected" : ""}`);
+      path.dataset.count = String(records.length);
+      path.dataset.aggregated = String(aggregated);
+      const membership = relation === "example instance" || relation === "resource type";
+      path.setAttribute("class", `ln-edge ${membership ? "is-membership" : source.objectType && target.objectType ? "is-ontology" : ""} ${aggregated ? "is-aggregate" : ""} ${relation === "required" && !isComplete() ? "is-missing" : ""} ${from === selected || to === selected ? "is-selected" : ""}`);
       byId("lineageEdges").append(path);
     });
     byId("lineageEmpty").hidden = visible.size > 0;
     byId("lineageCanvasSize").hidden = visible.size === 0;
-    byId("lineageCount").textContent = `${visible.size} nodes / ${shownEdges.length} connections / 3 ObjectTypes / 24 example instances`;
+    const visibleGroups = graph.groups.filter(group => visible.has(group.id));
+    const visibleInstances = graph.nodes.filter(node => visible.has(node.id) && node.kind === "ontology" && node.objectType === "Resource");
+    byId("lineageCount").textContent = `${visibleGroups.length} ResourceTypes / ${visibleGroups.reduce((sum, group) => sum + group.members.length, 0)} represented Resources / ${visibleInstances.length} expanded / ${shownEdges.length} connections`;
     byId("caseState").textContent = isComplete() ? "Evaluated - shadow review only" : "Held - missing log evidence";
     renderInspector();
     renderSources(query);
   }
   function renderInspector() {
     const node = lookup.get(selected);
-    const incoming = edges.filter(edge => edge[1] === selected);
-    const outgoing = edges.filter(edge => edge[0] === selected);
-    const relationButtons = (items, index) => items.map(edge => `<button type="button" data-select="${edge[index]}">${escape(lookup.get(edge[index]).title)}<small> / ${escape(edge[2] === "required" && isComplete() ? "consumed" : edge[2])}</small></button>`).join("") || "<span>No recorded connections</span>";
+    const incoming = graph.edges.filter(edge => edge[1] === selected);
+    const outgoing = graph.edges.filter(edge => edge[0] === selected);
+    const relationButtons = (items, index) => items.map(edge => `<div><button type="button" data-select="${edge[index]}">${escape(lookup.get(edge[index]).title)}<small> / ${escape(edge[2] === "required" && isComplete() ? "consumed" : edge[2])}${edge[4] ? ` / ${edge[3].length} recorded` : ""}</small></button>${edge[4] ? `<details class="ln-edge-records"><summary>Original references (${edge[3].length})</summary><ul>${edge[3].map(([from, to, relation]) => `<li>${escape(originals.get(from).title)} - ${escape(relation)} - ${escape(originals.get(to).title)}<br /><code>${escape(originals.get(from).properties?.id || from)} / ${escape(originals.get(to).properties?.id || to)}</code></li>`).join("")}</ul></details>` : ""}</div>`).join("") || "<span>No recorded connections</span>";
     const detail = isComplete() && ["logs", "log-window", "heimdall", "forseti", "decision"].includes(node.id) ? "This alternate synthetic snapshot includes the required log window. Evaluation is shadow-only; no approval, dispatch or effect-verification record is implied." : node.detail;
     const properties = node.properties ? `<h3>${node.kind === "type" ? "Type declaration" : "Selected properties"}</h3><dl class="ln-properties">${Object.entries(node.properties).map(([key, value]) => `<div><dt>${escape(key)}</dt><dd>${escape(value)}</dd></div>`).join("")}</dl>` : "";
-    byId("lineageInspector").innerHTML = `<div class="ln-inspector-intro"><span class="ln-record-kind">${escape(node.kind === "type" ? "OBJECT TYPE / DECLARATION" : node.objectType ? `${node.objectType.toUpperCase()} / ONTOLOGY INSTANCE` : `${node.kind.toUpperCase()} / SELECTED RECORD`)}</span><h2>${escape(node.title)}</h2><strong class="${(node.missing || node.held) && !isComplete() ? "ln-warning" : "ln-success"}">${escape(status(node))}</strong><p>${escape(detail)}</p></div><div><dl><div><dt>Accountable agent</dt><dd>${escape(node.owner)}</dd></div><div><dt>Exact record version</dt><dd><code>${escape(node.version)}</code></dd></div><div><dt>Origin family</dt><dd>${escape(node.origin)}</dd></div><div><dt>Cutoff</dt><dd>2026-09-20 10:42:00 UTC</dd></div></dl>${properties}<div class="ln-record-note">Synthetic evidence<br />Execution authority: none</div></div><div><h3>Incoming connections <small>${incoming.length}</small></h3><div class="ln-related">${relationButtons(incoming, 0)}</div><h3>Outgoing connections <small>${outgoing.length}</small></h3><div class="ln-related">${relationButtons(outgoing, 1)}</div><button type="button" class="ln-focus" id="lineageFocus" aria-pressed="${focused}">${focused ? "Show all records" : "Focus on this record"}</button></div>`;
+    const groupId = node.members ? node.id : graph.membership.get(node.id);
+    const expansion = groupId ? `<button type="button" class="ln-focus" data-expand="${groupId}" aria-expanded="${expandedGroup === groupId}">${expandedGroup === groupId ? "Collapse instances" : `Expand ${lookup.get(groupId).members.length} instances`}</button>` : "";
+    byId("lineageInspector").innerHTML = `<div class="ln-inspector-intro"><span class="ln-record-kind">${escape(node.kind === "resource-group" ? "RESOURCE TYPE / SCOPED AGGREGATE" : node.kind === "type" ? "OBJECT TYPE / DECLARATION" : node.objectType ? `${node.objectType.toUpperCase()} / ONTOLOGY INSTANCE` : `${node.kind.toUpperCase()} / SELECTED RECORD`)}</span><h2>${escape(node.title)}</h2><strong class="${hasGap(node) ? "ln-warning" : "ln-success"}">${escape(status(node))}</strong><p>${escape(detail)}</p>${expansion}</div><div><dl><div><dt>Accountable agent</dt><dd>${escape(node.owner)}</dd></div><div><dt>Exact record version</dt><dd><code>${escape(node.version)}</code></dd></div><div><dt>Origin family</dt><dd>${escape(node.origin)}</dd></div><div><dt>Cutoff</dt><dd>2026-09-20 10:42:00 UTC</dd></div></dl>${properties}<div class="ln-record-note">Synthetic evidence<br />Execution authority: none</div></div><div><h3>Incoming connections <small>${incoming.length}</small></h3><div class="ln-related">${relationButtons(incoming, 0)}</div><h3>Outgoing connections <small>${outgoing.length}</small></h3><div class="ln-related">${relationButtons(outgoing, 1)}</div><button type="button" class="ln-focus" id="lineageFocus" aria-pressed="${focused}">${focused ? "Show all records" : "Focus on this record"}</button></div>`;
   }
   function renderSources(query) {
     const sources = nodes.filter(node => node.x === 24).map(node => [node.title, node.kind === "normative" ? "Rules / knowledge" : "Observed data", node.sub, status(node), node.id]);
@@ -143,8 +160,9 @@
     if (button.dataset.node) { selected = button.dataset.node; render(); document.querySelector(`[data-node="${selected}"]`)?.focus({ preventScroll: true }); }
     if (button.dataset.select) { select(button.dataset.select); document.querySelector(`[data-node="${selected}"]`)?.focus(); }
     if (button.dataset.view) setView(button.dataset.view);
+    if (button.dataset.expand) { expandedGroup = expandedGroup === button.dataset.expand ? null : button.dataset.expand; focused = false; byId("lineageSearch").value = ""; rebuild(); render(); byId("lineageInspector").querySelector("[data-expand]")?.focus({ preventScroll: true }); }
     if (button.id === "lineageFocus") { focused = !focused; render(); byId("lineageFocus").focus(); }
-    if (button.id === "lineageReset") { focused = false; byId("lineageSearch").value = ""; render(); fitGraph(); }
+    if (button.id === "lineageReset") { focused = false; expandedGroup = null; byId("lineageSearch").value = ""; rebuild(); render(); fitGraph(); }
     if (button.id === "lineageFit") fitGraph();
     if (button.id === "lineageActual") changeZoom(1);
     if (button.id === "lineageZoomIn" || button.id === "lineageZoomOut") changeZoom(zoom + (button.id === "lineageZoomIn" ? .125 : -.125));

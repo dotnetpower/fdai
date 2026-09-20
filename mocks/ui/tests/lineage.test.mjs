@@ -53,6 +53,23 @@ async function measure(frame, name) {
   evidence.push({ name, disposition: "passed", result });
 }
 
+async function assertClearCurves(frame) {
+  const collisions = await frame.evaluate(() => {
+    const nodes = [...document.querySelectorAll(".ln-node")];
+    return [...document.querySelectorAll(".ln-edge")].flatMap(path => {
+      const collisions = new Set();
+      for (let distance = 0; distance <= path.getTotalLength(); distance += 2) {
+        const point = path.getPointAtLength(distance);
+        nodes.filter(node => ![path.dataset.from, path.dataset.to].includes(node.dataset.node)).forEach(node => {
+          if (point.x > node.offsetLeft && point.x < node.offsetLeft + node.offsetWidth && point.y > node.offsetTop && point.y < node.offsetTop + node.offsetHeight) collisions.add(node.dataset.node);
+        });
+      }
+      return [...collisions].map(node => `${path.dataset.from} -> ${path.dataset.to} crosses ${node}`);
+    });
+  });
+  assert.deepEqual(collisions, [], "curves must not pass through unrelated nodes");
+}
+
 try {
   const started = performance.now();
   await page.goto(`${origin}/#mocks/ui/lineage.html`, { waitUntil: "load" });
@@ -65,14 +82,39 @@ try {
   await frame.locator('[data-node="forseti"]').waitFor();
   const loadMs = performance.now() - started;
   assert.ok(loadMs < 5000, `initial local render ${loadMs}ms exceeds 5s budget`);
-  assert.equal(await frame.locator(".ln-node").count(), 44);
-  assert.equal(await frame.locator('[data-kind="ontology"]').count(), 24);
+  assert.equal(await frame.locator(".ln-node").count(), 38);
+  assert.equal(await frame.locator('[data-kind="ontology"]').count(), 8);
+  assert.equal(await frame.locator('[data-kind="resource-group"]').count(), 10);
   assert.equal(await frame.locator('[data-kind="type"]').count(), 3);
-  assert.equal(await frame.locator('[data-relation="example instance"]').count(), 24);
+  assert.equal(await frame.locator('[data-relation="example instance"]').count(), 8);
   const fit = await frame.locator("#lineageViewport").evaluate(element => ({ width: element.clientWidth, height: element.clientHeight, scrollWidth: element.scrollWidth, scrollHeight: element.scrollHeight }));
   assert.ok(fit.scrollWidth <= fit.width + 1 && fit.scrollHeight <= fit.height + 1, "default camera must fit the entire graph");
   await page.screenshot({ path: join(output, "overview.png"), fullPage: true });
   const ontology = await frame.evaluate(() => window.fdaiLineageOntology);
+  const aggregation = await frame.evaluate(() => {
+    const { nodes, edges, buildResourceTypeGraph } = window.fdaiLineageOntology;
+    const original = JSON.stringify({ nodes, edges });
+    const collapsed = buildResourceTypeGraph(nodes, edges);
+    const pods = collapsed.groups.find(group => group.resourceType === "kubernetes.pod");
+    const otherScope = { ...nodes.find(node => node.id === "pod-resource"), id: "other-scope-pod", scope: "example-other-subscription / example-other-cluster" };
+    const scoped = buildResourceTypeGraph([...nodes, otherScope], edges);
+    const expectedEdges = edges.filter(([from, to, relation]) => !(from === "resource-type" && collapsed.membership.has(to) && relation === "example instance"));
+    return {
+      inputUnchanged: original === JSON.stringify({ nodes, edges }),
+      resources: collapsed.groups.reduce((sum, group) => sum + group.members.length, 0),
+      health: pods.health,
+      scopedPods: scoped.groups.filter(group => group.resourceType === "kubernetes.pod").map(group => ({ scope: group.scope, count: group.members.length })),
+      expected: expectedEdges.map(edge => JSON.stringify(edge)).sort(),
+      preserved: collapsed.edges.flatMap(edge => edge[3]).map(edge => JSON.stringify(edge)).sort(),
+    };
+  });
+  assert.equal(aggregation.inputUnchanged, true);
+  assert.equal(aggregation.resources, 16);
+  assert.deepEqual(aggregation.health, { current: 1, stale: 1, conflicting: 0, unknown: 1 });
+  assert.equal(aggregation.scopedPods.length, 2);
+  assert.deepEqual(aggregation.scopedPods.map(group => group.count), [3, 1]);
+  assert.deepEqual(aggregation.preserved, aggregation.expected);
+  evidence.push({ name: "Scope isolation, honest state counts and lossless original relationship references", disposition: "passed", aggregation });
   assert.equal(new Set(ontology.nodes.map(node => node.id)).size, ontology.nodes.length);
   const types = ontology.nodes.filter(node => node.kind === "type");
   assert.deepEqual(types.map(node => node.title), ["Resource", "Observation", "Rule"]);
@@ -84,9 +126,10 @@ try {
   });
   await frame.locator('[data-node="resource-type"]').click();
   assert.match(await frame.locator("#lineageInspector").innerText(), /OBJECT TYPE \/ DECLARATION/);
-  assert.equal(await frame.locator('#lineageInspector [data-select="pod-resource"]').count(), 1);
-  await frame.locator('#lineageInspector [data-select="pod-resource"]').click();
-  assert.match(await frame.locator("#lineageInspector").innerText(), /RESOURCE \/ ONTOLOGY INSTANCE/);
+  assert.equal(await frame.locator('#lineageInspector [data-select="pod-resource"]').count(), 0);
+  await frame.locator('[data-resource-type="kubernetes.pod"]').click();
+  assert.match(await frame.locator("#lineageInspector").innerText(), /RESOURCE TYPE \/ SCOPED AGGREGATE/);
+  assert.match(await frame.locator("#lineageInspector").innerText(), /3 recorded \/ 2 evidence gaps/);
   await frame.locator("#lineageActual").click();
   const paths = await frame.locator(".ln-edge").evaluateAll(elements => elements.map(element => element.getAttribute("d")));
   paths.forEach(path => {
@@ -96,35 +139,57 @@ try {
   const grid = await frame.locator("#lineageViewport").evaluate(element => ({ image: getComputedStyle(element).backgroundImage, size: getComputedStyle(element).backgroundSize }));
   assert.match(grid.image, /radial-gradient/);
   assert.equal(grid.size, "20px 20px");
-  const intersectedNodes = await frame.evaluate(() => {
-    const nodes = [...document.querySelectorAll(".ln-node")];
-    return [...document.querySelectorAll(".ln-edge")].flatMap(path => {
-      const collisions = new Set();
-      const length = path.getTotalLength();
-      for (let distance = 0; distance <= length; distance += 2) {
-        const point = path.getPointAtLength(distance);
-        nodes.filter(node => ![path.dataset.from, path.dataset.to].includes(node.dataset.node)).forEach(node => {
-          if (point.x > node.offsetLeft && point.x < node.offsetLeft + node.offsetWidth && point.y > node.offsetTop && point.y < node.offsetTop + node.offsetHeight) collisions.add(node.dataset.node);
-        });
-      }
-      return [...collisions].map(node => `${path.dataset.from} -> ${path.dataset.to} crosses ${node}`);
-    });
-  });
-  assert.deepEqual(intersectedNodes, [], "curves must not pass through unrelated nodes");
+  await assertClearCurves(frame);
   assert.equal(await frame.locator(".ln-edge.is-missing").count(), 2);
   assert.match(await frame.locator("#caseState").innerText(), /Held/);
   assert.match(await frame.locator(".ln-boundary").innerText(), /No live sources/);
   await measure(frame, "Desktop default, master shell");
   await page.screenshot({ path: join(output, "desktop.png"), fullPage: true });
 
+  await frame.locator('[data-resource-type="kubernetes.pod"]').click();
+  const podGroup = await frame.locator('[data-resource-type="kubernetes.pod"]').getAttribute("data-node");
+  assert.equal(await frame.locator(`.ln-edge[data-from="${podGroup}"][data-relation="kubernetes_scheduled_on"]`).getAttribute("data-count"), "3");
+  const scheduled = frame.locator("#lineageInspector .ln-related > div").filter({ has: frame.locator('button', { hasText: "kubernetes_scheduled_on" }) });
+  await scheduled.locator("summary").click();
+  assert.equal(await scheduled.locator("li").count(), 3);
+  assert.match(await scheduled.innerText(), /example-api-01/);
+  assert.match(await scheduled.innerText(), /example-worker-01/);
+  const groups = await frame.locator('[data-kind="resource-group"]').evaluateAll(elements => elements.map(element => element.dataset.node));
+  for (const group of groups) {
+    await frame.locator(`[data-node="${group}"]`).click();
+    await frame.locator('#lineageInspector [data-expand]').click();
+    await assertClearCurves(frame);
+    assert.equal(await frame.locator('#lineageInspector [data-expand]').getAttribute("aria-expanded"), "true");
+  }
+  await frame.locator('[data-resource-type="kubernetes.pod"]').click();
+  await frame.locator('#lineageInspector [data-expand]').click();
+  assert.equal(await frame.locator(".ln-node").count(), 41);
+  assert.equal(await frame.locator('[data-node="pod-resource"]').count(), 1);
+  await measure(frame, "Expanded Pod resources, same canvas");
+  assert.equal(await frame.locator('[data-node="api-endpoints"]').count(), 0, "only the selected type stays expanded");
+  await frame.locator("#lineageFit").click();
+  const expansionFit = await frame.evaluate(() => {
+    const viewport = document.querySelector("#lineageViewport"), canvas = document.querySelector("#lineageCanvas");
+    return { scale: canvas.getBoundingClientRect().width / canvas.offsetWidth, displayed: Number.parseInt(document.querySelector("#lineageZoom").value) / 100, fitted: viewport.scrollWidth <= viewport.clientWidth + 1 && viewport.scrollHeight <= viewport.clientHeight + 1 };
+  });
+  assert.equal(expansionFit.fitted, true);
+  assert.ok(Math.abs(expansionFit.scale - expansionFit.displayed) < .006, "displayed zoom must match the rendered canvas immediately");
+  await frame.evaluate(() => scrollTo(0, 0));
+  await page.screenshot({ path: join(output, "expanded-pods.png"), fullPage: true });
+  await frame.locator("#lineageActual").click();
+  await frame.locator('[data-node="pod-resource"]').click();
+  assert.match(await frame.locator("#lineageInspector").innerText(), /RESOURCE \/ ONTOLOGY INSTANCE/);
+  await frame.locator('#lineageInspector [data-expand]').click();
+  assert.equal(await frame.locator(".ln-node").count(), 38);
+
   await frame.locator('[data-node="memory-observation"]').click();
   assert.match(await frame.locator("#lineageInspector").innerText(), /OBSERVATION \/ ONTOLOGY INSTANCE/);
   assert.match(await frame.locator(".ln-properties").innerText(), /sample-pod-01/);
   assert.match(await frame.locator(".ln-properties").innerText(), /742391808/);
-  const targetRelation = frame.locator('#lineageInspector [data-select="pod-resource"]');
+  const targetRelation = frame.locator(`#lineageInspector [data-select="${podGroup}"]`);
   assert.match(await targetRelation.innerText(), /observation_targets_resource/);
   await targetRelation.click();
-  assert.match(await frame.locator("#lineageInspector").innerText(), /RESOURCE \/ ONTOLOGY INSTANCE/);
+  assert.match(await frame.locator("#lineageInspector").innerText(), /RESOURCE TYPE \/ SCOPED AGGREGATE/);
   assert.match(await frame.locator(".ln-properties").innerText(), /kubernetes.pod/);
   await frame.locator("#lineageSearch").fill("sample-observation-m9");
   assert.equal(await frame.locator(".ln-node").count(), 1);
@@ -139,7 +204,7 @@ try {
   await frame.locator("#lineageFocus").click();
   assert.equal(await frame.locator(".ln-node").count(), 2);
   await frame.locator("#lineageReset").click();
-  assert.equal(await frame.locator(".ln-node").count(), 44);
+  assert.equal(await frame.locator(".ln-node").count(), 38);
   await frame.locator("#lineageActual").click();
   await frame.locator("#lineageZoomIn").click();
   assert.equal(await frame.locator("#lineageZoom").innerText(), "113%");
@@ -174,6 +239,7 @@ try {
   await frame.locator("#lineageScenario").selectOption("complete");
   assert.equal(await frame.locator(".ln-edge.is-missing").count(), 0);
   assert.match(await frame.locator("#caseState").innerText(), /shadow review only/);
+  assert.match(await frame.locator('[data-resource-type="kubernetes.pod"]').innerText(), /2 evidence gaps/, "available logs must not erase stale or unknown Resource evidence");
   await frame.locator('[data-node="decision"]').click();
   assert.match(await frame.locator("#lineageInspector").innerText(), /no approval, dispatch or effect-verification/);
   await measure(frame, "Desktop qualified alternate, no execution");
@@ -206,7 +272,7 @@ try {
   await page.setViewportSize({ width: 1920, height: 1200 });
   await page.locator(".nav-collapse").click();
   await frame.locator("#lineageFit").click();
-  await frame.locator('[data-node="pod-resource"]').click();
+  await frame.locator('[data-resource-type="kubernetes.pod"]').click();
   await frame.locator("#lineageViewport").evaluate(element => { element.scrollLeft = 0; });
   await measure(frame, "Wide desktop ontology inspector");
   await page.screenshot({ path: join(output, "desktop-wide.png"), fullPage: true });

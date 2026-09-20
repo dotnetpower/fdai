@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lineage - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <link rel="stylesheet" href="assets/lineage.css?v=3" />
+  <link rel="stylesheet" href="assets/lineage.css?v=4" />
   <script src="assets/calm-slate.js?v=lineage-v1" defer></script>
-  <script src="assets/lineage-ontology.js?v=1" defer></script>
-  <script src="assets/lineage.js?v=3" defer></script>
+  <script src="assets/lineage-ontology.js?v=2" defer></script>
+  <script src="assets/lineage.js?v=4" defer></script>
 </head>
 <body class="ln-page">
   <main class="ln-workspace">
@@ -17,7 +17,7 @@
       <div class="ln-heading-meta"><span class="ln-preview">Synthetic preview</span><span>Read only</span></div>
     </header>
     <section class="ln-case" aria-label="Investigation summary">
-      <div><span class="ln-label">Selected case</span><h2>Pod memory pressure</h2><span>example-cluster / example-api</span></div>
+      <div><span class="ln-label">Sample scope / ResourceType aggregation</span><h2>example-subscription</h2><span>example-cluster / 16 illustrative Resources, not a full inventory</span></div>
       <div><span class="ln-label">Decision</span><strong class="ln-warning" id="caseState">Held - missing log evidence</strong><span>No action dispatched</span></div>
       <div><span class="ln-label">Evidence cutoff</span><strong>20 Sep 2026, 10:42 UTC</strong><span>Window 10:37-10:42 UTC</span></div>
     </section>
@@ -28,16 +28,16 @@
     </div>
     <div class="ln-layout" id="lineageLayout">
       <section class="ln-graph-region" aria-label="Evidence lineage graph">
-        <div class="ln-graph-head"><div class="ln-legend"><span><i class="ln-dot observed"></i>Sources</span><span><i class="ln-dot normative"></i>Rules / knowledge</span><span><i class="ln-dot processing"></i>Agents</span><span><i class="ln-dot type"></i>Object Type</span><span><i class="ln-dot ontology"></i>Instance</span></div><div class="ln-tools"><button type="button" id="lineageReset" title="Clear filters and show the complete graph">Show all</button><button type="button" id="lineageFit" title="Fit the complete canvas">Fit</button><button type="button" id="lineageActual" title="Show nodes at actual size">100%</button><button type="button" id="lineageZoomOut" aria-label="Zoom out" title="Zoom out">-</button><output id="lineageZoom" aria-label="Graph zoom">100%</output><button type="button" id="lineageZoomIn" aria-label="Zoom in" title="Zoom in">+</button></div></div>
+        <div class="ln-graph-head"><div class="ln-legend"><span><i class="ln-dot observed"></i>Sources</span><span><i class="ln-dot normative"></i>Rules / knowledge</span><span><i class="ln-dot processing"></i>Agents</span><span><i class="ln-dot type"></i>Object Type</span><span><i class="ln-dot resource-group"></i>ResourceType</span><span><i class="ln-dot ontology"></i>Instance</span></div><div class="ln-tools"><button type="button" id="lineageReset" title="Clear filters and collapse Resource instances">Reset</button><button type="button" id="lineageFit" title="Fit the complete canvas">Fit</button><button type="button" id="lineageActual" title="Show nodes at actual size">100%</button><button type="button" id="lineageZoomOut" aria-label="Zoom out" title="Zoom out">-</button><output id="lineageZoom" aria-label="Graph zoom">100%</output><button type="button" id="lineageZoomIn" aria-label="Zoom in" title="Zoom in">+</button></div></div>
         <div class="ln-canvas-scroll" id="lineageViewport" tabindex="0" aria-label="Scrollable lineage graph">
           <div id="lineageCanvasSize"><div class="ln-canvas" id="lineageCanvas">
-            <div class="ln-column" style="left:24px">01 / Sources</div><div class="ln-column" style="left:270px">02 / Versioned inputs</div><div class="ln-column" style="left:516px">03 / Agent executions</div><div class="ln-column" style="left:762px">04 / Object Types</div><div class="ln-column" style="left:1008px">05 / Infrastructure</div><div class="ln-column" style="left:1254px">Workloads</div><div class="ln-column" style="left:1500px">Observations &amp; rules</div><div class="ln-column" style="left:1792px">06 / Decision &amp; audit</div>
+            <div class="ln-column" style="left:24px">01 / Sources</div><div class="ln-column" style="left:270px">02 / Versioned inputs</div><div class="ln-column" style="left:516px">03 / Agent executions</div><div class="ln-column" style="left:762px">04 / Object Types</div><div class="ln-column" style="left:1008px">05 / ResourceTypes</div><div class="ln-column" style="left:1254px">Workload types</div><div class="ln-column" style="left:1500px">Observations &amp; rules</div><div class="ln-column" style="left:1792px">06 / Decision &amp; audit</div>
             <svg class="ln-edges" id="lineageEdges" width="2010" height="1060" aria-hidden="true"><defs><marker id="lineageArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" /></marker></defs></svg>
             <div id="lineageNodes"></div>
           </div></div>
           <p class="ln-empty" id="lineageEmpty" hidden>No matching records.</p>
         </div>
-        <footer class="ln-graph-foot"><span id="lineageCount" role="status" aria-live="polite"></span><span>Dotted: type membership / Dashed amber: missing evidence</span></footer>
+        <footer class="ln-graph-foot"><span id="lineageCount" role="status" aria-live="polite"></span><span>Bold: aggregated relationships / Dotted: membership / Amber dashes: missing</span></footer>
       </section>
       <aside class="ln-inspector" id="lineageInspector" aria-label="Selected record"></aside>
     </div>

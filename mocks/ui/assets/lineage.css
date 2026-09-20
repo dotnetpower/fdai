@@ -35,6 +35,7 @@
 .ln-dot.processing { background: #36715f; }
 .ln-dot.ontology { background: #396491; border-radius: 50%; }
 .ln-dot.type { background: #294e76; }
+.ln-dot.resource-group { background: #356b68; }
 .ln-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .ln-tools button { min-width: 36px; }
 .ln-tools output { width: 44px; text-align: center; font-size: var(--cs-type-label-size); font-variant-numeric: tabular-nums; }
@@ -42,6 +43,7 @@
 .ln-page .ln-canvas-scroll.is-dragging { cursor: grabbing; user-select: none; }
 #lineageCanvasSize { width: 2010px; height: 1060px; }
 .ln-canvas { position: relative; width: 2010px; height: 1060px; transform-origin: top left; }
+.ln-page :is(#lineageCanvasSize, .ln-canvas, .ln-canvas *) { transition: none !important; }
 .ln-canvas.is-overview .ln-node small, .ln-canvas.is-overview .ln-node-state { display: none; }
 .ln-canvas.is-overview .ln-node { justify-content: center; }
 .ln-canvas.is-overview .ln-node strong { font-size: var(--cs-type-lead-size); }
@@ -51,6 +53,7 @@
 .ln-edge.is-missing { stroke: #967128; stroke-dasharray: 5 5; }
 .ln-edge.is-ontology { stroke: #396491; stroke-width: 2; }
 .ln-edge.is-membership { stroke: #8b9bb0; stroke-dasharray: 2 5; stroke-width: 1; }
+.ln-edge.is-aggregate { stroke-width: 2.5; }
 .ln-edge.is-selected { stroke: #315f89; stroke-width: 2.5; }
 .ln-edge.is-muted { opacity: .14; }
 .ln-page .ln-node { position: absolute; width: 194px; height: 78px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; align-items: stretch; text-align: left; background: #fff; border: 1px solid #8a9aae; box-shadow: 0 2px 4px #21354b08; border-radius: 6px; line-height: 1.35; }
@@ -58,6 +61,7 @@
 .ln-node[data-kind="agent"] { background: #f3f9f6; border-color: #7e9a90; }
 .ln-node[data-kind="outcome"] { background: #f4f6fb; }
 .ln-node[data-kind="ontology"] { background: #edf4fc; border-color: #678bb2; }
+.ln-node[data-kind="resource-group"] { background: #eef7f5; border-color: #648e85; }
 .ln-node[data-kind="ontology"] .ln-node-state { color: #315e90; }
 .ln-page .ln-node[data-kind="type"] { background: #294e76; border: 2px solid #193c62; color: white; }
 .ln-node[data-kind="type"] :is(strong, small, .ln-node-state) { color: white; }
@@ -83,6 +87,10 @@
 .ln-inspector h3 { padding-top: 16px; border-top: 1px solid var(--cs-hairline); font-size: var(--cs-type-body-size); }
 .ln-inspector .ln-related { display: grid; gap: 6px; margin: 10px 0 18px; }
 .ln-related button { text-align: left; font-size: var(--cs-type-compact-size); width: 100%; }
+.ln-edge-records { margin: 4px 0 10px; font-size: var(--cs-type-label-size); }
+.ln-edge-records summary { cursor: pointer; min-height: 32px; padding: 6px 0; }
+.ln-edge-records ul { padding-left: 16px; }
+.ln-edge-records li { margin-bottom: 10px; }
 .ln-record-note { border-block: 1px solid var(--cs-hairline); padding: 14px 0; margin: 16px 0; font-size: var(--cs-type-compact-size); }
 .ln-focus { width: 100%; }
 .ln-boundary { padding-top: 14px; font-size: var(--cs-type-label-size); color: var(--cs-text-soft); }

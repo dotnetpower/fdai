@@ -54,5 +54,52 @@
     ["rule-type", "Rule", 808, "Mimir", "3 example instances"]
   ].forEach(([id, title, y, owner, sub]) => nodes.push({ id, title, sub, kind: "type", x: 762, y, status: "ObjectType / v1.0.0", detail: "Canonical ObjectType declaration with synthetic example instances on this same canvas. Instance membership is a presentation connection, not data flow or execution authority.", owner, version: `${title}@1.0.0`, origin: "ontology-catalog", objectType: title, properties: { name: title, version: "1.0.0", key: "id", example_count: nodes.filter(node => node.kind === "ontology" && node.objectType === title).length } }));
   edges.push(["observation-type", "resource-type", "observation_targets_resource (schema)"]);
-  window.fdaiLineageOntology = { nodes, edges };
+  const sampleScope = "example-subscription / example-cluster";
+  nodes.filter(node => node.kind === "ontology" && node.objectType === "Resource").forEach(node => {
+    node.scope = sampleScope;
+    node.evidenceState = ({ "api-pod-02": "stale", "worker-pod": "unknown", "node-b": "conflicting" })[node.id] || "current";
+  });
+  function buildResourceTypeGraph(sourceNodes, sourceEdges, expandedGroup = null) {
+    const resources = sourceNodes.filter(node => node.kind === "ontology" && node.objectType === "Resource");
+    const groups = new Map(), membership = new Map();
+    resources.forEach(node => {
+      const key = JSON.stringify([node.scope, node.properties.type]);
+      if (!groups.has(key)) {
+        const index = groups.size;
+        const title = ({ "kubernetes-cluster": "AKS cluster", "kubernetes.namespace": "Namespace", "kubernetes.node": "Node", "kubernetes.persistent-volume": "Persistent volume", "kubernetes.persistent-volume-claim": "Volume claim", "kubernetes.deployment": "Deployment", "kubernetes.replica-set": "ReplicaSet", "kubernetes.pod": "Pod", "kubernetes.service": "Service", "kubernetes.endpoint-slice": "EndpointSlice" })[node.properties.type] || node.properties.type;
+        groups.set(key, { id: `resource-group-${index}`, title, sub: node.properties.type, kind: "resource-group", x: 1008 + Math.floor(index / 5) * 246, y: row(index % 5), status: "", detail: "Recorded Resources grouped by exact ResourceType and scope. Aggregate connections summarize retained relationships; they do not prove an all-to-all connection or an end-to-end instance path.", owner: node.owner, version: "", origin: "", objectType: "Resource", scope: node.scope, resourceType: node.properties.type, members: [], health: { current: 0, stale: 0, conflicting: 0, unknown: 0 } });
+      }
+      const group = groups.get(key);
+      group.members.push(node);
+      group.health[node.evidenceState || "unknown"] += 1;
+      membership.set(node.id, group.id);
+    });
+    const groupNodes = [...groups.values()];
+    groupNodes.forEach(group => {
+      const gaps = group.health.stale + group.health.conflicting + group.health.unknown;
+      group.status = `${group.members.length} recorded / ${gaps ? `${gaps} evidence gaps` : "current"}`;
+      group.held = gaps > 0;
+      group.version = [...new Set(group.members.map(node => node.version))].join(", ");
+      group.origin = [...new Set(group.members.map(node => node.origin))].join(", ");
+      group.properties = { object_type: "Resource", resource_type: group.resourceType, scope: group.scope, recorded_count: group.members.length, current: group.health.current, stale: group.health.stale, conflicting: group.health.conflicting, unknown: group.health.unknown, coverage: "Illustrative sample only; subscription completeness unverified" };
+    });
+    const resourceIds = new Set(resources.map(node => node.id));
+    const expanded = groupNodes.find(group => group.id === expandedGroup);
+    const expandedIds = new Set(expanded?.members.map(node => node.id) || []);
+    const projectedNodes = [...sourceNodes.filter(node => !resourceIds.has(node.id)), ...groupNodes];
+    if (expanded) expanded.members.forEach((node, index) => projectedNodes.push({ ...node, x: 1008 + index % 2 * 246, y: 728 + Math.floor(index / 2) * 108 }));
+    const projectedEdges = new Map();
+    sourceEdges.forEach(([from, to, relation]) => {
+      if (from === "resource-type" && resourceIds.has(to) && relation === "example instance") return;
+      const source = expandedIds.has(from) ? from : membership.get(from) || from;
+      const target = expandedIds.has(to) ? to : membership.get(to) || to;
+      const key = JSON.stringify([source, target, relation]);
+      if (!projectedEdges.has(key)) projectedEdges.set(key, [source, target, relation, [], source !== from || target !== to]);
+      projectedEdges.get(key)[3].push([from, to, relation]);
+    });
+    const resultEdges = [...projectedEdges.values(), ...groupNodes.map(group => ["resource-type", group.id, "resource type", [], false])];
+    if (expanded) expanded.members.forEach(node => resultEdges.push([expanded.id, node.id, "example instance", [], false]));
+    return { nodes: projectedNodes, edges: resultEdges, groups: groupNodes, membership };
+  }
+  window.fdaiLineageOntology = { nodes, edges, buildResourceTypeGraph };
 }());
