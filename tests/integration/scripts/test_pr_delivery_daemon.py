@@ -190,6 +190,60 @@ def test_state_write_is_atomic_and_private(tmp_path: Path) -> None:
     assert path.parent.stat().st_mode & 0o777 == 0o700
 
 
+@pytest.mark.parametrize(
+    ("phase", "expected_code"),
+    [("merged", 0), ("blocked", 1)],
+)
+def test_wait_reports_terminal_daemon_state(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    phase: str,
+    expected_code: int,
+) -> None:
+    fake = FakeRunner(tmp_path, [])
+    config = _config(fake)
+    paths = support.delivery_paths(fake, config)
+    state = {
+        "repository": config.repository,
+        "pr_number": config.pr_number,
+        "topic_branch": config.topic_branch,
+        "base_branch": config.base_branch,
+        "worktree": str(config.worktree),
+        "phase": phase,
+        "terminal": True,
+    }
+    support.write_state(paths.state, state)
+
+    assert daemon._wait(config, fake) == expected_code
+    assert json.loads(capsys.readouterr().out) == state
+
+
+def test_wait_rejects_a_missing_daemon_process(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeRunner(tmp_path, [])
+    config = _config(fake)
+    paths = support.delivery_paths(fake, config)
+    support.write_state(
+        paths.state,
+        {
+            "repository": config.repository,
+            "pr_number": config.pr_number,
+            "topic_branch": config.topic_branch,
+            "base_branch": config.base_branch,
+            "worktree": str(config.worktree),
+            "pid": 12345,
+            "phase": "watching",
+            "terminal": False,
+        },
+    )
+    monkeypatch.setattr(daemon, "_is_matching_process", lambda *_: False)
+
+    with pytest.raises(support.DeliveryError, match="stopped without a terminal state"):
+        daemon._wait(config, fake)
+
+
 def test_daemon_verifies_a_reported_merge_on_remote_base(tmp_path: Path) -> None:
     fake = FakeRunner(tmp_path, [_payload(state="MERGED", merge_commit=_C)])
     coordinator = daemon.DeliveryDaemon(_config(fake), fake)
@@ -510,4 +564,4 @@ def test_daemon_entry_point_runs_by_repository_path() -> None:
     )
 
     assert result.returncode == 0
-    assert "{start,run,status}" in result.stdout
+    assert "{start,run,status,wait}" in result.stdout
