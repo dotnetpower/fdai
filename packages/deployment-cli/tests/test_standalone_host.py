@@ -2025,7 +2025,6 @@ def _current_aks_zero_change_plan() -> dict[str, object]:
     [
         ("remote", "remote state differs"),
         ("live", "live readback differs"),
-        ("plan", "current plan is not zero-change"),
     ],
 )
 def test_historical_aks_adoption_fails_closed_on_current_drift(
@@ -2059,17 +2058,243 @@ def test_historical_aks_adoption_fails_closed_on_current_drift(
     monkeypatch.setattr(standalone_host, "_validate_historical_aks_baseline", validate)
     monkeypatch.setattr(standalone_host, "_capture", capture)
     monkeypatch.setattr(standalone_host, "_capture_aks_deployments", lambda *_: "{}")
+    monkeypatch.setattr(
+        standalone_host,
+        "reconciled_variables",
+        lambda **values: values["variables"],
+    )
     monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
     monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
     monkeypatch.setattr(
         standalone_host.subprocess,
         "run",
-        lambda *_args, **_kwargs: SimpleNamespace(returncode=2 if failure == "plan" else 0),
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=0),
     )
 
     with pytest.raises(ValueError, match=message):
         standalone_host._adopt_historical_aks_application(args, work_dir)
     assert not (work_dir / "historical-aks-application-adoption-receipt.json").exists()
+
+
+def test_historical_aks_adoption_emits_strict_reconciliation_review(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    work_dir, args, baseline = _historical_adoption_inputs(tmp_path)
+    retained_state = Path(args.state).read_text(encoding="utf-8")
+    reconciliation_plan = {
+        "complete": True,
+        "errored": False,
+        "applyable": True,
+        "resource_changes": [
+            {
+                "type": "kubernetes_deployment_v1",
+                "address": 'kubernetes_deployment_v1.workload["operator-service"]',
+                "change": {"actions": ["update"]},
+            }
+        ],
+    }
+
+    def capture(command: tuple[str, ...], **_kwargs: object) -> str:
+        if command[0] == "git":
+            return "a" * 40 + "\n"
+        if command[1:3] == ("state", "pull"):
+            return retained_state
+        return json.dumps(reconciliation_plan)
+
+    reconciled = {"namespace": "fdai-runtime", "workloads": {}}
+    monkeypatch.setattr(standalone_host, "_validate_historical_aks_baseline", lambda **_: baseline)
+    monkeypatch.setattr(standalone_host, "_capture", capture)
+    monkeypatch.setattr(standalone_host, "_capture_aks_deployments", lambda *_: "{}")
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
+    monkeypatch.setattr(
+        standalone_host, "reconciled_variables", lambda **_: reconciled, raising=False
+    )
+    monkeypatch.setattr(
+        standalone_host,
+        "validate_reconciliation_plan",
+        lambda *_args, **_kwargs: ('kubernetes_deployment_v1.workload["operator-service"]',),
+        raising=False,
+    )
+    monkeypatch.setattr(standalone_host, "_file_digest", lambda *_: "d" * 64)
+    monkeypatch.setattr(
+        standalone_host.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=2),
+    )
+
+    result = standalone_host._adopt_historical_aks_application(args, work_dir)
+
+    assert result["state"] == "reconciliation-required"
+    assert result["mutation_performed"] is False
+    assert result["reconciliation_review"]["stage"] == "application"
+    assert result["reconciliation_review"]["historical_reconciliation"] == {
+        "operation": "historical-reconciliation",
+        "variables_digest": canonical_digest(reconciled),
+        "mutations": ['kubernetes_deployment_v1.workload["operator-service"]'],
+    }
+    assert (work_dir / "historical-reconciliation-review.json").is_file()
+    assert not (work_dir / "historical-aks-application-adoption-receipt.json").exists()
+
+
+def test_historical_aks_reconciliation_claims_before_exact_apply(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tmp_path.chmod(0o700)
+    plan = tmp_path / "historical-reconciliation.tfplan"
+    plan.write_bytes(b"exact plan")
+    plan.chmod(0o600)
+    variables = {"namespace": "fdai-runtime", "workloads": {}}
+    (tmp_path / "workloads.auto.tfvars.json").write_text(json.dumps(variables), encoding="utf-8")
+    (tmp_path / "workloads.auto.tfvars.json").chmod(0o600)
+    review = {
+        "schema_version": "fdai.standalone-application-plan.v1",
+        "stage": "application",
+        "plan_digest": hashlib.sha256(plan.read_bytes()).hexdigest(),
+        "target_binding": "b" * 64,
+        "source_commit": "a" * 40,
+        "runtime_profile_digest": "c" * 64,
+        "runtime_platform": "aks",
+        "summary": {"action_counts": {"update": 1}},
+        "expires_at": "2099-01-01T00:00:00Z",
+        "mutation_performed": False,
+        "subscription_ready": False,
+        "historical_reconciliation": {
+            "operation": "historical-reconciliation",
+            "variables_digest": canonical_digest(variables),
+            "mutations": ['kubernetes_deployment_v1.workload["operator-service"]'],
+        },
+    }
+    review["review_digest"] = canonical_digest(review)
+    reconciliation = {
+        "operation": "historical-reconciliation",
+        "variables_digest": canonical_digest(variables),
+        "mutations": ['kubernetes_deployment_v1.workload["operator-service"]'],
+        "review_digest": review["review_digest"],
+    }
+    context = {
+        "target_binding": review["target_binding"],
+        "source_commit": review["source_commit"],
+        "runtime_profile_digest": review["runtime_profile_digest"],
+        "runtime_profile": {"runtime_platform": "aks"},
+        "workloads_infra": str(tmp_path),
+        "workloads_terraform_data": str(tmp_path / "terraform-data"),
+        "active_historical_reconciliation": reconciliation,
+    }
+    approval = tmp_path / "approval.json"
+    for path, value in (
+        (tmp_path / "context.json", context),
+        (tmp_path / "historical-reconciliation-review.json", review),
+        (approval, {}),
+    ):
+        path.write_text(json.dumps(value), encoding="utf-8")
+        path.chmod(0o600)
+    events: list[str] = []
+
+    def validate_plan(*_args: object, **_kwargs: object) -> None:
+        events.append("validate-plan")
+
+    def apply_plan(*_args: object, **_kwargs: object) -> None:
+        assert (tmp_path / "historical-reconciliation-claim.json").is_file()
+        events.append("apply")
+
+    def postconditions(*_args: object, **_kwargs: object) -> dict[str, str]:
+        events.append("postconditions")
+        return {
+            "post_state_sha256": "1" * 64,
+            "post_variables_sha256": "2" * 64,
+            "post_live_sha256": "3" * 64,
+            "zero_plan_sha256": "4" * 64,
+        }
+
+    monkeypatch.setattr(standalone_host, "_validate_approval", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
+    monkeypatch.setattr(standalone_host, "_validate_historical_reconciliation_plan", validate_plan)
+    monkeypatch.setattr(standalone_host, "_run", apply_plan)
+    monkeypatch.setattr(standalone_host, "_readback_stage", lambda *_: True)
+    monkeypatch.setattr(
+        standalone_host,
+        "_historical_reconciliation_postconditions",
+        postconditions,
+    )
+
+    result = standalone_host._apply_historical_aks_reconciliation(
+        SimpleNamespace(approval=approval), tmp_path
+    )
+
+    assert events == ["validate-plan", "apply", "postconditions"]
+    assert result["schema_version"] == "fdai.historical-aks-reconciliation-receipt.v1"
+    assert result["effect_verified"] is True
+    assert result["terraform_zero_change_verified"] is True
+    assert result["mutation_performed"] is True
+
+
+def test_pending_historical_reconciliation_blocks_ordinary_application_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "historical-aks-application-adoption-receipt.json").write_text(
+        "{}", encoding="utf-8"
+    )
+    variables = {"namespace": "fdai-runtime", "workloads": {}}
+    review = {
+        "review_digest": "r" * 64,
+        "historical_reconciliation": {
+            "operation": "historical-reconciliation",
+            "variables_digest": canonical_digest(variables),
+            "mutations": ['kubernetes_deployment_v1.workload["operator-service"]'],
+        },
+    }
+    context = {
+        "active_historical_reconciliation": {
+            "operation": "historical-reconciliation",
+            "variables_digest": canonical_digest(variables),
+            "mutations": ['kubernetes_deployment_v1.workload["operator-service"]'],
+            "review_digest": review["review_digest"],
+        }
+    }
+
+    def private_json(path: Path, _label: str):
+        if path.name == "context.json":
+            return context
+        if path.name == "workloads.auto.tfvars.json":
+            return variables
+        if path.name == "historical-reconciliation-review.json":
+            return review
+        raise AssertionError(f"unexpected read: {path.name}")
+
+    monkeypatch.setattr(standalone_host, "_private_json", private_json)
+    monkeypatch.setattr(standalone_host, "_require_aks_application_baseline", lambda *_: None)
+    monkeypatch.setattr(
+        standalone_host,
+        "_managed_identity_login_from_context",
+        lambda *_: pytest.fail("pending reconciliation must block before identity login"),
+    )
+
+    with pytest.raises(ValueError, match="requires its retained exact review"):
+        standalone_host._plan(
+            SimpleNamespace(stage="application", service=None),
+            tmp_path,
+        )
+
+
+@pytest.mark.parametrize(
+    "handler",
+    (
+        standalone_host._apply_historical_aks_reconciliation,
+        standalone_host._recover_historical_aks_reconciliation,
+    ),
+)
+def test_historical_reconciliation_entrypoints_require_active_operation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    handler,
+) -> None:
+    monkeypatch.setattr(standalone_host, "_private_json", lambda *_: {})
+    args = SimpleNamespace(approval=tmp_path / "approval.json")
+
+    with pytest.raises(ValueError, match="no active historical AKS reconciliation"):
+        handler(args, tmp_path)
 
 
 def test_historical_aks_adoption_is_idempotent_and_rejects_tampered_receipt(
@@ -2088,6 +2313,11 @@ def test_historical_aks_adoption_is_idempotent_and_rejects_tampered_receipt(
     monkeypatch.setattr(standalone_host, "_validate_historical_aks_baseline", lambda **_: baseline)
     monkeypatch.setattr(standalone_host, "_capture", capture)
     monkeypatch.setattr(standalone_host, "_capture_aks_deployments", lambda *_: "{}")
+    monkeypatch.setattr(
+        standalone_host,
+        "reconciled_variables",
+        lambda **values: values["variables"],
+    )
     monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
     monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
     monkeypatch.setattr(

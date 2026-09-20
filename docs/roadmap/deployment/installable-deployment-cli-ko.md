@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: b78897ccc0ba72bfe6e20d67ce9029c08fcb4171
+translation_source_sha: 8e2537d16f28febf4ed4a4421a72541001413019
 translation_revised: 2026-09-19
 ---
 
@@ -289,7 +289,7 @@ push, 직접 `kubectl` 변경, staging 또는 production 대상, 새 설치, 의
 마이그레이션 및 런타임 프로파일 변경은 이 경로에서 허용되지 않습니다. 이 경로는 운영자가 선택한
 소스 근거를 만들며 release 서명이나 전체 설치의 배포 준비를 증명하지 않습니다.
 
-standalone 애플리케이션 증적이 도입되기 전에 만들어진 워크로드 상태는 다섯 가지 `--adopt-historical-*` 입력을 모두 제공하는 범위가 제한된 채택 단계로 연결할 수 있습니다. 입력은 비공개 binding, 보존된 Terraform 상태, 워크로드 변수, 실제 Deployment 스냅샷, 과거 exact plan입니다. binding은 자체 근거 디렉터리 아래의 실행 자산만 참조할 수 있으며 Terraform 바이너리 digest, 소스 버전, Managed Identity, 런타임 프로파일을 고정합니다. 조정기는 관련 없는 변경 없이 하나의 Deployment만 제자리 업데이트하는 과거 계획 또는 완전한 변경 없음 계획만 허용합니다. 이어서 Managed Identity로 원격 상태와 현재 Deployment를 비교하고 새로운 전체 Terraform 계획을 만듭니다. 이 계획이 완전하고 변경이 없을 때만 별도의 채택 증적을 기록합니다. 일부 입력, 다른 서비스의 변경, 상태 차이, 변조된 증적 또는 변경이 있는 계획은 업데이트를 중단합니다. 채택은 로컬 근거만 기록하며 Azure 리소스를 변경하거나 적용 권한을 부여하지 않습니다.
+standalone 애플리케이션 증적이 도입되기 전에 만들어진 워크로드 상태는 다섯 가지 `--adopt-historical-*` 입력을 모두 제공하는 범위가 제한된 채택 단계로 연결할 수 있습니다. 입력은 비공개 binding, 보존된 Terraform 상태, 워크로드 변수, 실제 Deployment 스냅샷, 과거 exact plan입니다. binding은 자체 근거 디렉터리 아래의 실행 자산만 참조할 수 있으며 Terraform 바이너리 digest, 소스 버전, Managed Identity, 런타임 프로파일을 고정합니다. 조정기는 관련 없는 변경 없이 하나의 Deployment만 제자리 업데이트하는 과거 계획 또는 완전한 변경 없음 계획만 허용합니다. 이어서 Managed Identity로 원격 상태와 현재 Deployment를 비교하고 새로운 전체 Terraform 계획을 만듭니다. 이 계획에 허용 목록에 포함된 기존 AKS 정규화만 있으면 같은 조정기는 차이를 적용 권한으로 취급하지 않고 digest로 고정된 조정 검토를 반환합니다. 먼저 검증 전용 복구를 시도합니다. 기존 실행 전 기록이 없을 때만 현재 exact-plan 승인을 요구하고, 보존된 계획을 엄격한 과거 상태 계약으로 다시 검증한 뒤 변경 불가능한 실행 전 기록을 쓰고 Managed Identity로 한 번만 적용합니다. 성공하려면 정상 워크로드 재조회, 새 상태와 typed Deployment 근거, 완전한 전체 범위 변경 없음 계획이 필요합니다. 이 증적에 연결된 적용 후 상태만 채택 단계로 다시 들어갈 수 있습니다. 일부 입력, 다른 서비스의 변경, 인식할 수 없는 효과, 상태 차이, 변경된 계획, 변조된 실행 전 기록이나 증적은 업데이트를 중단합니다. 채택 자체는 로컬 근거만 기록하며 적용 권한을 부여하지 않습니다.
 개발용 소스 경로는 `fdaictl provision azure --source <path>`로 명시적으로 선택합니다.
 `--online`, `--offline-kit`과 함께 사용할 수 없습니다. 초기 지원 대상은 AKS와 PostgreSQL
 Flexible Server를 사용하는 새로운 `dev` 설치입니다. 기존 Container Apps 설치를 이전하지

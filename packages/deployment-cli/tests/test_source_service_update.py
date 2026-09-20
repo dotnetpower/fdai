@@ -133,6 +133,173 @@ def test_source_service_update_builds_imports_plans_and_verifies(
     ]
 
 
+@pytest.mark.parametrize("recovery_state", ["not-required", "applied"])
+def test_source_service_update_reconciles_historical_baseline_before_import(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, recovery_state: str
+) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir(mode=0o700)
+    application = tmp_path / "application"
+    application.mkdir(mode=0o700)
+    source = SimpleNamespace(
+        root=source_root,
+        commit="c" * 40,
+        to_mapping=lambda: {
+            "schema_version": "fdai.source-deployment-input.v1",
+            "source_commit": "c" * 40,
+        },
+        reverify=lambda: None,
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update.inspect_source", lambda *_: source
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update.materialize_source",
+        lambda _source, destination: (destination.mkdir(mode=0o700), "s" * 64)[1],
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update._build_image",
+        lambda **_: {
+            "state": "built",
+            "service": "operator-service",
+            "source_commit": "c" * 40,
+            "archive_ref": "operator-service.oci.tar",
+            "archive_sha256": "a" * 64,
+            "image_digest": "sha256:" + "b" * 64,
+        },
+    )
+    calls: list[tuple[str, ...]] = []
+    adoption_attempts = 0
+
+    def host(_work_dir, arguments, **_kwargs):
+        nonlocal adoption_attempts
+        calls.append(arguments)
+        command = arguments[0]
+        if command == "adopt-historical-aks-application":
+            adoption_attempts += 1
+            if adoption_attempts == 1:
+                return {
+                    "schema_version": "fdai.historical-aks-application-adoption.v1",
+                    "state": "reconciliation-required",
+                    "reconciliation_review": {
+                        "schema_version": "fdai.standalone-application-plan.v1",
+                        "stage": "application",
+                        "review_digest": "r" * 64,
+                        "historical_reconciliation": {
+                            "operation": "historical-reconciliation",
+                            "variables_digest": "v" * 64,
+                            "mutations": ['kubernetes_deployment_v1.workload["operator-service"]'],
+                        },
+                    },
+                    "mutation_performed": False,
+                }
+            return {
+                "schema_version": "fdai.historical-aks-application-adoption.v1",
+                "state": "adopted",
+                "managed_identity_verified": True,
+                "remote_state_verified": True,
+                "live_baseline_verified": True,
+                "terraform_zero_change_verified": True,
+                "azure_resource_mutation_performed": False,
+            }
+        if command == "recover-historical-aks-reconciliation":
+            return {
+                "state": recovery_state,
+                "effect_verified": recovery_state == "applied",
+                "terraform_zero_change_verified": recovery_state == "applied",
+                "mutation_performed": recovery_state == "applied",
+            }
+        if command == "apply-historical-aks-reconciliation":
+            return {
+                "state": "applied",
+                "effect_verified": True,
+                "terraform_zero_change_verified": True,
+                "mutation_performed": True,
+            }
+        if command == "service-update-context":
+            return {
+                "schema_version": "fdai.source-service-update-context.v1",
+                "state": "verified",
+                "service": "operator-service",
+                "target_binding": "d" * 64,
+                "active_service_update": None,
+            }
+        if command == "import-source-image":
+            return {
+                "image": "example.azurecr.io/operator-service@sha256:" + "b" * 64,
+                "receipt_digest": "e" * 64,
+            }
+        if command == "prepare-service-update":
+            return {
+                "service": "operator-service",
+                "image": "example.azurecr.io/operator-service@sha256:" + "b" * 64,
+                "source_commit": "c" * 40,
+            }
+        if command == "recover-apply":
+            return {"state": "not-required"}
+        if command == "plan":
+            return {"review_digest": "f" * 64}
+        if command == "apply":
+            return {
+                "receipt_digest": "1" * 64,
+                "control_plane_readback_verified": True,
+                "peer_state_unchanged_verified": True,
+                "terraform_zero_change_verified": True,
+            }
+        raise AssertionError(f"unexpected command: {command}")
+
+    monkeypatch.setattr("fdai_deployment_cli.source_service_update._host_json", host)
+    approval = tmp_path / "approval.json"
+    approval.write_text("{}", encoding="utf-8")
+    approval.chmod(0o600)
+    adoption = []
+    for name in ("binding", "state", "variables", "live", "plan"):
+        path = tmp_path / f"{name}.json"
+        path.write_text("{}", encoding="utf-8")
+        path.chmod(0o600)
+        adoption.append(path)
+    plan_reviews: list[dict[str, object]] = []
+
+    def approve_plan(_root: Path, review: dict[str, object]) -> Path:
+        plan_reviews.append(review)
+        return approval
+
+    result = deploy_source_service_update(
+        source_root=source_root,
+        application_work_dir=application,
+        work_dir=tmp_path / "update",
+        service="operator-service",
+        timeout_seconds=14400,
+        adopt_historical_binding=adoption[0],
+        adopt_historical_state=adoption[1],
+        adopt_historical_variables=adoption[2],
+        adopt_historical_live=adoption[3],
+        adopt_historical_plan=adoption[4],
+        approve_import=lambda *_: approval,
+        approve_plan=approve_plan,
+    )
+
+    assert result["state"] == "applied"
+    assert [call[0] for call in calls] == [
+        "adopt-historical-aks-application",
+        "recover-historical-aks-reconciliation",
+        *(["apply-historical-aks-reconciliation"] if recovery_state == "not-required" else []),
+        "adopt-historical-aks-application",
+        "service-update-context",
+        "import-source-image",
+        "prepare-service-update",
+        "recover-apply",
+        "plan",
+        "apply",
+    ]
+    assert len(plan_reviews) == (2 if recovery_state == "not-required" else 1)
+    if recovery_state == "not-required":
+        assert plan_reviews[0]["historical_reconciliation"]["operation"] == (
+            "historical-reconciliation"
+        )
+    assert plan_reviews[-1] == {"review_digest": "f" * 64}
+
+
 def test_source_service_update_cli_requires_source_service_and_application_state() -> None:
     parser = cli._parser()
     args = parser.parse_args(
