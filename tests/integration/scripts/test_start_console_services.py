@@ -1331,6 +1331,8 @@ case "$*" in
   "exec fdai-redpanda rpk topic add-partitions fdai.pantheon.objects --num 1")
     printf 'semantic-topic-expanded\\n'
     ;;
+    "exec fdai-redpanda rpk topic create fdai.startup.probes "*) exit 0 ;;
+    "exec fdai-redpanda rpk topic alter-config fdai.startup.probes "*) exit 0 ;;
   *) printf 'unexpected docker call: %s\\n' "$*" >&2; exit 99 ;;
 esac
 """,
@@ -1357,6 +1359,8 @@ case "$*" in
   "exec fdai-redpanda rpk topic describe fdai.pantheon.objects --print-partitions")
     printf 'PARTITION LEADER\\n'
     ;;
+    "exec fdai-redpanda rpk topic create fdai.startup.probes "*) exit 0 ;;
+    "exec fdai-redpanda rpk topic alter-config fdai.startup.probes "*) exit 0 ;;
   *) printf 'unexpected docker call: %s\\n' "$*" >&2; exit 99 ;;
 esac
 """,
@@ -1379,6 +1383,8 @@ case "$*" in
   "exec fdai-redpanda rpk topic describe fdai.pantheon.objects --print-partitions")
     printf 'PARTITION LEADER\\n0 0\\n1 0\\n'
     ;;
+    "exec fdai-redpanda rpk topic create fdai.startup.probes "*) exit 0 ;;
+    "exec fdai-redpanda rpk topic alter-config fdai.startup.probes "*) exit 0 ;;
   *) printf 'unexpected docker call: %s\\n' "$*" >&2; exit 99 ;;
 esac
 """,
@@ -1403,3 +1409,41 @@ esac
 
     assert result.returncode == 1
     assert result.stderr == "dev-up: failed to disable licensed continuous partition balancing\n"
+
+
+def test_dev_up_runs_bounded_local_group_cleanup(tmp_path: Path) -> None:
+    result = _run_dev_up_with_fake_docker(
+        tmp_path,
+        """#!/usr/bin/env bash
+set -euo pipefail
+case "$*" in
+    "compose version"|"info"|"compose up -d --wait") exit 0 ;;
+    "exec fdai-redpanda rpk cluster config set "*) exit 0 ;;
+    "exec fdai-redpanda rpk topic describe fdai.pantheon.objects --print-partitions")
+        printf 'PARTITION LEADER\\n0 0\\n1 0\\n'
+        ;;
+    "context inspect")
+        printf '[{"Endpoints":{"docker":{"Host":"unix:///var/run/docker.sock"}}}]\\n'
+        ;;
+    "exec fdai-redpanda rpk group list") printf 'BROKER GROUP STATE\\n' ;;
+    "exec fdai-redpanda rpk topic create fdai.startup.probes "*)
+        expected=(exec fdai-redpanda rpk topic create fdai.startup.probes --if-not-exists
+            -p 2 -r 1 -c cleanup.policy=delete -c retention.ms=3600000
+            -c retention.bytes=1048576 -c segment.ms=600000)
+        [[ "$*" == "${expected[*]}" ]]
+        printf 'bounded-probe-topic-created\\n' ;;
+    "exec fdai-redpanda rpk topic alter-config fdai.startup.probes "*)
+        expected=(exec fdai-redpanda rpk topic alter-config fdai.startup.probes
+            --set cleanup.policy=delete --set retention.ms=3600000
+            --set retention.bytes=1048576 --set segment.ms=600000)
+        [[ "$*" == "${expected[*]}" ]]
+        printf 'bounded-probe-retention-reconciled\\n' ;;
+    *) printf 'unexpected docker call: %s\\n' "$*" >&2; exit 99 ;;
+esac
+""",
+    )
+
+    assert result.returncode == 0
+    assert 'local-broker-cleanup: {"candidates": 0, "removed": 0} apply=True' in result.stdout
+    assert "bounded-probe-topic-created" in result.stdout
+    assert "bounded-probe-retention-reconciled" in result.stdout

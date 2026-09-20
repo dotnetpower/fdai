@@ -525,15 +525,7 @@ fi
   printf 'FDAI_START_CONSUMER=1\n'
   printf 'FDAI_START_PANTHEON=1\n'
   printf 'FDAI_TEAMS_NOTIFICATION_ACTIVATION=%s\n' "$local_teams_notification_activation"
-  # Local Azure Event Hubs (Standard SKU) has no dedicated runtime.startup.probe
-  # hub (the namespace is at the 10-hub cap) and its consumer-group join is slow
-  # (~13s). Route the startup round-trip probe to an existing DLQ topic and widen
-  # settle/timeouts so startup readiness reaches "ready" instead of blocking the
-  # Pantheon on a probe deadline. Deployed runtimes join faster inside the VNet.
-  # A local Docker Redpanda broker joins in milliseconds, so
-  # FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1 keeps the coordinator's own fast defaults
-  # instead of the Event Hubs-tuned values below.
-  printf 'FDAI_STARTUP_KAFKA_PROBE_TOPIC=fdai.change.events.dlq\n'
+  printf 'FDAI_STARTUP_KAFKA_PROBE_TOPIC=fdai.startup.probes\n'
   if [[ "$no_azure_deployment" != "1" ]]; then
     printf 'FDAI_STARTUP_KAFKA_SETTLE_SECONDS=20\n'
     printf 'FDAI_STARTUP_PROBE_TIMEOUT_SECONDS=90\n'

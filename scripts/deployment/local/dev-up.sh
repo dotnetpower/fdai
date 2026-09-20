@@ -32,6 +32,7 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 repo_root="$(git rev-parse --show-toplevel)"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 compose_dir="${repo_root}/infra/local"
 cd "${compose_dir}"
 
@@ -87,6 +88,14 @@ echo "dev-up: bringing up postgres + redpanda + clamav..."
 docker compose up -d --wait
 reconcile_redpanda_community_config
 reconcile_semantic_topic_partitions
+docker exec fdai-redpanda rpk topic create fdai.startup.probes --if-not-exists -p 2 -r 1 \
+  -c cleanup.policy=delete -c retention.ms=3600000 -c retention.bytes=1048576 -c segment.ms=600000
+docker exec fdai-redpanda rpk topic alter-config fdai.startup.probes \
+  --set cleanup.policy=delete --set retention.ms=3600000 \
+  --set retention.bytes=1048576 --set segment.ms=600000
+if ! python3 "$script_dir/cleanup-local-broker.py" --apply; then
+  echo "dev-up: optional stale local consumer cleanup unavailable; retained existing groups" >&2
+fi
 
 echo
 echo "dev-up: OK"

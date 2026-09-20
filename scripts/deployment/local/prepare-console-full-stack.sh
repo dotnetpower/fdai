@@ -518,6 +518,7 @@ local_state_inputs=(
   infra/local/docker-compose.yml
   infra/local/.env.example
   scripts/deployment/local/dev-up.sh
+  scripts/deployment/local/cleanup-local-broker.py
   scripts/deployment/local/prepare-console-state.sh
   "$database_identity"
 )

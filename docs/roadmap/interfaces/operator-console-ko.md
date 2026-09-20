@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: f7f98862a28b027a36437d7efe221f653b9c27f1
-translation_revised: 2026-09-20
+translation_source_sha: 7c64bd0da88c95986cbb7b6afa65c408aa98aed1
+translation_revised: 2026-09-21
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다. FDAI Console은 읽기 전용 제품이 아니라 통제된 운영자 인터페이스입니다. 서버가 인가한 타입 지정 요청을 제출할 수 있지만, 관리 리소스 실행은 브라우저 밖에서 이루어지며 고위험 작업에는 계속 사람 승인이 필요합니다.
@@ -68,6 +68,7 @@ Operator 소유 Kafka 어댑터는 의미 제안을 게시하고 의미 변환 �
 Terraform은 request와 projection topic을 고정합니다. Core는 검증된 query table을 렌더링하고 Operator는 영속 result를 기존 `done` event로 변환합니다.
 주입된 공급자가 우선하며 로컬 서술기는 다른 공급자와 함께 사용하지 않습니다. 전체 스택 준비는 명시적 절대 경로 `FDAI_LOCAL_RESOLVED_MODELS_PATH`의 경로와 파일 바이트를 기존 캐시와 단계별 캐시 식별값에 포함합니다. 변경되면 모델 연결을 다시 생성합니다. 같은 계약은 서비스 경계를 변경하지 않고 명시적으로 활성화한 소유자 전용 Kubernetes fleet 파일도 포함합니다. 명시적 선택 없이 기본 모델 산출물이 누락되면 [런타임 동등성](../deployment/dev-and-deploy-parity-ko.md) 규칙에 따라 캐시 재사용 전에 선택 범위의 기존 배포에서 생성합니다. 조회가 실패하거나 대상이 모호하면 준비를 중단하며 리소스를 생성하거나 권한을 부여하지 않습니다.
 관리되는 전체 스택 작업은 권위 있는 인벤토리 새로 고침을 지속 조정 프로세스에 맡기므로 수집이 진행되는 동안 Console, Core 및 Operator 프로세스를 시작할 수 있습니다. 전체 준비 상태는 활성 범위 인벤토리 커버리지와 analyzer의 첫 번째 정상 tick을 계속 요구합니다. 독립 실행 준비는 동기 인벤토리 새로 고침을 유지합니다.
+로컬 준비는 오래된 소비자 정리 도구를 캐시 식별값에 포함하고 준비 점검 메시지를 `fdai.startup.probes`에 격리합니다. 삭제 보존 기준은 1시간 또는 파티션당 1 MiB이며 세그먼트는 10분마다 교체합니다. 정리 도구는 비어 있는 PID별 자기 점검 그룹을 다시 확인하고 프로세스가 종료된 그룹만 제거합니다. 운영 메시지, 실패 메시지, 활성 그룹 및 데이터베이스 기록은 보존합니다. 브로커 보존 정책은 비동기로 적용되며 기존 런타임은 관리되는 준비와 재시작 이후 새 점검 토픽을 사용합니다.
 Operator API는 검토를 준비된으로 표시하거나 카탈로그 제안을 만들거나 권한을 부여하지 않습니다. 잘못된 답변 보고는 자율 재평가 근거만 추가하며 통제된 transition에는 exact 재생 근거와 기존 카탈로그 수명 주기가 계속 필요합니다.
 ### 1.1 공유 glossary에 추가된 어휘
 
