@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: e79ae2a25f433fd1038a6229b50fba013d734f26
-translation_revised: 2026-09-19
+translation_source_sha: b9864ae5d39284901b32efcbbea089796b10fd4c
+translation_revised: 2026-09-20
 ---
 # 대화 품질 보증
 
@@ -53,7 +53,7 @@ Core는 영속 큐와 Pantheon 품질 보증 단계의 schema-v2 timing을 기�
 명시적으로 요청한 비공개 AKS series는 활성 Azure CLI 범위와 검토된 Resource-to-Workload-to-BusinessService 그래프에서 대상이 결속된 질문을 정확히 3개 만들 수 있습니다. 준비 단계는 세 비공개 case를 하나의 소유자 전용 runtime corpus로 결합하고 local Core environment에 exact file과 digest를 결속하며 측정 전에 Core를 성공적으로 다시 시작해야 합니다. Runner는 다시 시작된 Core readiness receipt가 해당 exact digest를 전달할 때까지 browser attempt를 arm하지 않습니다. 이름은 소유자 전용 corpus와 browser memory에만 유지하며 보고서는 case id, digest, 타입이 지정된 상태 및 점수만 보존합니다. 그래프 또는 준비 근거가 없으면 질문을 보내기 전에 판단 보류합니다.
 고정 사례 측정 전에 런타임은 등록된 로캘을 Pantheon 대화 포트에 전달합니다. 추적 증적의 `participants[].situation`이 일치하지 않으면 영어로 대체하지 않고 진단에 실패합니다.
 
-선택적인 Unix socket supervisor는 명시적 명령을 기다리며 재시작으로 캠페인을 재개하거나 시작하지 않습니다. VS Code task는 표준 loopback Operator URL과 소유자 전용 bearer-token 파일 경로를 연결하며 bearer 값 자체를 포함하지 않습니다. 공급자 사용 제한, 사용 불가, 시간 초과 또는 누락된 측정 계약은 라이브 질문을 재시도하지 않고 판단 보류로 기록합니다. CLI는 일반 전송 판단 보류로 축약하기 전에 평가의 정확한 미완료 상태와 범위가 제한된 사유를 보존합니다. 수락된 의미 처리 결과는 답변이 아닌 라우팅 근거이며 답변과 답변 보류 문구가 모두 없으면 실패 시 닫습니다.
+선택적인 Unix socket supervisor는 명시적 명령을 기다리며 재시작으로 캠페인을 재개하거나 시작하지 않습니다. VS Code task는 표준 loopback Operator URL과 소유자 전용 bearer-token 파일 경로를 연결하며 bearer 값 자체를 포함하지 않습니다. 로컬 Azure CLI 모드에서는 각 캠페인이 loopback `/local-auth/me`에서 서버가 발급한 현재 세션 자격 증명을 받아 메모리에만 보관합니다. 경로가 없을 때는 Browser Entra 대체 경로를 선택하며, 비공개 파일의 JWT는 `exp`와 선택적 `nbf` 검사를 통과해야 합니다. 그 밖의 로컬 인증 실패는 질문을 보내기 전에 판단 보류합니다. 공급자 사용 제한, 사용 불가, 시간 초과 또는 누락된 측정 계약은 라이브 질문을 재시도하지 않고 판단 보류로 기록합니다. CLI는 일반 전송 판단 보류로 축약하기 전에 평가의 정확한 미완료 상태와 범위가 제한된 사유를 보존합니다. 수락된 의미 처리 결과는 답변이 아닌 라우팅 근거이며 답변과 답변 보류 문구가 모두 없으면 실패 시 닫습니다.
 인증된 Operator 요청은 private bearer가 origin을 넘기 전에 redirect를 거부하고 의미 기한과 범위 제한 전송 여유를 적용하며 엄격한 UTF-8과 마지막 `done` event 하나를 요구합니다. 전송 및 evaluator 예외는 내용 없는 판단 보류 사유로 축약하고 잘못된 byte, 중복 최종 결과 또는 최종 결과 뒤 오류는 통과할 수 없습니다.
 Supervisor와 CLI는 하나의 소유자 전용 실행기 잠금을 공유합니다. `report`는 비공개 transcript가 있으면 이를, 없으면 내용 없는 평가를 렌더링합니다. `compare --baseline-case <id> --candidate-case <id>`는 서로 다른 두 보존 레코드와 진단 점수 및 verdict를 반환하지만 qualification이나 정책 권한을 수립하지 않습니다.
 전체 census 집계는 230개 추적 및 진단 증적이 하나의 정리된 리비전에서 digest로 연결돼야 합니다. 불완전, 중복, 혼합 리비전, T1 결론 손실 또는 hard-zero 근거는 qualification을 만들 수 없으며 사람 검토가 필요합니다.

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import importlib.util
 import json
 import os
 import stat
 import sys
 import urllib.error
+import urllib.request
+from email.message import Message
 from pathlib import Path
 from types import ModuleType
 
@@ -263,6 +266,69 @@ def test_private_token_file_rejects_symlink(
 
     with pytest.raises(module.CampaignHoldError, match="not_private"):
         module._token_from_private_file()
+
+
+def test_operator_token_uses_current_loopback_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    observed: dict[str, object] = {}
+
+    class Response:
+        headers = {"X-FDAI-Local-Session": "current-session"}
+
+        def __enter__(self) -> Response:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+    def open_request(request: urllib.request.Request, *, timeout: int) -> Response:
+        observed["url"] = request.full_url
+        observed["timeout"] = timeout
+        return Response()
+
+    monkeypatch.delenv("FDAI_CONVERSATION_ASSURANCE_TOKEN_FILE", raising=False)
+    monkeypatch.setattr(module, "_open_operator_request", open_request)
+
+    token = module._operator_bearer_token("http://127.0.0.1:8010")
+
+    assert token == "current-session"
+    assert observed == {
+        "url": "http://127.0.0.1:8010/local-auth/me",
+        "timeout": 5,
+    }
+
+
+@pytest.mark.parametrize(
+    ("claims", "reason"),
+    (
+        ({"exp": 1}, "operator_token_expired"),
+        ({"exp": 9_999_999_999, "nbf": 9_999_999_999}, "operator_token_not_yet_valid"),
+    ),
+)
+def test_operator_token_rejects_invalid_jwt_time_window(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    claims: dict[str, int],
+    reason: str,
+) -> None:
+    module = _load_module()
+    token_path = tmp_path / "token"
+    payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
+    token_path.write_text(f"header.{payload}.signature", encoding="utf-8")
+    os.chmod(token_path, 0o600)
+    monkeypatch.setenv("FDAI_CONVERSATION_ASSURANCE_TOKEN_FILE", str(token_path))
+    monkeypatch.setattr(
+        module,
+        "_open_operator_request",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            urllib.error.HTTPError("local-auth", 404, "not found", Message(), None)
+        ),
+    )
+
+    with pytest.raises(module.CampaignHoldError, match=f"^{reason}$"):
+        module._operator_bearer_token("http://localhost:8010")
 
 
 def test_terminal_parser_requires_done_event() -> None:

@@ -304,8 +304,8 @@ async def test_operational_frame_fails_closed_above_its_request_budget() -> None
             utterance="Compare the gateway.",
             context=(),
             descriptors=tuple(
-                {"kind": "object", "name": f"Resource-{index}", "schema": "x" * 1_000}
-                for index in range(70)
+                {"kind": "object", "name": f"Resource-{index}-" + ("x" * 128)}
+                for index in range(512)
             ),
             principal_role="reader",
             purpose="operations-review",
@@ -346,6 +346,102 @@ async def test_profile_request_budget_blocks_provider_call() -> None:
         )
 
     assert result is None
+
+
+async def test_frame_projects_verbose_descriptors_before_request_budget_check() -> None:
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return _response(_frame_payload())
+
+    prompt = "bounded frame prompt"
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        config = _config()
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=AzureOpenAISemanticPlanningModelConfig(
+                candidates=config.candidates,
+                frame_system_prompt=prompt,
+                plan_system_prompt=config.plan_system_prompt,
+                frame_prompt_manifest=_prompt_manifest(prompt, request_budget=16_384),
+            ),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        result = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="Show resources.",
+            context=(),
+            descriptors=tuple(
+                {
+                    "kind": "object",
+                    "name": f"Resource-{index}",
+                    "properties": {
+                        "status": {
+                            "type": "string",
+                            "description": "x" * 2_000,
+                        }
+                    },
+                }
+                for index in range(40)
+            ),
+            principal_role="reader",
+            purpose="operations-review",
+        )
+
+    assert result is not None
+    payload = json.loads(json.loads(captured[0].content)["messages"][1]["content"])
+    descriptors = payload["untrusted_input"]["descriptors"]
+    assert len(descriptors) == 40
+    assert descriptors[0] == {"kind": "object", "name": "Resource-0"}
+
+
+async def test_recovery_frame_projects_verbose_descriptors_before_budget_check() -> None:
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return _response(_frame_payload())
+
+    recovery_prompt = "compact recovery"
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        config = _config()
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=AzureOpenAISemanticPlanningModelConfig(
+                candidates=config.candidates,
+                frame_system_prompt=config.frame_system_prompt,
+                plan_system_prompt=config.plan_system_prompt,
+                recovery_frame_system_prompt=recovery_prompt,
+                recovery_frame_prompt_manifest=_prompt_manifest(
+                    recovery_prompt,
+                    request_budget=32_768,
+                ),
+            ),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        result = await asyncio.to_thread(
+            model.propose_escalated_frame,
+            utterance="Show resources.",
+            context=(),
+            descriptors=tuple(
+                {
+                    "kind": "object",
+                    "name": f"Resource-{index}",
+                    "properties": {"status": {"description": "x" * 2_000}},
+                }
+                for index in range(278)
+            ),
+            principal_role="reader",
+            purpose="operations-review",
+            recovery_context={"stage": "frame", "trigger": "frame_unavailable"},
+        )
+
+    assert result is not None
+    payload = json.loads(json.loads(captured[0].content)["messages"][1]["content"])
+    assert len(payload["untrusted_input"]["descriptors"]) == 278
 
 
 async def test_final_system_budget_includes_generated_schema() -> None:

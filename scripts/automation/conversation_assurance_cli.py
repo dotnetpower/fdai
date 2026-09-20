@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
 import json
 import os
 import re
@@ -18,6 +19,7 @@ from uuid import uuid4
 
 _ROOT = Path(__file__).resolve().parents[2]
 _OPERATOR_HTTP_TIMEOUT_SECONDS = 100
+_LOCAL_AUTH_TIMEOUT_SECONDS = 5
 sys.path.insert(0, str(_ROOT))
 for _source in ("services/core-control-plane/src", "packages/service-contracts/src"):
     sys.path.insert(0, str(_ROOT / _source))
@@ -370,6 +372,67 @@ def _token_from_private_file() -> str:
     return token
 
 
+def _validate_jwt_time_window(token: str) -> None:
+    parts = token.split(".")
+    if len(parts) != 3:
+        return
+    try:
+        payload_segment = parts[1]
+        padding = "=" * (-len(payload_segment) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(payload_segment + padding))
+    except (ValueError, UnicodeError, json.JSONDecodeError) as error:
+        raise CampaignHoldError("operator_token_invalid") from error
+    if not isinstance(payload, Mapping):
+        raise CampaignHoldError("operator_token_invalid")
+    now = datetime.now(UTC).timestamp()
+    expires_at = payload.get("exp")
+    not_before = payload.get("nbf")
+    if not isinstance(expires_at, (int, float)) or isinstance(expires_at, bool):
+        raise CampaignHoldError("operator_token_invalid")
+    if expires_at <= now:
+        raise CampaignHoldError("operator_token_expired")
+    if not_before is not None and (
+        not isinstance(not_before, (int, float)) or isinstance(not_before, bool) or not_before > now
+    ):
+        raise CampaignHoldError("operator_token_not_yet_valid")
+
+
+def _local_operator_session_token(base_url: str) -> str | None:
+    normalized = base_url.rstrip("/")
+    if not (
+        normalized.startswith("http://127.0.0.1:") or normalized.startswith("http://localhost:")
+    ):
+        return None
+    request = urllib.request.Request(  # noqa: S310 - restricted to loopback above
+        f"{normalized}/local-auth/me",
+        headers={"Accept": "application/json"},
+        method="GET",
+    )
+    try:
+        with _open_operator_request(request, timeout=_LOCAL_AUTH_TIMEOUT_SECONDS) as response:
+            token = str(response.headers.get("X-FDAI-Local-Session", "")).strip()
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return None
+        raise CampaignHoldError(f"operator_local_auth_http_{error.code}") from error
+    except TimeoutError as error:
+        raise CampaignHoldError("operator_local_auth_timeout") from error
+    except (urllib.error.URLError, OSError) as error:
+        raise CampaignHoldError("operator_local_auth_unavailable") from error
+    if not token:
+        raise CampaignHoldError("operator_local_auth_invalid")
+    return token
+
+
+def _operator_bearer_token(base_url: str) -> str:
+    local_token = _local_operator_session_token(base_url)
+    if local_token is not None:
+        return local_token
+    token = _token_from_private_file()
+    _validate_jwt_time_window(token)
+    return token
+
+
 def _selected_cases(
     *,
     suite: str,
@@ -430,7 +493,7 @@ async def _start(project: Path, request: Mapping[str, object]) -> dict[str, obje
         raise CampaignHoldError("operator_url_unavailable")
     evaluator = OperatorHttpEvaluator(
         base_url=base_url,
-        bearer_token=_token_from_private_file(),
+        bearer_token=_operator_bearer_token(base_url),
         turn_ledger=PrivateJsonlLedger(_state_root(project) / "turns.jsonl"),
         transcript_ledger=PrivateJsonlLedger(_state_root(project) / "transcripts.jsonl"),
     )
