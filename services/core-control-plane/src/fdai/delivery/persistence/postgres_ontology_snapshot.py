@@ -10,7 +10,8 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -23,8 +24,12 @@ from fdai.delivery.persistence.postgres_ontology_prepared import (
     _digest,
     _encode,
 )
+from fdai.delivery.persistence.postgres_ontology_source_coverage import (
+    resource_graph_source_coverage,
+)
 from fdai.shared.contracts.models import OntologyTypeRef
 from fdai.shared.providers.ontology_instance import (
+    OntologyGraphSnapshot,
     OntologyInstanceValidationError,
     OntologyLinkRecord,
     OntologyObjectRecord,
@@ -55,7 +60,8 @@ async def record_committed_snapshot(
     connection: psycopg.AsyncConnection[Any],
     prepared: PreparedOntologyReplacement,
     committed_revisions: Mapping[str, int],
-) -> str:
+    state_updates: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Mapping[str, Any]]:
     """Record actual committed revisions inside the caller's existing graph transaction."""
     manifest = json.loads(prepared.manifest)
     if len(committed_revisions) != manifest["object_count"] or any(
@@ -90,23 +96,43 @@ async def record_committed_snapshot(
     row = await cursor.fetchone()
     if row is None or _encode(row["value"], limit=_MAX_RECEIPT_BYTES) != encoded:
         raise OntologyInstanceValidationError("committed ontology receipt conflicts with content")
-    return digest
+    return {
+        **state_updates,
+        "inventory-ontology:prepared-snapshot": {
+            **state_updates["inventory-ontology:prepared-snapshot"],
+            "snapshot_digest": digest,
+        },
+    }
 
 
-async def pin_current_snapshot(config: PostgresOntologyInstanceStoreConfig) -> str | None:
+@asynccontextmanager
+async def _snapshot_connection(
+    config: PostgresOntologyInstanceStoreConfig,
+    connection: psycopg.AsyncConnection[Any] | None,
+) -> AsyncIterator[psycopg.AsyncConnection[Any]]:
+    if connection is not None:
+        yield connection
+        return
+    async with await psycopg.AsyncConnection.connect(
+        config.dsn, row_factory=dict_row, connect_timeout=config.connect_timeout_s
+    ) as opened:
+        await opened.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        await opened.execute(
+            "SELECT set_config('statement_timeout',%s,true)", (str(config.statement_timeout_ms),)
+        )
+        yield opened
+
+
+async def pin_current_snapshot(
+    config: PostgresOntologyInstanceStoreConfig,
+    *,
+    _connection: psycopg.AsyncConnection[Any] | None = None,
+) -> str | None:
     """Select a committed inventory version only when graph and inventory generations agree."""
     async with (
         asyncio.timeout(10),
-        await psycopg.AsyncConnection.connect(
-            config.dsn,
-            row_factory=dict_row,
-            connect_timeout=config.connect_timeout_s,
-        ) as connection,
+        _snapshot_connection(config, _connection) as connection,
     ):
-        await connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-        await connection.execute(
-            "SELECT set_config('statement_timeout',%s,true)", (str(config.statement_timeout_ms),)
-        )
         cursor = await connection.execute(
             "SELECT pointer.value, active.snapshot_id FROM state_kv pointer "
             "LEFT JOIN inventory_active active ON active.singleton=TRUE "
@@ -163,6 +189,7 @@ async def read_snapshot_page(
     kind: Literal["objects", "links"] = "objects",
     cursor: str | None = None,
     limit: int = 1000,
+    _connection: psycopg.AsyncConnection[Any] | None = None,
 ) -> CommittedOntologyPage:
     """Read immutable committed partitions; a cursor selects content and grants no authorization.
 
@@ -189,16 +216,8 @@ async def read_snapshot_page(
         offset = int(cursor[len(prefix) :])
     async with (
         asyncio.timeout(30),
-        await psycopg.AsyncConnection.connect(
-            config.dsn,
-            row_factory=dict_row,
-            connect_timeout=config.connect_timeout_s,
-        ) as connection,
+        _snapshot_connection(config, _connection) as connection,
     ):
-        await connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-        await connection.execute(
-            "SELECT set_config('statement_timeout',%s,true)", (str(config.statement_timeout_ms),)
-        )
         receipt = await _read_content(connection, _PREFIX, snapshot_digest, _MAX_RECEIPT_BYTES)
         manifest = await _read_content(
             connection, "ontology-prepared:", receipt.get("prepared_digest"), 32 * 1024 * 1024
@@ -292,4 +311,91 @@ async def read_snapshot_page(
             links=tuple(links),
             total_count=total,
             next_cursor=f"{snapshot_digest}:{kind}:{next_offset}" if next_offset < total else None,
+        )
+
+
+async def scan_current_inventory_snapshot(
+    connection: psycopg.AsyncConnection[Any],
+    config: PostgresOntologyInstanceStoreConfig,
+    candidate_limit: int,
+) -> OntologyGraphSnapshot | None:
+    """Reuse a caller-owned read snapshot; only legacy current scans may use live rows."""
+    async with asyncio.timeout(30):
+        cursor = await connection.execute(
+            "SELECT value FROM state_kv WHERE key='inventory-ontology:prepared-snapshot'"
+        )
+        row = await cursor.fetchone()
+        if row is None or (
+            isinstance(row["value"], dict)
+            and set(row["value"]) == {"schema_version", "digest", "generation", "release_digest"}
+            and row["value"]["schema_version"] == "1.0.0"
+            and all(isinstance(value, str) and value for value in row["value"].values())
+            and _DIGEST.fullmatch(row["value"]["digest"]) is not None
+            and _DIGEST.fullmatch(row["value"]["release_digest"]) is not None
+        ):
+            return None
+        digest = await pin_current_snapshot(config, _connection=connection)
+        if digest is None:
+            raise OntologyInstanceValidationError("committed ontology snapshot is unavailable")
+        receipt = await _read_content(connection, _PREFIX, digest, _MAX_RECEIPT_BYTES)
+        manifest = await _read_content(
+            connection, "ontology-prepared:", receipt.get("prepared_digest"), 32 * 1024 * 1024
+        )
+        updates = manifest.get("state_updates")
+        keys = ("inventory-ontology:manifest", "inventory-ontology:status")
+        cursor = await connection.execute(
+            "SELECT key,value FROM state_kv WHERE key=ANY(%s::text[])", (list(keys),)
+        )
+        current = {row["key"]: row["value"] for row in await cursor.fetchall()}
+        if not isinstance(updates, dict) or any(
+            key not in updates or key not in current or updates[key] != current[key] for key in keys
+        ):
+            raise OntologyInstanceValidationError("committed ontology snapshot markers changed")
+        complete, generation = await resource_graph_source_coverage(
+            connection, (), requires_resource_coverage=True, expresses_relationships=False
+        )
+        if not complete or generation != receipt.get("generation"):
+            return OntologyGraphSnapshot(source_complete=False, source_generation=generation)
+        cursor = await connection.execute(
+            "SELECT id,revision,type_version,catalog_digest FROM ontology_resource "
+            "WHERE object_type='Resource' ORDER BY id LIMIT 50001"
+        )
+        rows = await cursor.fetchall()
+        if (
+            len(rows) > 50000
+            or {row["id"]: row["revision"] for row in rows} != receipt.get("object_revisions")
+            or any(row["catalog_digest"] != receipt.get("release_digest") for row in rows)
+        ):
+            raise OntologyInstanceValidationError(
+                "committed ontology snapshot live revisions changed"
+            )
+        objects: list[OntologyObjectRecord] = []
+        versions = {row["id"]: row["type_version"] for row in rows}
+        next_cursor = None
+        while True:
+            page = await read_snapshot_page(
+                config,
+                snapshot_digest=digest,
+                cursor=next_cursor,
+                limit=min(1000, candidate_limit - len(objects)),
+                _connection=connection,
+            )
+            if any(
+                record.object_type != "Resource"
+                or record.type_ref is None
+                or record.type_ref.version != versions.get(record.id)
+                for record in page.objects
+            ):
+                raise OntologyInstanceValidationError(
+                    "committed ontology snapshot owner type changed"
+                )
+            objects.extend(page.objects)
+            next_cursor = page.next_cursor
+            if next_cursor is None or len(objects) == candidate_limit:
+                break
+        return OntologyGraphSnapshot(
+            objects=tuple(objects),
+            truncated=next_cursor is not None,
+            source_complete=True,
+            source_generation=generation,
         )

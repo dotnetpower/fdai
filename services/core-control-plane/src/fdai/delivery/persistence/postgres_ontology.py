@@ -46,6 +46,7 @@ from fdai.delivery.persistence.postgres_ontology_snapshot import (
     pin_current_snapshot,
     read_snapshot_page,
     record_committed_snapshot,
+    scan_current_inventory_snapshot,
 )
 from fdai.delivery.persistence.postgres_ontology_source_coverage import (
     resolve_inventory_graph_source_coverage,
@@ -520,18 +521,12 @@ class PostgresOntologyInstanceStore:
                     link_types=self._link_types,
                 )
                 if prepared is not None:
-                    snapshot_digest = await record_committed_snapshot(
+                    _state_updates = await record_committed_snapshot(
                         connection,
                         prepared,
                         committed_revisions,
+                        _state_updates or {},
                     )
-                    _state_updates = {
-                        **(_state_updates or {}),
-                        "inventory-ontology:prepared-snapshot": {
-                            **(_state_updates or {})["inventory-ontology:prepared-snapshot"],
-                            "snapshot_digest": snapshot_digest,
-                        },
-                    }
                 for key, value in sorted((_state_updates or {}).items()):
                     await connection.execute(
                         "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
@@ -695,6 +690,16 @@ class PostgresOntologyInstanceStore:
             raise ValueError(f"candidate_limit MUST be in [1, {MAX_ONTOLOGY_OBJECT_SCAN}]")
         async with await self._connect() as connection:
             await self._set_read_snapshot(connection)
+            if (
+                tuple(object_types) == ("Resource",)
+                and not property_equals
+                and not property_text_in
+            ):
+                snapshot = await scan_current_inventory_snapshot(
+                    connection, self._config, candidate_limit
+                )
+                if snapshot is not None:
+                    return snapshot
             return await _query_objects(
                 connection,
                 releases=self._releases,

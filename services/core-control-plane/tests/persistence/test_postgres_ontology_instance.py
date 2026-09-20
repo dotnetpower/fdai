@@ -175,6 +175,286 @@ def _review_object(identifier: str, object_type: str = "ReviewCase") -> Ontology
     )
 
 
+@asynccontextmanager
+async def _isolated_committed_resource_store(count=1):
+    from fdai.shared.contracts.models import CeilingRole
+
+    async with _isolated_replacement_store() as original:
+        declaration = _type("Resource")
+        declaration.properties["status"] = PropertyDecl(
+            type=PropertyType.STRING, required=True, access_scope=CeilingRole.OWNER
+        )
+        store = PostgresOntologyInstanceStore(
+            config=original._config, object_types=(declaration,), link_types=()
+        )
+        async with await store._connect() as connection:
+            await connection.execute(
+                "CREATE TABLE inventory_active (singleton BOOLEAN PRIMARY KEY,snapshot_id TEXT);"
+                "INSERT INTO inventory_active VALUES (TRUE,'snapshot-example');"
+                "CREATE TABLE inventory_snapshot (id TEXT PRIMARY KEY, scopes JSONB, "
+                "metadata JSONB, started_at TIMESTAMPTZ);"
+                "INSERT INTO inventory_snapshot VALUES "
+                "('snapshot-example','[\"scope-example\"]','{}',NOW());"
+                "CREATE TABLE inventory_observation_partition "
+                "(scope_ref TEXT,state TEXT,last_watermark BIGINT);"
+                "CREATE TABLE inventory_observation_journal "
+                "(scope_ref TEXT,watermark BIGINT,source_revision TEXT,effective_at TIMESTAMPTZ)"
+            )
+        await store.replace_subgraph_with_state(
+            objects=tuple(
+                _review_object(f"resource-{index:05}", "Resource") for index in range(count)
+            ),
+            links=(),
+            previous_object_ids=(),
+            previous_link_keys=(),
+            state_updates={
+                "inventory-ontology:manifest": {"generation": "snapshot-example", "complete": True},
+                "inventory-ontology:status": {
+                    "generation": "snapshot-example",
+                    "status": "available",
+                },
+            },
+            expected_active_generation="snapshot-example",
+        )
+        yield store, declaration
+
+
+@pytest.mark.parametrize(
+    "condition",
+    [
+        "healthy",
+        "empty",
+        "pages",
+        "truncated",
+        "journal",
+        "correction",
+        "pressure",
+        "relationship",
+        "status",
+        "manifest",
+        "unowned",
+        "revision",
+        "release",
+        "type_version",
+        "legacy",
+        "receipt_missing",
+        "chunk_missing",
+        "pointer_missing",
+    ],
+)
+async def test_isolated_committed_resource_scan_preserves_current_evidence(condition, monkeypatch):
+    from fdai.delivery.persistence import postgres_ontology_snapshot as snapshots
+
+    count = 0 if condition == "empty" else 1001 if condition in {"pages", "truncated"} else 1
+    async with _isolated_committed_resource_store(count) as (store, _):
+        async with await store._connect() as connection:
+            if condition == "journal":
+                await connection.execute(
+                    "INSERT INTO inventory_observation_journal VALUES "
+                    "('scope-example',1,'later',NOW()+INTERVAL '1 second')"
+                )
+            elif condition == "correction":
+                await connection.execute(
+                    "INSERT INTO inventory_observation_partition VALUES "
+                    "('scope-example','correction_pending',1)"
+                )
+            elif condition in {"pressure", "relationship"}:
+                key = (
+                    "operational-history:storage-pressure"
+                    if condition == "pressure"
+                    else "inventory-relationship-reconciliation:scope-example"
+                )
+                await connection.execute(
+                    "INSERT INTO state_kv VALUES "
+                    "(%s,'{\"hold_completeness_dependent_work\":true}',NOW())",
+                    (key,),
+                )
+            elif condition in {"status", "manifest"}:
+                await connection.execute(
+                    "UPDATE state_kv SET value=value||'{\"complete\":false}'::jsonb WHERE key=%s",
+                    ("inventory-ontology:" + condition,),
+                )
+            elif condition == "unowned":
+                await connection.execute(
+                    "INSERT INTO ontology_resource "
+                    "SELECT 'foreign',object_type,properties,revision,"
+                    "type_version,catalog_digest,updated_at FROM ontology_resource LIMIT 1"
+                )
+            elif condition == "revision":
+                await connection.execute("UPDATE ontology_resource SET revision=revision+1")
+            elif condition == "release":
+                await connection.execute("UPDATE ontology_resource SET catalog_digest='changed'")
+            elif condition == "type_version":
+                await connection.execute("UPDATE ontology_resource SET type_version='2.0.0'")
+            elif condition == "legacy":
+                await connection.execute(
+                    "UPDATE state_kv SET value=value-'snapshot_digest' "
+                    "WHERE key='inventory-ontology:prepared-snapshot'"
+                )
+            elif condition == "pointer_missing":
+                await connection.execute(
+                    "DELETE FROM state_kv WHERE key='inventory-ontology:prepared-snapshot'"
+                )
+            elif condition == "receipt_missing":
+                await connection.execute(
+                    "DELETE FROM state_kv WHERE starts_with(key,'ontology-committed:')"
+                )
+            elif condition == "chunk_missing":
+                await connection.execute("DELETE FROM state_kv WHERE value->>'kind'='objects'")
+        page_read = AsyncMock(wraps=snapshots.read_snapshot_page)
+        monkeypatch.setattr(snapshots, "read_snapshot_page", page_read)
+        operation = store.scan_objects(
+            object_types=("Resource",), candidate_limit=1000 if condition == "truncated" else 1200
+        )
+        if condition in {
+            "status",
+            "manifest",
+            "unowned",
+            "revision",
+            "release",
+            "type_version",
+            "receipt_missing",
+            "chunk_missing",
+        }:
+            with pytest.raises(OntologyInstanceValidationError):
+                await operation
+            return
+        graph = await operation
+        assert graph.source_generation == "snapshot-example"
+        if condition in {"journal", "correction", "pressure"}:
+            assert not graph.source_complete and not graph.objects
+            page_read.assert_not_awaited()
+        else:
+            assert graph.source_complete
+            assert len(graph.objects) == min(count, 1000 if condition == "truncated" else 1200)
+            assert graph.truncated is (condition == "truncated")
+            assert all(record.revision == 1 for record in graph.objects)
+            expected_calls = (
+                0
+                if condition in {"legacy", "pointer_missing"}
+                else 2
+                if condition == "pages"
+                else 1
+            )
+            assert page_read.await_count == expected_calls
+            assert len({id(call.kwargs["_connection"]) for call in page_read.await_args_list}) <= 1
+
+
+async def test_isolated_committed_resource_scan_keeps_gateway_authorization():
+    from datetime import UTC, datetime
+
+    from fdai.core.ontology_platform.interfaces import compile_interfaces
+    from fdai.core.ontology_platform.object_sets import ObjectSetService
+    from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
+    from fdai.shared.contracts.models import CeilingRole
+    from fdai.shared.ontology.acl import REDACTED_PLACEHOLDER, ProjectionRequest
+
+    async with _isolated_committed_resource_store() as (store, declaration):
+        service = ObjectSetService(
+            store=store,
+            interfaces=compile_interfaces(
+                interfaces=(), implementations=(), object_types=(declaration,)
+            ),
+            object_type_names=frozenset({"Resource"}),
+        )
+        cutoff = datetime(2026, 9, 20, tzinfo=UTC)
+        gateway = SecuredObjectSetQueryGateway(
+            service=service,
+            object_types={"Resource": declaration},
+            ontology_release=store._release,
+            evaluation_cutoff=lambda: cutoff,
+        )
+        for principal in (None, "sha256:" + "a" * 64):
+            operation = gateway.scan_snapshot(
+                object_type_names=("Resource",),
+                purpose="operations-review",
+                as_of=cutoff,
+                candidate_limit=1000,
+                projection_request=ProjectionRequest(
+                    caller_role=CeilingRole.READER,
+                    declared_purposes=frozenset({"operations-review"}),
+                    principal_scope_digest=principal,
+                ),
+            )
+            if principal is None:
+                with pytest.raises(ValueError, match="principal scope"):
+                    await operation
+            else:
+                result = await operation
+                assert result.graph.objects[0].properties["status"] == REDACTED_PLACEHOLDER
+                assert result.graph.objects[0].revision == 1
+                assert result.graph.source_generation == "snapshot-example"
+                assert result.principal_scope_digest == principal
+
+
+async def test_isolated_committed_resource_scan_pins_concurrent_publication(monkeypatch):
+    from fdai.delivery.persistence import postgres_ontology_snapshot as snapshots
+
+    async with _isolated_committed_resource_store() as (store, _):
+        read_content = snapshots._read_content
+        published = False
+
+        async def publish_after_pin(connection, prefix, digest, limit):
+            nonlocal published
+            content = await read_content(connection, prefix, digest, limit)
+            if not published:
+                published = True
+                await store.replace_subgraph_with_state(
+                    objects=(
+                        OntologyObjectRecord(
+                            id="resource-00000",
+                            object_type="Resource",
+                            properties={"id": "resource-00000", "status": "closed"},
+                            revision=1,
+                        ),
+                    ),
+                    links=(),
+                    previous_object_ids=("resource-00000",),
+                    previous_link_keys=(),
+                    state_updates={
+                        "inventory-ontology:manifest": {
+                            "generation": "snapshot-example",
+                            "complete": True,
+                        },
+                        "inventory-ontology:status": {
+                            "generation": "snapshot-example",
+                            "status": "available",
+                        },
+                    },
+                    expected_active_generation="snapshot-example",
+                )
+            return content
+
+        monkeypatch.setattr(snapshots, "_read_content", publish_after_pin)
+        original = await store.scan_objects(object_types=("Resource",))
+        updated = await store.scan_objects(object_types=("Resource",))
+        assert original.objects[0].revision == 1
+        assert original.objects[0].properties["status"] == "open"
+        assert updated.objects[0].revision == 2
+        assert updated.objects[0].properties["status"] == "closed"
+
+
+@pytest.mark.parametrize(
+    "filters",
+    [
+        {"property_equals": {"status": "open"}},
+        {"property_text_in": {"status": ("open",)}},
+        {"object_types": ("ReviewCase",)},
+    ],
+)
+async def test_isolated_committed_resource_scan_keeps_filtered_and_other_owner_paths(
+    filters, monkeypatch
+):
+    async with _isolated_committed_resource_store() as (store, _):
+        pinned = AsyncMock(
+            side_effect=AssertionError("filtered scans must keep their existing path")
+        )
+        monkeypatch.setattr(postgres_ontology, "scan_current_inventory_snapshot", pinned)
+        graph = await store.scan_objects(**{"object_types": ("Resource",), **filters})
+        assert len(graph.objects) == (0 if "object_types" in filters else 1)
+        pinned.assert_not_awaited()
+
+
 @pytest.mark.parametrize("defect", ["none", "manifest", "chunk", "missing", "mutation"])
 def test_prepared_ontology_inputs_are_content_bound_and_frozen(defect) -> None:
     from fdai.delivery.persistence.postgres_ontology_prepared import (
