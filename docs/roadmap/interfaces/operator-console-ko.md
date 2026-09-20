@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: c603bba0da5efdf1eccae63ad38bd180e69e0c6e
-translation_revised: 2026-09-19
+translation_source_sha: 4591a6acfb5cc25a669ab42ce2566fe8c4ddc27b
+translation_revised: 2026-09-20
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다. FDAI Console은 읽기 전용 제품이 아니라 통제된 운영자 인터페이스입니다. 서버가 인가한 타입 지정 요청을 제출할 수 있지만, 관리 리소스 실행은 브라우저 밖에서 이루어지며 고위험 작업에는 계속 사람 승인이 필요합니다.
@@ -206,6 +206,12 @@ RBAC 하한, side-effect 등급과 문서화된 실패 표면을 가집니다. W
 메서드 `tools.search`, `tools.describe`로 제공됩니다. 채널 호출은 resolved `Principal`을
 사용하고 RPC 호출은 호출자가 제공한 역할 매개변수가 아니라 server-authorized 범위에서 역할을
 도출합니다. 두 표면 모두 서술자만 반환하며 대상을 invoke할 수 없습니다.
+
+에이전트 위임 전에 서버는 정본 primary 및 secondary intent와 정확히 소유한 ObjectType 대상만으로
+담당자를 결정합니다. 요청 facet은 답변 및 근거 형식을 제한할 뿐 에이전트를 선택하거나 점수를
+높일 수 없습니다. 이러한 담당자 입력으로 책임 에이전트를 결정할 수 없으면 출력 facet을 라우팅
+권한으로 취급하지 않고 해당 턴을 기권하거나 보류 상태로 유지합니다.
+
 ### 3.1 Day-1 도구 집합 (읽기 전용 + explain)
 
 | 도구 | 목적 | RBAC 하한 | Delegates to |

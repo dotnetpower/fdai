@@ -69,9 +69,7 @@ def route_semantic_judgment(
                 contributors=(),
                 method="semantic_judgment",
             )
-    intents = frozenset(
-        (judgment.primary_intent, *judgment.secondary_intents, *judgment.requested_facets)
-    )
+    intents = frozenset((judgment.primary_intent, *judgment.secondary_intents))
     object_types = frozenset(
         target.canonical_value or target.value
         for target in judgment.targets

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Sequence
 
+from fdai.agents._framework.bragi_routing import route_semantic_judgment
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.semantic_routing import SemanticRouterConfig
@@ -13,6 +14,7 @@ from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from tests.agents.semantic_judgment_support import (
     restart_action_type,
     semantic_test_boundary,
+    semantic_test_proposal,
 )
 
 _NAMES = tuple(spec.name for spec in PANTHEON_SPECS)
@@ -143,6 +145,32 @@ def test_agent_embedding_error_does_not_replace_shared_judgment() -> None:
     assert turn is not None
     assert turn.primary_agent is None
     assert turn.answer["handoff_needed"] is True
+
+
+def test_output_facet_does_not_manufacture_agent_ownership() -> None:
+    judgment = semantic_test_proposal("question without an owned domain").model_copy(
+        update={"requested_facets": ("current_state",)}
+    )
+
+    decision = route_semantic_judgment(judgment, max_contributors=2)
+
+    assert decision.primary_agent is None
+    assert decision.method == "semantic_abstain"
+
+
+def test_output_facet_does_not_compete_with_canonical_intent_owner() -> None:
+    judgment = semantic_test_proposal("question without an owned domain").model_copy(
+        update={
+            "primary_intent": "resource_change_history",
+            "requested_facets": ("current_state",),
+        }
+    )
+
+    decision = route_semantic_judgment(judgment, max_contributors=2)
+
+    assert decision.primary_agent == "Heimdall"
+    assert decision.contributors == ()
+    assert decision.scores == {"Heimdall": 3.0}
 
 
 def test_action_intent_never_calls_semantic_router() -> None:
