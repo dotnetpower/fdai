@@ -65,9 +65,29 @@ try {
   await frame.locator('[data-node="forseti"]').waitFor();
   const loadMs = performance.now() - started;
   assert.ok(loadMs < 5000, `initial local render ${loadMs}ms exceeds 5s budget`);
-  assert.equal(await frame.locator(".ln-node").count(), 21);
-  assert.equal(await frame.locator(".ln-edge").count(), 23);
-  assert.equal(await frame.locator('[data-kind="ontology"]').count(), 4);
+  assert.equal(await frame.locator(".ln-node").count(), 44);
+  assert.equal(await frame.locator('[data-kind="ontology"]').count(), 24);
+  assert.equal(await frame.locator('[data-kind="type"]').count(), 3);
+  assert.equal(await frame.locator('[data-relation="example instance"]').count(), 24);
+  const fit = await frame.locator("#lineageViewport").evaluate(element => ({ width: element.clientWidth, height: element.clientHeight, scrollWidth: element.scrollWidth, scrollHeight: element.scrollHeight }));
+  assert.ok(fit.scrollWidth <= fit.width + 1 && fit.scrollHeight <= fit.height + 1, "default camera must fit the entire graph");
+  await page.screenshot({ path: join(output, "overview.png"), fullPage: true });
+  const ontology = await frame.evaluate(() => window.fdaiLineageOntology);
+  assert.equal(new Set(ontology.nodes.map(node => node.id)).size, ontology.nodes.length);
+  const types = ontology.nodes.filter(node => node.kind === "type");
+  assert.deepEqual(types.map(node => node.title), ["Resource", "Observation", "Rule"]);
+  types.forEach(type => assert.equal(type.properties.example_count, ontology.nodes.filter(node => node.kind === "ontology" && node.objectType === type.objectType).length));
+  ontology.nodes.filter(node => node.objectType === "Observation" && node.kind === "ontology").forEach(observation => {
+    const target = ontology.nodes.find(node => node.properties?.id === observation.properties.target_ref);
+    assert.equal(target?.objectType, "Resource");
+    assert.ok(ontology.edges.some(edge => edge[0] === observation.id && edge[1] === target.id && edge[2] === "observation_targets_resource"));
+  });
+  await frame.locator('[data-node="resource-type"]').click();
+  assert.match(await frame.locator("#lineageInspector").innerText(), /OBJECT TYPE \/ DECLARATION/);
+  assert.equal(await frame.locator('#lineageInspector [data-select="pod-resource"]').count(), 1);
+  await frame.locator('#lineageInspector [data-select="pod-resource"]').click();
+  assert.match(await frame.locator("#lineageInspector").innerText(), /RESOURCE \/ ONTOLOGY INSTANCE/);
+  await frame.locator("#lineageActual").click();
   const paths = await frame.locator(".ln-edge").evaluateAll(elements => elements.map(element => element.getAttribute("d")));
   paths.forEach(path => {
     assert.match(path, /^M[\d. -]+ C/);
@@ -119,11 +139,34 @@ try {
   await frame.locator("#lineageFocus").click();
   assert.equal(await frame.locator(".ln-node").count(), 2);
   await frame.locator("#lineageReset").click();
-  assert.equal(await frame.locator(".ln-node").count(), 21);
+  assert.equal(await frame.locator(".ln-node").count(), 44);
+  await frame.locator("#lineageActual").click();
   await frame.locator("#lineageZoomIn").click();
   assert.equal(await frame.locator("#lineageZoom").innerText(), "113%");
   await frame.locator("#lineageZoomOut").click();
   assert.equal(await frame.locator("#lineageZoom").innerText(), "100%");
+  const viewport = frame.locator("#lineageViewport");
+  await viewport.evaluate(element => { element.scrollLeft = 300; element.scrollTop = 0; });
+  const viewportBox = await viewport.boundingBox();
+  await page.mouse.move(viewportBox.x + 180, viewportBox.y + 30);
+  await page.mouse.down();
+  await page.mouse.move(viewportBox.x + 100, viewportBox.y + 30, { steps: 5 });
+  await page.mouse.up();
+  assert.ok(await viewport.evaluate(element => element.scrollLeft) >= 375, "background drag pans the canvas");
+  assert.equal(await viewport.evaluate(element => element.classList.contains("is-dragging")), false);
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, -100);
+  await page.keyboard.up("Control");
+  await frame.waitForFunction(() => Number.parseInt(document.querySelector("#lineageZoom").value) > 100);
+  await viewport.focus();
+  await page.keyboard.press("0");
+  await frame.waitForFunction(() => {
+    const viewport = document.querySelector("#lineageViewport");
+    return viewport.scrollWidth <= viewport.clientWidth + 1 && viewport.scrollHeight <= viewport.clientHeight + 1;
+  });
+  assert.ok(await viewport.evaluate(element => element.scrollWidth <= element.clientWidth + 1 && element.scrollHeight <= element.clientHeight + 1), "keyboard fit restores the complete canvas");
+  await frame.locator("#lineageActual").click();
+  evidence.push({ name: "Unified types and instances, initial fit, drag pan, wheel zoom and keyboard fit", disposition: "passed", fit, types: types.map(node => node.title), instances: 24 });
   await frame.locator("#lineageSearch").fill("no-matching-record");
   assert.equal(await frame.locator(".ln-node").count(), 0);
   assert.equal(await frame.locator("#lineageEmpty").isVisible(), true);
@@ -162,6 +205,7 @@ try {
 
   await page.setViewportSize({ width: 1920, height: 1200 });
   await page.locator(".nav-collapse").click();
+  await frame.locator("#lineageFit").click();
   await frame.locator('[data-node="pod-resource"]').click();
   await frame.locator("#lineageViewport").evaluate(element => { element.scrollLeft = 0; });
   await measure(frame, "Wide desktop ontology inspector");
