@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 7d381ae0494bc8de3f722d675d2429f614dc2ab2
+translation_source_sha: b1b639f73ceca1973e641a50c37d4409857da31f
 translation_revised: 2026-09-20
 ---
 # 온톨로지 구조 모델
@@ -493,165 +493,11 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 
 방향, 엔드포인트, 카디널리티 또는 저장된 아이덴티티 수정에는 계속 LinkType 주 버전 또는 명시적
 그래프 이행이 필요합니다. 어떤 출시도 과거 컨텍스트 스냅샷을 다시 쓰지 않습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 구조 설계와 호환성 | implemented | 이 문서 쌍, `design-routes.json`, 로드맵 인덱스, 코드 맵, 집중 문서 검사 | 추가 모델은 기존 Resource, ResourceType, 직접 링크 아이덴티티, 저장 방향, 과거 선언을 보존합니다. |
-| 의미 기반 인시던트 초안 경계 | implemented | `semantic_incident_creation.py`, `semantic_turn_processor.py`, 타입이 지정된 인시던트 생성 계약, 집중 의미 기반 계획 및 변환 결과 검사 | 수락된 인시던트 생성 판정은 심각도 하나, 대상 하나, 의미 기반 입력 다이제스트를 권한 없는 후보 초안에 보존합니다. 쿼리를 실행하거나 온톨로지 관계를 추론하거나 변경 권한을 부여하지 않습니다. |
-| ResourceClass 카탈로그와 변환 결과 | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType 및 멤버 자격/특수화 선언, 카탈로그 변환 결과, 클로저 증적, 집중 카탈로그 검사 | 검토된 클래스 11개가 직접 멤버 자격 112개와 범위가 제한된 특수화 링크 11개를 통해 중립 ResourceType 112개를 모두 변환합니다. 클로저는 명시적 id만 사용하고 권한을 부여하지 않습니다. |
-| 순서가 있는 형식화된 경로 쿼리 | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, 결정적 검증기, 보안 적용 handler, composition binding, 집중 쿼리 검사 | 기존 v1 탐색은 LinkType 하나만 받습니다. 형식화된 경로는 방향이 고정된 단계 1-8개를 실행하고 불완전한 중간 근거에서 보류합니다. |
-| 검토된 telemetry recipe 쿼리 | implemented | `QueryNodeKind.TELEMETRY_RECIPE`, `query_telemetry_handlers.py`, 타입이 지정된 근거 계약, 검증된 적응형 게이트웨이 및 집중 계약/쿼리 테스트 | 정확한 recipe need 하나는 스키마 및 계보 검증 뒤에만 프로바이더 I/O에 도달합니다. 결과는 원시 조회나 로그 행을 노출하지 않으며 실행 권한을 갖지 않습니다. |
-| 링크 역할과 의미 특성 | implemented | 공유 LinkType 계약 및 스키마, 쿼리 매니페스트, 검토된 런타임 선언 7개와 분류 선언 2개, 카탈로그 테스트 | 선택적인 빈 필드는 기존 provenance를 보존합니다. 검토된 필드는 역방향 edge나 표현 레이아웃을 만들지 않습니다. |
-| 수명 주기 없는 선언과 권한 전달 객체 | implemented | `object-type-lifecycle-classification.yaml`, `CapacityGraduationRecommendation`, `EvidenceConflict`, `ProspectiveLineage`, 엄격한 카탈로그 및 일치 검사 | 수명 주기가 없는 모든 ObjectType에는 검토 가능한 분류가 하나씩 있습니다. 추가된 전달 객체 3개는 고정된 에이전트 소유권을 보존하고 실행 권한을 부여하지 않습니다. |
-| 완전성과 표현 분리 | implemented | 권위 있는 온톨로지 그래프 materializer, 통합 테스트, Console 디코더, LinkType 검사기, 그래프 우선 인스턴스 작업 영역, 이중 언어 제품 카탈로그, 타입 검사, 프로덕션 빌드 및 집중 브라우저 기하 검사 | 선언 그래프는 독립적인 제한 계열 4개를 전달하고 범위 내 모든 LinkType의 역할과 특성을 노출합니다. 인스턴스 작업 영역은 그래프 권한을 바꾸지 않고 간단한 상한과 새로고침 상태, 펼침 메뉴가 소유하는 커버리지와 범례 세부 정보, 선택, Inspector 상태 및 전체 높이의 방향 영역을 표현 계층에 유지합니다. |
-| 균형 잡힌 인스턴스 그래프 표현 | implemented | `ontology-instance-graph.tsx`, `ontology-instances.tsx`, 경로 스타일, 집중 소스 및 브라우저 검사 | 짧은 그래프 형상을 `viewBox`, 노드 좌표, 관계 방향 또는 스크롤 동작을 바꾸지 않고 세로 중앙에 배치합니다. AKS 종단 간 근거는 기본적으로 접힌 네이티브 펼침 메뉴이며 선택 영역은 44 CSS pixel입니다. |
-| 인스턴스 아이콘 자산 로딩 | implemented | `ontology-instance-resource-icons.ts`, URL 전용 네트워크 아이콘 해석기, 집중 아이콘 및 인스턴스 테스트, Console 타입 검사와 프로덕션 빌드 | 검토된 ResourceType과 글리프 간 매핑 및 일반 대체 글리프는 바뀌지 않습니다. 대화형 화면 진입 시 그래프 쿼리를 렌더링하기 전에 검토된 모든 SVG URL이나 원시 내보내기 출처를 가져오지 않습니다. |
-| edge별 관계 근거와 영향 탐색 | implemented | `runtime_call.py`, `relationship_evidence.py`, `inventory_impact.py`, Console 영향 범위 및 온톨로지 인스턴스 모델, 집중 backend 및 Console 검사 | 탐색한 각 edge는 가용성, 검증 등급, 출처 이력 및 저장 방향을 보존합니다. 쿼리 완전성은 관계 근거 완전성과 독립적이며 권한을 부여하지 않습니다. |
-| 인스턴스 우선 Console 진입 | implemented | `ontology.tsx`, `ontology-navigation.tsx`, 온톨로지 경로, 보기 및 지역화 검사, Console 타입 검사와 프로덕션 빌드 | `/ontology`는 선언 그래프를 기다리지 않고 관측된 Resource 인스턴스를 표시합니다. 정의와 토폴로지는 이름이 명확한 네이티브 펼침 메뉴와 기존 상세 링크에서 계속 사용할 수 있습니다. |
-| 범위가 제한된 ObjectSet 후보 스캔 | validated | `OntologyInstanceStore.scan_objects`, PostgreSQL 및 메모리 어댑터, `object_sets.py`, 집중 검사 및 인증된 최근 전이 재실행 | 저장소에서 직접 평가할 수 없는 객체 전용 조건식은 객체 1,000개 probe와 최대 한 번의 객체 50,000개 단일 연결 후보 스냅샷을 사용합니다. 관계 조회는 일반 제한을 유지하며 잘림은 완전한 결과로 바뀌지 않습니다. |
-| 실제 운영 인스턴스 표시 | validated | `ontology-instance-refresh.ts`, Operator 용량 및 운영 상태 허용 목록, 온톨로지 인스턴스 경로, 그래프, Inspector, 스타일, 이중 언어 카탈로그, 집중 검사, 실제 ARG 수집 및 인증된 브라우저 검사 | 표시 중인 선택 인스턴스 화면은 15초마다 그리고 브라우저가 다시 활성화될 때 재검증합니다. 의미가 있는 텍스트 배지는 정확한 프로바이더 상태를 유지하고 사용 불가, 적용 대상 아님, 기록되지 않은 값을 구분합니다. NodePool 및 VMSS 카드는 검토된 프로바이더 용량만 표시합니다. 새로 고침 실패 시 마지막 검증 응답과 명시적인 경고를 유지합니다. |
-| 내구성 있는 인스턴스 무효화 전달 | validated | Operator 인벤토리 관측 재현, `/ontology/instances/stream`, Console SSE 소비자, 단조 증가 폴링 카운트다운, 인증된 AKS 전환 근거 | AKS 시작 중 SSE가 연결 상태를 유지했고 VM 및 NIC 토폴로지가 추가되고 클러스터가 `Stopped`에서 `Running`으로 전환됐습니다. 커밋된 watermark마다 권위 있는 데이터를 다시 읽었습니다. |
-| 거버넌스 아티팩트 분리 | implemented | `rule_catalog/schema/governance_catalog.py`; `rule_catalog/schema/retirement.py`; `delivery/catalog_exemption.py`; 집중 거버넌스 로더 및 registry 테스트 | 배정, exemption 및 rule retirement은 검증된 catalog-as-code 입력입니다. 병합된 retirement은 active rule index에서 projection되며 쿼리, 승인 또는 실행 권한을 부여하지 않습니다. |
-| 거버넌스 만료 액션 연결 | implemented | `rule_catalog/schema/exemption_lifecycle.py`; `rule-catalog/action-types/governance.reapply-rule-assignment.yaml`; 집중 수명 주기 및 ActionType 카탈로그 검사 | 정확한 배정 연결과 예외 개정은 등록된 ActionType 하나를 위한 런타임 근거입니다. 새 LinkType을 만들거나 관계를 추론하거나 변경 권한을 부여하지 않습니다. |
-| 프로바이더 관찰 토폴로지 생산 | in-progress | `azure-arg-v1.yaml`, `arm_inventory.py`, `kubernetes_api_inventory.py`, `kubernetes_inventory.py`, `refresh-authoritative-inventory.py`, 집중 Azure, Kubernetes, 인벤토리 승격, 카탈로그, Ruff, strict mypy 및 Issue #278 정확한 클러스터 근거 | 검토된 매핑 112개가 이전에 검증한 토폴로지에 스토리지, 정책, 종류로 한정된 자동 확장, Azure 자식 리소스 포함 관계 및 정확한 EndpointSlice-to-Pod 관계를 추가합니다. 이전 정확한 클러스터 증적은 해당 release에 유효하며 확장된 release는 Issue #578에서 새 실제 운영 근거가 필요합니다. |
-| 적대적 하드닝 | implemented | 아래의 누적 46회 기록에는 이번 출처, 아이덴티티 연결, 분류 체계, 변환 결과, 호환성, 준비, 시간 및 표현 관점 18개가 포함됩니다. | 검증된 모든 Critical, High 및 Medium 발견 사항을 해결했습니다. 검증된 부재와 검증되지 않은 외부 인바운드는 코드 주장이 아닌 명시적인 근거 상태로 남습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-18 | implemented | 직접 링크의 아이덴티티나 방향을 바꾸지 않고 하나의 전달 Resource가 관측된 모든 backend를 보존할 수 있도록 `routes_to`를 다대일 버전 1.1.0에서 다대다 버전 2.0.0으로 수정했습니다. | `current change`, 집중 카탈로그 및 다중 경로 변환 결과 검사 85건 통과 | 완전한 로컬 generation 하나를 다시 변환하고 Operator 읽기 모델이 더 이상 release 불일치를 보고하지 않는지 확인합니다. |
-| 2026-09-18 | implemented | 직접 링크의 아이덴티티나 방향을 바꾸지 않고 하나의 전달 Resource가 관측된 모든 backend를 보존할 수 있도록 `routes_to`를 다대일 버전 1.1.0에서 다대다 버전 2.0.0으로 수정했습니다. | `current change`, `routes_to.yaml`, 프로바이더 mapping cardinality, 집중 카탈로그 및 다중 경로 변환 결과 회귀 검사 3건 통과 | 새 온톨로지 release에서 완전한 로컬 세대 하나를 다시 변환하고 Operator 읽기 모델이 더 이상 release 불일치를 보고하지 않는지 확인합니다. |
-| 2026-09-17 | implemented | 서버가 소유하는 필터를 적용한 뒤에도 ObjectType 상세가 정확한 카탈로그 선언의 모든 속성을 보존하도록 했습니다. `AccessGrantRequest`를 6개 속성에서 검토에 필요한 의미 필드 11개를 갖는 버전 `2.0.0`으로 확장하면서 정규화된 `id` 키를 보존했습니다. | `current change`, `AccessGrantRequest.yaml`, `test_ontology_declaration_projection.py`, 집중 선언 상세 회귀 검사 통과 | 런타임, 프로바이더, 승인 또는 실행 권한은 변경하지 않았습니다. 보존된 release가 이전 해석을 계속 소유합니다. |
-| 2026-09-17 | implemented | Mixed-model 독립성을 발행기 신원이 아니라 정확한 모델 계열 메타데이터로 정의했습니다. 같은 계열의 해석된 쌍과 primary 풀 재사용은 호출 전에 실패하며 이 메타데이터는 온톨로지 또는 실행 권한을 부여하지 않습니다. | `current change`, 집중 레지스트리, 해석기, 산출물 및 런타임 조립 검사 | 보호된 모델 워크플로를 통해 선택한 보조 계열을 배포하고 독립적으로 다시 읽습니다. |
-| 2026-09-17 | implemented | 그래프 또는 근거 의미를 바꾸지 않고 짧은 인스턴스 그래프를 사용 가능한 뷰포트 중앙에 배치하고 AKS 종단 간 근거를 기본적으로 접었습니다. | `current change`, 집중 Vitest(`73 passed`), Console 타입 검사, 1440x900, 993x641, 390x844 및 320x844 집중 Playwright(`1 passed`), 아이콘 요청 HTTP 200 확인 | 이 전환을 `validated`로 바꾸기 전에 병합된 인증 5273 화면의 시각 근거를 보존합니다. |
-| 2026-09-17 | implemented | 검토된 ResourceType 글리프 의미를 보존하면서 온톨로지 인스턴스 시작 경로에서 즉시 로딩되는 SVG URL 모듈과 원시 내보내기 출처를 제거했습니다. | `current change`, 집중 Vitest(`125 passed`), Console 타입 검사, 프로덕션 빌드, Vite 변환 검사에서 즉시 요청하는 SVG 프록시 수가 `72`에서 `0`으로 줄었습니다. | 이 전환을 `validated`로 바꾸기 전에 병합된 인증 5273 화면의 로딩 시간 근거를 보존합니다. |
-| 2026-09-16 | implemented | 적응형 RCA를 위해 권한이 없는 telemetry recipe 쿼리 노드를 검증된 쿼리 대수에 추가했습니다. 이 노드는 원시 조회 필드를 거부하고 정확한 need, 증적, 출처 처리 결과, 예산 및 근거 권한 계보를 보존합니다. | `current change`; 집중 ontology-query 계약, 적응형 게이트웨이, telemetry 도구, strict mypy 및 구조 검사. | 거버넌스를 따르는 live 출처 증적은 별도로 보존합니다. 이 구조 계약은 프로바이더 가용성이나 운영 원인 정확도를 주장하지 않습니다. |
-| 2026-09-16 | implemented | 온톨로지 쿼리와 근거 경계를 유지하면서 Console 확인 경로에 필요한 타입이 지정된 의미 기반 인시던트 초안 변환 결과를 추가했습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 의미 기반 계획 및 변환 결과 테스트. | 인증된 요청부터 인시던트까지의 근거는 별도로 보존해야 합니다. 온톨로지 런타임 상태 또는 ActionType 승격은 변경하지 않았습니다. |
-| 2026-09-16 | implemented | 각 상태 페이지를 커밋된 무효화 워터마크에 결속하고 Dashboard SSE를 이 커서에서 시작했으며, 이전 클라이언트에는 안전한 현재 표식 재생을 유지하고 대량 Dashboard의 5분 fallback을 선택한 인스턴스의 15초 재검증과 분리했습니다. | `current change`, 집중 Operator 테스트 153개, 집중 Console 테스트 74개, 실제 Dashboard 브라우저 시나리오 10개, 엄격한 타입 검사 및 프로덕션 빌드 | 스트림 동작을 `validated`로 분류하기 전에 로컬에서 커밋된 표식부터 화면 반영까지의 시간 증적 하나를 보존합니다. |
-| 2026-09-15 | implemented | 별도 디렉터리 상한 및 새로고침 행을 제거하고 두 상태를 검색 도구막대에 유지했으며, 표현 커버리지와 범례 세부 정보를 기본적으로 접고 전체 화면 도구를 하나의 공용 컨트롤 표면으로 줄였습니다. | `current change`, `ontology-instances.tsx`, `ontology-instance-graph.tsx`, `ontology-instances.css`, 경로 전용 카탈로그, 집중 소스, 지역화, 브라우저, 타입 검사 및 프로덕션 빌드 검사 | 공유 Browser 제어가 다시 연결되면 인증된 변경 후 DOM 기하를 보존합니다. 그래프, 근거 또는 실행 권한은 바뀌지 않았습니다. |
-| 2026-09-14 | implemented | 범위가 제한된 영향 edge에 세대 일치 검사를 적용한 근거 묶음을 추가하고 지도와 Inspector에서 `runtime_calls`의 호출자에서 대상으로의 방향을 보존했습니다. | `current change`, 변경 backend 집중 테스트 448개 통과 및 선택형 테스트 1개 건너뜀, 변경 Console 테스트 415개 통과, 타입 검사, 프로덕션 빌드, 브라우저 테스트 115개 통과 | 새 edge 검증 경로를 `validated`로 분류하기 전에 현재 인증된 관계 근거를 보존합니다. |
-| 2026-09-14 | implemented | 들어오는 방향, 선택 영역 및 나가는 방향의 채우기를 레이아웃 높이의 SVG 사각형에서 전체 높이의 그래프 표면 계층으로 옮기고 정확한 SVG `viewBox`와 노드, 관계선, 레이블, 이동 및 확대·축소 기하를 유지했습니다. | `current change`, `ontology-instance-graph.tsx`, `ontology-instances.css`, 집중 Console 테스트 158개, 전체 화면 데스크톱, 제한된 데스크톱 및 한국어 모바일을 다룬 집중 Playwright 시나리오 2개, 타입 검사와 프로덕션 빌드 | 공유 Browser 제어가 다시 연결되면 인증된 수정 후 DOM 측정을 보존합니다. 그래프, 쿼리 또는 실행 권한은 바뀌지 않았습니다. |
-| 2026-09-14 | implemented | 관측된 Resource 인스턴스 작업 영역을 기본 `/ontology` 진입 화면으로 정하고, 선언 및 토폴로지 보기를 하나의 네이티브 펼침 메뉴로 옮겼으며, 선언 그래프 요청이 인스턴스 탐색을 막지 않게 했습니다. | `current change`, `console/src/routes/ontology.tsx`, `console/src/routes/ontology-navigation.tsx`, 집중 경로, 보기 및 지역화 검사, Console 타입 검사와 프로덕션 빌드 | 기본 상태와 펼친 메뉴 상태를 인증된 표준 포트 브라우저에서 검증한 근거를 보존합니다. 그래프 또는 실행 권한은 바뀌지 않았습니다. |
-| 2026-09-13 | implemented | 미분류 ID로만 보존하던 공급자 정본 Azure 유형 23개를 분류하고, 추가한 모든 ResourceType을 중립 분류 체계에 배정했으며, 정확한 자식 포함 매핑 4개와 문서로 확인한 운영 및 Resource Health 경로만 추가했습니다. | `current change`, 공식 Microsoft 리소스 및 Resource Health 문서, 집중 리소스 레지스트리, 관계 카탈로그, ARG, Resource Health, 기록 상태 및 카탈로그 변환 검사 | 이 전환을 `validated`로 올리기 전에 검토된 공급자 유형, 관계 및 상태 사실을 입증하는 완전한 로컬 새 세대를 보존합니다. |
-| 2026-09-10 | in-progress | 내용이 안전한 backend 상태 사실과 정확한 EndpointSlice-to-Pod UID route mapping 하나를 추가했습니다. | `current change`, 집중 EndpointSlice 사실, 출처 스키마, 관계 및 카탈로그 검사 | Issue #578에서 확장된 release의 완전한 실제 운영 세대를 보존합니다. |
-| 2026-09-10 | in-progress | 진단용 Kubernetes ResourceType 8개와 검토된 스토리지, 정책, 종류로 한정된 자동 확장 및 포함 mapping 10개를 추가했습니다. | `current change`, 집중 리소스 레지스트리, 클래스 클로저, 출처 스키마, 수집 및 관계 검사 | Issue #578에서 확장된 release의 완전한 실제 운영 세대를 보존합니다. |
-| 2026-09-09 | validated | 완전한 정확한 클러스터 Kubernetes 세대 하나를 보존하고, 권위 있는 로컬 준비 경로가 Kubernetes 출처를 일시적으로 미구성 상태로 기록하는 대신 구성된 출처를 조합하도록 수정했으며, 세대 기준 시점을 가장 최근에 수락한 Kubernetes 관측 시점까지 전진시켰습니다. | `current change`, `kubernetes_inventory.py`, `refresh-authoritative-inventory.py`, 집중 AKS 인벤토리 및 새로 고침 검사 88개, Ruff 및 strict mypy가 통과했습니다. Issue #278에는 민감값을 제거한 홉별 런타임 근거를 기록합니다. | 완전한 출처에 Ingress 또는 부하 분산 장치 경로가 없으면 외부 인바운드는 명시적인 부재 또는 알 수 없음으로 유지합니다. 브라우저에서 링크를 추론하지 않습니다. |
-| 2026-09-09 | validated | 저장소에서 실행할 수 없는 객체 전용 조건식을 위해 범위가 제한된 단일 스냅샷 후보 스캔을 추가했으며 관계 또는 그래프 권한은 변경하지 않았습니다. | `current change`, 집중 Core 검사 872개, strict mypy, Ruff, 문서 쌍 게이트, 인증된 Console 재실행 및 Medium 이상 발견 사항이 없는 집중 재검토 | 연속 전이 coverage는 이 구조 조회 계약 밖의 명시적인 근거 제한으로 유지합니다. |
-| 2026-09-06 | validated | 표준 ResourceType 80개 전체에 닫힌 운영 상태 적용 가능성 분류를 추가하고 그래프와 Inspector가 같은 이유 기반 값 레이블을 사용하도록 했습니다. | `current change`, 집중 backend 및 Console 검사, 타입 검사, 프로덕션 빌드, 실제 ARG 승격, 인증된 Application Insights, Log Analytics, 디스크 및 Resource Group 브라우저 검사가 통과했습니다. | 하위 포크의 사용자 지정 ResourceType은 자체 카탈로그 변경 전까지 명시적인 미검토 상태로 유지합니다. |
-| 2026-09-06 | validated | 정확한 카탈로그 일치를 약화하지 않고 새로 병합된 `llm-model-deployment` ResourceType까지 닫힌 운영 상태 분류를 확장했습니다. | `current change`, 병합된 main 스냅샷에서 정확한 분류 집합 일치와 집중 backend 검사 268개가 통과했습니다. | 이후 표준 ResourceType을 추가할 때는 같은 변경에서 검토된 결과를 추가해야 합니다. |
-| 2026-09-05 | validated | AKS AgentPool과 VM Scale Set을 위한 검토된 용량 변환 결과 및 표시를 추가했습니다. API는 `properties.count`와 `sku.capacity`만 읽고 그래프와 Inspector는 자식 준비 상태를 추론하지 않은 채 노드 수 또는 인스턴스 수로 표시합니다. 비평에서 지원되지 않는 유형의 값을 잘못 표시하던 경로를 Console 디코더에서 차단했습니다. | `current change`; 집중 Operator 검사 10개와 집중 Console 검사 102개, Ruff, strict mypy, Console 타입 검사 및 프로덕션 빌드가 통과했습니다. 인증된 AKS 그래프는 `nodepool1`을 `노드 2개`, 해당 VMSS를 `인스턴스 2개`로 표시했고 NodePool Inspector는 활성 프로바이더 스냅샷의 노드 수 `2`를 보고했습니다. | 이후 확장 작업에서 프로바이더 변경부터 화면 반영까지의 시간을 측정한 증적을 보존합니다. Kubernetes Node 준비 상태는 별도의 런타임 근거로 유지합니다. |
-| 2026-09-05 | in-progress | 내구성 있는 인벤토리 무효화 SSE와 선택한 인스턴스 즉시 재검증을 추가하고, 스트림을 사용할 수 없을 때 단조 증가 카운트다운을 표시했습니다. | `current change`, 요청된 동기화 중지 전에 Operator SSE 검사 140개와 Console SSE 및 카운트다운 검사 112개가 통과했습니다. | main을 동기화하고 깨끗한 통합 타입 검사와 빌드를 실행한 뒤 로컬 상태 전환 시간 증적 하나를 보존합니다. |
-| 2026-09-01 | implemented | Framework와 FrameworkControl을 Identifiable 구현체로 등록했습니다. 두 객체 유형 모두 `id: {type: string, required: true}`를 선언하며 수명 주기 분류에는 이미 포함되어 있었지만 인터페이스 구현 레지스트리에서 누락되어 있었습니다. | `current change`; 집중 온톨로지 카탈로그 및 객체 유형 카탈로그 검사 통과. | 범위가 제한된 구조 작업은 남아 있지 않습니다. |
-| 2026-08-31 | implemented | 온톨로지 관계나 권한 출처를 추가하지 않고 예외 만료를 정확한 배정 하나와 등록된 ActionType 하나에 연결했습니다. 연결 근거가 없거나 충돌하면 제안을 보류합니다. | `current change`; 예외 수명 주기 스키마, ActionType 선언, 집중 수명 주기 및 카탈로그 검사. | 범위가 제한된 구조 작업은 남아 있지 않으며 배포 근거는 별도로 유지합니다. |
-| 2026-08-28 | implemented | 대화 화면 컨텍스트에서 제외해야 하는 `authorization.role-assignment`가 정확한 화면 선택 신원에 포함되던 문제를 닫았습니다. `ontologyInstanceContextIdentity`는 기존 표시 리소스 가드로 숨겨진 역할 배정을 제거한 뒤 `resourceIds`를 구성하므로 숨겨진 역할 배정만 있는 디렉터리가 비어 있지 않은 선택처럼 보이지 않습니다. | `current change`; `console/src/routes/ontology-instances.model.test.ts` 30개 및 Console typecheck 통과. | 이 표시 범위에 남은 제한된 구현 작업은 없습니다. |
-| 2026-08-28 | implemented | 권위 있는 Operator 선택 발급자에도 같은 제외 규칙을 적용했습니다. 서버가 선택 가능한 리소스 유형만으로 다이제스트와 토큰을 계산하므로 토큰 해석이 Console에서 제외한 역할 배정 ID를 복원하지 않습니다. | `current change`; 집중 Operator 인스턴스 projection 검사 8개, Ruff 및 strict mypy 통과. | 인증된 화면 간 근거를 보존합니다. 실제 서비스는 조회하지 않았습니다. |
-| 2026-08-28 | implemented | `rule-catalog/retirements/*.yaml`만 바뀐 변경이 CI 검토 게이트를 우회하지 않도록 `RULE_RETIREMENT` 거버넌스 변경 클래스를 추가했습니다. 룰 retirement는 quorum-2, 피싱 방지 인증 및 Owner 수준 검토를 요구하며 조회, 승인 또는 실행 권한을 부여하지 않습니다. | `current change`; `rule_catalog/schema/governance_review_authority.py`; `scripts/governance/check-governance-review-authority.py`; 집중 권한 및 CI 게이트 검사 113개 통과. | 룰 retirement 레코드로부터 온톨로지 조회 또는 액션 권한이 생기지 않습니다. |
-| 2026-08-27 | implemented | 완전한 빈 instance directory를 유효한 읽기 결과로 유지했습니다. 빈 capability 발급을 시도해 HTTP 400을 반환하지 않고 contextual selection identity를 생략합니다. | `current change`, 집중 Operator instance-projection 검사(`7 passed`), Ruff 및 strict mypy | 인증된 Console 빈 검색 근거는 별도로 보존합니다. 런타임 근거를 생성하지 않았습니다. |
-| 2026-08-26 | implemented | 정확한 Node `providerID`와 VMSS VM 아이덴티티 연결, Ingress 및 EndpointSlice 런타임 분류 체계, 명시적인 Kubernetes 출처 가용성, 런타임을 구분하는 Operator 및 Console LinkType 프로젝션, 근거만 사용하는 AKS 첫 화면 커버리지 대역을 추가했습니다. | `current change`, 집중 카탈로그 및 인벤토리 통합 검사 111개, 집중 Operator 검사 30개, 집중 Console 검사 60개가 통과했습니다. 권위 있는 로컬 새로 고침은 Resource 897개와 인벤토리 링크 1,640개를 보존했습니다. Snapshot과 ontology 아이덴티티 집합이 정확히 일치했고 dangling, duplicate, multiple-parent, endpoint-type 및 generation 불일치는 모두 0이었습니다. 선택한 중지된 AKS 분기는 managed Resource Group 1개, 직접 AgentPool 1개, VMSS Resource 4개를 보존했습니다. 정확한 VMSS VM 또는 VMSS NIC child edge는 0개였습니다. Kubernetes 런타임은 명시적으로 `unavailable`이었으므로 Node, Pod, Service, Endpoint 및 연결 개수도 0으로 유지됐습니다. | 런타임 검증을 주장하기 전에 하나의 완전하고 정확한 클러스터 Kubernetes API 세대를 보존합니다. 외부 gateway 또는 load balancer와 Kubernetes 아이덴티티 사이의 관계는 권위 있는 출처가 두 엔드포인트를 입증할 때까지 알 수 없음으로 유지합니다. |
-| 2026-08-25 | implemented | VMSS VM 및 NIC child의 bounded ARM collection과 role assignment를 숨기고 선택한 root의 immediate Resource Group context만 유지하는 기본 presentation 규칙을 추가했습니다. | 집중 Python 검사 43개와 Console 검사 59개, Ruff, strict mypy, typecheck 및 build가 통과했습니다. Local refresh는 Resource 901개와 ontology link 2,550개를 정확한 generation agreement 및 structural invariant violation 0으로 승격했습니다. 인증된 VNet 및 AKS view는 VNet direct owner group 하나를 유지하고 VMSS, VM, NIC hierarchy node를 표시했습니다. | 범위가 제한된 구현 작업은 남아 있지 않습니다. 배포 근거는 별도입니다. |
-| 2026-08-25 | implemented | 범위가 제한된 multi-hop 인스턴스 표현이 저장된 edge 방향을 보존하고 evidence-backed VM network path만 요약하며, 불완전하거나 모델링되지 않은 커버리지에서는 누락된 ingress 또는 egress를 unknown으로 유지하도록 요구했습니다. | `current change`, 활성 세대 PostgreSQL 감사, 집중 Console 검사 56개, typecheck, production build, entry bundle 검사 통과, overflow 0과 44 px 모바일 path control을 유지한 인증된 1440 x 900, 993 x 641, 390 x 844 Browser 검사 | 범위가 제한된 구현 작업은 남아 있지 않습니다. 통제된 runtime 보존은 별도입니다. |
-| 2026-08-23 | not-started | Palantir 온톨로지 설계 지침과 기존 FDAI 계약을 검토한 뒤 구조 모델을 채택했습니다. 이 설계는 경계가 새로 정해진 설계이므로 이전 구현 이력을 재구성하지 않았습니다. | `current change`; 이 문서 쌍과 집중 문서 검사입니다. | 제공 순서를 구현하고 최소 10회의 적대적 하드닝을 완료합니다. |
-| 2026-08-23 | implemented | 작업 권한이나 과거 링크 방향을 바꾸지 않고 명시적 ResourceClass 분류 체계, 순서가 있는 형식화된 경로, LinkType 탐색 역할 및 의미 특성, exact 매니페스트 변환 결과, 제한을 보존하는 선언 표현을 추가했습니다. | `current change`; 집중 카탈로그, 쿼리, 계약, materializer, Console 검사, Ruff, strict mypy, Console 타입 검사 및 프로덕션 빌드입니다. | 최소 10회의 적대적 비평 및 하드닝을 완료하고 검증된 Low 초과 발견 사항을 모두 해결한 뒤 최종 집중 및 diff 검증 묶음을 실행합니다. |
-| 2026-08-23 | implemented | 적대적 하드닝을 15회 완료했습니다. 형식화된 경로 composition, 범위가 제한된 반복, 분류 근거 무결성, 분류 체계 아이덴티티와 상한, exact-release 호환성, Console 디코딩, 출시 호환성, production 분류 체계 클로저 통합 결함을 해결했습니다. | `current change`; 집중 Python 테스트 308개와 집중 Console 테스트 29개가 통과했고, 변경된 Python 파일 29개의 Ruff, 변경된 source 파일 19개의 strict mypy, Console 타입 검사 및 프로덕션 빌드가 통과했습니다. | 문서 쌍, 로드맵, 번역, 문장 부호, 설계 경로, 최종 diff 검사를 실행합니다. |
-| 2026-08-23 | implemented | 검증된 Low 초과 발견 사항 없이 범위가 제한된 구현 및 문서 gate 묶음을 완료했습니다. | `current change`; 변경된 한국어 문서 3개의 번역 품질 및 readable-Hangul 검사, 변경 문서 6개의 문장 부호 검사, 파생 출처, 로드맵 추적, 문서 크기, 설계 경로, 664개 파일 링크 검사가 통과했습니다. | 이 문서의 범위가 제한된 작업에는 남은 항목이 없습니다. |
-| 2026-08-23 | implemented | 불변 거버넌스 배정과 exemption이 온톨로지 구조 그래프 외부의 catalog-as-code 입력으로 유지됨을 기록했습니다. | `current change`; 거버넌스 카탈로그, exemption registry 및 집중 시작 검사입니다. | 이 경계로 인한 온톨로지 변환 또는 권한 작업은 없습니다. |
-| 2026-08-24 | implemented | caller에서 target으로 향하는 역할과 connectivity 및 traffic 특성을 가진 비전이 `runtime_calls` Resource-to-Resource 선언을 추가했습니다. 선언만으로는 edge나 권한을 만들지 않습니다. | `current change`; `runtime_calls.yaml`, 집중 LinkType, provenance, catalog, exact-release 검사입니다. | 지속형 운영 그래프 owner를 통해 독립적으로 검증된 endpoint observation만 binding합니다. |
-| 2026-08-27 | implemented | 검증된 rule-retirement artifact loader와 runtime projection을 추가해 병합된 `retired` 레코드만 active rule index에서 제외되도록 했습니다. | `current change`; `rule_catalog/schema/retirement.py`, `governance_catalog.py`, `runtime/control_loop.py` 및 governance-catalog 집중 검사 통과. | Retirement 레코드에서 ontology query 또는 action authority가 이어지지 않습니다. |
-| 2026-08-27 | implemented | Retired rule projection을 quality-gate grounding 및 HIL parked-action map에도 전달해 retired rule을 재개하거나 downstream에서 평가할 수 없게 했습니다. | `current change`; runtime dispatch 및 governance-catalog 집중 검사 통과. | Retirement 레코드에서 ontology query 또는 action authority가 이어지지 않습니다. |
-| 2026-08-27 | implemented | 동일한 retirement projection을 frozen measurement replay가 index와 rule map을 만들기 전에 적용해 runtime과 learning 경로가 같은 active-rule view를 유지하도록 했습니다. | `current change`; scenario-replay 및 governance-catalog 집중 검사 통과. | Retirement 레코드에서 ontology query 또는 action authority가 이어지지 않습니다. |
-| 2026-08-24 | implemented | 인증된 타입 지정 runtime-call 관찰을 인벤토리 single writer를 통해 연결하고 PostgreSQL 역할 근거는 Resource 관계가 아닌 별도의 principal-safe 변환 결과로 유지했습니다. | `current change`; `runtime_call_telemetry.py`, `runtime_call_inventory.py`, `postgres_role_evidence.py`, 집중 producer, 변환 결과, 인벤토리, principal 가림 검사입니다. | 권위 있는 source가 정확한 endpoint Resource id를 제공한 뒤에만 인증된 런타임 근거를 보존합니다. |
-| 2026-08-24 | implemented | 온톨로지 쿼리 또는 변경 권한을 바꾸지 않고 그래프 우선 인스턴스 작업 영역, 간결한 컨트롤, 선택된 리소스와 범례 오버레이, Inspector 소유 접기 동작을 복원했습니다. | `current change`; 집중 Console 경로 테스트, 타입 검사, 프로덕션 빌드입니다. | 이 표현 범위에는 남은 구조 모델 작업이 없습니다. |
-| 2026-08-24 | implemented | 중복된 선택 리소스 요약을 제거하고, 관계 범례를 포커스를 받을 수 있는 가로 표면으로 고정하며, 접힌 Inspector 복원 영역을 유지하고, Inspector가 닫혔을 때 전체 화면 도구 위치를 조정해 그래프 우선 인스턴스 컨트롤을 정렬했습니다. | `c5cd7919ab32518d91c71075642f93d554c6fe2c`; 집중 인스턴스 보기 회귀 검사입니다. | 쿼리, 그래프 권한 또는 변경 동작은 바뀌지 않았습니다. |
-| 2026-08-24 | implemented | 정확한 스키마 관계와 현재 인스턴스 관계의 경계를 복원했습니다. 하나 또는 두 개의 표준 ObjectType 이름은 시간 범위가 없는 스키마 읽기로 유지하고, 현재 운영 객체 관계에는 계속 엔드포인트 ObjectSet이 필요합니다. 링크 가림 증적은 변환된 링크에서 실제로 제거된 속성만 집계하고 타입이 지정된 관찰 메타데이터를 보존합니다. | `current change`; 의미 계획, 쿼리 게이트웨이, 집중 관계 검사가 통과했고 통합 수정 테스트 629개와 Ruff 및 strict mypy가 통과했습니다. | 실제 운영 근거는 별도로 보존합니다. 이 수정은 변경 또는 실행 권한을 부여하지 않습니다. |
-| 2026-08-24 | implemented | 검토된 Azure 중첩 리소스 containment와 범위가 제한된 UID 기반 Kubernetes API enrichment source를 추가했습니다. 런타임 리소스와 독립적으로 검증된 링크는 기존 single writer를 통해 하나의 완전한 세대에 들어가며, Kubernetes binding이 없으면 명시적으로 사용 불가 상태를 유지합니다. | `current change`; 프로바이더 카탈로그, Azure ARG와 ARM, Kubernetes source와 변환 결과, 인벤토리 승격 및 조립 검사 260개 통과, Ruff 통과, source 파일 10개의 strict mypy 통과 | 이 영역을 `validated`로 변경하기 전에 실제 운영 exact-cluster Kubernetes 증적과 배포된 CA 및 token mount 근거를 보존합니다. |
-| 2026-08-24 | implemented | 원시 프로바이더 형식을 가져오지 않고 완전한 중립 ResourceClass 커버리지 축 하나를 추가했습니다. 루트는 제공되는 ResourceType 77개 전체를 닫고, 카탈로그 소유 인스턴스는 모든 멤버 자격과 특수화를 보존하며, 같은 클래스의 중복 멤버 자격은 닫힌 방식으로 실패하고 특수화 깊이는 8로 제한됩니다. | `current change`; 제공된 ResourceClass 클로저, 로더 하드닝, 카탈로그 인스턴스 변환 검사입니다. | 역량에 기반한 조합 멤버 자격만 추가합니다. 실제 프로바이더 및 Kubernetes 근거는 별도 검증 관심사로 유지합니다. |
-
-### 하드닝 기록
-
-| 회차 | 검토 관점 | 결과 | 집중 근거 |
-|------|-----------|------|-----------|
-| 1 | 형식화된 경로 계약, 검증기, handler, 저장소 의미 | 검증된 Low 초과 발견 사항이 없었습니다. 범위를 벗어난 network-path 관찰은 제외했습니다. | 집중 형식화된 경로 검토와 기준선 쿼리 검사입니다. |
-| 2 | 분류 체계 아이덴티티와 클로저 | `class.` namespace를 예약해 Medium 전역 object id 충돌을 해결했습니다. | ResourceClass 검사 7개가 통과했습니다. |
-| 3 | LinkType 스키마와 과거 provenance | 추가 필드 생략을 LinkType 선언에만 제한해 Medium hash 정규화 결함을 해결했습니다. | LinkType 및 provenance 검사 5개가 serializer 경고 없이 통과했습니다. |
-| 4 | 직접 링크 근거 경계 | 직접 링크에서 임의 도메인 속성을 허용하던 Medium 우회를 해결했습니다. | 프로바이더 및 인벤토리 검사 50개가 통과했습니다. |
-| 5 | planner, 검증기, executor composition | 실행 가능한 `TYPED_PATH`가 planner 검증기 capability 집합에 없던 High 결함을 해결했습니다. | end-to-end 의미 런타임 형식화된 경로 검사가 통과했습니다. |
-| 6 | 접근, 완전성, 표현 디코딩 | edge 역할과 특성을 필드별로 디코딩해 Medium Console 신뢰 경계 결함을 해결했습니다. | Console 디코더 테스트 9개와 타입 검사가 통과했습니다. |
-| 7 | exact-release와 persistence 호환성 | 검증된 Low 초과 발견 사항이 없었습니다. 과거 선언 fixture와 저장된 row를 계속 읽을 수 있었습니다. | exact-release, migration, persistence 검사 47개가 통과했습니다. |
-| 8 | 원자적 카탈로그 교체와 재시작 replay | 오래된 ResourceClass를 제거할 때 멤버 자격 링크도 제거하는 Low 회귀 검사를 추가했습니다. | 카탈로그 변환 결과 검사 3개가 통과했습니다. |
-| 9 | 분류 체계 서비스 거부 상한 | registry 전체 멤버 자격과 특수화 예산으로 Medium 무제한 전체 edge 결함을 해결했습니다. | ResourceClass 상한 검사 6개가 통과했습니다. |
-| 10 | 문서와 전이 의미의 동등성 | 전이 가능하고 자체 조합 가능한 LinkType에만 범위가 제한된 `max_hops` 반복을 추가해 Medium 과장 주장을 해결했습니다. | 쿼리 계약, 검증기, 런타임 검사 37개가 통과했습니다. |
-| 11 | 분류 권한과 근거 위조 | 정확한 네 필드 분류 묶음, 표준 다이제스트, 비어 있지 않은 id, `verified is True`를 요구해 Medium 결함을 해결했습니다. | 프로바이더, 인벤토리, 런타임 검사 62개가 통과했습니다. |
-| 12 | 추가 방식 출시 호환성 | 추가 그래프 및 edge 필드가 모두 생략된 기존 payload만 허용해 Medium Console 회귀를 해결했습니다. | 디코더 테스트 10개와 타입 검사가 통과했습니다. |
-| 13 | 범위가 제한된 전이 런타임 클로저 | 반복 형식화된 단계가 첫 hop 프런티어만 반환하던 Medium 결함을 해결했습니다. | 쿼리 실행 및 검증 검사 35개가 통과했습니다. |
-| 14 | production 분류 체계 클로저 composition | registry digest가 있고 권한을 부여하지 않는 `query.resource_class_closure`를 principal 매니페스트에 바인딩해 Medium 통합 공백을 해결했습니다. | composition 및 카탈로그 검사 42개와 직접 및 end-to-end 클로저 검사 8개가 통과했습니다. |
-| 15 | 최종 계약 종료 | 표준 카탈로그 검증에서 Medium ResourceType id 길이 불일치를 해결했습니다. 검증된 High 또는 Medium 발견 사항이 남지 않았습니다. | ResourceClass 및 아이덴티티 상한 검사 8개와 최종 종합 및 정적 검사가 통과했습니다. |
-| 16 | 중립 분류 체계 완전성 | 제공된 ResourceType 77개 중 68개가 모든 ResourceClass 밖에 있던 Medium 공백을 해결했습니다. | 제공된 루트 클로저 회귀 검사가 정확한 레지스트리를 포함합니다. |
-| 17 | 카탈로그 소유 인스턴스 동등성 | 오래된 고정 개수를 registry에서 계산한 ResourceClass, 멤버 자격, 특수화 단언으로 교체했습니다. | 원자적 카탈로그 변환 검사가 확장된 인스턴스 그래프를 포함합니다. |
-| 18 | 같은 클래스 중복 무결성 | 한 클래스 안에서 반복된 ResourceType을 거부해 Medium 다이제스트와 그래프 사이의 모호성을 해결했습니다. | 중복 멤버 로더 회귀 검사가 통과합니다. |
-| 19 | 클래스 간 조합 | LinkType이 의도적으로 다대다이므로 제안된 유일성 제한을 오탐으로 기각했습니다. | 긍정 조합 멤버 자격 회귀 검사가 두 클로저를 보존합니다. |
-| 20 | 특수화 DAG | 검증된 Low 초과 발견 사항이 없었습니다. 기존 순환 및 알 수 없는 parent 거부가 올바르게 유지됐습니다. | 집중 ResourceClass 구조 검사입니다. |
-| 21 | 특수화 깊이 | 문서화된 최대 깊이 8을 적용해 Medium 설계 차이를 해결했습니다. | 깊이 9 음성 테스트 자료가 닫힌 방식으로 실패합니다. |
-| 22 | 분류 링크 방향과 카디널리티 | 검증된 Low 초과 발견 사항이 없었습니다. 멤버 자격은 ResourceType -> ResourceClass, 특수화는 더 좁은 클래스 -> 더 넓은 클래스를 유지합니다. | 선언 및 변환 방향 검토입니다. |
-| 23 | 원자적 교체와 오래된 상태 정리 | 검증된 Low 초과 발견 사항이 없었습니다. 클래스를 제거하면 소유한 멤버 자격 링크도 제거됩니다. | 기존 교체 회귀 검사입니다. |
-| 24 | release 및 digest 아이덴티티 | 검증된 Low 초과 발견 사항이 없었습니다. 클로저 증적이 registry, 클로저, 온톨로지 release digest를 보존합니다. | 기존 exact-release 클로저 검사입니다. |
-| 25 | 인벤토리 인스턴스 분류 | 오탐을 기각했습니다. 매핑되지 않은 형식은 커버리지를 낮추며 `unseeded_resource_type`만 나머지 완전 세대의 진행을 허용합니다. | 인벤토리 변환 계약 검토입니다. |
-| 26 | 원시 프로바이더와 의미 경계 | 검증된 Low 초과 발견 사항이 없었습니다. 3,405개 형식의 프로바이더 원장은 77개 형식의 중립 분류 체계와 분리됩니다. | 프로바이더 카탈로그 및 구조 모델 검토입니다. |
-| 27 | OpenAPI 후보 방향 | 재사용된 작업 스키마가 속성 소유권이나 의미 방향을 증명하지 않으므로 모델링된 엔드포인트 쌍의 자동 mapping을 기각했습니다. | 검토 증적은 자동 승격을 끈 `review_required` 상태를 유지합니다. |
-| 28 | 상한과 결정적 정렬 | 중복, 전체 링크, 깊이, 순환, 정렬된 클로저 검사 뒤 검증된 Low 초과 발견 사항이 없었습니다. | 집중 ResourceClass 및 카탈로그 변환 검사입니다. |
-| 29 | 활성 출처 상태 집계 | 로컬 권위 있는 새로 고침이 Kubernetes 출처 상태를 저장하지 않던 High 누락을 해결했습니다. | 새 세대는 `derived_source_states`에 `kubernetes_source_unconfigured`를 기록합니다. |
-| 30 | Azure/Kubernetes 불변 아이덴티티 연결 | 정확한 Node `spec.providerID`와 관찰된 VMSS VM `provider_ref`가 일치해야 하도록 요구해 Critical 모델링 공백을 해결했습니다. | 집중 수집 및 관계 테스트가 통과합니다. |
-| 31 | 이름 및 식별자 접두사 대체 | 비슷한 Node와 VM 이름이 연결 링크를 만들지 않음을 입증해 High 위험을 해결했습니다. | 음성 프로바이더 아이덴티티 테스트 자료는 missing-target drop만 반환합니다. |
-| 32 | 권위가 다른 엔드포인트 범위 | Kubernetes `cluster_ref`가 없는 Azure VM 대상을 같은 클러스터 필터가 잘못 제외하던 High 공백을 해결했습니다. | 프로바이더 아이덴티티 일치는 정확한 프로바이더 참조를 통해서만 출처 경계를 넘습니다. |
-| 33 | EndpointSlice 커버리지 | UID 기반 EndpointSlice Resource와 표준 Service label 매핑으로 Medium 분류 체계 및 수집기 공백을 해결했습니다. | 집중 API, 관계, ResourceType 및 카탈로그 검사가 통과합니다. |
-| 34 | Ingress 백엔드 커버리지 | 범위가 제한된 Ingress 및 IngressClass 수집과 정확한 같은 네임스페이스 백엔드 Service 매핑으로 Medium 출처 공백을 해결했습니다. | 다중 백엔드 및 class attachment 테스트 자료가 Azure 이름 추론 없이 통과합니다. |
-| 35 | Operator 탐색 vocabulary | 기본 instance traversal이 저장된 Kubernetes 관계를 제외하던 High 누락을 해결했습니다. | 확장된 선언 LinkType 집합으로 operations family 집중 검사 30개가 통과합니다. |
-| 36 | Console 관계 신뢰 경계 | 유효한 Kubernetes link를 알 수 없는 vocabulary로 거부하던 High decoder 공백을 해결했습니다. | 집중 Console model 검사가 정확한 검증 bridge 근거를 허용합니다. |
-| 37 | 런타임과 트래픽 표현 | `routes_to`를 의존성으로, 런타임 관계를 일반 접근으로 표시하던 Medium 의미 결함을 해결했습니다. | 그래프 모델 테스트가 저장 방향을 다시 쓰지 않고 트래픽 및 런타임 레인을 분리함을 입증합니다. |
-| 38 | 첫 화면의 잘못된 부재 표현 | 저장된 링크와 출처 상태에서만 관측됨, 알 수 없음, 사용 불가 단계를 계산해 Medium 표현 공백을 해결했습니다. | 집중 모델 및 보기 검사가 통과하며 브라우저가 링크 또는 Resource를 만들지 않습니다. |
-| 39 | Service selector 네임스페이스 격리 | Label selector 대상에 네임스페이스 호환성을 적용해 High cross-namespace 선택 결함을 해결했습니다. | Cross-namespace Pod 테스트 자료는 같은 네임스페이스에서 선택된 Pod만 보존합니다. |
-| 40 | 모호하거나 일부만 있는 엔드포인트 닫힘 | 중복된 정확한 프로바이더 아이덴티티를 거부하고 구성된 Service 중 하나라도 누락되면 모든 Ingress 백엔드 route를 보류해 High 모호성과 Medium 부분 경로 결함을 해결했습니다. | 집중 conflicting-identity 및 partial-backend 테스트 자료가 형식화된 drop reason과 함께 통과합니다. |
-| 41 | 순차 출처 상태 호환성 | Kubernetes 출처 레코드를 필수가 아닌 추가 필드로 취급해 High N-1 디코더 회귀를 해결했습니다. | 현재 응답은 명시적인 `unavailable` 상태를 노출하고 이전 응답도 디코딩되며 런타임 단계는 알 수 없음으로 유지합니다. |
-| 42 | EndpointSlice 레이블 경계 | 너무 긴 표준 Service 레이블을 관계 프로젝션 전에 거부해 Medium 출처 검증 공백을 해결했습니다. | 잘못된 EndpointSlice 테스트 자료는 수집 단계에서 닫힌 방식으로 실패합니다. |
-| 43 | 표현 집계 독립성 | 파생된 분할 산술 때문에 커버리지 상태가 항상 완전하게 표시되던 Medium 결함을 해결했습니다. | UI는 두 번째 완전성 주장을 만들어 내지 않고 그래프와 응답의 일관성을 보고합니다. 도우미는 오래되거나 중복되거나 표현 대상이 아닌 그래프 키를 독립적으로 차단하며, 오래된 관계 음성 테스트 자료가 불일치 분기를 검증합니다. |
-| 44 | 복합 프로바이더 상태 색조 | `NotAvailable`이 긍정 상태인 `available` 부분 문자열과 일치해 성공으로 표시될 수 있던 Medium 결함을 해결했습니다. | 준비, 사용 가능, 정상, 활성, 실행 중 및 성공 상태의 음성 표현을 긍정 토큰보다 먼저 평가하며 집중 상태 색조 회귀 검사를 통과합니다. |
-| 45 | 로컬 준비 출처 일치 | Kubernetes를 활성화한 전체 스택 준비가 예약 인벤토리 작성기가 복구할 때까지 `kubernetes_source_unconfigured`를 승격하던 Medium 결함을 해결했습니다. | 권위 있는 새로 고침은 이제 검증된 인벤토리 조합 도우미를 재사용하며, 집중 배선 검사는 하드코딩된 사용 불가 보강기를 차단합니다. |
-| 46 | 보강 기준 시점의 단조 증가 | 수락한 Kubernetes 근거의 `observed_at`이 승격된 세대 기준 시점보다 늦을 수 있던 Medium 시간 순서 결함을 해결했습니다. | 성공한 보강은 `recorded_at`을 뒤로 이동하지 않으면서 가장 최근에 수락한 출처 관측 시점까지 전진시키며, 집중 회귀 검사가 1초 경계 사례를 고정합니다. |
-
-### 남은 작업
-
-- [x] 이중 언어 owner 문서를 설계 라우팅과 아키텍처 인덱스에 추가한 뒤 로드맵, 번역,
-  문장 부호, 링크 검사를 통과합니다.
-- [x] ResourceClass 선언, 카탈로그 변환 결과, 순환 없는 특수화, 증적에 고정된 클로저를
-  구현하고 성공, 알 수 없음, 순환, 상한 fixture를 통과합니다.
-- [x] 추가 방식의 순서가 있는 형식화된 경로를 구현하고 outgoing, incoming, 혼합 방향,
-  잘못된 엔드포인트, 전이, 순환, 잘린 경우에 대해 검증기와 런타임의 동등성을 입증합니다.
-- [x] 저장 방향, 엔드포인트 아이덴티티 또는 과거 release 해석을 바꾸지 않고 초기 LinkType에
-  검토된 역할과 의미 특성을 추가합니다.
-- [x] Producer를 binding하거나 과거 link를 재해석하지 않고 검토된 `runtime_calls` 선언을
-  추가합니다.
-- [x] 또 다른 snapshot writer를 만들거나 endpoint 아이덴티티를 추론하지 않고 검토된 Azure
-  parent 및 root containment와 UID 기반 Kubernetes 런타임 enrichment를 추가합니다.
-- [x] 권위 있는 선언 그래프와 Console LinkType 검사기에서 출처, 쿼리, 접근 제어, 표현 제한을
-  분리하고 범위 내 전체 LinkType 디렉터리를 포함합니다.
-- [x] 독립적인 비평 및 하드닝을 최소 10회 완료하고 검증된 Low 초과 발견 사항을 남기지
-  않습니다.
-- [x] 위에 인용한 집중 구현, 정적, Console, 번역, 로드맵, 문장 부호, 설계 경로, 문서 크기,
-  링크 및 diff 검사로 이 문서의 범위가 제한된 작업을 완료합니다.
-- [x] [Issue #278](https://github.com/dotnetpower/fdai/issues/278)을 위해 독립적으로 검증된
-  Node-to-VMSS-VM bridge와 Service, Pod, Endpoints, EndpointSlice 경로를 포함하는 완전한
-  정확한 클러스터 Kubernetes 세대 하나를 보존합니다. 구성되지 않았거나 도달할 수 없는
-  출처는 `unavailable`로 유지하며 런타임 부재를 입증하지 않습니다. 보존된 세대에는
-  Kubernetes Resource 103개와 독립적으로 검증된 Kubernetes 관계 208개가 있습니다.
-
 ## 관련 문서
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/architecture/ontology-structural-model.md) |
 | 선언 종류, 방향, 상태, 컨텍스트 | [운영 온톨로지 메타모델](operating-ontology-metamodel-ko.md) |
 | 도메인 객체, 관계, 아이덴티티, 시간 | [FDAI 운영 온톨로지](operating-ontology-ko.md) |
 | Interface, ObjectSet, 함수, exact release | [온톨로지 안전 인프라](operating-ontology-platform-ko.md) |

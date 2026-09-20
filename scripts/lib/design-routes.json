@@ -230,6 +230,7 @@
         ".github/instructions/architecture.instructions.md",
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
+        "docs/roadmap/architecture/continuous-operational-instance-graph-evidence.md",
         "docs/roadmap/architecture/ontology-structural-model.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
@@ -242,6 +243,7 @@
       ],
       "docs_update": [
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
+        "docs/roadmap/architecture/continuous-operational-instance-graph-evidence.md",
         "docs/roadmap/architecture/ontology-structural-model.md",
         "docs/roadmap/architecture/project-structure.md",
         "docs/roadmap/rules-and-detection/observability-and-detection.md"
@@ -282,10 +284,12 @@
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/architecture/fdai-constitution.md",
         "docs/roadmap/architecture/aks-outbound-connector.md",
+        "docs/roadmap/architecture/aks-outbound-connector-deployment-proposals.md",
         "docs/roadmap/architecture/aks-diagnostic-evidence-plane.md"
       ],
       "docs_update": [
         "docs/roadmap/architecture/aks-outbound-connector.md",
+        "docs/roadmap/architecture/aks-outbound-connector-deployment-proposals.md",
         "docs/roadmap-implementation/architecture/aks-outbound-connector.md"
       ],
       "validate": [
@@ -432,6 +436,30 @@
       ]
     },
     {
+      "id": "project-structure-dependency-injection",
+      "paths": [
+        "docs/roadmap/architecture/project-structure-dependency-injection*.md",
+        "docs/roadmap-implementation/architecture/project-structure-dependency-injection.md",
+        "services/core-control-plane/src/fdai/composition/**",
+        "services/core-control-plane/src/fdai/shared/providers/**"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/generic-scope.instructions.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/architecture/project-structure-dependency-injection.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/architecture/project-structure-dependency-injection.md",
+        "docs/roadmap-implementation/architecture/project-structure-dependency-injection.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
       "id": "ontology-structural-model",
       "paths": [
         "docs/roadmap/architecture/ontology-structural-model*.md",
@@ -546,6 +574,7 @@
         ".github/instructions/architecture.instructions.md",
         "docs/roadmap/architecture/fdai-constitution.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity-work-plan.md",
         "config/constitution-traceability.json"
       ],
       "docs_update_routes": [
@@ -553,6 +582,7 @@
       ],
       "docs_update": [
         "docs/roadmap/deployment/dev-and-deploy-parity.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity-work-plan.md",
         "docs/roadmap-implementation/deployment/dev-and-deploy-parity.md"
       ],
       "validate": [
@@ -2167,6 +2197,7 @@
       "paths": [
         "console/**",
         "cli/**",
+        "docs/roadmap/interfaces/operator-console-tool-catalog*.md",
         "docs/roadmap/interfaces/operator-console-module-map*.md",
         "docs/roadmap/interfaces/operator-console-progressive-conversations*.md",
         "docs/roadmap/interfaces/narrator-routing-and-latency*.md"
@@ -2175,6 +2206,7 @@
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/architecture/service-graduation-and-ownership.md",
         "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/interfaces/operator-console-tool-catalog.md",
         "docs/roadmap/interfaces/operator-console-module-map.md",
         "docs/roadmap/interfaces/operator-console-progressive-conversations.md",
         "docs/roadmap/interfaces/narrator-routing-and-latency.md",
@@ -2190,6 +2222,7 @@
       "docs_update": [
         "docs/roadmap/architecture/service-graduation-and-ownership.md",
         "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/interfaces/operator-console-tool-catalog.md",
         "docs/roadmap/interfaces/operator-console-module-map.md",
         "docs/roadmap/interfaces/operator-console-progressive-conversations.md",
         "docs/roadmap/interfaces/narrator-routing-and-latency.md",
@@ -2782,7 +2815,6 @@
         "docs/roadmap/fork-and-sequencing/finops-package-delivery-plan.md",
         "docs/roadmap/architecture/capability-bundle-lifecycle.md",
         "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md",
-        "docs/roadmap/interfaces/operator-console-runtime-model.md",
         "docs/roadmap/interfaces/channels-and-notifications.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/decisioning/action-ontology.md",
