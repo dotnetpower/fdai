@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Mapping
 from datetime import UTC, datetime, timedelta
 
@@ -22,6 +23,7 @@ from fdai.core.investigation.analyzer import (
     Threshold,
     ThresholdAnalyzer,
 )
+from fdai.core.investigation.contract import AnalyzerFinding
 from fdai.shared.contracts.models import Severity
 from fdai.shared.providers.metric import MetricPoint, MetricProviderError, MetricQuery
 
@@ -56,6 +58,26 @@ class _RaisingProvider:
     async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:  # noqa: ARG002
         raise MetricProviderError("metric backend unreachable")
         yield  # pragma: no cover - makes this an async generator
+
+
+class _ConcurrencyProbeAnalyzer:
+    resource_kind = KIND_AKS
+
+    def __init__(self) -> None:
+        self.active = 0
+        self.max_active = 0
+        self._overlap = asyncio.Event()
+
+    async def analyze(
+        self, *, resource_ref: str, window_seconds: float
+    ) -> tuple[AnalyzerFinding, ...]:
+        self.active += 1
+        self.max_active = max(self.max_active, self.active)
+        if self.active == 2:
+            self._overlap.set()
+        await asyncio.wait_for(self._overlap.wait(), timeout=0.1)
+        self.active -= 1
+        return ()
 
 
 def _demo_table() -> dict[str, dict[str, float]]:
@@ -192,6 +214,27 @@ async def test_budget_exceeded_when_monotonic_advances_past_budget() -> None:
     assert report.outcome is InvestigationOutcome.BUDGET_EXCEEDED
     assert report.within_budget is False
     assert report.elapsed_seconds == pytest.approx(500.0)
+
+
+@pytest.mark.asyncio
+async def test_analyzers_run_with_bounded_concurrency() -> None:
+    analyzer = _ConcurrencyProbeAnalyzer()
+    coordinator = InvestigationCoordinator(analyzers=(analyzer,), max_concurrency=2)
+
+    report = await coordinator.investigate(
+        InvestigationRequest(
+            requested_by="op@example.com",
+            resources=tuple((f"aks-{index}", KIND_AKS) for index in range(3)),
+        )
+    )
+
+    assert report.outcome is InvestigationOutcome.COMPLETED
+    assert analyzer.max_active == 2
+
+
+def test_nonpositive_concurrency_rejected() -> None:
+    with pytest.raises(ValueError, match="max_concurrency"):
+        InvestigationCoordinator(analyzers=(), max_concurrency=0)
 
 
 @pytest.mark.asyncio

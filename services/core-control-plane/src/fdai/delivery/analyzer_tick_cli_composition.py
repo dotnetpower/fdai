@@ -28,6 +28,7 @@ from fdai.delivery.pod_evidence_binding import build_pod_lifecycle_evidence_sour
 from fdai.shared.providers.metric import MetricProvider
 
 _LOGGER = logging.getLogger("fdai.analyzer_tick")
+_ANALYZER_MAX_CONCURRENCY = 4
 
 
 class _AnalyzerDecisionEvidenceAdmissionProvider(StateStoreDecisionEvidenceAdmissionProvider):
@@ -129,7 +130,8 @@ def build_analyzer_coordinator(
         analyzers=default_analyzers(
             analyzer_provider,
             pod_lifecycle_evidence=build_pod_lifecycle_evidence_source(),
-        )
+        ),
+        max_concurrency=_ANALYZER_MAX_CONCURRENCY,
     )
 
 

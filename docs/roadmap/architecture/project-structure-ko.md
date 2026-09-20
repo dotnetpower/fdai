@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 9e8f93a46905d520bbff70846ccd0c558fc3526c
+translation_source_sha: 4675e587de864acbc27cea8058751e4f75c0b26b
 translation_revised: 2026-09-20
 ---
 # 프로젝트 구조
@@ -562,7 +562,7 @@ import를 모아도 작업 정체성, 문서 수집, 출처 소유권, 구성 �
 **CPU / 시작 경계** - `SchemaRegistry`, `ContractValidator` / `EventValidator`,
 `ConfigProvider` - 은 **sync 유지**: 시작 시 한 번 실행되거나, I/O 없는 순수 CPU 경계
 검증이므로 비동기 래퍼는 노이즈만 추가합니다. 테스트는 `pytest-asyncio` + `asyncio_mode =
-"auto"` 로 실행되어 평범한 `비동기 def test_...` 가 per-test 마커 없이 동작합니다.
+"auto"` 로 실행되어 평범한 `비동기 def test_...` 가 per-test 마커 없이 동작합니다. `InvestigationCoordinator`는 기본적으로 직렬 실행하며 요청 순서와 대상별 오류 격리를 보존합니다. 예약 Analyzer 조립은 동시 대상 평가 상한을 4로 명시합니다.
 
 공유 `MetricProviderError` 계약은 범위가 제한된 실패 메타데이터를 소유합니다. Azure 전송 계층이 실패를 분류하고 Analyzer가 식별자를 제거합니다.
 [메트릭 진단 계약](aks-diagnostic-evidence-plane-ko.md#안전한-메트릭-실패-진단)은 기존 공급자와 빈 결과의 동작을 유지하며, 실패 시 안전한 쪽으로 처리를 중단합니다.

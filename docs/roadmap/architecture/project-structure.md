@@ -562,7 +562,7 @@ registering an implementation - the strict one-way dependency direction above is
 `MetricProvider`, `LogQueryProvider`, and `TraceQueryProvider` are **async by default**. Their concrete implementations block the event loop
 if forced to be sync. The **CPU / startup seams** - `SchemaRegistry`, `ContractValidator` / `EventValidator`, `ConfigProvider` - stay
 **sync**: they run once at startup, or are pure CPU boundary validation with no I/O, so an async wrapper would only add noise. Tests use
-`pytest-asyncio` with `asyncio_mode = "auto"` so a plain `async def test_...` runs without a per-test marker.
+`pytest-asyncio` with `asyncio_mode = "auto"` so a plain `async def test_...` runs without a per-test marker. `InvestigationCoordinator` remains serial by default and preserves request order and per-target error isolation; scheduled Analyzer composition explicitly caps concurrent target evaluation at four.
 
 The shared `MetricProviderError` contract owns bounded failure metadata; Azure transports classify it and the Analyzer redacts identities.
 The [metric diagnostics contract](aks-diagnostic-evidence-plane.md#safe-metric-failure-diagnostics) preserves legacy providers, empty results, and fail-closed behavior.
