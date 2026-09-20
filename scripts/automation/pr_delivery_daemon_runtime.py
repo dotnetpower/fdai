@@ -304,7 +304,18 @@ class DeliveryDaemon:
             f"+refs/heads/{self.config.base_branch}:"
             f"refs/remotes/{self.config.remote}/{self.config.base_branch}"
         )
-        git(self.runner, self.config, "fetch", "--quiet", self.config.remote, refspec, timeout=120)
+        for attempt in range(2):
+            fetch = self.runner(
+                ("git", "fetch", "--quiet", self.config.remote, refspec),
+                self.config.worktree,
+                120,
+            )
+            if fetch.returncode == 0:
+                break
+            if attempt == 0:
+                self.stop_event.wait(1.0)
+        else:
+            raise DeliveryError("git fetch failed during merge verification")
         base_ref = f"refs/remotes/{self.config.remote}/{self.config.base_branch}"
         result = self.runner(
             ("git", "merge-base", "--is-ancestor", current.merge_commit, base_ref),
