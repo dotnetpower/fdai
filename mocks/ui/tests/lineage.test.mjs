@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const require = createRequire(join(root, "console/package.json"));
@@ -11,6 +12,9 @@ const origin = "http://127.0.0.1:5373";
 const output = join(root, ".fdai/visual-review/lineage");
 const evidence = [];
 const errors = [];
+const inputPaths = ["index.html", "ui/calm-slate-tokens.css", "ui/calm-slate-primitives.css", "console/package-lock.json", "mocks/ui/lineage.html", "mocks/ui/assets/calm-slate.css", "mocks/ui/assets/calm-slate.js", "mocks/ui/assets/lineage.css", "mocks/ui/assets/lineage.js", "mocks/ui/assets/lineage-ontology.js", "mocks/ui/assets/lineage-icons.js", "mocks/ui/tests/lineage.test.mjs"];
+const inputHashes = async () => Object.fromEntries(await Promise.all(inputPaths.map(async path => [path, createHash("sha256").update(await readFile(join(root, path))).digest("hex")])));
+const inputsBefore = await inputHashes();
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
 await context.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
@@ -78,7 +82,7 @@ try {
     return frame?.contentWindow.location.pathname === "/mocks/ui/lineage.html" &&
       frame.contentDocument?.querySelector('[data-node="forseti"]');
   });
-  const frame = await (await page.locator("#preview-frame").elementHandle()).contentFrame();
+  let frame = await (await page.locator("#preview-frame").elementHandle()).contentFrame();
   await frame.locator('[data-node="forseti"]').waitFor();
   const loadMs = performance.now() - started;
   assert.ok(loadMs < 5000, `initial local render ${loadMs}ms exceeds 5s budget`);
@@ -130,7 +134,29 @@ try {
   await frame.locator('[data-resource-type="kubernetes.pod"]').click();
   assert.match(await frame.locator("#lineageInspector").innerText(), /RESOURCE TYPE \/ SCOPED AGGREGATE/);
   assert.match(await frame.locator("#lineageInspector").innerText(), /3 recorded \/ 2 evidence gaps/);
+  assert.equal(await frame.locator('[data-health="current"] dd').innerText(), "1");
+  assert.equal(await frame.locator('[data-health="stale"] dd').innerText(), "1");
+  assert.equal(await frame.locator('[data-health="unknown"] dd').innerText(), "1");
+  await frame.locator(".ln-property-details > summary").click();
+  assert.equal(await frame.locator(".ln-properties").isVisible(), true);
   await frame.locator("#lineageActual").click();
+  for (const direction of ["incoming", "outgoing"]) {
+    await frame.locator("#lineageDirection").selectOption(direction);
+    const selectedId = await frame.locator('.ln-node[aria-pressed="true"]').getAttribute("data-node");
+    const ends = await frame.locator(".ln-edge.is-selected").evaluateAll(elements => elements.map(element => ({ from: element.dataset.from, to: element.dataset.to })));
+    assert.ok(ends.length > 0);
+    assert.ok(ends.every(edge => edge[direction === "incoming" ? "to" : "from"] === selectedId));
+    assert.ok(await frame.locator(".ln-edge.is-muted").count() > 0);
+  }
+  await frame.locator("#lineageDirection").selectOption("both");
+  const beforeArrow = await frame.locator('.ln-node[aria-pressed="true"]').getAttribute("data-node");
+  await frame.locator('.ln-node[aria-pressed="true"]').focus();
+  await page.keyboard.press("ArrowLeft");
+  const afterArrow = await frame.locator('.ln-node[aria-pressed="true"]').getAttribute("data-node");
+  assert.notEqual(afterArrow, beforeArrow);
+  assert.equal(await frame.evaluate(() => document.activeElement.dataset.node), afterArrow);
+  assert.ok(await frame.locator('.ln-node[aria-pressed="true"]').getAttribute("aria-label"));
+  await frame.locator('[data-resource-type="kubernetes.pod"]').click();
   const paths = await frame.locator(".ln-edge").evaluateAll(elements => elements.map(element => element.getAttribute("d")));
   paths.forEach(path => {
     assert.match(path, /^M[\d. -]+ C/);
@@ -194,6 +220,8 @@ try {
   assert.equal(await frame.locator(".ln-node").count(), 38);
 
   await frame.locator('[data-node="memory-observation"]').click();
+  assert.equal(await frame.locator("#lineageInspector").evaluate(element => element.scrollTop), 0);
+  await frame.locator(".ln-property-details > summary").click();
   assert.match(await frame.locator("#lineageInspector").innerText(), /OBSERVATION \/ ONTOLOGY INSTANCE/);
   assert.match(await frame.locator(".ln-properties").innerText(), /sample-pod-01/);
   assert.match(await frame.locator(".ln-properties").innerText(), /742391808/);
@@ -201,6 +229,7 @@ try {
   assert.match(await targetRelation.innerText(), /observation_targets_resource/);
   await targetRelation.click();
   assert.match(await frame.locator("#lineageInspector").innerText(), /RESOURCE TYPE \/ SCOPED AGGREGATE/);
+  await frame.locator(".ln-property-details > summary").click();
   assert.match(await frame.locator(".ln-properties").innerText(), /kubernetes.pod/);
   await frame.locator("#lineageSearch").fill("sample-observation-m9");
   assert.equal(await frame.locator(".ln-node").count(), 1);
@@ -221,6 +250,26 @@ try {
   assert.equal(await frame.locator("#lineageZoom").innerText(), "113%");
   await frame.locator("#lineageZoomOut").click();
   assert.equal(await frame.locator("#lineageZoom").innerText(), "100%");
+  await frame.locator("#lineageInspectorToggle").click();
+  assert.equal(await frame.locator("#lineageInspector").isVisible(), false);
+  await frame.locator("#lineageCanvasMode").click();
+  assert.equal(await frame.locator(".ln-heading").isVisible(), false);
+  assert.equal(await frame.locator(".ln-canvas-badge").isVisible(), true);
+  await frame.locator("#lineageCanvasMode").click();
+  await frame.locator("#lineageInspectorToggle").click();
+  await frame.locator("#lineageRecordPicker").selectOption("memory-observation");
+  assert.match(await frame.locator("#lineageInspector h2").innerText(), /API 01 memory/);
+  await frame.locator("#lineageActual").click();
+  await frame.locator("#lineageCenter").click();
+  assert.ok(Number.parseInt(await frame.locator("#lineageZoom").innerText()) >= 85);
+  await frame.locator("#lineageMap").click({ position: { x: 135, y: 60 } });
+  assert.ok(await frame.locator("#lineageViewport").evaluate(element => element.scrollLeft) > 0);
+  const mapWindow = await frame.locator("#lineageMapWindow").evaluate(element => ({ width: Number(element.getAttribute("width")), height: Number(element.getAttribute("height")) }));
+  assert.ok(mapWindow.width > 0 && mapWindow.width <= 2010 && mapWindow.height > 0 && mapWindow.height <= 1060);
+  await frame.locator("#lineageMapToggle").click();
+  assert.equal(await frame.locator("#lineageMap").isVisible(), false);
+  await frame.locator("#lineageMapToggle").click();
+  await frame.locator("#lineageActual").click();
   const viewport = frame.locator("#lineageViewport");
   await viewport.evaluate(element => { element.scrollLeft = 300; element.scrollTop = 0; });
   const viewportBox = await viewport.boundingBox();
@@ -246,7 +295,16 @@ try {
   await frame.locator("#lineageSearch").fill("no-matching-record");
   assert.equal(await frame.locator(".ln-node").count(), 0);
   assert.equal(await frame.locator("#lineageEmpty").isVisible(), true);
-  await frame.locator("#lineageSearch").fill("");
+  assert.equal(await frame.locator("#lineageMatchCount").innerText(), "0 matching records");
+  await frame.locator("#lineageEmptyClear").click();
+  assert.equal(await frame.locator(".ln-node").count(), 38);
+  await frame.locator("#lineageSearch").fill("Pod");
+  assert.ok(await frame.locator(".ln-node mark").count() > 0);
+  await frame.locator("#lineageSearch").press("Enter");
+  assert.equal(await frame.locator("#lineageSearch").inputValue(), "");
+  await frame.locator("#lineageSearch").fill("<script>");
+  await frame.locator("#lineageSearch").press("Escape");
+  assert.equal(await frame.locator("#lineageSearch").inputValue(), "");
   await frame.locator("#lineageScenario").selectOption("complete");
   assert.equal(await frame.locator(".ln-edge.is-missing").count(), 0);
   assert.match(await frame.locator("#caseState").innerText(), /shadow review only/);
@@ -279,6 +337,10 @@ try {
   });
   assert.deepEqual(textContrast.filter(item => item.ratio < 4.5), []);
   evidence.push({ name: "Graph and inspector text contrast", disposition: "passed", minimum: Math.min(...textContrast.map(item => item.ratio)) });
+  await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+  assert.ok(await frame.locator(".ln-edge").evaluateAll(elements => elements.every(element => getComputedStyle(element).opacity === "1")));
+  assert.equal(await frame.locator(".ln-node").first().evaluate(element => getComputedStyle(element).animationName), "none");
+  await page.emulateMedia({ forcedColors: "none", reducedMotion: "reduce" });
 
   await page.setViewportSize({ width: 1920, height: 1200 });
   await page.locator(".nav-collapse").click();
@@ -290,19 +352,77 @@ try {
 
   for (const viewport of [{ width: 993, height: 641 }, { width: 390, height: 844 }, { width: 320, height: 844 }]) {
     await page.setViewportSize(viewport);
+    if (viewport.width <= 390) {
+      await frame.waitForFunction(() => !document.querySelector("#lineageCaseDetails").open);
+      assert.equal(await frame.locator("#lineageCaseDetails").getAttribute("open"), null);
+      await frame.locator("#lineageCaseDetails > summary").click();
+      assert.equal(await frame.locator(".ln-case").isVisible(), true);
+      await frame.locator("#lineageCaseDetails > summary").click();
+    }
+    await frame.locator("#lineageRecordPicker").selectOption("resource-type");
+    assert.match(await frame.locator("#lineageInspector h2").innerText(), /^Resource$/);
     await measure(frame, `${viewport.width}px master frame`);
     await frame.locator('[data-view="sources"]').click();
     await measure(frame, `${viewport.width}px source register`);
     await frame.locator('[data-view="graph"]').click();
     await page.screenshot({ path: join(output, `${viewport.width}.png`), fullPage: true });
+    if (viewport.width <= 390) {
+      assert.ok((await frame.locator("#lineageRecordPicker").boundingBox()).width >= 180);
+      await frame.locator("#lineageCanvasMode").click();
+      assert.equal(await frame.locator("#lineageCaseDetails").isVisible(), false);
+      await page.screenshot({ path: join(output, `${viewport.width}-canvas.png`), fullPage: true });
+      await frame.locator("#lineageCanvasMode").click();
+    }
   }
+  await page.setViewportSize({ width: 1920, height: 1200 });
+  await frame.locator("#lineageReset").click();
+  await frame.locator('[data-resource-type="kubernetes.pod"]').click();
+  await frame.locator('#lineageInspector [data-expand]').click();
+  await frame.locator('[data-node="pod-resource"]').click();
+  await frame.locator("#lineageActual").click();
+  await frame.locator("#lineageDirection").selectOption("incoming");
+  await page.reload({ waitUntil: "load" });
+  await page.waitForFunction(() => document.querySelector("#preview-frame")?.contentDocument?.querySelector('[data-node="pod-resource"][aria-pressed="true"]'));
+  frame = await (await page.locator("#preview-frame").elementHandle()).contentFrame();
+  assert.equal(await frame.locator(".ln-node").count(), 41);
+  assert.equal(await frame.locator("#lineageDirection").inputValue(), "incoming");
+  assert.equal(await frame.locator("#lineageZoom").innerText(), "100%");
+  evidence.push({ name: "Workspace reload restores selected record, expansion, direction and camera", disposition: "passed" });
+  await frame.locator("#lineageReset").click();
+  await frame.locator('[data-resource-type="kubernetes.pod"]').click();
+  await frame.locator("#lineageFit").click();
+  await frame.evaluate(() => { document.querySelector("#lineageInspector").scrollTop = 0; scrollTo(0, 0); });
+  await page.screenshot({ path: join(output, "final-desktop.png"), fullPage: true });
+  await frame.locator("#lineageCanvasMode").click();
+  await frame.locator("#lineageInspectorToggle").click();
+  await page.screenshot({ path: join(output, "final-canvas.png"), fullPage: true });
+  await frame.locator("#lineageInspectorToggle").click();
+  await frame.locator("#lineageCanvasMode").click();
+  await page.addInitScript(() => {
+    if (location.pathname.endsWith("/lineage.html")) sessionStorage.setItem("fdai:lineage-preview:workspace-v1", "{invalid-json");
+  });
+  await page.reload({ waitUntil: "load" });
+  await page.waitForFunction(() => document.querySelector("#preview-frame")?.contentDocument?.querySelector('[data-resource-type="kubernetes.pod"][aria-pressed="true"]'));
+  frame = await (await page.locator("#preview-frame").elementHandle()).contentFrame();
+  assert.equal(await frame.locator(".ln-node").count(), 38);
+  await page.addInitScript(() => {
+    if (location.pathname.endsWith("/lineage.html")) Object.defineProperty(window, "sessionStorage", { get() { throw new DOMException("Blocked", "SecurityError"); } });
+  });
+  await page.reload({ waitUntil: "load" });
+  await page.waitForFunction(() => document.querySelector("#preview-frame")?.contentDocument?.querySelector('[data-node="forseti"]'));
+  frame = await (await page.locator("#preview-frame").elementHandle()).contentFrame();
+  assert.equal(await frame.locator(".ln-node").count(), 38);
+  await frame.locator('[data-node="forseti"]').click();
+  assert.match(await frame.locator("#lineageInspector h2").innerText(), /Forseti/);
+  evidence.push({ name: "Malformed or denied browser storage preserves a usable default graph", disposition: "passed" });
   await context.close();
   assert.deepEqual(errors, []);
   const rootIndex = await readFile(join(root, "index.html"), "utf8");
   const nestedIndex = await readFile(join(root, "mocks/ui/index.html"), "utf8");
   assert.match(rootIndex, /data-page="mocks\/ui\/lineage.html"/);
   assert.match(nestedIndex, /data-page="lineage.html"/);
-  await writeFile(join(output, "evidence.json"), JSON.stringify({ venue: "static-mock", customerData: false, evidence }, null, 2));
+  assert.deepEqual(await inputHashes(), inputsBefore, "validation inputs changed during the run");
+  await writeFile(join(output, "evidence.json"), JSON.stringify({ venue: "static-mock", customerData: false, inputs: inputsBefore, evidence }, null, 2));
   console.log(JSON.stringify({ result: "passed", checks: evidence.length, output, errors }, null, 2));
 } finally {
   await browser.close();

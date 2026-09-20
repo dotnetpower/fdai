@@ -45,9 +45,34 @@
   let lookup = new Map(graph.nodes.map(node => [node.id, node]));
   const originals = new Map(nodes.map(node => [node.id, node]));
   const curves = new Map();
+  const previewStateKey = "fdai:lineage-preview:workspace-v1";
   const byId = id => document.getElementById(id);
   const escape = value => String(value).replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
+  function icon(name) {
+    return `<svg class="ln-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${window.fdaiLineageIcons[name].map(([tag, attributes]) => `<${tag} ${Object.entries(attributes).map(([key, value]) => `${key}="${escape(value)}"`).join(" ")}></${tag}>`).join("")}</svg>`;
+  }
+  const kindIcons = { source: "Database", evidence: "FileText", normative: "BookOpen", type: "Layers", "resource-group": "Boxes", ontology: "Box", outcome: "ShieldCheck" };
+  byId("lineageSearchIcon").innerHTML = icon("Search");
+  byId("lineageSearchClear").innerHTML = icon("X");
+  function highlighted(value) {
+    const query = byId("lineageSearch").value.trim();
+    const position = query ? value.toLowerCase().indexOf(query.toLowerCase()) : -1;
+    return position < 0 ? escape(value) : `${escape(value.slice(0, position))}<mark>${escape(value.slice(position, position + query.length))}</mark>${escape(value.slice(position + query.length))}`;
+  }
+  function searchCount() {
+    const count = view === "graph" ? byId("lineageNodes").children.length : byId("lineageSources").querySelectorAll(".ln-source-row").length;
+    byId("lineageMatchCount").textContent = `${count} matching ${view === "graph" ? "records" : "sources"}`;
+    byId("lineageSearchClear").hidden = !byId("lineageSearch").value;
+  }
+  Object.entries({ lineageReset: ["RotateCcw", "Reset filters and collapse instances"], lineageFit: ["Maximize", "Fit complete graph"], lineageZoomOut: ["ZoomOut", "Zoom out"], lineageZoomIn: ["ZoomIn", "Zoom in"], lineageCenter: ["LocateFixed", "Center selected record"], lineageMapToggle: ["Map", "Toggle graph navigator"], lineageInspectorToggle: ["PanelRightClose", "Hide record details"], lineageCanvasMode: ["Maximize", "Expand canvas"] }).forEach(([id, [name, label]]) => {
+    const button = byId(id);
+    button.innerHTML = icon(name); button.setAttribute("aria-label", label); button.title = label; button.classList.add("ln-icon-button");
+  });
   const isComplete = () => byId("lineageScenario").value === "complete";
+  function selectedEdge(edge) {
+    const direction = byId("lineageDirection").value;
+    return (direction !== "incoming" && edge[0] === selected) || (direction !== "outgoing" && edge[1] === selected);
+  }
   const hasGap = node => node.kind === "resource-group" ? node.held : node.evidenceState ? node.evidenceState !== "current" : (node.missing || node.held) && !isComplete();
   function status(node) {
     if (node.evidenceState) return `Evidence: ${node.evidenceState}`;
@@ -55,7 +80,8 @@
     return ({ logs: "Recorded", "log-window": "Coverage: complete", heimdall: "Qualified / attempt 2", forseti: "Evaluated / shadow only", decision: "Review / no dispatch" })[node.id] || node.status;
   }
   function neighbors(id) {
-    return new Set([id, ...graph.edges.filter(edge => edge[0] === id || edge[1] === id).flatMap(edge => edge.slice(0, 2))]);
+    const direction = byId("lineageDirection").value;
+    return new Set([id, ...graph.edges.filter(edge => (direction !== "incoming" && edge[0] === id) || (direction !== "outgoing" && edge[1] === id)).flatMap(edge => edge.slice(0, 2))]);
   }
   function rebuild() {
     graph = window.fdaiLineageOntology.buildResourceTypeGraph(nodes, edges, expandedGroup);
@@ -106,11 +132,12 @@
   function render() {
     const query = byId("lineageSearch").value.trim().toLowerCase();
     const related = neighbors(selected);
-    const matches = graph.nodes.filter(node => `${node.title} ${node.sub} ${node.owner} ${node.objectType || ""} ${node.properties?.id || ""} ${node.members?.map(member => `${member.title} ${member.properties.id}`).join(" ") || ""}`.toLowerCase().includes(query));
+    const matches = graph.nodes.filter(node => `${node.title} ${node.sub} ${node.owner} ${node.origin} ${node.version} ${node.objectType || ""} ${node.properties?.id || ""} ${node.members?.map(member => `${member.title} ${member.properties.id}`).join(" ") || ""}`.toLowerCase().includes(query));
     const visible = new Set((focused ? matches.filter(node => related.has(node.id)) : matches).map(node => node.id));
     byId("lineageNodes").innerHTML = graph.nodes.filter(node => visible.has(node.id)).map(node => {
-      const image = node.agent ? `../../../console/public/agent-icons/${node.agent}.svg` : node.icon && node.icon !== "kubernetes.svg" ? `../../../tools/architecture-diagrams/assets/azure/${node.icon}` : "";
-      return `<button type="button" class="ln-node ${node.missing && !isComplete() ? "is-missing" : ""} ${hasGap(node) ? "is-held" : ""}" data-node="${node.id}" data-kind="${node.kind}" ${node.resourceType ? `data-resource-type="${node.resourceType}"` : ""} style="left:${node.x}px;top:${node.y}px" aria-pressed="${selected === node.id}"><span class="ln-node-heading">${image ? `<img src="${image}" alt="" />` : ""}<strong>${escape(node.title)}${node.members ? ` (${node.members.length})` : ""}</strong></span><small>${escape(node.kind === "resource-group" ? "ResourceType / sample scope" : node.sub)}</small><span class="ln-node-state">${escape(status(node))}</span></button>`;
+      const symbol = node.agent ? `<img src="../../../console/public/agent-icons/${node.agent}.svg" alt="" />` : icon(node.objectType === "Observation" && node.kind === "ontology" ? "Activity" : kindIcons[node.kind] || "Box");
+      const title = node.id === "arg" ? "Resource Graph" : node.title;
+      return `<button type="button" class="ln-node ${node.missing && !isComplete() ? "is-missing" : ""} ${hasGap(node) ? "is-held" : ""}" data-node="${node.id}" data-kind="${node.kind}" ${node.resourceType ? `data-resource-type="${node.resourceType}"` : ""} style="left:${node.x}px;top:${node.y}px" aria-pressed="${selected === node.id}" aria-label="${escape(`${node.title}, ${node.kind === "resource-group" ? "ResourceType" : node.kind}, ${status(node)}`)}" title="${escape(node.title)}"><span class="ln-node-heading">${symbol}<strong>${highlighted(title)}${node.members ? ` (${node.members.length})` : ""}</strong></span><small>${escape(node.kind === "resource-group" ? "ResourceType / sample scope" : node.sub)}</small><span class="ln-node-state">${escape(status(node))}</span></button>`;
     }).join("");
     byId("lineageEdges").querySelectorAll(".ln-edge").forEach(edge => edge.remove());
     const shownEdges = graph.edges.filter(edge => visible.has(edge[0]) && visible.has(edge[1]));
@@ -124,17 +151,27 @@
       path.dataset.count = String(records.length);
       path.dataset.aggregated = String(aggregated);
       const membership = relation === "example instance" || relation === "resource type";
-      path.setAttribute("class", `ln-edge ${membership ? "is-membership" : source.objectType && target.objectType ? "is-ontology" : ""} ${aggregated ? "is-aggregate" : ""} ${relation === "required" && !isComplete() ? "is-missing" : ""} ${from === selected || to === selected ? "is-selected" : ""}`);
+      path.setAttribute("class", `ln-edge ${membership ? "is-membership" : source.objectType && target.objectType ? "is-ontology" : ""} ${aggregated ? "is-aggregate" : ""} ${relation === "required" && !isComplete() ? "is-missing" : ""} ${selectedEdge([from, to]) ? "is-selected" : "is-muted"}`);
       byId("lineageEdges").append(path);
     });
     byId("lineageEmpty").hidden = visible.size > 0;
     byId("lineageCanvasSize").hidden = visible.size === 0;
+    document.querySelector(".ln-map-dock").hidden = visible.size === 0;
     const visibleGroups = graph.groups.filter(group => visible.has(group.id));
     const visibleInstances = graph.nodes.filter(node => visible.has(node.id) && node.kind === "ontology" && node.objectType === "Resource");
     byId("lineageCount").textContent = `${visibleGroups.length} ResourceTypes / ${visibleGroups.reduce((sum, group) => sum + group.members.length, 0)} represented Resources / ${visibleInstances.length} expanded / ${shownEdges.length} connections`;
     byId("caseState").textContent = isComplete() ? "Evaluated - shadow review only" : "Held - missing log evidence";
+    byId("lineageCompactState").textContent = isComplete() ? "Shadow review" : "Held";
+    const selectedRecord = lookup.get(selected);
+    byId("lineageSelection").innerHTML = `${icon(selectedRecord.kind === "resource-group" ? "Boxes" : kindIcons[selectedRecord.kind] || "GitBranch")}<strong>${escape(selectedRecord.title)}</strong><span>${graph.edges.filter(edge => edge[1] === selected).length} inputs / ${graph.edges.filter(edge => edge[0] === selected).length} outputs</span>`;
+    byId("lineageRecordPicker").innerHTML = graph.nodes.filter(node => visible.has(node.id)).map(node => `<option value="${node.id}">${escape(node.title)}${node.members ? ` (${node.members.length})` : ""}</option>`).join("");
+    byId("lineageRecordPicker").value = selected;
+    byId("lineageRecordPicker").disabled = visible.size === 0;
     renderInspector();
     renderSources(query);
+    searchCount();
+    byId("lineageMiniature").innerHTML = graph.nodes.filter(node => visible.has(node.id)).map(node => `<rect x="${node.x}" y="${node.y}" width="194" height="78" rx="12" fill="${node.id === selected ? "#285c86" : node.kind === "type" ? "#7897b2" : "#c4d2db"}" />`).join("") + '<rect id="lineageMapWindow" fill="#285c8614" stroke="#285c86" stroke-width="10" />';
+    updateMap();
   }
   function renderInspector() {
     const node = lookup.get(selected);
@@ -142,10 +179,15 @@
     const outgoing = graph.edges.filter(edge => edge[0] === selected);
     const relationButtons = (items, index) => items.map(edge => `<div><button type="button" data-select="${edge[index]}">${escape(lookup.get(edge[index]).title)}<small> / ${escape(edge[2] === "required" && isComplete() ? "consumed" : edge[2])}${edge[4] ? ` / ${edge[3].length} recorded` : ""}</small></button>${edge[4] ? `<details class="ln-edge-records"><summary>Original references (${edge[3].length})</summary><ul>${edge[3].map(([from, to, relation]) => `<li>${escape(originals.get(from).title)} - ${escape(relation)} - ${escape(originals.get(to).title)}<br /><code>${escape(originals.get(from).properties?.id || from)} / ${escape(originals.get(to).properties?.id || to)}</code></li>`).join("")}</ul></details>` : ""}</div>`).join("") || "<span>No recorded connections</span>";
     const detail = isComplete() && ["logs", "log-window", "heimdall", "forseti", "decision"].includes(node.id) ? "This alternate synthetic snapshot includes the required log window. Evaluation is shadow-only; no approval, dispatch or effect-verification record is implied." : node.detail;
-    const properties = node.properties ? `<h3>${node.kind === "type" ? "Type declaration" : "Selected properties"}</h3><dl class="ln-properties">${Object.entries(node.properties).map(([key, value]) => `<div><dt>${escape(key)}</dt><dd>${escape(value)}</dd></div>`).join("")}</dl>` : "";
+    const properties = node.properties ? `<details class="ln-property-details"><summary>${node.kind === "type" ? "Type declaration" : "Selected properties"}<span>${Object.keys(node.properties).length}</span></summary><dl class="ln-properties">${Object.entries(node.properties).map(([key, value]) => `<div><dt>${escape(key.replaceAll("_", " "))}</dt><dd>${escape(value)}</dd></div>`).join("")}</dl></details>` : "";
+    const health = node.health ? `<section class="ln-health" aria-label="Evidence state breakdown"><h3>Evidence state</h3><dl>${Object.entries(node.health).map(([state, count]) => `<div data-health="${state}"><dt>${icon(({ current: "Check", stale: "Clock", conflicting: "TriangleAlert", unknown: "CircleHelp" })[state])}${escape(state)}</dt><dd>${count}</dd></div>`).join("")}</dl></section>` : "";
     const groupId = node.members ? node.id : graph.membership.get(node.id);
-    const expansion = groupId ? `<button type="button" class="ln-focus" data-expand="${groupId}" aria-expanded="${expandedGroup === groupId}">${expandedGroup === groupId ? "Collapse instances" : `Expand ${lookup.get(groupId).members.length} instances`}</button>` : "";
-    byId("lineageInspector").innerHTML = `<div class="ln-inspector-intro"><span class="ln-record-kind">${escape(node.kind === "resource-group" ? "RESOURCE TYPE / SCOPED AGGREGATE" : node.kind === "type" ? "OBJECT TYPE / DECLARATION" : node.objectType ? `${node.objectType.toUpperCase()} / ONTOLOGY INSTANCE` : `${node.kind.toUpperCase()} / SELECTED RECORD`)}</span><h2>${escape(node.title)}</h2><strong class="${hasGap(node) ? "ln-warning" : "ln-success"}">${escape(status(node))}</strong><p>${escape(detail)}</p>${expansion}</div><div><dl><div><dt>Accountable agent</dt><dd>${escape(node.owner)}</dd></div><div><dt>Exact record version</dt><dd><code>${escape(node.version)}</code></dd></div><div><dt>Origin family</dt><dd>${escape(node.origin)}</dd></div><div><dt>Cutoff</dt><dd>2026-09-20 10:42:00 UTC</dd></div></dl>${properties}<div class="ln-record-note">Synthetic evidence<br />Execution authority: none</div></div><div><h3>Incoming connections <small>${incoming.length}</small></h3><div class="ln-related">${relationButtons(incoming, 0)}</div><h3>Outgoing connections <small>${outgoing.length}</small></h3><div class="ln-related">${relationButtons(outgoing, 1)}</div><button type="button" class="ln-focus" id="lineageFocus" aria-pressed="${focused}">${focused ? "Show all records" : "Focus on this record"}</button></div>`;
+    const expansion = groupId ? `<button type="button" class="ln-focus ln-expand" data-expand="${groupId}" aria-expanded="${expandedGroup === groupId}">${icon(expandedGroup === groupId ? "Minimize" : "Boxes")}${expandedGroup === groupId ? "Collapse instances" : `Expand ${lookup.get(groupId).members.length} instances`}</button>` : "";
+    const inspector = byId("lineageInspector");
+    const changed = inspector.dataset.selection !== selected;
+    inspector.innerHTML = `<div class="ln-inspector-intro"><span class="ln-record-kind">${escape(node.kind === "resource-group" ? "RESOURCE TYPE / SCOPED AGGREGATE" : node.kind === "type" ? "OBJECT TYPE / DECLARATION" : node.objectType ? `${node.objectType.toUpperCase()} / ONTOLOGY INSTANCE` : `${node.kind.toUpperCase()} / SELECTED RECORD`)}</span><h2>${escape(node.title)}</h2><strong class="${hasGap(node) ? "ln-warning" : "ln-success"}">${escape(status(node))}</strong>${health}${expansion}<p>${escape(detail)}</p></div><div class="ln-record-metadata"><dl><div><dt>Owner</dt><dd>${escape(node.owner)}</dd></div><div><dt>Version</dt><dd><code>${escape(node.version)}</code></dd></div><div><dt>Source</dt><dd>${escape(node.origin)}</dd></div><div><dt>Cutoff</dt><dd>20 Sep 2026 / 10:42 UTC</dd></div></dl>${properties}<div class="ln-record-note">Synthetic evidence / No execution authority</div></div><div class="ln-record-connections"><h3>${icon("ArrowLeft")} Incoming <small>${incoming.length}</small></h3><div class="ln-related">${relationButtons(incoming, 0)}</div><h3>${icon("ArrowRight")} Outgoing <small>${outgoing.length}</small></h3><div class="ln-related">${relationButtons(outgoing, 1)}</div><button type="button" class="ln-focus" id="lineageFocus" aria-pressed="${focused}">${icon("Scan")}${focused ? "Show all records" : "Focus on this record"}</button></div>`;
+    inspector.dataset.selection = selected;
+    if (changed) inspector.scrollTop = 0;
   }
   function renderSources(query) {
     const sources = nodes.filter(node => node.x === 24).map(node => [node.title, node.kind === "normative" ? "Rules / knowledge" : "Observed data", node.sub, status(node), node.id]);
@@ -153,21 +195,83 @@
     byId("lineageSources").innerHTML = `<h2>Source register <small>${rows.length}</small></h2>` + (rows.length ? rows.map(([title, kind, scope, state, id]) => `<article class="ln-source-row"><div>${id ? `<button type="button" data-select="${id}">${escape(title)}</button>` : `<strong>${escape(title)}</strong>`}</div><span>${escape(kind)}</span><span>${escape(scope)}</span><span>${escape(state)}</span></article>`).join("") : "<p>No matching sources.</p>");
   }
   function select(id) { selected = id; byId("lineageSearch").value = ""; setView("graph"); render(); }
-  function setView(next) { view = next; byId("lineageLayout").hidden = view !== "graph"; byId("lineageSources").hidden = view !== "sources"; document.querySelectorAll("[data-view]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.view === view))); }
+  function setView(next) { view = next; byId("lineageLayout").hidden = view !== "graph"; byId("lineageSources").hidden = view !== "sources"; document.querySelectorAll("[data-view]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.view === view))); searchCount(); }
   document.addEventListener("click", event => {
     const button = event.target.closest("button");
     if (!button) return;
     if (button.dataset.node) { selected = button.dataset.node; render(); document.querySelector(`[data-node="${selected}"]`)?.focus({ preventScroll: true }); }
     if (button.dataset.select) { select(button.dataset.select); document.querySelector(`[data-node="${selected}"]`)?.focus(); }
     if (button.dataset.view) setView(button.dataset.view);
+    if (button.id === "lineageInspectorToggle") {
+      const inspector = byId("lineageInspector");
+      inspector.hidden = !inspector.hidden;
+      byId("lineageLayout").classList.toggle("is-inspector-hidden", inspector.hidden);
+      button.setAttribute("aria-expanded", String(!inspector.hidden));
+      button.setAttribute("aria-label", inspector.hidden ? "Show record details" : "Hide record details"); button.title = button.getAttribute("aria-label");
+      button.innerHTML = icon(inspector.hidden ? "PanelRightOpen" : "PanelRightClose");
+      if (fitted) fitGraph();
+    }
+    if (button.id === "lineageCanvasMode") {
+      const expanded = document.body.classList.toggle("is-canvas-mode");
+      button.setAttribute("aria-pressed", String(expanded));
+      button.setAttribute("aria-label", expanded ? "Restore workspace" : "Expand canvas"); button.title = button.getAttribute("aria-label");
+      button.innerHTML = icon(expanded ? "Minimize" : "Maximize");
+      document.querySelector(".ln-canvas-badge").hidden = !expanded;
+      fitGraph();
+    }
+    if (["lineageSearchClear", "lineageEmptyClear"].includes(button.id)) { byId("lineageSearch").value = ""; render(); byId("lineageSearch").focus(); }
     if (button.dataset.expand) { expandedGroup = expandedGroup === button.dataset.expand ? null : button.dataset.expand; focused = false; byId("lineageSearch").value = ""; rebuild(); render(); byId("lineageInspector").querySelector("[data-expand]")?.focus({ preventScroll: true }); }
     if (button.id === "lineageFocus") { focused = !focused; render(); byId("lineageFocus").focus(); }
-    if (button.id === "lineageReset") { focused = false; expandedGroup = null; byId("lineageSearch").value = ""; rebuild(); render(); fitGraph(); }
+    if (button.id === "lineageReset") { focused = false; expandedGroup = null; byId("lineageSearch").value = ""; byId("lineageDirection").value = "both"; rebuild(); render(); fitGraph(); }
     if (button.id === "lineageFit") fitGraph();
+    if (button.id === "lineageCenter") {
+      const node = lookup.get(selected);
+      changeZoom(Math.max(.85, zoom));
+      byId("lineageViewport").scrollLeft = (node.x + 97) * zoom - byId("lineageViewport").clientWidth / 2;
+      byId("lineageViewport").scrollTop = (node.y + 39) * zoom - byId("lineageViewport").clientHeight / 2;
+      updateMap();
+    }
+    if (button.id === "lineageMapToggle") { const map = byId("lineageMap"); map.hidden = !map.hidden; button.setAttribute("aria-expanded", String(!map.hidden)); }
+    if (button.id === "lineageMap") {
+      const bounds = button.getBoundingClientRect();
+      const horizontal = event.detail ? (event.clientX - bounds.left) / bounds.width : .5;
+      const vertical = event.detail ? (event.clientY - bounds.top) / bounds.height : .5;
+      byId("lineageViewport").scrollLeft = horizontal * canvasWidth * zoom - byId("lineageViewport").clientWidth / 2;
+      byId("lineageViewport").scrollTop = vertical * canvasHeight * zoom - byId("lineageViewport").clientHeight / 2;
+      updateMap();
+    }
     if (button.id === "lineageActual") changeZoom(1);
     if (button.id === "lineageZoomIn" || button.id === "lineageZoomOut") changeZoom(zoom + (button.id === "lineageZoomIn" ? .125 : -.125));
+    savePreview();
   });
-  function updateZoom() { byId("lineageCanvas").style.transform = `scale(${zoom})`; byId("lineageCanvasSize").style.width = `${canvasWidth * zoom}px`; byId("lineageCanvasSize").style.height = `${canvasHeight * zoom}px`; byId("lineageZoom").value = `${Math.round(zoom * 100)}%`; byId("lineageCanvas").classList.toggle("is-overview", zoom < .6); }
+  function savePreview() {
+    const viewport = byId("lineageViewport");
+    try {
+      sessionStorage.setItem(previewStateKey, JSON.stringify({ version: 1, selected, expandedGroup, direction: byId("lineageDirection").value, zoom, fitted, left: viewport.scrollLeft, top: viewport.scrollTop, view }));
+    } catch { byId("lineageMatchCount").textContent = "Workspace state is not retained in this browser"; }
+  }
+  function restorePreview() {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(previewStateKey) || "null");
+      if (!saved || saved.version !== 1 || !["graph", "sources"].includes(saved.view) || !["both", "incoming", "outgoing"].includes(saved.direction)) return;
+      if (![saved.zoom, saved.left, saved.top].every(Number.isFinite) || saved.zoom < .1 || saved.zoom > 2.5 || saved.left < 0 || saved.top < 0 || typeof saved.fitted !== "boolean") return;
+      if (saved.expandedGroup !== null && !graph.groups.some(group => group.id === saved.expandedGroup)) return;
+      if (!lookup.has(saved.selected) && !originals.has(saved.selected)) return;
+      expandedGroup = saved.expandedGroup; rebuild();
+      selected = lookup.has(saved.selected) ? saved.selected : graph.membership.get(saved.selected) || "resource-type";
+      byId("lineageDirection").value = saved.direction;
+      render();
+      if (saved.fitted) fitGraph();
+      else { changeZoom(saved.zoom); byId("lineageViewport").scrollLeft = saved.left; byId("lineageViewport").scrollTop = saved.top; updateMap(); }
+      setView(saved.view);
+    } catch { byId("lineageMatchCount").textContent = "Workspace state could not be restored; showing the default preview"; }
+  }
+  function updateMap() {
+    const viewport = byId("lineageViewport"), rectangle = byId("lineageMapWindow");
+    if (!rectangle) return;
+    Object.entries({ x: viewport.scrollLeft / zoom, y: viewport.scrollTop / zoom, width: Math.min(canvasWidth, viewport.clientWidth / zoom), height: Math.min(canvasHeight, viewport.clientHeight / zoom) }).forEach(([key, value]) => rectangle.setAttribute(key, value));
+  }
+  function updateZoom() { byId("lineageCanvas").style.transform = `scale(${zoom})`; byId("lineageCanvasSize").style.width = `${canvasWidth * zoom}px`; byId("lineageCanvasSize").style.height = `${canvasHeight * zoom}px`; byId("lineageZoom").value = `${Math.round(zoom * 100)}%`; byId("lineageCanvas").classList.toggle("is-overview", zoom < .6); updateMap(); }
   function changeZoom(next, anchorX, anchorY) {
     const viewport = byId("lineageViewport");
     const horizontal = anchorX ?? viewport.clientWidth / 2, vertical = anchorY ?? viewport.clientHeight / 2;
@@ -181,9 +285,10 @@
     fitted = true; updateZoom(); viewport.scrollLeft = 0; viewport.scrollTop = 0;
   }
   const viewport = byId("lineageViewport");
+  viewport.addEventListener("scroll", () => { updateMap(); savePreview(); }, { passive: true });
   let drag = null;
   viewport.addEventListener("pointerdown", event => {
-    if (event.button !== 0 || event.target.closest("button")) return;
+    if (event.pointerType === "touch" || event.button !== 0 || event.target.closest("button")) return;
     drag = { x: event.clientX, y: event.clientY, left: viewport.scrollLeft, top: viewport.scrollTop };
     viewport.setPointerCapture(event.pointerId); viewport.classList.add("is-dragging");
   });
@@ -196,12 +301,39 @@
     changeZoom(zoom * Math.exp(-event.deltaY * .002), event.clientX - bounds.left, event.clientY - bounds.top);
   }, { passive: false });
   viewport.addEventListener("keydown", event => {
+    const button = event.target.closest("[data-node]");
+    if (button && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+      event.preventDefault();
+      const current = lookup.get(button.dataset.node);
+      const candidates = [...byId("lineageNodes").querySelectorAll("[data-node]")].map(element => lookup.get(element.dataset.node)).filter(node => {
+        return ({ ArrowLeft: node.x < current.x, ArrowRight: node.x > current.x, ArrowUp: node.y < current.y, ArrowDown: node.y > current.y })[event.key];
+      });
+      const horizontal = ["ArrowLeft", "ArrowRight"].includes(event.key);
+      const distance = node => Math.abs(node.x - current.x) * (horizontal ? 1 : 4) + Math.abs(node.y - current.y) * (horizontal ? 4 : 1);
+      candidates.sort((left, right) => distance(left) - distance(right));
+      if (candidates[0]) { selected = candidates[0].id; render(); document.querySelector(`[data-node="${selected}"]`).focus(); }
+      return;
+    }
     if (event.target !== viewport) return;
     if (["+", "=", "-", "0"].includes(event.key)) { event.preventDefault(); if (event.key === "0") fitGraph(); else changeZoom(zoom + (event.key === "-" ? -.125 : .125)); }
   });
   new ResizeObserver(() => { if (fitted && view === "graph") fitGraph(); }).observe(viewport);
   byId("lineageSearch").addEventListener("input", render);
+  byId("lineageSearch").addEventListener("keydown", event => {
+    if (event.key === "Escape") { event.preventDefault(); byId("lineageSearch").value = ""; render(); }
+    if (event.key === "Enter" && view === "graph") {
+      const match = byId("lineageNodes").querySelector("[data-node]");
+      if (match) { event.preventDefault(); select(match.dataset.node); document.querySelector(`[data-node="${selected}"]`)?.focus(); }
+    }
+  });
   byId("lineageScenario").addEventListener("change", render);
+  byId("lineageDirection").addEventListener("change", () => { render(); savePreview(); });
+  byId("lineageRecordPicker").addEventListener("change", event => { select(event.target.value); byId("lineageCenter").click(); });
+  const compactViewport = matchMedia("(max-width: 740px)");
+  byId("lineageCaseDetails").open = !compactViewport.matches;
+  compactViewport.addEventListener("change", event => { byId("lineageCaseDetails").open = !event.matches; });
   render();
   fitGraph();
+  restorePreview();
+  window.addEventListener("pagehide", savePreview);
 }());
