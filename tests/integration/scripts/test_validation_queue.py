@@ -22,7 +22,12 @@ from scripts.automation.validation_queue_runner import (
     _prepare_validation_worktree,
     _run_stage,
 )
-from scripts.automation.validation_queue_support import pending_commits, queue_paths
+from scripts.automation.validation_queue_support import (
+    ValidationRetentionPolicy,
+    pending_commits,
+    prune_completed_state,
+    queue_paths,
+)
 
 pytestmark = pytest.mark.no_cover
 
@@ -223,6 +228,63 @@ def _commit_change(repo: Path) -> str:
     result = _run(repo, "git", "rev-parse", "HEAD")
     assert result.returncode == 0
     return result.stdout.strip()
+
+
+def test_completed_state_retention_preserves_pending_and_current_commit(git_repo: Path) -> None:
+    paths = queue_paths(git_repo)
+    current = _commit_change(git_repo)
+    validation_queue.enqueue(paths, current)
+    policy = ValidationRetentionPolicy(
+        receipts=2,
+        runs=2,
+        stage_records=2,
+        changed_test_records=2,
+        pytest_commits=2,
+        verify_markers=2,
+    )
+    for index in range(4):
+        commit = f"{index:040x}"
+        for directory in (paths.receipts, paths.runs, paths.stage_cache):
+            directory.mkdir(parents=True, exist_ok=True)
+            (directory / f"{commit}.json").write_text("{}\n", encoding="utf-8")
+        for directory in (
+            paths.stage_cache / "changed-tests",
+            paths.stage_cache / "pytest",
+            paths.stage_cache / "pytest-shards",
+        ):
+            directory.mkdir(parents=True, exist_ok=True)
+            target = directory / (f"{commit}.json" if directory.name == "changed-tests" else commit)
+            target.mkdir() if directory.name != "changed-tests" else target.write_text(
+                "{}\n", encoding="utf-8"
+            )
+        verify = paths.stage_cache / "verify"
+        verify.mkdir(parents=True, exist_ok=True)
+        (verify / f"{index}.pass").touch()
+        timestamp = 1_000_000_000 + index
+        for target in paths.state_root.rglob(f"*{commit}*"):
+            os.utime(target, ns=(timestamp, timestamp))
+        os.utime(verify / f"{index}.pass", ns=(timestamp, timestamp))
+
+    preserved = f"{0:040x}"
+    removed = prune_completed_state(
+        paths,
+        preserve_commits={preserved},
+        policy=policy,
+    )
+
+    assert sum(removed.values()) == 14
+    assert (paths.pending / f"{current}.json").is_file()
+    for directory in (paths.receipts, paths.runs, paths.stage_cache):
+        assert (directory / f"{preserved}.json").exists()
+    for directory in (paths.stage_cache / "pytest", paths.stage_cache / "pytest-shards"):
+        assert (directory / preserved).is_dir()
+    assert len(tuple(paths.receipts.glob("*.json"))) == 2
+    assert len(tuple(paths.runs.glob("*.json"))) == 2
+    assert len(tuple(paths.stage_cache.glob("*.json"))) == 2
+    assert len(tuple((paths.stage_cache / "changed-tests").glob("*.json"))) == 2
+    assert len(tuple((paths.stage_cache / "pytest").iterdir())) == 2
+    assert len(tuple((paths.stage_cache / "pytest-shards").iterdir())) == 2
+    assert len(tuple((paths.stage_cache / "verify").glob("*.pass"))) == 2
 
 
 def test_validation_reset_clean_is_restricted_to_owned_scratch(git_repo: Path) -> None:
