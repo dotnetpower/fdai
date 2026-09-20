@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lineage - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <link rel="stylesheet" href="assets/lineage.css?v=7" />
+  <link rel="stylesheet" href="assets/lineage.css?v=8" />
   <script src="assets/calm-slate.js?v=lineage-v1" defer></script>
   <script src="assets/lineage-ontology.js?v=2" defer></script>
   <script src="assets/lineage-icons.js?v=1" defer></script>
-  <script src="assets/lineage.js?v=6" defer></script>
+  <script src="assets/lineage.js?v=7" defer></script>
 </head>
 <body class="ln-page">
   <main class="ln-workspace">
@@ -32,7 +32,7 @@
     </div>
     <div class="ln-layout" id="lineageLayout">
       <section class="ln-graph-region" aria-label="Evidence lineage graph">
-        <div class="ln-graph-head"><div class="ln-legend"><span><i class="ln-dot observed"></i>Sources</span><span><i class="ln-dot normative"></i>Rules / knowledge</span><span><i class="ln-dot processing"></i>Agents</span><span><i class="ln-dot type"></i>Object Type</span><span><i class="ln-dot resource-group"></i>ResourceType</span><span><i class="ln-dot ontology"></i>Instance</span></div><div class="ln-tools"><button type="button" id="lineageReset" title="Clear filters and collapse Resource instances">Reset</button><button type="button" id="lineageFit" title="Fit the complete canvas">Fit</button><button type="button" id="lineageActual" title="Show nodes at actual size">100%</button><button type="button" id="lineageZoomOut" aria-label="Zoom out" title="Zoom out">-</button><output id="lineageZoom" aria-label="Graph zoom">100%</output><button type="button" id="lineageZoomIn" aria-label="Zoom in" title="Zoom in">+</button></div></div>
+        <div class="ln-graph-head"><div class="ln-legend" aria-label="Node categories"><span data-palette="source"><i class="ln-swatch" aria-hidden="true">S</i>Sources</span><span data-palette="evidence"><i class="ln-swatch" aria-hidden="true">E</i>Evidence</span><span data-palette="normative"><i class="ln-swatch" aria-hidden="true">K</i>Rules / knowledge</span><span data-palette="agent"><i class="ln-swatch" aria-hidden="true">A</i>Agents</span><span data-palette="type"><i class="ln-swatch" aria-hidden="true">T</i>Object Type</span><span data-palette="resource-group"><i class="ln-swatch" aria-hidden="true">R</i>ResourceType</span><span data-palette="ontology"><i class="ln-swatch" aria-hidden="true">I</i>Instance</span><span data-palette="outcome"><i class="ln-swatch" aria-hidden="true">D</i>Decision</span></div><div class="ln-tools"><button type="button" id="lineageReset" title="Clear filters and collapse Resource instances">Reset</button><button type="button" id="lineageFit" title="Fit the complete canvas">Fit</button><button type="button" id="lineageActual" title="Show nodes at actual size">100%</button><button type="button" id="lineageZoomOut" aria-label="Zoom out" title="Zoom out">-</button><output id="lineageZoom" aria-label="Graph zoom">100%</output><button type="button" id="lineageZoomIn" aria-label="Zoom in" title="Zoom in">+</button></div></div>
         <div class="ln-context-bar"><span id="lineageSelection" aria-live="polite"></span><div class="ln-context-controls"><label class="ln-record-picker"><span class="cs-sr-only">Select a record</span><select id="lineageRecordPicker" aria-label="Select a record"></select></label><label>Connections<select id="lineageDirection"><option value="both">Inputs + outputs</option><option value="incoming">Inputs</option><option value="outgoing">Outputs</option></select></label><button type="button" id="lineageInspectorToggle" aria-label="Hide record details" title="Hide record details" aria-expanded="true" aria-controls="lineageInspector"></button><button type="button" id="lineageCanvasMode" aria-label="Expand canvas" title="Expand canvas" aria-pressed="false"></button></div><span class="ln-canvas-badge" hidden>Synthetic preview / Read only</span></div>
         <div class="ln-stage">
         <div class="ln-canvas-scroll" id="lineageViewport" tabindex="0" aria-label="Scrollable lineage graph">

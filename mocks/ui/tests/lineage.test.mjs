@@ -184,6 +184,28 @@ try {
   const grid = await frame.locator("#lineageViewport").evaluate(element => ({ image: getComputedStyle(element).backgroundImage, size: getComputedStyle(element).backgroundSize }));
   assert.match(grid.image, /radial-gradient/);
   assert.equal(grid.size, "20px 20px");
+  async function paletteSnapshot() {
+    return frame.locator(".ln-node").evaluateAll(nodes => nodes.map(node => {
+      const kind = node.dataset.kind;
+      const swatch = document.querySelector(`.ln-legend [data-palette="${kind}"] .ln-swatch`);
+      const mini = document.querySelector(`.ln-mini-node[data-palette="${kind}"]`);
+      const style = getComputedStyle(node), legend = getComputedStyle(swatch);
+      return { kind, body: style.backgroundColor, border: style.borderTopColor, heading: getComputedStyle(node.querySelector(".ln-node-heading")).color, legendBody: legend.backgroundColor, legendBorder: legend.borderTopColor, legendInk: legend.color, mini: getComputedStyle(mini).fill };
+    }));
+  }
+  const palette = await paletteSnapshot();
+  palette.forEach(node => {
+    assert.equal(node.body, node.legendBody, `${node.kind}: legend must show actual node surface`);
+    assert.equal(node.border, node.legendBorder, `${node.kind}: border token mismatch`);
+    assert.equal(node.heading, node.legendInk, `${node.kind}: title/legend ink mismatch`);
+    assert.equal(node.mini, node.body, `${node.kind}: minimap must use the same surface`);
+  });
+  assert.equal(new Set(palette.map(node => node.kind)).size, 8);
+  assert.equal(new Set(palette.map(node => node.body)).size, 8);
+  await frame.locator('[data-node="logs"]').hover();
+  const hoveredPalette = await paletteSnapshot();
+  assert.ok(hoveredPalette.every(node => node.body === node.legendBody && node.border === node.legendBorder));
+  evidence.push({ name: "Eight shared category palettes match legend, default/hover nodes and minimap", disposition: "passed", palette });
   await assertClearCurves(frame);
   assert.equal(await frame.locator(".ln-edge.is-missing").count(), 2);
   assert.match(await frame.locator("#caseState").innerText(), /Held/);

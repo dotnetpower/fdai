@@ -179,7 +179,7 @@
     renderInspector();
     renderSources(query);
     searchCount();
-    byId("lineageMiniature").innerHTML = graph.nodes.filter(node => visible.has(node.id)).map(node => `<rect x="${node.x}" y="${node.y}" width="194" height="78" rx="12" fill="${node.id === selected ? "#285c86" : node.kind === "type" ? "#7897b2" : "#c4d2db"}" />`).join("") + '<rect id="lineageMapWindow" fill="#285c8614" stroke="#285c86" stroke-width="10" />';
+    byId("lineageMiniature").innerHTML = graph.nodes.filter(node => visible.has(node.id)).map(node => `<rect class="ln-mini-node ${node.id === selected ? "is-selected" : ""}" data-palette="${node.kind}" x="${node.x}" y="${node.y}" width="194" height="78" rx="12" />`).join("") + '<rect id="lineageMapWindow" fill="#285c8614" stroke="#285c86" stroke-width="10" />';
     updateMap();
   }
   function renderInspector() {
