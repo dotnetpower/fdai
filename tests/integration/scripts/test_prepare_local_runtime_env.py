@@ -356,7 +356,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_START_CONSUMER=1",
         "FDAI_START_PANTHEON=1",
         "FDAI_TEAMS_NOTIFICATION_ACTIVATION=1",
-        "FDAI_STARTUP_KAFKA_PROBE_TOPIC=fdai.change.events.dlq",
+        "FDAI_STARTUP_KAFKA_PROBE_TOPIC=fdai.startup.probes",
         "FDAI_STARTUP_KAFKA_SETTLE_SECONDS=20",
         "FDAI_STARTUP_PROBE_TIMEOUT_SECONDS=90",
         "FDAI_STARTUP_PHASE_TIMEOUT_SECONDS=180",

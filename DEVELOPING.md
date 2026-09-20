@@ -249,6 +249,17 @@ execution. Unconfigured authoritative sources remain unavailable. See
   [Docker component and lifecycle reference](docs/user-guide/local-development-quickstart.md#start-and-inspect-docker)
   lists the fixed loopback ports and recovery checks.
 
+  Local startup also retires empty introspection consumer groups whose owning process no longer
+  exists. It rechecks group membership and process liveness before each deletion and preserves
+  active groups, startup probes, messages, dead letters, and database records. To preview this
+  bounded cleanup separately, run `python3 scripts/deployment/local/cleanup-local-broker.py`;
+  add `--apply` to retire the verified groups. Remote Docker endpoints are rejected. Unavailable
+  cleanup leaves retained groups alone and does not prevent startup.
+  Readiness round trips use `fdai.startup.probes`, never the operational dead-letter topic.
+  Preparation reconciles this disposable topic to delete retention of one hour or 1 MiB per
+  partition, with ten-minute segment rolling. These are broker retention targets, not a
+  synchronous size limit. Existing runtimes adopt the new topic on their next managed restart.
+
 Manual equivalents for each service are documented in
 [console/README.md](console/README.md#local-development).
 
