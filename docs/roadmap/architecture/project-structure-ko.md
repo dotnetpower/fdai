@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: fe1a6c65be9742b366f4979e54ef6ec806998a4a
-translation_revised: 2026-09-19
+translation_source_sha: 288fce3e0a6a9fcb1398eef365d7d84180ba437f
+translation_revised: 2026-09-20
 ---
 # 프로젝트 구조
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. 공유 서비스 계약 SDK는 권한을 부여하지 않는 `RuntimeScopeReceipt`를 소유하며, 서비스가 소유하는 모든 진입점은 시작 전에 이 증적을 하나 내보내 제품 목적, 실행 위치 및 허용된 완전한 기능 행을 결속하되 프로바이더 상태나 성공을 주장하지 않습니다. 공유 온톨로지 코드는 프로덕션 라우팅 및 탐지 제어의 고정된 절대 범위 레지스트리를 소유하고, 런타임과 전달 계층은 활성 값을 버전이 지정된 구성에 유지하며 새 권한 경로를 가져오지 않습니다. Post-turn 런타임 스킬 초안은 스킬을 활성화하지 않고 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 메타데이터에 보존합니다. Bootstrap은 후보를 평가하거나 게시하기 전에 Norns 룰 힌트를 현재 discovery-activation 결정 뒤에 결속합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 질문은행과 CQAS 산출물도 정확한 원본 카탈로그에서 의존성 순서에 따라 전체를 다시 생성하며 다이제스트만 수동으로 수정하지 않습니다. 확인된 인시던트 생성은 전용 논리 토픽의 버전이 지정된 권한 없는 요청으로 Operator/Core 경계를 통과합니다. Operator는 인증, 원본 초안 재검증 및 영속 수락을 소유하고 Core만 인시던트 수명 주기와 감사 레코드를 기록합니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
@@ -148,7 +148,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   단계 소유자는 타입이 지정된 증적을 통해 monotonic 시작 및 완료 값을 제공합니다. Core는 증적
   환경이 설치된 단계 계약과 일치한 후에만 기간을 파생합니다. 저장소 CLI는 콘텐츠가 없는
   Conversation Assurance는 composition이 PR benchmark 환경과 sink를 모두 주입한 경우에만 결정론 검증 증적을 생성합니다. 일반 Azure 조립은 측정된 대화 사용량을 위해 공유 계량 sink와 가격표를 노출할 수 있지만 benchmark 증적을 활성화하지 않습니다.
-  명시적 Pantheon 캠페인은 초기화 후 별도의 일회성 런타임 연결을 사용합니다. Core는 고정 census 사례를 검증하고, Bragi는 최종 답변 하나를 만들며, 서로 다른 모델 계열 검토자는 상관관계가 연결된 진단을 추가합니다. 하위 캠페인 종료는 시도 및 판단 보류 사례 ID를 보존하고, 소유자 전용 CLI transcript는 민감한 본문을 생략한 범위 제한 내용과 모델 귀속을 보존할 수 있지만 qualification, 정책, 감사 또는 권한 근거가 되지 않습니다. 명시적으로 선택한 semantic model trace는 SYSTEM digest, 프로필, 순서가 지정된 레이어 및 예산을 포함하는 범위 제한 prompt replay manifest만 변환하며 raw 프롬프트 텍스트와 권한은 이 서비스 경계를 통과하지 않습니다.
+  명시적 Pantheon 캠페인은 초기화 후 별도의 일회성 런타임 연결을 사용합니다. Core는 고정 census 사례를 검증하고, Bragi는 최종 답변 하나를 만들며, 서로 다른 모델 계열 검토자는 상관관계가 연결된 진단을 추가합니다. 하위 캠페인 종료는 시도 및 판단 보류 사례 ID를 보존하고, 소유자 전용 CLI transcript는 민감한 본문을 생략한 범위 제한 내용과 모델 귀속을 보존할 수 있지만 qualification, 정책, 감사 또는 권한 근거가 되지 않습니다. 명시적으로 선택한 semantic model trace는 SYSTEM digest, 프로필, 순서가 지정된 레이어 및 예산을 포함하는 범위 제한 prompt replay manifest만 변환하며 raw 프롬프트 텍스트와 권한은 이 서비스 경계를 통과하지 않습니다. 합성 skill-reference 레이어 ID에는 범위가 제한된 소문자 ASCII 상대 참조 경로 문자를 사용할 수 있지만, artifact와 profile ID에는 더 엄격한 component-id 구문을 유지합니다.
   일반 `operations-review` 턴은 변경할 수 없는 함수 권한 snapshot을 노출하는 기존 의미 런타임을 사용합니다. 스키마로 검증된 판단은 활성 매니페스트와 일치하는 일반 타입 프레임만 복구하고, Golden 인증은 예상 최종 처리 결과에 바인딩되며, Operator 묶음은 Core 계획 전에 로케일을 보존합니다.
   Azure 평가자 어댑터는 모델 계열과 호환되는 완료 필드를 선택하고 연결, HTTP 상태 및 잘못된 응답 실패를 범위가 제한된 콘텐츠 없는 사유 코드로 축약합니다. Core는 프로바이더 응답 내용을 검사하거나 프로바이더 권한을 부여하지 않고 이 코드를 검증하여 의미 평가 축약과 평가 보류 결합까지 보존합니다. Operator는 완료된 평가에만 `answered`를 내보내고 그 밖의 모든 assurance 상태에는 생성된 답변과 범위가 제한된 사유를 보존한 채 `held`를 내보냅니다. 과거 `context_locale_scorecard.py`는 호환 전용으로 다시 내보냅니다.
   표본을 구문 분석하며 추적 약속값을 완전한 추적 주장으로 변환하지 않습니다. 인접한
