@@ -75,6 +75,7 @@
       ["azure-devops.html", "Azure DevOps", "is-sage"]
     ]],
     ["Evidence", [
+      ["lineage.html", "Lineage", "is-steel"],
       ["audit.html", "Audit log", "is-terracotta"],
       ["browser-evidence.html", "Browser evidence", "is-steel"],
       ["forecast-learning.html", "Forecast learning", "is-plum"],
