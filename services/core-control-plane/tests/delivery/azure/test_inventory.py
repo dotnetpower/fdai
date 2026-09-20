@@ -70,6 +70,26 @@ def _adapter(
     )
 
 
+@pytest.mark.parametrize("failure", ["capacity", "provider"])
+async def test_failed_generation_stops_unstarted_shards_before_provider_io(monkeypatch, failure):
+    monkeypatch.setattr("fdai.delivery.azure.inventory.MAX_GENERATION_RESOURCES", 1)
+    calls = []
+
+    async def query(resource_type):
+        calls.append(resource_type)
+        if failure == "provider" and len(calls) == 2:
+            raise RuntimeError("synthetic provider failure")
+        return ResourceQueryResult(resources=(_rr(resource_type),))
+
+    adapter = _adapter(query, types=tuple(f"type-{index}" for index in range(100)), concurrency=1)
+    batches = []
+    with pytest.raises(RuntimeError):
+        async for batch in adapter.full_snapshot():
+            batches.append(batch)
+    assert calls == ["type-0", "type-1"]
+    assert not any(batch.final or batch.resources for batch in batches)
+
+
 def test_config_rejects_zero_or_negative_concurrency() -> None:
     async def _noop(_rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
         return (), ()

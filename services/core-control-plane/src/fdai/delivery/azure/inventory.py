@@ -20,6 +20,7 @@ from collections import Counter
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
+from functools import partial
 from typing import Final
 
 from fdai.delivery.azure.inventory_redaction import redact_runtime_environment
@@ -241,10 +242,21 @@ class AzureResourceGraphInventory:
 
         semaphore = asyncio.Semaphore(self._config.max_concurrent_queries)
         budget = _GenerationBudget()
+        failed = False
+
+        async def _guarded[Result](read: Callable[[], Awaitable[Result]]) -> Result:
+            nonlocal failed
+            async with semaphore:
+                if failed:
+                    raise RuntimeError("inventory generation stopped after a failed shard")
+                try:
+                    return await read()
+                except BaseException:
+                    failed = True
+                    raise
 
         async def _fetch(rt: str) -> InventoryBatch:
-            async with semaphore:
-                query_result = await self._query(rt)
+            query_result = await self._query(rt)
             resources_raw: Sequence[ResourceRecord]
             links_raw: Sequence[LinkRecord]
             relationship_drops: tuple[RelationshipDrop, ...]
@@ -271,19 +283,14 @@ class AzureResourceGraphInventory:
             )
 
         tasks = [
-            asyncio.create_task(_fetch(rt), name=f"arg-shard-{rt}")
+            asyncio.create_task(_guarded(partial(_fetch, rt)), name=f"arg-shard-{rt}")
             for rt in self._config.resource_types
         ]
         coverage_task: asyncio.Task[ProviderScopeCoverage] | None = None
         scope_coverage = self._scope_coverage
         if scope_coverage is not None:
-
-            async def _fetch_coverage() -> ProviderScopeCoverage:
-                async with semaphore:
-                    return await scope_coverage()
-
             coverage_task = asyncio.create_task(
-                _fetch_coverage(),
+                _guarded(scope_coverage),
                 name="inventory-provider-scope-coverage",
             )
         unmapped_task: asyncio.Task[ResourceQueryResult] | None = None
@@ -291,13 +298,12 @@ class AzureResourceGraphInventory:
         if unmapped_resources is not None:
 
             async def _fetch_unmapped_resources() -> ResourceQueryResult:
-                async with semaphore:
-                    result = await unmapped_resources()
+                result = await unmapped_resources()
                 budget.consume(result)
                 return result
 
             unmapped_task = asyncio.create_task(
-                _fetch_unmapped_resources(),
+                _guarded(_fetch_unmapped_resources),
                 name="inventory-unclassified-provider-resources",
             )
         all_tasks: list[asyncio.Task[object]] = [*tasks]

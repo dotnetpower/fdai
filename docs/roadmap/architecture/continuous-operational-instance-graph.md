@@ -328,7 +328,7 @@ corrupt markers recover from that floor, while legacy corruption without a floor
 ### Staged publication successor
 
 Collection partitions remain separate from graph ownership. Private staging requires normalization and redaction; identical replays are no-ops and identity/content conflicts fail closed.
-ARG normalizes pages before fetching successors and retains a bounded normalized generation, not prior raw rows. Unfinished provider restart still requires identity, relationship, and final-coverage replay.
+ARG normalizes pages before fetching successors and retains a bounded normalized generation, not prior raw rows. A failed shard or exhausted generation budget prevents queued shards from starting provider I/O; in-flight requests retain bounded cancellation and no final fence is emitted. Unfinished provider restart still requires identity, relationship, and final-coverage replay.
 
 The coordinator stages Resource-only chunks of at most 1 MiB and 1,000 Resources through the existing
 PostgreSQL writer. Candidate rows, immutable chunk, digest, and checkpoint commit together. Context binds source, scopes, types, metadata, and an effective-configuration digest.
