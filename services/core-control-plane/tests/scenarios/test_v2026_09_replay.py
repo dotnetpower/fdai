@@ -58,6 +58,7 @@ from typing import Any, cast
 
 import pytest
 from fdai.agents import (
+    ActionSemanticsCatalog,
     AuditEntry,
     InitialVerticalPrecedence,
     InMemoryAuditChain,
@@ -66,7 +67,6 @@ from fdai.agents import (
     evaluate_degradation,
     load_pantheon,
 )
-from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents.forseti import Forseti
 from fdai.agents.odin import Odin
 from fdai.agents.saga import Saga

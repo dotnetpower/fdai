@@ -69,6 +69,13 @@ def test_pantheon_count_is_15_exactly() -> None:
     assert {name.lower() for name in agents_pkg.PANTHEON_NAMES} == _PANTHEON_15
 
 
+def test_action_semantics_catalog_is_exported_from_facade() -> None:
+    from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
+
+    assert agents_pkg.ActionSemanticsCatalog is ActionSemanticsCatalog
+    assert "ActionSemanticsCatalog" in agents_pkg.__all__
+
+
 # ---------------------------------------------------------------------------
 # H2: import boundary - external callers use fdai.agents (the facade),
 # never fdai.agents._framework.X. The underscore prefix means "not for
