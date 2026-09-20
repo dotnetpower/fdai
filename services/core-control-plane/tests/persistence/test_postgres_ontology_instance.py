@@ -2265,6 +2265,11 @@ async def test_postgres_upsert_and_replace_share_cardinality_lock() -> None:
     errors = [result for result in results if isinstance(result, Exception)]
     assert len(errors) == 1
     assert isinstance(errors[0], OntologyInstanceValidationError)
-    assert "one_to_many cardinality" in str(errors[0])
+    if isinstance(results[0], OntologyInstanceValidationError):
+        assert "one_to_many cardinality" in str(errors[0])
+        winning_link = links[1]
+    else:
+        assert str(errors[0]) == "ontology replacement violates cardinality"
+        winning_link = links[0]
     graph = await store.traverse(root_ids=(*review_ids, check_id), max_depth=1)
-    assert len(graph.links) == 1
+    assert tuple(replace(link, type_ref=None) for link in graph.links) == (winning_link,)
