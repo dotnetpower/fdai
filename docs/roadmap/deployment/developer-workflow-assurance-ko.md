@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: fb70dd5768efeb92369ec8b057070847538ba9f6
+translation_source_sha: 25fffcb36915891ec6c92b38d423fa3851ca672d
 translation_revised: 2026-09-20
 ---
 
@@ -130,6 +130,9 @@ Azure OpenAI 배포를 선택하거나 호출하지 않습니다.
 허용합니다. 인벤토리 세대가 ontology checkpoint 변환보다 먼저 바뀌면 로컬 analyzer는 준비되지
 않은 상태를 유지하지만 전체 loop interval을 기다리지 않고 5초 안에 target resolution을 다시
 시도합니다.
+프로파일링된 Core 런타임은 공유 StateStore에 대해 범위가 제한된 비동기 connection pool 하나를
+소유하고, 의존하는 worker와 transport가 중지된 뒤 해당 pool을 닫습니다. 개발 진단은 그 결과인
+프로세스 및 연결 수를 측정할 수 있지만, 측정값을 권한으로 바꾸지는 않습니다.
 
 ## 검증 단계와 결과 재사용
 

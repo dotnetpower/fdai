@@ -9,6 +9,8 @@ coverage even without a live DB.
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from fdai.delivery.persistence.postgres import (
     PostgresStateStore,
@@ -57,3 +59,37 @@ def test_next_hash_chains_previous_and_entry() -> None:
     assert h1 == h1_bis
     h2_bad = _next_hash(genesis, {"seq": 2})
     assert h2 != h2_bad
+
+
+async def test_pool_opens_once_for_concurrent_access_and_closes_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Pool:
+        def __init__(self) -> None:
+            self.open_calls = 0
+            self.close_calls = 0
+
+        async def open(self, *, wait: bool, timeout: float) -> None:
+            assert wait is True
+            assert timeout == 2.0
+            self.open_calls += 1
+            await asyncio.sleep(0)
+
+        async def close(self) -> None:
+            self.close_calls += 1
+
+    store = PostgresStateStore(
+        config=PostgresStateStoreConfig(
+            dsn="postgresql://unit-test",
+            connect_timeout_s=2,
+        )
+    )
+    pool = _Pool()
+    monkeypatch.setattr(store, "_pool", pool)
+
+    await asyncio.gather(*(store._ensure_pool() for _ in range(8)))
+    await store.aclose()
+    await store.aclose()
+
+    assert pool.open_calls == 1
+    assert pool.close_calls == 1

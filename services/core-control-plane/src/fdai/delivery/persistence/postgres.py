@@ -9,10 +9,9 @@ interchangeably.
 
 Notes on the wire choice:
 
-- psycopg 3 is already a repo dep (see ``pyproject.toml`` W1.5/W1.6). No
-  new package lands in the lockfile.
-- Async is opt-in per-connection (``psycopg.AsyncConnection``); the pool
-  lives inside this adapter, so ``core/`` never sees a driver call.
+- Psycopg 3 and its official pool package provide the async wire boundary.
+- The bounded pool lives inside this adapter, so ``core/`` never sees a
+    driver call and event fan-out does not create one TCP connection per query.
 - ``previous_hash`` / ``entry_hash`` semantics are enforced in the same
   in-memory canonical serialization as the fake, keeping the two
   implementations swappable without recomputing hashes on migration.
@@ -20,14 +19,17 @@ Notes on the wire choice:
 
 from __future__ import annotations
 
+import asyncio
 import json
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Final
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg_pool import AsyncConnectionPool
 
 from fdai.delivery.persistence.postgres_approval_guard import (
     compare_and_set_state_with_approval_guard as _compare_and_set_state_with_approval_guard,
@@ -64,6 +66,8 @@ _GENESIS_HASH: Final[str] = GENESIS_HASH
 # hash-chained audit log; a different codebase deriving its own key from
 # the string "fdai.audit_log" cannot collide by accident.
 _AUDIT_APPEND_LOCK_KEY: Final[int] = 0x0FDA10AAAAAA01
+_POOL_MIN_SIZE: Final[int] = 1
+_POOL_MAX_SIZE: Final[int] = 4
 
 
 _next_hash = next_hash
@@ -99,6 +103,20 @@ class PostgresStateStore(StateStore):
         if config.connect_timeout_s < 1:
             raise ValueError("connect_timeout_s MUST be >= 1")
         self._config = config
+        self._pool: AsyncConnectionPool[Any] = AsyncConnectionPool(
+            conninfo=config.dsn,
+            kwargs={
+                "connect_timeout": config.connect_timeout_s,
+                "row_factory": dict_row,
+            },
+            min_size=_POOL_MIN_SIZE,
+            max_size=_POOL_MAX_SIZE,
+            open=False,
+            timeout=float(config.connect_timeout_s),
+            name="fdai-state-store",
+        )
+        self._pool_open = False
+        self._pool_open_lock = asyncio.Lock()
 
     # ------------------------------------------------------------------
     # StateStore
@@ -114,20 +132,13 @@ class PostgresStateStore(StateStore):
         path twice for the same event.
         """
         payload = dict(entry)
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 await self._append_audit_in_transaction(conn, payload)
 
     async def read_state(self, key: str) -> Mapping[str, Any] | None:
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            row_factory=dict_row,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 cur = await conn.execute("SELECT value FROM state_kv WHERE key = %s", (key,))
@@ -142,10 +153,7 @@ class PostgresStateStore(StateStore):
         )
 
     async def write_state(self, key: str, value: Mapping[str, Any]) -> None:
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 await conn.execute(
@@ -160,10 +168,7 @@ class PostgresStateStore(StateStore):
                 )
 
     async def write_state_if_absent(self, key: str, value: Mapping[str, Any]) -> bool:
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 cursor = await conn.execute(
@@ -184,10 +189,7 @@ class PostgresStateStore(StateStore):
         value: Mapping[str, Any],
         audit_entry: Mapping[str, Any],
     ) -> bool:
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 cursor = await conn.execute(
@@ -214,10 +216,7 @@ class PostgresStateStore(StateStore):
     ) -> bool:
         if expected_revision < 0:
             raise ValueError("expected_revision MUST be >= 0")
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 cursor = await conn.execute(
@@ -260,28 +259,28 @@ class PostgresStateStore(StateStore):
         admission_valid_until: datetime,
         audit_entry: Mapping[str, Any],
     ) -> bool:
-        return await _compare_and_set_state_with_approval_guard(
-            dsn=self._config.dsn,
-            connect_timeout_s=self._config.connect_timeout_s,
-            set_statement_timeout=self._set_statement_timeout,
-            append_audit_in_transaction=self._append_audit_in_transaction,
-            key=key,
-            value=value,
-            expected_revision=expected_revision,
-            approval_key=approval_key,
-            expected_approval_revision=expected_approval_revision,
-            expected_approval_process_id=expected_approval_process_id,
-            expected_approval_step_id=expected_approval_step_id,
-            expected_approval_attempt=expected_approval_attempt,
-            expected_approval_requester=expected_approval_requester,
-            expected_approval_quorum=expected_approval_quorum,
-            expected_no_self_approval=expected_no_self_approval,
-            expected_approval_decisions=expected_approval_decisions,
-            evaluated_at=evaluated_at,
-            admission_verified_at=admission_verified_at,
-            admission_valid_until=admission_valid_until,
-            audit_entry=audit_entry,
-        )
+        async with self._connection() as conn:
+            return await _compare_and_set_state_with_approval_guard(
+                connection=conn,
+                set_statement_timeout=self._set_statement_timeout,
+                append_audit_in_transaction=self._append_audit_in_transaction,
+                key=key,
+                value=value,
+                expected_revision=expected_revision,
+                approval_key=approval_key,
+                expected_approval_revision=expected_approval_revision,
+                expected_approval_process_id=expected_approval_process_id,
+                expected_approval_step_id=expected_approval_step_id,
+                expected_approval_attempt=expected_approval_attempt,
+                expected_approval_requester=expected_approval_requester,
+                expected_approval_quorum=expected_approval_quorum,
+                expected_no_self_approval=expected_no_self_approval,
+                expected_approval_decisions=expected_approval_decisions,
+                evaluated_at=evaluated_at,
+                admission_verified_at=admission_verified_at,
+                admission_valid_until=admission_valid_until,
+                audit_entry=audit_entry,
+            )
 
     async def find_state(
         self,
@@ -293,11 +292,7 @@ class PostgresStateStore(StateStore):
         if not field.replace("_", "").isalnum():
             raise ValueError("state field MUST be an ASCII identifier")
         escaped_prefix = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            row_factory=dict_row,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 cursor = await conn.execute(
@@ -323,11 +318,7 @@ class PostgresStateStore(StateStore):
         if limit < 1:
             raise ValueError("limit MUST be >= 1")
         escaped_prefix = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            row_factory=dict_row,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 cursor = await conn.execute(
@@ -349,10 +340,7 @@ class PostgresStateStore(StateStore):
         if retain_newest < 1:
             raise ValueError("retain_newest MUST be >= 1")
         escaped_prefix = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 cursor = await conn.execute(
@@ -388,11 +376,7 @@ class PostgresStateStore(StateStore):
         escaped_prefix = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         filter_sql = "" if field is None else "AND value ->> %s = %s"
         filter_params: tuple[object, ...] = () if field is None else (field, value)
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            row_factory=dict_row,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 count_cursor = await conn.execute(
@@ -431,10 +415,7 @@ class PostgresStateStore(StateStore):
         payload.setdefault("actor", str(payload.get("actor_oid", "fdai")))
         payload.setdefault("action_kind", str(payload.get("kind", "incident.transition")))
         payload.setdefault("mode", "shadow")
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 await conn.execute(
@@ -452,7 +433,7 @@ class PostgresStateStore(StateStore):
                     (incident_id,),
                 )
                 rows = await cursor.fetchall()
-                history = tuple(_json_object(row[0]) for row in rows)
+                history = tuple(_json_object(row["entry"]) for row in rows)
                 status = classify_incident_append(history, payload)
                 if status is IncidentAppendStatus.DUPLICATE:
                     return status
@@ -477,10 +458,7 @@ class PostgresStateStore(StateStore):
         payload.setdefault("action_kind", "incident.open")
         payload.setdefault("mode", "shadow")
         counter_key = f"incident-number-sequence:{number_prefix}"
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 await conn.execute(
@@ -498,7 +476,7 @@ class PostgresStateStore(StateStore):
                     (incident_id,),
                 )
                 rows = await history_cursor.fetchall()
-                history = tuple(_json_object(row[0]) for row in rows)
+                history = tuple(_json_object(row["entry"]) for row in rows)
                 status = classify_incident_append(history, payload)
                 if status is IncidentAppendStatus.DUPLICATE:
                     existing = next(row for row in history if row.get("kind") == "incident.open")
@@ -528,7 +506,7 @@ class PostgresStateStore(StateStore):
                            updated_at = NOW()
                      WHERE (state_kv.value->>'number_prefix') = %s
                        AND (state_kv.value->>'last_sequence')::INTEGER < 9999
-                    RETURNING (value->>'last_sequence')::INTEGER
+                    RETURNING (value->>'last_sequence')::INTEGER AS last_sequence
                     """,
                     (counter_key, number_prefix, number_prefix, number_prefix),
                 )
@@ -537,7 +515,10 @@ class PostgresStateStore(StateStore):
                     raise IncidentWriteConflictError(
                         f"incident number sequence exhausted for {number_prefix}"
                     )
-                incident_number = incident_number_for(number_prefix, int(sequence_row[0]))
+                incident_number = incident_number_for(
+                    number_prefix,
+                    int(sequence_row["last_sequence"]),
+                )
                 payload["incident_number"] = incident_number
                 await self._append_audit_in_transaction(conn, payload)
                 return IncidentOpenAppendResult(
@@ -547,11 +528,7 @@ class PostgresStateStore(StateStore):
 
     async def read_incident_transitions(self) -> tuple[Mapping[str, Any], ...]:
         """Return lifecycle audit payloads in append order for recovery."""
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            row_factory=dict_row,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 cursor = await conn.execute(
@@ -587,11 +564,7 @@ class PostgresStateStore(StateStore):
         """Return latest bounded audit rows for one exact incident correlation."""
         if not correlation_id or limit < 1 or limit > 500:
             raise ValueError("incident evidence correlation_id and limit are invalid")
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            row_factory=dict_row,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 cursor = await conn.execute(
@@ -642,11 +615,7 @@ class PostgresStateStore(StateStore):
         runtime so a runaway verify does not lock a connection forever.
         """
         previous = _GENESIS_HASH
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            row_factory=dict_row,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with self._connection() as conn:
             await self._set_statement_timeout(conn)
             async with conn.cursor(name="fdai_verify_chain") as cur:
                 await cur.execute(
@@ -672,6 +641,35 @@ class PostgresStateStore(StateStore):
     # Internals
     # ------------------------------------------------------------------
 
+    async def aclose(self) -> None:
+        """Close the adapter-owned pool after every runtime consumer has stopped."""
+
+        async with self._pool_open_lock:
+            if not self._pool_open:
+                return
+            self._pool_open = False
+            await self._pool.close()
+
+    async def _ensure_pool(self) -> None:
+        if self._pool_open:
+            return
+        async with self._pool_open_lock:
+            if self._pool_open:
+                return
+            await self._pool.open(
+                wait=True,
+                timeout=float(self._config.connect_timeout_s),
+            )
+            self._pool_open = True
+
+    @asynccontextmanager
+    async def _connection(self) -> AsyncIterator[psycopg.AsyncConnection[dict[str, Any]]]:
+        await self._ensure_pool()
+        async with self._pool.connection(
+            timeout=float(self._config.connect_timeout_s),
+        ) as connection:
+            yield connection
+
     async def _set_statement_timeout(self, conn: psycopg.AsyncConnection[Any]) -> None:
         # SET LOCAL does not accept parametrized values in Postgres; inline
         # the (validated int) timeout literally.
@@ -689,7 +687,7 @@ class PostgresStateStore(StateStore):
         await conn.execute("SELECT pg_advisory_xact_lock(%s)", (_AUDIT_APPEND_LOCK_KEY,))
         cursor = await conn.execute("SELECT entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1")
         row = await cursor.fetchone()
-        previous = row[0] if row is not None else _GENESIS_HASH
+        previous = row["entry_hash"] if row is not None else _GENESIS_HASH
         entry_hash = _next_hash(previous, payload)
         event_id = _audit_event_id(payload)
         actor = _audit_actor(payload)

@@ -119,6 +119,7 @@ async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
             if runtime_values is None:  # pragma: no cover - startup branch invariant
                 raise RuntimeError("Azure LLM mode requires a runtime settings snapshot")
             state_store = _build_audit_store()
+            resources.state_store = state_store
             container = await _attach_model_lifecycle_startup_revision(
                 container,
                 http_client=resources.http_client,
@@ -155,6 +156,7 @@ async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
                 )
             if state_store is None:
                 state_store = _build_audit_store()
+                resources.state_store = state_store
             container = _attach_runtime_configuration_drift(
                 container,
                 http_client=resources.http_client,
@@ -167,6 +169,9 @@ async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
         if plan.start_consumer:
             if runtime_values is None:  # pragma: no cover - startup branch invariant
                 raise RuntimeError("Core runtime requires a runtime settings snapshot")
+            if state_store is None:
+                state_store = _build_audit_store()
+                resources.state_store = state_store
             if identity is None and plan.consumer_requires_workload_identity:
                 if resources.http_client is None:
                     resources.http_client = _new_http_client()

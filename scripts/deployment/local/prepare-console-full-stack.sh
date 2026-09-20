@@ -297,6 +297,12 @@ stage_reusable() {
       --only inventory-coverage >/dev/null; then
     return 1
   fi
+  if [[ "$name" == "local-state" ]] && ! \
+    run_bounded local-state-readiness \
+      bash "$repo_root/scripts/deployment/local/prepare-console-state.sh" \
+      --check >/dev/null 2>&1; then
+    return 1
+  fi
   for output in "$@"; do
     [[ -s "$output" ]] || return 1
   done

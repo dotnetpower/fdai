@@ -102,7 +102,7 @@ The supervisor launches each allowlisted `run-console-service.sh` in parallel wi
 Standalone ordered preparation refreshes read-only Azure Resource Graph inventory and materializes sanitized model, runtime Settings, Rule, and Ontology projections only when their stage inputs change. Managed full-stack preparation defers only the inventory refresh to the continuous reconciliation process. These declarations do not create findings, observed inventory, readiness, or execution authority. An unavailable or unauthorized provider leaves inventory explicitly unavailable instead of substituting fixture data. Full-stack startup requires a trusted workspace and committed policy without weakening authority.
 Loopback ownership checks use bounded 250 ms IPv4 and IPv6 socket probes and do not retain the
 service lock while connecting. Shutdown allows ten seconds before stopping the child group;
-wrapper loss signals its leader. Run `console: prepare full stack` before an individual service or
+local-state cache reuse also verifies the live legacy and all five service migration heads, so same-volume database recreation reruns schema preparation instead of trusting a stale file marker. Wrapper loss signals its leader. Run `console: prepare full stack` before an individual service or
 debug launch.
 The ignored local runtime environment records the validation cluster as
 `FDAI_VALIDATION_DATABASE_URL`; the detached validation queue maps only that value to
@@ -115,7 +115,7 @@ metadata or browser transcript caches.
 The compound completes `console: prepare full stack` before starting its children, so only stale
 migration, backend-environment, non-inventory projection, or Entra stages run synchronously. The
 managed inventory process starts with the children and remains part of complete readiness. The Core runtime and
-its managed local jobs connect to the shared state store through `SET ROLE fdai_core`. The Operator
+its managed local jobs connect through `SET ROLE fdai_core`, reuse one bounded async StateStore pool, and close it during ordered shutdown. The Operator
 environment derives its JWT audience from the browser API scope, requires matching browser and
 Azure tenants, disables raw-group fallback with unmatchable local slots, and connects through
 `SET ROLE fdai_operator`. Run the preparation task first for a standalone Core Runtime or Operator

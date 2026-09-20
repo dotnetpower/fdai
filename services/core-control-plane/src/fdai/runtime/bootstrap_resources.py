@@ -24,6 +24,7 @@ class RuntimeResources:
     messaging: MessagingRuntime | None = None
     isolated_executor_client: Any = None
     task_workers: Any = None
+    state_store: Any = None
     pantheon: PantheonInitializationResult = field(default_factory=PantheonInitializationResult)
 
     async def close(self) -> None:
@@ -53,6 +54,7 @@ class RuntimeResources:
                 ),
                 bus=self.messaging.bus if self.messaging is not None else None,
                 http_client=self.http_client,
+                state_store=self.state_store,
             )
 
 

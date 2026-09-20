@@ -125,6 +125,9 @@ Local readiness recognizes the service-owned Core executable as the process owne
 accepts fresh semantic-consumer progress followed by a fresh heartbeat. When an inventory
 generation changes before its ontology checkpoint is projected, the local analyzer remains
 unready but retries target resolution within five seconds instead of waiting its full loop interval.
+The profiled Core runtime also owns one bounded asynchronous pool for its shared StateStore and
+closes that pool after dependent workers and transports stop. Development diagnostics can measure
+the resulting process and connection counts but never turn those measurements into authority.
 
 ## Validation stages and reuse
 

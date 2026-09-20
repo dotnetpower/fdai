@@ -837,6 +837,15 @@ printf 'FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=%s\n' "$flag" \
         repo / "scripts/deployment/local/prepare-independent-service-envs.sh",
         "#!/usr/bin/env bash\nexit 0\n",
     )
+    _write_executable(
+        repo / "scripts/deployment/local/prepare-console-state.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "--check" ]]; then
+  [[ "${FDAI_TEST_LOCAL_STATE_READY:-1}" == "1" ]]
+fi
+""",
+    )
     digest = "c" * 64
     kubernetes_bindings_path = repo / ".fdai/local-kubernetes-bindings.json"
     marker_dir = repo / ".fdai/console-preparation"
@@ -1024,6 +1033,25 @@ def test_preparation_reruns_only_the_invalidated_stage(tmp_path: Path) -> None:
     assert result.returncode == 0
     assert result.stdout.count("event=reused") == 7
     assert result.stdout.count("stage=entra-redirects event=completed") == 1
+
+
+def test_preparation_reruns_local_state_when_database_was_recreated(tmp_path: Path) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path)
+    environment["FDAI_TEST_LOCAL_STATE_READY"] = "0"
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.count("event=reused") == 7
+    assert result.stdout.count("stage=local-state event=completed") == 1
 
 
 def test_preparation_stops_when_model_settings_cannot_be_generated(tmp_path: Path) -> None:
