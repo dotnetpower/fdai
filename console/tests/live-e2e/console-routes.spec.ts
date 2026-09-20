@@ -124,6 +124,9 @@ async function waitForPanel(page: Page, routePath = page.url()): Promise<void> {
 
 for (const routePath of ROUTES) {
   test(`${routePath} renders through the live Operator API without panel failures`, async ({ page }) => {
+    if (AUTHENTICATED_EXTERNAL_STACK) {
+      await restoreBrowserEntraSessionStorage(page);
+    }
     const failedResponses: string[] = [];
     const pageErrors: string[] = [];
     page.on("response", (response) => {
@@ -140,6 +143,10 @@ for (const routePath of ROUTES) {
     await page.goto(routePath, { waitUntil: "domcontentloaded" });
     await waitForPanel(page, routePath);
 
+    await expect(page.getByText(
+      "Authentication token unavailable for signed-in account.",
+      { exact: true },
+    )).toHaveCount(0);
     await expect(page.locator(
       "main .empty.error, main .panel-error-boundary, main .state-block.state-error, "
       + ".settings-overlay-content .empty.error, "
