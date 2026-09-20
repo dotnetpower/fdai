@@ -49,12 +49,12 @@
 .ln-canvas.is-overview .ln-node strong { font-size: var(--cs-type-lead-size); }
 .ln-column { position: absolute; top: 18px; color: #4d5d70; font-size: var(--cs-type-label-size); font-weight: 600; }
 .ln-edges { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
-.ln-edge { fill: none; stroke: #778b9f; stroke-width: 1.5; marker-end: url(#lineageArrow); }
+.ln-edge { fill: none; stroke: #778b9f; stroke-width: 1; marker-end: url(#lineageArrow); }
 .ln-edge.is-missing { stroke: #967128; stroke-dasharray: 5 5; }
-.ln-edge.is-ontology { stroke: #396491; stroke-width: 2; }
-.ln-edge.is-membership { stroke: #8b9bb0; stroke-dasharray: 2 5; stroke-width: 1; }
-.ln-edge.is-aggregate { stroke-width: 2.5; }
-.ln-edge.is-selected { stroke: #315f89; stroke-width: 2.5; }
+.ln-edge.is-ontology { stroke: #396491; stroke-width: 1; }
+.ln-edge.is-membership { stroke: #8b9bb0; stroke-dasharray: 2 5; stroke-width: .75; }
+.ln-edge.is-aggregate { stroke-width: 1.2; }
+.ln-edge.is-selected { stroke: #315f89; stroke-width: 1.5; }
 .ln-edge.is-muted { opacity: .14; }
 .ln-page .ln-node { position: absolute; width: 194px; height: 78px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; align-items: stretch; text-align: left; background: #fff; border: 1px solid #8a9aae; box-shadow: 0 2px 4px #21354b08; border-radius: 6px; line-height: 1.35; }
 .ln-node[data-kind="normative"] { background: #fffdf4; border-color: #998759; }

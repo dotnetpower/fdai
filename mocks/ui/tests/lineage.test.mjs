@@ -136,6 +136,17 @@ try {
     assert.match(path, /^M[\d. -]+ C/);
     assert.doesNotMatch(path, /[HLVQ]/i, "every connection must use cubic curves, not orthogonal segments");
   });
+  const lineWeights = await frame.locator(".ln-edge").evaluateAll(elements => elements.map(element => ({
+    selected: element.classList.contains("is-selected"),
+    aggregate: element.classList.contains("is-aggregate"),
+    membership: element.classList.contains("is-membership"),
+    width: Number.parseFloat(getComputedStyle(element).strokeWidth),
+    marker: getComputedStyle(element).markerEnd,
+  })));
+  lineWeights.forEach(edge => {
+    assert.equal(edge.width, edge.selected ? 1.5 : edge.aggregate ? 1.2 : edge.membership ? .75 : 1);
+    assert.match(edge.marker, /lineageArrow/);
+  });
   const grid = await frame.locator("#lineageViewport").evaluate(element => ({ image: getComputedStyle(element).backgroundImage, size: getComputedStyle(element).backgroundSize }));
   assert.match(grid.image, /radial-gradient/);
   assert.equal(grid.size, "20px 20px");
