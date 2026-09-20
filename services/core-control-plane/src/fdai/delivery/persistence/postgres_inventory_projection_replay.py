@@ -68,6 +68,10 @@ def build_projection_replay_observation(
         for item in prior_manifest["object_content"]
         if item["id"] in stateful_ids
     }
+    retained_link_properties = {
+        (item["from_id"], item["link_type"], item["to_id"]): item["properties"]
+        for item in prior_manifest.get("link_content", ())
+    }
     for record in records:
         if record.subject_kind is InventoryObservationSubjectKind.OBJECT:
             properties = dict(record.properties)
@@ -91,7 +95,16 @@ def build_projection_replay_observation(
                 )
             )
             continue
-        properties = dict(record.properties)
+        properties = dict(
+            retained_link_properties.get(
+                (
+                    _required(record.from_id, "relationship from_id"),
+                    _required(record.link_type, "relationship link_type"),
+                    _required(record.to_id, "relationship to_id"),
+                ),
+                record.properties,
+            )
+        )
         raw_observation = properties.pop(LINK_OBSERVATION_METADATA_PROPERTY, None)
         properties.pop("provider_relationship_evidence", None)
         if not isinstance(raw_observation, Mapping):

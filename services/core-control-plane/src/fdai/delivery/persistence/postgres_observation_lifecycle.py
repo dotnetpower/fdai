@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -31,6 +32,19 @@ from fdai.shared.providers.inventory_observation import (
 _OI16_SYNTHETIC_SCOPE = re.compile(r"^synthetic/oi16-certification/[0-9a-f]{48}$")
 _OI16_SYNTHETIC_FACT_FAMILY = "oi16_synthetic_full_observation"
 _READ_BATCH_SIZE = 1000
+
+
+@dataclass(frozen=True, slots=True)
+class _PartitionCandidate:
+    observation_id: str
+    scope_ref: str
+    interval_start: datetime
+    interval_end: datetime
+    watermark: int
+    kind: ObservationPartitionKind
+    correction_of: str | None
+    retention_policy_digest: str
+    created_at: datetime
 
 
 async def bind_observation_lifecycle(
@@ -72,8 +86,8 @@ async def bind_observation_lifecycle(
     policy_digests = await _policy_digests(connection, tuple(set(fact_families.values())))
     latest_effective_times = await _latest_effective_times(connection, pending)
     current_incarnations = await _current_incarnations(connection, pending)
-    partitions: list[ObservationPartition] = []
-    bindings: list[tuple[str, str | None, str | None, str | None, str, datetime]] = []
+    partition_candidates: list[_PartitionCandidate] = []
+    incarnation_bindings: dict[str, tuple[str | None, str | None, str | None]] = {}
     for observation in pending:
         watermark = watermarks[observation.observation_id]
         policy_digest = policy_digests[fact_families[observation.observation_id]]
@@ -81,12 +95,14 @@ async def bind_observation_lifecycle(
             (observation.subject_kind.value, observation.subject_ref)
         )
         late = latest_at is not None and observation.effective_at < latest_at
-        partition = await _build_partition(
-            connection,
-            observation,
-            watermark=watermark,
-            policy_digest=policy_digest,
-            late=late,
+        partition_candidates.append(
+            await _partition_candidate(
+                connection,
+                observation,
+                watermark=watermark,
+                policy_digest=policy_digest,
+                late=late,
+            )
         )
         incarnation_id: str | None = None
         from_incarnation_id: str | None = None
@@ -110,20 +126,119 @@ async def bind_observation_lifecycle(
             if to_incarnation_id is None:
                 to_incarnation_id = await _current_incarnation(connection, to_ref)
                 current_incarnations[to_ref] = to_incarnation_id
-        partitions.append(partition)
-        bindings.append(
-            (
-                observation.observation_id,
-                incarnation_id,
-                from_incarnation_id,
-                to_incarnation_id,
-                partition.partition_id,
-                observation.recorded_at,
-            )
+        incarnation_bindings[observation.observation_id] = (
+            incarnation_id,
+            from_incarnation_id,
+            to_incarnation_id,
         )
+    partitions, partition_ids = _coalesce_partitions(partition_candidates)
+    bindings = [
+        (
+            observation.observation_id,
+            *incarnation_bindings[observation.observation_id],
+            partition_ids[observation.observation_id],
+            observation.recorded_at,
+        )
+        for observation in pending
+    ]
     await _insert_partitions(connection, partitions)
     await _insert_bindings(connection, bindings)
     return frozenset(replayed)
+
+
+async def _partition_candidate(
+    connection: psycopg.AsyncConnection[Any],
+    observation: NormalizedInventoryObservation,
+    *,
+    watermark: int,
+    policy_digest: str,
+    late: bool,
+) -> _PartitionCandidate:
+    scope_ref = observation.scope_ref
+    if scope_ref is None:
+        raise ValueError("observation lifecycle requires an exact scope_ref")
+    interval_start = observation.effective_at.astimezone(UTC).replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    kind = ObservationPartitionKind.CORRECTION if late else ObservationPartitionKind.BASE
+    correction_of = None
+    if late:
+        cursor = await connection.execute(
+            "SELECT partition_id FROM inventory_observation_partition "
+            "WHERE scope_ref=%s AND partition_kind='base' "
+            "AND interval_start<=%s AND interval_end>%s "
+            "ORDER BY created_at DESC LIMIT 1",
+            (scope_ref, observation.effective_at, observation.effective_at),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            raise ValueError("late observation has no affected base partition")
+        correction_of = str(row["partition_id"])
+    return _PartitionCandidate(
+        observation_id=observation.observation_id,
+        scope_ref=scope_ref,
+        interval_start=interval_start,
+        interval_end=interval_start + timedelta(days=1),
+        watermark=watermark,
+        kind=kind,
+        correction_of=correction_of,
+        retention_policy_digest=policy_digest,
+        created_at=observation.recorded_at,
+    )
+
+
+def _coalesce_partitions(
+    candidates: Sequence[_PartitionCandidate],
+) -> tuple[tuple[ObservationPartition, ...], dict[str, str]]:
+    grouped: dict[
+        tuple[
+            str,
+            datetime,
+            datetime,
+            ObservationPartitionKind,
+            str | None,
+            str,
+        ],
+        list[_PartitionCandidate],
+    ] = {}
+    for candidate in candidates:
+        key = (
+            candidate.scope_ref,
+            candidate.interval_start,
+            candidate.interval_end,
+            candidate.kind,
+            candidate.correction_of,
+            candidate.retention_policy_digest,
+        )
+        grouped.setdefault(key, []).append(candidate)
+
+    partitions: list[ObservationPartition] = []
+    partition_ids: dict[str, str] = {}
+    for key, members in grouped.items():
+        partition = build_observation_partition(
+            scope_ref=key[0],
+            interval_start=key[1],
+            interval_end=key[2],
+            first_watermark=min(item.watermark for item in members),
+            last_watermark=max(item.watermark for item in members),
+            kind=key[3],
+            state=(
+                ObservationPartitionState.CORRECTION_PENDING
+                if key[3] is ObservationPartitionKind.CORRECTION
+                else ObservationPartitionState.OPEN
+            ),
+            correction_of=key[4],
+            retention_policy_digest=key[5],
+            created_at=min(item.created_at for item in members),
+        )
+        partitions.append(partition)
+        partition_ids.update(
+            {candidate.observation_id: partition.partition_id for candidate in members}
+        )
+    return tuple(partitions), partition_ids
 
 
 async def _insert_bindings(
@@ -289,53 +404,6 @@ async def _current_incarnations(
             }
         )
     return incarnations
-
-
-async def _build_partition(
-    connection: psycopg.AsyncConnection[Any],
-    observation: NormalizedInventoryObservation,
-    *,
-    watermark: int,
-    policy_digest: str,
-    late: bool,
-) -> ObservationPartition:
-    scope_ref = observation.scope_ref
-    if scope_ref is None:
-        raise ValueError("observation lifecycle requires an exact scope_ref")
-    interval_start = observation.effective_at.astimezone(UTC).replace(
-        hour=0,
-        minute=0,
-        second=0,
-        microsecond=0,
-    )
-    kind = ObservationPartitionKind.CORRECTION if late else ObservationPartitionKind.BASE
-    correction_of = None
-    if late:
-        cursor = await connection.execute(
-            "SELECT partition_id FROM inventory_observation_partition "
-            "WHERE scope_ref=%s AND partition_kind='base' "
-            "AND interval_start<=%s AND interval_end>%s "
-            "ORDER BY created_at DESC LIMIT 1",
-            (scope_ref, observation.effective_at, observation.effective_at),
-        )
-        row = await cursor.fetchone()
-        if row is None:
-            raise ValueError("late observation has no affected base partition")
-        correction_of = str(row["partition_id"])
-    return build_observation_partition(
-        scope_ref=scope_ref,
-        interval_start=interval_start,
-        interval_end=interval_start + timedelta(days=1),
-        first_watermark=watermark,
-        last_watermark=watermark,
-        kind=kind,
-        state=(
-            ObservationPartitionState.CORRECTION_PENDING if late else ObservationPartitionState.OPEN
-        ),
-        correction_of=correction_of,
-        retention_policy_digest=policy_digest,
-        created_at=observation.recorded_at,
-    )
 
 
 def _partition_record(partition: ObservationPartition) -> dict[str, object]:

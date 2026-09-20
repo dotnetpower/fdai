@@ -143,3 +143,34 @@ class PostgresInventoryDeliveryReader:
             recorded_at=row["completed_at"],
             resources=resources,
         )
+
+    async def load_journal_source_generation(self, generation: str) -> str | None:
+        """Return a validated prior journal alias for one promoted generation."""
+
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            row_factory=dict_row,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as connection:
+            await connection.execute("SET TRANSACTION READ ONLY")
+            await connection.execute(
+                "SELECT set_config('statement_timeout', %s, true)",
+                (str(self._config.statement_timeout_ms),),
+            )
+            cursor = await connection.execute(
+                "SELECT metadata FROM inventory_snapshot WHERE id=%s",
+                (generation,),
+            )
+            row = await cursor.fetchone()
+        if row is None or not isinstance(row["metadata"], Mapping):
+            return None
+        source_generation = row["metadata"].get("journal_source_generation")
+        if source_generation is None or source_generation == generation:
+            return None
+        if (
+            not isinstance(source_generation, str)
+            or not source_generation.strip()
+            or len(source_generation) > 256
+        ):
+            raise ValueError("inventory journal source generation is malformed")
+        return source_generation

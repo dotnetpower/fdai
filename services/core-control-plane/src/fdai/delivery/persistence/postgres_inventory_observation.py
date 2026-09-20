@@ -13,8 +13,10 @@ from psycopg.rows import dict_row
 
 from fdai.delivery.inventory_configuration_events import (
     INVENTORY_CONFIGURATION_DELIVERY_KEY,
+    configuration_delivery_key,
     configuration_delivery_pending,
 )
+from fdai.delivery.inventory_semantic_digest import inventory_semantic_digest
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.persistence.postgres_inventory_observation_records import (
     confirmed_tombstone as _confirmed_tombstone,
@@ -94,6 +96,7 @@ class InventorySnapshotObservationAppendResult:
     projection_high_watermark: int
     active_scope_projection_watermark: int | None = None
     active_scope_refs: tuple[str, ...] = ()
+    reused_journal_generation: str | None = None
 
 
 class PostgresInventoryObservationJournal:
@@ -236,6 +239,8 @@ class PostgresInventoryObservationJournal:
                 if snapshot is None or snapshot["completed_at"] is None:
                     raise ValueError("active inventory snapshot is unavailable for replay")
                 generation = str(snapshot["id"])
+                metadata = dict(_mapping(snapshot["metadata"]))
+                journal_generation = str(metadata.get("journal_source_generation") or generation)
                 cursor = await connection.execute(
                     _SELECT_OBSERVATIONS + " WHERE source_identity='inventory.reconciliation' "
                     "AND source_revision=%s AND source_event_id=%s "
@@ -243,8 +248,8 @@ class PostgresInventoryObservationJournal:
                     "ORDER BY subject_kind, subject_ref "
                     "LIMIT %s",
                     (
-                        generation,
-                        f"snapshot:{generation}",
+                        journal_generation,
+                        f"snapshot:{journal_generation}",
                         MAX_ACTIVE_PROJECTION_OBSERVATIONS + 1,
                     ),
                 )
@@ -262,7 +267,6 @@ class PostgresInventoryObservationJournal:
                 manifest_row = await manifest_cursor.fetchone()
         if not rows:
             raise ValueError("active inventory snapshot has no replayable journal records")
-        metadata = _mapping(snapshot["metadata"])
         state = _mapping(state_row["value"]) if state_row is not None else {}
         if manifest_row is None:
             raise ValueError("inventory projection replay manifest is unavailable")
@@ -405,7 +409,8 @@ class PostgresInventoryObservationJournal:
                 await self._set_timeout(connection)
                 await connection.execute("SELECT pg_advisory_xact_lock(%s)", (_PROMOTION_LOCK,))
                 snapshot_cursor = await connection.execute(
-                    "SELECT s.started_at, s.scopes, s.resource_types, s.metadata "
+                    "SELECT s.id, s.source, s.observation_kind, s.started_at, s.scopes, "
+                    "s.resource_types, s.metadata "
                     "FROM inventory_active a JOIN inventory_snapshot s ON s.id=a.snapshot_id "
                     "WHERE a.singleton=TRUE AND s.status='active' AND s.id=%s",
                     (observation.generation,),
@@ -413,9 +418,27 @@ class PostgresInventoryObservationJournal:
                 snapshot = await snapshot_cursor.fetchone()
                 if snapshot is None:
                     raise ValueError("promoted inventory observation is not the active snapshot")
-                records = _snapshot_records(
-                    observation,
-                    scope_refs=tuple(str(value) for value in snapshot["scopes"]),
+                metadata = dict(_mapping(snapshot["metadata"]))
+                semantic_digest = inventory_semantic_digest(observation)
+                reused_journal_generation = await _reusable_journal_generation(
+                    connection,
+                    snapshot=snapshot,
+                    semantic_digest=semantic_digest,
+                )
+                journal_source_generation = reused_journal_generation or observation.generation
+                metadata["semantic_content_digest"] = semantic_digest
+                metadata["journal_source_generation"] = journal_source_generation
+                await connection.execute(
+                    "UPDATE inventory_snapshot SET metadata=%s::jsonb WHERE id=%s",
+                    (json.dumps(metadata, sort_keys=True), observation.generation),
+                )
+                records = (
+                    ()
+                    if reused_journal_generation is not None
+                    else _snapshot_records(
+                        observation,
+                        scope_refs=tuple(str(value) for value in snapshot["scopes"]),
+                    )
                 )
                 result = await _append_records(connection, records)
                 await bind_observation_lifecycle(
@@ -424,7 +447,6 @@ class PostgresInventoryObservationJournal:
                     allow_oi16_synthetic=self._allow_oi16_synthetic,
                 )
                 high_watermark = result.high_watermark
-                metadata = _mapping(snapshot["metadata"])
                 covered_types = tuple(str(value) for value in snapshot["resource_types"])
                 if metadata.get("coverage_scope") == "full_provider_scope":
                     pending_cursor = await connection.execute(
@@ -510,6 +532,7 @@ class PostgresInventoryObservationJournal:
             projection_high_watermark=projection_watermark,
             active_scope_projection_watermark=active_scope_projection_watermark,
             active_scope_refs=active_scope_refs,
+            reused_journal_generation=reused_journal_generation,
         )
 
     async def mark_ontology_projected(self, *, generation: str, watermark: int) -> None:
@@ -632,6 +655,60 @@ def _snapshot_recovery_observation(
         ),
         state_base_generation_checked="state_base_generation" in metadata,
     )
+
+
+async def _reusable_journal_generation(
+    connection: psycopg.AsyncConnection[Any],
+    *,
+    snapshot: Mapping[str, Any],
+    semantic_digest: str,
+) -> str | None:
+    cursor = await connection.execute(
+        "SELECT s.id, s.metadata FROM inventory_snapshot s "
+        "WHERE s.id<>%s AND s.status='superseded' AND s.source=%s "
+        "AND s.observation_kind=%s AND s.scopes=%s::jsonb "
+        "AND s.resource_types=%s::jsonb "
+        "AND s.metadata->>'semantic_content_digest'=%s "
+        "AND s.metadata->>'projection_complete'='true' "
+        "ORDER BY s.completed_at DESC, s.id DESC LIMIT 1",
+        (
+            str(snapshot["id"]),
+            str(snapshot["source"]),
+            str(snapshot["observation_kind"]),
+            json.dumps(snapshot["scopes"]),
+            json.dumps(snapshot["resource_types"]),
+            semantic_digest,
+        ),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+    metadata = _mapping(row["metadata"])
+    prior_generation = str(row["id"])
+    delivery_cursor = await connection.execute(
+        "SELECT value FROM state_kv WHERE key=%s",
+        (configuration_delivery_key(prior_generation),),
+    )
+    delivery_row = await delivery_cursor.fetchone()
+    if delivery_row is None:
+        return None
+    delivery = _mapping(delivery_row["value"])
+    configuration_delivery_pending(delivery, generation=prior_generation)
+    if delivery.get("generation") != prior_generation or delivery.get("status") != "completed":
+        return None
+    source_generation = metadata.get("journal_source_generation") or row["id"]
+    if (
+        not isinstance(source_generation, str)
+        or not source_generation.strip()
+        or len(source_generation) > 256
+    ):
+        raise ValueError("inventory journal source generation is malformed")
+    retained = await connection.execute(
+        "SELECT 1 FROM inventory_observation_journal "
+        "WHERE source_revision=%s AND source_event_id=%s LIMIT 1",
+        (source_generation, f"snapshot:{source_generation}"),
+    )
+    return source_generation if await retained.fetchone() is not None else None
 
 
 def _rebase_recovery_metadata(

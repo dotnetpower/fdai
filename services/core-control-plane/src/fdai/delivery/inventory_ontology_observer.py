@@ -145,6 +145,11 @@ def build_ontology_observer(
             observation.links
         )
         journal_append = await observation_journal.append_promoted_snapshot(observation)
+        reused_journal_generation = getattr(
+            journal_append,
+            "reused_journal_generation",
+            None,
+        )
         await diagnostic_observer.observe(observation)
         if projector is None or ontology_store is None or topology_publisher is None:
             return
@@ -160,7 +165,9 @@ def build_ontology_observer(
         if catalog_available:
             history_succeeded = False
             try:
-                history_available = await topology_publisher.publish(observation) is not None
+                history_available = reused_journal_generation is not None or (
+                    await topology_publisher.publish(observation) is not None
+                )
                 history_succeeded = True
             except Exception as exc:  # noqa: BLE001 - independent derived read model
                 failures.append(("topology_history_failed", exc))
@@ -201,7 +208,10 @@ def build_ontology_observer(
         )
         if result.status is InventoryOntologyProjectionStatus.AVAILABLE and result.complete:
             try:
-                await _deliver_configuration(observation)
+                await _deliver_configuration(
+                    observation,
+                    reused_from_generation=reused_journal_generation,
+                )
             except Exception:  # noqa: BLE001 - recovery retries the exact generation
                 await publisher.publish(
                     ontology_projection_activity(
@@ -233,7 +243,11 @@ def build_ontology_observer(
                 "inventory ontology projection is incomplete"
             )
 
-    async def _deliver_configuration(observation: PromotedInventoryObservation) -> None:
+    async def _deliver_configuration(
+        observation: PromotedInventoryObservation,
+        *,
+        reused_from_generation: str | None = None,
+    ) -> None:
         expected = configuration_delivery_record(observation)
         retained = await retained_configuration_delivery(status_store, observation)
         completed = configuration_delivery_record(observation, completed=True)
@@ -241,10 +255,24 @@ def build_ontology_observer(
             return
         if retained != expected:
             raise ValueError("inventory configuration delivery content changed")
+        if reused_from_generation is not None:
+            if reused_from_generation == observation.generation:
+                raise ValueError("inventory configuration delivery reuse is cyclic")
+            await complete_configuration_delivery(status_store, observation)
+            return
         count = await configuration_event_publisher(observation)
         if type(count) is not int or count != len(observation.resources):
             raise ValueError("inventory configuration delivery count is incomplete")
         await complete_configuration_delivery(status_store, observation)
+
+    async def _reused_generation(observation: PromotedInventoryObservation) -> str | None:
+        loader = getattr(delivery_reader, "load_journal_source_generation", None)
+        if not callable(loader):
+            return None
+        value = await loader(observation.generation)
+        if value is not None and not isinstance(value, str):
+            raise ValueError("inventory journal source generation is malformed")
+        return value
 
     async def _recover_observation(observation: PromotedInventoryObservation) -> None:
         manifest = await status_store.read_state("inventory-ontology:manifest")
@@ -261,7 +289,10 @@ def build_ontology_observer(
             and status.get("status") == "available"
             and manifest.get("manifest_digest") == status.get("manifest_digest")
         ):
-            await _deliver_configuration(observation)
+            await _deliver_configuration(
+                observation,
+                reused_from_generation=await _reused_generation(observation),
+            )
             return
         await _observe(observation)
 
@@ -272,7 +303,10 @@ def build_ontology_observer(
                     pending_delivery = await delivery_reader.load_next()
                     if pending_delivery is None:
                         break
-                    await _deliver_configuration(pending_delivery)
+                    await _deliver_configuration(
+                        pending_delivery,
+                        reused_from_generation=await _reused_generation(pending_delivery),
+                    )
                 else:
                     raise RuntimeError(
                         "inventory delivery recovery reached its per-run generation bound"

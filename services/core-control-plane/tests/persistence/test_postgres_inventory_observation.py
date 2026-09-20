@@ -12,6 +12,7 @@ from fdai.delivery.inventory_configuration_events import (
     INVENTORY_CONFIGURATION_DELIVERY_KEY,
     configuration_delivery_record,
 )
+from fdai.delivery.inventory_semantic_digest import inventory_semantic_digest
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.persistence import postgres_inventory_observation as observation_module
 from fdai.delivery.persistence.postgres_inventory_observation import (
@@ -37,7 +38,7 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
 from fdai.delivery.persistence.postgres_inventory_snapshot_replay import (
     build_active_snapshot_observation,
 )
-from fdai.shared.providers.inventory import RelationshipDropReason
+from fdai.shared.providers.inventory import RelationshipDropReason, ResourceRecord
 from fdai.shared.providers.inventory_observation import (
     InventoryMutationKind,
     InventoryObservationKind,
@@ -76,6 +77,168 @@ async def test_incomplete_snapshot_is_rejected_before_database_access(
 
     with pytest.raises(ValueError, match="incomplete inventory observation"):
         await journal.append_promoted_snapshot(observation)
+
+
+def test_semantic_digest_ignores_reconciliation_clocks_but_not_resource_state() -> None:
+    later = NOW + timedelta(minutes=5)
+    first = PromotedInventoryObservation(
+        generation="generation-one",
+        resources=(
+            ResourceRecord(
+                resource_id="resource-1",
+                type="compute.vm",
+                props={"state": "ready"},
+                last_seen=NOW.isoformat(),
+            ),
+        ),
+        links=(),
+        complete=True,
+        recorded_at=NOW,
+    )
+    repeated = PromotedInventoryObservation(
+        generation="generation-two",
+        resources=(
+            ResourceRecord(
+                resource_id="resource-1",
+                type="compute.vm",
+                props={"state": "ready"},
+                last_seen=later.isoformat(),
+            ),
+        ),
+        links=(),
+        complete=True,
+        recorded_at=later,
+    )
+    changed = PromotedInventoryObservation(
+        generation="generation-three",
+        resources=(
+            ResourceRecord(
+                resource_id="resource-1",
+                type="compute.vm",
+                props={"state": "stopped"},
+                last_seen=later.isoformat(),
+            ),
+        ),
+        links=(),
+        complete=True,
+        recorded_at=later,
+    )
+
+    assert inventory_semantic_digest(first) == inventory_semantic_digest(repeated)
+    assert inventory_semantic_digest(first) != inventory_semantic_digest(changed)
+
+
+async def test_unchanged_snapshot_reuses_prior_journal_without_new_lifecycle_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observation = PromotedInventoryObservation(
+        generation="generation-current",
+        resources=(
+            ResourceRecord(
+                resource_id="resource-1",
+                type="compute.vm",
+                props={"state": "ready"},
+                last_seen=NOW.isoformat(),
+            ),
+        ),
+        links=(),
+        complete=True,
+        recorded_at=NOW,
+    )
+
+    class _ReuseConnection(_Connection):
+        async def execute(self, query: str, params: object = None) -> _Cursor:
+            self.executions.append(query)
+            if "s.status='active' AND s.id=%s" in query:
+                return _Cursor(
+                    [
+                        {
+                            "id": observation.generation,
+                            "source": "test.inventory",
+                            "observation_kind": "observed",
+                            "started_at": NOW,
+                            "scopes": ["scope-test"],
+                            "resource_types": ["compute.vm"],
+                            "metadata": {"projection_complete": True},
+                        }
+                    ]
+                )
+            if "SELECT value FROM state_kv" in query:
+                return _Cursor(
+                    [
+                        {
+                            "value": {
+                                "journal_high_watermark": 11,
+                                "ontology_projection_watermark": 11,
+                            }
+                        }
+                    ]
+                )
+            return _Cursor([])
+
+    connection = _ReuseConnection({})
+    journal = PostgresInventoryObservationJournal(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused")
+    )
+    appended: list[Sequence[NormalizedInventoryObservation]] = []
+    bound: list[Sequence[NormalizedInventoryObservation]] = []
+
+    async def connect(_self: object) -> _ReuseConnection:
+        return connection
+
+    async def reusable(*_args: object, **_kwargs: object) -> str:
+        return "generation-base"
+
+    async def append(
+        _connection: object,
+        records: Sequence[NormalizedInventoryObservation],
+    ) -> InventoryObservationAppendResult:
+        appended.append(records)
+        return InventoryObservationAppendResult(11, 0)
+
+    async def bind(
+        _connection: object,
+        records: Sequence[NormalizedInventoryObservation],
+        *,
+        allow_oi16_synthetic: bool = False,
+    ) -> frozenset[str]:
+        del allow_oi16_synthetic
+        bound.append(records)
+        return frozenset()
+
+    async def generation_watermark(*_args: object, **_kwargs: object) -> int:
+        return 0
+
+    async def update_watermark(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    async def projection_watermark(*_args: object, **_kwargs: object) -> int:
+        return 11
+
+    monkeypatch.setattr(PostgresInventoryObservationJournal, "_connect", connect)
+    monkeypatch.setattr(observation_module, "_reusable_journal_generation", reusable)
+    monkeypatch.setattr(observation_module, "_append_records", append)
+    monkeypatch.setattr(observation_module, "bind_observation_lifecycle", bind)
+    monkeypatch.setattr(observation_module, "_retained_generation_watermark", generation_watermark)
+    monkeypatch.setattr(observation_module, "_update_watermark_state", update_watermark)
+    monkeypatch.setattr(observation_module, "_global_projection_watermark", projection_watermark)
+    monkeypatch.setattr(
+        observation_module,
+        "_active_scope_projection_watermark",
+        projection_watermark,
+    )
+
+    result = await journal.append_promoted_snapshot(observation)
+
+    assert result.reused_journal_generation == "generation-base"
+    assert appended == [()]
+    assert bound == [()]
+    metadata_update = next(
+        query
+        for query in connection.executions
+        if "UPDATE inventory_snapshot SET metadata" in query
+    )
+    assert metadata_update
 
 
 class _Cursor:

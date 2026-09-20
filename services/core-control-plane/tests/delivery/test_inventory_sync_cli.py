@@ -1802,6 +1802,38 @@ async def test_ontology_observer_publishes_durable_topology_history(
     )
 
 
+async def test_ontology_observer_reuses_unchanged_history_and_configuration_delivery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (
+        observer,
+        _recovery,
+        observation_journal,
+        _ontology_store,
+        history_store,
+        projector,
+        activity_publisher,
+        _release_digest,
+    ) = _ontology_observer_harness(monkeypatch)
+    observation_journal.append_promoted_snapshot.return_value.reused_journal_generation = (
+        "snapshot-base"
+    )
+    observation = _promoted_observation("snapshot-unchanged")
+
+    await observer(observation)
+
+    history_store.append.assert_not_awaited()
+    projector.apply.assert_awaited_once()
+    activity_publisher.configuration_event_publisher.assert_not_awaited()
+    store = projector.construction_kwargs["status_store"]
+    delivery = await store.read_state("inventory-configuration:delivery")
+    assert delivery["generation"] == observation.generation
+    assert delivery["status"] == "completed"
+    assert (
+        activity_publisher.publish.await_args.args[0].status is OperationalActivityStatus.COMPLETED
+    )
+
+
 async def test_ontology_observer_retries_configuration_event_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

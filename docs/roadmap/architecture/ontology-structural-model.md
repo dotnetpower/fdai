@@ -59,6 +59,13 @@ Selected-instance revalidation retains its separate 15-second cadence. Explicit 
 
 [Bounded projection recovery](../interfaces/recorded-resource-state.md#bounded-automatic-recovery) distinguishes missing, pending, and release-mismatched generations without changing graph identity.
 The existing inventory owner verifies replay through its atomic manifest and journal; diagnostic receipts remain on their existing path and neither read route gains a writer or restart authority.
+A complete reconciliation always retains its fresh generation-specific snapshot receipt. If a
+content-only graph digest matches a prior generation whose projection and Resource Event handoff
+completed, replay may reference that prior journal generation instead of appending unchanged facts.
+Generation and observation-only clocks do not enter this equivalence digest; resource values,
+relationship semantics, verification posture, source availability, completeness, and conflicts do.
+The current projection still advances from the fresh observation, and any semantic change,
+incomplete prior handoff, or missing prior journal requires a full new append.
 
 An ObjectSet with a predicate that cannot run in the store first evaluates a 1,000-object,
 relationship-free candidate window. If that window is truncated and does not prove the requested
