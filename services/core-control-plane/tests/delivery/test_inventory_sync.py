@@ -314,6 +314,92 @@ async def test_end_to_end_deadline_bounds_every_stage(
         assert store.failed[0][1].code is InventoryFailureCode.PARTIAL
 
 
+@pytest.mark.parametrize("cancelled", [False, True])
+@pytest.mark.parametrize("close_error", [False, True])
+async def test_stream_close_is_bounded_after_run_deadline_or_cancellation(cancelled, close_error):
+    store = _Store()
+    entered = asyncio.Event()
+    closing = asyncio.Event()
+    release = asyncio.Event()
+
+    class StalledStream:
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            entered.set()
+            await asyncio.Event().wait()
+
+        async def aclose(self):
+            closing.set()
+            if close_error:
+                raise RuntimeError("synthetic source cleanup error")
+            await release.wait()
+
+    class StalledInventory:
+        def full_snapshot(self):
+            return StalledStream()
+
+    coordinator = InventorySyncCoordinator(
+        store=store,
+        progress_deadline_seconds=0.01,
+        attempt_deadline_seconds=10 if cancelled else 0.01,
+    )
+    task = asyncio.create_task(coordinator.run((_source("arg", StalledInventory()),)))
+    try:
+        await asyncio.wait_for(entered.wait(), timeout=1)
+        if cancelled:
+            task.cancel()
+        await asyncio.wait_for(closing.wait(), timeout=1)
+        completed, _ = await asyncio.wait({task}, timeout=0.2)
+        assert completed, "stream cleanup outlived its bounded source attempt"
+        with pytest.raises(asyncio.CancelledError if cancelled else InventorySourcesExhaustedError):
+            await task
+        assert not store.promoted
+        assert store.failed[0][1].code is InventoryFailureCode.PARTIAL
+    finally:
+        release.set()
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.parametrize("close_error", [False, True])
+async def test_stream_close_failure_after_final_fence_never_promotes(close_error):
+    store = _Store()
+
+    class ClosingStream:
+        final_sent = False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if self.final_sent:
+                raise StopAsyncIteration
+            self.final_sent = True
+            return InventoryBatch(final=True)
+
+        async def aclose(self):
+            if close_error:
+                raise RuntimeError("synthetic source cleanup error")
+            await asyncio.Event().wait()
+
+    class ClosingInventory:
+        def full_snapshot(self):
+            return ClosingStream()
+
+    coordinator = InventorySyncCoordinator(
+        store=store,
+        progress_deadline_seconds=0.01,
+        attempt_deadline_seconds=1,
+    )
+    with pytest.raises(InventorySourcesExhaustedError):
+        await asyncio.wait_for(coordinator.run((_source("arg", ClosingInventory()),)), timeout=0.2)
+    assert not store.promoted
+    assert store.failed[0][1].code is InventoryFailureCode.PARTIAL
+    assert store.failed[0][1].message == "inventory source cleanup failed or exceeded its deadline"
+
+
 def test_drop_accumulation_is_bounded_even_without_a_projection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
 import re
-from collections.abc import Awaitable, Callable, Iterator, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping
 from itertools import islice
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,29 @@ _PREFIX = "inventory-collection:"
 
 class InventoryPromotionObserverError(RuntimeError):
     """The authoritative snapshot advanced but its derived projection failed."""
+
+
+class InventoryStreamError(RuntimeError):
+    """An inventory stream violated its atomic-fence contract."""
+
+
+async def close_inventory_stream(
+    stream: AsyncIterator[InventoryBatch], *, timeout_seconds: float
+) -> None:
+    aclose = getattr(stream, "aclose", None)
+    if not callable(aclose):
+        return
+    task = asyncio.current_task()
+    cancelling = task is not None and task.cancelling() > 0
+    try:
+        async with asyncio.timeout(min(5.0, timeout_seconds)):
+            await aclose()
+    except Exception as exc:
+        if cancelling:
+            raise asyncio.CancelledError from exc
+        raise InventoryStreamError(
+            "inventory source cleanup failed or exceeded its deadline"
+        ) from exc
 
 
 async def notify_inventory_promotion(

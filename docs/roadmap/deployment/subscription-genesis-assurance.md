@@ -276,7 +276,7 @@ If the full subscription cannot fit those bounds, planning requires a reviewed p
 before scanning and never silently narrows the declared scope.
 Resource staging atomically retains bounded immutable chunks; production context also binds effective policy, management target/audience, request rate, vocabulary mappings, and signed fallback content to its
 checkpoints. ARG additionally pins generated queries, reviewed relationships, and transport settings; installed FDAI producer source, including ARM overlays, is content-bound. Fully collected and enriched candidates are sealed and can resume without provider reads only in the same context, with original clocks, complete evidence, and active-base revalidation.
-Resource-only replay cannot certify completion: unfinished provider streams still need independent continuation validity, relationship evidence, and final scope coverage. Sealed-candidate recovery is not partitioned ontology publication or a Genesis readiness receipt.
+Resource-only replay cannot certify completion: unfinished provider streams still need independent continuation validity, relationship evidence, and final scope coverage. Sealed-candidate recovery is not partitioned ontology publication or a Genesis readiness receipt. Source cleanup retains a separate deadline of at most five seconds, shortened by the configured progress budget, after cancellation or run expiry; failed cleanup cannot mask cancellation or authorize promotion after a final fence.
 
 The inventory identity receives only read roles on the declared subscription and write access to
 its private staging and event surfaces. RBAC propagation is explicitly observed before collection.

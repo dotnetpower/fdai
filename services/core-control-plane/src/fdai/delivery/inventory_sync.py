@@ -20,7 +20,9 @@ from fdai_service_contracts.recorded_resource_state import (
 from fdai.delivery.inventory_collection import (
     InventoryPromotionObserverError as InventoryPromotionObserverError,
 )
+from fdai.delivery.inventory_collection import InventoryStreamError as InventoryStreamError
 from fdai.delivery.inventory_collection import (
+    close_inventory_stream,
     collection_context_digest,
     notify_inventory_promotion,
     resource_chunk_batches,
@@ -100,10 +102,6 @@ class InventoryPromotionEnricher(Protocol):
         self,
         observation: PromotedInventoryObservation,
     ) -> PromotedInventoryObservation: ...
-
-
-class InventoryStreamError(RuntimeError):
-    """An inventory stream violated its atomic-fence contract."""
 
 
 class InventorySyncCoordinator:
@@ -376,9 +374,7 @@ class InventorySyncCoordinator:
             reason = "absolute ceiling" if loop.time() >= ceiling_at else "no-progress deadline"
             raise InventoryStreamError(f"inventory source exceeded its {reason}") from exc
         finally:
-            aclose = getattr(stream, "aclose", None)
-            if callable(aclose):
-                await aclose()
+            await close_inventory_stream(stream, timeout_seconds=self._progress_deadline_seconds)
         if not saw_final:
             raise InventoryStreamError("inventory stream ended before final fence")
         return datetime.now(tz=UTC), provider_scope_coverage
