@@ -190,22 +190,30 @@ try {
       const swatch = document.querySelector(`.ln-legend [data-palette="${kind}"] .ln-swatch`);
       const mini = document.querySelector(`.ln-mini-node[data-palette="${kind}"]`);
       const style = getComputedStyle(node), legend = getComputedStyle(swatch);
-      return { kind, body: style.backgroundColor, border: style.borderTopColor, heading: getComputedStyle(node.querySelector(".ln-node-heading")).color, legendBody: legend.backgroundColor, legendBorder: legend.borderTopColor, legendInk: legend.color, mini: getComputedStyle(mini).fill };
+      const header = node.querySelector(".ln-node-heading"), body = node.querySelector(".ln-node-body");
+      return { kind, body: getComputedStyle(body).backgroundColor, header: getComputedStyle(header).backgroundColor, border: style.borderTopColor, heading: getComputedStyle(header).color, legendBody: legend.backgroundColor, legendBorder: legend.borderTopColor, legendInk: legend.color, mini: getComputedStyle(mini).fill, headerBottom: header.offsetTop + header.offsetHeight, bodyTop: body.offsetTop };
     }));
   }
   const palette = await paletteSnapshot();
   palette.forEach(node => {
-    assert.equal(node.body, node.legendBody, `${node.kind}: legend must show actual node surface`);
+    assert.equal(node.header, node.legendBody, `${node.kind}: legend must show actual node header`);
+    assert.notEqual(node.header, node.body, `${node.kind}: header must be distinct from body`);
+    assert.ok(node.headerBottom <= node.bodyTop, `${node.kind}: header and body must not overlap`);
     assert.equal(node.border, node.legendBorder, `${node.kind}: border token mismatch`);
     assert.equal(node.heading, node.legendInk, `${node.kind}: title/legend ink mismatch`);
-    assert.equal(node.mini, node.body, `${node.kind}: minimap must use the same surface`);
+    assert.equal(node.mini, node.header, `${node.kind}: minimap must use the same header color`);
   });
   assert.equal(new Set(palette.map(node => node.kind)).size, 8);
-  assert.equal(new Set(palette.map(node => node.body)).size, 8);
+  assert.equal(new Set(palette.map(node => node.header)).size, 8);
+  const categoryColors = [...new Set(palette.map(node => node.header))].map(color => color.match(/\d+/g).map(Number));
+  categoryColors.forEach((color, index) => {
+    assert.ok(Math.max(...color) < 170, "category palette must not use pastel fills");
+    categoryColors.slice(index + 1).forEach(other => assert.ok(Math.hypot(...color.map((component, axis) => component - other[axis])) >= 60, "category colors must not be near duplicates"));
+  });
   await frame.locator('[data-node="logs"]').hover();
   const hoveredPalette = await paletteSnapshot();
-  assert.ok(hoveredPalette.every(node => node.body === node.legendBody && node.border === node.legendBorder));
-  evidence.push({ name: "Eight shared category palettes match legend, default/hover nodes and minimap", disposition: "passed", palette });
+  assert.ok(hoveredPalette.every(node => node.header === node.legendBody && node.border === node.legendBorder));
+  evidence.push({ name: "Eight non-pastel headers match legend and minimap, with separate neutral bodies", disposition: "passed", palette });
   await assertClearCurves(frame);
   assert.equal(await frame.locator(".ln-edge.is-missing").count(), 2);
   assert.match(await frame.locator("#caseState").innerText(), /Held/);
