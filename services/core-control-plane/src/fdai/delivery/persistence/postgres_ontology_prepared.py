@@ -281,6 +281,28 @@ async def persist_replacement(
             raise OntologyInstanceValidationError("prepared ontology immutable content conflicts")
 
 
+async def verify_replacement_content(
+    connection: psycopg.AsyncConnection[Any],
+    prepared: PreparedOntologyReplacement,
+) -> None:
+    """Lock exact durable inputs without transferring and decoding the graph under writer lock."""
+    content = {_PREFIX + _digest(chunk): chunk for chunk in prepared.chunks}
+    content[_PREFIX + prepared.digest] = prepared.manifest
+    keys = sorted(content)
+    cursor = await connection.execute(
+        "SELECT stored.key FROM state_kv stored "
+        "JOIN unnest(%s::text[], %s::text[]) AS expected(key, encoded) "
+        "ON stored.key=expected.key "
+        "WHERE stored.value::text=(expected.encoded::jsonb)::text "
+        "ORDER BY stored.key FOR SHARE OF stored",
+        (keys, [content[key] for key in keys]),
+    )
+    if [row["key"] for row in await cursor.fetchall()] != keys:
+        raise OntologyInstanceValidationError(
+            "prepared ontology durable content changed or is missing"
+        )
+
+
 async def load_replacement(
     connection: psycopg.AsyncConnection[Any], *, expected_digest: str
 ) -> tuple[dict[str, Any], tuple[OntologyObjectRecord, ...], tuple[OntologyLinkRecord, ...]]:

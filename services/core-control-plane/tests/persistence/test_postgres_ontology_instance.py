@@ -751,6 +751,87 @@ async def test_isolated_cursor_repair_requires_exact_committed_graph(defect):
                 )
 
 
+@pytest.mark.parametrize("defect", ["none", "numeric_type", "locked_mutation"])
+async def test_isolated_prepared_content_verification_is_exact_and_locked(monkeypatch, defect):
+    from fdai.delivery.persistence.postgres_ontology_prepared import (
+        persist_replacement,
+        restore_replacement,
+        verify_replacement_content,
+    )
+
+    order = []
+
+    class ObservedConnection(psycopg.AsyncConnection):
+        async def execute(self, query, params=None, **kwargs):
+            result = await super().execute(query, params, **kwargs)
+            if query == "SELECT pg_advisory_xact_lock(%s)" and params == (
+                postgres_ontology._SUBGRAPH_REPLACEMENT_LOCK,
+            ):
+                order.append("writer_lock")
+            return result
+
+    async with _isolated_replacement_store() as store:
+        async with await store._connect() as connection:
+            await connection.execute(
+                "CREATE TABLE inventory_active (singleton BOOLEAN PRIMARY KEY,snapshot_id TEXT);"
+                "INSERT INTO inventory_active VALUES (TRUE,'example-generation')"
+            )
+
+        async def connect():
+            return await ObservedConnection.connect(store._config.dsn, row_factory=dict_row)
+
+        def restore(prepared, **kwargs):
+            order.append("restore")
+            return restore_replacement(prepared, **kwargs)
+
+        async def persist(config, prepared):
+            await persist_replacement(config, prepared)
+            if defect == "numeric_type":
+                async with await store._connect() as connection:
+                    await connection.execute(
+                        "UPDATE state_kv SET "
+                        "value=jsonb_set(value,'{state_updates,projection,count}','1.0') "
+                        "WHERE key=%s",
+                        ("ontology-prepared:" + prepared.digest,),
+                    )
+
+        async def verify(connection, prepared):
+            order.append("verify")
+            await verify_replacement_content(connection, prepared)
+            if defect == "locked_mutation":
+                with pytest.raises(psycopg.errors.QueryCanceled):
+                    async with await store._connect() as competing:
+                        await competing.execute("SELECT set_config('statement_timeout','100',true)")
+                        await competing.execute(
+                            "DELETE FROM state_kv WHERE key=%s",
+                            ("ontology-prepared:" + prepared.digest,),
+                        )
+
+        monkeypatch.setattr(store, "_connect", connect)
+        monkeypatch.setattr(postgres_ontology, "restore_replacement", restore)
+        monkeypatch.setattr(postgres_ontology, "persist_replacement", persist)
+        monkeypatch.setattr(postgres_ontology, "verify_replacement_content", verify)
+
+        async def publish():
+            await store.replace_subgraph_with_state(
+                objects=(_review_object("case"),),
+                links=(),
+                previous_object_ids=(),
+                previous_link_keys=(),
+                state_updates={"projection": {"count": 1}},
+                expected_active_generation="example-generation",
+            )
+
+        if defect == "numeric_type":
+            with pytest.raises(OntologyInstanceValidationError, match="durable content changed"):
+                await publish()
+            assert await store.get_object("case") is None
+        else:
+            await publish()
+            assert await store.get_object("case") is not None
+        assert order == ["restore", "writer_lock", "verify"]
+
+
 @pytest.mark.parametrize("publication", ["direct", "prepared"])
 async def test_isolated_ontology_capacity_measurement(monkeypatch, publication):
     import hashlib

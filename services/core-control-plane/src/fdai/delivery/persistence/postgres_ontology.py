@@ -21,10 +21,11 @@ from fdai.delivery.persistence.postgres_ontology_graph import (
     _traverse,
 )
 from fdai.delivery.persistence.postgres_ontology_prepared import (
-    load_replacement,
     persist_replacement,
     pin_replacement_dependencies,
     prepare_replacement,
+    restore_replacement,
+    verify_replacement_content,
     verify_replacement_dependencies,
 )
 from fdai.delivery.persistence.postgres_ontology_records import (
@@ -461,6 +462,10 @@ class PostgresOntologyInstanceStore:
             )
             prepared = await pin_replacement_dependencies(self._config, prepared)
             await persist_replacement(self._config, prepared)
+            manifest, normalized_objects, normalized_links = restore_replacement(
+                prepared,
+                expected_digest=prepared.digest,
+            )
         async with asyncio.timeout(60), await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
@@ -469,10 +474,7 @@ class PostgresOntologyInstanceStore:
                     (_SUBGRAPH_REPLACEMENT_LOCK,),
                 )
                 if prepared is not None:
-                    manifest, normalized_objects, normalized_links = await load_replacement(
-                        connection,
-                        expected_digest=prepared.digest,
-                    )
+                    await verify_replacement_content(connection, prepared)
                     previous_object_ids = tuple(manifest["previous_object_ids"])
                     previous_link_keys = tuple(tuple(key) for key in manifest["previous_link_keys"])
                     _state_updates = {
