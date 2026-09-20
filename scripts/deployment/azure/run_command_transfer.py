@@ -13,7 +13,11 @@ from typing import Protocol
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest, load_json_object
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.private_output import read_private_bytes
-from run_command_authority import require_approval_current, validate_transport_authority
+from run_command_authority import (
+    require_approval_current,
+    validate_delegated_transport_authority,
+    validate_transport_authority,
+)
 from run_command_bootstrap import (
     DIGEST,
     MAX_BUNDLE_BYTES,
@@ -134,28 +138,29 @@ def transfer_claim(
     bundle_receipt_digest: str,
     approval_digest: str,
     profile_digest: str,
+    authority_receipt_digest: str | None = None,
 ) -> dict[str, object]:
     """Create the immutable pre-effect transfer claim."""
 
     validate_parameters(parameters)
     validate_target(target)
     target_binding = str(target["target_binding"])
-    if any(
-        DIGEST.fullmatch(value) is None
-        for value in (
-            target_binding,
-            bundle_receipt_digest,
-            approval_digest,
-            profile_digest,
-        )
-    ):
+    binding_digests = [
+        target_binding,
+        bundle_receipt_digest,
+        approval_digest,
+        profile_digest,
+    ]
+    if authority_receipt_digest is not None:
+        binding_digests.append(authority_receipt_digest)
+    if any(DIGEST.fullmatch(value) is None for value in binding_digests):
         raise ValueError("run command transfer binding is invalid")
     stable_parameters = {
         key: value
         for key, value in parameters.items()
         if key not in {"claim_digest", "recovery_mode", "relay_certificate_digest"}
     }
-    return {
+    claim: dict[str, object] = {
         "schema_version": "fdai.run-command-private-relay-transfer-claim.v1",
         "target_binding": target_binding,
         "target_digest": canonical_digest(target),
@@ -168,6 +173,10 @@ def transfer_claim(
         "receiver_digest": parameters["receiver_digest"],
         "mutation_performed": False,
     }
+    if authority_receipt_digest is not None:
+        claim["schema_version"] = "fdai.run-command-private-relay-transfer-claim.v2"
+        claim["authority_receipt_digest"] = authority_receipt_digest
+    return claim
 
 
 def invocation_claim_record(
@@ -201,6 +210,7 @@ def transfer_execution_bundle(
     target: dict[str, object],
     profile: dict[str, object],
     approval: dict[str, object],
+    authority_receipt: dict[str, object] | None = None,
     timeout_seconds: int,
     capture: Capture,
     relay_factory: RelayFactory = PrivateRelay,
@@ -220,6 +230,7 @@ def transfer_execution_bundle(
             target=target,
             profile=profile,
             approval=approval,
+            authority_receipt=authority_receipt,
             timeout_seconds=timeout_seconds,
             capture=capture,
             relay_factory=relay_factory,
@@ -240,6 +251,7 @@ def _transfer_execution_bundle_locked(
     target: dict[str, object],
     profile: dict[str, object],
     approval: dict[str, object],
+    authority_receipt: dict[str, object] | None,
     timeout_seconds: int,
     capture: Capture,
     relay_factory: RelayFactory,
@@ -258,15 +270,29 @@ def _transfer_execution_bundle_locked(
     if _private_digest(receiver, maximum=4 * 1024 * 1024) != receiver_digest:
         raise ValueError("run command receiver digest differs")
     operation_id = str(bundle_receipt["operation_id"])
-    approval_digest = validate_transport_authority(
-        target=target,
-        profile_value=profile,
-        approval=approval,
-        operation_id=operation_id,
-        bundle_receipt_digest=str(bundle_receipt["receipt_digest"]),
-        receiver_digest=receiver_digest,
-        capture=capture,
-        deadline=deadline,
+    approval_digest = (
+        validate_transport_authority(
+            target=target,
+            profile_value=profile,
+            approval=approval,
+            operation_id=operation_id,
+            bundle_receipt_digest=str(bundle_receipt["receipt_digest"]),
+            receiver_digest=receiver_digest,
+            capture=capture,
+            deadline=deadline,
+        )
+        if authority_receipt is None
+        else validate_delegated_transport_authority(
+            target=target,
+            profile_value=profile,
+            approval=approval,
+            authority_receipt=authority_receipt,
+            operation_id=operation_id,
+            bundle_receipt_digest=str(bundle_receipt["receipt_digest"]),
+            receiver_digest=receiver_digest,
+            capture=capture,
+            deadline=deadline,
+        )
     )
     parameters = transfer_parameters(
         operation_id=operation_id,
@@ -283,6 +309,9 @@ def _transfer_execution_bundle_locked(
         bundle_receipt_digest=str(bundle_receipt["receipt_digest"]),
         approval_digest=approval_digest,
         profile_digest=canonical_digest(profile),
+        authority_receipt_digest=(
+            str(authority_receipt.get("receipt_digest")) if authority_receipt is not None else None
+        ),
     )
     claim_digest = canonical_digest(claim)
     parameters["claim_digest"] = claim_digest
