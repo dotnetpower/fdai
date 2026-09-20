@@ -76,23 +76,69 @@ def deploy_source_service_update(
             assert isinstance(variables, Path)
             assert isinstance(live, Path)
             assert isinstance(plan, Path)
+            adoption_arguments = (
+                "adopt-historical-aks-application",
+                "--binding",
+                str(binding.absolute()),
+                "--state",
+                str(state.absolute()),
+                "--variables",
+                str(variables.absolute()),
+                "--live",
+                str(live.absolute()),
+                "--plan",
+                str(plan.absolute()),
+            )
             adopted = _host_json(
                 application,
-                (
-                    "adopt-historical-aks-application",
-                    "--binding",
-                    str(binding.absolute()),
-                    "--state",
-                    str(state.absolute()),
-                    "--variables",
-                    str(variables.absolute()),
-                    "--live",
-                    str(live.absolute()),
-                    "--plan",
-                    str(plan.absolute()),
-                ),
+                adoption_arguments,
                 timeout=deadline.remaining(2400),
             )
+            if adopted.get("state") == "reconciliation-required":
+                review = adopted.get("reconciliation_review")
+                if (
+                    not isinstance(review, dict)
+                    or review.get("schema_version") != "fdai.standalone-application-plan.v1"
+                    or review.get("stage") != "application"
+                ):
+                    raise ValueError("historical AKS reconciliation review is invalid")
+                recovered = _host_json(
+                    application,
+                    ("recover-historical-aks-reconciliation",),
+                    timeout=deadline.remaining(2100),
+                )
+                if recovered.get("state") == "applied":
+                    if (
+                        recovered.get("effect_verified") is not True
+                        or recovered.get("terraform_zero_change_verified") is not True
+                    ):
+                        raise ValueError("historical AKS reconciliation recovery is incomplete")
+                else:
+                    reconciliation_approval = (
+                        approve_plan(work, review)
+                        if approve_plan is not None
+                        else _approve_plan(work, review, deadline=deadline)
+                    )
+                    reconciled = _host_json(
+                        application,
+                        (
+                            "apply-historical-aks-reconciliation",
+                            "--approval",
+                            str(reconciliation_approval),
+                        ),
+                        timeout=deadline.remaining(7500),
+                    )
+                    if (
+                        reconciled.get("state") != "applied"
+                        or reconciled.get("effect_verified") is not True
+                        or reconciled.get("terraform_zero_change_verified") is not True
+                    ):
+                        raise ValueError("historical AKS reconciliation is incomplete")
+                adopted = _host_json(
+                    application,
+                    adoption_arguments,
+                    timeout=deadline.remaining(2400),
+                )
             if (
                 adopted.get("schema_version") != "fdai.historical-aks-application-adoption.v1"
                 or adopted.get("state") != "adopted"

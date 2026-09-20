@@ -87,6 +87,12 @@ Each new effect needs mode-`0600` approval bound to run, source, stage, exact ev
 at most one UTC hour. Single-human files are `dev`-only; staging/production retain protected quorum.
 Another stage, changed digest, expired record, or silence grants no authority.
 
+Run Command bundle staging applies the same boundary before transport. Its private approval binds
+the exact provision profile and complete target descriptor. The coordinator recomputes the
+tenant/subscription binding from the active Azure account, verifies the current human actor, and
+reads back the selected VM resource id, private address, and deployment UAMI before writing the
+pre-effect claim. The staging approval does not authorize a later Terraform or workload apply.
+
 Connected Foundation boots the managed host from the exact Marketplace version and supplies the
 checksum-pinned bootstrap script as reviewed VM custom data. The script installs exact tool
 versions, writes the attestation manifest, removes credential residue, and exposes only the
@@ -99,6 +105,14 @@ and need fresh Bastion identity, toolchain, service, and GitHub runner readback.
 uses only SSH stdin over the exact Bastion tunnel, never Terraform, arguments, Run Command, or records.
 The optional artifact-offline image path retains its existing verification-only recovery contract.
 A new connected Foundation run does not require, adopt, or wait for an image-build receipt.
+This registration-token prohibition remains unchanged when Run Command is selected later for bundle
+staging. That transport accepts only fixed non-secret target, private-relay, size, count, mode, and
+digest coordinates and executes a repository-owned bootstrap plus digest-bound receiver. An immutable
+claim precedes relay listening and invocation. The relay pins the target host's private source address,
+and WSL pins the independently supplied ephemeral certificate digest before payload transfer. One
+verification-only recovery claim, typed host results, fixed host cleanup, and relay shutdown are
+required before the staging receipt can close. No cloud staging artifact is created, and staging
+never carries approval or Terraform execution authority.
 Portable status carries digests, counts, stage state, and safe booleans; IDs, SSH/state paths, and raw
 plans stay private. State-handoff claims bind the authenticated human's target-scoped digest; backend
 authority and terminal receipts bind that claim. Remote cleanup records exact intent, deletes the
