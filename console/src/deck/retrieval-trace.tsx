@@ -215,6 +215,9 @@ export function RetrievalTrace({
           <li
             key={stage.id}
             class={`deck-rt-stage cs-grounding-stage ${stage.done ? "is-done" : "is-active"}`}
+            data-phase={stage.id}
+            data-done={stage.done ? "true" : "false"}
+            data-side={stage.side}
           >
             <span class="deck-rt-ico" aria-hidden="true">{stage.glyph}</span>
             <span class="deck-rt-stage-copy">

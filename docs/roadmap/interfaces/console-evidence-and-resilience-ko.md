@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 285506173bf6397566293703bf571f233379ec4d
-translation_revised: 2026-09-19
+translation_source_sha: 54acc38e9959d1a09e4a17c719df7a2172f28be0
+translation_revised: 2026-09-20
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다. 지식 전체 현황은 [클라우드 참조 수명 주기](cloud-resource-knowledge-lifecycle-ko.md)의 날짜, 가장 제한적인 출처 최신성, 정확한 바이트의 패키지 검토와 확인된 롤백 요청을 표시합니다. 원본 상태와 오프라인 패키지 접수를 분리하고, 신뢰 자료를 받지 않으면서 배포에서 관리하는 설정을 안내하며, 거부된 읽기 전용 검사는 다시 시도할 수 있게 유지하되 불확실한 쓰기는 권위 있는 상태를 다시 불러오게 합니다. 반입이나 색인 검증 대기를 검색 활성화로 표시하지 않으며 원본 URL은 표시용으로 유지합니다. 만료된 정책은 이력을 숨기지 않고 쓰기 작업을 차단합니다. 대소문자를 구분하지 않는 JSON 파일명 검사는 파일 형식만 검증하며 대화 의도를 해석하지 않습니다.
@@ -264,7 +264,7 @@ Command Deck은 모듈 조회 전에 산출물 전체를 검증합니다. 레지
 background 작업은 detached 작업 요약을 사용합니다. 복원된 간결한 턴은 영속 상세에서
 관찰된 행을 재구성하고 실제 운영 턴은 인과 순서로 이미 표시한 행을 유지합니다. 완료된 모든 답변은
 trajectory 요약을 확인할 수 있게 유지합니다. 범위가 제한된 original 운영자 프롬프트는 실행 기록이
-접혀 있는 동안 숨기고 운영자가 펼치면 표시합니다. 내부 AnswerPlan 의도 및
+접혀 있는 동안 숨기고 운영자가 펼치면 표시합니다. Pantheon assurance turn은 펼친 실행 기록에 content-free 참여자 및 평가자 프롬프트 프로필을 추가하며 profile identity, version, digest, SYSTEM hash, situation 및 token budget만 보존합니다. 내부 AnswerPlan 의도 및
 상세 라벨은 답변 위에 표시하지 않습니다. 실행 기록 결정 맥락에는 유지하며 답변은
 operator-facing 내용과 검증된 근거로 바로 시작합니다. Model-assisted 계획 수립은 검증된
 표현 형태만 변경합니다. 검증된 `presentation_artifact` v1은 서버가 변경할 수 없는 근거에서
@@ -364,7 +364,7 @@ Exact-answer 영속 재생에는 같은 범위가 제한된 브라우저 파서�
 않은 턴은 명시적인 사용 불가 상태를 표시합니다. 캡처 설정이 꺼져 있어도 패널은 Settings 명시적 선택
 안내와 함께 표시하지만 저장된 trace 데이터는 계속 숨깁니다. 각 공개는 역할 순서의
 기록된 메시지 array와 요청 SHA를 보존하면서 연속 system 계층을 하나의 `SYSTEM` heading으로 묶습니다.
-JSON 본문은 보기 좋게 정렬합니다. JSON 문자열 안에 다시 직렬화된 객체 또는 배열 JSON은 제한된 깊이와
+프롬프트 근거가 있는 호출은 exact prompt replay manifest의 content-free SYSTEM digest, 선택한 프로필, 순서가 지정된 레이어 id와 version 및 토큰 예산도 표시합니다. JSON 본문은 보기 좋게 정렬합니다. JSON 문자열 안에 다시 직렬화된 객체 또는 배열 JSON은 제한된 깊이와
 노드 수 안에서 펼치며, 일반 텍스트와 잘못된 중첩 값은 변경하지 않습니다. 범위가 제한된 요청 및 응답
 블록에는 테마에 맞는 scrollbar를 적용합니다. 공개는 assistant 내용, 토큰 사용량, exact-content SHA-256
 및 민감정보 제거 개수도 표시합니다. 자격 증명, 테넌트 또는 리소스 식별자, URL, 이메일, IP 주소, inline 이미지,

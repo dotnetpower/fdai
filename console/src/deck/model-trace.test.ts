@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseModelTrace } from "./backend";
+import { parseModelTrace, parsePantheonPromptProfiles } from "./backend";
 
 const SHA = "a".repeat(64);
 
@@ -36,6 +36,54 @@ describe("parseModelTrace", () => {
     expect(parseModelTrace(trace())).toEqual(trace());
   });
 
+  it("accepts a content-free dynamic prompt manifest", () => {
+    const promptManifest = {
+      system_text_sha256: SHA,
+      layers: [{ id: "adaptive-common", version: 1, layer: "base", token_estimate: 12 }],
+      token_estimate: 12,
+      profile_id: "adaptive-answer",
+      profile_version: 1,
+      profile_digest: `sha256:${SHA}`,
+      system_token_budget: 100,
+      request_token_budget: 200,
+      reserved_output_tokens: 50,
+    };
+
+    expect(parseModelTrace({
+      ...trace(),
+      calls: [{ ...trace().calls[0], prompt_manifest: promptManifest }],
+    })?.calls[0]?.prompt_manifest).toEqual(promptManifest);
+  });
+
+  it("rejects a malformed prompt manifest instead of dropping it", () => {
+    expect(parseModelTrace({
+      ...trace(),
+      calls: [{
+        ...trace().calls[0],
+        prompt_manifest: { system_text_sha256: "bad", layers: [] },
+      }],
+    })).toBeUndefined();
+  });
+
+  it("rejects a prompt manifest with a noncanonical profile id", () => {
+    const promptManifest = {
+      system_text_sha256: SHA,
+      layers: [],
+      token_estimate: 0,
+      profile_id: "Invalid Profile",
+      profile_version: 1,
+      profile_digest: `sha256:${SHA}`,
+      system_token_budget: 100,
+      request_token_budget: 200,
+      reserved_output_tokens: 50,
+    };
+
+    expect(parseModelTrace({
+      ...trace(),
+      calls: [{ ...trace().calls[0], prompt_manifest: promptManifest }],
+    })).toBeUndefined();
+  });
+
   it.each([
     { schema_version: 2 },
     { redacted: false },
@@ -60,5 +108,36 @@ describe("parseModelTrace", () => {
 
     expect(parseModelTrace({ ...trace(), calls: [unfinished] })?.calls[0]?.status)
       .toBe("incomplete");
+  });
+});
+
+describe("parsePantheonPromptProfiles", () => {
+  const profiles = {
+    answer_participants: [{
+      agent: "Heimdall",
+      prompt_version: "1",
+      system_text_sha256: SHA,
+      situation: "operator:direct:T0:en",
+    }],
+    evaluator_profiles: [{
+      profile_id: "conversation-assurance-review",
+      profile_version: 1,
+      profile_digest: `sha256:${SHA}`,
+      system_text_sha256: SHA,
+      system_token_budget: 2048,
+      request_token_budget: 4096,
+      reserved_output_tokens: 1024,
+    }],
+  };
+
+  it("accepts bounded content-free participant and evaluator evidence", () => {
+    expect(parsePantheonPromptProfiles(profiles)).toEqual(profiles);
+  });
+
+  it("rejects malformed hashes instead of hiding profile drift", () => {
+    expect(parsePantheonPromptProfiles({
+      ...profiles,
+      answer_participants: [{ ...profiles.answer_participants[0], system_text_sha256: "bad" }],
+    })).toBeUndefined();
   });
 });

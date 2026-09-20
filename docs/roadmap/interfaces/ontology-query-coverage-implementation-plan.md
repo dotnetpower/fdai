@@ -15,8 +15,7 @@ Coverage-inventory regeneration follows question-bank source changes, including 
 >
 > **Randomized assurance status (2026-08-11):** The authenticated Console completed 100/100 generated English and Korean turns, but the measured path used only the local Azure narrator. Intent recognition was 100%, answer success was 20%, and all 100 cards were unverified with evidence 0/0. Core now composes the semantic runtime when Azure model candidates, the exact ontology release, and the ontology instance store are available. The measured run predates that binding. The Operator Service now publishes semantic turns and consumes evidence-bound projections. A production-completion claim remains blocked until a new live cross-service and randomized run produces those receipts through the visible Console path. See [Ontology Query Randomized Assurance](ontology-query-randomized-assurance.md).
 >
-> **Cross-service contract status (2026-08-11):** Additive version 1.2 request and projection
-> envelopes now define the bounded semantic turn, authenticated principal roles, deadline,
+> **Cross-service contract status (2026-08-11):** Additive version 1.2 request and projection envelopes now define the bounded semantic turn, authenticated principal roles, deadline,
 > idempotency identity, terminal disposition, and exact evidence digests. They do not activate production routing by themselves. Semantic payloads fail closed instead of being translated to
 > the N-1 shape. Core now consumes configured semantic requests, persists canonical results,
 > publishes terminal projections, and reports exact missing-provider reasons through startup
@@ -221,6 +220,7 @@ Coverage-inventory regeneration follows question-bank source changes, including 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-20 | implemented | Refreshed the generated question bank and dependent semantic-intent coverage after integrated Console catalog and presentation-type bytes changed their source digests. Question identity, coverage classification, readiness, and authority remain unchanged. | `current change`; canonical generators; exact artifact-equality tests passed 2 cases | Pushed-SHA CI remains authoritative; no runtime or promotion claim is added. |
 | 2026-09-17 | implemented | Regenerated question-bank and semantic-intent coverage provenance after the merged Trace presentation catalog changed their source digest. Question identities, coverage states, and authority remain unchanged. | `current change`; canonical generators; focused artifact parity tests | No runtime or promotion claim is added. |
 | 2026-09-17 | implemented | Regenerated question-bank and dependent semantic inventory source commitments after newly merged Console catalog bytes invalidated the previous artifacts. | `current change`; canonical builders; 12 focused question-bank and semantic-coverage tests passed; 400 question identities and coverage gaps unchanged. | Exact-head protected delivery under #1241; no model or live campaign was run. |
 | 2026-09-17 | implemented | Regenerated the question bank and dependent semantic-intent coverage together after a later Agent Activity Console catalog update changed their authoritative source digest again. Question identity, coverage, readiness, and execution authority remain unchanged. | `current change`; both official generators; focused artifact parity tests | No live or promotion claim is added. |

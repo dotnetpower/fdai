@@ -1978,23 +1978,32 @@
       "paths": [
         "services/core-control-plane/src/fdai/core/conversation_assurance/**",
         "services/core-control-plane/src/fdai/runtime/conversation_assurance.py",
+        "services/core-control-plane/src/fdai/runtime/conversation_assurance_readiness.py",
         "services/core-control-plane/src/fdai/runtime/pantheon_assurance_evidence.py",
         "services/core-control-plane/src/fdai/runtime/pantheon_conversation_assurance.py",
         "services/core-control-plane/src/fdai/delivery/azure/llm/conversation_assurance.py",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_assurance.py",
+        "scripts/automation/conversation-assurance.py",
+        "scripts/automation/conversation_assurance*.py",
         "scripts/automation/conversation_assurance_answer_gate.py",
         "console/src/routes/conversation-assurance*",
         "console/src/routes/i18n/conversation-assurance*",
+        "console/scripts/conversation-assurance-browser*",
+        "console/src/deck/model-trace*",
         "alembic/versions/*conversation_assurance*.py",
         "services/core-control-plane/tests/**/*conversation_assurance*.py",
         "services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py",
         "tests/integration/scripts/test_conversation_assurance_answer_gate.py",
+        "tests/integration/scripts/test_conversation_assurance*.py",
         "docs/roadmap/decisioning/conversation-assurance*.md"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
         ".github/instructions/app-shape.instructions.md",
-        "docs/roadmap/decisioning/conversation-assurance.md"
+        ".github/skills/conversational-assurance/SKILL.md",
+        "docs/roadmap/decisioning/conversation-assurance.md",
+        "docs/roadmap/decisioning/prompt-composition.md",
+        "docs/roadmap/interfaces/console-evidence-and-resilience.md"
       ],
       "docs_update": [
         "docs/roadmap/decisioning/conversation-assurance.md",
@@ -2005,7 +2014,10 @@
       ],
       "validate": [
         "uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation_assurance services/operator-service/tests services/core-control-plane/tests/delivery/azure/llm/test_conversation_assurance.py services/core-control-plane/tests/runtime/test_conversation_assurance.py",
-        "npm --prefix console test -- --run src/routes/conversation-assurance.test.ts"
+        "uv run pytest -q --no-cov tests/integration/scripts/test_conversation_assurance_harness.py tests/integration/scripts/test_conversation_assurance_improvement_cli.py tests/integration/scripts/test_conversation_assurance_cli.py",
+        "uv run pytest -q --no-cov tests/integration/scripts/test_conversation_assurance_aks.py tests/integration/scripts/test_prepare_local_runtime_env.py services/core-control-plane/tests/runtime/test_conversation_assurance_readiness.py",
+        "node --test console/scripts/conversation-assurance-browser.test.mjs",
+        "npm --prefix console test -- --run src/routes/conversation-assurance.test.ts src/deck/model-trace.test.ts src/deck/model-trace-waterfall.test.ts"
       ]
     },
     {

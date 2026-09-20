@@ -4,8 +4,7 @@ title: Continuous Question Space
 # Continuous Question Space
 
 This document owns the bounded pipeline that derives finite question cases from an exact ontology
-release, turns them into English and Korean wording, runs them through the verified semantic path, and joins conversation assurance with epistemic coverage. The pipeline is read-only and stays in
-shadow mode. It never grants action, approval, mutation, or execution authority.
+release, turns them into English and Korean wording, runs them through the verified semantic path, and joins conversation assurance with epistemic coverage. A plain improvement trigger selects one novel evidence-ready read case from this boundary and permits one browser-owned measurement without retrying that question. The pipeline is read-only and stays in shadow mode. It never grants action, approval, mutation, or execution authority.
 
 > **Coverage boundary:** A finite universe measures whether every readable declaration has an
 > allowed perspective or a typed exclusion. It does not promise that every case can be answered

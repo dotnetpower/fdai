@@ -94,6 +94,11 @@ Explicit fleet bindings remain available for a deliberately narrower deployment 
 local development. Local development accepts an owner-only fleet binding file only when Kubernetes
 collection is explicitly enabled. It does not inherit subscription discovery, copy credentials into
 the repository, or reuse an interactive human identity implicitly.
+An explicitly requested local conversation-assurance series may reuse the already selected Azure
+CLI human for one bounded `az aks list` discovery. That read supplies private target wording only;
+it is not AKS diagnostic evidence. A question becomes selectable only after the exact provider
+reference joins the active local inventory and reviewed BusinessService graph, and neither names
+nor provider ids enter tracked records or command output.
 The isolated public-development Terraform caller may be the verified Azure CLI human, but that
 management identity never becomes an AKS evidence reader or runtime executor. Protected deployment
 continues to use its stable deploy UAMI, and all Kubernetes reads remain bound to the dedicated

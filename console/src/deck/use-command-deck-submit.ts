@@ -667,6 +667,9 @@ export function useCommandDeckSubmit({
               ...(reply.actionDraft ? { actionDraft: reply.actionDraft } : {}),
               ...(reply.testContextDraft ? { testContextDraft: reply.testContextDraft } : {}),
               ...(reply.modelTrace ? { modelTrace: reply.modelTrace } : {}),
+              ...(reply.pantheonPromptProfiles
+                ? { pantheonPromptProfiles: reply.pantheonPromptProfiles }
+                : {}),
               ...(reply.modelLatencyMs !== undefined
                 ? { modelLatencyMs: reply.modelLatencyMs }
                 : {}),

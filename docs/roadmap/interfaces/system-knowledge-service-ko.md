@@ -1,8 +1,8 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 7d4d2fec61640c00fe82930a48bc54ed94c89c58
-translation_revised: 2026-09-18
+translation_source_sha: ba8374c6825086accd970178323bfdb0c1f46529
+translation_revised: 2026-09-20
 ---
 # 시스템 지식 서비스
 
@@ -134,6 +134,9 @@ release 트리와 일치합니다. 서식만 압축하거나 경로 맥락을 �
 동작 주장은 그대로지만 인용한 blob 신원은 바뀝니다. 이 기계적 갱신은 CI에서 검증한 Pantheon 귀속, 현지화되고 scope-safe이며 다이제스트로 검증된 시간 인식 근거, 역할 및 권한 경계, 기존 상태 용어를 보존하는 공용 역할 표현, 로케일 보존 집계를 포함한 결정론적 정본 도메인 라우팅, 추가 전용 동작, fail-closed 동작, translator-only 동작, 통제된 catalog 동작, 비활성 off-path 학습, 자문 동작, HIL-gated chaos 동작 및 프롬프트 비공개를 포함한 수정 원본 식별자를
 전달할 뿐 운영, 승인 또는 실행 권한을 추가하지 않습니다. 배포 guard 원본 개정에도 같은
 다시 빌드 규칙을 적용합니다.
+의미 담당자 변환 결과 갱신은 정본 primary 및 secondary intent가 에이전트 담당자를 결정하고 요청
+facet은 답변 형식 제약으로 남는다는 점을 기록합니다. 카탈로그는 검토된 이 경계를 설명할 뿐 턴을
+라우팅하거나 에이전트 권한을 부여하지 않습니다.
 인용한 읽기 담당 대화 권한 수정도 설명에만 사용됩니다. 읽기 담당은 자신에게 허용된 도구
 범위에서 `chat.stream`을 사용할 수 있지만 백그라운드, 변경, 승인 및 실행 작업은 계속 역할로
 제한됩니다.
