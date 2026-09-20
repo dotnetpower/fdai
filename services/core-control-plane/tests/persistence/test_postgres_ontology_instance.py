@@ -11,7 +11,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from pathlib import Path
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import psycopg
 import pytest
@@ -33,6 +33,7 @@ from fdai.shared.providers.ontology_instance import (
     OntologyLinkRecord,
     OntologyObjectRecord,
 )
+from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.rows import dict_row
 
@@ -173,6 +174,131 @@ def _review_object(identifier: str, object_type: str = "ReviewCase") -> Ontology
     return OntologyObjectRecord(
         id=identifier, object_type=object_type, properties={"id": identifier, "status": "open"}
     )
+
+
+_WRITER_FENCE_MIGRATION = (
+    REPO_ROOT
+    / "service-migrations/branches/core-control-plane/versions"
+    / "20260920_core_ontology_writer_fence.py"
+)
+
+
+def _writer_fence_sql():
+    import runpy
+
+    migration = runpy.run_path(str(_WRITER_FENCE_MIGRATION))
+    statements = {}
+    for operation, key in (("upgrade", "INSTALL_SQL"), ("downgrade", "REMOVE_SQL")):
+        with patch("alembic.op.execute") as execute:
+            migration[operation]()
+            execute.assert_called_once()
+            statements[key] = execute.call_args.args[0]
+    return statements
+
+
+@pytest.mark.parametrize("operation", ["INSERT", "UPDATE", "DELETE", "TRUNCATE"])
+@pytest.mark.parametrize("table", ["ontology_resource", "ontology_link"])
+async def test_isolated_writer_fence_rejects_legacy_mutations(operation, table):
+    migration = _writer_fence_sql()
+    async with _isolated_replacement_store() as store:
+        async with await store._connect() as connection:
+            await connection.execute(migration["INSTALL_SQL"])
+            await connection.execute(
+                sql.SQL("DELETE FROM {} WHERE FALSE").format(sql.Identifier(table))
+            )
+            await connection.execute(
+                "UPDATE state_kv SET value=jsonb_set(value,'{minimum_writer_version}','2') "
+                "WHERE key='ontology:writer-protocol'"
+            )
+        queries = {
+            "INSERT": "INSERT INTO {table} SELECT * FROM {table} WHERE FALSE",
+            "UPDATE": "UPDATE {table} SET properties=properties WHERE FALSE",
+            "DELETE": "DELETE FROM {table} WHERE FALSE",
+            "TRUNCATE": "TRUNCATE {table} CASCADE",
+        }
+        async with await store._connect() as connection:
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState, match="fenced"):
+                await connection.execute(
+                    sql.SQL(queries[operation]).format(table=sql.Identifier(table))
+                )
+        await store.replace_subgraph(objects=(_review_object("case"),), links=())
+        assert (await store.get_object("case")).revision == 1
+        async with await store._connect() as connection:
+            async with connection.transaction():
+                await store._set_timeout(connection)
+            cursor = await connection.execute(
+                "SELECT current_setting('fdai.ontology_writer_protocol',true) AS value"
+            )
+            assert (await cursor.fetchone())["value"] in (None, "")
+
+
+async def test_isolated_writer_fence_waits_for_legacy_transaction_and_rolls_back():
+    migration = _writer_fence_sql()
+    async with _isolated_replacement_store() as store:
+        async with await store._connect() as connection:
+            await connection.execute(migration["INSTALL_SQL"])
+        async with await store._connect() as legacy:
+            await legacy.execute("DELETE FROM ontology_resource WHERE FALSE")
+            async with await store._connect() as controller:
+                await controller.execute("SET LOCAL statement_timeout=50")
+                with pytest.raises(psycopg.errors.QueryCanceled):
+                    await controller.execute(
+                        "UPDATE state_kv SET value=jsonb_set(value,'{minimum_writer_version}','2') "
+                        "WHERE key='ontology:writer-protocol'"
+                    )
+        async with await store._connect() as controller:
+            await controller.execute(
+                "UPDATE state_kv SET value=jsonb_set(value,'{minimum_writer_version}','2') "
+                "WHERE key='ontology:writer-protocol'"
+            )
+        async with await store._connect() as controller:
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState, match="restore"):
+                await controller.execute(migration["REMOVE_SQL"])
+        async with await store._connect() as controller:
+            await controller.execute(
+                "UPDATE state_kv SET value=jsonb_set(value,'{minimum_writer_version}','1') "
+                "WHERE key='ontology:writer-protocol'"
+            )
+            await controller.execute(migration["REMOVE_SQL"])
+            await controller.execute("DELETE FROM ontology_resource WHERE FALSE")
+
+
+@pytest.mark.parametrize(
+    "defect", ["missing", "schema", "string", "bool", "future", "null", "extra"]
+)
+async def test_isolated_writer_fence_rejects_damaged_state_but_allows_reads(defect):
+    from psycopg.types.json import Jsonb
+
+    migration = _writer_fence_sql()
+    async with _isolated_replacement_store() as store:
+        async with await store._connect() as connection:
+            await connection.execute(migration["INSTALL_SQL"])
+        await store.replace_subgraph(objects=(_review_object("case"),), links=())
+        state = {"schema_version": "1.0.0", "minimum_writer_version": 2}
+        if defect == "schema":
+            state["schema_version"] = "invalid"
+        elif defect == "extra":
+            state["extra"] = True
+        elif defect in {"string", "bool", "future", "null"}:
+            state["minimum_writer_version"] = {
+                "string": "2",
+                "bool": True,
+                "future": 3,
+                "null": None,
+            }[defect]
+        async with await store._connect() as connection:
+            if defect == "missing":
+                await connection.execute(
+                    "DELETE FROM state_kv WHERE key='ontology:writer-protocol'"
+                )
+            else:
+                await connection.execute(
+                    "UPDATE state_kv SET value=%s WHERE key='ontology:writer-protocol'",
+                    (Jsonb(state),),
+                )
+        with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState, match="unavailable"):
+            await store.delete_object("case")
+        assert (await store.get_object("case")).revision == 1
 
 
 @asynccontextmanager

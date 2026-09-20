@@ -791,6 +791,7 @@ class PostgresOntologyInstanceStore:
     async def _set_timeout(self, connection: psycopg.AsyncConnection[Any]) -> None:
         timeout = int(self._config.statement_timeout_ms)
         await connection.execute(f"SET LOCAL statement_timeout = {timeout}")
+        await connection.execute("SELECT set_config('fdai.ontology_writer_protocol','2',true)")
 
 
 __all__ = ["PostgresOntologyInstanceStore", "PostgresOntologyInstanceStoreConfig"]
