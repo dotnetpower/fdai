@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   formatOntologyRefreshCountdown,
   installOntologyInstanceRefresh,
+  ONTOLOGY_INSTANCE_DIRECTORY_REFRESH_INTERVAL_MS,
   ONTOLOGY_INSTANCE_REFRESH_INTERVAL_MS,
   type OntologyInstanceRefreshHost,
   type OntologyInstanceRefreshTrigger,
@@ -115,10 +116,10 @@ describe("ontology instance refresh scheduling", () => {
 
   it("supports a slower bounded interval for bulk projections", async () => {
     const refresh = vi.fn(async (_trigger: OntologyInstanceRefreshTrigger) => undefined);
-    const fixture = refreshHost(true, 300_000);
+    const fixture = refreshHost(true, ONTOLOGY_INSTANCE_DIRECTORY_REFRESH_INTERVAL_MS);
     const deadlines: Array<number | null> = [];
     const stop = installOntologyInstanceRefresh(refresh, fixture.host, {
-      intervalMs: 300_000,
+      intervalMs: ONTOLOGY_INSTANCE_DIRECTORY_REFRESH_INTERVAL_MS,
       onNextPeriodicAt: (deadline) => deadlines.push(deadline),
     });
 

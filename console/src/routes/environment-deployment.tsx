@@ -5,13 +5,15 @@ import { t } from "../i18n";
 import { currentRoute, navigate, routeHref } from "../router";
 import { OnboardingRoute } from "./onboarding";
 import { ProvisionRoute } from "./provision";
+import { ObserverProposals } from "./observer-proposals";
 import "./environment-deployment.css";
 
-export type EnvironmentDeploymentTab = "readiness" | "deployment";
+export type EnvironmentDeploymentTab = "readiness" | "deployment" | "observers";
 
 const ENVIRONMENT_DEPLOYMENT_TABS: readonly EnvironmentDeploymentTab[] = [
   "readiness",
   "deployment",
+  "observers",
 ];
 
 export function environmentDeploymentTabFromSegment(
@@ -107,7 +109,9 @@ export function EnvironmentDeploymentRoute({
         >
           {activeTab === "readiness"
             ? <OnboardingRoute client={client} dataMode={dataMode} embedded />
-            : <ProvisionRoute client={client} dataMode={dataMode} embedded />}
+            : activeTab === "deployment"
+              ? <ProvisionRoute client={client} dataMode={dataMode} embedded />
+              : <ObserverProposals client={client} dataMode={dataMode} />}
         </section>
       )}
     </div>

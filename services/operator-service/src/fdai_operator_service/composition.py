@@ -112,6 +112,11 @@ from fdai_operator_service.model_lifecycle_composition import (
     OperatorResolvedModelsRevisionOwner,
     build_model_revision_owner,
 )
+from fdai_operator_service.observer_deployment_projection import (
+    ObserverProposalBridge,
+    ObserverProposalReader,
+    PostgresObserverProjectionStore,
+)
 from fdai_operator_service.outbox_runtime import (
     ActionConfirmationBridge,
     AlertQualityBridge,
@@ -328,6 +333,18 @@ class ProductionOperatorComposition:
             if family_store is not None and semantic_bus is not None
             else None
         )
+        observer_proposal_store = (
+            PostgresObserverProjectionStore(environment.database_url)
+            if environment.database_url is not None
+            else None
+        )
+        observer_proposal_bridge = (
+            ObserverProposalBridge(
+                store=observer_proposal_store, source=semantic_bus, publisher=semantic_bus
+            )
+            if observer_proposal_store is not None and semantic_bus is not None
+            else None
+        )
         read_investigation_completion_bridge = (
             ReadInvestigationCompletionBridge(
                 store=PostgresReadInvestigationCompletionRepository(
@@ -424,6 +441,13 @@ class ProductionOperatorComposition:
             proposal_writer=route_families.operations_proposal_writer,
         )
         route_families = replace(route_families, alert_quality=alert_quality)
+        if observer_proposal_store is not None:
+            route_families = replace(
+                route_families,
+                operations_projection_reader=ObserverProposalReader(
+                    observer_proposal_store, fallback=route_families.operations_projection_reader
+                ),
+            )
         if (
             semantic_bridge is not None
             and self.adaptive_relationship_resolver is None
@@ -480,6 +504,7 @@ class ProductionOperatorComposition:
                 alert_quality_bridge=alert_quality_bridge,
                 assignment_notice_bridge=assignment_notice_bridge,
                 test_context_bridge=test_context_bridge,
+                observer_proposal_bridge=observer_proposal_bridge,
             ),
             live_stream_hub=live_stream_hub,
             agent_stream_hub=agent_stream_hub,
@@ -508,6 +533,7 @@ class ProductionOperatorComposition:
                 alert_quality_bridge=alert_quality_bridge,
                 assignment_notice_bridge=assignment_notice_bridge,
                 test_context_bridge=test_context_bridge,
+                observer_proposal_bridge=observer_proposal_bridge,
             ),
         )
 
@@ -965,6 +991,7 @@ def _application_lifecycle(
     assignment_notice_bridge: AssignmentNoticeBridge | None = None,
     alert_quality_bridge: AlertQualityBridge | None = None,
     test_context_bridge: TestContextBridge | None = None,
+    observer_proposal_bridge: ObserverProposalBridge | None = None,
 ) -> ApplicationLifecycle | None:
     return compose_application_lifecycle(
         model_revision_owner,
@@ -986,6 +1013,7 @@ def _application_lifecycle(
         hil_decision_outbox_bridge,
         test_context_bridge,
         assignment_notice_bridge,
+        observer_proposal_bridge,
         _OwnedHttpClient(teams_http_client) if teams_http_client is not None else None,
     )
 
@@ -1007,6 +1035,7 @@ def _readiness_probe(
     assignment_notice_bridge: AssignmentNoticeBridge | None = None,
     alert_quality_bridge: AlertQualityBridge | None = None,
     test_context_bridge: TestContextBridge | None = None,
+    observer_proposal_bridge: ObserverProposalBridge | None = None,
 ) -> ReadinessProbe:
     if store is None:
         return _unavailable
@@ -1047,6 +1076,7 @@ def _readiness_probe(
             and (alert_quality_bridge is None or alert_quality_bridge.workers_ready())
             and (test_context_bridge is None or test_context_bridge.workers_ready())
             and (assignment_notice_bridge is None or assignment_notice_bridge.workers_ready())
+            and (observer_proposal_bridge is None or observer_proposal_bridge.workers_ready())
         )
 
     return probe
@@ -1057,6 +1087,21 @@ def _build_data_sources(
 ) -> tuple[ReadDataSource, ...]:
     reason = None if configured else "Authoritative service-local projections are not configured."
     return (
+        ReadDataSource(
+            key="observer-deployment-proposals",
+            source="operator-observer-proposal-projection"
+            if inventory_configured
+            else "not-configured",
+            routes=("/observer-deployment-proposals",),
+            availability="unknown" if inventory_configured else "unavailable",
+            configured=inventory_configured,
+            reachable=None,
+            authoritative=inventory_configured,
+            durable=True if inventory_configured else None,
+            reason=None
+            if inventory_configured
+            else "Observer proposal projection is not configured.",
+        ),
         ReadDataSource(
             key="alert-quality",
             source="operator-alert-quality-projection"

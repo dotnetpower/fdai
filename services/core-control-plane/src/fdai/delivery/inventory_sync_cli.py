@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import os
 import ssl
@@ -92,6 +93,10 @@ from fdai.delivery.operational_activity import (
 from fdai.delivery.persistence import (
     PostgresStateStore,
     PostgresStateStoreConfig,
+)
+from fdai.delivery.persistence.postgres_inventory_prepared import (
+    load_prepared_candidate,
+    seal_candidate,
 )
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     InventoryReconciliationHealthState,
@@ -189,6 +194,45 @@ async def _build_kubernetes_enricher(
     stack: AsyncExitStack,
     identity: WorkloadIdentity | None = None,
 ) -> InventoryPromotionEnricher:
+    if config.kubernetes_connector_registration_path is not None:
+        if (
+            config.kubernetes_bindings
+            or config.kubernetes_subscription_discovery
+            or config.kubernetes_api_server
+            or config.kubernetes_unavailable_scopes
+        ):
+            raise ValueError("Kubernetes connector MUST NOT be combined with direct collection")
+        from fdai.delivery.kubernetes_connector_runtime import FileConnectorRegistrations
+        from fdai.delivery.kubernetes_connector_snapshot import (
+            ConnectorInventorySource,
+            ConnectorSnapshotInbox,
+        )
+
+        principal = config.kubernetes_connector_principal_ref
+        if not principal:
+            raise ValueError("Kubernetes connector requires a registered principal")
+        registrations = FileConnectorRegistrations(config.kubernetes_connector_registration_path)
+        registration = await registrations.read(principal)
+        if registration is None:
+            raise ValueError("Kubernetes connector enrollment is unavailable")
+        registration.admit(
+            principal_ref=principal,
+            scope=registration.scope,
+            capability="inventory.snapshot",
+            now=datetime.now(UTC),
+        )
+        inbox = ConnectorSnapshotInbox(
+            PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn)),
+            registrations=registrations,
+            allow_cluster_resources=config.kubernetes_connector_cluster_resources,
+            now=lambda: datetime.now(UTC),
+        )
+        return KubernetesInventoryEnricher(
+            source=ConnectorInventorySource(inbox, principal_ref=principal),
+            relationship_mapping_catalog=relationship_catalog,
+            scope_digest="sha256:"
+            + hashlib.sha256(registration.scope.cluster_ref.encode()).hexdigest(),
+        )
     if not config.kubernetes_bindings and not config.kubernetes_unavailable_scopes:
         return UnavailableKubernetesInventoryEnricher()
     enrichers: list[InventoryPromotionEnricher] = []
@@ -333,6 +377,7 @@ async def run(
                 scope_ref=_scope_ref(config.scopes),
             ),
             evidence_counts=evidence_counts,
+            stack=stack,
         )
         try:
             result = await InventorySyncCoordinator(
@@ -340,6 +385,12 @@ async def run(
                 promotion_enricher=effective_enricher,
                 promotion_observer=ontology_observer,
                 pre_run_recovery=ontology_recovery,
+                candidate_preparer=partial(
+                    seal_candidate, PostgresInventorySnapshotStoreConfig(dsn=config.dsn)
+                ),
+                candidate_loader=partial(
+                    load_prepared_candidate, PostgresInventorySnapshotStoreConfig(dsn=config.dsn)
+                ),
                 run_lock=PostgresAdvisoryResourceLock(
                     config=PostgresAdvisoryResourceLockConfig(
                         dsn=config.dsn,
@@ -416,7 +467,13 @@ async def _load_job_config() -> InventoryJobConfig:
 
     from fdai.delivery.runtime_settings import runtime_settings_service_from_env
 
-    runtime_values = await runtime_settings_service_from_env(os.environ).effective_values()
+    service = runtime_settings_service_from_env(os.environ)
+    try:
+        runtime_values = await service.effective_values()
+    finally:
+        close = getattr(getattr(service, "store", None), "aclose", None)
+        if callable(close):
+            await close()
     return InventoryJobConfig.from_env(runtime_values=runtime_values)
 
 
@@ -548,6 +605,39 @@ async def _discover_subscription_kubernetes_bindings(
                 ),
             ),
         )
+    if result.private_clusters:
+        from fdai.delivery.kubernetes_connector_observed import build_observer_evidence
+        from fdai.delivery.kubernetes_connector_preflight_runtime import build_observer_constraints
+        from fdai.delivery.kubernetes_connector_proposals import (
+            ObserverDeploymentProposalService,
+        )
+
+        proposal_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
+        try:
+            proposals = ObserverDeploymentProposalService(
+                proposal_store,
+                constraints=build_observer_constraints(
+                    proposal_store,
+                    now=lambda: datetime.now(UTC),
+                ),
+                now=lambda: datetime.now(UTC),
+                observing=build_observer_evidence(
+                    proposal_store,
+                    now=lambda: datetime.now(UTC),
+                ),
+            )
+            async with asyncio.timeout(10):
+                await proposals.observe(result.private_clusters)
+            from fdai.delivery.kubernetes_connector_projection import publish_discovered_proposals
+
+            await publish_discovered_proposals(
+                targets=tuple(to_neutral_id(item.cluster_ref) for item in result.private_clusters),
+                service=proposals,
+                store=proposal_store,
+                identity=identity,
+            )
+        finally:
+            await proposal_store.aclose()
     return replace(
         config,
         kubernetes_bindings=result.bindings,
@@ -581,9 +671,11 @@ async def _publish_collection_health(
     )
     if projection is None:
         return
-    await PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn)).write_state(
-        _COLLECTION_HEALTH_STATE_KEY, projection
-    )
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
+    try:
+        await store.write_state(_COLLECTION_HEALTH_STATE_KEY, projection)
+    finally:
+        await store.aclose()
 
 
 async def _drain_change_stream(config: InventoryJobConfig) -> ChangeStreamDrainResult:

@@ -10,6 +10,7 @@ from fdai_service_contracts.discovery import (
     DiscoveryOperationProfile,
     DiscoveryPredicate,
     DiscoveryQueryPlan,
+    DiscoveryResultKind,
     DiscoveryScopeKind,
     DiscoveryUniverse,
 )
@@ -18,7 +19,7 @@ from fdai_service_contracts.discovery_evidence import (
     command_explanation_digest,
 )
 
-from fdai.delivery.azure.discovery_profiles import AZURE_DISCOVERY_CATALOG_VERSION
+from fdai.delivery.azure.discovery_profiles import AZURE_DISCOVERY_CLI_VERSION
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,10 +42,17 @@ def render_command_explanation(
 
     if plan.operation_id != operation.operation_id:
         raise ValueError("discovery plan and operation profile MUST match")
+    cli_pins = tuple(
+        value for value in operation.validation_versions if value.startswith("azure-cli@")
+    )
+    if f"azure-cli@{cli_version}" not in (
+        cli_pins or (f"azure-cli@{AZURE_DISCOVERY_CLI_VERSION}",)
+    ):
+        raise ValueError("command explanation CLI version MUST match the registered validation pin")
     rendered = render_registered_azure_command(plan=plan, operation=operation)
     values: dict[str, object] = {
         "command_id": rendered.command_id,
-        "catalog_version": AZURE_DISCOVERY_CATALOG_VERSION,
+        "catalog_version": plan.profile_revision,
         "plan_digest": plan.plan_digest,
         "backend": plan.backend,
         "scope_kind": plan.scope_kind,
@@ -75,6 +83,15 @@ def render_registered_azure_command(
 ) -> RenderedAzureCommand:
     """Resolve one allowlisted template id; arbitrary command text is not accepted."""
 
+    if (
+        plan.operation_id != operation.operation_id
+        or plan.backend is not operation.backend
+        or plan.result_kind not in operation.result_kinds
+        or plan.scope_kind not in operation.scope_kinds
+        or any(universe not in operation.universes for universe in plan.universes)
+        or plan.validation_versions != operation.validation_versions
+    ):
+        raise ValueError("discovery command MUST match its exact registered operation")
     template_id = operation.command_template_id
     if template_id is None:
         raise ValueError("discovery operation has no registered command template")
@@ -85,16 +102,18 @@ def render_registered_azure_command(
         kql = _render_kql(plan, table="Resources", resource_groups=False)
         return _arg_command(template_id, plan=plan, kql=kql)
     if template_id == "azure.arm.resource-groups.list.v1":
+        exact_group = plan.scope_kind is DiscoveryScopeKind.RESOURCE_GROUP
         return RenderedAzureCommand(
             command_id=template_id,
             argv=(
                 "az",
                 "group",
-                "list",
+                "show" if exact_group else "list",
                 "--subscription",
                 "<subscription-id>",
+                *(("--name", "<resource-group>") if exact_group else ()),
                 "--query",
-                "<registered-query:azure.resource-groups.list.v1>",
+                _arm_query(plan, singleton=exact_group),
                 "--output",
                 "json",
             ),
@@ -109,14 +128,33 @@ def render_registered_azure_command(
                 "list",
                 "--subscription",
                 "<subscription-id>",
+                *(
+                    ("--resource-group", "<resource-group>")
+                    if plan.scope_kind is DiscoveryScopeKind.RESOURCE_GROUP
+                    else ()
+                ),
                 "--query",
-                "<registered-query:azure.arm-resources.list.v1>",
+                _arm_query(plan),
                 "--output",
                 "json",
             ),
             kql_template=None,
         )
     raise LookupError(f"unknown Azure discovery command template {template_id!r}")
+
+
+def _arm_query(plan: DiscoveryQueryPlan, *, singleton: bool = False) -> str:
+    if plan.predicates:
+        raise ValueError("ARM reproduction does not support equivalent case-insensitive predicates")
+    if plan.result_kind is DiscoveryResultKind.COUNT:
+        return "length([@])" if singleton else "length(@)"
+    if plan.result_kind is not DiscoveryResultKind.LIST:
+        raise ValueError("ARM reproduction does not support this result kind")
+    source = "[@]" if singleton else "@"
+    return (
+        f"{source}[:{plan.limits.max_results}]."
+        "{id:id,type:type,name:name,resourceGroup:resourceGroup,location:location}"
+    )
 
 
 def render_coverage_canary_command(
@@ -184,7 +222,7 @@ def _arg_command(
             "--graph-query",
             f"<registered-kql:{command_id}>",
             "--first",
-            str(plan.limits.max_results),
+            str(min(plan.limits.max_results, 1000)),
             "--output",
             "json",
         ),
@@ -201,14 +239,24 @@ def _render_kql(
     clauses = [table]
     if resource_groups:
         clauses.append("where type =~ 'microsoft.resources/subscriptions/resourcegroups'")
+    if plan.scope_kind is DiscoveryScopeKind.RESOURCE_GROUP:
+        scope_field = "name" if resource_groups else "resourceGroup"
+        clauses.append(f"where {scope_field} =~ '<resource-group>'")
     for index, predicate in enumerate(plan.predicates, start=1):
         clauses.append(_predicate_template(predicate, index=index))
-    clauses.extend(
-        (
-            "project id, type, name, subscriptionId, resourceGroup, location, tags",
-            "order by id asc",
+    if plan.result_kind is DiscoveryResultKind.COUNT:
+        clauses.append("summarize discovered_count=count()")
+    elif plan.result_kind is DiscoveryResultKind.TYPES:
+        clauses.extend(("summarize resource_count=count() by type", "order by type asc"))
+    elif plan.result_kind is DiscoveryResultKind.LIST:
+        clauses.extend(
+            (
+                "project id, type, name, subscriptionId, resourceGroup, location, tags",
+                "order by id asc",
+            )
         )
-    )
+    else:
+        raise ValueError("registered Azure command does not support this result kind")
     return " | ".join(clauses)
 
 

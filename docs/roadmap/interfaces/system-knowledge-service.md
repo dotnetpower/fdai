@@ -101,8 +101,9 @@ The revised design creates `fdai-system-knowledge-service` as a separate distrib
   tracked files. The runtime image contains the catalog, not repository source or Git credentials.
 - **Descriptive boundary:** A rebuilt catalog can expose a revised agent guarantee such as
   duplicate-event handling and retry, validated event-time windows, and restart-safe recurrence
-  identity, including trusted ingestion time and bounded downstream idempotency keys. It cannot
-  enforce that guarantee or participate in event processing.
+  identity, including trusted ingestion time, bounded downstream idempotency keys, and explicit
+  unobserved discovery-health signals. It cannot treat those signals as healthy evidence, enforce
+  that guarantee, or participate in event processing.
 - **Deterministic retrieval:** Exact aliases rank first. Normalized English tokens and Korean
   two-syllable tokens provide bounded lexical fallback. Low-score searches return an explicit
   unavailable answer.
@@ -134,6 +135,10 @@ its blob pins and digest match the release tree. Formatting-only compaction, rou
 or Markdown structure repair leaves the behavior claim unchanged but still changes the cited blob identity.
 This mechanical refresh carries the revised source identity, including CI-verified Pantheon
 attribution, localized scope-safe and digest-verified temporal evidence, role and authority boundaries, status-compatible shared role rendering, deterministic canonical-domain routing with locale-preserving aggregation, append-only, fail-closed, translator-only, governed-catalog, inert off-path learning, advisory, and HIL-gated chaos behavior, and prompt confidentiality; it adds no operational, approval, or execution authority. Deployment-guard source revisions follow the same rebuild rule.
+Pantheon producer corrections, including Loki's validated `object.resilience-score` path and its
+Huginn-owned event-time boundary, refresh citations and digests only. The catalog neither consumes
+the normalized Event nor creates a runtime candidate or timestamp authority.
+
 Semantic-owner projection refreshes record that canonical primary and secondary intents determine
 agent ownership while requested facets remain answer-shape constraints. The catalog only describes
 that reviewed boundary; it does not route a turn or grant agent authority.
@@ -243,6 +248,12 @@ channel. An `outgoing_webhook` deployment owns no Bot or Graph resource and opti
 Key Vault HMAC secret after bootstrap. A protected workflow creates plan-only output by default and
 requires exact CI, image attestations, plan and context digests, and an explicit `bootstrap`,
 `enable`, or `disable` transition before apply.
+
+### Catalog provenance refresh
+
+The packaged catalog is regenerated when a cited Pantheon role or subscription changes. The
+refresh updates source blobs and explanatory records only. It grants no runtime, Console, AKS,
+identity, approval, catalog-promotion, or execution authority.
 
 ## Rollout
 

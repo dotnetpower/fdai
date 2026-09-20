@@ -49,6 +49,88 @@ def test_linux_x86_64_remains_supported(monkeypatch):
     assert deployment_kit.runtime_platform_tag() == "linux-x86_64"
 
 
+@pytest.mark.parametrize("case", ["valid", "source", "image", "untrusted"])
+def test_observer_artifact_uses_existing_offline_trust_boundary(tmp_path, monkeypatch, case):
+    from fdai_deployment_cli import observer_artifact
+
+    calls = []
+    source, image = "a" * 40, "sha256:" + "b" * 64
+
+    def acquire(**kwargs):
+        calls.append(kwargs)
+        if case == "untrusted":
+            raise ValueError("synthetic invalid signature")
+        return SimpleNamespace(
+            source_commit="c" * 40 if case == "source" else source,
+            runtime=SimpleNamespace(
+                platform_tag="linux-x86_64",
+                digest="d" * 64,
+                to_mapping=lambda: {
+                    "services": {
+                        "core-control-plane": {
+                            "image_digest": "sha256:" + "e" * 64 if case == "image" else image
+                        }
+                    }
+                },
+            ),
+            bundle_manifest_digest="f" * 64,
+        )
+
+    monkeypatch.setattr(observer_artifact, "acquire_deployment_kit", acquire)
+    arguments = {
+        "offline_kit": tmp_path / "kit",
+        "work_dir": tmp_path / "work",
+        "source_commit": source,
+        "image_digest": image,
+    }
+    if case == "valid":
+        result = observer_artifact.inspect_observer_artifact(**arguments)
+        assert result["image_digest"] == image
+        assert result["execution_authority"] is False
+        assert str(tmp_path) not in str(result)
+    else:
+        with pytest.raises(ValueError):
+            observer_artifact.inspect_observer_artifact(**arguments)
+    assert calls == [
+        {
+            "work_dir": arguments["work_dir"],
+            "online": False,
+            "offline_kit": arguments["offline_kit"],
+        }
+    ]
+
+
+def test_observer_artifact_command_does_not_disclose_failed_input(tmp_path, monkeypatch, capsys):
+    import json
+    import sys
+
+    from fdai_deployment_cli import observer_artifact
+
+    tmp_path.chmod(0o700)
+    request = tmp_path / "observer-request.json"
+    request.write_text(
+        json.dumps(
+            {
+                "offline_kit": str(tmp_path / "kit"),
+                "work_dir": str(tmp_path / "work"),
+                "source_commit": "a" * 40,
+                "image_digest": "sha256:" + "b" * 64,
+            }
+        )
+    )
+    request.chmod(0o600)
+    monkeypatch.setattr(sys, "argv", ["observer-artifact", "--request", str(request)])
+
+    def reject(**kwargs):
+        raise ValueError("synthetic private source detail")
+
+    monkeypatch.setattr(observer_artifact, "acquire_deployment_kit", reject)
+    assert observer_artifact.main() == 1
+    output = capsys.readouterr().out
+    assert "private source detail" not in output and str(tmp_path) not in output
+    assert json.loads(output)["execution_authority"] is False
+
+
 def test_open_archive_descriptor_survives_path_replacement(tmp_path, monkeypatch):
     archive = tmp_path / "kit.tar.gz"
     with tarfile.open(archive, "w:gz") as stream:

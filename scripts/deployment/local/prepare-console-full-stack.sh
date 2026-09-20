@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$repo_root"
 
 force_preparation=0
+defer_authoritative_inventory=0
 auth_mode="browser-entra"
 while (( $# > 0 )); do
   case "$1" in
@@ -20,14 +21,18 @@ while (( $# > 0 )); do
       auth_mode="$2"
       shift 2
       ;;
+    --defer-authoritative-inventory)
+      defer_authoritative_inventory=1
+      shift
+      ;;
     *)
-      echo "Usage: $0 [--force] [--auth-mode browser-entra|azure-cli]" >&2
+      echo "Usage: $0 [--force] [--defer-authoritative-inventory] [--auth-mode browser-entra|azure-cli]" >&2
       exit 2
       ;;
   esac
 done
 if [[ "$auth_mode" != "browser-entra" && "$auth_mode" != "azure-cli" ]]; then
-  echo "Usage: $0 [--force] [--auth-mode browser-entra|azure-cli]" >&2
+  echo "Usage: $0 [--force] [--defer-authoritative-inventory] [--auth-mode browser-entra|azure-cli]" >&2
   exit 2
 fi
 resolved_models_override="${FDAI_LOCAL_RESOLVED_MODELS_PATH:-}"
@@ -290,6 +295,12 @@ stage_reusable() {
       local-services \
       --wait-seconds 0 \
       --only inventory-coverage >/dev/null; then
+    return 1
+  fi
+  if [[ "$name" == "local-state" ]] && ! \
+    run_bounded local-state-readiness \
+      bash "$repo_root/scripts/deployment/local/prepare-console-state.sh" \
+      --check >/dev/null 2>&1; then
     return 1
   fi
   for output in "$@"; do
@@ -579,10 +590,15 @@ run_stage \
     "resolved-models-override=$resolved_models_override")" \
   prepare_runtime_environment \
   "$repo_root/.fdai/local-runtime.env"
-run_stage \
-  authoritative-inventory \
-  "$(path_digest authoritative-inventory "${inventory_inputs[@]}")" \
-  refresh_inventory
+if [[ "$defer_authoritative_inventory" == "1" ]]; then
+  printf '%s service=console-preparation stage=authoritative-inventory event=deferred owner=inventory-reconciliation\n' \
+    "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
+else
+  run_stage \
+    authoritative-inventory \
+    "$(path_digest authoritative-inventory "${inventory_inputs[@]}")" \
+    refresh_inventory
+fi
 run_stage \
   authoritative-settings \
   "$(path_digest authoritative-settings "${settings_inputs[@]}")" \

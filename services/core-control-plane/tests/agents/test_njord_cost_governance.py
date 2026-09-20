@@ -138,7 +138,7 @@ def test_enabled_sample_is_analyzed_and_only_njord_publishes_finding() -> None:
     assert advisory.calls == 1
     messages = bus.messages_on("object.cost-anomaly")
     assert len(messages) == 1 and messages[0].principal == "Njord"
-    assert registry.get("Njord").owns == ("CostAnomaly", "Budget")
+    assert registry.get("Njord").owns == ("CostAnomaly",)
 
 
 def test_broker_accepted_sample_drains_after_disable_but_new_sample_is_ignored() -> None:

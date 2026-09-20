@@ -70,6 +70,7 @@ class RetrievalEvaluationPolicy:
     min_no_match_precision: float
     required_cohorts: tuple[str, ...]
     schema_version: str = "1.0.0"
+    min_samples_per_metric: int | None = None
 
     def __post_init__(self) -> None:
         if not 1 <= self.top_k <= 100:
@@ -88,8 +89,15 @@ class RetrievalEvaluationPolicy:
             or any(_COHORT.fullmatch(item) is None for item in self.required_cohorts)
         ):
             raise ValueError("required_cohorts MUST be bounded, unique, and ordered")
-        if self.schema_version != "1.0.0":
+        if self.schema_version not in {"1.0.0", "1.1.0"}:
             raise ValueError("unsupported retrieval evaluation policy schema_version")
+        if self.schema_version == "1.0.0" and self.min_samples_per_metric is not None:
+            raise ValueError("legacy evaluation policy MUST NOT carry a sample floor")
+        if self.schema_version == "1.1.0" and (
+            type(self.min_samples_per_metric) is not int
+            or not 2 <= self.min_samples_per_metric <= 10_000
+        ):
+            raise ValueError("min_samples_per_metric MUST be an integer in [2, 10000]")
 
     @property
     def digest(self) -> str:
@@ -103,6 +111,8 @@ class RetrievalEvaluationPolicy:
             "min_no_match_precision": self.min_no_match_precision,
             "required_cohorts": self.required_cohorts,
         }
+        if self.schema_version == "1.1.0":
+            payload["min_samples_per_metric"] = self.min_samples_per_metric
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
         return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
@@ -173,6 +183,11 @@ async def evaluate_semantic_surface(
 
     metrics: list[CohortMetric] = []
     failures = list(retrieval_failures)
+    failures.extend(
+        f"{cohort}-required-cohort-missing"
+        for cohort in policy.required_cohorts
+        if cohort not in retrieval_success
+    )
     for cohort in sorted(retrieval_success):
         rows = observed[cohort]
         positives = tuple(row for row in rows if row[2] is None)
@@ -207,6 +222,14 @@ async def evaluate_semantic_surface(
             )
             if precision < policy.min_no_match_precision:
                 failures.append(f"{cohort}-no-match-below-threshold")
+
+    if policy.min_samples_per_metric is not None:
+        failures.extend(
+            f"{metric.cohort}-{metric.metric}-sample-count-below-minimum"
+            for metric in metrics
+            if metric.metric != "retrieval-success-rate"
+            and metric.sample_count < policy.min_samples_per_metric
+        )
 
     return SurfaceValidationReceipt(
         surface_digest=surface.validation_subject_digest,

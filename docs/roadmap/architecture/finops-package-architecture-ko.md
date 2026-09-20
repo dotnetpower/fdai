@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: b62465bdb19ee740e7bd0dd8ac47af254ec83775
-translation_revised: 2026-09-19
+translation_source_sha: 68f57c4707b19052ec7881e27b2cdca2592835c9
+translation_revised: 2026-09-20
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -86,6 +86,9 @@ translation_revised: 2026-09-19
 루트 개발 전용 Rich와 pyte 의존성은 독립 배포 CLI의 테스트 수집을 지원합니다. Cost
 Governance 배포판에 포함되거나 설치, 활성화, 승격 상태를 바꾸지 않으며, 런타임 이미지는
 계속 서비스 소유 의존성을 사용합니다.
+루트 `dev` extra는 CI가 Core 기반 확장 테스트를 수집할 때 가져오는 서드파티 패키지도
+반영하며 Core 영속 계층 가져오기에 필요한 `psycopg-pool`도 포함합니다. 이 테스트 환경 반영은
+패키지 소유권을 이전하지 않습니다.
 
 > **조립 격리:** 공유 Operator 경로 조립은 검증된 인수인계 바인딩으로 웹 대화 제안을 데코레이션할
 > 수 있습니다. 이 데코레이터는 Cost Governance 경로를 래핑하거나 패키지 활성화를 변경하거나 비용
@@ -121,7 +124,7 @@ FDAI는 비용 거버넌스를 하나의 exact-release vertical 프로필로 패
 | 공유 이미지 입력 | 루트 `uv.lock`, 서비스 소유 및 벤치마크 Dockerfile, 집중 서비스 이미지와 OPA 핀 정합성 검사 | 검토된 provider-schema 카탈로그를 포함해 두 Core 이미지 프로필에 모두 복사되는 일반 근거 자산은 `fdai-cost-governance`에 의존성, 활성화 경로 또는 소유권을 추가하지 않으면서 PR 패키징 검사에서 두 프로필을 모두 선택합니다. 공유 lock 변경은 영향받는 모든 이미지를 선택하며, 후보 게시에서는 명시적으로 선택한 이미지만 빌드합니다. 정합성 검사는 검토된 OPA 전이 모듈 재정의를 이미지 프로필 전체에서 동일하게 유지합니다. 검토된 `golang.org/x/crypto` 재정의는 `v0.56.0`이며 각 Docker 빌드는 게시 전에 해당 모듈 버전을 정확히 확인합니다. Core 부트스트랩 가져오기 검증은 런타임 이미지에 필요한 구성과 rule-catalog 자산을 복사한 뒤에만 실행합니다. 지원되는 Core 이미지 프로필 두 개는 모두 provider-schema 근거 Job에 필요한 Git 클라이언트와 검토된 부트스트랩 카탈로그를 고정하고 확인합니다. 이러한 런타임 선행 조건은 Core 소유로 유지되며 Cost Governance 패키지 입력이 되지 않습니다. |
 | 비용 추정 | `shared/providers/cost_estimator.py`와 컨트롤 루프의 `_resolve_cost_override` 경로 | Protocol은 Core에 남고 패키지는 구체 추정기를 제공할 수 있습니다. |
 | 오퍼레이터 비용 거버넌스 변환 결과 | `fdai_operator_service/postgres_cost_governance.py`는 직접 psycopg 연결을 통해 서비스 소유 JSON 범위 맵을 읽습니다. | 오퍼레이터 호스트는 드라이버 경계에서 SQLAlchemy 형식 psycopg DSN을 정규화하고, 접근 권한을 선택적 패키지로 옮기지 않으면서 정확한 범위 포함 여부를 평가합니다. |
-| 비용 이상 조언 | `agents/njord.py`는 비용 샘플을 수집하고 이동 기준선 이상을 감지해 `object.cost-anomaly`를 발행합니다. | Njord의 고정 역할은 Core에 남고 교체 가능한 탐지 로직은 타입이 지정된 연결 뒤로 이동합니다. |
+| 비용 이상 조언 | `agents/njord.py`는 비용 샘플을 수집하고 이동 기준선 이상을 감지해 `object.cost-anomaly`를 발행합니다. | Njord는 `CostAnomaly`만 소유하며 `Budget`은 소유하지 않습니다. 고정 역할은 Core에 남고 교체 가능한 탐지 로직은 타입이 지정된 연결 뒤로 이동합니다. |
 | 용량 전환 조언 | Freyr는 버전이 지정된 프로바이더 중립 정책으로 완전한 용량 근거와 현재 Njord 비용 근거를 결합합니다. | 전환은 Forseti가 판단하는 shadow 권고로 유지됩니다. 별도로 검토된 ActionType 없이는 토폴로지 변경을 전달할 수 없습니다. |
 | 운영 온톨로지 | `CostObjective`, 서비스와 워크로드 토폴로지, 결정 계보 및 exact-release 쿼리 인프라 | 패키지는 별도 FinOps 모델을 만들지 않고 기존 커널 선언과 패키지 소유 프로필을 하나의 온톨로지 release에 연결해야 합니다. |
 | 에이전트 조직 | `PANTHEON_SPECS`는 15개 식별자, 소유 객체 및 토픽을 모두 고정합니다. | 패키지는 기존 소유자에게 동작을 제공하며 에이전트를 추가하거나 소유권을 바꾸거나 직접 호출을 만들 수 없습니다. |

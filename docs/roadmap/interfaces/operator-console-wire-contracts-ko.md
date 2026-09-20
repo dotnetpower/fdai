@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 1af0381f5fee312a1a269f0983e8328a6e5d9616
-translation_revised: 2026-09-19
+translation_source_sha: 2525d1fb6600bca1c5b15115beefb86e75cd0aca
+translation_revised: 2026-09-20
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -10,6 +10,13 @@ translation_revised: 2026-09-19
 > [operator-console-ko.md](operator-console-ko.md) 섹션 13 (13.1-13.3, 13.6-13.9)에서 분리한 focused 소유자 문서입니다.
 
 ## 13. 데이터 + wire 계약
+
+관측 구성은 기존 전송에서 별도의 `observer-proposal-projection` 스키마와
+`core.observer-deployment.projections` 논리 토픽을 사용합니다. Operator가 순서 보장된
+자체 표시 데이터와 인증된 GET 경로를 소유하며 1분 유효기간은 승인이나 Incident 생성 권한을
+부여하지 않습니다. 공용 Kafka 허용 목록에는 이 구독과 정제된 DLQ만 추가하며 제안, 승인,
+변경 발행자를 추가하지 않습니다.
+[관측 전달 계약](../architecture/aks-outbound-connector-ko.md#operator-전달-계약)을 참조하세요.
 
 ### 13.1 감사 항목 - `console.turn` action_kind
 
@@ -296,7 +303,7 @@ Console 은 기본적으로 코드 를 **코드 근거** 아래에 접어서 표
 변환 결과입니다. 온톨로지 릴리스, 쿼리 프로필, 기준 시각, 객체 및 링크 개정, 상태 lane, source
 watermark, 완전성, 충돌, 잘림 및 근거 참조를 고정합니다. 브라우저는 카탈로그 토폴로지를 런타임
 인벤토리와 병합하지 않으며 누락되었거나 불완전한 관계를 거짓으로 처리하지 않습니다. 컨텍스트
-스냅샷은 읽기 전용으로 유지되고 `mutation_authority: false`를 포함합니다.
+스냅샷은 읽기 전용으로 유지되고 `mutation_authority: false`를 포함합니다. 인벤토리 SSE는 복구된 `epoch:sequence` 커서에 `cursor_version=2`를 협상하며, epoch가 다르면 리소스 식별 정보 없는 재설정 요구를 전달합니다. 클라이언트는 재연결 전에 인증된 스냅샷을 다시 읽으며, 숫자 커서만 지원하는 클라이언트에는 복구된 스트림에서 사용 불가를 반환합니다. 인시던트 재생을 포함한 다른 principal 범위 스트림의 커서는 바꾸지 않습니다.
 
 ActionType 변환 결과 은 가산 입니다. 이전 배포 에서는
 `action_type_count`와 `action_types`가 없거나 0일 수 있지만 ObjectType과 LinkType 탐색은

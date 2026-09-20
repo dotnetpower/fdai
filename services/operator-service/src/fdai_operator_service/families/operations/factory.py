@@ -380,13 +380,35 @@ async def _stream(
 ) -> Response:
     resolved_stream = stream or entry.operation
     try:
-        after_sequence = _last_event_id(request)
+        cursor_epoch = None
+        after_sequence: int | None
+        if (
+            resolved_stream == INVENTORY_INVALIDATION_STREAM
+            and request.query_params.get("cursor_version") == "2"
+        ):
+            raw = request.headers.get("last-event-id", "")
+            if ":" in raw:
+                cursor_epoch, sequence = raw.split(":", 1)
+                if (
+                    re.fullmatch(r"[a-f0-9]{32}", cursor_epoch) is None
+                    or re.fullmatch(r"[0-9]{1,16}", sequence) is None
+                ):
+                    raise ValueError("inventory replay cursor is malformed")
+                after_sequence = int(sequence)
+                if after_sequence > 2**53 - 1:
+                    raise ValueError("inventory replay cursor exceeds its bound")
+            else:
+                cursor_epoch = ""
+                after_sequence = _last_event_id(request)
+        else:
+            after_sequence = _last_event_id(request)
         batch = await reader.replay(
             ReplayQuery(
                 stream=resolved_stream,
                 principal_id=principal.subject_id,
                 after_sequence=after_sequence,
                 limit=MAX_LIMIT,
+                cursor_epoch=cursor_epoch,
             )
         )
     except ProjectionUnavailableError:
@@ -401,6 +423,7 @@ async def _stream(
                 principal,
                 after_sequence,
                 batch,
+                cursor_epoch=cursor_epoch,
             ):
                 yield chunk
             return
@@ -452,6 +475,8 @@ async def _inventory_invalidation_events(
     principal: OperatorPrincipal,
     after_sequence: int | None,
     batch: ReplayBatch,
+    *,
+    cursor_epoch: str | None = None,
 ) -> AsyncIterator[bytes]:
     """Poll durable invalidation replay indefinitely, one bounded page at a time.
 
@@ -471,6 +496,8 @@ async def _inventory_invalidation_events(
         for event in current.events:
             cursor = max(cursor, event.sequence)
             yield _sse_event(event)
+            if event.data.get("reset_required") is True:
+                return
         now = loop.time()
         if now >= heartbeat_at:
             yield b": heartbeat\n\n"
@@ -483,6 +510,7 @@ async def _inventory_invalidation_events(
                     principal_id=principal.subject_id,
                     after_sequence=cursor,
                     limit=MAX_LIMIT,
+                    cursor_epoch=cursor_epoch,
                 )
             )
         except (ProjectionUnavailableError, ValueError):
@@ -571,14 +599,20 @@ def _last_event_id(request: Request) -> int | None:
 def _sse_event(event: ReplayEvent) -> bytes:
     if _EVENT_NAME.fullmatch(event.event) is None:
         return _bounded_sse_frame(event.sequence, "invalid", {"error": "invalid_event_name"})
-    return _bounded_sse_frame(event.sequence, event.event, redact_projection(event.data))
+    epoch = event.data.get("epoch") if event.event == "inventory.invalidated" else None
+    cursor = (
+        f"{epoch}:{event.sequence}"
+        if isinstance(epoch, str) and re.fullmatch(r"[a-f0-9]{32}", epoch)
+        else event.sequence
+    )
+    return _bounded_sse_frame(cursor, event.event, redact_projection(event.data))
 
 
 def _watermark(sequence: int) -> bytes:
     return f"event: watermark\ndata: {json.dumps({'sequence': sequence})}\n\n".encode()
 
 
-def _bounded_sse_frame(sequence: int, event: str, data: object) -> bytes:
+def _bounded_sse_frame(sequence: int | str, event: str, data: object) -> bytes:
     payload = json.dumps(data, separators=(",", ":"), sort_keys=True)
     frame = f"id: {sequence}\nevent: {event}\ndata: {payload}\n\n".encode()
     if len(frame) <= MAX_SSE_FRAME_BYTES:

@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 40aee0b85c4fd951eea1339bdefc0a718dbb983f
-translation_revised: 2026-09-19
+translation_source_sha: eb1669f2b798cf3f867d76fb0ddb221011e61854
+translation_revised: 2026-09-20
 ---
 
 # 개발 워크플로 보증
@@ -41,6 +41,8 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 bearer-token 파일 경로를 전달하지만 bearer 값 자체는 전달하지 않습니다. 따라서 source를 다시
 불러오고 작업을 재시작해도 editor의 주변 환경에 의존하지 않고 인증된 로컬 계약을 유지합니다.
 
+`console: restart full stack`은 `--replace-existing`으로 같은 체크아웃의 관리 supervisor를 명시적으로 교체하며 Browser Entra와 표준 서비스 구성을 유지합니다. 준비를 반복하지 않고 준비된 비공개 환경을 재사용합니다. 구성, 의존성, 마이그레이션 또는 환경 연결이 바뀌었으면 먼저 `console: prepare full stack`을 실행합니다. 전용 터미널과 준비 상태 검사기를 사용하며, 완료된 시작 작업의 오래된 출력은 새 프로세스나 준비 완료의 근거가 아닙니다.
+
 ![설계 개요. 주요 단계는 편집과 집중 검사, 워크플로 진단, 집중 커밋, 구조 pre-push, SHA 기반 CI, 원격 작업, 제한된 인계입니다.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.ko.svg)
 
 ## 측정 통제
@@ -55,7 +57,7 @@ bearer-token 파일 경로를 전달하지만 bearer 값 자체는 전달하지 
 | Hook | 변경형 hook 실행 전에 staged 및 unstaged 중첩을 감지하고 결정론적 복구 지침을 보존합니다. | Hook 실패가 작업 소유 변경을 조용히 버리지 않습니다. |
 | 브라우저 검사 | 집중 CLI Playwright 검사를 우선하고 공유 10-slot lease 계약을 보존합니다. | CLI 근거가 충분하면 브라우저 도구 사용을 제한된 최종 상호 작용 1회로 제한합니다. |
 | 로컬 서비스 | 제한된 timeout과 소유권 진단으로 모든 표준 로컬 서비스를 독립적으로 probe합니다. | Full-stack 준비 상태가 사용 불가능한 모든 서비스를 지목하며 SPA만으로 준비 상태를 추론하지 않습니다. |
-| 개발 진단 | 소유자 전용 Unix 소켓을 통해 명시적으로 선택한 로컬 Core 또는 Operator 프로세스를 프로파일링하고 결과를 정확한 소스 입력에 연결합니다. | 범위가 제한된 패킷이 지연 시간, CPU, Python 힙 및 추적되지 않는 메모리를 분리하고, GitHub Copilot은 정확히 일치하는 workspace snapshot만 진단합니다. |
+| 개발 진단 | 표준 작업 기반 로컬 실행기가 시작한 각 Core 또는 Operator 프로세스를 소유자 전용 Unix 소켓을 통해 프로파일링하고 결과를 정확한 소스 입력에 연결합니다. | 범위가 제한된 패킷이 지연 시간, CPU, Python 힙 및 추적되지 않는 메모리를 분리하고, GitHub Copilot은 정확히 일치하는 workspace snapshot만 진단합니다. |
 | 편집기 부하 | 호스트 부하, extension 부하 및 upstream 브라우저 payload 비용을 분리합니다. | 진단이 소유 프로세스를 식별하거나 제한을 upstream으로 분류합니다. |
 | 원격 사전 검사 | 고정된 시도 및 시간 예산 안에서 transient 읽기 실패만 retry합니다. | 영구 권한 및 policy 실패는 즉시 실패하며 retry는 Azure를 변경하지 않습니다. |
 
@@ -74,10 +76,16 @@ CI 범위 해석기는 결정론적으로 동작하며 안전한 쪽을 선택�
 
 ## 개발 진단 채널
 
-개발 진단 채널은 실행 중인 Core 또는 Operator 프로세스의 코드 병목을 찾기 위해 명시적으로
-활성화하는 로컬 워크플로입니다. 각 프로세스는 실행 위치가 `local`이고 개발 진단 플래그를
-활성화한 경우에만 소유자 전용 Unix 소켓 하나를 노출합니다. HTTP, 브라우저, Teams, Slack,
-Event Bus 또는 관리 리소스 경로에서는 이 소켓에 접근할 수 없습니다.
+표준 작업 기반 로컬 실행기는 Core와 Operator 프로세스의 개발 진단 채널을 항상 활성화합니다.
+각 프로세스는 실행 위치가 `local`일 때만 소유자 전용 Unix 소켓 하나를 노출합니다. 해당
+실행기를 우회해 프로세스를 직접 시작할 때는 진단을 활성화하기 전에 완전한 소스 및 digest
+연결을 제공해야 합니다. HTTP, 브라우저, Teams, Slack, Event Bus 또는 관리 리소스 경로에서는
+이 소켓에 접근할 수 없습니다.
+관측 제안 소비자는 진단 채널이 아니라 일반 애플리케이션 수명 주기 워커입니다.
+Operator 워커 준비 검사에 참여하지만 GET 표시 경로로 진단 소켓에 접근하거나 스택 재시작·실제 공급자 점검을 허가하지는 않습니다.
+
+`status` 명령은 각 소켓에 범위가 제한된 프로토콜 요청을 보냅니다. 중단된 프로세스가 남긴
+소켓 경로는 정상 상태가 아니라 사용 불가 상태로 보고합니다.
 
 프로세스 로컬 probe는 범위가 제한된 지연 시간 집계와 내용이 없는 프로세스 상태를 유지합니다.
 명시적 캡처는 프로세스마다 한 번씩 최대 30초 동안 `cProfile`과 `tracemalloc`을 실행할 수
@@ -90,26 +98,44 @@ Operator semantic runtime은 제품 projection을 위해 assurance 답변 생성
 probe, packet, export 또는 Copilot 검토에 들어가지 않습니다.
 
 모든 패킷은 Git 리비전, 로컬 서비스 입력 digest, worktree patch digest, 프로세스 신원,
-runtime-scope receipt digest, 시간 구간 및 패킷 digest를 연결합니다. GitHub Copilot 검토는
-소유자 전용 export 및 import 경계를 사용합니다. Workspace 신원이나 패킷 digest가 바뀌면 검토를
-수락하지 않습니다. Copilot은 일치하는 workspace를 검사하고 진단을 제안할 수 있지만, 런타임은
+runtime-scope receipt digest, 시간 구간 및 패킷 digest를 연결합니다. 캡처 허용 여부는 정식
+서비스 입력 digest를 비교합니다. Git 리비전과 worktree digest는 출처 정보로 유지하므로 해당
+서비스 입력 밖의 commit이나 편집은 실행 중인 서비스를 무효화하지 않습니다. GitHub Copilot
+검토는 소유자 전용 export 및 import 경계를 사용하며 전체 workspace 신원을 유지합니다.
+Workspace 신원이나 패킷 digest가 바뀌면 검토를 수락하지 않습니다.
+Copilot은 일치하는 workspace를 검사하고 진단을 제안할 수 있지만, 런타임은
 Copilot을 호출하거나 저장소 파일을 읽거나 코드를 편집하거나 pull request를 열거나 병합 또는
 실행 권한을 부여하지 않습니다. System Knowledge는 release 계약을 설명할 수 있지만 실제 측정은
 이 개발 워크플로에서 소유합니다.
 
-프로파일링된 전체 스택 시작은 진단 소켓이 생성되기 전에 일반 준비 단계를 완료합니다. 따라서
-준비 단계는 프로세스 시작 전 병목에 대해 내용이 없는 단계별 시간을 내보내고, 소켓은 실행 중인
-Core 및 Operator 프로세스만 측정합니다. 로컬 Core 실행기는 서비스 소유 진입점을 사용합니다.
+프로파일링된 전체 스택 시작은 진단 소켓이 생성되기 전에 필수 준비 단계를 완료합니다. 관리되는
+전체 스택 작업은 권위 있는 인벤토리 새로 고침을 지속 인벤토리 조정 프로세스에 맡기므로 Console,
+Core 및 Operator 프로세스가 이 새로 고침과 병렬로 시작할 수 있습니다. 전체 준비 상태는 활성 범위
+인벤토리 커버리지와 analyzer의 첫 번째 정상 tick을 계속 기다리며, 독립 실행 준비는 동기 인벤토리
+단계를 유지합니다. 준비 단계는 프로세스 시작 전 병목에 대해 내용이 없는 단계별 시간을 내보내고,
+소켓은 실행 중인 Core 및 Operator 프로세스만 측정합니다. 로컬 Core 실행기는 서비스 소유 진입점을 사용합니다.
 Operator ASGI 애플리케이션 팩터리는 Uvicorn이 팩터리를 직접 불러도 runtime-scope receipt를 연결합니다.
-그런 다음 명시적으로 활성화된 진단을 조립된 애플리케이션 수명 주기에 추가하여 선택적 계측이
+그런 다음 실행기가 활성화한 진단을 조립된 애플리케이션 수명 주기에 추가하여 로컬 계측이
 프로덕션 조립 루트의 의존성 수를 늘리지 않게 합니다.
-`dev discuss: start or restart profiled services`를 실행하면 오래된 작업 인스턴스를 교체합니다.
+`dev discuss: start or restart profiled services`를 실행하면 항상 프로파일링되는 동일한 로컬
+스택의 오래된 작업 인스턴스를 교체합니다. 같은 checkout의 검증된 supervisor만 종료하고,
+supervisor lock이 해제된 후 새 자식 프로세스를 시작합니다.
 내보낸 패킷은 현재 코딩 세션의 GitHub Copilot이 검토하며, 진단 채널은 FDAI 런타임 모델이나
-Azure OpenAI 배포를 선택하거나 호출하지 않습니다. 로컬 준비 상태 검사는 서비스 소유 Core
-실행기를 프로세스 소유자로 인식하고 새로운 semantic consumer 진행 뒤의 새로운 heartbeat를
+Azure OpenAI 배포를 선택하거나 호출하지 않습니다.
+서비스 재사용 fingerprint에는 runtime-diagnostics 패키지를 포함한 정식 서비스 입력 digest가
+포함됩니다. 관련 입력이 바뀌면 오래된 프로세스를 교체하지만 관련 없는 commit이나 worktree
+편집 때문에 재시작하지는 않습니다. 로컬 준비
+상태 검사는 서비스 소유 Core 실행기를 프로세스 소유자로 인식하고 새로운 semantic consumer
+진행 뒤의 새로운 heartbeat를
 허용합니다. 인벤토리 세대가 ontology checkpoint 변환보다 먼저 바뀌면 로컬 analyzer는 준비되지
 않은 상태를 유지하지만 전체 loop interval을 기다리지 않고 5초 안에 target resolution을 다시
 시도합니다.
+프로파일링된 Core 런타임은 공유 StateStore에 대해 범위가 제한된 비동기 connection pool 하나를
+소유하고, 의존하는 worker와 transport가 중지된 뒤 해당 pool을 닫습니다. 개발 진단은 그 결과인
+프로세스 및 연결 수를 측정할 수 있지만, 측정값을 권한으로 바꾸지는 않습니다.
+로컬 analyzer는 다음 loop interval 전에 tick 범위의 decision-evidence 및 run-receipt StateStore
+pool을 닫습니다. 정상 tick은 garbage collection 대상으로 비동기 pool worker를 남길 수 없으며,
+영속화 실패도 준비 상태를 사용할 수 없음으로 유지하기 전에 store를 닫습니다.
 
 ## 검증 단계와 결과 재사용
 
@@ -120,6 +146,9 @@ Azure OpenAI 배포를 선택하거나 호출하지 않습니다. 로컬 준비 
 범위에 따라 명시적으로 선택하며, 경로 계획에 범위 없는 저장소 검사를 일괄 추가하지 않습니다.
 워크플로 지침은 헌법과 추적 근거 문맥을 유지합니다. 상세 런타임 권한 문서는 모든 CI 도구
 편집이 아니라 해당 런타임 계약을 변경할 때 불러옵니다.
+Core 수량·리소스 계산 검사는 클러스터에 접속하지 않고 루트 개발 의존성의 잠긴 Kubernetes 도구를 사용합니다. 타입 선언 부재에 대한 예외는 `kubernetes.utils.quantity`에만 적용하며 어댑터는 반환된 Decimal 값을 검증합니다. 의존성 변경은 소유 범위와 Core wheel 검사를 유지하며 진단 채널이나 실제 수집을 활성화하지 않습니다.
+루트 CI가 서비스 소스를 수집할 때는 해당 소스가 가져오는 모든 서드파티 패키지를 `dev`
+extra에 반영합니다. 런타임 이미지와 패키지 소유권은 서비스 매니페스트가 계속 담당합니다.
 
 | 단계 | 필요한 근거 | 재사용 경계 |
 |------|-------------|-------------|

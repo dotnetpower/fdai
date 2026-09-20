@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import replace
+from datetime import UTC, datetime
 from math import isfinite
 from typing import Any
 
@@ -15,7 +17,7 @@ from fdai.shared.providers.inventory import LinkRecord, RelationshipDrop, Resour
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 from .arg_relationships import RelationshipProjectionResult
-from .inventory import ResourceQueryResult
+from .inventory import ResourceQueryResult, _GenerationBudget
 
 _RETRYABLE_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
 _DEFAULT_MAX_ATTEMPTS = 3
@@ -128,7 +130,30 @@ async def fetch_arg_pages(
     page_observer: ArgPageObserver | None = None,
 ) -> ResourceQueryResult:
     """Fetch all pages for one shard without silently accepting a partial result."""
-    rows = await fetch_arg_row_pages(
+    observation_started_at = datetime.now(UTC).isoformat()
+    collected: list[ResourceRecord] = []
+    collected_links: list[LinkRecord] = []
+    relationship_drops: list[RelationshipDrop] = []
+    budget = _GenerationBudget()
+
+    async def consume_rows(rows: tuple[Mapping[str, Any], ...]) -> None:
+        resources: list[ResourceRecord] = []
+        links: list[LinkRecord] = []
+        drops: list[RelationshipDrop] = []
+        for row in rows:
+            record = map_row(row)
+            if record is not None:
+                record = replace(record, last_seen=observation_started_at)
+                resources.append(record)
+                relationships = project_links(row, record)
+                links.extend(relationships.links)
+                drops.extend(relationships.dropped)
+        budget.consume(ResourceQueryResult(tuple(resources), tuple(links), tuple(drops)))
+        collected.extend(resources)
+        collected_links.extend(links)
+        relationship_drops.extend(drops)
+
+    await fetch_arg_row_pages(
         identity=identity,
         http_client=http_client,
         audience=audience,
@@ -147,17 +172,8 @@ async def fetch_arg_pages(
         initial_retry_delay_seconds=initial_retry_delay_seconds,
         max_retry_delay_seconds=max_retry_delay_seconds,
         page_observer=page_observer,
+        row_consumer=consume_rows,
     )
-    collected: list[ResourceRecord] = []
-    collected_links: list[LinkRecord] = []
-    relationship_drops: list[RelationshipDrop] = []
-    for row in rows:
-        record = map_row(row)
-        if record is not None:
-            collected.append(record)
-            relationships = project_links(row, record)
-            collected_links.extend(relationships.links)
-            relationship_drops.extend(relationships.dropped)
     return ResourceQueryResult(
         resources=tuple(collected),
         links=tuple(collected_links),
@@ -192,6 +208,7 @@ async def fetch_arg_row_pages(
     max_response_bytes: int | None = _DEFAULT_MAX_RESPONSE_BYTES,
     max_total_response_bytes: int | None = _DEFAULT_MAX_TOTAL_RESPONSE_BYTES,
     page_observer: ArgPageObserver | None = None,
+    row_consumer: Callable[[tuple[Mapping[str, Any], ...]], Awaitable[None]] | None = None,
 ) -> tuple[Mapping[str, Any], ...]:
     """Fetch a complete, bounded ARG row set with quota-aware retries."""
     if max_attempts < 1:
@@ -210,6 +227,14 @@ async def fetch_arg_row_pages(
         f"?api-version={api_version}"
     )
     collected: list[Mapping[str, Any]] = []
+    collected_count = 0
+
+    async def accept_rows(rows: list[Mapping[str, Any]]) -> None:
+        if row_consumer is None:
+            collected.extend(rows)
+        else:
+            await row_consumer(tuple(rows))
+
     skip_token: str | None = None
     seen_skip_tokens: set[str] = set()
     total_response_bytes = 0
@@ -276,21 +301,28 @@ async def fetch_arg_row_pages(
                 raise error_type(
                     f"ARG payload contained a non-object row for {result_name!r} (page {page})"
                 )
-            collected.append(row)
-        if max_records is not None and len(collected) > max_records:
+        collected_count += len(data)
+        if max_records is not None and collected_count > max_records:
             raise error_type(
                 f"ARG returned more than {max_records} records for {result_name!r}; "
                 "narrow the query"
             )
 
+        truncated = _result_is_truncated(
+            payload,
+            error_type=error_type,
+            result_name=result_name,
+            page=page,
+        )
         next_token = payload.get("$skipToken")
-        if not isinstance(next_token, str) or not next_token:
-            tokenless_truncated = _result_is_truncated(
-                payload,
-                error_type=error_type,
-                result_name=result_name,
-                page=page,
-            ) or _count_is_truncated(payload)
+        if next_token is not None and not isinstance(next_token, str):
+            raise error_type(
+                f"ARG continuation token was invalid for {result_name!r} (page {page})"
+            )
+        if not next_token:
+            tokenless_truncated = truncated or _count_is_truncated(
+                payload, collected_count=collected_count
+            )
             if not allow_truncated_without_token and tokenless_truncated:
                 raise error_type(
                     f"ARG returned a truncated result without a continuation token for "
@@ -298,6 +330,7 @@ async def fetch_arg_row_pages(
                 )
             if truncation_observer is not None:
                 truncation_observer(tokenless_truncated)
+            await accept_rows(data)
             if page_observer is not None:
                 await page_observer(len(data), False)
             break
@@ -307,6 +340,7 @@ async def fetch_arg_row_pages(
             )
         seen_skip_tokens.add(next_token)
         skip_token = next_token
+        await accept_rows(data)
         if page_observer is not None:
             await page_observer(len(data), True)
     else:
@@ -449,13 +483,6 @@ def _quota_reset_seconds(headers: httpx.Headers) -> float | None:
     return delay
 
 
-def _count_is_truncated(payload: Mapping[str, Any]) -> bool:
-    count = payload.get("count")
+def _count_is_truncated(payload: Mapping[str, Any], *, collected_count: int) -> bool:
     total = payload.get("totalRecords")
-    return (
-        isinstance(count, int)
-        and not isinstance(count, bool)
-        and isinstance(total, int)
-        and not isinstance(total, bool)
-        and count < total
-    )
+    return isinstance(total, int) and not isinstance(total, bool) and collected_count < total

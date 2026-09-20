@@ -347,20 +347,29 @@ def materialize_nested_subnets(
 
     records: list[ResourceRecord] = []
     links: list[LinkRecord] = []
-    seen: set[str] = set()
+    seen: dict[str, Mapping[str, Any]] = {}
     for raw_subnet in raw_subnets:
         if not isinstance(raw_subnet, Mapping):
-            continue
+            raise ArmScopeError("nested subnet observation MUST be an object")
         provider_ref = raw_subnet.get("id")
         if not isinstance(provider_ref, str):
-            continue
+            raise ArmScopeError("nested subnet observation MUST have a provider id")
         provider_type = arm_id_to_type(provider_ref)
         if provider_type is None or provider_type.casefold() != _SUBNET_ARM_TYPE.casefold():
-            continue
+            raise ArmScopeError("nested subnet observation has an invalid provider type")
+        parent_provider_ref = provider_parent_id(provider_ref)
+        if (
+            vnet.provider_ref is None
+            or parent_provider_ref is None
+            or parent_provider_ref.casefold() != vnet.provider_ref.casefold()
+        ):
+            raise ArmScopeError("subnet provider parent conflicts with the observed VNet")
         resource_id = to_neutral_id(provider_ref)
         if resource_id in seen:
+            if seen[resource_id] != raw_subnet:
+                raise ArmScopeError("nested subnet observation has conflicting duplicates")
             continue
-        seen.add(resource_id)
+        seen[resource_id] = raw_subnet
         name = raw_subnet.get("name")
         props: dict[str, Any] = {
             "name": name if isinstance(name, str) and name else provider_ref.rsplit("/", 1)[-1],

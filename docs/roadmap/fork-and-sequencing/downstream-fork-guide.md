@@ -91,6 +91,9 @@ availability, deployment enablement, principal access, and per-action shadow or 
 separate decisions. Do not create a customer fork only to hide Cost Governance, and do not use fork
 detection to select its data collection, Console navigation, or execution posture. Base-only
 profiles exclude package assets; compatibility or package tests explicitly compose an enabled package.
+Package graph materialization and event publication are separate. A package can materialize a
+reviewed graph lifecycle object without registering a bus topic. Only upstream can change
+`AgentSpec.owns`, which lists publishable single-writer object types.
 
 ## 2. Day-1 checklist
 

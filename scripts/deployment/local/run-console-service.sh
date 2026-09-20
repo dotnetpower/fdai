@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 <service> [--wait-ready]" >&2
+  echo "Usage: $0 <service> [--wait-ready|--print-input-digest]" >&2
   exit 2
 }
 
@@ -12,15 +12,23 @@ fi
 
 service="$1"
 wait_ready=0
+print_input_digest=0
 if [[ $# -eq 2 ]]; then
-  if [[ "$2" != "--wait-ready" \
-    || ( "$service" != "core-runtime" \
-      && "$service" != "operator-api" \
-      && "$service" != "local-analyzer" \
-      && "$service" != "cost-governance-analytics" ) ]]; then
-    usage
-  fi
-  wait_ready=1
+  case "$2" in
+    --wait-ready)
+      if [[ "$service" != "core-runtime" \
+        && "$service" != "operator-api" \
+        && "$service" != "local-analyzer" \
+        && "$service" != "cost-governance-analytics" ]]; then
+        usage
+      fi
+      wait_ready=1
+      ;;
+    --print-input-digest)
+      print_input_digest=1
+      ;;
+    *) usage ;;
+  esac
 fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$repo_root"
@@ -32,7 +40,8 @@ if [[ ! "$readiness_seconds" =~ ^[1-9][0-9]*$ ]]; then
 fi
 readiness_budget_seconds=$((readiness_seconds + 5))
 
-if [[ "$service" == "operator-api" || "$service" == "console-frontend" ]]; then
+if [[ "$print_input_digest" == "0" \
+  && ( "$service" == "operator-api" || "$service" == "console-frontend" ) ]]; then
   expected_auth_mode="${FDAI_CONSOLE_EXPECTED_AUTH_MODE:-}"
   case "$expected_auth_mode" in
     browser-entra)
@@ -140,6 +149,9 @@ else
     uv.lock
     scripts/deployment/local/run-console-service.sh
   )
+  if [[ "$service" == "core-runtime" || "$service" == "operator-api" ]]; then
+    digest_inputs+=(packages/runtime-diagnostics/src)
+  fi
   if [[ "$service" == "core-runtime" ]]; then
     digest_inputs+=(rule-catalog)
   elif [[ "$service" == "cost-governance-analytics" ]]; then
@@ -155,6 +167,10 @@ input_digest="$(
     --timing-label "$service" \
     "${digest_inputs[@]}"
 )"
+if [[ "$print_input_digest" == "1" ]]; then
+  printf '%s\n' "$input_digest"
+  exit 0
+fi
 
 if [[ -n "$env_file" ]]; then
   set -a
@@ -162,6 +178,12 @@ if [[ -n "$env_file" ]]; then
   source "$repo_root/$env_file"
   set +a
 fi
+
+case "$service" in
+  core-runtime|operator-api)
+    export FDAI_DEVELOPMENT_DIAGNOSTICS=1
+    ;;
+esac
 
 if [[ "$service" == "operator-api" ]] \
   && { [[ "${FDAI_OPERATOR_API_LOCAL_AZURE_CLI:-0}" != "$local_azure_cli_auth" ]] \

@@ -68,6 +68,33 @@ test("Agent Activity retains machine actions while presenting readable read stag
   assert.match(waterfall, /Handoff bar width is not work duration/);
 });
 
+test("Agents previews preserve the canonical event-bus ownership contract", () => {
+  const source = read("assets/agents-preview-data.js");
+  const actual = Object.fromEntries(
+    Array.from(
+      source.matchAll(/\{ name: "([A-Za-z]+)"[^\n]*? owns: "([^"]+)"/g),
+      (match) => [match[1], match[2]],
+    ),
+  );
+  assert.deepEqual(actual, {
+    Odin: "ArbitrationDecision",
+    Heimdall: "Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict, RecoveryEffectObservation",
+    Huginn: "Event, Change",
+    Forseti: "Verdict, SecurityEvent, ArbitrationRequest, ProspectiveLineage",
+    Var: "Approval",
+    Thor: "ActionRun",
+    Vidar: "Rollback",
+    Saga: "AuditEntry, Issue",
+    Bragi: "Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview",
+    Njord: "CostAnomaly",
+    Freyr: "CapacityForecast, CapacityGraduationRecommendation",
+    Loki: "ChaosExperiment, ResilienceScore",
+    Mimir: "Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult",
+    Norns: "RuleCandidate, Pattern",
+    Muninn: "StateSnapshot, ContextIndex",
+  });
+});
+
 test("Approval, Audit, Architecture, and Dashboard preserve lifecycle boundaries", () => {
   const approvals = read("hil.html");
   const approvalScript = read("assets/approvals-preview.js");

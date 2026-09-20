@@ -31,7 +31,13 @@ from pydantic import ValidationError
 DIGEST = "sha256:" + ("a" * 64)
 
 
-def _intent(profile_index: int = 1) -> DiscoveryIntent:
+def _intent(
+    profile_index: int = 1,
+    *,
+    result_kind: DiscoveryResultKind = DiscoveryResultKind.LIST,
+    scope_kind: DiscoveryScopeKind = DiscoveryScopeKind.SUBSCRIPTION,
+    predicates: tuple[DiscoveryPredicate, ...] | None = None,
+) -> DiscoveryIntent:
     universe = (
         DiscoveryUniverse.RESOURCE_CONTAINERS
         if profile_index == 0
@@ -39,11 +45,11 @@ def _intent(profile_index: int = 1) -> DiscoveryIntent:
     )
     predicate = DiscoveryPredicate(field="name", operator="contains", values=("example",))
     values: dict[str, object] = {
-        "result_kind": DiscoveryResultKind.LIST,
+        "result_kind": result_kind,
         "universes": (universe,),
-        "scope_kind": DiscoveryScopeKind.SUBSCRIPTION,
+        "scope_kind": scope_kind,
         "scope_digest": DIGEST,
-        "predicates": (predicate,),
+        "predicates": (predicate,) if predicates is None else predicates,
         "limits": DiscoveryLimits(max_results=100),
         "include_command_explanation": True,
         "unresolved_modifiers": (),
@@ -52,10 +58,10 @@ def _intent(profile_index: int = 1) -> DiscoveryIntent:
     return DiscoveryIntent(intent_digest=discovery_intent_digest(**values), **values)
 
 
-def _plan(profile_index: int = 1):
+def _plan(profile_index: int = 1, *, operation_index: int = 1, **intent_options):
     profile = default_azure_discovery_profiles()[profile_index]
-    operation = profile.operations[1]
-    intent = _intent(profile_index)
+    operation = profile.operations[operation_index]
+    intent = _intent(profile_index, **intent_options)
     eligibility = BackendEligibility(
         operation_id=operation.operation_id,
         available=True,
@@ -97,7 +103,7 @@ def test_arg_profiles_pin_normalization_and_validation_versions() -> None:
         assert operation.normalization_id == "azure.provider-resource-observation.v1"
         assert operation.validation_versions == (
             "azure-resource-graph-api@2022-10-01",
-            "azure-cli@2.87.0",
+            "azure-cli@2.89.1",
             "resource-graph-extension@2.1.1",
         )
 
@@ -115,6 +121,28 @@ def test_unknown_azure_type_is_retained_as_unmapped_without_raw_id() -> None:
     assert observation.mapping_status.value == "unmapped"
     assert observation.semantic_type is None
     assert raw_id not in encoded
+
+
+@pytest.mark.parametrize(("pages", "count"), [(11, 1), (1, 101)])
+def test_execution_receipt_cannot_exceed_plan_limits(pages: int, count: int) -> None:
+    _profile, operation, plan = _plan()
+    with pytest.raises(ValueError, match="exact plan limits"):
+        build_provider_execution_receipt(
+            plan=plan,
+            operation=operation,
+            page_count=pages,
+            count=count,
+            preview_rows=(),
+        )
+
+
+def test_explanation_cannot_substitute_an_operation_backend() -> None:
+    from fdai.delivery.azure.discovery_explanation import render_registered_azure_command
+
+    _profile, operation, plan = _plan()
+    operation = operation.model_copy(update={"backend": "generic_arm"})
+    with pytest.raises(ValueError, match="exact registered operation"):
+        render_registered_azure_command(plan=plan, operation=operation)
 
 
 def test_provider_execution_receipt_drops_raw_ids_tokens_and_errors() -> None:
@@ -175,7 +203,7 @@ def test_command_explanation_matches_golden_and_is_equivalent_only() -> None:
         plan=plan,
         operation=operation,
         validated_at=datetime(2026, 1, 1, tzinfo=UTC),
-        cli_version="2.87.0",
+        cli_version="2.89.1",
     )
     encoded = explanation.model_dump_json()
 
@@ -203,6 +231,70 @@ def test_command_explanation_matches_golden_and_is_equivalent_only() -> None:
     assert explanation.execution_authority is False
     assert "/subscriptions/hidden/resourceGroups/" not in encoded
     assert "00000000-0000-0000-0000-000000000000" not in encoded
+
+
+@pytest.mark.parametrize(
+    ("result_kind", "expected"),
+    [
+        (DiscoveryResultKind.COUNT, "summarize discovered_count=count()"),
+        (DiscoveryResultKind.TYPES, "summarize resource_count=count() by type"),
+    ],
+)
+def test_explanation_preserves_scope_and_result_kind(result_kind, expected) -> None:
+    _profile, operation, plan = _plan(
+        result_kind=result_kind, scope_kind=DiscoveryScopeKind.RESOURCE_GROUP
+    )
+    explanation = render_command_explanation(
+        plan=plan,
+        operation=operation,
+        validated_at=datetime(2026, 1, 1, tzinfo=UTC),
+        cli_version="2.89.1",
+    )
+    assert plan.result_kind is result_kind
+    assert "where resourceGroup =~ '<resource-group>'" in explanation.kql_template
+    assert expected in explanation.kql_template
+    assert "project id" not in explanation.kql_template
+
+
+def test_explanation_cannot_claim_an_unvalidated_cli_version() -> None:
+    _profile, operation, plan = _plan()
+    with pytest.raises(ValueError, match="registered validation pin"):
+        render_command_explanation(
+            plan=plan,
+            operation=operation,
+            validated_at=datetime(2026, 1, 1, tzinfo=UTC),
+            cli_version="2.87.0",
+        )
+
+
+@pytest.mark.parametrize("profile_index", [0, 1])
+@pytest.mark.parametrize("result_kind", [DiscoveryResultKind.LIST, DiscoveryResultKind.COUNT])
+def test_arm_explanation_has_an_executable_scoped_query(profile_index, result_kind) -> None:
+    _profile, operation, plan = _plan(
+        profile_index,
+        operation_index=2,
+        predicates=(),
+        result_kind=result_kind,
+        scope_kind=DiscoveryScopeKind.RESOURCE_GROUP,
+    )
+    explanation = render_command_explanation(
+        plan=plan,
+        operation=operation,
+        validated_at=datetime(2026, 1, 1, tzinfo=UTC),
+        cli_version="2.89.1",
+    )
+    argv = explanation.cli_argv
+    assert "<resource-group>" in argv
+    query = argv[argv.index("--query") + 1]
+    if result_kind is DiscoveryResultKind.COUNT:
+        assert query == ("length([@])" if profile_index == 0 else "length(@)")
+    else:
+        source = "[@]" if profile_index == 0 else "@"
+        assert query == (
+            f"{source}[:100]."
+            "{id:id,type:type,name:name,resourceGroup:resourceGroup,location:location}"
+        )
+    assert "registered-query" not in query
 
 
 def test_coverage_contract_exposes_documented_unmapped_state() -> None:

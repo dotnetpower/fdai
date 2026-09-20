@@ -77,7 +77,10 @@ class UnavailableKubernetesInventoryEnricher:
         clusters = sum(
             1 for resource in observation.resources if resource.type == _KUBERNETES_CLUSTER_TYPE
         )
-        if clusters:
+        source_already_reported = any(
+            state.source == KUBERNETES_INVENTORY_SOURCE_NAME for state in observation.source_states
+        )
+        if clusters and not source_already_reported:
             # Silent degradation here reads as an empty cluster rather than a missing source.
             _LOGGER.warning(
                 "kubernetes_runtime_source_unconfigured_for_observed_clusters",
@@ -170,6 +173,7 @@ class KubernetesInventoryEnricher:
         )
         verified = verify_inventory_relationships(
             generation=observation.generation,
+            mapping_catalog=self._relationship_mapping_catalog,
             resources=projection_resources,
             links=projected.links,
             complete=True,

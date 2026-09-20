@@ -110,6 +110,12 @@ def test_intent_rejects_executable_predicate_text(value: str) -> None:
         DiscoveryPredicate(field="name", operator="contains", values=(value,))
 
 
+@pytest.mark.parametrize("operator", ["eq", "contains"])
+def test_scalar_predicates_cannot_hide_additional_values(operator: str) -> None:
+    with pytest.raises(ValidationError, match="exactly one value"):
+        DiscoveryPredicate(field="name", operator=operator, values=("first", "second"))
+
+
 def test_intent_rejects_unresolved_modifiers() -> None:
     with pytest.raises(ValidationError, match="unresolved modifiers"):
         _intent(unresolved_modifiers=("except inaccessible resources",))
@@ -200,6 +206,24 @@ def test_profile_rejects_executable_fields_and_accepts_registered_metadata() -> 
     assert profile.operations == (operation,)
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
         DiscoveryProfile.model_validate(payload)
+
+
+@pytest.mark.parametrize("status", ["unauthorized", "unsupported", "partial", "unmapped"])
+def test_incomplete_status_cannot_claim_complete_results(status: str) -> None:
+    values = {
+        "plan_digest": DIGEST,
+        "universe": "arm_resources",
+        "backend": "resource_graph",
+        "status": status,
+        "truncated": False,
+        "observed_at": datetime(2026, 1, 1, tzinfo=UTC),
+        "reason_code": "source_unavailable",
+    }
+    with pytest.raises(ValidationError, match="MUST be incomplete"):
+        DiscoveryPlanResult.model_validate({**values, "complete": True})
+    result = DiscoveryPlanResult.model_validate({**values, "complete": False})
+    assert not result.complete
+    assert not result.truncated
 
 
 def test_merged_result_cannot_hide_incomplete_plan() -> None:

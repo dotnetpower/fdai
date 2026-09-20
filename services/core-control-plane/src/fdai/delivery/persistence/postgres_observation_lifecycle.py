@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -17,9 +18,11 @@ from fdai.core.ontology_platform.operational_history_lifecycle import (
     ObservationPartitionKind,
     ObservationPartitionState,
     ResourceIncarnation,
-    build_correction_receipt,
     build_observation_partition,
     build_resource_incarnation,
+)
+from fdai.delivery.persistence.postgres_observation_corrections import (
+    close_observation_corrections,
 )
 from fdai.shared.providers.inventory_observation import (
     InventoryMutationKind,
@@ -30,6 +33,20 @@ from fdai.shared.providers.inventory_observation import (
 
 _OI16_SYNTHETIC_SCOPE = re.compile(r"^synthetic/oi16-certification/[0-9a-f]{48}$")
 _OI16_SYNTHETIC_FACT_FAMILY = "oi16_synthetic_full_observation"
+_READ_BATCH_SIZE = 1000
+
+
+@dataclass(frozen=True, slots=True)
+class _PartitionCandidate:
+    observation_id: str
+    scope_ref: str
+    interval_start: datetime
+    interval_end: datetime
+    watermark: int
+    kind: ObservationPartitionKind
+    correction_of: str | None
+    retention_policy_digest: str
+    created_at: datetime
 
 
 async def bind_observation_lifecycle(
@@ -49,88 +66,96 @@ async def bind_observation_lifecycle(
             item.observation_id,
         ),
     )
-    for observation in ordered:
-        if await _binding_exists(connection, observation.observation_id):
-            replayed.add(observation.observation_id)
-            continue
-        watermark = await _watermark(connection, observation.observation_id)
-        policy_digest = await _policy_digest(
-            connection,
-            _fact_family(observation, allow_oi16_synthetic=allow_oi16_synthetic),
+    existing_bindings = await _existing_binding_ids(
+        connection,
+        tuple(item.observation_id for item in ordered),
+    )
+    pending = tuple(item for item in ordered if item.observation_id not in existing_bindings)
+    replayed.update(existing_bindings)
+    if not pending:
+        return frozenset(replayed)
+    watermarks = await _watermarks(
+        connection,
+        tuple(item.observation_id for item in pending),
+    )
+    fact_families = {
+        item.observation_id: _fact_family(
+            item,
+            allow_oi16_synthetic=allow_oi16_synthetic,
         )
-        late = await _is_late(connection, observation)
-        partition = await _partition(
-            connection,
-            observation,
-            watermark=watermark,
-            policy_digest=policy_digest,
-            late=late,
+        for item in pending
+    }
+    policy_digests = await _policy_digests(connection, tuple(set(fact_families.values())))
+    latest_effective_times = await _latest_effective_times(connection, pending)
+    current_incarnations = await _current_incarnations(connection, pending)
+    partition_candidates: list[_PartitionCandidate] = []
+    incarnation_bindings: dict[str, tuple[str | None, str | None, str | None]] = {}
+    for observation in pending:
+        watermark = watermarks[observation.observation_id]
+        policy_digest = policy_digests[fact_families[observation.observation_id]]
+        latest_at = latest_effective_times.get(
+            (observation.subject_kind.value, observation.subject_ref)
+        )
+        late = latest_at is not None and observation.effective_at < latest_at
+        partition_candidates.append(
+            await _partition_candidate(
+                connection,
+                observation,
+                watermark=watermark,
+                policy_digest=policy_digest,
+                late=late,
+            )
         )
         incarnation_id: str | None = None
         from_incarnation_id: str | None = None
         to_incarnation_id: str | None = None
         if observation.subject_kind is InventoryObservationSubjectKind.OBJECT:
-            incarnation_id = await _object_incarnation(connection, observation)
+            incarnation_id = current_incarnations.get(observation.subject_ref)
+            if incarnation_id is None or observation.mutation_kind is InventoryMutationKind.DELETE:
+                incarnation_id = await _object_incarnation(connection, observation)
+                if observation.mutation_kind is InventoryMutationKind.DELETE:
+                    current_incarnations.pop(observation.subject_ref, None)
+                else:
+                    current_incarnations[observation.subject_ref] = incarnation_id
         else:
-            from_incarnation_id = await _current_incarnation(
-                connection,
-                _required(observation.from_id, "relationship from_id"),
-            )
-            to_incarnation_id = await _current_incarnation(
-                connection,
-                _required(observation.to_id, "relationship to_id"),
-            )
-        cursor = await connection.execute(
-            "INSERT INTO inventory_observation_lifecycle_binding "
-            "(observation_id, incarnation_id, from_incarnation_id, to_incarnation_id, "
-            "partition_id, bound_at) VALUES (%s, %s, %s, %s, %s, %s) "
-            "ON CONFLICT (observation_id) DO NOTHING RETURNING observation_id",
-            (
-                observation.observation_id,
-                incarnation_id,
-                from_incarnation_id,
-                to_incarnation_id,
-                partition.partition_id,
-                observation.recorded_at,
-            ),
+            from_ref = _required(observation.from_id, "relationship from_id")
+            to_ref = _required(observation.to_id, "relationship to_id")
+            from_incarnation_id = current_incarnations.get(from_ref)
+            if from_incarnation_id is None:
+                from_incarnation_id = await _current_incarnation(connection, from_ref)
+                current_incarnations[from_ref] = from_incarnation_id
+            to_incarnation_id = current_incarnations.get(to_ref)
+            if to_incarnation_id is None:
+                to_incarnation_id = await _current_incarnation(connection, to_ref)
+                current_incarnations[to_ref] = to_incarnation_id
+        incarnation_bindings[observation.observation_id] = (
+            incarnation_id,
+            from_incarnation_id,
+            to_incarnation_id,
         )
-        if await cursor.fetchone() is None:
-            retained = await connection.execute(
-                "SELECT incarnation_id, from_incarnation_id, to_incarnation_id, partition_id "
-                "FROM inventory_observation_lifecycle_binding WHERE observation_id=%s",
-                (observation.observation_id,),
-            )
-            row = await retained.fetchone()
-            expected = (
-                incarnation_id,
-                from_incarnation_id,
-                to_incarnation_id,
-                partition.partition_id,
-            )
-            if row is None or tuple(row.values()) != expected:
-                raise ValueError("observation lifecycle replay changed retained binding")
+    partitions, partition_ids = _coalesce_partitions(partition_candidates)
+    bindings = [
+        (
+            observation.observation_id,
+            *incarnation_bindings[observation.observation_id],
+            partition_ids[observation.observation_id],
+            observation.recorded_at,
+        )
+        for observation in pending
+    ]
+    await _insert_partitions(connection, partitions)
+    await _insert_bindings(connection, bindings)
     return frozenset(replayed)
 
 
-async def _binding_exists(
-    connection: psycopg.AsyncConnection[Any],
-    observation_id: str,
-) -> bool:
-    cursor = await connection.execute(
-        "SELECT 1 AS present FROM inventory_observation_lifecycle_binding WHERE observation_id=%s",
-        (observation_id,),
-    )
-    return await cursor.fetchone() is not None
-
-
-async def _partition(
+async def _partition_candidate(
     connection: psycopg.AsyncConnection[Any],
     observation: NormalizedInventoryObservation,
     *,
     watermark: int,
     policy_digest: str,
     late: bool,
-) -> ObservationPartition:
+) -> _PartitionCandidate:
     scope_ref = observation.scope_ref
     if scope_ref is None:
         raise ValueError("observation lifecycle requires an exact scope_ref")
@@ -154,21 +179,237 @@ async def _partition(
         if row is None:
             raise ValueError("late observation has no affected base partition")
         correction_of = str(row["partition_id"])
-    partition = build_observation_partition(
+    return _PartitionCandidate(
+        observation_id=observation.observation_id,
         scope_ref=scope_ref,
         interval_start=interval_start,
         interval_end=interval_start + timedelta(days=1),
-        first_watermark=watermark,
-        last_watermark=watermark,
+        watermark=watermark,
         kind=kind,
-        state=(
-            ObservationPartitionState.CORRECTION_PENDING if late else ObservationPartitionState.OPEN
-        ),
         correction_of=correction_of,
         retention_policy_digest=policy_digest,
         created_at=observation.recorded_at,
     )
-    record = {
+
+
+def _coalesce_partitions(
+    candidates: Sequence[_PartitionCandidate],
+) -> tuple[tuple[ObservationPartition, ...], dict[str, str]]:
+    grouped: dict[
+        tuple[
+            str,
+            datetime,
+            datetime,
+            ObservationPartitionKind,
+            str | None,
+            str,
+        ],
+        list[_PartitionCandidate],
+    ] = {}
+    for candidate in candidates:
+        key = (
+            candidate.scope_ref,
+            candidate.interval_start,
+            candidate.interval_end,
+            candidate.kind,
+            candidate.correction_of,
+            candidate.retention_policy_digest,
+        )
+        grouped.setdefault(key, []).append(candidate)
+
+    partitions: list[ObservationPartition] = []
+    partition_ids: dict[str, str] = {}
+    for key, members in grouped.items():
+        partition = build_observation_partition(
+            scope_ref=key[0],
+            interval_start=key[1],
+            interval_end=key[2],
+            first_watermark=min(item.watermark for item in members),
+            last_watermark=max(item.watermark for item in members),
+            kind=key[3],
+            state=(
+                ObservationPartitionState.CORRECTION_PENDING
+                if key[3] is ObservationPartitionKind.CORRECTION
+                else ObservationPartitionState.OPEN
+            ),
+            correction_of=key[4],
+            retention_policy_digest=key[5],
+            created_at=min(item.created_at for item in members),
+        )
+        partitions.append(partition)
+        partition_ids.update(
+            {candidate.observation_id: partition.partition_id for candidate in members}
+        )
+    return tuple(partitions), partition_ids
+
+
+async def _insert_bindings(
+    connection: psycopg.AsyncConnection[Any],
+    bindings: Sequence[tuple[str, str | None, str | None, str | None, str, datetime]],
+) -> None:
+    for offset in range(0, len(bindings), _READ_BATCH_SIZE):
+        batch = bindings[offset : offset + _READ_BATCH_SIZE]
+        await connection.execute(
+            "INSERT INTO inventory_observation_lifecycle_binding "
+            "(observation_id, incarnation_id, from_incarnation_id, to_incarnation_id, "
+            "partition_id, bound_at) "
+            "SELECT item.observation_id, item.incarnation_id, item.from_incarnation_id, "
+            "item.to_incarnation_id, item.partition_id, item.bound_at "
+            "FROM jsonb_to_recordset(%s::jsonb) AS item("
+            "observation_id text, incarnation_id text, from_incarnation_id text, "
+            "to_incarnation_id text, partition_id text, bound_at timestamptz) "
+            "ON CONFLICT (observation_id) DO NOTHING",
+            (
+                Jsonb(
+                    [
+                        {
+                            "observation_id": item[0],
+                            "incarnation_id": item[1],
+                            "from_incarnation_id": item[2],
+                            "to_incarnation_id": item[3],
+                            "partition_id": item[4],
+                            "bound_at": item[5].isoformat(),
+                        }
+                        for item in batch
+                    ]
+                ),
+            ),
+        )
+        retained = await connection.execute(
+            "SELECT observation_id, incarnation_id, from_incarnation_id, "
+            "to_incarnation_id, partition_id "
+            "FROM inventory_observation_lifecycle_binding "
+            "WHERE observation_id=ANY(%s::text[])",
+            ([item[0] for item in batch],),
+        )
+        retained_by_id = {
+            str(row["observation_id"]): (
+                row["incarnation_id"],
+                row["from_incarnation_id"],
+                row["to_incarnation_id"],
+                row["partition_id"],
+            )
+            for row in await retained.fetchall()
+        }
+        for item in batch:
+            if retained_by_id.get(item[0]) != item[1:5]:
+                raise ValueError("observation lifecycle replay changed retained binding")
+
+
+async def _existing_binding_ids(
+    connection: psycopg.AsyncConnection[Any],
+    observation_ids: Sequence[str],
+) -> frozenset[str]:
+    existing: set[str] = set()
+    for offset in range(0, len(observation_ids), _READ_BATCH_SIZE):
+        batch = observation_ids[offset : offset + _READ_BATCH_SIZE]
+        cursor = await connection.execute(
+            "SELECT observation_id FROM inventory_observation_lifecycle_binding "
+            "WHERE observation_id=ANY(%s::text[])",
+            (list(batch),),
+        )
+        existing.update(str(row["observation_id"]) for row in await cursor.fetchall())
+    return frozenset(existing)
+
+
+async def _watermarks(
+    connection: psycopg.AsyncConnection[Any],
+    observation_ids: Sequence[str],
+) -> dict[str, int]:
+    watermarks: dict[str, int] = {}
+    for offset in range(0, len(observation_ids), _READ_BATCH_SIZE):
+        batch = observation_ids[offset : offset + _READ_BATCH_SIZE]
+        cursor = await connection.execute(
+            "SELECT observation_id, watermark FROM inventory_observation_journal "
+            "WHERE observation_id=ANY(%s::text[])",
+            (list(batch),),
+        )
+        for row in await cursor.fetchall():
+            watermark = int(row["watermark"])
+            if watermark < 1:
+                raise RuntimeError("retained observation watermark is unavailable")
+            watermarks[str(row["observation_id"])] = watermark
+    if len(watermarks) != len(set(observation_ids)):
+        raise RuntimeError("retained observation watermark is unavailable")
+    return watermarks
+
+
+async def _policy_digests(
+    connection: psycopg.AsyncConnection[Any],
+    fact_families: Sequence[str],
+) -> dict[str, str]:
+    cursor = await connection.execute(
+        "SELECT DISTINCT ON (fact_family) fact_family, policy_digest "
+        "FROM operational_retention_policy WHERE fact_family=ANY(%s::text[]) "
+        "ORDER BY fact_family, (purpose='safety-hold-unconfigured') ASC, "
+        "recorded_at DESC",
+        (list(fact_families),),
+    )
+    digests = {
+        str(row["fact_family"]): str(row["policy_digest"]) for row in await cursor.fetchall()
+    }
+    if set(digests) != set(fact_families):
+        raise ValueError("observation retention policy is unavailable")
+    return digests
+
+
+async def _latest_effective_times(
+    connection: psycopg.AsyncConnection[Any],
+    observations: Sequence[NormalizedInventoryObservation],
+) -> dict[tuple[str, str], datetime]:
+    keys = tuple(sorted({(item.subject_kind.value, item.subject_ref) for item in observations}))
+    latest: dict[tuple[str, str], datetime] = {}
+    for offset in range(0, len(keys), _READ_BATCH_SIZE):
+        batch = keys[offset : offset + _READ_BATCH_SIZE]
+        cursor = await connection.execute(
+            "SELECT journal.subject_kind, journal.subject_ref, "
+            "MAX(journal.effective_at) AS latest_at "
+            "FROM inventory_observation_journal AS journal "
+            "JOIN unnest(%s::text[], %s::text[]) "
+            "AS requested(subject_kind, subject_ref) "
+            "ON journal.subject_kind=requested.subject_kind "
+            "AND journal.subject_ref=requested.subject_ref "
+            "GROUP BY journal.subject_kind, journal.subject_ref",
+            ([item[0] for item in batch], [item[1] for item in batch]),
+        )
+        for row in await cursor.fetchall():
+            latest[(str(row["subject_kind"]), str(row["subject_ref"]))] = row["latest_at"]
+    return latest
+
+
+async def _current_incarnations(
+    connection: psycopg.AsyncConnection[Any],
+    observations: Sequence[NormalizedInventoryObservation],
+) -> dict[str, str]:
+    resource_refs = tuple(
+        sorted(
+            {
+                ref
+                for item in observations
+                for ref in (item.subject_ref, item.from_id, item.to_id)
+                if ref is not None
+            }
+        )
+    )
+    incarnations: dict[str, str] = {}
+    for offset in range(0, len(resource_refs), _READ_BATCH_SIZE):
+        batch = resource_refs[offset : offset + _READ_BATCH_SIZE]
+        cursor = await connection.execute(
+            "SELECT resource_ref, incarnation_id FROM inventory_resource_incarnation "
+            "WHERE resource_ref=ANY(%s::text[]) AND closed_at IS NULL FOR UPDATE",
+            (list(batch),),
+        )
+        incarnations.update(
+            {
+                str(row["resource_ref"]): str(row["incarnation_id"])
+                for row in await cursor.fetchall()
+            }
+        )
+    return incarnations
+
+
+def _partition_record(partition: ObservationPartition) -> dict[str, object]:
+    return {
         "partition_id": partition.partition_id,
         "scope_ref": partition.scope_ref,
         "interval_start": partition.interval_start.isoformat(),
@@ -182,38 +423,53 @@ async def _partition(
         "created_at": partition.created_at.isoformat(),
         "digest": partition.digest,
     }
-    inserted = await connection.execute(
-        "INSERT INTO inventory_observation_partition "
-        "(partition_id, scope_ref, interval_start, interval_end, first_watermark, "
-        "last_watermark, partition_kind, state, correction_of, retention_policy_digest, "
-        "record, created_at, updated_at) VALUES "
-        "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
-        "ON CONFLICT (partition_id) DO NOTHING RETURNING partition_id",
-        (
-            partition.partition_id,
-            partition.scope_ref,
-            partition.interval_start,
-            partition.interval_end,
-            partition.first_watermark,
-            partition.last_watermark,
-            partition.kind.value,
-            partition.state.value,
-            partition.correction_of,
-            partition.retention_policy_digest,
-            Jsonb(record),
-            partition.created_at,
-            partition.created_at,
-        ),
-    )
-    if await inserted.fetchone() is None:
-        retained = await connection.execute(
-            "SELECT record FROM inventory_observation_partition WHERE partition_id=%s",
-            (partition.partition_id,),
+
+
+async def _insert_partitions(
+    connection: psycopg.AsyncConnection[Any],
+    partitions: Sequence[ObservationPartition],
+) -> None:
+    for offset in range(0, len(partitions), _READ_BATCH_SIZE):
+        batch = partitions[offset : offset + _READ_BATCH_SIZE]
+        records = [_partition_record(partition) for partition in batch]
+        await connection.execute(
+            "INSERT INTO inventory_observation_partition "
+            "(partition_id, scope_ref, interval_start, interval_end, first_watermark, "
+            "last_watermark, partition_kind, state, correction_of, retention_policy_digest, "
+            "record, created_at, updated_at) "
+            "SELECT item.partition_id, item.scope_ref, item.interval_start, item.interval_end, "
+            "item.first_watermark, item.last_watermark, item.partition_kind, item.state, "
+            "item.correction_of, item.retention_policy_digest, item.record, item.created_at, "
+            "item.created_at FROM jsonb_to_recordset(%s::jsonb) AS item("
+            "partition_id text, scope_ref text, interval_start timestamptz, "
+            "interval_end timestamptz, first_watermark bigint, last_watermark bigint, "
+            "partition_kind text, state text, correction_of text, "
+            "retention_policy_digest text, record jsonb, created_at timestamptz) "
+            "ON CONFLICT (partition_id) DO NOTHING",
+            (
+                Jsonb(
+                    [
+                        {
+                            **record,
+                            "record": record,
+                            "created_at": partition.created_at.isoformat(),
+                        }
+                        for partition, record in zip(batch, records, strict=True)
+                    ]
+                ),
+            ),
         )
-        row = await retained.fetchone()
-        if row is None or _mapping(row["record"]) != record:
-            raise ValueError("observation partition replay changed retained content")
-    return partition
+        retained = await connection.execute(
+            "SELECT partition_id, record FROM inventory_observation_partition "
+            "WHERE partition_id=ANY(%s::text[])",
+            ([partition.partition_id for partition in batch],),
+        )
+        retained_by_id = {
+            str(row["partition_id"]): _mapping(row["record"]) for row in await retained.fetchall()
+        }
+        for partition, record in zip(batch, records, strict=True):
+            if retained_by_id.get(partition.partition_id) != record:
+                raise ValueError("observation partition replay changed retained content")
 
 
 async def _object_incarnation(
@@ -491,114 +747,6 @@ def _mapping(value: object) -> Mapping[str, object]:
     if not isinstance(value, Mapping):
         raise ValueError("observation lifecycle record MUST be an object")
     return value
-
-
-async def close_observation_corrections(
-    connection: psycopg.AsyncConnection[Any],
-    *,
-    generation: str,
-    projection_watermark: int,
-    closed_at: datetime,
-    scope_ref: str | None = None,
-) -> None:
-    """Close correction partitions only after the ontology projection advances.
-
-    ``scope_ref`` narrows the closure to one exact observation scope. The production
-    projection path leaves it unset so every replayed correction closes, while a
-    bounded caller can close only the corrections it actually replayed.
-    """
-
-    manifest_cursor = await connection.execute(
-        "SELECT value FROM state_kv WHERE key='inventory-ontology:manifest'"
-    )
-    manifest_row = await manifest_cursor.fetchone()
-    manifest = _mapping(manifest_row["value"]) if manifest_row is not None else {}
-    graph_digest = manifest.get("manifest_digest")
-    if not isinstance(graph_digest, str) or not graph_digest.startswith("sha256:"):
-        raise ValueError("ontology manifest digest is unavailable for correction closure")
-    cursor = await connection.execute(
-        "SELECT partition_id, correction_of FROM inventory_observation_partition "
-        "WHERE partition_kind='correction' AND state='correction_pending' "
-        "AND last_watermark<=%s AND (%s::text IS NULL OR scope_ref=%s) "
-        "ORDER BY partition_id FOR UPDATE",
-        (projection_watermark, scope_ref, scope_ref),
-    )
-    for row in await cursor.fetchall():
-        partition_id = str(row["partition_id"])
-        corrected_partition_id = str(row["correction_of"])
-        checkpoint_cursor = await connection.execute(
-            "SELECT checkpoint_id FROM inventory_observation_checkpoint "
-            "WHERE partition_id=ANY(%s::text[]) AND valid "
-            "ORDER BY checkpoint_id",
-            ([partition_id, corrected_partition_id],),
-        )
-        checkpoint_ids = tuple(
-            str(item["checkpoint_id"]) for item in await checkpoint_cursor.fetchall()
-        )
-        correction_manifest_digest = _content_digest(
-            {
-                "correction_partition_id": partition_id,
-                "affected_checkpoint_ids": list(checkpoint_ids),
-            }
-        )
-        replay_receipt_digest = _content_digest(
-            {
-                "generation": generation,
-                "projection_watermark": projection_watermark,
-                "graph_digest": graph_digest,
-            }
-        )
-        receipt = build_correction_receipt(
-            correction_partition_id=partition_id,
-            affected_checkpoint_ids=checkpoint_ids,
-            correction_manifest_digest=correction_manifest_digest,
-            replay_receipt_digest=replay_receipt_digest,
-            resulting_graph_digest=graph_digest,
-            projection_watermark=projection_watermark,
-            closed_at=closed_at,
-        )
-        record = {
-            "receipt_id": receipt.receipt_id,
-            "correction_partition_id": receipt.correction_partition_id,
-            "affected_checkpoint_ids": list(receipt.affected_checkpoint_ids),
-            "correction_manifest_digest": receipt.correction_manifest_digest,
-            "replay_receipt_digest": receipt.replay_receipt_digest,
-            "resulting_graph_digest": receipt.resulting_graph_digest,
-            "projection_watermark": receipt.projection_watermark,
-            "closed_at": receipt.closed_at.isoformat(),
-            "complete": receipt.complete,
-            "digest": receipt.digest,
-        }
-        await connection.execute(
-            "INSERT INTO inventory_observation_correction_receipt "
-            "(receipt_id, correction_partition_id, projection_watermark, complete, "
-            "record, closed_at) VALUES (%s, %s, %s, %s, %s, %s) "
-            "ON CONFLICT (receipt_id) DO NOTHING",
-            (
-                receipt.receipt_id,
-                receipt.correction_partition_id,
-                receipt.projection_watermark,
-                receipt.complete,
-                Jsonb(record),
-                receipt.closed_at,
-            ),
-        )
-        await connection.execute(
-            "UPDATE inventory_observation_partition "
-            "SET state='checkpointed', updated_at=%s WHERE partition_id=%s "
-            "AND state='correction_pending'",
-            (closed_at, partition_id),
-        )
-
-
-def _content_digest(value: Mapping[str, object]) -> str:
-    encoded = json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-    ).encode()
-    return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 __all__ = ["bind_observation_lifecycle", "close_observation_corrections"]

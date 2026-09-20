@@ -41,6 +41,7 @@ from scripts.automation.validation_queue_support import (
     git,
     initialize,
     pending_commits,
+    prune_completed_state,
     resolve_commit,
     validation_base,
 )
@@ -499,6 +500,17 @@ def _run_batch(
             paths.runs / f"{head}.json",
             json.dumps(run_record, sort_keys=True) + "\n",
         )
+        try:
+            removed = prune_completed_state(paths, preserve_commits={head, *selected})
+        except OSError as exc:
+            print(
+                f"validation-queue: retention unavailable: {type(exc).__name__}",
+                file=sys.stderr,
+            )
+        else:
+            removed_count = sum(removed.values())
+            if removed_count:
+                print(f"validation-queue: retention removed={removed_count}")
 
 
 def _localize_failure(

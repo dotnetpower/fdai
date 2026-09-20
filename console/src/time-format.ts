@@ -1,5 +1,21 @@
 import { getLocale } from "./i18n";
 
+const timeFormatters = new Map<string, Intl.DateTimeFormat>();
+let browserTimeZone: string | undefined;
+
+function cachedTimeFormatter(
+  locale: string,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
+  const key = JSON.stringify([locale, options]);
+  const cached = timeFormatters.get(key);
+  if (cached) return cached;
+  const formatter = new Intl.DateTimeFormat(locale, options);
+  if (timeFormatters.size >= 16) timeFormatters.clear();
+  timeFormatters.set(key, formatter);
+  return formatter;
+}
+
 /** Accept only calendar-valid RFC 3339 timestamps without Date.parse normalization. */
 export function isRfc3339Timestamp(value: string): boolean {
   const match = value.match(
@@ -60,15 +76,17 @@ export function formatConsoleTime(
   value: string | null,
   timeZone = resolvedBrowserTimeZone(),
   empty = "-",
+  precision: "seconds" | "milliseconds" = "seconds",
 ): string {
   if (value === null) return empty;
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   const locale = getLocale() === "ko" ? "ko-KR" : "en-GB";
-  const time = new Intl.DateTimeFormat(locale, {
+  const time = cachedTimeFormatter(locale, {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    ...(precision === "milliseconds" ? { fractionalSecondDigits: 3 as const } : {}),
     hourCycle: "h23",
     timeZone,
   }).format(parsed);
@@ -97,13 +115,14 @@ export function formatConsoleCompactTimestamp(
 }
 
 function resolvedBrowserTimeZone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  browserTimeZone ??= Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  return browserTimeZone;
 }
 
 function timeZoneLabel(value: Date, timeZone: string): string {
   if (timeZone === "Asia/Seoul") return "KST";
   if (timeZone === "UTC" || timeZone === "Etc/UTC" || timeZone === "Etc/GMT") return "UTC";
-  return new Intl.DateTimeFormat("en-US", {
+  return cachedTimeFormatter("en-US", {
     timeZone,
     timeZoneName: "short",
   }).formatToParts(value).find((part) => part.type === "timeZoneName")?.value ?? timeZone;

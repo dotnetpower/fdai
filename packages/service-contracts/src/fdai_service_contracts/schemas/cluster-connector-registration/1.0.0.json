@@ -1,0 +1,128 @@
+{
+  "$defs": {
+    "ConnectorScope": {
+      "additionalProperties": false,
+      "description": "Name the registered deployment and exact cluster without carrying credentials.",
+      "properties": {
+        "deployment_ref": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+          "title": "Deployment Ref",
+          "type": "string"
+        },
+        "cluster_ref": {
+          "maxLength": 512,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+          "title": "Cluster Ref",
+          "type": "string"
+        },
+        "connector_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+          "title": "Connector Id",
+          "type": "string"
+        },
+        "enrollment_revision": {
+          "maximum": 9223372036854775807,
+          "minimum": 1,
+          "title": "Enrollment Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "deployment_ref",
+        "cluster_ref",
+        "connector_id",
+        "enrollment_revision"
+      ],
+      "title": "ConnectorScope",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Server-owned admission ceiling, never a credential or mutation authorization.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope": {
+      "$ref": "#/$defs/ConnectorScope"
+    },
+    "principal_ref": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+      "title": "Principal Ref",
+      "type": "string"
+    },
+    "role": {
+      "enum": [
+        "observer",
+        "executor"
+      ],
+      "title": "Role",
+      "type": "string"
+    },
+    "namespaces": {
+      "items": {
+        "maxLength": 63,
+        "minLength": 1,
+        "pattern": "^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$",
+        "type": "string"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Namespaces",
+      "type": "array"
+    },
+    "capabilities": {
+      "items": {
+        "enum": [
+          "inventory.snapshot",
+          "lifecycle.events",
+          "diagnostic.read",
+          "governed.execute"
+        ],
+        "type": "string"
+      },
+      "maxItems": 4,
+      "minItems": 1,
+      "title": "Capabilities",
+      "type": "array"
+    },
+    "valid_from": {
+      "format": "date-time",
+      "title": "Valid From",
+      "type": "string"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "revoked": {
+      "default": false,
+      "title": "Revoked",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "scope",
+    "principal_ref",
+    "role",
+    "namespaces",
+    "capabilities",
+    "valid_from",
+    "expires_at"
+  ],
+  "title": "ConnectorRegistration",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/cluster-connector-registration/1.0.0"
+}

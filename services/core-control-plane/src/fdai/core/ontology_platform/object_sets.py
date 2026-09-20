@@ -40,7 +40,7 @@ class ObjectSetService:
         self._object_type_names = object_type_names
 
     async def materialize(self, definition: ObjectSetDefinition) -> ObjectSetMaterialization:
-        concrete_types = self._resolve_types(definition)
+        concrete_types = self.resolve_types(definition)
         source_truncation_reason: ObjectSetTruncationReason | None = None
         if definition.traversal is not None:
             graph = await self._store.traverse(
@@ -59,13 +59,21 @@ class ObjectSetService:
                 else _exact_id_values(definition.predicates)
             )
             if exact_ids is not None:
-                graph = await _query_exact_ids(
-                    self._store,
-                    object_types=concrete_types,
-                    resource_ids=exact_ids,
-                    predicates=definition.predicates,
-                    limit=definition.limit,
-                )
+                if definition.include_relationships and exact_ids:
+                    graph = await self._store.query_objects(
+                        object_types=concrete_types,
+                        object_ids=tuple(dict.fromkeys(exact_ids)),
+                        limit=len(set(exact_ids)),
+                        include_relationships=True,
+                    )
+                else:
+                    graph = await _query_exact_ids(
+                        self._store,
+                        object_types=concrete_types,
+                        resource_ids=exact_ids,
+                        predicates=definition.predicates,
+                        limit=definition.limit,
+                    )
                 source_truncation_reason = (
                     ObjectSetTruncationReason.RESULT_LIMIT if graph.truncated else None
                 )
@@ -161,13 +169,43 @@ class ObjectSetService:
             limit=_STORE_QUERY_LIMIT,
         )
 
-    def _resolve_types(self, definition: ObjectSetDefinition) -> tuple[str, ...]:
+    def resolve_types(self, definition: ObjectSetDefinition) -> tuple[str, ...]:
+        """Resolve the exact concrete type scope without accessing the store."""
         selector = definition.selector
         if selector.kind is ObjectSelectorKind.INTERFACE:
             return self._interfaces.resolve(selector.name)
         if selector.name not in self._object_type_names:
             raise ValueError(f"unknown ontology ObjectType {selector.name!r}")
         return (selector.name,)
+
+    async def query_roots(self, root_ids: tuple[str, ...]) -> OntologyGraphSnapshot:
+        """Read bounded root identities for authorization before traversal."""
+        return await self._store.query_objects(
+            object_types=tuple(sorted(self._object_type_names)),
+            object_ids=root_ids,
+            limit=len(root_ids),
+            include_relationships=False,
+        )
+
+    async def scan_snapshot(
+        self,
+        *,
+        object_type_names: tuple[str, ...],
+        candidate_limit: int,
+    ) -> OntologyGraphSnapshot:
+        """Read one bounded source snapshot for off-path index preparation."""
+        if (
+            not object_type_names
+            or len(set(object_type_names)) != len(object_type_names)
+            or not set(object_type_names) <= self._object_type_names
+            or type(candidate_limit) is not int
+            or not 1 <= candidate_limit <= 20_000
+        ):
+            raise ValueError("index snapshot requires known unique types and a bounded limit")
+        return await self._store.scan_objects(
+            object_types=tuple(sorted(object_type_names)),
+            candidate_limit=candidate_limit,
+        )
 
 
 def _exact_id_values(predicates: Sequence[ObjectPredicate]) -> tuple[str, ...] | None:

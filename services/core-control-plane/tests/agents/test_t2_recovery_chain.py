@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator, Mapping
 from copy import deepcopy
+from pathlib import Path
 from threading import Lock
 from typing import Any
 
@@ -15,11 +16,20 @@ from fdai.agents.heimdall import Heimdall
 from fdai.agents.saga import Saga
 from fdai.agents.var import Var
 from fdai.core.executor.lock import ResourceLockManager
+from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.runtime.t2_route_registry import T2RouteRegistry
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.event_bus import EventBus, EventEnvelope, PublishReceipt
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _RAW_TOPIC = "fdai.events"
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+_ACTION_TYPES = tuple(
+    load_action_type_catalog(
+        _REPO_ROOT / "rule-catalog" / "action-types",
+        schema_registry=PackageResourceSchemaRegistry(),
+    )
+)
 
 
 class _DistributedTestLock(ResourceLockManager):
@@ -227,6 +237,7 @@ def test_approved_failure_switches_persistent_route_through_thor() -> None:
         provider=provider,
         raw_event_topic=_RAW_TOPIC,
         enforce=True,
+        action_types=_ACTION_TYPES,
         thor_executor=registry.execute,
         thor_state_store=StateStoreActionRunStore(store),
         saga=Saga(audit_chain=StateStoreAuditChainAdapter(store)),
@@ -264,6 +275,7 @@ def test_vidar_restores_route_when_thor_verification_fails() -> None:
         provider=provider,
         raw_event_topic=_RAW_TOPIC,
         enforce=True,
+        action_types=_ACTION_TYPES,
         thor_executor=switch_then_fail,
         thor_state_store=StateStoreActionRunStore(store),
         saga=Saga(audit_chain=StateStoreAuditChainAdapter(store)),

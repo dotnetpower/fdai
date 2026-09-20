@@ -129,6 +129,8 @@ class PantheonRuntime:
         consumer_group_prefix: str = _DEFAULT_GROUP_PREFIX,
         saga: Saga | None = None,
         muninn_state_store: StateStore | None = None,
+        huginn_state_store: StateStore | None = None,
+        loki_state_store: StateStore | None = None,
         evidence_conflict_sink: EvidenceConflictSink | None = None,
         rule_generation_workers: runtime_subscriptions.RuleGenerationWorkerBindings | None = None,
         rule_generation_activation_binder: RuleGenerationActivationBinder | None = None,
@@ -229,6 +231,8 @@ class PantheonRuntime:
             handler_observer=handler_observer,
         )
         instantiated = factory.instantiate_pantheon()
+        instantiated["Huginn"] = factory.configured_huginn(discovery_projector, huginn_state_store)
+        instantiated["Loki"] = factory.configured_loki(loki_state_store)
         bind_catalog_review(instantiated, catalog_review)
         if (
             conversation_semantic_judgment is not None
@@ -254,8 +258,6 @@ class PantheonRuntime:
                 metering=conversation_metering,
                 t2_model_key=conversation_t2_model_key,
             )
-        if discovery_projector is not None:
-            instantiated["Huginn"] = Huginn(discovery_projector=discovery_projector)
         action_semantics = (
             ActionSemanticsCatalog.from_action_types(action_types) if action_types else None
         )
@@ -340,8 +342,7 @@ class PantheonRuntime:
 
             heimdall.register_incident_candidate(observe_and_open)
 
-        # Only explicit promotion permits Thor enforce; otherwise parallel P1 dispatch
-        # could double-mutate and violate shadow-before-enforce.
+        # Only explicit promotion permits Thor enforce; parallel P1 dispatch could double-mutate.
         thor = instantiated["Thor"]
         if isinstance(thor, Thor):
             execution_safety.configure_thor_execution(

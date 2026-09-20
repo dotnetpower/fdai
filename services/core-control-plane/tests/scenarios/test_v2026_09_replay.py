@@ -58,6 +58,7 @@ from typing import Any, cast
 
 import pytest
 from fdai.agents import (
+    ActionSemanticsCatalog,
     AuditEntry,
     InitialVerticalPrecedence,
     InMemoryAuditChain,
@@ -1442,6 +1443,7 @@ def _conflict_boundary(
     spec: dict[str, Any],
     store: InMemoryOntologyInstanceStore,
     *,
+    catalog: CostGovernanceCatalogComposition,
     with_arbitration_owner: bool,
 ) -> tuple[InMemoryBus, Forseti, Saga, InMemoryAuditChain, Odin | None]:
     """Wire the shipped arbitration boundary, optionally without its owner.
@@ -1451,7 +1453,8 @@ def _conflict_boundary(
     Saga subscribes to its declared `object.verdict` topic so the terminal
     disposition lands in the append-only audit chain. Dropping Odin models
     missing arbitration authority: Forseti still raises the request, but
-    nothing on the bus may resolve it.
+    nothing on the bus may resolve it. Action semantics come from the same
+    shipped catalog as the replay, not the missing-catalog fallback.
 
     The runtime health probe is bound last, through the same
     :func:`bind_availability_probe` seam the composition root uses, over
@@ -1464,6 +1467,7 @@ def _conflict_boundary(
     bus = InMemoryBus(registry=load_pantheon())
     forseti = Forseti(
         bus=bus,
+        action_semantics=ActionSemanticsCatalog.from_action_types(catalog.action_types),
         operational_context=OperationalContextMaterializer(
             store=store,
             clock=lambda: cutoff,
@@ -1558,6 +1562,7 @@ async def _replay_conflict(
     bus, forseti, saga, audit_chain, _ = _conflict_boundary(
         spec,
         store,
+        catalog=shipped_catalog,
         with_arbitration_owner=with_arbitration_owner,
     )
     event = _conflict_event(
@@ -2019,6 +2024,7 @@ async def test_sre_cross_objective_agreement_raises_no_arbitration(
     bus, forseti, _, audit_chain, _ = _conflict_boundary(
         spec,
         await _conflict_context_store(spec),
+        catalog=shipped_catalog,
         with_arbitration_owner=True,
     )
     assert await forseti.maybe_request_arbitration(event) is None

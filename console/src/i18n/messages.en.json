@@ -399,9 +399,7 @@
       "title": "Agent activity log",
       "lastObserved": "Last observed",
       "rows": "{count} row(s)",
-      "tailOn": "Live tail on",
-      "disableTail": "Disable live tail",
-      "resumeTail": "Resume tail",
+      "newEvents": "{count} new events",
       "columns": "Columns",
       "column": {
         "time": "Time",
@@ -1099,7 +1097,27 @@
     "tabsLabel": "Environment and deployment views",
     "readinessTab": "Readiness",
     "deploymentTab": "Deployment run",
+    "observersTab": "Cluster observers",
     "invalidTab": "The requested environment and deployment view does not exist."
+  },
+  "observerProposals": {
+    "title": "Cluster observer proposals",
+    "empty": "No observer proposal has been received.",
+    "unavailable": "Current observer evidence is unavailable.",
+    "ready_for_review": "Ready for review",
+    "needs_evidence": "More evidence needed",
+    "blocked": "Blocked",
+    "not_applicable": "Not applicable",
+    "recommendation": "Recommended installation method",
+    "gitops": "Existing GitOps",
+    "existing_host": "Existing internal host",
+    "managed_host": "New managed host",
+    "run_command": "One-time Run Command",
+    "private": "Private egress",
+    "public": "Public egress",
+    "eligible": "Eligible for review",
+    "unknown": "Not established",
+    "expires": "Evidence expires"
   },
   "provision": {
     "subtitle": "Read-only progress from the active provisioning stream",

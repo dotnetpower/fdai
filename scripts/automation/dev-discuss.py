@@ -22,6 +22,10 @@ from fdai_runtime_diagnostics import DevelopmentProfilePacket, request_profile
 
 SCHEMA = "1.0.0"
 SERVICES = ("core-control-plane", "operator-service")
+SERVICE_LAUNCHERS = {
+    "core-control-plane": "core-runtime",
+    "operator-service": "operator-api",
+}
 SEVERITIES = ("low", "medium", "high", "critical")
 MAX_PACKETS = 20
 MAX_FILE_BYTES = 1024 * 1024
@@ -101,6 +105,26 @@ def _worktree_digest(root: Path) -> str:
     return value
 
 
+def _service_input_digest(root: Path, service: str) -> str:
+    result = subprocess.run(
+        [
+            "bash",
+            str(root / "scripts" / "deployment" / "local" / "run-console-service.sh"),
+            SERVICE_LAUNCHERS[service],
+            "--print-input-digest",
+        ],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    value = result.stdout.strip()
+    if _HEX64.fullmatch(value) is None:
+        raise ValueError("service input digest is invalid")
+    return value
+
+
 def _state(root: Path) -> Path:
     local_state = root / ".fdai"
     if local_state.is_symlink():
@@ -129,10 +153,8 @@ async def _capture(
         heap=heap,
         timeout_seconds=max(5.0, duration_ms / 1000 + 5.0),
     )
-    if packet.source_revision != _git_revision(root):
-        raise ValueError("running service revision does not match the workspace")
-    if packet.worktree_digest != _worktree_digest(root):
-        raise ValueError("running service worktree digest does not match the workspace")
+    if packet.service_input_digest != _service_input_digest(root, service):
+        raise ValueError("running service inputs do not match the workspace")
     return packet
 
 
@@ -335,9 +357,28 @@ def _prune(directory: Path, pattern: str) -> None:
         path.unlink()
 
 
-def _status(root: Path) -> int:
+async def _socket_available(socket_path: Path) -> bool:
+    if not socket_path.is_socket():
+        return False
+    try:
+        await request_profile(
+            socket_path,
+            duration_ms=0,
+            cpu=False,
+            heap=False,
+            timeout_seconds=2,
+        )
+    except (OSError, TimeoutError, RuntimeError, ValueError):
+        return False
+    return True
+
+
+async def _status(root: Path) -> int:
     sockets = root / ".fdai" / "runtime-diagnostics"
-    value = {service: (sockets / f"{service}.sock").is_socket() for service in SERVICES}
+    availability = await asyncio.gather(
+        *(_socket_available(sockets / f"{service}.sock") for service in SERVICES)
+    )
+    value = dict(zip(SERVICES, availability, strict=True))
     print(json.dumps(value, sort_keys=True))
     return 0 if any(value.values()) else 1
 
@@ -357,7 +398,7 @@ def _report(root: Path, top: int) -> int:
 async def _main_async(options: argparse.Namespace) -> int:
     root = _root()
     if options.command == "status":
-        return _status(root)
+        return await _status(root)
     if options.command == "report":
         return _report(root, options.top)
     if options.command == "copilot-import":

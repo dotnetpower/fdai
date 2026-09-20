@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 80d520267149446deee3423bff54be8e54f17fa4
-translation_revised: 2026-09-17
+translation_source_sha: 6b8cdc177949e6f70c1caf032fe79258a16e7224
+translation_revised: 2026-09-20
 ---
 
 # 계층형 대화 계획
@@ -27,9 +27,8 @@ T1 모델 또는 프로바이더를 사용할 수 없고 활성화된 타입 기
 `golden_campaign_no_t2` 프로필을 선택하므로 프로바이더를 사용할 수 없어도 캠페인 fallback을
 호출하지 않습니다.
 
-Schema repair는 전역 prompt 교체나 T2 escalation이 아닌 별도의 bounded T1 binding입니다. Primary T1 제안이 제공된 온톨로지 스키마 intent를 선택했지만 결정론적 frame에 필요한 typed count 또는 고유 subject가 없을 때만 Core가 최대 한 번 호출합니다. Repair는 읽기 전용을 유지하고 스키마 family를 보존하며 같은 capability/span 검증을 통과하고 귀속 가능한 model observation 하나를
-추가해야 합니다. 유효하지 않거나 사용할 수 없는 repair는 primary의 fail-closed outcome을
-유지합니다. Utterance phrase나 keyword로 이 binding을 선택하지 않습니다.
+스키마 복구는 전역 프롬프트 교체나 T2 확장이 아닌 별도의 제한된 T1 연결입니다. Core는 불완전한 스키마 개수나 정확한 선언 대상에 대해 최대 한 번 호출합니다. 대상·모호성·보조 의도가 없고 `readable`과 `object_types`, `interface_types`, `link_types`, `action_types`, `function_types` 중 하나만 명시한 완전한 `query.manifest` 목록은 복구를 생략합니다. 목록 프롬프트 묶음이 두 언어에서 이 형태를 제안하며 개수, 상세, 인스턴스, 혼합 종류 또는 추가 요구를 목록으로 축소하지 않습니다.
+복구는 읽기 전용과 스키마 기능군을 유지하고 같은 기능·원문 구간 검증을 통과하며 귀속 가능한 모델 관측 하나를 추가합니다. 유효하지 않거나 사용할 수 없는 복구는 원래의 안전한 실패 결과를 유지합니다. 발화 구문이나 키워드로 이 연결을 선택하지 않습니다.
 
 Owner는 런타임 정책에서 적극적인 읽기 전용 T2 복구를 활성화할 수 있습니다. 로컬 시연을 위해 개발
 환경에서는 기본적으로 활성화하고, 측정된 보증 근거로 승격하기 전까지 스테이징과 운영 환경에서는
@@ -82,17 +81,11 @@ Core는 `query.resource_state_inventory`를 수락하기 전에 서로 다른 T2
 수락되지 않았거나 형식이 잘못된 판단은 이후 구독 또는 Resource 요약 frame으로 다시 진입할 수
 없습니다. 직접 상태 목록과 상태 확인 목록은 누락된 보조 의도 없이 각각 정확한 기본 의도가 필요하며, 결합 조건 요약에는 정확한 상태 및 상태 확인 의도 집합이 필요합니다. 정확한 Resource 대상은 컬렉션 요약으로 넓힐 수 없지만 선언된 Resource 타입 값과 그룹은 컬렉션 범위로 유지합니다. 판단 경계가 없어도 모델 frame은 이름이 지정된 범위나 원문에서 독립적으로 확인한 정확한 대상 감지를 우회하거나, 함께 요청한 Service Health를 구독 신원으로 축소하거나, 결정론적 카탈로그 및 서술자 일치가 두 구성 요소를 근거로 확인하지 않은 결합 조건을 만들 수 없습니다. 카탈로그와 서술자의 상태 일치는 합치지만 Health 권한이 부여된 원문 범위에 인벤토리 상태 권한을 함께 부여하지 않습니다. 대상 없는 구독 요약은 타입이 지정된 대상과 영어 `subscription` 명사 앞뒤에 범위가 제한된 Unicode 이름을 쓴 경우를 모두 차단합니다. 정확한 한국어 요청 서술어는 일반 문구로 처리하되 실제 Unicode 이름을 숨기지 않으며, 일반 한정사와 설명 토큰은 현재 범위 참조로 유지합니다.
 
-답변이 현재 환경 근거에 의존하지 않는 일반 설명, 개념적인 기술 비교 및 일반 권고는 one-shot 지식
-경로를 사용합니다. 한 번의 preflight 모델 호출이 타입 기반 `knowledge_signal`과 범위가 제한된
-`general_answer`를 함께 작성합니다. Core는 신뢰도, 현재 입력 및 제안 digest, 모델 및 프롬프트
-출처, 프로필 digest, 로캘, 권한 없음 필드를 검증한 뒤 답변을 게시합니다. 이 경로는 Adaptive 계획,
-Adaptive 답변, 독립 검토, 보강, 검증, T2, 온톨로지 조회 또는 프로바이더 읽기를 실행하지 않습니다.
-형식이 잘못됐거나 사용할 수 없는 preflight는 스키마 수정이나 두 번째 모델 호출 없이 보류합니다.
-독립 검토를 수행하지 않으므로 답변은 `quality_status=limited`를 표시하고 운영 검증을 주장할 수
-없습니다. 클라우드 운영 용어가 포함됐다는 이유만으로 운영 질문이 되지는 않습니다. 일반 지식과
-현재 환경 요청이 섞인 경우에만 Adaptive 다중 목표 경로를 유지합니다.
-Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시합니다. 모든 턴이 의미 계획이나 조사
-계획을 기다린다고 주장하지 않습니다.
+일반 설명, 개념 비교 및 권고는 환경 근거와 독립적일 때만 단일 호출 지식 경로를 사용합니다. 사전 판정 모델이 `knowledge_signal`과 범위가 제한된 `general_answer`를 함께 작성하고 Core는 신뢰도, 입력·제안 다이제스트, 모델·프롬프트 출처, 프로필 다이제스트, 로캘 및 권한 없음 필드를 검증합니다.
+이 경로는 적응형 단계, 독립 검토, 검증, T2, 온톨로지 조회 또는 프로바이더 읽기를 실행하지 않습니다. 잘못되거나 사용할 수 없는 사전 판정은 복구나 추가 모델 호출 없이 보류합니다. 독립 검토가 없는 답변은 `quality_status=limited`를 유지하며 운영 검증을 주장할 수 없습니다.
+서버 범위 메타데이터는 시간 표현이 없어도 근거가 필요합니다. principal에게 보이는 선언, 활성 release, 등록된 기능, 활성 카탈로그 항목 및 운영자 권한은 인증된 매니페스트나 카탈로그를 조회해야 합니다. 스키마 범위 프롬프트 묶음은 이를 `knowledge_signal=none`, `general_answer=null`인 운영 질문으로 유지합니다. 간결한 유형으로 처리할 수 없으면 사용자에게 서버 소유 정책을 요구하는 대신 `operational_family=none`으로 전체 의미 판단을 거칩니다.
+영어와 한국어의 개념 정의는 일반 지식으로 유지합니다. 용어만으로 운영 경로를 선택하지 않으며 지식과 환경 요청이 섞이면 적응형 다중 목표 계획을 사용합니다. 이는 모델 지침이며 발화 키워드 라우팅이나 권한 부여가 아닙니다.
+Operator의 초기 레이블은 모든 턴에 조사 계획이 필요하다고 주장하지 않고 답변 경로를 확인한다고 표시합니다.
 
 알려진 운영 유형은 범용 의미 frame 프롬프트 대신 전용 544토큰 frame 프롬프트를 사용합니다.
 스키마를 포함한 전체 system 및 user 요청에는 64KiB의 고정 상한을 적용합니다. Core는 프롬프트나
@@ -174,6 +167,7 @@ Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 스키마 범위 사전 라우팅 | implemented | `conversation-preflight-schema-scope.v1.yaml`, 활성 사전 판정 프로필 v4, `test_composer.py`, 집중 계약 및 운영 연결 검사 | 제한된 실제 T1 비교에서 기준선 5건 중 3건, 수정본 6건 모두가 올바르게 분류됐으며 일반 개념 대조 질문도 포함했습니다. 로컬 증적 기록 오류로 유실된 기준선 1회는 재시도하지 않고 제외했습니다. 라우팅 근거이며 전체 조회 인증은 아닙니다. |
 | 적응형 설명과 검증된 예시 | implemented | `adaptive-plan.v4.yaml`, `adaptive-answer.v2.yaml`, `adaptive-review.v2.yaml`, 집중 프롬프트 및 런타임 검사, 인증된 Browser Entra 비교 턴 | 일반 지식과 운영이 섞인 목표, 고정 역할 프롬프트, 만료되는 담당 관계 증명, 독립 검토, 제한된 보강 및 재실행 후 표현을 연결했습니다. 순수 일반 지식은 이러한 다단계 작업을 우회합니다. |
 | One-shot 일반 지식 | validated | `conversation-preflight.v6.yaml`, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 집중 검사, 10개 관점의 독립 검토, 인증된 한국어 Browser Entra 턴 | 신뢰도가 높고 현재 입력 및 프로필에 결합된 preflight 호출 한 번이 분류와 범위가 제한된 답변 작성을 함께 수행합니다. 준비 완료 후 UI 변형 질문은 각각 3.321초, 4.210초, 4.319초, 4.691초에 완료됐고 `narrator-gpt-5-4-mini`를 한 번씩만 호출했습니다. 계획, Adaptive 답변, 검토, 보강, 검증, T2, 온톨로지 또는 프로바이더 읽기는 수행하지 않았으며 권한 없는 제한 품질을 표시했습니다. |
 | Compact conversation preflight 및 social narrator | implemented | `conversation-preflight.v9.yaml`, `conversation-social-narrator.v1.yaml`, act별 enforce pack, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py), 프롬프트 계약 검사 및 인증된 영어/한국어 비교 턴 | Temperature 0인 분류기가 첫 번째 턴에도 실행되며 매니페스트 로드 전에 인사, 자기소개, 명시적 감사, 작별, 일반 지식, 일반 동의, 운영, 혼합, 운영 맥락 및 사회적 연속성 턴을 분리합니다. 맥락과 독립적인 일반 지식은 one-shot 답변 경로를 선택하고 현재 환경 질문은 검증된 경로나 Adaptive 근거 경로를 유지합니다. 대상이 없는 구독 신원, Service Health, 최근 Resource 상태 변경 조회와 명시적인 Resource 상태 포함 또는 제외 필터를 포함한 검토된 운영 형식은 출처가 결속된 후보 의미 판단 필드도 제공할 수 있습니다. 타입이 지정된 출력 필드를 catalog Resource 타입 후보에서 제외한 뒤 누락된 단일 하위 타입을 복구합니다. 검증된 Resource 상태 행은 관측 인벤토리의 클라우드 공급자 중립 `resource_group` 및 `region` 필드를 전달합니다. 값이 없으면 추론하지 않고 `null`로 유지하며 답변에는 `unavailable`로 표시합니다. 현재 상태 컬렉션이 상태 변경 이력도 요구하면 타입이 지정된 요구사항을 보존하고 검증된 join 기능이 제공될 때까지 provider I/O 전에 중단합니다. |
@@ -195,6 +189,8 @@ Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-20 | implemented | 닫힌 정본 선언 목록 프롬프트를 추가하고 완전한 단일 종류 형태에만 불필요한 스키마 복구를 생략했습니다. 개수, 상세 및 추가 facet은 별도 경로를 유지합니다. | `current change`, 판단·매니페스트·프롬프트·레지스트리 집중 테스트 227개, strict mypy 및 Ruff 통과, 고정 기능 T1 수정본에서 정확한 EN/KO 목록 10건과 개수·상세 의도를 유지한 대조 사례 2건 확인 | 인증된 전체 매니페스트 조회 증적이 필요합니다. 작은 모델 집단은 영속 인덱스나 운영 관련성 인증이 아닙니다. |
+| 2026-09-20 | implemented | 인증된 객체 유형 질문이 정책을 요구하는 일반 안내로 잘못 반환된 뒤 정확한 스키마 범위 묶음을 추가했습니다. base v9를 보존하고 수정본을 평가한 뒤 기본 프로필 v4에 연결했습니다. | `current change`, 프롬프트·사전 판정 테스트 218개 및 운영 연결·매니페스트 테스트 71개 통과, 리소스 변경이나 T2 호출 없이 수정본 분류 6건 통과 | 이 소스를 반영한 뒤 수정된 EN/KO 인증 조회 증적을 보존해야 합니다. 영속 인스턴스 인덱스와 광범위한 관련성 평가는 별도 작업입니다. |
 | 2026-09-13 | implemented | 누락된 단일 catalog Resource 하위 타입을 출력 필드와 구분해 복구하고, 검증된 Resource 상태 행과 결정론적 표현에 클라우드 공급자 중립 리소스 그룹과 지역 변환을 추가했습니다. 범위 값이 없으면 명시적으로 유지하며 식별자에서 추론하지 않습니다. | `current change`, value filter, semantic plan, Azure 인벤토리, Resource 상태 FunctionType, Core 렌더러 및 Operator 표현 집중 회귀 검사 | 런타임 검증을 주장하기 전에 수정된 인증 PostgreSQL 인벤토리 답변 하나를 보존하고 새 Copilot 검토를 추가합니다. |
 | 2026-09-13 | implemented | 타입이 지정된 `resource_state_exclusion_filter`와 `state_change_history` preflight 계약을 추가했습니다. Core는 제외 대상을 선언된 상태 concept 하나에만 grounding하고 폐쇄형 complement를 `query.resource_state_inventory`로 컴파일합니다. 현재 상태 컬렉션이 마지막 전이 이력도 요구하면 provider I/O 전에 `unsupported`를 반환합니다. | `current change`, exact preflight, exclusion plan, history hold, 기존 collection plan, prompt registry, Ruff 및 strict mypy 검사 | runtime 검증을 주장하기 전에 active v9에서 인증된 exclusion-only 결과 하나와 결합 history hold 하나를 보존합니다. |
 | 2026-09-10 | implemented | 복수 선언 종류와 명시적인 가시성 및 현재 범위 특성을 지정한 여섯 번째 스키마 유효 타입 지정 판단 형식을 결정론적 매니페스트 정규화에 추가했습니다. 복수형이 목록 수량을 제공하며 기존 principal 가시성과 현재 범위 요구사항은 그대로 유지됩니다. | `current change`, 범위가 제한된 여섯 번째 인증 Browser Entra 관측, 성공 사례와 list 또는 queryable이 없는 단수 형태를 거부하는 회귀 검사 | 수정한 정확한 소스를 게시하고 병합한 다음 최종 인증 5273/8010 근거 시도를 한 번 실행합니다. |
@@ -262,6 +258,7 @@ Operator의 초기 진행 레이블은 답변 경로를 확인한다고 표시�
 
 ### 남은 작업
 
+- [ ] 스키마 범위 묶음을 반영한 뒤 EN/KO 객체 유형 조회가 `object`만 선택하고 완전한 근거와 실행 권한 없음을 갖는 재시작 후 증적을 보존합니다.
 - [x] 적응형 대화 비평에서 Low를 초과하는 미해결 문제가 없도록 했습니다. 집중 구현 검사와
   격리된 브라우저 근거는 현재 변경의 이력에 기록했습니다.
 - [ ] 읽을 수 있는 모든 ontology declaration과 runtime availability state에 대해 release에서

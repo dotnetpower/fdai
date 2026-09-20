@@ -39,6 +39,7 @@ async def test_close_runtime_resources_preserves_order_after_bounded_failures() 
         auxiliary_bus=_Resource("auxiliary", calls, fail=True),
         bus=_Resource("bus", calls, fail=True),
         http_client=_Resource("http", calls, fail=True),
+        state_store=_Resource("state", calls, fail=True),
     )
 
     assert calls == [
@@ -49,6 +50,7 @@ async def test_close_runtime_resources_preserves_order_after_bounded_failures() 
         "auxiliary",
         "bus",
         "http",
+        "state",
     ]
 
 
@@ -66,6 +68,7 @@ async def test_runtime_resources_stops_isolated_executor_before_shared_resources
         http_client=_Resource("http", calls),  # type: ignore[arg-type]
         messaging=messaging,
         isolated_executor_client=_Resource("isolated", calls),
+        state_store=_Resource("state", calls),
         pantheon=PantheonInitializationResult(
             runtime=_Resource("pantheon", calls),  # type: ignore[arg-type]
             runtime_state_publisher=_Resource("publisher", calls),  # type: ignore[arg-type]
@@ -83,6 +86,7 @@ async def test_runtime_resources_stops_isolated_executor_before_shared_resources
         "auxiliary",
         "bus",
         "http",
+        "state",
     ]
 
 

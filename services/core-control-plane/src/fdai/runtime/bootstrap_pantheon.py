@@ -498,6 +498,8 @@ async def initialize_pantheon(
         approver_authorizer=approver_authorizer_from_environment(config.environment),
         saga=config.runtime_saga,
         muninn_state_store=config.incident_audit_store,
+        huginn_state_store=config.incident_audit_store,
+        loki_state_store=config.incident_audit_store,
         evidence_conflict_sink=StateStoreEvidenceConflictProjection(config.incident_audit_store),
         prospective_lineage_finalizer=prospective_lineage_finalizer,
         prospective_lineage_materializer=prospective_lineage_materializer,

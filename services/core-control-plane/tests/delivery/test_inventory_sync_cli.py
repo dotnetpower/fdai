@@ -20,6 +20,7 @@ import pytest
 import yaml
 from fdai.delivery import inventory_sync_cli_support
 from fdai.delivery.aks_subscription_discovery import (
+    AksPrivateClusterObservation,
     AksSubscriptionDiscoveryError,
     AksSubscriptionDiscoveryResult,
 )
@@ -31,6 +32,7 @@ from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentit
 from fdai.delivery.inventory_change_acceleration import (
     forward_recovery_deltas as _forward_recovery_deltas,
 )
+from fdai.delivery.inventory_collection import collection_context_digest, collection_producer_digest
 from fdai.delivery.inventory_job_config import (
     InventoryJobConfig,
     inventory_scopes_from_env,
@@ -91,6 +93,31 @@ from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdenti
 from fdai_service_contracts import OperationalActivityStatus
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"FDAI_KUBERNETES_CONNECTOR_REGISTRATION_PATH": "/example/registrations.json"},
+        {"FDAI_KUBERNETES_CONNECTOR_CLUSTER_RESOURCES": "1"},
+        {
+            "FDAI_KUBERNETES_CONNECTOR_REGISTRATION_PATH": "/example/registrations.json",
+            "FDAI_KUBERNETES_CONNECTOR_PRINCIPAL_REF": "example",
+            "FDAI_KUBERNETES_SUBSCRIPTION_DISCOVERY": "1",
+        },
+    ],
+)
+def test_connector_rejects_incomplete_or_mixed_inventory_binding(extra: dict[str, str]) -> None:
+    with pytest.raises(ValueError, match="connector"):
+        InventoryJobConfig.from_env(
+            {
+                "FDAI_INVENTORY_DSN": "postgresql://example",
+                "FDAI_INVENTORY_SCOPES": "00000000-0000-0000-0000-000000000000",
+                **extra,
+            }
+        )
+
+
 _CLUSTER_REF = (
     "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/"
     "providers/Microsoft.ContainerService/managedClusters/aks-example"
@@ -114,6 +141,18 @@ def test_inventory_scopes_prefer_authoritative_multi_scope_setting() -> None:
     assert inventory_scopes_from_env({"AZURE_SUBSCRIPTION_ID": "legacy-scope"}) == ("legacy-scope",)
 
 
+def _state_store_double() -> SimpleNamespace:
+    from fdai.shared.providers.testing import InMemoryStateStore
+
+    store = InMemoryStateStore()
+    return SimpleNamespace(
+        read_state=AsyncMock(wraps=store.read_state),
+        write_state=AsyncMock(wraps=store.write_state),
+        write_state_if_absent=AsyncMock(wraps=store.write_state_if_absent),
+        write_state_with_audit_if_absent=AsyncMock(return_value=True),
+    )
+
+
 def _ontology_observer_harness(
     monkeypatch: pytest.MonkeyPatch,
     *,
@@ -126,6 +165,14 @@ def _ontology_observer_harness(
     if operator_requested:
         config_values["FDAI_INVENTORY_OPERATOR_REQUESTED"] = "1"
     config = InventoryJobConfig.from_env(config_values)
+    from fdai.delivery import inventory_ontology_observer
+    from fdai.shared.providers.testing import InMemoryStateStore
+
+    if isinstance(inventory_ontology_observer.PostgresStateStore, type):
+        status_store = InMemoryStateStore()
+        monkeypatch.setattr(
+            inventory_ontology_observer, "PostgresStateStore", lambda **_: status_store
+        )
     ontology_store = SimpleNamespace(
         sync_catalog=AsyncMock(),
         read_inventory_state_base=AsyncMock(return_value=()),
@@ -182,6 +229,10 @@ def _ontology_observer_harness(
         lambda *_args, **_kwargs: observation_journal,
     )
     configuration_event_publisher = AsyncMock(return_value=1)
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_ontology_observer.PostgresInventoryDeliveryReader",
+        lambda **_: SimpleNamespace(load_next=AsyncMock(return_value=None)),
+    )
     activity_publisher = SimpleNamespace(
         publish=AsyncMock(),
         configuration_event_publisher=configuration_event_publisher,
@@ -390,10 +441,7 @@ async def test_model_serving_enricher_matches_full_reconciliation_cadence() -> N
 async def test_ontology_observer_persists_diagnostics_on_inventory_promotion(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    state_store = SimpleNamespace(
-        write_state_with_audit_if_absent=AsyncMock(return_value=True),
-        read_state=AsyncMock(return_value=None),
-    )
+    state_store = _state_store_double()
     monkeypatch.setattr(
         "fdai.delivery.inventory_ontology_observer.PostgresStateStore",
         lambda **_: state_store,
@@ -685,6 +733,69 @@ async def test_subscription_discovery_result_is_applied_to_the_inventory_tick(
 
     assert resolved.kubernetes_bindings == (binding,)
     assert resolved.kubernetes_unavailable_scopes == ()
+
+
+async def test_private_cluster_discovery_closes_proposal_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "00000000-0000-0000-0000-000000000001",
+            "FDAI_KUBERNETES_SUBSCRIPTION_DISCOVERY": "1",
+        }
+    )
+    private_cluster = AksPrivateClusterObservation(
+        cluster_ref=_CLUSTER_REF,
+        observed_at=datetime(2026, 9, 20, tzinfo=UTC),
+        source_digest="sha256:" + "1" * 64,
+    )
+    discovery = SimpleNamespace(
+        discover=AsyncMock(
+            return_value=AksSubscriptionDiscoveryResult(
+                bindings=(),
+                unavailable_scopes=(),
+                private_clusters=(private_cluster,),
+            )
+        )
+    )
+    proposal_store = SimpleNamespace(aclose=AsyncMock())
+    proposals = SimpleNamespace(observe=AsyncMock())
+    publish = AsyncMock()
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.AzureAksSubscriptionBindingDiscovery",
+        lambda **_kwargs: discovery,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.PostgresStateStore",
+        lambda **_kwargs: proposal_store,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli._workload_identity",
+        lambda **_kwargs: Mock(),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.kubernetes_connector_preflight_runtime.build_observer_constraints",
+        lambda *_args, **_kwargs: Mock(),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.kubernetes_connector_observed.build_observer_evidence",
+        lambda *_args, **_kwargs: Mock(),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.kubernetes_connector_proposals.ObserverDeploymentProposalService",
+        lambda *_args, **_kwargs: proposals,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.kubernetes_connector_projection.publish_discovered_proposals",
+        publish,
+    )
+
+    await _resolve_subscription_kubernetes_bindings(config)
+
+    proposals.observe.assert_awaited_once_with((private_cluster,))
+    publish.assert_awaited_once()
+    proposal_store.aclose.assert_awaited_once_with()
 
 
 async def test_subscription_discovery_failure_is_explicitly_unavailable(
@@ -1219,7 +1330,11 @@ async def test_not_due_tick_flushes_service_readiness_status(
             "AZURE_SUBSCRIPTION_ID": "sub-1",
         }
     )
-    runtime_settings = SimpleNamespace(effective_values=AsyncMock(return_value={}))
+    settings_store = SimpleNamespace(aclose=AsyncMock())
+    runtime_settings = SimpleNamespace(
+        effective_values=AsyncMock(return_value={}),
+        store=settings_store,
+    )
     printed = Mock()
     monkeypatch.setattr(
         "fdai.delivery.runtime_settings.runtime_settings_service_from_env",
@@ -1238,6 +1353,7 @@ async def test_not_due_tick_flushes_service_readiness_status(
     monkeypatch.setattr("builtins.print", printed)
 
     assert await _run_due_once() is config
+    settings_store.aclose.assert_awaited_once_with()
     printed.assert_called_once_with(
         "inventory reconciliation not due; change records published 0",
         flush=True,
@@ -1416,7 +1532,7 @@ async def test_collection_health_persists_only_sanitized_aggregate_state(
             "AZURE_SUBSCRIPTION_ID": "sub-1",
         }
     )
-    store = SimpleNamespace(write_state=AsyncMock())
+    store = SimpleNamespace(write_state=AsyncMock(), aclose=AsyncMock())
     monkeypatch.setattr(
         "fdai.delivery.inventory_sync_cli.PostgresStateStore",
         lambda **_: store,
@@ -1451,6 +1567,7 @@ async def test_collection_health_persists_only_sanitized_aggregate_state(
     )
 
     key, projection = store.write_state.await_args.args
+    store.aclose.assert_awaited_once_with()
     assert key == "inventory-collection-health"
     assert projection["source_alias"] == "arg-snapshot"
     assert projection["cursor"]["state"] == "unavailable"
@@ -1497,6 +1614,160 @@ def test_resource_type_resolution_rejects_unknown_type() -> None:
 
     with pytest.raises(ValueError, match="unknown inventory resource types"):
         _resolve_resource_types(config, _vocabulary())
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "same",
+        "clock",
+        "order",
+        "endpoint",
+        "audience",
+        "rate",
+        "policy",
+        "mapping",
+        "version",
+        "kind",
+        "arg_query",
+    ],
+)
+async def test_source_context_binds_effective_collection_configuration(
+    monkeypatch: pytest.MonkeyPatch, change: str
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {"FDAI_INVENTORY_DSN": "postgresql://example", "AZURE_SUBSCRIPTION_ID": "sub-1"}
+    )
+    vocabulary = _vocabulary()
+    identity = StaticWorkloadIdentity(
+        audience=config.management_audience,
+        token="synthetic",  # noqa: S106
+    )
+    started_at = datetime(2026, 1, 1, tzinfo=UTC)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_http_ok)) as client:
+
+        def build(configuration, registry, started):
+            return _build_sources(
+                config=configuration,
+                vocabulary=registry,
+                resource_types=("resource-group", "compute.vm"),
+                identity=identity,
+                http_client=client,
+                started_at=started,
+            )[0].manifest
+
+        original = build(config, vocabulary, started_at)
+        if change == "clock":
+            started_at = datetime(2026, 1, 2, tzinfo=UTC)
+        elif change == "order":
+            vocabulary = vocabulary.model_copy(update={"types": tuple(reversed(vocabulary.types))})
+        elif change == "endpoint":
+            config = replace(config, management_endpoint="https://example.com")
+        elif change == "audience":
+            config = replace(config, management_audience="https://example.com/.default")
+        elif change == "rate":
+            config = replace(config, arg_requests_per_second=config.arg_requests_per_second / 2)
+        elif change == "policy":
+            original_policy = InventoryJobConfig.snapshot_policy
+            monkeypatch.setattr(
+                InventoryJobConfig,
+                "snapshot_policy",
+                lambda instance, source: replace(
+                    original_policy(instance, source),
+                    max_requests_per_window=original_policy(
+                        instance, source
+                    ).max_requests_per_window
+                    + 1,
+                ),
+            )
+        elif change == "arg_query":
+            monkeypatch.setattr(
+                "fdai.delivery.azure.arg_query.AzureArgQueryFactory.collection_contract_digest",
+                property(lambda factory: "sha256:" + "a" * 64),
+            )
+        elif change == "version":
+            vocabulary = vocabulary.model_copy(update={"version": "99.0.0"})
+        elif change in {"mapping", "kind"}:
+            update = (
+                {"azure_arm_type": "Microsoft.Example/widgets"}
+                if change == "mapping"
+                else {"azure_kind_tokens": ("example",)}
+            )
+            vocabulary = vocabulary.model_copy(
+                update={
+                    "types": tuple(
+                        entry.model_copy(update=update) if entry.id == "compute.vm" else entry
+                        for entry in vocabulary
+                    )
+                }
+            )
+        modified = build(config, vocabulary, started_at)
+    unchanged = change in {"same", "clock", "order"}
+    assert (collection_context_digest(original) == collection_context_digest(modified)) is unchanged
+    assert "management_endpoint" not in modified.metadata
+    assert "management_audience" not in modified.metadata
+    assert modified.metadata["collection_configuration_digest"].startswith("sha256:")
+    assert modified.metadata["arg_query_contract_digest"].startswith("sha256:")
+
+
+@pytest.mark.parametrize(
+    "change", ["same", "source", "add", "delete", "rename", "symlink", "empty"]
+)
+def test_collection_producer_digest_pins_code_and_rejects_unavailable_source(tmp_path, change):
+    source = tmp_path / "producer.py"
+    source.write_text("revision = 1\n", encoding="utf-8")
+    original = collection_producer_digest(tmp_path)
+    if change == "source":
+        source.write_text("revision = 2\n", encoding="utf-8")
+    elif change == "add":
+        (tmp_path / "overlay.py").write_text("revision = 1\n", encoding="utf-8")
+    elif change in {"delete", "empty"}:
+        source.unlink()
+        if change == "delete":
+            (tmp_path / "overlay.py").write_text("revision = 1\n", encoding="utf-8")
+    elif change == "rename":
+        source.rename(tmp_path / "renamed.py")
+    elif change == "symlink":
+        (tmp_path / "linked.py").symlink_to(source)
+    if change in {"symlink", "empty"}:
+        with pytest.raises(ValueError, match="inventory producer"):
+            collection_producer_digest(tmp_path)
+    else:
+        assert (collection_producer_digest(tmp_path) == original) is (change == "same")
+
+
+async def test_declarative_source_context_binds_verified_fixture_content(tmp_path: Path) -> None:
+    fixture = tmp_path / "inventory.yaml"
+    fixture.write_text("resources: []\nlinks: []\n", encoding="utf-8")
+    config = replace(
+        InventoryJobConfig.from_env(
+            {"FDAI_INVENTORY_DSN": "postgresql://example", "AZURE_SUBSCRIPTION_ID": "sub-1"}
+        ),
+        source_order=("declarative",),
+        declarative_path=fixture,
+        declarative_sha256=hashlib.sha256(fixture.read_bytes()).hexdigest(),
+    )
+    vocabulary = _vocabulary()
+    identity = StaticWorkloadIdentity(audience=config.management_audience, token="synthetic")  # noqa: S106
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_http_ok)) as client:
+        arguments = dict(
+            vocabulary=vocabulary,
+            resource_types=("resource-group", "compute.vm"),
+            identity=identity,
+            http_client=client,
+            started_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        original = _build_sources(config=config, **arguments)[0].manifest
+        fixture.write_text("resources: []\nlinks: []\n# changed revision\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="does not match"):
+            _build_sources(config=config, **arguments)
+        updated = _build_sources(
+            config=replace(
+                config, declarative_sha256=hashlib.sha256(fixture.read_bytes()).hexdigest()
+            ),
+            **arguments,
+        )[0].manifest
+    assert collection_context_digest(original) != collection_context_digest(updated)
 
 
 async def test_source_builder_preserves_order_and_fallback_coverage() -> None:
@@ -1601,18 +1872,50 @@ async def test_ontology_observer_publishes_durable_topology_history(
     )
 
 
-async def test_ontology_observer_retries_configuration_event_failure(
+async def test_ontology_observer_reuses_unchanged_history_and_configuration_delivery(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     (
         observer,
         _recovery,
-        _observation_journal,
+        observation_journal,
         _ontology_store,
-        _history_store,
-        _projector,
+        history_store,
+        projector,
         activity_publisher,
         _release_digest,
+    ) = _ontology_observer_harness(monkeypatch)
+    observation_journal.append_promoted_snapshot.return_value.reused_journal_generation = (
+        "snapshot-base"
+    )
+    observation = _promoted_observation("snapshot-unchanged")
+
+    await observer(observation)
+
+    history_store.append.assert_not_awaited()
+    projector.apply.assert_awaited_once()
+    activity_publisher.configuration_event_publisher.assert_not_awaited()
+    store = projector.construction_kwargs["status_store"]
+    delivery = await store.read_state("inventory-configuration:delivery")
+    assert delivery["generation"] == observation.generation
+    assert delivery["status"] == "completed"
+    assert (
+        activity_publisher.publish.await_args.args[0].status is OperationalActivityStatus.COMPLETED
+    )
+
+
+async def test_ontology_observer_retries_configuration_event_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (
+        observer,
+        recovery,
+        observation_journal,
+        _ontology_store,
+        _history_store,
+        projector,
+        activity_publisher,
+        release_digest,
     ) = _ontology_observer_harness(monkeypatch)
     activity_publisher.configuration_event_publisher.side_effect = RuntimeError(
         "broker unavailable"
@@ -1624,6 +1927,60 @@ async def test_ontology_observer_retries_configuration_event_failure(
     activity = activity_publisher.publish.await_args.args[0]
     assert activity.status is OperationalActivityStatus.FAILED
     assert activity.reason_codes == ("configuration_event_publish_failed",)
+    store = projector.construction_kwargs["status_store"]
+    manifest = {
+        "generation": "snapshot-event-failure",
+        "ontology_release_digest": release_digest,
+        "manifest_digest": "sha256:" + "1" * 64,
+        "complete": True,
+    }
+    await store.write_state("inventory-ontology:manifest", manifest)
+    await store.write_state("inventory-ontology:status", {**manifest, "status": "available"})
+    observation_journal.load_pending_promoted_snapshot.side_effect = [
+        _promoted_observation("snapshot-event-failure"),
+        None,
+    ]
+    activity_publisher.configuration_event_publisher.side_effect = None
+
+    await recovery()
+
+    assert activity_publisher.configuration_event_publisher.await_count == 2
+    assert projector.apply.await_count == 1
+    delivery = await store.read_state("inventory-configuration:delivery")
+    assert delivery["status"] == "completed"
+
+
+async def test_ontology_observer_delivers_objects_with_classified_relationship_gaps(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.shared.providers.inventory import (
+        RelationshipDrop,
+        RelationshipDropReason,
+        RelationshipUnavailableReason,
+    )
+
+    observer, _, _, _, history, projector, publisher, _ = _ontology_observer_harness(monkeypatch)
+    observation = _promoted_observation("snapshot-gap")
+    observation = PromotedInventoryObservation(
+        generation=observation.generation,
+        resources=observation.resources,
+        links=(),
+        complete=True,
+        recorded_at=observation.recorded_at,
+        relationship_drops=(
+            RelationshipDrop(
+                reason=RelationshipDropReason.MISSING_TARGET_ENDPOINT,
+                unavailable_reason=RelationshipUnavailableReason.TARGET_OUTSIDE_ACTIVE_GENERATION,
+            ),
+        ),
+    )
+
+    await observer(observation)
+
+    projector.apply.assert_awaited_once()
+    history.append.assert_not_awaited()
+    publisher.configuration_event_publisher.assert_awaited_once_with(observation)
+    assert publisher.publish.await_args.args[0].status is OperationalActivityStatus.DEGRADED
 
 
 async def test_ontology_observer_does_not_advance_projection_after_history_failure(
@@ -1676,7 +2033,7 @@ async def test_ontology_observer_retains_history_before_projection_failure(
 async def test_ontology_recovery_replays_pending_history_before_new_projection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    status_store = SimpleNamespace(read_state=AsyncMock())
+    status_store = _state_store_double()
     monkeypatch.setattr(
         "fdai.delivery.inventory_ontology_observer.PostgresStateStore",
         lambda **_: status_store,
@@ -1699,20 +2056,31 @@ async def test_ontology_recovery_replays_pending_history_before_new_projection(
 
     observation_journal.load_pending_promoted_snapshot.side_effect = [observation, None]
     status_store = projector.construction_kwargs["status_store"]
-    status_store.read_state.return_value = {
-        "generation": observation.generation,
-        "ontology_release_digest": _release_digest,
-        "complete": True,
-        "manifest_digest": "sha256:" + "c" * 64,
-    }
+    await status_store.write_state(
+        "inventory-ontology:manifest",
+        {
+            "generation": observation.generation,
+            "ontology_release_digest": _release_digest,
+            "complete": True,
+            "manifest_digest": "sha256:" + "c" * 64,
+        },
+    )
     await recovery()
 
     assert observation_journal.load_pending_promoted_snapshot.await_count == 2
-    assert status_store.read_state.await_count == 2
-    assert all(
-        call.args == ("inventory-ontology:manifest",)
-        for call in status_store.read_state.await_args_list
-    )
+    from fdai.delivery.inventory_configuration_events import configuration_delivery_key
+
+    delivery_key = configuration_delivery_key(observation.generation)
+    assert [call.args[0] for call in status_store.read_state.await_args_list] == [
+        "inventory-ontology:manifest",
+        "inventory-ontology:manifest",
+        "inventory-ontology:status",
+        delivery_key,
+        delivery_key,
+        delivery_key,
+        "inventory-configuration:delivery",
+        "inventory-ontology:manifest",
+    ]
     assert history_store.append.await_count == 2
     projector.apply.assert_awaited_once()
 
@@ -1866,7 +2234,7 @@ async def test_ontology_recovery_allows_fresh_collection_after_degraded_projecti
 ) -> None:
     monkeypatch.setattr(
         "fdai.delivery.inventory_ontology_observer.PostgresStateStore",
-        lambda **_: SimpleNamespace(read_state=AsyncMock(return_value=None)),
+        lambda **_: _state_store_double(),
     )
     (
         _observer,
@@ -1907,9 +2275,14 @@ async def test_recovery_delta_forwards_every_scope(monkeypatch: pytest.MonkeyPat
         }
     )
     forward = AsyncMock(side_effect=(2, 3))
+    state_store = SimpleNamespace(aclose=AsyncMock())
     monkeypatch.setattr(
         "fdai.delivery.inventory_change_acceleration.forward_inventory_delta",
         forward,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_change_acceleration.PostgresStateStore",
+        lambda **_: state_store,
     )
     identity = StaticWorkloadIdentity(
         audience="https://management.azure.com/.default",
@@ -1938,6 +2311,7 @@ async def test_recovery_delta_forwards_every_scope(monkeypatch: pytest.MonkeyPat
     assert [call.kwargs["scope"] for call in forward.await_args_list] == list(config.scopes)
     assert all(call.kwargs["properties_complete"] is False for call in forward.await_args_list)
     assert locked_scopes == [f"inventory-recovery-delta:{scope}" for scope in config.scopes]
+    state_store.aclose.assert_awaited_once_with()
 
 
 def test_container_entrypoint_translates_positional_modes() -> None:

@@ -674,7 +674,7 @@ describe("agents.model org chart + agent events", () => {
 
   it("preserves the fixed ownership and safety boundaries", () => {
     expect(AGENT_CONTRACT.Forseti?.owns).toEqual([
-      "Verdict", "RCA", "SecurityEvent", "ArbitrationRequest",
+      "Verdict", "SecurityEvent", "ArbitrationRequest",
     ]);
     expect(AGENT_CONTRACT.Heimdall?.owns).toContain("ForecastOutcome");
     expect(AGENT_CONTRACT.Bragi?.owns).toContain("UserPreference");

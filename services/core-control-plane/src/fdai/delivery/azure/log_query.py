@@ -60,7 +60,7 @@ import httpx
 from fdai.shared.providers.observation import LogQueryError, LogQueryResult
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
-_DEFAULT_ENDPOINT: Final[str] = "https://api.loganalytics.io"
+_DEFAULT_ENDPOINT: Final[str] = "https://api.loganalytics.azure.com"
 _DEFAULT_API_PATH: Final[str] = "/v1"
 _DEFAULT_AUDIENCE: Final[str] = "https://api.loganalytics.io/.default"
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 30.0

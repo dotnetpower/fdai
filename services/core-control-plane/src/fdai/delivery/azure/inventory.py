@@ -1,61 +1,26 @@
-"""Azure Resource Graph (ARG) implementation of the ``Inventory`` Protocol.
+"""Collect a bounded Azure inventory through injected authenticated provider reads.
 
-This module realizes the 5th CSP-neutral wire contract for Azure - see
-``docs/roadmap/architecture/csp-neutrality.md § 5. Inventory Contract`` and the Protocol
-in ``services/core-control-plane/src/fdai/shared/providers/inventory.py``.
+``AzureArgQueryFactory`` supplies reviewed queries and identity-bound HTTP transport.
+Full scans combine resource-type shards, reconcile provider coverage, close relationship
+endpoints, and redact environment bindings before returning one complete generation.
+Empty progress batches carry no evidence. Any failed shard or coverage mismatch omits
+the final fence, so the coordinator retains its previous authoritative snapshot.
 
-P1 W-2 scope (stub)
--------------------
-
-The **structural contract** is frozen here so downstream consumers (the
-T0 engine's future graph-derived blast-radius, and the risk-gate) can be
-wired against a real interface:
-
-- **Parallel full-scan**: :meth:`AzureResourceGraphInventory.full_snapshot`
-  shards work by ``resource_type`` under a **bounded semaphore**
-  (``max_concurrent_queries``, default 4). The stub uses a synthetic
-  ``ResourceQueryFn`` so tests can assert the concurrency structure without
-  standing up ARG.
-- **Atomic-promote fence**: the stream **always** ends with an
-  :class:`InventoryBatch` whose ``final=True``. A caller MUST discard a
-  stream that ends without it; the stub enforces this on every path.
-- **Progress heartbeat**: an empty non-final batch claims no graph evidence.
-    ``full_snapshot`` emits one as each bounded provider read completes so a
-    consumer can distinguish a slow scan from a stalled one.
-- **Idempotent upsert (interface)**: batches are keyed on
-  ``resource_id`` for resources and ``(from_id, link_type, to_id)`` for
-  links. Adapters MUST NOT emit duplicates within one snapshot - this
-  stub deduplicates the synthetic input to make the invariant testable.
-- **Delta stream**: :meth:`AzureResourceGraphInventory.delta` accepts a
-  cursor and, when an :type:`ActivityLogFetchFn` is bound, pages the
-  forwarded Azure Activity Log change stream into idempotent-upsert
-  batches with an advancing cursor and the same ``final=True`` fence.
-  With no fetch bound it returns an empty final batch (the default until
-  the forwarder ships). The Activity-Log-to-Kafka forwarding is a
-  deployment concern (Event Hubs diagnostic settings); the neutral
-  mapping "one Activity Log record -> one :class:`ResourceRecord` upsert"
-  lives in
-  :class:`~fdai.delivery.azure.activity_log.AzureActivityLogFactory`.
-
-What is deliberately NOT here yet
----------------------------------
-
-- No ``azure-mgmt-resourcegraph`` client is instantiated (that lands in
-  P1 W-3 together with the OIDC-federated ``WorkloadIdentity`` binding).
-- No Kusto query templates ship - they are configuration, not code.
-- No writes into ``ontology_resource`` / ``ontology_link``; the caller
-  (event-ingest) is the upsert authority per the Inventory contract.
-- No Azure SDK imports appear anywhere in the module tree yet. When they
-  land they stay confined to this file (or a sibling under
-  ``delivery/azure/``) - ``core/`` never imports them.
+Resource duplicates with equal content retain their earliest observation time; content
+conflicts fail the generation. Activity Log delta pagination uses the same final-fence
+contract, while unbound deltas return no observations. Only the inventory coordinator
+and its owned projection persist observations; this adapter never writes ontology state.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 from collections import Counter
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
+from datetime import datetime
+from functools import partial
 from typing import Final
 
 from fdai.delivery.azure.inventory_redaction import redact_runtime_environment
@@ -72,6 +37,9 @@ from fdai.shared.providers.inventory import (
 
 _DEFAULT_MAX_CONCURRENT_QUERIES: Final[int] = 4
 _DEFAULT_MAX_DELTA_PAGES: Final[int] = 64
+MAX_GENERATION_RESOURCES = 50_000
+MAX_GENERATION_LINKS = 200_000
+MAX_GENERATION_BYTES = 16 * 1024 * 1024
 InventoryShardObserver = Callable[[int, int, int, int], Awaitable[object]]
 InventorySourceObserver = Callable[[], Awaitable[object]]
 
@@ -102,6 +70,40 @@ ResourceQueryFn = Callable[
 ScopeCoverageFn = Callable[[], Awaitable[ProviderScopeCoverage]]
 UnmappedResourceQueryFn = Callable[[], Awaitable[ResourceQueryResult]]
 GenerationRelationshipFn = Callable[[Sequence[ResourceRecord]], ResourceQueryResult]
+
+
+@dataclass
+class _GenerationBudget:
+    resources: int = 0
+    links: int = 0
+    drops: int = 0
+    encoded_bytes: int = 0
+
+    def consume(self, result: ResourceQueryResult) -> None:
+        self.resources += len(result.resources)
+        self.links += len(result.links)
+        self.drops += len(result.relationship_drops)
+        if (
+            self.resources > MAX_GENERATION_RESOURCES
+            or self.links > MAX_GENERATION_LINKS
+            or self.drops > MAX_GENERATION_LINKS
+        ):
+            raise RuntimeError(
+                "inventory generation capacity exceeded; narrow the collection scope"
+            )
+        encoder = json.JSONEncoder(ensure_ascii=True, separators=(",", ":"), default=str)
+        records: Iterable[ResourceRecord | LinkRecord | RelationshipDrop] = (
+            *result.resources,
+            *result.links,
+            *result.relationship_drops,
+        )
+        for record in records:
+            for chunk in encoder.iterencode(asdict(record)):
+                self.encoded_bytes += len(chunk)
+                if self.encoded_bytes > MAX_GENERATION_BYTES:
+                    raise RuntimeError(
+                        "inventory generation byte capacity exceeded; narrow the collection scope"
+                    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,8 +188,8 @@ class AzureResourceGraphInventory:
     :func:`fdai.composition.bind_azure_inventory`; tests inject a synthetic
     ``ResourceQueryFn`` to assert the concurrency structure and
     atomic-promote fence without standing up ARG. The ``full_snapshot``
-    path is live once bound; the ``delta`` (Activity-Log -> Kafka) path is
-    still a stub until the forwarder ships (see ``csp-neutrality.md § 5``).
+    path is live once bound; the delta path uses an independently supplied
+    Activity Log fetch function and never manufactures observations when unbound.
     """
 
     def __init__(
@@ -229,7 +231,7 @@ class AzureResourceGraphInventory:
         batch the caller uses to atomically promote the new graph
         (``docs/roadmap/architecture/csp-neutrality.md § 5``).
 
-        ``since`` is currently unused - the stub returns the full shard
+        ``since`` is currently unused - reconciliation returns the full shard
         each call. Production may honor it as an ``since <= last_seen``
         optimization; it MUST NOT substitute for :meth:`delta`.
         """
@@ -239,10 +241,22 @@ class AzureResourceGraphInventory:
             await self._source_observer()
 
         semaphore = asyncio.Semaphore(self._config.max_concurrent_queries)
+        budget = _GenerationBudget()
+        failed = False
+
+        async def _guarded[Result](read: Callable[[], Awaitable[Result]]) -> Result:
+            nonlocal failed
+            async with semaphore:
+                if failed:
+                    raise RuntimeError("inventory generation stopped after a failed shard")
+                try:
+                    return await read()
+                except BaseException:
+                    failed = True
+                    raise
 
         async def _fetch(rt: str) -> InventoryBatch:
-            async with semaphore:
-                query_result = await self._query(rt)
+            query_result = await self._query(rt)
             resources_raw: Sequence[ResourceRecord]
             links_raw: Sequence[LinkRecord]
             relationship_drops: tuple[RelationshipDrop, ...]
@@ -253,6 +267,13 @@ class AzureResourceGraphInventory:
             else:
                 resources_raw, links_raw = query_result
                 relationship_drops = ()
+            budget.consume(
+                ResourceQueryResult(
+                    resources=tuple(resources_raw),
+                    links=tuple(links_raw),
+                    relationship_drops=relationship_drops,
+                )
+            )
             resources = _dedupe_resources(resources_raw)
             links, duplicate_drops = _validate_links(links_raw)
             return InventoryBatch(
@@ -262,19 +283,14 @@ class AzureResourceGraphInventory:
             )
 
         tasks = [
-            asyncio.create_task(_fetch(rt), name=f"arg-shard-{rt}")
+            asyncio.create_task(_guarded(partial(_fetch, rt)), name=f"arg-shard-{rt}")
             for rt in self._config.resource_types
         ]
         coverage_task: asyncio.Task[ProviderScopeCoverage] | None = None
         scope_coverage = self._scope_coverage
         if scope_coverage is not None:
-
-            async def _fetch_coverage() -> ProviderScopeCoverage:
-                async with semaphore:
-                    return await scope_coverage()
-
             coverage_task = asyncio.create_task(
-                _fetch_coverage(),
+                _guarded(scope_coverage),
                 name="inventory-provider-scope-coverage",
             )
         unmapped_task: asyncio.Task[ResourceQueryResult] | None = None
@@ -282,11 +298,12 @@ class AzureResourceGraphInventory:
         if unmapped_resources is not None:
 
             async def _fetch_unmapped_resources() -> ResourceQueryResult:
-                async with semaphore:
-                    return await unmapped_resources()
+                result = await unmapped_resources()
+                budget.consume(result)
+                return result
 
             unmapped_task = asyncio.create_task(
-                _fetch_unmapped_resources(),
+                _guarded(_fetch_unmapped_resources),
                 name="inventory-unclassified-provider-resources",
             )
         all_tasks: list[asyncio.Task[object]] = [*tasks]
@@ -348,11 +365,42 @@ class AzureResourceGraphInventory:
         resources = _dedupe_resources(
             resource for batch in completed for resource in batch.resources
         )
+        if provider_scope_coverage is not None:
+            expected_types = provider_scope_coverage.mapped_provider_types
+            if expected_types is None:
+                matched = (
+                    sum(
+                        resource.type
+                        not in {UNCLASSIFIED_RESOURCE_TYPE, "subscription", "network.subnet"}
+                        for resource in resources
+                    )
+                    == provider_scope_coverage.mapped_provider_object_count
+                )
+            else:
+                expected = Counter(
+                    {item.provider_type.casefold(): item.count for item in expected_types}
+                )
+                observed = Counter(
+                    provider_type.casefold()
+                    for resource in resources
+                    if resource.type != UNCLASSIFIED_RESOURCE_TYPE
+                    and isinstance(provider_type := resource.props.get("providerType"), str)
+                    and provider_type.casefold() in expected
+                )
+                matched = (
+                    sum(expected.values()) == provider_scope_coverage.mapped_provider_object_count
+                    and observed == expected
+                )
+            if not matched:
+                raise RuntimeError(
+                    "mapped resource identities do not reconcile with provider coverage"
+                )
         generation_relationships = (
             self._generation_relationships(resources)
             if self._generation_relationships is not None
             else ResourceQueryResult()
         )
+        budget.consume(generation_relationships)
         links, generation_drops = _validate_links(
             (
                 *(link for batch in completed for link in batch.links),
@@ -394,8 +442,7 @@ class AzureResourceGraphInventory:
         the previous cursor and retries rather than banking a truncated
         delta (matches ``csp-neutrality.md § 5``).
 
-        With no fetch bound (the default until the Activity-Log forwarder
-        ships), this yields a single ``final=True`` empty batch so callers
+        With no fetch bound, this yields a single ``final=True`` empty batch so callers
         exercise the same atomic-promote fence as ``full_snapshot``.
         """
         if self._delta_fetch is None:
@@ -446,9 +493,20 @@ def _dedupe_resources(records: Iterable[ResourceRecord]) -> tuple[ResourceRecord
     for record in records:
         existing = seen.get(record.resource_id)
         if existing is not None and existing != record:
-            raise RuntimeError(
-                f"inventory resource {record.resource_id!r} has conflicting duplicates"
-            )
+            if (
+                existing.type != record.type
+                or existing.props != record.props
+                or existing.provider_ref != record.provider_ref
+            ):
+                raise RuntimeError(
+                    f"inventory resource {record.resource_id!r} has conflicting duplicates"
+                )
+            if existing.last_seen is None or (
+                record.last_seen is not None
+                and datetime.fromisoformat(existing.last_seen.replace("Z", "+00:00"))
+                <= datetime.fromisoformat(record.last_seen.replace("Z", "+00:00"))
+            ):
+                continue
         seen[record.resource_id] = record
     return tuple(seen[key] for key in sorted(seen))
 

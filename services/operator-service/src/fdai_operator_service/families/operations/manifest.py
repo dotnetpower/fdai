@@ -40,6 +40,12 @@ class OperationRoute:
 
 
 OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
+    OperationRoute(
+        "/observer-deployment-proposals",
+        "GET",
+        "observer_deployment_proposals",
+        "observer.deployment.proposals",
+    ),
     OperationRoute("/inventory/graph", "GET", "handler", "inventory.graph"),
     OperationRoute("/ontology/graph", "GET", "handler", "ontology.graph"),
     OperationRoute(

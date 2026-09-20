@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import uuid
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 from fdai.core.ontology_platform import QueryManifest, build_query_manifest
@@ -15,6 +19,10 @@ from fdai.delivery.catalog_search import (
     build_ontology_semantic_generation,
     publish_ontology_semantic_generation,
     validate_ontology_semantic_generation,
+)
+from fdai.delivery.catalog_search.ontology_snapshot_store import (
+    OntologyGenerationSnapshotStore,
+    OntologySnapshotCorruptionError,
 )
 from fdai.shared.contracts.models import (
     CeilingRole,
@@ -38,12 +46,13 @@ from fdai.shared.providers.catalog_search import (
     catalog_search_document_digest,
 )
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 DIGEST = "sha256:" + ("a" * 64)
 NOW = datetime(2026, 8, 10, tzinfo=UTC)
 
 
-def _manifest() -> QueryManifest:
+def _manifest(*, scope_digest: str = DIGEST) -> QueryManifest:
     resource = OntologyObjectType(
         schema_version="1.0.0",
         name="Resource",
@@ -73,7 +82,7 @@ def _manifest() -> QueryManifest:
         release=release,
         principal_role=CeilingRole.READER,
         purposes=("operations-review",),
-        principal_scope_digest=DIGEST,
+        principal_scope_digest=scope_digest,
         object_types=(resource,),
         link_types=(link,),
         interfaces=(interface,),
@@ -114,6 +123,244 @@ def test_full_generation_covers_every_manifest_descriptor_and_runtime_object() -
     assert build.reused_document_count == 0
 
 
+async def test_isolated_snapshot_survives_reader_restart_and_preserves_rule_state() -> None:
+    state = InMemoryStateStore()
+    await state.write_state("catalog-search:active", {"generation": "rule-generation"})
+    store = OntologyGenerationSnapshotStore(state)
+    build = _build()
+    snapshot = await store.stage(build=build, manifest=_manifest(), source_generation="source-1")
+
+    restored = await OntologyGenerationSnapshotStore(state).read(
+        snapshot, manifest=_manifest(), source_generation="source-1"
+    )
+
+    assert restored == build
+    assert snapshot == await store.stage(
+        build=build, manifest=_manifest(), source_generation="source-1"
+    )
+    assert await state.read_state("catalog-search:active") == {"generation": "rule-generation"}
+    assert snapshot != await store.stage(
+        build=build, manifest=_manifest(), source_generation="source-2"
+    )
+
+
+@pytest.mark.parametrize("drift", ["principal", "source", "chunk", "header", "missing"])
+async def test_snapshot_rejects_identity_drift_and_corruption(drift: str) -> None:
+    state = InMemoryStateStore()
+    store = OntologyGenerationSnapshotStore(state)
+    snapshot = await store.stage(build=_build(), manifest=_manifest(), source_generation="source-1")
+    manifest = _manifest()
+    source = "source-1"
+    prefix = f"ontology-semantic-snapshot:v1:{snapshot}"
+    if drift == "principal":
+        manifest = _manifest(scope_digest="sha256:" + "b" * 64)
+    elif drift == "source":
+        source = "source-2"
+    elif drift == "header":
+        await state.write_state(f"{prefix}:header", {"schema_version": "invalid"})
+    elif drift == "chunk":
+        await state.write_state(f"{prefix}:chunk:0", {"documents": []})
+    else:
+        state._state.pop(f"{prefix}:chunk:0")
+
+    with pytest.raises(OntologySnapshotCorruptionError, match="validation"):
+        await store.read(snapshot, manifest=manifest, source_generation=source)
+
+
+async def test_interrupted_snapshot_is_invisible_and_resumes_idempotently(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state = InMemoryStateStore()
+    store = OntologyGenerationSnapshotStore(state)
+    write = state.write_state_if_absent
+
+    async def interrupt_header(key: str, value: Mapping[str, Any]) -> bool:
+        if key.endswith(":header"):
+            raise RuntimeError("interrupted")
+        return await write(key, value)
+
+    monkeypatch.setattr(state, "write_state_if_absent", interrupt_header)
+    with pytest.raises(RuntimeError, match="interrupted"):
+        await store.stage(build=_build(), manifest=_manifest(), source_generation="source-1")
+    assert not any(key.endswith(":header") for key in state._state)
+    monkeypatch.setattr(state, "write_state_if_absent", write)
+    snapshot = await store.stage(build=_build(), manifest=_manifest(), source_generation="source-1")
+    restored = await store.read(snapshot, manifest=_manifest(), source_generation="source-1")
+    assert restored == _build()
+
+
+async def test_snapshot_chunks_large_generations_without_partial_visibility() -> None:
+    state = InMemoryStateStore()
+    store = OntologyGenerationSnapshotStore(state)
+    records = tuple(
+        OntologyObjectRecord(id=f"resource-{index}", object_type="Resource", properties={})
+        for index in range(300)
+    )
+    build = _build(objects=records)
+    snapshot = await store.stage(build=build, manifest=_manifest(), source_generation="source-1")
+    assert len([key for key in state._state if ":chunk:" in key]) == 3
+    assert await store.read(snapshot, manifest=_manifest(), source_generation="source-1") == build
+
+
+async def test_snapshot_concurrent_writers_reuse_exact_chunks() -> None:
+    state = InMemoryStateStore()
+    store = OntologyGenerationSnapshotStore(state)
+    snapshots = await asyncio.gather(
+        *(
+            store.stage(build=_build(), manifest=_manifest(), source_generation="source-1")
+            for _ in range(8)
+        )
+    )
+    assert len(set(snapshots)) == 1
+    assert len(state._state) == 2
+    await state.write_state(
+        f"ontology-semantic-snapshot:v1:{snapshots[0]}:chunk:0", {"documents": []}
+    )
+    with pytest.raises(OntologySnapshotCorruptionError, match="immutable write conflict"):
+        await store.stage(build=_build(), manifest=_manifest(), source_generation="source-1")
+
+
+@pytest.mark.parametrize("source", ["", "x" * 257])
+async def test_snapshot_invalid_source_does_not_write(source: str) -> None:
+    state = InMemoryStateStore()
+    with pytest.raises(ValueError):
+        await OntologyGenerationSnapshotStore(state).stage(
+            build=_build(), manifest=_manifest(), source_generation=source
+        )
+    assert state._state == {}
+
+
+@pytest.mark.parametrize("digest", ["", "sha256:" + "g" * 64, "sha256:" + "a" * 63])
+async def test_snapshot_invalid_key_is_rejected_before_io(digest: str) -> None:
+    from unittest.mock import AsyncMock
+
+    state = AsyncMock(spec=InMemoryStateStore)
+    with pytest.raises(ValueError, match="sha256"):
+        await OntologyGenerationSnapshotStore(state).read(
+            digest, manifest=_manifest(), source_generation="source-1"
+        )
+    state.read_state.assert_not_awaited()
+
+
+async def test_snapshot_absent_header_is_not_a_complete_generation() -> None:
+    assert (
+        await OntologyGenerationSnapshotStore(InMemoryStateStore()).read(
+            DIGEST, manifest=_manifest(), source_generation="source-1"
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize("limit", ["_MAX_CHUNK_BYTES", "_MAX_SNAPSHOT_BYTES", "_MAX_DOCUMENTS"])
+async def test_snapshot_capacity_failure_has_no_partial_writes(
+    limit: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.delivery.catalog_search import ontology_snapshot_store
+
+    monkeypatch.setattr(ontology_snapshot_store, limit, 1)
+    state = InMemoryStateStore()
+    with pytest.raises(ValueError):
+        await OntologyGenerationSnapshotStore(state).stage(
+            build=_build(), manifest=_manifest(), source_generation="source-1"
+        )
+    assert state._state == {}
+
+
+async def test_snapshot_cannot_stage_an_already_active_generation() -> None:
+    build = _build()
+    build = replace(
+        build,
+        metadata=replace(
+            build.metadata, state="active", activated_at=NOW, validation_receipt_digest=DIGEST
+        ),
+    )
+    state = InMemoryStateStore()
+    with pytest.raises(ValueError, match="inactive staged"):
+        await OntologyGenerationSnapshotStore(state).stage(
+            build=build, manifest=_manifest(), source_generation="source-1"
+        )
+    assert state._state == {}
+
+
+@pytest.mark.integration
+async def test_snapshot_postgres_reconnection_round_trip() -> None:
+    import psycopg
+    from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
+    from psycopg.conninfo import conninfo_to_dict
+
+    dsn = os.environ.get("FDAI_ONTOLOGY_SNAPSHOT_TEST_DSN")
+    if not dsn:
+        pytest.skip("FDAI_ONTOLOGY_SNAPSHOT_TEST_DSN is unset")
+    connection_options = conninfo_to_dict(dsn)
+    assert connection_options.get("host") in {"localhost", "127.0.0.1", "::1"}
+    assert connection_options.get("hostaddr", connection_options["host"]) in {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    }
+    owned_keys: list[str] = []
+
+    class TrackedStore(PostgresStateStore):
+        async def write_state_if_absent(self, key: str, value: Mapping[str, Any]) -> bool:
+            owned_keys.append(key)
+            return await super().write_state_if_absent(key, value)
+
+    config = PostgresStateStoreConfig(dsn=dsn, connect_timeout_s=3, statement_timeout_ms=3000)
+    writer = OntologyGenerationSnapshotStore(TrackedStore(config=config))
+    source = f"snapshot-integration-{uuid.uuid4().hex}"
+    build = _build(
+        objects=(
+            OntologyObjectRecord(
+                id="resource-integration",
+                object_type="Resource",
+                properties={"id": "resource-integration"},
+            ),
+        )
+    )
+    try:
+        snapshot = await writer.stage(build=build, manifest=_manifest(), source_generation=source)
+        reader = OntologyGenerationSnapshotStore(PostgresStateStore(config=config))
+        assert await reader.read(snapshot, manifest=_manifest(), source_generation=source) == build
+        async with await psycopg.AsyncConnection.connect(dsn, connect_timeout=3) as connection:
+            await connection.execute(
+                "UPDATE state_kv SET value=%s::jsonb WHERE key=%s",
+                ('{"documents": []}', owned_keys[0]),
+            )
+        with pytest.raises(OntologySnapshotCorruptionError):
+            await reader.read(snapshot, manifest=_manifest(), source_generation=source)
+    finally:
+        if owned_keys:
+            async with await psycopg.AsyncConnection.connect(dsn, connect_timeout=3) as connection:
+                await connection.execute("DELETE FROM state_kv WHERE key=ANY(%s)", (owned_keys,))
+
+
+def test_generation_validation_rejects_another_principal_manifest() -> None:
+    with pytest.raises(ValueError, match="manifest"):
+        validate_ontology_semantic_generation(
+            build=_build(),
+            manifest=_manifest(scope_digest="sha256:" + "b" * 64),
+            validator_id="validator",
+        )
+
+
+def test_generation_validation_rejects_rehashed_document_tampering() -> None:
+    build = _build()
+    documents = (replace(build.documents[0], text="tampered"), *build.documents[1:])
+    tampered = replace(
+        build,
+        documents=documents,
+        document_digests=tuple(catalog_search_document_digest(item) for item in documents),
+    )
+
+    with pytest.raises(ValueError, match="manifest|declaration"):
+        validate_ontology_semantic_generation(
+            build=tampered,
+            manifest=_manifest(),
+            validator_id="validator",
+        )
+
+
 def test_incremental_generation_reuses_unchanged_document_objects() -> None:
     first = _build()
 
@@ -123,6 +370,78 @@ def test_incremental_generation_reuses_unchanged_document_objects() -> None:
     assert second.document_digests == first.document_digests
     assert second.reused_document_count == len(first.documents)
     assert all(left is right for left, right in zip(first.documents, second.documents, strict=True))
+
+
+async def test_generation_rebuild_does_not_relabel_unbound_previous_embeddings() -> None:
+    previous = tuple(replace(item, embedding=(-1.0,)) for item in _build().documents)
+    build = build_ontology_semantic_generation(
+        manifest=_manifest(),
+        embedding_space_id="new-space",
+        embedding_model_version="new-model",
+        embedding_dimension=1,
+        previous_documents=previous,
+    )
+
+    assert all(not document.embedding for document in build.documents)
+    assert build.reused_document_count == 0
+
+    class CurrentEmbedder:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def embed(self, text: str) -> tuple[float, ...]:
+            self.calls.append(text)
+            return (1.0,)
+
+    embedder = CurrentEmbedder()
+    index = InMemoryCatalogSemanticIndex(embedder=embedder)
+    await index.stage_generation(build.metadata, build.documents)
+    assert len(embedder.calls) == len(build.documents)
+    snapshot = await index.generation_validation_snapshot(build.metadata.generation_id)
+    assert snapshot is not None
+    assert all(document.embedding == (1.0,) for document in snapshot.documents)
+
+
+def test_generation_identity_changes_with_principal_scope() -> None:
+    first = _build()
+    second = build_ontology_semantic_generation(
+        manifest=_manifest(scope_digest="sha256:" + "b" * 64),
+        embedding_space_id=first.metadata.embedding_space_id,
+        embedding_model_version=first.metadata.embedding_model_version,
+        embedding_dimension=first.metadata.embedding_dimension,
+    )
+
+    assert first.document_digests == second.document_digests
+    assert first.metadata.generation_digest != second.metadata.generation_digest
+    assert first.metadata.generation_id != second.metadata.generation_id
+
+
+def test_validator_reconstructs_declarations_even_with_rehashed_generation() -> None:
+    build = _build()
+    documents = (replace(build.documents[0], text="tampered"), *build.documents[1:])
+    digests = tuple(catalog_search_document_digest(item) for item in documents)
+    manifest = build_document_digest_manifest(digests)
+    metadata = replace(
+        build.metadata,
+        document_digest_manifest=manifest,
+        generation_digest=catalog_generation_digest(
+            corpus=build.metadata.corpus,
+            catalog_digest=build.metadata.catalog_digest,
+            semantic_schema_digest=build.metadata.semantic_schema_digest,
+            ontology_release_digest=build.metadata.ontology_release_digest,
+            embedding_space_id=build.metadata.embedding_space_id,
+            embedding_model_version=build.metadata.embedding_model_version,
+            embedding_dimension=build.metadata.embedding_dimension,
+            document_digest_manifest=manifest,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="declaration content"):
+        validate_ontology_semantic_generation(
+            build=replace(build, documents=documents, document_digests=digests, metadata=metadata),
+            manifest=_manifest(),
+            validator_id="validator",
+        )
 
 
 def test_generation_metadata_rejects_noncanonical_generation_digest() -> None:

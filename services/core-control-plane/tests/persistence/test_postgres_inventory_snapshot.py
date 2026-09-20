@@ -49,6 +49,9 @@ from fdai.shared.providers.state_evidence import (
     StateFactLane,
     StateFactMetadata,
 )
+from psycopg.abc import Params, Query
+from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
 pytestmark = pytest.mark.integration
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -317,6 +320,59 @@ async def test_failed_candidate_retains_last_active_snapshot() -> None:
     assert await context_provider("missing-resource") is None
 
 
+async def test_inventory_snapshot_retention_bounds_terminal_generations() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    promoted: list[str] = []
+    failed: list[str] = []
+
+    for index in range(5):
+        manifest = _manifest("retention-test")
+        attempt = await store.begin(manifest)
+        await store.stage(
+            attempt,
+            InventoryBatch(
+                resources=(
+                    ResourceRecord(
+                        f"retention-resource-{index}",
+                        "compute.vm",
+                    ),
+                )
+            ),
+        )
+        await store.promote(attempt, manifest)
+        promoted.append(attempt)
+
+    for _index in range(5):
+        attempt = await store.begin(_manifest("retention-failure-test"))
+        await store.fail(
+            attempt,
+            InventoryAttemptFailure(InventoryFailureCode.NETWORK_BLOCKED, "synthetic failure"),
+        )
+        failed.append(attempt)
+
+    async with await psycopg.AsyncConnection.connect(_dsn(), row_factory=dict_row) as connection:
+        cursor = await connection.execute(
+            "SELECT id, status FROM inventory_snapshot WHERE id=ANY(%s::text[]) ORDER BY id",
+            (promoted + failed,),
+        )
+        retained = {row["id"]: row["status"] for row in await cursor.fetchall()}
+        cursor = await connection.execute(
+            "SELECT COUNT(*) AS total FROM inventory_snapshot_resource "
+            "WHERE snapshot_id=ANY(%s::text[])",
+            (promoted[:1],),
+        )
+        oldest_resource_count = int((await cursor.fetchone())["total"])
+
+    assert promoted[0] not in retained
+    assert retained[promoted[-1]] == "active"
+    assert sum(status == "superseded" for status in retained.values()) == 3
+    assert failed[0] not in retained and failed[1] not in retained
+    assert sum(status == "failed" for status in retained.values()) == 3
+    assert oldest_resource_count == 0
+
+
 async def test_inventory_coverage_summary_does_not_decode_resource_properties() -> None:
     _upgrade()
     config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
@@ -463,26 +519,31 @@ async def test_rooted_inventory_graph_respects_depth_and_limit() -> None:
     assert limited["truncation_reasons"] == ["resource_limit"]
 
 
-async def test_inventory_snapshot_stage_chunks_large_batches() -> None:
+async def test_inventory_snapshot_stage_chunks_large_batches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _upgrade()
+    batch_sizes: list[int] = []
+    original_execute = psycopg.AsyncConnection.execute
 
-    class RecordingSnapshotStore(PostgresInventorySnapshotStore):
-        batch_sizes: list[int]
+    async def recording_execute(
+        connection: psycopg.AsyncConnection[object],
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool = False,
+    ) -> psycopg.AsyncCursor[object]:
+        if isinstance(query, str) and query.startswith(
+            ("INSERT INTO inventory_snapshot_resource ", "INSERT INTO inventory_snapshot_link ")
+        ):
+            assert isinstance(params, tuple)
+            assert isinstance(params[0], Jsonb)
+            batch_sizes.append(len(params[0].obj))
+        return await original_execute(connection, query, params, prepare=prepare, binary=binary)
 
-        def __init__(self, *, config: PostgresInventorySnapshotStoreConfig) -> None:
-            super().__init__(config=config)
-            self.batch_sizes = []
-
-        async def _executemany(
-            self,
-            cursor: psycopg.AsyncCursor[object],
-            query: str,
-            rows: list[tuple[object, ...]],
-        ) -> None:
-            self.batch_sizes.append(len(rows))
-            await super()._executemany(cursor, query, rows)
-
-    store = RecordingSnapshotStore(
+    monkeypatch.setattr(psycopg.AsyncConnection, "execute", recording_execute)
+    store = PostgresInventorySnapshotStore(
         config=PostgresInventorySnapshotStoreConfig(dsn=_dsn(), write_batch_size=2)
     )
     attempt = await store.begin(_manifest("arg"))
@@ -506,7 +567,22 @@ async def test_inventory_snapshot_stage_chunks_large_batches() -> None:
         ),
     )
 
-    assert store.batch_sizes == [2, 2, 1, 2, 2]
+    assert batch_sizes == [2, 2, 1, 2, 2]
+    async with await psycopg.AsyncConnection.connect(_dsn()) as connection:
+        resource_cursor = await connection.execute(
+            "SELECT resource_id FROM inventory_snapshot_resource "
+            "WHERE snapshot_id=%s ORDER BY resource_id",
+            (attempt,),
+        )
+        assert await resource_cursor.fetchall() == [(resource_id,) for resource_id in resource_ids]
+        link_cursor = await connection.execute(
+            "SELECT from_id, link_type, to_id FROM inventory_snapshot_link "
+            "WHERE snapshot_id=%s ORDER BY to_id",
+            (attempt,),
+        )
+        assert await link_cursor.fetchall() == [
+            (resource_ids[0], "depends_on", resource_id) for resource_id in resource_ids[1:]
+        ]
 
 
 async def test_rooted_inventory_graph_expands_frontier_fairly() -> None:

@@ -62,12 +62,12 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
   through the same ingress. A partial read cannot replace a complete generation or delete an
   unobserved object or relationship. Runtime environment bindings can participate in an in-memory,
   exact-identity relationship join, but their names and values are redacted before inventory
-  snapshot or ontology persistence.
+  snapshot or ontology persistence, including both ordinary and initialization containers.
 - **Time and provenance:** Every fact retains effective, provider-event, observation, FDAI-ingestion,
   recorded, and evidence-cutoff time plus source, revision, completeness, conflicts, and freshness.
-  The normalized journal keeps these distinct; ingestion latency never rewrites provider event time.
+  The normalized journal keeps these distinct; ingestion latency never rewrites provider event time. ARG snapshots use a conservative read-start clock rather than parsing time. Missing state clocks and future evidence stay incomplete at the recorded-generation cutoff. Topology facts retain their observation effective time separately from baseline visibility, and replay preserves each fact's original freshness budget.
 - **No false absence:** Missing events, truncated reads, cursor lag, an open realtime overlay, and archive
-  unavailability remain incomplete. An empty provider-type aggregation cannot certify complete provider
+  unavailability remain incomplete. A projection-bound overflow cannot promote a candidate or confirm a tombstone; the journal rejects incomplete snapshot input before database access. An empty provider-type aggregation cannot certify complete provider
   scope because an empty subscription and an identity with no provider visibility are indistinguishable.
   A bounded query can return verified positive observations, but missing scope never proves absence.
 - **Read/write separation:** Provider observation and ontology projection are read-plane work.
@@ -103,10 +103,10 @@ semantics; the provider feed module re-exports that behavior instead of maintain
 Malformed continuation metadata cannot complete an Activity Log stream or advance its durable cursor. Parent-only Azure Cognitive Services deployment writes/deletes remain reconciliation-only when `Succeeded`. For normalized Resource Group envelopes, this treatment is limited to six exact ARM identity-derived types: `Microsoft.Authorization/roleAssignments`, `Microsoft.Compute/virtualMachineScaleSets`, `Microsoft.KeyVault/vaults`, `Microsoft.ManagedIdentity/userAssignedIdentities`, `Microsoft.Network/networkSecurityGroups`, and `Microsoft.Storage/storageAccounts`. Each must carry its exact `<derived-type>/delete` operation and `Succeeded` status. These signals retain validated timezone-aware event time, including signal-only pages, without Resource/relationship upserts, invented children, deletion claims, or blocking unrelated valid rows. Cursor persistence requires the complete stream fence and marker write; other status, timestamp, and reviewed-identity checks remain unchanged. [The ledger](../../roadmap-implementation/architecture/continuous-operational-instance-graph.md) records the exact aliases and focused evidence.
 
 A collected property becomes a relationship only through a reviewed provider mapping. If that
-mapping omits an observed connection target, an absent graph edge never proves an absent path.
+mapping omits an observed connection target, an absent graph edge never proves an absent path. The generation verifier independently matches mapping identity, review digest, schema, source path, direction, owner, and freshness against its injected catalog. Conflicting provider references cannot certify a link; Kubernetes producers retain both observed endpoint types.
 Every reachable managed-service connection therefore needs its target type in the reviewed catalog.
-Each Azure row's supplied provider type and scope must agree case-insensitively with its exact ARM
-identity before the row enters either a full snapshot or a change stream. A contradiction fails the
+Each Azure row's supplied provider type and scope, including built-in scope and unclassified rows, must agree case-insensitively with its exact ARM
+identity and requested subscription set before the row enters either a full snapshot or a change stream. Full-scan mapped counts reconcile before the final fence, excluding separately materialized subnets and subscription anchors. Clock-only duplicates retain the earliest observation, and nested subnets verify the exact VNet parent. Malformed child rows and conflicting duplicate children fail instead of silently disappearing. A contradiction fails the
 bounded collection and retains the previous complete generation.
 For an extension-resource identity containing multiple `/providers/` segments, the final provider
 namespace and its following type/name pairs define the observed Resource type; ancestor provider
@@ -220,7 +220,8 @@ whitespace-padded, or same-endpoint pairs fail validation. A failed or ambiguous
 read blocks the plan and never falls back to a constructed identity.
 
 Continuous means collection always has a durable next action, not one never-ending process. Event consumers can remain active while safe-to-retry cursor and reconciliation tasks persist progress. Full reconciliation also emits a separate count-only progress chain: page and provider-type callbacks serialize absolute counters without provider identifiers, PostgreSQL owns the current projection, and an optional private Blob copy is immutable bootstrap evidence only. The chain does not change snapshot authority; a distinct read-only closer validates every digest link and the exact active generation before it can append the 100 percent terminal record. Progress publisher composition and principal-safe value hashing stay in focused delivery siblings so the orchestration entry point remains below the structural size ceiling without moving authority. Merged question-source changes regenerate the complete deterministic bank and review catalog without changing runtime or execution authority.
-After a complete promoted generation reaches the ontology projection, the Inventory Job publishes one content-addressed `inventory.resource_observed` Event for each Resource into the canonical control-loop topic. The focused `inventory_ontology_observer.py` delivery module owns projection, topology-history publication, and this handoff; the CLI only composes it. SignalType dispatch can then invoke active configuration Rules for the recorded Resource properties. This does not make the collector a judge: Forseti's existing T0 path produces the decision, and the Event remains in shadow mode with no execution authority. Replaying the same generation keeps the same identity, while an incomplete projection or broker failure keeps recovery pending instead of claiming evaluation coverage.
+After a complete promoted generation reaches the ontology projection, the Inventory Job publishes one content-addressed `inventory.resource_observed` Event per Resource. The focused `inventory_ontology_observer.py` module owns projection, topology history, and this handoff; the CLI only composes it. Forseti's T0 path judges the recorded properties, and the Event remains in shadow mode without execution authority.
+Graph completion and Resource-event delivery have separate durable markers. A content-bound pending marker precedes graph commit; broker acceptance of every Resource precedes delivery completion. Recovery can resume delivery after graph completion without rewriting the graph. Strict marker shape and digest validation prevent corrupt completion from suppressing delivery. Truncated properties cannot enter complete staging, journal, or Resource Events. Relationship gaps keep topology degraded but do not suppress verified Resource observations or imply missing relationships; only the final verified link set enters snapshot staging.
 An explicitly requested one-shot Inventory execution can set `FDAI_INVENTORY_OPERATOR_REQUESTED=1` to activate the adaptive scheduler's existing operator
 priority. The request collects immediately only when the source is healthy and no collection is
 active; provider pressure, backoff, throttling, circuit state, and every evidence gate still apply.
@@ -235,9 +236,9 @@ Concurrent later journal writes can lower completeness, but cannot advance eithe
 projection checkpoints beyond that append boundary.
 PostgreSQL persistence keeps store coordination in `postgres_ontology.py` and isolates inventory
 state-base completeness and object-ownership validation in `postgres_ontology_records.py`; this
-shared record-validation boundary does not create another graph writer or authority surface.
+shared record-validation boundary does not create another graph writer or authority surface. Object, candidate-scan, and traversal reads bind their objects, relationships, and source coverage to one read-only repeatable-read database snapshot.
 Change-feed value parsing and replay-watermark decoding remain pure delivery helpers, so module
-splits do not change cursor progress, completeness, or writer authority.
+splits do not change cursor progress, completeness, or writer authority. The observation-record helper `postgres_inventory_observation_records.py` exports only `confirmed_tombstone`, `mapping`, `observation_from_row`, and `snapshot_records`.
 
 ### Private-safe change acceleration
 
@@ -310,6 +311,65 @@ An optional `serving` fact records only recent exact-deployment success with tel
 separate from Resource Health and authority. Azure Monitor reads are bounded and make no inference;
 valid completed results survive timeout, invalid budgets fail closed, and additive metadata preserves N-1 readers.
 
+### Bounded persistence
+
+One generation admits at most 50,000 Resources, 200,000 relationships or suppression records,
+and 16 MiB of normalized collected records. Capacity exhaustion stops before the final fence and
+retains the prior generation. These are supported single-generation limits, not a claim of
+unlimited tenant scale; larger scopes require separately reviewed partitioned ownership.
+These limits do not bound total process memory: in-flight transport buffers have separate limits. Capacity errors never silently narrow an active scope or authorize deletion outside a newly approved ownership boundary. The implementation ledger retains fresh-process synthetic RSS, initial/replay lock occupancy and restart measurements; durable preparation currently increases cost and is not yet a publication-latency improvement.
+The 32 MiB manifest ceiling is checked during incremental hashing. PostgreSQL batches replacement
+writes, keeps unchanged content at its existing revision, and validates cardinality with indexed
+endpoint sets. A 60-second replacement deadline bounds global single-writer lock occupancy; the
+lock remains intentional to preserve cross-owner cardinality. Foreign relationships block owned
+object deletion instead of being silently removed. Object queries independently cap returned links
+at 16,000 and report truncation. Invalidation commits retain a separate monotonic cursor floor;
+corrupt markers recover from that floor, while legacy corruption without a floor requires repair.
+
+### Staged publication successor
+
+Collection partitions remain separate from graph ownership. Private staging requires normalization and redaction; identical replays are no-ops and identity/content conflicts fail closed. Source cleanup has its own deadline of at most five seconds, shortened by the configured progress budget, even after the run deadline or cancellation. Cleanup failure never masks cancellation or authorizes promotion after a final fence.
+ARG normalizes pages before fetching successors and retains a bounded normalized generation, not prior raw rows. A failed shard or exhausted generation budget prevents queued shards from starting provider I/O; in-flight requests retain bounded cancellation and no final fence is emitted. Unfinished provider restart still requires identity, relationship, and final-coverage replay.
+
+The coordinator stages Resource-only chunks of at most 1 MiB and 1,000 Resources through the existing
+PostgreSQL writer. Candidate rows, immutable chunk, digest, and checkpoint commit together. Context binds source, scopes, types, metadata, and an effective-configuration digest.
+That digest pins policy, management target/audience, request rate, vocabulary mappings, signed fallback content, and installed FDAI Python producer source including ARM overlays. An ARG contract digest pins generated queries, reviewed relationships, and transport bounds. Source changes require a restarted process; gaps and cross-chunk Resource conflicts fail closed.
+Readback verifies the ordered chain one chunk at a time without a final fence. Calls expire after
+30 seconds and collecting attempts after 30 minutes. Only the final split chunk advances the cursor.
+Receipts grant no promotion, deletion, scope-change, or automatic provider-restart authority.
+Checkpoint `1.1.0` binds all fields, including cumulative counters, in its digest. Append revalidates the
+checkpoint and final chunk; legacy `1.0.0` requires full-chain verification and upgrades on successful append.
+
+After source exhaustion and enrichment, a seal binds exact staged rows, original clocks, coverage, source states, full mapping evidence, and the expected active base. Graph content and seal records each retain a 32 MiB ceiling.
+A new process can resume one unexpired sealed candidate in the exact production context without provider reads or reenrichment. Missing, conflicting, or unverifiable seals never authorize partial promotion.
+Sealing blocks further staging. Promotion rechecks the original database start time, context, seal, graph bytes, and existing active-base fence; rejected candidates leave the active pointer unchanged.
+
+[ARG pagination](https://learn.microsoft.com/en-us/azure/governance/resource-graph/concepts/paging-results)
+does not guarantee point-in-time consistency. Tokens cannot certify completeness, absence, or unchanged provider contents. Restart preserves the observation window and revalidates full identity coverage;
+expired or unverifiable continuation requires a fresh bounded attempt. Only source exhaustion with exact coverage can establish absence; empty pages and storage buckets cannot. Partial promotion remains forbidden.
+
+Preparation follows `collecting -> sealed -> verified -> prepared`; only the existing projection owner can publish `committed`. Inventory-bound publication now durably stores immutable canonical replacement inputs before taking the graph writer lock.
+Each chunk admits at most 1 MiB and 1,000 records; graph content and manifest each admit 32 MiB. The manifest binds chunk digests, release, generation, prior ownership identities, revisions, state updates, and the projection watermark.
+Preparation pins removed-object and external-endpoint revisions in one read snapshot and restores typed input before taking the writer lock. Publication locks and compares exact stored JSON text on the server, rechecks dependencies and generation/revision/cardinality fences, and atomically commits the prepared reference with graph and state changes. Rows absent during preparation are excluded from deletion, protecting later foreign creation. This still replaces rows under the existing lock, not a short pointer switch.
+Publication also commits a content-addressed receipt with actual object revisions. Storage-level pages pin its digest across later publication and fetch only selected graph chunks; receipt and manifest metadata remain bounded, not constant-size. A current scan reuses its verified metadata only within that read and rejects another connection or digest. Missing content after a database rebuild fails closed without live-row fallback. Current Resource-only unfiltered scans select committed pages in one read transaction only after current manifest/status, coverage and live identities/revisions/releases agree; the existing gateway retains principal and property ACL checks. Predicates, other ObjectTypes and legacy current scans without a committed pointer keep their existing paths, but explicitly pinned reads never fall back. Ownership epochs, retention, complete dependency snapshots and short pointer publication remain open. Existing tables and N-1 UPSERT contracts are unchanged; partial candidates never replace the complete ownership set.
+
+The approved transition may fence N-1 writers. An additive database barrier starts permissive; graph writes hold a shared lock on its protocol floor until commit, so raising the floor waits for accepted writes to drain. Current writers identify their protocol transaction-locally; this compatibility marker is not authorization. Missing or malformed barrier state rejects writes, not reads. Activation must lock graph tables before changing the floor, preserve the old graph, and require tested materialization rollback before a versioned-view cutover. Barrier installation alone never activates new storage or authorizes a live migration. Preparation may run concurrently, but publication remains single-writer initially. Publication
+rechecks its expected base and fencing token and atomically advances the active graph reference,
+observation checkpoint, invalidation, and delivery intent. Resource-event delivery uses immutable
+generation-specific identities, not one overwritten global marker. Broker uncertainty permits
+at-least-once retry with the same event identities and never claims evaluation completion.
+
+Cursor repair uses a versioned stream epoch when no reliable numeric floor survives. Normal numeric streams remain compatible; repaired streams require `cursor_version=2` and `epoch:sequence`, and return unavailable to legacy clients. An epoch change ends the stream and requires an authenticated snapshot reread within ten seconds before the Console acknowledges its cursor. Failed or cancelled rereads never acknowledge it or refresh provider facts.
+The maintenance command `python -m fdai.delivery.persistence.postgres_inventory_cursor_repair --inspect` reads only the target selected by `FDAI_STATE_STORE_DSN`. Explicit `--apply` additionally requires `--repair-id`, `--expected-generation`, `--expected-manifest-digest`, and `--expected-damage-digest` from inspection; it never selects another database or contacts a provider.
+Repair holds the existing projection and graph locks, independently compares stored graph content and release with the complete active manifest, and atomically writes epoch, floor and an immutable receipt within 30 seconds. Receipts bind actor, database principal, damaged-state digest and verified graph. Same-request restart is idempotent; changed requests or evidence fail closed.
+Graph rows, manifest, status and source observation times remain unchanged. A repaired epoch increments its own sequence independently of old journal numbers, so numeric overflow cannot immediately reappear from the prior stream. Recovery metadata grants no managed-resource authority. Exact-release deployment and live repair evidence remain separate requirements.
+
+Critique rejected immediate lock removal, larger in-memory limits, and implicit scope narrowing.
+The revised sequence is measured baseline, durable collection, immutable snapshot publication,
+epoch recovery, then evidence-driven ownership parallelism. New contracts remain internal read-model
+metadata and grant no managed-resource authority. The implementation ledger separates planned
+contracts from connected, tested paths; this section does not claim completed rollout.
+
 ### Load-aware scheduling
 
 Each source has a validated policy rather than one global interval. The policy includes:
@@ -318,7 +378,7 @@ Each source has a validated policy rather than one global interval. The policy i
 - minimum and maximum poll intervals;
 - request and byte budgets per window;
 - global, scope, resource-type, and endpoint concurrency limits;
-- cursor page, object, relationship, time, and no-progress bounds;
+- cursor page, object, relationship, suppression-record, time, and no-progress bounds;
 - priority for changed, stale, critical, and operator-requested targets;
 - bounded jitter, exponential backoff, and a circuit-breaker threshold;
 - provider `Retry-After`, quota, and remaining-budget observations.
@@ -337,7 +397,7 @@ Both paths build the same ordered runtime-call, Resource Health, Static Web App,
 enrichment pipeline through the inventory CLI support boundary.
 
 Validated configuration supplies deployment values. Repository defaults and tests define safe bounds, not a
-claim that one interval fits every tenant or provider API.
+claim that one interval fits every tenant or provider API. One finite end-to-end deadline covers lock acquisition, collection, enrichment, promotion, and notification; cancelled candidates get bounded failure cleanup. Pagination and continuation failures remain partial collection failures, not inferred authentication failures.
 The coordinator imports and explicitly re-exports immutable promoted-observation and relationship-coverage
 records from a focused delivery module. Existing consumers keep the same delivery boundary, and the
 separation changes neither single-writer ownership nor promotion authority.
@@ -359,8 +419,8 @@ verified links. The ontology projection advances the same generation with
 `relationship_complete=false` and preserves every classified reason. Relationship coverage bounds
 relationship claims: it prevents a query from using the graph as complete relationship evidence,
 while a snapshot whose object set admits no intra-set edge states nothing about relationships and
-therefore keeps its own object coverage. An unclassified drop, invalid verification metadata,
-partial source generation, conflict, or cardinality violation remains blocking and preserves the
+therefore keeps its own object coverage. Unclassified or invalid relationship candidates are excluded and keep relationship completeness false, without freezing independently verified objects. A
+partial source generation, object conflict, or persisted cardinality violation remains blocking and preserves the
 previous graph. Kubernetes EndpointSlice and Ingress array mappings materialize every exactly resolved backend as a separate `routes_to` edge under the many-to-many LinkType; projection retains the complete observed destination set because selecting one backend would discard provider truth rather than recover a cardinality mismatch.
 
 Open container environment values that resolve to the owning Resource are identity references,
@@ -369,8 +429,8 @@ it does not suppress self-links from explicit relationship fields. Reciprocal `d
 are separate facts only when each direction has one candidate, its own source Resource owns the
 provider evidence, and both mappings declare owner-to-reference direction. Both edges still pass
 the complete-generation endpoint, schema, observation-time, and independent-verifier checks.
-Verifier revision `inventory-generation-verifier.v2` records this distinction. Duplicate edges,
-unsupported reversed orientations, and self-links remain blocking.
+Verifier revision `inventory-generation-verifier.v3` additionally revalidates the reviewed catalog. Duplicate edges,
+unsupported reversed orientations, and self-links remain excluded and lower relationship completeness.
 
 An exact reviewed provider parent shadows generic Resource Group containment for the same child.
 Snapshot promotion independently rejects more than one `contains` parent for any child before the
@@ -402,7 +462,6 @@ promote the global snapshot or replace the global ontology projection.
 ## Retention, rollup, and archive
 
 ### Storage tiers
-
 | Tier | Contents | Query behavior |
 |------|----------|----------------|
 | Hot | Current objects and links, freshness health, active overlays, and recent exact observations | Default operational query path. |
@@ -410,6 +469,7 @@ promote the global snapshot or replace the global ontology projection.
 | Rollup | Typed hourly, daily, or policy-selected aggregates with source coverage and completeness | Used for long-range trends when exact events are not required. |
 | Archive | Immutable compressed partitions plus content-addressed manifests, provenance, retention class, and restore metadata | Read only through an explicit historical retrieval path. |
 
+Rebuildable hot projections have fixed local storage bounds. Inventory keeps the active and any collecting generation plus the three newest superseded and three newest failed snapshots. Ontology snapshot reads retain the eight newest committed pins and their exact prepared manifests and chunks. PostgreSQL LLM metering and the control-loop classification projection each retain the newest 50,000 records. These limits do not delete the observation journal, audit chain, approval, execution, rollback, or archive evidence; those records follow their governed partition and hold lifecycle below.
 ### Bounded observation history
 
 The runtime dual-writes an append-only normalized observation journal while the existing overlay
@@ -570,53 +630,7 @@ step. It never claims complete inventory or global absence, and holds when no su
 
 ## Source-to-store implementation audit
 
-OI-01 records the exact code owner, runtime or storage binding, focused tests, state, and missing
-binding for each stage in
-[`config/continuous-operational-instance-graph-audit.json`](../../../config/continuous-operational-instance-graph-audit.json).
-The checker rejects missing stages or evidence, unassigned work, implemented work with partial or
-unbound bindings, and unnamed open gaps. It records synthetic, deployed-binding, and production-data
-validation separately; normative ownership remains here and delivery status remains in the linked ledger.
-
-| Stage | State | Audited result |
-|-------|-------|----------------|
-| Provider push ingress | implemented | Event Grid writes and deletes reach the raw Event Hub, then `_consume_resource_changes` normalizes them into canonical inventory events. |
-| Resumable delta cursor | implemented | `forward_inventory_delta` advances the durable Activity Log cursor only after the final fence. |
-| Complete reconciliation | implemented | `InventorySyncCoordinator.run` stages bounded ARG or ARM observations and accepts only a complete stream. |
-| Normalized observation ingress | implemented | `PostgresInventoryDeltaProjector.__call__` validates typed observation semantics and dual-writes the Core-owned append-only observation journal before updating the existing overlay. |
-| Snapshot promotion | implemented | `PostgresInventorySnapshotStore.promote` atomically advances the active generation and records exact Resource and Link counts under the promotion lock. Operator activity reads use those immutable summaries and fall back to bounded child-row aggregation only for mixed-version rows without counts. |
-| Realtime overlay | implemented | PostgreSQL overlay rows replay normalized observations by effective time and content identity, merge only the declared property mask, preserve unobserved snapshot properties, and keep tombstone candidates pending until complete reconciliation. |
-| Ontology projection | implemented | `InventoryOntologyProjector.apply` is the single writer for the inventory-owned Resource and Link subgraph. Reviewed nested operational fields are lifted with their observation metadata, while journal and projection watermarks plus pending tombstones independently lower source completeness. |
-| Topology history | implemented | `InventoryTopologyHistoryPublisher.publish` appends complete baselines through the Core-owned bitemporal PostgreSQL store and migration. |
-| Graph-first query | implemented | Ordinary exact-target current-state queries read the secured graph first, present verified partial read-only results with explicit guidance, and hold when no safe subset exists. |
-| Bounded live read | implemented | One exact secured Resource may trigger at most one server-scoped provider read under fixed limits. Wider, malformed, or unresolved queries decline or hold. |
-| Live evidence write-through | implemented | Verified live evidence enters the canonical typed partial-overlay ingress with a property mask and content-bound idempotency, and cannot delete unobserved properties or relationships. |
-| Adaptive scheduling | implemented | Validated source policies and a pure reducer consume freshness, lag, demand, provider pressure, `Retry-After`, remaining budget, concurrency, circuit-open state, and recovery probes. PostgreSQL supplies durable due state, and the principal-safe health projection exposes the next bounded action. |
-| Retention and holds | implemented | The archive purge coordinator blocks deletion until exact verification, restore sampling, and retention or legal-hold evaluation pass. Append-only PostgreSQL receipts preserve blocked, pending, failed, successful, and retry outcomes. |
-| Typed rollup | implemented | Fact-specific policies separately aggregate gauges, counters, categorical state, relationship changes, and evidence health while preserving source and generation lineage, bitemporal ranges, missing intervals, observed zero, conflicts, completeness, and mergeable count and sum. Percentiles remain unavailable. |
-| Archive lifecycle | in-progress | Content-addressed manifests, private Azure Blob I/O, principal-scoped reads, database-gated purge, and append-only lifecycle receipts are implemented. Container Apps and AKS schedule fixed `shadow` jobs. Non-shadow startup requires an exact persisted certification receipt before state or Blob access. The retained OI-16 receipt validates synthetic mechanics and deployed binding; recurring production-data retention remains unvalidated and separately authorized. |
-
-Protected receipt readback resolves the storage account through an account-specific record in the
-ops-owned Blob private DNS zone linked to the deploy runner VNet. Workload resolution remains in the
-app-owned zone. This split grants neither public network access nor storage key authentication.
-
-## Operational state-transition ledger
-
-FDAI stores semantic state changes in a Core-owned append-only PostgreSQL ledger. Event Hubs
-transports observations, OpenTelemetry reports diagnostics, and the ontology remains a rebuildable
-current-state projection. None of those surfaces replaces the transition ledger.
-
-Each atomic batch contains zero or more content-addressed transitions and at least one positive
-coverage record. A transition binds `from_state`, `to_state`, effective time, recorded time,
-evidence cutoff, source identity and revision, producer version, freshness, completeness,
-conflicts, and evidence references. Replayed idempotency keys are no-ops only for identical content.
-Coverage identity is global and content-addressed. A recovered batch can reference an identical
-retained coverage record without inserting a second row, and replay verifies each expected child by
-its content identity rather than requiring the child to have been first inserted by that batch.
-
-The inventory path records operational and availability changes only with property-level evidence.
-Provisioning remains current-state only until it carries equivalent provenance. Every interval is
-`initial_state_only` or `snapshot_interval_only`; complete snapshots cannot prove that no intermediate
-transition occurred, and only exact retained watermarks can raise that coverage.
+The complete implementation audit and transition ledger are in [Continuous Operational Instance Graph Evidence](continuous-operational-instance-graph-evidence.md).
 
 ## Related docs
 

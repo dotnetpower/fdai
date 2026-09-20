@@ -21,6 +21,7 @@ The host's read-only `verify-source-runtime` command checks pinned source/runtim
 runtime or database placement, node sizing, cost, host identity or exact-plan authority. Its evidence
 cannot replace a profile-bound plan. Support installation receives an already-admitted artifact root;
 missing source support never selects a kit implicitly. See the [source boundary](installable-deployment-cli.md#explicit-source-recovery).
+Both profiles package Core's locked Kubernetes quantity utility for read-side resource accounting. This dependency neither chooses a runtime nor grants Kubernetes access, proves node fit, or enables Cost Governance; the standalone deployment CLI retains its independent dependency set.
 
 The operator chooses one runtime platform and one database placement. `fdaictl` validates the
 combination, estimates its capacity and cost, compiles a platform-specific provisioning graph,
@@ -117,6 +118,14 @@ planning. The error reports the requested and allocatable quantities without exp
 
 ## State ownership
 
+Both initial and recurring collection apply source-policy page and concurrency limits. Snapshot
+policies cannot exceed 50,000 Resources or 200,000 relationships, matching the current projection
+capacity. ARM page collection also enforces policy record and accumulated-response byte limits.
+
+Initial and recurring inventory runs share the same projection bounds: an oversized candidate retains the previous active generation, and incomplete observations cannot confirm resource deletion.
+Their end-to-end deadline also covers enrichment, promotion, and notification, with bounded cancellation cleanup rather than an indefinitely collecting candidate.
+Both profiles retain a content-bound delivery marker before graph commit and recover pending Resource Events independently of the graph completion watermark; delivery never grants execution authority.
+
 Connected deployments for both runtime profiles boot the managed host from an exact Azure
 Marketplace Ubuntu version and install the checksum-pinned toolchain during Foundation. They do
 not build or require a dedicated managed-host image. Artifact-offline deployments can still select a separately verified prebuilt host image when bootstrap downloads are unavailable.
@@ -200,6 +209,13 @@ Accepting an AKS stage never grants it approval or permission to skip an earlier
 
 ## Runtime rendering
 
+The optional [outbound snapshot connector](../architecture/aks-outbound-connector.md) runs from
+the existing Core distribution and does not change runtime selection or deployment authority.
+Inventory composition can explicitly select its certificate-authenticated stored source instead
+of direct Kubernetes bindings or subscription discovery, never both. The observer receives no
+central database identity; the dedicated gateway uses the Core-owned store. Default renderers do
+not install or enable these workloads yet, and local TLS/DB evidence is not deployment readiness.
+
 FDAI services keep one runtime-neutral workload specification containing the digest-pinned image,
 command, arguments, environment names, resource requests and limits, startup, liveness and readiness
 probes, ingress intent, service port, sidecars, secret references, workload identity and scaling bounds.
@@ -254,6 +270,9 @@ or stop reconciliation. Passive model-serving evidence reuses inventory identity
 failures lower only its coverage. Reconciliation bounds determine lookback, freshness, points, and timeout. The
 standalone substrate target set includes the existing subscription, workspace, exact-cluster, cost, and pipeline-stage
 roles. An inventory identity without these assignments cannot establish provider scope, metrics, logs, cost, or publication readiness.
+Each one-shot inventory process closes its runtime-settings, ontology-status, collection-health,
+change-accelerator, and private-cluster proposal database pools through the same asynchronous
+lifecycle that closes provider clients and event transport.
 
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and
@@ -455,7 +474,13 @@ Every mutating node has its own exact plan, current human approval, pre-effect c
 rollback or recovery reference, and authoritative observer. `deployment_ready=true` requires all
 selected services healthy, workload identities effective, Kafka round trips complete, database
 migrations current, one canary job successful, and every selected state root at a second
-zero-change plan. Mixed-revision service rollout preserves the Audit API's page-only default: a newer Console may send additive `summary=true` while an older Operator returns the prior page envelope, and new Operators compute the ledger-wide summary only for that opt-in so Incident, Agent Activity, Trace, and optional cost-package routes do not inherit its scan cost.
+zero-change plan. Each Operator replica coalesces identical incident-attention reads for concurrent
+SSE subscribers inside one two-second poll interval. This cache is process-local, carries no durable
+evidence or authority, and does not coordinate replicas. Mixed-revision service rollout preserves
+the Audit API's page-only default: a newer Console may send additive `summary=true` while an older
+Operator returns the prior page envelope, and new Operators compute the ledger-wide summary only
+for that opt-in so Incident, Agent Activity, Trace, and optional cost-package routes do not inherit
+its scan cost.
 
 ## Signed kit requirements
 

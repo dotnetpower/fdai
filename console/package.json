@@ -18,9 +18,10 @@
     "test:e2e:live": "playwright test --config playwright.live.config.ts"
   },
   "dependencies": {
-    "@fdai/network-topology-contracts": "file:../packages/network-topology-contracts",
     "@azure/msal-browser": "^4.30.0",
+    "@fdai/network-topology-contracts": "file:../packages/network-topology-contracts",
     "@floating-ui/dom": "^1.8.0",
+    "@tanstack/virtual-core": "3.17.11",
     "hash-wasm": "^4.12.0",
     "highlight.js": "^11.11.1",
     "mermaid": "^11.16.1",

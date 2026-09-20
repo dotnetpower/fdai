@@ -7,17 +7,16 @@ validation_database_url="postgresql+psycopg://fdai:devonly@127.0.0.1:5433/fdai_v
 adoption_dir="$repo_root/.fdai/service-migration-adoption"
 rollback_reference="$(git -C "$repo_root" rev-parse HEAD)"
 
-if [[ $# -gt 1 || ( $# -eq 1 && "${1:-}" != "--dependencies-ready" ) ]]; then
-  echo "Usage: $0 [--dependencies-ready]" >&2
+if [[ $# -gt 1 || ( $# -eq 1 && "${1:-}" != "--dependencies-ready" && "${1:-}" != "--check" ) ]]; then
+  echo "Usage: $0 [--dependencies-ready|--check]" >&2
   exit 2
 fi
-if [[ $# -eq 0 ]]; then
+check_only=0
+if [[ "${1:-}" == "--check" ]]; then
+  check_only=1
+elif [[ $# -eq 0 ]]; then
   bash "$repo_root/scripts/deployment/local/dev-up.sh"
 fi
-FDAI_DATABASE_URL="$validation_database_url" \
-  "$repo_root/.venv/bin/python" -m alembic -c "$repo_root/alembic.ini" upgrade head
-FDAI_DATABASE_URL="$database_url" \
-  "$repo_root/.venv/bin/python" -m alembic -c "$repo_root/alembic.ini" upgrade head
 
 mkdir -p "$adoption_dir"
 migration_order="$(
@@ -27,6 +26,36 @@ migration_order="$(
     all order
 )"
 mapfile -t service_ids <<< "$migration_order"
+
+if [[ "$check_only" == "1" ]]; then
+  FDAI_DATABASE_URL="$database_url" \
+    "$repo_root/.venv/bin/python" \
+      "$repo_root/scripts/deployment/local/maintain-development-database.py" --check
+  FDAI_DATABASE_URL="$validation_database_url" \
+    "$repo_root/.venv/bin/python" -m alembic -c "$repo_root/alembic.ini" \
+      current --check-heads >/dev/null
+  FDAI_DATABASE_URL="$database_url" \
+    "$repo_root/.venv/bin/python" -m alembic -c "$repo_root/alembic.ini" \
+      current --check-heads >/dev/null
+  for service_id in "${service_ids[@]}"; do
+    FDAI_DATABASE_URL="$database_url" \
+      "$repo_root/.venv/bin/python" -m alembic \
+        -c "$repo_root/service-migrations/configs/$service_id.ini" \
+        current --check-heads >/dev/null
+  done
+  echo "local PostgreSQL legacy schema and all five service migrations are current"
+  exit 0
+fi
+
+FDAI_DATABASE_URL="$database_url" \
+  "$repo_root/.venv/bin/python" \
+    "$repo_root/scripts/deployment/local/maintain-development-database.py"
+
+FDAI_DATABASE_URL="$validation_database_url" \
+  "$repo_root/.venv/bin/python" -m alembic -c "$repo_root/alembic.ini" upgrade head
+FDAI_DATABASE_URL="$database_url" \
+  "$repo_root/.venv/bin/python" -m alembic -c "$repo_root/alembic.ini" upgrade head
+
 for service_id in "${service_ids[@]}"; do
   evidence="$adoption_dir/$service_id.json"
   schema_evidence="$adoption_dir/$service_id-schema.json"

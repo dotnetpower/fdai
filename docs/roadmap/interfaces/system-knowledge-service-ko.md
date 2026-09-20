@@ -1,7 +1,7 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: ba8374c6825086accd970178323bfdb0c1f46529
+translation_source_sha: f65737cc6e7bbea3494097ba9ed4cc102f19bdc8
 translation_revised: 2026-09-20
 ---
 # 시스템 지식 서비스
@@ -102,7 +102,8 @@ Muninn은 release context index의 최종 책임을 유지합니다. Bragi는 �
   않습니다.
 - **설명 전용 경계:** 다시 빌드한 카탈로그는 중복 Event 처리와 재시도, 검증된 Event 시각 구간,
   재시작에 안전한 재발 신원, 신뢰하는 수집 시각과 범위가 제한된 downstream 멱등성 키처럼
-  개정된 에이전트 보장을 제공할 수 있지만, 해당 보장을 집행하거나 Event 처리에 참여할 수 없습니다.
+  개정된 에이전트 보장과 명시적인 미관측 discovery 상태 신호를 제공할 수 있습니다. 해당 신호를 정상
+  근거로 취급하거나 보장을 집행하거나 Event 처리에 참여할 수 없습니다.
 - **결정적 검색:** 정확한 alias를 먼저 정렬합니다. 정규화한 영어 token과 한국어 두 음절 token을
   사용해 범위가 제한된 lexical fallback을 제공합니다. 점수가 낮으면 명시적인 사용 불가 답변을
   반환합니다.
@@ -134,6 +135,10 @@ release 트리와 일치합니다. 서식만 압축하거나 경로 맥락을 �
 동작 주장은 그대로지만 인용한 blob 신원은 바뀝니다. 이 기계적 갱신은 CI에서 검증한 Pantheon 귀속, 현지화되고 scope-safe이며 다이제스트로 검증된 시간 인식 근거, 역할 및 권한 경계, 기존 상태 용어를 보존하는 공용 역할 표현, 로케일 보존 집계를 포함한 결정론적 정본 도메인 라우팅, 추가 전용 동작, fail-closed 동작, translator-only 동작, 통제된 catalog 동작, 비활성 off-path 학습, 자문 동작, HIL-gated chaos 동작 및 프롬프트 비공개를 포함한 수정 원본 식별자를
 전달할 뿐 운영, 승인 또는 실행 권한을 추가하지 않습니다. 배포 guard 원본 개정에도 같은
 다시 빌드 규칙을 적용합니다.
+Loki의 검증된 `object.resilience-score` 경로 및 Huginn 소유 event-time 경계를 포함한 Pantheon
+producer 수정은 인용과 다이제스트만 갱신합니다. 카탈로그는 정규화 Event를 소비하거나 runtime
+후보 또는 timestamp authority를 만들지 않습니다.
+
 의미 담당자 변환 결과 갱신은 정본 primary 및 secondary intent가 에이전트 담당자를 결정하고 요청
 facet은 답변 형식 제약으로 남는다는 점을 기록합니다. 카탈로그는 검토된 이 경계를 설명할 뿐 턴을
 라우팅하거나 에이전트 권한을 부여하지 않습니다.
@@ -241,6 +246,12 @@ container, `AcrPull`, `Storage Blob Data Contributor`, `Key Vault Secrets User` 
 Vault HMAC secret 하나를 선택적으로 결속합니다. 보호된 workflow는 기본적으로 plan-only 출력을
 만들고 apply 전에 정확한 CI, image attestation, plan 및 context digest와 명시적인 `bootstrap`,
 `enable` 또는 `disable` transition을 요구합니다.
+
+### 카탈로그 출처 갱신
+
+인용된 Pantheon 역할 또는 구독이 변경되면 패키지 카탈로그를 재생성합니다. 이 갱신은 소스 blob과
+설명 레코드만 갱신합니다. 런타임, Console, AKS, 신원, 승인, 카탈로그 승격 또는 실행 권한을
+부여하지 않습니다.
 
 ## 출시 순서
 

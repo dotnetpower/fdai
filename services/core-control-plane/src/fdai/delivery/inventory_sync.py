@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import socket
 from collections import Counter
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
@@ -16,6 +17,17 @@ from fdai_service_contracts.recorded_resource_state import (
     STATE_FACT_UNAVAILABLE_REASONS_PROPERTY,
 )
 
+from fdai.delivery.inventory_collection import (
+    InventoryPromotionObserverError as InventoryPromotionObserverError,
+)
+from fdai.delivery.inventory_collection import InventoryStreamError as InventoryStreamError
+from fdai.delivery.inventory_collection import (
+    close_inventory_stream,
+    collection_context_digest,
+    notify_inventory_promotion,
+    resource_chunk_batches,
+    resume_prepared_collection,
+)
 from fdai.delivery.inventory_relationship_verifier import verify_inventory_relationships
 from fdai.delivery.inventory_sync_models import (
     InventoryProjectionSourceState as InventoryProjectionSourceState,
@@ -31,6 +43,9 @@ from fdai.delivery.inventory_sync_models import (
 )
 from fdai.delivery.inventory_sync_models import (
     compute_relationship_coverage as compute_relationship_coverage,
+)
+from fdai.delivery.inventory_sync_models import (
+    validate_observed_state_fact as _validate_observed_state_fact,
 )
 from fdai.delivery.kubernetes_relationships import project_kubernetes_relationships
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
@@ -55,11 +70,8 @@ from fdai.shared.providers.inventory_snapshot import (
 )
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_evidence import (
-    STATE_FACT_EQUAL_TIME_CONFLICT,
     STATE_FACT_METADATA_PROPERTY,
     StateFactAuthority,
-    StateFactLane,
-    StateFactMetadata,
 )
 
 _LOG = logging.getLogger(__name__)
@@ -69,6 +81,7 @@ _LOG = logging.getLogger(__name__)
 #: degrades to an explicitly incomplete observation instead of exhausting memory.
 _MAX_OBSERVED_RESOURCES = 50_000
 _MAX_OBSERVED_LINKS = 200_000
+_MAX_OBSERVED_DROPS = 200_000
 INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY = "inventory-ontology:active-scope-checkpoint"
 DEFAULT_PROGRESS_DEADLINE_SECONDS = 900.0
 DEFAULT_ATTEMPT_DEADLINE_SECONDS = 1500.0
@@ -91,14 +104,6 @@ class InventoryPromotionEnricher(Protocol):
     ) -> PromotedInventoryObservation: ...
 
 
-class InventoryStreamError(RuntimeError):
-    """An inventory stream violated its atomic-fence contract."""
-
-
-class InventoryPromotionObserverError(RuntimeError):
-    """The authoritative snapshot advanced but its derived projection failed."""
-
-
 class InventorySyncCoordinator:
     """Stage one source at a time and promote only a complete stream."""
 
@@ -109,14 +114,27 @@ class InventorySyncCoordinator:
         promotion_observer: InventoryPromotionObserver | None = None,
         promotion_enricher: InventoryPromotionEnricher | None = None,
         pre_run_recovery: InventoryPromotionRecovery | None = None,
+        candidate_preparer: Callable[
+            [InventoryCoverageManifest, InventoryCoverageManifest, PromotedInventoryObservation],
+            Awaitable[object],
+        ]
+        | None = None,
+        candidate_loader: Callable[
+            [InventoryCoverageManifest],
+            Awaitable[tuple[InventoryCoverageManifest, PromotedInventoryObservation] | None],
+        ]
+        | None = None,
         run_lock: ResourceLock | None = None,
         relationship_mapping_catalog: ProviderRelationshipMappingCatalog | None = None,
         progress_deadline_seconds: float = DEFAULT_PROGRESS_DEADLINE_SECONDS,
         attempt_deadline_seconds: float = DEFAULT_ATTEMPT_DEADLINE_SECONDS,
     ) -> None:
-        if progress_deadline_seconds <= 0:
+        if not math.isfinite(progress_deadline_seconds) or progress_deadline_seconds <= 0:
             raise ValueError("inventory progress_deadline_seconds MUST be > 0")
-        if attempt_deadline_seconds < progress_deadline_seconds:
+        if (
+            not math.isfinite(attempt_deadline_seconds)
+            or attempt_deadline_seconds < progress_deadline_seconds
+        ):
             raise ValueError(
                 "inventory attempt_deadline_seconds MUST be >= progress_deadline_seconds"
             )
@@ -128,6 +146,8 @@ class InventorySyncCoordinator:
         self._observer = promotion_observer
         self._enricher = promotion_enricher
         self._pre_run_recovery = pre_run_recovery
+        self._candidate_preparer = candidate_preparer
+        self._candidate_loader = candidate_loader
         self._run_lock = run_lock
         self._relationship_mapping_catalog = relationship_mapping_catalog
         self._progress_deadline_seconds = progress_deadline_seconds
@@ -136,10 +156,21 @@ class InventorySyncCoordinator:
     async def run(self, sources: Sequence[InventorySource]) -> InventorySyncResult:
         if not sources:
             raise ValueError("sources MUST NOT be empty")
-        if self._run_lock is None:
-            return await self._run_locked(sources)
-        async with self._run_lock.acquire(_RUN_LOCK_ID):
-            return await self._run_locked(sources)
+        try:
+            async with asyncio.timeout(self._attempt_deadline_seconds):
+                if self._run_lock is None:
+                    return await self._run_locked(sources)
+                async with self._run_lock.acquire(_RUN_LOCK_ID):
+                    return await self._run_locked(sources)
+        except TimeoutError as exc:
+            raise InventorySourcesExhaustedError(
+                (
+                    InventoryAttemptFailure(
+                        code=InventoryFailureCode.PARTIAL,
+                        message="inventory run exceeded its end-to-end deadline",
+                    ),
+                )
+            ) from exc
 
     async def _run_locked(self, sources: Sequence[InventorySource]) -> InventorySyncResult:
         if self._pre_run_recovery is not None:
@@ -151,9 +182,15 @@ class InventorySyncCoordinator:
                 ) from exc
         failures: list[InventoryAttemptFailure] = []
         for source in sources:
+            if self._candidate_loader is not None:
+                resumed = await resume_prepared_collection(
+                    source, self._store, self._candidate_loader, self._notify_promotion
+                )
+                if resumed is not None:
+                    return resumed
             attempt_id = await self._store.begin(source.manifest)
             observed = _ObservationAccumulator(
-                enabled=self._observer is not None or self._enricher is not None,
+                enabled=True,
                 relationship_mapping_catalog=self._relationship_mapping_catalog,
             )
             try:
@@ -161,11 +198,16 @@ class InventorySyncCoordinator:
                     attempt_id,
                     cast(Inventory, source.inventory).full_snapshot(),
                     observed,
+                    context_digest=collection_context_digest(source.manifest),
                 )
                 promoted_observation = observed.result(
                     generation=attempt_id,
                     recorded_at=datetime.now(tz=UTC),
                 )
+                if not promoted_observation.complete:
+                    raise InventoryStreamError(
+                        "inventory observation exceeded its projection bounds"
+                    )
                 if source.manifest.metadata.get("coverage_scope") == "requested_resource_types":
                     raise InventoryStreamError(
                         "resource-type subset cannot promote the global inventory snapshot"
@@ -177,12 +219,11 @@ class InventorySyncCoordinator:
                         promoted_observation,
                         enriched,
                     )
-                    if changed_resources or added_links:
+                    if changed_resources:
                         await self._store.stage(
                             attempt_id,
                             InventoryBatch(
                                 resources=changed_resources,
-                                links=added_links,
                             ),
                         )
                     promoted_observation = enriched
@@ -191,7 +232,15 @@ class InventorySyncCoordinator:
                     )
                     if enriched.recorded_at is not None and enriched.recorded_at > completed:
                         completed = enriched.recorded_at
+                if promoted_observation.links:
+                    await self._store.stage(
+                        attempt_id, InventoryBatch(links=promoted_observation.links)
+                    )
                 metadata = dict(source.manifest.metadata)
+                if promoted_observation.recorded_at is not None:
+                    completed = max(completed, promoted_observation.recorded_at)
+                if self._candidate_preparer is not None:
+                    metadata["prepared_candidate_required"] = True
                 metadata.pop("provider_scope_coverage", None)
                 relationship_drop_reasons = observed.relationship_drop_reasons(
                     promoted_observation.relationship_drops
@@ -232,7 +281,27 @@ class InventorySyncCoordinator:
                     completed_at=completed,
                     metadata=metadata,
                 )
+                if self._candidate_preparer is not None:
+                    await self._candidate_preparer(source.manifest, manifest, promoted_observation)
                 await self._store.promote(attempt_id, manifest)
+            except asyncio.CancelledError:
+                try:
+                    async with asyncio.timeout(5):
+                        await self._store.fail(
+                            attempt_id,
+                            InventoryAttemptFailure(
+                                code=InventoryFailureCode.PARTIAL,
+                                message=(
+                                    "inventory candidate was cancelled before promotion completed"
+                                ),
+                            ),
+                        )
+                except Exception as cleanup_error:
+                    _LOG.warning(
+                        "inventory_cancel_cleanup_failed",
+                        extra={"error_type": type(cleanup_error).__name__},
+                    )
+                raise
             except Exception as exc:  # noqa: BLE001 - source boundary, classified and retained
                 failure = classify_inventory_failure(exc)
                 await self._store.fail(attempt_id, failure)
@@ -247,34 +316,23 @@ class InventorySyncCoordinator:
         raise InventorySourcesExhaustedError(failures)
 
     async def _notify_promotion(self, observation: PromotedInventoryObservation) -> None:
-        """Hand the promoted observation to the derived read model.
-
-        The promoted snapshot is already authoritative, so a failing derived
-        projection is recorded and left behind rather than invalidating it.
-        """
-        if self._observer is None:
-            return
-        try:
-            await self._observer(observation)
-        except Exception as exc:
-            _LOG.exception(
-                "inventory_promotion_observer_failed",
-                extra={"generation": observation.generation},
-            )
-            raise InventoryPromotionObserverError(
-                "inventory promotion observer failed after authoritative promotion"
-            ) from exc
+        await notify_inventory_promotion(self._observer, observation)
 
     async def _stage_stream(
         self,
         attempt_id: str,
         stream: AsyncIterator[InventoryBatch],
         observed: _ObservationAccumulator,
+        *,
+        context_digest: str | None = None,
     ) -> tuple[datetime, ProviderScopeCoverage | None]:
         """Stage one source under a re-arming progress deadline and hard ceiling."""
 
         saw_final = False
         provider_scope_coverage: ProviderScopeCoverage | None = None
+        chunk_sequence = 0
+        previous_chunk_digest: str | None = None
+        stage_chunk = getattr(self._store, "stage_chunk", None)
         loop = asyncio.get_running_loop()
         ceiling_at = loop.time() + self._attempt_deadline_seconds
 
@@ -295,22 +353,28 @@ class InventorySyncCoordinator:
                         provider_scope_coverage = batch.provider_scope_coverage
                     if batch.resources or batch.links or batch.relationship_drops:
                         observed.add(batch)
-                    if batch.resources or batch.links:
-                        await self._store.stage(
-                            attempt_id,
-                            InventoryBatch(
-                                resources=batch.resources,
-                                links=batch.links,
-                                cursor=batch.cursor,
-                            ),
-                        )
+                    if batch.resources:
+                        if callable(stage_chunk) and context_digest is not None:
+                            for chunk_batch in resource_chunk_batches(batch):
+                                receipt = await stage_chunk(
+                                    attempt_id,
+                                    chunk_batch,
+                                    context_digest=context_digest,
+                                    sequence=chunk_sequence,
+                                    previous_digest=previous_chunk_digest,
+                                )
+                                previous_chunk_digest = receipt["digest"]
+                                chunk_sequence += 1
+                        else:
+                            await self._store.stage(
+                                attempt_id,
+                                InventoryBatch(resources=batch.resources, cursor=batch.cursor),
+                            )
         except TimeoutError as exc:
             reason = "absolute ceiling" if loop.time() >= ceiling_at else "no-progress deadline"
             raise InventoryStreamError(f"inventory source exceeded its {reason}") from exc
         finally:
-            aclose = getattr(stream, "aclose", None)
-            if callable(aclose):
-                await aclose()
+            await close_inventory_stream(stream, timeout_seconds=self._progress_deadline_seconds)
         if not saw_final:
             raise InventoryStreamError("inventory stream ended before final fence")
         return datetime.now(tz=UTC), provider_scope_coverage
@@ -333,6 +397,12 @@ class _ObservationAccumulator:
         self._truncated = False
 
     def add(self, batch: InventoryBatch) -> None:
+        if any(resource.props.get("_truncated") is True for resource in batch.resources):
+            raise InventoryStreamError(
+                "truncated inventory properties cannot promote a full snapshot"
+            )
+        if len(self._relationship_drops) + len(batch.relationship_drops) > _MAX_OBSERVED_DROPS:
+            raise InventoryStreamError("inventory relationship drops exceeded their bound")
         self._relationship_drops.extend(batch.relationship_drops)
         if not self._enabled or self._truncated:
             return
@@ -361,6 +431,8 @@ class _ObservationAccumulator:
     def add_relationship_drops(self, drops: Sequence[RelationshipDrop]) -> None:
         """Include enrichment gaps in the promotion coverage metadata."""
 
+        if len(self._relationship_drops) + len(drops) > _MAX_OBSERVED_DROPS:
+            raise InventoryStreamError("inventory relationship drops exceeded their bound")
         self._relationship_drops.extend(drops)
 
     def relationship_drop_classifications(
@@ -427,6 +499,7 @@ class _ObservationAccumulator:
         )
         verified = verify_inventory_relationships(
             generation=generation,
+            mapping_catalog=self._relationship_mapping_catalog,
             resources=self._resources,
             links=((*self._links, *projected.links) if projected is not None else self._links),
             complete=not self._truncated,
@@ -470,13 +543,15 @@ def classify_inventory_failure(exc: Exception) -> InventoryAttemptFailure:
         )
     else:
         text = str(exc).lower()
-        if "http 401" in text or "token" in text or "identity" in text:
+        if "http 401" in text or "identity token request failed" in text:
             code = InventoryFailureCode.TOKEN_FAILED
         elif "http 403" in text or "forbidden" in text:
             code = InventoryFailureCode.FORBIDDEN
         elif "http 429" in text or "throttl" in text:
             code = InventoryFailureCode.THROTTLED
-        elif "pagination cap" in text or "partial" in text:
+        elif any(
+            reason in text for reason in ("pagination cap", "partial", "truncated", "continuation")
+        ):
             code = InventoryFailureCode.PARTIAL
         elif isinstance(exc, (ValueError, TypeError)):
             code = InventoryFailureCode.INVALID_DATA
@@ -702,46 +777,6 @@ def _validate_resource_state_enrichment(
         raise ValueError(
             "inventory state enrichment MUST supply one reviewed state fact or unavailable reason"
         )
-
-
-def _validate_observed_state_fact(
-    *,
-    state: object,
-    metadata: object,
-    authority: StateFactAuthority,
-    source_identity: str,
-    source_revision_prefix: str,
-    allowed_states: set[str],
-) -> None:
-    if not isinstance(state, str) or not state.strip():
-        raise ValueError("inventory state enrichment MUST supply a bounded state")
-    if state not in allowed_states:
-        raise ValueError("inventory state enrichment supplied an unsupported state")
-    if not isinstance(metadata, Mapping):
-        raise ValueError("inventory state metadata is missing")
-    fact = StateFactMetadata.from_mapping(metadata)
-    evidence_shape_valid = (fact.completeness == 1.0 and not fact.conflicts) or (
-        fact.completeness == 0.0 and fact.conflicts == (STATE_FACT_EQUAL_TIME_CONFLICT,)
-    )
-    if (
-        fact.lane is not StateFactLane.OBSERVED
-        or fact.authority is not authority
-        or fact.source_identity != source_identity
-        or not _content_addressed_revision(fact.source_revision, source_revision_prefix)
-        or fact.evidence_refs != (fact.source_revision,)
-        or fact.synthetic
-        or not evidence_shape_valid
-    ):
-        raise ValueError("inventory state metadata is not authoritative observed evidence")
-
-
-def _content_addressed_revision(value: str, prefix: str) -> bool:
-    digest = value.removeprefix(prefix)
-    return (
-        value.startswith(prefix)
-        and len(digest) == 64
-        and all(character in "0123456789abcdef" for character in digest)
-    )
 
 
 __all__ = [

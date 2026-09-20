@@ -80,9 +80,9 @@ fail closed. Local launches still import only service-owned distributions, and t
 Executor remains a durable shadow consumer without managed-resource identity. The compound doesn't
 start static design mocks or fixture applications.
 
-The task-backed `console: start full stack` supervisor additionally starts Manual Studio and the continuous inventory reconciliation and observation campaign modes from the Core distribution. When preparation has completed but the compound does not attach the supervisor, the visible `console: start local services` task starts the same prepared service set without repeating preparation. Local readiness and the 10-minute watchdog include all three processes plus the active-scope inventory coverage fence, so a stopped help library, stopped inventory producer, or checkpoint that does not match the active generation and exact scope set keeps the stack unavailable. Newer pending observations lower answer completeness but do not make a continuously collecting process unready. The startup supervisor gives generation recovery and graph projection a bounded 180-second readiness window before it reports failure and stops its child processes. The preparation cache reuses the authoritative inventory stage only when that same checkpoint check passes; unchanged files cannot hide a stale database generation.
+The task-backed `console: start full stack` supervisor additionally starts Manual Studio and the continuous inventory reconciliation and observation campaign modes from the Core distribution. Its managed preparation command defers authoritative inventory refresh to that reconciliation process, allowing the frontend and service processes to start while inventory collection runs. When preparation has completed but the compound does not attach the supervisor, the visible `console: start local services` task starts the same prepared service set without repeating preparation. Local readiness and the 10-minute watchdog include all three processes plus the active-scope inventory coverage fence, so a stopped help library, stopped inventory producer, or checkpoint that does not match the active generation and exact scope set keeps the stack unavailable. Newer pending observations lower answer completeness but do not make a continuously collecting process unready. The startup supervisor gives generation recovery and graph projection a bounded 180-second readiness window before it reports failure and stops its child processes. Standalone preparation keeps the synchronous authoritative inventory stage and reuses it only when that same checkpoint check passes; unchanged files cannot hide a stale database generation.
 
-The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning service role, and local event transport uses Redpanda on `127.0.0.1:19092`.
+The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning service role, and local event transport uses Redpanda on `127.0.0.1:19092`. Console preparation bounds disposable development history at 1 GiB by default. When the loopback `fdai` database exceeds `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES`, preparation rejects cache reuse and recreates the entire database before applying the canonical legacy and service migrations. It refuses remote, alternate-port, alternate-database, and active-connection targets. This development-only whole-database reset never truncates one audit or observation family independently; deployed evidence remains subject to verified archive, restore, retention, hold, and purge policy.
 Preparation keeps the semantic physical topic at the deployed Event Hubs floor of two partitions and sets `FDAI_OPERATING_MODEL_TOPIC=fdai.operating-model`. The same logical-topic filter and monotonic provider run locally and when deployed; an absent publisher leaves the mapping unavailable and never creates sample service identity.
 A deployed Azure process sets `FDAI_EXECUTION_VENUE=deployed` and uses its service-owned Azure Database for PostgreSQL DSN and Event Hubs Kafka endpoint. Venue selection never changes evidence authority, promotion state, human identity, or executor authority. Every service-owned process startup path records exactly one versioned, content-addressed `RuntimeScopeReceipt` before startup, binding the stable service id, cloud-operations product purpose, selected venue, complete capability row, and the only permitted variance classes: credentials, endpoints, provider scope, and scale. A same-module `serve("module:factory")` delegation records that one receipt in the factory, so direct Uvicorn loading and service-owned CLI launch cannot omit or duplicate it. Both external-state and execution authority remain false; the receipt proves startup configuration, not provider reachability or operational success. The AST venue gate discovers every entry point and rejects direct, aliased, or computed raw venue reads outside the shared contract. Move schema parity through the legacy and five service-owned migrations, then regenerate target Settings, catalog, ontology, and inventory projections from their authoritative inputs. Never clone local `audit_log`, `state_kv`, approvals, idempotency records, leases, or executor receipts into a deployed environment; those records retain the source venue's causality and authority.
 
@@ -95,14 +95,14 @@ missing Docker services fail the real shard instead of becoming a successful pro
 
 The `database_host_binding` deployment mode changes only the deployed service's non-secret `POSTGRES_HOST` binding. Every service root requires a non-empty host, Core forwards its validated `llm` object to the child module, the sealed guard rejects other command or environment drift, and exact apply must repeat the plan's mode and digests. A Core model transition derives that `llm` object from the repository's resolved-model manifest and web-search policy instead of the secret service tfvars. The materializer requires the manifest's canonical digest to match the image attestation, accepts exactly one HTTPS endpoint origin, and leaves web search disabled unless the artifact has a matching candidate and the repository policy supplies an allowlist. When a legacy Core revision lacks the reviewed Event Bus topics, database host, and model bindings together, one Core-only transition seals all three modes and runs every dedicated guard over the same plan; any fourth environment change remains blocked. The independently deployed Operator renders and requires the typed incident request plus read-investigation completion topic and consumer group, so the topic guard validates their exact values. The isolated Executor migration similarly fixes its command, receipt, and DLQ transport values together with `FDAI_EXECUTION_VENUE=deployed`; an unrelated environment change remains blocked. Local composition continues to use its loopback host, so the transition does not change execution venue or reuse a deployed DSN locally. Database venue also doesn't change metering authority: Core appends `llm_invocation` with table `SELECT, INSERT` and `USAGE, SELECT` on `llm_invocation_invocation_id_seq`, while Operator reads the table with `SELECT`. The grant migrations revoke `PUBLIC` access, neither role receives table update or delete privileges, and Core receives no sequence `UPDATE` privilege. Both venues also recover incident lifecycle history through the same concurrently built partial `audit_log.action_kind` index instead of scanning JSON payloads.
 
-Opening a workspace doesn't start the Console topology; run `console: start full stack` explicitly from the trusted primary checkout so setup never competes with editor initialization. The task verifies shared-Git ownership, runs `prepare-console-full-stack.sh`, then runs `start-console-services.sh`. Preparation first validates all service-migration branches and write ownership. It then restores runtime PostgreSQL on port `5432`, the isolated validation PostgreSQL cluster on port `5433`, Redpanda, and ClamAV before it evaluates eight ordered stage fingerprints: Console dependencies, local migrations, runtime environment, authoritative inventory, Settings projections, catalog projections, service environments, and Entra redirects. Tracked-source fingerprints derive from Git index identities and current worktree differences, include non-ignored additions plus the exact contents of explicitly named private files, and exclude ignored generated directories. Preparation and service launch emit content-free `duration_ms` events for each input digest and preparation stage. A stage is reused from its exact inputs and required outputs without requiring an already-running application stack. Reuse also requires the expected authentication mode, managed ownership, and current readiness, and a changed fingerprint never bypasses the managed whole-stack restart boundary. Database-backed stages also include the local PostgreSQL volume identity, so recreated volumes cannot inherit stale file markers. A missing or changed dependency stage runs frozen `uv sync` for every Python workspace package and lockfile-backed `npm ci`; it also requires the independently packaged worker and Executor entry points before the stage can be reused. Dependency repair finishes before the supervisor starts any service process, so package reconciliation cannot become an implicit application launch. Each external command runs through `run-bounded-command.py`, which streams output and latches either its total or no-progress deadline once. The runner keeps signaling the complete child process group even when its direct child exits first, sends `SIGTERM` at expiration, and escalates to `SIGKILL` after the declared grace period. `--force` invalidates every stage.
+Opening a workspace doesn't start the Console topology; run `console: start full stack` explicitly from the trusted primary checkout so setup never competes with editor initialization. The task verifies shared-Git ownership, runs `prepare-console-full-stack.sh --defer-authoritative-inventory`, then runs `start-console-services.sh`. Preparation first validates all service-migration branches and write ownership. It then restores runtime PostgreSQL on port `5432`, the isolated validation PostgreSQL cluster on port `5433`, Redpanda, and ClamAV before it evaluates seven synchronous stage fingerprints: Console dependencies, local migrations, runtime environment, Settings projections, catalog projections, service environments, and Entra redirects. It records authoritative inventory as deferred to the managed reconciliation process. Standalone preparation without the defer option evaluates all eight stages synchronously. Tracked-source fingerprints derive from Git index identities and current worktree differences, include non-ignored additions plus the exact contents of explicitly named private files, and exclude ignored generated directories. Preparation and service launch emit content-free `duration_ms` events for each input digest and preparation stage. A stage is reused from its exact inputs and required outputs without requiring an already-running application stack. Reuse also requires the expected authentication mode, managed ownership, and current readiness, and a changed fingerprint never bypasses the managed whole-stack restart boundary. Database-backed stages also include the local PostgreSQL volume identity, so recreated volumes cannot inherit stale file markers. A missing or changed dependency stage runs frozen `uv sync` for every Python workspace package and lockfile-backed `npm ci`; it also requires the independently packaged worker and Executor entry points before the stage can be reused. Dependency repair finishes before the supervisor starts any service process, so package reconciliation cannot become an implicit application launch. Each external command runs through `run-bounded-command.py`, which streams output and latches either its total or no-progress deadline once. The runner keeps signaling the complete child process group even when its direct child exits first, sends `SIGTERM` at expiration, and escalates to `SIGKILL` after the declared grace period. `--force` invalidates every synchronous stage.
 
 The supervisor launches each allowlisted `run-console-service.sh` in parallel with its own lock, fingerprint, log, and lifecycle. It emits `started` after all launchers are spawned, but the VS Code task remains active until the supervisor emits exactly one terminal `ready` or `failed` event. The complete readiness gate defaults to 60 seconds and has a 65-second outer process-group deadline. Every child exit, readiness failure, signal, or managed-lock failure before readiness emits `failed` and returns nonzero. Duplicate explicit starts run concurrently through the managed lock and fingerprint reuse path instead of being silently ignored. The active supervisor preserves one retry-stable local analyzer run identity: a duplicate start reuses it, while a new supervisor generation creates a fresh identity whose readiness still requires the first clean tick. After shared readiness passes, the duplicate start exits successfully and only the generation owner continues supervising long-lived children. The schema-valid `silent` overflow policy applies only after the two-instance ceiling is reached and never opens an interactive prompt. `console: wait full stack ready` is a separate ten-second diagnostic after a successful start, not a second startup phase. Its text mode emits the wait budget before polling; JSON mode remains one machine-readable document. The Core launcher rejects modified or untracked active prompt files so local answers cannot silently use a different prompt than the checked-in revision. A deliberate prompt-development run can opt in with `FDAI_LOCAL_ALLOW_DIRTY_PROMPTS=1`; standard startup remains closed. The Core and Operator recovery tasks apply the same named-service readiness check and emit terminal markers instead of treating process spawn as readiness. Changed or foreign ownership replaces only the managed task or fails. Launchers that wait for readiness install `INT` and `TERM` forwarding before they spawn the managed runner. Shutdown signals stop and reap both the readiness probe and the runner, allowing `run-local-service.sh` to close its detached child process group instead of leaving analyzer or Cost Analytics loops behind.
 
-The ordered preparation refreshes read-only Azure Resource Graph inventory and materializes sanitized model, runtime Settings, Rule, and Ontology projections only when their stage inputs change. These declarations do not create findings, observed inventory, readiness, or execution authority. An unavailable or unauthorized provider leaves inventory explicitly unavailable instead of substituting fixture data. Full-stack startup requires a trusted workspace and committed policy without weakening authority.
+Standalone ordered preparation refreshes read-only Azure Resource Graph inventory and materializes sanitized model, runtime Settings, Rule, and Ontology projections only when their stage inputs change. Managed full-stack preparation defers only the inventory refresh to the continuous reconciliation process. These declarations do not create findings, observed inventory, readiness, or execution authority. An unavailable or unauthorized provider leaves inventory explicitly unavailable instead of substituting fixture data. Full-stack startup requires a trusted workspace and committed policy without weakening authority.
 Loopback ownership checks use bounded 250 ms IPv4 and IPv6 socket probes and do not retain the
 service lock while connecting. Shutdown allows ten seconds before stopping the child group;
-wrapper loss signals its leader. Run `console: prepare full stack` before an individual service or
+local-state cache reuse also verifies the live legacy and all five service migration heads, so same-volume database recreation reruns schema preparation instead of trusting a stale file marker. Wrapper loss signals its leader. Run `console: prepare full stack` before an individual service or
 debug launch.
 The ignored local runtime environment records the validation cluster as
 `FDAI_VALIDATION_DATABASE_URL`; the detached validation queue maps only that value to
@@ -113,8 +113,9 @@ deployed PostgreSQL. Command Deck history therefore restores sent images through
 authenticated Operator API route in both profiles; neither profile stores inline base64 in turn
 metadata or browser transcript caches.
 The compound completes `console: prepare full stack` before starting its children, so only stale
-migration, backend-environment, projection, inventory, or Entra stages run. The Core runtime and
-its managed local jobs connect to the shared state store through `SET ROLE fdai_core`. The Operator
+migration, backend-environment, non-inventory projection, or Entra stages run synchronously. The
+managed inventory process starts with the children and remains part of complete readiness. The Core runtime and
+its managed local jobs connect through `SET ROLE fdai_core`, reuse one bounded async StateStore pool, and close it during ordered shutdown. The Operator
 environment derives its JWT audience from the browser API scope, requires matching browser and
 Azure tenants, disables raw-group fallback with unmatchable local slots, and connects through
 `SET ROLE fdai_operator`. Run the preparation task first for a standalone Core Runtime or Operator
@@ -401,7 +402,7 @@ work; collecting, analyzing, deciding, executing, approving, auditing, Incident,
 non-durable, resets on reload, preserves each frame's recorded source, and never substitutes for the append-only audit log. In both
 venues, a newly appended non-replay row receives the same three-second neutral background fade; initial and replayed history never receives
 that cue. Reduced-motion mode preserves a static bounded tint, and shared typography keeps every log label and annotation at or above the
-caption-size floor.
+caption-size floor. Both venues render the same newest-first virtualized Activity list with millisecond timestamps, 250 ms update batches, bounded source buffers and a fixed reading snapshot while browsing history. A contextual new-events action replaces the persistent live-tail button. English and Korean share these controls; source authority, durable retention and Waterfall ordering remain unchanged. The [Activity presentation contract](../interfaces/console-evidence-and-resilience.md) owns the exact bounds and interaction rules.
 
 Completed conversation review follows the same split. Interactive local transport can publish the
 bounded Bragi `object.turn` envelope, but it does not fabricate a reviewer or durable proposal
@@ -520,108 +521,7 @@ identical JSON. The resolver caller owns appending that evidence to the audit st
 
 ## Work Plan (phased, additive)
 
-Every phase leaves the tree buildable + testable at `head`. Multi-cloud is **TBD**
-throughout ([copilot-instructions § Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
-
-**Status as of 2026-07-21**: W-A through W-G are **shipped**; W-H (docs sync) shipped
-alongside the initial draft of this document; W-I (reconciler weekly job) remains deferred.
-Each work item below reflects what actually landed - code, tests, and gate coverage.
-
-### W-A: Config schema for LLM + dev-mode flag ✅ *(baseline, shipped)*
-
-- Add `LlmConfig` to `services/core-control-plane/src/fdai/shared/config/schema.json` + `models.py`:
-  - `mode`: `local-fake` | `azure`. `local-fake` is an explicit test/mock binding; deployment
-    environment does not select it.
-  - `resolved_models_path`: optional KV secret name or filesystem path.
-  - `capabilities`: list of capability names (`t1.embedding`, `t1.judge`,
-    `t2.reasoner.primary`, `t2.reasoner.secondary`) - mirrors the registry.
-  - `t2_primary_latency_routing`: bool, default `true`. Latency routing of
-    the T2 primary proposer among its same-publisher candidate pool
-    (invariant-safe; enforced on). Takes effect only when the resolver emits
-    a >= 2 pool (`--emit-primary-pool`); set `false` to pin the single
-    primary. See [llm-strategy.md](../architecture/llm-strategy.md) section
-    "T2 Primary Latency Pool".
-- Fail-fast validator: `mode == "azure"` requires `resolved_models_path` present.
-- Tests: schema + pydantic validators.
-
-### W-B: `rule-catalog/llm-registry.yaml` + schema  ✅ *(catalog-as-code, shipped)*
-
-- New file: `rule-catalog/llm-registry.yaml` with upstream defaults (mini → Opus tier).
-- JSON Schema: `rule-catalog/schema/llm-registry.schema.json`.
-- Python loader: `fdai.rule_catalog.schema.llm_registry` with the aggregating
-  fail-close pattern used elsewhere (see `exemption.py`).
-- Tests: schema validation, mixed-model invariant check.
-
-### W-C: Bootstrap resolver CLI  ✅ *(deployer-scoped, shipped)*
-
-- New: `services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py`.
-- Inputs: `--registry`, `--region`, `--subscription-id`, `--dry-run`, `--out`.
-- Fixture mode requires catalog, permission, and quota JSON inputs for offline CI.
-- `--use-azure-cli` uses the existing `az login` context and optional `AZURE_CONFIG_DIR`
-  to query model catalogs, role assignments, usage/quota, and provisioned capacity read-only.
-- Emits `resolved-models.json` (or `--dry-run` prints to stdout).
-- Enforces every check in [Deployer-Scoped LLM Provisioning](#deployer-scoped-llm-provisioning).
-- Tests: mock the two SDK clients; assert precedence + mixed-model invariant + `hil-only`
-  fallback + idempotent output on same inputs.
-
-### W-D: Azure OpenAI Terraform module + preflight  ✅ *(infra, shipped)*
-
-- New: `infra/modules/llm/azure-openai/`.
-  - `main.tf`: `azurerm_cognitive_account` (kind=`OpenAI`) + N
-    `azurerm_cognitive_deployment` from `resolved_capabilities`.
-  - `variables.tf`: `enable_llm` (default `false` so bare-minimum deploys still succeed), `resolved_capabilities` (object list from resolver), and the explicit `llm_public_network_access_enabled` opt-in shared by Azure OpenAI and partner Foundry accounts. Public access stays disabled by default; the direct public-development wrapper enables it for deployment-owned model endpoints, while protected environments should retain a deny-by-default network ACL with explicit trusted-source rules. Key authentication remains disabled in every mode.
-  - `outputs.tf`: `endpoint`, `deployments` map, `resource_id`.
-- Role assignment: executor MI → `Cognitive Services OpenAI User` on the account.
-- Root `infra/main.tf` wires the module conditionally on `var.enable_llm`.
-- Update `infra/README.md` with the deploy flow: resolver first → `terraform apply` with
-  `enable_llm=true`.
-
-### W-E: Azure OpenAI adapter classes  ✅ *(delivery, shipped)*
-
-- `services/core-control-plane/src/fdai/delivery/azure/llm/embeddings.py` - `AzureOpenAIEmbeddingModel`
-  implementing `EmbeddingModel`, using injected async `httpx` + `WorkloadIdentity`.
-- `services/core-control-plane/src/fdai/delivery/azure/llm/cross_check.py` - `AzureOpenAICrossCheckModel`
-  implementing `CrossCheckModel`.
-- Timeout, retry-after honouring, structured output (`response_format={"type":"json_object"}`)
-  - see [llm-strategy.md § Provider Abstraction](../architecture/llm-strategy.md#provider-abstraction).
-- Tests: use `httpx.MockTransport` + recorded fixtures - no live network.
-
-### W-F: Composition-root wiring  ✅ *(binding, shipped)*
-
-- Extend `Container` with `embedding_model: EmbeddingModel`, `cross_check_models`,
-  `verifier_policy`, `grounding_source` fields.
-- `default_container(config)` binds deterministic fakes for `local-fake` and returns an
-  unbound container for `azure`. Runtime bootstrap then calls
-  `bind_azure_llm_bindings`/`wire_azure_container`, loads `resolved-models.json`, and binds
-  adapters per capability. A missing entry fails fast.
-- Tests: both branches; assert `local-fake` never imports `delivery.azure.llm`.
-
-### W-G: Fixture identity + secret + inventory adapters  ✅ *(test support, shipped)*
-
-- `EnvSecretProvider` in `shared/providers/testing/` (renamed to
-  `shared/providers/local/` to reflect dev usage).
-- `LocalWorkloadIdentity` - issues an in-memory OIDC token accepted only by fixture adapters
-  (no network). Interactive local never uses it as Thor's identity.
-- `FileFixtureInventory` - reads `Resource` records from any YAML fixture the fork passes to its constructor (`fixture=Path(...)`); upstream ships zero seed fixtures, and the recommended convention is `services/core-control-plane/tests/scenarios/inventory/*.yaml` alongside the frozen scenario replay so verticals can dry-run without ARG.
-- Tests + docstrings show the exact fork-side pattern.
-
-### W-H: Docs sync  *(this phase)*
-
-- ✅ This document itself.
-- Update [deploy-and-onboard.md § Runtime Configuration Matrix](deploy-and-onboard.md#runtime-configuration-matrix)
-  to add `LLM_MODE`, `LLM_RESOLVED_MODELS_PATH`.
-- Update [deploy-and-onboard.md § Azure Resource Inventory](deploy-and-onboard.md#azure-resource-inventory-minimum-set)
-  to add row 11 (Azure OpenAI, opt-in).
-- Update [tech-stack.md § Local Development](../architecture/tech-stack.md#local-development) to
-  distinguish authoritative interactive adapters from explicit fixtures.
-- Update [llm-strategy.md § Bootstrap Provisioner](../architecture/llm-strategy.md#bootstrap-provisioner)
-  to reference this doc for the deployer-permission gates.
-
-### W-I: Reconciler weekly Job  *(later phase - deferred)*
-
-Kept as future work. Full design already in
-[llm-strategy.md § Reconciler Job](../architecture/llm-strategy.md#reconciler-job); ships as a
-`infra/modules/compute/container-apps-job/` reuse plus a Python entry point.
+The complete phased plan is in [Development and Deployment Parity Work Plan](dev-and-deploy-parity-work-plan.md).
 
 ## Fork-side overrides
 

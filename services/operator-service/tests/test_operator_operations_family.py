@@ -46,6 +46,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 FAMILY_ROOT = REPO_ROOT / "services/operator-service/src/fdai_operator_service/families/operations"
 HEADERS = {"Authorization": "Bearer reader"}
 LEGACY_ROUTE_SNAPSHOT = {
+    (("GET", "HEAD"), "/observer-deployment-proposals", "observer_deployment_proposals"),
     (("GET", "HEAD"), "/inventory/graph", "handler"),
     (("GET", "HEAD"), "/ontology/graph", "handler"),
     (("GET", "HEAD"), "/ontology/instances", "ontology_instances"),
@@ -229,7 +230,27 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 42
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 43
+
+
+def test_observer_proposals_require_authentication_and_never_submit_actions() -> None:
+    dependencies = RecordingDependencies()
+    client = _client(dependencies)
+    assert client.get("/observer-deployment-proposals").status_code == 401
+    assert (
+        client.get(
+            "/observer-deployment-proposals?target_ref=cluster-example", headers=HEADERS
+        ).status_code
+        == 200
+    )
+    query = dependencies.queries[-1]
+    assert query.operation == "observer.deployment.proposals"
+    assert query.params["target_ref"] == ("cluster-example",)
+    assert query.principal_id == "reader-oid"
+    assert (
+        client.post("/observer-deployment-proposals", headers=HEADERS, json={}).status_code == 405
+    )
+    assert dependencies.proposals == []
 
 
 def test_recorded_state_route_is_authenticated_and_preserves_bounded_query_context() -> None:
@@ -1136,6 +1157,61 @@ def test_inventory_invalidation_stream_establishes_watermark_without_a_replay_st
     assert "id: 42\nevent: inventory.invalidated" in body
     assert '"watermark":42' in body
     assert '"observation_count":3' in body
+
+
+@pytest.mark.parametrize(
+    "cursor,expected_status",
+    [
+        ("a" * 32 + ":42", 200),
+        ("900", 200),
+        ("", 200),
+        ("bad:42", 400),
+        ("a" * 32 + ":-1", 400),
+        ("a" * 32 + ":1.5", 400),
+        ("a" * 32 + ":9007199254740992", 400),
+        ("A" * 32 + ":1", 400),
+        ("a" * 32 + ":1:2", 400),
+    ],
+)
+def test_inventory_epoch_stream_encodes_reset_and_closes_without_polling(cursor, expected_status):
+    dependencies = RecordingDependencies()
+    epoch = "b" * 32
+    dependencies.replay_batches = [
+        ReplayBatch(
+            events=(
+                ReplayEvent(
+                    1,
+                    "inventory.invalidated",
+                    {
+                        "schema_version": "2.0.0",
+                        "epoch": epoch,
+                        "watermark": 1,
+                        "reset_required": True,
+                        "observation_count": 1,
+                        "observed_at": "2026-09-06T01:00:00Z",
+                        "recorded_at": "2026-09-06T01:00:00Z",
+                        "complete": False,
+                        "execution_authority": False,
+                        "mutation_authority": False,
+                    },
+                ),
+            ),
+            watermark=1,
+        )
+    ]
+    with _client(dependencies).stream(
+        "GET",
+        "/ontology/instances/stream?cursor_version=2",
+        headers={**HEADERS, "Last-Event-ID": cursor},
+    ) as response:
+        body = b"".join(response.iter_bytes()).decode()
+    assert response.status_code == expected_status
+    if expected_status == 200:
+        assert f"id: {epoch}:1" in body
+        assert len(dependencies.replays) == 1
+        assert dependencies.replays[0].cursor_epoch == ("a" * 32 if ":" in cursor else "")
+    else:
+        assert dependencies.replays == []
 
 
 def test_inventory_invalidation_stream_honors_last_event_id_on_reconnect(

@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -180,7 +181,7 @@ async def test_capture_accepts_one_exact_matching_runtime_packet(
     )
     server = DevelopmentDiagnosticServer(config)
     monkeypatch.setattr(module, "_git_revision", lambda _root: REVISION)
-    monkeypatch.setattr(module, "_worktree_digest", lambda _root: WORKTREE_DIGEST)
+    monkeypatch.setattr(module, "_service_input_digest", lambda _root, _service: INPUT_DIGEST)
     await server.start()
     try:
         packet = await module._capture(
@@ -190,11 +191,77 @@ async def test_capture_accepts_one_exact_matching_runtime_packet(
             cpu=True,
             heap=True,
         )
+        monkeypatch.setattr(
+            module,
+            "_service_input_digest",
+            lambda _root, _service: "e" * 64,
+        )
+        with pytest.raises(ValueError, match="service inputs do not match"):
+            await module._capture(
+                short_root,
+                service="core-control-plane",
+                duration_ms=0,
+                cpu=True,
+                heap=True,
+            )
     finally:
         await server.aclose()
         shutil.rmtree(short_root)
     assert packet.service_id == "core-control-plane"
     assert packet.packet_digest.startswith("sha256:")
+
+
+async def test_status_rejects_a_stale_socket_file(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _load()
+    short_root = Path(tempfile.mkdtemp(prefix="fdai-dd-status-"))
+    socket_dir = short_root / ".fdai" / "runtime-diagnostics"
+    socket_dir.mkdir(parents=True)
+    stale_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    stale_socket.bind(str(socket_dir / "operator-service.sock"))
+    stale_socket.close()
+
+    try:
+        result = await module._status(short_root)
+    finally:
+        shutil.rmtree(short_root)
+
+    assert result == 1
+    assert json.loads(capsys.readouterr().out) == {
+        "core-control-plane": False,
+        "operator-service": False,
+    }
+
+
+async def test_status_accepts_a_live_diagnostic_server(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    short_root = Path(tempfile.mkdtemp(prefix="fdai-dd-status-"))
+    socket_dir = short_root / ".fdai" / "runtime-diagnostics"
+    config = DevelopmentDiagnosticsConfig(
+        service_id="core-control-plane",
+        execution_venue="local",
+        socket_path=socket_dir / "core-control-plane.sock",
+        source_root=short_root,
+        source_revision=REVISION,
+        service_input_digest=INPUT_DIGEST,
+        worktree_digest=WORKTREE_DIGEST,
+        runtime_scope_receipt_digest=RECEIPT,
+    )
+    server = DevelopmentDiagnosticServer(config)
+    await server.start()
+    try:
+        result = await _load()._status(short_root)
+    finally:
+        await server.aclose()
+        shutil.rmtree(short_root)
+
+    assert result == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "core-control-plane": True,
+        "operator-service": False,
+    }
 
 
 def test_private_writer_uses_atomic_owner_only_file(tmp_path: Path) -> None:

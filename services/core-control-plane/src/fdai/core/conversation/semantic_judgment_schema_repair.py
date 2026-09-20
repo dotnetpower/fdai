@@ -81,6 +81,17 @@ def repair_required(proposal: SemanticJudgmentProposal) -> bool:
         or proposal.execution_authority
     ):
         return False
+    if (
+        proposal.primary_intent == "query.manifest"
+        and not proposal.targets
+        and not proposal.ambiguous
+        and any(
+            set(proposal.requested_facets)
+            == {f"{kind.removesuffix('Type').lower()}_types", "readable"}
+            for kind in _SCHEMA_METATYPES
+        )
+    ):
+        return False
     object_targets = {
         target.canonical_value
         for target in proposal.targets

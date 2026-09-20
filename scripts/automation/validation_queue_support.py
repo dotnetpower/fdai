@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass
@@ -13,6 +14,21 @@ from pathlib import Path
 COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40,64}$")
 UTC = timezone.utc  # noqa: UP017 - tracked Git hooks run with the system Python 3.10.
 GIT_TIMEOUT_SECONDS = 600
+
+
+@dataclass(frozen=True)
+class ValidationRetentionPolicy:
+    """Bounds optional validation evidence and commit-specific retry caches."""
+
+    receipts: int = 512
+    runs: int = 128
+    stage_records: int = 128
+    changed_test_records: int = 128
+    pytest_commits: int = 16
+    verify_markers: int = 4096
+
+
+DEFAULT_RETENTION_POLICY = ValidationRetentionPolicy()
 
 
 @dataclass(frozen=True)
@@ -80,6 +96,82 @@ def initialize(paths: QueuePaths) -> None:
     paths.receipts.mkdir(parents=True, exist_ok=True)
     paths.runs.mkdir(parents=True, exist_ok=True)
     paths.stage_cache.mkdir(parents=True, exist_ok=True)
+
+
+def _prune_entries(
+    entries: list[Path],
+    *,
+    retain: int,
+    preserved_names: set[str],
+) -> int:
+    if retain < 1:
+        raise ValueError("validation retention limits MUST be positive")
+    ordered = sorted(
+        entries,
+        key=lambda path: (path.stat().st_mtime_ns, path.name),
+        reverse=True,
+    )
+    kept = {path.name for path in ordered if path.name in preserved_names}
+    for path in ordered:
+        if path.name in kept:
+            continue
+        if len(kept) < retain:
+            kept.add(path.name)
+            continue
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+        else:
+            path.unlink(missing_ok=True)
+    return len(ordered) - len(kept)
+
+
+def prune_completed_state(
+    paths: QueuePaths,
+    *,
+    preserve_commits: set[str],
+    policy: ValidationRetentionPolicy = DEFAULT_RETENTION_POLICY,
+) -> dict[str, int]:
+    """Bound completed records and retry caches without touching pending work."""
+
+    initialize(paths)
+    preserved_json = {f"{commit}.json" for commit in preserve_commits}
+    return {
+        "receipts": _prune_entries(
+            list(paths.receipts.glob("*.json")),
+            retain=policy.receipts,
+            preserved_names=preserved_json,
+        ),
+        "runs": _prune_entries(
+            list(paths.runs.glob("*.json")),
+            retain=policy.runs,
+            preserved_names=preserved_json,
+        ),
+        "stage_records": _prune_entries(
+            list(paths.stage_cache.glob("*.json")),
+            retain=policy.stage_records,
+            preserved_names=preserved_json,
+        ),
+        "changed_test_records": _prune_entries(
+            list((paths.stage_cache / "changed-tests").glob("*.json")),
+            retain=policy.changed_test_records,
+            preserved_names=preserved_json,
+        ),
+        "pytest": _prune_entries(
+            list((paths.stage_cache / "pytest").glob("*")),
+            retain=policy.pytest_commits,
+            preserved_names=preserve_commits,
+        ),
+        "pytest_shards": _prune_entries(
+            list((paths.stage_cache / "pytest-shards").glob("*")),
+            retain=policy.pytest_commits,
+            preserved_names=preserve_commits,
+        ),
+        "verify_markers": _prune_entries(
+            list((paths.stage_cache / "verify").glob("*.pass")),
+            retain=policy.verify_markers,
+            preserved_names=set(),
+        ),
+    }
 
 
 def resolve_commit(paths: QueuePaths, revision: str) -> str:

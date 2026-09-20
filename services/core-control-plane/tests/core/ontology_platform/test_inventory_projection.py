@@ -82,6 +82,108 @@ def _observation_metadata() -> LinkObservationMetadata:
     )
 
 
+@pytest.mark.parametrize(
+    ("last_seen", "reason"),
+    [
+        (None, "observation_time_unavailable"),
+        ((OBSERVED_AT + timedelta(seconds=1)).isoformat(), "observation_time_in_future"),
+    ],
+)
+def test_recorded_generation_cannot_admit_untimed_or_future_state(
+    last_seen: str | None, reason: str
+) -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={"powerState": "running"},
+                last_seen=last_seen,
+            ),
+        ),
+        recorded_at=OBSERVED_AT,
+    )
+    assert projection.complete is False
+    assert reason in projection.dropped_reasons
+
+
+def test_recorded_generation_checks_retained_fact_time_independently() -> None:
+    future = OBSERVED_AT + timedelta(seconds=1)
+    metadata = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="provider",
+        source_revision="revision",
+        effective_at=future,
+        recorded_at=future,
+        evidence_cutoff=future,
+        freshness_ceiling_seconds=300,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=("receipt:example",),
+    )
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                last_seen=OBSERVED_AT.isoformat(),
+                props={
+                    "powerState": "running",
+                    STATE_FACT_METADATA_PROPERTY: metadata.to_mapping(),
+                },
+            ),
+        ),
+        recorded_at=OBSERVED_AT,
+    )
+    assert projection.complete is False
+    assert "observation_time_in_future" in projection.dropped_reasons
+
+
+@pytest.mark.parametrize("scoped", [False, True])
+@pytest.mark.parametrize("canonical_state", ["running", "stopped"])
+def test_canonical_metadata_requires_agreement_with_provider_state(
+    scoped: bool, canonical_state: str
+) -> None:
+    fact = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="provider-readback",
+        source_revision="revision-pinned",
+        effective_at=OBSERVED_AT,
+        recorded_at=OBSERVED_AT,
+        evidence_cutoff=OBSERVED_AT,
+        freshness_ceiling_seconds=123,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=("receipt:pinned",),
+    ).to_mapping()
+    metadata = {"state": fact} if scoped else fact
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                last_seen=OBSERVED_AT.isoformat(),
+                props={
+                    "powerState": "running",
+                    "state": canonical_state,
+                    STATE_FACT_METADATA_PROPERTY: metadata,
+                },
+            ),
+        ),
+        freshness_ceiling_seconds=999,
+    )
+    retained = projection.objects[0].properties["properties"][STATE_FACT_METADATA_PROPERTY]
+    if canonical_state == "running":
+        assert retained == metadata
+    else:
+        assert retained["source_revision"] == "snapshot-1"
+
+
 def test_complete_observation_projects_typed_objects_and_links() -> None:
     projection = build_inventory_ontology_projection(
         generation="snapshot-1",
@@ -814,6 +916,9 @@ def test_unrelated_property_conflict_does_not_qualify_operational_state() -> Non
     assert provider["state"] == "running"
     assert metadata.conflicts == ()
     assert metadata.completeness == 1.0
+    assert provider["observation_conflicts"] == ["observed_property_conflict:status"]
+    assert projection.complete is False
+    assert "resource_property_conflict" in projection.dropped_reasons
 
 
 def test_unrelated_nested_conflict_preserves_agreed_operational_state() -> None:
@@ -850,6 +955,8 @@ def test_unrelated_nested_conflict_preserves_agreed_operational_state() -> None:
     assert provider["state"] == "PowerState/running"
     assert metadata.conflicts == ()
     assert metadata.completeness == 1.0
+    assert provider["observation_conflicts"] == ["observed_property_conflict:properties"]
+    assert projection.complete is False
 
 
 def test_ontology_uses_only_exact_declared_operational_paths() -> None:
@@ -1033,7 +1140,8 @@ def test_unregistered_link_type_is_dropped_and_reported() -> None:
     )
 
     assert projection.links == ()
-    assert projection.complete is False
+    assert projection.complete is True
+    assert projection.relationship_complete is False
     assert "unregistered_link_type" in projection.dropped_reasons
 
 
@@ -1145,7 +1253,8 @@ def test_unobserved_endpoint_is_dropped_and_reported(
     )
 
     assert projection.links == ()
-    assert projection.complete is False
+    assert projection.complete is True
+    assert projection.relationship_complete is False
     assert expected_reason in projection.dropped_reasons
 
 

@@ -31,11 +31,15 @@ class SecuredQueryReceiptAuthority:
         self,
         *,
         max_receipts: int = 4096,
+        max_presentation_age_seconds: int = 90,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         if not 1 <= max_receipts <= 65_536:
             raise ValueError("secured query receipt bound MUST be between 1 and 65536")
+        if not 1 <= max_presentation_age_seconds <= 3600:
+            raise ValueError("presentation receipt age MUST be between 1 and 3600 seconds")
         self._max_receipts = max_receipts
+        self._max_presentation_age_seconds = max_presentation_age_seconds
         self._now = now or (lambda: datetime.now(UTC))
         self._verification_context = object()
         self._issued: OrderedDict[str, _IssuedReceipt] = OrderedDict()
@@ -56,7 +60,7 @@ class SecuredQueryReceiptAuthority:
         """Retain one result and its independently verified admission when available."""
 
         receipt = result.receipt
-        key = receipt.projected_result_digest
+        key = _receipt_key(receipt)
         issued = _IssuedReceipt(receipt=receipt)
         existing = self._issued.get(key)
         if existing is not None and existing != issued:
@@ -76,7 +80,7 @@ class SecuredQueryReceiptAuthority:
         """Return one issued secured result named by a dependency evidence ref."""
 
         result = self._resolve_issued(evidence_refs)
-        digest = result.receipt.projected_result_digest
+        digest = _receipt_key(result.receipt)
         if not self._admitted(result.receipt, self._decision_evidence.get(digest)):
             raise PermissionError("function dependency lacks verified decision evidence")
         return result
@@ -91,23 +95,35 @@ class SecuredQueryReceiptAuthority:
     ) -> SecuredObjectSetQueryResult:
         """Authenticate one issued result for a no-authority presentation read."""
 
-        result = self._resolve_issued(evidence_refs)
+        result = self._resolve_issued(evidence_refs, invocation_context=invocation_context)
         receipt = result.receipt
         if (
             expected_purpose != "operations-review"
             or invocation_context.caller_agent != "Bragi"
             or invocation_context.caller_role != receipt.caller_role
+            or invocation_context.principal_scope_digest != receipt.principal_scope_digest
+            or (
+                invocation_context.principal_ref is not None
+                and receipt.principal_scope_digest is None
+            )
             or invocation_context.purposes != (expected_purpose,)
             or receipt.ontology_release != expected_release
             or receipt.purpose != expected_purpose
             or result.materialization.definition.purpose != expected_purpose
         ):
             raise PermissionError("presentation read dependency scope does not match")
+        age = (self._now() - receipt.observation_cutoff).total_seconds()
+        if receipt.principal_scope_digest is not None and not (
+            0 <= age <= self._max_presentation_age_seconds
+        ):
+            raise PermissionError("presentation read dependency is outside its validity window")
         return result
 
     def _resolve_issued(
         self,
         evidence_refs: tuple[str, ...],
+        *,
+        invocation_context: FunctionInvocationContext | None = None,
     ) -> SecuredObjectSetQueryResult:
         """Resolve one exact process-issued result without deciding its downstream use."""
 
@@ -122,9 +138,24 @@ class SecuredQueryReceiptAuthority:
             if ref.startswith("ontology-object-set:")
         )
         digests = output_digests or lineage_digests
-        if len(digests) != 1 or digests[0] not in self._results:
+        if len(digests) != 1:
             raise PermissionError("function dependency does not identify one issued ObjectSet")
-        result = self._results[digests[0]]
+        candidates = tuple(
+            result
+            for result in self._results.values()
+            if result.receipt.projected_result_digest == digests[0]
+            and (
+                invocation_context is None
+                or (
+                    result.receipt.caller_role == invocation_context.caller_role
+                    and result.receipt.principal_scope_digest
+                    == invocation_context.principal_scope_digest
+                )
+            )
+        )
+        if len(candidates) != 1:
+            raise PermissionError("function dependency does not identify one issued ObjectSet")
+        result = candidates[0]
         return SecuredObjectSetQueryResult.model_validate(result.model_dump(mode="json"))
 
     def verify(
@@ -141,8 +172,9 @@ class SecuredQueryReceiptAuthority:
 
         if verification_context is not self._verification_context:
             return False
-        issued = self._issued.get(expected_result_digest)
-        retained = self._results.get(expected_result_digest)
+        key = _receipt_key(receipt)
+        issued = self._issued.get(key)
+        retained = self._results.get(key)
         if issued is None or retained is None:
             return False
         return (
@@ -151,10 +183,12 @@ class SecuredQueryReceiptAuthority:
             and receipt.ontology_release == expected_release
             and receipt.purpose == expected_purpose
             and invocation_context.purposes == (expected_purpose,)
+            and invocation_context.caller_role == receipt.caller_role
+            and invocation_context.principal_scope_digest == receipt.principal_scope_digest
             and expected_result_digest in invocation_context.evidence_refs
             and self._admitted(
                 receipt,
-                self._decision_evidence.get(expected_result_digest),
+                self._decision_evidence.get(key),
             )
         )
 
@@ -174,6 +208,12 @@ class SecuredQueryReceiptAuthority:
             evaluated_at=self._now(),
         )
         return not reasons
+
+
+def _receipt_key(receipt: SecuredObjectSetQueryReceipt) -> str:
+    return content_digest(
+        {"result": receipt.projected_result_digest, "scope": secured_query_scope_digest(receipt)}
+    )
 
 
 def secured_query_scope_digest(receipt: SecuredObjectSetQueryReceipt) -> str:

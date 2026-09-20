@@ -20,8 +20,7 @@ AppendAuditInTransaction = Callable[
 
 async def compare_and_set_state_with_approval_guard(
     *,
-    dsn: str,
-    connect_timeout_s: int,
+    connection: psycopg.AsyncConnection[Any],
     set_statement_timeout: SetStatementTimeout,
     append_audit_in_transaction: AppendAuditInTransaction,
     key: str,
@@ -47,14 +46,10 @@ async def compare_and_set_state_with_approval_guard(
         raise ValueError("guarded expected revisions MUST be >= 0")
     if evaluated_at.tzinfo is None or evaluated_at.utcoffset() is None:
         raise ValueError("guarded CAS evaluation time MUST be timezone-aware")
-    async with await psycopg.AsyncConnection.connect(
-        dsn,
-        connect_timeout=connect_timeout_s,
-    ) as conn:
-        async with conn.transaction():
-            await set_statement_timeout(conn)
-            guard_cursor = await conn.execute(
-                """
+    async with connection.transaction():
+        await set_statement_timeout(connection)
+        guard_cursor = await connection.execute(
+            """
                 SELECT value
                   FROM state_kv
                  WHERE key = %s
@@ -62,20 +57,19 @@ async def compare_and_set_state_with_approval_guard(
                    AND value ->> 'state' = 'pending'
                  FOR UPDATE
                 """,
-                (approval_key, str(expected_approval_revision)),
-            )
-            guard_row = await guard_cursor.fetchone()
-            if guard_row is None:
-                return False
-            guard_record = guard_row[0]
-            if (
-                not isinstance(guard_record, Mapping)
-                or workflow_approval_decisions_from_state(guard_record)
-                != expected_approval_decisions
-            ):
-                return False
-            cursor = await conn.execute(
-                """
+            (approval_key, str(expected_approval_revision)),
+        )
+        guard_row = await guard_cursor.fetchone()
+        if guard_row is None:
+            return False
+        guard_record = guard_row["value"]
+        if (
+            not isinstance(guard_record, Mapping)
+            or workflow_approval_decisions_from_state(guard_record) != expected_approval_decisions
+        ):
+            return False
+        cursor = await connection.execute(
+            """
                 UPDATE state_kv AS target
                    SET value = %s::jsonb,
                        updated_at = NOW()
@@ -102,25 +96,25 @@ async def compare_and_set_state_with_approval_guard(
                    )
                 RETURNING target.key
                 """,
-                (
-                    json.dumps(dict(value), default=str),
-                    key,
-                    str(expected_revision),
-                    admission_verified_at,
-                    admission_valid_until,
-                    approval_key,
-                    str(expected_approval_revision),
-                    expected_approval_process_id,
-                    expected_approval_step_id,
-                    str(expected_approval_attempt),
-                    expected_approval_requester,
-                    str(expected_approval_quorum),
-                    expected_no_self_approval,
-                ),
-            )
-            if await cursor.fetchone() is None:
-                return False
-            await append_audit_in_transaction(conn, dict(audit_entry))
+            (
+                json.dumps(dict(value), default=str),
+                key,
+                str(expected_revision),
+                admission_verified_at,
+                admission_valid_until,
+                approval_key,
+                str(expected_approval_revision),
+                expected_approval_process_id,
+                expected_approval_step_id,
+                str(expected_approval_attempt),
+                expected_approval_requester,
+                str(expected_approval_quorum),
+                expected_no_self_approval,
+            ),
+        )
+        if await cursor.fetchone() is None:
+            return False
+        await append_audit_in_transaction(connection, dict(audit_entry))
     return True
 
 

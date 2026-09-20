@@ -76,6 +76,23 @@ async def test_state_store_duplicate_delivery_is_a_no_op(state_store: StateStore
     assert await state_store.read_state("delivery:1") == {"attempt": 1}
 
 
+async def test_state_store_compare_and_set_state_fences_stale_revision(
+    state_store: StateStore,
+) -> None:
+    assert await state_store.write_state_if_absent("projection:1", {"revision": 1})
+    assert await state_store.compare_and_set_state(
+        "projection:1",
+        {"revision": 2},
+        expected_revision=1,
+    )
+    assert not await state_store.compare_and_set_state(
+        "projection:1",
+        {"revision": 3},
+        expected_revision=1,
+    )
+    assert await state_store.read_state("projection:1") == {"revision": 2}
+
+
 async def test_in_memory_state_store_verify_chain_detects_tampered_previous_hash() -> None:
     """Tampering with a stored `previous_hash` MUST make `verify_chain()` fail.
 

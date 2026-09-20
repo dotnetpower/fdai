@@ -14,6 +14,10 @@ resolved incidents before knowing a correlation id, select one, and inspect
 its remediation history. The existing Audit and Trace panels remain the
 record-level and end-to-end drill-down surfaces.
 
+Bounded semantic context reserves its budget from the latest turn backwards, then restores
+chronological order. A long earlier answer cannot evict the latest server-bound Incident identity
+or the operator's latest correction. Context never grants read or action authority.
+
 The API contract is:
 
 | Route | Purpose |

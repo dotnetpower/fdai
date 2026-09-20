@@ -8,6 +8,7 @@ import math
 import re
 import ssl
 from collections.abc import Awaitable, Callable
+from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -39,6 +40,10 @@ from fdai.delivery.azure.static_web_app_inventory import (
     AzureStaticWebAppInventoryConfig,
     AzureStaticWebAppInventoryEnricher,
 )
+from fdai.delivery.inventory_collection import (
+    collection_configuration_digest,
+    collection_producer_digest,
+)
 from fdai.delivery.inventory_job_config import InventoryJobConfig, verify_declarative_sha256
 from fdai.delivery.inventory_progress import InventoryProgressRecorder
 from fdai.delivery.inventory_sync import InventoryPromotionEnricher, PromotedInventoryObservation
@@ -56,7 +61,10 @@ from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
     PostgresKubernetesLifecycleConfig,
     PostgresKubernetesLifecycleStore,
 )
-from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
+from fdai.rule_catalog.schema.resource_type import (
+    ResourceTypeRegistry,
+    resource_type_mapping_digests,
+)
 from fdai.shared.providers.declarative_inventory import (
     DeclarativeInventory,
     DeclarativeInventoryConfig,
@@ -202,7 +210,30 @@ def build_sources(
     """Build ordered provider sources without granting promotion authority."""
 
     sources: list[InventorySource] = []
+    producer_digest = collection_producer_digest()
     for source_priority, source_name in enumerate(config.source_order):
+        source_policy = config.snapshot_policy(source_name)
+        collection_configuration = {
+            "schema_version": "1.0.0",
+            "source": source_name,
+            "producer_digest": producer_digest,
+            "policy": asdict(source_policy),
+            "management_endpoint": config.management_endpoint,
+            "management_audience": config.management_audience,
+            "arg_requests_per_second": config.arg_requests_per_second,
+            "resource_type_mappings": dict(resource_type_mapping_digests(vocabulary)),
+            "declarative_sha256": config.declarative_sha256
+            if source_name == "declarative"
+            else None,
+        }
+        configuration_digest = collection_configuration_digest(collection_configuration)
+        arg_query_contract_digest: str | None = None
+        concurrency = min(
+            source_policy.global_concurrency_limit,
+            source_policy.scope_concurrency_limit,
+            source_policy.resource_type_concurrency_limit,
+            source_policy.endpoint_concurrency_limit,
+        )
         observation_kind = InventoryObservationKind.OBSERVED
         link_types: tuple[str, ...] = (
             "contains",
@@ -223,6 +254,7 @@ def build_sources(
                     arg_endpoint=config.management_endpoint,
                     audience=config.management_audience,
                     requests_per_second=config.arg_requests_per_second,
+                    max_pages=source_policy.max_cursor_pages,
                 ),
                 page_observer=(
                     None
@@ -230,6 +262,7 @@ def build_sources(
                     else lambda _rows, has_more: progress_recorder.page_collected(has_more=has_more)
                 ),
             )
+            arg_query_contract_digest = query_factory.collection_contract_digest
             query = AzureArmInventoryFactory(
                 identity=identity,
                 resource_types=vocabulary,
@@ -238,12 +271,16 @@ def build_sources(
                     subscription_scopes=config.scopes,
                     arm_endpoint=config.management_endpoint,
                     audience=config.management_audience,
+                    max_pages=source_policy.max_cursor_pages,
+                    max_records=source_policy.max_objects,
+                    max_total_response_bytes=source_policy.max_bytes_per_window,
                 ),
             ).build_child_overlay_query_fn(query_factory.build_query_fn())
             inventory = AzureResourceGraphInventory(
                 config=AzureInventoryConfig(
                     resource_types=resource_types,
                     subscription_scopes=config.scopes,
+                    max_concurrent_queries=concurrency,
                 ),
                 query=query,
                 scope_coverage=(
@@ -283,12 +320,16 @@ def build_sources(
                     subscription_scopes=config.scopes,
                     arm_endpoint=config.management_endpoint,
                     audience=config.management_audience,
+                    max_pages=source_policy.max_cursor_pages,
+                    max_records=source_policy.max_objects,
+                    max_total_response_bytes=source_policy.max_bytes_per_window,
                 ),
             ).build_query_fn()
             inventory = AzureResourceGraphInventory(
                 config=AzureInventoryConfig(
                     resource_types=resource_types,
                     subscription_scopes=config.scopes,
+                    max_concurrent_queries=concurrency,
                 ),
                 query=query,
                 shard_observer=(
@@ -341,6 +382,8 @@ def build_sources(
                     observation_kind=observation_kind,
                     started_at=started_at,
                     metadata={
+                        "collection_configuration_digest": configuration_digest,
+                        "arg_query_contract_digest": arg_query_contract_digest,
                         "source_priority": source_priority,
                         "link_types": link_types,
                         "coverage_scope": (

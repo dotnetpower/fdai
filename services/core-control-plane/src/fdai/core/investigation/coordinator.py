@@ -94,7 +94,13 @@ def correlate(timeline: Sequence[TimelineEntry]) -> tuple[tuple[str, ...], str |
 class InvestigationCoordinator:
     """Orchestrate per-resource analyzers into one grounded report."""
 
-    __slots__ = ("_analyzers", "_analyzer_timeout", "_monotonic", "_wall_clock")
+    __slots__ = (
+        "_analyzers",
+        "_analyzer_timeout",
+        "_max_concurrency",
+        "_monotonic",
+        "_wall_clock",
+    )
 
     def __init__(
         self,
@@ -103,6 +109,7 @@ class InvestigationCoordinator:
         monotonic: Callable[[], float] | None = None,
         wall_clock: Callable[[], datetime] | None = None,
         analyzer_timeout_seconds: float | None = None,
+        max_concurrency: int = 1,
     ) -> None:
         # Index analyzers by the single resource kind each declares.
         self._analyzers: dict[str, ResourceAnalyzer] = {
@@ -112,41 +119,30 @@ class InvestigationCoordinator:
         self._wall_clock: Callable[[], datetime] = wall_clock or (lambda: datetime.now(tz=UTC))
         if analyzer_timeout_seconds is not None and analyzer_timeout_seconds <= 0:
             raise ValueError("analyzer_timeout_seconds MUST be positive when set")
+        if max_concurrency <= 0:
+            raise ValueError("max_concurrency MUST be positive")
         self._analyzer_timeout = analyzer_timeout_seconds
+        self._max_concurrency = max_concurrency
 
     async def investigate(self, request: InvestigationRequest) -> InvestigationReport:
         started = self._monotonic()
         requested_at = self._wall_clock()
 
-        findings: list[AnalyzerFinding] = []
-        errors: list[tuple[str, str]] = []
-        matched = 0
-
-        for resource_ref, resource_kind in request.resources:
-            analyzer = self._analyzers.get(resource_kind)
-            if analyzer is None:
-                errors.append((resource_ref, f"no_analyzer_for_kind:{resource_kind}"))
-                continue
-            matched += 1
-            try:
-                result = await self._run_analyzer(
-                    analyzer, resource_ref=resource_ref, window=request.window_seconds
+        semaphore = asyncio.Semaphore(self._max_concurrency)
+        results = await asyncio.gather(
+            *(
+                self._investigate_resource(
+                    resource_ref=resource_ref,
+                    resource_kind=resource_kind,
+                    window=request.window_seconds,
+                    semaphore=semaphore,
                 )
-            except TimeoutError:
-                errors.append((resource_ref, "timeout"))
-                _LOGGER.warning(
-                    "analyzer_timeout",
-                    extra={"resource_ref": resource_ref, "kind": resource_kind},
-                )
-                continue
-            except Exception as exc:  # noqa: BLE001 - isolate one analyzer failure
-                errors.append((resource_ref, f"{type(exc).__name__}:{exc}"))
-                _LOGGER.warning(
-                    "analyzer_failed",
-                    extra={"resource_ref": resource_ref, "kind": resource_kind},
-                )
-                continue
-            findings.extend(result)
+                for resource_ref, resource_kind in request.resources
+            )
+        )
+        findings = [finding for result, _error, _matched in results for finding in result]
+        errors = [error for _result, error, _matched in results if error is not None]
+        matched = sum(matched_resource for _result, _error, matched_resource in results)
 
         timeline = build_timeline(findings)
         correlation, root_cause = correlate(timeline)
@@ -176,6 +172,38 @@ class InvestigationCoordinator:
             budget_seconds=request.budget_seconds,
             analyzer_errors=tuple(errors),
         )
+
+    async def _investigate_resource(
+        self,
+        *,
+        resource_ref: str,
+        resource_kind: str,
+        window: float,
+        semaphore: asyncio.Semaphore,
+    ) -> tuple[Sequence[AnalyzerFinding], tuple[str, str] | None, int]:
+        analyzer = self._analyzers.get(resource_kind)
+        if analyzer is None:
+            return (), (resource_ref, f"no_analyzer_for_kind:{resource_kind}"), 0
+        try:
+            async with semaphore:
+                result = await self._run_analyzer(
+                    analyzer,
+                    resource_ref=resource_ref,
+                    window=window,
+                )
+        except TimeoutError:
+            _LOGGER.warning(
+                "analyzer_timeout",
+                extra={"resource_ref": resource_ref, "kind": resource_kind},
+            )
+            return (), (resource_ref, "timeout"), 1
+        except Exception as exc:  # noqa: BLE001 - isolate one analyzer failure
+            _LOGGER.warning(
+                "analyzer_failed",
+                extra={"resource_ref": resource_ref, "kind": resource_kind},
+            )
+            return (), (resource_ref, f"{type(exc).__name__}:{exc}"), 1
+        return result, None, 1
 
     async def _run_analyzer(
         self, analyzer: ResourceAnalyzer, *, resource_ref: str, window: float

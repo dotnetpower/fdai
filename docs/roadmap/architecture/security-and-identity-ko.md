@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 99da5a708e8d1a9f45424d0adc9cc9466b869f4c
-translation_revised: 2026-09-17
+translation_source_sha: e0b21fdf24e01f490804f94adf07bee7301a85ef
+translation_revised: 2026-09-20
 ---
 
 # 보안과 아이덴티티
@@ -12,7 +12,7 @@ translation_revised: 2026-09-17
 컨트롤 루프와 안전 불변식,
 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) 의 토폴로지,
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
-의 코드/CI 게이트를 보완합니다.
+의 코드/CI 게이트를 보완합니다. 선언 목록의 `available`, `queryable`, `readable` facet은 후보 의미를 나타낼 뿐 권한을 증명하지 않습니다. Core는 선택한 선언 종류를 현재 principal 매니페스트로 제한합니다. 이 facet은 접근 권한을 부여하거나 관측 상태를 만들거나 정확한 release 검증을 우회할 수 없습니다.
 
 ## 구현 상태
 
@@ -23,6 +23,7 @@ translation_revised: 2026-09-17
 | 워크로드 신원과 승인 및 실행 분리 | validated | `config/independent-service-live-evidence-manifest.json`; `infra/services/`; `shared/providers/workload_identity.py`; SD-08 및 IS-09 근거 | 5개 서비스 배포 근거는 서로 다른 신원을 입증하고 전환 후 Isolated 실행기만 효과를 보유할 수 있게 합니다. |
 | Kubernetes 복구 작업 효과 신원 | implemented | `services/isolated-executor/src/fdai_executor_service/adapters/kubernetes_direct_api.py`; `infra/runtimes/aks/workloads/main.tf`; 실행기, 배포 렌더러 및 RBAC 집중 테스트 | 격리된 실행기 ServiceAccount만 등록된 네 Kubernetes ActionType에 필요한 namespace 범위의 Pod 및 Deployment 변경 권한을 받습니다. 인벤토리와 Core 신원에는 Kubernetes 쓰기 권한이 없습니다. 검토된 적용과 독립 효과 확인은 아직 필요합니다. |
 | 운영 활동 신원 분리 | implemented | `packages/service-contracts/src/fdai_service_contracts/control_loop_measurement.py`; Core 측정, RCA, 관측 캠페인, 시작 probe 및 Saga 감사 adapter; Operator 활동 투영과 집중 테스트 | 감사 행은 기계적인 `actor`를 보존하고 `owner_agent`에는 책임지는 Pantheon 역할을 기록하며, 인증된 이벤트 버스 게시자에만 `producer_principal`을 사용합니다. 투영 계층은 선언된 소유자 또는 범위가 제한된 기존 매핑을 검증하고, 소유자를 알 수 없는 사용자 정의 source를 감사 근거에서 삭제하지 않은 채 Agent Activity에서는 제외합니다. 이 필드는 어떤 권한도 부여하지 않습니다. |
+| 읽기 전용 근거 출처 격리 | validated | `core/rca/evidence.py`; `delivery/azure/log_query.py`; 집중 RCA 및 Azure 조회 테스트; 범위가 제한된 로컬 출처 probe | 독립 로그 및 추적 읽기는 별도 deadline으로 병렬 실행합니다. 지연되거나 사용할 수 없는 출처가 다른 출처에서 완료된 근거를 지울 수 없으며, 누락 근거는 정상 관측이나 권한 부여가 아니라 판단 보류로 남습니다. |
 | 권한을 부여하지 않는 인시던트 지침 | validated | `fdai_service_contracts.incident_intervention`; Core 개입 소비자 및 Pantheon 바인딩; Saga 및 Forseti 지침 처리; `docs/baselines/incident-intervention-assurance-2026-09-15.json` | 적용된 지침은 인시던트 상관관계나 실행 권한 없이 Huginn을 통해서만 다시 유입됩니다. Saga는 정규화 이벤트를 감사하고 Forseti는 판단하지 않으며, 보존된 로컬 근거에는 일치하는 ActionRun이 없습니다. |
 | 실행기 안전조건과 독립 효과 종결 | in-progress | 운영 안전조건 coordinator와 경로 adapter, Isolated 실행기 묶음 resolver와 validator, 집중 생성기, Workflow, 서비스 경계, 영속성 및 이행 테스트 | Core의 네 실행 경로와 Workflow action이 하나의 운영 coordinator로 공유 묶음을 생성하고 보존하며, Isolated 실행기가 효과 전에 묶음을 독립적으로 다시 검증합니다. #633의 통제된 교차 경로 효과 근거는 남아 있습니다. |
 | 전역 kill switch와 break-glass 컨트롤 | implemented | `core/rbac/kill_switch_command.py`; `core/control_loop/_execution.py`; `core/conversation/_write_break_glass_tool.py`; 집중 RBAC 및 제어 루프 테스트 | 개정 번호 안전 상태, 실패 시 차단 갱신, 권한 상한, 시간 제한 활성화, 감사 및 호출 경로가 있습니다. 보존된 운영 예행 연습은 아직 필요합니다. |
@@ -33,6 +34,7 @@ translation_revised: 2026-09-17
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-20 | validated | 자동 RCA 로그와 추적 읽기를 독립 출처 deadline과 현재 Azure Monitor 조회 endpoint 뒤에 격리했습니다. Timeout은 사용 불가 근거로 남고 한 출처가 다른 출처의 완료된 인용을 막지 않으며, 어떤 결과도 판단 또는 실행 권한을 부여하지 않습니다. | `current change`; 집중 RCA 및 Azure 어댑터 테스트 353건, Ruff 및 strict mypy 통과, 구성된 로컬 읽기 신원으로 실제 프로바이더 둘을 5초 side-path 상한 안에서 1.793초에 완료했으며 probe 범위의 인용은 0건이었습니다. | 운영 원인 정확도를 주장하기 전에 실제 오류 행이 있는 통제된 다중 작업 영역 근거를 보존합니다. |
 | 2026-09-17 | implemented | 정확한 Pod 재시작, Deployment 크기 조정 및 다이제스트 고정 롤아웃 복구를 위해 격리된 실행기에 namespace 범위의 Kubernetes 효과 신원을 추가했습니다. | `current change`; 격리된 실행기 어댑터와 테스트, AKS 렌더러, namespace Role 및 RoleBinding 테스트, 런타임 지원 매니페스트. | 클러스터 사용 가능 후 정확한 AKS 계획을 검토하고 적용한 뒤, 런타임 검증을 주장하기 전에 독립 효과 확인을 보존합니다. |
 | 2026-09-14 | implemented | 컨트롤 루프 측정, RCA, 관측, 시작, 감사 미러 및 Operator 투영 경계 전반에서 운영 활동 소유권을 기계 실행과 인증된 게시 신원으로부터 분리했습니다. | `current change`; 집중 서비스 계약, Core, 파이프라인 및 Operator 투영 테스트 통과. | 정확히 병합된 개정 번호의 배포 근거를 수집합니다. 귀속 정보는 설명용이며 런타임 권한을 부여하지 않습니다. |
 | 2026-09-15 | validated | 권한을 부여하지 않는 인시던트 지침 경계를 추가했습니다. Core는 영속 적용 뒤에만 게시하고 Huginn이 정규화하며 Saga가 감사하고 Forseti는 판단을 명시적으로 보류합니다. | `current change`; `docs/baselines/incident-intervention-assurance-2026-09-15.json`; 집중 계약, Core, Pantheon 및 Console 테스트. | 인시던트 지침 권한 경계의 로컬 구현 작업은 남지 않았습니다. |
@@ -243,6 +245,9 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
 - **LLM 데이터 처리**: T2 프롬프트는 신뢰 경계를 떠나기 전에 시크릿과 PII가 redact됨; 외부
   모델 벤더에 대한 데이터 잔류지와 no-retention 조건 강제. 감출 수 없는 민감 데이터가 필요한
   프롬프트는 전송되지 않고 HIL로 라우팅됨.
+- **근거 출처 격리**: 독립 읽기 전용 출처는 별도의 유한 deadline을 사용합니다. 한 출처의
+  timeout이 다른 출처에서 이미 완료된 근거를 버릴 수 없으며, 사용할 수 없거나 빈 근거가 정상
+  관측, 원인 주장 또는 실행 권한으로 바뀌지 않습니다.
 
 ## 네트워크 경계
 

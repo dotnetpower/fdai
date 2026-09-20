@@ -1,8 +1,8 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: 4a87221fa557f639865f5c1d809c05fb99f45a6d
-translation_revised: 2026-09-19
+translation_source_sha: 19faa55bb55e555d2f2cc27a22f4ed30be897fe5
+translation_revised: 2026-09-20
 ---
 
 # FinOps 자율 운영
@@ -114,16 +114,16 @@ translation_revised: 2026-09-19
 
 | 에이전트 | FinOps 책임 | 참여 방식 |
 |----------|-------------|-----------|
-| Huginn | 범위가 제한된 프로바이더, 청구, inventory, 변경 및 일정 ingress를 소유한 `Event` 또는 `Change` 기록으로 정규화합니다. | 필수 ingress |
+| Huginn | 범위가 제한된 프로바이더, 청구, inventory, 변경 및 일정 ingress를 소유한 `Event` 또는 `Change` 기록으로 정규화합니다. StateStore 기반 claim은 재시작 후에도 제한된 중복 제거를 유지하며 crash 구간의 재전달은 동일한 idempotency key를 유지합니다. | 필수 ingress |
 | Heimdall | 이상, drift, forecast 및 근거 상태 기록을 생성한 뒤 최종 관측을 모든 예상 효과와 독립적으로 비교합니다. | 필수 감지 및 변경 상태 종료 |
-| Njord | `CostAnomaly`와 `Budget` advisory object 및 비용 목표 해석을 소유합니다. 주입된 `CostEstimator`는 에이전트나 publisher가 되지 않고 프로바이더에 연결된 추정값을 제공합니다. | 비용 판단에 필수 |
+| Njord | `CostAnomaly` bus publication, 별도 `Budget` graph lifecycle 및 비용 목표 해석을 소유합니다. 주입된 `CostEstimator`는 에이전트나 publisher가 되지 않고 프로바이더에 연결된 추정값을 제공합니다. | 비용 판단에 필수 |
 | Freyr | 절감이 포화나 여유 용량 손실을 숨기지 않도록 용량 예측과 크기 조정 조언을 제공합니다. | 용량에 영향을 주는 대안에 필수 |
-| Loki | 불확실성 때문에 운영 환경 추측 대신 실험이 필요할 때 범위가 제한되고 항상 검토되는 복원력 실험을 제안합니다. | 조건부 검증 |
+| Loki | 불확실성 때문에 운영 환경 추측 대신 실험이 필요할 때 범위가 제한되고 항상 검토되는 복원력 실험을 제안합니다. 제안 대상 예약은 재시작 뒤에도 유지되며 정확하고 안전한 Thor ActionRun 종결 뒤에만 해제됩니다. | 조건부 검증 |
 | Muninn | replay와 T1 재사용을 위해 변경할 수 없는 컨텍스트 색인, 상태 스냅샷, 이전 사례 및 exact 변경 개정을 보존합니다. | 재사용과 학습에 필수 |
 | Forseti | 결정 컨텍스트를 구체화하고 헌법상 부적격한 대안을 제거하고 T0/T1/T2로 판단한 뒤 `Verdict`를 게시합니다. | 필수 판단 |
 | Odin | 비용이 신뢰성, 용량, 복구 또는 포트폴리오 목표와 충돌할 때 적격 대안만 순위를 정합니다. | 조건부 중재 |
 | Var | 정책이나 남은 위험이 요구할 때 분리된 사람 승인과 quorum을 기록합니다. | 남은 사례만 처리 |
-| Thor | 적격 ActionType을 단독으로 발송하고 `ActionRun`과 `ActionAttempt`를 소유합니다. | 변경에 필수 |
+| Thor | 적격 ActionType을 단독으로 발송하고 `ActionRun`을 소유합니다. 대상별 attempt 상태는 해당 run에 포함됩니다. | 변경에 필수 |
 | Vidar | 중단 조건, 효과 실패 또는 회귀에 복구가 필요할 때 복구 준비 상태를 검증하고 롤백을 소유합니다. | 필수 복구 의존성 |
 | Saga | 의도와 최종 감사를 추가하고 correlation을 보존하며 에피소드를 안전하게 종료할 수 없을 때 통제된 Issue를 엽니다. | 필수 hard dependency |
 | Norns | 활성 카탈로그를 바꾸지 않고 감사된 cohort를 분석해 비활성 `RuleCandidate` 또는 `Pattern` 기록을 제안합니다. | off-path 학습 |

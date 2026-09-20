@@ -40,10 +40,12 @@ dev = [
     "croniter>=6,<7",
     "httpx>=0.27,<1",
     "jsonschema>=4.23,<5",
+    "kubernetes>=35,<37",
     "markdown-it-py>=4,<5",
     "opentelemetry-api>=1.29,<2",
     "opentelemetry-exporter-otlp-proto-grpc>=1.29,<2",
     "opentelemetry-sdk>=1.29,<2",
+    "psycopg-pool>=3.2,<4",
     "psycopg[binary]>=3.2,<4",
     "pydantic>=2.9,<3",
     "pillow>=12.0,<13",
@@ -237,6 +239,7 @@ module = [
     "aiokafka.abc",
     "azure.identity.aio",
     "azure.monitor.opentelemetry",
+    "kubernetes.utils.quantity",
 ]
 ignore_missing_imports = true
 

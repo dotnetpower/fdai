@@ -19,7 +19,10 @@ const settingsRoutes = [
 describe("Console route resilience", () => {
   it("binds every authenticated client before a recoverable startup access failure", () => {
     const accessCheck = app.indexOf("iamSelf = await withStartupTransportRetry");
+    const panelPreload = app.indexOf('void import("./routes/dashboard")');
     expect(accessCheck).toBeGreaterThan(0);
+    expect(panelPreload).toBeGreaterThan(0);
+    expect(panelPreload).toBeLessThan(accessCheck);
     for (const binding of [
       "setDeckUser(deckUserFromAuth(auth));",
       "setWorkflowAuth(auth);",

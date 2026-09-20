@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 51e8217e39f2118f216b6a93a4cfec0db20c2654
-translation_revised: 2026-09-16
+translation_source_sha: 2d082c77b1aa41f3dfb66a68cb03f773b2f9659b
+translation_revised: 2026-09-20
 ---
 
 # Operator Console - 인시던트 명단 and Fix 이력
@@ -16,6 +16,10 @@ translation_revised: 2026-09-16
 알지 못해도 활성 또는 해결된 인시던트를 찾고, 하나를 선택하여 교정 이력을
 확인할 수 있습니다. 기존 감사 및 추적 패널은 각각 레코드 수준과 엔드투엔드
 상세 분석 표면으로 유지됩니다.
+
+제한된 의미 맥락은 최신 턴부터 거슬러 올라가며 예산을 배정한 뒤 시간순으로 복원합니다.
+이전의 긴 답변 때문에 서버가 결속한 최신 Incident 식별자나 운영자의 최신 정정이 사라지지
+않습니다. 맥락은 읽기 또는 실행 권한을 부여하지 않습니다.
 
 API 계약은 다음과 같습니다.
 

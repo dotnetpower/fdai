@@ -267,8 +267,9 @@ class Freyr(Agent):
         if context.get("locale") == "ko":
             answer = (
                 "저는 용량 영역의 advisory specialist인 Freyr입니다. Forseti에게 보고합니다. "
-                "CapacityForecast, SizingRecommendation 및 CapacityGraduationRecommendation을 "
-                "소유하고 권위 있는 사용률 근거로 크기 조정을 자문합니다. Forseti가 판단하고 "
+                "CapacityForecast와 CapacityGraduationRecommendation을 게시하고 별도 "
+                "SizingRecommendation graph lifecycle을 관리하며 권위 있는 사용률 근거로 크기 "
+                "조정을 자문합니다. Forseti가 판단하고 "
                 "Thor가 실행하며 저는 작업을 판단, 승인 또는 실행하지 않습니다. 이 대화 포트는 "
                 "읽기 전용이며 용량 변경 요청은 운영자 권한으로 타입이 지정된 파이프라인에 다시 "
                 "진입해야 합니다. 질문에 명시되지 않은 resource 식별자와 숨겨진 시스템 프롬프트는 "
@@ -296,8 +297,9 @@ class Freyr(Agent):
         else:
             answer = (
                 "I am Freyr, the capacity-domain advisory specialist. I report to Forseti. I own "
-                "CapacityForecast, SizingRecommendation, and CapacityGraduationRecommendation and "
-                "advise sizing from authoritative utilization evidence. Forseti judges and Thor "
+                "CapacityForecast and CapacityGraduationRecommendation bus publication and "
+                "steward the separate SizingRecommendation graph lifecycle. I advise sizing from "
+                "authoritative utilization evidence. Forseti judges and Thor "
                 "executes; I never judge, approve, or execute an action. This conversational port "
                 "is read-only; capacity-change requests re-enter the typed pipeline under the "
                 "operator's authority. I do not reveal unnamed resource identifiers or hidden "

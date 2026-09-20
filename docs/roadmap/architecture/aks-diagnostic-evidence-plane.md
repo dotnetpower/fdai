@@ -44,6 +44,28 @@ authority.
 
 ## Cluster source bindings
 
+Reusable quantity conversion and ordinary Pod CPU/memory accounting are defined in the
+[connector preflight boundary](aks-outbound-connector.md#capacity-and-storage-preflight).
+These pure helpers consume complete Pod records; existing normalized diagnostic quantity text
+is unchanged. Arithmetic alone proves neither source completeness nor schedulability. Explicit signed preflight now collects complete Node/Pod lists and exact PVC/PV binding separately; it neither expands diagnostic normalization nor proves placement, mount/write effects or source promotion.
+
+The [outbound connector](aks-outbound-connector.md) offers explicit certificate-authenticated
+snapshot transfer without changing this plane's observation authority. Its stored-source adapter
+uses the existing Inventory Job and relationship verifier and is exclusive with direct collection.
+Direct collection remains the default; Event history and protected private-cluster validation for
+the connector remain open in its implementation ledger.
+
+Subscription discovery also preserves an explicit boolean private-cluster fact independently of
+credential availability. It creates a Core-owned [observer deployment proposal](aks-outbound-connector.md#implemented-proposal-boundary), not a new source binding or approval.
+Missing preflight evidence remains unknown; repeated discovery is deduplicated and cannot install
+an observer, increase diagnostic coverage, or turn an unreachable API into a private-mode finding.
+When configured, the proposal path now reads signed, target-scoped preflight receipts and rechecks
+verifier revocation. The separate bounded Kubernetes collector proves only the existing reader's
+list permissions after exact cluster identity checks, not diagnosis, installation or readiness.
+Observer setup recommendations now reach a separate role-gated Operator read projection over the
+existing event transport. Its short lease and explicit unavailable states never increase this plane's
+diagnostic completeness, and the Console exposes no installation or approval command.
+
 The runtime accepts a bounded collection of cluster bindings. Each binding contains:
 
 - one canonical AKS ARM id;
@@ -108,6 +130,10 @@ Collection isolates failures by cluster. One unavailable cluster does not erase 
 evidence from another cluster, but fleet completeness remains false until every required binding
 is current and complete. Source-state keys are `(source, scope_digest)`, so one cluster cannot
 overwrite another cluster's unavailable reason.
+When several unavailable scope enrichers run for one generation, each scope state remains durable
+while the process emits one generation-level warning. Subscription discovery without current
+preflight evidence keeps the observer proposal at `needs_evidence`; it does not create a source
+binding or weaken private-cluster access controls.
 Each relationship projection combines provider resources with one cluster's API objects. It does
 not re-project objects or links accepted from an earlier fleet binding.
 Persistence and operator projections retain the bounded fleet states by `(source, scope_digest)`.

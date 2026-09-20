@@ -1,7 +1,7 @@
 ---
 translation_of: azure-resource-discovery-commands.md
-translation_source_sha: ecb5df8cf68d9967e72f888b3996d05c07c7f451
-translation_revised: 2026-08-29
+translation_source_sha: 2ec88453b592aa995d216ccc10d696fec05dbe08
+translation_revised: 2026-09-20
 ---
 
 # Azure 리소스 검색 명령 커버리지
@@ -26,46 +26,6 @@ FDAI는 운영자 질문을 형식화된 검색 의도로 컴파일하고, 해�
 재현하는 방법을 답변에 표시할 수 있습니다.
 
 ![설계 요약. 주요 단계는 Operator question, DiscoveryIntent, Ontology and provider profile, DiscoveryQueryPlan, Backend router, Promoted inventory, Resource Graph, ARM, registered CLI, or typed data plane, Normalized evidence, Sanitized command explanation, Grounded ChatOps answer입니다.](../../diagrams/generated/fdai-roadmap-interfaces-azure-resource-discovery-commands-01.ko.svg)
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 리소스 어휘와 Azure 타입 구분 | implemented | [`resource-types.yaml`](../../../rule-catalog/vocabulary/resource-types.yaml), [`resource_type.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/resource_type.py), 집중 카탈로그 및 ARG 테스트 | 카탈로그에 등록된 타입에 한해 조회 용어, 범주 용어, 안정적인 매핑 요약값 및 검토된 Azure `kind` 구분이 있습니다. |
-| 인벤토리 언어 레지스트리 | implemented | [`inventory_query_language.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/inventory_query_language.py), [`test_inventory_query_language.py`](../../../services/core-control-plane/tests/rule_catalog/test_inventory_query_language.py) | 검증된 레지스트리와 요약값이 있습니다. 이는 `InventoryQuery` 또는 `DiscoveryQueryPlan` 컴파일러가 아닙니다. |
-| 선택적 Azure 인벤토리 어댑터 | implemented | [`arg_query.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py), [`inventory.py`](../../../services/core-control-plane/src/fdai/delivery/azure/inventory.py), [`arm_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arm_inventory.py) 및 집중 테스트 | ARG와 ARM 어댑터는 카탈로그에서 확인한 리소스 타입을 제한된 페이지 처리와 실패 시 차단 동작으로 조회합니다. 중앙 검색 계획 라우터를 뜻하지는 않습니다. |
-| 선택적 운영자 인벤토리 필터링 | implemented | [`_system_inventory_tool.py`](../../../services/core-control-plane/src/fdai/core/conversation/_system_inventory_tool.py), [`test_system_tools.py`](../../../services/core-control-plane/tests/conversation/test_system_tools.py) | 도구는 제공된 스냅샷을 중립 타입, ID 부분 문자열 및 리소스 그룹으로 필터링합니다. 범용 검색 의도를 컴파일하지는 않습니다. |
-| 대화형 읽기 의도 경계 | implemented | [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_judgment.py), [`routing.py`](../../../services/core-control-plane/src/fdai/core/read_investigation/routing.py), 집중 의미 판단 및 읽기 조사 라우팅 테스트 | 공유 후보 전용 의미 판단이 영어, 한국어 및 혼합 언어의 의미와 출처에 근거한 대상을 제안합니다. 결정론적 코드는 정확히 등록된 의도, 리소스 신원, 예산 및 근거 권한 검사를 유지합니다. 이 경계는 `DiscoveryIntent` 컴파일러나 검색 백엔드 라우터가 아닙니다. |
-| Console 프로바이더 실행 정보 파싱 | implemented | [`inventory-execution-display.ts`](../../../console/src/deck/inventory-execution-display.ts) 및 집중 테스트 | Console은 구조가 유효하고 민감정보가 제거되었으며 범위가 제한된 `provider_execution` 레코드만 IQL과 분리해 표시합니다. |
-| 프로바이더 실행 증적 생성 | implemented | [`discovery_receipts.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_receipts.py), [`discovery_evidence.py`](../../../packages/service-contracts/src/fdai_service_contracts/discovery_evidence.py), 집중 Python 및 Console 파서 테스트 | 생성기는 정확한 등록 계획과 제한된 결과 요약을 받으며 raw argv, 자격 증명, 연속 토큰, 리소스 id 또는 프로바이더 오류를 받지 않습니다. |
-| 포괄적 검색 계약과 프로파일 | implemented | [`discovery.py`](../../../packages/service-contracts/src/fdai_service_contracts/discovery.py), [`discovery_profiles.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_profiles.py), [`discovery_observations.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_observations.py), 집중 계약 및 delivery 테스트 (`44 passed`) | 고정되고 digest에 바인딩된 의도, 계획, 프로파일 및 매핑되거나 미매핑된 프로바이더 관찰이 실행 가능한 텍스트와 해석되지 않은 수정자를 거부합니다. 계획은 정규화, ARG 또는 ARM API, Azure CLI 및 extension 버전을 고정합니다. |
-| 중앙 라우팅, 명령 설명 및 커버리지 증명 | validated | [`router.py`](../../../services/core-control-plane/src/fdai/core/discovery/router.py), [`discovery_explanation.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_explanation.py), [`discovery_coverage.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_coverage.py), [`azure-discovery-live-evidence.json`](../../../config/azure-discovery-live-evidence.json), 집중 테스트 | 정확히 동등한 대체 경로, 정본 병합, 정제된 설명 및 실제 운영 증적만 인정하는 조정이 구현되었습니다. 통제된 집계 전용 canary가 프로파일 리비전 `1.1.0`의 구독 범위 `ResourceContainers` 및 `Resources` 주장을 검증합니다. 더 넓은 universe는 이 검증 행의 범위 밖입니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-13 | in-progress | 이 구현 원장을 도입하고 이전 기준선 요약을 바로잡았습니다. 이전 이력은 재구성하지 않았습니다. | 현재 변경. 집중 검사 결과는 카탈로그 레지스트리 `38 passed`, Azure 어댑터 `116 passed`, 시스템 도구 `19 passed`, Console 파서 `2 passed`입니다. | 아래의 미완료 계약, 증적 생성기, 라우팅, 설명, 커버리지 및 통제된 런타임 근거를 구현합니다. |
-| 2026-08-14 | in-progress | 불변 검색 계약과 Azure 프로파일을 추가하고 미매핑 프로바이더 관찰을 보존했으며, 정확히 동등한 라우팅과 정본 병합 및 정제된 실행/명령 설명 증적과 실제 운영 증적 전용 커버리지 조정을 구현했습니다. | `current change`; 집중 검색 테스트 `34 passed`, Console 파서 `6 passed`, 작업 범위 Ruff, 운영 파일 8개의 strict mypy 및 Console typecheck가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
-| 2026-08-14 | in-progress | 문서화된 `unmapped` 커버리지 상태를 추가하고 서버 및 Console 명령 근거의 환경 할당을 거부했습니다. | `current change`; 집중 검색 테스트 `36 passed`, Console 파서 `7 passed`, 작업 범위 Ruff, strict 계약 mypy 및 Console typecheck가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
-| 2026-08-14 | in-progress | 정규화와 관찰된 ARG, ARM, Azure CLI 및 Resource Graph extension 버전을 추가적 프로파일/계획 리비전 `1.1.0`에 고정하고, 검토된 영어/한국어 시나리오 3쌍이 동일한 typed routing 및 권한 검사를 생성함을 증명했습니다. | `current change`; 집중 검색 테스트 `40 passed`, 작업 범위 Ruff, strict mypy 및 Core import 경계 gate가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
-| 2026-08-14 | in-progress | 독립 리뷰 뒤 자리 표시자는 유효하게 유지하면서 redirect, 제어 문자 및 실행 가능한 shell 단어를 서버와 Console 경계 모두에서 거부하도록 명령 근거를 강화했습니다. | `current change`; 집중 검색 테스트 `44 passed`, Console 파서 테스트 `11 passed`, strict mypy, Ruff 및 Console typecheck가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
-| 2026-08-14 | validated | 구독 범위 리소스 컨테이너 및 ARM 리소스 주장에 대해 통제된 집계 전용 Azure CLI canary를 기록하고, 개수와 프로바이더 타입 집합 digest만 보존했으며, 실행 권한이나 공백 없이 두 주장을 조정했습니다. | `current change`; [`record-azure-discovery-canary.py`](../../../scripts/automation/record-azure-discovery-canary.py), [`azure-discovery-live-evidence.json`](../../../config/azure-discovery-live-evidence.json), 집중 recorder 테스트 `4 passed`, 오프라인 증적 검증 및 recorder 커밋의 중앙 검증 증적이 통과했습니다. | 선언된 검색 프로파일 주장 2개에는 남은 작업이 없습니다. 더 넓은 universe를 검증하기 전에 별도 주장과 증적을 추가합니다. |
-| 2026-08-29 | validated | 사설 네트워크에서 Azure CLI `2.89.1`로 통제된 집계 전용 Azure 검색 canary를 갱신했습니다. 선언된 두 범위는 리소스 컨테이너 46개, ARM 리소스 554개, ARM 프로바이더 타입 70개로 완전하게 조정되었으며 공백과 실행 권한이 없습니다. | `current change`; [`record-azure-discovery-canary.py`](../../../scripts/automation/record-azure-discovery-canary.py), [`azure-discovery-live-evidence.json`](../../../config/azure-discovery-live-evidence.json), 집중 recorder 테스트 `4 passed`입니다. | 더 넓은 검색 범위를 검증하기 전에 별도로 검토한 주장과 통제된 증적을 추가합니다. |
-| 2026-08-18 | implemented | 고정된 네 개의 명사 쌍 없이 표현된 한국어 상태 요청을 인식하도록 했습니다. `상태` 앞의 리소스 종류 명사 또는 `상태` 뒤의 요청 동사를 현재 상태 읽기로 분류하며, 피어링·상태·이력·귀속 경로의 우선순위는 그대로 유지됩니다. | `current change`, `core/read_investigation/routing.py`, `tests/core/read_investigation/test_routing.py`, focused 읽기 조사 및 에이전트 검사 1269건 통과, 작업 범위 Ruff 및 format 통과 | 결정론적 경로는 여전히 에이전트 선택에만 관여하며 Console 의미 턴은 이를 참조하지 않습니다. |
-| 2026-08-21 | implemented | 앞 행의 언어별 분류기를 공유 후보 전용 의미 판단으로 대체했습니다. 읽기 조사 라우팅은 수락된 판단 뒤에 정확한 식별자만 파싱하며, 결정론적인 등록 의도, 계획 소유권, 근거 예산 및 프로바이더 권한 검사는 그대로 유지됩니다. | 커밋 `8fd040a7`, [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_judgment.py), [`routing.py`](../../../services/core-control-plane/src/fdai/core/read_investigation/routing.py), [`check-chat-semantic-routing.py`](../../../scripts/quality/architecture/check-chat-semantic-routing.py), 집중 읽기 조사 검사 9건 통과, 의미 라우팅 검사에서 이행 경로 0건 확인 | 검색 프로파일 컴파일과 백엔드 선택은 별도의 결정론적 경계로 유지됩니다. |
-
-### 남은 작업
-
-- [x] 실행 가능한 텍스트와 해석되지 않은 수정자를 거부하는 프로파일 스키마 테스트와 함께 제한된 `DiscoveryIntent` 및 불변 `DiscoveryQueryPlan` 계약을 추가합니다.
-- [x] 알 수 없는 Azure 프로바이더 타입을 제한된 `mapping_status=unmapped` 관찰로 보존하고, 이를 제외하거나 중립 온톨로지로 승격하지 않는다는 집중 테스트를 추가합니다.
-- [x] 서버 소유 `provider_execution` 증적 생성기를 구현하고 자격 증명, 페이지 나누기 토큰, 원본 리소스 ID 및 프로바이더 오류가 Console 레코드에 도달할 수 없음을 증명합니다.
-- [x] 범위나 조건식을 약화하지 않는 중앙 백엔드 적격성, 동등 대체 경로, 계획별 완전성 및 정본 병합 테스트를 구현합니다.
-- [x] 등록된 계획에서 정제된 `CommandExplanation` 레코드를 생성하고 shell 제어, 식별자, 민감정보 제거 및 동등 명령 표시를 위한 속성 및 golden 테스트를 통과합니다.
-- [x] 해당 행을 `validated`로 승격하기 전에 각 주장 범위에 대한 커버리지 조정 및 통제된 읽기 전용 실제 운영 canary 증적을 기록합니다. 보존된 artifact는 프로파일 리비전 `1.1.0` 주장 2개를 공백과 실행 권한 없이 검증합니다.
-
 ## 현재 기준선과 공백
 
 현재 구현에는 카탈로그 소유 리소스 조회 용어와 범주 용어, 검증된 인벤토리 언어 레지스트리,
@@ -88,6 +48,40 @@ FDAI는 운영자 질문을 형식화된 검색 의도로 컴파일하고, 해�
  프로파일 집합 범위 밖입니다.
 - **ARG와 ARM은 부분적임:** 특수 ARG 표, 프로바이더별 상세, 테넌트 디렉터리 개체 및
  data-plane 개체에는 서로 다른 형식화된 계획과 신원이 필요합니다.
+
+## 검증 경계
+
+검색 계획 스키마 `1.2.0`은 요청한 결과 종류를 보존합니다. 컴파일 단계에서는 등록된 프로필의
+제한을 초과하는 요청을 거부합니다. 병합에는 예상한 모든 계획이 필요하며 의도, 범위, 권한 상한,
+검색 대상 범주와 백엔드가 일치해야 합니다. 페이지 잘림이 없다는 이유만으로 권한 거부 또는
+불완전한 결과가 완전한 결과로 바뀔 수 없습니다.
+단일값 일치 및 포함 조건은 값 하나만 받습니다. 개별 계획과 병합 결과는 요청의 결과 개수 제한을
+지켜야 하며 일반 실행 증적은 페이지 또는 결과 상한을 넘을 수 없습니다. 명령 렌더링은 연산,
+백엔드, 범위, 결과 종류 또는 검증 버전을 다른 값으로 바꾸는 시도를 거부합니다.
+
+새 실행 증적에는 정확한 계획 요약값이 연결됩니다. 커버리지 생성 단계에서는 이 연결과 백엔드,
+페이지 제한, 관측된 결과 개수를 검증합니다. 커버리지 대조에는 기대 범위 요약값과 플랫폼 버전이
+필요합니다. 계획 연결이 없는 과거 증적은 이력으로 읽을 수 있지만 새 계획의 커버리지를 증명하는
+데 사용할 수 없습니다.
+
+ARG 재현 명령은 Resource Group 범위와 목록, 개수, 타입별 결과의 의미를 보존합니다.
+등록된 계획의 전체 결과 제한이 더 커도 CLI 페이지 크기는 1,000을 넘지 않습니다.
+이러한 구성 요소 검사가 대화형 런타임 연결을 증명하지는 않습니다. 집계 전용 CLI 카나리 역시
+워크로드 신원, 수집기의 페이지 처리, 정규화, 스냅샷 승격 또는 제한된 네트워크의 대체 경로를
+검증하지 않습니다. 각 주장에는 정확한 리비전에 대한 별도 근거가 필요합니다.
+
+프로필 리비전 `1.3.0`과 카나리 기록기는 Azure CLI `2.89.1` 기준을 공유합니다. 보존된 근거를
+검증할 수 있도록 과거 `1.1.0`과 `1.2.0` 프로필도 재구성할 수 있습니다. `--validate`는 과거 무결성만
+확인합니다. `--validate --require-current`는 현재 카탈로그, 정확한 계획 연결, 0초 이상
+3,600초 이하의 근거 경과 시간도 요구합니다. 두 검증 모드는 모두 오프라인으로 동작합니다.
+
+| 기능 | 등록된 프로필 지원 | 남은 검증 |
+|------|--------------------|-----------|
+| 리소스 그룹과 일반 ARM 리소스 | 구독과 Resource Group 범위; 목록, 개수, 타입별 결과 | 런타임 연결과 수집기 증적은 구성 요소 검증과 별개입니다. |
+| 이름, 공급자 타입, 그룹, 위치 조건 | 정확히 일치, 포함, 집합 포함, 존재 여부 | 등록되고 동등성이 검증된 백엔드만 선택합니다. |
+| 일반 ARM 재현 명령 | 조건 없는 목록과 개수; 정확한 Resource Group 범위 | 실행 가능한 JMESPath가 결과 상한을 보존합니다. 대소문자 무시 조건과 타입 집계는 ARG만 지원합니다. |
+| 태그, 운영 상태, 관계, 추가 검색 범주 | 일반 검색 프로필 없음 | 명시적으로 미지원 처리하며 요청 조건이나 범주를 버리지 않습니다. |
+| 테넌트, 관리 그룹, 디렉터리, 데이터 평면 범위 | 일반 검색 프로필 없음 | 별도로 검토한 프로필과 신원 허용 검사가 필요합니다. |
 
 ## 검색 범위
 
@@ -319,6 +313,7 @@ health 또는 advisor 질문에는 모든 조회를 `Resources`로 보내지 않
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/interfaces/azure-resource-discovery-commands.md) |
 | 읽기 조사 실행과 근거 | [Azure 읽기 Investigations](azure-read-investigations-ko.md) |
 | ChatOps 도구와 서술기 경계 | [Operator Console](operator-console-ko.md) |
 | 공유 semantic 리소스 의미 | [Operating 온톨로지](../architecture/operating-ontology-ko.md) |

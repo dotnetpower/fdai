@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -51,7 +52,13 @@ from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     load_resource_type_registry_from_mapping,
 )
-from fdai.shared.providers.inventory import UNCLASSIFIED_RESOURCE_TYPE, ResourceRecord
+from fdai.shared.providers.inventory import (
+    UNCLASSIFIED_RESOURCE_TYPE,
+    LinkRecord,
+    RelationshipDrop,
+    RelationshipDropReason,
+    ResourceRecord,
+)
 from fdai.shared.providers.testing.workload_identity import (
     StaticWorkloadIdentity,
 )
@@ -59,6 +66,259 @@ from fdai.shared.providers.workload_identity import IdentityToken, WorkloadIdent
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 VOCABULARY_FILE = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "same",
+        "scopes_order",
+        "catalog_path",
+        "page_size",
+        "query",
+        "coverage",
+        "unmapped",
+        "mapping",
+        "review",
+    ],
+)
+async def test_collection_contract_digest_binds_effective_queries(
+    monkeypatch: pytest.MonkeyPatch, change: str
+) -> None:
+    async with _make_client(httpx.MockTransport(lambda request: httpx.Response(200))) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(subscription_scopes=("scope-a", "scope-b")),
+        )
+        original = factory.collection_contract_digest
+        if change == "scopes_order":
+            factory._config = replace(factory._config, subscription_scopes=("scope-b", "scope-a"))
+        elif change == "catalog_path":
+            factory._config = replace(
+                factory._config, relationship_mapping_root=Path("other-location")
+            )
+        elif change == "page_size":
+            factory._config = replace(factory._config, page_size=3)
+        elif change == "query":
+            build_query = factory._build_query
+            monkeypatch.setattr(
+                factory, "_build_query", lambda **kwargs: build_query(**kwargs) + " | take 1"
+            )
+        elif change in {"coverage", "unmapped"}:
+            method = (
+                "_build_scope_coverage_query"
+                if change == "coverage"
+                else "_build_unmapped_resource_query"
+            )
+            monkeypatch.setattr(factory, method, lambda: "Resources | take 1")
+        elif change == "mapping":
+            catalog = factory._relationship_mappings
+            mappings = (
+                catalog.mappings[0].model_copy(
+                    update={"source_property_path": "properties.changed"}
+                ),
+                *catalog.mappings[1:],
+            )
+            factory._relationship_mappings = catalog.model_copy(update={"mappings": mappings})
+        elif change == "review":
+            catalog = factory._relationship_mappings
+            factory._relationship_mappings = catalog.model_copy(
+                update={
+                    "review": catalog.review.model_copy(
+                        update={"content_hash": "sha256:" + "a" * 64}
+                    )
+                }
+            )
+        assert (factory.collection_contract_digest == original) is (
+            change in {"same", "scopes_order", "catalog_path"}
+        )
+        assert original.startswith("sha256:") and len(original) == 71
+
+
+@pytest.mark.parametrize("kind", ["resources", "links", "drops", "bytes"])
+async def test_normalized_capacity_stops_before_requesting_a_successor(
+    monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    bound = {
+        "resources": "MAX_GENERATION_RESOURCES",
+        "links": "MAX_GENERATION_LINKS",
+        "drops": "MAX_GENERATION_LINKS",
+        "bytes": "MAX_GENERATION_BYTES",
+    }[kind]
+    monkeypatch.setattr(f"fdai.delivery.azure.inventory.{bound}", 1)
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(
+            200, json={"data": [{"id": str(calls)}], "$skipToken": f"page-{calls}"}
+        )
+
+    def project_links(row, resource):
+        return arg_transport.RelationshipProjectionResult(
+            links=(
+                LinkRecord(
+                    from_id="first",
+                    from_type="compute.vm",
+                    link_type="depends_on",
+                    to_id="second",
+                    to_type="compute.vm",
+                ),
+            )
+            if kind == "links"
+            else (),
+            dropped=(RelationshipDrop(reason=RelationshipDropReason.UNVERIFIED_METADATA),)
+            if kind == "drops"
+            else (),
+        )
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        with pytest.raises(RuntimeError, match="capacity exceeded"):
+            await arg_transport.fetch_arg_pages(
+                identity=_identity(),
+                http_client=client,
+                audience=_config().audience,
+                endpoint="https://example.com",
+                api_version="synthetic",
+                subscriptions=("example",),
+                query="synthetic query",
+                resource_type="compute.vm",
+                page_size=1,
+                max_pages=4,
+                timeout_seconds=1,
+                error_type=ArgQueryError,
+                map_row=lambda row: ResourceRecord(row["id"], "compute.vm", {}),
+                project_links=project_links,
+            )
+    assert calls == (1 if kind == "bytes" else 2)
+
+
+async def test_inventory_normalizes_each_page_before_requesting_the_next(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/example/providers/Microsoft.Compute/virtualMachines/"
+    )
+    mapped: list[str] = []
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            assert mapped == [base + "first"]
+        payload: dict[str, Any] = {
+            "data": [
+                _arm_row(
+                    arm_id=base + ("first" if calls == 1 else "second"),
+                    arm_type="Microsoft.Compute/virtualMachines",
+                )
+            ],
+        }
+        if calls == 1:
+            payload["$skipToken"] = "next-page"
+        return httpx.Response(200, json=payload)
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        original = factory._map_row
+
+        def map_row(
+            row: dict[str, Any], *, resource_type: str, preserve_nested_subnets: bool = False
+        ):
+            mapped.append(row["id"])
+            return original(
+                row,
+                resource_type=resource_type,
+                preserve_nested_subnets=preserve_nested_subnets,
+            )
+
+        monkeypatch.setattr(factory, "_map_row", map_row)
+        result = await factory.build_query_fn()("compute.vm")
+    assert len(result.resources) == 2
+    assert mapped == [base + "first", base + "second"]
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "complete",
+        "invalid_token",
+        "truncated_final",
+        "repeat_token",
+        "row_limit",
+        "consumer_failure",
+        "http_failure",
+        "not_object",
+        "page_limit",
+    ],
+)
+async def test_raw_page_consumer_preserves_bounds_and_failure_fences(scenario: str) -> None:
+    calls = 0
+    accepted: list[tuple[int, ...]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if scenario == "http_failure" and calls == 2:
+            return httpx.Response(403)
+        payload: dict[str, Any] = {"data": [{"ordinal": calls}]}
+        if calls == 1:
+            payload["$skipToken"] = "next-page"
+        if calls == 2:
+            if scenario == "invalid_token":
+                payload["$skipToken"] = 42
+            elif scenario == "truncated_final":
+                payload["resultTruncated"] = True
+            elif scenario == "repeat_token":
+                payload["$skipToken"] = "next-page"
+            elif scenario == "not_object":
+                payload["data"] = [42]
+        return httpx.Response(200, json=payload)
+
+    async def consume(rows):
+        if scenario == "consumer_failure":
+            raise ArgQueryError("synthetic consumer failure")
+        accepted.append(tuple(row["ordinal"] for row in rows))
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+
+        async def fetch():
+            return await arg_transport.fetch_arg_row_pages(
+                identity=_identity(),
+                http_client=client,
+                audience="https://management.azure.com/.default",
+                endpoint="https://management.azure.com",
+                api_version="2022-10-01",
+                subscriptions=("00000000-0000-0000-0000-000000000001",),
+                query="Resources",
+                result_name="synthetic-page-consumer",
+                page_size=1,
+                max_pages=1 if scenario == "page_limit" else 3,
+                timeout_seconds=1,
+                error_type=ArgQueryError,
+                max_records=1 if scenario == "row_limit" else 3,
+                max_attempts=1,
+                row_consumer=consume,
+            )
+
+        if scenario == "complete":
+            assert await fetch() == ()
+            assert accepted == [(1,), (2,)]
+        else:
+            with pytest.raises(ArgQueryError):
+                await fetch()
+            assert accepted == ([] if scenario == "consumer_failure" else [(1,)])
+    assert calls == (1 if scenario in {"consumer_failure", "page_limit"} else 2)
 
 
 def _vocab() -> ResourceTypeRegistry:
@@ -136,6 +396,39 @@ def test_arm_scope_rejects_resource_group_on_a_subscription_level_resource() -> 
             "/subscriptions/sub-one/providers/Microsoft.Authorization/roleDefinitions/example",
             {"resourceGroup": "group-one"},
         )
+
+
+@pytest.mark.asyncio
+async def test_shard_clock_precedes_provider_read_and_row_parsing() -> None:
+    query_started = None
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal query_started
+        query_started = datetime.now(UTC)
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=(
+                            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+                            "resourceGroups/rg-example/providers/Microsoft.Compute/virtualMachines/example"
+                        ),
+                        arm_type="Microsoft.Compute/virtualMachines",
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(), resource_types=_vocab(), http_client=client, config=_config()
+        )
+        result = await factory.build_query_fn()("compute.vm")
+
+    assert query_started is not None
+    assert result.resources[0].last_seen is not None
+    assert datetime.fromisoformat(result.resources[0].last_seen) <= query_started
 
 
 @pytest.mark.asyncio
@@ -557,6 +850,44 @@ async def test_scope_coverage_counts_unmapped_provider_types_without_materializi
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("deny_second_scope", [True, False])
+async def test_scope_coverage_requires_each_requested_subscription(deny_second_scope: bool) -> None:
+    scopes: list[list[str]] = []
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        scopes.append(json.loads(request.content)["subscriptions"])
+        if deny_second_scope and len(scopes) == 2:
+            return httpx.Response(403)
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    {
+                        "provider_type": "microsoft.compute/virtualmachines",
+                        "resource_count": 1,
+                    }
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        fetch = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=AzureArgQueryFactoryConfig(subscription_scopes=("sub-1", "sub-2")),
+        ).build_scope_coverage_fn()
+        if deny_second_scope:
+            with pytest.raises(ArgQueryError, match="HTTP 403"):
+                await fetch()
+        else:
+            coverage = await fetch()
+            assert coverage.provider_object_count == 2
+            assert coverage.mapped_provider_object_count == 2
+    assert scopes == [["sub-1"], ["sub-2"]]
+
+
+@pytest.mark.asyncio
 async def test_scope_coverage_rejects_empty_provider_result() -> None:
     async def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"data": []})
@@ -811,6 +1142,9 @@ async def test_skip_token_is_followed_until_exhausted() -> None:
                 ),
             ],
             "$skipToken": "next-1",
+            "count": 2,
+            "totalRecords": 3,
+            "resultTruncated": "false",
         },
         {
             "data": [
@@ -823,6 +1157,9 @@ async def test_skip_token_is_followed_until_exhausted() -> None:
                     arm_type="Microsoft.Storage/storageAccounts",
                 ),
             ],
+            "count": 1,
+            "totalRecords": 3,
+            "resultTruncated": "false",
         },
     ]
     calls: list[dict[str, Any]] = []
@@ -1388,6 +1725,23 @@ async def test_retry_after_beyond_local_bound_fails_without_early_retry(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("token", [42, True, {}, []])
+async def test_malformed_skip_token_fails_closed(token: object) -> None:
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": [], "$skipToken": token})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        with pytest.raises(ArgQueryError, match="continuation token was invalid"):
+            await factory.build_query_fn()("object-storage")
+
+
+@pytest.mark.asyncio
 async def test_truncated_page_without_skip_token_fails_closed() -> None:
     def _handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -1638,6 +1992,79 @@ async def test_oversize_properties_are_truncated() -> None:
     assert record.props["resourceGroup"] == "rg-a"
     assert record.props["resource_group"] == "rg-a"
     assert record.props["region"] == "koreacentral"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("resource_type", ["subscription", "resource-group"])
+async def test_scope_resource_rejects_a_vm_identity(resource_type: str) -> None:
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/"
+        "providers/Microsoft.Compute/virtualMachines/example"
+    )
+    async with _make_client(httpx.MockTransport(lambda _: httpx.Response(200))) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(), resource_types=_vocab(), http_client=client, config=_config()
+        )
+        with pytest.raises(ArgQueryError, match="conflicting provider type"):
+            factory._map_row(
+                _arm_row(arm_id=arm_id, arm_type="Microsoft.Compute/virtualMachines"),
+                resource_type=resource_type,
+            )
+
+
+@pytest.mark.asyncio
+async def test_unclassified_resource_rejects_a_substituted_provider_type() -> None:
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/"
+        "providers/Microsoft.Compute/virtualMachines/example"
+    )
+    async with _make_client(httpx.MockTransport(lambda _: httpx.Response(200))) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(), resource_types=_vocab(), http_client=client, config=_config()
+        )
+        with pytest.raises(ArgQueryError, match="conflicting provider type"):
+            factory._map_unclassified_row(
+                _arm_row(arm_id=arm_id, arm_type="Microsoft.Example/widgets")
+            )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unclassified", [False, True])
+async def test_resource_rejects_an_unrequested_subscription(unclassified: bool) -> None:
+    provider_type = (
+        "Microsoft.Example/widgets" if unclassified else "Microsoft.Compute/virtualMachines"
+    )
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000002/resourceGroups/rg-example/"
+        f"providers/{provider_type}/example"
+    )
+    async with _make_client(httpx.MockTransport(lambda _: httpx.Response(200))) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(), resource_types=_vocab(), http_client=client, config=_config()
+        )
+        with pytest.raises(ArgQueryError, match="outside the requested subscription"):
+            row = _arm_row(arm_id=arm_id, arm_type=provider_type)
+            if unclassified:
+                factory._map_unclassified_row(row)
+            else:
+                factory._map_row(row, resource_type="compute.vm")
+
+
+def test_nested_subnet_rejects_a_different_vnet_parent() -> None:
+    from fdai.delivery.azure.arg_projection import materialize_nested_subnets
+
+    parent = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/"
+        "providers/Microsoft.Network/virtualNetworks/example"
+    )
+    vnet = ResourceRecord(
+        resource_id=to_neutral_id(parent),
+        type="network.vnet",
+        provider_ref=parent,
+        props={"properties": {"subnets": [{"id": parent + "-other/subnets/example"}]}},
+    )
+    with pytest.raises(ArmScopeError, match="provider parent conflicts"):
+        materialize_nested_subnets(vnet)
 
 
 @pytest.mark.asyncio
@@ -2225,9 +2652,8 @@ def test_materialize_nested_subnets_uses_observed_vnet_payload() -> None:
             "properties": {
                 "subnets": [
                     {"id": subnet_id, "name": "app"},
-                    {"id": subnet_id, "name": "duplicate"},
+                    {"id": subnet_id, "name": "app"},
                     {"id": f"{vnet_id.lower()}/subnets/data", "name": "data"},
-                    {"id": f"{vnet_id}/peerings/not-a-subnet", "name": "invalid"},
                 ]
             },
         },
@@ -2260,7 +2686,10 @@ def test_materialize_nested_subnets_uses_observed_vnet_payload() -> None:
 
 
 @pytest.mark.asyncio
-async def test_subnet_shard_queries_vnets_and_materializes_nested_records() -> None:
+@pytest.mark.parametrize("parent_padding", [0, 70_000])
+async def test_subnet_shard_queries_vnets_and_materializes_nested_records(
+    parent_padding: int,
+) -> None:
     vnet_id = (
         "/subscriptions/00000000-0000-0000-0000-000000000001/"
         "resourceGroups/rg-example/providers/Microsoft.Network/virtualNetworks/vnet-example"
@@ -2285,13 +2714,14 @@ async def test_subnet_shard_queries_vnets_and_materializes_nested_records() -> N
                         extra={
                             "resourceGroup": "rg-example",
                             "properties": {
+                                "padding": "x" * parent_padding,
                                 "subnets": [
                                     {
                                         "id": f"{vnet_id}/subnets/app",
                                         "name": "app",
                                         "properties": {"networkSecurityGroup": {"id": nsg_id}},
                                     }
-                                ]
+                                ],
                             },
                         },
                     )
@@ -2313,6 +2743,31 @@ async def test_subnet_shard_queries_vnets_and_materializes_nested_records() -> N
         ("network.subnet", "attached_to", "network.nsg"),
         ("network.vnet", "contains", "network.subnet"),
     }
+
+
+@pytest.mark.parametrize("defect", ["duplicate", "missing_id", "wrong_type", "wrong_shape"])
+def test_malformed_nested_subnet_cannot_disappear_silently(defect: str) -> None:
+    from fdai.delivery.azure.arg_projection import materialize_nested_subnets
+
+    parent = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/"
+        "providers/Microsoft.Network/virtualNetworks/example"
+    )
+    valid = {"id": parent + "/subnets/example", "name": "example"}
+    malformed = {
+        "duplicate": {**valid, "name": "conflicting"},
+        "missing_id": {"name": "example"},
+        "wrong_type": {"id": parent + "/peerings/example"},
+        "wrong_shape": "invalid",
+    }[defect]
+    resource = ResourceRecord(
+        resource_id=to_neutral_id(parent),
+        type="network.vnet",
+        provider_ref=parent,
+        props={"properties": {"subnets": [valid, malformed]}},
+    )
+    with pytest.raises(ArmScopeError):
+        materialize_nested_subnets(resource)
 
 
 def test_extract_attached_to_from_subnet_reference() -> None:
@@ -3671,7 +4126,7 @@ async def test_web_and_function_shards_are_disambiguated_by_kind() -> None:
             identity=_identity(),
             resource_types=_vocab(),
             http_client=client,
-            config=_config(),
+            config=_config(subscription_scopes=("00000000-0000-0000-0000-000000000000",)),
         ).build_query_fn()
         web_resources, _web_links = await query("compute.web-app")
         function_resources, _function_links = await query("compute.function")

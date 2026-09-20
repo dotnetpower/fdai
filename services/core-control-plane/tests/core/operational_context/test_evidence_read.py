@@ -97,6 +97,7 @@ def _authenticated_context(
         invocation_context=FunctionInvocationContext(
             caller_agent="Bragi",
             caller_role="reader",
+            principal_scope_digest=PRINCIPAL_SCOPE,
             purposes=("incident-review",),
             evidence_refs=evidence_refs,
         ),

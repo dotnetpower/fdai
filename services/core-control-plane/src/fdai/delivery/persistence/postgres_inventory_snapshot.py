@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Final
@@ -14,6 +15,13 @@ from psycopg import IsolationLevel
 from psycopg.rows import dict_row
 
 from fdai.core.views.architecture_graph import project_architecture_graph
+from fdai.delivery.persistence.postgres_inventory_chunks import (
+    commit_resource_chunk,
+    load_checkpoint,
+    replay_snapshot_chunks,
+    require_collection_context,
+    resource_chunk,
+)
 from fdai.delivery.persistence.postgres_inventory_graph import load_rooted_inventory_graph
 from fdai.delivery.persistence.postgres_inventory_graph_helpers import (
     _annotate_operating_scope,
@@ -22,14 +30,26 @@ from fdai.delivery.persistence.postgres_inventory_graph_helpers import (
     _source_priority,
     _unavailable_graph,
 )
+from fdai.delivery.persistence.postgres_inventory_prepared import (
+    require_collecting,
+    require_unsealed,
+    verify_prepared_candidate,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot_providers import (
+    _PROMOTION_LOCK as _PROVIDERS_PROMOTION_LOCK,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot_providers import (
+    PostgresInventoryAgeProvider,
+    PostgresInventoryContextProvider,
+)
 from fdai.delivery.persistence.postgres_inventory_snapshot_support import (
     canonical_json_mapping as _canonical_json_mapping,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot_support import (
-    read_inventory_context,
+    snapshot_relationship_props as _snapshot_relationship_props,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot_support import (
-    snapshot_relationship_props as _snapshot_relationship_props,
+    stage_snapshot_batch,
 )
 from fdai.shared.providers.inventory import (
     INVENTORY_RELATIONSHIP_RECONCILIATION_PREFIX,
@@ -42,8 +62,9 @@ from fdai.shared.providers.inventory_snapshot import (
     InventoryObservationKind,
 )
 
-_PROMOTION_LOCK: Final[int] = 732_410_991
+_PROMOTION_LOCK = _PROVIDERS_PROMOTION_LOCK
 _MAX_GRAPH_ROWS: Final[int] = 5000
+_TERMINAL_SNAPSHOT_RETENTION: Final[int] = 3
 _ALL_RESOURCES_QUERY = (
     "WITH effective_resources AS ("
     "SELECT r.resource_id, r.resource_type, r.props, r.provider_ref, r.last_seen "
@@ -66,6 +87,33 @@ _SELECT_EFFECTIVE_LINKS_QUERY = (
     "WHERE from_id=ANY(%s::text[]) AND to_id=ANY(%s::text[]) "
     "AND link_type=ANY(%s::text[]) ORDER BY from_id, link_type, to_id"
 )
+
+
+async def _prune_terminal_snapshots(connection: psycopg.AsyncConnection[Any]) -> int:
+    cursor = await connection.execute(
+        "SELECT id FROM ("
+        "SELECT id, status, ROW_NUMBER() OVER ("
+        "PARTITION BY status ORDER BY COALESCE(promoted_at, completed_at, started_at) DESC, id DESC"
+        ") AS retained_rank FROM inventory_snapshot "
+        "WHERE status IN ('superseded', 'failed')"
+        ") terminal WHERE retained_rank > %s ORDER BY id",
+        (_TERMINAL_SNAPSHOT_RETENTION,),
+    )
+    snapshot_ids = [str(row["id"]) for row in await cursor.fetchall()]
+    if not snapshot_ids:
+        return 0
+    await connection.execute(
+        "DELETE FROM state_kv WHERE EXISTS ("
+        "SELECT 1 FROM unnest(%s::text[]) AS doomed(snapshot_id) "
+        "WHERE starts_with(state_kv.key, 'inventory-collection:' || doomed.snapshot_id || ':')"
+        ")",
+        (snapshot_ids,),
+    )
+    await connection.execute(
+        "DELETE FROM inventory_snapshot WHERE id=ANY(%s::text[])",
+        (snapshot_ids,),
+    )
+    return len(snapshot_ids)
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +170,7 @@ class PostgresInventorySnapshotStore:
                         started,
                     ),
                 )
+                await _prune_terminal_snapshots(connection)
         return attempt_id
 
     async def stage(self, attempt_id: str, batch: InventoryBatch) -> None:
@@ -135,65 +184,72 @@ class PostgresInventorySnapshotStore:
             async with connection.transaction():
                 await self._set_timeout(connection)
                 await self._require_collecting(connection, attempt_id)
-                cursor = connection.cursor()
-                for offset in range(0, len(batch.resources), self._config.write_batch_size):
-                    resource_rows = [
-                        (
-                            attempt_id,
-                            item.resource_id,
-                            item.type,
-                            _canonical_json_mapping(item.props, "snapshot resource props"),
-                            item.provider_ref,
-                            item.last_seen,
-                        )
-                        for item in batch.resources[offset : offset + self._config.write_batch_size]
-                    ]
-                    await self._executemany(
-                        cursor,
-                        "INSERT INTO inventory_snapshot_resource "
-                        "(snapshot_id, resource_id, resource_type, props, provider_ref, last_seen) "
-                        "VALUES (%s, %s, %s, %s::jsonb, %s, %s) "
-                        "ON CONFLICT (snapshot_id, resource_id) DO UPDATE SET "
-                        "resource_type = CASE WHEN inventory_snapshot_resource.resource_type = "
-                        "EXCLUDED.resource_type THEN EXCLUDED.resource_type ELSE NULL END, "
-                        "props = EXCLUDED.props, provider_ref = EXCLUDED.provider_ref, "
-                        "last_seen = EXCLUDED.last_seen",
-                        resource_rows,
-                    )
-                for offset in range(0, len(batch.links), self._config.write_batch_size):
-                    link_rows = [
-                        (
-                            attempt_id,
-                            item.from_id,
-                            item.from_type,
-                            item.link_type,
-                            item.to_id,
-                            item.to_type,
-                            _canonical_json_mapping(
-                                _snapshot_relationship_props(item),
-                                "snapshot relationship props",
-                            ),
-                        )
-                        for item in batch.links[offset : offset + self._config.write_batch_size]
-                    ]
-                    await self._executemany(
-                        cursor,
-                        "INSERT INTO inventory_snapshot_link "
-                        "(snapshot_id, from_id, from_type, link_type, to_id, to_type, props) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb) "
-                        "ON CONFLICT (snapshot_id, from_id, link_type, to_id) DO UPDATE SET "
-                        "from_type = EXCLUDED.from_type, to_type = EXCLUDED.to_type, "
-                        "props = EXCLUDED.props",
-                        link_rows,
-                    )
+                await require_unsealed(connection, attempt_id)
+                await stage_snapshot_batch(
+                    connection,
+                    attempt_id=attempt_id,
+                    batch=batch,
+                    write_batch_size=self._config.write_batch_size,
+                )
 
-    async def _executemany(
+    async def stage_chunk(
         self,
-        cursor: psycopg.AsyncCursor[Any],
-        query: str,
-        rows: list[tuple[Any, ...]],
-    ) -> None:
-        await cursor.executemany(query, rows)
+        attempt_id: str,
+        batch: InventoryBatch,
+        *,
+        context_digest: str,
+        sequence: int,
+        previous_digest: str | None,
+    ) -> Mapping[str, Any]:
+        """Atomically persist a resource chunk and its exact continuation checkpoint."""
+        chunk = resource_chunk(
+            attempt_id=attempt_id,
+            context_digest=context_digest,
+            sequence=sequence,
+            previous_digest=previous_digest,
+            batch=batch,
+        )
+        frozen_batch = InventoryBatch(
+            resources=tuple(ResourceRecord(**item) for item in chunk["resources"]),
+            cursor=chunk["cursor"],
+        )
+        async with asyncio.timeout(30), await self._connect() as connection:
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                await self._require_collecting(connection, attempt_id)
+                await require_unsealed(connection, attempt_id)
+                await require_collection_context(connection, attempt_id, context_digest)
+                return await commit_resource_chunk(
+                    connection,
+                    chunk=chunk,
+                    write_resources=lambda: stage_snapshot_batch(
+                        connection,
+                        attempt_id=attempt_id,
+                        batch=frozen_batch,
+                        write_batch_size=self._config.write_batch_size,
+                        immutable_resources=True,
+                    ),
+                )
+
+    async def read_chunk_checkpoint(
+        self,
+        attempt_id: str,
+        *,
+        context_digest: str,
+    ) -> Mapping[str, Any] | None:
+        return await load_checkpoint(self._config, attempt_id, context_digest=context_digest)
+
+    async def replay_chunks(
+        self,
+        attempt_id: str,
+        *,
+        context_digest: str,
+    ) -> AsyncIterator[InventoryBatch]:
+        """Read bounded immutable resource chunks; these never assert a complete source fence."""
+        async for batch in replay_snapshot_chunks(
+            self._config, attempt_id, context_digest=context_digest
+        ):
+            yield batch
 
     async def promote(self, attempt_id: str, manifest: InventoryCoverageManifest) -> None:
         completed = manifest.completed_at or datetime.now(tz=UTC)
@@ -203,6 +259,7 @@ class PostgresInventorySnapshotStore:
                 await self._set_timeout(connection)
                 await connection.execute("SELECT pg_advisory_xact_lock(%s)", (_PROMOTION_LOCK,))
                 await self._require_collecting(connection, attempt_id)
+                await verify_prepared_candidate(connection, attempt_id, manifest)
                 active_cursor = await connection.execute(
                     "SELECT a.snapshot_id, s.started_at, s.observation_kind, s.metadata "
                     "FROM inventory_active a JOIN inventory_snapshot s ON s.id=a.snapshot_id "
@@ -314,15 +371,18 @@ class PostgresInventorySnapshotStore:
                             candidate_started,
                         ),
                     )
+                await _prune_terminal_snapshots(connection)
 
     async def fail(self, attempt_id: str, failure: InventoryAttemptFailure) -> None:
         async with await self._connect() as connection:
-            await self._set_timeout(connection)
-            await connection.execute(
-                "UPDATE inventory_snapshot SET status='failed', completed_at=NOW(), "
-                "failure_code=%s, failure_message=%s WHERE id=%s AND status='collecting'",
-                (failure.code.value, failure.message, attempt_id),
-            )
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                await connection.execute(
+                    "UPDATE inventory_snapshot SET status='failed', completed_at=NOW(), "
+                    "failure_code=%s, failure_message=%s WHERE id=%s AND status='collecting'",
+                    (failure.code.value, failure.message, attempt_id),
+                )
+                await _prune_terminal_snapshots(connection)
 
     async def active_snapshot_id(self) -> str | None:
         """Reread the durable active pointer after a promotion attempt."""
@@ -428,15 +488,7 @@ class PostgresInventorySnapshotStore:
             )
         return snapshot_id, resources
 
-    async def _require_collecting(
-        self, connection: psycopg.AsyncConnection[Any], attempt_id: str
-    ) -> None:
-        cursor = await connection.execute(
-            "SELECT status FROM inventory_snapshot WHERE id=%s FOR UPDATE", (attempt_id,)
-        )
-        row = await cursor.fetchone()
-        if row is None or row["status"] != "collecting":
-            raise ValueError("inventory attempt is missing or no longer collecting")
+    _require_collecting = staticmethod(require_collecting)
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         return await psycopg.AsyncConnection.connect(
@@ -709,74 +761,8 @@ class PostgresInventoryGraphProvider:
         )
 
 
-class PostgresInventoryAgeProvider:
-    """Return the active snapshot age for RiskGate freshness checks."""
-
-    def __init__(self, *, config: PostgresInventorySnapshotStoreConfig) -> None:
-        self._config = config
-
-    async def __call__(self, resource_ref: str) -> int | None:
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            row_factory=dict_row,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as connection:
-            await connection.execute(
-                "SELECT set_config('statement_timeout', %s, true)",
-                (str(self._config.statement_timeout_ms),),
-            )
-            await connection.execute("SELECT pg_advisory_xact_lock_shared(%s)", (_PROMOTION_LOCK,))
-            cursor = await connection.execute(
-                "SELECT EXTRACT(EPOCH FROM (NOW() - s.completed_at)) AS age_seconds, "
-                "s.observation_kind, s.metadata, "
-                "EXISTS (SELECT 1 FROM inventory_realtime_resource d "
-                "WHERE d.resource_id=%s AND d.change_kind='upsert') OR ("
-                "EXISTS (SELECT 1 FROM inventory_snapshot_resource r "
-                "WHERE r.snapshot_id=s.id AND r.resource_id=%s) AND NOT EXISTS ("
-                "SELECT 1 FROM inventory_realtime_resource d WHERE d.resource_id=%s)) "
-                "AS resource_present, EXISTS (SELECT 1 FROM inventory_realtime_resource d "
-                "WHERE d.resource_id=%s) AS realtime_pending, "
-                "EXISTS (SELECT 1 FROM inventory_snapshot newer "
-                "WHERE newer.id<>s.id AND newer.started_at>s.completed_at AND ("
-                "newer.status='failed' OR (newer.status='collecting' AND "
-                "newer.started_at < NOW() - INTERVAL '30 minutes'))) AS newer_failure "
-                "FROM inventory_active a JOIN inventory_snapshot s ON s.id=a.snapshot_id "
-                "WHERE a.singleton=TRUE AND s.status='active'",
-                (resource_ref, resource_ref, resource_ref, resource_ref),
-            )
-            row = await cursor.fetchone()
-        if row is None or row["age_seconds"] is None:
-            return None
-        if not row["resource_present"] or row["realtime_pending"] or row["newer_failure"]:
-            return None
-        if row["observation_kind"] != InventoryObservationKind.OBSERVED.value:
-            return None
-        metadata = row["metadata"]
-        if isinstance(metadata, str):
-            metadata = json.loads(metadata)
-        covered_links = (
-            set(metadata.get("link_types", ())) if isinstance(metadata, Mapping) else set()
-        )
-        if not {"contains", "attached_to", "depends_on"}.issubset(covered_links):
-            return None
-        return max(0, int(row["age_seconds"]))
-
-
-class PostgresInventoryContextProvider:
-    """Return trusted properties for one resource in the active snapshot."""
-
-    def __init__(self, *, config: PostgresInventorySnapshotStoreConfig) -> None:
-        self._config = config
-
-    async def __call__(self, resource_ref: str) -> Mapping[str, Any] | None:
-        return await read_inventory_context(
-            self._config,
-            resource_ref,
-            promotion_lock=_PROMOTION_LOCK,
-        )
-
-
 __all__ = [
+    "_snapshot_relationship_props",
     "PostgresInventoryAgeProvider",
     "PostgresInventoryContextProvider",
     "PostgresInventoryGraphProvider",

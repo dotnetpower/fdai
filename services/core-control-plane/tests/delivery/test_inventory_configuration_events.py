@@ -1,18 +1,31 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 import yaml
 from fdai.core.tiers.t0_deterministic import PolicyResult, RuleIndex, T0Engine
-from fdai.delivery.inventory_configuration_events import publish_promoted_resource_events
+from fdai.delivery.inventory_configuration_events import (
+    INVENTORY_CONFIGURATION_DELIVERY_KEY,
+    complete_configuration_delivery,
+    configuration_delivery_key,
+    configuration_delivery_pending,
+    configuration_delivery_record,
+    configuration_projection_record,
+    prepare_configuration_delivery,
+    publish_promoted_resource_events,
+    retained_configuration_delivery,
+)
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
+from fdai.delivery.persistence.postgres_inventory_delivery import verified_delivery_observation
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.shared.contracts.models import Event, Rule
 from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
@@ -21,6 +34,128 @@ class _DenyEvaluator:
     def evaluate(self, rule: Rule, resource_props: object) -> PolicyResult:
         del rule, resource_props
         return PolicyResult(denied=True, context={"reason": "test-policy-denied"})
+
+
+async def test_delivery_generations_preserve_pending_and_completed_identity() -> None:
+    store = InMemoryStateStore()
+    first = PromotedInventoryObservation(
+        generation="generation-1",
+        resources=(),
+        links=(),
+        complete=True,
+        recorded_at=datetime(2026, 9, 20, tzinfo=UTC),
+    )
+    second = replace(first, generation="generation-2")
+    await prepare_configuration_delivery(store, first)
+    await prepare_configuration_delivery(store, second)
+    assert await store.read_state(configuration_delivery_key(first.generation)) == (
+        configuration_delivery_record(first)
+    )
+    await complete_configuration_delivery(store, first)
+    assert await store.read_state(INVENTORY_CONFIGURATION_DELIVERY_KEY) == (
+        configuration_delivery_record(second)
+    )
+    await prepare_configuration_delivery(store, first)
+    assert await retained_configuration_delivery(store, first) == (
+        configuration_delivery_record(first, completed=True)
+    )
+    with pytest.raises(ValueError, match="content changed"):
+        await prepare_configuration_delivery(
+            store,
+            replace(first, resources=(ResourceRecord(resource_id="changed", type="compute.vm"),)),
+        )
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [None, "key", "resource", "publication", "missing_snapshot", "authority", "recorded_at"],
+)
+def test_recovery_requires_exact_committed_generation(defect: str | None) -> None:
+    observation = PromotedInventoryObservation(
+        generation="older-generation",
+        resources=(),
+        links=(),
+        complete=True,
+        recorded_at=datetime(2026, 9, 20, tzinfo=UTC),
+    )
+    pending = configuration_delivery_record(observation)
+    publication = configuration_projection_record(
+        observation,
+        ontology_release_digest="sha256:" + "a" * 64,
+        manifest_digest="sha256:" + "b" * 64,
+    )
+    key = configuration_delivery_key(observation.generation)
+    if defect == "key":
+        key = configuration_delivery_key("other-generation")
+    if defect == "publication":
+        publication["observation_digest"] = "sha256:" + "c" * 64
+    if defect == "authority":
+        publication["execution_authority"] = 0
+    if defect == "recorded_at":
+        publication["recorded_at"] = "2026-09-19T00:00:00+00:00"
+    resources = (
+        (ResourceRecord(resource_id="substituted", type="compute.vm"),)
+        if defect == "resource"
+        else ()
+    )
+    arguments = dict(
+        key=key,
+        pending=pending,
+        publication=publication,
+        recorded_at=None if defect == "missing_snapshot" else observation.recorded_at,
+        resources=resources,
+    )
+    if defect is not None:
+        with pytest.raises(ValueError, match="inventory delivery recovery"):
+            verified_delivery_observation(**arguments)
+    else:
+        assert verified_delivery_observation(**arguments) == observation
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("resource_count", True),
+        ("resource_count", -1),
+        ("observation_digest", "invalid"),
+        ("execution_authority", True),
+        ("extra", "invalid"),
+    ],
+)
+def test_delivery_marker_rejects_malformed_completion(field: str, value: object) -> None:
+    observation = PromotedInventoryObservation(
+        generation="generation-1",
+        resources=(),
+        links=(),
+        complete=True,
+        recorded_at=datetime(2026, 9, 17, tzinfo=UTC),
+    )
+    marker = configuration_delivery_record(observation, completed=True)
+    marker[field] = value
+    with pytest.raises(ValueError, match="marker is invalid"):
+        configuration_delivery_pending(marker, generation=observation.generation)
+
+
+async def test_truncated_properties_cannot_publish_a_complete_event() -> None:
+    bus = InMemoryEventBus()
+    observation = PromotedInventoryObservation(
+        generation="generation-1",
+        resources=(
+            ResourceRecord(
+                resource_id="example",
+                type="compute.vm",
+                props={"_truncated": True},
+            ),
+        ),
+        links=(),
+        complete=True,
+        recorded_at=datetime(2026, 9, 17, tzinfo=UTC),
+    )
+    with pytest.raises(ValueError, match="truncated inventory"):
+        await publish_promoted_resource_events(
+            observation, event_bus=bus, topic="events", scope_ref="example"
+        )
+    assert [event async for event in bus.subscribe("events", "reader")] == []
 
 
 @pytest.mark.asyncio

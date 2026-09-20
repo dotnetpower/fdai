@@ -66,6 +66,7 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 | 5e | [ontology-structural-model.md](architecture/ontology-structural-model.md) | exact resource types, taxonomic aggregation, link roles and traits, ordered typed paths, and bounded graph presentation |
 | 5f | [operating-intent-source.md](architecture/operating-intent-source.md) | deployment-owned six-type operating-intent source: pinned identity, fail-closed admission, bounded revalidation, and replica-serialized projection |
 | 5g | [aks-diagnostic-evidence-plane.md](architecture/aks-diagnostic-evidence-plane.md) | exact multi-cluster bindings, workload evidence, deterministic diagnosis, and no-authority AKS projection |
+| 5h | [aks-outbound-connector.md](architecture/aks-outbound-connector.md) | cluster-initiated evidence and governed work transport with separate optional network segmentation |
 | 6 | [security-and-identity.md](architecture/security-and-identity.md) | least-privilege identity, secrets, safety invariants |
 | 7 | [deployment.md](deployment/deployment.md) | IaC, CI/CD, environments, release / rollback |
 | 7a | [architecture-review-board.md](architecture/architecture-review-board.md) | canonical ARB index: decision boundary plus focused ontology-agent, evidence-authority, and delivery-plan documents |

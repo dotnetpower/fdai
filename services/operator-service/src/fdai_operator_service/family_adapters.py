@@ -1076,6 +1076,7 @@ class PostgresOperationsAdapters:
                 principal_id=query.principal_id,
                 after_sequence=query.after_sequence,
                 limit=query.limit,
+                **({"cursor_epoch": query.cursor_epoch} if query.cursor_epoch is not None else {}),
             )
         except PostgresFamilyStoreUnavailable as exc:
             raise ProjectionUnavailableError from exc

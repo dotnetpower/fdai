@@ -450,17 +450,23 @@ async def run_once() -> AnalyzerJobReport:
     max_discovered = parse_max_discovered(os.environ.get(MAX_DISCOVERED_ENV, ""))
 
     inventory = build_inventory_sources()
-    resolution = await resolve_analyzer_targets(
-        configured=configured,
-        store=inventory.projection if inventory is not None else None,
-        now=datetime.now(tz=UTC),
-        max_discovered=max_discovered,
-        decision_evidence=build_decision_evidence_admission_provider(),
-        provider_references=(inventory.provider_references if inventory is not None else None),
-        discovered_hold_reasons=discovered_telemetry_holds(
-            monitor_workspace_id=_optional("FDAI_MONITOR_WORKSPACE_ID")
-        ),
-    )
+    decision_evidence = build_decision_evidence_admission_provider()
+    try:
+        resolution = await resolve_analyzer_targets(
+            configured=configured,
+            store=inventory.projection if inventory is not None else None,
+            now=datetime.now(tz=UTC),
+            max_discovered=max_discovered,
+            decision_evidence=decision_evidence,
+            provider_references=(inventory.provider_references if inventory is not None else None),
+            discovered_hold_reasons=discovered_telemetry_holds(
+                monitor_workspace_id=_optional("FDAI_MONITOR_WORKSPACE_ID")
+            ),
+        )
+    finally:
+        close = getattr(decision_evidence, "aclose", None)
+        if callable(close):
+            await close()
     _LOGGER.info("analyzer_tick_targets_resolved", extra=resolution.to_dict())
     targets = resolution.targets
     if not targets and not trace_topologies:

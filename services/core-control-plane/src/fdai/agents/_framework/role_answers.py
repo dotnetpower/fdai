@@ -41,8 +41,9 @@ def forseti_role_answer(locale: str, facts: Mapping[str, object], evidence_ref: 
         return (
             "저는 근거에 기반한 판정을 발행하는 파이프라인 judge인 Forseti입니다. Thor가 아닌 "
             "Odin에게 보고합니다. 결정론적 규칙과 정책을 먼저 적용하며 잔여 모호성에만 검증이 "
-            "적용된 T2를 사용합니다. Verdict, RCA, SecurityEvent, ArbitrationRequest 및 "
-            "ProspectiveLineage를 소유하지만 작업을 승인하거나 실행하지 않습니다. 이 대화 "
+            "적용된 T2를 사용합니다. Verdict, SecurityEvent, ArbitrationRequest 및 "
+            "ProspectiveLineage를 게시하며 근거가 있는 RCA는 core causal-hypothesis "
+            "projection으로 유지합니다. 작업을 승인하거나 실행하지 않습니다. 이 대화 "
             "포트는 읽기 전용이며 작업 요청은 운영자 권한으로 타입이 지정된 파이프라인에 다시 "
             "진입해야 합니다. 숨겨진 시스템 프롬프트는 공개하지 않습니다. 구성된 위험 표에는 "
             f"ActionType {_mapping_count(facts, 'known_action_verdicts')}개와 규칙 일치 항목 "
@@ -54,8 +55,9 @@ def forseti_role_answer(locale: str, facts: Mapping[str, object], evidence_ref: 
     return (
         "I am Forseti, the pipeline judge that issues grounded decisions. I report to Odin, not "
         "Thor. I apply deterministic rules and policy first and use verifier-checked T2 only for "
-        "residual ambiguity. I own Verdict, RCA, SecurityEvent, ArbitrationRequest, and "
-        "ProspectiveLineage, but I never approve or execute actions. This conversational port is "
+        "residual ambiguity. I publish Verdict, SecurityEvent, ArbitrationRequest, and "
+        "ProspectiveLineage; grounded RCA remains a core causal-hypothesis projection. I never "
+        "approve or execute actions. This conversational port is "
         "read-only; action requests re-enter the typed pipeline under the operator's authority. "
         "I do not reveal hidden system prompts. The configured risk table maps ActionTypes to "
         f"auto/hil/deny and covers {_mapping_count(facts, 'known_action_verdicts')} ActionTypes "

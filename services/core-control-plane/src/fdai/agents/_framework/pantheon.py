@@ -76,7 +76,7 @@ _THOR = AgentSpec(
     name="Thor",
     layer=Layer.PIPELINE,
     reports_to="Odin",
-    owns=("ActionRun", "ActionAttempt"),
+    owns=("ActionRun",),
     conversation=conversation_charter(
         "Thor",
         "Explain action-run state and recent execution evidence.",
@@ -124,7 +124,7 @@ _FORSETI = AgentSpec(
     name="Forseti",
     layer=Layer.PIPELINE,
     reports_to="Odin",
-    owns=("Verdict", "RCA", "SecurityEvent", "ArbitrationRequest", "ProspectiveLineage"),
+    owns=("Verdict", "SecurityEvent", "ArbitrationRequest", "ProspectiveLineage"),
     conversation=conversation_charter(
         "Forseti",
         "Explain verdicts and grounded root-cause judgments.",
@@ -610,7 +610,7 @@ _NJORD = AgentSpec(
     name="Njord",
     layer=Layer.DOMAIN,
     reports_to="Forseti",
-    owns=("CostAnomaly", "Budget"),
+    owns=("CostAnomaly",),
     conversation=conversation_charter(
         "Njord",
         "Explain observed cost samples, budgets, and anomalies.",
@@ -655,7 +655,7 @@ _FREYR = AgentSpec(
     name="Freyr",
     layer=Layer.DOMAIN,
     reports_to="Forseti",
-    owns=("CapacityForecast", "SizingRecommendation", "CapacityGraduationRecommendation"),
+    owns=("CapacityForecast", "CapacityGraduationRecommendation"),
     conversation=conversation_charter(
         "Freyr",
         "Explain capacity forecasts and sizing recommendations.",
@@ -721,7 +721,7 @@ _LOKI = AgentSpec(
     ),
     executes=(),
     initiates=(),
-    subscribes=("object.event",),  # canonical schedule triggers
+    subscribes=("object.event", "object.action-run"),  # schedule + safe closure
     question_domains=(
         "chaos_experiment_status",
         "resilience_score",

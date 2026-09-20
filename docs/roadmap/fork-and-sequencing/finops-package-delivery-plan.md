@@ -128,7 +128,7 @@ Deliverables:
 
 - Huginn ingress adapters for bounded cost and resource evidence;
 - Heimdall evidence-health, anomaly, forecast, and independent-effect hooks;
-- Njord-owned `object.cost-anomaly` and `object.budget` publication, package-bound
+- Njord-owned `object.cost-anomaly` publication, package-bound `Budget` graph materialization and
   `CostEstimator`, and Freyr capacity counter-objective bindings;
 - conditional Loki experiment proposal binding without automatic experiment execution;
 - Forseti context materialization, option filtering, judgment, and Odin arbitration;

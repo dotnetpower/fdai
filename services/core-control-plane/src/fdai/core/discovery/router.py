@@ -64,6 +64,11 @@ def compile_discovery_routes(
 ) -> tuple[DiscoveryRoutingDecision, ...]:
     """Select one exact-equivalent registered plan per requested universe."""
 
+    for field in type(intent.limits).model_fields:
+        if getattr(intent.limits, field) > getattr(profile.limits, field):
+            raise ValueError(f"discovery intent exceeds profile limit: {field}")
+    if len(intent.universes) > intent.limits.max_fan_out:
+        raise ValueError("discovery intent exceeds its fan-out limit")
     by_operation = {item.operation_id: item for item in eligibility}
     if len(by_operation) != len(eligibility):
         raise ValueError("backend eligibility operation ids MUST be unique")
@@ -124,6 +129,7 @@ def compile_discovery_routes(
         plan_values: dict[str, object] = {
             "plan_id": f"{profile.profile_id}.{universe.value}",
             "intent_digest": intent.intent_digest,
+            "result_kind": intent.result_kind,
             "profile_id": profile.profile_id,
             "profile_revision": profile.revision,
             "universes": (universe,),
@@ -167,6 +173,7 @@ def equivalent_fallback(primary: DiscoveryQueryPlan, candidate: DiscoveryQueryPl
 
     return (
         primary.intent_digest == candidate.intent_digest
+        and primary.result_kind is candidate.result_kind
         and primary.universes == candidate.universes
         and primary.equivalence_key == candidate.equivalence_key
         and primary.scope_kind is candidate.scope_kind
@@ -180,14 +187,38 @@ def equivalent_fallback(primary: DiscoveryQueryPlan, candidate: DiscoveryQueryPl
     )
 
 
-def merge_discovery_results(results: tuple[DiscoveryPlanResult, ...]) -> MergedDiscoveryResult:
+def merge_discovery_results(
+    results: tuple[DiscoveryPlanResult, ...],
+    *,
+    plans: tuple[DiscoveryQueryPlan, ...],
+) -> MergedDiscoveryResult:
     """Merge exact provider observations while preserving every plan receipt."""
 
     if not results:
         raise ValueError("discovery merge requires at least one plan result")
+    expected = {plan.plan_digest: plan for plan in plans}
+    if not expected or len(expected) != len(plans):
+        raise ValueError("discovery merge requires unique expected plans")
+    if {result.plan_digest for result in results} != set(expected):
+        raise ValueError("discovery merge results MUST match the complete expected plan set")
+    if (
+        len(
+            {
+                (plan.intent_digest, plan.scope_digest, plan.authorization_ceiling_digest)
+                for plan in plans
+            }
+        )
+        != 1
+    ):
+        raise ValueError("discovery merge plans MUST share intent, scope, and authority ceiling")
     by_ref: dict[str, ProviderResourceObservation] = {}
     by_plan: set[str] = set()
     for result in results:
+        plan = expected[result.plan_digest]
+        if plan.universes != (result.universe,) or plan.backend is not result.backend:
+            raise ValueError("discovery result MUST match its expected universe and backend")
+        if len(result.observations) > plan.limits.max_results:
+            raise ValueError("discovery result exceeds its expected plan result limit")
         if result.plan_digest in by_plan:
             raise ValueError("discovery merge MUST NOT repeat a plan result")
         by_plan.add(result.plan_digest)
@@ -197,6 +228,8 @@ def merge_discovery_results(results: tuple[DiscoveryPlanResult, ...]) -> MergedD
                 raise ValueError("conflicting provider observations MUST NOT be merged")
             by_ref[observation.provider_ref_digest] = observation
     observations = tuple(by_ref[key] for key in sorted(by_ref))
+    if len(observations) > min(plan.limits.max_results for plan in plans):
+        raise ValueError("merged discovery result exceeds the intent result limit")
     complete = all(result.complete and not result.truncated for result in results)
     values: dict[str, object] = {
         "observations": observations,

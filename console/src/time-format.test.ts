@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { setLocale } from "./i18n";
 import {
   formatConsoleCompactTimestamp,
@@ -49,5 +49,33 @@ describe("console evidence timestamps", () => {
       .toBe("24 Jul 2026, 04:33 UTC");
     expect(formatConsoleCompactTimestamp("not-a-timestamp", "Asia/Seoul"))
       .toBe("not-a-timestamp");
+  });
+
+  test("shows distinct milliseconds without changing the seconds-only default", () => {
+    for (const locale of ["en", "ko"] as const) {
+      setLocale(locale);
+      expect(formatConsoleTime("2026-07-24T04:33:12.127Z", "Asia/Seoul", "-", "milliseconds"))
+        .toBe("13:33:12.127 KST");
+      expect(formatConsoleTime("2026-07-24T04:33:12.128Z", "UTC", "-", "milliseconds"))
+        .toBe("04:33:12.128 UTC");
+      expect(formatConsoleTime("2026-07-24T04:33:12Z", "UTC", "-", "milliseconds"))
+        .toBe("04:33:12.000 UTC");
+    }
+    expect(formatConsoleTime(null, "UTC", "Unavailable", "milliseconds")).toBe("Unavailable");
+    expect(formatConsoleTime("invalid", "UTC", "-", "milliseconds")).toBe("invalid");
+    expect(formatConsoleTime("2026-07-24T04:33:12.127Z", "UTC")).toBe("04:33:12 UTC");
+  });
+
+  test("reuses time and timezone formatters across activity rows", () => {
+    formatConsoleTime("2026-07-24T04:33:12.127Z", "America/New_York", "-", "milliseconds");
+    const constructor = vi.spyOn(Intl, "DateTimeFormat");
+    try {
+      for (let index = 0; index < 100; index += 1) {
+        formatConsoleTime("2026-07-24T04:33:12.127Z", "America/New_York", "-", "milliseconds");
+      }
+      expect(constructor).not.toHaveBeenCalled();
+    } finally {
+      constructor.mockRestore();
+    }
   });
 });

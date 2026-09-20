@@ -25,6 +25,10 @@ from fdai.core.ontology_platform.inventory_projection import (
     InventoryOntologyProjection,
     build_inventory_ontology_projection,
 )
+from fdai.delivery.inventory_configuration_events import (
+    configuration_delivery_key,
+    configuration_projection_record,
+)
 from fdai.delivery.inventory_sync import (
     INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY,
     PromotedInventoryObservation,
@@ -77,12 +81,22 @@ from fdai.shared.providers.state_store import StateStore
 
 INVENTORY_ONTOLOGY_MANIFEST_KEY = "inventory-ontology:manifest"
 INVENTORY_ONTOLOGY_INVALIDATION_KEY = "inventory-ontology:invalidation"
+INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY = "inventory-ontology:cursor-floor"
 INVENTORY_ONTOLOGY_STATUS_KEY = "inventory-ontology:status"
 _DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 _PROJECTION_LOCK_ID = "inventory-ontology-projection"
 _REVISION_READ_BATCH_SIZE = 1_000
 
 _LOG = logging.getLogger(__name__)
+
+
+def _valid_marker_timestamp(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).tzinfo is not None
+    except ValueError:
+        return False
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,6 +200,7 @@ class InventoryOntologyProjector:
             resource_type_mappings=self._resource_type_mappings,
             seeded_resource_types=await self._seeded_resource_types(observation),
             freshness_ceiling_seconds=self._freshness_ceiling_seconds,
+            recorded_at=observation.recorded_at,
         )
         if not projection.complete:
             if fail_before_incomplete_status:
@@ -306,8 +321,24 @@ class InventoryOntologyProjector:
             INVENTORY_ONTOLOGY_MANIFEST_KEY: manifest_state,
             INVENTORY_ONTOLOGY_STATUS_KEY: status_state,
         }
+        publication_key = configuration_delivery_key(observation.generation) + ":projection"
+        publication_state = (
+            configuration_projection_record(
+                observation,
+                ontology_release_digest=self._ontology_release_digest,
+                manifest_digest=current_manifest_digest,
+            )
+            if observation.recorded_at is not None
+            else None
+        )
+        if publication_state is not None:
+            state_updates[publication_key] = publication_state
         if invalidation_state is not None:
             state_updates[INVENTORY_ONTOLOGY_INVALIDATION_KEY] = invalidation_state
+            state_updates[INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY] = {
+                "sequence": invalidation_state["sequence"],
+                **({"epoch": invalidation_state["epoch"]} if "epoch" in invalidation_state else {}),
+            }
         active_scope_state = checkpoints.active_scope_state(generation=projection.generation)
         if active_scope_state is not None:
             state_updates[INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY] = active_scope_state
@@ -341,6 +372,8 @@ class InventoryOntologyProjector:
                 INVENTORY_ONTOLOGY_STATUS_KEY,
                 status_state,
             )
+            if publication_state is not None:
+                await self._status_store.write_state(publication_key, publication_state)
             if active_scope_state is not None:
                 await self._status_store.write_state(
                     INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY,
@@ -350,6 +383,10 @@ class InventoryOntologyProjector:
                 await self._status_store.write_state(
                     INVENTORY_ONTOLOGY_INVALIDATION_KEY,
                     invalidation_state,
+                )
+                await self._status_store.write_state(
+                    INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY,
+                    state_updates[INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY],
                 )
         if projection_high_watermark is not None and not callable(atomic_replace):
             if self._observation_journal is None:
@@ -392,21 +429,43 @@ class InventoryOntologyProjector:
 
         previous = await self._status_store.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
         previous_sequence = 0
+        floor = await self._status_store.read_state(INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY)
+        epoch = floor.get("epoch") if isinstance(floor, Mapping) else None
+        if epoch is not None and (
+            not isinstance(epoch, str) or re.fullmatch(r"[a-f0-9]{32}", epoch) is None
+        ):
+            raise ValueError("inventory invalidation cursor epoch requires repair")
+        if floor is not None:
+            floor_sequence = floor.get("sequence")
+            if (
+                not isinstance(floor_sequence, int)
+                or isinstance(floor_sequence, bool)
+                or floor_sequence < 1
+                or floor_sequence >= 2**53 - 1
+            ):
+                raise ValueError("inventory invalidation cursor floor requires repair")
+            previous_sequence = floor_sequence
         if isinstance(previous, Mapping):
+            if previous.get("epoch") != epoch:
+                raise ValueError("inventory invalidation cursor epoch requires repair")
             sequence = previous.get("sequence")
             if isinstance(sequence, int) and not isinstance(sequence, bool) and sequence >= 1:
-                previous_sequence = sequence
+                previous_sequence = max(previous_sequence, sequence)
             else:
-                _LOG.warning("inventory_ontology_invalidation_marker_unrecoverable")
-                return None
+                if previous_sequence == 0:
+                    raise ValueError("inventory invalidation cursor floor requires repair")
+                _LOG.warning("inventory_ontology_invalidation_marker_rebuilt_from_floor")
             valid_previous = (
-                previous.get("schema_version") == "1.0.0"
+                previous.get("schema_version") == ("2.0.0" if epoch else "1.0.0")
                 and previous_sequence >= 1
+                and isinstance(sequence, int)
+                and not isinstance(sequence, bool)
+                and sequence == previous_sequence
                 and isinstance(previous.get("generation"), str)
                 and bool(previous["generation"])
                 and isinstance(previous.get("manifest_digest"), str)
                 and _DIGEST_PATTERN.fullmatch(previous["manifest_digest"]) is not None
-                and isinstance(previous.get("recorded_at"), str)
+                and _valid_marker_timestamp(previous.get("recorded_at"))
                 and previous.get("complete") is True
                 and previous.get("execution_authority") is False
                 and previous.get("mutation_authority") is False
@@ -420,16 +479,20 @@ class InventoryOntologyProjector:
             if not valid_previous:
                 _LOG.warning("inventory_ontology_invalidation_marker_replaced")
         elif previous is not None:
-            _LOG.warning("inventory_ontology_invalidation_marker_unrecoverable")
-            return None
+            if previous_sequence == 0:
+                raise ValueError("inventory invalidation cursor floor requires repair")
+            _LOG.warning("inventory_ontology_invalidation_marker_rebuilt_from_floor")
         if journal_high_watermark is None and previous_sequence == 0:
             return None
-        journal_cursor = journal_high_watermark or 0
+        journal_cursor = 0 if epoch else journal_high_watermark or 0
+        if max(previous_sequence, journal_cursor) >= 2**53 - 1:
+            raise ValueError("inventory invalidation cursor sequence requires repair")
         committed_at = recorded_at or datetime.now(UTC)
         if committed_at.tzinfo is None:
             raise ValueError("inventory ontology invalidation time MUST be timezone-aware")
         return {
-            "schema_version": "1.0.0",
+            "schema_version": "2.0.0" if epoch else "1.0.0",
+            **({"epoch": epoch} if epoch else {}),
             "sequence": max(previous_sequence, journal_cursor) + 1,
             "generation": generation,
             "manifest_digest": manifest_digest,

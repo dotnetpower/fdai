@@ -162,6 +162,9 @@ def _server_bound_node_arguments(
     current_as_of: str,
 ) -> dict[str, Any]:
     arguments = copy.deepcopy(node.arguments)
+    if node.kind.value in {"relationship_traversal", "typed_path", "ontology_instance_path"}:
+        arguments["as_of"] = current_as_of
+        return arguments
     if node.kind.value != "object_set":
         return arguments
     definition = arguments.get("definition")
@@ -243,6 +246,10 @@ def _refresh_object_set_cutoffs(
             }
         )
         if node.kind.value == "object_set"
+        else node.model_copy(
+            update={"arguments_json": canonical_json({**node.arguments, "as_of": current_as_of})}
+        )
+        if node.kind.value in {"relationship_traversal", "typed_path", "ontology_instance_path"}
         else node
         for node in plan.nodes
     )
@@ -306,7 +313,7 @@ def _bounded_context(prior_turns: Sequence[Turn]) -> tuple[str, ...]:
     selected = prior_turns[-_MAX_CONTEXT_TURNS:]
     result: list[str] = []
     remaining = _MAX_CONTEXT_CHARS
-    for turn in selected:
+    for turn in reversed(selected):
         content = turn.content[:remaining]
         if not content:
             break
@@ -314,7 +321,7 @@ def _bounded_context(prior_turns: Sequence[Turn]) -> tuple[str, ...]:
         remaining -= len(content)
         if remaining == 0:
             break
-    return tuple(result)
+    return tuple(reversed(result))
 
 
 def _clarification(unresolved_terms: tuple[str, ...]) -> str:

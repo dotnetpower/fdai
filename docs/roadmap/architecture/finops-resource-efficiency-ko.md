@@ -1,8 +1,8 @@
 ---
 title: FinOps 리소스 효율 및 SKU 결정
 translation_of: finops-resource-efficiency.md
-translation_source_sha: d0246093b072d58eb8728419fd7bbbdfba57dae8
-translation_revised: 2026-09-17
+translation_source_sha: c376770e3e36de1a35996d27456bf07626c02294
+translation_revised: 2026-09-20
 ---
 
 # FinOps 리소스 효율 및 SKU 결정
@@ -105,8 +105,9 @@ Azure Advisor 권고는 파생 근거 레인으로 들어갑니다. `Verdict`, `
 리소스에 대한 프로바이더 진실이 아닙니다. Freyr의 크기 조정 조언과 Njord의 비용 조언도 자문
 입력으로 유지합니다. Forseti만 완전한 근거를 적격 대안과 최종 결정으로 전환합니다.
 
-첫 release에서는 `Forecast`, `Observation`, `Signal`, `ActionOption`으로 필요한 계보를
-보존할 수 있다면 두 번째 영속 `SizingRecommendation` 객체를 만들지 않는 것이 좋습니다. 향후
+첫 release의 event 경로는 크기 조정 조언을 `CapacityForecast`에 포함하며
+`object.sizing-recommendation` topic을 만들지 않습니다. 별도 `SizingRecommendation` graph
+lifecycle은 검토된 materialization에 독립적인 개정이 필요할 때만 사용합니다. 향후
 배부 비율, 방식, 유효 구간 및 정책 개정에 독립적인 수명 주기가 필요할 때만 `CostAllocation`
 관계 객체를 추가하는 것이 적절합니다.
 

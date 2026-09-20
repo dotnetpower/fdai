@@ -950,7 +950,7 @@ def test_thor_ignores_document_approval() -> None:
 def test_forseti_rbac_deny_emits_security_event() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
-    f = Forseti(bus=bus)
+    f = Forseti(bus=bus, rbac={"guest@example.com": frozenset({"ops.restart-service"})})
     # guest@example.com is not allowed to run remediate.disable-public-access
     asyncio.run(
         f.on_typed_message(
@@ -960,6 +960,7 @@ def test_forseti_rbac_deny_emits_security_event() -> None:
                 "resource_id": "sa-1",
                 "correlation_id": "c",
                 "initiator_principal": "guest@example.com",
+                "operator_initiated": True,
             },
         )
     )
@@ -969,6 +970,30 @@ def test_forseti_rbac_deny_emits_security_event() -> None:
     assert verdicts[0].payload["reason"] == "rbac_insufficient"
     assert len(security) == 1
     assert security[0].payload["event_type"] == "privilege_escalation_attempt"
+
+
+def test_forseti_unconfigured_rbac_grants_no_operator_authority() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    f = Forseti(bus=bus)
+
+    asyncio.run(
+        f.on_typed_message(
+            "object.event",
+            {
+                "event_type": "public_network_enabled",
+                "resource_id": "service-1",
+                "correlation_id": "unconfigured-rbac",
+                "initiator_principal": "operator@example.com",
+                "operator_initiated": True,
+            },
+        )
+    )
+
+    verdict = bus.messages_on("object.verdict")[0].payload
+    assert verdict["risk_verdict"] == "deny"
+    assert verdict["reason"] == "rbac_insufficient"
+    assert len(bus.messages_on("object.security-event")) == 1
 
 
 def test_forseti_abstains_on_no_rule_match() -> None:

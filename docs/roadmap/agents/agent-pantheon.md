@@ -31,6 +31,9 @@ The pantheon is a thin re-framing of the existing FDAI control loop into named o
 - **Judge is not the executor.** Forseti judges and Var carries authorized non-expired approval. Thor rechecks the authority ceiling, Saga receipt, stable idempotency reservation, and owner-fenced distributed resource claim before execution; restart ambiguity stays `execution_unknown`.
 - **Pantheon fixed upstream.** The 15-agent set, org chart, and role assignments are locked. Forks customize configured seams (§10), never add, remove, or rename agents.
 - **Repository layout preserves the boundary.** Named agents live in [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents); shared runtime machinery stays in private `_framework`. External callers import only `fdai.agents`, as the layout test enforces. Runtime composition uses explicitly exported callback types from the owning agent module; exporting a type grants no topic, observation, approval, or execution authority. Heimdall's action-observation relay and Thor's `ActionRun` state and effect-closure mechanics use focused private helpers; these helpers own no `AgentSpec`, topic, approval, or execution authority.
+Composition and scenario replay import `ActionSemanticsCatalog` from `fdai.agents` to bind
+catalog-backed reversibility. The export grants no authority and preserves the conservative
+approval quorum when no catalog is bound. Frozen replay inputs and digest pins remain immutable.
 ## 2. Organization chart
 
 Thor (operations) and Forseti (judgment) report to Odin. Four governance staff have independent dotted reporting lines to Odin.
@@ -87,6 +90,12 @@ decision with a `win`, `defer`, or `hil` disposition per candidate, Saga audits 
 only Thor can turn the winning verdict into an `ActionRun`.
 Candidate correlation, idempotency, resource, and ActionType identifiers are bounded, nonblank, and
 free of surrounding whitespace at ingress. The shared observation cutoff must include a timezone.
+A Huginn-owned normalized `specialist.resilience_score` Event must also carry a finite score from
+0 through 1 plus complete expected effects and evidence references. Loki applies the same candidate
+contract that Forseti consumes, publishes only after validation, and retains a bounded read-only
+score projection. Its cutoff uses Huginn-validated `occurred_at`, falling back only to trusted
+`ingested_at`; raw timestamp attributes cannot substitute. A malformed or forged Event produces no score. The ActionType remains an A0
+candidate and grants Loki no judgment, approval, or execution authority.
 
 ### 3.2 Discovery-loop learners (Norns)
 
@@ -126,8 +135,8 @@ operations / interface), `3` = governance staff.
 | Name | Role | Layer | Owns object types | Primary behavior | LLM in hot-path? |
 |------|------|-------|-------------------|-----------------------|-------------------|
 | Odin | Master Planner | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
-| Thor | Responder | 2 | ActionRun, ActionAttempt | (dispatches; owns none directly - see §7.1) | no |
-| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest, ProspectiveLineage | produces verdicts and exact pre-execution prospective lineage; optional planned-change graph context can only lower autonomy; no executor role | yes (T2 abstain only) |
+| Thor | Responder | 2 | ActionRun | dispatches and records embedded per-target attempt state; owns no ActionType directly - see §7.1 | no |
+| Forseti | Judge | 2 | Verdict, SecurityEvent, ArbitrationRequest, ProspectiveLineage | produces verdicts and exact pre-execution prospective lineage; grounded RCA remains a core causal-hypothesis projection, not another bus topic; no executor role | yes (T2 abstain only) |
 | Huginn | Event Collector / Real-time Resource Discovery | 2 | Event, Change | ingest_event, normalize_change | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict, RecoveryEffectObservation | detect_anomaly, detect_drift, forecast, close_forecast_outcome, publish_evidence_conflict_revision, observe_terminal_action_effect, relay_recovery_effect_observation, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |
@@ -137,9 +146,9 @@ operations / interface), `3` = governance staff.
 | Mimir | Rule Steward | 3 | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
 | Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path batch only) |
-| Njord | Cost | 1 | CostAnomaly, Budget | propose_cost_action | no |
-| Freyr | Capacity | 1 | CapacityForecast, SizingRecommendation, CapacityGraduationRecommendation | forecast capacity and propose shadow-only graduation | no |
-| Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
+| Njord | Cost | 1 | CostAnomaly | propose_cost_action; retains the separate `Budget` graph lifecycle | no |
+| Freyr | Capacity | 1 | CapacityForecast, CapacityGraduationRecommendation | forecast capacity and propose shadow-only graduation; retains the separate `SizingRecommendation` graph lifecycle | no |
+| Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment; validate and publish resilience-score candidates | no |
 
 Heimdall remains accountable for deterministic forecast episode evaluation and closure; private `heimdall_forecast.py` and `heimdall_alert_window.py` own calculation and bounded episode/alert-window bookkeeping.
 After an authoritative repeated-event anomaly, the optional `incident_candidate_hook` sends normalized resource, event type, correlation, worst severity, reason code, and all burst evidence keys to composition-owned `IncidentLifecycleWorkflow`.
@@ -150,11 +159,12 @@ Unknown fields, including action-like input, are dropped; this handoff selects n
 Only explicit `incident_correlation=correlate` candidates with correlation, evidence, enabled auto-open, and sufficient severity reach the workflow; others remain anomalies. The workflow rechecks evidence before `IncidentRegistry` writes the audited record.
 Hook failure increments a behavior counter and retains the bounded window for retry; accepted and policy-held outcomes have separate counters. Production composition rehydrates the registry and binds the enabled hook; Operator never impersonates Heimdall.
 
-Huginn owns real-time resource discovery and normalized `Change` records. Azure create/update/delete signals enter canonical Event Hubs Kafka ingress and become normalized, deduplicated, correlated `Event` records. IaC plans, release requests, and provider activity with authoritative event time also produce `object.change`; Muninn retains immutable content-addressed revisions for decision context.
+Huginn owns real-time resource discovery and normalized `Change` records. Azure create/update/delete signals enter canonical Event Hubs Kafka ingress and become normalized, deduplicated, correlated `Event` records. Durable deduplication uses an exact-capacity journal split across at most 64 deterministic shards; startup migrates and compacts the legacy single-row journal through revision CAS without changing leases, retry payloads, or the event bus's at-least-once acceptance/checkpoint boundary. Routine claim creation and publication are authority-free delivery checkpoints and do not duplicate each event in the audit chain; lease recovery and legacy migration remain audited. IaC plans, release requests, and provider activity with authoritative event time also produce `object.change`; Muninn retains immutable content-addressed revisions for decision context.
 The causal `object.event` carries the same normalized Change evidence, avoiding cross-topic arrival-order dependencies. Before ordinary rule judgment, Forseti performs bounded planned-change impact analysis and retains the assessment in Verdict and DecisionCase evidence. Missing, stale, failed, or review-required assessment forces human approval.
 Observed changes remain context only; runtime supplies no graph-freshness authority to auto-clear planned changes. Freshness requires an explicit string source, timestamp, and integer maximum age; malformed values, including boolean ages, fail closed to human approval.
 Ordinary Verdicts and arbitration DecisionCases use the same typed freshness evidence, so arbitration cannot recover authority removed by the context ceiling. This projection grants no action authority.
 Azure parsing, point enrichment, and durable inventory projection stay injected delivery responsibilities; Huginn imports no Azure SDK and writes no inventory database. Scheduled Inventory sync repairs missed signals with complete ARG/ARM snapshots. Stale/degraded inventory remains unavailable; Heimdall publishes findings, never acquires resources or starts reconciliation.
+Huginn health reports whether its discovery projection is bound and marks delivery-owned cursor, backpressure, and source-health signals as `not_observed` until a deployment supplies those observations. It never reports their absence as healthy evidence.
 
 The 15 agents cover SRE, ARB, and FinOps through composition. Non-agent observation consumers may retain replay/health evidence from owned topics, but never join the pantheon, publish owned objects, judge, approve, or execute (§6, §6.4, §7.6).
 Forseti's observation-mode ARB failure record preserves the complete Change digest even when context/evidence collection fails. The hold stays replayable and gains no approval or execution authority from unknown dependencies.
@@ -179,7 +189,7 @@ Every agent performs four task categories: **R**ecurring (scheduled), **E**vent 
 | Norns | hourly batch audit analysis, streaming pattern extraction | pattern signal, RuleCandidate publish, close_issue signal | model performance drift detection | 4, 6, 8 (Judgment coherence), 10 |
 | Njord | cost ingestion (daily), budget monitor, cost forecasting | bounded cost sample -> anomaly; restore accepted retained complete USD baselines at startup without republishing historical findings; budget breach alert; cost-advisor query | RI / SP optimization proposals | 1, 2 |
 | Freyr | utilization sampling, capacity forecasting, sizing analysis | bounded utilization sample -> forecast; scale proposal; capacity advisor query | multi-dimensional capacity (CPU + IOPS + net + mem) | 2, 3 |
-| Loki | chaos-experiment scheduling, resilience-score refresh | bounded schedule trigger -> always-HIL experiment proposal; blast-radius calc | adversarial scenario generation (T2, off-path) | 3, 9 |
+| Loki | chaos-experiment scheduling, resilience-score refresh | bounded schedule trigger -> always-HIL experiment proposal; bounded normalized score Event -> validated cross-vertical candidate; blast-radius calc | adversarial scenario generation (T2, off-path) | 3, 9 |
 
 ### 4.2 Per-agent KPI (success and degradation signals)
 
@@ -311,7 +321,7 @@ Each consumer closes its subscription inside its own task, so the broker adapter
 | object.verdict | Forseti | Thor, Saga, Odin |
 | object.arbitration-request | Forseti | Odin |
 | object.arbitration-decision | Odin | Forseti, Saga |
-| object.action-run | Thor | Heimdall (terminal effect observation), Vidar, Var, Saga |
+| object.action-run | Thor | Heimdall (terminal effect observation), Vidar, Var, Saga, Loki (safe proposal-reservation closure only) |
 | object.approval | Var | Thor (action approvals only), Saga, Mimir (test-context reviews), Norns (learning reviews) |
 | object.rollback | Vidar | Thor (ActionRun projection), Saga |
 | object.audit-entry | Saga | Norns, Muninn (document index gate), Var (document HIL) |

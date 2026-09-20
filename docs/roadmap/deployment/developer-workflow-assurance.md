@@ -37,6 +37,8 @@ Operator URL and owner-only bearer-token file path, but never the bearer value, 
 and task restart preserve the authenticated local contract without relying on the editor's ambient
 environment.
 
+`console: restart full stack` explicitly replaces the same-checkout managed supervisor through `--replace-existing`, preserving Browser Entra and the standard service topology. It reuses prepared private environments rather than running preparation again. Run `console: prepare full stack` first if configuration, dependencies, migrations, or environment bindings changed. The task has its own terminal and readiness matcher; stale output from a completed start task is not evidence of a new process or readiness.
+
 ![Design at a glance. The main stages are Edit and focused check, Workflow diagnostics, Focused commit, Structural pre-push, SHA-addressed CI, Remote work, Bounded handover.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.en.svg)
 
 ## Measured controls
@@ -51,7 +53,7 @@ environment.
 | Hooks | Detect staged and unstaged overlap and preserve deterministic recovery guidance before a mutating hook runs. | Hook failure does not silently discard task-owned work. |
 | Browser checks | Prefer focused CLI Playwright checks and preserve the shared 10-slot lease contract. | Browser-tool use is limited to one bounded final interaction when CLI evidence is sufficient. |
 | Local services | Probe every standard local service independently with bounded timeout and ownership diagnostics. | Full-stack readiness names every unavailable service and never infers readiness from the SPA. |
-| Development diagnostics | Profile an explicitly selected local Core or Operator process through an owner-only Unix socket and bind the result to its exact source inputs. | A bounded packet separates latency, CPU, Python heap, and untracked memory, then GitHub Copilot diagnoses only an exact matching workspace snapshot. |
+| Development diagnostics | Profile each Core or Operator process started by the standard task-backed local launcher through an owner-only Unix socket and bind the result to its exact source inputs. | A bounded packet separates latency, CPU, Python heap, and untracked memory, then GitHub Copilot diagnoses only an exact matching workspace snapshot. |
 | Editor pressure | Separate host pressure, extension pressure, and upstream browser payload cost. | Diagnostics identify the owning process or classify the limitation as upstream. |
 | Remote preflight | Retry only transient read failures within a fixed attempt and time budget. | Permanent authorization and policy failures fail immediately; retries never mutate Azure. |
 
@@ -70,10 +72,16 @@ converting a failed or cancelled check into success.
 
 ## Development diagnostic channel
 
-The development diagnostic channel is an explicitly activated local workflow for finding code
-bottlenecks in a running Core or Operator process. Each process exposes one owner-only Unix socket
-only when the execution venue is `local` and the development diagnostic flag is enabled. No HTTP,
-browser, Teams, Slack, Event Bus, or managed-resource route reaches this socket.
+The standard task-backed local launcher always enables the development diagnostic channel for Core
+and Operator processes. Each process exposes one owner-only Unix socket only when the execution
+venue is `local`; direct process starts outside that launcher require the complete source and digest
+binding before diagnostics can be enabled. No HTTP, browser, Teams, Slack, Event Bus, or
+managed-resource route reaches this socket.
+The observer-proposal consumer is a normal application lifecycle worker, not a diagnostic channel.
+Its readiness joins the Operator worker checks; its GET projection neither reaches this socket nor authorizes a stack restart or live provider probe.
+
+The `status` command sends a bounded protocol request to each socket. A socket path left behind by
+an interrupted process is unavailable, not healthy.
 
 The process-local probe retains bounded latency aggregates and reads content-free process state.
 An explicit capture can run `cProfile` and `tracemalloc` for at most 30 seconds, one capture per
@@ -86,25 +94,43 @@ attribution, and a held assessment state for the product projection. Those field
 conversation data and never enter the diagnostic probe, packet, export, or Copilot review.
 
 Every packet binds the Git revision, local service input digest, worktree patch digest, process
-identity, runtime-scope receipt digest, time window, and packet digest. A GitHub Copilot review uses
-an owner-only export and import boundary. Review is rejected when the workspace identity or packet
-digest changes. Copilot may inspect the matching workspace and propose a diagnosis, but the runtime
+identity, runtime-scope receipt digest, time window, and packet digest. Capture admission compares
+the canonical service input digest. Git revision and worktree digest remain provenance, so a commit
+or edit outside that service's inputs does not invalidate a running service. A GitHub Copilot review
+uses an owner-only export and import boundary and retains the full workspace identity. Review is
+rejected when the workspace identity or packet digest changes.
+Copilot may inspect the matching workspace and propose a diagnosis, but the runtime
 does not call Copilot, read repository files, edit code, open a pull request, or grant merge or
 execution authority. System Knowledge can explain the release contract, while live measurements
 remain owned by this development workflow.
 
-Profiled full-stack startup completes the normal preparation stages before either diagnostic socket
-exists. Preparation therefore emits content-free stage durations for pre-process bottlenecks, while
-the sockets measure only the running Core and Operator processes. The local Core launcher uses its
-service-owned entry point. The Operator ASGI factory binds its runtime-scope receipt even when
-Uvicorn loads the factory directly, then appends explicitly enabled diagnostics to the composed
+Profiled full-stack startup completes prerequisite preparation before either diagnostic socket
+exists. The managed full-stack task defers authoritative inventory refresh to its continuous
+inventory reconciliation process so the Console, Core, and Operator processes can start in
+parallel with that refresh. Complete readiness still waits for active-scope inventory coverage and
+the analyzer's clean first tick; standalone preparation retains the synchronous inventory stage.
+Preparation emits content-free stage durations for pre-process bottlenecks, while the sockets
+measure only the running Core and Operator processes. The local Core launcher uses its service-owned
+entry point. The Operator ASGI factory binds its runtime-scope receipt even when
+Uvicorn loads the factory directly, then appends launcher-enabled diagnostics to the composed
 application lifecycle without expanding the production composition root. Running `dev discuss: start or restart profiled services`
-replaces a stale task instance. GitHub Copilot in the active coding session reviews exported
+replaces a stale instance of the same always-profiled local stack. It terminates only a verified
+supervisor from the same checkout and waits for the supervisor lock to be released before starting
+new children. GitHub Copilot in the active coding session reviews exported
 packets; no FDAI runtime or Azure OpenAI deployment is selected or invoked by the diagnostic
-channel. Local readiness recognizes the service-owned Core executable as the process owner and
+channel. A profiled service reuse fingerprint includes its canonical service input digest, including
+the runtime-diagnostics package. A relevant input change replaces the stale process without
+restarting it for an unrelated commit or worktree edit.
+Local readiness recognizes the service-owned Core executable as the process owner and
 accepts fresh semantic-consumer progress followed by a fresh heartbeat. When an inventory
 generation changes before its ontology checkpoint is projected, the local analyzer remains
 unready but retries target resolution within five seconds instead of waiting its full loop interval.
+The profiled Core runtime also owns one bounded asynchronous pool for its shared StateStore and
+closes that pool after dependent workers and transports stop. Development diagnostics can measure
+the resulting process and connection counts but never turn those measurements into authority.
+The local analyzer closes its tick-scoped decision-evidence and run-receipt StateStore pools before
+the next loop interval. A clean tick cannot leave asynchronous pool workers for garbage collection,
+and a persistence failure still closes its store before readiness remains unavailable.
 
 ## Validation stages and reuse
 
@@ -115,6 +141,9 @@ requested local whole-suite run supplies `--allow-full-suite`. The focused
 checks are explicit; route plans never add an unscoped repository runner to every path.
 Workflow guidance keeps the Constitution and traceability context; deeper runtime authority
 documents load for changes to those runtime contracts rather than every CI tooling edit.
+Core quantity/accounting checks use the root development extra's locked Kubernetes utility without contacting a cluster. Its untyped import exception is limited to `kubernetes.utils.quantity`; the adapter validates returned Decimal values. Dependency changes retain focused ownership and Core-wheel checks and do not enable the diagnostic channel or live collection.
+When root CI collects service sources, its `dev` extra mirrors every third-party package imported by
+those sources. Service manifests remain authoritative for runtime images and package ownership.
 
 | Stage | Required evidence | Reuse boundary |
 |-------|-------------------|----------------|

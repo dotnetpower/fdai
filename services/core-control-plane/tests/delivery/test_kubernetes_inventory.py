@@ -272,9 +272,16 @@ async def test_unconfigured_source_reports_the_clusters_it_leaves_unobserved(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     with caplog.at_level(logging.WARNING, logger="fdai.delivery.kubernetes_inventory"):
-        result = await UnavailableKubernetesInventoryEnricher().enrich(_observation())
+        first = await UnavailableKubernetesInventoryEnricher().enrich(_observation())
+        result = await UnavailableKubernetesInventoryEnricher(
+            reason="kubernetes_dns_unavailable",
+            scope_digest="sha256:" + "a" * 64,
+        ).enrich(first)
 
-    assert result.source_states[-1].reason == "kubernetes_source_unconfigured"
+    assert [state.reason for state in result.source_states[-2:]] == [
+        "kubernetes_source_unconfigured",
+        "kubernetes_dns_unavailable",
+    ]
     records = [
         record
         for record in caplog.records

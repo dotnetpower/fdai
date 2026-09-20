@@ -17,6 +17,7 @@ from fdai.delivery.inventory_sync import (
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.runtime.inventory_ontology import (
+    INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY,
     INVENTORY_ONTOLOGY_INVALIDATION_KEY,
     INVENTORY_ONTOLOGY_MANIFEST_KEY,
     INVENTORY_ONTOLOGY_STATUS_KEY,
@@ -198,6 +199,31 @@ def _projector(
     )
 
 
+async def test_generation_delivery_publication_rolls_back_with_graph_failure() -> None:
+    from fdai.delivery.inventory_configuration_events import configuration_delivery_key
+
+    status = _FailStatusOnceStore()
+    store = _AtomicOntologyStore(status)
+    projector = _projector(store, status)
+    observation = PromotedInventoryObservation(
+        generation="publication-example",
+        resources=(),
+        links=(),
+        complete=True,
+        recorded_at=datetime(2026, 9, 20, tzinfo=UTC),
+    )
+    publication_key = configuration_delivery_key(observation.generation) + ":projection"
+    with pytest.raises(RuntimeError, match="injected status commit failure"):
+        await projector.apply(observation)
+    assert await status.read_state(publication_key) is None
+    await projector.apply(observation)
+    publication = await status.read_state(publication_key)
+    manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    assert publication is not None and manifest is not None
+    assert publication["manifest_digest"] == manifest["manifest_digest"]
+    assert publication["status"] == "projected"
+
+
 async def test_projection_advances_journal_watermark_with_graph_commit() -> None:
     status = InMemoryStateStore()
     store = _AtomicOntologyStore(status)
@@ -248,6 +274,22 @@ async def test_projection_advances_journal_watermark_with_graph_commit() -> None
         "journal_high_watermark": 7,
         "projection_high_watermark": 7,
     }
+
+
+async def test_identical_generation_replay_keeps_object_revisions() -> None:
+    status = InMemoryStateStore()
+    store = _AtomicOntologyStore(status)
+    projector = _projector(store, status)
+    observation = PromotedInventoryObservation(
+        generation="snapshot-idempotent",
+        resources=(ResourceRecord(resource_id="vm-idempotent", type="compute.vm"),),
+        links=(),
+        complete=True,
+    )
+    await projector.apply(observation)
+    first = await store.get_object("vm-idempotent")
+    await projector.apply(observation)
+    assert await store.get_object("vm-idempotent") == first
 
 
 async def test_projection_invalidation_cursor_advances_once_per_distinct_commit() -> None:
@@ -329,10 +371,11 @@ async def test_projection_replaces_a_malformed_invalidation_without_blocking_gra
     assert await store.get_object("vm-1") is not None
 
 
-async def test_projection_does_not_replace_a_marker_with_an_unreadable_sequence() -> None:
+async def test_projection_recovers_an_unreadable_sequence_from_durable_floor() -> None:
     status = InMemoryStateStore()
     malformed = {"schema_version": "0.9.0", "sequence": "unknown"}
     await status.write_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY, malformed)
+    await status.write_state(INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY, {"sequence": 100})
     store = _AtomicOntologyStore(status)
 
     await InventoryOntologyProjector(
@@ -345,8 +388,90 @@ async def test_projection_does_not_replace_a_marker_with_an_unreadable_sequence(
         projection_high_watermark=6,
     )
 
-    assert await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY) == malformed
+    marker = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+    assert marker["sequence"] == 101
+    assert await status.read_state(INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY) == {"sequence": 101}
     assert await store.get_object("vm-1") is not None
+
+
+@pytest.mark.parametrize("defect", ["sequence", "time", "floor"])
+async def test_same_generation_cannot_reuse_corrupt_or_regressed_marker(defect: str) -> None:
+    status = InMemoryStateStore()
+    store = _AtomicOntologyStore(status)
+    projector = _projector(store, status)
+    observation = _observation(generation="snapshot-marker", resource_ids=("vm-1",))
+    await projector.apply(observation, journal_high_watermark=7, projection_high_watermark=6)
+    marker = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+    if defect == "floor":
+        await status.write_state(INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY, {"sequence": 100})
+    else:
+        marker["sequence" if defect == "sequence" else "recorded_at"] = "broken"
+        await status.write_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY, marker)
+    await projector.apply(observation, journal_high_watermark=7, projection_high_watermark=6)
+    restored = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+    assert restored["sequence"] == (101 if defect == "floor" else 9)
+    assert datetime.fromisoformat(restored["recorded_at"]).tzinfo is not None
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "none",
+        "epoch_mismatch",
+        "epoch_type",
+        "floor_overflow",
+        "legacy_journal_overflow",
+        "old_epoch_overflow",
+    ],
+)
+async def test_projection_preserves_repaired_epoch_and_rejects_cursor_drift(defect) -> None:
+    status = InMemoryStateStore()
+    store = _AtomicOntologyStore(status)
+    projector = _projector(store, status)
+    epoch = "a" * 32
+    floor = {"sequence": 1, "epoch": epoch}
+    if defect == "epoch_type":
+        floor["epoch"] = 123
+    elif defect == "floor_overflow":
+        floor["sequence"] = 2**53 - 1
+    elif defect == "legacy_journal_overflow":
+        floor.pop("epoch")
+    await status.write_state(INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY, floor)
+    if defect == "epoch_mismatch":
+        await status.write_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY, {"epoch": "b" * 32})
+    observation = _observation(generation="snapshot-epoch", resource_ids=("vm-1",))
+    if defect not in {"none", "old_epoch_overflow"}:
+        with pytest.raises(ValueError, match="requires repair"):
+            await projector.apply(
+                observation,
+                journal_high_watermark=(2**53 if defect == "legacy_journal_overflow" else 7),
+                projection_high_watermark=6,
+            )
+        assert await store.get_object("vm-1") is None
+        return
+    journal = 2**53 if defect == "old_epoch_overflow" else 7
+    await projector.apply(observation, journal_high_watermark=journal, projection_high_watermark=6)
+    marker = await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY)
+    assert marker["epoch"] == epoch
+    assert marker["schema_version"] == "2.0.0"
+    assert marker["sequence"] == 2
+    assert await status.read_state(INVENTORY_ONTOLOGY_CURSOR_FLOOR_KEY) == {
+        "sequence": 2,
+        "epoch": epoch,
+    }
+    await projector.apply(observation, journal_high_watermark=journal, projection_high_watermark=6)
+    assert await status.read_state(INVENTORY_ONTOLOGY_INVALIDATION_KEY) == marker
+
+
+async def test_oversized_manifest_cannot_write_objects(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("fdai.runtime.inventory_ontology_manifest.MAX_MANIFEST_BYTES", 100)
+    status = InMemoryStateStore()
+    store = _AtomicOntologyStore(status)
+    with pytest.raises(ValueError, match="encoded byte bound"):
+        await _projector(store, status).apply(
+            _observation(generation="snapshot-large", resource_ids=("vm-1",))
+        )
+    assert await store.get_object("vm-1") is None
 
 
 def _observation(
@@ -1163,7 +1288,7 @@ async def test_replay_refuses_incomplete_projection_before_status_write() -> Non
     assert await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY) == prior_status
 
 
-async def test_metadata_less_link_preserves_prior_projection_and_reports_unverified() -> None:
+async def test_metadata_less_link_is_excluded_without_freezing_verified_objects() -> None:
     store = _store()
     status = InMemoryStateStore()
     projector = _projector(store, status)
@@ -1186,7 +1311,8 @@ async def test_metadata_less_link_preserves_prior_projection_and_reports_unverif
         )
     )
 
-    assert result.status == "unavailable"
+    assert result.status == "available"
+    assert result.relationship_complete is False
     assert result.link_count == 0
     assert "unverified_metadata" in result.dropped_reasons
-    assert await store.get_object("vm-2") is None
+    assert await store.get_object("vm-2") is not None

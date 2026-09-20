@@ -5,11 +5,13 @@ runtime control plane. This package exposes the agent contract, the
 registry, and the topic naming convention. Behavior for individual
 agents lands wave-by-wave (see
 `docs/roadmap/agents/agent-pantheon-implementation.md`); Wave 1 ships the
-scaffolding only.
+scaffolding only. Catalog-backed action semantics are exported here for
+composition and replay callers without exposing private framework modules.
 
 Design authority: `docs/roadmap/agents/agent-pantheon.md`.
 """
 
+from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.adapters import (
     AdminCard,
     AdminNotificationAdapter,
@@ -138,6 +140,7 @@ async def request_rule_generation(
 
 
 __all__ = [
+    "ActionSemanticsCatalog",
     "AssignmentWorkflowBindings",
     "Agent",
     "Forseti",

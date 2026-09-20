@@ -6,6 +6,8 @@ Any change here MUST reflect a corresponding doc change (docs-first).
 
 from __future__ import annotations
 
+import ast
+import importlib
 from pathlib import Path
 
 import pytest
@@ -21,6 +23,56 @@ from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
+_AGENTS_ROOT = _REPO_ROOT / "services/core-control-plane/src/fdai/agents"
+
+
+def _producer_topics() -> set[str]:
+    topics: set[str] = set()
+    for path in _AGENTS_ROOT.rglob("*.py"):
+        relative = path.relative_to(_REPO_ROOT / "services/core-control-plane/src")
+        module_name = ".".join(relative.with_suffix("").parts)
+        module = importlib.import_module(module_name)
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for function in (
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        ):
+            for call in (
+                node
+                for node in ast.walk(function)
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            ):
+                topic_index = 0 if call.func.attr == "_publish_proposal" else 1
+                if (
+                    call.func.attr not in {"publish", "_publish_proposal"}
+                    or len(call.args) <= topic_index
+                ):
+                    continue
+                topic = call.args[topic_index]
+                if isinstance(topic, ast.Constant) and isinstance(topic.value, str):
+                    if topic.value.startswith("object."):
+                        topics.add(topic.value)
+                elif isinstance(topic, ast.Name):
+                    value = getattr(module, topic.id, None)
+                    if isinstance(value, str) and value.startswith("object."):
+                        topics.add(value)
+                elif isinstance(topic, ast.Attribute):
+                    topic_expression = ast.dump(topic)
+                    for comparison in (
+                        node for node in ast.walk(function) if isinstance(node, ast.Compare)
+                    ):
+                        expressions = (comparison.left, *comparison.comparators)
+                        if not any(ast.dump(item) == topic_expression for item in expressions):
+                            continue
+                        topics.update(
+                            item.value
+                            for item in expressions
+                            if isinstance(item, ast.Constant)
+                            and isinstance(item.value, str)
+                            and item.value.startswith("object.")
+                        )
+    return topics
 
 
 def test_pantheon_has_exactly_fifteen_named_agents() -> None:
@@ -96,6 +148,14 @@ def test_publishes_matches_owns_topic_form() -> None:
     for spec in PANTHEON_SPECS:
         assert len(spec.publishes) == len(spec.owns)
         assert all(t.startswith("object.") for t in spec.publishes)
+
+
+def test_every_owned_topic_has_a_concrete_producer_path() -> None:
+    owned = {topic for spec in PANTHEON_SPECS for topic in spec.publishes}
+    produced = _producer_topics()
+
+    assert owned <= produced, f"owned topics without producer paths: {sorted(owned - produced)}"
+    assert produced <= owned, f"producer paths without owned topics: {sorted(produced - owned)}"
 
 
 def test_reports_to_resolves() -> None:

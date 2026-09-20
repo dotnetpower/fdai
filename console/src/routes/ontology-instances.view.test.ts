@@ -100,6 +100,8 @@ describe("Ontology Instances view controls", () => {
     expect(instancesSource).toContain("model_deployment: resource.model_deployment");
     expect(instancesSource).toContain("installOntologyInstanceRefresh");
     expect(instancesSource).toContain("useOntologyInvalidationStream");
+    expect(instancesSource).toContain("enabled: true");
+    expect(instancesSource).toContain("ONTOLOGY_INSTANCE_DIRECTORY_REFRESH_INTERVAL_MS");
     expect(instancesSource).toContain("formatOntologyRefreshCountdown");
     expect(instancesSource).toContain('new Event("fdai:ontology-invalidated")');
     expect(instancesSource).toContain('class={`ontology-instance-refresh-status is-${mode}`}');

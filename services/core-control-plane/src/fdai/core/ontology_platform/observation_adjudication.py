@@ -26,10 +26,20 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Literal, Protocol
 
+from fdai_service_contracts.recorded_resource_state import (
+    availability_state_paths,
+    is_recorded_state_value_valid,
+    operational_state_paths,
+    serving_state_paths,
+)
+
+from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.state_evidence import (
+    STATE_FACT_METADATA_PROPERTY,
     StateFactAuthority,
     StateFactLane,
     StateFactMetadata,
+    state_fact_metadata_values,
 )
 
 #: Bounded conflict evidence. A wider disagreement is truncated to a stable marker so a
@@ -165,6 +175,51 @@ class ObservationVerdict:
     @property
     def contested(self) -> bool:
         return bool(self.conflicts)
+
+
+def observation_time_gaps(
+    resources: Sequence[ResourceRecord], *, recorded_at: datetime | None
+) -> set[str]:
+    """Keep missing or future observation clocks outside complete state claims."""
+    gaps: set[str] = set()
+    if recorded_at is None:
+        return gaps
+    for resource in resources:
+        observed_at = (
+            datetime.fromisoformat(resource.last_seen.replace("Z", "+00:00"))
+            if resource.last_seen is not None
+            else None
+        )
+        if observed_at is not None and observed_at > recorded_at:
+            gaps.add("observation_time_in_future")
+        paths = (
+            *operational_state_paths(resource.type),
+            *availability_state_paths(resource.type),
+            *serving_state_paths(resource.type),
+        )
+        owner: object = resource.props
+        for _depth in range(3):
+            if not isinstance(owner, Mapping):
+                break
+            for path in paths:
+                value: object = owner
+                for part in path.split("."):
+                    value = value.get(part) if isinstance(value, Mapping) else None
+                if observed_at is None and is_recorded_state_value_valid(value, allow_unknown=True):
+                    gaps.add("observation_time_unavailable")
+            metadata = owner.get(STATE_FACT_METADATA_PROPERTY)
+            if isinstance(metadata, Mapping):
+                try:
+                    facts = state_fact_metadata_values(metadata)
+                except (ValueError, OverflowError):
+                    facts = ()
+                if any(
+                    max(fact.effective_at, fact.recorded_at, fact.evidence_cutoff) > recorded_at
+                    for fact in facts
+                ):
+                    gaps.add("observation_time_in_future")
+            owner = owner.get("properties")
+    return gaps
 
 
 def adjudicate_observations(claims: Sequence[ObservedClaim]) -> ObservationVerdict:

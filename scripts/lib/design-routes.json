@@ -230,6 +230,7 @@
         ".github/instructions/architecture.instructions.md",
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
+        "docs/roadmap/architecture/continuous-operational-instance-graph-evidence.md",
         "docs/roadmap/architecture/ontology-structural-model.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
@@ -242,6 +243,7 @@
       ],
       "docs_update": [
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
+        "docs/roadmap/architecture/continuous-operational-instance-graph-evidence.md",
         "docs/roadmap/architecture/ontology-structural-model.md",
         "docs/roadmap/architecture/project-structure.md",
         "docs/roadmap/rules-and-detection/observability-and-detection.md"
@@ -256,6 +258,43 @@
         "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_operational_instance_certification.py tests/integration/scripts/test_operational_instance_certification_workflow.py",
         "cd console && npx vitest run tests/live-e2e/golden-semantic-campaign.test.ts",
         "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
+    },
+    {
+      "id": "aks-outbound-connector",
+      "paths": [
+        "docs/roadmap/architecture/aks-outbound-connector*.md",
+        "docs/roadmap-implementation/architecture/aks-outbound-connector.md",
+        "packages/service-contracts/src/fdai_service_contracts/cluster_connector.py",
+        "packages/service-contracts/src/fdai_service_contracts/observer_deployment.py",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/observer-deployment-*/**",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/observer-preflight-receipt/**",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/observer-proposal-projection/**",
+        "services/operator-service/src/fdai_operator_service/observer_deployment_projection.py",
+        "services/operator-service/tests/test_observer_deployment_projection.py",
+        "console/src/routes/observer-proposals*",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/cluster-connector-*/**",
+        "packages/service-contracts/tests/test_cluster_connector.py",
+        "services/core-control-plane/src/fdai/delivery/kubernetes_connector*.py",
+        "services/core-control-plane/tests/delivery/test_kubernetes_connector*.py",
+        "scripts/quality/contracts/generate_cluster_connector_schemas.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "docs/roadmap/architecture/aks-outbound-connector.md",
+        "docs/roadmap/architecture/aks-outbound-connector-deployment-proposals.md",
+        "docs/roadmap/architecture/aks-diagnostic-evidence-plane.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/aks-outbound-connector.md",
+        "docs/roadmap/architecture/aks-outbound-connector-deployment-proposals.md",
+        "docs/roadmap-implementation/architecture/aks-outbound-connector.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov packages/service-contracts/tests/test_cluster_connector.py services/core-control-plane/tests/delivery/test_kubernetes_connector.py services/core-control-plane/tests/delivery/test_kubernetes_connector_transport.py services/core-control-plane/tests/delivery/test_kubernetes_connector_policy.py",
+        "uv run python scripts/quality/contracts/generate_cluster_connector_schemas.py --check"
       ]
     },
     {
@@ -397,6 +436,30 @@
       ]
     },
     {
+      "id": "project-structure-dependency-injection",
+      "paths": [
+        "docs/roadmap/architecture/project-structure-dependency-injection*.md",
+        "docs/roadmap-implementation/architecture/project-structure-dependency-injection.md",
+        "services/core-control-plane/src/fdai/composition/**",
+        "services/core-control-plane/src/fdai/shared/providers/**"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/generic-scope.instructions.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/architecture/project-structure-dependency-injection.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/architecture/project-structure-dependency-injection.md",
+        "docs/roadmap-implementation/architecture/project-structure-dependency-injection.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
       "id": "ontology-structural-model",
       "paths": [
         "docs/roadmap/architecture/ontology-structural-model*.md",
@@ -511,6 +574,7 @@
         ".github/instructions/architecture.instructions.md",
         "docs/roadmap/architecture/fdai-constitution.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity-work-plan.md",
         "config/constitution-traceability.json"
       ],
       "docs_update_routes": [
@@ -518,6 +582,7 @@
       ],
       "docs_update": [
         "docs/roadmap/deployment/dev-and-deploy-parity.md",
+        "docs/roadmap/deployment/dev-and-deploy-parity-work-plan.md",
         "docs/roadmap-implementation/deployment/dev-and-deploy-parity.md"
       ],
       "validate": [
@@ -2132,6 +2197,7 @@
       "paths": [
         "console/**",
         "cli/**",
+        "docs/roadmap/interfaces/operator-console-tool-catalog*.md",
         "docs/roadmap/interfaces/operator-console-module-map*.md",
         "docs/roadmap/interfaces/operator-console-progressive-conversations*.md",
         "docs/roadmap/interfaces/narrator-routing-and-latency*.md"
@@ -2140,6 +2206,7 @@
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/architecture/service-graduation-and-ownership.md",
         "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/interfaces/operator-console-tool-catalog.md",
         "docs/roadmap/interfaces/operator-console-module-map.md",
         "docs/roadmap/interfaces/operator-console-progressive-conversations.md",
         "docs/roadmap/interfaces/narrator-routing-and-latency.md",
@@ -2155,6 +2222,7 @@
       "docs_update": [
         "docs/roadmap/architecture/service-graduation-and-ownership.md",
         "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/interfaces/operator-console-tool-catalog.md",
         "docs/roadmap/interfaces/operator-console-module-map.md",
         "docs/roadmap/interfaces/operator-console-progressive-conversations.md",
         "docs/roadmap/interfaces/narrator-routing-and-latency.md",
@@ -2747,7 +2815,6 @@
         "docs/roadmap/fork-and-sequencing/finops-package-delivery-plan.md",
         "docs/roadmap/architecture/capability-bundle-lifecycle.md",
         "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md",
-        "docs/roadmap/interfaces/operator-console-runtime-model.md",
         "docs/roadmap/interfaces/channels-and-notifications.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/decisioning/action-ontology.md",

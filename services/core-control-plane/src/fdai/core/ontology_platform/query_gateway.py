@@ -27,8 +27,10 @@ from fdai.shared.contracts.models import (
 )
 from fdai.shared.ontology.acl import (
     ProjectionRequest,
+    RedactedField,
     RedactionReason,
     project_graph_snapshot,
+    redact_properties,
 )
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import (
@@ -46,6 +48,7 @@ from .models import (
     OntologyInstancePathDefinition,
 )
 from .object_sets import ObjectSetService
+from .query_snapshot import snapshot_projection_digest, validate_snapshot_records
 
 
 class ObjectSetRedactionSummary(ContractBase):
@@ -192,6 +195,20 @@ class UnsupportedObjectSetAsOfError(ValueError):
     temporal_support: Literal["current_state_only"] = "current_state_only"
 
 
+@dataclass(frozen=True, slots=True)
+class SecuredOntologySnapshot:
+    """Complete candidate-only graph read; no activation or execution authority."""
+
+    graph: OntologyGraphSnapshot
+    object_type_names: tuple[str, ...]
+    ontology_release_digest: str
+    principal_scope_digest: str
+    caller_role: CeilingRole
+    purpose: str
+    observation_cutoff: datetime
+    source_projection_digest: str
+
+
 class SecuredObjectSetQueryGateway:
     """Materialize one bounded ObjectSet through shared role and purpose ACLs.
 
@@ -238,6 +255,78 @@ class SecuredObjectSetQueryGateway:
         self._graph_completeness = graph_completeness
         self._max_as_of_skew_seconds = skew_seconds
 
+    async def scan_snapshot(
+        self,
+        *,
+        object_type_names: tuple[str, ...],
+        purpose: str,
+        as_of: datetime,
+        candidate_limit: int,
+        projection_request: ProjectionRequest,
+    ) -> SecuredOntologySnapshot:
+        """Project one complete bounded source snapshot without widening ObjectSets.
+
+        This off-path read supports index preparation, not model-selected ordinary
+        queries. All types share one source generation and the existing role/purpose
+        ACL. Truncated, unversioned, incomplete, or identity-redacted reads fail closed.
+        """
+        request, cutoff = self._prepare_current_request(
+            purpose=purpose,
+            as_of=as_of,
+            projection_request=projection_request,
+        )
+        if not request.principal_scope_digest:
+            raise ValueError("index snapshot requires authenticated principal scope")
+        source = await self._service.scan_snapshot(
+            object_type_names=object_type_names,
+            candidate_limit=candidate_limit,
+        )
+        if (
+            source.truncated
+            or not source.source_complete
+            or not source.source_generation
+            or source.links
+            or len(source.objects) > candidate_limit
+            or any(record.object_type not in object_type_names for record in source.objects)
+        ):
+            raise ValueError("index snapshot requires complete versioned object-only evidence")
+        validate_snapshot_records(source, self._object_types)
+        graph = _freeze_graph(
+            project_graph_snapshot(
+                source,
+                object_types=self._object_types,
+                request=request,
+            )
+        )
+        redactions = _summarize_redactions(
+            graph,
+            object_types=self._object_types,
+            source_graph=source,
+            removed_link_count=0,
+        )
+        if redactions.redacted_identity_count:
+            raise ValueError("index snapshot requires complete visible object identities")
+        names = tuple(sorted(object_type_names))
+        digest = snapshot_projection_digest(
+            graph=graph,
+            object_type_names=names,
+            ontology_release_digest=self._ontology_release.digest,
+            principal_scope_digest=request.principal_scope_digest,
+            caller_role=request.caller_role,
+            purpose=purpose,
+            observation_cutoff=cutoff,
+        )
+        return SecuredOntologySnapshot(
+            graph,
+            names,
+            self._ontology_release.digest,
+            request.principal_scope_digest,
+            request.caller_role,
+            purpose,
+            cutoff,
+            digest,
+        )
+
     async def materialize(
         self,
         definition: ObjectSetDefinition,
@@ -251,7 +340,39 @@ class SecuredObjectSetQueryGateway:
             as_of=definition.as_of,
             projection_request=projection_request,
         )
+        predicate_properties = {predicate.property: None for predicate in definition.predicates}
+        predicate_types = (
+            self._service.resolve_types(definition)
+            if predicate_properties or definition.object_ids
+            else ()
+        )
+        for type_name in predicate_types:
+            declaration = self._object_types[type_name]
+            checked_properties = dict(predicate_properties)
+            if definition.object_ids:
+                checked_properties[declaration.key] = None
+            projected = redact_properties(declaration, checked_properties, effective_request)
+            if any(isinstance(value, RedactedField) for value in projected.values()):
+                raise PermissionError("object-set predicate property is not readable")
+        roots = None
+        if definition.root_ids:
+            roots = await self._service.query_roots(definition.root_ids)
+            visible_roots = project_graph_snapshot(
+                roots, object_types=self._object_types, request=effective_request
+            )
+            if (
+                roots.truncated
+                or not roots.source_complete
+                or {record.id for record in visible_roots.objects} != set(definition.root_ids)
+            ):
+                raise PermissionError("object-set traversal roots are not authorized")
         materialization = await self._service.materialize(definition)
+        if (
+            roots is not None
+            and roots.source_generation is not None
+            and roots.source_generation != materialization.graph.source_generation
+        ):
+            raise ValueError("object-set traversal source generation changed")
         return await self._secure(
             materialization,
             definition=definition,

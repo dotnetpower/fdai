@@ -19,6 +19,8 @@ from fdai.shared.contracts.models import Event
 from fdai.shared.providers.state_store import StateStore
 
 _STATE_PREFIX = "measurement:control-loop:v1:"
+_STATE_RETENTION = 50_000
+_RETENTION_INTERVAL = 1_000
 
 
 def build_control_loop_measurement(
@@ -82,6 +84,7 @@ class TerminalMeasurementRecorder:
     def __init__(self, store: StateStore) -> None:
         self._store = store
         self._pending: dict[UUID, dict[str, object]] = {}
+        self._writes_since_retention = _RETENTION_INTERVAL
 
     async def record(
         self, event: Event, result: ControlLoopResult, *, recorded_at: datetime
@@ -146,6 +149,14 @@ class TerminalMeasurementRecorder:
             )
             if comparable != measurement:
                 raise ValueError("terminal measurement identity conflicts with retained evidence")
+        else:
+            self._writes_since_retention += 1
+        if self._writes_since_retention >= _RETENTION_INTERVAL:
+            await self._store.delete_states_beyond(
+                _STATE_PREFIX,
+                retain_newest=_STATE_RETENTION,
+            )
+            self._writes_since_retention = 0
         self._pending.pop(measurement.measurement_id, None)
 
 

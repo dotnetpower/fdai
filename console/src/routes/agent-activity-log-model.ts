@@ -68,7 +68,7 @@ export function buildAgentLogRows(
   const auditRows: AgentLogRow[] = [];
   const conversationRows: AgentLogRow[] = [];
   const latestLiveEventByAgent = new Map<string, LiveAgentActivityEvent>();
-  events.forEach((event, index) => {
+  events.forEach((event) => {
     const previous = latestLiveEventByAgent.get(event.agent);
     if (isRepeatedPassiveSnapshot(previous, event)) return;
     for (const agent of event.agents.length > 0 ? event.agents : [event.agent]) {
@@ -90,7 +90,7 @@ export function buildAgentLogRows(
       source: event.source,
       operationalKind: event.operationalKind,
       observationDomain: event.observationDomain,
-      sortOrder: [0, 0, events.length - index],
+      sortOrder: [0, 0, event.sequence],
     });
   });
   auditItems.forEach((item) => {
@@ -142,7 +142,7 @@ export function buildAgentLogRows(
     ...newestBoundedRows(liveRows, AGENT_LIVE_LOG_LIMIT),
     ...newestBoundedRows(auditRows, AGENT_AUDIT_PARENT_LIMIT),
     ...newestBoundedRows(conversationRows, AGENT_AUDIT_CONVERSATION_LIMIT),
-  ].sort(compareRows);
+  ].sort((left, right) => compareRows(right, left));
 }
 
 export function filterAgentLogRows(
@@ -193,12 +193,8 @@ export function toggleAgentLogColumn(
   return next.length > 0 ? next : ["detail"];
 }
 
-export function isNearLogBottom(
-  scrollHeight: number,
-  scrollTop: number,
-  clientHeight: number,
-): boolean {
-  return scrollHeight - scrollTop - clientHeight < 24;
+export function isNearLogTop(scrollTop: number): boolean {
+  return scrollTop < 24;
 }
 
 export type AgentLogFullscreenAction = "exit-native" | "enter-native" | "enter-fallback";

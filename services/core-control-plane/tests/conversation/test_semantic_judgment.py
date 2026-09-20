@@ -106,6 +106,51 @@ def _proposal(**overrides: object) -> dict[str, object]:
     return proposal
 
 
+@pytest.mark.parametrize("kind", ("object", "interface", "link", "action", "function"))
+def test_complete_manifest_list_skips_schema_repair(kind: str) -> None:
+    primary = _Model(
+        _proposal(
+            primary_intent="query.manifest",
+            targets=[],
+            requested_facets=[f"{kind}_types", "readable"],
+        )
+    )
+    repair = _Model(None)
+
+    result = _boundary(primary, schema_repair=repair, strict_intent_grounding=True).judge(
+        utterance="List the readable declaration kinds.",
+        context=(),
+        capabilities=({"kind": "function_type", "name": "query.manifest"},),
+        allow_escalation=False,
+    )
+
+    assert result.accepted
+    assert primary.calls == 1
+    assert repair.calls == 0
+    assert result.proposal is not None
+    assert result.proposal.requested_facets == (f"{kind}_types", "readable")
+
+
+@pytest.mark.parametrize(
+    "facets",
+    (
+        ("object_types",),
+        ("object_types", "readable", "count"),
+        ("object_types", "readable", "historical"),
+        ("object_types", "readable", "properties"),
+        ("object_types", "link_types", "readable"),
+    ),
+)
+def test_incomplete_or_composite_manifest_lists_still_require_repair(facets) -> None:
+    from fdai.core.conversation.semantic_judgment_schema_repair import repair_required
+
+    proposal = SemanticJudgmentProposal.model_validate(
+        _proposal(primary_intent="query.manifest", targets=[], requested_facets=facets)
+    )
+
+    assert repair_required(proposal)
+
+
 def test_explicit_document_mode_requires_governed_document_intent() -> None:
     with pytest.raises(
         ValueError,

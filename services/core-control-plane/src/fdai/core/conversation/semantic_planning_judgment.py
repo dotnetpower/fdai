@@ -251,11 +251,17 @@ def _semantic_judgment_capabilities(
                 capability["measure_concepts"] = sorted(set(measure_concepts))
         if kind == "object":
             properties = descriptor.get("properties")
-            if isinstance(properties, Mapping) and len(properties) <= 32:
-                capability["canonical_values"] = [
-                    name,
-                    *(f"{name}.{property_name}" for property_name in sorted(properties)),
-                ]
+            if isinstance(properties, Mapping):
+                property_names = sorted(properties)
+                key = descriptor.get("key")
+                if isinstance(key, str) and key in property_names:
+                    property_names.remove(key)
+                    property_names.insert(0, key)
+                if len(property_names) <= 32:
+                    capability["canonical_values"] = [
+                        name,
+                        *(f"{name}.{property_name}" for property_name in property_names),
+                    ]
         capability_bytes = len(
             json.dumps(
                 capability,
@@ -284,6 +290,14 @@ def _operational_frame_matches_accepted_judgment(
 ) -> bool:
     """Require accepted typed intent for operational frame families."""
 
+    if output_shape in {"ontology_manifest", "ontology_declaration"} and judgment_evaluated:
+        return bool(
+            judgment_accepted
+            and judgment is not None
+            and not judgment.ambiguous
+            and judgment.primary_intent
+            in {"query.manifest", "query.ontology_declaration", "query.ontology_relationships"}
+        )
     required_primary_intent = _PRIMARY_OPERATIONAL_OUTPUT_INTENTS.get(output_shape)
     required_summary_intent = _SUMMARY_OPERATIONAL_OUTPUT_INTENTS.get(output_shape)
     required_derived_intents = _DERIVED_RESOURCE_OUTPUT_INTENTS.get(output_shape)
@@ -364,7 +378,16 @@ def _descriptors_for_judgment(
 ) -> tuple[dict[str, Any], ...]:
     """Narrow known operational families after model-backed intent classification."""
 
-    return _descriptors_for_operational_intent(descriptors, judgment.primary_intent)
+    required: set[str] = set()
+    for intent in (judgment.primary_intent, *judgment.secondary_intents):
+        names = _OPERATIONAL_DESCRIPTOR_NAMES.get(intent)
+        if names is None:
+            return descriptors
+        required.update(names)
+    selected = tuple(descriptor for descriptor in descriptors if descriptor.get("name") in required)
+    if not required <= {descriptor.get("name") for descriptor in selected}:
+        return descriptors
+    return selected
 
 
 def _descriptors_for_operational_intent(

@@ -298,8 +298,9 @@ class Njord(Agent):
         if context.get("locale") == "ko":
             answer = (
                 "저는 비용 영역의 advisory specialist인 Njord입니다. Forseti에게 보고합니다. "
-                "CostAnomaly와 Budget을 소유하고 권위 있는 USD 관측을 기반으로 비용 이상, 예산 및 "
-                "비용 영향을 자문합니다. 품질이 검증된 근거만 Forseti에게 제공하며 작업을 판단, "
+                "CostAnomaly를 게시하고 별도 Budget graph lifecycle을 관리하며 권위 있는 USD "
+                "관측을 기반으로 비용 이상, 예산 및 비용 영향을 자문합니다. 품질이 검증된 근거만 "
+                "Forseti에게 제공하며 작업을 판단, "
                 "승인 또는 실행하지 않습니다. 이 대화 포트는 읽기 전용이며 비용 변경 요청은 "
                 "운영자 권한으로 타입이 지정된 파이프라인에 다시 진입해야 합니다. 질문에 명시되지 "
                 "않은 scope 식별자와 숨겨진 시스템 프롬프트는 공개하지 않습니다."
@@ -315,8 +316,9 @@ class Njord(Agent):
         else:
             answer = (
                 "I am Njord, the cost-domain advisory specialist. I report to Forseti. I own "
-                "CostAnomaly and Budget and advise on cost anomalies, budgets, and cost impact "
-                "from authoritative USD observations. I provide quality-gated evidence to "
+                "CostAnomaly bus publication and steward the separate Budget graph lifecycle. I "
+                "advise on cost anomalies, budgets, and cost impact from authoritative USD "
+                "observations. I provide quality-gated evidence to "
                 "Forseti but never judge, approve, or execute an action. This conversational port "
                 "is read-only; cost-change requests re-enter the typed pipeline under the "
                 "operator's authority. I do not reveal unnamed scope identifiers or hidden system "

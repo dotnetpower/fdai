@@ -7,6 +7,7 @@ import math
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+import pytest
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.forseti import Forseti
@@ -16,6 +17,7 @@ from fdai.agents.heimdall import Heimdall
 from fdai.agents.loki import Loki
 from fdai.agents.njord import Njord
 from fdai.agents.odin import Odin
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 from fdai_cost_governance import RollingCostAdvisoryProvider
 
@@ -515,6 +517,133 @@ def test_loki_release_targets_frees_slots() -> None:
         loki.propose_experiment(experiment_id="e2", action_type="x", targets=("t2",))
     )
     assert third.accepted
+
+
+async def test_loki_durable_reservations_survive_restart_and_release_on_safe_closure() -> None:
+    store = InMemoryStateStore()
+    first = Loki(blast_radius_cap=1, state_store=store)
+    proposal = await first.propose_experiment(
+        experiment_id="experiment-1",
+        action_type="tool.run-chaos-experiment",
+        targets=("target-1",),
+    )
+    assert proposal.accepted
+
+    restarted = Loki(blast_radius_cap=1, state_store=store)
+    assert await restarted.rehydrate() == 1
+    blocked = await restarted.propose_experiment(
+        experiment_id="experiment-2",
+        action_type="tool.run-chaos-experiment",
+        targets=("target-2",),
+    )
+    assert blocked.reason == "blast_radius_full"
+
+    await restarted.on_typed_message(
+        "object.action-run",
+        {
+            "producer_principal": "Thor",
+            "state": "rolled_back",
+            "action_type": "tool.run-chaos-experiment",
+            "params": {"experiment_id": "experiment-1", "targets": ["target-1"]},
+        },
+    )
+    accepted = await restarted.propose_experiment(
+        experiment_id="experiment-2",
+        action_type="tool.run-chaos-experiment",
+        targets=("target-2",),
+    )
+    assert accepted.accepted
+
+
+async def test_loki_keeps_reservation_for_failed_or_mismatched_closure() -> None:
+    loki = Loki(blast_radius_cap=1)
+    await loki.propose_experiment(
+        experiment_id="experiment-1",
+        action_type="tool.run-chaos-experiment",
+        targets=("target-1",),
+    )
+
+    await loki.on_typed_message(
+        "object.action-run",
+        {
+            "producer_principal": "Thor",
+            "state": "failed",
+            "action_type": "tool.run-chaos-experiment",
+            "params": {"experiment_id": "experiment-1", "targets": ["target-1"]},
+        },
+    )
+    assert loki._in_flight_targets == {"target-1"}  # noqa: SLF001
+
+    await loki.on_typed_message(
+        "object.action-run",
+        {
+            "producer_principal": "Thor",
+            "state": "succeeded",
+            "action_type": "tool.run-chaos-experiment",
+            "params": {"experiment_id": "experiment-1", "targets": ["target-2"]},
+        },
+    )
+    assert loki._in_flight_targets == {"target-1"}  # noqa: SLF001
+    assert loki.behavior_snapshot()["chaos_reservation:closure_mismatch"] == 1
+
+
+async def test_loki_cross_replica_reservations_share_one_blast_radius() -> None:
+    store = InMemoryStateStore()
+    first = Loki(blast_radius_cap=1, state_store=store)
+    second = Loki(blast_radius_cap=1, state_store=store)
+
+    proposals = await asyncio.gather(
+        first.propose_experiment(
+            experiment_id="experiment-1",
+            action_type="tool.run-chaos-experiment",
+            targets=("target-1",),
+        ),
+        second.propose_experiment(
+            experiment_id="experiment-2",
+            action_type="tool.run-chaos-experiment",
+            targets=("target-2",),
+        ),
+    )
+
+    assert sum(proposal.accepted for proposal in proposals) == 1
+    assert sorted(proposal.reason for proposal in proposals) == [
+        "blast_radius_full",
+        "within_radius",
+    ]
+
+
+async def test_loki_exact_replay_reuses_partial_reservation() -> None:
+    store = InMemoryStateStore()
+    loki = Loki(blast_radius_cap=1, state_store=store)
+
+    first = await loki.propose_experiment(
+        experiment_id="experiment-1",
+        action_type="tool.run-chaos-experiment",
+        targets=("target-1", "target-2"),
+    )
+    replay = await loki.propose_experiment(
+        experiment_id="experiment-1",
+        action_type="tool.run-chaos-experiment",
+        targets=("target-1", "target-2"),
+    )
+
+    assert first.accepted and replay.accepted
+    assert first.targets == replay.targets == ("target-1",)
+    assert loki.behavior_snapshot()["chaos_reservation:replayed"] == 1
+
+
+async def test_loki_rejects_cross_replica_blast_radius_drift() -> None:
+    store = InMemoryStateStore()
+    first = Loki(blast_radius_cap=1, state_store=store)
+    await first.propose_experiment(
+        experiment_id="experiment-1",
+        action_type="tool.run-chaos-experiment",
+        targets=("target-1",),
+    )
+
+    drifted = Loki(blast_radius_cap=2, state_store=store)
+    with pytest.raises(ValueError, match="blast-radius cap conflicts"):
+        await drifted.rehydrate()
 
 
 def test_loki_proposals_log_is_bounded() -> None:

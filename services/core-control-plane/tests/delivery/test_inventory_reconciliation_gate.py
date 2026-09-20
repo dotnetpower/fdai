@@ -13,6 +13,8 @@ from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     PostgresInventoryReconciliationGate,
     _pending_resource_count,
     _projection_pending,
+    _scope_jitter_fraction,
+    _snapshot_coverage_complete,
     _uncovered_cursor_lag_seconds,
     adaptive_reconciliation_decision,
     failure_retry_delay_seconds,
@@ -184,6 +186,41 @@ def test_operator_request_is_immediate_but_does_not_bypass_failure_backoff() -> 
     )
 
 
+@pytest.mark.parametrize(
+    ("manifest_complete", "generation", "relationship_complete", "pending", "expected"),
+    [
+        (True, "active", True, False, True),
+        (False, "active", True, False, False),
+        (True, "previous", True, False, False),
+        (True, "active", False, False, False),
+        (True, "active", True, True, False),
+    ],
+)
+def test_health_requires_exact_complete_projection(
+    manifest_complete, generation, relationship_complete, pending, expected
+) -> None:
+    assert (
+        _snapshot_coverage_complete(
+            metadata={
+                "projection_complete": True,
+                "relationship_complete": relationship_complete,
+                "provider_scope_coverage": {"provider_identity_complete": True},
+            },
+            manifest={"generation": generation, "complete": manifest_complete},
+            generation="active",
+            projection_pending=pending,
+        )
+        is expected
+    )
+
+
+def test_scope_jitter_is_stable_bounded_and_scope_specific() -> None:
+    first = _scope_jitter_fraction(("cursor:scope-a", "cursor:scope-b"), "generation")
+    assert 0 <= first <= 1
+    assert first == _scope_jitter_fraction(("cursor:scope-b", "cursor:scope-a"), "generation")
+    assert first != _scope_jitter_fraction(("cursor:scope-c",), "generation")
+
+
 def _adaptive_policy() -> SourceCollectionPolicy:
     return SourceCollectionPolicy(
         source_id="arg-snapshot",
@@ -277,6 +314,31 @@ def test_adaptive_gate_preserves_operator_request_without_bypassing_in_progress(
     assert requested.reason_codes == ("operator_requested",)
     assert in_progress.action is CollectionScheduleAction.WAIT
     assert in_progress.reason_codes == ("in_progress",)
+
+
+@pytest.mark.parametrize(
+    ("age", "change_demand", "expected"),
+    [
+        (15, True, CollectionScheduleAction.WAIT),
+        (20, True, CollectionScheduleAction.COLLECT),
+        (60, False, CollectionScheduleAction.COLLECT),
+    ],
+)
+def test_adaptive_gate_honors_configured_cadence(age, change_demand, expected) -> None:
+    decision = adaptive_reconciliation_decision(
+        policy=_adaptive_policy(),
+        age_seconds=age,
+        in_progress=False,
+        failure_streak=0,
+        failure_age_seconds=None,
+        failure_code=None,
+        abandoned_attempt=False,
+        change_demand=change_demand,
+        routine_interval_seconds=60,
+        change_min_interval_seconds=20,
+    )
+    assert decision.action is expected
+    assert decision.interval_seconds == (20 if change_demand else 60)
 
 
 def test_adaptive_gate_collects_stale_snapshot_without_failure_timestamp() -> None:

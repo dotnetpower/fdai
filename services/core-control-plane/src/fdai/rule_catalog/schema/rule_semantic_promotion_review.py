@@ -126,6 +126,13 @@ def assess_surface_promotion_review(
             if (threshold := metric_thresholds.get(item.metric)) is not None
             and item.value < threshold
         )
+        if current_policy.min_samples_per_metric is not None:
+            reasons.extend(
+                f"metric-sample-count-below-minimum:{item.cohort}:{item.metric}"
+                for item in receipt.cohort_metrics
+                if item.metric != "retrieval-success-rate"
+                and item.sample_count < current_policy.min_samples_per_metric
+            )
     ordered_reasons = tuple(sorted(reasons))
     decision = (
         PromotionReviewDecision.HOLD

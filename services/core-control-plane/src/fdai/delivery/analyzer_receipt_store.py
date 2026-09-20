@@ -74,6 +74,13 @@ class StateStoreAnalyzerRunReceiptStore:
         if not 1 <= self.retain_newest <= 10_000:
             raise ValueError("analyzer run receipt retention MUST be in [1, 10000]")
 
+    async def aclose(self) -> None:
+        """Close an owned async state-store implementation when available."""
+
+        close = getattr(self.state_store, "aclose", None)
+        if callable(close):
+            await close()
+
     async def record(
         self,
         *,

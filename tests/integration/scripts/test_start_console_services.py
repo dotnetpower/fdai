@@ -137,7 +137,9 @@ def _operator_restart_repo(tmp_path: Path) -> Path:
     (repo / ".fdai").mkdir()
     (repo / ".fdai/local-console-auth-mode").write_text("browser-entra\n", encoding="utf-8")
     (repo / ".fdai/local-operator-service.env").write_text(
-        "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0\nFDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=0\n",
+        "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0\n"
+        "FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=0\n"
+        "FDAI_DEVELOPMENT_DIAGNOSTICS=0\n",
         encoding="utf-8",
     )
     _write_executable(
@@ -147,6 +149,7 @@ status="${FDAI_TEST_RUNNER_STATUS:-0}"
 if [[ "$status" != "0" ]]; then
     exit "$status"
 fi
+printf '%s\n' "${FDAI_DEVELOPMENT_DIAGNOSTICS:-}" > diagnostics.txt
 sleep "${FDAI_TEST_LAUNCH_DELAY:-0}"
 printf '2026-08-26T00:00:00.000000+00:00 service=operator-api event=starting\n'
 printf '2026-08-26T00:00:00.000000+00:00 service=operator-api event=reused\n'
@@ -219,6 +222,39 @@ def test_operator_restart_emits_ready_after_reuse(tmp_path: Path) -> None:
     ]
     assert "service=operator-api event=ready" in result.stdout
     assert "service=operator-api event=failed" not in result.stderr
+
+
+def test_operator_launcher_always_enables_development_diagnostics(tmp_path: Path) -> None:
+    repo = _operator_restart_repo(tmp_path)
+
+    result = _run_operator_restart(repo)
+
+    assert result.returncode == 0
+    assert (repo / "diagnostics.txt").read_text(encoding="utf-8") == "1\n"
+    assert "core-runtime|operator-api)" in _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
+
+
+def test_operator_launcher_prints_input_digest_without_auth_or_start(tmp_path: Path) -> None:
+    repo = _operator_restart_repo(tmp_path)
+
+    result = subprocess.run(  # noqa: S603 - fixed test-owned launcher.
+        [
+            _BASH,
+            str(repo / "scripts/deployment/local/run-console-service.sh"),
+            "operator-api",
+            "--print-input-digest",
+        ],
+        cwd=repo,
+        env=os.environ,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == f"{'0' * 64}\n"
+    assert not (repo / "diagnostics.txt").exists()
 
 
 def test_operator_restart_emits_failed_for_readiness_failure(tmp_path: Path) -> None:
@@ -505,6 +541,89 @@ exec sleep 30
                 process.wait(timeout=5)
 
 
+def test_replace_supervisor_waits_for_existing_owner_cleanup(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    start_script = repo / "scripts/deployment/local/start-console-services.sh"
+    start_script.parent.mkdir(parents=True)
+    shutil.copy2(_START_SCRIPT, start_script)
+    (repo / ".fdai/logs").mkdir(parents=True)
+    (repo / ".fdai/local-console-auth-mode").write_text(
+        "browser-entra\n",
+        encoding="utf-8",
+    )
+    _write_executable(
+        repo / "scripts/deployment/local/run-console-service.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == "local-analyzer" ]]; then
+  printf '%s\n' "$FDAI_ANALYZER_RUN_ID" >> "$FDAI_TEST_ANALYZER_IDS"
+fi
+exec {service_lock_fd}>> ".fdai/logs/$1.log.lock"
+if ! flock -n "$service_lock_fd"; then
+  exit 0
+fi
+exec sleep 30
+""",
+    )
+    _write_executable(
+        repo / ".venv/bin/python",
+        "#!/usr/bin/env bash\nsleep 0.1\nexit 0\n",
+    )
+    analyzer_ids = repo / "analyzer-ids.txt"
+    first_output_path = repo / "first.out"
+    second_output_path = repo / "second.out"
+    environment = {
+        **os.environ,
+        "FDAI_TEST_ANALYZER_IDS": str(analyzer_ids),
+    }
+    command = [_BASH, str(start_script), "--auth-mode", "browser-entra"]
+    first_output = first_output_path.open("w", encoding="utf-8")
+    second_output = second_output_path.open("w", encoding="utf-8")
+    first = subprocess.Popen(  # noqa: S603 - fixed test-owned supervisor.
+        command,
+        cwd=repo,
+        env=environment,
+        stdout=first_output,
+        stderr=subprocess.STDOUT,
+    )
+    second: subprocess.Popen[bytes] | None = None
+    try:
+        deadline = time.monotonic() + 5
+        while "service=console-stack event=ready" not in first_output_path.read_text(
+            encoding="utf-8"
+        ):
+            assert first.poll() is None
+            assert time.monotonic() < deadline
+            time.sleep(0.02)
+
+        second = subprocess.Popen(  # noqa: S603 - fixed test-owned supervisor.
+            [*command, "--replace-existing"],
+            cwd=repo,
+            env=environment,
+            stdout=second_output,
+            stderr=subprocess.STDOUT,
+        )
+        deadline = time.monotonic() + 5
+        while "service=console-stack event=ready" not in second_output_path.read_text(
+            encoding="utf-8"
+        ):
+            assert second.poll() is None
+            assert time.monotonic() < deadline
+            time.sleep(0.02)
+
+        assert first.wait(timeout=1) == 130
+        run_ids = analyzer_ids.read_text(encoding="utf-8").splitlines()
+        assert len(run_ids) == 2
+        assert run_ids[0] != run_ids[1]
+    finally:
+        for process in (first, second):
+            if process is not None and process.poll() is None:
+                process.terminate()
+                process.wait(timeout=5)
+        first_output.close()
+        second_output.close()
+
+
 @pytest.mark.parametrize("prepared_mode", [None, "unexpected", "azure-cli"])
 def test_supervisor_rejects_unprepared_auth_mode(
     tmp_path: Path,
@@ -718,6 +837,15 @@ printf 'FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=%s\n' "$flag" \
         repo / "scripts/deployment/local/prepare-independent-service-envs.sh",
         "#!/usr/bin/env bash\nexit 0\n",
     )
+    _write_executable(
+        repo / "scripts/deployment/local/prepare-console-state.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "--check" ]]; then
+  [[ "${FDAI_TEST_LOCAL_STATE_READY:-1}" == "1" ]]
+fi
+""",
+    )
     digest = "c" * 64
     kubernetes_bindings_path = repo / ".fdai/local-kubernetes-bindings.json"
     marker_dir = repo / ".fdai/console-preparation"
@@ -822,6 +950,36 @@ def test_preparation_reuses_each_unchanged_stage_when_stack_is_stopped(
     assert "stage=entra-redirects event=completed" not in result.stdout
 
 
+def test_managed_preparation_defers_stale_inventory_to_reconciliation(
+    tmp_path: Path,
+) -> None:
+    repo, environment = _staged_preparation_repo(
+        tmp_path,
+        stale_stage="authoritative-inventory",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [
+            _BASH,
+            str(repo / "scripts/deployment/local/prepare-console-full-stack.sh"),
+            "--defer-authoritative-inventory",
+        ],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.count("event=reused") == 7
+    assert (
+        "stage=authoritative-inventory event=deferred owner=inventory-reconciliation"
+        in result.stdout
+    )
+
+
 @pytest.mark.parametrize(
     "stale_operator_environment",
     [
@@ -875,6 +1033,25 @@ def test_preparation_reruns_only_the_invalidated_stage(tmp_path: Path) -> None:
     assert result.returncode == 0
     assert result.stdout.count("event=reused") == 7
     assert result.stdout.count("stage=entra-redirects event=completed") == 1
+
+
+def test_preparation_reruns_local_state_when_database_was_recreated(tmp_path: Path) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path)
+    environment["FDAI_TEST_LOCAL_STATE_READY"] = "0"
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.count("event=reused") == 7
+    assert result.stdout.count("stage=local-state event=completed") == 1
 
 
 def test_preparation_stops_when_model_settings_cannot_be_generated(tmp_path: Path) -> None:

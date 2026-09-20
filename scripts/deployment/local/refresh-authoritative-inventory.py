@@ -6,6 +6,8 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
+import time
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,7 +27,11 @@ from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdent
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
 from fdai.delivery.inventory_job_config import InventoryJobConfig
-from fdai.delivery.inventory_sync import InventorySyncCoordinator, PromotedInventoryObservation
+from fdai.delivery.inventory_sync import (
+    InventoryPromotionEnricher,
+    InventorySyncCoordinator,
+    PromotedInventoryObservation,
+)
 from fdai.delivery.inventory_sync_cli import (
     build_inventory_promotion_enricher,
 )
@@ -73,8 +79,33 @@ from psycopg.rows import dict_row
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
+def _emit_duration(stage: str, started_at: float) -> None:
+    duration_ms = max(0, round((time.monotonic() - started_at) * 1000))
+    print(
+        f"service=authoritative-inventory stage={stage} event=completed duration_ms={duration_ms}",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
+class _TimedPromotionEnricher:
+    def __init__(self, delegate: InventoryPromotionEnricher) -> None:
+        self._delegate = delegate
+
+    async def enrich(
+        self,
+        observation: PromotedInventoryObservation,
+    ) -> PromotedInventoryObservation:
+        started_at = time.monotonic()
+        try:
+            return await self._delegate.enrich(observation)
+        finally:
+            _emit_duration("enrichment", started_at)
+
+
 async def refresh() -> InventoryOntologyProjectionResult:
     """Promote one complete ARG snapshot and its derived ontology subgraph."""
+    refresh_started_at = time.monotonic()
     dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
     subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
     if not dsn:
@@ -146,11 +177,15 @@ async def refresh() -> InventoryOntologyProjectionResult:
 
     async def project(observation: PromotedInventoryObservation) -> None:
         nonlocal projected
+        projection_started_at = time.monotonic()
         evidence_counts[observation.generation] = len(observation.resources) + len(
             observation.links
         )
+        journal_started_at = time.monotonic()
         journal_append = await observation_journal.append_promoted_snapshot(observation)
+        _emit_duration("journal-append", journal_started_at)
         active_scope_watermark = journal_append.active_scope_projection_watermark
+        graph_started_at = time.monotonic()
         projected = await projector.apply(
             observation,
             journal_high_watermark=journal_append.journal_high_watermark,
@@ -158,7 +193,9 @@ async def refresh() -> InventoryOntologyProjectionResult:
             active_scope_projection_watermark=active_scope_watermark,
             active_scope_refs=journal_append.active_scope_refs,
         )
+        _emit_duration("graph-projection", graph_started_at)
         available = projected.status.value == "available"
+        activity_started_at = time.monotonic()
         await activity_publisher.publish(
             ontology_projection_activity(
                 generation=observation.generation,
@@ -174,11 +211,14 @@ async def refresh() -> InventoryOntologyProjectionResult:
                 reason_codes=projected.dropped_reasons,
             )
         )
+        _emit_duration("projection-activity", activity_started_at)
+        _emit_duration("ontology-projection", projection_started_at)
 
     try:
         async with AsyncExitStack() as stack:
             client = await stack.enter_async_context(httpx.AsyncClient())
             identity = AsyncAzureCliWorkloadIdentity.from_env()
+            binding_started_at = time.monotonic()
             effective_enricher = await build_inventory_promotion_enricher(
                 config=inventory_config,
                 identity=identity,
@@ -187,6 +227,7 @@ async def refresh() -> InventoryOntologyProjectionResult:
                 relationship_catalog=relationship_catalog,
                 previous_state_reader=snapshot_store,
             )
+            _emit_duration("enricher-binding", binding_started_at)
             query_factory = AzureArgQueryFactory(
                 identity=identity,
                 resource_types=resource_types,
@@ -234,12 +275,14 @@ async def refresh() -> InventoryOntologyProjectionResult:
                     },
                 ),
             )
+            collection_started_at = time.monotonic()
             result = await InventorySyncCoordinator(
                 store=observed_store,
                 promotion_observer=project,
-                promotion_enricher=effective_enricher,
+                promotion_enricher=_TimedPromotionEnricher(effective_enricher),
                 relationship_mapping_catalog=relationship_catalog,
             ).run((source,))
+            _emit_duration("collection-promotion", collection_started_at)
             active_snapshot_id = await snapshot_store.active_snapshot_id()
             if active_snapshot_id is None:
                 raise RuntimeError("inventory promotion completed without a durable active pointer")
@@ -254,7 +297,10 @@ async def refresh() -> InventoryOntologyProjectionResult:
 
     if projected is None:
         raise RuntimeError("inventory snapshot promoted without ontology projection evidence")
+    operator_projection_started_at = time.monotonic()
     await _write_operator_inventory_projection(dsn=dsn, state_store=state_store)
+    _emit_duration("operator-projection", operator_projection_started_at)
+    _emit_duration("total", refresh_started_at)
     return projected
 
 

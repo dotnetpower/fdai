@@ -35,7 +35,7 @@ from fdai.shared.providers import (
     ProviderTypeCount,
     ResourceRecord,
 )
-from fdai.shared.providers.inventory import RelationshipDropReason
+from fdai.shared.providers.inventory import RelationshipDrop, RelationshipDropReason
 
 
 def _rr(resource_id: str, rtype: str = "compute.vm") -> ResourceRecord:
@@ -68,6 +68,26 @@ def _adapter(
         unmapped_resources=unmapped_resources,
         generation_relationships=generation_relationships,
     )
+
+
+@pytest.mark.parametrize("failure", ["capacity", "provider"])
+async def test_failed_generation_stops_unstarted_shards_before_provider_io(monkeypatch, failure):
+    monkeypatch.setattr("fdai.delivery.azure.inventory.MAX_GENERATION_RESOURCES", 1)
+    calls = []
+
+    async def query(resource_type):
+        calls.append(resource_type)
+        if failure == "provider" and len(calls) == 2:
+            raise RuntimeError("synthetic provider failure")
+        return ResourceQueryResult(resources=(_rr(resource_type),))
+
+    adapter = _adapter(query, types=tuple(f"type-{index}" for index in range(100)), concurrency=1)
+    batches = []
+    with pytest.raises(RuntimeError):
+        async for batch in adapter.full_snapshot():
+            batches.append(batch)
+    assert calls == ["type-0", "type-1"]
+    assert not any(batch.final or batch.resources for batch in batches)
 
 
 def test_config_rejects_zero_or_negative_concurrency() -> None:
@@ -138,14 +158,17 @@ async def test_full_snapshot_emits_complete_generation_relationships_before_fenc
 
 
 @pytest.mark.asyncio
-async def test_full_snapshot_redacts_runtime_environment_after_relationship_projection() -> None:
+@pytest.mark.parametrize("container_family", ["containers", "initContainers"])
+async def test_full_snapshot_redacts_runtime_environment_after_relationship_projection(
+    container_family: str,
+) -> None:
     resource = ResourceRecord(
         resource_id="app/1",
         type="compute.container-app",
         props={
             "properties": {
                 "template": {
-                    "containers": [
+                    container_family: [
                         {
                             "env": [
                                 {"name": "POSTGRES_HOST", "value": "db.example.com"},
@@ -162,7 +185,7 @@ async def test_full_snapshot_redacts_runtime_environment_after_relationship_proj
         return ResourceQueryResult(resources=(resource,))
 
     def _relationships(resources: Sequence[ResourceRecord]) -> ResourceQueryResult:
-        environment = resources[0].props["properties"]["template"]["containers"][0]["env"]  # type: ignore[index]
+        environment = resources[0].props["properties"]["template"][container_family][0]["env"]  # type: ignore[index]
         assert environment[0]["value"] == "db.example.com"
         return ResourceQueryResult()
 
@@ -176,7 +199,7 @@ async def test_full_snapshot_redacts_runtime_environment_after_relationship_proj
     ]
 
     persisted = next(batch.resources[0] for batch in seen if batch.resources)
-    assert persisted.props["properties"]["template"]["containers"][0]["env"] == [  # type: ignore[index]
+    assert persisted.props["properties"]["template"][container_family][0]["env"] == [  # type: ignore[index]
         {"bindingRedacted": True},
         {"bindingRedacted": True},
     ]
@@ -236,6 +259,30 @@ async def test_full_snapshot_preserves_distinct_missing_target_drop_counts() -> 
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "bound", ["MAX_GENERATION_RESOURCES", "MAX_GENERATION_LINKS", "MAX_GENERATION_BYTES"]
+)
+async def test_generation_capacity_fails_without_a_final_fence(
+    monkeypatch: pytest.MonkeyPatch, bound: str
+) -> None:
+    monkeypatch.setattr(f"fdai.delivery.azure.inventory.{bound}", 1)
+
+    async def query(resource_type: str) -> ResourceQueryResult:
+        return ResourceQueryResult(
+            resources=(_rr(resource_type + "/1", rtype=resource_type),),
+            relationship_drops=(
+                RelationshipDrop(reason=RelationshipDropReason.UNVERIFIED_METADATA),
+            ),
+        )
+
+    batches: list[InventoryBatch] = []
+    with pytest.raises(RuntimeError, match="capacity exceeded"):
+        async for batch in _adapter(query).full_snapshot():
+            batches.append(batch)
+    assert not any(batch.final or batch.resources for batch in batches)
+
+
+@pytest.mark.asyncio
 async def test_full_snapshot_carries_provider_scope_coverage_on_final_fence() -> None:
     async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
         return (_rr(f"{rt}/1"),), ()
@@ -256,6 +303,28 @@ async def test_full_snapshot_carries_provider_scope_coverage_on_final_fence() ->
     assert seen[-1].final is True
     assert seen[-1].provider_scope_coverage == coverage
     assert all(batch.provider_scope_coverage is None for batch in seen[:-1])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("expected_count", [1, 3, 100])
+async def test_full_snapshot_rejects_mapped_identity_count_mismatch(expected_count: int) -> None:
+    async def query(resource_type: str) -> ResourceQueryResult:
+        return ResourceQueryResult(resources=(_rr(f"{resource_type}/1", rtype=resource_type),))
+
+    async def coverage() -> ProviderScopeCoverage:
+        return ProviderScopeCoverage(
+            capture_method="azure_resource_graph_type_aggregation",
+            provider_object_count=expected_count,
+            mapped_provider_object_count=expected_count,
+            provider_type_count=1,
+        )
+
+    seen: list[InventoryBatch] = []
+    with pytest.raises(RuntimeError, match="mapped resource identities do not reconcile"):
+        async for batch in _adapter(query, scope_coverage=coverage).full_snapshot():
+            seen.append(batch)
+
+    assert not any(batch.final or batch.resources for batch in seen)
 
 
 @pytest.mark.asyncio
@@ -319,6 +388,47 @@ async def test_full_snapshot_materializes_all_unmapped_provider_identities() -> 
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("include_native", [True, False])
+async def test_arm_children_cannot_replace_native_provider_coverage(include_native: bool) -> None:
+    async def _query(resource_type: str) -> ResourceQueryResult:
+        records = [
+            ResourceRecord(
+                resource_id="child",
+                type="kubernetes-node-pool",
+                props={"providerType": "example.compute/pools"},
+            )
+        ]
+        if include_native:
+            records.append(
+                ResourceRecord(
+                    resource_id="native",
+                    type=resource_type,
+                    props={"providerType": "example.compute/vms"},
+                )
+            )
+        return ResourceQueryResult(resources=tuple(records))
+
+    async def _coverage() -> ProviderScopeCoverage:
+        return ProviderScopeCoverage(
+            capture_method="azure_resource_graph_type_aggregation",
+            provider_object_count=1,
+            mapped_provider_object_count=1,
+            provider_type_count=1,
+            mapped_provider_types=(
+                ProviderTypeCount(provider_type="example.compute/vms", count=1),
+            ),
+        )
+
+    adapter = _adapter(_query, types=("compute.vm",), scope_coverage=_coverage)
+    if include_native:
+        batches = [batch async for batch in adapter.full_snapshot()]
+        assert batches[-1].final
+    else:
+        with pytest.raises(RuntimeError, match="mapped resource identities do not reconcile"):
+            _batches = [batch async for batch in adapter.full_snapshot()]
+
+
+@pytest.mark.asyncio
 async def test_full_snapshot_emits_no_evidence_when_unmapped_identities_do_not_reconcile() -> None:
     async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
         return (_rr(f"{rt}/1", rtype=rt),), ()
@@ -349,6 +459,33 @@ async def test_full_snapshot_emits_no_evidence_when_unmapped_identities_do_not_r
         not batch.final and not batch.resources and not batch.links and not batch.relationship_drops
         for batch in seen
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("first_seen", "second_seen", "expected_seen"),
+    [
+        ("2026-09-19T00:00:00Z", "2026-09-19T00:01:00Z", "2026-09-19T00:00:00Z"),
+        ("2026-09-19T00:01:00Z", "2026-09-19T00:00:00Z", "2026-09-19T00:00:00Z"),
+        (None, "2026-09-19T00:00:00Z", None),
+        ("2026-09-19T00:00:00Z", None, None),
+    ],
+)
+async def test_full_snapshot_deduplicates_clock_only_variance(
+    first_seen: str | None, second_seen: str | None, expected_seen: str | None
+) -> None:
+    async def query(resource_type: str) -> ResourceQueryResult:
+        return ResourceQueryResult(
+            resources=tuple(
+                ResourceRecord(resource_id="resource-1", type=resource_type, last_seen=timestamp)
+                for timestamp in (first_seen, second_seen)
+            )
+        )
+
+    batches = [batch async for batch in _adapter(query, types=("compute.vm",)).full_snapshot()]
+    records = [record for batch in batches for record in batch.resources]
+    assert len(records) == 1
+    assert records[0].last_seen == expected_seen
 
 
 @pytest.mark.asyncio

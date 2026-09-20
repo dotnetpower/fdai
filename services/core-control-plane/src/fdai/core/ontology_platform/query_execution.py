@@ -117,15 +117,19 @@ class OntologyQueryPlanExecutor:
         handlers: Mapping[QueryNodeKind, QueryNodeHandler],
         max_concurrency: int = _MAX_CONCURRENCY,
         node_timeout_seconds: float = _MAX_NODE_TIMEOUT_SECONDS,
+        progress_timeout_seconds: float = 0.25,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         if not 1 <= max_concurrency <= _MAX_CONCURRENCY:
             raise ValueError(f"query concurrency MUST be in [1, {_MAX_CONCURRENCY}]")
         if not 0 < node_timeout_seconds <= _MAX_NODE_TIMEOUT_SECONDS:
             raise ValueError(f"query node timeout MUST be in (0, {_MAX_NODE_TIMEOUT_SECONDS}]")
+        if not 0 < progress_timeout_seconds <= 1:
+            raise ValueError("query progress timeout MUST be in (0, 1]")
         self._handlers = MappingProxyType(dict(handlers))
         self._max_concurrency = max_concurrency
         self._node_timeout_seconds = node_timeout_seconds
+        self._progress_timeout_seconds = progress_timeout_seconds
         self._now = now or (lambda: datetime.now(UTC))
 
     async def execute(
@@ -367,10 +371,9 @@ class OntologyQueryPlanExecutor:
                     started_monotonic=started_monotonic,
                 ),
             )
-        except PermissionError as error:
+        except PermissionError:
             _LOGGER.warning(
-                "ontology_query_node_denied reason=%s",
-                error,
+                "ontology_query_node_denied",
                 extra={
                     "node_kind": node.kind.value,
                 },
@@ -405,10 +408,10 @@ class OntologyQueryPlanExecutor:
                     started_monotonic=started_monotonic,
                 ),
             )
-        except Exception:  # noqa: BLE001 - provider failures become stable typed receipts
-            _LOGGER.exception(
+        except Exception as error:  # noqa: BLE001 - provider failures become stable typed receipts
+            _LOGGER.warning(
                 "ontology_query_node_failed",
-                extra={"node_id": node.node_id, "node_kind": node.kind.value},
+                extra={"node_kind": node.kind.value, "failure_type": type(error).__name__},
             )
             return (
                 node,
@@ -451,7 +454,8 @@ class OntologyQueryPlanExecutor:
             },
         )
         try:
-            await observer(progress)
+            async with asyncio.timeout(self._progress_timeout_seconds):
+                await observer(progress)
         except Exception:  # noqa: BLE001 - presentation progress cannot control query truth
             _LOGGER.warning(
                 "ontology_query_progress_observer_failed",
@@ -481,24 +485,22 @@ class OntologyQueryPlanExecutor:
         waiters: set[asyncio.Task[object]] = {execution}
         if cancellation is not None:
             waiters.add(cancellation)
-        done, pending = await asyncio.wait(
-            waiters,
-            timeout=self._node_timeout_seconds,
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-        if cancellation is not None and cancellation in done:
-            execution.cancel()
-            await asyncio.gather(execution, return_exceptions=True)
-            raise _QueryCancelledError
-        if execution not in done:
-            execution.cancel()
-            await asyncio.gather(execution, return_exceptions=True)
-            raise TimeoutError
-        for task in pending:
-            task.cancel()
-        if pending:
-            await asyncio.gather(*pending, return_exceptions=True)
-        return execution.result()
+        try:
+            done, _pending = await asyncio.wait(
+                waiters,
+                timeout=self._node_timeout_seconds,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if cancellation is not None and cancellation in done:
+                raise _QueryCancelledError
+            if execution not in done:
+                raise TimeoutError
+            return execution.result()
+        finally:
+            for task in waiters:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*waiters, return_exceptions=True)
 
     def _terminal_receipt(
         self,

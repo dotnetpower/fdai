@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import re
 from collections.abc import Sequence
 from dataclasses import replace
 from datetime import datetime
@@ -21,50 +20,8 @@ from fdai.shared.providers.catalog_search import (
     build_document_digest_manifest,
     catalog_search_document_digest,
 )
-from fdai.shared.providers.knowledge import cosine_similarity
 
-_TOKEN = re.compile(r"[A-Za-z0-9_]+|[가-힣]+")
-_MIN_SCORE = 0.2
-_NON_DISCRIMINATING_ENGLISH_TOKENS = frozenset(
-    {
-        "a",
-        "an",
-        "and",
-        "are",
-        "as",
-        "at",
-        "be",
-        "by",
-        "every",
-        "for",
-        "from",
-        "has",
-        "have",
-        "in",
-        "into",
-        "is",
-        "it",
-        "of",
-        "on",
-        "or",
-        "prior",
-        "rule",
-        "that",
-        "the",
-        "this",
-        "to",
-        "up",
-        "was",
-        "were",
-        "what",
-        "when",
-        "where",
-        "which",
-        "who",
-        "why",
-        "with",
-    }
-)
+from .ranking import CatalogRankingPolicy, rank_documents
 
 
 class InMemoryCatalogSemanticIndex:
@@ -75,8 +32,14 @@ class InMemoryCatalogSemanticIndex:
     activation under one lock.
     """
 
-    def __init__(self, *, embedder: Embedder | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        embedder: Embedder | None = None,
+        ranking_policy: CatalogRankingPolicy | None = None,
+    ) -> None:
         self._embedder = embedder
+        self._ranking_policy = ranking_policy or CatalogRankingPolicy()
         self._documents: dict[str, CatalogSearchDocument] = {}
         self._generations: dict[
             str, tuple[CatalogGenerationMetadata, tuple[CatalogSearchDocument, ...]]
@@ -338,24 +301,24 @@ class InMemoryCatalogSemanticIndex:
             documents = self._generations[generation.generation_id][1]
         elif expected_catalog_digest is not None:
             raise CatalogGenerationStaleError("active semantic generation is unavailable")
-        query_tokens = _tokens(query)
-        query_vector = (
-            tuple(await self._embedder.embed(query)) if self._embedder is not None else ()
+        exact_documents = tuple(
+            document
+            for document in documents
+            if query.casefold().strip() == document.rule_id.casefold()
+            and (candidate_rule_ids is None or document.rule_id in candidate_rule_ids)
         )
-        ranked: list[tuple[float, CatalogSearchDocument, dict[str, float]]] = []
-        for document in documents:
-            if candidate_rule_ids is not None and document.rule_id not in candidate_rule_ids:
-                continue
-            lexical = _lexical_score(document, query_tokens)
-            semantic = cosine_similarity(query_vector, document.embedding)
-            exact = float(query.casefold().strip() == document.rule_id.casefold())
-            score = exact + lexical + max(0.0, semantic)
-            if score < _MIN_SCORE:
-                continue
-            ranked.append(
-                (score, document, {"exact": exact, "lexical": lexical, "semantic": semantic})
-            )
-        ranked.sort(key=lambda item: (-item[0], item[1].rule_id))
+        query_vector = (
+            tuple(await self._embedder.embed(query))
+            if self._embedder is not None and not exact_documents
+            else ()
+        )
+        ranked = rank_documents(
+            exact_documents or documents,
+            query,
+            policy=self._ranking_policy,
+            query_vector=query_vector,
+            candidate_rule_ids=candidate_rule_ids,
+        )
         return tuple(
             CatalogSearchResult(
                 rule_id=document.rule_id,
@@ -377,17 +340,6 @@ class InMemoryCatalogSemanticIndex:
         return replace(document, embedding=tuple(await self._embedder.embed(document.text)))
 
 
-def _tokens(value: str) -> frozenset[str]:
-    result: set[str] = set()
-    for raw in _TOKEN.findall(value.casefold()):
-        if raw.isdecimal() or raw in _NON_DISCRIMINATING_ENGLISH_TOKENS:
-            continue
-        result.add(raw)
-        if re.fullmatch(r"[가-힣]+", raw):
-            result.update(raw[index : index + 2] for index in range(len(raw) - 1))
-    return frozenset(result)
-
-
 def _verify_document_identity(
     metadata: CatalogGenerationMetadata,
     documents: tuple[CatalogSearchDocument, ...],
@@ -396,15 +348,6 @@ def _verify_document_identity(
     actual = build_document_digest_manifest(document_digests)
     if metadata.document_digest_manifest != actual:
         raise ValueError("semantic generation document digest manifest mismatch")
-
-
-def _lexical_score(document: CatalogSearchDocument, query_tokens: frozenset[str]) -> float:
-    if not query_tokens:
-        return 0.0
-    document_tokens = _tokens(
-        f"{document.rule_id}\n{document.text}\n{' '.join(document.neighbor_ids)}"
-    )
-    return len(query_tokens & document_tokens) / len(query_tokens)
 
 
 __all__ = ["InMemoryCatalogSemanticIndex"]

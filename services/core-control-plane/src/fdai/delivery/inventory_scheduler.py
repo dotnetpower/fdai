@@ -324,6 +324,7 @@ def _apply_jitter(
     offset = (state.jitter_fraction * 2.0) - 1.0
     jittered = interval * (1.0 + float(policy.jitter_ratio) * offset)
     return min(
+        float(policy.max_poll_interval_seconds),
         float(policy.max_staleness_seconds),
         max(float(policy.min_poll_interval_seconds), jittered),
     )

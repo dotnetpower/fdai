@@ -9,6 +9,7 @@ from pathlib import Path
 
 import psycopg
 import pytest
+from fdai.delivery.catalog_search.in_memory import InMemoryCatalogSemanticIndex
 from fdai.delivery.catalog_search.postgres import (
     PostgresCatalogSemanticIndex,
     PostgresCatalogSemanticIndexConfig,
@@ -97,6 +98,147 @@ async def _cleanup() -> None:
             "DELETE FROM catalog_search_generation WHERE generation_id=ANY(%s::text[])",
             ([FIRST_ID, SECOND_ID, THIRD_ID],),
         )
+
+
+class _ZeroEmbedder:
+    async def embed(self, text: str) -> tuple[float, ...]:
+        return (0.0,) * 384
+
+
+async def test_durable_ranking_matches_local_bilingual_cohorts_and_exact_lookup_without_model() -> (
+    None
+):
+    _upgrade()
+    await _cleanup()
+    documents = (
+        CatalogSearchDocument(
+            "rule-storage", "private storage network 비공개 저장소 네트워크 접근", ()
+        ),
+        CatalogSearchDocument("rule-owner", "required owner tag 소유자 태그 필수", ()),
+        CatalogSearchDocument("rule-zone", "availability zone redundancy 가용영역 이중화", ()),
+        CatalogSearchDocument(
+            "rule-backup", "backup retention database 백업 보존 데이터베이스", ()
+        ),
+    )
+    metadata = _metadata(FIRST_ID, documents)
+    durable = PostgresCatalogSemanticIndex(
+        config=PostgresCatalogSemanticIndexConfig(dsn=_dsn()), embedder=_ZeroEmbedder()
+    )
+    local = InMemoryCatalogSemanticIndex(embedder=_ZeroEmbedder())
+    try:
+        for index in (durable, local):
+            await index.stage_generation(metadata, documents)
+            await index.activate_generation(
+                metadata.generation_id,
+                expected_generation_digest=metadata.generation_digest,
+                expected_active_generation_id=None,
+                expected_active_generation_digest=None,
+                activated_at=NOW,
+            )
+        subjects = (
+            ("private storage", "비공개 저장소", "rule-storage"),
+            ("owner tag", "소유자 태그", "rule-owner"),
+            ("availability zone", "가용영역 이중화", "rule-zone"),
+            ("backup retention", "백업 보존", "rule-backup"),
+        )
+        cases = tuple(
+            (template.format(subject), expected)
+            for english, korean, expected in subjects
+            for subject, templates in (
+                (english, ("{}", "what rules for {}", "show {}")),
+                (korean, ("{}", "{} 규칙", "{} 기준 조회")),
+            )
+            for template in templates
+        )
+        for query, expected in cases:
+            durable_results = await durable.search(query, k=4)
+            local_results = await local.search(query, k=4)
+            assert durable_results == local_results
+            assert durable_results[0].rule_id == expected
+        for query in (
+            "astronomy telescope",
+            "orchestra violin",
+            "planetary orbit",
+            "ocean tide",
+            "천문학 망원경",
+            "오케스트라 바이올린",
+            "행성 궤도",
+            "바다 조석",
+        ):
+            assert await durable.search(query) == await local.search(query) == ()
+
+        class UnavailableEmbedder:
+            async def embed(self, text: str) -> tuple[float, ...]:
+                raise AssertionError("exact identity MUST NOT invoke embeddings")
+
+        durable._embedder = UnavailableEmbedder()
+        local._embedder = UnavailableEmbedder()
+        for document in documents:
+            assert await durable.search(document.rule_id) == await local.search(document.rule_id)
+    finally:
+        await _cleanup()
+
+
+async def test_cached_generation_revalidates_committed_and_same_transaction_tampering() -> None:
+    _upgrade()
+    await _cleanup()
+    documents = (CatalogSearchDocument("rule-a", "private storage", ()),)
+    metadata = _metadata(FIRST_ID, documents)
+    index = PostgresCatalogSemanticIndex(
+        config=PostgresCatalogSemanticIndexConfig(dsn=_dsn()), embedder=_ZeroEmbedder()
+    )
+    try:
+        await index.stage_generation(metadata, documents)
+        await index.activate_generation(
+            metadata.generation_id,
+            expected_generation_digest=metadata.generation_digest,
+            expected_active_generation_id=None,
+            expected_active_generation_digest=None,
+            activated_at=NOW,
+        )
+        await index.active_generation()
+        cached = tuple(index._validated_documents.values())
+        await index.active_generation()
+        assert tuple(index._validated_documents.values())[0][0] is cached[0][0]
+        async with await index._connect() as connection:
+            await connection.execute(
+                "UPDATE catalog_search_generation_document SET text=text WHERE generation_id=%s",
+                (FIRST_ID,),
+            )
+            assert await index._load_generation(connection, FIRST_ID) is not None
+            await connection.execute(
+                "UPDATE catalog_search_generation_document SET text='tampered' "
+                "WHERE generation_id=%s",
+                (FIRST_ID,),
+            )
+            with pytest.raises(ValueError, match="hash mismatch"):
+                await index._load_generation(connection, FIRST_ID)
+            await connection.rollback()
+        async with await index._connect() as connection, connection.transaction():
+            async with connection.transaction():
+                await connection.execute(
+                    "UPDATE catalog_search_generation_document SET text=text "
+                    "WHERE generation_id=%s",
+                    (FIRST_ID,),
+                )
+                assert await index._load_generation(connection, FIRST_ID) is not None
+                await connection.execute(
+                    "UPDATE catalog_search_generation_document SET text='tampered' "
+                    "WHERE generation_id=%s",
+                    (FIRST_ID,),
+                )
+                with pytest.raises(ValueError, match="hash mismatch"):
+                    await index._load_generation(connection, FIRST_ID)
+        async with await index._connect() as connection:
+            await connection.execute(
+                "UPDATE catalog_search_generation_document SET text='tampered' "
+                "WHERE generation_id=%s",
+                (FIRST_ID,),
+            )
+        with pytest.raises(ValueError, match="hash mismatch"):
+            await index.search("rule-a")
+    finally:
+        await _cleanup()
 
 
 async def test_postgres_catalog_generation_lifecycle_is_manifest_bound() -> None:

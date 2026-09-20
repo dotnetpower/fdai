@@ -73,13 +73,13 @@ class DiscoveryPlanResult(QueryContract):
     def _result_is_consistent(self) -> DiscoveryPlanResult:
         if self.observed_at.tzinfo is None:
             raise ValueError("discovery result observed_at MUST include a timezone")
-        if self.complete == self.truncated:
+        if self.complete and self.truncated:
             raise ValueError("discovery result completeness and truncation are inconsistent")
         if self.status in {DiscoveryCoverageStatus.COVERED, DiscoveryCoverageStatus.FALLBACK}:
             if not self.complete or self.reason_code is not None:
                 raise ValueError("covered discovery result MUST be complete without a reason")
-        elif self.reason_code is None:
-            raise ValueError("incomplete discovery result MUST include a reason code")
+        elif self.complete or self.reason_code is None:
+            raise ValueError("incomplete discovery result MUST be incomplete with a reason code")
         refs = tuple(item.provider_ref_digest for item in self.observations)
         if len(refs) != len(set(refs)):
             raise ValueError("one discovery plan MUST NOT repeat provider observations")
@@ -166,11 +166,15 @@ class ProviderExecutionReceipt(QueryContract):
     redacted: Literal[True] = True
     page_count: Annotated[int, Field(strict=True, ge=1, le=100)]
     commands: Annotated[tuple[ProviderExecutionCommand, ...], Field(min_length=1, max_length=4)]
+    plan_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)] | None = None
     receipt_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
 
     @model_validator(mode="after")
     def _receipt_is_canonical(self) -> ProviderExecutionReceipt:
-        expected = content_digest(self.model_dump(mode="json", exclude={"receipt_digest"}))
+        excluded = {"receipt_digest"}
+        if self.plan_digest is None:
+            excluded.add("plan_digest")
+        expected = content_digest(self.model_dump(mode="json", exclude=excluded))
         if self.receipt_digest != expected:
             raise ValueError("provider execution receipt digest does not match its content")
         return self
@@ -251,7 +255,7 @@ class DiscoveryCoverageReceipt(QueryContract):
     def _coverage_is_canonical(self) -> DiscoveryCoverageReceipt:
         if self.observed_at.tzinfo is None:
             raise ValueError("discovery coverage observed_at MUST include a timezone")
-        if self.complete == self.truncated:
+        if self.complete and self.truncated:
             raise ValueError("discovery coverage completeness and truncation are inconsistent")
         if self.state in {DiscoveryCoverageStatus.COVERED, DiscoveryCoverageStatus.FALLBACK}:
             if not self.complete:
@@ -281,7 +285,10 @@ def provider_execution_receipt_digest(**values: object) -> str:
         receipt_digest="",
         **cast(dict[str, Any], values),
     )
-    return content_digest(candidate.model_dump(mode="json", exclude={"receipt_digest"}))
+    excluded = {"receipt_digest"}
+    if candidate.plan_digest is None:
+        excluded.add("plan_digest")
+    return content_digest(candidate.model_dump(mode="json", exclude=excluded))
 
 
 def command_explanation_digest(**values: object) -> str:

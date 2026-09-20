@@ -43,23 +43,27 @@ def _evidence(
     owner_id: str = "vm-1",
     observation_receipt_ref: str = "sha256:" + "1" * 64,
 ) -> ProviderRelationshipEvidence:
+    catalog = load_provider_relationship_mapping_catalog(
+        REPO_ROOT / "rule-catalog/vocabulary/provider-relationship-mappings"
+    )
+    mapping = next(item for item in catalog.mappings if item.mapping_id == mapping_id)
     return ProviderRelationshipEvidence(
         mapping_id=mapping_id,
-        mapping_revision="sha256:" + "2" * 64,
-        mapping_receipt_ref="catalog-receipt:azure-arg-v1",
-        provider_identity="azure",
-        source_identity="azure-resource-graph",
-        source_property_path="properties.networkProfile.networkInterfaces[].id",
-        source_schema_version="azure-resource-graph-resources@2022-10-01",
-        source_schema_digest="sha256:" + "3" * 64,
-        observed_schema_digest="sha256:" + "3" * 64,
-        evidence_method="deterministic-cross-check",
-        freshness_ceiling_seconds=21600,
-        endpoint_orientation="referenced_to_owner",
+        mapping_revision=catalog.review.content_hash,
+        mapping_receipt_ref=catalog.review.immutable_receipt_ref,
+        provider_identity=mapping.provider,
+        source_identity=mapping.source_identity,
+        source_property_path=mapping.source_property_path,
+        source_schema_version=mapping.source_schema.version,
+        source_schema_digest=mapping.source_schema.digest,
+        observed_schema_digest=mapping.source_schema.digest,
+        evidence_method=mapping.evidence_method,
+        freshness_ceiling_seconds=mapping.freshness.max_age_seconds,
+        endpoint_orientation=mapping.endpoint_orientation.value,
         provider_owner_id=owner_id,
         observation_receipt_ref=observation_receipt_ref,
-        source_provider_type="Microsoft.Compute/virtualMachines",
-        target_provider_type="Microsoft.Network/networkInterfaces",
+        source_provider_type=mapping.source_provider_types[0],
+        target_provider_type=mapping.target_provider_types[0],
     )
 
 
@@ -97,8 +101,47 @@ def _verify(
         links=links if links is not None else (_link(),),
         complete=complete,
         recorded_at=NOW,
+        mapping_catalog=load_provider_relationship_mapping_catalog(
+            REPO_ROOT / "rule-catalog/vocabulary/provider-relationship-mappings"
+        ),
         verifier_identity=verifier_identity,
     )
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"mapping_id": "unknown.mapping"},
+        {"mapping_revision": "sha256:" + "0" * 64},
+        {"source_property_path": "properties.unreviewed"},
+        {"endpoint_orientation": "owner_to_referenced"},
+        {"provider_owner_id": "nic-1"},
+        {"freshness_ceiling_seconds": 999999},
+    ],
+)
+def test_substituted_mapping_evidence_cannot_verify_a_link(changes: dict[str, object]) -> None:
+    result = _verify(links=(_link(evidence=replace(_evidence(), **changes)),))
+    assert result.links == ()
+    assert result.dropped[0].reason is RelationshipDropReason.UNVERIFIED_METADATA
+
+
+def test_reversed_edge_cannot_reuse_a_valid_mapping_receipt() -> None:
+    result = _verify(
+        links=(_link("vm-1", "nic-1", from_type="compute.vm", to_type="network.interface"),)
+    )
+    assert result.links == ()
+
+
+def test_provider_identity_conflict_cannot_certify_a_link() -> None:
+    original = _resource("vm-1", "compute.vm")
+    result = _verify(
+        resources=(
+            _resource("nic-1", "network.interface"),
+            original,
+            replace(original, provider_ref="provider:conflicting-identity"),
+        )
+    )
+    assert result.links == ()
 
 
 def test_complete_generation_verifies_link_with_mapping_metadata() -> None:
@@ -431,8 +474,8 @@ def test_missing_target_endpoint_is_absent_and_reported() -> None:
     assert {drop.reason for drop in result.dropped} == {
         RelationshipDropReason.MISSING_TARGET_ENDPOINT
     }
-    assert result.dropped[0].source_provider_type == "Microsoft.Compute/virtualMachines"
-    assert result.dropped[0].target_provider_type == "Microsoft.Network/networkInterfaces"
+    assert result.dropped[0].source_provider_type == "microsoft.compute/virtualmachines"
+    assert result.dropped[0].target_provider_type == "microsoft.network/networkinterfaces"
     assert result.dropped[0].unavailable_reason is (
         RelationshipUnavailableReason.TARGET_OUTSIDE_ACTIVE_GENERATION
     )
@@ -460,8 +503,12 @@ def test_distinct_missing_target_candidates_keep_their_counts() -> None:
             _resource("nic-2", "network.interface"),
         ),
         links=(
-            _link(to_id="missing-vm-1"),
-            _link(from_id="nic-2", to_id="missing-vm-2"),
+            _link(to_id="missing-vm-1", evidence=_evidence(owner_id="missing-vm-1")),
+            _link(
+                from_id="nic-2",
+                to_id="missing-vm-2",
+                evidence=_evidence(owner_id="missing-vm-2"),
+            ),
         ),
     )
 

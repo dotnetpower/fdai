@@ -147,6 +147,12 @@ export function App() {
   const activePanel = panelForId(panelId);
 
   useEffect(() => {
+    if (panelId === DEFAULT_PANEL_ID) {
+      void import("./routes/dashboard").catch(() => undefined);
+    }
+  }, [panelId]);
+
+  useEffect(() => {
     migrateLegacyHash();
     const route = currentRoute();
     if (shouldReplaceUnmatchedRoute(route, window.location.hash)) {

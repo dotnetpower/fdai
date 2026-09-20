@@ -28,12 +28,29 @@ evaluation gates, and failed-query feedback loop.
 > input- and result-bound evaluation receipts for allow and deny outcomes. Retrieval still cannot
 > claim a verdict without that evaluation receipt.
 
+## Search execution boundaries
+
+Both adapters use the same bilingual lexical scorer, configurable finite ranking weights,
+minimum score, and stable identifier tie order. Exact authorized identifier lookup does not require
+an embedding call. PostgreSQL still verifies active generation identity before returning candidates.
+Its bounded document cache checks ordered MVCC row versions and transaction epoch on every read;
+changed rows invalidate cached validation, and rows modified in the current transaction are never
+cached. The 36-case local adapter cohort covers 24 English/Korean positive queries, eight no-match
+queries, and four exact identifiers with an unavailable embedder. This tests retrieval mechanics,
+not live embedding relevance, language-model accuracy, or promotion eligibility. The historical
+seven-case promotion fixture remains a separate, small evidence set.
+
+The evaluator itself emits `HOLD` with a named failure for every missing required cohort. A passing English-only subset cannot stand in for required Korean evidence. Existing policy and receipt identities are unchanged; this guard does not establish sufficient sample sizes or live embedding quality.
+
+Evaluation policy `1.1.0` requires an explicit `min_samples_per_metric` from 2 to 10,000. Each measured recall, reciprocal-rank, and no-match metric must satisfy that floor in both evaluation and independent review; a large positive cohort cannot compensate for one negative sample. Legacy `1.0.0` retains its exact digest and existing receipts, but cannot carry the new field or qualify under a new policy digest. The production policy is not silently upgraded, historical promoted artifacts are not rewritten, and the configured floor still requires an independently reviewed held-out dataset and real-embedder evidence.
+
 ## Implementation status
 
 ### Implementation scope
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Versioned metric sample floor | implemented | Evaluation policy schema `1.1.0`; evaluator, policy loader, and promotion-review tests; 49 related checks passed with unchanged input hashes | An explicit metric-level floor is enforced during evaluation and rechecked during review. Legacy policy digests remain exact, and the active `1.0.0` configuration and historical promoted receipts are unchanged. Selecting a new qualification policy and collecting independently reviewed real-embedder evidence remain open. |
 | Exact-generation Rule query | implemented | `core/ontology_platform/catalog_queries.py`; `tests/core/ontology_platform/test_catalog_queries.py` | Returns candidate-only results and content-addressed retrieval and invocation receipts with no execution authority. |
 | Optional semantic-runtime binding | implemented | `composition/wire_semantic_query.py`; `tests/composition/test_wire_semantic_query.py` | Requires the semantic index and exact catalog digest together. |
 | Planner availability accounting | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | A readable but unbound function remains in structural coverage as `runtime_binding_unavailable` and is hidden from planning. |
@@ -55,6 +72,8 @@ evaluation gates, and failed-query feedback loop.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-20 | implemented | Added versioned metric-level sample requirements and independent review enforcement without changing legacy policy digests. Corrected Korean and stale-state test fixtures to name their actual required cohorts; those two cases exposed an inconsistency with the preceding reported 14-test pass, which is not reused as final evidence. | `current change`; evaluator, loader, review, schema, receipt-catalog, and catalog-search checks: 49 passed with identical before/after source and test hashes; Ruff and strict mypy passed. | Adopt a reviewed qualification policy and sufficient frozen held-out cases, then measure real embeddings under a new bounded live authorization. No historical receipt or active policy was rewritten. |
+| 2026-09-20 | implemented | Enforced required cohort presence in the evaluator, before a receipt can claim `PASS`. | `current change`; `rule_semantic_evaluation.py`; absent Korean cohort failed before repair; 14 focused evaluator tests, Ruff, and strict mypy passed. | Define sufficient held-out sample requirements and retain real-embedder relevance evidence. Existing one-case cohorts are not broadened by this repair. |
 | 2026-09-16 | implemented | Re-evaluated source commitments after `BusinessService` and `Workload` gained optional approved aliases. The generator now rebinds the unchanged Cost Governance declaration set to exact active refs instead of updating only the release digest, preserves prior receipts, reruns the seven held-out cases and 16 F1-F8 fixtures, and writes one new validation-only Korean surface receipt. | [Issue #1170](https://github.com/dotnetpower/fdai/issues/1170); `current change`; receipt `7116098edcd3b8cc5ea95bc75fc51b8db5955334288e544943a806feebe243b4`; exact CI regressions and generator tests passed 24 cases; second generator check reported `changed=0`. | Exact-head protected CI remains authoritative. No deployed index, package activation, promotion registry, data access, or execution authority changed. |
 | 2026-09-12 | implemented | Reconciled current corpus evidence at 50 active and 8,487 discovery documents without rewriting historical 62-Rule inventory records. | `current change`; in-memory corpus checks (`12 passed`); local PostgreSQL full-corpus lifecycle (`1 passed`). | Retain governed live runtime evidence separately. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger and corrected the unsupported production-binding claim. Added optional exact-digest composition and typed planner unavailability for unbound Rule search. Earlier provenance was not reconstructed. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/pytest -q services/core-control-plane/tests/composition/test_wire_semantic_query.py services/core-control-plane/tests/core/ontology_platform/test_query_manifest.py` passes 19 focused tests. | Add a durable production index, production bootstrap binding, Core-to-Operator projection publication, and live receipts. |

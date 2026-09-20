@@ -67,8 +67,12 @@ class SecuredGraphEvidenceQueryRefresher:
     ) -> SecuredObjectSetQueryResult:
         """Return current graph evidence, refresh once, or hold with stable reasons."""
 
-        if definition.freshness_seconds is None or not _selects_resources(definition):
+        if definition.freshness_seconds is None:
             return secured
+        if not _selects_resources(definition) and not any(
+            record.object_type == "Resource" for record in secured.materialization.graph.objects
+        ):
+            raise QueryNodeHeldError("graph_freshness_unsupported")
         decision = _decision(
             definition=definition,
             secured=secured,

@@ -38,7 +38,7 @@ The workbench is complete only when it answers these bounded operational questio
 | C7 - Change safety | What changed between two retained releases? | Exact release digests, declaration-ref additions/changes/removals, compatibility verdict, migration requirement, and deterministic diff digest. |
 
 Conversation planning can project a smaller model-facing view after schema-validated intent classification. Subscription inventory documents retain `Resource`; configuration comparison adds the two reviewed configuration functions; gateway diagnostics add `routes_to` and the reviewed gateway function. This projection is a prompt-minimization view, not another manifest or authority
-source. Every descriptor still originates in the complete principal-scoped manifest, and plan verification still resolves against the exact release. The generated semantic-intent coverage artifact is regenerated when canonical ontology query or
+source. Every included descriptor remains complete and follows manifest rank; an oversized property axis or the first descriptor that exceeds the 32 KiB budget is omitted rather than partially represented. Every descriptor still originates in the complete principal-scoped manifest, and plan verification still resolves against the exact release. The generated semantic-intent coverage artifact is regenerated when canonical ontology query or
 Resource vocabulary changes. A stale artifact remains a CI failure, not runtime evidence. Scoped operating Pattern reads require independent `case-history-read` admission bound to the authenticated principal and exact arguments before state access. The boundary inventory pins the controlling admission function and its focused tests. Recompiled summaries remain inert, and missing current source evidence never grants access or execution authority.
 The [structured retrieval owner](../interfaces/cloud-resource-knowledge-structured-rag.md)
 separates accepted query terms from applicability/access; excerpts never become observations or authority.
@@ -79,6 +79,11 @@ window is complete or already proves the smaller result limit. Only a completene
 escalates to one relationship-free candidate snapshot, from one store connection, up to the
 50,000-candidate ceiling. Candidate truncation keeps the receipt incomplete. Relationship-bearing
 ObjectSets retain their bounded relationship query and never use the larger candidate scan.
+
+Ontology semantic staging consumes the secured gateway, not a raw-store bypass. The single-type writer retains the ordinary 1,000-object ceiling. The off-path manifest writer scans every readable type in one relationship-free store snapshot, applies the same role/purpose ACL, and caps the combined declarations and objects at 20,000. Truncated, incomplete, unversioned, identity-redacted, or release-mismatched results are rejected before staging. Ordered per-object hashes bind large projections without enlarging the receipt JSON limit. Redacted fields never enter candidate documents. This is inactive preparation, not admission, activation, or complete query coverage; [query coverage](../interfaces/ontology-query-coverage-implementation-plan.md) owns remaining lifecycle and retrieval work.
+
+The off-path scan also revalidates each raw record's exact declaration reference, required fields, property types, and key before ACL projection. An absent reference, stale declaration version, or mismatched instance key cannot enter a complete index snapshot. Errors omit raw source values.
+Independent staged-source validation uses another complete gateway read and reconstructs the full candidate set. A self-consistent staged document hash cannot establish that an object exists or that its properties match the current graph. Its receipt is validation-only and does not certify vectors, activation, or execution.
 
 A broad recent Resource state-change query reads both `resource.operational_state` and
 `resource.availability_state` across every Resource that carries verified state metadata. It does
@@ -265,8 +270,19 @@ Materialization distinguishes `result_limit`, `candidate_limit`, and `traversal_
 short result is incomplete evidence rather than a complete absence claim. A `traversal_limit`
 means graph expansion reached its object ceiling. The in-memory and PostgreSQL stores both apply
 the requested object limit to initial roots as well as reached objects.
-Exact-id predicates use fixed batches of at most 128 ids through one indexed store query per batch.
-The reader stops after it has enough matching objects to prove `result_limit`.
+Object-only exact-id predicates use fixed batches of at most 128 ids. Relationship-bearing exact
+selections instead use one bounded snapshot so links between selected batches cannot disappear.
+The gateway authorizes predicate properties and exact identities before materialization and
+reauthorizes traversal roots before expansion. Historical reads apply the same property ACL and
+require the retained release to match the interpreting release; an unavailable release holds.
+
+ObjectSet receipts retain authenticated principal scope through source, traversal, and function
+reads. Current scoped presentation receipts expire after the configured bounded window, which
+defaults to 90 seconds. Role and principal scope separate cache entries even for identical content.
+Query tables preserve source generation and explicit numeric-field metadata through pure algebra.
+Mixed generations hold, exact decimal aggregation does not use ambient precision, and numeric
+strings retain numeric ordering after projection. Missing optional values stay null, result bounds
+stay explicit, and cancellation drains child work independently of bounded progress observers.
 
 ## Semantic actions and mutation plans
 

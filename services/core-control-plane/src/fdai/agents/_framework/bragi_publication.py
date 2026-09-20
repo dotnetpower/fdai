@@ -7,7 +7,70 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from .bragi_models import Turn
+from fdai.core.learning import PostTurnReviewInput, review_input_to_mapping
+from fdai.shared.providers.user_context import UserPreferenceRecord
+
+from .bragi_models import ConversationSession, Turn
+
+
+def conversation_event_payload(session: ConversationSession) -> dict[str, Any]:
+    """Return a content-addressed Conversation without exposing user identity."""
+    session_digest = hashlib.sha256(session.session_id.encode()).hexdigest()
+    principal_digest = hashlib.sha256(session.user_id.encode()).hexdigest()
+    conversation_id = f"conversation-{session_digest[:32]}"
+    return {
+        "producer_principal": "Bragi",
+        "id": conversation_id,
+        "conversation_id": conversation_id,
+        "correlation_id": session.session_id,
+        "idempotency_key": f"conversation:{session_digest}",
+        "session_id": session.session_id,
+        "principal_scope": f"sha256:{principal_digest}",
+        "status": "active",
+    }
+
+
+def user_preference_event_payload(preference: UserPreferenceRecord) -> dict[str, Any]:
+    """Return a revision-bound preference projection from one validated record."""
+    if preference.updated_at is None:
+        raise ValueError("published UserPreference requires updated_at")
+    principal_digest = hashlib.sha256(preference.principal_id.encode()).hexdigest()
+    body = {
+        "locale": preference.locale,
+        "verbosity": preference.verbosity,
+        "answer_detail": preference.answer_detail,
+        "answer_format": preference.answer_format,
+        "answer_preferences_enabled": preference.answer_preferences_enabled,
+        "answer_intent_detail": dict(preference.answer_intent_detail),
+        "answer_intent_format": dict(preference.answer_intent_format),
+        "timezone": preference.timezone,
+        "share_with_learner": preference.share_with_learner,
+        "revision": preference.revision,
+        "updated_at": preference.updated_at.isoformat(),
+    }
+    body_digest = hashlib.sha256(
+        json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return {
+        "producer_principal": "Bragi",
+        "id": f"user-preference-{principal_digest[:32]}",
+        "correlation_id": f"preference-{principal_digest[:32]}",
+        "idempotency_key": f"user-preference:{principal_digest}:{preference.revision}",
+        "principal_scope": f"sha256:{principal_digest}",
+        "preference_digest": f"sha256:{body_digest}",
+        **body,
+    }
+
+
+def post_turn_review_event_payload(review: PostTurnReviewInput) -> dict[str, Any]:
+    """Return the consent-filtered review envelope consumed by Norns."""
+    return {
+        "producer_principal": "Bragi",
+        "kind": "post_turn_review",
+        "correlation_id": review.review_id,
+        "idempotency_key": f"post-turn-review:{review.review_id}",
+        "review": review_input_to_mapping(review),
+    }
 
 
 def turn_event_payload(
@@ -129,3 +192,58 @@ def handoff_event_payload(
         "failure_reason_code": reason,
         "emitted_at": datetime.now(UTC).isoformat(),
     }
+
+
+class BragiPublicationMixin:
+    """Typed publication methods shared by Bragi's operator and A2A paths."""
+
+    async def _publish_conversation(self, session: ConversationSession) -> bool:
+        bus = getattr(self, "bus", None)
+        if bus is None:
+            return False
+        await bus.publish("Bragi", "object.conversation", conversation_event_payload(session))
+        return True
+
+    async def _publish_a2a_turn(
+        self,
+        *,
+        requester: str,
+        target_agent: str,
+        question: str,
+        response: dict[str, Any],
+    ) -> None:
+        bus = getattr(self, "bus", None)
+        if bus is None:
+            return
+        await bus.publish(
+            "Bragi",
+            "object.turn",
+            a2a_turn_event_payload(
+                requester=requester,
+                target_agent=target_agent,
+                question=question,
+                response=response,
+            ),
+        )
+
+    async def publish_user_preference(self, preference: UserPreferenceRecord) -> bool:
+        bus = getattr(self, "bus", None)
+        if bus is None:
+            return False
+        await bus.publish(
+            "Bragi",
+            "object.user-preference",
+            user_preference_event_payload(preference),
+        )
+        return True
+
+    async def publish_post_turn_review(self, review: PostTurnReviewInput) -> bool:
+        bus = getattr(self, "bus", None)
+        if bus is None:
+            return False
+        await bus.publish(
+            "Bragi",
+            "object.post-turn-review",
+            post_turn_review_event_payload(review),
+        )
+        return True

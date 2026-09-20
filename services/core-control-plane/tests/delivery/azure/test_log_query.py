@@ -107,6 +107,7 @@ async def test_maps_rows_and_sends_timespan_and_auth() -> None:
     body = json.loads(captured[0].content)
     assert body["query"] == "AppEvents | take 2\n| take 101"
     assert body["timespan"] == "PT1H"
+    assert captured[0].url.host == "api.loganalytics.azure.com"
     assert captured[0].headers["Authorization"] == "Bearer test-token"
     assert "/workspaces/00000000-0000-0000-0000-000000000001/query" in str(captured[0].url)
 

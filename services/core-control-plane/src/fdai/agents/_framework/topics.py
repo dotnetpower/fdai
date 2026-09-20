@@ -28,7 +28,6 @@ ENVELOPE_SCHEMA_VERSION = 1
 MUTATION_TOPICS: frozenset[str] = frozenset(
     {
         "object.action-run",
-        "object.action-attempt",
         "object.rollback",
     }
 )
@@ -69,13 +68,11 @@ OWNED_OBJECT_TOPICS: frozenset[str] = frozenset(
         "object.recovery-effect-observation",
         # Judgment + arbitration
         "object.verdict",
-        "object.rca",
         "object.arbitration-request",
         "object.arbitration-decision",
         "object.prospective-lineage",
         # Execution + recovery
         "object.action-run",
-        "object.action-attempt",
         "object.rollback",
         # HIL + narrator
         "object.approval",
@@ -99,10 +96,8 @@ OWNED_OBJECT_TOPICS: frozenset[str] = frozenset(
         "object.security-event",
         # Domain
         "object.cost-anomaly",
-        "object.budget",
         "object.capacity-forecast",
         "object.capacity-graduation-recommendation",
-        "object.sizing-recommendation",
         "object.chaos-experiment",
         "object.resilience-score",
     }

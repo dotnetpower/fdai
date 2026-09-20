@@ -29,6 +29,7 @@ async def close_runtime_resources(
     auxiliary_bus: object | None,
     bus: object | None,
     http_client: _AsyncAcloseable | None,
+    state_store: object | None,
 ) -> None:
     """Close runtime resources in dependency order without hiding bounded failures."""
 
@@ -55,6 +56,7 @@ async def close_runtime_resources(
             await http_client.aclose()
         except Exception:  # noqa: BLE001
             _LOGGER.warning("http_client_close_failed", exc_info=True)
+    await _aclose_optional(state_store, warning="state_store_close_failed")
 
 
 async def _close_bus(bus: object | None, *, warning: str) -> None:
@@ -65,6 +67,18 @@ async def _close_bus(bus: object | None, *, warning: str) -> None:
         return
     try:
         await close()
+    except Exception:  # noqa: BLE001
+        _LOGGER.warning(warning, exc_info=True)
+
+
+async def _aclose_optional(resource: object | None, *, warning: str) -> None:
+    if resource is None:
+        return
+    aclose = getattr(resource, "aclose", None)
+    if not callable(aclose):
+        return
+    try:
+        await aclose()
     except Exception:  # noqa: BLE001
         _LOGGER.warning(warning, exc_info=True)
 

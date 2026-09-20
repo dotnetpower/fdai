@@ -44,6 +44,13 @@ export default function DashboardV2Route({ client }: { readonly client: Operator
       : String(streamSnapshot.invalidationWatermark),
     getAuthorizationHeader: client.authorizationHeader,
     onEvent: () => window.dispatchEvent(new Event("fdai:ontology-invalidated")),
+    reloadSnapshot: async (isCurrent) => {
+      const snapshot = await loadDashboardRecordedStates(client, () => !isCurrent());
+      if (!isCurrent()) return;
+      if (!snapshot) throw new Error("Ontology snapshot recovery is unavailable");
+      readyClientRef.current = client;
+      setState({ status: "ready", data: snapshot });
+    },
   });
   useEffect(() => {
     let cancelled = false;

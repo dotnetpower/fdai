@@ -94,8 +94,24 @@ def build_ontology_schema_frame(
         f"{declaration_kind.value}types" in normalized_facets
         for declaration_kind in declaration_kinds
     )
+    readable_facets = frozenset({"available", "queryable", "readable"})
+    readable_kind_facets = {
+        f"{readable}{declaration_kind.value}types"
+        for declaration_kind in declaration_kinds
+        for readable in readable_facets
+    }
+    compact_facets = (
+        readable_facets
+        | readable_kind_facets
+        | {f"{declaration_kind.value}types" for declaration_kind in declaration_kinds}
+    )
+    compact_readable_request = normalized_facets <= compact_facets and (
+        bool(readable_kind_facets.intersection(normalized_facets))
+        or (plural_kind_requested and bool(readable_facets.intersection(normalized_facets)))
+    )
     requests_visible_manifest = (
-        {"queryable", "visible", "currentscope"} <= normalized_facets
+        compact_readable_request
+        or {"queryable", "visible", "currentscope"} <= normalized_facets
         or (
             {"list", "currentscope"} <= normalized_facets
             and any(facet.endswith("typevisibility") for facet in normalized_facets)
@@ -210,7 +226,7 @@ def _declaration_kinds_from_judgment(
         if (declaration_kind := _as_declaration_kind(target.canonical_value)) is not None
     }
     normalized_facets = {
-        facet.replace("_", "").replace("-", "") for facet in judgment.requested_facets
+        facet.replace("_", "").replace("-", "").casefold() for facet in judgment.requested_facets
     }
     facet_kinds = {
         declaration_kind

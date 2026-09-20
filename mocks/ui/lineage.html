@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lineage - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/lineage.css?v=10" />
+  <script src="assets/calm-slate.js?v=lineage-v1" defer></script>
+  <script src="assets/lineage-ontology.js?v=2" defer></script>
+  <script src="assets/lineage-icons.js?v=1" defer></script>
+  <script src="assets/lineage.js?v=9" defer></script>
+</head>
+<body class="ln-page">
+  <main class="ln-workspace">
+    <a class="ln-skip" href="#lineageInspector">Skip to selected record</a>
+    <header class="ln-heading">
+      <div><div class="ln-eyebrow">Sources, agents and operating ontology</div><h1>Lineage</h1></div>
+      <div class="ln-heading-meta"><span class="ln-preview">Synthetic preview</span><span>Read only</span></div>
+    </header>
+    <details class="ln-case-details" id="lineageCaseDetails" open><summary><span>Scope &amp; evidence</span><strong id="lineageCompactState">Held</strong></summary>
+    <section class="ln-case" aria-label="Investigation summary">
+      <div><span class="ln-label">Sample scope / ResourceType aggregation</span><h2><img class="ln-icon" src="../../tools/architecture-diagrams/assets/azure/subscriptions.svg" alt="" /> example-subscription</h2><span>example-cluster / 16 illustrative Resources, not a full inventory</span></div>
+      <div><span class="ln-label">Decision</span><strong class="ln-warning" id="caseState">Held - missing log evidence</strong><span>No action dispatched</span></div>
+      <div><span class="ln-label">Evidence cutoff</span><strong>20 Sep 2026, 10:42 UTC</strong><span>Window 10:37-10:42 UTC</span></div>
+    </section>
+    </details>
+    <div class="ln-toolbar">
+      <div class="ln-segment" role="group" aria-label="Lineage view"><button type="button" data-view="graph" aria-pressed="true">Graph</button><button type="button" data-view="sources" aria-pressed="false">Source register</button></div>
+      <div class="ln-search"><span class="ln-search-icon" id="lineageSearchIcon" aria-hidden="true"></span><label class="cs-sr-only" for="lineageSearch">Find a source, agent or record</label><input id="lineageSearch" type="search" placeholder="Search sources, types, evidence..." aria-describedby="lineageMatchCount" autocomplete="off" /><button type="button" id="lineageSearchClear" aria-label="Clear search" title="Clear search" hidden></button><span id="lineageMatchCount" class="cs-sr-only" role="status" aria-live="polite"></span></div>
+      <label class="ln-scenario"><span>Snapshot</span><select id="lineageScenario"><option value="held">Missing evidence</option><option value="complete">Evidence available</option></select></label>
+    </div>
+    <div class="ln-layout" id="lineageLayout">
+      <section class="ln-graph-region" aria-label="Evidence lineage graph">
+        <div class="ln-graph-head"><div class="ln-legend" aria-label="Node categories"><span data-palette="source"><i class="ln-swatch" aria-hidden="true">S</i>Sources</span><span data-palette="evidence"><i class="ln-swatch" aria-hidden="true">E</i>Evidence</span><span data-palette="normative"><i class="ln-swatch" aria-hidden="true">K</i>Rules / knowledge</span><span data-palette="agent"><i class="ln-swatch" aria-hidden="true">A</i>Agents</span><span data-palette="type"><i class="ln-swatch" aria-hidden="true">T</i>Object Type</span><span data-palette="resource-group"><i class="ln-swatch" aria-hidden="true">R</i>ResourceType</span><span data-palette="ontology"><i class="ln-swatch" aria-hidden="true">I</i>Instance</span><span data-palette="outcome"><i class="ln-swatch" aria-hidden="true">D</i>Decision</span></div><div class="ln-tools"><button type="button" id="lineageReset" title="Clear filters and collapse Resource instances">Reset</button><button type="button" id="lineageFit" title="Fit the complete canvas">Fit</button><button type="button" id="lineageActual" title="Show nodes at actual size">100%</button><button type="button" id="lineageZoomOut" aria-label="Zoom out" title="Zoom out">-</button><output id="lineageZoom" aria-label="Graph zoom">100%</output><button type="button" id="lineageZoomIn" aria-label="Zoom in" title="Zoom in">+</button></div></div>
+        <div class="ln-context-bar"><span id="lineageSelection" aria-live="polite"></span><div class="ln-context-controls"><label class="ln-record-picker"><span class="cs-sr-only">Select a record</span><select id="lineageRecordPicker" aria-label="Select a record"></select></label><label>Connections<select id="lineageDirection"><option value="both">Inputs + outputs</option><option value="incoming">Inputs</option><option value="outgoing">Outputs</option></select></label><button type="button" id="lineageInspectorToggle" aria-label="Hide record details" title="Hide record details" aria-expanded="true" aria-controls="lineageInspector"></button><button type="button" id="lineageCanvasMode" aria-label="Expand canvas" title="Expand canvas" aria-pressed="false"></button></div><span class="ln-canvas-badge" hidden>Synthetic preview / Read only</span></div>
+        <div class="ln-stage">
+        <div class="ln-canvas-scroll" id="lineageViewport" tabindex="0" aria-label="Scrollable lineage graph">
+          <div id="lineageCanvasSize"><div class="ln-canvas" id="lineageCanvas">
+            <div class="ln-column" style="left:24px">01 / Sources</div><div class="ln-column" style="left:270px">02 / Versioned inputs</div><div class="ln-column" style="left:516px">03 / Agent executions</div><div class="ln-column" style="left:762px">04 / Object Types</div><div class="ln-column" style="left:1008px">05 / ResourceTypes</div><div class="ln-column" style="left:1254px">Workload types</div><div class="ln-column" style="left:1500px">Observations &amp; rules</div><div class="ln-column" style="left:1792px">06 / Decision &amp; audit</div>
+            <svg class="ln-edges" id="lineageEdges" width="2010" height="1060" aria-hidden="true"><defs><marker id="lineageArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" /></marker></defs></svg>
+            <div id="lineageNodes"></div>
+          </div></div>
+          <div class="ln-empty" id="lineageEmpty" hidden><h3>No matching records</h3><button type="button" id="lineageEmptyClear">Clear search</button></div>
+        </div>
+        <div class="ln-map-dock"><button type="button" id="lineageCenter" aria-label="Center selected record" title="Center selected record"></button><button type="button" id="lineageMapToggle" aria-label="Toggle graph navigator" title="Toggle graph navigator" aria-expanded="true" aria-controls="lineageMap"></button><button type="button" class="ln-map" id="lineageMap" aria-label="Recenter using graph navigator" title="Recenter using graph navigator"><svg id="lineageMiniature" viewBox="0 0 2010 1060" aria-hidden="true"></svg></button></div>
+        </div>
+        <footer class="ln-graph-foot"><span id="lineageCount" role="status" aria-live="polite"></span><span>Bold: aggregated relationships / Dotted: membership / Amber dashes: missing</span></footer>
+      </section>
+      <aside class="ln-inspector" id="lineageInspector" aria-label="Selected record" tabindex="-1"></aside>
+    </div>
+    <section id="lineageSources" class="ln-sources" aria-label="Source register" hidden></section>
+    <footer class="ln-boundary">Illustrative records only. No live sources, model calls or runtime actions.</footer>
+    <noscript><p>JavaScript is required to inspect the synthetic lineage.</p></noscript>
+  </main>
+</body>
+</html>

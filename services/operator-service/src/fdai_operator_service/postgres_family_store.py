@@ -3061,6 +3061,7 @@ class PostgresFamilyStore:
         principal_id: str,
         after_sequence: int | None,
         limit: int,
+        cursor_epoch: str | None = None,
     ) -> tuple[StoredReplayEvent, ...]:
         """Read principal-scoped monotonic records from the authoritative audit ledger."""
         _bounded_component("stream", stream)
@@ -3073,6 +3074,7 @@ class PostgresFamilyStore:
             return await self._replay_inventory_invalidations(
                 after_sequence=after_sequence,
                 limit=limit,
+                cursor_epoch=cursor_epoch,
             )
         if stream == "provision":
             rows = await self._fetch_all(
@@ -3176,6 +3178,7 @@ class PostgresFamilyStore:
         *,
         after_sequence: int | None,
         limit: int,
+        cursor_epoch: str | None = None,
     ) -> tuple[StoredReplayEvent, ...]:
         """Emit one sanitized signal only after an active ontology commit."""
 
@@ -3202,6 +3205,24 @@ class PostgresFamilyStore:
             return ()
         row = rows[0]
         marker = _json_object(row.get("marker"), label="inventory ontology invalidation")
+        epoch = marker.get("epoch")
+        epoch_mode = marker.get("schema_version") == "2.0.0"
+        if epoch_mode and (
+            not isinstance(epoch, str)
+            or re.fullmatch(r"[a-f0-9]{32}", epoch) is None
+            or cursor_epoch is None
+        ):
+            raise PostgresFamilyStoreUnavailable(
+                "inventory cursor requires an epoch-capable client"
+            )
+        if (
+            cursor_epoch is not None
+            and cursor_epoch != ""
+            and re.fullmatch(r"[a-f0-9]{32}", cursor_epoch) is None
+        ):
+            raise ValueError("inventory cursor epoch is malformed")
+        if not epoch_mode and cursor_epoch:
+            raise PostgresFamilyStoreUnavailable("inventory cursor epoch cannot regress to legacy")
         if set(marker) != {
             "schema_version",
             "sequence",
@@ -3211,7 +3232,7 @@ class PostgresFamilyStore:
             "complete",
             "execution_authority",
             "mutation_authority",
-        }:
+        } | ({"epoch"} if epoch_mode else set()):
             raise PostgresFamilyStoreUnavailable(
                 "inventory ontology invalidation marker is malformed"
             )
@@ -3220,10 +3241,12 @@ class PostgresFamilyStore:
         manifest_digest = marker.get("manifest_digest")
         marker_recorded_at = marker.get("recorded_at")
         if (
-            marker.get("schema_version") != _INVENTORY_INVALIDATION_SCHEMA_VERSION
+            marker.get("schema_version")
+            != ("2.0.0" if epoch_mode else _INVENTORY_INVALIDATION_SCHEMA_VERSION)
             or isinstance(watermark, bool)
             or not isinstance(watermark, int)
             or watermark < 1
+            or watermark > 2**53 - 1
             or not isinstance(generation, str)
             or not generation
             or not isinstance(manifest_digest, str)
@@ -3246,7 +3269,8 @@ class PostgresFamilyStore:
             or manifest_value.get("complete") is not True
         ):
             return ()
-        if after_sequence is not None and watermark <= after_sequence:
+        reset_required = epoch_mode and cursor_epoch != epoch
+        if not reset_required and after_sequence is not None and watermark <= after_sequence:
             return ()
         observed_at = row.get("observed_at")
         if not isinstance(observed_at, datetime):
@@ -3264,7 +3288,8 @@ class PostgresFamilyStore:
                 "inventory ontology invalidation timestamps are malformed"
             )
         data: dict[str, object] = {
-            "schema_version": _INVENTORY_INVALIDATION_SCHEMA_VERSION,
+            "schema_version": "2.0.0" if epoch_mode else _INVENTORY_INVALIDATION_SCHEMA_VERSION,
+            **({"epoch": epoch, "reset_required": reset_required} if epoch_mode else {}),
             "watermark": watermark,
             "observation_count": 1,
             "observed_at": observed_at.isoformat(),
@@ -3610,8 +3635,9 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
         principal_id: str,
         after_sequence: int | None,
         limit: int,
+        cursor_epoch: str | None = None,
     ) -> tuple[StoredReplayEvent, ...]:
-        del stream, principal_id, after_sequence, limit
+        del stream, principal_id, after_sequence, limit, cursor_epoch
         raise PostgresFamilyStoreUnavailable("authoritative replay is unavailable")
 
 

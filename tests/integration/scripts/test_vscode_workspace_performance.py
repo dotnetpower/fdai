@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -74,7 +75,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
-    assert len(tasks_by_label) == len(tasks["tasks"]) == 31
+    assert len(tasks_by_label) == len(tasks["tasks"]) == 32
     allowed_instance_policies = {
         "terminateNewest",
         "terminateOldest",
@@ -90,7 +91,8 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
 
     prepare_stack = tasks_by_label["console: prepare full stack"]
     assert prepare_stack["command"] == (
-        "bash scripts/deployment/local/prepare-console-full-stack.sh --auth-mode browser-entra"
+        "bash scripts/deployment/local/prepare-console-full-stack.sh "
+        "--defer-authoritative-inventory --auth-mode browser-entra"
     )
     assert "dependsOn" not in prepare_stack
     assert prepare_stack["runOptions"] == {"instanceLimit": 1}
@@ -119,9 +121,14 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "service-environments",
         "entra-redirects",
     ]
-    preparation_positions = [
-        preparation_script.index(f"run_stage \\\n  {stage} \\\n") for stage in preparation_stages
-    ]
+    preparation_positions = []
+    for stage in preparation_stages:
+        match = re.search(
+            rf"(?m)^\s*run_stage \\\n\s+{re.escape(stage)} \\\n",
+            preparation_script,
+        )
+        assert match is not None
+        preparation_positions.append(match.start())
     assert preparation_positions == sorted(preparation_positions)
     assert (
         preparation_script.index('bash "$repo_root/scripts/deployment/local/dev-up.sh"')
@@ -174,6 +181,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "console: restart operator api",
         "console: start local services",
         "console: start full stack",
+        "console: restart full stack",
         "console: start full stack (Azure CLI debug, Contributor)",
         "console: keep full stack ready (10m)",
         "console: wait full stack ready",
@@ -274,6 +282,19 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "endsPattern": "service=console-stack event=(ready|failed)(?: |$)",
     }
     assert local_services["presentation"]["close"] is True
+
+    restart_stack = tasks_by_label["console: restart full stack"]
+    assert restart_stack["command"] == (
+        "bash scripts/deployment/local/start-console-services.sh "
+        "--auth-mode browser-entra --replace-existing"
+    )
+    assert restart_stack["dependsOn"] == ["console: require primary worktree"]
+    assert restart_stack["isBackground"] is True
+    assert restart_stack["runOptions"] == {"instanceLimit": 1}
+    assert (
+        restart_stack["problemMatcher"]["background"]
+        == local_services["problemMatcher"]["background"]
+    )
 
     cli_prepare = tasks_by_label["console: prepare full stack (Azure CLI debug, Contributor)"]
     assert cli_prepare["command"].endswith("--auth-mode azure-cli")
@@ -393,7 +414,10 @@ def test_workspace_exposes_explicit_local_development_diagnostics() -> None:
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
     start = tasks_by_label["dev discuss: start or restart profiled services"]
-    assert start["command"].startswith("FDAI_DEVELOPMENT_DIAGNOSTICS=1 ")
+    assert start["command"] == (
+        "bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra "
+        "--replace-existing"
+    )
     assert start["dependsOn"] == [
         "console: require primary worktree",
         "console: prepare full stack",

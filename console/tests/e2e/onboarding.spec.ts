@@ -16,6 +16,59 @@ const blockedOnboarding = {
   error: null,
 };
 
+test("observer proposals remain read-only across desktop and mobile", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Sequential viewport validation.");
+  await installOnboardingFixture(page, async (route) => { await json(route, blockedOnboarding); });
+  const target = `cluster-${"example-".repeat(32)}bound`;
+  const methods = ["gitops", "existing_host", "managed_host", "run_command"];
+  const candidates = methods.flatMap((method) => ["private", "public"].map((egress) => ({
+    method, egress, state: "unknown", blockers: [], missing: ["kubernetes_read", "persistent_storage"],
+  })));
+  let empty = false;
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const requests: string[] = [];
+  await page.route("**/observer-deployment-proposals*", async (route) => {
+    requests.push(route.request().method());
+    await gate;
+    await json(route, {
+      synthetic: false, execution_authority: false,
+      items: empty ? [] : [{ target_ref: target, state: "current", execution_authority: false,
+        expires_at: new Date(Date.now() + 60000).toISOString(),
+        proposal: { target_ref: target, status: "needs_evidence", execution_authority: false,
+          approval_required: true, recommended: null, candidates },
+      }],
+    });
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/settings/environment-and-deployment/observers");
+  await expect(page.locator(".observer-proposals [role=status]")).toBeVisible();
+  release?.();
+  await expect(page.getByRole("tab", { name: "Cluster observers" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: "Cluster observer proposals" })).toBeVisible();
+  await expect.poll(() => requests.length).toBe(1);
+  await expect(page.locator(".observer-proposal")).toHaveCount(1);
+  await page.locator(".observer-proposal summary").focus();
+  await page.locator(".observer-proposal summary").press("Enter");
+  await expect(page.locator(".observer-proposal dt")).toHaveCount(8);
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 993, height: 641 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    expect(await page.locator(".observer-proposals").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await capture(page, testInfo, `observer-proposals-${viewport.width}`);
+  }
+  empty = true;
+  await page.getByRole("button", { name: "Refresh evidence" }).click();
+  await expect(page.getByText("No observer proposal has been received.")).toBeVisible();
+  expect(requests).toEqual(["GET", "GET"]);
+  await expect(page.getByRole("button", { name: /approve|install|execute/i })).toHaveCount(0);
+  empty = false;
+  await page.goto("/settings/environment-and-deployment/observers?locale=ko");
+  await expect(page.getByRole("heading", { name: "클러스터 관측 구성 제안" })).toBeVisible();
+  await page.locator(".observer-proposal summary").click();
+  await capture(page, testInfo, "observer-proposals-ko-mobile");
+});
+
 async function json(route: Route, body: unknown, status = 200): Promise<void> {
   await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
@@ -38,7 +91,7 @@ async function installOnboardingFixture(
         sources: [{
           key: "onboarding-probe",
           source: "browser-test-fixture",
-          routes: ["/onboarding"],
+          routes: ["/onboarding", "/observer-deployment-proposals"],
           availability: "available",
           configured: true,
           reachable: true,

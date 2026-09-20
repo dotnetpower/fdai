@@ -1,10 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   consumeOntologyInvalidationSse,
   decodeOntologyInvalidationEvent,
   ontologyInvalidationHeaders,
   ontologyInvalidationReconnectDelay,
+  ontologyInvalidationCursor,
+  recoverOntologyInvalidationCursor,
 } from "./use-ontology-invalidation-stream";
 
 const EVENT = {
@@ -19,6 +21,49 @@ const EVENT = {
 };
 
 describe("ontology invalidation SSE", () => {
+  const epochEvent = { ...EVENT, schema_version: "2.0.0" as const, epoch: "a".repeat(32), reset_required: true, complete: false as const, execution_authority: false as const, mutation_authority: false as const };
+  it.each([null, 42, "broken", "a".repeat(33)])("rejects malformed epoch %s", (epoch) => {
+    expect(decodeOntologyInvalidationEvent(JSON.stringify({ ...epochEvent, epoch }))).toBeNull();
+  });
+  it("accepts epoch events only with a matching compound id", async () => {
+    const events: unknown[] = [];
+    const cursor = ontologyInvalidationCursor(epochEvent);
+    const response = new Response(`id: ${cursor}\nevent: inventory.invalidated\ndata: ${JSON.stringify(epochEvent)}\n\n`, { headers: { "content-type": "text/event-stream" } });
+    await consumeOntologyInvalidationSse(response, (event) => events.push(event));
+    expect(events).toEqual([epochEvent]);
+  });
+  it("does not acknowledge the reset until snapshot reread completes", async () => {
+    let resolve: () => void = () => undefined;
+    const load = new Promise<void>((finish) => { resolve = finish; });
+    let acknowledged = false;
+    const result = recoverOntologyInvalidationCursor(epochEvent, () => load).then((cursor) => { acknowledged = true; return cursor; });
+    await Promise.resolve();
+    expect(acknowledged).toBe(false);
+    resolve();
+    expect(await result).toBe(`${epochEvent.epoch}:42`);
+  });
+  it("does not acknowledge a failed snapshot read", async () => {
+    await expect(recoverOntologyInvalidationCursor(epochEvent, async () => { throw new Error("unavailable"); })).rejects.toThrow("unavailable");
+  });
+  it("invalidates delayed rendering when the principal or route changed", async () => {
+    let current = true;
+    let permitted: () => boolean = () => true;
+    await expect(recoverOntologyInvalidationCursor(epochEvent, async (isCurrent) => {
+      permitted = isCurrent;
+      expect(permitted()).toBe(true);
+      current = false;
+    }, () => current)).rejects.toThrow("cancelled");
+    expect(permitted()).toBe(false);
+  });
+  it("bounds a stalled snapshot reread", async () => {
+    vi.useFakeTimers();
+    try {
+      const result = recoverOntologyInvalidationCursor(epochEvent, () => new Promise(() => undefined));
+      const rejected = expect(result).rejects.toThrow("timed out");
+      await vi.advanceTimersByTimeAsync(10_000);
+      await rejected;
+    } finally { vi.useRealTimers(); }
+  });
   it("accepts only bounded no-authority invalidations", () => {
     expect(decodeOntologyInvalidationEvent(JSON.stringify(EVENT))).toEqual(EVENT);
     expect(decodeOntologyInvalidationEvent(JSON.stringify({

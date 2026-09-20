@@ -22,6 +22,7 @@ from fdai.shared.providers.state_evidence import LINK_OBSERVATION_METADATA_PROPE
 
 OntologyDirection = Literal["outgoing", "incoming", "both"]
 MAX_ONTOLOGY_OBJECT_SCAN = 50_000
+MAX_ONTOLOGY_QUERY_LINKS = 16_000
 _MAX_JSON_DEPTH = 32
 _CLASSIFICATION_EVIDENCE_PROPERTIES = frozenset(
     {"inventory_generation", "mapping_digest", "mapping_id", "verified"}

@@ -25,6 +25,7 @@ DERIVED_OUTPUT_PATHS = frozenset(
     {
         "eval/golden-dataset/question-bank/question-bank.json",
         "eval/golden-dataset/question-bank/review-catalog.md",
+        "services/system-knowledge-service/src/fdai_system_knowledge_service/data/catalog.json",
     }
 )
 

@@ -15,6 +15,7 @@ omits its final fence and retains the previous promoted graph.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -24,6 +25,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from fdai.delivery.azure.arg_collection_context import arg_collection_contract_digest
 from fdai.delivery.azure.arg_projection import (
     ArmIdentityError,
     ArmScopeError,
@@ -242,9 +244,10 @@ class AzureArgQueryFactory:
             load_provider_relationship_mapping_catalog(config.relationship_mapping_root)
         )
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
+    @property
+    def collection_contract_digest(self) -> str:
+        """Bind effective ARG queries, reviewed relationships, and transport configuration."""
+        return arg_collection_contract_digest(self)
 
     def build_query_fn(self) -> ResourceQueryFn:
         """Return a :type:`ResourceQueryFn` closed over this factory's state."""
@@ -264,7 +267,9 @@ class AzureArgQueryFactory:
                 return ResourceQueryResult()
 
             shard = await self._fetch_all_pages(
-                resource_type=query_resource_type, arm_type=arm_type
+                resource_type=query_resource_type,
+                arm_type=arm_type,
+                preserve_nested_subnets=resource_type == "network.subnet",
             )
             if resource_type == "network.subnet":
                 subnet_records: list[ResourceRecord] = []
@@ -279,6 +284,10 @@ class AzureArgQueryFactory:
                         ) from exc
                     subnet_records.extend(nested_records)
                     for record in nested_records:
+                        if _truncate_props(
+                            record.props, max_bytes=self._config.max_props_bytes
+                        ).get("_truncated"):
+                            raise ArgQueryError("ARG nested subnet properties exceed their bound")
                         properties = record.props.get("properties")
                         projected = self._project_links(
                             {
@@ -311,25 +320,38 @@ class AzureArgQueryFactory:
         """Return a complete provider-native type aggregation for snapshot metadata."""
 
         async def _fetch() -> ProviderScopeCoverage:
-            rows = await fetch_arg_row_pages(
-                identity=self._identity,
-                http_client=self._http,
-                audience=self._config.audience,
-                endpoint=self._config.arg_endpoint,
-                api_version=self._config.arg_api_version,
-                subscriptions=self._config.subscription_scopes,
-                query=self._build_scope_coverage_query(),
-                result_name="provider-scope-coverage",
-                page_size=self._config.page_size,
-                max_pages=self._config.max_pages,
-                timeout_seconds=self._config.timeout_seconds,
-                error_type=ArgQueryError,
-                throttle_gate=self._throttle_gate,
-                rate_limiter=self._rate_limiter,
-                max_records=_MAX_PROVIDER_TYPES,
-                page_observer=self._page_observer,
+            counts: Counter[str] = Counter()
+            for subscription in self._config.subscription_scopes:
+                rows = await fetch_arg_row_pages(
+                    identity=self._identity,
+                    http_client=self._http,
+                    audience=self._config.audience,
+                    endpoint=self._config.arg_endpoint,
+                    api_version=self._config.arg_api_version,
+                    subscriptions=(subscription,),
+                    query=self._build_scope_coverage_query(),
+                    result_name="provider-scope-coverage",
+                    page_size=self._config.page_size,
+                    max_pages=self._config.max_pages,
+                    timeout_seconds=self._config.timeout_seconds,
+                    error_type=ArgQueryError,
+                    throttle_gate=self._throttle_gate,
+                    rate_limiter=self._rate_limiter,
+                    max_records=_MAX_PROVIDER_TYPES,
+                    page_observer=self._page_observer,
+                )
+                coverage = self._project_scope_coverage(rows)
+                for item in (
+                    *coverage.unmapped_provider_types,
+                    *(coverage.mapped_provider_types or ()),
+                ):
+                    counts[item.provider_type] += item.count
+            return self._project_scope_coverage(
+                tuple(
+                    {"provider_type": provider_type, "resource_count": count}
+                    for provider_type, count in sorted(counts.items())
+                )
             )
-            return self._project_scope_coverage(rows)
 
         return _fetch
 
@@ -511,6 +533,10 @@ class AzureArgQueryFactory:
             mapped_provider_object_count=mapped_provider_object_count,
             provider_type_count=len(counts),
             unmapped_provider_types=unmapped,
+            mapped_provider_types=tuple(
+                counts[provider_type]
+                for provider_type in sorted(counts.keys() & self._mapped_provider_types)
+            ),
         )
 
     def _map_unclassified_row(self, row: Mapping[str, Any]) -> ResourceRecord:
@@ -521,12 +547,16 @@ class AzureArgQueryFactory:
             raise ArgQueryError("unclassified ARG row lacks a provider id")
         if not isinstance(provider_type, str) or not provider_type.strip():
             raise ArgQueryError("unclassified ARG row lacks a provider type")
-        normalized_type = provider_type.strip().lower()
+        try:
+            normalized_type = arm_provider_type(arm_id, provider_type).casefold()
+        except ArmIdentityError as exc:
+            raise ArgQueryError("unclassified ARG row has conflicting provider type") from exc
         if normalized_type in self._mapped_provider_types:
             raise ArgQueryError("unclassified ARG query returned a mapped provider type")
 
         scope_error = ArgQueryError("unclassified ARG row has conflicting provider scope")
         scope = validated_arm_scope(arm_id, row, scope_error)
+        self._require_requested_scope(scope)
         props: dict[str, Any] = {"providerType": normalized_type}
         for key in ("name", "location", "kind", "resourceGroup"):
             if key in row and row[key] is not None:
@@ -545,7 +575,13 @@ class AzureArgQueryFactory:
             last_seen=datetime.now(tz=UTC).isoformat(),
         )
 
-    async def _fetch_all_pages(self, *, resource_type: str, arm_type: str) -> ResourceQueryResult:
+    async def _fetch_all_pages(
+        self,
+        *,
+        resource_type: str,
+        arm_type: str,
+        preserve_nested_subnets: bool = False,
+    ) -> ResourceQueryResult:
         query = self._build_query(arm_type=arm_type)
         return await fetch_arg_pages(
             identity=self._identity,
@@ -560,7 +596,11 @@ class AzureArgQueryFactory:
             max_pages=self._config.max_pages,
             timeout_seconds=self._config.timeout_seconds,
             error_type=ArgQueryError,
-            map_row=lambda row: self._map_row(row, resource_type=resource_type),
+            map_row=lambda row: self._map_row(
+                row,
+                resource_type=resource_type,
+                preserve_nested_subnets=preserve_nested_subnets,
+            ),
             project_links=self._project_links,
             throttle_gate=self._throttle_gate,
             rate_limiter=self._rate_limiter,
@@ -581,23 +621,34 @@ class AzureArgQueryFactory:
             source_identity="azure-resource-graph",
         )
 
-    def _map_row(self, row: Mapping[str, Any], *, resource_type: str) -> ResourceRecord | None:
+    def _map_row(
+        self,
+        row: Mapping[str, Any],
+        *,
+        resource_type: str,
+        preserve_nested_subnets: bool = False,
+    ) -> ResourceRecord | None:
         arm_id = row.get("id")
         if not isinstance(arm_id, str) or not arm_id:
             raise ArgQueryError(f"ARG row for {resource_type!r} lacks a provider id")
         arm_type = self._resource_types.get(resource_type).azure_arm_type
         if arm_type is None:
             return None
-        provider_type = arm_type
-        if resource_type not in {"resource-group", "subscription"}:
-            try:
-                provider_type = arm_provider_type(arm_id, row.get("type"))
-            except ArmIdentityError as exc:
-                raise ArgQueryError(
-                    f"ARG row for {resource_type!r} has conflicting provider type"
-                ) from exc
-            if provider_type.casefold() != arm_type.casefold():
-                raise ArgQueryError(f"ARG row for {resource_type!r} has conflicting provider type")
+        supplied_type = row.get("type")
+        if (
+            resource_type == "resource-group"
+            and isinstance(supplied_type, str)
+            and supplied_type.casefold() == "microsoft.resources/subscriptions/resourcegroups"
+        ):
+            supplied_type = arm_type
+        try:
+            provider_type = arm_provider_type(arm_id, supplied_type)
+        except ArmIdentityError as exc:
+            raise ArgQueryError(
+                f"ARG row for {resource_type!r} has conflicting provider type"
+            ) from exc
+        if provider_type.casefold() != arm_type.casefold():
+            raise ArgQueryError(f"ARG row for {resource_type!r} has conflicting provider type")
         resolved_type = resolve_azure_resource_type(
             self._resource_types,
             arm_type=provider_type,
@@ -620,6 +671,7 @@ class AzureArgQueryFactory:
         neutral_id = _to_neutral_id(arm_id)
         scope_error = ArgQueryError(f"ARG {resource_type!r} row has conflicting provider scope")
         scope = validated_arm_scope(arm_id, row, scope_error)
+        self._require_requested_scope(scope)
         props: dict[str, Any] = {"providerType": provider_type}
         subscription_id = row.get("subscriptionId")
         if isinstance(subscription_id, str) and subscription_id:
@@ -651,6 +703,10 @@ class AzureArgQueryFactory:
             props["properties"] = nested_schedule
 
         props = _truncate_props(props, max_bytes=self._config.max_props_bytes)
+        if preserve_nested_subnets:
+            observed_properties = row.get("properties")
+            if isinstance(observed_properties, Mapping) and "subnets" in observed_properties:
+                props["properties"] = {"subnets": observed_properties["subnets"]}
         props["providerType"] = provider_type
         props.update(scope)
         add_neutral_resource_scope(props)
@@ -667,6 +723,11 @@ class AzureArgQueryFactory:
             last_seen=datetime.now(tz=UTC).isoformat(),
         )
 
+    def _require_requested_scope(self, scope: Mapping[str, str]) -> None:
+        subscription = scope.get("subscriptionId", "").casefold()
+        if subscription not in {value.casefold() for value in self._config.subscription_scopes}:
+            raise ArgQueryError("ARG row is outside the requested subscription scopes")
+
     def _containment_parent_id(self, arm_id: str, *, arm_type: str) -> str | None:
         parent = reviewed_containment_parent(
             arm_id,
@@ -678,16 +739,7 @@ class AzureArgQueryFactory:
 
 
 def _resolve_acr_login_server_to_arm_id(login_server: str) -> str | None:
-    """Placeholder for the ACR login-server → ARM id registry lookup.
-
-    Returns ``None`` in this cycle - no resolver is wired yet, so every
-    ``properties.acrLoginServer`` reference is treated as unresolvable
-    and dropped by :func:`_extract_depends_on_links_from_row`. Tests
-    monkeypatch this hook to exercise the resolvable path when the
-    registry lookup is wired.
-    """
-    # `login_server` is untrusted vendor text; the guard here is
-    # intentionally boring so it stays inert.
+    """Compatibility hook; exact ACR resolution belongs to the generation join."""
     del login_server
     return None
 
@@ -733,10 +785,6 @@ def _extract_depends_on_links_from_row(
         source_identity="azure-resource-graph",
     )
     return tuple(link for link in result.links if link.link_type == "depends_on")
-
-
-# Guard against accidental widening: this file MUST NOT introduce
-# `azure-mgmt-*` imports. The single dependency is `httpx`.
 
 
 __all__ = [

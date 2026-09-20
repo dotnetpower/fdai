@@ -254,6 +254,11 @@ unmapped provider types, extension resources, and separately bounded child-resou
 ARM and Kubernetes. A source limit does not turn into successful truncation: the run emits a
 stable blocker with the observed limit and required next action.
 
+Truncated properties cannot certify a complete generation. Only the final verified relationship
+set enters snapshot staging; rejected candidates retain incomplete relationship coverage without
+freezing verified objects. Graph commit and Resource-event delivery have separate durable completion
+markers, so initial readiness cannot substitute one for the other.
+
 Reviewed state enrichers run after complete collection and before promotion. Each exact child read
 uses the same signed target, response, concurrency, and deadline bounds, and it can add only typed
 provider evidence. The enrichment chain pins one active base generation; a changed pin blocks
@@ -264,10 +269,14 @@ change. Progress therefore presents the denominator as an estimate and completen
 provider coverage receipt. Deletes or creates during collection either reconcile in the same
 complete generation or leave a newer-change overlay that blocks genesis closure.
 
-Large subscriptions spill staged batches to PostgreSQL and never require the optional in-memory
-observer to retain the complete graph. Object, relationship, byte, page, request, concurrency,
-attempt, and no-progress limits come from the signed collection policy. If the full subscription
-cannot fit those approved bounds, planning requires a reviewed partition strategy before scanning.
+The current coordinator retains one bounded generation for relationship validation while staging
+objects in PostgreSQL. The [operational graph's capacity contract](../architecture/continuous-operational-instance-graph.md#bounded-persistence)
+and signed collection policy constrain collection; this is not a disk-backed unlimited stream.
+If the full subscription cannot fit those bounds, planning requires a reviewed partition strategy
+before scanning and never silently narrows the declared scope.
+Resource staging atomically retains bounded immutable chunks; production context also binds effective policy, management target/audience, request rate, vocabulary mappings, and signed fallback content to its
+checkpoints. ARG additionally pins generated queries, reviewed relationships, and transport settings; installed FDAI producer source, including ARM overlays, is content-bound. Fully collected and enriched candidates are sealed and can resume without provider reads only in the same context, with original clocks, complete evidence, and active-base revalidation.
+Resource-only replay cannot certify completion: unfinished provider streams still need independent continuation validity, relationship evidence, and final scope coverage. Sealed-candidate recovery is not partitioned ontology publication or a Genesis readiness receipt. Source cleanup retains a separate deadline of at most five seconds, shortened by the configured progress budget, after cancellation or run expiry; failed cleanup cannot mask cancellation or authorize promotion after a final fence.
 
 The inventory identity receives only read roles on the declared subscription and write access to
 its private staging and event surfaces. RBAC propagation is explicitly observed before collection.

@@ -117,6 +117,60 @@ class _Inventory:
         yield InventoryBatch(final=True)
 
 
+@pytest.mark.parametrize("fail_seal", [False, True])
+async def test_coordinator_seals_complete_candidate_before_promotion(fail_seal: bool) -> None:
+    store = _Store()
+    source = _source("arg", _Inventory([InventoryBatch(final=True)]))
+    sealed = []
+
+    async def prepare(original, manifest, observation):
+        assert original == source.manifest
+        assert manifest.metadata["prepared_candidate_required"] is True
+        assert observation.complete is True
+        assert store.promoted == []
+        sealed.append(observation.generation)
+        if fail_seal:
+            raise ValueError("synthetic seal failure")
+
+    coordinator = InventorySyncCoordinator(store=store, candidate_preparer=prepare)
+    if fail_seal:
+        with pytest.raises(InventorySourcesExhaustedError):
+            await coordinator.run((source,))
+        assert store.promoted == []
+    else:
+        await coordinator.run((source,))
+        assert store.promoted == sealed
+    assert sealed == ["attempt-1"]
+
+
+async def test_coordinator_resumes_prepared_without_provider_reads_or_reenrichment() -> None:
+    store = _Store()
+    source = _source("arg", _Inventory(error=AssertionError("provider must not be read")))
+    observation = PromotedInventoryObservation(
+        generation="retained-attempt",
+        resources=(),
+        links=(),
+        complete=True,
+        recorded_at=datetime(2026, 9, 20, tzinfo=UTC),
+    )
+    observed = []
+
+    async def load(manifest):
+        assert manifest == source.manifest
+        return manifest, observation
+
+    async def observe(record):
+        observed.append(record)
+
+    result = await InventorySyncCoordinator(
+        store=store, candidate_loader=load, promotion_observer=observe
+    ).run((source,))
+    assert result.attempt_id == observation.generation
+    assert observed == [observation]
+    assert store.sequence == 0
+    assert store.promoted == [observation.generation]
+
+
 def _source(name: str, inventory: Any) -> InventorySource:
     return InventorySource(
         name=name,
@@ -127,6 +181,268 @@ def _source(name: str, inventory: Any) -> InventorySource:
             resource_types=("compute.vm",),
         ),
     )
+
+
+async def test_coordinator_stages_resources_through_chunk_capable_store() -> None:
+    from fdai.delivery.inventory_collection import collection_context_digest, resource_chunk
+
+    class ChunkStore(_Store):
+        receipts: list[dict[str, Any]] = []
+
+        async def stage_chunk(self, attempt_id, batch, **kwargs):
+            receipt = resource_chunk(attempt_id=attempt_id, batch=batch, **kwargs)
+            self.receipts.append(receipt)
+            await self.stage(attempt_id, batch)
+            return receipt
+
+    store = ChunkStore()
+    resources = tuple(ResourceRecord(f"resource-{index}", "compute.vm") for index in range(1001))
+    source = _source(
+        "example",
+        _Inventory(
+            [
+                InventoryBatch(resources=resources, cursor="next-page"),
+                InventoryBatch(final=True),
+            ]
+        ),
+    )
+    await InventorySyncCoordinator(store=store).run((source,))
+    assert len(store.receipts) == 2
+    assert store.receipts[0]["context_digest"] == collection_context_digest(source.manifest)
+    assert store.receipts[1]["previous_digest"] == store.receipts[0]["digest"]
+    assert store.receipts[0]["cursor"] is None
+    assert store.receipts[1]["cursor"] == "next-page"
+    assert store.promoted == ["attempt-1"]
+
+
+async def test_unverified_relationships_never_enter_the_promoted_snapshot() -> None:
+    store = _Store()
+    source = _source(
+        "arg",
+        _Inventory(
+            [
+                InventoryBatch(
+                    resources=(
+                        ResourceRecord(resource_id="resource-1", type="compute.vm"),
+                        ResourceRecord(resource_id="resource-2", type="compute.vm"),
+                    ),
+                    links=(
+                        LinkRecord(
+                            from_id="resource-1",
+                            from_type="compute.vm",
+                            link_type="depends_on",
+                            to_id="resource-2",
+                            to_type="compute.vm",
+                        ),
+                    ),
+                ),
+                InventoryBatch(final=True),
+            ]
+        ),
+    )
+    await InventorySyncCoordinator(store=store).run((source,))
+    assert store.promoted == ["attempt-1"]
+    assert not any(batch.links for batch in store.batches["attempt-1"])
+    assert store.promoted_manifests[0].metadata["relationship_complete"] is False
+
+
+async def test_oversized_observation_cannot_advance_active_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("fdai.delivery.inventory_sync._MAX_OBSERVED_RESOURCES", 1)
+    store = _Store()
+    observations: list[PromotedInventoryObservation] = []
+
+    async def observe(observation: PromotedInventoryObservation) -> None:
+        observations.append(observation)
+
+    source = _source(
+        "arg",
+        _Inventory(
+            [
+                InventoryBatch(
+                    resources=(
+                        ResourceRecord(resource_id="resource-1", type="compute.vm"),
+                        ResourceRecord(resource_id="resource-2", type="compute.vm"),
+                    )
+                ),
+                InventoryBatch(final=True),
+            ]
+        ),
+    )
+
+    with pytest.raises(InventorySourcesExhaustedError):
+        await InventorySyncCoordinator(store=store, promotion_observer=observe).run((source,))
+
+    assert store.promoted == []
+    assert observations == []
+    assert store.failed[0][1].code is InventoryFailureCode.PARTIAL
+
+
+@pytest.mark.parametrize("stage", ["begin", "enrichment", "promotion", "observer"])
+async def test_end_to_end_deadline_bounds_every_stage(
+    monkeypatch: pytest.MonkeyPatch, stage: str
+) -> None:
+    store = _Store()
+
+    async def stall(*args: object) -> None:
+        await asyncio.Event().wait()
+
+    class _Enricher:
+        async def enrich(
+            self, observation: PromotedInventoryObservation
+        ) -> PromotedInventoryObservation:
+            if stage == "enrichment":
+                await stall()
+            return observation
+
+    if stage in {"begin", "promotion"}:
+        monkeypatch.setattr(store, "begin" if stage == "begin" else "promote", stall)
+    coordinator = InventorySyncCoordinator(
+        store=store,
+        promotion_enricher=_Enricher(),
+        promotion_observer=stall if stage == "observer" else None,
+        progress_deadline_seconds=0.02,
+        attempt_deadline_seconds=0.04,
+    )
+
+    with pytest.raises(InventorySourcesExhaustedError):
+        await coordinator.run((_source("arg", _Inventory([InventoryBatch(final=True)])),))
+
+    assert store.promoted == (["attempt-1"] if stage == "observer" else [])
+    if stage in {"enrichment", "promotion"}:
+        assert store.failed[0][1].code is InventoryFailureCode.PARTIAL
+
+
+@pytest.mark.parametrize("cancelled", [False, True])
+@pytest.mark.parametrize("close_error", [False, True])
+async def test_stream_close_is_bounded_after_run_deadline_or_cancellation(cancelled, close_error):
+    store = _Store()
+    entered = asyncio.Event()
+    closing = asyncio.Event()
+    release = asyncio.Event()
+
+    class StalledStream:
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            entered.set()
+            await asyncio.Event().wait()
+
+        async def aclose(self):
+            closing.set()
+            if close_error:
+                raise RuntimeError("synthetic source cleanup error")
+            await release.wait()
+
+    class StalledInventory:
+        def full_snapshot(self):
+            return StalledStream()
+
+    coordinator = InventorySyncCoordinator(
+        store=store,
+        progress_deadline_seconds=0.01,
+        attempt_deadline_seconds=10 if cancelled else 0.01,
+    )
+    task = asyncio.create_task(coordinator.run((_source("arg", StalledInventory()),)))
+    try:
+        await asyncio.wait_for(entered.wait(), timeout=1)
+        if cancelled:
+            task.cancel()
+        await asyncio.wait_for(closing.wait(), timeout=1)
+        completed, _ = await asyncio.wait({task}, timeout=0.2)
+        assert completed, "stream cleanup outlived its bounded source attempt"
+        with pytest.raises(asyncio.CancelledError if cancelled else InventorySourcesExhaustedError):
+            await task
+        assert not store.promoted
+        assert store.failed[0][1].code is InventoryFailureCode.PARTIAL
+    finally:
+        release.set()
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.parametrize("close_error", [False, True])
+async def test_stream_close_failure_after_final_fence_never_promotes(close_error):
+    store = _Store()
+
+    class ClosingStream:
+        final_sent = False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if self.final_sent:
+                raise StopAsyncIteration
+            self.final_sent = True
+            return InventoryBatch(final=True)
+
+        async def aclose(self):
+            if close_error:
+                raise RuntimeError("synthetic source cleanup error")
+            await asyncio.Event().wait()
+
+    class ClosingInventory:
+        def full_snapshot(self):
+            return ClosingStream()
+
+    coordinator = InventorySyncCoordinator(
+        store=store,
+        progress_deadline_seconds=0.01,
+        attempt_deadline_seconds=1,
+    )
+    with pytest.raises(InventorySourcesExhaustedError):
+        await asyncio.wait_for(coordinator.run((_source("arg", ClosingInventory()),)), timeout=0.2)
+    assert not store.promoted
+    assert store.failed[0][1].code is InventoryFailureCode.PARTIAL
+    assert store.failed[0][1].message == "inventory source cleanup failed or exceeded its deadline"
+
+
+def test_drop_accumulation_is_bounded_even_without_a_projection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("fdai.delivery.inventory_sync._MAX_OBSERVED_DROPS", 1)
+    accumulator = _ObservationAccumulator(enabled=False, relationship_mapping_catalog=None)
+    drop = RelationshipDrop(reason=RelationshipDropReason.UNVERIFIED_METADATA)
+    accumulator.add(InventoryBatch(relationship_drops=(drop,)))
+
+    with pytest.raises(InventoryStreamError, match="drops exceeded"):
+        accumulator.add(InventoryBatch(relationship_drops=(drop,)))
+    with pytest.raises(InventoryStreamError, match="drops exceeded"):
+        accumulator.add_relationship_drops((drop,))
+
+
+def test_truncated_properties_fail_before_staging_even_without_projection() -> None:
+    accumulator = _ObservationAccumulator(enabled=False, relationship_mapping_catalog=None)
+    with pytest.raises(InventoryStreamError, match="truncated inventory"):
+        accumulator.add(
+            InventoryBatch(
+                resources=(
+                    ResourceRecord(
+                        resource_id="example",
+                        type="compute.vm",
+                        props={"_truncated": True},
+                    ),
+                )
+            )
+        )
+
+
+def test_continuation_token_failure_is_partial_not_authentication() -> None:
+    failure = classify_inventory_failure(
+        RuntimeError("ARG returned a truncated result without a continuation token")
+    )
+    assert failure.code is InventoryFailureCode.PARTIAL
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf")])
+def test_collection_deadlines_reject_nonfinite_values(value: float) -> None:
+    with pytest.raises(ValueError):
+        InventorySyncCoordinator(store=_Store(), progress_deadline_seconds=value)
+    with pytest.raises(ValueError):
+        InventorySyncCoordinator(store=_Store(), attempt_deadline_seconds=value)
 
 
 class _StallingInventory:
@@ -339,7 +655,10 @@ async def test_absolute_ceiling_bounds_a_source_that_keeps_rearming() -> None:
             (_source("arg", _SlowButProgressingInventory(beats=100, gap_seconds=0.05)),)
         )
 
-    assert store.failed[0][1].message == "inventory source exceeded its absolute ceiling"
+    assert store.failed[0][1].code is InventoryFailureCode.PARTIAL
+    assert store.failed[0][1].message == (
+        "inventory candidate was cancelled before promotion completed"
+    )
 
 
 async def test_timed_out_attempt_closes_its_source_stream() -> None:
@@ -761,6 +1080,10 @@ async def test_promotion_enrichment_stages_reviewed_static_web_app_operational_s
     ("source_revision", "evidence_refs"),
     [
         ("not-content-addressed", ("not-content-addressed",)),
+        (
+            "azure-static-web-app-environment:sha256:" + "1" * 63 + "g",
+            ("azure-static-web-app-environment:sha256:" + "1" * 63 + "g",),
+        ),
         (
             "azure-static-web-app-environment:sha256:" + "1" * 64,
             ("azure-static-web-app-environment:sha256:" + "2" * 64,),

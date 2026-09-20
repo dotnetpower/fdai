@@ -144,7 +144,7 @@
     {
       "label": "console: prepare full stack",
       "type": "shell",
-      "command": "bash scripts/deployment/local/prepare-console-full-stack.sh --auth-mode browser-entra",
+      "command": "bash scripts/deployment/local/prepare-console-full-stack.sh --defer-authoritative-inventory --auth-mode browser-entra",
       "options": {
         "env": {
           "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION": "1"
@@ -165,7 +165,7 @@
       "label": "console: prepare full stack (Azure CLI debug, Contributor)",
       "hide": true,
       "type": "shell",
-      "command": "bash scripts/deployment/local/prepare-console-full-stack.sh --auth-mode azure-cli",
+      "command": "bash scripts/deployment/local/prepare-console-full-stack.sh --defer-authoritative-inventory --auth-mode azure-cli",
       "options": {
         "env": {
           "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION": "1"
@@ -361,6 +361,30 @@
       }
     },
     {
+      "label": "console: restart full stack",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra --replace-existing",
+      "dependsOn": ["console: require primary worktree"],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-stack-restart",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "service=console-stack event=starting$",
+          "endsPattern": "service=console-stack event=(ready|failed)(?: |$)"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "console-stack-restart",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": { "instanceLimit": 1 }
+    },
+    {
       "label": "console: start full stack (Azure CLI debug, Contributor)",
       "dependsOrder": "sequence",
       "dependsOn": [
@@ -554,7 +578,7 @@
     {
       "label": "dev discuss: start or restart profiled services",
       "type": "shell",
-      "command": "FDAI_DEVELOPMENT_DIAGNOSTICS=1 bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra",
+      "command": "bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra --replace-existing",
       "dependsOrder": "sequence",
       "dependsOn": [
         "console: require primary worktree",

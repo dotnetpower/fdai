@@ -33,7 +33,7 @@ from fdai_service_contracts.ontology_query import content_digest
 DIGEST = "sha256:" + ("a" * 64)
 
 
-def _intent() -> DiscoveryIntent:
+def _intent(*, limits: DiscoveryLimits | None = None) -> DiscoveryIntent:
     predicate = DiscoveryPredicate(field="name", operator="contains", values=("example",))
     values: dict[str, object] = {
         "result_kind": DiscoveryResultKind.LIST,
@@ -41,7 +41,7 @@ def _intent() -> DiscoveryIntent:
         "scope_kind": DiscoveryScopeKind.SUBSCRIPTION,
         "scope_digest": DIGEST,
         "predicates": (predicate,),
-        "limits": DiscoveryLimits(),
+        "limits": limits or DiscoveryLimits(),
         "include_command_explanation": True,
         "unresolved_modifiers": (),
         "execution_authority": False,
@@ -106,6 +106,25 @@ def _eligibility(
         freshness_seconds=10,
         reason_code=reason,
     )
+
+
+def _merge_plan(operation_id: str = "azure.arg.resources.list", *, limits=None):
+    return compile_discovery_routes(
+        intent=_intent(limits=limits),
+        profile=_profile(),
+        authorization_ceiling_digest=DIGEST,
+        eligibility=(_eligibility(operation_id, available=True, complete=True),),
+    )[0].plan
+
+
+def test_router_rejects_limits_above_the_registered_profile() -> None:
+    with pytest.raises(ValueError, match="exceeds profile limit: max_results"):
+        compile_discovery_routes(
+            intent=_intent(limits=DiscoveryLimits(max_results=2000)),
+            profile=_profile(),
+            authorization_ceiling_digest=DIGEST,
+            eligibility=(),
+        )
 
 
 def test_router_uses_narrowest_complete_backend() -> None:
@@ -199,7 +218,10 @@ def test_merge_preserves_unmapped_observation_and_partial_completeness() -> None
         reason_code="page_limit",
     )
 
-    merged = merge_discovery_results((result,))
+    plan = _merge_plan()
+    assert plan is not None
+    result = result.model_copy(update={"plan_digest": plan.plan_digest})
+    merged = merge_discovery_results((result,), plans=(plan,))
 
     assert merged.observations == (observation,)
     assert merged.complete is False
@@ -229,5 +251,56 @@ def test_merge_rejects_conflicting_mapping_for_same_provider_ref() -> None:
         update={"plan_digest": "sha256:" + ("b" * 64), "observations": (mapped,)}
     )
 
+    first_plan = _merge_plan()
+    second_plan = _merge_plan("azure.arm.resources.list")
+    assert first_plan is not None and second_plan is not None
+    first = first.model_copy(update={"plan_digest": first_plan.plan_digest})
+    second = second.model_copy(
+        update={"plan_digest": second_plan.plan_digest, "backend": second_plan.backend}
+    )
     with pytest.raises(ValueError, match="conflicting provider observations"):
-        merge_discovery_results((first, second))
+        merge_discovery_results((first, second), plans=(first_plan, second_plan))
+
+
+def test_merge_enforces_the_registered_result_limit() -> None:
+    plan = _merge_plan(limits=DiscoveryLimits(max_results=1))
+    assert plan is not None
+    observations = tuple(
+        ProviderResourceObservation(
+            provider_ref_digest="sha256:" + digit * 64,
+            provider_type="Example.Provider/widgets",
+            scope_kind="subscription",
+            mapping_status="unmapped",
+            evidence_ref="discovery:example",
+        )
+        for digit in ("a", "b")
+    )
+    result = DiscoveryPlanResult(
+        plan_digest=plan.plan_digest,
+        universe="arm_resources",
+        backend="resource_graph",
+        status="covered",
+        complete=True,
+        truncated=False,
+        observations=observations,
+        observed_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    with pytest.raises(ValueError, match="plan result limit"):
+        merge_discovery_results((result,), plans=(plan,))
+
+
+def test_merge_cannot_omit_an_expected_plan() -> None:
+    first_plan = _merge_plan()
+    second_plan = _merge_plan("azure.arm.resources.list")
+    assert first_plan is not None and second_plan is not None
+    result = DiscoveryPlanResult(
+        plan_digest=first_plan.plan_digest,
+        universe="arm_resources",
+        backend="resource_graph",
+        status="covered",
+        complete=True,
+        truncated=False,
+        observed_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    with pytest.raises(ValueError, match="complete expected plan set"):
+        merge_discovery_results((result,), plans=(first_plan, second_plan))

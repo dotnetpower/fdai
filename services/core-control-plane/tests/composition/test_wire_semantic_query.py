@@ -943,6 +943,12 @@ async def test_runtime_rejects_unavailable_temporal_evidence_kinds() -> None:
 
 async def test_temporal_metric_evidence_holds_on_cross_source_authority_conflict() -> None:
     object_type = _object_type()
+    store = InMemoryOntologyInstanceStore(object_types=(object_type,), link_types=())
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="resource-a", object_type="Resource", properties={"id": "resource-a"}
+        )
+    )
     runtime = build_semantic_query_runtime(
         model=_TemporalEvidenceModel(_definition()),
         ontology_release=build_ontology_release(
@@ -950,10 +956,7 @@ async def test_temporal_metric_evidence_holds_on_cross_source_authority_conflict
             function_types=operational_function_types(()),
         ),
         ontology_catalog=_catalog(object_type),
-        ontology_store=InMemoryOntologyInstanceStore(
-            object_types=(object_type,),
-            link_types=(),
-        ),
+        ontology_store=store,
         topology_reader=_EmptyTopologyReader(),
         metric_registry=_metric_registry(),
         metric_window_provider=_IncompleteMetricWindowProvider(),
