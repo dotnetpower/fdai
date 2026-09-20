@@ -315,10 +315,10 @@
         "action_type": "",
         "winning_domain": "",
         "owner_available": false,
-        "quorum_required": 2
+        "quorum_required": 1
       }
     },
-    "decision_digest": "sha256:3eb32762001cf40a381d44b97c2782206ca38dc2e4fdc5ab73a27d02a30db48e",
+    "decision_digest": "sha256:8135ad872e8b1c11bf9dc48b1493b55375028c8c93ba59ff3f8550a796ec757d",
     "evidence_digest": "sha256:cd23abc537306cc89c0b87ba78df646443fdb883eeb3baebe1fac70779d8aa9a"
   }
 }
