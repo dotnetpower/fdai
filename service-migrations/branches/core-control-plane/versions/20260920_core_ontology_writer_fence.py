@@ -20,7 +20,10 @@ rollback = {
 def upgrade() -> None:
     op.execute("""
 INSERT INTO state_kv (key,value) VALUES
-('ontology:writer-protocol','{"schema_version":"1.0.0","minimum_writer_version":1}')
+(
+    'ontology:writer-protocol',
+    jsonb_build_object('schema_version', '1.0.0', 'minimum_writer_version', 1)
+)
 ON CONFLICT (key) DO NOTHING;
 CREATE FUNCTION enforce_ontology_writer_protocol() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE barrier jsonb;
@@ -62,7 +65,9 @@ def downgrade() -> None:
 DO $$ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM state_kv WHERE key='ontology:writer-protocol'
-        AND value='{"schema_version":"1.0.0","minimum_writer_version":1}'::jsonb
+        AND value=jsonb_build_object(
+            'schema_version', '1.0.0', 'minimum_writer_version', 1
+        )
     ) THEN
         RAISE EXCEPTION 'restore the legacy graph and permissive barrier before downgrade'
             USING ERRCODE='55000';

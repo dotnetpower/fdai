@@ -26,12 +26,14 @@ rollback = {
 def upgrade() -> None:
     with op.get_context().autocommit_block():
         op.execute(
-            "CREATE INDEX CONCURRENTLY inventory_observation_journal_scope_watermark_idx "
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS "
+            "inventory_observation_journal_scope_watermark_idx "
             "ON inventory_observation_journal (scope_ref, watermark) "
             "INCLUDE (source_revision, effective_at)"
         )
         op.execute(
-            "CREATE INDEX CONCURRENTLY inventory_correction_pending_scope_watermark_idx "
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS "
+            "inventory_correction_pending_scope_watermark_idx "
             "ON inventory_observation_partition (scope_ref, last_watermark) "
             "WHERE state='correction_pending'"
         )
@@ -39,5 +41,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     with op.get_context().autocommit_block():
-        op.execute("DROP INDEX CONCURRENTLY inventory_correction_pending_scope_watermark_idx")
-        op.execute("DROP INDEX CONCURRENTLY inventory_observation_journal_scope_watermark_idx")
+        op.execute(
+            "DROP INDEX CONCURRENTLY IF EXISTS inventory_correction_pending_scope_watermark_idx"
+        )
+        op.execute(
+            "DROP INDEX CONCURRENTLY IF EXISTS inventory_observation_journal_scope_watermark_idx"
+        )

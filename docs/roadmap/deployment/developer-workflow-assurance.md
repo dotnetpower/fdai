@@ -128,6 +128,9 @@ unready but retries target resolution within five seconds instead of waiting its
 The profiled Core runtime also owns one bounded asynchronous pool for its shared StateStore and
 closes that pool after dependent workers and transports stop. Development diagnostics can measure
 the resulting process and connection counts but never turn those measurements into authority.
+The local analyzer closes its tick-scoped decision-evidence and run-receipt StateStore pools before
+the next loop interval. A clean tick cannot leave asynchronous pool workers for garbage collection,
+and a persistence failure still closes its store before readiness remains unavailable.
 
 ## Validation stages and reuse
 

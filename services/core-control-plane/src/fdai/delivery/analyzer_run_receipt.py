@@ -81,6 +81,10 @@ async def record_analyzer_run_receipt(
         raise AnalyzerRunReceiptPersistenceError(
             f"analyzer run receipt persistence failed: {type(exc).__name__}"
         ) from exc
+    finally:
+        close = getattr(store, "aclose", None)
+        if callable(close):
+            await close()
 
 
 __all__ = [

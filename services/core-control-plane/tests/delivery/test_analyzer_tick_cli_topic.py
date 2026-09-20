@@ -3,10 +3,13 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from fdai.delivery import analyzer_run_receipt as analyzer_run_receipt_module
 from fdai.delivery import analyzer_tick_cli as analyzer_tick_cli_module
+from fdai.delivery import analyzer_tick_cli_composition as analyzer_composition
 from fdai.delivery.analyzer_run_receipt import (
     AnalyzerRunReceiptPersistenceError,
     record_analyzer_run_receipt,
@@ -87,6 +90,21 @@ def test_missing_state_store_leaves_target_admission_unbound(
     assert build_decision_evidence_admission_provider() is None
 
 
+async def test_target_admission_provider_closes_analyzer_owned_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = SimpleNamespace(aclose=AsyncMock())
+    monkeypatch.setenv("FDAI_STATE_STORE_DSN", "postgresql://example/fdai")
+    monkeypatch.setattr(analyzer_composition, "PostgresStateStore", lambda **_: store)
+
+    provider = build_decision_evidence_admission_provider()
+    assert provider is not None
+
+    await provider.aclose()
+
+    store.aclose.assert_awaited_once_with()
+
+
 def test_run_receipts_prefer_explicit_then_platform_execution_identity() -> None:
     assert (
         resolve_analyzer_run_id(
@@ -112,9 +130,15 @@ def test_run_receipts_reject_unstable_whitespace_identity() -> None:
 async def test_run_receipt_wraps_only_the_persistence_boundary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    closed = False
+
     class FailingStore:
         async def record(self, **_values: object) -> None:
             raise ConnectionError("database unavailable")
+
+        async def aclose(self) -> None:
+            nonlocal closed
+            closed = True
 
     monkeypatch.setattr(
         analyzer_run_receipt_module,
@@ -132,6 +156,7 @@ async def test_run_receipt_wraps_only_the_persistence_boundary(
             recorded_at=datetime(2026, 9, 14, tzinfo=UTC),
             report={"failed": False},
         )
+    assert closed is True
 
 
 def test_trace_window_defaults_to_the_analyzer_window() -> None:

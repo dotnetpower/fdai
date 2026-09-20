@@ -30,6 +30,17 @@ from fdai.shared.providers.metric import MetricProvider
 _LOGGER = logging.getLogger("fdai.analyzer_tick")
 
 
+class _AnalyzerDecisionEvidenceAdmissionProvider(StateStoreDecisionEvidenceAdmissionProvider):
+    """Own the analyzer-only Postgres store for one target-resolution pass."""
+
+    def __init__(self, store: PostgresStateStore) -> None:
+        super().__init__(store=store)
+        self._owned_store = store
+
+    async def aclose(self) -> None:
+        await self._owned_store.aclose()
+
+
 def build_inventory_sources() -> AnalyzerInventorySources | None:
     """Bind logical and provider-native inventory views from one DSN."""
 
@@ -93,8 +104,8 @@ def build_decision_evidence_admission_provider() -> (
             extra={"reason": "state_store_dsn_absent"},
         )
         return None
-    return StateStoreDecisionEvidenceAdmissionProvider(
-        store=PostgresStateStore(
+    return _AnalyzerDecisionEvidenceAdmissionProvider(
+        PostgresStateStore(
             config=PostgresStateStoreConfig(
                 dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
             )

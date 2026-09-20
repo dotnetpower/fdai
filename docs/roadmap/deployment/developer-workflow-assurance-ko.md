@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 25fffcb36915891ec6c92b38d423fa3851ca672d
+translation_source_sha: 20095265b070a13f528352173ec25f5b87e909fa
 translation_revised: 2026-09-20
 ---
 
@@ -133,6 +133,9 @@ Azure OpenAI 배포를 선택하거나 호출하지 않습니다.
 프로파일링된 Core 런타임은 공유 StateStore에 대해 범위가 제한된 비동기 connection pool 하나를
 소유하고, 의존하는 worker와 transport가 중지된 뒤 해당 pool을 닫습니다. 개발 진단은 그 결과인
 프로세스 및 연결 수를 측정할 수 있지만, 측정값을 권한으로 바꾸지는 않습니다.
+로컬 analyzer는 다음 loop interval 전에 tick 범위의 decision-evidence 및 run-receipt StateStore
+pool을 닫습니다. 정상 tick은 garbage collection 대상으로 비동기 pool worker를 남길 수 없으며,
+영속화 실패도 준비 상태를 사용할 수 없음으로 유지하기 전에 store를 닫습니다.
 
 ## 검증 단계와 결과 재사용
 
