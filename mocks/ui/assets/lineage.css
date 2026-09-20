@@ -46,7 +46,7 @@
 .ln-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .ln-tools button { min-width: 36px; }
 .ln-tools output { width: 44px; text-align: center; font-size: var(--cs-type-label-size); font-variant-numeric: tabular-nums; }
-.ln-page .ln-canvas-scroll { position: relative; overflow: auto; height: clamp(380px, calc(100dvh - 288px), 900px); background-color: #fafbfd; background-image: radial-gradient(circle, #b3bfce 1px, transparent 1.25px); background-size: 20px 20px; cursor: grab; }
+.ln-page .ln-canvas-scroll { position: relative; overflow: auto; height: clamp(380px, calc(100dvh - 288px), 900px); background-color: #fafbfd; background-image: radial-gradient(circle, #dce2e9 1px, transparent 1.25px); background-size: 20px 20px; cursor: grab; }
 .ln-page .ln-canvas-scroll.is-dragging { cursor: grabbing; user-select: none; }
 #lineageCanvasSize { width: 2010px; height: 1060px; }
 .ln-canvas { position: relative; width: 2010px; height: 1060px; transform-origin: top left; }
