@@ -142,6 +142,8 @@ checks are explicit; route plans never add an unscoped repository runner to ever
 Workflow guidance keeps the Constitution and traceability context; deeper runtime authority
 documents load for changes to those runtime contracts rather than every CI tooling edit.
 Core quantity/accounting checks use the root development extra's locked Kubernetes utility without contacting a cluster. Its untyped import exception is limited to `kubernetes.utils.quantity`; the adapter validates returned Decimal values. Dependency changes retain focused ownership and Core-wheel checks and do not enable the diagnostic channel or live collection.
+When root CI collects service sources, its `dev` extra mirrors every third-party package imported by
+those sources. Service manifests remain authoritative for runtime images and package ownership.
 
 | Stage | Required evidence | Reuse boundary |
 |-------|-------------------|----------------|

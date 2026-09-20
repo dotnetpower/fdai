@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f70c89472d2e6c30036e810db86a0f64bc072d05
+translation_source_sha: bc922336abda0e9b1756a5064f04d384ef98b3d3
 translation_revised: 2026-09-20
 ---
 # 프로젝트 구조
@@ -461,7 +461,8 @@ Var는 순수 승인 대기 데이터를 비공개 결정 레코드 도우미에
   (Rego), [infra/](../../../infra) (Terraform HCL).
 - 리포 루트에 **하나의 lockfile** (`uv.lock` 또는 동등물)을 두고 루트 `pyproject.toml`은
   `package = false`인 virtual workspace입니다. 각 런타임 서비스와 공유 패키지는 자체 배포 매니페스트를 소유합니다.
-  소스 체크아웃 호환성 검사는 서비스 코덱을 가져오기 전에 `packages/runtime-diagnostics/src/`를 포함하여 선언된 모든 공유 패키지 소스 루트를 추가합니다. 서비스 테스트 모음 매니페스트는 서비스 소유 회귀 검사마다 담당자를 정확히 하나 지정하고, 의존성 및 가져오기 매니페스트는 서비스가 직접 사용하는 공유 배포판을 모두 명시합니다. 보안 lockfile 갱신은 이전 이미지 근거를 무효화하며 선택된 이미지를 다시 빌드하고 검사해야 합니다.
+  서비스 소스 트리를 직접 가져오는 루트 CI는 런타임 의존성 소유권이 서비스 매니페스트에
+  남아 있더라도 가져오는 모든 서드파티 패키지를 루트 `dev` extra에 반영합니다. 소스 체크아웃 호환성 검사는 서비스 코덱을 가져오기 전에 `packages/runtime-diagnostics/src/`를 포함하여 선언된 모든 공유 패키지 소스 루트를 추가합니다. 서비스 테스트 모음 매니페스트는 서비스 소유 회귀 검사마다 담당자를 정확히 하나 지정하고, 의존성 및 가져오기 매니페스트는 서비스가 직접 사용하는 공유 배포판을 모두 명시합니다. 보안 lockfile 갱신은 이전 이미지 근거를 무효화하며 선택된 이미지를 다시 빌드하고 검사해야 합니다.
 - `fdai-cost-governance` 같은 선택적 버티컬 배포판은 `extensions/` 아래에 둡니다. Core는
   불변 매니페스트, 수명 주기, 프로바이더 및 권한 없는 계약을 소유하고, 검토된 이미지
   composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: d85fa95b209473ee9835498d15f23b5b1d8c0184
+translation_source_sha: fd1f331f03792f61a05ab808aa358ff39de8552b
 translation_revised: 2026-09-20
 ---
 
@@ -86,6 +86,8 @@ translation_revised: 2026-09-20
 루트 개발 전용 Rich와 pyte 의존성은 독립 배포 CLI의 테스트 수집을 지원합니다. Cost
 Governance 배포판에 포함되거나 설치, 활성화, 승격 상태를 바꾸지 않으며, 런타임 이미지는
 계속 서비스 소유 의존성을 사용합니다.
+루트 `dev` extra는 CI가 Core 기반 확장 테스트를 수집할 때 가져오는 서드파티 패키지도
+반영합니다. 이 테스트 환경 반영은 패키지 소유권을 이전하지 않습니다.
 
 > **조립 격리:** 공유 Operator 경로 조립은 검증된 인수인계 바인딩으로 웹 대화 제안을 데코레이션할
 > 수 있습니다. 이 데코레이터는 Cost Governance 경로를 래핑하거나 패키지 활성화를 변경하거나 비용

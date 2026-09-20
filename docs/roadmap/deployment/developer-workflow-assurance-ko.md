@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 20095265b070a13f528352173ec25f5b87e909fa
+translation_source_sha: eb1669f2b798cf3f867d76fb0ddb221011e61854
 translation_revised: 2026-09-20
 ---
 
@@ -147,6 +147,8 @@ pool을 닫습니다. 정상 tick은 garbage collection 대상으로 비동기 p
 워크플로 지침은 헌법과 추적 근거 문맥을 유지합니다. 상세 런타임 권한 문서는 모든 CI 도구
 편집이 아니라 해당 런타임 계약을 변경할 때 불러옵니다.
 Core 수량·리소스 계산 검사는 클러스터에 접속하지 않고 루트 개발 의존성의 잠긴 Kubernetes 도구를 사용합니다. 타입 선언 부재에 대한 예외는 `kubernetes.utils.quantity`에만 적용하며 어댑터는 반환된 Decimal 값을 검증합니다. 의존성 변경은 소유 범위와 Core wheel 검사를 유지하며 진단 채널이나 실제 수집을 활성화하지 않습니다.
+루트 CI가 서비스 소스를 수집할 때는 해당 소스가 가져오는 모든 서드파티 패키지를 `dev`
+extra에 반영합니다. 런타임 이미지와 패키지 소유권은 서비스 매니페스트가 계속 담당합니다.
 
 | 단계 | 필요한 근거 | 재사용 경계 |
 |------|-------------|-------------|
