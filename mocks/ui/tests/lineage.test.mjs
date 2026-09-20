@@ -304,6 +304,37 @@ try {
   assert.ok(await frame.locator("#lineageViewport").evaluate(element => element.scrollLeft) > 0);
   const mapWindow = await frame.locator("#lineageMapWindow").evaluate(element => ({ width: Number(element.getAttribute("width")), height: Number(element.getAttribute("height")) }));
   assert.ok(mapWindow.width > 0 && mapWindow.width <= 2010 && mapWindow.height > 0 && mapWindow.height <= 1060);
+  const navigator = frame.locator("#lineageMap");
+  const navigatorBox = await navigator.boundingBox();
+  const navigatorPosition = () => frame.locator("#lineageViewport").evaluate(element => ({
+    left: element.scrollLeft, top: element.scrollTop,
+    mapLeft: Number(document.querySelector("#lineageMapWindow").getAttribute("x")),
+    mapTop: Number(document.querySelector("#lineageMapWindow").getAttribute("y")),
+  }));
+  await page.mouse.move(navigatorBox.x + navigatorBox.width * .3, navigatorBox.y + navigatorBox.height * .3);
+  await page.mouse.down();
+  let previousNavigatorPosition = await navigatorPosition();
+  for (const fraction of [.45, .6, .7]) {
+    await page.mouse.move(navigatorBox.x + navigatorBox.width * fraction, navigatorBox.y + navigatorBox.height * fraction, { steps: 3 });
+    const position = await navigatorPosition();
+    assert.ok(position.left > previousNavigatorPosition.left && position.top > previousNavigatorPosition.top, "navigator must pan both axes while the mouse button remains held");
+    assert.equal(position.mapLeft, position.left);
+    assert.equal(position.mapTop, position.top);
+    previousNavigatorPosition = position;
+  }
+  await page.mouse.move(navigatorBox.x + navigatorBox.width + 30, navigatorBox.y + navigatorBox.height + 20);
+  const capturedPosition = await navigatorPosition();
+  assert.ok(capturedPosition.left > previousNavigatorPosition.left, "captured pointer must keep panning outside the navigator");
+  await page.mouse.up();
+  assert.deepEqual(await navigatorPosition(), capturedPosition, "release must not recenter the graph a second time");
+  await page.mouse.move(navigatorBox.x + 10, navigatorBox.y + 10);
+  assert.deepEqual(await navigatorPosition(), capturedPosition, "hover after release must not pan");
+  assert.equal(await navigator.evaluate(element => element.classList.contains("is-dragging")), false);
+  await navigator.press("Enter");
+  const keyboardCenter = await frame.locator("#lineageViewport").evaluate(element => ({ left: (2010 - element.clientWidth) / 2, top: (1060 - element.clientHeight) / 2 }));
+  const keyboardPosition = await navigatorPosition();
+  assert.ok(Math.abs(keyboardPosition.left - keyboardCenter.left) <= 1 && Math.abs(keyboardPosition.top - keyboardCenter.top) <= 1, "keyboard activation must still center the graph");
+  evidence.push({ name: "Navigator pans continuously before release, captures outside movement and preserves keyboard centering", disposition: "passed" });
   await frame.locator("#lineageMapToggle").click();
   assert.equal(await frame.locator("#lineageMap").isVisible(), false);
   await frame.locator("#lineageMapToggle").click();

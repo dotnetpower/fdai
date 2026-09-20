@@ -241,12 +241,9 @@
       updateMap();
     }
     if (button.id === "lineageMapToggle") { const map = byId("lineageMap"); map.hidden = !map.hidden; button.setAttribute("aria-expanded", String(!map.hidden)); }
-    if (button.id === "lineageMap") {
-      const bounds = button.getBoundingClientRect();
-      const horizontal = event.detail ? (event.clientX - bounds.left) / bounds.width : .5;
-      const vertical = event.detail ? (event.clientY - bounds.top) / bounds.height : .5;
-      byId("lineageViewport").scrollLeft = horizontal * canvasWidth * zoom - byId("lineageViewport").clientWidth / 2;
-      byId("lineageViewport").scrollTop = vertical * canvasHeight * zoom - byId("lineageViewport").clientHeight / 2;
+    if (button.id === "lineageMap" && event.detail === 0) {
+      byId("lineageViewport").scrollLeft = canvasWidth * zoom / 2 - byId("lineageViewport").clientWidth / 2;
+      byId("lineageViewport").scrollTop = canvasHeight * zoom / 2 - byId("lineageViewport").clientHeight / 2;
       updateMap();
     }
     if (button.id === "lineageActual") changeZoom(1);
@@ -295,6 +292,36 @@
   }
   const viewport = byId("lineageViewport");
   viewport.addEventListener("scroll", () => { updateMap(); savePreview(); }, { passive: true });
+  const navigator = byId("lineageMap");
+  let navigatorPointer = null;
+  function moveNavigator(event) {
+    const transform = byId("lineageMiniature").getScreenCTM();
+    if (!transform) return;
+    const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(transform.inverse());
+    viewport.scrollLeft = point.x * zoom - viewport.clientWidth / 2;
+    viewport.scrollTop = point.y * zoom - viewport.clientHeight / 2;
+    updateMap();
+  }
+  navigator.addEventListener("pointerdown", event => {
+    if (!event.isPrimary || event.button !== 0 || navigatorPointer !== null) return;
+    event.preventDefault();
+    navigator.focus({ preventScroll: true });
+    navigatorPointer = event.pointerId;
+    navigator.setPointerCapture(event.pointerId);
+    navigator.classList.add("is-dragging");
+    moveNavigator(event);
+  });
+  navigator.addEventListener("pointermove", event => { if (event.pointerId === navigatorPointer) moveNavigator(event); });
+  function stopNavigator(event) {
+    if (event.pointerId !== navigatorPointer) return;
+    navigatorPointer = null;
+    navigator.classList.remove("is-dragging");
+    if (navigator.hasPointerCapture(event.pointerId)) navigator.releasePointerCapture(event.pointerId);
+    savePreview();
+  }
+  navigator.addEventListener("pointerup", stopNavigator);
+  navigator.addEventListener("pointercancel", stopNavigator);
+  navigator.addEventListener("lostpointercapture", stopNavigator);
   let drag = null;
   viewport.addEventListener("pointerdown", event => {
     if (event.pointerType === "touch" || event.button !== 0 || event.target.closest("button")) return;
