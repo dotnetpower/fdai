@@ -583,6 +583,8 @@ async def test_isolated_prepared_dependencies_reject_drift_and_preserve_new_fore
         "rollback",
         "process_restart",
         "concurrent",
+        "runtime_role",
+        "reader_role",
     ],
 )
 async def test_isolated_cursor_repair_requires_exact_committed_graph(defect):
@@ -680,13 +682,52 @@ async def test_isolated_cursor_repair_requires_exact_committed_graph(defect):
             if defect != "damage"
             else "sha256:" + "f" * 64,
         )
-        if defect in {"none", "process_restart", "concurrent"}:
+        role_name = None
+        if defect in {"runtime_role", "reader_role"}:
+            from psycopg import sql
+
+            role_name = "cursor_repair_" + uuid.uuid4().hex
+            async with await store._connect() as connection:
+                cursor = await connection.execute("SELECT current_schema() AS name")
+                schema_name = (await cursor.fetchone())["name"]
+                await connection.execute(
+                    sql.SQL(
+                        "CREATE ROLE {} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
+                        "NOINHERIT NOBYPASSRLS"
+                    ).format(sql.Identifier(role_name))
+                )
+                await connection.execute(
+                    sql.SQL("GRANT USAGE ON SCHEMA {} TO {}").format(
+                        sql.Identifier(schema_name), sql.Identifier(role_name)
+                    )
+                )
+                grants = (
+                    sql.SQL("SELECT")
+                    if defect == "reader_role"
+                    else sql.SQL("SELECT,INSERT,UPDATE,DELETE")
+                )
+                await connection.execute(
+                    sql.SQL("GRANT {} ON ALL TABLES IN SCHEMA {} TO {}").format(
+                        grants, sql.Identifier(schema_name), sql.Identifier(role_name)
+                    )
+                )
+            role_options = (
+                conninfo_to_dict(store._config.dsn).get("options", "") + f" -c role={role_name}"
+            )
+            repair_config = replace(
+                store._config, dsn=make_conninfo(store._config.dsn, options=role_options)
+            )
+        else:
+            repair_config = store._config
+        if defect in {"none", "process_restart", "concurrent", "runtime_role"}:
             basis = await inspect_inventory_cursor(store._config)
             assert basis == {
                 "status": "inspected",
                 **{key: value for key, value in request.items() if key.startswith("expected_")},
             }
-            receipt = await repair_inventory_cursor(store._config, **request)
+            receipt = await repair_inventory_cursor(repair_config, **request)
+            if role_name is not None:
+                assert receipt["database_actor"] == role_name
             if defect == "process_restart":
                 command = [
                     sys.executable,
@@ -728,16 +769,20 @@ async def test_isolated_cursor_repair_requires_exact_committed_graph(defect):
                 )
         else:
             with pytest.raises(
-                psycopg.errors.RaiseException if defect == "rollback" else ValueError
+                psycopg.errors.RaiseException
+                if defect == "rollback"
+                else psycopg.errors.InsufficientPrivilege
+                if defect == "reader_role"
+                else ValueError
             ):
-                await repair_inventory_cursor(store._config, **request)
+                await repair_inventory_cursor(repair_config, **request)
         assert await graph_rows() == before
         async with await store._connect() as connection:
             cursor = await connection.execute("SELECT key,value FROM state_kv ORDER BY key")
             states = {row["key"]: row["value"] for row in await cursor.fetchall()}
             assert states["inventory-ontology:manifest"] == manifest
             assert states["inventory-ontology:status"] == status
-            if defect in {"none", "process_restart", "concurrent"}:
+            if defect in {"none", "process_restart", "concurrent", "runtime_role"}:
                 assert states["inventory-ontology:invalidation"]["epoch"] == receipt["epoch"]
                 assert states["inventory-ontology:cursor-floor"] == {
                     "epoch": receipt["epoch"],
@@ -749,6 +794,12 @@ async def test_isolated_cursor_repair_requires_exact_committed_graph(defect):
                 assert not any(
                     key.startswith("inventory-ontology:cursor-repair:") for key in states
                 )
+        if role_name is not None:
+            async with await store._connect() as connection:
+                await connection.execute(
+                    sql.SQL("DROP OWNED BY {}").format(sql.Identifier(role_name))
+                )
+                await connection.execute(sql.SQL("DROP ROLE {}").format(sql.Identifier(role_name)))
 
 
 @pytest.mark.parametrize("defect", ["none", "numeric_type", "locked_mutation"])
