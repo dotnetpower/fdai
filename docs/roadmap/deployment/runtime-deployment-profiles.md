@@ -270,6 +270,8 @@ or stop reconciliation. Passive model-serving evidence reuses inventory identity
 failures lower only its coverage. Reconciliation bounds determine lookback, freshness, points, and timeout. The
 standalone substrate target set includes the existing subscription, workspace, exact-cluster, cost, and pipeline-stage
 roles. An inventory identity without these assignments cannot establish provider scope, metrics, logs, cost, or publication readiness.
+Each one-shot inventory process closes its runtime-settings and ontology-status database pools through
+the same asynchronous lifecycle that closes provider clients and event transport.
 
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and

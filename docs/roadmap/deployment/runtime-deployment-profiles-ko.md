@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 025495d85c82fe2cfac247bf3b1e6dfc0f75837c
+translation_source_sha: 4fe25ec3bba214a1ae50b937142d83ddf626b017
 translation_revised: 2026-09-20
 ---
 # 런타임 배포 프로파일
@@ -299,6 +299,8 @@ archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle�
 시간을 결정합니다. 독립 실행형 기반 대상 집합에는 기존 구독, 작업 영역, 정확한 클러스터, 비용 및
 파이프라인 단계 역할이 포함됩니다. 이러한 할당이 없는 인벤토리 신원은 공급자 범위, 메트릭, 로그,
 비용 또는 게시 준비 상태를 입증할 수 없습니다.
+각 일회성 인벤토리 프로세스는 provider client와 event transport를 닫는 동일한 비동기 수명 주기에서
+runtime-settings 및 ontology-status database pool을 닫습니다.
 
 관리 호스트는 선택한 Deployment 이름, 이미지 참조, 복제본 수 범위를 기록합니다. 상태 재조회는
 해당 목록 전체, 현재 관측 세대, 준비된 복제본, 같은 소스 버전에서 실행 중인 Pod 이미지 digest를

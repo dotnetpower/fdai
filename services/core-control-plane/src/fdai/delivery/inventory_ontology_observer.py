@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 from collections.abc import Awaitable, Callable
+from contextlib import AsyncExitStack
 
 from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
 
@@ -79,6 +80,7 @@ def build_ontology_observer(
     publisher: EventBusOperationalActivityPublisher,
     configuration_event_publisher: Callable[[PromotedInventoryObservation], Awaitable[int]],
     evidence_counts: dict[str, int],
+    stack: AsyncExitStack | None = None,
 ) -> tuple[InventoryPromotionObserver, InventoryPromotionRecovery]:
     """Build projection and recovery observers for promoted inventory generations."""
     observation_journal = build_observation_journal(config.dsn, os.environ)
@@ -90,6 +92,8 @@ def build_ontology_observer(
     )
     ontology_release_digest = catalog.build_release().digest
     status_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
+    if stack is not None:
+        stack.push_async_callback(status_store.aclose)
     delivery_reader = PostgresInventoryDeliveryReader(
         config=PostgresInventorySnapshotStoreConfig(dsn=config.dsn),
         scope_refs=config.scopes,

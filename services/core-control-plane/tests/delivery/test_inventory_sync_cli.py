@@ -1266,7 +1266,11 @@ async def test_not_due_tick_flushes_service_readiness_status(
             "AZURE_SUBSCRIPTION_ID": "sub-1",
         }
     )
-    runtime_settings = SimpleNamespace(effective_values=AsyncMock(return_value={}))
+    settings_store = SimpleNamespace(aclose=AsyncMock())
+    runtime_settings = SimpleNamespace(
+        effective_values=AsyncMock(return_value={}),
+        store=settings_store,
+    )
     printed = Mock()
     monkeypatch.setattr(
         "fdai.delivery.runtime_settings.runtime_settings_service_from_env",
@@ -1285,6 +1289,7 @@ async def test_not_due_tick_flushes_service_readiness_status(
     monkeypatch.setattr("builtins.print", printed)
 
     assert await _run_due_once() is config
+    settings_store.aclose.assert_awaited_once_with()
     printed.assert_called_once_with(
         "inventory reconciliation not due; change records published 0",
         flush=True,

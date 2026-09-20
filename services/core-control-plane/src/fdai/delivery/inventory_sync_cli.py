@@ -377,6 +377,7 @@ async def run(
                 scope_ref=_scope_ref(config.scopes),
             ),
             evidence_counts=evidence_counts,
+            stack=stack,
         )
         try:
             result = await InventorySyncCoordinator(
@@ -466,7 +467,13 @@ async def _load_job_config() -> InventoryJobConfig:
 
     from fdai.delivery.runtime_settings import runtime_settings_service_from_env
 
-    runtime_values = await runtime_settings_service_from_env(os.environ).effective_values()
+    service = runtime_settings_service_from_env(os.environ)
+    try:
+        runtime_values = await service.effective_values()
+    finally:
+        close = getattr(getattr(service, "store", None), "aclose", None)
+        if callable(close):
+            await close()
     return InventoryJobConfig.from_env(runtime_values=runtime_values)
 
 
