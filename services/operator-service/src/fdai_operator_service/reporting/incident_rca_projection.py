@@ -14,6 +14,21 @@ from fdai_operator_service.families.operations.contracts import (
     ProjectionReader,
     ProjectionUnavailableError,
 )
+from fdai_operator_service.reporting.chaos_results_projection import (
+    REPORT_ID as CHAOS_REPORT_ID,
+)
+from fdai_operator_service.reporting.chaos_results_projection import (
+    ChaosResultReader,
+)
+from fdai_operator_service.reporting.chaos_results_projection import (
+    registry_source as chaos_registry_source,
+)
+from fdai_operator_service.reporting.chaos_results_projection import (
+    render_report as render_chaos_report,
+)
+from fdai_operator_service.reporting.chaos_results_projection import (
+    report_summary as chaos_report_summary,
+)
 from fdai_operator_service.reporting.incident_rca_descriptor import (
     REPORT_DESCRIPTION as _REPORT_DESCRIPTION,
 )
@@ -37,17 +52,26 @@ class IncidentRcaReportingProjectionReader:
 
     fallback: ProjectionReader
     read_model: OperatorReadModel
+    chaos_results: ChaosResultReader | None = None
 
     async def read(self, query: ProjectionQuery) -> Mapping[str, object]:
         if query.operation == "report.list":
-            return _report_list()
+            return _report_list(include_chaos=self.chaos_results is not None)
         if query.operation == "report.registry":
-            return _registry()
+            return _registry(include_chaos=self.chaos_results is not None)
         if query.operation == "report.formats":
             return {"items": [{"name": "json", "content_type": "application/json"}]}
         if query.operation != "report.render":
             return await self.fallback.read(query)
-        if query.path.get("report_id") != REPORT_ID:
+        report_id = query.path.get("report_id")
+        if report_id == CHAOS_REPORT_ID:
+            if self.chaos_results is None:
+                raise ProjectionUnavailableError("chaos result projection is unavailable")
+            return await render_chaos_report(
+                self.chaos_results,
+                window_days=_window_days(query.params),
+            )
+        if report_id != REPORT_ID:
             raise ProjectionUnavailableError("unknown report")
         correlations = query.params.get("correlation_id", ())
         if len(correlations) != 1 or not correlations[0].strip():
@@ -64,46 +88,67 @@ class IncidentRcaReportingProjectionReader:
         )
 
 
-def _report_list() -> Mapping[str, object]:
+def _report_list(*, include_chaos: bool) -> Mapping[str, object]:
+    items: list[Mapping[str, object]] = [
+        {
+            "id": REPORT_ID,
+            "version": "1.0.0",
+            "name": _REPORT_NAME,
+            "description": _REPORT_DESCRIPTION,
+            "tags": list(_TAGS),
+            "widget_count": len(_TABLE_SPECS) + 1,
+            "datasources": ["audit"],
+            "variables": [
+                {
+                    "name": "correlation_id",
+                    "default": "",
+                    "values": [],
+                    "description": "Correlation id that scopes every widget in this report.",
+                }
+            ],
+        }
+    ]
+    if include_chaos:
+        items.append(chaos_report_summary())
     return {
-        "items": [
-            {
-                "id": REPORT_ID,
-                "version": "1.0.0",
-                "name": _REPORT_NAME,
-                "description": _REPORT_DESCRIPTION,
-                "tags": list(_TAGS),
-                "widget_count": len(_TABLE_SPECS) + 1,
-                "datasources": ["audit"],
-                "variables": [
-                    {
-                        "name": "correlation_id",
-                        "default": "",
-                        "values": [],
-                        "description": "Correlation id that scopes every widget in this report.",
-                    }
-                ],
-            }
-        ],
+        "items": items,
         "formats": ["json"],
     }
 
 
-def _registry() -> Mapping[str, object]:
+def _registry(*, include_chaos: bool) -> Mapping[str, object]:
+    datasources = ["audit"]
+    provenance: list[Mapping[str, object]] = [
+        {
+            "datasource": "audit",
+            "source": "audit_log",
+            "availability": "available",
+            "synthetic": False,
+            "as_of": None,
+        }
+    ]
+    if include_chaos:
+        datasources.append("chaos_results")
+        provenance.append(chaos_registry_source())
     return {
-        "datasources": ["audit"],
-        "datasource_provenance": [
-            {
-                "datasource": "audit",
-                "source": "audit_log",
-                "availability": "available",
-                "synthetic": False,
-                "as_of": None,
-            }
-        ],
+        "datasources": datasources,
+        "datasource_provenance": provenance,
         "widgets": ["query_value", "table"],
         "formats": ["json"],
     }
+
+
+def _window_days(params: Mapping[str, Sequence[str]]) -> int:
+    values = params.get("window_days", ())
+    if len(values) != 1:
+        raise ValueError("window_days MUST be supplied exactly once")
+    try:
+        window_days = int(values[0])
+    except ValueError as exc:
+        raise ValueError("window_days MUST be an integer") from exc
+    if window_days not in {1, 7, 30}:
+        raise ValueError("window_days MUST be one of 1, 7, or 30")
+    return window_days
 
 
 def _render_report(

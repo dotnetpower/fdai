@@ -1104,7 +1104,7 @@
     "services/core-control-plane/src/fdai/core/recovery/readiness.py": "dd78ead64f8047fa1158b3dae7f485746ecae0e2fcdc3abddbc36374d773d11e",
     "services/core-control-plane/src/fdai/core/recovery/verification.py": "860ade4c1c25f47cd84a7d90cd63e3fcff74a04c503f11f8076386e438b2e08a",
     "services/core-control-plane/src/fdai/core/report_feed/__init__.py": "fb7c03b8d28ceaf81c5097e38063737e6729a81ea211caf48ee7991789cc64e0",
-    "services/core-control-plane/src/fdai/core/report_feed/adapters.py": "00f9693c8cf5e46202747bc918ab9da5795ce01a148f205f4505381d900f23e9",
+    "services/core-control-plane/src/fdai/core/report_feed/adapters.py": "9e9a43c29ff1ccf83723682ba2186c14c04153f5464c92e3d63f27fd8866f2c1",
     "services/core-control-plane/src/fdai/core/report_feed/feed.py": "d7b3885eace0ddfcf41be1dfffb455ec1c6c68e58c1ad8771c8592090da81fcd",
     "services/core-control-plane/src/fdai/core/report_feed/models.py": "1cb8b646b26629f46dc6e95f8ee9ac7e2bbdb06db8bf7c44af11625f159aa03c",
     "services/core-control-plane/src/fdai/core/reporting/__init__.py": "0960ffc4dd3ea1c687150e65b48267cda057235607590e79eb6c7de608500a45",

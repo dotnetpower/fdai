@@ -79,6 +79,7 @@ from fdai.delivery.chaos.chaos_mesh import (
     ChaosMeshInjectedProbe,
     ChaosMeshInjector,
 )
+from fdai.delivery.chaos.enforce_report import import_enforce_report
 from fdai.delivery.chaos.live_injectors import (
     AzureMonitorCpuProbe,
     AzVmCpuStressInjector,
@@ -441,6 +442,18 @@ async def main() -> int:
         )
     (REPORT_ROOT / "summary.md").write_text("\n".join(md) + "\n")
     print(f"\nsummary written: {summary}", flush=True)
+    state_dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+    if state_dsn:
+        try:
+            imported = await import_enforce_report(summary, dsn=state_dsn)
+        except Exception as exc:  # noqa: BLE001 - emit only a bounded error class
+            print(
+                f"signal import failed: {type(exc).__name__}",
+                file=sys.stderr,
+                flush=True,
+            )
+            return 1
+        print(f"signals imported: {imported}", flush=True)
     return 0
 
 

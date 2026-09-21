@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 4dccbccd402a88b2e348db53bab8549901b24002
-translation_revised: 2026-08-20
+translation_source_sha: 0ec439f0a76d13efff72d0ea48d8ff89871da118
+translation_revised: 2026-09-21
 ---
 # 리포팅 서브시스템
 
@@ -83,6 +83,21 @@ visualization 타입에는 검토된 SPA 렌더러가 여전히 필요합니다.
 실행 가능한 UI 코드 전달 경로가 아니라 기능 진단입니다. 렌더러가
 제공되기 전 SPA는 raw JSON을 노출하거나 표시를 추정하지 않고 명시적
 사용 불가 상태를 보여줍니다.
+
+### 측정된 카오스 결과 원본
+
+Chaos Enforce Results 리포트는 완료된 장애 주입 결과를 측정된 읽기 전용 근거로
+제공합니다. 시나리오 실행기는 정확한 필드, 형식, 타임스탬프, 크기 및 중복 키
+검증을 통과한 범위가 제한된 리포트만 가져옵니다. Core는 각 결과를
+`report_signal`로 보존합니다. 이 가져오기는 Incident, 감사 항목, 추적, 승격 결정
+또는 자동 해결 주장을 만들지 않습니다.
+
+독립 Operator Service는 `operator_chaos_report_signal` 보안 장벽 보기를 통해 이
+레코드를 읽습니다. 서비스 역할은 Core의 `report_signal` 테이블이 아니라 보기에
+대한 `SELECT` 권한만 받습니다. 리포트 카탈로그는 이 판독기가 연결된 경우에만
+원본을 표시하며, 명시적인 `synthetic: false` 출처와 변경 권한이 없는 1일, 7일
+또는 30일 구간을 렌더링합니다. Live, Incident, Audit 및 Trace 화면은 이 관측 근거를
+복사하지 않고 각 화면의 권위 있는 계약을 유지합니다.
 
 ## 위젯 카탈로그
 
@@ -568,6 +583,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 | Core 계약, 레지스트리, engine, widget 및 기본 format | implemented | `services/core-control-plane/src/fdai/core/reporting/`; `services/core-control-plane/tests/core/reporting/` | Focused 테스트는 카탈로그 로딩, 한도, 치환, widget별 격리, 데이터 원본 계약, widget, format 및 hardening safeguard를 다룹니다. |
 | 선언형 report 카탈로그 및 스키마 | implemented | `rule-catalog/reports/`; `rule-catalog/reports/schema/report.schema.json`; reporting 카탈로그 테스트 | 검토된 YAML report와 기능 메타데이터가 범위가 제한된 스키마를 통해 로드됩니다. |
 | Operator API 읽기 경로 및 Console Reports 보기 | validated | `fdai_operator_service/reporting/incident_rca_projection.py`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Operator 및 Console 테스트 | 인증된 GET-only inventory, registry, audit-backed Incident RCA rendering 및 Console presentation이 변경 권한 없이 통과했습니다. |
+| 측정된 카오스 적용 결과 | implemented | `fdai/delivery/chaos/enforce_report.py`; `fdai_operator_service/reporting/chaos_results_projection.py`; `20260921_operator_chaos_report_read.py`; 가져오기, 변환 결과 및 마이그레이션 focused 테스트 | 엄격한 가져오기는 관측용 `report_signal` 레코드를 보존하고 Operator 역할은 필터링된 보안 장벽 보기만 읽습니다. 컨트롤 루프 권한 레코드는 만들지 않습니다. |
 | 권위 있는 데이터 원본 연결 및 운영 최신성 | in-progress | Reporting 데이터 원본 어댑터 및 출처 묶음 | 어댑터는 있지만 각 배포가 권위 있는 프로바이더를 연결하고 최신성, 사용 불가, 시간 초과 및 부분 widget 근거를 보존해야 합니다. |
 | 선택적 PDF format 및 RCA dossier delivery | validated | `fdai_operator_service/reporting/pdf_format.py`; Operator operations 경로; `console/src/routes/reports.tsx`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Operator 및 Console 테스트 | 인증된 Browser Entra가 catalog와 registry 일치, redacted 묶음 및 38809-byte PDF를 검증하면서 공백을 보존하고 새 분석을 추가하지 않았습니다. |
 
@@ -580,6 +596,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 | 2026-08-14 | implemented | Materialize되지 않은 generic operations row를 요구하는 대신 built-in Incident RCA dossier를 authoritative Operator audit reader에 연결했습니다. | `current change`; `incident_rca_projection.py`, composition binding, focused reader 테스트 3개 및 Operator family/composition 테스트 65개입니다. | 인증된 roster-to-RCA-to-report/PDF receipt를 보존해야 합니다. |
 | 2026-08-15 | validated | Built-in Incident dossier에 대한 인증된 inventory, registry, audit-backed render, Console, PDF 및 no-RCA 사용 불가 근거를 보존했습니다. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3`에 중앙 receipt가 있습니다. | 더 넓은 프로덕션 데이터 원본 캠페인은 아래 열린 항목으로 유지합니다. |
 | 2026-08-15 | implemented | format 모듈이 정확히 하나의 `FormatEncoder`를 제공하고, 내보내진 뒤 등록되거나 opt-in으로 문서화되며, `core/reporting`과 공유 계약 밖의 어떤 것도 import하지 않도록 `check-report-format-boundary` 게이트를 추가했습니다. | `current change`; `scripts/quality/architecture/check-report-format-boundary.py`; `pytest tests/integration/scripts/test_report_format_boundary.py` (5 passed); pre-commit, `verify.sh`, CI 연결. | 프로덕션 데이터 원본 및 인증된 표면 증적은 계속 열려 있습니다. |
+| 2026-09-21 | implemented | 엄격한 카오스 적용 리포트 가져오기, SELECT-only Operator 변환 결과 및 제한된 구간의 측정된 Console 리포트를 추가했습니다. | `current change`; 가져오기, report-feed, Operator 변환 결과 및 마이그레이션 경로; focused pytest, Ruff 및 strict mypy 검사입니다. | 아래 데이터 원본 근거 항목에 따라 관리되는 프로덕션 렌더링 증적을 보존해야 합니다. |
 
 ### 남은 작업
 

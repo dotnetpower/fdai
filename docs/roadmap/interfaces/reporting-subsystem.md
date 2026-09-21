@@ -80,6 +80,22 @@ in the SPA. The registry route is a capability diagnostic, not executable UI
 code delivery. Until that renderer ships, the SPA shows an explicit
 unavailable state instead of exposing raw JSON or guessing a presentation.
 
+### Measured chaos result source
+
+The Chaos Enforce Results report exposes completed fault-injection outcomes as
+measured, read-only evidence. The scenario runner imports only a bounded report
+that passes exact field, type, timestamp, size, and duplicate-key validation.
+Core retains each result as a `report_signal`; this import does not create an
+Incident, audit entry, trace, promotion decision, or auto-resolution claim.
+
+The independent Operator Service reads those records through the
+`operator_chaos_report_signal` security-barrier view. Its service role receives
+`SELECT` on the view, not on Core's `report_signal` table. The report catalog
+then advertises the source only when that reader is bound, and renders bounded
+1-, 7-, or 30-day windows with explicit `synthetic: false` provenance and no
+mutation authority. Live, Incident, Audit, and Trace screens keep their own
+authoritative contracts instead of copying this observational evidence.
+
 ## Widget catalog
 
 36 upstream builders across nine families, plus the engine-special `group` and
@@ -564,6 +580,7 @@ never crash serialization or misorder a chart. Each item is covered in
 | Core contracts, registries, engine, widgets, and default formats | implemented | `services/core-control-plane/src/fdai/core/reporting/`; `services/core-control-plane/tests/core/reporting/` | Focused tests cover catalog loading, bounds, substitution, per-widget isolation, datasource contracts, widgets, formats, and hardening safeguards. |
 | Declarative report catalog and schema | implemented | `rule-catalog/reports/`; `rule-catalog/reports/schema/report.schema.json`; reporting catalog tests | Reviewed YAML reports and capability metadata load through the bounded schema. |
 | Operator API read routes and Console Reports view | validated | `fdai_operator_service/reporting/incident_rca_projection.py`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Operator and Console tests | Authenticated GET-only inventory, registry, audit-backed Incident RCA rendering, and Console presentation passed without mutation authority. |
+| Measured chaos enforce results | implemented | `fdai/delivery/chaos/enforce_report.py`; `fdai_operator_service/reporting/chaos_results_projection.py`; `20260921_operator_chaos_report_read.py`; focused importer, projection, and migration tests | Strict imports retain observational `report_signal` records and the Operator role reads only a filtered security-barrier view. No control-loop authority record is manufactured. |
 | Authoritative datasource bindings and operational freshness | in-progress | Reporting datasource adapters and provenance envelope | Adapters exist, but each deployment must bind authoritative providers and retain freshness, unavailable, timeout, and partial-widget evidence. |
 | Optional PDF format and RCA dossier delivery | validated | `fdai_operator_service/reporting/pdf_format.py`; Operator operations routes; `console/src/routes/reports.tsx`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Operator and Console tests | Authenticated Browser Entra verified catalog and registry agreement, the redacted envelope, and a 38809-byte PDF while preserving gaps and adding no analysis. |
 
@@ -576,6 +593,7 @@ never crash serialization or misorder a chart. Each item is covered in
 | 2026-08-14 | implemented | Bound the built-in Incident RCA dossier to the authoritative Operator audit reader instead of requiring an unmaterialized generic operations row. | `current change`; `incident_rca_projection.py`, composition binding, 3 focused reader tests, and 65 Operator family/composition tests. | Retain the authenticated roster-to-RCA-to-report/PDF receipt. |
 | 2026-08-15 | validated | Retained authenticated inventory, registry, audit-backed render, Console, PDF, and no-RCA unavailable evidence for the built-in Incident dossier. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3` has a central receipt. | Broader production datasource campaigns remain open below. |
 | 2026-08-15 | implemented | Added the `check-report-format-boundary` gate so a format module must contribute exactly one `FormatEncoder`, be exported and registered or documented as opt-in, and import nothing outside `core/reporting` and shared contracts. | `current change`; `scripts/quality/architecture/check-report-format-boundary.py`; `pytest tests/integration/scripts/test_report_format_boundary.py` (5 passed); pre-commit, `verify.sh`, and CI wiring. | Production datasource and authenticated surface receipts remain open. |
+| 2026-09-21 | implemented | Added strict chaos enforce-report import, SELECT-only Operator projection, and a measured Console report with bounded windows. | `current change`; importer, report-feed, Operator projection, and migration paths; focused pytest, Ruff, and strict mypy checks. | Retain a governed production render receipt under the datasource evidence item below. |
 
 ### Remaining work
 

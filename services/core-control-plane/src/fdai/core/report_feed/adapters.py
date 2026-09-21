@@ -75,6 +75,16 @@ def signal_from_experiment(result: ExperimentResult) -> ReportSignal:
         ),
         occurred_at=result.ended_at,
         evidence_refs=(result.scenario_id,),
+        metadata={
+            "scenario_id": result.scenario_id,
+            "outcome": result.outcome.value,
+            "mode": result.mode.value,
+            "expected_signal": result.expected_signal,
+            "detected": str(result.detected).lower(),
+            "reverted": str(result.reverted).lower(),
+            "injected": str(result.injected).lower(),
+            "stopped": str(result.stopped).lower(),
+        },
     )
 
 
